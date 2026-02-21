@@ -339,8 +339,33 @@ class MixerProvider extends ChangeNotifier {
   // Supports bidirectional sync with timeline track order
   final List<String> _channelOrder = [];
 
+  // Bus order (list of bus IDs in display order)
+  final List<String> _busOrder = [];
+
   // Callback for notifying timeline when channel order changes
   void Function(List<String> channelIds)? onChannelOrderChanged;
+
+  /// Map logical bus ID to engine bus index (0-5).
+  /// User-created buses route through one of the 6 physical engine buses.
+  /// Returns -1 if bus ID is unknown.
+  static int busIdToEngineBusIndex(String busId) {
+    const fixedMap = {
+      'master': 0,
+      'music': 1,
+      'sfx': 2,
+      'voice': 3,
+      'ambience': 4,
+      'aux': 5,
+      'ui': 5,     // UI → Aux bus
+      'reels': 2,  // Reels → Sfx bus
+      'wins': 2,   // Wins → Sfx bus
+      'vo': 3,     // VO → Voice bus
+    };
+    if (fixedMap.containsKey(busId)) return fixedMap[busId]!;
+    // User-created buses (bus_XXXX) default to Master (0)
+    if (busId.startsWith('bus_')) return 0;
+    return -1;
+  }
 
   // Master channel
   late MixerChannel _master;
@@ -459,7 +484,25 @@ class MixerProvider extends ChangeNotifier {
   /// Returns channel order as list of IDs
   List<String> get channelOrder => List.unmodifiable(_channelOrder);
 
-  List<MixerChannel> get buses => _buses.values.toList();
+  /// Returns buses in display order (respects _busOrder)
+  List<MixerChannel> get buses {
+    final ordered = <MixerChannel>[];
+    for (final id in _busOrder) {
+      final bus = _buses[id];
+      if (bus != null) ordered.add(bus);
+    }
+    // Add any buses not in order list (defensive — shouldn't happen)
+    for (final bus in _buses.values) {
+      if (!_busOrder.contains(bus.id)) {
+        ordered.add(bus);
+      }
+    }
+    return ordered;
+  }
+
+  /// Returns bus order as list of IDs
+  List<String> get busOrder => List.unmodifiable(_busOrder);
+
   List<MixerChannel> get auxes => _auxes.values.toList();
   List<VcaFader> get vcas => _vcas.values.toList();
   List<MixerGroup> get groups => _groups.values.toList();
@@ -526,6 +569,43 @@ class MixerProvider extends ChangeNotifier {
   /// Get channel index in display order
   int getChannelIndex(String channelId) {
     return _channelOrder.indexOf(channelId);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BUS REORDERING
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Reorder a bus from oldIndex to newIndex
+  /// Called when user drags a bus strip in the mixer
+  void reorderBus(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= _busOrder.length) return;
+    if (newIndex < 0 || newIndex >= _busOrder.length) return;
+    if (oldIndex == newIndex) return;
+
+    final busId = _busOrder.removeAt(oldIndex);
+    _busOrder.insert(newIndex, busId);
+    notifyListeners();
+  }
+
+  /// Set bus order from external source
+  void setBusOrder(List<String> newOrder) {
+    final validOrder = newOrder.where((id) => _buses.containsKey(id)).toList();
+
+    // Add any missing buses at the end
+    for (final bus in _buses.values) {
+      if (!validOrder.contains(bus.id)) {
+        validOrder.add(bus.id);
+      }
+    }
+
+    _busOrder.clear();
+    _busOrder.addAll(validOrder);
+    notifyListeners();
+  }
+
+  /// Get bus index in display order
+  int getBusIndex(String busId) {
+    return _busOrder.indexOf(busId);
   }
 
   /// Clear all solo states
@@ -920,7 +1000,10 @@ class MixerProvider extends ChangeNotifier {
   // BUS MANAGEMENT
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Create a custom bus
+  /// Create a custom bus.
+  /// User-created buses are logical routing groups on top of the 6 physical
+  /// engine buses. [engineBusId] selects which physical bus to route through
+  /// (default: 'master' → engine bus 0).
   MixerChannel createBus({
     required String name,
     Color? color,
@@ -936,19 +1019,26 @@ class MixerProvider extends ChangeNotifier {
     final sanitizedName = InputSanitizer.sanitizeName(name);
 
     final id = 'bus_${DateTime.now().millisecondsSinceEpoch}';
+    final targetBus = outputBus ?? 'master';
 
     final bus = MixerChannel(
       id: id,
       name: sanitizedName, // ✅ Use sanitized name
       type: ChannelType.bus,
       color: color ?? const Color(0xFF9B59B6),
-      outputBus: outputBus ?? 'master',
+      outputBus: targetBus,
       pan: -1.0,        // Stereo bus: L channel hard left
       panRight: 1.0,    // Stereo bus: R channel hard right
       isStereo: true,
     );
 
     _buses[id] = bus;
+    _busOrder.add(id);
+
+    // Sync engine: re-route all channels assigned to this bus through
+    // the target physical engine bus.
+    _syncBusRoutingToEngine(id, targetBus);
+
     notifyListeners();
     return bus;
   }
@@ -957,14 +1047,19 @@ class MixerProvider extends ChangeNotifier {
   void deleteBus(String id) {
     if (_isDefaultBus(id)) return;
 
-    // Reroute channels to master
+    // Reroute channels to master and sync engine
     for (final channel in _channels.values) {
       if (channel.outputBus == id) {
         _channels[channel.id] = channel.copyWith(outputBus: 'master');
+        // Sync engine: route track back to master (bus 0)
+        if (channel.trackIndex != null) {
+          NativeFFI.instance.setTrackBus(channel.trackIndex!, 0);
+        }
       }
     }
 
     _buses.remove(id);
+    _busOrder.remove(id);
     notifyListeners();
   }
 
@@ -1912,6 +2007,13 @@ class MixerProvider extends ChangeNotifier {
     if (channel == null) return;
 
     _channels[channelId] = channel.copyWith(outputBus: busId);
+
+    // Sync to engine: resolve logical bus → physical engine bus index
+    if (channel.trackIndex != null) {
+      final engineIdx = _getBusEngineId(busId);
+      NativeFFI.instance.setTrackBus(channel.trackIndex!, engineIdx);
+    }
+
     notifyListeners();
   }
 
@@ -2084,6 +2186,13 @@ class MixerProvider extends ChangeNotifier {
     }
 
     _channels[channelId] = channel.copyWith(sends: sends);
+
+    // Sync to engine: send level → Rust SendBank
+    if (channel.trackIndex != null) {
+      final sendIdx = existingIndex >= 0 ? existingIndex : sends.length - 1;
+      NativeFFI.instance.setSendLevel(channel.trackIndex!, sendIdx, level);
+    }
+
     notifyListeners();
   }
 
@@ -2097,8 +2206,15 @@ class MixerProvider extends ChangeNotifier {
 
     if (existingIndex >= 0) {
       final current = sends[existingIndex];
-      sends[existingIndex] = current.copyWith(enabled: !current.enabled);
+      final newEnabled = !current.enabled;
+      sends[existingIndex] = current.copyWith(enabled: newEnabled);
       _channels[channelId] = channel.copyWith(sends: sends);
+
+      // Sync to engine: send muted = inverse of enabled
+      if (channel.trackIndex != null) {
+        NativeFFI.instance.setSendMuted(channel.trackIndex!, existingIndex, !newEnabled);
+      }
+
       notifyListeners();
     }
   }
@@ -2113,8 +2229,15 @@ class MixerProvider extends ChangeNotifier {
 
     if (existingIndex >= 0) {
       final current = sends[existingIndex];
-      sends[existingIndex] = current.copyWith(preFader: !current.preFader);
+      final newPreFader = !current.preFader;
+      sends[existingIndex] = current.copyWith(preFader: newPreFader);
       _channels[channelId] = channel.copyWith(sends: sends);
+
+      // Sync to engine: tap point 0=PreFader, 1=PostFader
+      if (channel.trackIndex != null) {
+        NativeFFI.instance.setSendPreFader(channel.trackIndex!, existingIndex, newPreFader);
+      }
+
       notifyListeners();
     }
   }
@@ -2134,6 +2257,13 @@ class MixerProvider extends ChangeNotifier {
       enabled: current.enabled,
     );
     _channels[channelId] = channel.copyWith(sends: sends);
+
+    // Sync to engine: resolve aux bus to engine bus index
+    if (channel.trackIndex != null) {
+      final engineBusIdx = _getBusEngineId(newAuxId);
+      NativeFFI.instance.setSendDestination(channel.trackIndex!, sendIndex, engineBusIdx);
+    }
+
     notifyListeners();
   }
 
@@ -2306,19 +2436,39 @@ class MixerProvider extends ChangeNotifier {
   // UTILITIES
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Map bus ID to engine bus index
-  /// Engine buses: 0=Master, 1=Music, 2=Sfx, 3=Voice, 4=Ambience, 5=Aux
-  /// MUST match Rust playback.rs bus processing loop (lines 3313-3319)
+  /// Map bus ID to engine bus index (0-5).
+  /// Delegates to static [busIdToEngineBusIndex] for consistency.
+  /// Handles both old-style IDs ('bus_sfx') and canonical IDs ('sfx').
   int _getBusEngineId(String busId) {
-    switch (busId) {
-      case 'master': return 0;
-      case 'bus_music': return 1;
-      case 'bus_sfx': return 2;
-      case 'bus_vo': return 3;
-      case 'bus_ambient': return 4;
-      case 'bus_aux': return 5;
-      case 'bus_ui': return 2; // UI sounds route to SFX bus
-      default: return 2; // Default to SFX
+    // Try canonical form first
+    int idx = busIdToEngineBusIndex(busId);
+    if (idx >= 0) return idx;
+
+    // Legacy format: strip 'bus_' prefix and retry
+    if (busId.startsWith('bus_')) {
+      final canonical = busId.substring(4); // 'bus_sfx' → 'sfx'
+      idx = busIdToEngineBusIndex(canonical);
+      if (idx >= 0) return idx;
+    }
+
+    // For user-created buses, resolve through their outputBus
+    final bus = _buses[busId];
+    if (bus != null && bus.outputBus != null) {
+      return _getBusEngineId(bus.outputBus!);
+    }
+
+    return 0; // Fallback: master
+  }
+
+  /// Sync all tracks routed to [logicalBusId] to the correct physical engine bus.
+  /// Called when a bus is created or its routing changes.
+  void _syncBusRoutingToEngine(String logicalBusId, String targetPhysicalBus) {
+    final engineIdx = _getBusEngineId(targetPhysicalBus);
+
+    for (final channel in _channels.values) {
+      if (channel.outputBus == logicalBusId && channel.trackIndex != null) {
+        NativeFFI.instance.setTrackBus(channel.trackIndex!, engineIdx);
+      }
     }
   }
 

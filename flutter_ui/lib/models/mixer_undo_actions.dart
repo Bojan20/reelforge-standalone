@@ -11,8 +11,8 @@
 /// All actions implement UndoableAction from undo_manager.dart
 library;
 
-import 'dart:math' as math;
 import '../providers/undo_manager.dart';
+import '../utils/audio_math.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BASE CLASS
@@ -30,12 +30,7 @@ abstract class MixerUndoAction extends UndoableAction {
   });
 
   /// Convert linear volume (0-1.5) to dB string for display
-  String volumeToDb(double volume) {
-    if (volume <= 0) return '-∞ dB';
-    final db = 20 * math.log(volume) / math.ln10;
-    if (db <= -60) return '-∞ dB';
-    return '${db >= 0 ? '+' : ''}${db.toStringAsFixed(1)} dB';
-  }
+  String volumeToDb(double volume) => '${FaderCurve.linearToDbString(volume)} dB';
 
   /// Convert pan (-1 to +1) to L/R string for display
   String panToString(double pan) {

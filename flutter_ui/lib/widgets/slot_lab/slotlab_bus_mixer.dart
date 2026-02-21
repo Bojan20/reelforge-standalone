@@ -4,13 +4,12 @@
 // and pan knobs for all SlotLab audio buses.
 // Connected to MixerDSPProvider → FFI → Rust engine.
 
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/mixer_dsp_provider.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../../utils/audio_math.dart';
 
 /// Bus colors for visual identification
 const Map<String, Color> _busColors = {
@@ -124,12 +123,7 @@ class _BusStrip extends StatefulWidget {
 class _BusStripState extends State<_BusStrip> {
   bool _isDraggingFader = false;
 
-  String _volumeToDb(double volume) {
-    if (volume <= 0.001) return '-inf';
-    final db = 20 * math.log(volume) / math.ln10;
-    if (db >= 0) return '+${db.toStringAsFixed(1)}';
-    return db.toStringAsFixed(1);
-  }
+  String _volumeToDb(double volume) => FaderCurve.linearToDbString(volume);
 
   String _panToString(double pan) {
     if (pan.abs() < 0.02) return 'C';
@@ -245,19 +239,21 @@ class _BusStripState extends State<_BusStrip> {
       builder: (context, constraints) {
         final faderHeight = constraints.maxHeight;
         final volume = widget.bus.volume;
-        // Map volume 0-1 to fader position (bottom=0, top=1)
-        final faderPos = volume.clamp(0.0, 1.0);
+        // Map volume to fader position using Cubase-style curve
+        final faderPos = FaderCurve.linearToPosition(volume, maxLinear: 1.0);
 
         return GestureDetector(
           onVerticalDragStart: (_) => setState(() => _isDraggingFader = true),
           onVerticalDragEnd: (_) => setState(() => _isDraggingFader = false),
           onVerticalDragUpdate: (details) {
-            // Drag up = increase volume
+            // Drag up = increase volume (through curve)
+            final currentPos = FaderCurve.linearToPosition(volume, maxLinear: 1.0);
             final delta = -details.delta.dy / faderHeight;
-            final newVolume = (volume + delta).clamp(0.0, 1.0);
+            final newPos = (currentPos + delta).clamp(0.0, 1.0);
+            final newVolume = FaderCurve.positionToLinear(newPos, maxLinear: 1.0);
             widget.onVolumeChange(newVolume);
           },
-          onDoubleTap: () => widget.onVolumeChange(0.85), // Reset to default
+          onDoubleTap: () => widget.onVolumeChange(1.0), // Reset to unity (0 dB)
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             child: CustomPaint(

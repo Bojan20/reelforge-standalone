@@ -233,6 +233,16 @@ typedef EngineSetTrackChannelsDart = int Function(int trackId, int channels);
 typedef EngineSetTrackBusNative = Int32 Function(Uint64 trackId, Uint32 busId);
 typedef EngineSetTrackBusDart = int Function(int trackId, int busId);
 
+// Send routing FFI
+typedef EngineSetSendLevelNative = Int32 Function(Uint64 trackId, Uint32 sendIndex, Double level);
+typedef EngineSetSendLevelDart = int Function(int trackId, int sendIndex, double level);
+typedef EngineSetSendDestinationNative = Int32 Function(Uint64 trackId, Uint32 sendIndex, Uint32 busId);
+typedef EngineSetSendDestinationDart = int Function(int trackId, int sendIndex, int busId);
+typedef EngineSetSendPreFaderNative = Int32 Function(Uint64 trackId, Uint32 sendIndex, Int32 preFader);
+typedef EngineSetSendPreFaderDart = int Function(int trackId, int sendIndex, int preFader);
+typedef EngineSetSendMutedNative = Int32 Function(Uint64 trackId, Uint32 sendIndex, Int32 muted);
+typedef EngineSetSendMutedDart = int Function(int trackId, int sendIndex, int muted);
+
 // P1.12: Batch track operations
 typedef EngineBatchSetTrackVolumesNative = IntPtr Function(Pointer<Uint64> trackIds, Pointer<Double> volumes, IntPtr count);
 typedef EngineBatchSetTrackVolumesDart = int Function(Pointer<Uint64> trackIds, Pointer<Double> volumes, int count);
@@ -2126,6 +2136,10 @@ class NativeFFI {
   late final EngineGetTrackChannelsDart _getTrackChannels;
   late final EngineSetTrackChannelsDart _setTrackChannels;
   late final EngineSetTrackBusDart _setTrackBus;
+  late final EngineSetSendLevelDart _setSendLevel;
+  late final EngineSetSendDestinationDart _setSendDestination;
+  late final EngineSetSendPreFaderDart _setSendPreFader;
+  late final EngineSetSendMutedDart _setSendMuted;
   late final EngineGetTrackCountDart _getTrackCount;
   late final EngineGetTrackPeakDart _getTrackPeak;
   late final EngineGetTrackPeakStereoDart _getTrackPeakStereo;
@@ -2808,6 +2822,10 @@ class NativeFFI {
     _getTrackChannels = _lib.lookupFunction<EngineGetTrackChannelsNative, EngineGetTrackChannelsDart>('engine_get_track_channels');
     _setTrackChannels = _lib.lookupFunction<EngineSetTrackChannelsNative, EngineSetTrackChannelsDart>('engine_set_track_channels');
     _setTrackBus = _lib.lookupFunction<EngineSetTrackBusNative, EngineSetTrackBusDart>('engine_set_track_bus');
+    _setSendLevel = _lib.lookupFunction<EngineSetSendLevelNative, EngineSetSendLevelDart>('engine_set_send_level');
+    _setSendDestination = _lib.lookupFunction<EngineSetSendDestinationNative, EngineSetSendDestinationDart>('engine_set_send_destination');
+    _setSendPreFader = _lib.lookupFunction<EngineSetSendPreFaderNative, EngineSetSendPreFaderDart>('engine_set_send_pre_fader');
+    _setSendMuted = _lib.lookupFunction<EngineSetSendMutedNative, EngineSetSendMutedDart>('engine_set_send_muted');
     _getTrackCount = _lib.lookupFunction<EngineGetTrackCountNative, EngineGetTrackCountDart>('engine_get_track_count');
     _getTrackPeak = _lib.lookupFunction<EngineGetTrackPeakNative, EngineGetTrackPeakDart>('engine_get_track_peak');
     _getTrackPeakStereo = _lib.lookupFunction<EngineGetTrackPeakStereoNative, EngineGetTrackPeakStereoDart>('engine_get_track_peak_stereo');
@@ -3696,6 +3714,30 @@ class NativeFFI {
   bool setTrackBus(int trackId, int busId) {
     if (!_loaded) return false;
     return _setTrackBus(trackId, busId) != 0;
+  }
+
+  /// Set send level for a track (0.0 to 1.5)
+  bool setSendLevel(int trackId, int sendIndex, double level) {
+    if (!_loaded) return false;
+    return _setSendLevel(trackId, sendIndex, level) != 0;
+  }
+
+  /// Set send destination bus (0=Master, 1=Music, 2=SFX, 3=Voice, 4=Ambience, 5=Aux, 255=None)
+  bool setSendDestination(int trackId, int sendIndex, int busId) {
+    if (!_loaded) return false;
+    return _setSendDestination(trackId, sendIndex, busId) != 0;
+  }
+
+  /// Set send pre/post fader mode
+  bool setSendPreFader(int trackId, int sendIndex, bool preFader) {
+    if (!_loaded) return false;
+    return _setSendPreFader(trackId, sendIndex, preFader ? 1 : 0) != 0;
+  }
+
+  /// Set send mute state
+  bool setSendMuted(int trackId, int sendIndex, bool muted) {
+    if (!_loaded) return false;
+    return _setSendMuted(trackId, sendIndex, muted ? 1 : 0) != 0;
   }
 
   /// Get track count

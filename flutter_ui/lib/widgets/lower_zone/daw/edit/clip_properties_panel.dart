@@ -12,11 +12,11 @@
 /// Lines 1718-1850 + 4973-5293 (~452 LOC total)
 library;
 
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../lower_zone_types.dart';
 import '../../../../providers/timeline_playback_provider.dart' show TimelineClipData;
 import '../../../editors/crossfade_editor.dart';
+import '../../../../utils/audio_math.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CLIP PROPERTIES PANEL
@@ -208,11 +208,7 @@ class _EditableClipPanelState extends State<EditableClipPanel> {
 
   // ─── Utilities ─────────────────────────────────────────────────────────────
 
-  String _gainToDb(double gain) {
-    if (gain <= 0) return '-∞ dB';
-    final db = 20 * (math.log(gain) / math.ln10);
-    return '${db.toStringAsFixed(1)} dB';
-  }
+  String _gainToDb(double gain) => '${FaderCurve.linearToDbString(gain)} dB';
 
   String _formatTime(double seconds) {
     if (seconds < 0.001) return '0 ms';

@@ -87,7 +87,6 @@ import '../widgets/mixer/plugin_selector.dart';
 import '../models/plugin_models.dart';
 // piano_roll.dart is now replaced by midi/piano_roll_widget.dart
 import '../widgets/editors/eq_editor.dart' as generic_eq;
-import '../widgets/eq/pro_eq_editor.dart' as rf_eq;
 import '../widgets/layout/right_zone.dart' show InspectedObjectType;
 import '../widgets/tabs/tab_placeholders.dart';
 import '../widgets/timeline/timeline.dart' as timeline_widget;
@@ -166,6 +165,7 @@ import '../widgets/lower_zone/lower_zone_types.dart';
 import '../widgets/lower_zone/middleware_lower_zone_widget.dart';
 import '../widgets/lower_zone/middleware_lower_zone_controller.dart';
 import '../controllers/mixer/mixer_view_controller.dart';
+import '../controllers/mixer/spill_controller.dart';
 import '../models/mixer_view_models.dart';
 import 'mixer_screen.dart';
 import '../widgets/mixer/floating_mixer_window.dart';
@@ -246,6 +246,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   // Mixer view controller (dedicated mixer window state)
   late final MixerViewController _mixerViewController;
+  SpillController? _spillController;
   AppViewMode _appViewMode = AppViewMode.edit;
   bool _isMixerDetached = false;
 
@@ -5058,10 +5059,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   /// PERFORMANCE: Floating EQ windows without Consumer
   List<Widget> _buildFloatingEqWindowsOptimized() {
-    final engine = context.read<EngineProvider>();
-    final metering = engine.metering;
-    final isPlaying = engine.transport.isPlaying;
-    return _buildFloatingEqWindows(metering, isPlaying);
+    return _buildFloatingEqWindows();
   }
 
   Widget _buildCenterContent(dynamic transport, dynamic metering) {
@@ -8529,6 +8527,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     final dawAuxes2 = _buildAuxChannels(mixerProvider);
     final dawVcas2 = _buildVcaChannels(mixerProvider);
 
+    // Lazy-init SpillController (needs MixerProvider from build context)
+    _spillController ??= SpillController(mixerProvider);
+
     return ultimate.UltimateMixer(
       channels: channels,
       buses: dawBuses2,
@@ -8671,6 +8672,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       },
       onNarrowAllShortcut: () {
         _mixerViewController.toggleStripWidth();
+      },
+      onVcaSpillToggle: (vcaId) {
+        _spillController?.toggleSpillVca(vcaId);
+        setState(() {});
       },
     );
   }
@@ -9018,7 +9023,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         engine.mixerSetMasterVolume(volumeDb);
       } else {
         // Other buses use bus index
-        final busIndex = _busIdToIndex(busId);
+        final busIndex = _busIdToEngineBusIndex(busId);
         if (busIndex >= 0) {
           engine.mixerSetBusVolume(busIndex, volumeDb);
         }
@@ -9034,18 +9039,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     return math.log(x) / math.ln10;
   }
 
-  int _busIdToIndex(String busId) {
-    const busMap = {
-      'music': 0,
-      'sfx': 1,
-      'dialog': 2,
-      'voice': 3,
-      'amb': 4,
-      'ui': 5,
-      'master': 6,
-    };
-    return busMap[busId] ?? -1;
-  }
+  // REMOVED: _busIdToIndex had WRONG mapping (music=0, sfx=1 etc.)
+  // Use _busIdToEngineBusIndex instead which matches Rust playback.rs:2226:
+  //   bus_id: 0=Master, 1=Music, 2=Sfx, 3=Voice, 4=Amb, 5=Aux
 
   /// Check if an ID belongs to a bus — checks dynamic DAW buses (bus_ prefix),
   /// middleware buses (sfx, music, etc.), and master
@@ -9081,7 +9077,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     setState(() {
       _busMuted[busId] = !(_busMuted[busId] ?? false);
     });
-    final engineIdx = _busIdToIndex(busId);
+    final engineIdx = _busIdToEngineBusIndex(busId);
     if (engineIdx >= 0) {
       NativeFFI.instance.setBusMute(engineIdx, _busMuted[busId] ?? false);
     }
@@ -9097,7 +9093,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     setState(() {
       _busSoloed[busId] = !(_busSoloed[busId] ?? false);
     });
-    final engineIdx = _busIdToIndex(busId);
+    final engineIdx = _busIdToEngineBusIndex(busId);
     if (engineIdx >= 0) {
       NativeFFI.instance.setBusSolo(engineIdx, _busSoloed[busId] ?? false);
     }
@@ -9133,7 +9129,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   void _sendBusPanRightToEngine(String busId, double pan) {
     try {
-      final busIndex = _busIdToIndex(busId);
+      final busIndex = _busIdToEngineBusIndex(busId);
       if (busIndex >= 0) {
         NativeFFI.instance.mixerSetBusPanRight(busIndex, pan);
       }
@@ -9144,7 +9140,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   void _sendBusPanToEngine(String busId, double pan) {
     try {
-      final busIndex = _busIdToIndex(busId);
+      final busIndex = _busIdToEngineBusIndex(busId);
       if (busIndex >= 0) {
         engine.mixerSetBusPan(busIndex, pan);
       }
@@ -9340,9 +9336,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   /// Map plugin name to PluginInfo
   PluginInfo? _getPluginInfoByName(String name) {
     final plugins = {
-      'RF-EQ 64': PluginInfo(
-        id: 'rf-eq-64',
-        name: 'RF-EQ 64',
+      'FF-Q 64': PluginInfo(
+        id: 'rf-ultra-eq',
+        name: 'FF-Q 64',
         vendor: 'FluxForge Studio',
         category: PluginCategory.eq,
         format: PluginFormat.internal,
@@ -9683,10 +9679,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     // Find first empty slot
     for (int i = 0; i < chain.slots.length; i++) {
       if (chain.slots[i].plugin == null) {
-        // Create Pro EQ plugin in this slot
+        // Create FF-Q 64 plugin in this slot
         final proEq = PluginInfo(
-          id: 'rf-pro-eq-${channelId.hashCode}-$i',
-          name: 'Pro EQ',
+          id: 'rf-ultra-eq-${channelId.hashCode}-$i',
+          name: 'FF-Q 64',
           category: PluginCategory.eq,
           format: PluginFormat.internal,
           vendor: 'FluxForge Studio',
@@ -9728,16 +9724,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   }
 
   /// Build floating EQ windows
-  List<Widget> _buildFloatingEqWindows(MeteringState metering, bool isPlaying) {
+  List<Widget> _buildFloatingEqWindows() {
     return _openEqWindows.entries.map((entry) {
       final channelId = entry.key;
       final channelName = channelId == 'master' ? 'Master' : channelId;
-
-      // Calculate signal level from direct FFI — linear amplitude
-      final (eqPeakL, eqPeakR) = NativeFFI.instance.getBusPeak(0);
-      final signalLevel = (eqPeakL + eqPeakR) / 2;
-
-      final engineApi = EngineApi.instance;
+      final trackId = _busIdToTrackId(channelId);
 
       return Positioned(
         left: 100 + (_openEqWindows.keys.toList().indexOf(channelId) * 50),
@@ -9747,8 +9738,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           borderRadius: BorderRadius.circular(8),
           color: Colors.transparent,
           child: Container(
-            width: 900,
-            height: 500,
+            width: 700,
+            height: 520,
             decoration: BoxDecoration(
               color: const Color(0xFF1A1A1E),
               borderRadius: BorderRadius.circular(8),
@@ -9777,10 +9768,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.graphic_eq, size: 16, color: Color(0xFFFFB347)),
+                        const Icon(Icons.equalizer, size: 16, color: Color(0xFFFFB347)),
                         const SizedBox(width: 8),
                         Text(
-                          'RF-EQ 64 — $channelName',
+                          'FF-Q 64 — $channelName',
                           style: const TextStyle(
                             color: Color(0xFFB0B0B8),
                             fontSize: 12,
@@ -9798,88 +9789,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     ),
                   ),
                 ),
-                // EQ content - Pro EQ DSP (64-band SVF)
+                // EQ content — FabFilter FF-Q 64
                 Expanded(
-                  child: rf_eq.ProEqEditor(
-                    trackId: channelId,
-                    width: 900,
-                    height: 468,
-                    signalLevel: signalLevel,
-                    // Pass real spectrum data from engine metering
-                    spectrumData: metering.spectrum.isNotEmpty
-                        ? metering.spectrum.map((e) => e.toDouble()).toList()
-                        : null,
-                    onBandChange: (bandIndex, {
-                      enabled, freq, gain, q, filterType,
-                      dynamicEnabled, dynamicThreshold, dynamicRatio,
-                      dynamicAttack, dynamicRelease, dynamicKnee,
-                    }) {
-                      // UNIFIED EQ ROUTING: Buses use busInsertXxx, Tracks use insertXxx
-                      // Find which slot has the EQ for this channel, or auto-create one
-                      var slotIndex = _findEqSlotForChannel(channelId);
-                      final isBus = _isBusChannel(channelId);
-
-                      if (slotIndex < 0) {
-                        // Auto-create EQ in first empty insert slot
-                        slotIndex = _autoCreateEqSlot(channelId);
-                        if (slotIndex < 0) {
-                          return;
-                        }
-                      } else {
-                        // Slot exists in UI state but processor may not be loaded in engine
-                        // Use correct FFI based on whether it's a bus or track
-                        if (isBus) {
-                          final busId = _getBusId(channelId);
-                          if (!NativeFFI.instance.busInsertIsLoaded(busId, slotIndex)) {
-                            NativeFFI.instance.busInsertLoadProcessor(busId, slotIndex, 'pro-eq');
-                          }
-                        } else {
-                          final trackId = _busIdToTrackId(channelId);
-                          if (!NativeFFI.instance.insertIsLoaded(trackId, slotIndex)) {
-                            NativeFFI.instance.insertLoadProcessor(trackId, slotIndex, 'pro-eq');
-                          }
-                        }
-                      }
-
-                      // Use insert chain params: per band = 11
-                      // (freq=0, gain=1, q=2, enabled=3, shape=4,
-                      //  dynEnabled=5, dynThreshold=6, dynRatio=7, dynAttack=8, dynRelease=9, dynKnee=10)
-                      final baseParam = bandIndex * 11;
-
-                      // Use correct FFI based on whether it's a bus or track
-                      void setParam(int paramOffset, double value) {
-                        if (isBus) {
-                          final busId = _getBusId(channelId);
-                          NativeFFI.instance.busInsertSetParam(busId, slotIndex, baseParam + paramOffset, value);
-                        } else {
-                          final trackId = _busIdToTrackId(channelId);
-                          NativeFFI.instance.insertSetParam(trackId, slotIndex, baseParam + paramOffset, value);
-                        }
-                      }
-
-                      if (freq != null) setParam(0, freq);
-                      if (gain != null) setParam(1, gain);
-                      if (q != null) setParam(2, q);
-                      if (enabled != null) setParam(3, enabled ? 1.0 : 0.0);
-                      if (filterType != null) setParam(4, filterType.toDouble());
-                      // Dynamic EQ parameters
-                      if (dynamicEnabled != null) setParam(5, dynamicEnabled ? 1.0 : 0.0);
-                      if (dynamicThreshold != null) setParam(6, dynamicThreshold);
-                      if (dynamicRatio != null) setParam(7, dynamicRatio);
-                      if (dynamicAttack != null) setParam(8, dynamicAttack);
-                      if (dynamicRelease != null) setParam(9, dynamicRelease);
-                      if (dynamicKnee != null) setParam(10, dynamicKnee);
-                    },
-                    onBypassChange: (bypass) {
-                      if (bypass) {
-                        engineApi.proEqReset(channelId);
-                      }
-                    },
-                    onPhaseModeChange: (mode) {
-                      // 0=ZeroLatency, 1=Natural, 2=Linear
-                      engineApi.proEqSetPhaseMode(channelId, mode);
-                    },
-                  ),
+                  child: FabFilterEqPanel(trackId: trackId),
                 ),
               ],
             ),
@@ -9901,65 +9813,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     );
   }
 
-  /// Build Pro EQ content - RF-EQ 64 (64-Band Parametric Equalizer)
-  /// Uses DspCommand queue for real-time audio processing (NOT PRO_EQS HashMap!)
-  Widget _buildProEqContent(dynamic metering, bool isPlaying) {
-    // Signal level for EQ analyzer — direct FFI, linear amplitude
-    final (eqSigL, eqSigR) = NativeFFI.instance.getBusPeak(0);
-    final signalLevel = (eqSigL + eqSigR) / 2;
-
-    // Use NativeFFI for real-time DSP command queue
-    // IMPORTANT: eqSetBand* goes through DspCommand queue → audio callback
-    // vs proEqSetBand* which goes to PRO_EQS HashMap (never processed!)
-    final ffi = NativeFFI.instance;
-
-    // Use FF-Q 64 - the professional parametric EQ with Pro EQ DSP
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return rf_eq.ProEqEditor(
-          trackId: 'master',
-          width: constraints.maxWidth,
-          height: constraints.maxHeight,
-          signalLevel: signalLevel,
-          onBandChange: (bandIndex, {
-            enabled, freq, gain, q, filterType,
-            dynamicEnabled, dynamicThreshold, dynamicRatio,
-            dynamicAttack, dynamicRelease, dynamicKnee,
-          }) {
-            // Send EQ band changes via DspCommand queue (processes audio!)
-            // trackId 0 = master in DspStorage
-            const trackId = 0;
-            if (enabled != null) {
-              ffi.eqSetBandEnabled(trackId, bandIndex, enabled);
-            }
-            if (freq != null) {
-              ffi.eqSetBandFrequency(trackId, bandIndex, freq);
-            }
-            if (gain != null) {
-              ffi.eqSetBandGain(trackId, bandIndex, gain);
-            }
-            if (q != null) {
-              ffi.eqSetBandQ(trackId, bandIndex, q);
-            }
-            if (filterType != null) {
-              // Map UI filter type to EQ filter shape (0-9)
-              ffi.eqSetBandShape(trackId, bandIndex, filterType.clamp(0, 9));
-            }
-            // Dynamic EQ parameters - TODO: add DspCommand support
-            // Currently dynamic EQ is UI-only, needs DspCommand extension
-          },
-          onBypassChange: (bypass) {
-            // Global EQ bypass via DspCommand
-            ffi.eqSetBypass(0, bypass);
-          },
-          onPhaseModeChange: (mode) {
-            // Phase mode - TODO: add DspCommand support
-            // 0=ZeroLatency, 1=Natural, 2=Linear
-          },
-        );
-      },
-    );
-  }
 
   /// Build Analog EQ content - Pultec, API 550, Neve 1073
   Widget _buildAnalogEqContent() {
@@ -11029,13 +10882,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       // ══════════════════════════════════════════════════════════════════════
       // GROUP 4: PROCESS — DSP processors
       // ══════════════════════════════════════════════════════════════════════
-      LowerZoneTab(
-        id: 'eq',
-        label: 'EQ',
-        icon: Icons.graphic_eq,
-        content: _buildProEqContent(metering, isPlaying),
-        groupId: 'process',
-      ),
       LowerZoneTab(
         id: 'dynamics',
         label: 'Dynamics',
