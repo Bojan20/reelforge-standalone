@@ -1,4 +1,4 @@
-/// RF-Elastic Pro Time Stretch Panel
+/// Time Stretch Panel
 ///
 /// Professional time-stretching and pitch-shifting controls
 /// with STN decomposition visualization.
@@ -160,7 +160,7 @@ class _TimeStretchPanelState extends State<TimeStretchPanel> {
         Icon(Icons.speed, color: FluxForgeTheme.accentBlue, size: 20),
         const SizedBox(width: 8),
         Text(
-          'RF-Elastic Pro',
+          'Elastic Pro',
           style: TextStyle(
             color: FluxForgeTheme.textPrimary,
             fontSize: 16,

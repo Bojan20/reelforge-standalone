@@ -1,6 +1,6 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-21 (CoreAudio stereo fix + One-shot voice stereo pan + Pro Tools routing gap analysis + SafeFilePicker migration + EQ naming unification + Unified FaderCurve across ALL 11 fader widgets)
+**Updated:** 2026-02-21 (Expander premium panel + Time Stretch channel tab fix + documentation updates)
 **Status:** ✅ **SHIP READY** — All features complete, DAW Mixer ALL 5 PHASES implemented (Pro Tools 2026-class), 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, all 9 FabFilter DSP panels 100% FFI connected, ProEq unified superset EQ (FF-Q 64), direct FFI metering, SafeFilePicker for iCloud stability, CoreAudio stereo properly handled, FaderCurve unified across all volume controls
 
 ---
@@ -42,9 +42,12 @@ DAW MIXER: Pro Tools 2026-class — ALL 5 PHASES COMPLETE (11 new files + floati
 ✅ LZ BUS OVERFLOW:     10px fix         ✅ ScrollView padding refactor
 ✅ EQ NAMING:           FF-Q 64 unified  ✅ ProEqEditor→FabFilterEqPanel + naming cleanup
 ✅ FADER CURVE UNIFY:   11 widgets       ✅ Single FaderCurve class, all volume controls unified
+✅ SSL CHANNEL STRIP:  10 sections      ✅ COMPLETE — Channel Inspector reorganized (SSL signal flow)
+✅ ALL DSP PANELS:     13/13 premium    ✅ ALL DspNodeType values have FabFilter premium GUIs
+✅ TIME STRETCH:       ElasticPro API   ✅ Channel tab connected to track-based DSP engine
 ```
 
-**421 total tasks (387 original + 27 DAW Mixer + 3 stability fixes + 3 stereo/routing fixes + 1 fader curve unification). All code quality issues fixed. 4,532 tests pass. SafeFilePicker replaces NSOpenPanel across 25 files — prevents iCloud Desktop & Documents sync deadlock. CoreAudio non-interleaved stereo properly handled. One-shot voices preserve stereo width (Pro Tools-style balance pan). Lower Zone bus overflow fixed. Unified FaderCurve class (`audio_math.dart`) replaces 11 inconsistent volume curve implementations. SHIP READY.**
+**424 total tasks (387 original + 27 DAW Mixer + 3 stability fixes + 3 stereo/routing fixes + 1 fader curve unification + 1 SSL channel strip + 2 DSP panel/time stretch). All code quality issues fixed. 4,532 tests pass. SafeFilePicker replaces NSOpenPanel across 25 files — prevents iCloud Desktop & Documents sync deadlock. CoreAudio non-interleaved stereo properly handled. One-shot voices preserve stereo width (Pro Tools-style balance pan). Lower Zone bus overflow fixed. Unified FaderCurve class (`audio_math.dart`) replaces 11 inconsistent volume curve implementations. SSL Channel Strip reorganization COMPLETE — 3 methods split into 6, build() reordered to SSL signal flow. All 13 DspNodeType values have premium FabFilter panels. Time Stretch channel tab connected to ElasticPro track-based API.**
 
 ### Pro Tools 2026 DAW Mixer (2026-02-20 — 2026-02-21) ✅ ALL 5 PHASES COMPLETE
 
@@ -107,6 +110,37 @@ Complete Pro Tools 2026-class mixer implementation. Spec: `docs/architecture/FLU
 | 5.5 | Keyboard shortcuts — CallbackShortcuts+Focus, Cmd+S solo, Cmd+M mute, Cmd+Shift+N narrow toggle | ✅ |
 
 **ALL 5 PHASES COMPLETE** — Pro Tools 2026-class mixer fully implemented.
+
+---
+
+### SSL Channel Strip — Inspector Panel Reorganization (2026-02-21) ✅ COMPLETE
+
+Reorganizacija `channel_inspector_panel.dart` (~2419 LOC) po SSL kanonskom signal flow redosledu. Analiza 4 generacije SSL konzola (4000E, 4000G, 9000J, Duality) definisala je ispravan redosled sekcija.
+
+**Implementirane promene:**
+
+| # | Sekcija | Metoda | Opis |
+|---|---------|--------|------|
+| 1 | **Channel Header** | `_buildChannelHeader()` | Bez promena |
+| 2 | **Input** | `_buildInputSection()` | **NOVO** — Source selector + I (monitor) + Ø (phase invert) |
+| 3 | **Pre-Fader Inserts** | `_buildPreFaderInserts()` | **SPLIT** — Pre-fader DSP slots sa count badge |
+| 4 | **Fader + Pan** | `_buildFaderPanSection()` | **POMEREN** — Volume + Pan + M/S/R (bez I/Ø) |
+| 5 | **Post-Fader Inserts** | `_buildPostFaderInserts()` | **SPLIT** — Post-fader DSP slots sa count badge |
+| 6 | **Sends** | `_buildSendsSection()` | Bez promena |
+| 7 | **Output Routing** | `_buildOutputRoutingSection()` | **SIMPLIFIKOVAN** — Samo output bus (input je u sekciji 2) |
+| 8-10 | **Clip Inspector** | Clip / Gain / TimeStretch | Bez promena |
+
+**Refactoring Summary:**
+
+| Stara metoda | Akcija | Nove metode |
+|-------------|--------|-------------|
+| `_buildChannelControls()` | **SPLIT** | `_buildInputSection()` (I/Ø) + `_buildFaderPanSection()` (Volume/Pan/M/S/R) |
+| `_buildInsertsSection()` | **SPLIT** | `_buildPreFaderInserts()` + `_buildPostFaderInserts()` |
+| `_buildRoutingSection()` | **SPLIT** | Input → `_buildInputSection()`, Output → `_buildOutputRoutingSection()` |
+
+**Verifikacija:** `flutter analyze` — No issues found!
+**Fajl:** `flutter_ui/lib/widgets/layout/channel_inspector_panel.dart`
+**Specifikacija:** `.claude/architecture/SSL_CHANNEL_STRIP_ORDERING.md`
 
 ---
 
@@ -1679,6 +1713,41 @@ Kada engine i FFI budu povezani (svi parametri i meteri rade), uraditi finalni U
 
 ## 🏆 SESSION HISTORY
 
+### Session 2026-02-21b — Expander Premium Panel + Time Stretch Channel Tab Fix
+
+**Tasks Delivered:** 2 features
+**Files Changed:** 6 (1 new + 5 modified)
+**LOC Delivered:** ~800 (750 new panel + 50 rewrites)
+**flutter analyze:** 0 errors, 0 warnings ✅
+
+**1. FabFilter Expander Premium Panel** — Last DspNodeType without a premium GUI
+
+- **New file:** `flutter_ui/lib/widgets/fabfilter/fabfilter_expander_panel.dart` (~750 LOC)
+- Full FabFilter-style with 13 FFI params, GR metering, A/B snapshots, sidechain section
+- Wired into `internal_processor_editor_window.dart` (import, `_hasPremiumPanel`, `_windowSizeForType`, `_buildFabFilterPanel`)
+- **All 13 DspNodeType values now have premium FabFilter panels** ✅
+
+**2. Time Stretch Channel Tab Fix** — Section was non-functional with wrong branding
+
+- **Root Cause:** `_TimeStretchControls` used clip-based Elastic API (`ELASTIC_PROCESSORS` HashMap keyed by clipId). Clip IDs like `"clip-1737478900123"` parsed via `int.tryParse()` → `null` → `0`. More critically, clip-based processors were **never connected to the audio graph**.
+- **Fix:** Complete rewrite using **ElasticPro track-based API** (same as working ElasticAudioPanel in Lower Zone). Track IDs extracted from channel ID (`"track_0"` → `0`).
+- **Branding:** Removed all "RF-Elastic Pro" references (4 locations across 3 files). Now just "Time Stretch" / "Elastic Pro".
+- **New controls:** Mode selector (6 modes), Formant toggle, Transient toggle, Quick presets (50/75/100/150%), Reset button
+- **Lifecycle:** `elasticProCreate()` on init, `elasticProDestroy()` on dispose, recreate on trackId change
+
+**Files:**
+- `flutter_ui/lib/widgets/fabfilter/fabfilter_expander_panel.dart` — **NEW** (~750 LOC)
+- `flutter_ui/lib/widgets/dsp/internal_processor_editor_window.dart` — Expander wiring + branding
+- `flutter_ui/lib/widgets/layout/channel_inspector_panel.dart` — Time Stretch complete rewrite
+- `flutter_ui/lib/widgets/dsp/time_stretch_panel.dart` — Branding fix (2 locations)
+- `flutter_ui/lib/screens/engine_connected_layout.dart` — Branding fix (2 locations)
+
+**Documentation Updated:**
+- `.claude/architecture/SSL_CHANNEL_STRIP_ORDERING.md` — Line 177 + 309 updated
+- `.claude/domains/time-stretch-implementation.md` — FluxForge implementation section rewritten
+
+---
+
 ### Session 2026-02-21 — Vintage EQ Authentic Hardware UIs + QA Verification
 
 **Tasks Delivered:** Authentic hardware knob UIs for 3 vintage EQ processors + full QA verification
@@ -2277,4 +2346,4 @@ Integrated ALL UltraEq features into ProEq as optional per-band and global capab
 
 ---
 
-*Last Updated: 2026-02-17 — ProEq ← UltraEq unified superset integration (+1,463 LOC). Total: 386/386 features, 4,532 tests, 0 errors. SHIP READY*
+*Last Updated: 2026-02-21 — SSL Channel Strip IMPLEMENTED — Channel Inspector reorganized to SSL signal flow (3 methods split into 6, build() reordered to 10 sections). Total: 422 tasks (all complete), 4,532 tests, 0 errors. SHIP READY*

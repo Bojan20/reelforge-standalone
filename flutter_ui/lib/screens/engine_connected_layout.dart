@@ -9902,7 +9902,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     );
   }
 
-  /// Build Time Stretch content - RF-Elastic Pro
+  /// Build Time Stretch content - Elastic Pro
   Widget _buildTimeStretchContent() {
     // Get selected clip ID, default to 1 for demo
     final selectedClipId = _clips.isNotEmpty
@@ -9942,7 +9942,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'RF-Elastic Pro',
+                    'Elastic Pro',
                     style: TextStyle(
                       color: Color(0xFF4A9EFF),
                       fontSize: 14,

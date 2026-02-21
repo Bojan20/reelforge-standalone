@@ -227,6 +227,9 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 - .claude/tasks/P13_FEATURE_BUILDER_INTEGRATION_2026_02_01.md — **P13.8 Apply & Build** (5/9 ✅)
 - .claude/tasks/P14_TIMELINE_COMPLETE_2026_02_01.md — **P14 Timeline Ultimate** (17/17 ✅ COMPLETE, AGENT-VERIFIED)
 
+**DAW Architecture Documentation:**
+- .claude/architecture/SSL_CHANNEL_STRIP_ORDERING.md — **SSL signal flow analysis** (4000E/G, 9000J, Duality → 10-section inspector layout)
+
 **SlotLab Architecture Documentation:**
 - .claude/architecture/ANTICIPATION_SYSTEM.md — **Industry-standard anticipation** (per-reel tension L1-L4, scatter-triggered)
 - .claude/architecture/SLOT_LAB_AUDIO_FEATURES.md — P0.1-P0.22, P1.1-P1.5 audio features
@@ -3673,6 +3676,31 @@ void setInputGain(String id, double);    // -20dB to +20dB + FFI sync
 **FFI Integration:**
 - `trackSetInputMonitor(trackIndex, bool)` — Input monitor state
 - `channelStripSetInputGain(trackIndex, dB)` — Input gain trim
+
+### SSL Channel Strip — Inspector Panel Ordering (2026-02-21) 📋 PLANNED
+
+Channel Inspector Panel reorganizacija po SSL kanonskom signal flow redosledu (SSL 4000E/G, 9000J, Duality analiza).
+
+**SSL Signal Flow (kanonski):**
+```
+Input → Filters → Dynamics → EQ → Insert → VCA Fader → Pan → Sends → Routing → Output
+```
+
+**Novi redosled sekcija (10):**
+
+| # | Sekcija | Builder Metoda | Izvor |
+|---|---------|----------------|-------|
+| 1 | Channel Header | `_buildChannelHeader()` | Bez promena |
+| 2 | Input | `_buildInputSection()` | NOVO (iz Routing + Controls) |
+| 3 | Inserts (Pre-Fader) | `_buildPreFaderInserts()` | SPLIT iz `_buildInsertsSection()` |
+| 4 | Fader + Pan | `_buildFaderPanSection()` | POMEREN DOLE iz pozicije 2 |
+| 5 | Inserts (Post-Fader) | `_buildPostFaderInserts()` | SPLIT iz `_buildInsertsSection()` |
+| 6 | Sends | `_buildSendsSection()` | Bez promena |
+| 7 | Output Routing | `_buildOutputRoutingSection()` | SPLIT (samo Output) |
+| 8-10 | Clip sections | Bez promena | Bez promena |
+
+**Specifikacija:** `.claude/architecture/SSL_CHANNEL_STRIP_ORDERING.md`
+**Fajl:** `flutter_ui/lib/widgets/layout/channel_inspector_panel.dart` (~2256 LOC)
 
 ---
 

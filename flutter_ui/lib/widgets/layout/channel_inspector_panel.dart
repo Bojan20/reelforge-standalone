@@ -77,10 +77,14 @@ class ChannelInspectorPanel extends StatefulWidget {
 }
 
 class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
-  bool _channelExpanded = true;
-  bool _insertsExpanded = true;
-  bool _sendsExpanded = true; // Default expanded like inserts
-  bool _routingExpanded = false;
+  // ═══ SSL Signal Flow sections ═══
+  bool _inputExpanded = false;
+  bool _preFaderInsertsExpanded = true;
+  bool _faderExpanded = true;
+  bool _postFaderInsertsExpanded = true;
+  bool _sendsExpanded = true;
+  bool _outputExpanded = false;
+  // ═══ Clip Inspector sections ═══
   bool _clipExpanded = true;
   bool _clipGainExpanded = true;
   bool _clipTimeStretchExpanded = false;
@@ -115,41 +119,53 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
       child: ListView(
         padding: const EdgeInsets.all(8),
         children: [
-          // Channel Header with meter
+          // ═══ SSL CHANNEL STRIP — Signal Flow Order ═══
+          // 1. Channel Header (Name, Type, Color, Peak Meter)
           if (hasChannel) _buildChannelHeader(),
 
-          // Channel Controls
+          // 2. Input (Source selector, Gain, I/Ø)
           if (hasChannel) ...[
             const SizedBox(height: 6),
-            _buildChannelControls(),
+            _buildInputSection(),
           ],
 
-          // Insert Section
+          // 3. Pre-Fader Inserts (DSP slots before fader)
           if (hasChannel) ...[
             const SizedBox(height: 6),
-            _buildInsertsSection(),
+            _buildPreFaderInserts(),
           ],
 
-          // Sends Section
+          // 4. Fader + Pan (Volume, Pan knobs, M/S/R)
+          if (hasChannel) ...[
+            const SizedBox(height: 6),
+            _buildFaderPanSection(),
+          ],
+
+          // 5. Post-Fader Inserts (DSP slots after fader)
+          if (hasChannel) ...[
+            const SizedBox(height: 6),
+            _buildPostFaderInserts(),
+          ],
+
+          // 6. Sends (Aux sends with level, pre/post)
           if (hasChannel) ...[
             const SizedBox(height: 6),
             _buildSendsSection(),
           ],
 
-          // Routing Section
+          // 7. Output Routing (Bus assignment only)
           if (hasChannel) ...[
             const SizedBox(height: 6),
-            _buildRoutingSection(),
+            _buildOutputRoutingSection(),
           ],
 
-          // Divider if both channel and clip
+          // ═══ CLIP INSPECTOR SECTION ═══
           if (hasChannel && hasClip) ...[
             const SizedBox(height: 12),
             Container(height: 1, color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)),
             const SizedBox(height: 12),
           ],
 
-          // Clip Section
           if (hasClip) ...[
             _buildClipSection(),
             const SizedBox(height: 6),
@@ -296,16 +312,68 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // CHANNEL CONTROLS
+  // INPUT SECTION (SSL position 2 — after header, before inserts)
+  // Source selector, Input Monitor (I), Phase Invert (Ø)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildChannelControls() {
+  Widget _buildInputSection() {
     final ch = widget.channel!;
 
     return _Section(
-      title: 'Channel',
-      expanded: _channelExpanded,
-      onToggle: () => setState(() => _channelExpanded = !_channelExpanded),
+      title: 'Input',
+      expanded: _inputExpanded,
+      onToggle: () => setState(() => _inputExpanded = !_inputExpanded),
+      child: Column(
+        children: [
+          // Input source
+          _RoutingRow(
+            label: 'Source',
+            value: ch.input.isNotEmpty ? ch.input : 'None',
+            onTap: () => widget.onInputClick?.call(ch.id),
+          ),
+          const SizedBox(height: 8),
+
+          // Input controls: I (Monitor) + Ø (Phase Invert)
+          Row(
+            children: [
+              Expanded(
+                child: _StateButton(
+                  label: 'I',
+                  tooltip: 'Input Monitor',
+                  active: ch.inputMonitor,
+                  activeColor: FluxForgeTheme.accentBlue,
+                  onTap: () => widget.onMonitorToggle?.call(ch.id),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: _StateButton(
+                  label: 'Ø',
+                  tooltip: 'Phase Invert',
+                  active: ch.phaseInverted,
+                  activeColor: FluxForgeTheme.accentPurple,
+                  onTap: () => widget.onPhaseInvertToggle?.call(ch.id),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FADER + PAN SECTION (SSL position 4 — between pre and post inserts)
+  // Volume fader, Pan knob(s), Mute/Solo/Record Arm
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildFaderPanSection() {
+    final ch = widget.channel!;
+
+    return _Section(
+      title: 'Fader',
+      expanded: _faderExpanded,
+      onToggle: () => setState(() => _faderExpanded = !_faderExpanded),
       child: Column(
         children: [
           // Volume fader
@@ -322,9 +390,6 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
           const SizedBox(height: 12),
 
           // Pan knob(s) - Pro Tools style dual pan for stereo
-          // Stereo: L knob routes LEFT input, R knob routes RIGHT input
-          // Default stereo: L=<100 (hard left), R=100> (hard right)
-          // Mono: single knob controls position in stereo field
           if (ch.isStereo) ...[
             // Stereo dual pan (Pro Tools style)
             Row(
@@ -343,7 +408,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      // Left channel pan - controls where LEFT input goes
+                      // Left channel pan
                       Tooltip(
                         message: 'Left channel routing\nDefault: <100 (hard left)',
                         child: Column(
@@ -353,7 +418,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                               value: ch.pan,
                               onChanged: (v) => widget.onPanChange?.call(ch.id, v),
                               label: 'L',
-                              defaultValue: -1.0, // Hard left for L knob
+                              defaultValue: -1.0,
                             ),
                             const SizedBox(height: 2),
                             Text(
@@ -367,7 +432,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                           ],
                         ),
                       ),
-                      // Right channel pan - controls where RIGHT input goes
+                      // Right channel pan
                       Tooltip(
                         message: 'Right channel routing\nDefault: 100> (hard right)',
                         child: Column(
@@ -377,7 +442,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                               value: ch.panRight,
                               onChanged: (v) => widget.onPanRightChange?.call(ch.id, v),
                               label: 'R',
-                              defaultValue: 1.0, // Hard right for R knob
+                              defaultValue: 1.0,
                             ),
                             const SizedBox(height: 2),
                             Text(
@@ -433,7 +498,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
           ],
           const SizedBox(height: 12),
 
-          // M/S/R/M buttons
+          // M/S/R buttons (Mute, Solo, Record Arm)
           Row(
             children: [
               Expanded(
@@ -465,26 +530,6 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
                   onTap: () => widget.onArmToggle?.call(ch.id),
                 ),
               ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: _StateButton(
-                  label: 'I',
-                  tooltip: 'Input Monitor',
-                  active: ch.inputMonitor,
-                  activeColor: FluxForgeTheme.accentBlue,
-                  onTap: () => widget.onMonitorToggle?.call(ch.id),
-                ),
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: _StateButton(
-                  label: 'Ø',
-                  tooltip: 'Phase Invert',
-                  active: ch.phaseInverted,
-                  activeColor: FluxForgeTheme.accentPurple,
-                  onTap: () => widget.onPhaseInvertToggle?.call(ch.id),
-                ),
-              ),
             ],
           ),
         ],
@@ -493,63 +538,59 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // INSERTS SECTION
+  // PRE-FADER INSERTS (SSL position 3 — before fader)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildInsertsSection() {
+  Widget _buildPreFaderInserts() {
     final ch = widget.channel!;
-    final usedCount = ch.inserts.where((i) => !i.isEmpty).length;
-
-    // Dynamic slots: show used + 1 empty per section (pre/post), max 4 each
-    // Pre-fader: indices 0-3
-    // Post-fader: indices 4-7
     final preInserts = ch.inserts.where((i) => i.isPreFader).toList();
-    final postInserts = ch.inserts.where((i) => !i.isPreFader).toList();
-
     final preUsed = preInserts.where((i) => !i.isEmpty).length;
-    final postUsed = postInserts.where((i) => !i.isEmpty).length;
-
-    // Show used + 1 empty, min 1, max 4 per section
     final preVisible = (preUsed + 1).clamp(1, 4);
+
+    return _Section(
+      title: 'Inserts (Pre)',
+      subtitle: '$preUsed/4',
+      expanded: _preFaderInsertsExpanded,
+      onToggle: () => setState(() => _preFaderInsertsExpanded = !_preFaderInsertsExpanded),
+      child: _ReorderableInsertList(
+        inserts: List.generate(preVisible, (i) =>
+          i < preInserts.length ? preInserts[i] : InsertSlot.empty(i, isPreFader: true)),
+        baseIndex: 0,
+        onTap: (index) => widget.onInsertClick?.call(ch.id, index),
+        onBypassToggle: (index, bypassed) => widget.onInsertBypassToggle?.call(ch.id, index, bypassed),
+        onWetDryChange: (index, wetDry) => widget.onInsertWetDryChange?.call(ch.id, index, wetDry),
+        onReorder: (oldIndex, newIndex) => widget.onInsertReorder?.call(ch.id, oldIndex, newIndex),
+        onRemove: (index) => widget.onInsertRemove?.call(ch.id, index),
+        onOpenEditor: (index) => widget.onInsertOpenEditor?.call(ch.id, index),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // POST-FADER INSERTS (SSL position 5 — after fader)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildPostFaderInserts() {
+    final ch = widget.channel!;
+    final postInserts = ch.inserts.where((i) => !i.isPreFader).toList();
+    final postUsed = postInserts.where((i) => !i.isEmpty).length;
     final postVisible = (postUsed + 1).clamp(1, 4);
 
     return _Section(
-      title: 'Inserts',
-      subtitle: '$usedCount/8',
-      expanded: _insertsExpanded,
-      onToggle: () => setState(() => _insertsExpanded = !_insertsExpanded),
-      child: Column(
-        children: [
-          // Pre-fader inserts (dynamic) with drag & drop
-          _InsertGroupLabel('Pre-Fader'),
-          _ReorderableInsertList(
-            inserts: List.generate(preVisible, (i) =>
-              i < preInserts.length ? preInserts[i] : InsertSlot.empty(i, isPreFader: true)),
-            baseIndex: 0,
-            onTap: (index) => widget.onInsertClick?.call(ch.id, index),
-            onBypassToggle: (index, bypassed) => widget.onInsertBypassToggle?.call(ch.id, index, bypassed),
-            onWetDryChange: (index, wetDry) => widget.onInsertWetDryChange?.call(ch.id, index, wetDry),
-            onReorder: (oldIndex, newIndex) => widget.onInsertReorder?.call(ch.id, oldIndex, newIndex),
-            onRemove: (index) => widget.onInsertRemove?.call(ch.id, index),
-            onOpenEditor: (index) => widget.onInsertOpenEditor?.call(ch.id, index),
-          ),
-
-          const SizedBox(height: 6),
-
-          // Post-fader inserts (dynamic) with drag & drop
-          _InsertGroupLabel('Post-Fader'),
-          _ReorderableInsertList(
-            inserts: List.generate(postVisible, (i) =>
-              i < postInserts.length ? postInserts[i] : InsertSlot.empty(i + 4, isPreFader: false)),
-            baseIndex: 4,
-            onTap: (index) => widget.onInsertClick?.call(ch.id, index),
-            onBypassToggle: (index, bypassed) => widget.onInsertBypassToggle?.call(ch.id, index, bypassed),
-            onWetDryChange: (index, wetDry) => widget.onInsertWetDryChange?.call(ch.id, index, wetDry),
-            onReorder: (oldIndex, newIndex) => widget.onInsertReorder?.call(ch.id, oldIndex + 4, newIndex + 4),
-            onRemove: (index) => widget.onInsertRemove?.call(ch.id, index + 4),
-            onOpenEditor: (index) => widget.onInsertOpenEditor?.call(ch.id, index + 4),
-          ),
-        ],
+      title: 'Inserts (Post)',
+      subtitle: '$postUsed/4',
+      expanded: _postFaderInsertsExpanded,
+      onToggle: () => setState(() => _postFaderInsertsExpanded = !_postFaderInsertsExpanded),
+      child: _ReorderableInsertList(
+        inserts: List.generate(postVisible, (i) =>
+          i < postInserts.length ? postInserts[i] : InsertSlot.empty(i + 4, isPreFader: false)),
+        baseIndex: 4,
+        onTap: (index) => widget.onInsertClick?.call(ch.id, index),
+        onBypassToggle: (index, bypassed) => widget.onInsertBypassToggle?.call(ch.id, index, bypassed),
+        onWetDryChange: (index, wetDry) => widget.onInsertWetDryChange?.call(ch.id, index, wetDry),
+        onReorder: (oldIndex, newIndex) => widget.onInsertReorder?.call(ch.id, oldIndex + 4, newIndex + 4),
+        onRemove: (index) => widget.onInsertRemove?.call(ch.id, index + 4),
+        onOpenEditor: (index) => widget.onInsertOpenEditor?.call(ch.id, index + 4),
       ),
     );
   }
@@ -585,32 +626,20 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ROUTING SECTION
+  // OUTPUT ROUTING (SSL position 7 — last in signal chain)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildRoutingSection() {
+  Widget _buildOutputRoutingSection() {
     final ch = widget.channel!;
 
     return _Section(
-      title: 'Routing',
-      expanded: _routingExpanded,
-      onToggle: () => setState(() => _routingExpanded = !_routingExpanded),
-      child: Column(
-        children: [
-          // Input
-          _RoutingRow(
-            label: 'Input',
-            value: ch.input.isNotEmpty ? ch.input : 'None',
-            onTap: () => widget.onInputClick?.call(ch.id),
-          ),
-          const SizedBox(height: 6),
-          // Output
-          _RoutingRow(
-            label: 'Output',
-            value: ch.output,
-            onTap: () => widget.onOutputClick?.call(ch.id),
-          ),
-        ],
+      title: 'Output',
+      expanded: _outputExpanded,
+      onToggle: () => setState(() => _outputExpanded = !_outputExpanded),
+      child: _RoutingRow(
+        label: 'Bus',
+        value: ch.output,
+        onTap: () => widget.onOutputClick?.call(ch.id),
       ),
     );
   }
@@ -761,19 +790,24 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // CLIP TIME STRETCH SECTION (RF-Elastic Pro)
+  // CLIP TIME STRETCH SECTION
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildClipTimeStretchSection() {
     final clip = widget.selectedClip!;
-    final clipId = int.tryParse(clip.id) ?? 0;
+    // Get track ID from channel or clip — channel IDs are "track_0", "track_1", etc.
+    int? trackId;
+    if (widget.channel != null) {
+      trackId = int.tryParse(widget.channel!.id.replaceAll('track_', ''));
+    }
+    trackId ??= int.tryParse(clip.trackId.replaceAll('track_', '')) ?? 0;
 
     return _Section(
-      title: 'Time Stretch (RF-Elastic Pro)',
+      title: 'Time Stretch',
       expanded: _clipTimeStretchExpanded,
       onToggle: () => setState(() => _clipTimeStretchExpanded = !_clipTimeStretchExpanded),
       child: _TimeStretchControls(
-        clipId: clipId,
+        trackId: trackId,
         onChanged: () {
           // Notify parent that clip time stretch changed
           // This would trigger waveform redraw in the timeline
@@ -787,82 +821,141 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TIME STRETCH CONTROLS
+// TIME STRETCH CONTROLS (ElasticPro API — track-based DSP)
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _TimeStretchControls extends StatefulWidget {
-  final int clipId;
+  final int trackId;
   final VoidCallback? onChanged;
 
-  const _TimeStretchControls({required this.clipId, this.onChanged});
+  const _TimeStretchControls({required this.trackId, this.onChanged});
 
   @override
   State<_TimeStretchControls> createState() => _TimeStretchControlsState();
 }
 
 class _TimeStretchControlsState extends State<_TimeStretchControls> {
+  final _ffi = NativeFFI.instance;
+
   double _stretchRatio = 1.0;
   double _pitchShift = 0.0;
+  int _modeIndex = 0;
+  bool _preserveFormants = true;
+  bool _preserveTransients = true;
   bool _initialized = false;
+
+  static const _modeNames = ['Auto', 'Poly', 'Mono', 'Rhythm', 'Speech', 'Creative'];
 
   @override
   void initState() {
     super.initState();
-    _initProcessor();
+    _ensureEngine();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TimeStretchControls oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.trackId != widget.trackId) {
+      _destroyEngine();
+      _resetState();
+      _ensureEngine();
+    }
   }
 
   @override
   void dispose() {
-    if (_initialized) {
-      NativeFFI.instance.elasticRemove(widget.clipId);
-    }
+    _destroyEngine();
     super.dispose();
   }
 
-  void _initProcessor() {
-    try {
-      final sampleRate = NativeFFI.instance.getSampleRate().toDouble();
-      final success = NativeFFI.instance.elasticCreate(widget.clipId, sampleRate);
-      if (success) {
-        setState(() => _initialized = true);
-      }
-    } catch (e) {
-      // FFI not available or failed
+  void _resetState() {
+    _stretchRatio = 1.0;
+    _pitchShift = 0.0;
+    _modeIndex = 0;
+    _preserveFormants = true;
+    _preserveTransients = true;
+  }
+
+  void _ensureEngine() {
+    _initialized = _ffi.elasticProCreate(widget.trackId);
+    if (_initialized) {
+      _syncAllToEngine();
     }
   }
 
-  void _setStretchRatio(double ratio) {
+  void _destroyEngine() {
+    if (_initialized) {
+      _ffi.elasticProDestroy(widget.trackId);
+      _initialized = false;
+    }
+  }
+
+  void _syncAllToEngine() {
     if (!_initialized) return;
+    _ffi.elasticProSetRatio(widget.trackId, _stretchRatio);
+    _ffi.elasticProSetPitch(widget.trackId, _pitchShift);
+    _ffi.elasticProSetMode(widget.trackId, ElasticMode.values[_modeIndex]);
+    _ffi.elasticProSetPreserveFormants(widget.trackId, _preserveFormants);
+    _ffi.elasticProSetPreserveTransients(widget.trackId, _preserveTransients);
+  }
+
+  void _setStretchRatio(double ratio) {
     setState(() => _stretchRatio = ratio);
-    NativeFFI.instance.elasticSetRatio(widget.clipId, ratio);
+    if (_initialized) {
+      _ffi.elasticProSetRatio(widget.trackId, ratio);
+    }
     widget.onChanged?.call();
   }
 
   void _setPitchShift(double pitch) {
-    if (!_initialized) return;
     setState(() => _pitchShift = pitch);
-    NativeFFI.instance.elasticSetPitch(widget.clipId, pitch);
+    if (_initialized) {
+      _ffi.elasticProSetPitch(widget.trackId, pitch);
+    }
+    widget.onChanged?.call();
+  }
+
+  void _setMode(int index) {
+    setState(() => _modeIndex = index);
+    if (_initialized) {
+      _ffi.elasticProSetMode(widget.trackId, ElasticMode.values[index]);
+    }
+    widget.onChanged?.call();
+  }
+
+  void _toggleFormants() {
+    setState(() => _preserveFormants = !_preserveFormants);
+    if (_initialized) {
+      _ffi.elasticProSetPreserveFormants(widget.trackId, _preserveFormants);
+    }
+    widget.onChanged?.call();
+  }
+
+  void _toggleTransients() {
+    setState(() => _preserveTransients = !_preserveTransients);
+    if (_initialized) {
+      _ffi.elasticProSetPreserveTransients(widget.trackId, _preserveTransients);
+    }
+    widget.onChanged?.call();
+  }
+
+  void _onReset() {
+    setState(() {
+      _stretchRatio = 1.0;
+      _pitchShift = 0.0;
+      _modeIndex = 0;
+      _preserveFormants = true;
+      _preserveTransients = true;
+    });
+    if (_initialized) {
+      _ffi.elasticProReset(widget.trackId);
+      _syncAllToEngine();
+    }
     widget.onChanged?.call();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_initialized) {
-      return Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            Icon(Icons.info_outline, size: 14, color: FluxForgeTheme.textTertiary),
-            const SizedBox(width: 8),
-            Text(
-              'Time stretch not available',
-              style: TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary),
-            ),
-          ],
-        ),
-      );
-    }
-
     return Column(
       children: [
         // Stretch Ratio
@@ -892,19 +985,118 @@ class _TimeStretchControlsState extends State<_TimeStretchControls> {
           color: FluxForgeTheme.accentCyan,
           onChanged: _setPitchShift,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
 
-        // Quick presets
+        // Mode selector
+        _buildModeRow(),
+        const SizedBox(height: 8),
+
+        // Formant & Transient toggles
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            Expanded(child: _buildToggle('Formant', _preserveFormants, _toggleFormants, const Color(0xFF40FF90))),
+            const SizedBox(width: 6),
+            Expanded(child: _buildToggle('Transient', _preserveTransients, _toggleTransients, const Color(0xFFFFFF40))),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        // Quick presets + Reset
+        Row(
           children: [
             _PresetButton('50%', 0.5, 0, _stretchRatio, _pitchShift, _setStretchRatio, _setPitchShift),
+            const SizedBox(width: 4),
             _PresetButton('75%', 0.75, 0, _stretchRatio, _pitchShift, _setStretchRatio, _setPitchShift),
+            const SizedBox(width: 4),
             _PresetButton('100%', 1.0, 0, _stretchRatio, _pitchShift, _setStretchRatio, _setPitchShift),
+            const SizedBox(width: 4),
             _PresetButton('150%', 1.5, 0, _stretchRatio, _pitchShift, _setStretchRatio, _setPitchShift),
+            const Spacer(),
+            GestureDetector(
+              onTap: _onReset,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: FluxForgeTheme.bgDeepest,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: FluxForgeTheme.borderSubtle),
+                ),
+                child: Text('RST', style: TextStyle(
+                  fontSize: 8, fontWeight: FontWeight.bold, color: FluxForgeTheme.textTertiary,
+                )),
+              ),
+            ),
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildModeRow() {
+    return Row(
+      children: [
+        SizedBox(
+          width: 42,
+          child: Text('Mode', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary)),
+        ),
+        Expanded(
+          child: Row(
+            children: List.generate(_modeNames.length, (i) {
+              final isActive = _modeIndex == i;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => _setMode(i),
+                  child: Container(
+                    margin: EdgeInsets.only(left: i > 0 ? 2 : 0),
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
+                          : FluxForgeTheme.bgDeepest,
+                      borderRadius: BorderRadius.circular(3),
+                      border: Border.all(
+                        color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.borderSubtle,
+                      ),
+                    ),
+                    child: Text(
+                      _modeNames[i],
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 7,
+                        fontWeight: FontWeight.bold,
+                        color: isActive ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildToggle(String label, bool active, VoidCallback onTap, Color activeColor) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          color: active ? activeColor.withValues(alpha: 0.15) : FluxForgeTheme.bgDeepest,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: active ? activeColor : FluxForgeTheme.borderSubtle),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 8,
+            fontWeight: FontWeight.bold,
+            color: active ? activeColor : FluxForgeTheme.textTertiary,
+          ),
+        ),
+      ),
     );
   }
 }

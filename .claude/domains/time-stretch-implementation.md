@@ -155,74 +155,71 @@ Za time stretch:
 
 ## FluxForge Studio Implementacija
 
-### Trenutno Stanje
+### Trenutno Stanje (2026-02-21) ✅ CONNECTED
 
+**Dva FFI API-ja postoje u Rust engine-u:**
+
+| API | HashMap | Ključ | Status |
+|-----|---------|-------|--------|
+| Basic Elastic (clip-based) | `ELASTIC_PROCESSORS` | clipId | ⚠️ Legacy — procesori NISU u audio grafu |
+| **ElasticPro (track-based)** | `ELASTIC_PROS` | trackId | ✅ **AKTIVAN** — povezan sa audio grafom |
+
+**Channel Inspector (`channel_inspector_panel.dart`):**
+- Koristi **ElasticPro track-based API** (isti kao ElasticAudioPanel u Lower Zone)
+- Track ID ekstrakcija: `widget.channel!.id.replaceAll('track_', '')` → numerički trackId
+- Lifecycle: `elasticProCreate()` na init, `elasticProDestroy()` na dispose
+
+**FFI Funkcije (ElasticPro — rf-engine/ffi.rs linija 11727+):**
 ```rust
-// playback.rs linija 2800
-ClipFxType::TimeStretch { ratio: _ } => {
-    // Time stretch is typically offline - pass through
-    (sample_l, sample_r)
-}
+elastic_pro_create(track_id: u32, sample_rate: f64) -> i32
+elastic_pro_destroy(track_id: u32) -> i32
+elastic_pro_set_ratio(track_id: u32, ratio: f64) -> i32      // 0.25-4.0
+elastic_pro_set_pitch(track_id: u32, semitones: f64) -> i32   // -12 to +12
+elastic_pro_set_mode(track_id: u32, mode: u32) -> i32         // 0-5
+elastic_pro_set_preserve_formants(track_id: u32, on: i32)     // bool
+elastic_pro_set_preserve_transients(track_id: u32, on: i32)   // bool
+elastic_pro_reset(track_id: u32) -> i32
 ```
 
-**PROBLEM:** Time stretch ne radi u real-time! Samo prolazi audio.
+**ElasticMode enum (6 modova):**
+| Vrednost | Mod | Namena |
+|----------|-----|--------|
+| 0 | Auto | Automatska detekcija materijala |
+| 1 | Polyphonic | Akordi, mix, polifonija |
+| 2 | Monophonic | Solo instrumenti, glas |
+| 3 | Rhythmic | Bubnjevi, perkusije |
+| 4 | Speech | Govor, dijalog |
+| 5 | Creative | Eksperimentalni efekti |
 
-### Potrebna Arhitektura
+**Channel Inspector UI kontrole:**
+- Tempo slider (25-400%) → `elasticProSetRatio()`
+- Pitch slider (-12 to +12 st) → `elasticProSetPitch()`
+- Mode selector (6 modova) → `elasticProSetMode()`
+- Formant preservation toggle → `elasticProSetPreserveFormants()`
+- Transient preservation toggle → `elasticProSetPreserveTransients()`
+- Quick presets (50%, 75%, 100%, 150%) + Reset dugme
+
+### Arhitektura
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     CLIP PROCESSING                          │
 ├─────────────────────────────────────────────────────────────┤
 │  1. Read from cache (original samples)                       │
-│  2. Apply time stretch (WSOLA/Phase Vocoder)                 │
-│  3. Apply pitch shift                                        │
+│  2. Apply time stretch via ElasticPro (track-based)          │
+│  3. Apply pitch shift (independent of tempo)                 │
 │  4. Apply clip FX chain                                      │
 │  5. Mix to track buffer                                      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Implementacija - Dva Pristupa
-
-#### A) Real-Time (za playback)
-```rust
-// Za svaki clip sa time stretch:
-1. Koristi WSOLA za real-time processing
-2. Grain size: 20-50ms
-3. Search window: ±10ms
-4. Cross-correlation za similarity
-
-// Buffer management:
-- Pre-buffer stretched audio ahead of playhead
-- Ring buffer za smooth playback
-- Handle ratio changes gracefully
-```
-
-#### B) Offline Render (za bounce/export)
+### Offline Render (za bounce/export)
 ```rust
 // Full quality processing:
 1. Phase vocoder sa transient preservation
 2. Ili STN decomposition (Sines + Transients + Noise)
 3. Process each component separately
 4. Recombine for final output
-```
-
-### Integracija sa ELASTIC_PROCESSORS
-
-```rust
-// U process_clip_with_crossfade():
-fn process_clip_samples(&mut self, clip: &Clip, audio: &AudioData) {
-    // Check if clip has time stretch
-    if let Some(ratio) = clip.time_stretch_ratio {
-        // Get or create elastic processor
-        let proc = self.get_elastic_processor(clip.id);
-
-        // Process through time stretch
-        let stretched = proc.process_block(audio_block);
-
-        // Continue with stretched audio
-        self.apply_clip_fx(clip, &stretched);
-    }
-}
 ```
 
 ### Warp Marker System
