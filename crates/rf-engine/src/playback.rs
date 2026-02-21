@@ -1232,25 +1232,36 @@ impl OneShotVoice {
                 (s_l, s_r)
             };
 
-            // Apply equal-power panning
-            // FIXED: For stereo sources, sum to mono first then pan
-            // This ensures the ENTIRE sound moves in the stereo field,
-            // not just attenuating individual channels of the source file.
+            // Apply panning — Pro Tools style stereo balance
             //
-            // For mono source: pan positions the mono signal in stereo field
-            // For stereo source: sum to mono, then pan (spatial positioning)
+            // For mono source: equal-power pan positions signal in stereo field
+            // For stereo source: balance-style pan preserves stereo width
+            //   pan=0 → full stereo (L=src_l, R=src_r)
+            //   pan=-1 → hard left (L=src_l+src_r, R=0)
+            //   pan=+1 → hard right (L=0, R=src_l+src_r)
             let sample_l: f64;
             let sample_r: f64;
 
             if channels_src > 1 {
-                // Stereo source: sum to mono, then pan for spatial positioning
-                // This is critical for reel stop sounds where we want the
-                // ENTIRE sound to come from left/right speaker based on reel position
-                let mono = (src_l + src_r) * 0.5;
-                sample_l = (mono * pan_l) as f64;
-                sample_r = (mono * pan_r) as f64;
+                // Stereo source: balance-style panning (Pro Tools stereo pan)
+                // At center (pan=0): L=src_l, R=src_r (full stereo preserved)
+                // Pan left: L stays, R fades out + cross-feeds into L
+                // Pan right: R stays, L fades out + cross-feeds into R
+                // NOTE: src_l/src_r already include volume*fade_gain from line 1198
+                let pan_val = self.pan as f64; // -1.0 to +1.0
+                if pan_val <= 0.0 {
+                    // Panning left: R channel fades, cross-feeds into L
+                    let r_atten = 1.0 + pan_val; // 1.0 at center, 0.0 at hard left
+                    sample_l = (src_l as f64) + (src_r as f64 * (1.0 - r_atten));
+                    sample_r = src_r as f64 * r_atten;
+                } else {
+                    // Panning right: L channel fades, cross-feeds into R
+                    let l_atten = 1.0 - pan_val; // 1.0 at center, 0.0 at hard right
+                    sample_l = src_l as f64 * l_atten;
+                    sample_r = (src_r as f64) + (src_l as f64 * (1.0 - l_atten));
+                }
             } else {
-                // Mono source: direct panning
+                // Mono source: equal-power panning
                 sample_l = (src_l * pan_l) as f64;
                 sample_r = (src_r * pan_r) as f64;
             }

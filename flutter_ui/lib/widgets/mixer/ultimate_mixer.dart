@@ -385,10 +385,10 @@ class _UltimateMixerState extends State<UltimateMixer> {
             child: SingleChildScrollView(
               controller: _scrollController,
               scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(left: 4),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(width: 4),
                   // Collapsed Tracks indicator
                   if (widget.channels.isEmpty && widget.totalTracks > 0)
                     _CollapsedSectionIndicator(
@@ -595,7 +595,6 @@ class _UltimateMixerState extends State<UltimateMixer> {
                       lufsIntegrated: widget.master.lufsIntegrated,
                     ),
                   ),
-                  const SizedBox(width: 8),
                 ],
               ),
             ),

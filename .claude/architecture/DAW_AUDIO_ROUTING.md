@@ -1394,4 +1394,152 @@ Performanse: ~10ms za 10-minutni stereo fajl @ 48kHz
 
 ---
 
-*Poslednji update: 2026-01-25 (Demo waveform uklonjen, null waveform handling)*
+---
+
+## 18. CoreAudio Stereo Buffer Handling (2026-02-21)
+
+### Non-Interleaved vs Interleaved Stereo
+
+CoreAudio na macOS može isporučiti stereo u dva formata:
+
+| Format | `num_buffers` | Layout | Opis |
+|--------|---------------|--------|------|
+| **Non-interleaved** | 2 | Buffer 0=L, Buffer 1=R | Moderni standard |
+| **Interleaved** | 1 | L,R,L,R,L,R... | Legacy |
+
+### Implementacija (`coreaudio.rs`)
+
+**Input čitanje (lines 811-830):**
+```rust
+if num_buffers >= 2 {
+    // Non-interleaved: čitaj iz 2 odvojena buffera
+    for i in 0..sample_count {
+        input_slice[i * 2] = *samples_l.add(i) as f64;       // L
+        input_slice[i * 2 + 1] = *samples_r.add(i) as f64;   // R
+    }
+} else if num_buffers == 1 {
+    // Interleaved: single buffer sa L/R parovima
+    for i in 0..sample_count {
+        input_slice[i] = *input_samples.add(i) as f64;
+    }
+}
+```
+
+**Output pisanje (lines 858-877):**
+```rust
+if num_buffers >= 2 {
+    // Non-interleaved: deinterleave u 2 odvojena buffera
+    for i in 0..sample_count {
+        *samples_l.add(i) = output_slice[i * 2] as f32;       // L
+        *samples_r.add(i) = output_slice[i * 2 + 1] as f32;   // R
+    }
+} else if num_buffers == 1 {
+    // Interleaved: direktan write
+    for i in 0..sample_count {
+        *output_samples.add(i) = output_slice[i] as f32;
+    }
+}
+```
+
+**Impact:** Ispravan stereo image za SVE audio puteve (DAW, Middleware, SlotLab, Preview).
+
+---
+
+## 19. One-Shot Voice Stereo Panning (2026-02-21)
+
+### Problem
+
+`OneShot::fill_buffer()` kolapsirao stereo u mono sa `(src_l + src_r) * 0.5` pre primene pan-a — uništavao kompletnu stereo sliku.
+
+### Pro Tools-Style Balance Pan (Rešenje)
+
+| Pan Vrednost | L Kanal | R Kanal | Opis |
+|-------------|---------|---------|------|
+| -1.0 | src_l + src_r | 0 | Hard Left |
+| 0.0 | src_l | src_r | Centar (pun stereo) |
+| +1.0 | 0 | src_r + src_l | Hard Right |
+
+**Implementacija (`playback.rs:1235-1270`):**
+```rust
+if channels_src > 1 {
+    // Stereo: balance-style pan (Pro Tools)
+    let pan_val = self.pan as f64;
+    if pan_val <= 0.0 {
+        let r_atten = 1.0 + pan_val;  // 1.0 at center, 0.0 at hard left
+        sample_l = (src_l as f64) + (src_r as f64 * (1.0 - r_atten));
+        sample_r = src_r as f64 * r_atten;
+    } else {
+        let l_atten = 1.0 - pan_val;  // 1.0 at center, 0.0 at hard right
+        sample_l = src_l as f64 * l_atten;
+        sample_r = (src_r as f64) + (src_l as f64 * (1.0 - l_atten));
+    }
+} else {
+    // Mono: equal-power pan (nepromenjeno)
+    sample_l = (src_l * pan_l) as f64;
+    sample_r = (src_r * pan_r) as f64;
+}
+```
+
+**VAŽNO:** `src_l`/`src_r` već uključuju `volume * fade_gain` iz linije 1198 — nema duplog množenja!
+
+**Impact:** Svi event-based zvuci (SlotLab, Middleware) sada čuvaju stereo širinu.
+
+---
+
+## 20. Pro Tools Routing Gap Analysis (2026-02-21)
+
+### Identifikovani Gapovi (6)
+
+| # | Gap | Trenutno | Pro Tools Standard | Effort | Prioritet |
+|---|-----|----------|-------------------|--------|-----------|
+| 1 | **Master Fader inserts** | Split pre/post | ALL post-fader | Moderate | P1 |
+| 2 | **Bus count** | Fixed 6 (`[InsertChain; 6]`) | Dynamic creation | High | P2 |
+| 3 | **Pre-fader sends** | Field exists, NOT in audio callback | Full implementation | High | P1 |
+| 4 | **VCA send scaling** | Volume only | Volume + send levels | High | P2 |
+| 5 | **Insert slots** | 8 per channel | 10 (A-E pre, F-J post) | Low | P3 |
+| 6 | **Bus-to-bus routing** | All → Master only | Any bus → any bus | Very High | P3 |
+
+### Gap 1: Master Fader Pre/Post Split
+
+**Problem:** `playback.rs:3936-3949` ima pre + post insert sekcije za master.
+**Pro Tools:** Master Fader ima SVE inserts post-fader — mastering chain utičе na signal POSLE fader-a.
+**Impact:** Mastering EQ/limiter treba da utiče na fader input.
+
+### Gap 2: Fixed Bus Count
+
+**Problem:** `bus_inserts: RwLock<[InsertChain; 6]>` — hardkodirano na 6 buseva.
+**Pro Tools:** Dinamično kreiranje buseva po potrebi.
+**Impact:** Ograničena fleksibilnost rutiranja za kompleksne miksove.
+
+### Gap 3: Pre-Fader Sends
+
+**Problem:** `preFader` polje postoji u modelu, ali audio callback ga ne implementira.
+**Pro Tools:** Pre-fader sends omogućavaju cue mixove i sidechain rutiranje pre volumena.
+**Impact:** Svi sends su efektivno post-fader.
+
+### Gap 4: VCA Send Scaling
+
+**Problem:** VCA fader skalira samo volume, ne i send nivoe.
+**Pro Tools:** VCA proporcionalno skalira I volume I send levels.
+**Impact:** VCA grupe ne utiču na send submixove.
+
+### Gap 5: Insert Slot Count
+
+**Problem:** 8 insert slotova po kanalu.
+**Pro Tools:** 10 slotova (A-E pre-fader, F-J post-fader).
+**Impact:** Profesionalni workflow-i ponekad zahtevaju više od 8 inserta.
+
+### Gap 6: Bus-to-Bus Routing
+
+**Problem:** Svi busevi se sumiraju direktno na Master.
+**Pro Tools:** Bilo koji bus → bilo koji bus, omogućava stem grupiranje.
+**Impact:** Kompleksne mixing hijerarhije nisu moguće.
+
+### Status
+
+**Implementirano:** CoreAudio stereo fix + One-shot stereo balance pan
+**Dokumentovano:** 6 gapova za post-ship roadmap
+
+---
+
+*Poslednji update: 2026-02-21 (CoreAudio stereo, One-shot stereo pan, Pro Tools gap analysis)*

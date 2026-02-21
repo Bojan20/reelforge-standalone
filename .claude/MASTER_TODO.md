@@ -1,7 +1,7 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-21 (SafeFilePicker migration + InAppFileBrowser + L10n cleanup + Mixer overflow fix + iCloud NSOpenPanel deadlock bypass)
-**Status:** ✅ **SHIP READY** — All features complete, DAW Mixer ALL 5 PHASES implemented (Pro Tools 2026-class), 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, all 9 FabFilter DSP panels 100% FFI connected, ProEq unified superset EQ, direct FFI metering, SafeFilePicker for iCloud stability
+**Updated:** 2026-02-21 (CoreAudio stereo fix + One-shot voice stereo pan + Pro Tools routing gap analysis + SafeFilePicker migration)
+**Status:** ✅ **SHIP READY** — All features complete, DAW Mixer ALL 5 PHASES implemented (Pro Tools 2026-class), 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, all 9 FabFilter DSP panels 100% FFI connected, ProEq unified superset EQ, direct FFI metering, SafeFilePicker for iCloud stability, CoreAudio stereo properly handled
 
 ---
 
@@ -37,9 +37,12 @@ DAW MIXER: Pro Tools 2026-class — ALL 5 PHASES COMPLETE (11 new files + floati
 ✅ SAFE FILE PICKER:    25 files migrated ✅ iCloud deadlock bypass
 ✅ L10N CLEANUP:        4 files removed  ✅ Dead code removal
 ✅ MIXER OVERFLOW FIX:  ScrollView wrap  ✅ Strip section overflow solved
+✅ COREAUDIO STEREO:    Non-interleaved  ✅ L/R buffer deinterleaving
+✅ ONESHOT STEREO PAN:  Balance pan      ✅ Pro Tools-style stereo preserve
+✅ LZ BUS OVERFLOW:     10px fix         ✅ ScrollView padding refactor
 ```
 
-**417 total tasks (387 original + 27 DAW Mixer + 3 stability fixes). All code quality issues fixed. 4,532 tests pass. SafeFilePicker replaces NSOpenPanel across 25 files — prevents iCloud Desktop & Documents sync deadlock. Mixer strip sections wrapped in SingleChildScrollView to prevent overflow. L10n auto-generated files removed (dead code). SHIP READY.**
+**420 total tasks (387 original + 27 DAW Mixer + 3 stability fixes + 3 stereo/routing fixes). All code quality issues fixed. 4,532 tests pass. SafeFilePicker replaces NSOpenPanel across 25 files — prevents iCloud Desktop & Documents sync deadlock. CoreAudio non-interleaved stereo properly handled. One-shot voices preserve stereo width (Pro Tools-style balance pan). Lower Zone bus overflow fixed. SHIP READY.**
 
 ### Pro Tools 2026 DAW Mixer (2026-02-20 — 2026-02-21) ✅ ALL 5 PHASES COMPLETE
 
@@ -150,6 +153,59 @@ Three mixer/bus fixes:
 - Rust `BusState::default()`: `pan: -1.0, pan_right: 1.0` (was `0.0, 0.0`)
 - Dart `MixerProvider.createBus()`: `pan: -1.0, panRight: 1.0, isStereo: true`
 - UI fallback already correct: `_busPan[busId] ?? -1.0`, `_busPanRight[busId] ?? 1.0`
+
+### CoreAudio Non-Interleaved Stereo Fix (2026-02-21) ✅
+
+CoreAudio callback now properly handles non-interleaved stereo buffers (Buffer 0 = L, Buffer 1 = R).
+
+**Root Cause:** CoreAudio on macOS provides stereo in non-interleaved format (2 separate AudioBuffers) but the callback only wrote to Buffer 0 — right channel was silent.
+
+**Fix:** Check `num_buffers` and handle both formats:
+- `num_buffers >= 2`: Non-interleaved — deinterleave input, interleave output across 2 buffers
+- `num_buffers == 1`: Interleaved — single buffer with L/R pairs (legacy fallback)
+
+**File:** `crates/rf-audio/src/coreaudio.rs` (input: lines 811-830, output: lines 858-877)
+
+### One-Shot Voice Stereo Balance Pan Fix (2026-02-21) ✅
+
+One-shot voices now preserve stereo width using Pro Tools-style balance panning instead of collapsing to mono.
+
+**Root Cause:** `OneShot::fill_buffer()` collapsed stereo to mono with `(src_l + src_r) * 0.5` before applying pan — destroying all stereo information.
+
+**Fix:** Pro Tools-style balance pan:
+- Center (pan=0): L=src_l, R=src_r (full stereo preserved)
+- Pan left: R fades, cross-feeds into L
+- Pan right: L fades, cross-feeds into R
+- Mono sources: unchanged equal-power panning
+
+**File:** `crates/rf-engine/src/playback.rs` (lines 1235-1270)
+
+### Lower Zone Bus 10px Overflow Fix (2026-02-21) ✅
+
+Fixed 10px overflow on right side of buses in edit mode lower zone mixer.
+
+**Root Cause:** `SizedBox(width: 4)` + `SizedBox(width: 8)` inside Row accumulated beyond viewport.
+
+**Fix:** Moved leading padding to `SingleChildScrollView.padding`, removed trailing spacer entirely.
+
+**File:** `flutter_ui/lib/widgets/mixer/ultimate_mixer.dart`
+
+### Pro Tools 2026 Routing Gap Analysis (2026-02-21) 📊 DOCUMENTED
+
+Comprehensive audit vs Pro Tools 2026 routing standard — 6 gaps identified for future roadmap:
+
+| # | Gap | Current | Pro Tools | Effort |
+|---|-----|---------|-----------|--------|
+| 1 | Master Fader inserts | Split pre/post | ALL post-fader | Moderate |
+| 2 | Bus count | Fixed 6 buses | Dynamic creation | High |
+| 3 | Pre-fader sends | Not in audio callback | Full support | High |
+| 4 | VCA send scaling | Volume only | Volume + sends | High |
+| 5 | Insert slots | 8 per channel | 10 (A-E pre, F-J post) | Low |
+| 6 | Bus-to-bus routing | Buses → Master only | Any bus → any bus | Very High |
+
+**Status:** Analysis complete, documented for post-ship roadmap. Stereo fixes (Gaps 0a, 0b) implemented.
+
+---
 
 ### SafeFilePicker Migration + iCloud Deadlock Fix (2026-02-21) ✅
 

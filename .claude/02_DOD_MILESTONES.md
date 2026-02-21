@@ -6,6 +6,33 @@ These are production gates. "Works" is not "Done".
 
 ---
 
+## ✅ COMPLETE — Stereo Audio Routing Fixes + Pro Tools Gap Analysis (2026-02-21)
+
+**Scope:** Critical stereo bug fixes + Pro Tools routing architecture audit
+
+Exit Criteria:
+
+- ✅ CoreAudio non-interleaved stereo deinterleaving (`coreaudio.rs:811-877`)
+- ✅ One-shot voice stereo balance pan — Pro Tools-style (`playback.rs:1235-1270`)
+- ✅ Lower Zone bus 10px overflow fix (`ultimate_mixer.dart`)
+- ✅ Pro Tools routing gap analysis documented (6 gaps)
+- ✅ `cargo build --release` passes
+- ✅ `flutter analyze` passes (0 errors)
+
+Files Modified:
+
+- `crates/rf-audio/src/coreaudio.rs` — Non-interleaved stereo I/O
+- `crates/rf-engine/src/playback.rs` — Stereo balance pan for one-shot voices
+- `flutter_ui/lib/widgets/mixer/ultimate_mixer.dart` — Bus overflow fix
+
+Documentation Updated:
+
+- `.claude/MASTER_TODO.md` — Added stereo fixes + Pro Tools gap analysis
+- `.claude/architecture/DAW_AUDIO_ROUTING.md` — Sections 18-20 (stereo + gaps)
+- `.claude/02_DOD_MILESTONES.md` — This milestone
+
+---
+
 ## ✅ COMPLETE — SafeFilePicker Migration (2026-02-21)
 
 **Scope:** All file picker calls migrated from NSOpenPanel to in-app dart:io browser

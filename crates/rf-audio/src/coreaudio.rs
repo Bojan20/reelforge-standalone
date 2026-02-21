@@ -807,8 +807,27 @@ unsafe extern "C" fn audio_io_proc(
         // Read input (if available)
         if !input_data.is_null() && data.input_channels > 0 {
             let num_buffers = (*input_data).number_buffers;
-            if num_buffers > 0 {
-                // Get first buffer (assuming interleaved stereo or mono)
+            if num_buffers >= 2 {
+                // Non-interleaved stereo: Buffer 0 = L, Buffer 1 = R
+                let buffers_ptr = (input_data as *const u8).add(std::mem::size_of::<u32>())
+                    as *const AudioBuffer;
+                let buf_l = &*buffers_ptr;
+                let buf_r = &*buffers_ptr.add(1);
+
+                if !buf_l.data.is_null() && !buf_r.data.is_null() {
+                    let samples_l = buf_l.data as *const f32;
+                    let samples_r = buf_r.data as *const f32;
+                    let sample_count = (buf_l.data_byte_size as usize
+                        / std::mem::size_of::<f32>())
+                    .min(frames);
+
+                    for i in 0..sample_count {
+                        input_slice[i * 2] = *samples_l.add(i) as f64;
+                        input_slice[i * 2 + 1] = *samples_r.add(i) as f64;
+                    }
+                }
+            } else if num_buffers == 1 {
+                // Interleaved stereo or mono: all samples in one buffer
                 let buffer = &*((input_data as *const u8).add(std::mem::size_of::<u32>())
                     as *const AudioBuffer);
 
@@ -835,8 +854,27 @@ unsafe extern "C" fn audio_io_proc(
         // Write output
         if !output_data.is_null() {
             let num_buffers = (*output_data).number_buffers;
-            if num_buffers > 0 {
-                // Get first buffer
+            if num_buffers >= 2 {
+                // Non-interleaved stereo: deinterleave to Buffer 0 (L) and Buffer 1 (R)
+                let buffers_ptr = (output_data as *mut u8).add(std::mem::size_of::<u32>())
+                    as *mut AudioBuffer;
+                let buf_l = &mut *buffers_ptr;
+                let buf_r = &mut *buffers_ptr.add(1);
+
+                if !buf_l.data.is_null() && !buf_r.data.is_null() {
+                    let samples_l = buf_l.data as *mut f32;
+                    let samples_r = buf_r.data as *mut f32;
+                    let sample_count = (buf_l.data_byte_size as usize
+                        / std::mem::size_of::<f32>())
+                    .min(frames);
+
+                    for i in 0..sample_count {
+                        *samples_l.add(i) = output_slice[i * 2] as f32;
+                        *samples_r.add(i) = output_slice[i * 2 + 1] as f32;
+                    }
+                }
+            } else if num_buffers == 1 {
+                // Interleaved stereo or mono: write directly
                 let buffer = &mut *((output_data as *mut u8).add(std::mem::size_of::<u32>())
                     as *mut AudioBuffer);
 
