@@ -6,27 +6,27 @@
   "git_clean": null,
   "last_apply": {
     "branch": null,
-    "changed_files_count": 2,
-    "error": null,
+    "changed_files_count": 0,
+    "error": "git apply failed: error: patch with only garbage at line 4\n",
     "gate_results": {
       "flutter_analyze": {
-        "detail": "Analyzing flutter_ui...                                         \nNo issues found! (ran in 1.9s)",
-        "passed": true,
-        "ran": true
+        "detail": null,
+        "passed": false,
+        "ran": false
       },
       "locked_paths": {
         "detail": null,
-        "passed": true,
-        "ran": true
+        "passed": false,
+        "ran": false
       }
     },
-    "merged": true,
-    "ok": true,
+    "merged": false,
+    "ok": false,
     "provider": "openai",
-    "reason": "append_status_scope_identity_block",
-    "task_id": "TASK_ENGINE_DOC_01_ENGINE_CONSTITUTION",
-    "timestamp": "2026-02-20T07:43:14.533023Z"
+    "reason": "add_compile_phase_cycle_detection",
+    "task_id": "TASK_ROUTINGGRAPH_COMPILE_PHASE",
+    "timestamp": "2026-02-20T08:31:18.349716Z"
   },
-  "last_start_time": "2026-02-20T07:43:14.533023Z",
+  "last_start_time": "2026-02-20T08:31:18.349716Z",
   "notes": "Automatically maintained by ACC runtime."
 }
