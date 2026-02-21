@@ -84,6 +84,13 @@ class MixerChannel {
   // Track reference (for audio tracks)
   int? trackIndex;    // Engine track index
 
+  // Phase 4: Solo Safe, Comments, Folder
+  bool soloSafe;      // Excluded from SIP muting (§4.2)
+  String comments;    // Per-strip text notes
+  bool isFolder;      // Routing Folder track
+  bool folderExpanded; // Folder expand/collapse state
+  int folderChildCount; // Number of child tracks in folder
+
   MixerChannel({
     required this.id,
     required this.name,
@@ -111,6 +118,11 @@ class MixerChannel {
     this.rmsR = 0.0,
     this.clipping = false,
     this.trackIndex,
+    this.soloSafe = false,
+    this.comments = '',
+    this.isFolder = false,
+    this.folderExpanded = true,
+    this.folderChildCount = 0,
   }) : inserts = inserts ?? _defaultInserts();
 
   /// Default empty insert slots (8 total: 4 pre-fader, 4 post-fader)
@@ -866,6 +878,42 @@ class MixerProvider extends ChangeNotifier {
   bool getPhaseInvert(String id) {
     final channel = _channels[id] ?? _buses[id];
     return channel?.phaseInverted ?? false;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SOLO SAFE (Phase 4 §4.2)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Toggle solo safe — channel excluded from SIP muting
+  void toggleSoloSafe(String id) {
+    final channel = _channels[id] ?? _buses[id];
+    if (channel == null) return;
+    channel.soloSafe = !channel.soloSafe;
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COMMENTS (Phase 4 §15.1)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set per-channel comments text
+  void setChannelComments(String id, String comments) {
+    final channel = _channels[id] ?? _buses[id];
+    if (channel == null) return;
+    channel.comments = comments;
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FOLDER TRACKS (Phase 4 §18)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Toggle folder track expand/collapse
+  void toggleFolderExpanded(String id) {
+    final channel = _channels[id];
+    if (channel == null || !channel.isFolder) return;
+    channel.folderExpanded = !channel.folderExpanded;
+    notifyListeners();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

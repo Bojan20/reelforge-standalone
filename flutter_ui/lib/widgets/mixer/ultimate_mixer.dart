@@ -11,6 +11,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../models/mixer_view_models.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../lower_zone/daw/mix/pdc_indicator.dart';
 
@@ -133,6 +134,7 @@ class UltimateMixerChannel {
   final bool isStereo; // true = dual pan (stereo), false = single pan (mono)
   final bool muted;
   final bool soloed;
+  final bool soloSafe; // Cmd+Click — excluded from SIP muting (§4.2)
   final bool armed;
   final bool selected;
   final InputSection input;
@@ -157,6 +159,15 @@ class UltimateMixerChannel {
   final String comments;           // User notes per track
   final String inputName;          // Input selector label
   final String channelFormat;      // "Mono", "Stereo", "5.1", etc.
+  // Delay compensation display (§Phase 4)
+  final int delaySamples;          // Plugin-induced delay
+  final int compensationSamples;   // Compensation applied by engine
+  // Folder track fields (§18)
+  final bool isFolder;             // Routing Folder — child tracks sum through this
+  final bool folderExpanded;       // Whether child tracks are visible
+  final int folderChildCount;      // Number of child tracks
+  // EQ curve data — first EQ plugin's frequency response (§Phase 4)
+  final List<double>? eqCurvePoints; // Normalized 0-1 frequency response points
 
   const UltimateMixerChannel({
     required this.id,
@@ -169,6 +180,7 @@ class UltimateMixerChannel {
     this.isStereo = true,
     this.muted = false,
     this.soloed = false,
+    this.soloSafe = false,
     this.armed = false,
     this.selected = false,
     this.input = const InputSection(),
@@ -189,12 +201,26 @@ class UltimateMixerChannel {
     this.comments = '',
     this.inputName = '',
     this.channelFormat = 'Stereo',
+    this.delaySamples = 0,
+    this.compensationSamples = 0,
+    this.isFolder = false,
+    this.folderExpanded = true,
+    this.folderChildCount = 0,
+    this.eqCurvePoints,
   });
 
   bool get isMaster => type == ChannelType.master;
   bool get isBus => type == ChannelType.bus;
   bool get isAux => type == ChannelType.aux;
   bool get isVca => type == ChannelType.vca;
+
+  /// Delay comp status color (green=OK, orange=slowest path, red=not compensated)
+  Color get delayCompColor {
+    if (delaySamples == 0) return const Color(0xFF808080); // No delay
+    if (compensationSamples >= delaySamples) return const Color(0xFF40FF90); // Green — fully compensated
+    if (compensationSamples > 0) return const Color(0xFFFF9040); // Orange — partial
+    return const Color(0xFFFF4060); // Red — not compensated
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -218,6 +244,7 @@ class UltimateMixer extends StatefulWidget {
   final void Function(String channelId, double pan)? onPanRightChange; // Pro Tools stereo pan
   final void Function(String channelId)? onMuteToggle;
   final void Function(String channelId)? onSoloToggle;
+  final void Function(String channelId)? onSoloSafeToggle; // Cmd+Click solo
   final void Function(String channelId)? onArmToggle;
   final void Function(String channelId, int sendIndex, double level)? onSendLevelChange;
   final void Function(String channelId, int sendIndex, bool muted)? onSendMuteToggle;
@@ -227,19 +254,34 @@ class UltimateMixer extends StatefulWidget {
   final void Function(String channelId, String outputBus)? onOutputChange;
   final void Function(String channelId)? onPhaseToggle;
   final void Function(String channelId, double gain)? onGainChange;
+  final void Function(String channelId, String comments)? onCommentsChanged;
+  final void Function(String channelId)? onFolderToggle; // Expand/collapse folder
+  final void Function(String channelId)? onEqCurveClick; // Open EQ editor
   final VoidCallback? onAddBus;
   /// Called when channel is reordered via drag-drop
   /// Syncs bidirectionally with timeline track order
   final void Function(int oldIndex, int newIndex)? onChannelReorder;
   /// Section visibility toggle callback — pass MixerSection name
   final void Function(String sectionName)? onSectionToggle;
+  /// Strip section visibility (View > Mix Window Views)
+  final Set<MixerStripSection> visibleStripSections;
+  /// Strip section toggle callback (View menu)
+  final void Function(MixerStripSection section)? onStripSectionToggle;
+  /// View preset apply callback
+  final void Function(MixerViewPreset preset)? onPresetApply;
+  /// Metering mode
+  final MixerMeteringMode meteringMode;
+  /// Metering mode change callback
+  final void Function(MixerMeteringMode mode)? onMeteringModeChange;
+  /// Strip width toggle callback
+  final VoidCallback? onStripWidthToggle;
   /// Total counts for collapsed sections (shown even when section is empty)
   final int totalTracks;
   final int totalBuses;
   final int totalAuxes;
   final int totalVcas;
 
-  const UltimateMixer({
+  UltimateMixer({
     super.key,
     required this.channels,
     required this.buses,
@@ -250,6 +292,7 @@ class UltimateMixer extends StatefulWidget {
     this.showInserts = true,
     this.showSends = true,
     this.showInput = false,
+    Set<MixerStripSection>? visibleStripSections,
     this.totalTracks = 0,
     this.totalBuses = 0,
     this.totalAuxes = 0,
@@ -261,6 +304,7 @@ class UltimateMixer extends StatefulWidget {
     this.onPanRightChange,
     this.onMuteToggle,
     this.onSoloToggle,
+    this.onSoloSafeToggle,
     this.onArmToggle,
     this.onSendLevelChange,
     this.onSendMuteToggle,
@@ -270,10 +314,18 @@ class UltimateMixer extends StatefulWidget {
     this.onOutputChange,
     this.onPhaseToggle,
     this.onGainChange,
+    this.onCommentsChanged,
+    this.onFolderToggle,
+    this.onEqCurveClick,
     this.onAddBus,
     this.onChannelReorder,
     this.onSectionToggle,
-  });
+    this.onStripSectionToggle,
+    this.onPresetApply,
+    this.meteringMode = MixerMeteringMode.peak,
+    this.onMeteringModeChange,
+    this.onStripWidthToggle,
+  }) : visibleStripSections = visibleStripSections ?? MixerStripSection.defaultVisibleSet;
 
   @override
   State<UltimateMixer> createState() => _UltimateMixerState();
@@ -372,12 +424,14 @@ class _UltimateMixerState extends State<UltimateMixer> {
                           showSends: widget.showSends,
                           showInput: widget.showInput,
                           hasSoloActive: hasSolo,
+                          visibleStripSections: widget.visibleStripSections,
                           onVolumeChange: (v) => widget.onVolumeChange?.call(ch.id, v),
                           onPanChange: (p) => widget.onPanChange?.call(ch.id, p),
                           onPanChangeEnd: (p) => widget.onPanChangeEnd?.call(ch.id, p),
                           onPanRightChange: (p) => widget.onPanRightChange?.call(ch.id, p),
                           onMuteToggle: () => widget.onMuteToggle?.call(ch.id),
                           onSoloToggle: () => widget.onSoloToggle?.call(ch.id),
+                          onSoloSafeToggle: () => widget.onSoloSafeToggle?.call(ch.id),
                           onArmToggle: () => widget.onArmToggle?.call(ch.id),
                           onSelect: () => widget.onChannelSelect?.call(ch.id),
                           onSendLevelChange: (idx, lvl) => widget.onSendLevelChange?.call(ch.id, idx, lvl),
@@ -388,6 +442,9 @@ class _UltimateMixerState extends State<UltimateMixer> {
                           onPhaseToggle: () => widget.onPhaseToggle?.call(ch.id),
                           onGainChange: (g) => widget.onGainChange?.call(ch.id, g),
                           onOutputChange: (out) => widget.onOutputChange?.call(ch.id, out),
+                          onCommentsChanged: (c) => widget.onCommentsChanged?.call(ch.id, c),
+                          onFolderToggle: () => widget.onFolderToggle?.call(ch.id),
+                          onEqCurveClick: () => widget.onEqCurveClick?.call(ch.id),
                         ),
                       );
                     }),
@@ -419,13 +476,17 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         showSends: false,
                         showInput: widget.showInput,
                         hasSoloActive: hasSolo,
+                        visibleStripSections: widget.visibleStripSections,
                         onVolumeChange: (v) => widget.onVolumeChange?.call(aux.id, v),
                         onPanChange: (p) => widget.onPanChange?.call(aux.id, p),
                         onPanChangeEnd: (p) => widget.onPanChangeEnd?.call(aux.id, p),
                         onPanRightChange: (p) => widget.onPanRightChange?.call(aux.id, p),
                         onMuteToggle: () => widget.onMuteToggle?.call(aux.id),
                         onSoloToggle: () => widget.onSoloToggle?.call(aux.id),
+                        onSoloSafeToggle: () => widget.onSoloSafeToggle?.call(aux.id),
                         onOutputChange: (out) => widget.onOutputChange?.call(aux.id, out),
+                        onCommentsChanged: (c) => widget.onCommentsChanged?.call(aux.id, c),
+                        onEqCurveClick: () => widget.onEqCurveClick?.call(aux.id),
                       ),
                     )),
                     const _SectionDivider(),
@@ -456,13 +517,17 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         showSends: false,
                         showInput: widget.showInput,
                         hasSoloActive: hasSolo,
+                        visibleStripSections: widget.visibleStripSections,
                         onVolumeChange: (v) => widget.onVolumeChange?.call(bus.id, v),
                         onPanChange: (p) => widget.onPanChange?.call(bus.id, p),
                         onPanChangeEnd: (p) => widget.onPanChangeEnd?.call(bus.id, p),
                         onPanRightChange: (p) => widget.onPanRightChange?.call(bus.id, p),
                         onMuteToggle: () => widget.onMuteToggle?.call(bus.id),
                         onSoloToggle: () => widget.onSoloToggle?.call(bus.id),
+                        onSoloSafeToggle: () => widget.onSoloSafeToggle?.call(bus.id),
                         onOutputChange: (out) => widget.onOutputChange?.call(bus.id, out),
+                        onCommentsChanged: (c) => widget.onCommentsChanged?.call(bus.id, c),
+                        onEqCurveClick: () => widget.onEqCurveClick?.call(bus.id),
                       ),
                     )),
                     const _SectionDivider(),
@@ -525,6 +590,48 @@ class _UltimateMixerState extends State<UltimateMixer> {
     return mixerContent;
   }
 
+  /// Show View > Mix Window Views popup
+  void _showViewMenu(BuildContext context) {
+    final RenderBox button = context.findRenderObject()! as RenderBox;
+    final offset = button.localToGlobal(Offset(0, button.size.height));
+    showMenu<MixerStripSection>(
+      context: context,
+      position: RelativeRect.fromLTRB(offset.dx, offset.dy, offset.dx + 200, offset.dy),
+      color: FluxForgeTheme.bgDeep,
+      items: MixerStripSection.values.map((section) {
+        final visible = widget.visibleStripSections.contains(section);
+        return PopupMenuItem<MixerStripSection>(
+          value: section,
+          child: Row(
+            children: [
+              Icon(
+                visible ? Icons.check_box : Icons.check_box_outline_blank,
+                size: 16,
+                color: visible ? FluxForgeTheme.accentBlue : FluxForgeTheme.textTertiary,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                section.label,
+                style: TextStyle(
+                  color: FluxForgeTheme.textPrimary,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    ).then((selected) {
+      if (selected != null) {
+        _onStripSectionToggle?.call(selected);
+      }
+    });
+  }
+
+  /// Callback for strip section toggle — set by parent
+  void Function(MixerStripSection section)? get _onStripSectionToggle =>
+      widget.onStripSectionToggle;
+
   Widget _buildToolbar() {
     return Container(
       height: 32,
@@ -539,7 +646,81 @@ class _UltimateMixerState extends State<UltimateMixer> {
       ),
       child: Row(
         children: [
+          // View menu — Mix Window Views (§15.1)
+          Builder(
+            builder: (ctx) => _ToolbarButton(
+              label: 'View',
+              icon: Icons.visibility_outlined,
+              onTap: () => _showViewMenu(ctx),
+            ),
+          ),
+          const SizedBox(width: 4),
+          // View presets
+          PopupMenuButton<MixerViewPreset>(
+            tooltip: 'View Presets',
+            color: FluxForgeTheme.bgDeep,
+            offset: const Offset(0, 32),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.bookmark_outline, size: 14, color: FluxForgeTheme.textSecondary),
+                  const SizedBox(width: 4),
+                  Text('Presets', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary)),
+                ],
+              ),
+            ),
+            onSelected: widget.onPresetApply,
+            itemBuilder: (_) => MixerViewPreset.builtIn.map((p) =>
+              PopupMenuItem<MixerViewPreset>(
+                value: p,
+                child: Text(p.name, style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11)),
+              ),
+            ).toList(),
+          ),
+          const SizedBox(width: 8),
+          // Metering mode selector
+          PopupMenuButton<MixerMeteringMode>(
+            tooltip: 'Metering Mode',
+            color: FluxForgeTheme.bgDeep,
+            offset: const Offset(0, 32),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(color: FluxForgeTheme.textPrimary.withOpacity(0.1)),
+              ),
+              child: Text(
+                widget.meteringMode.label,
+                style: TextStyle(fontSize: 10, color: FluxForgeTheme.accentBlue),
+              ),
+            ),
+            onSelected: widget.onMeteringModeChange,
+            itemBuilder: (_) => MixerMeteringMode.values.map((m) =>
+              PopupMenuItem<MixerMeteringMode>(
+                value: m,
+                child: Row(
+                  children: [
+                    if (m == widget.meteringMode)
+                      Icon(Icons.check, size: 14, color: FluxForgeTheme.accentBlue)
+                    else
+                      const SizedBox(width: 14),
+                    const SizedBox(width: 6),
+                    Text(m.label, style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 11)),
+                  ],
+                ),
+              ),
+            ).toList(),
+          ),
           const Spacer(),
+          // Strip width toggle (N/R)
+          _ToolbarButton(
+            label: widget.compact ? 'N' : 'R',
+            onTap: widget.onStripWidthToggle,
+            tooltip: widget.compact ? 'Narrow strips' : 'Regular strips',
+          ),
+          const SizedBox(width: 4),
           IconButton(
             icon: Icon(
               Icons.add,
@@ -569,12 +750,14 @@ class _UltimateChannelStrip extends StatefulWidget {
   final bool showSends;
   final bool showInput;
   final bool hasSoloActive;
+  final Set<MixerStripSection> visibleStripSections;
   final ValueChanged<double>? onVolumeChange;
   final ValueChanged<double>? onPanChange;
   final ValueChanged<double>? onPanChangeEnd;
   final ValueChanged<double>? onPanRightChange; // Pro Tools stereo pan
   final VoidCallback? onMuteToggle;
   final VoidCallback? onSoloToggle;
+  final VoidCallback? onSoloSafeToggle; // Cmd+Click
   final VoidCallback? onArmToggle;
   final VoidCallback? onSelect;
   final void Function(int index, double level)? onSendLevelChange;
@@ -585,8 +768,11 @@ class _UltimateChannelStrip extends StatefulWidget {
   final VoidCallback? onPhaseToggle;
   final ValueChanged<double>? onGainChange;
   final ValueChanged<String>? onOutputChange;
+  final ValueChanged<String>? onCommentsChanged;
+  final VoidCallback? onFolderToggle;
+  final VoidCallback? onEqCurveClick;
 
-  const _UltimateChannelStrip({
+  _UltimateChannelStrip({
     super.key,
     required this.channel,
     required this.width,
@@ -595,12 +781,14 @@ class _UltimateChannelStrip extends StatefulWidget {
     this.showSends = true,
     this.showInput = false,
     this.hasSoloActive = false,
+    Set<MixerStripSection>? visibleStripSections,
     this.onVolumeChange,
     this.onPanChange,
     this.onPanChangeEnd,
     this.onPanRightChange,
     this.onMuteToggle,
     this.onSoloToggle,
+    this.onSoloSafeToggle,
     this.onArmToggle,
     this.onSelect,
     this.onSendLevelChange,
@@ -611,7 +799,10 @@ class _UltimateChannelStrip extends StatefulWidget {
     this.onPhaseToggle,
     this.onGainChange,
     this.onOutputChange,
-  });
+    this.onCommentsChanged,
+    this.onFolderToggle,
+    this.onEqCurveClick,
+  }) : visibleStripSections = visibleStripSections ?? MixerStripSection.defaultVisibleSet;
 
   @override
   State<_UltimateChannelStrip> createState() => _UltimateChannelStripState();
@@ -668,17 +859,18 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
             ),
             child: Column(
               children: [
-                // ── 1. Track Color Bar (4px) ──
-                GestureDetector(
-                  onTap: widget.onSelect,
-                  child: Container(
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: ch.color,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+                // ── 1. Track Color Bar (4px) — toggleable via View ──
+                if (widget.visibleStripSections.contains(MixerStripSection.trackColor))
+                  GestureDetector(
+                    onTap: widget.onSelect,
+                    child: Container(
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: ch.color,
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+                      ),
                     ),
                   ),
-                ),
                 // ── 2. Track Number (16px) ──
                 _buildTrackNumber(),
                 // ── 3. I/O Selectors ──
@@ -705,17 +897,26 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                 if (widget.showInput && ch.type != ChannelType.bus && ch.type != ChannelType.aux)
                   _buildInputSection(),
                 // ── 7. Insert slots A-E (first 5) ──
-                if (widget.showInserts)
+                if (widget.showInserts && widget.visibleStripSections.contains(MixerStripSection.insertsAE))
                   _buildInsertSection(startIndex: 0, label: 'A-E'),
                 // ── 8. Insert slots F-J (next 5) ──
-                if (widget.showInserts && _hasInsertsAbove(5))
+                if (widget.showInserts && widget.visibleStripSections.contains(MixerStripSection.insertsFJ) && _hasInsertsAbove(5))
                   _buildInsertSection(startIndex: 5, label: 'F-J'),
                 // ── 9. Send slots A-E (first 5) ──
-                if (widget.showSends)
+                if (widget.showSends && widget.visibleStripSections.contains(MixerStripSection.sendsAE))
                   _buildSendSection(startIndex: 0, label: 'A-E'),
                 // ── 10. Send slots F-J (next 5) ──
-                if (widget.showSends && _hasSendsAbove(5))
+                if (widget.showSends && widget.visibleStripSections.contains(MixerStripSection.sendsFJ) && _hasSendsAbove(5))
                   _buildSendSection(startIndex: 5, label: 'F-J'),
+                // ── 10a. EQ Curve Thumbnail ──
+                if (widget.visibleStripSections.contains(MixerStripSection.eqCurve))
+                  _buildEqCurveThumbnail(),
+                // ── 10b. Delay Compensation display ──
+                if (widget.visibleStripSections.contains(MixerStripSection.delayComp))
+                  _buildDelayCompDisplay(),
+                // ── 10c. Comments section ──
+                if (widget.visibleStripSections.contains(MixerStripSection.comments))
+                  _buildCommentsSection(),
                 // ── 11. Pan control ──
                 _buildPanControl(),
                 // ── 12. Fader + Meter (Expanded) ──
@@ -970,6 +1171,134 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
     );
   }
 
+  /// EQ Curve Thumbnail — miniature frequency response from first EQ insert (§Phase 4)
+  Widget _buildEqCurveThumbnail() {
+    final points = widget.channel.eqCurvePoints;
+    return GestureDetector(
+      onTap: widget.onEqCurveClick,
+      child: Container(
+        height: 32,
+        margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+        decoration: BoxDecoration(
+          color: FluxForgeTheme.bgDeepest.withOpacity(0.6),
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: FluxForgeTheme.textPrimary.withOpacity(0.08)),
+        ),
+        child: CustomPaint(
+          painter: _EqCurvePainter(points: points),
+          size: Size.infinite,
+        ),
+      ),
+    );
+  }
+
+  /// Delay Compensation display — dly/cmp samples with color coding (§Phase 4)
+  Widget _buildDelayCompDisplay() {
+    final ch = widget.channel;
+    if (ch.delaySamples == 0 && ch.compensationSamples == 0) {
+      return const SizedBox.shrink();
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+      margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.bgDeepest.withOpacity(0.4),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'dly: ${ch.delaySamples} smp',
+            style: TextStyle(
+              fontSize: 8,
+              color: ch.delayCompColor,
+              fontFamily: 'monospace',
+            ),
+          ),
+          Text(
+            'cmp: ${ch.compensationSamples} smp',
+            style: TextStyle(
+              fontSize: 8,
+              color: ch.delayCompColor,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Comments section — editable user notes per strip (§Phase 4)
+  Widget _buildCommentsSection() {
+    final comments = widget.channel.comments;
+    return GestureDetector(
+      onDoubleTap: () {
+        _showCommentsEditor(context);
+      },
+      child: Container(
+        height: 22,
+        margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+        padding: const EdgeInsets.symmetric(horizontal: 3),
+        decoration: BoxDecoration(
+          color: FluxForgeTheme.bgDeepest.withOpacity(0.4),
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: FluxForgeTheme.textPrimary.withOpacity(0.06)),
+        ),
+        alignment: Alignment.centerLeft,
+        child: Text(
+          comments.isEmpty ? '—' : comments,
+          style: TextStyle(
+            fontSize: 8,
+            color: comments.isEmpty
+                ? FluxForgeTheme.textSecondary.withOpacity(0.3)
+                : FluxForgeTheme.textSecondary,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+  }
+
+  void _showCommentsEditor(BuildContext context) {
+    final controller = TextEditingController(text: widget.channel.comments);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: FluxForgeTheme.bgDeep,
+        title: Text(
+          'Comments — ${widget.channel.name}',
+          style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLines: 3,
+          style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+          decoration: InputDecoration(
+            hintText: 'Enter track notes...',
+            hintStyle: TextStyle(color: FluxForgeTheme.textSecondary.withOpacity(0.4)),
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              widget.onCommentsChanged?.call(controller.text);
+              Navigator.of(ctx).pop();
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Numeric dB display below fader
   Widget _buildNumericDisplay() {
     final vol = widget.channel.volume;
@@ -1083,6 +1412,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
   }
 
   Widget _buildButtons() {
+    final ch = widget.channel;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
       child: Row(
@@ -1090,20 +1420,36 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
         children: [
           _StripButton(
             label: 'M',
-            active: widget.channel.muted,
+            active: ch.muted,
             activeColor: const Color(0xFFFF6B6B),
             onTap: widget.onMuteToggle,
           ),
-          _StripButton(
-            label: 'S',
-            active: widget.channel.soloed,
-            activeColor: const Color(0xFFFFD93D),
-            onTap: widget.onSoloToggle,
+          // Solo button: Cmd+Click = Solo Safe toggle (§4.2)
+          Listener(
+            onPointerDown: (event) {
+              final isCmdClick =
+                  HardwareKeyboard.instance.isMetaPressed ||
+                  HardwareKeyboard.instance.isControlPressed;
+              if (isCmdClick) {
+                widget.onSoloSafeToggle?.call();
+              } else {
+                widget.onSoloToggle?.call();
+              }
+            },
+            child: _StripButton(
+              label: ch.soloSafe ? 'SS' : 'S',
+              active: ch.soloed || ch.soloSafe,
+              activeColor: ch.soloSafe
+                  ? const Color(0xFF40C8FF) // Cyan for Solo Safe
+                  : const Color(0xFFFFD93D), // Yellow for Solo
+              // onTap is handled by Listener above
+              onTap: null,
+            ),
           ),
-          if (widget.channel.type == ChannelType.audio)
+          if (ch.type == ChannelType.audio)
             _StripButton(
               label: 'R',
-              active: widget.channel.armed,
+              active: ch.armed,
               activeColor: const Color(0xFFFF4444),
               onTap: widget.onArmToggle,
             ),
@@ -1113,24 +1459,59 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
   }
 
   Widget _buildNameLabel() {
+    final ch = widget.channel;
     return GestureDetector(
       onTap: widget.onSelect,
       child: Container(
-        height: 20,
+        height: ch.isFolder ? 28 : 20,
         padding: const EdgeInsets.symmetric(horizontal: 2),
-        child: Center(
-          child: Text(
-            widget.channel.name,
-            style: TextStyle(
-              color: widget.channel.selected
-                  ? FluxForgeTheme.textPrimary
-                  : FluxForgeTheme.textSecondary,
-              fontSize: 9,
-              fontWeight: FontWeight.w500,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Folder indicator row
+            if (ch.isFolder) ...[
+              GestureDetector(
+                onTap: widget.onFolderToggle,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      ch.folderExpanded ? Icons.folder_open : Icons.folder,
+                      size: 10,
+                      color: ch.color.withOpacity(0.8),
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      '${ch.folderChildCount}',
+                      style: TextStyle(
+                        fontSize: 7,
+                        color: FluxForgeTheme.textTertiary,
+                      ),
+                    ),
+                    Icon(
+                      ch.folderExpanded
+                          ? Icons.keyboard_arrow_down
+                          : Icons.keyboard_arrow_right,
+                      size: 10,
+                      color: FluxForgeTheme.textTertiary,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            Text(
+              ch.name,
+              style: TextStyle(
+                color: ch.selected
+                    ? FluxForgeTheme.textPrimary
+                    : FluxForgeTheme.textSecondary,
+                fontSize: 9,
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-          ),
+          ],
         ),
       ),
     );
@@ -1777,6 +2158,99 @@ class _StereoPanKnobPainter extends CustomPainter {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// EQ CURVE PAINTER
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _EqCurvePainter extends CustomPainter {
+  final List<double>? points;
+
+  _EqCurvePainter({this.points});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final data = points;
+    if (data == null || data.isEmpty) {
+      // No EQ — draw flat center line
+      final linePaint = Paint()
+        ..color = FluxForgeTheme.textTertiary.withOpacity(0.2)
+        ..strokeWidth = 0.5;
+      canvas.drawLine(
+        Offset(0, size.height / 2),
+        Offset(size.width, size.height / 2),
+        linePaint,
+      );
+      return;
+    }
+
+    // Grid (subtle)
+    final gridPaint = Paint()
+      ..color = FluxForgeTheme.textTertiary.withOpacity(0.08)
+      ..strokeWidth = 0.5;
+    canvas.drawLine(
+      Offset(0, size.height / 2),
+      Offset(size.width, size.height / 2),
+      gridPaint,
+    );
+
+    // Curve
+    final curvePaint = Paint()
+      ..color = const Color(0xFFFF9040) // Orange — EQ active color
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke
+      ..isAntiAlias = true;
+
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          const Color(0xFFFF9040).withOpacity(0.25),
+          const Color(0xFFFF9040).withOpacity(0.0),
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    final path = Path();
+    final fillPath = Path();
+
+    final step = size.width / (data.length - 1).clamp(1, double.infinity);
+    final centerY = size.height / 2;
+    final halfHeight = size.height / 2;
+
+    for (int i = 0; i < data.length; i++) {
+      final x = i * step;
+      // points are 0-1 normalized; 0.5 = flat, 0 = max cut, 1 = max boost
+      final y = centerY - (data[i] - 0.5) * halfHeight * 2;
+      if (i == 0) {
+        path.moveTo(x, y);
+        fillPath.moveTo(x, centerY);
+        fillPath.lineTo(x, y);
+      } else {
+        path.lineTo(x, y);
+        fillPath.lineTo(x, y);
+      }
+    }
+
+    // Close fill path
+    fillPath.lineTo(size.width, centerY);
+    fillPath.close();
+
+    canvas.drawPath(fillPath, fillPaint);
+    canvas.drawPath(path, curvePaint);
+  }
+
+  @override
+  bool shouldRepaint(_EqCurvePainter oldDelegate) {
+    if (oldDelegate.points == null && points == null) return false;
+    if (oldDelegate.points == null || points == null) return true;
+    if (oldDelegate.points!.length != points!.length) return true;
+    for (int i = 0; i < points!.length; i++) {
+      if (oldDelegate.points![i] != points![i]) return true;
+    }
+    return false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // INSERT & SEND SLOTS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -2380,6 +2854,48 @@ class _ToolbarToggle extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _ToolbarButton extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final VoidCallback? onTap;
+  final String? tooltip;
+
+  const _ToolbarButton({
+    required this.label,
+    this.icon,
+    this.onTap,
+    this.tooltip,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final child = GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: FluxForgeTheme.textPrimary.withOpacity(0.1)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 14, color: FluxForgeTheme.textSecondary),
+              const SizedBox(width: 4),
+            ],
+            Text(label, style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary)),
+          ],
+        ),
+      ),
+    );
+    if (tooltip != null) {
+      return Tooltip(message: tooltip!, child: child);
+    }
+    return child;
   }
 }
 

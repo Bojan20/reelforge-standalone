@@ -7770,6 +7770,21 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       onChannelReorder: (oldIndex, newIndex) {
         mixerProvider.reorderChannel(oldIndex, newIndex);
       },
+      // Phase 4 callbacks
+      onSoloSafeToggle: (id) {
+        if (!_isBusId(id) && !id.startsWith('vca_')) {
+          mixerProvider.toggleSoloSafe(id);
+        }
+      },
+      onCommentsChanged: (id, comments) {
+        mixerProvider.setChannelComments(id, comments);
+      },
+      onFolderToggle: (id) {
+        mixerProvider.toggleFolderExpanded(id);
+      },
+      onEqCurveClick: (id) {
+        _handleUltimateMixerInsertClick(id, 0);
+      },
     );
   }
 
@@ -7819,6 +7834,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         rmsL: rmsL,
         rmsR: rmsR,
         correlation: correlation,
+        // Phase 4
+        soloSafe: ch.soloSafe,
+        comments: ch.comments,
+        isFolder: ch.isFolder,
+        folderExpanded: ch.folderExpanded,
+        folderChildCount: ch.folderChildCount,
       ));
     }
 
@@ -7951,6 +7972,27 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       // Channel reorder (bidirectional sync with timeline tracks)
       onChannelReorder: (oldIndex, newIndex) {
         mixerProvider.reorderChannel(oldIndex, newIndex);
+      },
+      // Phase 4: strip section visibility + metering + callbacks
+      visibleStripSections: _mixerViewController.visibleStripSections,
+      meteringMode: _mixerViewController.meteringMode,
+      onStripSectionToggle: _mixerViewController.toggleStripSection,
+      onPresetApply: _mixerViewController.applyPreset,
+      onMeteringModeChange: _mixerViewController.setMeteringMode,
+      onStripWidthToggle: _mixerViewController.toggleStripWidth,
+      onSoloSafeToggle: (id) {
+        if (!_isBusId(id) && !id.startsWith('vca_')) {
+          mixerProvider.toggleSoloSafe(id);
+        }
+      },
+      onCommentsChanged: (id, comments) {
+        mixerProvider.setChannelComments(id, comments);
+      },
+      onFolderToggle: (id) {
+        mixerProvider.toggleFolderExpanded(id);
+      },
+      onEqCurveClick: (id) {
+        _handleUltimateMixerInsertClick(id, 0);
       },
     );
   }

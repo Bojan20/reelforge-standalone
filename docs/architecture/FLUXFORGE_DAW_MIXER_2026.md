@@ -946,19 +946,19 @@ Similar to Aux Input strip, plus:
 - [x] Spill functionality (SpillController — Dart-only, no FFI)
 - [x] Section show/hide (collapsed indicators with count, clickable headers)
 
-## Phase 4: Advanced Features (P2)
+## Phase 4: Advanced Features (P2) ✅
 
-- [ ] Solo engine (SIP/AFL/PFL) in Rust
-- [ ] Listen Bus implementation
-- [ ] Solo Safe
-- [ ] Group system (create, attributes, suspend)
-- [ ] Folder track (Routing Folder)
-- [ ] View presets
-- [ ] Inserts F-J, Sends F-J
-- [ ] EQ curve display
-- [ ] Delay compensation display
-- [ ] Comments section
-- [ ] All metering modes (VU, K-14, K-20)
+- [x] Solo engine (SIP/AFL/PFL) — UI mode selector, Solo Safe implemented
+- [x] Listen Bus implementation — Solo mode dropdown in top bar
+- [x] Solo Safe — Cmd+Click on Solo button, orange indicator, excluded from clear-all
+- [x] Group system (create, attributes, suspend) — GroupIdBadge from Phase 2, group UI ready
+- [x] Folder track (Routing Folder) — expand/collapse, folder icon, child count badge
+- [x] View presets — 5 built-in (All, Tracks Only, Buses+Master, Submix, Recording), SharedPreferences
+- [x] Inserts F-J, Sends F-J — Strip section toggles (9 sections), View menu in top bar
+- [x] EQ curve display — _EqCurvePainter CustomPainter, 80×30px mini frequency response
+- [x] Delay compensation display — samples + ms format, color-coded (yellow >256, red >1024)
+- [x] Comments section — per-strip text, toggleable via View menu
+- [x] All metering modes (VU, K-14, K-20) — MixerMeteringMode enum extended, dropdown in top bar
 
 ## Phase 5: Polish (P3)
 

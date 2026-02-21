@@ -11,7 +11,7 @@ import '../../models/mixer_view_models.dart';
 class MixerViewController extends ChangeNotifier {
   static const _storageKey = 'fluxforge_mixer_view_state';
 
-  MixerViewState _state = const MixerViewState();
+  MixerViewState _state = MixerViewState();
   MixerViewState get state => _state;
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -126,6 +126,43 @@ class MixerViewController extends ChangeNotifier {
   }
 
   void clearFilter() => setFilterQuery('');
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // STRIP SECTION VISIBILITY (View > Mix Window Views)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  Set<MixerStripSection> get visibleStripSections => _state.visibleStripSections;
+
+  bool isStripSectionVisible(MixerStripSection section) =>
+      _state.isStripSectionVisible(section);
+
+  void toggleStripSection(MixerStripSection section) {
+    final updated = Set<MixerStripSection>.from(_state.visibleStripSections);
+    if (updated.contains(section)) {
+      updated.remove(section);
+    } else {
+      updated.add(section);
+    }
+    _state = _state.copyWith(visibleStripSections: updated);
+    notifyListeners();
+    _saveToStorage();
+  }
+
+  void showAllStripSections() {
+    _state = _state.copyWith(
+      visibleStripSections: MixerStripSection.values.toSet(),
+    );
+    notifyListeners();
+    _saveToStorage();
+  }
+
+  void resetStripSections() {
+    _state = _state.copyWith(
+      visibleStripSections: MixerStripSection.defaultVisibleSet,
+    );
+    notifyListeners();
+    _saveToStorage();
+  }
 
   // ═══════════════════════════════════════════════════════════════════════
   // PRESETS

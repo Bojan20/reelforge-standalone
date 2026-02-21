@@ -45,6 +45,12 @@ class MixerScreen extends StatefulWidget {
   final VoidCallback? onAddBus;
   final void Function(int oldIndex, int newIndex)? onChannelReorder;
 
+  // Phase 4 callbacks
+  final void Function(String channelId)? onSoloSafeToggle;
+  final void Function(String channelId, String comments)? onCommentsChanged;
+  final void Function(String channelId)? onFolderToggle;
+  final void Function(String channelId)? onEqCurveClick;
+
   const MixerScreen({
     super.key,
     required this.viewController,
@@ -72,6 +78,10 @@ class MixerScreen extends StatefulWidget {
     this.onGainChange,
     this.onAddBus,
     this.onChannelReorder,
+    this.onSoloSafeToggle,
+    this.onCommentsChanged,
+    this.onFolderToggle,
+    this.onEqCurveClick,
   });
 
   @override
@@ -179,13 +189,14 @@ class _MixerScreenState extends State<MixerScreen> {
   }) {
     // Use UltimateMixer for the strip rendering —
     // pass only sections that are visible, total counts for collapsed indicators
+    final vc = widget.viewController;
     return UltimateMixer(
       channels: showTracks ? channels : const [],
       buses: showBuses ? buses : const [],
       auxes: showAuxes ? auxes : const [],
       vcas: showVcas ? vcas : const [],
       master: widget.master,
-      compact: widget.viewController.stripWidthMode == StripWidthMode.narrow,
+      compact: vc.stripWidthMode == StripWidthMode.narrow,
       showInserts: true,
       showSends: true,
       showInput: true,
@@ -193,12 +204,19 @@ class _MixerScreenState extends State<MixerScreen> {
       totalBuses: widget.buses.length,
       totalAuxes: widget.auxes.length,
       totalVcas: widget.vcas.length,
+      // Phase 4: strip section visibility + metering
+      visibleStripSections: vc.visibleStripSections,
+      meteringMode: vc.meteringMode,
+      onStripSectionToggle: vc.toggleStripSection,
+      onPresetApply: vc.applyPreset,
+      onMeteringModeChange: vc.setMeteringMode,
+      onStripWidthToggle: vc.toggleStripWidth,
       onSectionToggle: (name) {
         final section = MixerSection.values.firstWhere(
           (s) => s.name == name,
           orElse: () => MixerSection.tracks,
         );
-        widget.viewController.toggleSection(section);
+        vc.toggleSection(section);
       },
       onChannelSelect: widget.onChannelSelect,
       onVolumeChange: widget.onVolumeChange,
@@ -218,6 +236,11 @@ class _MixerScreenState extends State<MixerScreen> {
       onGainChange: widget.onGainChange,
       onAddBus: widget.onAddBus,
       onChannelReorder: widget.onChannelReorder,
+      // Phase 4 callbacks
+      onSoloSafeToggle: widget.onSoloSafeToggle,
+      onCommentsChanged: widget.onCommentsChanged,
+      onFolderToggle: widget.onFolderToggle,
+      onEqCurveClick: widget.onEqCurveClick,
     );
   }
 
@@ -245,12 +268,17 @@ class _MixerScreenState extends State<MixerScreen> {
         showInserts: true,
         showSends: true,
         showInput: true,
+        visibleStripSections: widget.viewController.visibleStripSections,
+        meteringMode: widget.viewController.meteringMode,
         onVolumeChange: widget.onVolumeChange,
         onPanChange: widget.onPanChange,
         onPanChangeEnd: widget.onPanChangeEnd,
         onPanRightChange: widget.onPanRightChange,
         onMuteToggle: widget.onMuteToggle,
         onSoloToggle: widget.onSoloToggle,
+        onSoloSafeToggle: widget.onSoloSafeToggle,
+        onCommentsChanged: widget.onCommentsChanged,
+        onEqCurveClick: widget.onEqCurveClick,
       ),
     );
   }

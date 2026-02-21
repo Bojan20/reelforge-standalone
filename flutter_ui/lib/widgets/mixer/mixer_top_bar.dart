@@ -40,6 +40,14 @@ class MixerTopBar extends StatelessWidget {
           const SizedBox(width: 8),
           _buildSeparator(),
           const SizedBox(width: 8),
+          // View menu (Mix Window Views)
+          _buildViewMenuButton(),
+          const SizedBox(width: 4),
+          // View Presets
+          _buildPresetsDropdown(),
+          const SizedBox(width: 8),
+          _buildSeparator(),
+          const SizedBox(width: 8),
           // Metering mode
           _buildMeteringDropdown(),
           const Spacer(),
@@ -88,6 +96,126 @@ class MixerTopBar extends StatelessWidget {
         ),
       );
     }).toList();
+  }
+
+  Widget _buildViewMenuButton() {
+    return Builder(
+      builder: (context) => GestureDetector(
+        onTap: () => _showViewMenu(context),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.04),
+            borderRadius: BorderRadius.circular(3),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.view_column, size: 12, color: Colors.white.withOpacity(0.5)),
+              const SizedBox(width: 3),
+              Text(
+                'View',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.6),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showViewMenu(BuildContext context) {
+    final box = context.findRenderObject() as RenderBox;
+    final offset = box.localToGlobal(Offset.zero);
+    showMenu<MixerStripSection>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        offset.dx,
+        offset.dy + box.size.height,
+        offset.dx + 200,
+        offset.dy + box.size.height + 300,
+      ),
+      color: const Color(0xFF1A1A20),
+      items: MixerStripSection.values.map((section) {
+        final visible = controller.isStripSectionVisible(section);
+        return PopupMenuItem<MixerStripSection>(
+          value: section,
+          height: 28,
+          child: Row(
+            children: [
+              Icon(
+                visible ? Icons.check_box : Icons.check_box_outline_blank,
+                size: 14,
+                color: visible ? const Color(0xFF4A9EFF) : Colors.white.withOpacity(0.3),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                section.label,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(visible ? 0.9 : 0.5),
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    ).then((selected) {
+      if (selected != null) {
+        controller.toggleStripSection(selected);
+      }
+    });
+  }
+
+  Widget _buildPresetsDropdown() {
+    return PopupMenuButton<MixerViewPreset>(
+      onSelected: controller.applyPreset,
+      offset: const Offset(0, 36),
+      color: const Color(0xFF1A1A20),
+      itemBuilder: (context) => MixerViewPreset.builtIn.map((preset) {
+        return PopupMenuItem(
+          value: preset,
+          height: 28,
+          child: Text(
+            preset.name,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.7),
+              fontSize: 11,
+            ),
+          ),
+        );
+      }).toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(3),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Presets',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.6),
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(
+              Icons.arrow_drop_down,
+              size: 14,
+              color: Colors.white.withOpacity(0.4),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildMeteringDropdown() {
