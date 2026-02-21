@@ -9558,7 +9558,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     const idMapping = {
       'rf-pro-eq': DspNodeType.eq,
       'rf-ultra-eq': DspNodeType.eq,
-      'rf-linear-eq': DspNodeType.eq,
       'rf-pultec': DspNodeType.pultec,
       'rf-api550': DspNodeType.api550,
       'rf-neve1073': DspNodeType.neve1073,
@@ -9570,6 +9569,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       'rf-reverb': DspNodeType.reverb,
       'rf-delay': DspNodeType.delay,
       'rf-saturation': DspNodeType.saturation,
+      'rf-multiband-saturator': DspNodeType.multibandSaturation,
     };
     final byId = idMapping[plugin.id];
     if (byId != null) return byId;
@@ -9633,7 +9633,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       // EQ
       'rf-pro-eq': 'pro-eq',
       'rf-ultra-eq': 'ultra-eq',
-      'rf-linear-eq': 'linear-phase-eq',
       'rf-pultec': 'pultec',
       'rf-api550': 'api550',
       'rf-neve1073': 'neve1073',
@@ -9647,6 +9646,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       'rf-reverb': 'reverb',
       'rf-delay': 'delay',
       'rf-saturation': 'saturation',
+      'rf-multiband-saturator': 'multiband-saturator',
     };
     return mapping[pluginId];
   }

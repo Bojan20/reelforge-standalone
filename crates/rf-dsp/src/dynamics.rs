@@ -2912,6 +2912,13 @@ impl Expander {
         self.envelope.set_times(attack_ms, release_ms);
     }
 
+    // Getters
+    pub fn threshold_db(&self) -> f64 { self.threshold_db }
+    pub fn ratio(&self) -> f64 { self.ratio }
+    pub fn knee_db(&self) -> f64 { self.knee_db }
+    pub fn attack_ms(&self) -> f64 { self.attack_ms }
+    pub fn release_ms(&self) -> f64 { self.release_ms }
+
     /// Enable/disable external sidechain input
     pub fn set_sidechain_enabled(&mut self, enabled: bool) {
         self.sidechain_enabled = enabled;

@@ -1812,6 +1812,9 @@ pub struct ExpanderWrapper {
     left: Expander,
     right: Expander,
     sample_rate: f64,
+    // Cache current attack/release to avoid interference when setting independently
+    attack_ms: f64,
+    release_ms: f64,
 }
 
 impl ExpanderWrapper {
@@ -1820,6 +1823,8 @@ impl ExpanderWrapper {
             left: Expander::new(sample_rate),
             right: Expander::new(sample_rate),
             sample_rate,
+            attack_ms: 5.0,
+            release_ms: 100.0,
         }
     }
 
@@ -1839,6 +1844,8 @@ impl ExpanderWrapper {
     }
 
     pub fn set_times(&mut self, attack_ms: f64, release_ms: f64) {
+        self.attack_ms = attack_ms;
+        self.release_ms = release_ms;
         self.left.set_times(attack_ms, release_ms);
         self.right.set_times(attack_ms, release_ms);
     }
@@ -1865,6 +1872,9 @@ impl InsertProcessor for ExpanderWrapper {
         self.sample_rate = sample_rate;
         self.left = Expander::new(sample_rate);
         self.right = Expander::new(sample_rate);
+        // Re-apply cached params after recreating processors
+        self.left.set_times(self.attack_ms, self.release_ms);
+        self.right.set_times(self.attack_ms, self.release_ms);
     }
 
     fn num_params(&self) -> usize {
@@ -1878,17 +1888,25 @@ impl InsertProcessor for ExpanderWrapper {
             1 => self.set_ratio(value),
             2 => self.set_knee(value),
             3 => {
-                // Store attack, but we need both attack and release to call set_times
-                // For now, just call set_times with this as attack and a default release
-                self.left.set_times(value, 50.0);
-                self.right.set_times(value, 50.0);
+                // Update attack while preserving current release
+                self.set_times(value, self.release_ms);
             }
             4 => {
-                // Store release - call set_times with default attack
-                self.left.set_times(5.0, value);
-                self.right.set_times(5.0, value);
+                // Update release while preserving current attack
+                self.set_times(self.attack_ms, value);
             }
             _ => {}
+        }
+    }
+
+    fn get_param(&self, index: usize) -> f64 {
+        match index {
+            0 => self.left.threshold_db(),
+            1 => self.left.ratio(),
+            2 => self.left.knee_db(),
+            3 => self.attack_ms,
+            4 => self.release_ms,
+            _ => 0.0,
         }
     }
 

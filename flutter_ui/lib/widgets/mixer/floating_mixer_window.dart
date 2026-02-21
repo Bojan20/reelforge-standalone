@@ -474,6 +474,7 @@ class _FloatingMixerWidgetState extends State<_FloatingMixerWidget> {
         onMuteToggle: cb.onMuteToggle,
         onSoloToggle: cb.onSoloToggle,
         onSoloSafeToggle: cb.onSoloSafeToggle,
+        onInsertClick: cb.onInsertClick,
         onCommentsChanged: cb.onCommentsChanged,
         onEqCurveClick: cb.onEqCurveClick,
       ),

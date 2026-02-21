@@ -5,6 +5,120 @@
 
 import 'dart:math' as math;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// FaderCurve — Neve/SSL/Harrison-class hybrid fader law
+//
+// ALL volume faders, knobs, and sliders in the app MUST use this class.
+// Do NOT implement custom volume curves anywhere else.
+//
+// 5-Segment Hybrid Logarithmic Curve:
+//   Segment 1 (Dead zone):  -∞  to -60 dB  →  0%–3%   fader travel
+//   Segment 2 (Low):        -60 to -20 dB  →  3%–20%  fader travel
+//   Segment 3 (Build-up):   -20 to -12 dB  →  20%–40% fader travel
+//   Segment 4 (Sweet spot): -12 to  0  dB  →  40%–78% fader travel
+//   Segment 5 (Boost):       0  to max dB  →  78%–100% fader travel
+//
+// Unity gain (0 dB) sits at 78% of fader travel.
+//
+// Design: Neve DFC + SSL Duality + Harrison Mixbus console curves.
+// Sweet spot: 38% of travel for -12 to 0 dB (mixing range).
+// Dead zone: Only 3% (vs 5% Cubase) — tighter silence→audible transition.
+// ═══════════════════════════════════════════════════════════════════════════
+
+class FaderCurve {
+  FaderCurve._();
+
+  // ── dB domain ──────────────────────────────────────────────────────────
+
+  /// Convert dB value to fader position (0.0–1.0).
+  /// [minDb] is the lowest representable dB (typically -60 or -80).
+  /// [maxDb] is the highest representable dB (typically +6 or +12).
+  static double dbToPosition(double db, {double minDb = -80.0, double maxDb = 12.0}) {
+    if (db <= minDb) return 0.0;
+    if (db >= maxDb) return 1.0;
+    // Seg 1: Dead zone — -∞ to -60 dB → 0%–3%
+    if (db <= -60.0) {
+      return 0.03 * ((db - minDb) / (-60.0 - minDb)).clamp(0.0, 1.0);
+    }
+    // Seg 2: Low — -60 to -20 dB → 3%–20%
+    if (db <= -20.0) {
+      return 0.03 + 0.17 * ((db + 60.0) / 40.0);
+    }
+    // Seg 3: Build-up — -20 to -12 dB → 20%–40%
+    if (db <= -12.0) {
+      return 0.20 + 0.20 * ((db + 20.0) / 8.0);
+    }
+    // Seg 4: Sweet spot — -12 to 0 dB → 40%–78%
+    if (db <= 0.0) {
+      return 0.40 + 0.38 * ((db + 12.0) / 12.0);
+    }
+    // Seg 5: Boost — 0 to max dB → 78%–100%
+    return 0.78 + 0.22 * (db / maxDb).clamp(0.0, 1.0);
+  }
+
+  /// Convert fader position (0.0–1.0) to dB value.
+  static double positionToDb(double position, {double minDb = -80.0, double maxDb = 12.0}) {
+    final p = position.clamp(0.0, 1.0);
+    if (p <= 0.0) return minDb;
+    if (p >= 1.0) return maxDb;
+    // Seg 1: Dead zone — 0%–3% → -∞ to -60 dB
+    if (p <= 0.03) {
+      return minDb + (p / 0.03) * (-60.0 - minDb);
+    }
+    // Seg 2: Low — 3%–20% → -60 to -20 dB
+    if (p <= 0.20) {
+      return -60.0 + ((p - 0.03) / 0.17) * 40.0;
+    }
+    // Seg 3: Build-up — 20%–40% → -20 to -12 dB
+    if (p <= 0.40) {
+      return -20.0 + ((p - 0.20) / 0.20) * 8.0;
+    }
+    // Seg 4: Sweet spot — 40%–78% → -12 to 0 dB
+    if (p <= 0.78) {
+      return -12.0 + ((p - 0.40) / 0.38) * 12.0;
+    }
+    // Seg 5: Boost — 78%–100% → 0 to max dB
+    return ((p - 0.78) / 0.22) * maxDb;
+  }
+
+  // ── Linear amplitude domain ────────────────────────────────────────────
+
+  /// Convert linear amplitude (0.0–maxLinear) to fader position (0.0–1.0).
+  /// Converts to dB internally, then uses the segmented curve.
+  static double linearToPosition(double volume, {double maxLinear = 1.5}) {
+    if (volume <= 0.0001) return 0.0;
+    final db = 20.0 * math.log(volume) / math.ln10;
+    final maxDb = 20.0 * math.log(maxLinear) / math.ln10; // +3.52 dB for 1.5
+    return dbToPosition(db, maxDb: maxDb);
+  }
+
+  /// Convert fader position (0.0–1.0) to linear amplitude (0.0–maxLinear).
+  static double positionToLinear(double position, {double maxLinear = 1.5}) {
+    if (position <= 0.0) return 0.0;
+    final maxDb = 20.0 * math.log(maxLinear) / math.ln10;
+    final db = positionToDb(position, maxDb: maxDb);
+    if (db <= -80.0) return 0.0;
+    return math.pow(10.0, db / 20.0).toDouble().clamp(0.0, maxLinear);
+  }
+
+  // ── Display formatting ─────────────────────────────────────────────────
+
+  /// Format linear amplitude as dB string for display.
+  static String linearToDbString(double volume) {
+    if (volume <= 0.001) return '-∞';
+    final db = 20.0 * math.log(volume) / math.ln10;
+    if (db >= 0) return '+${db.toStringAsFixed(1)}';
+    return db.toStringAsFixed(1);
+  }
+
+  /// Format dB value as string for display.
+  static String dbToString(double db) {
+    if (!db.isFinite || db <= -60) return '-∞';
+    if (db >= 0) return '+${db.toStringAsFixed(1)}';
+    return db.toStringAsFixed(1);
+  }
+}
+
 /// Convert linear amplitude (0-1) to dB
 double linearToDb(double linear) {
   if (linear <= 0) return double.negativeInfinity;

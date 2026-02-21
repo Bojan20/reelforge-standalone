@@ -17,6 +17,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../theme/fluxforge_theme.dart';
+import '../../../../utils/audio_math.dart';
 import '../../../mixer/ultimate_mixer.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -420,12 +421,12 @@ class _MiniMixerViewState extends State<MiniMixerView> {
   Widget _buildFader(UltimateMixerChannel channel) {
     return GestureDetector(
       onVerticalDragUpdate: (details) {
-        // Calculate new volume from drag
+        // Calculate new volume from drag (Cubase-style curve)
         final RenderBox box = context.findRenderObject() as RenderBox;
         final localPos = box.globalToLocal(details.globalPosition);
         final height = kMiniFaderHeight;
-        final normalized = 1.0 - (localPos.dy / height).clamp(0.0, 1.0);
-        final newVolume = normalized * 1.5; // Max +6dB
+        final pos = 1.0 - (localPos.dy / height).clamp(0.0, 1.0);
+        final newVolume = FaderCurve.positionToLinear(pos);
         widget.onVolumeChange?.call(channel.id, newVolume);
       },
       child: Container(
@@ -440,7 +441,7 @@ class _MiniMixerViewState extends State<MiniMixerView> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final height = constraints.maxHeight;
-            final faderPosition = (1.0 - (channel.volume / 1.5).clamp(0.0, 1.0)) * (height - 12);
+            final faderPosition = (1.0 - FaderCurve.linearToPosition(channel.volume)) * (height - 12);
 
             return Stack(
               children: [
@@ -496,15 +497,12 @@ class _MiniMixerViewState extends State<MiniMixerView> {
   }
 
   Widget _buildVolumeReadout(UltimateMixerChannel channel) {
-    final db = _volumeToDb(channel.volume);
-    final dbStr = db <= -60 ? '-∞' : db.toStringAsFixed(1);
-
     return Text(
-      dbStr,
+      FaderCurve.linearToDbString(channel.volume),
       style: TextStyle(
         fontSize: 8,
         fontFamily: FluxForgeTheme.monoFontFamily,
-        color: db > 0
+        color: channel.volume > 1.0
             ? FluxForgeTheme.accentOrange
             : FluxForgeTheme.textSecondary,
       ),
@@ -590,10 +588,6 @@ class _MiniMixerViewState extends State<MiniMixerView> {
     );
   }
 
-  double _volumeToDb(double linear) {
-    if (linear <= 0.001) return -60.0;
-    return 20.0 * math.log(linear) / math.ln10;
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

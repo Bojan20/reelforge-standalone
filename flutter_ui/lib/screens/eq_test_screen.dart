@@ -4,7 +4,7 @@
 
 import 'package:flutter/material.dart';
 import '../theme/fluxforge_theme.dart';
-import '../widgets/eq/pro_eq_editor.dart';
+import '../widgets/fabfilter/fabfilter.dart';
 import '../widgets/eq/pultec_eq.dart';
 import '../widgets/eq/api550_eq.dart';
 import '../widgets/eq/neve1073_eq.dart';
@@ -65,7 +65,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
           labelColor: FluxForgeTheme.accentBlue,
           unselectedLabelColor: FluxForgeTheme.textTertiary,
           tabs: const [
-            Tab(text: 'Pro EQ 64'),
+            Tab(text: 'FF-Q 64'),
             Tab(text: 'Pultec'),
             Tab(text: 'API 550'),
             Tab(text: 'Neve 1073'),
@@ -87,20 +87,9 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
   }
 
   Widget _buildProEqTab() {
-    // Fullscreen Pro-EQ with VanEQ Pro styling
     return Container(
-      color: FluxForgeTheme.bgVoid, // VanEQ Pro background
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return Center(
-            child: ProEqEditor(
-              trackId: 'master',
-              width: constraints.maxWidth - 32,
-              height: constraints.maxHeight - 16,
-            ),
-          );
-        },
-      ),
+      color: FluxForgeTheme.bgVoid,
+      child: const FabFilterEqPanel(trackId: 0),
     );
   }
 

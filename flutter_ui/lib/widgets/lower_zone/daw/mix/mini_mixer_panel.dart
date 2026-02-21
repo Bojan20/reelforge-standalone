@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../theme/fluxforge_theme.dart';
 import '../../../../providers/mixer_provider.dart';
+import '../../../../utils/audio_math.dart';
 
 /// Mini mixer strip width
 const double kMiniStripWidth = 40.0;
@@ -385,28 +386,7 @@ class _MiniChannelStrip extends StatelessWidget {
     );
   }
 
-  String _volumeToDb(double vol) {
-    if (vol <= 0.001) return '-∞';
-    final db = 20 * (vol > 0 ? (vol).clamp(0.001, 2.0) : 0.001);
-    final dbValue = 20 * _log10(vol);
-    return '${dbValue.toStringAsFixed(0)}';
-  }
-
-  double _log10(double x) => x > 0 ? _ln(x) / _ln(10) : -100;
-  double _ln(double x) => x > 0 ? _logNatural(x) : -100;
-  double _logNatural(double x) {
-    if (x <= 0) return -100;
-    // Natural log approximation
-    double result = 0;
-    double term = (x - 1) / (x + 1);
-    double termSquared = term * term;
-    double currentTerm = term;
-    for (int i = 1; i <= 20; i += 2) {
-      result += currentTerm / i;
-      currentTerm *= termSquared;
-    }
-    return 2 * result;
-  }
+  String _volumeToDb(double vol) => FaderCurve.linearToDbString(vol);
 }
 
 /// Mini peak meter
@@ -498,12 +478,14 @@ class _MiniFader extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final height = constraints.maxHeight;
-        final thumbPosition = height * (1 - value.clamp(0.0, 1.5) / 1.5);
+        final faderPos = FaderCurve.linearToPosition(value);
+        final thumbPosition = height * (1 - faderPos);
 
         return GestureDetector(
           onVerticalDragUpdate: (details) {
-            final newValue = 1.5 * (1 - (details.localPosition.dy / height));
-            onChanged(newValue.clamp(0.0, 1.5));
+            final pos = 1.0 - (details.localPosition.dy / height).clamp(0.0, 1.0);
+            final newValue = FaderCurve.positionToLinear(pos);
+            onChanged(newValue);
           },
           child: Container(
             decoration: BoxDecoration(

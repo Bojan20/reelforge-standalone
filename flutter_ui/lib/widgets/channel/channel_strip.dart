@@ -13,6 +13,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../models/layout_models.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../../utils/audio_math.dart';
 import '../metering/gpu_meter_widget.dart';
 
 // ============ Channel Strip Widget ============
@@ -410,51 +411,16 @@ class _VerticalFader extends StatelessWidget {
   });
 
   // ═══════════════════════════════════════════════════════════════════════
-  // Cubase-style logarithmic fader law for dB-domain fader
-  // Maps fader position (0.0 = bottom, 1.0 = top) ↔ dB value (min..max)
-  // Unity gain (0 dB) sits at ~75% of fader travel
+  // Unified Cubase-style fader law — delegates to FaderCurve (audio_math.dart)
   // ═══════════════════════════════════════════════════════════════════════
 
   /// Convert dB value to fader position (0.0–1.0)
-  static double dbToPosition(double db, double minDb, double maxDb) {
-    // Cubase-style segmented curve:
-    // -∞ to -60 dB → 0.0–0.05
-    // -60 to -20 dB → 0.05–0.25
-    // -20 to -6 dB → 0.25–0.55
-    // -6 to 0 dB → 0.55–0.75
-    // 0 to maxDb → 0.75–1.0
-    if (db <= minDb) return 0.0;
-    if (db >= maxDb) return 1.0;
-    if (db <= -60.0) {
-      return 0.05 * ((db - minDb) / (-60.0 - minDb)).clamp(0.0, 1.0);
-    } else if (db <= -20.0) {
-      return 0.05 + 0.20 * ((db + 60.0) / 40.0);
-    } else if (db <= -6.0) {
-      return 0.25 + 0.30 * ((db + 20.0) / 14.0);
-    } else if (db <= 0.0) {
-      return 0.55 + 0.20 * ((db + 6.0) / 6.0);
-    } else {
-      return 0.75 + 0.25 * (db / maxDb).clamp(0.0, 1.0);
-    }
-  }
+  static double dbToPosition(double db, double minDb, double maxDb) =>
+      FaderCurve.dbToPosition(db, minDb: minDb, maxDb: maxDb);
 
   /// Convert fader position (0.0–1.0) to dB value
-  static double positionToDb(double position, double minDb, double maxDb) {
-    final p = position.clamp(0.0, 1.0);
-    if (p <= 0.0) return minDb;
-    if (p >= 1.0) return maxDb;
-    if (p <= 0.05) {
-      return minDb + (p / 0.05) * (-60.0 - minDb);
-    } else if (p <= 0.25) {
-      return -60.0 + ((p - 0.05) / 0.20) * 40.0;
-    } else if (p <= 0.55) {
-      return -20.0 + ((p - 0.25) / 0.30) * 14.0;
-    } else if (p <= 0.75) {
-      return -6.0 + ((p - 0.55) / 0.20) * 6.0;
-    } else {
-      return ((p - 0.75) / 0.25) * maxDb;
-    }
-  }
+  static double positionToDb(double position, double minDb, double maxDb) =>
+      FaderCurve.positionToDb(position, minDb: minDb, maxDb: maxDb);
 
   // ignore: unused_element
   String get _displayValue {

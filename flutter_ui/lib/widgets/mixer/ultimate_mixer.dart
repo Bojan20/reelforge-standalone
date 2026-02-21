@@ -1618,6 +1618,52 @@ class _FaderWithMeter extends StatefulWidget {
 class _FaderWithMeterState extends State<_FaderWithMeter> {
   bool _isDragging = false;
   bool _fineMode = false;
+  bool _isEditingDb = false;
+  late TextEditingController _dbEditController;
+  late FocusNode _dbEditFocus;
+
+  @override
+  void initState() {
+    super.initState();
+    _dbEditController = TextEditingController();
+    _dbEditFocus = FocusNode();
+    _dbEditFocus.addListener(() {
+      if (!_dbEditFocus.hasFocus && _isEditingDb) {
+        _commitDbEdit();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _dbEditController.dispose();
+    _dbEditFocus.dispose();
+    super.dispose();
+  }
+
+  void _startDbEdit() {
+    final dbStr = _volumeToDb(widget.volume);
+    _dbEditController.text = dbStr == '-∞' ? '-80' : dbStr.replaceAll('+', '');
+    setState(() => _isEditingDb = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _dbEditFocus.requestFocus();
+      _dbEditController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _dbEditController.text.length,
+      );
+    });
+  }
+
+  void _commitDbEdit() {
+    if (!_isEditingDb) return;
+    final text = _dbEditController.text.trim();
+    final db = double.tryParse(text);
+    if (db != null && widget.onChanged != null) {
+      final linear = db <= -80 ? 0.0 : math.pow(10.0, db / 20.0).toDouble().clamp(0.0, 1.5);
+      widget.onChanged!(linear);
+    }
+    setState(() => _isEditingDb = false);
+  }
 
   // ═══════════════════════════════════════════════════════════════════════
   // Cubase-style logarithmic fader law
@@ -1761,23 +1807,47 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                     ),
                   ),
                 ),
-                // dB label
+                // dB label — double-click to edit
                 Positioned(
                   bottom: 0,
                   left: 0,
                   right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      _volumeToDb(widget.volume),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: _isDragging
-                            ? FluxForgeTheme.accentBlue
-                            : FluxForgeTheme.textSecondary,
-                        fontSize: 8,
-                        fontWeight: FontWeight.w500,
-                      ),
+                  child: GestureDetector(
+                    onDoubleTap: _startDbEdit,
+                    child: Container(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: _isEditingDb
+                          ? SizedBox(
+                              height: 14,
+                              child: TextField(
+                                controller: _dbEditController,
+                                focusNode: _dbEditFocus,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: FluxForgeTheme.accentBlue,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                decoration: const InputDecoration(
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  border: InputBorder.none,
+                                ),
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                                onSubmitted: (_) => _commitDbEdit(),
+                              ),
+                            )
+                          : Text(
+                              _volumeToDb(widget.volume),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: _isDragging
+                                    ? FluxForgeTheme.accentBlue
+                                    : FluxForgeTheme.textSecondary,
+                                fontSize: 8,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                     ),
                   ),
                 ),

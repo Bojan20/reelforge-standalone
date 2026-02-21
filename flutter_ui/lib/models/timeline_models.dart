@@ -404,9 +404,9 @@ String clipFxTypeName(ClipFxType type) {
     case ClipFxType.timeStretch:
       return 'Time Stretch';
     case ClipFxType.proEq:
-      return 'Pro EQ';
+      return 'FF-Q 64';
     case ClipFxType.ultraEq:
-      return 'Ultra EQ';
+      return 'FF-Q 64';
     case ClipFxType.pultec:
       return 'Pultec EQ';
     case ClipFxType.api550:

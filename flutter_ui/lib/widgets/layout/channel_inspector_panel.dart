@@ -15,6 +15,7 @@ import '../../theme/fluxforge_theme.dart';
 import '../../models/layout_models.dart';
 import '../../models/timeline_models.dart' as timeline;
 import '../../src/rust/native_ffi.dart';
+import '../../utils/audio_math.dart';
 
 class ChannelInspectorPanel extends StatefulWidget {
   // Channel data
@@ -1081,6 +1082,72 @@ class _FaderRowState extends State<_FaderRow> {
   // Track drag start position and value for smooth linear dragging
   double _dragStartX = 0;
   double _dragStartNorm = 0;
+  bool _isEditingValue = false;
+  late TextEditingController _editController;
+  late FocusNode _editFocus;
+
+  @override
+  void initState() {
+    super.initState();
+    _editController = TextEditingController();
+    _editFocus = FocusNode();
+    _editFocus.addListener(() {
+      if (!_editFocus.hasFocus && _isEditingValue) {
+        _commitEdit();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _editController.dispose();
+    _editFocus.dispose();
+    super.dispose();
+  }
+
+  void _startEdit() {
+    if (widget.onChanged == null) return;
+    // Strip units and formatting for raw numeric editing
+    final formatted = widget.formatValue(widget.value);
+    final raw = formatted
+        .replaceAll(' dB', '')
+        .replaceAll('dB', '')
+        .replaceAll('ms', '')
+        .replaceAll('+', '')
+        .replaceAll('-∞', '-80')
+        .trim();
+    _editController.text = raw;
+    setState(() => _isEditingValue = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _editFocus.requestFocus();
+      _editController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _editController.text.length,
+      );
+    });
+  }
+
+  void _commitEdit() {
+    if (!_isEditingValue) return;
+    final text = _editController.text.trim();
+    final parsed = double.tryParse(text);
+    if (parsed != null && widget.onChanged != null) {
+      final formatted = widget.formatValue(widget.value);
+      if (formatted.contains('dB')) {
+        // Input is dB — convert to linear: 10^(dB/20)
+        final db = parsed.clamp(-80.0, 20.0);
+        final linear = db <= -80 ? 0.0 : math.pow(10.0, db / 20.0).toDouble();
+        widget.onChanged!(linear.clamp(widget.min, widget.max));
+      } else if (formatted.contains('ms')) {
+        // Input is ms — pass directly
+        widget.onChanged!(parsed.clamp(widget.min, widget.max));
+      } else {
+        // Raw value
+        widget.onChanged!(parsed.clamp(widget.min, widget.max));
+      }
+    }
+    setState(() => _isEditingValue = false);
+  }
 
   // Check if this is a Volume fader
   bool get _isVolumeFader => widget.label == 'Volume';
@@ -1109,39 +1176,12 @@ class _FaderRowState extends State<_FaderRow> {
   }
 
   /// Cubase-style dB to fader position (0.0–1.0)
-  double _dbToPosition(double db) {
-    if (db <= widget.min) return 0.0;
-    if (db >= widget.max) return 1.0;
-    if (db <= -60.0) {
-      return 0.05 * ((db - widget.min) / (-60.0 - widget.min)).clamp(0.0, 1.0);
-    } else if (db <= -20.0) {
-      return 0.05 + 0.20 * ((db + 60.0) / 40.0);
-    } else if (db <= -6.0) {
-      return 0.25 + 0.30 * ((db + 20.0) / 14.0);
-    } else if (db <= 0.0) {
-      return 0.55 + 0.20 * ((db + 6.0) / 6.0);
-    } else {
-      return 0.75 + 0.25 * (db / widget.max).clamp(0.0, 1.0);
-    }
-  }
+  double _dbToPosition(double db) =>
+      FaderCurve.dbToPosition(db, minDb: widget.min, maxDb: widget.max);
 
   /// Cubase-style fader position (0.0–1.0) to dB
-  double _positionToDb(double position) {
-    final p = position.clamp(0.0, 1.0);
-    if (p <= 0.0) return widget.min;
-    if (p >= 1.0) return widget.max;
-    if (p <= 0.05) {
-      return widget.min + (p / 0.05) * (-60.0 - widget.min);
-    } else if (p <= 0.25) {
-      return -60.0 + ((p - 0.05) / 0.20) * 40.0;
-    } else if (p <= 0.55) {
-      return -20.0 + ((p - 0.25) / 0.30) * 14.0;
-    } else if (p <= 0.75) {
-      return -6.0 + ((p - 0.55) / 0.20) * 6.0;
-    } else {
-      return ((p - 0.75) / 0.25) * widget.max;
-    }
-  }
+  double _positionToDb(double position) =>
+      FaderCurve.positionToDb(position, minDb: widget.min, maxDb: widget.max);
 
   void _handleDragStart(DragStartDetails details, double width) {
     _dragStartX = details.localPosition.dx;
@@ -1235,16 +1275,43 @@ class _FaderRowState extends State<_FaderRow> {
           ),
         ),
         const SizedBox(width: 8),
-        SizedBox(
-          width: 44,
-          child: Text(
-            widget.formatValue(widget.value),
-            style: TextStyle(
-              fontSize: 10,
-              fontFamily: 'JetBrains Mono',
-              color: FluxForgeTheme.textSecondary,
-            ),
-            textAlign: TextAlign.right,
+        GestureDetector(
+          onDoubleTap: _startEdit,
+          child: SizedBox(
+            width: 52,
+            child: _isEditingValue
+                ? SizedBox(
+                    height: 16,
+                    child: TextField(
+                      controller: _editController,
+                      focusNode: _editFocus,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontFamily: 'JetBrains Mono',
+                        color: FluxForgeTheme.accentBlue,
+                      ),
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 2),
+                        border: OutlineInputBorder(),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: FluxForgeTheme.accentBlue, width: 1),
+                        ),
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                      onSubmitted: (_) => _commitEdit(),
+                    ),
+                  )
+                : Text(
+                    widget.formatValue(widget.value),
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontFamily: 'JetBrains Mono',
+                      color: FluxForgeTheme.textSecondary,
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
           ),
         ),
       ],

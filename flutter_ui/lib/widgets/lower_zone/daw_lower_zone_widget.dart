@@ -24,6 +24,7 @@ import '../../services/track_preset_service.dart';
 import '../../providers/dsp_chain_provider.dart';
 import '../../providers/timeline_playback_provider.dart' show TimelineClipData;
 import '../../utils/safe_file_picker.dart';
+import '../../utils/audio_math.dart';
 import '../../services/service_locator.dart';
 import '../../services/audio_asset_manager.dart';
 import '../../services/audio_playback_service.dart';
@@ -2203,11 +2204,7 @@ class _EditableClipPanelState extends State<_EditableClipPanel> {
   }
 
   // Convert gain (0-2) to dB (-inf to +6)
-  String _gainToDb(double gain) {
-    if (gain <= 0) return '-∞ dB';
-    final db = 20 * (math.log(gain) / math.ln10);
-    return '${db.toStringAsFixed(1)} dB';
-  }
+  String _gainToDb(double gain) => '${FaderCurve.linearToDbString(gain)} dB';
 
   // Format time (seconds) to display
   String _formatTime(double seconds) {

@@ -26,6 +26,7 @@ import '../../providers/middleware_provider.dart';
 import '../../services/stage_configuration_service.dart';
 import '../../services/audio_playback_service.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../../utils/audio_math.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -3158,12 +3159,7 @@ class _EventEditorPanelState extends State<EventEditorPanel>
     ValueChanged<double> onChanged,
   ) {
     // Convert linear gain to dB for display
-    String gainToDb(double g) {
-      if (g <= 0.001) return '-∞ dB';
-      final db = 20 * math.log(g) / math.ln10;
-      if (db >= 0) return '+${db.toStringAsFixed(1)} dB';
-      return '${db.toStringAsFixed(1)} dB';
-    }
+    String gainToDb(double g) => '${FaderCurve.linearToDbString(g)} dB';
 
     // Color based on gain value
     Color gainColor() {

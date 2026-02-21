@@ -287,6 +287,7 @@ class _MixerScreenState extends State<MixerScreen> {
         onMuteToggle: widget.onMuteToggle,
         onSoloToggle: widget.onSoloToggle,
         onSoloSafeToggle: widget.onSoloSafeToggle,
+        onInsertClick: widget.onInsertClick,
         onCommentsChanged: widget.onCommentsChanged,
         onEqCurveClick: widget.onEqCurveClick,
       ),

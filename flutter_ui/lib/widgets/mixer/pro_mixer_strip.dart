@@ -553,13 +553,13 @@ class _ProMixerStripState extends State<ProMixerStrip> {
 
   List<PopupMenuItem> _buildPluginMenuItems(int slotIndex) {
     final plugins = widget.availablePlugins ?? [
-      'RF-EQ 64',
-      'RF-COMP',
-      'RF-LIMIT',
-      'RF-GATE',
-      'RF-VERB',
-      'RF-DELAY',
-      'RF-SAT',
+      'FF-Q 64',
+      'FF-C',
+      'FF-L',
+      'FF-G',
+      'FF-R',
+      'FF-D',
+      'FF-SAT',
     ];
 
     return plugins.map((plugin) => PopupMenuItem(

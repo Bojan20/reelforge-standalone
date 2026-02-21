@@ -15,6 +15,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../theme/fluxforge_theme.dart';
+import '../../utils/audio_math.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CHANNEL TYPES
@@ -199,10 +200,8 @@ class ChannelStripData {
 
   double get faderDb {
     if (faderLevel <= 0) return double.negativeInfinity;
-    // Map 0-1 to -inf to +12dB
-    // 0.75 = 0dB
-    if (faderLevel < 0.01) return -60;
-    return (faderLevel / 0.75 - 1) * 60;
+    if (faderLevel < 0.001) return -80.0;
+    return 20.0 * math.log(faderLevel) / math.ln10;
   }
 
   ChannelStripData copyWith({
@@ -1050,16 +1049,12 @@ class _ChannelStripState extends State<ChannelStrip> {
   }
 
   double _dbToPosition(double db, double trackHeight) {
-    // Map dB to position (0dB at 75% fader)
-    // -inf at bottom, +12dB at top
-    final normalized = (db + 60) / 72; // -60 to +12 range
-    return trackHeight * (1 - normalized);
+    return trackHeight * (1.0 - FaderCurve.dbToPosition(db, minDb: -60.0, maxDb: 12.0));
   }
 
   String get _faderDbLabel {
     final db = widget.data.faderDb;
-    if (!db.isFinite || db < -59) return '-∞';
-    return '${db.toStringAsFixed(1)} dB';
+    return '${FaderCurve.dbToString(db)} dB';
   }
 
   Widget _buildButtons() {

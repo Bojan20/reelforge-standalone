@@ -207,25 +207,9 @@ class PluginRegistry {
   static const List<PluginInfo> builtIn = [
     // ═══ EQ ═══
     PluginInfo(
-      id: 'rf-pro-eq',
-      name: 'FF Pro EQ',
-      shortName: 'EQ',
-      category: PluginCategory.eq,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-    PluginInfo(
       id: 'rf-ultra-eq',
-      name: 'FF Ultra EQ',
-      shortName: 'Ultra EQ',
-      category: PluginCategory.eq,
-      vendor: 'FluxForge Studio',
-      version: '1.0',
-    ),
-    PluginInfo(
-      id: 'rf-linear-eq',
-      name: 'FF Linear Phase EQ',
-      shortName: 'Lin EQ',
+      name: 'FF-Q 64',
+      shortName: 'FF-Q',
       category: PluginCategory.eq,
       vendor: 'FluxForge Studio',
       version: '1.0',
@@ -321,6 +305,14 @@ class PluginRegistry {
       id: 'rf-saturation',
       name: 'FF Saturator',
       shortName: 'Saturn',
+      category: PluginCategory.saturation,
+      vendor: 'FluxForge Studio',
+      version: '1.0',
+    ),
+    PluginInfo(
+      id: 'rf-multiband-saturator',
+      name: 'FF Saturn 2',
+      shortName: 'Saturn 2',
       category: PluginCategory.saturation,
       vendor: 'FluxForge Studio',
       version: '1.0',
