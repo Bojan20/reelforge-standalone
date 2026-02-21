@@ -4,6 +4,7 @@
 /// Modes: Off, Read, Touch, Write, Latch, Touch/Latch, Trim
 /// NOTE: UI-only state in Phase 2 — FFI wiring in Phase 4.
 
+import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -59,6 +60,25 @@ enum AutomationMode {
     AutomationMode.trim => const Color(0xFF2D1A0D),
   };
 
+  /// Whether this mode writes automation data
+  bool get isWriteMode => switch (this) {
+    AutomationMode.write || AutomationMode.latch ||
+    AutomationMode.touch || AutomationMode.touchLatch ||
+    AutomationMode.trim => true,
+    _ => false,
+  };
+
+  /// Short description for tooltips
+  String get description => switch (this) {
+    AutomationMode.off => 'No automation playback or writing',
+    AutomationMode.read => 'Plays back existing automation',
+    AutomationMode.touch => 'Writes while touching, returns on release',
+    AutomationMode.write => 'Overwrites all automation data',
+    AutomationMode.latch => 'Writes from first touch, holds value',
+    AutomationMode.touchLatch => 'Touch to start, latches on release',
+    AutomationMode.trim => 'Offsets existing data by delta amount',
+  };
+
   static AutomationMode fromString(String s) => switch (s) {
     'off' => AutomationMode.off,
     'read' => AutomationMode.read,
@@ -76,16 +96,19 @@ enum AutomationMode {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Color-coded automation mode badge with popup selector.
+/// When in Trim mode, shows the current trim offset (delta dB).
 class AutomationModeBadge extends StatelessWidget {
   final AutomationMode mode;
   final ValueChanged<AutomationMode>? onModeChanged;
   final bool isNarrow; // 56px strip mode
+  final double trimDeltaDb; // Trim offset in dB (only shown in trim mode)
 
   const AutomationModeBadge({
     super.key,
     required this.mode,
     this.onModeChanged,
     this.isNarrow = false,
+    this.trimDeltaDb = 0.0,
   });
 
   @override
@@ -149,15 +172,25 @@ class AutomationModeBadge extends StatelessWidget {
             ),
           ),
           child: Center(
-            child: Text(
-              isNarrow ? mode.label.substring(0, (mode.label.length).clamp(0, 2)) : mode.label,
-              style: TextStyle(
-                color: mode.color,
-                fontSize: isNarrow ? 7 : 8,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.3,
-              ),
-            ),
+            child: mode == AutomationMode.trim && !isNarrow && trimDeltaDb != 0.0
+                ? Text(
+                    '${trimDeltaDb >= 0 ? '+' : ''}${trimDeltaDb.toStringAsFixed(1)}',
+                    style: TextStyle(
+                      color: mode.color,
+                      fontSize: 7,
+                      fontWeight: FontWeight.w700,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  )
+                : Text(
+                    isNarrow ? mode.label.substring(0, (mode.label.length).clamp(0, 2)) : mode.label,
+                    style: TextStyle(
+                      color: mode.color,
+                      fontSize: isNarrow ? 7 : 8,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
           ),
         ),
       ),

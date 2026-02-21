@@ -1673,6 +1673,67 @@ class MixerProvider extends ChangeNotifier {
     setVcaLevel(id, level);
   }
 
+  /// Toggle solo safe WITH undo recording (Phase 4 §4.2)
+  void toggleSoloSafeWithUndo(String id) {
+    final channel = _channels[id] ?? _buses[id];
+    if (channel == null) return;
+
+    _undoManager.record(SoloSafeToggleAction(
+      channelId: id,
+      channelName: channel.name,
+      wasSoloSafe: channel.soloSafe,
+      applySoloSafe: (cId, val) {
+        final ch = _channels[cId] ?? _buses[cId];
+        if (ch != null) {
+          ch.soloSafe = val;
+          notifyListeners();
+        }
+      },
+    ));
+
+    toggleSoloSafe(id);
+  }
+
+  /// Set channel comments WITH undo recording (Phase 4 §15.1)
+  void setChannelCommentsWithUndo(String id, String comments) {
+    final channel = _channels[id] ?? _buses[id];
+    if (channel == null) return;
+
+    final oldComments = channel.comments;
+    if (oldComments == comments) return;
+
+    _undoManager.record(CommentsChangeAction(
+      channelId: id,
+      channelName: channel.name,
+      oldComments: oldComments,
+      newComments: comments,
+      applyComments: (cId, val) => setChannelComments(cId, val),
+    ));
+
+    setChannelComments(id, comments);
+  }
+
+  /// Toggle folder expand/collapse WITH undo recording (Phase 4 §18)
+  void toggleFolderExpandedWithUndo(String id) {
+    final channel = _channels[id];
+    if (channel == null || !channel.isFolder) return;
+
+    _undoManager.record(FolderToggleAction(
+      channelId: id,
+      channelName: channel.name,
+      wasExpanded: channel.folderExpanded,
+      applyFolder: (cId, val) {
+        final ch = _channels[cId];
+        if (ch != null) {
+          ch.folderExpanded = val;
+          notifyListeners();
+        }
+      },
+    ));
+
+    toggleFolderExpanded(id);
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // CHANNEL CONTROLS
   // ═══════════════════════════════════════════════════════════════════════════

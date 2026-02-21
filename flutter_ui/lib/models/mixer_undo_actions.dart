@@ -372,3 +372,90 @@ class InputGainChangeAction extends MixerUndoAction {
   @override
   void undo() => applyGain(channelId, oldGain);
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SOLO SAFE TOGGLE ACTION (Phase 4 §4.2)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Undo action for solo safe toggles
+class SoloSafeToggleAction extends MixerUndoAction {
+  final bool wasSoloSafe;
+  final void Function(String channelId, bool soloSafe) applySoloSafe;
+
+  SoloSafeToggleAction({
+    required super.channelId,
+    required super.channelName,
+    required this.wasSoloSafe,
+    required this.applySoloSafe,
+  });
+
+  @override
+  String get description =>
+      'Solo Safe: $channelName ${wasSoloSafe ? 'ON → OFF' : 'OFF → ON'}';
+
+  @override
+  void execute() => applySoloSafe(channelId, !wasSoloSafe);
+
+  @override
+  void undo() => applySoloSafe(channelId, wasSoloSafe);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COMMENTS CHANGE ACTION (Phase 4 §15.1)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Undo action for per-channel comments changes
+class CommentsChangeAction extends MixerUndoAction {
+  final String oldComments;
+  final String newComments;
+  final void Function(String channelId, String comments) applyComments;
+
+  CommentsChangeAction({
+    required super.channelId,
+    required super.channelName,
+    required this.oldComments,
+    required this.newComments,
+    required this.applyComments,
+  });
+
+  @override
+  String get description {
+    final preview = newComments.length > 20
+        ? '${newComments.substring(0, 20)}…'
+        : newComments;
+    return 'Comments: $channelName → "$preview"';
+  }
+
+  @override
+  void execute() => applyComments(channelId, newComments);
+
+  @override
+  void undo() => applyComments(channelId, oldComments);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FOLDER TOGGLE ACTION (Phase 4 §18)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Undo action for folder track expand/collapse toggles
+class FolderToggleAction extends MixerUndoAction {
+  final bool wasExpanded;
+  final void Function(String channelId, bool expanded) applyFolder;
+
+  FolderToggleAction({
+    required super.channelId,
+    required super.channelName,
+    required this.wasExpanded,
+    required this.applyFolder,
+  });
+
+  @override
+  String get description =>
+      'Folder: $channelName ${wasExpanded ? 'Collapse' : 'Expand'}';
+
+  @override
+  void execute() => applyFolder(channelId, !wasExpanded);
+
+  @override
+  void undo() => applyFolder(channelId, wasExpanded);
+}

@@ -257,6 +257,8 @@ class UltimateMixer extends StatefulWidget {
   final void Function(String channelId, String comments)? onCommentsChanged;
   final void Function(String channelId)? onFolderToggle; // Expand/collapse folder
   final void Function(String channelId)? onEqCurveClick; // Open EQ editor
+  final void Function(String channelId, int sendIndex)? onSendDoubleClick; // Open floating send window
+  final void Function(String channelId, Offset position)? onContextMenu; // Right-click context menu
   final VoidCallback? onAddBus;
   /// Called when channel is reordered via drag-drop
   /// Syncs bidirectionally with timeline track order
@@ -275,6 +277,12 @@ class UltimateMixer extends StatefulWidget {
   final void Function(MixerMeteringMode mode)? onMeteringModeChange;
   /// Strip width toggle callback
   final VoidCallback? onStripWidthToggle;
+  /// Keyboard shortcut: Solo selected channel
+  final VoidCallback? onSoloSelectedShortcut;
+  /// Keyboard shortcut: Mute selected channel
+  final VoidCallback? onMuteSelectedShortcut;
+  /// Keyboard shortcut: Narrow all strips toggle
+  final VoidCallback? onNarrowAllShortcut;
   /// Total counts for collapsed sections (shown even when section is empty)
   final int totalTracks;
   final int totalBuses;
@@ -317,6 +325,8 @@ class UltimateMixer extends StatefulWidget {
     this.onCommentsChanged,
     this.onFolderToggle,
     this.onEqCurveClick,
+    this.onSendDoubleClick,
+    this.onContextMenu,
     this.onAddBus,
     this.onChannelReorder,
     this.onSectionToggle,
@@ -325,6 +335,9 @@ class UltimateMixer extends StatefulWidget {
     this.meteringMode = MixerMeteringMode.peak,
     this.onMeteringModeChange,
     this.onStripWidthToggle,
+    this.onSoloSelectedShortcut,
+    this.onMuteSelectedShortcut,
+    this.onNarrowAllShortcut,
   }) : visibleStripSections = visibleStripSections ?? MixerStripSection.defaultVisibleSet;
 
   @override
@@ -445,6 +458,8 @@ class _UltimateMixerState extends State<UltimateMixer> {
                           onCommentsChanged: (c) => widget.onCommentsChanged?.call(ch.id, c),
                           onFolderToggle: () => widget.onFolderToggle?.call(ch.id),
                           onEqCurveClick: () => widget.onEqCurveClick?.call(ch.id),
+                          onSendDoubleClick: (idx) => widget.onSendDoubleClick?.call(ch.id, idx),
+                          onContextMenu: (pos) => widget.onContextMenu?.call(ch.id, pos),
                         ),
                       );
                     }),
@@ -487,6 +502,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         onOutputChange: (out) => widget.onOutputChange?.call(aux.id, out),
                         onCommentsChanged: (c) => widget.onCommentsChanged?.call(aux.id, c),
                         onEqCurveClick: () => widget.onEqCurveClick?.call(aux.id),
+                        onContextMenu: (pos) => widget.onContextMenu?.call(aux.id, pos),
                       ),
                     )),
                     const _SectionDivider(),
@@ -528,6 +544,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         onOutputChange: (out) => widget.onOutputChange?.call(bus.id, out),
                         onCommentsChanged: (c) => widget.onCommentsChanged?.call(bus.id, c),
                         onEqCurveClick: () => widget.onEqCurveClick?.call(bus.id),
+                        onContextMenu: (pos) => widget.onContextMenu?.call(bus.id, pos),
                       ),
                     )),
                     const _SectionDivider(),
@@ -587,7 +604,23 @@ class _UltimateMixerState extends State<UltimateMixer> {
       ),
     );
 
-    return mixerContent;
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        // Cmd+S / Ctrl+S — Solo selected channel
+        const SingleActivator(LogicalKeyboardKey.keyS, meta: true):
+            () => widget.onSoloSelectedShortcut?.call(),
+        // Cmd+M / Ctrl+M — Mute selected channel
+        const SingleActivator(LogicalKeyboardKey.keyM, meta: true):
+            () => widget.onMuteSelectedShortcut?.call(),
+        // Cmd+Shift+N — Narrow all strips
+        const SingleActivator(LogicalKeyboardKey.keyN, meta: true, shift: true):
+            () => widget.onNarrowAllShortcut?.call(),
+      },
+      child: Focus(
+        autofocus: false,
+        child: mixerContent,
+      ),
+    );
   }
 
   /// Show View > Mix Window Views popup
@@ -771,6 +804,8 @@ class _UltimateChannelStrip extends StatefulWidget {
   final ValueChanged<String>? onCommentsChanged;
   final VoidCallback? onFolderToggle;
   final VoidCallback? onEqCurveClick;
+  final void Function(int sendIndex)? onSendDoubleClick; // Open floating send window
+  final void Function(Offset position)? onContextMenu; // Right-click context menu
 
   _UltimateChannelStrip({
     super.key,
@@ -802,6 +837,8 @@ class _UltimateChannelStrip extends StatefulWidget {
     this.onCommentsChanged,
     this.onFolderToggle,
     this.onEqCurveClick,
+    this.onSendDoubleClick,
+    this.onContextMenu,
   }) : visibleStripSections = visibleStripSections ?? MixerStripSection.defaultVisibleSet;
 
   @override
@@ -837,7 +874,11 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
     final ch = widget.channel;
     final isDimmed = widget.hasSoloActive && !ch.soloed && !ch.isMaster;
 
-    return MouseRegion(
+    return GestureDetector(
+      onSecondaryTapDown: (details) {
+        widget.onContextMenu?.call(details.globalPosition);
+      },
+      child: MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedOpacity(
@@ -933,6 +974,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
             ),
           ),
         ),
+      ),
     );
   }
 
@@ -1157,14 +1199,17 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
           final send = idx < widget.channel.sends.length
               ? widget.channel.sends[idx]
               : SendData(index: idx);
-          return SendSlotWidget(
-            send: send,
-            isNarrow: widget.compact,
-            slotLabel: idx < labels.length ? labels[idx] : '${idx + 1}',
-            onLevelChanged: (lvl) => widget.onSendLevelChange?.call(idx, lvl),
-            onMuteToggle: () => widget.onSendMuteToggle?.call(idx, !send.muted),
-            onPrePostToggle: () => widget.onSendPreFaderToggle?.call(idx, !send.preFader),
-            onDestinationChanged: (dest) => widget.onSendDestChange?.call(idx, dest),
+          return GestureDetector(
+            onDoubleTap: () => widget.onSendDoubleClick?.call(idx),
+            child: SendSlotWidget(
+              send: send,
+              isNarrow: widget.compact,
+              slotLabel: idx < labels.length ? labels[idx] : '${idx + 1}',
+              onLevelChanged: (lvl) => widget.onSendLevelChange?.call(idx, lvl),
+              onMuteToggle: () => widget.onSendMuteToggle?.call(idx, !send.muted),
+              onPrePostToggle: () => widget.onSendPreFaderToggle?.call(idx, !send.preFader),
+              onDestinationChanged: (dest) => widget.onSendDestChange?.call(idx, dest),
+            ),
           );
         }),
       ),
