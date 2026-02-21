@@ -65,6 +65,10 @@ class ClipWidget extends StatefulWidget {
   final VoidCallback? onDuplicate;
   final VoidCallback? onSplit;
   final VoidCallback? onMute;
+  /// Called when loop handle is toggled (Logic Pro X style)
+  final VoidCallback? onLoopToggle;
+  /// Called when split at specific position (Cubase Alt+click)
+  final ValueChanged<double>? onSplitAtPosition;
   /// Called when clip is moved in Shuffle mode — clips should push neighbors
   final ValueChanged<double>? onShuffleMove;
   final ValueChanged<double>? onPlayheadMove;
@@ -98,6 +102,8 @@ class ClipWidget extends StatefulWidget {
     this.onDuplicate,
     this.onSplit,
     this.onMute,
+    this.onLoopToggle,
+    this.onSplitAtPosition,
     this.onShuffleMove,
     this.onPlayheadMove,
     this.snapEnabled = false,
@@ -118,6 +124,7 @@ class _ClipWidgetState extends State<ClipWidget> {
   bool _isDraggingRightEdge = false;
   bool _isDraggingMove = false;
   bool _isSlipEditing = false;
+  bool _isDraggingVolumeHandle = false; // Cubase volume handle (top-center)
   bool _isEditing = false;
 
   // Smart Tool — last hit test result for cursor + drag routing
@@ -343,8 +350,16 @@ class _ClipWidgetState extends State<ClipWidget> {
     final x = (clip.startTime - widget.scrollOffset) * widget.zoom;
     final width = clip.duration * widget.zoom;
 
+    // Safety: if gain handle won't render (width <= 60) but drag is active, force reset
+    if (_isDraggingGain && width <= 60) {
+      _isDraggingGain = false;
+    }
+
     // Skip if not visible
-    if (x + width < 0 || x > 2000) return const SizedBox.shrink();
+    if (x + width < 0 || x > 2000) {
+      if (_isDraggingGain) _isDraggingGain = false;
+      return const SizedBox.shrink();
+    }
 
     final clipHeight = widget.trackHeight - 4;
     // Use clip's color (synced with track color) or fallback to default track blue
@@ -361,6 +376,9 @@ class _ClipWidgetState extends State<ClipWidget> {
       top: 2,
       width: clampedWidth,
       height: clipHeight,
+      // Dim original clip during move drag (ghost shows the preview)
+      child: Opacity(
+        opacity: _isDraggingMove ? 0.35 : 1.0,
       // Smart Tool — dynamic cursor based on hover position
       child: Consumer<SmartToolProvider>(
         builder: (context, smartTool, child) {
@@ -478,8 +496,8 @@ class _ClipWidgetState extends State<ClipWidget> {
             // IGNORE if clip is locked
             if (clip.locked) return;
 
-            // IGNORE if fade handle is being dragged
-            if (_isDraggingFadeIn || _isDraggingFadeOut || fadeHandleActiveGlobal) {
+            // IGNORE if fade handle or gain handle is being dragged
+            if (_isDraggingFadeIn || _isDraggingFadeOut || fadeHandleActiveGlobal || _isDraggingGain) {
               return;
             }
 
@@ -497,9 +515,35 @@ class _ClipWidgetState extends State<ClipWidget> {
             // Smart Tool routing — when enabled, use hit test to determine operation
             if (smartEnabled && _smartToolHitResult != null) {
               final mode = _smartToolHitResult!.mode;
+
+              // Modifier-based overrides (Cubase + Pro Tools)
+              final isAlt = HardwareKeyboard.instance.isAltPressed;
+              final isShift = HardwareKeyboard.instance.isShiftPressed;
+
+              // Alt+click in Move zone = Split at cursor (Cubase)
+              if (mode == SmartToolMode.select && isAlt && !isShift) {
+                if (!clip.locked) {
+                  final clickTime = clip.startTime + details.localPosition.dx / widget.zoom;
+                  if (widget.onSplitAtPosition != null) {
+                    widget.onSplitAtPosition!(clickTime);
+                  } else {
+                    widget.onPlayheadMove?.call(clickTime);
+                    widget.onSplit?.call();
+                  }
+                }
+                return;
+              }
+
+              // Alt+Shift in Move zone = Slip content (Cubase)
+              if (mode == SmartToolMode.select && isAlt && isShift) {
+                _dragStartSourceOffset = clip.sourceOffset;
+                _dragStartMouseX = details.globalPosition.dx;
+                setState(() => _isSlipEditing = true);
+                return;
+              }
+
               switch (mode) {
                 case SmartToolMode.trimLeft:
-                  // Start left edge trim
                   _dragStartTime = clip.startTime;
                   _dragStartDuration = clip.duration;
                   _dragStartSourceOffset = clip.sourceOffset;
@@ -507,20 +551,43 @@ class _ClipWidgetState extends State<ClipWidget> {
                   setState(() => _isDraggingLeftEdge = true);
                   return;
                 case SmartToolMode.trimRight:
-                  // Start right edge trim
                   _dragStartDuration = clip.duration;
                   _dragStartMouseX = details.globalPosition.dx;
                   setState(() => _isDraggingRightEdge = true);
                   return;
                 case SmartToolMode.fadeIn:
-                  // Start fade in drag
                   setState(() => _isDraggingFadeIn = true);
                   fadeHandleActiveGlobal = true;
                   return;
                 case SmartToolMode.fadeOut:
-                  // Start fade out drag
                   setState(() => _isDraggingFadeOut = true);
                   fadeHandleActiveGlobal = true;
+                  return;
+                case SmartToolMode.volumeHandle:
+                  // Volume handle — vertical drag for clip gain (Cubase)
+                  _dragStartMouseY = details.globalPosition.dy;
+                  setState(() => _isDraggingVolumeHandle = true);
+                  return;
+                case SmartToolMode.loopHandle:
+                  // Loop handle click — toggle loop (Logic Pro X)
+                  widget.onLoopToggle?.call();
+                  return;
+                case SmartToolMode.rangeSelectBody:
+                  // Range select in upper body — fall through to range logic
+                  // Ctrl+click = Scrub (Pro Tools)
+                  if (HardwareKeyboard.instance.isControlPressed ||
+                      HardwareKeyboard.instance.isMetaPressed) {
+                    // Scrub at click position
+                    final clickTime = widget.scrollOffset + details.localPosition.dx / widget.zoom + clip.startTime;
+                    widget.onPlayheadMove?.call(clickTime);
+                    return;
+                  }
+                  // Otherwise start range selection in clip
+                  break;
+                case SmartToolMode.slipContent:
+                  _dragStartSourceOffset = clip.sourceOffset;
+                  _dragStartMouseX = details.globalPosition.dx;
+                  setState(() => _isSlipEditing = true);
                   return;
                 case SmartToolMode.select:
                   // Move mode — fall through to normal move logic below
@@ -629,6 +696,23 @@ class _ClipWidgetState extends State<ClipWidget> {
             return;
           }
 
+          // Volume handle drag — Cubase-style vertical gain adjustment
+          if (_isDraggingVolumeHandle && smartEnabled) {
+            final deltaY = details.globalPosition.dy - _dragStartMouseY;
+            // Upward = boost, downward = cut — 200px for full range (-inf to +6dB)
+            // Sensitivity: ~0.15dB per pixel
+            final gainDelta = -deltaY / 200.0 * 2.0; // ±2.0 gain range over 200px
+            final newGain = (clip.gain + gainDelta).clamp(0.0, 4.0);
+            _dragStartMouseY = details.globalPosition.dy; // Incremental
+            widget.onGainChange?.call(newGain);
+            return;
+          }
+
+          // Gain handle drag — direct gain adjustment from label widget
+          if (_isDraggingGain) {
+            return; // Handled by Listener on gain handle widget
+          }
+
           // IGNORE if fade handle is being dragged (non-smart-tool path)
           if (_isDraggingFadeIn || _isDraggingFadeOut || fadeHandleActiveGlobal) {
             return;
@@ -723,6 +807,8 @@ class _ClipWidgetState extends State<ClipWidget> {
             _isDraggingRightEdge = false;
             _isDraggingFadeIn = false;
             _isDraggingFadeOut = false;
+            _isDraggingVolumeHandle = false;
+            _isDraggingGain = false;
           });
         },
         onPanCancel: () {
@@ -741,6 +827,8 @@ class _ClipWidgetState extends State<ClipWidget> {
             _isDraggingRightEdge = false;
             _isDraggingFadeIn = false;
             _isDraggingFadeOut = false;
+            _isDraggingVolumeHandle = false;
+            _isDraggingGain = false;
           });
         },
         child: Container(
@@ -804,50 +892,56 @@ class _ClipWidgetState extends State<ClipWidget> {
                         ),
                 ),
 
-              // Gain handle
+              // Gain handle — uses Listener to bypass gesture arena (parent pan can't steal it)
               if (width > 60)
                 Positioned(
                   top: 2,
                   left: (width - 40) / 2,
-                  child: GestureDetector(
-                    onVerticalDragStart: (_) {
-                      // IGNORE if clip is locked
+                  child: Listener(
+                    behavior: HitTestBehavior.opaque,
+                    onPointerDown: (event) {
                       if (clip.locked) return;
                       setState(() => _isDraggingGain = true);
+                      _dragStartMouseY = event.position.dy;
                     },
-                    onVerticalDragUpdate: (details) {
-                      // IGNORE if clip is locked
-                      if (clip.locked) return;
-                      // Up = louder, down = quieter
-                      final delta = -details.delta.dy / 50;
-                      final newGain = (widget.clip.gain + delta).clamp(0.0, 2.0);
+                    onPointerMove: (event) {
+                      if (!_isDraggingGain || clip.locked) return;
+                      final deltaY = event.position.dy - _dragStartMouseY;
+                      // Sensitivity: ~0.15dB per pixel, range 0.0-4.0
+                      final gainDelta = -deltaY / 200.0 * 2.0;
+                      final newGain = (widget.clip.gain + gainDelta).clamp(0.0, 4.0);
+                      _dragStartMouseY = event.position.dy;
                       widget.onGainChange?.call(newGain);
                     },
-                    onVerticalDragEnd: (_) {
+                    onPointerUp: (event) {
                       setState(() => _isDraggingGain = false);
                     },
-                    onDoubleTap: () {
-                      // IGNORE if clip is locked
-                      if (clip.locked) return;
-                      widget.onGainChange?.call(1); // Reset
+                    onPointerCancel: (event) {
+                      setState(() => _isDraggingGain = false);
                     },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _isDraggingGain
-                            ? FluxForgeTheme.accentBlue
-                            : FluxForgeTheme.bgVoid.withValues(alpha: 0.7),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                      child: Text(
-                        _gainDisplay,
-                        style: TextStyle(
-                          fontSize: 9,
-                          color: FluxForgeTheme.textPrimary,
-                          fontFamily: 'JetBrains Mono',
+                    child: GestureDetector(
+                      onDoubleTap: () {
+                        if (clip.locked) return;
+                        widget.onGainChange?.call(1.0); // Reset to 0dB
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _isDraggingGain
+                              ? FluxForgeTheme.accentBlue
+                              : FluxForgeTheme.bgVoid.withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                        child: Text(
+                          _gainDisplay,
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: FluxForgeTheme.textPrimary,
+                            fontFamily: 'JetBrains Mono',
+                          ),
                         ),
                       ),
                     ),
@@ -891,6 +985,30 @@ class _ClipWidgetState extends State<ClipWidget> {
                       gain: clip.gain,
                       clipColor: clipColor,
                     ),
+                  ),
+                ),
+
+              // Smart Tool: Volume handle indicator (Cubase-style, top-center)
+              // Small diamond marker visible when smart tool is enabled and clip is wide enough
+              if (!clip.locked && width > 60 && smartEnabled)
+                Positioned(
+                  left: width / 2 - 5,
+                  top: 0,
+                  child: _VolumeHandleIndicator(
+                    isActive: _isDraggingVolumeHandle,
+                    gain: clip.gain,
+                  ),
+                ),
+
+              // Smart Tool: Loop handle indicator (Logic Pro X style, bottom-right)
+              if (!clip.locked && width > 80 && smartEnabled && clip.loopEnabled)
+                Positioned(
+                  right: 8,
+                  bottom: 2,
+                  child: Icon(
+                    Icons.loop,
+                    size: 12,
+                    color: Colors.cyan.withValues(alpha: 0.7),
                   ),
                 ),
 
@@ -1153,6 +1271,7 @@ class _ClipWidgetState extends State<ClipWidget> {
       ); // Close MouseRegion
         }, // Close Consumer builder
       ), // Close Consumer
+      ), // Close Opacity
     );
   }
 }
@@ -1323,12 +1442,14 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
 
     // Cached stereo path - GPU scales fixed-resolution waveform
     if (_cachedStereoData != null && !_cachedStereoData!.isEmpty) {
-      // For stereo (2 channels) AND tall track (> 80px), show split L/R display
-      // Otherwise show combined mono-style waveform (Pro Tools behavior)
-      final showStereoSplit = widget.channels >= 2 && widget.trackHeight > 80;
+      // For stereo (2 channels) AND tall track (> 60px), show split L/R display
+      // Logic Pro style: default track height (80px) shows stereo split
+      // Below 60px: combined mono-style waveform (Pro Tools compact behavior)
+      final showStereoSplit = widget.channels >= 2 && widget.trackHeight > 60;
 
       if (showStereoSplit) {
         return RepaintBoundary(
+          key: const ValueKey('stereo_split'),
           child: ClipRect(
             child: Transform.scale(
               scaleY: widget.gain,
@@ -1352,6 +1473,7 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
       // Default: Combined L+R display (pre-computed, zero allocation)
       if (_combinedMins != null) {
         return RepaintBoundary(
+          key: const ValueKey('combined_mono'),
           child: ClipRect(
             child: Transform.scale(
               scaleY: widget.gain,
@@ -1552,6 +1674,11 @@ class _StereoWaveformPainter extends CustomPainter {
   late final Paint _peakStrokePaint;
   late final Paint _centerLinePaint;
   late final Paint _separatorPaint;
+  late final Paint _labelBgPaint;
+
+  // Pre-built TextPainters for L/R labels (zero allocation in paint())
+  late final TextPainter _leftLabelPainter;
+  late final TextPainter _rightLabelPainter;
 
   _StereoWaveformPainter({
     required this.leftMins,
@@ -1584,8 +1711,38 @@ class _StereoWaveformPainter extends CustomPainter {
       ..strokeWidth = 0.5;
 
     _separatorPaint = Paint()
-      ..color = color.withValues(alpha: 0.15)
-      ..strokeWidth = 0.5;
+      ..color = color.withValues(alpha: 0.3)
+      ..strokeWidth = 1.0;
+
+    _labelBgPaint = Paint()
+      ..color = const Color(0x40000000);
+
+    // Pre-build L/R label painters
+    _leftLabelPainter = TextPainter(
+      text: TextSpan(
+        text: 'L',
+        style: TextStyle(
+          color: color.withValues(alpha: 0.5),
+          fontSize: 8,
+          fontFamily: 'JetBrains Mono',
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    _rightLabelPainter = TextPainter(
+      text: TextSpan(
+        text: 'R',
+        style: TextStyle(
+          color: color.withValues(alpha: 0.5),
+          fontSize: 8,
+          fontFamily: 'JetBrains Mono',
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
   }
 
   @override
@@ -1600,6 +1757,7 @@ class _StereoWaveformPainter extends CustomPainter {
 
     final leftCenterY = size.height * 0.25;
     final rightCenterY = size.height * 0.75;
+    final midY = size.height / 2;
 
     // Draw LEFT channel (top half)
     if (_leftRmsPath != null) canvas.drawPath(_leftRmsPath!, _rmsFillPaint);
@@ -1607,14 +1765,42 @@ class _StereoWaveformPainter extends CustomPainter {
     canvas.drawPath(_leftWavePath!, _peakStrokePaint);
     canvas.drawLine(Offset(0, leftCenterY), Offset(size.width, leftCenterY), _centerLinePaint);
 
+    // Separator line between L/R — dashed style via short segments
+    for (double x = 0; x < size.width; x += 6) {
+      canvas.drawLine(Offset(x, midY), Offset(x + 3, midY), _separatorPaint);
+    }
+
     // Draw RIGHT channel (bottom half)
     if (_rightRmsPath != null) canvas.drawPath(_rightRmsPath!, _rmsFillPaint);
     canvas.drawPath(_rightWavePath!, _peakFillPaint);
     canvas.drawPath(_rightWavePath!, _peakStrokePaint);
     canvas.drawLine(Offset(0, rightCenterY), Offset(size.width, rightCenterY), _centerLinePaint);
 
-    // Separator line between L/R
-    canvas.drawLine(Offset(0, size.height / 2), Offset(size.width, size.height / 2), _separatorPaint);
+    // L/R channel labels (Logic Pro style — small labels at left edge)
+    if (size.height > 50) {
+      // L label — top channel
+      final lX = 2.0;
+      final lY = leftCenterY - _leftLabelPainter.height / 2;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(lX - 1, lY - 1, _leftLabelPainter.width + 2, _leftLabelPainter.height + 2),
+          const Radius.circular(1),
+        ),
+        _labelBgPaint,
+      );
+      _leftLabelPainter.paint(canvas, Offset(lX, lY));
+
+      // R label — bottom channel
+      final rY = rightCenterY - _rightLabelPainter.height / 2;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(lX - 1, rY - 1, _rightLabelPainter.width + 2, _rightLabelPainter.height + 2),
+          const Radius.circular(1),
+        ),
+        _labelBgPaint,
+      );
+      _rightLabelPainter.paint(canvas, Offset(lX, rY));
+    }
   }
 
   /// Build and cache all 4 Path objects — called only when size changes
@@ -2617,4 +2803,61 @@ class _EdgeHandleState extends State<_EdgeHandle> {
       ),
     );
   }
+}
+
+// ============ Volume Handle Indicator (Cubase-style) ============
+
+/// Small diamond indicator at top-center of clip for gain adjustment.
+/// Cubase shows a diamond that can be dragged vertically to change clip gain.
+class _VolumeHandleIndicator extends StatelessWidget {
+  final bool isActive;
+  final double gain;
+
+  const _VolumeHandleIndicator({
+    required this.isActive,
+    required this.gain,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isActive
+        ? FluxForgeTheme.accentOrange
+        : FluxForgeTheme.textSecondary.withValues(alpha: 0.5);
+
+    return SizedBox(
+      width: 10,
+      height: 10,
+      child: CustomPaint(
+        painter: _DiamondPainter(color: color, isActive: isActive),
+      ),
+    );
+  }
+}
+
+class _DiamondPainter extends CustomPainter {
+  final Color color;
+  final bool isActive;
+
+  _DiamondPainter({required this.color, required this.isActive});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = isActive ? PaintingStyle.fill : PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    final path = Path()
+      ..moveTo(size.width / 2, 0)
+      ..lineTo(size.width, size.height / 2)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(0, size.height / 2)
+      ..close();
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_DiamondPainter oldDelegate) =>
+      color != oldDelegate.color || isActive != oldDelegate.isActive;
 }

@@ -107,6 +107,10 @@ class Timeline extends StatefulWidget {
   final ValueChanged<String>? onClipDelete;
   /// Toggle clip mute (from Mute tool)
   final ValueChanged<String>? onClipMute;
+  /// Loop toggle on clip (Logic Pro X style)
+  final void Function(String clipId)? onClipLoopToggle;
+  /// Split clip at precise position (Cubase Alt+click)
+  final void Function(String clipId, double position)? onClipSplitAtPosition;
   /// Shuffle mode: move clip and push adjacent clips
   final void Function(String clipId, double newStartTime)? onClipShuffleMove;
   final ValueChanged<String>? onClipCopy;
@@ -117,6 +121,11 @@ class Timeline extends StatefulWidget {
   final List<StageMarker> stageMarkers;
   /// Called when user clicks a stage marker
   final ValueChanged<StageMarker>? onStageMarkerClick;
+
+  /// Called when user double-clicks ruler to edit BPM
+  final ValueChanged<double>? onTempoChange;
+  /// Called when user double-clicks ruler to edit time signature
+  final void Function(int numerator, int denominator)? onTimeSignatureChange;
 
   /// Transport controls
   final VoidCallback? onPlayPause;
@@ -267,12 +276,16 @@ class Timeline extends StatefulWidget {
     this.onClipDuplicate,
     this.onClipDelete,
     this.onClipMute,
+    this.onClipLoopToggle,
+    this.onClipSplitAtPosition,
     this.onClipShuffleMove,
     this.onClipCopy,
     this.onClipPaste,
     this.onMarkerClick,
     this.stageMarkers = const [],
     this.onStageMarkerClick,
+    this.onTempoChange,
+    this.onTimeSignatureChange,
     this.onPlayPause,
     this.onStop,
     this.onUndo,
@@ -1768,6 +1781,8 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                     onClipSplit: widget.onClipSplit,
                     onClipDelete: widget.onClipDelete,
                     onClipMute: widget.onClipMute,
+                    onClipLoopToggle: widget.onClipLoopToggle,
+                    onClipSplitAtPosition: widget.onClipSplitAtPosition,
                     onClipShuffleMove: widget.onClipShuffleMove,
                     onPlayheadMove: widget.onPlayheadChange,
                     onCrossfadeUpdate: widget.onCrossfadeUpdate,
@@ -1981,6 +1996,8 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                 onLoopToggle: widget.onLoopToggle,
                                 stageMarkers: widget.stageMarkers,
                                 onStageMarkerClick: widget.onStageMarkerClick,
+                                onTempoChange: widget.onTempoChange,
+                                onTimeSignatureChange: widget.onTimeSignatureChange,
                               ),
                               // Loop region handles
                               if (widget.loopRegion != null)
@@ -2171,7 +2188,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                               left: _snapPreviewTime != null
                                   ? (_snapPreviewTime! - widget.scrollOffset) * _effectiveZoom
                                   : _ghostPosition!.dx - _grabOffset.dx,
-                              top: _ghostPosition!.dy - _rulerHeight - _grabOffset.dy,
+                              top: _ghostPosition!.dy - _rulerHeight - (widget.smartToolProvider != null ? _toolbarHeight : 0) - _grabOffset.dy,
                               child: IgnorePointer(
                                 child: SizedBox(
                                   width: _draggingClip!.duration * _effectiveZoom,
@@ -2188,8 +2205,8 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                               color: (_draggingClip!.color ?? FluxForgeTheme.accentBlue).withValues(alpha: 0.7),
                                               borderRadius: BorderRadius.circular(4),
                                               border: Border.all(
-                                                color: FluxForgeTheme.textPrimary,
-                                                width: 2,
+                                                color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
+                                                width: 1,
                                               ),
                                               boxShadow: [
                                                 BoxShadow(
@@ -2233,22 +2250,34 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                           ),
                                         ),
                                       ),
-                                      // Head indicator — vertical line at clip start (outside ClipRRect)
+                                      // Head indicator — prominent vertical line at clip start
                                       Positioned(
-                                        left: 0,
-                                        top: -6,
-                                        bottom: -6,
+                                        left: -1,
+                                        top: -10,
+                                        bottom: -10,
                                         child: Container(
-                                          width: 2,
+                                          width: 3,
                                           decoration: BoxDecoration(
-                                            color: FluxForgeTheme.textPrimary,
+                                            color: FluxForgeTheme.accentCyan,
+                                            borderRadius: BorderRadius.circular(1.5),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: FluxForgeTheme.textPrimary.withValues(alpha: 0.8),
-                                                blurRadius: 4,
-                                                spreadRadius: 1,
+                                                color: FluxForgeTheme.accentCyan.withValues(alpha: 0.9),
+                                                blurRadius: 6,
+                                                spreadRadius: 2,
                                               ),
                                             ],
+                                          ),
+                                        ),
+                                      ),
+                                      // Triangle marker at top of head indicator
+                                      Positioned(
+                                        left: -5,
+                                        top: -16,
+                                        child: CustomPaint(
+                                          size: const Size(11, 8),
+                                          painter: _DropHeadTrianglePainter(
+                                            color: FluxForgeTheme.accentCyan,
                                           ),
                                         ),
                                       ),
@@ -2609,6 +2638,36 @@ class _PlayheadPainter extends CustomPainter {
 }
 
 /// Simple waveform painter for ghost preview
+/// Down-pointing triangle marker for ghost clip drop head indicator
+class _DropHeadTrianglePainter extends CustomPainter {
+  final Color color;
+
+  _DropHeadTrianglePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+
+    // Glow shadow
+    final glowPaint = Paint()
+      ..color = color.withValues(alpha: 0.6)
+      ..style = PaintingStyle.fill
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+    canvas.drawPath(path, glowPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _DropHeadTrianglePainter oldDelegate) => color != oldDelegate.color;
+}
+
 class _GhostWaveformPainter extends CustomPainter {
   final Float32List waveform;
 
