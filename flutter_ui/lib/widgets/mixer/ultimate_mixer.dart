@@ -15,6 +15,10 @@ import '../../theme/fluxforge_theme.dart';
 import '../lower_zone/daw/mix/pdc_indicator.dart';
 
 import '../metering/gpu_meter_widget.dart';
+import 'io_selector_popup.dart';
+import 'automation_mode_badge.dart';
+import 'group_id_badge.dart';
+import 'send_slot_widget.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -33,6 +37,9 @@ const double kMasterStripWidth = 120.0;
 /// Channel type
 enum ChannelType { audio, instrument, bus, aux, vca, master }
 
+/// Send tap point (where in the signal chain the send taps from)
+enum SendTapPoint { preFader, postFader, preMute, postMute, postPan }
+
 /// Send data
 class SendData {
   final int index;
@@ -40,6 +47,8 @@ class SendData {
   final double level;
   final bool preFader;
   final bool muted;
+  final double pan; // Per-send pan (-1.0 to 1.0)
+  final SendTapPoint tapPoint;
 
   const SendData({
     required this.index,
@@ -47,6 +56,8 @@ class SendData {
     this.level = 0.0,
     this.preFader = false,
     this.muted = false,
+    this.pan = 0.0,
+    this.tapPoint = SendTapPoint.postFader,
   });
 
   bool get isEmpty => destination == null;
@@ -57,12 +68,16 @@ class SendData {
     double? level,
     bool? preFader,
     bool? muted,
+    double? pan,
+    SendTapPoint? tapPoint,
   }) => SendData(
     index: index ?? this.index,
     destination: destination ?? this.destination,
     level: level ?? this.level,
     preFader: preFader ?? this.preFader,
     muted: muted ?? this.muted,
+    pan: pan ?? this.pan,
+    tapPoint: tapPoint ?? this.tapPoint,
   );
 }
 
@@ -72,12 +87,20 @@ class InsertData {
   final String? pluginName;
   final bool bypassed;
   final bool isPreFader;
+  final bool isInstalled; // Plugin availability on this system
+  final bool hasStatePreserved; // Saved plugin state for portability
+  final bool hasFreezeAudio; // Freeze fallback exists
+  final int pdcSamples; // Plugin delay compensation (samples)
 
   const InsertData({
     required this.index,
     this.pluginName,
     this.bypassed = false,
     this.isPreFader = true,
+    this.isInstalled = true,
+    this.hasStatePreserved = false,
+    this.hasFreezeAudio = false,
+    this.pdcSamples = 0,
   });
 
   bool get isEmpty => pluginName == null;
@@ -340,6 +363,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                           onInsertClick: (idx) => widget.onInsertClick?.call(ch.id, idx),
                           onPhaseToggle: () => widget.onPhaseToggle?.call(ch.id),
                           onGainChange: (g) => widget.onGainChange?.call(ch.id, g),
+                          onOutputChange: (out) => widget.onOutputChange?.call(ch.id, out),
                         ),
                       );
                     }),
@@ -364,6 +388,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         onPanRightChange: (p) => widget.onPanRightChange?.call(aux.id, p),
                         onMuteToggle: () => widget.onMuteToggle?.call(aux.id),
                         onSoloToggle: () => widget.onSoloToggle?.call(aux.id),
+                        onOutputChange: (out) => widget.onOutputChange?.call(aux.id, out),
                       ),
                     )),
                     const _SectionDivider(),
@@ -387,6 +412,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         onPanRightChange: (p) => widget.onPanRightChange?.call(bus.id, p),
                         onMuteToggle: () => widget.onMuteToggle?.call(bus.id),
                         onSoloToggle: () => widget.onSoloToggle?.call(bus.id),
+                        onOutputChange: (out) => widget.onOutputChange?.call(bus.id, out),
                       ),
                     )),
                     const _SectionDivider(),
@@ -493,6 +519,7 @@ class _UltimateChannelStrip extends StatefulWidget {
   final void Function(int index)? onInsertClick;
   final VoidCallback? onPhaseToggle;
   final ValueChanged<double>? onGainChange;
+  final ValueChanged<String>? onOutputChange;
 
   const _UltimateChannelStrip({
     super.key,
@@ -518,6 +545,7 @@ class _UltimateChannelStrip extends StatefulWidget {
     this.onInsertClick,
     this.onPhaseToggle,
     this.onGainChange,
+    this.onOutputChange,
   });
 
   @override
@@ -739,102 +767,56 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
     );
   }
 
-  /// I/O selector row — click to open popup
+  /// I/O selector row — IoSelectorPopup with routing support
   Widget _buildIOSelector(String label, {required bool isInput}) {
-    return GestureDetector(
-      onTap: () {
-        // TODO Phase 2: show input/output routing popup
+    return IoSelectorPopup(
+      label: isInput ? 'IN' : 'OUT',
+      currentRoute: label,
+      isNarrow: widget.compact,
+      accentColor: isInput ? FluxForgeTheme.accentCyan : null,
+      availableRoutes: isInput
+          ? const [
+              IoRoute(id: 'none', name: 'No Input', type: IoRouteType.none),
+              IoRoute(id: 'in_1_2', name: 'In 1-2', type: IoRouteType.hardwareInput),
+              IoRoute(id: 'in_3_4', name: 'In 3-4', type: IoRouteType.hardwareInput),
+              IoRoute(id: 'bus_1', name: 'Bus 1', type: IoRouteType.bus),
+              IoRoute(id: 'bus_2', name: 'Bus 2', type: IoRouteType.bus),
+            ]
+          : const [
+              IoRoute(id: 'master', name: 'Master', type: IoRouteType.master),
+              IoRoute(id: 'bus_1', name: 'Bus 1', type: IoRouteType.bus),
+              IoRoute(id: 'bus_2', name: 'Bus 2', type: IoRouteType.bus),
+              IoRoute(id: 'aux_1', name: 'Aux 1', type: IoRouteType.aux),
+              IoRoute(id: 'aux_2', name: 'Aux 2', type: IoRouteType.aux),
+            ],
+      onRouteChanged: (route) {
+        // Wire to routing FFI via parent callback
+        if (!isInput) {
+          widget.onOutputChange?.call(route.id);
+        }
       },
-      child: Container(
-        height: 16,
-        padding: const EdgeInsets.symmetric(horizontal: 3),
-        decoration: BoxDecoration(
-          color: FluxForgeTheme.bgVoid.withOpacity(0.2),
-          border: Border(
-            bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withOpacity(0.15)),
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 8,
-                  color: isInput ? FluxForgeTheme.accentCyan.withOpacity(0.7) : FluxForgeTheme.textTertiary,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Icon(
-              Icons.arrow_drop_down,
-              size: 10,
-              color: FluxForgeTheme.textTertiary.withOpacity(0.5),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
-  /// Automation mode badge: off / read / tch / ltch / wrt / trim
+  /// Automation mode badge with popup selector
   Widget _buildAutomationBadge() {
-    final mode = widget.channel.automationMode;
-    final isActive = mode != 'off' && mode != 'read';
-    final Color badgeColor;
-    switch (mode) {
-      case 'wrt':
-        badgeColor = const Color(0xFFFF4444);
-        break;
-      case 'tch':
-      case 'ltch':
-        badgeColor = const Color(0xFFFF9040);
-        break;
-      case 'trim':
-        badgeColor = const Color(0xFF40FF90);
-        break;
-      default:
-        badgeColor = FluxForgeTheme.textTertiary;
-    }
-    return Container(
-      height: 14,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: isActive ? badgeColor.withOpacity(0.15) : Colors.transparent,
-        border: Border(
-          bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withOpacity(0.15)),
-        ),
-      ),
-      child: Text(
-        mode,
-        style: TextStyle(
-          fontSize: 8,
-          fontWeight: FontWeight.w600,
-          color: badgeColor,
-        ),
-      ),
+    return AutomationModeBadge(
+      mode: AutomationMode.fromString(widget.channel.automationMode),
+      isNarrow: widget.compact,
+      onModeChanged: (newMode) {
+        // UI-only state in Phase 2 — FFI wiring in Phase 4
+      },
     );
   }
 
-  /// Group membership badge: "a", "b", "a,c"
+  /// Group membership badge with colored dots
   Widget _buildGroupBadge() {
-    return Container(
-      height: 14,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: FluxForgeTheme.accentPurple.withOpacity(0.1),
-        border: Border(
-          bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withOpacity(0.15)),
-        ),
-      ),
-      child: Text(
-        widget.channel.groupId,
-        style: TextStyle(
-          fontSize: 8,
-          fontWeight: FontWeight.w600,
-          color: FluxForgeTheme.accentPurple.withOpacity(0.8),
-        ),
-      ),
+    return GroupIdBadge(
+      groupId: widget.channel.groupId,
+      isNarrow: widget.compact,
+      onTap: () {
+        // Opens GroupManagerPanel — Phase 4 implementation
+      },
     );
   }
 
@@ -889,6 +871,9 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
     }
     final visibleSends = ((lastUsedSend - startIndex) + 2).clamp(1, 5);
 
+    // Slot labels: A-E or F-J
+    const labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+
     return Container(
       padding: const EdgeInsets.all(2),
       child: Column(
@@ -897,12 +882,14 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
           final send = idx < widget.channel.sends.length
               ? widget.channel.sends[idx]
               : SendData(index: idx);
-          return _SendSlot(
+          return SendSlotWidget(
             send: send,
-            onLevelChange: (lvl) => widget.onSendLevelChange?.call(idx, lvl),
-            onMuteToggle: (muted) => widget.onSendMuteToggle?.call(idx, muted),
-            onPreFaderToggle: (pre) => widget.onSendPreFaderToggle?.call(idx, pre),
-            onDestChange: (dest) => widget.onSendDestChange?.call(idx, dest),
+            isNarrow: widget.compact,
+            slotLabel: idx < labels.length ? labels[idx] : '${idx + 1}',
+            onLevelChanged: (lvl) => widget.onSendLevelChange?.call(idx, lvl),
+            onMuteToggle: () => widget.onSendMuteToggle?.call(idx, !send.muted),
+            onPrePostToggle: () => widget.onSendPreFaderToggle?.call(idx, !send.preFader),
+            onDestinationChanged: (dest) => widget.onSendDestChange?.call(idx, dest),
           );
         }),
       ),
@@ -1760,212 +1747,6 @@ class _InsertSlot extends StatelessWidget {
   }
 }
 
-class _SendSlot extends StatelessWidget {
-  final SendData send;
-  final ValueChanged<double>? onLevelChange;
-  final ValueChanged<bool>? onMuteToggle;
-  final ValueChanged<bool>? onPreFaderToggle;
-  final ValueChanged<String?>? onDestChange;
-
-  const _SendSlot({
-    required this.send,
-    this.onLevelChange,
-    this.onMuteToggle,
-    this.onPreFaderToggle,
-    this.onDestChange,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 18,
-      margin: const EdgeInsets.only(bottom: 1),
-      child: Row(
-        children: [
-          // Mute button
-          GestureDetector(
-            onTap: send.isEmpty ? null : () => onMuteToggle?.call(!send.muted),
-            child: Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: send.muted
-                    ? FluxForgeTheme.accentOrange.withOpacity(0.8)
-                    : FluxForgeTheme.bgVoid.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(2),
-                border: Border.all(
-                  color: send.muted
-                      ? FluxForgeTheme.accentOrange
-                      : FluxForgeTheme.borderSubtle,
-                  width: 0.5,
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  'M',
-                  style: TextStyle(
-                    fontSize: 6,
-                    fontWeight: FontWeight.w700,
-                    color: send.muted ? Colors.white : FluxForgeTheme.textTertiary,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 1),
-          // Send destination (tappable for selection)
-          Expanded(
-            child: GestureDetector(
-              onTap: () => _showDestinationMenu(context),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: send.isEmpty
-                      ? FluxForgeTheme.bgVoid.withOpacity(0.3)
-                      : send.muted
-                          ? FluxForgeTheme.bgVoid.withOpacity(0.5)
-                          : FluxForgeTheme.accentPurple.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-                child: Center(
-                  child: Text(
-                    send.destination ?? '—',
-                    style: TextStyle(
-                      color: send.isEmpty || send.muted
-                          ? FluxForgeTheme.textTertiary
-                          : FluxForgeTheme.textPrimary,
-                      fontSize: 7,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 1),
-          // Pre/Post toggle
-          GestureDetector(
-            onTap: send.isEmpty ? null : () => onPreFaderToggle?.call(!send.preFader),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              decoration: BoxDecoration(
-                color: send.preFader
-                    ? FluxForgeTheme.accentCyan.withOpacity(0.3)
-                    : FluxForgeTheme.bgVoid.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(2),
-                border: Border.all(
-                  color: send.preFader
-                      ? FluxForgeTheme.accentCyan.withOpacity(0.5)
-                      : FluxForgeTheme.borderSubtle,
-                  width: 0.5,
-                ),
-              ),
-              child: Text(
-                send.preFader ? 'PRE' : 'PST',
-                style: TextStyle(
-                  fontSize: 5,
-                  fontWeight: FontWeight.w600,
-                  color: send.preFader
-                      ? FluxForgeTheme.accentCyan
-                      : FluxForgeTheme.textTertiary,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 1),
-          // Send level mini-fader
-          SizedBox(
-            width: 18,
-            child: _MiniSendLevel(
-              level: send.level,
-              muted: send.muted,
-              onChanged: onLevelChange,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showDestinationMenu(BuildContext context) {
-    final fxBuses = [
-      ('fx1', 'FX 1', const Color(0xFF9B59B6)),
-      ('fx2', 'FX 2', const Color(0xFF3498DB)),
-      ('fx3', 'FX 3', const Color(0xFF27AE60)),
-      ('fx4', 'FX 4', const Color(0xFFE67E22)),
-    ];
-
-    showMenu<String>(
-      context: context,
-      position: RelativeRect.fromLTRB(0, 0, 0, 0),
-      color: FluxForgeTheme.bgSurface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(4),
-        side: BorderSide(color: FluxForgeTheme.borderSubtle),
-      ),
-      items: [
-        PopupMenuItem<String>(
-          value: '',
-          height: 20,
-          child: Text('-- None --', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary)),
-        ),
-        ...fxBuses.map((bus) => PopupMenuItem<String>(
-          value: bus.$1,
-          height: 20,
-          child: Row(
-            children: [
-              Container(
-                width: 6, height: 6,
-                margin: const EdgeInsets.only(right: 4),
-                decoration: BoxDecoration(color: bus.$3, borderRadius: BorderRadius.circular(1)),
-              ),
-              Text(bus.$2, style: TextStyle(fontSize: 9, color: FluxForgeTheme.textPrimary)),
-            ],
-          ),
-        )),
-      ],
-    ).then((value) {
-      if (value != null) {
-        onDestChange?.call(value.isEmpty ? null : value);
-      }
-    });
-  }
-}
-
-class _MiniSendLevel extends StatelessWidget {
-  final double level;
-  final bool muted;
-  final ValueChanged<double>? onChanged;
-
-  const _MiniSendLevel({required this.level, this.muted = false, this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onVerticalDragUpdate: (details) {
-        if (onChanged != null) {
-          final delta = -details.delta.dy / 50;
-          final newLevel = (level + delta).clamp(0.0, 1.0);
-          onChanged!(newLevel);
-        }
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: FluxForgeTheme.bgVoid.withOpacity(0.4),
-          borderRadius: BorderRadius.circular(2),
-        ),
-        child: FractionallySizedBox(
-          alignment: Alignment.bottomCenter,
-          heightFactor: level,
-          child: Container(
-            decoration: BoxDecoration(
-              color: muted ? FluxForgeTheme.textTertiary : FluxForgeTheme.accentPurple,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STRIP BUTTON
