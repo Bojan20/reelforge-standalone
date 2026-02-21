@@ -1931,6 +1931,19 @@ class MixerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void toggleVcaSolo(String id) {
+    final vca = _vcas[id];
+    if (vca == null) return;
+
+    final newSoloed = !vca.soloed;
+    _vcas[id] = vca.copyWith(soloed: newSoloed);
+
+    final engineId = int.tryParse(id.replaceAll('vca_', '')) ?? 0;
+    NativeFFI.instance.vcaSetSolo(engineId, newSoloed);
+
+    notifyListeners();
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // MASTER CONTROLS
   // ═══════════════════════════════════════════════════════════════════════════

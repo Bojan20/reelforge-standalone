@@ -178,7 +178,7 @@ class _MixerScreenState extends State<MixerScreen> {
     required List<UltimateMixerChannel> vcas,
   }) {
     // Use UltimateMixer for the strip rendering —
-    // pass only sections that are visible
+    // pass only sections that are visible, total counts for collapsed indicators
     return UltimateMixer(
       channels: showTracks ? channels : const [],
       buses: showBuses ? buses : const [],
@@ -189,6 +189,17 @@ class _MixerScreenState extends State<MixerScreen> {
       showInserts: true,
       showSends: true,
       showInput: true,
+      totalTracks: widget.channels.length,
+      totalBuses: widget.buses.length,
+      totalAuxes: widget.auxes.length,
+      totalVcas: widget.vcas.length,
+      onSectionToggle: (name) {
+        final section = MixerSection.values.firstWhere(
+          (s) => s.name == name,
+          orElse: () => MixerSection.tracks,
+        );
+        widget.viewController.toggleSection(section);
+      },
       onChannelSelect: widget.onChannelSelect,
       onVolumeChange: widget.onVolumeChange,
       onPanChange: widget.onPanChange,

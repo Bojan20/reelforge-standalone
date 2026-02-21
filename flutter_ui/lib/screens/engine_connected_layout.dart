@@ -7510,6 +7510,95 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     );
   }
 
+  /// Convert MixerProvider buses to UltimateMixerChannel list
+  List<ultimate.UltimateMixerChannel> _buildBusChannels(MixerProvider mixerProvider) {
+    final dawBuses = <String, (String, Color)>{
+      'sfx': ('SFX', FluxForgeTheme.accentGreen),
+      'music': ('MUSIC', FluxForgeTheme.accentBlue),
+      'voice': ('VOICE', FluxForgeTheme.accentPurple),
+      'amb': ('AMB', FluxForgeTheme.textSecondary),
+      'ui': ('UI', FluxForgeTheme.accentCyan),
+    };
+
+    return dawBuses.entries.map((entry) {
+      final busId = entry.key;
+      final (name, color) = entry.value;
+
+      final engineBusIdx = _busIdToEngineBusIndex(busId);
+      double busPeakL = 0, busPeakR = 0;
+      if (engineBusIdx >= 0) {
+        final (pl, pr) = NativeFFI.instance.getBusPeak(engineBusIdx);
+        busPeakL = pl;
+        busPeakR = pr;
+      }
+
+      final busInsertChain = _busInserts[busId]?.slots ?? [];
+      final busInserts = busInsertChain.map((slot) => ultimate.InsertData(
+        index: slot.index,
+        pluginName: slot.plugin?.shortName ?? slot.plugin?.name,
+        bypassed: slot.bypassed,
+        isPreFader: slot.isPreFader,
+      )).toList();
+
+      return ultimate.UltimateMixerChannel(
+        id: busId,
+        name: name,
+        type: ultimate.ChannelType.bus,
+        color: color,
+        volume: _busVolumes[busId] ?? 1.0,
+        pan: _busPan[busId] ?? 0.0,
+        panRight: _busPanRight[busId] ?? 0.0,
+        isStereo: true,
+        muted: _busMuted[busId] ?? false,
+        soloed: _busSoloed[busId] ?? false,
+        inserts: busInserts,
+        peakL: busPeakL,
+        peakR: busPeakR,
+        rmsL: busPeakL * 0.7,
+        rmsR: busPeakR * 0.7,
+        correlation: 1.0,
+      );
+    }).toList();
+  }
+
+  /// Convert MixerProvider auxes to UltimateMixerChannel list
+  List<ultimate.UltimateMixerChannel> _buildAuxChannels(MixerProvider mixerProvider) {
+    return mixerProvider.auxes.map((aux) {
+      return ultimate.UltimateMixerChannel(
+        id: aux.id,
+        name: aux.name.toUpperCase(),
+        type: ultimate.ChannelType.aux,
+        color: aux.color,
+        volume: aux.volume,
+        pan: aux.pan,
+        muted: aux.muted,
+        soloed: aux.soloed,
+        peakL: aux.peakL,
+        peakR: aux.peakR,
+        rmsL: aux.peakL * 0.7,
+        rmsR: aux.peakR * 0.7,
+        correlation: 1.0,
+        outputBus: aux.outputBus ?? '',
+      );
+    }).toList();
+  }
+
+  /// Convert MixerProvider VCAs to UltimateMixerChannel list
+  List<ultimate.UltimateMixerChannel> _buildVcaChannels(MixerProvider mixerProvider) {
+    return mixerProvider.vcas.map((vca) {
+      return ultimate.UltimateMixerChannel(
+        id: vca.id,
+        name: vca.name.toUpperCase(),
+        type: ultimate.ChannelType.vca,
+        color: vca.color,
+        volume: vca.level,
+        pan: 0,
+        muted: vca.muted,
+        soloed: vca.soloed,
+      );
+    }).toList();
+  }
+
   /// Build dedicated full-screen MixerScreen (Pro Tools Mix Window)
   /// Activated via Cmd+= when AppViewMode.mixer
   Widget _buildMixerScreenView(dynamic metering) {
@@ -7585,12 +7674,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       lufsIntegrated: metering.masterLufsI,
     );
 
+    final dawBuses = _buildBusChannels(mixerProvider);
+    final dawAuxes = _buildAuxChannels(mixerProvider);
+    final dawVcas = _buildVcaChannels(mixerProvider);
+
     return MixerScreen(
       viewController: _mixerViewController,
       channels: channels,
-      buses: const [],
-      auxes: const [],
-      vcas: const [],
+      buses: dawBuses,
+      auxes: dawAuxes,
+      vcas: dawVcas,
       master: masterChannel,
       onSwitchToEdit: () => setState(() => _appViewMode = AppViewMode.edit),
       onChannelSelect: (id) {
@@ -7599,43 +7692,53 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         });
       },
       onVolumeChange: (id, vol) {
-        if (id == 'master') {
+        if (_isBusId(id)) {
           _onBusVolumeChange(id, vol);
+        } else if (id.startsWith('vca_')) {
+          mixerProvider.setVcaLevel(id, vol);
         } else {
           mixerProvider.setChannelVolumeWithUndo(id, vol);
         }
       },
       onPanChange: (id, pan) {
-        if (id != 'master') {
+        if (_isBusId(id)) {
+          _onBusPanChange(id, pan);
+        } else if (!id.startsWith('vca_')) {
           mixerProvider.setChannelPan(id, pan);
         }
       },
       onPanChangeEnd: (id, pan) {
-        if (id != 'master') {
+        if (!_isBusId(id) && !id.startsWith('vca_')) {
           mixerProvider.setChannelPanWithUndo(id, pan);
         }
       },
       onPanRightChange: (id, pan) {
-        if (id != 'master') {
+        if (_isBusId(id)) {
+          _onBusPanRightChange(id, pan);
+        } else if (!id.startsWith('vca_')) {
           mixerProvider.setChannelPanRightWithUndo(id, pan);
         }
       },
       onMuteToggle: (id) {
-        if (id == 'master') {
+        if (_isBusId(id)) {
           _onBusMuteToggle(id);
+        } else if (id.startsWith('vca_')) {
+          mixerProvider.toggleVcaMute(id);
         } else {
           mixerProvider.toggleChannelMuteWithUndo(id);
         }
       },
       onSoloToggle: (id) {
-        if (id == 'master') {
+        if (_isBusId(id)) {
           _onBusSoloToggle(id);
+        } else if (id.startsWith('vca_')) {
+          mixerProvider.toggleVcaSolo(id);
         } else {
           mixerProvider.toggleChannelSoloWithUndo(id);
         }
       },
       onArmToggle: (id) {
-        if (id != 'master') {
+        if (!_isBusId(id) && !id.startsWith('vca_')) {
           mixerProvider.toggleChannelArm(id);
         }
       },
@@ -7655,12 +7758,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         engine.setSendDestinationById(channelId, sendIndex, destination);
       },
       onPhaseToggle: (id) {
-        if (id != 'master') {
+        if (!_isBusId(id) && !id.startsWith('vca_')) {
           mixerProvider.togglePhaseInvert(id);
         }
       },
       onGainChange: (id, gain) {
-        if (id != 'master') {
+        if (!_isBusId(id) && !id.startsWith('vca_')) {
           mixerProvider.setInputGain(id, gain);
         }
       },
@@ -7754,52 +7857,65 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       lufsIntegrated: metering.masterLufsI,
     );
 
-    // All channels are audio tracks (no hardcoded buses)
+    final dawBuses2 = _buildBusChannels(mixerProvider);
+    final dawAuxes2 = _buildAuxChannels(mixerProvider);
+    final dawVcas2 = _buildVcaChannels(mixerProvider);
+
     return ultimate.UltimateMixer(
       channels: channels,
-      buses: const [], // No hardcoded buses
-      auxes: const [],
-      vcas: const [],
+      buses: dawBuses2,
+      auxes: dawAuxes2,
+      vcas: dawVcas2,
       master: masterChannel,
       compact: true,
       onVolumeChange: (id, vol) {
-        if (id == 'master') {
+        if (_isBusId(id)) {
           _onBusVolumeChange(id, vol);
+        } else if (id.startsWith('vca_')) {
+          mixerProvider.setVcaLevel(id, vol);
         } else {
           mixerProvider.setChannelVolumeWithUndo(id, vol);
         }
       },
       onPanChange: (id, pan) {
-        if (id != 'master') {
+        if (_isBusId(id)) {
+          _onBusPanChange(id, pan);
+        } else if (!id.startsWith('vca_')) {
           mixerProvider.setChannelPan(id, pan);
         }
       },
       onPanChangeEnd: (id, pan) {
-        if (id != 'master') {
+        if (!_isBusId(id) && !id.startsWith('vca_')) {
           mixerProvider.setChannelPanWithUndo(id, pan);
         }
       },
       onPanRightChange: (id, pan) {
-        if (id != 'master') {
+        if (_isBusId(id)) {
+          _onBusPanRightChange(id, pan);
+        } else if (!id.startsWith('vca_')) {
           mixerProvider.setChannelPanRightWithUndo(id, pan);
         }
       },
       onMuteToggle: (id) {
-        if (id == 'master') {
+        if (_isBusId(id)) {
           _onBusMuteToggle(id);
+        } else if (id.startsWith('vca_')) {
+          mixerProvider.toggleVcaMute(id);
         } else {
           mixerProvider.toggleChannelMuteWithUndo(id);
         }
       },
       onSoloToggle: (id) {
-        if (id == 'master') {
+        if (_isBusId(id)) {
           _onBusSoloToggle(id);
+        } else if (id.startsWith('vca_')) {
+          mixerProvider.toggleVcaSolo(id);
         } else {
           mixerProvider.toggleChannelSoloWithUndo(id);
         }
       },
       onArmToggle: (id) {
-        if (id != 'master') {
+        if (!_isBusId(id) && !id.startsWith('vca_')) {
           mixerProvider.toggleChannelArm(id);
         }
       },
@@ -7828,7 +7944,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         engine.setSendDestinationById(channelId, sendIndex, destination);
       },
       onPhaseToggle: (id) {
-        if (id != 'master') {
+        if (!_isBusId(id) && !id.startsWith('vca_')) {
           mixerProvider.togglePhaseInvert(id);
         }
       },
@@ -8217,6 +8333,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   /// Map bus string ID to Rust engine bus index for metering
   /// Rust OutputBus: 0=Master, 1=Music, 2=Sfx, 3=Voice, 4=Ambience, 5=Aux
+  /// Check if an ID belongs to a bus (master, sfx, music, voice, amb, ui)
+  bool _isBusId(String id) {
+    const busIds = {'master', 'sfx', 'music', 'voice', 'amb', 'ui', 'ambience', 'reels', 'wins', 'vo'};
+    return busIds.contains(id);
+  }
+
   int _busIdToEngineBusIndex(String busId) {
     const busMap = {
       'master': 0,

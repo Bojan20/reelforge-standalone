@@ -231,6 +231,13 @@ class UltimateMixer extends StatefulWidget {
   /// Called when channel is reordered via drag-drop
   /// Syncs bidirectionally with timeline track order
   final void Function(int oldIndex, int newIndex)? onChannelReorder;
+  /// Section visibility toggle callback — pass MixerSection name
+  final void Function(String sectionName)? onSectionToggle;
+  /// Total counts for collapsed sections (shown even when section is empty)
+  final int totalTracks;
+  final int totalBuses;
+  final int totalAuxes;
+  final int totalVcas;
 
   const UltimateMixer({
     super.key,
@@ -243,6 +250,10 @@ class UltimateMixer extends StatefulWidget {
     this.showInserts = true,
     this.showSends = true,
     this.showInput = false,
+    this.totalTracks = 0,
+    this.totalBuses = 0,
+    this.totalAuxes = 0,
+    this.totalVcas = 0,
     this.onChannelSelect,
     this.onVolumeChange,
     this.onPanChange,
@@ -261,6 +272,7 @@ class UltimateMixer extends StatefulWidget {
     this.onGainChange,
     this.onAddBus,
     this.onChannelReorder,
+    this.onSectionToggle,
   });
 
   @override
@@ -312,10 +324,22 @@ class _UltimateMixerState extends State<UltimateMixer> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(width: 4),
+                  // Collapsed Tracks indicator
+                  if (widget.channels.isEmpty && widget.totalTracks > 0)
+                    _CollapsedSectionIndicator(
+                      label: 'TRACKS',
+                      count: widget.totalTracks,
+                      color: FluxForgeTheme.accentBlue,
+                      onTap: () => widget.onSectionToggle?.call('tracks'),
+                    ),
                   // Track channels with drag-drop reordering
                   // NOTE: RepaintBoundary isolates meter repaints from affecting other strips
                   if (widget.channels.isNotEmpty) ...[
-                    _SectionHeader(label: 'TRACKS', color: FluxForgeTheme.accentBlue),
+                    _SectionHeader(
+                      label: 'TRACKS',
+                      color: FluxForgeTheme.accentBlue,
+                      onTap: () => widget.onSectionToggle?.call('tracks'),
+                    ),
                     ...widget.channels.asMap().entries.map((entry) {
                       final index = entry.key;
                       final ch = entry.value;
@@ -369,9 +393,21 @@ class _UltimateMixerState extends State<UltimateMixer> {
                     }),
                     const _SectionDivider(),
                   ],
+                  // Collapsed Aux indicator
+                  if (widget.auxes.isEmpty && widget.totalAuxes > 0)
+                    _CollapsedSectionIndicator(
+                      label: 'AUX',
+                      count: widget.totalAuxes,
+                      color: FluxForgeTheme.accentPurple,
+                      onTap: () => widget.onSectionToggle?.call('auxes'),
+                    ),
                   // Aux returns
                   if (widget.auxes.isNotEmpty) ...[
-                    _SectionHeader(label: 'AUX', color: FluxForgeTheme.accentPurple),
+                    _SectionHeader(
+                      label: 'AUX',
+                      color: FluxForgeTheme.accentPurple,
+                      onTap: () => widget.onSectionToggle?.call('auxes'),
+                    ),
                     ...widget.auxes.map((aux) => RepaintBoundary(
                       key: ValueKey('rb_${aux.id}'),
                       child: _UltimateChannelStrip(
@@ -381,6 +417,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         compact: widget.compact,
                         showInserts: widget.showInserts,
                         showSends: false,
+                        showInput: widget.showInput,
                         hasSoloActive: hasSolo,
                         onVolumeChange: (v) => widget.onVolumeChange?.call(aux.id, v),
                         onPanChange: (p) => widget.onPanChange?.call(aux.id, p),
@@ -393,9 +430,21 @@ class _UltimateMixerState extends State<UltimateMixer> {
                     )),
                     const _SectionDivider(),
                   ],
+                  // Collapsed Bus indicator
+                  if (widget.buses.isEmpty && widget.totalBuses > 0)
+                    _CollapsedSectionIndicator(
+                      label: 'BUS',
+                      count: widget.totalBuses,
+                      color: FluxForgeTheme.accentOrange,
+                      onTap: () => widget.onSectionToggle?.call('buses'),
+                    ),
                   // Buses
                   if (widget.buses.isNotEmpty) ...[
-                    _SectionHeader(label: 'BUS', color: FluxForgeTheme.accentOrange),
+                    _SectionHeader(
+                      label: 'BUS',
+                      color: FluxForgeTheme.accentOrange,
+                      onTap: () => widget.onSectionToggle?.call('buses'),
+                    ),
                     ...widget.buses.map((bus) => RepaintBoundary(
                       key: ValueKey('rb_${bus.id}'),
                       child: _UltimateChannelStrip(
@@ -405,6 +454,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         compact: widget.compact,
                         showInserts: widget.showInserts,
                         showSends: false,
+                        showInput: widget.showInput,
                         hasSoloActive: hasSolo,
                         onVolumeChange: (v) => widget.onVolumeChange?.call(bus.id, v),
                         onPanChange: (p) => widget.onPanChange?.call(bus.id, p),
@@ -417,9 +467,21 @@ class _UltimateMixerState extends State<UltimateMixer> {
                     )),
                     const _SectionDivider(),
                   ],
+                  // Collapsed VCA indicator
+                  if (widget.vcas.isEmpty && widget.totalVcas > 0)
+                    _CollapsedSectionIndicator(
+                      label: 'VCA',
+                      count: widget.totalVcas,
+                      color: FluxForgeTheme.accentGreen,
+                      onTap: () => widget.onSectionToggle?.call('vcas'),
+                    ),
                   // VCAs
                   if (widget.vcas.isNotEmpty) ...[
-                    _SectionHeader(label: 'VCA', color: FluxForgeTheme.accentGreen),
+                    _SectionHeader(
+                      label: 'VCA',
+                      color: FluxForgeTheme.accentGreen,
+                      onTap: () => widget.onSectionToggle?.call('vcas'),
+                    ),
                     ...widget.vcas.map((vca) => RepaintBoundary(
                       key: ValueKey('rb_${vca.id}'),
                       child: _VcaStrip(
@@ -427,8 +489,11 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         channel: vca,
                         width: stripWidth,
                         compact: widget.compact,
+                        hasSoloActive: hasSolo,
                         onVolumeChange: (v) => widget.onVolumeChange?.call(vca.id, v),
                         onMuteToggle: () => widget.onMuteToggle?.call(vca.id),
+                        onSoloToggle: () => widget.onSoloToggle?.call(vca.id),
+                        onSpillToggle: () {}, // TODO: wire SpillController
                       ),
                     )),
                     const _SectionDivider(),
@@ -617,8 +682,17 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                 // ── 2. Track Number (16px) ──
                 _buildTrackNumber(),
                 // ── 3. I/O Selectors ──
-                if (widget.showInput) ...[
+                if (widget.showInput && ch.type != ChannelType.bus && ch.type != ChannelType.aux) ...[
                   _buildIOSelector(ch.inputName.isEmpty ? 'In 1-2' : ch.inputName, isInput: true),
+                  _buildIOSelector(ch.outputBus.isEmpty ? 'Master' : ch.outputBus, isInput: false),
+                ],
+                // Bus: output selector only (no hardware input)
+                if (widget.showInput && ch.type == ChannelType.bus) ...[
+                  _buildIOSelector(ch.outputBus.isEmpty ? 'Master' : ch.outputBus, isInput: false),
+                ],
+                // Aux: source bus input + output selector
+                if (widget.showInput && ch.type == ChannelType.aux) ...[
+                  _buildIOSelector(ch.inputName.isEmpty ? 'Bus 1' : ch.inputName, isInput: true),
                   _buildIOSelector(ch.outputBus.isEmpty ? 'Master' : ch.outputBus, isInput: false),
                 ],
                 // ── 4. Automation Mode ──
@@ -627,8 +701,8 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                 // ── 5. Group ID ──
                 if (widget.showInput && ch.groupId.isNotEmpty)
                   _buildGroupBadge(),
-                // ── 6. Input section (gain + phase invert + PDC) ──
-                if (widget.showInput)
+                // ── 6. Input section (gain + phase invert + PDC) — not for bus/aux ──
+                if (widget.showInput && ch.type != ChannelType.bus && ch.type != ChannelType.aux)
                   _buildInputSection(),
                 // ── 7. Insert slots A-E (first 5) ──
                 if (widget.showInserts)
@@ -1805,6 +1879,9 @@ class _VcaStrip extends StatelessWidget {
   final bool compact;
   final ValueChanged<double>? onVolumeChange;
   final VoidCallback? onMuteToggle;
+  final VoidCallback? onSoloToggle;
+  final VoidCallback? onSpillToggle;
+  final bool hasSoloActive;
 
   const _VcaStrip({
     super.key,
@@ -1813,10 +1890,16 @@ class _VcaStrip extends StatelessWidget {
     this.compact = false,
     this.onVolumeChange,
     this.onMuteToggle,
+    this.onSoloToggle,
+    this.onSpillToggle,
+    this.hasSoloActive = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Dim when solo is active elsewhere and this VCA is not soloed
+    final dimmed = hasSoloActive && !channel.soloed && !channel.muted;
+
     return Container(
       width: width,
       margin: const EdgeInsets.symmetric(horizontal: 1),
@@ -1827,49 +1910,80 @@ class _VcaStrip extends StatelessWidget {
           color: FluxForgeTheme.accentGreen.withOpacity(0.3),
         ),
       ),
-      child: Column(
-        children: [
-          Container(
-            height: 3,
-            decoration: BoxDecoration(
-              color: channel.color,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
-            ),
-          ),
-          const Spacer(),
-          // VCA fader (no meter)
-          Expanded(
-            flex: 3,
-            child: _VcaFader(
-              volume: channel.volume,
-              onChanged: onVolumeChange,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(4),
-            child: _StripButton(
-              label: 'M',
-              active: channel.muted,
-              activeColor: const Color(0xFFFF6B6B),
-              onTap: onMuteToggle,
-            ),
-          ),
-          Container(
-            height: 20,
-            padding: const EdgeInsets.symmetric(horizontal: 2),
-            child: Center(
-              child: Text(
-                channel.name,
-                style: const TextStyle(
-                  color: FluxForgeTheme.textSecondary,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w500,
-                ),
-                overflow: TextOverflow.ellipsis,
+      child: Opacity(
+        opacity: dimmed ? 0.4 : 1.0,
+        child: Column(
+          children: [
+            // Color bar
+            Container(
+              height: 3,
+              decoration: BoxDecoration(
+                color: channel.color,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
               ),
             ),
-          ),
-        ],
+            // Spill button — opens member tracks only
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 4, right: 4),
+              child: _StripButton(
+                label: 'SPILL',
+                active: false,
+                activeColor: FluxForgeTheme.accentCyan,
+                onTap: onSpillToggle,
+              ),
+            ),
+            const Spacer(),
+            // VCA fader (no meter — VCA controls group volume, not audio)
+            Expanded(
+              flex: 3,
+              child: _VcaFader(
+                volume: channel.volume,
+                onChanged: onVolumeChange,
+              ),
+            ),
+            // Mute + Solo row
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _StripButton(
+                      label: 'M',
+                      active: channel.muted,
+                      activeColor: const Color(0xFFFF6B6B),
+                      onTap: onMuteToggle,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  Expanded(
+                    child: _StripButton(
+                      label: 'S',
+                      active: channel.soloed,
+                      activeColor: const Color(0xFFFFD700),
+                      onTap: onSoloToggle,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Name
+            Container(
+              height: 20,
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              child: Center(
+                child: Text(
+                  channel.name,
+                  style: const TextStyle(
+                    color: FluxForgeTheme.textSecondary,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2130,24 +2244,80 @@ Color _getLufsColor(double lufs) {
 class _SectionHeader extends StatelessWidget {
   final String label;
   final Color color;
+  final VoidCallback? onTap;
 
-  const _SectionHeader({required this.label, required this.color});
+  const _SectionHeader({required this.label, required this.color, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 20,
-      margin: const EdgeInsets.symmetric(horizontal: 1),
-      child: RotatedBox(
-        quarterTurns: 3,
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.5,
+    return GestureDetector(
+      onTap: onTap,
+      child: MouseRegion(
+        cursor: onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        child: Container(
+          width: 20,
+          margin: const EdgeInsets.symmetric(horizontal: 1),
+          child: RotatedBox(
+            quarterTurns: 3,
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Collapsed section indicator — shows when a section is hidden
+/// Displays section name + count, clickable to expand
+class _CollapsedSectionIndicator extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color color;
+  final VoidCallback? onTap;
+
+  const _CollapsedSectionIndicator({
+    required this.label,
+    required this.count,
+    required this.color,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Container(
+          width: 24,
+          margin: const EdgeInsets.symmetric(horizontal: 1, vertical: 8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: color.withOpacity(0.2)),
+          ),
+          child: RotatedBox(
+            quarterTurns: 3,
+            child: Center(
+              child: Text(
+                '$label ($count)',
+                style: TextStyle(
+                  color: color.withOpacity(0.6),
+                  fontSize: 8,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.0,
+                ),
+              ),
             ),
           ),
         ),
