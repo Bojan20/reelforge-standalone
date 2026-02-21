@@ -20,6 +20,7 @@ class MixerScreen extends StatefulWidget {
   final List<UltimateMixerChannel> vcas;
   final UltimateMixerChannel master;
   final VoidCallback onSwitchToEdit;
+  final VoidCallback? onDetach;
 
   // All mixer callbacks — delegated from parent
   final ValueChanged<String>? onChannelSelect;
@@ -60,6 +61,7 @@ class MixerScreen extends StatefulWidget {
     required this.vcas,
     required this.master,
     required this.onSwitchToEdit,
+    this.onDetach,
     this.onChannelSelect,
     this.onVolumeChange,
     this.onPanChange,
@@ -151,6 +153,7 @@ class _MixerScreenState extends State<MixerScreen> {
             MixerTopBar(
               controller: vc,
               onSwitchToEdit: widget.onSwitchToEdit,
+              onDetach: widget.onDetach,
             ),
             // Mixer body
             Expanded(
@@ -205,6 +208,7 @@ class _MixerScreenState extends State<MixerScreen> {
       showInserts: true,
       showSends: true,
       showInput: true,
+      showToolbar: false, // MixerTopBar already provides View/Presets/Metering/Width
       totalTracks: widget.channels.length,
       totalBuses: widget.buses.length,
       totalAuxes: widget.auxes.length,
@@ -273,6 +277,7 @@ class _MixerScreenState extends State<MixerScreen> {
         showInserts: true,
         showSends: true,
         showInput: true,
+        showToolbar: false,
         visibleStripSections: widget.viewController.visibleStripSections,
         meteringMode: widget.viewController.meteringMode,
         onVolumeChange: widget.onVolumeChange,

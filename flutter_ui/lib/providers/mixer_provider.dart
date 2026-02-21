@@ -969,7 +969,8 @@ class MixerProvider extends ChangeNotifier {
   }
 
   bool _isDefaultBus(String id) {
-    return ['bus_ui', 'bus_sfx', 'bus_music', 'bus_vo', 'bus_ambient'].contains(id);
+    // No default buses in DAW mixer — all buses are user-created and deletable
+    return false;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

@@ -283,6 +283,8 @@ class UltimateMixer extends StatefulWidget {
   final VoidCallback? onMuteSelectedShortcut;
   /// Keyboard shortcut: Narrow all strips toggle
   final VoidCallback? onNarrowAllShortcut;
+  /// Hide the internal toolbar when MixerTopBar already provides these controls
+  final bool showToolbar;
   /// Total counts for collapsed sections (shown even when section is empty)
   final int totalTracks;
   final int totalBuses;
@@ -300,6 +302,7 @@ class UltimateMixer extends StatefulWidget {
     this.showInserts = true,
     this.showSends = true,
     this.showInput = false,
+    this.showToolbar = true,
     Set<MixerStripSection>? visibleStripSections,
     this.totalTracks = 0,
     this.totalBuses = 0,
@@ -378,8 +381,8 @@ class _UltimateMixerState extends State<UltimateMixer> {
       decoration: const BoxDecoration(color: FluxForgeTheme.bgDeepest),
       child: Column(
         children: [
-          // Toolbar
-          _buildToolbar(),
+          // Toolbar — hidden when MixerTopBar is present (fullscreen/floating modes)
+          if (widget.showToolbar) _buildToolbar(),
           // Mixer strips
           Expanded(
             child: SingleChildScrollView(

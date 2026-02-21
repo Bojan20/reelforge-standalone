@@ -10,11 +10,15 @@ import '../../models/mixer_view_models.dart';
 class MixerTopBar extends StatelessWidget {
   final MixerViewController controller;
   final VoidCallback onSwitchToEdit;
+  final VoidCallback? onDetach;
+  final bool isDetached;
 
   const MixerTopBar({
     super.key,
     required this.controller,
     required this.onSwitchToEdit,
+    this.onDetach,
+    this.isDetached = false,
   });
 
   @override
@@ -53,7 +57,12 @@ class MixerTopBar extends StatelessWidget {
           const Spacer(),
           // Search field
           _buildSearchField(),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
+          // Detach button
+          if (onDetach != null) ...[
+            _buildDetachButton(),
+            const SizedBox(width: 4),
+          ],
           // Edit button
           _buildEditButton(),
         ],
@@ -303,6 +312,34 @@ class MixerTopBar extends StatelessWidget {
             borderSide: BorderSide.none,
           ),
           isDense: true,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetachButton() {
+    return Tooltip(
+      message: isDetached ? 'Dock mixer' : 'Detach mixer',
+      child: GestureDetector(
+        onTap: onDetach,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          decoration: BoxDecoration(
+            color: isDetached
+                ? const Color(0xFFFF9040).withOpacity(0.15)
+                : Colors.white.withOpacity(0.04),
+            borderRadius: BorderRadius.circular(3),
+            border: isDetached
+                ? Border.all(color: const Color(0xFFFF9040).withOpacity(0.3))
+                : null,
+          ),
+          child: Icon(
+            isDetached ? Icons.vertical_align_bottom : Icons.open_in_new,
+            size: 12,
+            color: isDetached
+                ? const Color(0xFFFF9040)
+                : Colors.white.withOpacity(0.5),
+          ),
         ),
       ),
     );
