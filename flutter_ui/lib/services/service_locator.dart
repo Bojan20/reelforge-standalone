@@ -49,6 +49,7 @@ import '../providers/ale_provider.dart';
 import '../providers/automation_provider.dart';
 import '../providers/feature_builder_provider.dart';
 import '../providers/stem_routing_provider.dart';
+import '../providers/comping_provider.dart';
 import 'audio_pool.dart';
 import 'audio_playback_service.dart';
 import 'unified_playback_controller.dart';
@@ -66,6 +67,7 @@ import 'recent_favorites_service.dart';
 import 'plugin_state_service.dart';
 import 'missing_plugin_detector.dart';
 import 'analytics_service.dart';
+import '../controllers/middleware_timeline_sync_controller.dart';
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -227,6 +229,20 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<StemRoutingProvider>(
       () => StemRoutingProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9: Comping Provider (Multi-take recording & comp editing)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<CompingProvider>(
+      () => CompingProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.1: Middleware ↔ DAW Timeline Sync Bridge
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<MiddlewareTimelineSyncController>(
+      () => MiddlewareTimelineSyncController(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════

@@ -67,6 +67,7 @@ import '../providers/global_shortcuts_provider.dart';
 import '../providers/meter_provider.dart';
 import '../providers/middleware_provider.dart';
 import '../providers/mixer_provider.dart';
+import '../providers/plugin_provider.dart' hide PluginInfo, PluginFormat, PluginCategory;
 import '../providers/recording_provider.dart';
 import '../providers/slot_lab/slot_lab_coordinator.dart';
 import '../providers/smart_tool_provider.dart';
@@ -106,6 +107,7 @@ import '../widgets/dsp/time_stretch_panel.dart';
 import '../widgets/dsp/delay_panel.dart';
 import '../widgets/dsp/dynamics_panel.dart';
 import '../widgets/dsp/spatial_panel.dart';
+import '../controllers/middleware_timeline_sync_controller.dart';
 import '../widgets/dsp/spectral_panel.dart';
 import '../widgets/dsp/pitch_correction_panel.dart';
 import '../widgets/dsp/transient_panel.dart';
@@ -145,6 +147,8 @@ import '../widgets/project/track_templates_panel.dart';
 import '../widgets/project/project_versions_panel.dart';
 import '../widgets/timeline/freeze_track_overlay.dart';
 import '../widgets/browser/audio_pool_panel.dart';
+import '../widgets/timeline/add_track_dialog.dart';
+import '../models/track_template.dart';
 import '../providers/undo_manager.dart';
 import '../widgets/middleware/events_folder_panel.dart';
 import '../widgets/middleware/event_editor_panel.dart';
@@ -258,6 +262,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   late final DawLowerZoneController _dawLowerZoneController;
   late final MiddlewareLowerZoneController _middlewareLowerZoneController;
 
+  // Middleware ↔ DAW Timeline Sync Controller
+  late final MiddlewareTimelineSyncController _mwTimelineSyncController;
+
   // Mixer view controller (dedicated mixer window state)
   late final MixerViewController _mixerViewController;
   SpillController? _spillController;
@@ -288,6 +295,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   List<timeline.TimelineMarker> _markers = [];
   List<timeline.Crossfade> _crossfades = [];
   timeline.LoopRegion? _loopRegion;
+
+  /// Drag preview state — stored separately from _clips to preserve
+  /// source-of-truth on drag cancel. Composited into selectedClip for
+  /// Channel Tab display only.
+  String? _dragPreviewClipId;
+  double? _dragPreviewStartTime;
 
   /// Update a single track by ID without rebuilding the entire list.
   /// O(1) lookup + in-place replacement instead of .map().toList() O(n).
@@ -691,6 +704,48 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       // Set up bidirectional sync: Mixer channel order → Timeline track order
       final mixerProvider = context.read<MixerProvider>();
       mixerProvider.onChannelOrderChanged = _onMixerChannelOrderChanged;
+
+      // Initialize Middleware ↔ DAW Timeline Sync Controller
+      _mwTimelineSyncController = sl<MiddlewareTimelineSyncController>();
+      _mwTimelineSyncController.onSyncBatch = _handleMwSyncBatch;
+      _mwTimelineSyncController.onCreateEngineTrack = (name, color, busId) {
+        return EngineApi.instance.createTrack(
+          name: name,
+          color: color.value,
+          busId: busId,
+        );
+      };
+      _mwTimelineSyncController.onDeleteEngineTrack = (trackId) {
+        EngineApi.instance.deleteTrack(trackId);
+      };
+      _mwTimelineSyncController.initialize(
+        mixerProvider: mixerProvider,
+        middlewareProvider: middleware,
+      );
+    });
+  }
+
+  /// Handle Middleware ↔ DAW sync batch — add/remove tracks and clips
+  void _handleMwSyncBatch(SyncBatch batch) {
+    if (!mounted) return;
+    setState(() {
+      // Remove tracks and clips first
+      if (batch.trackIdsToRemove.isNotEmpty) {
+        final removeSet = batch.trackIdsToRemove.toSet();
+        _tracks = _tracks.where((t) => !removeSet.contains(t.id)).toList();
+      }
+      if (batch.clipIdsToRemove.isNotEmpty) {
+        final removeSet = batch.clipIdsToRemove.toSet();
+        _clips = _clips.where((c) => !removeSet.contains(c.id)).toList();
+      }
+
+      // Add new tracks and clips
+      if (batch.tracksToAdd.isNotEmpty) {
+        _tracks = [..._tracks, ...batch.tracksToAdd];
+      }
+      if (batch.clipsToAdd.isNotEmpty) {
+        _clips = [..._clips, ...batch.clipsToAdd];
+      }
     });
   }
 
@@ -932,6 +987,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     } catch (_) {
       // Provider may not be available during dispose
     }
+    // Dispose Middleware ↔ DAW Sync Controller
+    _mwTimelineSyncController.dispose();
     // Dispose Mixer View Controller
     _mixerViewController.removeListener(_onMixerViewChanged);
     _mixerViewController.dispose();
@@ -1211,41 +1268,87 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   /// Default track color - all new tracks use this (Cubase style)
   static Color get _defaultTrackColor => FluxForgeTheme.trackBlue;
 
-  /// Add a new track
-  void _handleAddTrack() {
-    final trackIndex = _tracks.length;
-    final color = _defaultTrackColor;
-    final trackName = 'Audio ${trackIndex + 1}';
+  /// Add a new track — opens Cubase/Logic-style dialog
+  Future<void> _handleAddTrack() async {
+    final result = await AddTrackDialog.show(
+      context,
+      existingTrackCount: _tracks.length,
+      section: AppSection.daw,
+    );
+    if (result == null || !mounted) return;
+
+    for (int i = 0; i < result.count; i++) {
+      final name = result.count > 1
+          ? '${result.name} ${i + 1}'
+          : result.name;
+      _createTrackFromResult(result, name);
+    }
+  }
+
+  /// Create a track based on dialog result
+  void _createTrackFromResult(AddTrackResult result, String name) {
+    switch (result.trackType) {
+      case timeline.TrackType.audio:
+      case timeline.TrackType.instrument:
+        _createAudioOrInstrumentTrack(result, name);
+      case timeline.TrackType.folder:
+        _createFolderTrack(name, result.color);
+      case timeline.TrackType.bus:
+        _createBusTrack(name, result.color);
+      case timeline.TrackType.aux:
+        _createAuxTrack(name, result.color);
+      default:
+        _createAudioOrInstrumentTrack(result, name);
+    }
+  }
+
+  /// Create an audio or instrument track with engine + mixer channel
+  void _createAudioOrInstrumentTrack(AddTrackResult result, String name) {
+    final busIndex = result.outputBus.index; // OutputBus enum index = engine bus
     final trackId = engine.createTrack(
-      name: trackName,
-      color: color.value,
-      busId: 0, // Master
+      name: name,
+      color: result.color.value,
+      busId: busIndex,
     );
 
-    // Create corresponding mixer channel (Cubase-style auto-fader)
-    // Empty tracks default to stereo
     final mixerProvider = context.read<MixerProvider>();
-    mixerProvider.createChannelFromTrack(trackId, trackName, color, channels: 2);
+    mixerProvider.createChannelFromTrack(
+      trackId, name, result.color,
+      channels: result.channels,
+    );
+
+    // Apply template DSP chain if selected
+    if (result.template != null) {
+      _applyTemplateToTrack(trackId, result.template!);
+    }
 
     final newTrack = timeline.TimelineTrack(
       id: trackId,
-      name: trackName,
-      color: color,
-      outputBus: timeline.OutputBus.master,
-      channels: 2,
+      name: name,
+      color: result.color,
+      outputBus: result.outputBus,
+      channels: result.channels,
+      trackType: result.trackType == timeline.TrackType.instrument
+          ? timeline.TrackType.instrument
+          : timeline.TrackType.audio,
+      armed: result.armForRecording,
     );
 
     setState(() {
       _tracks = [..._tracks, newTrack];
     });
 
-    // Record undo action
+    // Record undo
     UiUndoManager.instance.record(TrackAddAction(
       trackId: trackId,
       onExecute: () {
-        // Redo: re-create track
-        final reId = engine.createTrack(name: trackName, color: color.value, busId: 0);
-        context.read<MixerProvider>().createChannelFromTrack(reId, trackName, color, channels: 2);
+        final reId = engine.createTrack(
+          name: name, color: result.color.value, busId: busIndex,
+        );
+        context.read<MixerProvider>().createChannelFromTrack(
+          reId, name, result.color, channels: result.channels,
+        );
+        if (result.template != null) _applyTemplateToTrack(reId, result.template!);
         setState(() {
           _tracks = [..._tracks, newTrack.copyWith(id: reId)];
         });
@@ -1261,8 +1364,121 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     ));
   }
 
+  /// Create a folder track (no engine track, no audio)
+  void _createFolderTrack(String name, Color color) {
+    final folderId = 'folder_${DateTime.now().millisecondsSinceEpoch}';
+    final newTrack = timeline.TimelineTrack(
+      id: folderId,
+      name: name,
+      color: color,
+      trackType: timeline.TrackType.folder,
+    );
+
+    setState(() {
+      _tracks = [..._tracks, newTrack];
+    });
+
+    UiUndoManager.instance.record(TrackAddAction(
+      trackId: folderId,
+      onExecute: () {
+        setState(() { _tracks = [..._tracks, newTrack]; });
+      },
+      onUndo: () {
+        setState(() {
+          _tracks = _tracks.where((t) => t.id != folderId).toList();
+        });
+      },
+    ));
+  }
+
+  /// Create a bus/submix track with mixer bus
+  void _createBusTrack(String name, Color color) {
+    final mixerProvider = context.read<MixerProvider>();
+    final bus = mixerProvider.createBus(name: name, color: color);
+
+    final newTrack = timeline.TimelineTrack(
+      id: bus.id,
+      name: name,
+      color: color,
+      trackType: timeline.TrackType.bus,
+      channels: 2,
+    );
+
+    setState(() {
+      _tracks = [..._tracks, newTrack];
+    });
+
+    UiUndoManager.instance.record(TrackAddAction(
+      trackId: bus.id,
+      onExecute: () {
+        final reBus = mixerProvider.createBus(name: name, color: color);
+        setState(() { _tracks = [..._tracks, newTrack.copyWith(id: reBus.id)]; });
+      },
+      onUndo: () {
+        mixerProvider.deleteBus(bus.id);
+        setState(() {
+          _tracks = _tracks.where((t) => t.id != bus.id).toList();
+        });
+      },
+    ));
+  }
+
+  /// Create an aux send/return track
+  void _createAuxTrack(String name, Color color) {
+    final mixerProvider = context.read<MixerProvider>();
+    final aux = mixerProvider.createAux(name: name, color: color);
+
+    final newTrack = timeline.TimelineTrack(
+      id: aux.id,
+      name: name,
+      color: color,
+      trackType: timeline.TrackType.aux,
+      channels: 2,
+    );
+
+    setState(() {
+      _tracks = [..._tracks, newTrack];
+    });
+
+    UiUndoManager.instance.record(TrackAddAction(
+      trackId: aux.id,
+      onExecute: () {
+        final reAux = mixerProvider.createAux(name: name, color: color);
+        setState(() { _tracks = [..._tracks, newTrack.copyWith(id: reAux.id)]; });
+      },
+      onUndo: () {
+        mixerProvider.deleteAux(aux.id);
+        setState(() {
+          _tracks = _tracks.where((t) => t.id != aux.id).toList();
+        });
+      },
+    ));
+  }
+
+  /// Apply a track template's DSP chain to a track
+  void _applyTemplateToTrack(String trackId, TrackTemplate template) {
+    final dspProvider = DspChainProvider.instance;
+    final trackIndex = int.tryParse(trackId) ?? 0;
+    for (final insert in template.inserts) {
+      dspProvider.addNode(trackIndex, insert.type);
+    }
+  }
+
   /// Delete a track
   void _handleDeleteTrack(String trackId) {
+    // Protect MW-synced tracks from manual deletion
+    if (_mwTimelineSyncController.isMwSyncedTrack(trackId)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Synced from Middleware — delete the event instead.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+
     // Capture state for undo BEFORE deleting
     final deletedTrack = _tracks.firstWhere((t) => t.id == trackId, orElse: () => _tracks.first);
     final deletedClips = _clips.where((c) => c.trackId == trackId).toList();
@@ -2674,6 +2890,40 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   // ═══════════════════════════════════════════════════════════════════════════
   // AUTO-CROSSFADE SYSTEM
   // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Create a crossfade at a split point between two adjacent clips.
+  /// Called automatically after any split operation to create a smooth transition.
+  /// The crossfade overlaps both clips by extending them slightly at the split boundary.
+  void _createCrossfadeAtSplitPoint(String leftClipId, String rightClipId, String trackId, double splitTime) {
+    final leftClip = _clips.cast<timeline.TimelineClip?>().firstWhere(
+      (c) => c?.id == leftClipId, orElse: () => null,
+    );
+    final rightClip = _clips.cast<timeline.TimelineClip?>().firstWhere(
+      (c) => c?.id == rightClipId, orElse: () => null,
+    );
+    if (leftClip == null || rightClip == null) return;
+
+    // Calculate crossfade duration: 50ms default, but max 25% of shorter clip
+    final maxDuration = [leftClip.duration, rightClip.duration]
+        .reduce((a, b) => a < b ? a : b) * 0.25;
+    final crossfadeDuration = maxDuration.clamp(0.01, 0.05); // 10-50ms
+
+    // Create crossfade centered at split point
+    final crossfadeStart = splitTime - crossfadeDuration / 2;
+    final crossfadeId = 'xfade-${DateTime.now().millisecondsSinceEpoch}';
+
+    setState(() {
+      _crossfades = [..._crossfades, timeline.Crossfade(
+        id: crossfadeId,
+        trackId: trackId,
+        clipAId: leftClipId,
+        clipBId: rightClipId,
+        startTime: crossfadeStart,
+        duration: crossfadeDuration,
+        curveType: timeline.CrossfadeCurve.equalPower,
+      )];
+    });
+  }
 
   /// Detect overlap with another clip on the same track and create crossfade
   /// Returns the created crossfade ID, or null if no overlap
@@ -5088,11 +5338,21 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             inspectorName: _selectedEvent?.name,
             inspectorSections: _selectedEvent != null ? _buildInspectorSections() : const [],
 
-            // Clip inspector (DAW mode)
-            selectedClip: _clips.cast<timeline.TimelineClip?>().firstWhere(
-              (c) => c?.selected == true,
-              orElse: () => null,
-            ),
+            // Clip inspector (DAW mode) — composited with drag preview
+            // During drag, _dragPreviewStartTime overrides startTime for
+            // the selected clip so Channel Tab shows live position.
+            selectedClip: () {
+              final clip = _clips.cast<timeline.TimelineClip?>().firstWhere(
+                (c) => c?.selected == true,
+                orElse: () => null,
+              );
+              if (clip != null &&
+                  _dragPreviewClipId == clip.id &&
+                  _dragPreviewStartTime != null) {
+                return clip.copyWith(startTime: _dragPreviewStartTime!);
+              }
+              return clip;
+            }(),
             selectedClipTrack: _getSelectedClipTrack(),
             onClipChanged: _handleClipInspectorChange,
             onOpenClipFxEditor: _handleOpenClipFxEditor,
@@ -5113,7 +5373,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             onRightZoneToggle: () => setState(() => _rightVisible = !_rightVisible),
             onLowerZoneToggle: () => setState(() => _lowerVisible = !_lowerVisible),
 
-            // Transport - SPACE key handling
+            // Transport keyboard shortcuts
             onPlay: () {
               // In middleware mode, SPACE triggers event preview
               if (_editorMode == EditorMode.middleware) {
@@ -5132,6 +5392,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 }
                 engine.play();
               }
+            },
+            onStop: () {
+              final engine = context.read<EngineProvider>();
+              engine.stop();
+            },
+            onRewind: () {
+              final engine = context.read<EngineProvider>();
+              engine.seek(0);
             },
           ),
           // Floating EQ windows - optimized
@@ -5319,6 +5587,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                           });
                         },
                       ));
+                      // Auto-create crossfade at split point
+                      _createCrossfadeAtSplitPoint(selectedClip.id, newClipId, selectedClip.trackId, splitTime);
                       _showSnackBar('Split clip at ${splitTime.toStringAsFixed(2)}s');
                     }
                   }
@@ -5538,7 +5808,20 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           }
         });
       },
+      onClipDragLivePosition: (clipId, snappedTime) {
+        // Live position update during drag — UI only, NO FFI commit
+        // Stored separately from _clips to avoid corrupting source-of-truth
+        // on drag cancel. Composited in selectedClip getter below.
+        setState(() {
+          _dragPreviewClipId = clipId;
+          _dragPreviewStartTime = snappedTime;
+        });
+      },
       onClipMove: (clipId, newStartTime) {
+        // Clear drag preview — authoritative position set below
+        _dragPreviewClipId = null;
+        _dragPreviewStartTime = null;
+
         final clip = _clips.firstWhere((c) => c.id == clipId);
         final oldStartTime = clip.startTime;
 
@@ -5565,10 +5848,24 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           _clips = _clips.map((c) => c.id == clipId ? c.copyWith(startTime: newStartTime) : c).toList();
         });
 
+        // Sync clip move to middleware layer offsetMs
+        _mwTimelineSyncController.handleClipParameterChanged(clipId, 'startTime', newStartTime);
+
         // Auto-create crossfade if clip overlaps with another clip on same track
         _createAutoCrossfadeIfOverlap(clipId, clip.trackId);
       },
       onClipMoveToTrack: (clipId, targetTrackId, newStartTime) {
+        // Block move on MW-synced clips — they belong to their layer track
+        if (_mwTimelineSyncController.isMwSyncedClip(clipId)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Cannot move MW-synced clip to another track. Edit the event layers in Middleware.')),
+          );
+          return;
+        }
+        // Clear drag preview — authoritative position set below
+        _dragPreviewClipId = null;
+        _dragPreviewStartTime = null;
+
         // Capture old state for undo
         final clip = _clips.firstWhere((c) => c.id == clipId);
         final oldTrackId = clip.trackId;
@@ -5630,6 +5927,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         ));
       },
       onClipMoveToNewTrack: (clipId, newStartTime) {
+        // Block move on MW-synced clips — they belong to their layer track
+        if (_mwTimelineSyncController.isMwSyncedClip(clipId)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Cannot move MW-synced clip. Edit the event layers in Middleware.')),
+          );
+          return;
+        }
+        // Clear drag preview — authoritative position set below
+        _dragPreviewClipId = null;
+        _dragPreviewStartTime = null;
+
         // Create a new track - use engine's returned ID
         final trackIndex = _tracks.length;
         final trackName = 'Audio ${trackIndex + 1}';
@@ -5694,6 +6002,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         });
       },
       onClipResize: (clipId, newStartTime, newDuration, newOffset) {
+        // Clear drag preview if active
+        _dragPreviewClipId = null;
+        _dragPreviewStartTime = null;
+
         // Validate resize parameters
         if (newDuration < 0.01 || newStartTime < 0) return;
 
@@ -5747,6 +6059,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             _pendingResize = null;
           }
         });
+
+        // Sync resize to MW layer (startTime, duration, sourceOffset)
+        _mwTimelineSyncController.handleClipParameterChanged(clipId, 'startTime', newStartTime);
+        _mwTimelineSyncController.handleClipParameterChanged(clipId, 'duration', newDuration);
+        if (newOffset != null) {
+          _mwTimelineSyncController.handleClipParameterChanged(clipId, 'sourceOffset', newOffset);
+        }
       },
       onClipResizeEnd: (clipId) {
         // Final FFI commit when resize drag ends
@@ -5791,8 +6110,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         // Sync to audio engine (use EngineApi.instance for clip operations)
         EngineApi.instance.fadeInClip(clipId, fadeIn);
         EngineApi.instance.fadeOutClip(clipId, fadeOut);
+        // Sync fades to middleware layer
+        _mwTimelineSyncController.handleClipParameterChanged(clipId, 'fadeIn', fadeIn);
+        _mwTimelineSyncController.handleClipParameterChanged(clipId, 'fadeOut', fadeOut);
       },
       onClipRename: (clipId, newName) {
+        // Block rename on MW-synced clips — names are controlled by middleware
+        if (_mwTimelineSyncController.isMwSyncedClip(clipId)) return;
         setState(() {
           _clips = _clips.map((c) {
             if (c.id == clipId) {
@@ -5811,6 +6135,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             return c;
           }).toList();
         });
+        // Sync sourceOffset to MW layer trimStartMs
+        _mwTimelineSyncController.handleClipParameterChanged(clipId, 'sourceOffset', newSourceOffset);
       },
       onClipOpenAudioEditor: (clipId) {
         // Find clip and open audio editor dialog
@@ -5867,6 +6193,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             eventId: clip.eventId, // Preserve original event
           ));
         });
+
+        // Auto-create crossfade at split point
+        _createCrossfadeAtSplitPoint(clipId, newClipId, clip.trackId, splitTime);
 
         // Register undo — merge split clips back into original
         UiUndoManager.instance.record(GenericUndoAction(
@@ -5948,6 +6277,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         ));
       },
       onClipDelete: (clipId) {
+        // Protect MW-synced clips from direct deletion
+        if (_mwTimelineSyncController.isMwSyncedClip(clipId)) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Synced from Middleware — delete the event layer instead.'),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+          return;
+        }
         // In middleware mode, sync deletion to event actions FIRST
         // (before removing clip from list, as we need to find the track)
         if (_editorMode == EditorMode.middleware && clipId.startsWith('evt_clip_')) {
@@ -5980,20 +6321,32 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             return c;
           }).toList();
         });
+        // Sync clip mute to middleware layer
+        _mwTimelineSyncController.handleClipParameterChanged(clipId, 'mute', newMuted);
       },
       onClipLoopToggle: (clipId) {
         final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
         if (clip.id != clipId) return;
+        final newLoop = !clip.loopEnabled;
         setState(() {
           _clips = _clips.map((c) {
             if (c.id == clipId) {
-              return c.copyWith(loopEnabled: !c.loopEnabled);
+              return c.copyWith(loopEnabled: newLoop);
             }
             return c;
           }).toList();
         });
+        // Sync clip loop to middleware layer
+        _mwTimelineSyncController.handleClipParameterChanged(clipId, 'loop', newLoop);
       },
       onClipSplitAtPosition: (clipId, position) {
+        // Block split on MW-synced clips — they mirror middleware layers
+        if (_mwTimelineSyncController.isMwSyncedClip(clipId)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Cannot split MW-synced clip. Edit the event layers in Middleware.')),
+          );
+          return;
+        }
         // Split clip at precise position (Cubase Alt+click)
         final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
         if (clip.id != clipId) return;
@@ -6017,6 +6370,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         // Sync to engine
         engine.splitClip(clipId: clipId, atTime: position);
 
+        // Auto-create crossfade at split point
+        _createCrossfadeAtSplitPoint(clipId, rightClipId, clip.trackId, position);
+
         // Register undo — merge split clips back into original
         UiUndoManager.instance.record(GenericUndoAction(
           description: 'Split clip "${originalClip.name}"',
@@ -6035,6 +6391,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         ));
       },
       onClipShuffleMove: (clipId, newStartTime) {
+        // Clear drag preview — authoritative position set below
+        _dragPreviewClipId = null;
+        _dragPreviewStartTime = null;
+
         // Shuffle mode: move clip AND push adjacent clips to prevent overlaps
         final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
         if (clip.id != clipId) return;
@@ -6090,6 +6450,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         _updateTrackById(trackId, (t) => t.copyWith(muted: newMuted));
         engine.updateTrack(trackId, muted: newMuted);
         context.read<MixerProvider>().setMuted('ch_$trackId', newMuted);
+        // MW ↔ DAW sync: propagate mute to middleware layer
+        _mwTimelineSyncController.handleTrackParameterChanged(trackId, 'mute', newMuted);
       },
       onTrackSoloToggle: (trackId) {
         final idx = _tracks.indexWhere((t) => t.id == trackId);
@@ -6098,6 +6460,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         _updateTrackById(trackId, (t) => t.copyWith(soloed: newSoloed));
         engine.updateTrack(trackId, soloed: newSoloed);
         context.read<MixerProvider>().setSoloed('ch_$trackId', newSoloed);
+        // MW ↔ DAW sync: propagate solo to middleware layer
+        _mwTimelineSyncController.handleTrackParameterChanged(trackId, 'solo', newSoloed);
       },
       onTrackArmToggle: (trackId) {
         final idx = _tracks.indexWhere((t) => t.id == trackId);
@@ -6118,10 +6482,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       onTrackVolumeChange: (trackId, volume) {
         engine.updateTrack(trackId, volume: volume);
         _updateTrackById(trackId, (t) => t.copyWith(volume: volume));
+        // MW ↔ DAW sync: propagate volume to middleware layer
+        _mwTimelineSyncController.handleTrackParameterChanged(trackId, 'volume', volume);
       },
       onTrackPanChange: (trackId, pan) {
         engine.updateTrack(trackId, pan: pan);
         _updateTrackById(trackId, (t) => t.copyWith(pan: pan));
+        // MW ↔ DAW sync: propagate pan to middleware layer
+        _mwTimelineSyncController.handleTrackParameterChanged(trackId, 'pan', pan);
       },
       onTrackColorChange: (trackId, color) {
         _handleTrackColorChange(trackId, color);
@@ -6129,8 +6497,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       onTrackBusChange: (trackId, bus) {
         engine.updateTrack(trackId, busId: bus.index);
         _updateTrackById(trackId, (t) => t.copyWith(outputBus: bus));
+        _mwTimelineSyncController.handleTrackParameterChanged(trackId, 'bus', bus);
       },
       onTrackRename: (trackId, newName) {
+        // Block rename on MW-synced tracks — names are controlled by middleware
+        if (_mwTimelineSyncController.isMwSyncedTrack(trackId)) return;
         engine.updateTrack(trackId, name: newName);
         _updateTrackById(trackId, (t) => t.copyWith(name: newName));
       },
@@ -10189,7 +10560,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   /// Open the correct processor editor window for an insert slot.
   /// Uses InternalProcessorEditorWindow for internal plugins (all 9 FabFilter panels + vintage),
   /// falls back to FFI pluginOpenEditor for external VST3/AU/CLAP plugins.
-  void _openProcessorEditor(String channelId, int slotIndex, PluginInfo plugin) {
+  Future<void> _openProcessorEditor(String channelId, int slotIndex, PluginInfo plugin) async {
     final trackId = _busIdToTrackId(channelId);
     final nodeType = _pluginInfoToDspNodeType(plugin);
 
@@ -10223,9 +10594,70 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         node: node,
       );
     } else if (plugin.format != PluginFormat.internal) {
-      // External plugin — open via FFI
-      NativeFFI.instance.insertOpenEditor(trackId, slotIndex);
+      // External plugin — load via PluginProvider, then open editor
+      final pluginProvider = context.read<PluginProvider>();
+      final existingInstance = pluginProvider.getInstancesForTrack(trackId)
+          .where((i) => i.slotIndex == slotIndex)
+          .firstOrNull;
+
+      if (existingInstance != null) {
+        // Already loaded — just open editor
+        final success = await pluginProvider.openEditor(existingInstance.instanceId);
+        if (!success && mounted) {
+          _showGenericEditorFallback(existingInstance.name, existingInstance.instanceId, trackId, slotIndex);
+        }
+      } else {
+        // Need to load first
+        final instanceId = await pluginProvider.loadPlugin(plugin.id, trackId, slotIndex);
+        if (instanceId != null) {
+          final success = await pluginProvider.openEditor(instanceId);
+          if (!success && mounted) {
+            _showGenericEditorFallback(plugin.name, instanceId, trackId, slotIndex);
+          }
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to load plugin: ${plugin.name}'),
+              backgroundColor: const Color(0xFFFF4060),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
     }
+  }
+
+  /// Show SnackBar with option to open generic parameter editor when native GUI fails
+  void _showGenericEditorFallback(String pluginName, String instanceId, int trackId, int slotIndex) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Native GUI unavailable for $pluginName'),
+        backgroundColor: const Color(0xFFFF9040),
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: 'Open Generic Editor',
+          textColor: Colors.white,
+          onPressed: () {
+            // Open generic parameter slider editor via InternalProcessorEditorWindow
+            final params = NativeFFI.instance.pluginGetAllParams(instanceId);
+            if (params.isNotEmpty) {
+              final node = DspNode(
+                id: '${trackId}_slot_$slotIndex',
+                type: DspNodeType.compressor, // fallback type for generic editor
+                name: pluginName,
+              );
+              InternalProcessorEditorWindow.show(
+                context: context,
+                trackId: trackId,
+                slotIndex: slotIndex,
+                node: node,
+              );
+            }
+          },
+        ),
+      ),
+    );
   }
 
   /// Map plugin ID to Rust processor name
