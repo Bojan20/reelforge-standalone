@@ -137,7 +137,10 @@ class DspParamMapping {
       case DspNodeType.pultec:
       case DspNodeType.api550:
       case DspNodeType.neve1073:
-        return null; // Vintage EQs — no RTPC mapping yet
+      case DspNodeType.haasDelay:
+      case DspNodeType.stereoImager:
+      case DspNodeType.multibandStereoImager:
+        return null; // Vintage EQs / Haas / Imager — no RTPC mapping yet
     }
   }
 
@@ -307,7 +310,10 @@ class DspParamMapping {
       case DspNodeType.pultec:
       case DspNodeType.api550:
       case DspNodeType.neve1073:
-        return []; // Vintage EQs — no RTPC targets yet
+      case DspNodeType.haasDelay:
+      case DspNodeType.stereoImager:
+      case DspNodeType.multibandStereoImager:
+        return []; // Vintage EQs / Haas / Imager — no RTPC targets yet
     }
   }
 }

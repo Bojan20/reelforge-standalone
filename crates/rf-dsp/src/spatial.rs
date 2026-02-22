@@ -496,6 +496,211 @@ impl ProcessorConfig for StereoImager {
     }
 }
 
+// ============ Haas Delay (Precedence Effect Stereo Widener) ============
+
+/// Which channel receives the delay
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum HaasChannel {
+    Left,
+    Right,
+}
+
+/// Haas Delay — Precedence effect stereo widener
+///
+/// Delays one channel by 0.1-30ms to create a perceived stereo width
+/// using the psychoacoustic precedence effect (Haas effect).
+/// Includes LP filter for natural sound and optional feedback.
+///
+/// Parameters (7):
+///   0: delay_ms       (0.1 - 30.0, default 8.0)
+///   1: delayed_channel (0.0 = Left, 1.0 = Right, default 1.0)
+///   2: mix            (0.0 - 1.0, default 1.0)
+///   3: lp_enabled     (0.0 or 1.0, default 1.0)
+///   4: lp_frequency   (200.0 - 18000.0 Hz, default 8000.0)
+///   5: feedback       (0.0 - 0.7, default 0.0)
+///   6: phase_invert   (0.0 or 1.0, default 0.0)
+#[derive(Debug, Clone)]
+pub struct HaasDelay {
+    // Parameters
+    delay_ms: f64,
+    delayed_channel: HaasChannel,
+    mix: f64,
+    lp_enabled: bool,
+    lp_frequency: f64,
+    feedback: f64,
+    phase_invert: bool,
+
+    // Internal state
+    sample_rate: f64,
+    buffer: Vec<f64>,
+    buffer_size: usize,
+    write_pos: usize,
+    delay_samples: f64,
+
+    // One-pole LP filter state (simple, zero-latency)
+    lp_z1: f64,
+    lp_coeff: f64,
+
+    // Feedback state
+    feedback_sample: f64,
+}
+
+impl HaasDelay {
+    pub fn new(sample_rate: f64) -> Self {
+        // Max buffer = 30ms at max sample rate (192kHz) = ~5760 samples, use 8192 for safety
+        let buffer_size = 8192;
+        let mut hd = Self {
+            delay_ms: 8.0,
+            delayed_channel: HaasChannel::Right,
+            mix: 1.0,
+            lp_enabled: true,
+            lp_frequency: 8000.0,
+            feedback: 0.0,
+            phase_invert: false,
+            sample_rate,
+            buffer: vec![0.0; buffer_size],
+            buffer_size,
+            write_pos: 0,
+            delay_samples: 8.0 * sample_rate / 1000.0,
+            lp_z1: 0.0,
+            lp_coeff: 0.0,
+            feedback_sample: 0.0,
+        };
+        hd.update_lp_coeff();
+        hd
+    }
+
+    /// Set delay time in milliseconds (0.1 - 30.0)
+    pub fn set_delay_ms(&mut self, ms: f64) {
+        self.delay_ms = ms.clamp(0.1, 30.0);
+        self.delay_samples = self.delay_ms * self.sample_rate / 1000.0;
+    }
+
+    /// Set which channel gets delayed
+    pub fn set_delayed_channel(&mut self, channel: HaasChannel) {
+        self.delayed_channel = channel;
+    }
+
+    /// Set dry/wet mix (0.0 = dry, 1.0 = full effect)
+    pub fn set_mix(&mut self, mix: f64) {
+        self.mix = mix.clamp(0.0, 1.0);
+    }
+
+    /// Enable/disable low-pass filter on delayed signal
+    pub fn set_lp_enabled(&mut self, enabled: bool) {
+        self.lp_enabled = enabled;
+    }
+
+    /// Set LP filter frequency (200 - 18000 Hz)
+    pub fn set_lp_frequency(&mut self, freq: f64) {
+        self.lp_frequency = freq.clamp(200.0, 18000.0);
+        self.update_lp_coeff();
+    }
+
+    /// Set feedback amount (0.0 - 0.7)
+    pub fn set_feedback(&mut self, fb: f64) {
+        self.feedback = fb.clamp(0.0, 0.7);
+    }
+
+    /// Set phase invert on delayed channel
+    pub fn set_phase_invert(&mut self, invert: bool) {
+        self.phase_invert = invert;
+    }
+
+    /// Update one-pole LP filter coefficient
+    fn update_lp_coeff(&mut self) {
+        // One-pole LP: y[n] = (1-a)*x[n] + a*y[n-1]
+        // a = exp(-2*pi*fc/sr)
+        let fc = self.lp_frequency.min(self.sample_rate * 0.49);
+        self.lp_coeff = (-2.0 * PI * fc / self.sample_rate).exp();
+    }
+
+    /// Read from delay buffer with linear interpolation
+    #[inline]
+    fn read_delay(&self) -> f64 {
+        let int_delay = self.delay_samples as usize;
+        let frac = self.delay_samples - int_delay as f64;
+
+        let idx0 = (self.write_pos + self.buffer_size - int_delay) % self.buffer_size;
+        let idx1 = (self.write_pos + self.buffer_size - int_delay - 1) % self.buffer_size;
+
+        // Linear interpolation for sub-sample accuracy
+        self.buffer[idx0] * (1.0 - frac) + self.buffer[idx1] * frac
+    }
+
+    /// Write sample to delay buffer
+    #[inline]
+    fn write_delay(&mut self, sample: f64) {
+        self.buffer[self.write_pos] = sample + self.feedback_sample * self.feedback;
+        self.write_pos = (self.write_pos + 1) % self.buffer_size;
+    }
+
+    /// Apply one-pole LP filter
+    #[inline]
+    fn apply_lp(&mut self, sample: f64) -> f64 {
+        if self.lp_enabled {
+            self.lp_z1 = sample * (1.0 - self.lp_coeff) + self.lp_z1 * self.lp_coeff;
+            self.lp_z1
+        } else {
+            sample
+        }
+    }
+
+    /// Process a single stereo sample pair
+    #[inline]
+    pub fn process_sample_stereo(&mut self, left: f64, right: f64) -> (f64, f64) {
+        match self.delayed_channel {
+            HaasChannel::Left => {
+                // Delay left channel
+                self.write_delay(left);
+                let delayed = self.read_delay();
+                let filtered = self.apply_lp(delayed);
+                self.feedback_sample = filtered;
+
+                let wet = if self.phase_invert { -filtered } else { filtered };
+                let out_l = left * (1.0 - self.mix) + wet * self.mix;
+                (out_l, right)
+            }
+            HaasChannel::Right => {
+                // Delay right channel
+                self.write_delay(right);
+                let delayed = self.read_delay();
+                let filtered = self.apply_lp(delayed);
+                self.feedback_sample = filtered;
+
+                let wet = if self.phase_invert { -filtered } else { filtered };
+                let out_r = right * (1.0 - self.mix) + wet * self.mix;
+                (left, out_r)
+            }
+        }
+    }
+}
+
+impl Processor for HaasDelay {
+    fn reset(&mut self) {
+        self.buffer.fill(0.0);
+        self.write_pos = 0;
+        self.lp_z1 = 0.0;
+        self.feedback_sample = 0.0;
+    }
+}
+
+impl StereoProcessor for HaasDelay {
+    #[inline]
+    fn process_sample(&mut self, left: Sample, right: Sample) -> (Sample, Sample) {
+        self.process_sample_stereo(left, right)
+    }
+}
+
+impl ProcessorConfig for HaasDelay {
+    fn set_sample_rate(&mut self, sample_rate: f64) {
+        self.sample_rate = sample_rate;
+        self.delay_samples = self.delay_ms * sample_rate / 1000.0;
+        self.update_lp_coeff();
+        self.reset();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -585,5 +790,113 @@ mod tests {
         let (l, r) = rotation.process_sample(1.0, 0.0);
         assert!(l.abs() < 0.01);
         assert!((r - 1.0).abs() < 0.01);
+    }
+
+    // ============ Haas Delay Tests ============
+
+    #[test]
+    fn test_haas_delay_right_channel() {
+        let mut haas = HaasDelay::new(48000.0);
+        haas.set_delay_ms(1.0); // 1ms = 48 samples at 48kHz
+        haas.set_mix(1.0);
+        haas.set_lp_enabled(false);
+        haas.set_feedback(0.0);
+
+        // Feed an impulse on right channel (sample 0)
+        let (l, r) = haas.process_sample_stereo(0.0, 1.0);
+        // At sample 0, delayed right should be near 0 (delay not reached yet)
+        assert!((l - 0.0).abs() < 1e-6, "Left should be untouched");
+        assert!(r.abs() < 0.01, "Right should be near-zero (delayed)");
+
+        // Process enough samples for the impulse to emerge
+        // 1ms at 48kHz = 48 samples. The impulse was written at sample 0,
+        // so we need to advance 48 samples total.
+        let mut found_impulse = false;
+        for _ in 0..100 {
+            let (_, r2) = haas.process_sample_stereo(0.0, 0.0);
+            if r2.abs() > 0.3 {
+                found_impulse = true;
+                break;
+            }
+        }
+        assert!(found_impulse, "Delayed impulse should appear within 100 samples (>2ms)");
+    }
+
+    #[test]
+    fn test_haas_delay_left_channel() {
+        let mut haas = HaasDelay::new(48000.0);
+        haas.set_delay_ms(1.0);
+        haas.set_delayed_channel(HaasChannel::Left);
+        haas.set_mix(1.0);
+        haas.set_lp_enabled(false);
+
+        let (l, r) = haas.process_sample_stereo(1.0, 0.0);
+        assert!(l.abs() < 0.01, "Left should be delayed");
+        assert!((r - 0.0).abs() < 1e-6, "Right should be untouched");
+    }
+
+    #[test]
+    fn test_haas_delay_passthrough_at_zero_mix() {
+        let mut haas = HaasDelay::new(48000.0);
+        haas.set_mix(0.0);
+
+        // With mix=0, signal should pass through unchanged
+        let (l, r) = haas.process_sample_stereo(0.7, 0.3);
+        assert!((l - 0.7).abs() < 1e-10, "Left should be unchanged");
+        assert!((r - 0.3).abs() < 1e-10, "Right should be unchanged");
+    }
+
+    #[test]
+    fn test_haas_delay_phase_invert() {
+        let mut haas = HaasDelay::new(48000.0);
+        haas.set_delay_ms(0.1); // Minimum delay
+        haas.set_mix(1.0);
+        haas.set_lp_enabled(false);
+        haas.set_phase_invert(true);
+
+        // Feed constant signal
+        for _ in 0..100 {
+            haas.process_sample_stereo(0.0, 1.0);
+        }
+        let (_, r) = haas.process_sample_stereo(0.0, 1.0);
+        // Phase inverted: should be negative
+        assert!(r < -0.5, "Phase inverted delayed signal should be negative");
+    }
+
+    #[test]
+    fn test_haas_delay_reset() {
+        let mut haas = HaasDelay::new(48000.0);
+        haas.set_delay_ms(1.0);
+        haas.set_mix(1.0);
+        haas.set_lp_enabled(false);
+
+        // Fill buffer
+        for _ in 0..100 {
+            haas.process_sample_stereo(0.0, 1.0);
+        }
+
+        // Reset should clear buffer
+        haas.reset();
+        let (_, r) = haas.process_sample_stereo(0.0, 0.0);
+        assert!(r.abs() < 1e-10, "After reset, output should be silent");
+    }
+
+    #[test]
+    fn test_haas_delay_lp_filter() {
+        let mut haas = HaasDelay::new(48000.0);
+        haas.set_delay_ms(0.1);
+        haas.set_mix(1.0);
+        haas.set_lp_enabled(true);
+        haas.set_lp_frequency(1000.0); // Very low LP — should attenuate high freq
+
+        // The LP filter on the delayed signal should smooth the impulse
+        haas.process_sample_stereo(0.0, 1.0);
+        for _ in 0..10 {
+            haas.process_sample_stereo(0.0, 0.0);
+        }
+        // LP filtered impulse should be spread out (lower peak)
+        // Just verify no NaN/crash and output is reasonable
+        let (_, r) = haas.process_sample_stereo(0.0, 0.0);
+        assert!(r.is_finite(), "LP filtered output should be finite");
     }
 }

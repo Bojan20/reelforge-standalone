@@ -104,6 +104,7 @@ class MixerCallbacks {
   final void Function(String, String)? onCommentsChanged;
   final ValueChanged<String>? onFolderToggle;
   final ValueChanged<String>? onEqCurveClick;
+  final void Function(String, double)? onWidthChange;
 
   /// Build channel/bus data from providers — passed as function
   /// so the floating window can rebuild with fresh data each frame.
@@ -136,6 +137,7 @@ class MixerCallbacks {
     this.onCommentsChanged,
     this.onFolderToggle,
     this.onEqCurveClick,
+    this.onWidthChange,
     required this.buildChannels,
     required this.buildBuses,
     required this.buildAuxes,
@@ -330,6 +332,7 @@ class _FloatingMixerWidgetState extends State<_FloatingMixerWidget> {
                               onCommentsChanged: cb.onCommentsChanged,
                               onFolderToggle: cb.onFolderToggle,
                               onEqCurveClick: cb.onEqCurveClick,
+                              onWidthChange: cb.onWidthChange,
                             ),
                           ),
                           // Pinned master strip
@@ -477,6 +480,7 @@ class _FloatingMixerWidgetState extends State<_FloatingMixerWidget> {
         onInsertClick: cb.onInsertClick,
         onCommentsChanged: cb.onCommentsChanged,
         onEqCurveClick: cb.onEqCurveClick,
+        onWidthChange: cb.onWidthChange,
       ),
     );
   }

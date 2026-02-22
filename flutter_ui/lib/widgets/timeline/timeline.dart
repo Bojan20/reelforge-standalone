@@ -418,6 +418,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   int? _dropTargetTrackIndex;
 
   final FocusNode _focusNode = FocusNode();
+  final ScrollController _verticalScrollController = ScrollController();
   double _containerWidth = 800;
 
   // PERFORMANCE: Debounce zoom/scroll to prevent excessive setState in parent
@@ -469,6 +470,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     _zoomAnimController.dispose();
     _momentumController.dispose();
     _focusNode.dispose();
+    _verticalScrollController.dispose();
     super.dispose();
   }
 
@@ -745,54 +747,59 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
         // Mouse over header - zoom from center
         _animateZoomTo(newZoom, _containerWidth / 2);
       }
-    } else {
+    } else if (isShiftHeld) {
       // ════════════════════════════════════════════════════════════════
-      // HORIZONTAL SCROLL ONLY (ignore vertical)
+      // SHIFT + WHEEL = HORIZONTAL SCROLL (Cubase/Logic style)
       // ════════════════════════════════════════════════════════════════
-      // Timeline scrolls ONLY horizontally:
-      // - Mouse wheel vertical (dy) → horizontal scroll
-      // - Trackpad horizontal swipe (dx) → horizontal scroll
-      // - Trackpad vertical swipe → IGNORED (no vertical scroll on timeline)
+      if (!_canScroll) return;
 
-      // Cubase-style: no scroll if all content fits in visible area
-      if (!_canScroll) {
-        return;
-      }
-
-      // Calculate max scroll based on content end (not total project duration)
       final maxOffset = (_contentEndTime - _containerWidth / widget.zoom)
           .clamp(0.0, double.infinity);
 
       final dx = event.scrollDelta.dx;
       final dy = event.scrollDelta.dy;
 
-      // ONLY use horizontal delta (dx) for trackpad horizontal swipe
-      // Vertical scroll (dy) from mouse wheel also scrolls horizontally
-      // But pure vertical trackpad swipe is IGNORED
       double rawDelta;
       if (dx.abs() > 1.0) {
-        // Trackpad horizontal swipe - use it
         rawDelta = dx;
-      } else if (dy.abs() > 1.0 && dx.abs() < 0.5) {
-        // Pure vertical scroll (mouse wheel) - convert to horizontal
+      } else if (dy.abs() > 1.0) {
         rawDelta = dy;
       } else {
-        // Ignore small movements / diagonal gestures
         return;
       }
 
-      // Stop any existing momentum
       _stopMomentum();
 
-      // Speed multiplier: 2.5x base speed, Shift = 4x faster
-      final speedMultiplier = isShiftHeld ? 10.0 : 2.5;
-
-      // Scroll amount in seconds (scale by zoom for consistent feel)
+      const speedMultiplier = 10.0;
       final scrollSeconds = (rawDelta / widget.zoom) * speedMultiplier;
-
       final newOffset = (widget.scrollOffset + scrollSeconds).clamp(0.0, maxOffset);
-
       _notifyScrollChange(newOffset);
+    } else {
+      // ════════════════════════════════════════════════════════════════
+      // MOUSE WHEEL (no modifier) = VERTICAL SCROLL TRACKS
+      // ════════════════════════════════════════════════════════════════
+      final dy = event.scrollDelta.dy;
+      final dx = event.scrollDelta.dx;
+
+      if (dx.abs() > dy.abs() && dx.abs() > 1.0) {
+        // Horizontal trackpad swipe → horizontal timeline scroll
+        if (!_canScroll) return;
+        final maxOffset = (_contentEndTime - _containerWidth / widget.zoom)
+            .clamp(0.0, double.infinity);
+        _stopMomentum();
+        const speedMultiplier = 2.5;
+        final scrollSeconds = (dx / widget.zoom) * speedMultiplier;
+        final newOffset = (widget.scrollOffset + scrollSeconds).clamp(0.0, maxOffset);
+        _notifyScrollChange(newOffset);
+      } else if (dy.abs() > 1.0) {
+        // Vertical mouse wheel → scroll tracks up/down
+        if (!_verticalScrollController.hasClients) return;
+        final maxScroll = _verticalScrollController.position.maxScrollExtent;
+        if (maxScroll <= 0) return; // All tracks fit, no scroll needed
+        final newScroll = (_verticalScrollController.offset + dy * 1.5)
+            .clamp(0.0, maxScroll);
+        _verticalScrollController.jumpTo(newScroll);
+      }
     }
   }
 
@@ -804,35 +811,36 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   void _handleTrackpadPan(PointerPanZoomUpdateEvent event) {
     final panDelta = event.panDelta;
 
-    // ONLY horizontal pan scrolls timeline (ignore vertical)
-    if (panDelta.dx.abs() < 0.5) return;
-
-    // Cubase-style: no scroll if all content fits in visible area
-    if (!_canScroll) {
-      return;
+    // ── Vertical scroll (tracks up/down) ──
+    if (panDelta.dy.abs() > 0.5 && _verticalScrollController.hasClients) {
+      final maxScroll = _verticalScrollController.position.maxScrollExtent;
+      if (maxScroll > 0) {
+        final newScroll = (_verticalScrollController.offset - panDelta.dy * 1.5)
+            .clamp(0.0, maxScroll);
+        _verticalScrollController.jumpTo(newScroll);
+      }
     }
 
-    // Calculate max scroll based on content end
+    // ── Horizontal scroll (timeline left/right) ──
+    if (panDelta.dx.abs() < 0.5) return;
+
+    if (!_canScroll) return;
+
     final maxOffset = (_contentEndTime - _containerWidth / widget.zoom)
         .clamp(0.0, double.infinity);
 
-    // Stop previous momentum
     _stopMomentum();
 
-    // Calculate velocity for momentum (pixels per frame)
     final now = DateTime.now();
     final dt = now.difference(_lastPanTime).inMilliseconds;
     _lastPanTime = now;
 
-    // Track velocity for momentum when gesture ends
     if (dt > 0 && dt < 100) {
-      // Average with previous to smooth out
       _lastPanVelocity = (_lastPanVelocity * 0.3) + (-panDelta.dx * 0.7);
     } else {
       _lastPanVelocity = -panDelta.dx;
     }
 
-    // Speed multiplier for faster scrolling
     const speedMultiplier = 3.0;
     final scrollSeconds = -panDelta.dx * speedMultiplier / widget.zoom;
 
@@ -1204,11 +1212,24 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   }
 
   /// Handle track reorder via drag-drop (bidirectional sync with mixer)
-  void _handleTrackReorder(int oldIndex, int newIndex) {
-    if (oldIndex == newIndex) return;
+  void _handleTrackReorder(int visibleOldIndex, int visibleNewIndex) {
+    if (visibleOldIndex == visibleNewIndex) return;
     // Adjust for removal if moving down
-    final adjustedNewIndex = oldIndex < newIndex ? newIndex - 1 : newIndex;
-    widget.onTrackReorder?.call(oldIndex, adjustedNewIndex);
+    final adjustedVisibleNew = visibleOldIndex < visibleNewIndex
+        ? visibleNewIndex - 1
+        : visibleNewIndex;
+
+    // Convert visible indices to global indices in widget.tracks
+    // (accounts for hidden tracks that are filtered out of _visibleTracks)
+    final visible = _visibleTracks;
+    if (visibleOldIndex >= visible.length || adjustedVisibleNew >= visible.length) return;
+    final oldTrack = visible[visibleOldIndex];
+    final newTrack = visible[adjustedVisibleNew];
+    final globalOld = widget.tracks.indexOf(oldTrack);
+    final globalNew = widget.tracks.indexOf(newTrack);
+    if (globalOld < 0 || globalNew < 0) return;
+
+    widget.onTrackReorder?.call(globalOld, globalNew);
   }
 
   KeyEventResult _handleKeyEvent(KeyEvent event) {
@@ -2029,10 +2050,10 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                       child: Stack(
                         children: [
                           // Track rows (filter hidden tracks)
-                          // CRITICAL: NeverScrollableScrollPhysics prevents ListView from
-                          // capturing scroll gestures - we handle horizontal scroll ourselves
-                          // and vertical scroll should NOT move the track list (Cubase-style)
+                          // NeverScrollableScrollPhysics prevents ListView from capturing
+                          // scroll gestures — we handle scroll programmatically via controller
                           ListView.builder(
+                            controller: _verticalScrollController,
                             physics: const NeverScrollableScrollPhysics(),
                             itemCount: _visibleTracks.length + 1, // +1 for new track zone
                             itemBuilder: (context, index) {

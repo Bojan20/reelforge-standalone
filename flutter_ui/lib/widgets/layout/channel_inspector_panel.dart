@@ -41,6 +41,7 @@ class ChannelInspectorPanel extends StatefulWidget {
   final void Function(String channelId, int oldIndex, int newIndex)? onInsertReorder;
   final void Function(String channelId, int slotIndex)? onInsertRemove;
   final void Function(String channelId, int slotIndex)? onInsertOpenEditor;
+  final void Function(String channelId, double width)? onWidthChange;
 
   // Clip data
   final timeline.TimelineClip? selectedClip;
@@ -71,6 +72,7 @@ class ChannelInspectorPanel extends StatefulWidget {
     this.onInsertReorder,
     this.onInsertRemove,
     this.onInsertOpenEditor,
+    this.onWidthChange,
     this.selectedClip,
     this.selectedClipTrack,
     this.onClipChanged,
@@ -516,6 +518,13 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
               ],
             ),
           ],
+          const SizedBox(height: 12),
+
+          // Stereo Width control
+          _WidthSlider(
+            value: ch.stereoWidth,
+            onChanged: (v) => widget.onWidthChange?.call(ch.id, v),
+          ),
           const SizedBox(height: 12),
 
           // M/S/R buttons (Mute, Solo, Record Arm)
@@ -2601,6 +2610,72 @@ class _ReorderableInsertListState extends State<_ReorderableInsertList> {
           child: child,
         );
       },
+    );
+  }
+}
+
+/// Stereo Width slider for Channel Tab — SSL signal flow position (after Pan)
+class _WidthSlider extends StatelessWidget {
+  final double value; // 0.0 (mono) to 2.0 (extra wide), 1.0 = normal
+  final ValueChanged<double>? onChanged;
+
+  const _WidthSlider({required this.value, this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final isMono = value <= 0.01;
+    final isWide = value > 1.01;
+    final color = isMono
+        ? FluxForgeTheme.accentOrange
+        : isWide
+            ? FluxForgeTheme.accentCyan
+            : FluxForgeTheme.textSecondary;
+    final label = isMono ? 'M' : '${(value * 100).round()}%';
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 48,
+          child: Text(
+            'Width',
+            style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+          ),
+        ),
+        Expanded(
+          child: SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 3,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+              activeTrackColor: color,
+              inactiveTrackColor: FluxForgeTheme.surfaceDark.withValues(alpha: 0.5),
+              thumbColor: color,
+              overlayColor: color.withValues(alpha: 0.15),
+            ),
+            child: Slider(
+              value: value,
+              min: 0.0,
+              max: 2.0,
+              onChanged: onChanged,
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        GestureDetector(
+          onDoubleTap: () => onChanged?.call(1.0),
+          child: SizedBox(
+            width: 36,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontFamily: 'JetBrains Mono',
+                color: color,
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

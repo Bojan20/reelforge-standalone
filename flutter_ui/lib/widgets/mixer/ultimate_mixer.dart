@@ -132,6 +132,7 @@ class UltimateMixerChannel {
   final double volume; // 0.0 to 2.0 (+6dB)
   final double pan; // -1.0 to 1.0 (mono) or LEFT channel pan (stereo)
   final double panRight; // RIGHT channel pan for stereo (Pro Tools style)
+  final double stereoWidth; // 0.0 (mono) to 2.0 (extra wide), 1.0 = normal
   final bool isStereo; // true = dual pan (stereo), false = single pan (mono)
   final bool muted;
   final bool soloed;
@@ -178,6 +179,7 @@ class UltimateMixerChannel {
     this.volume = 1.0,
     this.pan = -1.0, // Pro Tools default: L hard left
     this.panRight = 1.0, // Pro Tools default: R hard right
+    this.stereoWidth = 1.0,
     this.isStereo = true,
     this.muted = false,
     this.soloed = false,
@@ -243,6 +245,7 @@ class UltimateMixer extends StatefulWidget {
   final void Function(String channelId, double pan)? onPanChange;
   final void Function(String channelId, double pan)? onPanChangeEnd;
   final void Function(String channelId, double pan)? onPanRightChange; // Pro Tools stereo pan
+  final void Function(String channelId, double width)? onWidthChange; // Stereo width
   final void Function(String channelId)? onMuteToggle;
   final void Function(String channelId)? onSoloToggle;
   final void Function(String channelId)? onSoloSafeToggle; // Cmd+Click solo
@@ -288,6 +291,12 @@ class UltimateMixer extends StatefulWidget {
   final VoidCallback? onNarrowAllShortcut;
   /// Hide the internal toolbar when MixerTopBar already provides these controls
   final bool showToolbar;
+  /// Direct peak readers per channel ID — GpuMeter calls these on its own 120fps Ticker.
+  /// Key = channel ID, Value = () => (peakL, peakR) read from FFI/SharedMemory.
+  /// Pro Tools / Cubase approach: meters read audio data independently of widget rebuilds.
+  final Map<String, (double, double) Function()> peakReaders;
+  /// Master bus peak reader — reads from SharedMeterReader (shared memory, zero-latency)
+  final (double, double) Function()? masterPeakReader;
   /// Total counts for collapsed sections (shown even when section is empty)
   final int totalTracks;
   final int totalBuses;
@@ -316,6 +325,7 @@ class UltimateMixer extends StatefulWidget {
     this.onPanChange,
     this.onPanChangeEnd,
     this.onPanRightChange,
+    this.onWidthChange,
     this.onMuteToggle,
     this.onSoloToggle,
     this.onSoloSafeToggle,
@@ -345,6 +355,8 @@ class UltimateMixer extends StatefulWidget {
     this.onSoloSelectedShortcut,
     this.onMuteSelectedShortcut,
     this.onNarrowAllShortcut,
+    this.peakReaders = const {},
+    this.masterPeakReader,
   }) : visibleStripSections = visibleStripSections ?? MixerStripSection.defaultVisibleSet;
 
   @override
@@ -383,6 +395,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
 
     Widget mixerContent = Container(
       decoration: const BoxDecoration(color: FluxForgeTheme.bgDeepest),
+      clipBehavior: Clip.hardEdge,
       child: Column(
         children: [
           // Toolbar — hidden when MixerTopBar is present (fullscreen/floating modes)
@@ -392,7 +405,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
             child: SingleChildScrollView(
               controller: _scrollController,
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.only(left: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -445,6 +458,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                           showInput: widget.showInput,
                           hasSoloActive: hasSolo,
                           visibleStripSections: widget.visibleStripSections,
+                          peakReader: widget.peakReaders[ch.id],
                           onVolumeChange: (v) => widget.onVolumeChange?.call(ch.id, v),
                           onPanChange: (p) => widget.onPanChange?.call(ch.id, p),
                           onPanChangeEnd: (p) => widget.onPanChangeEnd?.call(ch.id, p),
@@ -467,6 +481,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                           onEqCurveClick: () => widget.onEqCurveClick?.call(ch.id),
                           onSendDoubleClick: (idx) => widget.onSendDoubleClick?.call(ch.id, idx),
                           onContextMenu: (pos) => widget.onContextMenu?.call(ch.id, pos),
+                          onWidthChange: (w) => widget.onWidthChange?.call(ch.id, w),
                         ),
                       );
                     }),
@@ -499,6 +514,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         showInput: widget.showInput,
                         hasSoloActive: hasSolo,
                         visibleStripSections: widget.visibleStripSections,
+                        peakReader: widget.peakReaders[aux.id],
                         onVolumeChange: (v) => widget.onVolumeChange?.call(aux.id, v),
                         onPanChange: (p) => widget.onPanChange?.call(aux.id, p),
                         onPanChangeEnd: (p) => widget.onPanChangeEnd?.call(aux.id, p),
@@ -510,6 +526,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         onCommentsChanged: (c) => widget.onCommentsChanged?.call(aux.id, c),
                         onEqCurveClick: () => widget.onEqCurveClick?.call(aux.id),
                         onContextMenu: (pos) => widget.onContextMenu?.call(aux.id, pos),
+                        onWidthChange: (w) => widget.onWidthChange?.call(aux.id, w),
                       ),
                     )),
                     const _SectionDivider(),
@@ -541,6 +558,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         showInput: widget.showInput,
                         hasSoloActive: hasSolo,
                         visibleStripSections: widget.visibleStripSections,
+                        peakReader: widget.peakReaders[bus.id],
                         onVolumeChange: (v) => widget.onVolumeChange?.call(bus.id, v),
                         onPanChange: (p) => widget.onPanChange?.call(bus.id, p),
                         onPanChangeEnd: (p) => widget.onPanChangeEnd?.call(bus.id, p),
@@ -552,6 +570,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                         onCommentsChanged: (c) => widget.onCommentsChanged?.call(bus.id, c),
                         onEqCurveClick: () => widget.onEqCurveClick?.call(bus.id),
                         onContextMenu: (pos) => widget.onContextMenu?.call(bus.id, pos),
+                        onWidthChange: (w) => widget.onWidthChange?.call(bus.id, w),
                       ),
                     )),
                     const _SectionDivider(),
@@ -600,6 +619,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                       onSelect: () => widget.onChannelSelect?.call(widget.master.id),
                       lufsShortTerm: widget.master.lufsShort,
                       lufsIntegrated: widget.master.lufsIntegrated,
+                      peakReader: widget.masterPeakReader,
                     ),
                   ),
                 ],
@@ -799,6 +819,7 @@ class _UltimateChannelStrip extends StatefulWidget {
   final ValueChanged<double>? onPanChange;
   final ValueChanged<double>? onPanChangeEnd;
   final ValueChanged<double>? onPanRightChange; // Pro Tools stereo pan
+  final ValueChanged<double>? onWidthChange; // Stereo width
   final VoidCallback? onMuteToggle;
   final VoidCallback? onSoloToggle;
   final VoidCallback? onSoloSafeToggle; // Cmd+Click
@@ -817,6 +838,7 @@ class _UltimateChannelStrip extends StatefulWidget {
   final VoidCallback? onEqCurveClick;
   final void Function(int sendIndex)? onSendDoubleClick; // Open floating send window
   final void Function(Offset position)? onContextMenu; // Right-click context menu
+  final (double, double) Function()? peakReader; // Direct FFI peak reader (120fps)
 
   _UltimateChannelStrip({
     super.key,
@@ -832,6 +854,7 @@ class _UltimateChannelStrip extends StatefulWidget {
     this.onPanChange,
     this.onPanChangeEnd,
     this.onPanRightChange,
+    this.onWidthChange,
     this.onMuteToggle,
     this.onSoloToggle,
     this.onSoloSafeToggle,
@@ -850,6 +873,7 @@ class _UltimateChannelStrip extends StatefulWidget {
     this.onEqCurveClick,
     this.onSendDoubleClick,
     this.onContextMenu,
+    this.peakReader,
   }) : visibleStripSections = visibleStripSections ?? MixerStripSection.defaultVisibleSet;
 
   @override
@@ -962,6 +986,8 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                 ),
                 // ── 11. Pan control ──
                 _buildPanControl(),
+                // ── 11b. Width control (stereo imager) ──
+                _buildWidthControl(),
                 // ── 12. Fader + Meter (Expanded) ──
                 Expanded(child: _buildFaderMeter()),
                 // ── 13. Numeric dB display ──
@@ -1439,6 +1465,131 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
     );
   }
 
+  /// Width control (Stereo Imager) — 0.0=mono, 1.0=normal, 2.0=extra wide
+  Widget _buildWidthControl() {
+    final ch = widget.channel;
+    final width = ch.stereoWidth;
+    final isMono = width <= 0.01;
+    final isWide = width > 1.01;
+    final isNormal = !isMono && !isWide;
+
+    // Color: cyan when wide, orange when narrow, white when normal
+    final knobColor = isMono
+        ? FluxForgeTheme.accentOrange
+        : isWide
+            ? FluxForgeTheme.accentCyan
+            : FluxForgeTheme.textSecondary;
+
+    // Width label
+    final label = isMono
+        ? 'M'
+        : isNormal
+            ? '${(width * 100).round()}%'
+            : '${(width * 100).round()}%';
+
+    return GestureDetector(
+      onDoubleTap: () => widget.onWidthChange?.call(1.0), // Reset to normal
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Mini label
+            Text(
+              'W',
+              style: TextStyle(
+                fontSize: 7,
+                fontWeight: FontWeight.w600,
+                color: knobColor.withOpacity(0.7),
+                letterSpacing: 0.5,
+              ),
+            ),
+            // Width slider — horizontal mini bar
+            SizedBox(
+              height: 14,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final maxW = constraints.maxWidth - 8;
+                  return GestureDetector(
+                    onHorizontalDragUpdate: (details) {
+                      final delta = details.delta.dx / maxW * 2.0;
+                      final newWidth = (width + delta).clamp(0.0, 2.0);
+                      widget.onWidthChange?.call(newWidth);
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.bgVoid.withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(
+                          color: FluxForgeTheme.borderSubtle.withOpacity(0.3),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Stack(
+                        children: [
+                          // Center line (1.0 = normal)
+                          Positioned(
+                            left: maxW * 0.5,
+                            top: 2,
+                            bottom: 2,
+                            child: Container(
+                              width: 0.5,
+                              color: FluxForgeTheme.textTertiary.withOpacity(0.3),
+                            ),
+                          ),
+                          // Fill bar from center
+                          Positioned(
+                            left: width <= 1.0
+                                ? maxW * (width / 2.0)
+                                : maxW * 0.5,
+                            right: width <= 1.0
+                                ? maxW * 0.5
+                                : maxW * (1.0 - width / 2.0),
+                            top: 2,
+                            bottom: 2,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: knobColor.withOpacity(0.5),
+                                borderRadius: BorderRadius.circular(1),
+                              ),
+                            ),
+                          ),
+                          // Thumb indicator
+                          Positioned(
+                            left: (maxW * (width / 2.0)).clamp(0, maxW) - 2,
+                            top: 1,
+                            bottom: 1,
+                            child: Container(
+                              width: 4,
+                              decoration: BoxDecoration(
+                                color: knobColor,
+                                borderRadius: BorderRadius.circular(1),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            // Value label
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 7,
+                fontWeight: FontWeight.w500,
+                color: knobColor.withOpacity(0.8),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildFaderMeter() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -1448,6 +1599,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
         peakR: widget.channel.peakR,
         muted: widget.channel.muted,
         onChanged: widget.onVolumeChange,
+        peakReader: widget.peakReader,
       ),
     );
   }
@@ -1570,6 +1722,7 @@ class _FaderWithMeter extends StatefulWidget {
   final bool muted;
   final ValueChanged<double>? onChanged;
   final VoidCallback? onResetPeaks;
+  final (double, double) Function()? peakReader;
 
   const _FaderWithMeter({
     required this.volume,
@@ -1578,6 +1731,7 @@ class _FaderWithMeter extends StatefulWidget {
     this.muted = false,
     this.onChanged,
     this.onResetPeaks,
+    this.peakReader,
   });
 
   @override
@@ -1694,6 +1848,12 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                     peak: widget.peakL,
                     muted: widget.muted,
                     onTap: widget.onResetPeaks,
+                    peakReader: widget.peakReader != null
+                        ? () {
+                            final (l, _) = widget.peakReader!();
+                            return (l, l);
+                          }
+                        : null,
                   ),
                 ),
                 // Right meter
@@ -1706,6 +1866,12 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                     peak: widget.peakR,
                     muted: widget.muted,
                     onTap: widget.onResetPeaks,
+                    peakReader: widget.peakReader != null
+                        ? () {
+                            final (_, r) = widget.peakReader!();
+                            return (r, r);
+                          }
+                        : null,
                   ),
                 ),
                 // Fader track (center)
@@ -1839,11 +2005,13 @@ class _MeterBar extends StatelessWidget {
   final double peak;
   final bool muted;
   final VoidCallback? onTap;
+  final (double, double) Function()? peakReader;
 
   const _MeterBar({
     required this.peak,
     this.muted = false,
     this.onTap,
+    this.peakReader,
   });
 
   @override
@@ -1852,6 +2020,7 @@ class _MeterBar extends StatelessWidget {
       builder: (context, constraints) {
         return GpuMeter(
           levels: GpuMeterLevels(peak: muted ? 0 : peak),
+          peakReader: peakReader,
           width: constraints.maxWidth,
           height: constraints.maxHeight,
           muted: muted,
@@ -2588,6 +2757,8 @@ class _MasterStrip extends StatelessWidget {
   /// Real-time LUFS values from engine metering
   final double lufsShortTerm;
   final double lufsIntegrated;
+  /// Direct FFI peak reader (120fps) — bypasses widget rebuild pipeline
+  final (double, double) Function()? peakReader;
 
   const _MasterStrip({
     required this.channel,
@@ -2598,6 +2769,7 @@ class _MasterStrip extends StatelessWidget {
     this.onSelect,
     this.lufsShortTerm = -70.0,
     this.lufsIntegrated = -70.0,
+    this.peakReader,
   });
 
   @override
@@ -2702,6 +2874,7 @@ class _MasterStrip extends StatelessWidget {
                 peakR: channel.peakR,
                 muted: channel.muted,
                 onChanged: onVolumeChange,
+                peakReader: peakReader,
               ),
             ),
           ),

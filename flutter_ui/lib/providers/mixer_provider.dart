@@ -63,6 +63,7 @@ class MixerChannel {
   bool monitorInput;  // Input monitoring
   bool phaseInverted; // Phase/polarity invert (Ø)
   double inputGain;   // Input gain/trim in dB (-20 to +20)
+  double stereoWidth;  // Stereo width 0.0 (mono) to 2.0 (extra wide), 1.0 = normal
 
   // Routing
   String? outputBus;  // Target bus ID (null = master)
@@ -106,6 +107,7 @@ class MixerChannel {
     this.monitorInput = false,
     this.phaseInverted = false,
     this.inputGain = 0.0,
+    this.stereoWidth = 1.0,
     this.outputBus,
     this.inputSource,
     this.sends = const [],
@@ -152,6 +154,7 @@ class MixerChannel {
     bool? monitorInput,
     bool? phaseInverted,
     double? inputGain,
+    double? stereoWidth,
     String? outputBus,
     String? inputSource,
     List<AuxSend>? sends,
@@ -180,6 +183,7 @@ class MixerChannel {
       monitorInput: monitorInput ?? this.monitorInput,
       phaseInverted: phaseInverted ?? this.phaseInverted,
       inputGain: inputGain ?? this.inputGain,
+      stereoWidth: stereoWidth ?? this.stereoWidth,
       outputBus: outputBus ?? this.outputBus,
       inputSource: inputSource ?? this.inputSource,
       sends: sends ?? this.sends,
@@ -833,6 +837,12 @@ class MixerProvider extends ChangeNotifier {
 
     _channels[id] = channel;
     _channelOrder.add(id); // Maintain order list
+
+    // Auto-create stereo imager for track (default width = 1.0 = no change)
+    if (nativeTrackId != null) {
+      NativeFFI.instance.stereoImagerCreate(nativeTrackId);
+    }
+
     notifyListeners();
     return channel;
   }
@@ -1497,7 +1507,8 @@ class MixerProvider extends ChangeNotifier {
   /// Set channel pan WITH undo recording
   /// Called on drag END — uses saved anchor as oldPan for correct undo
   void setChannelPanWithUndo(String id, double pan, {bool propagateGroup = true}) {
-    final channel = _channels[id] ?? _buses[id] ?? _auxes[id];
+    final isMaster = (id == 'master');
+    final channel = isMaster ? _master : (_channels[id] ?? _buses[id] ?? _auxes[id]);
     if (channel == null) return;
 
     // Use drag anchor (pre-drag value) if available, otherwise current
@@ -1868,7 +1879,9 @@ class MixerProvider extends ChangeNotifier {
   }
 
   void setChannelPan(String id, double pan, {bool propagateGroup = true}) {
-    final channel = _channels[id] ?? _buses[id] ?? _auxes[id];
+    // Master bus is stored separately from _channels/_buses/_auxes
+    final isMaster = (id == 'master');
+    final channel = isMaster ? _master : (_channels[id] ?? _buses[id] ?? _auxes[id]);
     if (channel == null) return;
 
     // Save pre-drag anchor for undo (first call in a drag gesture)
@@ -1888,13 +1901,14 @@ class MixerProvider extends ChangeNotifier {
       _propagateGroupParameter(id, GroupLinkParameter.pan, clampedPan);
     }
 
-    if (_channels.containsKey(id)) {
+    if (isMaster) {
+      _master = _master.copyWith(pan: clampedPan);
+      engine.setBusPan(0, clampedPan);
+    } else if (_channels.containsKey(id)) {
       _channels[id] = channel.copyWith(pan: clampedPan);
       if (channel.trackIndex != null) {
-        // ✅ Validate track ID before FFI call
         if (FFIBoundsChecker.validateTrackId(channel.trackIndex!)) {
           engine.setTrackPan(channel.trackIndex!, clampedPan);
-        } else {
         }
       }
     } else if (_buses.containsKey(id)) {
@@ -1911,21 +1925,61 @@ class MixerProvider extends ChangeNotifier {
   }
 
   void setChannelPanRight(String id, double panRight) {
-    final channel = _channels[id] ?? _buses[id] ?? _auxes[id];
+    final isMaster = (id == 'master');
+    final channel = isMaster ? _master : (_channels[id] ?? _buses[id] ?? _auxes[id]);
     if (channel == null) return;
 
     final clampedPan = panRight.clamp(-1.0, 1.0);
 
-    if (_channels.containsKey(id)) {
+    if (isMaster) {
+      _master = _master.copyWith(panRight: clampedPan);
+      NativeFFI.instance.mixerSetBusPanRight(0, clampedPan);
+    } else if (_channels.containsKey(id)) {
       _channels[id] = channel.copyWith(panRight: clampedPan);
-      // Send to engine for stereo dual-pan processing
       if (channel.trackIndex != null) {
         engine.setTrackPanRight(channel.trackIndex!, clampedPan);
       }
     } else if (_buses.containsKey(id)) {
       _buses[id] = channel.copyWith(panRight: clampedPan);
+      final busEngineId = _getBusEngineId(id);
+      if (FFIBoundsChecker.validateBusId(busEngineId)) {
+        NativeFFI.instance.mixerSetBusPanRight(busEngineId, clampedPan);
+      }
     } else if (_auxes.containsKey(id)) {
       _auxes[id] = channel.copyWith(panRight: clampedPan);
+    }
+
+    notifyListeners();
+  }
+
+  /// Set stereo width for a channel (0.0 = mono, 1.0 = normal, 2.0 = extra wide)
+  void setStereoWidth(String id, double width) {
+    final isMaster = (id == 'master');
+    final channel = isMaster ? _master : (_channels[id] ?? _buses[id] ?? _auxes[id]);
+    if (channel == null) return;
+
+    final clampedWidth = width.clamp(0.0, 2.0);
+
+    if (isMaster) {
+      _master = _master.copyWith(stereoWidth: clampedWidth);
+      // Master uses track_id 9999 in FFI convention
+      NativeFFI.instance.stereoImagerCreate(9999);
+      NativeFFI.instance.stereoImagerSetWidth(9999, clampedWidth);
+    } else if (_channels.containsKey(id)) {
+      _channels[id] = channel.copyWith(stereoWidth: clampedWidth);
+      if (channel.trackIndex != null) {
+        final trackId = channel.trackIndex!;
+        NativeFFI.instance.stereoImagerCreate(trackId);
+        NativeFFI.instance.stereoImagerSetWidth(trackId, clampedWidth);
+      }
+    } else if (_buses.containsKey(id)) {
+      _buses[id] = channel.copyWith(stereoWidth: clampedWidth);
+      final busEngineId = _getBusEngineId(id);
+      // Bus uses track_id 1000+bus_idx in FFI convention
+      NativeFFI.instance.stereoImagerCreate(1000 + busEngineId);
+      NativeFFI.instance.stereoImagerSetWidth(1000 + busEngineId, clampedWidth);
+    } else if (_auxes.containsKey(id)) {
+      _auxes[id] = channel.copyWith(stereoWidth: clampedWidth);
     }
 
     notifyListeners();

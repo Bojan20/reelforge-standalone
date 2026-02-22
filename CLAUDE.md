@@ -235,6 +235,7 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 
 **DAW Architecture Documentation:**
 - .claude/architecture/SSL_CHANNEL_STRIP_ORDERING.md — **SSL signal flow analysis** (4000E/G, 9000J, Duality → 10-section inspector layout)
+- .claude/architecture/HAAS_DELAY_AND_STEREO_IMAGER.md — **Stereo processing** (Haas Delay + StereoImager fix + MultibandImager iZotope level, 45 tasks)
 
 **SlotLab Architecture Documentation:**
 - .claude/architecture/ANTICIPATION_SYSTEM.md — **Industry-standard anticipation** (per-reel tension L1-L4, scatter-triggered)
@@ -2530,6 +2531,9 @@ Complete rewrite of `_previewEvent()` in `engine_connected_layout.dart` — Pan,
 - ✅ Dynamics (Compressor, Limiter, Gate, Expander)
 - ✅ Reverb (convolution + algorithmic)
 - ✅ Spatial (Panner, Width, M/S)
+- 📋 Stereo Imager (exists but DISCONNECTED — fix planned, iZotope Ozone Imager level)
+- 📋 Haas Delay (new — precedence effect widening)
+- 📋 MultibandStereoImager (4-band, stereoize, vectorscope)
 - ✅ Analysis (FFT, LUFS, True Peak, Correlation, Frequency)
 
 ### Unified FaderCurve — All Volume Controls (2026-02-21) ✅
@@ -2598,6 +2602,56 @@ Meters smoothly decay to complete invisibility (Cubase behavior).
 - Smooth decay via existing animation (no visual jump at gate threshold)
 - Applies to both peak meters in mixer channel strips
 
+### Stereo Imager + Haas Delay + MultibandImager (2026-02-22) 📋 PLANNED
+
+**Specifikacija:** `.claude/architecture/HAAS_DELAY_AND_STEREO_IMAGER.md`
+**Target:** iZotope Ozone Imager level ili bolji
+
+**3 Feature-a:**
+
+| Feature | Tip | Svrha | Status |
+|---------|-----|-------|--------|
+| **StereoImager** | Channel strip + Insert | M/S width, balance, rotation, correlation | ❌ EXISTS but DISCONNECTED |
+| **Haas Delay** | Insert processor | Precedence effect widening (1-30ms) | 📋 NEW |
+| **MultibandStereoImager** | Insert processor | 4-band width, stereoize, vectorscope | 📋 NEW |
+
+**StereoImager DISCONNECT:** `STEREO_IMAGERS` HashMap u `ffi.rs:9557` — 15+ FFI funkcija postoje ali `playback.rs` ih NIKADA NE POZIVA. Identičan bug pattern kao prethodni `DYNAMICS_COMPRESSORS`.
+
+**Signal Flow pozicija (SSL kanonski):**
+```
+Input → Pre-Fader Inserts → Fader → Pan → ★ STEREO IMAGER → Post-Fader Inserts (incl. Haas) → Sends → Bus
+```
+
+**Implementacija — 45 tasks, ~5,260 LOC, 6 faza:**
+
+| Phase | Focus | Tasks | LOC |
+|-------|-------|-------|-----|
+| 1 | StereoImager Fix (connect to PLAYBACK_ENGINE) | 12 | ~440 |
+| 2 | Haas Delay (DSP + UI) | 7 | ~810 |
+| 3 | FF-IMG Panel (StereoImager insert UI) | 3 | ~570 |
+| 4 | MultibandStereoImager — iZotope Ozone Level | 12 | ~1,770 |
+| 5 | Vectorscope & Metering | 4 | ~970 |
+| 6 | Testing & Polish | 7 | ~700 |
+
+**iZotope Parity + Beyond:**
+- 4-band multiband width (Ozone standard)
+- Stereoize allpass-chain decorrelation (mono→stereo)
+- 3-mode Vectorscope (Polar Sample, Polar Level, Lissajous)
+- **FluxForge exclusive:** Channel strip integration, Haas mode, stereo rotation, M/S gain
+
+**Key Rust Structs (planned):**
+- `HaasDelay` — ring buffer, LP filter, feedback, 7 params
+- `MultibandStereoImager` — 4×BandImager + LinkwitzRiley crossovers + Stereoize
+- `StereoImagerWrapper` — InsertProcessor (8 params)
+- `HaasDelayWrapper` — InsertProcessor (7 params)
+- `MultibandImagerWrapper` — InsertProcessor (17 params)
+
+**Key Dart Files (planned):**
+- `fabfilter_haas_panel.dart` — FF-HAAS (zone indicator, correlation bar)
+- `fabfilter_imager_panel.dart` — FF-IMG (width, M/S, rotation, correlation)
+- `fabfilter_multiband_imager_panel.dart` — FF-MBI (4-band, crossovers, stereoize)
+- `vectorscope_widget.dart` — 3-mode vectorscope display
+
 ### DSP Processor Defaults Fix (2026-02-16) ✅
 
 Processors now start **enabled** (audible) when loaded into insert chain.
@@ -2635,6 +2689,9 @@ Professional DSP panel suite inspired by FabFilter's design language — **9 pan
 | `fabfilter_deesser_panel.dart` | FF-E | Pro-DS | Frequency display, listen mode, 8 params | ✅ | ✅ DeEsserSnapshot (8 fields) |
 | `fabfilter_saturation_panel.dart` | FF-SAT | Saturn 2 | 6-band multiband, per-band drive/type/dynamics, crossover | ✅ | ✅ SaturationSnapshot (65 fields) |
 | `fabfilter_delay_panel.dart` | FF-DLY | Timeless 3 | Ping-pong, tempo sync, mod, filter, duck, freeze | ✅ | ✅ DelaySnapshot (14 fields) |
+| `fabfilter_haas_panel.dart` | FF-HAAS | — | Haas delay widener, zone indicator, LP filter, correlation | 📋 | 📋 PLANNED |
+| `fabfilter_imager_panel.dart` | FF-IMG | — | Width, M/S, balance, rotation, correlation, vectorscope | 📋 | 📋 PLANNED |
+| `fabfilter_multiband_imager_panel.dart` | FF-MBI | Ozone Imager | 4-band width, stereoize, crossovers, vectorscope | 📋 | 📋 PLANNED |
 
 **DSP Sub-Panels (FabFilter Style):**
 

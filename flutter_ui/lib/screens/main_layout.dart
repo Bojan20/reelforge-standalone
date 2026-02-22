@@ -99,6 +99,7 @@ class MainLayout extends StatefulWidget {
   final void Function(String channelId, int slotIndex)? onChannelInsertRemove;
   final void Function(String channelId, int slotIndex)? onChannelInsertOpenEditor;
   final void Function(String channelId, int oldIndex, int newIndex)? onChannelInsertReorder;
+  final void Function(String channelId, double width)? onChannelWidthChange;
 
   // Center zone (main content)
   final Widget child;
@@ -200,6 +201,7 @@ class MainLayout extends StatefulWidget {
     this.onChannelInsertRemove,
     this.onChannelInsertOpenEditor,
     this.onChannelInsertReorder,
+    this.onChannelWidthChange,
     // Center zone
     required this.child,
     // Right zone (Middleware)
@@ -529,6 +531,7 @@ class _MainLayoutState extends State<MainLayout>
                 onChannelInsertRemove: widget.onChannelInsertRemove,
                 onChannelInsertOpenEditor: widget.onChannelInsertOpenEditor,
                 onChannelInsertReorder: widget.onChannelInsertReorder,
+                onChannelWidthChange: widget.onChannelWidthChange,
                 // Pass clip data for combined inspector
                 selectedClip: widget.selectedClip,
                 selectedClipTrack: widget.selectedClipTrack,

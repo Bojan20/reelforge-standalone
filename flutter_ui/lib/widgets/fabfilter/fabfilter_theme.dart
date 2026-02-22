@@ -489,4 +489,16 @@ class FabFilterSizePresets {
     FabFilterSize.medium: Size(640, 520),
     FabFilterSize.large: Size(840, 680),
   };
+
+  static const Map<FabFilterSize, Size> haasDelay = {
+    FabFilterSize.small: Size(440, 340),
+    FabFilterSize.medium: Size(600, 460),
+    FabFilterSize.large: Size(800, 620),
+  };
+
+  static const Map<FabFilterSize, Size> imager = {
+    FabFilterSize.small: Size(480, 380),
+    FabFilterSize.medium: Size(660, 520),
+    FabFilterSize.large: Size(860, 680),
+  };
 }

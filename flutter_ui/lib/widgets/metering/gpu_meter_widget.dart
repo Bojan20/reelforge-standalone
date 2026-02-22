@@ -245,8 +245,15 @@ class GpuMeterConfig {
 /// )
 /// ```
 class GpuMeter extends StatefulWidget {
-  /// Current meter levels
+  /// Current meter levels (used as fallback when peakReader is null)
   final GpuMeterLevels levels;
+
+  /// Direct peak reader callback — called on EVERY Ticker frame (120fps).
+  /// Returns (peakL, peakR) read directly from FFI/SharedMemory.
+  /// When set, bypasses widget.levels.peak entirely for zero-latency metering.
+  /// This is the Pro Tools / Cubase approach: meter reads audio data on its
+  /// own schedule, not gated by parent widget rebuild cycles.
+  final (double, double) Function()? peakReader;
 
   /// Meter width
   final double width;
@@ -278,6 +285,7 @@ class GpuMeter extends StatefulWidget {
   const GpuMeter({
     super.key,
     required this.levels,
+    this.peakReader,
     this.width = 12,
     this.height = 200,
     this.style = GpuMeterStyle.smooth,
@@ -293,6 +301,7 @@ class GpuMeter extends StatefulWidget {
   GpuMeter.simple({
     super.key,
     required double level,
+    this.peakReader,
     this.width = 8,
     this.height = 120,
     this.muted = false,
@@ -309,6 +318,7 @@ class GpuMeter extends StatefulWidget {
     super.key,
     required double peakL,
     required double peakR,
+    this.peakReader,
     this.width = 24,
     this.height = 200,
     this.muted = false,
@@ -375,10 +385,22 @@ class _GpuMeterState extends State<GpuMeter>
     final releaseCoef =
         1.0 - math.exp(-deltaMs / math.max(config.releaseMs, 1));
 
-    // Get target levels
-    final targetL = widget.muted ? 0.0 : widget.levels.peak;
-    final targetR =
-        widget.muted ? 0.0 : (widget.levels.peakR ?? widget.levels.peak);
+    // Get target levels — prefer peakReader (120fps direct FFI read) over widget props
+    double targetL, targetR;
+    if (widget.peakReader != null && !widget.muted) {
+      try {
+        final (pL, pR) = widget.peakReader!();
+        targetL = pL;
+        targetR = pR;
+      } catch (_) {
+        targetL = widget.levels.peak;
+        targetR = widget.levels.peakR ?? widget.levels.peak;
+      }
+    } else {
+      targetL = widget.muted ? 0.0 : widget.levels.peak;
+      targetR =
+          widget.muted ? 0.0 : (widget.levels.peakR ?? widget.levels.peak);
+    }
 
     // Cubase-style noise floor gate threshold (~-80dB linear ≈ 0.0001)
     // Below this, meter is completely invisible — no residual flicker

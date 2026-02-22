@@ -35,7 +35,10 @@ enum DspNodeType {
   pultec('FF-PT', 'FF EQP1A'),
   api550('FF-API', 'FF 550A'),
   neve1073('FF-NEV', 'FF 1073'),
-  multibandSaturation('FF-SAT', 'Saturn 2');
+  multibandSaturation('FF-SAT', 'Saturn 2'),
+  haasDelay('FF-H', 'Haas Delay'),
+  stereoImager('FF-IMG', 'Stereo Imager'),
+  multibandStereoImager('FF-MBI', 'MB Imager');
 
   final String shortName;
   final String fullName;
@@ -215,6 +218,42 @@ class DspNode {
           'numBands': 4.0,
           'crossoverType': 1.0,
         },
+      DspNodeType.haasDelay => {
+          'delayMs': 8.0,
+          'channel': 1.0,
+          'mix': 1.0,
+          'lpEnabled': 1.0,
+          'lpFrequency': 8000.0,
+          'feedback': 0.0,
+          'phaseInvert': 0.0,
+        },
+      DspNodeType.stereoImager => {
+          'width': 1.0,
+          'pan': 0.0,
+          'panLaw': 1.0,
+          'balance': 0.0,
+          'midGainDb': 0.0,
+          'sideGainDb': 0.0,
+          'rotationDeg': 0.0,
+          'enableBalance': 0.0,
+          'enablePanner': 0.0,
+          'enableWidth': 1.0,
+          'enableMs': 0.0,
+          'enableRotation': 0.0,
+        },
+      DspNodeType.multibandStereoImager => {
+          'inputGain': 0.0,
+          'outputGain': 0.0,
+          'globalMix': 100.0,
+          'numBands': 4.0,
+          'crossoverType': 1.0,
+          'crossover0': 120.0,
+          'crossover1': 750.0,
+          'crossover2': 2500.0,
+          'crossover3': 7000.0,
+          'crossover4': 14000.0,
+          'msMode': 0.0,
+        },
     };
   }
 
@@ -334,6 +373,9 @@ class DspChainProvider extends ChangeNotifier {
       DspNodeType.api550 => 'api550',
       DspNodeType.neve1073 => 'neve1073',
       DspNodeType.multibandSaturation => 'multiband-saturator',
+      DspNodeType.haasDelay => 'haas-delay',
+      DspNodeType.stereoImager => 'stereo-imager',
+      DspNodeType.multibandStereoImager => 'multiband-stereo-imager',
     };
   }
 
@@ -833,6 +875,67 @@ class DspChainProvider extends ChangeNotifier {
         _ffi.insertSetParam(trackId, slotIndex, 3, msMode);
         _ffi.insertSetParam(trackId, slotIndex, 4, numBands);
         _ffi.insertSetParam(trackId, slotIndex, 5, crossoverType);
+        break;
+
+      case DspNodeType.haasDelay:
+        // Restore Haas Delay parameters (7 params)
+        final delayMs = (node.params['delayMs'] as num?)?.toDouble() ?? 8.0;
+        final channel = (node.params['channel'] as num?)?.toDouble() ?? 1.0;
+        final mix = (node.params['mix'] as num?)?.toDouble() ?? 1.0;
+        final lpEnabled = (node.params['lpEnabled'] as num?)?.toDouble() ?? 1.0;
+        final lpFrequency = (node.params['lpFrequency'] as num?)?.toDouble() ?? 8000.0;
+        final feedback = (node.params['feedback'] as num?)?.toDouble() ?? 0.0;
+        final phaseInvert = (node.params['phaseInvert'] as num?)?.toDouble() ?? 0.0;
+        _ffi.insertSetParam(trackId, slotIndex, 0, delayMs);
+        _ffi.insertSetParam(trackId, slotIndex, 1, channel);
+        _ffi.insertSetParam(trackId, slotIndex, 2, mix);
+        _ffi.insertSetParam(trackId, slotIndex, 3, lpEnabled);
+        _ffi.insertSetParam(trackId, slotIndex, 4, lpFrequency);
+        _ffi.insertSetParam(trackId, slotIndex, 5, feedback);
+        _ffi.insertSetParam(trackId, slotIndex, 6, phaseInvert);
+        break;
+
+      case DspNodeType.stereoImager:
+        // Restore Stereo Imager parameters (12 params)
+        final width = (node.params['width'] as num?)?.toDouble() ?? 1.0;
+        final pan = (node.params['pan'] as num?)?.toDouble() ?? 0.0;
+        final panLaw = (node.params['panLaw'] as num?)?.toDouble() ?? 1.0;
+        final balance = (node.params['balance'] as num?)?.toDouble() ?? 0.0;
+        final midGainDb = (node.params['midGainDb'] as num?)?.toDouble() ?? 0.0;
+        final sideGainDb = (node.params['sideGainDb'] as num?)?.toDouble() ?? 0.0;
+        final rotationDeg = (node.params['rotationDeg'] as num?)?.toDouble() ?? 0.0;
+        final enableBalance = (node.params['enableBalance'] as num?)?.toDouble() ?? 0.0;
+        final enablePanner = (node.params['enablePanner'] as num?)?.toDouble() ?? 0.0;
+        final enableWidth = (node.params['enableWidth'] as num?)?.toDouble() ?? 1.0;
+        final enableMs = (node.params['enableMs'] as num?)?.toDouble() ?? 0.0;
+        final enableRotation = (node.params['enableRotation'] as num?)?.toDouble() ?? 0.0;
+        _ffi.insertSetParam(trackId, slotIndex, 0, width);
+        _ffi.insertSetParam(trackId, slotIndex, 1, pan);
+        _ffi.insertSetParam(trackId, slotIndex, 2, panLaw);
+        _ffi.insertSetParam(trackId, slotIndex, 3, balance);
+        _ffi.insertSetParam(trackId, slotIndex, 4, midGainDb);
+        _ffi.insertSetParam(trackId, slotIndex, 5, sideGainDb);
+        _ffi.insertSetParam(trackId, slotIndex, 6, rotationDeg);
+        _ffi.insertSetParam(trackId, slotIndex, 7, enableBalance);
+        _ffi.insertSetParam(trackId, slotIndex, 8, enablePanner);
+        _ffi.insertSetParam(trackId, slotIndex, 9, enableWidth);
+        _ffi.insertSetParam(trackId, slotIndex, 10, enableMs);
+        _ffi.insertSetParam(trackId, slotIndex, 11, enableRotation);
+        break;
+
+      case DspNodeType.multibandStereoImager:
+        // Restore Multiband Stereo Imager parameters (65 params: 11 global + 6×9 per-band)
+        _ffi.insertSetParam(trackId, slotIndex, 0, (node.params['inputGain'] as num?)?.toDouble() ?? 0.0);
+        _ffi.insertSetParam(trackId, slotIndex, 1, (node.params['outputGain'] as num?)?.toDouble() ?? 0.0);
+        _ffi.insertSetParam(trackId, slotIndex, 2, (node.params['globalMix'] as num?)?.toDouble() ?? 100.0);
+        _ffi.insertSetParam(trackId, slotIndex, 3, (node.params['numBands'] as num?)?.toDouble() ?? 4.0);
+        _ffi.insertSetParam(trackId, slotIndex, 4, (node.params['crossoverType'] as num?)?.toDouble() ?? 1.0);
+        _ffi.insertSetParam(trackId, slotIndex, 5, (node.params['crossover0'] as num?)?.toDouble() ?? 120.0);
+        _ffi.insertSetParam(trackId, slotIndex, 6, (node.params['crossover1'] as num?)?.toDouble() ?? 750.0);
+        _ffi.insertSetParam(trackId, slotIndex, 7, (node.params['crossover2'] as num?)?.toDouble() ?? 2500.0);
+        _ffi.insertSetParam(trackId, slotIndex, 8, (node.params['crossover3'] as num?)?.toDouble() ?? 7000.0);
+        _ffi.insertSetParam(trackId, slotIndex, 9, (node.params['crossover4'] as num?)?.toDouble() ?? 14000.0);
+        _ffi.insertSetParam(trackId, slotIndex, 10, (node.params['msMode'] as num?)?.toDouble() ?? 0.0);
         break;
     }
 

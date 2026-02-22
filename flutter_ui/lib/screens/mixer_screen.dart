@@ -51,6 +51,11 @@ class MixerScreen extends StatefulWidget {
   final void Function(String channelId, String comments)? onCommentsChanged;
   final void Function(String channelId)? onFolderToggle;
   final void Function(String channelId)? onEqCurveClick;
+  final void Function(String channelId, double width)? onWidthChange;
+
+  /// Direct FFI peak readers for 120fps meter updates (bypasses widget rebuild pipeline)
+  final Map<String, (double, double) Function()> peakReaders;
+  final (double, double) Function()? masterPeakReader;
 
   const MixerScreen({
     super.key,
@@ -84,6 +89,9 @@ class MixerScreen extends StatefulWidget {
     this.onCommentsChanged,
     this.onFolderToggle,
     this.onEqCurveClick,
+    this.onWidthChange,
+    this.peakReaders = const {},
+    this.masterPeakReader,
   });
 
   @override
@@ -250,6 +258,9 @@ class _MixerScreenState extends State<MixerScreen> {
       onCommentsChanged: widget.onCommentsChanged,
       onFolderToggle: widget.onFolderToggle,
       onEqCurveClick: widget.onEqCurveClick,
+      onWidthChange: widget.onWidthChange,
+      peakReaders: widget.peakReaders,
+      masterPeakReader: widget.masterPeakReader,
     );
   }
 
@@ -290,6 +301,7 @@ class _MixerScreenState extends State<MixerScreen> {
         onInsertClick: widget.onInsertClick,
         onCommentsChanged: widget.onCommentsChanged,
         onEqCurveClick: widget.onEqCurveClick,
+        masterPeakReader: widget.masterPeakReader,
       ),
     );
   }

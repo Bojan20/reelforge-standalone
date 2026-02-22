@@ -59,6 +59,7 @@ class LeftZone extends StatefulWidget {
   final void Function(String channelId, int slotIndex)? onChannelInsertRemove;
   final void Function(String channelId, int slotIndex)? onChannelInsertOpenEditor;
   final void Function(String channelId, int oldIndex, int newIndex)? onChannelInsertReorder;
+  final void Function(String channelId, double width)? onChannelWidthChange;
 
   // Clip inspector (combined with Channel)
   final timeline.TimelineClip? selectedClip;
@@ -105,6 +106,7 @@ class LeftZone extends StatefulWidget {
     this.onChannelInsertRemove,
     this.onChannelInsertOpenEditor,
     this.onChannelInsertReorder,
+    this.onChannelWidthChange,
     this.selectedClip,
     this.selectedClipTrack,
     this.onClipChanged,
@@ -321,6 +323,7 @@ class _LeftZoneState extends State<LeftZone> {
       onInsertRemove: widget.onChannelInsertRemove,
       onInsertOpenEditor: widget.onChannelInsertOpenEditor,
       onInsertReorder: widget.onChannelInsertReorder,
+      onWidthChange: widget.onChannelWidthChange,
       selectedClip: widget.selectedClip,
       selectedClipTrack: widget.selectedClipTrack,
       onClipChanged: widget.onClipChanged,

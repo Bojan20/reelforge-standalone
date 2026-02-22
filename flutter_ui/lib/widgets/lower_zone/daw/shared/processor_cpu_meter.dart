@@ -548,6 +548,9 @@ class _ProcessorCpuPanelState extends State<ProcessorCpuPanel> {
       DspNodeType.api550 => Icons.graphic_eq,
       DspNodeType.neve1073 => Icons.surround_sound,
       DspNodeType.multibandSaturation => Icons.whatshot,
+      DspNodeType.haasDelay => Icons.spatial_audio_off,
+      DspNodeType.stereoImager => Icons.surround_sound,
+      DspNodeType.multibandStereoImager => Icons.surround_sound,
     };
   }
 

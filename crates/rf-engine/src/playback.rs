@@ -1673,6 +1673,16 @@ pub struct PlaybackEngine {
     tail_remaining_samples: AtomicU64,
     /// Duration in samples for insert tail processing (default: 3s at 48kHz = 144000)
     tail_duration_samples: AtomicU64,
+
+    // === PER-TRACK STEREO IMAGER (post-pan, pre-post-fader inserts) ===
+    /// StereoImager instances per track (track_id -> StereoImager)
+    /// Processes after pan, before post-fader inserts in the signal chain.
+    /// SSL canonical: Input → Pre-Inserts → Fader → Pan → **StereoImager** → Post-Inserts
+    stereo_imagers: RwLock<HashMap<u32, rf_dsp::spatial::StereoImager>>,
+    /// Master bus StereoImager (processed after master volume, before master post-inserts)
+    pub(crate) master_stereo_imager: RwLock<rf_dsp::spatial::StereoImager>,
+    /// Per-bus StereoImager instances (6 buses: Master=0, Music=1, Sfx=2, Voice=3, Amb=4, Aux=5)
+    pub(crate) bus_stereo_imagers: RwLock<[rf_dsp::spatial::StereoImager; 6]>,
 }
 
 impl PlaybackEngine {
@@ -1758,6 +1768,12 @@ impl PlaybackEngine {
             // 1 second of tail at current sample rate (reverb/delay ring-out)
             tail_remaining_samples: AtomicU64::new(0),
             tail_duration_samples: AtomicU64::new(sample_rate as u64),
+            // Per-track stereo imagers (SSL canonical: post-pan, pre-post-inserts)
+            stereo_imagers: RwLock::new(HashMap::new()),
+            master_stereo_imager: RwLock::new(rf_dsp::spatial::StereoImager::new(sample_rate as f64)),
+            bus_stereo_imagers: RwLock::new(std::array::from_fn(|_| {
+                rf_dsp::spatial::StereoImager::new(sample_rate as f64)
+            })),
         }
     }
 
@@ -2955,6 +2971,67 @@ impl PlaybackEngine {
             .get(&track_id)
             .map(|m| m.correlation)
             .unwrap_or(1.0)
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PER-TRACK / BUS / MASTER STEREO IMAGER API
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// Ensure a StereoImager exists for the given track, creating one if needed.
+    pub fn ensure_stereo_imager(&self, track_id: u32, sample_rate: f64) {
+        let mut imagers = self.stereo_imagers.write();
+        imagers
+            .entry(track_id)
+            .or_insert_with(|| rf_dsp::spatial::StereoImager::new(sample_rate));
+    }
+
+    /// Remove a track's StereoImager.
+    pub fn remove_stereo_imager(&self, track_id: u32) -> bool {
+        self.stereo_imagers.write().remove(&track_id).is_some()
+    }
+
+    /// Apply a mutation to a track's StereoImager. Returns false if not found.
+    pub fn with_track_imager<F: FnOnce(&mut rf_dsp::spatial::StereoImager)>(
+        &self,
+        track_id: u32,
+        f: F,
+    ) -> bool {
+        let mut imagers = self.stereo_imagers.write();
+        if let Some(imager) = imagers.get_mut(&track_id) {
+            f(imager);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Apply a mutation to a bus's StereoImager.
+    pub fn with_bus_imager<F: FnOnce(&mut rf_dsp::spatial::StereoImager)>(
+        &self,
+        bus_idx: usize,
+        f: F,
+    ) -> bool {
+        if bus_idx >= 6 {
+            return false;
+        }
+        let mut imagers = self.bus_stereo_imagers.write();
+        f(&mut imagers[bus_idx]);
+        true
+    }
+
+    /// Apply a mutation to the master StereoImager.
+    pub fn with_master_imager<F: FnOnce(&mut rf_dsp::spatial::StereoImager)>(&self, f: F) {
+        let mut imager = self.master_stereo_imager.write();
+        f(&mut imager);
+    }
+
+    /// Read a track's StereoImager correlation value. Returns 0.0 if not found.
+    pub fn get_track_imager_correlation(&self, track_id: u32) -> f64 {
+        let imagers = self.stereo_imagers.read();
+        imagers
+            .get(&track_id)
+            .map(|im| im.correlation.correlation())
+            .unwrap_or(0.0)
     }
 
     /// Get full track meter (all stereo data) by track ID
@@ -4412,6 +4489,20 @@ impl PlaybackEngine {
                 }
             }
 
+            // ═══ PER-TRACK STEREO IMAGER (post-pan, pre-post-inserts) ═══
+            // SSL canonical signal flow: Fader → Pan → **StereoImager** → Post-Inserts
+            // Width, M/S processing, balance, rotation applied here
+            if let Some(mut imagers) = self.stereo_imagers.try_write() {
+                if let Some(imager) = imagers.get_mut(&(track.id.0 as u32)) {
+                    use rf_dsp::StereoProcessor;
+                    for i in 0..frames {
+                        let (l, r) = imager.process_sample(track_l[i], track_r[i]);
+                        track_l[i] = l;
+                        track_r[i] = r;
+                    }
+                }
+            }
+
             // Process track insert chain (post-fader inserts applied after volume)
             // Use try_write to avoid blocking audio thread - skip inserts if lock contended
             if let Some(mut chains) = self.insert_chains.try_write()
@@ -4551,6 +4642,17 @@ impl PlaybackEngine {
                 bus_r[i] = l * l_to_r + r * r_to_r;
             }
 
+            // ═══ PER-BUS STEREO IMAGER (post-fader, pre-post-inserts) ═══
+            if let Some(mut bus_imagers) = self.bus_stereo_imagers.try_write() {
+                use rf_dsp::StereoProcessor;
+                let imager = &mut bus_imagers[bus_idx];
+                for i in 0..frames {
+                    let (l, r) = imager.process_sample(bus_l[i], bus_r[i]);
+                    bus_l[i] = l;
+                    bus_r[i] = r;
+                }
+            }
+
             // ═══ BUS INSERT CHAIN (POST-FADER) ═══
             // Process inserts AFTER bus fader — typical EQ/Compressor placement
             if let Some(ref mut inserts) = bus_inserts {
@@ -4587,6 +4689,16 @@ impl PlaybackEngine {
         for i in 0..frames {
             output_l[i] *= master;
             output_r[i] *= master;
+        }
+
+        // ═══ MASTER STEREO IMAGER (post-volume, pre-post-inserts) ═══
+        if let Some(mut master_imager) = self.master_stereo_imager.try_write() {
+            use rf_dsp::StereoProcessor;
+            for i in 0..frames {
+                let (l, r) = master_imager.process_sample(output_l[i], output_r[i]);
+                output_l[i] = l;
+                output_r[i] = r;
+            }
         }
 
         // Apply master insert chain (post-fader)

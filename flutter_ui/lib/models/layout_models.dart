@@ -258,6 +258,7 @@ class ChannelStripData {
   final String input;
   final String output;
   final LUFSData? lufs;
+  final double stereoWidth; // 0.0 (mono) to 2.0 (extra wide), 1.0 = normal
 
   const ChannelStripData({
     required this.id,
@@ -284,6 +285,7 @@ class ChannelStripData {
     this.input = '',
     this.output = 'Master',
     this.lufs,
+    this.stereoWidth = 1.0,
   });
 
   ChannelStripData copyWith({
@@ -311,6 +313,7 @@ class ChannelStripData {
     String? input,
     String? output,
     LUFSData? lufs,
+    double? stereoWidth,
   }) {
     return ChannelStripData(
       id: id ?? this.id,
@@ -337,6 +340,7 @@ class ChannelStripData {
       input: input ?? this.input,
       output: output ?? this.output,
       lufs: lufs ?? this.lufs,
+      stereoWidth: stereoWidth ?? this.stereoWidth,
     );
   }
 }

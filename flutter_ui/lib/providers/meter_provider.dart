@@ -99,8 +99,7 @@ class BusMeterState {
 
 const double kPeakHoldTime = 1500; // ms to hold peak before decay (Pro Tools: 1.5s, was 3s)
 const double kPeakDecayRate = 0.006; // decay per frame (~26 dB/s at 60fps — faster peak hold drop)
-const double kMeterDecay = 0.65; // multiplier for meter decay per tick (~300ms to silence at 16ms/tick)
-const double kPeakHoldDecay = 0.9; // multiplier for peak hold decay (used ONLY by _decayMeters for meter levels, NOT peak hold)
+// kMeterDecay removed — GpuMeter handles all ballistic decay at display refresh rate
 const double kActivityThreshold = 0.001; // below this = silent
 
 // ============ Provider ============
@@ -197,27 +196,19 @@ class MeterProvider extends ChangeNotifier {
       _onSharedMeterUpdate(snapshot);
     } else {
       // Sequence unchanged — Rust has no new audio data.
-      // Continue calling _onSharedMeterUpdate with the snapshot so ballistic
-      // decay keeps running smoothly. The snapshot will have the last Rust
-      // values (likely near zero), but _ballisticDecay() uses MAX(decayed, new)
-      // so the meter bar falls smoothly from its previous display value.
+      // Send zeros so GpuMeter's Ticker can smoothly decay the display.
+      // (Shared memory may still hold non-zero values from last audio block.)
       _staleSequenceCount++;
 
-      // Check if all meters have fully decayed — if so, stop polling
-      if (_staleSequenceCount > 5 && !_masterState.hasActivity) {
-        // Also check bus activity
-        bool anyBusActive = false;
-        for (int i = 0; i < _activeBusCount; i++) {
-          if (_busStates[i].hasActivity) {
-            anyBusActive = true;
-            break;
-          }
-        }
-        if (!anyBusActive) return; // All meters at zero, stop polling
+      if (_staleSequenceCount <= 2) {
+        // Read one more time in case Rust wrote zeros
+        final snapshot = _sharedReader.readMeters();
+        _onSharedMeterUpdate(snapshot);
+      } else if (_masterState.hasActivity || _busStates.any((s) => s.hasActivity)) {
+        // Push zeros so GpuMeter decays smoothly
+        _decayMeters();
       }
-
-      final snapshot = _sharedReader.readMeters();
-      _onSharedMeterUpdate(snapshot);
+      // Once all meters are at zero, stop polling (return early)
     }
   }
 
@@ -393,18 +384,14 @@ class MeterProvider extends ChangeNotifier {
       _peakHoldData[meterId] = holdData;
     }
 
-    // ── Ballistic decay: instant rise, smooth fall (Pro Tools / Cubase) ──
-    // Meter bar rises instantly to new peaks but falls smoothly via
-    // kMeterDecay multiplier per tick (~300ms to silence at 16ms/tick).
-    // This prevents the "stuttery chunks" appearance when Rust writes
-    // raw instantaneous peaks that jump to 0 between audio blocks.
-    holdData.displayPeakL = _ballisticDecay(holdData.displayPeakL, peakL);
-    holdData.displayPeakR = _ballisticDecay(holdData.displayPeakR, peakR);
-    holdData.displayRmsL = _ballisticDecay(holdData.displayRmsL, rmsL);
-    holdData.displayRmsR = _ballisticDecay(holdData.displayRmsR, rmsR);
-
-    final displayPeakL = holdData.displayPeakL;
-    final displayPeakR = holdData.displayPeakR;
+    // ── Raw pass-through: GpuMeter handles ALL ballistic smoothing ──
+    // MeterProvider passes raw instantaneous peaks directly to GpuMeter,
+    // which applies frame-rate-independent exponential smoothing at display
+    // refresh rate (~120fps). This eliminates the dual-ballistics stutter
+    // that occurred when both MeterProvider and GpuMeter applied independent
+    // decay curves at different rates.
+    final displayPeakL = peakL;
+    final displayPeakR = peakR;
 
     // Peak hold logic (uses raw peaks for accurate hold, not decayed display)
     if (peakL > holdData.peakHoldL) {
@@ -423,8 +410,8 @@ class MeterProvider extends ChangeNotifier {
     return MeterState(
       peak: displayPeakL,
       peakR: displayPeakR,
-      rms: holdData.displayRmsL,
-      rmsR: holdData.displayRmsR,
+      rms: rmsL,
+      rmsR: rmsR,
       peakHold: holdData.peakHoldL,
       peakHoldR: holdData.peakHoldR,
       isClipping: peakL > 0.99 || peakR > 0.99, // Use raw for clipping detection
@@ -432,22 +419,14 @@ class MeterProvider extends ChangeNotifier {
     );
   }
 
-  /// Ballistic decay: value rises instantly to new peaks but falls smoothly.
-  /// Returns max(decayed_previous, new_value) with snap-to-zero at noise floor.
-  static double _ballisticDecay(double previous, double current) {
-    if (current >= previous) return current; // Instant rise
-    final decayed = previous * kMeterDecay;  // Smooth fall
-    return decayed < kActivityThreshold ? 0.0 : decayed; // Snap to zero
-  }
+  // _ballisticDecay removed — GpuMeter handles all ballistic smoothing
+  // at display refresh rate (~120fps) with frame-rate-independent coefficients
 
   void _startDecayLoop() {
+    // Send zeros immediately — GpuMeter smoothly decays at display refresh rate
     _decayTimer?.cancel();
-    // Decay at same rate as notify throttle
-    final interval = _useSharedMemory ? _sharedMemoryIntervalMs : _streamIntervalMs;
-    _decayTimer = Timer.periodic(
-      Duration(milliseconds: interval),
-      (_) => _decayMeters(),
-    );
+    _decayTimer = null;
+    _decayMeters();
   }
 
   void _stopDecayLoop() {
@@ -456,60 +435,36 @@ class MeterProvider extends ChangeNotifier {
   }
 
   void _decayMeters() {
-    bool hasActivity = false;
+    // When playback stops, send zero peaks to all meters.
+    // GpuMeter's Ticker-based ballistics will smoothly decay from the
+    // last displayed value to zero at display refresh rate.
+    bool hadActivity = false;
 
-    // Decay master — peak hold is managed by _convertToMeterState, NOT here
     if (_masterState.hasActivity) {
-      hasActivity = true;
-      _masterState = _masterState.copyWith(
-        peak: _snapToZero(_masterState.peak * kMeterDecay),
-        peakR: _snapToZero(_masterState.peakR * kMeterDecay),
-        rms: _snapToZero(_masterState.rms * kMeterDecay),
-        rmsR: _snapToZero(_masterState.rmsR * kMeterDecay),
-        isClipping: false,
-      );
+      hadActivity = true;
+      _masterState = MeterState.zero;
     }
 
-    // Decay buses (only active ones) — peak hold managed by _convertToMeterState
     for (int i = 0; i < _activeBusCount; i++) {
-      final state = _busStates[i];
-      if (state.hasActivity) {
-        hasActivity = true;
-        _busStates[i] = state.copyWith(
-          peak: _snapToZero(state.peak * kMeterDecay),
-          peakR: _snapToZero(state.peakR * kMeterDecay),
-          rms: _snapToZero(state.rms * kMeterDecay),
-          rmsR: _snapToZero(state.rmsR * kMeterDecay),
-          isClipping: false,
-        );
+      if (_busStates[i].hasActivity) {
+        hadActivity = true;
+        _busStates[i] = MeterState.zero;
       }
     }
 
-    // OPTIMIZED: Iterate directly, no toList() copy — peak hold managed by _convertToMeterState
     _meterStates.forEach((meterId, state) {
       if (state.hasActivity) {
-        hasActivity = true;
-        _meterStates[meterId] = state.copyWith(
-          peak: _snapToZero(state.peak * kMeterDecay),
-          peakR: _snapToZero(state.peakR * kMeterDecay),
-          rms: _snapToZero(state.rms * kMeterDecay),
-          rmsR: _snapToZero(state.rmsR * kMeterDecay),
-          isClipping: false,
-        );
+        hadActivity = true;
+        _meterStates[meterId] = MeterState.zero;
       }
     });
 
-    // Only notify if there's activity (prevents unnecessary rebuilds)
-    if (hasActivity) {
-      _throttledNotify();
-    } else {
-      _stopDecayLoop();
+    if (hadActivity) {
+      notifyListeners(); // Send zeros once — GpuMeter decays smoothly
     }
+    _stopDecayLoop(); // One-shot zero push, no repeated timer needed
   }
 
-  /// Snap values below noise floor to exactly zero — prevents asymptotic decay
-  /// from leaving residual meter display (Cubase-style clean cutoff at ~-80dB)
-  static double _snapToZero(double value) => value < kActivityThreshold ? 0.0 : value;
 
   void registerMeter(String meterId) {
     if (!_meterStates.containsKey(meterId)) {
@@ -712,19 +667,11 @@ class MeterProvider extends ChangeNotifier {
   }
 }
 
-/// OPTIMIZED: Combined peak hold + ballistic decay data to reduce map lookups
+/// Peak hold tracking data per meter
 class _PeakHoldData {
   double peakHoldL = 0;
   double peakHoldR = 0;
   DateTime lastPeakTime = DateTime.now();
-
-  // Ballistic decay: smooth meter bar fall-off (Pro Tools / Cubase behavior)
-  // These track the DISPLAYED meter value, which rises instantly to peaks
-  // but falls smoothly via kMeterDecay multiplier per tick.
-  double displayPeakL = 0;
-  double displayPeakR = 0;
-  double displayRmsL = 0;
-  double displayRmsR = 0;
 }
 
 // ============ Utility Functions ============

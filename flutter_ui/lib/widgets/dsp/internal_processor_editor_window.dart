@@ -21,6 +21,9 @@ import '../fabfilter/fabfilter_delay_panel.dart';
 import '../fabfilter/fabfilter_saturation_panel.dart';
 import '../fabfilter/fabfilter_deesser_panel.dart';
 import '../fabfilter/fabfilter_expander_panel.dart';
+import '../fabfilter/fabfilter_haas_panel.dart';
+import '../fabfilter/fabfilter_imager_panel.dart';
+import '../fabfilter/fabfilter_multiband_imager_panel.dart';
 import '../eq/pultec_eq.dart';
 import '../eq/api550_eq.dart';
 import '../eq/neve1073_eq.dart';
@@ -89,6 +92,9 @@ bool _hasPremiumPanel(DspNodeType type) {
     case DspNodeType.neve1073:
       return true;
     case DspNodeType.expander:
+    case DspNodeType.haasDelay:
+    case DspNodeType.stereoImager:
+    case DspNodeType.multibandStereoImager:
       return true;
   }
 }
@@ -121,6 +127,12 @@ Map<FabFilterSize, Size> _sizesForType(DspNodeType type) {
       return FabFilterSizePresets.api550;
     case DspNodeType.neve1073:
       return FabFilterSizePresets.neve1073;
+    case DspNodeType.haasDelay:
+      return FabFilterSizePresets.haasDelay;
+    case DspNodeType.stereoImager:
+      return FabFilterSizePresets.imager;
+    case DspNodeType.multibandStereoImager:
+      return FabFilterSizePresets.saturation; // Wide panel for multiband
   }
 }
 
@@ -496,6 +508,12 @@ class _InternalProcessorEditorWindowState
         return FabFilterDeEsserPanel(trackId: widget.trackId);
       case DspNodeType.expander:
         return FabFilterExpanderPanel(trackId: widget.trackId);
+      case DspNodeType.haasDelay:
+        return FabFilterHaasPanel(trackId: widget.trackId);
+      case DspNodeType.stereoImager:
+        return FabFilterImagerPanel(trackId: widget.trackId);
+      case DspNodeType.multibandStereoImager:
+        return FabFilterMultibandImagerPanel(trackId: widget.trackId);
       case DspNodeType.pultec:
         return PultecEq(
           onParamsChanged: (params) {
@@ -563,6 +581,12 @@ class _InternalProcessorEditorWindowState
         return const Color(0xFF8B4513);
       case DspNodeType.multibandSaturation:
         return FluxForgeTheme.accentOrange;
+      case DspNodeType.haasDelay:
+        return FluxForgeTheme.accentGreen;
+      case DspNodeType.stereoImager:
+        return FluxForgeTheme.accentCyan;
+      case DspNodeType.multibandStereoImager:
+        return FluxForgeTheme.accentCyan;
     }
   }
 }

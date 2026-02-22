@@ -9550,12 +9550,20 @@ pub extern "C" fn modulated_delay_reset(track_id: u32) -> i32 {
 // ═══════════════════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SPATIAL PROCESSING FFI
+// SPATIAL PROCESSING FFI — Connected to PLAYBACK_ENGINE per-track state
 // ═══════════════════════════════════════════════════════════════════════════
+//
+// These functions operate on StereoImager instances stored in PlaybackEngine.
+// Signal chain: Input → Pre-Inserts → Fader → Pan → **StereoImager** → Post-Inserts
+//
+// track_id convention:
+//   0..N     = per-track StereoImager
+//   1000+bus = per-bus StereoImager (1000=Master, 1001=Music, 1002=Sfx, ...)
+//   9999     = master StereoImager
+//
 
+// Standalone panner/width/ms HashMaps kept for backward compat (rarely used directly)
 lazy_static::lazy_static! {
-    static ref STEREO_IMAGERS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::spatial::StereoImager>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
     static ref STEREO_PANNERS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::spatial::StereoPanner>> =
         parking_lot::RwLock::new(std::collections::HashMap::new());
     static ref STEREO_WIDTHS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::spatial::StereoWidth>> =
@@ -9564,52 +9572,72 @@ lazy_static::lazy_static! {
         parking_lot::RwLock::new(std::collections::HashMap::new());
 }
 
-// === STEREO IMAGER (Full processor) ===
+// === STEREO IMAGER — routed through PLAYBACK_ENGINE ===
+
+/// Helper: apply a mutation to the correct StereoImager (track / bus / master).
+fn with_imager<F: FnOnce(&mut rf_dsp::spatial::StereoImager)>(track_id: u32, f: F) -> i32 {
+    let engine = &*PLAYBACK_ENGINE;
+    match track_id {
+        9999 => {
+            engine.with_master_imager(f);
+            1
+        }
+        id if id >= 1000 => {
+            let bus_idx = (id - 1000) as usize;
+            if engine.with_bus_imager(bus_idx, f) { 1 } else { 0 }
+        }
+        id => {
+            if engine.with_track_imager(id, f) { 1 } else { 0 }
+        }
+    }
+}
 
 #[unsafe(no_mangle)]
 pub extern "C" fn stereo_imager_create(track_id: u32, sample_rate: f64) -> i32 {
-    let imager = rf_dsp::spatial::StereoImager::new(sample_rate);
-    let mut imagers = STEREO_IMAGERS.write();
-    imagers.insert(track_id, imager);
-    1
+    let engine = &*PLAYBACK_ENGINE;
+    match track_id {
+        9999 => {
+            // Master always exists — just reset it
+            engine.with_master_imager(|im| {
+                use rf_dsp::Processor;
+                im.reset();
+            });
+            1
+        }
+        id if id >= 1000 => {
+            let bus_idx = (id - 1000) as usize;
+            engine.with_bus_imager(bus_idx, |im| {
+                use rf_dsp::Processor;
+                im.reset();
+            });
+            1
+        }
+        id => {
+            engine.ensure_stereo_imager(id, sample_rate);
+            1
+        }
+    }
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn stereo_imager_remove(track_id: u32) -> i32 {
-    let mut imagers = STEREO_IMAGERS.write();
-    if imagers.remove(&track_id).is_some() {
-        1
-    } else {
-        0
-    }
+    let engine = &*PLAYBACK_ENGINE;
+    if engine.remove_stereo_imager(track_id) { 1 } else { 0 }
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn stereo_imager_set_width(track_id: u32, width: f64) -> i32 {
-    let mut imagers = STEREO_IMAGERS.write();
-    if let Some(imager) = imagers.get_mut(&track_id) {
-        imager.width.set_width(width);
-        1
-    } else {
-        0
-    }
+    with_imager(track_id, |im| im.width.set_width(width))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn stereo_imager_set_pan(track_id: u32, pan: f64) -> i32 {
-    let mut imagers = STEREO_IMAGERS.write();
-    if let Some(imager) = imagers.get_mut(&track_id) {
-        imager.panner.set_pan(pan);
-        1
-    } else {
-        0
-    }
+    with_imager(track_id, |im| im.panner.set_pan(pan))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn stereo_imager_set_pan_law(track_id: u32, law: u32) -> i32 {
-    let mut imagers = STEREO_IMAGERS.write();
-    if let Some(imager) = imagers.get_mut(&track_id) {
+    with_imager(track_id, |im| {
         let pan_law = match law {
             0 => rf_dsp::spatial::PanLaw::Linear,
             1 => rf_dsp::spatial::PanLaw::ConstantPower,
@@ -9617,132 +9645,81 @@ pub extern "C" fn stereo_imager_set_pan_law(track_id: u32, law: u32) -> i32 {
             3 => rf_dsp::spatial::PanLaw::NoCenterAttenuation,
             _ => rf_dsp::spatial::PanLaw::ConstantPower,
         };
-        imager.panner.set_pan_law(pan_law);
-        1
-    } else {
-        0
-    }
+        im.panner.set_pan_law(pan_law);
+    })
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn stereo_imager_set_balance(track_id: u32, balance: f64) -> i32 {
-    let mut imagers = STEREO_IMAGERS.write();
-    if let Some(imager) = imagers.get_mut(&track_id) {
-        imager.balance.set_balance(balance);
-        1
-    } else {
-        0
-    }
+    with_imager(track_id, |im| im.balance.set_balance(balance))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn stereo_imager_set_mid_gain(track_id: u32, gain_db: f64) -> i32 {
-    let mut imagers = STEREO_IMAGERS.write();
-    if let Some(imager) = imagers.get_mut(&track_id) {
-        imager.ms.set_mid_gain_db(gain_db);
-        1
-    } else {
-        0
-    }
+    with_imager(track_id, |im| im.ms.set_mid_gain_db(gain_db))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn stereo_imager_set_side_gain(track_id: u32, gain_db: f64) -> i32 {
-    let mut imagers = STEREO_IMAGERS.write();
-    if let Some(imager) = imagers.get_mut(&track_id) {
-        imager.ms.set_side_gain_db(gain_db);
-        1
-    } else {
-        0
-    }
+    with_imager(track_id, |im| im.ms.set_side_gain_db(gain_db))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn stereo_imager_set_rotation(track_id: u32, degrees: f64) -> i32 {
-    let mut imagers = STEREO_IMAGERS.write();
-    if let Some(imager) = imagers.get_mut(&track_id) {
-        imager.rotation.set_angle_degrees(degrees);
-        1
-    } else {
-        0
-    }
+    with_imager(track_id, |im| im.rotation.set_angle_degrees(degrees))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn stereo_imager_enable_width(track_id: u32, enabled: i32) -> i32 {
-    let mut imagers = STEREO_IMAGERS.write();
-    if let Some(imager) = imagers.get_mut(&track_id) {
-        imager.enable_width(enabled != 0);
-        1
-    } else {
-        0
-    }
+    with_imager(track_id, |im| im.enable_width(enabled != 0))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn stereo_imager_enable_panner(track_id: u32, enabled: i32) -> i32 {
-    let mut imagers = STEREO_IMAGERS.write();
-    if let Some(imager) = imagers.get_mut(&track_id) {
-        imager.enable_panner(enabled != 0);
-        1
-    } else {
-        0
-    }
+    with_imager(track_id, |im| im.enable_panner(enabled != 0))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn stereo_imager_enable_balance(track_id: u32, enabled: i32) -> i32 {
-    let mut imagers = STEREO_IMAGERS.write();
-    if let Some(imager) = imagers.get_mut(&track_id) {
-        imager.enable_balance(enabled != 0);
-        1
-    } else {
-        0
-    }
+    with_imager(track_id, |im| im.enable_balance(enabled != 0))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn stereo_imager_enable_ms(track_id: u32, enabled: i32) -> i32 {
-    let mut imagers = STEREO_IMAGERS.write();
-    if let Some(imager) = imagers.get_mut(&track_id) {
-        imager.enable_ms(enabled != 0);
-        1
-    } else {
-        0
-    }
+    with_imager(track_id, |im| im.enable_ms(enabled != 0))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn stereo_imager_enable_rotation(track_id: u32, enabled: i32) -> i32 {
-    let mut imagers = STEREO_IMAGERS.write();
-    if let Some(imager) = imagers.get_mut(&track_id) {
-        imager.enable_rotation(enabled != 0);
-        1
-    } else {
-        0
-    }
+    with_imager(track_id, |im| im.enable_rotation(enabled != 0))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn stereo_imager_get_correlation(track_id: u32) -> f64 {
-    let imagers = STEREO_IMAGERS.read();
-    if let Some(imager) = imagers.get(&track_id) {
-        imager.correlation.correlation()
-    } else {
-        0.0
+    let engine = &*PLAYBACK_ENGINE;
+    match track_id {
+        9999 => {
+            // Master imager correlation
+            let imager = engine.master_stereo_imager.read();
+            imager.correlation.correlation()
+        }
+        id if id >= 1000 => {
+            let bus_idx = (id - 1000) as usize;
+            let imagers = engine.bus_stereo_imagers.read();
+            if bus_idx < 6 {
+                imagers[bus_idx].correlation.correlation()
+            } else {
+                0.0
+            }
+        }
+        id => engine.get_track_imager_correlation(id),
     }
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn stereo_imager_reset(track_id: u32) -> i32 {
     use rf_dsp::Processor;
-    let mut imagers = STEREO_IMAGERS.write();
-    if let Some(imager) = imagers.get_mut(&track_id) {
-        imager.reset();
-        1
-    } else {
-        0
-    }
+    with_imager(track_id, |im| im.reset())
 }
 
 // === STANDALONE PANNER ===

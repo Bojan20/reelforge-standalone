@@ -499,6 +499,9 @@ class _SignalAnalyzerWidgetState extends State<SignalAnalyzerWidget> {
       DspNodeType.api550 => const Color(0xFF4A9EFF),
       DspNodeType.neve1073 => const Color(0xFF8B4513),
       DspNodeType.multibandSaturation => const Color(0xFFFFAA40),
+      DspNodeType.haasDelay => const Color(0xFF50FF90),
+      DspNodeType.stereoImager => const Color(0xFF40D0FF),
+      DspNodeType.multibandStereoImager => const Color(0xFF40D0FF),
     };
   }
 
@@ -517,6 +520,9 @@ class _SignalAnalyzerWidgetState extends State<SignalAnalyzerWidget> {
       DspNodeType.api550 => Icons.graphic_eq,
       DspNodeType.neve1073 => Icons.surround_sound,
       DspNodeType.multibandSaturation => Icons.whatshot,
+      DspNodeType.haasDelay => Icons.spatial_audio_off,
+      DspNodeType.stereoImager => Icons.surround_sound,
+      DspNodeType.multibandStereoImager => Icons.surround_sound,
     };
   }
 }

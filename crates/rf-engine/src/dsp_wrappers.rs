@@ -8,6 +8,7 @@ use rf_core::Sample;
 use rf_dsp::delay_compensation::LatencySamples;
 use rf_dsp::eq_room::RoomCorrectionEq;
 use rf_dsp::linear_phase::{LinearPhaseBand, LinearPhaseEQ, LinearPhaseFilterType};
+use rf_dsp::spatial::{HaasChannel, HaasDelay, PanLaw, StereoImager};
 use rf_dsp::{
     FilterShape, OversampleMode, ProEq, Processor, ProcessorConfig, StereoApi550, StereoNeve1073,
     StereoProcessor, StereoPultec,
@@ -2359,7 +2360,7 @@ impl InsertProcessor for ReverbWrapper {
 // ============ Saturation (Saturn 2 class) ============
 
 use rf_dsp::saturation::{MultibandSaturator, OversampledSaturator, SaturationType as SatType};
-use rf_dsp::multiband::CrossoverType;
+use rf_dsp::multiband::{CrossoverType, MultibandStereoImager};
 use rf_dsp::oversampling::OversampleFactor;
 use rf_dsp::delay::PingPongDelay;
 
@@ -3332,6 +3333,538 @@ impl InsertProcessor for DelayWrapper {
     }
 }
 
+// ============ Stereo Imager Wrapper ============
+
+/// Stereo Imager insert processor — iZotope Ozone-class stereo imaging
+///
+/// Parameter layout (12 params):
+///   0:  width           (0.0 - 2.0, 1.0 = unchanged)
+///   1:  pan             (-1.0 to 1.0)
+///   2:  pan_law         (0=Linear, 1=ConstantPower, 2=Compromise, 3=LinearCompensated)
+///   3:  balance         (-1.0 to 1.0)
+///   4:  mid_gain_db     (-24.0 to 12.0 dB)
+///   5:  side_gain_db    (-24.0 to 12.0 dB)
+///   6:  rotation_deg    (-180.0 to 180.0)
+///   7:  enable_balance  (0.0 or 1.0)
+///   8:  enable_panner   (0.0 or 1.0)
+///   9:  enable_width    (0.0 or 1.0)
+///   10: enable_ms       (0.0 or 1.0)
+///   11: enable_rotation (0.0 or 1.0)
+pub struct StereoImagerWrapper {
+    imager: StereoImager,
+    sample_rate: f64,
+    params: [f64; 12],
+}
+
+impl StereoImagerWrapper {
+    pub fn new(sample_rate: f64) -> Self {
+        Self {
+            imager: StereoImager::new(sample_rate),
+            sample_rate,
+            // Defaults: width=1.0, pan=0, panLaw=ConstantPower, balance=0,
+            // midGain=0dB, sideGain=0dB, rotation=0, balance=off, panner=off,
+            // width=on, ms=off, rotation=off
+            params: [1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+        }
+    }
+}
+
+impl InsertProcessor for StereoImagerWrapper {
+    fn name(&self) -> &str {
+        "FluxForge Stereo Imager"
+    }
+
+    fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
+        for (l, r) in left.iter_mut().zip(right.iter_mut()) {
+            let (out_l, out_r) = self.imager.process_sample(*l, *r);
+            *l = out_l;
+            *r = out_r;
+        }
+    }
+
+    fn reset(&mut self) {
+        self.imager.reset();
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: f64) {
+        self.sample_rate = sample_rate;
+        self.imager.set_sample_rate(sample_rate);
+    }
+
+    fn num_params(&self) -> usize {
+        12
+    }
+
+    fn get_param(&self, index: usize) -> f64 {
+        if index < 12 { self.params[index] } else { 0.0 }
+    }
+
+    fn set_param(&mut self, index: usize, value: f64) {
+        if index < 12 {
+            self.params[index] = value;
+        }
+        match index {
+            0 => self.imager.width.set_width(value),
+            1 => self.imager.panner.set_pan(value),
+            2 => {
+                let law = match value as u32 {
+                    0 => PanLaw::Linear,
+                    1 => PanLaw::ConstantPower,
+                    2 => PanLaw::Compromise,
+                    3 => PanLaw::NoCenterAttenuation,
+                    _ => PanLaw::ConstantPower,
+                };
+                self.imager.panner.set_pan_law(law);
+            }
+            3 => self.imager.balance.set_balance(value),
+            4 => self.imager.ms.set_mid_gain_db(value),
+            5 => self.imager.ms.set_side_gain_db(value),
+            6 => self.imager.rotation.set_angle_degrees(value),
+            7 => self.imager.enable_balance(value > 0.5),
+            8 => self.imager.enable_panner(value > 0.5),
+            9 => self.imager.enable_width(value > 0.5),
+            10 => self.imager.enable_ms(value > 0.5),
+            11 => self.imager.enable_rotation(value > 0.5),
+            _ => {}
+        }
+    }
+
+    fn param_name(&self, index: usize) -> &str {
+        match index {
+            0 => "Width",
+            1 => "Pan",
+            2 => "Pan Law",
+            3 => "Balance",
+            4 => "Mid Gain (dB)",
+            5 => "Side Gain (dB)",
+            6 => "Rotation (deg)",
+            7 => "Enable Balance",
+            8 => "Enable Panner",
+            9 => "Enable Width",
+            10 => "Enable M/S",
+            11 => "Enable Rotation",
+            _ => "",
+        }
+    }
+}
+
+// ============ Haas Delay Wrapper ============
+
+/// Haas Delay insert processor — precedence effect stereo widener
+///
+/// Parameter layout (7 params):
+///   0: delay_ms       (0.1 - 30.0)
+///   1: delayed_channel (0.0 = Left, 1.0 = Right)
+///   2: mix            (0.0 - 1.0)
+///   3: lp_enabled     (0.0 or 1.0)
+///   4: lp_frequency   (200.0 - 18000.0 Hz)
+///   5: feedback       (0.0 - 0.7)
+///   6: phase_invert   (0.0 or 1.0)
+pub struct HaasDelayWrapper {
+    haas: HaasDelay,
+    sample_rate: f64,
+    params: [f64; 7],
+}
+
+impl HaasDelayWrapper {
+    pub fn new(sample_rate: f64) -> Self {
+        Self {
+            haas: HaasDelay::new(sample_rate),
+            sample_rate,
+            params: [8.0, 1.0, 1.0, 1.0, 8000.0, 0.0, 0.0],
+        }
+    }
+}
+
+impl InsertProcessor for HaasDelayWrapper {
+    fn name(&self) -> &str {
+        "FluxForge Haas Delay"
+    }
+
+    fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
+        for (l, r) in left.iter_mut().zip(right.iter_mut()) {
+            let (out_l, out_r) = self.haas.process_sample_stereo(*l, *r);
+            *l = out_l;
+            *r = out_r;
+        }
+    }
+
+    fn reset(&mut self) {
+        self.haas.reset();
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: f64) {
+        self.sample_rate = sample_rate;
+        self.haas.set_sample_rate(sample_rate);
+    }
+
+    fn num_params(&self) -> usize {
+        7
+    }
+
+    fn get_param(&self, index: usize) -> f64 {
+        if index < 7 { self.params[index] } else { 0.0 }
+    }
+
+    fn set_param(&mut self, index: usize, value: f64) {
+        if index < 7 {
+            self.params[index] = value;
+        }
+        match index {
+            0 => self.haas.set_delay_ms(value),
+            1 => self.haas.set_delayed_channel(if value < 0.5 {
+                HaasChannel::Left
+            } else {
+                HaasChannel::Right
+            }),
+            2 => self.haas.set_mix(value),
+            3 => self.haas.set_lp_enabled(value > 0.5),
+            4 => self.haas.set_lp_frequency(value),
+            5 => self.haas.set_feedback(value),
+            6 => self.haas.set_phase_invert(value > 0.5),
+            _ => {}
+        }
+    }
+
+    fn param_name(&self, index: usize) -> &str {
+        match index {
+            0 => "Delay (ms)",
+            1 => "Delayed Channel",
+            2 => "Mix",
+            3 => "LP Enabled",
+            4 => "LP Frequency",
+            5 => "Feedback",
+            6 => "Phase Invert",
+            _ => "",
+        }
+    }
+}
+
+// ============ Multiband Stereo Imager Wrapper (iZotope Ozone-class) ============
+
+/// MultibandStereoImager insert processor wrapper.
+///
+/// Parameter layout (same pattern as MultibandSaturator):
+///   Global (11):
+///     0: Input Gain (dB) [-24..24]
+///     1: Output Gain (dB) [-24..24]
+///     2: Global Mix (%) [0..100]
+///     3: Num Bands [2..6]
+///     4: Crossover Type [0=Butterworth12, 1=LR24, 2=LR48]
+///     5-9: Crossover Frequencies [20..20000]
+///     10: M/S Mode [0=off, 1=on]
+///
+///   Per-band (9 each × 6 bands = 54, offset = 11 + band*9):
+///     0: Width [0.0..3.0] (0=mono, 1=unity, 2+=wide)
+///     1: Pan [-1.0..1.0]
+///     2: Mid Gain (dB) [-24..24]
+///     3: Side Gain (dB) [-24..24]
+///     4: Rotation (degrees) [-180..180]
+///     5: Enable Width [0/1]
+///     6: Solo [0/1]
+///     7: Mute [0/1]
+///     8: Bypass [0/1]
+///
+/// Total params: 11 + 6*9 = 65
+///
+/// Meter layout:
+///   0: Input Peak L
+///   1: Input Peak R
+///   2: Output Peak L
+///   3: Output Peak R
+///   4-9: Per-band correlation
+pub struct MultibandStereoImagerWrapper {
+    imager: MultibandStereoImager,
+    params: [f64; 65],
+    sample_rate: f64,
+    input_peak_l: f64,
+    input_peak_r: f64,
+    output_peak_l: f64,
+    output_peak_r: f64,
+    band_correlations: [f64; 6],
+}
+
+impl MultibandStereoImagerWrapper {
+    const GLOBAL_COUNT: usize = 11;
+    const BAND_PARAM_COUNT: usize = 9;
+
+    pub fn new(sample_rate: f64) -> Self {
+        let mut params = [0.0_f64; 65];
+        // Global defaults
+        params[0] = 0.0;    // Input Gain dB
+        params[1] = 0.0;    // Output Gain dB
+        params[2] = 100.0;  // Global Mix %
+        params[3] = 4.0;    // 4 bands default
+        params[4] = 1.0;    // LR24
+        // Crossover defaults
+        params[5] = 120.0;
+        params[6] = 750.0;
+        params[7] = 2500.0;
+        params[8] = 7000.0;
+        params[9] = 14000.0;
+        params[10] = 0.0;   // M/S Mode off
+        // Per-band defaults: Width=1.0 (unity), Pan=0, Mid=0, Side=0, Rotation=0, EnableWidth=1, Solo=0, Mute=0, Bypass=0
+        for b in 0..6 {
+            let off = Self::GLOBAL_COUNT + b * Self::BAND_PARAM_COUNT;
+            params[off + 0] = 1.0;  // Width = unity (no change)
+            params[off + 5] = 1.0;  // Enable Width = on
+        }
+
+        Self {
+            imager: MultibandStereoImager::new(sample_rate, 4),
+            params,
+            sample_rate,
+            input_peak_l: 0.0,
+            input_peak_r: 0.0,
+            output_peak_l: 0.0,
+            output_peak_r: 0.0,
+            band_correlations: [0.0; 6],
+        }
+    }
+
+    fn _band_offset(band: usize) -> usize {
+        Self::GLOBAL_COUNT + band * Self::BAND_PARAM_COUNT
+    }
+
+    fn crossover_type_from_index(idx: usize) -> CrossoverType {
+        match idx {
+            0 => CrossoverType::Butterworth12,
+            1 => CrossoverType::LinkwitzRiley24,
+            2 => CrossoverType::LinkwitzRiley48,
+            _ => CrossoverType::LinkwitzRiley24,
+        }
+    }
+}
+
+impl InsertProcessor for MultibandStereoImagerWrapper {
+    fn name(&self) -> &str {
+        "FluxForge Multiband Stereo Imager"
+    }
+
+    fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
+        let len = left.len().min(right.len());
+        if len == 0 {
+            return;
+        }
+
+        // Input peak metering
+        let mut in_pk_l: f64 = 0.0;
+        let mut in_pk_r: f64 = 0.0;
+        for i in 0..len {
+            in_pk_l = in_pk_l.max(left[i].abs());
+            in_pk_r = in_pk_r.max(right[i].abs());
+        }
+        self.input_peak_l = in_pk_l;
+        self.input_peak_r = in_pk_r;
+
+        // Process through multiband imager
+        for i in 0..len {
+            let (out_l, out_r) = self.imager.process_sample(left[i], right[i]);
+            left[i] = out_l;
+            right[i] = out_r;
+        }
+
+        // Output peak metering
+        let mut out_pk_l: f64 = 0.0;
+        let mut out_pk_r: f64 = 0.0;
+        for i in 0..len {
+            out_pk_l = out_pk_l.max(left[i].abs());
+            out_pk_r = out_pk_r.max(right[i].abs());
+        }
+        self.output_peak_l = out_pk_l;
+        self.output_peak_r = out_pk_r;
+    }
+
+    fn latency(&self) -> LatencySamples {
+        self.imager.latency()
+    }
+
+    fn reset(&mut self) {
+        self.imager.reset();
+        self.input_peak_l = 0.0;
+        self.input_peak_r = 0.0;
+        self.output_peak_l = 0.0;
+        self.output_peak_r = 0.0;
+        self.band_correlations = [0.0; 6];
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: f64) {
+        self.sample_rate = sample_rate;
+        self.imager.set_sample_rate(sample_rate);
+    }
+
+    fn num_params(&self) -> usize {
+        65
+    }
+
+    fn get_param(&self, index: usize) -> f64 {
+        if index < 65 { self.params[index] } else { 0.0 }
+    }
+
+    fn set_param(&mut self, index: usize, value: f64) {
+        if index >= 65 {
+            return;
+        }
+        self.params[index] = value;
+        match index {
+            0 => {
+                // Input Gain dB
+                let v = value.clamp(-24.0, 24.0);
+                self.params[0] = v;
+                self.imager.set_input_gain_db(v);
+            }
+            1 => {
+                // Output Gain dB
+                let v = value.clamp(-24.0, 24.0);
+                self.params[1] = v;
+                self.imager.set_output_gain_db(v);
+            }
+            2 => {
+                // Global Mix %
+                let v = value.clamp(0.0, 100.0);
+                self.params[2] = v;
+                self.imager.set_global_mix(v / 100.0);
+            }
+            3 => {
+                // Num Bands
+                let v = (value as usize).clamp(2, 6);
+                self.params[3] = v as f64;
+                self.imager.set_num_bands(v);
+            }
+            4 => {
+                // Crossover Type
+                let idx = (value as usize).min(2);
+                self.params[4] = idx as f64;
+                self.imager.set_crossover_type(Self::crossover_type_from_index(idx));
+            }
+            5..=9 => {
+                // Crossover frequencies
+                let cross_idx = index - 5;
+                let v = value.clamp(20.0, 20000.0);
+                self.params[index] = v;
+                self.imager.set_crossover(cross_idx, v);
+            }
+            10 => {
+                // M/S Mode — reserved for future use
+                self.params[10] = if value > 0.5 { 1.0 } else { 0.0 };
+            }
+            11..=64 => {
+                // Per-band parameters
+                let rel = index - Self::GLOBAL_COUNT;
+                let band = rel / Self::BAND_PARAM_COUNT;
+                let param = rel % Self::BAND_PARAM_COUNT;
+                if band >= 6 {
+                    return;
+                }
+                if let Some(b) = self.imager.band_mut(band) {
+                    match param {
+                        0 => {
+                            // Width (0.0=mono, 1.0=unity, 2.0+=wide)
+                            let v = value.clamp(0.0, 3.0);
+                            self.params[index] = v;
+                            b.set_width(v);
+                        }
+                        1 => {
+                            // Pan (-1.0 to 1.0)
+                            let v = value.clamp(-1.0, 1.0);
+                            self.params[index] = v;
+                            b.set_pan(v);
+                        }
+                        2 => {
+                            // Mid Gain dB
+                            let v = value.clamp(-24.0, 24.0);
+                            self.params[index] = v;
+                            b.set_mid_gain_db(v);
+                        }
+                        3 => {
+                            // Side Gain dB
+                            let v = value.clamp(-24.0, 24.0);
+                            self.params[index] = v;
+                            b.set_side_gain_db(v);
+                        }
+                        4 => {
+                            // Rotation degrees
+                            let v = value.clamp(-180.0, 180.0);
+                            self.params[index] = v;
+                            b.set_rotation_degrees(v);
+                        }
+                        5 => {
+                            // Enable Width
+                            let on = value > 0.5;
+                            self.params[index] = if on { 1.0 } else { 0.0 };
+                            b.set_width_enabled(on);
+                        }
+                        6 => {
+                            // Solo
+                            self.params[index] = if value > 0.5 { 1.0 } else { 0.0 };
+                            b.solo = value > 0.5;
+                        }
+                        7 => {
+                            // Mute
+                            self.params[index] = if value > 0.5 { 1.0 } else { 0.0 };
+                            b.mute = value > 0.5;
+                        }
+                        8 => {
+                            // Bypass
+                            self.params[index] = if value > 0.5 { 1.0 } else { 0.0 };
+                            b.bypass = value > 0.5;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn param_name(&self, index: usize) -> &str {
+        match index {
+            0 => "Input Gain",
+            1 => "Output Gain",
+            2 => "Global Mix",
+            3 => "Num Bands",
+            4 => "Crossover Type",
+            5 => "Crossover 1",
+            6 => "Crossover 2",
+            7 => "Crossover 3",
+            8 => "Crossover 4",
+            9 => "Crossover 5",
+            10 => "M/S Mode",
+            _ => {
+                if index >= Self::GLOBAL_COUNT && index < 65 {
+                    let rel = index - Self::GLOBAL_COUNT;
+                    let param = rel % Self::BAND_PARAM_COUNT;
+                    match param {
+                        0 => "Band Width",
+                        1 => "Band Pan",
+                        2 => "Band Mid Gain",
+                        3 => "Band Side Gain",
+                        4 => "Band Rotation",
+                        5 => "Band Enable Width",
+                        6 => "Band Solo",
+                        7 => "Band Mute",
+                        8 => "Band Bypass",
+                        _ => "Unknown",
+                    }
+                } else {
+                    "Unknown"
+                }
+            }
+        }
+    }
+
+    fn get_meter(&self, index: usize) -> f64 {
+        match index {
+            0 => self.input_peak_l,
+            1 => self.input_peak_r,
+            2 => self.output_peak_l,
+            3 => self.output_peak_r,
+            4..=9 => self.band_correlations[index - 4],
+            _ => 0.0,
+        }
+    }
+}
+
 // ============ Extended Factory ============
 
 /// Create any processor by type name (extended version)
@@ -3367,6 +3900,15 @@ pub fn create_processor_extended(name: &str, sample_rate: f64) -> Option<Box<dyn
         "delay" | "timeless" | "timeless3" | "ping-pong-delay" => {
             Some(Box::new(DelayWrapper::new(sample_rate)))
         }
+        "haas-delay" | "haas" | "haas_delay" | "stereo-widener" | "precedence" => {
+            Some(Box::new(HaasDelayWrapper::new(sample_rate)))
+        }
+        "stereo-imager" | "imager" | "stereo_imager" | "imaging" => {
+            Some(Box::new(StereoImagerWrapper::new(sample_rate)))
+        }
+        "multiband-stereo-imager" | "multiband-imager" | "mb-imager" | "ozone-imager" => {
+            Some(Box::new(MultibandStereoImagerWrapper::new(sample_rate)))
+        }
         _ => None,
     }
 }
@@ -3393,6 +3935,10 @@ pub fn available_processors() -> Vec<&'static str> {
         "saturation",
         "multiband-saturator",
         "delay",
+        // Spatial
+        "haas-delay",
+        "stereo-imager",
+        "multiband-stereo-imager",
     ]
 }
 
