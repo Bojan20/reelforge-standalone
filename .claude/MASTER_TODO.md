@@ -1,6 +1,6 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-22 (Meter Stuttering Fix + Time Stretch Audio Bridge — seqlock metering, double-decay removal, transport stop cutoff, clip-level varispeed via ElasticPro→TrackManager bridge)
+**Updated:** 2026-02-22 (Bus Pan Channel Tab + Clip Drag Modifier Fix + Rust Meter Decay — bus/aux ChannelStripData, Listener-captured modifier keys for reliable slip/move, sample-rate-independent meter decay)
 **Status:** ✅ **SHIP READY** — All features complete, DAW Mixer ALL 5 PHASES implemented (Pro Tools 2026-class), 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, all 9 FabFilter DSP panels 100% FFI connected, ProEq unified superset EQ (FF-Q 64), direct FFI metering, SafeFilePicker for iCloud stability, CoreAudio stereo properly handled, FaderCurve unified across all volume controls, Metronome fully wired with pro settings UI, Cubase-style Timeline Edit Tools (10 tools + 4 edit modes), Stereo Waveform L/R display (Logic Pro style), Gain Drag fix (Listener pattern), double-click BPM/TimeSig editing in TimeRuler, track header M/S/I/R instant responsiveness (optimistic state pattern), Channel Tab insert slots fully operational (bidirectional state sync), MeterProvider→UltimateMixer 60fps shared memory metering, GpuMeter pro ballistics (1500ms hold, 26dB/s decay, 300ms release), fader bottom sticking fix (FaderCurve.linearToPosition threshold), EQ bypass button in Channel Tab
 
 ---
@@ -59,9 +59,12 @@ DAW MIXER: Pro Tools 2026-class — ALL 5 PHASES COMPLETE (11 new files + floati
 ✅ EQ BYPASS BUTTON:   Channel Tab     ✅ Bypass toggle added to Channel Inspector EQ section
 ✅ METER 60FPS WIRE:   MeterProvider   ✅ UltimateMixer watches MeterProvider for 60fps shared memory meters
 ✅ GPU METER TUNING:   GpuMeterConfig  ✅ Pro ballistics: 1500ms hold, 26dB/s decay, 300ms release
+✅ RUST METER DECAY2:  playback.rs     ✅ Sample-rate-independent decay formula (300ms to -60dB)
+✅ BUS PAN CH TAB:     ChannelStripData ✅ Bus/aux channels now display in Channel Tab inspector
+✅ CLIP DRAG FIX:      Listener capture ✅ Modifier keys captured at onPointerDown — reliable slip/move
 ```
 
-**437 total tasks (387 original + 27 DAW Mixer + 3 stability fixes + 3 stereo/routing fixes + 1 fader curve unification + 1 SSL channel strip + 2 DSP panel/time stretch + 1 metronome + 1 gain drag fix + 1 stereo waveform + 1 BPM/TimeSig editing + 1 track button responsiveness + 1 channel tab insert fix + 7 mixer metering & fader fixes). All code quality issues fixed. 4,532 tests pass. SafeFilePicker replaces NSOpenPanel across 25 files — prevents iCloud Desktop & Documents sync deadlock. CoreAudio non-interleaved stereo properly handled. One-shot voices preserve stereo width (Pro Tools-style balance pan). Lower Zone bus overflow fixed. Unified FaderCurve class (`audio_math.dart`) replaces 11 inconsistent volume curve implementations. SSL Channel Strip reorganization COMPLETE — 3 methods split into 6, build() reordered to SSL signal flow. All 13 DspNodeType values have premium FabFilter panels. Time Stretch channel tab connected to ElasticPro track-based API. Metronome fully wired: ClickTrack DSP → PlaybackEngine audio callback, with pro settings popup (Tempo, Time Sig, Volume, Pattern, Count-In, Pan) via 14 FFI functions. Gain Drag on timeline clips fixed — Listener bypasses gesture arena, double-tap resets to 0dB. Stereo Waveform display — Logic Pro-style L/R split with channel labels, dashed separator, threshold >60px. Double-click BPM/Time Signature inline editing in TimeRuler with input validation + FocusNode memory leak fix. Track header M/S/I/R buttons instant responsiveness via optimistic state pattern (zero visual lag). Channel Tab insert slots fully operational — bidirectional sync between `_busInserts` and `MixerProvider`, `onInsertReorder` wired through full callback chain. MeterProvider→UltimateMixer 60fps shared memory metering wired via `context.watch<MeterProvider>()`. GpuMeter ballistics tuned to pro standards (1500ms hold, 26dB/s decay, 300ms release). FaderCurve.linearToPosition threshold fix — faders no longer stick at bottom position. Rust SHARED_METERS increment_sequence fix — Dart side now reliably detects meter updates. EQ bypass button added to Channel Inspector panel. Floating processor editor syncs DspChainProvider on open.**
+**440 total tasks (387 original + 27 DAW Mixer + 3 stability fixes + 3 stereo/routing fixes + 1 fader curve unification + 1 SSL channel strip + 2 DSP panel/time stretch + 1 metronome + 1 gain drag fix + 1 stereo waveform + 1 BPM/TimeSig editing + 1 track button responsiveness + 1 channel tab insert fix + 7 mixer metering & fader fixes + 3 session fixes). Bus pan now visible in Channel Tab. Clip drag uses Listener-captured modifier keys for reliable slip/move distinction. Rust meter decay sample-rate-independent.**
 
 ### Pro Tools 2026 DAW Mixer (2026-02-20 — 2026-02-21) ✅ ALL 5 PHASES COMPLETE
 
@@ -1214,6 +1217,38 @@ All three now read from `SharedMeterSnapshot.channelPeaks` (Float64List(12) = 6 
 
 `compact` preset is used by the mixer's `_MeterBar` widget — the main visible meters in UltimateMixer channel strips.
 **File:** `flutter_ui/lib/widgets/metering/gpu_meter_widget.dart`
+
+---
+
+### Meter Decay Rate — Rust Engine (2026-02-22) ✅
+
+**Problem:** Meters decayed too slowly in the Rust audio engine — peak values lingered for seconds.
+**Root Cause:** Decay formula `0.9995^(frames/8)` was too slow and not sample-rate-independent.
+**Fix:** Changed to sample-rate-independent formula targeting 300ms to -60dB: `exp(-ln(1000) / (0.3 * sample_rate)) ^ frames`.
+**File:** `crates/rf-engine/src/playback.rs`
+
+---
+
+### Bus Pan in Channel Tab Fix (2026-02-22) ✅
+
+**Problem:** Selecting a bus in the mixer showed nothing in the Channel Tab inspector — pan, volume, mute/solo controls were empty.
+**Root Cause:** `_getSelectedChannelData()` in `engine_connected_layout.dart` only handled `master` and timeline track IDs. Bus IDs (e.g., `bus_0`, `aux_0`) returned `null`.
+**Fix:** Added bus/aux check before track lookup + new `_getBusChannelData()` method (~50 LOC) that reads bus state from `MixerProvider` and builds a complete `ChannelStripData`.
+**File:** `flutter_ui/lib/screens/engine_connected_layout.dart`
+
+---
+
+### Clip Drag Modifier Keys Fix (2026-02-22) ✅
+
+**Problem:** Normal clip drag on timeline sometimes performed slip edit (moved content within clip) instead of moving the entire clip.
+**Root Cause:** `HardwareKeyboard.instance` in `GestureDetector.onPanStart` had **stale modifier key state** — documented CLAUDE.md problem. Ctrl/Cmd could remain "stuck" from previous interaction.
+**Fix:** Added `Listener.onPointerDown` to capture modifier keys **IMMEDIATELY** at pointer press (before `onPanStart` fires). All modifier checks in `onPanStart` now use captured `_pointerDownCtrl`, `_pointerDownAlt`, `_pointerDownShift` variables instead of stale `HardwareKeyboard.instance`.
+
+**Behavior:**
+- **Normal drag** (no Ctrl/Cmd) → Move entire clip on timeline
+- **Ctrl/Cmd+drag** → Slip edit (move audio content within clip boundaries)
+
+**File:** `flutter_ui/lib/widgets/timeline/clip_widget.dart`
 
 ---
 
