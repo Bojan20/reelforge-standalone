@@ -2878,22 +2878,42 @@ class _MasterStrip extends StatelessWidget {
               ),
             ),
           ),
-          // Real-time LUFS display from engine metering
+          // Real-time LUFS display from engine metering (short-term + integrated)
           GestureDetector(
             onTap: onSelect,
             child: Container(
-              height: 22,
+              height: 34,
               margin: const EdgeInsets.symmetric(horizontal: 4),
-              child: Center(
-                child: Text(
-                  _formatMasterLufs(lufsShortTerm),
-                  style: TextStyle(
-                    color: _lufsColor(lufsShortTerm),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.bgDeepest.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Short-term LUFS (main reading)
+                  Text(
+                    _formatMasterLufs(lufsShortTerm),
+                    style: TextStyle(
+                      color: _lufsColor(lufsShortTerm),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                    ),
                   ),
-                ),
+                  // Integrated LUFS (smaller, below)
+                  Text(
+                    lufsIntegrated <= -70.0
+                        ? 'I: -∞'
+                        : 'I: ${lufsIntegrated.toStringAsFixed(1)}',
+                    style: TextStyle(
+                      color: _lufsColor(lufsIntegrated).withOpacity(0.7),
+                      fontSize: 7,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

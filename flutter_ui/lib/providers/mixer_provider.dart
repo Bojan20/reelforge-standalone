@@ -724,18 +724,41 @@ class MixerProvider extends ChangeNotifier {
       }
     }
 
-    // Update bus meters (buses use engine ID from _getBusEngineId)
+    // Update bus meters — aggregate peak/rms from all tracks routed to each bus.
+    // User-created buses have no engine representation, so we sum routed tracks.
     for (final bus in _buses.values) {
-      final engineId = _getBusEngineId(bus.id);
-      if (engineId < metering.buses.length) {
-        final busMeter = metering.buses[engineId];
-        _buses[bus.id] = bus.copyWith(
-          peakL: _dbToLinear(busMeter.peakL),
-          peakR: _dbToLinear(busMeter.peakR),
-          rmsL: _dbToLinear(busMeter.rmsL),
-          rmsR: _dbToLinear(busMeter.rmsR),
-        );
+      double busPeakL = 0.0;
+      double busPeakR = 0.0;
+      double busRmsL = 0.0;
+      double busRmsR = 0.0;
+
+      for (final channel in _channels.values) {
+        if (channel.outputBus == bus.id) {
+          // Use already-computed channel peaks (linear values)
+          final ch = _channels[channel.id];
+          if (ch != null) {
+            if (ch.peakL > busPeakL) busPeakL = ch.peakL;
+            if (ch.peakR > busPeakR) busPeakR = ch.peakR;
+            // RMS: sum of squares then sqrt (energy sum)
+            busRmsL += ch.rmsL * ch.rmsL;
+            busRmsR += ch.rmsR * ch.rmsR;
+          }
+        }
       }
+
+      // Apply bus volume to meter display
+      final busVol = bus.volume;
+      busPeakL *= busVol;
+      busPeakR *= busVol;
+      busRmsL = pow(busRmsL, 0.5).toDouble() * busVol;
+      busRmsR = pow(busRmsR, 0.5).toDouble() * busVol;
+
+      _buses[bus.id] = bus.copyWith(
+        peakL: busPeakL.clamp(0.0, 2.0),
+        peakR: busPeakR.clamp(0.0, 2.0),
+        rmsL: busRmsL.clamp(0.0, 2.0),
+        rmsR: busRmsR.clamp(0.0, 2.0),
+      );
     }
 
     notifyListeners();
@@ -1859,18 +1882,21 @@ class MixerProvider extends ChangeNotifier {
     if (_channels.containsKey(id)) {
       _channels[id] = channel.copyWith(volume: clampedVolume);
       if (channel.trackIndex != null) {
-        // ✅ Validate track ID before FFI call
         if (FFIBoundsChecker.validateTrackId(channel.trackIndex!)) {
-          engine.setTrackVolume(channel.trackIndex!, clampedVolume);
-        } else {
+          // If track is routed through a user bus, apply bus volume as multiplier
+          final busId = channel.outputBus;
+          final bus = busId != null ? _buses[busId] : null;
+          final effectiveVolume = bus != null
+              ? (clampedVolume * bus.volume).clamp(0.0, 2.0)
+              : clampedVolume;
+          engine.setTrackVolume(channel.trackIndex!, effectiveVolume);
         }
       }
     } else if (_buses.containsKey(id)) {
       _buses[id] = channel.copyWith(volume: clampedVolume);
-      final busId = _getBusEngineId(id);
-      if (FFIBoundsChecker.validateBusId(busId)) {
-        engine.setBusVolume(busId, clampedVolume);
-      }
+      // User-created buses apply volume as group operation on routed tracks.
+      // Each track's effective engine volume = track.volume * bus.volume.
+      _applyBusVolumeToRoutedTracks(id);
     } else if (_auxes.containsKey(id)) {
       _auxes[id] = channel.copyWith(volume: clampedVolume);
     }
@@ -1913,10 +1939,8 @@ class MixerProvider extends ChangeNotifier {
       }
     } else if (_buses.containsKey(id)) {
       _buses[id] = channel.copyWith(pan: clampedPan);
-      final busId = _getBusEngineId(id);
-      if (FFIBoundsChecker.validateBusId(busId)) {
-        engine.setBusPan(busId, clampedPan);
-      }
+      // User-created buses apply pan as group operation on routed tracks.
+      _applyBusPanToRoutedTracks(id);
     } else if (_auxes.containsKey(id)) {
       _auxes[id] = channel.copyWith(pan: clampedPan);
     }
@@ -1941,10 +1965,8 @@ class MixerProvider extends ChangeNotifier {
       }
     } else if (_buses.containsKey(id)) {
       _buses[id] = channel.copyWith(panRight: clampedPan);
-      final busEngineId = _getBusEngineId(id);
-      if (FFIBoundsChecker.validateBusId(busEngineId)) {
-        NativeFFI.instance.mixerSetBusPanRight(busEngineId, clampedPan);
-      }
+      // User-created buses apply panRight as group operation on routed tracks.
+      _applyBusPanToRoutedTracks(id);
     } else if (_auxes.containsKey(id)) {
       _auxes[id] = channel.copyWith(panRight: clampedPan);
     }
@@ -2483,6 +2505,56 @@ class MixerProvider extends ChangeNotifier {
     }
 
     return 0; // Fallback: master
+  }
+
+  /// Apply bus volume to all tracks routed through this bus.
+  /// Each track's effective engine volume = track.volume * bus.volume.
+  void _applyBusVolumeToRoutedTracks(String busId) {
+    final bus = _buses[busId];
+    if (bus == null) return;
+
+    for (final channel in _channels.values) {
+      if (channel.outputBus == busId && channel.trackIndex != null) {
+        final effectiveVolume = channel.volume * bus.volume;
+        if (FFIBoundsChecker.validateTrackId(channel.trackIndex!)) {
+          engine.setTrackVolume(channel.trackIndex!, effectiveVolume.clamp(0.0, 2.0));
+        }
+      }
+    }
+  }
+
+  /// Apply bus pan to all tracks routed through this bus.
+  /// Bus pan acts as an offset/multiplier on track pan.
+  void _applyBusPanToRoutedTracks(String busId) {
+    final bus = _buses[busId];
+    if (bus == null) return;
+
+    for (final channel in _channels.values) {
+      if (channel.outputBus == busId && channel.trackIndex != null) {
+        if (FFIBoundsChecker.validateTrackId(channel.trackIndex!)) {
+          if (bus.isStereo) {
+            // Stereo bus: L/R pan directly controls stereo field
+            engine.setTrackPan(channel.trackIndex!, bus.pan.clamp(-1.0, 1.0));
+            engine.setTrackPanRight(channel.trackIndex!, bus.panRight.clamp(-1.0, 1.0));
+          } else {
+            // Mono bus: bus pan offsets track pan
+            final effectivePan = (channel.pan + bus.pan).clamp(-1.0, 1.0);
+            engine.setTrackPan(channel.trackIndex!, effectivePan);
+          }
+        }
+      }
+    }
+  }
+
+  /// Re-apply bus volume/pan to engine when a track's own volume changes
+  /// and it's routed through a user bus.
+  void _reapplyBusGroupIfNeeded(String channelId) {
+    final channel = _channels[channelId];
+    if (channel == null || channel.outputBus == null) return;
+    final busId = channel.outputBus!;
+    if (!_buses.containsKey(busId)) return;
+    // Re-apply bus group volume
+    _applyBusVolumeToRoutedTracks(busId);
   }
 
   /// Sync all tracks routed to [logicalBusId] to the correct physical engine bus.

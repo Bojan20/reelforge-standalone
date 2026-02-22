@@ -40,13 +40,13 @@ class FaderCurve {
   static double dbToPosition(double db, {double minDb = -80.0, double maxDb = 12.0}) {
     if (db <= minDb) return 0.0;
     if (db >= maxDb) return 1.0;
-    // Seg 1: Dead zone — -∞ to -60 dB → 0%–3%
+    // Seg 1: Dead zone — -∞ to -60 dB → 0%–1% (tight silence→audible transition)
     if (db <= -60.0) {
-      return 0.03 * ((db - minDb) / (-60.0 - minDb)).clamp(0.0, 1.0);
+      return 0.01 * ((db - minDb) / (-60.0 - minDb)).clamp(0.0, 1.0);
     }
-    // Seg 2: Low — -60 to -20 dB → 3%–20%
+    // Seg 2: Low — -60 to -20 dB → 1%–20%
     if (db <= -20.0) {
-      return 0.03 + 0.17 * ((db + 60.0) / 40.0);
+      return 0.01 + 0.19 * ((db + 60.0) / 40.0);
     }
     // Seg 3: Build-up — -20 to -12 dB → 20%–40%
     if (db <= -12.0) {
@@ -65,13 +65,13 @@ class FaderCurve {
     final p = position.clamp(0.0, 1.0);
     if (p <= 0.0) return minDb;
     if (p >= 1.0) return maxDb;
-    // Seg 1: Dead zone — 0%–3% → -∞ to -60 dB
-    if (p <= 0.03) {
-      return minDb + (p / 0.03) * (-60.0 - minDb);
+    // Seg 1: Dead zone — 0%–1% → -∞ to -60 dB (tight silence→audible transition)
+    if (p <= 0.01) {
+      return minDb + (p / 0.01) * (-60.0 - minDb);
     }
-    // Seg 2: Low — 3%–20% → -60 to -20 dB
+    // Seg 2: Low — 1%–20% → -60 to -20 dB
     if (p <= 0.20) {
-      return -60.0 + ((p - 0.03) / 0.17) * 40.0;
+      return -60.0 + ((p - 0.01) / 0.19) * 40.0;
     }
     // Seg 3: Build-up — 20%–40% → -20 to -12 dB
     if (p <= 0.40) {
