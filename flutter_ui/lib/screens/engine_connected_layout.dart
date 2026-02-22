@@ -1305,7 +1305,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   /// Create an audio or instrument track with engine + mixer channel
   void _createAudioOrInstrumentTrack(AddTrackResult result, String name) {
-    final busIndex = result.outputBus.index; // OutputBus enum index = engine bus
+    final busIndex = result.outputBus.engineIndex; // Correct engine bus mapping
     final trackId = engine.createTrack(
       name: name,
       color: result.color.value,
@@ -1316,6 +1316,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     mixerProvider.createChannelFromTrack(
       trackId, name, result.color,
       channels: result.channels,
+      outputBus: result.outputBus.name, // Sync engine bus selection to MixerProvider
     );
 
     // Apply template DSP chain if selected
@@ -1349,7 +1350,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         );
         currentId = reId; // Update for future undo
         context.read<MixerProvider>().createChannelFromTrack(
-          reId, name, result.color, channels: result.channels,
+          reId, name, result.color,
+          channels: result.channels,
+          outputBus: result.outputBus.name,
         );
         if (result.template != null) _applyTemplateToTrack(reId, result.template!);
         setState(() {
@@ -1532,11 +1535,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           final reId = engine.createTrack(
             name: deletedTrack.name,
             color: deletedTrack.color.value,
-            busId: 0,
+            busId: deletedTrack.outputBus.engineIndex,
           );
           currentId = reId; // Update for future redo
           context.read<MixerProvider>().createChannelFromTrack(
-            reId, deletedTrack.name, deletedTrack.color, channels: deletedTrack.channels,
+            reId, deletedTrack.name, deletedTrack.color,
+            channels: deletedTrack.channels,
+            outputBus: deletedTrack.outputBus.name,
           );
           setState(() {
             final restoredTrack = deletedTrack.copyWith(id: reId);
@@ -1690,7 +1695,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
     // Create mixer channel for the duplicated track (same channel count as original)
     final mixerProvider = context.read<MixerProvider>();
-    mixerProvider.createChannelFromTrack(newTrackId, newTrack.name, track.color, channels: track.channels);
+    mixerProvider.createChannelFromTrack(newTrackId, newTrack.name, track.color,
+      channels: track.channels,
+      outputBus: track.outputBus.name,
+    );
 
     _showSnackBar('Track duplicated');
   }
@@ -2350,21 +2358,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     engine.setActiveBuses(busActivity);
   }
 
-  /// Convert OutputBus enum to bus index
-  int _busToIndex(timeline.OutputBus bus) {
-    switch (bus) {
-      case timeline.OutputBus.master:
-        return 0;
-      case timeline.OutputBus.music:
-        return 1;
-      case timeline.OutputBus.sfx:
-        return 2;
-      case timeline.OutputBus.voice:
-        return 3;
-      case timeline.OutputBus.ambience:
-        return 4;
-    }
-  }
+  /// Convert OutputBus enum to bus index (delegates to engineIndex extension)
+  int _busToIndex(timeline.OutputBus bus) => bus.engineIndex;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // AUDIO IMPORT (Legacy - for direct file import)
@@ -8512,8 +8507,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         soloed: aux.soloed,
         peakL: aux.peakL,
         peakR: aux.peakR,
-        rmsL: aux.peakL * 0.7,
-        rmsR: aux.peakR * 0.7,
+        rmsL: aux.rmsL,
+        rmsR: aux.rmsR,
         correlation: 1.0,
         outputBus: aux.outputBus ?? '',
         stereoWidth: aux.stereoWidth,
@@ -10027,9 +10022,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     // Cubase-style: 0.0 = -inf, 1.0 = 0dB, 2.0 = +6dB
     final clampedVolume = volume.clamp(0.0, 2.0);
 
-    // DAW buses — delegate to MixerProvider
+    // DAW buses — delegate to MixerProvider (use setChannelVolume which propagates to routed tracks)
     if (busId.startsWith('bus_')) {
-      context.read<MixerProvider>().setVolume(busId, clampedVolume);
+      context.read<MixerProvider>().setChannelVolume(busId, clampedVolume);
       return;
     }
 
@@ -10115,9 +10110,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   }
 
   void _onBusMuteToggle(String busId) {
-    // DAW buses — delegate to MixerProvider
+    // DAW buses — delegate to MixerProvider (use toggleChannelMute which propagates to routed tracks)
     if (busId.startsWith('bus_')) {
-      context.read<MixerProvider>().toggleMute(busId);
+      context.read<MixerProvider>().toggleChannelMute(busId);
       return;
     }
     // Middleware/master buses — local state + FFI
@@ -10126,14 +10121,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     });
     final engineIdx = _busIdToEngineBusIndex(busId);
     if (engineIdx >= 0) {
-      NativeFFI.instance.setBusMute(engineIdx, _busMuted[busId] ?? false);
+      NativeFFI.instance.mixerSetBusMute(engineIdx, _busMuted[busId] ?? false);
     }
   }
 
   void _onBusSoloToggle(String busId) {
-    // DAW buses — delegate to MixerProvider
+    // DAW buses — delegate to MixerProvider (use toggleChannelSolo which applies SIP to routed tracks)
     if (busId.startsWith('bus_')) {
-      context.read<MixerProvider>().toggleSolo(busId);
+      context.read<MixerProvider>().toggleChannelSolo(busId);
       return;
     }
     // Middleware/master buses — local state + FFI
@@ -10142,7 +10137,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     });
     final engineIdx = _busIdToEngineBusIndex(busId);
     if (engineIdx >= 0) {
-      NativeFFI.instance.setBusSolo(engineIdx, _busSoloed[busId] ?? false);
+      NativeFFI.instance.mixerSetBusSolo(engineIdx, _busSoloed[busId] ?? false);
     }
   }
 

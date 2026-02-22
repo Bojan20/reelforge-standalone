@@ -1,6 +1,6 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-22 (Session 6: Send Slot → FX Bus Creation fix — _onSendClick() rewrite, 3 new MixerProvider methods, _SendDialogResult model)
+**Updated:** 2026-02-23 (Session 7: Audio Flow QA — 7 bus/routing bugs fixed: bus mute/solo/volume propagation, OutputBus enum→engine index mismatch, track creation outputBus sync)
 **Status:** ✅ **SHIP READY** — All features complete, DAW Mixer ALL 5 PHASES implemented (Pro Tools 2026-class), 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, all 9 FabFilter DSP panels 100% FFI connected, ProEq unified superset EQ (FF-Q 64), direct FFI metering, SafeFilePicker for iCloud stability, CoreAudio stereo properly handled, FaderCurve unified across all volume controls, Metronome fully wired with pro settings UI, Cubase-style Timeline Edit Tools (10 tools + 5 edit modes + 1-0/F1-F5 keyboard shortcuts), Stereo Waveform L/R display (Logic Pro style), Gain Drag fix (Listener pattern), double-click BPM/TimeSig editing in TimeRuler, track header M/S/I/R instant responsiveness (optimistic state pattern), Channel Tab insert slots fully operational (bidirectional state sync), MeterProvider→UltimateMixer 60fps shared memory metering, GpuMeter pro ballistics (1500ms hold, 26dB/s decay, 300ms release), fader bottom sticking fix (FaderCurve.linearToPosition threshold), EQ bypass button in Channel Tab, track rename keyboard isolation (EditableText guard), grid/snap integer-index alignment, waveform gain direct-to-painter, live clip drag position in Channel Tab, auto-crossfade at split points, DAW-style project tree with hover/animations/indentation guides, transport Stop/Rewind loop position fix, keyboard shortcuts Period/Comma/Home wired, third-party plugin system fully hardened (6-fix QA: AU native GUI via rack, CString leak prevention, scan error UI, generic editor fallback), DAW Lower Zone split view toggle + 5 CRITICAL QA fixes, Channel Tab send slot → FX bus creation fully operational
 
 ---
@@ -78,9 +78,12 @@ PLUGIN QA AUDIT: 6/6 FIXED ✅ (AU routing, VST3 error propagation, scan failure
 ✅ PLUGIN QA AUDIT:    6 deep fixes    ✅ AU→rack native GUI, VST3 Err propagation, scan→Dart, has_editor detect, CString leak fix, error UI
 ✅ SPLIT VIEW QA:     5 CRITICAL + toggle ✅ CompingProvider GetIt, shouldRepaint, ElasticPro ref count, ConstrainedBox
 ✅ SEND SLOT FIX:     3 new methods     ✅ _onSendClick() rewrite, FX bus creation, send routing
+✅ BUS PROPAGATION:   3 legacy→modern   ✅ Bus volume/mute/solo now propagate to routed tracks via setChannelVolume/toggleChannelMute/toggleChannelSolo
+✅ OUTPUTBUS ENUM:    engineIndex ext   ✅ OutputBus.engineIndex getter — voice=3, ambience=4 (enum had them swapped)
+✅ TRACK BUS SYNC:    outputBus param   ✅ createChannelFromTrack() receives user-selected bus (was hardcoded 'master')
 ```
 
-**461 total tasks (460 previous + 1 new: send slot → FX bus creation fix).**
+**468 total tasks (461 previous + 7 new: audio flow QA bus/routing fixes).**
 
 ### Pro Tools 2026 DAW Mixer (2026-02-20 — 2026-02-21) ✅ ALL 5 PHASES COMPLETE
 

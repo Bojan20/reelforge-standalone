@@ -815,6 +815,7 @@ class MixerProvider extends ChangeNotifier {
     String trackName,
     Color trackColor, {
     int channels = 2,
+    String outputBus = 'master',
   }) {
     // ✅ P0.3: Input validation
     final validationError = InputSanitizer.validateName(trackName);
@@ -849,7 +850,7 @@ class MixerProvider extends ChangeNotifier {
       pan: defaultPan,
       panRight: defaultPanRight,
       isStereo: isStereo,
-      outputBus: 'master', // Direct to master, not to bus
+      outputBus: outputBus, // Routes to user-selected bus (default: master)
       trackIndex: nativeTrackId, // Store native engine track ID for FFI
     );
 

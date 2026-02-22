@@ -140,7 +140,24 @@ class TimelineClip {
 }
 
 /// Bus routing options
+/// NOTE: Enum order does NOT match engine bus indices!
+/// Use [OutputBusExtension.engineIndex] for Rust FFI communication.
 enum OutputBus { master, music, sfx, ambience, voice }
+
+/// Maps OutputBus to Rust engine bus indices.
+/// Engine convention: master=0, music=1, sfx=2, voice=3, ambience=4, aux=5
+/// The enum has ambience before voice (index 3 vs 4) but engine is opposite.
+extension OutputBusExtension on OutputBus {
+  int get engineIndex {
+    switch (this) {
+      case OutputBus.master: return 0;
+      case OutputBus.music: return 1;
+      case OutputBus.sfx: return 2;
+      case OutputBus.voice: return 3;
+      case OutputBus.ambience: return 4;
+    }
+  }
+}
 
 /// Track type for the timeline
 enum TrackType {

@@ -1617,4 +1617,127 @@ ChannelInspectorPanel.onSendClick(channelId, sendIndex)
 
 ---
 
-*Poslednji update: 2026-02-22 (Send Slot → FX Bus Creation, CoreAudio stereo, One-shot stereo pan, Pro Tools gap analysis)*
+---
+
+## 22. OutputBus Enum Index Fix (2026-02-23)
+
+### Problem
+
+`OutputBus` Dart enum redosled NE ODGOVARA Rust engine bus indeksima:
+
+```dart
+// Dart enum — .index daje POGREŠNE vrednosti za voice/ambience!
+enum OutputBus { master, music, sfx, ambience, voice }
+//                 0       1      2     3=WRONG   4=WRONG
+```
+
+```rust
+// Rust engine konvencija (playback.rs:1380-1386)
+OutputBus::Master => 0,
+OutputBus::Music => 1,
+OutputBus::Sfx => 2,
+OutputBus::Voice => 3,     // Dart ambience.index = 3 ← MISMATCH!
+OutputBus::Ambience => 4,  // Dart voice.index = 4 ← MISMATCH!
+OutputBus::Aux => 5,
+```
+
+**Rezultat:** Trackovi rutirani na "Voice" bus su slali audio na Ambience, i obrnuto.
+
+### Rešenje — `OutputBusExtension.engineIndex`
+
+Dodat extension getter umesto reordering enum-a (izbegava lomljenje serijalizovanih session template podataka):
+
+```dart
+extension OutputBusExtension on OutputBus {
+  int get engineIndex {
+    switch (this) {
+      case OutputBus.master: return 0;
+      case OutputBus.music: return 1;
+      case OutputBus.sfx: return 2;
+      case OutputBus.voice: return 3;     // Correct!
+      case OutputBus.ambience: return 4;  // Correct!
+    }
+  }
+}
+```
+
+**Pravilo:** NIKADA ne koristi `outputBus.index` za FFI komunikaciju — UVEK `outputBus.engineIndex`.
+
+### Izmenjene lokacije
+
+| Fajl | Promena |
+|------|---------|
+| `timeline_models.dart` | Dodat `OutputBusExtension` |
+| `engine_connected_layout.dart:1308` | `.index` → `.engineIndex` (track creation) |
+| `engine_connected_layout.dart:1535` | Undo-restore: `busId: 0` → `busId: deletedTrack.outputBus.engineIndex` |
+| `engine_connected_layout.dart:2362` | `_busToIndex()` konsolidovan na `bus.engineIndex` |
+
+---
+
+## 23. Legacy vs Modern MixerProvider Methods (2026-02-23)
+
+### Problem
+
+`MixerProvider` ima DVA SETA metoda za volume/mute/solo — **legacy** i **modern**:
+
+| Operacija | Legacy (NE KORISTITI) | Modern (KORISTITI) |
+|-----------|----------------------|-------------------|
+| Volume | `setVolume(id, vol)` | `setChannelVolume(id, vol)` |
+| Mute | `toggleMute(id)` | `toggleChannelMute(id)` |
+| Solo | `toggleSolo(id)` | `toggleChannelSolo(id)` |
+
+### Razlika
+
+**Legacy metode** samo menjaju state na jednom kanalu — NE propagiraju na rutirane trackove.
+
+**Modern metode** detektuju tip kanala i primenjuju bus group operacije:
+```dart
+void setChannelVolume(String id, double volume) {
+  _channels[id] = channel.copyWith(volume: volume);
+  if (_isBusChannel(id)) {
+    _applyBusVolumeToRoutedTracks(id, volume);  // ← PROPAGACIJA!
+  }
+  notifyListeners();
+}
+```
+
+**`_applyBusVolumeToRoutedTracks()`** iterira sve kanale rutirane na taj bus i šalje FFI `setTrackVolume()`.
+**`_applyBusMuteToRoutedTracks()`** propagira mute state na rutirane trackove.
+**`_applySoloInPlace()`** implementira SIP (Solo-In-Place) sa proper mute/unmute logikom.
+
+### Bug Fix (2026-02-23)
+
+`engine_connected_layout.dart` koristio legacy metode za bus operacije:
+
+```dart
+// ❌ STARO — bez propagacije
+_onBusVolumeChange: (busId, vol) => mixerProvider.setVolume(busId, vol),
+_onBusMuteToggle: (busId) => mixerProvider.toggleMute(busId),
+_onBusSoloToggle: (busId) => mixerProvider.toggleSolo(busId),
+
+// ✅ NOVO — sa propagacijom na rutirane trackove
+_onBusVolumeChange: (busId, vol) => mixerProvider.setChannelVolume(busId, vol),
+_onBusMuteToggle: (busId) => mixerProvider.toggleChannelMute(busId),
+_onBusSoloToggle: (busId) => mixerProvider.toggleChannelSolo(busId),
+```
+
+### `createChannelFromTrack()` outputBus Parameter (2026-02-23)
+
+Metoda sada prima `outputBus` parametar umesto hardkodiranog `'master'`:
+
+```dart
+MixerChannel createChannelFromTrack(
+  String trackId, String trackName, Color trackColor, {
+  int channels = 2,
+  String outputBus = 'master',  // ← NOVO: propagirano iz korisnikovog izbora
+})
+```
+
+**Pozivi koji propagiraju bus:**
+- `_createAudioOrInstrumentTrack()` — `outputBus: result.outputBus.name`
+- Track duplicate — `outputBus: track.outputBus.name`
+- Undo-restore — `outputBus: deletedTrack.outputBus.name`
+
+---
+
+*Poslednji update: 2026-02-23 (OutputBus enum fix, legacy vs modern bus methods, createChannelFromTrack outputBus)*
