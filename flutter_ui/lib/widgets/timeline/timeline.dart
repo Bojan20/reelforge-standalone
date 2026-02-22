@@ -405,6 +405,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   Offset? _ghostPosition;
   TimelineClip? _draggingClip;
   Offset _grabOffset = Offset.zero; // Where user grabbed the clip (local to clip)
+  double? _ghostSnappedY; // Track-snapped Y for ghost (Cubase-style: locked to track lane)
   // Snap preview state
   double? _snapPreviewTime; // Time position where clip will snap to
 
@@ -617,6 +618,24 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   /// Get visible tracks (filter out hidden)
   List<TimelineTrack> get _visibleTracks =>
       widget.tracks.where((t) => !t.hidden).toList();
+
+  /// Calculate cumulative Y position of a track lane (relative to tracks area start).
+  /// Accounts for variable track heights. Returns top edge Y of the track at [trackIndex].
+  double _trackTopY(int trackIndex) {
+    final tracks = _visibleTracks;
+    double y = 0;
+    for (int i = 0; i < trackIndex && i < tracks.length; i++) {
+      y += tracks[i].height > 0 ? tracks[i].height : _defaultTrackHeight;
+    }
+    return y;
+  }
+
+  /// Get the height of a specific track lane.
+  double _trackHeight(int trackIndex) {
+    final tracks = _visibleTracks;
+    if (trackIndex < 0 || trackIndex >= tracks.length) return _defaultTrackHeight;
+    return tracks[trackIndex].height > 0 ? tracks[trackIndex].height : _defaultTrackHeight;
+  }
 
   /// Get the end time of the last clip (actual content end)
   /// Adds extra space after content for Cubase-style scrolling (4 bars padding)
@@ -1598,16 +1617,57 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
   /// Handle cross-track drag update
   void _handleCrossTrackDrag(String clipId, double newStartTime, double verticalDelta, int sourceTrackIndex) {
+    // verticalDelta == 0 is a signal that clip returned to source track zone
+    if (verticalDelta.abs() < 1) {
+      setState(() {
+        _crossTrackDraggingClipId = null;
+        _crossTrackTargetIndex = -1;
+        _crossTrackDragYDelta = 0;
+        // Snap ghost back to source track lane
+        if (_dragSourceTrackIndex >= 0) {
+          _ghostSnappedY = _trackTopY(_dragSourceTrackIndex);
+        }
+      });
+      return;
+    }
+
     // Calculate target track index based on vertical delta
+    // Use cumulative track heights for accurate mapping instead of uniform _defaultTrackHeight
+    int targetIndex = sourceTrackIndex;
+    if (verticalDelta > 0) {
+      // Dragging down — find which track the cursor crossed into
+      double accumulated = 0;
+      for (int i = sourceTrackIndex; i < _visibleTracks.length; i++) {
+        final h = _trackHeight(i);
+        if (verticalDelta < accumulated + h * 0.5) break;
+        accumulated += h;
+        targetIndex = i + 1;
+      }
+    } else if (verticalDelta < 0) {
+      // Dragging up
+      double accumulated = 0;
+      for (int i = sourceTrackIndex - 1; i >= 0; i--) {
+        final h = _trackHeight(i);
+        accumulated += h;
+        if ((-verticalDelta) < accumulated - h * 0.5) break;
+        targetIndex = i;
+      }
+    }
     // Allow tracks.length as valid target (means: create new track below)
-    final tracksDelta = (verticalDelta / _defaultTrackHeight).round();
-    final targetIndex = (sourceTrackIndex + tracksDelta).clamp(0, widget.tracks.length);
+    targetIndex = targetIndex.clamp(0, widget.tracks.length);
 
     setState(() {
       _crossTrackDraggingClipId = clipId;
       _crossTrackDragTime = newStartTime;
       _crossTrackDragYDelta = verticalDelta;
       _crossTrackTargetIndex = targetIndex;
+      // Cubase-style: snap ghost Y to target track lane
+      if (targetIndex < _visibleTracks.length) {
+        _ghostSnappedY = _trackTopY(targetIndex);
+      } else {
+        // Below all tracks — position at bottom of last track
+        _ghostSnappedY = _trackTopY(_visibleTracks.length);
+      }
     });
   }
 
@@ -1646,6 +1706,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
       // Clear ghost state
       _draggingClip = null;
       _ghostPosition = null;
+      _ghostSnappedY = null;
       _dragSourceTrackIndex = -1;
       _grabOffset = Offset.zero;
     });
@@ -1669,6 +1730,8 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
       _ghostPosition = localPos;
       // Store where user grabbed the clip (localPosition is relative to clip widget)
       _grabOffset = localPosition;
+      // Cubase-style: ghost Y is locked to source track lane
+      _ghostSnappedY = _trackTopY(trackIndex);
     });
   }
 
@@ -1692,9 +1755,16 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
       );
     }
 
+    // Cubase-style: if no cross-track drag is active, keep ghost locked to source track
+    double? snappedY = _ghostSnappedY;
+    if (_crossTrackDraggingClipId == null && _dragSourceTrackIndex >= 0) {
+      snappedY = _trackTopY(_dragSourceTrackIndex);
+    }
+
     setState(() {
       _ghostPosition = localPos;
       _snapPreviewTime = snapTime;
+      _ghostSnappedY = snappedY;
     });
   }
 
@@ -1704,6 +1774,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
       _dragSourceTrackIndex = -1;
       _draggingClip = null;
       _ghostPosition = null;
+      _ghostSnappedY = null;
       _grabOffset = Offset.zero;
       _snapPreviewTime = null;
     });
@@ -2228,17 +2299,40 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                           }),
 
                           // Ghost clip preview during drag
-                          if (_draggingClip != null && _ghostPosition != null)
+                          // Cubase-style: ghost snaps to track lanes (never floats between tracks)
+                          if (_draggingClip != null && _ghostPosition != null) ...[
+                            // Visual drop indicator on target track during cross-track drag
+                            if (_crossTrackTargetIndex >= 0 && _crossTrackTargetIndex < _visibleTracks.length && _crossTrackDraggingClipId != null)
+                              Positioned(
+                                left: 0,
+                                top: _trackTopY(_crossTrackTargetIndex) - (_verticalScrollController.hasClients ? _verticalScrollController.offset : 0),
+                                right: 0,
+                                height: _trackHeight(_crossTrackTargetIndex),
+                                child: IgnorePointer(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: FluxForgeTheme.accentBlue.withValues(alpha: 0.08),
+                                      border: Border.all(
+                                        color: FluxForgeTheme.accentCyan.withValues(alpha: 0.5),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
                             Positioned(
                               // Ghost left edge = clip start position
                               left: _snapPreviewTime != null
                                   ? (_snapPreviewTime! - widget.scrollOffset) * _effectiveZoom
                                   : _ghostPosition!.dx - _grabOffset.dx,
-                              top: _ghostPosition!.dy - _rulerHeight - (widget.smartToolProvider != null ? _toolbarHeight : 0) - _grabOffset.dy,
+                              // Cubase-style: Y is locked to track lane, not raw cursor position
+                              top: (_ghostSnappedY ?? 0) - (_verticalScrollController.hasClients ? _verticalScrollController.offset : 0) + 2,
                               child: IgnorePointer(
                                 child: SizedBox(
                                   width: _draggingClip!.duration * _effectiveZoom,
-                                  height: _defaultTrackHeight - 4,
+                                  height: (_crossTrackTargetIndex >= 0 && _crossTrackTargetIndex < _visibleTracks.length
+                                      ? _trackHeight(_crossTrackTargetIndex)
+                                      : (_dragSourceTrackIndex >= 0 ? _trackHeight(_dragSourceTrackIndex) : _defaultTrackHeight)) - 4,
                                   child: Stack(
                                     clipBehavior: Clip.none,
                                     children: [
@@ -2332,6 +2426,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                 ),
                               ),
                             ),
+                          ], // end ghost clip + drop indicator spread
 
                           // Snap preview line (vertical line showing snap position)
                           // Pro DAW style: prominent cyan line with glow + time badge

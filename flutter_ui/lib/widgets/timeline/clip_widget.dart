@@ -777,10 +777,14 @@ class _ClipWidgetState extends State<ClipWidget> {
             widget.onDragUpdate?.call(details.globalPosition);
 
             // Cross-track drag (vertical movement)
+            final wasCrossTrack = _isCrossTrackDrag;
             _isCrossTrackDrag = deltaY.abs() > 20;
             if (_isCrossTrackDrag) {
               _wasCrossTrackDrag = true; // Remember if ever crossed track threshold
               widget.onCrossTrackDrag?.call(_lastSnappedTime, deltaY);
+            } else if (wasCrossTrack && !_isCrossTrackDrag) {
+              // Clip returned to source track zone — reset cross-track with delta 0
+              widget.onCrossTrackDrag?.call(_lastSnappedTime, 0);
             }
             // Note: original clip position is NOT updated during drag
             // It will be updated on drop via onPanEnd
