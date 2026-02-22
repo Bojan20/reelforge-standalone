@@ -1533,7 +1533,6 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
             allowMultiple: true,
           );
           if (result != null && result.files.isNotEmpty) {
-            final assetManager = sl<AudioAssetManager>();
             final paths = result.files
                 .where((f) => f.path != null)
                 .map((f) => f.path!)
@@ -1551,11 +1550,6 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
               }
             }
 
-            // Import only valid paths
-            if (validPaths.isNotEmpty) {
-              await assetManager.importFiles(validPaths, folder: 'Imported');
-            }
-
             // Show warning if some paths were invalid
             if (invalidPaths.isNotEmpty && mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -1564,6 +1558,75 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
                   backgroundColor: Colors.orange,
                 ),
               );
+            }
+
+            // Ask for permission before importing to DAW
+            if (validPaths.isNotEmpty && mounted) {
+              final fileNames = validPaths
+                  .map((p) => p.split('/').last)
+                  .toList();
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: const Color(0xFF1a1a20),
+                  title: const Text(
+                    'Import Files to DAW',
+                    style: TextStyle(color: Colors.white, fontSize: 14),
+                  ),
+                  content: SizedBox(
+                    width: 360,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Import ${validPaths.length} file(s) to DAW audio pool?',
+                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          constraints: const BoxConstraints(maxHeight: 120),
+                          decoration: BoxDecoration(
+                            color: Colors.black26,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.all(8),
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: fileNames.length,
+                            itemBuilder: (_, i) => Text(
+                              fileNames[i],
+                              style: const TextStyle(
+                                color: Colors.white54,
+                                fontSize: 11,
+                                fontFamily: 'JetBrains Mono',
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      style: TextButton.styleFrom(
+                        backgroundColor: const Color(0xFF4a9eff).withOpacity(0.2),
+                      ),
+                      child: const Text('Import', style: TextStyle(color: Color(0xFF4a9eff))),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirmed == true && mounted) {
+                final assetManager = sl<AudioAssetManager>();
+                await assetManager.importFiles(validPaths, folder: 'Imported');
+              }
             }
           }
         },

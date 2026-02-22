@@ -11889,6 +11889,13 @@ pub extern "C" fn elastic_pro_set_ratio(track_id: u32, ratio: f64) -> i32 {
     let mut elastics = ELASTIC_PROS.write();
     if let Some(elastic) = elastics.get_mut(&track_id) {
         elastic.set_stretch_ratio(ratio);
+        // Bridge to TrackManager clips — this makes the audio callback use the new ratio
+        let tid = crate::track_manager::TrackId(track_id as u64);
+        for mut clip_entry in TRACK_MANAGER.clips.iter_mut() {
+            if clip_entry.track_id == tid {
+                clip_entry.set_stretch_ratio(ratio);
+            }
+        }
         1
     } else {
         0
@@ -11901,6 +11908,13 @@ pub extern "C" fn elastic_pro_set_pitch(track_id: u32, semitones: f64) -> i32 {
     let mut elastics = ELASTIC_PROS.write();
     if let Some(elastic) = elastics.get_mut(&track_id) {
         elastic.set_pitch_shift(semitones);
+        // Bridge to TrackManager clips — this makes the audio callback use the new pitch
+        let tid = crate::track_manager::TrackId(track_id as u64);
+        for mut clip_entry in TRACK_MANAGER.clips.iter_mut() {
+            if clip_entry.track_id == tid {
+                clip_entry.set_pitch_shift(semitones);
+            }
+        }
         1
     } else {
         0
@@ -12012,6 +12026,14 @@ pub extern "C" fn elastic_pro_reset(track_id: u32) -> i32 {
     let mut elastics = ELASTIC_PROS.write();
     if let Some(elastic) = elastics.get_mut(&track_id) {
         elastic.reset();
+        // Reset stretch params on all clips for this track
+        let tid = crate::track_manager::TrackId(track_id as u64);
+        for mut clip_entry in TRACK_MANAGER.clips.iter_mut() {
+            if clip_entry.track_id == tid {
+                clip_entry.set_stretch_ratio(1.0);
+                clip_entry.set_pitch_shift(0.0);
+            }
+        }
         1
     } else {
         0
@@ -13671,6 +13693,8 @@ pub extern "C" fn render_selection_to_new_clip(
         muted: false,
         selected: false,
         reversed: false,
+        stretch_ratio: 1.0,
+        pitch_shift: 0.0,
         fx_chain: ClipFxChain::new(),
     };
 
@@ -21467,21 +21491,31 @@ impl SharedMeterBuffer {
     }
 
     /// Write f64 to atomic (bit pattern, no conversion)
+    /// Uses Relaxed ordering — the final sequence increment provides the Release fence.
     #[inline(always)]
     fn write_f64(atomic: &AtomicU64, value: f64) {
         atomic.store(value.to_bits(), Ordering::Relaxed);
     }
 
     /// Read f64 from atomic
+    /// Uses Relaxed ordering — caller must read sequence with Acquire first.
     #[inline(always)]
     fn read_f64(atomic: &AtomicU64) -> f64 {
         f64::from_bits(atomic.load(Ordering::Relaxed))
     }
 
     /// Increment sequence number (call after batch update)
+    /// Release fence ensures all prior writes are visible to Acquire readers.
     #[inline]
     pub fn increment_sequence(&self) {
         self.sequence.fetch_add(1, Ordering::Release);
+    }
+
+    /// Read sequence number (call from reader side)
+    /// Acquire fence ensures all data written before the Release is visible.
+    #[inline]
+    pub fn read_sequence(&self) -> u64 {
+        self.sequence.load(Ordering::Acquire)
     }
 
     /// Update master meters (call from audio thread)

@@ -889,7 +889,7 @@ class _FileBrowserDialogState extends State<_FileBrowserDialog> {
     return InkWell(
       onTap: () {
         if (isDir) {
-          _navigateTo(entity.path);
+          // Single-click on folder: select/highlight only (no navigation)
         } else if (widget.mode == _BrowseMode.pickFiles) {
           _toggleSelection(entity.path);
         }

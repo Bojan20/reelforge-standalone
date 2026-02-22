@@ -272,12 +272,35 @@ Position  dB Range     Travel    Resolution
 
 Unity gain (0 dB) at **75% fader travel** — industry standard (Cubase/Nuendo behavior).
 
-### Meter Implementation
+### Meter Implementation (Updated 2026-02-22)
 
-- **Peak hold**: 0.92x multiplicative decay per frame
-- **Noise floor gate**: -80 dB threshold — below this, meter bar = 0 width
-- **GPU accelerated**: `GpuMeter` widget for 120fps rendering
-- **Meter decay**: Smooth fall to complete invisibility
+**MeterProvider (shared memory, 60fps):**
+- `SharedMeterReader` reads `SHARED_METERS` from Rust engine via shared memory (zero FFI overhead)
+- `SharedMeterSnapshot.channelPeaks` = `Float64List(12)` → 6 buses × 2 (L/R)
+- `MeterProvider` polls at 16ms (60fps) via ChangeNotifier
+- Key constants: `kPeakHoldTime=1500ms`, `kPeakDecayRate=0.006`, `kMeterDecay=0.65`
+- UltimateMixer watches MeterProvider via `context.watch<MeterProvider>()` in 3 builder methods
+
+**GpuMeter (GPU-accelerated, 120fps rendering):**
+- CustomPainter with Ticker-based animation loop
+- Ballistics: attack/release smoothing, peak hold with dB/s decay
+- Noise floor gate at 0.0001 amplitude (complete invisibility below threshold)
+- Presets tuned to pro standards (2026-02-22):
+
+| Preset | Peak Hold | Peak Decay (dB/s) | Release (ms) | Used By |
+|--------|-----------|-------------------|--------------|---------|
+| `proTools` | 1500ms | 26 | 300 | Reference |
+| `compact` | 1500ms | 26 | 300 | Mixer `_MeterBar` |
+| `ppm` | 1500ms | 13 | 600 | Broadcast |
+| `vu` | 300ms | 20 | 300 | VU simulation |
+
+**Rust SHARED_METERS Fix (2026-02-22):**
+- `increment_sequence` atomic counter now properly incremented on every meter write
+- Ensures Dart `SharedMeterReader` detects new data reliably
+
+**Fader Fix (2026-02-22):**
+- `FaderCurve.linearToPosition()` threshold adjusted — faders no longer stick at bottom (position 0)
+- Root cause: near-zero amplitudes from engine triggered threshold returning 0.0, preventing drag recovery
 
 ### LUFS Metering (Master Only)
 

@@ -734,7 +734,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
     final isSelected = _isPoolMode && _selectedPoolFolder == folderId;
 
     return GestureDetector(
-      onTap: () => _selectPoolFolder(folderId),
+      onDoubleTap: () => _selectPoolFolder(folderId),
       child: Container(
         padding: const EdgeInsets.only(
           left: 20,
@@ -795,7 +795,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
     final isFavorited = _isFavorite(node.path);
 
     return GestureDetector(
-      onTap: () {
+      onDoubleTap: () {
         // Clear pool mode when selecting file system folder
         setState(() => _isPoolMode = false);
         _loadDirectory(node.path);

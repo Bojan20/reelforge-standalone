@@ -217,6 +217,10 @@ class SharedMeterReader {
   }
 
   /// Read all meters from shared memory (fast - no FFI calls, just memory reads)
+  ///
+  /// Uses seqlock pattern: read sequence BEFORE and AFTER data reads.
+  /// If sequence changed during read, data may be torn — retry up to 3 times.
+  /// This prevents reading a mix of old and new values.
   SharedMeterSnapshot readMeters() {
     if (!_initialized || _fieldOffsets == null) {
       return SharedMeterSnapshot.empty;
@@ -224,50 +228,87 @@ class SharedMeterReader {
 
     final offsets = _fieldOffsets!;
 
-    // Read sequence first
-    final sequence = _readU64(offsets[0]!);
-    _lastSequence = sequence;
+    // Seqlock read: retry if writer updated during our read
+    for (int attempt = 0; attempt < 3; attempt++) {
+      // Read sequence BEFORE data (via FFI Acquire fence)
+      final seqBefore = _ffi.meteringGetSequence();
 
-    // Read channel peaks array (12 values: 6 channels * 2 channels each)
-    final channelPeaksBase = offsets[22]!;
-    final channelPeaks = Float64List(12);
-    for (int i = 0; i < 12; i++) {
-      channelPeaks[i] = _readF64(channelPeaksBase + i * 8);
+      // Read all meter data
+      final masterPeakL = _readF64(offsets[1]!);
+      final masterPeakR = _readF64(offsets[2]!);
+      final masterRmsL = _readF64(offsets[3]!);
+      final masterRmsR = _readF64(offsets[4]!);
+      final lufsShort = _readF64(offsets[5]!);
+      final lufsIntegrated = _readF64(offsets[6]!);
+      final lufsMomentary = _readF64(offsets[7]!);
+      final truePeakL = _readF64(offsets[8]!);
+      final truePeakR = _readF64(offsets[9]!);
+      final truePeakMax = _readF64(offsets[10]!);
+      final correlation = _readF64(offsets[11]!);
+      final balance = _readF64(offsets[12]!);
+      final stereoWidth = _readF64(offsets[13]!);
+      final dynamicRange = _readF64(offsets[14]!);
+      final crestFactorL = _readF64(offsets[15]!);
+      final crestFactorR = _readF64(offsets[16]!);
+      final psr = _readF64(offsets[17]!);
+      final gainReduction = _readF64(offsets[18]!);
+      final playbackPositionSamples = _readU64(offsets[19]!);
+      final isPlaying = _readU32(offsets[20]!) != 0;
+      final sampleRate = _readU32(offsets[21]!);
+
+      // Read channel peaks array (12 values: 6 channels * 2 channels each)
+      final channelPeaksBase = offsets[22]!;
+      final channelPeaks = Float64List(12);
+      for (int i = 0; i < 12; i++) {
+        channelPeaks[i] = _readF64(channelPeaksBase + i * 8);
+      }
+
+      // Read spectrum bands array (32 values)
+      final spectrumBase = offsets[23]!;
+      final spectrum = Float64List(32);
+      for (int i = 0; i < 32; i++) {
+        spectrum[i] = _readF64(spectrumBase + i * 8);
+      }
+
+      // Read sequence AFTER data (via FFI Acquire fence)
+      final seqAfter = _ffi.meteringGetSequence();
+
+      // If sequence didn't change during read, data is consistent
+      if (seqBefore == seqAfter) {
+        _lastSequence = seqAfter;
+        return SharedMeterSnapshot(
+          sequence: seqAfter,
+          masterPeakL: masterPeakL,
+          masterPeakR: masterPeakR,
+          masterRmsL: masterRmsL,
+          masterRmsR: masterRmsR,
+          lufsShort: lufsShort,
+          lufsIntegrated: lufsIntegrated,
+          lufsMomentary: lufsMomentary,
+          truePeakL: truePeakL,
+          truePeakR: truePeakR,
+          truePeakMax: truePeakMax,
+          correlation: correlation,
+          balance: balance,
+          stereoWidth: stereoWidth,
+          dynamicRange: dynamicRange,
+          crestFactorL: crestFactorL,
+          crestFactorR: crestFactorR,
+          psr: psr,
+          gainReduction: gainReduction,
+          playbackPositionSamples: playbackPositionSamples,
+          isPlaying: isPlaying,
+          sampleRate: sampleRate,
+          channelPeaks: channelPeaks,
+          spectrumBands: spectrum,
+        );
+      }
+      // Sequence changed during read — data may be torn, retry
     }
 
-    // Read spectrum bands array (32 values)
-    final spectrumBase = offsets[23]!;
-    final spectrum = Float64List(32);
-    for (int i = 0; i < 32; i++) {
-      spectrum[i] = _readF64(spectrumBase + i * 8);
-    }
-
-    return SharedMeterSnapshot(
-      sequence: sequence,
-      masterPeakL: _readF64(offsets[1]!),
-      masterPeakR: _readF64(offsets[2]!),
-      masterRmsL: _readF64(offsets[3]!),
-      masterRmsR: _readF64(offsets[4]!),
-      lufsShort: _readF64(offsets[5]!),
-      lufsIntegrated: _readF64(offsets[6]!),
-      lufsMomentary: _readF64(offsets[7]!),
-      truePeakL: _readF64(offsets[8]!),
-      truePeakR: _readF64(offsets[9]!),
-      truePeakMax: _readF64(offsets[10]!),
-      correlation: _readF64(offsets[11]!),
-      balance: _readF64(offsets[12]!),
-      stereoWidth: _readF64(offsets[13]!),
-      dynamicRange: _readF64(offsets[14]!),
-      crestFactorL: _readF64(offsets[15]!),
-      crestFactorR: _readF64(offsets[16]!),
-      psr: _readF64(offsets[17]!),
-      gainReduction: _readF64(offsets[18]!),
-      playbackPositionSamples: _readU64(offsets[19]!),
-      isPlaying: _readU32(offsets[20]!) != 0,
-      sampleRate: _readU32(offsets[21]!),
-      channelPeaks: channelPeaks,
-      spectrumBands: spectrum,
-    );
+    // After 3 retries, use best-effort last read (very rare — writer is ~3ms, reader is <1ms)
+    _lastSequence = _ffi.meteringGetSequence();
+    return SharedMeterSnapshot.empty;
   }
 
   /// Read all meters as JSON (convenience/debugging)

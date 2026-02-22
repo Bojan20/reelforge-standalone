@@ -1,8 +1,8 @@
 # UltimateMixer Integration — Complete Documentation
 
-> **Version:** 2.1
-> **Date:** 2026-02-21
-> **Status:** IMPLEMENTED & TESTED — Pro Tools 2026-Class Mixer (Phase 1+2+3)
+> **Version:** 2.2
+> **Date:** 2026-02-22
+> **Status:** IMPLEMENTED & TESTED — Pro Tools 2026-Class Mixer (Phase 1+2+3), 60fps Shared Memory Metering, Pro Ballistics
 
 ---
 
@@ -17,7 +17,8 @@ UltimateMixer je **jedini mixer** u FluxForge Studio-u, sada nadograđen na **Pr
 | v1.0 | 2026-01-22 | UltimateMixer replaces ProDawMixer |
 | v1.1 | 2026-01-24 | Bidirectional channel/track reorder |
 | v2.0 | 2026-02-21 | Pro Tools 2026 Mixer: MixerScreen + Phase 1+2 |
-| **v2.1** | **2026-02-21** | **Phase 3: Buses, Aux, VCA — SpillController, strip variants, section show/hide** |
+| v2.1 | 2026-02-21 | Phase 3: Buses, Aux, VCA — SpillController, strip variants, section show/hide |
+| **v2.2** | **2026-02-22** | **Metering overhaul: MeterProvider 60fps wiring, GpuMeter ballistics, fader fix, EQ bypass** |
 
 ### v2.0 New Architecture
 
@@ -819,12 +820,70 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 21. **Phase 3: VCA strip** — Solo + spill button wired, no inserts/sends/pan
 22. **Phase 3: Section show/hide** — Collapsed indicators with count ("BUS (5)"), clickable section headers
 
+**v2.2 — Metering Overhaul & Fader Fixes (2026-02-22):**
+23. **MeterProvider → UltimateMixer 60fps wiring** — `context.watch<MeterProvider>()` in 3 mixer builder methods for shared memory metering
+24. **GpuMeter ballistics tuning** — `proTools`/`compact` presets: 1500ms hold, 26dB/s decay, 300ms release
+25. **Fader bottom sticking fix** — `FaderCurve.linearToPosition()` threshold adjustment in `audio_math.dart`
+26. **Rust SHARED_METERS decay fix** — `increment_sequence` atomic properly incremented for Dart detection
+27. **MeterProvider decay rate tuning** — `kPeakDecayRate=0.006`, `kMeterDecay=0.65`, `kPeakHoldTime=1500ms`
+28. **EQ bypass button** — Added to Channel Inspector panel (`channel_inspector_panel.dart`)
+29. **EQ floating editor sync** — DspChainProvider sync on `InternalProcessorEditorWindow.show()` open
+
+---
+
+## 9. METERING ARCHITECTURE (v2.2)
+
+### 9.1 Shared Memory Pipeline
+
+```
+Rust Audio Thread → SHARED_METERS (atomic writes, increment_sequence)
+                       ↓
+SharedMeterReader → SharedMeterSnapshot (Float64List(12) = 6 buses × 2 L/R)
+                       ↓
+MeterProvider (ChangeNotifier, 16ms poll = 60fps)
+                       ↓
+context.watch<MeterProvider>() in engine_connected_layout.dart
+  ├── _buildMasterMeterData() → master bus L/R
+  ├── _buildBusMeterData()    → per-bus L/R
+  └── _buildChannelMeterData() → track meters
+                       ↓
+UltimateMixer → _FaderWithMeter → GpuMeter (120fps Ticker, CustomPainter)
+```
+
+### 9.2 MeterProvider Constants
+
+```dart
+static const kPeakHoldTime = 1500;   // ms — peak indicator hold before decay
+static const kPeakDecayRate = 0.006; // per-tick multiplicative decay for peak
+static const kMeterDecay = 0.65;     // per-tick multiplicative decay for bar
+```
+
+### 9.3 GpuMeter Ballistics (GpuMeterConfig presets)
+
+| Preset | Peak Hold (ms) | Peak Decay (dB/s) | Attack (ms) | Release (ms) | Used By |
+|--------|----------------|-------------------|-------------|--------------|---------|
+| `proTools` | 1500 | 26 | 0.1 | 300 | Reference standard |
+| `compact` | 1500 | 26 | 0.1 | 300 | **Mixer `_MeterBar`** |
+| `ppm` | 1500 | 13 | 5 | 600 | Broadcast metering |
+| `vu` | 300 | 20 | 300 | 300 | VU simulation |
+
+### 9.4 Noise Floor Gate
+
+```
+GpuMeter: amplitude < 0.0001 → bar renders at zero width
+_FaderWithMeter: amplitude < -80 dB → meter bar width = 0
+```
+
+Both gates ensure meters decay to **complete invisibility** (no ghost glow at bottom).
+
 ### Benefits
 
 - **Pro Tools 2026-class mixer** — Dedicated screen with professional strip layout
 - **Single source of truth** — One mixer implementation
 - **More features** — VCA, stereo pan, glass mode, input gain, automation modes, group IDs
 - **Less code** — Removed ~1,090 LOC of duplication (ProDawMixer + dead code)
+- **60fps metering** — Shared memory pipeline, zero FFI overhead per frame
+- **Pro ballistics** — Industry-standard peak hold + decay matching Pro Tools/Cubase
 - **Better maintainability** — Modular widgets (IoSelector, SendSlot, AutomationBadge, GroupBadge)
 - **Complete callback coverage** — All mixer controls now functional
 

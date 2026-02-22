@@ -1595,9 +1595,9 @@ class _StateButtonState extends State<_StateButton> {
   }
 }
 
-/// EQ quick-access button with integrated bypass toggle.
-/// Click opens EQ editor, secondary click (right-click) toggles bypass.
-/// Visual: dim + strikethrough line when bypassed (Pro Tools style).
+/// EQ quick-access button with explicit bypass power button.
+/// Left part opens EQ editor, right power icon toggles bypass.
+/// Visual: dim + strikethrough when bypassed, orange power icon (Pro Tools style).
 class _EqQuickButton extends StatelessWidget {
   final bool hasEq;
   final bool bypassed;
@@ -1615,64 +1615,110 @@ class _EqQuickButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final active = hasEq && !bypassed;
 
-    return GestureDetector(
-      onTap: onTap,
-      onSecondaryTap: onBypassToggle,
-      child: Tooltip(
-        message: bypassed ? 'EQ bypassed — right-click to enable' : 'EQ — right-click to bypass',
-        waitDuration: const Duration(milliseconds: 600),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: active
-                ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
-                : FluxForgeTheme.bgDeepest,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(
-              color: active
-                  ? FluxForgeTheme.accentBlue
-                  : (bypassed ? FluxForgeTheme.accentOrange.withValues(alpha: 0.4) : FluxForgeTheme.borderSubtle),
-            ),
-          ),
-          child: Stack(
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // EQ label — click to open editor
+        GestureDetector(
+          onTap: onTap,
+          child: Tooltip(
+            message: 'Open EQ editor',
+            waitDuration: const Duration(milliseconds: 600),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: active
+                    ? FluxForgeTheme.accentBlue.withValues(alpha: 0.2)
+                    : FluxForgeTheme.bgDeepest,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(4),
+                  bottomLeft: Radius.circular(4),
+                ),
+                border: Border.all(
+                  color: active
+                      ? FluxForgeTheme.accentBlue
+                      : (bypassed ? FluxForgeTheme.accentOrange.withValues(alpha: 0.4) : FluxForgeTheme.borderSubtle),
+                ),
+              ),
+              child: Stack(
                 children: [
-                  Icon(
-                    Icons.graphic_eq,
-                    size: 14,
-                    color: active
-                        ? FluxForgeTheme.accentBlue
-                        : (bypassed ? FluxForgeTheme.accentOrange.withValues(alpha: 0.5) : FluxForgeTheme.textSecondary),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.graphic_eq,
+                        size: 14,
+                        color: active
+                            ? FluxForgeTheme.accentBlue
+                            : (bypassed ? FluxForgeTheme.accentOrange.withValues(alpha: 0.5) : FluxForgeTheme.textSecondary),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'EQ',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: active
+                              ? FluxForgeTheme.accentBlue
+                              : (bypassed ? FluxForgeTheme.accentOrange.withValues(alpha: 0.5) : FluxForgeTheme.textSecondary),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'EQ',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: active
-                          ? FluxForgeTheme.accentBlue
-                          : (bypassed ? FluxForgeTheme.accentOrange.withValues(alpha: 0.5) : FluxForgeTheme.textSecondary),
+                  if (bypassed)
+                    Positioned.fill(
+                      child: Center(
+                        child: Container(
+                          height: 1.5,
+                          color: FluxForgeTheme.accentOrange.withValues(alpha: 0.7),
+                        ),
+                      ),
                     ),
-                  ),
                 ],
               ),
-              // Strikethrough line when bypassed
-              if (bypassed)
-                Positioned.fill(
-                  child: Center(
-                    child: Container(
-                      height: 1.5,
-                      color: FluxForgeTheme.accentOrange.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+        // Power/bypass button — visible toggle
+        if (hasEq)
+          GestureDetector(
+            onTap: onBypassToggle,
+            child: Tooltip(
+              message: bypassed ? 'Enable EQ' : 'Bypass EQ',
+              waitDuration: const Duration(milliseconds: 600),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                decoration: BoxDecoration(
+                  color: bypassed
+                      ? FluxForgeTheme.accentOrange.withValues(alpha: 0.15)
+                      : FluxForgeTheme.accentBlue.withValues(alpha: 0.1),
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(4),
+                    bottomRight: Radius.circular(4),
+                  ),
+                  border: Border(
+                    top: BorderSide(
+                      color: bypassed ? FluxForgeTheme.accentOrange.withValues(alpha: 0.4) : FluxForgeTheme.accentBlue.withValues(alpha: 0.5),
+                    ),
+                    right: BorderSide(
+                      color: bypassed ? FluxForgeTheme.accentOrange.withValues(alpha: 0.4) : FluxForgeTheme.accentBlue.withValues(alpha: 0.5),
+                    ),
+                    bottom: BorderSide(
+                      color: bypassed ? FluxForgeTheme.accentOrange.withValues(alpha: 0.4) : FluxForgeTheme.accentBlue.withValues(alpha: 0.5),
                     ),
                   ),
                 ),
-            ],
+                child: Icon(
+                  Icons.power_settings_new,
+                  size: 13,
+                  color: bypassed
+                      ? FluxForgeTheme.accentOrange
+                      : FluxForgeTheme.accentBlue,
+                ),
+              ),
+            ),
           ),
-        ),
-      ),
+      ],
     );
   }
 }

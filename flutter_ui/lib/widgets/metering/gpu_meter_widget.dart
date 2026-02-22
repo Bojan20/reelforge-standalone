@@ -186,24 +186,24 @@ class GpuMeterConfig {
   });
 
   /// Pro Tools-style peak meter
-  /// 3-second peak hold, ~13 dB/s PPM Type I decay, instant attack, 1.5s release
+  /// 1.5s peak hold, 26 dB/s decay, instant attack, 300ms release
   static const proTools = GpuMeterConfig(
     minDb: -60,
     maxDb: 6,
-    peakHoldMs: 3000,
-    peakDecayDbPerSec: 13,
+    peakHoldMs: 1500,
+    peakDecayDbPerSec: 26,
     attackMs: 0,
-    releaseMs: 1500,
+    releaseMs: 300,
   );
 
   /// EBU PPM meter
   static const ppm = GpuMeterConfig(
     minDb: -60,
     maxDb: 0,
-    peakHoldMs: 3000,
+    peakHoldMs: 1500,
     peakDecayDbPerSec: 24,
     attackMs: 10,
-    releaseMs: 1500,
+    releaseMs: 600,
   );
 
   /// VU meter
@@ -218,14 +218,14 @@ class GpuMeterConfig {
   );
 
   /// Compact mixer — Pro Tools ballistics, no scale labels
-  /// 3-second peak hold, 13 dB/s decay (PPM Type I), instant attack, 1.5s release
+  /// 1.5s peak hold, 26 dB/s decay, instant attack, 300ms release
   static const compact = GpuMeterConfig(
     minDb: -60,
     maxDb: 6,
-    peakHoldMs: 3000,
-    peakDecayDbPerSec: 13,
+    peakHoldMs: 1500,
+    peakDecayDbPerSec: 26,
     attackMs: 0,
-    releaseMs: 1500,
+    releaseMs: 300,
     showScale: false,
   );
 }

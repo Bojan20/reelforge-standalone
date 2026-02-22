@@ -3985,8 +3985,13 @@ impl PlaybackEngine {
             // ═══ PRO TOOLS-STYLE METER DECAY ON STOP ═══
             // When transport stops, ALL meters must smoothly decay to zero
             // instead of freezing at their last value.
-            // Same decay formula as the playing path (~300ms to -60dB at 48kHz/256).
-            let decay = 0.9995_f64.powf(frames as f64 / 8.0);
+            // Target: reach -60dB (0.001 linear) within ~300ms — matches GpuMeter releaseMs.
+            // Formula: per-sample decay = exp(ln(0.001) / (0.3 * sample_rate))
+            // per-block decay = per-sample ^ frames
+            let sr = self.position.sample_rate() as f64;
+            let decay_samples = 0.3 * sr; // 300ms worth of samples
+            let per_sample_decay = (-6.907755_f64 / decay_samples).exp(); // ln(0.001) = -6.907755
+            let decay = per_sample_decay.powf(frames as f64);
 
             // --- Master peak metering with decay ---
             let prev_peak_l = f64::from_bits(self.peak_l.load(Ordering::Relaxed));
@@ -5040,8 +5045,13 @@ impl PlaybackEngine {
         let clip_start_sample = (clip.start_time * sample_rate) as u64;
         let clip_end_sample = (clip.end_time() * sample_rate) as u64;
 
-        // Convert source_offset (seconds) to samples
-        let source_offset_samples = (clip.source_offset * sample_rate) as u64;
+        // Time stretch: effective playback rate (stretch_ratio * pitch_rate)
+        let playback_rate = clip.effective_playback_rate();
+        let source_sample_rate = audio.sample_rate as f64;
+        let rate_ratio = source_sample_rate / sample_rate;
+
+        // Convert source_offset (seconds) to samples in source sample rate
+        let source_offset_samples = (clip.source_offset * source_sample_rate) as f64;
 
         for frame_idx in 0..frames {
             let global_sample = start_sample + frame_idx as u64;
@@ -5050,21 +5060,34 @@ impl PlaybackEngine {
                 continue;
             }
 
-            // Sample position within clip's source
+            // Sample position within clip's timeline
             let clip_offset = global_sample - clip_start_sample;
-            let source_sample = source_offset_samples + clip_offset;
 
-            if source_sample >= audio.samples.len() as u64 / audio.channels as u64 {
+            // Apply time stretch + sample rate conversion with linear interpolation
+            let source_pos_f64 = clip_offset as f64 * rate_ratio * playback_rate
+                + source_offset_samples;
+
+            let total_source_samples = audio.samples.len() as f64 / audio.channels as f64;
+            if source_pos_f64 < 0.0 || source_pos_f64 >= total_source_samples {
                 continue;
             }
 
-            let source_idx = source_sample as usize * audio.channels as usize;
+            let source_idx_floor = source_pos_f64 as usize;
+            let frac = source_pos_f64 - source_idx_floor as f64;
 
-            if audio.channels >= 2 && source_idx + 1 < audio.samples.len() {
-                output_l[frame_idx] += audio.samples[source_idx] as f64 * clip.gain;
-                output_r[frame_idx] += audio.samples[source_idx + 1] as f64 * clip.gain;
-            } else if source_idx < audio.samples.len() {
-                let mono = audio.samples[source_idx] as f64 * clip.gain;
+            if audio.channels >= 2 {
+                let idx0 = source_idx_floor * 2;
+                let idx1 = (source_idx_floor + 1) * 2;
+                let l0 = audio.samples.get(idx0).copied().unwrap_or(0.0) as f64;
+                let r0 = audio.samples.get(idx0 + 1).copied().unwrap_or(0.0) as f64;
+                let l1 = audio.samples.get(idx1).copied().unwrap_or(0.0) as f64;
+                let r1 = audio.samples.get(idx1 + 1).copied().unwrap_or(0.0) as f64;
+                output_l[frame_idx] += (l0 + frac * (l1 - l0)) * clip.gain;
+                output_r[frame_idx] += (r0 + frac * (r1 - r0)) * clip.gain;
+            } else {
+                let s0 = audio.samples.get(source_idx_floor).copied().unwrap_or(0.0) as f64;
+                let s1 = audio.samples.get(source_idx_floor + 1).copied().unwrap_or(0.0) as f64;
+                let mono = (s0 + frac * (s1 - s0)) * clip.gain;
                 output_l[frame_idx] += mono;
                 output_r[frame_idx] += mono;
             }
@@ -5403,6 +5426,10 @@ impl PlaybackEngine {
         let source_sample_rate = audio.sample_rate as f64;
         let rate_ratio = source_sample_rate / sample_rate;
 
+        // Apply time stretch: effective_playback_rate > 1.0 means faster playback
+        // (reads source samples at higher rate = shorter clip on timeline)
+        let playback_rate = clip.effective_playback_rate();
+
         // Only apply clip gain here - track volume/pan is applied later in process()
         let gain = clip.gain;
 
@@ -5430,22 +5457,37 @@ impl PlaybackEngine {
                 continue;
             }
 
-            // Calculate source position (with offset and rate conversion)
+            // Calculate source position (with offset, rate conversion, AND time stretch)
+            // playback_rate: stretch_ratio * pitch_rate — higher = faster source traversal
             let source_offset_samples = (clip.source_offset * source_sample_rate) as i64;
-            let source_sample = ((clip_relative_sample as f64 * rate_ratio) as i64
-                + source_offset_samples) as usize;
+            let source_pos_f64 = clip_relative_sample as f64 * rate_ratio * playback_rate
+                + source_offset_samples as f64;
 
-            // Get sample from audio buffer
+            // Bounds check before interpolation
+            if source_pos_f64 < 0.0 {
+                continue;
+            }
+
+            // Linear interpolation for sub-sample accuracy (anti-aliasing)
+            let source_idx_floor = source_pos_f64 as usize;
+            let frac = source_pos_f64 - source_idx_floor as f64;
+
+            // Get interpolated sample from audio buffer
             let (mut sample_l, mut sample_r) = if audio.channels == 1 {
-                // Mono
-                let s = audio.samples.get(source_sample).copied().unwrap_or(0.0) as f64;
+                // Mono — linear interp between adjacent samples
+                let s0 = audio.samples.get(source_idx_floor).copied().unwrap_or(0.0) as f64;
+                let s1 = audio.samples.get(source_idx_floor + 1).copied().unwrap_or(0.0) as f64;
+                let s = s0 + frac * (s1 - s0);
                 (s, s)
             } else {
-                // Stereo (interleaved)
-                let idx = source_sample * 2;
-                let l = audio.samples.get(idx).copied().unwrap_or(0.0) as f64;
-                let r = audio.samples.get(idx + 1).copied().unwrap_or(0.0) as f64;
-                (l, r)
+                // Stereo (interleaved) — linear interp per channel
+                let idx0 = source_idx_floor * 2;
+                let idx1 = (source_idx_floor + 1) * 2;
+                let l0 = audio.samples.get(idx0).copied().unwrap_or(0.0) as f64;
+                let r0 = audio.samples.get(idx0 + 1).copied().unwrap_or(0.0) as f64;
+                let l1 = audio.samples.get(idx1).copied().unwrap_or(0.0) as f64;
+                let r1 = audio.samples.get(idx1 + 1).copied().unwrap_or(0.0) as f64;
+                (l0 + frac * (l1 - l0), r0 + frac * (r1 - r0))
             };
 
             // Apply clip FX chain (before track processing)

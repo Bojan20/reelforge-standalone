@@ -781,9 +781,23 @@ pub struct Clip {
     #[serde(default)]
     pub reversed: bool,
 
+    /// Time stretch ratio (1.0 = normal, 0.5 = half speed, 2.0 = double speed)
+    /// Applied as playback rate change — affects clip duration on timeline.
+    #[serde(default = "default_stretch_ratio")]
+    pub stretch_ratio: f64,
+
+    /// Pitch shift in semitones (-24 to +24, 0.0 = no change)
+    /// Applied independently of stretch ratio.
+    #[serde(default)]
+    pub pitch_shift: f64,
+
     // Clip-based FX chain (non-destructive, per-clip processing)
     #[serde(default)]
     pub fx_chain: ClipFxChain,
+}
+
+fn default_stretch_ratio() -> f64 {
+    1.0
 }
 
 impl Clip {
@@ -810,6 +824,8 @@ impl Clip {
             muted: false,
             selected: false,
             reversed: false,
+            stretch_ratio: 1.0,
+            pitch_shift: 0.0,
             fx_chain: ClipFxChain::new(),
         }
     }
@@ -836,7 +852,26 @@ impl Clip {
         self.fx_chain.bypass = bypass;
     }
 
-    /// End time on timeline
+    /// Set time stretch ratio (clamped 0.25 to 4.0)
+    pub fn set_stretch_ratio(&mut self, ratio: f64) {
+        self.stretch_ratio = ratio.clamp(0.25, 4.0);
+    }
+
+    /// Set pitch shift in semitones (clamped -24 to +24)
+    pub fn set_pitch_shift(&mut self, semitones: f64) {
+        self.pitch_shift = semitones.clamp(-24.0, 24.0);
+    }
+
+    /// Effective playback rate considering stretch_ratio and pitch_shift.
+    /// stretch_ratio affects timing (1.0=normal, 2.0=double speed).
+    /// pitch_shift is additive semitones converted to rate multiplier.
+    #[inline]
+    pub fn effective_playback_rate(&self) -> f64 {
+        let pitch_rate = 2.0_f64.powf(self.pitch_shift / 12.0);
+        self.stretch_ratio * pitch_rate
+    }
+
+    /// End time on timeline (adjusted for stretch ratio)
     #[inline]
     pub fn end_time(&self) -> f64 {
         self.start_time + self.duration

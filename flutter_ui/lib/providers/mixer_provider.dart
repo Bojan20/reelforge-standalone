@@ -640,18 +640,14 @@ class MixerProvider extends ChangeNotifier {
 
   void _subscribeToTransport() {
     _transportSub = engine.transportStream.listen((transport) {
-      final wasPlaying = _isPlaying;
       _isPlaying = transport.isPlaying;
-
-      // When playback stops, immediately start decay (Cubase-style)
-      if (wasPlaying && !_isPlaying) {
-        _startMeterDecay();
-      } else if (_isPlaying) {
-        _stopMeterDecay();
-      }
+      // No Dart-side decay needed — Rust audio callback handles meter decay.
+      // MixerProvider._updateMeters() continues to accept decayed values from Rust.
     });
   }
 
+  /// Safety-net decay — only used if metering stream stops entirely
+  /// (e.g., engine disconnect). NOT used for normal transport stop.
   void _startMeterDecay() {
     _decayTimer?.cancel();
     _decayTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
@@ -697,10 +693,9 @@ class MixerProvider extends ChangeNotifier {
   }
 
   void _updateMeters(MeteringState metering) {
-    // Skip meter updates when transport is stopped — let decay timer drain them
-    // Rust engine still produces audio (one-shot voices, insert tails) after stop,
-    // which would keep meters alive indefinitely if we kept reading them.
-    if (!_isPlaying) return;
+    // Always accept meter updates from engine — Rust handles decay in audio callback.
+    // When transport stops, Rust continues to decay meters toward zero.
+    // Cutting off updates here caused meters to freeze at non-zero values.
 
     // Update master meters (from master peak/rms)
     _master = _master.copyWith(

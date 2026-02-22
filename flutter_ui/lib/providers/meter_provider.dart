@@ -124,6 +124,7 @@ class MeterProvider extends ChangeNotifier {
   bool _isPlaying = false;
   int _lastNotifyMs = 0;
   int _lastSequence = 0;
+  int _staleSequenceCount = 0; // Count polls with no sequence change
 
   // Shared memory metering (zero-latency)
   final SharedMeterReader _sharedReader = SharedMeterReader.instance;
@@ -177,25 +178,37 @@ class MeterProvider extends ChangeNotifier {
   }
 
   /// Poll shared memory for meter updates
+  ///
+  /// Rust audio callback decays meters and increments sequence while there's activity.
+  /// Once all meters hit zero, Rust stops incrementing sequence.
+  /// We keep reading for a grace period (30 polls = ~500ms) after sequence stops
+  /// changing to ensure we catch the final zero values and don't freeze at a
+  /// non-zero level.
   void _pollSharedMemory() {
     if (!_isActive || !_useSharedMemory) return;
 
-    // Fast check: has sequence changed?
     final currentSeq = _sharedReader.currentSequence;
-    if (currentSeq == _lastSequence) return;
-    _lastSequence = currentSeq;
+    if (currentSeq != _lastSequence) {
+      // New data from Rust — read it
+      _lastSequence = currentSeq;
+      _staleSequenceCount = 0;
+    } else {
+      // Sequence unchanged — Rust may have finished decaying
+      _staleSequenceCount++;
+      if (_staleSequenceCount > 30) {
+        // Grace period expired — meters are at zero, no need to keep reading
+        return;
+      }
+    }
 
-    // Read full meter data
+    // Read full meter data (Rust handles all decay, we just display)
     final snapshot = _sharedReader.readMeters();
     _onSharedMeterUpdate(snapshot);
   }
 
   /// Handle shared memory meter update
+  /// Rust handles all meter decay in the audio callback — no Dart-side decay needed.
   void _onSharedMeterUpdate(SharedMeterSnapshot snapshot) {
-    // Stop decay when receiving new data
-    _decayTimer?.cancel();
-    _decayTimer = null;
-
     final now = DateTime.now();
 
     // Update master from shared memory
@@ -257,7 +270,14 @@ class MeterProvider extends ChangeNotifier {
       _isPlaying = transport.isPlaying;
 
       if (wasPlaying && !_isPlaying) {
-        _startDecayLoop();
+        if (_useSharedMemory) {
+          // Shared memory mode: Rust handles decay in audio callback.
+          // Reset stale counter so we keep reading the decay values.
+          _staleSequenceCount = 0;
+        } else {
+          // Stream fallback: need Dart-side decay
+          _startDecayLoop();
+        }
       }
     });
   }
@@ -291,7 +311,7 @@ class MeterProvider extends ChangeNotifier {
   void _onMeteringUpdate(MeteringState metering) {
     if (!_isActive) return;
 
-    // Stop decay when receiving new data
+    // Stop Dart decay — receiving live data from engine stream
     _decayTimer?.cancel();
     _decayTimer = null;
 

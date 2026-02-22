@@ -5019,33 +5019,43 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             onChannelInsertBypassToggle: (channelId, slotIndex, bypassed) {
               final trackId = _busIdToTrackId(channelId);
               NativeFFI.instance.insertSetBypass(trackId, slotIndex, bypassed);
-              // Update local state
-              final mixerProvider = context.read<MixerProvider>();
-              mixerProvider.updateInsertBypass(channelId, slotIndex, bypassed);
+              // Update MixerProvider (SSoT for Channel Tab)
+              context.read<MixerProvider>().updateInsertBypass(channelId, slotIndex, bypassed);
+              // Sync _busInserts for mixer consistency
+              final bchain = _busInserts[channelId];
+              if (bchain != null && slotIndex < bchain.slots.length) {
+                setState(() {
+                  _busInserts[channelId] = bchain.updateSlot(
+                    slotIndex, bchain.slots[slotIndex].copyWith(bypassed: bypassed));
+                });
+              }
             },
             onChannelInsertWetDryChange: (channelId, slotIndex, wetDry) {
               final trackId = _busIdToTrackId(channelId);
               NativeFFI.instance.insertSetMix(trackId, slotIndex, wetDry);
-              // Update local state
-              final mixerProvider = context.read<MixerProvider>();
-              mixerProvider.updateInsertWetDry(channelId, slotIndex, wetDry);
+              // Update MixerProvider (SSoT for Channel Tab)
+              context.read<MixerProvider>().updateInsertWetDry(channelId, slotIndex, wetDry);
             },
             onChannelInsertRemove: (channelId, slotIndex) {
               final trackId = _busIdToTrackId(channelId);
               NativeFFI.instance.insertUnloadSlot(trackId, slotIndex);
-              // Update local state
-              final mixerProvider = context.read<MixerProvider>();
-              mixerProvider.removeInsert(channelId, slotIndex);
+              // Update MixerProvider (SSoT for Channel Tab)
+              context.read<MixerProvider>().removeInsert(channelId, slotIndex);
+              // Sync _busInserts for mixer consistency
+              final bchain = _busInserts[channelId];
+              if (bchain != null) {
+                setState(() {
+                  _busInserts[channelId] = bchain.removePlugin(slotIndex);
+                });
+              }
+              _syncDspChainRemove(trackId, slotIndex);
             },
             onChannelInsertOpenEditor: (channelId, slotIndex) {
-              // Resolve trackId: master='0', buses use _busIdToTrackId, channels use ch_N
               final trackId = _busIdToTrackId(channelId);
-
               // Check if this is an internal processor (from DspChainProvider)
-              final chain = DspChainProvider.instance.getChain(trackId);
-              if (slotIndex < chain.nodes.length) {
-                final node = chain.nodes[slotIndex];
-                // Show internal processor editor window
+              final dspChain = DspChainProvider.instance.getChain(trackId);
+              if (slotIndex < dspChain.nodes.length) {
+                final node = dspChain.nodes[slotIndex];
                 InternalProcessorEditorWindow.show(
                   context: context,
                   trackId: trackId,
@@ -5065,6 +5075,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 // External plugin - open via FFI
                 NativeFFI.instance.insertOpenEditor(trackId, slotIndex);
               }
+            },
+            onChannelInsertReorder: (channelId, oldIndex, newIndex) {
+              context.read<MixerProvider>().reorderInserts(channelId, oldIndex, newIndex);
             },
 
             // Center zone - uses Selector internally for playhead
@@ -7739,6 +7752,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       return _getMasterChannelData();
     }
 
+    // DAW bus — build ChannelStripData from MixerProvider bus
+    if (_selectedTrackId!.startsWith('bus_') || _selectedTrackId!.startsWith('aux_')) {
+      return _getBusChannelData(_selectedTrackId!);
+    }
+
     // Find track in timeline
     final track = _tracks.cast<timeline.TimelineTrack?>().firstWhere(
       (t) => t?.id == _selectedTrackId,
@@ -7813,13 +7831,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       meterR: channel?.rmsR ?? 0.0,
       peakL: channel?.peakL ?? 0.0,
       peakR: channel?.peakR ?? 0.0,
-      inserts: insertChain.slots.map((slot) => InsertSlot(
-        id: '${channelId}_${slot.index}',
-        name: slot.plugin?.displayName ?? '',
-        type: slot.plugin?.category.name ?? 'empty',
-        bypassed: slot.bypassed,
-        isPreFader: slot.isPreFader,
-      )).toList(),
+      // Read inserts from MixerProvider (SSoT with wetDry, bypass, etc.)
+      // Fallback to _busInserts for backwards compat if MixerProvider has no inserts
+      inserts: (channel != null && channel.inserts.any((s) => !s.isEmpty))
+          ? channel.inserts
+          : insertChain.slots.map((slot) => InsertSlot(
+              id: '${channelId}_${slot.index}',
+              name: slot.plugin?.displayName ?? '',
+              type: slot.plugin?.category.name ?? 'empty',
+              bypassed: slot.bypassed,
+              isPreFader: slot.isPreFader,
+            )).toList(),
       sends: sends,
       eqEnabled: _openEqWindows.containsKey(channelId),
       eqBands: const [],
@@ -7869,18 +7891,79 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       meterR: master.rmsR,
       peakL: master.peakL,
       peakR: master.peakR,
-      inserts: insertChain.slots.map((slot) => InsertSlot(
-        id: '${channelId}_${slot.index}',
-        name: slot.plugin?.displayName ?? '',
-        type: slot.plugin?.category.name ?? 'empty',
-        bypassed: slot.bypassed,
-        isPreFader: slot.isPreFader,
-      )).toList(),
+      // Read inserts from MixerProvider master (SSoT with wetDry, bypass, etc.)
+      inserts: master.inserts.any((s) => !s.isEmpty)
+          ? master.inserts
+          : insertChain.slots.map((slot) => InsertSlot(
+              id: '${channelId}_${slot.index}',
+              name: slot.plugin?.displayName ?? '',
+              type: slot.plugin?.category.name ?? 'empty',
+              bypassed: slot.bypassed,
+              isPreFader: slot.isPreFader,
+            )).toList(),
       sends: const [], // Master has no sends
       eqEnabled: _openEqWindows.containsKey(channelId),
       eqBands: const [],
       input: 'Sum', // Master sums all buses
       output: 'Main Out',
+    );
+  }
+
+  /// Build ChannelStripData for a DAW bus or aux channel.
+  /// Called when user selects a bus/aux in the mixer — enables Channel Tab editing.
+  ChannelStripData? _getBusChannelData(String busId) {
+    final mixerProvider = context.watch<MixerProvider>();
+    final bus = mixerProvider.getBus(busId) ?? mixerProvider.getAux(busId);
+    if (bus == null) return null;
+
+    // Get or create insert chain
+    if (!_busInserts.containsKey(busId)) {
+      _busInserts[busId] = InsertChain(channelId: busId);
+    }
+    final insertChain = _busInserts[busId]!;
+
+    // Convert volume from linear to dB
+    final volumeLinear = bus.volume;
+    double volumeDb;
+    if (volumeLinear <= 0.001) {
+      volumeDb = -70.0;
+    } else {
+      volumeDb = 20.0 * _log10(volumeLinear.clamp(0.001, 4.0));
+    }
+    volumeDb = volumeDb.clamp(-70.0, 12.0);
+
+    return ChannelStripData(
+      id: busId,
+      name: bus.name,
+      type: bus.type == ChannelType.aux ? 'aux' : 'bus',
+      color: bus.color,
+      volume: volumeDb,
+      pan: bus.pan,
+      panRight: bus.panRight,
+      isStereo: bus.isStereo,
+      mute: bus.muted,
+      solo: bus.soloed,
+      armed: false,
+      inputMonitor: false,
+      phaseInverted: bus.phaseInverted,
+      meterL: bus.rmsL,
+      meterR: bus.rmsR,
+      peakL: bus.peakL,
+      peakR: bus.peakR,
+      inserts: bus.inserts.any((s) => !s.isEmpty)
+          ? bus.inserts
+          : insertChain.slots.map((slot) => InsertSlot(
+              id: '${busId}_${slot.index}',
+              name: slot.plugin?.displayName ?? '',
+              type: slot.plugin?.category.name ?? 'empty',
+              bypassed: slot.bypassed,
+              isPreFader: slot.isPreFader,
+            )).toList(),
+      sends: const [],
+      eqEnabled: _openEqWindows.containsKey(busId),
+      eqBands: const [],
+      input: 'Sum',
+      output: bus.outputBus ?? 'Master',
     );
   }
 
@@ -8072,6 +8155,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   /// Build dedicated full-screen MixerScreen (Pro Tools Mix Window)
   /// Activated via Cmd+= when AppViewMode.mixer
   Widget _buildMixerScreenView(dynamic metering) {
+    // Watch MeterProvider for 60fps meter updates
+    final meterProvider = context.watch<MeterProvider>();
     final mixerProvider = context.watch<MixerProvider>();
     final channels = <ultimate.UltimateMixerChannel>[];
 
@@ -8123,8 +8208,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       isPreFader: slot.isPreFader,
     )).toList();
 
-    final (dMasterPeakL, dMasterPeakR) = NativeFFI.instance.getBusPeak(0);
-    final (dMasterRmsL, dMasterRmsR) = NativeFFI.instance.getRmsMeters();
+    final masterMeter = meterProvider.masterState;
     final masterChannel = ultimate.UltimateMixerChannel(
       id: 'master',
       name: 'MASTER',
@@ -8135,12 +8219,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       muted: _busMuted['master'] ?? false,
       soloed: false,
       inserts: masterInserts,
-      peakL: dMasterPeakL,
-      peakR: dMasterPeakR,
-      rmsL: dMasterRmsL,
-      rmsR: dMasterRmsR,
+      peakL: masterMeter.peak,
+      peakR: masterMeter.peakR,
+      rmsL: masterMeter.rms,
+      rmsR: masterMeter.rmsR,
       correlation: metering.correlation,
-      lufsShort: metering.masterLufsS,
+      lufsShort: masterMeter.lufsShort,
       lufsIntegrated: metering.masterLufsI,
     );
 
@@ -8906,6 +8990,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   /// Build Ultimate Mixer content with all channels and metering
   Widget _buildUltimateMixerContent(dynamic metering, bool isPlaying) {
+    // Watch MeterProvider for 60fps rebuild (shared memory polling at 16ms)
+    final meterProvider = context.watch<MeterProvider>();
     // Collect channels from timeline tracks
     final mixerProvider = context.watch<MixerProvider>();
     final channels = <ultimate.UltimateMixerChannel>[];
@@ -8971,10 +9057,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       isPreFader: slot.isPreFader,
     )).toList();
 
-    // Master channel — read DIRECT FFI linear amplitude (same as tracks)
-    // getBusPeak(0) = master bus, returns linear amplitude 0.0-1.0+
-    final (dMasterPeakL, dMasterPeakR) = NativeFFI.instance.getBusPeak(0);
-    final (dMasterRmsL, dMasterRmsR) = NativeFFI.instance.getRmsMeters();
+    // Master channel — use MeterProvider (60fps shared memory, smoothed + peak hold)
+    final masterMeter = meterProvider.masterState;
     final masterChannel = ultimate.UltimateMixerChannel(
       id: 'master',
       name: 'MASTER',
@@ -8985,12 +9069,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       muted: _busMuted['master'] ?? false,
       soloed: false,
       inserts: masterInserts,
-      peakL: dMasterPeakL,
-      peakR: dMasterPeakR,
-      rmsL: dMasterRmsL,
-      rmsR: dMasterRmsR,
+      peakL: masterMeter.peak,
+      peakR: masterMeter.peakR,
+      rmsL: masterMeter.rms,
+      rmsR: masterMeter.rmsR,
       correlation: metering.correlation,
-      lufsShort: metering.masterLufsS,
+      lufsShort: masterMeter.lufsShort,
       lufsIntegrated: metering.masterLufsI,
     );
 
@@ -9154,6 +9238,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   /// Build Middleware Mixer - simplified bus masters only (no track channels)
   /// Used in Middleware/Slot modes for game audio mixing
   Widget _buildMiddlewareMixerContent(dynamic metering, bool isPlaying) {
+    // Watch MeterProvider for 60fps meter updates
+    final meterProvider = context.watch<MeterProvider>();
     // Middleware mixer: buses only (Music, SFX, Voice, UI, Ambience, Reels, Wins, VO) + Master
     // No track channels, no recording, just bus mixing
 
@@ -9183,14 +9269,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         isPreFader: slot.isPreFader,
       )).toList();
 
-      // Get real per-bus peak metering from engine
+      // Get per-bus metering from MeterProvider (60fps shared memory)
       final engineBusIdx = _busIdToEngineBusIndex(busId);
-      double busPeakL = 0, busPeakR = 0;
-      if (engineBusIdx >= 0) {
-        final (pl, pr) = NativeFFI.instance.getBusPeak(engineBusIdx);
-        busPeakL = pl;
-        busPeakR = pr;
-      }
+      final busMeter = engineBusIdx >= 0 ? meterProvider.getBusState(engineBusIdx) : MeterState.zero;
 
       buses.add(ultimate.UltimateMixerChannel(
         id: busId,
@@ -9204,11 +9285,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         muted: _busMuted[busId] ?? false,
         soloed: _busSoloed[busId] ?? false,
         inserts: busInserts,
-        // Real per-bus peak metering from engine (GpuMeter handles smooth decay)
-        peakL: busPeakL,
-        peakR: busPeakR,
-        rmsL: busPeakL * 0.7, // Approximate RMS from peak
-        rmsR: busPeakR * 0.7,
+        peakL: busMeter.peak,
+        peakR: busMeter.peakR,
+        rmsL: busMeter.rms,
+        rmsR: busMeter.rmsR,
         correlation: 1.0,
       ));
     }
@@ -9222,9 +9302,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       isPreFader: slot.isPreFader,
     )).toList();
 
-    // Master channel — read DIRECT FFI linear amplitude (same as tracks)
-    final (mwMasterPeakL, mwMasterPeakR) = NativeFFI.instance.getBusPeak(0);
-    final (mwMasterRmsL, mwMasterRmsR) = NativeFFI.instance.getRmsMeters();
+    // Master channel — use MeterProvider (60fps shared memory)
+    final mwMasterMeter = meterProvider.masterState;
     final masterChannel = ultimate.UltimateMixerChannel(
       id: 'master',
       name: 'MASTER',
@@ -9235,12 +9314,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       muted: _busMuted['master'] ?? false,
       soloed: false,
       inserts: masterInserts,
-      peakL: mwMasterPeakL,
-      peakR: mwMasterPeakR,
-      rmsL: mwMasterRmsL,
-      rmsR: mwMasterRmsR,
+      peakL: mwMasterMeter.peak,
+      peakR: mwMasterMeter.peakR,
+      rmsL: mwMasterMeter.rms,
+      rmsR: mwMasterMeter.rmsR,
       correlation: metering.correlation,
-      lufsShort: metering.masterLufsS,
+      lufsShort: mwMasterMeter.lufsShort,
       lufsIntegrated: metering.masterLufsI,
     );
 
@@ -9983,13 +10062,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         _openProcessorEditor(busId, insertIndex, currentSlot.plugin!);
       } else if (result == 'bypass') {
         // Toggle bypass
+        final newBypass = !currentSlot.bypassed;
         setState(() {
           _busInserts[busId] = chain.toggleBypass(insertIndex);
         });
         // Sync to engine FFI
         final trackId = _busIdToTrackId(busId);
-        final newBypass = !currentSlot.bypassed;
         NativeFFI.instance.insertSetBypass(trackId, insertIndex, newBypass);
+        // Sync MixerProvider for Channel Tab
+        context.read<MixerProvider>().updateInsertBypass(busId, insertIndex, newBypass);
       } else if (result == 'replace') {
         // Show plugin selector for replacement
         final plugin = await showPluginSelector(
@@ -10012,6 +10093,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           } else {
             NativeFFI.instance.pluginInsertLoad(trackId, plugin.id);
           }
+          // Sync MixerProvider for Channel Tab
+          context.read<MixerProvider>().loadInsert(busId, insertIndex, plugin.id, plugin.displayName, plugin.category.name);
         }
       } else if (result == 'remove') {
         // Remove plugin from UI state
@@ -10023,6 +10106,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         NativeFFI.instance.insertUnloadSlot(trackId, insertIndex);
         // Sync DspChainProvider — remove stale node
         _syncDspChainRemove(trackId, insertIndex);
+        // Sync MixerProvider for Channel Tab
+        context.read<MixerProvider>().removeInsert(busId, insertIndex);
       }
     } else {
       // Empty slot - show plugin selector
@@ -10054,6 +10139,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
         // Sync DspChainProvider UI state (processor already loaded via FFI above)
         _syncDspChainAdd(trackId, insertIndex, plugin);
+
+        // Sync MixerProvider for Channel Tab
+        context.read<MixerProvider>().loadInsert(busId, insertIndex, plugin.id, plugin.displayName, plugin.category.name);
 
         // Auto-open processor editor for newly inserted plugin
         _openProcessorEditor(busId, insertIndex, plugin);

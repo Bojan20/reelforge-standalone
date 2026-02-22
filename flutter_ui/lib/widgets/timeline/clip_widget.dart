@@ -153,6 +153,11 @@ class _ClipWidgetState extends State<ClipWidget> {
   bool _isCrossTrackDrag = false;
   bool _wasCrossTrackDrag = false; // Track if cross-track drag was ever triggered
 
+  // Modifier keys captured at pointer down (reliable, not stale)
+  bool _pointerDownCtrl = false;
+  bool _pointerDownAlt = false;
+  bool _pointerDownShift = false;
+
   @override
   void initState() {
     super.initState();
@@ -417,6 +422,14 @@ class _ClipWidgetState extends State<ClipWidget> {
       // Listener detects trackpad two-finger pan (scroll gesture)
       // to prevent it from being interpreted as clip drag
       child: Listener(
+        onPointerDown: (event) {
+          // Capture modifier keys IMMEDIATELY at pointer down (reliable)
+          // HardwareKeyboard can have stale state by the time onPanStart fires
+          _pointerDownCtrl = HardwareKeyboard.instance.isControlPressed ||
+              HardwareKeyboard.instance.isMetaPressed;
+          _pointerDownAlt = HardwareKeyboard.instance.isAltPressed;
+          _pointerDownShift = HardwareKeyboard.instance.isShiftPressed;
+        },
         onPointerPanZoomStart: (_) {
           // Two-finger trackpad gesture started - this is scroll, not drag
           _isTrackpadPanActive = true;
@@ -517,8 +530,9 @@ class _ClipWidgetState extends State<ClipWidget> {
               final mode = _smartToolHitResult!.mode;
 
               // Modifier-based overrides (Cubase + Pro Tools)
-              final isAlt = HardwareKeyboard.instance.isAltPressed;
-              final isShift = HardwareKeyboard.instance.isShiftPressed;
+              // Use captured modifiers from onPointerDown (reliable, not stale)
+              final isAlt = _pointerDownAlt;
+              final isShift = _pointerDownShift;
 
               // Alt+click in Move zone = Split at cursor (Cubase)
               if (mode == SmartToolMode.select && isAlt && !isShift) {
@@ -575,8 +589,7 @@ class _ClipWidgetState extends State<ClipWidget> {
                 case SmartToolMode.rangeSelectBody:
                   // Range select in upper body — fall through to range logic
                   // Ctrl+click = Scrub (Pro Tools)
-                  if (HardwareKeyboard.instance.isControlPressed ||
-                      HardwareKeyboard.instance.isMetaPressed) {
+                  if (_pointerDownCtrl) {
                     // Scrub at click position
                     final clickTime = widget.scrollOffset + details.localPosition.dx / widget.zoom + clip.startTime;
                     widget.onPlayheadMove?.call(clickTime);
@@ -600,10 +613,8 @@ class _ClipWidgetState extends State<ClipWidget> {
             // Edit Mode: Slip mode forces slip edit (no modifier needed)
             final editMode = smartTool.activeEditMode;
             final isSlipMode = editMode == TimelineEditMode.slip;
-            // Check for modifier keys for slip edit (works with or without smart tool)
-            if (isSlipMode ||
-                HardwareKeyboard.instance.isMetaPressed ||
-                HardwareKeyboard.instance.isControlPressed) {
+            // Check for modifier keys for slip edit (captured at pointer down)
+            if (isSlipMode || _pointerDownCtrl) {
               _dragStartSourceOffset = clip.sourceOffset;
               _dragStartMouseX = details.globalPosition.dx;
               setState(() => _isSlipEditing = true);
