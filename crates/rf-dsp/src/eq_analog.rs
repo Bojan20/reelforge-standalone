@@ -359,13 +359,22 @@ impl OutputTransformer {
     #[inline(always)]
     pub fn process(&mut self, input: f64) -> f64 {
         // High-pass (transformer can't pass DC)
-        let hp_coeff = 1.0 - (2.0 * PI * self.lf_corner / self.sample_rate);
-        self.hp_state = hp_coeff * (self.hp_state + input);
+        let hp_coeff = (-2.0 * PI * self.lf_corner / self.sample_rate).exp();
+        self.hp_state = hp_coeff * self.hp_state + (1.0 - hp_coeff) * input;
         let hp_out = input - self.hp_state;
 
         // Low-pass (transformer has limited HF)
-        let lp_coeff = 2.0 * PI * self.hf_corner / self.sample_rate;
+        // Correct one-pole LP: coeff = 1 - exp(-2π·fc/fs), always in (0, 1)
+        let lp_coeff = 1.0 - (-2.0 * PI * self.hf_corner / self.sample_rate).exp();
         self.lp_state += lp_coeff * (hp_out - self.lp_state);
+
+        // Sanitize filter state — prevent NaN/Inf from propagating
+        if !self.lp_state.is_finite() {
+            self.lp_state = 0.0;
+        }
+        if !self.hp_state.is_finite() {
+            self.hp_state = 0.0;
+        }
 
         // Core saturation (iron hysteresis)
         let sat_input = self.lp_state * (1.0 + self.saturation);

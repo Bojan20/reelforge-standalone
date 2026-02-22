@@ -308,6 +308,18 @@ impl InsertSlot {
             // Process wet signal
             processor.process_stereo(&mut left[..len], &mut right[..len]);
 
+            // Sanitize processor output — prevent NaN/Inf from propagating
+            // through bus buffers. If any sample is non-finite, replace with
+            // the dry signal for that sample (graceful recovery).
+            for i in 0..len {
+                if !left[i].is_finite() {
+                    left[i] = self.dry_buffer_l[i];
+                }
+                if !right[i].is_finite() {
+                    right[i] = self.dry_buffer_r[i];
+                }
+            }
+
             // Apply bypass fade with wet/dry mix per sample
             let coeff = self.bypass_coeff;
             for i in 0..len {

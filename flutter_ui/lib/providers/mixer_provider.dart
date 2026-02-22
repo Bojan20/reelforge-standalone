@@ -2322,19 +2322,14 @@ class MixerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Remove insert (replace with empty slot)
+  /// Remove insert (replace with empty slot) — UI state only.
+  /// FFI unload is handled by the caller (engine_connected_layout.dart).
   void removeInsert(String channelId, int slotIndex) {
     final channel = _channels[channelId];
     if (channel == null) return;
     if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
 
-    // Get track ID for FFI
-    final trackId = int.tryParse(channelId.replaceAll('ch_', '')) ?? 0;
-
-    // Unload processor from Rust engine
-    NativeFFI.instance.insertUnloadSlot(trackId, slotIndex);
-
-    // Update UI state
+    // Update UI state only — caller is responsible for FFI unload
     final inserts = List<InsertSlot>.from(channel.inserts);
     final isPreFader = slotIndex < 4;
     inserts[slotIndex] = InsertSlot.empty(slotIndex, isPreFader: isPreFader);
@@ -2342,33 +2337,14 @@ class MixerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Load plugin into insert slot
-  /// This connects to the Rust engine via FFI to actually process audio
+  /// Load plugin into insert slot — UI state only.
+  /// FFI load is handled by the caller (engine_connected_layout.dart).
   void loadInsert(String channelId, int slotIndex, String pluginId, String pluginName, String pluginType) {
     final channel = _channels[channelId];
     if (channel == null) return;
     if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
 
-    // Get track ID for FFI (strip 'ch_' prefix if present)
-    final trackId = int.tryParse(channelId.replaceAll('ch_', '')) ?? 0;
-
-    // Map plugin ID to Rust processor name
-    final processorName = _pluginIdToProcessorName(pluginId);
-    if (processorName == null) {
-      return;
-    }
-
-    // Create insert chain if needed (idempotent in Rust)
-    NativeFFI.instance.insertCreateChain(trackId);
-
-    // Load processor into the slot
-    final result = NativeFFI.instance.insertLoadProcessor(trackId, slotIndex, processorName);
-    if (result < 0) {
-      return;
-    }
-
-
-    // Update UI state
+    // Update UI state only — caller is responsible for FFI load
     final inserts = List<InsertSlot>.from(channel.inserts);
     final isPreFader = slotIndex < 4;
     inserts[slotIndex] = InsertSlot(
