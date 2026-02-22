@@ -3068,13 +3068,13 @@ impl DeEsser {
     pub fn new(sample_rate: f64) -> Self {
         let mut deesser = Self {
             sample_rate,
-            frequency: 6000.0,
-            bandwidth: 1.0,
-            threshold_db: -20.0,
-            range_db: 12.0,
-            mode: DeEsserMode::Wideband,
-            attack_ms: 0.5,
-            release_ms: 50.0,
+            frequency: 7000.0,
+            bandwidth: 1.5,
+            threshold_db: -30.0,
+            range_db: 16.0,
+            mode: DeEsserMode::SplitBand,
+            attack_ms: 0.3,
+            release_ms: 30.0,
             listen: false,
             bypassed: false,
 

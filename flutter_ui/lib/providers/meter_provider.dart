@@ -179,11 +179,12 @@ class MeterProvider extends ChangeNotifier {
 
   /// Poll shared memory for meter updates
   ///
-  /// Rust audio callback decays meters and increments sequence while there's activity.
-  /// Once all meters hit zero, Rust stops incrementing sequence.
-  /// We keep reading for a grace period (30 polls = ~500ms) after sequence stops
-  /// changing to ensure we catch the final zero values and don't freeze at a
-  /// non-zero level.
+  /// Rust writes raw instantaneous peaks per audio block. Dart applies ballistic
+  /// decay (instant rise, smooth fall) via _ballisticDecay() in _convertToMeterState().
+  ///
+  /// When Rust stops incrementing sequence (audio stops), we continue polling
+  /// with zero-value snapshots so the ballistic decay runs smoothly to zero.
+  /// We stop only when all display meters have fully decayed (no visible activity).
   void _pollSharedMemory() {
     if (!_isActive || !_useSharedMemory) return;
 
@@ -192,22 +193,36 @@ class MeterProvider extends ChangeNotifier {
       // New data from Rust — read it
       _lastSequence = currentSeq;
       _staleSequenceCount = 0;
+      final snapshot = _sharedReader.readMeters();
+      _onSharedMeterUpdate(snapshot);
     } else {
-      // Sequence unchanged — Rust may have finished decaying
+      // Sequence unchanged — Rust has no new audio data.
+      // Continue calling _onSharedMeterUpdate with the snapshot so ballistic
+      // decay keeps running smoothly. The snapshot will have the last Rust
+      // values (likely near zero), but _ballisticDecay() uses MAX(decayed, new)
+      // so the meter bar falls smoothly from its previous display value.
       _staleSequenceCount++;
-      if (_staleSequenceCount > 30) {
-        // Grace period expired — meters are at zero, no need to keep reading
-        return;
-      }
-    }
 
-    // Read full meter data (Rust handles all decay, we just display)
-    final snapshot = _sharedReader.readMeters();
-    _onSharedMeterUpdate(snapshot);
+      // Check if all meters have fully decayed — if so, stop polling
+      if (_staleSequenceCount > 5 && !_masterState.hasActivity) {
+        // Also check bus activity
+        bool anyBusActive = false;
+        for (int i = 0; i < _activeBusCount; i++) {
+          if (_busStates[i].hasActivity) {
+            anyBusActive = true;
+            break;
+          }
+        }
+        if (!anyBusActive) return; // All meters at zero, stop polling
+      }
+
+      final snapshot = _sharedReader.readMeters();
+      _onSharedMeterUpdate(snapshot);
+    }
   }
 
   /// Handle shared memory meter update
-  /// Rust handles all meter decay in the audio callback — no Dart-side decay needed.
+  /// Dart applies ballistic decay (instant rise, smooth fall) via _ballisticDecay().
   void _onSharedMeterUpdate(SharedMeterSnapshot snapshot) {
     final now = DateTime.now();
 
@@ -379,7 +394,20 @@ class MeterProvider extends ChangeNotifier {
       _peakHoldData[meterId] = holdData;
     }
 
-    // Peak hold logic
+    // ── Ballistic decay: instant rise, smooth fall (Pro Tools / Cubase) ──
+    // Meter bar rises instantly to new peaks but falls smoothly via
+    // kMeterDecay multiplier per tick (~300ms to silence at 16ms/tick).
+    // This prevents the "stuttery chunks" appearance when Rust writes
+    // raw instantaneous peaks that jump to 0 between audio blocks.
+    holdData.displayPeakL = _ballisticDecay(holdData.displayPeakL, peakL);
+    holdData.displayPeakR = _ballisticDecay(holdData.displayPeakR, peakR);
+    holdData.displayRmsL = _ballisticDecay(holdData.displayRmsL, rmsL);
+    holdData.displayRmsR = _ballisticDecay(holdData.displayRmsR, rmsR);
+
+    final displayPeakL = holdData.displayPeakL;
+    final displayPeakR = holdData.displayPeakR;
+
+    // Peak hold logic (uses raw peaks for accurate hold, not decayed display)
     if (peakL > holdData.peakHoldL) {
       holdData.peakHoldL = peakL;
       holdData.lastPeakTime = now;
@@ -394,15 +422,23 @@ class MeterProvider extends ChangeNotifier {
     }
 
     return MeterState(
-      peak: peakL,
-      peakR: peakR,
-      rms: rmsL,
-      rmsR: rmsR,
+      peak: displayPeakL,
+      peakR: displayPeakR,
+      rms: holdData.displayRmsL,
+      rmsR: holdData.displayRmsR,
       peakHold: holdData.peakHoldL,
       peakHoldR: holdData.peakHoldR,
-      isClipping: peakL > 0.99 || peakR > 0.99,
+      isClipping: peakL > 0.99 || peakR > 0.99, // Use raw for clipping detection
       lufsShort: lufsShort,
     );
+  }
+
+  /// Ballistic decay: value rises instantly to new peaks but falls smoothly.
+  /// Returns max(decayed_previous, new_value) with snap-to-zero at noise floor.
+  static double _ballisticDecay(double previous, double current) {
+    if (current >= previous) return current; // Instant rise
+    final decayed = previous * kMeterDecay;  // Smooth fall
+    return decayed < kActivityThreshold ? 0.0 : decayed; // Snap to zero
   }
 
   void _startDecayLoop() {
@@ -677,11 +713,19 @@ class MeterProvider extends ChangeNotifier {
   }
 }
 
-/// OPTIMIZED: Combined peak hold data to reduce map lookups
+/// OPTIMIZED: Combined peak hold + ballistic decay data to reduce map lookups
 class _PeakHoldData {
   double peakHoldL = 0;
   double peakHoldR = 0;
   DateTime lastPeakTime = DateTime.now();
+
+  // Ballistic decay: smooth meter bar fall-off (Pro Tools / Cubase behavior)
+  // These track the DISPLAYED meter value, which rises instantly to peaks
+  // but falls smoothly via kMeterDecay multiplier per tick.
+  double displayPeakL = 0;
+  double displayPeakR = 0;
+  double displayRmsL = 0;
+  double displayRmsR = 0;
 }
 
 // ============ Utility Functions ============

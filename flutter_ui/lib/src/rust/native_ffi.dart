@@ -13136,13 +13136,17 @@ extension ControlRoomAPI on NativeFFI {
 
     try {
       final jsonStr = jsonPtr.toDartString();
+      // Free Rust-allocated CString to prevent memory leak
+      _freeString(jsonPtr);
       if (jsonStr.isEmpty || jsonStr == '[]') return [];
 
-      final List<dynamic> list = const JsonDecoder().convert(jsonStr) as List<dynamic>;
+      final List<dynamic> list =
+          const JsonDecoder().convert(jsonStr) as List<dynamic>;
       return list
           .map((e) => NativePluginInfo.fromJson(e as Map<String, dynamic>))
           .toList();
     } catch (e) {
+      // Parse error — return empty list, Dart shows "no plugins"
       return [];
     }
   }
@@ -13155,11 +13159,15 @@ extension ControlRoomAPI on NativeFFI {
 
     try {
       final jsonStr = jsonPtr.toDartString();
+      // Free Rust-allocated CString to prevent memory leak
+      _freeString(jsonPtr);
       if (jsonStr.isEmpty || jsonStr == 'null') return null;
 
-      final map = const JsonDecoder().convert(jsonStr) as Map<String, dynamic>;
+      final map =
+          const JsonDecoder().convert(jsonStr) as Map<String, dynamic>;
       return NativePluginInfo.fromJson(map);
     } catch (e) {
+      // Parse error — return null, plugin not available
       return null;
     }
   }
@@ -13257,15 +13265,19 @@ extension ControlRoomAPI on NativeFFI {
       final jsonPtr = _pluginGetAllParamsJson(idPtr);
       if (jsonPtr == nullptr) return [];
 
-      final jsonStr = jsonPtr.toDartString();
-      if (jsonStr.isEmpty || jsonStr == '[]') return [];
+      try {
+        final jsonStr = jsonPtr.toDartString();
+        // Free Rust-allocated CString to prevent memory leak
+        _freeString(jsonPtr);
+        if (jsonStr.isEmpty || jsonStr == '[]') return [];
 
-      final List<dynamic> list = const JsonDecoder().convert(jsonStr) as List<dynamic>;
-      return list
-          .map((e) => NativePluginParamInfo.fromJson(e as Map<String, dynamic>))
-          .toList();
-    } catch (e) {
-      return [];
+        final List<dynamic> list = const JsonDecoder().convert(jsonStr) as List<dynamic>;
+        return list
+            .map((e) => NativePluginParamInfo.fromJson(e as Map<String, dynamic>))
+            .toList();
+      } catch (e) {
+        return [];
+      }
     } finally {
       calloc.free(idPtr);
     }

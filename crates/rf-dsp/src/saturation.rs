@@ -706,32 +706,36 @@ impl BandSaturator {
 
         // Dynamics processing (modulate drive based on level)
         if self.dynamics.abs() > 0.01 {
-            for i in 0..left.len().min(right.len()) {
-                let level = (left[i].abs() + right[i].abs()) * 0.5;
-                // Smooth envelope
-                let coef = if level > self.envelope { 0.1 } else { 0.995 };
-                self.envelope = level + coef * (self.envelope - level);
-                // Modulate drive: positive dynamics = more drive on louder signals
+            let len = left.len().min(right.len());
+            // Process in small chunks for per-sample drive modulation
+            let chunk_size = 16; // Update drive every 16 samples (~0.36ms at 44.1kHz)
+            let mut offset = 0;
+            while offset < len {
+                let end = (offset + chunk_size).min(len);
+                // Compute envelope for this chunk
+                for i in offset..end {
+                    let level = (left[i].abs() + right[i].abs()) * 0.5;
+                    // Attack fast (~0.5ms), release slow (~50ms) — correct envelope behavior
+                    let coef = if level > self.envelope { 0.995 } else { 0.1 };
+                    self.envelope = level + coef * (self.envelope - level);
+                }
+                // Modulate drive based on envelope
                 let env_db = if self.envelope > 1e-10 {
                     20.0 * self.envelope.log10()
                 } else {
                     -60.0
                 };
-                let drive_mod = self.dynamics * (env_db + 20.0) / 40.0; // normalized
-                let effective_drive = self.drive_db + drive_mod * 12.0; // up to ±12dB modulation
-                // Apply per-sample drive (approximate — set once per block chunk)
-                if i == 0 {
-                    self.saturator
-                        .set_drive_db(effective_drive.clamp(-24.0, 52.0));
-                }
+                let drive_mod = self.dynamics * (env_db + 20.0) / 40.0;
+                let effective_drive = self.drive_db + drive_mod * 12.0;
+                self.saturator.set_drive_db(effective_drive.clamp(-24.0, 52.0));
+                // Process this chunk
+                self.saturator.process(&mut left[offset..end], &mut right[offset..end]);
+                offset = end;
             }
-        }
-
-        self.saturator.process(left, right);
-
-        // Restore drive if dynamics was active
-        if self.dynamics.abs() > 0.01 {
+            // Restore drive
             self.saturator.set_drive_db(self.drive_db);
+        } else {
+            self.saturator.process(left, right);
         }
     }
 

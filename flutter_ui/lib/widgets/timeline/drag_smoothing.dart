@@ -8,6 +8,7 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../models/timeline_models.dart' show gridIntervalSeconds;
 
 // =============================================================================
 // VELOCITY TRACKER
@@ -342,8 +343,7 @@ class GridOverlayPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (!showGrid || opacity <= 0) return;
 
-    final beatsPerSecond = tempo / 60;
-    final gridInterval = snapValue / beatsPerSecond; // seconds per grid line
+    final gridInterval = gridIntervalSeconds(snapValue, tempo);
     final pixelsPerGrid = gridInterval * zoom;
 
     // Skip if grid lines would be too dense

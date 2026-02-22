@@ -256,6 +256,14 @@ class GlobalShortcutsProvider extends ChangeNotifier {
     if (!enabled) return KeyEventResult.ignored;
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
+    // Skip shortcuts when user is typing in a text field (e.g. track rename)
+    final primaryFocus = FocusManager.instance.primaryFocus;
+    if (primaryFocus != null && primaryFocus.context != null) {
+      final editable = primaryFocus.context!
+          .findAncestorWidgetOfExactType<EditableText>();
+      if (editable != null) return KeyEventResult.ignored;
+    }
+
     final key = event.logicalKey;
     final isCmd = HardwareKeyboard.instance.isMetaPressed ||
         HardwareKeyboard.instance.isControlPressed;

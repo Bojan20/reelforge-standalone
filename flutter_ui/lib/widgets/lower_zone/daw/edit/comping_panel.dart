@@ -2,6 +2,7 @@
 // FabFilter-style take lane management & comping (Pro Tools/Cubase style)
 
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import '../../../../providers/comping_provider.dart';
 import '../../../../models/comping_models.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
@@ -18,7 +19,7 @@ class CompingPanel extends StatefulWidget {
 }
 
 class _CompingPanelState extends State<CompingPanel> {
-  final _provider = CompingProvider();
+  final _provider = GetIt.instance<CompingProvider>();
   String? _selectedLaneId;
   String? _selectedTakeId;
 

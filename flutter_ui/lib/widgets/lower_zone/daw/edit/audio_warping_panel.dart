@@ -27,6 +27,11 @@ class AudioWarpingPanel extends StatefulWidget {
 
 class _AudioWarpingPanelState extends State<AudioWarpingPanel> {
   // ═══════════════════════════════════════════════════════════════════════════
+  // ENGINE REFERENCE COUNTING (split view safe)
+  // ═══════════════════════════════════════════════════════════════════════════
+  static final Map<int, int> _engineRefCount = {};
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // STATE
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -92,17 +97,28 @@ class _AudioWarpingPanelState extends State<AudioWarpingPanel> {
 
   void _createEngine() {
     if (widget.selectedTrackId == null) return;
-    final ok = NativeFFI.instance.elasticProCreate(_trackId);
-    _engineCreated = ok;
-    if (ok) {
-      // Push initial state
+    final count = _engineRefCount[_trackId] ?? 0;
+    if (count == 0) {
+      final ok = NativeFFI.instance.elasticProCreate(_trackId);
+      _engineCreated = ok;
+    } else {
+      _engineCreated = true; // Engine already exists from another pane
+    }
+    if (_engineCreated) {
+      _engineRefCount[_trackId] = count + 1;
       _syncAllToEngine();
     }
   }
 
   void _destroyEngine() {
     if (_engineCreated) {
-      NativeFFI.instance.elasticProDestroy(_trackId);
+      final count = (_engineRefCount[_trackId] ?? 1) - 1;
+      if (count <= 0) {
+        NativeFFI.instance.elasticProDestroy(_trackId);
+        _engineRefCount.remove(_trackId);
+      } else {
+        _engineRefCount[_trackId] = count;
+      }
       _engineCreated = false;
     }
   }

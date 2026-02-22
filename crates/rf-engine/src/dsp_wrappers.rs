@@ -1998,8 +1998,30 @@ impl InsertProcessor for DeEsserWrapper {
     }
 
     fn set_sample_rate(&mut self, sample_rate: f64) {
+        // Preserve user parameters across sample rate change
+        let freq = self.deesser.frequency();
+        let bw = self.deesser.bandwidth();
+        let thresh = self.deesser.threshold();
+        let range = self.deesser.range();
+        let mode = self.deesser.mode();
+        let attack = self.deesser.attack();
+        let release = self.deesser.release();
+        let listen = self.deesser.listen();
+        let bypassed = self.deesser.bypassed();
+
         self.sample_rate = sample_rate;
         self.deesser = DeEsser::new(sample_rate);
+
+        // Restore all user parameters
+        self.deesser.set_frequency(freq);
+        self.deesser.set_bandwidth(bw);
+        self.deesser.set_threshold(thresh);
+        self.deesser.set_range(range);
+        self.deesser.set_mode(mode);
+        self.deesser.set_attack(attack);
+        self.deesser.set_release(release);
+        self.deesser.set_listen(listen);
+        self.deesser.set_bypass(bypassed);
     }
 
     fn num_params(&self) -> usize {
@@ -3166,6 +3188,8 @@ impl InsertProcessor for DelayWrapper {
         delay.set_feedback(self.params[2] / 100.0);
         delay.set_dry_wet(self.params[3] / 100.0);
         delay.set_ping_pong(self.params[4] / 100.0);
+        delay.set_hp_freq(self.params[5]);
+        delay.set_lp_freq(self.params[6]);
         self.delay = delay;
         let freeze_len = (5.0 * sample_rate) as usize;
         self.freeze_buf_l = vec![0.0; freeze_len];
@@ -3221,16 +3245,16 @@ impl InsertProcessor for DelayWrapper {
                 self.delay.set_ping_pong(v / 100.0);
             }
             5 => {
-                // HP Filter Hz — applied in PingPongDelay's internal HP filters
-                let _v = value.clamp(20.0, 2000.0);
-                self.params[5] = _v;
-                // PingPongDelay internal filters are set at construction
-                // For live update we'd need to expose filter setters (future enhancement)
+                // HP Filter Hz — live update feedback highpass
+                let v = value.clamp(20.0, 2000.0);
+                self.params[5] = v;
+                self.delay.set_hp_freq(v);
             }
             6 => {
-                // LP Filter Hz
-                let _v = value.clamp(200.0, 20000.0);
-                self.params[6] = _v;
+                // LP Filter Hz — live update feedback lowpass
+                let v = value.clamp(200.0, 20000.0);
+                self.params[6] = v;
+                self.delay.set_lp_freq(v);
             }
             7 => {
                 // Mod Rate Hz

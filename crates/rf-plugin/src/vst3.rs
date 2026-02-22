@@ -277,17 +277,34 @@ unsafe impl Send for Vst3Host {}
 unsafe impl Sync for Vst3Host {}
 
 impl Vst3Host {
-    /// Load VST3 plugin from path
+    /// Load plugin from path (supports both VST3 and AudioUnit via rack crate)
     pub fn load(path: &Path) -> PluginResult<Self> {
         // Get plugin name from path
         let name = path
             .file_stem()
             .and_then(|s| s.to_str())
-            .unwrap_or("Unknown VST3");
+            .unwrap_or("Unknown Plugin");
 
-        let id = format!("vst3.{}", name.to_lowercase().replace(' ', "_"));
+        // Detect format from bundle extension
+        let ext = path
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        let is_au = ext == "component";
+        let (id_prefix, plugin_type) = if is_au {
+            ("au", PluginType::AudioUnit)
+        } else {
+            ("vst3", PluginType::Vst3)
+        };
+        let id = format!("{}.{}", id_prefix, name.to_lowercase().replace(' ', "_"));
 
-        log::info!("Loading VST3 plugin: {} from {:?}", name, path);
+        log::info!(
+            "Loading {} plugin: {} from {:?}",
+            if is_au { "AudioUnit" } else { "VST3" },
+            name,
+            path
+        );
 
         // Check if bundle exists
         let bundle_exists = path.exists();
@@ -318,7 +335,7 @@ impl Vst3Host {
             name: name.to_string(),
             vendor: String::from("Unknown"),
             version: String::from("1.0.0"),
-            plugin_type: PluginType::Vst3,
+            plugin_type,
             category: PluginCategory::Effect,
             path: path.to_path_buf(),
             audio_inputs: audio_inputs as u32,
@@ -906,23 +923,29 @@ impl Vst3Host {
                     }
                     Err(e) => {
                         log::warn!(
-                            "Failed to open native GUI for {}: {}. Will use generic parameter editor.",
+                            "Failed to open native GUI for {}: {}. Dart will show generic parameter editor.",
                             self.info.name, e
                         );
-                        // Don't return error — Dart side will show generic param editor
-                        return Ok(());
+                        return Err(PluginError::InitError(format!(
+                            "Native GUI failed for {}: {}",
+                            self.info.name, e
+                        )));
                     }
                 }
             } else {
                 log::info!(
                     "Plugin {} does not support native GUI (VST3 GUI not available in rack 0.4). \
-                     Dart side will show generic parameter editor.",
+                     Dart will show generic parameter editor.",
                     self.info.name
                 );
+                return Err(PluginError::InitError(format!(
+                    "No native GUI for {} — use generic parameter editor",
+                    self.info.name
+                )));
             }
         }
 
-        Ok(())
+        Err(PluginError::InitError("No rack plugin loaded".into()))
     }
 
     /// Get the preferred editor size for this plugin

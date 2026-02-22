@@ -305,6 +305,28 @@ class _PluginBrowserState extends State<PluginBrowser> {
           );
         }
 
+        if (provider.scanState == ScanState.error) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 48, color: Colors.red.withOpacity(0.6)),
+                const SizedBox(height: 12),
+                Text(
+                  provider.scanError ?? 'Plugin scan failed',
+                  style: TextStyle(color: Colors.red.withOpacity(0.8), fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: _scanPlugins,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('Retry Scan'),
+                ),
+              ],
+            ),
+          );
+        }
+
         if (plugins.isEmpty) {
           return Center(
             child: Column(

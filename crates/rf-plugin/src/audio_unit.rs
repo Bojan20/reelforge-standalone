@@ -568,40 +568,31 @@ impl PluginInstance for AudioUnitInstance {
     }
 
     #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
-    fn open_editor(&mut self, parent: *mut std::ffi::c_void) -> PluginResult<()> {
+    fn open_editor(&mut self, _parent: *mut std::ffi::c_void) -> PluginResult<()> {
         if self.editor_open.load(Ordering::SeqCst) {
             return Ok(());
         }
 
         #[cfg(target_os = "macos")]
         {
-            if parent.is_null() {
-                return Err(PluginError::InitError("Null parent view handle".into()));
-            }
-
-            // In real implementation:
-            // 1. Get AU view from AudioUnitGetProperty(kAudioUnitProperty_CocoaUI)
-            // 2. Create AUViewFactory instance
-            // 3. Call uiViewForAudioUnit:withSize:
-            // 4. Add as subview to parent NSView
-
+            // AU native GUI requires CocoaUI view factory which is not yet implemented.
+            // Return Err so Dart side shows the generic parameter editor instead.
             log::info!(
-                "Opening AU editor for {} - parent NSView: {:?}",
-                self.info.name,
-                parent
+                "AU plugin '{}' — native CocoaUI editor not implemented, \
+                 Dart will show generic parameter editor.",
+                self.info.name
             );
+            return Err(PluginError::InitError(
+                "AU native editor not implemented — use generic parameter editor".into(),
+            ));
         }
 
         #[cfg(not(target_os = "macos"))]
         {
-            let _ = parent;
             return Err(PluginError::UnsupportedFormat(
                 "AudioUnit only supported on macOS".into(),
             ));
         }
-
-        self.editor_open.store(true, Ordering::SeqCst);
-        Ok(())
     }
 
     fn close_editor(&mut self) -> PluginResult<()> {

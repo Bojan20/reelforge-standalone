@@ -94,13 +94,13 @@ class _FabFilterDeEsserPanelState extends State<FabFilterDeEsserPanel>
     with FabFilterPanelMixin, TickerProviderStateMixin {
 
   // ─── PARAMETERS ─────────────────────────────────────────────────
-  double _frequency = 6000.0;
-  double _bandwidth = 0.5;
-  double _threshold = -20.0;
-  double _range = 12.0;
-  int _mode = 0; // 0=Wideband, 1=SplitBand
-  double _attack = 5.0;
-  double _release = 50.0;
+  double _frequency = 7000.0;
+  double _bandwidth = 1.5;
+  double _threshold = -30.0;
+  double _range = 16.0;
+  int _mode = 1; // 0=Wideband, 1=SplitBand
+  double _attack = 0.3;
+  double _release = 30.0;
   bool _listen = false;
 
   // ─── METERING ───────────────────────────────────────────────────
@@ -159,12 +159,12 @@ class _FabFilterDeEsserPanelState extends State<FabFilterDeEsserPanel>
     final t = widget.trackId, s = _slotIndex;
     setState(() {
       _frequency = _ffi.insertGetParam(t, s, _P.frequency).clamp(500.0, 20000.0);
-      _bandwidth = _ffi.insertGetParam(t, s, _P.bandwidth).clamp(0.1, 2.0);
+      _bandwidth = _ffi.insertGetParam(t, s, _P.bandwidth).clamp(0.25, 4.0);
       _threshold = _ffi.insertGetParam(t, s, _P.threshold).clamp(-60.0, 0.0);
       _range = _ffi.insertGetParam(t, s, _P.range).clamp(0.0, 40.0);
       _mode = _ffi.insertGetParam(t, s, _P.mode).round().clamp(0, 1);
-      _attack = _ffi.insertGetParam(t, s, _P.attack).clamp(0.5, 100.0);
-      _release = _ffi.insertGetParam(t, s, _P.release).clamp(10.0, 1000.0);
+      _attack = _ffi.insertGetParam(t, s, _P.attack).clamp(0.1, 100.0);
+      _release = _ffi.insertGetParam(t, s, _P.release).clamp(5.0, 1000.0);
       _listen = _ffi.insertGetParam(t, s, _P.listen) > 0.5;
     });
   }
@@ -317,14 +317,14 @@ class _FabFilterDeEsserPanelState extends State<FabFilterDeEsserPanel>
               ),
               // BANDWIDTH knob (logarithmic)
               FabFilterKnob(
-                value: _logNorm(_bandwidth, 0.1, 2.0),
+                value: _logNorm(_bandwidth, 0.25, 4.0),
                 label: 'BW',
                 display: '${_bandwidth.toStringAsFixed(2)} oct',
                 color: FabFilterColors.cyan,
                 size: 56,
-                defaultValue: _logNorm(0.5, 0.1, 2.0),
+                defaultValue: _logNorm(1.5, 0.25, 4.0),
                 onChanged: (v) {
-                  final bw = _logDenorm(v, 0.1, 2.0);
+                  final bw = _logDenorm(v, 0.25, 4.0);
                   setState(() => _bandwidth = bw);
                   _setParam(_P.bandwidth, bw);
                 },
@@ -412,11 +412,11 @@ class _FabFilterDeEsserPanelState extends State<FabFilterDeEsserPanel>
         const SizedBox(height: 4),
         FabMiniSlider(
           label: 'ATK',
-          value: _logNorm(_attack, 0.5, 100),
+          value: _logNorm(_attack, 0.1, 100),
           display: _msStr(_attack),
           activeColor: FabFilterColors.green,
           onChanged: (v) {
-            final ms = _logDenorm(v, 0.5, 100);
+            final ms = _logDenorm(v, 0.1, 100);
             setState(() => _attack = ms);
             _setParam(_P.attack, ms);
           },
@@ -424,11 +424,11 @@ class _FabFilterDeEsserPanelState extends State<FabFilterDeEsserPanel>
         const SizedBox(height: 2),
         FabMiniSlider(
           label: 'REL',
-          value: _logNorm(_release, 10, 1000),
+          value: _logNorm(_release, 5, 1000),
           display: _msStr(_release),
           activeColor: FabFilterColors.green,
           onChanged: (v) {
-            final ms = _logDenorm(v, 10, 1000);
+            final ms = _logDenorm(v, 5, 1000);
             setState(() => _release = ms);
             _setParam(_P.release, ms);
           },

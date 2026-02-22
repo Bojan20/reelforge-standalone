@@ -856,11 +856,27 @@ class LoopRegion {
 
 // ============ Snap Utilities ============
 
+/// Authoritative grid interval calculation — used by BOTH grid rendering
+/// AND snap logic to guarantee pixel-perfect alignment.
+///
+/// snapValue is in beats (0.25=1/16, 0.5=1/8, 1=1/4, 2=1/2, 4=bar).
+/// Returns interval in seconds.
+double gridIntervalSeconds(double snapValue, double tempo) {
+  final beatDuration = 60.0 / tempo;
+  return snapValue * beatDuration;
+}
+
 /// Snap time to grid based on tempo and snap value.
+///
+/// Uses integer grid indices to eliminate floating-point drift:
+/// snapped = round(time / interval) * interval
+///
+/// This matches grid_lines.dart which draws at n * interval positions.
 double snapToGrid(double time, double snapValue, double tempo) {
-  final beatsPerSecond = tempo / 60;
-  final gridInterval = snapValue / beatsPerSecond;
-  return (time / gridInterval).round() * gridInterval;
+  final interval = gridIntervalSeconds(snapValue, tempo);
+  if (interval <= 0) return time;
+  final gridIndex = (time / interval).round();
+  return gridIndex * interval;
 }
 
 /// Snap time to nearest event boundary.

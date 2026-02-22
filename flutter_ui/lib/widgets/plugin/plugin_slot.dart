@@ -78,10 +78,19 @@ class PluginSlot extends StatelessWidget {
   ) {
     return GestureDetector(
       onTap: onTap,
-      onDoubleTap: () {
+      onDoubleTap: () async {
         // Open editor on double-tap
         if (instance.hasEditor) {
-          provider.openEditor(instance.instanceId);
+          final success = await provider.openEditor(instance.instanceId);
+          if (!success && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to open editor for ${instance.name}'),
+                backgroundColor: const Color(0xFFFF4060),
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
         }
       },
       onSecondaryTap: () => _showContextMenu(context, provider, instance),
@@ -155,7 +164,18 @@ class PluginSlot extends StatelessWidget {
               Text('Open Editor'),
             ],
           ),
-          onTap: () => provider.openEditor(instance.instanceId),
+          onTap: () async {
+            final success = await provider.openEditor(instance.instanceId);
+            if (!success && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Failed to open editor for ${instance.name}'),
+                  backgroundColor: const Color(0xFFFF4060),
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            }
+          },
         ),
       PopupMenuItem<void>(
         child: const Row(

@@ -42,6 +42,9 @@ class ClipWidget extends StatefulWidget {
   final double trackHeight;
   final ValueChanged<bool>? onSelect;
   final ValueChanged<double>? onMove;
+  /// Called continuously during drag with the current snapped position
+  /// (for real-time Channel Tab update — UI only, no FFI)
+  final ValueChanged<double>? onDragLivePosition;
   /// Called during vertical drag with Y delta to indicate cross-track intent
   final void Function(double newStartTime, double verticalDelta)? onCrossTrackDrag;
   /// Called when cross-track drag ends
@@ -85,6 +88,7 @@ class ClipWidget extends StatefulWidget {
     required this.trackHeight,
     this.onSelect,
     this.onMove,
+    this.onDragLivePosition,
     this.onCrossTrackDrag,
     this.onCrossTrackDragEnd,
     this.onDragStart,
@@ -765,6 +769,9 @@ class _ClipWidgetState extends State<ClipWidget> {
               );
             }
             _lastSnappedTime = snappedTime.clamp(0.0, double.infinity);
+
+            // Live position update for Channel Tab (UI-only, no FFI)
+            widget.onDragLivePosition?.call(_lastSnappedTime);
 
             // Update ghost position (visual feedback)
             widget.onDragUpdate?.call(details.globalPosition);
@@ -1462,19 +1469,17 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
         return RepaintBoundary(
           key: const ValueKey('stereo_split'),
           child: ClipRect(
-            child: Transform.scale(
-              scaleY: widget.gain,
-              child: CustomPaint(
-                size: Size.infinite,
-                painter: _StereoWaveformPainter(
-                  leftMins: _cachedStereoData!.left.mins,
-                  leftMaxs: _cachedStereoData!.left.maxs,
-                  leftRms: _cachedStereoData!.left.rms,
-                  rightMins: _cachedStereoData!.right.mins,
-                  rightMaxs: _cachedStereoData!.right.maxs,
-                  rightRms: _cachedStereoData!.right.rms,
-                  color: waveColor,
-                ),
+            child: CustomPaint(
+              size: Size.infinite,
+              painter: _StereoWaveformPainter(
+                leftMins: _cachedStereoData!.left.mins,
+                leftMaxs: _cachedStereoData!.left.maxs,
+                leftRms: _cachedStereoData!.left.rms,
+                rightMins: _cachedStereoData!.right.mins,
+                rightMaxs: _cachedStereoData!.right.maxs,
+                rightRms: _cachedStereoData!.right.rms,
+                color: waveColor,
+                gain: widget.gain,
               ),
             ),
           ),
@@ -1486,16 +1491,14 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
         return RepaintBoundary(
           key: const ValueKey('combined_mono'),
           child: ClipRect(
-            child: Transform.scale(
-              scaleY: widget.gain,
-              child: CustomPaint(
-                size: Size.infinite,
-                painter: _CubaseWaveformPainter(
-                  mins: _combinedMins!,
-                  maxs: _combinedMaxs!,
-                  rms: _combinedRms!,
-                  color: waveColor,
-                ),
+            child: CustomPaint(
+              size: Size.infinite,
+              painter: _CubaseWaveformPainter(
+                mins: _combinedMins!,
+                maxs: _combinedMaxs!,
+                rms: _combinedRms!,
+                color: waveColor,
+                gain: widget.gain,
               ),
             ),
           ),
@@ -1506,16 +1509,14 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
     // Fallback - simple legacy waveform
     return RepaintBoundary(
       child: ClipRect(
-        child: Transform.scale(
-          scaleY: widget.gain,
-          child: CustomPaint(
-            size: Size.infinite,
-            painter: _WaveformPainter(
-              waveform: widget.waveform,
-              sourceOffset: widget.sourceOffset,
-              duration: widget.duration,
-              color: waveColor,
-            ),
+        child: CustomPaint(
+          size: Size.infinite,
+          painter: _WaveformPainter(
+            waveform: widget.waveform,
+            sourceOffset: widget.sourceOffset,
+            duration: widget.duration,
+            color: waveColor,
+            gain: widget.gain,
           ),
         ),
       ),
@@ -1540,11 +1541,13 @@ class _CubaseWaveformPainter extends CustomPainter {
   final Float32List maxs;
   final Float32List rms;
   final Color color;
+  final double gain;
 
   // Cached Path objects — rebuilt only on size change
   Path? _cachedWavePath;
   Path? _cachedRmsPath;
   Size? _cachedSize;
+  double? _cachedGain;
 
   // Pre-allocated Paint objects (zero allocation in paint())
   late final Paint _rmsFillPaint;
@@ -1557,6 +1560,7 @@ class _CubaseWaveformPainter extends CustomPainter {
     required this.maxs,
     required this.rms,
     required this.color,
+    this.gain = 1.0,
   }) {
     // Initialize paints ONCE in constructor
     _rmsFillPaint = Paint()
@@ -1584,10 +1588,11 @@ class _CubaseWaveformPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (mins.isEmpty || size.width <= 0 || size.height <= 0) return;
 
-    // GPU OPTIMIZATION: Only rebuild paths when size changes
-    if (_cachedWavePath == null || _cachedSize != size) {
+    // GPU OPTIMIZATION: Only rebuild paths when size or gain changes
+    if (_cachedWavePath == null || _cachedSize != size || _cachedGain != gain) {
       _rebuildPaths(size);
       _cachedSize = size;
+      _cachedGain = gain;
     }
 
     final centerY = size.height / 2;
@@ -1607,10 +1612,12 @@ class _CubaseWaveformPainter extends CustomPainter {
     canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), _centerLinePaint);
   }
 
-  /// Build and cache Path objects — called only when size changes
+  /// Build and cache Path objects — called only when size or gain changes
   void _rebuildPaths(Size size) {
     final centerY = size.height / 2;
-    final amplitude = centerY * 0.7;
+    // Pro Tools/Logic Pro X style: gain scales amplitude within channel lane
+    // Clamp to prevent waveform exceeding channel bounds
+    final amplitude = centerY * 0.7 * gain.clamp(0.0, 4.0);
     final numSamples = mins.length;
 
     // Helper to map sample index to X coordinate (fills entire width)
@@ -1651,7 +1658,8 @@ class _CubaseWaveformPainter extends CustomPainter {
       mins != oldDelegate.mins ||
       maxs != oldDelegate.maxs ||
       rms != oldDelegate.rms ||
-      color != oldDelegate.color;
+      color != oldDelegate.color ||
+      gain != oldDelegate.gain;
 }
 
 // ============ Stereo Waveform Painter (L/R split) ============
@@ -1671,6 +1679,7 @@ class _StereoWaveformPainter extends CustomPainter {
   final Float32List rightMaxs;
   final Float32List rightRms;
   final Color color;
+  final double gain;
 
   // Cached Path objects — rebuilt only on size change
   Path? _leftWavePath;
@@ -1678,6 +1687,7 @@ class _StereoWaveformPainter extends CustomPainter {
   Path? _rightWavePath;
   Path? _rightRmsPath;
   Size? _cachedSize;
+  double? _cachedGain;
 
   // Pre-allocated Paint objects (zero allocation in paint())
   late final Paint _rmsFillPaint;
@@ -1699,6 +1709,7 @@ class _StereoWaveformPainter extends CustomPainter {
     required this.rightMaxs,
     required this.rightRms,
     required this.color,
+    this.gain = 1.0,
   }) {
     // Initialize paints ONCE in constructor
     _rmsFillPaint = Paint()
@@ -1760,10 +1771,11 @@ class _StereoWaveformPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (leftMins.isEmpty || size.width <= 0 || size.height <= 0) return;
 
-    // GPU OPTIMIZATION: Only rebuild paths when size changes
-    if (_leftWavePath == null || _cachedSize != size) {
+    // GPU OPTIMIZATION: Only rebuild paths when size or gain changes
+    if (_leftWavePath == null || _cachedSize != size || _cachedGain != gain) {
       _rebuildAllPaths(size);
       _cachedSize = size;
+      _cachedGain = gain;
     }
 
     final leftCenterY = size.height * 0.25;
@@ -1814,13 +1826,14 @@ class _StereoWaveformPainter extends CustomPainter {
     }
   }
 
-  /// Build and cache all 4 Path objects — called only when size changes
+  /// Build and cache all 4 Path objects — called only when size or gain changes
   void _rebuildAllPaths(Size size) {
     final numSamples = leftMins.length;
     final leftCenterY = size.height * 0.25;
     final rightCenterY = size.height * 0.75;
     final channelHeight = size.height * 0.45;
-    final amplitude = channelHeight / 2;
+    // Pro Tools/Logic Pro X style: gain scales amplitude within each channel lane
+    final amplitude = (channelHeight / 2) * gain.clamp(0.0, 4.0);
 
     double sampleToX(int i) => numSamples > 1 ? (i / (numSamples - 1)) * size.width : size.width / 2;
 
@@ -1872,7 +1885,8 @@ class _StereoWaveformPainter extends CustomPainter {
       rightMins != oldDelegate.rightMins ||
       rightMaxs != oldDelegate.rightMaxs ||
       rightRms != oldDelegate.rightRms ||
-      color != oldDelegate.color;
+      color != oldDelegate.color ||
+      gain != oldDelegate.gain;
 }
 
 // ============ Legacy Waveform Canvas (fallback) ============
@@ -1908,6 +1922,7 @@ class _WaveformPainter extends CustomPainter {
   final Color color;
   final double sourceOffset;
   final double duration;
+  final double gain;
 
   // PERFORMANCE: Pre-allocated Paint objects to avoid allocations in paint()
   late final Paint _peakPaint;
@@ -1922,6 +1937,7 @@ class _WaveformPainter extends CustomPainter {
     required this.color,
     required this.sourceOffset,
     required this.duration,
+    this.gain = 1.0,
   }) {
     // Initialize paints once in constructor
     // Cubase style: peaks are LIGHTER (transient extent), RMS is SOLID (body)
@@ -1965,7 +1981,8 @@ class _WaveformPainter extends CustomPainter {
 
     final centerY = size.height / 2;
     // FULL HEIGHT for maximum waveform visibility (Logic Pro style)
-    final amplitude = centerY * 0.98;
+    // Gain scales amplitude within channel lane (Pro Tools/Logic Pro X behavior)
+    final amplitude = centerY * 0.98 * gain.clamp(0.0, 4.0);
     final samplesPerPixel = waveform.length / size.width;
 
     // 4-Level LOD System (Professional DAW standard)
@@ -2166,7 +2183,7 @@ class _WaveformPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_WaveformPainter oldDelegate) =>
-      waveform != oldDelegate.waveform || color != oldDelegate.color;
+      waveform != oldDelegate.waveform || color != oldDelegate.color || gain != oldDelegate.gain;
 }
 
 // ============ Fade Overlay Painter ============

@@ -313,5 +313,6 @@ class TimelineOverviewPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant TimelineOverviewPainter oldDelegate) =>
+      oldDelegate.color != color;
 }

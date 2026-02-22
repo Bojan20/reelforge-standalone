@@ -65,6 +65,9 @@ class Timeline extends StatefulWidget {
   final ValueChanged<double>? onPlayheadScrub;
   final void Function(String clipId, bool multiSelect)? onClipSelect;
   final void Function(String clipId, double newStartTime)? onClipMove;
+  /// Called continuously during clip drag with current snapped position
+  /// (for real-time Channel Tab update — UI only, no FFI)
+  final void Function(String clipId, double snappedTime)? onClipDragLivePosition;
   /// Move clip to a different track
   final void Function(String clipId, String targetTrackId, double newStartTime)? onClipMoveToTrack;
   /// Move clip to a NEW track (created on-the-fly)
@@ -245,6 +248,7 @@ class Timeline extends StatefulWidget {
     this.onPlayheadScrub,
     this.onClipSelect,
     this.onClipMove,
+    this.onClipDragLivePosition,
     this.onClipMoveToTrack,
     this.onClipMoveToNewTrack,
     this.onClipResize,
@@ -1761,6 +1765,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                     onClipSelect: (id) =>
                         widget.onClipSelect?.call(id, false),
                     onClipMove: widget.onClipMove,
+                    onClipDragLivePosition: widget.onClipDragLivePosition,
                     onClipCrossTrackDrag: (clipId, newStartTime, verticalDelta) =>
                         _handleCrossTrackDrag(clipId, newStartTime, verticalDelta, trackIndex),
                     onClipCrossTrackDragEnd: (clipId) =>
@@ -2032,23 +2037,42 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                             itemCount: _visibleTracks.length + 1, // +1 for new track zone
                             itemBuilder: (context, index) {
                               if (index == _visibleTracks.length) {
-                                // New track drop zone
+                                // New track drop zone with styled button
                                 return SizedBox(
                                   height: _visibleTracks.isEmpty ? 100 : 40,
                                   child: Row(
                                     children: [
-                                      Container(
-                                        width: _headerWidth,
-                                        color: FluxForgeTheme.bgMid,
-                                        child: Center(
-                                          child: Text(
-                                            '+ Add Track',
-                                            style: FluxForgeTheme.bodySmall.copyWith(
-                                              color: FluxForgeTheme.textTertiary,
+                                      // Add Track button (header area)
+                                      GestureDetector(
+                                        onTap: () => widget.onAddTrack?.call(),
+                                        child: MouseRegion(
+                                          cursor: SystemMouseCursors.click,
+                                          child: Container(
+                                            width: _headerWidth,
+                                            color: FluxForgeTheme.bgMid,
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                const Icon(
+                                                  Icons.add,
+                                                  size: 14,
+                                                  color: FluxForgeTheme.accentBlue,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  'Add Track',
+                                                  style: FluxForgeTheme.bodySmall
+                                                      .copyWith(
+                                                    color: FluxForgeTheme.accentBlue,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ),
                                       ),
+                                      // Drop zone (timeline area)
                                       Expanded(
                                         child: Container(
                                           decoration: BoxDecoration(
@@ -2061,8 +2085,9 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                             child: Text(
                                               _visibleTracks.isEmpty
                                                   ? 'Drop audio files here to create tracks'
-                                                  : '+ Drop to add track',
-                                              style: FluxForgeTheme.bodySmall.copyWith(
+                                                  : '',
+                                              style: FluxForgeTheme.bodySmall
+                                                  .copyWith(
                                                 color: FluxForgeTheme.textTertiary,
                                               ),
                                             ),

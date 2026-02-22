@@ -451,6 +451,14 @@ class KeyboardFocusProvider extends ChangeNotifier {
     if (!_isEnabled) return KeyEventResult.ignored;
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
+    // Skip shortcuts when user is typing in a text field (e.g. track rename)
+    final primaryFocus = FocusManager.instance.primaryFocus;
+    if (primaryFocus != null && primaryFocus.context != null) {
+      final editable = primaryFocus.context!
+          .findAncestorWidgetOfExactType<EditableText>();
+      if (editable != null) return KeyEventResult.ignored;
+    }
+
     // In commands mode, single keys trigger commands
     if (_mode == KeyboardFocusMode.commands) {
       return _handleCommandsModeKey(event);

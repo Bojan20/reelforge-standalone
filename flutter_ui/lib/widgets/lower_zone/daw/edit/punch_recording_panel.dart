@@ -307,11 +307,13 @@ class _PunchRecordingPanelState extends State<PunchRecordingPanel> {
   }
 
   Widget _buildDivider() {
-    return Container(
-      width: 1,
-      height: 80,
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      color: FabFilterColors.borderSubtle,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 80),
+      child: Container(
+        width: 1,
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        color: FabFilterColors.borderSubtle,
+      ),
     );
   }
 

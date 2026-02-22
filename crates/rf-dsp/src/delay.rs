@@ -196,6 +196,20 @@ impl PingPongDelay {
     pub fn set_ping_pong(&mut self, amount: f64) {
         self.ping_pong = amount.clamp(0.0, 1.0);
     }
+
+    /// Set feedback highpass filter frequency (Hz)
+    pub fn set_hp_freq(&mut self, freq_hz: f64) {
+        let f = freq_hz.clamp(20.0, 2000.0);
+        self.highpass_l.set_highpass(f, 0.707);
+        self.highpass_r.set_highpass(f, 0.707);
+    }
+
+    /// Set feedback lowpass filter frequency (Hz)
+    pub fn set_lp_freq(&mut self, freq_hz: f64) {
+        let f = freq_hz.clamp(200.0, 20000.0);
+        self.lowpass_l.set_lowpass(f, 0.707);
+        self.lowpass_r.set_lowpass(f, 0.707);
+    }
 }
 
 impl Processor for PingPongDelay {

@@ -17,8 +17,6 @@ import 'package:provider/provider.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../models/layout_models.dart';
 import '../../models/editor_mode_config.dart';
-import '../../providers/edit_mode_pro_provider.dart';
-import '../../providers/smart_tool_provider.dart';
 import '../../providers/keyboard_focus_provider.dart';
 import '../../providers/razor_edit_provider.dart';
 import '../../providers/modulator_provider.dart';
@@ -378,12 +376,6 @@ class _ControlBarState extends State<ControlBar> {
                           ],
 
                           _Divider(),
-
-                          // Pro Edit Modes
-                          if (!isVeryCompact && features.showTransport) _ProEditModes(),
-
-                          // Smart Tool
-                          if (!isVeryCompact && features.showTransport) _SmartToolButton(),
 
                           // Keyboard Focus
                           if (!isVeryCompact && features.showTransport) _KeyboardFocusButton(),
@@ -1888,120 +1880,6 @@ class _MeterBar extends StatelessWidget {
 // ════════════════════════════════════════════════════════════════════════════
 // PRO TOOLS EDIT MODES (Shuffle/Slip/Spot/Grid)
 // ════════════════════════════════════════════════════════════════════════════
-
-class _ProEditModes extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<EditModeProProvider>(
-      builder: (context, provider, _) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: EditMode.values.map((mode) {
-              final config = kEditModeConfigs[mode]!;
-              final isSelected = provider.mode == mode;
-
-              return Tooltip(
-                message: '${config.name} (${config.shortcut})\n${config.description}',
-                child: GestureDetector(
-                  onTap: () => provider.setMode(mode),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    width: 28,
-                    height: 28,
-                    margin: const EdgeInsets.symmetric(horizontal: 1),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? config.color.withValues(alpha: 0.2)
-                          : FluxForgeTheme.bgMid,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: isSelected ? config.color : FluxForgeTheme.borderSubtle,
-                        width: isSelected ? 2 : 1,
-                      ),
-                    ),
-                    child: Center(
-                      child: Icon(
-                        config.icon,
-                        size: 14,
-                        color: isSelected ? config.color : FluxForgeTheme.textSecondary,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// SMART TOOL BUTTON
-// ════════════════════════════════════════════════════════════════════════════
-
-class _SmartToolButton extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<SmartToolProvider>(
-      builder: (context, provider, _) {
-        final isActive = provider.enabled;
-
-        return Tooltip(
-          message: isActive
-              ? 'Smart Tool: ${provider.modeDisplayName}'
-              : 'Smart Tool (Disabled)',
-          child: GestureDetector(
-            onTap: provider.toggle,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: isActive
-                    ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15)
-                    : FluxForgeTheme.bgMid,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(
-                  color: isActive
-                      ? FluxForgeTheme.accentBlue
-                      : FluxForgeTheme.borderSubtle,
-                  width: isActive ? 2 : 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    provider.modeIcon,
-                    size: 14,
-                    color: isActive
-                        ? FluxForgeTheme.accentBlue
-                        : FluxForgeTheme.textSecondary,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Smart',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: isActive
-                          ? FluxForgeTheme.accentBlue
-                          : FluxForgeTheme.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
 
 // ════════════════════════════════════════════════════════════════════════════
 // KEYBOARD FOCUS MODE BUTTON

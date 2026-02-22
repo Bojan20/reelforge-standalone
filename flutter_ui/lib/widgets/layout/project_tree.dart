@@ -1,10 +1,12 @@
 /// Project Tree Widget
 ///
-/// Wwise-style project hierarchy browser with:
-/// - Expandable/collapsible tree nodes
-/// - Type-based icons
-/// - Search filtering
-/// - Selection highlighting
+/// Ultimate DAW-style project hierarchy browser with:
+/// - Professional Material icons with type-based accent colors
+/// - Hover effects with smooth animation
+/// - Indentation guide lines (Cubase-style depth visualization)
+/// - Premium selection with glow accent
+/// - Folder depth shading for visual hierarchy
+/// - Smooth expand/collapse transitions
 
 import 'package:flutter/material.dart';
 import '../../theme/fluxforge_theme.dart';
@@ -25,7 +27,26 @@ enum TreeItemType {
   music,
 }
 
-/// Icon map for tree item types
+/// Icon + color config for each tree item type
+class _TreeItemStyle {
+  final IconData icon;
+  final Color color;
+  const _TreeItemStyle(this.icon, this.color);
+}
+
+/// Professional icon map — replaces emoji with Material icons + accent colors
+const Map<TreeItemType, _TreeItemStyle> _treeItemStyles = {
+  TreeItemType.folder:  _TreeItemStyle(Icons.folder_rounded, Color(0xFFD4A84B)),
+  TreeItemType.event:   _TreeItemStyle(Icons.bolt_rounded, Color(0xFFFF9850)),
+  TreeItemType.sound:   _TreeItemStyle(Icons.graphic_eq_rounded, Color(0xFF5AA8FF)),
+  TreeItemType.bus:     _TreeItemStyle(Icons.call_split_rounded, Color(0xFFA855F7)),
+  TreeItemType.state:   _TreeItemStyle(Icons.label_rounded, Color(0xFF50FF98)),
+  TreeItemType.switch_: _TreeItemStyle(Icons.swap_horiz_rounded, Color(0xFF50D8FF)),
+  TreeItemType.rtpc:    _TreeItemStyle(Icons.show_chart_rounded, Color(0xFFFF80B0)),
+  TreeItemType.music:   _TreeItemStyle(Icons.music_note_rounded, Color(0xFFFFE050)),
+};
+
+/// Legacy icon map (emoji) for external consumers
 const Map<TreeItemType, String> treeItemIcons = {
   TreeItemType.folder: '📁',
   TreeItemType.event: '🎯',
@@ -199,10 +220,10 @@ class _ProjectTreeState extends State<ProjectTree> {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// TREE ITEM
+// TREE ITEM — Ultimate DAW-style
 // ════════════════════════════════════════════════════════════════════════════
 
-class _TreeItem extends StatelessWidget {
+class _TreeItem extends StatefulWidget {
   final ProjectTreeNode node;
   final int level;
   final String? selectedId;
@@ -224,140 +245,247 @@ class _TreeItem extends StatelessWidget {
   });
 
   @override
+  State<_TreeItem> createState() => _TreeItemState();
+}
+
+class _TreeItemState extends State<_TreeItem> with SingleTickerProviderStateMixin {
+  bool _isHovered = false;
+  late AnimationController _expandController;
+  late Animation<double> _expandAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    final isExpanded = widget.expandedIds.contains(widget.node.id);
+    _expandController = AnimationController(
+      duration: const Duration(milliseconds: 150),
+      vsync: this,
+      value: isExpanded ? 1.0 : 0.0,
+    );
+    _expandAnimation = CurvedAnimation(
+      parent: _expandController,
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  void didUpdateWidget(_TreeItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final isExpanded = widget.expandedIds.contains(widget.node.id);
+    if (isExpanded) {
+      _expandController.forward();
+    } else {
+      _expandController.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _expandController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final hasChildren = node.children.isNotEmpty;
-    final isExpanded = expandedIds.contains(node.id);
-    final isSelected = selectedId == node.id;
-    final matchesSearch = searchQuery.isNotEmpty &&
-        node.label.toLowerCase().contains(searchQuery.toLowerCase());
+    final hasChildren = widget.node.children.isNotEmpty;
+    final isExpanded = widget.expandedIds.contains(widget.node.id);
+    final isSelected = widget.selectedId == widget.node.id;
+    final isFolder = widget.node.type == TreeItemType.folder;
+    final matchesSearch = widget.searchQuery.isNotEmpty &&
+        widget.node.label.toLowerCase().contains(widget.searchQuery.toLowerCase());
 
     // Filter children if searching
-    final visibleChildren = searchQuery.isEmpty
-        ? node.children
-        : node.children.where((child) =>
-            child.label.toLowerCase().contains(searchQuery.toLowerCase()) ||
+    final visibleChildren = widget.searchQuery.isEmpty
+        ? widget.node.children
+        : widget.node.children.where((child) =>
+            child.label.toLowerCase().contains(widget.searchQuery.toLowerCase()) ||
             child.children.any((c) =>
-                c.label.toLowerCase().contains(searchQuery.toLowerCase()))).toList();
+                c.label.toLowerCase().contains(widget.searchQuery.toLowerCase()))).toList();
+
+    final style = _treeItemStyles[widget.node.type] ??
+        const _TreeItemStyle(Icons.description_rounded, FluxForgeTheme.textSecondary);
+
+    final typeColor = style.color;
+
+    // Depth-based background dimming (folders slightly brighter)
+    final depthAlpha = isFolder ? 0.03 : 0.0;
+    final bgTint = widget.level > 0
+        ? typeColor.withValues(alpha: depthAlpha)
+        : Colors.transparent;
 
     // Build the item widget
-    Widget itemWidget = Container(
-      height: 26,
-      padding: EdgeInsets.only(left: 12.0 + level * 16),
-      decoration: BoxDecoration(
-        color: isSelected
-            ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15)
-            : Colors.transparent,
-        border: Border(
-          left: BorderSide(
-            color: isSelected ? FluxForgeTheme.accentBlue : Colors.transparent,
-            width: 2,
+    Widget itemWidget = MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 80),
+        height: 30,
+        decoration: BoxDecoration(
+          color: isSelected
+              ? typeColor.withValues(alpha: 0.12)
+              : _isHovered
+                  ? FluxForgeTheme.bgHover.withValues(alpha: 0.5)
+                  : bgTint,
+          border: Border(
+            left: BorderSide(
+              color: isSelected ? typeColor : Colors.transparent,
+              width: 2,
+            ),
           ),
         ),
-      ),
-      child: Row(
-        children: [
-          // Expand arrow
-          SizedBox(
-            width: 16,
-            child: hasChildren
-                ? Icon(
-                    isExpanded ? Icons.expand_more : Icons.chevron_right,
-                    size: 14,
-                    color: FluxForgeTheme.textSecondary,
-                  )
-                : null,
-          ),
+        child: Row(
+          children: [
+            // Indentation guide lines
+            ..._buildIndentGuides(widget.level),
 
-          // Icon
-          Text(
-            treeItemIcons[node.type] ?? '📄',
-            style: const TextStyle(fontSize: 12),
-          ),
-
-          const SizedBox(width: 6),
-
-          // Label
-          Expanded(
-            child: Text(
-              node.label,
-              style: TextStyle(
-                fontSize: 12,
-                color: matchesSearch
-                    ? FluxForgeTheme.accentBlue
-                    : FluxForgeTheme.textPrimary,
-              ),
-              overflow: TextOverflow.ellipsis,
+            // Expand/collapse arrow
+            SizedBox(
+              width: 20,
+              child: hasChildren
+                  ? AnimatedBuilder(
+                      animation: _expandAnimation,
+                      builder: (context, child) {
+                        return Transform.rotate(
+                          angle: _expandAnimation.value * 1.5708, // 0 → π/2
+                          child: Icon(
+                            Icons.chevron_right_rounded,
+                            size: 16,
+                            color: isSelected
+                                ? typeColor
+                                : _isHovered
+                                    ? FluxForgeTheme.textPrimary
+                                    : FluxForgeTheme.textTertiary,
+                          ),
+                        );
+                      },
+                    )
+                  : const SizedBox(width: 16),
             ),
-          ),
 
-          // Duration for audio files
-          if (node.duration != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
+            const SizedBox(width: 2),
+
+            // Type icon with accent color
+            _TypeIcon(
+              icon: isFolder
+                  ? (isExpanded ? Icons.folder_open_rounded : Icons.folder_rounded)
+                  : style.icon,
+              color: isSelected
+                  ? typeColor
+                  : _isHovered
+                      ? typeColor
+                      : typeColor.withValues(alpha: 0.65),
+              isSelected: isSelected,
+            ),
+
+            const SizedBox(width: 8),
+
+            // Label with premium typography
+            Expanded(
               child: Text(
-                node.duration!,
+                widget.node.label,
                 style: TextStyle(
-                  fontSize: 10,
-                  color: FluxForgeTheme.textTertiary,
+                  fontSize: 12,
+                  fontFamily: FluxForgeTheme.fontFamily,
+                  fontWeight: isFolder ? FontWeight.w600 : FontWeight.w400,
+                  color: matchesSearch
+                      ? FluxForgeTheme.accentCyan
+                      : isSelected
+                          ? FluxForgeTheme.textPrimary
+                          : _isHovered
+                              ? FluxForgeTheme.textPrimary
+                              : FluxForgeTheme.textSecondary,
+                  letterSpacing: isFolder ? 0.3 : 0.0,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+
+            // Duration badge for audio files
+            if (widget.node.duration != null)
+              Container(
+                margin: const EdgeInsets.only(right: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: FluxForgeTheme.bgDeepest,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: Text(
+                  widget.node.duration!,
+                  style: TextStyle(
+                    fontFamily: FluxForgeTheme.monoFontFamily,
+                    fontSize: 9,
+                    color: FluxForgeTheme.textTertiary,
+                    letterSpacing: 0.3,
+                  ),
                 ),
               ),
-            ),
 
-          // Count badge
-          if (node.count != null && node.count! > 0)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(
-                color: FluxForgeTheme.bgElevated,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '${node.count}',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: FluxForgeTheme.textSecondary,
+            // Count badge
+            if (widget.node.count != null && widget.node.count! > 0)
+              Container(
+                margin: const EdgeInsets.only(right: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: typeColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: typeColor.withValues(alpha: 0.25),
+                    width: 0.5,
+                  ),
+                ),
+                child: Text(
+                  '${widget.node.count}',
+                  style: TextStyle(
+                    fontFamily: FluxForgeTheme.monoFontFamily,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    color: typeColor.withValues(alpha: 0.8),
+                  ),
                 ),
               ),
-            ),
 
-          const SizedBox(width: 8),
-        ],
+            const SizedBox(width: 6),
+          ],
+        ),
       ),
     );
 
     // Wrap in Draggable if the node is draggable (pool audio files)
-    if (node.isDraggable && node.data != null) {
+    if (widget.node.isDraggable && widget.node.data != null) {
       itemWidget = Draggable<Object>(
-        data: node.data!,
+        data: widget.node.data!,
         feedback: Material(
           color: Colors.transparent,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: FluxForgeTheme.bgSurface,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: FluxForgeTheme.accentBlue),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: typeColor.withValues(alpha: 0.5)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: typeColor.withValues(alpha: 0.15),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.4),
                   blurRadius: 8,
-                  offset: const Offset(2, 2),
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  treeItemIcons[node.type] ?? '📄',
-                  style: const TextStyle(fontSize: 12),
-                ),
+                Icon(style.icon, size: 14, color: typeColor),
                 const SizedBox(width: 6),
                 Text(
-                  node.label,
-                  style: const TextStyle(
+                  widget.node.label,
+                  style: TextStyle(
                     fontSize: 12,
                     color: FluxForgeTheme.textPrimary,
+                    fontFamily: FluxForgeTheme.fontFamily,
                   ),
                 ),
               ],
@@ -365,7 +493,7 @@ class _TreeItem extends StatelessWidget {
           ),
         ),
         childWhenDragging: Opacity(
-          opacity: 0.4,
+          opacity: 0.3,
           child: itemWidget,
         ),
         child: itemWidget,
@@ -377,26 +505,100 @@ class _TreeItem extends StatelessWidget {
       children: [
         GestureDetector(
           onTap: () {
-            if (hasChildren) onToggle(node.id);
-            onSelect?.call(node.id, node.type, node.data);
+            if (hasChildren) widget.onToggle(widget.node.id);
+            widget.onSelect?.call(widget.node.id, widget.node.type, widget.node.data);
           },
-          onDoubleTap: () => onDoubleClick?.call(node.id, node.type, node.data),
+          onDoubleTap: () => widget.onDoubleClick?.call(widget.node.id, widget.node.type, widget.node.data),
           child: itemWidget,
         ),
 
-        // Children
-        if (hasChildren && isExpanded)
-          ...visibleChildren.map((child) => _TreeItem(
-                node: child,
-                level: level + 1,
-                selectedId: selectedId,
-                expandedIds: expandedIds,
-                onToggle: onToggle,
-                onSelect: onSelect,
-                onDoubleClick: onDoubleClick,
-                searchQuery: searchQuery,
-              )),
+        // Children with clip for smooth expand/collapse
+        if (hasChildren)
+          SizeTransition(
+            sizeFactor: _expandAnimation,
+            axisAlignment: -1.0,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: visibleChildren.map((child) => _TreeItem(
+                    node: child,
+                    level: widget.level + 1,
+                    selectedId: widget.selectedId,
+                    expandedIds: widget.expandedIds,
+                    onToggle: widget.onToggle,
+                    onSelect: widget.onSelect,
+                    onDoubleClick: widget.onDoubleClick,
+                    searchQuery: widget.searchQuery,
+                  )).toList(),
+            ),
+          ),
       ],
+    );
+  }
+
+  /// Build vertical indent guide lines for depth visualization
+  List<Widget> _buildIndentGuides(int level) {
+    if (level == 0) {
+      return [const SizedBox(width: 8)];
+    }
+
+    final guides = <Widget>[];
+    for (int i = 0; i < level; i++) {
+      guides.add(
+        SizedBox(
+          width: 18,
+          child: Center(
+            child: Container(
+              width: 1,
+              height: 30,
+              color: FluxForgeTheme.borderSubtle.withValues(
+                alpha: 0.4 - (i * 0.08).clamp(0.0, 0.3),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return guides;
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// TYPE ICON — Premium icon with subtle glow on selection
+// ════════════════════════════════════════════════════════════════════════════
+
+class _TypeIcon extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final bool isSelected;
+
+  const _TypeIcon({
+    required this.icon,
+    required this.color,
+    this.isSelected = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 20,
+      height: 20,
+      decoration: isSelected
+          ? BoxDecoration(
+              borderRadius: BorderRadius.circular(4),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.3),
+                  blurRadius: 6,
+                  spreadRadius: -1,
+                ),
+              ],
+            )
+          : null,
+      child: Icon(
+        icon,
+        size: 15,
+        color: color,
+      ),
     );
   }
 }

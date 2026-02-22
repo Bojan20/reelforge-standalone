@@ -1215,7 +1215,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       },
       // === STRUCTURE ===
       onAddBus: () {
-        mixerProvider.createBus(name: 'Bus ${mixerProvider.buses.length + 1}');
+        _showAddBusMenu(context);
       },
           ), // End UltimateMixer
         ), // End Expanded
@@ -1470,6 +1470,116 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     };
   }
 
+  /// Show popup menu to select bus/channel type to create
+  void _showAddBusMenu(BuildContext context) {
+    final mixer = context.read<MixerProvider>();
+    final RenderBox button = context.findRenderObject() as RenderBox;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(button.size.bottomRight(Offset.zero), ancestor: overlay),
+      ),
+      Offset.zero & overlay.size,
+    );
+
+    showMenu<String>(
+      context: context,
+      position: position,
+      color: const Color(0xFF1E1E28),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: Color(0xFF2A2A38)),
+      ),
+      items: [
+        _buildBusMenuItem(
+          value: 'bus',
+          icon: Icons.call_merge,
+          color: const Color(0xFF9B59B6),
+          label: 'Bus',
+          description: 'Submix group — route tracks through',
+        ),
+        _buildBusMenuItem(
+          value: 'aux',
+          icon: Icons.alt_route,
+          color: const Color(0xFFE74C3C),
+          label: 'Aux Send/Return',
+          description: 'Parallel effect — reverb, delay',
+        ),
+        _buildBusMenuItem(
+          value: 'vca',
+          icon: Icons.tune,
+          color: const Color(0xFFFF9040),
+          label: 'VCA Fader',
+          description: 'Level control — no audio routing',
+        ),
+        _buildBusMenuItem(
+          value: 'group',
+          icon: Icons.link,
+          color: const Color(0xFF40FF90),
+          label: 'Group',
+          description: 'Link faders, pans, mutes together',
+        ),
+      ],
+    ).then((value) {
+      if (value == null || !context.mounted) return;
+      switch (value) {
+        case 'bus':
+          mixer.createBus(name: 'Bus ${mixer.buses.length + 1}');
+        case 'aux':
+          mixer.createAux(name: 'Aux ${mixer.auxes.length + 1}');
+        case 'vca':
+          mixer.createVca(name: 'VCA ${mixer.vcas.length + 1}');
+        case 'group':
+          mixer.createGroup(name: 'Group ${mixer.groups.length + 1}');
+      }
+    });
+  }
+
+  PopupMenuItem<String> _buildBusMenuItem({
+    required String value,
+    required IconData icon,
+    required Color color,
+    required String label,
+    required String description,
+  }) {
+    return PopupMenuItem<String>(
+      value: value,
+      height: 48,
+      child: Row(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(icon, size: 16, color: color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label, style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                )),
+                Text(description, style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 10,
+                )),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Build PROCESS tab actions — subtab-aware
   List<LowerZoneAction> _buildProcessActions() {
     final trackId = widget.selectedTrackId;
@@ -1677,11 +1787,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       ),
       DawSuperTab.mix => DawActions.forMix(
         onAddBus: () {
-          // Create new bus in mixer
-          final mixer = context.read<MixerProvider>();
-          final bus = mixer.createBus(
-            name: 'Bus ${mixer.busCount + 1}',
-          );
+          _showAddBusMenu(context);
         },
         onMuteAll: () {
           // Mute all channels

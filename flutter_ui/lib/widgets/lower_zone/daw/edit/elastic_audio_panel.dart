@@ -25,6 +25,9 @@ class ElasticAudioPanel extends StatefulWidget {
 class _ElasticAudioPanelState extends State<ElasticAudioPanel> {
   final _ffi = NativeFFI.instance;
 
+  // ── Engine reference counting (split view safe) ────────────────────────
+  static final Map<int, int> _engineRefCount = {};
+
   // ── Parameter state ──────────────────────────────────────────────────────
   double _pitchSemitones = 0.0;   // -24 to +24
   double _fineCents = 0.0;        // -50 to +50
@@ -74,15 +77,27 @@ class _ElasticAudioPanelState extends State<ElasticAudioPanel> {
 
   void _ensureEngine() {
     if (widget.selectedTrackId == null) return;
-    _engineCreated = _ffi.elasticProCreate(_trackId, sampleRate: 48000.0);
+    final count = _engineRefCount[_trackId] ?? 0;
+    if (count == 0) {
+      _engineCreated = _ffi.elasticProCreate(_trackId, sampleRate: 48000.0);
+    } else {
+      _engineCreated = true; // Engine already exists from another pane
+    }
     if (_engineCreated) {
+      _engineRefCount[_trackId] = count + 1;
       _syncAllToEngine();
     }
   }
 
   void _destroyEngine() {
     if (_engineCreated) {
-      _ffi.elasticProDestroy(_trackId);
+      final count = (_engineRefCount[_trackId] ?? 1) - 1;
+      if (count <= 0) {
+        _ffi.elasticProDestroy(_trackId);
+        _engineRefCount.remove(_trackId);
+      } else {
+        _engineRefCount[_trackId] = count;
+      }
       _engineCreated = false;
     }
   }

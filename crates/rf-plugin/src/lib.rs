@@ -411,8 +411,10 @@ impl PluginHost {
                 Box::new(instance)
             }
             PluginType::AudioUnit => {
-                let instance = audio_unit::AudioUnitHost::load_from_path(&info.path)?;
-                Box::new(instance)
+                // Route AU plugins through Vst3Host which uses rack crate
+                // for full AudioUnit support including native CocoaUI GUI
+                let host = Vst3Host::load(&info.path)?;
+                Box::new(host)
             }
             PluginType::Lv2 => {
                 // LV2 requires descriptor, create from path
@@ -466,8 +468,10 @@ impl PluginHost {
                 Box::new(instance)
             }
             PluginType::AudioUnit => {
-                let instance = audio_unit::AudioUnitHost::load_from_path(&info.path)?;
-                Box::new(instance)
+                // Route AU plugins through Vst3Host which uses rack crate
+                // for full AudioUnit support including native CocoaUI GUI
+                let host = Vst3Host::load(&info.path)?;
+                Box::new(host)
             }
             PluginType::Lv2 => {
                 let descriptor = lv2::Lv2Descriptor {

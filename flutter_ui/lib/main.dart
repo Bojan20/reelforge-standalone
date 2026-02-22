@@ -380,6 +380,7 @@ class _AppInitializerState extends State<_AppInitializer> {
         }
       };
       actions.onStop = () => engine.stop();
+      actions.onGoToStart = () => engine.seek(0);
       actions.onUndo = () {
         engine.undo();
         history.undo();
@@ -465,22 +466,19 @@ class _AppInitializerState extends State<_AppInitializer> {
         timeline.seek(pos + 0.1);
       },
 
-      // Tools — EditModeProProvider (Pro Tools F1-F4 style)
+      // Tools — SmartToolProvider (Pro Tools E/T/F/Z commands)
       KeyboardCommand.editTool: () {
-        smartTool.setEnabled(false);
-        editMode.setMode(EditMode.slip);
+        smartTool.setActiveTool(TimelineEditTool.objectSelect);
       },
       KeyboardCommand.trimTool: () {
-        smartTool.setEnabled(false);
-        editMode.setMode(EditMode.shuffle);
+        smartTool.setActiveTool(TimelineEditTool.smart);
       },
       KeyboardCommand.fadeTool: () {
-        smartTool.setEnabled(false);
-        editMode.setMode(EditMode.spot);
+        smartTool.setActiveTool(TimelineEditTool.smart);
+        smartTool.setActiveEditMode(TimelineEditMode.xFade);
       },
       KeyboardCommand.zoomTool: () {
-        smartTool.setEnabled(false);
-        editMode.setMode(EditMode.grid);
+        smartTool.setActiveTool(TimelineEditTool.zoom);
       },
 
       // Grid/snap — EditModeProProvider

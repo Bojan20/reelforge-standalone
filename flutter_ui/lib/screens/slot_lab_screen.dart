@@ -4457,8 +4457,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   void _goToStart() {
     setState(() {
-      // If looping with region, go to loop start
-      _playheadPosition = (_isLooping && _loopStart != null) ? _loopStart! : 0.0;
+      // Stop always goes to position 0 (project start), regardless of loop region
+      _playheadPosition = 0.0;
     });
   }
 

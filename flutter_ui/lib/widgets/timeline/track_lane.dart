@@ -26,6 +26,9 @@ class TrackLane extends StatefulWidget {
   final int timeSignatureNum;
   final ValueChanged<String>? onClipSelect;
   final void Function(String clipId, double newStartTime)? onClipMove;
+  /// Called continuously during drag with clip ID and current snapped position
+  /// (for real-time Channel Tab update — UI only, no FFI)
+  final void Function(String clipId, double snappedTime)? onClipDragLivePosition;
   /// Called during cross-track drag with clip ID, new start time, and Y delta
   final void Function(String clipId, double newStartTime, double verticalDelta)? onClipCrossTrackDrag;
   /// Called when cross-track drag ends - determines final track placement
@@ -88,6 +91,7 @@ class TrackLane extends StatefulWidget {
     this.timeSignatureNum = 4,
     this.onClipSelect,
     this.onClipMove,
+    this.onClipDragLivePosition,
     this.onClipCrossTrackDrag,
     this.onClipCrossTrackDragEnd,
     this.onClipDragStart,
@@ -178,6 +182,8 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                       onSelect: (multi) => widget.onClipSelect?.call(clip.id),
                       onMove: (newStart) =>
                           widget.onClipMove?.call(clip.id, newStart),
+                      onDragLivePosition: (snappedTime) =>
+                          widget.onClipDragLivePosition?.call(clip.id, snappedTime),
                       onCrossTrackDrag: (newStart, verticalDelta) =>
                           widget.onClipCrossTrackDrag?.call(clip.id, newStart, verticalDelta),
                       onCrossTrackDragEnd: () =>

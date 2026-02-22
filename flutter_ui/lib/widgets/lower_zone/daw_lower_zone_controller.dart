@@ -348,13 +348,16 @@ class DawLowerZoneController extends ChangeNotifier {
   List<double> get splitRatios => _state.splitRatios;
 
   /// Set panel count (1 = single, 2, 3, or 4)
+  /// Toggle behavior: clicking the already-active count resets to 1 (single panel)
   void setPanelCount(int count) {
     final clamped = count.clamp(1, 4);
-    final isSplit = clamped > 1;
+    // Toggle: if clicking the already-active panel count, reset to single panel
+    final target = (_state.panelCount == clamped && clamped > 1) ? 1 : clamped;
+    final isSplit = target > 1;
     _updateAndSave(_state.copyWith(
-      panelCount: clamped,
+      panelCount: target,
       splitEnabled: isSplit,
-      splitRatios: defaultSplitRatios(clamped),
+      splitRatios: defaultSplitRatios(target),
       isExpanded: isSplit ? true : _state.isExpanded,
     ));
   }

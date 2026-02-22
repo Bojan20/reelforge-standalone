@@ -14308,13 +14308,36 @@ static PLUGIN_SCANNER: std::sync::LazyLock<parking_lot::RwLock<PluginScanner>> =
 /// Returns number of plugins found
 #[unsafe(no_mangle)]
 pub extern "C" fn plugin_scan_all() -> i32 {
-    match PLUGIN_SCANNER.write().scan_all() {
+    // Scan with the standalone scanner (used for listing)
+    let count = match PLUGIN_SCANNER.write().scan_all() {
         Ok(plugins) => plugins.len() as i32,
         Err(e) => {
             log::error!("Plugin scan failed: {}", e);
-            -1
+            return -1;
+        }
+    };
+
+    // CRITICAL: Also scan with the plugin host's internal scanner
+    // so that plugin_load() can find scanned plugins.
+    // PLUGIN_HOST has its own PluginScanner that must be populated.
+    match PLUGIN_HOST.write().scan_plugins() {
+        Ok(plugins) => {
+            log::info!(
+                "Plugin host scanner found {} plugins (standalone scanner: {})",
+                plugins.len(),
+                count
+            );
+        }
+        Err(e) => {
+            log::error!(
+                "Plugin host scan failed: {} — plugins will NOT be loadable!",
+                e
+            );
+            return -1;
         }
     }
+
+    count
 }
 
 /// Get number of discovered plugins
@@ -15038,9 +15061,14 @@ pub extern "C" fn plugin_open_editor(
     instance_id: *const c_char,
     parent_window: *mut std::ffi::c_void,
 ) -> i32 {
-    if instance_id.is_null() || parent_window.is_null() {
+    if instance_id.is_null() {
         return 0;
     }
+
+    // NOTE: parent_window CAN be null on macOS — AU plugins use
+    // standalone NSWindow via rack's show_window() API.
+    // VST3 plugins on macOS don't support GUI via rack 0.4,
+    // so Dart side shows generic parameter editor.
 
     let id_str = unsafe {
         match std::ffi::CStr::from_ptr(instance_id).to_str() {
@@ -15049,17 +15077,31 @@ pub extern "C" fn plugin_open_editor(
         }
     };
 
+    log::info!("Opening plugin editor for: {}", id_str);
+
     if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        // Use provided parent_window, or null (macOS standalone window)
+        let effective_parent = if parent_window.is_null() {
+            std::ptr::null_mut()
+        } else {
+            parent_window
+        };
+
         #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
-        match instance.write().open_editor(parent_window) {
-            Ok(_) => return 1,
+        match instance.write().open_editor(effective_parent) {
+            Ok(_) => {
+                log::info!("Plugin editor opened successfully: {}", id_str);
+                return 1;
+            }
             Err(e) => {
-                log::error!("Failed to open plugin editor: {}", e);
+                log::error!("Failed to open plugin editor for {}: {}", id_str, e);
                 return 0;
             }
         }
         #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
         return 0;
+    } else {
+        log::error!("Plugin instance not found: {}", id_str);
     }
     0
 }

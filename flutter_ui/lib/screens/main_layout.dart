@@ -24,6 +24,7 @@ import '../providers/mixer_provider.dart';
 import '../widgets/layout/project_tree.dart' show ProjectTreeNode, TreeItemType;
 import '../widgets/common/keyboard_shortcuts_overlay.dart';
 import '../widgets/common/command_palette.dart';
+import '../providers/smart_tool_provider.dart';
 
 class MainLayout extends StatefulWidget {
   // PERFORMANCE: Custom control bar widget that handles its own provider listening
@@ -292,8 +293,13 @@ class _MainLayoutState extends State<MainLayout>
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
-    // Ignore if typing in input
-    // Note: In Flutter, focus handling is different but we can still check modifiers
+    // Skip shortcuts when user is typing in a text field (e.g. track rename)
+    final primaryFocus = FocusManager.instance.primaryFocus;
+    if (primaryFocus != null && primaryFocus.context != null) {
+      final editable = primaryFocus.context!
+          .findAncestorWidgetOfExactType<EditableText>();
+      if (editable != null) return KeyEventResult.ignored;
+    }
 
     final key = event.logicalKey;
     final isCtrl = HardwareKeyboard.instance.isControlPressed ||
@@ -355,6 +361,46 @@ class _MainLayoutState extends State<MainLayout>
     if (isShift && key == LogicalKeyboardKey.slash) {
       KeyboardShortcutsOverlay.show(context);
       return KeyEventResult.handled;
+    }
+
+    // ═══ Smart Tool shortcuts (DAW only, no modifiers) ═══
+    if (!isCtrl && !isShift && widget.editorMode == EditorMode.daw) {
+      final smartTool = context.read<SmartToolProvider>();
+
+      // Number keys 1-0: Tool selection (Cubase-style)
+      final toolMap = <LogicalKeyboardKey, TimelineEditTool>{
+        LogicalKeyboardKey.digit1: TimelineEditTool.smart,
+        LogicalKeyboardKey.digit2: TimelineEditTool.objectSelect,
+        LogicalKeyboardKey.digit3: TimelineEditTool.rangeSelect,
+        LogicalKeyboardKey.digit4: TimelineEditTool.split,
+        LogicalKeyboardKey.digit5: TimelineEditTool.glue,
+        LogicalKeyboardKey.digit6: TimelineEditTool.erase,
+        LogicalKeyboardKey.digit7: TimelineEditTool.zoom,
+        LogicalKeyboardKey.digit8: TimelineEditTool.mute,
+        LogicalKeyboardKey.digit9: TimelineEditTool.draw,
+        LogicalKeyboardKey.digit0: TimelineEditTool.play,
+      };
+
+      final tool = toolMap[key];
+      if (tool != null) {
+        smartTool.setActiveTool(tool);
+        return KeyEventResult.handled;
+      }
+
+      // F1-F5: Edit mode selection
+      final editModeMap = <LogicalKeyboardKey, TimelineEditMode>{
+        LogicalKeyboardKey.f1: TimelineEditMode.shuffle,
+        LogicalKeyboardKey.f2: TimelineEditMode.slip,
+        LogicalKeyboardKey.f3: TimelineEditMode.spot,
+        LogicalKeyboardKey.f4: TimelineEditMode.grid,
+        LogicalKeyboardKey.f5: TimelineEditMode.xFade,
+      };
+
+      final editMode = editModeMap[key];
+      if (editMode != null) {
+        smartTool.setActiveEditMode(editMode);
+        return KeyEventResult.handled;
+      }
     }
 
     return KeyEventResult.ignored;

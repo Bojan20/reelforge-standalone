@@ -13,6 +13,7 @@
 /// - Subdivisions: 1px, very subtle
 
 import 'package:flutter/material.dart';
+import '../../models/timeline_models.dart' show gridIntervalSeconds;
 import '../../theme/fluxforge_theme.dart';
 
 class GridLines extends StatelessWidget {
@@ -85,17 +86,11 @@ class _GridLinesPainter extends CustomPainter {
     ..color = FluxForgeTheme.accentCyan.withValues(alpha: 0.25)
     ..strokeWidth = 1;
 
-  static final Paint _subdivisionPaint = Paint()
-    ..color = const Color(0x12FFFFFF)
-    ..strokeWidth = 1;
-
-  static final Paint _finePaint = Paint()
-    ..color = const Color(0x08FFFFFF)
-    ..strokeWidth = 1;
-
-  /// Snap grid lines — matches the selected snap resolution
+  /// Snap grid lines — matches the selected snap resolution.
+  /// Slightly brighter than before so density change is clearly visible
+  /// when switching between 1/4, 1/8, 1/16, etc.
   static final Paint _snapPaint = Paint()
-    ..color = FluxForgeTheme.accentCyan.withValues(alpha: 0.15)
+    ..color = FluxForgeTheme.accentCyan.withValues(alpha: 0.18)
     ..strokeWidth = 1;
 
   _GridLinesPainter({
@@ -112,25 +107,27 @@ class _GridLinesPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (size.width <= 0 || size.height <= 0) return;
 
-    // Calculate musical timing
-    final beatsPerSecond = tempo / 60;
-    final beatDuration = 1 / beatsPerSecond;
+    // Authoritative musical timing — uses shared function for snap/grid sync
+    final beatDuration = 60.0 / tempo;
     final barDuration = beatDuration * timeSignatureNum;
+    final snapInterval = gridIntervalSeconds(snapValue, tempo);
 
     // Visible time range
     final visibleDuration = size.width / zoom;
     final startTime = scrollOffset;
     final endTime = scrollOffset + visibleDuration;
 
-    // Cubase-style: grid density driven by snap value
-    // snapValue is in beats: 0.0625=1/64, 0.125=1/32, 0.25=1/16, 0.5=1/8, 1=1/4, 2=1/2, 4=bar
-    final snapInterval = snapValue * beatDuration; // Convert beats to seconds
+    // === 3-level visual hierarchy (Cubase-style) ===
+    //
+    // Level 1 (finest): Snap grid lines — match the active snap resolution
+    // Level 2 (medium): Beat lines — quarter note boundaries
+    // Level 3 (coarsest): Bar lines — measure boundaries with glow
+    //
+    // Each level skips positions already drawn by a coarser level.
 
-    // Draw snap grid lines (finest visible level)
-    // Only draw if lines won't be too dense (min ~4px apart)
+    // Level 1: Snap grid — finest subdivision visible
     final snapPixelGap = snapInterval * zoom;
     if (snapPixelGap >= 4 && snapValue < timeSignatureNum) {
-      // skipInterval = next coarser grid level to avoid double-drawing
       final skipInterval = snapValue < 1 ? beatDuration : barDuration;
       _drawGridLines(
         canvas, size, startTime, endTime,
@@ -138,7 +135,7 @@ class _GridLinesPainter extends CustomPainter {
       );
     }
 
-    // Draw beat lines (if snap is finer than beats)
+    // Level 2: Beat lines — only when snap is finer than quarter notes
     if (snapValue < 1) {
       _drawGridLines(
         canvas, size, startTime, endTime,
@@ -146,7 +143,7 @@ class _GridLinesPainter extends CustomPainter {
       );
     }
 
-    // Bar lines — always visible with glow
+    // Level 3: Bar lines — always visible, thick with glow
     _drawBarLines(canvas, size, startTime, endTime, barDuration);
   }
 
@@ -159,12 +156,22 @@ class _GridLinesPainter extends CustomPainter {
     double skipInterval,
     Paint paint,
   ) {
-    final firstLine = (startTime / interval).floor() * interval;
+    if (interval <= 0) return;
 
-    for (double t = firstLine; t <= endTime; t += interval) {
-      // Skip if this line will be drawn by a higher-level grid
-      if ((t % skipInterval).abs() < 0.0001) continue;
+    // Use integer indices to avoid floating-point drift.
+    // Grid position = index * interval — same math as snapToGrid().
+    final firstIndex = (startTime / interval).floor();
+    final lastIndex = (endTime / interval).ceil();
+
+    for (int i = firstIndex; i <= lastIndex; i++) {
+      final t = i * interval;
       if (t < 0) continue;
+
+      // Skip if this line will be drawn by a higher-level grid
+      // Use index-based check: t is a multiple of skipInterval when
+      // (i * interval) / skipInterval is close to integer
+      final skipRatio = t / skipInterval;
+      if ((skipRatio - skipRatio.roundToDouble()).abs() < 0.0001) continue;
 
       final x = ((t - scrollOffset) * zoom).roundToDouble() + 0.5;
       if (x >= 0 && x <= size.width) {
@@ -184,9 +191,14 @@ class _GridLinesPainter extends CustomPainter {
     double endTime,
     double barDuration,
   ) {
-    final firstBar = (startTime / barDuration).floor() * barDuration;
+    if (barDuration <= 0) return;
 
-    for (double t = firstBar; t <= endTime; t += barDuration) {
+    // Integer indices — eliminates floating-point drift over many bars
+    final firstIndex = (startTime / barDuration).floor();
+    final lastIndex = (endTime / barDuration).ceil();
+
+    for (int i = firstIndex; i <= lastIndex; i++) {
+      final t = i * barDuration;
       if (t < 0) continue;
 
       final x = ((t - scrollOffset) * zoom).roundToDouble() + 0.5;

@@ -601,6 +601,55 @@ fixDesktopDropOverlay(flutterViewController: flutterViewController)
 
 `DawLowerZoneController.loadFromStorage()` forsira `splitEnabled = false` pri svakom startu aplikacije. Split view je eksplicitna korisnička akcija (toggle), ne persistirani default.
 
+### 11. Split View FFI Resource Sharing — Reference Counting
+
+**Problem:** Dva split panela sa istim `trackId` — dispose jednog ubija FFI engine drugog.
+
+**Rešenje:** Static ref counting map:
+
+```dart
+static final Map<int, int> _engineRefCount = {};
+
+void _ensureEngine() {
+  final count = _engineRefCount[_trackId] ?? 0;
+  if (count == 0) {
+    _engineCreated = _ffi.elasticProCreate(_trackId);  // Stvarno kreira
+  } else {
+    _engineCreated = true;  // Engine već postoji
+  }
+  if (_engineCreated) _engineRefCount[_trackId] = count + 1;
+}
+
+void _destroyEngine() {
+  if (_engineCreated) {
+    final count = (_engineRefCount[_trackId] ?? 1) - 1;
+    if (count <= 0) {
+      _ffi.elasticProDestroy(_trackId);  // Poslednji korisnik
+      _engineRefCount.remove(_trackId);
+    } else {
+      _engineRefCount[_trackId] = count;
+    }
+    _engineCreated = false;
+  }
+}
+```
+
+**Pravilo:** Svaki widget koji kreira FFI resurse keyed by ID MORA koristiti ref counting u split view-u. Važi za: `audio_warping_panel.dart`, `elastic_audio_panel.dart`.
+
+### 12. Split View Provider Sharing — GetIt Singleton
+
+**Problem:** Paneli sa lokalnim `Provider()` imaju izolovan state u split view-u.
+
+```dart
+// ❌ LOŠE — izolovan state u split view
+final _provider = CompingProvider();
+
+// ✅ DOBRO — shared singleton
+final _provider = GetIt.instance<CompingProvider>();
+```
+
+**Pravilo:** Svi ChangeNotifier provideri u Lower Zone panelima MORAJU biti GetIt singletoni.
+
 ---
 
 ## Jezik
@@ -1114,6 +1163,29 @@ Listener(
 - **Modifier key detection** → `Listener.onPointerDown`
 - **Simple taps/double-taps** → `GestureDetector`
 - **NIKADA** ne kombinovati `GestureDetector.onTap` + `HardwareKeyboard.instance` za modifier keys
+
+### Keyboard Shortcut Suppression During Text Editing
+
+**Problem:** Keyboard shortcuts (M=mute, S=solo, C=cut, 1-0=tools) fire while user types in a TextFormField (e.g., track rename).
+
+**Rešenje:** EditableText ancestor guard at the top of every keyboard handler:
+
+```dart
+// ✅ DOBRO — skip shortcuts when user is typing
+final primaryFocus = FocusManager.instance.primaryFocus;
+if (primaryFocus != null && primaryFocus.context != null) {
+  final editable = primaryFocus.context!
+      .findAncestorWidgetOfExactType<EditableText>();
+  if (editable != null) return KeyEventResult.ignored;
+}
+```
+
+**Pravilo:**
+- **SVAKI keyboard handler** MORA imati ovaj guard kao PRVU proveru
+- Važi za: `main_layout.dart`, `global_shortcuts_provider.dart`, `keyboard_focus_provider.dart`, `slot_lab_screen.dart`
+- `EditableText` je ancestor widget koji Flutter koristi interno za SVE text input widgete
+
+---
 
 ### Nested Drag — Listener Bypass Pattern (Gain Drag Fix)
 
@@ -3012,8 +3084,115 @@ Per-clip gain kontrola na timeline-u sa Listener pattern-om (zaobilazi gesture a
 
 ### Plugin & Workflow (TIER 4)
 - ✅ Plugin hosting (VST3/AU/CLAP/LV2 scanner, PDC, ZeroCopyChain, cache validation)
+- ✅ Third-party plugin scan/load/editor (FabFilter VST3/AU verified)
 - ✅ Take lanes / Comping (recording lanes, takes, comp regions)
 - ✅ Tempo track / Time warp (tempo map, time signatures, grid)
+
+### Third-Party Plugin System (2026-02-22) ✅
+
+Real plugin hosting via `rack` crate (v0.4) for VST3/AU loading and processing.
+
+**Architecture:**
+```
+Dart: PluginProvider.scanPlugins()
+  → NativeFFI.pluginScanAll()
+    → Rust: plugin_scan_all()
+      → PLUGIN_SCANNER.scan_all()     (for listing)
+      → PLUGIN_HOST.scan_plugins()    (for loading — CRITICAL: must be synced)
+        → PluginScanner scans /Library/Audio/Plug-Ins/VST3/, Components/, etc.
+
+Dart: PluginProvider.loadPlugin(pluginId, trackId, slotIndex)
+  → NativeFFI.pluginLoad(pluginId)
+    → Rust: plugin_load()
+      → PLUGIN_HOST.load_plugin(pluginId)
+        → Vst3Host::load_with_rack() or AudioUnitHost::load_from_path()
+
+Dart: PluginProvider.openEditor(instanceId)
+  → NativeFFI.pluginOpenEditor(instanceId, 0)
+    → Rust: plugin_open_editor(instanceId, null_parent)
+      → instance.open_editor(null)
+        → AU: rack::au::AudioUnitGui::show_window() (standalone NSWindow)
+        → VST3: Not supported by rack 0.4 (generic parameter editor fallback)
+```
+
+**GUI Support by Format (macOS):**
+
+| Format | Native GUI | Mechanism |
+|--------|-----------|-----------|
+| AU (`.component`) | ✅ Yes | `rack::au::AudioUnitGui::show_window()` — standalone NSWindow |
+| VST3 (`.vst3`) | ❌ No | `rack 0.4` limitation — Dart shows generic parameter slider grid |
+| CLAP (`.clap`) | ❌ No | Not yet implemented |
+
+**Key Files:**
+
+| File | Description |
+|------|-------------|
+| `crates/rf-plugin/src/lib.rs` | PluginHost, PluginScanner, PluginInstance trait |
+| `crates/rf-plugin/src/scanner.rs` | Directory scanning, PluginInfo creation |
+| `crates/rf-plugin/src/vst3.rs` | VST3/AU host via rack crate (~1046 LOC) |
+| `crates/rf-engine/src/ffi.rs` | `plugin_scan_all()`, `plugin_load()`, `plugin_open_editor()` FFI |
+| `flutter_ui/lib/providers/plugin_provider.dart` | Dart state management, scan/load/editor |
+| `flutter_ui/lib/widgets/plugin/plugin_slot.dart` | Insert slot UI with editor open |
+| `flutter_ui/lib/widgets/plugin/plugin_editor_window.dart` | Floating editor window |
+
+**Critical Implementation Notes:**
+- `PLUGIN_SCANNER` and `PLUGIN_HOST` are **separate globals** in `ffi.rs` — BOTH must be populated during scan
+- `parent_window` can be NULL on macOS — AU plugins use standalone NSWindow
+- External plugins in mixer go through `PluginProvider.loadPlugin()` → `PluginProvider.openEditor()`, NOT through stub `insertOpenEditor()`
+- Error feedback via SnackBar on all editor open failure paths
+
+### Grid/Snap Alignment Fix — Floating-Point Drift (2026-02-22) ✅
+
+Grid lines and snap positions previously diverged over long timelines due to floating-point accumulation.
+
+**Fix:** Shared `gridIntervalSeconds(snapValue, tempo)` function + integer-index iteration (`i * interval` instead of `t += interval`). `snapToGrid()` rewritten: `round(time / interval) * interval`.
+
+**Files:**
+| File | Change |
+|------|--------|
+| `timeline_models.dart` | `gridIntervalSeconds()`, `snapToGrid()` rewrite |
+| `grid_lines.dart` | Integer-index loops, shared function, `interval <= 0` guards |
+| `drag_smoothing.dart` | Use shared `gridIntervalSeconds()` |
+
+### Waveform Gain Rendering Fix (2026-02-22) ✅
+
+Gain adjustment used `Transform.scale(scaleY: gain)` which scaled borders/labels too. Now gain is applied directly in `_rebuildPaths()` inside CustomPainters with `_cachedGain` invalidation.
+
+**File:** `flutter_ui/lib/widgets/timeline/clip_widget.dart` (+40/-50 LOC)
+
+### Live Clip Drag Position in Channel Tab (2026-02-22) ✅
+
+New `onDragLivePosition` callback piped through ClipWidget → TrackLane → Timeline → EngineConnectedLayout. During drag, Channel Tab shows the dragged position via `_dragPreviewStartTime` + `clip.copyWith(startTime:)`.
+
+**Files:** `clip_widget.dart`, `track_lane.dart`, `timeline.dart`, `engine_connected_layout.dart`
+
+### Auto-Crossfade at Split Points (2026-02-22) ✅
+
+When a clip is split, a small crossfade (10-50ms, equal power) is automatically created at the split boundary to prevent clicks/pops. Method `_createCrossfadeAtSplitPoint()` in `engine_connected_layout.dart`.
+
+### Project Tree Visual Overhaul — DAW-Style (2026-02-22) ✅
+
+Complete visual upgrade: Material icons per type (14 types), hover effects, expand/collapse animation (150ms easeOutCubic + SizeTransition), Cubase-style depth lines, depth-based shading, type-specific accent colors.
+
+**File:** `flutter_ui/lib/widgets/layout/project_tree.dart` (+248/-141 LOC)
+
+### Transport Stop/Rewind — Loop Position Fix (2026-02-22) ✅
+
+Stop/Rewind returned to loop start instead of position 0. Fixed: `_goToStart()` always → 0.0, Period/Comma shortcuts wired, Home key assigned.
+
+**Files:** `slot_lab_screen.dart`, `engine_connected_layout.dart`, `main.dart`
+
+### Meter Ballistic Decay — Dart-Side (2026-02-22) ✅
+
+Professional Dart-side ballistic decay: instant rise, exponential fall (`kMeterDecay = 0.65`), noise floor gate at -80dB, smooth polling with zero-value snapshots.
+
+**File:** `flutter_ui/lib/providers/meter_provider.dart` (+86/-30 LOC)
+
+### Channel Tab — Source Offset Display (2026-02-22) ✅
+
+Non-zero source offset (trimmed clip start) now shown in Channel Tab inspector.
+
+**File:** `flutter_ui/lib/widgets/layout/channel_inspector_panel.dart` (+2 LOC)
 
 ### Unified Routing System (2026-01-20) ✅ COMPLETE
 - ✅ Unified Routing Graph (dynamic channels, topological sort)

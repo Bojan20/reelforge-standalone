@@ -682,6 +682,8 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
           _InfoRow('Position', _formatTime(clip.startTime)),
           _InfoRow('Duration', _formatTime(clip.duration)),
           _InfoRow('End', _formatTime(clip.startTime + clip.duration)),
+          if (clip.sourceOffset > 0)
+            _InfoRow('Source Offset', _formatTime(clip.sourceOffset)),
           if (clip.sourceFile != null)
             _InfoRow('Source', clip.sourceFile!.split('/').last),
           if (widget.selectedClipTrack != null)

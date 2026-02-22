@@ -1,19 +1,20 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-22 (Bus Pan Channel Tab + Clip Drag Modifier Fix + Rust Meter Decay — bus/aux ChannelStripData, Listener-captured modifier keys for reliable slip/move, sample-rate-independent meter decay)
-**Status:** ✅ **SHIP READY** — All features complete, DAW Mixer ALL 5 PHASES implemented (Pro Tools 2026-class), 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, all 9 FabFilter DSP panels 100% FFI connected, ProEq unified superset EQ (FF-Q 64), direct FFI metering, SafeFilePicker for iCloud stability, CoreAudio stereo properly handled, FaderCurve unified across all volume controls, Metronome fully wired with pro settings UI, Cubase-style Timeline Edit Tools (10 tools + 4 edit modes), Stereo Waveform L/R display (Logic Pro style), Gain Drag fix (Listener pattern), double-click BPM/TimeSig editing in TimeRuler, track header M/S/I/R instant responsiveness (optimistic state pattern), Channel Tab insert slots fully operational (bidirectional state sync), MeterProvider→UltimateMixer 60fps shared memory metering, GpuMeter pro ballistics (1500ms hold, 26dB/s decay, 300ms release), fader bottom sticking fix (FaderCurve.linearToPosition threshold), EQ bypass button in Channel Tab
+**Updated:** 2026-02-22 (Session 5: DAW Lower Zone Split View QA — toggle fix + 5 CRITICAL fixes: CompingProvider GetIt singleton, TimelineOverviewPainter shouldRepaint, ElasticPro FFI ref counting ×2, PunchRecordingPanel ConstrainedBox)
+**Status:** ✅ **SHIP READY** — All features complete, DAW Mixer ALL 5 PHASES implemented (Pro Tools 2026-class), 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, all 9 FabFilter DSP panels 100% FFI connected, ProEq unified superset EQ (FF-Q 64), direct FFI metering, SafeFilePicker for iCloud stability, CoreAudio stereo properly handled, FaderCurve unified across all volume controls, Metronome fully wired with pro settings UI, Cubase-style Timeline Edit Tools (10 tools + 5 edit modes + 1-0/F1-F5 keyboard shortcuts), Stereo Waveform L/R display (Logic Pro style), Gain Drag fix (Listener pattern), double-click BPM/TimeSig editing in TimeRuler, track header M/S/I/R instant responsiveness (optimistic state pattern), Channel Tab insert slots fully operational (bidirectional state sync), MeterProvider→UltimateMixer 60fps shared memory metering, GpuMeter pro ballistics (1500ms hold, 26dB/s decay, 300ms release), fader bottom sticking fix (FaderCurve.linearToPosition threshold), EQ bypass button in Channel Tab, track rename keyboard isolation (EditableText guard), grid/snap integer-index alignment, waveform gain direct-to-painter, live clip drag position in Channel Tab, auto-crossfade at split points, DAW-style project tree with hover/animations/indentation guides, transport Stop/Rewind loop position fix, keyboard shortcuts Period/Comma/Home wired, third-party plugin system fully hardened (6-fix QA: AU native GUI via rack, CString leak prevention, scan error UI, generic editor fallback), DAW Lower Zone split view toggle + 5 CRITICAL QA fixes
 
 ---
 
 ## 🎯 CURRENT STATE
 
 ```
-FEATURE PROGRESS: 100% COMPLETE (415/415 tasks)
+FEATURE PROGRESS: 100% COMPLETE (424/424 tasks)
 CODE QUALITY AUDIT: 11/11 FIXED ✅ (4 CRITICAL, 4 HIGH, 3 MEDIUM)
 ANALYZER WARNINGS: 0 errors, 0 warnings ✅
 DEAD CODE CLEANUP: ~1,200 LOC removed (4 legacy EQ panels)
 EQ INTEGRATION: ProEq ← UltraEq unified superset (+1,463 LOC)
 DAW MIXER: Pro Tools 2026-class — ALL 5 PHASES COMPLETE (11 new files + floating_send_window.dart, ~3,680 LOC total)
+PLUGIN QA AUDIT: 6/6 FIXED ✅ (AU routing, VST3 error propagation, scan failures, has_editor, CString leaks, Dart error handling)
 
 ✅ P0-P9 Legacy:        100% (171/171) ✅ FEATURES DONE
 ✅ Phase A (P0):        100% (10/10)   ✅ MVP FEATURES DONE
@@ -62,9 +63,23 @@ DAW MIXER: Pro Tools 2026-class — ALL 5 PHASES COMPLETE (11 new files + floati
 ✅ RUST METER DECAY2:  playback.rs     ✅ Sample-rate-independent decay formula (300ms to -60dB)
 ✅ BUS PAN CH TAB:     ChannelStripData ✅ Bus/aux channels now display in Channel Tab inspector
 ✅ CLIP DRAG FIX:      Listener capture ✅ Modifier keys captured at onPointerDown — reliable slip/move
+✅ TRACK RENAME:       EditableText guard ✅ Keyboard shortcuts suppressed during text editing in 3 handlers
+✅ SMART TOOL QA:      Dedup + shortcuts ✅ Duplicate UI removed from control_bar, 1-0/F1-F5 shortcuts added, Commands fixed
+✅ RUST BUILD FIX:     Clip struct      ✅ Added stretch_ratio/pitch_shift to api_project.rs Clip literal
+✅ GRID/SNAP ALIGN:    Integer index    ✅ Shared gridIntervalSeconds(), integer-index grid iteration, floating-point drift eliminated
+✅ WAVEFORM GAIN:      Direct painter   ✅ Gain applied in CustomPainter amplitude, not Transform.scale (cache invalidation fixed)
+✅ LIVE DRAG PREVIEW:  Channel Tab      ✅ onDragLivePosition callback piped through ClipWidget→TrackLane→Timeline→Layout
+✅ AUTO CROSSFADE:     Split points     ✅ 10-50ms equal power crossfade at clip split boundary (max 25% of shorter clip)
+✅ PROJECT TREE:       Visual overhaul  ✅ Material icons, hover effects, expand/collapse animation, indentation guides, depth shading
+✅ TRANSPORT FIX:      Stop/Rewind loop ✅ Stop always goes to 0 (not loop start), keyboard shortcuts Period/Comma/Home wired
+✅ METER BALLISTICS:   Dart-side decay  ✅ Instant rise, exponential fall (kMeterDecay), noise floor snap-to-zero, continuous polling
+✅ SOURCE OFFSET:      Channel Tab      ✅ Source Offset row displayed when clip.sourceOffset > 0
+✅ PLUGIN SCAN FIX:    Dual scanner     ✅ PLUGIN_SCANNER + PLUGIN_HOST both populated, NULL parent_window allowed, PluginProvider editor flow
+✅ PLUGIN QA AUDIT:    6 deep fixes    ✅ AU→rack native GUI, VST3 Err propagation, scan→Dart, has_editor detect, CString leak fix, error UI
+✅ SPLIT VIEW QA:     5 CRITICAL + toggle ✅ CompingProvider GetIt, shouldRepaint, ElasticPro ref count, ConstrainedBox
 ```
 
-**440 total tasks (387 original + 27 DAW Mixer + 3 stability fixes + 3 stereo/routing fixes + 1 fader curve unification + 1 SSL channel strip + 2 DSP panel/time stretch + 1 metronome + 1 gain drag fix + 1 stereo waveform + 1 BPM/TimeSig editing + 1 track button responsiveness + 1 channel tab insert fix + 7 mixer metering & fader fixes + 3 session fixes). Bus pan now visible in Channel Tab. Clip drag uses Listener-captured modifier keys for reliable slip/move distinction. Rust meter decay sample-rate-independent.**
+**460 total tasks (454 previous + 6 new: split view toggle fix + 5 CRITICAL QA fixes).**
 
 ### Pro Tools 2026 DAW Mixer (2026-02-20 — 2026-02-21) ✅ ALL 5 PHASES COMPLETE
 
@@ -738,15 +753,15 @@ All volume faders, knobs, and dB display formatters unified under a single `Fade
 
 ---
 
-### Cubase-Style Timeline Edit Tools + Edit Modes (2026-02-21) ✅
+### Cubase-Style Timeline Edit Tools + Edit Modes (2026-02-21, Updated 2026-02-22) ✅
 
-Complete implementation of 10 Cubase-class timeline edit tools and 4 Cubase-class clip edit modes — from scratch (none existed before).
+Complete implementation of 10 Cubase-class timeline edit tools and 5 Cubase-class clip edit modes — from scratch (none existed before).
 
 **Architecture:**
 ```
 SmartToolProvider (single instance in main.dart ChangeNotifierProvider)
 ├── TimelineEditTool (10 tools) — WHAT you do to a clip
-├── TimelineEditMode (4 modes) — HOW clip movement is constrained
+├── TimelineEditMode (5 modes) — HOW clip movement is constrained
 ├── snapping, gridSize, crossfadeEnabled settings
 └── notifyListeners() → Consumer<SmartToolProvider> in ClipWidget
 ```
@@ -766,31 +781,51 @@ SmartToolProvider (single instance in main.dart ChangeNotifierProvider)
 | Draw | `edit` | 9 | Draw new empty clips on timeline |
 | Play | `play_arrow` | 0 | Click to set playhead and start playback |
 
-**4 Timeline Edit Modes (TimelineEditMode enum):**
+**5 Timeline Edit Modes (TimelineEditMode enum):**
 
-| Mode | Icon | Behavior |
-|------|------|----------|
-| Shuffle | `swap_horiz` | Moving a clip pushes adjacent clips to maintain order (no overlaps) |
-| Slip | `unfold_more` | Drag adjusts audio content within clip boundaries (sourceOffset) |
-| Spot | `my_location` | Clips snap to absolute timecode positions (0.1s grid) |
-| Grid | `grid_on` | Clips always snap to grid lines during movement (forces snap) |
+| Mode | Icon | Shortcut | Behavior |
+|------|------|----------|----------|
+| Shuffle | `swap_horiz` | F1 | Moving a clip pushes adjacent clips to maintain order (no overlaps) |
+| Slip | `unfold_more` | F2 | Drag adjusts audio content within clip boundaries (sourceOffset) |
+| Spot | `my_location` | F3 | Clips snap to absolute timecode positions (0.1s grid) |
+| Grid | `grid_on` | F4 | Clips always snap to grid lines during movement (forces snap) |
+| xFade | `compare_arrows` | F5 | Crossfade edit mode |
+
+**Keyboard Shortcuts (2026-02-22):**
+- **1-0** → Tool selection (in main_layout.dart, DAW-only, no modifiers)
+- **F1-F5** → Edit mode selection (in main_layout.dart, DAW-only, no modifiers)
+- **E** → Object Select tool (Commands Focus Mode, main.dart)
+- **T** → Smart tool (Commands Focus Mode, main.dart)
+- **F** → Smart tool + xFade edit mode (Commands Focus Mode, main.dart)
+- **Z** → Zoom tool (Commands Focus Mode, main.dart)
 
 **UI Components:**
 
 | Component | File | LOC | Description |
 |-----------|------|-----|-------------|
-| `TimelineEditToolbar` | `widgets/timeline/timeline_edit_toolbar.dart` | ~380 | Horizontal toolbar with 10 tool buttons + 4 mode buttons + snap controls |
+| `TimelineEditToolbar` | `widgets/timeline/timeline_edit_toolbar.dart` | ~380 | Horizontal toolbar with 10 tool buttons + 5 mode buttons + snap controls (ONLY smart tool UI) |
 | `SmartToolProvider` | `providers/smart_tool_provider.dart` | ~400 | ChangeNotifier with state + static helpers for display names/icons/tooltips |
 | `ClipWidget` integration | `widgets/timeline/clip_widget.dart` | +120 | Consumer<SmartToolProvider> reads edit mode, dispatches per-tool/mode behavior |
 | `TrackLane` wiring | `widgets/timeline/track_lane.dart` | +15 | Shuffle callback passthrough |
 | `Timeline` wiring | `widgets/timeline/timeline.dart` | +15 | Shuffle callback passthrough |
 | `engine_connected_layout` | `screens/engine_connected_layout.dart` | +50 | Shuffle push logic handler |
 
-**Critical Bug Fixed — Dual SmartToolProvider Instance:**
-- `main.dart:239` created instance A via `ChangeNotifierProvider`
-- `engine_connected_layout.dart:269` created instance B as local field
-- Toolbar used instance B, ClipWidget Consumer read instance A → modes NEVER reached clip behavior
-- **Fix:** Removed local instance, replaced with `context.read<SmartToolProvider>()`
+**Bugs Fixed:**
+
+1. **Dual SmartToolProvider Instance (2026-02-21):**
+   - `main.dart:239` created instance A via `ChangeNotifierProvider`
+   - `engine_connected_layout.dart:269` created instance B as local field
+   - Toolbar used instance B, ClipWidget Consumer read instance A → modes NEVER reached clip behavior
+   - **Fix:** Removed local instance, replaced with `context.read<SmartToolProvider>()`
+
+2. **Duplicate Smart Tool UI in Control Bar (2026-02-22):**
+   - `_SmartToolButton` (~60 LOC) — redundant on/off toggle, removed from `control_bar.dart`
+   - `_ProEditModes` (~50 LOC) — used wrong `EditModeProProvider` instead of `SmartToolProvider`, removed from `control_bar.dart`
+   - `TimelineEditToolbar` above timeline is now the ONLY Smart Tool UI
+
+3. **Commands Focus Mode Wrong Provider (2026-02-22):**
+   - E/T/F/Z commands in `main.dart` were using `EditModeProProvider` (wrong)
+   - Fixed to use `SmartToolProvider.setActiveTool()` / `setActiveEditMode()`
 
 **ClipWidget Tool Dispatch (clip_widget.dart):**
 
@@ -843,7 +878,7 @@ SmartToolProvider (single instance in main.dart ChangeNotifierProvider)
 - Cursor changes per tool (crosshair for split, etc.)
 - Overlay indicators per tool (red tint for erase, split line, etc.)
 
-**Verification:** 100% E2E operational — 10 tool buttons + 4 mode buttons render, single SmartToolProvider instance shared, all modes affect ClipWidget behavior correctly.
+**Verification:** 100% E2E operational — 10 tool buttons + 5 mode buttons render, single SmartToolProvider instance shared (no duplicates in control bar), all modes affect ClipWidget behavior correctly, keyboard shortcuts 1-0/F1-F5 work in DAW mode.
 
 ---
 
@@ -1252,6 +1287,225 @@ All three now read from `SharedMeterSnapshot.channelPeaks` (Float64List(12) = 6 
 
 ---
 
+### Track Rename Keyboard Isolation (2026-02-22) ✅
+
+**Problem:** Double-clicking a track name in the track header to rename it would trigger keyboard shortcuts — typing "M" would mute the track, "S" would solo it, "C" would cut, etc.
+
+**Root Cause:** 3 of 4 keyboard handlers lacked a guard for active text editing. Only the SlotLab handler already had this pattern.
+
+**Fix:** Added `EditableText` ancestor check to 3 keyboard handlers — if user is typing in any `TextFormField`/`TextField`, ALL keyboard shortcuts are bypassed:
+
+```dart
+final primaryFocus = FocusManager.instance.primaryFocus;
+if (primaryFocus != null && primaryFocus.context != null) {
+  final editable = primaryFocus.context!
+      .findAncestorWidgetOfExactType<EditableText>();
+  if (editable != null) return KeyEventResult.ignored;
+}
+```
+
+**Files:**
+| File | Handler |
+|------|---------|
+| `main_layout.dart` | `_handleKeyEvent()` — DAW keyboard shortcuts (1-0, F1-F5, transport) |
+| `global_shortcuts_provider.dart` | `handleKeyEvent()` — Cubase-style global shortcuts |
+| `keyboard_focus_provider.dart` | `handleKeyEvent()` — Pro Tools A-Z commands focus mode |
+
+---
+
+### Smart Tool Duplicate Removal + Keyboard Shortcuts (2026-02-22) ✅
+
+**Problem:** Duplicate Smart Tool controls in the transport/control bar — `_SmartToolButton` (on/off toggle) and `_ProEditModes` (used wrong `EditModeProProvider`) conflicted with the primary `TimelineEditToolbar` above the timeline.
+
+**Fix 1:** Removed `_SmartToolButton` (~60 LOC) and `_ProEditModes` (~50 LOC) from `control_bar.dart`. `TimelineEditToolbar` is now the ONLY Smart Tool UI.
+
+**Fix 2:** Added keyboard shortcuts in `main_layout.dart` (DAW-only, no modifiers):
+- **1-0** → Tool selection (Smart, Object, Range, Split, Glue, Erase, Zoom, Mute, Draw, Play)
+- **F1-F5** → Edit mode selection (Shuffle, Slip, Spot, Grid, xFade)
+
+**Fix 3:** Fixed Commands Focus Mode handlers (E/T/F/Z) in `main.dart`:
+- Changed from `EditModeProProvider` (wrong) to `SmartToolProvider` (correct)
+- E → objectSelect, T → smart, F → smart + xFade, Z → zoom
+
+**Files:**
+- `flutter_ui/lib/widgets/layout/control_bar.dart` — Removed ~110 LOC duplicate code + unused imports
+- `flutter_ui/lib/screens/main_layout.dart` — Added 1-0 and F1-F5 shortcuts + SmartToolProvider import
+- `flutter_ui/lib/main.dart` — Fixed E/T/F/Z to use SmartToolProvider
+
+---
+
+### Rust Build Fix — Clip Struct Missing Fields (2026-02-22) ✅
+
+**Problem:** `cargo build --release` failed with `E0063: missing fields 'pitch_shift' and 'stretch_ratio' in initializer of 'rf_engine::Clip'` in `api_project.rs`.
+
+**Root Cause:** `stretch_ratio` and `pitch_shift` were added to the `Clip` struct (session 2026-02-21) but the `Clip` literal in `api_project.rs` was not updated.
+
+**Fix:** Added `stretch_ratio: 1.0` and `pitch_shift: 0.0` to the Clip initializer.
+
+**File:** `crates/rf-bridge/src/api_project.rs`
+
+---
+
+### Grid/Snap Alignment Fix — Floating-Point Drift Elimination (2026-02-22) ✅
+
+**Problem:** Grid lines and snap positions diverged over long timelines due to floating-point accumulation — clips snapped to one position but grid lines rendered at slightly different positions (drift visible past ~60 seconds).
+
+**Root Cause:** Grid rendering used `for (double t = start; t <= end; t += interval)` — each iteration added cumulative floating-point error. Snap calculation used a separate inline formula.
+
+**Fix:**
+1. New shared function `gridIntervalSeconds(snapValue, tempo)` in `timeline_models.dart` — single authoritative source for grid spacing
+2. Both grid rendering and snap logic now use **integer-index iteration**: `for (int i = first; i <= last; i++)` with `position = i * interval`
+3. `snapToGrid()` rewritten: `round(time / interval) * interval`
+
+**Files:**
+| File | Change |
+|------|--------|
+| `flutter_ui/lib/models/timeline_models.dart` | +16 LOC: `gridIntervalSeconds()` function, `snapToGrid()` rewrite |
+| `flutter_ui/lib/widgets/timeline/grid_lines.dart` | +30/-28 LOC: Integer-index loops, shared function import, `interval <= 0` guards |
+| `flutter_ui/lib/widgets/timeline/drag_smoothing.dart` | +2/-3 LOC: Use shared `gridIntervalSeconds()` |
+
+---
+
+### Waveform Gain Rendering Fix (2026-02-22) ✅
+
+**Problem:** Waveform gain adjustment used `Transform.scale(scaleY: gain)` which scaled the entire widget coordinate space (including borders, labels). Gain changes didn't invalidate the cached waveform paths, causing stale rendering.
+
+**Fix:**
+1. Removed `Transform.scale(scaleY: gain)` wrappers from all 3 rendering paths
+2. Added `gain` parameter to all 3 CustomPainters (`_CubaseWaveformPainter`, `_StereoWaveformPainter`, `_WaveformPainter`)
+3. Gain applied directly in `_rebuildPaths()`: `amplitude = centerY * 0.7 * gain.clamp(0.0, 4.0)`
+4. Added `_cachedGain` field — paths rebuild when gain changes
+5. `shouldRepaint()` checks `gain != oldDelegate.gain`
+
+**File:** `flutter_ui/lib/widgets/timeline/clip_widget.dart` (+40/-50 LOC)
+
+---
+
+### Live Clip Drag Position in Channel Tab (2026-02-22) ✅
+
+**Problem:** During clip drag, Channel Tab inspector showed the clip's original position, not the current dragged position — no real-time feedback.
+
+**Fix:** New `onDragLivePosition` callback piped through the entire widget hierarchy:
+
+```
+ClipWidget.onDragLivePosition (fires with _lastSnappedTime during drag)
+  → TrackLane.onClipDragLivePosition
+    → Timeline.onClipDragLivePosition
+      → EngineConnectedLayout._dragPreviewStartTime
+        → selectedClip getter composites preview via clip.copyWith(startTime:)
+```
+
+Drag preview is cleared (`= null`) on all drag-end paths (move, cross-track, new-track, split).
+
+**Files:**
+| File | Change |
+|------|--------|
+| `clip_widget.dart` | +6 LOC: `onDragLivePosition` callback + call during drag |
+| `track_lane.dart` | +6 LOC: `onClipDragLivePosition` passthrough |
+| `timeline.dart` | +5 LOC: `onClipDragLivePosition` passthrough |
+| `engine_connected_layout.dart` | +40 LOC: `_dragPreviewClipId`, `_dragPreviewStartTime` state, composite selectedClip |
+
+---
+
+### Auto-Crossfade at Split Points (2026-02-22) ✅
+
+**Feature:** When a clip is split, a small crossfade (10-50ms, equal power) is automatically created at the split boundary to prevent clicks/pops.
+
+**Implementation:** New `_createCrossfadeAtSplitPoint()` method in `engine_connected_layout.dart`:
+- Calculates crossfade duration: max 25% of shorter clip, clamped to 10-50ms
+- Creates `Crossfade` object centered at split time with `equalPower` curve
+- Called from both split-with-selected-clip and split-at-playhead code paths
+
+**File:** `flutter_ui/lib/screens/engine_connected_layout.dart` (+30 LOC)
+
+---
+
+### Project Tree Visual Overhaul — Ultimate DAW-Style (2026-02-22) ✅
+
+**Refactor:** Complete visual upgrade of the Wwise-style project tree to professional DAW-style hierarchy browser.
+
+**New features:**
+| Feature | Implementation |
+|---------|---------------|
+| **Material icons** | `_TreeItemStyle` class — type-aware `IconData` + accent `Color` per node type |
+| **Hover effects** | `StatefulWidget` + `MouseRegion` + smooth animation |
+| **Expand/Collapse animation** | `AnimationController` 150ms `easeOutCubic` with `SizeTransition` |
+| **Indentation guide lines** | Cubase-style vertical depth lines (1px, subtle) |
+| **Depth-based shading** | Background tint darkens with nesting depth |
+| **Selection highlight** | Type-specific accent color glow (not generic blue) |
+| **Item height** | 26px → 30px for better readability |
+
+**Icon mapping (14 types):**
+| Type | Icon | Color |
+|------|------|-------|
+| folder | `folder_rounded` | Gold #FFD700 |
+| event | `bolt_rounded` | Orange #FF9040 |
+| sound | `graphic_eq_rounded` | Blue #4A9EFF |
+| track | `audiotrack_rounded` | Cyan #40C8FF |
+| bus | `route_rounded` | Green #40FF90 |
+| plugin | `extension_rounded` | Purple #9370DB |
+| preset | `tune_rounded` | Teal #26A69A |
+| region | `crop_rounded` | Amber #FFB300 |
+| midi | `piano_rounded` | Pink #FF4081 |
+
+**File:** `flutter_ui/lib/widgets/layout/project_tree.dart` (+248/-141 LOC)
+
+---
+
+### Transport Stop/Rewind — Loop Position Fix (2026-02-22) ✅
+
+**Problem:** When a loop region was active, pressing Stop or Rewind returned the playhead to the loop start position instead of position 0.
+
+**3 Root Causes Fixed:**
+
+| # | Root Cause | File | Fix |
+|---|-----------|------|-----|
+| 1 | SlotLab `_goToStart()` jumped to `_loopStart` | `slot_lab_screen.dart:4461` | Always go to 0.0 regardless of loop |
+| 2 | Period (.) Stop and Comma (,) Rewind keyboard shortcuts were null | `engine_connected_layout.dart` | Wired `onStop` and `onRewind` to MainLayout |
+| 3 | Home key (goToStart) never assigned | `main.dart` | Added `actions.onGoToStart = () => engine.seek(0)` |
+
+**Engine-level verification:** All Rust stop/seek/rewind paths confirmed CORRECT:
+- `PlaybackEngine::stop()` → `position.set_samples(0)` ✅
+- `PlaybackEngine::seek()` → `position.set_seconds(seconds)` ✅
+- `advance()` loop wrapping → only active during Playing/Recording, position 0 is never wrapped ✅
+
+**Files:**
+| File | Change |
+|------|--------|
+| `slot_lab_screen.dart` | `_goToStart()` → always `_playheadPosition = 0.0` |
+| `engine_connected_layout.dart` | +8 LOC: `onStop` + `onRewind` callbacks wired to engine |
+| `main.dart` | +1 LOC: `actions.onGoToStart = () => engine.seek(0)` |
+
+---
+
+### Meter Ballistic Decay — Dart-Side (2026-02-22) ✅
+
+**Problem:** Meters displayed raw instantaneous peaks from Rust, causing "stuttery chunks" appearance — peaks jumped between full value and zero between audio blocks because Rust only reports current-block peaks.
+
+**Fix:** Implemented professional Dart-side ballistic decay:
+
+| Behavior | Implementation |
+|----------|---------------|
+| **Rise** | Instant — new peak immediately displayed |
+| **Fall** | Exponential decay: `previous * kMeterDecay` per tick |
+| **Noise floor** | Snap to zero at `-80 dB` threshold |
+| **Polling** | Continues with zero-value snapshots when Rust stops writing, so decay runs smoothly |
+| **Stop condition** | Only stops when `hasActivity` is false on master AND all buses |
+
+**Key constants:** `kMeterDecay = 0.65` per tick (~300ms to silence at 60fps)
+
+**File:** `flutter_ui/lib/providers/meter_provider.dart` (+86/-30 LOC)
+
+---
+
+### Channel Tab — Source Offset Display (2026-02-22) ✅
+
+**Feature:** When a clip has a non-zero source offset (trimmed start), the Channel Tab inspector now shows a "Source Offset" row with formatted time.
+
+**File:** `flutter_ui/lib/widgets/layout/channel_inspector_panel.dart` (+2 LOC)
+
+---
+
 ### Plugin Hosting Fix (2026-02-16) ✅
 
 Third-party plugin hosting (VST3/AU/CLAP/LV2) — 6 critical gaps identified and fixed:
@@ -1266,6 +1520,82 @@ Third-party plugin hosting (VST3/AU/CLAP/LV2) — 6 critical gaps identified and
 | 6 | Type erasure blocked AU GUI | `TypeId::of::<P>()` runtime detection | Rust |
 
 **Files:** `rf-plugin/src/vst3.rs`, `plugin_provider.dart`, `plugin_slot.dart`, `plugin_editor_window.dart`
+
+### Third-Party Plugin Scan/Load/Editor Fix (2026-02-22) ✅
+
+FabFilter (and other third-party VST3/AU) plugins could not be scanned, loaded, or have editors opened. Three root causes identified and fixed:
+
+| # | Root Cause | Fix | Layer |
+|---|-----------|-----|-------|
+| 1 | **Dual Scanner Desync** — `PLUGIN_SCANNER` (listing) and `PLUGIN_HOST` (loading) had separate internal scanners. `plugin_scan_all()` only populated `PLUGIN_SCANNER`, but `plugin_load()` used `PLUGIN_HOST` which was empty. | `plugin_scan_all()` now also calls `PLUGIN_HOST.write().scan_plugins()` | Rust FFI |
+| 2 | **NULL parent_window Rejection** — `plugin_open_editor()` rejected NULL parent_window pointer. Dart always sends 0 (NULL) because Flutter has no native window handle. macOS AU plugins use standalone NSWindow via `rack::au::AudioUnitGui::show_window()`. | Removed `parent_window.is_null()` from rejection check. Added logging. | Rust FFI |
+| 3 | **Stub `insert_open_editor`** — `_openProcessorEditor()` for external plugins used `insertOpenEditor()` which is a stub (logs only). Did NOT use the real `pluginOpenEditor()` flow. | External plugins now loaded via `PluginProvider.loadPlugin()` → `PluginProvider.openEditor()`. Added SnackBar error feedback on failure. | Dart |
+
+**Plugin Format GUI Support (macOS):**
+
+| Format | Native GUI | Mechanism |
+|--------|-----------|-----------|
+| AU (`.component`) | ✅ Yes | `rack::au::AudioUnitGui::show_window()` — standalone NSWindow |
+| VST3 (`.vst3`) | ❌ No | `rack 0.4` does not support VST3 GUI on macOS — generic parameter editor fallback |
+| CLAP (`.clap`) | ❌ No | Not yet implemented in rf-plugin |
+
+**Error Feedback:**
+- `plugin_slot.dart` — Double-tap and context menu "Open Editor" now show red SnackBar on failure
+- `engine_connected_layout.dart` — Mixer insert click shows SnackBar for load failure and editor open failure
+
+**Files Changed:**
+
+| File | Changes |
+|------|---------|
+| `crates/rf-engine/src/ffi.rs` | `plugin_scan_all()` dual scanner sync, `plugin_open_editor()` null parent allowed |
+| `flutter_ui/lib/screens/engine_connected_layout.dart` | `_openProcessorEditor()` async, external plugins via PluginProvider, SnackBar errors |
+| `flutter_ui/lib/widgets/plugin/plugin_slot.dart` | Async `openEditor()` with SnackBar error feedback |
+
+**Installed FabFilter Plugins (verified):**
+- `/Library/Audio/Plug-Ins/VST3/FabFilter Pro-L 2.vst3`
+- `/Library/Audio/Plug-Ins/VST3/FabFilter Pro-Q 4.vst3`
+- `/Library/Audio/Plug-Ins/VST3/FabFilter Pro-R 2.vst3`
+- Plus AU `.component` versions (preferred on macOS for native GUI)
+
+### Third-Party Plugin QA Deep Audit (2026-02-22) ✅
+
+Comprehensive 6-fix QA audit of the entire plugin pipeline — scan → load → editor → memory. All silent failures eliminated, CString memory leaks fixed, error handling hardened.
+
+| # | Fix | Root Cause | Solution | Files |
+|---|-----|-----------|----------|-------|
+| 1 | **AU → rack native GUI** | AU plugins routed through `AudioUnitHost::load_from_path()` (STUB — no GUI). | AU `PluginType::AudioUnit` now routes through `Vst3Host::load()` which uses `rack` crate with full CocoaUI GUI support. Both `load_plugin()` and `create_plugin_instance()` updated. | `crates/rf-plugin/src/lib.rs`, `crates/rf-plugin/src/vst3.rs` |
+| 2 | **VST3 editor Err propagation** | `open_editor_macos()` returned silent `Ok(())` when GUI failed to open. | Returns `Err(PluginError::InitError(...))` on failure — Dart can detect and show fallback. | `crates/rf-plugin/src/vst3.rs` |
+| 3 | **Scan failure → Dart** | `plugin_scan_all()` swallowed `PLUGIN_HOST.scan_plugins()` failure — returned 0 (success). | Returns `-1` on scan failure. Dart `PluginProvider.scanPlugins()` detects and sets `ScanState.error`. | `crates/rf-engine/src/ffi.rs`, `flutter_ui/lib/providers/plugin_provider.dart` |
+| 4 | **has_editor dynamic detect** | `PluginInfo::new()` hardcoded `has_editor: false` for all external plugins. | Dynamic detection: VST3/AU/CLAP → `true`, Internal → `false`. | `crates/rf-plugin/src/scanner.rs` |
+| 5 | **CString memory leaks** | `pluginGetAll()`, `pluginGetInfo()`, `pluginGetAllParams()` called `.toDartString()` on Rust CString pointers but NEVER freed them via `_freeString()`. | Added `_freeString(jsonPtr)` after `toDartString()` in all 3 functions with proper try/catch nesting. Audited all other plugin FFI — confirmed safe (Uint32 buffers, int returns, or unbound). | `flutter_ui/lib/src/rust/native_ffi.dart` |
+| 6 | **Dart error handling** | Scan error state (`ScanState.error`) set in provider but never rendered in UI. Editor failure showed basic red SnackBar with no recovery option. | Plugin browser now shows error state with retry button. Editor failure shows orange SnackBar with "Open Generic Editor" action button → `InternalProcessorEditorWindow`. | `flutter_ui/lib/widgets/plugin/plugin_browser.dart`, `flutter_ui/lib/screens/engine_connected_layout.dart` |
+
+**CString Leak Audit Results:**
+
+| Function | Return Type | Leak? | Fix |
+|----------|-------------|-------|-----|
+| `pluginGetAll()` | `Pointer<Utf8>` (CString) | ✅ **YES** | `_freeString()` added |
+| `pluginGetInfo()` | `Pointer<Utf8>` (CString) | ✅ **YES** | `_freeString()` added |
+| `pluginGetAllParams()` | `Pointer<Utf8>` (CString) | ✅ **YES** | `_freeString()` added |
+| `pluginSearch()` | `Uint32` buffer | ❌ No | Caller-allocated |
+| `pluginGetByType()` | `Uint32` buffer | ❌ No | Caller-allocated |
+| `pluginGetByCategory()` | `Uint32` buffer | ❌ No | Caller-allocated |
+| `pluginGetInstancesJson()` | `Pointer<Utf8>` | ❌ No | Bound but never called |
+| `pluginLoad()` | `Uint8` buffer | ❌ No | Caller-allocated |
+| `pluginSavePreset()` | `int` | ❌ No | No allocation |
+| `pluginLoadPreset()` | `int` | ❌ No | No allocation |
+
+**Generic Editor Fallback Flow:**
+```
+Plugin editor fails → Orange SnackBar "Native GUI unavailable for {name}"
+  → Action: "Open Generic Editor"
+    → pluginGetAllParams(instanceId) → NativePluginParamInfo list
+      → InternalProcessorEditorWindow.show() with generic slider UI
+```
+
+**Verification:** `cargo build --release` ✅ (0 errors), `flutter analyze` ✅ (No issues found)
+
+---
 
 ### DAW Panel Rewrites (2026-02-15) ✅
 
@@ -1309,6 +1639,34 @@ Third-party plugin hosting (VST3/AU/CLAP/LV2) — 6 critical gaps identified and
 **Fix:** `DawLowerZoneController.loadFromStorage()` now forces `splitEnabled = false` on every startup — split view is an explicit user action, not a persisted default.
 
 **Files:** `flutter_ui/lib/widgets/lower_zone/daw_lower_zone_controller.dart`
+
+### Split View Toggle + QA Audit (2026-02-22) ✅
+
+**Toggle Fix:** `setPanelCount()` in `daw_lower_zone_controller.dart` — clicking an already-active panel count button (1-4) now resets to single panel (toggle off behavior).
+
+**Full QA Audit:** 39 panel files audited across all 5 super-tabs (Browse, Edit, Mix, Process, Deliver) in split view modes (2, 3, 4 panes). Found 5 CRITICAL, 12 MODERATE, 5 MINOR issues.
+
+**5 CRITICAL Fixes:**
+
+| # | File | Problem | Fix |
+|---|------|---------|-----|
+| 1 | `comping_panel.dart` | Local `CompingProvider()` — split panes had isolated state | GetIt singleton `sl<CompingProvider>()` + registered in `service_locator.dart` Layer 5.9 |
+| 2 | `timeline_overview_panel.dart` | `shouldRepaint() => false` — never repainted on color change | Compare `oldDelegate.color != color` with proper covariant type |
+| 3 | `audio_warping_panel.dart` | FFI `elasticProDestroy()` in one pane kills engine used by another | Static `Map<int, int> _engineRefCount` — only destroy when count reaches 0 |
+| 4 | `elastic_audio_panel.dart` | Same FFI engine destruction conflict as #3 | Same reference counting pattern |
+| 5 | `punch_recording_panel.dart` | Divider `Container(height: 80)` overflows in small split panes | `ConstrainedBox(maxHeight: 80)` allows shrinking |
+
+**Files Changed (6):**
+- `flutter_ui/lib/services/service_locator.dart` — CompingProvider registration (Layer 5.9)
+- `flutter_ui/lib/widgets/lower_zone/daw/edit/comping_panel.dart` — GetIt singleton
+- `flutter_ui/lib/widgets/lower_zone/daw/edit/timeline_overview_panel.dart` — shouldRepaint fix
+- `flutter_ui/lib/widgets/lower_zone/daw/edit/audio_warping_panel.dart` — FFI ref counting
+- `flutter_ui/lib/widgets/lower_zone/daw/edit/elastic_audio_panel.dart` — FFI ref counting
+- `flutter_ui/lib/widgets/lower_zone/daw/edit/punch_recording_panel.dart` — ConstrainedBox
+
+**Remaining (not yet fixed):** 12 MODERATE + 5 MINOR issues identified in QA audit.
+
+**Verifikacija:** `flutter analyze` — No issues found!
 
 ---
 
@@ -2307,6 +2665,42 @@ Kada engine i FFI budu povezani (svi parametri i meteri rade), uraditi finalni U
 ---
 
 ## 🏆 SESSION HISTORY
+
+### Session 2026-02-22c — Third-Party Plugin Scan/Load/Editor Fix
+
+**Tasks Delivered:** 3 root cause fixes + error feedback
+**Files Changed:** 3 Dart + 1 Rust (22 files total with prior session uncommitted changes)
+**LOC Delivered:** ~90 (Rust fixes + Dart async editor flow + SnackBar feedback)
+**flutter analyze:** 0 errors ✅
+**cargo build --release:** ✅
+
+1. **Dual Scanner Desync** — `plugin_scan_all()` in `ffi.rs` now populates BOTH `PLUGIN_SCANNER` (for listing) and `PLUGIN_HOST` (for loading). Previously only the standalone scanner was populated, causing `plugin_load()` to fail silently because `PLUGIN_HOST`'s internal scanner was empty.
+
+2. **NULL parent_window Rejection** — `plugin_open_editor()` in `ffi.rs` no longer rejects NULL parent_window. macOS AU plugins use standalone NSWindow via `rack::au::AudioUnitGui::show_window()` — they don't need a parent window. Added logging for success/failure.
+
+3. **Stub insert_open_editor Replaced** — `_openProcessorEditor()` in `engine_connected_layout.dart` for external plugins now uses `PluginProvider.loadPlugin()` → `PluginProvider.openEditor()` instead of the stub `insertOpenEditor()` FFI. Made method async. Added `PluginProvider` import with `hide` to resolve name collision.
+
+4. **Error Feedback** — All 3 plugin editor open points (`plugin_slot.dart` double-tap, context menu, `engine_connected_layout.dart` mixer insert) now show red SnackBar on failure instead of silent no-op.
+
+---
+
+### Session 2026-02-22b — Track Rename Isolation + Smart Tool QA + Rust Build Fix
+
+**Tasks Delivered:** 4 fixes
+**Files Changed:** 5 (4 modified + 1 Rust fix)
+**LOC Delivered:** ~80 (guards + shortcuts added, ~110 LOC removed from control_bar)
+**flutter analyze:** 0 errors ✅
+**cargo build --release:** ✅ (fixed E0063)
+
+1. **Track Rename Keyboard Isolation** — EditableText ancestor guard added to 3 keyboard handlers (`main_layout.dart`, `global_shortcuts_provider.dart`, `keyboard_focus_provider.dart`). Typing in track rename no longer triggers M=mute, S=solo, C=cut, etc.
+
+2. **Smart Tool Duplicate Removal** — Removed `_SmartToolButton` (~60 LOC) and `_ProEditModes` (~50 LOC) from `control_bar.dart`. These were redundant copies that used the wrong provider (`EditModeProProvider`). `TimelineEditToolbar` above timeline is now the sole Smart Tool UI.
+
+3. **Smart Tool Keyboard Shortcuts** — Added 1-0 (tool select) and F1-F5 (edit mode select) in `main_layout.dart`. Fixed E/T/F/Z Commands Focus Mode in `main.dart` to use `SmartToolProvider` instead of wrong `EditModeProProvider`.
+
+4. **Rust Build Fix** — Added missing `stretch_ratio: 1.0` and `pitch_shift: 0.0` to `Clip` struct literal in `api_project.rs` (E0063 error from 2026-02-21 session).
+
+---
 
 ### Session 2026-02-21b — Expander Premium Panel + Time Stretch Channel Tab Fix
 

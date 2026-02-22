@@ -319,6 +319,14 @@ pub struct PluginInfo {
 impl PluginInfo {
     /// Create new plugin info
     pub fn new(id: &str, name: &str, plugin_type: PluginType, path: PathBuf) -> Self {
+        // External plugins (VST3/AU/CLAP) almost always have an editor GUI.
+        // Default to true so Dart side attempts to open native editor first;
+        // if the editor fails to open, Dart falls back to generic parameter view.
+        let has_editor = matches!(
+            plugin_type,
+            PluginType::Vst3 | PluginType::AudioUnit | PluginType::Clap
+        );
+
         Self {
             id: id.to_string(),
             name: name.to_string(),
@@ -331,7 +339,7 @@ impl PluginInfo {
             audio_outputs: 2,
             has_midi_input: false,
             has_midi_output: false,
-            has_editor: false,
+            has_editor,
             latency: 0,
             is_shell: false,
             sub_plugins: Vec::new(),
