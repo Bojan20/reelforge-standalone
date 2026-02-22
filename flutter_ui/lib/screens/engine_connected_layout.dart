@@ -5291,9 +5291,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               }
             },
             onChannelInsertWetDryChange: (channelId, slotIndex, wetDry) {
-              final trackId = _busIdToTrackId(channelId);
-              NativeFFI.instance.insertSetMix(trackId, slotIndex, wetDry);
-              // Update MixerProvider (SSoT for Channel Tab)
+              // Update MixerProvider (SSoT for Channel Tab) — FFI call is inside provider
               context.read<MixerProvider>().updateInsertWetDry(channelId, slotIndex, wetDry);
             },
             onChannelInsertRemove: (channelId, slotIndex) {

@@ -79,6 +79,7 @@ class FabFilterDeEsserPanel extends FabFilterPanelBase {
   const FabFilterDeEsserPanel({
     super.key,
     required super.trackId,
+    super.slotIndex,
   }) : super(
           title: 'FF-E',
           icon: Icons.mic_off,
@@ -143,6 +144,14 @@ class _FabFilterDeEsserPanelState extends State<FabFilterDeEsserPanel>
   void _initializeProcessor() {
     final dsp = DspChainProvider.instance;
     final chain = dsp.getChain(widget.trackId);
+    // Use slotIndex directly when passed from insert editor window
+    if (widget.slotIndex >= 0 && widget.slotIndex < chain.nodes.length) {
+      _slotIndex = widget.slotIndex;
+      _nodeId = chain.nodes[_slotIndex].id;
+      _initialized = true;
+      _readParams();
+      return;
+    }
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.deEsser) {
         _nodeId = node.id;

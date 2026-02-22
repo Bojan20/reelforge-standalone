@@ -130,8 +130,9 @@ pub use eq_ultra::{
 
 // Re-export Analog EQ models
 pub use eq_analog::{
-    ANALOG_MAX_BANDS, Api550, Api550HighFreq, Api550LowFreq, Api550MidFreq, DiscreteSaturation,
-    Neve1073, Neve1073HighFreq, Neve1073HpFreq, Neve1073LowFreq, NeveTransformer,
+    ANALOG_MAX_BANDS, Api550, Api550HighFreq, Api550LowFreq, Api550MidFreq,
+    ClassASaturation, DiscreteSaturation,
+    Neve1073, Neve1073HpFreq, Neve1073LowFreq, Neve1073MidFreq, NeveTransformer,
     OutputTransformer, PultecEqp1a, PultecHighAttenFreq, PultecHighBoostFreq, PultecLowFreq,
     StereoApi550, StereoNeve1073, StereoPultec, TubeSaturation,
 };

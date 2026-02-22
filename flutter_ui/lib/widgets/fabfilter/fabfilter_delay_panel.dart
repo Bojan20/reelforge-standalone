@@ -84,6 +84,7 @@ class FabFilterDelayPanel extends FabFilterPanelBase {
   const FabFilterDelayPanel({
     super.key,
     required super.trackId,
+    super.slotIndex,
   }) : super(
           title: 'FF-DLY',
           icon: Icons.timer,
@@ -157,6 +158,14 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
   void _initializeProcessor() {
     final dsp = DspChainProvider.instance;
     final chain = dsp.getChain(widget.trackId);
+    // Use slotIndex directly when passed from insert editor window
+    if (widget.slotIndex >= 0 && widget.slotIndex < chain.nodes.length) {
+      _slotIndex = widget.slotIndex;
+      _nodeId = chain.nodes[_slotIndex].id;
+      _initialized = true;
+      _readParams();
+      return;
+    }
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.delay) {
         _nodeId = node.id;

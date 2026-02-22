@@ -5073,6 +5073,14 @@ impl PlaybackEngine {
                 self.process_clip_simple(clip, &audio, start_sample, sample_rate, track_l, track_r);
             }
 
+            // Apply phase invert (polarity flip) before pan
+            if track.phase_inverted {
+                for i in 0..frames {
+                    track_l[i] = -track_l[i];
+                    track_r[i] = -track_r[i];
+                }
+            }
+
             // Apply dual-pan for stereo tracks BEFORE feeding to routing graph
             // Pro Tools style: L channel has own pan, R channel has own pan
             if track.is_stereo() {

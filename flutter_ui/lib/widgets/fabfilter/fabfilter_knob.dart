@@ -83,6 +83,9 @@ class _FabFilterKnobState extends State<FabFilterKnob>
     _glowAnimation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _glowController, curve: Curves.easeOut),
     );
+    _glowAnimation.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
@@ -225,35 +228,35 @@ class _FabFilterKnobState extends State<FabFilterKnob>
   }
 
   Widget _buildKnob() {
-    return AnimatedBuilder(
-      animation: _glowAnimation,
-      builder: (context, child) {
-        return Container(
-          key: _knobKey,
-          width: widget.size,
-          height: widget.size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [
-              if (_isHovering || _isDragging)
-                BoxShadow(
-                  color: widget.color.withValues(alpha: 0.3 * _glowAnimation.value + 0.1),
-                  blurRadius: 12,
-                  spreadRadius: 2,
-                ),
-            ],
-          ),
-          child: CustomPaint(
-            painter: _KnobPainter(
-              value: widget.value,
-              color: widget.color,
-              modulation: widget.modulation,
-              isActive: _isDragging || _isHovering,
-              enabled: widget.enabled,
+    // NOTE: Do NOT wrap CustomPaint in AnimatedBuilder — AnimatedBuilder
+    // only re-invokes its builder when the animation ticks, which means
+    // widget.value changes from parent setState() would be INVISIBLE
+    // (the knob visually wouldn't move even though the value changed).
+    final glowAlpha = _glowAnimation.value;
+    return Container(
+      key: _knobKey,
+      width: widget.size,
+      height: widget.size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          if (_isHovering || _isDragging)
+            BoxShadow(
+              color: widget.color.withValues(alpha: 0.3 * glowAlpha + 0.1),
+              blurRadius: 12,
+              spreadRadius: 2,
             ),
-          ),
-        );
-      },
+        ],
+      ),
+      child: CustomPaint(
+        painter: _KnobPainter(
+          value: widget.value,
+          color: widget.color,
+          modulation: widget.modulation,
+          isActive: _isDragging || _isHovering,
+          enabled: widget.enabled,
+        ),
+      ),
     );
   }
 

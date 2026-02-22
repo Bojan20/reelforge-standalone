@@ -706,10 +706,33 @@ impl InsertProcessor for UltraEqWrapper {
 
 // ============ Pultec EQ Wrapper ============
 
-/// Pultec EQP-1A emulation wrapper
+/// Pultec EQP-1A emulation wrapper — full UAD-style parameter set
+///
+/// Param indices:
+///   0: Low Boost (0–10)
+///   1: Low Atten (0–10)
+///   2: High Boost (0–10)
+///   3: High Atten (0–10)
+///   4: Low Freq index (0=20Hz, 1=30Hz, 2=60Hz, 3=100Hz)
+///   5: High Boost Freq index (0=3k, 1=4k, 2=5k, 3=8k, 4=10k, 5=12k, 6=16k)
+///   6: High Atten Freq index (0=5k, 1=10k, 2=20k)
+///   7: Bandwidth (0.0–1.0, sharp→broad)
+///   8: Drive (0.0–1.0, tube saturation)
+///   9: Output Level (dB, -12 to +12 — applied as gain multiplier)
 pub struct PultecWrapper {
     eq: StereoPultec,
     sample_rate: f64,
+    // Cached param values (PultecEqp1a fields are private in rf-dsp)
+    low_boost: f64,
+    low_atten: f64,
+    high_boost: f64,
+    high_atten: f64,
+    low_freq: rf_dsp::PultecLowFreq,
+    high_boost_freq: rf_dsp::PultecHighBoostFreq,
+    high_atten_freq: rf_dsp::PultecHighAttenFreq,
+    bandwidth: f64,
+    drive: f64,
+    output_gain: f64,
 }
 
 impl PultecWrapper {
@@ -717,27 +740,78 @@ impl PultecWrapper {
         Self {
             eq: StereoPultec::new(sample_rate),
             sample_rate,
+            low_boost: 0.0,
+            low_atten: 0.0,
+            high_boost: 0.0,
+            high_atten: 0.0,
+            low_freq: rf_dsp::PultecLowFreq::Hz100,
+            high_boost_freq: rf_dsp::PultecHighBoostFreq::K12,
+            high_atten_freq: rf_dsp::PultecHighAttenFreq::K10,
+            bandwidth: 0.5,
+            drive: 0.0,
+            output_gain: 1.0,
         }
     }
 
-    pub fn set_low_boost(&mut self, amount: f64) {
-        self.eq.left.set_low_boost(amount);
-        self.eq.right.set_low_boost(amount);
+    fn index_to_low_freq(idx: usize) -> rf_dsp::PultecLowFreq {
+        match idx {
+            0 => rf_dsp::PultecLowFreq::Hz20,
+            1 => rf_dsp::PultecLowFreq::Hz30,
+            2 => rf_dsp::PultecLowFreq::Hz60,
+            3 => rf_dsp::PultecLowFreq::Hz100,
+            _ => rf_dsp::PultecLowFreq::Hz100,
+        }
     }
 
-    pub fn set_low_atten(&mut self, amount: f64) {
-        self.eq.left.set_low_atten(amount);
-        self.eq.right.set_low_atten(amount);
+    fn low_freq_to_index(f: rf_dsp::PultecLowFreq) -> f64 {
+        match f {
+            rf_dsp::PultecLowFreq::Hz20 => 0.0,
+            rf_dsp::PultecLowFreq::Hz30 => 1.0,
+            rf_dsp::PultecLowFreq::Hz60 => 2.0,
+            rf_dsp::PultecLowFreq::Hz100 => 3.0,
+        }
     }
 
-    pub fn set_high_boost(&mut self, amount: f64) {
-        self.eq.left.set_high_boost(amount);
-        self.eq.right.set_high_boost(amount);
+    fn index_to_high_boost_freq(idx: usize) -> rf_dsp::PultecHighBoostFreq {
+        match idx {
+            0 => rf_dsp::PultecHighBoostFreq::K3,
+            1 => rf_dsp::PultecHighBoostFreq::K4,
+            2 => rf_dsp::PultecHighBoostFreq::K5,
+            3 => rf_dsp::PultecHighBoostFreq::K8,
+            4 => rf_dsp::PultecHighBoostFreq::K10,
+            5 => rf_dsp::PultecHighBoostFreq::K12,
+            6 => rf_dsp::PultecHighBoostFreq::K16,
+            _ => rf_dsp::PultecHighBoostFreq::K12,
+        }
     }
 
-    pub fn set_high_atten(&mut self, amount: f64) {
-        self.eq.left.set_high_atten(amount);
-        self.eq.right.set_high_atten(amount);
+    fn high_boost_freq_to_index(f: rf_dsp::PultecHighBoostFreq) -> f64 {
+        match f {
+            rf_dsp::PultecHighBoostFreq::K3 => 0.0,
+            rf_dsp::PultecHighBoostFreq::K4 => 1.0,
+            rf_dsp::PultecHighBoostFreq::K5 => 2.0,
+            rf_dsp::PultecHighBoostFreq::K8 => 3.0,
+            rf_dsp::PultecHighBoostFreq::K10 => 4.0,
+            rf_dsp::PultecHighBoostFreq::K12 => 5.0,
+            rf_dsp::PultecHighBoostFreq::K16 => 6.0,
+        }
+    }
+
+    fn index_to_high_atten_freq(idx: usize) -> rf_dsp::PultecHighAttenFreq {
+        match idx {
+            0 => rf_dsp::PultecHighAttenFreq::K5,
+            1 => rf_dsp::PultecHighAttenFreq::K10,
+            2 => rf_dsp::PultecHighAttenFreq::K20,
+            _ => rf_dsp::PultecHighAttenFreq::K10,
+        }
+    }
+
+    fn high_atten_freq_to_index(f: rf_dsp::PultecHighAttenFreq) -> f64 {
+        match f {
+            rf_dsp::PultecHighAttenFreq::K5 => 0.0,
+            rf_dsp::PultecHighAttenFreq::K10 => 1.0,
+            rf_dsp::PultecHighAttenFreq::K20 => 2.0,
+        }
     }
 }
 
@@ -748,6 +822,15 @@ impl InsertProcessor for PultecWrapper {
 
     fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
         self.eq.process_block(left, right);
+        // Apply output gain
+        if (self.output_gain - 1.0).abs() > 1e-6 {
+            for s in left.iter_mut() {
+                *s *= self.output_gain;
+            }
+            for s in right.iter_mut() {
+                *s *= self.output_gain;
+            }
+        }
     }
 
     fn reset(&mut self) {
@@ -756,20 +839,105 @@ impl InsertProcessor for PultecWrapper {
 
     fn set_sample_rate(&mut self, sample_rate: f64) {
         self.sample_rate = sample_rate;
-        // Recreate the eq with new sample rate
         self.eq = StereoPultec::new(sample_rate);
+        // Restore all cached params to the new DSP instance
+        self.eq.left.set_low_boost(self.low_boost);
+        self.eq.right.set_low_boost(self.low_boost);
+        self.eq.left.set_low_atten(self.low_atten);
+        self.eq.right.set_low_atten(self.low_atten);
+        self.eq.left.set_high_boost(self.high_boost);
+        self.eq.right.set_high_boost(self.high_boost);
+        self.eq.left.set_high_atten(self.high_atten);
+        self.eq.right.set_high_atten(self.high_atten);
+        self.eq.left.set_low_freq(self.low_freq);
+        self.eq.right.set_low_freq(self.low_freq);
+        self.eq.left.set_high_boost_freq(self.high_boost_freq);
+        self.eq.right.set_high_boost_freq(self.high_boost_freq);
+        self.eq.left.set_high_atten_freq(self.high_atten_freq);
+        self.eq.right.set_high_atten_freq(self.high_atten_freq);
+        self.eq.left.set_high_bandwidth(self.bandwidth);
+        self.eq.right.set_high_bandwidth(self.bandwidth);
+        self.eq.left.set_drive(self.drive);
+        self.eq.right.set_drive(self.drive);
     }
 
     fn num_params(&self) -> usize {
-        4
+        10
+    }
+
+    fn get_param(&self, index: usize) -> f64 {
+        match index {
+            0 => self.low_boost,
+            1 => self.low_atten,
+            2 => self.high_boost,
+            3 => self.high_atten,
+            4 => Self::low_freq_to_index(self.low_freq),
+            5 => Self::high_boost_freq_to_index(self.high_boost_freq),
+            6 => Self::high_atten_freq_to_index(self.high_atten_freq),
+            7 => self.bandwidth,
+            8 => self.drive,
+            9 => {
+                if self.output_gain <= 0.001 { -60.0 }
+                else { 20.0 * self.output_gain.log10() }
+            }
+            _ => 0.0,
+        }
     }
 
     fn set_param(&mut self, index: usize, value: f64) {
         match index {
-            0 => self.set_low_boost(value),
-            1 => self.set_low_atten(value),
-            2 => self.set_high_boost(value),
-            3 => self.set_high_atten(value),
+            0 => {
+                self.low_boost = value;
+                self.eq.left.set_low_boost(value);
+                self.eq.right.set_low_boost(value);
+            }
+            1 => {
+                self.low_atten = value;
+                self.eq.left.set_low_atten(value);
+                self.eq.right.set_low_atten(value);
+            }
+            2 => {
+                self.high_boost = value;
+                self.eq.left.set_high_boost(value);
+                self.eq.right.set_high_boost(value);
+            }
+            3 => {
+                self.high_atten = value;
+                self.eq.left.set_high_atten(value);
+                self.eq.right.set_high_atten(value);
+            }
+            4 => {
+                let freq = Self::index_to_low_freq(value as usize);
+                self.low_freq = freq;
+                self.eq.left.set_low_freq(freq);
+                self.eq.right.set_low_freq(freq);
+            }
+            5 => {
+                let freq = Self::index_to_high_boost_freq(value as usize);
+                self.high_boost_freq = freq;
+                self.eq.left.set_high_boost_freq(freq);
+                self.eq.right.set_high_boost_freq(freq);
+            }
+            6 => {
+                let freq = Self::index_to_high_atten_freq(value as usize);
+                self.high_atten_freq = freq;
+                self.eq.left.set_high_atten_freq(freq);
+                self.eq.right.set_high_atten_freq(freq);
+            }
+            7 => {
+                self.bandwidth = value;
+                self.eq.left.set_high_bandwidth(value);
+                self.eq.right.set_high_bandwidth(value);
+            }
+            8 => {
+                self.drive = value;
+                self.eq.left.set_drive(value);
+                self.eq.right.set_drive(value);
+            }
+            9 => {
+                // Output level in dB → linear gain
+                self.output_gain = 10.0_f64.powf(value.clamp(-12.0, 12.0) / 20.0);
+            }
             _ => {}
         }
     }
@@ -780,6 +948,12 @@ impl InsertProcessor for PultecWrapper {
             1 => "Low Atten",
             2 => "High Boost",
             3 => "High Atten",
+            4 => "Low Freq",
+            5 => "High Boost Freq",
+            6 => "High Atten Freq",
+            7 => "Bandwidth",
+            8 => "Drive",
+            9 => "Output Level",
             _ => "",
         }
     }
@@ -787,17 +961,32 @@ impl InsertProcessor for PultecWrapper {
 
 // ============ API 550 Wrapper ============
 
-/// API 550 3-band EQ wrapper
+/// API 550A 3-band EQ wrapper — UAD-faithful parameter set
+///
+/// Param indices:
+///   0: Low Gain (dB, -12 to +12, snapped to discrete steps)
+///   1: Mid Gain (dB, -12 to +12, snapped to discrete steps)
+///   2: High Gain (dB, -12 to +12, snapped to discrete steps)
+///   3: Low Freq index (0=30Hz, 1=40Hz, 2=50Hz, 3=100Hz, 4=200Hz, 5=300Hz, 6=400Hz)
+///   4: Mid Freq index (0=200Hz, 1=400Hz, 2=600Hz, 3=800Hz, 4=1.5kHz, 5=3kHz, 6=5kHz)
+///   5: High Freq index (0=2.5kHz, 1=5kHz, 2=7kHz, 3=10kHz, 4=12.5kHz, 5=15kHz, 6=20kHz)
+///   6: Output Level (dB, -12 to +12)
+///   7: Low Shape (0.0=shelf, 1.0=peak)
+///   8: High Shape (0.0=shelf, 1.0=peak)
+///   9: Bandpass (0.0=off, 1.0=on — 50Hz-15kHz 12dB/oct)
 pub struct Api550Wrapper {
     eq: StereoApi550,
     sample_rate: f64,
-    // Store current gain settings
     low_gain: f64,
     mid_gain: f64,
     high_gain: f64,
     low_freq: rf_dsp::Api550LowFreq,
     mid_freq: rf_dsp::Api550MidFreq,
     high_freq: rf_dsp::Api550HighFreq,
+    low_is_shelf: bool,
+    high_is_shelf: bool,
+    bandpass_enabled: bool,
+    output_gain: f64,
 }
 
 impl Api550Wrapper {
@@ -811,6 +1000,10 @@ impl Api550Wrapper {
             low_freq: rf_dsp::Api550LowFreq::default(),
             mid_freq: rf_dsp::Api550MidFreq::default(),
             high_freq: rf_dsp::Api550HighFreq::default(),
+            low_is_shelf: true,
+            high_is_shelf: true,
+            bandpass_enabled: false,
+            output_gain: 1.0,
         }
     }
 
@@ -852,6 +1045,84 @@ impl Api550Wrapper {
         self.eq.left.set_high(gain_db, self.high_freq);
         self.eq.right.set_high(gain_db, self.high_freq);
     }
+
+    // UAD 7-position LF switch: 30, 40, 50, 100, 200, 300, 400 Hz
+    fn index_to_low_freq(idx: usize) -> rf_dsp::Api550LowFreq {
+        match idx {
+            0 => rf_dsp::Api550LowFreq::Hz30,
+            1 => rf_dsp::Api550LowFreq::Hz40,
+            2 => rf_dsp::Api550LowFreq::Hz50,
+            3 => rf_dsp::Api550LowFreq::Hz100,
+            4 => rf_dsp::Api550LowFreq::Hz200,
+            5 => rf_dsp::Api550LowFreq::Hz300,
+            6 => rf_dsp::Api550LowFreq::Hz400,
+            _ => rf_dsp::Api550LowFreq::Hz100,
+        }
+    }
+
+    fn low_freq_to_index(f: rf_dsp::Api550LowFreq) -> f64 {
+        match f {
+            rf_dsp::Api550LowFreq::Hz30 => 0.0,
+            rf_dsp::Api550LowFreq::Hz40 => 1.0,
+            rf_dsp::Api550LowFreq::Hz50 => 2.0,
+            rf_dsp::Api550LowFreq::Hz100 => 3.0,
+            rf_dsp::Api550LowFreq::Hz200 => 4.0,
+            rf_dsp::Api550LowFreq::Hz300 => 5.0,
+            rf_dsp::Api550LowFreq::Hz400 => 6.0,
+        }
+    }
+
+    // UAD 7-position MF switch: 200, 400, 600, 800, 1.5k, 3k, 5k Hz
+    fn index_to_mid_freq(idx: usize) -> rf_dsp::Api550MidFreq {
+        match idx {
+            0 => rf_dsp::Api550MidFreq::Hz200,
+            1 => rf_dsp::Api550MidFreq::Hz400,
+            2 => rf_dsp::Api550MidFreq::Hz600,
+            3 => rf_dsp::Api550MidFreq::Hz800,
+            4 => rf_dsp::Api550MidFreq::K1_5,
+            5 => rf_dsp::Api550MidFreq::K3,
+            6 => rf_dsp::Api550MidFreq::K5,
+            _ => rf_dsp::Api550MidFreq::K1_5,
+        }
+    }
+
+    fn mid_freq_to_index(f: rf_dsp::Api550MidFreq) -> f64 {
+        match f {
+            rf_dsp::Api550MidFreq::Hz200 => 0.0,
+            rf_dsp::Api550MidFreq::Hz400 => 1.0,
+            rf_dsp::Api550MidFreq::Hz600 => 2.0,
+            rf_dsp::Api550MidFreq::Hz800 => 3.0,
+            rf_dsp::Api550MidFreq::K1_5 => 4.0,
+            rf_dsp::Api550MidFreq::K3 => 5.0,
+            rf_dsp::Api550MidFreq::K5 => 6.0,
+        }
+    }
+
+    // UAD 7-position HF switch: 2.5k, 5k, 7k, 10k, 12.5k, 15k, 20k Hz
+    fn index_to_high_freq(idx: usize) -> rf_dsp::Api550HighFreq {
+        match idx {
+            0 => rf_dsp::Api550HighFreq::K2_5,
+            1 => rf_dsp::Api550HighFreq::K5,
+            2 => rf_dsp::Api550HighFreq::K7,
+            3 => rf_dsp::Api550HighFreq::K10,
+            4 => rf_dsp::Api550HighFreq::K12_5,
+            5 => rf_dsp::Api550HighFreq::K15,
+            6 => rf_dsp::Api550HighFreq::K20,
+            _ => rf_dsp::Api550HighFreq::K10,
+        }
+    }
+
+    fn high_freq_to_index(f: rf_dsp::Api550HighFreq) -> f64 {
+        match f {
+            rf_dsp::Api550HighFreq::K2_5 => 0.0,
+            rf_dsp::Api550HighFreq::K5 => 1.0,
+            rf_dsp::Api550HighFreq::K7 => 2.0,
+            rf_dsp::Api550HighFreq::K10 => 3.0,
+            rf_dsp::Api550HighFreq::K12_5 => 4.0,
+            rf_dsp::Api550HighFreq::K15 => 5.0,
+            rf_dsp::Api550HighFreq::K20 => 6.0,
+        }
+    }
 }
 
 impl InsertProcessor for Api550Wrapper {
@@ -861,6 +1132,15 @@ impl InsertProcessor for Api550Wrapper {
 
     fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
         self.eq.process_block(left, right);
+        // Apply output gain
+        if (self.output_gain - 1.0).abs() > 1e-6 {
+            for s in left.iter_mut() {
+                *s *= self.output_gain;
+            }
+            for s in right.iter_mut() {
+                *s *= self.output_gain;
+            }
+        }
     }
 
     fn reset(&mut self) {
@@ -870,17 +1150,23 @@ impl InsertProcessor for Api550Wrapper {
     fn set_sample_rate(&mut self, sample_rate: f64) {
         self.sample_rate = sample_rate;
         self.eq = StereoApi550::new(sample_rate);
-        // Restore settings
+        // Restore all cached settings
         self.eq.left.set_low(self.low_gain, self.low_freq);
         self.eq.right.set_low(self.low_gain, self.low_freq);
         self.eq.left.set_mid(self.mid_gain, self.mid_freq);
         self.eq.right.set_mid(self.mid_gain, self.mid_freq);
         self.eq.left.set_high(self.high_gain, self.high_freq);
         self.eq.right.set_high(self.high_gain, self.high_freq);
+        self.eq.left.set_low_shape(!self.low_is_shelf);
+        self.eq.right.set_low_shape(!self.low_is_shelf);
+        self.eq.left.set_high_shape(!self.high_is_shelf);
+        self.eq.right.set_high_shape(!self.high_is_shelf);
+        self.eq.left.set_bandpass(self.bandpass_enabled);
+        self.eq.right.set_bandpass(self.bandpass_enabled);
     }
 
     fn num_params(&self) -> usize {
-        3
+        10
     }
 
     fn get_param(&self, index: usize) -> f64 {
@@ -888,24 +1174,80 @@ impl InsertProcessor for Api550Wrapper {
             0 => self.low_gain,
             1 => self.mid_gain,
             2 => self.high_gain,
+            3 => Self::low_freq_to_index(self.low_freq),
+            4 => Self::mid_freq_to_index(self.mid_freq),
+            5 => Self::high_freq_to_index(self.high_freq),
+            6 => {
+                if self.output_gain <= 0.001 { -60.0 }
+                else { 20.0 * self.output_gain.log10() }
+            }
+            7 => if self.low_is_shelf { 0.0 } else { 1.0 },
+            8 => if self.high_is_shelf { 0.0 } else { 1.0 },
+            9 => if self.bandpass_enabled { 1.0 } else { 0.0 },
             _ => 0.0,
         }
     }
 
     fn set_param(&mut self, index: usize, value: f64) {
         match index {
-            0 => self.set_low_gain(value),
-            1 => self.set_mid_gain(value),
-            2 => self.set_high_gain(value),
+            0 => self.set_low_gain(value.clamp(-12.0, 12.0)),
+            1 => self.set_mid_gain(value.clamp(-12.0, 12.0)),
+            2 => self.set_high_gain(value.clamp(-12.0, 12.0)),
+            3 => {
+                let freq = Self::index_to_low_freq(value as usize);
+                self.low_freq = freq;
+                self.eq.left.set_low(self.low_gain, freq);
+                self.eq.right.set_low(self.low_gain, freq);
+            }
+            4 => {
+                let freq = Self::index_to_mid_freq(value as usize);
+                self.mid_freq = freq;
+                self.eq.left.set_mid(self.mid_gain, freq);
+                self.eq.right.set_mid(self.mid_gain, freq);
+            }
+            5 => {
+                let freq = Self::index_to_high_freq(value as usize);
+                self.high_freq = freq;
+                self.eq.left.set_high(self.high_gain, freq);
+                self.eq.right.set_high(self.high_gain, freq);
+            }
+            6 => {
+                self.output_gain = 10.0_f64.powf(value.clamp(-12.0, 12.0) / 20.0);
+            }
+            7 => {
+                // Low Shape: 0=shelf, 1=peak
+                self.low_is_shelf = value < 0.5;
+                self.eq.left.set_low_shape(!self.low_is_shelf);
+                self.eq.right.set_low_shape(!self.low_is_shelf);
+            }
+            8 => {
+                // High Shape: 0=shelf, 1=peak
+                self.high_is_shelf = value < 0.5;
+                self.eq.left.set_high_shape(!self.high_is_shelf);
+                self.eq.right.set_high_shape(!self.high_is_shelf);
+            }
+            9 => {
+                // Bandpass: 0=off, 1=on
+                self.bandpass_enabled = value > 0.5;
+                self.eq.left.set_bandpass(self.bandpass_enabled);
+                self.eq.right.set_bandpass(self.bandpass_enabled);
+            }
             _ => {}
         }
     }
 
     fn param_name(&self, index: usize) -> &str {
         match index {
-            0 => "Low",
-            1 => "Mid",
-            2 => "High",
+            0 => "Low Gain",
+            1 => "Mid Gain",
+            2 => "High Gain",
+            3 => "Low Freq",
+            4 => "Mid Freq",
+            5 => "High Freq",
+            6 => "Output Level",
+            7 => "Low Shape",
+            8 => "High Shape",
+            9 => "Bandpass",
             _ => "",
         }
     }
@@ -913,17 +1255,41 @@ impl InsertProcessor for Api550Wrapper {
 
 // ============ Neve 1073 Wrapper ============
 
-/// Neve 1073 preamp/EQ wrapper
+/// Neve 1073 preamp/EQ wrapper — UAD-faithful parameter set
+///
+/// Param indices:
+///   0: HP Enabled      (0.0=off, 1.0=on)
+///   1: LF Gain         (dB, -16 to +16)
+///   2: MF Gain         (dB, -18 to +18)
+///   3: HF Gain         (dB, -16 to +16 — fixed at 12kHz per UAD spec)
+///   4: HP Freq index   (0=50Hz, 1=80Hz, 2=160Hz, 3=300Hz)
+///   5: LF Freq index   (0=35Hz, 1=60Hz, 2=110Hz, 3=220Hz)
+///   6: MF Freq index   (0=360Hz, 1=700Hz, 2=1.6kHz, 3=3.2kHz, 4=4.8kHz, 5=7.2kHz)
+///   7: Output Level    (dB, -12 to +12)
+///
+/// UAD Neve 1073 signal flow:
+///   Input → Marinair Transformer → 18dB/oct HPF (3 cascaded biquads)
+///         → LF Shelf → MF Peak (frequency-dependent Q) → HF Shelf (fixed 12kHz)
+///         → Class-A Saturation → Output Transformer → Output
+///
+/// Key UAD differences from generic EQ:
+///   - HF shelf is FIXED at 12kHz (no frequency selector)
+///   - MF Q varies with frequency (1.5 @ 360Hz → 3.0 @ 7.2kHz, inductor topology)
+///   - HPF is 18dB/oct (3 cascaded 2nd-order sections, not 12dB/oct)
+///   - Class-A saturation + Marinair transformer coloration
+///   - MF band is integral to the DSP (not a wrapper add-on)
 pub struct Neve1073Wrapper {
     eq: StereoNeve1073,
     sample_rate: f64,
-    // Store current freq settings for parameter updates
-    low_freq: rf_dsp::Neve1073LowFreq,
-    high_freq: rf_dsp::Neve1073HighFreq,
+    // Cached params (DSP struct fields are private)
+    hp_enabled: bool,
     hp_freq: rf_dsp::Neve1073HpFreq,
     low_gain: f64,
+    low_freq: rf_dsp::Neve1073LowFreq,
+    mf_gain: f64,
+    mf_freq: rf_dsp::Neve1073MidFreq,
     high_gain: f64,
-    hp_enabled: bool,
+    output_gain: f64,
 }
 
 impl Neve1073Wrapper {
@@ -931,46 +1297,76 @@ impl Neve1073Wrapper {
         Self {
             eq: StereoNeve1073::new(sample_rate),
             sample_rate,
-            low_freq: rf_dsp::Neve1073LowFreq::default(),
-            high_freq: rf_dsp::Neve1073HighFreq::default(),
+            hp_enabled: false,
             hp_freq: rf_dsp::Neve1073HpFreq::default(),
             low_gain: 0.0,
+            low_freq: rf_dsp::Neve1073LowFreq::default(),
+            mf_gain: 0.0,
+            mf_freq: rf_dsp::Neve1073MidFreq::default(),
             high_gain: 0.0,
-            hp_enabled: false,
+            output_gain: 1.0,
         }
     }
 
-    pub fn set_hp(&mut self, enabled: bool, freq: rf_dsp::Neve1073HpFreq) {
-        self.hp_enabled = enabled;
-        self.hp_freq = freq;
-        self.eq.left.set_hp(enabled, freq);
-        self.eq.right.set_hp(enabled, freq);
+    fn index_to_hp_freq(idx: usize) -> rf_dsp::Neve1073HpFreq {
+        match idx {
+            0 => rf_dsp::Neve1073HpFreq::Hz50,
+            1 => rf_dsp::Neve1073HpFreq::Hz80,
+            2 => rf_dsp::Neve1073HpFreq::Hz160,
+            3 => rf_dsp::Neve1073HpFreq::Hz300,
+            _ => rf_dsp::Neve1073HpFreq::Hz300,
+        }
     }
 
-    pub fn set_low(&mut self, gain_db: f64, freq: rf_dsp::Neve1073LowFreq) {
-        self.low_gain = gain_db;
-        self.low_freq = freq;
-        self.eq.left.set_low(gain_db, freq);
-        self.eq.right.set_low(gain_db, freq);
+    fn hp_freq_to_index(f: rf_dsp::Neve1073HpFreq) -> f64 {
+        match f {
+            rf_dsp::Neve1073HpFreq::Hz50 => 0.0,
+            rf_dsp::Neve1073HpFreq::Hz80 => 1.0,
+            rf_dsp::Neve1073HpFreq::Hz160 => 2.0,
+            rf_dsp::Neve1073HpFreq::Hz300 => 3.0,
+        }
     }
 
-    pub fn set_high(&mut self, gain_db: f64, freq: rf_dsp::Neve1073HighFreq) {
-        self.high_gain = gain_db;
-        self.high_freq = freq;
-        self.eq.left.set_high(gain_db, freq);
-        self.eq.right.set_high(gain_db, freq);
+    fn index_to_low_freq(idx: usize) -> rf_dsp::Neve1073LowFreq {
+        match idx {
+            0 => rf_dsp::Neve1073LowFreq::Hz35,
+            1 => rf_dsp::Neve1073LowFreq::Hz60,
+            2 => rf_dsp::Neve1073LowFreq::Hz110,
+            3 => rf_dsp::Neve1073LowFreq::Hz220,
+            _ => rf_dsp::Neve1073LowFreq::Hz220,
+        }
     }
 
-    pub fn set_low_gain(&mut self, gain_db: f64) {
-        self.low_gain = gain_db;
-        self.eq.left.set_low(gain_db, self.low_freq);
-        self.eq.right.set_low(gain_db, self.low_freq);
+    fn low_freq_to_index(f: rf_dsp::Neve1073LowFreq) -> f64 {
+        match f {
+            rf_dsp::Neve1073LowFreq::Hz35 => 0.0,
+            rf_dsp::Neve1073LowFreq::Hz60 => 1.0,
+            rf_dsp::Neve1073LowFreq::Hz110 => 2.0,
+            rf_dsp::Neve1073LowFreq::Hz220 => 3.0,
+        }
     }
 
-    pub fn set_high_gain(&mut self, gain_db: f64) {
-        self.high_gain = gain_db;
-        self.eq.left.set_high(gain_db, self.high_freq);
-        self.eq.right.set_high(gain_db, self.high_freq);
+    fn index_to_mf_freq(idx: usize) -> rf_dsp::Neve1073MidFreq {
+        match idx {
+            0 => rf_dsp::Neve1073MidFreq::Hz360,
+            1 => rf_dsp::Neve1073MidFreq::Hz700,
+            2 => rf_dsp::Neve1073MidFreq::K1_6,
+            3 => rf_dsp::Neve1073MidFreq::K3_2,
+            4 => rf_dsp::Neve1073MidFreq::K4_8,
+            5 => rf_dsp::Neve1073MidFreq::K7_2,
+            _ => rf_dsp::Neve1073MidFreq::K1_6,
+        }
+    }
+
+    fn mf_freq_to_index(f: rf_dsp::Neve1073MidFreq) -> f64 {
+        match f {
+            rf_dsp::Neve1073MidFreq::Hz360 => 0.0,
+            rf_dsp::Neve1073MidFreq::Hz700 => 1.0,
+            rf_dsp::Neve1073MidFreq::K1_6 => 2.0,
+            rf_dsp::Neve1073MidFreq::K3_2 => 3.0,
+            rf_dsp::Neve1073MidFreq::K4_8 => 4.0,
+            rf_dsp::Neve1073MidFreq::K7_2 => 5.0,
+        }
     }
 }
 
@@ -980,7 +1376,19 @@ impl InsertProcessor for Neve1073Wrapper {
     }
 
     fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
+        // Base Neve1073 DSP handles entire signal chain:
+        // Input Transformer → HPF (18dB/oct) → LF Shelf → MF Peak → HF Shelf
+        // → Class-A Saturation → Output Transformer
         self.eq.process_block(left, right);
+        // Apply output gain
+        if (self.output_gain - 1.0).abs() > 1e-6 {
+            for s in left.iter_mut() {
+                *s *= self.output_gain;
+            }
+            for s in right.iter_mut() {
+                *s *= self.output_gain;
+            }
+        }
     }
 
     fn reset(&mut self) {
@@ -989,41 +1397,90 @@ impl InsertProcessor for Neve1073Wrapper {
 
     fn set_sample_rate(&mut self, sample_rate: f64) {
         self.sample_rate = sample_rate;
-        // Recreate the EQ with new sample rate
         self.eq = StereoNeve1073::new(sample_rate);
-        // Restore settings
+        // Restore all cached params
         self.eq.left.set_hp(self.hp_enabled, self.hp_freq);
         self.eq.right.set_hp(self.hp_enabled, self.hp_freq);
         self.eq.left.set_low(self.low_gain, self.low_freq);
         self.eq.right.set_low(self.low_gain, self.low_freq);
-        self.eq.left.set_high(self.high_gain, self.high_freq);
-        self.eq.right.set_high(self.high_gain, self.high_freq);
+        self.eq.left.set_mid(self.mf_gain, self.mf_freq);
+        self.eq.right.set_mid(self.mf_gain, self.mf_freq);
+        self.eq.left.set_high(self.high_gain);
+        self.eq.right.set_high(self.high_gain);
     }
 
     fn num_params(&self) -> usize {
-        3 // HP enabled, Low gain, High gain
+        8
     }
 
     fn get_param(&self, index: usize) -> f64 {
         match index {
-            0 => {
-                if self.hp_enabled {
-                    1.0
-                } else {
-                    0.0
-                }
-            }
+            0 => if self.hp_enabled { 1.0 } else { 0.0 },
             1 => self.low_gain,
-            2 => self.high_gain,
+            2 => self.mf_gain,
+            3 => self.high_gain,
+            4 => Self::hp_freq_to_index(self.hp_freq),
+            5 => Self::low_freq_to_index(self.low_freq),
+            6 => Self::mf_freq_to_index(self.mf_freq),
+            7 => {
+                if self.output_gain <= 0.001 { -60.0 }
+                else { 20.0 * self.output_gain.log10() }
+            }
             _ => 0.0,
         }
     }
 
     fn set_param(&mut self, index: usize, value: f64) {
         match index {
-            0 => self.set_hp(value > 0.5, self.hp_freq),
-            1 => self.set_low_gain(value.clamp(-16.0, 16.0)),
-            2 => self.set_high_gain(value.clamp(-16.0, 16.0)),
+            0 => {
+                // HP Enabled
+                self.hp_enabled = value > 0.5;
+                self.eq.left.set_hp(self.hp_enabled, self.hp_freq);
+                self.eq.right.set_hp(self.hp_enabled, self.hp_freq);
+            }
+            1 => {
+                // LF Gain
+                self.low_gain = value.clamp(-16.0, 16.0);
+                self.eq.left.set_low(self.low_gain, self.low_freq);
+                self.eq.right.set_low(self.low_gain, self.low_freq);
+            }
+            2 => {
+                // MF Gain
+                self.mf_gain = value.clamp(-18.0, 18.0);
+                self.eq.left.set_mid(self.mf_gain, self.mf_freq);
+                self.eq.right.set_mid(self.mf_gain, self.mf_freq);
+            }
+            3 => {
+                // HF Gain (fixed at 12kHz per UAD spec)
+                self.high_gain = value.clamp(-16.0, 16.0);
+                self.eq.left.set_high(self.high_gain);
+                self.eq.right.set_high(self.high_gain);
+            }
+            4 => {
+                // HP Freq index
+                let freq = Self::index_to_hp_freq(value as usize);
+                self.hp_freq = freq;
+                self.eq.left.set_hp(self.hp_enabled, freq);
+                self.eq.right.set_hp(self.hp_enabled, freq);
+            }
+            5 => {
+                // LF Freq index
+                let freq = Self::index_to_low_freq(value as usize);
+                self.low_freq = freq;
+                self.eq.left.set_low(self.low_gain, freq);
+                self.eq.right.set_low(self.low_gain, freq);
+            }
+            6 => {
+                // MF Freq index (with frequency-dependent Q from DSP)
+                let freq = Self::index_to_mf_freq(value as usize);
+                self.mf_freq = freq;
+                self.eq.left.set_mid(self.mf_gain, freq);
+                self.eq.right.set_mid(self.mf_gain, freq);
+            }
+            7 => {
+                // Output Level
+                self.output_gain = 10.0_f64.powf(value.clamp(-12.0, 12.0) / 20.0);
+            }
             _ => {}
         }
     }
@@ -1031,8 +1488,13 @@ impl InsertProcessor for Neve1073Wrapper {
     fn param_name(&self, index: usize) -> &str {
         match index {
             0 => "HP Enabled",
-            1 => "Low Gain",
-            2 => "High Gain",
+            1 => "LF Gain",
+            2 => "MF Gain",
+            3 => "HF Gain",
+            4 => "HP Freq",
+            5 => "LF Freq",
+            6 => "MF Freq",
+            7 => "Output Level",
             _ => "",
         }
     }

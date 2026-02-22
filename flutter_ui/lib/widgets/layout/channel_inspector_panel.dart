@@ -9,6 +9,7 @@
 ///
 /// This replaces both the separate Channel tab and right-side Clip Inspector.
 
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../theme/fluxforge_theme.dart';
@@ -1873,6 +1874,15 @@ class _InsertSlotRow extends StatefulWidget {
 class _InsertSlotRowState extends State<_InsertSlotRow> {
   bool _isHovered = false;
   bool _showWetDry = false;
+  bool _isDraggingWetDry = false;
+  double? _localWetDry; // Optimistic local value during drag
+  Timer? _wetDryDebounce;
+
+  @override
+  void dispose() {
+    _wetDryDebounce?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1886,7 +1896,7 @@ class _InsertSlotRowState extends State<_InsertSlotRow> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() {
         _isHovered = false;
-        _showWetDry = false;
+        if (!_isDraggingWetDry) _showWetDry = false;
       }),
       child: GestureDetector(
         // Only open plugin picker on tap if empty slot or tap on name area
@@ -2094,10 +2104,31 @@ class _InsertSlotRowState extends State<_InsertSlotRow> {
                               overlayColor: FluxForgeTheme.accentCyan.withValues(alpha: 0.2),
                             ),
                             child: Slider(
-                              value: widget.insert.wetDry,
+                              value: _localWetDry ?? widget.insert.wetDry,
                               min: 0.0,
                               max: 1.0,
-                              onChanged: widget.onWetDryChange,
+                              onChangeStart: (_) {
+                                setState(() {
+                                  _isDraggingWetDry = true;
+                                  _localWetDry = widget.insert.wetDry;
+                                });
+                              },
+                              onChanged: (v) {
+                                setState(() => _localWetDry = v);
+                                _wetDryDebounce?.cancel();
+                                _wetDryDebounce = Timer(
+                                  const Duration(milliseconds: 50),
+                                  () => widget.onWetDryChange?.call(v),
+                                );
+                              },
+                              onChangeEnd: (v) {
+                                _wetDryDebounce?.cancel();
+                                widget.onWetDryChange?.call(v);
+                                setState(() {
+                                  _isDraggingWetDry = false;
+                                  _localWetDry = null;
+                                });
+                              },
                             ),
                           ),
                         ),

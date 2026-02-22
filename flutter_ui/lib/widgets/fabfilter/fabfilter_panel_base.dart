@@ -105,6 +105,11 @@ abstract class FabFilterPanelBase extends StatefulWidget {
   /// Callback when panel requests close
   final VoidCallback? onClose;
 
+  /// Insert chain slot index. When >= 0, the panel uses this directly
+  /// instead of searching DspChainProvider by node type.
+  /// This is critical when opened from Channel Tab insert slots.
+  final int slotIndex;
+
   const FabFilterPanelBase({
     super.key,
     required this.title,
@@ -115,6 +120,7 @@ abstract class FabFilterPanelBase extends StatefulWidget {
     this.nodeType,
     this.onSettingsChanged,
     this.onClose,
+    this.slotIndex = -1,
   });
 }
 

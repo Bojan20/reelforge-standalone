@@ -488,55 +488,113 @@ class _InternalProcessorEditorWindowState
 
   /// Build the premium FabFilter panel for this processor type
   Widget _buildFabFilterPanel() {
+    final si = widget.slotIndex;
     switch (widget.node.type) {
       case DspNodeType.eq:
-        return FabFilterEqPanel(trackId: widget.trackId);
+        return FabFilterEqPanel(trackId: widget.trackId, slotIndex: si);
       case DspNodeType.compressor:
-        return FabFilterCompressorPanel(trackId: widget.trackId);
+        return FabFilterCompressorPanel(trackId: widget.trackId, slotIndex: si);
       case DspNodeType.limiter:
-        return FabFilterLimiterPanel(trackId: widget.trackId);
+        return FabFilterLimiterPanel(trackId: widget.trackId, slotIndex: si);
       case DspNodeType.gate:
-        return FabFilterGatePanel(trackId: widget.trackId);
+        return FabFilterGatePanel(trackId: widget.trackId, slotIndex: si);
       case DspNodeType.reverb:
-        return FabFilterReverbPanel(trackId: widget.trackId);
+        return FabFilterReverbPanel(trackId: widget.trackId, slotIndex: si);
       case DspNodeType.delay:
-        return FabFilterDelayPanel(trackId: widget.trackId);
+        return FabFilterDelayPanel(trackId: widget.trackId, slotIndex: si);
       case DspNodeType.saturation:
       case DspNodeType.multibandSaturation:
-        return FabFilterSaturationPanel(trackId: widget.trackId);
+        return FabFilterSaturationPanel(trackId: widget.trackId, slotIndex: si);
       case DspNodeType.deEsser:
-        return FabFilterDeEsserPanel(trackId: widget.trackId);
+        return FabFilterDeEsserPanel(trackId: widget.trackId, slotIndex: si);
       case DspNodeType.expander:
-        return FabFilterExpanderPanel(trackId: widget.trackId);
+        return FabFilterExpanderPanel(trackId: widget.trackId, slotIndex: si);
       case DspNodeType.haasDelay:
-        return FabFilterHaasPanel(trackId: widget.trackId);
+        return FabFilterHaasPanel(trackId: widget.trackId, slotIndex: si);
       case DspNodeType.stereoImager:
-        return FabFilterImagerPanel(trackId: widget.trackId);
+        return FabFilterImagerPanel(trackId: widget.trackId, slotIndex: si);
       case DspNodeType.multibandStereoImager:
-        return FabFilterMultibandImagerPanel(trackId: widget.trackId);
+        return FabFilterMultibandImagerPanel(trackId: widget.trackId, slotIndex: si);
       case DspNodeType.pultec:
         return PultecEq(
           onParamsChanged: (params) {
-            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 0, params.lowBoost);
-            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 1, params.lowAtten);
-            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 2, params.highBoost);
-            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 3, params.highAtten);
+            final ffi = NativeFFI.instance;
+            final t = widget.trackId;
+            final s = widget.slotIndex;
+            // Gain params (0-3)
+            ffi.insertSetParam(t, s, 0, params.lowBoost);
+            ffi.insertSetParam(t, s, 1, params.lowAtten);
+            ffi.insertSetParam(t, s, 2, params.highBoost);
+            ffi.insertSetParam(t, s, 3, params.highAtten);
+            // Freq indices (4-6): Hz → index
+            const pultecLowFreqs = [20, 30, 60, 100];
+            const pultecHiBoostFreqs = [3000, 4000, 5000, 8000, 10000, 12000, 16000];
+            const pultecHiAttenFreqs = [5000, 10000, 20000];
+            final lowIdx = pultecLowFreqs.indexOf(params.lowFreq);
+            final hiBoostIdx = pultecHiBoostFreqs.indexOf(params.highBoostFreq);
+            final hiAttenIdx = pultecHiAttenFreqs.indexOf(params.highAttenFreq);
+            ffi.insertSetParam(t, s, 4, (lowIdx >= 0 ? lowIdx : 2).toDouble());
+            ffi.insertSetParam(t, s, 5, (hiBoostIdx >= 0 ? hiBoostIdx : 3).toDouble());
+            ffi.insertSetParam(t, s, 6, (hiAttenIdx >= 0 ? hiAttenIdx : 1).toDouble());
+            // Bandwidth (7): 0-10 → 0.0-1.0
+            ffi.insertSetParam(t, s, 7, (params.bandwidth / 10.0).clamp(0.0, 1.0));
+            // Drive (8): not exposed in PultecParams → 0
+            // Output Level (9): dB
+            ffi.insertSetParam(t, s, 9, params.outputLevel);
           },
         );
       case DspNodeType.api550:
         return Api550Eq(
           onParamsChanged: (params) {
-            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 0, params.lowGain);
-            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 1, params.midGain);
-            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 2, params.highGain);
+            final ffi = NativeFFI.instance;
+            final t = widget.trackId;
+            final s = widget.slotIndex;
+            // Api550Wrapper param layout (7 params, UAD-faithful):
+            // 0: Low Gain (-12 to +12 dB)
+            ffi.insertSetParam(t, s, 0, params.lowGain);
+            // 1: Mid Gain (-12 to +12 dB)
+            ffi.insertSetParam(t, s, 1, params.midGain);
+            // 2: High Gain (-12 to +12 dB)
+            ffi.insertSetParam(t, s, 2, params.highGain);
+            // 3: Low Freq index (0-6: 30,40,50,100,200,300,400 Hz)
+            ffi.insertSetParam(t, s, 3, _api550LowFreqToIndex(params.lowFreq));
+            // 4: Mid Freq index (0-6: 200,400,600,800,1.5k,3k,5k Hz)
+            ffi.insertSetParam(t, s, 4, _api550MidFreqToIndex(params.midFreq));
+            // 5: High Freq index (0-6: 2.5k,5k,7k,10k,12.5k,15k,20k Hz)
+            ffi.insertSetParam(t, s, 5, _api550HighFreqToIndex(params.highFreq));
+            // 6: Output Level (dB)
+            ffi.insertSetParam(t, s, 6, params.outputLevel);
           },
         );
       case DspNodeType.neve1073:
         return Neve1073Eq(
           onParamsChanged: (params) {
-            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 0, params.hpfEnabled ? 1.0 : 0.0);
-            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 1, params.lfGain);
-            NativeFFI.instance.insertSetParam(widget.trackId, widget.slotIndex, 2, params.hfGain);
+            final ffi = NativeFFI.instance;
+            final t = widget.trackId;
+            final s = widget.slotIndex;
+            // NEW Neve1073Wrapper param layout (8 params, UAD-faithful):
+            // 0: HP Enabled (0/1)
+            ffi.insertSetParam(t, s, 0, params.hpfEnabled ? 1.0 : 0.0);
+            // 1: LF Gain (-16 to +16 dB)
+            ffi.insertSetParam(t, s, 1, params.lfGain);
+            // 2: MF Gain (-18 to +18 dB)
+            ffi.insertSetParam(t, s, 2, params.mfGain);
+            // 3: HF Gain (-16 to +16 dB, fixed 12kHz)
+            ffi.insertSetParam(t, s, 3, params.hfGain);
+            // 4: HP Freq index (0-3: 50, 80, 160, 300 Hz)
+            const neveHpFreqs = [50, 80, 160, 300];
+            final hpIdx = neveHpFreqs.indexOf(params.hpfFreq);
+            ffi.insertSetParam(t, s, 4, (hpIdx >= 0 ? hpIdx : 3).toDouble());
+            // 5: LF Freq index (0-3: 35, 60, 110, 220 Hz)
+            const neveLfFreqs = [35, 60, 110, 220];
+            final lfIdx = neveLfFreqs.indexOf(params.lfFreq);
+            ffi.insertSetParam(t, s, 5, (lfIdx >= 0 ? lfIdx : 2).toDouble());
+            // 6: MF Freq index (0-5: 360, 700, 1600, 3200, 4800, 7200 Hz)
+            const neveMfFreqs = [360, 700, 1600, 3200, 4800, 7200];
+            final mfIdx = neveMfFreqs.indexOf(params.mfFreq);
+            ffi.insertSetParam(t, s, 6, (mfIdx >= 0 ? mfIdx : 2).toDouble());
+            // 7: Output Level (dB)
+            ffi.insertSetParam(t, s, 7, params.outputLevel);
           },
         );
     }
@@ -587,6 +645,55 @@ class _InternalProcessorEditorWindowState
         return FluxForgeTheme.accentCyan;
       case DspNodeType.multibandStereoImager:
         return FluxForgeTheme.accentCyan;
+    }
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════════
+  // VINTAGE EQ — Hz → Rust enum index converters (UAD-faithful 7 positions)
+  // ═════════════════════════════════════════════════════════════════════════════
+
+  /// API 550A low freq: Dart [30,40,50,100,200,300,400] → Rust Api550LowFreq enum
+  /// Hz30(0), Hz40(1), Hz50(2), Hz100(3), Hz200(4), Hz300(5), Hz400(6)
+  static double _api550LowFreqToIndex(int hz) {
+    switch (hz) {
+      case 30:  return 0.0;
+      case 40:  return 1.0;
+      case 50:  return 2.0;
+      case 100: return 3.0;
+      case 200: return 4.0;
+      case 300: return 5.0;
+      case 400: return 6.0;
+      default:  return 3.0; // fallback to 100Hz
+    }
+  }
+
+  /// API 550A mid freq: Dart [200,400,600,800,1500,3000,5000] → Rust Api550MidFreq enum
+  /// Hz200(0), Hz400(1), Hz600(2), Hz800(3), K1_5(4), K3(5), K5(6)
+  static double _api550MidFreqToIndex(int hz) {
+    switch (hz) {
+      case 200:  return 0.0;
+      case 400:  return 1.0;
+      case 600:  return 2.0;
+      case 800:  return 3.0;
+      case 1500: return 4.0;
+      case 3000: return 5.0;
+      case 5000: return 6.0;
+      default:   return 3.0; // fallback to 800Hz
+    }
+  }
+
+  /// API 550A high freq: Dart [2500,5000,7000,10000,12500,15000,20000] → Rust Api550HighFreq enum
+  /// K2_5(0), K5(1), K7(2), K10(3), K12_5(4), K15(5), K20(6)
+  static double _api550HighFreqToIndex(int hz) {
+    switch (hz) {
+      case 2500:  return 0.0;
+      case 5000:  return 1.0;
+      case 7000:  return 2.0;
+      case 10000: return 3.0;
+      case 12500: return 4.0;
+      case 15000: return 5.0;
+      case 20000: return 6.0;
+      default:    return 1.0; // fallback to 5kHz
     }
   }
 }

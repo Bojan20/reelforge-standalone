@@ -1,8 +1,8 @@
 // API 550A Discrete 3-Band EQ Emulation Widget
 //
-// Recreation of the classic API 550A graphic EQ
+// UAD-faithful recreation of the classic API 550A graphic EQ
 // Features:
-// - 5 selectable frequencies per band
+// - 7 selectable frequencies per band (UAD-accurate)
 // - +/-12dB boost/cut
 // - Proportional Q (bandwidth changes with boost/cut amount)
 // - Characteristic API transformer saturation
@@ -13,18 +13,18 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../theme/fluxforge_theme.dart';
 
-/// API 550A parameter set
+/// API 550A parameter set (UAD-faithful 7 frequencies per band)
 class Api550Params {
-  // Low band
-  final int lowFreq;        // 30, 40, 50, 100, 200 Hz
+  // Low band (UAD: 30, 40, 50, 100, 200, 300, 400 Hz)
+  final int lowFreq;
   final double lowGain;     // -12 to +12 dB
 
-  // Mid band
-  final int midFreq;        // 200, 400, 800, 1500, 3000 Hz
+  // Mid band (UAD: 200, 400, 600, 800, 1.5k, 3k, 5k Hz)
+  final int midFreq;
   final double midGain;     // -12 to +12 dB
 
-  // High band
-  final int highFreq;       // 2500, 5000, 7500, 10000, 12500 Hz
+  // High band (UAD: 2.5k, 5k, 7k, 10k, 12.5k, 15k, 20k Hz)
+  final int highFreq;
   final double highGain;    // -12 to +12 dB
 
   // Global
@@ -131,11 +131,11 @@ class _Api550EqState extends State<Api550Eq> {
               padding: const EdgeInsets.all(12),
               child: Row(
                 children: [
-                  // Low band
+                  // Low band (UAD: 7 frequencies)
                   Expanded(
                     child: _buildBand(
                       label: 'LOW',
-                      frequencies: const [30, 40, 50, 100, 200],
+                      frequencies: const [30, 40, 50, 100, 200, 300, 400],
                       selectedFreq: _params.lowFreq,
                       gain: _params.lowGain,
                       onFreqChanged: (f) => _updateParams(_params.copyWith(lowFreq: f)),
@@ -145,11 +145,11 @@ class _Api550EqState extends State<Api550Eq> {
 
                   const SizedBox(width: 8),
 
-                  // Mid band
+                  // Mid band (UAD: 7 frequencies)
                   Expanded(
                     child: _buildBand(
                       label: 'MID',
-                      frequencies: const [200, 400, 800, 1500, 3000],
+                      frequencies: const [200, 400, 600, 800, 1500, 3000, 5000],
                       selectedFreq: _params.midFreq,
                       gain: _params.midGain,
                       onFreqChanged: (f) => _updateParams(_params.copyWith(midFreq: f)),
@@ -159,11 +159,11 @@ class _Api550EqState extends State<Api550Eq> {
 
                   const SizedBox(width: 8),
 
-                  // High band
+                  // High band (UAD: 7 frequencies)
                   Expanded(
                     child: _buildBand(
                       label: 'HIGH',
-                      frequencies: const [2500, 5000, 7500, 10000, 12500],
+                      frequencies: const [2500, 5000, 7000, 10000, 12500, 15000, 20000],
                       selectedFreq: _params.highFreq,
                       gain: _params.highGain,
                       displayDivider: 1000,

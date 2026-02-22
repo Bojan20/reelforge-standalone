@@ -109,6 +109,7 @@ class FabFilterGatePanel extends FabFilterPanelBase {
   const FabFilterGatePanel({
     super.key,
     required super.trackId,
+    super.slotIndex,
   }) : super(
           title: 'FF-G',
           icon: Icons.door_sliding,
@@ -203,6 +204,14 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
   void _initializeProcessor() {
     final dsp = DspChainProvider.instance;
     final chain = dsp.getChain(widget.trackId);
+    // Use slotIndex directly when passed from insert editor window
+    if (widget.slotIndex >= 0 && widget.slotIndex < chain.nodes.length) {
+      _slotIndex = widget.slotIndex;
+      _nodeId = chain.nodes[_slotIndex].id;
+      _initialized = true;
+      _readParamsFromEngine();
+      return;
+    }
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.gate) {
         _nodeId = node.id;

@@ -154,6 +154,7 @@ class FabFilterEqPanel extends FabFilterPanelBase {
   const FabFilterEqPanel({
     super.key,
     required super.trackId,
+    super.slotIndex,
     super.sampleRate,
     super.onSettingsChanged,
   }) : super(
@@ -325,12 +326,26 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
   }
 
   void _initProcessor() {
+    // If slotIndex was passed directly (from insert editor window), use it
+    if (widget.slotIndex >= 0) {
+      _slotIndex = widget.slotIndex;
+      final dsp = DspChainProvider.instance;
+      final chain = dsp.getChain(widget.trackId);
+      if (_slotIndex < chain.nodes.length) {
+        _nodeId = chain.nodes[_slotIndex].id;
+      }
+      setState(() => _initialized = true);
+      _readBandsFromEngine();
+      _startSpectrum();
+      return;
+    }
+    // Fallback: search by node type (for Lower Zone panels without slotIndex)
     final dsp = DspChainProvider.instance;
     final chain = dsp.getChain(widget.trackId);
-    for (final node in chain.nodes) {
-      if (node.type == DspNodeType.eq) {
-        _nodeId = node.id;
-        _slotIndex = chain.nodes.indexWhere((n) => n.id == _nodeId);
+    for (int i = 0; i < chain.nodes.length; i++) {
+      if (chain.nodes[i].type == DspNodeType.eq) {
+        _nodeId = chain.nodes[i].id;
+        _slotIndex = i;
         setState(() => _initialized = true);
         _readBandsFromEngine();
         _startSpectrum();

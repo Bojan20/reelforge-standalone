@@ -6842,7 +6842,8 @@ pub extern "C" fn track_neve1073_set_low(track_id: u32, gain_db: f64) -> i32 {
 pub extern "C" fn track_neve1073_set_high(track_id: u32, gain_db: f64) -> i32 {
     let track_id = track_id as u64;
     ensure_neve1073_loaded(track_id);
-    PLAYBACK_ENGINE.set_track_insert_param(track_id, NEVE1073_SLOT_INDEX, 2, gain_db);
+    // Param 3 = HF Gain (fixed 12kHz per UAD spec)
+    PLAYBACK_ENGINE.set_track_insert_param(track_id, NEVE1073_SLOT_INDEX, 3, gain_db);
     1
 }
 
@@ -11071,10 +11072,12 @@ pub extern "C" fn api550_set_low(track_id: u32, gain_db: f64, freq_index: i32) -
     let mut eqs = API550_EQS.write();
     if let Some(eq) = eqs.get_mut(&track_id) {
         let freq = match freq_index {
-            0 => rf_dsp::eq_analog::Api550LowFreq::Hz50,
-            1 => rf_dsp::eq_analog::Api550LowFreq::Hz100,
-            2 => rf_dsp::eq_analog::Api550LowFreq::Hz200,
-            3 => rf_dsp::eq_analog::Api550LowFreq::Hz300,
+            0 => rf_dsp::eq_analog::Api550LowFreq::Hz30,
+            1 => rf_dsp::eq_analog::Api550LowFreq::Hz40,
+            2 => rf_dsp::eq_analog::Api550LowFreq::Hz50,
+            3 => rf_dsp::eq_analog::Api550LowFreq::Hz100,
+            4 => rf_dsp::eq_analog::Api550LowFreq::Hz200,
+            5 => rf_dsp::eq_analog::Api550LowFreq::Hz300,
             _ => rf_dsp::eq_analog::Api550LowFreq::Hz400,
         };
         eq.left.set_low(gain_db, freq);
@@ -11093,9 +11096,11 @@ pub extern "C" fn api550_set_mid(track_id: u32, gain_db: f64, freq_index: i32) -
         let freq = match freq_index {
             0 => rf_dsp::eq_analog::Api550MidFreq::Hz200,
             1 => rf_dsp::eq_analog::Api550MidFreq::Hz400,
-            2 => rf_dsp::eq_analog::Api550MidFreq::Hz800,
-            3 => rf_dsp::eq_analog::Api550MidFreq::K1_5,
-            _ => rf_dsp::eq_analog::Api550MidFreq::K3,
+            2 => rf_dsp::eq_analog::Api550MidFreq::Hz600,
+            3 => rf_dsp::eq_analog::Api550MidFreq::Hz800,
+            4 => rf_dsp::eq_analog::Api550MidFreq::K1_5,
+            5 => rf_dsp::eq_analog::Api550MidFreq::K3,
+            _ => rf_dsp::eq_analog::Api550MidFreq::K5,
         };
         eq.left.set_mid(gain_db, freq);
         eq.right.set_mid(gain_db, freq);
@@ -11113,9 +11118,11 @@ pub extern "C" fn api550_set_high(track_id: u32, gain_db: f64, freq_index: i32) 
         let freq = match freq_index {
             0 => rf_dsp::eq_analog::Api550HighFreq::K2_5,
             1 => rf_dsp::eq_analog::Api550HighFreq::K5,
-            2 => rf_dsp::eq_analog::Api550HighFreq::K7_5,
+            2 => rf_dsp::eq_analog::Api550HighFreq::K7,
             3 => rf_dsp::eq_analog::Api550HighFreq::K10,
-            _ => rf_dsp::eq_analog::Api550HighFreq::K12_5,
+            4 => rf_dsp::eq_analog::Api550HighFreq::K12_5,
+            5 => rf_dsp::eq_analog::Api550HighFreq::K15,
+            _ => rf_dsp::eq_analog::Api550HighFreq::K20,
         };
         eq.left.set_high(gain_db, freq);
         eq.right.set_high(gain_db, freq);
@@ -11198,19 +11205,13 @@ pub extern "C" fn neve1073_set_low(track_id: u32, gain_db: f64, freq_index: i32)
     }
 }
 
-/// Set Neve 1073 high shelf
+/// Set Neve 1073 high shelf — FIXED at 12kHz per UAD spec (freq_index ignored)
 #[unsafe(no_mangle)]
-pub extern "C" fn neve1073_set_high(track_id: u32, gain_db: f64, freq_index: i32) -> i32 {
+pub extern "C" fn neve1073_set_high(track_id: u32, gain_db: f64, _freq_index: i32) -> i32 {
     let mut eqs = NEVE1073_EQS.write();
     if let Some(eq) = eqs.get_mut(&track_id) {
-        let freq = match freq_index {
-            0 => rf_dsp::eq_analog::Neve1073HighFreq::K12,
-            1 => rf_dsp::eq_analog::Neve1073HighFreq::K10,
-            2 => rf_dsp::eq_analog::Neve1073HighFreq::K7_5,
-            _ => rf_dsp::eq_analog::Neve1073HighFreq::K5,
-        };
-        eq.left.set_high(gain_db, freq);
-        eq.right.set_high(gain_db, freq);
+        eq.left.set_high(gain_db);
+        eq.right.set_high(gain_db);
         1
     } else {
         0

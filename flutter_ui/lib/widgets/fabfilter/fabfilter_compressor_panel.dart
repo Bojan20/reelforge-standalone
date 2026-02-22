@@ -150,6 +150,7 @@ class FabFilterCompressorPanel extends FabFilterPanelBase {
   const FabFilterCompressorPanel({
     super.key,
     required super.trackId,
+    super.slotIndex,
   }) : super(
           title: 'FF-C',
           icon: Icons.compress,
@@ -242,6 +243,14 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
   void _initializeProcessor() {
     final dsp = DspChainProvider.instance;
     final chain = dsp.getChain(widget.trackId);
+    // Use slotIndex directly when passed from insert editor window
+    if (widget.slotIndex >= 0 && widget.slotIndex < chain.nodes.length) {
+      _slotIndex = widget.slotIndex;
+      _nodeId = chain.nodes[_slotIndex].id;
+      _initialized = true;
+      _readParams();
+      return;
+    }
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.compressor) {
         _nodeId = node.id;

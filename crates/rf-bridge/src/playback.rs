@@ -389,7 +389,7 @@ impl DspStorage {
                 }
             }
 
-            // Pultec commands
+            // Pultec commands — use InsertProcessor::set_param() indices
             DspCommand::PultecSetLowBoost {
                 track_id,
                 boost_db,
@@ -400,7 +400,7 @@ impl DspStorage {
                     dsp.pultec = Some(PultecWrapper::new(sample_rate));
                 }
                 if let Some(ref mut eq) = dsp.pultec {
-                    eq.set_low_boost(boost_db);
+                    eq.set_param(0, boost_db); // param 0 = low_boost
                 }
             }
             DspCommand::PultecSetLowAtten { track_id, atten_db } => {
@@ -409,7 +409,7 @@ impl DspStorage {
                     dsp.pultec = Some(PultecWrapper::new(sample_rate));
                 }
                 if let Some(ref mut eq) = dsp.pultec {
-                    eq.set_low_atten(atten_db);
+                    eq.set_param(1, atten_db); // param 1 = low_atten
                 }
             }
             DspCommand::PultecSetHighBoost {
@@ -423,7 +423,7 @@ impl DspStorage {
                     dsp.pultec = Some(PultecWrapper::new(sample_rate));
                 }
                 if let Some(ref mut eq) = dsp.pultec {
-                    eq.set_high_boost(boost_db);
+                    eq.set_param(2, boost_db); // param 2 = high_boost
                 }
             }
             DspCommand::PultecSetHighAtten {
@@ -436,7 +436,7 @@ impl DspStorage {
                     dsp.pultec = Some(PultecWrapper::new(sample_rate));
                 }
                 if let Some(ref mut eq) = dsp.pultec {
-                    eq.set_high_atten(atten_db);
+                    eq.set_param(3, atten_db); // param 3 = high_atten
                 }
             }
 
@@ -451,7 +451,7 @@ impl DspStorage {
                     dsp.neve1073 = Some(Neve1073Wrapper::new(sample_rate));
                 }
                 if let Some(ref mut eq) = dsp.neve1073 {
-                    eq.set_low_gain(gain_db);
+                    eq.set_param(1, gain_db); // Param 1 = LF Gain
                 }
             }
             DspCommand::Neve1073SetHigh {
@@ -464,7 +464,7 @@ impl DspStorage {
                     dsp.neve1073 = Some(Neve1073Wrapper::new(sample_rate));
                 }
                 if let Some(ref mut eq) = dsp.neve1073 {
-                    eq.set_high_gain(gain_db);
+                    eq.set_param(3, gain_db); // Param 3 = HF Gain
                 }
             }
 
