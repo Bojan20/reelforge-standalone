@@ -1338,13 +1338,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       _tracks = [..._tracks, newTrack];
     });
 
-    // Record undo
+    // Record undo — use mutable currentId to track engine ID across undo/redo
+    var currentId = trackId;
     UiUndoManager.instance.record(TrackAddAction(
       trackId: trackId,
       onExecute: () {
         final reId = engine.createTrack(
           name: name, color: result.color.value, busId: busIndex,
         );
+        currentId = reId; // Update for future undo
         context.read<MixerProvider>().createChannelFromTrack(
           reId, name, result.color, channels: result.channels,
         );
@@ -1354,11 +1356,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         });
       },
       onUndo: () {
-        engine.deleteTrack(trackId);
-        context.read<MixerProvider>().deleteChannel('ch_$trackId');
+        engine.deleteTrack(currentId);
+        context.read<MixerProvider>().deleteChannel('ch_$currentId');
         setState(() {
-          _tracks = _tracks.where((t) => t.id != trackId).toList();
-          _clips = _clips.where((c) => c.trackId != trackId).toList();
+          _tracks = _tracks.where((t) => t.id != currentId).toList();
+          _clips = _clips.where((c) => c.trackId != currentId).toList();
         });
       },
     ));
@@ -1507,15 +1509,21 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
     // Record undo action (skip for middleware tracks — those have their own undo)
     if (!isMiddlewareTrack) {
+      // Mutable ID tracks the current engine track ID across undo/redo cycles.
+      // Engine assigns new IDs on createTrack(), so redo must use the ID
+      // from the last undo (not the original delete ID).
+      var currentId = trackId;
+      final insertIndex = _tracks.indexWhere((t) => t.id == trackId);
+
       UiUndoManager.instance.record(TrackDeleteAction(
         trackId: trackId,
         onExecute: () {
-          // Redo: delete again
-          engine.deleteTrack(trackId);
-          context.read<MixerProvider>().deleteChannel('ch_$trackId');
+          // Redo: delete using whatever ID the track currently has
+          engine.deleteTrack(currentId);
+          context.read<MixerProvider>().deleteChannel('ch_$currentId');
           setState(() {
-            _tracks = _tracks.where((t) => t.id != trackId).toList();
-            _clips = _clips.where((c) => c.trackId != trackId).toList();
+            _tracks = _tracks.where((t) => t.id != currentId).toList();
+            _clips = _clips.where((c) => c.trackId != currentId).toList();
           });
         },
         onUndo: () {
@@ -1525,15 +1533,20 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             color: deletedTrack.color.value,
             busId: 0,
           );
+          currentId = reId; // Update for future redo
           context.read<MixerProvider>().createChannelFromTrack(
             reId, deletedTrack.name, deletedTrack.color, channels: deletedTrack.channels,
           );
           setState(() {
-            _tracks = [..._tracks, deletedTrack.copyWith(id: reId)];
-            // Restore clips with new track ID
-            for (final clip in deletedClips) {
-              _clips = [..._clips, clip.copyWith(trackId: reId)];
+            final restoredTrack = deletedTrack.copyWith(id: reId);
+            final restoredClips = deletedClips.map((c) => c.copyWith(trackId: reId)).toList();
+            // Insert at original position if possible
+            if (insertIndex >= 0 && insertIndex <= _tracks.length) {
+              _tracks = [..._tracks]..insert(insertIndex, restoredTrack);
+            } else {
+              _tracks = [..._tracks, restoredTrack];
             }
+            _clips = [..._clips, ...restoredClips];
           });
         },
       ));
@@ -9650,9 +9663,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         type: ultimate.ChannelType.bus,
         color: color,
         volume: _busVolumes[busId] ?? 1.0,
-        pan: _busPan[busId] ?? -1.0, // L channel pan: hard left default
-        panRight: _busPanRight[busId] ?? 1.0, // R channel pan: hard right default
-        isStereo: true, // True stereo dual pan knobs (L/R) like DAW mixer
+        pan: _busPan[busId] ?? 0.0, // Mono pan: center default (like Cubase/Pro Tools bus)
+        isStereo: false, // Buses use mono pan knob, not stereo dual pan
         muted: _busMuted[busId] ?? false,
         soloed: _busSoloed[busId] ?? false,
         inserts: busInserts,

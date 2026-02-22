@@ -375,17 +375,16 @@ class MeterProvider extends ChangeNotifier {
 
   MeterState _convertToMeterState(
     String meterId,
-    double peakLDb,
-    double peakRDb,
-    double rmsLDb,
-    double rmsRDb,
+    double peakL,
+    double peakR,
+    double rmsL,
+    double rmsR,
     double lufsShort,
     DateTime now,
   ) {
-    final peakL = dbToNormalized(peakLDb);
-    final peakR = dbToNormalized(peakRDb);
-    final rmsL = dbToNormalized(rmsLDb);
-    final rmsR = dbToNormalized(rmsRDb);
+    // Values from Rust shared memory are LINEAR amplitude (0.0-1.0).
+    // GpuMeter handles linear→dB→normalized conversion internally via
+    // _linearToNormalized(), so we pass linear values through directly.
 
     // OPTIMIZED: Get or create peak hold data
     var holdData = _peakHoldData[meterId];
