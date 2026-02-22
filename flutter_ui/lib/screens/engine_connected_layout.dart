@@ -10276,56 +10276,172 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     }
   }
 
-  /// Handle send slot click - show routing options
+  /// Handle send slot click — create FX bus with effect or route to existing bus
   void _onSendClick(String channelId, int sendIndex) async {
-    // Available send destinations (FX buses)
-    final sends = [
-      'None',
-      'FX 1 - Reverb',
-      'FX 2 - Delay',
-      'FX 3 - Chorus',
-      'FX 4 - Aux',
-    ];
+    final mixerProvider = context.read<MixerProvider>();
 
-    final result = await showDialog<String>(
+    // Build options: existing FX buses + "Create New" effects
+    final existingBuses = mixerProvider.buses;
+    final existingAuxes = <MixerChannel>[];
+    // Collect aux buses too
+    for (final id in mixerProvider.channelOrder) {
+      final ch = mixerProvider.getChannel(id);
+      if (ch != null && ch.type == ChannelType.aux) existingAuxes.add(ch);
+    }
+    // Also check _auxes via the buses getter won't include them, query directly
+    // Actually auxes are separate — we can iterate bus + aux lists
+
+    // Effect types available for new FX bus creation
+    const fxEffects = <String, DspNodeType>{
+      'Reverb': DspNodeType.reverb,
+      'Delay': DspNodeType.delay,
+      'Chorus': DspNodeType.haasDelay, // Haas used as chorus/widener
+      'Compressor': DspNodeType.compressor,
+      'EQ': DspNodeType.eq,
+      'Saturation': DspNodeType.saturation,
+    };
+
+    final result = await showDialog<_SendDialogResult>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgElevated,
-        title: Text('Send ${sendIndex + 1} Destination', style: FluxForgeTheme.label),
+        title: Text(
+          'Send ${sendIndex + 1} Destination',
+          style: FluxForgeTheme.label,
+        ),
         content: SizedBox(
-          width: 200,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: sends.map((send) => ListTile(
-              dense: true,
-              title: Text(send, style: TextStyle(fontSize: 12, color: FluxForgeTheme.textPrimary)),
-              onTap: () => Navigator.pop(ctx, send),
-            )).toList(),
+          width: 280,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Remove send option
+                ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.block, size: 16, color: Color(0xFF808080)),
+                  title: const Text('None', style: TextStyle(fontSize: 12, color: Color(0xFF808080))),
+                  onTap: () => Navigator.pop(ctx, const _SendDialogResult(isRemove: true)),
+                ),
+                const Divider(height: 1, color: Color(0xFF333340)),
+
+                // Existing FX buses
+                if (existingBuses.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16, top: 8, bottom: 4),
+                    child: Text('EXISTING BUSES', style: TextStyle(
+                      fontSize: 9, color: FluxForgeTheme.textSecondary,
+                      fontWeight: FontWeight.bold, letterSpacing: 1.2,
+                    )),
+                  ),
+                  for (final bus in existingBuses)
+                    ListTile(
+                      dense: true,
+                      leading: Icon(Icons.call_split, size: 16, color: bus.color),
+                      title: Text(bus.name, style: TextStyle(fontSize: 12, color: FluxForgeTheme.textPrimary)),
+                      onTap: () => Navigator.pop(ctx, _SendDialogResult(existingBusId: bus.id, existingBusName: bus.name)),
+                    ),
+                  const Divider(height: 1, color: Color(0xFF333340)),
+                ],
+
+                // Create new FX bus
+                Padding(
+                  padding: const EdgeInsets.only(left: 16, top: 8, bottom: 4),
+                  child: Text('CREATE NEW FX BUS', style: TextStyle(
+                    fontSize: 9, color: FluxForgeTheme.textSecondary,
+                    fontWeight: FontWeight.bold, letterSpacing: 1.2,
+                  )),
+                ),
+                for (final entry in fxEffects.entries)
+                  ListTile(
+                    dense: true,
+                    leading: Icon(Icons.add_circle_outline, size: 16, color: _fxColor(entry.value)),
+                    title: Text(entry.key, style: TextStyle(fontSize: 12, color: FluxForgeTheme.textPrimary)),
+                    subtitle: Text('New FX bus with ${entry.key}', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary)),
+                    onTap: () => Navigator.pop(ctx, _SendDialogResult(isCreateNew: true, effectName: entry.key, effectType: entry.value)),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
     );
 
-    if (result != null && result != 'None') {
-      // Extract FX bus index from "FX N - Name" format
-      final fxIndex = int.tryParse(result.split(' ')[1]) ?? 1;
-      final fromChannelId = _busIdToChannelId(channelId);
-      final success = routingAddSend(fromChannelId, fxIndex, 0);
-      if (success == 1) {
-        _showSnackBar('Send $sendIndex → $result');
-      } else {
-        _showSnackBar('Failed to route send $sendIndex', isError: true);
-      }
-    } else if (result == 'None') {
-      // Remove send via FFI
-      final fromChannelId = _busIdToChannelId(channelId);
-      final success = routingRemoveSend(fromChannelId, sendIndex);
-      if (success == 1) {
-        _showSnackBar('Send $sendIndex removed');
-      } else {
-        _showSnackBar('Failed to remove send $sendIndex', isError: true);
-      }
+    if (result == null) return;
+
+    if (result.isRemove) {
+      // Remove send
+      _removeSendFromChannel(channelId, sendIndex, mixerProvider);
+      return;
     }
+
+    String targetBusId;
+    String targetBusName;
+
+    if (result.isCreateNew) {
+      // Create new FX bus in mixer
+      final bus = mixerProvider.createBus(
+        name: 'FX - ${result.effectName}',
+        color: _fxColor(result.effectType!),
+      );
+      targetBusId = bus.id;
+      targetBusName = bus.name;
+
+      // Load the effect processor on the new bus
+      // Bus trackId convention: busEngineId for inserts
+      // For user-created buses, they route through a physical engine bus
+      // We use the bus ID directly with DspChainProvider
+      final busEngineId = mixerProvider.getBusEngineId(targetBusId);
+      final busTrackId = 1000 + busEngineId; // Convention: buses use 1000+ offset
+      DspChainProvider.instance.addNode(busTrackId, result.effectType!);
+
+      // Also sync insert to MixerProvider so Channel Tab sees it
+      final busChannel = mixerProvider.getBus(targetBusId);
+      if (busChannel != null) {
+        final inserts = List<InsertSlot>.from(busChannel.inserts);
+        // Find first empty slot
+        final emptyIdx = inserts.indexWhere((s) => s.isEmpty);
+        if (emptyIdx >= 0) {
+          inserts[emptyIdx] = InsertSlot(
+            id: '${targetBusId}_$emptyIdx',
+            name: result.effectName!,
+            type: result.effectType!.shortName,
+          );
+        }
+        mixerProvider.setChannelInserts(targetBusId, inserts);
+      }
+    } else {
+      // Route to existing bus
+      targetBusId = result.existingBusId!;
+      targetBusName = result.existingBusName!;
+    }
+
+    // Add send: update MixerProvider model
+    mixerProvider.setAuxSendLevel(channelId, targetBusId, 0.75);
+
+    // Select the new FX bus in mixer for visibility
+    setState(() {});
+
+    _showSnackBar('Send ${sendIndex + 1} → $targetBusName');
+  }
+
+  /// Remove send from channel at given index
+  void _removeSendFromChannel(String channelId, int sendIndex, MixerProvider mixerProvider) {
+    mixerProvider.removeAuxSendAt(channelId, sendIndex);
+    _showSnackBar('Send ${sendIndex + 1} removed');
+  }
+
+  /// Get accent color for FX processor type
+  Color _fxColor(DspNodeType type) {
+    return switch (type) {
+      DspNodeType.reverb => const Color(0xFF40C8FF),
+      DspNodeType.delay => const Color(0xFFFF9040),
+      DspNodeType.haasDelay => const Color(0xFF9370DB),
+      DspNodeType.compressor => const Color(0xFFFF6B6B),
+      DspNodeType.eq => const Color(0xFF4A9EFF),
+      DspNodeType.saturation => const Color(0xFFFFD700),
+      _ => const Color(0xFF808080),
+    };
   }
 
   /// Handle insert slot destination change from popup menu
@@ -14589,4 +14705,23 @@ class _MiddlewareTimelineGridPainter extends CustomPainter {
         trackHeight != oldDelegate.trackHeight ||
         trackCount != oldDelegate.trackCount;
   }
+}
+
+/// Result type for send destination dialog
+class _SendDialogResult {
+  final bool isRemove;
+  final bool isCreateNew;
+  final String? existingBusId;
+  final String? existingBusName;
+  final String? effectName;
+  final DspNodeType? effectType;
+
+  const _SendDialogResult({
+    this.isRemove = false,
+    this.isCreateNew = false,
+    this.existingBusId,
+    this.existingBusName,
+    this.effectName,
+    this.effectType,
+  });
 }

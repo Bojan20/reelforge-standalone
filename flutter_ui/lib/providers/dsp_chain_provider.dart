@@ -443,8 +443,9 @@ class DspChainProvider extends ChangeNotifier {
     final processorName = _typeToProcessorName(type);
 
     // 1. FFI sync — CRITICAL: Load processor in Rust engine first
+    // Rust returns 1=success, 0=failure
     final result = _ffi.insertLoadProcessor(trackId, slotIndex, processorName);
-    if (result < 0) {
+    if (result != 1) {
       return;
     }
 
@@ -469,8 +470,9 @@ class DspChainProvider extends ChangeNotifier {
     }
 
     // 1. FFI sync — Unload from Rust engine
+    // Rust returns 1=success, 0=failure
     final result = _ffi.insertUnloadSlot(trackId, nodeIndex);
-    if (result < 0) {
+    if (result != 1) {
       return;
     }
 

@@ -4096,6 +4096,9 @@ class EQBand {
 void toggleInputMonitor(String id);      // Toggle + FFI sync
 void setInputMonitor(String id, bool);   // Set + FFI sync
 void setInputGain(String id, double);    // -20dB to +20dB + FFI sync
+int getBusEngineId(String busId);        // Public wrapper for _getBusEngineId()
+void removeAuxSendAt(String channelId, int sendIndex);  // Remove send + FFI sync
+void setChannelInserts(String id, List<InsertSlot> inserts);  // Update inserts on any channel type
 ```
 
 **Modified Widgets:**

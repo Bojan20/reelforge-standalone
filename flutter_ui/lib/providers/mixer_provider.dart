@@ -2337,6 +2337,38 @@ class MixerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Remove aux send at given index from a channel
+  void removeAuxSendAt(String channelId, int sendIndex) {
+    final channel = _channels[channelId];
+    if (channel == null) return;
+    if (sendIndex < 0 || sendIndex >= channel.sends.length) return;
+
+    final sends = List<AuxSend>.from(channel.sends);
+    sends.removeAt(sendIndex);
+    _channels[channelId] = channel.copyWith(sends: sends);
+
+    // Sync to engine: remove send routing
+    if (channel.trackIndex != null) {
+      NativeFFI.instance.routingRemoveSend(channel.trackIndex!, sendIndex);
+    }
+
+    notifyListeners();
+  }
+
+  /// Update inserts list for a channel or bus (replaces entire list)
+  void setChannelInserts(String id, List<InsertSlot> inserts) {
+    if (_channels.containsKey(id)) {
+      _channels[id] = _channels[id]!.copyWith(inserts: inserts);
+    } else if (_buses.containsKey(id)) {
+      _buses[id] = _buses[id]!.copyWith(inserts: inserts);
+    } else if (_auxes.containsKey(id)) {
+      _auxes[id] = _auxes[id]!.copyWith(inserts: inserts);
+    } else {
+      return;
+    }
+    notifyListeners();
+  }
+
   /// Set input gain (trim) for a channel
   void setInputGain(String channelId, double gain) {
     final channel = _channels[channelId];
@@ -2485,6 +2517,8 @@ class MixerProvider extends ChangeNotifier {
   /// Map bus ID to engine bus index (0-5).
   /// Delegates to static [busIdToEngineBusIndex] for consistency.
   /// Handles both old-style IDs ('bus_sfx') and canonical IDs ('sfx').
+  int getBusEngineId(String busId) => _getBusEngineId(busId);
+
   int _getBusEngineId(String busId) {
     // Try canonical form first
     int idx = busIdToEngineBusIndex(busId);

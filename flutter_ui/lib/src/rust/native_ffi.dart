@@ -6231,9 +6231,9 @@ class NativeFFI {
 
   /// Load processor into insert slot
   /// Available processors: "pro-eq", "pultec", "api550", "neve1073", "compressor", "limiter", "gate", "expander"
-  /// Returns 0 on success, negative on error
+  /// Returns 1 on success, 0 on failure
   int insertLoadProcessor(int trackId, int slotIndex, String processorName) {
-    if (!_loaded) return -1;
+    if (!_loaded) return 0;
     final namePtr = processorName.toNativeUtf8();
     try {
       return _insertLoadProcessor(trackId, slotIndex, namePtr);
@@ -6243,9 +6243,9 @@ class NativeFFI {
   }
 
   /// Unload processor from insert slot
-  /// Returns 0 on success, negative on error
+  /// Returns 1 on success, 0 on failure
   int insertUnloadSlot(int trackId, int slotIndex) {
-    if (!_loaded) return -1;
+    if (!_loaded) return 0;
     return _insertUnloadSlot(trackId, slotIndex);
   }
 
@@ -6316,7 +6316,7 @@ class NativeFFI {
   }
 
   /// Open plugin editor for insert slot
-  /// Returns 0 on success, negative on error
+  /// Returns 1 on success, 0 on failure
   int insertOpenEditor(int trackId, int slotIndex) {
     if (!_loaded) return -1;
     return _insertOpenEditor(trackId, slotIndex);

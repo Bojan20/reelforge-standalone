@@ -2646,22 +2646,47 @@ class _ReorderableInsertListState extends State<_ReorderableInsertList> {
 }
 
 /// Stereo Width slider for Channel Tab — SSL signal flow position (after Pan)
-class _WidthSlider extends StatelessWidget {
+class _WidthSlider extends StatefulWidget {
   final double value; // 0.0 (mono) to 2.0 (extra wide), 1.0 = normal
   final ValueChanged<double>? onChanged;
 
   const _WidthSlider({required this.value, this.onChanged});
 
   @override
+  State<_WidthSlider> createState() => _WidthSliderState();
+}
+
+class _WidthSliderState extends State<_WidthSlider> {
+  double _dragStartX = 0;
+  double _dragStartNorm = 0;
+
+  double _valueToNormalized(double v) => ((v - 0.0) / (2.0 - 0.0)).clamp(0.0, 1.0);
+  double _normalizedToValue(double n) => 0.0 + n * (2.0 - 0.0);
+
+  void _handleDragStart(DragStartDetails details, double width) {
+    _dragStartX = details.localPosition.dx;
+    _dragStartNorm = _valueToNormalized(widget.value);
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details, double width) {
+    if (widget.onChanged == null) return;
+    final deltaX = details.localPosition.dx - _dragStartX;
+    final deltaNorm = deltaX / width;
+    final newNorm = (_dragStartNorm + deltaNorm).clamp(0.0, 1.0);
+    widget.onChanged!(_normalizedToValue(newNorm));
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final isMono = value <= 0.01;
-    final isWide = value > 1.01;
+    final isMono = widget.value <= 0.01;
+    final isWide = widget.value > 1.01;
     final color = isMono
         ? FluxForgeTheme.accentOrange
         : isWide
             ? FluxForgeTheme.accentCyan
             : FluxForgeTheme.textSecondary;
-    final label = isMono ? 'M' : '${(value * 100).round()}%';
+    final label = isMono ? 'M' : '${(widget.value * 100).round()}%';
+    final percentage = _valueToNormalized(widget.value);
 
     return Row(
       children: [
@@ -2673,26 +2698,74 @@ class _WidthSlider extends StatelessWidget {
           ),
         ),
         Expanded(
-          child: SliderTheme(
-            data: SliderThemeData(
-              trackHeight: 3,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-              activeTrackColor: color,
-              inactiveTrackColor: FluxForgeTheme.surfaceDark.withValues(alpha: 0.5),
-              thumbColor: color,
-              overlayColor: color.withValues(alpha: 0.15),
-            ),
-            child: Slider(
-              value: value,
-              min: 0.0,
-              max: 2.0,
-              onChanged: onChanged,
+          child: LayoutBuilder(
+            builder: (context, constraints) => GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onHorizontalDragStart: (d) => _handleDragStart(d, constraints.maxWidth),
+              onHorizontalDragUpdate: (d) => _handleDragUpdate(d, constraints.maxWidth),
+              onDoubleTap: () => widget.onChanged?.call(1.0),
+              child: Container(
+                height: 16,
+                decoration: BoxDecoration(
+                  color: FluxForgeTheme.bgDeepest,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Stack(
+                  children: [
+                    // Fill
+                    FractionallySizedBox(
+                      widthFactor: percentage,
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              color.withValues(alpha: 0.6),
+                              color,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                    // Center mark at 1.0 (100% = normal stereo)
+                    Positioned(
+                      left: 0.5 * constraints.maxWidth,
+                      top: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 1,
+                        color: FluxForgeTheme.textTertiary.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    // Thumb
+                    Positioned(
+                      left: (percentage * constraints.maxWidth - 4).clamp(0.0, constraints.maxWidth - 8),
+                      top: 2,
+                      child: Container(
+                        width: 8,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: color.withValues(alpha: 0.4),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
         const SizedBox(width: 4),
         GestureDetector(
-          onDoubleTap: () => onChanged?.call(1.0),
+          onDoubleTap: () => widget.onChanged?.call(1.0),
           child: SizedBox(
             width: 36,
             child: Text(

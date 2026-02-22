@@ -6143,9 +6143,9 @@ pub extern "C" fn insert_load_processor(
                 // Audio tracks use per-track insert chains
                 PLAYBACK_ENGINE.load_track_insert(track_id_u64, slot_index, processor)
             };
+
             if success { 1 } else { 0 }
         } else {
-            eprintln!("[EQ FFI] insert_load_processor: UNKNOWN processor: '{}'", name);
             0
         }
     })

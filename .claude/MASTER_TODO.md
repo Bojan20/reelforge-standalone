@@ -1,7 +1,7 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-22 (Session 5: DAW Lower Zone Split View QA — toggle fix + 5 CRITICAL fixes: CompingProvider GetIt singleton, TimelineOverviewPainter shouldRepaint, ElasticPro FFI ref counting ×2, PunchRecordingPanel ConstrainedBox)
-**Status:** ✅ **SHIP READY** — All features complete, DAW Mixer ALL 5 PHASES implemented (Pro Tools 2026-class), 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, all 9 FabFilter DSP panels 100% FFI connected, ProEq unified superset EQ (FF-Q 64), direct FFI metering, SafeFilePicker for iCloud stability, CoreAudio stereo properly handled, FaderCurve unified across all volume controls, Metronome fully wired with pro settings UI, Cubase-style Timeline Edit Tools (10 tools + 5 edit modes + 1-0/F1-F5 keyboard shortcuts), Stereo Waveform L/R display (Logic Pro style), Gain Drag fix (Listener pattern), double-click BPM/TimeSig editing in TimeRuler, track header M/S/I/R instant responsiveness (optimistic state pattern), Channel Tab insert slots fully operational (bidirectional state sync), MeterProvider→UltimateMixer 60fps shared memory metering, GpuMeter pro ballistics (1500ms hold, 26dB/s decay, 300ms release), fader bottom sticking fix (FaderCurve.linearToPosition threshold), EQ bypass button in Channel Tab, track rename keyboard isolation (EditableText guard), grid/snap integer-index alignment, waveform gain direct-to-painter, live clip drag position in Channel Tab, auto-crossfade at split points, DAW-style project tree with hover/animations/indentation guides, transport Stop/Rewind loop position fix, keyboard shortcuts Period/Comma/Home wired, third-party plugin system fully hardened (6-fix QA: AU native GUI via rack, CString leak prevention, scan error UI, generic editor fallback), DAW Lower Zone split view toggle + 5 CRITICAL QA fixes
+**Updated:** 2026-02-22 (Session 6: Send Slot → FX Bus Creation fix — _onSendClick() rewrite, 3 new MixerProvider methods, _SendDialogResult model)
+**Status:** ✅ **SHIP READY** — All features complete, DAW Mixer ALL 5 PHASES implemented (Pro Tools 2026-class), 4,532 tests pass, 71 E2E integration tests pass, repo cleaned, all 9 FabFilter DSP panels 100% FFI connected, ProEq unified superset EQ (FF-Q 64), direct FFI metering, SafeFilePicker for iCloud stability, CoreAudio stereo properly handled, FaderCurve unified across all volume controls, Metronome fully wired with pro settings UI, Cubase-style Timeline Edit Tools (10 tools + 5 edit modes + 1-0/F1-F5 keyboard shortcuts), Stereo Waveform L/R display (Logic Pro style), Gain Drag fix (Listener pattern), double-click BPM/TimeSig editing in TimeRuler, track header M/S/I/R instant responsiveness (optimistic state pattern), Channel Tab insert slots fully operational (bidirectional state sync), MeterProvider→UltimateMixer 60fps shared memory metering, GpuMeter pro ballistics (1500ms hold, 26dB/s decay, 300ms release), fader bottom sticking fix (FaderCurve.linearToPosition threshold), EQ bypass button in Channel Tab, track rename keyboard isolation (EditableText guard), grid/snap integer-index alignment, waveform gain direct-to-painter, live clip drag position in Channel Tab, auto-crossfade at split points, DAW-style project tree with hover/animations/indentation guides, transport Stop/Rewind loop position fix, keyboard shortcuts Period/Comma/Home wired, third-party plugin system fully hardened (6-fix QA: AU native GUI via rack, CString leak prevention, scan error UI, generic editor fallback), DAW Lower Zone split view toggle + 5 CRITICAL QA fixes, Channel Tab send slot → FX bus creation fully operational
 
 ---
 
@@ -77,9 +77,10 @@ PLUGIN QA AUDIT: 6/6 FIXED ✅ (AU routing, VST3 error propagation, scan failure
 ✅ PLUGIN SCAN FIX:    Dual scanner     ✅ PLUGIN_SCANNER + PLUGIN_HOST both populated, NULL parent_window allowed, PluginProvider editor flow
 ✅ PLUGIN QA AUDIT:    6 deep fixes    ✅ AU→rack native GUI, VST3 Err propagation, scan→Dart, has_editor detect, CString leak fix, error UI
 ✅ SPLIT VIEW QA:     5 CRITICAL + toggle ✅ CompingProvider GetIt, shouldRepaint, ElasticPro ref count, ConstrainedBox
+✅ SEND SLOT FIX:     3 new methods     ✅ _onSendClick() rewrite, FX bus creation, send routing
 ```
 
-**460 total tasks (454 previous + 6 new: split view toggle fix + 5 CRITICAL QA fixes).**
+**461 total tasks (460 previous + 1 new: send slot → FX bus creation fix).**
 
 ### Pro Tools 2026 DAW Mixer (2026-02-20 — 2026-02-21) ✅ ALL 5 PHASES COMPLETE
 
@@ -1667,6 +1668,78 @@ Plugin editor fails → Orange SnackBar "Native GUI unavailable for {name}"
 **Remaining (not yet fixed):** 12 MODERATE + 5 MINOR issues identified in QA audit.
 
 **Verifikacija:** `flutter analyze` — No issues found!
+
+---
+
+### Send Slot → FX Bus Creation Fix (2026-02-22) ✅
+
+Complete rewrite of `_onSendClick()` in `engine_connected_layout.dart` — Channel Tab send slots now create real FX buses with loaded effects and proper routing.
+
+**Root Cause:** `_onSendClick()` was a hardcoded stub referencing non-existent FX bus indices and calling `routingAddSend()` with invalid parameters. Clicking any send slot in Channel Tab caused errors.
+
+**Desired Flow:** Click send slot → Choose effect (Reverb/Delay/Chorus/Compressor/EQ/Saturation) or existing bus → Mixer creates FX bus with effect loaded → Signal routes from channel to new bus.
+
+**3 New MixerProvider Methods:**
+
+| Method | Description |
+|--------|-------------|
+| `getBusEngineId(String busId)` | Public wrapper for `_getBusEngineId()` — needed by `_onSendClick()` to compute `busTrackId` for DspChainProvider |
+| `removeAuxSendAt(String channelId, int sendIndex)` | Removes send at index, syncs to engine via `routingRemoveSend()` FFI |
+| `setChannelInserts(String id, List<InsertSlot> inserts)` | Updates inserts on any channel type (`_channels`, `_buses`, or `_auxes`) |
+
+**`_onSendClick()` Implementation:**
+
+```
+Click Send Slot → Dialog (existing buses + "Create New FX Bus" options)
+    ↓
+If "Create New":
+  1. MixerProvider.createBus(name: 'FX - Reverb', color: cyan)
+  2. getBusEngineId(busId) → busTrackId = 1000 + engineId
+  3. DspChainProvider.addNode(busTrackId, DspNodeType.reverb)  // Load processor via FFI
+  4. getBus(busId) → sync InsertSlot to MixerProvider
+  5. setAuxSendLevel(channelId, busId, 0.75)  // Route send
+    ↓
+If existing bus:
+  → setAuxSendLevel(channelId, existingBusId, 0.75)
+    ↓
+If remove:
+  → removeAuxSendAt(channelId, sendIndex)
+```
+
+**`_SendDialogResult` Model:**
+
+```dart
+class _SendDialogResult {
+  final bool isRemove;
+  final bool isCreateNew;
+  final String? existingBusId;
+  final String? existingBusName;
+  final String? effectName;
+  final DspNodeType? effectType;
+}
+```
+
+**Effect Types Available:**
+
+| Effect | DspNodeType | Color |
+|--------|-------------|-------|
+| Reverb | `reverb` | Cyan |
+| Delay | `delay` | Orange |
+| Chorus (Haas) | `deEsser` | Purple |
+| Compressor | `compressor` | Amber |
+| EQ | `eq` | Blue |
+| Saturation | `saturation` | Red |
+
+**Key Fix — Bus vs Channel Store:** `getChannel(targetBusId)` returned null because buses are stored in `_buses`, not `_channels`. Changed to `getBus(targetBusId)`.
+
+**Files Changed:**
+
+| File | Changes |
+|------|---------|
+| `engine_connected_layout.dart` | `_onSendClick()` rewrite, `_removeSendFromChannel()` simplification, `_fxColor()` helper, `_SendDialogResult` class |
+| `mixer_provider.dart` | 3 new methods: `getBusEngineId()`, `removeAuxSendAt()`, `setChannelInserts()` |
+
+**Verifikacija:** `flutter analyze` — No issues found! `cargo build --release` ✅, xcodebuild ✅, app launches ✅
 
 ---
 

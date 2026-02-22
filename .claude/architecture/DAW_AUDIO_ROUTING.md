@@ -1542,4 +1542,79 @@ if channels_src > 1 {
 
 ---
 
-*Poslednji update: 2026-02-21 (CoreAudio stereo, One-shot stereo pan, Pro Tools gap analysis)*
+## 21. Send Slot → FX Bus Creation Flow (2026-02-22)
+
+### Problem
+
+`_onSendClick()` u `engine_connected_layout.dart` bio je hardkodiran stub koji je referencirao nepostojeće FX buseve i pozivao `routingAddSend()` sa nevalidnim parametrima.
+
+### Rešenje — Kompletni Send Flow
+
+```
+Channel Tab Send Slot Click
+    ↓
+_onSendClick(channelId, sendIndex)
+    ↓
+showDialog() → _SendDialogResult
+    ↓
+┌───────────────────┬────────────────────┬──────────────────┐
+│ Create New FX Bus  │ Route to Existing  │ Remove Send      │
+├───────────────────┼────────────────────┼──────────────────┤
+│ 1. createBus()     │ setAuxSendLevel()  │ removeAuxSendAt()│
+│ 2. getBusEngineId()│                    │                  │
+│ 3. addNode(busTrack│                    │                  │
+│    Id, effectType) │                    │                  │
+│ 4. setChannelInsert│                    │                  │
+│    s(busId, inserts│                    │                  │
+│ 5. setAuxSendLevel │                    │                  │
+└───────────────────┴────────────────────┴──────────────────┘
+```
+
+### Bus TrackId Convention
+
+Busevi koriste offset `1000 + busEngineId` za insert chain FFI pozive:
+```dart
+final busEngineId = mixerProvider.getBusEngineId(targetBusId);
+final busTrackId = 1000 + busEngineId;
+DspChainProvider.instance.addNode(busTrackId, effectType);
+```
+
+### Novi MixerProvider Metodi
+
+| Metod | Signature | Opis |
+|-------|-----------|------|
+| `getBusEngineId` | `int getBusEngineId(String busId)` | Public wrapper za `_getBusEngineId()` |
+| `removeAuxSendAt` | `void removeAuxSendAt(String channelId, int sendIndex)` | Uklanja send na indeksu, FFI sync via `routingRemoveSend()` |
+| `setChannelInserts` | `void setChannelInserts(String id, List<InsertSlot> inserts)` | Ažurira inserte na bilo kom tipu kanala (`_channels`, `_buses`, `_auxes`) |
+
+### Kritični Bug Fix — Bus vs Channel Store
+
+**Problem:** `getChannel(targetBusId)` vraćao `null` za buseve.
+
+**Uzrok:** Busevi se čuvaju u `_buses` mapi, NE u `_channels`. `getChannel()` pretražuje samo `_channels`.
+
+**Fix:** Koristi `getBus(targetBusId)` za pristup bus kanalima nakon kreiranja.
+
+### Callback Chain
+
+```
+ChannelInspectorPanel.onSendClick(channelId, sendIndex)
+    → LeftZone.onSendClick
+        → MainLayout.onSendClick
+            → EngineConnectedLayout._onSendClick(channelId, sendIndex)
+```
+
+### Dostupni Efekti za FX Buseve
+
+| Efekat | DspNodeType | Boja |
+|--------|-------------|------|
+| Reverb | `reverb` | Cyan (#40C8FF) |
+| Delay | `delay` | Orange (#FF9040) |
+| Chorus (Haas) | `deEsser` | Purple (#9370DB) |
+| Compressor | `compressor` | Amber (#FFB300) |
+| EQ | `eq` | Blue (#4A9EFF) |
+| Saturation | `saturation` | Red (#FF4060) |
+
+---
+
+*Poslednji update: 2026-02-22 (Send Slot → FX Bus Creation, CoreAudio stereo, One-shot stereo pan, Pro Tools gap analysis)*
