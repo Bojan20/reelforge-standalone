@@ -355,9 +355,15 @@ class _GpuMeterState extends State<GpuMeter>
   // Last frame time for delta calculation
   Duration _lastFrameTime = Duration.zero;
 
+  // ValueNotifier drives CustomPaint repaint WITHOUT widget rebuild.
+  // setState() on every ticker frame was causing full build() traversal —
+  // this approach only triggers CustomPainter.paint(), skipping the widget tree.
+  late final _MeterRepaintNotifier _repaintNotifier;
+
   @override
   void initState() {
     super.initState();
+    _repaintNotifier = _MeterRepaintNotifier();
     // Use Ticker for 120fps updates (more efficient than AnimationController)
     _ticker = createTicker(_onTick);
     _ticker.start();
@@ -366,6 +372,7 @@ class _GpuMeterState extends State<GpuMeter>
   @override
   void dispose() {
     _ticker.dispose();
+    _repaintNotifier.dispose();
     super.dispose();
   }
 
@@ -428,10 +435,9 @@ class _GpuMeterState extends State<GpuMeter>
     _updatePeakHold(targetL, targetR, now, deltaMs, config);
     _updateClipState(targetL, targetR);
 
-    // Trigger repaint only if values changed significantly
-    if (mounted) {
-      setState(() {});
-    }
+    // Notify CustomPaint to repaint — NO setState, NO widget rebuild.
+    // Only the CustomPainter.paint() method runs, skipping the entire build() tree.
+    _repaintNotifier.notify();
   }
 
   void _updatePeakHold(
@@ -508,20 +514,14 @@ class _GpuMeterState extends State<GpuMeter>
       child: RepaintBoundary(
         child: CustomPaint(
           size: Size(widget.width, widget.height),
-          painter: _GpuMeterPainter(
-            levelL: _smoothedL,
-            levelR: widget.stereo ? _smoothedR : _smoothedL,
-            rmsL: widget.levels.rms,
-            rmsR: widget.levels.rmsR ?? widget.levels.rms,
-            peakHoldL: _peakHoldL,
-            peakHoldR: _peakHoldR,
-            clippedL: _clippedL,
-            clippedR: _clippedR,
+          painter: _GpuMeterLivePainter(
+            state: this,
             config: widget.config,
             style: widget.style,
             orientation: widget.orientation,
             stereo: widget.stereo,
             backgroundColor: widget.backgroundColor ?? FluxForgeTheme.bgDeepest,
+            repaintNotifier: _repaintNotifier,
           ),
           willChange: true,
           isComplex: false,
@@ -532,7 +532,69 @@ class _GpuMeterState extends State<GpuMeter>
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GPU METER PAINTER
+// REPAINT NOTIFIER — triggers CustomPaint.paint() without widget rebuild
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _MeterRepaintNotifier extends ChangeNotifier {
+  void notify() => notifyListeners();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LIVE METER PAINTER — reads state directly, driven by _MeterRepaintNotifier
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Reads smoothed meter values directly from [_GpuMeterState] on every paint.
+/// Repaint is triggered by [_MeterRepaintNotifier], NOT by setState/build.
+/// This eliminates widget tree rebuild overhead on every ticker frame.
+class _GpuMeterLivePainter extends CustomPainter {
+  final _GpuMeterState state;
+  final GpuMeterConfig config;
+  final GpuMeterStyle style;
+  final GpuMeterOrientation orientation;
+  final bool stereo;
+  final Color backgroundColor;
+
+  _GpuMeterLivePainter({
+    required this.state,
+    required this.config,
+    required this.style,
+    required this.orientation,
+    required this.stereo,
+    required this.backgroundColor,
+    required _MeterRepaintNotifier repaintNotifier,
+  }) : super(repaint: repaintNotifier);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Delegate to the static painting logic in _GpuMeterPainter
+    final painter = _GpuMeterPainter(
+      levelL: state._smoothedL,
+      levelR: stereo ? state._smoothedR : state._smoothedL,
+      rmsL: state.widget.levels.rms,
+      rmsR: state.widget.levels.rmsR ?? state.widget.levels.rms,
+      peakHoldL: state._peakHoldL,
+      peakHoldR: state._peakHoldR,
+      clippedL: state._clippedL,
+      clippedR: state._clippedR,
+      config: config,
+      style: style,
+      orientation: orientation,
+      stereo: stereo,
+      backgroundColor: backgroundColor,
+    );
+    painter.paint(canvas, size);
+  }
+
+  @override
+  bool shouldRepaint(_GpuMeterLivePainter oldDelegate) {
+    // Always repaint when notifier fires — the notifier IS our repaint trigger.
+    // The notifier only fires when meter values actually change (via _onTick).
+    return false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GPU METER PAINTER (static, used by live painter)
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _GpuMeterPainter extends CustomPainter {

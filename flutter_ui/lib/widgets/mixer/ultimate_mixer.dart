@@ -1818,8 +1818,10 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
           onVerticalDragUpdate: (details) {
             if (widget.onChanged != null) {
               // Cubase-style: drag in position space, convert through log curve
+              // Travel range = full height minus cap (18px) and minimal top/bottom padding (2+2)
               final currentPos = _volumeToPosition(widget.volume);
-              final positionDelta = -details.delta.dy / (height - 40);
+              final travelRange = height - 22; // 18px cap + 4px padding
+              final positionDelta = -details.delta.dy / travelRange;
               final sensitivity = _fineMode ? 0.1 : 1.0;
               final newPos = (currentPos + positionDelta * sensitivity).clamp(0.0, 1.0);
               final newVolume = _positionToVolume(newPos);
@@ -1878,8 +1880,8 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                 Positioned(
                   left: meterWidth + 2,
                   right: meterWidth + 2,
-                  top: 4,
-                  bottom: 4,
+                  top: 2,
+                  bottom: 2,
                   child: Container(
                     decoration: BoxDecoration(
                       color: FluxForgeTheme.bgVoid.withOpacity(0.4),
@@ -1888,12 +1890,13 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                   ),
                 ),
                 // Fader cap — Pro Tools style: dark metallic knurled cap
+                // Travel: 2px top pad → full height - 22px (18px cap + 4px total padding)
                 Positioned(
                   left: meterWidth - 4,
                   right: meterWidth - 4,
-                  top: 4 + (1.0 - _volumeToPosition(widget.volume)) * (height - 40),
+                  top: 2 + (1.0 - _volumeToPosition(widget.volume)) * (height - 22),
                   child: Container(
-                    height: 28,
+                    height: 18,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.centerLeft,
@@ -1930,8 +1933,8 @@ class _FaderWithMeterState extends State<_FaderWithMeter> {
                     child: Center(
                       // Single center indicator line (Pro Tools style)
                       child: Container(
-                        width: 14,
-                        height: 2,
+                        width: 12,
+                        height: 1.5,
                         decoration: BoxDecoration(
                           color: _isDragging
                               ? FluxForgeTheme.accentBlue.withOpacity(0.8)
@@ -2945,32 +2948,14 @@ class _MasterStrip extends StatelessWidget {
     return '${lufs.toStringAsFixed(1)} LUFS';
   }
 
+  /// LUFS color based on streaming target (-14 LUFS)
   Color _lufsColor(double lufs) {
     if (lufs <= -70.0) return FluxForgeTheme.textTertiary;
-    if (lufs > -8.0) return FluxForgeTheme.errorRed;
-    if (lufs > -11.0) return FluxForgeTheme.warningOrange;
-    if (lufs > -16.0) return FluxForgeTheme.accentGreen;
-    return FluxForgeTheme.accentCyan;
+    if (lufs > -12.0) return FluxForgeTheme.errorRed;      // Too loud
+    if (lufs > -14.0) return FluxForgeTheme.warningOrange;  // Slightly loud
+    if (lufs < -16.0) return FluxForgeTheme.accentCyan;     // Quiet
+    return FluxForgeTheme.accentGreen;                       // On target (-14 to -16)
   }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// LUFS HELPERS
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// Format LUFS value for display
-String _formatLufs(double lufs) {
-  if (lufs <= -70.0) return '-∞ LUFS';
-  return '${lufs.toStringAsFixed(1)} LUFS';
-}
-
-/// Get color based on LUFS value relative to streaming target (-14 LUFS)
-Color _getLufsColor(double lufs) {
-  if (lufs <= -70.0) return FluxForgeTheme.textMuted;
-  if (lufs > -12.0) return FluxForgeTheme.accentRed; // Too loud
-  if (lufs > -14.0) return FluxForgeTheme.warningOrange; // Slightly loud
-  if (lufs < -16.0) return FluxForgeTheme.accentCyan; // Quiet
-  return FluxForgeTheme.accentGreen; // On target (-14 to -16 LUFS)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

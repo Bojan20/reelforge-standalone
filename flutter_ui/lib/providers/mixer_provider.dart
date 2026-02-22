@@ -734,24 +734,19 @@ class MixerProvider extends ChangeNotifier {
 
       for (final channel in _channels.values) {
         if (channel.outputBus == bus.id) {
-          // Use already-computed channel peaks (linear values)
-          final ch = _channels[channel.id];
-          if (ch != null) {
-            if (ch.peakL > busPeakL) busPeakL = ch.peakL;
-            if (ch.peakR > busPeakR) busPeakR = ch.peakR;
-            // RMS: sum of squares then sqrt (energy sum)
-            busRmsL += ch.rmsL * ch.rmsL;
-            busRmsR += ch.rmsR * ch.rmsR;
-          }
+          if (channel.peakL > busPeakL) busPeakL = channel.peakL;
+          if (channel.peakR > busPeakR) busPeakR = channel.peakR;
+          // RMS: sum of squares then sqrt (energy sum)
+          busRmsL += channel.rmsL * channel.rmsL;
+          busRmsR += channel.rmsR * channel.rmsR;
         }
       }
 
-      // Apply bus volume to meter display
-      final busVol = bus.volume;
-      busPeakL *= busVol;
-      busPeakR *= busVol;
-      busRmsL = pow(busRmsL, 0.5).toDouble() * busVol;
-      busRmsR = pow(busRmsR, 0.5).toDouble() * busVol;
+      // RMS: convert sum-of-squares to RMS (energy sum)
+      // NOTE: Do NOT multiply by bus.volume here — track peaks already include
+      // bus volume via _applyBusVolumeToRoutedTracks() (engine-level).
+      busRmsL = pow(busRmsL, 0.5).toDouble();
+      busRmsR = pow(busRmsR, 0.5).toDouble();
 
       _buses[bus.id] = bus.copyWith(
         peakL: busPeakL.clamp(0.0, 2.0),
@@ -2021,6 +2016,8 @@ class MixerProvider extends ChangeNotifier {
     } else if (_buses.containsKey(id)) {
       _buses[id] = channel.copyWith(muted: newMuted);
       NativeFFI.instance.mixerSetBusMute(_getBusEngineId(id), newMuted);
+      // Propagate bus mute to all routed tracks
+      _applyBusMuteToRoutedTracks(id);
     } else if (_auxes.containsKey(id)) {
       _auxes[id] = channel.copyWith(muted: newMuted);
     }
@@ -2048,6 +2045,8 @@ class MixerProvider extends ChangeNotifier {
     } else if (_buses.containsKey(id)) {
       _buses[id] = channel.copyWith(soloed: newSoloed);
       NativeFFI.instance.mixerSetBusSolo(_getBusEngineId(id), newSoloed);
+      // Apply SIP: mute tracks NOT routed to any soloed bus
+      _applySoloInPlace();
     } else if (_auxes.containsKey(id)) {
       _auxes[id] = channel.copyWith(soloed: newSoloed);
     }
@@ -2524,7 +2523,7 @@ class MixerProvider extends ChangeNotifier {
   }
 
   /// Apply bus pan to all tracks routed through this bus.
-  /// Bus pan acts as an offset/multiplier on track pan.
+  /// Bus pan acts as an offset on track pan (both mono and stereo).
   void _applyBusPanToRoutedTracks(String busId) {
     final bus = _buses[busId];
     if (bus == null) return;
@@ -2532,14 +2531,74 @@ class MixerProvider extends ChangeNotifier {
     for (final channel in _channels.values) {
       if (channel.outputBus == busId && channel.trackIndex != null) {
         if (FFIBoundsChecker.validateTrackId(channel.trackIndex!)) {
+          // Bus pan offsets track pan (consistent for mono and stereo)
+          final effectivePan = (channel.pan + bus.pan).clamp(-1.0, 1.0);
+          engine.setTrackPan(channel.trackIndex!, effectivePan);
           if (bus.isStereo) {
-            // Stereo bus: L/R pan directly controls stereo field
-            engine.setTrackPan(channel.trackIndex!, bus.pan.clamp(-1.0, 1.0));
-            engine.setTrackPanRight(channel.trackIndex!, bus.panRight.clamp(-1.0, 1.0));
+            final effectivePanR = (channel.panRight + bus.panRight).clamp(-1.0, 1.0);
+            engine.setTrackPanRight(channel.trackIndex!, effectivePanR);
+          }
+        }
+      }
+    }
+  }
+
+  /// Apply bus mute state to all tracks routed through this bus.
+  /// When bus is muted, all routed tracks get effective mute via volume=0.
+  /// When bus is unmuted, restore normal volume (track.volume * bus.volume).
+  void _applyBusMuteToRoutedTracks(String busId) {
+    final bus = _buses[busId];
+    if (bus == null) return;
+
+    for (final channel in _channels.values) {
+      if (channel.outputBus == busId && channel.trackIndex != null) {
+        if (FFIBoundsChecker.validateTrackId(channel.trackIndex!)) {
+          if (bus.muted) {
+            // Bus muted → silence all routed tracks
+            engine.setTrackVolume(channel.trackIndex!, 0.0);
           } else {
-            // Mono bus: bus pan offsets track pan
-            final effectivePan = (channel.pan + bus.pan).clamp(-1.0, 1.0);
-            engine.setTrackPan(channel.trackIndex!, effectivePan);
+            // Bus unmuted → restore effective volume
+            final effectiveVolume = channel.volume * bus.volume;
+            engine.setTrackVolume(channel.trackIndex!, effectiveVolume.clamp(0.0, 2.0));
+          }
+        }
+      }
+    }
+  }
+
+  /// Solo-In-Place: when any bus is soloed, mute tracks on non-soloed buses.
+  /// When no bus is soloed, restore all tracks to their normal state.
+  void _applySoloInPlace() {
+    final soloedBusIds = _buses.values
+        .where((b) => b.soloed)
+        .map((b) => b.id)
+        .toSet();
+
+    if (soloedBusIds.isEmpty) {
+      // No bus soloed — restore all tracks to normal volume
+      for (final channel in _channels.values) {
+        if (channel.trackIndex != null && channel.outputBus != null) {
+          final bus = _buses[channel.outputBus];
+          if (bus != null && !bus.muted && FFIBoundsChecker.validateTrackId(channel.trackIndex!)) {
+            final effectiveVolume = channel.volume * bus.volume;
+            engine.setTrackVolume(channel.trackIndex!, effectiveVolume.clamp(0.0, 2.0));
+          }
+        }
+      }
+    } else {
+      // Has soloed bus(es) — mute tracks NOT on soloed buses
+      for (final channel in _channels.values) {
+        if (channel.trackIndex != null && FFIBoundsChecker.validateTrackId(channel.trackIndex!)) {
+          final onSoloedBus = soloedBusIds.contains(channel.outputBus);
+          if (onSoloedBus) {
+            // On a soloed bus — play at normal volume
+            final bus = _buses[channel.outputBus];
+            final busVol = bus?.volume ?? 1.0;
+            final effectiveVolume = channel.volume * busVol;
+            engine.setTrackVolume(channel.trackIndex!, effectiveVolume.clamp(0.0, 2.0));
+          } else {
+            // Not on a soloed bus — silence
+            engine.setTrackVolume(channel.trackIndex!, 0.0);
           }
         }
       }
