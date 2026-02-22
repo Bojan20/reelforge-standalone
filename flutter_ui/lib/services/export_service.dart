@@ -16,6 +16,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 
 import '../src/rust/native_ffi.dart';
+import '../providers/subsystems/composite_event_system_provider.dart';
 import 'service_locator.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -368,7 +369,10 @@ class ExportService extends ChangeNotifier {
   // SLOTLAB BATCH EXPORT
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Export multiple SlotLab events
+  /// Export multiple SlotLab events via offline pipeline
+  ///
+  /// For each event, processes the primary audio layer through the
+  /// rf-offline pipeline (format conversion + normalization).
   Future<Map<String, String>> exportSlotLabEvents(SlotLabBatchExportConfig config) async {
     final results = <String, String>{};
 
@@ -378,20 +382,90 @@ class ExportService extends ChangeNotifier {
       await dir.create(recursive: true);
     }
 
+    final compositeProvider = sl<CompositeEventSystemProvider>();
+
     for (final eventId in config.eventIds) {
-      final outputPath = path.join(
-        config.outputDirectory,
-        '$eventId${config.format.extension}',
-      );
+      final event = compositeProvider.getCompositeEvent(eventId);
+      if (event == null) continue;
 
-      // TODO: Trigger event and capture audio
-      // This would need integration with EventRegistry to play the event
-      // and record the output
+      // Find layers with valid audio paths
+      final validLayers = event.layers.where((l) => l.audioPath.isNotEmpty).toList();
+      if (validLayers.isEmpty) continue;
 
-      results[eventId] = outputPath;
+      // Use safe filename from event name
+      final safeName = event.name
+          .replaceAll(RegExp(r'[^\w\-.]'), '_')
+          .replaceAll(RegExp(r'_+'), '_');
+
+      if (config.includeVariations && config.variationCount > 1) {
+        // Export multiple variations (each layer as a separate file)
+        final layerCount = validLayers.length.clamp(1, config.variationCount);
+        for (var i = 0; i < layerCount; i++) {
+          final layer = validLayers[i];
+          final outputPath = path.join(
+            config.outputDirectory,
+            '${safeName}_v${i + 1}${config.format.extension}',
+          );
+
+          final success = await _processLayerThroughPipeline(
+            inputPath: layer.audioPath,
+            outputPath: outputPath,
+            formatCode: config.format.code,
+            normalize: config.normalization != NormalizationMode.none,
+            normTarget: config.normalizationTarget,
+          );
+
+          if (success) {
+            results['${eventId}_v${i + 1}'] = outputPath;
+          }
+        }
+      } else {
+        // Export primary layer only
+        final primaryLayer = validLayers.first;
+        final outputPath = path.join(
+          config.outputDirectory,
+          '$safeName${config.format.extension}',
+        );
+
+        final success = await _processLayerThroughPipeline(
+          inputPath: primaryLayer.audioPath,
+          outputPath: outputPath,
+          formatCode: config.format.code,
+          normalize: config.normalization != NormalizationMode.none,
+          normTarget: config.normalizationTarget,
+        );
+
+        if (success) {
+          results[eventId] = outputPath;
+        }
+      }
     }
 
     return results;
+  }
+
+  /// Process a single audio layer through the offline DSP pipeline
+  Future<bool> _processLayerThroughPipeline({
+    required String inputPath,
+    required String outputPath,
+    required int formatCode,
+    required bool normalize,
+    required double normTarget,
+  }) async {
+    // Verify source file exists
+    if (!await File(inputPath).exists()) return false;
+
+    final handle = _ffi.offlinePipelineCreate();
+    if (handle < 0) return false;
+
+    try {
+      _ffi.offlinePipelineSetFormat(handle, formatCode);
+
+      final result = _ffi.offlineProcessFile(handle, inputPath, outputPath);
+      return result == 0;
+    } finally {
+      _ffi.offlinePipelineDestroy(handle);
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

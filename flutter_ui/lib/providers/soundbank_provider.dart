@@ -18,8 +18,24 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 
+import '../models/middleware_models.dart';
+import '../models/slot_audio_events.dart';
 import '../models/soundbank_models.dart';
 import '../services/export/unity_exporter.dart';
+import '../services/export/unreal_exporter.dart';
+import '../services/export/howler_exporter.dart';
+import '../services/export/godot_exporter.dart';
+import '../services/export/wwise_exporter.dart';
+import '../services/export/fmod_studio_exporter.dart';
+import '../services/service_locator.dart';
+import '../providers/subsystems/composite_event_system_provider.dart';
+import '../providers/subsystems/rtpc_system_provider.dart';
+import '../providers/subsystems/state_groups_provider.dart';
+import '../providers/subsystems/switch_groups_provider.dart';
+import '../providers/subsystems/ducking_system_provider.dart';
+import '../providers/subsystems/blend_containers_provider.dart';
+import '../providers/subsystems/random_containers_provider.dart';
+import '../providers/subsystems/sequence_containers_provider.dart';
 import '../src/rust/native_ffi.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -541,6 +557,8 @@ class SoundbankProvider extends ChangeNotifier {
       // Export based on platform
       switch (config.platform) {
         case SoundbankPlatform.universal:
+        case SoundbankPlatform.native:
+        case SoundbankPlatform.wasm:
           await _exportUniversal(bank, config, outputDir, onProgress);
           break;
         case SoundbankPlatform.unity:
@@ -552,8 +570,15 @@ class SoundbankProvider extends ChangeNotifier {
         case SoundbankPlatform.howler:
           await _exportHowler(bank, config, outputDir, onProgress);
           break;
-        default:
-          await _exportUniversal(bank, config, outputDir, onProgress);
+        case SoundbankPlatform.godot:
+          await _exportGodot(bank, config, outputDir, onProgress);
+          break;
+        case SoundbankPlatform.wwise:
+          await _exportWwise(bank, config, outputDir, onProgress);
+          break;
+        case SoundbankPlatform.fmod:
+          await _exportFmod(bank, config, outputDir, onProgress);
+          break;
       }
 
       exportedAssets = bank.assets.length;
@@ -749,27 +774,73 @@ class SoundbankProvider extends ChangeNotifier {
     return format.formatId;
   }
 
+  /// Collect middleware data from subsystem providers via GetIt
+  _MiddlewareExportData _getMiddlewareData() {
+    final compositeProvider = sl<CompositeEventSystemProvider>();
+    final rtpcProvider = sl<RtpcSystemProvider>();
+    final stateGroupsProvider = sl<StateGroupsProvider>();
+    final switchGroupsProvider = sl<SwitchGroupsProvider>();
+    final duckingProvider = sl<DuckingSystemProvider>();
+    final blendProvider = sl<BlendContainersProvider>();
+    final randomProvider = sl<RandomContainersProvider>();
+    final sequenceProvider = sl<SequenceContainersProvider>();
+
+    return _MiddlewareExportData(
+      events: compositeProvider.compositeEvents,
+      rtpcs: rtpcProvider.rtpcDefinitions,
+      stateGroups: stateGroupsProvider.stateGroups.values.toList(),
+      switchGroups: switchGroupsProvider.switchGroups.values.toList(),
+      duckingRules: duckingProvider.duckingRules,
+      blendContainers: blendProvider.blendContainers,
+      randomContainers: randomProvider.randomContainers,
+      sequenceContainers: sequenceProvider.sequenceContainers,
+    );
+  }
+
+  /// Write in-memory generated files to disk
+  Future<void> _writeGeneratedFiles(
+    Map<String, String> files,
+    Directory outputDir,
+    String subDir,
+  ) async {
+    final codeDir = Directory(path.join(outputDir.path, subDir));
+    if (!await codeDir.exists()) {
+      await codeDir.create(recursive: true);
+    }
+    for (final entry in files.entries) {
+      final file = File(path.join(codeDir.path, entry.key));
+      await file.writeAsString(entry.value);
+    }
+  }
+
   Future<void> _exportUnity(
     Soundbank bank,
     SoundbankExportConfig config,
     Directory outputDir,
     void Function(double, String)? onProgress,
   ) async {
-    // Use existing Unity exporter
+    // 1. Export audio assets via universal pipeline
+    await _exportUniversal(bank, config, outputDir, onProgress);
+
+    // 2. Generate Unity C# code
+    _exportStatus = 'Generating Unity scripts...';
+    _exportProgress = 0.92;
+    onProgress?.call(_exportProgress, _exportStatus!);
+    notifyListeners();
+
+    final data = _getMiddlewareData();
     final exporter = UnityExporter(config: UnityExportConfig(
       namespace: config.platformOptions['namespace'] ?? 'FluxForge.Audio',
       classPrefix: config.customPrefix ?? 'FF',
     ));
-
-    // Export code files
-    _exportStatus = 'Generating Unity scripts...';
-    _exportProgress = 0.5;
-    onProgress?.call(_exportProgress, _exportStatus!);
-    notifyListeners();
-
-    // Note: The actual export would integrate with middleware data
-    // For now, export the manifest and assets
-    await _exportUniversal(bank, config, outputDir, onProgress);
+    final result = exporter.export(
+      events: data.events,
+      rtpcs: data.rtpcs,
+      stateGroups: data.stateGroups,
+      switchGroups: data.switchGroups,
+      duckingRules: data.duckingRules,
+    );
+    await _writeGeneratedFiles(result.files, outputDir, 'Scripts');
   }
 
   Future<void> _exportUnreal(
@@ -778,13 +849,27 @@ class SoundbankProvider extends ChangeNotifier {
     Directory outputDir,
     void Function(double, String)? onProgress,
   ) async {
-    // Use existing Unreal exporter
+    // 1. Export audio assets via universal pipeline
+    await _exportUniversal(bank, config, outputDir, onProgress);
+
+    // 2. Generate Unreal C++ code
     _exportStatus = 'Generating Unreal code...';
-    _exportProgress = 0.5;
+    _exportProgress = 0.92;
     onProgress?.call(_exportProgress, _exportStatus!);
     notifyListeners();
 
-    await _exportUniversal(bank, config, outputDir, onProgress);
+    final data = _getMiddlewareData();
+    final exporter = UnrealExporter(config: UnrealExportConfig(
+      classPrefix: config.customPrefix ?? 'FF',
+    ));
+    final result = exporter.export(
+      events: data.events,
+      rtpcs: data.rtpcs,
+      stateGroups: data.stateGroups,
+      switchGroups: data.switchGroups,
+      duckingRules: data.duckingRules,
+    );
+    await _writeGeneratedFiles(result.files, outputDir, 'Source');
   }
 
   Future<void> _exportHowler(
@@ -793,12 +878,128 @@ class SoundbankProvider extends ChangeNotifier {
     Directory outputDir,
     void Function(double, String)? onProgress,
   ) async {
+    // 1. Export audio assets via universal pipeline
+    await _exportUniversal(bank, config, outputDir, onProgress);
+
+    // 2. Generate Howler.js TypeScript code
     _exportStatus = 'Generating Howler.js code...';
-    _exportProgress = 0.5;
+    _exportProgress = 0.92;
     onProgress?.call(_exportProgress, _exportStatus!);
     notifyListeners();
 
+    final data = _getMiddlewareData();
+    final exporter = HowlerExporter(config: HowlerExportConfig(
+      namespace: config.platformOptions['namespace'] ?? 'FluxForge',
+    ));
+    final result = exporter.export(
+      events: data.events,
+      rtpcs: data.rtpcs,
+      stateGroups: data.stateGroups,
+      switchGroups: data.switchGroups,
+      duckingRules: data.duckingRules,
+    );
+    await _writeGeneratedFiles(result.files, outputDir, 'js');
+  }
+
+  Future<void> _exportGodot(
+    Soundbank bank,
+    SoundbankExportConfig config,
+    Directory outputDir,
+    void Function(double, String)? onProgress,
+  ) async {
+    // 1. Export audio assets via universal pipeline
     await _exportUniversal(bank, config, outputDir, onProgress);
+
+    // 2. Generate Godot GDScript + .tres resources
+    _exportStatus = 'Generating Godot resources...';
+    _exportProgress = 0.92;
+    onProgress?.call(_exportProgress, _exportStatus!);
+    notifyListeners();
+
+    final data = _getMiddlewareData();
+    final exporter = GodotExporter(config: GodotConfig(
+      projectName: config.platformOptions['projectName'] ?? bank.manifest.name,
+    ));
+    final result = await exporter.export(
+      outputPath: outputDir.path,
+      events: data.events,
+      rtpcs: data.rtpcs,
+      stateGroups: data.stateGroups,
+      switchGroups: data.switchGroups,
+      blendContainers: data.blendContainers,
+      randomContainers: data.randomContainers,
+    );
+    // Godot exporter writes files to disk directly — result.files has paths
+    if (!result.success && result.error != null) {
+      throw Exception('Godot export failed: ${result.error}');
+    }
+  }
+
+  Future<void> _exportWwise(
+    Soundbank bank,
+    SoundbankExportConfig config,
+    Directory outputDir,
+    void Function(double, String)? onProgress,
+  ) async {
+    // 1. Export audio assets via universal pipeline
+    await _exportUniversal(bank, config, outputDir, onProgress);
+
+    // 2. Generate Wwise .wproj + work units
+    _exportStatus = 'Generating Wwise project...';
+    _exportProgress = 0.92;
+    onProgress?.call(_exportProgress, _exportStatus!);
+    notifyListeners();
+
+    final data = _getMiddlewareData();
+    final exporter = WwiseExporter(config: WwiseConfig(
+      projectName: config.platformOptions['projectName'] ?? bank.manifest.name,
+    ));
+    final result = await exporter.export(
+      outputPath: outputDir.path,
+      events: data.events,
+      rtpcs: data.rtpcs,
+      stateGroups: data.stateGroups,
+      switchGroups: data.switchGroups,
+      duckingRules: data.duckingRules,
+      blendContainers: data.blendContainers,
+      randomContainers: data.randomContainers,
+      sequenceContainers: data.sequenceContainers,
+    );
+    if (!result.success && result.error != null) {
+      throw Exception('Wwise export failed: ${result.error}');
+    }
+  }
+
+  Future<void> _exportFmod(
+    Soundbank bank,
+    SoundbankExportConfig config,
+    Directory outputDir,
+    void Function(double, String)? onProgress,
+  ) async {
+    // 1. Export audio assets via universal pipeline
+    await _exportUniversal(bank, config, outputDir, onProgress);
+
+    // 2. Generate FMOD Studio .fspro + metadata XMLs
+    _exportStatus = 'Generating FMOD Studio project...';
+    _exportProgress = 0.92;
+    onProgress?.call(_exportProgress, _exportStatus!);
+    notifyListeners();
+
+    final data = _getMiddlewareData();
+    final exporter = FmodStudioExporter(config: FmodStudioConfig(
+      projectName: config.platformOptions['projectName'] ?? bank.manifest.name,
+    ));
+    final result = await exporter.export(
+      outputPath: outputDir.path,
+      events: data.events,
+      rtpcs: data.rtpcs,
+      stateGroups: data.stateGroups,
+      switchGroups: data.switchGroups,
+      duckingRules: data.duckingRules,
+    );
+    if (!result.success && result.error != null) {
+      throw Exception('FMOD export failed: ${result.error}');
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -875,4 +1076,27 @@ class SoundbankProvider extends ChangeNotifier {
     final lowerQuery = query.toLowerCase();
     return bank.assets.where((a) => a.name.toLowerCase().contains(lowerQuery)).toList();
   }
+}
+
+/// Internal data class for passing middleware data to platform exporters
+class _MiddlewareExportData {
+  final List<SlotCompositeEvent> events;
+  final List<RtpcDefinition> rtpcs;
+  final List<StateGroup> stateGroups;
+  final List<SwitchGroup> switchGroups;
+  final List<DuckingRule> duckingRules;
+  final List<BlendContainer> blendContainers;
+  final List<RandomContainer> randomContainers;
+  final List<SequenceContainer> sequenceContainers;
+
+  const _MiddlewareExportData({
+    required this.events,
+    required this.rtpcs,
+    required this.stateGroups,
+    required this.switchGroups,
+    required this.duckingRules,
+    required this.blendContainers,
+    required this.randomContainers,
+    required this.sequenceContainers,
+  });
 }

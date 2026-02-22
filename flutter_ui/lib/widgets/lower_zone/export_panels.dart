@@ -16,8 +16,11 @@ import 'dart:io' as java_io;
 import 'package:flutter/material.dart';
 import '../../utils/safe_file_picker.dart';
 
+import '../../providers/subsystems/composite_event_system_provider.dart';
 import '../../services/export_service.dart';
 import '../../services/loudness_analysis_service.dart';
+import '../../services/service_locator.dart';
+import '../../src/rust/native_ffi.dart';
 import '../export/loudness_analysis_panel.dart';
 import 'lower_zone_types.dart';
 
@@ -3005,27 +3008,85 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
         await _createManifest(packDir.path, selectedEvents);
       }
 
-      // Export audio files (placeholder - actual export would use ExportService)
+      // Export audio files via offline pipeline
+      final compositeProvider = sl<CompositeEventSystemProvider>();
+      final ffi = sl<NativeFFI>();
       int exported = 0;
+      int failed = 0;
+
       for (final event in selectedEvents) {
+        if (!mounted) break;
         setState(() {
           _exportProgress = exported / selectedEvents.length;
           _exportStatus = 'Exporting ${event.name}...';
         });
 
-        // Placeholder: In real implementation, this would use ExportService
-        await Future.delayed(const Duration(milliseconds: 100));
+        // Find composite event matching this stage
+        final compositeEvents = compositeProvider.getEventsForStage(event.stage);
+        if (compositeEvents.isEmpty) {
+          failed++;
+          exported++;
+          continue;
+        }
+
+        final composite = compositeEvents.first;
+        final validLayers = composite.layers.where((l) => l.audioPath.isNotEmpty).toList();
+        if (validLayers.isEmpty) {
+          failed++;
+          exported++;
+          continue;
+        }
+
+        // Determine output subdirectory based on structure
+        final subDir = _structure != AudioPackStructure.flat
+            ? _getSubDirForEvent(event)
+            : '';
+        final outputDir = subDir.isNotEmpty
+            ? '${packDir.path}/$subDir'
+            : packDir.path;
+
+        // Process primary layer through offline pipeline
+        final primaryLayer = validLayers.first;
+        final safeName = event.name
+            .replaceAll(RegExp(r'[^\w\-.]'), '_')
+            .replaceAll(RegExp(r'_+'), '_');
+        final outputPath = '$outputDir/$safeName${_format.extension}';
+
+        final sourceFile = java_io.File(primaryLayer.audioPath);
+        if (await sourceFile.exists()) {
+          final handle = ffi.offlinePipelineCreate();
+          if (handle >= 0) {
+            try {
+              ffi.offlinePipelineSetFormat(handle, _formatToCode(_format));
+              final result = ffi.offlineProcessFile(handle, primaryLayer.audioPath, outputPath);
+              if (result != 0) failed++;
+            } finally {
+              ffi.offlinePipelineDestroy(handle);
+            }
+          } else {
+            // FFI not available — copy source file as fallback
+            await sourceFile.copy(outputPath);
+          }
+        } else {
+          failed++;
+        }
+
         exported++;
       }
 
       // Create ZIP if enabled
-      if (_createZip) {
+      if (_createZip && mounted) {
         setState(() {
           _exportProgress = 0.95;
           _exportStatus = 'Creating ZIP archive...';
         });
-        // Placeholder: Would use archive package in real implementation
-        await Future.delayed(const Duration(milliseconds: 200));
+        // ZIP creation via dart:io Process (zip command)
+        try {
+          final zipPath = '${packDir.path}.zip';
+          await java_io.Process.run('zip', ['-r', zipPath, packDir.path]);
+        } catch (_) {
+          // ZIP creation optional — don't fail export
+        }
       }
 
       setState(() {
@@ -3064,6 +3125,40 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
     if (stage.contains('UI') || stage.contains('BUTTON')) return 'ui';
     if (stage.contains('MUSIC') || stage.contains('AMBIENT')) return 'music';
     return 'misc';
+  }
+
+  String _getSubDirForEvent(SlotLabEventItem event) {
+    switch (_structure) {
+      case AudioPackStructure.flat:
+        return '';
+      case AudioPackStructure.byStage:
+        return event.stage;
+      case AudioPackStructure.byCategory:
+        return _categorizeStage(event.stage);
+      case AudioPackStructure.byBus:
+        final stage = event.stage.toUpperCase();
+        if (stage.contains('MUSIC') || stage.contains('AMBIENT')) return 'music';
+        if (stage.contains('UI') || stage.contains('BUTTON')) return 'ui';
+        if (stage.contains('VO') || stage.contains('VOICE')) return 'voice';
+        return 'sfx';
+    }
+  }
+
+  int _formatToCode(AudioPackFormat format) {
+    switch (format) {
+      case AudioPackFormat.wav16:
+      case AudioPackFormat.wav24:
+      case AudioPackFormat.wav32f:
+        return 0; // WAV
+      case AudioPackFormat.mp3High:
+      case AudioPackFormat.mp3Med:
+      case AudioPackFormat.mp3Low:
+        return 2; // MP3
+      case AudioPackFormat.oggHigh:
+      case AudioPackFormat.oggMed:
+      case AudioPackFormat.oggLow:
+        return 3; // OGG
+    }
   }
 
   Future<void> _createManifest(String packPath, List<SlotLabEventItem> events) async {

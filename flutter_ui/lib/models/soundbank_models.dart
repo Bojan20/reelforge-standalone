@@ -19,6 +19,9 @@ enum SoundbankPlatform {
   unity,      // Unity C# + ScriptableObject
   unreal,     // Unreal C++ + DataAsset
   howler,     // Howler.js + TypeScript
+  godot,      // Godot GDScript + .tres resources
+  wwise,      // Wwise .wproj + .wwu work units
+  fmod,       // FMOD Studio .fspro + metadata XMLs
   native,     // Native FluxForge runtime
   wasm,       // WebAssembly runtime
 }
@@ -30,6 +33,9 @@ extension SoundbankPlatformExt on SoundbankPlatform {
       case SoundbankPlatform.unity: return 'Unity';
       case SoundbankPlatform.unreal: return 'Unreal Engine';
       case SoundbankPlatform.howler: return 'Howler.js';
+      case SoundbankPlatform.godot: return 'Godot';
+      case SoundbankPlatform.wwise: return 'Wwise';
+      case SoundbankPlatform.fmod: return 'FMOD Studio';
       case SoundbankPlatform.native: return 'FluxForge Native';
       case SoundbankPlatform.wasm: return 'WebAssembly';
     }
@@ -41,6 +47,9 @@ extension SoundbankPlatformExt on SoundbankPlatform {
       case SoundbankPlatform.unity: return 'unitypackage';
       case SoundbankPlatform.unreal: return 'uasset';
       case SoundbankPlatform.howler: return 'zip';
+      case SoundbankPlatform.godot: return 'zip';
+      case SoundbankPlatform.wwise: return 'zip';
+      case SoundbankPlatform.fmod: return 'zip';
       case SoundbankPlatform.native: return 'ffbank';
       case SoundbankPlatform.wasm: return 'wasm';
     }

@@ -14,6 +14,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:path/path.dart' as path;
 import '../../models/middleware_models.dart';
 import '../../models/slot_audio_events.dart';
@@ -459,7 +460,7 @@ class WwiseExporter {
   /// Convert linear (0-1) to dB
   double _linearToDb(double linear) {
     if (linear <= 0.0) return -96.0;
-    return 20.0 * (linear.clamp(0.001, 10.0)).toString().length; // Simplified
+    return 20.0 * math.log(linear.clamp(0.001, 10.0)) / math.ln10;
   }
 
   /// Generate GUID
