@@ -6912,6 +6912,32 @@ pub extern "C" fn mixer_set_master_volume(volume_db: f64) -> i32 {
     1
 }
 
+/// Set master left channel delay (ms, 0.0-30.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn mixer_set_master_delay_l(delay_ms: f64) -> i32 {
+    PLAYBACK_ENGINE.set_master_delay_l(delay_ms);
+    1
+}
+
+/// Set master right channel delay (ms, 0.0-30.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn mixer_set_master_delay_r(delay_ms: f64) -> i32 {
+    PLAYBACK_ENGINE.set_master_delay_r(delay_ms);
+    1
+}
+
+/// Get master left channel delay (ms)
+#[unsafe(no_mangle)]
+pub extern "C" fn mixer_get_master_delay_l() -> f64 {
+    PLAYBACK_ENGINE.master_delay_l()
+}
+
+/// Get master right channel delay (ms)
+#[unsafe(no_mangle)]
+pub extern "C" fn mixer_get_master_delay_r() -> f64 {
+    PLAYBACK_ENGINE.master_delay_r()
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // AUDIO PROCESSING FFI
 // ═══════════════════════════════════════════════════════════════════════════

@@ -297,6 +297,11 @@ class UltimateMixer extends StatefulWidget {
   final Map<String, (double, double) Function()> peakReaders;
   /// Master bus peak reader — reads from SharedMeterReader (shared memory, zero-latency)
   final (double, double) Function()? masterPeakReader;
+  /// Master channel delay L/R (ms) — Cubase/Pro Tools Haas style
+  final double masterDelayLMs;
+  final double masterDelayRMs;
+  final ValueChanged<double>? onMasterDelayLChange;
+  final ValueChanged<double>? onMasterDelayRChange;
   /// Total counts for collapsed sections (shown even when section is empty)
   final int totalTracks;
   final int totalBuses;
@@ -357,6 +362,10 @@ class UltimateMixer extends StatefulWidget {
     this.onNarrowAllShortcut,
     this.peakReaders = const {},
     this.masterPeakReader,
+    this.masterDelayLMs = 0.0,
+    this.masterDelayRMs = 0.0,
+    this.onMasterDelayLChange,
+    this.onMasterDelayRChange,
   }) : visibleStripSections = visibleStripSections ?? MixerStripSection.defaultVisibleSet;
 
   @override
@@ -620,6 +629,10 @@ class _UltimateMixerState extends State<UltimateMixer> {
                       lufsShortTerm: widget.master.lufsShort,
                       lufsIntegrated: widget.master.lufsIntegrated,
                       peakReader: widget.masterPeakReader,
+                      delayLMs: widget.masterDelayLMs,
+                      delayRMs: widget.masterDelayRMs,
+                      onDelayLChange: widget.onMasterDelayLChange,
+                      onDelayRChange: widget.onMasterDelayRChange,
                     ),
                   ),
                 ],
@@ -990,9 +1003,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                 _buildWidthControl(),
                 // ── 12. Fader + Meter (Expanded) ──
                 Expanded(child: _buildFaderMeter()),
-                // ── 13. Numeric dB display ──
-                _buildNumericDisplay(),
-                // ── 14. M/S/R buttons ──
+                // ── 13. M/S/R buttons ──
                 _buildButtons(),
                 // ── 15. Track Name ──
                 _buildNameLabel(),
@@ -1368,33 +1379,6 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
             child: const Text('Save'),
           ),
         ],
-      ),
-    );
-  }
-
-  /// Numeric dB display below fader
-  Widget _buildNumericDisplay() {
-    final vol = widget.channel.volume;
-    String dbText;
-    if (vol <= 0.001) {
-      dbText = '-∞';
-    } else {
-      final db = 20 * math.log(vol) / math.ln10;
-      dbText = '${db >= 0 ? '+' : ''}${db.toStringAsFixed(1)}';
-    }
-    return Container(
-      height: 16,
-      alignment: Alignment.center,
-      child: Text(
-        dbText,
-        style: TextStyle(
-          fontSize: 9,
-          fontFamily: 'monospace',
-          fontWeight: FontWeight.w500,
-          color: widget.channel.muted
-              ? FluxForgeTheme.textTertiary
-              : FluxForgeTheme.textSecondary,
-        ),
       ),
     );
   }
@@ -2750,7 +2734,7 @@ class _VcaFader extends StatelessWidget {
   }
 }
 
-class _MasterStrip extends StatelessWidget {
+class _MasterStrip extends StatefulWidget {
   final UltimateMixerChannel channel;
   final double width;
   final bool compact;
@@ -2762,6 +2746,11 @@ class _MasterStrip extends StatelessWidget {
   final double lufsIntegrated;
   /// Direct FFI peak reader (120fps) — bypasses widget rebuild pipeline
   final (double, double) Function()? peakReader;
+  /// Master channel delay L/R (ms)
+  final double delayLMs;
+  final double delayRMs;
+  final ValueChanged<double>? onDelayLChange;
+  final ValueChanged<double>? onDelayRChange;
 
   const _MasterStrip({
     required this.channel,
@@ -2773,12 +2762,38 @@ class _MasterStrip extends StatelessWidget {
     this.lufsShortTerm = -70.0,
     this.lufsIntegrated = -70.0,
     this.peakReader,
+    this.delayLMs = 0.0,
+    this.delayRMs = 0.0,
+    this.onDelayLChange,
+    this.onDelayRChange,
   });
+
+  @override
+  State<_MasterStrip> createState() => _MasterStripState();
+}
+
+class _MasterStripState extends State<_MasterStrip> {
+  double _localDelayL = 0.0;
+  double _localDelayR = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _localDelayL = widget.delayLMs;
+    _localDelayR = widget.delayRMs;
+  }
+
+  @override
+  void didUpdateWidget(_MasterStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.delayLMs != widget.delayLMs) _localDelayL = widget.delayLMs;
+    if (oldWidget.delayRMs != widget.delayRMs) _localDelayR = widget.delayRMs;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: width,
+      width: widget.width,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -2797,7 +2812,7 @@ class _MasterStrip extends StatelessWidget {
         children: [
           // Top bar — tappable to select master for Lower Zone PROCESS
           GestureDetector(
-            onTap: onSelect,
+            onTap: widget.onSelect,
             child: Container(
               height: 4,
               decoration: BoxDecoration(
@@ -2810,7 +2825,7 @@ class _MasterStrip extends StatelessWidget {
           ),
           // Insert section — 12 slots: 8 pre-fader + 4 post-fader
           // Wrapped in Flexible to prevent overflow when window is small
-          if (!compact)
+          if (!widget.compact)
             Flexible(
               flex: 0,
               child: SingleChildScrollView(
@@ -2829,12 +2844,12 @@ class _MasterStrip extends StatelessWidget {
                       ),
                       // 8 pre-fader insert slots (0-7)
                       ...List.generate(8, (i) {
-                        final insert = i < channel.inserts.length
-                            ? channel.inserts[i]
+                        final insert = i < widget.channel.inserts.length
+                            ? widget.channel.inserts[i]
                             : InsertData(index: i);
                         return _InsertSlot(
                           insert: insert,
-                          onTap: () => onInsertClick?.call(i),
+                          onTap: () => widget.onInsertClick?.call(i),
                         );
                       }),
                       // Divider between pre/post
@@ -2854,12 +2869,12 @@ class _MasterStrip extends StatelessWidget {
                       // 4 post-fader insert slots (8-11)
                       ...List.generate(4, (i) {
                         final idx = 8 + i;
-                        final insert = idx < channel.inserts.length
-                            ? channel.inserts[idx]
+                        final insert = idx < widget.channel.inserts.length
+                            ? widget.channel.inserts[idx]
                             : InsertData(index: idx);
                         return _InsertSlot(
                           insert: insert,
-                          onTap: () => onInsertClick?.call(idx),
+                          onTap: () => widget.onInsertClick?.call(idx),
                         );
                       }),
                     ],
@@ -2872,18 +2887,20 @@ class _MasterStrip extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.all(4),
               child: _FaderWithMeter(
-                volume: channel.volume,
-                peakL: channel.peakL,
-                peakR: channel.peakR,
-                muted: channel.muted,
-                onChanged: onVolumeChange,
-                peakReader: peakReader,
+                volume: widget.channel.volume,
+                peakL: widget.channel.peakL,
+                peakR: widget.channel.peakR,
+                muted: widget.channel.muted,
+                onChanged: widget.onVolumeChange,
+                peakReader: widget.peakReader,
               ),
             ),
           ),
+          // ═══ L/R CHANNEL DELAY (Cubase/Pro Tools style) ═══
+          _buildDelayControls(),
           // Real-time LUFS display from engine metering (short-term + integrated)
           GestureDetector(
-            onTap: onSelect,
+            onTap: widget.onSelect,
             child: Container(
               height: 34,
               margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -2897,9 +2914,9 @@ class _MasterStrip extends StatelessWidget {
                 children: [
                   // Short-term LUFS (main reading)
                   Text(
-                    _formatMasterLufs(lufsShortTerm),
+                    _formatMasterLufs(widget.lufsShortTerm),
                     style: TextStyle(
-                      color: _lufsColor(lufsShortTerm),
+                      color: _lufsColor(widget.lufsShortTerm),
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.5,
@@ -2907,11 +2924,11 @@ class _MasterStrip extends StatelessWidget {
                   ),
                   // Integrated LUFS (smaller, below)
                   Text(
-                    lufsIntegrated <= -70.0
+                    widget.lufsIntegrated <= -70.0
                         ? 'I: -∞'
-                        : 'I: ${lufsIntegrated.toStringAsFixed(1)}',
+                        : 'I: ${widget.lufsIntegrated.toStringAsFixed(1)}',
                     style: TextStyle(
-                      color: _lufsColor(lufsIntegrated).withOpacity(0.7),
+                      color: _lufsColor(widget.lufsIntegrated).withOpacity(0.7),
                       fontSize: 7,
                       fontWeight: FontWeight.w500,
                     ),
@@ -2922,7 +2939,7 @@ class _MasterStrip extends StatelessWidget {
           ),
           // Master label — also tappable
           GestureDetector(
-            onTap: onSelect,
+            onTap: widget.onSelect,
             child: Container(
               height: 24,
               padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -2935,6 +2952,117 @@ class _MasterStrip extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Compact L/R delay controls — two vertical sliders with ms display
+  Widget _buildDelayControls() {
+    return Container(
+      height: 52,
+      margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.bgDeepest.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(
+          color: FluxForgeTheme.accentCyan.withOpacity(0.15),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header
+          const Text(
+            'DELAY',
+            style: TextStyle(
+              color: FluxForgeTheme.textTertiary,
+              fontSize: 7,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 1),
+          // L/R sliders
+          Row(
+            children: [
+              // L channel
+              Expanded(child: _buildDelaySlider(
+                label: 'L',
+                value: _localDelayL,
+                color: FluxForgeTheme.accentCyan,
+                onChanged: (v) {
+                  setState(() => _localDelayL = v);
+                  widget.onDelayLChange?.call(v);
+                },
+              )),
+              const SizedBox(width: 2),
+              // R channel
+              Expanded(child: _buildDelaySlider(
+                label: 'R',
+                value: _localDelayR,
+                color: FluxForgeTheme.warningOrange,
+                onChanged: (v) {
+                  setState(() => _localDelayR = v);
+                  widget.onDelayRChange?.call(v);
+                },
+              )),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDelaySlider({
+    required String label,
+    required double value,
+    required Color color,
+    required ValueChanged<double> onChanged,
+  }) {
+    final msText = value < 0.1
+        ? '0ms'
+        : '${value.toStringAsFixed(1)}ms';
+    return GestureDetector(
+      onDoubleTap: () {
+        onChanged(0.0);
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Label + value
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(label, style: TextStyle(
+                color: color, fontSize: 8, fontWeight: FontWeight.w700)),
+              Text(msText, style: TextStyle(
+                color: value > 0.1 ? color : FluxForgeTheme.textTertiary,
+                fontSize: 7, fontFamily: 'JetBrains Mono')),
+            ],
+          ),
+          // Slider
+          SizedBox(
+            height: 14,
+            child: SliderTheme(
+              data: SliderThemeData(
+                trackHeight: 2,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 8),
+                activeTrackColor: color.withOpacity(0.7),
+                inactiveTrackColor: FluxForgeTheme.bgMid,
+                thumbColor: color,
+                overlayColor: color.withOpacity(0.15),
+              ),
+              child: Slider(
+                value: value,
+                min: 0.0,
+                max: 30.0,
+                onChanged: onChanged,
               ),
             ),
           ),

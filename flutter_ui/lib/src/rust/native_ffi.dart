@@ -718,6 +718,16 @@ typedef EngineMixerSetBusPanRightDart = int Function(int busId, double pan);
 typedef EngineMixerSetMasterVolumeNative = Int32 Function(Double volumeDb);
 typedef EngineMixerSetMasterVolumeDart = int Function(double volumeDb);
 
+// Master channel delay (independent L/R)
+typedef MixerSetMasterDelayLNative = Int32 Function(Double delayMs);
+typedef MixerSetMasterDelayLDart = int Function(double delayMs);
+typedef MixerSetMasterDelayRNative = Int32 Function(Double delayMs);
+typedef MixerSetMasterDelayRDart = int Function(double delayMs);
+typedef MixerGetMasterDelayLNative = Double Function();
+typedef MixerGetMasterDelayLDart = double Function();
+typedef MixerGetMasterDelayRNative = Double Function();
+typedef MixerGetMasterDelayRDart = double Function();
+
 // Audio processing functions
 typedef EngineClipNormalizeNative = Int32 Function(Uint64 clipId, Double targetDb);
 typedef EngineClipNormalizeDart = int Function(int clipId, double targetDb);
@@ -2383,6 +2393,12 @@ class NativeFFI {
   late final EngineMixerSetBusPanRightDart _mixerSetBusPanRight;
   late final EngineMixerSetMasterVolumeDart _mixerSetMasterVolume;
 
+  // Master channel delay (independent L/R)
+  late final MixerSetMasterDelayLDart _mixerSetMasterDelayL;
+  late final MixerSetMasterDelayRDart _mixerSetMasterDelayR;
+  late final MixerGetMasterDelayLDart _mixerGetMasterDelayL;
+  late final MixerGetMasterDelayRDart _mixerGetMasterDelayR;
+
   // Audio processing
   late final EngineClipNormalizeDart _clipNormalize;
   late final EngineClipReverseDart _clipReverse;
@@ -3091,6 +3107,12 @@ class NativeFFI {
     _mixerSetBusPan = _lib.lookupFunction<EngineMixerSetBusPanNative, EngineMixerSetBusPanDart>('mixer_set_bus_pan');
     _mixerSetBusPanRight = _lib.lookupFunction<EngineMixerSetBusPanRightNative, EngineMixerSetBusPanRightDart>('mixer_set_bus_pan_right');
     _mixerSetMasterVolume = _lib.lookupFunction<EngineMixerSetMasterVolumeNative, EngineMixerSetMasterVolumeDart>('mixer_set_master_volume');
+
+    // Master channel delay (independent L/R)
+    _mixerSetMasterDelayL = _lib.lookupFunction<MixerSetMasterDelayLNative, MixerSetMasterDelayLDart>('mixer_set_master_delay_l');
+    _mixerSetMasterDelayR = _lib.lookupFunction<MixerSetMasterDelayRNative, MixerSetMasterDelayRDart>('mixer_set_master_delay_r');
+    _mixerGetMasterDelayL = _lib.lookupFunction<MixerGetMasterDelayLNative, MixerGetMasterDelayLDart>('mixer_get_master_delay_l');
+    _mixerGetMasterDelayR = _lib.lookupFunction<MixerGetMasterDelayRNative, MixerGetMasterDelayRDart>('mixer_get_master_delay_r');
 
     // Audio processing
     _clipNormalize = _lib.lookupFunction<EngineClipNormalizeNative, EngineClipNormalizeDart>('clip_normalize');
@@ -4531,6 +4553,34 @@ class NativeFFI {
   double getMasterVolume() {
     if (!_loaded) return 1.0;
     return _getMasterVolume();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MASTER CHANNEL DELAY (Independent L/R)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set left channel delay in milliseconds (0.0-30.0)
+  void setMasterDelayL(double ms) {
+    if (!_loaded) return;
+    _mixerSetMasterDelayL(ms);
+  }
+
+  /// Set right channel delay in milliseconds (0.0-30.0)
+  void setMasterDelayR(double ms) {
+    if (!_loaded) return;
+    _mixerSetMasterDelayR(ms);
+  }
+
+  /// Get left channel delay in milliseconds
+  double getMasterDelayL() {
+    if (!_loaded) return 0.0;
+    return _mixerGetMasterDelayL();
+  }
+
+  /// Get right channel delay in milliseconds
+  double getMasterDelayR() {
+    if (!_loaded) return 0.0;
+    return _mixerGetMasterDelayR();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

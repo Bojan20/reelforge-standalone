@@ -286,6 +286,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   Api550Params _apiParams = const Api550Params();
   Neve1073Params _neveParams = const Neve1073Params();
 
+  // Master channel delay (independent L/R — Haas style)
+  double _masterDelayLMs = 0.0;
+  double _masterDelayRMs = 0.0;
+
   // Cubase-style edit toolbar — uses Provider from main.dart widget tree
 
   // Timeline state
@@ -8590,6 +8594,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     )).toList();
 
     final masterMeter = meterProvider.masterState;
+    // LUFS: Direct FFI call for real-time values
+    double lzLufsS = masterMeter.lufsShort, lzLufsI = -60.0;
+    try {
+      final (_, s, i) = NativeFFI.instance.getLufsMeters();
+      lzLufsS = s;
+      lzLufsI = i;
+    } catch (_) {}
     final masterChannel = ultimate.UltimateMixerChannel(
       id: 'master',
       name: 'MASTER',
@@ -8604,9 +8615,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       peakR: masterMeter.peakR,
       rmsL: masterMeter.rms,
       rmsR: masterMeter.rmsR,
-      correlation: metering.correlation,
-      lufsShort: masterMeter.lufsShort,
-      lufsIntegrated: metering.masterLufsI,
+      correlation: 0.0,
+      lufsShort: lzLufsS,
+      lufsIntegrated: lzLufsI,
       stereoWidth: mixerProvider.master.stereoWidth,
     );
 
@@ -8822,8 +8833,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       buildMaster: () {
         final (mPeakL, mPeakR) = NativeFFI.instance.getBusPeak(0);
         final (mRmsL, mRmsR) = NativeFFI.instance.getRmsMeters();
-        final engineProv = context.read<EngineProvider>();
         final mp = context.read<MixerProvider>();
+        // LUFS: Direct FFI call for real-time values (EngineProvider doesn't notify on metering)
+        double lufsS = -60.0, lufsI = -60.0;
+        try {
+          final (_, s, i) = NativeFFI.instance.getLufsMeters();
+          lufsS = s;
+          lufsI = i;
+        } catch (_) {}
         return ultimate.UltimateMixerChannel(
           id: 'master', name: 'MASTER', type: ultimate.ChannelType.master,
           color: FluxForgeTheme.warningOrange,
@@ -8835,9 +8852,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             bypassed: slot.bypassed, isPreFader: slot.isPreFader,
           )).toList(),
           peakL: mPeakL, peakR: mPeakR, rmsL: mRmsL, rmsR: mRmsR,
-          correlation: engineProv.metering.correlation,
-          lufsShort: engineProv.metering.masterLufsS,
-          lufsIntegrated: engineProv.metering.masterLufsI,
+          correlation: 0.0,
+          lufsShort: lufsS,
+          lufsIntegrated: lufsI,
           stereoWidth: mp.master.stereoWidth,
         );
       },
@@ -9469,6 +9486,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
     // Master channel — use MeterProvider (60fps shared memory, smoothed + peak hold)
     final masterMeter = meterProvider.masterState;
+    // LUFS: Direct FFI call for real-time values
+    double dawLufsS = masterMeter.lufsShort, dawLufsI = -60.0;
+    try {
+      final (_, s, i) = NativeFFI.instance.getLufsMeters();
+      dawLufsS = s;
+      dawLufsI = i;
+    } catch (_) {}
     final masterChannel = ultimate.UltimateMixerChannel(
       id: 'master',
       name: 'MASTER',
@@ -9483,9 +9507,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       peakR: masterMeter.peakR,
       rmsL: masterMeter.rms,
       rmsR: masterMeter.rmsR,
-      correlation: metering.correlation,
-      lufsShort: masterMeter.lufsShort,
-      lufsIntegrated: metering.masterLufsI,
+      correlation: 0.0,
+      lufsShort: dawLufsS,
+      lufsIntegrated: dawLufsI,
       stereoWidth: mixerProvider.master.stereoWidth,
     );
 
@@ -9665,6 +9689,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         _spillController?.toggleSpillVca(vcaId);
         setState(() {});
       },
+      masterDelayLMs: _masterDelayLMs,
+      masterDelayRMs: _masterDelayRMs,
+      onMasterDelayLChange: (ms) {
+        NativeFFI.instance.setMasterDelayL(ms);
+        setState(() => _masterDelayLMs = ms);
+      },
+      onMasterDelayRChange: (ms) {
+        NativeFFI.instance.setMasterDelayR(ms);
+        setState(() => _masterDelayRMs = ms);
+      },
     );
   }
 
@@ -9737,6 +9771,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     // Master channel — use MeterProvider (60fps shared memory)
     final mwMasterMeter = meterProvider.masterState;
     final mwMixerProv = context.read<MixerProvider>();
+    // LUFS: Direct FFI call for real-time values
+    double mwLufsS = mwMasterMeter.lufsShort, mwLufsI = -60.0;
+    try {
+      final (_, s, i) = NativeFFI.instance.getLufsMeters();
+      mwLufsS = s;
+      mwLufsI = i;
+    } catch (_) {}
     final masterChannel = ultimate.UltimateMixerChannel(
       id: 'master',
       name: 'MASTER',
@@ -9751,9 +9792,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       peakR: mwMasterMeter.peakR,
       rmsL: mwMasterMeter.rms,
       rmsR: mwMasterMeter.rmsR,
-      correlation: metering.correlation,
-      lufsShort: mwMasterMeter.lufsShort,
-      lufsIntegrated: metering.masterLufsI,
+      correlation: 0.0,
+      lufsShort: mwLufsS,
+      lufsIntegrated: mwLufsI,
       stereoWidth: mwMixerProv.master.stereoWidth,
     );
 
@@ -9791,6 +9832,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       onSendPreFaderToggle: (busId, sendIndex, preFader) {
       },
       onSendDestChange: (busId, sendIndex, destination) {
+      },
+      masterDelayLMs: _masterDelayLMs,
+      masterDelayRMs: _masterDelayRMs,
+      onMasterDelayLChange: (ms) {
+        NativeFFI.instance.setMasterDelayL(ms);
+        setState(() => _masterDelayLMs = ms);
+      },
+      onMasterDelayRChange: (ms) {
+        NativeFFI.instance.setMasterDelayR(ms);
+        setState(() => _masterDelayRMs = ms);
       },
     );
   }

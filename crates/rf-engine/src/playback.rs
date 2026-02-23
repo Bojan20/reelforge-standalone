@@ -1683,6 +1683,20 @@ pub struct PlaybackEngine {
     pub(crate) master_stereo_imager: RwLock<rf_dsp::spatial::StereoImager>,
     /// Per-bus StereoImager instances (6 buses: Master=0, Music=1, Sfx=2, Voice=3, Amb=4, Aux=5)
     pub(crate) bus_stereo_imagers: RwLock<[rf_dsp::spatial::StereoImager; 6]>,
+
+    // === MASTER CHANNEL DELAY (Independent L/R — Cubase/Pro Tools style) ===
+    /// Left channel delay in milliseconds (0.0 to 30.0ms)
+    master_delay_l_ms: AtomicU64,
+    /// Right channel delay in milliseconds (0.0 to 30.0ms)
+    master_delay_r_ms: AtomicU64,
+    /// Ring buffer for left channel delay (pre-allocated, 8192 samples = ~170ms @ 48kHz)
+    master_delay_buf_l: RwLock<Vec<f64>>,
+    /// Ring buffer for right channel delay
+    master_delay_buf_r: RwLock<Vec<f64>>,
+    /// Write position for delay buffers
+    master_delay_write_pos: AtomicUsize,
+    /// Cached sample rate for delay calculations
+    master_delay_sample_rate: AtomicU64,
 }
 
 impl PlaybackEngine {
@@ -1774,6 +1788,13 @@ impl PlaybackEngine {
             bus_stereo_imagers: RwLock::new(std::array::from_fn(|_| {
                 rf_dsp::spatial::StereoImager::new(sample_rate as f64)
             })),
+            // Master channel delay: independent L/R (Cubase/Pro Tools style)
+            master_delay_l_ms: AtomicU64::new(0.0_f64.to_bits()),
+            master_delay_r_ms: AtomicU64::new(0.0_f64.to_bits()),
+            master_delay_buf_l: RwLock::new(vec![0.0_f64; 8192]),
+            master_delay_buf_r: RwLock::new(vec![0.0_f64; 8192]),
+            master_delay_write_pos: AtomicUsize::new(0),
+            master_delay_sample_rate: AtomicU64::new((sample_rate as f64).to_bits()),
         }
     }
 
@@ -3274,6 +3295,30 @@ impl PlaybackEngine {
         f64::from_bits(self.master_volume.load(Ordering::Relaxed))
     }
 
+    // ═══ MASTER CHANNEL DELAY (Independent L/R) ═══
+
+    /// Set left channel delay in milliseconds (0.0 to 30.0)
+    pub fn set_master_delay_l(&self, ms: f64) {
+        self.master_delay_l_ms
+            .store(ms.clamp(0.0, 30.0).to_bits(), Ordering::Relaxed);
+    }
+
+    /// Set right channel delay in milliseconds (0.0 to 30.0)
+    pub fn set_master_delay_r(&self, ms: f64) {
+        self.master_delay_r_ms
+            .store(ms.clamp(0.0, 30.0).to_bits(), Ordering::Relaxed);
+    }
+
+    /// Get left channel delay in milliseconds
+    pub fn master_delay_l(&self) -> f64 {
+        f64::from_bits(self.master_delay_l_ms.load(Ordering::Relaxed))
+    }
+
+    /// Get right channel delay in milliseconds
+    pub fn master_delay_r(&self) -> f64 {
+        f64::from_bits(self.master_delay_r_ms.load(Ordering::Relaxed))
+    }
+
     /// Get current playback position in seconds (sample-accurate)
     pub fn position_seconds(&self) -> f64 {
         self.position.seconds()
@@ -4704,6 +4749,49 @@ impl PlaybackEngine {
         // Apply master insert chain (post-fader)
         if let Some(mut master_insert) = self.master_insert.try_write() {
             master_insert.process_post_fader(output_l, output_r);
+        }
+
+        // ═══ MASTER CHANNEL DELAY (Independent L/R — Cubase/Pro Tools style) ═══
+        // Applied after all processing, before metering.
+        // Ring buffer approach: write current sample, read delayed sample.
+        {
+            let delay_l_ms = f64::from_bits(self.master_delay_l_ms.load(Ordering::Relaxed));
+            let delay_r_ms = f64::from_bits(self.master_delay_r_ms.load(Ordering::Relaxed));
+
+            // Only process if at least one channel has non-zero delay
+            if delay_l_ms > 0.001 || delay_r_ms > 0.001 {
+                let sr = f64::from_bits(self.master_delay_sample_rate.load(Ordering::Relaxed));
+                let delay_l_samples = (delay_l_ms * sr / 1000.0) as usize;
+                let delay_r_samples = (delay_r_ms * sr / 1000.0) as usize;
+
+                if let (Some(mut buf_l), Some(mut buf_r)) = (
+                    self.master_delay_buf_l.try_write(),
+                    self.master_delay_buf_r.try_write(),
+                ) {
+                    let buf_size = buf_l.len(); // 8192
+                    let mut wp = self.master_delay_write_pos.load(Ordering::Relaxed);
+
+                    for i in 0..frames {
+                        // Write current samples into ring buffer
+                        buf_l[wp % buf_size] = output_l[i];
+                        buf_r[wp % buf_size] = output_r[i];
+
+                        // Read delayed samples (wrap around)
+                        if delay_l_samples > 0 {
+                            let read_pos = (wp + buf_size - delay_l_samples) % buf_size;
+                            output_l[i] = buf_l[read_pos];
+                        }
+                        if delay_r_samples > 0 {
+                            let read_pos = (wp + buf_size - delay_r_samples) % buf_size;
+                            output_r[i] = buf_r[read_pos];
+                        }
+
+                        wp = (wp + 1) % buf_size;
+                    }
+
+                    self.master_delay_write_pos.store(wp, Ordering::Relaxed);
+                }
+            }
         }
 
         // Calculate metering (after volume is applied)
