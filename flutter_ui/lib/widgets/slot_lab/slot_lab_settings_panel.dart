@@ -9,7 +9,7 @@
 library;
 
 import 'package:flutter/material.dart';
-import '../../utils/safe_file_picker.dart';
+import '../../services/native_file_picker.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../services/session_persistence_service.dart';
 import 'volatility_dial.dart' show VolatilityLevel;
@@ -705,10 +705,9 @@ class _SlotLabSettingsPanelState extends State<SlotLabSettingsPanel> {
   }
 
   Future<void> _exportSessionJson() async {
-    final result = await SafeFilePicker.saveFile(context,
+    final result = await NativeFilePicker.saveFileCompat(
       dialogTitle: 'Export Session',
       fileName: 'slotlab_session_${DateTime.now().toIso8601String().split('T').first}.json',
-      type: FileType.custom,
       allowedExtensions: ['json'],
     );
 
@@ -726,10 +725,9 @@ class _SlotLabSettingsPanelState extends State<SlotLabSettingsPanel> {
   }
 
   Future<void> _exportSessionCsv() async {
-    final result = await SafeFilePicker.saveFile(context,
+    final result = await NativeFilePicker.saveFileCompat(
       dialogTitle: 'Export Session as CSV',
       fileName: 'slotlab_session_${DateTime.now().toIso8601String().split('T').first}.csv',
-      type: FileType.custom,
       allowedExtensions: ['csv'],
     );
 
@@ -747,7 +745,7 @@ class _SlotLabSettingsPanelState extends State<SlotLabSettingsPanel> {
   }
 
   Future<void> _importSession() async {
-    final result = await SafeFilePicker.pickFiles(context,
+    final result = await NativeFilePicker.pickFilesCompat(
       dialogTitle: 'Import Session',
       type: FileType.custom,
       allowedExtensions: ['json'],

@@ -383,7 +383,7 @@ class _InternalProcessorEditorWindowState
               onPressed: () => setState(() => _isCollapsed = !_isCollapsed),
             ),
 
-            // Bypass toggle
+            // Bypass toggle — direct FFI + DspChainProvider sync
             _buildTitleButton(
               icon: Icons.power_settings_new,
               tooltip: widget.node.bypass ? 'Enable' : 'Bypass',
@@ -391,10 +391,19 @@ class _InternalProcessorEditorWindowState
                   ? FluxForgeTheme.textDisabled
                   : FluxForgeTheme.accentGreen,
               onPressed: () {
-                DspChainProvider.instance.toggleNodeBypass(
-                  widget.trackId,
-                  widget.node.id,
-                );
+                final newBypass = !widget.node.bypass;
+                // Direct FFI call — always works regardless of DspChainProvider state
+                NativeFFI.instance.insertSetBypass(widget.trackId, widget.slotIndex, newBypass);
+                // Sync DspChainProvider UI state
+                final chain = DspChainProvider.instance.getChain(widget.trackId);
+                final nodeIndex = chain.nodes.indexWhere((n) => n.id == widget.node.id);
+                if (nodeIndex >= 0) {
+                  DspChainProvider.instance.toggleNodeBypass(widget.trackId, widget.node.id);
+                } else {
+                  // Node not in DspChainProvider — add it so future reads see bypass
+                  DspChainProvider.instance.addNodeUiOnly(widget.trackId, widget.node.type, atSlot: widget.slotIndex);
+                  DspChainProvider.instance.setNodeBypassUiOnly(widget.trackId, widget.node.type, newBypass);
+                }
               },
             ),
 
@@ -521,6 +530,8 @@ class _InternalProcessorEditorWindowState
             final ffi = NativeFFI.instance;
             final t = widget.trackId;
             final s = widget.slotIndex;
+            // Bypass
+            ffi.insertSetBypass(t, s, params.bypass);
             // Gain params (0-3)
             ffi.insertSetParam(t, s, 0, params.lowBoost);
             ffi.insertSetParam(t, s, 1, params.lowAtten);
@@ -549,6 +560,8 @@ class _InternalProcessorEditorWindowState
             final ffi = NativeFFI.instance;
             final t = widget.trackId;
             final s = widget.slotIndex;
+            // Bypass
+            ffi.insertSetBypass(t, s, params.bypass);
             // Api550Wrapper param layout (7 params, UAD-faithful):
             // 0: Low Gain (-12 to +12 dB)
             ffi.insertSetParam(t, s, 0, params.lowGain);
@@ -572,6 +585,8 @@ class _InternalProcessorEditorWindowState
             final ffi = NativeFFI.instance;
             final t = widget.trackId;
             final s = widget.slotIndex;
+            // Bypass (eqEnabled is inverse of bypass)
+            ffi.insertSetBypass(t, s, !params.eqEnabled);
             // NEW Neve1073Wrapper param layout (8 params, UAD-faithful):
             // 0: HP Enabled (0/1)
             ffi.insertSetParam(t, s, 0, params.hpfEnabled ? 1.0 : 0.0);
@@ -707,6 +722,7 @@ class _ParamSlider extends StatelessWidget {
   final double value;
   final double min;
   final double max;
+  final double? defaultValue;
   final String unit;
   final ValueChanged<double> onChanged;
 
@@ -717,11 +733,14 @@ class _ParamSlider extends StatelessWidget {
     required this.max,
     required this.unit,
     required this.onChanged,
+    this.defaultValue,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return GestureDetector(
+      onDoubleTap: () => onChanged(defaultValue ?? (min + max) / 2),
+      child: Row(
       children: [
         SizedBox(
           width: 90,
@@ -765,6 +784,7 @@ class _ParamSlider extends StatelessWidget {
           ),
         ),
       ],
+    ),
     );
   }
 

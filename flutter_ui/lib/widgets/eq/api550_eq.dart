@@ -392,6 +392,7 @@ class _Api550EqState extends State<Api550Eq> {
     required double value,
     required double min,
     required double max,
+    double? defaultValue,
     required ValueChanged<double> onChanged,
   }) {
     return GestureDetector(
@@ -400,6 +401,7 @@ class _Api550EqState extends State<Api550Eq> {
         final newValue = (value + delta).clamp(min, max);
         onChanged(newValue);
       },
+      onDoubleTap: () => onChanged(defaultValue ?? 0.0),
       child: CustomPaint(
         size: const Size(52, 52),
         painter: _ApiKnobPainter(

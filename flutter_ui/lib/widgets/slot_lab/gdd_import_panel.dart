@@ -10,7 +10,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import '../../utils/safe_file_picker.dart';
+import '../../services/native_file_picker.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../src/rust/slot_lab_v2_ffi.dart';
@@ -44,7 +44,7 @@ class _GddImportPanelState extends State<GddImportPanel> {
 
   Future<void> _pickFile() async {
     try {
-      final result = await SafeFilePicker.pickFiles(context,
+      final result = await NativeFilePicker.pickFilesCompat(
         type: FileType.custom,
         allowedExtensions: ['json'],
         dialogTitle: 'Select GDD JSON File',

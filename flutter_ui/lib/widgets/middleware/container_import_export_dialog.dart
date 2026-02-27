@@ -10,7 +10,7 @@ library;
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../utils/safe_file_picker.dart';
+import '../../services/native_file_picker.dart';
 import '../../providers/middleware_provider.dart';
 import '../../services/container_preset_service.dart';
 import '../../theme/fluxforge_theme.dart';
@@ -369,7 +369,7 @@ class _ContainerImportExportDialogState extends State<ContainerImportExportDialo
   }
 
   Future<void> _exportContainers(MiddlewareProvider provider) async {
-    final result = await SafeFilePicker.getDirectoryPath(context,
+    final result = await NativeFilePicker.getDirectoryPath(
       dialogTitle: 'Select Export Folder',
     );
 
@@ -600,7 +600,7 @@ class _ContainerImportExportDialogState extends State<ContainerImportExportDialo
   }
 
   Future<void> _importSingleFile() async {
-    final result = await SafeFilePicker.pickFiles(context,
+    final result = await NativeFilePicker.pickFilesCompat(
       type: FileType.custom,
       allowedExtensions: ['ffxcontainer', 'json'],
       dialogTitle: 'Select Container Preset',
@@ -632,7 +632,7 @@ class _ContainerImportExportDialogState extends State<ContainerImportExportDialo
   }
 
   Future<void> _importFromFolder() async {
-    final result = await SafeFilePicker.getDirectoryPath(context,
+    final result = await NativeFilePicker.getDirectoryPath(
       dialogTitle: 'Select Import Folder',
     );
 

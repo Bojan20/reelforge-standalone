@@ -12,7 +12,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
-import '../../utils/safe_file_picker.dart';
+import '../../services/native_file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart' show kPrimaryButton;
@@ -3789,10 +3789,9 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
 
     // Try to save to file
     try {
-      final result = await SafeFilePicker.saveFile(context,
+      final result = await NativeFilePicker.saveFileCompat(
         dialogTitle: 'Save Package',
         fileName: '${projectProvider.projectName.toLowerCase().replaceAll(' ', '_')}_package.json',
-        type: FileType.custom,
         allowedExtensions: ['json'],
       );
 

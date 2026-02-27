@@ -596,6 +596,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
     required double max,
     required String label,
     double size = 50,
+    double? defaultValue,
     required ValueChanged<double> onChanged,
   }) {
     return Column(
@@ -606,6 +607,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
             final newValue = (value + delta * (max - min)).clamp(min, max);
             onChanged(newValue);
           },
+          onDoubleTap: () => onChanged(defaultValue ?? 0.0),
           child: Container(
             width: size,
             height: size,
@@ -732,6 +734,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
     required double value,
     required double min,
     required double max,
+    double? defaultValue,
     required ValueChanged<double> onChanged,
   }) {
     return GestureDetector(
@@ -740,6 +743,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
         final newValue = (value + delta).clamp(min, max);
         onChanged(newValue);
       },
+      onDoubleTap: () => onChanged(defaultValue ?? 0.0),
       child: CustomPaint(
         size: const Size(32, 32),
         painter: _NeveFooterKnobPainter(

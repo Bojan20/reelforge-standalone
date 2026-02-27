@@ -10,7 +10,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../utils/safe_file_picker.dart';
+import '../../services/native_file_picker.dart';
 
 import '../../services/stage_group_service.dart';
 import '../../theme/fluxforge_theme.dart';
@@ -872,7 +872,7 @@ class _GroupBatchImportPanelState extends State<GroupBatchImportPanel> {
       List<String> paths = [];
 
       if (folderMode) {
-        final result = await SafeFilePicker.getDirectoryPath(context);
+        final result = await NativeFilePicker.getDirectoryPath();
         if (result != null) {
           // Scan folder for audio files
           final dir = Directory(result);
@@ -887,7 +887,7 @@ class _GroupBatchImportPanelState extends State<GroupBatchImportPanel> {
           }
         }
       } else {
-        final result = await SafeFilePicker.pickFiles(context,
+        final result = await NativeFilePicker.pickFilesCompat(
           type: FileType.audio,
           allowMultiple: true,
         );

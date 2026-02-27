@@ -9,7 +9,6 @@
 ///
 /// This replaces both the separate Channel tab and right-side Clip Inspector.
 
-import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../theme/fluxforge_theme.dart';
@@ -39,6 +38,7 @@ class ChannelInspectorPanel extends StatefulWidget {
   final void Function(String channelId)? onEqClick;
   final void Function(String channelId, int slotIndex, bool bypassed)? onInsertBypassToggle;
   final void Function(String channelId, int slotIndex, double wetDry)? onInsertWetDryChange;
+  final void Function(String channelId, int slotIndex, double wetDry)? onInsertWetDryRealtime;
   final void Function(String channelId, int oldIndex, int newIndex)? onInsertReorder;
   final void Function(String channelId, int slotIndex)? onInsertRemove;
   final void Function(String channelId, int slotIndex)? onInsertOpenEditor;
@@ -70,6 +70,7 @@ class ChannelInspectorPanel extends StatefulWidget {
     this.onEqClick,
     this.onInsertBypassToggle,
     this.onInsertWetDryChange,
+    this.onInsertWetDryRealtime,
     this.onInsertReorder,
     this.onInsertRemove,
     this.onInsertOpenEditor,
@@ -589,6 +590,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
         onTap: (index) => widget.onInsertClick?.call(ch.id, index),
         onBypassToggle: (index, bypassed) => widget.onInsertBypassToggle?.call(ch.id, index, bypassed),
         onWetDryChange: (index, wetDry) => widget.onInsertWetDryChange?.call(ch.id, index, wetDry),
+        onWetDryRealtime: (index, wetDry) => widget.onInsertWetDryRealtime?.call(ch.id, index, wetDry),
         onReorder: (oldIndex, newIndex) => widget.onInsertReorder?.call(ch.id, oldIndex, newIndex),
         onRemove: (index) => widget.onInsertRemove?.call(ch.id, index),
         onOpenEditor: (index) => widget.onInsertOpenEditor?.call(ch.id, index),
@@ -618,6 +620,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
         onTap: (index) => widget.onInsertClick?.call(ch.id, index),
         onBypassToggle: (index, bypassed) => widget.onInsertBypassToggle?.call(ch.id, index, bypassed),
         onWetDryChange: (index, wetDry) => widget.onInsertWetDryChange?.call(ch.id, index, wetDry),
+        onWetDryRealtime: (index, wetDry) => widget.onInsertWetDryRealtime?.call(ch.id, index, wetDry),
         onReorder: (oldIndex, newIndex) => widget.onInsertReorder?.call(ch.id, oldIndex + 4, newIndex + 4),
         onRemove: (index) => widget.onInsertRemove?.call(ch.id, index + 4),
         onOpenEditor: (index) => widget.onInsertOpenEditor?.call(ch.id, index + 4),
@@ -1852,6 +1855,7 @@ class _InsertSlotRow extends StatefulWidget {
   final VoidCallback? onTap;
   final VoidCallback? onBypassToggle;
   final ValueChanged<double>? onWetDryChange;
+  final ValueChanged<double>? onWetDryRealtime;
   final VoidCallback? onRemove;
   final VoidCallback? onOpenEditor;
 
@@ -1863,6 +1867,7 @@ class _InsertSlotRow extends StatefulWidget {
     this.onTap,
     this.onBypassToggle,
     this.onWetDryChange,
+    this.onWetDryRealtime,
     this.onRemove,
     this.onOpenEditor,
   });
@@ -1876,11 +1881,9 @@ class _InsertSlotRowState extends State<_InsertSlotRow> {
   bool _showWetDry = false;
   bool _isDraggingWetDry = false;
   double? _localWetDry; // Optimistic local value during drag
-  Timer? _wetDryDebounce;
 
   @override
   void dispose() {
-    _wetDryDebounce?.cancel();
     super.dispose();
   }
 
@@ -2115,14 +2118,11 @@ class _InsertSlotRowState extends State<_InsertSlotRow> {
                               },
                               onChanged: (v) {
                                 setState(() => _localWetDry = v);
-                                _wetDryDebounce?.cancel();
-                                _wetDryDebounce = Timer(
-                                  const Duration(milliseconds: 50),
-                                  () => widget.onWetDryChange?.call(v),
-                                );
+                                // Real-time FFI only — no UI rebuild upstream
+                                widget.onWetDryRealtime?.call(v);
                               },
                               onChangeEnd: (v) {
-                                _wetDryDebounce?.cancel();
+                                // Commit final value — FFI + UI state + notifyListeners
                                 widget.onWetDryChange?.call(v);
                                 setState(() {
                                   _isDraggingWetDry = false;
@@ -2540,6 +2540,7 @@ class _ReorderableInsertList extends StatefulWidget {
   final void Function(int index)? onTap;
   final void Function(int index, bool bypassed)? onBypassToggle;
   final void Function(int index, double wetDry)? onWetDryChange;
+  final void Function(int index, double wetDry)? onWetDryRealtime;
   final void Function(int oldIndex, int newIndex)? onReorder;
   final void Function(int index)? onRemove;
   final void Function(int index)? onOpenEditor;
@@ -2550,6 +2551,7 @@ class _ReorderableInsertList extends StatefulWidget {
     this.onTap,
     this.onBypassToggle,
     this.onWetDryChange,
+    this.onWetDryRealtime,
     this.onReorder,
     this.onRemove,
     this.onOpenEditor,
@@ -2580,6 +2582,7 @@ class _ReorderableInsertListState extends State<_ReorderableInsertList> {
                 widget.onBypassToggle?.call(widget.baseIndex + i, !insert.bypassed);
               },
               onWetDryChange: (v) => widget.onWetDryChange?.call(widget.baseIndex + i, v),
+              onWetDryRealtime: (v) => widget.onWetDryRealtime?.call(widget.baseIndex + i, v),
               onRemove: () => widget.onRemove?.call(widget.baseIndex + i),
               onOpenEditor: () => widget.onOpenEditor?.call(widget.baseIndex + i),
             ),
@@ -2610,6 +2613,7 @@ class _ReorderableInsertListState extends State<_ReorderableInsertList> {
               widget.onBypassToggle?.call(widget.baseIndex + i, !insert.bypassed);
             },
             onWetDryChange: (v) => widget.onWetDryChange?.call(widget.baseIndex + i, v),
+            onWetDryRealtime: (v) => widget.onWetDryRealtime?.call(widget.baseIndex + i, v),
             onRemove: () => widget.onRemove?.call(widget.baseIndex + i),
             onOpenEditor: () => widget.onOpenEditor?.call(widget.baseIndex + i),
           ),

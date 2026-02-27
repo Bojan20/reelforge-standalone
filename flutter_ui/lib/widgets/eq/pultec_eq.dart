@@ -566,6 +566,7 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
     required double max,
     required Color color,
     double size = 70,
+    double? defaultValue,
     required ValueChanged<double> onChanged,
   }) {
     return Column(
@@ -576,6 +577,7 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
             final newValue = (value + delta * (max - min)).clamp(min, max);
             onChanged(newValue);
           },
+          onDoubleTap: () => onChanged(defaultValue ?? min),
           child: Container(
             width: size,
             height: size,

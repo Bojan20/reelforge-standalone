@@ -96,6 +96,7 @@ class MainLayout extends StatefulWidget {
   final void Function(String channelId)? onChannelInputClick;
   final void Function(String channelId, int slotIndex, bool bypassed)? onChannelInsertBypassToggle;
   final void Function(String channelId, int slotIndex, double wetDry)? onChannelInsertWetDryChange;
+  final void Function(String channelId, int slotIndex, double wetDry)? onChannelInsertWetDryRealtime;
   final void Function(String channelId, int slotIndex)? onChannelInsertRemove;
   final void Function(String channelId, int slotIndex)? onChannelInsertOpenEditor;
   final void Function(String channelId, int oldIndex, int newIndex)? onChannelInsertReorder;
@@ -198,6 +199,7 @@ class MainLayout extends StatefulWidget {
     this.onChannelInputClick,
     this.onChannelInsertBypassToggle,
     this.onChannelInsertWetDryChange,
+    this.onChannelInsertWetDryRealtime,
     this.onChannelInsertRemove,
     this.onChannelInsertOpenEditor,
     this.onChannelInsertReorder,
@@ -528,6 +530,7 @@ class _MainLayoutState extends State<MainLayout>
                 onChannelInputClick: widget.onChannelInputClick,
                 onChannelInsertBypassToggle: widget.onChannelInsertBypassToggle,
                 onChannelInsertWetDryChange: widget.onChannelInsertWetDryChange,
+                onChannelInsertWetDryRealtime: widget.onChannelInsertWetDryRealtime,
                 onChannelInsertRemove: widget.onChannelInsertRemove,
                 onChannelInsertOpenEditor: widget.onChannelInsertOpenEditor,
                 onChannelInsertReorder: widget.onChannelInsertReorder,

@@ -7,7 +7,7 @@
 
 import 'dart:async';
 
-import '../../utils/safe_file_picker.dart';
+import '../../services/native_file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -569,7 +569,7 @@ class _SessionReplayPanelState extends State<SessionReplayPanel> {
   }
 
   Future<void> _importSession() async {
-    final result = await SafeFilePicker.pickFiles(context,
+    final result = await NativeFilePicker.pickFilesCompat(
       type: FileType.custom,
       allowedExtensions: ['ffsession', 'json'],
     );
@@ -589,7 +589,7 @@ class _SessionReplayPanelState extends State<SessionReplayPanel> {
     );
 
     if (session != null) {
-      final outputPath = await SafeFilePicker.saveFile(context,
+      final outputPath = await NativeFilePicker.saveFileCompat(
         dialogTitle: 'Export Session',
         fileName: '$sessionId.ffsession',
         allowedExtensions: ['ffsession'],

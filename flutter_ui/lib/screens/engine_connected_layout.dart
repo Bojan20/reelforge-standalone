@@ -55,7 +55,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../widgets/common/in_app_file_browser.dart';
+import '../services/native_file_picker.dart';
 import '../services/audio_playback_service.dart';
 import '../services/service_locator.dart';
 import '../services/unified_search_service.dart';
@@ -2497,7 +2497,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   /// Open Project - file picker for .rfp files
   Future<void> _handleOpenProject(EngineProvider engine) async {
-    final paths = await InAppFileBrowser.pickFiles(context, title: 'Open Project', allowMultiple: false, allowedExtensions: {'json', 'rfp'});
+    final paths = await NativeFilePicker.pickFiles(title: 'Open Project', allowMultiple: false, allowedExtensions: ['json', 'rfp']);
     if (paths.isEmpty) return;
 
     await engine.loadProject(paths.first);
@@ -2512,7 +2512,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   /// Save Project As - file picker for save location
   Future<void> _handleSaveProjectAs(EngineProvider engine) async {
-    final path = await InAppFileBrowser.saveFile(context, title: 'Save Project As', suggestedName: '${engine.project.name}.rfp');
+    final path = await NativeFilePicker.saveFile(suggestedName: '${engine.project.name}.rfp');
 
     if (path == null) return;
     await engine.saveProject(path);
@@ -2536,7 +2536,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   /// Import JSON routes (Middleware mode)
   Future<void> _handleImportJSON() async {
-    final jsonPaths = await InAppFileBrowser.pickFiles(context, title: 'Import JSON', allowMultiple: false, allowedExtensions: {'json'});
+    final jsonPaths = await NativeFilePicker.pickFiles(title: 'Import JSON', allowMultiple: false, allowedExtensions: ['json']);
     if (jsonPaths.isEmpty) return;
     final path = jsonPaths.first;
 
@@ -2553,7 +2553,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   /// Import entire audio folder to Pool
   Future<void> _handleImportAudioFolder() async {
-    final result = await InAppFileBrowser.pickDirectory(context, title: 'Select Audio Folder');
+    final result = await NativeFilePicker.pickDirectory(title: 'Select Audio Folder');
 
     if (result == null) {
       return;
@@ -3748,7 +3748,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   ///
   /// **INSTANT IMPORT** — Files appear immediately, metadata loads in background
   Future<void> _openFilePicker() async {
-    final paths = await InAppFileBrowser.pickAudioFiles(context);
+    final paths = await NativeFilePicker.pickAudioFiles();
 
     if (paths.isEmpty) {
       return;
@@ -5288,10 +5288,22 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     slotIndex, bchain.slots[slotIndex].copyWith(bypassed: bypassed));
                 });
               }
+              // Sync DspChainProvider so floating editor windows reflect bypass state
+              final dspChain = DspChainProvider.instance.getChain(trackId);
+              if (slotIndex < dspChain.nodes.length) {
+                final node = dspChain.nodes[slotIndex];
+                if (node.bypass != bypassed) {
+                  DspChainProvider.instance.setNodeBypassUiOnly(trackId, node.type, bypassed);
+                }
+              }
             },
             onChannelInsertWetDryChange: (channelId, slotIndex, wetDry) {
-              // Update MixerProvider (SSoT for Channel Tab) — FFI call is inside provider
+              // Commit final value — FFI + UI state + notifyListeners
               context.read<MixerProvider>().updateInsertWetDry(channelId, slotIndex, wetDry);
+            },
+            onChannelInsertWetDryRealtime: (channelId, slotIndex, wetDry) {
+              // Real-time during drag — FFI only, no UI rebuild
+              context.read<MixerProvider>().updateInsertWetDryRealtime(channelId, slotIndex, wetDry);
             },
             onChannelInsertRemove: (channelId, slotIndex) {
               final trackId = _busIdToTrackId(channelId);
@@ -5308,8 +5320,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               _syncDspChainRemove(trackId, slotIndex);
             },
             onChannelInsertOpenEditor: (channelId, slotIndex) {
+              // Always use _openProcessorEditor path — it syncs DspChainProvider
+              // before opening the editor, ensuring correct slotIndex mapping.
+              final insertChain = _busInserts[channelId];
+              if (insertChain != null && slotIndex < insertChain.slots.length) {
+                final slot = insertChain.slots[slotIndex];
+                if (!slot.isEmpty && slot.plugin != null) {
+                  _openProcessorEditor(channelId, slotIndex, slot.plugin!);
+                  return;
+                }
+              }
+              // Fallback: try DspChainProvider directly
               final trackId = _busIdToTrackId(channelId);
-              // Check if this is an internal processor (from DspChainProvider)
               final dspChain = DspChainProvider.instance.getChain(trackId);
               if (slotIndex < dspChain.nodes.length) {
                 final node = dspChain.nodes[slotIndex];
@@ -5320,16 +5342,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                   node: node,
                 );
               } else {
-                // Check insert chain for plugin info
-                final insertChain = _busInserts[channelId];
-                if (insertChain != null && slotIndex < insertChain.slots.length) {
-                  final slot = insertChain.slots[slotIndex];
-                  if (!slot.isEmpty && slot.plugin != null) {
-                    _openProcessorEditor(channelId, slotIndex, slot.plugin!);
-                    return;
-                  }
-                }
-                // External plugin - open via FFI
                 NativeFFI.instance.insertOpenEditor(trackId, slotIndex);
               }
             },

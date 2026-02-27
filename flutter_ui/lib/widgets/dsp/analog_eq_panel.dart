@@ -743,51 +743,55 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
     double min,
     double max,
     String unit,
-    void Function(double) onChanged,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                color: FluxForgeTheme.textTertiary,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.0,
+    void Function(double) onChanged, {
+    double? defaultValue,
+  }) {
+    return GestureDetector(
+      onDoubleTap: () => onChanged(defaultValue ?? 0.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: FluxForgeTheme.textTertiary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
+                ),
               ),
-            ),
-            Text(
-              '${value.toStringAsFixed(1)} $unit',
-              style: const TextStyle(
-                color: FluxForgeTheme.accentOrange,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+              Text(
+                '${value.toStringAsFixed(1)} $unit',
+                style: const TextStyle(
+                  color: FluxForgeTheme.accentOrange,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 4,
+              activeTrackColor: FluxForgeTheme.accentOrange,
+              inactiveTrackColor: FluxForgeTheme.borderSubtle,
+              thumbColor: FluxForgeTheme.accentOrange,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+              overlayColor: FluxForgeTheme.accentOrange.withValues(alpha:0.2),
             ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        SliderTheme(
-          data: SliderThemeData(
-            trackHeight: 4,
-            activeTrackColor: FluxForgeTheme.accentOrange,
-            inactiveTrackColor: FluxForgeTheme.borderSubtle,
-            thumbColor: FluxForgeTheme.accentOrange,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-            overlayColor: FluxForgeTheme.accentOrange.withValues(alpha:0.2),
+            child: Slider(
+              value: value.clamp(min, max),
+              min: min,
+              max: max,
+              onChanged: onChanged,
+            ),
           ),
-          child: Slider(
-            value: value.clamp(min, max),
-            min: min,
-            max: max,
-            onChanged: onChanged,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -799,7 +803,9 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
   }
 
   Widget _buildKnob(_KnobData knob) {
-    return Column(
+    return GestureDetector(
+      onDoubleTap: () => knob.onChanged(knob.defaultValue ?? 0.0),
+      child: Column(
       children: [
         Container(
           width: 60,
@@ -873,6 +879,7 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
           ),
         ),
       ],
+    ),
     );
   }
 }
@@ -884,6 +891,7 @@ class _KnobData {
   final double max;
   final String unit;
   final void Function(double) onChanged;
+  final double? defaultValue;
 
-  _KnobData(this.label, this.value, this.min, this.max, this.unit, this.onChanged);
+  _KnobData(this.label, this.value, this.min, this.max, this.unit, this.onChanged, {this.defaultValue});
 }

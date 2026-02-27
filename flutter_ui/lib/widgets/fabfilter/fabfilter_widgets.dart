@@ -236,6 +236,7 @@ class FabMiniSlider extends StatelessWidget {
     required this.value,
     required this.display,
     required this.onChanged,
+    this.defaultValue = 0.5,
     this.activeColor = FabFilterColors.cyan,
     this.labelWidth = 24,
     this.displayWidth = 24,
@@ -245,33 +246,37 @@ class FabMiniSlider extends StatelessWidget {
   final double value;
   final String display;
   final ValueChanged<double> onChanged;
+  final double defaultValue;
   final Color activeColor;
   final double labelWidth;
   final double displayWidth;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 18,
-      child: Row(
-        children: [
-          SizedBox(width: labelWidth, child: Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 8))),
-          Expanded(
-            child: SliderTheme(
-              data: SliderThemeData(
-                trackHeight: 3,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
-                overlayShape: SliderComponentShape.noOverlay,
-                activeTrackColor: activeColor,
-                inactiveTrackColor: FabFilterColors.bgVoid,
-                thumbColor: activeColor,
+    return GestureDetector(
+      onDoubleTap: () => onChanged(defaultValue),
+      child: SizedBox(
+        height: 18,
+        child: Row(
+          children: [
+            SizedBox(width: labelWidth, child: Text(label, style: FabFilterText.paramLabel.copyWith(fontSize: 8))),
+            Expanded(
+              child: SliderTheme(
+                data: SliderThemeData(
+                  trackHeight: 3,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                  overlayShape: SliderComponentShape.noOverlay,
+                  activeTrackColor: activeColor,
+                  inactiveTrackColor: FabFilterColors.bgVoid,
+                  thumbColor: activeColor,
+                ),
+                child: Slider(value: value.clamp(0.0, 1.0), onChanged: onChanged),
               ),
-              child: Slider(value: value.clamp(0.0, 1.0), onChanged: onChanged),
             ),
-          ),
-          SizedBox(width: displayWidth, child: Text(display,
-            style: FabFilterText.paramLabel.copyWith(fontSize: 8), textAlign: TextAlign.right)),
-        ],
+            SizedBox(width: displayWidth, child: Text(display,
+              style: FabFilterText.paramLabel.copyWith(fontSize: 8), textAlign: TextAlign.right)),
+          ],
+        ),
       ),
     );
   }

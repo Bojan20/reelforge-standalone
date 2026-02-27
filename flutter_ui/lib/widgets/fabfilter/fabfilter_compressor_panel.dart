@@ -241,16 +241,20 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
   }
 
   void _initializeProcessor() {
-    final dsp = DspChainProvider.instance;
-    final chain = dsp.getChain(widget.trackId);
     // Use slotIndex directly when passed from insert editor window
-    if (widget.slotIndex >= 0 && widget.slotIndex < chain.nodes.length) {
+    if (widget.slotIndex >= 0) {
       _slotIndex = widget.slotIndex;
-      _nodeId = chain.nodes[_slotIndex].id;
+      final dsp = DspChainProvider.instance;
+      final chain = dsp.getChain(widget.trackId);
+      if (_slotIndex < chain.nodes.length) {
+        _nodeId = chain.nodes[_slotIndex].id;
+      }
       _initialized = true;
       _readParams();
       return;
     }
+    final dsp = DspChainProvider.instance;
+    final chain = dsp.getChain(widget.trackId);
     for (final node in chain.nodes) {
       if (node.type == DspNodeType.compressor) {
         _nodeId = node.id;

@@ -25,7 +25,7 @@ class MainFlutterWindow: NSWindow {
     // rebuild, so we use continuous monitoring instead of one-time removal.
     fixDesktopDropOverlay(flutterViewController: flutterViewController)
 
-    // Register native file picker channel
+    // Register native file picker channel — NSOpenPanel/NSSavePanel (no TCC dialogs)
     let channel = FlutterMethodChannel(
       name: "fluxforge/file_picker",
       binaryMessenger: flutterViewController.engine.binaryMessenger
@@ -39,10 +39,20 @@ class MainFlutterWindow: NSWindow {
         self.pickAudioFolder(result: result)
       case "pickJsonFile":
         self.pickJsonFile(result: result)
+      case "pickFiles":
+        let args = call.arguments as? [String: Any]
+        let extensions = args?["extensions"] as? [String]
+        let allowMultiple = args?["allowMultiple"] as? Bool ?? true
+        let title = args?["title"] as? String ?? "Select Files"
+        self.pickFiles(title: title, extensions: extensions, allowMultiple: allowMultiple, result: result)
+      case "pickDirectory":
+        let args = call.arguments as? [String: Any]
+        let title = args?["title"] as? String ?? "Select Folder"
+        self.pickDirectory(title: title, result: result)
       case "saveFile":
         if let args = call.arguments as? [String: Any],
-           let suggestedName = args["suggestedName"] as? String,
-           let fileType = args["fileType"] as? String {
+           let suggestedName = args["suggestedName"] as? String {
+          let fileType = args["fileType"] as? String ?? ""
           self.saveFile(suggestedName: suggestedName, fileType: fileType, result: result)
         } else {
           result(FlutterError(code: "INVALID_ARGS", message: "Missing arguments", details: nil))
@@ -56,6 +66,8 @@ class MainFlutterWindow: NSWindow {
 
     super.awakeFromNib()
   }
+
+  // MARK: - File Picker Methods (NSOpenPanel — zero TCC dialogs)
 
   private func pickAudioFiles(result: @escaping FlutterResult) {
     DispatchQueue.main.async {
@@ -132,18 +144,67 @@ class MainFlutterWindow: NSWindow {
     }
   }
 
+  /// Generic file picker with optional extension filter
+  private func pickFiles(title: String, extensions: [String]?, allowMultiple: Bool, result: @escaping FlutterResult) {
+    DispatchQueue.main.async {
+      let panel = NSOpenPanel()
+      panel.allowsMultipleSelection = allowMultiple
+      panel.canChooseDirectories = false
+      panel.canChooseFiles = true
+      panel.title = title
+
+      if let exts = extensions, !exts.isEmpty {
+        if #available(macOS 11.0, *) {
+          panel.allowedContentTypes = exts.compactMap { UTType(filenameExtension: $0) }
+        } else {
+          panel.allowedFileTypes = exts
+        }
+      }
+
+      panel.begin { response in
+        if response == .OK {
+          let paths = panel.urls.map { $0.path }
+          result(paths)
+        } else {
+          result(nil)
+        }
+      }
+    }
+  }
+
+  /// Directory picker
+  private func pickDirectory(title: String, result: @escaping FlutterResult) {
+    DispatchQueue.main.async {
+      let panel = NSOpenPanel()
+      panel.allowsMultipleSelection = false
+      panel.canChooseDirectories = true
+      panel.canChooseFiles = false
+      panel.title = title
+
+      panel.begin { response in
+        if response == .OK, let url = panel.url {
+          result(url.path)
+        } else {
+          result(nil)
+        }
+      }
+    }
+  }
+
   private func saveFile(suggestedName: String, fileType: String, result: @escaping FlutterResult) {
     DispatchQueue.main.async {
       let panel = NSSavePanel()
       panel.nameFieldStringValue = suggestedName
-      panel.title = "Save Project"
+      panel.title = "Save File"
 
-      if #available(macOS 11.0, *) {
-        if fileType == "json" {
-          panel.allowedContentTypes = [UTType.json]
+      if !fileType.isEmpty {
+        if #available(macOS 11.0, *) {
+          if let utType = UTType(filenameExtension: fileType) {
+            panel.allowedContentTypes = [utType]
+          }
+        } else {
+          panel.allowedFileTypes = [fileType]
         }
-      } else {
-        panel.allowedFileTypes = [fileType]
       }
 
       panel.begin { response in
@@ -155,6 +216,37 @@ class MainFlutterWindow: NSWindow {
       }
     }
   }
+
+  private func pickIrFile(result: @escaping FlutterResult) {
+    DispatchQueue.main.async {
+      let panel = NSOpenPanel()
+      panel.allowsMultipleSelection = false
+      panel.canChooseDirectories = false
+      panel.canChooseFiles = true
+      panel.title = "Select Impulse Response"
+
+      if #available(macOS 11.0, *) {
+        panel.allowedContentTypes = [
+          UTType.audio,
+          UTType.wav,
+          UTType.aiff,
+          UTType(filenameExtension: "flac") ?? UTType.audio,
+        ]
+      } else {
+        panel.allowedFileTypes = ["wav", "aiff", "flac"]
+      }
+
+      panel.begin { response in
+        if response == .OK, let url = panel.url {
+          result(url.path)
+        } else {
+          result(nil)
+        }
+      }
+    }
+  }
+
+  // MARK: - DropTarget Overlay Fix
 
   /// Continuous monitor timer for DropTarget re-addition
   private var dropTargetMonitorTimer: Timer?
@@ -189,35 +281,6 @@ class MainFlutterWindow: NSWindow {
 
     if !removed.isEmpty {
       print("[FluxForge] [\(context)] ✅ Removed \(removed.count) re-added overlay(s): \(removed.joined(separator: ", "))")
-    }
-  }
-
-  private func pickIrFile(result: @escaping FlutterResult) {
-    DispatchQueue.main.async {
-      let panel = NSOpenPanel()
-      panel.allowsMultipleSelection = false
-      panel.canChooseDirectories = false
-      panel.canChooseFiles = true
-      panel.title = "Select Impulse Response"
-
-      if #available(macOS 11.0, *) {
-        panel.allowedContentTypes = [
-          UTType.audio,
-          UTType.wav,
-          UTType.aiff,
-          UTType(filenameExtension: "flac") ?? UTType.audio,
-        ]
-      } else {
-        panel.allowedFileTypes = ["wav", "aiff", "flac"]
-      }
-
-      panel.begin { response in
-        if response == .OK, let url = panel.url {
-          result(url.path)
-        } else {
-          result(nil)
-        }
-      }
     }
   }
 }

@@ -14,7 +14,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io' as java_io;
 import 'package:flutter/material.dart';
-import '../../utils/safe_file_picker.dart';
+import '../../services/native_file_picker.dart';
 
 import '../../providers/subsystems/composite_event_system_provider.dart';
 import '../../services/export_service.dart';
@@ -130,14 +130,13 @@ class _DawExportPanelState extends State<DawExportPanel> {
   }
 
   Future<void> _selectOutputPath() async {
-    final result = await SafeFilePicker.saveFile(context,
+    final result = await NativeFilePicker.saveFileCompat(
       dialogTitle: 'Export Audio',
       fileName: _exportService.suggestFilename(
         widget.projectName ?? 'Project',
         _format,
       ),
       allowedExtensions: [_format.extension.substring(1)],
-      type: FileType.custom,
     );
     if (result != null) {
       setState(() => _outputPath = result);
@@ -848,7 +847,7 @@ class _DawStemsPanelState extends State<DawStemsPanel> {
   ];
 
   Future<void> _selectOutputDirectory() async {
-    final result = await SafeFilePicker.getDirectoryPath(context,
+    final result = await NativeFilePicker.getDirectoryPath(
       dialogTitle: 'Select Stems Output Folder',
     );
     if (result != null) {
@@ -1285,7 +1284,7 @@ class _DawBouncePanelState extends State<DawBouncePanel> {
   }
 
   Future<void> _selectOutputPath() async {
-    final result = await SafeFilePicker.saveFile(context,
+    final result = await NativeFilePicker.saveFileCompat(
       dialogTitle: 'Bounce Audio',
       fileName: _exportService.suggestFilename(
         widget.projectName ?? 'Bounce',
@@ -1797,11 +1796,10 @@ class _SlotLabEventDataExportPanelState extends State<SlotLabEventDataExportPane
   ];
 
   Future<void> _selectOutputPath() async {
-    final result = await SafeFilePicker.saveFile(context,
+    final result = await NativeFilePicker.saveFileCompat(
       dialogTitle: 'Export Event Data',
       fileName: 'events${_format.extension}',
       allowedExtensions: [_format.extension.substring(1)],
-      type: FileType.custom,
     );
     if (result != null) {
       setState(() => _outputPath = result);
@@ -2399,7 +2397,7 @@ class _SlotLabBatchExportPanelState extends State<SlotLabBatchExportPanel> {
   ];
 
   Future<void> _selectOutputDirectory() async {
-    final result = await SafeFilePicker.getDirectoryPath(context,
+    final result = await NativeFilePicker.getDirectoryPath(
       dialogTitle: 'Select Export Folder',
     );
     if (result != null) {
@@ -2960,7 +2958,7 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
   ];
 
   Future<void> _selectOutputDirectory() async {
-    final result = await SafeFilePicker.getDirectoryPath(context,
+    final result = await NativeFilePicker.getDirectoryPath(
       dialogTitle: 'Select Audio Pack Output Folder',
     );
     if (result != null) {

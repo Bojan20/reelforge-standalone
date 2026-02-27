@@ -12,7 +12,7 @@ library;
 
 import 'dart:io';
 import 'package:flutter/material.dart';
-import '../../../../utils/safe_file_picker.dart';
+import '../../../../services/native_file_picker.dart';
 import '../../lower_zone_types.dart';
 import '../shared/panel_helpers.dart';
 import '../../../../services/project_archive_service.dart';
@@ -163,10 +163,9 @@ class _ArchivePanelState extends State<ArchivePanel> {
   }
 
   Future<void> _createArchive() async {
-    final result = await SafeFilePicker.saveFile(context,
+    final result = await NativeFilePicker.saveFileCompat(
       dialogTitle: 'Save Project Archive',
       fileName: 'project_archive.zip',
-      type: FileType.custom,
       allowedExtensions: ['zip'],
     );
 

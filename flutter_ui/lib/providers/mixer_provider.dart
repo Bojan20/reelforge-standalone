@@ -2410,20 +2410,29 @@ class MixerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Update insert wet/dry mix
+  /// Update insert wet/dry mix — real-time FFI only, no UI rebuild.
+  /// Use during slider drag for zero-latency audio response.
+  void updateInsertWetDryRealtime(String channelId, int slotIndex, double wetDry) {
+    final channel = _channels[channelId];
+    if (channel == null) return;
+    if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
+
+    final trackId = int.tryParse(channelId.replaceAll('ch_', '')) ?? 0;
+    final clampedMix = wetDry.clamp(0.0, 1.0);
+    NativeFFI.instance.insertSetMix(trackId, slotIndex, clampedMix);
+  }
+
+  /// Update insert wet/dry mix — FFI + UI state + notifyListeners.
+  /// Use on slider release (onChangeEnd) to commit final value.
   void updateInsertWetDry(String channelId, int slotIndex, double wetDry) {
     final channel = _channels[channelId];
     if (channel == null) return;
     if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
 
-    // Get track ID for FFI
     final trackId = int.tryParse(channelId.replaceAll('ch_', '')) ?? 0;
-
-    // Send wet/dry mix to Rust engine
     final clampedMix = wetDry.clamp(0.0, 1.0);
     NativeFFI.instance.insertSetMix(trackId, slotIndex, clampedMix);
 
-    // Update UI state
     final inserts = List<InsertSlot>.from(channel.inserts);
     inserts[slotIndex] = inserts[slotIndex].copyWith(wetDry: clampedMix);
     _channels[channelId] = channel.copyWith(inserts: inserts);

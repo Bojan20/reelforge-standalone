@@ -56,6 +56,7 @@ class LeftZone extends StatefulWidget {
   final void Function(String channelId)? onChannelInputClick;
   final void Function(String channelId, int slotIndex, bool bypassed)? onChannelInsertBypassToggle;
   final void Function(String channelId, int slotIndex, double wetDry)? onChannelInsertWetDryChange;
+  final void Function(String channelId, int slotIndex, double wetDry)? onChannelInsertWetDryRealtime;
   final void Function(String channelId, int slotIndex)? onChannelInsertRemove;
   final void Function(String channelId, int slotIndex)? onChannelInsertOpenEditor;
   final void Function(String channelId, int oldIndex, int newIndex)? onChannelInsertReorder;
@@ -103,6 +104,7 @@ class LeftZone extends StatefulWidget {
     this.onChannelInputClick,
     this.onChannelInsertBypassToggle,
     this.onChannelInsertWetDryChange,
+    this.onChannelInsertWetDryRealtime,
     this.onChannelInsertRemove,
     this.onChannelInsertOpenEditor,
     this.onChannelInsertReorder,
@@ -320,6 +322,7 @@ class _LeftZoneState extends State<LeftZone> {
       onInputClick: widget.onChannelInputClick,
       onInsertBypassToggle: widget.onChannelInsertBypassToggle,
       onInsertWetDryChange: widget.onChannelInsertWetDryChange,
+      onInsertWetDryRealtime: widget.onChannelInsertWetDryRealtime,
       onInsertRemove: widget.onChannelInsertRemove,
       onInsertOpenEditor: widget.onChannelInsertOpenEditor,
       onInsertReorder: widget.onChannelInsertReorder,

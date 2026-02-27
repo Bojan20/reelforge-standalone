@@ -10,7 +10,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../utils/safe_file_picker.dart';
+import '../../services/native_file_picker.dart';
 import '../../src/rust/engine_api.dart' as api;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1396,10 +1396,9 @@ class _ExportDialogState extends State<ExportDialog>
   }
 
   Future<void> _selectOutputPath() async {
-    final result = await SafeFilePicker.saveFile(context,
+    final result = await NativeFilePicker.saveFileCompat(
       dialogTitle: 'Export Audio',
       fileName: 'export.${_format.extension}',
-      type: FileType.custom,
       allowedExtensions: [_format.extension],
     );
 

@@ -16,7 +16,7 @@ library;
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../../utils/safe_file_picker.dart';
+import '../../../../services/native_file_picker.dart';
 import '../../../../models/slot_audio_events.dart';
 import '../../../../providers/middleware_provider.dart';
 import '../../../../theme/fluxforge_theme.dart';
@@ -408,7 +408,7 @@ class _BatchExportPanelState extends State<BatchExportPanel> {
     if (!confirmed) return;
 
     // Pick save location
-    final outputPath = await SafeFilePicker.getDirectoryPath(context,
+    final outputPath = await NativeFilePicker.getDirectoryPath(
       dialogTitle: 'Select Export Destination',
     );
 
