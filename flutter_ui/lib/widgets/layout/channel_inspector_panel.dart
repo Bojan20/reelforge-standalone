@@ -621,9 +621,9 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
         onBypassToggle: (index, bypassed) => widget.onInsertBypassToggle?.call(ch.id, index, bypassed),
         onWetDryChange: (index, wetDry) => widget.onInsertWetDryChange?.call(ch.id, index, wetDry),
         onWetDryRealtime: (index, wetDry) => widget.onInsertWetDryRealtime?.call(ch.id, index, wetDry),
-        onReorder: (oldIndex, newIndex) => widget.onInsertReorder?.call(ch.id, oldIndex + 4, newIndex + 4),
-        onRemove: (index) => widget.onInsertRemove?.call(ch.id, index + 4),
-        onOpenEditor: (index) => widget.onInsertOpenEditor?.call(ch.id, index + 4),
+        onReorder: (oldIndex, newIndex) => widget.onInsertReorder?.call(ch.id, oldIndex, newIndex),
+        onRemove: (index) => widget.onInsertRemove?.call(ch.id, index),
+        onOpenEditor: (index) => widget.onInsertOpenEditor?.call(ch.id, index),
       ),
     );
   }
