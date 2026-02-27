@@ -68,6 +68,7 @@ import 'plugin_state_service.dart';
 import 'missing_plugin_detector.dart';
 import 'analytics_service.dart';
 import '../controllers/middleware_timeline_sync_controller.dart';
+import '../providers/event_folder_provider.dart';
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -243,6 +244,15 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<MiddlewareTimelineSyncController>(
       () => MiddlewareTimelineSyncController(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.2: Event Folder Provider (DAW ↔ SlotLab Unified Track Graph)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<EventFolderProvider>(
+      () => EventFolderProvider(
+        compositeProvider: sl<CompositeEventSystemProvider>(),
+      ),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════

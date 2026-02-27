@@ -11,8 +11,11 @@ import 'package:flutter/material.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../models/layout_models.dart' show ChannelStripData, EditorMode;
 import '../../models/timeline_models.dart' as timeline;
+import '../../providers/event_folder_provider.dart';
+import '../../services/service_locator.dart';
 import 'project_tree.dart';
 import 'channel_inspector_panel.dart';
+import 'event_folder_panel.dart';
 
 /// Left zone tabs (matches React: 'project' | 'channel')
 enum LeftZoneTab {
@@ -128,6 +131,7 @@ class LeftZone extends StatefulWidget {
 
 class _LeftZoneState extends State<LeftZone> {
   final TextEditingController _searchController = TextEditingController();
+  bool _eventFoldersCollapsed = false;
 
   @override
   void initState() {
@@ -250,6 +254,28 @@ class _LeftZoneState extends State<LeftZone> {
           placeholder: _getSearchPlaceholder(),
           isNarrow: isNarrow, // P2-11: Compact search on narrow width
         ),
+        // Event Folder Panel — DAW mode only, shows SlotLab event folders
+        if (widget.editorMode == EditorMode.daw)
+          ListenableBuilder(
+            listenable: sl<EventFolderProvider>(),
+            builder: (context, _) {
+              final folderProvider = sl<EventFolderProvider>();
+              return EventFolderPanel(
+                folders: folderProvider.folders,
+                isCollapsed: _eventFoldersCollapsed,
+                onToggleCollapsed: () => setState(() {
+                  _eventFoldersCollapsed = !_eventFoldersCollapsed;
+                }),
+                onFolderToggle: folderProvider.toggleFolderCollapsed,
+                onLayerTap: (eventId, layerId) {
+                  // Future: select layer, show in channel inspector
+                },
+                onOpenInSlotLab: (eventId) {
+                  // Future: switch to SlotLab with this event focused
+                },
+              );
+            },
+          ),
         Expanded(
           child: widget.tree.isEmpty
             ? _buildEmptyBrowser()
