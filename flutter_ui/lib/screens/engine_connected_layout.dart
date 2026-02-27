@@ -5090,22 +5090,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                       return _buildMixerScreenView(engine.metering);
                     },
                   )
-            // SLOT LAB MODE: Fullscreen slot lab when slot mode is active
-                : _editorMode == EditorMode.slot
-                ? Builder(
-                    builder: (context) {
-                      return SlotLabScreen(
-                        onClose: () => setState(() => _editorMode = EditorMode.middleware),
-                        audioPool: _audioPool.map((f) => <String, dynamic>{
-                          'path': f.path,
-                          'name': f.name,
-                          'duration': f.duration,
-                          'sampleRate': f.sampleRate,
-                          'channels': f.channels,
-                        }).toList(),
-                      );
-                    },
-                  )
                 : Stack(
         children: [
           MainLayout(
@@ -5556,6 +5540,20 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   /// PERFORMANCE: Center content without Consumer wrapper
   /// Uses the existing _buildDAWCenterContent which already has Selector inside
   Widget _buildCenterContentOptimized() {
+    // Slot Lab mode — fullscreen slot lab as center content (control bar stays visible)
+    if (_editorMode == EditorMode.slot) {
+      return SlotLabScreen(
+        onClose: () => setState(() => _editorMode = EditorMode.middleware),
+        audioPool: _audioPool.map((f) => <String, dynamic>{
+          'path': f.path,
+          'name': f.name,
+          'duration': f.duration,
+          'sampleRate': f.sampleRate,
+          'channels': f.channels,
+        }).toList(),
+      );
+    }
+
     // Get transport data using read() - not reactive here, Timeline has its own Selector
     final engine = context.read<EngineProvider>();
     final transport = engine.transport;
@@ -5621,17 +5619,26 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                       final rightDuration = selectedClip.endTime - splitTime;
                       final rightOffset = selectedClip.sourceOffset + leftDuration;
                       final originalClip = selectedClip;
+                      // Left: keep original fadeIn, reset fadeOut
+                      final leftClip = selectedClip.copyWith(
+                        duration: leftDuration,
+                        fadeOut: 0,
+                        selected: false,
+                      );
+                      // Right: keep original fadeOut, reset fadeIn
+                      final rightClip = selectedClip.copyWith(
+                        id: newClipId,
+                        name: '${selectedClip.name} (2)',
+                        startTime: splitTime,
+                        duration: rightDuration,
+                        sourceOffset: rightOffset,
+                        fadeIn: 0,
+                        selected: false,
+                      );
                       setState(() {
                         _clips = _clips.where((c) => c.id != selectedClip.id).toList();
-                        _clips.add(selectedClip.copyWith(duration: leftDuration));
-                        _clips.add(selectedClip.copyWith(
-                          id: newClipId,
-                          name: '${selectedClip.name} (2)',
-                          startTime: splitTime,
-                          duration: rightDuration,
-                          sourceOffset: rightOffset,
-                          selected: false,
-                        ));
+                        _clips.add(leftClip);
+                        _clips.add(rightClip);
                       });
                       // Register undo — merge split clips back into original
                       UiUndoManager.instance.record(GenericUndoAction(
@@ -5639,15 +5646,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                         onExecute: () {
                           setState(() {
                             _clips = _clips.where((c) => c.id != originalClip.id && c.id != newClipId).toList();
-                            _clips.add(originalClip.copyWith(duration: leftDuration));
-                            _clips.add(originalClip.copyWith(
-                              id: newClipId,
-                              name: '${originalClip.name} (2)',
-                              startTime: splitTime,
-                              duration: rightDuration,
-                              sourceOffset: rightOffset,
-                              selected: false,
-                            ));
+                            _clips.add(leftClip);
+                            _clips.add(rightClip);
                           });
                         },
                         onUndo: () {
@@ -6314,17 +6314,27 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         // Capture original clip for undo
         final originalClip = clip;
 
+        // Left clip: keeps original fadeIn, resets fadeOut
+        final leftClip = clip.copyWith(
+          duration: leftDuration,
+          fadeOut: 0,
+          selected: false,
+        );
+        // Right clip: keeps original fadeOut, resets fadeIn
+        final rightClip = clip.copyWith(
+          id: newClipId,
+          name: '${clip.name} (2)',
+          startTime: splitTime,
+          duration: rightDuration,
+          sourceOffset: rightOffset,
+          fadeIn: 0,
+          selected: false,
+        );
+
         setState(() {
           _clips = _clips.where((c) => c.id != clipId).toList();
-          _clips.add(clip.copyWith(duration: leftDuration));
-          _clips.add(clip.copyWith(
-            id: newClipId,
-            name: '${clip.name} (2)',
-            startTime: splitTime,
-            duration: rightDuration,
-            sourceOffset: rightOffset,
-            selected: false,
-          ));
+          _clips.add(leftClip);
+          _clips.add(rightClip);
         });
 
         // Auto-create crossfade at split point
@@ -6337,15 +6347,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             // Redo: re-split
             setState(() {
               _clips = _clips.where((c) => c.id != clipId && c.id != newClipId).toList();
-              _clips.add(originalClip.copyWith(duration: leftDuration));
-              _clips.add(originalClip.copyWith(
-                id: newClipId,
-                name: '${originalClip.name} (2)',
-                startTime: splitTime,
-                duration: rightDuration,
-                sourceOffset: rightOffset,
-                selected: false,
-              ));
+              _clips.add(leftClip);
+              _clips.add(rightClip);
             });
           },
           onUndo: () {
@@ -6498,21 +6501,27 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           );
           return;
         }
-        // Split clip at precise position (Cubase Alt+click)
+        // Split clip at precise position (Cubase scissors behavior)
         final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
         if (clip.id != clipId) return;
         if (position <= clip.startTime || position >= clip.startTime + clip.duration) return;
         final splitPoint = position - clip.startTime;
         final originalClip = clip;
+        // Left clip: keeps original fadeIn, resets fadeOut (clean cut)
         final leftClip = clip.copyWith(
           duration: splitPoint,
+          fadeOut: 0,
+          selected: false,
         );
         final rightClipId = '${clip.id}_split_${DateTime.now().millisecondsSinceEpoch}';
+        // Right clip: keeps original fadeOut, resets fadeIn (clean cut)
         final rightClip = clip.copyWith(
           id: rightClipId,
           startTime: position,
           duration: clip.duration - splitPoint,
           sourceOffset: clip.sourceOffset + splitPoint,
+          fadeIn: 0,
+          selected: false,
         );
         setState(() {
           _clips = _clips.map((c) => c.id == clipId ? leftClip : c).toList()

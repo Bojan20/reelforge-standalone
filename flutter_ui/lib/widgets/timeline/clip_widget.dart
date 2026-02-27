@@ -483,11 +483,19 @@ class _ClipWidgetState extends State<ClipWidget> {
             if (isExplicitTool) {
               switch (activeTool) {
                 case TimelineEditTool.split:
-                  // Split at click position — move playhead there first
+                  // Split at exact click position (Cubase scissors behavior)
+                  // Snap to grid when snap is enabled
                   if (!clip.locked) {
-                    final clickTime = widget.scrollOffset + clickX / widget.zoom + clip.startTime;
-                    widget.onPlayheadMove?.call(clickTime);
-                    widget.onSplit?.call();
+                    var clickTime = clip.startTime + clickX / widget.zoom;
+                    if (widget.snapEnabled) {
+                      clickTime = applySnap(clickTime, true, widget.snapValue, widget.tempo, widget.allClips);
+                    }
+                    if (widget.onSplitAtPosition != null) {
+                      widget.onSplitAtPosition!(clickTime);
+                    } else {
+                      widget.onPlayheadMove?.call(clickTime);
+                      widget.onSplit?.call();
+                    }
                   }
                   return;
                 case TimelineEditTool.erase:
@@ -563,7 +571,10 @@ class _ClipWidgetState extends State<ClipWidget> {
               // Alt+click in Move zone = Split at cursor (Cubase)
               if (mode == SmartToolMode.select && isAlt && !isShift) {
                 if (!clip.locked) {
-                  final clickTime = clip.startTime + details.localPosition.dx / widget.zoom;
+                  var clickTime = clip.startTime + details.localPosition.dx / widget.zoom;
+                  if (widget.snapEnabled) {
+                    clickTime = applySnap(clickTime, true, widget.snapValue, widget.tempo, widget.allClips);
+                  }
                   if (widget.onSplitAtPosition != null) {
                     widget.onSplitAtPosition!(clickTime);
                   } else {
