@@ -116,6 +116,10 @@ class Timeline extends StatefulWidget {
   final ValueChanged<String>? onClipMute;
   /// Loop toggle on clip (Logic Pro X style)
   final void Function(String clipId)? onClipLoopToggle;
+  /// Time stretch on clip (Logic Pro X Flex Time style)
+  final void Function(String clipId, double newDuration, double stretchRatio)? onClipTimeStretch;
+  /// Called when time stretch drag ends — for FFI commit
+  final void Function(String clipId)? onClipTimeStretchEnd;
   /// Split clip at precise position (Cubase Alt+click)
   final void Function(String clipId, double position)? onClipSplitAtPosition;
   /// Shuffle mode: move clip and push adjacent clips
@@ -155,6 +159,8 @@ class Timeline extends StatefulWidget {
 
   /// Transport state - is playback active
   final bool isPlaying;
+  /// Transport state - is recording active
+  final bool isRecording;
 
   /// File drop callback
   /// Called when audio files are dropped on the timeline
@@ -287,6 +293,8 @@ class Timeline extends StatefulWidget {
     this.onClipDelete,
     this.onClipMute,
     this.onClipLoopToggle,
+    this.onClipTimeStretch,
+    this.onClipTimeStretchEnd,
     this.onClipSplitAtPosition,
     this.onClipShuffleMove,
     this.onClipCopy,
@@ -307,6 +315,7 @@ class Timeline extends StatefulWidget {
     this.snapEnabled = true,
     this.snapValue = 1,
     this.isPlaying = false,
+    this.isRecording = false,
     this.onFileDrop,
     this.onImportAudio,
     this.onExportAudio,
@@ -424,6 +433,9 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   bool _isHeaderDragSelecting = false;
   int _headerDragStartIndex = -1;
 
+  // Recording overlay state — track where recording started
+  double? _recordStartPosition;
+
   // Track reorder drag state (for bidirectional sync with mixer)
   int? _draggedTrackIndex;
   int? _dropTargetTrackIndex;
@@ -474,6 +486,12 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     // (e.g., from zoom slider, but NOT during our animation)
     if (!_zoomAnimController.isAnimating && widget.zoom != oldWidget.zoom) {
       _animatedZoom = widget.zoom;
+    }
+    // Track recording start/stop for red overlay
+    if (widget.isRecording && !oldWidget.isRecording) {
+      _recordStartPosition = widget.playheadPosition;
+    } else if (!widget.isRecording && oldWidget.isRecording) {
+      _recordStartPosition = null;
     }
   }
 
@@ -1914,7 +1932,9 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                 ),
                 // Track lane - key includes track color for rebuild on color change
                 Expanded(
-                  child: TrackLane(
+                  child: Stack(
+                    children: [
+                  TrackLane(
                     key: ValueKey('lane_${track.id}_${track.color.value}'),
                     track: track,
                     trackHeight: trackHeight,
@@ -1949,6 +1969,8 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                     onClipDelete: widget.onClipDelete,
                     onClipMute: widget.onClipMute,
                     onClipLoopToggle: widget.onClipLoopToggle,
+                    onClipTimeStretch: widget.onClipTimeStretch,
+                    onClipTimeStretchEnd: widget.onClipTimeStretchEnd,
                     onClipSplitAtPosition: widget.onClipSplitAtPosition,
                     onClipShuffleMove: widget.onClipShuffleMove,
                     onPlayheadMove: widget.onPlayheadChange,
@@ -1959,6 +1981,24 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                     snapValue: widget.snapValue,
                     allClips: widget.clips,
                   ),
+                  // Recording overlay — red region on armed tracks while recording
+                  if (widget.isRecording && track.armed && _recordStartPosition != null)
+                    Positioned(
+                      left: ((_recordStartPosition! - widget.scrollOffset) * _effectiveZoom).clamp(0.0, double.infinity),
+                      top: 0,
+                      bottom: 0,
+                      width: ((widget.playheadPosition - _recordStartPosition!) * _effectiveZoom).clamp(0.0, double.infinity),
+                      child: IgnorePointer(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0x30FF2020),
+                            border: Border.all(color: const Color(0x80FF2020), width: 1),
+                          ),
+                        ),
+                      ),
+                    ),
+                    ], // Stack children
+                  ), // Stack
                 ),
               ],
             ),

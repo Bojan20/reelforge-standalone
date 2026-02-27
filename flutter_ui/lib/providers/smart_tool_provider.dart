@@ -205,6 +205,9 @@ enum SmartToolMode {
   /// Scrub (Ctrl+click in range zone — Pro Tools)
   scrub,
 
+  /// Time stretch handle (Alt+drag on bottom edges — Logic Pro X Flex Time)
+  timeStretch,
+
   /// No specific tool (default arrow)
   none,
 }
@@ -223,6 +226,7 @@ const Map<SmartToolMode, MouseCursor> kSmartToolCursors = {
   SmartToolMode.rangeSelect: SystemMouseCursors.cell,
   SmartToolMode.slipContent: SystemMouseCursors.resizeLeftRight, // H-resize for slip
   SmartToolMode.scrub: SystemMouseCursors.text,
+  SmartToolMode.timeStretch: SystemMouseCursors.resizeColumn, // H-resize for time stretch
   SmartToolMode.none: SystemMouseCursors.basic,
 };
 
@@ -795,8 +799,32 @@ class SmartToolProvider extends ChangeNotifier {
       );
     }
 
-    // ─── ZONE 4-5: BODY (range select upper / move lower) ───
-    // Pro Tools-style upper/lower body split
+    // ─── ZONE 4-5: BODY (time stretch edges / range select upper / move lower) ───
+
+    // Time Stretch — body left/right edges (same width as trim zone)
+    // Logic Pro X Flex Time style: drag body edges horizontally to stretch
+    if (local.dx < trimZoneWidth) {
+      return SmartToolHitResult(
+        mode: SmartToolMode.timeStretch,
+        cursor: SystemMouseCursors.resizeColumn,
+        clipId: clipId,
+        trackId: trackId,
+        localPosition: local,
+        clipBounds: clipBounds,
+      );
+    }
+    if (local.dx > width - trimZoneWidth) {
+      return SmartToolHitResult(
+        mode: SmartToolMode.timeStretch,
+        cursor: SystemMouseCursors.resizeColumn,
+        clipId: clipId,
+        trackId: trackId,
+        localPosition: local,
+        clipBounds: clipBounds,
+      );
+    }
+
+    // Pro Tools-style upper/lower body split (center area)
     if (local.dy < bodyMidY) {
       // Upper body — Range Select (Pro Tools Selector / I-beam)
       return SmartToolHitResult(
@@ -945,6 +973,8 @@ class SmartToolProvider extends ChangeNotifier {
         return 'Slip';
       case SmartToolMode.scrub:
         return 'Scrub';
+      case SmartToolMode.timeStretch:
+        return 'Time Stretch';
       case SmartToolMode.none:
         return 'Smart Tool';
     }
@@ -974,6 +1004,8 @@ class SmartToolProvider extends ChangeNotifier {
       case SmartToolMode.slipContent:
         return Icons.unfold_more;
       case SmartToolMode.scrub:
+        return Icons.swap_horiz;
+      case SmartToolMode.timeStretch:
         return Icons.swap_horiz;
       case SmartToolMode.none:
         return Icons.smart_button;

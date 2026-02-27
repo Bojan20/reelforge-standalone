@@ -5750,11 +5750,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         timelineDisplayMode = timeline.TimeDisplayMode.samples;
     }
 
-    // PERFORMANCE: Use Selector for playhead position to avoid rebuilding entire timeline
-    // when only playhead moves. This is critical for smooth performance with many tracks.
-    return Selector<EngineProvider, double>(
-      selector: (_, engine) => engine.transport.positionSeconds,
-      builder: (context, playheadPosition, child) => timeline_widget.Timeline(
+    // PERFORMANCE: Use Selector for playhead position + recording state
+    // to avoid rebuilding entire timeline on every provider change.
+    return Selector<EngineProvider, ({double position, bool isRecording})>(
+      selector: (_, engine) => (position: engine.transport.positionSeconds, isRecording: engine.transport.isRecording),
+      builder: (context, data, child) => timeline_widget.Timeline(
       tracks: _tracks,
       clips: _filteredClips, // Event-filtered clips
       markers: _markers,
@@ -5762,7 +5762,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       crossfades: _crossfades,
       loopRegion: _loopRegion,
       loopEnabled: transport.loopEnabled,
-      playheadPosition: playheadPosition,
+      playheadPosition: data.position,
       tempo: transport.tempo,
       timeSignatureNum: transport.timeSigNum,
       timeSignatureDenom: transport.timeSigDenom,
@@ -5774,6 +5774,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       snapEnabled: _snapEnabled,
       snapValue: _snapValue,
       isPlaying: transport.isPlaying, // For R button pulsing animation
+      isRecording: data.isRecording, // Red overlay on armed tracks
       selectedTrackId: _selectedTrackId, // Sync track selection with Timeline
       // Cubase-style edit toolbar
       smartToolProvider: context.read<SmartToolProvider>(),
@@ -6430,6 +6431,26 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         });
         // Sync clip loop to middleware layer
         _mwTimelineSyncController.handleClipParameterChanged(clipId, 'loop', newLoop);
+      },
+      onClipTimeStretch: (clipId, newDuration, stretchRatio) {
+        setState(() {
+          _clips = _clips.map((c) {
+            if (c.id == clipId) {
+              return c.copyWith(
+                duration: newDuration,
+                stretchRatio: stretchRatio,
+              );
+            }
+            return c;
+          }).toList();
+        });
+      },
+      onClipTimeStretchEnd: (clipId) {
+        // Commit stretch to middleware/engine
+        final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
+        if (clip.id != clipId) return;
+        _mwTimelineSyncController.handleClipParameterChanged(clipId, 'stretchRatio', clip.stretchRatio);
+        _mwTimelineSyncController.handleClipParameterChanged(clipId, 'duration', clip.duration);
       },
       onClipSplitAtPosition: (clipId, position) {
         // Block split on MW-synced clips — they mirror middleware layers

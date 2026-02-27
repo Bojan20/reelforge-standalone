@@ -70,6 +70,11 @@ class ClipWidget extends StatefulWidget {
   final VoidCallback? onMute;
   /// Called when loop handle is toggled (Logic Pro X style)
   final VoidCallback? onLoopToggle;
+  /// Called when time stretch drag changes clip duration (Logic Pro X Flex Time)
+  /// Parameters: (newDuration, stretchRatio) — ratio = newDuration / originalDuration
+  final void Function(double newDuration, double stretchRatio)? onTimeStretch;
+  /// Called when time stretch drag ends — for FFI commit
+  final VoidCallback? onTimeStretchEnd;
   /// Called when split at specific position (Cubase Alt+click)
   final ValueChanged<double>? onSplitAtPosition;
   /// Called when clip is moved in Shuffle mode — clips should push neighbors
@@ -107,6 +112,8 @@ class ClipWidget extends StatefulWidget {
     this.onSplit,
     this.onMute,
     this.onLoopToggle,
+    this.onTimeStretch,
+    this.onTimeStretchEnd,
     this.onSplitAtPosition,
     this.onShuffleMove,
     this.onPlayheadMove,
@@ -129,6 +136,9 @@ class _ClipWidgetState extends State<ClipWidget> {
   bool _isDraggingMove = false;
   bool _isSlipEditing = false;
   bool _isDraggingVolumeHandle = false; // Cubase volume handle (top-center)
+  bool _isDraggingTimeStretch = false; // Logic Pro X Flex Time stretch
+  bool _timeStretchFromLeft = false; // Which edge initiated the stretch
+  double _timeStretchOrigDuration = 0; // Original duration at drag start
   bool _isEditing = false;
 
   // Smart Tool — last hit test result for cursor + drag routing
@@ -186,13 +196,17 @@ class _ClipWidgetState extends State<ClipWidget> {
 
   /// Check if clip has time stretch applied
   bool _hasTimeStretch(TimelineClip clip) {
-    // Time stretch is applied if clip has a time stretch FX slot that isn't bypassed
+    // Check stretchRatio field first (from Flex Time drag)
+    if (clip.stretchRatio != 1.0) return true;
+    // Fallback: check FX chain for time stretch slot
     return clip.fxChain.slots.any((s) => s.type == ClipFxType.timeStretch && !s.bypass);
   }
 
   /// Get time stretch ratio from clip
   double _getStretchRatio(TimelineClip clip) {
-    // Calculate from duration vs source duration if available
+    // Use stretchRatio field first (from Flex Time drag)
+    if (clip.stretchRatio != 1.0) return clip.stretchRatio;
+    // Fallback: calculate from duration vs source duration
     if (clip.sourceDuration != null && clip.sourceDuration! > 0) {
       return clip.duration / clip.sourceDuration!;
     }
@@ -586,6 +600,14 @@ class _ClipWidgetState extends State<ClipWidget> {
                   _dragStartMouseY = details.globalPosition.dy;
                   setState(() => _isDraggingVolumeHandle = true);
                   return;
+                case SmartToolMode.timeStretch:
+                  // Time stretch — Logic Pro X Flex Time style
+                  _dragStartDuration = clip.duration;
+                  _dragStartMouseX = details.globalPosition.dx;
+                  _timeStretchOrigDuration = clip.duration;
+                  _timeStretchFromLeft = _smartToolHitResult!.localPosition.dx < ((_smartToolHitResult!.clipBounds?.width ?? 100) / 2);
+                  setState(() => _isDraggingTimeStretch = true);
+                  return;
                 case SmartToolMode.loopHandle:
                   // Loop handle click — toggle loop (Logic Pro X)
                   widget.onLoopToggle?.call();
@@ -723,6 +745,22 @@ class _ClipWidgetState extends State<ClipWidget> {
             return;
           }
 
+          // Time stretch drag — Logic Pro X Flex Time style
+          if (_isDraggingTimeStretch && smartEnabled) {
+            final deltaTime = (details.globalPosition.dx - _dragStartMouseX) / widget.zoom;
+            double newDuration;
+            if (_timeStretchFromLeft) {
+              // Dragging left edge left = expand, right = compress
+              newDuration = (_dragStartDuration - deltaTime).clamp(0.1, _dragStartDuration * 4.0);
+            } else {
+              // Dragging right edge right = expand, left = compress
+              newDuration = (_dragStartDuration + deltaTime).clamp(0.1, _dragStartDuration * 4.0);
+            }
+            final stretchRatio = newDuration / _timeStretchOrigDuration;
+            widget.onTimeStretch?.call(newDuration, stretchRatio);
+            return;
+          }
+
           // Gain handle drag — direct gain adjustment from label widget
           if (_isDraggingGain) {
             return; // Handled by Listener on gain handle widget
@@ -799,6 +837,10 @@ class _ClipWidgetState extends State<ClipWidget> {
           if ((_isDraggingFadeIn || _isDraggingFadeOut) && smartEnabled) {
             fadeHandleActiveGlobal = false;
           }
+          // Smart Tool time stretch end — commit stretch
+          if (_isDraggingTimeStretch && smartEnabled) {
+            widget.onTimeStretchEnd?.call();
+          }
 
           if (_isDraggingMove) {
             // Use _wasCrossTrackDrag to ensure cleanup even if user moved back
@@ -830,6 +872,7 @@ class _ClipWidgetState extends State<ClipWidget> {
             _isDraggingFadeIn = false;
             _isDraggingFadeOut = false;
             _isDraggingVolumeHandle = false;
+            _isDraggingTimeStretch = false;
             _isDraggingGain = false;
           });
         },
@@ -850,6 +893,7 @@ class _ClipWidgetState extends State<ClipWidget> {
             _isDraggingFadeIn = false;
             _isDraggingFadeOut = false;
             _isDraggingVolumeHandle = false;
+            _isDraggingTimeStretch = false;
             _isDraggingGain = false;
           });
         },

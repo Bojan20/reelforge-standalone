@@ -59,6 +59,8 @@ class TimelineClip {
   final String? eventId;
   /// Number of audio channels in source file (1 = mono, 2 = stereo)
   final int channels;
+  /// Time stretch ratio (1.0 = original speed, 2.0 = double length, 0.5 = half length)
+  final double stretchRatio;
 
   const TimelineClip({
     required this.id,
@@ -84,6 +86,7 @@ class TimelineClip {
     this.loopEnabled = false,
     this.eventId,
     this.channels = 2,
+    this.stretchRatio = 1.0,
   });
 
   /// Check if clip has active FX processing
@@ -115,6 +118,7 @@ class TimelineClip {
     bool? loopEnabled,
     String? eventId,
     int? channels,
+    double? stretchRatio,
   }) {
     return TimelineClip(
       id: id ?? this.id,
@@ -140,6 +144,7 @@ class TimelineClip {
       loopEnabled: loopEnabled ?? this.loopEnabled,
       eventId: eventId ?? this.eventId,
       channels: channels ?? this.channels,
+      stretchRatio: stretchRatio ?? this.stretchRatio,
     );
   }
 }
