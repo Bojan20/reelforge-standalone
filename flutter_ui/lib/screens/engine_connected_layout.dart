@@ -5214,7 +5214,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               _onInsertClick(channelId, slotIndex);
             },
             onChannelSendLevelChange: (channelId, sendIndex, level) {
+              final mp = context.read<MixerProvider>();
               EngineApi.instance.setSendLevel(channelId, sendIndex, level);
+              _updateMixerSendLevel(mp, channelId, sendIndex, level);
             },
             onChannelEQToggle: (channelId) {
               setState(() {
@@ -8735,6 +8737,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       },
       onSendLevelChange: (channelId, sendIndex, level) {
         engine.setSendLevel(channelId, sendIndex, level);
+        _updateMixerSendLevel(mixerProvider, channelId, sendIndex, level);
       },
       onSendMuteToggle: (channelId, sendIndex, muted) {
         engine.setSendMuted(channelId, sendIndex, muted);
@@ -8935,6 +8938,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       },
       onSendLevelChange: (channelId, sendIndex, level) {
         engine.setSendLevel(channelId, sendIndex, level);
+        _updateMixerSendLevel(mixerProvider, channelId, sendIndex, level);
       },
       onSendMuteToggle: (channelId, sendIndex, muted) {
         engine.setSendMuted(channelId, sendIndex, muted);
@@ -9632,6 +9636,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       },
       onSendLevelChange: (channelId, sendIndex, level) {
         engine.setSendLevel(channelId, sendIndex, level);
+        _updateMixerSendLevel(mixerProvider, channelId, sendIndex, level);
       },
       onSendMuteToggle: (channelId, sendIndex, muted) {
         engine.setSendMuted(channelId, sendIndex, muted);
@@ -9841,6 +9846,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         _handleUltimateMixerInsertClick(busId, insertIndex);
       },
       onSendLevelChange: (busId, sendIndex, level) {
+        engine.setSendLevel(busId, sendIndex, level);
+        _updateMixerSendLevel(mwMixerProv, busId, sendIndex, level);
       },
       onSendMuteToggle: (busId, sendIndex, muted) {
       },
@@ -10493,6 +10500,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     setState(() {});
 
     _showSnackBar('Send ${sendIndex + 1} → $targetBusName');
+  }
+
+  /// Update MixerProvider send level from sendIndex (resolves auxId from channel sends)
+  void _updateMixerSendLevel(MixerProvider mp, String channelId, int sendIndex, double level) {
+    final channel = mp.getChannel(channelId);
+    if (channel == null) return;
+    if (sendIndex < channel.sends.length) {
+      final auxId = channel.sends[sendIndex].auxId;
+      mp.setAuxSendLevel(channelId, auxId, level);
+    }
   }
 
   /// Remove send from channel at given index

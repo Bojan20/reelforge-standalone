@@ -2173,11 +2173,14 @@ class _SendSlotRow extends StatefulWidget {
 class _SendSlotRowState extends State<_SendSlotRow> {
   double _dragStartX = 0;
   double _dragStartValue = 0;
+  double? _localLevel; // Optimistic local state for instant visual feedback
   static const double _faderWidth = 50.0;
+
+  double get _currentLevel => _localLevel ?? widget.send?.level ?? 0.0;
 
   void _handleDragStart(DragStartDetails details) {
     _dragStartX = details.localPosition.dx;
-    _dragStartValue = widget.send?.level ?? 0.0;
+    _dragStartValue = _currentLevel;
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
@@ -2185,19 +2188,33 @@ class _SendSlotRowState extends State<_SendSlotRow> {
     final deltaX = details.localPosition.dx - _dragStartX;
     final deltaPercent = deltaX / _faderWidth;
     final newValue = (_dragStartValue + deltaPercent).clamp(0.0, 1.0);
+    setState(() => _localLevel = newValue);
     widget.onLevelChange!(newValue);
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    setState(() => _localLevel = null);
   }
 
   void _handleTapDown(TapDownDetails details) {
     if (widget.onLevelChange == null) return;
     final percent = (details.localPosition.dx / _faderWidth).clamp(0.0, 1.0);
+    setState(() => _localLevel = percent);
     widget.onLevelChange!(percent);
+  }
+
+  @override
+  void didUpdateWidget(covariant _SendSlotRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_localLevel != null && widget.send?.level != oldWidget.send?.level) {
+      _localLevel = null; // Parent confirmed, clear optimistic
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final hasDestination = widget.send?.destination != null && widget.send!.destination!.isNotEmpty;
-    final level = widget.send?.level ?? 0.0;
+    final level = _currentLevel;
 
     return GestureDetector(
       onTap: widget.onTap,
@@ -2245,6 +2262,7 @@ class _SendSlotRowState extends State<_SendSlotRow> {
                 child: GestureDetector(
                   onHorizontalDragStart: _handleDragStart,
                   onHorizontalDragUpdate: _handleDragUpdate,
+                  onHorizontalDragEnd: _handleDragEnd,
                   onTapDown: _handleTapDown,
                   child: Container(
                     height: 10,
