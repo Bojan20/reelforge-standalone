@@ -173,6 +173,7 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 - .claude/architecture/SLOT_LAB_SYSTEM.md — Full SlotLab architecture
 - .claude/architecture/TEMPLATE_GALLERY_SYSTEM.md — P3-12 Template system
 - .claude/architecture/AUREXIS_UNIFIED_PANEL_ARCHITECTURE.md — AUREXIS intelligence panel
+- .claude/architecture/UNIFIED_TRACK_GRAPH.md — DAW ↔ SlotLab shared engine architecture
 - .claude/specs/SLOTLAB_TIMELINE_ULTIMATE_SPEC.md — P14 Timeline spec
 
 ---

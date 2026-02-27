@@ -1,7 +1,7 @@
 # FluxForge Studio — MASTER TODO
 
 **Updated:** 2026-02-27
-**Status:** ✅ **SHIP READY** — 515 total tasks (423 complete + 92 planned)
+**Status:** ✅ **SHIP READY** — 546 total tasks (423 complete + 123 planned)
 **Full backup:** `.claude/docs/MASTER_TODO_FULL_BACKUP_2026_02_27.md` (3,526 lines, complete history)
 
 ---
@@ -203,6 +203,77 @@ Input → Pre-Fader Inserts → Fader → Pan → ★ STEREO IMAGER → Post-Fad
 
 ---
 
+## 🔗 UNIFIED TRACK GRAPH — DAW ↔ SlotLab Shared Engine 📋 PLANNED
+
+**Spec:** `.claude/architecture/UNIFIED_TRACK_GRAPH.md`
+**What:** DAW and SlotLab share the SAME rf-engine. One audio graph, two UI views. Zero sync, zero export, zero degradation. SlotLab creates events → event folders appear in DAW left panel with layer tracks. Sound designer drags layers into timeline to edit/mix. All audio changes are instant in both directions.
+
+**Key Rules:**
+- Structure (events/layers): one-way SlotLab → DAW (read-only folders in DAW)
+- Audio params (vol/pan/fx/sends): bidirectional DAW ↔ SlotLab (same provider)
+- Tracks live in event folders in DAW left panel, manually dragged to timeline when editing
+- Track reuse across events (same track can be layer in multiple events)
+
+### Phase 1: EventFolder Data Model + Provider (~800 LOC)
+
+| # | Task | Status |
+|---|------|--------|
+| 1.1 | Define `EventFolder` model (id, eventId, name, color, childTrackIds) | ⬜ |
+| 1.2 | Define `LayerRef` model (trackId, condition, weight, layerIndex) | ⬜ |
+| 1.3 | Create `EventFolderProvider` (GetIt singleton, Layer 5) | ⬜ |
+| 1.4 | Wire `createFolderForEvent()` — SlotLab calls when event created | ⬜ |
+| 1.5 | Wire `removeFolderForEvent()` — SlotLab calls when event deleted | ⬜ |
+| 1.6 | Wire `updateFolderLayers()` — SlotLab calls when layers change | ⬜ |
+| 1.7 | Register in `service_locator.dart` | ⬜ |
+
+### Phase 2: DAW Left Panel — Event Folder UI (~1,200 LOC)
+
+| # | Task | Status |
+|---|------|--------|
+| 2.1 | Create `EventFolderPanel` widget for DAW left zone | ⬜ |
+| 2.2 | Render event folders with 🔒 icon (read-only structure) | ⬜ |
+| 2.3 | Render child layer tracks with name, color, type icon | ⬜ |
+| 2.4 | Folder collapse/expand toggle | ⬜ |
+| 2.5 | Event type badge + color coding (spin=orange, win=gold, etc.) | ⬜ |
+| 2.6 | Drag layer track from folder → DAW timeline (creates track in timeline) | ⬜ |
+| 2.7 | Visual indicator when layer is in timeline vs. only in folder | ⬜ |
+| 2.8 | Context menu: "Open in SlotLab" → switches to SlotLab tab | ⬜ |
+
+### Phase 3: SlotLab → DAW Folder Sync (~600 LOC)
+
+| # | Task | Status |
+|---|------|--------|
+| 3.1 | SlotLab event create → auto-create DAW event folder | ⬜ |
+| 3.2 | SlotLab event delete → auto-remove DAW event folder | ⬜ |
+| 3.3 | SlotLab add layer → add track to folder + rf-engine | ⬜ |
+| 3.4 | SlotLab remove layer → remove track from folder | ⬜ |
+| 3.5 | SlotLab reorder layers → reorder tracks in folder | ⬜ |
+| 3.6 | SlotLab rename event → update folder name | ⬜ |
+
+### Phase 4: Bidirectional Audio Param Sync (~400 LOC)
+
+| # | Task | Status |
+|---|------|--------|
+| 4.1 | Verify DAW volume/pan/mute changes reflect in SlotLab layer view | ⬜ |
+| 4.2 | Verify SlotLab layer volume/pan changes reflect on DAW faders | ⬜ |
+| 4.3 | Verify insert add/remove/param changes sync both ways | ⬜ |
+| 4.4 | Verify send level changes sync both ways | ⬜ |
+| 4.5 | Verify output bus assignment sync both ways | ⬜ |
+
+### Phase 5: Track Reuse + Advanced Features (~500 LOC)
+
+| # | Task | Status |
+|---|------|--------|
+| 5.1 | Support same track as layer in multiple events | ⬜ |
+| 5.2 | Show shared track indicator in folder (appears in N events) | ⬜ |
+| 5.3 | Variant sub-groups within event (A/B/C variants with weight) | ⬜ |
+| 5.4 | Conditional layers (minMultiplier, bet threshold) | ⬜ |
+| 5.5 | Crossfade settings per event folder (in/out ms, curve) | ⬜ |
+
+**Total: 31 tasks, ~3,500 LOC across 5 phases**
+
+---
+
 ## 🧠 AUREXIS™ — Slot Audio Intelligence Engine 📋 PLANNED
 
 **Specs:**
@@ -248,5 +319,5 @@ Consolidates 11 independent audio systems + 1000+ scattered parameters into ONE 
 
 ---
 
-*Last Updated: 2026-02-27 — Cleaned from 3,526 lines to ~250 lines. Full history in backup.*
-*515 total tasks (423 complete + 92 planned), 4,532 tests, 0 errors.*
+*Last Updated: 2026-02-27 — Added Unified Track Graph (31 tasks). Full history in backup.*
+*546 total tasks (423 complete + 123 planned), 4,532 tests, 0 errors.*
