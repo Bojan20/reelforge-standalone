@@ -1278,7 +1278,12 @@ impl ElasticPro {
         self.config.mode = mode;
     }
 
-    /// Process audio with time stretching
+    /// Process audio with INDEPENDENT time stretching and pitch shifting.
+    ///
+    /// Time stretch and pitch shift are fully decoupled:
+    /// 1. Phase vocoder stretches by `stretch_ratio * pitch_ratio` to compensate
+    /// 2. Cubic resampling by `1/pitch_ratio` shifts pitch without changing duration
+    /// Result: output duration = input * stretch_ratio, pitch shifted independently.
     pub fn process(&mut self, input: &[f64]) -> Vec<f64> {
         if input.is_empty() {
             return vec![];
@@ -1287,16 +1292,68 @@ impl ElasticPro {
         let stretch_ratio = self.config.stretch_ratio;
         let pitch_ratio = 2.0_f64.powf(self.config.pitch_shift / 12.0);
 
-        // Combined ratio for time-stretch with pitch shift
-        let time_ratio = stretch_ratio / pitch_ratio;
-
-        if self.config.use_stn {
-            self.process_stn(input, time_ratio)
-        } else if self.config.use_multi_resolution {
-            self.multi_res.process(input, time_ratio)
-        } else {
-            self.vocoder.process(input, time_ratio)
+        // No pitch shift → pure time stretch (fast path)
+        if (pitch_ratio - 1.0).abs() < 1e-6 {
+            return if self.config.use_stn {
+                self.process_stn(input, stretch_ratio)
+            } else if self.config.use_multi_resolution {
+                self.multi_res.process(input, stretch_ratio)
+            } else {
+                self.vocoder.process(input, stretch_ratio)
+            };
         }
+
+        // Independent stretch + pitch:
+        // Step 1: Overshoot time stretch to compensate for resampling
+        let vocoder_ratio = stretch_ratio * pitch_ratio;
+        let stretched = if self.config.use_stn {
+            self.process_stn(input, vocoder_ratio)
+        } else if self.config.use_multi_resolution {
+            self.multi_res.process(input, vocoder_ratio)
+        } else {
+            self.vocoder.process(input, vocoder_ratio)
+        };
+
+        // Step 2: Resample to shift pitch (1/pitch_ratio shrinks back to correct duration)
+        let target_len = (input.len() as f64 * stretch_ratio).round() as usize;
+        Self::cubic_resample(&stretched, target_len)
+    }
+
+    /// High-quality cubic Hermite interpolation resampler.
+    /// Resamples `input` to exactly `target_len` samples.
+    fn cubic_resample(input: &[f64], target_len: usize) -> Vec<f64> {
+        if target_len == 0 || input.is_empty() {
+            return vec![0.0; target_len];
+        }
+        if input.len() == 1 {
+            return vec![input[0]; target_len];
+        }
+
+        let ratio = (input.len() - 1) as f64 / (target_len.max(1) - 1).max(1) as f64;
+        let mut output = Vec::with_capacity(target_len);
+        let last = input.len() - 1;
+
+        for i in 0..target_len {
+            let pos = i as f64 * ratio;
+            let idx = pos.floor() as usize;
+            let frac = pos - idx as f64;
+
+            // Hermite cubic: 4 sample points with boundary clamping
+            let y0 = input[idx.saturating_sub(1).min(last)];
+            let y1 = input[idx.min(last)];
+            let y2 = input[(idx + 1).min(last)];
+            let y3 = input[(idx + 2).min(last)];
+
+            // Cubic Hermite interpolation
+            let c0 = y1;
+            let c1 = 0.5 * (y2 - y0);
+            let c2 = y0 - 2.5 * y1 + 2.0 * y2 - 0.5 * y3;
+            let c3 = 0.5 * (y3 - y0) + 1.5 * (y1 - y2);
+
+            output.push(((c3 * frac + c2) * frac + c1) * frac + c0);
+        }
+
+        output
     }
 
     /// Process using STN decomposition
