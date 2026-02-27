@@ -2925,22 +2925,49 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     );
     if (leftClip == null || rightClip == null) return;
 
-    // Calculate crossfade duration: 50ms default, but max 25% of shorter clip
-    final maxDuration = [leftClip.duration, rightClip.duration]
-        .reduce((a, b) => a < b ? a : b) * 0.25;
-    final crossfadeDuration = maxDuration.clamp(0.01, 0.05); // 10-50ms
+    // Cubase/Pro Tools style: create overlap region at split point
+    // Both clips have access to audio beyond their boundaries (via sourceOffset/sourceDuration)
+    // Default crossfade: 20ms — small enough to prevent clicks, visible in zoomed view
+    const defaultXfadeDuration = 0.02; // 20ms (Cubase default)
 
-    // Create crossfade centered at split point
-    final crossfadeStart = splitTime - crossfadeDuration / 2;
-    final crossfadeId = 'xfade-${DateTime.now().millisecondsSinceEpoch}';
+    // Calculate max available overlap from source audio
+    // Left clip can extend right if source has more audio after clip end
+    final leftSourceRemaining = leftClip.sourceDuration != null
+        ? leftClip.sourceDuration! - leftClip.sourceOffset - leftClip.duration
+        : double.infinity;
+    // Right clip can extend left if sourceOffset > 0
+    final rightSourceRemaining = rightClip.sourceOffset;
+
+    // Max crossfade = 2x min of available extensions, capped at 25% of shorter clip
+    final maxFromSource = [leftSourceRemaining, rightSourceRemaining].reduce((a, b) => a < b ? a : b) * 2;
+    final maxFromClip = [leftClip.duration, rightClip.duration].reduce((a, b) => a < b ? a : b) * 0.25;
+    final crossfadeDuration = defaultXfadeDuration.clamp(0.005, [maxFromSource, maxFromClip].reduce((a, b) => a < b ? a : b));
+
+    // Extend clips to create overlap region (Cubase-style)
+    // Left clip extends right by half crossfade, right clip extends left by half crossfade
+    final halfXfade = crossfadeDuration / 2;
 
     setState(() {
+      _clips = _clips.map((c) {
+        if (c.id == leftClipId) {
+          return c.copyWith(duration: c.duration + halfXfade);
+        }
+        if (c.id == rightClipId) {
+          return c.copyWith(
+            startTime: c.startTime - halfXfade,
+            duration: c.duration + halfXfade,
+            sourceOffset: c.sourceOffset - halfXfade,
+          );
+        }
+        return c;
+      }).toList();
+
       _crossfades = [..._crossfades, timeline.Crossfade(
-        id: crossfadeId,
+        id: 'xfade-${DateTime.now().millisecondsSinceEpoch}',
         trackId: trackId,
         clipAId: leftClipId,
         clipBId: rightClipId,
-        startTime: crossfadeStart,
+        startTime: splitTime - halfXfade,
         duration: crossfadeDuration,
         curveType: timeline.CrossfadeCurve.equalPower,
       )];
