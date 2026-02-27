@@ -8750,9 +8750,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       peakReaders[ch.id] = () => EngineApi.instance.getTrackPeakStereo(engineTrackId);
     }
     for (final bus in mixerProvider.buses) {
-      final idx = MixerProvider.busIdToEngineBusIndex(bus.id);
-      if (idx >= 0) {
-        peakReaders[bus.id] = () => NativeFFI.instance.getBusPeak(idx);
+      // User-created buses (bus_*) have no dedicated engine bus — metering comes
+      // from MixerProvider's aggregated routed-track peaks (widget.peakL/peakR).
+      if (!bus.id.startsWith('bus_')) {
+        final idx = MixerProvider.busIdToEngineBusIndex(bus.id);
+        if (idx >= 0) {
+          peakReaders[bus.id] = () => NativeFFI.instance.getBusPeak(idx);
+        }
       }
     }
     for (final aux in mixerProvider.auxes) {
@@ -9082,7 +9086,38 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       onWidthChange: (id, width) {
         mixerProvider.setStereoWidth(id, width);
       },
+      // 120fps direct FFI peak readers — GpuMeter calls these on its own Ticker
+      peakReaders: _buildFloatingMixerPeakReaders(mixerProvider),
+      masterPeakReader: _readMasterPeak,
     );
+  }
+
+  /// Build peakReader closures for floating mixer — 120fps direct FFI reads
+  Map<String, (double, double) Function()> _buildFloatingMixerPeakReaders(MixerProvider mp) {
+    final readers = <String, (double, double) Function()>{};
+    for (final ch in mp.channels) {
+      final trackId = ch.id.startsWith('ch_') ? ch.id.substring(3) : ch.id;
+      final trackIdInt = int.tryParse(trackId) ?? 0;
+      final engineTrackId = ch.trackIndex ?? trackIdInt;
+      readers[ch.id] = () => EngineApi.instance.getTrackPeakStereo(engineTrackId);
+    }
+    for (final bus in mp.buses) {
+      // User-created buses (bus_*) have no dedicated engine bus — metering comes
+      // from MixerProvider's aggregated routed-track peaks (widget.peakL/peakR).
+      if (!bus.id.startsWith('bus_')) {
+        final idx = MixerProvider.busIdToEngineBusIndex(bus.id);
+        if (idx >= 0) {
+          readers[bus.id] = () => NativeFFI.instance.getBusPeak(idx);
+        }
+      }
+    }
+    for (final aux in mp.auxes) {
+      final idx = MixerProvider.busIdToEngineBusIndex(aux.outputBus ?? 'aux');
+      if (idx >= 0) {
+        readers[aux.id] = () => NativeFFI.instance.getBusPeak(idx);
+      }
+    }
+    return readers;
   }
 
   /// Open floating send detail window (Pro Tools style)
@@ -9644,9 +9679,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       peakReaders2[ch.id] = () => EngineApi.instance.getTrackPeakStereo(engineTrackId);
     }
     for (final bus in mixerProvider.buses) {
-      final idx = MixerProvider.busIdToEngineBusIndex(bus.id);
-      if (idx >= 0) {
-        peakReaders2[bus.id] = () => NativeFFI.instance.getBusPeak(idx);
+      // User-created buses (bus_*) have no dedicated engine bus — metering comes
+      // from MixerProvider's aggregated routed-track peaks (widget.peakL/peakR).
+      // Only add peakReader for buses with a real engine bus index (not master=0 fallback).
+      if (!bus.id.startsWith('bus_')) {
+        final idx = MixerProvider.busIdToEngineBusIndex(bus.id);
+        if (idx >= 0) {
+          peakReaders2[bus.id] = () => NativeFFI.instance.getBusPeak(idx);
+        }
       }
     }
     for (final aux in mixerProvider.auxes) {

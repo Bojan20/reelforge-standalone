@@ -405,6 +405,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
             child: SingleChildScrollView(
               controller: _scrollController,
               scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.hardEdge,
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1399,25 +1400,26 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
 
     // Pro Tools style: stereo tracks have dual pan knobs (L and R)
     if (ch.isStereo) {
+      final knobSize = widget.compact ? 22.0 : 36.0;
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+        padding: EdgeInsets.symmetric(horizontal: widget.compact ? 2 : 4, vertical: widget.compact ? 2 : 4),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            // Left channel pan - Pro DAW standard: 36px knob
             _StereoPanKnob(
               label: 'L',
               value: ch.pan,
-              size: widget.compact ? 28 : 36,
+              size: knobSize,
               onChanged: widget.onPanChange,
+              onChangeEnd: widget.onPanChangeEnd,
               defaultValue: -1.0,
             ),
-            // Right channel pan - Pro DAW standard: 36px knob
             _StereoPanKnob(
               label: 'R',
               value: ch.panRight,
-              size: widget.compact ? 28 : 36,
+              size: knobSize,
               onChanged: widget.onPanRightChange,
+              onChangeEnd: widget.onPanChangeEnd,
               defaultValue: 1.0,
             ),
           ],
@@ -2165,6 +2167,7 @@ class _StereoPanKnob extends StatefulWidget {
   final double value;
   final double size;
   final ValueChanged<double>? onChanged;
+  final ValueChanged<double>? onChangeEnd;
   final double defaultValue;
 
   const _StereoPanKnob({
@@ -2172,6 +2175,7 @@ class _StereoPanKnob extends StatefulWidget {
     required this.value,
     this.size = 36, // Pro DAW standard: 36px knob
     this.onChanged,
+    this.onChangeEnd,
     this.defaultValue = 0.0,
   });
 
@@ -2244,7 +2248,10 @@ class _StereoPanKnobState extends State<_StereoPanKnob> {
               _localValue = widget.value;
               setState(() => _isDragging = true);
             },
-            onVerticalDragEnd: (_) => setState(() => _isDragging = false),
+            onVerticalDragEnd: (_) {
+              setState(() => _isDragging = false);
+              widget.onChangeEnd?.call(_localValue);
+            },
             onVerticalDragUpdate: (details) {
               if (widget.onChanged == null) return;
               final delta = -details.delta.dy * 0.007;
@@ -3163,11 +3170,11 @@ class _SectionDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 2,
-      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      width: 1,
+      margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
       decoration: BoxDecoration(
         color: FluxForgeTheme.textPrimary.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(1),
+        borderRadius: BorderRadius.circular(0.5),
       ),
     );
   }

@@ -4,6 +4,8 @@
 /// Contains the full MixerScreen with all callbacks.
 /// Toggle via Cmd+Shift+= or the Detach button in MixerTopBar.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../controllers/mixer/mixer_view_controller.dart';
 import '../../models/mixer_view_models.dart';
@@ -114,6 +116,10 @@ class MixerCallbacks {
   final List<ultimate.UltimateMixerChannel> Function() buildVcas;
   final ultimate.UltimateMixerChannel Function() buildMaster;
 
+  /// Direct FFI peak readers for 120fps metering (bypasses widget rebuild pipeline)
+  final Map<String, (double, double) Function()> peakReaders;
+  final (double, double) Function()? masterPeakReader;
+
   const MixerCallbacks({
     this.onChannelSelect,
     this.onVolumeChange,
@@ -138,6 +144,8 @@ class MixerCallbacks {
     this.onFolderToggle,
     this.onEqCurveClick,
     this.onWidthChange,
+    this.peakReaders = const {},
+    this.masterPeakReader,
     required this.buildChannels,
     required this.buildBuses,
     required this.buildAuxes,
@@ -172,6 +180,7 @@ class _FloatingMixerWidget extends StatefulWidget {
 class _FloatingMixerWidgetState extends State<_FloatingMixerWidget> {
   Offset _position = const Offset(60, 60);
   Size _size = const Size(1200, 500);
+  Timer? _stateRefreshTimer;
 
   static const double _minWidth = 600;
   static const double _minHeight = 300;
@@ -181,6 +190,11 @@ class _FloatingMixerWidgetState extends State<_FloatingMixerWidget> {
   void initState() {
     super.initState();
     widget.viewController.addListener(_rebuild);
+    // 10fps state refresh — keeps pan/volume/mute/solo in sync with MixerProvider.
+    // Metering is handled at 120fps by GpuMeter peakReaders (no rebuild needed).
+    _stateRefreshTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      if (mounted) setState(() {});
+    });
     // Center on screen
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -200,6 +214,7 @@ class _FloatingMixerWidgetState extends State<_FloatingMixerWidget> {
 
   @override
   void dispose() {
+    _stateRefreshTimer?.cancel();
     widget.viewController.removeListener(_rebuild);
     super.dispose();
   }
@@ -333,6 +348,8 @@ class _FloatingMixerWidgetState extends State<_FloatingMixerWidget> {
                               onFolderToggle: cb.onFolderToggle,
                               onEqCurveClick: cb.onEqCurveClick,
                               onWidthChange: cb.onWidthChange,
+                              peakReaders: cb.peakReaders,
+                              masterPeakReader: cb.masterPeakReader,
                             ),
                           ),
                           // Pinned master strip
@@ -481,6 +498,7 @@ class _FloatingMixerWidgetState extends State<_FloatingMixerWidget> {
         onCommentsChanged: cb.onCommentsChanged,
         onEqCurveClick: cb.onEqCurveClick,
         onWidthChange: cb.onWidthChange,
+        masterPeakReader: cb.masterPeakReader,
       ),
     );
   }
