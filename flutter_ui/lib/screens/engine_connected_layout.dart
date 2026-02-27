@@ -2925,50 +2925,30 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     );
     if (leftClip == null || rightClip == null) return;
 
-    // Cubase/Pro Tools style: create overlap region at split point
-    // Both clips have access to audio beyond their boundaries (via sourceOffset/sourceDuration)
-    // Default crossfade: 20ms — small enough to prevent clicks, visible in zoomed view
-    const defaultXfadeDuration = 0.02; // 20ms (Cubase default)
-
-    // Calculate max available overlap from source audio
-    // Left clip can extend right if source has more audio after clip end
-    final leftSourceRemaining = leftClip.sourceDuration != null
-        ? leftClip.sourceDuration! - leftClip.sourceOffset - leftClip.duration
-        : double.infinity;
-    // Right clip can extend left if sourceOffset > 0
-    final rightSourceRemaining = rightClip.sourceOffset;
-
-    // Max crossfade = 2x min of available extensions, capped at 25% of shorter clip
-    final maxFromSource = [leftSourceRemaining, rightSourceRemaining].reduce((a, b) => a < b ? a : b) * 2;
-    final maxFromClip = [leftClip.duration, rightClip.duration].reduce((a, b) => a < b ? a : b) * 0.25;
-    final crossfadeDuration = defaultXfadeDuration.clamp(0.005, [maxFromSource, maxFromClip].reduce((a, b) => a < b ? a : b));
-
-    // Extend clips to create overlap region (Cubase-style)
-    // Left clip extends right by half crossfade, right clip extends left by half crossfade
-    final halfXfade = crossfadeDuration / 2;
+    // Pro Tools / Cubase style: apply micro-fade at split point for click prevention
+    // Do NOT modify clip boundaries — clips stay exactly where they were split
+    // Apply fadeOut on left clip tail + fadeIn on right clip head
+    const fadeDuration = 0.005; // 5ms — inaudible click prevention
 
     setState(() {
       _clips = _clips.map((c) {
         if (c.id == leftClipId) {
-          return c.copyWith(duration: c.duration + halfXfade);
+          return c.copyWith(fadeOut: fadeDuration);
         }
         if (c.id == rightClipId) {
-          return c.copyWith(
-            startTime: c.startTime - halfXfade,
-            duration: c.duration + halfXfade,
-            sourceOffset: c.sourceOffset - halfXfade,
-          );
+          return c.copyWith(fadeIn: fadeDuration);
         }
         return c;
       }).toList();
 
+      // Register crossfade as edit-point marker (expandable via drag handles later)
       _crossfades = [..._crossfades, timeline.Crossfade(
         id: 'xfade-${DateTime.now().millisecondsSinceEpoch}',
         trackId: trackId,
         clipAId: leftClipId,
         clipBId: rightClipId,
-        startTime: splitTime - halfXfade,
-        duration: crossfadeDuration,
+        startTime: splitTime,
+        duration: 0.0,
         curveType: timeline.CrossfadeCurve.equalPower,
       )];
     });
@@ -5619,18 +5599,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                       setState(() {
                         _clips = _clips.where((c) => c.id != selectedClip.id).toList();
                         _clips.add(selectedClip.copyWith(duration: leftDuration));
-                        _clips.add(timeline.TimelineClip(
+                        _clips.add(selectedClip.copyWith(
                           id: newClipId,
-                          trackId: selectedClip.trackId,
                           name: '${selectedClip.name} (2)',
                           startTime: splitTime,
                           duration: rightDuration,
-                          color: selectedClip.color,
-                          waveform: selectedClip.waveform,
                           sourceOffset: rightOffset,
-                          sourceDuration: selectedClip.sourceDuration,
-                          eventId: selectedClip.eventId,
-                          channels: selectedClip.channels,
+                          selected: false,
                         ));
                       });
                       // Register undo — merge split clips back into original
@@ -5640,18 +5615,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                           setState(() {
                             _clips = _clips.where((c) => c.id != originalClip.id && c.id != newClipId).toList();
                             _clips.add(originalClip.copyWith(duration: leftDuration));
-                            _clips.add(timeline.TimelineClip(
+                            _clips.add(originalClip.copyWith(
                               id: newClipId,
-                              trackId: originalClip.trackId,
                               name: '${originalClip.name} (2)',
                               startTime: splitTime,
                               duration: rightDuration,
-                              color: originalClip.color,
-                              waveform: originalClip.waveform,
                               sourceOffset: rightOffset,
-                              sourceDuration: originalClip.sourceDuration,
-                              eventId: originalClip.eventId,
-                              channels: originalClip.channels,
+                              selected: false,
                             ));
                           });
                         },
@@ -6296,18 +6266,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         setState(() {
           _clips = _clips.where((c) => c.id != clipId).toList();
           _clips.add(clip.copyWith(duration: leftDuration));
-          _clips.add(timeline.TimelineClip(
+          _clips.add(clip.copyWith(
             id: newClipId,
-            trackId: clip.trackId,
             name: '${clip.name} (2)',
             startTime: splitTime,
             duration: rightDuration,
-            color: clip.color,
-            waveform: clip.waveform,
             sourceOffset: rightOffset,
-            sourceDuration: clip.sourceDuration,
-            eventId: clip.eventId, // Preserve original event
-            channels: clip.channels,
+            selected: false,
           ));
         });
 
@@ -6322,18 +6287,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             setState(() {
               _clips = _clips.where((c) => c.id != clipId && c.id != newClipId).toList();
               _clips.add(originalClip.copyWith(duration: leftDuration));
-              _clips.add(timeline.TimelineClip(
+              _clips.add(originalClip.copyWith(
                 id: newClipId,
-                trackId: originalClip.trackId,
                 name: '${originalClip.name} (2)',
                 startTime: splitTime,
                 duration: rightDuration,
-                color: originalClip.color,
-                waveform: originalClip.waveform,
                 sourceOffset: rightOffset,
-                sourceDuration: originalClip.sourceDuration,
-                eventId: originalClip.eventId,
-                channels: originalClip.channels,
+                selected: false,
               ));
             });
           },
