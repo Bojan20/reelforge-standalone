@@ -1463,10 +1463,10 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
 
     // Cached stereo path - GPU scales fixed-resolution waveform
     if (_cachedStereoData != null && !_cachedStereoData!.isEmpty) {
-      // For stereo (2 channels) AND tall track (> 60px), show split L/R display
-      // Logic Pro style: default track height (80px) shows stereo split
-      // Below 60px: combined mono-style waveform (Pro Tools compact behavior)
-      final showStereoSplit = widget.channels >= 2 && widget.trackHeight > 60;
+      // For stereo (2 channels) AND expanded track (> 100px), show split L/R display
+      // Default track height (100px) shows combined mono-style waveform
+      // Only when user manually expands track taller than default → stereo split
+      final showStereoSplit = widget.channels >= 2 && widget.trackHeight > 100;
 
       if (showStereoSplit) {
         return RepaintBoundary(
