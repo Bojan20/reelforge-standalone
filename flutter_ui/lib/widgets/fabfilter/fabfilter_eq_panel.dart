@@ -335,56 +335,50 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
         _nodeId = chain.nodes[_slotIndex].id;
       }
       setState(() => _initialized = true);
-      _readBandsFromEngine();
+      _sanitizeBandsFromEngine();
       _startSpectrum();
       return;
     }
     // Fallback: search by node type (for Lower Zone panels without slotIndex)
     final dsp = DspChainProvider.instance;
-    final chain = dsp.getChain(widget.trackId);
+    var chain = dsp.getChain(widget.trackId);
     for (int i = 0; i < chain.nodes.length; i++) {
       if (chain.nodes[i].type == DspNodeType.eq) {
         _nodeId = chain.nodes[i].id;
         _slotIndex = i;
         setState(() => _initialized = true);
-        _readBandsFromEngine();
+        _sanitizeBandsFromEngine();
         _startSpectrum();
-        break;
+        return;
+      }
+    }
+    // No EQ node found — auto-create one so the panel is functional
+    dsp.addNode(widget.trackId, DspNodeType.eq);
+    chain = dsp.getChain(widget.trackId);
+    for (int i = 0; i < chain.nodes.length; i++) {
+      if (chain.nodes[i].type == DspNodeType.eq) {
+        _nodeId = chain.nodes[i].id;
+        _slotIndex = i;
+        setState(() => _initialized = true);
+        // Fresh processor — no bands to read, skip _readBandsFromEngine
+        _startSpectrum();
+        return;
       }
     }
   }
 
-  void _readBandsFromEngine() {
+  /// Reset all 64 bands in engine to disabled, then start clean.
+  void _sanitizeBandsFromEngine() {
     if (!_initialized || _slotIndex < 0) return;
-    final restored = <EqBand>[];
+    // Force-disable all 64 bands — EQ starts clean, user creates bands explicitly
     for (int i = 0; i < 64; i++) {
-      final en = _ffi.insertGetParam(widget.trackId, _slotIndex, i * _P.paramsPerBand + _P.enabled);
-      final freq = _ffi.insertGetParam(widget.trackId, _slotIndex, i * _P.paramsPerBand + _P.freq);
-      if (en >= 0.5 || freq > 10.0) {
-        restored.add(EqBand(
-          index: i,
-          enabled: en >= 0.5,
-          freq: freq,
-          gain: _ffi.insertGetParam(widget.trackId, _slotIndex, i * _P.paramsPerBand + _P.gain),
-          q: _ffi.insertGetParam(widget.trackId, _slotIndex, i * _P.paramsPerBand + _P.q),
-          shape: _intToShape(_ffi.insertGetParam(widget.trackId, _slotIndex, i * _P.paramsPerBand + _P.shape).round()),
-          placement: _intToPlacement(_ffi.insertGetParam(widget.trackId, _slotIndex, i * _P.paramsPerBand + _P.placement).round()),
-          dynamicEnabled: _ffi.insertGetParam(widget.trackId, _slotIndex, i * _P.paramsPerBand + _P.dynEnabled) >= 0.5,
-          dynamicThreshold: _ffi.insertGetParam(widget.trackId, _slotIndex, i * _P.paramsPerBand + _P.dynThreshold),
-          dynamicRatio: _ffi.insertGetParam(widget.trackId, _slotIndex, i * _P.paramsPerBand + _P.dynRatio),
-          dynamicAttack: _ffi.insertGetParam(widget.trackId, _slotIndex, i * _P.paramsPerBand + _P.dynAttack),
-          dynamicRelease: _ffi.insertGetParam(widget.trackId, _slotIndex, i * _P.paramsPerBand + _P.dynRelease),
-        ));
-      }
+      _setP(i, _P.enabled, 0.0);
     }
-    final outG = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.outputGainIndex);
-    final ag = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.autoGainIndex) > 0.5;
     setState(() {
       _bands.clear();
-      _bands.addAll(restored);
-      _outputGain = outG;
-      _autoGain = ag;
-      _selectedBandIndex = _bands.isNotEmpty ? 0 : null;
+      _outputGain = 0.0;
+      _autoGain = false;
+      _selectedBandIndex = null;
     });
   }
 
@@ -393,7 +387,15 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
       if (!mounted || !_initialized || !_analyzerOn) return;
       final raw = _ffi.getMasterSpectrum();
       if (raw.isEmpty) return;
+      // Check if there's actual signal — if all bins are near-silent, clear spectrum
       final db = List<double>.generate(raw.length, (i) => raw[i].clamp(0.0, 1.0) * 80 - 80);
+      final hasSignal = db.any((v) => v > -72.0);
+      if (!hasSignal) {
+        if (_spectrum.isNotEmpty) {
+          setState(() { _spectrum = []; _peakHold = []; });
+        }
+        return;
+      }
       final prev = _spectrum;
       final out = List<double>.filled(db.length, -80.0);
       for (int i = 0; i < db.length; i++) {
@@ -1046,15 +1048,22 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
 
   void _addBand(double freq, EqFilterShape shape) {
     if (_bands.length >= 64 || _slotIndex < 0) return;
-    final idx = _bands.length;
+    // Find first free (disabled) band index in engine — don't assume sequential
+    int idx = _bands.length;
+    final usedIndices = _bands.map((b) => b.index).toSet();
+    for (int i = 0; i < 64; i++) {
+      if (!usedIndices.contains(i)) { idx = i; break; }
+    }
     final band = EqBand(index: idx, freq: freq, shape: shape, placement: _globalPlacement);
+    setState(() { _bands.add(band); _selectedBandIndex = _bands.length - 1; });
+    // Set all params BEFORE enabling — engine updates coefficients only when enabled
     _setP(idx, _P.freq, freq);
     _setP(idx, _P.gain, 0.0);
     _setP(idx, _P.q, 1.0);
-    _setP(idx, _P.enabled, 1.0);
     _setP(idx, _P.shape, shape.index.toDouble());
     _setP(idx, _P.placement, _globalPlacement.index.toDouble());
-    setState(() { _bands.add(band); _selectedBandIndex = _bands.length - 1; });
+    // Enable LAST so coefficients are computed with correct params
+    _setP(idx, _P.enabled, 1.0);
     widget.onSettingsChanged?.call();
   }
 
