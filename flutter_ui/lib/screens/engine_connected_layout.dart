@@ -376,6 +376,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   // Selected track for Channel tab (DAW mode)
   String? _selectedTrackId;
+  // Multi-selected track IDs (drag-select on headers)
+  Set<String> _multiSelectedTrackIds = {};
 
   // Selected event for timeline (middleware mode)
   String? _selectedEventForTimeline;
@@ -5869,37 +5871,64 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         _dragPreviewClipId = null;
         _dragPreviewStartTime = null;
 
-        final clip = _clips.firstWhere((c) => c.id == clipId);
-        final oldStartTime = clip.startTime;
+        final draggedClip = _clips.firstWhere((c) => c.id == clipId);
+        final timeDelta = newStartTime - draggedClip.startTime;
 
-        // Record undo action
+        // Multi-clip move: if dragged clip is selected, move ALL selected clips
+        final selectedClips = _clips.where((c) => c.selected && c.id != clipId).toList();
+        final isMultiMove = draggedClip.selected && selectedClips.isNotEmpty;
+
+        // Build list of all clips to move (dragged + other selected)
+        final clipsToMove = <({String id, String trackId, double oldTime, double newTime})>[];
+        clipsToMove.add((id: clipId, trackId: draggedClip.trackId, oldTime: draggedClip.startTime, newTime: newStartTime));
+        if (isMultiMove) {
+          for (final sc in selectedClips) {
+            final scNewTime = (sc.startTime + timeDelta).clamp(0.0, double.infinity);
+            clipsToMove.add((id: sc.id, trackId: sc.trackId, oldTime: sc.startTime, newTime: scNewTime));
+          }
+        }
+
+        // Record undo action for all moved clips
         UiUndoManager.instance.record(GenericUndoAction(
-          description: 'Move clip',
+          description: isMultiMove ? 'Move ${clipsToMove.length} clips' : 'Move clip',
           onExecute: () {
-            engine.moveClip(clipId: clipId, targetTrackId: clip.trackId, startTime: newStartTime);
+            for (final cm in clipsToMove) {
+              engine.moveClip(clipId: cm.id, targetTrackId: cm.trackId, startTime: cm.newTime);
+            }
             setState(() {
-              _clips = _clips.map((c) => c.id == clipId ? c.copyWith(startTime: newStartTime) : c).toList();
+              final moveMap = {for (final cm in clipsToMove) cm.id: cm.newTime};
+              _clips = _clips.map((c) => moveMap.containsKey(c.id) ? c.copyWith(startTime: moveMap[c.id]!) : c).toList();
             });
           },
           onUndo: () {
-            engine.moveClip(clipId: clipId, targetTrackId: clip.trackId, startTime: oldStartTime);
+            for (final cm in clipsToMove) {
+              engine.moveClip(clipId: cm.id, targetTrackId: cm.trackId, startTime: cm.oldTime);
+            }
             setState(() {
-              _clips = _clips.map((c) => c.id == clipId ? c.copyWith(startTime: oldStartTime) : c).toList();
+              final moveMap = {for (final cm in clipsToMove) cm.id: cm.oldTime};
+              _clips = _clips.map((c) => moveMap.containsKey(c.id) ? c.copyWith(startTime: moveMap[c.id]!) : c).toList();
             });
           },
         ));
 
-        // Execute move
-        engine.moveClip(clipId: clipId, targetTrackId: clip.trackId, startTime: newStartTime);
+        // Execute move for all clips
+        for (final cm in clipsToMove) {
+          engine.moveClip(clipId: cm.id, targetTrackId: cm.trackId, startTime: cm.newTime);
+        }
         setState(() {
-          _clips = _clips.map((c) => c.id == clipId ? c.copyWith(startTime: newStartTime) : c).toList();
+          final moveMap = {for (final cm in clipsToMove) cm.id: cm.newTime};
+          _clips = _clips.map((c) => moveMap.containsKey(c.id) ? c.copyWith(startTime: moveMap[c.id]!) : c).toList();
         });
 
         // Sync clip move to middleware layer offsetMs
-        _mwTimelineSyncController.handleClipParameterChanged(clipId, 'startTime', newStartTime);
+        for (final cm in clipsToMove) {
+          _mwTimelineSyncController.handleClipParameterChanged(cm.id, 'startTime', cm.newTime);
+        }
 
         // Auto-create crossfade if clip overlaps with another clip on same track
-        _createAutoCrossfadeIfOverlap(clipId, clip.trackId);
+        for (final cm in clipsToMove) {
+          _createAutoCrossfadeIfOverlap(cm.id, cm.trackId);
+        }
       },
       onClipMoveToTrack: (clipId, targetTrackId, newStartTime) {
         // Block move on MW-synced clips — they belong to their layer track
@@ -5913,34 +5942,46 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         _dragPreviewClipId = null;
         _dragPreviewStartTime = null;
 
-        // Capture old state for undo
-        final clip = _clips.firstWhere((c) => c.id == clipId);
-        final oldTrackId = clip.trackId;
-        final oldStartTime = clip.startTime;
-        final oldColor = clip.color;
-
-        // Move clip to a different track
-        engine.moveClip(
-          clipId: clipId,
-          targetTrackId: targetTrackId,
-          startTime: newStartTime,
-        );
+        final draggedClip = _clips.firstWhere((c) => c.id == clipId);
+        final timeDelta = newStartTime - draggedClip.startTime;
         final targetTrack = _tracks.firstWhere(
           (t) => t.id == targetTrackId,
           orElse: () => _tracks.first,
         );
+
+        // Multi-clip cross-track move: move all selected clips to target track
+        final selectedOthers = _clips.where((c) => c.selected && c.id != clipId).toList();
+        final isMultiMove = draggedClip.selected && selectedOthers.isNotEmpty;
+
+        // Build move list
+        final clipsToMove = <({String id, String oldTrackId, double oldTime, Color oldColor, String newTrackId, double newTime, Color newColor})>[];
+        clipsToMove.add((id: clipId, oldTrackId: draggedClip.trackId, oldTime: draggedClip.startTime, oldColor: draggedClip.color ?? targetTrack.color, newTrackId: targetTrackId, newTime: newStartTime, newColor: targetTrack.color));
+        if (isMultiMove) {
+          for (final sc in selectedOthers) {
+            final scNewTime = (sc.startTime + timeDelta).clamp(0.0, double.infinity);
+            clipsToMove.add((id: sc.id, oldTrackId: sc.trackId, oldTime: sc.startTime, oldColor: sc.color ?? targetTrack.color, newTrackId: targetTrackId, newTime: scNewTime, newColor: targetTrack.color));
+          }
+        }
+
+        // Build lookup maps for fast access
+        final newStateMap = <String, ({String trackId, double time, Color color})>{};
+        final oldStateMap = <String, ({String trackId, double time, Color color})>{};
+        for (final cm in clipsToMove) {
+          newStateMap[cm.id] = (trackId: cm.newTrackId, time: cm.newTime, color: cm.newColor);
+          oldStateMap[cm.id] = (trackId: cm.oldTrackId, time: cm.oldTime, color: cm.oldColor);
+        }
+
+        // Execute moves
+        for (final cm in clipsToMove) {
+          engine.moveClip(clipId: cm.id, targetTrackId: cm.newTrackId, startTime: cm.newTime);
+        }
         setState(() {
           _selectedTrackId = targetTrackId;
           _activeLeftTab = LeftZoneTab.channel;
-
           _clips = _clips.map((c) {
-            if (c.id == clipId) {
-              return c.copyWith(
-                trackId: targetTrackId,
-                startTime: newStartTime,
-                color: targetTrack.color,
-                selected: true,
-              );
+            final ns = newStateMap[c.id];
+            if (ns != null) {
+              return c.copyWith(trackId: ns.trackId, startTime: ns.time, color: ns.color, selected: true);
             }
             return c.copyWith(selected: false);
           }).toList();
@@ -5948,26 +5989,26 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
         // Record undo action
         UiUndoManager.instance.record(GenericUndoAction(
-          description: 'Move clip to track',
+          description: isMultiMove ? 'Move ${clipsToMove.length} clips to track' : 'Move clip to track',
           onExecute: () {
-            engine.moveClip(clipId: clipId, targetTrackId: targetTrackId, startTime: newStartTime);
+            for (final cm in clipsToMove) {
+              engine.moveClip(clipId: cm.id, targetTrackId: cm.newTrackId, startTime: cm.newTime);
+            }
             setState(() {
               _clips = _clips.map((c) {
-                if (c.id == clipId) {
-                  return c.copyWith(trackId: targetTrackId, startTime: newStartTime, color: targetTrack.color);
-                }
-                return c;
+                final ns = newStateMap[c.id];
+                return ns != null ? c.copyWith(trackId: ns.trackId, startTime: ns.time, color: ns.color) : c;
               }).toList();
             });
           },
           onUndo: () {
-            engine.moveClip(clipId: clipId, targetTrackId: oldTrackId, startTime: oldStartTime);
+            for (final cm in clipsToMove) {
+              engine.moveClip(clipId: cm.id, targetTrackId: cm.oldTrackId, startTime: cm.oldTime);
+            }
             setState(() {
               _clips = _clips.map((c) {
-                if (c.id == clipId) {
-                  return c.copyWith(trackId: oldTrackId, startTime: oldStartTime, color: oldColor);
-                }
-                return c;
+                final os = oldStateMap[c.id];
+                return os != null ? c.copyWith(trackId: os.trackId, startTime: os.time, color: os.color) : c;
               }).toList();
             });
           },
@@ -6631,6 +6672,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       onTrackSelect: (trackId) {
         setState(() {
           _selectedTrackId = trackId;
+          _multiSelectedTrackIds = {trackId}; // Clear multi-select on single click
           _activeLeftTab = LeftZoneTab.channel;
 
           // Auto-select first clip on this track (for Gain & Fades section)
@@ -6659,6 +6701,21 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             _selectAction(actionIndex);
           }
         }
+      },
+      multiSelectedTrackIds: _multiSelectedTrackIds,
+      onTrackMultiSelect: (trackIds) {
+        setState(() {
+          _multiSelectedTrackIds = trackIds;
+          // Primary selected track = first in the set
+          if (trackIds.isNotEmpty) {
+            _selectedTrackId = trackIds.first;
+            _activeLeftTab = LeftZoneTab.channel;
+          }
+          // Select all clips on selected tracks (batch, single setState)
+          _clips = _clips.map((c) {
+            return c.copyWith(selected: trackIds.contains(c.trackId));
+          }).toList();
+        });
       },
       // Track context menu
       onTrackContextMenu: (trackId, position) {

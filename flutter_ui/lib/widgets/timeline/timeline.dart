@@ -89,6 +89,10 @@ class Timeline extends StatefulWidget {
   final ValueChanged<String>? onTrackMuteToggle;
   final ValueChanged<String>? onTrackSoloToggle;
   final ValueChanged<String>? onTrackSelect;
+  /// Multi-select tracks (drag-select on headers)
+  final void Function(Set<String> trackIds)? onTrackMultiSelect;
+  /// Set of currently multi-selected track IDs (controlled by parent)
+  final Set<String> multiSelectedTrackIds;
   final void Function(String clipId, double gain)? onClipGainChange;
   final void Function(String clipId, double fadeIn, double fadeOut)?
       onClipFadeChange;
@@ -262,6 +266,8 @@ class Timeline extends StatefulWidget {
     this.onTrackMuteToggle,
     this.onTrackSoloToggle,
     this.onTrackSelect,
+    this.onTrackMultiSelect,
+    this.multiSelectedTrackIds = const {},
     this.onClipGainChange,
     this.onClipFadeChange,
     this.onClipRename,
@@ -414,11 +420,16 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   Offset? _rubberBandStart;
   Offset? _rubberBandEnd;
 
+  // Track header drag-select state (lasso select tracks by dragging over headers)
+  bool _isHeaderDragSelecting = false;
+  int _headerDragStartIndex = -1;
+
   // Track reorder drag state (for bidirectional sync with mixer)
   int? _draggedTrackIndex;
   int? _dropTargetTrackIndex;
 
   final FocusNode _focusNode = FocusNode();
+  final GlobalKey _trackAreaKey = GlobalKey();
   final ScrollController _verticalScrollController = ScrollController();
   double _containerWidth = 800;
 
@@ -1042,6 +1053,67 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
     return selectedClips;
   }
+
+  /// Convert a local Y coordinate (relative to track area top) to a track index.
+  /// Accounts for per-track heights (variable height tracks).
+  int _trackIndexFromLocalY(double localY) {
+    // Adjust for vertical scroll offset
+    final adjustedY = localY + (_verticalScrollController.hasClients ? _verticalScrollController.offset : 0);
+    double accumulated = 0;
+    for (int i = 0; i < _visibleTracks.length; i++) {
+      final h = _visibleTracks[i].height > 0 ? _visibleTracks[i].height : _defaultTrackHeight;
+      accumulated += h;
+      if (adjustedY < accumulated) return i;
+    }
+    return _visibleTracks.length - 1;
+  }
+
+  /// Handle track header drag-select: pointer down records start,
+  /// pointer move activates drag-select when crossing track boundaries
+  void _handleHeaderDragSelectDown(int trackIndex) {
+    // Don't activate drag-select yet — just record the start index
+    // Actual drag-select activates on pointer move (prevents conflict with M/S/R buttons)
+    _headerDragStartIndex = trackIndex;
+    _isHeaderDragSelecting = false;
+  }
+
+  void _handleHeaderDragSelectMove(double localY) {
+    if (_headerDragStartIndex < 0) return;
+    final currentIndex = _trackIndexFromLocalY(localY).clamp(0, _visibleTracks.length - 1);
+
+    if (!_isHeaderDragSelecting) {
+      // Activate drag-select only when pointer moves to a different track
+      if (currentIndex != _headerDragStartIndex) {
+        _isHeaderDragSelecting = true;
+      } else {
+        return; // Still on same track, not a drag-select
+      }
+    }
+
+    final startIdx = _headerDragStartIndex < currentIndex ? _headerDragStartIndex : currentIndex;
+    final endIdx = _headerDragStartIndex > currentIndex ? _headerDragStartIndex : currentIndex;
+    final ids = <String>{};
+    for (int i = startIdx; i <= endIdx; i++) {
+      ids.add(_visibleTracks[i].id);
+    }
+    widget.onTrackMultiSelect?.call(ids);
+  }
+
+  void _handleHeaderDragSelectUp() {
+    if (_headerDragStartIndex >= 0 && !_isHeaderDragSelecting) {
+      // Was a simple click (no drag) — do single track select
+      if (_headerDragStartIndex < _visibleTracks.length) {
+        final trackId = _visibleTracks[_headerDragStartIndex].id;
+        setState(() => _internalSelectedTrackId = trackId);
+        widget.onTrackSelect?.call(trackId);
+        // Clear multi-select on single click
+        widget.onTrackMultiSelect?.call({trackId});
+      }
+    }
+    _isHeaderDragSelecting = false;
+    _headerDragStartIndex = -1;
+  }
+
 
   /// Wraps child with a tool-cursor-aware MouseRegion that updates reactively
   Widget _buildToolCursorRegion({required Widget child}) {
@@ -1820,22 +1892,20 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                   builder: (context) {
                     final trackIdInt = int.tryParse(track.id) ?? 0;
                     final (peakL, _) = EngineApi.instance.getTrackPeakStereo(trackIdInt);
+                    final isMultiSelected = widget.multiSelectedTrackIds.contains(track.id);
                     return TrackHeaderSimple(
                       track: track,
                       width: _headerWidth,
                       height: trackHeight,
                       trackNumber: trackIndex + 1,
-                      isSelected: track.id == _selectedTrackId,
+                      isSelected: isMultiSelected || track.id == _selectedTrackId,
                       signalLevel: peakL,
                       onMuteToggle: () => widget.onTrackMuteToggle?.call(track.id),
                       onSoloToggle: () => widget.onTrackSoloToggle?.call(track.id),
                       onArmToggle: () => widget.onTrackArmToggle?.call(track.id),
                       onInputMonitorToggle: () => widget.onTrackMonitorToggle?.call(track.id),
                       onVolumeChange: (v) => widget.onTrackVolumeChange?.call(track.id, v),
-                      onClick: () {
-                        setState(() => _internalSelectedTrackId = track.id);
-                        widget.onTrackSelect?.call(track.id);
-                      },
+                      onClick: null, // Handled by Listener on track area (drag-select)
                       onRename: (n) => widget.onTrackRename?.call(track.id, n),
                       onContextMenu: (pos) => widget.onTrackContextMenu?.call(track.id, pos),
                       onHeightChange: (h) => widget.onTrackHeightChange?.call(track.id, h),
@@ -2108,7 +2178,29 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
                   // Tracks
                   Expanded(
-                    child: _buildToolCursorRegion(
+                    key: _trackAreaKey,
+                    child: Listener(
+                      behavior: HitTestBehavior.translucent,
+                      onPointerDown: (event) {
+                        // Start drag-select only in header zone, primary button
+                        if (event.buttons == 1 && event.localPosition.dx < _headerWidth) {
+                          final trackIdx = _trackIndexFromLocalY(event.localPosition.dy);
+                          if (trackIdx >= 0 && trackIdx < _visibleTracks.length) {
+                            _handleHeaderDragSelectDown(trackIdx);
+                          }
+                        }
+                      },
+                      onPointerMove: (event) {
+                        if (_isHeaderDragSelecting && event.buttons == 1) {
+                          _handleHeaderDragSelectMove(event.localPosition.dy);
+                        }
+                      },
+                      onPointerUp: (_) {
+                        if (_isHeaderDragSelecting) {
+                          _handleHeaderDragSelectUp();
+                        }
+                      },
+                      child: _buildToolCursorRegion(
                       child: GestureDetector(
                       // IMPORTANT: deferToChild allows child widgets (clips, fade handles)
                       // to handle taps first. Only unhandled taps move the playhead.
@@ -2488,6 +2580,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                       ),
                     ),
                     ), // _buildToolCursorRegion
+                    ), // Listener (track header drag-select)
                   ),
 
                   // Zoom indicator
