@@ -129,6 +129,7 @@ class ControlBar extends StatefulWidget {
   final VoidCallback? onForward;
   final double tempo;
   final ValueChanged<double>? onTempoChange;
+  final void Function(int numerator, int denominator)? onTimeSignatureChange;
   final TimeSignature timeSignature;
   final double currentTime;
   final TimeDisplayMode timeDisplayMode;
@@ -179,6 +180,7 @@ class ControlBar extends StatefulWidget {
     this.onForward,
     this.tempo = 120,
     this.onTempoChange,
+    this.onTimeSignatureChange,
     this.timeSignature = const TimeSignature(4, 4),
     this.currentTime = 0,
     this.timeDisplayMode = TimeDisplayMode.bars,
@@ -391,7 +393,10 @@ class _ControlBarState extends State<ControlBar> {
 
                           // Time Signature (same as Glass)
                           if (!isCompact && features.showTransport)
-                            _TimeSignatureDisplay(timeSignature: widget.timeSignature),
+                            _TimeSignatureDisplay(
+                              timeSignature: widget.timeSignature,
+                              onTimeSignatureChange: widget.onTimeSignatureChange,
+                            ),
 
                           // Time Display
                           if (features.showTimecode)
@@ -1363,21 +1368,105 @@ class _TempoDisplay extends StatelessWidget {
   }
 }
 
-class _TimeSignatureDisplay extends StatelessWidget {
+class _TimeSignatureDisplay extends StatefulWidget {
   final TimeSignature timeSignature;
-  const _TimeSignatureDisplay({required this.timeSignature});
+  final void Function(int numerator, int denominator)? onTimeSignatureChange;
+  const _TimeSignatureDisplay({required this.timeSignature, this.onTimeSignatureChange});
+
+  @override
+  State<_TimeSignatureDisplay> createState() => _TimeSignatureDisplayState();
+}
+
+class _TimeSignatureDisplayState extends State<_TimeSignatureDisplay> {
+  bool _isEditing = false;
+  late TextEditingController _controller;
+  late FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+    _focusNode = FocusNode();
+    _focusNode.addListener(() {
+      if (!_focusNode.hasFocus && _isEditing) {
+        _commit();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _startEdit() {
+    setState(() {
+      _isEditing = true;
+      _controller.text = widget.timeSignature.toString();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+      _controller.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _controller.text.length,
+      );
+    });
+  }
+
+  void _commit() {
+    final text = _controller.text.trim();
+    final parts = text.split('/');
+    if (parts.length == 2) {
+      final num = int.tryParse(parts[0].trim());
+      final denom = int.tryParse(parts[1].trim());
+      if (num != null && denom != null && num >= 1 && num <= 32 && denom >= 1 && denom <= 32) {
+        widget.onTimeSignatureChange?.call(num, denom);
+      }
+    }
+    setState(() => _isEditing = false);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(
-        color: FluxForgeTheme.bgMid,
-        borderRadius: BorderRadius.circular(4),
+    return GestureDetector(
+      onDoubleTap: _isEditing ? null : _startEdit,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          color: _isEditing
+              ? FluxForgeTheme.accentOrange.withValues(alpha: 0.15)
+              : FluxForgeTheme.bgMid,
+          borderRadius: BorderRadius.circular(4),
+          border: _isEditing
+              ? Border.all(color: FluxForgeTheme.accentOrange)
+              : null,
+        ),
+        child: _isEditing
+            ? SizedBox(
+                width: 40,
+                height: 18,
+                child: TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  style: FluxForgeTheme.monoSmall.copyWith(
+                    fontSize: 13,
+                    color: FluxForgeTheme.accentOrange,
+                  ),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    isDense: true,
+                  ),
+                  textAlign: TextAlign.center,
+                  onSubmitted: (_) => _commit(),
+                ),
+              )
+            : Text(widget.timeSignature.toString(),
+                style: FluxForgeTheme.monoSmall.copyWith(fontSize: 13)),
       ),
-      child: Text(timeSignature.toString(),
-          style: FluxForgeTheme.monoSmall.copyWith(fontSize: 13)),
     );
   }
 }

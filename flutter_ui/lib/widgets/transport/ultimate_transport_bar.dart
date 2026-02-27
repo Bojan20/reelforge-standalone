@@ -130,6 +130,7 @@ class TransportCallbacks {
   final VoidCallback? onSetPunchIn;
   final VoidCallback? onSetPunchOut;
   final VoidCallback? onTapTempo;
+  final void Function(int numerator, int denominator)? onTimeSignatureChange;
 
   const TransportCallbacks({
     this.onPlay,
@@ -152,6 +153,7 @@ class TransportCallbacks {
     this.onSetPunchIn,
     this.onSetPunchOut,
     this.onTapTempo,
+    this.onTimeSignatureChange,
   });
 }
 
@@ -286,6 +288,7 @@ class _UltimateClassicTransportBarState extends State<UltimateClassicTransportBa
             timeSigDenom: s.timeSigDenominator,
             onTempoChange: c.onTempoChange,
             onTapTempo: _handleTapTempo,
+            onTimeSignatureChange: c.onTimeSignatureChange,
           ),
 
           const Spacer(),
@@ -569,6 +572,7 @@ class _ClassicTempoControl extends StatefulWidget {
   final int timeSigDenom;
   final ValueChanged<double>? onTempoChange;
   final VoidCallback? onTapTempo;
+  final void Function(int numerator, int denominator)? onTimeSignatureChange;
 
   const _ClassicTempoControl({
     required this.tempo,
@@ -576,6 +580,7 @@ class _ClassicTempoControl extends StatefulWidget {
     required this.timeSigDenom,
     this.onTempoChange,
     this.onTapTempo,
+    this.onTimeSignatureChange,
   });
 
   @override
@@ -585,17 +590,27 @@ class _ClassicTempoControl extends StatefulWidget {
 class _ClassicTempoControlState extends State<_ClassicTempoControl> {
   bool _isDragging = false;
   bool _isEditing = false;
+  bool _isEditingTimeSig = false;
   late TextEditingController _tempoController;
+  late TextEditingController _timeSigController;
   late FocusNode _tempoFocusNode;
+  late FocusNode _timeSigFocusNode;
 
   @override
   void initState() {
     super.initState();
     _tempoController = TextEditingController();
+    _timeSigController = TextEditingController();
     _tempoFocusNode = FocusNode();
+    _timeSigFocusNode = FocusNode();
     _tempoFocusNode.addListener(() {
       if (!_tempoFocusNode.hasFocus && _isEditing) {
         _commitTempoEdit();
+      }
+    });
+    _timeSigFocusNode.addListener(() {
+      if (!_timeSigFocusNode.hasFocus && _isEditingTimeSig) {
+        _commitTimeSigEdit();
       }
     });
   }
@@ -603,7 +618,9 @@ class _ClassicTempoControlState extends State<_ClassicTempoControl> {
   @override
   void dispose() {
     _tempoController.dispose();
+    _timeSigController.dispose();
     _tempoFocusNode.dispose();
+    _timeSigFocusNode.dispose();
     super.dispose();
   }
 
@@ -627,6 +644,33 @@ class _ClassicTempoControlState extends State<_ClassicTempoControl> {
       widget.onTempoChange?.call(value);
     }
     setState(() => _isEditing = false);
+  }
+
+  void _startTimeSigEdit() {
+    setState(() {
+      _isEditingTimeSig = true;
+      _timeSigController.text = '${widget.timeSigNum}/${widget.timeSigDenom}';
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _timeSigFocusNode.requestFocus();
+      _timeSigController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _timeSigController.text.length,
+      );
+    });
+  }
+
+  void _commitTimeSigEdit() {
+    final text = _timeSigController.text.trim();
+    final parts = text.split('/');
+    if (parts.length == 2) {
+      final num = int.tryParse(parts[0].trim());
+      final denom = int.tryParse(parts[1].trim());
+      if (num != null && denom != null && num >= 1 && num <= 32 && denom >= 1 && denom <= 32) {
+        widget.onTimeSignatureChange?.call(num, denom);
+      }
+    }
+    setState(() => _isEditingTimeSig = false);
   }
 
   @override
@@ -701,19 +745,49 @@ class _ClassicTempoControlState extends State<_ClassicTempoControl> {
           ),
         ),
         const SizedBox(width: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          decoration: BoxDecoration(
-            color: FluxForgeTheme.bgMid,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(
-            '${widget.timeSigNum}/${widget.timeSigDenom}',
-            style: TextStyle(
-              color: FluxForgeTheme.textSecondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+        GestureDetector(
+          onDoubleTap: _isEditingTimeSig ? null : _startTimeSigEdit,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(
+              color: _isEditingTimeSig
+                  ? FluxForgeTheme.accentOrange.withValues(alpha: 0.15)
+                  : FluxForgeTheme.bgMid,
+              borderRadius: BorderRadius.circular(6),
+              border: _isEditingTimeSig
+                  ? Border.all(color: FluxForgeTheme.accentOrange)
+                  : null,
             ),
+            child: _isEditingTimeSig
+                ? SizedBox(
+                    width: 40,
+                    height: 18,
+                    child: TextField(
+                      controller: _timeSigController,
+                      focusNode: _timeSigFocusNode,
+                      style: TextStyle(
+                        color: FluxForgeTheme.accentOrange,
+                        fontSize: 12,
+                        fontFamily: 'JetBrains Mono',
+                        fontWeight: FontWeight.w600,
+                      ),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                        isDense: true,
+                      ),
+                      textAlign: TextAlign.center,
+                      onSubmitted: (_) => _commitTimeSigEdit(),
+                    ),
+                  )
+                : Text(
+                    '${widget.timeSigNum}/${widget.timeSigDenom}',
+                    style: TextStyle(
+                      color: FluxForgeTheme.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
           ),
         ),
       ],

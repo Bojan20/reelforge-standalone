@@ -114,6 +114,7 @@ class EngineConnectedControlBar extends StatelessWidget {
         void onRewind() => engine.seek(0);
         void onForward() => engine.seek(data.positionSeconds + 10);
         void onTempoChanged(double t) => engine.setTempo(t);
+        void onTimeSignatureChanged(int num, int denom) => engine.setTimeSignature(num, denom);
         void onLoopToggle() => engine.toggleLoop();
 
         // PDC toggle callback
@@ -136,6 +137,7 @@ class EngineConnectedControlBar extends StatelessWidget {
           onForward: onForward,
           tempo: data.tempo,
           onTempoChange: onTempoChanged,
+          onTimeSignatureChange: onTimeSignatureChanged,
           timeSignature: TimeSignature(data.timeSigNum, data.timeSigDenom),
           currentTime: data.positionSeconds,
           timeDisplayMode: timeDisplayMode,
