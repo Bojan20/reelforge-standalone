@@ -1,7 +1,7 @@
 # FluxForge Studio — MASTER TODO
 
 **Updated:** 2026-02-27
-**Status:** ✅ **SHIP READY** — 546 total tasks (423 complete + 123 planned)
+**Status:** ✅ **SHIP READY** — 546 total tasks (444 complete + 102 planned)
 **Full backup:** `.claude/docs/MASTER_TODO_FULL_BACKUP_2026_02_27.md` (3,526 lines, complete history)
 
 ---
@@ -214,41 +214,41 @@ Input → Pre-Fader Inserts → Fader → Pan → ★ STEREO IMAGER → Post-Fad
 - Tracks live in event folders in DAW left panel, manually dragged to timeline when editing
 - Track reuse across events (same track can be layer in multiple events)
 
-### Phase 1: EventFolder Data Model + Provider (~800 LOC)
+### Phase 1: EventFolder Data Model + Provider (~800 LOC) ✅ COMPLETE
 
 | # | Task | Status |
 |---|------|--------|
-| 1.1 | Define `EventFolder` model (id, eventId, name, color, childTrackIds) | ⬜ |
-| 1.2 | Define `LayerRef` model (trackId, condition, weight, layerIndex) | ⬜ |
-| 1.3 | Create `EventFolderProvider` (GetIt singleton, Layer 5) | ⬜ |
-| 1.4 | Wire `createFolderForEvent()` — SlotLab calls when event created | ⬜ |
-| 1.5 | Wire `removeFolderForEvent()` — SlotLab calls when event deleted | ⬜ |
-| 1.6 | Wire `updateFolderLayers()` — SlotLab calls when layers change | ⬜ |
-| 1.7 | Register in `service_locator.dart` | ⬜ |
+| 1.1 | Define `EventFolder` model (id, eventId, name, color, childTrackIds) | ✅ |
+| 1.2 | Define `LayerRef` model (trackId, condition, weight, layerIndex) | ✅ |
+| 1.3 | Create `EventFolderProvider` (GetIt singleton, Layer 5) | ✅ |
+| 1.4 | Wire `createFolderForEvent()` — auto via CompositeEventSystemProvider listener | ✅ |
+| 1.5 | Wire `removeFolderForEvent()` — auto via CompositeEventSystemProvider listener | ✅ |
+| 1.6 | Wire `updateFolderLayers()` — auto via CompositeEventSystemProvider listener | ✅ |
+| 1.7 | Register in `service_locator.dart` | ✅ |
 
-### Phase 2: DAW Left Panel — Event Folder UI (~1,200 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 2.1 | Create `EventFolderPanel` widget for DAW left zone | ⬜ |
-| 2.2 | Render event folders with 🔒 icon (read-only structure) | ⬜ |
-| 2.3 | Render child layer tracks with name, color, type icon | ⬜ |
-| 2.4 | Folder collapse/expand toggle | ⬜ |
-| 2.5 | Event type badge + color coding (spin=orange, win=gold, etc.) | ⬜ |
-| 2.6 | Drag layer track from folder → DAW timeline (creates track in timeline) | ⬜ |
-| 2.7 | Visual indicator when layer is in timeline vs. only in folder | ⬜ |
-| 2.8 | Context menu: "Open in SlotLab" → switches to SlotLab tab | ⬜ |
-
-### Phase 3: SlotLab → DAW Folder Sync (~600 LOC)
+### Phase 2: DAW Left Panel — Event Folder UI (~1,200 LOC) ✅ COMPLETE
 
 | # | Task | Status |
 |---|------|--------|
-| 3.1 | SlotLab event create → auto-create DAW event folder | ⬜ |
-| 3.2 | SlotLab event delete → auto-remove DAW event folder | ⬜ |
-| 3.3 | SlotLab add layer → add track to folder + rf-engine | ⬜ |
-| 3.4 | SlotLab remove layer → remove track from folder | ⬜ |
-| 3.5 | SlotLab reorder layers → reorder tracks in folder | ⬜ |
-| 3.6 | SlotLab rename event → update folder name | ⬜ |
+| 2.1 | Create `EventFolderPanel` widget for DAW left zone | ✅ |
+| 2.2 | Render event folders with lock icon (read-only structure) | ✅ |
+| 2.3 | Render child layer tracks with name, color, type icon | ✅ |
+| 2.4 | Folder collapse/expand toggle | ✅ |
+| 2.5 | Event type badge + color coding (spin=orange, win=gold, etc.) | ✅ |
+| 2.6 | Drag layer track from folder → DAW timeline (Draggable<EventLayerRef>) | ✅ |
+| 2.7 | Visual indicator when layer is in timeline vs. only in folder | ✅ |
+| 2.8 | Context menu: "Open in SlotLab" → switches to SlotLab tab | ✅ |
+
+### Phase 3: SlotLab → DAW Folder Sync (~600 LOC) ✅ COMPLETE
+
+| # | Task | Status |
+|---|------|--------|
+| 3.1 | SlotLab event create → auto-create DAW event folder | ✅ |
+| 3.2 | SlotLab event delete → auto-remove DAW event folder | ✅ |
+| 3.3 | SlotLab add layer → add track to folder + rf-engine | ✅ |
+| 3.4 | SlotLab remove layer → remove track from folder | ✅ |
+| 3.5 | SlotLab reorder layers → reorder tracks in folder | ✅ |
+| 3.6 | SlotLab rename event → update folder name | ✅ |
 
 ### Phase 4: Bidirectional Audio Param Sync (~400 LOC)
 
@@ -320,4 +320,4 @@ Consolidates 11 independent audio systems + 1000+ scattered parameters into ONE 
 ---
 
 *Last Updated: 2026-02-27 — Added Unified Track Graph (31 tasks). Full history in backup.*
-*546 total tasks (423 complete + 123 planned), 4,532 tests, 0 errors.*
+*546 total tasks (444 complete + 102 planned), 4,532 tests, 0 errors.*
