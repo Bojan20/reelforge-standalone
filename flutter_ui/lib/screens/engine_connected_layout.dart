@@ -121,6 +121,7 @@ import '../widgets/dsp/restoration_panel.dart';
 import '../widgets/dsp/internal_processor_editor_window.dart';
 import '../widgets/fabfilter/fabfilter.dart';
 import '../widgets/midi/piano_roll_widget.dart';
+import '../widgets/mixer/io_selector_popup.dart';
 import '../widgets/mixer/ultimate_mixer.dart' as ultimate;
 import '../widgets/mixer/floating_send_window.dart';
 import '../widgets/mixer/control_room_panel.dart' as control_room;
@@ -8603,12 +8604,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         muted: bus.muted,
         soloed: bus.soloed,
         inserts: busInserts,
+        outputBus: bus.outputBus ?? 'master',
         peakL: bus.peakL,
         peakR: bus.peakR,
         rmsL: bus.rmsL,
         rmsR: bus.rmsR,
         correlation: 1.0,
         stereoWidth: bus.stereoWidth,
+        availableOutputRoutes: _buildDynamicOutputRoutes(mixerProvider, busId),
       );
     }).toList();
   }
@@ -8632,6 +8635,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         correlation: 1.0,
         outputBus: aux.outputBus ?? '',
         stereoWidth: aux.stereoWidth,
+        availableOutputRoutes: _buildDynamicOutputRoutes(mixerProvider, aux.id),
       );
     }).toList();
   }
@@ -8650,6 +8654,28 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         soloed: vca.soloed,
       );
     }).toList();
+  }
+
+  /// Build dynamic output routes from MixerProvider for a given channel/bus.
+  /// Pro Tools/Cubase: shows all available buses, auxes, and master.
+  /// Excludes self and loop-creating targets for buses.
+  List<IoRoute> _buildDynamicOutputRoutes(MixerProvider mp, String channelId) {
+    final routes = mp.getAvailableOutputRoutes(channelId);
+    return routes.map((r) => IoRoute(
+      id: r.id,
+      name: r.name,
+      type: switch (r.type) {
+        'master' => IoRouteType.master,
+        'bus' => IoRouteType.bus,
+        'aux' => IoRouteType.aux,
+        _ => IoRouteType.bus,
+      },
+    )).toList();
+  }
+
+  /// Build available VCAs list for channel strip assignment dropdown
+  List<({String id, String name, Color color})> _buildAvailableVcas(MixerProvider mp) {
+    return mp.vcas.map((vca) => (id: vca.id, name: vca.name, color: vca.color)).toList();
   }
 
   /// Build dedicated full-screen MixerScreen (Pro Tools Mix Window)
@@ -8698,6 +8724,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         rmsR: rmsR,
         correlation: correlation,
         stereoWidth: ch.stereoWidth,
+        outputBus: ch.outputBus ?? 'master',
+        vcaId: ch.vcaId,
+        availableOutputRoutes: _buildDynamicOutputRoutes(mixerProvider, ch.id),
       ));
     }
 
@@ -8833,8 +8862,23 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         }
       },
       onOutputChange: (channelId, outputBus) {
-        mixerProvider.setChannelOutputWithUndo(channelId, outputBus);
+        if (channelId.startsWith('bus_')) {
+          mixerProvider.setBusOutput(channelId, outputBus);
+        } else {
+          mixerProvider.setChannelOutputWithUndo(channelId, outputBus);
+        }
       },
+      onVcaAssign: (channelId, vcaId) {
+        if (vcaId == null) {
+          final ch = mixerProvider.channels.where((c) => c.id == channelId).firstOrNull;
+          if (ch?.vcaId != null) {
+            mixerProvider.removeChannelFromVca(channelId, ch!.vcaId!);
+          }
+        } else {
+          mixerProvider.assignChannelToVca(channelId, vcaId);
+        }
+      },
+      availableVcas: _buildAvailableVcas(mixerProvider),
       onInsertClick: (channelId, insertIndex) {
         _handleUltimateMixerInsertClick(channelId, insertIndex);
       },
@@ -8944,6 +8988,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             inserts: inserts, trackIndex: engineTrackId,
             peakL: peakL, peakR: peakR, rmsL: rmsL, rmsR: rmsR,
             correlation: correlation, stereoWidth: ch.stereoWidth,
+            outputBus: ch.outputBus ?? 'master',
+            vcaId: ch.vcaId,
+            availableOutputRoutes: _buildDynamicOutputRoutes(mp, ch.id),
           ));
         }
         return channels;
@@ -9034,8 +9081,23 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         }
       },
       onOutputChange: (channelId, outputBus) {
-        mixerProvider.setChannelOutputWithUndo(channelId, outputBus);
+        if (channelId.startsWith('bus_')) {
+          mixerProvider.setBusOutput(channelId, outputBus);
+        } else {
+          mixerProvider.setChannelOutputWithUndo(channelId, outputBus);
+        }
       },
+      onVcaAssign: (channelId, vcaId) {
+        if (vcaId == null) {
+          final ch = mixerProvider.channels.where((c) => c.id == channelId).firstOrNull;
+          if (ch?.vcaId != null) {
+            mixerProvider.removeChannelFromVca(channelId, ch!.vcaId!);
+          }
+        } else {
+          mixerProvider.assignChannelToVca(channelId, vcaId);
+        }
+      },
+      availableVcas: _buildAvailableVcas(mixerProvider),
       onInsertClick: (channelId, insertIndex) {
         _handleUltimateMixerInsertClick(channelId, insertIndex);
       },
@@ -9622,6 +9684,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         folderExpanded: ch.folderExpanded,
         folderChildCount: ch.folderChildCount,
         stereoWidth: ch.stereoWidth,
+        outputBus: ch.outputBus ?? 'master',
+        vcaId: ch.vcaId,
+        availableOutputRoutes: _buildDynamicOutputRoutes(mixerProvider, ch.id),
       ));
     }
 
@@ -9759,8 +9824,25 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         }
       },
       onOutputChange: (channelId, outputBus) {
-        mixerProvider.setChannelOutputWithUndo(channelId, outputBus);
+        if (channelId.startsWith('bus_')) {
+          // Bus-to-bus routing
+          mixerProvider.setBusOutput(channelId, outputBus);
+        } else {
+          mixerProvider.setChannelOutputWithUndo(channelId, outputBus);
+        }
       },
+      onVcaAssign: (channelId, vcaId) {
+        if (vcaId == null) {
+          // Find current VCA and remove
+          final ch = mixerProvider.channels.where((c) => c.id == channelId).firstOrNull;
+          if (ch?.vcaId != null) {
+            mixerProvider.removeChannelFromVca(channelId, ch!.vcaId!);
+          }
+        } else {
+          mixerProvider.assignChannelToVca(channelId, vcaId);
+        }
+      },
+      availableVcas: _buildAvailableVcas(mixerProvider),
       onChannelSelect: (id) {
         setState(() {
           if (id == 'master') {

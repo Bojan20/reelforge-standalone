@@ -44,6 +44,8 @@ class MixerScreen extends StatefulWidget {
   final void Function(String channelId)? onPhaseToggle;
   final void Function(String channelId, double gain)? onGainChange;
   final VoidCallback? onAddBus;
+  final void Function(String channelId, String? vcaId)? onVcaAssign;
+  final List<({String id, String name, Color color})> availableVcas;
   final void Function(int oldIndex, int newIndex)? onChannelReorder;
 
   // Phase 4 callbacks
@@ -84,6 +86,8 @@ class MixerScreen extends StatefulWidget {
     this.onPhaseToggle,
     this.onGainChange,
     this.onAddBus,
+    this.onVcaAssign,
+    this.availableVcas = const [],
     this.onChannelReorder,
     this.onSoloSafeToggle,
     this.onCommentsChanged,
@@ -252,6 +256,8 @@ class _MixerScreenState extends State<MixerScreen> {
       onPhaseToggle: widget.onPhaseToggle,
       onGainChange: widget.onGainChange,
       onAddBus: widget.onAddBus,
+      onVcaAssign: widget.onVcaAssign,
+      availableVcas: widget.availableVcas,
       onChannelReorder: widget.onChannelReorder,
       // Phase 4 callbacks
       onSoloSafeToggle: widget.onSoloSafeToggle,

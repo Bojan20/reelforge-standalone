@@ -1092,6 +1092,86 @@ class MixerProvider extends ChangeNotifier {
     return false;
   }
 
+  /// Change a bus's output routing (bus-to-bus cascading).
+  /// Pro Tools / Cubase style: any bus can route to master or another bus.
+  /// Includes loop detection to prevent routing cycles.
+  void setBusOutput(String busId, String newOutputBus) {
+    final bus = _buses[busId];
+    if (bus == null) return;
+    if (bus.outputBus == newOutputBus) return;
+
+    // Loop detection: walk the chain from newOutputBus → its outputBus → ...
+    // If we encounter busId again, it's a cycle.
+    if (_detectRoutingLoop(busId, newOutputBus)) return;
+
+    _buses[busId] = bus.copyWith(outputBus: newOutputBus);
+
+    // Re-route all channels assigned to this bus through the new physical bus
+    _syncBusRoutingToEngine(busId, newOutputBus);
+
+    // If any child buses cascade through this bus, re-sync them too
+    _resyncCascadingBuses(busId);
+
+    notifyListeners();
+  }
+
+  /// Detect routing loop: would routing [sourceBusId] → [targetBusId] create a cycle?
+  bool _detectRoutingLoop(String sourceBusId, String targetBusId) {
+    // 'master' is always a terminal — no loop possible
+    if (targetBusId == 'master') return false;
+
+    final visited = <String>{sourceBusId};
+    var current = targetBusId;
+
+    while (true) {
+      if (visited.contains(current)) return true; // Loop detected
+      visited.add(current);
+
+      final bus = _buses[current];
+      if (bus == null) return false; // Not a user bus — terminal
+      final next = bus.outputBus ?? 'master';
+      if (next == 'master') return false; // Terminal
+      current = next;
+    }
+  }
+
+  /// Re-sync all buses that cascade through [parentBusId].
+  /// When a bus's output changes, any child bus routing through it
+  /// needs its engine routing updated too.
+  void _resyncCascadingBuses(String parentBusId) {
+    for (final bus in _buses.values) {
+      if (bus.outputBus == parentBusId) {
+        _syncBusRoutingToEngine(bus.id, bus.outputBus!);
+        // Recurse for deeper cascades
+        _resyncCascadingBuses(bus.id);
+      }
+    }
+  }
+
+  /// Get all available output routes for a given channel/bus.
+  /// Excludes self and any route that would create a loop.
+  List<({String id, String name, String type})> getAvailableOutputRoutes(String channelId) {
+    final routes = <({String id, String name, String type})>[];
+
+    // Master is always available
+    routes.add((id: 'master', name: 'Master', type: 'master'));
+
+    // All user-created buses (except self, and excluding loop-creating targets)
+    for (final bus in _buses.values) {
+      if (bus.id == channelId) continue; // Can't route to self
+      if (_buses.containsKey(channelId) && _detectRoutingLoop(channelId, bus.id)) continue;
+      routes.add((id: bus.id, name: bus.name, type: 'bus'));
+    }
+
+    // All aux returns
+    for (final aux in _auxes.values) {
+      if (aux.id == channelId) continue;
+      routes.add((id: aux.id, name: aux.name, type: 'aux'));
+    }
+
+    return routes;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // AUX MANAGEMENT
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1175,11 +1255,21 @@ class MixerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Assign channel to VCA
+  /// Assign channel to VCA — Pro Tools model: immediately applies VCA trim
   void assignChannelToVca(String channelId, String vcaId) {
     final channel = _channels[channelId];
     final vca = _vcas[vcaId];
     if (channel == null || vca == null) return;
+
+    // Remove from previous VCA if any
+    if (channel.vcaId != null && channel.vcaId != vcaId) {
+      final prevVca = _vcas[channel.vcaId!];
+      if (prevVca != null) {
+        _vcas[channel.vcaId!] = prevVca.copyWith(
+          memberIds: prevVca.memberIds.where((id) => id != channelId).toList(),
+        );
+      }
+    }
 
     // Update channel
     _channels[channelId] = channel.copyWith(vcaId: vcaId);
@@ -1199,10 +1289,16 @@ class MixerProvider extends ChangeNotifier {
       );
     }
 
+    // Apply VCA level/mute/solo to the newly assigned track
+    _applyVcaLevelToMembers(vcaId);
+    if (vca.soloed || _vcas.values.any((v) => v.soloed)) {
+      _applyVcaSoloInPlace();
+    }
+
     notifyListeners();
   }
 
-  /// Remove channel from VCA
+  /// Remove channel from VCA — restores channel to independent volume
   void removeChannelFromVca(String channelId, String vcaId) {
     final channel = _channels[channelId];
     final vca = _vcas[vcaId];
@@ -1212,6 +1308,18 @@ class MixerProvider extends ChangeNotifier {
     _vcas[vcaId] = vca.copyWith(
       memberIds: vca.memberIds.where((id) => id != channelId).toList(),
     );
+
+    // Restore channel's own volume (remove VCA trim)
+    if (channel.trackIndex != null && FFIBoundsChecker.validateTrackId(channel.trackIndex!)) {
+      final busVol = _getBusVolumeForChannel(channel);
+      final effectiveVolume = channel.volume * busVol;
+      engine.setTrackVolume(channel.trackIndex!, effectiveVolume.clamp(0.0, 4.0));
+    }
+
+    // Re-evaluate SIP if any VCA is soloed
+    if (_vcas.values.any((v) => v.soloed)) {
+      _applyVcaSoloInPlace();
+    }
 
     notifyListeners();
   }
@@ -1879,12 +1987,10 @@ class MixerProvider extends ChangeNotifier {
       _channels[id] = channel.copyWith(volume: clampedVolume);
       if (channel.trackIndex != null) {
         if (FFIBoundsChecker.validateTrackId(channel.trackIndex!)) {
-          // If track is routed through a user bus, apply bus volume as multiplier
-          final busId = channel.outputBus;
-          final bus = busId != null ? _buses[busId] : null;
-          final effectiveVolume = bus != null
-              ? (clampedVolume * bus.volume).clamp(0.0, 2.0)
-              : clampedVolume;
+          // Effective = track.volume * busVolume * vcaLevel
+          final busVol = _getBusVolumeForChannel(_channels[id]!);
+          final vcaLevel = _getEffectiveVcaLevel(id);
+          final effectiveVolume = (clampedVolume * busVol * vcaLevel).clamp(0.0, 4.0);
           engine.setTrackVolume(channel.trackIndex!, effectiveVolume);
         }
       }
@@ -2194,9 +2300,13 @@ class MixerProvider extends ChangeNotifier {
     final clampedLevel = level.clamp(0.0, 2.0);
     _vcas[id] = vca.copyWith(level: clampedLevel);
 
-    // Update engine
+    // Update engine VCA
     final engineId = int.tryParse(id.replaceAll('vca_', '')) ?? 0;
     NativeFFI.instance.vcaSetLevel(engineId, clampedLevel);
+
+    // Pro Tools VCA behavior: VCA level acts as a trim multiplier on member tracks.
+    // Each member's effective volume = track.volume * vcaLevel.
+    _applyVcaLevelToMembers(id);
 
     notifyListeners();
   }
@@ -2211,6 +2321,9 @@ class MixerProvider extends ChangeNotifier {
     final engineId = int.tryParse(id.replaceAll('vca_', '')) ?? 0;
     NativeFFI.instance.vcaSetMute(engineId, newMuted);
 
+    // Propagate mute to all member tracks
+    _applyVcaMuteToMembers(id);
+
     notifyListeners();
   }
 
@@ -2224,7 +2337,159 @@ class MixerProvider extends ChangeNotifier {
     final engineId = int.tryParse(id.replaceAll('vca_', '')) ?? 0;
     NativeFFI.instance.vcaSetSolo(engineId, newSoloed);
 
+    // Propagate solo via SIP — VCA solo means solo all member tracks
+    _applyVcaSoloInPlace();
+
     notifyListeners();
+  }
+
+  /// Apply VCA level trim to all member tracks.
+  /// Pro Tools model: effective volume = track.volume * vcaLevel
+  /// Also accounts for bus volume if the track is routed to a bus.
+  void _applyVcaLevelToMembers(String vcaId) {
+    final vca = _vcas[vcaId];
+    if (vca == null) return;
+
+    for (final memberId in vca.memberIds) {
+      final channel = _channels[memberId];
+      if (channel == null || channel.trackIndex == null) continue;
+      if (!FFIBoundsChecker.validateTrackId(channel.trackIndex!)) continue;
+
+      // Check if any VCA controlling this track is muted
+      if (_isChannelVcaMuted(memberId)) {
+        engine.setTrackVolume(channel.trackIndex!, 0.0);
+        continue;
+      }
+
+      // Effective = track.volume * vcaLevel * busVolume
+      final busVol = _getBusVolumeForChannel(channel);
+      final effectiveVolume = channel.volume * vca.level * busVol;
+      engine.setTrackVolume(channel.trackIndex!, effectiveVolume.clamp(0.0, 4.0));
+    }
+  }
+
+  /// Apply VCA mute to all member tracks.
+  /// VCA muted → all members silenced. VCA unmuted → restore effective volumes.
+  void _applyVcaMuteToMembers(String vcaId) {
+    final vca = _vcas[vcaId];
+    if (vca == null) return;
+
+    for (final memberId in vca.memberIds) {
+      final channel = _channels[memberId];
+      if (channel == null || channel.trackIndex == null) continue;
+      if (!FFIBoundsChecker.validateTrackId(channel.trackIndex!)) continue;
+
+      if (vca.muted || channel.muted || _isChannelVcaMuted(memberId)) {
+        engine.setTrackVolume(channel.trackIndex!, 0.0);
+      } else {
+        final busVol = _getBusVolumeForChannel(channel);
+        final vcaLevel = _getEffectiveVcaLevel(memberId);
+        final effectiveVolume = channel.volume * vcaLevel * busVol;
+        engine.setTrackVolume(channel.trackIndex!, effectiveVolume.clamp(0.0, 4.0));
+      }
+    }
+  }
+
+  /// Apply VCA solo-in-place across all tracks.
+  /// If any VCA is soloed, only its member tracks are heard.
+  /// Combines with bus solo: both bus SIP and VCA SIP are honored.
+  void _applyVcaSoloInPlace() {
+    final soloedVcaIds = _vcas.values
+        .where((v) => v.soloed)
+        .map((v) => v.id)
+        .toSet();
+
+    final soloedBusIds = _buses.values
+        .where((b) => b.soloed)
+        .map((b) => b.id)
+        .toSet();
+
+    // If no VCA and no bus is soloed, restore all tracks
+    if (soloedVcaIds.isEmpty && soloedBusIds.isEmpty) {
+      for (final channel in _channels.values) {
+        if (channel.trackIndex == null) continue;
+        if (!FFIBoundsChecker.validateTrackId(channel.trackIndex!)) continue;
+        if (channel.muted || _isChannelVcaMuted(channel.id)) {
+          engine.setTrackVolume(channel.trackIndex!, 0.0);
+        } else {
+          final busVol = _getBusVolumeForChannel(channel);
+          final vcaLevel = _getEffectiveVcaLevel(channel.id);
+          final effectiveVolume = channel.volume * vcaLevel * busVol;
+          engine.setTrackVolume(channel.trackIndex!, effectiveVolume.clamp(0.0, 4.0));
+        }
+      }
+      return;
+    }
+
+    // Build set of channel IDs that should be heard
+    final audibleChannelIds = <String>{};
+
+    // VCA solo: all members of soloed VCAs are audible
+    for (final vcaId in soloedVcaIds) {
+      final vca = _vcas[vcaId];
+      if (vca != null) audibleChannelIds.addAll(vca.memberIds);
+    }
+
+    // Bus solo: tracks on soloed buses are audible
+    for (final channel in _channels.values) {
+      if (soloedBusIds.contains(channel.outputBus)) {
+        audibleChannelIds.add(channel.id);
+      }
+    }
+
+    // Solo-safe tracks are always audible
+    for (final channel in _channels.values) {
+      if (channel.soloSafe) audibleChannelIds.add(channel.id);
+    }
+
+    // Apply
+    for (final channel in _channels.values) {
+      if (channel.trackIndex == null) continue;
+      if (!FFIBoundsChecker.validateTrackId(channel.trackIndex!)) continue;
+
+      if (audibleChannelIds.contains(channel.id)) {
+        if (channel.muted || _isChannelVcaMuted(channel.id)) {
+          engine.setTrackVolume(channel.trackIndex!, 0.0);
+        } else {
+          final busVol = _getBusVolumeForChannel(channel);
+          final vcaLevel = _getEffectiveVcaLevel(channel.id);
+          final effectiveVolume = channel.volume * vcaLevel * busVol;
+          engine.setTrackVolume(channel.trackIndex!, effectiveVolume.clamp(0.0, 4.0));
+        }
+      } else {
+        engine.setTrackVolume(channel.trackIndex!, 0.0);
+      }
+    }
+  }
+
+  /// Check if any VCA controlling this channel is muted.
+  bool _isChannelVcaMuted(String channelId) {
+    final channel = _channels[channelId];
+    if (channel == null) return false;
+
+    for (final vca in _vcas.values) {
+      if (vca.memberIds.contains(channelId) && vca.muted) return true;
+    }
+    return false;
+  }
+
+  /// Get effective VCA level multiplier for a channel.
+  /// If assigned to a VCA, returns that VCA's level. Otherwise 1.0.
+  double _getEffectiveVcaLevel(String channelId) {
+    final channel = _channels[channelId];
+    if (channel == null || channel.vcaId == null) return 1.0;
+
+    final vca = _vcas[channel.vcaId!];
+    return vca?.level ?? 1.0;
+  }
+
+  /// Get bus volume multiplier for a channel's output bus.
+  double _getBusVolumeForChannel(MixerChannel channel) {
+    if (channel.outputBus == null) return 1.0;
+    final bus = _buses[channel.outputBus!];
+    if (bus == null) return 1.0;
+    if (bus.muted) return 0.0;
+    return bus.volume;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2573,9 +2838,10 @@ class MixerProvider extends ChangeNotifier {
 
     for (final channel in _channels.values) {
       if (channel.outputBus == busId && channel.trackIndex != null) {
-        final effectiveVolume = channel.volume * bus.volume;
         if (FFIBoundsChecker.validateTrackId(channel.trackIndex!)) {
-          engine.setTrackVolume(channel.trackIndex!, effectiveVolume.clamp(0.0, 2.0));
+          final vcaLevel = _getEffectiveVcaLevel(channel.id);
+          final effectiveVolume = channel.volume * bus.volume * vcaLevel;
+          engine.setTrackVolume(channel.trackIndex!, effectiveVolume.clamp(0.0, 4.0));
         }
       }
     }
@@ -2612,13 +2878,12 @@ class MixerProvider extends ChangeNotifier {
     for (final channel in _channels.values) {
       if (channel.outputBus == busId && channel.trackIndex != null) {
         if (FFIBoundsChecker.validateTrackId(channel.trackIndex!)) {
-          if (bus.muted) {
-            // Bus muted → silence all routed tracks
+          if (bus.muted || channel.muted || _isChannelVcaMuted(channel.id)) {
             engine.setTrackVolume(channel.trackIndex!, 0.0);
           } else {
-            // Bus unmuted → restore effective volume
-            final effectiveVolume = channel.volume * bus.volume;
-            engine.setTrackVolume(channel.trackIndex!, effectiveVolume.clamp(0.0, 2.0));
+            final vcaLevel = _getEffectiveVcaLevel(channel.id);
+            final effectiveVolume = channel.volume * bus.volume * vcaLevel;
+            engine.setTrackVolume(channel.trackIndex!, effectiveVolume.clamp(0.0, 4.0));
           }
         }
       }
@@ -2628,40 +2893,8 @@ class MixerProvider extends ChangeNotifier {
   /// Solo-In-Place: when any bus is soloed, mute tracks on non-soloed buses.
   /// When no bus is soloed, restore all tracks to their normal state.
   void _applySoloInPlace() {
-    final soloedBusIds = _buses.values
-        .where((b) => b.soloed)
-        .map((b) => b.id)
-        .toSet();
-
-    if (soloedBusIds.isEmpty) {
-      // No bus soloed — restore all tracks to normal volume
-      for (final channel in _channels.values) {
-        if (channel.trackIndex != null && channel.outputBus != null) {
-          final bus = _buses[channel.outputBus];
-          if (bus != null && !bus.muted && FFIBoundsChecker.validateTrackId(channel.trackIndex!)) {
-            final effectiveVolume = channel.volume * bus.volume;
-            engine.setTrackVolume(channel.trackIndex!, effectiveVolume.clamp(0.0, 2.0));
-          }
-        }
-      }
-    } else {
-      // Has soloed bus(es) — mute tracks NOT on soloed buses
-      for (final channel in _channels.values) {
-        if (channel.trackIndex != null && FFIBoundsChecker.validateTrackId(channel.trackIndex!)) {
-          final onSoloedBus = soloedBusIds.contains(channel.outputBus);
-          if (onSoloedBus) {
-            // On a soloed bus — play at normal volume
-            final bus = _buses[channel.outputBus];
-            final busVol = bus?.volume ?? 1.0;
-            final effectiveVolume = channel.volume * busVol;
-            engine.setTrackVolume(channel.trackIndex!, effectiveVolume.clamp(0.0, 2.0));
-          } else {
-            // Not on a soloed bus — silence
-            engine.setTrackVolume(channel.trackIndex!, 0.0);
-          }
-        }
-      }
-    }
+    // Unified SIP: combines bus solo + VCA solo (Pro Tools behavior)
+    _applyVcaSoloInPlace();
   }
 
   /// Re-apply bus volume/pan to engine when a track's own volume changes

@@ -101,6 +101,8 @@ class MixerCallbacks {
   final ValueChanged<String>? onPhaseToggle;
   final void Function(String, double)? onGainChange;
   final VoidCallback? onAddBus;
+  final void Function(String, String?)? onVcaAssign;
+  final List<({String id, String name, Color color})> availableVcas;
   final void Function(int, int)? onChannelReorder;
   final ValueChanged<String>? onSoloSafeToggle;
   final void Function(String, String)? onCommentsChanged;
@@ -138,6 +140,8 @@ class MixerCallbacks {
     this.onPhaseToggle,
     this.onGainChange,
     this.onAddBus,
+    this.onVcaAssign,
+    this.availableVcas = const [],
     this.onChannelReorder,
     this.onSoloSafeToggle,
     this.onCommentsChanged,
@@ -342,6 +346,8 @@ class _FloatingMixerWidgetState extends State<_FloatingMixerWidget> {
                               onPhaseToggle: cb.onPhaseToggle,
                               onGainChange: cb.onGainChange,
                               onAddBus: cb.onAddBus,
+                              onVcaAssign: cb.onVcaAssign,
+                              availableVcas: cb.availableVcas,
                               onChannelReorder: cb.onChannelReorder,
                               onSoloSafeToggle: cb.onSoloSafeToggle,
                               onCommentsChanged: cb.onCommentsChanged,

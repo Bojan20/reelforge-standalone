@@ -170,6 +170,10 @@ class UltimateMixerChannel {
   final int folderChildCount;      // Number of child tracks
   // EQ curve data — first EQ plugin's frequency response (§Phase 4)
   final List<double>? eqCurvePoints; // Normalized 0-1 frequency response points
+  // VCA assignment
+  final String? vcaId; // Assigned VCA fader ID (null = no VCA)
+  // Dynamic output routes (populated from MixerProvider)
+  final List<IoRoute> availableOutputRoutes;
 
   const UltimateMixerChannel({
     required this.id,
@@ -210,6 +214,8 @@ class UltimateMixerChannel {
     this.folderExpanded = true,
     this.folderChildCount = 0,
     this.eqCurvePoints,
+    this.vcaId,
+    this.availableOutputRoutes = const [],
   });
 
   bool get isMaster => type == ChannelType.master;
@@ -264,6 +270,10 @@ class UltimateMixer extends StatefulWidget {
   final void Function(String channelId, int sendIndex)? onSendDoubleClick; // Open floating send window
   final void Function(String channelId, Offset position)? onContextMenu; // Right-click context menu
   final VoidCallback? onAddBus;
+  /// VCA assignment — assign/unassign channel to VCA
+  final void Function(String channelId, String? vcaId)? onVcaAssign;
+  /// Available VCAs for assignment dropdown
+  final List<({String id, String name, Color color})> availableVcas;
   /// VCA spill toggle — show only member tracks of this VCA
   final void Function(String vcaId)? onVcaSpillToggle;
   /// Called when channel is reordered via drag-drop
@@ -344,6 +354,8 @@ class UltimateMixer extends StatefulWidget {
     this.onSendDoubleClick,
     this.onContextMenu,
     this.onAddBus,
+    this.onVcaAssign,
+    this.availableVcas = const [],
     this.onVcaSpillToggle,
     this.onChannelReorder,
     this.onSectionToggle,
@@ -483,6 +495,8 @@ class _UltimateMixerState extends State<UltimateMixer> {
                           onSendDoubleClick: (idx) => widget.onSendDoubleClick?.call(ch.id, idx),
                           onContextMenu: (pos) => widget.onContextMenu?.call(ch.id, pos),
                           onWidthChange: (w) => widget.onWidthChange?.call(ch.id, w),
+                          onVcaAssign: (vcaId) => widget.onVcaAssign?.call(ch.id, vcaId),
+                          availableVcas: widget.availableVcas,
                         ),
                       );
                     }),
@@ -841,6 +855,9 @@ class _UltimateChannelStrip extends StatefulWidget {
   final void Function(int sendIndex)? onSendDoubleClick; // Open floating send window
   final void Function(Offset position)? onContextMenu; // Right-click context menu
   final (double, double) Function()? peakReader; // Direct FFI peak reader (120fps)
+  // VCA assignment
+  final void Function(String? vcaId)? onVcaAssign;
+  final List<({String id, String name, Color color})> availableVcas;
 
   _UltimateChannelStrip({
     super.key,
@@ -876,6 +893,8 @@ class _UltimateChannelStrip extends StatefulWidget {
     this.onSendDoubleClick,
     this.onContextMenu,
     this.peakReader,
+    this.onVcaAssign,
+    this.availableVcas = const [],
   }) : visibleStripSections = visibleStripSections ?? MixerStripSection.defaultVisibleSet;
 
   @override
@@ -958,6 +977,9 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                         // ── 5. Group ID ──
                         if (widget.showInput && ch.groupId.isNotEmpty)
                           _buildGroupBadge(),
+                        // ── 5.5. VCA Assignment (audio tracks only) ──
+                        if (widget.showInput && ch.type == ChannelType.audio && widget.availableVcas.isNotEmpty)
+                          _buildVcaAssignmentSelector(),
                         // ── 6. Input section (gain + phase invert + PDC) — not for bus/aux ──
                         if (widget.showInput && ch.type != ChannelType.bus && ch.type != ChannelType.aux)
                           _buildInputSection(),
@@ -1113,7 +1135,15 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
   }
 
   /// I/O selector row — IoSelectorPopup with routing support
+  /// Output routes are dynamic (populated from MixerProvider available buses/auxes).
   Widget _buildIOSelector(String label, {required bool isInput}) {
+    // Output routes: use dynamic list from MixerProvider if available
+    final outputRoutes = widget.channel.availableOutputRoutes.isNotEmpty
+        ? widget.channel.availableOutputRoutes
+        : const [
+            IoRoute(id: 'master', name: 'Master', type: IoRouteType.master),
+          ];
+
     return IoSelectorPopup(
       label: isInput ? 'IN' : 'OUT',
       currentRoute: label,
@@ -1124,18 +1154,9 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
               IoRoute(id: 'none', name: 'No Input', type: IoRouteType.none),
               IoRoute(id: 'in_1_2', name: 'In 1-2', type: IoRouteType.hardwareInput),
               IoRoute(id: 'in_3_4', name: 'In 3-4', type: IoRouteType.hardwareInput),
-              IoRoute(id: 'bus_1', name: 'Bus 1', type: IoRouteType.bus),
-              IoRoute(id: 'bus_2', name: 'Bus 2', type: IoRouteType.bus),
             ]
-          : const [
-              IoRoute(id: 'master', name: 'Master', type: IoRouteType.master),
-              IoRoute(id: 'bus_1', name: 'Bus 1', type: IoRouteType.bus),
-              IoRoute(id: 'bus_2', name: 'Bus 2', type: IoRouteType.bus),
-              IoRoute(id: 'aux_1', name: 'Aux 1', type: IoRouteType.aux),
-              IoRoute(id: 'aux_2', name: 'Aux 2', type: IoRouteType.aux),
-            ],
+          : outputRoutes,
       onRouteChanged: (route) {
-        // Wire to routing FFI via parent callback
         if (!isInput) {
           widget.onOutputChange?.call(route.id);
         }
@@ -1163,6 +1184,96 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
         // Opens GroupManagerPanel — Phase 4 implementation
       },
     );
+  }
+
+  /// VCA assignment dropdown — Pro Tools style: shows current VCA or "No VCA"
+  Widget _buildVcaAssignmentSelector() {
+    final currentVcaId = widget.channel.vcaId;
+    final currentVca = widget.availableVcas.where((v) => v.id == currentVcaId).firstOrNull;
+    final displayName = currentVca?.name ?? 'No VCA';
+    final accent = currentVca?.color ?? const Color(0xFF666680);
+
+    return SizedBox(
+      height: 18,
+      child: PopupMenuButton<String?>(
+        padding: EdgeInsets.zero,
+        tooltip: 'VCA: $displayName',
+        onSelected: (vcaId) => widget.onVcaAssign?.call(vcaId),
+        constraints: const BoxConstraints(minWidth: 120, maxWidth: 200),
+        offset: const Offset(0, 18),
+        color: const Color(0xFF1E1E24),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(4),
+          side: BorderSide(color: accent.withValues(alpha: 0.3)),
+        ),
+        itemBuilder: (_) => [
+          PopupMenuItem<String?>(
+            value: null,
+            height: 28,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text('No VCA',
+              style: TextStyle(
+                color: currentVcaId == null ? const Color(0xFF4A9EFF) : const Color(0xFFCCCCDD),
+                fontSize: 11, fontWeight: currentVcaId == null ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ),
+          const PopupMenuDivider(),
+          ...widget.availableVcas.map((vca) => PopupMenuItem<String?>(
+            value: vca.id,
+            height: 28,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                Container(width: 8, height: 8, decoration: BoxDecoration(
+                  color: vca.color, borderRadius: BorderRadius.circular(2),
+                )),
+                const SizedBox(width: 6),
+                Text(vca.name,
+                  style: TextStyle(
+                    color: currentVcaId == vca.id ? const Color(0xFF4A9EFF) : const Color(0xFFCCCCDD),
+                    fontSize: 11,
+                    fontWeight: currentVcaId == vca.id ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
+          )),
+        ],
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xFF16161C),
+            borderRadius: BorderRadius.circular(2),
+            border: Border.all(color: const Color(0xFF333340), width: 0.5),
+          ),
+          child: Row(
+            children: [
+              Text('VCA', style: TextStyle(
+                color: accent.withValues(alpha: 0.6), fontSize: 8,
+                fontWeight: FontWeight.w600, letterSpacing: 0.5,
+              )),
+              const SizedBox(width: 2),
+              if (currentVca != null)
+                Container(width: 6, height: 6, margin: const EdgeInsets.only(right: 2),
+                  decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(1))),
+              Expanded(child: Text(
+                widget.compact ? _abbreviateVca(displayName) : displayName,
+                style: const TextStyle(color: Color(0xFFCCCCDD), fontSize: 9, fontWeight: FontWeight.w500),
+                overflow: TextOverflow.ellipsis, maxLines: 1,
+              )),
+              const Icon(Icons.arrow_drop_down, size: 10, color: Color(0xFF666680)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _abbreviateVca(String name) {
+    if (name.length <= 5) return name;
+    if (name == 'No VCA') return '—';
+    return name.substring(0, 5);
   }
 
   /// Check if there are inserts above a given index
