@@ -440,11 +440,11 @@ String clipFxTypeName(ClipFxType type) {
     case ClipFxType.ultraEq:
       return 'FF-Q 64';
     case ClipFxType.pultec:
-      return 'Pultec EQ';
+      return 'FF EQP-1A';
     case ClipFxType.api550:
-      return 'API 550';
+      return 'FF 550A';
     case ClipFxType.neve1073:
-      return 'Neve 1073';
+      return 'FF 1073';
     case ClipFxType.roomCorrection:
       return 'Room Correction';
     case ClipFxType.external:

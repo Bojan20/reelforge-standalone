@@ -66,9 +66,9 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
           unselectedLabelColor: FluxForgeTheme.textTertiary,
           tabs: const [
             Tab(text: 'FF-Q 64'),
-            Tab(text: 'Pultec'),
-            Tab(text: 'API 550'),
-            Tab(text: 'Neve 1073'),
+            Tab(text: 'FF EQP'),
+            Tab(text: 'FF 550'),
+            Tab(text: 'FF 1073'),
             Tab(text: 'Morph Pad'),
           ],
         ),
@@ -141,7 +141,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Pultec EQP-1A',
+            'FF EQP-1A',
             style: TextStyle(
               color: FluxForgeTheme.textPrimary,
               fontSize: 24,
@@ -203,7 +203,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'API 550A',
+            'FF 550A',
             style: TextStyle(
               color: FluxForgeTheme.textPrimary,
               fontSize: 24,
@@ -265,7 +265,7 @@ class _EqTestScreenState extends State<EqTestScreen> with SingleTickerProviderSt
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Neve 1073',
+            'FF 1073',
             style: TextStyle(
               color: FluxForgeTheme.textPrimary,
               fontSize: 24,

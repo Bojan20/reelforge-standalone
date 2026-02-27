@@ -202,7 +202,7 @@ class _Api550EqState extends State<Api550Eq> {
               borderRadius: BorderRadius.circular(4),
             ),
             child: const Text(
-              'API',
+              'FF 550',
               style: TextStyle(
                 fontFamily: 'sans-serif',
                 fontSize: 18,

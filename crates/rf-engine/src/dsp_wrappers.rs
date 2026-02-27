@@ -817,7 +817,7 @@ impl PultecWrapper {
 
 impl InsertProcessor for PultecWrapper {
     fn name(&self) -> &str {
-        "Pultec EQP-1A"
+        "FF EQP-1A"
     }
 
     fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
@@ -1127,7 +1127,7 @@ impl Api550Wrapper {
 
 impl InsertProcessor for Api550Wrapper {
     fn name(&self) -> &str {
-        "API 550A"
+        "FF 550A"
     }
 
     fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
@@ -1372,7 +1372,7 @@ impl Neve1073Wrapper {
 
 impl InsertProcessor for Neve1073Wrapper {
     fn name(&self) -> &str {
-        "Neve 1073"
+        "FF 1073"
     }
 
     fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {

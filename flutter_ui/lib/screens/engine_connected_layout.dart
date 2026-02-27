@@ -11370,11 +11370,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             ),
             child: Row(
               children: [
-                _buildAnalogEqTab('Pultec EQP-1A', 0),
+                _buildAnalogEqTab('FF EQP-1A', 0),
                 const SizedBox(width: 8),
-                _buildAnalogEqTab('API 550A', 1),
+                _buildAnalogEqTab('FF 550A', 1),
                 const SizedBox(width: 8),
-                _buildAnalogEqTab('Neve 1073', 2),
+                _buildAnalogEqTab('FF 1073', 2),
                 const Spacer(),
                 Text(
                   'Vintage Analog EQ Models',

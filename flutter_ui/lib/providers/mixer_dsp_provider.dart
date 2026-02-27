@@ -131,21 +131,21 @@ const List<PluginInfo> kAvailablePlugins = [
   // === Vintage Analog EQs ===
   PluginInfo(
     id: 'rf-pultec',
-    name: 'Pultec EQP-1A',
+    name: 'FF EQP-1A',
     category: 'EQ',
     icon: '🎚️',
     description: 'Passive tube EQ with boost+cut, 12AX7 saturation',
   ),
   PluginInfo(
     id: 'rf-api550',
-    name: 'API 550A',
+    name: 'FF 550A',
     category: 'EQ',
     icon: '🔷',
     description: '3-band discrete EQ with proportional Q',
   ),
   PluginInfo(
     id: 'rf-neve1073',
-    name: 'Neve 1073',
+    name: 'FF 1073',
     category: 'EQ',
     icon: '🔶',
     description: 'Inductor-based EQ with transformer saturation',

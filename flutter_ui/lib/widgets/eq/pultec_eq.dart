@@ -203,7 +203,7 @@ class _PultecEqState extends State<PultecEq> with SingleTickerProviderStateMixin
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'PULTEC',
+                'FF EQP',
                 style: TextStyle(
                   fontFamily: 'serif',
                   fontSize: 24,

@@ -196,9 +196,9 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
 
   String _modelName(AnalogEqModel model) {
     switch (model) {
-      case AnalogEqModel.pultec: return 'PULTEC EQP-1A';
-      case AnalogEqModel.api550: return 'API 550';
-      case AnalogEqModel.neve1073: return 'NEVE 1073';
+      case AnalogEqModel.pultec: return 'FF EQP-1A';
+      case AnalogEqModel.api550: return 'FF 550A';
+      case AnalogEqModel.neve1073: return 'FF 1073';
     }
   }
 
@@ -243,9 +243,9 @@ class _AnalogEqPanelState extends State<AnalogEqPanel> {
 
   String _modelShortName(AnalogEqModel model) {
     switch (model) {
-      case AnalogEqModel.pultec: return 'PULTEC';
-      case AnalogEqModel.api550: return 'API 550';
-      case AnalogEqModel.neve1073: return 'NEVE';
+      case AnalogEqModel.pultec: return 'FF EQP';
+      case AnalogEqModel.api550: return 'FF 550';
+      case AnalogEqModel.neve1073: return 'FF 1073';
     }
   }
 

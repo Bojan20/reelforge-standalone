@@ -193,7 +193,7 @@ class _Neve1073EqState extends State<Neve1073Eq> {
               borderRadius: BorderRadius.circular(2),
             ),
             child: const Text(
-              'NEVE',
+              'FF 1073',
               style: TextStyle(
                 fontFamily: 'serif',
                 fontSize: 14,
