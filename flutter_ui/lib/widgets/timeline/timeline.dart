@@ -770,9 +770,9 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
       final mouseX = event.localPosition.dx - _headerWidth;
 
       // Accumulative zoom factor - chain zoom events during animation
-      // Aggressive 35% per step for fast, responsive zooming
+      // Smooth 12% per step for precise, controlled zooming
       final zoomIn = event.scrollDelta.dy < 0;
-      final zoomFactor = zoomIn ? 1.35 : 0.74;
+      final zoomFactor = zoomIn ? 1.12 : 0.89;
 
       // If animation is running, use current animated zoom as base
       // This allows smooth chained zooming during continuous scroll
@@ -1236,9 +1236,8 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
     final position = details.localPosition;
 
-    // Calculate time from X position
-    final x = position.dx - _headerWidth;
-    final startTime = (widget.scrollOffset + x / widget.zoom).clamp(0.0, widget.totalDuration);
+    // Calculate snapped time from X position
+    final startTime = _snapDropTime(position.dx);
 
     // Calculate track from Y position
     final trackIndex = ((position.dy - _rulerHeight) / _defaultTrackHeight).floor();
@@ -1267,9 +1266,22 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     });
   }
 
-  /// Format drop position as time string
+  /// Calculate snapped drop time from raw pixel X position
+  double _snapDropTime(double rawX) {
+    final rawTime = (widget.scrollOffset + (rawX - _headerWidth) / widget.zoom).clamp(0.0, widget.totalDuration);
+    if (!widget.snapEnabled) return rawTime;
+    return applySnap(rawTime, widget.snapEnabled, widget.snapValue, widget.tempo, widget.clips);
+  }
+
+  /// Convert snapped time back to pixel X position
+  double _snappedDropX(double rawX) {
+    final snappedTime = _snapDropTime(rawX);
+    return (snappedTime - widget.scrollOffset) * _effectiveZoom + _headerWidth;
+  }
+
+  /// Format drop position as time string (uses snapped time)
   String _formatDropTime(double x) {
-    final time = (widget.scrollOffset + (x - _headerWidth) / widget.zoom).clamp(0.0, widget.totalDuration);
+    final time = _snapDropTime(x);
     final minutes = (time / 60).floor();
     final seconds = (time % 60).floor();
     final ms = ((time % 1) * 1000).floor();
@@ -1294,9 +1306,8 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
     final localPosition = renderBox.globalToLocal(globalPosition);
 
-    // Calculate time from X position (local)
-    final x = localPosition.dx - _headerWidth;
-    final startTime = (widget.scrollOffset + x / widget.zoom).clamp(0.0, widget.totalDuration);
+    // Calculate snapped time from X position (local)
+    final startTime = _snapDropTime(localPosition.dx);
 
     // Calculate track from Y position (local)
     // Account for ruler height (no vertical scroll in this timeline implementation)
@@ -2104,6 +2115,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
         setState(() {
           _isDroppingPoolFile = false;
           _poolDropPosition = null;
+          _dropPosition = null;
         });
       },
       onAcceptWithDetails: (details) {
@@ -2137,6 +2149,14 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
           onPointerSignal: (event) {
             if (event is PointerScrollEvent) {
               _handleWheel(event);
+            }
+          },
+          onPointerMove: (event) {
+            // Track position during pool file drag for drop preview
+            if (_isDroppingPoolFile) {
+              setState(() {
+                _dropPosition = event.localPosition;
+              });
             }
           },
           onPointerPanZoomUpdate: (event) {
@@ -2649,121 +2669,133 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                         ),
                       ),
 
-                    // Ghost clip preview at drop position
-                    if (_isDroppingFile && _dropPosition != null)
+                    // Ghost clip preview at drop position (desktop file drop + pool file drop)
+                    if ((_isDroppingFile || _isDroppingPoolFile) && _dropPosition != null)
                       Builder(
                         builder: (context) {
+                          // Snap-aware X position (Cubase/Reaper style)
+                          final snappedX = _snappedDropX(_dropPosition!.dx);
+
                           // Calculate target track
                           final yInContent = _dropPosition!.dy - _rulerHeight;
                           final trackIndex = (yInContent / _defaultTrackHeight).floor().clamp(0, math.max(0, widget.tracks.length - 1));
                           final targetTrackY = trackIndex * _defaultTrackHeight + _rulerHeight + 2;
 
                           // Ghost clip dimensions (preview)
-                          const ghostWidth = 120.0; // Default width for preview
+                          const ghostWidth = 120.0;
                           final ghostHeight = _defaultTrackHeight - 4;
 
                           return Stack(
                             children: [
-                              // Track highlight
+                              // Track highlight — full width lane indicator
                               if (widget.tracks.isNotEmpty)
                                 Positioned(
                                   left: _headerWidth,
                                   top: targetTrackY - 2,
                                   right: 0,
                                   height: _defaultTrackHeight,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: FluxForgeTheme.accentBlue.withValues(alpha: 0.1),
-                                      border: Border.all(
-                                        color: FluxForgeTheme.accentBlue.withValues(alpha: 0.4),
-                                        width: 1,
+                                  child: IgnorePointer(
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: FluxForgeTheme.accentCyan.withValues(alpha: 0.08),
+                                        border: Border.all(
+                                          color: FluxForgeTheme.accentCyan.withValues(alpha: 0.3),
+                                          width: 1,
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
 
-                              // Ghost clip — left edge aligned to drop position
+                              // ═══ INSERTION LINE — prominent vertical snap indicator ═══
+                              // Full-height cyan line at snapped position (Cubase/Reaper style)
                               Positioned(
-                                left: _dropPosition!.dx,
-                                top: targetTrackY,
-                                child: Container(
-                                  width: ghostWidth,
-                                  height: ghostHeight,
-                                  decoration: BoxDecoration(
-                                    color: FluxForgeTheme.accentBlue.withValues(alpha: 0.4),
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(
-                                      color: FluxForgeTheme.accentBlue,
-                                      width: 2,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: FluxForgeTheme.accentBlue.withValues(alpha: 0.4),
-                                        blurRadius: 12,
-                                        spreadRadius: 2,
-                                      ),
-                                    ],
-                                  ),
-                                  child: Stack(
-                                    children: [
-                                      // Waveform placeholder
-                                      Positioned.fill(
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(2),
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                begin: Alignment.topCenter,
-                                                end: Alignment.bottomCenter,
-                                                colors: [
-                                                  FluxForgeTheme.textPrimary.withValues(alpha: 0.2),
-                                                  FluxForgeTheme.textPrimary.withValues(alpha: 0.1),
-                                                  FluxForgeTheme.textPrimary.withValues(alpha: 0.2),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      // Icon
-                                      Center(
-                                        child: Icon(
-                                          Icons.audio_file,
-                                          size: 20,
-                                          color: FluxForgeTheme.textPrimary.withValues(alpha: 0.7),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-
-                              // Position line
-                              Positioned(
-                                left: _dropPosition!.dx - 1,
-                                top: _rulerHeight,
+                                left: snappedX - 1,
+                                top: 0,
                                 bottom: 0,
-                                child: Container(
-                                  width: 2,
-                                  color: FluxForgeTheme.accentBlue,
+                                child: IgnorePointer(
+                                  child: Container(
+                                    width: 2,
+                                    decoration: BoxDecoration(
+                                      color: FluxForgeTheme.accentCyan,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: FluxForgeTheme.accentCyan.withValues(alpha: 0.8),
+                                          blurRadius: 8,
+                                          spreadRadius: 1,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
 
-                              // Time tooltip
+                              // Triangle marker at top of insertion line
                               Positioned(
-                                left: _dropPosition!.dx + 8,
-                                top: _rulerHeight + 4,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: FluxForgeTheme.bgMid,
-                                    borderRadius: BorderRadius.circular(3),
-                                    border: Border.all(color: FluxForgeTheme.accentBlue),
+                                left: snappedX - 5,
+                                top: 0,
+                                child: IgnorePointer(
+                                  child: CustomPaint(
+                                    size: const Size(10, 6),
+                                    painter: _DropHeadTrianglePainter(
+                                      color: FluxForgeTheme.accentCyan,
+                                    ),
                                   ),
-                                  child: Text(
-                                    _formatDropTime(_dropPosition!.dx),
-                                    style: FluxForgeTheme.monoSmall.copyWith(
-                                      color: FluxForgeTheme.accentBlue,
+                                ),
+                              ),
+
+                              // Ghost clip — snapped left edge
+                              Positioned(
+                                left: snappedX,
+                                top: targetTrackY,
+                                child: IgnorePointer(
+                                  child: Container(
+                                    width: ghostWidth,
+                                    height: ghostHeight,
+                                    decoration: BoxDecoration(
+                                      color: FluxForgeTheme.accentCyan.withValues(alpha: 0.3),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: FluxForgeTheme.accentCyan.withValues(alpha: 0.7),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: Center(
+                                      child: Icon(
+                                        Icons.audio_file,
+                                        size: 18,
+                                        color: FluxForgeTheme.accentCyan.withValues(alpha: 0.8),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              // Time badge — snapped time tooltip
+                              Positioned(
+                                left: snappedX + 6,
+                                top: 8,
+                                child: IgnorePointer(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: FluxForgeTheme.accentCyan,
+                                      borderRadius: BorderRadius.circular(3),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: FluxForgeTheme.accentCyan.withValues(alpha: 0.5),
+                                          blurRadius: 6,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Text(
+                                      _formatDropTime(_dropPosition!.dx),
+                                      style: const TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                        fontFamily: 'monospace',
+                                      ),
                                     ),
                                   ),
                                 ),

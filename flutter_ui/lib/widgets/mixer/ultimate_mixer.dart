@@ -2878,6 +2878,7 @@ class _MasterStrip extends StatefulWidget {
 
 class _MasterStripState extends State<_MasterStrip> {
   double? _localWidth; // Optimistic local value during drag
+  double _preMonoWidth = 1.0; // Remembered width before mono toggle
 
   double get _currentWidth => _localWidth ?? widget.channel.stereoWidth;
 
@@ -2886,6 +2887,21 @@ class _MasterStripState extends State<_MasterStrip> {
     super.didUpdateWidget(oldWidget);
     if (_localWidth != null && (widget.channel.stereoWidth - _localWidth!).abs() < 0.01) {
       _localWidth = null;
+    }
+  }
+
+  void _toggleMono() {
+    final isMono = _currentWidth <= 0.01;
+    if (isMono) {
+      // Restore previous width
+      final restore = _preMonoWidth > 0.01 ? _preMonoWidth : 1.0;
+      setState(() => _localWidth = restore);
+      widget.onWidthChange?.call(restore);
+    } else {
+      // Save current width and go mono
+      _preMonoWidth = _currentWidth;
+      setState(() => _localWidth = 0.0);
+      widget.onWidthChange?.call(0.0);
     }
   }
 
@@ -2995,7 +3011,8 @@ class _MasterStripState extends State<_MasterStrip> {
               ),
             ),
           ),
-          // ═══ STEREO WIDTH (Channel Tab style) ═══
+          // ═══ MONO BUTTON + STEREO WIDTH ═══
+          _buildMonoButton(),
           _buildWidthControl(),
           // Real-time LUFS display from engine metering (short-term + integrated)
           GestureDetector(
@@ -3036,17 +3053,19 @@ class _MasterStripState extends State<_MasterStrip> {
               ),
             ),
           ),
-          // Master label — also tappable
+          // Master label — shows MONO or STEREO OUT
           GestureDetector(
             onTap: widget.onSelect,
             child: Container(
               height: 24,
               padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: const Center(
+              child: Center(
                 child: Text(
-                  'STEREO OUT',
+                  _currentWidth <= 0.01 ? 'MONO OUT' : 'STEREO OUT',
                   style: TextStyle(
-                    color: FluxForgeTheme.warningOrange,
+                    color: _currentWidth <= 0.01
+                        ? FluxForgeTheme.accentOrange
+                        : FluxForgeTheme.warningOrange,
                     fontSize: 9,
                     fontWeight: FontWeight.w600,
                   ),
@@ -3055,6 +3074,42 @@ class _MasterStripState extends State<_MasterStrip> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Mono toggle button — crystal clear L+R → mono sum via M/S encoding
+  Widget _buildMonoButton() {
+    final isMono = _currentWidth <= 0.01;
+    return GestureDetector(
+      onTap: _toggleMono,
+      child: Container(
+        height: 22,
+        margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+        decoration: BoxDecoration(
+          color: isMono
+              ? FluxForgeTheme.accentOrange.withValues(alpha: 0.25)
+              : FluxForgeTheme.bgDeepest.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(
+            color: isMono
+                ? FluxForgeTheme.accentOrange.withValues(alpha: 0.6)
+                : FluxForgeTheme.textTertiary.withValues(alpha: 0.2),
+          ),
+        ),
+        child: Center(
+          child: Text(
+            isMono ? 'MONO' : 'MONO',
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+              color: isMono
+                  ? FluxForgeTheme.accentOrange
+                  : FluxForgeTheme.textTertiary,
+            ),
+          ),
+        ),
       ),
     );
   }
