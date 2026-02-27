@@ -10471,6 +10471,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         }
         mixerProvider.setChannelInserts(targetBusId, inserts);
       }
+
+      // Sync _busInserts so mixer strip shows the plugin
+      if (!_busInserts.containsKey(targetBusId)) {
+        _busInserts[targetBusId] = InsertChain(channelId: targetBusId);
+      }
+      final plugin = _pluginForDspNodeType(result.effectType!);
+      if (plugin != null) {
+        _busInserts[targetBusId] = _busInserts[targetBusId]!.setPlugin(0, plugin);
+      }
     } else {
       // Route to existing bus
       targetBusId = result.existingBusId!;
@@ -10952,6 +10961,32 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       'rf-multiband-saturator': 'multiband-saturator',
     };
     return mapping[pluginId];
+  }
+
+  /// Map DspNodeType to PluginInfo from PluginRegistry
+  PluginInfo? _pluginForDspNodeType(DspNodeType type) {
+    const mapping = <DspNodeType, String>{
+      DspNodeType.eq: 'rf-ultra-eq',
+      DspNodeType.compressor: 'rf-compressor',
+      DspNodeType.limiter: 'rf-limiter',
+      DspNodeType.gate: 'rf-gate',
+      DspNodeType.expander: 'rf-expander',
+      DspNodeType.deEsser: 'rf-deesser',
+      DspNodeType.reverb: 'rf-reverb',
+      DspNodeType.delay: 'rf-delay',
+      DspNodeType.saturation: 'rf-saturation',
+      DspNodeType.multibandSaturation: 'rf-multiband-saturator',
+      DspNodeType.pultec: 'rf-pultec',
+      DspNodeType.api550: 'rf-api550',
+      DspNodeType.neve1073: 'rf-neve1073',
+    };
+    final id = mapping[type];
+    if (id == null) return null;
+    try {
+      return PluginRegistry.builtIn.firstWhere((p) => p.id == id);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Find which insert slot contains an EQ for given channel
