@@ -143,6 +143,8 @@ class _ClipWidgetState extends State<ClipWidget> {
 
   // Smart Tool — last hit test result for cursor + drag routing
   SmartToolHitResult? _smartToolHitResult;
+  // Hover position for split tool scissors tracking
+  double? _hoverLocalX;
 
   // Trackpad two-finger gesture detection
   // Two-finger pan on trackpad should scroll, not drag clips
@@ -416,27 +418,33 @@ class _ClipWidgetState extends State<ClipWidget> {
                 : (smartEnabled && _smartToolHitResult != null
                     ? _smartToolHitResult!.cursor
                     : MouseCursor.defer),
-            onHover: smartEnabled && !isExplicitTool
-                ? (event) {
+            onHover: (event) {
                     final localPos = event.localPosition;
-                    final clipBounds = Rect.fromLTWH(0, 0, clampedWidth, clipHeight);
-                    final result = smartTool.hitTest(
-                      position: localPos,
-                      clipBounds: clipBounds,
-                      clipId: clip.id,
-                    );
-                    if (_smartToolHitResult?.mode != result.mode) {
-                      setState(() => _smartToolHitResult = result);
+                    // Smart tool hit test for zone detection
+                    if (smartEnabled && !isExplicitTool) {
+                      final clipBounds = Rect.fromLTWH(0, 0, clampedWidth, clipHeight);
+                      final result = smartTool.hitTest(
+                        position: localPos,
+                        clipBounds: clipBounds,
+                        clipId: clip.id,
+                      );
+                      if (_smartToolHitResult?.mode != result.mode) {
+                        setState(() => _smartToolHitResult = result);
+                      }
                     }
-                  }
-                : null,
-            onExit: smartEnabled
-                ? (_) {
-                    if (_smartToolHitResult != null) {
-                      setState(() => _smartToolHitResult = null);
+                    // Track hover X for split tool scissors
+                    if (isExplicitTool && activeTool == TimelineEditTool.split) {
+                      setState(() => _hoverLocalX = localPos.dx);
                     }
-                  }
-                : null,
+                  },
+            onExit: (_) {
+                    if (_smartToolHitResult != null || _hoverLocalX != null) {
+                      setState(() {
+                        _smartToolHitResult = null;
+                        _hoverLocalX = null;
+                      });
+                    }
+                  },
       // Listener detects trackpad two-finger pan (scroll gesture)
       // to prevent it from being interpreted as clip drag
       child: Listener(
@@ -1284,21 +1292,20 @@ class _ClipWidgetState extends State<ClipWidget> {
                     ),
                   ),
                 ),
-              // Split tool: scissors icon
-              if (isExplicitTool && activeTool == TimelineEditTool.split && !clip.locked)
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: FluxForgeTheme.accentBlue.withValues(alpha: 0.5),
-                        width: 1.5,
-                      ),
-                    ),
-                    child: const Center(
-                      child: Icon(Icons.content_cut, color: Colors.white70, size: 18),
-                    ),
-                  ),
+              // Split tool: scissors + cut line following mouse
+              if (isExplicitTool && activeTool == TimelineEditTool.split && !clip.locked && _hoverLocalX != null)
+                Positioned(
+                  left: _hoverLocalX! - 0.5,
+                  top: 0,
+                  bottom: 0,
+                  width: 1,
+                  child: Container(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.8)),
+                ),
+              if (isExplicitTool && activeTool == TimelineEditTool.split && !clip.locked && _hoverLocalX != null)
+                Positioned(
+                  left: _hoverLocalX! - 9,
+                  top: 2,
+                  child: Icon(Icons.content_cut, color: Colors.white.withValues(alpha: 0.9), size: 16),
                 ),
               // Glue tool: link icon
               if (isExplicitTool && activeTool == TimelineEditTool.glue)
