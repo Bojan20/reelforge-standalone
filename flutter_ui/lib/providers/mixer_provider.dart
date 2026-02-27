@@ -2290,6 +2290,21 @@ class MixerProvider extends ChangeNotifier {
     }
   }
 
+  /// Reorder aux sends
+  void reorderAuxSends(String channelId, int oldIndex, int newIndex) {
+    final channel = _channels[channelId];
+    if (channel == null) return;
+
+    final sends = List<AuxSend>.from(channel.sends);
+    if (oldIndex < 0 || oldIndex >= sends.length) return;
+    if (newIndex < 0 || newIndex >= sends.length) return;
+
+    final item = sends.removeAt(oldIndex);
+    sends.insert(newIndex, item);
+    _channels[channelId] = channel.copyWith(sends: sends);
+    notifyListeners();
+  }
+
   /// Toggle aux send pre/post fader
   void toggleAuxSendPreFader(String channelId, String auxId) {
     final channel = _channels[channelId];

@@ -5218,6 +5218,22 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               EngineApi.instance.setSendLevel(channelId, sendIndex, level);
               _updateMixerSendLevel(mp, channelId, sendIndex, level);
             },
+            onChannelSendMuteToggle: (channelId, sendIndex, currentEnabled) {
+              final mp = context.read<MixerProvider>();
+              final channel = mp.getChannel(channelId);
+              if (channel == null || sendIndex >= channel.sends.length) return;
+              final auxId = channel.sends[sendIndex].auxId;
+              // toggleAuxSendEnabled handles both model + engine sync
+              mp.toggleAuxSendEnabled(channelId, auxId);
+            },
+            onChannelSendRemove: (channelId, sendIndex) {
+              final mp = context.read<MixerProvider>();
+              _removeSendFromChannel(channelId, sendIndex, mp);
+            },
+            onChannelSendReorder: (channelId, oldIndex, newIndex) {
+              final mp = context.read<MixerProvider>();
+              mp.reorderAuxSends(channelId, oldIndex, newIndex);
+            },
             onChannelEQToggle: (channelId) {
               setState(() {
                 if (_openEqWindows.containsKey(channelId)) {
@@ -8184,15 +8200,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     }
     volumeDb = volumeDb.clamp(-70.0, 12.0);
 
-    // Build sends list from mixer channel
+    // Build sends list from mixer channel (resolve bus name from ID)
     final sends = <SendSlot>[];
     if (channel != null) {
       for (int i = 0; i < 4; i++) {
         if (i < channel.sends.length) {
           final send = channel.sends[i];
+          final busName = mixerProvider.getBus(send.auxId)?.name ?? send.auxId;
           sends.add(SendSlot(
             id: '${channelId}_send_$i',
-            destination: send.auxId, // auxId is the destination
+            destination: busName,
             level: send.level,
             preFader: send.preFader,
             enabled: send.enabled,

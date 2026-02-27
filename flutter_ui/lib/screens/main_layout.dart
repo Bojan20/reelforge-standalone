@@ -91,6 +91,12 @@ class MainLayout extends StatefulWidget {
   final void Function(String channelId, int sendIndex)? onChannelSendClick;
   final void Function(String channelId, int sendIndex, double level)?
       onChannelSendLevelChange;
+  final void Function(String channelId, int sendIndex, bool muted)?
+      onChannelSendMuteToggle;
+  final void Function(String channelId, int sendIndex)?
+      onChannelSendRemove;
+  final void Function(String channelId, int oldIndex, int newIndex)?
+      onChannelSendReorder;
   final void Function(String channelId)? onChannelEQToggle;
   final void Function(String channelId)? onChannelOutputClick;
   final void Function(String channelId)? onChannelInputClick;
@@ -194,6 +200,9 @@ class MainLayout extends StatefulWidget {
     this.onChannelInsertClick,
     this.onChannelSendClick,
     this.onChannelSendLevelChange,
+    this.onChannelSendMuteToggle,
+    this.onChannelSendRemove,
+    this.onChannelSendReorder,
     this.onChannelEQToggle,
     this.onChannelOutputClick,
     this.onChannelInputClick,
@@ -525,6 +534,9 @@ class _MainLayoutState extends State<MainLayout>
                 onChannelInsertClick: widget.onChannelInsertClick,
                 onChannelSendClick: widget.onChannelSendClick,
                 onChannelSendLevelChange: widget.onChannelSendLevelChange,
+                onChannelSendMuteToggle: widget.onChannelSendMuteToggle,
+                onChannelSendRemove: widget.onChannelSendRemove,
+                onChannelSendReorder: widget.onChannelSendReorder,
                 onChannelEQToggle: widget.onChannelEQToggle,
                 onChannelOutputClick: widget.onChannelOutputClick,
                 onChannelInputClick: widget.onChannelInputClick,

@@ -33,6 +33,9 @@ class ChannelInspectorPanel extends StatefulWidget {
   final void Function(String channelId, int slotIndex)? onInsertClick;
   final void Function(String channelId, int sendIndex)? onSendClick;
   final void Function(String channelId, int sendIndex, double level)? onSendLevelChange;
+  final void Function(String channelId, int sendIndex, bool muted)? onSendMuteToggle;
+  final void Function(String channelId, int sendIndex)? onSendRemove;
+  final void Function(String channelId, int oldIndex, int newIndex)? onSendReorder;
   final void Function(String channelId)? onOutputClick;
   final void Function(String channelId)? onInputClick;
   final void Function(String channelId)? onEqClick;
@@ -65,6 +68,9 @@ class ChannelInspectorPanel extends StatefulWidget {
     this.onInsertClick,
     this.onSendClick,
     this.onSendLevelChange,
+    this.onSendMuteToggle,
+    this.onSendRemove,
+    this.onSendReorder,
     this.onOutputClick,
     this.onInputClick,
     this.onEqClick,
@@ -644,16 +650,40 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
       subtitle: '$usedSends/8',
       expanded: _sendsExpanded,
       onToggle: () => setState(() => _sendsExpanded = !_sendsExpanded),
-      child: Column(
-        children: [
-          for (int i = 0; i < visibleSends; i++)
-            _SendSlotRow(
-              index: i,
-              send: i < ch.sends.length ? ch.sends[i] : null,
-              onTap: () => widget.onSendClick?.call(ch.id, i),
-              onLevelChange: (level) => widget.onSendLevelChange?.call(ch.id, i, level),
-            ),
-        ],
+      child: ReorderableListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        buildDefaultDragHandles: false,
+        itemCount: visibleSends,
+        proxyDecorator: (child, index, animation) {
+          return Material(
+            color: Colors.transparent,
+            elevation: 4,
+            child: child,
+          );
+        },
+        onReorder: (oldIndex, newIndex) {
+          if (newIndex > oldIndex) newIndex--;
+          widget.onSendReorder?.call(ch.id, oldIndex, newIndex);
+        },
+        itemBuilder: (context, i) {
+          final send = i < ch.sends.length ? ch.sends[i] : null;
+          final hasDestination = send?.destination != null && send!.destination!.isNotEmpty;
+          return _SendSlotRow(
+            key: ValueKey('send_${ch.id}_$i'),
+            index: i,
+            send: send,
+            onTap: () => widget.onSendClick?.call(ch.id, i),
+            onLevelChange: (level) => widget.onSendLevelChange?.call(ch.id, i, level),
+            onMuteToggle: hasDestination
+                ? () => widget.onSendMuteToggle?.call(ch.id, i, send.enabled)
+                : null,
+            onRemove: hasDestination
+                ? () => widget.onSendRemove?.call(ch.id, i)
+                : null,
+            reorderIndex: hasDestination ? i : null,
+          );
+        },
       ),
     );
   }
@@ -2158,12 +2188,19 @@ class _SendSlotRow extends StatefulWidget {
   final SendSlot? send;
   final VoidCallback? onTap;
   final ValueChanged<double>? onLevelChange;
+  final VoidCallback? onMuteToggle;
+  final VoidCallback? onRemove;
+  final int? reorderIndex; // non-null = draggable
 
   const _SendSlotRow({
+    super.key,
     required this.index,
     this.send,
     this.onTap,
     this.onLevelChange,
+    this.onMuteToggle,
+    this.onRemove,
+    this.reorderIndex,
   });
 
   @override
@@ -2174,7 +2211,7 @@ class _SendSlotRowState extends State<_SendSlotRow> {
   double _dragStartX = 0;
   double _dragStartValue = 0;
   double? _localLevel; // Optimistic local state for instant visual feedback
-  static const double _faderWidth = 50.0;
+  static const double _faderWidth = 40.0;
 
   double get _currentLevel => _localLevel ?? widget.send?.level ?? 0.0;
 
@@ -2215,48 +2252,97 @@ class _SendSlotRowState extends State<_SendSlotRow> {
   Widget build(BuildContext context) {
     final hasDestination = widget.send?.destination != null && widget.send!.destination!.isNotEmpty;
     final level = _currentLevel;
+    final isMuted = hasDestination && !(widget.send!.enabled);
 
     return GestureDetector(
       onTap: widget.onTap,
       child: Container(
-        height: 28,
-        margin: const EdgeInsets.only(bottom: 3),
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        height: 30,
+        margin: const EdgeInsets.only(bottom: 2),
+        padding: const EdgeInsets.only(left: 4, right: 2),
         decoration: BoxDecoration(
-          color: hasDestination ? FluxForgeTheme.bgSurface : FluxForgeTheme.bgDeepest,
+          color: isMuted
+              ? FluxForgeTheme.bgDeepest
+              : hasDestination
+                  ? FluxForgeTheme.bgSurface
+                  : FluxForgeTheme.bgDeepest,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: hasDestination ? FluxForgeTheme.accentBlue.withValues(alpha: 0.4) : FluxForgeTheme.borderSubtle,
+            color: isMuted
+                ? const Color(0xFF4A2020)
+                : hasDestination
+                    ? FluxForgeTheme.accentBlue.withValues(alpha: 0.4)
+                    : FluxForgeTheme.borderSubtle,
           ),
         ),
         child: Row(
           children: [
+            // Drag handle (only for active sends)
+            if (hasDestination && widget.reorderIndex != null)
+              ReorderableDragStartListener(
+                index: widget.reorderIndex!,
+                child: const Padding(
+                  padding: EdgeInsets.only(right: 2),
+                  child: Icon(Icons.drag_indicator, size: 12, color: Color(0xFF555566)),
+                ),
+              )
+            else
+              const SizedBox(width: 14),
             // Send number
             SizedBox(
-              width: 20,
+              width: 14,
               child: Text(
                 '${widget.index + 1}',
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 9,
                   fontWeight: FontWeight.w600,
                   color: FluxForgeTheme.textTertiary,
                 ),
               ),
             ),
-            // Destination
+            // Mute button
+            if (hasDestination) ...[
+              GestureDetector(
+                onTap: widget.onMuteToggle,
+                child: Container(
+                  width: 14,
+                  height: 14,
+                  margin: const EdgeInsets.only(right: 4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isMuted ? const Color(0xFFFF4060) : const Color(0xFF333340),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'M',
+                      style: TextStyle(
+                        fontSize: 7,
+                        fontWeight: FontWeight.w700,
+                        color: isMuted ? Colors.white : const Color(0xFF777788),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            // Destination name
             Expanded(
               child: Text(
                 hasDestination ? widget.send!.destination! : 'No Send',
                 style: TextStyle(
                   fontSize: 10,
-                  color: hasDestination ? FluxForgeTheme.textPrimary : FluxForgeTheme.textTertiary,
+                  color: isMuted
+                      ? FluxForgeTheme.textTertiary
+                      : hasDestination
+                          ? FluxForgeTheme.textPrimary
+                          : FluxForgeTheme.textTertiary,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             // Level bar (mini fader)
             if (hasDestination) ...[
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               SizedBox(
                 width: _faderWidth,
                 child: GestureDetector(
@@ -2265,7 +2351,7 @@ class _SendSlotRowState extends State<_SendSlotRow> {
                   onHorizontalDragEnd: _handleDragEnd,
                   onTapDown: _handleTapDown,
                   child: Container(
-                    height: 10,
+                    height: 8,
                     decoration: BoxDecoration(
                       color: FluxForgeTheme.bgDeepest,
                       borderRadius: BorderRadius.circular(2),
@@ -2275,12 +2361,22 @@ class _SendSlotRowState extends State<_SendSlotRow> {
                       alignment: Alignment.centerLeft,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: FluxForgeTheme.accentBlue,
+                          color: isMuted
+                              ? const Color(0xFF555566)
+                              : FluxForgeTheme.accentBlue,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
                   ),
+                ),
+              ),
+              // Remove button
+              GestureDetector(
+                onTap: widget.onRemove,
+                child: const Padding(
+                  padding: EdgeInsets.only(left: 4),
+                  child: Icon(Icons.close, size: 12, color: Color(0xFF666680)),
                 ),
               ),
             ],

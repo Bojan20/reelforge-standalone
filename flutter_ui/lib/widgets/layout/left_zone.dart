@@ -48,6 +48,9 @@ class LeftZone extends StatefulWidget {
   final void Function(String channelId, int slotIndex)? onChannelInsertClick;
   final void Function(String channelId, int sendIndex)? onChannelSendClick;
   final void Function(String channelId, int sendIndex, double level)? onChannelSendLevelChange;
+  final void Function(String channelId, int sendIndex, bool muted)? onChannelSendMuteToggle;
+  final void Function(String channelId, int sendIndex)? onChannelSendRemove;
+  final void Function(String channelId, int oldIndex, int newIndex)? onChannelSendReorder;
   final void Function(String channelId)? onChannelArmToggle;
   final void Function(String channelId)? onChannelMonitorToggle;
   final void Function(String channelId)? onChannelPhaseInvertToggle;
@@ -96,6 +99,9 @@ class LeftZone extends StatefulWidget {
     this.onChannelInsertClick,
     this.onChannelSendClick,
     this.onChannelSendLevelChange,
+    this.onChannelSendMuteToggle,
+    this.onChannelSendRemove,
+    this.onChannelSendReorder,
     this.onChannelArmToggle,
     this.onChannelMonitorToggle,
     this.onChannelPhaseInvertToggle,
@@ -317,6 +323,9 @@ class _LeftZoneState extends State<LeftZone> {
       onInsertClick: widget.onChannelInsertClick,
       onSendClick: widget.onChannelSendClick,
       onSendLevelChange: widget.onChannelSendLevelChange,
+      onSendMuteToggle: widget.onChannelSendMuteToggle,
+      onSendRemove: widget.onChannelSendRemove,
+      onSendReorder: widget.onChannelSendReorder,
       onEqClick: widget.onChannelEQToggle,
       onOutputClick: widget.onChannelOutputClick,
       onInputClick: widget.onChannelInputClick,
