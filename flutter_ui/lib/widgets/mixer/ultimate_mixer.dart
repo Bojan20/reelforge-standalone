@@ -297,11 +297,6 @@ class UltimateMixer extends StatefulWidget {
   final Map<String, (double, double) Function()> peakReaders;
   /// Master bus peak reader — reads from SharedMeterReader (shared memory, zero-latency)
   final (double, double) Function()? masterPeakReader;
-  /// Master channel delay L/R (ms) — Cubase/Pro Tools Haas style
-  final double masterDelayLMs;
-  final double masterDelayRMs;
-  final ValueChanged<double>? onMasterDelayLChange;
-  final ValueChanged<double>? onMasterDelayRChange;
   /// Total counts for collapsed sections (shown even when section is empty)
   final int totalTracks;
   final int totalBuses;
@@ -362,10 +357,6 @@ class UltimateMixer extends StatefulWidget {
     this.onNarrowAllShortcut,
     this.peakReaders = const {},
     this.masterPeakReader,
-    this.masterDelayLMs = 0.0,
-    this.masterDelayRMs = 0.0,
-    this.onMasterDelayLChange,
-    this.onMasterDelayRChange,
   }) : visibleStripSections = visibleStripSections ?? MixerStripSection.defaultVisibleSet;
 
   @override
@@ -629,10 +620,7 @@ class _UltimateMixerState extends State<UltimateMixer> {
                       lufsShortTerm: widget.master.lufsShort,
                       lufsIntegrated: widget.master.lufsIntegrated,
                       peakReader: widget.masterPeakReader,
-                      delayLMs: widget.masterDelayLMs,
-                      delayRMs: widget.masterDelayRMs,
-                      onDelayLChange: widget.onMasterDelayLChange,
-                      onDelayRChange: widget.onMasterDelayRChange,
+                      onWidthChange: (w) => widget.onWidthChange?.call(widget.master.id, w),
                     ),
                   ),
                 ],
@@ -2746,11 +2734,8 @@ class _MasterStrip extends StatefulWidget {
   final double lufsIntegrated;
   /// Direct FFI peak reader (120fps) — bypasses widget rebuild pipeline
   final (double, double) Function()? peakReader;
-  /// Master channel delay L/R (ms)
-  final double delayLMs;
-  final double delayRMs;
-  final ValueChanged<double>? onDelayLChange;
-  final ValueChanged<double>? onDelayRChange;
+  /// Stereo width control
+  final ValueChanged<double>? onWidthChange;
 
   const _MasterStrip({
     required this.channel,
@@ -2762,10 +2747,7 @@ class _MasterStrip extends StatefulWidget {
     this.lufsShortTerm = -70.0,
     this.lufsIntegrated = -70.0,
     this.peakReader,
-    this.delayLMs = 0.0,
-    this.delayRMs = 0.0,
-    this.onDelayLChange,
-    this.onDelayRChange,
+    this.onWidthChange,
   });
 
   @override
@@ -2773,21 +2755,16 @@ class _MasterStrip extends StatefulWidget {
 }
 
 class _MasterStripState extends State<_MasterStrip> {
-  double _localDelayL = 0.0;
-  double _localDelayR = 0.0;
+  double? _localWidth; // Optimistic local value during drag
 
-  @override
-  void initState() {
-    super.initState();
-    _localDelayL = widget.delayLMs;
-    _localDelayR = widget.delayRMs;
-  }
+  double get _currentWidth => _localWidth ?? widget.channel.stereoWidth;
 
   @override
   void didUpdateWidget(_MasterStrip oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.delayLMs != widget.delayLMs) _localDelayL = widget.delayLMs;
-    if (oldWidget.delayRMs != widget.delayRMs) _localDelayR = widget.delayRMs;
+    if (_localWidth != null && (widget.channel.stereoWidth - _localWidth!).abs() < 0.01) {
+      _localWidth = null;
+    }
   }
 
   @override
@@ -2896,8 +2873,8 @@ class _MasterStripState extends State<_MasterStrip> {
               ),
             ),
           ),
-          // ═══ L/R CHANNEL DELAY (Cubase/Pro Tools style) ═══
-          _buildDelayControls(),
+          // ═══ STEREO WIDTH (Channel Tab style) ═══
+          _buildWidthControl(),
           // Real-time LUFS display from engine metering (short-term + integrated)
           GestureDetector(
             onTap: widget.onSelect,
@@ -2960,10 +2937,21 @@ class _MasterStripState extends State<_MasterStrip> {
     );
   }
 
-  /// Compact L/R delay controls — two vertical sliders with ms display
-  Widget _buildDelayControls() {
+  /// Stereo Width control — same logic as Channel Tab _WidthSlider
+  Widget _buildWidthControl() {
+    final val = _currentWidth;
+    final isMono = val <= 0.01;
+    final isWide = val > 1.01;
+    final color = isMono
+        ? FluxForgeTheme.accentOrange
+        : isWide
+            ? FluxForgeTheme.accentCyan
+            : FluxForgeTheme.textSecondary;
+    final label = isMono ? 'M' : '${(val * 100).round()}%';
+    final percentage = (val / 2.0).clamp(0.0, 1.0);
+
     return Container(
-      height: 52,
+      height: 38,
       margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
@@ -2976,94 +2964,88 @@ class _MasterStripState extends State<_MasterStrip> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header
-          const Text(
-            'DELAY',
-            style: TextStyle(
-              color: FluxForgeTheme.textTertiary,
-              fontSize: 7,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.2,
-            ),
-          ),
-          const SizedBox(height: 1),
-          // L/R sliders
-          Row(
-            children: [
-              // L channel
-              Expanded(child: _buildDelaySlider(
-                label: 'L',
-                value: _localDelayL,
-                color: FluxForgeTheme.accentCyan,
-                onChanged: (v) {
-                  setState(() => _localDelayL = v);
-                  widget.onDelayLChange?.call(v);
-                },
-              )),
-              const SizedBox(width: 2),
-              // R channel
-              Expanded(child: _buildDelaySlider(
-                label: 'R',
-                value: _localDelayR,
-                color: FluxForgeTheme.warningOrange,
-                onChanged: (v) {
-                  setState(() => _localDelayR = v);
-                  widget.onDelayRChange?.call(v);
-                },
-              )),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDelaySlider({
-    required String label,
-    required double value,
-    required Color color,
-    required ValueChanged<double> onChanged,
-  }) {
-    final msText = value < 0.1
-        ? '0ms'
-        : '${value.toStringAsFixed(1)}ms';
-    return GestureDetector(
-      onDoubleTap: () {
-        onChanged(0.0);
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Label + value
+          // Header + value
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              const Text('WIDTH', style: TextStyle(
+                color: FluxForgeTheme.textTertiary, fontSize: 7,
+                fontWeight: FontWeight.w600, letterSpacing: 1.2)),
               Text(label, style: TextStyle(
-                color: color, fontSize: 8, fontWeight: FontWeight.w700)),
-              Text(msText, style: TextStyle(
-                color: value > 0.1 ? color : FluxForgeTheme.textTertiary,
-                fontSize: 7, fontFamily: 'JetBrains Mono')),
+                fontSize: 8, fontFamily: 'JetBrains Mono',
+                color: color, fontWeight: FontWeight.w700)),
             ],
           ),
-          // Slider
-          SizedBox(
-            height: 14,
-            child: SliderTheme(
-              data: SliderThemeData(
-                trackHeight: 2,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 8),
-                activeTrackColor: color.withOpacity(0.7),
-                inactiveTrackColor: FluxForgeTheme.bgMid,
-                thumbColor: color,
-                overlayColor: color.withOpacity(0.15),
-              ),
-              child: Slider(
-                value: value,
-                min: 0.0,
-                max: 30.0,
-                onChanged: onChanged,
-              ),
+          const SizedBox(height: 2),
+          // Slider track
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final trackWidth = constraints.maxWidth;
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onHorizontalDragStart: (d) {},
+                  onHorizontalDragUpdate: (d) {
+                    if (widget.onWidthChange == null) return;
+                    final norm = (d.localPosition.dx / trackWidth).clamp(0.0, 1.0);
+                    final newVal = norm * 2.0; // 0.0 to 2.0
+                    setState(() => _localWidth = newVal);
+                    widget.onWidthChange!(newVal);
+                  },
+                  onHorizontalDragEnd: (_) => setState(() => _localWidth = null),
+                  onDoubleTap: () {
+                    widget.onWidthChange?.call(1.0); // Reset to normal
+                    setState(() => _localWidth = null);
+                  },
+                  child: Container(
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: FluxForgeTheme.bgDeepest,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Stack(
+                      children: [
+                        // Fill
+                        FractionallySizedBox(
+                          widthFactor: percentage,
+                          alignment: Alignment.centerLeft,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [color.withValues(alpha: 0.6), color],
+                              ),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                        ),
+                        // Center mark at 1.0 (100% = normal stereo)
+                        Positioned(
+                          left: 0.5 * trackWidth,
+                          top: 0, bottom: 0,
+                          child: Container(
+                            width: 1,
+                            color: FluxForgeTheme.textTertiary.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        // Thumb
+                        Positioned(
+                          left: (percentage * trackWidth - 3).clamp(0.0, trackWidth - 6),
+                          top: 2,
+                          child: Container(
+                            width: 6, height: 10,
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(2),
+                              boxShadow: [BoxShadow(
+                                color: color.withValues(alpha: 0.4), blurRadius: 3)],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],

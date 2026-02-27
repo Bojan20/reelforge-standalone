@@ -9808,16 +9808,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         _spillController?.toggleSpillVca(vcaId);
         setState(() {});
       },
-      masterDelayLMs: _masterDelayLMs,
-      masterDelayRMs: _masterDelayRMs,
-      onMasterDelayLChange: (ms) {
-        NativeFFI.instance.setMasterDelayL(ms);
-        setState(() => _masterDelayLMs = ms);
-      },
-      onMasterDelayRChange: (ms) {
-        NativeFFI.instance.setMasterDelayR(ms);
-        setState(() => _masterDelayRMs = ms);
-      },
     );
   }
 
@@ -9953,16 +9943,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       onSendPreFaderToggle: (busId, sendIndex, preFader) {
       },
       onSendDestChange: (busId, sendIndex, destination) {
-      },
-      masterDelayLMs: _masterDelayLMs,
-      masterDelayRMs: _masterDelayRMs,
-      onMasterDelayLChange: (ms) {
-        NativeFFI.instance.setMasterDelayL(ms);
-        setState(() => _masterDelayLMs = ms);
-      },
-      onMasterDelayRChange: (ms) {
-        NativeFFI.instance.setMasterDelayR(ms);
-        setState(() => _masterDelayRMs = ms);
       },
     );
   }
