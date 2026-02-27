@@ -191,6 +191,9 @@ class EngineProvider extends ChangeNotifier {
     }
 
     engine.setPosition(seconds);
+    // INSTANT: Force immediate UI update — playhead must jump instantly on click
+    _transport = engine.transport;
+    notifyListeners();
   }
 
   /// Start scrubbing mode
