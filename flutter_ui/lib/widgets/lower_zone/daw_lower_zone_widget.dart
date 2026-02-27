@@ -123,6 +123,22 @@ class DawLowerZoneWidget extends StatefulWidget {
   /// Callback when time signature changes (numerator, denominator)
   final void Function(int numerator, int denominator)? onTimeSignatureChanged;
 
+  // ─── P0.1: Timeline Overview Data ──────────────────────────────────────────
+  /// All timeline tracks (for overview panel)
+  final List<TimelineOverviewTrack> timelineTracks;
+
+  /// All timeline clips (for overview panel)
+  final List<TimelineOverviewClip> timelineClips;
+
+  /// Current playhead position in seconds
+  final double playheadPosition;
+
+  /// Total timeline duration in seconds
+  final double totalDuration;
+
+  /// Callback when user clicks to seek in overview
+  final ValueChanged<double>? onSeek;
+
   // ─── P1.3: Selected Clip for Clip Properties Panel ──────────────────────────
   /// Currently selected clip for editing in Clips panel
   /// If null, shows placeholder message
@@ -155,6 +171,11 @@ class DawLowerZoneWidget extends StatefulWidget {
     this.timeSignatureDenominator = 4,
     this.onTempoChanged,
     this.onTimeSignatureChanged,
+    this.timelineTracks = const [],
+    this.timelineClips = const [],
+    this.playheadPosition = 0,
+    this.totalDuration = 120,
+    this.onSeek,
     this.selectedClip,
     this.onClipGainChanged,
     this.onClipFadeInChanged,
@@ -941,7 +962,13 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   }
 
   /// ✅ P0.1: Extracted EDIT panels (replaced inline builders)
-  Widget _buildTimelinePanel() => const TimelineOverviewPanel();
+  Widget _buildTimelinePanel() => TimelineOverviewPanel(
+    tracks: widget.timelineTracks,
+    clips: widget.timelineClips,
+    playheadPosition: widget.playheadPosition,
+    totalDuration: widget.totalDuration,
+    onSeek: widget.onSeek,
+  );
 
   Widget _buildPianoRollPanel() => PianoRollPanel(
     selectedTrackId: widget.selectedTrackId,

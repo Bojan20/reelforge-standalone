@@ -167,6 +167,7 @@ import '../widgets/common/crdt_sync_panel.dart';
 // Section-specific Lower Zone imports (DAW and Middleware)
 // SlotLab uses its own fullscreen layout with dedicated bottom panel
 import '../widgets/lower_zone/daw_lower_zone_widget.dart';
+import '../widgets/lower_zone/daw/edit/timeline_overview_panel.dart' show TimelineOverviewTrack, TimelineOverviewClip;
 import '../widgets/lower_zone/daw_lower_zone_controller.dart';
 import '../widgets/lower_zone/lower_zone_types.dart';
 import '../widgets/lower_zone/middleware_lower_zone_widget.dart';
@@ -5724,6 +5725,32 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           onSnapEnabledChanged: (v) => setState(() => _snapEnabled = v),
           onSnapValueChanged: (v) => setState(() => _snapValue = v),
           onTripletGridChanged: (v) => setState(() => _tripletGrid = v),
+          // Timeline Overview data
+          timelineTracks: _tracks.map((t) => TimelineOverviewTrack(
+            id: t.id,
+            name: t.name,
+            color: t.color,
+            muted: t.muted,
+            soloed: t.soloed,
+            armed: t.armed,
+            isFolder: t.trackType == timeline.TrackType.folder,
+            isBus: t.trackType == timeline.TrackType.bus,
+            isAux: t.trackType == timeline.TrackType.aux,
+          )).toList(),
+          timelineClips: _filteredClips.map((c) => TimelineOverviewClip(
+            trackId: c.trackId,
+            startTime: c.startTime,
+            duration: c.duration,
+            color: c.color,
+            muted: c.muted,
+            selected: c.selected,
+          )).toList(),
+          playheadPosition: context.read<EngineProvider>().transport.positionSeconds,
+          totalDuration: 120,
+          onSeek: (time) {
+            final engine = context.read<EngineProvider>();
+            engine.seek(time);
+          },
         );
       case EditorMode.middleware:
         return MiddlewareLowerZoneWidget(
