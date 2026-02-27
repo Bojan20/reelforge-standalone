@@ -395,12 +395,24 @@ impl InsertSlot {
     /// Set processor parameter (lock-free if processor supports it)
     pub fn set_processor_param(&mut self, index: usize, value: f64) {
         if let Some(ref mut processor) = self.processor {
-            processor.set_param(index, value);
+            // If the processor declares a slot_mix_param, route that param to
+            // InsertSlot wet/dry mix instead of the processor's internal mix.
+            // This prevents double wet/dry blending (processor + slot in series).
+            if processor.slot_mix_param() == Some(index) {
+                self.set_mix(value);
+            } else {
+                processor.set_param(index, value);
+            }
         }
     }
 
-    /// Get processor parameter
+    /// Get processor parameter (or InsertSlot mix if intercepted via slot_mix_param)
     pub fn get_processor_param(&self, index: usize) -> f64 {
+        if let Some(ref processor) = self.processor {
+            if processor.slot_mix_param() == Some(index) {
+                return self.mix();
+            }
+        }
         self.processor
             .as_ref()
             .map(|p| p.get_param(index))
@@ -485,6 +497,14 @@ pub trait InsertProcessor: Send + Sync {
     /// Default returns 0.0 (no metering)
     fn get_meter(&self, _index: usize) -> f64 {
         0.0
+    }
+
+    /// If this returns Some(param_index), that param controls InsertSlot wet/dry mix
+    /// instead of being sent to the processor's set_param(). This prevents double
+    /// wet/dry mixing for processors that have an internal dry/wet crossfade
+    /// (e.g., reverb, delay). The processor outputs 100% wet; InsertSlot handles blending.
+    fn slot_mix_param(&self) -> Option<usize> {
+        None
     }
 }
 

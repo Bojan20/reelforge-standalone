@@ -2702,8 +2702,13 @@ pub struct ReverbWrapper {
 
 impl ReverbWrapper {
     pub fn new(sample_rate: f64) -> Self {
+        let mut reverb = AlgorithmicReverb::new(sample_rate);
+        // Force 100% wet output — InsertSlot handles dry/wet blending via set_mix().
+        // Without this, reverb applies its own equal-power crossfade BEFORE InsertSlot
+        // blending, causing double-attenuation (signal passes through two mix stages).
+        reverb.set_mix(1.0);
         Self {
-            reverb: AlgorithmicReverb::new(sample_rate),
+            reverb,
             sample_rate,
         }
     }
@@ -2744,7 +2749,7 @@ impl InsertProcessor for ReverbWrapper {
             0 => self.reverb.set_space(value),
             1 => self.reverb.set_brightness(value),
             2 => self.reverb.set_width(value),
-            3 => self.reverb.set_mix(value),
+            3 => {} // Mix routed to InsertSlot via slot_mix_param(); processor stays at 100% wet
             4 => self.reverb.set_predelay(value),
             5 => {
                 let rt = match value as u32 {
@@ -2816,6 +2821,12 @@ impl InsertProcessor for ReverbWrapper {
             14 => "Freeze",
             _ => "Unknown",
         }
+    }
+
+    /// Param 3 (Mix) is routed to InsertSlot wet/dry instead of processor internal mix.
+    /// Reverb outputs 100% wet; InsertSlot blends dry/wet — no double-mixing.
+    fn slot_mix_param(&self) -> Option<usize> {
+        Some(3)
     }
 }
 
