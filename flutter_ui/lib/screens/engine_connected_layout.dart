@@ -2008,6 +2008,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         waveform: poolFile?.waveform,
         sourceDuration: poolFile?.duration,
         gain: action.gain,
+        channels: poolFile?.channels ?? 2,
       ));
     }
 
@@ -2098,6 +2099,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           waveform: poolFile?.waveform,
           sourceDuration: poolFile?.duration,
           gain: layer.volume,
+          channels: poolFile?.channels ?? 2,
         ));
       }
     }
@@ -2202,6 +2204,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           waveform: waveform,
           color: track.color,
           eventId: _currentEventId, // Assign to current event
+          channels: clipInfo?.channels ?? poolFile.channels,
         ),
       ];
 
@@ -2278,6 +2281,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       waveform: waveform,
       color: color,
       eventId: _currentEventId, // Assign to current event
+      channels: clipInfo?.channels ?? poolFile.channels,
     );
 
     setState(() {
@@ -2401,6 +2405,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           waveform: waveform,
           color: _tracks.firstWhere((t) => t.id == trackId).color,
           eventId: _currentEventId, // Assign to current event
+          channels: clipInfo.channels,
         ),
       ];
     });
@@ -2682,6 +2687,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           fadeIn: clip.fadeIn,
           fadeOut: clip.fadeOut,
           eventId: _currentEventId,
+          channels: clip.channels,
         ));
       }
     });
@@ -2872,6 +2878,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         fadeOut: 0.01,
         selected: false,
         eventId: _currentEventId, // Assign to current event
+        channels: file.channels,
       );
 
       setState(() {
@@ -5594,6 +5601,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                           sourceOffset: rightOffset,
                           sourceDuration: selectedClip.sourceDuration,
                           eventId: selectedClip.eventId,
+                          channels: selectedClip.channels,
                         ));
                       });
                       // Register undo — merge split clips back into original
@@ -5614,6 +5622,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                               sourceOffset: rightOffset,
                               sourceDuration: originalClip.sourceDuration,
                               eventId: originalClip.eventId,
+                              channels: originalClip.channels,
                             ));
                           });
                         },
@@ -5648,6 +5657,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                         sourceOffset: clip.sourceOffset,
                         sourceDuration: clip.sourceDuration,
                         eventId: clip.eventId,
+                        channels: clip.channels,
                       ));
                     });
                   }
@@ -6228,6 +6238,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             sourceOffset: rightOffset,
             sourceDuration: clip.sourceDuration,
             eventId: clip.eventId, // Preserve original event
+            channels: clip.channels,
           ));
         });
 
@@ -6253,6 +6264,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 sourceOffset: rightOffset,
                 sourceDuration: originalClip.sourceDuration,
                 eventId: originalClip.eventId,
+                channels: originalClip.channels,
               ));
             });
           },
@@ -6284,6 +6296,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             sourceOffset: clip.sourceOffset,
             sourceDuration: clip.sourceDuration,
             eventId: clip.eventId, // Preserve original event
+            channels: clip.channels,
           ));
         });
 
@@ -6303,6 +6316,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 sourceOffset: clip.sourceOffset,
                 sourceDuration: clip.sourceDuration,
                 eventId: clip.eventId,
+                channels: clip.channels,
               ));
             });
           },
@@ -7837,6 +7851,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             waveform: clip.waveform,
             selected: true,
             eventId: clip.eventId, // Preserve original event
+            channels: clip.channels,
           ));
         });
       },
@@ -7974,6 +7989,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           color: clip.color,
           waveform: clip.waveform,
           eventId: clip.eventId, // Preserve original event
+          channels: clip.channels,
         ));
         prevTime = sliceTime;
       }
@@ -7992,6 +8008,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         color: clip.color,
         waveform: clip.waveform,
         eventId: clip.eventId, // Preserve original event
+        channels: clip.channels,
       ));
     }
 

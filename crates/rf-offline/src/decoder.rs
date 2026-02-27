@@ -63,7 +63,7 @@ impl AudioDecoder {
 
         // Get codec parameters
         let codec_params = track.codec_params.clone();
-        let sample_rate = codec_params.sample_rate.unwrap_or(44100);
+        let sample_rate = codec_params.sample_rate.unwrap_or(48000);
         let channels = codec_params.channels.map(|c| c.count()).unwrap_or(2);
 
         // Create decoder
@@ -261,7 +261,7 @@ impl AudioDecoder {
 
         let codec_params = &track.codec_params;
 
-        let sample_rate = codec_params.sample_rate.unwrap_or(44100);
+        let sample_rate = codec_params.sample_rate.unwrap_or(48000);
         let channels = codec_params.channels.map(|c| c.count()).unwrap_or(2);
         let bit_depth = codec_params.bits_per_sample.unwrap_or(16);
 

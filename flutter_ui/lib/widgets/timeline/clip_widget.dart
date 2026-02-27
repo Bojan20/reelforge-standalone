@@ -878,8 +878,7 @@ class _ClipWidgetState extends State<ClipWidget> {
                     zoom: widget.zoom,
                     clipColor: clipColor,
                     trackHeight: widget.trackHeight,
-                    // Stereo if waveformRight exists or name suggests stereo file
-                    channels: clip.waveformRight != null ? 2 : 2, // Default to stereo for imported audio
+                    channels: clip.channels,
                   ),
                 ),
 

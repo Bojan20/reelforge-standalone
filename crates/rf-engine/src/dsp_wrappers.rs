@@ -4425,8 +4425,8 @@ mod tests {
     #[test]
     fn test_pultec_wrapper() {
         let mut eq = PultecWrapper::new(48000.0);
-        eq.set_low_boost(3.0);
-        eq.set_high_boost(2.0);
+        eq.set_param(0, 3.0); // low_boost
+        eq.set_param(2, 2.0); // high_boost
 
         let mut left = vec![1.0; 64];
         let mut right = vec![1.0; 64];

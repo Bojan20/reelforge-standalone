@@ -228,17 +228,18 @@ fn test_bus_volume_independence() {
 fn test_bus_pan_defaults() {
     let engine = create_test_engine();
 
+    // Stereo bus defaults: pan (L) = -1.0, pan_right (R) = 1.0 (full stereo spread)
     for bus_idx in 0..6 {
         let state = engine.get_bus_state(bus_idx).unwrap();
         assert!(
-            (state.pan - 0.0).abs() < f64::EPSILON,
-            "Bus {} default pan should be 0.0 (center), got {}",
+            (state.pan - (-1.0)).abs() < f64::EPSILON,
+            "Bus {} default pan (L) should be -1.0, got {}",
             bus_idx,
             state.pan
         );
         assert!(
-            (state.pan_right - 0.0).abs() < f64::EPSILON,
-            "Bus {} default pan_right should be 0.0, got {}",
+            (state.pan_right - 1.0).abs() < f64::EPSILON,
+            "Bus {} default pan_right (R) should be 1.0, got {}",
             bus_idx,
             state.pan_right
         );
@@ -400,11 +401,11 @@ fn test_bus_operations_on_invalid_index_are_silent() {
     engine.set_bus_mute(99, true);
     engine.set_bus_solo(99, true);
 
-    // Verify valid buses are unaffected
+    // Verify valid buses are unaffected (stereo defaults: L=-1, R=1)
     for bus_idx in 0..6 {
         let state = engine.get_bus_state(bus_idx).unwrap();
         assert!((state.volume - 1.0).abs() < f64::EPSILON);
-        assert!((state.pan - 0.0).abs() < f64::EPSILON);
+        assert!((state.pan - (-1.0)).abs() < f64::EPSILON);
         assert!(!state.muted);
         assert!(!state.soloed);
     }

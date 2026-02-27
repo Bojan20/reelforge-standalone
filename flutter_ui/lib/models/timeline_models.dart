@@ -57,6 +57,8 @@ class TimelineClip {
   final bool loopEnabled;
   /// Event ID this clip belongs to (null = global/all events)
   final String? eventId;
+  /// Number of audio channels in source file (1 = mono, 2 = stereo)
+  final int channels;
 
   const TimelineClip({
     required this.id,
@@ -81,6 +83,7 @@ class TimelineClip {
     this.fxChain = const ClipFxChain(),
     this.loopEnabled = false,
     this.eventId,
+    this.channels = 2,
   });
 
   /// Check if clip has active FX processing
@@ -111,6 +114,7 @@ class TimelineClip {
     ClipFxChain? fxChain,
     bool? loopEnabled,
     String? eventId,
+    int? channels,
   }) {
     return TimelineClip(
       id: id ?? this.id,
@@ -135,6 +139,7 @@ class TimelineClip {
       fxChain: fxChain ?? this.fxChain,
       loopEnabled: loopEnabled ?? this.loopEnabled,
       eventId: eventId ?? this.eventId,
+      channels: channels ?? this.channels,
     );
   }
 }

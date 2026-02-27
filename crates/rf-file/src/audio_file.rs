@@ -440,7 +440,7 @@ pub fn read_audio<P: AsRef<Path>>(path: P) -> FileResult<AudioData> {
 
     let track_id = track.id;
     let num_channels = track.codec_params.channels.map(|c| c.count()).unwrap_or(2);
-    let sample_rate = track.codec_params.sample_rate.unwrap_or(44100);
+    let sample_rate = track.codec_params.sample_rate.unwrap_or(48000);
 
     // Create decoder
     let mut decoder = symphonia::default::get_codecs()
@@ -639,7 +639,7 @@ pub fn get_audio_info<P: AsRef<Path>>(path: P) -> FileResult<AudioFileInfo> {
         .channels
         .map(|c| c.count() as u16)
         .unwrap_or(2);
-    let sample_rate = track.codec_params.sample_rate.unwrap_or(44100);
+    let sample_rate = track.codec_params.sample_rate.unwrap_or(48000);
     let num_frames = track.codec_params.n_frames.unwrap_or(0);
     let duration = num_frames as f64 / sample_rate as f64;
 
