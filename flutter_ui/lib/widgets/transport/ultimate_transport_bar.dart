@@ -584,6 +584,50 @@ class _ClassicTempoControl extends StatefulWidget {
 
 class _ClassicTempoControlState extends State<_ClassicTempoControl> {
   bool _isDragging = false;
+  bool _isEditing = false;
+  late TextEditingController _tempoController;
+  late FocusNode _tempoFocusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _tempoController = TextEditingController();
+    _tempoFocusNode = FocusNode();
+    _tempoFocusNode.addListener(() {
+      if (!_tempoFocusNode.hasFocus && _isEditing) {
+        _commitTempoEdit();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tempoController.dispose();
+    _tempoFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _startEditing() {
+    setState(() {
+      _isEditing = true;
+      _tempoController.text = widget.tempo.toStringAsFixed(2);
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _tempoFocusNode.requestFocus();
+      _tempoController.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _tempoController.text.length,
+      );
+    });
+  }
+
+  void _commitTempoEdit() {
+    final value = double.tryParse(_tempoController.text);
+    if (value != null && value >= 20 && value <= 999) {
+      widget.onTempoChange?.call(value);
+    }
+    setState(() => _isEditing = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -591,24 +635,28 @@ class _ClassicTempoControlState extends State<_ClassicTempoControl> {
       mainAxisSize: MainAxisSize.min,
       children: [
         GestureDetector(
-          onVerticalDragStart: (_) => setState(() => _isDragging = true),
-          onVerticalDragEnd: (_) => setState(() => _isDragging = false),
-          onVerticalDragUpdate: (details) {
+          onVerticalDragStart: _isEditing ? null : (_) => setState(() => _isDragging = true),
+          onVerticalDragEnd: _isEditing ? null : (_) => setState(() => _isDragging = false),
+          onVerticalDragUpdate: _isEditing ? null : (details) {
             final delta = -details.delta.dy * 0.5;
             widget.onTempoChange?.call((widget.tempo + delta).clamp(20, 999));
           },
-          onDoubleTap: widget.onTapTempo,
+          onDoubleTap: _isEditing ? null : _startEditing,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: _isDragging
-                  ? FluxForgeTheme.accentOrange.withValues(alpha: 0.2)
-                  : FluxForgeTheme.bgMid,
+              color: _isEditing
+                  ? FluxForgeTheme.accentOrange.withValues(alpha: 0.15)
+                  : _isDragging
+                      ? FluxForgeTheme.accentOrange.withValues(alpha: 0.2)
+                      : FluxForgeTheme.bgMid,
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                color: _isDragging
+                color: _isEditing
                     ? FluxForgeTheme.accentOrange
-                    : FluxForgeTheme.borderSubtle,
+                    : _isDragging
+                        ? FluxForgeTheme.accentOrange
+                        : FluxForgeTheme.borderSubtle,
               ),
             ),
             child: Row(
@@ -616,15 +664,38 @@ class _ClassicTempoControlState extends State<_ClassicTempoControl> {
               children: [
                 Text('BPM', style: FluxForgeTheme.label),
                 const SizedBox(width: 6),
-                Text(
-                  widget.tempo.toStringAsFixed(2),
-                  style: TextStyle(
-                    color: FluxForgeTheme.accentOrange,
-                    fontSize: 14,
-                    fontFamily: 'JetBrains Mono',
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                _isEditing
+                    ? SizedBox(
+                        width: 65,
+                        height: 20,
+                        child: TextField(
+                          controller: _tempoController,
+                          focusNode: _tempoFocusNode,
+                          style: TextStyle(
+                            color: FluxForgeTheme.accentOrange,
+                            fontSize: 14,
+                            fontFamily: 'JetBrains Mono',
+                            fontWeight: FontWeight.w600,
+                          ),
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.zero,
+                            isDense: true,
+                          ),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          textAlign: TextAlign.left,
+                          onSubmitted: (_) => _commitTempoEdit(),
+                        ),
+                      )
+                    : Text(
+                        widget.tempo.toStringAsFixed(2),
+                        style: TextStyle(
+                          color: FluxForgeTheme.accentOrange,
+                          fontSize: 14,
+                          fontFamily: 'JetBrains Mono',
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ],
             ),
           ),
