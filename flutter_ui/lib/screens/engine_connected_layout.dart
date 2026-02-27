@@ -5025,11 +5025,34 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             autofocus: true,
             canRequestFocus: true,
             onKeyEvent: (node, event) {
+              // EditableText guard — don't intercept space during text editing
+              final primaryFocus = FocusManager.instance.primaryFocus;
+              if (primaryFocus != null && primaryFocus.context != null) {
+                final editable = primaryFocus.context!.findAncestorWidgetOfExactType<EditableText>();
+                if (editable != null) return KeyEventResult.ignored;
+              }
               // Handle SPACE for middleware preview at this level
               if (event is KeyDownEvent &&
                   event.logicalKey == LogicalKeyboardKey.space &&
                   _editorMode == EditorMode.middleware) {
                 _previewEvent();
+                return KeyEventResult.handled;
+              }
+              // Handle SPACE for DAW playback toggle when in fullscreen mixer
+              if (event is KeyDownEvent &&
+                  event.logicalKey == LogicalKeyboardKey.space &&
+                  _editorMode == EditorMode.daw &&
+                  _appViewMode == AppViewMode.mixer) {
+                final engine = context.read<EngineProvider>();
+                if (engine.transport.isPlaying) {
+                  engine.pause();
+                } else {
+                  final countInMode = NativeFFI.instance.clickGetCountIn();
+                  if (countInMode != 0) {
+                    NativeFFI.instance.clickStartCountIn();
+                  }
+                  engine.play();
+                }
                 return KeyEventResult.handled;
               }
               // Cmd+Shift+= — Detach mixer as floating window
