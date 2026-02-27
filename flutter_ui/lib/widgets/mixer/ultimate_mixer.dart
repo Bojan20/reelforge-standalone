@@ -2686,25 +2686,29 @@ class _VcaFader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onVerticalDragUpdate: (details) {
-        if (onChanged != null) {
-          final delta = -details.delta.dy / 100;
-          final newVolume = (volume + delta).clamp(0.0, 2.0);
-          onChanged!(newVolume);
-        }
-      },
-      onDoubleTap: () => onChanged?.call(1.0),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: FluxForgeTheme.bgVoid.withOpacity(0.4),
-          borderRadius: BorderRadius.circular(2),
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final capY = (1.0 - volume / 2.0) * (constraints.maxHeight - 16);
-            return Stack(
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.bgVoid.withOpacity(0.4),
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final height = constraints.maxHeight;
+          final pos = FaderCurve.linearToPosition(volume);
+          final capY = (1.0 - pos) * (height - 16);
+          return GestureDetector(
+            onVerticalDragUpdate: (details) {
+              if (onChanged != null) {
+                final currentPos = FaderCurve.linearToPosition(volume);
+                final travelRange = height - 20; // 16px cap + 4px padding
+                final positionDelta = -details.delta.dy / travelRange;
+                final newPos = (currentPos + positionDelta).clamp(0.0, 1.0);
+                onChanged!(FaderCurve.positionToLinear(newPos));
+              }
+            },
+            onDoubleTap: () => onChanged?.call(1.0),
+            child: Stack(
               children: [
                 Positioned(
                   top: capY,
@@ -2721,9 +2725,9 @@ class _VcaFader extends StatelessWidget {
                   ),
                 ),
               ],
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }
