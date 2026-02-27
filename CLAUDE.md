@@ -29,20 +29,18 @@
 
 ---
 
-## 📋 OBAVEZNA PROCEDURA POSLE SVAKOG ZADATKA
+## 📋 PROCEDURA POSLE ZADATKA
 
-**UVEK NAKON USPEŠNOG ZAVRŠETKA ZADATKA:**
+**Posle taska:** Pitaj "Da li da commitujem?" i čekaj potvrdu.
 
-1. **Ažuriraj `.claude/MASTER_TODO.md`** — Označi task kao complete
-2. **Ažuriraj README.md** (ako je potrebno) — Project metrics
-3. **Kreiraj session summary** (za velike milestone-e)
-4. **PITAJ KORISNIKA PRE COMMIT-a** — "Da li da commitujеm?"
-5. **NE COMMITUJ AUTOMATSKI** — Čekaj eksplicitnu potvrdu
+**Dokumentaciju (MASTER_TODO, README, .claude/) ažuriraj SAMO ako:**
+- Task završava PLANNED/IN PROGRESS stavku iz MASTER_TODO
+- Task menja arhitekturu ili dodaje nov sistem
+- Korisnik eksplicitno traži ažuriranje
 
 **NIKADA:**
 - ❌ NE commituj bez pitanja
-- ❌ NE preskači ažuriranje dokumentacije
-- ❌ NE nastavi sa sledećim taskovima dok ne dobiješ potvrdu
+- ❌ NE ažuriraj dokumentaciju posle rutinskih taskova (bugfix, UI tweak, refactor)
 
 ---
 
