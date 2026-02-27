@@ -2663,6 +2663,9 @@ class _WidthSlider extends StatefulWidget {
 class _WidthSliderState extends State<_WidthSlider> {
   double _dragStartX = 0;
   double _dragStartNorm = 0;
+  double? _localValue; // Optimistic local value during drag
+
+  double get _currentValue => _localValue ?? widget.value;
 
   double _valueToNormalized(double v) => ((v - 0.0) / (2.0 - 0.0)).clamp(0.0, 1.0);
   double _normalizedToValue(double n) => 0.0 + n * (2.0 - 0.0);
@@ -2677,20 +2680,35 @@ class _WidthSliderState extends State<_WidthSlider> {
     final deltaX = details.localPosition.dx - _dragStartX;
     final deltaNorm = deltaX / width;
     final newNorm = (_dragStartNorm + deltaNorm).clamp(0.0, 1.0);
-    widget.onChanged!(_normalizedToValue(newNorm));
+    final newVal = _normalizedToValue(newNorm);
+    setState(() => _localValue = newVal);
+    widget.onChanged!(newVal);
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    setState(() => _localValue = null);
+  }
+
+  @override
+  void didUpdateWidget(_WidthSlider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_localValue != null && (widget.value - _localValue!).abs() < 0.01) {
+      _localValue = null;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isMono = widget.value <= 0.01;
-    final isWide = widget.value > 1.01;
+    final val = _currentValue;
+    final isMono = val <= 0.01;
+    final isWide = val > 1.01;
     final color = isMono
         ? FluxForgeTheme.accentOrange
         : isWide
             ? FluxForgeTheme.accentCyan
             : FluxForgeTheme.textSecondary;
-    final label = isMono ? 'M' : '${(widget.value * 100).round()}%';
-    final percentage = _valueToNormalized(widget.value);
+    final label = isMono ? 'M' : '${(val * 100).round()}%';
+    final percentage = _valueToNormalized(val);
 
     return Row(
       children: [
@@ -2707,6 +2725,7 @@ class _WidthSliderState extends State<_WidthSlider> {
               behavior: HitTestBehavior.opaque,
               onHorizontalDragStart: (d) => _handleDragStart(d, constraints.maxWidth),
               onHorizontalDragUpdate: (d) => _handleDragUpdate(d, constraints.maxWidth),
+              onHorizontalDragEnd: _handleDragEnd,
               onDoubleTap: () => widget.onChanged?.call(1.0),
               child: Container(
                 height: 16,

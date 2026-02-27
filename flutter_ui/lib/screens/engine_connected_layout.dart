@@ -8236,6 +8236,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               bypassed: slot.bypassed,
               isPreFader: slot.isPreFader,
             )).toList(),
+      stereoWidth: channel?.stereoWidth ?? 1.0,
       sends: sends,
       eqEnabled: _openEqWindows.containsKey(channelId),
       eqBands: const [],
@@ -8295,6 +8296,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               bypassed: slot.bypassed,
               isPreFader: slot.isPreFader,
             )).toList(),
+      stereoWidth: master.stereoWidth,
       sends: const [], // Master has no sends
       eqEnabled: _openEqWindows.containsKey(channelId),
       eqBands: const [],
@@ -8353,6 +8355,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               bypassed: slot.bypassed,
               isPreFader: slot.isPreFader,
             )).toList(),
+      stereoWidth: bus.stereoWidth,
       sends: const [],
       eqEnabled: _openEqWindows.containsKey(busId),
       eqBands: const [],
