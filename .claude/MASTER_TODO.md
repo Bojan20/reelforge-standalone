@@ -1,7 +1,7 @@
 # FluxForge Studio — MASTER TODO
 
 **Updated:** 2026-02-27
-**Status:** ✅ **SHIP READY** — 468 total tasks (423 complete + 45 planned)
+**Status:** ✅ **SHIP READY** — 515 total tasks (423 complete + 92 planned)
 **Full backup:** `.claude/docs/MASTER_TODO_FULL_BACKUP_2026_02_27.md` (3,526 lines, complete history)
 
 ---
@@ -203,5 +203,50 @@ Input → Pre-Fader Inserts → Fader → Pan → ★ STEREO IMAGER → Post-Fad
 
 ---
 
-*Last Updated: 2026-02-27 — Cleaned from 3,526 lines to ~170 lines. Full history in backup.*
-*468 total tasks (423 complete + 45 planned), 4,532 tests, 0 errors.*
+## 🧠 AUREXIS™ — Slot Audio Intelligence Engine 📋 PLANNED
+
+**Specs:**
+- `.claude/architecture/AUREXIS_INTEGRATION_ARCHITECTURE.md` — Engine-level (Rust FFI, determinism)
+- `.claude/architecture/AUREXIS_UNIFIED_PANEL_ARCHITECTURE.md` — UI-level (profile-driven panel)
+
+**What:** Deterministic, mathematically-aware, psychoacoustic intelligence engine that translates slot mathematics into audio behavior. Orchestrates ALL audio parameters (stereo width, HF attenuation, reverb, transients, panning, sub-bass) based on volatility, RTP, win magnitude, and session fatigue.
+
+**Key Principle:** AUREXIS outputs `DeterministicParameterMap` (data only) — never processes audio. Pure intelligence layer, consumers decide.
+
+**New Crate:** `rf-aurexis` — NO dependency on rf-ale, rf-engine, rf-dsp.
+
+### Part A: Engine Integration (~13,000 LOC, 37 tasks)
+
+| Phase | Name | Priority | Tasks | LOC |
+|-------|------|----------|-------|-----|
+| M8 | Core + Volatility Profile + Collision Resolver | P0 | 11 | ~3,950 |
+| M9 | Psychoacoustic Regulator + Platform Adaptation | P1 | 9 | ~2,850 |
+| M10 | Escalation Engine + Predictive + RTP Fairness | P1 | 11 | ~3,250 |
+| M11 | QA Framework + Advanced Panel + Visualizers | P2 | 6 | ~2,950 |
+
+**FFI:** ~40 functions in `aurexis_ffi.rs` (follows `ale_ffi.rs` template)
+**Dart:** `AurexisProvider` at GetIt Layer 6
+
+### Part B: Unified Panel (~5,850 LOC, 10 phases)
+
+Consolidates 11 independent audio systems + 1000+ scattered parameters into ONE cohesive panel with profile-driven defaults.
+
+| Phase | Name | Priority | LOC |
+|-------|------|----------|-----|
+| 1 | AUREXIS Provider + Profile System (12 built-in profiles) | P0 | ~800 |
+| 2 | AUREXIS Panel Widget (4 sections) | P0 | ~1,200 |
+| 3 | Behavior Resolution Engine | P0 | ~500 |
+| 4 | System Integration (ALE/Spatial/RTPC/DSP/etc.) | P1 | ~600 |
+| 5 | Lower Zone Consolidation (20+ panels → 3 tabs) | P1 | ~400 |
+| 6 | Jurisdiction Engine (GLI-11 compliance, LDW detection) | P1 | ~650 |
+| 7 | Memory Budget Bar + Coverage Heatmap | P1 | ~500 |
+| 8 | Cabinet Simulator + Compliance Report | P2 | ~550 |
+| 9 | Re-Theme Wizard + Audit Trail | P2 | ~650 |
+| 10 | Dead Code Cleanup + Removal | P2 | ~negative |
+
+**Total AUREXIS: 47 tasks, ~18,850 LOC across 14 phases (4 engine + 10 panel)**
+
+---
+
+*Last Updated: 2026-02-27 — Cleaned from 3,526 lines to ~250 lines. Full history in backup.*
+*515 total tasks (423 complete + 92 planned), 4,532 tests, 0 errors.*
