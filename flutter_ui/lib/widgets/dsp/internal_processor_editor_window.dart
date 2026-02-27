@@ -215,12 +215,14 @@ class _InternalProcessorEditorWindowState
   late Map<String, dynamic> _params;
   bool _isCollapsed = false;
   FabFilterSize _currentSize = FabFilterSize.medium;
+  late bool _isBypassed;
 
   @override
   void initState() {
     super.initState();
     _position = widget.initialPosition;
     _params = Map<String, dynamic>.from(widget.node.params);
+    _isBypassed = widget.node.bypass;
   }
 
   Size get _windowSize {
@@ -383,17 +385,17 @@ class _InternalProcessorEditorWindowState
               onPressed: () => setState(() => _isCollapsed = !_isCollapsed),
             ),
 
-            // Bypass toggle — direct FFI + DspChainProvider sync
+            // Bypass toggle — local state + direct FFI + DspChainProvider sync
             _buildTitleButton(
               icon: Icons.power_settings_new,
-              tooltip: widget.node.bypass ? 'Enable' : 'Bypass',
-              color: widget.node.bypass
+              tooltip: _isBypassed ? 'Enable' : 'Bypass',
+              color: _isBypassed
                   ? FluxForgeTheme.textDisabled
                   : FluxForgeTheme.accentGreen,
               onPressed: () {
-                final newBypass = !widget.node.bypass;
+                setState(() => _isBypassed = !_isBypassed);
                 // Direct FFI call — always works regardless of DspChainProvider state
-                NativeFFI.instance.insertSetBypass(widget.trackId, widget.slotIndex, newBypass);
+                NativeFFI.instance.insertSetBypass(widget.trackId, widget.slotIndex, _isBypassed);
                 // Sync DspChainProvider UI state
                 final chain = DspChainProvider.instance.getChain(widget.trackId);
                 final nodeIndex = chain.nodes.indexWhere((n) => n.id == widget.node.id);
@@ -402,7 +404,7 @@ class _InternalProcessorEditorWindowState
                 } else {
                   // Node not in DspChainProvider — add it so future reads see bypass
                   DspChainProvider.instance.addNodeUiOnly(widget.trackId, widget.node.type, atSlot: widget.slotIndex);
-                  DspChainProvider.instance.setNodeBypassUiOnly(widget.trackId, widget.node.type, newBypass);
+                  DspChainProvider.instance.setNodeBypassUiOnly(widget.trackId, widget.node.type, _isBypassed);
                 }
               },
             ),
