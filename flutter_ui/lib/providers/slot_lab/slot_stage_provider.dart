@@ -11,12 +11,14 @@ library;
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:get_it/get_it.dart';
 
 import '../../models/stage_models.dart';
 import '../../src/rust/native_ffi.dart' show SlotLabStageEvent;
 import '../../services/event_registry.dart';
 import '../../services/unified_playback_controller.dart';
 import '../ale_provider.dart';
+import 'slot_lab_coordinator.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // P3.1: STAGE EVENT POOL — Reduce allocation during spin sequences
@@ -686,8 +688,91 @@ class SlotStageProvider extends ChangeNotifier {
       eventRegistry.stopEvent('REEL_SPIN');
     }
 
+    // Dispatch middleware hooks based on stage type
+    _dispatchMiddlewareHooks(stageType, reelIndex, context);
+
     // Sync ALE signals
     _syncAleSignals(stage);
+  }
+
+  /// Map stage events to middleware hook names and dispatch through pipeline
+  void _dispatchMiddlewareHooks(String stageType, dynamic reelIndex, Map<String, dynamic> context) {
+    try {
+      final coordinator = GetIt.instance<SlotLabCoordinator>();
+      final hooks = _stageToHooks(stageType, reelIndex, context);
+      for (final hook in hooks) {
+        coordinator.processHook(hook, payload: context);
+      }
+    } catch (_) {
+      // Coordinator not registered yet — skip
+    }
+  }
+
+  /// Convert stage type to middleware hook names
+  List<String> _stageToHooks(String stageType, dynamic reelIndex, Map<String, dynamic> context) {
+    switch (stageType) {
+      case 'SPIN_START':
+        return ['onSpinStart'];
+      case 'REEL_STOP':
+        if (reelIndex is int) {
+          return ['onReelStop_r${reelIndex + 1}'];
+        }
+        return ['onReelStop_r1'];
+      case 'SPIN_END':
+        return ['onSymbolLand'];
+      case 'CASCADE_START':
+        return ['onCascadeStart'];
+      case 'CASCADE_STEP':
+        return ['onCascadeStep'];
+      case 'CASCADE_END':
+        return ['onCascadeEnd'];
+      case 'WIN_TIER_1':
+      case 'WIN_SMALL':
+        return ['onWinEvaluate_tier1'];
+      case 'WIN_TIER_2':
+      case 'WIN_MEDIUM':
+        return ['onWinEvaluate_tier2'];
+      case 'WIN_TIER_3':
+      case 'WIN_BIG':
+        return ['onWinEvaluate_tier3'];
+      case 'WIN_TIER_4':
+      case 'WIN_MEGA':
+        return ['onWinEvaluate_tier4'];
+      case 'WIN_TIER_5':
+      case 'WIN_EPIC':
+        return ['onWinEvaluate_tier5'];
+      case 'COUNTUP_TICK':
+        return ['onCountUpTick'];
+      case 'COUNTUP_END':
+        return ['onCountUpEnd'];
+      case 'FEATURE_ENTER':
+      case 'FEATURE_START':
+        return ['onFeatureEnter'];
+      case 'FEATURE_LOOP':
+        return ['onFeatureLoop'];
+      case 'FEATURE_EXIT':
+      case 'FEATURE_END':
+        return ['onFeatureExit'];
+      case 'JACKPOT_MINI':
+        return ['onJackpotReveal_mini'];
+      case 'JACKPOT_MAJOR':
+        return ['onJackpotReveal_major'];
+      case 'JACKPOT_GRAND':
+        return ['onJackpotReveal_grand'];
+      case 'REEL_NUDGE':
+        return ['onReelNudge'];
+      default:
+        if (stageType.startsWith('ANTICIPATION_ON')) {
+          return ['onAnticipationStart'];
+        } else if (stageType.startsWith('ANTICIPATION_OFF')) {
+          return ['onAnticipationEnd'];
+        } else if (stageType.startsWith('REEL_STOP_')) {
+          final idx = stageType.replaceAll('REEL_STOP_', '');
+          final reelNum = int.tryParse(idx);
+          if (reelNum != null) return ['onReelStop_r${reelNum + 1}'];
+        }
+        return [];
+    }
   }
 
   bool _isWinPresentationStage(String stageType) {
