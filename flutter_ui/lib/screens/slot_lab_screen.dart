@@ -56,7 +56,16 @@ import '../services/native_file_picker.dart';
 import '../services/audio_playback_service.dart';
 import '../providers/middleware_provider.dart';
 import '../providers/stage_provider.dart';
+import 'package:get_it/get_it.dart';
 import '../providers/slot_lab/slot_lab_coordinator.dart';
+import '../providers/slot_lab/emotional_state_provider.dart';
+import '../providers/slot_lab/error_prevention_provider.dart';
+import '../providers/slot_lab/slotlab_view_mode_provider.dart';
+import '../providers/slot_lab/slotlab_notification_provider.dart';
+import '../providers/slot_lab/slotlab_undo_provider.dart';
+import '../providers/slot_lab/trigger_layer_provider.dart';
+import '../providers/slot_lab/behavior_coverage_provider.dart';
+import '../providers/slot_lab/slotlab_template_provider.dart';
 import '../providers/ale_provider.dart';
 import '../services/stage_audio_mapper.dart';
 import '../models/stage_models.dart';
@@ -2571,6 +2580,16 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                               _ensureCompositeEventForStage(stage, audioPath);
 
 
+                              // Auto-bind: refresh trigger bindings when audio assigned
+                              final triggerLayer = GetIt.instance<TriggerLayerProvider>();
+                              if (triggerLayer.autoBindingsEnabled) {
+                                triggerLayer.generateAutoBindings();
+                              }
+
+                              // Track coverage
+                              final coverage = GetIt.instance<BehaviorCoverageProvider>();
+                              coverage.recordTrigger(stage, stage);
+
                               // SL-INT-P1.1: Show inline toast confirmation
                               if (mounted) {
                                 final fileName = audioPath.split('/').last;
@@ -2965,11 +2984,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       return KeyEventResult.handled;
     }
 
-    // Cmd/Ctrl+Z = Undo
+    // Cmd/Ctrl+Z = Undo (UI + SlotLab middleware)
     if (key == LogicalKeyboardKey.keyZ &&
         (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed) &&
         !HardwareKeyboard.instance.isShiftPressed) {
-      if (UiUndoManager.instance.undo()) {
+      // Try SlotLab middleware undo first, fallback to UI undo
+      final slotUndo = GetIt.instance<SlotLabUndoProvider>();
+      if (slotUndo.canUndo) {
+        slotUndo.undo();
+      } else if (UiUndoManager.instance.undo()) {
         setState(() {});
       }
       return KeyEventResult.handled;
@@ -2979,7 +3002,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     if (key == LogicalKeyboardKey.keyZ &&
         (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed) &&
         HardwareKeyboard.instance.isShiftPressed) {
-      if (UiUndoManager.instance.redo()) {
+      final slotUndo = GetIt.instance<SlotLabUndoProvider>();
+      if (slotUndo.canRedo) {
+        slotUndo.redo();
+      } else if (UiUndoManager.instance.redo()) {
         setState(() {});
       }
       return KeyEventResult.handled;
@@ -2988,7 +3014,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Cmd/Ctrl+Y = Redo (alternate)
     if (key == LogicalKeyboardKey.keyY &&
         (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed)) {
-      if (UiUndoManager.instance.redo()) {
+      final slotUndo = GetIt.instance<SlotLabUndoProvider>();
+      if (slotUndo.canRedo) {
+        slotUndo.redo();
+      } else if (UiUndoManager.instance.redo()) {
         setState(() {});
       }
       return KeyEventResult.handled;
@@ -3280,6 +3309,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 _buildStatusChip('BET', '\$${_bet.toStringAsFixed(2)}', const Color(0xFF4A9EFF)),
                 const SizedBox(width: 6),
                 _buildStatusChip('WIN', '\$${_lastWin.toStringAsFixed(0)}', const Color(0xFFFFD700)),
+                const SizedBox(width: 6),
+                _buildMiddlewareStatusChips(),
                 // Background audio preload indicator (shows only during preload)
                 if (_isPreloadingAudio) ...[
                   const SizedBox(width: 8),
@@ -3486,6 +3517,19 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         rows: template.rowCount,
       );
     });
+
+    // Track applied template in middleware provider
+    final templateProvider = GetIt.instance<SlotLabTemplateProvider>();
+    templateProvider.selectTemplate(template.name);
+
+    // Notify via middleware notification system
+    final notifProvider = GetIt.instance<SlotLabNotificationProvider>();
+    notifProvider.push(
+      type: NotificationType.info,
+      severity: NotificationSeverity.success,
+      title: 'Template Applied',
+      body: '"${template.name}" — ${template.symbols.length} symbols, ${template.coreStages.length} stages',
+    );
 
     // Show success
     if (mounted) {
@@ -4660,6 +4704,62 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           ),
         ],
       ),
+    );
+  }
+
+  /// Middleware status chips — ViewMode, Emotional state, ErrorPrevention
+  Widget _buildMiddlewareStatusChips() {
+    final emotional = GetIt.instance<EmotionalStateProvider>();
+    final errors = GetIt.instance<ErrorPreventionProvider>();
+    final viewMode = GetIt.instance<SlotLabViewModeProvider>();
+    final notifications = GetIt.instance<SlotLabNotificationProvider>();
+
+    return ListenableBuilder(
+      listenable: Listenable.merge([emotional, errors, viewMode, notifications]),
+      builder: (context, _) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // View mode chip
+            GestureDetector(
+              onTap: () => viewMode.cycleMode(),
+              child: _buildStatusChip(
+                'MODE',
+                viewMode.currentMode.name.toUpperCase(),
+                const Color(0xFF9370DB),
+              ),
+            ),
+            const SizedBox(width: 6),
+            // Emotional state chip
+            _buildStatusChip(
+              'EMOTION',
+              '${(emotional.output.intensity * 100).toStringAsFixed(0)}%',
+              Color.lerp(const Color(0xFF40C8FF), const Color(0xFFFF4040), emotional.output.tension) ?? const Color(0xFF40C8FF),
+            ),
+            // Error badge — only show if errors exist
+            if (errors.hasErrors) ...[
+              const SizedBox(width: 6),
+              _buildStatusChip(
+                'ERRORS',
+                '${errors.errorCount}',
+                const Color(0xFFFF4040),
+              ),
+            ],
+            // Notification badge — only show if unread
+            if (notifications.hasUnread) ...[
+              const SizedBox(width: 6),
+              GestureDetector(
+                onTap: () => notifications.markAllRead(),
+                child: _buildStatusChip(
+                  'NOTIF',
+                  '${notifications.unreadCount}',
+                  const Color(0xFFFFAA00),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 

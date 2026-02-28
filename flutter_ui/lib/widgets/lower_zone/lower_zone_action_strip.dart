@@ -326,4 +326,14 @@ class SlotLabActions {
     LowerZoneAction(label: 'Bake All', icon: Icons.local_fire_department, onTap: onBakeAll, isPrimary: true),
     LowerZoneAction(label: 'Package', icon: Icons.inventory_2, onTap: onPackage),
   ];
+
+  static List<LowerZoneAction> forMiddleware({
+    VoidCallback? onReset,
+    VoidCallback? onInspect,
+    VoidCallback? onSimulate,
+  }) => [
+    LowerZoneAction(label: 'Inspect', icon: Icons.search, onTap: onInspect, isPrimary: true),
+    LowerZoneAction(label: 'Simulate', icon: Icons.science, onTap: onSimulate),
+    LowerZoneAction(label: 'Reset', icon: Icons.refresh, onTap: onReset),
+  ];
 }

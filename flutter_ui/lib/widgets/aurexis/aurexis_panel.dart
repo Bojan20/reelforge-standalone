@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../providers/aurexis_provider.dart';
 import '../../providers/aurexis_profile_provider.dart';
+import '../../providers/slot_lab/behavior_coverage_provider.dart';
+import '../../providers/slot_lab/smart_collapsing_provider.dart';
 import '../../models/aurexis_jurisdiction.dart';
 import '../../models/aurexis_cabinet.dart';
 import 'aurexis_theme.dart';
@@ -39,6 +41,8 @@ class AurexisPanel extends StatefulWidget {
 class _AurexisPanelState extends State<AurexisPanel> {
   late final AurexisProvider _engine;
   late final AurexisProfileProvider _profile;
+  late final BehaviorCoverageProvider _coverage;
+  late final SmartCollapsingProvider _smartCollapse;
 
   bool _sectionProfile = true;
   bool _sectionBehavior = true;
@@ -56,14 +60,20 @@ class _AurexisPanelState extends State<AurexisPanel> {
     super.initState();
     _engine = GetIt.instance<AurexisProvider>();
     _profile = GetIt.instance<AurexisProfileProvider>();
+    _coverage = GetIt.instance<BehaviorCoverageProvider>();
+    _smartCollapse = GetIt.instance<SmartCollapsingProvider>();
     _engine.addListener(_onEngineUpdate);
     _profile.addListener(_onProfileUpdate);
+    _coverage.addListener(_onEngineUpdate);
+    _smartCollapse.addListener(_onEngineUpdate);
   }
 
   @override
   void dispose() {
     _engine.removeListener(_onEngineUpdate);
     _profile.removeListener(_onProfileUpdate);
+    _coverage.removeListener(_onEngineUpdate);
+    _smartCollapse.removeListener(_onEngineUpdate);
     super.dispose();
   }
 
@@ -107,6 +117,26 @@ class _AurexisPanelState extends State<AurexisPanel> {
                   title: 'BEHAVIOR',
                   expanded: _sectionBehavior,
                   onToggle: () => setState(() => _sectionBehavior = !_sectionBehavior),
+                  trailing: _coverage.trackedBehaviorNodes.isNotEmpty
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: (_coverage.overallCoverage >= 0.8
+                                    ? AurexisColors.accent
+                                    : AurexisColors.modified)
+                                .withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                          child: Text(
+                            '${(_coverage.overallCoverage * 100).toStringAsFixed(0)}%',
+                            style: AurexisTextStyles.badge.copyWith(
+                              color: _coverage.overallCoverage >= 0.8
+                                  ? AurexisColors.accent
+                                  : AurexisColors.modified,
+                            ),
+                          ),
+                        )
+                      : null,
                   child: _buildBehaviorSection(),
                 ),
                 _buildSection(

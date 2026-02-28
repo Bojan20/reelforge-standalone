@@ -48,6 +48,10 @@ import '../common/documentation_viewer.dart';
 import '../../providers/git_provider.dart';
 import '../slot_lab/slotlab_bus_mixer.dart';
 import '../slot_lab/lower_zone/events/composite_editor_panel.dart';
+import 'package:get_it/get_it.dart';
+import '../slot_lab/lower_zone/slotlab_middleware_tab.dart';
+import '../../providers/slot_lab/slotlab_export_provider.dart';
+import '../../providers/slot_lab/slotlab_notification_provider.dart';
 
 class SlotLabLowerZoneWidget extends StatefulWidget {
   final SlotLabLowerZoneController controller;
@@ -717,6 +721,8 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         return _buildDspContent();
       case SlotLabSuperTab.bake:
         return _buildBakeContent();
+      case SlotLabSuperTab.middleware:
+        return SlotLabMiddlewareTabContent(subTab: widget.controller.state.middlewareSubTab);
     }
   }
 
@@ -4127,7 +4133,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           }
         },
         onBakeAll: () {
-          // Bake all events - show export panel
+          // Bake all events via export provider
           final eventCount = middleware?.compositeEvents.length ?? 0;
           if (eventCount == 0) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -4137,9 +4143,29 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               ),
             );
           } else {
+            final exportProvider = GetIt.instance<SlotLabExportProvider>();
+            exportProvider.selectAllSections();
+            final result = exportProvider.export({
+              'events': middleware?.compositeEvents.map((e) => e.toJson()).toList() ?? [],
+              'eventCount': eventCount,
+            });
+
+            // Notify via middleware notifications
+            final notif = GetIt.instance<SlotLabNotificationProvider>();
+            notif.push(
+              type: NotificationType.export_,
+              severity: result.success ? NotificationSeverity.success : NotificationSeverity.error,
+              title: result.success ? 'Export Complete' : 'Export Failed',
+              body: result.success
+                  ? '$eventCount events exported (${((result.byteSize ?? 0) / 1024).toStringAsFixed(1)} KB)'
+                  : result.error ?? 'Unknown error',
+            );
+
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Baking $eventCount events... (Use Batch Export panel)'),
+                content: Text(result.success
+                    ? 'Baked $eventCount events (${exportProvider.selectedFormat.name})'
+                    : 'Export failed: ${result.error}'),
                 duration: const Duration(seconds: 2),
               ),
             );
@@ -4158,6 +4184,25 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           );
           // Switch to Package sub-tab
           widget.controller.setSubTabIndex(2);
+        },
+      ),
+      SlotLabSuperTab.middleware => SlotLabActions.forMiddleware(
+        onReset: () {
+          middleware?.resetToDefaults();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Middleware state reset to defaults'),
+              duration: Duration(milliseconds: 800),
+            ),
+          );
+        },
+        onInspect: () {
+          // Switch to Behavior sub-tab for overview
+          widget.controller.setMiddlewareSubTab(SlotLabMiddlewareSubTab.behavior);
+        },
+        onSimulate: () {
+          // Switch to Simulation sub-tab
+          widget.controller.setMiddlewareSubTab(SlotLabMiddlewareSubTab.simulation);
         },
       ),
     };

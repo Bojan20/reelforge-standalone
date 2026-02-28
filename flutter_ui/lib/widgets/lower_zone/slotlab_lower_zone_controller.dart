@@ -124,6 +124,14 @@ class SlotLabLowerZoneController extends ChangeNotifier {
     _updateAndSave(newState);
   }
 
+  void setMiddlewareSubTab(SlotLabMiddlewareSubTab tab) {
+    var newState = _state.copyWith(middlewareSubTab: tab);
+    if (_state.superTab != SlotLabSuperTab.middleware) {
+      newState = newState.copyWith(superTab: SlotLabSuperTab.middleware);
+    }
+    _updateAndSave(newState);
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // EXPAND/COLLAPSE
   // ═══════════════════════════════════════════════════════════════════════════
@@ -198,6 +206,10 @@ class SlotLabLowerZoneController extends ChangeNotifier {
     }
     if (event.logicalKey == LogicalKeyboardKey.digit5) {
       setSuperTab(SlotLabSuperTab.bake);
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.digit6) {
+      setSuperTab(SlotLabSuperTab.middleware);
       return KeyEventResult.handled;
     }
 

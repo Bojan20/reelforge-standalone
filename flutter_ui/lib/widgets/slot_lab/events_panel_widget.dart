@@ -16,7 +16,9 @@ import '../../services/native_file_picker.dart';
 import '../../utils/path_validator.dart';
 import '../../models/auto_event_builder_models.dart';
 import '../../models/slot_audio_events.dart';
+import 'package:get_it/get_it.dart';
 import '../../providers/middleware_provider.dart';
+import '../../providers/slot_lab/inspector_context_provider.dart';
 import '../../services/audio_asset_manager.dart';
 import '../../services/audio_playback_service.dart';
 import '../../services/event_registry.dart';
@@ -548,6 +550,48 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
             ),
           ),
           const Spacer(),
+          // Inspector context — shows selected node
+          ListenableBuilder(
+            listenable: GetIt.instance<InspectorContextProvider>(),
+            builder: (context, _) {
+              final inspector = GetIt.instance<InspectorContextProvider>();
+              if (!inspector.hasSelection) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: GestureDetector(
+                  onTap: () => inspector.togglePinned(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: (inspector.pinned ? const Color(0xFFFFAA00) : const Color(0xFF40C8FF)).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(3),
+                      border: Border.all(
+                        color: (inspector.pinned ? const Color(0xFFFFAA00) : const Color(0xFF40C8FF)).withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          inspector.pinned ? Icons.push_pin : Icons.push_pin_outlined,
+                          size: 9,
+                          color: inspector.pinned ? const Color(0xFFFFAA00) : const Color(0xFF40C8FF),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          inspector.selectedNodeId?.substring(0, (inspector.selectedNodeId!.length).clamp(0, 8)) ?? '',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: inspector.pinned ? const Color(0xFFFFAA00) : const Color(0xFF40C8FF),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
           // Toggle browser/event view
           InkWell(
             onTap: () => setState(() => _showBrowser = !_showBrowser),
