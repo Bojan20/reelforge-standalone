@@ -12,6 +12,7 @@ import '../../models/feature_builder/block_category.dart';
 import '../../models/feature_builder/feature_block.dart';
 import '../../models/feature_builder/block_options.dart';
 import '../../providers/feature_builder_provider.dart';
+import '../../blocks/grid_block.dart';
 import '../../theme/fluxforge_theme.dart';
 import 'dependency_graph_dialog.dart';
 
@@ -693,6 +694,16 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
           onChanged: block.isEnabled
               ? (value) {
                   provider.setBlockOption(block.id, option.id, value);
+
+                  // Grid preset selection → apply preset values to reelCount/rowCount
+                  if (block.id == 'grid' && option.id == 'preset' && value is String) {
+                    final preset = GridPreset.values.firstWhere(
+                      (p) => p.name == value,
+                      orElse: () => GridPreset.custom,
+                    );
+                    provider.applyGridPreset(preset);
+                  }
+
                   widget.onConfigChanged?.call();
                 }
               : null,
@@ -1132,8 +1143,9 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
               final gridBlock = provider.gridBlock;
               final symbolBlock = provider.symbolSetBlock;
 
-              final reelCount = gridBlock?.getOptionValue<int>('reelCount') ?? 3;
-              final rowCount = gridBlock?.getOptionValue<int>('rowCount') ?? 3;
+              // Use GridBlock typed getters (default 5x3) instead of raw getOptionValue (fallback 3x3)
+              final reelCount = gridBlock?.reelCount ?? 5;
+              final rowCount = gridBlock?.rowCount ?? 3;
               final symbolCount = symbolBlock?.getOptionValue<int>('symbolCount') ?? 10;
 
               // Call the callback to apply configuration

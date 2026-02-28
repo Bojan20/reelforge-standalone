@@ -687,6 +687,16 @@ class FeatureBuilderProvider extends ChangeNotifier {
   /// Get Grid block.
   GridBlock? get gridBlock => _registry.get('grid') as GridBlock?;
 
+  /// Apply a grid preset (updates reelCount, rowCount, etc. and notifies).
+  void applyGridPreset(GridPreset preset) {
+    final grid = gridBlock;
+    if (grid == null) return;
+    _saveStateForUndo(grid);
+    grid.applyPreset(preset);
+    _markDirty();
+    notifyListeners();
+  }
+
   /// Get Symbol Set block.
   SymbolSetBlock? get symbolSetBlock =>
       _registry.get('symbol_set') as SymbolSetBlock?;

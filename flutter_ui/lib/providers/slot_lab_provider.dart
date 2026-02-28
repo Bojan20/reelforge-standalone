@@ -568,12 +568,18 @@ class SlotLabProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Reinitialize the Rust engine with current configuration
+  /// Reinitialize the Rust engine with current grid dimensions.
+  /// V1 engine doesn't accept grid params, so we shutdown + reinit.
+  /// SlotPreviewWidget handles grid mismatch by padding with random symbols.
   void _reinitializeEngine() {
     try {
-      // The Rust engine is initialized via slotLabInit which doesn't take
-      // grid parameters directly. Grid is configured via spin parameters.
-    } catch (e) { /* ignored */ }
+      _ffi.slotLabShutdown();
+      _initialized = false;
+      final success = _ffi.slotLabInit();
+      if (success) {
+        _initialized = true;
+      }
+    } catch (_) { /* ignore FFI errors during reinit */ }
   }
 
   /// Get the visual tier name for a win amount
