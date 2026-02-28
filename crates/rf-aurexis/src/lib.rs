@@ -16,6 +16,8 @@ pub mod variation;
 pub mod geometry;
 pub mod platform;
 pub mod energy;
+pub mod priority;
+pub mod spectral;
 pub mod qa;
 
 pub use crate::core::engine::AurexisEngine;
@@ -23,6 +25,8 @@ pub use crate::core::config::AurexisConfig;
 pub use crate::core::state::AurexisState;
 pub use crate::core::parameter_map::DeterministicParameterMap;
 pub use crate::energy::{EnergyGovernor, EnergyDomain, EnergyBudget, VoiceBudget, SlotProfile, SessionMemory, GegCurveType};
+pub use crate::priority::{DynamicPriorityMatrix, EventType, EmotionalState, VoicePriority, VoiceSurvivalResult, SurvivalAction, DpmOutput};
+pub use crate::spectral::{SpectralAllocator, SpectralRole, SpectralBand, SpectralAssignment, SpectralAllocationOutput, MaskingResolver, MaskingStrategy, MaskingAction, SciAdvanced};
 
 /// Result type for AUREXIS operations.
 pub type AurexisResult<T> = Result<T, AurexisError>;

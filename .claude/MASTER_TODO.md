@@ -94,46 +94,46 @@ FUTURE:                P-GAD (needs all), P-SSS (enterprise)
 
 ---
 
-## P-DPM: Dynamic Priority Matrix — Full Logic
+## P-DPM: Dynamic Priority Matrix — Full Logic ✅ COMPLETE
 
 **Spec:** FLUXFORGE_MASTER_SPEC.md §6
 **Formula:** `PriorityScore = BaseWeight × EmotionalWeight × ProfileWeight × EnergyWeight × ContextModifier`
-**Note:** PriorityEngineProvider exists as middleware shell — needs full DPM logic
+**Note:** DpmProvider (Layer 6.1) + DynamicPriorityMatrix in rf-aurexis/priority/
 
 | # | Task | Status |
 |---|------|--------|
-| DPM-1 | `rf-aurexis/priority/dpm.rs` — DynamicPriorityMatrix struct, compute_priority(), sort_voices() | ⬜ |
-| DPM-2 | Base weights: 8 event types (JACKPOT_GRAND=1.0 → SYSTEM=0.30) | ⬜ |
-| DPM-3 | Emotional weight multipliers per emotional state (7 states) | ⬜ |
-| DPM-4 | Profile weight modifiers per slot profile (9 profiles from GEG) | ⬜ |
-| DPM-5 | Voice survival logic: sort → retain → attenuate (×0.6 within 10%) → suppress | ⬜ |
-| DPM-6 | Background never-suppress rule (ducking curve fallback) | ⬜ |
-| DPM-7 | JACKPOT_GRAND override (bypasses normal scoring) | ⬜ |
-| DPM-8 | Unit tests (15+ tests) | ⬜ |
-| DPM-9 | FFI bridge + Dart bindings, wire into PriorityEngineProvider | ⬜ |
-| DPM-10 | Bake outputs: `dpm_event_weights.json`, `dpm_profile_modifiers.json`, `dpm_context_rules.json`, `dpm_priority_matrix.json` | ⬜ |
+| DPM-1 | `rf-aurexis/priority/dpm.rs` — DynamicPriorityMatrix struct, compute_priority(), sort_voices() | ✅ |
+| DPM-2 | Base weights: 8 event types (JACKPOT_GRAND=1.0 → SYSTEM=0.30) | ✅ |
+| DPM-3 | Emotional weight multipliers per emotional state (7 states) | ✅ |
+| DPM-4 | Profile weight modifiers per slot profile (9 profiles from GEG) | ✅ |
+| DPM-5 | Voice survival logic: sort → retain → attenuate (×0.6 within 10%) → suppress | ✅ |
+| DPM-6 | Background never-suppress rule (ducking curve fallback) | ✅ |
+| DPM-7 | JACKPOT_GRAND override (bypasses normal scoring) | ✅ |
+| DPM-8 | Unit tests (15+ tests) | ✅ (19 tests) |
+| DPM-9 | FFI bridge + Dart bindings, DpmProvider (Layer 6.1) | ✅ |
+| DPM-10 | Bake outputs: `dpm_event_weights.json`, `dpm_profile_modifiers.json`, `dpm_context_rules.json`, `dpm_priority_matrix.json` | ✅ |
 
 ---
 
-## P-SAMCL: Spectral Allocation & Masking Control
+## P-SAMCL: Spectral Allocation & Masking Control ✅ COMPLETE
 
 **Spec:** FLUXFORGE_MASTER_SPEC.md §7
 **10 spectral roles**, masking resolution, SCI collision index
 
 | # | Task | Status |
 |---|------|--------|
-| SAMCL-1 | `rf-aurexis/spectral/roles.rs` — 10 SpectralRole enums with frequency bands | ⬜ |
-| SAMCL-2 | `rf-aurexis/spectral/allocation.rs` — SpectralAllocator, assign_role(), resolve_collision() | ⬜ |
-| SAMCL-3 | `rf-aurexis/spectral/masking.rs` — MaskingResolver: notch attenuation, band EQ carve, harmonic attenuation, spatial narrowing, slot shift | ⬜ |
-| SAMCL-4 | SCI_ADV calculation: `overlapping_bands × HarmonicDensity × EnergyCap` | ⬜ |
-| SAMCL-5 | Aggressive carve mode when SCI exceeds threshold | ⬜ |
-| SAMCL-6 | Harmonic density limits: LOW=2, MID=3, PEAK=4 layers | ⬜ |
-| SAMCL-7 | Deterministic slot shift (alternate band assignment) | ⬜ |
-| SAMCL-8 | Unit tests (20+ tests covering all roles and collision scenarios) | ⬜ |
-| SAMCL-9 | FFI bridge + Dart bindings | ⬜ |
-| SAMCL-10 | SpectralAllocationProvider (GetIt Layer 6) | ⬜ |
-| SAMCL-11 | Spectral heatmap visualization widget | ⬜ |
-| SAMCL-12 | Bake outputs: `samcl_band_config.json`, `samcl_role_assignment.json`, `samcl_collision_rules.json`, `samcl_shift_curves.json` | ⬜ |
+| SAMCL-1 | `rf-aurexis/spectral/roles.rs` — 10 SpectralRole enums with frequency bands | ✅ |
+| SAMCL-2 | `rf-aurexis/spectral/allocation.rs` — SpectralAllocator, assign_role(), resolve_collision() | ✅ |
+| SAMCL-3 | `rf-aurexis/spectral/masking.rs` — MaskingResolver: notch attenuation, band EQ carve, harmonic attenuation, spatial narrowing, slot shift | ✅ |
+| SAMCL-4 | SCI_ADV calculation: `overlapping_bands × HarmonicDensity × EnergyCap` | ✅ |
+| SAMCL-5 | Aggressive carve mode when SCI exceeds threshold | ✅ |
+| SAMCL-6 | Harmonic density limits: LOW=2, MID=3, PEAK=4 layers | ✅ |
+| SAMCL-7 | Deterministic slot shift (alternate band assignment) | ✅ |
+| SAMCL-8 | Unit tests (20+ tests covering all roles and collision scenarios) | ✅ (26 tests) |
+| SAMCL-9 | FFI bridge + Dart bindings | ✅ |
+| SAMCL-10 | SpectralAllocationProvider (GetIt Layer 6.2) | ✅ |
+| SAMCL-11 | Spectral heatmap visualization widget | ✅ |
+| SAMCL-12 | Bake outputs: `samcl_band_config.json`, `samcl_role_assignment.json`, `samcl_collision_rules.json`, `samcl_shift_curves.json` | ✅ |
 
 ---
 
@@ -325,8 +325,8 @@ All complete. See backup for details.
 |--------|-------|------|-----------|
 | P-SRC | 5 | 5 | 0 ✅ |
 | P-GEG | 12 | 12 | 0 ✅ |
-| P-DPM | 10 | 0 | 10 |
-| P-SAMCL | 12 | 0 | 12 |
+| P-DPM | 10 | 10 | 0 ✅ |
+| P-SAMCL | 12 | 12 | 0 ✅ |
 | P-PBSE | 10 | 0 | 10 |
 | P-AIL | 8 | 0 | 8 |
 | P-DRC | 12 | 0 | 12 |
@@ -334,7 +334,7 @@ All complete. See backup for details.
 | P-SAM | 10 | 0 | 10 |
 | P-UCP | 8 | 0 | 8 |
 | P-MWUI | 8 | 0 | 8 |
-| **TOTAL** | **109** | **31** | **78** |
+| **TOTAL** | **109** | **53** | **56** |
 | FUTURE (GAD+SSS) | ~25 | 0 | deferred |
 
 ---

@@ -94,6 +94,26 @@ pub struct DeterministicParameterMap {
     /// Voice budget ratio (0.5, 0.7, or 0.9).
     pub voice_budget_ratio: f64,
 
+    // ═══ DPM (Dynamic Priority Matrix) ═══
+    /// Number of voices retained by DPM.
+    pub dpm_retained: u32,
+    /// Number of voices attenuated by DPM.
+    pub dpm_attenuated: u32,
+    /// Number of voices suppressed by DPM.
+    pub dpm_suppressed: u32,
+    /// Whether JACKPOT_GRAND override is active.
+    pub dpm_jackpot_override: bool,
+
+    // ═══ SAMCL (Spectral Allocation) ═══
+    /// Spectral Collision Index (0.0-1.0+).
+    pub sci_adv: f64,
+    /// Number of spectral collisions detected.
+    pub spectral_collisions: u32,
+    /// Number of slot shifts applied.
+    pub spectral_slot_shifts: u32,
+    /// Whether aggressive carve mode is active.
+    pub spectral_aggressive_carve: bool,
+
     // ═══ SEED ═══
     /// Current deterministic variation seed.
     pub variation_seed: u64,
@@ -149,6 +169,16 @@ impl Default for DeterministicParameterMap {
             session_memory_sm: 1.0,
             voice_budget_max: 40,
             voice_budget_ratio: 0.7,
+            // DPM
+            dpm_retained: 0,
+            dpm_attenuated: 0,
+            dpm_suppressed: 0,
+            dpm_jackpot_override: false,
+            // SAMCL
+            sci_adv: 0.0,
+            spectral_collisions: 0,
+            spectral_slot_shifts: 0,
+            spectral_aggressive_carve: false,
             // Seed
             variation_seed: 0,
             is_deterministic: true,
@@ -194,6 +224,12 @@ impl DeterministicParameterMap {
             "session_memory_sm" => Some(self.session_memory_sm),
             "voice_budget_max" => Some(self.voice_budget_max as f64),
             "voice_budget_ratio" => Some(self.voice_budget_ratio),
+            "dpm_retained" => Some(self.dpm_retained as f64),
+            "dpm_attenuated" => Some(self.dpm_attenuated as f64),
+            "dpm_suppressed" => Some(self.dpm_suppressed as f64),
+            "sci_adv" => Some(self.sci_adv),
+            "spectral_collisions" => Some(self.spectral_collisions as f64),
+            "spectral_slot_shifts" => Some(self.spectral_slot_shifts as f64),
             _ => None,
         }
     }

@@ -3,6 +3,8 @@ use crate::core::parameter_map::{DeterministicParameterMap, EscalationCurveType}
 use crate::core::state::AurexisState;
 use crate::collision::{PanRedistributor, VoiceCollisionResolver};
 use crate::energy::EnergyGovernor;
+use crate::priority::DynamicPriorityMatrix;
+use crate::spectral::SpectralAllocator;
 use crate::escalation::WinEscalationEngine;
 use crate::geometry::AttentionVectorEngine;
 use crate::platform::{PlatformAdapter, PlatformProfile};
@@ -28,6 +30,8 @@ pub struct AurexisEngine {
     collision_resolver: VoiceCollisionResolver,
     attention_engine: AttentionVectorEngine,
     energy_governor: EnergyGovernor,
+    priority_matrix: DynamicPriorityMatrix,
+    spectral_allocator: SpectralAllocator,
 
     // ═══ OUTPUT ═══
     output: DeterministicParameterMap,
@@ -48,6 +52,8 @@ impl AurexisEngine {
             collision_resolver: VoiceCollisionResolver::new(),
             attention_engine: AttentionVectorEngine::new(),
             energy_governor: EnergyGovernor::new(),
+            priority_matrix: DynamicPriorityMatrix::new(),
+            spectral_allocator: SpectralAllocator::new(),
             output: DeterministicParameterMap::default(),
             tick_count: 0,
             initialized: false,
@@ -64,6 +70,8 @@ impl AurexisEngine {
             collision_resolver: VoiceCollisionResolver::new(),
             attention_engine: AttentionVectorEngine::new(),
             energy_governor: EnergyGovernor::new(),
+            priority_matrix: DynamicPriorityMatrix::new(),
+            spectral_allocator: SpectralAllocator::new(),
             output: DeterministicParameterMap::default(),
             tick_count: 0,
             initialized: false,
@@ -85,6 +93,8 @@ impl AurexisEngine {
         self.collision_resolver.clear();
         self.attention_engine.clear();
         self.energy_governor.reset_session();
+        self.priority_matrix.reset();
+        self.spectral_allocator.reset();
         self.output = DeterministicParameterMap::default();
         self.tick_count = 0;
         log::info!("AUREXIS: Session reset");
@@ -156,6 +166,26 @@ impl AurexisEngine {
     /// Record a spin result for session memory.
     pub fn record_spin(&mut self, win_multiplier: f64, is_feature: bool, is_jackpot: bool) {
         self.energy_governor.record_spin(win_multiplier, is_feature, is_jackpot);
+    }
+
+    /// Get DPM reference.
+    pub fn priority_matrix(&self) -> &DynamicPriorityMatrix {
+        &self.priority_matrix
+    }
+
+    /// Get mutable DPM reference.
+    pub fn priority_matrix_mut(&mut self) -> &mut DynamicPriorityMatrix {
+        &mut self.priority_matrix
+    }
+
+    /// Get spectral allocator reference.
+    pub fn spectral_allocator(&self) -> &SpectralAllocator {
+        &self.spectral_allocator
+    }
+
+    /// Get mutable spectral allocator reference.
+    pub fn spectral_allocator_mut(&mut self) -> &mut SpectralAllocator {
+        &mut self.spectral_allocator
     }
 
     // ═══════════════════════════════════════════════
@@ -352,6 +382,32 @@ impl AurexisEngine {
         let vb = self.energy_governor.voice_budget();
         map.voice_budget_max = vb.max_voices;
         map.voice_budget_ratio = vb.budget_ratio;
+
+        // ─── STAGE 11: DYNAMIC PRIORITY MATRIX ───
+        // Feed GEG outputs into DPM
+        self.priority_matrix.set_energy_cap(map.energy_overall_cap);
+        self.priority_matrix.set_voice_budget_max(map.voice_budget_max);
+        self.priority_matrix.set_profile_index(self.energy_governor.profile() as u8);
+
+        // DPM computes internally when voices are submitted via FFI
+        // Here we just sync the last output to the parameter map
+        let dpm_out = self.priority_matrix.last_output();
+        map.dpm_retained = dpm_out.retained_count;
+        map.dpm_attenuated = dpm_out.attenuated_count;
+        map.dpm_suppressed = dpm_out.suppressed_count;
+        map.dpm_jackpot_override = dpm_out.jackpot_override_active;
+
+        // ─── STAGE 12: SPECTRAL ALLOCATION ───
+        // Feed energy cap into spectral allocator
+        self.spectral_allocator.set_energy_cap(map.energy_overall_cap);
+
+        // SAMCL computes internally when voices are submitted via FFI
+        // Here we sync the last output to the parameter map
+        let samcl_out = self.spectral_allocator.last_output();
+        map.sci_adv = samcl_out.sci_adv;
+        map.spectral_collisions = samcl_out.collision_count;
+        map.spectral_slot_shifts = samcl_out.slot_shifts;
+        map.spectral_aggressive_carve = samcl_out.aggressive_carve_active;
 
         // Store output
         self.output = map.clone();

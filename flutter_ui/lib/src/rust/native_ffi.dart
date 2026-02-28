@@ -23250,5 +23250,403 @@ extension TimeStretchFFI on NativeFFI {
       return null;
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DPM (Dynamic Priority Matrix) FFI
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set emotional state (0-6)
+  void dpmSetEmotionalState(int stateIndex) {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Uint8),
+          int Function(int)>('dpm_set_emotional_state');
+      fn(stateIndex);
+    } catch (_) {}
+  }
+
+  /// Get current emotional state (0-6)
+  int dpmGetEmotionalState() {
+    try {
+      final fn = _lib.lookupFunction<Uint8 Function(),
+          int Function()>('dpm_get_emotional_state');
+      return fn();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Get emotional state count
+  int dpmEmotionalStateCount() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(),
+          int Function()>('dpm_emotional_state_count');
+      return fn();
+    } catch (_) {
+      return 7;
+    }
+  }
+
+  /// Compute priority for single event
+  double dpmComputePriority(int eventType, double contextModifier) {
+    try {
+      final fn = _lib.lookupFunction<Double Function(Uint8, Double),
+          double Function(int, double)>('dpm_compute_priority');
+      return fn(eventType, contextModifier);
+    } catch (_) {
+      return -1.0;
+    }
+  }
+
+  /// Get retained count
+  int dpmRetainedCount() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(),
+          int Function()>('dpm_retained_count');
+      return fn();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Get attenuated count
+  int dpmAttenuatedCount() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(),
+          int Function()>('dpm_attenuated_count');
+      return fn();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Get suppressed count
+  int dpmSuppressedCount() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(),
+          int Function()>('dpm_suppressed_count');
+      return fn();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Get ducked count
+  int dpmDuckedCount() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(),
+          int Function()>('dpm_ducked_count');
+      return fn();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Check JACKPOT_GRAND override
+  bool dpmIsJackpotOverride() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(),
+          int Function()>('dpm_is_jackpot_override');
+      return fn() != 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Get survival action for voice (0=Retain, 1=Attenuate, 2=Suppress, 3=Duck)
+  int dpmVoiceSurvivalAction(int voiceId) {
+    try {
+      final fn = _lib.lookupFunction<Uint8 Function(Uint32),
+          int Function(int)>('dpm_voice_survival_action');
+      return fn(voiceId);
+    } catch (_) {
+      return 255;
+    }
+  }
+
+  /// Get event type count
+  int dpmEventTypeCount() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(),
+          int Function()>('dpm_event_type_count');
+      return fn();
+    } catch (_) {
+      return 8;
+    }
+  }
+
+  /// Get event base weight
+  double dpmEventBaseWeight(int eventType) {
+    try {
+      final fn = _lib.lookupFunction<Double Function(Uint8),
+          double Function(int)>('dpm_event_base_weight');
+      return fn(eventType);
+    } catch (_) {
+      return -1.0;
+    }
+  }
+
+  /// Get event weights JSON for bake
+  String? dpmEventWeightsJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('dpm_event_weights_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('dpm_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get profile modifiers JSON for bake
+  String? dpmProfileModifiersJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('dpm_profile_modifiers_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('dpm_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get context rules JSON for bake
+  String? dpmContextRulesJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('dpm_context_rules_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('dpm_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get priority matrix JSON for bake
+  String? dpmPriorityMatrixJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('dpm_priority_matrix_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('dpm_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SAMCL (Spectral Allocation & Masking) FFI
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Assign spectral role to voice
+  void samclAssignRole(int voiceId, int roleIndex, int priority, int harmonicLayers) {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Uint32, Uint8, Int32, Uint32),
+          int Function(int, int, int, int)>('samcl_assign_role');
+      fn(voiceId, roleIndex, priority, harmonicLayers);
+    } catch (_) {}
+  }
+
+  /// Remove voice from spectral tracking
+  void samclRemoveVoice(int voiceId) {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Uint32),
+          int Function(int)>('samcl_remove_voice');
+      fn(voiceId);
+    } catch (_) {}
+  }
+
+  /// Clear all spectral assignments
+  void samclClear() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(),
+          int Function()>('samcl_clear');
+      fn();
+    } catch (_) {}
+  }
+
+  /// Compute spectral allocation
+  void samclCompute() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(),
+          int Function()>('samcl_compute');
+      fn();
+    } catch (_) {}
+  }
+
+  /// Get SCI_ADV value
+  double samclGetSciAdv() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(),
+          double Function()>('samcl_get_sci_adv');
+      return fn();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  /// Get collision count
+  int samclGetCollisionCount() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(),
+          int Function()>('samcl_get_collision_count');
+      return fn();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Get slot shift count
+  int samclGetSlotShifts() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(),
+          int Function()>('samcl_get_slot_shifts');
+      return fn();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Check aggressive carve
+  bool samclIsAggressiveCarve() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(),
+          int Function()>('samcl_is_aggressive_carve');
+      return fn() != 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Get spectral voice count
+  int samclVoiceCount() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(),
+          int Function()>('samcl_voice_count');
+      return fn();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Get band density for role
+  int samclBandDensity(int roleIndex) {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(Uint8),
+          int Function(int)>('samcl_band_density');
+      return fn(roleIndex);
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Get role count
+  int samclRoleCount() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(),
+          int Function()>('samcl_role_count');
+      return fn();
+    } catch (_) {
+      return 10;
+    }
+  }
+
+  /// Get harmonic density limit
+  int samclHarmonicDensityLimit(int roleIndex) {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(Uint8),
+          int Function(int)>('samcl_harmonic_density_limit');
+      return fn(roleIndex);
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Get band config JSON for bake
+  String? samclBandConfigJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('samcl_band_config_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('samcl_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get role assignment JSON for bake
+  String? samclRoleAssignmentJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('samcl_role_assignment_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('samcl_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get collision rules JSON for bake
+  String? samclCollisionRulesJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('samcl_collision_rules_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('samcl_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get shift curves JSON for bake
+  String? samclShiftCurvesJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('samcl_shift_curves_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('samcl_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (e) {
+      return null;
+    }
+  }
 }
 

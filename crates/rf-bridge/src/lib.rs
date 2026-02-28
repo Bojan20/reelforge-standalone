@@ -46,6 +46,7 @@ pub mod command_queue;
 pub mod connector_ffi;
 pub mod container_ffi;
 pub mod device_preview_ffi;
+pub mod dpm_ffi;
 pub mod energy_governance_ffi;
 pub mod dsp_commands;
 mod engine_bridge;
@@ -64,6 +65,7 @@ pub mod profiler_ffi;
 mod project;
 pub mod project_ffi;
 pub mod sidechain_ffi; // ✅ P0.5: Sidechain routing
+pub mod samcl_ffi;
 pub mod slot_lab_ffi;
 pub mod stage_ffi;
 pub mod time_stretch_ffi; // P12.1.4: Simple time-stretch for animation timing
@@ -343,8 +345,14 @@ pub use aurexis_ffi::*;
 // Re-export AutoSpatial FFI
 pub use auto_spatial_ffi::*;
 
+// Re-export DPM FFI
+pub use dpm_ffi::*;
+
 // Re-export Energy Governance FFI
 pub use energy_governance_ffi::*;
+
+// Re-export SAMCL FFI
+pub use samcl_ffi::*;
 
 // Re-export Container FFI (P2 optimization)
 pub use container_ffi::*;

@@ -71,7 +71,9 @@ import '../controllers/middleware_timeline_sync_controller.dart';
 import '../providers/event_folder_provider.dart';
 import '../providers/aurexis_provider.dart';
 import '../providers/device_preview_provider.dart';
+import '../providers/dpm_provider.dart';
 import '../providers/energy_governance_provider.dart';
+import '../providers/spectral_allocation_provider.dart';
 import '../providers/aurexis_audit_provider.dart';
 import '../providers/aurexis_profile_provider.dart';
 import '../providers/slot_lab/behavior_tree_provider.dart';
@@ -314,6 +316,20 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<EnergyGovernanceProvider>(
       () => EnergyGovernanceProvider(sl<NativeFFI>()),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 6.1: DPM Provider (Dynamic Priority Matrix)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<DpmProvider>(
+      () => DpmProvider(sl<NativeFFI>()),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 6.2: Spectral Allocation Provider (SAMCL — Spectral Allocation & Masking)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<SpectralAllocationProvider>(
+      () => SpectralAllocationProvider(sl<NativeFFI>()),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
