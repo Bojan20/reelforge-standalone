@@ -315,10 +315,13 @@ class SlotEngineProvider extends ChangeNotifier {
     }
   }
 
-  /// Reinitialize the Rust engine with current configuration
+  /// Reinitialize the Rust engine with current grid configuration
   void _reinitializeEngine() {
     try {
-    } catch (e) { /* ignored */ }
+      _ffi.slotLabSetGridSize(_totalReels, _totalRows);
+    } catch (e) {
+      // Grid resize FFI failed — engine continues with previous grid
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

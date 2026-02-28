@@ -166,6 +166,22 @@ impl SyntheticSlotEngine {
         self.current_bet = bet.max(0.01);
     }
 
+    /// Set grid dimensions (reels × rows) — reinitializes reel strips and paytable
+    pub fn set_grid_size(&mut self, reels: u8, rows: u8) {
+        if reels == self.config.grid.reels && rows == self.config.grid.rows {
+            return;
+        }
+        self.config.grid.reels = reels;
+        self.config.grid.rows = rows;
+
+        // Regenerate reel strips and paytable for new grid
+        let symbols = StandardSymbolSet::new();
+        self.reel_strips = generate_balanced_strips(&symbols, reels, 100);
+        self.paytable = PayTable::standard(self.config.grid);
+
+        log::info!("set_grid_size: Engine reconfigured to {}×{}", reels, rows);
+    }
+
     /// Enable/disable features
     pub fn set_features(&mut self, features: FeatureConfig) {
         self.config.features = features;

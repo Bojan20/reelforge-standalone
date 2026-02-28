@@ -232,6 +232,17 @@ pub extern "C" fn slot_lab_seed_rng(seed: u64) {
     }
 }
 
+/// Set grid dimensions (reels × rows) — reinitializes engine internals
+#[unsafe(no_mangle)]
+pub extern "C" fn slot_lab_set_grid_size(reels: i32, rows: i32) {
+    let reels = (reels as u8).clamp(3, 10);
+    let rows = (rows as u8).clamp(1, 10);
+    let mut guard = SLOT_ENGINE.write();
+    if let Some(ref mut engine) = *guard {
+        engine.set_grid_size(reels, rows);
+    }
+}
+
 /// Reset session stats
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_reset_stats() {

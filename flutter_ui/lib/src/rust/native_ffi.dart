@@ -16492,6 +16492,18 @@ extension SlotLabFFI on NativeFFI {
     }
   }
 
+  /// Set grid dimensions (reels × rows) — reinitializes engine internals
+  void slotLabSetGridSize(int reels, int rows) {
+    try {
+      final fn = _lib.lookupFunction<Void Function(Int32, Int32), void Function(int, int)>(
+        'slot_lab_set_grid_size',
+      );
+      fn(reels, rows);
+    } catch (e) {
+      print('[SlotLab] slotLabSetGridSize error: $e');
+    }
+  }
+
   /// Reset session stats
   void slotLabResetStats() {
     try {
