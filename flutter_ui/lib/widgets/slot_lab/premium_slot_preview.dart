@@ -5158,9 +5158,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     eventRegistry.stopEvent('WIN_PRESENT');
 
     // Stop any tier-specific audio
-    for (final tier in ['BIG', 'SUPER', 'MEGA', 'EPIC', 'ULTRA']) {
-      eventRegistry.stopEvent('WIN_PRESENT_$tier');
-      eventRegistry.stopEvent('BIG_WIN_TIER_$tier');
+    for (int i = 1; i <= 5; i++) {
+      eventRegistry.stopEvent('WIN_PRESENT_$i');
+      eventRegistry.stopEvent('BIG_WIN_TIER_$i');
     }
 
     // Trigger END stages so designers can have "win end" sounds
@@ -5875,19 +5875,19 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
     switch (tier) {
       case 'BIG_WIN_TIER_5':
-        eventRegistry.triggerStage('WIN_BIG_WIN_TIER_5');
+        eventRegistry.triggerStage('BIG_WIN_TIER_5');
         break;
       case 'BIG_WIN_TIER_4':
-        eventRegistry.triggerStage('WIN_BIG_WIN_TIER_4');
+        eventRegistry.triggerStage('BIG_WIN_TIER_4');
         break;
       case 'BIG_WIN_TIER_3':
-        eventRegistry.triggerStage('WIN_BIG_WIN_TIER_3');
+        eventRegistry.triggerStage('BIG_WIN_TIER_3');
         break;
       case 'BIG_WIN_TIER_2':
-        eventRegistry.triggerStage('WIN_BIG_WIN_TIER_2');
+        eventRegistry.triggerStage('BIG_WIN_TIER_2');
         break;
       case 'BIG_WIN_TIER_1':
-        eventRegistry.triggerStage('WIN_BIG_WIN_TIER_1');
+        eventRegistry.triggerStage('BIG_WIN_TIER_1');
         break;
       default:
         eventRegistry.triggerStage('WIN_SMALL');

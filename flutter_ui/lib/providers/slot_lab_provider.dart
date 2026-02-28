@@ -299,7 +299,8 @@ class SlotLabProvider extends ChangeNotifier {
   /// True during win presentation (symbol highlight, plaque, rollup, win lines)
   /// When true, new spin should be blocked or fade out first before starting
   bool _isWinPresentationActive = false;
-  bool _baseMusicStarted = false; // Track if base music has been triggered
+  bool _baseMusicStarted = false; // Track if MUSIC_BASE has been triggered
+  bool _gameStartTriggered = false; // Track if GAME_START has been triggered
 
   // ─── P0.3: Anticipation Visual-Audio Sync Callbacks ────────────────────────
   /// Called when anticipation starts on a specific reel
@@ -566,6 +567,9 @@ class SlotLabProvider extends ChangeNotifier {
       } catch (_) { /* ignore FFI errors */ }
       // Clear last spin result so grid shows blank cells
       _lastResult = null;
+      // Reset music flags — new grid means new slot machine config
+      _baseMusicStarted = false;
+      _gameStartTriggered = false;
     }
 
     // Always notify — even if dimensions unchanged, config state may have changed
@@ -816,6 +820,8 @@ class SlotLabProvider extends ChangeNotifier {
     _lastStages = [];
     _stats = null;
     _spinCount = 0;
+    _baseMusicStarted = false;
+    _gameStartTriggered = false;
     notifyListeners();
   }
 
@@ -1543,10 +1549,12 @@ class SlotLabProvider extends ChangeNotifier {
     };
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // VISUAL-SYNC MODE: Skip REEL_STOP in provider — handled by animation callback
+    // VISUAL-SYNC MODE: Skip stages handled by animation callback in slot_preview_widget
+    // REEL_STOP — widget triggers REEL_STOP_$i on animation callback (exact visual sync)
+    // REEL_SPIN_LOOP — widget triggers on spin animation start (force_no_loop one-shot)
     // This prevents duplicate audio (provider + visual callback both triggering)
     // ═══════════════════════════════════════════════════════════════════════════
-    if (_useVisualSyncForReelStop && stageType == 'REEL_STOP') {
+    if (_useVisualSyncForReelStop && (stageType == 'REEL_STOP' || stageType == 'REEL_SPIN_LOOP')) {
       return; // Visual callback in slot_preview_widget.dart will handle this
     }
 
@@ -1570,6 +1578,7 @@ class SlotLabProvider extends ChangeNotifier {
       'ROLLUP_END',
       'BIG_WIN_INTRO',
       'BIG_WIN_END',
+      'BIG_WIN_TIER',  // Widget triggers BIG_WIN_TIER_1..5 with correct timing
     };
 
     // Pattern prefixes — widget triggers dynamic versions of these
@@ -1812,15 +1821,16 @@ class SlotLabProvider extends ChangeNotifier {
       notifyListeners();
     }
 
-    // MUSIC AUTO-TRIGGER: Start base music on first SPIN_START
-    if (stageType == 'SPIN_START' && !_baseMusicStarted) {
-      if (eventRegistry.hasEventForStage('MUSIC_BASE')) {
+    // MUSIC AUTO-TRIGGER: Start base music / game start on first SPIN_START
+    // Each event tracked independently so assigning one doesn't block the other
+    if (stageType == 'SPIN_START') {
+      if (!_baseMusicStarted && eventRegistry.hasEventForStage('MUSIC_BASE')) {
         eventRegistry.triggerStage('MUSIC_BASE', context: context);
         _baseMusicStarted = true;
       }
-      if (eventRegistry.hasEventForStage('GAME_START')) {
+      if (!_gameStartTriggered && eventRegistry.hasEventForStage('GAME_START')) {
         eventRegistry.triggerStage('GAME_START', context: context);
-        _baseMusicStarted = true;
+        _gameStartTriggered = true;
       }
     }
 

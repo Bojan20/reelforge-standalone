@@ -1554,8 +1554,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _reelAnimController.setTargetGrid(_targetGrid);
     _reelAnimController.startSpin();
 
-    // Trigger spin loop audio when reel animation starts — plain one-shot, no loop, no stop
-    eventRegistry.triggerStage('REEL_SPIN_LOOP', context: {'force_no_loop': true});
+    // Trigger spin loop audio when reel animation starts
+    // Let EventRegistry handle looping based on event registration (StageConfigurationService)
+    eventRegistry.triggerStage('REEL_SPIN_LOOP');
   }
 
   void _finalizeSpin(SlotLabSpinResult result) {
@@ -1570,6 +1571,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _reelAnimController.stopImmediately();
     } else {
     }
+
+    // Stop spin loop audio — all reels have stopped
+    eventRegistry.stopEvent('REEL_SPIN_LOOP');
 
     // Stop any existing win line presentation
     _stopWinLinePresentation();
@@ -1906,9 +1910,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     eventRegistry.stopEvent('WIN_SYMBOL_HIGHLIGHT');
     eventRegistry.stopEvent('WIN_LINE_SHOW');
     eventRegistry.stopEvent('WIN_PRESENT');
-    for (final tier in ['BIG', 'SUPER', 'MEGA', 'EPIC', 'ULTRA']) {
-      eventRegistry.stopEvent('WIN_PRESENT_$tier');
-      eventRegistry.stopEvent('BIG_WIN_TIER_$tier');
+    for (int i = 1; i <= 5; i++) {
+      eventRegistry.stopEvent('WIN_PRESENT_$i');
+      eventRegistry.stopEvent('BIG_WIN_TIER_$i');
     }
 
     // Trigger END stages so audio designers can have "win end" sounds
@@ -2908,9 +2912,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   void _advanceTierProgression(List<LineWin> lineWinsForPhase3, VoidCallback? onComplete) {
     if (!mounted || !_isInTierProgression) return;
 
-    // Trigger visual tier stage (optional — main audio is WIN_PRESENT_N)
+    // Trigger visual tier stage audio (matches stage name in EventRegistry)
     final currentTier = _tierProgressionList[_tierProgressionIndex];
-    eventRegistry.triggerStage('WIN_TIER_$currentTier');
+    eventRegistry.triggerStage(currentTier);
 
     // Update display
     setState(() {

@@ -9954,8 +9954,21 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // Register event under EACH trigger stage
     // Each registration uses a unique ID to avoid conflicts
+    //
+    // CRITICAL: Skip stages that have a direct UltimateAudioPanel assignment.
+    // Audio assignments from onAudioAssign are the source of truth for playback.
+    // Composite events are for timeline/event folder display only.
+    final projectProvider = Provider.of<SlotLabProjectProvider>(context, listen: false);
+    final audioAssignments = projectProvider.audioAssignments;
+
     for (int i = 0; i < stages.length; i++) {
       final stage = stages[i];
+
+      // Don't overwrite direct audio assignments from UltimateAudioPanel
+      if (audioAssignments.containsKey(stage)) {
+        continue;
+      }
+
       final eventId = i == 0 ? event.id : '${event.id}_stage_$i';
 
       // Determine target bus from first layer (or default to SFX=2)

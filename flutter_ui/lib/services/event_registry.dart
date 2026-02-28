@@ -1319,9 +1319,11 @@ class EventRegistry extends ChangeNotifier {
       'SYMBOL_LAND': 5,
     };
 
-    // Check if this is a generic stage (no trailing _N)
+    // Check if this is a specific stage (trailing _N)
     if (RegExp(r'_\d+$').hasMatch(stage)) {
-      return; // Already specific (e.g., REEL_STOP_0), don't expand
+      // Already specific (e.g., REEL_STOP_0) — ensure generic fallback exists
+      _ensureGenericFallback(event);
+      return;
     }
 
     // Check expandable patterns
@@ -1381,6 +1383,55 @@ class EventRegistry extends ChangeNotifier {
       _stageToEvent[specificEvent.stage] = specificEvent;
 
     }
+  }
+
+  /// When a specific stage (e.g., REEL_STOP_0) is registered, ensure the
+  /// generic fallback (REEL_STOP) also exists so that unassigned indices
+  /// (e.g., REEL_STOP_2) can fall back to it via _getFallbackStage.
+  void _ensureGenericFallback(AudioEvent event) {
+    final stage = event.stage.toUpperCase();
+    final match = RegExp(r'^(.+)_\d+$').firstMatch(stage);
+    if (match == null) return;
+
+    final genericStage = match.group(1)!;
+
+    // Only for known expandable patterns
+    const fallbackPatterns = {
+      'REEL_STOP', 'REEL_LAND', 'WIN_LINE_SHOW', 'WIN_LINE_HIDE',
+      'CASCADE_STEP', 'SYMBOL_LAND',
+    };
+    if (!fallbackPatterns.contains(genericStage)) return;
+
+    // If generic already registered, skip
+    if (_stageToEvent.containsKey(genericStage)) return;
+
+    // Create generic fallback using same audio (center pan)
+    if (event.layers.isEmpty || event.layers.first.audioPath.isEmpty) return;
+
+    final genericEvent = AudioEvent(
+      id: '${event.id}_generic',
+      name: '${event.name} (Generic)',
+      stage: genericStage,
+      layers: [
+        AudioLayer(
+          id: '${event.layers.first.id}_generic',
+          audioPath: event.layers.first.audioPath,
+          name: event.layers.first.name,
+          volume: event.layers.first.volume,
+          pan: 0.0, // Center for generic
+          delay: event.layers.first.delay,
+          offset: event.layers.first.offset,
+          busId: event.layers.first.busId,
+        ),
+      ],
+      duration: event.duration,
+      loop: event.loop,
+      priority: event.priority,
+    );
+
+    // Register directly to avoid recursion
+    _events[genericEvent.id] = genericEvent;
+    _stageToEvent[genericEvent.stage] = genericEvent;
   }
 
   /// Synchronous stop - for use in registerEvent
