@@ -26,6 +26,8 @@ members = [
     "crates/rf-slot-lab",
     # Adaptive Layer Engine
     "crates/rf-ale",
+    # AUREXIS™ Intelligence Engine
+    "crates/rf-aurexis",
     # Offline DSP Processing
     "crates/rf-offline",
     # QA & Testing Infrastructure
@@ -71,6 +73,7 @@ rf-ingest = { path = "crates/rf-ingest" }
 rf-connector = { path = "crates/rf-connector" }
 rf-slot-lab = { path = "crates/rf-slot-lab" }
 rf-ale = { path = "crates/rf-ale" }
+rf-aurexis = { path = "crates/rf-aurexis" }
 rf-offline = { path = "crates/rf-offline" }
 rf-audio-diff = { path = "crates/rf-audio-diff" }
 

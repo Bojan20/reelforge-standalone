@@ -108,6 +108,7 @@ import '../widgets/slot_lab/gdd_preview_dialog.dart';
 import '../widgets/ale/ale_panel.dart';
 // import '../widgets/slot_lab/symbol_strip_widget.dart'; // LEGACY - replaced by UltimateAudioPanel
 import '../widgets/slot_lab/ultimate_audio_panel.dart';
+import '../widgets/aurexis/aurexis_panel.dart';
 import '../widgets/slot_lab/events_panel_widget.dart';
 // P0 PERFORMANCE: WaveformThumbnail removed from audio browser — too slow for large lists
 import '../services/stage_configuration_service.dart';
@@ -402,6 +403,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // Manual override (user can toggle panels regardless of breakpoint)
   bool _leftPanelManuallyHidden = false;
   bool _rightPanelManuallyHidden = false;
+
+  // Left panel mode: true = AUREXIS panel, false = UltimateAudioPanel
+  bool _leftPanelAurexisMode = false;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ULTIMATE AUDIO PANEL STATE — now persisted in SlotLabProjectProvider
@@ -2471,7 +2475,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     final forceHideBoth = availableWidth < _breakpointHideBoth;
 
                     // Calculate center width to ensure minimum
-                    final leftWidth = (showLeftPanel && !forceHideBoth) ? 240.0 : 0.0;
+                    final leftWidth = (showLeftPanel && !forceHideBoth) ? (_leftPanelAurexisMode ? 280.0 : 240.0) : 0.0;
                     final rightWidth = (showRightPanel && !forceHideBoth) ? 300.0 : 0.0;
                     final centerWidth = availableWidth - leftWidth - rightWidth;
 
@@ -2482,8 +2486,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
                     return Row(
                       children: [
-                        // LEFT: Ultimate Audio Panel (V7 — replaces SymbolStripWidget)
-                        if (actualShowLeft)
+                        // LEFT: AUREXIS Panel or Ultimate Audio Panel
+                        if (actualShowLeft && _leftPanelAurexisMode)
+                          const AurexisPanel(),
+                        if (actualShowLeft && !_leftPanelAurexisMode)
                           Consumer2<SlotLabProjectProvider, FeatureBuilderProvider>(
                       builder: (context, projectProvider, featureBuilderProvider, _) {
                         // P13.8.6: Get generated stages for instant display
@@ -3326,6 +3332,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             onTap: _toggleLeftPanel,
             tooltip: _leftPanelManuallyHidden ? 'Show Audio Panel' : 'Hide Audio Panel',
             isActive: !_leftPanelManuallyHidden,
+          ),
+          const SizedBox(width: 2),
+          _buildGlassButton(
+            icon: Icons.auto_awesome,
+            onTap: () => setState(() => _leftPanelAurexisMode = !_leftPanelAurexisMode),
+            tooltip: _leftPanelAurexisMode ? 'Switch to Audio Panel' : 'Switch to AUREXIS',
+            isActive: _leftPanelAurexisMode,
           ),
           const SizedBox(width: 4),
           _buildGlassButton(

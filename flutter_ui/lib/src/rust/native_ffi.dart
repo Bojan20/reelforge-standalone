@@ -22449,5 +22449,404 @@ extension TimeStretchFFI on NativeFFI {
   int timeStretchProcessorCount() {
     return _timeStretchProcessorCount();
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUREXIS™ — Deterministic Slot Audio Intelligence Engine
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Initialize AUREXIS engine.
+  bool aurexisInit() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'aurexis_init',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[AUREXIS] aurexisInit error: $e');
+      return false;
+    }
+  }
+
+  /// Destroy AUREXIS engine.
+  bool aurexisDestroy() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'aurexis_destroy',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[AUREXIS] aurexisDestroy error: $e');
+      return false;
+    }
+  }
+
+  /// Check if AUREXIS is initialized.
+  bool aurexisIsInitialized() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'aurexis_is_initialized',
+      );
+      return fn() == 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Reset session state (fatigue, timing, voices).
+  bool aurexisResetSession() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'aurexis_reset_session',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[AUREXIS] aurexisResetSession error: $e');
+      return false;
+    }
+  }
+
+  /// Set volatility index (0.0 = low, 1.0 = extreme).
+  bool aurexisSetVolatility(double index) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Double),
+          int Function(double)
+      >('aurexis_set_volatility');
+      return fn(index) == 1;
+    } catch (e) {
+      print('[AUREXIS] aurexisSetVolatility error: $e');
+      return false;
+    }
+  }
+
+  /// Set RTP percentage (85.0 - 99.5).
+  bool aurexisSetRtp(double rtp) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Double),
+          int Function(double)
+      >('aurexis_set_rtp');
+      return fn(rtp) == 1;
+    } catch (e) {
+      print('[AUREXIS] aurexisSetRtp error: $e');
+      return false;
+    }
+  }
+
+  /// Set win data.
+  bool aurexisSetWin(double amount, double bet, double jackpotProximity) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Double, Double, Double),
+          int Function(double, double, double)
+      >('aurexis_set_win');
+      return fn(amount, bet, jackpotProximity) == 1;
+    } catch (e) {
+      print('[AUREXIS] aurexisSetWin error: $e');
+      return false;
+    }
+  }
+
+  /// Update audio metering (RMS and HF dB).
+  bool aurexisSetMetering(double rmsDb, double hfDb) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Double, Double),
+          int Function(double, double)
+      >('aurexis_set_metering');
+      return fn(rmsDb, hfDb) == 1;
+    } catch (e) {
+      print('[AUREXIS] aurexisSetMetering error: $e');
+      return false;
+    }
+  }
+
+  /// Set deterministic variation seed.
+  bool aurexisSetSeed(int spriteId, int eventTime, int gameState, int sessionIndex) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Uint64, Uint64, Uint64, Uint64),
+          int Function(int, int, int, int)
+      >('aurexis_set_seed');
+      return fn(spriteId, eventTime, gameState, sessionIndex) == 1;
+    } catch (e) {
+      print('[AUREXIS] aurexisSetSeed error: $e');
+      return false;
+    }
+  }
+
+  /// Set platform type. 0=Desktop, 1=Mobile, 2=Headphones, 3=Cabinet.
+  bool aurexisSetPlatform(int platformId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Int32),
+          int Function(int)
+      >('aurexis_set_platform');
+      return fn(platformId) == 1;
+    } catch (e) {
+      print('[AUREXIS] aurexisSetPlatform error: $e');
+      return false;
+    }
+  }
+
+  /// Register a voice for collision tracking.
+  bool aurexisRegisterVoice(int voiceId, double pan, double zDepth, int priority) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Uint32, Float, Float, Int32),
+          int Function(int, double, double, int)
+      >('aurexis_register_voice');
+      return fn(voiceId, pan, zDepth, priority) == 1;
+    } catch (e) {
+      print('[AUREXIS] aurexisRegisterVoice error: $e');
+      return false;
+    }
+  }
+
+  /// Unregister a voice.
+  bool aurexisUnregisterVoice(int voiceId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Uint32),
+          int Function(int)
+      >('aurexis_unregister_voice');
+      return fn(voiceId) == 1;
+    } catch (e) {
+      print('[AUREXIS] aurexisUnregisterVoice error: $e');
+      return false;
+    }
+  }
+
+  /// Register a screen event for attention vector.
+  bool aurexisRegisterScreenEvent(int eventId, double x, double y, double weight, int priority) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Uint32, Float, Float, Float, Int32),
+          int Function(int, double, double, double, int)
+      >('aurexis_register_screen_event');
+      return fn(eventId, x, y, weight, priority) == 1;
+    } catch (e) {
+      print('[AUREXIS] aurexisRegisterScreenEvent error: $e');
+      return false;
+    }
+  }
+
+  /// Clear all screen events.
+  bool aurexisClearScreenEvents() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'aurexis_clear_screen_events',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[AUREXIS] aurexisClearScreenEvents error: $e');
+      return false;
+    }
+  }
+
+  /// Compute parameter map (call every tick ~50ms).
+  bool aurexisCompute(int elapsedMs) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Uint64),
+          int Function(int)
+      >('aurexis_compute');
+      return fn(elapsedMs) == 1;
+    } catch (e) {
+      print('[AUREXIS] aurexisCompute error: $e');
+      return false;
+    }
+  }
+
+  /// Get a single parameter by name.
+  double aurexisGetParameter(String name) {
+    try {
+      final fn = _lib.lookupFunction<
+          Double Function(Pointer<Utf8>),
+          double Function(Pointer<Utf8>)
+      >('aurexis_get_parameter');
+
+      return withNativeString(name, fn);
+    } catch (e) {
+      print('[AUREXIS] aurexisGetParameter error: $e');
+      return -999.0;
+    }
+  }
+
+  /// Get stereo width.
+  double aurexisGetStereoWidth() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'aurexis_get_stereo_width',
+      );
+      return fn();
+    } catch (e) {
+      return 1.0;
+    }
+  }
+
+  /// Get fatigue index.
+  double aurexisGetFatigueIndex() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'aurexis_get_fatigue_index',
+      );
+      return fn();
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  /// Get escalation multiplier.
+  double aurexisGetEscalationMultiplier() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'aurexis_get_escalation_multiplier',
+      );
+      return fn();
+    } catch (e) {
+      return 1.0;
+    }
+  }
+
+  /// Get HF attenuation in dB.
+  double aurexisGetHfAttenuationDb() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'aurexis_get_hf_attenuation_db',
+      );
+      return fn();
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  /// Get session duration in seconds.
+  double aurexisGetSessionDurationS() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'aurexis_get_session_duration_s',
+      );
+      return fn();
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  /// Get full output parameter map as JSON.
+  /// Returns null on error.
+  String? aurexisGetOutputJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'aurexis_get_output_json',
+      );
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>(
+        'aurexis_free_string',
+      );
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+
+      final json = ptr.toDartString();
+      freeFn(ptr);
+
+      return json;
+    } catch (e) {
+      print('[AUREXIS] aurexisGetOutputJson error: $e');
+      return null;
+    }
+  }
+
+  /// Compute and return full output as JSON (atomic operation).
+  String? aurexisComputeAndGetJson(int elapsedMs) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Uint64),
+          Pointer<Utf8> Function(int)
+      >('aurexis_compute_and_get_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>(
+        'aurexis_free_string',
+      );
+
+      final ptr = fn(elapsedMs);
+      if (ptr == nullptr) return null;
+
+      final json = ptr.toDartString();
+      freeFn(ptr);
+
+      return json;
+    } catch (e) {
+      print('[AUREXIS] aurexisComputeAndGetJson error: $e');
+      return null;
+    }
+  }
+
+  /// Load AUREXIS config from JSON.
+  bool aurexisLoadConfig(String json) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('aurexis_load_config_json');
+
+      return withNativeString(json, (ptr) => fn(ptr) == 1);
+    } catch (e) {
+      print('[AUREXIS] aurexisLoadConfig error: $e');
+      return false;
+    }
+  }
+
+  /// Export AUREXIS config as JSON.
+  String? aurexisExportConfig() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'aurexis_export_config_json',
+      );
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>(
+        'aurexis_free_string',
+      );
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+
+      final json = ptr.toDartString();
+      freeFn(ptr);
+
+      return json;
+    } catch (e) {
+      print('[AUREXIS] aurexisExportConfig error: $e');
+      return null;
+    }
+  }
+
+  /// Set a single coefficient by section.key path.
+  bool aurexisSetCoefficient(String section, String key, double value) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>, Pointer<Utf8>, Double),
+          int Function(Pointer<Utf8>, Pointer<Utf8>, double)
+      >('aurexis_set_coefficient');
+
+      return withNativeStrings2(section, key, (s, k) => fn(s, k, value) == 1);
+    } catch (e) {
+      print('[AUREXIS] aurexisSetCoefficient error: $e');
+      return false;
+    }
+  }
+
+  /// Bulk update state via JSON.
+  bool aurexisUpdateStateJson(String json) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)
+      >('aurexis_update_state_json');
+
+      return withNativeString(json, (ptr) => fn(ptr) == 1);
+    } catch (e) {
+      print('[AUREXIS] aurexisUpdateStateJson error: $e');
+      return false;
+    }
+  }
 }
 

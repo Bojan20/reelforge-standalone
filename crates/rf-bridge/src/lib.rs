@@ -32,6 +32,7 @@
 
 pub mod advanced_metering;
 pub mod ale_ffi;
+pub mod aurexis_ffi;
 mod api;
 mod api_engine;
 mod api_metering;
@@ -333,6 +334,9 @@ pub use slot_lab_ffi::*;
 
 // Re-export ALE FFI
 pub use ale_ffi::*;
+
+// Re-export AUREXIS FFI
+pub use aurexis_ffi::*;
 
 // Re-export AutoSpatial FFI
 pub use auto_spatial_ffi::*;

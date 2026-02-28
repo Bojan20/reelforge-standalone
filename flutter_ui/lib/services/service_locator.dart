@@ -69,6 +69,9 @@ import 'missing_plugin_detector.dart';
 import 'analytics_service.dart';
 import '../controllers/middleware_timeline_sync_controller.dart';
 import '../providers/event_folder_provider.dart';
+import '../providers/aurexis_provider.dart';
+import '../providers/aurexis_audit_provider.dart';
+import '../providers/aurexis_profile_provider.dart';
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -253,6 +256,27 @@ class ServiceLocator {
       () => EventFolderProvider(
         compositeProvider: sl<CompositeEventSystemProvider>(),
       ),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.3: AUREXIS™ Provider (Slot Audio Intelligence Engine)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<AurexisProvider>(
+      () => AurexisProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.4: AUREXIS™ Profile Provider (Profile-driven intelligence)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<AurexisProfileProvider>(
+      () => AurexisProfileProvider(engine: sl<AurexisProvider>()),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.5: AUREXIS™ Audit Provider (Session audit trail)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<AurexisAuditProvider>(
+      () => AurexisAuditProvider(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
