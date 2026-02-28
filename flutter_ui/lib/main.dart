@@ -7,6 +7,7 @@
 // - Rust audio engine via flutter_rust_bridge
 
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import 'package:provider/provider.dart';
 import 'theme/fluxforge_theme.dart';
 import 'screens/engine_connected_layout.dart';
@@ -313,8 +314,10 @@ class FluxForgeApp extends StatelessWidget {
         // Event Registry (Stage → Audio mapping)
         ChangeNotifierProvider.value(value: EventRegistry.instance),
 
-        // Feature Builder Provider (P13)
-        ChangeNotifierProvider(create: (_) => FeatureBuilderProvider()),
+        // Feature Builder Provider (P13) — MUST use GetIt singleton, not new instance
+        ChangeNotifierProvider<FeatureBuilderProvider>.value(
+          value: GetIt.instance<FeatureBuilderProvider>(),
+        ),
       ],
       child: MaterialApp(
         title: 'FluxForge Studio',

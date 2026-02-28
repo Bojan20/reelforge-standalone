@@ -178,6 +178,10 @@ class UltimateAudioPanel extends StatefulWidget {
   /// V11: Called when bulk import applies mappings (stage → audioPath)
   final Function(Map<String, String> mappings)? onBulkImport;
 
+  /// V11: Called when slot machine is created via setup wizard
+  /// Parameters: reelCount, rowCount
+  final void Function(int reels, int rows)? onSlotMachineCreated;
+
   const UltimateAudioPanel({
     super.key,
     this.audioAssignments = const {},
@@ -204,6 +208,7 @@ class UltimateAudioPanel extends StatefulWidget {
     this.redoDescription,
     this.onBulkAssign,
     this.onBulkImport,
+    this.onSlotMachineCreated,
   });
 
   @override
@@ -700,7 +705,18 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       widget.onAudioClear?.call(stage);
     }
 
-    // 3. Reset local UI state
+    // 3. Reset grid to default 3×3
+    widget.onSlotMachineCreated?.call(3, 3);
+
+    // 4. Reset wizard state to defaults
+    _wizardReels = 5;
+    _wizardRows = 3;
+    _wizardName = '';
+    _wizardWinTiers = 5;
+    _wizardPaylineType = PaylineType.lines;
+    _wizardMechanics.clear();
+
+    // 5. Reset local UI state
     setState(() {
       _searchQuery = '';
       _searchController.clear();
@@ -1843,6 +1859,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       mechanics: Map.from(_wizardMechanics),
                     );
                     composer.applyConfig(config);
+                    // Notify parent to sync grid dimensions to engine + UI
+                    widget.onSlotMachineCreated?.call(_wizardReels, _wizardRows);
                   },
                   child: Container(
                     height: 36,

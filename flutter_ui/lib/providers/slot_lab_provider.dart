@@ -286,7 +286,7 @@ class SlotLabProvider extends ChangeNotifier {
   Timer? _audioPreTriggerTimer; // P0.6: Separate timer for audio pre-trigger
   int _currentStageIndex = 0;
   bool _isPlayingStages = false;
-  int _totalReels = 5; // Default, can be configured
+  int _totalReels = 3; // Default 3×3 (matches Rust engine default)
 
   // ─── Reel Spinning State (for STOP button) ────────────────────────────────
   /// True ONLY while reels are visually spinning (SPIN_START → all REEL_STOP)
@@ -560,7 +560,12 @@ class SlotLabProvider extends ChangeNotifier {
     _totalRows = rows;
 
     if (changed && _initialized) {
-      _reinitializeEngine();
+      // Direct FFI call — no need to shutdown+reinit the whole engine
+      try {
+        _ffi.slotLabSetGridSize(reels, rows);
+      } catch (_) { /* ignore FFI errors */ }
+      // Clear last spin result so grid shows blank cells
+      _lastResult = null;
     }
 
     // Always notify — even if dimensions unchanged, config state may have changed
@@ -578,6 +583,9 @@ class SlotLabProvider extends ChangeNotifier {
       final success = _ffi.slotLabInit();
       if (success) {
         _initialized = true;
+        // Apply current grid dimensions to newly initialized engine
+        // Without this, engine resets to default 3×3 on every reinit
+        _ffi.slotLabSetGridSize(_totalReels, _totalRows);
       }
     } catch (_) { /* ignore FFI errors during reinit */ }
   }

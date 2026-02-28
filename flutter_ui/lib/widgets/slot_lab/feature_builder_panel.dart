@@ -43,51 +43,57 @@ class FeatureBuilderPanel extends StatefulWidget {
   static Future<FeatureBuilderResult?> show(BuildContext context) async {
     FeatureBuilderResult? result;
 
+    // Capture provider from parent context BEFORE dialog (dialog has separate context)
+    final featureBuilderProvider = context.read<FeatureBuilderProvider>();
+
     await showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (context) {
-        final size = MediaQuery.of(context).size;
+      builder: (dialogContext) {
+        final size = MediaQuery.of(dialogContext).size;
         final width = (size.width * 0.8).clamp(600.0, 1200.0);
         final height = (size.height * 0.85).clamp(500.0, 900.0);
 
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.all(32),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              width: width,
-              height: height,
-            decoration: BoxDecoration(
-              color: const Color(0xFF121218),
+        return ChangeNotifierProvider<FeatureBuilderProvider>.value(
+          value: featureBuilderProvider,
+          child: Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.all(32),
+            child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: const Color(0xFF4A9EFF).withOpacity(0.3),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF4A9EFF).withOpacity(0.2),
-                  blurRadius: 20,
-                  spreadRadius: 2,
+              child: Container(
+                width: width,
+                height: height,
+              decoration: BoxDecoration(
+                color: const Color(0xFF121218),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFF4A9EFF).withOpacity(0.3),
+                  width: 1,
                 ),
-              ],
-            ),
-            child: FeatureBuilderPanel(
-              onClose: () => Navigator.of(context).pop(),
-              onApplyAndBuild: (reels, rows, symbols, enabledBlockIds) {
-                result = FeatureBuilderResult(
-                  reelCount: reels,
-                  rowCount: rows,
-                  symbolCount: symbols,
-                  enabledBlockIds: enabledBlockIds,
-                );
-                Navigator.of(context).pop();
-              },
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF4A9EFF).withOpacity(0.2),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: FeatureBuilderPanel(
+                onClose: () => Navigator.of(dialogContext).pop(),
+                onApplyAndBuild: (reels, rows, symbols, enabledBlockIds) {
+                  result = FeatureBuilderResult(
+                    reelCount: reels,
+                    rowCount: rows,
+                    symbolCount: symbols,
+                    enabledBlockIds: enabledBlockIds,
+                  );
+                  Navigator.of(dialogContext).pop();
+                },
+              ),
             ),
           ),
-        ),
+          ),
         );
       },
     );

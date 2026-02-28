@@ -1341,6 +1341,19 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     try {
       final provider = _slotLabProvider;
 
+      // Restore grid config from FeatureComposerProvider if available
+      if (GetIt.instance.isRegistered<FeatureComposerProvider>()) {
+        final composer = GetIt.instance<FeatureComposerProvider>();
+        if (composer.isConfigured && composer.config != null) {
+          final cfg = composer.config!;
+          _slotLabSettings = _slotLabSettings.copyWith(
+            reels: cfg.reelCount,
+            rows: cfg.rowCount,
+          );
+          provider.updateGridSize(cfg.reelCount, cfg.rowCount);
+        }
+      }
+
       // Restore lower zone tab state (survives screen switches)
       // NOTE: We persist SlotLabSuperTab index (0-4: stages, events, mix, dsp, bake)
       final tabIndex = provider.persistedLowerZoneTabIndex;
@@ -2767,6 +2780,18 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                 showToast('Bulk assigned to ${expandedStages.length} stages', icon: Icons.copy_all);
                               }
                             },
+                            // V11: Slot Machine Created via Setup Wizard
+                            onSlotMachineCreated: (reels, rows) {
+                              // Sync grid to engine + UI state (no auto-spin)
+                              final slotLabProvider = context.read<SlotLabProvider>();
+                              setState(() {
+                                _slotLabSettings = _slotLabSettings.copyWith(
+                                  reels: reels,
+                                  rows: rows,
+                                );
+                              });
+                              slotLabProvider.updateGridSize(reels, rows);
+                            },
                             // V11: Bulk Import — apply all mappings at once
                             onBulkImport: (mappings) {
                               int count = 0;
@@ -3522,6 +3547,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     );
   }
 
+  /// Inline grid size chip with +/- controls in header bar
   /// Thin vertical divider for header sections
   Widget _headerDivider() {
     return Padding(
@@ -4548,10 +4574,22 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               _slotLabSettings = newSettings;
             });
 
+            final provider = context.read<SlotLabProvider>();
+
+            // Sync grid size to engine
+            if (oldSettings.reels != newSettings.reels || oldSettings.rows != newSettings.rows) {
+              provider.updateGridSize(newSettings.reels, newSettings.rows);
+              // Auto-spin to populate new grid
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted && provider.initialized) {
+                  provider.spin();
+                }
+              });
+            }
+
             // Sync timing profile to provider/FFI
             if (oldSettings.timingProfile != newSettings.timingProfile) {
               final providerProfile = _timingProfileToProvider(newSettings.timingProfile);
-              final provider = context.read<SlotLabProvider>();
               provider.setTimingProfile(providerProfile);
             }
           },
@@ -5157,7 +5195,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSpecRow('Grid', '$_reelCount x $_rowCount'),
+                  _buildSpecRow('Grid', '$_reelCount × $_rowCount'),
                   _buildSpecRow('Pay Model', 'Ways (243)'),
                   _buildSpecRow('RTP Target', '96.5%'),
 
@@ -5497,6 +5535,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       return ScenarioResult('force_win', {'tier': 'none'});
     }
   }
+
+
 
   Widget _buildSpecRow(String label, String value) {
     return Padding(
