@@ -812,7 +812,14 @@ enum SlotLabEventsSubTab { folder, editor, layers, pool, auto }
 enum SlotLabMixSubTab { buses, sends, pan, meter }
 enum SlotLabDspSubTab { chain, eq, comp, reverb }
 enum SlotLabBakeSubTab { export, stems, variations, package, git, analytics, docs }
-enum SlotLabMiddlewareSubTab { behavior, triggers, gate, priority, orchestration, emotional, context, simulation }
+enum SlotLabMiddlewareSubTab {
+  // Core middleware panels (existing)
+  behavior, triggers, gate, priority, orchestration, emotional, context, simulation,
+  // MWUI intelligence views
+  build, flow, sim, diagnostic, templates, export, coverage, inspector,
+  // UCP monitoring zones
+  ucpTimeline, ucpEnergy, ucpVoice, ucpSpectral, ucpFatigue, ucpAil, ucpDebug, ucpExport,
+}
 
 extension SlotLabStagesSubTabX on SlotLabStagesSubTab {
   String get label => ['Trace', 'Timeline', 'Symbols', 'Timing'][index];
@@ -840,8 +847,15 @@ extension SlotLabBakeSubTabX on SlotLabBakeSubTab {
 }
 
 extension SlotLabMiddlewareSubTabX on SlotLabMiddlewareSubTab {
-  String get label => ['Behavior', 'Triggers', 'Gate', 'Priority', 'Orch', 'Emotion', 'Context', 'Sim'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I'][index];
+  String get label => const [
+    // Core (8)
+    'Behavior', 'Triggers', 'Gate', 'Priority', 'Orch', 'Emotion', 'Context', 'Sim',
+    // MWUI (8)
+    '|  Build', 'Flow', 'SimView', 'Diag', 'Templates', 'Export', 'Coverage', 'Inspector',
+    // UCP (8)
+    '|  Timeline', 'Energy', 'Voice', 'Spectral', 'Fatigue', 'AIL', 'Debug', 'UcpExp',
+  ][index];
+  String get shortcut => '';
 }
 
 /// Complete SlotLab Lower Zone state
@@ -890,7 +904,7 @@ class SlotLabLowerZoneState {
       case SlotLabSuperTab.bake:
         bakeSubTab = SlotLabBakeSubTab.values[index.clamp(0, 6)];
       case SlotLabSuperTab.middleware:
-        middlewareSubTab = SlotLabMiddlewareSubTab.values[index.clamp(0, 7)];
+        middlewareSubTab = SlotLabMiddlewareSubTab.values[index.clamp(0, SlotLabMiddlewareSubTab.values.length - 1)];
     }
   }
 
