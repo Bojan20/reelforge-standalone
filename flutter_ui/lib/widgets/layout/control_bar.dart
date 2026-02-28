@@ -413,8 +413,8 @@ class _ControlBarState extends State<ControlBar> {
                               onSave: widget.onSave,
                             ),
 
-                          // Middleware mode indicator
-                          if (!features.showTransport)
+                          // Middleware mode indicator (not in Slot — has own header)
+                          if (!features.showTransport && widget.editorMode != EditorMode.slot)
                             _ModeStatusIndicator(mode: widget.editorMode),
                         ],
                       ),

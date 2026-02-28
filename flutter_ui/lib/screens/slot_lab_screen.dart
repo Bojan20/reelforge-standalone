@@ -3224,169 +3224,164 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   Widget _buildHeader() {
     return Container(
-      height: 56,
+      height: 44,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A22), Color(0xFF242430), Color(0xFF1A1A22)],
+          colors: [Color(0xFF1A1A22), Color(0xFF1E1E28), Color(0xFF1A1A22)],
         ),
         border: Border(
           bottom: BorderSide(
-            color: const Color(0xFFFFD700).withOpacity(0.3),
+            color: const Color(0xFFFFD700).withValues(alpha: 0.25),
             width: 1,
           ),
         ),
       ),
-      child: Row(
-        children: [
-          const SizedBox(width: 12),
-
-          // Close button
-          _buildGlassButton(
-            icon: Icons.arrow_back,
-            onTap: widget.onClose,
-            tooltip: 'Back to DAW',
-          ),
-
-          const SizedBox(width: 16),
-
-          // Logo and title
-          const Icon(Icons.casino, color: Color(0xFFFFD700), size: 24),
-          const SizedBox(width: 8),
-          const Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'FLUXFORGE SLOT LAB',
-                style: TextStyle(
-                  color: Color(0xFFFFD700),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 2,
-                ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Row(
+          children: [
+            // ═══════════════════════════════════════════════════════════════
+            // LEFT — Branding + Navigation
+            // ═══════════════════════════════════════════════════════════════
+            _buildHeaderIconBtn(Icons.arrow_back, widget.onClose, 'Back to DAW'),
+            const SizedBox(width: 10),
+            const Icon(Icons.casino, color: Color(0xFFFFD700), size: 18),
+            const SizedBox(width: 6),
+            const Text(
+              'SLOT LAB',
+              style: TextStyle(
+                color: Color(0xFFFFD700),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.5,
               ),
-              Text(
-                'Audio Sandbox',
-                style: TextStyle(
-                  color: Color(0xFFFFAA00),
-                  fontSize: 10,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
-          ),
+            ),
 
-          const SizedBox(width: 24),
+            // Separator
+            _headerDivider(),
 
-          // Transport controls
-          _buildTransportControls(),
+            // Tool buttons — compact row
+            _buildHeaderIconBtn(Icons.dashboard_customize, _showTemplateGallery, 'Templates'),
+            _buildHeaderIconBtn(Icons.extension, _showFeatureBuilder, 'Features'),
+            _buildHeaderIconBtn(Icons.upload_file, _showGddImportWizard, 'Import GDD'),
+            _buildHeaderIconBtn(Icons.settings, _showSettingsDialog, 'Settings'),
 
-          const SizedBox(width: 16),
+            // ═══════════════════════════════════════════════════════════════
+            // CENTER — Status chips (flexible, clips on overflow)
+            // ═══════════════════════════════════════════════════════════════
+            _headerDivider(),
 
-          // ═══════════════════════════════════════════════════════════════════
-          // P3-15 + P3-16 + M1-4 + P13: Templates, Coverage, Dashboard, Features
-          // ═══════════════════════════════════════════════════════════════════
-          _buildTemplatesButton(),
-          const SizedBox(width: 8),
-          _buildCoverageBadge(),
-          const SizedBox(width: 8),
-          _buildDashboardButton(),
-          const SizedBox(width: 8),
-          _buildFeatureBuilderButton(),
+            // Inline toast
+            buildToastWidget(),
 
-          const Spacer(),
-
-          // Inline toast — compact, non-intrusive feedback
-          buildToastWidget(),
-
-          // Status indicators - clipped to prevent overflow
-          Flexible(
-            child: ClipRect(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const NeverScrollableScrollPhysics(),
+            Expanded(
+              child: ClipRect(
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildStatusChip('BALANCE', '\$${_balance.toStringAsFixed(0)}', const Color(0xFF40FF90)),
-                    const SizedBox(width: 6),
+                    _buildStatusChip('BAL', '\$${_balance.toStringAsFixed(0)}', const Color(0xFF40FF90)),
+                    const SizedBox(width: 4),
                     _buildStatusChip('BET', '\$${_bet.toStringAsFixed(2)}', const Color(0xFF4A9EFF)),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 4),
                     _buildStatusChip('WIN', '\$${_lastWin.toStringAsFixed(0)}', const Color(0xFFFFD700)),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 4),
                     _buildMiddlewareStatusChips(),
-                    // Background audio preload indicator (shows only during preload)
                     if (_isPreloadingAudio) ...[
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 4),
                       _buildAudioPreloadIndicator(),
                     ],
                   ],
                 ),
               ),
             ),
-          ),
 
-          const SizedBox(width: 8),
+            // ═══════════════════════════════════════════════════════════════
+            // RIGHT — View toggles + Panel toggles
+            // ═══════════════════════════════════════════════════════════════
+            _headerDivider(),
 
-          // View toggles
-          _buildGlassButton(
-            icon: Icons.folder_open,
-            onTap: () => setState(() => _showAudioBrowser = !_showAudioBrowser),
-            tooltip: 'Audio Browser',
-            isActive: _showAudioBrowser,
-          ),
-          const SizedBox(width: 4),
-          _buildGlassButton(
-            icon: Icons.upload_file,
-            onTap: _showGddImportWizard,
-            tooltip: 'Import GDD',
-          ),
-          const SizedBox(width: 4),
-          _buildGlassButton(
-            icon: Icons.settings,
-            onTap: _showSettingsDialog,
-            tooltip: 'Settings',
-          ),
+            // Coverage badge (compact)
+            _buildCoverageBadge(),
 
-          const SizedBox(width: 8),
-          Container(height: 24, width: 1, color: Colors.white24),
-          const SizedBox(width: 8),
+            const SizedBox(width: 6),
 
-          // Panel toggles
-          _buildGlassButton(
-            icon: Icons.view_sidebar,
-            onTap: _toggleLeftPanel,
-            tooltip: _leftPanelManuallyHidden ? 'Show Audio Panel' : 'Hide Audio Panel',
-            isActive: !_leftPanelManuallyHidden,
-          ),
-          const SizedBox(width: 2),
-          _buildGlassButton(
-            icon: Icons.auto_awesome,
-            onTap: () => setState(() => _leftPanelAurexisMode = !_leftPanelAurexisMode),
-            tooltip: _leftPanelAurexisMode ? 'Switch to Audio Panel' : 'Switch to AUREXIS',
-            isActive: _leftPanelAurexisMode,
-          ),
-          const SizedBox(width: 2),
-          _buildGlassButton(
-            icon: Icons.view_sidebar_outlined,
-            onTap: _toggleRightPanel,
-            tooltip: _rightPanelManuallyHidden ? 'Show Events Panel' : 'Hide Events Panel',
-            isActive: !_rightPanelManuallyHidden,
-          ),
-          const SizedBox(width: 2),
-          _buildGlassButton(
-            icon: Icons.vertical_split,
-            onTap: () {
-              final ctrl = SlotLabLowerZoneController.instance;
-              ctrl.toggle();
-            },
-            tooltip: 'Toggle Lower Zone',
-            isActive: SlotLabLowerZoneController.instance.isExpanded,
-          ),
+            // Browser toggle
+            _buildHeaderIconBtn(
+              Icons.folder_open,
+              () => setState(() => _showAudioBrowser = !_showAudioBrowser),
+              'Audio Browser',
+              isActive: _showAudioBrowser,
+            ),
 
-          const SizedBox(width: 8),
-        ],
+            _headerDivider(),
+
+            // Panel visibility — grouped tight
+            _buildHeaderIconBtn(
+              Icons.view_sidebar,
+              _toggleLeftPanel,
+              _leftPanelManuallyHidden ? 'Show Left' : 'Hide Left',
+              isActive: !_leftPanelManuallyHidden,
+            ),
+            _buildHeaderIconBtn(
+              Icons.auto_awesome,
+              () => setState(() => _leftPanelAurexisMode = !_leftPanelAurexisMode),
+              _leftPanelAurexisMode ? 'Audio Panel' : 'AUREXIS',
+              isActive: _leftPanelAurexisMode,
+            ),
+            _buildHeaderIconBtn(
+              Icons.view_sidebar_outlined,
+              _toggleRightPanel,
+              _rightPanelManuallyHidden ? 'Show Right' : 'Hide Right',
+              isActive: !_rightPanelManuallyHidden,
+            ),
+            _buildHeaderIconBtn(
+              Icons.horizontal_split,
+              () {
+                final ctrl = SlotLabLowerZoneController.instance;
+                ctrl.toggle();
+              },
+              'Lower Zone',
+              isActive: SlotLabLowerZoneController.instance.isExpanded,
+            ),
+            const SizedBox(width: 4),
+          ],
+        ),
       ),
+    );
+  }
+
+  /// Compact header icon button — 28x28, consistent spacing
+  Widget _buildHeaderIconBtn(IconData icon, VoidCallback onTap, String tooltip, {bool isActive = false}) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 28,
+          height: 28,
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          decoration: BoxDecoration(
+            color: isActive
+                ? const Color(0xFF4A9EFF).withValues(alpha: 0.2)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Icon(
+            icon,
+            color: isActive ? const Color(0xFF4A9EFF) : Colors.white54,
+            size: 15,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Thin vertical divider for header sections
+  Widget _headerDivider() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Container(height: 20, width: 1, color: Colors.white.withValues(alpha: 0.12)),
     );
   }
 
@@ -4682,28 +4677,29 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   Widget _buildStatusChip(String label, String value, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.3)),
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
-      child: Column(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             label,
             style: TextStyle(
-              color: color.withOpacity(0.7),
+              color: color.withValues(alpha: 0.5),
               fontSize: 8,
               fontWeight: FontWeight.w600,
             ),
           ),
+          const SizedBox(width: 3),
           Text(
             value,
             style: TextStyle(
               color: color,
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: FontWeight.w700,
             ),
           ),
