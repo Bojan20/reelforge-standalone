@@ -4034,6 +4034,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Initialize engine with new configuration
     slotLabProvider.updateGridSize(result.reelCount, result.rowCount);
 
+    // Auto-trigger first spin to populate grid with symbols
+    // Without this, grid stays blank (all BLANK=0) until user manually spins
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && slotLabProvider.initialized) {
+        slotLabProvider.spin();
+      }
+    });
+
     // Show success message
     if (mounted) {
       showToast('Slot machine built: ${result.reelCount}×${result.rowCount} grid with ${result.symbolCount} symbols');

@@ -555,17 +555,17 @@ class SlotLabProvider extends ChangeNotifier {
 
   /// Update grid dimensions (called from Feature Builder)
   void updateGridSize(int reels, int rows) {
-    if (reels != _totalReels || rows != _totalRows) {
-      _totalReels = reels;
-      _totalRows = rows;
+    final changed = reels != _totalReels || rows != _totalRows;
+    _totalReels = reels;
+    _totalRows = rows;
 
-      // Re-initialize engine with new grid if already initialized
-      if (_initialized) {
-        _reinitializeEngine();
-      }
-
-      notifyListeners();
+    if (changed && _initialized) {
+      _reinitializeEngine();
     }
+
+    // Always notify — even if dimensions unchanged, config state may have changed
+    // (e.g. FeatureComposerProvider.isConfigured flipped to true)
+    notifyListeners();
   }
 
   /// Reinitialize the Rust engine with current configuration

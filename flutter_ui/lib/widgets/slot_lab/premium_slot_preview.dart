@@ -4925,10 +4925,15 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
   // (Legacy coin values removed — using modern Total Bet system)
 
+  // Listen to FeatureComposerProvider for isConfigured changes
+  late final FeatureComposerProvider _composer;
+
   @override
   void initState() {
     super.initState();
     _reelsStopped = List.filled(widget.reels, true); // Start as stopped
+    _composer = GetIt.instance<FeatureComposerProvider>();
+    _composer.addListener(_onComposerChanged);
     _initAnimations();
     _loadSettings(); // Load persisted settings
     // NOTE: Game config now loaded via Dashboard → Rules tab
@@ -4936,6 +4941,10 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
     });
+  }
+
+  void _onComposerChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -5052,6 +5061,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
   @override
   void dispose() {
+    _composer.removeListener(_onComposerChanged);
     _jackpotTickController.dispose();
     _focusNode.dispose();
     // Cancel any pending Visual-Sync timers
