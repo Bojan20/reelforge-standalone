@@ -3150,6 +3150,7 @@ class _ControlBar extends StatelessWidget {
   final int autoSpinCount;
   final bool isTurbo;
   final bool canSpin;
+  final bool isConfigured; // Slot machine built — gates ALL controls
 
   // SKIP button controls (industry-standard win presentation skip)
   final bool isInWinPresentation;
@@ -3180,6 +3181,7 @@ class _ControlBar extends StatelessWidget {
     required this.autoSpinCount,
     required this.isTurbo,
     required this.canSpin,
+    this.isConfigured = true,
     required this.isInWinPresentation,
     required this.currentWinTier,
     required this.bigWinProtectionRemaining,
@@ -3215,107 +3217,119 @@ class _ControlBar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // Quick Bet Presets row
-          _QuickBetPresetsRow(
-            presets: quickBetPresets,
-            currentBet: totalBet,
-            isDisabled: isSpinning,
-            onPresetSelected: (bet) {
-              onBetChanged(bet);
-              onAfterInteraction?.call();
-            },
+          Opacity(
+            opacity: isConfigured ? 1.0 : 0.3,
+            child: IgnorePointer(
+              ignoring: !isConfigured,
+              child: _QuickBetPresetsRow(
+                presets: quickBetPresets,
+                currentBet: totalBet,
+                isDisabled: isSpinning || !isConfigured,
+                onPresetSelected: (bet) {
+                  onBetChanged(bet);
+                  onAfterInteraction?.call();
+                },
+              ),
+            ),
           ),
           const SizedBox(height: 8),
 
           // Main controls row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // WAYS/PAYLINES info badge (static, from GDD)
-              if (waysCount != null || paylinesCount != null)
-                _InfoBadge(
-                  label: waysCount != null ? 'WAYS' : 'LINES',
-                  value: waysCount != null
-                      ? _formatWays(waysCount!)
-                      : '$paylinesCount',
-                ),
-              if (waysCount != null || paylinesCount != null)
-                const SizedBox(width: 16),
+          Opacity(
+            opacity: isConfigured ? 1.0 : 0.3,
+            child: IgnorePointer(
+              ignoring: !isConfigured,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // WAYS/PAYLINES info badge (static, from GDD)
+                  if (waysCount != null || paylinesCount != null)
+                    _InfoBadge(
+                      label: waysCount != null ? 'WAYS' : 'LINES',
+                      value: waysCount != null
+                          ? _formatWays(waysCount!)
+                          : '$paylinesCount',
+                    ),
+                  if (waysCount != null || paylinesCount != null)
+                    const SizedBox(width: 16),
 
-              // Total Bet control with +/- buttons
-              _ModernBetControl(
-                totalBet: totalBet,
-                minBet: minBet,
-                maxBet: maxBet,
-                betStep: betStep,
-                isDisabled: isSpinning,
-                onDecrease: () {
-                  final newBet = (totalBet - betStep).clamp(minBet, maxBet);
-                  onBetChanged(newBet);
-                  onAfterInteraction?.call();
-                },
-                onIncrease: () {
-                  final newBet = (totalBet + betStep).clamp(minBet, maxBet);
-                  onBetChanged(newBet);
-                  onAfterInteraction?.call();
-                },
-              ),
-              const SizedBox(width: 16),
+                  // Total Bet control with +/- buttons
+                  _ModernBetControl(
+                    totalBet: totalBet,
+                    minBet: minBet,
+                    maxBet: maxBet,
+                    betStep: betStep,
+                    isDisabled: isSpinning || !isConfigured,
+                    onDecrease: () {
+                      final newBet = (totalBet - betStep).clamp(minBet, maxBet);
+                      onBetChanged(newBet);
+                      onAfterInteraction?.call();
+                    },
+                    onIncrease: () {
+                      final newBet = (totalBet + betStep).clamp(minBet, maxBet);
+                      onBetChanged(newBet);
+                      onAfterInteraction?.call();
+                    },
+                  ),
+                  const SizedBox(width: 16),
 
-              // Max bet button
-              _ControlButton(
-                label: 'MAX\nBET',
-                gradient: theme.maxBetGradient,
-                onTap: isSpinning ? null : () {
-                  onMaxBet();
-                  onAfterInteraction?.call();
-                },
-                width: 54,
-                height: 54,
-              ),
-              const SizedBox(width: 10),
+                  // Max bet button
+                  _ControlButton(
+                    label: 'MAX\nBET',
+                    gradient: theme.maxBetGradient,
+                    onTap: (isSpinning || !isConfigured) ? null : () {
+                      onMaxBet();
+                      onAfterInteraction?.call();
+                    },
+                    width: 54,
+                    height: 54,
+                  ),
+                  const SizedBox(width: 10),
 
-              // Auto spin button
-              _ControlButton(
-                label: isAutoSpin ? 'STOP\n$autoSpinCount' : 'AUTO\nSPIN',
-                gradient: isAutoSpin ? theme.autoSpinGradient : null,
-                onTap: () {
-                  onAutoSpinToggle();
-                  onAfterInteraction?.call();
-                },
-                width: 54,
-                height: 54,
-                isActive: isAutoSpin,
-              ),
-              const SizedBox(width: 10),
+                  // Auto spin button
+                  _ControlButton(
+                    label: isAutoSpin ? 'STOP\n$autoSpinCount' : 'AUTO\nSPIN',
+                    gradient: isAutoSpin ? theme.autoSpinGradient : null,
+                    onTap: !isConfigured ? null : () {
+                      onAutoSpinToggle();
+                      onAfterInteraction?.call();
+                    },
+                    width: 54,
+                    height: 54,
+                    isActive: isAutoSpin,
+                  ),
+                  const SizedBox(width: 10),
 
-              // Turbo toggle
-              _ControlButton(
-                icon: Icons.bolt,
-                label: 'TURBO',
-                gradient: isTurbo ? [FluxForgeTheme.accentOrange, const Color(0xFFFF6020)] : null,
-                onTap: () {
-                  onTurboToggle();
-                  onAfterInteraction?.call();
-                },
-                width: 54,
-                height: 54,
-                isActive: isTurbo,
-              ),
-              const SizedBox(width: 20),
+                  // Turbo toggle
+                  _ControlButton(
+                    icon: Icons.bolt,
+                    label: 'TURBO',
+                    gradient: isTurbo ? [FluxForgeTheme.accentOrange, const Color(0xFFFF6020)] : null,
+                    onTap: !isConfigured ? null : () {
+                      onTurboToggle();
+                      onAfterInteraction?.call();
+                    },
+                    width: 54,
+                    height: 54,
+                    isActive: isTurbo,
+                  ),
+                  const SizedBox(width: 20),
 
-              // Main spin/stop/skip button (industry-standard 3-phase)
-              _SpinButton(
-                isSpinning: isSpinning,
-                showStopButton: showStopButton,
-                canSpin: canSpin,
-                isInWinPresentation: isInWinPresentation,
-                currentWinTier: currentWinTier,
-                bigWinProtectionRemaining: bigWinProtectionRemaining,
-                onSpin: onSpin,
-                onStop: onStop,
-                onSkip: onSkip,
+                  // Main spin/stop/skip button (industry-standard 3-phase)
+                  _SpinButton(
+                    isSpinning: isSpinning,
+                    showStopButton: showStopButton,
+                    canSpin: canSpin,
+                    isInWinPresentation: isInWinPresentation,
+                    currentWinTier: currentWinTier,
+                    bigWinProtectionRemaining: bigWinProtectionRemaining,
+                    onSpin: onSpin,
+                    onStop: onStop,
+                    onSkip: onSkip,
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ],
       ),
@@ -6303,6 +6317,13 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
       case LogicalKeyboardKey.space:
         // ═══════════════════════════════════════════════════════════════════════
+        // UNCONFIGURED GUARD — No keyboard interaction without a built slot machine
+        // ═══════════════════════════════════════════════════════════════════════
+        if (!GetIt.instance<FeatureComposerProvider>().isConfigured) {
+          return KeyEventResult.handled; // Swallow the event
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
         // EMBEDDED MODE CHECK — Skip SPACE handling when NOT in fullscreen
         // Let slot_lab_screen global handler handle SPACE in embedded mode
         // This prevents double-handling where both handlers process same event
@@ -6517,6 +6538,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   autoSpinCount: _autoSpinRemaining,
                   isTurbo: _isTurbo,
                   canSpin: canSpin,
+                  isConfigured: isSlotConfigured,
                   // SKIP button controls (industry-standard win presentation skip)
                   // FIX: Use provider.isWinPresentationActive instead of local _showWinPresenter
                   // This ensures Skip button appears when SlotPreviewWidget is in win presentation

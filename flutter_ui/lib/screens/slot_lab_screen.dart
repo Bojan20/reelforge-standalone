@@ -1089,6 +1089,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Don't handle if we're not mounted or visible
     if (!mounted) return false;
 
+    // No interaction without a built slot machine
+    if (GetIt.instance.isRegistered<FeatureComposerProvider>() &&
+        !GetIt.instance<FeatureComposerProvider>().isConfigured) {
+      return true; // Swallow — machine not built
+    }
+
     // ═══════════════════════════════════════════════════════════════════════════
     // CRITICAL: Skip global handler ONLY when in FULLSCREEN preview mode!
     // PremiumSlotPreview has its own Focus-based keyboard handler that properly
@@ -2868,7 +2874,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               SlotLabLowerZoneWidget(
                 controller: _lowerZoneController,
                 slotLabProvider: _slotLabProvider,
-                onSpin: () => _slotLabProvider.spin(),
+                onSpin: () {
+                  if (!GetIt.instance<FeatureComposerProvider>().isConfigured) return;
+                  _slotLabProvider.spin();
+                },
                 onForceOutcome: (outcome) => _slotLabProvider.spinForced(_parseOutcome(outcome)),
                 onAudioDropped: null, // Edit Mode removed - audio drop via UltimateAudioPanel
                 onPause: () => _slotLabProvider.stopStagePlayback(),
