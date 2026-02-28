@@ -466,7 +466,7 @@ class SlotMachineConfig {
 
   const SlotMachineConfig({
     required this.name,
-    this.reelCount = 5,
+    this.reelCount = 3,
     this.rowCount = 3,
     this.paylineCount = 20,
     this.paylineType = PaylineType.lines,

@@ -277,7 +277,7 @@ class SlotPreviewWidget extends StatefulWidget {
     super.key,
     required this.provider,
     this.projectProvider,
-    this.reels = 5,
+    this.reels = 3,
     this.rows = 3,
     this.onSpaceKeyHandled,
     this.showWinPresentation = true, // Default: show (for standalone usage)
@@ -780,9 +780,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   }
 
   void _initializeGrid() {
+    // Default: all BLANK (id=0) — empty unpopulated grid before config
     _displayGrid = List.generate(
       widget.reels,
-      (_) => List.generate(widget.rows, (_) => _random.nextInt(10)),
+      (_) => List.generate(widget.rows, (_) => 0),
     );
     _targetGrid = List.generate(
       widget.reels,

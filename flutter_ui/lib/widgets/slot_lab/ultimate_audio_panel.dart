@@ -44,13 +44,13 @@
 /// Auto-Distribution: Drop a folder on a GROUP, files are automatically
 /// matched to their correct stages using fuzzy filename matching.
 
+import 'dart:io'; // V11: Folder import
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // SL-LP-P1.3
 import 'package:provider/provider.dart'; // SL-INT-P1.1
-import '../../models/auto_event_builder_models.dart';
+import '../../models/auto_event_builder_models.dart' show AudioAsset;
 import '../../models/slot_lab_models.dart';
 import '../../models/win_tier_config.dart'; // P5 Win Tier System
-import '../../services/stage_generator.dart'; // P13.8.6 Feature Builder Stages
 import '../../providers/middleware_provider.dart'; // SL-INT-P1.1
 import '../../services/event_registry.dart'; // SL-INT-P1.1
 import '../../services/stage_group_service.dart';
@@ -60,6 +60,7 @@ import '../../services/variant_manager.dart'; // SL-LP-P1.4
 import 'package:get_it/get_it.dart'; // V11: Feature Composer + Pacing
 import '../../providers/slot_lab/feature_composer_provider.dart'; // V11
 import '../../providers/slot_lab/pacing_engine_provider.dart'; // V11
+import '../../services/audio_mapping_import_service.dart'; // V11: Bulk Import
 import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -149,14 +150,6 @@ class UltimateAudioPanel extends StatefulWidget {
   final SlotWinConfiguration? winConfiguration;
 
   // ==========================================================================
-  // P13.8.6: Feature Builder Generated Stages
-  // ==========================================================================
-
-  /// Generated stages from Feature Builder (Apply & Build)
-  /// These appear FIRST in the panel for immediate audio assignment.
-  final List<GeneratedStageEntry>? generatedStages;
-
-  // ==========================================================================
   // P3 RECOMMENDATIONS — Undo/Redo and Bulk Assign
   // ==========================================================================
 
@@ -181,6 +174,9 @@ class UltimateAudioPanel extends StatefulWidget {
   /// Called for bulk assign (e.g., REEL_STOP → REEL_STOP_0..4)
   final Function(String baseStage, String audioPath)? onBulkAssign;
 
+  /// V11: Called when bulk import applies mappings (stage → audioPath)
+  final Function(Map<String, String> mappings)? onBulkImport;
+
   const UltimateAudioPanel({
     super.key,
     this.audioAssignments = const {},
@@ -198,8 +194,6 @@ class UltimateAudioPanel extends StatefulWidget {
     this.expandedSections,
     this.expandedGroups,
     this.winConfiguration,
-    // P13.8.6 Feature Builder
-    this.generatedStages,
     // P3 Recommendations
     this.onUndo,
     this.onRedo,
@@ -208,6 +202,7 @@ class UltimateAudioPanel extends StatefulWidget {
     this.undoDescription,
     this.redoDescription,
     this.onBulkAssign,
+    this.onBulkImport,
   });
 
   @override
@@ -249,7 +244,6 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     // V9: Phase IDs + Section IDs for two-level expand state
     // V10: Smart defaults — only P0 phases expanded, rest collapsed
     _localExpandedSections = Set.from(widget.expandedSections ?? {
-      'feature_builder',    // 0. Feature Builder (P13.8.6) — top priority
       'core_loop',          // Phase 1: Core Loop — P0 critical
       'base_game_loop',     // Section: most used
     });
@@ -411,9 +405,6 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          // P13.8.6: Feature Builder Generated Stages
-                          if (widget.generatedStages != null && widget.generatedStages!.isNotEmpty)
-                            _buildSection(_FeatureBuilderSection(widget: widget)),
                           // V11: Mechanic composer — quick toggles
                           _buildMechanicComposer(),
                           // V10: Show selected phase only (or all if in All mode)
@@ -507,7 +498,33 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             ),
             const SizedBox(width: 4),
           ],
-          // Removed "Audio Panel" text to save space
+          // V11: Bulk Import button
+          Tooltip(
+            message: 'Import audio: folder drop, CSV, or JSON mapping',
+            child: GestureDetector(
+              onTap: () => _showBulkImportDialog(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF40FF90).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(color: const Color(0xFF40FF90).withValues(alpha: 0.3)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.file_download, size: 10, color: Color(0xFF40FF90)),
+                    SizedBox(width: 3),
+                    Text('IMPORT', style: TextStyle(
+                      fontSize: 7, fontWeight: FontWeight.w700,
+                      color: Color(0xFF40FF90), letterSpacing: 0.5,
+                    )),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
           const Spacer(),
           // M2-8: Quick Assign Mode toggle (icon only when inactive to save space)
           if (widget.onQuickAssignSlotSelected != null)
@@ -631,6 +648,534 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // V11: Bulk Import Dialog
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  void _showBulkImportDialog(BuildContext context) {
+    BulkImportResult? _lastResult;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return Dialog(
+            backgroundColor: const Color(0xFF16161C),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            child: SizedBox(
+              width: 440,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF1A1A28),
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.file_download, size: 18, color: Color(0xFF40FF90)),
+                        SizedBox(width: 8),
+                        Text('BULK AUDIO IMPORT', style: TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w700,
+                          color: Color(0xFF40FF90), letterSpacing: 0.8,
+                        )),
+                      ],
+                    ),
+                  ),
+
+                  // Import methods
+                  if (_lastResult == null) ...[
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildImportMethodCard(
+                            icon: Icons.folder_open,
+                            title: 'Import Folder',
+                            desc: 'Auto-match filenames to stages (fuzzy)',
+                            color: const Color(0xFF4A9EFF),
+                            onTap: () async {
+                              final path = await _showFilePickerDialog(ctx, 'folder');
+                              if (path == null) return;
+                              // List audio files in folder
+                              final dir = Directory(path);
+                              if (!dir.existsSync()) return;
+                              final audioPaths = dir.listSync()
+                                  .whereType<File>()
+                                  .where((f) {
+                                    final ext = f.path.split('.').last.toLowerCase();
+                                    return {'wav', 'mp3', 'ogg', 'flac', 'aif', 'aiff'}.contains(ext);
+                                  })
+                                  .map((f) => f.path)
+                                  .toList();
+                              if (audioPaths.isEmpty) return;
+                              final result = AudioMappingImportService.instance.matchFolder(audioPaths);
+                              setDialogState(() => _lastResult = result);
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          _buildImportMethodCard(
+                            icon: Icons.table_chart,
+                            title: 'Import CSV',
+                            desc: 'stage,audio columns — precise mapping',
+                            color: const Color(0xFFFFD700),
+                            onTap: () async {
+                              final result = await _pickAndImportFile(ctx, 'csv');
+                              if (result != null) {
+                                setDialogState(() => _lastResult = result);
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          _buildImportMethodCard(
+                            icon: Icons.data_object,
+                            title: 'Import JSON',
+                            desc: '{"mappings": [...]} — structured mapping',
+                            color: const Color(0xFF9370DB),
+                            onTap: () async {
+                              final result = await _pickAndImportFile(ctx, 'json');
+                              if (result != null) {
+                                setDialogState(() => _lastResult = result);
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          // Export current
+                          if (widget.audioAssignments.isNotEmpty)
+                            GestureDetector(
+                              onTap: () => _exportCurrentMappings(ctx),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.04),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.file_upload, size: 14, color: Colors.white38),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Export current mappings (${widget.audioAssignments.length} assignments)',
+                                      style: const TextStyle(fontSize: 10, color: Colors.white38),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    // Import results view
+                    _buildImportResultsView(ctx, _lastResult!, setDialogState),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildImportMethodCard({
+    required IconData icon,
+    required String title,
+    required String desc,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: color),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.w600, color: color,
+                  )),
+                  const SizedBox(height: 2),
+                  Text(desc, style: const TextStyle(fontSize: 9, color: Colors.white38)),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, size: 12, color: color.withValues(alpha: 0.5)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImportResultsView(
+    BuildContext ctx,
+    BulkImportResult result,
+    void Function(void Function()) setDialogState,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Summary
+          Row(
+            children: [
+              _buildResultStat('Matched', result.matchedCount, const Color(0xFF40FF90)),
+              const SizedBox(width: 8),
+              _buildResultStat('Unmatched', result.unmatchedCount, Colors.orange),
+              const SizedBox(width: 8),
+              _buildResultStat('Match Rate', null, const Color(0xFF4A9EFF),
+                text: '${(result.matchRate * 100).toStringAsFixed(0)}%'),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Warnings
+          if (result.warnings.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.all(6),
+              constraints: const BoxConstraints(maxHeight: 60),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: result.warnings.map((w) => Text(
+                    w, style: const TextStyle(fontSize: 8, color: Colors.orange),
+                  )).toList(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+
+          // Matched list (scrollable, max 200px)
+          if (result.mappings.isNotEmpty) ...[
+            Text('MATCHED', style: TextStyle(
+              fontSize: 8, fontWeight: FontWeight.w700,
+              color: Colors.white.withValues(alpha: 0.4), letterSpacing: 1.0,
+            )),
+            const SizedBox(height: 4),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              child: SingleChildScrollView(
+                child: Column(
+                  children: result.mappings.map((m) => Padding(
+                    padding: const EdgeInsets.only(bottom: 2),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 3, height: 10,
+                          decoration: BoxDecoration(
+                            color: m.confidence >= 0.7
+                                ? const Color(0xFF40FF90)
+                                : m.confidence >= 0.4
+                                    ? Colors.orange
+                                    : Colors.red,
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          flex: 2,
+                          child: Text(m.stageId, style: const TextStyle(
+                            fontSize: 9, color: Colors.white60,
+                            fontFamily: 'JetBrainsMono',
+                          )),
+                        ),
+                        const Icon(Icons.arrow_right, size: 10, color: Colors.white24),
+                        Expanded(
+                          flex: 3,
+                          child: Text(
+                            m.audioPath.split('/').last,
+                            style: const TextStyle(fontSize: 9, color: Colors.white38),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          '${(m.confidence * 100).toStringAsFixed(0)}%',
+                          style: TextStyle(
+                            fontSize: 8,
+                            fontFamily: 'JetBrainsMono',
+                            color: m.confidence >= 0.7
+                                ? const Color(0xFF40FF90)
+                                : Colors.orange,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )).toList(),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+
+          // Action buttons
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => Navigator.of(ctx).pop(),
+                  child: Container(
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Center(
+                      child: Text('Cancel', style: TextStyle(fontSize: 10, color: Colors.white54)),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: GestureDetector(
+                  onTap: () {
+                    _applyImportResult(result);
+                    Navigator.of(ctx).pop();
+                  },
+                  child: Container(
+                    height: 32,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF40FF90), Color(0xFF20CC60)],
+                      ),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'APPLY ${result.matchedCount} MAPPINGS',
+                        style: const TextStyle(
+                          fontSize: 10, fontWeight: FontWeight.w700,
+                          color: Color(0xFF0D0D10), letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultStat(String label, int? count, Color color, {String? text}) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Column(
+          children: [
+            Text(text ?? '$count', style: TextStyle(
+              fontSize: 14, fontWeight: FontWeight.w700,
+              color: color, fontFamily: 'JetBrainsMono',
+            )),
+            Text(label, style: TextStyle(
+              fontSize: 7, color: color.withValues(alpha: 0.7),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Apply import result — assign all matched audio
+  void _applyImportResult(BulkImportResult result) {
+    if (result.mappings.isEmpty) return;
+
+    // Use bulk import callback if available
+    if (widget.onBulkImport != null) {
+      final mappings = <String, String>{};
+      for (final m in result.mappings) {
+        mappings[m.stageId] = m.audioPath;
+      }
+      widget.onBulkImport!(mappings);
+    } else {
+      // Fallback: apply one by one via onAudioAssign
+      for (final m in result.mappings) {
+        widget.onAudioAssign?.call(m.stageId, m.audioPath);
+      }
+    }
+  }
+
+  /// Pick a file and import it
+  Future<BulkImportResult?> _pickAndImportFile(BuildContext ctx, String type) async {
+    // Use file picker dialog
+    final path = await _showFilePickerDialog(ctx, type);
+    if (path == null) return null;
+
+    final service = AudioMappingImportService.instance;
+    if (type == 'csv') {
+      return await service.importCsvFile(path);
+    } else {
+      return await service.importJsonFile(path);
+    }
+  }
+
+  /// Simple file picker via text input (macOS native picker would need platform channel)
+  Future<String?> _showFilePickerDialog(BuildContext ctx, String type) async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: ctx,
+      builder: (dialogCtx) => Dialog(
+        backgroundColor: const Color(0xFF16161C),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Enter ${type.toUpperCase()} file path:', style: const TextStyle(
+                fontSize: 11, color: Colors.white70,
+              )),
+              const SizedBox(height: 8),
+              TextField(
+                controller: controller,
+                style: const TextStyle(fontSize: 11, color: Colors.white70, fontFamily: 'JetBrainsMono'),
+                decoration: InputDecoration(
+                  isDense: true, filled: true,
+                  fillColor: const Color(0xFF0D0D10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  hintText: '/path/to/mappings.${type}',
+                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 10),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.of(dialogCtx).pop(null),
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Text('Cancel', style: TextStyle(fontSize: 10, color: Colors.white38)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => Navigator.of(dialogCtx).pop(controller.text.trim()),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4A9EFF),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text('Import', style: TextStyle(
+                        fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white,
+                      )),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    controller.dispose();
+    return result != null && result.isNotEmpty ? result : null;
+  }
+
+  /// Export current mappings to console (for now)
+  void _exportCurrentMappings(BuildContext ctx) {
+    final service = AudioMappingImportService.instance;
+    final csv = service.exportCsv(widget.audioAssignments);
+
+    // Show export preview
+    showDialog(
+      context: ctx,
+      builder: (dialogCtx) => Dialog(
+        backgroundColor: const Color(0xFF16161C),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: SizedBox(
+          width: 400,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('EXPORT — CSV Format', style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w700,
+                  color: Color(0xFF4A9EFF), letterSpacing: 0.5,
+                )),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(maxHeight: 300),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0D0D10),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      csv,
+                      style: const TextStyle(
+                        fontSize: 9, color: Colors.white54,
+                        fontFamily: 'JetBrainsMono',
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Copy this CSV and save to a .csv file for later import.',
+                  style: TextStyle(fontSize: 9, color: Colors.white30),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onTap: () => Navigator.of(dialogCtx).pop(),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text('Close', style: TextStyle(fontSize: 10, color: Colors.white54)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -2923,105 +3468,6 @@ class _PhaseConfig {
     required this.description,
     required this.sections,
   });
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// SECTION 0: FEATURE BUILDER STAGES [DYNAMIC - P13.8.6]
-// Generated stages from Feature Builder "Apply & Build" action.
-// Appears FIRST for immediate audio assignment after configuration.
-// ═══════════════════════════════════════════════════════════════════════════════
-
-class _FeatureBuilderSection extends _SectionConfig {
-  final UltimateAudioPanel widget;
-  _FeatureBuilderSection({required this.widget});
-
-  @override String get id => 'feature_builder';
-  @override String get title => 'FEATURE BUILDER';
-  @override String get icon => '⚡';
-  @override Color get color => const Color(0xFF40FF90); // Green - fresh/new
-
-  @override
-  List<_GroupConfig> get groups {
-    final stages = widget.generatedStages;
-    if (stages == null || stages.isEmpty) return const [];
-
-    // Group stages by category for organized display
-    final Map<String, List<GeneratedStageEntry>> byCategory = {};
-    for (final entry in stages) {
-      final category = entry.category.isNotEmpty ? entry.category : 'uncategorized';
-      byCategory.putIfAbsent(category, () => []).add(entry);
-    }
-
-    // Sort categories by priority (feature categories first)
-    final sortedCategories = byCategory.keys.toList()
-      ..sort((a, b) {
-        final priorityOrder = [
-          'free_spins', 'bonus', 'cascade', 'hold_win', 'jackpot',
-          'multiplier', 'wild', 'scatter', 'base', 'ui', 'uncategorized'
-        ];
-        final aIdx = priorityOrder.indexOf(a.toLowerCase());
-        final bIdx = priorityOrder.indexOf(b.toLowerCase());
-        return (aIdx == -1 ? 999 : aIdx).compareTo(bIdx == -1 ? 999 : bIdx);
-      });
-
-    // Build groups from categories
-    return sortedCategories.map((category) {
-      final categoryStages = byCategory[category]!;
-
-      // Get icon based on category
-      final icon = _getCategoryIcon(category);
-
-      // Sort stages by priority (higher priority first)
-      categoryStages.sort((a, b) => b.stage.priority.compareTo(a.stage.priority));
-
-      return _GroupConfig(
-        id: 'feature_builder_$category',
-        title: _formatCategoryTitle(category),
-        icon: icon,
-        slots: categoryStages.map((entry) {
-          // Build label with markers for pooled/looping
-          String label = entry.stage.description.isNotEmpty
-              ? entry.stage.description
-              : entry.name;
-          if (entry.stage.pooled) label += ' ⚡';
-          if (entry.stage.looping) label += ' 🔄';
-
-          return _SlotConfig(
-            stage: entry.name,
-            label: label,
-          );
-        }).toList(),
-      );
-    }).toList();
-  }
-
-  /// Get icon for category
-  String _getCategoryIcon(String category) {
-    switch (category.toLowerCase()) {
-      case 'free_spins': return '🎁';
-      case 'bonus': return '🎯';
-      case 'cascade': return '💎';
-      case 'hold_win': return '🔒';
-      case 'jackpot': return '🏆';
-      case 'multiplier': return '✖️';
-      case 'wild': return '🃏';
-      case 'scatter': return '⭐';
-      case 'base': return '🎰';
-      case 'ui': return '🖥️';
-      default: return '📦';
-    }
-  }
-
-  /// Format category title for display
-  String _formatCategoryTitle(String category) {
-    // Convert snake_case to Title Case
-    return category
-        .split('_')
-        .map((word) => word.isNotEmpty
-            ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
-            : '')
-        .join(' ');
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

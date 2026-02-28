@@ -110,7 +110,7 @@ class PacingEngineProvider extends ChangeNotifier {
   double _featureFrequency = 180.0;
 
   /// Number of reels
-  int _reelCount = 5;
+  int _reelCount = 3;
 
   /// Volatility profile preset
   VolatilityProfile _volatilityProfile = VolatilityProfile.medium;

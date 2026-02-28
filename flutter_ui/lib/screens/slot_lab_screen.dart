@@ -67,6 +67,7 @@ import '../providers/slot_lab/trigger_layer_provider.dart';
 import '../providers/slot_lab/behavior_tree_provider.dart';
 import '../providers/slot_lab/behavior_coverage_provider.dart';
 import '../providers/slot_lab/slotlab_template_provider.dart';
+import '../providers/slot_lab/feature_composer_provider.dart'; // V11: Trostepeni
 import '../providers/ale_provider.dart';
 import '../services/stage_audio_mapper.dart';
 import '../models/stage_models.dart';
@@ -128,8 +129,7 @@ import '../models/slot_lab_models.dart';
 import '../widgets/template/template_gallery_panel.dart';
 import '../widgets/slot_lab/project_dashboard_dialog.dart';
 import '../widgets/slot_lab/feature_builder_panel.dart';
-import '../providers/feature_builder_provider.dart'; // P13.8.6
-import '../models/template_models.dart' show BuiltTemplate;
+import '../models/template_models.dart' show BuiltTemplate, FeatureModuleType;
 
 // =============================================================================
 // SLOT LAB TRACK ID ISOLATION
@@ -922,11 +922,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // CRITICAL: Must match StandardSymbolSet in crates/rf-slot-lab/src/symbols.rs
   // Uses HP1-HP4 (high paying), LP1-LP6 (low paying), WILD, SCATTER, BONUS
   final List<List<String>> _fallbackReelSymbols = [
-    ['HP1', 'LP1', 'HP2', 'LP2', 'WILD'],
-    ['LP1', 'HP1', 'BONUS', 'HP3', 'LP3'],
-    ['LP2', 'WILD', 'HP1', 'LP1', 'HP2'],
-    ['HP3', 'LP3', 'LP1', 'SCATTER', 'HP1'],
-    ['WILD', 'HP2', 'LP2', 'HP1', 'LP1'],
+    ['BLANK', 'BLANK', 'BLANK'],
+    ['BLANK', 'BLANK', 'BLANK'],
+    ['BLANK', 'BLANK', 'BLANK'],
   ];
 
   // Current reel symbols from engine (or fallback)
@@ -1028,6 +1026,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       // CRITICAL: Check if stage should loop + get proper bus
       final shouldLoop = StageConfigurationService.instance.isLooping(stage);
       final busId = _getBusForStage(stage);
+      final isMusicBus = busId == 1;
+      final shouldOverlap = !isMusicBus && !shouldLoop;
+      final crossfadeMs = isMusicBus ? 500 : 0;
 
       // Register in EventRegistry for runtime playback
       eventRegistry.registerEvent(AudioEvent(
@@ -1046,6 +1047,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           ),
         ],
         loop: shouldLoop,
+        overlap: shouldOverlap,
+        crossfadeMs: crossfadeMs,
         targetBusId: busId,
       ));
 
@@ -2220,6 +2223,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         // Register in EventRegistry for instant playback
         final busId = _getBusForStage(match.stage);
         final shouldLoop = StageConfigurationService.instance.isLooping(match.stage);
+        final isMusicBus = busId == 1;
         eventRegistry.registerEvent(AudioEvent(
           id: 'audio_${match.stage}',
           name: match.stage.replaceAll('_', ' '),
@@ -2236,6 +2240,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             ),
           ],
           loop: shouldLoop,
+          overlap: !isMusicBus && !shouldLoop,
+          crossfadeMs: isMusicBus ? 500 : 0,
           targetBusId: busId,
         ));
 
@@ -2585,12 +2591,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                         if (actualShowLeft && _leftPanelAurexisMode)
                           const AurexisPanel(),
                         if (actualShowLeft && !_leftPanelAurexisMode)
-                          Consumer2<SlotLabProjectProvider, FeatureBuilderProvider>(
-                      builder: (context, projectProvider, featureBuilderProvider, _) {
-                        // P13.8.6: Get generated stages for instant display
-                        final stageResult = featureBuilderProvider.generateStages();
-                        final generatedStages = stageResult.isValid ? stageResult.stages : null;
-
+                          Consumer<SlotLabProjectProvider>(
+                      builder: (context, projectProvider, _) {
                         return Container(
                           width: 240,
                           clipBehavior: Clip.hardEdge,
@@ -2603,8 +2605,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                             expandedGroups: projectProvider.expandedGroups,
                             // P5: Dynamic win tier configuration
                             winConfiguration: projectProvider.winConfiguration,
-                            // P13.8.6: Feature Builder generated stages (instant display)
-                            generatedStages: generatedStages,
                             // P3-19: Quick Assign Mode
                             quickAssignMode: _quickAssignMode,
                             quickAssignSelectedSlot: _quickAssignSelectedSlot,
@@ -2734,6 +2734,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                 for (final stage in expandedStages) {
                                   final shouldLoop = StageConfigurationService.instance.isLooping(stage);
                                   final busId = _getBusForStage(stage);
+                                  final isMusicBus = busId == 1;
 
                                   eventRegistry.registerEvent(AudioEvent(
                                     id: 'audio_$stage',
@@ -2751,10 +2752,64 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                       ),
                                     ],
                                     loop: shouldLoop,
+                                    overlap: !isMusicBus && !shouldLoop,
+                                    crossfadeMs: isMusicBus ? 500 : 0,
                                     targetBusId: busId,
                                   ));
                                 }
                                 showToast('Bulk assigned to ${expandedStages.length} stages', icon: Icons.copy_all);
+                              }
+                            },
+                            // V11: Bulk Import — apply all mappings at once
+                            onBulkImport: (mappings) {
+                              int count = 0;
+                              for (final entry in mappings.entries) {
+                                final stage = entry.key;
+                                final audioPath = entry.value;
+
+                                // Update provider
+                                projectProvider.setAudioAssignment(stage, audioPath);
+
+                                // Register event
+                                final stageConfig = StageConfigurationService.instance;
+                                final busId = _getBusForStage(stage);
+                                final shouldLoop = stageConfig.isLooping(stage);
+                                final isMusicBus = busId == 1;
+                                final crossfadeMs = isMusicBus ? 500 : 0;
+
+                                eventRegistry.registerEvent(AudioEvent(
+                                  id: 'audio_$stage',
+                                  name: stage.replaceAll('_', ' '),
+                                  stage: stage,
+                                  layers: [
+                                    AudioLayer(
+                                      id: 'layer_$stage',
+                                      name: '${stage.replaceAll('_', ' ')} Audio',
+                                      audioPath: audioPath,
+                                      volume: 1.0,
+                                      pan: _getPanForStage(stage),
+                                      delay: 0.0,
+                                      busId: busId,
+                                    ),
+                                  ],
+                                  loop: shouldLoop,
+                                  overlap: !isMusicBus && !shouldLoop,
+                                  crossfadeMs: crossfadeMs,
+                                  targetBusId: busId,
+                                ));
+
+                                _ensureCompositeEventForStage(stage, audioPath);
+                                count++;
+                              }
+
+                              // Refresh trigger bindings
+                              final triggerLayer = GetIt.instance<TriggerLayerProvider>();
+                              if (triggerLayer.autoBindingsEnabled) {
+                                triggerLayer.generateAutoBindings();
+                              }
+
+                              if (mounted) {
+                                showToast('Imported $count audio mappings', icon: Icons.file_download);
                               }
                             },
                           ),
@@ -3593,8 +3648,40 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final projectProvider = context.read<SlotLabProjectProvider>();
     final template = builtTemplate.source;
 
-    // Apply template configuration to project
-    // This would register stages, create events, set up buses, etc.
+    // V11: Auto-configure FeatureComposer from template
+    if (GetIt.instance.isRegistered<FeatureComposerProvider>()) {
+      final composer = GetIt.instance<FeatureComposerProvider>();
+
+      // Map template modules to SlotMechanic
+      final mechanics = <SlotMechanic, bool>{};
+      for (final m in SlotMechanic.values) {
+        mechanics[m] = false;
+      }
+      for (final module in template.modules) {
+        final mechanic = _templateModuleToMechanic(module.type);
+        if (mechanic != null) {
+          mechanics[mechanic] = true;
+        }
+      }
+      // Detect cascading from template flags
+      if (template.hasMegaways) {
+        mechanics[SlotMechanic.megaways] = true;
+        mechanics[SlotMechanic.cascading] = true;
+      }
+
+      // Build config from template
+      final config = SlotMachineConfig(
+        name: template.name,
+        reelCount: template.reelCount,
+        rowCount: template.rowCount,
+        paylineCount: template.hasMegaways ? 117649 : 20,
+        paylineType: template.hasMegaways ? PaylineType.megaways : PaylineType.lines,
+        winTierCount: template.winTiers.length.clamp(1, 5),
+        mechanics: mechanics,
+        volatilityProfile: 'medium',
+      );
+      composer.applyConfig(config);
+    }
 
     // Update grid settings from template
     setState(() {
@@ -3621,6 +3708,23 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     if (mounted) {
       showToast('Applied template "${template.name}" — ${template.symbols.length} symbols, ${template.coreStages.length} stages');
     }
+  }
+
+  /// Map template FeatureModuleType → SlotMechanic
+  SlotMechanic? _templateModuleToMechanic(FeatureModuleType type) {
+    return switch (type) {
+      FeatureModuleType.freeSpins => SlotMechanic.freeSpins,
+      FeatureModuleType.holdWin => SlotMechanic.holdAndWin,
+      FeatureModuleType.cascade => SlotMechanic.cascading,
+      FeatureModuleType.megaways => SlotMechanic.megaways,
+      FeatureModuleType.jackpot => SlotMechanic.jackpot,
+      FeatureModuleType.gamble => SlotMechanic.gamble,
+      FeatureModuleType.multiplier => SlotMechanic.multiplierTrail,
+      FeatureModuleType.expanding => SlotMechanic.expandingWilds,
+      FeatureModuleType.sticky => SlotMechanic.stickyWilds,
+      FeatureModuleType.buyBonus => SlotMechanic.freeSpins,
+      _ => null,
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -9864,6 +9968,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         // CRITICAL: Check if stage should loop (GAME_START, MUSIC_*, etc.)
         final shouldLoop = StageConfigurationService.instance.isLooping(stage);
         final busId = _getBusForStage(stage);
+        final isMusicBus = busId == 1;
+        // Music bus events: overlap=false (only one music at a time), crossfade 500ms
+        final shouldOverlap = !isMusicBus && !shouldLoop;
+        final crossfadeMs = isMusicBus ? 500 : 0;
 
         final audioEvent = AudioEvent(
           id: 'audio_$stage',
@@ -9881,6 +9989,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             ),
           ],
           loop: shouldLoop,
+          overlap: shouldOverlap,
+          crossfadeMs: crossfadeMs,
           targetBusId: busId,
         );
 

@@ -30,7 +30,7 @@ class SlotLabSettings {
   final bool showDebugInfo;
 
   const SlotLabSettings({
-    this.reels = 5,
+    this.reels = 3,
     this.rows = 3,
     this.timingProfile = TimingProfile.normal,
     this.volatility = VolatilityLevel.medium,

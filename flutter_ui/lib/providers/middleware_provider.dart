@@ -43,7 +43,10 @@ import 'subsystems/attenuation_curve_provider.dart';
 import 'subsystems/memory_manager_provider.dart';
 import 'subsystems/event_profiler_provider.dart';
 import '../services/hook_dispatcher.dart';
+import '../services/event_registry.dart';
 import '../models/hook_models.dart';
+import 'package:get_it/get_it.dart';
+import 'slot_lab_project_provider.dart';
 
 // ============ Type Definitions ============
 
@@ -3503,6 +3506,19 @@ class MiddlewareProvider extends ChangeNotifier {
       entityType: EntityType.event,
       entityId: eventId,
     ));
+
+    // V11: Sync audio assignment cleanup for panel-generated events
+    if (eventId.startsWith('audio_')) {
+      final stage = eventId.substring(6); // strip 'audio_' prefix
+      try {
+        final projectProvider = GetIt.instance<SlotLabProjectProvider>();
+        projectProvider.removeAudioAssignment(stage);
+      } catch (_) {} // Provider may not be registered
+      try {
+        final registry = GetIt.instance<EventRegistry>();
+        registry.unregisterEvent(eventId);
+      } catch (_) {}
+    }
 
     _compositeEventSystemProvider.deleteCompositeEvent(eventId);
     _markChanged(changeCompositeEvents);

@@ -4938,7 +4938,7 @@ class PremiumSlotPreview extends StatefulWidget {
   const PremiumSlotPreview({
     super.key,
     required this.onExit,
-    this.reels = 5,
+    this.reels = 3,
     this.rows = 3,
     this.isFullscreen = false,
     this.projectProvider,

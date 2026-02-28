@@ -161,7 +161,7 @@ class EmbeddedSlotMockup extends StatefulWidget {
   const EmbeddedSlotMockup({
     super.key,
     required this.provider,
-    this.reels = 5,
+    this.reels = 3,
     this.rows = 3,
     this.onSpin,
     this.onForcedSpin,
@@ -240,7 +240,7 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
 
   void _initSymbols() {
     _symbols = List.generate(
-        widget.reels, (_) => List.generate(widget.rows, (_) => _rng.nextInt(10)));
+        widget.reels, (_) => List.generate(widget.rows, (_) => 0));
     _reelStopped = List.filled(widget.reels, true);
   }
 
