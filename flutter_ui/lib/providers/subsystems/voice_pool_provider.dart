@@ -16,6 +16,80 @@ import 'package:flutter/foundation.dart';
 import '../../models/advanced_middleware_models.dart';
 import '../../src/rust/native_ffi.dart';
 
+/// Pool types for §12 explicit voice pool allocation
+enum VoicePoolType {
+  sfx,
+  music,
+  voice,
+  ambience,
+  aux,
+  master,
+  middleware,
+  browser,
+}
+
+extension VoicePoolTypeExtension on VoicePoolType {
+  String get displayName {
+    switch (this) {
+      case VoicePoolType.sfx: return 'SFX';
+      case VoicePoolType.music: return 'Music';
+      case VoicePoolType.voice: return 'Voice';
+      case VoicePoolType.ambience: return 'Ambience';
+      case VoicePoolType.aux: return 'Aux';
+      case VoicePoolType.master: return 'Master';
+      case VoicePoolType.middleware: return 'Middleware';
+      case VoicePoolType.browser: return 'Browser';
+    }
+  }
+
+  /// Default max voices per pool type
+  int get defaultMaxVoices {
+    switch (this) {
+      case VoicePoolType.sfx: return 16;
+      case VoicePoolType.music: return 8;
+      case VoicePoolType.voice: return 4;
+      case VoicePoolType.ambience: return 8;
+      case VoicePoolType.aux: return 4;
+      case VoicePoolType.master: return 2;
+      case VoicePoolType.middleware: return 8;
+      case VoicePoolType.browser: return 4;
+    }
+  }
+
+  /// Stealing priority weight (higher = harder to steal from)
+  int get stealingWeight {
+    switch (this) {
+      case VoicePoolType.sfx: return 50;
+      case VoicePoolType.music: return 80;
+      case VoicePoolType.voice: return 90;
+      case VoicePoolType.ambience: return 20;
+      case VoicePoolType.aux: return 30;
+      case VoicePoolType.master: return 100;
+      case VoicePoolType.middleware: return 40;
+      case VoicePoolType.browser: return 10;
+    }
+  }
+}
+
+/// Per-pool statistics
+class PoolTypeStats {
+  final VoicePoolType type;
+  final int activeVoices;
+  final int maxVoices;
+  final int stealCount;
+  final int peakVoices;
+
+  const PoolTypeStats({
+    required this.type,
+    this.activeVoices = 0,
+    this.maxVoices = 0,
+    this.stealCount = 0,
+    this.peakVoices = 0,
+  });
+
+  double get utilization => maxVoices > 0 ? activeVoices / maxVoices : 0.0;
+}
+
 /// Provider for managing voice pool polyphony
 class VoicePoolProvider extends ChangeNotifier {
   final NativeFFI _ffi;
@@ -31,6 +105,33 @@ class VoicePoolProvider extends ChangeNotifier {
 
   /// Total steal count
   int _stealCount = 0;
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // §12 — EXPLICIT POOL TYPE TRACKING
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Per-pool-type max voice limits
+  final Map<VoicePoolType, int> _poolMaxVoices = {
+    for (final type in VoicePoolType.values) type: type.defaultMaxVoices,
+  };
+
+  /// Per-pool-type active voice counts (Dart-side)
+  final Map<VoicePoolType, int> _poolActiveCounts = {
+    for (final type in VoicePoolType.values) type: 0,
+  };
+
+  /// Per-pool-type steal counts
+  final Map<VoicePoolType, int> _poolStealCounts = {
+    for (final type in VoicePoolType.values) type: 0,
+  };
+
+  /// Per-pool-type peak voice counts
+  final Map<VoicePoolType, int> _poolPeakCounts = {
+    for (final type in VoicePoolType.values) type: 0,
+  };
+
+  /// Voice ID → pool type mapping
+  final Map<int, VoicePoolType> _voicePoolAssignment = {};
 
   VoicePoolProvider({
     required NativeFFI ffi,
@@ -336,5 +437,125 @@ class VoicePoolProvider extends ChangeNotifier {
   void clear() {
     releaseAllVoices();
     resetStats();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // §12 — POOL TYPE API
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Get stats for a specific pool type
+  PoolTypeStats getPoolStats(VoicePoolType type) {
+    return PoolTypeStats(
+      type: type,
+      activeVoices: _poolActiveCounts[type] ?? 0,
+      maxVoices: _poolMaxVoices[type] ?? type.defaultMaxVoices,
+      stealCount: _poolStealCounts[type] ?? 0,
+      peakVoices: _poolPeakCounts[type] ?? 0,
+    );
+  }
+
+  /// Get stats for all pool types
+  Map<VoicePoolType, PoolTypeStats> get allPoolStats {
+    return {
+      for (final type in VoicePoolType.values)
+        type: getPoolStats(type),
+    };
+  }
+
+  /// Set max voices for a pool type
+  void setPoolMaxVoices(VoicePoolType type, int maxVoices) {
+    _poolMaxVoices[type] = maxVoices.clamp(1, 64);
+    notifyListeners();
+  }
+
+  /// Check if a pool type has available capacity
+  bool hasCapacity(VoicePoolType type) {
+    final active = _poolActiveCounts[type] ?? 0;
+    final max = _poolMaxVoices[type] ?? type.defaultMaxVoices;
+    return active < max;
+  }
+
+  /// Request a voice in a specific pool type
+  int? requestVoiceInPool({
+    required VoicePoolType poolType,
+    required int soundId,
+    required int busId,
+    int priority = 50,
+    double volume = 1.0,
+    double pitch = 1.0,
+    double pan = 0.0,
+  }) {
+    // Check pool capacity
+    if (!hasCapacity(poolType)) {
+      // Try to steal from this pool if possible
+      final poolPriority = poolType.stealingWeight;
+      if (priority < poolPriority) return null; // Not high enough priority
+    }
+
+    final voiceId = requestVoice(
+      soundId: soundId,
+      busId: busId,
+      priority: priority,
+      volume: volume,
+      pitch: pitch,
+      pan: pan,
+    );
+
+    if (voiceId != null) {
+      // Track pool assignment
+      _voicePoolAssignment[voiceId] = poolType;
+      _poolActiveCounts[poolType] = (_poolActiveCounts[poolType] ?? 0) + 1;
+
+      final active = _poolActiveCounts[poolType]!;
+      final peak = _poolPeakCounts[poolType] ?? 0;
+      if (active > peak) {
+        _poolPeakCounts[poolType] = active;
+      }
+    }
+
+    return voiceId;
+  }
+
+  /// Release a voice and update pool tracking
+  void releaseVoiceFromPool(int voiceId) {
+    final poolType = _voicePoolAssignment.remove(voiceId);
+    if (poolType != null) {
+      final current = _poolActiveCounts[poolType] ?? 0;
+      _poolActiveCounts[poolType] = (current - 1).clamp(0, 999);
+    }
+    releaseVoice(voiceId);
+  }
+
+  /// Get pool type for a voice
+  VoicePoolType? getVoicePoolType(int voiceId) => _voicePoolAssignment[voiceId];
+
+  /// Reset pool statistics
+  void resetPoolStats() {
+    for (final type in VoicePoolType.values) {
+      _poolStealCounts[type] = 0;
+      _poolPeakCounts[type] = _poolActiveCounts[type] ?? 0;
+    }
+    notifyListeners();
+  }
+
+  /// Pool type serialization
+  Map<String, dynamic> poolTypesToJson() {
+    return {
+      'maxVoices': {
+        for (final type in VoicePoolType.values)
+          type.name: _poolMaxVoices[type] ?? type.defaultMaxVoices,
+      },
+    };
+  }
+
+  /// Pool type deserialization
+  void poolTypesFromJson(Map<String, dynamic> json) {
+    final maxVoicesJson = json['maxVoices'] as Map<String, dynamic>?;
+    if (maxVoicesJson != null) {
+      for (final type in VoicePoolType.values) {
+        _poolMaxVoices[type] = maxVoicesJson[type.name] as int? ?? type.defaultMaxVoices;
+      }
+    }
+    notifyListeners();
   }
 }

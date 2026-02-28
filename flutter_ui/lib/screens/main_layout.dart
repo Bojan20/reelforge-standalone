@@ -506,7 +506,9 @@ class _MainLayoutState extends State<MainLayout>
         Expanded(
           child: Row(
             children: [
-              // Left Zone (Browser) - all modes
+              // Left Zone (Browser) - DAW and Middleware modes only
+              // Slot mode has its own dedicated panels (AurexisPanel/UltimateAudioPanel)
+              if (widget.editorMode != EditorMode.slot)
               LeftZone(
                 editorMode: widget.editorMode,
                 collapsed: !_leftVisible,
@@ -587,8 +589,9 @@ class _MainLayoutState extends State<MainLayout>
                 ),
               ),
 
-              // Right Zone (Inspector) - Middleware/Slot modes
-              if (widget.editorMode != EditorMode.daw)
+              // Right Zone (Inspector) - Middleware mode only
+              // Slot mode has its own dedicated panel (EventsPanelWidget)
+              if (widget.editorMode == EditorMode.middleware)
                 RightZone(
                   collapsed: !_rightVisible,
                   objectType: widget.inspectorType,

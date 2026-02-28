@@ -187,12 +187,141 @@ class DuckingSystemProvider extends ChangeNotifier {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // §28 — PER-BEHAVIOR-NODE DUCKING ASSIGNMENT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Behavior node → ducking rule assignments
+  /// Key: behavior node ID (e.g., 'reel_stop', 'cascade_step')
+  /// Value: list of rule IDs assigned to that node
+  final Map<String, List<BehaviorNodeDuckingAssignment>> _behaviorAssignments = {};
+
+  /// Get ducking assignments for a behavior node
+  List<BehaviorNodeDuckingAssignment> getAssignmentsForNode(String behaviorNodeId) =>
+      List.unmodifiable(_behaviorAssignments[behaviorNodeId] ?? []);
+
+  /// Get ducking rules active for a behavior node
+  List<DuckingRule> getDuckingRulesForNode(String behaviorNodeId) {
+    final assignments = _behaviorAssignments[behaviorNodeId];
+    if (assignments == null) return [];
+    return assignments
+        .where((a) => a.enabled)
+        .map((a) => _duckingRules[a.ruleId])
+        .whereType<DuckingRule>()
+        .toList();
+  }
+
+  /// Assign a ducking rule to a behavior node
+  void addBehaviorAssignment({
+    required String behaviorNodeId,
+    required int ruleId,
+    bool enabled = true,
+    double? duckOverrideDb,
+  }) {
+    if (!_duckingRules.containsKey(ruleId)) return;
+    _behaviorAssignments.putIfAbsent(behaviorNodeId, () => []).add(
+      BehaviorNodeDuckingAssignment(
+        behaviorNodeId: behaviorNodeId,
+        ruleId: ruleId,
+        enabled: enabled,
+        duckOverrideDb: duckOverrideDb,
+      ),
+    );
+    notifyListeners();
+  }
+
+  /// Remove a ducking assignment from a behavior node
+  void removeBehaviorAssignment(String behaviorNodeId, int ruleId) {
+    _behaviorAssignments[behaviorNodeId]?.removeWhere((a) => a.ruleId == ruleId);
+    if (_behaviorAssignments[behaviorNodeId]?.isEmpty ?? false) {
+      _behaviorAssignments.remove(behaviorNodeId);
+    }
+    notifyListeners();
+  }
+
+  /// Enable/disable a specific assignment
+  void setBehaviorAssignmentEnabled(String behaviorNodeId, int ruleId, bool enabled) {
+    final assignments = _behaviorAssignments[behaviorNodeId];
+    if (assignments == null) return;
+    final index = assignments.indexWhere((a) => a.ruleId == ruleId);
+    if (index >= 0) {
+      assignments[index] = assignments[index].copyWith(enabled: enabled);
+      notifyListeners();
+    }
+  }
+
+  /// Get all behavior nodes that have ducking assignments
+  Set<String> get assignedBehaviorNodes => _behaviorAssignments.keys.toSet();
+
+  /// Behavior assignment serialization
+  List<Map<String, dynamic>> behaviorAssignmentsToJson() {
+    final result = <Map<String, dynamic>>[];
+    for (final entry in _behaviorAssignments.entries) {
+      for (final assignment in entry.value) {
+        result.add(assignment.toJson());
+      }
+    }
+    return result;
+  }
+
+  /// Behavior assignment deserialization
+  void behaviorAssignmentsFromJson(List<dynamic> json) {
+    _behaviorAssignments.clear();
+    for (final item in json) {
+      final assignment = BehaviorNodeDuckingAssignment.fromJson(item as Map<String, dynamic>);
+      _behaviorAssignments.putIfAbsent(assignment.behaviorNodeId, () => []).add(assignment);
+    }
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // DISPOSE
   // ═══════════════════════════════════════════════════════════════════════════
 
   @override
   void dispose() {
     _duckingRules.clear();
+    _behaviorAssignments.clear();
     super.dispose();
   }
+}
+
+/// Per-behavior-node ducking assignment (§28)
+class BehaviorNodeDuckingAssignment {
+  final String behaviorNodeId;
+  final int ruleId;
+  final bool enabled;
+  /// Override the rule's duckAmountDb for this behavior node (null = use rule default)
+  final double? duckOverrideDb;
+
+  const BehaviorNodeDuckingAssignment({
+    required this.behaviorNodeId,
+    required this.ruleId,
+    this.enabled = true,
+    this.duckOverrideDb,
+  });
+
+  BehaviorNodeDuckingAssignment copyWith({
+    bool? enabled,
+    double? duckOverrideDb,
+  }) => BehaviorNodeDuckingAssignment(
+    behaviorNodeId: behaviorNodeId,
+    ruleId: ruleId,
+    enabled: enabled ?? this.enabled,
+    duckOverrideDb: duckOverrideDb ?? this.duckOverrideDb,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'behaviorNodeId': behaviorNodeId,
+    'ruleId': ruleId,
+    'enabled': enabled,
+    'duckOverrideDb': duckOverrideDb,
+  };
+
+  factory BehaviorNodeDuckingAssignment.fromJson(Map<String, dynamic> json) =>
+      BehaviorNodeDuckingAssignment(
+        behaviorNodeId: json['behaviorNodeId'] as String,
+        ruleId: json['ruleId'] as int,
+        enabled: json['enabled'] as bool? ?? true,
+        duckOverrideDb: (json['duckOverrideDb'] as num?)?.toDouble(),
+      );
 }

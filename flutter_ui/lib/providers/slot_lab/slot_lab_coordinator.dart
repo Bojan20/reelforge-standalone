@@ -17,9 +17,20 @@ import '../../src/rust/native_ffi.dart' show SlotLabStageEvent, SlotLabStats, Sl
 import '../middleware_provider.dart';
 import '../ale_provider.dart';
 
+import 'package:get_it/get_it.dart';
+
+import '../../models/behavior_tree_models.dart';
 import 'slot_engine_provider.dart';
 import 'slot_stage_provider.dart';
 import 'slot_audio_provider.dart';
+import 'behavior_tree_provider.dart';
+import 'state_gate_provider.dart';
+import 'emotional_state_provider.dart';
+import 'trigger_layer_provider.dart';
+import 'priority_engine_provider.dart';
+import 'orchestration_engine_provider.dart';
+import 'context_layer_provider.dart';
+import 'slotlab_notification_provider.dart';
 
 // Re-export sub-providers for convenience
 export 'slot_engine_provider.dart';
@@ -370,6 +381,124 @@ class SlotLabCoordinator extends ChangeNotifier {
       audioProvider.calculateWinLinePan(lineIndex, lastResult);
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // MIDDLEWARE PIPELINE — §3→§4→§5→§8→§9→§10 (Trigger→Gate→Behavior→Priority→Emotional→Orchestration)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Process an engine hook through the full middleware pipeline.
+  /// This is the core integration point that connects all middleware providers.
+  ///
+  /// Pipeline: Hook → Trigger Layer → State Gate → Behavior Tree → Priority → Orchestration
+  MiddlewarePipelineResult processHook(String hookName, {Map<String, dynamic>? payload}) {
+    final sl = GetIt.instance;
+    final triggerLayer = sl.get<TriggerLayerProvider>();
+    final stateGate = sl.get<StateGateProvider>();
+    final behaviorTree = sl.get<BehaviorTreeProvider>();
+    final priorityEngine = sl.get<PriorityEngineProvider>();
+    final orchestrationEngine = sl.get<OrchestrationEngineProvider>();
+    final contextLayer = sl.get<ContextLayerProvider>();
+    final notifications = sl.get<SlotLabNotificationProvider>();
+
+    // Step 1: State Gate — is this hook allowed in current state?
+    final gateResult = stateGate.checkHook(hookName);
+    if (!gateResult.allowed) {
+      return MiddlewarePipelineResult(
+        hookName: hookName,
+        blocked: true,
+        blockReason: gateResult.blockReason,
+      );
+    }
+
+    // Step 2: Trigger Layer — resolve which behavior nodes to activate
+    final triggerResult = triggerLayer.resolve(hookName);
+    if (triggerResult.activatedNodeIds.isEmpty) {
+      return MiddlewarePipelineResult(
+        hookName: hookName,
+        blocked: false,
+        noTargets: true,
+      );
+    }
+
+    // Step 3: For each activated node, run through priority + orchestration
+    final processedNodes = <ProcessedBehaviorNode>[];
+
+    for (final nodeId in triggerResult.activatedNodeIds) {
+      final node = behaviorTree.tree.getNode(nodeId);
+      if (node == null) continue;
+
+      // Check context layer — is this node active in current game mode?
+      if (!contextLayer.isNodeActive(nodeId)) continue;
+
+      // Priority resolution
+      final resolutions = priorityEngine.resolveEntry(nodeId, node.basicParams.priorityClass);
+
+      // Orchestration decision
+      final decision = orchestrationEngine.orchestrate(node);
+
+      if (decision.suppressed) continue;
+
+      processedNodes.add(ProcessedBehaviorNode(
+        nodeId: nodeId,
+        node: node,
+        resolutions: resolutions,
+        orchestrationDecision: decision,
+      ));
+    }
+
+    if (processedNodes.isEmpty) {
+      return MiddlewarePipelineResult(
+        hookName: hookName,
+        blocked: false,
+        allSuppressed: true,
+      );
+    }
+
+    // Update emotional state based on hook type
+    _updateEmotionalState(hookName, payload);
+
+    return MiddlewarePipelineResult(
+      hookName: hookName,
+      blocked: false,
+      processedNodes: processedNodes,
+    );
+  }
+
+  /// Update emotional state based on engine events
+  void _updateEmotionalState(String hookName, Map<String, dynamic>? payload) {
+    final sl = GetIt.instance;
+    final emotional = sl.get<EmotionalStateProvider>();
+
+    if (hookName.startsWith('onReelStop')) {
+      final scatterCount = payload?['scatterCount'] as int? ?? 1;
+      emotional.onAnticipation(scatterCount);
+    } else if (hookName.startsWith('onCascade')) {
+      emotional.onCascadeStart();
+    } else if (hookName.startsWith('onWinEvaluate')) {
+      final tier = payload?['tier'] as int? ?? 1;
+      if (tier >= 3) {
+        emotional.onBigWin(tier);
+      }
+    } else if (hookName == 'onCountUpEnd') {
+      emotional.onWinPresentationEnd();
+    }
+  }
+
+  /// Initialize middleware pipeline — call after all providers are registered
+  void initializeMiddleware() {
+    final sl = GetIt.instance;
+    final triggerLayer = sl.get<TriggerLayerProvider>();
+
+    // Generate auto-bindings from behavior tree node types
+    triggerLayer.generateAutoBindings();
+
+    // Notify that middleware is ready
+    sl.get<SlotLabNotificationProvider>().push(
+      type: NotificationType.info,
+      severity: NotificationSeverity.success,
+      title: 'Middleware pipeline initialized',
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // DISPOSE
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -387,6 +516,47 @@ class SlotLabCoordinator extends ChangeNotifier {
 
     super.dispose();
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MIDDLEWARE PIPELINE RESULT
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Result of processing a hook through the middleware pipeline
+class MiddlewarePipelineResult {
+  final String hookName;
+  final bool blocked;
+  final String? blockReason;
+  final bool noTargets;
+  final bool allSuppressed;
+  final List<ProcessedBehaviorNode> processedNodes;
+
+  const MiddlewarePipelineResult({
+    required this.hookName,
+    this.blocked = false,
+    this.blockReason,
+    this.noTargets = false,
+    this.allSuppressed = false,
+    this.processedNodes = const [],
+  });
+
+  bool get success => !blocked && !noTargets && !allSuppressed && processedNodes.isNotEmpty;
+  int get activatedCount => processedNodes.length;
+}
+
+/// A behavior node that has been processed through priority + orchestration
+class ProcessedBehaviorNode {
+  final String nodeId;
+  final BehaviorNode node;
+  final List<PriorityResolution> resolutions;
+  final OrchestrationDecision orchestrationDecision;
+
+  const ProcessedBehaviorNode({
+    required this.nodeId,
+    required this.node,
+    required this.resolutions,
+    required this.orchestrationDecision,
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -285,6 +285,175 @@ class MusicSystemProvider extends ChangeNotifier {
     _musicBusId = 1;
     _nextMusicSegmentIdCounter = 1;
     _nextStingerId = 1;
+    _segmentLayers.clear();
+    _activeLayers.clear();
+    _nextLayerId = 1;
     notifyListeners();
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // §27 — LAYERED LOOP SYSTEM
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Layer types for stacking (base always plays, others activate dynamically)
+  static const List<String> layerTypes = ['base', 'fill', 'transition', 'extended'];
+
+  /// Per-segment loop layers
+  final Map<int, List<MusicLoopLayer>> _segmentLayers = {};
+
+  /// Currently active layers per segment
+  final Map<int, Set<String>> _activeLayers = {};
+
+  /// Next layer ID
+  int _nextLayerId = 1;
+
+  /// Get layers for a segment
+  List<MusicLoopLayer> getSegmentLayers(int segmentId) =>
+      List.unmodifiable(_segmentLayers[segmentId] ?? []);
+
+  /// Get active layers for a segment
+  Set<String> getActiveLayers(int segmentId) =>
+      Set.unmodifiable(_activeLayers[segmentId] ?? {'base'});
+
+  /// Add a loop layer to a segment
+  MusicLoopLayer addLoopLayer({
+    required int segmentId,
+    required String name,
+    required int soundId,
+    required String layerType,
+    double fadeInMs = 500.0,
+    double fadeOutMs = 500.0,
+    double volumeDb = 0.0,
+    String? behaviorNodeId,
+  }) {
+    final layer = MusicLoopLayer(
+      id: _nextLayerId++,
+      segmentId: segmentId,
+      name: name,
+      soundId: soundId,
+      layerType: layerType,
+      fadeInMs: fadeInMs,
+      fadeOutMs: fadeOutMs,
+      volumeDb: volumeDb,
+      behaviorNodeId: behaviorNodeId,
+    );
+
+    _segmentLayers.putIfAbsent(segmentId, () => []).add(layer);
+    notifyListeners();
+    return layer;
+  }
+
+  /// Remove a loop layer
+  void removeLoopLayer(int segmentId, int layerId) {
+    _segmentLayers[segmentId]?.removeWhere((l) => l.id == layerId);
+    notifyListeners();
+  }
+
+  /// Activate a set of layers for a segment (with crossfade)
+  void activateLayerSet(int segmentId, Set<String> activeSet) {
+    _activeLayers[segmentId] = {'base', ...activeSet};
+    notifyListeners();
+  }
+
+  /// Activate a single layer
+  void activateLayer(int segmentId, String layerType) {
+    _activeLayers.putIfAbsent(segmentId, () => {'base'}).add(layerType);
+    notifyListeners();
+  }
+
+  /// Deactivate a single layer (base cannot be deactivated)
+  void deactivateLayer(int segmentId, String layerType) {
+    if (layerType == 'base') return;
+    _activeLayers[segmentId]?.remove(layerType);
+    notifyListeners();
+  }
+
+  /// Check if a layer is active
+  bool isLayerActive(int segmentId, String layerType) {
+    return _activeLayers[segmentId]?.contains(layerType) ?? (layerType == 'base');
+  }
+
+  /// Get layers by behavior node ID
+  List<MusicLoopLayer> getLayersByBehaviorNode(String behaviorNodeId) {
+    final result = <MusicLoopLayer>[];
+    for (final layers in _segmentLayers.values) {
+      result.addAll(layers.where((l) => l.behaviorNodeId == behaviorNodeId));
+    }
+    return result;
+  }
+
+  /// Layer serialization
+  List<Map<String, dynamic>> layersToJson() {
+    final result = <Map<String, dynamic>>[];
+    for (final entry in _segmentLayers.entries) {
+      for (final layer in entry.value) {
+        result.add(layer.toJson());
+      }
+    }
+    return result;
+  }
+
+  /// Layer deserialization
+  void layersFromJson(List<dynamic> json) {
+    _segmentLayers.clear();
+    for (final item in json) {
+      final layer = MusicLoopLayer.fromJson(item as Map<String, dynamic>);
+      _segmentLayers.putIfAbsent(layer.segmentId, () => []).add(layer);
+      if (layer.id >= _nextLayerId) {
+        _nextLayerId = layer.id + 1;
+      }
+    }
+    notifyListeners();
+  }
+}
+
+/// A loop layer within a music segment (§27)
+class MusicLoopLayer {
+  final int id;
+  final int segmentId;
+  final String name;
+  final int soundId;
+  /// One of: 'base', 'fill', 'transition', 'extended'
+  final String layerType;
+  final double fadeInMs;
+  final double fadeOutMs;
+  final double volumeDb;
+  /// Behavior node that controls this layer's activation (optional)
+  final String? behaviorNodeId;
+
+  const MusicLoopLayer({
+    required this.id,
+    required this.segmentId,
+    required this.name,
+    required this.soundId,
+    required this.layerType,
+    this.fadeInMs = 500.0,
+    this.fadeOutMs = 500.0,
+    this.volumeDb = 0.0,
+    this.behaviorNodeId,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'segmentId': segmentId,
+    'name': name,
+    'soundId': soundId,
+    'layerType': layerType,
+    'fadeInMs': fadeInMs,
+    'fadeOutMs': fadeOutMs,
+    'volumeDb': volumeDb,
+    'behaviorNodeId': behaviorNodeId,
+  };
+
+  factory MusicLoopLayer.fromJson(Map<String, dynamic> json) => MusicLoopLayer(
+    id: json['id'] as int,
+    segmentId: json['segmentId'] as int,
+    name: json['name'] as String,
+    soundId: json['soundId'] as int,
+    layerType: json['layerType'] as String,
+    fadeInMs: (json['fadeInMs'] as num?)?.toDouble() ?? 500.0,
+    fadeOutMs: (json['fadeOutMs'] as num?)?.toDouble() ?? 500.0,
+    volumeDb: (json['volumeDb'] as num?)?.toDouble() ?? 0.0,
+    behaviorNodeId: json['behaviorNodeId'] as String?,
+  );
 }

@@ -72,6 +72,25 @@ import '../providers/event_folder_provider.dart';
 import '../providers/aurexis_provider.dart';
 import '../providers/aurexis_audit_provider.dart';
 import '../providers/aurexis_profile_provider.dart';
+import '../providers/slot_lab/behavior_tree_provider.dart';
+import '../providers/slot_lab/state_gate_provider.dart';
+import '../providers/slot_lab/emotional_state_provider.dart';
+import '../providers/slot_lab/slotlab_view_mode_provider.dart';
+import '../providers/slot_lab/transition_system_provider.dart';
+import '../providers/slot_lab/priority_engine_provider.dart';
+import '../providers/slot_lab/orchestration_engine_provider.dart';
+import 'autobind_engine.dart';
+import '../providers/slot_lab/simulation_engine_provider.dart';
+import '../providers/slot_lab/error_prevention_provider.dart';
+import '../providers/slot_lab/slotlab_undo_provider.dart';
+import '../providers/slot_lab/slotlab_notification_provider.dart';
+import '../providers/slot_lab/behavior_coverage_provider.dart';
+import '../providers/slot_lab/smart_collapsing_provider.dart';
+import '../providers/slot_lab/inspector_context_provider.dart';
+import '../providers/slot_lab/context_layer_provider.dart';
+import '../providers/slot_lab/trigger_layer_provider.dart';
+import '../providers/slot_lab/slotlab_template_provider.dart';
+import '../providers/slot_lab/slotlab_export_provider.dart';
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -277,6 +296,139 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<AurexisAuditProvider>(
       () => AurexisAuditProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.6: Behavior Tree Provider (SlotLab Middleware §5)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<BehaviorTreeProvider>(
+      () => BehaviorTreeProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.7: State Gate Provider (SlotLab Middleware §4)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<StateGateProvider>(
+      () => StateGateProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.8: AutoBind Engine (SlotLab Middleware §6)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<AutoBindEngine>(
+      () => AutoBindEngine.instance,
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.9: Emotional State Provider (SlotLab Middleware §9)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<EmotionalStateProvider>(
+      () => EmotionalStateProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.10: SlotLab View Mode Provider (Middleware §16 + §19)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<SlotLabViewModeProvider>(
+      () => SlotLabViewModeProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.11: Transition System Provider (SlotLab Middleware §25)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<TransitionSystemProvider>(
+      () => TransitionSystemProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.12: Priority Engine Provider (SlotLab Middleware §8)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<PriorityEngineProvider>(
+      () => PriorityEngineProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.13: Orchestration Engine Provider (SlotLab Middleware §10)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<OrchestrationEngineProvider>(
+      () => OrchestrationEngineProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.14: Simulation Engine Provider (SlotLab Middleware §13)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<SimulationEngineProvider>(
+      () => SimulationEngineProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.15: Error Prevention Provider (SlotLab Middleware §15)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<ErrorPreventionProvider>(
+      () => ErrorPreventionProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.16: SlotLab Undo Provider (SlotLab Middleware §30)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<SlotLabUndoProvider>(
+      () => SlotLabUndoProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.17: SlotLab Notification Provider (SlotLab Middleware §36)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<SlotLabNotificationProvider>(
+      () => SlotLabNotificationProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.18: Behavior Coverage Provider (SlotLab Middleware §17)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<BehaviorCoverageProvider>(
+      () => BehaviorCoverageProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.19: Smart Collapsing Provider (SlotLab Middleware §18)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<SmartCollapsingProvider>(
+      () => SmartCollapsingProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.20: Inspector Context Provider (SlotLab Middleware §20)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<InspectorContextProvider>(
+      () => InspectorContextProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.21: Context Layer Provider (SlotLab Middleware §21)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<ContextLayerProvider>(
+      () => ContextLayerProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.22: Trigger Layer Provider (SlotLab Middleware §3)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<TriggerLayerProvider>(
+      () => TriggerLayerProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.23: SlotLab Template Provider (SlotLab Middleware §31)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<SlotLabTemplateProvider>(
+      () => SlotLabTemplateProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.24: SlotLab Export Provider (SlotLab Middleware §32)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<SlotLabExportProvider>(
+      () => SlotLabExportProvider(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
