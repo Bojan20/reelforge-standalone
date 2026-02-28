@@ -1,7 +1,7 @@
 # FluxForge Studio — MASTER TODO
 
 **Updated:** 2026-02-28
-**Status:** AUREXIS™ 88/88 ✅ + SlotLab Middleware 19/19 ✅
+**Master Spec:** `FLUXFORGE_MASTER_SPEC.md` (consolidated reference)
 **Full backup:** `.claude/docs/MASTER_TODO_FULL_BACKUP_2026_02_27.md` (3,526 lines, complete history)
 
 ---
@@ -9,292 +9,335 @@
 ## 🎯 CURRENT STATE
 
 ```
-FEATURE PROGRESS: All tasks COMPLETE
-ANALYZER WARNINGS: 0 errors, 0 warnings ✅
-DAW MIXER: Pro Tools 2026-class — ALL 5 PHASES COMPLETE
-DSP PANELS: 16/16 premium FabFilter GUIs, all FFI connected
-EQ: ProEq unified superset (FF-Q 64)
-MASTER BUS: 12 insert slots (8 pre + 4 post), LUFS + True Peak metering
-STEREO IMAGER: 45/45 tasks (multiband, vectorscope, stereoize, Haas)
-UNIFIED TRACK GRAPH: 31/31 tasks (DAW ↔ SlotLab shared engine)
-AUREXIS™: 88/88 tasks (24 phases, rf-aurexis crate + FFI + UI) ✅
-SLOTLAB MIDDLEWARE: 19/19 providers (behavior tree, state gate, pipeline) ✅
-REPO: Clean (1 branch, no dead code)
+COMPLETED SYSTEMS:
+  AUREXIS™: 88/88 ✅
+  SlotLab Middleware Providers: 19/19 ✅
+  Hook Translation: ✅
+  Emotional Engine: ✅
+  DAW Mixer: Pro Tools 2026-class — ALL 5 PHASES ✅
+  DSP Panels: 16/16 premium FabFilter GUIs ✅
+  EQ: ProEq unified superset (FF-Q 64) ✅
+  Master Bus: 12 insert slots, LUFS + True Peak ✅
+  Stereo Imager: 45/45 tasks ✅
+  Unified Track Graph: 31/31 tasks ✅
+  Naming Bible: Spec complete, AutoBind uses it ✅
+
+PENDING SYSTEMS (ordered by dependency):
+  P-SRC: Audio Engine SRC Fixes (5 tasks)
+  P-GEG: Global Energy Governance (12 tasks)
+  P-DPM: Dynamic Priority Matrix — full logic (10 tasks)
+  P-SAMCL: Spectral Allocation & Masking (12 tasks)
+  P-PBSE: Pre-Bake Simulation Engine (10 tasks)
+  P-AIL: Authoring Intelligence Layer (8 tasks)
+  P-DRC: DRC, Manifest & Safety Envelope (12 tasks)
+  P-DEV: Device Preview Engine (14 tasks)
+  P-SAM: Smart Authoring Mode (10 tasks)
+  P-UCP: Unified Control Panel (8 tasks)
+  P-MWUI: SlotLab Middleware UI Views (8 tasks)
+  FUTURE — P-GAD: Gameplay-Aware DAW (deferred)
+  FUTURE — P-SSS: Scale & Stability Suite (deferred)
+
+ANALYZER: 0 errors, 0 warnings ✅
+REPO: Clean (1 branch)
 ```
 
 ---
 
-## 🧠 AUREXIS™ — Slot Audio Intelligence Engine ✅ COMPLETE
+## Implementation Dependency Order
 
-**Specs:**
-- `.claude/architecture/AUREXIS_INTEGRATION_ARCHITECTURE.md` — Engine (Rust FFI, determinism)
-- `.claude/architecture/AUREXIS_UNIFIED_PANEL_ARCHITECTURE.md` — UI (profile-driven panel)
-
-**What:** Deterministic, mathematically-aware, psychoacoustic intelligence engine. Translates slot mathematics into audio behavior. Outputs `DeterministicParameterMap` (data only) — never processes audio.
-
-**New Crate:** `rf-aurexis` — NO dependency on rf-ale, rf-engine, rf-dsp.
-
----
-
-### Phase 1: rf-aurexis Crate Scaffolding + Core (~1,150 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 1.1 | Kreiraj `crates/rf-aurexis/` — Cargo.toml, lib.rs, mod.rs | ✅ |
-| 1.2 | `core/engine.rs` — AurexisEngine struct, `tick()`, `compute()`, lifecycle | ✅ |
-| 1.3 | `core/state.rs` — AurexisState (kompletno runtime stanje) | ✅ |
-| 1.4 | `core/config.rs` — AurexisConfig sa default koeficijentima | ✅ |
-| 1.5 | `core/parameter_map.rs` — DeterministicParameterMap (30+ polja, serde) | ✅ |
-| 1.6 | Dodaj rf-aurexis u workspace Cargo.toml | ✅ |
-
-### Phase 2: Volatility Translator (~500 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 2.1 | `volatility/translator.rs` — stereo_elasticity(), energy_density(), escalation_rate(), micro_dynamics() | ✅ |
-| 2.2 | `volatility/profiles.rs` — VolatilityProfile (Low/Med/High/Extreme presets) | ✅ |
-| 2.3 | Unit testovi za volatility translator (10+ testova) | ✅ |
-
-### Phase 3: RTP Emotional Mapper (~450 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 3.1 | `rtp/mapper.rs` — pacing_curve(), spike_frequency(), peak_elasticity() | ✅ |
-| 3.2 | `rtp/models.rs` — RtpProfile, PacingCurve structs | ✅ |
-| 3.3 | Unit testovi za RTP mapper | ✅ |
-
-### Phase 4: Voice Collision Intelligence (~900 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 4.1 | `collision/priority.rs` — VoiceCollisionResolver: register/unregister/resolve | ✅ |
-| 4.2 | `collision/redistribution.rs` — pan_spread(), z_displacement(), width_compression(), ducking_bias() | ✅ |
-| 4.3 | `collision/clustering.rs` — center_occupancy() (max 2 front), density_map() | ✅ |
-| 4.4 | Unit testovi za collision (15+ testova) | ✅ |
-
-### Phase 5: Session Psycho Regulator (~900 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 5.1 | `psycho/fatigue.rs` — SessionFatigueTracker: tick(), rms_exposure(), hf_exposure(), transient_density(), stereo_fatigue() | ✅ |
-| 5.2 | `psycho/regulation.rs` — hf_attenuation(), transient_smoothing(), width_narrowing(), micro_variation() | ✅ |
-| 5.3 | `psycho/thresholds.rs` — FatigueThresholds sa konkretnim dB/time vrednostima | ✅ |
-| 5.4 | Unit testovi za fatigue + regulation (10+ testova) | ✅ |
-
-### Phase 6: Win Escalation Engine (~650 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 6.1 | `escalation/win.rs` — compute(), width_growth(), harmonic_excite(), reverb_extension(), sub_reinforce(), transient_sharp() | ✅ |
-| 6.2 | `escalation/curves.rs` — EscalationCurve (linear/exp/log/custom) sa saturation | ✅ |
-| 6.3 | Unit testovi za escalation | ✅ |
-
-### Phase 7: Micro-Variation Engine (~350 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 7.1 | `variation/hash.rs` — xxhash3 wrapper, seed_to_range() | ✅ |
-| 7.2 | `variation/deterministic.rs` — pan_drift(), width_variance(), harmonic_shift(), reflection_weight() | ✅ |
-| 7.3 | Determinism testovi (100 runs, identical output) | ✅ |
-
-### Phase 8: Attention Vector + Geometry (~300 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 8.1 | `geometry/attention.rs` — register_event(), compute_vector(), get_audio_center() | ✅ |
-| 8.2 | Unit testovi za attention | ✅ |
-
-### Phase 9: Platform Adaptation (~500 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 9.1 | `platform/profiles.rs` — Desktop(1.0), Mobile(0.6), Headphones(1.3), Cabinet(0.4) | ✅ |
-| 9.2 | `platform/adaptation.rs` — PlatformAdapter | ✅ |
-| 9.3 | Unit testovi za platform adaptation | ✅ |
-
-### Phase 10: FFI Bridge (~780 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 10.1 | `aurexis_ffi.rs` — ~40 FFI funkcija (lifecycle, volatility, RTP, collision, psycho, variation, platform, attention, QA) | ✅ |
-| 10.2 | aurexis_free_string() + batch state query | ✅ |
-| 10.3 | Dodaj aurexis_ffi u rf-bridge lib.rs | ✅ |
-| 10.4 | Registruj rf-aurexis dependency u rf-bridge/Cargo.toml | ✅ |
-
-### Phase 11: Dart FFI + AurexisProvider (~800 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 11.1 | Dart FFI bindings u engine_api.dart (~40 aurexis funkcija) | ✅ |
-| 11.2 | `aurexis_provider.dart` — tick loop (50ms), state refresh, memory-safe strings | ✅ |
-| 11.3 | GetIt registracija Layer 6 | ✅ |
-| 11.4 | Input wiring: SlotLabProvider → AUREXIS (spin, win, volatility) | ✅ |
-| 11.5 | Output composition rules: ParameterComposition enum (Add/Multiply/Replace/SoftCompose) | ✅ |
-
-### Phase 12: Profile System (~800 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 12.1 | `aurexis_models.dart` — AurexisProfile, AurexisBehaviorConfig, AurexisCategory | ✅ |
-| 12.2 | 12 built-in profiles (JSON) | ✅ |
-| 12.3 | AurexisResolver — behavior → system mapping (12 params) | ✅ |
-| 12.4 | Profile load/save/export/import + A/B snapshot | ✅ |
-| 12.5 | GDD auto-detection → profile selection | ✅ |
-
-### Phase 13: AUREXIS Panel Widget (~1,200 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 13.1 | `aurexis_panel.dart` — Main panel sa Intel/Audio mode toggle | ✅ |
-| 13.2 | `aurexis_profile_section.dart` — Profile dropdown, intensity, dials, jurisdiction | ✅ |
-| 13.3 | `aurexis_behavior_section.dart` — 4 grupe × 3 slidera, lock system | ✅ |
-| 13.4 | `aurexis_tweak_section.dart` — 8-system picker + compact editors | ✅ |
-| 13.5 | `aurexis_scope_section.dart` — Scope mode selector (6 modes) | ✅ |
-
-### Phase 14: System Integration (~600 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 14.1 | ALE integration — updateFromAurexis(): reactivity → cooldownMs, layerBias | ✅ |
-| 14.2 | AutoSpatial integration — collision-aware pan + width/panDrift (soft compose) | ✅ |
-| 14.3 | RTPC integration — escalation curve steepness | ✅ |
-| 14.4 | Ducking integration — duckAmountDb scaling | ✅ |
-| 14.5 | WinTier integration — audio intensity scaling | ✅ |
-| 14.6 | Container integration — blend range, sequence timing | ✅ |
-
-### Phase 15: Jurisdiction Engine (~650 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 15.1 | `jurisdiction_models.dart` — JurisdictionProfile, Rules, LdwBehavior | ✅ |
-| 15.2 | 9 built-in jurisdictions (UK, Malta, Nevada, NJ, Ontario, Victoria, NSW, IoM, Curacao) | ✅ |
-| 15.3 | LdwDetector — Loss Disguised as Win detection + audio behavior | ✅ |
-| 15.4 | CelebrationLimiter — max duration per jurisdiction | ✅ |
-| 15.5 | EventRegistry integration — suppress/modify celebration on LDW | ✅ |
-
-### Phase 16: Memory Budget Bar (~400 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 16.1 | MemoryBudgetCalculator — per-platform audio footprint | ✅ |
-| 16.2 | Memory budget bar widget (16px, always visible, color-coded) | ✅ |
-| 16.3 | Breakdown popup (per-section + optimization suggestions) | ✅ |
-
-### Phase 17: Scope Visualizers (~1,350 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 17.1 | `attention_field_viz.dart` — 2D heatmap | ✅ |
-| 17.2 | `energy_density_viz.dart` — Sparkline graph | ✅ |
-| 17.3 | `fatigue_meter_viz.dart` — Vertical bar + history | ✅ |
-| 17.4 | `voice_cluster_viz.dart` — Polar/stereo plot | ✅ |
-| 17.5 | `rtp_emotion_curve_viz.dart` — XY graph | ✅ |
-| 17.6 | `coverage_heatmap_viz.dart` — Slot mockup overlay | ✅ |
-
-### Phase 18: Cabinet Simulator (~550 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 18.1 | 9 speaker profiles (IGT, Aristocrat, Generic, Headphone, Mobile, Tablet, Custom) | ✅ |
-| 18.2 | Cabinet sim widget — speaker dropdown, freq response, ambient noise | ✅ |
-| 18.3 | EQ filter za speaker simulation (monitoring-only) | ✅ |
-| 18.4 | Pink noise generator za ambient profiles (6 presets) | ✅ |
-
-### Phase 19: Compliance Report (~500 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 19.1 | ComplianceReport — one-click generator (manifest, LDW, celebrations, loudness, fatigue, determinism) | ✅ |
-| 19.2 | Export formats: PDF, JSON, CSV, HTML | ✅ |
-| 19.3 | ComplianceDiff — automatski diff između verzija | ✅ |
-
-### Phase 20: Re-Theme Wizard (~650 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 20.1 | 3-step wizard UI (Source → Target → Review & Apply) | ✅ |
-| 20.2 | Matching strategies: namePattern, stageMapping, folderStructure, manual | ✅ |
-| 20.3 | Fuzzy matching engine + confidence score | ✅ |
-| 20.4 | Mapping JSON export/import + reverse re-theme | ✅ |
-
-### Phase 21: Audit Trail (~500 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 21.1 | AuditTrailService — auto change logging (ring buffer 10K, async persist) | ✅ |
-| 21.2 | AuditLogEntry model + 12 AuditAction types | ✅ |
-| 21.3 | ProjectLock — lock/unlock sa reason, disabled UI | ✅ |
-| 21.4 | Export: CSV, JSON + version diff | ✅ |
-| 21.5 | Hook u sve providere (Middleware, SlotLab, Aurexis, UltimateAudio) | ✅ |
-
-### Phase 22: QA Framework (~600 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 22.1 | `qa/determinism.rs` — ReplayVerifier | ✅ |
-| 22.2 | `qa/simulation.rs` — VolatilitySimulator | ✅ |
-| 22.3 | `qa/profiling.rs` — PerformanceProfiler | ✅ |
-| 22.4 | FFI za QA: start/stop recording, replay_verify, simulate | ✅ |
-| 22.5 | Dart integration: QA panel u EXPORT tab | ✅ |
-
-### Phase 23: Layout Consolidation (~400 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 23.1 | SlotLab: UltimateAudioPanel (240px) → AUREXIS Panel (280px) + Intel/Audio toggle | ✅ |
-| 23.2 | Lower Zone: 5 super-tabova → 3 (Timeline, Mix, Export) | ✅ |
-| 23.3 | Novi Export sub-tabovi: Report, Re-Theme | ✅ |
-| 23.4 | AUREXIS panel u DAW Lower Zone (Process sub-tab) | ✅ |
-
-### Phase 24: Integration Tests + Polish (~400 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| 24.1 | End-to-end determinism test (100 runs, identical output) | ✅ |
-| 24.2 | Parameter composition test suite (50+ cases) | ✅ |
-| 24.3 | Fatigue curve validation tests | ✅ |
-| 24.4 | Collision redistribution integration tests | ✅ |
-| 24.5 | Panel A/B snapshot, presets, tooltips polish | ✅ |
+```
+Layer 1 (no deps):     P-SRC, P-DEV
+Layer 2 (needs SRC):   P-GEG
+Layer 3 (needs GEG):   P-DPM, P-SAMCL
+Layer 4 (needs DPM+SAMCL): P-PBSE
+Layer 5 (needs PBSE):  P-AIL, P-DRC
+Layer 6 (needs AIL):   P-SAM, P-UCP
+Layer 7 (needs all):   P-MWUI (full views)
+FUTURE:                P-GAD (needs all), P-SSS (enterprise)
+```
 
 ---
 
-**AUREXIS TOTAL: 24 phases, 88 tasks — ALL COMPLETE ✅**
+## P-SRC: Audio Engine SRC Fixes
+
+**Spec:** FLUXFORGE_MASTER_SPEC.md §2
+**Key files:** `rf-engine/src/audio_import.rs`, `rf-engine/src/playback.rs`, `rf-engine/src/waveform.rs`
+
+| # | Task | Priority | Status |
+|---|------|----------|--------|
+| SRC-1 | Fix fallback inconsistency: all `unwrap_or(44100)` → `unwrap_or(48000)` in rf-file, rf-offline | P0 | ⬜ |
+| SRC-2 | Enable Lanczos-3 sinc SRC in playback Voice (code exists, not active) | P1 | ⬜ |
+| SRC-3 | Fast path: skip SRC when source rate == project rate | P1 | ⬜ |
+| SRC-4 | Mono waveform display: 1 centered waveform instead of 2 identical | P1 | ⬜ |
+| SRC-5 | Project Settings UI: sample rate selection (44.1k–192k) + SRC quality options | P2 | ⬜ |
 
 ---
 
-## 🎰 SlotLab Middleware Architecture ✅ COMPLETE
+## P-GEG: Global Energy Governance & Slot Profiles
 
-**Spec:** `SlotLab_Middleware_Architecture_Ultimate.md` (v6.0, 39 sections)
+**Spec:** FLUXFORGE_MASTER_SPEC.md §5
+**Formula:** `FinalCap = min(1.0, EI × SP × SM)`
 
-**What:** 19 middleware providers implementing the full SlotLab behavior pipeline: Hook → Trigger → Gate → Behavior → Priority → Orchestration. Plus templates, export, undo, notifications, coverage, simulation, and more.
-
-| # | Provider | Spec § | Status |
-|---|----------|--------|--------|
-| MW-1 | BehaviorTreeProvider (22 nodes, 7 categories) | §5 | ✅ |
-| MW-2 | StateGateProvider (gameplay substates, transitions) | §4 | ✅ |
-| MW-3 | TriggerLayerProvider (hook→node bindings) | §3 | ✅ |
-| MW-4 | PriorityEngineProvider (6 priority classes) | §8 | ✅ |
-| MW-5 | OrchestrationEngineProvider (emotion-aware shaping) | §9 | ✅ |
-| MW-6 | EmotionalStateProvider (8 states, decay) | §10 | ✅ |
-| MW-7 | TransitionSystemProvider (6 types, curves) | §11 | ✅ |
-| MW-8 | SimulationEngineProvider (6 modes) | §14 | ✅ |
-| MW-9 | ErrorPreventionProvider (7 validation types) | §15 | ✅ |
-| MW-10 | SlotLabUndoProvider (100-step stack) | §16 | ✅ |
-| MW-11 | SlotLabNotificationProvider (5 types) | §23 | ✅ |
-| MW-12 | BehaviorCoverageProvider (per-node tracking) | §17 | ✅ |
-| MW-13 | SmartCollapsingProvider (auto expand/collapse) | §18 | ✅ |
-| MW-14 | InspectorContextProvider (5 tabs, pinning) | §20 | ✅ |
-| MW-15 | ContextLayerProvider (6 game modes, overrides) | §21 | ✅ |
-| MW-16 | SlotLabTemplateProvider (7 categories) | §31 | ✅ |
-| MW-17 | SlotLabExportProvider (5 formats, 12 sections) | §32 | ✅ |
-| MW-18 | SlotLabViewModeProvider (4 views, 3 tiers) | §6 | ✅ |
-| MW-19 | AutoBindEngine (7-step parsing, fuzzy match) | §7 | ✅ |
-| MW-+ | Coordinator processHook() pipeline wiring | §3-10 | ✅ |
-| MW-+ | VoicePool §12 upgrade (8 pool types) | §12 | ✅ |
-| MW-+ | MusicSystem §27 upgrade (layered loops) | §27 | ✅ |
-| MW-+ | DuckingSystem §28 upgrade (per-behavior) | §28 | ✅ |
-| MW-+ | Remove duplicate LeftZone/RightZone from slot mode | layout | ✅ |
+| # | Task | Status |
+|---|------|--------|
+| GEG-1 | `rf-aurexis/energy/governance.rs` — EnergyGovernor struct, 5 energy domains (Dynamic, Transient, Spatial, Harmonic, Temporal) | ⬜ |
+| GEG-2 | `rf-aurexis/energy/slot_profiles.rs` — 9 slot profiles (HIGH_VOL, MED_VOL, LOW_VOL, CASCADE_HEAVY, FEATURE_HEAVY, JACKPOT_FOCUSED, CLASSIC_3_REEL, CLUSTER_PAY, MEGAWAYS) | ⬜ |
+| GEG-3 | `rf-aurexis/energy/escalation.rs` — 5 escalation curves (LINEAR, LOG, EXP, CAPPED_EXP, STEP) | ⬜ |
+| GEG-4 | `rf-aurexis/energy/session_memory.rs` — SessionMemory (SM ∈ [0.7–1.0]), loss streak softening, feature storm cooldown, jackpot compression | ⬜ |
+| GEG-5 | Voice budget enforcement: PeakEnergy→90%, MidEnergy→70%, LowEnergy→50% | ⬜ |
+| GEG-6 | Unit tests for energy governance (20+ tests) | ⬜ |
+| GEG-7 | FFI bridge: ~15 functions for GEG (lifecycle, profile, energy query, session memory) | ⬜ |
+| GEG-8 | Dart FFI bindings + EnergyGovernanceProvider | ⬜ |
+| GEG-9 | GetIt registration (Layer 6) | ⬜ |
+| GEG-10 | Wire GEG output to AUREXIS parameter map | ⬜ |
+| GEG-11 | Energy Budget Bar widget (per-domain breakdown) | ⬜ |
+| GEG-12 | Bake output: `geg_energy_config.json`, `geg_slot_profile.json` | ⬜ |
 
 ---
 
-*Last Updated: 2026-02-28 — AUREXIS 88/88 ✅, SlotLab Middleware 19/19 ✅. All tasks complete.*
+## P-DPM: Dynamic Priority Matrix — Full Logic
+
+**Spec:** FLUXFORGE_MASTER_SPEC.md §6
+**Formula:** `PriorityScore = BaseWeight × EmotionalWeight × ProfileWeight × EnergyWeight × ContextModifier`
+**Note:** PriorityEngineProvider exists as middleware shell — needs full DPM logic
+
+| # | Task | Status |
+|---|------|--------|
+| DPM-1 | `rf-aurexis/priority/dpm.rs` — DynamicPriorityMatrix struct, compute_priority(), sort_voices() | ⬜ |
+| DPM-2 | Base weights: 8 event types (JACKPOT_GRAND=1.0 → SYSTEM=0.30) | ⬜ |
+| DPM-3 | Emotional weight multipliers per emotional state (7 states) | ⬜ |
+| DPM-4 | Profile weight modifiers per slot profile (9 profiles from GEG) | ⬜ |
+| DPM-5 | Voice survival logic: sort → retain → attenuate (×0.6 within 10%) → suppress | ⬜ |
+| DPM-6 | Background never-suppress rule (ducking curve fallback) | ⬜ |
+| DPM-7 | JACKPOT_GRAND override (bypasses normal scoring) | ⬜ |
+| DPM-8 | Unit tests (15+ tests) | ⬜ |
+| DPM-9 | FFI bridge + Dart bindings, wire into PriorityEngineProvider | ⬜ |
+| DPM-10 | Bake outputs: `dpm_event_weights.json`, `dpm_profile_modifiers.json`, `dpm_context_rules.json`, `dpm_priority_matrix.json` | ⬜ |
+
+---
+
+## P-SAMCL: Spectral Allocation & Masking Control
+
+**Spec:** FLUXFORGE_MASTER_SPEC.md §7
+**10 spectral roles**, masking resolution, SCI collision index
+
+| # | Task | Status |
+|---|------|--------|
+| SAMCL-1 | `rf-aurexis/spectral/roles.rs` — 10 SpectralRole enums with frequency bands | ⬜ |
+| SAMCL-2 | `rf-aurexis/spectral/allocation.rs` — SpectralAllocator, assign_role(), resolve_collision() | ⬜ |
+| SAMCL-3 | `rf-aurexis/spectral/masking.rs` — MaskingResolver: notch attenuation, band EQ carve, harmonic attenuation, spatial narrowing, slot shift | ⬜ |
+| SAMCL-4 | SCI_ADV calculation: `overlapping_bands × HarmonicDensity × EnergyCap` | ⬜ |
+| SAMCL-5 | Aggressive carve mode when SCI exceeds threshold | ⬜ |
+| SAMCL-6 | Harmonic density limits: LOW=2, MID=3, PEAK=4 layers | ⬜ |
+| SAMCL-7 | Deterministic slot shift (alternate band assignment) | ⬜ |
+| SAMCL-8 | Unit tests (20+ tests covering all roles and collision scenarios) | ⬜ |
+| SAMCL-9 | FFI bridge + Dart bindings | ⬜ |
+| SAMCL-10 | SpectralAllocationProvider (GetIt Layer 6) | ⬜ |
+| SAMCL-11 | Spectral heatmap visualization widget | ⬜ |
+| SAMCL-12 | Bake outputs: `samcl_band_config.json`, `samcl_role_assignment.json`, `samcl_collision_rules.json`, `samcl_shift_curves.json` | ⬜ |
+
+---
+
+## P-PBSE: Pre-Bake Simulation Engine
+
+**Spec:** FLUXFORGE_MASTER_SPEC.md §8
+**Purpose:** Deterministic stress-test. Blocks BAKE if validation fails.
+
+| # | Task | Status |
+|---|------|--------|
+| PBSE-1 | `rf-aurexis/simulation/pbse.rs` — PreBakeSimulator struct, run_full_simulation() | ⬜ |
+| PBSE-2 | 10 simulation domains (spin sequences, loss streaks, win streaks, cascade chains, feature overlaps, jackpot escalation, turbo compression, autoplay burst, long session drift, hook burst) | ⬜ |
+| PBSE-3 | Validation metrics: MaxEnergyCap ≤ 1.0, MaxVoices ≤ Budget, SCI ≤ Max, FatigueIndex ≤ Threshold, EscalationSlope ≤ Limit | ⬜ |
+| PBSE-4 | 500-spin fatigue model: `FatigueIndex = (PeakFreq × HarmonicDensity × TemporalDensity) / RecoveryFactor` | ⬜ |
+| PBSE-5 | Determinism validation: replay identical scenario × 2, compare all hashes | ⬜ |
+| PBSE-6 | BAKE gate: simulation must PASS before BAKE unlocks | ⬜ |
+| PBSE-7 | Unit tests (15+ tests) | ⬜ |
+| PBSE-8 | FFI bridge + Dart bindings | ⬜ |
+| PBSE-9 | SimulationEngineProvider upgrade (wire full PBSE logic into existing shell) | ⬜ |
+| PBSE-10 | Simulation results panel UI (pass/fail per domain, metrics display) | ⬜ |
+
+---
+
+## P-AIL: Authoring Intelligence Layer
+
+**Spec:** FLUXFORGE_MASTER_SPEC.md §9
+**Purpose:** Advisory system post-PBSE. Cannot block BAKE — only flags/warns/recommends.
+
+| # | Task | Status |
+|---|------|--------|
+| AIL-1 | `rf-aurexis/advisory/ail.rs` — AuthoringIntelligence struct, analyze(), generate_report() | ⬜ |
+| AIL-2 | 10 analysis domains (hook frequency, volatility pattern, cascade density, feature overlap, emotional curve, energy distribution, voice utilization, spectral overlap, fatigue projection, session drift) | ⬜ |
+| AIL-3 | AIL Score (0–100) calculation | ⬜ |
+| AIL-4 | Recommendation report: `ail_recommendation_report.json` | ⬜ |
+| AIL-5 | Unit tests (10+ tests) | ⬜ |
+| AIL-6 | FFI bridge + Dart bindings | ⬜ |
+| AIL-7 | AIL indicator widgets (Score, Volatility Match, Fatigue Risk, Spectral Clarity, Voice Efficiency) | ⬜ |
+| AIL-8 | Integration with PBSE results as input data source | ⬜ |
+
+---
+
+## P-DRC: DRC, Manifest & Safety Envelope
+
+**Spec:** FLUXFORGE_MASTER_SPEC.md §10
+**Purpose:** Deterministic replay, version locking, safety limits, certification.
+
+| # | Task | Status |
+|---|------|--------|
+| DRC-1 | `rf-aurexis/drc/replay.rs` — DeterministicReplayCore, record(), replay(), verify() | ⬜ |
+| DRC-2 | .fftrace format: JSON with trace_version, engine_version, hook_sequence[], state_snapshots[], final_state_hash | ⬜ |
+| DRC-3 | SHA256 per-frame hashing + comparison | ⬜ |
+| DRC-4 | `rf-aurexis/drc/manifest.rs` — ManifestManager, flux_manifest.json generation | ⬜ |
+| DRC-5 | Version locking: subsystem versions + config_bundle_hash | ⬜ |
+| DRC-6 | Config change → manifest invalidation logic | ⬜ |
+| DRC-7 | `rf-aurexis/drc/safety.rs` — SafetyEnvelope: MAX_ENERGY=1.0, MAX_PEAK_DURATION=240, MAX_VOICES=96, MAX_HARMONIC_DENSITY=4, MAX_SCI=0.85, MAX_PEAK_SESSION=40% | ⬜ |
+| DRC-8 | Certification gate: DRC pass + PBSE pass + Envelope pass + Manifest check → BAKE unlock | ⬜ |
+| DRC-9 | Unit tests (15+ tests) | ⬜ |
+| DRC-10 | FFI bridge + Dart bindings | ⬜ |
+| DRC-11 | Manifest viewer UI + certification status panel | ⬜ |
+| DRC-12 | .fftrace file save/load + diff viewer | ⬜ |
+
+---
+
+## P-DEV: Device Preview Engine
+
+**Spec:** FLUXFORGE_MASTER_SPEC.md §11
+**Architecture:** Post-master monitoring-only. NEVER in exports. ≤0.7ms, <3% CPU.
+
+| # | Task | Status |
+|---|------|--------|
+| DEV-1 | `rf-dsp/device_preview/chain.rs` — 8-node DSP chain: PreGain → HPF → TonalEQ → Stereo → MultibandDRC → Limiter → Distortion → Environmental | ⬜ |
+| DEV-2 | Butterworth HPF node | ⬜ |
+| DEV-3 | Tonal Curve EQ (5-8 biquads per profile) | ⬜ |
+| DEV-4 | M/S Stereo Processor (width adjustment) | ⬜ |
+| DEV-5 | 3-band Multiband DRC | ⬜ |
+| DEV-6 | Device Limiter node | ⬜ |
+| DEV-7 | Soft-clip Distortion Model | ⬜ |
+| DEV-8 | Environmental Overlay (ambient noise) | ⬜ |
+| DEV-9 | 50 device profiles (15 smartphones, 9 headphones, 6 laptop/tablet, 6 TV/soundbar, 5 BT speakers, 5 monitors, 4 casino/env) | ⬜ |
+| DEV-10 | Profile data: 10-point FR curve, Max SPL, DRC amount, stereo width, bass management, limiter, distortion per profile | ⬜ |
+| DEV-11 | Thread model: audio thread process() with pre-computed coefficients, UI thread loads + atomic flag, zero locking | ⬜ |
+| DEV-12 | Export safety: `assert(MonitoringLayer.active == false)` abort guard | ⬜ |
+| DEV-13 | FFI bridge + Dart bindings + DevicePreviewProvider | ⬜ |
+| DEV-14 | Device Preview panel UI: profile picker, FR curve display, A/B comparison | ⬜ |
+
+---
+
+## P-SAM: Smart Authoring Mode
+
+**Spec:** FLUXFORGE_MASTER_SPEC.md §13
+**Requires:** GEG, DPM, SAMCL, PBSE, AIL
+
+| # | Task | Status |
+|---|------|--------|
+| SAM-1 | 3 UI modes framework: SMART (80% hidden), ADVANCED (full), DEBUG (raw state) | ⬜ |
+| SAM-2 | 8 archetypes: CLASSIC_3_REEL, HOLD_AND_WIN, CASCADE_HEAVY, MEGAWAYS, CLUSTER_PAY, JACKPOT_HEAVY, FEATURE_STORM, TURBO_ARCADE | ⬜ |
+| SAM-3 | Smart controls: Energy group (Intensity/Build Speed/Peak Aggression/Decay) | ⬜ |
+| SAM-4 | Smart controls: Clarity group (Mix Tightness/Transient Sharpness/Width/Harmonics) | ⬜ |
+| SAM-5 | Smart controls: Stability group (Fatigue/Peak Duration/Voice Density) | ⬜ |
+| SAM-6 | Smart → engine param mapping (each control maps to multiple engine params) | ⬜ |
+| SAM-7 | 9-step guided creation wizard (Archetype → Volatility → Market → GDD → Auto-config → Preview → AIL → Adjust → Bake) | ⬜ |
+| SAM-8 | GDD auto-detection → archetype + profile suggestion | ⬜ |
+| SAM-9 | SmartAuthoringProvider (GetIt Layer 7) | ⬜ |
+| SAM-10 | Integration: SAM controls → GEG/DPM/SAMCL params | ⬜ |
+
+---
+
+## P-UCP: Unified Control Panel
+
+**Spec:** FLUXFORGE_MASTER_SPEC.md §14
+**Requires:** Core systems (GEG, DPM, SAMCL, Emotional Engine)
+
+| # | Task | Status |
+|---|------|--------|
+| UCP-1 | Event Timeline zone (hook events, canonical events, segment boundaries) | ⬜ |
+| UCP-2 | Energy/Emotional Monitor zone (5 energy domains + emotional state + intensity) | ⬜ |
+| UCP-3 | Voice/Priority Monitor zone (active voices, priority scores, survival status) | ⬜ |
+| UCP-4 | Spectral Heatmap zone (10 spectral roles, masking visualization) | ⬜ |
+| UCP-5 | Fatigue/Stability Dashboard (fatigue index, session drift, peak duration) | ⬜ |
+| UCP-6 | AIL Panel integration (ranked recommendations, impact score, apply confirm) | ⬜ |
+| UCP-7 | Debug mode (raw values, priority calcs, spectral coefficients, frame hashes) | ⬜ |
+| UCP-8 | Export: UCP_Session_Report.md, UCP_Energy_Graph.json, UCP_Voice_Utilization.json, UCP_Spectral_Map.json | ⬜ |
+
+---
+
+## P-MWUI: SlotLab Middleware UI Views
+
+**Spec:** FLUXFORGE_MASTER_SPEC.md §17
+**Note:** Providers are done (19/19). These are the 4 full view modes.
+
+| # | Task | Status |
+|---|------|--------|
+| MWUI-1 | BUILD View — primary 90% workflow: behavior tree, node editor, AutoBind panel, stage assignment | ⬜ |
+| MWUI-2 | FLOW View — visual pipeline: hook → gate → behavior → priority → orchestration → voice | ⬜ |
+| MWUI-3 | SIMULATION View — 6 modes: Spin Sequence, Loss Streak, Win Streak, Cascade Chain, Feature, Full Session | ⬜ |
+| MWUI-4 | DIAGNOSTIC View — raw state, provider values, pipeline timing, voice pool status | ⬜ |
+| MWUI-5 | Template gallery UI (7 categories) with apply + customize | ⬜ |
+| MWUI-6 | Export panel UI (7 formats) with format-specific options | ⬜ |
+| MWUI-7 | Coverage visualization (per-node binding status, missing hooks highlight) | ⬜ |
+| MWUI-8 | Inspector panel (5 tabs: Properties, Audio, Behavior, Transitions, Debug) | ⬜ |
+
+---
+
+## FUTURE: P-GAD — Gameplay-Aware DAW
+
+**Spec:** FLUXFORGE_MASTER_SPEC.md §15
+**Status:** Deferred until all core systems complete
+
+- Dual timeline (Musical + Gameplay)
+- 8 track types with per-track metadata
+- Bake To Slot (11-step pipeline)
+
+---
+
+## FUTURE: P-SSS — Scale & Stability Suite
+
+**Spec:** FLUXFORGE_MASTER_SPEC.md §16
+**Status:** Deferred (enterprise feature)
+
+- Multi-project isolation
+- Config diff engine
+- Auto regression (10 .fftrace sessions)
+- Burn test (10,000 spins)
+
+---
+
+## ✅ COMPLETED SYSTEMS (collapsed)
+
+<details>
+<summary>AUREXIS™ — 88/88 tasks (24 phases)</summary>
+All 24 phases complete. See `.claude/docs/MASTER_TODO_FULL_BACKUP_2026_02_27.md` for full task list.
+</details>
+
+<details>
+<summary>SlotLab Middleware — 19/19 providers</summary>
+All 19 middleware providers implemented. See backup for full provider list.
+</details>
+
+<details>
+<summary>DAW Mixer, DSP Panels, EQ, Master Bus, Stereo Imager, Unified Track Graph</summary>
+All complete. See backup for details.
+</details>
+
+---
+
+## Task Totals
+
+| System | Tasks | Done | Remaining |
+|--------|-------|------|-----------|
+| P-SRC | 5 | 0 | 5 |
+| P-GEG | 12 | 0 | 12 |
+| P-DPM | 10 | 0 | 10 |
+| P-SAMCL | 12 | 0 | 12 |
+| P-PBSE | 10 | 0 | 10 |
+| P-AIL | 8 | 0 | 8 |
+| P-DRC | 12 | 0 | 12 |
+| P-DEV | 14 | 0 | 14 |
+| P-SAM | 10 | 0 | 10 |
+| P-UCP | 8 | 0 | 8 |
+| P-MWUI | 8 | 0 | 8 |
+| **TOTAL** | **109** | **0** | **109** |
+| FUTURE (GAD+SSS) | ~25 | 0 | deferred |
+
+---
+
+*Last Updated: 2026-02-28 — 109 new tasks across 11 systems. Dependency order: SRC/DEV → GEG → DPM+SAMCL → PBSE → AIL+DRC → SAM+UCP → MWUI*
