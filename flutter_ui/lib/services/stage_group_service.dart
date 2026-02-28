@@ -1162,6 +1162,83 @@ class StageGroupService {
     return bestConfidence >= 0.2 ? bestGroup : null;
   }
 
+  /// Batch-match files to stages across ALL groups, with indexing convention detection.
+  /// Unlike matchFilesToGroup (single group), this matches against the entire stage catalog
+  /// and filters results to only include stages in [allowedStages] if provided.
+  BatchMatchResult matchFilesToStages({
+    required List<String> audioPaths,
+    Set<String>? allowedStages,
+  }) {
+    final matched = <StageMatch>[];
+    final unmatched = <UnmatchedFile>[];
+
+    // Batch-level indexing convention detection (1-indexed vs 0-indexed)
+    final indexOffset = _detectIndexingConvention(audioPaths);
+
+    // Flatten ALL definitions across ALL groups
+    final allDefinitions = <_StageDefinition>[];
+    for (final group in StageGroup.values) {
+      allDefinitions.addAll(_stageDefinitions[group] ?? []);
+    }
+
+    for (final path in audioPaths) {
+      final fileName = _extractFileName(path);
+      final normalizedName = _normalizeFileName(fileName);
+
+      // Apply indexing offset for batch matching
+      final adjustedName = indexOffset != 0
+          ? _applyIndexOffset(normalizedName, indexOffset)
+          : normalizedName;
+
+      _StageDefinition? bestMatch;
+      double bestConfidence = 0.0;
+      List<String> bestKeywords = [];
+
+      for (final def in allDefinitions) {
+        // Skip stages not in allowed set (if filter provided)
+        if (allowedStages != null && !allowedStages.contains(def.stage)) {
+          continue;
+        }
+        final (confidence, keywords) = _calculateConfidence(adjustedName, def);
+        if (confidence > bestConfidence) {
+          bestConfidence = confidence;
+          bestMatch = def;
+          bestKeywords = keywords;
+        }
+      }
+
+      if (bestMatch != null && bestConfidence >= 0.2) {
+        matched.add(StageMatch(
+          audioFileName: fileName,
+          audioPath: path,
+          stage: bestMatch.stage,
+          confidence: bestConfidence,
+          matchedKeywords: bestKeywords,
+        ));
+      } else {
+        final suggestions = _generateSuggestions(
+          adjustedName,
+          allowedStages != null
+              ? allDefinitions.where((d) => allowedStages.contains(d.stage)).toList()
+              : allDefinitions,
+        );
+        unmatched.add(UnmatchedFile(
+          audioFileName: fileName,
+          audioPath: path,
+          suggestions: suggestions,
+        ));
+      }
+    }
+
+    matched.sort((a, b) => b.confidence.compareTo(a.confidence));
+
+    return BatchMatchResult(
+      group: StageGroup.spinsAndReels, // placeholder — cross-group result
+      matched: matched,
+      unmatched: unmatched,
+    );
+  }
+
   /// Match a single file to a stage (across all groups)
   StageMatch? matchSingleFile(String audioPath) {
     final fileName = _extractFileName(audioPath);

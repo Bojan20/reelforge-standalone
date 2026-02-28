@@ -2647,7 +2647,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               });
             }
           },
-          onFolderDrop: (paths) => _handleFolderDrop(group, paths),
+          onFolderDrop: (paths) => _handleFolderDrop(group, section, paths),
         ),
         // Individual slots
         if (isExpanded)
@@ -3139,56 +3139,39 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   }
 
   /// Handle folder drop on a group — auto-distribute files
-  void _handleFolderDrop(_GroupConfig group, List<String> audioPaths) {
+  void _handleFolderDrop(_GroupConfig group, _SectionConfig section, List<String> audioPaths) {
     if (audioPaths.isEmpty) return;
 
-    // Get all stages in this group
-    final groupStages = group.slots.map((s) => s.stage).toSet();
-
-    // Use StageGroupService to match files
-    final matched = <StageMatch>[];
-    final unmatched = <UnmatchedFile>[];
-
-    for (final path in audioPaths) {
-      final match = StageGroupService.instance.matchSingleFile(path);
-      if (match != null && groupStages.contains(match.stage)) {
-        matched.add(match);
-      } else if (match != null) {
-        // Matched but to wrong group — check if it should go elsewhere
-        // For now, add as unmatched with suggestion
-        unmatched.add(UnmatchedFile(
-          audioFileName: path.split('/').last,
-          audioPath: path,
-          suggestions: [
-            StageSuggestion(
-              stage: match.stage,
-              confidence: match.confidence,
-              reason: 'Matched to different group',
-            ),
-          ],
-        ));
-      } else {
-        // No match found
-        unmatched.add(UnmatchedFile(
-          audioFileName: path.split('/').last,
-          audioPath: path,
-          suggestions: const [],
-        ));
+    // Collect ALL stages from ALL groups in this section (not just the target group).
+    // This ensures that dropping a mixed folder on any group still assigns files
+    // to the correct stages across the entire section.
+    final allSectionStages = <String>{};
+    for (final g in section.groups) {
+      for (final slot in g.slots) {
+        allSectionStages.add(slot.stage);
       }
     }
 
+    // Use BATCH matching with indexing convention detection.
+    // This correctly handles 1-indexed filenames (reel_stop_3 → REEL_STOP_2)
+    // unlike matchSingleFile() which has no batch context.
+    final result = StageGroupService.instance.matchFilesToStages(
+      audioPaths: audioPaths,
+      allowedStages: allSectionStages,
+    );
+
     // Apply matched assignments
-    for (final match in matched) {
+    for (final match in result.matched) {
       widget.onAudioAssign?.call(match.stage, match.audioPath);
     }
 
     // Show results dialog
     if (mounted) {
-      _showDistributionResult(matched, unmatched);
+      _showDistributionResult(result.matched, result.unmatched);
     }
 
     // Notify callback
-    widget.onBatchDistribute?.call(matched, unmatched);
+    widget.onBatchDistribute?.call(result.matched, result.unmatched);
   }
 
   void _showDistributionResult(List<StageMatch> matched, List<UnmatchedFile> unmatched) {
