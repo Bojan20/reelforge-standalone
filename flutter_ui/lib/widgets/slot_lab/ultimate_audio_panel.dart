@@ -220,6 +220,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   // Unassigned filter state (P3-17)
   bool _showUnassignedOnly = false;
 
+  // V10: Phase tab navigation — show one phase at a time
+  int _activePhaseTab = 0; // 0=All, 1-7=individual phases
+  bool _showAllPhases = false; // false=tab mode, true=scroll all
+
   // Keyboard navigation state (SL-LP-P1.3)
   final FocusNode _panelFocusNode = FocusNode();
   int _selectedSectionIndex = 0;
@@ -230,45 +234,16 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     super.initState();
     // Initialize local state from external or defaults
     // V9: Phase IDs + Section IDs for two-level expand state
+    // V10: Smart defaults — only P0 phases expanded, rest collapsed
     _localExpandedSections = Set.from(widget.expandedSections ?? {
       'feature_builder',    // 0. Feature Builder (P13.8.6) — top priority
-      // Phase IDs (outer level)
-      'core_loop',          // Phase 1: Core Loop — most critical
-      'wins',               // Phase 2: Wins — always needed
-      // Section IDs (inner level, expanded within phases)
-      'base_game_loop',     // 1. Primary — most used
-      'symbols',            // 2. Primary
-      'win_presentation',   // 3. Primary
+      'core_loop',          // Phase 1: Core Loop — P0 critical
+      'base_game_loop',     // Section: most used
     });
+    // V10: Only expand core groups by default — user adds more via tabs
     _localExpandedGroups = Set.from(widget.expandedGroups ?? {
-      // 1. Base Game Loop (Primary)
-      'base_game_loop_idle', 'base_game_loop_spin_controls', 'base_game_loop_reel_stops',
-      'base_game_loop_reel_animation', 'base_game_loop_anticipation',
-      // 2. Symbols
-      'symbols_special', 'symbols_highpay', 'symbols_mediumpay', 'symbols_lowpay',
-      'symbols_wild_expanded', 'symbols_special_expanded',
-      // 3. Win Presentation
-      'win_presentation_eval', 'win_presentation_lines', 'win_presentation_tiers',
-      'win_presentation_rollup', 'win_presentation_celebration', 'win_presentation_voice',
-      // 4. Cascading
-      'cascading_basic', 'cascading_chain', 'cascading_cluster',
-      // 5. Multipliers
-      'multipliers_win', 'multipliers_progressive', 'multipliers_random',
-      // 6. Free Spins
-      'free_spins_trigger', 'free_spins_loop', 'free_spins_summary',
-      // 7. Bonus Games
-      'bonus_pick', 'bonus_wheel', 'bonus_trail',
-      // 8. Hold & Win
-      'hold_win_trigger', 'hold_win_respins', 'hold_win_summary',
-      // 9. Jackpots
-      'jackpots_trigger', 'jackpots_reveal', 'jackpots_tiers',
-      // 10. Gamble
-      'gamble_entry', 'gamble_flip', 'gamble_result',
-      // 11. Music
-      'music_base', 'music_attract', 'music_tension', 'music_features',
-      'music_stingers', 'music_ambient',
-      // 12. UI & System
-      'ui_system_menu', 'ui_system_notifications', 'ui_system_errors',
+      'base_game_loop_spin_controls', 'base_game_loop_reel_stops',
+      'base_game_loop_anticipation',
     });
   }
 
@@ -320,7 +295,20 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       return KeyEventResult.ignored;
     }
 
-    // Arrow keys: Navigate sections/groups
+    // Arrow left/right: Navigate phase tabs
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      setState(() {
+        if (_activePhaseTab > 0) _activePhaseTab--;
+      });
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+      setState(() {
+        if (_activePhaseTab < 7) _activePhaseTab++;
+      });
+      return KeyEventResult.handled;
+    }
+    // Arrow up/down: Navigate sections within phase
     if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
       setState(() {
         if (_selectedSectionIndex > 0) _selectedSectionIndex--;
@@ -329,7 +317,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
       setState(() {
-        if (_selectedSectionIndex < 6) _selectedSectionIndex++; // 7 phases (0-6)
+        if (_selectedSectionIndex < 6) _selectedSectionIndex++;
       });
       return KeyEventResult.handled;
     }
@@ -388,6 +376,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               },
             ),
           ),
+          // V10: Phase tab bar — navigate between phases
+          _buildPhaseTabBar(),
           Expanded(
             child: SingleChildScrollView(
               child: Column(
@@ -396,8 +386,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   // P13.8.6: Feature Builder Generated Stages (FIRST - highest priority)
                   if (widget.generatedStages != null && widget.generatedStages!.isNotEmpty)
                     _buildSection(_FeatureBuilderSection(widget: widget)),
-                  // V9: 7 Phases organized by Game Flow
-                  ..._buildPhases().map((phase) => _buildPhase(phase)),
+                  // V10: Show selected phase only (or all if in All mode)
+                  ..._getVisiblePhases().map((phase) => _buildPhase(phase)),
                 ],
               ),
             ),
@@ -605,6 +595,84 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         ],
       ),
     );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // V10: Phase Tab Bar — Navigate between phases
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Phase tab labels with icons
+  static const _phaseTabLabels = [
+    ('ALL', Icons.grid_view, Colors.white54),
+    ('CORE', Icons.casino, Color(0xFF4A9EFF)),
+    ('WINS', Icons.emoji_events, Color(0xFFFFD700)),
+    ('FEAT', Icons.star, Color(0xFF40FF90)),
+    ('JACK', Icons.diamond, Color(0xFFFFD700)),
+    ('GAMB', Icons.casino_outlined, Color(0xFFFF6B6B)),
+    ('MUSIC', Icons.music_note, Color(0xFF9370DB)),
+    ('UI', Icons.widgets, Color(0xFF808080)),
+  ];
+
+  Widget _buildPhaseTabBar() {
+    return Container(
+      height: 28,
+      decoration: BoxDecoration(
+        color: const Color(0xFF12121A),
+        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
+      ),
+      child: Row(
+        children: List.generate(_phaseTabLabels.length, (i) {
+          final entry = _phaseTabLabels[i];
+          final label = entry.$1;
+          final icon = entry.$2;
+          final color = entry.$3;
+          final isActive = _activePhaseTab == i;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _activePhaseTab = i),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: isActive ? color : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, size: 11, color: isActive ? color : Colors.white24),
+                    Text(label, style: TextStyle(
+                      fontSize: 7,
+                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                      color: isActive ? color : Colors.white30,
+                      letterSpacing: 0.3,
+                    )),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  /// Get phases filtered by active tab
+  List<_PhaseConfig> _getVisiblePhases() {
+    final all = _buildPhases();
+    if (_activePhaseTab == 0 || _isFiltering) return all; // ALL tab or search active
+    final idx = _activePhaseTab - 1; // 1-indexed in tabs, 0-indexed in phases
+    if (idx >= 0 && idx < all.length) {
+      // Auto-expand the selected phase
+      final phase = all[idx];
+      if (!_expandedSections.contains(phase.id)) {
+        _localExpandedSections.add(phase.id);
+      }
+      return [phase];
+    }
+    return all;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
