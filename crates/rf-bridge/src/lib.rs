@@ -48,6 +48,7 @@ pub mod container_ffi;
 pub mod device_preview_ffi;
 pub mod dpm_ffi;
 pub mod energy_governance_ffi;
+pub mod pbse_ffi;
 pub mod dsp_commands;
 mod engine_bridge;
 pub mod ffi_bounds; // ✅ P12.0.5: FFI bounds checking
@@ -353,6 +354,9 @@ pub use energy_governance_ffi::*;
 
 // Re-export SAMCL FFI
 pub use samcl_ffi::*;
+
+// Re-export PBSE FFI
+pub use pbse_ffi::*;
 
 // Re-export Container FFI (P2 optimization)
 pub use container_ffi::*;

@@ -144,16 +144,16 @@ FUTURE:                P-GAD (needs all), P-SSS (enterprise)
 
 | # | Task | Status |
 |---|------|--------|
-| PBSE-1 | `rf-aurexis/simulation/pbse.rs` — PreBakeSimulator struct, run_full_simulation() | ⬜ |
-| PBSE-2 | 10 simulation domains (spin sequences, loss streaks, win streaks, cascade chains, feature overlaps, jackpot escalation, turbo compression, autoplay burst, long session drift, hook burst) | ⬜ |
-| PBSE-3 | Validation metrics: MaxEnergyCap ≤ 1.0, MaxVoices ≤ Budget, SCI ≤ Max, FatigueIndex ≤ Threshold, EscalationSlope ≤ Limit | ⬜ |
-| PBSE-4 | 500-spin fatigue model: `FatigueIndex = (PeakFreq × HarmonicDensity × TemporalDensity) / RecoveryFactor` | ⬜ |
-| PBSE-5 | Determinism validation: replay identical scenario × 2, compare all hashes | ⬜ |
-| PBSE-6 | BAKE gate: simulation must PASS before BAKE unlocks | ⬜ |
-| PBSE-7 | Unit tests (15+ tests) | ⬜ |
-| PBSE-8 | FFI bridge + Dart bindings | ⬜ |
-| PBSE-9 | SimulationEngineProvider upgrade (wire full PBSE logic into existing shell) | ⬜ |
-| PBSE-10 | Simulation results panel UI (pass/fail per domain, metrics display) | ⬜ |
+| PBSE-1 | `rf-aurexis/qa/pbse.rs` — PreBakeSimulator struct, run_full_simulation() | ✅ |
+| PBSE-2 | 10 simulation domains (spin sequences, loss streaks, win streaks, cascade chains, feature overlaps, jackpot escalation, turbo compression, autoplay burst, long session drift, hook burst) | ✅ |
+| PBSE-3 | Validation metrics: MaxEnergyCap ≤ 1.0, MaxVoices ≤ Budget, SCI ≤ Max, FatigueIndex ≤ Threshold, EscalationSlope ≤ Limit | ✅ |
+| PBSE-4 | 500-spin fatigue model: `FatigueIndex = (PeakFreq × HarmonicDensity × TemporalDensity) / RecoveryFactor` | ✅ |
+| PBSE-5 | Determinism validation: replay identical scenario × 2, compare all hashes | ✅ |
+| PBSE-6 | BAKE gate: simulation must PASS before BAKE unlocks | ✅ |
+| PBSE-7 | Unit tests (19 tests) | ✅ |
+| PBSE-8 | FFI bridge (`pbse_ffi.rs`, ~30 functions) + Dart bindings | ✅ |
+| PBSE-9 | SimulationEngineProvider upgrade (full PBSE logic wired via NativeFFI) | ✅ |
+| PBSE-10 | PBSE Results Panel UI (pass/fail per domain, fatigue model, bake gate) | ✅ |
 
 ---
 
@@ -334,7 +334,7 @@ All complete. See backup for details.
 | P-SAM | 10 | 0 | 10 |
 | P-UCP | 8 | 0 | 8 |
 | P-MWUI | 8 | 0 | 8 |
-| **TOTAL** | **109** | **53** | **56** |
+| **TOTAL** | **109** | **63** | **46** |
 | FUTURE (GAD+SSS) | ~25 | 0 | deferred |
 
 ---

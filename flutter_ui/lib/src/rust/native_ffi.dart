@@ -23648,5 +23648,344 @@ extension TimeStretchFFI on NativeFFI {
       return null;
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PBSE (Pre-Bake Simulation Engine) FFI
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Reset PBSE to default state
+  void pbseReset() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(),
+          int Function()>('pbse_reset');
+      fn();
+    } catch (_) {}
+  }
+
+  /// Set validation thresholds
+  void pbseSetThresholds(double maxEnergy, int maxVoices, double maxSci, double maxFatigue, double maxSlope) {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Double, Uint32, Double, Double, Double),
+          int Function(double, int, double, double, double)>('pbse_set_thresholds');
+      fn(maxEnergy, maxVoices, maxSci, maxFatigue, maxSlope);
+    } catch (_) {}
+  }
+
+  /// Run full simulation. Returns true if all passed (bake unlocked).
+  bool pbseRunFullSimulation() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(),
+          int Function()>('pbse_run_full_simulation');
+      return fn() == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Run single domain. Returns true if passed.
+  bool pbseRunDomain(int domainIndex) {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Uint8),
+          int Function(int)>('pbse_run_domain');
+      return fn(domainIndex) == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Check if bake is unlocked
+  bool pbseBakeUnlocked() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(),
+          int Function()>('pbse_bake_unlocked');
+      return fn() == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Get domain count
+  int pbseDomainCount() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(),
+          int Function()>('pbse_domain_count');
+      return fn();
+    } catch (_) {
+      return 10;
+    }
+  }
+
+  /// Check if a domain passed. Returns true/false, null if not yet run.
+  bool? pbseDomainPassed(int domainIndex) {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Uint8),
+          int Function(int)>('pbse_domain_passed');
+      final result = fn(domainIndex);
+      if (result == -1) return null;
+      return result == 1;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get total spins from last simulation
+  int pbseTotalSpins() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(),
+          int Function()>('pbse_total_spins');
+      return fn();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Check if determinism was verified
+  bool? pbseDeterminismVerified() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(),
+          int Function()>('pbse_determinism_verified');
+      final result = fn();
+      if (result == -1) return null;
+      return result == 1;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get domain peak energy cap
+  double pbseDomainPeakEnergy(int domainIndex) {
+    try {
+      final fn = _lib.lookupFunction<Double Function(Uint8),
+          double Function(int)>('pbse_domain_peak_energy');
+      return fn(domainIndex);
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  /// Get domain peak voice count
+  int pbseDomainPeakVoices(int domainIndex) {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(Uint8),
+          int Function(int)>('pbse_domain_peak_voices');
+      return fn(domainIndex);
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Get domain peak SCI
+  double pbseDomainPeakSci(int domainIndex) {
+    try {
+      final fn = _lib.lookupFunction<Double Function(Uint8),
+          double Function(int)>('pbse_domain_peak_sci');
+      return fn(domainIndex);
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  /// Get domain peak fatigue
+  double pbseDomainPeakFatigue(int domainIndex) {
+    try {
+      final fn = _lib.lookupFunction<Double Function(Uint8),
+          double Function(int)>('pbse_domain_peak_fatigue');
+      return fn(domainIndex);
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  /// Get domain escalation slope
+  double pbseDomainEscalationSlope(int domainIndex) {
+    try {
+      final fn = _lib.lookupFunction<Double Function(Uint8),
+          double Function(int)>('pbse_domain_escalation_slope');
+      return fn(domainIndex);
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  /// Get domain spin count
+  int pbseDomainSpinCount(int domainIndex) {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(Uint8),
+          int Function(int)>('pbse_domain_spin_count');
+      return fn(domainIndex);
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Get domain determinism status
+  bool? pbseDomainDeterministic(int domainIndex) {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Uint8),
+          int Function(int)>('pbse_domain_deterministic');
+      final result = fn(domainIndex);
+      if (result == -1) return null;
+      return result == 1;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get fatigue model index
+  double pbseFatigueIndex() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(),
+          double Function()>('pbse_fatigue_index');
+      return fn();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  /// Get fatigue model passed status
+  bool? pbseFatiguePassed() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(),
+          int Function()>('pbse_fatigue_passed');
+      final result = fn();
+      if (result == -1) return null;
+      return result == 1;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Get fatigue peak frequency
+  double pbseFatiguePeakFrequency() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(),
+          double Function()>('pbse_fatigue_peak_frequency');
+      return fn();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  /// Get fatigue harmonic density
+  double pbseFatigueHarmonicDensity() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(),
+          double Function()>('pbse_fatigue_harmonic_density');
+      return fn();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  /// Get fatigue temporal density
+  double pbseFatigueTemporalDensity() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(),
+          double Function()>('pbse_fatigue_temporal_density');
+      return fn();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  /// Get fatigue recovery factor
+  double pbseFatigueRecoveryFactor() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(),
+          double Function()>('pbse_fatigue_recovery_factor');
+      return fn();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  /// Get max energy threshold
+  double pbseThresholdMaxEnergy() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(),
+          double Function()>('pbse_threshold_max_energy');
+      return fn();
+    } catch (_) {
+      return 1.0;
+    }
+  }
+
+  /// Get max voices threshold
+  int pbseThresholdMaxVoices() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(),
+          int Function()>('pbse_threshold_max_voices');
+      return fn();
+    } catch (_) {
+      return 40;
+    }
+  }
+
+  /// Get max SCI threshold
+  double pbseThresholdMaxSci() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(),
+          double Function()>('pbse_threshold_max_sci');
+      return fn();
+    } catch (_) {
+      return 0.85;
+    }
+  }
+
+  /// Get max fatigue threshold
+  double pbseThresholdMaxFatigue() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(),
+          double Function()>('pbse_threshold_max_fatigue');
+      return fn();
+    } catch (_) {
+      return 0.9;
+    }
+  }
+
+  /// Get max escalation slope threshold
+  double pbseThresholdMaxSlope() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(),
+          double Function()>('pbse_threshold_max_slope');
+      return fn();
+    } catch (_) {
+      return 5.0;
+    }
+  }
+
+  /// Get simulation summary JSON
+  String? pbseSimulationSummaryJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('pbse_simulation_summary_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('pbse_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get domain names JSON
+  String? pbseDomainNamesJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('pbse_domain_names_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('pbse_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (e) {
+      return null;
+    }
+  }
 }
 

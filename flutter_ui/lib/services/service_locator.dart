@@ -392,7 +392,7 @@ class ServiceLocator {
     // LAYER 5.9.14: Simulation Engine Provider (SlotLab Middleware §13)
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<SimulationEngineProvider>(
-      () => SimulationEngineProvider(),
+      () => SimulationEngineProvider(sl<NativeFFI>()),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════

@@ -1,11 +1,14 @@
-/// Simulation Engine Provider — SlotLab Middleware §13
+/// Simulation Engine Provider — SlotLab Middleware §13 + PBSE
 ///
 /// Provides 6 simulation modes for testing audio behavior without
-/// a live engine connection. Used in Simulation view mode.
+/// a live engine connection. Integrates PBSE (Pre-Bake Simulation Engine)
+/// for deterministic stress-testing before BAKE.
 ///
 /// See: SlotLab_Middleware_Architecture_Ultimate.md §13
+/// See: FLUXFORGE_MASTER_SPEC.md §8
 
 import 'package:flutter/foundation.dart';
+import '../../src/rust/native_ffi.dart';
 
 enum SimulationMode {
   /// Step through stages manually one-by-one
@@ -56,6 +59,81 @@ enum EdgeCasePreset {
   maxMultiplier,
 }
 
+/// 10 PBSE simulation domains.
+enum PbseDomain {
+  spinSequences,
+  lossStreaks,
+  winStreaks,
+  cascadeChains,
+  featureOverlaps,
+  jackpotEscalation,
+  turboCompression,
+  autoplayBurst,
+  longSessionDrift,
+  hookBurstCollision;
+
+  String get displayName {
+    switch (this) {
+      case PbseDomain.spinSequences: return 'Spin Sequences';
+      case PbseDomain.lossStreaks: return 'Loss Streaks';
+      case PbseDomain.winStreaks: return 'Win Streaks';
+      case PbseDomain.cascadeChains: return 'Cascade Chains';
+      case PbseDomain.featureOverlaps: return 'Feature Overlaps';
+      case PbseDomain.jackpotEscalation: return 'Jackpot Escalation';
+      case PbseDomain.turboCompression: return 'Turbo Compression';
+      case PbseDomain.autoplayBurst: return 'Autoplay Burst';
+      case PbseDomain.longSessionDrift: return 'Long Session Drift';
+      case PbseDomain.hookBurstCollision: return 'Hook Burst/Collision';
+    }
+  }
+}
+
+/// PBSE domain result.
+class PbseDomainResult {
+  final PbseDomain domain;
+  final bool passed;
+  final int spinCount;
+  final double peakEnergy;
+  final int peakVoices;
+  final double peakSci;
+  final double peakFatigue;
+  final double escalationSlope;
+  final bool deterministic;
+
+  const PbseDomainResult({
+    required this.domain,
+    required this.passed,
+    required this.spinCount,
+    required this.peakEnergy,
+    required this.peakVoices,
+    required this.peakSci,
+    required this.peakFatigue,
+    required this.escalationSlope,
+    required this.deterministic,
+  });
+}
+
+/// PBSE fatigue model result.
+class PbseFatigueResult {
+  final double fatigueIndex;
+  final double peakFrequency;
+  final double harmonicDensity;
+  final double temporalDensity;
+  final double recoveryFactor;
+  final bool passed;
+  final double threshold;
+
+  const PbseFatigueResult({
+    required this.fatigueIndex,
+    required this.peakFrequency,
+    required this.harmonicDensity,
+    required this.temporalDensity,
+    required this.recoveryFactor,
+    required this.passed,
+    required this.threshold,
+  });
+}
+
 /// Result of a simulation run
 class SimulationResult {
   final SimulationMode mode;
@@ -80,6 +158,8 @@ class SimulationResult {
 }
 
 class SimulationEngineProvider extends ChangeNotifier {
+  final NativeFFI? _ffi;
+
   SimulationMode _mode = SimulationMode.manualStep;
   bool _isRunning = false;
   int _currentStep = 0;
@@ -89,7 +169,15 @@ class SimulationEngineProvider extends ChangeNotifier {
 
   // Statistical mode config
   int _statSpinCount = 1000;
-  double _statBetAmount = 1.0;
+
+  // ─── PBSE State ───
+  bool _bakeUnlocked = false;
+  bool? _determinismVerified;
+  int _pbseTotalSpins = 0;
+  List<PbseDomainResult> _domainResults = [];
+  PbseFatigueResult? _fatigueResult;
+
+  SimulationEngineProvider([this._ffi]);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // GETTERS
@@ -103,6 +191,16 @@ class SimulationEngineProvider extends ChangeNotifier {
   SimulationResult? get lastResult => _lastResult;
   List<SimulationResult> get history => List.unmodifiable(_history);
   int get statSpinCount => _statSpinCount;
+
+  // ─── PBSE Getters ───
+  bool get bakeUnlocked => _bakeUnlocked;
+  bool? get determinismVerified => _determinismVerified;
+  int get pbseTotalSpins => _pbseTotalSpins;
+  List<PbseDomainResult> get domainResults => List.unmodifiable(_domainResults);
+  PbseFatigueResult? get fatigueResult => _fatigueResult;
+  bool get hasResults => _domainResults.isNotEmpty;
+  int get passedDomainCount => _domainResults.where((d) => d.passed).length;
+  int get failedDomainCount => _domainResults.where((d) => !d.passed).length;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // MODE CONTROL
@@ -120,10 +218,9 @@ class SimulationEngineProvider extends ChangeNotifier {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SIMULATION EXECUTION
+  // SIMULATION EXECUTION (SlotLab modes)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Start simulation
   void start() {
     if (_isRunning) return;
     _isRunning = true;
@@ -132,28 +229,25 @@ class SimulationEngineProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Step forward (manual mode)
   void step() {
     if (!_isRunning) return;
     _currentStep++;
     notifyListeners();
   }
 
-  /// Stop simulation
   void stop() {
     if (!_isRunning) return;
     _isRunning = false;
     _lastResult = SimulationResult(
       mode: _mode,
       totalSpins: _currentStep,
-      elapsed: Duration.zero, // Tracked externally
+      elapsed: Duration.zero,
     );
     _history.add(_lastResult!);
     if (_history.length > 50) _history.removeAt(0);
     notifyListeners();
   }
 
-  /// Reset
   void reset() {
     _isRunning = false;
     _currentStep = 0;
@@ -161,12 +255,98 @@ class SimulationEngineProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Record result (called by simulation runner)
   void recordResult(SimulationResult result) {
     _lastResult = result;
     _history.add(result);
     if (_history.length > 50) _history.removeAt(0);
     _isRunning = false;
     notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PBSE (Pre-Bake Simulation Engine)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Run full PBSE simulation across all 10 domains.
+  bool runPbseSimulation() {
+    final ffi = _ffi;
+    if (ffi == null) return false;
+
+    _isRunning = true;
+    notifyListeners();
+
+    final passed = ffi.pbseRunFullSimulation();
+    _refreshPbseState();
+
+    _isRunning = false;
+    notifyListeners();
+    return passed;
+  }
+
+  /// Set PBSE validation thresholds.
+  void setPbseThresholds({
+    double maxEnergy = 1.0,
+    int maxVoices = 40,
+    double maxSci = 0.85,
+    double maxFatigue = 0.9,
+    double maxSlope = 5.0,
+  }) {
+    _ffi?.pbseSetThresholds(maxEnergy, maxVoices, maxSci, maxFatigue, maxSlope);
+  }
+
+  /// Reset PBSE state.
+  void resetPbse() {
+    _ffi?.pbseReset();
+    _bakeUnlocked = false;
+    _determinismVerified = null;
+    _pbseTotalSpins = 0;
+    _domainResults = [];
+    _fatigueResult = null;
+    notifyListeners();
+  }
+
+  /// Get simulation summary as JSON string.
+  String? getPbseSummaryJson() => _ffi?.pbseSimulationSummaryJson();
+
+  void _refreshPbseState() {
+    final ffi = _ffi;
+    if (ffi == null) return;
+
+    _bakeUnlocked = ffi.pbseBakeUnlocked();
+    _determinismVerified = ffi.pbseDeterminismVerified();
+    _pbseTotalSpins = ffi.pbseTotalSpins();
+
+    // Refresh domain results
+    _domainResults = [];
+    for (int i = 0; i < PbseDomain.values.length; i++) {
+      final passed = ffi.pbseDomainPassed(i);
+      if (passed == null) continue;
+
+      _domainResults.add(PbseDomainResult(
+        domain: PbseDomain.values[i],
+        passed: passed,
+        spinCount: ffi.pbseDomainSpinCount(i),
+        peakEnergy: ffi.pbseDomainPeakEnergy(i),
+        peakVoices: ffi.pbseDomainPeakVoices(i),
+        peakSci: ffi.pbseDomainPeakSci(i),
+        peakFatigue: ffi.pbseDomainPeakFatigue(i),
+        escalationSlope: ffi.pbseDomainEscalationSlope(i),
+        deterministic: ffi.pbseDomainDeterministic(i) ?? false,
+      ));
+    }
+
+    // Refresh fatigue model
+    final fatiguePassed = ffi.pbseFatiguePassed();
+    if (fatiguePassed != null) {
+      _fatigueResult = PbseFatigueResult(
+        fatigueIndex: ffi.pbseFatigueIndex(),
+        peakFrequency: ffi.pbseFatiguePeakFrequency(),
+        harmonicDensity: ffi.pbseFatigueHarmonicDensity(),
+        temporalDensity: ffi.pbseFatigueTemporalDensity(),
+        recoveryFactor: ffi.pbseFatigueRecoveryFactor(),
+        passed: fatiguePassed,
+        threshold: ffi.pbseThresholdMaxFatigue(),
+      );
+    }
   }
 }
