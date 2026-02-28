@@ -2209,6 +2209,17 @@ pub fn export_start(config: ExportConfig) -> bool {
         return false;
     }
 
+    // SAFETY: Device Preview must be disabled during export (monitoring-only)
+    {
+        let dp = crate::device_preview_ffi::DEVICE_PREVIEW.read();
+        if let Some(ref engine) = *dp {
+            if engine.is_active() {
+                log::warn!("Device Preview is active — auto-disabling for export safety");
+                engine.set_active(false);
+            }
+        }
+    }
+
     let engine = ENGINE.read();
     if engine.is_none() {
         log::error!("Engine not initialized for export");

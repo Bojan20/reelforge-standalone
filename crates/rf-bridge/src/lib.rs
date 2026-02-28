@@ -45,6 +45,7 @@ pub mod autosave_ffi;
 pub mod command_queue;
 pub mod connector_ffi;
 pub mod container_ffi;
+pub mod device_preview_ffi;
 pub mod dsp_commands;
 mod engine_bridge;
 pub mod ffi_bounds; // ✅ P12.0.5: FFI bounds checking

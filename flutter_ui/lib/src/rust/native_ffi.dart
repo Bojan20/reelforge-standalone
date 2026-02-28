@@ -22848,5 +22848,156 @@ extension TimeStretchFFI on NativeFFI {
       return false;
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DEVICE PREVIEW ENGINE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Initialize device preview engine
+  bool devicePreviewInit(double sampleRate) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Double),
+          int Function(double)>('device_preview_init');
+      return fn(sampleRate) == 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Destroy device preview engine
+  bool devicePreviewDestroy() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+          'device_preview_destroy');
+      return fn() == 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Set active state
+  bool devicePreviewSetActive(bool active) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Int32),
+          int Function(int)>('device_preview_set_active');
+      return fn(active ? 1 : 0) == 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Check if active
+  bool devicePreviewIsActive() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+          'device_preview_is_active');
+      return fn() == 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Load a profile by ID
+  bool devicePreviewLoadProfile(int profileId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Uint16),
+          int Function(int)>('device_preview_load_profile');
+      return fn(profileId) == 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Bypass (flat response)
+  bool devicePreviewBypass() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+          'device_preview_bypass');
+      return fn() == 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Get current profile ID (0 = bypass)
+  int devicePreviewCurrentProfileId() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>(
+          'device_preview_current_profile_id');
+      return fn();
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Get total profile count
+  int devicePreviewProfileCount() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>(
+          'device_preview_profile_count');
+      return fn();
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Get all profiles as JSON string
+  String? devicePreviewAllProfilesJson() {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('device_preview_all_profiles_json');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('device_preview_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get profile FR curve data. Returns list of [freq, gain_db] pairs.
+  List<List<double>>? devicePreviewProfileFrCurve(int profileId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Uint32 Function(Uint16, Pointer<Float>, Uint32),
+          int Function(int, Pointer<Float>, int)>('device_preview_profile_fr_curve');
+
+      final buffer = calloc<Float>(20); // 10 points × 2 values
+      final count = fn(profileId, buffer, 10);
+      if (count == 0) {
+        calloc.free(buffer);
+        return null;
+      }
+
+      final result = <List<double>>[];
+      for (int i = 0; i < count; i++) {
+        result.add([buffer[i * 2].toDouble(), buffer[i * 2 + 1].toDouble()]);
+      }
+      calloc.free(buffer);
+      return result;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get category count
+  int devicePreviewCategoryCount() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>(
+          'device_preview_category_count');
+      return fn();
+    } catch (e) {
+      return 0;
+    }
+  }
 }
 

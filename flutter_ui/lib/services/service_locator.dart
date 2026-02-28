@@ -70,6 +70,7 @@ import 'analytics_service.dart';
 import '../controllers/middleware_timeline_sync_controller.dart';
 import '../providers/event_folder_provider.dart';
 import '../providers/aurexis_provider.dart';
+import '../providers/device_preview_provider.dart';
 import '../providers/aurexis_audit_provider.dart';
 import '../providers/aurexis_profile_provider.dart';
 import '../providers/slot_lab/behavior_tree_provider.dart';
@@ -298,6 +299,13 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<AurexisAuditProvider>(
       () => AurexisAuditProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.5b: Device Preview Provider (monitoring-only device simulation)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<DevicePreviewProvider>(
+      () => DevicePreviewProvider(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════

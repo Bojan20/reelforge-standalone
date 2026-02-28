@@ -86,6 +86,9 @@ pub mod eq_analog; // Pultec, API, Neve emulations
 pub mod eq_room; // Room correction, target curves
 pub mod eq_stereo; // Bass mono, M/S, per-band stereo
 
+// Device Preview (monitoring-only simulation)
+pub mod device_preview;
+
 // Audio analysis & manipulation
 pub mod elastic;
 pub mod elastic_pro; // Ultimate time-stretching (STN + Phase Vocoder + Formant)
@@ -203,6 +206,12 @@ pub use saturation::{
     StereoSaturator, Waveshaper, WaveshaperCurve,
 };
 // Note: SaturationType is exported from eq_pro (canonical source)
+
+// Re-export Device Preview
+pub use device_preview::{
+    DeviceCategory, DevicePreviewEngine, DeviceProfile, DeviceStereoMode, DistortionModel,
+    DEVICE_PROFILES, get_profile, profile_count, profiles_by_category, category_names,
+};
 
 use rf_core::Sample;
 
