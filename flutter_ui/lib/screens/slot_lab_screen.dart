@@ -3299,24 +3299,30 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           // Inline toast — compact, non-intrusive feedback
           buildToastWidget(),
 
-          // Status indicators - wrapped to prevent overflow
+          // Status indicators - clipped to prevent overflow
           Flexible(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildStatusChip('BALANCE', '\$${_balance.toStringAsFixed(0)}', const Color(0xFF40FF90)),
-                const SizedBox(width: 6),
-                _buildStatusChip('BET', '\$${_bet.toStringAsFixed(2)}', const Color(0xFF4A9EFF)),
-                const SizedBox(width: 6),
-                _buildStatusChip('WIN', '\$${_lastWin.toStringAsFixed(0)}', const Color(0xFFFFD700)),
-                const SizedBox(width: 6),
-                _buildMiddlewareStatusChips(),
-                // Background audio preload indicator (shows only during preload)
-                if (_isPreloadingAudio) ...[
-                  const SizedBox(width: 8),
-                  _buildAudioPreloadIndicator(),
-                ],
-              ],
+            child: ClipRect(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const NeverScrollableScrollPhysics(),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildStatusChip('BALANCE', '\$${_balance.toStringAsFixed(0)}', const Color(0xFF40FF90)),
+                    const SizedBox(width: 6),
+                    _buildStatusChip('BET', '\$${_bet.toStringAsFixed(2)}', const Color(0xFF4A9EFF)),
+                    const SizedBox(width: 6),
+                    _buildStatusChip('WIN', '\$${_lastWin.toStringAsFixed(0)}', const Color(0xFFFFD700)),
+                    const SizedBox(width: 6),
+                    _buildMiddlewareStatusChips(),
+                    // Background audio preload indicator (shows only during preload)
+                    if (_isPreloadingAudio) ...[
+                      const SizedBox(width: 8),
+                      _buildAudioPreloadIndicator(),
+                    ],
+                  ],
+                ),
+              ),
             ),
           ),
 
@@ -4724,7 +4730,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               onTap: () => viewMode.cycleMode(),
               child: _buildStatusChip(
                 'MODE',
-                viewMode.currentMode.name.toUpperCase(),
+                switch (viewMode.currentMode) {
+                  SlotLabViewMode.build => 'BLD',
+                  SlotLabViewMode.flow => 'FLW',
+                  SlotLabViewMode.simulation => 'SIM',
+                  SlotLabViewMode.diagnostic => 'DIA',
+                },
                 const Color(0xFF9370DB),
               ),
             ),

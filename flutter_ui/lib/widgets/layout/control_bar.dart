@@ -326,7 +326,7 @@ class _ControlBarState extends State<ControlBar> {
                               compact: isCompact,
                             ),
 
-                          _Divider(),
+                          if (features.showTransport) _Divider(),
 
                           // Transport Controls (just buttons, no loop/metro)
                           if (features.showTransport)
@@ -377,7 +377,7 @@ class _ControlBarState extends State<ControlBar> {
                             const _CountInBeatIndicatorLive(),
                           ],
 
-                          _Divider(),
+                          if (features.showTransport) _Divider(),
 
                           // Keyboard Focus
                           if (!isVeryCompact && features.showTransport) _KeyboardFocusButton(),
@@ -406,8 +406,8 @@ class _ControlBarState extends State<ControlBar> {
                               onTap: widget.onTimeDisplayModeChange,
                             ),
 
-                          // Project Info (same as Glass)
-                          if (!isCompact)
+                          // Project Info (hidden in Slot mode — SlotLab has own header)
+                          if (!isCompact && widget.editorMode != EditorMode.slot)
                             _ProjectInfo(
                               name: widget.projectName,
                               onSave: widget.onSave,
