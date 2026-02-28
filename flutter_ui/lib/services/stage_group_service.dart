@@ -160,7 +160,7 @@ class _StageDefinition {
 /// - SPIN_START → onUiSpin
 /// - REEL_STOP → onReelStop
 /// - REEL_STOP_0 → onReelLand1 (1-indexed for display)
-/// - REEL_SPIN → onReelSpin
+/// - REEL_SPIN_LOOP → onReelSpin
 /// - WIN_BIG → onWinBig
 String generateEventName(String stage) {
   // Special cases with custom naming
@@ -174,7 +174,7 @@ String generateEventName(String stage) {
     'UI_PANEL_CLOSE': 'onUiClose',
 
     // Reel Events (landing uses 1-indexed: Reel 1-5)
-    'REEL_SPIN': 'onReelSpin',
+    'REEL_SPIN_LOOP': 'onReelSpin',
     'REEL_STOP': 'onReelStop',
     'REEL_STOP_0': 'onReelLand1',
     'REEL_STOP_1': 'onReelLand2',
@@ -349,13 +349,13 @@ class StageGroupService {
       ('spin_start', 'SPIN_START'),
       ('button_spin_click', 'SPIN_START'),
 
-      // ── REEL_SPIN (spinning loop) ──
-      ('reel_spin', 'REEL_SPIN'),
-      ('reel_spinning', 'REEL_SPIN'),
-      ('reel_spin_loop', 'REEL_SPIN'),
-      ('reels_spinning', 'REEL_SPIN'),
-      ('spin_loop', 'REEL_SPIN'),
-      ('spins_loop', 'REEL_SPIN'),
+      // ── REEL_SPIN_LOOP (spinning loop) ──
+      ('reel_spin', 'REEL_SPIN_LOOP'),
+      ('reel_spinning', 'REEL_SPIN_LOOP'),
+      ('reel_spin_loop', 'REEL_SPIN_LOOP'),
+      ('reels_spinning', 'REEL_SPIN_LOOP'),
+      ('spin_loop', 'REEL_SPIN_LOOP'),
+      ('spins_loop', 'REEL_SPIN_LOOP'),
 
       // ── REEL_STOP (generic stop) ──
       ('reel_stop', 'REEL_STOP'),
@@ -421,7 +421,7 @@ class StageGroupService {
   ///
   /// Instead of simple keyword matching, we use INTENT patterns:
   /// - SPIN_START = UI spin button → requires 'spin' + UI indicators (button/click/press/ui/start)
-  /// - REEL_SPIN = Reel spinning loop → requires 'spin' + loop indicators (loop/roll/spinning)
+  /// - REEL_SPIN_LOOP = Reel spinning loop → requires 'spin' + loop indicators (loop/roll/spinning)
   /// - REEL_STOP = Reel stop sound → requires 'stop/land' + reel indicators
   ///
   /// Priority: More specific patterns beat less specific ones.
@@ -436,7 +436,7 @@ class StageGroupService {
       // ───────────────────────────────────────────────────────────────────
       // INTENT: User clicks spin button → plays UI click sound
       // MATCHES: spin_button, spin_click, ui_spin, spin_press, spin_start
-      // DOES NOT MATCH: reel_spin_loop (that's REEL_SPIN)
+      // DOES NOT MATCH: reel_spin_loop (that's REEL_SPIN_LOOP)
       //
       // KEY INSIGHT: Even if 'reel' is in the name, if 'button/click/press/ui'
       // is ALSO present, it's still a UI spin sound!
@@ -458,15 +458,15 @@ class StageGroupService {
       ),
 
       // ───────────────────────────────────────────────────────────────────
-      // REEL_SPIN — Reel spinning loop sound
+      // REEL_SPIN_LOOP — Reel spinning loop sound
       // ───────────────────────────────────────────────────────────────────
       // INTENT: Reels are spinning → plays looping spin sound
       // MATCHES: reel_spin, reel_spinning, reel_loop, spins_loop, spin_roll
       // DOES NOT MATCH: spin_button (that's SPIN_START)
       //
-      // KEY INSIGHT: 'spin' (not just 'spinning') + 'loop/roll/reel' = REEL_SPIN
+      // KEY INSIGHT: 'spin' (not just 'spinning') + 'loop/roll/reel' = REEL_SPIN_LOOP
       _StageDefinition(
-        stage: 'REEL_SPIN',
+        stage: 'REEL_SPIN_LOOP',
         // CRITICAL FIX: Include 'spin' (not just 'spinning')
         keywords: ['spin', 'spinning', 'spins', 'loop', 'roll', 'reel', 'reels'],
         requiredKeywords: [], // Need spin-related + loop/reel
