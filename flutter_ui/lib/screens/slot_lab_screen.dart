@@ -122,6 +122,7 @@ import '../widgets/aurexis/aurexis_panel.dart';
 import '../widgets/slot_lab/events_panel_widget.dart';
 // P0 PERFORMANCE: WaveformThumbnail removed from audio browser — too slow for large lists
 import '../services/stage_configuration_service.dart';
+import '../services/stage_group_service.dart';
 import '../providers/slot_lab_project_provider.dart';
 import '../models/slot_lab_models.dart';
 import '../widgets/template/template_gallery_panel.dart';
@@ -2189,22 +2190,82 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     } catch (e) { /* ignored */ }
   }
 
-  /// Auto-bind imported audio files to behavior tree nodes + trigger bindings
+  /// Auto-bind imported audio files to STAGES via fuzzy filename matching.
+  ///
+  /// Uses StageGroupService to match filenames → stage names, then feeds
+  /// through the SAME pipeline as manual drag-drop:
+  /// setAudioAssignment → eventRegistry.registerEvent → _ensureCompositeEventForStage
+  ///
+  /// This ensures imported audio actually plays when the slot machine triggers stages.
   void _autoBindAfterImport(List<Map<String, dynamic>> newEntries) {
-    final tree = GetIt.instance<BehaviorTreeProvider>();
-    final triggers = GetIt.instance<TriggerLayerProvider>();
+    final paths = newEntries.map((e) => e['path'] as String).toList();
+    if (paths.isEmpty) return;
+
+    final matcher = StageGroupService.instance;
+    final projectProvider = Provider.of<SlotLabProjectProvider>(context, listen: false);
     final notif = GetIt.instance<SlotLabNotificationProvider>();
+    final triggers = GetIt.instance<TriggerLayerProvider>();
 
-    // Bind audio to behavior nodes by filename pattern matching
-    final boundCount = tree.bulkAutoBindFromPool(newEntries);
+    int boundCount = 0;
+    int unmatchedCount = 0;
 
-    // Generate trigger hook→node bindings
+    // Match against ALL stage groups (spins/reels, wins, music/features)
+    for (final group in StageGroup.values) {
+      final result = matcher.matchFilesToGroup(group: group, audioPaths: paths);
+
+      for (final match in result.matched) {
+        // Use the SAME pipeline as drag-drop assignment
+        projectProvider.setAudioAssignment(match.stage, match.audioPath, recordUndo: false);
+
+        // Register in EventRegistry for instant playback
+        final busId = _getBusForStage(match.stage);
+        final shouldLoop = StageConfigurationService.instance.isLooping(match.stage);
+        eventRegistry.registerEvent(AudioEvent(
+          id: 'audio_${match.stage}',
+          name: match.stage.replaceAll('_', ' '),
+          stage: match.stage,
+          layers: [
+            AudioLayer(
+              id: 'layer_${match.stage}',
+              name: match.audioFileName,
+              audioPath: match.audioPath,
+              volume: 1.0,
+              pan: _getPanForStage(match.stage),
+              delay: 0.0,
+              busId: busId,
+            ),
+          ],
+          loop: shouldLoop,
+          targetBusId: busId,
+        ));
+
+        // Create composite event for timeline visibility
+        _ensureCompositeEventForStage(match.stage, match.audioPath);
+
+        boundCount++;
+      }
+
+      unmatchedCount += result.unmatched.length;
+    }
+
+    // Also generate trigger bindings for middleware layer
     triggers.generateAutoBindings();
 
-    // Notify user
-    if (boundCount > 0) {
-      notif.pushAutoBindResult(boundCount, triggers.unboundHooks.length, 0);
+    // Also bind to behavior tree nodes (metadata layer for middleware decisions)
+    final tree = GetIt.instance<BehaviorTreeProvider>();
+    tree.bulkAutoBindFromPool(newEntries);
+
+    // Notify user with result
+    if (boundCount > 0 || unmatchedCount > 0) {
+      notif.push(
+        type: NotificationType.autoBind,
+        severity: unmatchedCount == 0 ? NotificationSeverity.success : NotificationSeverity.warning,
+        title: 'Auto-Bind: $boundCount matched, $unmatchedCount unmatched',
+      );
     }
+
+    // Refresh UI
+    if (mounted) setState(() {});
   }
 
   /// Create audio pool entry (no setState - for batch operations)

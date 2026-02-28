@@ -214,6 +214,7 @@ class TriggerLayerProvider extends ChangeNotifier {
     _history.add(result);
     if (_history.length > 500) _history.removeRange(0, 250);
 
+    notifyListeners();
     return result;
   }
 

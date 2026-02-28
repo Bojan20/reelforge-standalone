@@ -312,6 +312,7 @@ class StateGateProvider extends ChangeNotifier {
     if (_history.length > 500) {
       _history.removeRange(0, 250);
     }
+    notifyListeners();
   }
 }
 

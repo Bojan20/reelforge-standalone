@@ -249,12 +249,13 @@ class _TriggersPanel extends StatelessWidget {
         final bindings = provider.bindings.values.toList();
         final unbound = provider.unboundHooks;
         final autoEnabled = provider.autoBindingsEnabled;
+        final history = provider.history;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _headerWithActions(
               'Trigger Bindings',
-              '${bindings.length} hooks — ${unbound.length} unbound',
+              '${bindings.length} hooks — ${history.length} fired',
               actions: [
                 _toggleChip('Auto', autoEnabled, (v) => provider.setAutoBindingsEnabled(v)),
                 const SizedBox(width: 4),
@@ -263,10 +264,13 @@ class _TriggersPanel extends StatelessWidget {
                   final bound = provider.bindings.length;
                   notif.pushAutoBindResult(bound, unbound.length, 0);
                 }),
+                _headerBtn(Icons.clear_all, 'Clear Log', () => provider.clearHistory()),
                 _headerBtn(Icons.delete_sweep, 'Clear All', () => provider.clearAllBindings()),
               ],
             ),
+            // Bindings list
             Expanded(
+              flex: 3,
               child: bindings.isEmpty
                   ? _emptyState('No trigger bindings\nTap Generate to auto-create')
                   : ListView.builder(
@@ -274,6 +278,8 @@ class _TriggersPanel extends StatelessWidget {
                       itemCount: bindings.length,
                       itemBuilder: (ctx, i) {
                         final b = bindings[i];
+                        // Check if this hook recently fired
+                        final recentlyFired = history.isNotEmpty && history.last.hookName == b.hookName;
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 2),
                           child: Row(
@@ -284,7 +290,12 @@ class _TriggersPanel extends StatelessWidget {
                                 child: Icon(b.enabled ? Icons.link : Icons.link_off, size: 10, color: b.enabled ? const Color(0xFF40C8FF) : Colors.white24),
                               ),
                               const SizedBox(width: 4),
-                              Expanded(child: Text(b.hookName, style: TextStyle(color: b.enabled ? Colors.white70 : Colors.white30, fontSize: 11, fontFamily: 'monospace'), overflow: TextOverflow.ellipsis)),
+                              if (recentlyFired)
+                                Container(
+                                  width: 4, height: 4, margin: const EdgeInsets.only(right: 3),
+                                  decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF40FF90)),
+                                ),
+                              Expanded(child: Text(b.hookName, style: TextStyle(color: recentlyFired ? const Color(0xFF40FF90) : (b.enabled ? Colors.white70 : Colors.white30), fontSize: 11, fontFamily: 'monospace'), overflow: TextOverflow.ellipsis)),
                               Text('→ ${b.targetNodeIds.length}', style: const TextStyle(color: Colors.white38, fontSize: 10)),
                               if (b.delayMs > 0)
                                 Padding(padding: const EdgeInsets.only(left: 4), child: Text('+${b.delayMs}ms', style: const TextStyle(color: Colors.orangeAccent, fontSize: 9))),
@@ -294,6 +305,36 @@ class _TriggersPanel extends StatelessWidget {
                                 onTap: () => provider.removeBinding(b.hookName),
                                 child: const Icon(Icons.close, size: 10, color: Colors.white24),
                               ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            // Resolution history — real-time hook firings
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.1)))),
+              child: Text('Resolution Log (${history.length})', style: const TextStyle(color: Colors.white38, fontSize: 9, letterSpacing: 0.5)),
+            ),
+            Expanded(
+              flex: 2,
+              child: history.isEmpty
+                  ? _emptyState('No resolutions yet')
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      itemCount: history.length.clamp(0, 30),
+                      itemBuilder: (ctx, i) {
+                        final r = history[history.length - 1 - i];
+                        final activated = r.activatedNodeIds.isNotEmpty;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 1),
+                          child: Row(
+                            children: [
+                              Icon(activated ? Icons.check_circle : Icons.radio_button_unchecked, size: 10, color: activated ? const Color(0xFF40FF90) : Colors.white24),
+                              const SizedBox(width: 4),
+                              Expanded(child: Text(r.hookName, style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'monospace'), overflow: TextOverflow.ellipsis)),
+                              Text('${r.activatedNodeIds.length} nodes', style: TextStyle(color: activated ? const Color(0xFF40C8FF) : Colors.white24, fontSize: 9)),
                             ],
                           ),
                         );
@@ -391,7 +432,7 @@ class _GatePanel extends StatelessWidget {
                 ],
               ),
             ),
-            // Blocked/passed counts
+            // Blocked/passed counts + last hook indicator
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
@@ -399,6 +440,25 @@ class _GatePanel extends StatelessWidget {
                   Text('Passed: ${provider.passedCount}', style: const TextStyle(color: Color(0xFF40FF90), fontSize: 10)),
                   const SizedBox(width: 12),
                   Text('Blocked: ${provider.blockedCount}', style: const TextStyle(color: Color(0xFFFF4060), fontSize: 10)),
+                  const Spacer(),
+                  if (history.isNotEmpty)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 5, height: 5,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: history.last.result.allowed ? const Color(0xFF40FF90) : const Color(0xFFFF4060),
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(history.last.hookName, style: TextStyle(
+                          color: history.last.result.allowed ? const Color(0xFF40FF90) : const Color(0xFFFF4060),
+                          fontSize: 9, fontFamily: 'monospace',
+                        )),
+                      ],
+                    ),
                 ],
               ),
             ),
@@ -565,12 +625,13 @@ class _OrchestrationPanel extends StatelessWidget {
       builder: (context, _) {
         final ctx = provider.context;
         final decisions = provider.decisions;
+        final diagLog = provider.diagnosticLog;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _headerWithActions(
               'Orchestration',
-              '${decisions.length} decisions',
+              '${decisions.length} decisions — ${diagLog.length} logged',
               actions: [
                 _headerBtn(Icons.clear_all, 'Clear Log', () => provider.clearLog()),
                 _headerBtn(Icons.delete_sweep, 'Clear Decisions', () => provider.clearDecisions()),
@@ -595,6 +656,7 @@ class _OrchestrationPanel extends StatelessWidget {
             ),
             // Active decisions
             Expanded(
+              flex: 3,
               child: decisions.isEmpty
                   ? _emptyState('No orchestration decisions')
                   : ListView.builder(
@@ -640,11 +702,62 @@ class _OrchestrationPanel extends StatelessWidget {
                       },
                     ),
             ),
+            // Diagnostic log — real-time orchestration events
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.1)))),
+              child: Text('Decision Log (${diagLog.length})', style: const TextStyle(color: Colors.white38, fontSize: 9, letterSpacing: 0.5)),
+            ),
+            Expanded(
+              flex: 2,
+              child: diagLog.isEmpty
+                  ? _emptyState('No decisions logged')
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      itemCount: diagLog.length.clamp(0, 20),
+                      itemBuilder: (ctx, i) {
+                        final entry = diagLog[diagLog.length - 1 - i];
+                        final d = entry.decision;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 1),
+                          child: Row(
+                            children: [
+                              Icon(d.suppressed ? Icons.volume_off : Icons.volume_up, size: 10,
+                                color: d.suppressed ? const Color(0xFFFF4060) : const Color(0xFF40FF90)),
+                              const SizedBox(width: 4),
+                              Expanded(child: Text(entry.nodeId, style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'monospace'), overflow: TextOverflow.ellipsis)),
+                              Text('${d.gainBiasDb > 0 ? "+" : ""}${d.gainBiasDb.toStringAsFixed(1)}dB', style: TextStyle(
+                                color: d.gainBiasDb > 0 ? const Color(0xFF40FF90) : (d.gainBiasDb < 0 ? const Color(0xFFFF4060) : Colors.white30),
+                                fontSize: 9,
+                              )),
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                                decoration: BoxDecoration(color: _emotionLogColor(entry.emotionalState).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(2)),
+                                child: Text(entry.emotionalState.name, style: TextStyle(color: _emotionLogColor(entry.emotionalState), fontSize: 8)),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
           ],
         );
       },
     );
   }
+
+  Color _emotionLogColor(EmotionalState s) => switch (s) {
+    EmotionalState.neutral => const Color(0xFF9E9E9E),
+    EmotionalState.build => const Color(0xFF40C8FF),
+    EmotionalState.tension => const Color(0xFFFF9040),
+    EmotionalState.nearWin => const Color(0xFFFFD700),
+    EmotionalState.release => const Color(0xFF40FF90),
+    EmotionalState.peak => const Color(0xFFFF4060),
+    EmotionalState.afterglow => const Color(0xFF9370DB),
+    EmotionalState.recovery => const Color(0xFF607D8B),
+  };
 
   Widget _contextSlider(String label, double value, double min, double max, Color color, ValueChanged<double> onChanged) {
     return SizedBox(

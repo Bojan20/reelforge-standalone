@@ -249,6 +249,7 @@ class OrchestrationEngineProvider extends ChangeNotifier {
     ));
     if (_log.length > 300) _log.removeRange(0, 150);
 
+    notifyListeners();
     return decision;
   }
 

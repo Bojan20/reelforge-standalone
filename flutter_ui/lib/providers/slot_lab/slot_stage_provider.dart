@@ -622,7 +622,11 @@ class SlotStageProvider extends ChangeNotifier {
     // Handle rollup tracking
     _handleRollupTracking(stageType, stage, context);
 
-    // Trigger through EventRegistry
+    // Dispatch middleware hooks BEFORE audio playback — applies orchestration
+    // decisions (gain, pan, stereo width) into context for _playLayer() to use
+    _dispatchMiddlewareHooks(stageType, reelIndex, context);
+
+    // Trigger through EventRegistry (context now contains middleware decisions)
     if (eventRegistry.hasEventForStage(effectiveStage)) {
       eventRegistry.triggerStage(effectiveStage, context: context);
     } else if (effectiveStage != stageType && eventRegistry.hasEventForStage(stageType)) {
@@ -688,24 +692,80 @@ class SlotStageProvider extends ChangeNotifier {
       eventRegistry.stopEvent('REEL_SPIN');
     }
 
-    // Dispatch middleware hooks based on stage type
-    _dispatchMiddlewareHooks(stageType, reelIndex, context);
-
     // Sync ALE signals
     _syncAleSignals(stage);
   }
 
-  /// Map stage events to middleware hook names and dispatch through pipeline
+  /// Map stage events to middleware hook names and dispatch through pipeline.
+  /// Injects orchestration decisions (gain, pan, stereo) into context map
+  /// so EventRegistry._playLayer() applies them to audio playback.
   void _dispatchMiddlewareHooks(String stageType, dynamic reelIndex, Map<String, dynamic> context) {
     try {
       final coordinator = GetIt.instance<SlotLabCoordinator>();
       final hooks = _stageToHooks(stageType, reelIndex, context);
       for (final hook in hooks) {
-        coordinator.processHook(hook, payload: context);
+        final result = coordinator.processHook(hook, payload: context);
+
+        // Apply orchestration decisions to audio context
+        if (!result.blocked && result.processedNodes.isNotEmpty) {
+          final node = result.processedNodes.first;
+          final decision = node.orchestrationDecision;
+
+          // Gain bias → volumeMultiplier (convert dB to linear)
+          if (decision.gainBiasDb != 0.0) {
+            final linearGain = _dbToLinear(decision.gainBiasDb);
+            final existing = (context['volumeMultiplier'] as num?)?.toDouble() ?? 1.0;
+            context['volumeMultiplier'] = existing * linearGain;
+          }
+
+          // Spatial bias → pan override
+          if (decision.spatialBias != 0.0) {
+            context['pan'] = decision.spatialBias;
+          }
+
+          // Transient shaping → transientShaping for DSP
+          if (decision.transientShaping != 0.0) {
+            context['transientShaping'] = decision.transientShaping;
+          }
+
+          // Stereo width scale → stereoWidth for DSP
+          if (decision.stereoWidthScale != 1.0) {
+            context['stereoWidth'] = decision.stereoWidthScale;
+          }
+
+          // Trigger delay → delayMs
+          if (decision.triggerDelayMs > 0) {
+            context['delayMs'] = decision.triggerDelayMs;
+          }
+        }
       }
     } catch (_) {
       // Coordinator not registered yet — skip
     }
+  }
+
+  /// Convert decibels to linear gain
+  static double _dbToLinear(double db) {
+    if (db <= -100) return 0.0;
+    // 10^(dB/20) — standard audio conversion
+    double x = db / 20.0;
+    // Fast power of 10 approximation
+    double result = 1.0;
+    double base = 10.0;
+    if (x < 0) {
+      x = -x;
+      base = 0.1;
+    }
+    int intPart = x.floor();
+    double fracPart = x - intPart;
+    for (int i = 0; i < intPart; i++) {
+      result *= base;
+    }
+    // Linear interpolation for fractional part (good enough for audio)
+    if (fracPart > 0) {
+      result *= 1.0 + fracPart * (base - 1.0);
+    }
+    return result.clamp(0.0, 10.0);
   }
 
   /// Convert stage type to middleware hook names

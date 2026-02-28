@@ -401,6 +401,12 @@ class SlotLabCoordinator extends ChangeNotifier {
     // Step 1: State Gate — is this hook allowed in current state?
     final gateResult = stateGate.checkHook(hookName);
     if (!gateResult.allowed) {
+      notifications.push(
+        type: NotificationType.info,
+        severity: NotificationSeverity.warning,
+        title: 'Gate blocked: $hookName',
+        body: gateResult.blockReason,
+      );
       return MiddlewarePipelineResult(
         hookName: hookName,
         blocked: true,
@@ -434,7 +440,16 @@ class SlotLabCoordinator extends ChangeNotifier {
       // Orchestration decision
       final decision = orchestrationEngine.orchestrate(node);
 
-      if (decision.suppressed) continue;
+      if (decision.suppressed) {
+        notifications.push(
+          type: NotificationType.info,
+          severity: NotificationSeverity.info,
+          title: 'Suppressed: ${node.nodeType.displayName}',
+          body: decision.suppressionReason,
+          navigateToNodeId: nodeId,
+        );
+        continue;
+      }
 
       processedNodes.add(ProcessedBehaviorNode(
         nodeId: nodeId,
@@ -454,6 +469,15 @@ class SlotLabCoordinator extends ChangeNotifier {
 
     // Update emotional state based on hook type
     _updateEmotionalState(hookName, payload);
+
+    // Notify about successful pipeline execution
+    final nodeNames = processedNodes.map((n) => n.node.nodeType.displayName).join(', ');
+    notifications.push(
+      type: NotificationType.info,
+      severity: NotificationSeverity.success,
+      title: '$hookName → ${processedNodes.length} activated',
+      body: nodeNames,
+    );
 
     return MiddlewarePipelineResult(
       hookName: hookName,
