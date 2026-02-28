@@ -18,7 +18,10 @@ pub mod platform;
 pub mod energy;
 pub mod priority;
 pub mod spectral;
+pub mod advisory;
+pub mod drc;
 pub mod qa;
+pub mod sam;
 
 pub use crate::core::engine::AurexisEngine;
 pub use crate::core::config::AurexisConfig;
@@ -28,6 +31,9 @@ pub use crate::energy::{EnergyGovernor, EnergyDomain, EnergyBudget, VoiceBudget,
 pub use crate::priority::{DynamicPriorityMatrix, EventType, EmotionalState, VoicePriority, VoiceSurvivalResult, SurvivalAction, DpmOutput};
 pub use crate::spectral::{SpectralAllocator, SpectralRole, SpectralBand, SpectralAssignment, SpectralAllocationOutput, MaskingResolver, MaskingStrategy, MaskingAction, SciAdvanced};
 pub use crate::qa::{PreBakeSimulator, SimulationDomain, ValidationThresholds, PbseResult, DomainResult, FatigueModelResult, MetricValidation};
+pub use crate::advisory::{AuthoringIntelligence, AilDomain, AilScore, AilStatus, AilReport, AilRecommendation, RecommendationLevel, DomainAnalysis, FatigueAnalysis, VoiceEfficiency, SpectralClarityAnalysis, VolatilityAlignment};
+pub use crate::drc::{DeterministicReplayCore, TraceEntry, FrameHash, TraceMetadata, TraceFormat, ReplayResult, FluxManifest, VersionLocks, ConfigBundle, CertificationChain, CertificationStatus, SafetyEnvelope, SafetyLimits, EnvelopeViolation, EnvelopeViolationType, EnvelopeResult, CertificationGate, CertificationResult, CertificationReport};
+pub use crate::sam::{SmartAuthoringEngine, AuthoringMode, WizardStep, SmartAuthoringState, ParameterMapping, SlotArchetype, ArchetypeProfile, ArchetypeDefaults, VolatilityRange, MarketTarget, SmartControlGroup, SmartControl, SmartControlValue, EnergyControls, ClarityControls, StabilityControls, SmartControlSet};
 
 /// Result type for AUREXIS operations.
 pub type AurexisResult<T> = Result<T, AurexisError>;

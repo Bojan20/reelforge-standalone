@@ -31,6 +31,7 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 
 pub mod advanced_metering;
+pub mod ail_ffi;
 pub mod ale_ffi;
 pub mod aurexis_ffi;
 mod api;
@@ -47,7 +48,9 @@ pub mod connector_ffi;
 pub mod container_ffi;
 pub mod device_preview_ffi;
 pub mod dpm_ffi;
+pub mod drc_ffi;
 pub mod energy_governance_ffi;
+pub mod sam_ffi;
 pub mod pbse_ffi;
 pub mod dsp_commands;
 mod engine_bridge;
@@ -357,6 +360,15 @@ pub use samcl_ffi::*;
 
 // Re-export PBSE FFI
 pub use pbse_ffi::*;
+
+// Re-export AIL FFI
+pub use ail_ffi::*;
+
+// Re-export DRC FFI
+pub use drc_ffi::*;
+
+// Re-export SAM FFI
+pub use sam_ffi::*;
 
 // Re-export Container FFI (P2 optimization)
 pub use container_ffi::*;

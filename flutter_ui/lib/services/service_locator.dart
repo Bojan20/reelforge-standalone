@@ -84,6 +84,9 @@ import '../providers/slot_lab/transition_system_provider.dart';
 import '../providers/slot_lab/priority_engine_provider.dart';
 import '../providers/slot_lab/orchestration_engine_provider.dart';
 import 'autobind_engine.dart';
+import '../providers/slot_lab/ail_provider.dart';
+import '../providers/slot_lab/drc_provider.dart';
+import '../providers/slot_lab/sam_provider.dart';
 import '../providers/slot_lab/simulation_engine_provider.dart';
 import '../providers/slot_lab/error_prevention_provider.dart';
 import '../providers/slot_lab/slotlab_undo_provider.dart';
@@ -393,6 +396,27 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<SimulationEngineProvider>(
       () => SimulationEngineProvider(sl<NativeFFI>()),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 6.3: AIL Provider (Authoring Intelligence Layer §9)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<AilProvider>(
+      () => AilProvider(sl<NativeFFI>()),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 6.4: DRC Provider (Deterministic Replay Core §10)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<DrcProvider>(
+      () => DrcProvider(sl<NativeFFI>()),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 7: SAM Provider (Smart Authoring Mode §13)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<SamProvider>(
+      () => SamProvider(sl<NativeFFI>()),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════

@@ -23987,5 +23987,1198 @@ extension TimeStretchFFI on NativeFFI {
       return null;
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AIL — Authoring Intelligence Layer (§9)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  void ailReset() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>('ail_reset');
+      fn();
+    } catch (_) {}
+  }
+
+  bool ailRunAnalysis() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>('ail_run_analysis');
+      return fn() == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool ailHasResults() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>('ail_has_results');
+      return fn() == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  double ailScore() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>('ail_score');
+      return fn();
+    } catch (_) {
+      return -1.0;
+    }
+  }
+
+  int ailStatus() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>('ail_status');
+      return fn();
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  bool? ailPbsePassed() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>('ail_pbse_passed');
+      final v = fn();
+      if (v < 0) return null;
+      return v == 1;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  int ailSimulationSpins() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>('ail_simulation_spins');
+      return fn();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  int ailDomainCount() => 10;
+
+  double ailDomainScore(int domainIndex) {
+    try {
+      final fn = _lib.lookupFunction<Double Function(Uint8), double Function(int)>('ail_domain_score');
+      return fn(domainIndex);
+    } catch (_) {
+      return -1.0;
+    }
+  }
+
+  double ailDomainRisk(int domainIndex) {
+    try {
+      final fn = _lib.lookupFunction<Double Function(Uint8), double Function(int)>('ail_domain_risk');
+      return fn(domainIndex);
+    } catch (_) {
+      return -1.0;
+    }
+  }
+
+  String? ailDomainName(int domainIndex) {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(Uint8),
+          Pointer<Utf8> Function(int)>('ail_domain_name');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('ail_free_string');
+      final ptr = fn(domainIndex);
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ─── AIL Fatigue ───
+
+  double ailFatigueScore() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>('ail_fatigue_score');
+      return fn();
+    } catch (_) {
+      return -1.0;
+    }
+  }
+
+  double ailFatiguePeakFrequency() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>('ail_fatigue_peak_frequency');
+      return fn();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  double ailFatigueHarmonicDensity() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>('ail_fatigue_harmonic_density');
+      return fn();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  double ailFatigueTemporalDensity() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>('ail_fatigue_temporal_density');
+      return fn();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  double ailFatigueRecoveryFactor() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>('ail_fatigue_recovery_factor');
+      return fn();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  int ailFatigueRiskLevel() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>('ail_fatigue_risk_level');
+      return fn();
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  // ─── AIL Voice Efficiency ───
+
+  double ailVoiceAvg() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>('ail_voice_avg');
+      return fn();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  int ailVoicePeak() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>('ail_voice_peak');
+      return fn();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  int ailVoiceBudget() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>('ail_voice_budget');
+      return fn();
+    } catch (_) {
+      return 48;
+    }
+  }
+
+  double ailVoiceUtilizationPct() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>('ail_voice_utilization_pct');
+      return fn();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  double ailVoiceEfficiencyScore() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>('ail_voice_efficiency_score');
+      return fn();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  // ─── AIL Spectral Clarity ───
+
+  double ailSpectralSci() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>('ail_spectral_sci');
+      return fn();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  double ailSpectralClarityScore() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>('ail_spectral_clarity_score');
+      return fn();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  int ailSpectralOverlapCount() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>('ail_spectral_overlap_count');
+      return fn();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  // ─── AIL Volatility Alignment ───
+
+  double ailVolatilityAlignmentScore() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>('ail_volatility_alignment_score');
+      return fn();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  // ─── AIL Recommendations ───
+
+  int ailRecommendationCount() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>('ail_recommendation_count');
+      return fn();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  int ailCriticalCount() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>('ail_critical_count');
+      return fn();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  int ailWarningCount() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>('ail_warning_count');
+      return fn();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  int ailInfoCount() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>('ail_info_count');
+      return fn();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  double ailRecommendationImpact(int recIndex) {
+    try {
+      final fn = _lib.lookupFunction<Double Function(Uint32), double Function(int)>('ail_recommendation_impact');
+      return fn(recIndex);
+    } catch (_) {
+      return -1.0;
+    }
+  }
+
+  int ailRecommendationLevel(int recIndex) {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Uint32), int Function(int)>('ail_recommendation_level');
+      return fn(recIndex);
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  String? ailRecommendationTitle(int recIndex) {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(Uint32),
+          Pointer<Utf8> Function(int)>('ail_recommendation_title');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('ail_free_string');
+      final ptr = fn(recIndex);
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? ailRecommendationDescription(int recIndex) {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(Uint32),
+          Pointer<Utf8> Function(int)>('ail_recommendation_description');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('ail_free_string');
+      final ptr = fn(recIndex);
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  int ailRecommendationDomain(int recIndex) {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Uint32), int Function(int)>('ail_recommendation_domain');
+      return fn(recIndex);
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  // ─── AIL JSON Output ───
+
+  String? ailReportJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('ail_report_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('ail_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DRC: Deterministic Replay Core + Certification Gate
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ─── DRC Lifecycle ───
+
+  void drcReset() {
+    try {
+      _lib.lookupFunction<Int32 Function(), int Function()>('drc_reset')();
+    } catch (_) {}
+  }
+
+  // ─── DRC Certification Pipeline ───
+
+  bool drcRunCertification() {
+    try {
+      final result = _lib.lookupFunction<Int32 Function(),
+          int Function()>('drc_run_certification')();
+      return result == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool drcRunCertificationWithSpins(int spinCount) {
+    try {
+      final result = _lib.lookupFunction<Int32 Function(Uint32),
+          int Function(int)>('drc_run_certification_with_spins')(spinCount);
+      return result == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ─── DRC Certification Status ───
+
+  bool drcIsCertified() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('drc_is_certified')() == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool drcHasResult() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('drc_has_result')() == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 0=Pending, 1=Certified, 2=Failed, -1=no result
+  int drcCertificationStatus() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('drc_certification_status')();
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  // ─── DRC Stage Results ───
+
+  int drcStageCount() {
+    try {
+      return _lib.lookupFunction<Uint32 Function(),
+          int Function()>('drc_stage_count')();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  String? drcStageName(int stageIndex) {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(Uint32),
+          Pointer<Utf8> Function(int)>('drc_stage_name');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('drc_free_string');
+      final ptr = fn(stageIndex);
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 1=passed, 0=failed, -1=invalid
+  int drcStagePassed(int stageIndex) {
+    try {
+      return _lib.lookupFunction<Int32 Function(Uint32),
+          int Function(int)>('drc_stage_passed')(stageIndex);
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  String? drcStageDetails(int stageIndex) {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(Uint32),
+          Pointer<Utf8> Function(int)>('drc_stage_details');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('drc_free_string');
+      final ptr = fn(stageIndex);
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ─── DRC Blocking Failures ───
+
+  int drcBlockingFailureCount() {
+    try {
+      return _lib.lookupFunction<Uint32 Function(),
+          int Function()>('drc_blocking_failure_count')();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  String? drcBlockingFailure(int failureIndex) {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(Uint32),
+          Pointer<Utf8> Function(int)>('drc_blocking_failure');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('drc_free_string');
+      final ptr = fn(failureIndex);
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ─── DRC Manifest ───
+
+  int drcManifestHash() {
+    try {
+      return _lib.lookupFunction<Uint64 Function(),
+          int Function()>('drc_manifest_hash')();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  int drcConfigBundleHash() {
+    try {
+      return _lib.lookupFunction<Uint64 Function(),
+          int Function()>('drc_config_bundle_hash')();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  String? drcManifestVersion() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('drc_manifest_version');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('drc_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 0=Pending, 1=Certified, 2=Failed
+  int drcManifestCertificationStatus() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('drc_manifest_certification_status')();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  String? drcManifestJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('drc_manifest_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('drc_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ─── DRC Safety Envelope ───
+
+  bool drcEnvelopePassed() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('drc_envelope_passed')() == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  double drcEnvelopePeakEnergy() {
+    try {
+      return _lib.lookupFunction<Double Function(),
+          double Function()>('drc_envelope_peak_energy')();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  int drcEnvelopePeakVoices() {
+    try {
+      return _lib.lookupFunction<Uint32 Function(),
+          int Function()>('drc_envelope_peak_voices')();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  int drcEnvelopeMaxPeakDuration() {
+    try {
+      return _lib.lookupFunction<Uint32 Function(),
+          int Function()>('drc_envelope_max_peak_duration')();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  double drcEnvelopePeakSci() {
+    try {
+      return _lib.lookupFunction<Double Function(),
+          double Function()>('drc_envelope_peak_sci')();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  double drcEnvelopePeakSessionPct() {
+    try {
+      return _lib.lookupFunction<Double Function(),
+          double Function()>('drc_envelope_peak_session_pct')();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  int drcEnvelopeViolationCount() {
+    try {
+      return _lib.lookupFunction<Uint32 Function(),
+          int Function()>('drc_envelope_violation_count')();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  // ─── DRC Safety Limits ───
+
+  double drcLimitMaxEnergy() {
+    try {
+      return _lib.lookupFunction<Double Function(),
+          double Function()>('drc_limit_max_energy')();
+    } catch (_) {
+      return 1.0;
+    }
+  }
+
+  int drcLimitMaxPeakDuration() {
+    try {
+      return _lib.lookupFunction<Uint32 Function(),
+          int Function()>('drc_limit_max_peak_duration')();
+    } catch (_) {
+      return 240;
+    }
+  }
+
+  int drcLimitMaxVoices() {
+    try {
+      return _lib.lookupFunction<Uint32 Function(),
+          int Function()>('drc_limit_max_voices')();
+    } catch (_) {
+      return 96;
+    }
+  }
+
+  int drcLimitMaxHarmonicDensity() {
+    try {
+      return _lib.lookupFunction<Uint32 Function(),
+          int Function()>('drc_limit_max_harmonic_density')();
+    } catch (_) {
+      return 4;
+    }
+  }
+
+  double drcLimitMaxSci() {
+    try {
+      return _lib.lookupFunction<Double Function(),
+          double Function()>('drc_limit_max_sci')();
+    } catch (_) {
+      return 0.85;
+    }
+  }
+
+  double drcLimitMaxPeakSessionPct() {
+    try {
+      return _lib.lookupFunction<Double Function(),
+          double Function()>('drc_limit_max_peak_session_pct')();
+    } catch (_) {
+      return 0.40;
+    }
+  }
+
+  // ─── DRC Replay Core ───
+
+  bool drcReplayPassed() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('drc_replay_passed')() == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  int drcReplayTotalFrames() {
+    try {
+      return _lib.lookupFunction<Uint32 Function(),
+          int Function()>('drc_replay_total_frames')();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  int drcReplayMismatchCount() {
+    try {
+      return _lib.lookupFunction<Uint32 Function(),
+          int Function()>('drc_replay_mismatch_count')();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  String? drcReplayRecordedHash() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('drc_replay_recorded_hash');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('drc_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? drcReplayReplayHash() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('drc_replay_replay_hash');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('drc_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? drcTraceJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('drc_trace_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('drc_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ─── DRC Report JSON ───
+
+  String? drcReportJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('drc_report_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('drc_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SAM: Smart Authoring Mode
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ─── SAM Lifecycle ───
+
+  void samReset() {
+    try {
+      _lib.lookupFunction<Int32 Function(), int Function()>('sam_reset')();
+    } catch (_) {}
+  }
+
+  // ─── SAM Mode ───
+
+  /// 0=Smart, 1=Advanced, 2=Debug
+  int samMode() {
+    try {
+      return _lib.lookupFunction<Int32 Function(), int Function()>('sam_mode')();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  bool samSetMode(int modeIndex) {
+    try {
+      return _lib.lookupFunction<Int32 Function(Uint8),
+          int Function(int)>('sam_set_mode')(modeIndex) == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String? samModeName() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('sam_mode_name');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('sam_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ─── SAM Wizard ───
+
+  int samWizardStep() {
+    try {
+      return _lib.lookupFunction<Uint8 Function(), int Function()>('sam_wizard_step')();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  bool samSetWizardStep(int stepIndex) {
+    try {
+      return _lib.lookupFunction<Int32 Function(Uint8),
+          int Function(int)>('sam_set_wizard_step')(stepIndex) == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool samWizardNext() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('sam_wizard_next')() == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool samWizardPrev() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('sam_wizard_prev')() == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  double samWizardProgress() {
+    try {
+      return _lib.lookupFunction<Double Function(),
+          double Function()>('sam_wizard_progress')();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  int samWizardStepCount() {
+    try {
+      return _lib.lookupFunction<Uint32 Function(),
+          int Function()>('sam_wizard_step_count')();
+    } catch (_) {
+      return 9;
+    }
+  }
+
+  String? samWizardStepName(int stepIndex) {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(Uint8),
+          Pointer<Utf8> Function(int)>('sam_wizard_step_name');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('sam_free_string');
+      final ptr = fn(stepIndex);
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? samWizardStepDescription(int stepIndex) {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(Uint8),
+          Pointer<Utf8> Function(int)>('sam_wizard_step_description');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('sam_free_string');
+      final ptr = fn(stepIndex);
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ─── SAM Archetypes ───
+
+  int samArchetypeCount() {
+    try {
+      return _lib.lookupFunction<Uint32 Function(),
+          int Function()>('sam_archetype_count')();
+    } catch (_) {
+      return 8;
+    }
+  }
+
+  String? samArchetypeName(int index) {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(Uint8),
+          Pointer<Utf8> Function(int)>('sam_archetype_name');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('sam_free_string');
+      final ptr = fn(index);
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? samArchetypeDescription(int index) {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(Uint8),
+          Pointer<Utf8> Function(int)>('sam_archetype_description');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('sam_free_string');
+      final ptr = fn(index);
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool samSelectArchetype(int index) {
+    try {
+      return _lib.lookupFunction<Int32 Function(Uint8),
+          int Function(int)>('sam_select_archetype')(index) == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Returns -1 if none selected
+  int samSelectedArchetype() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('sam_selected_archetype')();
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  // ─── SAM Volatility & Market ───
+
+  double samVolatility() {
+    try {
+      return _lib.lookupFunction<Double Function(),
+          double Function()>('sam_volatility')();
+    } catch (_) {
+      return 0.5;
+    }
+  }
+
+  void samSetVolatility(double value) {
+    try {
+      _lib.lookupFunction<Int32 Function(Double),
+          int Function(double)>('sam_set_volatility')(value);
+    } catch (_) {}
+  }
+
+  double samVolatilityMin() {
+    try {
+      return _lib.lookupFunction<Double Function(),
+          double Function()>('sam_volatility_min')();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  double samVolatilityMax() {
+    try {
+      return _lib.lookupFunction<Double Function(),
+          double Function()>('sam_volatility_max')();
+    } catch (_) {
+      return 1.0;
+    }
+  }
+
+  double samVolatilityDefault() {
+    try {
+      return _lib.lookupFunction<Double Function(),
+          double Function()>('sam_volatility_default')();
+    } catch (_) {
+      return 0.5;
+    }
+  }
+
+  /// 0=Casual, 1=Standard, 2=Premium
+  int samMarket() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('sam_market')();
+    } catch (_) {
+      return 1;
+    }
+  }
+
+  bool samSetMarket(int index) {
+    try {
+      return _lib.lookupFunction<Int32 Function(Uint8),
+          int Function(int)>('sam_set_market')(index) == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ─── SAM Smart Controls ───
+
+  int samControlCount() {
+    try {
+      return _lib.lookupFunction<Uint32 Function(),
+          int Function()>('sam_control_count')();
+    } catch (_) {
+      return 11;
+    }
+  }
+
+  double samControlValue(int controlIndex) {
+    try {
+      return _lib.lookupFunction<Double Function(Uint8),
+          double Function(int)>('sam_control_value')(controlIndex);
+    } catch (_) {
+      return 0.5;
+    }
+  }
+
+  bool samSetControlValue(int controlIndex, double value) {
+    try {
+      return _lib.lookupFunction<Int32 Function(Uint8, Double),
+          int Function(int, double)>('sam_set_control_value')(controlIndex, value) == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String? samControlName(int controlIndex) {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(Uint8),
+          Pointer<Utf8> Function(int)>('sam_control_name');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('sam_free_string');
+      final ptr = fn(controlIndex);
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 0=Energy, 1=Clarity, 2=Stability, -1=invalid
+  int samControlGroup(int controlIndex) {
+    try {
+      return _lib.lookupFunction<Int32 Function(Uint8),
+          int Function(int)>('sam_control_group')(controlIndex);
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  // ─── SAM Auto-Configure ───
+
+  void samAutoConfigure() {
+    try {
+      _lib.lookupFunction<Int32 Function(), int Function()>('sam_auto_configure')();
+    } catch (_) {}
+  }
+
+  bool samIsAutoConfigured() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('sam_is_auto_configured')() == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ─── SAM GDD & AIL & Certification ───
+
+  void samSetGddImported(bool imported) {
+    try {
+      _lib.lookupFunction<Int32 Function(Int32),
+          int Function(int)>('sam_set_gdd_imported')(imported ? 1 : 0);
+    } catch (_) {}
+  }
+
+  bool samGddImported() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('sam_gdd_imported')() == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void samSetAilResult(bool passed, double score) {
+    try {
+      _lib.lookupFunction<Int32 Function(Int32, Double),
+          int Function(int, double)>('sam_set_ail_result')(passed ? 1 : 0, score);
+    } catch (_) {}
+  }
+
+  bool samAilPassed() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('sam_ail_passed')() == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  double samAilScore() {
+    try {
+      return _lib.lookupFunction<Double Function(),
+          double Function()>('sam_ail_score')();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  void samSetCertified(bool certified) {
+    try {
+      _lib.lookupFunction<Int32 Function(Int32),
+          int Function(int)>('sam_set_certified')(certified ? 1 : 0);
+    } catch (_) {}
+  }
+
+  bool samIsCertified() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('sam_is_certified')() == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ─── SAM JSON ───
+
+  String? samStateJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('sam_state_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('sam_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
 }
 

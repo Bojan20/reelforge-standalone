@@ -16,7 +16,12 @@ use rf_aurexis::qa::pbse::{PreBakeSimulator, SimulationDomain, ValidationThresho
 // GLOBAL STATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-static PBSE: Lazy<RwLock<PreBakeSimulator>> = Lazy::new(|| RwLock::new(PreBakeSimulator::new()));
+pub(crate) static PBSE: Lazy<RwLock<PreBakeSimulator>> = Lazy::new(|| RwLock::new(PreBakeSimulator::new()));
+
+/// Get PBSE result for cross-module access (used by AIL).
+pub(crate) fn get_pbse_result() -> Option<rf_aurexis::qa::pbse::PbseResult> {
+    PBSE.read().last_result().as_ref().cloned()
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // LIFECYCLE
