@@ -567,24 +567,25 @@ class _MainLayoutState extends State<MainLayout>
                       child: widget.child,
                     ),
 
-                    // Lower Zone
-                    // Use custom Lower Zone widget if provided, otherwise fall back to generic tabs
-                    if (_lowerVisible && widget.customLowerZone != null)
-                      widget.customLowerZone!
-                    else
-                      LowerZone(
-                        collapsed: !_lowerVisible,
-                        tabs: widget.lowerTabs,
-                        tabGroups: widget.lowerTabGroups,
-                        activeTabId: widget.activeLowerTabId,
-                        onTabChange: widget.onLowerTabChange,
-                        onToggleCollapse: _toggleLower,
-                        height: _lowerZoneHeight,
-                        onHeightChange: (h) =>
-                            setState(() => _lowerZoneHeight = h),
-                        minHeight: 300,
-                        maxHeight: 500,
-                      ),
+                    // Lower Zone — hidden in Slot mode (SlotLab has its own lower zone)
+                    if (widget.editorMode != EditorMode.slot) ...[
+                      if (_lowerVisible && widget.customLowerZone != null)
+                        widget.customLowerZone!
+                      else
+                        LowerZone(
+                          collapsed: !_lowerVisible,
+                          tabs: widget.lowerTabs,
+                          tabGroups: widget.lowerTabGroups,
+                          activeTabId: widget.activeLowerTabId,
+                          onTabChange: widget.onLowerTabChange,
+                          onToggleCollapse: _toggleLower,
+                          height: _lowerZoneHeight,
+                          onHeightChange: (h) =>
+                              setState(() => _lowerZoneHeight = h),
+                          minHeight: 300,
+                          maxHeight: 500,
+                        ),
+                    ],
                   ],
                 ),
               ),
