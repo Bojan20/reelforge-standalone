@@ -34,6 +34,8 @@ import '../blocks/jackpot_block.dart';
 import '../blocks/multiplier_block.dart';
 import '../blocks/bonus_game_block.dart';
 import '../blocks/gambling_block.dart';
+import '../blocks/anticipation_block.dart';
+import '../blocks/wild_features_block.dart';
 
 /// Provider for Feature Builder state management.
 ///
@@ -137,6 +139,8 @@ class FeatureBuilderProvider extends ChangeNotifier {
       MultiplierBlock(),
       BonusGameBlock(),
       GamblingBlock(),
+      AnticipationBlock(),
+      WildFeaturesBlock(),
     ]);
 
     _registry.markInitialized();

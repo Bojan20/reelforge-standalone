@@ -595,16 +595,15 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 ),
               ),
             ),
-          // P3-17: Unassigned filter toggle (compact)
+          // P3-17: Unassigned filter toggle (icon only)
           Tooltip(
             message: _showUnassignedOnly
-                ? 'Showing $unassignedCount unassigned slots. Click to show all.'
-                : 'Click to show only unassigned slots ($unassignedCount remaining)',
-            child: InkWell(
+                ? 'Showing $unassignedCount unassigned. Click to show all.'
+                : 'Show only unassigned ($unassignedCount remaining)',
+            child: GestureDetector(
               onTap: () => setState(() => _showUnassignedOnly = !_showUnassignedOnly),
-              borderRadius: BorderRadius.circular(3),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2), // Reduced
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
                   color: _showUnassignedOnly
                       ? Colors.orange.withOpacity(0.2)
@@ -616,45 +615,33 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                         : Colors.white.withOpacity(0.1),
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _showUnassignedOnly ? Icons.filter_alt : Icons.filter_alt_outlined,
-                      size: 10, // Reduced from 12
-                      color: _showUnassignedOnly ? Colors.orange : Colors.white38,
-                    ),
-                    const SizedBox(width: 2), // Reduced from 4
-                    Text(
-                      _showUnassignedOnly ? '$unassignedCount' : 'All', // Shortened
-                      style: TextStyle(
-                        fontSize: 8, // Reduced from 9
-                        color: _showUnassignedOnly ? Colors.orange : Colors.white54,
-                        fontWeight: _showUnassignedOnly ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                    ),
-                  ],
+                child: Icon(
+                  _showUnassignedOnly ? Icons.filter_alt : Icons.filter_alt_outlined,
+                  size: 12,
+                  color: _showUnassignedOnly ? Colors.orange : Colors.white38,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 4), // Reduced from 6
-          if (totalAssigned > 0)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2), // Reduced
-              decoration: BoxDecoration(
-                color: FluxForgeTheme.accentBlue.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(3),
-              ),
-              child: Text(
-                '$totalAssigned', // Shortened from "X assigned"
-                style: TextStyle(
-                  fontSize: 8, // Reduced from 10
-                  color: FluxForgeTheme.accentBlue,
-                  fontWeight: FontWeight.w500,
-                ),
+          const SizedBox(width: 4),
+          // Slot stats: assigned / total
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text(
+              '$totalAssigned/$totalSlots',
+              style: TextStyle(
+                fontSize: 8,
+                color: totalAssigned == totalSlots
+                    ? FluxForgeTheme.accentGreen
+                    : Colors.white54,
+                fontWeight: FontWeight.w500,
               ),
             ),
+          ),
         ],
       ),
     );
@@ -2140,6 +2127,11 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     final hasHoldAndWin = enabled.contains(SlotMechanic.holdAndWin);
     final hasJackpot = enabled.contains(SlotMechanic.jackpot);
     final hasGamble = enabled.contains(SlotMechanic.gamble);
+    final hasNudgeRespin = enabled.contains(SlotMechanic.nudgeRespin);
+    final hasWilds = enabled.contains(SlotMechanic.expandingWilds) ||
+                     enabled.contains(SlotMechanic.stickyWilds);
+    final hasMegaways = enabled.contains(SlotMechanic.megaways) ||
+                        (composer.config?.paylineType == PaylineType.megaways);
 
     final phases = <_PhaseConfig>[];
 
@@ -2174,18 +2166,20 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     ));
 
     // FEATURES — only if any feature mechanic enabled
-    if (hasFreeSpins || hasBonus || hasHoldAndWin) {
+    if (hasFreeSpins || hasBonus || hasHoldAndWin || hasNudgeRespin || hasWilds) {
       final featureSections = <_SectionConfig>[];
       if (hasFreeSpins) featureSections.add(_FreeSpinsSection(widget: widget));
       if (hasBonus) featureSections.add(_BonusGamesSection(widget: widget));
       if (hasHoldAndWin) featureSections.add(_HoldAndWinSection(widget: widget));
+      if (hasNudgeRespin) featureSections.add(_NudgeRespinSection(widget: widget));
+      if (hasWilds) featureSections.add(_WildFeaturesSection(widget: widget));
       phases.add(_PhaseConfig(
         id: 'features',
         title: 'FEATURES',
         icon: '🎁',
         color: const Color(0xFF40FF90),
         priority: SlotPriority.p1,
-        description: 'Free Spins, Bonus, Hold & Win',
+        description: 'Free Spins, Bonus, Hold & Win, Wilds',
         sections: featureSections,
       ));
     }
@@ -2213,6 +2207,61 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         priority: SlotPriority.p2,
         description: 'Double-or-nothing (optional)',
         sections: [_GambleSection(widget: widget)],
+      ));
+    }
+
+    // ANTICIPATION — only if anticipation block enabled
+    final hasAnticipation = composer.isBlockEnabled('anticipation');
+    if (hasAnticipation) {
+      phases.add(_PhaseConfig(
+        id: 'anticipation',
+        title: 'ANTICIPATION',
+        icon: '😱',
+        color: const Color(0xFFFF5252),
+        priority: SlotPriority.p1,
+        description: 'Tension build, near-miss, heartbeat',
+        sections: [_AnticipationSection(widget: widget)],
+      ));
+    }
+
+    // COLLECTOR — only if collector block enabled
+    final hasCollector = composer.isBlockEnabled('collector');
+    if (hasCollector) {
+      phases.add(_PhaseConfig(
+        id: 'collector',
+        title: 'COLLECTOR',
+        icon: '💰',
+        color: const Color(0xFFFFC107),
+        priority: SlotPriority.p1,
+        description: 'Coin collect, meter fill, payout',
+        sections: [_CollectorSection(widget: widget)],
+      ));
+    }
+
+    // MEGAWAYS — only if megaways mechanic enabled
+    if (hasMegaways) {
+      phases.add(_PhaseConfig(
+        id: 'megaways',
+        title: 'MEGAWAYS',
+        icon: '🔢',
+        color: const Color(0xFFE040FB),
+        priority: SlotPriority.p1,
+        description: 'Ways reveal, expand, row shifts',
+        sections: [_MegawaysSection(widget: widget)],
+      ));
+    }
+
+    // TRANSITIONS — only if transitions block enabled
+    final hasTransitions = composer.isBlockEnabled('transitions');
+    if (hasTransitions) {
+      phases.add(_PhaseConfig(
+        id: 'transitions',
+        title: 'TRANSITIONS',
+        icon: '🔀',
+        color: const Color(0xFF78909C),
+        priority: SlotPriority.p2,
+        description: 'Scene transitions, fade, swoosh',
+        sections: [_TransitionsSection(widget: widget)],
       ));
     }
 
@@ -4931,6 +4980,273 @@ class _UISystemSection extends _SectionConfig {
         _SlotConfig(stage: 'UI_SLIDER_SNAP', label: 'Slider Snap'),
         _SlotConfig(stage: 'UI_COIN_INSERT', label: 'Coin Insert'),
         _SlotConfig(stage: 'UI_BALANCE_UPDATE', label: 'Balance Update'),
+      ],
+    ),
+  ];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION: NUDGE / RESPIN — conditional on nudgeRespin mechanic
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _NudgeRespinSection extends _SectionConfig {
+  final UltimateAudioPanel widget;
+  _NudgeRespinSection({required this.widget});
+
+  @override String get id => 'nudge_respin';
+  @override String get title => 'NUDGE / RESPIN';
+  @override String get icon => '🔁';
+  @override Color get color => const Color(0xFFFF9800);
+
+  @override
+  List<_GroupConfig> get groups => const [
+    _GroupConfig(
+      id: 'nudge',
+      title: 'Nudge',
+      icon: '👆',
+      slots: [
+        _SlotConfig(stage: 'REEL_NUDGE', label: 'Reel Nudge'),
+        _SlotConfig(stage: 'NUDGE_UP', label: 'Nudge Up'),
+        _SlotConfig(stage: 'NUDGE_DOWN', label: 'Nudge Down'),
+        _SlotConfig(stage: 'NUDGE_TRIGGER', label: 'Nudge Trigger'),
+        _SlotConfig(stage: 'NUDGE_COMPLETE', label: 'Nudge Complete'),
+      ],
+    ),
+    _GroupConfig(
+      id: 'respin',
+      title: 'Respin',
+      icon: '🔄',
+      slots: [
+        _SlotConfig(stage: 'RESPIN_TRIGGER', label: 'Respin Trigger'),
+        _SlotConfig(stage: 'RESPIN_START', label: 'Respin Start'),
+        _SlotConfig(stage: 'RESPIN_SPIN', label: 'Respin Spin'),
+        _SlotConfig(stage: 'RESPIN_STOP', label: 'Respin Stop'),
+        _SlotConfig(stage: 'RESPIN_END', label: 'Respin End'),
+        _SlotConfig(stage: 'RESPIN_RETRIGGER', label: 'Respin Retrigger'),
+      ],
+    ),
+  ];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION: WILD FEATURES — conditional on expandingWilds / stickyWilds
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _WildFeaturesSection extends _SectionConfig {
+  final UltimateAudioPanel widget;
+  _WildFeaturesSection({required this.widget});
+
+  @override String get id => 'wild_features';
+  @override String get title => 'WILD FEATURES';
+  @override String get icon => '🃏';
+  @override Color get color => const Color(0xFF00E676);
+
+  @override
+  List<_GroupConfig> get groups => const [
+    _GroupConfig(
+      id: 'expanding',
+      title: 'Expanding Wilds',
+      icon: '📐',
+      slots: [
+        _SlotConfig(stage: 'WILD_EXPAND', label: 'Wild Expand'),
+        _SlotConfig(stage: 'WILD_EXPAND_START', label: 'Expand Start'),
+        _SlotConfig(stage: 'WILD_EXPAND_FILL', label: 'Expand Fill'),
+        _SlotConfig(stage: 'WILD_EXPAND_COMPLETE', label: 'Expand Complete'),
+        _SlotConfig(stage: 'WILD_COLUMN_FILL', label: 'Column Fill'),
+      ],
+    ),
+    _GroupConfig(
+      id: 'sticky',
+      title: 'Sticky Wilds',
+      icon: '📌',
+      slots: [
+        _SlotConfig(stage: 'WILD_STICKY', label: 'Wild Sticky'),
+        _SlotConfig(stage: 'WILD_STICKY_LAND', label: 'Sticky Land'),
+        _SlotConfig(stage: 'WILD_STICKY_HOLD', label: 'Sticky Hold'),
+        _SlotConfig(stage: 'WILD_STICKY_RELEASE', label: 'Sticky Release'),
+        _SlotConfig(stage: 'WILD_STICKY_UPGRADE', label: 'Sticky Upgrade'),
+      ],
+    ),
+    _GroupConfig(
+      id: 'wild_general',
+      title: 'General Wild',
+      icon: '🌟',
+      slots: [
+        _SlotConfig(stage: 'WILD_LAND', label: 'Wild Land'),
+        _SlotConfig(stage: 'WILD_TRANSFORM', label: 'Wild Transform'),
+        _SlotConfig(stage: 'WILD_MULTIPLY', label: 'Wild Multiply'),
+        _SlotConfig(stage: 'WILD_WALKING', label: 'Walking Wild'),
+        _SlotConfig(stage: 'WILD_RANDOM', label: 'Random Wild'),
+        _SlotConfig(stage: 'WILD_STACKED', label: 'Stacked Wild'),
+      ],
+    ),
+  ];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION: MEGAWAYS — conditional on megaways mechanic
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _MegawaysSection extends _SectionConfig {
+  final UltimateAudioPanel widget;
+  _MegawaysSection({required this.widget});
+
+  @override String get id => 'megaways';
+  @override String get title => 'MEGAWAYS';
+  @override String get icon => '🔢';
+  @override Color get color => const Color(0xFFE040FB);
+
+  @override
+  List<_GroupConfig> get groups => const [
+    _GroupConfig(
+      id: 'megaways_core',
+      title: 'Megaways Core',
+      icon: '🔢',
+      slots: [
+        _SlotConfig(stage: 'MEGAWAYS_REVEAL', label: 'Ways Reveal'),
+        _SlotConfig(stage: 'MEGAWAYS_EXPAND', label: 'Ways Expand'),
+        _SlotConfig(stage: 'MEGAWAYS_SHIFT', label: 'Ways Shift'),
+        _SlotConfig(stage: 'MEGAWAYS_MAX', label: 'Max Ways Hit'),
+      ],
+    ),
+    _GroupConfig(
+      id: 'megaways_effects',
+      title: 'Megaways Effects',
+      icon: '✨',
+      slots: [
+        _SlotConfig(stage: 'MEGAWAYS_ROW_ADD', label: 'Row Add'),
+        _SlotConfig(stage: 'MEGAWAYS_ROW_REMOVE', label: 'Row Remove'),
+        _SlotConfig(stage: 'MEGAWAYS_TOP_REEL', label: 'Top Reel Spin'),
+        _SlotConfig(stage: 'MEGAWAYS_MYSTERY', label: 'Mystery Transform'),
+      ],
+    ),
+  ];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION: TRANSITIONS — conditional via transitions block
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _TransitionsSection extends _SectionConfig {
+  final UltimateAudioPanel widget;
+  _TransitionsSection({required this.widget});
+
+  @override String get id => 'transitions';
+  @override String get title => 'TRANSITIONS';
+  @override String get icon => '🔀';
+  @override Color get color => const Color(0xFF78909C);
+
+  @override
+  List<_GroupConfig> get groups => const [
+    _GroupConfig(
+      id: 'scene_transitions',
+      title: 'Scene Transitions',
+      icon: '🎬',
+      slots: [
+        _SlotConfig(stage: 'TRANSITION_TO_BASE', label: 'To Base Game'),
+        _SlotConfig(stage: 'TRANSITION_TO_FEATURE', label: 'To Feature'),
+        _SlotConfig(stage: 'TRANSITION_TO_BONUS', label: 'To Bonus'),
+        _SlotConfig(stage: 'TRANSITION_TO_FREESPINS', label: 'To Free Spins'),
+        _SlotConfig(stage: 'TRANSITION_TO_JACKPOT', label: 'To Jackpot'),
+        _SlotConfig(stage: 'TRANSITION_TO_GAMBLE', label: 'To Gamble'),
+      ],
+    ),
+    _GroupConfig(
+      id: 'effects',
+      title: 'Transition Effects',
+      icon: '💫',
+      slots: [
+        _SlotConfig(stage: 'TRANSITION_FADE_IN', label: 'Fade In'),
+        _SlotConfig(stage: 'TRANSITION_FADE_OUT', label: 'Fade Out'),
+        _SlotConfig(stage: 'TRANSITION_SWOOSH', label: 'Swoosh'),
+        _SlotConfig(stage: 'TRANSITION_REVEAL', label: 'Reveal'),
+        _SlotConfig(stage: 'TRANSITION_IMPACT', label: 'Impact'),
+        _SlotConfig(stage: 'TRANSITION_STINGER', label: 'Stinger'),
+      ],
+    ),
+  ];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION: ANTICIPATION — conditional via anticipation block
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _AnticipationSection extends _SectionConfig {
+  final UltimateAudioPanel widget;
+  _AnticipationSection({required this.widget});
+
+  @override String get id => 'anticipation';
+  @override String get title => 'ANTICIPATION';
+  @override String get icon => '😱';
+  @override Color get color => const Color(0xFFFF5252);
+
+  @override
+  List<_GroupConfig> get groups => const [
+    _GroupConfig(
+      id: 'tension',
+      title: 'Tension Build',
+      icon: '📈',
+      slots: [
+        _SlotConfig(stage: 'ANTIC_TENSION_L1', label: 'Tension L1'),
+        _SlotConfig(stage: 'ANTIC_TENSION_L2', label: 'Tension L2'),
+        _SlotConfig(stage: 'ANTIC_TENSION_L3', label: 'Tension L3'),
+        _SlotConfig(stage: 'ANTIC_TENSION_L4', label: 'Tension L4'),
+        _SlotConfig(stage: 'ANTIC_RAMP_UP', label: 'Ramp Up'),
+        _SlotConfig(stage: 'ANTIC_RAMP_DOWN', label: 'Ramp Down'),
+      ],
+    ),
+    _GroupConfig(
+      id: 'near_miss',
+      title: 'Near Miss',
+      icon: '🎯',
+      slots: [
+        _SlotConfig(stage: 'ANTIC_NEAR_MISS', label: 'Near Miss'),
+        _SlotConfig(stage: 'ANTIC_NEAR_MISS_REEL', label: 'Near Miss Reel'),
+        _SlotConfig(stage: 'ANTIC_HEARTBEAT', label: 'Heartbeat'),
+        _SlotConfig(stage: 'ANTIC_BREATH', label: 'Breath Hold'),
+        _SlotConfig(stage: 'ANTIC_RESOLVE', label: 'Resolve'),
+      ],
+    ),
+  ];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION: COLLECTOR — conditional via collector block
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _CollectorSection extends _SectionConfig {
+  final UltimateAudioPanel widget;
+  _CollectorSection({required this.widget});
+
+  @override String get id => 'collector';
+  @override String get title => 'COLLECTOR';
+  @override String get icon => '💰';
+  @override Color get color => const Color(0xFFFFC107);
+
+  @override
+  List<_GroupConfig> get groups => const [
+    _GroupConfig(
+      id: 'collect',
+      title: 'Collection',
+      icon: '🏦',
+      slots: [
+        _SlotConfig(stage: 'COLLECT_TRIGGER', label: 'Collect Trigger'),
+        _SlotConfig(stage: 'COLLECT_COIN', label: 'Coin Collect'),
+        _SlotConfig(stage: 'COLLECT_SYMBOL', label: 'Symbol Collect'),
+        _SlotConfig(stage: 'COLLECT_METER_FILL', label: 'Meter Fill'),
+        _SlotConfig(stage: 'COLLECT_METER_FULL', label: 'Meter Full'),
+        _SlotConfig(stage: 'COLLECT_PAYOUT', label: 'Payout'),
+      ],
+    ),
+    _GroupConfig(
+      id: 'collect_effects',
+      title: 'Collector Effects',
+      icon: '✨',
+      slots: [
+        _SlotConfig(stage: 'COLLECT_FLY_TO', label: 'Fly-to-Meter'),
+        _SlotConfig(stage: 'COLLECT_IMPACT', label: 'Impact'),
+        _SlotConfig(stage: 'COLLECT_UPGRADE', label: 'Upgrade'),
+        _SlotConfig(stage: 'COLLECT_COMPLETE', label: 'Collection Complete'),
       ],
     ),
   ];

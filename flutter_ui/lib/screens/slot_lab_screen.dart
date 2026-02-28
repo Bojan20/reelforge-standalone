@@ -68,6 +68,7 @@ import '../providers/slot_lab/behavior_tree_provider.dart';
 import '../providers/slot_lab/behavior_coverage_provider.dart';
 import '../providers/slot_lab/slotlab_template_provider.dart';
 import '../providers/slot_lab/feature_composer_provider.dart'; // V11: Trostepeni
+import '../providers/feature_builder_provider.dart'; // Grid block config for megaways
 import '../providers/ale_provider.dart';
 import '../services/stage_audio_mapper.dart';
 import '../models/stage_models.dart';
@@ -3967,15 +3968,30 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     if (GetIt.instance.isRegistered<FeatureComposerProvider>()) {
       final composer = GetIt.instance<FeatureComposerProvider>();
 
-      // Map enabled builder block IDs to SlotMechanic
+      // Map enabled builder block IDs to SlotMechanic (multi-mapping)
       final mechanics = <SlotMechanic, bool>{};
       for (final m in SlotMechanic.values) {
         mechanics[m] = false;
       }
       for (final blockId in result.enabledBlockIds) {
-        final mechanic = _builderBlockToMechanic(blockId);
-        if (mechanic != null) {
+        for (final mechanic in _builderBlockToMechanics(blockId)) {
           mechanics[mechanic] = true;
+        }
+      }
+
+      // Detect payline type from grid block configuration
+      var paylineType = PaylineType.lines;
+      var paylineCount = 20;
+      if (GetIt.instance.isRegistered<FeatureBuilderProvider>()) {
+        final builder = GetIt.instance<FeatureBuilderProvider>();
+        final waysCalc = builder.getBlockOption<String>('grid', 'waysCalculation') ?? 'none';
+        if (waysCalc == 'megaways') {
+          paylineType = PaylineType.megaways;
+          paylineCount = 0;
+          mechanics[SlotMechanic.megaways] = true;
+        } else if (waysCalc == 'standard') {
+          paylineType = PaylineType.ways;
+          paylineCount = 0;
         }
       }
 
@@ -3983,11 +3999,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         name: 'Custom Build',
         reelCount: result.reelCount,
         rowCount: result.rowCount,
-        paylineCount: 20,
-        paylineType: PaylineType.lines,
+        paylineCount: paylineCount,
+        paylineType: paylineType,
         winTierCount: 5,
         mechanics: mechanics,
         volatilityProfile: 'medium',
+        enabledBlockIds: result.enabledBlockIds,
       );
       composer.applyConfig(config);
     }
@@ -4014,18 +4031,25 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     }
   }
 
-  SlotMechanic? _builderBlockToMechanic(String blockId) {
+  /// Maps a Feature Builder block ID to one or more SlotMechanic values.
+  /// Some blocks (bonus_game, wild_features) enable multiple mechanics.
+  List<SlotMechanic> _builderBlockToMechanics(String blockId) {
     return switch (blockId) {
-      'free_spins' => SlotMechanic.freeSpins,
-      'hold_and_win' => SlotMechanic.holdAndWin,
-      'cascades' => SlotMechanic.cascading,
-      'respin' => SlotMechanic.nudgeRespin,
-      'gambling' => SlotMechanic.gamble,
-      'jackpot' => SlotMechanic.jackpot,
-      'multiplier' => SlotMechanic.multiplierTrail,
-      'wild_features' => SlotMechanic.expandingWilds,
-      'bonus_game' => SlotMechanic.pickBonus,
-      _ => null,
+      'free_spins' => [SlotMechanic.freeSpins],
+      'hold_and_win' => [SlotMechanic.holdAndWin],
+      'cascades' => [SlotMechanic.cascading],
+      'respin' => [SlotMechanic.nudgeRespin],
+      'gambling' => [SlotMechanic.gamble],
+      'jackpot' => [SlotMechanic.jackpot],
+      'multiplier' => [SlotMechanic.multiplierTrail],
+      'wild_features' => [SlotMechanic.expandingWilds, SlotMechanic.stickyWilds],
+      'bonus_game' => [SlotMechanic.pickBonus, SlotMechanic.wheelBonus],
+      'anticipation' => [], // Detected via isBlockEnabled(), no mechanic
+      'transitions' => [], // Detected via isBlockEnabled(), no mechanic
+      'collector' => [], // Detected via isBlockEnabled(), no mechanic
+      'music_states' => [], // Music phase is always visible
+      'win_presentation' => [], // Win phase is always visible
+      _ => [],
     };
   }
 

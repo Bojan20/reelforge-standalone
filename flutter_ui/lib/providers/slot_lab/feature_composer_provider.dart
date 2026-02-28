@@ -464,6 +464,9 @@ class SlotMachineConfig {
   /// Volatility profile
   final String volatilityProfile;
 
+  /// Enabled block IDs from Feature Builder (includes non-mechanic blocks like transitions, anticipation)
+  final List<String> enabledBlockIds;
+
   const SlotMachineConfig({
     required this.name,
     this.reelCount = 3,
@@ -473,6 +476,7 @@ class SlotMachineConfig {
     this.winTierCount = 5,
     this.mechanics = const {},
     this.volatilityProfile = 'medium',
+    this.enabledBlockIds = const [],
   });
 
   SlotMachineConfig copyWith({
@@ -484,6 +488,7 @@ class SlotMachineConfig {
     int? winTierCount,
     Map<SlotMechanic, bool>? mechanics,
     String? volatilityProfile,
+    List<String>? enabledBlockIds,
   }) => SlotMachineConfig(
     name: name ?? this.name,
     reelCount: reelCount ?? this.reelCount,
@@ -493,6 +498,7 @@ class SlotMachineConfig {
     winTierCount: winTierCount ?? this.winTierCount,
     mechanics: mechanics ?? this.mechanics,
     volatilityProfile: volatilityProfile ?? this.volatilityProfile,
+    enabledBlockIds: enabledBlockIds ?? this.enabledBlockIds,
   );
 
   Map<String, dynamic> toJson() => {
@@ -506,6 +512,7 @@ class SlotMachineConfig {
       for (final e in mechanics.entries) e.key.name: e.value,
     },
     'volatilityProfile': volatilityProfile,
+    'enabledBlockIds': enabledBlockIds,
   };
 
   factory SlotMachineConfig.fromJson(Map<String, dynamic> json) {
@@ -528,6 +535,8 @@ class SlotMachineConfig {
       winTierCount: json['winTierCount'] as int? ?? 5,
       mechanics: mechanicsMap,
       volatilityProfile: json['volatilityProfile'] as String? ?? 'medium',
+      enabledBlockIds: (json['enabledBlockIds'] as List<dynamic>?)
+          ?.cast<String>() ?? const [],
     );
   }
 }
@@ -568,6 +577,9 @@ class FeatureComposerProvider extends ChangeNotifier {
 
   /// Get enabled state for a mechanic
   bool isEnabled(SlotMechanic mechanic) => _enabledMechanics[mechanic] ?? false;
+
+  /// Check if a specific block ID is enabled (for non-mechanic blocks like transitions, anticipation)
+  bool isBlockEnabled(String blockId) => _config?.enabledBlockIds.contains(blockId) ?? false;
 
   /// Get all enabled mechanics
   List<SlotMechanic> get enabledMechanics =>
