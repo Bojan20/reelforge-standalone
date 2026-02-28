@@ -8,6 +8,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../services/gdd_import_service.dart';
+import '../providers/slot_lab/feature_composer_provider.dart';
 
 // =============================================================================
 // SYMBOL AUDIO CONTEXTS (Typed)
@@ -795,6 +796,9 @@ class SlotLabProject {
   final double? lowerZoneHeight;
   final String? audioBrowserDirectory;
 
+  // V11: Slot Machine Config (Trostepeni Stage System)
+  final SlotMachineConfig? slotMachineConfig;
+
   const SlotLabProject({
     required this.name,
     this.version = '1.0',
@@ -821,6 +825,8 @@ class SlotLabProject {
     this.selectedEventId,
     this.lowerZoneHeight,
     this.audioBrowserDirectory,
+    // V11: Slot machine config
+    this.slotMachineConfig,
   });
 
   /// Create default project with standard symbols and contexts
@@ -926,6 +932,10 @@ class SlotLabProject {
       selectedEventId: json['selectedEventId'] as String?,
       lowerZoneHeight: (json['lowerZoneHeight'] as num?)?.toDouble(),
       audioBrowserDirectory: json['audioBrowserDirectory'] as String?,
+      // V11: Slot machine config
+      slotMachineConfig: json['slotMachineConfig'] != null
+          ? SlotMachineConfig.fromJson(json['slotMachineConfig'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -950,6 +960,8 @@ class SlotLabProject {
       if (selectedEventId != null) 'selectedEventId': selectedEventId,
       if (lowerZoneHeight != null) 'lowerZoneHeight': lowerZoneHeight,
       if (audioBrowserDirectory != null) 'audioBrowserDirectory': audioBrowserDirectory,
+      // V11: Slot machine config
+      if (slotMachineConfig != null) 'slotMachineConfig': slotMachineConfig!.toJson(),
     };
   }
 

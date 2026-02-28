@@ -91,6 +91,8 @@ import '../providers/slot_lab/context_layer_provider.dart';
 import '../providers/slot_lab/trigger_layer_provider.dart';
 import '../providers/slot_lab/slotlab_template_provider.dart';
 import '../providers/slot_lab/slotlab_export_provider.dart';
+import '../providers/slot_lab/feature_composer_provider.dart';
+import '../providers/slot_lab/pacing_engine_provider.dart';
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -418,14 +420,28 @@ class ServiceLocator {
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // LAYER 5.9.23: SlotLab Template Provider (SlotLab Middleware §31)
+    // LAYER 5.9.23: Feature Composer Provider (Trostepeni Stage System Layer 2)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<FeatureComposerProvider>(
+      () => FeatureComposerProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.24: Pacing Engine Provider (Generate Audio Map From Math)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<PacingEngineProvider>(
+      () => PacingEngineProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.25: SlotLab Template Provider (SlotLab Middleware §31)
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<SlotLabTemplateProvider>(
       () => SlotLabTemplateProvider(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // LAYER 5.9.24: SlotLab Export Provider (SlotLab Middleware §32)
+    // LAYER 5.9.26: SlotLab Export Provider (SlotLab Middleware §32)
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<SlotLabExportProvider>(
       () => SlotLabExportProvider(),

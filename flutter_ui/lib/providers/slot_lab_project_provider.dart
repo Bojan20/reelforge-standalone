@@ -15,6 +15,8 @@ import '../providers/git_provider.dart';
 import '../services/gdd_import_service.dart';
 import '../services/stage_configuration_service.dart';
 import '../src/rust/native_ffi.dart';
+import 'package:get_it/get_it.dart';
+import 'slot_lab/feature_composer_provider.dart';
 
 /// Provider for SlotLab V6 project state
 class SlotLabProjectProvider extends ChangeNotifier {
@@ -201,7 +203,13 @@ class SlotLabProjectProvider extends ChangeNotifier {
   }
 
   /// Get complete project for serialization
-  SlotLabProject get project => SlotLabProject(
+  SlotLabProject get project {
+    // V11: Read current config from FeatureComposerProvider
+    SlotMachineConfig? machineConfig;
+    if (GetIt.instance.isRegistered<FeatureComposerProvider>()) {
+      machineConfig = GetIt.instance<FeatureComposerProvider>().config;
+    }
+    return SlotLabProject(
         name: _projectName,
         symbols: _symbols,
         contexts: _contexts,
@@ -219,7 +227,10 @@ class SlotLabProjectProvider extends ChangeNotifier {
         selectedEventId: _selectedEventId,
         lowerZoneHeight: _lowerZoneHeight,
         audioBrowserDirectory: _audioBrowserDirectory,
+        // V11: Slot machine config
+        slotMachineConfig: machineConfig,
       );
+  }
 
   // ==========================================================================
   // INITIALIZATION
@@ -257,6 +268,10 @@ class SlotLabProjectProvider extends ChangeNotifier {
     // V8: Reset GDD data
     _importedGdd = null;
     _gridConfig = null;
+    // V11: Reset slot machine config (force wizard)
+    if (GetIt.instance.isRegistered<FeatureComposerProvider>()) {
+      GetIt.instance<FeatureComposerProvider>().resetConfig();
+    }
     _isDirty = false;
     _syncSymbolStages(); // Sync stages for default symbols
     notifyListeners();
@@ -1332,6 +1347,15 @@ class SlotLabProjectProvider extends ChangeNotifier {
     // V8: Restore GDD data
     _gridConfig = loaded.gridConfig;
     _importedGdd = loaded.importedGdd;
+    // V11: Restore slot machine config
+    if (GetIt.instance.isRegistered<FeatureComposerProvider>()) {
+      final composer = GetIt.instance<FeatureComposerProvider>();
+      if (loaded.slotMachineConfig != null) {
+        composer.applyConfig(loaded.slotMachineConfig!);
+      } else {
+        composer.resetConfig();
+      }
+    }
     _isDirty = false;
     _syncSymbolStages(); // Sync stages for loaded symbols
     notifyListeners();
@@ -1353,6 +1377,15 @@ class SlotLabProjectProvider extends ChangeNotifier {
     // V8: Restore GDD data
     _gridConfig = loaded.gridConfig;
     _importedGdd = loaded.importedGdd;
+    // V11: Restore slot machine config
+    if (GetIt.instance.isRegistered<FeatureComposerProvider>()) {
+      final composer = GetIt.instance<FeatureComposerProvider>();
+      if (loaded.slotMachineConfig != null) {
+        composer.applyConfig(loaded.slotMachineConfig!);
+      } else {
+        composer.resetConfig();
+      }
+    }
     _syncSymbolStages(); // Sync stages for imported symbols
     _markDirty();
   }

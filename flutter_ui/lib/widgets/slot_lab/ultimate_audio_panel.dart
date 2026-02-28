@@ -1,9 +1,16 @@
-/// Ultimate Audio Panel V9 — Phase-Based Game Flow Organization
+/// Ultimate Audio Panel V11 — Trostepeni Stage System
 ///
 /// Complete left panel for SlotLab audio assignment.
 /// NO EDIT MODE REQUIRED — just drop audio directly.
 ///
-/// V9 CHANGES (2026-02-14):
+/// V11 CHANGES (2026-02-28):
+/// - TWO MODES: STAGES (audio assignment) + PACING (math-driven orchestration)
+/// - Dynamic mechanic filtering via FeatureComposerProvider
+/// - Engine Core stages always visible (locked)
+/// - Feature-derived stages appear/disappear based on enabled mechanics
+/// - Pacing Engine: RTP, Volatility, Hit Freq → OrchestrationContext presets
+///
+/// V9/V10 LEGACY (preserved):
 /// - 7 PHASES of game flow (grouped from 12 sections)
 /// - Phase completion rings with per-phase progress
 /// - BUS ROUTING badges on every slot (🎵Music 🔊SFX 🔔Reels 🎤VO 🖥UI)
@@ -50,6 +57,9 @@ import '../../services/stage_group_service.dart';
 import '../../services/audio_playback_service.dart';
 import '../../services/waveform_thumbnail_cache.dart'; // SL-LP-P1.1
 import '../../services/variant_manager.dart'; // SL-LP-P1.4
+import 'package:get_it/get_it.dart'; // V11: Feature Composer + Pacing
+import '../../providers/slot_lab/feature_composer_provider.dart'; // V11
+import '../../providers/slot_lab/pacing_engine_provider.dart'; // V11
 import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -224,6 +234,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   int _activePhaseTab = 0; // 0=All, 1-7=individual phases
   bool _showAllPhases = false; // false=tab mode, true=scroll all
 
+  // V11: Top-level mode switch (STAGES vs PACING)
+  int _panelMode = 0; // 0=Stages, 1=Pacing
+
   // Keyboard navigation state (SL-LP-P1.3)
   final FocusNode _panelFocusNode = FocusNode();
   int _selectedSectionIndex = 0;
@@ -327,73 +340,98 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final composer = GetIt.instance<FeatureComposerProvider>();
+
     return Focus(
       focusNode: _panelFocusNode,
       onKeyEvent: _handleKeyEvent,
-      child: Container(
-        clipBehavior: Clip.hardEdge,
-        decoration: const BoxDecoration(
-          color: Color(0xFF0D0D10),
-        ),
-        child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildHeader(),
-          // Search field (SL-LP-P1.2, enhanced with keyboard shortcuts SL-LP-P1.3)
-          Padding(
-            padding: const EdgeInsets.all(6),
-            child: TextField(
-              controller: _searchController,
-              focusNode: _searchFocusNode,
-              style: const TextStyle(fontSize: 11, color: Colors.white70),
-              decoration: InputDecoration(
-                isDense: true,
-                filled: true,
-                fillColor: const Color(0xFF16161C),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(4),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                hintText: 'Search 341 slots...',
-                hintStyle: const TextStyle(color: Colors.white24, fontSize: 10),
-                prefixIcon: const Icon(Icons.search, size: 14, color: Colors.white24),
-                prefixIconConstraints: const BoxConstraints(minWidth: 28),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 14, color: Colors.white38),
-                        onPressed: () => setState(() {
-                          _searchQuery = '';
-                          _searchController.clear();
-                        }),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                      )
-                    : null,
-              ),
-              onChanged: (value) {
-                setState(() => _searchQuery = value.toLowerCase());
-              },
-            ),
-          ),
-          // V10: Phase tab bar — navigate between phases
-          _buildPhaseTabBar(),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // P13.8.6: Feature Builder Generated Stages (FIRST - highest priority)
-                  if (widget.generatedStages != null && widget.generatedStages!.isNotEmpty)
-                    _buildSection(_FeatureBuilderSection(widget: widget)),
-                  // V10: Show selected phase only (or all if in All mode)
-                  ..._getVisiblePhases().map((phase) => _buildPhase(phase)),
+      child: ListenableBuilder(
+        listenable: composer,
+        builder: (context, _) {
+          // V11: Show wizard if no slot machine config exists
+          if (!composer.isConfigured) {
+            return Container(
+              clipBehavior: Clip.hardEdge,
+              decoration: const BoxDecoration(color: Color(0xFF0D0D10)),
+              child: _buildSetupWizard(composer),
+            );
+          }
+
+          return Container(
+            clipBehavior: Clip.hardEdge,
+            decoration: const BoxDecoration(color: Color(0xFF0D0D10)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildHeader(),
+                // V11: Mode switch — STAGES vs PACING
+                _buildModeSwitch(),
+                if (_panelMode == 0) ...[
+                  // STAGES mode — audio assignment
+                  Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: TextField(
+                      controller: _searchController,
+                      focusNode: _searchFocusNode,
+                      style: const TextStyle(fontSize: 11, color: Colors.white70),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        filled: true,
+                        fillColor: const Color(0xFF16161C),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(4),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        hintText: 'Search slots...',
+                        hintStyle: const TextStyle(color: Colors.white24, fontSize: 10),
+                        prefixIcon: const Icon(Icons.search, size: 14, color: Colors.white24),
+                        prefixIconConstraints: const BoxConstraints(minWidth: 28),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 14, color: Colors.white38),
+                                onPressed: () => setState(() {
+                                  _searchQuery = '';
+                                  _searchController.clear();
+                                }),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                              )
+                            : null,
+                      ),
+                      onChanged: (value) {
+                        setState(() => _searchQuery = value.toLowerCase());
+                      },
+                    ),
+                  ),
+                  // V10: Phase tab bar — navigate between phases
+                  _buildPhaseTabBar(),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // P13.8.6: Feature Builder Generated Stages
+                          if (widget.generatedStages != null && widget.generatedStages!.isNotEmpty)
+                            _buildSection(_FeatureBuilderSection(widget: widget)),
+                          // V11: Mechanic composer — quick toggles
+                          _buildMechanicComposer(),
+                          // V10: Show selected phase only (or all if in All mode)
+                          ..._getVisiblePhases().map((phase) => _buildPhase(phase)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  // PACING mode — math-driven orchestration
+                  Expanded(
+                    child: _buildPacingView(),
+                  ),
                 ],
-              ),
+              ],
             ),
-          ),
-        ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -592,6 +630,798 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // V11: Mode Switch — STAGES vs PACING
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildModeSwitch() {
+    return Container(
+      height: 26,
+      decoration: BoxDecoration(
+        color: const Color(0xFF101016),
+        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06))),
+      ),
+      child: Row(
+        children: [
+          for (int i = 0; i < 2; i++)
+            Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _panelMode = i),
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: _panelMode == i
+                            ? (i == 0 ? const Color(0xFF4A9EFF) : const Color(0xFF40FF90))
+                            : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        i == 0 ? Icons.audiotrack : Icons.functions,
+                        size: 11,
+                        color: _panelMode == i
+                            ? (i == 0 ? const Color(0xFF4A9EFF) : const Color(0xFF40FF90))
+                            : Colors.white24,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        i == 0 ? 'STAGES' : 'PACING',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: _panelMode == i ? FontWeight.w700 : FontWeight.w500,
+                          color: _panelMode == i
+                              ? (i == 0 ? const Color(0xFF4A9EFF) : const Color(0xFF40FF90))
+                              : Colors.white30,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // V11: Mechanic Composer — quick toggles for feature mechanics
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildMechanicComposer() {
+    final composer = GetIt.instance<FeatureComposerProvider>();
+    return ListenableBuilder(
+      listenable: composer,
+      builder: (context, _) {
+        final enabled = composer.enabledMechanics;
+        final featureCount = composer.featureStageCount;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0E0E14),
+            border: Border(
+              bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header row
+              Row(
+                children: [
+                  const Icon(Icons.build_circle_outlined, size: 11, color: Color(0xFF40FF90)),
+                  const SizedBox(width: 4),
+                  Text(
+                    'MECHANICS',
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white.withValues(alpha: 0.5),
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (featureCount > 0)
+                    Text(
+                      '+$featureCount stages',
+                      style: const TextStyle(fontSize: 8, color: Color(0xFF40FF90)),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              // Mechanic chips — compact wrap
+              Wrap(
+                spacing: 4,
+                runSpacing: 3,
+                children: SlotMechanic.values.map((mechanic) {
+                  final isOn = enabled.contains(mechanic);
+                  return GestureDetector(
+                    onTap: () => composer.toggleMechanic(mechanic),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isOn
+                            ? const Color(0xFF40FF90).withValues(alpha: 0.15)
+                            : Colors.white.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(
+                          color: isOn
+                              ? const Color(0xFF40FF90).withValues(alpha: 0.4)
+                              : Colors.white.withValues(alpha: 0.08),
+                        ),
+                      ),
+                      child: Text(
+                        mechanic.displayName,
+                        style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: isOn ? FontWeight.w600 : FontWeight.w400,
+                          color: isOn ? const Color(0xFF40FF90) : Colors.white38,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              // Quick presets
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  _buildPresetChip('Basic', () => composer.presetBasic()),
+                  const SizedBox(width: 4),
+                  _buildPresetChip('Standard', () => composer.presetStandard()),
+                  const SizedBox(width: 4),
+                  _buildPresetChip('Full', () => composer.presetFull()),
+                  const Spacer(),
+                  if (enabled.isNotEmpty)
+                    GestureDetector(
+                      onTap: () => composer.disableAll(),
+                      child: const Text(
+                        'Clear',
+                        style: TextStyle(fontSize: 8, color: Colors.white30),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPresetChip(String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 7,
+            color: Colors.white38,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // V11: Pacing View — math-driven orchestration
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildPacingView() {
+    final pacing = GetIt.instance<PacingEngineProvider>();
+    return ListenableBuilder(
+      listenable: pacing,
+      builder: (context, _) {
+        final t = pacing.template;
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Section: Math Inputs
+              _buildPacingSectionHeader('GAME MATH INPUTS'),
+              const SizedBox(height: 6),
+              _buildPacingSlider(
+                'RTP', '${(pacing.rtp * 100).toStringAsFixed(1)}%',
+                pacing.rtp, 0.85, 0.995,
+                (v) => pacing.setRtp(v),
+                const Color(0xFF4A9EFF),
+              ),
+              _buildPacingSlider(
+                'Volatility', pacing.volatilityProfile.displayName,
+                pacing.volatility, 0.0, 1.0,
+                (v) => pacing.setVolatility(v),
+                const Color(0xFFFF6B6B),
+              ),
+              _buildPacingSlider(
+                'Hit Frequency', '${(pacing.hitFrequency * 100).toStringAsFixed(0)}%',
+                pacing.hitFrequency, 0.05, 0.80,
+                (v) => pacing.setHitFrequency(v),
+                const Color(0xFFFFD700),
+              ),
+              _buildPacingSlider(
+                'Max Win', '${pacing.maxWin.toStringAsFixed(0)}x',
+                pacing.maxWin, 100, 100000,
+                (v) => pacing.setMaxWin(v),
+                const Color(0xFF40FF90),
+              ),
+              _buildPacingSlider(
+                'Feature Freq', '1 in ${pacing.featureFrequency.toStringAsFixed(0)}',
+                pacing.featureFrequency, 10, 1000,
+                (v) => pacing.setFeatureFrequency(v),
+                const Color(0xFF9370DB),
+              ),
+
+              const SizedBox(height: 12),
+              // Section: Computed Template
+              _buildPacingSectionHeader('COMPUTED TEMPLATE'),
+              const SizedBox(height: 6),
+              _buildPacingResult('Base Tension', t.baseTension.toStringAsFixed(2), const Color(0xFFFF6B6B)),
+              _buildPacingResult('Escalation Curve', '${t.escalationCurve.toStringAsFixed(1)}x', const Color(0xFFFFD700)),
+              _buildPacingResult('Fatigue Rate', '${(t.sessionFatigueRate * 60).toStringAsFixed(2)}/min', const Color(0xFF808080)),
+              _buildPacingResult('Anticipation Start', 'Reel ${t.anticipationStartReel + 1}', const Color(0xFF4A9EFF)),
+              _buildPacingResult('Max Anticipation', 'L${t.maxAnticipationLevel}', const Color(0xFFFF9040)),
+              _buildPacingResult('Gain Swing', '${t.maxGainSwingDb.toStringAsFixed(1)} dB', const Color(0xFF40FF90)),
+              _buildPacingResult('Stereo Width', '${t.maxStereoWidth.toStringAsFixed(2)}x', const Color(0xFF9370DB)),
+
+              const SizedBox(height: 8),
+              // Win Thresholds
+              _buildPacingSectionHeader('WIN THRESHOLDS'),
+              const SizedBox(height: 4),
+              for (int i = 0; i < t.winThresholds.length; i++)
+                _buildPacingResult(
+                  'Tier ${i + 1}',
+                  '${t.winThresholds[i].toStringAsFixed(0)}x',
+                  Color.lerp(const Color(0xFF4A9EFF), const Color(0xFFFFD700), i / 4) ?? Colors.white,
+                ),
+
+              const SizedBox(height: 12),
+              // Presets
+              _buildPacingSectionHeader('PRESETS'),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  _buildPacingPresetButton('Classic', 'Low vol, high freq', () => pacing.presetClassic()),
+                  _buildPacingPresetButton('Modern', 'Medium balanced', () => pacing.presetModern()),
+                  _buildPacingPresetButton('High Vol', 'Rare big wins', () => pacing.presetHighVol()),
+                  _buildPacingPresetButton('Extreme', 'Jackpot chaser', () => pacing.presetExtreme()),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPacingSectionHeader(String title) {
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: 8,
+        fontWeight: FontWeight.w700,
+        color: Colors.white.withValues(alpha: 0.4),
+        letterSpacing: 1.2,
+      ),
+    );
+  }
+
+  Widget _buildPacingSlider(
+    String label, String valueText,
+    double value, double min, double max,
+    ValueChanged<double> onChanged,
+    Color color,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(label, style: const TextStyle(fontSize: 9, color: Colors.white54)),
+              const Spacer(),
+              Text(valueText, style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 2),
+          SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 2,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+              activeTrackColor: color,
+              inactiveTrackColor: color.withValues(alpha: 0.15),
+              thumbColor: color,
+              overlayColor: color.withValues(alpha: 0.1),
+            ),
+            child: Slider(
+              value: value.clamp(min, max),
+              min: min,
+              max: max,
+              onChanged: onChanged,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPacingResult(String label, String value, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 3),
+      child: Row(
+        children: [
+          Container(
+            width: 3,
+            height: 10,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(1),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontSize: 9, color: Colors.white38)),
+          const Spacer(),
+          Text(value, style: TextStyle(
+            fontSize: 9,
+            color: color,
+            fontWeight: FontWeight.w600,
+            fontFamily: 'JetBrainsMono',
+          )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPacingPresetButton(String label, String desc, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 9, color: Colors.white60, fontWeight: FontWeight.w600)),
+            Text(desc, style: const TextStyle(fontSize: 7, color: Colors.white24)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // V11: Setup Wizard — shown when no slot machine config exists
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Wizard state (local, not persisted — wizard is transient)
+  String _wizardName = '';
+  int _wizardReels = 5;
+  int _wizardRows = 3;
+  int _wizardWinTiers = 5;
+  PaylineType _wizardPaylineType = PaylineType.lines;
+  final Map<SlotMechanic, bool> _wizardMechanics = {};
+
+  Widget _buildSetupWizard(FeatureComposerProvider composer) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Header
+        Container(
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF1A1A28), Color(0xFF12121A)],
+            ),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.casino, size: 16, color: Color(0xFF4A9EFF)),
+              SizedBox(width: 6),
+              Text(
+                'CREATE SLOT MACHINE',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF4A9EFF),
+                  letterSpacing: 1.0,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Name
+                _wizardLabel('SLOT NAME'),
+                const SizedBox(height: 4),
+                TextField(
+                  style: const TextStyle(fontSize: 11, color: Colors.white70),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    filled: true,
+                    fillColor: const Color(0xFF16161C),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    hintText: 'e.g. Book of Ra, Sweet Bonanza...',
+                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 10),
+                  ),
+                  onChanged: (v) => _wizardName = v,
+                ),
+
+                const SizedBox(height: 12),
+                // Grid: Reels x Rows
+                _wizardLabel('GRID'),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _wizardStepper(
+                        'Reels', _wizardReels, 3, 8,
+                        (v) => setState(() => _wizardReels = v),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text('x', style: TextStyle(color: Colors.white24, fontSize: 12)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _wizardStepper(
+                        'Rows', _wizardRows, 1, 6,
+                        (v) => setState(() => _wizardRows = v),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+                // Payline type
+                _wizardLabel('PAYLINE TYPE'),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: PaylineType.values.map((type) {
+                    final isOn = _wizardPaylineType == type;
+                    return GestureDetector(
+                      onTap: () => setState(() => _wizardPaylineType = type),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isOn ? const Color(0xFF4A9EFF).withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.04),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: isOn ? const Color(0xFF4A9EFF).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.08),
+                          ),
+                        ),
+                        child: Text(
+                          type.displayName,
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: isOn ? const Color(0xFF4A9EFF) : Colors.white38,
+                            fontWeight: isOn ? FontWeight.w600 : FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+
+                const SizedBox(height: 12),
+                // Win tiers
+                _wizardLabel('WIN TIERS'),
+                const SizedBox(height: 4),
+                _wizardStepper(
+                  'Tiers', _wizardWinTiers, 1, 5,
+                  (v) => setState(() => _wizardWinTiers = v),
+                ),
+
+                const SizedBox(height: 12),
+                // Game Mechanics
+                _wizardLabel('GAME MECHANICS'),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: SlotMechanic.values.map((mechanic) {
+                    final isOn = _wizardMechanics[mechanic] ?? false;
+                    return GestureDetector(
+                      onTap: () => setState(() {
+                        _wizardMechanics[mechanic] = !isOn;
+                      }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: isOn
+                              ? const Color(0xFF40FF90).withValues(alpha: 0.15)
+                              : Colors.white.withValues(alpha: 0.04),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: isOn
+                                ? const Color(0xFF40FF90).withValues(alpha: 0.4)
+                                : Colors.white.withValues(alpha: 0.08),
+                          ),
+                        ),
+                        child: Text(
+                          mechanic.displayName,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: isOn ? FontWeight.w600 : FontWeight.w400,
+                            color: isOn ? const Color(0xFF40FF90) : Colors.white38,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+
+                // Quick presets
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _wizardPreset('Classic 5x3', () => setState(() {
+                      _wizardReels = 5; _wizardRows = 3;
+                      _wizardPaylineType = PaylineType.lines;
+                      _wizardMechanics.clear();
+                    })),
+                    const SizedBox(width: 6),
+                    _wizardPreset('Cascading', () => setState(() {
+                      _wizardReels = 5; _wizardRows = 3;
+                      _wizardPaylineType = PaylineType.cluster;
+                      _wizardMechanics.clear();
+                      _wizardMechanics[SlotMechanic.cascading] = true;
+                      _wizardMechanics[SlotMechanic.multiplierTrail] = true;
+                    })),
+                    const SizedBox(width: 6),
+                    _wizardPreset('Full Feature', () => setState(() {
+                      _wizardReels = 5; _wizardRows = 3;
+                      _wizardPaylineType = PaylineType.lines;
+                      _wizardMechanics.clear();
+                      for (final m in SlotMechanic.values) {
+                        _wizardMechanics[m] = true;
+                      }
+                    })),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+                // Stage preview
+                _wizardLabel('STAGE PREVIEW'),
+                const SizedBox(height: 4),
+                _buildWizardStagePreview(),
+
+                const SizedBox(height: 16),
+                // Create button
+                GestureDetector(
+                  onTap: () {
+                    final name = _wizardName.trim().isEmpty ? 'Untitled Slot' : _wizardName.trim();
+                    final config = SlotMachineConfig(
+                      name: name,
+                      reelCount: _wizardReels,
+                      rowCount: _wizardRows,
+                      paylineCount: _wizardPaylineType == PaylineType.ways ? 243 : 20,
+                      paylineType: _wizardPaylineType,
+                      winTierCount: _wizardWinTiers,
+                      mechanics: Map.from(_wizardMechanics),
+                    );
+                    composer.applyConfig(config);
+                  },
+                  child: Container(
+                    height: 36,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF4A9EFF), Color(0xFF2060CC)],
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF4A9EFF).withValues(alpha: 0.3),
+                          blurRadius: 8,
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'CREATE SLOT MACHINE',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _wizardLabel(String text) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 8,
+        fontWeight: FontWeight.w700,
+        color: Colors.white.withValues(alpha: 0.4),
+        letterSpacing: 1.2,
+      ),
+    );
+  }
+
+  Widget _wizardStepper(String label, int value, int min, int max, ValueChanged<int> onChanged) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF16161C),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        children: [
+          Text(label, style: const TextStyle(fontSize: 9, color: Colors.white38)),
+          const Spacer(),
+          GestureDetector(
+            onTap: value > min ? () => onChanged(value - 1) : null,
+            child: Icon(Icons.remove_circle_outline, size: 14,
+              color: value > min ? Colors.white54 : Colors.white12),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              '$value',
+              style: const TextStyle(
+                fontSize: 12, color: Colors.white70,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'JetBrainsMono',
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: value < max ? () => onChanged(value + 1) : null,
+            child: Icon(Icons.add_circle_outline, size: 14,
+              color: value < max ? Colors.white54 : Colors.white12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _wizardPreset(String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        child: Text(label, style: const TextStyle(fontSize: 8, color: Colors.white38)),
+      ),
+    );
+  }
+
+  Widget _buildWizardStagePreview() {
+    // Count stages that would be generated
+    final coreCount = 1 + _wizardReels + 1 + _wizardWinTiers + 2; // spin + reels + symbolLand + winTiers + countup
+    int featureCount = 0;
+    for (final entry in _wizardMechanics.entries) {
+      if (entry.value) {
+        featureCount += entry.key.generatedStages.length;
+      }
+    }
+    const alwaysCount = 8; // Music (4) + UI (4) — matches _alwaysVisibleStages
+    final total = coreCount + featureCount + alwaysCount;
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF101018),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 6, height: 6,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4A9EFF),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text('Engine Core: $coreCount stages',
+                style: const TextStyle(fontSize: 9, color: Colors.white54)),
+            ],
+          ),
+          if (featureCount > 0) ...[
+            const SizedBox(height: 3),
+            Row(
+              children: [
+                Container(
+                  width: 6, height: 6,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF40FF90),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text('Features: $featureCount stages',
+                  style: const TextStyle(fontSize: 9, color: Colors.white54)),
+              ],
+            ),
+          ],
+          const SizedBox(height: 3),
+          Row(
+            children: [
+              Container(
+                width: 6, height: 6,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF9370DB),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text('Music & UI: $alwaysCount stages',
+                style: const TextStyle(fontSize: 9, color: Colors.white54)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: const Color(0xFF4A9EFF).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text(
+              'Total: $total audio slots',
+              style: const TextStyle(
+                fontSize: 10,
+                color: Color(0xFF4A9EFF),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ],
       ),
     );
