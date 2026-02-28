@@ -519,7 +519,7 @@ class SlotMachineConfig {
     }
     return SlotMachineConfig(
       name: json['name'] as String? ?? 'Untitled',
-      reelCount: json['reelCount'] as int? ?? 5,
+      reelCount: json['reelCount'] as int? ?? 3,
       rowCount: json['rowCount'] as int? ?? 3,
       paylineCount: json['paylineCount'] as int? ?? 20,
       paylineType: PaylineType.values.where(
@@ -765,7 +765,7 @@ class FeatureComposerProvider extends ChangeNotifier {
 
   /// Get dynamic Engine Core stages based on config reel count
   List<ComposedStage> get dynamicEngineCoreStages {
-    final reelCount = _config?.reelCount ?? 5;
+    final reelCount = _config?.reelCount ?? 3;
     final winTiers = _config?.winTierCount ?? 5;
 
     final stages = <ComposedStage>[

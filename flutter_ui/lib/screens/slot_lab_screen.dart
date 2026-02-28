@@ -3421,12 +3421,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildStatusChip('BAL', '\$${_balance.toStringAsFixed(0)}', const Color(0xFF40FF90)),
-                    const SizedBox(width: 4),
-                    _buildStatusChip('BET', '\$${_bet.toStringAsFixed(2)}', const Color(0xFF4A9EFF)),
-                    const SizedBox(width: 4),
-                    _buildStatusChip('WIN', '\$${_lastWin.toStringAsFixed(0)}', const Color(0xFFFFD700)),
-                    const SizedBox(width: 4),
                     _buildMiddlewareStatusChips(),
                     if (_isPreloadingAudio) ...[
                       const SizedBox(width: 4),
@@ -3966,9 +3960,39 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final projectProvider = context.read<SlotLabProjectProvider>();
     final slotLabProvider = context.read<SlotLabProvider>();
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CRITICAL: Apply config to FeatureComposerProvider (sets isConfigured=true)
+    // Without this, slot machine stays in "unconfigured" state (no spin, no stages)
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (GetIt.instance.isRegistered<FeatureComposerProvider>()) {
+      final composer = GetIt.instance<FeatureComposerProvider>();
+
+      // Map enabled builder block IDs to SlotMechanic
+      final mechanics = <SlotMechanic, bool>{};
+      for (final m in SlotMechanic.values) {
+        mechanics[m] = false;
+      }
+      for (final blockId in result.enabledBlockIds) {
+        final mechanic = _builderBlockToMechanic(blockId);
+        if (mechanic != null) {
+          mechanics[mechanic] = true;
+        }
+      }
+
+      final config = SlotMachineConfig(
+        name: 'Custom Build',
+        reelCount: result.reelCount,
+        rowCount: result.rowCount,
+        paylineCount: 20,
+        paylineType: PaylineType.lines,
+        winTierCount: 5,
+        mechanics: mechanics,
+        volatilityProfile: 'medium',
+      );
+      composer.applyConfig(config);
+    }
+
     // Update settings with grid configuration
-    // The slot machine is already displayed in the center panel via _buildMockSlot()
-    // We just update the grid dimensions - NO fullscreen mode needed
     setState(() {
       _slotLabSettings = _slotLabSettings.copyWith(
         reels: result.reelCount,
@@ -3988,6 +4012,21 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     if (mounted) {
       showToast('Slot machine built: ${result.reelCount}×${result.rowCount} grid with ${result.symbolCount} symbols');
     }
+  }
+
+  SlotMechanic? _builderBlockToMechanic(String blockId) {
+    return switch (blockId) {
+      'free_spins' => SlotMechanic.freeSpins,
+      'hold_and_win' => SlotMechanic.holdAndWin,
+      'cascades' => SlotMechanic.cascading,
+      'respin' => SlotMechanic.nudgeRespin,
+      'gambling' => SlotMechanic.gamble,
+      'jackpot' => SlotMechanic.jackpot,
+      'multiplier' => SlotMechanic.multiplierTrail,
+      'wild_features' => SlotMechanic.expandingWilds,
+      'bonus_game' => SlotMechanic.pickBonus,
+      _ => null,
+    };
   }
 
   void _generateDefaultSymbols(int count, SlotLabProjectProvider provider) {

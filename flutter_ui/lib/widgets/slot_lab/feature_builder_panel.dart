@@ -28,7 +28,7 @@ class FeatureBuilderPanel extends StatefulWidget {
 
   /// Callback when Apply & Build is pressed
   /// Parameters: reelCount, rowCount, symbolCount
-  final void Function(int reels, int rows, int symbols)? onApplyAndBuild;
+  final void Function(int reels, int rows, int symbols, List<String> enabledBlockIds)? onApplyAndBuild;
 
   const FeatureBuilderPanel({
     super.key,
@@ -75,11 +75,12 @@ class FeatureBuilderPanel extends StatefulWidget {
             ),
             child: FeatureBuilderPanel(
               onClose: () => Navigator.of(context).pop(),
-              onApplyAndBuild: (reels, rows, symbols) {
+              onApplyAndBuild: (reels, rows, symbols, enabledBlockIds) {
                 result = FeatureBuilderResult(
                   reelCount: reels,
                   rowCount: rows,
                   symbolCount: symbols,
+                  enabledBlockIds: enabledBlockIds,
                 );
                 Navigator.of(context).pop();
               },
@@ -102,11 +103,13 @@ class FeatureBuilderResult {
   final int reelCount;
   final int rowCount;
   final int symbolCount;
+  final List<String> enabledBlockIds;
 
   const FeatureBuilderResult({
     required this.reelCount,
     required this.rowCount,
     required this.symbolCount,
+    this.enabledBlockIds = const [],
   });
 }
 
@@ -1129,12 +1132,13 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
               final gridBlock = provider.gridBlock;
               final symbolBlock = provider.symbolSetBlock;
 
-              final reelCount = gridBlock?.getOptionValue<int>('reelCount') ?? 5;
+              final reelCount = gridBlock?.getOptionValue<int>('reelCount') ?? 3;
               final rowCount = gridBlock?.getOptionValue<int>('rowCount') ?? 3;
               final symbolCount = symbolBlock?.getOptionValue<int>('symbolCount') ?? 10;
 
               // Call the callback to apply configuration
-              widget.onApplyAndBuild?.call(reelCount, rowCount, symbolCount);
+              widget.onApplyAndBuild?.call(reelCount, rowCount, symbolCount,
+                  provider.enabledBlockIds);
             },
           ),
         ],

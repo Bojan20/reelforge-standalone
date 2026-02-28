@@ -61,6 +61,7 @@ import 'package:get_it/get_it.dart'; // V11: Feature Composer + Pacing
 import '../../providers/slot_lab/feature_composer_provider.dart'; // V11
 import '../../providers/slot_lab/pacing_engine_provider.dart'; // V11
 import '../../services/audio_mapping_import_service.dart'; // V11: Bulk Import
+import '../../services/native_file_picker.dart'; // V11: Native folder picker
 import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -444,8 +445,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.audiotrack, size: 14, color: Colors.white54), // Reduced from 16
-          const SizedBox(width: 4), // Reduced from 6
+          const Icon(Icons.audiotrack, size: 14, color: Colors.white54),
+          const SizedBox(width: 4),
           // P3: Undo/Redo buttons (compact)
           if (widget.onUndo != null || widget.onRedo != null) ...[
             Tooltip(
@@ -510,17 +511,24 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   borderRadius: BorderRadius.circular(3),
                   border: Border.all(color: const Color(0xFF40FF90).withValues(alpha: 0.3)),
                 ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.file_download, size: 10, color: Color(0xFF40FF90)),
-                    SizedBox(width: 3),
-                    Text('IMPORT', style: TextStyle(
-                      fontSize: 7, fontWeight: FontWeight.w700,
-                      color: Color(0xFF40FF90), letterSpacing: 0.5,
-                    )),
-                  ],
+                child: const Icon(Icons.file_download, size: 12, color: Color(0xFF40FF90)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          // V11: Reset machine — start over
+          Tooltip(
+            message: 'Reset slot machine config and start over',
+            child: GestureDetector(
+              onTap: () => _showResetConfirmDialog(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF4444).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(color: const Color(0xFFFF4444).withValues(alpha: 0.3)),
                 ),
+                child: const Icon(Icons.restart_alt, size: 12, color: Color(0xFFFF4444)),
               ),
             ),
           ),
@@ -653,6 +661,69 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // V11: Reset Machine — confirm and clear config + assignments
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  void _showResetConfirmDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber, color: Color(0xFFFF4444), size: 20),
+            SizedBox(width: 8),
+            Text('Reset Slot Machine', style: TextStyle(color: Colors.white, fontSize: 14)),
+          ],
+        ),
+        content: const Text(
+          'This will delete the current slot machine configuration, all audio assignments, and all events.\n\nYou will start from scratch with the setup wizard.',
+          style: TextStyle(color: Colors.white60, fontSize: 12),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _performFullReset();
+            },
+            style: TextButton.styleFrom(
+              backgroundColor: const Color(0xFFFF4444).withValues(alpha: 0.2),
+            ),
+            child: const Text('RESET', style: TextStyle(
+              color: Color(0xFFFF4444), fontWeight: FontWeight.w700,
+            )),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _performFullReset() {
+    // 1. Reset FeatureComposer config → triggers wizard
+    final composer = GetIt.instance<FeatureComposerProvider>();
+    composer.resetConfig();
+
+    // 2. Clear all audio assignments
+    for (final stage in widget.audioAssignments.keys.toList()) {
+      widget.onAudioClear?.call(stage);
+    }
+
+    // 3. Reset local UI state
+    setState(() {
+      _searchQuery = '';
+      _searchController.clear();
+      _activePhaseTab = 0;
+      _panelMode = 0;
+      _localExpandedSections.clear();
+      _localExpandedGroups.clear();
+    });
+  }
+
   // V11: Bulk Import Dialog
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -704,7 +775,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                             desc: 'Auto-match filenames to stages (fuzzy)',
                             color: const Color(0xFF4A9EFF),
                             onTap: () async {
-                              final path = await _showFilePickerDialog(ctx, 'folder');
+                              final path = await NativeFilePicker.pickDirectory(
+                                title: 'Select Audio Folder',
+                              );
                               if (path == null) return;
                               // List audio files in folder
                               final dir = Directory(path);
@@ -2054,92 +2127,118 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   // V9: Phase header with completion ring, priority badge, and sections
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Build 7 phases from widget data — called in build()
+  /// Build phases from widget data — filtered by enabled mechanics
+  /// Only shows sections relevant to the current slot machine configuration
   List<_PhaseConfig> _buildPhases() {
-    return [
-      _PhaseConfig(
-        id: 'core_loop',
-        title: 'CORE LOOP',
-        icon: '🎰',
-        color: const Color(0xFF4A9EFF),
-        priority: SlotPriority.p0,
-        description: 'Spin → Stops → Symbols — must-have',
-        sections: [
-          _BaseGameLoopSection(widget: widget),
-          _SymbolsSection(widget: widget),
-        ],
-      ),
-      _PhaseConfig(
-        id: 'wins',
-        title: 'WINS',
-        icon: '🏅',
-        color: const Color(0xFFFFD700),
-        priority: SlotPriority.p0,
-        description: 'Lines, rollup, cascade, multipliers',
-        sections: [
-          _WinPresentationSection(widget: widget),
-          _CascadingSection(widget: widget),
-          _MultipliersSection(widget: widget),
-        ],
-      ),
-      _PhaseConfig(
+    final composer = GetIt.instance<FeatureComposerProvider>();
+    final enabled = composer.enabledMechanics;
+    final hasCascading = enabled.contains(SlotMechanic.cascading);
+    final hasMultiplier = enabled.contains(SlotMechanic.multiplierTrail);
+    final hasFreeSpins = enabled.contains(SlotMechanic.freeSpins);
+    final hasBonus = enabled.contains(SlotMechanic.pickBonus) ||
+                     enabled.contains(SlotMechanic.wheelBonus);
+    final hasHoldAndWin = enabled.contains(SlotMechanic.holdAndWin);
+    final hasJackpot = enabled.contains(SlotMechanic.jackpot);
+    final hasGamble = enabled.contains(SlotMechanic.gamble);
+
+    final phases = <_PhaseConfig>[];
+
+    // CORE LOOP — always visible
+    phases.add(_PhaseConfig(
+      id: 'core_loop',
+      title: 'CORE LOOP',
+      icon: '🎰',
+      color: const Color(0xFF4A9EFF),
+      priority: SlotPriority.p0,
+      description: 'Spin → Stops → Symbols — must-have',
+      sections: [
+        _BaseGameLoopSection(widget: widget),
+        _SymbolsSection(widget: widget),
+      ],
+    ));
+
+    // WINS — always visible (win presentation is core), cascade/multiplier conditional
+    final winSections = <_SectionConfig>[
+      _WinPresentationSection(widget: widget),
+    ];
+    if (hasCascading) winSections.add(_CascadingSection(widget: widget));
+    if (hasMultiplier) winSections.add(_MultipliersSection(widget: widget));
+    phases.add(_PhaseConfig(
+      id: 'wins',
+      title: 'WINS',
+      icon: '🏅',
+      color: const Color(0xFFFFD700),
+      priority: SlotPriority.p0,
+      description: 'Lines, rollup, cascade, multipliers',
+      sections: winSections,
+    ));
+
+    // FEATURES — only if any feature mechanic enabled
+    if (hasFreeSpins || hasBonus || hasHoldAndWin) {
+      final featureSections = <_SectionConfig>[];
+      if (hasFreeSpins) featureSections.add(_FreeSpinsSection(widget: widget));
+      if (hasBonus) featureSections.add(_BonusGamesSection(widget: widget));
+      if (hasHoldAndWin) featureSections.add(_HoldAndWinSection(widget: widget));
+      phases.add(_PhaseConfig(
         id: 'features',
         title: 'FEATURES',
         icon: '🎁',
         color: const Color(0xFF40FF90),
         priority: SlotPriority.p1,
         description: 'Free Spins, Bonus, Hold & Win',
-        sections: [
-          _FreeSpinsSection(widget: widget),
-          _BonusGamesSection(widget: widget),
-          _HoldAndWinSection(widget: widget),
-        ],
-      ),
-      _PhaseConfig(
+        sections: featureSections,
+      ));
+    }
+
+    // JACKPOTS — only if jackpot mechanic enabled
+    if (hasJackpot) {
+      phases.add(_PhaseConfig(
         id: 'jackpots',
         title: 'JACKPOTS',
         icon: '🏆',
         color: const Color(0xFFFFD700),
         priority: SlotPriority.p1,
         description: 'Trigger → Reveal → Celebrate',
-        sections: [
-          _JackpotsSection(widget: widget),
-        ],
-      ),
-      _PhaseConfig(
+        sections: [_JackpotsSection(widget: widget)],
+      ));
+    }
+
+    // GAMBLE — only if gamble mechanic enabled
+    if (hasGamble) {
+      phases.add(_PhaseConfig(
         id: 'gamble',
         title: 'GAMBLE',
         icon: '🎲',
         color: const Color(0xFFFF6B6B),
         priority: SlotPriority.p2,
         description: 'Double-or-nothing (optional)',
-        sections: [
-          _GambleSection(widget: widget),
-        ],
-      ),
-      _PhaseConfig(
-        id: 'music',
-        title: 'MUSIC & AMBIENCE',
-        icon: '🎵',
-        color: const Color(0xFF9370DB),
-        priority: SlotPriority.p1,
-        description: 'Background loops, stingers, ambient',
-        sections: [
-          _MusicSection(widget: widget),
-        ],
-      ),
-      _PhaseConfig(
-        id: 'ui_system',
-        title: 'UI & SYSTEM',
-        icon: '🖥️',
-        color: const Color(0xFF808080),
-        priority: SlotPriority.p2,
-        description: 'Buttons, menus, notifications',
-        sections: [
-          _UISystemSection(widget: widget),
-        ],
-      ),
-    ];
+        sections: [_GambleSection(widget: widget)],
+      ));
+    }
+
+    // MUSIC & AMBIENCE — always visible
+    phases.add(_PhaseConfig(
+      id: 'music',
+      title: 'MUSIC & AMBIENCE',
+      icon: '🎵',
+      color: const Color(0xFF9370DB),
+      priority: SlotPriority.p1,
+      description: 'Background loops, stingers, ambient',
+      sections: [_MusicSection(widget: widget)],
+    ));
+
+    // UI & SYSTEM — always visible
+    phases.add(_PhaseConfig(
+      id: 'ui_system',
+      title: 'UI & SYSTEM',
+      icon: '🖥️',
+      color: const Color(0xFF808080),
+      priority: SlotPriority.p2,
+      description: 'Buttons, menus, notifications',
+      sections: [_UISystemSection(widget: widget)],
+    ));
+
+    return phases;
   }
 
   Widget _buildPhase(_PhaseConfig phase) {
@@ -3484,136 +3583,101 @@ class _BaseGameLoopSection extends _SectionConfig {
   @override String get icon => '🎰';
   @override Color get color => const Color(0xFF4A9EFF);
 
+  /// Reel count from current config (for filtering per-reel stages)
+  int get _reelCount => GetIt.instance<FeatureComposerProvider>().config?.reelCount ?? 3;
+
   @override
-  List<_GroupConfig> get groups => const [
-    // ─── IDLE / ATTRACT ───
-    _GroupConfig(
-      id: 'idle',
-      title: 'Idle / Attract',
-      icon: '💤',
-      slots: [
-        _SlotConfig(stage: 'ATTRACT_LOOP', label: 'Attract Loop'),
-        _SlotConfig(stage: 'ATTRACT_EXIT', label: 'Attract Exit'),  // P9.3.1: NEW
-        _SlotConfig(stage: 'IDLE_LOOP', label: 'Idle Loop'),
-        _SlotConfig(stage: 'IDLE_TO_ACTIVE', label: 'Idle → Active'),  // P9.3.2: NEW
-        _SlotConfig(stage: 'GAME_READY', label: 'Game Ready'),
-        _SlotConfig(stage: 'GAME_START', label: 'Game Start'),
-      ],
-    ),
-    // ─── SPIN CONTROLS ───
-    _GroupConfig(
-      id: 'spin_controls',
-      title: 'Spin Controls',
-      icon: '🔄',
-      slots: [
-        _SlotConfig(stage: 'SPIN_START', label: 'Spin Press'),
-        _SlotConfig(stage: 'SPIN_CANCEL', label: 'Spin Cancel'),  // P9.3.3: NEW
-        _SlotConfig(stage: 'UI_STOP_PRESS', label: 'Stop Press'),
-        _SlotConfig(stage: 'QUICK_STOP', label: 'Quick Stop'),
-        _SlotConfig(stage: 'SLAM_STOP', label: 'Slam Stop'),
-        _SlotConfig(stage: 'SLAM_STOP_IMPACT', label: 'Slam Impact'),
-        _SlotConfig(stage: 'AUTOPLAY_START', label: 'AutoSpin On'),
-        _SlotConfig(stage: 'AUTOPLAY_STOP', label: 'AutoSpin Off'),
-        // NOTE: AUTOPLAY_SPIN removed — use SPIN_START with autoplay flag
-        _SlotConfig(stage: 'UI_TURBO_ON', label: 'Turbo On'),
-        _SlotConfig(stage: 'UI_TURBO_OFF', label: 'Turbo Off'),
-      ],
-    ),
-    // ─── REEL ANIMATION ───
-    _GroupConfig(
-      id: 'reel_animation',
-      title: 'Reel Animation',
-      icon: '🔃',
-      slots: [
-        _SlotConfig(stage: 'REEL_SPIN_LOOP', label: 'Spin Loop'),
-        // NOTE: REEL_SPIN + REEL_SPINNING consolidated → REEL_SPIN_LOOP
-        _SlotConfig(stage: 'SPIN_ACCELERATION', label: 'Spin Accel'),
-        _SlotConfig(stage: 'SPIN_DECELERATION', label: 'Spin Decel'),
-        _SlotConfig(stage: 'TURBO_SPIN_LOOP', label: 'Turbo Loop'),
-        _SlotConfig(stage: 'REEL_SLOW_STOP', label: 'Slow Stop'),
-        _SlotConfig(stage: 'REEL_SHAKE', label: 'Reel Shake'),
-        _SlotConfig(stage: 'REEL_WIGGLE', label: 'Reel Wiggle'),
-      ],
-    ),
-    // ─── REEL STOPS ⚡ (pooled) ───
-    _GroupConfig(
-      id: 'reel_stops',
-      title: 'Reel Stops ⚡',
-      icon: '🛑',
-      slots: [
-        _SlotConfig(stage: 'REEL_STOP', label: 'Generic Stop'),
-        _SlotConfig(stage: 'REEL_STOP_0', label: 'Reel 1 Stop'),
-        _SlotConfig(stage: 'REEL_STOP_1', label: 'Reel 2 Stop'),
-        _SlotConfig(stage: 'REEL_STOP_2', label: 'Reel 3 Stop'),
-        _SlotConfig(stage: 'REEL_STOP_3', label: 'Reel 4 Stop'),
-        _SlotConfig(stage: 'REEL_STOP_4', label: 'Reel 5 Stop'),
-      ],
-    ),
-    // ─── ANTICIPATION ───
-    // CRITICAL: Stage names MUST match Rust engine output!
-    // Rust generates: anticipation_on, anticipation_off, anticipation_tension_layer
-    // Provider maps to: ANTICIPATION_TENSION_R{reel}_L{level}
-    // Fallback chain: ANTICIPATION_TENSION_R2_L3 → ANTICIPATION_TENSION_R2 → ANTICIPATION_TENSION → ANTICIPATION_ON
-    _GroupConfig(
-      id: 'anticipation',
-      title: 'Anticipation',
-      icon: '⏳',
-      slots: [
-        // === BASIC ANTICIPATION (from Rust engine) ===
-        _SlotConfig(stage: 'ANTICIPATION_ON', label: '🎯 Antic Start (Fallback)'),
-        _SlotConfig(stage: 'ANTICIPATION_OFF', label: 'Antic End'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION', label: '🎯 Antic Tension (Fallback)'),
+  List<_GroupConfig> get groups {
+    final rc = _reelCount;
 
-        // === PER-REEL TENSION (matches ANTICIPATION_TENSION_R{reel}) ===
-        // These are fallbacks when specific L1/L2/L3/L4 not configured
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R1', label: '⚡ Reel 2 Tension'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R2', label: '⚡ Reel 3 Tension'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3', label: '⚡ Reel 4 Tension'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4', label: '⚡ Reel 5 Tension'),
+    // Filter per-reel slots based on configured reel count
+    final reelStops = <_SlotConfig>[
+      const _SlotConfig(stage: 'REEL_STOP', label: 'Generic Stop'),
+      for (int i = 0; i < rc; i++)
+        _SlotConfig(stage: 'REEL_STOP_$i', label: 'Reel ${i + 1} Stop'),
+    ];
 
-        // === PER-REEL + TENSION LEVEL (full specificity) ===
-        // L1 = Low tension (first reel in anticipation)
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R1_L1', label: 'R2 Level 1'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R2_L1', label: 'R3 Level 1'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R2_L2', label: 'R3 Level 2'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3_L1', label: 'R4 Level 1'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3_L2', label: 'R4 Level 2'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3_L3', label: 'R4 Level 3'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L1', label: 'R5 Level 1'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L2', label: 'R5 Level 2'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L3', label: 'R5 Level 3'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L4', label: 'R5 Level 4 (MAX)'),
+    // Anticipation: basic always, per-reel filtered
+    final anticSlots = <_SlotConfig>[
+      const _SlotConfig(stage: 'ANTICIPATION_ON', label: 'Antic Start (Fallback)'),
+      const _SlotConfig(stage: 'ANTICIPATION_OFF', label: 'Antic End'),
+      const _SlotConfig(stage: 'ANTICIPATION_TENSION', label: 'Antic Tension (Fallback)'),
+      // Per-reel tension (R index is reel-1, anticipation starts from reel 2)
+      for (int r = 1; r < rc; r++)
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R$r', label: 'Reel ${r + 1} Tension'),
+      // Per-reel + level
+      for (int r = 1; r < rc; r++)
+        for (int l = 1; l <= r; l++)
+          _SlotConfig(stage: 'ANTICIPATION_TENSION_R${r}_L$l', label: 'R${r + 1} Level $l'),
+      const _SlotConfig(stage: 'ANTICIPATION_LOOP', label: 'Antic Loop'),
+      const _SlotConfig(stage: 'ANTICIPATION_HEARTBEAT', label: 'Heartbeat'),
+      const _SlotConfig(stage: 'ANTICIPATION_RESOLVE', label: 'Resolve'),
+    ];
 
-        // === LEGACY/OPTIONAL STAGES ===
-        _SlotConfig(stage: 'ANTICIPATION_LOOP', label: 'Antic Loop'),
-        _SlotConfig(stage: 'ANTICIPATION_HEARTBEAT', label: 'Heartbeat'),
-        _SlotConfig(stage: 'ANTICIPATION_RESOLVE', label: 'Resolve'),
-      ],
-    ),
-    // ─── SPIN END ───
-    _GroupConfig(
-      id: 'spin_end',
-      title: 'Spin End',
-      icon: '🏁',
-      slots: [
-        _SlotConfig(stage: 'SPIN_END', label: 'Spin End'),
-        _SlotConfig(stage: 'NO_WIN', label: 'No Win'),
-        // P3.3: Per-reel near-miss audio (different sounds for each reel)
-        _SlotConfig(stage: 'NEAR_MISS', label: 'Near Miss (Generic)'),
-        _SlotConfig(stage: 'NEAR_MISS_REEL_0', label: 'Near Miss R1'),
-        _SlotConfig(stage: 'NEAR_MISS_REEL_1', label: 'Near Miss R2'),
-        _SlotConfig(stage: 'NEAR_MISS_REEL_2', label: 'Near Miss R3'),
-        _SlotConfig(stage: 'NEAR_MISS_REEL_3', label: 'Near Miss R4'),
-        _SlotConfig(stage: 'NEAR_MISS_REEL_4', label: 'Near Miss R5'),
-        // Type-specific near-miss
-        _SlotConfig(stage: 'NEAR_MISS_SCATTER', label: 'Near Miss Scatter'),
-        _SlotConfig(stage: 'NEAR_MISS_BONUS', label: 'Near Miss Bonus'),
-        _SlotConfig(stage: 'NEAR_MISS_JACKPOT', label: 'Near Miss JP'),
-        _SlotConfig(stage: 'NEAR_MISS_WILD', label: 'Near Miss Wild'),
-        _SlotConfig(stage: 'NEAR_MISS_FEATURE', label: 'Near Miss Feature'),
-      ],
-    ),
-  ];
+    // Near-miss: generic + per-reel filtered
+    final nearMissSlots = <_SlotConfig>[
+      const _SlotConfig(stage: 'SPIN_END', label: 'Spin End'),
+      const _SlotConfig(stage: 'NO_WIN', label: 'No Win'),
+      const _SlotConfig(stage: 'NEAR_MISS', label: 'Near Miss (Generic)'),
+      for (int i = 0; i < rc; i++)
+        _SlotConfig(stage: 'NEAR_MISS_REEL_$i', label: 'Near Miss R${i + 1}'),
+      const _SlotConfig(stage: 'NEAR_MISS_SCATTER', label: 'Near Miss Scatter'),
+      const _SlotConfig(stage: 'NEAR_MISS_BONUS', label: 'Near Miss Bonus'),
+      const _SlotConfig(stage: 'NEAR_MISS_JACKPOT', label: 'Near Miss JP'),
+      const _SlotConfig(stage: 'NEAR_MISS_WILD', label: 'Near Miss Wild'),
+      const _SlotConfig(stage: 'NEAR_MISS_FEATURE', label: 'Near Miss Feature'),
+    ];
+
+    return [
+      const _GroupConfig(
+        id: 'idle',
+        title: 'Idle / Attract',
+        icon: '💤',
+        slots: [
+          _SlotConfig(stage: 'ATTRACT_LOOP', label: 'Attract Loop'),
+          _SlotConfig(stage: 'ATTRACT_EXIT', label: 'Attract Exit'),
+          _SlotConfig(stage: 'IDLE_LOOP', label: 'Idle Loop'),
+          _SlotConfig(stage: 'IDLE_TO_ACTIVE', label: 'Idle → Active'),
+          _SlotConfig(stage: 'GAME_READY', label: 'Game Ready'),
+          _SlotConfig(stage: 'GAME_START', label: 'Game Start'),
+        ],
+      ),
+      const _GroupConfig(
+        id: 'spin_controls',
+        title: 'Spin Controls',
+        icon: '🔄',
+        slots: [
+          _SlotConfig(stage: 'SPIN_START', label: 'Spin Press'),
+          _SlotConfig(stage: 'SPIN_CANCEL', label: 'Spin Cancel'),
+          _SlotConfig(stage: 'UI_STOP_PRESS', label: 'Stop Press'),
+          _SlotConfig(stage: 'QUICK_STOP', label: 'Quick Stop'),
+          _SlotConfig(stage: 'SLAM_STOP', label: 'Slam Stop'),
+          _SlotConfig(stage: 'SLAM_STOP_IMPACT', label: 'Slam Impact'),
+          _SlotConfig(stage: 'AUTOPLAY_START', label: 'AutoSpin On'),
+          _SlotConfig(stage: 'AUTOPLAY_STOP', label: 'AutoSpin Off'),
+          _SlotConfig(stage: 'UI_TURBO_ON', label: 'Turbo On'),
+          _SlotConfig(stage: 'UI_TURBO_OFF', label: 'Turbo Off'),
+        ],
+      ),
+      const _GroupConfig(
+        id: 'reel_animation',
+        title: 'Reel Animation',
+        icon: '🔃',
+        slots: [
+          _SlotConfig(stage: 'REEL_SPIN_LOOP', label: 'Spin Loop'),
+          _SlotConfig(stage: 'SPIN_ACCELERATION', label: 'Spin Accel'),
+          _SlotConfig(stage: 'SPIN_DECELERATION', label: 'Spin Decel'),
+          _SlotConfig(stage: 'TURBO_SPIN_LOOP', label: 'Turbo Loop'),
+          _SlotConfig(stage: 'REEL_SLOW_STOP', label: 'Slow Stop'),
+          _SlotConfig(stage: 'REEL_SHAKE', label: 'Reel Shake'),
+          _SlotConfig(stage: 'REEL_WIGGLE', label: 'Reel Wiggle'),
+        ],
+      ),
+      _GroupConfig(id: 'reel_stops', title: 'Reel Stops', icon: '🛑', slots: reelStops),
+      _GroupConfig(id: 'anticipation', title: 'Anticipation', icon: '⏳', slots: anticSlots),
+      _GroupConfig(id: 'spin_end', title: 'Spin End', icon: '🏁', slots: nearMissSlots),
+    ];
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

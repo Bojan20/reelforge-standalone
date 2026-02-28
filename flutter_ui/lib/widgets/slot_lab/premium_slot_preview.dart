@@ -19,6 +19,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/win_tier_config.dart';
+import 'package:get_it/get_it.dart';
+import '../../providers/slot_lab/feature_composer_provider.dart';
 import '../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../providers/slot_lab_project_provider.dart';
 import '../../services/event_registry.dart';
@@ -530,17 +532,12 @@ extension SlotThemeContext on BuildContext {
 
 class _HeaderZone extends StatelessWidget {
   final double balance;
-  final int vipLevel;
   final bool isMusicOn;
   final bool isSfxOn;
-  final bool isFullscreen;
   final VoidCallback onMenuTap;
   final VoidCallback onMusicToggle;
   final VoidCallback onSfxToggle;
   final VoidCallback onSettingsTap;
-  final VoidCallback onFullscreenToggle;
-  final VoidCallback onExit;
-  final VoidCallback onReset;
 
   // P6: Device simulation
   final DeviceSimulation deviceSimulation;
@@ -550,36 +547,22 @@ class _HeaderZone extends StatelessWidget {
   final SlotThemePreset currentTheme;
   final ValueChanged<SlotThemePreset> onThemeChanged;
 
-  // P6: Recording
-  final bool isRecording;
-  final Duration recordingDuration;
-  final VoidCallback onRecordingToggle;
-
   // P6: Debug
   final bool showDebugToolbar;
   final VoidCallback onDebugToggle;
 
   const _HeaderZone({
     required this.balance,
-    required this.vipLevel,
     required this.isMusicOn,
     required this.isSfxOn,
-    required this.isFullscreen,
     required this.onMenuTap,
     required this.onMusicToggle,
     required this.onSfxToggle,
     required this.onSettingsTap,
-    required this.onFullscreenToggle,
-    required this.onExit,
-    required this.onReset,
-    // P6 params
     this.deviceSimulation = DeviceSimulation.desktop,
     required this.onDeviceChanged,
     this.currentTheme = SlotThemePreset.casino,
     required this.onThemeChanged,
-    this.isRecording = false,
-    this.recordingDuration = Duration.zero,
-    required this.onRecordingToggle,
     this.showDebugToolbar = false,
     required this.onDebugToggle,
   });
@@ -620,11 +603,6 @@ class _HeaderZone extends StatelessWidget {
           // Balance display (animated)
           _BalanceDisplay(balance: balance),
 
-          const SizedBox(width: 16),
-
-          // VIP badge
-          _VipBadge(level: vipLevel),
-
           const Spacer(),
 
           // P6: Device simulation dropdown
@@ -638,14 +616,6 @@ class _HeaderZone extends StatelessWidget {
           _ThemeDropdown(
             value: currentTheme,
             onChanged: onThemeChanged,
-          ),
-          const SizedBox(width: 12),
-
-          // P6: Recording button
-          _RecordingButton(
-            isRecording: isRecording,
-            duration: recordingDuration,
-            onTap: onRecordingToggle,
           ),
           const SizedBox(width: 12),
 
@@ -670,31 +640,6 @@ class _HeaderZone extends StatelessWidget {
             icon: Icons.settings,
             tooltip: 'Settings',
             onTap: onSettingsTap,
-          ),
-          const SizedBox(width: 8),
-
-          // Fullscreen toggle
-          _HeaderIconButton(
-            icon: isFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
-            tooltip: isFullscreen ? 'Exit Fullscreen' : 'Fullscreen',
-            onTap: onFullscreenToggle,
-          ),
-          const SizedBox(width: 8),
-
-          // Reset button
-          _HeaderIconButton(
-            icon: Icons.refresh,
-            tooltip: 'Reset Session (Shift+R)',
-            onTap: onReset,
-          ),
-          const SizedBox(width: 8),
-
-          // Exit button
-          _HeaderIconButton(
-            icon: Icons.close,
-            tooltip: 'Exit (ESC)',
-            isDestructive: true,
-            onTap: onExit,
           ),
         ],
       ),
@@ -908,88 +853,6 @@ class _ThemeDropdown extends StatelessWidget {
 // P6: RECORDING BUTTON
 // ═══════════════════════════════════════════════════════════════════════════════
 
-class _RecordingButton extends StatelessWidget {
-  final bool isRecording;
-  final Duration duration;
-  final VoidCallback onTap;
-
-  const _RecordingButton({
-    required this.isRecording,
-    required this.duration,
-    required this.onTap,
-  });
-
-  String _formatDuration(Duration d) {
-    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.slotTheme;
-    return Tooltip(
-      message: isRecording ? 'Stop Recording (R)' : 'Start Recording (R)',
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: isRecording
-                ? FluxForgeTheme.accentRed.withOpacity(0.2)
-                : theme.bgMid.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: isRecording
-                  ? FluxForgeTheme.accentRed.withOpacity(0.5)
-                  : theme.border.withOpacity(0.5),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Pulsing red dot when recording
-              if (isRecording)
-                TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.5, end: 1.0),
-                  duration: const Duration(milliseconds: 500),
-                  curve: Curves.easeInOut,
-                  builder: (context, value, child) {
-                    return Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: FluxForgeTheme.accentRed.withOpacity(value),
-                        shape: BoxShape.circle,
-                      ),
-                    );
-                  },
-                )
-              else
-                Icon(
-                  Icons.fiber_manual_record,
-                  size: 14,
-                  color: theme.textSecondary,
-                ),
-              const SizedBox(width: 6),
-              Text(
-                isRecording ? _formatDuration(duration) : 'REC',
-                style: TextStyle(
-                  color: isRecording
-                      ? FluxForgeTheme.accentRed
-                      : theme.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // P6: DEBUG TOOLBAR
@@ -1334,54 +1197,6 @@ class _BalanceDisplayState extends State<_BalanceDisplay>
   }
 }
 
-class _VipBadge extends StatelessWidget {
-  final int level;
-
-  const _VipBadge({required this.level});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.slotTheme;
-    final colors = _getVipColors(level, theme);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: colors),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: colors[0].withOpacity(0.4),
-            blurRadius: 8,
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.star, color: Colors.white, size: 14),
-          const SizedBox(width: 4),
-          Text(
-            'VIP $level',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<Color> _getVipColors(int level, SlotThemeData theme) {
-    if (level >= 10) return [theme.gold, theme.goldLight];
-    if (level >= 7) return [theme.jackpotMajor, const Color(0xFFFF6090)];
-    if (level >= 4) return [theme.jackpotMinor, const Color(0xFFB080FF)];
-    return [theme.jackpotMini, const Color(0xFF60D060)];
-  }
-}
 
 // =============================================================================
 // B. JACKPOT ZONE
@@ -1896,6 +1711,43 @@ class _MainGameZone extends StatelessWidget {
                     rows: rows,
                     showWinPresentation: true, // ✅ ENABLED — SlotPreviewWidget handles ALL win presentation
                   ),
+                  // Unconfigured overlay — shown when no slot machine config exists
+                  if (!GetIt.instance<FeatureComposerProvider>().isConfigured)
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.casino_outlined, size: 48,
+                                color: context.slotTheme.textMuted.withOpacity(0.5)),
+                              const SizedBox(height: 12),
+                              Text(
+                                'NO CONFIGURATION',
+                                style: TextStyle(
+                                  color: context.slotTheme.textMuted,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 2,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Configure your slot machine to start',
+                                style: TextStyle(
+                                  color: context.slotTheme.textMuted.withOpacity(0.6),
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   // Glossy overlay
                   Positioned.fill(
                     child: IgnorePointer(
@@ -4330,12 +4182,6 @@ class _AudioVisualPanel extends StatelessWidget {
   final ValueChanged<SlotThemePreset> onThemeChanged;
   final ValueChanged<SlotThemePreset?> onComparisonThemeChanged;
 
-  // P6: Recording
-  final bool isRecording;
-  final bool hideUiForRecording;
-  final VoidCallback onRecordingToggle;
-  final VoidCallback onHideUiToggle;
-
   // P6: Debug
   final bool showFps;
   final bool showVoices;
@@ -4365,10 +4211,6 @@ class _AudioVisualPanel extends StatelessWidget {
     this.comparisonTheme,
     required this.onThemeChanged,
     required this.onComparisonThemeChanged,
-    this.isRecording = false,
-    this.hideUiForRecording = false,
-    required this.onRecordingToggle,
-    required this.onHideUiToggle,
     this.showFps = true,
     this.showVoices = true,
     this.showMemory = true,
@@ -4641,62 +4483,6 @@ class _AudioVisualPanel extends StatelessWidget {
             ],
           ),
 
-          Divider(color: theme.border, height: 24),
-
-          // P6: Recording Section
-          Text(
-            '🎬 RECORDING',
-            style: TextStyle(
-              color: theme.textMuted,
-              fontSize: 10,
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 8),
-          GestureDetector(
-            onTap: onRecordingToggle,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: isRecording
-                    ? FluxForgeTheme.accentRed.withOpacity(0.2)
-                    : theme.bgSurface,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: isRecording
-                      ? FluxForgeTheme.accentRed.withOpacity(0.5)
-                      : theme.border.withOpacity(0.3),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    isRecording ? Icons.stop : Icons.fiber_manual_record,
-                    size: 16,
-                    color: isRecording ? FluxForgeTheme.accentRed : theme.textSecondary,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    isRecording ? 'Stop Recording' : 'Start Recording',
-                    style: TextStyle(
-                      color: isRecording ? FluxForgeTheme.accentRed : theme.textSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          _SettingToggle(
-            icon: Icons.visibility_off,
-            label: 'Hide UI for recording',
-            isOn: hideUiForRecording,
-            onToggle: onHideUiToggle,
-          ),
-
           // P6: Debug Section (debug mode only)
           if (kDebugMode) ...[
             Divider(color: theme.border, height: 24),
@@ -4961,7 +4747,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
   // Session
   double _balance = 1000.0;
-  int _vipLevel = 3;
   double _sessionTotalBet = 0.0; // Total amount bet in session (for RTP calc)
   double _totalWin = 0.0;
   int _totalSpins = 0;
@@ -5050,7 +4835,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   double _masterVolume = 0.8;
   int _graphicsQuality = 2;
   bool _animationsEnabled = true;
-  bool _isFullscreen = true;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // P6: DEVICE SIMULATION & THEME STATE
@@ -5071,12 +4855,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   int _memoryUsageMb = 0;
   Timer? _debugStatsTimer;
 
-  // P6: RECORDING STATE
-  bool _isRecording = false;
-  Duration _recordingDuration = Duration.zero;
-  Timer? _recordingTimer;
-  bool _hideUiForRecording = false;
-  static const _recordingChannel = MethodChannel('fluxforge/screen_recording');
+  // P6: Recording removed from SlotLab header
 
   // SharedPreferences keys
   static const _prefKeyTurbo = 'psp_turbo';
@@ -5267,8 +5046,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     }
     _reelStopTimers.clear();
 
-    // P6: Cleanup recording and debug timers
-    _recordingTimer?.cancel();
+    // P6: Cleanup debug timer
     _debugStatsTimer?.cancel();
 
     // Big Win protection timer cleanup
@@ -5427,12 +5205,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     }
     _reelStopTimers.clear();
 
-    // 4. Cancel recording if active
-    if (_isRecording) {
-      _toggleRecording();
-    }
-
-    // 5. Cancel debug stats timer
+    // 4. Cancel debug stats timer
     _debugStatsTimer?.cancel();
 
     // 6. Reset animation controller
@@ -5740,75 +5513,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   SlotThemeData get _currentThemeData => _themeA.data;
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // P6: RECORDING MODE METHODS
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  /// Start screen recording
-  Future<void> _startRecording() async {
-    try {
-      final filename = 'slot_demo_${DateTime.now().toIso8601String().replaceAll(':', '-')}.mp4';
-      await _recordingChannel.invokeMethod<String>('startRecording', {
-        'filename': filename,
-        'fps': 60,
-        'quality': 'high',
-      });
-      setState(() {
-        _isRecording = true;
-        _recordingDuration = Duration.zero;
-      });
-      _recordingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted) {
-          setState(() => _recordingDuration += const Duration(seconds: 1));
-        }
-      });
-    } catch (e) {
-      // Recording not available on this platform
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Screen recording not available on this platform'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    }
-  }
-
-  /// Stop screen recording
-  Future<String?> _stopRecording() async {
-    _recordingTimer?.cancel();
-    _recordingTimer = null;
-    try {
-      final path = await _recordingChannel.invokeMethod<String>('stopRecording');
-      setState(() => _isRecording = false);
-      return path;
-    } catch (e) {
-      setState(() => _isRecording = false);
-      return null;
-    }
-  }
-
-  /// Toggle recording state
-  Future<void> _toggleRecording() async {
-    if (_isRecording) {
-      final path = await _stopRecording();
-      if (path != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Recording saved: ${path.split('/').last}'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } else {
-      await _startRecording();
-    }
-  }
-
-  /// Toggle hide UI for recording
-  void _toggleHideUiForRecording() {
-    setState(() => _hideUiForRecording = !_hideUiForRecording);
-  }
+  // P6: Recording removed from SlotLab
 
   // ═══════════════════════════════════════════════════════════════════════════
   // P6: DEBUG TOOLBAR METHODS
@@ -5882,6 +5587,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
   void _handleSpin(SlotLabProvider provider) {
     if (!provider.initialized) {
+      return;
+    }
+    if (!GetIt.instance<FeatureComposerProvider>().isConfigured) {
       return;
     }
     if (_balance < _totalBetAmount) {
@@ -5959,6 +5667,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
   void _handleForcedSpin(SlotLabProvider provider, ForcedOutcome outcome) {
     if (!provider.initialized) return;
+    if (!GetIt.instance<FeatureComposerProvider>().isConfigured) return;
     if (_balance < _totalBetAmount) return;
 
     // V13: Handle skip with fade-out for forced spin as well
@@ -6673,10 +6382,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       case LogicalKeyboardKey.keyR:
         if (HardwareKeyboard.instance.isShiftPressed) {
           _resetSession();
-        } else {
-          _toggleRecording();
+          return KeyEventResult.handled;
         }
-        return KeyEventResult.handled;
+        return KeyEventResult.ignored;
 
       // Forced outcomes (debug only)
       case LogicalKeyboardKey.digit1:
@@ -6724,11 +6432,10 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // isReelsSpinning: True ONLY while reels are visually spinning — for STOP button
     final isReelsActuallySpinning = provider.isReelsSpinning;
     final isInitialized = provider.initialized;
-    // FIX (2026-02-14): canSpin should only be blocked when reels are VISUALLY spinning.
-    // Previously used isPlayingStages which stayed true during win presentation timers,
-    // blocking the user from starting a new spin after reels had visually stopped.
-    // _handleSpin() internally calls stopStagePlayback() if stages are still running.
-    final canSpin = isInitialized && _balance >= _totalBetAmount && !isReelsActuallySpinning;
+    final composer = GetIt.instance<FeatureComposerProvider>();
+    final isSlotConfigured = composer.isConfigured;
+    // Spin blocked when: not initialized, not configured, insufficient balance, or reels spinning
+    final canSpin = isInitialized && isSlotConfigured && _balance >= _totalBetAmount && !isReelsActuallySpinning;
     final sessionRtp = _sessionTotalBet > 0 ? (_totalWin / _sessionTotalBet * 100) : 0.0;
     // Get GDD symbols from project provider (if imported)
     final gddSymbols = projectProvider.gddSymbols;
@@ -6752,10 +6459,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                 // A. Header Zone
                 _HeaderZone(
                   balance: _balance,
-                  vipLevel: _vipLevel,
                   isMusicOn: _isMusicOn,
                   isSfxOn: _isSfxOn,
-                  isFullscreen: _isFullscreen,
                   onMenuTap: () => setState(() {
                     _showMenuPanel = !_showMenuPanel;
                     if (_showMenuPanel) _showSettingsPanel = false;
@@ -6766,20 +6471,10 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                     _showSettingsPanel = !_showSettingsPanel;
                     if (_showSettingsPanel) _showMenuPanel = false;
                   }),
-                  onFullscreenToggle: () {},
-                  onExit: widget.onExit,
-                  onReset: _resetSession,
-                  // P6: Device simulation
                   deviceSimulation: _deviceSimulation,
                   onDeviceChanged: _setDeviceSimulation,
-                  // P6: Theme
                   currentTheme: _themeA,
                   onThemeChanged: _setThemeA,
-                  // P6: Recording
-                  isRecording: _isRecording,
-                  recordingDuration: _recordingDuration,
-                  onRecordingToggle: _toggleRecording,
-                  // P6: Debug
                   showDebugToolbar: _showDebugToolbar,
                   onDebugToggle: _toggleDebugToolbar,
                 ),
@@ -6959,11 +6654,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                     comparisonTheme: _themeB,
                     onThemeChanged: _setThemeA,
                     onComparisonThemeChanged: _setThemeB,
-                    // P6: Recording
-                    isRecording: _isRecording,
-                    hideUiForRecording: _hideUiForRecording,
-                    onRecordingToggle: _toggleRecording,
-                    onHideUiToggle: _toggleHideUiForRecording,
                     // P6: Debug
                     showFps: _showFpsCounter,
                     showVoices: _showVoiceCount,
