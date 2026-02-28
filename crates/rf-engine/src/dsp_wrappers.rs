@@ -8,6 +8,7 @@ use rf_core::Sample;
 use rf_dsp::delay_compensation::LatencySamples;
 use rf_dsp::eq_room::RoomCorrectionEq;
 use rf_dsp::linear_phase::{LinearPhaseBand, LinearPhaseEQ, LinearPhaseFilterType};
+use rf_dsp::metering::PhaseScope;
 use rf_dsp::spatial::{HaasChannel, HaasDelay, PanLaw, StereoImager};
 use rf_dsp::{
     FilterShape, OversampleMode, ProEq, Processor, ProcessorConfig, StereoApi550, StereoNeve1073,
@@ -4048,13 +4049,15 @@ impl InsertProcessor for HaasDelayWrapper {
 ///   4-9: Per-band correlation
 pub struct MultibandStereoImagerWrapper {
     imager: MultibandStereoImager,
-    params: [f64; 65],
+    params: [f64; 68],
     sample_rate: f64,
     input_peak_l: f64,
     input_peak_r: f64,
     output_peak_l: f64,
     output_peak_r: f64,
     band_correlations: [f64; 6],
+    /// Phase scope for vectorscope visualization (128 points, decimation 8)
+    phase_scope: PhaseScope,
 }
 
 impl MultibandStereoImagerWrapper {
@@ -4062,7 +4065,7 @@ impl MultibandStereoImagerWrapper {
     const BAND_PARAM_COUNT: usize = 9;
 
     pub fn new(sample_rate: f64) -> Self {
-        let mut params = [0.0_f64; 65];
+        let mut params = [0.0_f64; 68];
         // Global defaults
         params[0] = 0.0;    // Input Gain dB
         params[1] = 0.0;    // Output Gain dB
@@ -4076,6 +4079,10 @@ impl MultibandStereoImagerWrapper {
         params[8] = 7000.0;
         params[9] = 14000.0;
         params[10] = 0.0;   // M/S Mode off
+        // Extended params (65-67)
+        // params[65] = 0.0;  // Stereoize enabled (off)
+        // params[66] = 0.0;  // Stereoize amount (0.0)
+        // params[67] = 0.0;  // Band link (off)
         // Per-band defaults: Width=1.0 (unity), Pan=0, Mid=0, Side=0, Rotation=0, EnableWidth=1, Solo=0, Mute=0, Bypass=0
         for b in 0..6 {
             let off = Self::GLOBAL_COUNT + b * Self::BAND_PARAM_COUNT;
@@ -4092,6 +4099,7 @@ impl MultibandStereoImagerWrapper {
             output_peak_l: 0.0,
             output_peak_r: 0.0,
             band_correlations: [0.0; 6],
+            phase_scope: PhaseScope::new(128, 8),
         }
     }
 
@@ -4146,6 +4154,9 @@ impl InsertProcessor for MultibandStereoImagerWrapper {
         }
         self.output_peak_l = out_pk_l;
         self.output_peak_r = out_pk_r;
+
+        // Feed phase scope with output samples for vectorscope
+        self.phase_scope.process_block(&left[..len], &right[..len]);
     }
 
     fn latency(&self) -> LatencySamples {
@@ -4159,6 +4170,7 @@ impl InsertProcessor for MultibandStereoImagerWrapper {
         self.output_peak_l = 0.0;
         self.output_peak_r = 0.0;
         self.band_correlations = [0.0; 6];
+        self.phase_scope.reset();
     }
 
     fn set_sample_rate(&mut self, sample_rate: f64) {
@@ -4167,15 +4179,15 @@ impl InsertProcessor for MultibandStereoImagerWrapper {
     }
 
     fn num_params(&self) -> usize {
-        65
+        68
     }
 
     fn get_param(&self, index: usize) -> f64 {
-        if index < 65 { self.params[index] } else { 0.0 }
+        if index < 68 { self.params[index] } else { 0.0 }
     }
 
     fn set_param(&mut self, index: usize, value: f64) {
-        if index >= 65 {
+        if index >= 68 {
             return;
         }
         self.params[index] = value;
@@ -4218,11 +4230,13 @@ impl InsertProcessor for MultibandStereoImagerWrapper {
                 self.imager.set_crossover(cross_idx, v);
             }
             10 => {
-                // M/S Mode — reserved for future use
-                self.params[10] = if value > 0.5 { 1.0 } else { 0.0 };
+                // M/S Mode
+                let on = value > 0.5;
+                self.params[10] = if on { 1.0 } else { 0.0 };
+                self.imager.set_ms_mode(on);
             }
             11..=64 => {
-                // Per-band parameters
+                // Per-band parameters (indices 11-64)
                 let rel = index - Self::GLOBAL_COUNT;
                 let band = rel / Self::BAND_PARAM_COUNT;
                 let param = rel % Self::BAND_PARAM_COUNT;
@@ -4286,6 +4300,24 @@ impl InsertProcessor for MultibandStereoImagerWrapper {
                     }
                 }
             }
+            65 => {
+                // Stereoize enabled
+                let on = value > 0.5;
+                self.params[65] = if on { 1.0 } else { 0.0 };
+                self.imager.set_stereoize_enabled(on);
+            }
+            66 => {
+                // Stereoize amount (0.0-1.0)
+                let v = value.clamp(0.0, 1.0);
+                self.params[66] = v;
+                self.imager.set_stereoize_amount(v);
+            }
+            67 => {
+                // Band link (all follow band 0)
+                let on = value > 0.5;
+                self.params[67] = if on { 1.0 } else { 0.0 };
+                self.imager.set_linked(on);
+            }
             _ => {}
         }
     }
@@ -4303,6 +4335,9 @@ impl InsertProcessor for MultibandStereoImagerWrapper {
             8 => "Crossover 4",
             9 => "Crossover 5",
             10 => "M/S Mode",
+            65 => "Stereoize Enabled",
+            66 => "Stereoize Amount",
+            67 => "Band Link",
             _ => {
                 if index >= Self::GLOBAL_COUNT && index < 65 {
                     let rel = index - Self::GLOBAL_COUNT;
@@ -4333,6 +4368,19 @@ impl InsertProcessor for MultibandStereoImagerWrapper {
             2 => self.output_peak_l,
             3 => self.output_peak_r,
             4..=9 => self.band_correlations[index - 4],
+            // Vectorscope data: 128 points × 2 (x, y) at indices 10..266
+            10..=265 => {
+                let point_idx = (index - 10) / 2;
+                let is_y = (index - 10) % 2 == 1;
+                let points = self.phase_scope.points();
+                if point_idx < points.len() {
+                    if is_y { points[point_idx].y as f64 } else { points[point_idx].x as f64 }
+                } else {
+                    0.0
+                }
+            }
+            // 266 = number of vectorscope points available
+            266 => self.phase_scope.points().len() as f64,
             _ => 0.0,
         }
     }

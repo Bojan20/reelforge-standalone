@@ -205,6 +205,45 @@ class _EventFolderItem extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                // Variant groups badge
+                if (folder.variantGroups.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                    margin: const EdgeInsets.only(right: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF9C27B0).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: Text(
+                      '${folder.variantGroups.length}V',
+                      style: const TextStyle(
+                        fontSize: 7,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFCE93D8),
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ),
+                // Conditional layers indicator
+                if (folder.conditionalLayers.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(
+                      Icons.filter_alt_outlined,
+                      size: 10,
+                      color: const Color(0xFFFF9800).withValues(alpha: 0.7),
+                    ),
+                  ),
+                // Crossfade indicator
+                if (folder.crossfade.fadeInMs > 0 || folder.crossfade.fadeOutMs > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(
+                      Icons.swap_horiz,
+                      size: 10,
+                      color: const Color(0xFF4CAF50).withValues(alpha: 0.7),
+                    ),
+                  ),
                 // Layer count
                 Text(
                   '${folder.layers.length}',
@@ -317,6 +356,55 @@ class _LayerItem extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              // Shared track indicator (×N events)
+              if (layer.isShared)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 0),
+                  margin: const EdgeInsets.only(left: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2196F3).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(2),
+                    border: Border.all(
+                      color: const Color(0xFF2196F3).withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Text(
+                    '\u00d7${layer.sharedCount}',
+                    style: const TextStyle(
+                      fontSize: 7,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF64B5F6),
+                    ),
+                  ),
+                ),
+              // Variant group badge
+              if (layer.variantGroup != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 0),
+                  margin: const EdgeInsets.only(left: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF9C27B0).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: Text(
+                    layer.variantGroup!,
+                    style: const TextStyle(
+                      fontSize: 7,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFCE93D8),
+                    ),
+                  ),
+                ),
+              // Conditional layer indicator
+              if (layer.isConditional)
+                Padding(
+                  padding: const EdgeInsets.only(left: 3),
+                  child: Icon(
+                    Icons.filter_alt_outlined,
+                    size: 9,
+                    color: const Color(0xFFFF9800).withValues(alpha: 0.7),
+                  ),
+                ),
               // Mute indicator
               if (layer.muted)
                 const Padding(

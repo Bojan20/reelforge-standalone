@@ -701,9 +701,200 @@ impl ProcessorConfig for HaasDelay {
     }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// STEREOIZE — Allpass-chain decorrelation for mono→stereo synthesis
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Emulates iZotope Ozone Imager's "Stereoize" feature. Creates stereo width
+// from mono/narrow sources using cascaded allpass filters with different
+// coefficients per channel. This creates decorrelation without comb filtering
+// artifacts (unlike simple delay-based methods).
+//
+// Each channel has a chain of 4 allpass filters. The L and R chains use
+// different coefficients, creating frequency-dependent phase differences
+// that the ear perceives as width without coloring the frequency response.
+
+/// First-order allpass filter for decorrelation
+#[derive(Debug, Clone)]
+struct AllpassFilter {
+    coeff: f64,
+    z1: f64,
+}
+
+impl AllpassFilter {
+    fn new(coeff: f64) -> Self {
+        Self { coeff, z1: 0.0 }
+    }
+
+    #[inline(always)]
+    fn process(&mut self, input: f64) -> f64 {
+        let output = self.z1 + self.coeff * input;
+        self.z1 = input - self.coeff * output;
+        output
+    }
+
+    fn reset(&mut self) {
+        self.z1 = 0.0;
+    }
+}
+
+/// Allpass-chain stereo decorrelator (iZotope Ozone Stereoize equivalent)
+///
+/// Creates stereo width from mono/narrow signals via phase decorrelation.
+/// Different allpass coefficients per channel create frequency-dependent
+/// phase differences perceived as spatial width without comb filtering.
+#[derive(Debug, Clone)]
+pub struct Stereoize {
+    /// Left channel allpass chain (4 cascaded filters)
+    chain_l: [AllpassFilter; 4],
+    /// Right channel allpass chain (4 cascaded filters)
+    chain_r: [AllpassFilter; 4],
+    /// Stereoize amount (0.0 = bypass, 1.0 = full decorrelation)
+    pub amount: f64,
+    /// Enable flag
+    pub enabled: bool,
+}
+
+// Allpass coefficients chosen for maximum decorrelation with minimal coloration.
+// L and R use complementary prime-ratio coefficients to avoid reinforcement patterns.
+const STEREOIZE_COEFFS_L: [f64; 4] = [0.6923878, 0.9360654, 0.3127385, 0.7890145];
+const STEREOIZE_COEFFS_R: [f64; 4] = [0.4142135, 0.8284271, 0.5527864, 0.9238795];
+
+impl Stereoize {
+    pub fn new() -> Self {
+        Self {
+            chain_l: [
+                AllpassFilter::new(STEREOIZE_COEFFS_L[0]),
+                AllpassFilter::new(STEREOIZE_COEFFS_L[1]),
+                AllpassFilter::new(STEREOIZE_COEFFS_L[2]),
+                AllpassFilter::new(STEREOIZE_COEFFS_L[3]),
+            ],
+            chain_r: [
+                AllpassFilter::new(STEREOIZE_COEFFS_R[0]),
+                AllpassFilter::new(STEREOIZE_COEFFS_R[1]),
+                AllpassFilter::new(STEREOIZE_COEFFS_R[2]),
+                AllpassFilter::new(STEREOIZE_COEFFS_R[3]),
+            ],
+            amount: 0.0,
+            enabled: false,
+        }
+    }
+
+    /// Process a stereo sample pair through decorrelation chains
+    #[inline(always)]
+    pub fn process_sample(&mut self, left: Sample, right: Sample) -> (Sample, Sample) {
+        if !self.enabled || self.amount <= 0.0 {
+            return (left, right);
+        }
+
+        // Process through allpass chains
+        let mut proc_l = left;
+        let mut proc_r = right;
+        for ap in &mut self.chain_l {
+            proc_l = ap.process(proc_l);
+        }
+        for ap in &mut self.chain_r {
+            proc_r = ap.process(proc_r);
+        }
+
+        // Blend original with decorrelated signal
+        let amt = self.amount.clamp(0.0, 1.0);
+        let out_l = left * (1.0 - amt) + proc_l * amt;
+        let out_r = right * (1.0 - amt) + proc_r * amt;
+
+        (out_l, out_r)
+    }
+
+    /// Process a block of stereo samples
+    pub fn process_block(&mut self, left: &mut [Sample], right: &mut [Sample]) {
+        if !self.enabled || self.amount <= 0.0 {
+            return;
+        }
+        let len = left.len().min(right.len());
+        for i in 0..len {
+            let (l, r) = self.process_sample(left[i], right[i]);
+            left[i] = l;
+            right[i] = r;
+        }
+    }
+
+    pub fn reset(&mut self) {
+        for ap in &mut self.chain_l {
+            ap.reset();
+        }
+        for ap in &mut self.chain_r {
+            ap.reset();
+        }
+    }
+}
+
+impl Default for Stereoize {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Processor for Stereoize {
+    fn reset(&mut self) {
+        Stereoize::reset(self);
+    }
+}
+
+impl StereoProcessor for Stereoize {
+    fn process_sample(&mut self, left: Sample, right: Sample) -> (Sample, Sample) {
+        Stereoize::process_sample(self, left, right)
+    }
+}
+
+impl ProcessorConfig for Stereoize {
+    fn set_sample_rate(&mut self, _sample_rate: f64) {
+        // Allpass coefficients are sample-rate independent
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_stereoize_bypass() {
+        let mut s = Stereoize::new();
+        // Disabled by default
+        let (l, r) = s.process_sample(0.5, 0.5);
+        assert!((l - 0.5).abs() < 1e-10);
+        assert!((r - 0.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_stereoize_decorrelation() {
+        let mut s = Stereoize::new();
+        s.enabled = true;
+        s.amount = 1.0;
+
+        // Feed identical mono signal at a mid-high frequency for visible phase decorrelation
+        // Higher frequency = larger instantaneous phase difference
+        let mut max_diff = 0.0_f64;
+        let freq = 5000.0; // 5kHz
+        let sr = 48000.0;
+        for i in 0..4800 {
+            let t = i as f64 / sr;
+            let input = (2.0 * std::f64::consts::PI * freq * t).sin();
+            let (l, r) = s.process_sample(input, input);
+            max_diff = max_diff.max((l - r).abs());
+        }
+        // After warmup, L and R should be decorrelated (different)
+        assert!(max_diff > 1e-4, "Stereoize should create L/R difference, got {max_diff}");
+    }
+
+    #[test]
+    fn test_stereoize_amount_zero() {
+        let mut s = Stereoize::new();
+        s.enabled = true;
+        s.amount = 0.0;
+        let (l, r) = s.process_sample(0.7, 0.3);
+        assert!((l - 0.7).abs() < 1e-10);
+        assert!((r - 0.3).abs() < 1e-10);
+    }
 
     #[test]
     fn test_panner_center() {
@@ -898,5 +1089,195 @@ mod tests {
         // Just verify no NaN/crash and output is reasonable
         let (_, r) = haas.process_sample_stereo(0.0, 0.0);
         assert!(r.is_finite(), "LP filtered output should be finite");
+    }
+
+    // ============ 6.1: HaasDelay Mono Compat & Edge Cases ============
+
+    #[test]
+    fn test_haas_delay_mono_compat() {
+        // With very short delay, summing L+R should not cancel significantly
+        let mut haas = HaasDelay::new(48000.0);
+        haas.set_delay_ms(0.5);
+        haas.set_mix(0.5);
+        haas.set_lp_enabled(false);
+
+        // Feed a sine wave into right channel
+        let freq = 1000.0;
+        let mut sum_energy = 0.0;
+        for i in 0..4800 {
+            let t = i as f64 / 48000.0;
+            let sig = (2.0 * std::f64::consts::PI * freq * t).sin();
+            let (l, r) = haas.process_sample_stereo(sig, sig);
+            sum_energy += (l + r).powi(2);
+        }
+        // Mono sum should retain significant energy (no full cancellation)
+        assert!(sum_energy > 100.0, "Mono sum should have energy, got {sum_energy}");
+    }
+
+    #[test]
+    fn test_haas_delay_extreme_delay() {
+        let mut haas = HaasDelay::new(48000.0);
+        haas.set_delay_ms(35.0); // Max realistic Haas range
+        haas.set_mix(1.0);
+        haas.set_lp_enabled(false);
+
+        // Process many samples — must not panic or produce NaN
+        for i in 0..10000 {
+            let sig = ((i as f64) * 0.01).sin();
+            let (l, r) = haas.process_sample_stereo(sig, sig);
+            assert!(l.is_finite());
+            assert!(r.is_finite());
+        }
+    }
+
+    #[test]
+    fn test_haas_delay_feedback() {
+        let mut haas = HaasDelay::new(48000.0);
+        haas.set_delay_ms(5.0);
+        haas.set_mix(1.0);
+        haas.set_feedback(0.3);
+        haas.set_lp_enabled(false);
+
+        // Impulse into R channel
+        haas.process_sample_stereo(0.0, 1.0);
+
+        // With feedback, we should see multiple delayed repetitions
+        let mut impulse_count = 0;
+        let mut last_impulse_amp = 0.0_f64;
+        for _ in 0..2000 {
+            let (_, r) = haas.process_sample_stereo(0.0, 0.0);
+            if r.abs() > 0.1 && (r.abs() - last_impulse_amp).abs() > 0.05 {
+                impulse_count += 1;
+                last_impulse_amp = r.abs();
+            }
+        }
+        assert!(impulse_count >= 2, "Feedback should produce repeated impulses, got {impulse_count}");
+    }
+
+    // ============ 6.2: StereoImager Signal Chain ============
+
+    #[test]
+    fn test_stereo_imager_full_chain() {
+        let mut imager = StereoImager::new(48000.0);
+        imager.width.set_width(1.5);
+        imager.enable_panner(true);
+        imager.panner.set_pan(0.2);
+        imager.enable_rotation(true);
+        imager.rotation.set_angle_degrees(15.0);
+
+        // Process a stereo signal
+        for i in 0..4800 {
+            let t = i as f64 / 48000.0;
+            let l = (2.0 * std::f64::consts::PI * 440.0 * t).sin();
+            let r = (2.0 * std::f64::consts::PI * 440.0 * t + 0.5).sin();
+            let (out_l, out_r) = imager.process_sample(l, r);
+            assert!(out_l.is_finite(), "Output L must be finite at sample {i}");
+            assert!(out_r.is_finite(), "Output R must be finite at sample {i}");
+            assert!(out_l.abs() < 10.0, "Output L amplitude reasonable");
+            assert!(out_r.abs() < 10.0, "Output R amplitude reasonable");
+        }
+    }
+
+    #[test]
+    fn test_stereo_imager_mono_passthrough() {
+        let mut imager = StereoImager::new(48000.0);
+        // Default settings = unity width, center pan, no rotation
+        // Should pass through with minimal change
+        let (l, r) = imager.process_sample(0.6, 0.4);
+        assert!((l - 0.6).abs() < 0.05, "Default imager should be near-unity for L");
+        assert!((r - 0.4).abs() < 0.05, "Default imager should be near-unity for R");
+    }
+
+    #[test]
+    fn test_stereo_imager_width_zero_mono() {
+        let mut imager = StereoImager::new(48000.0);
+        imager.width.set_width(0.0);
+        // Full side signal should be killed
+        let (l, r) = imager.process_sample(1.0, -1.0);
+        assert!((l - r).abs() < 0.01, "Width=0 should produce mono: L={l}, R={r}");
+    }
+
+    #[test]
+    fn test_stereo_imager_correlation() {
+        let mut imager = StereoImager::new(48000.0);
+        imager.width.set_width(1.0);
+        // Feed correlated signal
+        for _ in 0..1000 {
+            imager.process_sample(0.5, 0.5);
+        }
+        let corr = imager.correlation.correlation();
+        assert!(corr > 0.9, "Mono signal correlation should be >0.9, got {corr}");
+    }
+
+    // ============ 6.4: Stereoize Extended Tests ============
+
+    #[test]
+    fn test_stereoize_block_processing() {
+        let mut s = Stereoize::new();
+        s.enabled = true;
+        s.amount = 1.0;
+
+        let freq = 5000.0;
+        let sr = 48000.0;
+        let mut left = [0.0_f64; 512];
+        let mut right = [0.0_f64; 512];
+        for i in 0..512 {
+            let t = i as f64 / sr;
+            let val = (2.0 * std::f64::consts::PI * freq * t).sin();
+            left[i] = val;
+            right[i] = val;
+        }
+
+        s.process_block(&mut left, &mut right);
+
+        // After block processing, L and R should be decorrelated
+        let mut max_diff = 0.0_f64;
+        for i in 0..512 {
+            max_diff = max_diff.max((left[i] - right[i]).abs());
+        }
+        assert!(max_diff > 1e-4, "Block stereoize should decorrelate: max_diff={max_diff}");
+    }
+
+    #[test]
+    fn test_stereoize_reset() {
+        let mut s = Stereoize::new();
+        s.enabled = true;
+        s.amount = 1.0;
+
+        // Process some samples
+        for i in 0..100 {
+            s.process_sample((i as f64 * 0.1).sin(), (i as f64 * 0.1).sin());
+        }
+
+        // Reset
+        s.reset();
+
+        // After reset, first sample with input=0 should output ~0
+        let (l, r) = s.process_sample(0.0, 0.0);
+        assert!(l.abs() < 1e-10, "After reset, L should be ~0");
+        assert!(r.abs() < 1e-10, "After reset, R should be ~0");
+    }
+
+    #[test]
+    fn test_stereoize_amount_scaling() {
+        let mut s_low = Stereoize::new();
+        s_low.enabled = true;
+        s_low.amount = 0.2;
+
+        let mut s_high = Stereoize::new();
+        s_high.enabled = true;
+        s_high.amount = 1.0;
+
+        let mut diff_low = 0.0_f64;
+        let mut diff_high = 0.0_f64;
+
+        for i in 0..1000 {
+            let sig = (i as f64 * 0.01).sin();
+            let (l1, r1) = s_low.process_sample(sig, sig);
+            let (l2, r2) = s_high.process_sample(sig, sig);
+            diff_low = diff_low.max((l1 - r1).abs());
+            diff_high = diff_high.max((l2 - r2).abs());
+        }
+        assert!(diff_high > diff_low, "Higher amount should produce more decorrelation: low={diff_low}, high={diff_high}");
     }
 }

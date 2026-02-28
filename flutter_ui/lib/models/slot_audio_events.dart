@@ -1583,6 +1583,10 @@ class SlotEventLayer {
   final String actionType; // Action type: Play, Stop, SetVolume, etc.
   final int? aleLayerId; // ALE layer assignment (1-5: L1=Calm to L5=Epic) — P0 WF-04
   final List<LayerDspNode> dspChain; // Per-layer DSP insert chain (P12.1.5)
+  final String? variantGroup; // Variant group ID (A/B/C) — null = always active
+  final double variantWeight; // Weight within variant group (0.0–1.0)
+  final double minMultiplier; // Minimum win multiplier to activate (0 = always)
+  final double betThreshold; // Minimum bet threshold to activate (0 = always)
 
   const SlotEventLayer({
     required this.id,
@@ -1607,6 +1611,10 @@ class SlotEventLayer {
     this.actionType = 'Play',
     this.aleLayerId,
     this.dspChain = const [],
+    this.variantGroup,
+    this.variantWeight = 1.0,
+    this.minMultiplier = 0.0,
+    this.betThreshold = 0.0,
   });
 
   SlotEventLayer copyWith({
@@ -1632,6 +1640,10 @@ class SlotEventLayer {
     String? actionType,
     int? aleLayerId,
     List<LayerDspNode>? dspChain,
+    String? variantGroup,
+    double? variantWeight,
+    double? minMultiplier,
+    double? betThreshold,
   }) {
     return SlotEventLayer(
       id: id ?? this.id,
@@ -1656,6 +1668,10 @@ class SlotEventLayer {
       actionType: actionType ?? this.actionType,
       aleLayerId: aleLayerId ?? this.aleLayerId,
       dspChain: dspChain ?? this.dspChain,
+      variantGroup: variantGroup ?? this.variantGroup,
+      variantWeight: variantWeight ?? this.variantWeight,
+      minMultiplier: minMultiplier ?? this.minMultiplier,
+      betThreshold: betThreshold ?? this.betThreshold,
     );
   }
 
@@ -1691,6 +1707,10 @@ class SlotEventLayer {
     'actionType': actionType,
     'aleLayerId': aleLayerId, // P0 WF-04
     'dspChain': dspChain.map((n) => n.toJson()).toList(), // P12.1.5
+    if (variantGroup != null) 'variantGroup': variantGroup,
+    'variantWeight': variantWeight,
+    'minMultiplier': minMultiplier,
+    'betThreshold': betThreshold,
     // Note: waveformData is not saved - it's regenerated on load
   };
 
@@ -1726,6 +1746,10 @@ class SlotEventLayer {
       dspChain: (json['dspChain'] as List<dynamic>?)
           ?.map((n) => LayerDspNode.fromJson(n as Map<String, dynamic>))
           .toList() ?? [], // P12.1.5
+      variantGroup: json['variantGroup'] as String?,
+      variantWeight: (json['variantWeight'] as num?)?.toDouble() ?? 1.0,
+      minMultiplier: (json['minMultiplier'] as num?)?.toDouble() ?? 0.0,
+      betThreshold: (json['betThreshold'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }

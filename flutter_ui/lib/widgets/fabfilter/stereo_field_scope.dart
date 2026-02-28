@@ -113,6 +113,9 @@ class StereoFieldScope extends StatefulWidget {
   /// Selected band index (for multiband highlight)
   final int? selectedBand;
 
+  /// Raw vectorscope points from engine (M/S coordinates)
+  final List<Offset>? vectorscopePoints;
+
   /// Trail buffer size (number of history samples)
   final int trailLength;
 
@@ -137,6 +140,7 @@ class StereoFieldScope extends StatefulWidget {
     this.numBands,
     this.bandColors,
     this.selectedBand,
+    this.vectorscopePoints,
     this.trailLength = 48,
     this.showPhaseState = true,
   });
@@ -184,6 +188,7 @@ class _StereoFieldScopeState extends State<StereoFieldScope> {
             enableRotation: widget.enableRotation,
             accent: widget.accent,
             trail: _trail.toList(),
+            vectorscopePoints: widget.vectorscopePoints,
             bandCorrelations: widget.bandCorrelations,
             numBands: widget.numBands,
             bandColors: widget.bandColors,
@@ -235,6 +240,7 @@ class _StereoFieldPainter extends CustomPainter {
   final bool enableWidth, enablePanner, enableBalance, enableRotation;
   final Color accent;
   final List<_TrailSample> trail;
+  final List<Offset>? vectorscopePoints;
   final List<double>? bandCorrelations;
   final int? numBands;
   final List<Color>? bandColors;
@@ -254,6 +260,7 @@ class _StereoFieldPainter extends CustomPainter {
     required this.enableRotation,
     required this.accent,
     required this.trail,
+    this.vectorscopePoints,
     this.bandCorrelations,
     this.numBands,
     this.bandColors,
@@ -272,6 +279,9 @@ class _StereoFieldPainter extends CustomPainter {
     _drawLabels(canvas, cx, cy, radius);
     _drawStereoField(canvas, cx, cy, radius);
     _drawTrail(canvas, cx, cy, radius);
+    if (vectorscopePoints != null && vectorscopePoints!.isNotEmpty) {
+      _drawVectorscopePoints(canvas, cx, cy, radius);
+    }
     _drawSignalDot(canvas, cx, cy, radius);
     if (bandCorrelations != null && numBands != null && numBands! > 0) {
       _drawBandCorrelationArc(canvas, cx, cy, radius);
@@ -431,6 +441,34 @@ class _StereoFieldPainter extends CustomPainter {
         ..color = accent.withValues(alpha: alpha)
         ..style = PaintingStyle.fill;
       canvas.drawCircle(Offset(sigX, sigY), dotRadius, dotPaint);
+    }
+
+    canvas.restore();
+  }
+
+  // ─── VECTORSCOPE POINTS (raw engine data) ──────────────────────
+
+  void _drawVectorscopePoints(Canvas canvas, double cx, double cy, double radius) {
+    final pts = vectorscopePoints!;
+    final count = pts.length;
+
+    canvas.save();
+    canvas.translate(cx, cy);
+
+    for (int i = 0; i < count; i++) {
+      final p = pts[i];
+      // PhaseScope stores (side, mid) — x=side, y=mid
+      // Map to canvas: horizontal=side (L-R), vertical=mid (top-bottom)
+      final screenX = p.dx * radius * 1.5; // side → horizontal
+      final screenY = -p.dy * radius * 1.5; // mid → vertical (inverted)
+
+      final age = i / count.toDouble();
+      final alpha = (1.0 - age) * 0.35 + 0.05;
+
+      final dotPaint = Paint()
+        ..color = accent.withValues(alpha: alpha)
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(screenX, screenY), 1.2, dotPaint);
     }
 
     canvas.restore();
@@ -610,6 +648,7 @@ class _StereoFieldPainter extends CustomPainter {
         enableBalance != old.enableBalance ||
         enableRotation != old.enableRotation ||
         trail.length != old.trail.length ||
+        vectorscopePoints?.length != old.vectorscopePoints?.length ||
         bandCorrelations != old.bandCorrelations ||
         selectedBand != old.selectedBand;
   }

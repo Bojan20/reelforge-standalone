@@ -8,7 +8,7 @@
 //! - Linkwitz-Riley filters (12/24/48 dB/oct)
 
 use crate::biquad::{BiquadCoeffs, BiquadTDF2};
-use crate::spatial::StereoImager;
+use crate::spatial::{StereoImager, Stereoize};
 use crate::{MonoProcessor, Processor, ProcessorConfig, StereoProcessor};
 use rf_core::Sample;
 
@@ -748,6 +748,12 @@ pub struct MultibandStereoImager {
     sample_rate: f64,
     /// Band buffers (temp storage for split signal)
     band_buffers: Vec<(f64, f64)>,
+    /// Stereoize decorrelation (iZotope Ozone Stereoize equivalent)
+    stereoize: Stereoize,
+    /// M/S mode (process in mid/side domain instead of L/R)
+    ms_mode: bool,
+    /// Band link (all bands follow band 0 width)
+    linked: bool,
 }
 
 impl MultibandStereoImager {
@@ -777,7 +783,30 @@ impl MultibandStereoImager {
             global_mix: 1.0,
             sample_rate,
             band_buffers: vec![(0.0, 0.0); num_bands],
+            stereoize: Stereoize::new(),
+            ms_mode: false,
+            linked: false,
         }
+    }
+
+    /// Enable/disable stereoize decorrelation
+    pub fn set_stereoize_enabled(&mut self, enabled: bool) {
+        self.stereoize.enabled = enabled;
+    }
+
+    /// Set stereoize amount (0.0-1.0)
+    pub fn set_stereoize_amount(&mut self, amount: f64) {
+        self.stereoize.amount = amount.clamp(0.0, 1.0);
+    }
+
+    /// Enable/disable M/S processing mode
+    pub fn set_ms_mode(&mut self, ms: bool) {
+        self.ms_mode = ms;
+    }
+
+    /// Enable/disable band linking (all bands follow band 0)
+    pub fn set_linked(&mut self, linked: bool) {
+        self.linked = linked;
     }
 
     /// Set number of bands (2-6)
@@ -887,6 +916,7 @@ impl Processor for MultibandStereoImager {
         for band in &mut self.bands {
             band.reset();
         }
+        self.stereoize.reset();
     }
 }
 
@@ -897,11 +927,28 @@ impl StereoProcessor for MultibandStereoImager {
         let in_l = left * in_gain;
         let in_r = right * in_gain;
 
+        // M/S encode if M/S mode is active
+        let (in_l, in_r) = if self.ms_mode {
+            let mid = (in_l + in_r) * 0.5;
+            let side = (in_l - in_r) * 0.5;
+            (mid, side)
+        } else {
+            (in_l, in_r)
+        };
+
         // Split into frequency bands
         self.split_bands(in_l, in_r);
 
         // Check if any band is soloed
         let any_solo = self.bands[..self.num_bands].iter().any(|b| b.solo);
+
+        // Band link: apply band 0 width to all bands
+        if self.linked && !self.bands.is_empty() {
+            let leader_width = self.bands[0].width();
+            for i in 1..self.num_bands {
+                self.bands[i].set_width(leader_width);
+            }
+        }
 
         // Process each band and sum
         let mut out_l: f64 = 0.0;
@@ -924,10 +971,20 @@ impl StereoProcessor for MultibandStereoImager {
             out_r += proc_r;
         }
 
+        // M/S decode if M/S mode was active
+        let (out_l, out_r) = if self.ms_mode {
+            (out_l + out_r, out_l - out_r) // mid+side=L, mid-side=R
+        } else {
+            (out_l, out_r)
+        };
+
+        // Apply stereoize decorrelation (post-band-processing)
+        let (out_l, out_r) = self.stereoize.process_sample(out_l, out_r);
+
         // Apply output gain
         let out_gain = 10.0_f64.powf(self.output_gain_db / 20.0);
-        out_l *= out_gain;
-        out_r *= out_gain;
+        let out_l = out_l * out_gain;
+        let out_r = out_r * out_gain;
 
         // Apply global mix (dry/wet)
         let mix = self.global_mix;
@@ -1037,5 +1094,125 @@ mod tests {
         for _ in 0..1000 {
             let _ = mbc.process_sample(0.5, 0.5);
         }
+    }
+
+    // ============ 6.3: MultibandStereoImager Tests ============
+
+    #[test]
+    fn test_mb_imager_creation() {
+        let mbi = MultibandStereoImager::new(48000.0, 4);
+        assert_eq!(mbi.num_bands(), 4);
+    }
+
+    #[test]
+    fn test_mb_imager_processing() {
+        let mut mbi = MultibandStereoImager::new(48000.0, 4);
+
+        for i in 0..10000 {
+            let t = i as f64 / 48000.0;
+            let sig = (2.0 * std::f64::consts::PI * 440.0 * t).sin() * 0.5;
+            let (l, r) = mbi.process_sample(sig, sig);
+            assert!(l.is_finite(), "Output L must be finite at sample {i}");
+            assert!(r.is_finite(), "Output R must be finite at sample {i}");
+        }
+    }
+
+    #[test]
+    fn test_mb_imager_per_band_width() {
+        let mut mbi = MultibandStereoImager::new(48000.0, 2);
+
+        // Set band 0 to mono, band 1 to wide
+        mbi.band_mut(0).unwrap().set_width(0.0);
+        mbi.band_mut(1).unwrap().set_width(2.0);
+
+        // Process — should not crash
+        for i in 0..4800 {
+            let t = i as f64 / 48000.0;
+            let l = (2.0 * std::f64::consts::PI * 200.0 * t).sin() * 0.3;
+            let r = (2.0 * std::f64::consts::PI * 5000.0 * t).sin() * 0.3;
+            let (out_l, out_r) = mbi.process_sample(l, r);
+            assert!(out_l.is_finite());
+            assert!(out_r.is_finite());
+        }
+    }
+
+    #[test]
+    fn test_mb_imager_crossover_type() {
+        let mut mbi = MultibandStereoImager::new(48000.0, 3);
+        mbi.set_crossover_type(CrossoverType::LinkwitzRiley48);
+
+        for i in 0..4800 {
+            let sig = (i as f64 * 0.01).sin() * 0.5;
+            let (l, r) = mbi.process_sample(sig, sig);
+            assert!(l.is_finite());
+            assert!(r.is_finite());
+        }
+    }
+
+    #[test]
+    fn test_mb_imager_band_link() {
+        let mut mbi = MultibandStereoImager::new(48000.0, 3);
+        mbi.set_linked(true);
+        mbi.band_mut(0).unwrap().set_width(0.5); // Band 0 width should control all
+
+        for i in 0..4800 {
+            let sig = (i as f64 * 0.01).sin() * 0.5;
+            let (l, r) = mbi.process_sample(sig, sig);
+            assert!(l.is_finite());
+            assert!(r.is_finite());
+        }
+    }
+
+    #[test]
+    fn test_mb_imager_stereoize() {
+        let mut mbi = MultibandStereoImager::new(48000.0, 2);
+        mbi.set_stereoize_enabled(true);
+        mbi.set_stereoize_amount(1.0);
+
+        // Feed mono signal at higher frequency for visible phase decorrelation
+        let freq = 5000.0;
+        let sr = 48000.0;
+        let mut max_diff = 0.0_f64;
+        for i in 0..4800 {
+            let t = i as f64 / sr;
+            let sig = (2.0 * std::f64::consts::PI * freq * t).sin() * 0.5;
+            let (l, r) = mbi.process_sample(sig, sig);
+            max_diff = max_diff.max((l - r).abs());
+        }
+        assert!(max_diff > 1e-5, "Stereoize should create L/R difference, got {max_diff}");
+    }
+
+    #[test]
+    fn test_mb_imager_ms_mode() {
+        let mut mbi = MultibandStereoImager::new(48000.0, 2);
+        mbi.set_ms_mode(true);
+
+        for i in 0..4800 {
+            let t = i as f64 / 48000.0;
+            let l = (2.0 * std::f64::consts::PI * 440.0 * t).sin() * 0.5;
+            let r = (2.0 * std::f64::consts::PI * 440.0 * t + 0.3).sin() * 0.5;
+            let (out_l, out_r) = mbi.process_sample(l, r);
+            assert!(out_l.is_finite());
+            assert!(out_r.is_finite());
+        }
+    }
+
+    #[test]
+    fn test_mb_imager_reset() {
+        let mut mbi = MultibandStereoImager::new(48000.0, 4);
+
+        // Process some
+        for i in 0..1000 {
+            let sig = (i as f64 * 0.01).sin();
+            mbi.process_sample(sig, sig);
+        }
+
+        // Reset
+        mbi.reset();
+
+        // After reset, output should be ~0 for zero input
+        let (l, r) = mbi.process_sample(0.0, 0.0);
+        assert!(l.abs() < 0.01, "After reset L should be ~0, got {l}");
+        assert!(r.abs() < 0.01, "After reset R should be ~0, got {r}");
     }
 }

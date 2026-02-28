@@ -63,6 +63,7 @@ import '../utils/path_validator.dart';
 
 import '../providers/dsp_chain_provider.dart';
 import '../providers/engine_provider.dart';
+import '../providers/event_folder_provider.dart';
 import '../providers/global_shortcuts_provider.dart';
 import '../providers/meter_provider.dart';
 import '../providers/middleware_provider.dart';
@@ -5178,15 +5179,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 mixerProvider.setMasterVolumeWithUndo(linear);
               } else {
                 mixerProvider.setChannelVolumeWithUndo(channelId, linear);
+                _syncVolumeToSlotLab(channelId, linear, isFinal: true);
               }
             },
             onChannelPanChange: (channelId, pan) {
               final mixerProvider = context.read<MixerProvider>();
               mixerProvider.setChannelPan(channelId, pan);
+              _syncPanToSlotLab(channelId, pan);
             },
             onChannelPanChangeEnd: (channelId, pan) {
               final mixerProvider = context.read<MixerProvider>();
               mixerProvider.setChannelPanWithUndo(channelId, pan);
+              _syncPanToSlotLab(channelId, pan, isFinal: true);
             },
             onChannelPanRightChange: (channelId, pan) {
               final mixerProvider = context.read<MixerProvider>();
@@ -5217,6 +5221,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     }).toList();
                   });
                 }
+                // Bidirectional sync: DAW → SlotLab
+                _syncMuteToSlotLab(channelId);
               }
             },
             onChannelSoloToggle: (channelId) {
@@ -5234,6 +5240,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                   }).toList();
                 });
               }
+              // Bidirectional sync: DAW → SlotLab
+              _syncSoloToSlotLab(channelId);
             },
             onChannelInsertClick: (channelId, slotIndex) {
               _onInsertClick(channelId, slotIndex);
@@ -5472,6 +5480,60 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         ),
       ),
     );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BIDIRECTIONAL SYNC — DAW channel changes → SlotLab layer params
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Get engine trackIndex from channelId (e.g., "ch_1" → trackIndex from MixerChannel)
+  int? _getTrackIndexForChannel(String channelId) {
+    final mixer = context.read<MixerProvider>();
+    return mixer.getChannel(channelId)?.trackIndex;
+  }
+
+  /// Sync DAW volume change back to SlotLab (if track is a linked layer)
+  void _syncVolumeToSlotLab(String channelId, double linearVolume, {bool isFinal = false}) {
+    final trackIndex = _getTrackIndexForChannel(channelId);
+    if (trackIndex == null) return;
+    final folderProvider = sl<EventFolderProvider>();
+    if (!folderProvider.isLinkedTrack(trackIndex)) return;
+    if (isFinal) {
+      folderProvider.syncVolumeFinalFromDaw(trackIndex, linearVolume);
+    } else {
+      folderProvider.syncVolumeFromDaw(trackIndex, linearVolume);
+    }
+  }
+
+  /// Sync DAW pan change back to SlotLab (if track is a linked layer)
+  void _syncPanToSlotLab(String channelId, double pan, {bool isFinal = false}) {
+    final trackIndex = _getTrackIndexForChannel(channelId);
+    if (trackIndex == null) return;
+    final folderProvider = sl<EventFolderProvider>();
+    if (!folderProvider.isLinkedTrack(trackIndex)) return;
+    if (isFinal) {
+      folderProvider.syncPanFinalFromDaw(trackIndex, pan);
+    } else {
+      folderProvider.syncPanFromDaw(trackIndex, pan);
+    }
+  }
+
+  /// Sync DAW mute toggle back to SlotLab (if track is a linked layer)
+  void _syncMuteToSlotLab(String channelId) {
+    final trackIndex = _getTrackIndexForChannel(channelId);
+    if (trackIndex == null) return;
+    final folderProvider = sl<EventFolderProvider>();
+    if (!folderProvider.isLinkedTrack(trackIndex)) return;
+    folderProvider.syncMuteFromDaw(trackIndex);
+  }
+
+  /// Sync DAW solo toggle back to SlotLab (if track is a linked layer)
+  void _syncSoloToSlotLab(String channelId) {
+    final trackIndex = _getTrackIndexForChannel(channelId);
+    if (trackIndex == null) return;
+    final folderProvider = sl<EventFolderProvider>();
+    if (!folderProvider.isLinkedTrack(trackIndex)) return;
+    folderProvider.syncSoloFromDaw(trackIndex);
   }
 
   /// PERFORMANCE: Build menu callbacks using context.read() instead of Consumer
@@ -8607,10 +8669,22 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             child: ProMixerStrip(
               data: strip,
               compact: true,
-              onVolumeChange: (v) => mixerProvider.setChannelVolume(strip.id, v),
-              onPanChange: (p) => mixerProvider.setChannelPan(strip.id, p),
-              onMuteToggle: () => mixerProvider.toggleChannelMuteWithUndo(strip.id),
-              onSoloToggle: () => mixerProvider.toggleChannelSoloWithUndo(strip.id),
+              onVolumeChange: (v) {
+                mixerProvider.setChannelVolume(strip.id, v);
+                _syncVolumeToSlotLab(strip.id, v);
+              },
+              onPanChange: (p) {
+                mixerProvider.setChannelPan(strip.id, p);
+                _syncPanToSlotLab(strip.id, p);
+              },
+              onMuteToggle: () {
+                mixerProvider.toggleChannelMuteWithUndo(strip.id);
+                _syncMuteToSlotLab(strip.id);
+              },
+              onSoloToggle: () {
+                mixerProvider.toggleChannelSoloWithUndo(strip.id);
+                _syncSoloToSlotLab(strip.id);
+              },
               onOutputClick: () => _onOutputClick(strip.id),
               onInsertClick: (idx) => _onInsertClick(strip.id, idx),
               onSlotDestinationChange: (slotIndex, type, targetId) =>
@@ -8876,6 +8950,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           mixerProvider.setVcaLevel(id, vol);
         } else {
           mixerProvider.setChannelVolumeWithUndo(id, vol);
+          _syncVolumeToSlotLab(id, vol, isFinal: true);
         }
       },
       onPanChange: (id, pan) {
@@ -8883,11 +8958,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           _onBusPanChange(id, pan);
         } else if (!id.startsWith('vca_')) {
           mixerProvider.setChannelPan(id, pan);
+          _syncPanToSlotLab(id, pan);
         }
       },
       onPanChangeEnd: (id, pan) {
         if (!id.startsWith('vca_')) {
           mixerProvider.setChannelPanWithUndo(id, pan);
+          _syncPanToSlotLab(id, pan, isFinal: true);
         }
       },
       onPanRightChange: (id, pan) {
@@ -8904,6 +8981,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           mixerProvider.toggleVcaMute(id);
         } else {
           mixerProvider.toggleChannelMuteWithUndo(id);
+          _syncMuteToSlotLab(id);
         }
       },
       onSoloToggle: (id) {
@@ -8913,6 +8991,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           mixerProvider.toggleVcaSolo(id);
         } else {
           mixerProvider.toggleChannelSoloWithUndo(id);
+          _syncSoloToSlotLab(id);
         }
       },
       onArmToggle: (id) {
@@ -9095,6 +9174,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           mixerProvider.setVcaLevel(id, vol);
         } else {
           mixerProvider.setChannelVolumeWithUndo(id, vol);
+          _syncVolumeToSlotLab(id, vol, isFinal: true);
         }
       },
       onPanChange: (id, pan) {
@@ -9102,11 +9182,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           _onBusPanChange(id, pan);
         } else if (!id.startsWith('vca_')) {
           mixerProvider.setChannelPan(id, pan);
+          _syncPanToSlotLab(id, pan);
         }
       },
       onPanChangeEnd: (id, pan) {
         if (!id.startsWith('vca_')) {
           mixerProvider.setChannelPanWithUndo(id, pan);
+          _syncPanToSlotLab(id, pan, isFinal: true);
         }
       },
       onPanRightChange: (id, pan) {
@@ -9123,6 +9205,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           mixerProvider.toggleVcaMute(id);
         } else {
           mixerProvider.toggleChannelMuteWithUndo(id);
+          _syncMuteToSlotLab(id);
         }
       },
       onSoloToggle: (id) {
@@ -9132,6 +9215,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           mixerProvider.toggleVcaSolo(id);
         } else {
           mixerProvider.toggleChannelSoloWithUndo(id);
+          _syncSoloToSlotLab(id);
         }
       },
       onArmToggle: (id) {
@@ -9350,6 +9434,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           mixerProvider.toggleSoloSafeWithUndo(channelId);
         case 'inactive':
           mixerProvider.toggleChannelMuteWithUndo(channelId);
+          _syncMuteToSlotLab(channelId);
         case 'group':
           _showGroupAssignMenu(context, channelId, position, mixerProvider);
         case 'vca':
@@ -9838,6 +9923,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           mixerProvider.setVcaLevel(id, vol);
         } else {
           mixerProvider.setChannelVolumeWithUndo(id, vol);
+          _syncVolumeToSlotLab(id, vol, isFinal: true);
         }
       },
       onPanChange: (id, pan) {
@@ -9845,11 +9931,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           _onBusPanChange(id, pan);
         } else if (!id.startsWith('vca_')) {
           mixerProvider.setChannelPan(id, pan);
+          _syncPanToSlotLab(id, pan);
         }
       },
       onPanChangeEnd: (id, pan) {
         if (!id.startsWith('vca_')) {
           mixerProvider.setChannelPanWithUndo(id, pan);
+          _syncPanToSlotLab(id, pan, isFinal: true);
         }
       },
       onPanRightChange: (id, pan) {
@@ -9866,6 +9954,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           mixerProvider.toggleVcaMute(id);
         } else {
           mixerProvider.toggleChannelMuteWithUndo(id);
+          _syncMuteToSlotLab(id);
         }
       },
       onSoloToggle: (id) {
@@ -9875,6 +9964,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           mixerProvider.toggleVcaSolo(id);
         } else {
           mixerProvider.toggleChannelSoloWithUndo(id);
+          _syncSoloToSlotLab(id);
         }
       },
       onArmToggle: (id) {
@@ -9975,11 +10065,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       onSoloSelectedShortcut: () {
         if (_selectedTrackId != null) {
           mixerProvider.toggleChannelSoloWithUndo(_selectedTrackId!);
+          _syncSoloToSlotLab(_selectedTrackId!);
         }
       },
       onMuteSelectedShortcut: () {
         if (_selectedTrackId != null) {
           mixerProvider.toggleChannelMuteWithUndo(_selectedTrackId!);
+          _syncMuteToSlotLab(_selectedTrackId!);
         }
       },
       onNarrowAllShortcut: () {

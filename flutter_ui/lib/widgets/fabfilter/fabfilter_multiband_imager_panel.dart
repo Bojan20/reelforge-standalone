@@ -37,6 +37,11 @@ class _P {
   static const crossover4 = 9;
   static const msMode = 10;      // 0/1
 
+  // Extended global
+  static const stereoizeEnabled = 65; // 0/1
+  static const stereoizeAmount = 66;  // 0..1
+  static const bandLink = 67;         // 0/1
+
   // Per-band (offset = 11 + band * 9)
   static const bWidth = 0;       // 0..2 (0=mono, 1=stereo, 2=wide)
   static const bPan = 1;         // -1..+1
@@ -73,21 +78,25 @@ const _bandColors = [
 
 class MbImagerSnapshot implements DspParameterSnapshot {
   final double inputGain, outputGain, globalMix;
-  final bool msMode;
+  final bool msMode, stereoizeEnabled, bandLink;
+  final double stereoizeAmount;
   final int numBands, crossoverType;
   final List<double> crossovers;
   final List<MbImagerBandState> bands;
 
   const MbImagerSnapshot({
     required this.inputGain, required this.outputGain, required this.globalMix,
-    required this.msMode, required this.numBands, required this.crossoverType,
+    required this.msMode, required this.stereoizeEnabled, required this.stereoizeAmount,
+    required this.bandLink, required this.numBands, required this.crossoverType,
     required this.crossovers, required this.bands,
   });
 
   @override
   MbImagerSnapshot copy() => MbImagerSnapshot(
     inputGain: inputGain, outputGain: outputGain, globalMix: globalMix,
-    msMode: msMode, numBands: numBands, crossoverType: crossoverType,
+    msMode: msMode, stereoizeEnabled: stereoizeEnabled,
+    stereoizeAmount: stereoizeAmount, bandLink: bandLink,
+    numBands: numBands, crossoverType: crossoverType,
     crossovers: List.of(crossovers),
     bands: bands.map((b) => b.copy()).toList(),
   );
@@ -145,6 +154,9 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
   double _outputGain = 0.0;
   double _globalMix = 100.0;
   bool _msMode = false;
+  bool _stereoizeEnabled = false;
+  double _stereoizeAmount = 0.5;
+  bool _bandLink = false;
   int _numBands = 4;
   int _crossoverType = 1; // LR24
   final List<double> _crossovers = [120, 750, 2500, 7000, 14000];
@@ -156,6 +168,8 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
   // ─── METERING ─────────────────────────────────────────────────────
   double _inL = 0, _inR = 0, _outL = 0, _outR = 0;
   final List<double> _bandCorrelations = List.filled(6, 1.0);
+  List<Offset> _vectorscopePoints = [];
+  bool _monoCheck = false;
 
   // ─── ENGINE ───────────────────────────────────────────────────────
   final _ffi = NativeFFI.instance;
@@ -230,6 +244,9 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
         _crossovers[i] = _ffi.insertGetParam(t, s, _P.crossover0 + i);
       }
       _msMode = _ffi.insertGetParam(t, s, _P.msMode) > 0.5;
+      _stereoizeEnabled = _ffi.insertGetParam(t, s, _P.stereoizeEnabled) > 0.5;
+      _stereoizeAmount = _ffi.insertGetParam(t, s, _P.stereoizeAmount).clamp(0.0, 1.0);
+      _bandLink = _ffi.insertGetParam(t, s, _P.bandLink) > 0.5;
       for (int b = 0; b < 6; b++) {
         _bands[b]
           ..width = _ffi.insertGetParam(t, s, _P.band(b, _P.bWidth))
@@ -255,7 +272,9 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
 
   MbImagerSnapshot _snap() => MbImagerSnapshot(
     inputGain: _inputGain, outputGain: _outputGain, globalMix: _globalMix,
-    msMode: _msMode, numBands: _numBands, crossoverType: _crossoverType,
+    msMode: _msMode, stereoizeEnabled: _stereoizeEnabled,
+    stereoizeAmount: _stereoizeAmount, bandLink: _bandLink,
+    numBands: _numBands, crossoverType: _crossoverType,
     crossovers: List.of(_crossovers),
     bands: _bands.map((b) => b.copy()).toList(),
   );
@@ -264,6 +283,8 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
     setState(() {
       _inputGain = s.inputGain; _outputGain = s.outputGain;
       _globalMix = s.globalMix; _msMode = s.msMode;
+      _stereoizeEnabled = s.stereoizeEnabled;
+      _stereoizeAmount = s.stereoizeAmount; _bandLink = s.bandLink;
       _numBands = s.numBands; _crossoverType = s.crossoverType;
       for (int i = 0; i < 5; i++) _crossovers[i] = s.crossovers[i];
       for (int b = 0; b < 6; b++) {
@@ -284,6 +305,9 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
     _setParam(_P.outputGain, _outputGain);
     _setParam(_P.globalMix, _globalMix);
     _setParam(_P.msMode, _msMode ? 1 : 0);
+    _setParam(_P.stereoizeEnabled, _stereoizeEnabled ? 1 : 0);
+    _setParam(_P.stereoizeAmount, _stereoizeAmount);
+    _setParam(_P.bandLink, _bandLink ? 1 : 0);
     _setParam(_P.numBands, _numBands.toDouble());
     _setParam(_P.crossoverType, _crossoverType.toDouble());
     for (int i = 0; i < 5; i++) _setParam(_P.crossover0 + i, _crossovers[i]);
@@ -328,6 +352,17 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
         for (int b = 0; b < 6; b++) {
           _bandCorrelations[b] = _ffi.insertGetMeter(t, s, 4 + b);
         }
+        // Read vectorscope points (128 points, x/y pairs at meter indices 10..266)
+        final numPoints = _ffi.insertGetMeter(t, s, 266).round().clamp(0, 128);
+        final points = <Offset>[];
+        for (int i = 0; i < numPoints; i++) {
+          final x = _ffi.insertGetMeter(t, s, 10 + i * 2);
+          final y = _ffi.insertGetMeter(t, s, 10 + i * 2 + 1);
+          if (x != 0.0 || y != 0.0) {
+            points.add(Offset(x, y));
+          }
+        }
+        _vectorscopePoints = points;
       } catch (_) {}
     });
   }
@@ -381,6 +416,7 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
           _buildBandSelector(),
           Expanded(child: _buildMainArea()),
           _buildBandStrip(),
+          _buildWidthSpectrum(),
           _buildFooter(),
         ],
       ),
@@ -555,6 +591,7 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
             enableWidth: band.enableWidth,
             accent: color,
             showPhaseState: true,
+            vectorscopePoints: _vectorscopePoints,
             bandCorrelations: _bandCorrelations.sublist(0, _numBands),
             numBands: _numBands,
             bandColors: _bandColors.sublist(0, _numBands),
@@ -788,6 +825,12 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
         const SizedBox(height: 4),
         // M/S mode
         _buildMsModeToggle(),
+        const SizedBox(height: 4),
+        // Band Link
+        _buildBandLinkToggle(),
+        const SizedBox(height: 8),
+        // Stereoize
+        _buildStereoizeSection(),
       ],
     );
   }
@@ -867,6 +910,106 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
     );
   }
 
+  Widget _buildBandLinkToggle() {
+    return GestureDetector(
+      onTap: () {
+        setState(() => _bandLink = !_bandLink);
+        _setParam(_P.bandLink, _bandLink ? 1 : 0);
+      },
+      child: Container(
+        height: 20,
+        decoration: BoxDecoration(
+          color: _bandLink ? FabFilterColors.green.withValues(alpha: 0.25) : FabFilterColors.bgSurface,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(
+            color: _bandLink ? FabFilterColors.green : FabFilterColors.borderSubtle,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            _bandLink ? 'BAND LINK' : 'BAND LINK',
+            style: TextStyle(
+              color: _bandLink ? FabFilterColors.green : FabFilterColors.textTertiary,
+              fontSize: 8, fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStereoizeSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Enable toggle
+        GestureDetector(
+          onTap: () {
+            setState(() => _stereoizeEnabled = !_stereoizeEnabled);
+            _setParam(_P.stereoizeEnabled, _stereoizeEnabled ? 1 : 0);
+          },
+          child: Container(
+            height: 20,
+            decoration: BoxDecoration(
+              color: _stereoizeEnabled ? FabFilterColors.pink.withValues(alpha: 0.25) : FabFilterColors.bgSurface,
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(
+                color: _stereoizeEnabled ? FabFilterColors.pink : FabFilterColors.borderSubtle,
+              ),
+            ),
+            child: Center(
+              child: Text(
+                'STEREOIZE',
+                style: TextStyle(
+                  color: _stereoizeEnabled ? FabFilterColors.pink : FabFilterColors.textTertiary,
+                  fontSize: 8, fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (_stereoizeEnabled) ...[
+          const SizedBox(height: 4),
+          // Amount knob
+          _buildKnob(
+            label: 'AMOUNT',
+            display: _pctStr(_stereoizeAmount * 100),
+            value: _stereoizeAmount,
+            color: FabFilterColors.pink,
+            defaultValue: 0.5,
+            onChanged: (v) {
+              setState(() => _stereoizeAmount = v);
+              _setParam(_P.stereoizeAmount, v);
+            },
+          ),
+        ],
+      ],
+    );
+  }
+
+  // ─── MONO CHECK ──────────────────────────────────────────────
+  final List<double> _monoCheckSavedWidths = List.filled(6, 1.0);
+
+  void _toggleMonoCheck() {
+    setState(() {
+      _monoCheck = !_monoCheck;
+      if (_monoCheck) {
+        // Save current widths and set all to mono
+        for (int b = 0; b < 6; b++) {
+          _monoCheckSavedWidths[b] = _bands[b].width;
+          _bands[b].width = 0.0;
+          _setParam(_P.band(b, _P.bWidth), 0.0);
+        }
+      } else {
+        // Restore saved widths
+        for (int b = 0; b < 6; b++) {
+          _bands[b].width = _monoCheckSavedWidths[b];
+          _setParam(_P.band(b, _P.bWidth), _monoCheckSavedWidths[b]);
+        }
+      }
+    });
+  }
+
   // ─── BAND STRIP (Solo/Mute/Bypass) ───────────────────────────────
 
   Widget _buildBandStrip() {
@@ -925,6 +1068,14 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
               setState(() => _bands[_selectedBand].bypass = val);
               _setParam(_P.band(_selectedBand, _P.bBypass), val ? 1 : 0);
             },
+          ),
+          const SizedBox(width: 6),
+          // Mono check
+          FabTinyButton(
+            label: 'MONO',
+            active: _monoCheck,
+            color: FabFilterColors.red,
+            onTap: _toggleMonoCheck,
           ),
           const Spacer(),
           // Crossover frequency for selected band (if not last band)
@@ -989,6 +1140,75 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
     );
   }
 
+  // ─── WIDTH SPECTRUM (per-band width bar) ─────────────────────────
+
+  Widget _buildWidthSpectrum() {
+    return Container(
+      height: 20,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: const BoxDecoration(
+        color: FabFilterColors.bgDeep,
+        border: Border(top: BorderSide(color: FabFilterColors.borderSubtle)),
+      ),
+      child: Row(
+        children: [
+          Text('WIDTH', style: FabFilterText.paramLabel.copyWith(fontSize: 7)),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Row(
+              children: List.generate(_numBands, (b) {
+                final w = _bands[b].width; // 0-2
+                final norm = (w / 2.0).clamp(0.0, 1.0);
+                final color = _bandColors[b % _bandColors.length];
+                final selected = _selectedBand == b;
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 1),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.bottomCenter,
+                            child: FractionallySizedBox(
+                              heightFactor: norm,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: color.withValues(alpha: selected ? 0.6 : 0.3),
+                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(1)),
+                                  border: selected
+                                      ? Border.all(color: color, width: 0.5)
+                                      : null,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 28,
+            child: Text(
+              '${(_bands[_selectedBand].width * 100).toStringAsFixed(0)}%',
+              style: TextStyle(
+                color: _bandColor,
+                fontSize: 7,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ─── FOOTER ───────────────────────────────────────────────────────
 
   Widget _buildFooter() {
@@ -1002,7 +1222,9 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
             style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 8)),
           const Spacer(),
           Text(
-            '${_numBands}B  ${_crossoverLabels[_crossoverType]}  ${_msMode ? "M/S" : "L/R"}',
+            '${_numBands}B  ${_crossoverLabels[_crossoverType]}  ${_msMode ? "M/S" : "L/R"}'
+            '${_bandLink ? "  LINK" : ""}'
+            '${_stereoizeEnabled ? "  STZ" : ""}',
             style: TextStyle(color: FabFilterColors.cyan, fontSize: 8, fontWeight: FontWeight.w600),
           ),
         ],

@@ -8,13 +8,56 @@
 /// See: .claude/architecture/UNIFIED_TRACK_GRAPH.md
 
 import 'package:flutter/material.dart';
+import 'timeline_models.dart' show CrossfadeCurve;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // EVENT FOLDER — DAW-side read-only container
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// A read-only folder in the DAW left panel that represents a SlotLab event.
-/// Created/deleted/modified ONLY by SlotLab. DAW displays it as-is.
+/// Crossfade settings for an event folder's audio transitions
+class CrossfadeSettings {
+  final double fadeInMs;
+  final double fadeOutMs;
+  final CrossfadeCurve fadeInCurve;
+  final CrossfadeCurve fadeOutCurve;
+
+  const CrossfadeSettings({
+    this.fadeInMs = 0.0,
+    this.fadeOutMs = 0.0,
+    this.fadeInCurve = CrossfadeCurve.equalPower,
+    this.fadeOutCurve = CrossfadeCurve.equalPower,
+  });
+
+  CrossfadeSettings copyWith({
+    double? fadeInMs,
+    double? fadeOutMs,
+    CrossfadeCurve? fadeInCurve,
+    CrossfadeCurve? fadeOutCurve,
+  }) {
+    return CrossfadeSettings(
+      fadeInMs: fadeInMs ?? this.fadeInMs,
+      fadeOutMs: fadeOutMs ?? this.fadeOutMs,
+      fadeInCurve: fadeInCurve ?? this.fadeInCurve,
+      fadeOutCurve: fadeOutCurve ?? this.fadeOutCurve,
+    );
+  }
+}
+
+/// Variant group within an event (A/B/C alternatives with weighted selection)
+class VariantGroup {
+  final String id;
+  final String name;
+  final List<String> layerIds;
+  final double weight;
+
+  const VariantGroup({
+    required this.id,
+    required this.name,
+    this.layerIds = const [],
+    this.weight = 1.0,
+  });
+}
+
 class EventFolder {
   final String id;
   final String eventId;
@@ -27,6 +70,12 @@ class EventFolder {
   /// Whether any layer from this folder is currently placed in the DAW timeline
   final bool hasLayersInTimeline;
 
+  /// Crossfade settings for event transitions
+  final CrossfadeSettings crossfade;
+
+  /// Variant groups within this event (A/B/C alternatives)
+  final List<VariantGroup> variantGroups;
+
   const EventFolder({
     required this.id,
     required this.eventId,
@@ -36,7 +85,21 @@ class EventFolder {
     this.layers = const [],
     this.isCollapsed = false,
     this.hasLayersInTimeline = false,
+    this.crossfade = const CrossfadeSettings(),
+    this.variantGroups = const [],
   });
+
+  /// Layers that belong to a specific variant group
+  List<EventLayerRef> layersForVariant(String groupId) =>
+      layers.where((l) => l.variantGroup == groupId).toList();
+
+  /// Layers that are always active (no variant group)
+  List<EventLayerRef> get alwaysActiveLayers =>
+      layers.where((l) => l.variantGroup == null).toList();
+
+  /// Layers with conditional activation rules
+  List<EventLayerRef> get conditionalLayers =>
+      layers.where((l) => l.isConditional).toList();
 
   EventFolder copyWith({
     String? id,
@@ -47,6 +110,8 @@ class EventFolder {
     List<EventLayerRef>? layers,
     bool? isCollapsed,
     bool? hasLayersInTimeline,
+    CrossfadeSettings? crossfade,
+    List<VariantGroup>? variantGroups,
   }) {
     return EventFolder(
       id: id ?? this.id,
@@ -57,6 +122,8 @@ class EventFolder {
       layers: layers ?? this.layers,
       isCollapsed: isCollapsed ?? this.isCollapsed,
       hasLayersInTimeline: hasLayersInTimeline ?? this.hasLayersInTimeline,
+      crossfade: crossfade ?? this.crossfade,
+      variantGroups: variantGroups ?? this.variantGroups,
     );
   }
 }
@@ -84,6 +151,21 @@ class EventLayerRef {
   /// DAW track ID if placed in timeline (null if only in folder)
   final int? dawTrackId;
 
+  /// Event IDs sharing this same underlying track (for 5.1 track reuse)
+  final List<String> sharedEventIds;
+
+  /// Variant group this layer belongs to (null = always active)
+  final String? variantGroup;
+
+  /// Weight within variant group (0.0–1.0, higher = more likely)
+  final double variantWeight;
+
+  /// Minimum win multiplier to activate this layer (0 = always)
+  final double minMultiplier;
+
+  /// Minimum bet threshold to activate this layer (0 = always)
+  final double betThreshold;
+
   const EventLayerRef({
     required this.layerId,
     required this.name,
@@ -95,7 +177,21 @@ class EventLayerRef {
     this.loop = false,
     this.isInTimeline = false,
     this.dawTrackId,
+    this.sharedEventIds = const [],
+    this.variantGroup,
+    this.variantWeight = 1.0,
+    this.minMultiplier = 0.0,
+    this.betThreshold = 0.0,
   });
+
+  /// How many events share this layer's underlying track
+  int get sharedCount => sharedEventIds.length;
+
+  /// Whether this layer is shared across multiple events
+  bool get isShared => sharedEventIds.length > 1;
+
+  /// Whether this layer has conditional activation rules
+  bool get isConditional => minMultiplier > 0.0 || betThreshold > 0.0;
 
   EventLayerRef copyWith({
     String? layerId,
@@ -108,6 +204,11 @@ class EventLayerRef {
     bool? loop,
     bool? isInTimeline,
     int? dawTrackId,
+    List<String>? sharedEventIds,
+    String? variantGroup,
+    double? variantWeight,
+    double? minMultiplier,
+    double? betThreshold,
   }) {
     return EventLayerRef(
       layerId: layerId ?? this.layerId,
@@ -120,6 +221,11 @@ class EventLayerRef {
       loop: loop ?? this.loop,
       isInTimeline: isInTimeline ?? this.isInTimeline,
       dawTrackId: dawTrackId ?? this.dawTrackId,
+      sharedEventIds: sharedEventIds ?? this.sharedEventIds,
+      variantGroup: variantGroup ?? this.variantGroup,
+      variantWeight: variantWeight ?? this.variantWeight,
+      minMultiplier: minMultiplier ?? this.minMultiplier,
+      betThreshold: betThreshold ?? this.betThreshold,
     );
   }
 }
