@@ -8525,6 +8525,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       eqBands: const [],
       input: 'Sum', // Master sums all buses
       output: 'Main Out',
+      lufs: () {
+        final m = context.read<EngineProvider>().metering;
+        return LUFSData(
+          momentary: m.masterLufsM,
+          shortTerm: m.masterLufsS,
+          integrated: m.masterLufsI,
+          truePeak: m.masterTruePeak,
+        );
+      }(),
     );
   }
 

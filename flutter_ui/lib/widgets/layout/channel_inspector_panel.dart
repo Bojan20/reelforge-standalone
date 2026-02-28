@@ -174,6 +174,12 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
             _buildPostFaderInserts(),
           ],
 
+          // 5.5. LUFS Metering (master only — after post-fader, before sends)
+          if (hasChannel && widget.channel!.type == 'master' && widget.channel!.lufs != null) ...[
+            const SizedBox(height: 6),
+            _buildLufsMeteringSection(),
+          ],
+
           // 6. Sends (Aux sends with level, pre/post)
           if (hasChannel) ...[
             const SizedBox(height: 6),
@@ -580,13 +586,15 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
 
   Widget _buildPreFaderInserts() {
     final ch = widget.channel!;
+    final isMaster = ch.type == 'master';
+    final maxPre = isMaster ? 8 : 4;
     final preInserts = ch.inserts.where((i) => i.isPreFader).toList();
     final preUsed = preInserts.where((i) => !i.isEmpty).length;
-    final preVisible = (preUsed + 1).clamp(1, 4);
+    final preVisible = (preUsed + 1).clamp(1, maxPre);
 
     return _Section(
-      title: 'Inserts (Pre)',
-      subtitle: '$preUsed/4',
+      title: isMaster ? 'Pre-Fader Inserts' : 'Inserts (Pre)',
+      subtitle: '$preUsed/$maxPre',
       expanded: _preFaderInsertsExpanded,
       onToggle: () => setState(() => _preFaderInsertsExpanded = !_preFaderInsertsExpanded),
       child: _ReorderableInsertList(
@@ -610,13 +618,15 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
 
   Widget _buildPostFaderInserts() {
     final ch = widget.channel!;
+    final isMaster = ch.type == 'master';
+    final maxPost = isMaster ? 4 : 4;
     final postInserts = ch.inserts.where((i) => !i.isPreFader).toList();
     final postUsed = postInserts.where((i) => !i.isEmpty).length;
-    final postVisible = (postUsed + 1).clamp(1, 4);
+    final postVisible = (postUsed + 1).clamp(1, maxPost);
 
     return _Section(
-      title: 'Inserts (Post)',
-      subtitle: '$postUsed/4',
+      title: isMaster ? 'Post-Fader Inserts' : 'Inserts (Post)',
+      subtitle: '$postUsed/$maxPost',
       expanded: _postFaderInsertsExpanded,
       onToggle: () => setState(() => _postFaderInsertsExpanded = !_postFaderInsertsExpanded),
       child: _ReorderableInsertList(
@@ -630,6 +640,128 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
         onReorder: (oldIndex, newIndex) => widget.onInsertReorder?.call(ch.id, oldIndex, newIndex),
         onRemove: (index) => widget.onInsertRemove?.call(ch.id, index),
         onOpenEditor: (index) => widget.onInsertOpenEditor?.call(ch.id, index),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LUFS METERING SECTION (Master only — ITU-R BS.1770-4)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  bool _lufsMeteringExpanded = true;
+
+  Widget _buildLufsMeteringSection() {
+    final lufs = widget.channel!.lufs!;
+
+    String fmtLufs(double v) {
+      if (v <= -100 || v.isNaN || v.isInfinite) return '—';
+      return '${v.toStringAsFixed(1)} LUFS';
+    }
+
+    String fmtTp(double v) {
+      if (v <= -100 || v.isNaN || v.isInfinite) return '—';
+      return '${v.toStringAsFixed(1)} dBTP';
+    }
+
+    Color lufsColor(double v) {
+      if (v <= -100) return FluxForgeTheme.textTertiary;
+      if (v > -1) return const Color(0xFFFF4060); // clipping
+      if (v > -14) return const Color(0xFFFFAA00); // loud
+      return FluxForgeTheme.accentGreen;
+    }
+
+    Color tpColor(double v) {
+      if (v <= -100) return FluxForgeTheme.textTertiary;
+      if (v > -0.5) return const Color(0xFFFF4060); // over
+      if (v > -1.0) return const Color(0xFFFFAA00); // hot
+      return FluxForgeTheme.accentGreen;
+    }
+
+    return _Section(
+      title: 'Loudness',
+      subtitle: 'LUFS',
+      expanded: _lufsMeteringExpanded,
+      onToggle: () => setState(() => _lufsMeteringExpanded = !_lufsMeteringExpanded),
+      child: Column(
+        children: [
+          // Momentary
+          _LufsMeterRow(
+            label: 'Momentary',
+            value: fmtLufs(lufs.momentary),
+            color: lufsColor(lufs.momentary),
+            level: ((lufs.momentary + 60) / 60).clamp(0.0, 1.0),
+          ),
+          const SizedBox(height: 4),
+          // Short-term
+          _LufsMeterRow(
+            label: 'Short-Term',
+            value: fmtLufs(lufs.shortTerm),
+            color: lufsColor(lufs.shortTerm),
+            level: ((lufs.shortTerm + 60) / 60).clamp(0.0, 1.0),
+          ),
+          const SizedBox(height: 4),
+          // Integrated
+          _LufsMeterRow(
+            label: 'Integrated',
+            value: fmtLufs(lufs.integrated),
+            color: lufsColor(lufs.integrated),
+            level: ((lufs.integrated + 60) / 60).clamp(0.0, 1.0),
+          ),
+          const SizedBox(height: 6),
+          // True Peak
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: FluxForgeTheme.bgDeepest,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: tpColor(lufs.truePeak).withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.graphic_eq, size: 12, color: tpColor(lufs.truePeak)),
+                const SizedBox(width: 6),
+                Text(
+                  'True Peak',
+                  style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+                ),
+                const Spacer(),
+                Text(
+                  fmtTp(lufs.truePeak),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontFamily: 'JetBrains Mono',
+                    fontWeight: FontWeight.w600,
+                    color: tpColor(lufs.truePeak),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          // Target references
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Targets:',
+                  style: TextStyle(fontSize: 8, color: FluxForgeTheme.textTertiary),
+                ),
+                Text(
+                  '-14 LUFS / -1 dBTP (streaming)',
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontFamily: 'JetBrains Mono',
+                    color: FluxForgeTheme.textTertiary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2914,6 +3046,72 @@ class _WidthSliderState extends State<_WidthSlider> {
               ),
               textAlign: TextAlign.right,
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LUFS METER ROW — horizontal bar + value
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _LufsMeterRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  final double level; // 0.0 to 1.0
+
+  const _LufsMeterRow({
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.level,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 64,
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+          ),
+        ),
+        Expanded(
+          child: Container(
+            height: 8,
+            decoration: BoxDecoration(
+              color: FluxForgeTheme.bgDeepest,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: level.clamp(0.0, 1.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        SizedBox(
+          width: 80,
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 10,
+              fontFamily: 'JetBrains Mono',
+              fontWeight: FontWeight.w500,
+              color: color,
+            ),
+            textAlign: TextAlign.right,
           ),
         ),
       ],

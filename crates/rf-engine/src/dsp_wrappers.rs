@@ -4548,7 +4548,9 @@ mod tests {
             (0, 0.8),   // space
             (1, 0.3),   // brightness
             (2, 1.5),   // width (0-2 range)
-            (3, 0.6),   // mix
+            // NOTE: Param 3 (Mix) is routed to InsertSlot via slot_mix_param().
+            // set_param(3,..) is no-op; get_param(3) returns internal mix (always 1.0).
+            // Skip mix in roundtrip test.
             (4, 100.0),  // predelay ms
             (6, 0.9),   // diffusion
             (7, 0.4),   // distance
@@ -4632,21 +4634,25 @@ mod tests {
     }
 
     #[test]
-    fn test_reverb_wrapper_dry_only() {
+    fn test_reverb_wrapper_produces_output() {
+        // NOTE: Reverb wrapper uses slot_mix_param() — Mix is handled by InsertSlot,
+        // not internally. The reverb always outputs 100% wet. When testing the wrapper
+        // directly, we verify it produces reverb output over multiple blocks.
         let mut proc = create_processor_extended("reverb", 48000.0).unwrap();
-        proc.set_param(3, 0.0);  // 0% wet = dry only
+        proc.set_param(0, 0.5); // medium space
+        proc.set_param(8, 0.5); // medium decay
 
-        let mut left = vec![0.5f64; 64];
-        let mut right = vec![0.5f64; 64];
-        let original_l = left.clone();
-
-        proc.process_stereo(&mut left, &mut right);
-
-        // With 0% mix, output should be equal-power dry (cos(0) = 1.0 × input)
-        for i in 0..64 {
-            assert!((left[i] - original_l[i]).abs() < 0.01,
-                "Dry-only: sample {} diverged: expected {}, got {}", i, original_l[i], left[i]);
+        // Feed multiple blocks — reverb needs buildup time (predelay + FDN fill)
+        let mut total_energy = 0.0f64;
+        for _ in 0..20 {
+            let mut left = vec![0.3f64; 256];
+            let mut right = vec![0.3f64; 256];
+            proc.process_stereo(&mut left, &mut right);
+            total_energy += left.iter().chain(right.iter()).map(|s| s * s).sum::<f64>();
         }
+
+        assert!(total_energy > 0.01,
+            "Reverb wrapper should produce output over 20 blocks, energy={}", total_energy);
     }
 
     #[test]
