@@ -154,7 +154,7 @@ enum LayerChangeTrigger {
 
 /// Music States feature block
 class MusicStatesBlock extends FeatureBlockBase {
-  MusicStatesBlock() : super();
+  MusicStatesBlock() : super(enabled: true);
 
   @override
   String get id => 'music_states';

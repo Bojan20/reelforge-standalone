@@ -125,75 +125,175 @@ class ComposedStage {
 // =============================================================================
 
 const List<ComposedStage> _engineCoreStages = [
+  // ═══ Spin Lifecycle ═══
   ComposedStage(
     id: 'SPIN_START', displayName: 'Spin Start',
     layer: StageLayer.engineCore, locked: true, sortOrder: 0,
     hooks: ['onSpinStart'], suggestedBus: 'reels', priority: 'P0',
   ),
   ComposedStage(
-    id: 'REEL_STOP_0', displayName: 'Reel Stop 1',
+    id: 'REEL_SPIN_LOOP', displayName: 'Reel Spin Loop',
     layer: StageLayer.engineCore, locked: true, sortOrder: 1,
+    hooks: ['onReelSpinLoop'], suggestedBus: 'reels', priority: 'P0',
+  ),
+  ComposedStage(
+    id: 'SPIN_END', displayName: 'Spin End',
+    layer: StageLayer.engineCore, locked: true, sortOrder: 2,
+    hooks: ['onSpinEnd'], suggestedBus: 'reels', priority: 'P0',
+  ),
+
+  // ═══ Reel Stops (per-reel) ═══
+  ComposedStage(
+    id: 'REEL_STOP_0', displayName: 'Reel Stop 1',
+    layer: StageLayer.engineCore, locked: true, sortOrder: 3,
     hooks: ['onReelStop_r1'], suggestedBus: 'reels', priority: 'P0',
   ),
   ComposedStage(
     id: 'REEL_STOP_1', displayName: 'Reel Stop 2',
-    layer: StageLayer.engineCore, locked: true, sortOrder: 2,
+    layer: StageLayer.engineCore, locked: true, sortOrder: 4,
     hooks: ['onReelStop_r2'], suggestedBus: 'reels', priority: 'P0',
   ),
   ComposedStage(
     id: 'REEL_STOP_2', displayName: 'Reel Stop 3',
-    layer: StageLayer.engineCore, locked: true, sortOrder: 3,
+    layer: StageLayer.engineCore, locked: true, sortOrder: 5,
     hooks: ['onReelStop_r3'], suggestedBus: 'reels', priority: 'P0',
   ),
   ComposedStage(
     id: 'REEL_STOP_3', displayName: 'Reel Stop 4',
-    layer: StageLayer.engineCore, locked: true, sortOrder: 4,
+    layer: StageLayer.engineCore, locked: true, sortOrder: 6,
     hooks: ['onReelStop_r4'], suggestedBus: 'reels', priority: 'P0',
   ),
   ComposedStage(
     id: 'REEL_STOP_4', displayName: 'Reel Stop 5',
-    layer: StageLayer.engineCore, locked: true, sortOrder: 5,
+    layer: StageLayer.engineCore, locked: true, sortOrder: 7,
     hooks: ['onReelStop_r5'], suggestedBus: 'reels', priority: 'P0',
   ),
+
+  // ═══ Symbol Landing ═══
   ComposedStage(
     id: 'SYMBOL_LAND', displayName: 'Symbol Land',
-    layer: StageLayer.engineCore, locked: true, sortOrder: 6,
+    layer: StageLayer.engineCore, locked: true, sortOrder: 8,
     hooks: ['onSymbolLand'], suggestedBus: 'reels', priority: 'P0',
   ),
   ComposedStage(
-    id: 'WIN_TIER_1', displayName: 'Win Tier 1',
+    id: 'SYMBOL_LAND_WILD', displayName: 'Wild Symbol Land',
+    layer: StageLayer.engineCore, locked: true, sortOrder: 9,
+    hooks: ['onSymbolLand'], suggestedBus: 'sfx', priority: 'P0',
+  ),
+  ComposedStage(
+    id: 'SYMBOL_LAND_SCATTER', displayName: 'Scatter Symbol Land',
     layer: StageLayer.engineCore, locked: true, sortOrder: 10,
+    hooks: ['onSymbolLand'], suggestedBus: 'sfx', priority: 'P0',
+  ),
+  ComposedStage(
+    id: 'SYMBOL_LAND_BONUS', displayName: 'Bonus Symbol Land',
+    layer: StageLayer.engineCore, locked: true, sortOrder: 11,
+    hooks: ['onSymbolLand'], suggestedBus: 'sfx', priority: 'P0',
+  ),
+
+  // ═══ Win Evaluation & Tiers ═══
+  ComposedStage(
+    id: 'WIN_TIER_1', displayName: 'Win Tier 1',
+    layer: StageLayer.engineCore, locked: true, sortOrder: 20,
     hooks: ['onWinEvaluate_tier1'], suggestedBus: 'sfx', priority: 'P0',
   ),
   ComposedStage(
     id: 'WIN_TIER_2', displayName: 'Win Tier 2',
-    layer: StageLayer.engineCore, locked: true, sortOrder: 11,
+    layer: StageLayer.engineCore, locked: true, sortOrder: 21,
     hooks: ['onWinEvaluate_tier2'], suggestedBus: 'sfx', priority: 'P0',
   ),
   ComposedStage(
     id: 'WIN_TIER_3', displayName: 'Win Tier 3',
-    layer: StageLayer.engineCore, locked: true, sortOrder: 12,
+    layer: StageLayer.engineCore, locked: true, sortOrder: 22,
     hooks: ['onWinEvaluate_tier3'], suggestedBus: 'sfx', priority: 'P0',
   ),
   ComposedStage(
     id: 'WIN_TIER_4', displayName: 'Win Tier 4',
-    layer: StageLayer.engineCore, locked: true, sortOrder: 13,
+    layer: StageLayer.engineCore, locked: true, sortOrder: 23,
     hooks: ['onWinEvaluate_tier4'], suggestedBus: 'sfx', priority: 'P0',
   ),
   ComposedStage(
     id: 'WIN_TIER_5', displayName: 'Win Tier 5',
-    layer: StageLayer.engineCore, locked: true, sortOrder: 14,
+    layer: StageLayer.engineCore, locked: true, sortOrder: 24,
     hooks: ['onWinEvaluate_tier5'], suggestedBus: 'sfx', priority: 'P0',
+  ),
+
+  // ═══ Win Presentation ═══
+  ComposedStage(
+    id: 'WIN_SYMBOL_HIGHLIGHT', displayName: 'Win Symbol Highlight',
+    layer: StageLayer.engineCore, locked: true, sortOrder: 25,
+    hooks: ['onWinPresent'], suggestedBus: 'sfx', priority: 'P0',
+  ),
+  ComposedStage(
+    id: 'WIN_LINE_SHOW', displayName: 'Win Line Show',
+    layer: StageLayer.engineCore, locked: true, sortOrder: 26,
+    hooks: ['onWinPresent'], suggestedBus: 'sfx', priority: 'P0',
+  ),
+  ComposedStage(
+    id: 'WIN_COLLECT', displayName: 'Win Collect',
+    layer: StageLayer.engineCore, locked: true, sortOrder: 27,
+    hooks: ['onWinCollect'], suggestedBus: 'sfx', priority: 'P0',
+  ),
+
+  // ═══ Rollup / Countup ═══
+  ComposedStage(
+    id: 'ROLLUP_START', displayName: 'Rollup Start',
+    layer: StageLayer.engineCore, locked: true, sortOrder: 30,
+    hooks: ['onRollupStart'], suggestedBus: 'sfx', priority: 'P0',
+  ),
+  ComposedStage(
+    id: 'ROLLUP_TICK', displayName: 'Rollup Tick',
+    layer: StageLayer.engineCore, locked: true, sortOrder: 31,
+    hooks: ['onRollupTick'], suggestedBus: 'sfx', priority: 'P0',
+  ),
+  ComposedStage(
+    id: 'ROLLUP_END', displayName: 'Rollup End',
+    layer: StageLayer.engineCore, locked: true, sortOrder: 32,
+    hooks: ['onRollupEnd'], suggestedBus: 'sfx', priority: 'P0',
   ),
   ComposedStage(
     id: 'COUNTUP_TICK', displayName: 'Countup Tick',
-    layer: StageLayer.engineCore, locked: true, sortOrder: 20,
+    layer: StageLayer.engineCore, locked: true, sortOrder: 33,
     hooks: ['onCountUpTick'], suggestedBus: 'sfx', priority: 'P0',
   ),
   ComposedStage(
     id: 'COUNTUP_END', displayName: 'Countup End',
-    layer: StageLayer.engineCore, locked: true, sortOrder: 21,
+    layer: StageLayer.engineCore, locked: true, sortOrder: 34,
     hooks: ['onCountUpEnd'], suggestedBus: 'sfx', priority: 'P0',
+  ),
+
+  // ═══ Big Win Presentation ═══
+  ComposedStage(
+    id: 'BIG_WIN_INTRO', displayName: 'Big Win Intro',
+    layer: StageLayer.engineCore, locked: true, sortOrder: 35,
+    hooks: ['onBigWinStart'], suggestedBus: 'sfx', priority: 'P0',
+  ),
+  ComposedStage(
+    id: 'BIG_WIN_LOOP', displayName: 'Big Win Loop',
+    layer: StageLayer.engineCore, locked: true, sortOrder: 36,
+    hooks: ['onBigWinLoop'], suggestedBus: 'sfx', priority: 'P0',
+  ),
+  ComposedStage(
+    id: 'BIG_WIN_COINS', displayName: 'Big Win Coins',
+    layer: StageLayer.engineCore, locked: true, sortOrder: 37,
+    hooks: ['onBigWinCoins'], suggestedBus: 'sfx', priority: 'P0',
+  ),
+  ComposedStage(
+    id: 'BIG_WIN_END', displayName: 'Big Win End',
+    layer: StageLayer.engineCore, locked: true, sortOrder: 38,
+    hooks: ['onBigWinEnd'], suggestedBus: 'sfx', priority: 'P0',
+  ),
+
+  // ═══ Anticipation & Near Miss ═══
+  ComposedStage(
+    id: 'ANTICIPATION_ON', displayName: 'Anticipation On',
+    layer: StageLayer.engineCore, locked: true, sortOrder: 39,
+    hooks: ['onAnticipation'], suggestedBus: 'sfx', priority: 'P0',
+  ),
+  ComposedStage(
+    id: 'NEAR_MISS', displayName: 'Near Miss',
+    layer: StageLayer.engineCore, locked: true, sortOrder: 40,
+    hooks: ['onNearMiss'], suggestedBus: 'sfx', priority: 'P0',
   ),
 ];
 

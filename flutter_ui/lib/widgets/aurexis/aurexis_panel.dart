@@ -62,6 +62,13 @@ class _AurexisPanelState extends State<AurexisPanel> {
     _profile = GetIt.instance<AurexisProfileProvider>();
     _coverage = GetIt.instance<BehaviorCoverageProvider>();
     _smartCollapse = GetIt.instance<SmartCollapsingProvider>();
+
+    // Initialize AUREXIS engine and start tick loop if not already running
+    if (!_engine.initialized) {
+      _engine.initialize();
+    }
+    _engine.startTickLoop(intervalMs: 50);
+
     _engine.addListener(_onEngineUpdate);
     _profile.addListener(_onProfileUpdate);
     _coverage.addListener(_onEngineUpdate);

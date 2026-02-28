@@ -100,7 +100,7 @@ enum SymbolHighlightStyle {
 
 /// Win Presentation feature block
 class WinPresentationBlock extends FeatureBlockBase {
-  WinPresentationBlock() : super();
+  WinPresentationBlock() : super(enabled: true);
 
   @override
   String get id => 'win_presentation';

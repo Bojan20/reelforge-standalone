@@ -1133,11 +1133,18 @@ class _FeatureBuilderPanelState extends State<FeatureBuilderPanel>
                 return;
               }
 
-              // Generate stages
+              // Generate stages — block build if generation fails
               final stageResult = provider.generateStages();
-              if (stageResult.isValid) {
-                provider.exportStagesToConfiguration();
+              if (!stageResult.isValid) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Stage generation failed — check block dependencies'),
+                    backgroundColor: Color(0xFFFF4040),
+                  ),
+                );
+                return;
               }
+              provider.exportStagesToConfiguration();
 
               // Get grid configuration
               final gridBlock = provider.gridBlock;

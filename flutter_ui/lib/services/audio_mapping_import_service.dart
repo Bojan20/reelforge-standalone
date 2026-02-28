@@ -862,9 +862,22 @@ class AudioMappingImportService {
     'land': ['REEL_STOP_*', 'SYMBOL_LAND'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // SYMBOL LAND → SYMBOL_LAND
+    // SPIN END → SPIN_END
+    // ═══════════════════════════════════════════════════════════════════
+    'spin end': ['SPIN_END'],
+    'spin complete': ['SPIN_END'],
+    'spins end': ['SPIN_END'],
+
+    // ═══════════════════════════════════════════════════════════════════
+    // SYMBOL LAND → SYMBOL_LAND + typed variants
     // ═══════════════════════════════════════════════════════════════════
     'symbol land': ['SYMBOL_LAND'],
+    'wild land': ['SYMBOL_LAND_WILD', 'WILD_EXPAND'],
+    'wild symbol': ['SYMBOL_LAND_WILD'],
+    'scatter land': ['SYMBOL_LAND_SCATTER'],
+    'scatter symbol': ['SYMBOL_LAND_SCATTER'],
+    'bonus land': ['SYMBOL_LAND_BONUS'],
+    'bonus symbol land': ['SYMBOL_LAND_BONUS'],
 
     // ═══════════════════════════════════════════════════════════════════
     // WINS → WIN_TIER_1 through WIN_TIER_5
@@ -888,6 +901,9 @@ class AudioMappingImportService {
     'win end': ['WIN_TIER_1'],
     'win show': ['WIN_TIER_1'],
     'win line': ['WIN_LINE_SHOW'],
+    'win collect': ['WIN_COLLECT'],
+    'win highlight': ['WIN_SYMBOL_HIGHLIGHT'],
+    'symbol highlight': ['WIN_SYMBOL_HIGHLIGHT'],
 
     // ─── WIN multiplier tiers → WIN_TIER_N ──────────────────────────
     'win 1x': ['WIN_TIER_1'],
@@ -1015,17 +1031,16 @@ class AudioMappingImportService {
     // ═══════════════════════════════════════════════════════════════════
     'anticipation': ['ANTICIPATION_ON'],
     'tension': ['ANTICIPATION_ON'],
-    'near miss': ['ANTICIPATION_ON'],
+    'near miss': ['NEAR_MISS'],
+    'nearmiss': ['NEAR_MISS'],
 
     // ═══════════════════════════════════════════════════════════════════
     // WILDS → WILD_EXPAND, WILD_STICKY
     // ═══════════════════════════════════════════════════════════════════
-    'wild': ['WILD_EXPAND', 'SYMBOL_LAND'],
+    'wild': ['SYMBOL_LAND_WILD', 'WILD_EXPAND'],
     'wild expand': ['WILD_EXPAND'],
-    'wild land': ['WILD_EXPAND', 'SYMBOL_LAND'],
     'wild sticky': ['WILD_STICKY'],
-    'scatter': ['SYMBOL_LAND'],
-    'scatter land': ['SYMBOL_LAND'],
+    'scatter': ['SYMBOL_LAND_SCATTER', 'SYMBOL_LAND'],
 
     // ═══════════════════════════════════════════════════════════════════
     // UI → BUTTON_PRESS, BUTTON_RELEASE, POPUP_SHOW, POPUP_DISMISS
@@ -1047,8 +1062,8 @@ class AudioMappingImportService {
     'whoosh': ['FEATURE_ENTER'],
     'impact': ['SYMBOL_LAND'],
     'reveal': ['PICK_REVEAL', 'HOLD_WIN_REVEAL'],
-    'collect': ['SYMBOL_LAND'],
-    'coin collect': ['SYMBOL_LAND'],
+    'collect': ['WIN_COLLECT'],
+    'coin collect': ['WIN_COLLECT'],
 
     // ═══════════════════════════════════════════════════════════════════
     // NUDGE / RESPIN → REEL_NUDGE, RESPIN_START

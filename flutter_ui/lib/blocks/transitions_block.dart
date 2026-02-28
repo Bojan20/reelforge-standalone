@@ -1458,7 +1458,7 @@ class TransitionsBlock extends FeatureBlockBase {
             ));
           }
           stages.add(GeneratedStage(
-            name: 'BONUS_LEVEL_$level _ENTER',
+            name: 'BONUS_LEVEL_${level}_ENTER',
             description: 'Enter bonus game level $level',
             bus: 'sfx',
             priority: 78 + level,
