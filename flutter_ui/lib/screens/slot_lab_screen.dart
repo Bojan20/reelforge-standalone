@@ -3322,14 +3322,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
           const SizedBox(width: 8),
 
-          // Mini slot preview (shows last spin result)
-          SlotMiniPreview(
-            provider: _slotLabProvider,
-            size: 90,
-          ),
-
-          const SizedBox(width: 8),
-
           // View toggles
           _buildGlassButton(
             icon: Icons.folder_open,
@@ -3348,35 +3340,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             icon: Icons.settings,
             onTap: _showSettingsDialog,
             tooltip: 'Settings',
-          ),
-
-          // P2-12: Panel visibility toggles
-          const SizedBox(width: 8),
-          Container(
-            height: 24,
-            width: 1,
-            color: Colors.white24,
-          ),
-          const SizedBox(width: 8),
-          _buildGlassButton(
-            icon: Icons.view_sidebar,
-            onTap: _toggleLeftPanel,
-            tooltip: _leftPanelManuallyHidden ? 'Show Audio Panel' : 'Hide Audio Panel',
-            isActive: !_leftPanelManuallyHidden,
-          ),
-          const SizedBox(width: 2),
-          _buildGlassButton(
-            icon: Icons.auto_awesome,
-            onTap: () => setState(() => _leftPanelAurexisMode = !_leftPanelAurexisMode),
-            tooltip: _leftPanelAurexisMode ? 'Switch to Audio Panel' : 'Switch to AUREXIS',
-            isActive: _leftPanelAurexisMode,
-          ),
-          const SizedBox(width: 4),
-          _buildGlassButton(
-            icon: Icons.view_sidebar_outlined,
-            onTap: _toggleRightPanel,
-            tooltip: _rightPanelManuallyHidden ? 'Show Events Panel' : 'Hide Events Panel',
-            isActive: !_rightPanelManuallyHidden,
           ),
 
           const SizedBox(width: 8),

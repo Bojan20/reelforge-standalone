@@ -422,8 +422,9 @@ class _ControlBarState extends State<ControlBar> {
                   ),
 
                   // ═══════════════════════════════════════════════════════════
-                  // RIGHT SECTION - fixed, same as Glass
+                  // RIGHT SECTION - hidden in Slot mode (has own header)
                   // ═══════════════════════════════════════════════════════════
+                  if (widget.editorMode != EditorMode.slot)
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
