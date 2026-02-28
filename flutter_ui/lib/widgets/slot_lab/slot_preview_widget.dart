@@ -16,8 +16,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:intl/intl.dart';
+import 'package:get_it/get_it.dart';
 import '../../models/win_tier_config.dart';
 import '../../providers/slot_lab_project_provider.dart';
+import '../../services/stage_configuration_service.dart';
 import '../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../services/event_registry.dart';
 import '../../services/win_analytics_service.dart';
@@ -820,6 +822,51 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // SAFETY NET: Ensure audio assignment is in EventRegistry before triggering
+  // ═══════════════════════════════════════════════════════════════════════════
+  void _ensureAudioRegistered(String stageUppercase) {
+    if (eventRegistry.hasEventForStage(stageUppercase)) return;
+    final projectProvider = GetIt.instance<SlotLabProjectProvider>();
+    final audioPath = projectProvider.getAudioAssignment(stageUppercase);
+    if (audioPath == null || audioPath.isEmpty) return;
+
+    final shouldLoop = StageConfigurationService.instance.isLooping(stageUppercase);
+    final isMusicStage = stageUppercase.startsWith('MUSIC_') ||
+        stageUppercase == 'GAME_START' || stageUppercase == 'BASE_GAME_START';
+    final busId = isMusicStage ? 1 : 2;
+
+    double pan = 0.0;
+    if (stageUppercase.startsWith('REEL_STOP_')) {
+      final idx = int.tryParse(stageUppercase.replaceAll('REEL_STOP_', ''));
+      if (idx != null) {
+        const pans = [-0.8, -0.4, 0.0, 0.4, 0.8];
+        if (idx >= 0 && idx < pans.length) pan = pans[idx];
+      }
+    }
+
+    eventRegistry.registerEvent(AudioEvent(
+      id: 'audio_$stageUppercase',
+      name: stageUppercase.replaceAll('_', ' '),
+      stage: stageUppercase,
+      layers: [
+        AudioLayer(
+          id: 'layer_$stageUppercase',
+          name: '${stageUppercase.replaceAll('_', ' ')} Audio',
+          audioPath: audioPath,
+          volume: 1.0,
+          pan: pan,
+          delay: 0.0,
+          busId: busId,
+        ),
+      ],
+      loop: shouldLoop,
+      overlap: !isMusicStage && !shouldLoop,
+      crossfadeMs: isMusicStage ? 500 : 0,
+      targetBusId: busId,
+    ));
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // VISUAL-SYNC CALLBACKS — Audio triggers on VISUAL reel stop
   // IGT STANDARD: Reels MUST stop in order 0→1→2→3→4, audio fires sequentially
   // ═══════════════════════════════════════════════════════════════════════════
@@ -949,6 +996,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // ═══════════════════════════════════════════════════════════════════════════
 
     // 1. REEL_STOP AUDIO — Primary reel landing sound
+    // Safety net: ensure per-reel and generic stop events are registered
+    _ensureAudioRegistered('REEL_STOP_$reelIndex');
+    _ensureAudioRegistered('REEL_STOP');
     eventRegistry.triggerStage('REEL_STOP_$reelIndex', context: {'timestamp_ms': timestampMs});
 
     // 2. SPECIAL SYMBOL LAND EVENTS — Trigger when WILD, SCATTER, BONUS land on reel
@@ -1555,7 +1605,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _reelAnimController.startSpin();
 
     // Trigger spin loop audio when reel animation starts
-    // Let EventRegistry handle looping based on event registration (StageConfigurationService)
+    // Safety net: ensure REEL_SPIN_LOOP is registered before triggering
+    _ensureAudioRegistered('REEL_SPIN_LOOP');
     eventRegistry.triggerStage('REEL_SPIN_LOOP');
   }
 

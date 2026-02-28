@@ -1690,6 +1690,9 @@ class EventRegistry extends ChangeNotifier {
   /// Proveri da li je stage registrovan
   bool hasEventForStage(String stage) => _stageToEvent.containsKey(stage);
 
+  /// Proveri da li postoji event sa datim ID-om
+  bool hasEventWithId(String eventId) => _events.containsKey(eventId);
+
   /// Proveri da li se event trenutno reprodukuje
   bool isEventPlaying(String eventId) =>
       _playingInstances.any((i) => i.eventId == eventId);

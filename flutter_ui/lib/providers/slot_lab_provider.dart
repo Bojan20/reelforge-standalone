@@ -18,12 +18,16 @@ import '../services/stage_audio_mapper.dart';
 import '../services/event_registry.dart';
 import '../services/audio_pool.dart';
 import '../services/audio_asset_manager.dart';
+import '../services/stage_configuration_service.dart';
 import '../services/unified_playback_controller.dart';
 import '../services/win_analytics_service.dart';
 import '../src/rust/native_ffi.dart';
 import '../src/rust/slot_lab_v2_ffi.dart';
+import 'package:get_it/get_it.dart';
+
 import 'middleware_provider.dart';
 import 'ale_provider.dart';
+import 'slot_lab_project_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // P7.2.3: ANTICIPATION CONFIGURATION TYPE — Industry-standard trigger rules
@@ -1535,6 +1539,60 @@ class SlotLabProvider extends ChangeNotifier {
     return (effectiveStage: effectiveStage, volumeMultiplier: volumeMultiplier);
   }
 
+  /// Ensure audio assignment is registered in EventRegistry before triggering.
+  /// SAFETY NET: If audioAssignment exists in SlotLabProjectProvider but NOT in
+  /// EventRegistry (e.g., cleared by sync, race condition, or re-init), re-register
+  /// it immediately so playback works reliably.
+  void _ensureAudioRegistered(String stageUppercase) {
+    if (eventRegistry.hasEventForStage(stageUppercase)) return;
+    // Check if audio assignment exists in project provider
+    final projectProvider = GetIt.instance<SlotLabProjectProvider>();
+    final audioPath = projectProvider.getAudioAssignment(stageUppercase);
+    if (audioPath == null || audioPath.isEmpty) return;
+
+    final stageConfig = StageConfigurationService.instance;
+    final shouldLoop = stageConfig.isLooping(stageUppercase);
+    // Bus: music=1 for MUSIC_*/GAME_START, sfx=2 for everything else
+    final s = stageUppercase;
+    final isMusicStage = s.startsWith('MUSIC_') || s.startsWith('ATTRACT_') ||
+        s.startsWith('AMBIENT_') || s.startsWith('IDLE_') ||
+        s == 'GAME_START' || s == 'BASE_GAME_START';
+    final busId = isMusicStage ? 1 : 2;
+    final shouldOverlap = !isMusicStage && !shouldLoop;
+    final crossfadeMs = isMusicStage ? 500 : 0;
+
+    // Per-reel panning for REEL_STOP_$i
+    double pan = 0.0;
+    if (s.startsWith('REEL_STOP_')) {
+      final idx = int.tryParse(s.replaceAll('REEL_STOP_', ''));
+      if (idx != null) {
+        const pans = [-0.8, -0.4, 0.0, 0.4, 0.8];
+        if (idx >= 0 && idx < pans.length) pan = pans[idx];
+      }
+    }
+
+    eventRegistry.registerEvent(AudioEvent(
+      id: 'audio_$stageUppercase',
+      name: stageUppercase.replaceAll('_', ' '),
+      stage: stageUppercase,
+      layers: [
+        AudioLayer(
+          id: 'layer_$stageUppercase',
+          name: '${stageUppercase.replaceAll('_', ' ')} Audio',
+          audioPath: audioPath,
+          volume: 1.0,
+          pan: pan,
+          delay: 0.0,
+          busId: busId,
+        ),
+      ],
+      loop: shouldLoop,
+      overlap: shouldOverlap,
+      crossfadeMs: crossfadeMs,
+      targetBusId: busId,
+    ));
+  }
+
   /// Trigger audio for a stage event
   /// CRITICAL: Uses ONLY EventRegistry. Legacy systems DISABLED to prevent duplicate audio.
   void _triggerStage(SlotLabStageEvent stage) {
@@ -1785,20 +1843,18 @@ class SlotLabProvider extends ChangeNotifier {
       }
     }
 
-    // Probaj specifičan stage prvo, pa fallback na generički
-    // P1.2: Koristi `context` umesto `stage.payload` da volumeMultiplier prođe
-    // ALWAYS call triggerStage() - EventRegistry will notify Event Log even for stages without audio
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SAFETY NET: Ensure audio assignments are registered before triggering.
+    // If EventRegistry lost the event (sync, re-init, composite overwrite),
+    // re-register from SlotLabProjectProvider.audioAssignments.
+    // ═══════════════════════════════════════════════════════════════════════════
+    _ensureAudioRegistered(effectiveStage);
+    if (effectiveStage != stageType) {
+      _ensureAudioRegistered(stageType);
+    }
+
     final bool hasSpecific = eventRegistry.hasEventForStage(effectiveStage);
     final bool hasFallback = effectiveStage != stageType && eventRegistry.hasEventForStage(stageType);
-    final bool hasGeneric = eventRegistry.hasEventForStage(stageType);
-
-    // DEBUG: Log which path is taken for REEL_STOP
-    if (stageType == 'REEL_STOP') {
-      // List all registered stages containing REEL
-      final allReelStages = eventRegistry.registeredStages
-          .where((s) => s.contains('REEL'))
-          .toList();
-    }
 
     // SPIN_END is handled below with guard — skip general trigger to prevent double audio
     if (stageType != 'SPIN_END') {
@@ -1824,6 +1880,10 @@ class SlotLabProvider extends ChangeNotifier {
     // MUSIC AUTO-TRIGGER: Start base music / game start on first SPIN_START
     // Each event tracked independently so assigning one doesn't block the other
     if (stageType == 'SPIN_START') {
+      // Safety net: ensure music events are registered before checking
+      _ensureAudioRegistered('MUSIC_BASE');
+      _ensureAudioRegistered('GAME_START');
+
       if (!_baseMusicStarted && eventRegistry.hasEventForStage('MUSIC_BASE')) {
         eventRegistry.triggerStage('MUSIC_BASE', context: context);
         _baseMusicStarted = true;

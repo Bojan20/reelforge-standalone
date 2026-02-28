@@ -9964,8 +9964,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     for (int i = 0; i < stages.length; i++) {
       final stage = stages[i];
 
-      // Don't overwrite direct audio assignments from UltimateAudioPanel
-      if (audioAssignments.containsKey(stage)) {
+      // Don't overwrite direct audio assignments from UltimateAudioPanel.
+      // Check BOTH the provider map AND if EventRegistry already has an audio_$stage event
+      // (safety: audioAssignments might use slightly different key casing)
+      if (audioAssignments.containsKey(stage) ||
+          eventRegistry.hasEventWithId('audio_$stage')) {
         continue;
       }
 
