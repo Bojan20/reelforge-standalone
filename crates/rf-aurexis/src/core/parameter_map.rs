@@ -82,6 +82,18 @@ pub struct DeterministicParameterMap {
     /// Transient events per minute.
     pub transient_density_per_min: f64,
 
+    // ═══ ENERGY GOVERNANCE ═══
+    /// Per-domain energy caps [Dynamic, Transient, Spatial, Harmonic, Temporal]. Each 0.0–1.0.
+    pub energy_caps: [f64; 5],
+    /// Overall energy cap (average of domain caps). 0.0–1.0.
+    pub energy_overall_cap: f64,
+    /// Session Memory factor. 0.7–1.0.
+    pub session_memory_sm: f64,
+    /// Voice budget: maximum allowed voices at current energy level.
+    pub voice_budget_max: u32,
+    /// Voice budget ratio (0.5, 0.7, or 0.9).
+    pub voice_budget_ratio: f64,
+
     // ═══ SEED ═══
     /// Current deterministic variation seed.
     pub variation_seed: u64,
@@ -131,6 +143,12 @@ impl Default for DeterministicParameterMap {
             rms_exposure_avg_db: -60.0,
             hf_exposure_cumulative: 0.0,
             transient_density_per_min: 0.0,
+            // Energy Governance
+            energy_caps: [0.5; 5],
+            energy_overall_cap: 0.5,
+            session_memory_sm: 1.0,
+            voice_budget_max: 40,
+            voice_budget_ratio: 0.7,
             // Seed
             variation_seed: 0,
             is_deterministic: true,
@@ -172,6 +190,10 @@ impl DeterministicParameterMap {
             "hf_exposure_cumulative" => Some(self.hf_exposure_cumulative),
             "transient_density_per_min" => Some(self.transient_density_per_min),
             "variation_seed" => Some(self.variation_seed as f64),
+            "energy_overall_cap" => Some(self.energy_overall_cap),
+            "session_memory_sm" => Some(self.session_memory_sm),
+            "voice_budget_max" => Some(self.voice_budget_max as f64),
+            "voice_budget_ratio" => Some(self.voice_budget_ratio),
             _ => None,
         }
     }

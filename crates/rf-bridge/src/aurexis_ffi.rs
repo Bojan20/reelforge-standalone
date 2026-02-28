@@ -27,7 +27,7 @@ const STATE_INITIALIZING: u8 = 1;
 const STATE_INITIALIZED: u8 = 2;
 
 static AUREXIS_STATE: AtomicU8 = AtomicU8::new(STATE_UNINITIALIZED);
-static ENGINE: Lazy<RwLock<Option<AurexisEngine>>> = Lazy::new(|| RwLock::new(None));
+pub(crate) static ENGINE: Lazy<RwLock<Option<AurexisEngine>>> = Lazy::new(|| RwLock::new(None));
 static CONFIG: Lazy<RwLock<AurexisConfig>> = Lazy::new(|| RwLock::new(AurexisConfig::default()));
 
 // ═══════════════════════════════════════════════════════════════════════════════

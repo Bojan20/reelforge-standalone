@@ -22999,5 +22999,256 @@ extension TimeStretchFFI on NativeFFI {
       return 0;
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ENERGY GOVERNANCE (GEG)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set active slot profile (0-8)
+  int gegSetProfile(int profileIndex) {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Uint8), int Function(int)>(
+          'geg_set_profile');
+      return fn(profileIndex);
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Get current slot profile index (0-8)
+  int gegGetProfile() {
+    try {
+      final fn = _lib.lookupFunction<Uint8 Function(), int Function()>(
+          'geg_get_profile');
+      return fn();
+    } catch (e) {
+      return 255;
+    }
+  }
+
+  /// Get slot profile name by index
+  String? gegProfileName(int profileIndex) {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(Uint8),
+          Pointer<Utf8> Function(int)>('geg_profile_name');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('geg_free_string');
+      final ptr = fn(profileIndex);
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get number of slot profiles
+  int gegProfileCount() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>(
+          'geg_profile_count');
+      return fn();
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Set active escalation curve (0-5)
+  int gegSetCurve(int curveIndex) {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Uint8), int Function(int)>(
+          'geg_set_curve');
+      return fn(curveIndex);
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Get active escalation curve index (0-5)
+  int gegGetCurve() {
+    try {
+      final fn = _lib.lookupFunction<Uint8 Function(), int Function()>(
+          'geg_get_curve');
+      return fn();
+    } catch (e) {
+      return 255;
+    }
+  }
+
+  /// Record a spin result for session memory
+  int gegRecordSpin(double winMultiplier, bool isFeature, bool isJackpot) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Double, Int32, Int32),
+          int Function(double, int, int)>('geg_record_spin');
+      return fn(winMultiplier, isFeature ? 1 : 0, isJackpot ? 1 : 0);
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Get current Session Memory factor (SM)
+  double gegGetSessionMemory() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+          'geg_get_session_memory');
+      return fn();
+    } catch (e) {
+      return 1.0;
+    }
+  }
+
+  /// Get total spins recorded
+  int gegGetTotalSpins() {
+    try {
+      final fn = _lib.lookupFunction<Uint64 Function(), int Function()>(
+          'geg_get_total_spins');
+      return fn();
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Get current loss streak length
+  int gegGetLossStreak() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>(
+          'geg_get_loss_streak');
+      return fn();
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Check if feature storm is active
+  bool gegIsFeatureStorm() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+          'geg_is_feature_storm');
+      return fn() != 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Check if jackpot compression is active
+  bool gegIsJackpotCompression() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+          'geg_is_jackpot_compression');
+      return fn() != 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Reset session memory
+  int gegResetSession() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+          'geg_reset_session');
+      return fn();
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Get energy cap for a specific domain (0-4)
+  double gegDomainCap(int domain) {
+    try {
+      final fn = _lib.lookupFunction<Double Function(Uint8), double Function(int)>(
+          'geg_domain_cap');
+      return fn(domain);
+    } catch (e) {
+      return -1.0;
+    }
+  }
+
+  /// Get overall energy cap
+  double gegOverallCap() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+          'geg_overall_cap');
+      return fn();
+    } catch (e) {
+      return 0.5;
+    }
+  }
+
+  /// Get all 5 domain caps
+  List<double>? gegAllDomainCaps() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(Pointer<Double>),
+          int Function(Pointer<Double>)>('geg_all_domain_caps');
+      final buffer = calloc<Double>(5);
+      final result = fn(buffer);
+      if (result == 0) {
+        calloc.free(buffer);
+        return null;
+      }
+      final caps = List<double>.generate(5, (i) => buffer[i]);
+      calloc.free(buffer);
+      return caps;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get current max voice count
+  int gegVoiceBudgetMax() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>(
+          'geg_voice_budget_max');
+      return fn();
+    } catch (e) {
+      return 40;
+    }
+  }
+
+  /// Get current voice budget ratio
+  double gegVoiceBudgetRatio() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+          'geg_voice_budget_ratio');
+      return fn();
+    } catch (e) {
+      return 0.7;
+    }
+  }
+
+  /// Get energy config JSON for bake
+  String? gegEnergyConfigJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('geg_energy_config_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('geg_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get slot profile JSON for bake
+  String? gegSlotProfileJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('geg_slot_profile_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('geg_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (e) {
+      return null;
+    }
+  }
 }
 

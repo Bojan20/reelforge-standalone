@@ -71,6 +71,7 @@ import '../controllers/middleware_timeline_sync_controller.dart';
 import '../providers/event_folder_provider.dart';
 import '../providers/aurexis_provider.dart';
 import '../providers/device_preview_provider.dart';
+import '../providers/energy_governance_provider.dart';
 import '../providers/aurexis_audit_provider.dart';
 import '../providers/aurexis_profile_provider.dart';
 import '../providers/slot_lab/behavior_tree_provider.dart';
@@ -306,6 +307,13 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<DevicePreviewProvider>(
       () => DevicePreviewProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 6.0: Energy Governance Provider (GEG — Global Energy Governance)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<EnergyGovernanceProvider>(
+      () => EnergyGovernanceProvider(sl<NativeFFI>()),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════

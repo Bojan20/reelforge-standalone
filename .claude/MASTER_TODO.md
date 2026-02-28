@@ -24,7 +24,7 @@ COMPLETED SYSTEMS:
 
 PENDING SYSTEMS (ordered by dependency):
   P-SRC: Audio Engine SRC Fixes ✅ (already implemented)
-  P-GEG: Global Energy Governance (12 tasks)
+  P-GEG: Global Energy Governance ✅ (12/12 complete)
   P-DPM: Dynamic Priority Matrix — full logic (10 tasks)
   P-SAMCL: Spectral Allocation & Masking (12 tasks)
   P-PBSE: Pre-Bake Simulation Engine (10 tasks)
@@ -72,25 +72,25 @@ FUTURE:                P-GAD (needs all), P-SSS (enterprise)
 
 ---
 
-## P-GEG: Global Energy Governance & Slot Profiles
+## P-GEG: Global Energy Governance & Slot Profiles ✅ COMPLETE
 
 **Spec:** FLUXFORGE_MASTER_SPEC.md §5
 **Formula:** `FinalCap = min(1.0, EI × SP × SM)`
 
 | # | Task | Status |
 |---|------|--------|
-| GEG-1 | `rf-aurexis/energy/governance.rs` — EnergyGovernor struct, 5 energy domains (Dynamic, Transient, Spatial, Harmonic, Temporal) | ⬜ |
-| GEG-2 | `rf-aurexis/energy/slot_profiles.rs` — 9 slot profiles (HIGH_VOL, MED_VOL, LOW_VOL, CASCADE_HEAVY, FEATURE_HEAVY, JACKPOT_FOCUSED, CLASSIC_3_REEL, CLUSTER_PAY, MEGAWAYS) | ⬜ |
-| GEG-3 | `rf-aurexis/energy/escalation.rs` — 5 escalation curves (LINEAR, LOG, EXP, CAPPED_EXP, STEP) | ⬜ |
-| GEG-4 | `rf-aurexis/energy/session_memory.rs` — SessionMemory (SM ∈ [0.7–1.0]), loss streak softening, feature storm cooldown, jackpot compression | ⬜ |
-| GEG-5 | Voice budget enforcement: PeakEnergy→90%, MidEnergy→70%, LowEnergy→50% | ⬜ |
-| GEG-6 | Unit tests for energy governance (20+ tests) | ⬜ |
-| GEG-7 | FFI bridge: ~15 functions for GEG (lifecycle, profile, energy query, session memory) | ⬜ |
-| GEG-8 | Dart FFI bindings + EnergyGovernanceProvider | ⬜ |
-| GEG-9 | GetIt registration (Layer 6) | ⬜ |
-| GEG-10 | Wire GEG output to AUREXIS parameter map | ⬜ |
-| GEG-11 | Energy Budget Bar widget (per-domain breakdown) | ⬜ |
-| GEG-12 | Bake output: `geg_energy_config.json`, `geg_slot_profile.json` | ⬜ |
+| GEG-1 | `rf-aurexis/energy/governance.rs` — EnergyGovernor struct, 5 energy domains | ✅ |
+| GEG-2 | `rf-aurexis/energy/slot_profiles.rs` — 9 slot profiles with per-domain caps | ✅ |
+| GEG-3 | `rf-aurexis/energy/escalation.rs` — 6 escalation curves (LINEAR, LOG, EXP, CAPPED_EXP, STEP, SCURVE) | ✅ |
+| GEG-4 | `rf-aurexis/energy/session_memory.rs` — SessionMemory (SM ∈ [0.7–1.0]) | ✅ |
+| GEG-5 | Voice budget enforcement: Peak→90%, Mid→70%, Low→50% | ✅ |
+| GEG-6 | Unit tests (28+ tests across 4 modules, 136 total in rf-aurexis) | ✅ |
+| GEG-7 | FFI bridge: 18 functions in `energy_governance_ffi.rs` | ✅ |
+| GEG-8 | Dart FFI bindings + EnergyGovernanceProvider | ✅ |
+| GEG-9 | GetIt registration (Layer 6.0) | ✅ |
+| GEG-10 | Wire GEG output to AUREXIS parameter map (Stage 10 in engine.rs) | ✅ |
+| GEG-11 | Energy Budget Bar widget (per-domain breakdown) | ✅ |
+| GEG-12 | Bake output: JSON via `geg_energy_config_json()`, `geg_slot_profile_json()` | ✅ |
 
 ---
 
@@ -324,7 +324,7 @@ All complete. See backup for details.
 | System | Tasks | Done | Remaining |
 |--------|-------|------|-----------|
 | P-SRC | 5 | 5 | 0 ✅ |
-| P-GEG | 12 | 0 | 12 |
+| P-GEG | 12 | 12 | 0 ✅ |
 | P-DPM | 10 | 0 | 10 |
 | P-SAMCL | 12 | 0 | 12 |
 | P-PBSE | 10 | 0 | 10 |
@@ -334,7 +334,7 @@ All complete. See backup for details.
 | P-SAM | 10 | 0 | 10 |
 | P-UCP | 8 | 0 | 8 |
 | P-MWUI | 8 | 0 | 8 |
-| **TOTAL** | **109** | **19** | **90** |
+| **TOTAL** | **109** | **31** | **78** |
 | FUTURE (GAD+SSS) | ~25 | 0 | deferred |
 
 ---

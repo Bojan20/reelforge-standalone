@@ -2,6 +2,7 @@ use crate::core::config::AurexisConfig;
 use crate::core::parameter_map::{DeterministicParameterMap, EscalationCurveType};
 use crate::core::state::AurexisState;
 use crate::collision::{PanRedistributor, VoiceCollisionResolver};
+use crate::energy::EnergyGovernor;
 use crate::escalation::WinEscalationEngine;
 use crate::geometry::AttentionVectorEngine;
 use crate::platform::{PlatformAdapter, PlatformProfile};
@@ -26,6 +27,7 @@ pub struct AurexisEngine {
     fatigue_tracker: SessionFatigueTracker,
     collision_resolver: VoiceCollisionResolver,
     attention_engine: AttentionVectorEngine,
+    energy_governor: EnergyGovernor,
 
     // ═══ OUTPUT ═══
     output: DeterministicParameterMap,
@@ -45,6 +47,7 @@ impl AurexisEngine {
             fatigue_tracker,
             collision_resolver: VoiceCollisionResolver::new(),
             attention_engine: AttentionVectorEngine::new(),
+            energy_governor: EnergyGovernor::new(),
             output: DeterministicParameterMap::default(),
             tick_count: 0,
             initialized: false,
@@ -60,6 +63,7 @@ impl AurexisEngine {
             fatigue_tracker,
             collision_resolver: VoiceCollisionResolver::new(),
             attention_engine: AttentionVectorEngine::new(),
+            energy_governor: EnergyGovernor::new(),
             output: DeterministicParameterMap::default(),
             tick_count: 0,
             initialized: false,
@@ -80,6 +84,7 @@ impl AurexisEngine {
         self.fatigue_tracker.reset();
         self.collision_resolver.clear();
         self.attention_engine.clear();
+        self.energy_governor.reset_session();
         self.output = DeterministicParameterMap::default();
         self.tick_count = 0;
         log::info!("AUREXIS: Session reset");
@@ -136,6 +141,21 @@ impl AurexisEngine {
     /// Clear all screen events.
     pub fn clear_screen_events(&mut self) {
         self.attention_engine.clear();
+    }
+
+    /// Get energy governor reference.
+    pub fn energy_governor(&self) -> &EnergyGovernor {
+        &self.energy_governor
+    }
+
+    /// Get mutable energy governor reference.
+    pub fn energy_governor_mut(&mut self) -> &mut EnergyGovernor {
+        &mut self.energy_governor
+    }
+
+    /// Record a spin result for session memory.
+    pub fn record_spin(&mut self, win_multiplier: f64, is_feature: bool, is_jackpot: bool) {
+        self.energy_governor.record_spin(win_multiplier, is_feature, is_jackpot);
     }
 
     // ═══════════════════════════════════════════════
@@ -315,6 +335,23 @@ impl AurexisEngine {
         let pacing_factor = 1.0 - (pacing.build_time_ms / self.config.rtp.build_time_max_ms);
         map.reverb_send_bias += pacing_factor * 0.3;
         map.reverb_send_bias = map.reverb_send_bias.clamp(-1.0, 1.0);
+
+        // ─── STAGE 10: ENERGY GOVERNANCE ───
+        // Derive emotional intensity per domain from current pipeline state
+        let ei = [
+            map.energy_density,                                         // Dynamic
+            map.transient_sharpness.clamp(0.0, 2.0) / 2.0,            // Transient (normalize)
+            map.stereo_width.clamp(0.0, 2.0) / 2.0,                   // Spatial (normalize)
+            (map.harmonic_excitation - 1.0).clamp(0.0, 1.0),          // Harmonic (0=neutral)
+            (map.transient_density_per_min / 30.0).clamp(0.0, 1.0),   // Temporal (normalize)
+        ];
+        let budget = self.energy_governor.compute(ei);
+        map.energy_caps = budget.caps;
+        map.energy_overall_cap = budget.overall_cap;
+        map.session_memory_sm = self.energy_governor.session_memory().sm();
+        let vb = self.energy_governor.voice_budget();
+        map.voice_budget_max = vb.max_voices;
+        map.voice_budget_ratio = vb.budget_ratio;
 
         // Store output
         self.output = map.clone();

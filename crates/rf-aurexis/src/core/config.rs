@@ -23,6 +23,9 @@ pub struct AurexisConfig {
 
     // ═══ PLATFORM ═══
     pub platform: PlatformConfig,
+
+    // ═══ ENERGY GOVERNANCE ═══
+    pub energy: EnergyConfig,
 }
 
 impl Default for AurexisConfig {
@@ -35,6 +38,7 @@ impl Default for AurexisConfig {
             escalation: EscalationConfig::default(),
             variation: VariationConfig::default(),
             platform: PlatformConfig::default(),
+            energy: EnergyConfig::default(),
         }
     }
 }
@@ -57,6 +61,7 @@ impl AurexisConfig {
             "collision" => self.collision.set(key, value),
             "escalation" => self.escalation.set(key, value),
             "variation" => self.variation.set(key, value),
+            "energy" => self.energy.set(key, value),
             _ => false,
         }
     }
@@ -385,6 +390,49 @@ pub enum PlatformType {
     Mobile,
     Headphones,
     Cabinet,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnergyConfig {
+    /// Default slot profile index (0-8 matching SlotProfile enum order).
+    pub default_profile: u8,
+    /// Loss streak threshold before SM starts dropping.
+    pub loss_streak_threshold: u32,
+    /// Maximum SM drop from loss streak.
+    pub loss_streak_max_drop: f64,
+    /// Feature storm window size (spins).
+    pub feature_storm_window: u32,
+    /// Feature count threshold for storm activation.
+    pub feature_storm_threshold: u32,
+    /// Jackpot compression duration (spins).
+    pub jackpot_compression_spins: u32,
+}
+
+impl Default for EnergyConfig {
+    fn default() -> Self {
+        Self {
+            default_profile: 1, // MediumVolatility
+            loss_streak_threshold: 5,
+            loss_streak_max_drop: 0.15,
+            feature_storm_window: 20,
+            feature_storm_threshold: 3,
+            jackpot_compression_spins: 30,
+        }
+    }
+}
+
+impl EnergyConfig {
+    fn set(&mut self, key: &str, value: f64) -> bool {
+        match key {
+            "default_profile" => { self.default_profile = value as u8; true }
+            "loss_streak_threshold" => { self.loss_streak_threshold = value as u32; true }
+            "loss_streak_max_drop" => { self.loss_streak_max_drop = value; true }
+            "feature_storm_window" => { self.feature_storm_window = value as u32; true }
+            "feature_storm_threshold" => { self.feature_storm_threshold = value as u32; true }
+            "jackpot_compression_spins" => { self.jackpot_compression_spins = value as u32; true }
+            _ => false,
+        }
+    }
 }
 
 #[cfg(test)]
