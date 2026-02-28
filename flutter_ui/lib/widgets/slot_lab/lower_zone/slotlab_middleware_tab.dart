@@ -1,14 +1,14 @@
 /// SlotLab Middleware Tab — Lower Zone Sub-Tab Content
 ///
-/// Compact panels for all middleware providers:
-/// - Behavior: Tree view with coverage stats
-/// - Triggers: Hook→Node binding list
-/// - Gate: State machine with current substate
-/// - Priority: Active resolutions + conflict log
-/// - Orchestration: Current decisions + emotion-aware shaping
-/// - Emotional: State + decay meter + spin memory
-/// - Context: Game mode overrides
-/// - Simulation: Mode selector + results
+/// Interactive panels for all middleware providers:
+/// - Behavior: Tree view with select, inspect, coverage
+/// - Triggers: AutoBind toggle, enable/disable bindings
+/// - Gate: State transitions, autoplay/turbo, volatility
+/// - Priority: Active behaviors, conflict resolution, clear
+/// - Orchestration: Context sliders, decisions view
+/// - Emotional: Manual event triggers, output meters
+/// - Context: Game mode selector, override editor
+/// - Simulation: Run/step/stop, validation, transitions
 
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
@@ -22,6 +22,10 @@ import '../../../providers/slot_lab/context_layer_provider.dart';
 import '../../../providers/slot_lab/simulation_engine_provider.dart';
 import '../../../providers/slot_lab/transition_system_provider.dart';
 import '../../../providers/slot_lab/error_prevention_provider.dart';
+import '../../../providers/slot_lab/behavior_coverage_provider.dart';
+import '../../../providers/slot_lab/inspector_context_provider.dart';
+import '../../../providers/slot_lab/smart_collapsing_provider.dart';
+import '../../../providers/slot_lab/slotlab_notification_provider.dart';
 import '../../../models/behavior_tree_models.dart';
 import '../../lower_zone/lower_zone_types.dart';
 
@@ -46,7 +50,7 @@ class SlotLabMiddlewareTabContent extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// BEHAVIOR — Tree view with coverage
+// BEHAVIOR — Tree view with select, inspect, coverage, collapsing
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _BehaviorPanel extends StatelessWidget {
@@ -54,19 +58,31 @@ class _BehaviorPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = GetIt.instance<BehaviorTreeProvider>();
+    final tree = GetIt.instance<BehaviorTreeProvider>();
+    final coverage = GetIt.instance<BehaviorCoverageProvider>();
+    final inspector = GetIt.instance<InspectorContextProvider>();
+    final collapsing = GetIt.instance<SmartCollapsingProvider>();
+
     return ListenableBuilder(
-      listenable: provider,
+      listenable: Listenable.merge([tree, coverage, collapsing]),
       builder: (context, _) {
-        final tree = provider.tree;
-        final nodes = tree.nodes;
+        final nodes = tree.tree.nodes;
+        final covPct = tree.coveragePercent;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _header('Behavior Tree', '${nodes.length} nodes — ${nodes.values.where((n) => n.hasAudio).length}/${nodes.length} with audio'),
+            _headerWithActions(
+              'Behavior Tree',
+              '${nodes.length} nodes — ${(covPct * 100).toStringAsFixed(0)}% coverage',
+              actions: [
+                _headerBtn(Icons.unfold_less, 'Collapse All', () => collapsing.collapseAll()),
+                _headerBtn(Icons.unfold_more, 'Expand All', () => collapsing.expandAll()),
+                _headerBtn(Icons.restart_alt, 'Reset States', () => tree.resetAllNodeStates()),
+              ],
+            ),
             Expanded(
               child: nodes.isEmpty
-                  ? const Center(child: Text('No behavior nodes defined', style: TextStyle(color: Colors.white38, fontSize: 11)))
+                  ? _emptyState('No behavior nodes defined')
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       itemCount: BehaviorCategory.values.length,
@@ -74,7 +90,23 @@ class _BehaviorPanel extends StatelessWidget {
                         final cat = BehaviorCategory.values[catIdx];
                         final catNodes = nodes.values.where((n) => n.category == cat).toList();
                         if (catNodes.isEmpty) return const SizedBox.shrink();
-                        return _CategorySection(category: cat, nodes: catNodes);
+                        final isCollapsed = collapsing.isCategoryCollapsed(cat);
+                        final catCoverage = tree.coverageByCategory[cat];
+                        return _CategorySection(
+                          category: cat,
+                          nodes: catNodes,
+                          isCollapsed: isCollapsed,
+                          coveragePct: catCoverage?.percent ?? 0,
+                          selectedNodeId: tree.selectedNodeId,
+                          onToggleCollapse: () => collapsing.toggleCategory(cat),
+                          onSelectNode: (node) {
+                            tree.selectNode(node.id);
+                            inspector.selectNode(node.id, node);
+                          },
+                          onMarkVerified: (nodeId) {
+                            coverage.markVerified(nodeId, 'manual');
+                          },
+                        );
                       },
                     ),
             ),
@@ -88,20 +120,62 @@ class _BehaviorPanel extends StatelessWidget {
 class _CategorySection extends StatelessWidget {
   final BehaviorCategory category;
   final List<BehaviorNode> nodes;
+  final bool isCollapsed;
+  final double coveragePct;
+  final String? selectedNodeId;
+  final VoidCallback onToggleCollapse;
+  final ValueChanged<BehaviorNode> onSelectNode;
+  final ValueChanged<String> onMarkVerified;
 
-  const _CategorySection({required this.category, required this.nodes});
+  const _CategorySection({
+    required this.category,
+    required this.nodes,
+    required this.isCollapsed,
+    required this.coveragePct,
+    required this.selectedNodeId,
+    required this.onToggleCollapse,
+    required this.onSelectNode,
+    required this.onMarkVerified,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final color = _catColor(category);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 6, bottom: 2),
-          child: Text(category.displayName, style: TextStyle(color: _catColor(category), fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+        GestureDetector(
+          onTap: onToggleCollapse,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 2),
+            child: Row(
+              children: [
+                Icon(isCollapsed ? Icons.chevron_right : Icons.expand_more, size: 12, color: color),
+                const SizedBox(width: 2),
+                Text(category.displayName, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+                const Spacer(),
+                Text('${nodes.length}', style: TextStyle(color: color.withValues(alpha: 0.5), fontSize: 9)),
+                const SizedBox(width: 6),
+                _coverageDot(coveragePct),
+              ],
+            ),
+          ),
         ),
-        ...nodes.map((n) => _NodeRow(node: n)),
+        if (!isCollapsed) ...nodes.map((n) => _InteractiveNodeRow(
+          node: n,
+          isSelected: n.id == selectedNodeId,
+          onSelect: () => onSelectNode(n),
+          onMarkVerified: () => onMarkVerified(n.id),
+        )),
       ],
+    );
+  }
+
+  Widget _coverageDot(double pct) {
+    final color = pct >= 0.8 ? const Color(0xFF40FF90) : pct >= 0.5 ? const Color(0xFFFFD700) : const Color(0xFFFF4060);
+    return Container(
+      width: 6, height: 6,
+      decoration: BoxDecoration(shape: BoxShape.circle, color: color),
     );
   }
 
@@ -116,29 +190,50 @@ class _CategorySection extends StatelessWidget {
   };
 }
 
-class _NodeRow extends StatelessWidget {
+class _InteractiveNodeRow extends StatelessWidget {
   final BehaviorNode node;
-  const _NodeRow({required this.node});
+  final bool isSelected;
+  final VoidCallback onSelect;
+  final VoidCallback onMarkVerified;
+
+  const _InteractiveNodeRow({
+    required this.node,
+    required this.isSelected,
+    required this.onSelect,
+    required this.onMarkVerified,
+  });
 
   @override
   Widget build(BuildContext context) {
     final hasSounds = node.hasAudio;
-    return Padding(
-      padding: const EdgeInsets.only(left: 12, bottom: 1),
-      child: Row(
-        children: [
-          Icon(hasSounds ? Icons.volume_up : Icons.volume_off, size: 10, color: hasSounds ? const Color(0xFF40FF90) : Colors.white24),
-          const SizedBox(width: 4),
-          Expanded(child: Text(node.nodeType.displayName, style: const TextStyle(color: Colors.white70, fontSize: 11), overflow: TextOverflow.ellipsis)),
-          Text(node.basicParams.priorityClass.name, style: const TextStyle(color: Colors.white30, fontSize: 9)),
-        ],
+    return GestureDetector(
+      onTap: onSelect,
+      child: Container(
+        margin: const EdgeInsets.only(left: 12, bottom: 1),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+        decoration: isSelected
+            ? BoxDecoration(color: const Color(0xFF40C8FF).withValues(alpha: 0.12), borderRadius: BorderRadius.circular(2))
+            : null,
+        child: Row(
+          children: [
+            Icon(hasSounds ? Icons.volume_up : Icons.volume_off, size: 10, color: hasSounds ? const Color(0xFF40FF90) : Colors.white24),
+            const SizedBox(width: 4),
+            Expanded(child: Text(node.nodeType.displayName, style: TextStyle(color: isSelected ? const Color(0xFF40C8FF) : Colors.white70, fontSize: 11), overflow: TextOverflow.ellipsis)),
+            Text(node.basicParams.priorityClass.name, style: const TextStyle(color: Colors.white30, fontSize: 9)),
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: onMarkVerified,
+              child: const Icon(Icons.verified_outlined, size: 10, color: Colors.white24),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// TRIGGERS — Hook→Node bindings
+// TRIGGERS — AutoBind toggle, enable/disable, binding management
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _TriggersPanel extends StatelessWidget {
@@ -147,18 +242,33 @@ class _TriggersPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = GetIt.instance<TriggerLayerProvider>();
+    final notif = GetIt.instance<SlotLabNotificationProvider>();
     return ListenableBuilder(
       listenable: provider,
       builder: (context, _) {
         final bindings = provider.bindings.values.toList();
         final unbound = provider.unboundHooks;
+        final autoEnabled = provider.autoBindingsEnabled;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _header('Trigger Bindings', '${bindings.length} hooks — ${unbound.length} unbound'),
+            _headerWithActions(
+              'Trigger Bindings',
+              '${bindings.length} hooks — ${unbound.length} unbound',
+              actions: [
+                _toggleChip('Auto', autoEnabled, (v) => provider.setAutoBindingsEnabled(v)),
+                const SizedBox(width: 4),
+                _headerBtn(Icons.auto_fix_high, 'Generate', () {
+                  provider.generateAutoBindings();
+                  final bound = provider.bindings.length;
+                  notif.pushAutoBindResult(bound, unbound.length, 0);
+                }),
+                _headerBtn(Icons.delete_sweep, 'Clear All', () => provider.clearAllBindings()),
+              ],
+            ),
             Expanded(
               child: bindings.isEmpty
-                  ? const Center(child: Text('No trigger bindings\nCall initializeMiddleware() to auto-generate', textAlign: TextAlign.center, style: TextStyle(color: Colors.white38, fontSize: 11)))
+                  ? _emptyState('No trigger bindings\nTap Generate to auto-create')
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       itemCount: bindings.length,
@@ -168,18 +278,36 @@ class _TriggersPanel extends StatelessWidget {
                           padding: const EdgeInsets.only(bottom: 2),
                           child: Row(
                             children: [
-                              Icon(b.enabled ? Icons.link : Icons.link_off, size: 10, color: b.enabled ? const Color(0xFF40C8FF) : Colors.white24),
+                              // Toggle enable/disable
+                              GestureDetector(
+                                onTap: () => provider.setBindingEnabled(b.hookName, !b.enabled),
+                                child: Icon(b.enabled ? Icons.link : Icons.link_off, size: 10, color: b.enabled ? const Color(0xFF40C8FF) : Colors.white24),
+                              ),
                               const SizedBox(width: 4),
-                              Expanded(child: Text(b.hookName, style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'monospace'), overflow: TextOverflow.ellipsis)),
+                              Expanded(child: Text(b.hookName, style: TextStyle(color: b.enabled ? Colors.white70 : Colors.white30, fontSize: 11, fontFamily: 'monospace'), overflow: TextOverflow.ellipsis)),
                               Text('→ ${b.targetNodeIds.length}', style: const TextStyle(color: Colors.white38, fontSize: 10)),
                               if (b.delayMs > 0)
                                 Padding(padding: const EdgeInsets.only(left: 4), child: Text('+${b.delayMs}ms', style: const TextStyle(color: Colors.orangeAccent, fontSize: 9))),
+                              const SizedBox(width: 4),
+                              // Remove binding
+                              GestureDetector(
+                                onTap: () => provider.removeBinding(b.hookName),
+                                child: const Icon(Icons.close, size: 10, color: Colors.white24),
+                              ),
                             ],
                           ),
                         );
                       },
                     ),
             ),
+            // Unbound hooks indicator
+            if (unbound.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.1)))),
+                child: Text('${unbound.length} unbound: ${unbound.take(3).join(", ")}${unbound.length > 3 ? "..." : ""}',
+                    style: const TextStyle(color: Color(0xFFFF9040), fontSize: 9)),
+              ),
           ],
         );
       },
@@ -188,7 +316,7 @@ class _TriggersPanel extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// GATE — State machine
+// GATE — State transitions, autoplay/turbo, volatility
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _GatePanel extends StatelessWidget {
@@ -201,13 +329,25 @@ class _GatePanel extends StatelessWidget {
       listenable: provider,
       builder: (context, _) {
         final current = provider.currentSubstate;
-        final blockedCount = provider.blockedCount;
         final history = provider.history;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _header('State Gate', 'Current: ${current.displayName}'),
-            // Substate chips
+            _headerWithActions(
+              'State Gate',
+              'Current: ${current.displayName}',
+              actions: [
+                _toggleChip('Auto', provider.isAutoplay, (v) => provider.setAutoplay(v)),
+                const SizedBox(width: 2),
+                _toggleChip('Turbo', provider.isTurbo, (v) => provider.setTurbo(v)),
+                const SizedBox(width: 2),
+                _headerBtn(Icons.restart_alt, 'Reset', () {
+                  provider.resetToIdle();
+                  provider.clearHistory();
+                }),
+              ],
+            ),
+            // State chips — clickable for transitions
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Wrap(
@@ -215,31 +355,61 @@ class _GatePanel extends StatelessWidget {
                 runSpacing: 4,
                 children: GameplaySubstate.values.map((s) {
                   final isCurrent = s == current;
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: isCurrent ? const Color(0xFF40FF90).withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(3),
-                      border: isCurrent ? Border.all(color: const Color(0xFF40FF90), width: 1) : null,
+                  return GestureDetector(
+                    onTap: isCurrent ? null : () => provider.transitionTo(s),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isCurrent ? const Color(0xFF40FF90).withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(3),
+                        border: isCurrent ? Border.all(color: const Color(0xFF40FF90), width: 1) : null,
+                      ),
+                      child: Text(s.name, style: TextStyle(color: isCurrent ? const Color(0xFF40FF90) : Colors.white54, fontSize: 10)),
                     ),
-                    child: Text(s.name, style: TextStyle(color: isCurrent ? const Color(0xFF40FF90) : Colors.white38, fontSize: 10)),
                   );
                 }).toList(),
               ),
             ),
-            // Blocked count
-            if (blockedCount > 0)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text('Blocked: $blockedCount hooks', style: const TextStyle(color: Color(0xFFFF4060), fontSize: 10)),
+            // Volatility slider
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                children: [
+                  const Text('Volatility', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                  Expanded(
+                    child: SliderTheme(
+                      data: _compactSlider(const Color(0xFFFF9040)),
+                      child: Slider(
+                        value: provider.volatilityIndex,
+                        min: 0.0,
+                        max: 1.0,
+                        onChanged: (v) => provider.setVolatilityIndex(v),
+                      ),
+                    ),
+                  ),
+                  Text('${(provider.volatilityIndex * 100).toStringAsFixed(0)}%', style: const TextStyle(color: Color(0xFFFF9040), fontSize: 10)),
+                ],
               ),
+            ),
+            // Blocked/passed counts
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                children: [
+                  Text('Passed: ${provider.passedCount}', style: const TextStyle(color: Color(0xFF40FF90), fontSize: 10)),
+                  const SizedBox(width: 12),
+                  Text('Blocked: ${provider.blockedCount}', style: const TextStyle(color: Color(0xFFFF4060), fontSize: 10)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
             // Gate check history
             Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 itemCount: history.length.clamp(0, 50),
                 itemBuilder: (ctx, i) {
-                  final entry = history[history.length - 1 - i]; // reverse
+                  final entry = history[history.length - 1 - i];
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 1),
                     child: Row(
@@ -262,7 +432,7 @@ class _GatePanel extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PRIORITY — Resolutions
+// PRIORITY — Active behaviors, conflict log, clear
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _PriorityPanel extends StatelessWidget {
@@ -279,10 +449,50 @@ class _PriorityPanel extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _header('Priority Engine', '${active.length} active — ${history.length} resolutions'),
+            _headerWithActions(
+              'Priority Engine',
+              '${active.length} active — ${history.length} resolutions',
+              actions: [
+                _headerBtn(Icons.clear_all, 'Clear Log', () => provider.clearLog()),
+                _headerBtn(Icons.delete_forever, 'Clear All', () => provider.clearAll()),
+              ],
+            ),
+            // Active behaviors
+            if (active.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06)))),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Active', style: TextStyle(color: Colors.white38, fontSize: 9, letterSpacing: 0.5)),
+                    const SizedBox(height: 2),
+                    ...active.values.map((ab) => Padding(
+                      padding: const EdgeInsets.only(bottom: 1),
+                      child: Row(
+                        children: [
+                          Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, color: _priorityClassColor(ab.priorityClass))),
+                          const SizedBox(width: 4),
+                          Expanded(child: Text(ab.nodeId, style: const TextStyle(color: Colors.white70, fontSize: 11), overflow: TextOverflow.ellipsis)),
+                          Text(ab.priorityClass.name, style: TextStyle(color: _priorityClassColor(ab.priorityClass), fontSize: 9)),
+                          const SizedBox(width: 4),
+                          if (ab.currentGain < 1.0)
+                            Text('${(20 * _log10(ab.currentGain)).toStringAsFixed(1)}dB', style: const TextStyle(color: Color(0xFFFFD700), fontSize: 9)),
+                          const SizedBox(width: 4),
+                          GestureDetector(
+                            onTap: () => provider.removeBehavior(ab.nodeId),
+                            child: const Icon(Icons.close, size: 10, color: Colors.white24),
+                          ),
+                        ],
+                      ),
+                    )),
+                  ],
+                ),
+              ),
+            // Resolution log
             Expanded(
               child: history.isEmpty
-                  ? const Center(child: Text('No priority resolutions yet', style: TextStyle(color: Colors.white38, fontSize: 11)))
+                  ? _emptyState('No priority resolutions')
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       itemCount: history.length.clamp(0, 50),
@@ -292,10 +502,12 @@ class _PriorityPanel extends StatelessWidget {
                           padding: const EdgeInsets.only(bottom: 2),
                           child: Row(
                             children: [
-                              _priorityDot(res.action),
+                              Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, color: _actionColor(res.action))),
                               const SizedBox(width: 4),
                               Expanded(child: Text('${res.winnerId} > ${res.loserId}', style: const TextStyle(color: Colors.white70, fontSize: 11), overflow: TextOverflow.ellipsis)),
-                              Text(res.action.name, style: TextStyle(color: _priorityColor(res.action), fontSize: 10)),
+                              Text(res.action.name, style: TextStyle(color: _actionColor(res.action), fontSize: 10)),
+                              if (res.action == PriorityConflictAction.duck)
+                                Text(' ${res.duckAmountDb.toStringAsFixed(0)}dB', style: const TextStyle(color: Color(0xFFFFD700), fontSize: 9)),
                             ],
                           ),
                         );
@@ -308,19 +520,38 @@ class _PriorityPanel extends StatelessWidget {
     );
   }
 
-  Widget _priorityDot(PriorityConflictAction action) {
-    return Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, color: _priorityColor(action)));
-  }
+  Color _priorityClassColor(BehaviorPriorityClass pc) => switch (pc) {
+    BehaviorPriorityClass.critical => const Color(0xFFFF4060),
+    BehaviorPriorityClass.core => const Color(0xFFFF6040),
+    BehaviorPriorityClass.high => const Color(0xFFFF9040),
+    BehaviorPriorityClass.medium => const Color(0xFFFFD700),
+    BehaviorPriorityClass.low => const Color(0xFF40C8FF),
+    BehaviorPriorityClass.ambient => const Color(0xFF607D8B),
+  };
 
-  Color _priorityColor(PriorityConflictAction action) => switch (action) {
+  Color _actionColor(PriorityConflictAction action) => switch (action) {
     PriorityConflictAction.duck => const Color(0xFFFFD700),
     PriorityConflictAction.delay => const Color(0xFFFF9040),
     PriorityConflictAction.suppress => const Color(0xFFFF4060),
   };
+
+  static double _log10(double x) => x > 0 ? 0.4342944819032518 * _ln(x) : -100;
+  static double _ln(double x) {
+    if (x <= 0) return -100;
+    // Simple ln approximation for display only
+    double result = 0;
+    double term = (x - 1) / (x + 1);
+    double power = term;
+    for (int i = 0; i < 20; i++) {
+      result += power / (2 * i + 1);
+      power *= term * term;
+    }
+    return 2 * result;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ORCHESTRATION — Current decisions
+// ORCHESTRATION — Context sliders, decisions
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _OrchestrationPanel extends StatelessWidget {
@@ -332,36 +563,74 @@ class _OrchestrationPanel extends StatelessWidget {
     return ListenableBuilder(
       listenable: provider,
       builder: (context, _) {
+        final ctx = provider.context;
         final decisions = provider.decisions;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _header('Orchestration Engine', '${decisions.length} active decisions'),
+            _headerWithActions(
+              'Orchestration',
+              '${decisions.length} decisions',
+              actions: [
+                _headerBtn(Icons.clear_all, 'Clear Log', () => provider.clearLog()),
+                _headerBtn(Icons.delete_sweep, 'Clear Decisions', () => provider.clearDecisions()),
+              ],
+            ),
+            // Context parameter sliders
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              child: Column(
+                children: [
+                  _contextSlider('Escalation', ctx.escalationIndex, 0.0, 1.0, const Color(0xFFFF4060), (v) {
+                    provider.updateEscalation(index: v);
+                  }),
+                  _contextSlider('Chain Depth', ctx.chainDepth.toDouble(), 0, 10, const Color(0xFF9370DB), (v) {
+                    provider.updateEscalation(chainDepth: v.round());
+                  }),
+                  _contextSlider('Win Magnitude', ctx.winMagnitude, 0.0, 100.0, const Color(0xFFFFD700), (v) {
+                    provider.updateEscalation(winMagnitude: v);
+                  }),
+                ],
+              ),
+            ),
+            // Active decisions
             Expanded(
               child: decisions.isEmpty
-                  ? const Center(child: Text('No orchestration decisions\nProcess hooks to generate', textAlign: TextAlign.center, style: TextStyle(color: Colors.white38, fontSize: 11)))
+                  ? _emptyState('No orchestration decisions')
                   : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       itemCount: decisions.length,
                       itemBuilder: (ctx, i) {
                         final d = decisions.values.elementAt(i);
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
+                          padding: const EdgeInsets.only(bottom: 3),
                           child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.04), borderRadius: BorderRadius.circular(4)),
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: d.suppressed ? const Color(0xFFFF4060).withValues(alpha: 0.08) : Colors.white.withValues(alpha: 0.04),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(d.nodeId, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600)),
+                                Row(
+                                  children: [
+                                    if (d.suppressed)
+                                      const Padding(padding: EdgeInsets.only(right: 4), child: Icon(Icons.volume_off, size: 10, color: Color(0xFFFF4060))),
+                                    Expanded(child: Text(d.nodeId, style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis)),
+                                    if (d.triggerDelayMs > 0) Text('+${d.triggerDelayMs}ms', style: const TextStyle(color: Colors.orangeAccent, fontSize: 9)),
+                                  ],
+                                ),
                                 const SizedBox(height: 2),
                                 Row(
                                   children: [
                                     _miniBar('Gain', d.gainBiasDb, -12, 6, const Color(0xFF40FF90)),
-                                    const SizedBox(width: 8),
+                                    const SizedBox(width: 6),
                                     _miniBar('Width', d.stereoWidthScale, 0, 2, const Color(0xFF40C8FF)),
-                                    const SizedBox(width: 8),
+                                    const SizedBox(width: 6),
                                     _miniBar('Pan', d.spatialBias, -1, 1, const Color(0xFF9370DB)),
+                                    const SizedBox(width: 6),
+                                    _miniBar('Trans', d.transientShaping, -1, 1, const Color(0xFFFFD700)),
                                   ],
                                 ),
                               ],
@@ -374,6 +643,24 @@ class _OrchestrationPanel extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  Widget _contextSlider(String label, double value, double min, double max, Color color, ValueChanged<double> onChanged) {
+    return SizedBox(
+      height: 20,
+      child: Row(
+        children: [
+          SizedBox(width: 70, child: Text(label, style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 10))),
+          Expanded(
+            child: SliderTheme(
+              data: _compactSlider(color),
+              child: Slider(value: value.clamp(min, max), min: min, max: max, onChanged: onChanged),
+            ),
+          ),
+          SizedBox(width: 32, child: Text(value.toStringAsFixed(value == value.roundToDouble() ? 0 : 1), style: TextStyle(color: color, fontSize: 10), textAlign: TextAlign.right)),
+        ],
+      ),
     );
   }
 
@@ -401,7 +688,7 @@ class _OrchestrationPanel extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// EMOTIONAL — State + decay
+// EMOTIONAL — Manual event triggers, output meters, reset
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _EmotionalPanel extends StatelessWidget {
@@ -415,11 +702,17 @@ class _EmotionalPanel extends StatelessWidget {
       builder: (context, _) {
         final state = provider.state;
         final output = provider.output;
-        final spinHistory = provider.spinHistory;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _header('Emotional State', state.name),
+            _headerWithActions(
+              'Emotional State',
+              state.name,
+              actions: [
+                _headerBtn(Icons.restart_alt, 'Reset', () => provider.reset()),
+              ],
+            ),
+            // State display
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Wrap(
@@ -445,28 +738,77 @@ class _EmotionalPanel extends StatelessWidget {
               child: Row(
                 children: [
                   _miniMeter('Intensity', output.intensity, const Color(0xFFFF4060)),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   _miniMeter('Tension', output.tension, const Color(0xFFFF9040)),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   _miniMeter('Width', (output.stereoWidthMod - 1.0).clamp(0.0, 1.0), const Color(0xFF40C8FF)),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   _miniMeter('Shimmer', output.hfShimmer, const Color(0xFFFFD700)),
                 ],
               ),
             ),
             const SizedBox(height: 4),
-            // Spin history
+            // History stats
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
-                'History: ${spinHistory.length} spins | Losses: ${provider.consecutiveLossCount} streak | Cascade: ${provider.cascadeDepth}',
+                '${provider.spinHistory.length} spins | ${provider.consecutiveLossCount} loss streak | cascade: ${provider.cascadeDepth}',
                 style: const TextStyle(color: Colors.white38, fontSize: 10),
+              ),
+            ),
+            const SizedBox(height: 4),
+            // Manual event trigger buttons
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                children: [
+                  const Text('Test:', style: TextStyle(color: Colors.white38, fontSize: 9)),
+                  const SizedBox(width: 4),
+                  _eventBtn('Spin', const Color(0xFF40C8FF), () {
+                    provider.onSpinStart();
+                    provider.onSpinResult(winAmount: 0, betAmount: 1.0);
+                  }),
+                  _eventBtn('Win', const Color(0xFF40FF90), () {
+                    provider.onSpinResult(winAmount: 10, betAmount: 1.0, multiplier: 10);
+                  }),
+                  _eventBtn('Cascade', const Color(0xFF9370DB), () {
+                    provider.onCascadeStart();
+                    provider.onCascadeStep(1);
+                  }),
+                  _eventBtn('Big Win', const Color(0xFFFFD700), () {
+                    provider.onBigWin(3);
+                  }),
+                  _eventBtn('Antic', const Color(0xFFFF9040), () {
+                    provider.onAnticipation(2);
+                  }),
+                  _eventBtn('Tick', const Color(0xFF607D8B), () {
+                    provider.tick(0.5);
+                  }),
+                ],
               ),
             ),
             const Spacer(),
           ],
         );
       },
+    );
+  }
+
+  Widget _eventBtn(String label, Color color, VoidCallback onTap) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 3),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(3),
+            border: Border.all(color: color.withValues(alpha: 0.3), width: 0.5),
+          ),
+          child: Text(label, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w600)),
+        ),
+      ),
     );
   }
 
@@ -503,7 +845,7 @@ class _EmotionalPanel extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CONTEXT — Game mode overrides
+// CONTEXT — Game mode selector + per-node override management
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _ContextPanel extends StatelessWidget {
@@ -512,14 +854,29 @@ class _ContextPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = GetIt.instance<ContextLayerProvider>();
+    final tree = GetIt.instance<BehaviorTreeProvider>();
     return ListenableBuilder(
-      listenable: provider,
+      listenable: Listenable.merge([provider, tree]),
       builder: (context, _) {
         final mode = provider.currentMode;
+        final selectedId = tree.selectedNodeId;
+        final nodes = tree.tree.nodes;
+        // Count total overrides
+        int totalOverrides = 0;
+        for (final nodeId in nodes.keys) {
+          totalOverrides += provider.getOverrideCount(nodeId);
+        }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _header('Context Layer', 'Mode: ${mode.name}'),
+            _headerWithActions(
+              'Context Layer',
+              'Mode: ${mode.name} — $totalOverrides overrides',
+              actions: [
+                _headerBtn(Icons.delete_sweep, 'Clear All', () => provider.clearAll()),
+              ],
+            ),
+            // Mode selector
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Wrap(
@@ -542,15 +899,12 @@ class _ContextPanel extends StatelessWidget {
                 }).toList(),
               ),
             ),
-            // Mode description
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text(
-                'Active game mode: ${mode.name} — drop audio overrides per-mode',
-                style: const TextStyle(color: Colors.white38, fontSize: 10),
-              ),
+            // Node overrides for current mode
+            Expanded(
+              child: selectedId != null
+                  ? _NodeOverrideView(nodeId: selectedId, mode: mode, provider: provider)
+                  : _OverrideSummary(nodes: nodes, mode: mode, provider: provider),
             ),
-            const Spacer(),
           ],
         );
       },
@@ -558,8 +912,111 @@ class _ContextPanel extends StatelessWidget {
   }
 }
 
+class _NodeOverrideView extends StatelessWidget {
+  final String nodeId;
+  final GameMode mode;
+  final ContextLayerProvider provider;
+
+  const _NodeOverrideView({required this.nodeId, required this.mode, required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final ovr = provider.getCurrentOverride(nodeId);
+    final hasOverride = ovr != null && ovr.hasOverrides;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.tune, size: 10, color: hasOverride ? const Color(0xFF40C8FF) : Colors.white38),
+              const SizedBox(width: 4),
+              Expanded(child: Text('Overrides for "$nodeId" in ${mode.name}', style: const TextStyle(color: Colors.white54, fontSize: 10))),
+              if (hasOverride)
+                GestureDetector(
+                  onTap: () => provider.removeOverride(nodeId, mode),
+                  child: const Icon(Icons.close, size: 10, color: Colors.white38),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          if (hasOverride) ...[
+            if (ovr.gainDb != null) Text('  Gain: ${ovr.gainDb!.toStringAsFixed(1)} dB', style: const TextStyle(color: Colors.white54, fontSize: 10)),
+            if (ovr.priority != null) Text('  Priority: ${ovr.priority}', style: const TextStyle(color: Colors.white54, fontSize: 10)),
+            if (ovr.playbackMode != null) Text('  Playback: ${ovr.playbackMode!.name}', style: const TextStyle(color: Colors.white54, fontSize: 10)),
+            if (ovr.stereoWidth != null) Text('  Stereo Width: ${ovr.stereoWidth!.toStringAsFixed(1)}', style: const TextStyle(color: Colors.white54, fontSize: 10)),
+            if (ovr.active != null) Text('  Active: ${ovr.active}', style: const TextStyle(color: Colors.white54, fontSize: 10)),
+          ] else
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: GestureDetector(
+                onTap: () {
+                  provider.setOverride(ContextOverrideSet(
+                    behaviorNodeId: nodeId,
+                    gameMode: mode,
+                    gainDb: 0,
+                  ));
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: const Text('+ Add Override', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OverrideSummary extends StatelessWidget {
+  final Map<String, BehaviorNode> nodes;
+  final GameMode mode;
+  final ContextLayerProvider provider;
+
+  const _OverrideSummary({required this.nodes, required this.mode, required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final nodesWithOverrides = nodes.keys.where((id) => provider.hasOverrides(id)).toList();
+    if (nodesWithOverrides.isEmpty) {
+      return _emptyState('No context overrides\nSelect a node in Behavior tab to add');
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      itemCount: nodesWithOverrides.length,
+      itemBuilder: (ctx, i) {
+        final nodeId = nodesWithOverrides[i];
+        final count = provider.getOverrideCount(nodeId);
+        final hasForMode = provider.getOverride(nodeId, mode) != null;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 2),
+          child: Row(
+            children: [
+              Icon(Icons.tune, size: 10, color: hasForMode ? const Color(0xFF40C8FF) : Colors.white24),
+              const SizedBox(width: 4),
+              Expanded(child: Text(nodeId, style: const TextStyle(color: Colors.white70, fontSize: 11), overflow: TextOverflow.ellipsis)),
+              Text('$count modes', style: const TextStyle(color: Colors.white38, fontSize: 10)),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: () => provider.removeAllOverrides(nodeId),
+                child: const Icon(Icons.close, size: 10, color: Colors.white24),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
-// SIMULATION — Mode + Results
+// SIMULATION — Run/step/stop, validation, transition rules
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _SimulationPanel extends StatelessWidget {
@@ -570,16 +1027,37 @@ class _SimulationPanel extends StatelessWidget {
     final sim = GetIt.instance<SimulationEngineProvider>();
     final transition = GetIt.instance<TransitionSystemProvider>();
     final errors = GetIt.instance<ErrorPreventionProvider>();
+    final tree = GetIt.instance<BehaviorTreeProvider>();
     return ListenableBuilder(
       listenable: Listenable.merge([sim, transition, errors]),
       builder: (context, _) {
-        final validations = errors.issues;
+        final isRunning = sim.isRunning;
         final errorCount = errors.errorCount;
         final warnCount = errors.warningCount;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _header('Simulation & Validation', 'Mode: ${sim.mode.name}'),
+            _headerWithActions(
+              'Simulation & Validation',
+              isRunning ? '${(sim.progress * 100).toStringAsFixed(0)}% (${sim.currentStep}/${sim.totalSteps})' : 'Mode: ${sim.mode.name}',
+              actions: [
+                // Validate button
+                _headerBtn(
+                  errors.isClean ? Icons.check_circle : Icons.warning,
+                  'Validate',
+                  () => errors.validate(tree.tree),
+                  color: errors.isClean ? const Color(0xFF40FF90) : (errorCount > 0 ? const Color(0xFFFF4060) : const Color(0xFFFFD700)),
+                ),
+                // Run/Stop/Step controls
+                if (!isRunning) ...[
+                  _headerBtn(Icons.play_arrow, 'Run', () => sim.start(), color: const Color(0xFF40FF90)),
+                  _headerBtn(Icons.skip_next, 'Step', () => sim.step()),
+                ] else ...[
+                  _headerBtn(Icons.stop, 'Stop', () => sim.stop(), color: const Color(0xFFFF4060)),
+                ],
+                _headerBtn(Icons.restart_alt, 'Reset', () => sim.reset()),
+              ],
+            ),
             // Simulation mode selector
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -589,7 +1067,7 @@ class _SimulationPanel extends StatelessWidget {
                 children: SimulationMode.values.map((m) {
                   final isCurrent = m == sim.mode;
                   return GestureDetector(
-                    onTap: () => sim.setMode(m),
+                    onTap: isRunning ? null : () => sim.setMode(m),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
@@ -603,27 +1081,56 @@ class _SimulationPanel extends StatelessWidget {
                 }).toList(),
               ),
             ),
-            // Transition rules
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text('Transition rules: ${transition.allRules.length}', style: const TextStyle(color: Colors.white38, fontSize: 10)),
-            ),
-            const SizedBox(height: 4),
-            // Validation results
-            if (validations.isNotEmpty)
+            // Validation summary
+            if (errors.issues.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  'Validation: $errorCount errors, $warnCount warnings',
-                  style: TextStyle(color: errorCount > 0 ? const Color(0xFFFF4060) : const Color(0xFFFFD700), fontSize: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                child: Row(
+                  children: [
+                    if (errorCount > 0) ...[
+                      Icon(Icons.error, size: 10, color: const Color(0xFFFF4060)),
+                      const SizedBox(width: 2),
+                      Text('$errorCount errors', style: const TextStyle(color: Color(0xFFFF4060), fontSize: 10)),
+                      const SizedBox(width: 8),
+                    ],
+                    if (warnCount > 0) ...[
+                      Icon(Icons.warning, size: 10, color: const Color(0xFFFFD700)),
+                      const SizedBox(width: 2),
+                      Text('$warnCount warnings', style: const TextStyle(color: Color(0xFFFFD700), fontSize: 10)),
+                    ],
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => errors.clearIssues(),
+                      child: const Text('Clear', style: TextStyle(color: Colors.white38, fontSize: 9)),
+                    ),
+                  ],
                 ),
               ),
+            // Transition rules count
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                children: [
+                  Text('Transition rules: ${transition.allRules.length}', style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                  const Spacer(),
+                  if (transition.isTransitioning)
+                    Text('Transitioning ${(transition.activeTransition!.progress * 100).toStringAsFixed(0)}%',
+                        style: const TextStyle(color: Color(0xFF9370DB), fontSize: 10)),
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: () => transition.resetDefaults(),
+                    child: const Text('Reset Rules', style: TextStyle(color: Colors.white38, fontSize: 9)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
             // Results list
             Expanded(
               child: sim.history.isEmpty
-                  ? const Center(child: Text('No simulation results', style: TextStyle(color: Colors.white38, fontSize: 11)))
+                  ? _emptyState('No simulation results\nSelect a mode and tap Run')
                   : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       itemCount: sim.history.length.clamp(0, 20),
                       itemBuilder: (ctx, i) {
                         final r = sim.history[sim.history.length - 1 - i];
@@ -635,6 +1142,8 @@ class _SimulationPanel extends StatelessWidget {
                               const SizedBox(width: 4),
                               Expanded(child: Text('${r.mode.name} — ${r.totalSpins} spins', style: const TextStyle(color: Colors.white70, fontSize: 11), overflow: TextOverflow.ellipsis)),
                               Text('${r.hooksFired} hooks', style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                              if (r.gateBlocks > 0)
+                                Padding(padding: const EdgeInsets.only(left: 4), child: Text('${r.gateBlocks}blk', style: const TextStyle(color: Color(0xFFFF4060), fontSize: 9))),
                             ],
                           ),
                         );
@@ -652,16 +1161,64 @@ class _SimulationPanel extends StatelessWidget {
 // SHARED HELPERS
 // ═══════════════════════════════════════════════════════════════════════════
 
-Widget _header(String title, String subtitle) {
+Widget _headerWithActions(String title, String subtitle, {List<Widget> actions = const []}) {
   return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
     decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1)))),
     child: Row(
       children: [
         Text(title, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         Expanded(child: Text(subtitle, style: const TextStyle(color: Colors.white38, fontSize: 10), overflow: TextOverflow.ellipsis)),
+        ...actions,
       ],
     ),
+  );
+}
+
+Widget _headerBtn(IconData icon, String tooltip, VoidCallback onTap, {Color color = Colors.white38}) {
+  return Padding(
+    padding: const EdgeInsets.only(left: 3),
+    child: Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(2),
+          child: Icon(icon, size: 14, color: color),
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _toggleChip(String label, bool value, ValueChanged<bool> onChanged) {
+  return GestureDetector(
+    onTap: () => onChanged(!value),
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: value ? const Color(0xFF40FF90).withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: value ? const Color(0xFF40FF90).withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.1), width: 0.5),
+      ),
+      child: Text(label, style: TextStyle(color: value ? const Color(0xFF40FF90) : Colors.white38, fontSize: 9, fontWeight: FontWeight.w600)),
+    ),
+  );
+}
+
+Widget _emptyState(String message) {
+  return Center(child: Text(message, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white24, fontSize: 11)));
+}
+
+SliderThemeData _compactSlider(Color color) {
+  return SliderThemeData(
+    trackHeight: 2,
+    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
+    overlayShape: const RoundSliderOverlayShape(overlayRadius: 8),
+    activeTrackColor: color,
+    inactiveTrackColor: color.withValues(alpha: 0.15),
+    thumbColor: color,
+    overlayColor: color.withValues(alpha: 0.1),
   );
 }
