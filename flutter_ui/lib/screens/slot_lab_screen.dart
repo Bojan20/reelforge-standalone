@@ -64,6 +64,7 @@ import '../providers/slot_lab/slotlab_view_mode_provider.dart';
 import '../providers/slot_lab/slotlab_notification_provider.dart';
 import '../providers/slot_lab/slotlab_undo_provider.dart';
 import '../providers/slot_lab/trigger_layer_provider.dart';
+import '../providers/slot_lab/behavior_tree_provider.dart';
 import '../providers/slot_lab/behavior_coverage_provider.dart';
 import '../providers/slot_lab/slotlab_template_provider.dart';
 import '../providers/ale_provider.dart';
@@ -2118,6 +2119,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       // 🔄 BACKGROUND: Load metadata for duration display
       _loadMetadataInBackground(newEntries.map((e) => e['path'] as String).toList());
 
+      // 🔗 AUTO-BIND: Match imported files to behavior nodes by filename
+      _autoBindAfterImport(newEntries);
+
     } catch (e) { /* ignored */ }
   }
 
@@ -2179,7 +2183,28 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       // 🔄 BACKGROUND: Load metadata for duration display
       _loadMetadataInBackground(newEntries.map((e) => e['path'] as String).toList());
 
+      // 🔗 AUTO-BIND: Match imported files to behavior nodes by filename
+      _autoBindAfterImport(newEntries);
+
     } catch (e) { /* ignored */ }
+  }
+
+  /// Auto-bind imported audio files to behavior tree nodes + trigger bindings
+  void _autoBindAfterImport(List<Map<String, dynamic>> newEntries) {
+    final tree = GetIt.instance<BehaviorTreeProvider>();
+    final triggers = GetIt.instance<TriggerLayerProvider>();
+    final notif = GetIt.instance<SlotLabNotificationProvider>();
+
+    // Bind audio to behavior nodes by filename pattern matching
+    final boundCount = tree.bulkAutoBindFromPool(newEntries);
+
+    // Generate trigger hook→node bindings
+    triggers.generateAutoBindings();
+
+    // Notify user
+    if (boundCount > 0) {
+      notif.pushAutoBindResult(boundCount, triggers.unboundHooks.length, 0);
+    }
   }
 
   /// Create audio pool entry (no setState - for batch operations)

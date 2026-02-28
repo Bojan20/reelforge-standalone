@@ -249,6 +249,152 @@ class BehaviorTreeProvider extends ChangeNotifier {
     setSoundAssignments(nodeId, []);
   }
 
+  /// Bulk auto-bind audio files from pool to behavior nodes by filename matching.
+  ///
+  /// Matching strategy:
+  /// - Filename contains node's nodeId (snake_case): e.g. "reel_stop_01.wav" → reel_stop
+  /// - Filename contains node's enum name (camelCase): e.g. "reelStop_hit.wav" → reel_stop
+  /// - Filename contains category prefix: e.g. "cascade_boom.wav" → cascadeStart (first match)
+  /// - Multiple files matching same node become variants (variantIndex increments)
+  ///
+  /// Returns number of newly bound files.
+  int bulkAutoBindFromPool(List<Map<String, dynamic>> audioPool) {
+    int boundCount = 0;
+
+    // Build lookup: nodeId → BehaviorNodeType
+    final nodeIdToType = <String, BehaviorNodeType>{};
+    for (final nt in BehaviorNodeType.values) {
+      nodeIdToType[nt.nodeId] = nt;
+    }
+
+    // Build match patterns per node type
+    final nodePatterns = <BehaviorNodeType, List<String>>{};
+    for (final nt in BehaviorNodeType.values) {
+      nodePatterns[nt] = [
+        nt.nodeId,         // snake_case: reel_stop
+        nt.name,           // camelCase: reelStop
+        // Also match category + sub: e.g. "win_big", "cascade_start"
+      ];
+    }
+
+    // Category-only fallback patterns
+    final categoryFallback = <String, BehaviorNodeType>{
+      'reel': BehaviorNodeType.reelStop,
+      'cascade': BehaviorNodeType.cascadeStep,
+      'win': BehaviorNodeType.winSmall,
+      'feature': BehaviorNodeType.featureLoop,
+      'jackpot': BehaviorNodeType.jackpotMini,
+      'button': BehaviorNodeType.uiButton,
+      'click': BehaviorNodeType.uiButton,
+      'popup': BehaviorNodeType.uiPopup,
+      'toggle': BehaviorNodeType.uiToggle,
+      'session': BehaviorNodeType.systemSessionStart,
+      'anticipation': BehaviorNodeType.reelAnticipation,
+      'antic': BehaviorNodeType.reelAnticipation,
+      'nudge': BehaviorNodeType.reelNudge,
+      'countup': BehaviorNodeType.winCountup,
+      'count_up': BehaviorNodeType.winCountup,
+    };
+
+    // Collect matches: nodeType → list of audio paths
+    final matches = <BehaviorNodeType, List<Map<String, dynamic>>>{};
+
+    for (final entry in audioPool) {
+      final path = entry['path'] as String? ?? '';
+      final name = (entry['name'] as String? ?? path.split('/').last).toLowerCase();
+
+      BehaviorNodeType? bestMatch;
+      int bestMatchLen = 0;
+
+      // 1. Exact nodeId or enum name match (longest wins)
+      for (final nt in BehaviorNodeType.values) {
+        for (final pattern in nodePatterns[nt]!) {
+          if (name.contains(pattern.toLowerCase()) && pattern.length > bestMatchLen) {
+            bestMatch = nt;
+            bestMatchLen = pattern.length;
+          }
+        }
+      }
+
+      // 2. Category fallback
+      if (bestMatch == null) {
+        for (final entry in categoryFallback.entries) {
+          if (name.contains(entry.key)) {
+            bestMatch = entry.value;
+            break;
+          }
+        }
+      }
+
+      if (bestMatch != null) {
+        matches.putIfAbsent(bestMatch, () => []).add({'path': path, 'name': name});
+      }
+    }
+
+    // Apply assignments
+    for (final entry in matches.entries) {
+      final nodeType = entry.key;
+      final files = entry.value;
+      final nodeId = nodeType.nodeId;
+      final node = _tree.getNode(nodeId);
+      if (node == null) continue;
+
+      // Keep existing manual assignments
+      final manual = node.soundAssignments.where((a) => !a.autoBound).toList();
+      final existingAutoPaths = node.soundAssignments
+          .where((a) => a.autoBound)
+          .map((a) => a.audioPath)
+          .toSet();
+
+      final newAssignments = <BehaviorSoundAssignment>[];
+      int variantIdx = manual.length;
+
+      for (final file in files) {
+        final filePath = file['path'] as String;
+        if (existingAutoPaths.contains(filePath)) continue; // Skip duplicates
+
+        final displayName = (file['name'] as String)
+            .replaceAll(RegExp(r'\.(wav|mp3|ogg|flac|aiff|aif|m4a|wma)$'), '');
+
+        newAssignments.add(BehaviorSoundAssignment(
+          id: 'auto_${nodeId}_$variantIdx',
+          audioPath: filePath,
+          displayName: displayName,
+          variantIndex: variantIdx,
+          autoBound: true,
+          bindConfidence: _calculateConfidence(displayName, nodeType),
+        ));
+        variantIdx++;
+        boundCount++;
+      }
+
+      if (newAssignments.isNotEmpty) {
+        _tree.setNode(node.copyWith(
+          soundAssignments: [...manual, ...node.soundAssignments.where((a) => a.autoBound), ...newAssignments],
+        ));
+      }
+    }
+
+    if (boundCount > 0) {
+      _isDirty = true;
+      _changeTree = true;
+      _notify();
+    }
+
+    return boundCount;
+  }
+
+  /// Calculate match confidence based on filename specificity
+  double _calculateConfidence(String filename, BehaviorNodeType nodeType) {
+    final lower = filename.toLowerCase();
+    // Exact nodeId match = high confidence
+    if (lower.contains(nodeType.nodeId)) return 0.9;
+    // camelCase name match = high confidence
+    if (lower.contains(nodeType.name.toLowerCase())) return 0.85;
+    // Category-only match = lower confidence
+    return 0.5;
+  }
+
   /// Clear all auto-bound assignments (keep manual)
   void clearAutoBoundAssignments() {
     for (final node in allNodes) {

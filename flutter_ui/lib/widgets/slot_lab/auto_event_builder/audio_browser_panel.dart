@@ -10,12 +10,18 @@
 library;
 
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get_it/get_it.dart';
 import 'package:provider/provider.dart';
 import '../../../models/auto_event_builder_models.dart';
 import '../../../providers/auto_event_builder_provider.dart';
+import '../../../providers/slot_lab/behavior_tree_provider.dart';
+import '../../../providers/slot_lab/trigger_layer_provider.dart';
+import '../../../providers/slot_lab/slotlab_notification_provider.dart';
 import '../../../services/audio_playback_service.dart';
+import '../../../services/native_file_picker.dart';
 import '../../../services/waveform_thumbnail_cache.dart';
 import '../../../theme/fluxforge_theme.dart';
 import 'drop_target_wrapper.dart';
@@ -676,16 +682,63 @@ class _AudioBrowserPanelState extends State<AudioBrowserPanel> {
   }
 
   Future<void> _importAudioFiles(AutoEventBuilderProvider provider) async {
-    // Use file picker to import audio
-    // For now, just show a placeholder
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Import audio files (use File > Import)'),
-        backgroundColor: FluxForgeTheme.bgMid,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    try {
+      final result = await NativeFilePicker.pickDirectory(title: 'Select Audio Folder');
+      if (result == null) return;
+
+      final dir = Directory(result);
+      final audioExtensions = ['.wav', '.mp3', '.ogg', '.flac', '.aiff', '.aif', '.m4a'];
+
+      final List<FileSystemEntity> entities;
+      try {
+        entities = dir.listSync(recursive: true);
+      } catch (_) {
+        return;
+      }
+
+      final audioFiles = <File>[];
+      for (final entity in entities) {
+        if (entity is File) {
+          final ext = entity.path.toLowerCase().split('.').last;
+          if (audioExtensions.contains('.$ext')) {
+            audioFiles.add(entity);
+          }
+        }
+      }
+
+      if (audioFiles.isEmpty) return;
+
+      // Build pool entries for AutoBind matching
+      final entries = <Map<String, dynamic>>[];
+      for (final file in audioFiles) {
+        final name = file.path.split('/').last
+            .replaceAll(RegExp(r'\.(wav|mp3|ogg|flac|aiff|aif|m4a)$', caseSensitive: false), '');
+        entries.add({'path': file.path, 'name': name});
+      }
+
+      // Auto-bind to behavior tree nodes
+      final tree = GetIt.instance<BehaviorTreeProvider>();
+      final triggers = GetIt.instance<TriggerLayerProvider>();
+      final notif = GetIt.instance<SlotLabNotificationProvider>();
+
+      final boundCount = tree.bulkAutoBindFromPool(entries);
+      triggers.generateAutoBindings();
+
+      if (!mounted) return;
+
+      if (boundCount > 0) {
+        notif.pushAutoBindResult(boundCount, triggers.unboundHooks.length, 0);
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Imported ${audioFiles.length} files, auto-bound $boundCount to nodes'),
+          backgroundColor: FluxForgeTheme.bgMid,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (_) { /* ignored */ }
   }
 }
 
