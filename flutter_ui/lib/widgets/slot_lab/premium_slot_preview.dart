@@ -28,6 +28,7 @@ import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import 'forced_outcome_panel.dart';
 import 'game_flow_overlay.dart';
+import '../../providers/slot_lab/game_flow_provider.dart';
 import 'project_dashboard_dialog.dart';
 import 'slot_preview_widget.dart';
 
@@ -2896,106 +2897,107 @@ class _GambleOverlay extends StatelessWidget {
 // =============================================================================
 
 class _FeatureIndicators extends StatelessWidget {
-  final int freeSpins;
-  final int freeSpinsRemaining;
-  final double bonusMeter;
-  final double featureProgress;
-  final int multiplier;
-  final int cascadeCount;
-  final int specialSymbolCount;
-
-  const _FeatureIndicators({
-    this.freeSpins = 0,
-    this.freeSpinsRemaining = 0,
-    this.bonusMeter = 0.0,
-    this.featureProgress = 0.0,
-    this.multiplier = 1,
-    this.cascadeCount = 0,
-    this.specialSymbolCount = 0,
-  });
+  const _FeatureIndicators();
 
   @override
   Widget build(BuildContext context) {
     final theme = context.slotTheme;
-    // Only show if there's something to display
-    final hasContent = freeSpins > 0 ||
-        bonusMeter > 0 ||
-        featureProgress > 0 ||
-        multiplier > 1 ||
-        cascadeCount > 0 ||
-        specialSymbolCount > 0;
 
-    if (!hasContent) return const SizedBox.shrink();
+    return Consumer<GameFlowProvider>(
+      builder: (context, flow, _) {
+        if (!flow.isInFeature) return const SizedBox.shrink();
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Free spin counter
-          if (freeSpins > 0) ...[
-            _FeatureBadge(
-              icon: Icons.star,
-              label: 'FREE SPINS',
-              value: '$freeSpinsRemaining / $freeSpins',
-              color: theme.jackpotMinor,
-            ),
-            const SizedBox(width: 16),
-          ],
+        final fs = flow.freeSpinsState;
+        final cs = flow.cascadeState;
+        final collector = flow.getFeatureState('collector');
 
-          // Bonus meter
-          if (bonusMeter > 0) ...[
-            _FeatureMeter(
-              label: 'BONUS',
-              value: bonusMeter,
-              color: theme.jackpotMajor,
-            ),
-            const SizedBox(width: 16),
-          ],
+        // Determine active multiplier from any feature
+        double activeMult = 1.0;
+        for (final state in flow.activeFeatures.values) {
+          if (state.currentMultiplier > activeMult) {
+            activeMult = state.currentMultiplier;
+          }
+        }
 
-          // Feature progress
-          if (featureProgress > 0) ...[
-            _FeatureMeter(
-              label: 'FEATURE',
-              value: featureProgress,
-              color: FluxForgeTheme.accentCyan,
-            ),
-            const SizedBox(width: 16),
-          ],
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Free spin counter
+              if (fs != null) ...[
+                _FeatureBadge(
+                  icon: Icons.star,
+                  label: 'FREE SPINS',
+                  value: '${fs.spinsRemaining} / ${fs.totalSpins}',
+                  color: theme.jackpotMinor,
+                ),
+                const SizedBox(width: 16),
+              ],
 
-          // Multiplier trail
-          if (multiplier > 1) ...[
-            _FeatureBadge(
-              icon: Icons.close,
-              label: 'MULTIPLIER',
-              value: '${multiplier}x',
-              color: theme.gold,
-            ),
-            const SizedBox(width: 16),
-          ],
+              // Collector meter
+              if (collector != null && collector.meterValues.isNotEmpty) ...[
+                _FeatureMeter(
+                  label: 'COLLECTION',
+                  value: collector.progress,
+                  color: theme.jackpotMajor,
+                ),
+                const SizedBox(width: 16),
+              ],
 
-          // Cascade counter
-          if (cascadeCount > 0) ...[
-            _FeatureBadge(
-              icon: Icons.waterfall_chart,
-              label: 'CASCADE',
-              value: '$cascadeCount',
-              color: FluxForgeTheme.accentCyan,
-            ),
-            const SizedBox(width: 16),
-          ],
+              // Feature progress
+              if (flow.isInFeature) ...[
+                _FeatureMeter(
+                  label: flow.currentState.displayName.toUpperCase(),
+                  value: _activeProgress(flow),
+                  color: FluxForgeTheme.accentCyan,
+                ),
+                const SizedBox(width: 16),
+              ],
 
-          // Special symbol counter
-          if (specialSymbolCount > 0)
-            _FeatureBadge(
-              icon: Icons.auto_awesome,
-              label: 'SPECIAL',
-              value: '$specialSymbolCount',
-              color: theme.gold,
-            ),
-        ],
-      ),
+              // Multiplier trail
+              if (activeMult > 1) ...[
+                _FeatureBadge(
+                  icon: Icons.close,
+                  label: 'MULTIPLIER',
+                  value: '${activeMult.toStringAsFixed(1)}x',
+                  color: theme.gold,
+                ),
+                const SizedBox(width: 16),
+              ],
+
+              // Cascade counter
+              if (cs != null && cs.cascadeDepth > 0) ...[
+                _FeatureBadge(
+                  icon: Icons.waterfall_chart,
+                  label: 'CASCADE',
+                  value: '${cs.cascadeDepth}',
+                  color: FluxForgeTheme.accentCyan,
+                ),
+                const SizedBox(width: 16),
+              ],
+
+              // Queue indicator
+              if (flow.hasQueuedFeatures)
+                _FeatureBadge(
+                  icon: Icons.queue,
+                  label: 'QUEUED',
+                  value: '+${flow.featureQueue.length}',
+                  color: theme.gold,
+                ),
+            ],
+          ),
+        );
+      },
     );
+  }
+
+  double _activeProgress(GameFlowProvider flow) {
+    for (final state in flow.activeFeatures.values) {
+      final p = state.progress;
+      if (p > 0) return p;
+    }
+    return 0.0;
   }
 }
 
