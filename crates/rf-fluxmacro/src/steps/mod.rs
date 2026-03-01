@@ -11,6 +11,20 @@ use std::path::PathBuf;
 use crate::context::MacroContext;
 use crate::error::FluxMacroError;
 
+// ─── Step Implementations ───────────────────────────────────────────────────
+
+pub mod adb_generate;
+pub mod manifest_build;
+pub mod naming_validate;
+pub mod pack_release;
+pub mod qa_determinism;
+pub mod qa_event_storm;
+pub mod qa_fatigue;
+pub mod qa_loudness;
+pub mod qa_run_suite;
+pub mod qa_spectral_health;
+pub mod volatility_profile;
+
 // ─── Step Result ─────────────────────────────────────────────────────────────
 
 /// Outcome status of a step execution.
@@ -187,4 +201,19 @@ impl Default for StepRegistry {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Register all built-in macro steps.
+pub fn register_all_steps(registry: &mut StepRegistry) {
+    registry.register(Box::new(adb_generate::AdbGenerateStep));
+    registry.register(Box::new(naming_validate::NamingValidateStep));
+    registry.register(Box::new(volatility_profile::VolatilityProfileStep));
+    registry.register(Box::new(manifest_build::ManifestBuildStep));
+    registry.register(Box::new(qa_run_suite::QaRunSuiteStep));
+    registry.register(Box::new(qa_event_storm::QaEventStormStep));
+    registry.register(Box::new(qa_determinism::QaDeterminismStep));
+    registry.register(Box::new(qa_loudness::QaLoudnessStep));
+    registry.register(Box::new(qa_fatigue::QaFatigueStep));
+    registry.register(Box::new(qa_spectral_health::QaSpectralHealthStep));
+    registry.register(Box::new(pack_release::PackReleaseStep));
 }
