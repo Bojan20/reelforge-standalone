@@ -78,6 +78,7 @@ import '../models/stage_models.dart' as stage;
 import '../models/layout_models.dart';
 import '../models/editor_mode_config.dart';
 import '../models/middleware_models.dart';
+import '../models/event_folder_models.dart' show EventFolder;
 import '../models/slot_audio_events.dart' show SlotCompositeEvent, SlotEventLayer;
 import '../widgets/common/audio_waveform_picker_dialog.dart';
 import '../models/timeline_models.dart' as timeline;
@@ -2227,6 +2228,31 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
     // Refresh Audio Pool panel to show correct duration
     triggerAudioPoolRefresh();
+  }
+
+  /// Handle EventFolder drop from DAW browser — places event on timeline
+  /// as a folder track with child audio tracks and clips.
+  void _handleEventFolderDrop(EventFolder folder) {
+    final middleware = context.read<MiddlewareProvider>();
+
+    // Find the matching SlotCompositeEvent from middleware
+    final compositeEvent = middleware.compositeEvents
+        .where((e) => e.id == folder.eventId)
+        .firstOrNull;
+    if (compositeEvent == null) return;
+
+    // Already placed? Skip.
+    if (_mwTimelineSyncController.isEventPlaced(folder.eventId)) {
+      _showSnackBar('${folder.name} is already on the timeline');
+      return;
+    }
+
+    // Place via sync controller — creates folder + child tracks + clips
+    final batch = _mwTimelineSyncController.placeEventOnTimeline(compositeEvent);
+    if (batch == null) return;
+
+    _handleMwSyncBatch(batch);
+    _showSnackBar('Added ${folder.name} (${folder.layers.length} layers)');
   }
 
   /// Create a new track with a clip (used for empty space drops and double-click)
@@ -6782,7 +6808,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       onFileDrop: (filePath, trackId, startTime) {
         _handleFileDrop(filePath, trackId, startTime);
       },
-      // Pool file drop callback for drag & drop from Audio Pool
+      // Pool file / Event folder drop callback
       onPoolFileDrop: (poolFile, trackId, startTime) {
         if (poolFile is timeline.PoolAudioFile) {
           _addPoolFileToTimeline(
@@ -6790,6 +6816,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             targetTrackId: trackId,
             startTime: startTime,
           );
+        } else if (poolFile is EventFolder) {
+          _handleEventFolderDrop(poolFile);
         }
       },
       // Track duplicate/delete

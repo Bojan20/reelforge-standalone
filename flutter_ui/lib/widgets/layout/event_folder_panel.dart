@@ -137,141 +137,178 @@ class _EventFolderItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Folder header
-        GestureDetector(
-          onTap: onToggle,
-          onSecondaryTap: onOpenInSlotLab,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-            decoration: BoxDecoration(
-              color: folder.hasLayersInTimeline
-                  ? folder.color.withValues(alpha: 0.08)
-                  : null,
-            ),
-            child: Row(
-              children: [
-                // Expand/collapse
-                Icon(
-                  folder.isCollapsed
-                      ? Icons.chevron_right
-                      : Icons.expand_more,
-                  size: 13,
-                  color: FluxForgeTheme.textTertiary,
+    return Draggable<EventFolder>(
+      data: folder,
+      feedback: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: folder.color.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: folder.color),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.folder_rounded, size: 14, color: folder.color),
+              const SizedBox(width: 5),
+              Text(
+                folder.name,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: folder.color,
+                  fontWeight: FontWeight.w600,
                 ),
-                // Color bar
-                Container(
-                  width: 3,
-                  height: 14,
-                  margin: const EdgeInsets.only(right: 5),
-                  decoration: BoxDecoration(
-                    color: folder.color,
-                    borderRadius: BorderRadius.circular(1),
-                  ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '${folder.layers.length} layers',
+                style: TextStyle(
+                  fontSize: 9,
+                  color: folder.color.withValues(alpha: 0.7),
                 ),
-                // Category badge
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                  margin: const EdgeInsets.only(right: 5),
-                  decoration: BoxDecoration(
-                    color: folder.color.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(2),
-                    border:
-                        Border.all(color: folder.color.withValues(alpha: 0.3)),
+              ),
+            ],
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Folder header
+          GestureDetector(
+            onTap: onToggle,
+            onSecondaryTap: onOpenInSlotLab,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              decoration: BoxDecoration(
+                color: folder.hasLayersInTimeline
+                    ? folder.color.withValues(alpha: 0.08)
+                    : null,
+              ),
+              child: Row(
+                children: [
+                  // Expand/collapse
+                  Icon(
+                    folder.isCollapsed
+                        ? Icons.chevron_right
+                        : Icons.expand_more,
+                    size: 13,
+                    color: FluxForgeTheme.textTertiary,
                   ),
-                  child: Text(
-                    folder.category.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 7,
-                      fontWeight: FontWeight.bold,
-                      color: folder.color,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                ),
-                // Event name
-                Expanded(
-                  child: Text(
-                    folder.name,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: FluxForgeTheme.textPrimary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                // Variant groups badge
-                if (folder.variantGroups.isNotEmpty)
+                  // Color bar
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                    margin: const EdgeInsets.only(right: 4),
+                    width: 3,
+                    height: 14,
+                    margin: const EdgeInsets.only(right: 5),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF9C27B0).withValues(alpha: 0.15),
+                      color: folder.color,
+                      borderRadius: BorderRadius.circular(1),
+                    ),
+                  ),
+                  // Category badge
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    margin: const EdgeInsets.only(right: 5),
+                    decoration: BoxDecoration(
+                      color: folder.color.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(2),
+                      border:
+                          Border.all(color: folder.color.withValues(alpha: 0.3)),
                     ),
                     child: Text(
-                      '${folder.variantGroups.length}V',
-                      style: const TextStyle(
+                      folder.category.toUpperCase(),
+                      style: TextStyle(
                         fontSize: 7,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFFCE93D8),
-                        letterSpacing: 0.2,
+                        color: folder.color,
+                        letterSpacing: 0.3,
                       ),
                     ),
                   ),
-                // Conditional layers indicator
-                if (folder.conditionalLayers.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: Icon(
-                      Icons.filter_alt_outlined,
-                      size: 10,
-                      color: const Color(0xFFFF9800).withValues(alpha: 0.7),
+                  // Event name
+                  Expanded(
+                    child: Text(
+                      folder.name,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: FluxForgeTheme.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                // Crossfade indicator
-                if (folder.crossfade.fadeInMs > 0 || folder.crossfade.fadeOutMs > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: Icon(
-                      Icons.swap_horiz,
-                      size: 10,
-                      color: const Color(0xFF4CAF50).withValues(alpha: 0.7),
+                  // Variant groups badge
+                  if (folder.variantGroups.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                      margin: const EdgeInsets.only(right: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF9C27B0).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: Text(
+                        '${folder.variantGroups.length}V',
+                        style: const TextStyle(
+                          fontSize: 7,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFCE93D8),
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ),
+                  // Conditional layers indicator
+                  if (folder.conditionalLayers.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Icon(
+                        Icons.filter_alt_outlined,
+                        size: 10,
+                        color: const Color(0xFFFF9800).withValues(alpha: 0.7),
+                      ),
+                    ),
+                  // Crossfade indicator
+                  if (folder.crossfade.fadeInMs > 0 || folder.crossfade.fadeOutMs > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Icon(
+                        Icons.swap_horiz,
+                        size: 10,
+                        color: const Color(0xFF4CAF50).withValues(alpha: 0.7),
+                      ),
+                    ),
+                  // Layer count
+                  Text(
+                    '${folder.layers.length}',
+                    style: const TextStyle(
+                      fontSize: 9,
+                      color: FluxForgeTheme.textTertiary,
                     ),
                   ),
-                // Layer count
-                Text(
-                  '${folder.layers.length}',
-                  style: const TextStyle(
-                    fontSize: 9,
+                  const SizedBox(width: 4),
+                  // Lock icon (read-only structure)
+                  const Icon(
+                    Icons.lock_outline,
+                    size: 10,
                     color: FluxForgeTheme.textTertiary,
                   ),
-                ),
-                const SizedBox(width: 4),
-                // Lock icon (read-only structure)
-                const Icon(
-                  Icons.lock_outline,
-                  size: 10,
-                  color: FluxForgeTheme.textTertiary,
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
 
-        // Layer tracks
-        if (!folder.isCollapsed)
-          ...folder.layers.map((layer) => _LayerItem(
-                layer: layer,
-                folderColor: folder.color,
-                onTap: () => onLayerTap?.call(layer.layerId),
-              )),
-      ],
+          // Layer tracks
+          if (!folder.isCollapsed)
+            ...folder.layers.map((layer) => _LayerItem(
+                  layer: layer,
+                  folderColor: folder.color,
+                  onTap: () => onLayerTap?.call(layer.layerId),
+                )),
+        ],
+      ),
     );
   }
 }

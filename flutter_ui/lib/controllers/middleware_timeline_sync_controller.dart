@@ -85,80 +85,74 @@ class MiddlewareTimelineSyncController {
   // MW → DAW SYNC
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Called when MiddlewareProvider notifies listeners
+  /// Called when MiddlewareProvider notifies listeners.
+  /// Only tracks parameter changes for events already placed on timeline —
+  /// NEVER auto-creates tracks/clips. User must drag events onto timeline.
   void _onMiddlewareChanged() {
     if (_isSyncingToMiddleware) return; // Suppress reverse sync
     if (_middlewareProvider == null) return;
 
+    // Only update snapshots for events already placed on timeline
     final currentEvents = _middlewareProvider!.compositeEvents;
-
-    // Build current event map (only events with layers and audio)
     final currentMap = <String, SlotCompositeEvent>{};
     for (final event in currentEvents) {
-      if (event.layers.isNotEmpty) {
+      if (event.layers.isNotEmpty && _lastSyncedEvents.containsKey(event.id)) {
         currentMap[event.id] = event;
       }
     }
 
-    // Diff against last synced state
-    final batch = _diffAndSync(currentMap);
+    // Detect parameter changes in placed events and sync back
+    final batch = _diffPlacedEvents(currentMap);
     if (batch != null && !batch.isEmpty) {
       _isSyncingToTimeline = true;
       try {
         onSyncBatch?.call(batch);
-        // Only update snapshot AFTER successful batch — if it throws,
-        // we keep old snapshot so next cycle retries the diff.
-        _lastSyncedEvents.clear();
-        for (final entry in currentMap.entries) {
-          _lastSyncedEvents[entry.key] = _EventSnapshot.from(entry.value);
-        }
       } finally {
         _isSyncingToTimeline = false;
       }
-    } else {
-      // No changes — still update snapshot for added/removed empty-layer events
-      _lastSyncedEvents.clear();
-      for (final entry in currentMap.entries) {
-        _lastSyncedEvents[entry.key] = _EventSnapshot.from(entry.value);
+    }
+
+    // Update snapshots for placed events
+    for (final entry in currentMap.entries) {
+      _lastSyncedEvents[entry.key] = _EventSnapshot.from(entry.value);
+    }
+
+    // Clean up snapshots for events removed from middleware
+    final currentIds = currentEvents.map((e) => e.id).toSet();
+    final removedIds = _lastSyncedEvents.keys
+        .where((id) => !currentIds.contains(id))
+        .toList();
+    for (final eventId in removedIds) {
+      final result = _removeTrackStructureForEvent(eventId);
+      if (result.trackIds.isNotEmpty || result.clipIds.isNotEmpty) {
+        _isSyncingToTimeline = true;
+        try {
+          onSyncBatch?.call(SyncBatch(
+            trackIdsToRemove: result.trackIds,
+            clipIdsToRemove: result.clipIds,
+          ));
+        } finally {
+          _isSyncingToTimeline = false;
+        }
       }
+      _lastSyncedEvents.remove(eventId);
     }
   }
 
-  /// Diff current events against last synced state and produce a SyncBatch
-  SyncBatch? _diffAndSync(Map<String, SlotCompositeEvent> currentMap) {
+  /// Diff only events that are already placed on the timeline
+  SyncBatch? _diffPlacedEvents(Map<String, SlotCompositeEvent> currentMap) {
     final tracksToAdd = <timeline.TimelineTrack>[];
     final trackIdsToRemove = <String>[];
     final clipsToAdd = <timeline.TimelineClip>[];
     final clipIdsToRemove = <String>[];
 
-    final previousIds = _lastSyncedEvents.keys.toSet();
-    final currentIds = currentMap.keys.toSet();
+    for (final eventId in currentMap.keys) {
+      final previous = _lastSyncedEvents[eventId];
+      if (previous == null) continue; // Not placed — skip
 
-    // ── New events ──
-    final added = currentIds.difference(previousIds);
-    for (final eventId in added) {
-      final event = currentMap[eventId]!;
-      final result = _createTrackStructureForEvent(event);
-      tracksToAdd.addAll(result.tracks);
-      clipsToAdd.addAll(result.clips);
-    }
-
-    // ── Removed events ──
-    final removed = previousIds.difference(currentIds);
-    for (final eventId in removed) {
-      final result = _removeTrackStructureForEvent(eventId);
-      trackIdsToRemove.addAll(result.trackIds);
-      clipIdsToRemove.addAll(result.clipIds);
-    }
-
-    // ── Changed events (still present in both) ──
-    final kept = currentIds.intersection(previousIds);
-    for (final eventId in kept) {
       final current = currentMap[eventId]!;
-      final previous = _lastSyncedEvents[eventId]!;
-
       if (!previous.isEqualTo(current)) {
-        // Remove old structure, add new one
+        // Layer structure changed — rebuild tracks for this event
         final removeResult = _removeTrackStructureForEvent(eventId);
         trackIdsToRemove.addAll(removeResult.trackIds);
         clipIdsToRemove.addAll(removeResult.clipIds);
@@ -183,6 +177,34 @@ class MiddlewareTimelineSyncController {
       clipIdsToRemove: clipIdsToRemove,
     );
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MANUAL PLACEMENT — User drags event from browser onto DAW timeline
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Place an event on the DAW timeline. Called when user drags an EventFolder
+  /// from the browser onto the timeline. Creates folder + child tracks + clips.
+  /// Returns the SyncBatch to apply, or null if event has no layers.
+  SyncBatch? placeEventOnTimeline(SlotCompositeEvent event) {
+    if (event.layers.isEmpty) return null;
+
+    // Skip if already placed
+    if (_lastSyncedEvents.containsKey(event.id)) return null;
+
+    final result = _createTrackStructureForEvent(event);
+    if (result.tracks.isEmpty) return null;
+
+    // Record snapshot so future parameter changes are tracked
+    _lastSyncedEvents[event.id] = _EventSnapshot.from(event);
+
+    return SyncBatch(
+      tracksToAdd: result.tracks,
+      clipsToAdd: result.clips,
+    );
+  }
+
+  /// Check if an event is already placed on the timeline
+  bool isEventPlaced(String eventId) => _lastSyncedEvents.containsKey(eventId);
 
   /// Create folder + child tracks + clips for an event
   _TrackStructure _createTrackStructureForEvent(SlotCompositeEvent event) {
