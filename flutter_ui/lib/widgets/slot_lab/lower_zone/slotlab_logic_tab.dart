@@ -1,14 +1,7 @@
-/// SlotLab Middleware Tab — Lower Zone Sub-Tab Content
+/// SlotLab LOGIC Tab — Core Middleware Panels
 ///
-/// Interactive panels for all middleware providers:
-/// - Behavior: Tree view with select, inspect, coverage
-/// - Triggers: AutoBind toggle, enable/disable bindings
-/// - Gate: State transitions, autoplay/turbo, volatility
-/// - Priority: Active behaviors, conflict resolution, clear
-/// - Orchestration: Context sliders, decisions view
-/// - Emotional: Manual event triggers, output meters
-/// - Context: Game mode selector, override editor
-/// - Simulation: Run/step/stop, validation, transitions
+/// Behavior, Triggers, Gate, Priority, Orchestration,
+/// Emotional, Context, Simulation
 
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
@@ -28,60 +21,23 @@ import '../../../providers/slot_lab/smart_collapsing_provider.dart';
 import '../../../providers/slot_lab/slotlab_notification_provider.dart';
 import '../../../models/behavior_tree_models.dart';
 import '../../lower_zone/lower_zone_types.dart';
-// MWUI Intelligence Views
-import '../middleware/mwui_build_view.dart';
-import '../middleware/mwui_flow_view.dart';
-import '../middleware/mwui_simulation_view.dart';
-import '../middleware/mwui_diagnostic_view.dart';
-import '../middleware/mwui_template_gallery.dart';
-import '../middleware/mwui_export_panel.dart';
-import '../middleware/mwui_coverage_viz.dart';
-import '../middleware/mwui_inspector_panel.dart';
-// UCP Monitoring Zones
-import '../ucp/event_timeline_zone.dart';
-import '../ucp/energy_emotional_monitor.dart';
-import '../ucp/voice_priority_monitor.dart';
-import '../ucp/spectral_heatmap.dart';
-import '../ucp/fatigue_stability_dashboard.dart';
-import '../ucp/ail_panel_zone.dart';
-import '../ucp/debug_monitor_zone.dart';
-import '../ucp/export_zone.dart';
 
-class SlotLabMiddlewareTabContent extends StatelessWidget {
-  final SlotLabMiddlewareSubTab subTab;
+class SlotLabLogicTabContent extends StatelessWidget {
+  final SlotLabLogicSubTab subTab;
 
-  const SlotLabMiddlewareTabContent({super.key, required this.subTab});
+  const SlotLabLogicTabContent({super.key, required this.subTab});
 
   @override
   Widget build(BuildContext context) {
     return switch (subTab) {
-      // Core middleware panels
-      SlotLabMiddlewareSubTab.behavior => const _BehaviorPanel(),
-      SlotLabMiddlewareSubTab.triggers => const _TriggersPanel(),
-      SlotLabMiddlewareSubTab.gate => const _GatePanel(),
-      SlotLabMiddlewareSubTab.priority => const _PriorityPanel(),
-      SlotLabMiddlewareSubTab.orchestration => const _OrchestrationPanel(),
-      SlotLabMiddlewareSubTab.emotional => const _EmotionalPanel(),
-      SlotLabMiddlewareSubTab.context => const _ContextPanel(),
-      SlotLabMiddlewareSubTab.simulation => const _SimulationPanel(),
-      // MWUI intelligence views
-      SlotLabMiddlewareSubTab.build => const MwuiBuildView(),
-      SlotLabMiddlewareSubTab.flow => const MwuiFlowView(),
-      SlotLabMiddlewareSubTab.sim => const MwuiSimulationView(),
-      SlotLabMiddlewareSubTab.diagnostic => const MwuiDiagnosticView(),
-      SlotLabMiddlewareSubTab.templates => const MwuiTemplateGallery(),
-      SlotLabMiddlewareSubTab.export => const MwuiExportPanel(),
-      SlotLabMiddlewareSubTab.coverage => const MwuiCoverageViz(),
-      SlotLabMiddlewareSubTab.inspector => const MwuiInspectorPanel(),
-      // UCP monitoring zones
-      SlotLabMiddlewareSubTab.ucpTimeline => const EventTimelineZone(),
-      SlotLabMiddlewareSubTab.ucpEnergy => const EnergyEmotionalMonitor(),
-      SlotLabMiddlewareSubTab.ucpVoice => const VoicePriorityMonitor(),
-      SlotLabMiddlewareSubTab.ucpSpectral => const SpectralHeatmap(),
-      SlotLabMiddlewareSubTab.ucpFatigue => const FatigueStabilityDashboard(),
-      SlotLabMiddlewareSubTab.ucpAil => const AilPanelZone(),
-      SlotLabMiddlewareSubTab.ucpDebug => const DebugMonitorZone(),
-      SlotLabMiddlewareSubTab.ucpExport => const ExportZone(),
+      SlotLabLogicSubTab.behavior => const _BehaviorPanel(),
+      SlotLabLogicSubTab.triggers => const _TriggersPanel(),
+      SlotLabLogicSubTab.gate => const _GatePanel(),
+      SlotLabLogicSubTab.priority => const _PriorityPanel(),
+      SlotLabLogicSubTab.orchestration => const _OrchestrationPanel(),
+      SlotLabLogicSubTab.emotional => const _EmotionalPanel(),
+      SlotLabLogicSubTab.context => const _ContextPanel(),
+      SlotLabLogicSubTab.simulation => const _SimulationPanel(),
     };
   }
 }

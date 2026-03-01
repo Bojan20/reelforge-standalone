@@ -795,12 +795,15 @@ class MiddlewareLowerZoneState {
 // ═══════════════════════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/// SlotLab Super-tabs: STAGES, EVENTS, MIX, DSP, BAKE, MIDDLEWARE
-enum SlotLabSuperTab { stages, events, mix, dsp, bake, middleware }
+/// SlotLab Super-tabs: STAGES, EVENTS, MIX, DSP, LOGIC, INTEL, MONITOR, BAKE
+enum SlotLabSuperTab { stages, events, mix, dsp, logic, intel, monitor, bake }
 
 extension SlotLabSuperTabX on SlotLabSuperTab {
-  String get label => ['STAGES', 'EVENTS', 'MIX', 'DSP', 'BAKE', 'MW'][index];
-  IconData get icon => [Icons.theaters, Icons.music_note, Icons.tune, Icons.graphic_eq, Icons.local_fire_department, Icons.account_tree][index];
+  String get label => ['STAGES', 'EVENTS', 'MIX', 'DSP', 'LOGIC', 'INTEL', 'MONITOR', 'BAKE'][index];
+  IconData get icon => [
+    Icons.theaters, Icons.music_note, Icons.tune, Icons.graphic_eq,
+    Icons.account_tree, Icons.psychology, Icons.monitor_heart, Icons.local_fire_department,
+  ][index];
   String get shortcut => '${index + 1}';
   Color get color => LowerZoneColors.slotLabAccent;
 }
@@ -812,14 +815,15 @@ enum SlotLabEventsSubTab { folder, editor, layers, pool, auto }
 enum SlotLabMixSubTab { buses, sends, pan, meter }
 enum SlotLabDspSubTab { chain, eq, comp, reverb }
 enum SlotLabBakeSubTab { export, stems, variations, package, git, analytics, docs }
-enum SlotLabMiddlewareSubTab {
-  // Core middleware panels (existing)
-  behavior, triggers, gate, priority, orchestration, emotional, context, simulation,
-  // MWUI intelligence views
-  build, flow, sim, diagnostic, templates, export, coverage, inspector,
-  // UCP monitoring zones
-  ucpTimeline, ucpEnergy, ucpVoice, ucpSpectral, ucpFatigue, ucpAil, ucpDebug, ucpExport,
-}
+
+/// LOGIC sub-tabs — Core middleware panels (behavior tree, triggers, state gate, etc.)
+enum SlotLabLogicSubTab { behavior, triggers, gate, priority, orchestration, emotional, context, simulation }
+
+/// INTEL sub-tabs — MWUI intelligence views (build, flow, diagnostics, etc.)
+enum SlotLabIntelSubTab { build, flow, sim, diagnostic, templates, export, coverage, inspector }
+
+/// MONITOR sub-tabs — UCP monitoring zones (timeline, energy, spectral, etc.)
+enum SlotLabMonitorSubTab { timeline, energy, voice, spectral, fatigue, ail, debug, export }
 
 extension SlotLabStagesSubTabX on SlotLabStagesSubTab {
   String get label => ['Trace', 'Timeline', 'Symbols', 'Timing'][index];
@@ -846,16 +850,19 @@ extension SlotLabBakeSubTabX on SlotLabBakeSubTab {
   String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U'][index];
 }
 
-extension SlotLabMiddlewareSubTabX on SlotLabMiddlewareSubTab {
-  String get label => const [
-    // Core (8)
-    'Behavior', 'Triggers', 'Gate', 'Priority', 'Orch', 'Emotion', 'Context', 'Sim',
-    // MWUI (8)
-    '|  Build', 'Flow', 'SimView', 'Diag', 'Templates', 'Export', 'Coverage', 'Inspector',
-    // UCP (8)
-    '|  Timeline', 'Energy', 'Voice', 'Spectral', 'Fatigue', 'AIL', 'Debug', 'UcpExp',
-  ][index];
-  String get shortcut => '';
+extension SlotLabLogicSubTabX on SlotLabLogicSubTab {
+  String get label => ['Behavior', 'Triggers', 'Gate', 'Priority', 'Orch', 'Emotion', 'Context', 'Sim'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I'][index];
+}
+
+extension SlotLabIntelSubTabX on SlotLabIntelSubTab {
+  String get label => ['Build', 'Flow', 'SimView', 'Diag', 'Templates', 'Export', 'Coverage', 'Inspector'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I'][index];
+}
+
+extension SlotLabMonitorSubTabX on SlotLabMonitorSubTab {
+  String get label => ['Timeline', 'Energy', 'Voice', 'Spectral', 'Fatigue', 'AIL', 'Debug', 'Export'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I'][index];
 }
 
 /// Complete SlotLab Lower Zone state
@@ -866,7 +873,9 @@ class SlotLabLowerZoneState {
   SlotLabMixSubTab mixSubTab;
   SlotLabDspSubTab dspSubTab;
   SlotLabBakeSubTab bakeSubTab;
-  SlotLabMiddlewareSubTab middlewareSubTab;
+  SlotLabLogicSubTab logicSubTab;
+  SlotLabIntelSubTab intelSubTab;
+  SlotLabMonitorSubTab monitorSubTab;
   bool isExpanded;
   double height;
 
@@ -877,7 +886,9 @@ class SlotLabLowerZoneState {
     this.mixSubTab = SlotLabMixSubTab.buses,
     this.dspSubTab = SlotLabDspSubTab.chain,
     this.bakeSubTab = SlotLabBakeSubTab.export,
-    this.middlewareSubTab = SlotLabMiddlewareSubTab.behavior,
+    this.logicSubTab = SlotLabLogicSubTab.behavior,
+    this.intelSubTab = SlotLabIntelSubTab.build,
+    this.monitorSubTab = SlotLabMonitorSubTab.timeline,
     this.isExpanded = false,
     this.height = kLowerZoneDefaultHeight,
   });
@@ -888,7 +899,9 @@ class SlotLabLowerZoneState {
     SlotLabSuperTab.mix => mixSubTab.index,
     SlotLabSuperTab.dsp => dspSubTab.index,
     SlotLabSuperTab.bake => bakeSubTab.index,
-    SlotLabSuperTab.middleware => middlewareSubTab.index,
+    SlotLabSuperTab.logic => logicSubTab.index,
+    SlotLabSuperTab.intel => intelSubTab.index,
+    SlotLabSuperTab.monitor => monitorSubTab.index,
   };
 
   void setSubTabIndex(int index) {
@@ -903,8 +916,12 @@ class SlotLabLowerZoneState {
         dspSubTab = SlotLabDspSubTab.values[index.clamp(0, 3)];
       case SlotLabSuperTab.bake:
         bakeSubTab = SlotLabBakeSubTab.values[index.clamp(0, 6)];
-      case SlotLabSuperTab.middleware:
-        middlewareSubTab = SlotLabMiddlewareSubTab.values[index.clamp(0, SlotLabMiddlewareSubTab.values.length - 1)];
+      case SlotLabSuperTab.logic:
+        logicSubTab = SlotLabLogicSubTab.values[index.clamp(0, 7)];
+      case SlotLabSuperTab.intel:
+        intelSubTab = SlotLabIntelSubTab.values[index.clamp(0, 7)];
+      case SlotLabSuperTab.monitor:
+        monitorSubTab = SlotLabMonitorSubTab.values[index.clamp(0, 7)];
     }
   }
 
@@ -914,7 +931,9 @@ class SlotLabLowerZoneState {
     SlotLabSuperTab.mix => SlotLabMixSubTab.values.map((e) => e.label).toList(),
     SlotLabSuperTab.dsp => SlotLabDspSubTab.values.map((e) => e.label).toList(),
     SlotLabSuperTab.bake => SlotLabBakeSubTab.values.map((e) => e.label).toList(),
-    SlotLabSuperTab.middleware => SlotLabMiddlewareSubTab.values.map((e) => e.label).toList(),
+    SlotLabSuperTab.logic => SlotLabLogicSubTab.values.map((e) => e.label).toList(),
+    SlotLabSuperTab.intel => SlotLabIntelSubTab.values.map((e) => e.label).toList(),
+    SlotLabSuperTab.monitor => SlotLabMonitorSubTab.values.map((e) => e.label).toList(),
   };
 
   SlotLabLowerZoneState copyWith({
@@ -924,7 +943,9 @@ class SlotLabLowerZoneState {
     SlotLabMixSubTab? mixSubTab,
     SlotLabDspSubTab? dspSubTab,
     SlotLabBakeSubTab? bakeSubTab,
-    SlotLabMiddlewareSubTab? middlewareSubTab,
+    SlotLabLogicSubTab? logicSubTab,
+    SlotLabIntelSubTab? intelSubTab,
+    SlotLabMonitorSubTab? monitorSubTab,
     bool? isExpanded,
     double? height,
   }) {
@@ -935,7 +956,9 @@ class SlotLabLowerZoneState {
       mixSubTab: mixSubTab ?? this.mixSubTab,
       dspSubTab: dspSubTab ?? this.dspSubTab,
       bakeSubTab: bakeSubTab ?? this.bakeSubTab,
-      middlewareSubTab: middlewareSubTab ?? this.middlewareSubTab,
+      logicSubTab: logicSubTab ?? this.logicSubTab,
+      intelSubTab: intelSubTab ?? this.intelSubTab,
+      monitorSubTab: monitorSubTab ?? this.monitorSubTab,
       isExpanded: isExpanded ?? this.isExpanded,
       height: height ?? this.height,
     );
@@ -949,14 +972,17 @@ class SlotLabLowerZoneState {
     'mixSubTab': mixSubTab.index,
     'dspSubTab': dspSubTab.index,
     'bakeSubTab': bakeSubTab.index,
-    'middlewareSubTab': middlewareSubTab.index,
+    'logicSubTab': logicSubTab.index,
+    'intelSubTab': intelSubTab.index,
+    'monitorSubTab': monitorSubTab.index,
     'isExpanded': isExpanded,
     'height': height,
   };
 
-  /// Deserialize from JSON
+  /// Deserialize from JSON (backward-compatible: old 'middlewareSubTab' maps to logicSubTab)
   factory SlotLabLowerZoneState.fromJson(Map<String, dynamic> json) {
-    final superIdx = (json['superTab'] as int? ?? 0).clamp(0, SlotLabSuperTab.values.length - 1);
+    // Handle old superTab index: old middleware=5 → now logic=4
+    var superIdx = (json['superTab'] as int? ?? 0).clamp(0, SlotLabSuperTab.values.length - 1);
     return SlotLabLowerZoneState(
       superTab: SlotLabSuperTab.values[superIdx],
       stagesSubTab: SlotLabStagesSubTab.values[(json['stagesSubTab'] as int? ?? 0).clamp(0, SlotLabStagesSubTab.values.length - 1)],
@@ -964,7 +990,9 @@ class SlotLabLowerZoneState {
       mixSubTab: SlotLabMixSubTab.values[(json['mixSubTab'] as int? ?? 0).clamp(0, SlotLabMixSubTab.values.length - 1)],
       dspSubTab: SlotLabDspSubTab.values[(json['dspSubTab'] as int? ?? 0).clamp(0, SlotLabDspSubTab.values.length - 1)],
       bakeSubTab: SlotLabBakeSubTab.values[(json['bakeSubTab'] as int? ?? 0).clamp(0, SlotLabBakeSubTab.values.length - 1)],
-      middlewareSubTab: SlotLabMiddlewareSubTab.values[(json['middlewareSubTab'] as int? ?? 0).clamp(0, SlotLabMiddlewareSubTab.values.length - 1)],
+      logicSubTab: SlotLabLogicSubTab.values[(json['logicSubTab'] as int? ?? json['middlewareSubTab'] as int? ?? 0).clamp(0, SlotLabLogicSubTab.values.length - 1)],
+      intelSubTab: SlotLabIntelSubTab.values[(json['intelSubTab'] as int? ?? 0).clamp(0, SlotLabIntelSubTab.values.length - 1)],
+      monitorSubTab: SlotLabMonitorSubTab.values[(json['monitorSubTab'] as int? ?? 0).clamp(0, SlotLabMonitorSubTab.values.length - 1)],
       isExpanded: json['isExpanded'] as bool? ?? false,
       height: (json['height'] as num?)?.toDouble() ?? kLowerZoneDefaultHeight,
     );

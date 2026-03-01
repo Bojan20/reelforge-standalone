@@ -49,7 +49,9 @@ import '../../providers/git_provider.dart';
 import '../slot_lab/slotlab_bus_mixer.dart';
 import '../slot_lab/lower_zone/events/composite_editor_panel.dart';
 import 'package:get_it/get_it.dart';
-import '../slot_lab/lower_zone/slotlab_middleware_tab.dart';
+import '../slot_lab/lower_zone/slotlab_logic_tab.dart';
+import '../slot_lab/lower_zone/slotlab_intel_tab.dart';
+import '../slot_lab/lower_zone/slotlab_monitor_tab.dart';
 import '../../providers/slot_lab/slotlab_export_provider.dart';
 import '../../providers/slot_lab/slotlab_notification_provider.dart';
 
@@ -721,8 +723,12 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         return _buildDspContent();
       case SlotLabSuperTab.bake:
         return _buildBakeContent();
-      case SlotLabSuperTab.middleware:
-        return SlotLabMiddlewareTabContent(subTab: widget.controller.state.middlewareSubTab);
+      case SlotLabSuperTab.logic:
+        return SlotLabLogicTabContent(subTab: widget.controller.state.logicSubTab);
+      case SlotLabSuperTab.intel:
+        return SlotLabIntelTabContent(subTab: widget.controller.state.intelSubTab);
+      case SlotLabSuperTab.monitor:
+        return SlotLabMonitorTabContent(subTab: widget.controller.state.monitorSubTab);
     }
   }
 
@@ -4186,7 +4192,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           widget.controller.setSubTabIndex(2);
         },
       ),
-      SlotLabSuperTab.middleware => SlotLabActions.forMiddleware(
+      SlotLabSuperTab.logic => SlotLabActions.forMiddleware(
         onReset: () {
           middleware?.resetToDefaults();
           ScaffoldMessenger.of(context).showSnackBar(
@@ -4197,13 +4203,27 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           );
         },
         onInspect: () {
-          // Switch to Behavior sub-tab for overview
-          widget.controller.setMiddlewareSubTab(SlotLabMiddlewareSubTab.behavior);
+          widget.controller.setLogicSubTab(SlotLabLogicSubTab.behavior);
         },
         onSimulate: () {
-          // Switch to Simulation sub-tab
-          widget.controller.setMiddlewareSubTab(SlotLabMiddlewareSubTab.simulation);
+          widget.controller.setLogicSubTab(SlotLabLogicSubTab.simulation);
         },
+      ),
+      SlotLabSuperTab.intel => SlotLabActions.forMiddleware(
+        onReset: null,
+        onInspect: () {
+          widget.controller.setIntelSubTab(SlotLabIntelSubTab.inspector);
+        },
+        onSimulate: () {
+          widget.controller.setIntelSubTab(SlotLabIntelSubTab.sim);
+        },
+      ),
+      SlotLabSuperTab.monitor => SlotLabActions.forMiddleware(
+        onReset: null,
+        onInspect: () {
+          widget.controller.setMonitorSubTab(SlotLabMonitorSubTab.debug);
+        },
+        onSimulate: null,
       ),
     };
 

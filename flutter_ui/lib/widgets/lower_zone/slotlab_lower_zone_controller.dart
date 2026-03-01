@@ -1,10 +1,10 @@
 // SlotLab Lower Zone Controller
 //
 // Manages state for SlotLab section's Lower Zone:
-// - Super-tabs: STAGES, EVENTS, MIX, DSP, BAKE
-// - Sub-tabs: 4 per super-tab
+// - Super-tabs: STAGES, EVENTS, MIX, DSP, LOGIC, INTEL, MONITOR, BAKE
+// - Sub-tabs: 4-8 per super-tab
 // - Expand/collapse, resizable height
-// - Keyboard shortcuts (1-5 for super, Q-R for sub, ` for toggle)
+// - Keyboard shortcuts (1-8 for super, Q-I for sub, ` for toggle)
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -124,10 +124,26 @@ class SlotLabLowerZoneController extends ChangeNotifier {
     _updateAndSave(newState);
   }
 
-  void setMiddlewareSubTab(SlotLabMiddlewareSubTab tab) {
-    var newState = _state.copyWith(middlewareSubTab: tab);
-    if (_state.superTab != SlotLabSuperTab.middleware) {
-      newState = newState.copyWith(superTab: SlotLabSuperTab.middleware);
+  void setLogicSubTab(SlotLabLogicSubTab tab) {
+    var newState = _state.copyWith(logicSubTab: tab);
+    if (_state.superTab != SlotLabSuperTab.logic) {
+      newState = newState.copyWith(superTab: SlotLabSuperTab.logic);
+    }
+    _updateAndSave(newState);
+  }
+
+  void setIntelSubTab(SlotLabIntelSubTab tab) {
+    var newState = _state.copyWith(intelSubTab: tab);
+    if (_state.superTab != SlotLabSuperTab.intel) {
+      newState = newState.copyWith(superTab: SlotLabSuperTab.intel);
+    }
+    _updateAndSave(newState);
+  }
+
+  void setMonitorSubTab(SlotLabMonitorSubTab tab) {
+    var newState = _state.copyWith(monitorSubTab: tab);
+    if (_state.superTab != SlotLabSuperTab.monitor) {
+      newState = newState.copyWith(superTab: SlotLabSuperTab.monitor);
     }
     _updateAndSave(newState);
   }
@@ -187,7 +203,7 @@ class SlotLabLowerZoneController extends ChangeNotifier {
       return KeyEventResult.handled;
     }
 
-    // 1-5 = Super-tabs
+    // 1-8 = Super-tabs
     if (event.logicalKey == LogicalKeyboardKey.digit1) {
       setSuperTab(SlotLabSuperTab.stages);
       return KeyEventResult.handled;
@@ -205,11 +221,19 @@ class SlotLabLowerZoneController extends ChangeNotifier {
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.digit5) {
-      setSuperTab(SlotLabSuperTab.bake);
+      setSuperTab(SlotLabSuperTab.logic);
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.digit6) {
-      setSuperTab(SlotLabSuperTab.middleware);
+      setSuperTab(SlotLabSuperTab.intel);
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.digit7) {
+      setSuperTab(SlotLabSuperTab.monitor);
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.digit8) {
+      setSuperTab(SlotLabSuperTab.bake);
       return KeyEventResult.handled;
     }
 
