@@ -1,6 +1,6 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-02-28
+**Updated:** 2026-03-01
 **Master Spec:** `FLUXFORGE_MASTER_SPEC.md` (consolidated reference)
 **Full backup:** `.claude/docs/MASTER_TODO_FULL_BACKUP_2026_02_27.md` (3,526 lines, complete history)
 
@@ -34,8 +34,17 @@ PENDING SYSTEMS (ordered by dependency):
   P-SAM: Smart Authoring Mode ✅ (10/10 complete)
   P-UCP: Unified Control Panel ✅ (8/8 complete)
   P-MWUI: SlotLab Middleware UI Views ✅ (8/8 complete)
-  FUTURE — P-GAD: Gameplay-Aware DAW (deferred)
-  FUTURE — P-SSS: Scale & Stability Suite (deferred)
+  P-GAD: Gameplay-Aware DAW ✅ (10/10 complete)
+  P-SSS: Scale & Stability Suite ✅ (10/10 complete)
+
+NEW SYSTEMS (pending):
+  P-FMC: FluxMacro System ⬜ (0/53 — 6 phases, ~13,600 LOC)
+    Phase 1: Foundation (19 tasks)
+    Phase 2: Core Steps (12 tasks)
+    Phase 3: CLI + FFI (6 tasks)
+    Phase 4: Studio UI (9 tasks)
+    Phase 5: GDD Parser (4 tasks)
+    Phase 6: CI/CD Integration (3 tasks)
 
 ANALYZER: 0 errors, 0 warnings ✅
 REPO: Clean (1 branch)
@@ -53,290 +62,147 @@ Layer 4 (needs DPM+SAMCL): P-PBSE
 Layer 5 (needs PBSE):  P-AIL, P-DRC
 Layer 6 (needs AIL):   P-SAM, P-UCP
 Layer 7 (needs all):   P-MWUI (full views)
-FUTURE:                P-GAD (needs all), P-SSS (enterprise)
+Layer 8 (needs all):   P-GAD, P-SSS — ALL COMPLETE ✅
+
+--- FluxMacro (new) ---
+Layer 9 (no deps):     P-FMC Phase 1 (Foundation) + Phase 5 (GDD Parser, parallel)
+Layer 10 (needs 9):    P-FMC Phase 2 (Core Steps)
+Layer 11 (needs 10):   P-FMC Phase 3 (CLI + FFI)
+Layer 12 (needs 11):   P-FMC Phase 4 (Studio UI) + Phase 6 (CI/CD)
 ```
 
 ---
 
-## P-SRC: Audio Engine SRC Fixes ✅ ALREADY COMPLETE
+## ✅ ALL CORE SYSTEMS COMPLETE (129/129)
 
-**Spec:** FLUXFORGE_MASTER_SPEC.md §2 — All items verified as already implemented.
+Detaljne task tabele za sve completed sisteme: `.claude/docs/MASTER_TODO_FULL_BACKUP_2026_02_27.md`
 
-| # | Task | Priority | Status | Notes |
-|---|------|----------|--------|-------|
-| SRC-1 | Fallback consistency | P0 | ✅ | All fallbacks already 48000 (WASM 44100 is correct) |
-| SRC-2 | Lanczos-3 sinc SRC in playback | P1 | ✅ | `lanczos3_sample()` active in playback.rs:957 |
-| SRC-3 | Fast path: skip SRC when rate matches | P1 | ✅ | playback.rs:962 `frac.abs() < 1e-10` |
-| SRC-4 | Mono waveform: 1 centered | P1 | ✅ | clip_widget.dart:1531 blocks stereo split for channels<2 |
-| SRC-5 | Project Settings sample rate UI | P2 | ✅ | project_settings_screen.dart:339 (6 rates, 44.1k–192k) |
+| System | Tasks | Status |
+|--------|-------|--------|
+| P-SRC (Audio Engine SRC) | 5/5 | ✅ |
+| P-GEG (Global Energy Governance) | 12/12 | ✅ |
+| P-DPM (Dynamic Priority Matrix) | 10/10 | ✅ |
+| P-SAMCL (Spectral Allocation & Masking) | 12/12 | ✅ |
+| P-PBSE (Pre-Bake Simulation Engine) | 10/10 | ✅ |
+| P-AIL (Authoring Intelligence Layer) | 8/8 | ✅ |
+| P-DRC (DRC, Manifest & Safety) | 12/12 | ✅ |
+| P-DEV (Device Preview Engine) | 14/14 | ✅ |
+| P-SAM (Smart Authoring Mode) | 10/10 | ✅ |
+| P-UCP (Unified Control Panel) | 8/8 | ✅ |
+| P-MWUI (Middleware UI Views) | 8/8 | ✅ |
+| P-GAD (Gameplay-Aware DAW) | 10/10 | ✅ |
+| P-SSS (Scale & Stability Suite) | 10/10 | ✅ |
+| AUREXIS™ | 88/88 | ✅ |
+| SlotLab Middleware | 19/19 | ✅ |
+| DAW Mixer, DSP, EQ, Stereo Imager, UTG | all | ✅ |
+| **Core Total** | **129** | **✅** |
 
 ---
 
-## P-GEG: Global Energy Governance & Slot Profiles ✅ COMPLETE
+## P-FMC: FluxMacro System — Deterministic Orchestration Engine
 
-**Spec:** FLUXFORGE_MASTER_SPEC.md §5
-**Formula:** `FinalCap = min(1.0, EI × SP × SM)`
+**Spec:** `FLUXMACRO_SYSTEM.md` (root)
+**Purpose:** Casino-grade Audio Automation System — ADB generation, naming validation, QA simulation, release packaging.
+**New crates:** `rf-fluxmacro` (core engine) + `rf-fluxmacro-cli` (CLI binary)
+
+### Phase 1: Foundation (~4,100 LOC)
 
 | # | Task | Status |
 |---|------|--------|
-| GEG-1 | `rf-aurexis/energy/governance.rs` — EnergyGovernor struct, 5 energy domains | ✅ |
-| GEG-2 | `rf-aurexis/energy/slot_profiles.rs` — 9 slot profiles with per-domain caps | ✅ |
-| GEG-3 | `rf-aurexis/energy/escalation.rs` — 6 escalation curves (LINEAR, LOG, EXP, CAPPED_EXP, STEP, SCURVE) | ✅ |
-| GEG-4 | `rf-aurexis/energy/session_memory.rs` — SessionMemory (SM ∈ [0.7–1.0]) | ✅ |
-| GEG-5 | Voice budget enforcement: Peak→90%, Mid→70%, Low→50% | ✅ |
-| GEG-6 | Unit tests (28+ tests across 4 modules, 136 total in rf-aurexis) | ✅ |
-| GEG-7 | FFI bridge: 18 functions in `energy_governance_ffi.rs` | ✅ |
-| GEG-8 | Dart FFI bindings + EnergyGovernanceProvider | ✅ |
-| GEG-9 | GetIt registration (Layer 6.0) | ✅ |
-| GEG-10 | Wire GEG output to AUREXIS parameter map (Stage 10 in engine.rs) | ✅ |
-| GEG-11 | Energy Budget Bar widget (per-domain breakdown) | ✅ |
-| GEG-12 | Bake output: JSON via `geg_energy_config_json()`, `geg_slot_profile_json()` | ✅ |
+| FM-1 | `context.rs` — MacroContext, LogEntry, QaTestResult, cancel_token (AtomicBool), progress callback | ⬜ |
+| FM-2 | `parser.rs` — YAML parser za .ffmacro fajlove (serde_yaml) | ⬜ |
+| FM-3 | `steps/mod.rs` — MacroStep trait, StepRegistry, StepResult | ⬜ |
+| FM-4 | `interpreter.rs` — MacroInterpreter, sequential execution, fail-fast, cancellation | ⬜ |
+| FM-5 | `error.rs` — FluxMacroError enum (12+ varijanti) | ⬜ |
+| FM-6 | `hash.rs` — SHA-256 streaming run hash, FNV-1a config hash | ⬜ |
+| FM-7 | `version.rs` — Run versioning, history save/load | ⬜ |
+| FM-8 | `security.rs` — Path sandboxing, input sanitization, HTML escaping | ⬜ |
+| FM-9 | `rules/mod.rs` — Rule loader (JSON → typed structs) | ⬜ |
+| FM-10 | `rules/naming_rules.rs` — NamingRuleSet, domain/pattern validation | ⬜ |
+| FM-11 | `rules/mechanics_map.rs` — 14 GameMechanic → AudioNeeds mapping | ⬜ |
+| FM-12 | `rules/loudness_targets.rs` — Per-domain LUFS/TP targets (5 domains) | ⬜ |
+| FM-13 | `rules/adb_templates.rs` — ADB section templates + emotional_arc_template (8 arcs) | ⬜ |
+| FM-14 | `reporter/mod.rs` — Reporter trait | ⬜ |
+| FM-15 | `reporter/json.rs` — JSON report (versioned stable API for CI) | ⬜ |
+| FM-16 | `reporter/markdown.rs` — Markdown report generator | ⬜ |
+| FM-17 | `reporter/html.rs` — Self-contained HTML report (XSS-safe) | ⬜ |
+| FM-18 | `reporter/svg.rs` — Inline SVG: voice timeline, loudness histogram, fatigue curve, determinism grid | ⬜ |
+| FM-19 | Unit tests (35+ tests: parser, interpreter, rules, reporter, security) | ⬜ |
 
----
-
-## P-DPM: Dynamic Priority Matrix — Full Logic ✅ COMPLETE
-
-**Spec:** FLUXFORGE_MASTER_SPEC.md §6
-**Formula:** `PriorityScore = BaseWeight × EmotionalWeight × ProfileWeight × EnergyWeight × ContextModifier`
-**Note:** DpmProvider (Layer 6.1) + DynamicPriorityMatrix in rf-aurexis/priority/
-
-| # | Task | Status |
-|---|------|--------|
-| DPM-1 | `rf-aurexis/priority/dpm.rs` — DynamicPriorityMatrix struct, compute_priority(), sort_voices() | ✅ |
-| DPM-2 | Base weights: 8 event types (JACKPOT_GRAND=1.0 → SYSTEM=0.30) | ✅ |
-| DPM-3 | Emotional weight multipliers per emotional state (7 states) | ✅ |
-| DPM-4 | Profile weight modifiers per slot profile (9 profiles from GEG) | ✅ |
-| DPM-5 | Voice survival logic: sort → retain → attenuate (×0.6 within 10%) → suppress | ✅ |
-| DPM-6 | Background never-suppress rule (ducking curve fallback) | ✅ |
-| DPM-7 | JACKPOT_GRAND override (bypasses normal scoring) | ✅ |
-| DPM-8 | Unit tests (15+ tests) | ✅ (19 tests) |
-| DPM-9 | FFI bridge + Dart bindings, DpmProvider (Layer 6.1) | ✅ |
-| DPM-10 | Bake outputs: `dpm_event_weights.json`, `dpm_profile_modifiers.json`, `dpm_context_rules.json`, `dpm_priority_matrix.json` | ✅ |
-
----
-
-## P-SAMCL: Spectral Allocation & Masking Control ✅ COMPLETE
-
-**Spec:** FLUXFORGE_MASTER_SPEC.md §7
-**10 spectral roles**, masking resolution, SCI collision index
+### Phase 2: Core Steps (~3,800 LOC)
 
 | # | Task | Status |
 |---|------|--------|
-| SAMCL-1 | `rf-aurexis/spectral/roles.rs` — 10 SpectralRole enums with frequency bands | ✅ |
-| SAMCL-2 | `rf-aurexis/spectral/allocation.rs` — SpectralAllocator, assign_role(), resolve_collision() | ✅ |
-| SAMCL-3 | `rf-aurexis/spectral/masking.rs` — MaskingResolver: notch attenuation, band EQ carve, harmonic attenuation, spatial narrowing, slot shift | ✅ |
-| SAMCL-4 | SCI_ADV calculation: `overlapping_bands × HarmonicDensity × EnergyCap` | ✅ |
-| SAMCL-5 | Aggressive carve mode when SCI exceeds threshold | ✅ |
-| SAMCL-6 | Harmonic density limits: LOW=2, MID=3, PEAK=4 layers | ✅ |
-| SAMCL-7 | Deterministic slot shift (alternate band assignment) | ✅ |
-| SAMCL-8 | Unit tests (20+ tests covering all roles and collision scenarios) | ✅ (26 tests) |
-| SAMCL-9 | FFI bridge + Dart bindings | ✅ |
-| SAMCL-10 | SpectralAllocationProvider (GetIt Layer 6.2) | ✅ |
-| SAMCL-11 | Spectral heatmap visualization widget | ✅ |
-| SAMCL-12 | Bake outputs: `samcl_band_config.json`, `samcl_role_assignment.json`, `samcl_collision_rules.json`, `samcl_shift_curves.json` | ✅ |
+| FM-20 | `steps/adb_generate.rs` — ADB auto-generator (14 mehanika mapping, emotional arcs, 10 ADB sekcija, .md + .json) | ⬜ |
+| FM-21 | `steps/naming_validate.rs` — Asset scanner (walkdir+rayon), naming rules, rename plan CSV, dry-run, silence detection | ⬜ |
+| FM-22 | `steps/volatility_profile.rs` — Profile generator (wraps rf-aurexis + slot-specific params) | ⬜ |
+| FM-23 | `steps/manifest_build.rs` — Manifest builder (wraps DRC, 12 JSON configs) | ⬜ |
+| FM-24 | `steps/qa_run_suite.rs` — QA suite orchestrator (meta-step, sequential/parallel) | ⬜ |
+| FM-25 | `steps/qa_event_storm.rs` — 500-spin event storm (wraps PBSE, 7 metrika + thresholds) | ⬜ |
+| FM-26 | `steps/qa_determinism.rs` — 10-run determinism lock (wraps DRC replay + SSS regression) | ⬜ |
+| FM-27 | `steps/qa_loudness.rs` — Per-category LUFS/TP compliance (wraps rf-offline, gain correction) | ⬜ |
+| FM-28 | `steps/qa_fatigue.rs` — 45-min fatigue simulation (wraps PBSE + SSS burn, 6 thresholds) | ⬜ |
+| FM-29 | `steps/qa_spectral_health.rs` — Crest factor, spectral centroid, mono compat, DC offset, clipping, trailing silence | ⬜ |
+| FM-30 | `steps/pack_release.rs` — RC packager (folder structure, unified RC_Report.html, fingerprint.sha256) | ⬜ |
+| FM-31 | Integration tests (12+ end-to-end macro execution tests) | ⬜ |
 
----
-
-## P-PBSE: Pre-Bake Simulation Engine ✅ COMPLETE
-
-**Spec:** FLUXFORGE_MASTER_SPEC.md §8
-**Purpose:** Deterministic stress-test. Blocks BAKE if validation fails.
+### Phase 3: CLI + FFI (~1,800 LOC)
 
 | # | Task | Status |
 |---|------|--------|
-| PBSE-1 | `rf-aurexis/qa/pbse.rs` — PreBakeSimulator struct, run_full_simulation() | ✅ |
-| PBSE-2 | 10 simulation domains (spin sequences, loss streaks, win streaks, cascade chains, feature overlaps, jackpot escalation, turbo compression, autoplay burst, long session drift, hook burst) | ✅ |
-| PBSE-3 | Validation metrics: MaxEnergyCap ≤ 1.0, MaxVoices ≤ Budget, SCI ≤ Max, FatigueIndex ≤ Threshold, EscalationSlope ≤ Limit | ✅ |
-| PBSE-4 | 500-spin fatigue model: `FatigueIndex = (PeakFreq × HarmonicDensity × TemporalDensity) / RecoveryFactor` | ✅ |
-| PBSE-5 | Determinism validation: replay identical scenario × 2, compare all hashes | ✅ |
-| PBSE-6 | BAKE gate: simulation must PASS before BAKE unlocks | ✅ |
-| PBSE-7 | Unit tests (19 tests) | ✅ |
-| PBSE-8 | FFI bridge (`pbse_ffi.rs`, ~30 functions) + Dart bindings | ✅ |
-| PBSE-9 | SimulationEngineProvider upgrade (full PBSE logic wired via NativeFFI) | ✅ |
-| PBSE-10 | PBSE Results Panel UI (pass/fail per domain, fatigue model, bake gate) | ✅ |
+| FM-32 | `rf-fluxmacro-cli/main.rs` — clap CLI (run/dry-run/replay/steps/validate/qa/adb) + `--ci` flag | ⬜ |
+| FM-33 | FFI bridge: `fluxmacro_ffi.rs` u rf-bridge (~25 extern "C" functions + progress + cancel) | ⬜ |
+| FM-34 | Dart FFI bindings u `native_ffi.dart` (~180 lines, progress stream) | ⬜ |
+| FM-35 | `FluxMacroProvider` (GetIt Layer 7.3) — state, progress, cancel, history | ⬜ |
+| FM-36 | CLI tests (7+ tests incl. --ci mode) | ⬜ |
+| FM-37 | FFI integration tests | ⬜ |
 
----
-
-## P-AIL: Authoring Intelligence Layer ✅ COMPLETE
-
-**Spec:** FLUXFORGE_MASTER_SPEC.md §9
-**Purpose:** Advisory system post-PBSE. Cannot block BAKE — only flags/warns/recommends.
+### Phase 4: Studio UI (~2,400 LOC)
 
 | # | Task | Status |
 |---|------|--------|
-| AIL-1 | `rf-aurexis/advisory/ail.rs` — AuthoringIntelligence struct, analyze(), generate_report() | ✅ |
-| AIL-2 | 10 analysis domains (hook frequency, volatility pattern, cascade density, feature overlap, emotional curve, energy distribution, voice utilization, spectral overlap, fatigue projection, session drift) | ✅ |
-| AIL-3 | AIL Score (0–100) calculation: `100 × (1.0 - avg_risk)` | ✅ |
-| AIL-4 | Recommendation report: `report_json()` with ranked recommendations | ✅ |
-| AIL-5 | Unit tests (16 tests passing) | ✅ |
-| AIL-6 | FFI bridge (`ail_ffi.rs`, ~35 functions) + Dart bindings (~350 lines) | ✅ |
-| AIL-7 | AIL Score Panel UI (score card, domain list, metrics row, recommendations) | ✅ |
-| AIL-8 | Integration with PBSE results via `get_pbse_result()` helper | ✅ |
+| FM-38 | `macro_panel.dart` — 7-action control panel (ADB, Naming, Profile, QA, Spectral, Build RC, Reports) | ⬜ |
+| FM-39 | `macro_monitor.dart` — Circular progress + step name + ETA, monospace log stream (color coded) | ⬜ |
+| FM-40 | `macro_report_viewer.dart` — Split pane report viewer (content left, metrics right) | ⬜ |
+| FM-41 | `macro_config_editor.dart` — .ffmacro.yaml form editor (inputs + step picker + toggles) | ⬜ |
+| FM-42 | `macro_history.dart` — Run history list sa compare/diff opcijom | ⬜ |
+| FM-43 | SlotLab Plus menu integration + toast notifikacije | ⬜ |
+| FM-44 | Lower Zone tab registration | ⬜ |
+| FM-45 | Provider wiring + GetIt registration | ⬜ |
+| FM-46 | UI tests | ⬜ |
 
----
-
-## P-DRC: DRC, Manifest & Safety Envelope ✅ COMPLETE
-
-**Spec:** FLUXFORGE_MASTER_SPEC.md §10
-**Purpose:** Deterministic replay, version locking, safety limits, certification.
+### Phase 5: GDD Parser (~1,000 LOC)
 
 | # | Task | Status |
 |---|------|--------|
-| DRC-1 | `rf-aurexis/drc/replay.rs` — DeterministicReplayCore, record(), replay_and_verify() | ✅ |
-| DRC-2 | .fftrace format: TraceFormat with metadata, entries[], final_state_hash (JSON serializable) | ✅ |
-| DRC-3 | FNV-1a 64-bit per-frame hashing + comparison (zero external deps) | ✅ |
-| DRC-4 | `rf-aurexis/drc/manifest.rs` — FluxManifest, to_json(), version locks | ✅ |
-| DRC-5 | Version locking: 9 subsystem versions + config_bundle_hash | ✅ |
-| DRC-6 | Config change → manifest invalidation via `invalidate()` + hash recompute | ✅ |
-| DRC-7 | `rf-aurexis/drc/safety.rs` — SafetyEnvelope with 6 hard caps (all per spec) | ✅ |
-| DRC-8 | CertificationGate: 5-stage pipeline (PBSE→DRC→Envelope→Manifest→Hash) → BAKE | ✅ |
-| DRC-9 | Unit tests (31 tests passing: 7 replay + 10 manifest + 8 safety + 5 certification + 1 PBSE integration) | ✅ |
-| DRC-10 | FFI bridge (`drc_ffi.rs`, ~45 functions) + Dart bindings (~400 lines) | ✅ |
-| DRC-11 | DrcProvider + DrcCertificationPanel UI (stages, envelope, replay, manifest, failures) | ✅ |
-| DRC-12 | Trace JSON export via `drcTraceJson()` + manifest JSON via `drcManifestJson()` | ✅ |
+| FM-47 | `rf-slot-lab/parser/gdd_parser.rs` — JSON/YAML GDD parser | ⬜ |
+| FM-48 | `rf-slot-lab/parser/schema.rs` — GDD validation schema | ⬜ |
+| FM-49 | `rf-slot-lab/parser/validator.rs` — GDD constraint validation | ⬜ |
+| FM-50 | Parser tests | ⬜ |
 
----
-
-## P-DEV: Device Preview Engine ✅ COMPLETE
-
-**Spec:** FLUXFORGE_MASTER_SPEC.md §11
-**Architecture:** Post-master monitoring-only. NEVER in exports. ≤0.7ms, <3% CPU.
+### Phase 6: CI/CD Integration (~500 LOC)
 
 | # | Task | Status |
 |---|------|--------|
-| DEV-1 | `rf-dsp/device_preview.rs` — 8-node DSP chain: PreGain → HPF → TonalEQ → Stereo → DRC → Limiter → Distortion → Environmental | ✅ |
-| DEV-2 | Butterworth HPF node (BiquadTDF2 highpass) | ✅ |
-| DEV-3 | Tonal Curve EQ (peaking biquads from 10-point FR curve) | ✅ |
-| DEV-4 | M/S Stereo Processor (width: 0=mono, 1=stereo, narrowed) | ✅ |
-| DEV-5 | Envelope-follower DRC (attack 10ms, release 100ms, ratio up to 4:1) | ✅ |
-| DEV-6 | Brickwall Limiter node | ✅ |
-| DEV-7 | 3 Distortion Models (SoftClip, HardClip, SpeakerBreakup) | ✅ |
-| DEV-8 | Environmental Noise Overlay (deterministic, L/R decorrelated) | ✅ |
-| DEV-9 | 50 device profiles (15+9+6+6+5+5+4), 11 unit tests passing | ✅ |
-| DEV-10 | Profile data: 10-point FR, MaxSPL, DRC, stereo, limiter, distortion, env noise | ✅ |
-| DEV-11 | Thread model: AtomicBool active, load_profile on UI, process() zero-alloc | ✅ |
-| DEV-12 | Export safety: auto-disable device preview on export_start() | ✅ |
-| DEV-13 | FFI bridge (device_preview_ffi.rs) + Dart bindings + DevicePreviewProvider + GetIt | ✅ |
-| DEV-14 | Device Preview panel UI: profile picker, FR curve, category selector, detail chips | ✅ |
+| FM-51 | `fluxmacro-ci.yml` — GitHub Actions workflow (run --ci, artifact upload, PR check status) | ⬜ |
+| FM-52 | CI report formatter — PR comment generator sa QA summary table | ⬜ |
+| FM-53 | CI integration tests (headless, no TTY, JSON-only) | ⬜ |
 
 ---
 
-## P-SAM: Smart Authoring Mode ✅ COMPLETE
-
-**Spec:** FLUXFORGE_MASTER_SPEC.md §13
-**Requires:** GEG, DPM, SAMCL, PBSE, AIL
-
-| # | Task | Status |
-|---|------|--------|
-| SAM-1 | `rf-aurexis/sam/engine.rs` — 3 UI modes (Smart/Advanced/Debug), AuthoringMode enum | ✅ |
-| SAM-2 | `rf-aurexis/sam/archetypes.rs` — 8 archetypes with ArchetypeDefaults, VolatilityRange, MarketTarget | ✅ |
-| SAM-3 | `rf-aurexis/sam/controls.rs` — Energy group: Intensity, BuildSpeed, PeakAggression, Decay | ✅ |
-| SAM-4 | Clarity group: MixTightness, TransientSharpness, Width, Harmonics | ✅ |
-| SAM-5 | Stability group: Fatigue, PeakDuration, VoiceDensity | ✅ |
-| SAM-6 | SmartAuthoringEngine: compute_engine_params() maps 11 controls → 12 engine parameters | ✅ |
-| SAM-7 | 9-step WizardStep enum with navigation (next/prev/progress) | ✅ |
-| SAM-8 | auto_configure(): volatility position + market modifier scaling | ✅ |
-| SAM-9 | FFI bridge (`sam_ffi.rs`, ~40 functions) + Dart bindings + SamProvider (GetIt Layer 7) | ✅ |
-| SAM-10 | SamAuthoringPanel UI: mode tabs, wizard bar, archetype selector, grouped sliders | ✅ |
-
----
-
-## P-UCP: Unified Control Panel ✅ COMPLETE
-
-**Spec:** FLUXFORGE_MASTER_SPEC.md §14
-**Requires:** Core systems (GEG, DPM, SAMCL, Emotional Engine)
-
-| # | Task | Status |
-|---|------|--------|
-| UCP-1 | `ucp/event_timeline_zone.dart` — Horizontal timeline strip with hook/event/segment legends | ✅ |
-| UCP-2 | `ucp/energy_emotional_monitor.dart` — 5 energy domain bars + emotional state chips | ✅ |
-| UCP-3 | `ucp/voice_priority_monitor.dart` — Active/Budget/Stolen/Utilization voice metrics | ✅ |
-| UCP-4 | `ucp/spectral_heatmap.dart` — 10 spectral roles with color-coded density bars | ✅ |
-| UCP-5 | `ucp/fatigue_stability_dashboard.dart` — 3 circular gauges: Fatigue, Drift, Peak Duration | ✅ |
-| UCP-6 | `ucp/ail_panel_zone.dart` — AIL score/status, recommendation list with impact scores | ✅ |
-| UCP-7 | `ucp/debug_monitor_zone.dart` — Raw values from all 6 subsystems (AUREXIS, DPM, SAMCL, PBSE, AIL, DRC) | ✅ |
-| UCP-8 | `ucp/export_zone.dart` — 5 export formats (DRC Trace, DRC Report, AIL Report, SAM State, Manifest) → clipboard | ✅ |
-
----
-
-## P-MWUI: SlotLab Middleware UI Views ✅ COMPLETE
-
-**Spec:** FLUXFORGE_MASTER_SPEC.md §17
-**Note:** Providers (19/19) + all 8 view widgets complete.
-
-| # | Task | Status |
-|---|------|--------|
-| MWUI-1 | `middleware/mwui_build_view.dart` — 3-pane layout: behavior tree, node editor (properties/audio/transitions/triggers), stage assignment + AutoBind | ✅ |
-| MWUI-2 | `middleware/mwui_flow_view.dart` — 10-layer pipeline visualization (Hook→Gate→Behavior→Priority→Emotional→Orchestration→AUREXIS→Voice→DSP→Analytics) with hover detail | ✅ |
-| MWUI-3 | `middleware/mwui_simulation_view.dart` — 6 simulation modes with controls, PBSE domain results (pass/fail per domain) | ✅ |
-| MWUI-4 | `middleware/mwui_diagnostic_view.dart` — 4 sub-tabs: Raw State (all provider values), Providers (subsystems), Timing (profiler stats + stage breakdown), Voice Pool (pool type stats, by source/bus) | ✅ |
-| MWUI-5 | `middleware/mwui_template_gallery.dart` — 11 templates across 7 categories, grid view with detail bar and Apply button | ✅ |
-| MWUI-6 | `middleware/mwui_export_panel.dart` — 7 export formats with format-specific options, simulated export progress | ✅ |
-| MWUI-7 | `middleware/mwui_coverage_viz.dart` — Grid of behavior nodes with color-coded coverage, category filter, hover detail panel | ✅ |
-| MWUI-8 | `middleware/mwui_inspector_panel.dart` — 5 tabs: Parameters, Sounds, Context overrides, Ducking/bindings, Coverage stats + stage entries | ✅ |
-
----
-
-## FUTURE: P-GAD — Gameplay-Aware DAW
-
-**Spec:** FLUXFORGE_MASTER_SPEC.md §15
-**Status:** Deferred until all core systems complete
-
-- Dual timeline (Musical + Gameplay)
-- 8 track types with per-track metadata
-- Bake To Slot (11-step pipeline)
-
----
-
-## FUTURE: P-SSS — Scale & Stability Suite
-
-**Spec:** FLUXFORGE_MASTER_SPEC.md §16
-**Status:** Deferred (enterprise feature)
-
-- Multi-project isolation
-- Config diff engine
-- Auto regression (10 .fftrace sessions)
-- Burn test (10,000 spins)
-
----
-
-## ✅ COMPLETED SYSTEMS (collapsed)
-
-<details>
-<summary>AUREXIS™ — 88/88 tasks (24 phases)</summary>
-All 24 phases complete. See `.claude/docs/MASTER_TODO_FULL_BACKUP_2026_02_27.md` for full task list.
-</details>
-
-<details>
-<summary>SlotLab Middleware — 19/19 providers</summary>
-All 19 middleware providers implemented. See backup for full provider list.
-</details>
-
-<details>
-<summary>DAW Mixer, DSP Panels, EQ, Master Bus, Stereo Imager, Unified Track Graph</summary>
-All complete. See backup for details.
-</details>
-
----
-
-## Task Totals
+## Grand Total (All Systems)
 
 | System | Tasks | Done | Remaining |
 |--------|-------|------|-----------|
-| P-SRC | 5 | 5 | 0 ✅ |
-| P-GEG | 12 | 12 | 0 ✅ |
-| P-DPM | 10 | 10 | 0 ✅ |
-| P-SAMCL | 12 | 12 | 0 ✅ |
-| P-PBSE | 10 | 10 | 0 ✅ |
-| P-AIL | 8 | 8 | 0 ✅ |
-| P-DRC | 12 | 12 | 0 ✅ |
-| P-DEV | 14 | 14 | 0 ✅ |
-| P-SAM | 10 | 10 | 0 ✅ |
-| P-UCP | 8 | 8 | 0 ✅ |
-| P-MWUI | 8 | 8 | 0 ✅ |
-| **TOTAL** | **109** | **109** | **0 ✅** |
-| FUTURE (GAD+SSS) | ~25 | 0 | deferred |
+| Core Systems (P-SRC...P-SSS) | 129 | 129 | 0 ✅ |
+| P-FMC Phase 1: Foundation | 19 | 0 | 19 ⬜ |
+| P-FMC Phase 2: Core Steps | 12 | 0 | 12 ⬜ |
+| P-FMC Phase 3: CLI + FFI | 6 | 0 | 6 ⬜ |
+| P-FMC Phase 4: Studio UI | 9 | 0 | 9 ⬜ |
+| P-FMC Phase 5: GDD Parser | 4 | 0 | 4 ⬜ |
+| P-FMC Phase 6: CI/CD | 3 | 0 | 3 ⬜ |
+| **GRAND TOTAL** | **182** | **129** | **53 ⬜** |
 
 ---
 
-*Last Updated: 2026-02-28 — ALL LAYERS COMPLETE (109/109). All core systems implemented. Remaining: P-GAD, P-SSS (deferred/future).*
+*Last Updated: 2026-03-01 — Core systems COMPLETE (129/129). FluxMacro system PENDING (0/53). Full spec: `FLUXMACRO_SYSTEM.md`*

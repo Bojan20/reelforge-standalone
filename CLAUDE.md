@@ -163,6 +163,7 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 - .claude/tasks/P9_AUDIO_PANEL_CONSOLIDATION_2026_01_31.md — P9 COMPLETE (12/12 ✅)
 - .claude/tasks/P13_FEATURE_BUILDER_INTEGRATION_2026_02_01.md — P13.8 Apply & Build (5/9 ✅)
 - .claude/tasks/P14_TIMELINE_COMPLETE_2026_02_01.md — P14 COMPLETE (17/17 ✅)
+- FLUXMACRO_SYSTEM.md — P-FMC FluxMacro System (0/53 ⬜) — Deterministic Orchestration Engine
 
 **Architecture Documentation:**
 - .claude/architecture/SSL_CHANNEL_STRIP_ORDERING.md — SSL signal flow
