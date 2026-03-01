@@ -377,6 +377,11 @@ class StageGroupService {
       // ── MUSIC ──
       ('music_base', 'MUSIC_BASE'),
       ('base_music_loop', 'MUSIC_BASE'),
+      ('mus_bg_lvl_1', 'MUSIC_BASE'),
+      ('mus_bg_lvl_2', 'MUSIC_LAYER_1'),
+      ('mus_bg_lvl_3', 'MUSIC_LAYER_2'),
+      ('mus_bw', 'WIN_BIG'),
+      ('mus_rs', 'HOLD_MUSIC'),
 
       // ── FREESPIN ──
       ('freespin_start', 'FREESPIN_START'),
@@ -415,6 +420,38 @@ class StageGroupService {
     return failed == 0;
   }
 
+  /// Alias map: substring → stage. Checked BEFORE fuzzy matching.
+  /// Uses original filename (lowercased, without extension/prefix number).
+  /// If ANY alias key is found as substring in the filename → instant match.
+  static const Map<String, String> _aliasMap = {
+    // Music layers — lvl naming convention
+    'mus_bg_lvl_1': 'MUSIC_BASE',
+    'mus_bg_lvl_2': 'MUSIC_LAYER_1',
+    'mus_bg_lvl_3': 'MUSIC_LAYER_2',
+    // Music — feature music
+    'mus_bw': 'WIN_BIG',
+    'mus_rs': 'HOLD_MUSIC',
+    // Spin / reel appearances
+    'reels_appear': 'REEL_SPIN_LOOP',
+    'reel_appear': 'REEL_SPIN_LOOP',
+    // Suspense → anticipation
+    'spins_susp': 'ANTICIPATION_ON',
+  };
+
+  /// Check alias map for instant match. Returns stage ID or null.
+  String? _checkAlias(String audioPath) {
+    final fileName = _extractFileName(audioPath).toLowerCase();
+    // Try longest alias first to avoid partial matches
+    final sortedAliases = _aliasMap.keys.toList()
+      ..sort((a, b) => b.length.compareTo(a.length));
+    for (final alias in sortedAliases) {
+      if (fileName.contains(alias)) {
+        return _aliasMap[alias];
+      }
+    }
+    return null;
+  }
+
   /// Stages grouped by StageGroup
   ///
   /// MATCHING LOGIC v2.0 — Intent-Based Matching
@@ -445,8 +482,10 @@ class StageGroupService {
         keywords: ['spin', 'start', 'button', 'press', 'click', 'ui', 'tap'],
         requiredKeywords: [], // At least one of: spin, button, click, press, ui
         suffixes: ['_start', '_press', '_click', '_spin', '_tap'],
-        // CRITICAL FIX: Only exclude if it's clearly a LOOP sound (spinning + loop together)
-        excludeKeywords: ['loop', 'roll', 'spinning', 'stop', 'land'],
+        // Exclude: loop sounds, free spin indicators, animation/visual sounds
+        excludeKeywords: ['loop', 'roll', 'spinning', 'stop', 'land',
+          'fs', 'free', 'freespin', 'anim', 'animation', 'bonus',
+          'feature', 'highlight', 'glow', 'music', 'bg'],
         priority: 95, // HIGH priority - UI sounds are important
       ),
       _StageDefinition(
@@ -485,11 +524,12 @@ class StageGroupService {
       // NOTE: 'spin'/'spins' in name is OK if 'stop'/'land' is also present!
       _StageDefinition(
         stage: 'REEL_STOP',
-        keywords: ['stop', 'land', 'reel', 'reels', 'spin', 'spins'],
+        keywords: ['stop', 'land', 'spin', 'spins'],
         requiredKeywords: [],
         suffixes: ['_stop', '_land'],
-        // Only exclude continuous action indicators (loop/spinning) and UI indicators
-        excludeKeywords: ['spinning', 'loop', 'roll', 'button', 'press', 'click'],
+        excludeKeywords: ['spinning', 'loop', 'roll', 'button', 'press', 'click',
+          'highlight', 'glow', 'anim', 'animation', 'fs', 'free', 'bonus', 'music',
+          'appear', 'scatter', 'wild', 'symbol', 'win', 'reveal'],
         requiresNumber: false,
         priority: 88,
       ),
@@ -499,50 +539,55 @@ class StageGroupService {
       // ───────────────────────────────────────────────────────────────────
       _StageDefinition(
         stage: 'REEL_STOP_0',
-        keywords: ['stop', 'land', 'first', '1st', 'reel', 'reels'],
+        keywords: ['stop', 'land', 'first', '1st'],
         requiredKeywords: [],
         suffixes: ['_0', '_first'],
-        excludeKeywords: ['spinning', 'loop'], // Only continuous action
+        excludeKeywords: ['spinning', 'loop', 'highlight', 'glow', 'anim', 'animation',
+          'fs', 'free', 'bonus', 'music', 'appear', 'scatter', 'wild', 'symbol', 'win', 'reveal'],
         requiresNumber: true,
         specificNumber: 0,
         priority: 87,
       ),
       _StageDefinition(
         stage: 'REEL_STOP_1',
-        keywords: ['stop', 'land', 'second', '2nd', 'reel', 'reels'],
+        keywords: ['stop', 'land', 'second', '2nd'],
         requiredKeywords: [],
         suffixes: ['_1', '_second'],
-        excludeKeywords: ['spinning', 'loop'],
+        excludeKeywords: ['spinning', 'loop', 'highlight', 'glow', 'anim', 'animation',
+          'fs', 'free', 'bonus', 'music', 'appear', 'scatter', 'wild', 'symbol', 'win', 'reveal'],
         requiresNumber: true,
         specificNumber: 1,
         priority: 87,
       ),
       _StageDefinition(
         stage: 'REEL_STOP_2',
-        keywords: ['stop', 'land', 'third', '3rd', 'middle', 'center', 'reel', 'reels'],
+        keywords: ['stop', 'land', 'third', '3rd', 'middle', 'center'],
         requiredKeywords: [],
         suffixes: ['_2', '_third', '_middle'],
-        excludeKeywords: ['spinning', 'loop'],
+        excludeKeywords: ['spinning', 'loop', 'highlight', 'glow', 'anim', 'animation',
+          'fs', 'free', 'bonus', 'music', 'appear', 'scatter', 'wild', 'symbol', 'win', 'reveal'],
         requiresNumber: true,
         specificNumber: 2,
         priority: 87,
       ),
       _StageDefinition(
         stage: 'REEL_STOP_3',
-        keywords: ['stop', 'land', 'fourth', '4th', 'reel', 'reels'],
+        keywords: ['stop', 'land', 'fourth', '4th'],
         requiredKeywords: [],
         suffixes: ['_3', '_fourth'],
-        excludeKeywords: ['spinning', 'loop'],
+        excludeKeywords: ['spinning', 'loop', 'highlight', 'glow', 'anim', 'animation',
+          'fs', 'free', 'bonus', 'music', 'appear', 'scatter', 'wild', 'symbol', 'win', 'reveal'],
         requiresNumber: true,
         specificNumber: 3,
         priority: 87,
       ),
       _StageDefinition(
         stage: 'REEL_STOP_4',
-        keywords: ['stop', 'land', 'fifth', '5th', 'last', 'final', 'reel', 'reels'],
+        keywords: ['stop', 'land', 'fifth', '5th', 'last', 'final'],
         requiredKeywords: [],
         suffixes: ['_4', '_fifth', '_last', '_final'],
-        excludeKeywords: ['spinning', 'loop'],
+        excludeKeywords: ['spinning', 'loop', 'highlight', 'glow', 'anim', 'animation',
+          'fs', 'free', 'bonus', 'music', 'appear', 'scatter', 'wild', 'symbol', 'win', 'reveal'],
         requiresNumber: true,
         specificNumber: 4,
         priority: 87,
@@ -1040,8 +1085,8 @@ class StageGroupService {
         }
       }
 
-      // Threshold for considering it a match (lowered from 0.3 to 0.2 for broader matching)
-      if (bestMatch != null && bestConfidence >= 0.2) {
+      // Threshold 0.3 = requires 2+ keywords or 1 keyword + suffix/exact match
+      if (bestMatch != null && bestConfidence >= 0.3) {
         matched.add(StageMatch(
           audioFileName: fileName,
           audioPath: path,
@@ -1072,8 +1117,11 @@ class StageGroupService {
 
   /// Detect if batch uses 0-indexed (0-4) or 1-indexed (1-5) naming convention
   /// Returns offset to subtract from file numbers: 0 = already 0-indexed, 1 = convert 1-indexed to 0-indexed
+  /// NOTE: If ANY reel-stop file uses XofY naming (e.g. "1of5"), returns 0
+  /// because XofY has its own conversion logic in _calculateConfidence STEP 4.
   int _detectIndexingConvention(List<String> audioPaths) {
     final allNumbers = <int>{};
+    bool hasXofYPattern = false;
 
     for (final path in audioPaths) {
       final fileName = _extractFileName(path);
@@ -1086,15 +1134,30 @@ class StageGroupService {
         continue;
       }
 
-      // Extract all numbers from filename
+      // If any reel-stop file uses XofY, skip indexing convention entirely
+      if (RegExp(r'\dof\d').hasMatch(normalizedName)) {
+        hasXofYPattern = true;
+        break;
+      }
+
+      // Extract numbers AFTER a stop/land keyword only (ignore prefix IDs)
+      final stopIdx = normalizedName.lastIndexOf('stop');
+      final landIdx = normalizedName.lastIndexOf('land');
+      final kwEnd = stopIdx > landIdx ? stopIdx : landIdx;
+      if (kwEnd < 0) continue;
+
+      final afterKw = normalizedName.substring(kwEnd);
       final numbers = RegExp(r'\d+')
-          .allMatches(normalizedName)
+          .allMatches(afterKw)
           .map((m) => int.tryParse(m.group(0) ?? '') ?? -1)
-          .where((n) => n >= 0 && n <= 9) // Only single digits likely to be reel indices
+          .where((n) => n >= 0 && n <= 9)
           .toList();
 
       allNumbers.addAll(numbers);
     }
+
+    // XofY files handle their own indexing — don't apply global offset
+    if (hasXofYPattern) return 0;
 
     if (allNumbers.isEmpty) return 0;
 
@@ -1129,10 +1192,24 @@ class StageGroupService {
 
   /// Apply index offset to normalized filename for matching
   /// Converts 1-indexed numbers to 0-indexed (subtracts offset from each number)
+  /// SKIPS XofY patterns (they have their own conversion logic in STEP 4)
+  /// SKIPS leading prefix numbers (asset IDs like "004")
   String _applyIndexOffset(String normalizedName, int offset) {
+    // First, identify XofY spans to skip
+    final xofyRegions = RegExp(r'\dof\d')
+        .allMatches(normalizedName)
+        .map((m) => (m.start, m.end))
+        .toList();
+
     return normalizedName.replaceAllMapped(
       RegExp(r'\d+'),
       (match) {
+        // Skip if inside XofY pattern
+        for (final (start, end) in xofyRegions) {
+          if (match.start >= start && match.end <= end) return match.group(0)!;
+        }
+        // Skip leading prefix (starts at position 0)
+        if (match.start == 0) return match.group(0)!;
         final num = int.tryParse(match.group(0) ?? '') ?? 0;
         final adjusted = num - offset;
         return adjusted >= 0 ? adjusted.toString() : match.group(0)!;
@@ -1185,6 +1262,19 @@ class StageGroupService {
       final fileName = _extractFileName(path);
       final normalizedName = _normalizeFileName(fileName);
 
+      // ── ALIAS PRE-CHECK: instant match for known naming patterns ──
+      final aliasStage = _checkAlias(path);
+      if (aliasStage != null && (allowedStages == null || allowedStages.contains(aliasStage))) {
+        matched.add(StageMatch(
+          audioFileName: fileName,
+          audioPath: path,
+          stage: aliasStage,
+          confidence: 0.95,
+          matchedKeywords: ['alias:$aliasStage'],
+        ));
+        continue;
+      }
+
       // Apply indexing offset for batch matching
       final adjustedName = indexOffset != 0
           ? _applyIndexOffset(normalizedName, indexOffset)
@@ -1207,7 +1297,9 @@ class StageGroupService {
         }
       }
 
-      if (bestMatch != null && bestConfidence >= 0.2) {
+      // Threshold 0.3 = requires at least 2 keyword matches (0.40 base)
+      // or 1 keyword + suffix/exact match. Prevents weak single-keyword false positives.
+      if (bestMatch != null && bestConfidence >= 0.3) {
         matched.add(StageMatch(
           audioFileName: fileName,
           audioPath: path,
@@ -1244,6 +1336,18 @@ class StageGroupService {
     final fileName = _extractFileName(audioPath);
     final normalizedName = _normalizeFileName(fileName);
 
+    // ── ALIAS PRE-CHECK ──
+    final aliasStage = _checkAlias(audioPath);
+    if (aliasStage != null) {
+      return StageMatch(
+        audioFileName: fileName,
+        audioPath: audioPath,
+        stage: aliasStage,
+        confidence: 0.95,
+        matchedKeywords: ['alias:$aliasStage'],
+      );
+    }
+
     _StageDefinition? bestMatch;
     double bestConfidence = 0.0;
     List<String> bestKeywords = [];
@@ -1260,7 +1364,7 @@ class StageGroupService {
       }
     }
 
-    if (bestMatch != null && bestConfidence >= 0.2) {
+    if (bestMatch != null && bestConfidence >= 0.3) {
       return StageMatch(
         audioFileName: fileName,
         audioPath: audioPath,
@@ -1320,21 +1424,16 @@ class StageGroupService {
 
     // SMART EXCLUSION LOGIC:
     // - If we have NO keyword matches and ANY exclude → exclude
-    // - If we have 1-2 keyword matches and 2+ excludes → exclude
-    // - If we have 3+ keyword matches and any excludes → DON'T exclude (strong intent)
+    // - If keywords <= excludes → exclude (not enough positive signal)
+    // - If we have 3+ keyword matches and 1 exclude → DON'T exclude (strong intent)
     if (excludeMatches > 0) {
       if (keywordMatches == 0) {
-        // No positive matches, any exclude is disqualifying
         return (0.0, ['EXCLUDED:$primaryExclude (no positive matches)']);
-      } else if (keywordMatches <= 2 && excludeMatches >= 2) {
-        // Weak positive, strong negative
-        return (0.0, ['EXCLUDED:$primaryExclude (weak match, $excludeMatches excludes)']);
-      } else if (keywordMatches < excludeMatches) {
-        // More excludes than matches
-        return (0.0, ['EXCLUDED:$primaryExclude ($excludeMatches excludes > $keywordMatches matches)']);
+      } else if (keywordMatches <= excludeMatches) {
+        // Not enough positive signal to override negatives
+        return (0.0, ['EXCLUDED:$primaryExclude ($keywordMatches keywords <= $excludeMatches excludes)']);
       }
-      // Otherwise: we have enough positive matches to override excludes
-      // Apply a small penalty instead of full exclusion
+      // keywords > excludes: strong enough positive, apply penalty instead
       score -= 0.1 * excludeMatches;
       matchedKeywords.add('PENALTY:${excludeMatches}x excludes');
     }
@@ -1352,24 +1451,68 @@ class StageGroupService {
 
     // ═══════════════════════════════════════════════════════════════════════
     // STEP 4: Check for specific number requirement (REEL_STOP_0-4)
+    //
+    // Supports multiple naming conventions:
+    //   - XofY pattern: "spins_stop_3of5_2" → X=3, Y=5, 0-indexed = X-1 = 2
+    //   - Direct suffix: "reel_stop_2" → number after stop/land keyword
+    //   - Prefix number: "004" at start is IGNORED (it's an asset ID)
+    //   - Trailing number after XofY: "_2" at end is version/variant, IGNORED
     // ═══════════════════════════════════════════════════════════════════════
     if (def.requiresNumber) {
-      final numbers = RegExp(r'\d+')
-          .allMatches(normalizedName)
-          .map((m) => int.tryParse(m.group(0) ?? '') ?? -1)
-          .toList();
-
       if (def.specificNumber != null) {
-        if (!numbers.contains(def.specificNumber!)) {
-          return (0.0, ['MISSING_NUMBER:${def.specificNumber}']);
+        // Strategy 1: XofY pattern (e.g., "1of5", "3of5")
+        // In normalized form separators are stripped, so "1of5_2" → "1of52".
+        // Use single-digit capture for X and Y to avoid greedy matching with
+        // trailing version numbers. Real X/Y are always 1-9.
+        final xofyMatch = RegExp(r'(\d)of(\d)').firstMatch(normalizedName);
+        if (xofyMatch != null) {
+          final x = int.tryParse(xofyMatch.group(1) ?? '') ?? -1;
+          final reelIndex = x - 1; // 1of5 → 0, 3of5 → 2
+          if (reelIndex == def.specificNumber!) {
+            matchedKeywords.add('xofy:${xofyMatch.group(0)}→index$reelIndex');
+            score += 0.35;
+          } else {
+            return (0.0, ['XOFY_MISMATCH:${xofyMatch.group(0)}→index$reelIndex, need ${def.specificNumber}']);
+          }
+        } else {
+          // Strategy 2: Direct number after a stop/land/reel keyword
+          // Find numbers that appear AFTER a relevant keyword, ignore prefix IDs
+          final stopIdx = normalizedName.lastIndexOf('stop');
+          final landIdx = normalizedName.lastIndexOf('land');
+          final reelIdx = normalizedName.lastIndexOf('reel');
+          final keywordEnd = [stopIdx, landIdx, reelIdx]
+              .where((i) => i >= 0)
+              .fold<int>(-1, (a, b) => b > a ? b : a);
+
+          if (keywordEnd >= 0) {
+            // Look for numbers after the last keyword
+            final afterKeyword = normalizedName.substring(keywordEnd);
+            final nums = RegExp(r'\d+')
+                .allMatches(afterKeyword)
+                .map((m) => int.tryParse(m.group(0) ?? '') ?? -1)
+                .where((n) => n >= 0 && n <= 9)
+                .toList();
+            if (nums.contains(def.specificNumber!)) {
+              matchedKeywords.add('number:${def.specificNumber}');
+              score += 0.35;
+            } else {
+              return (0.0, ['MISSING_NUMBER:${def.specificNumber} (after keyword)']);
+            }
+          } else {
+            return (0.0, ['MISSING_NUMBER:${def.specificNumber} (no keyword context)']);
+          }
         }
-        matchedKeywords.add('number:${def.specificNumber}');
-        score += 0.35;
-      } else if (numbers.isEmpty) {
+      } else if (!RegExp(r'\d').hasMatch(normalizedName)) {
         return (0.0, ['MISSING_ANY_NUMBER']);
       }
     } else if (def.stage == 'REEL_STOP') {
-      // Generic REEL_STOP should not match if there's a specific reel number
+      // Generic REEL_STOP should not match if there's a specific reel index (XofY or direct)
+      final xofyMatch = RegExp(r'(\d)of(\d)').firstMatch(normalizedName);
+      if (xofyMatch != null) {
+        // Has XofY → it's a specific reel stop, not generic
+        return (0.0, ['HAS_XOFY:${xofyMatch.group(0)}']);
+      }
+      // Check for direct number after stop/land keyword
       final numbers = RegExp(r'\d+').allMatches(normalizedName).toList();
       for (final m in numbers) {
         final num = int.tryParse(m.group(0) ?? '') ?? -1;

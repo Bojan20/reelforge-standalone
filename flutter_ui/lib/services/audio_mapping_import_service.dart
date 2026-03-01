@@ -121,62 +121,35 @@ class AudioMappingImportService {
     final unmatched = <UnmatchedImportFile>[];
     final warnings = <String>[];
 
-    // Get composed stages from FeatureComposer (if available)
-    Set<String> composedStageIds = {};
-    if (GetIt.instance.isRegistered<FeatureComposerProvider>()) {
-      final composer = GetIt.instance<FeatureComposerProvider>();
-      composedStageIds = composer.composedStages.map((s) => s.id).toSet();
-    }
-
-    // Build stage token index for fast lookup
-    final stageTokenIndex = _buildStageTokenIndex(composedStageIds);
+    // Use StageGroupService batch matching — handles XofY naming, indexing
+    // convention detection, and has well-tested exclude/keyword logic.
+    final batchResult = StageGroupService.instance.matchFilesToStages(
+      audioPaths: audioPaths,
+    );
 
     // Track assigned stages — allow variants (multiple files per stage)
     final assignedStages = <String, List<String>>{}; // stage → [paths]
 
-    for (final path in audioPaths) {
-      final result = _intelligentMatch(path, composedStageIds, stageTokenIndex);
-
-      if (result != null) {
-        final existing = assignedStages[result.stageId];
-        if (existing != null) {
-          // Allow variants — first match becomes primary, rest are variants
-          warnings.add('Variant: "${_fileName(path)}" → ${result.stageId} (${existing.length + 1} variants)');
-        }
-        mappings.add(result);
-        assignedStages.putIfAbsent(result.stageId, () => []).add(path);
-      } else {
-        // Try legacy StageGroupService as fallback
-        final legacyMatch = StageGroupService.instance.matchSingleFile(path);
-        if (legacyMatch != null) {
-          final stageValid = composedStageIds.isEmpty ||
-              composedStageIds.contains(legacyMatch.stage);
-          if (stageValid) {
-            mappings.add(AudioMappingEntry(
-              stageId: legacyMatch.stage,
-              audioPath: path,
-              confidence: legacyMatch.confidence * 0.8, // Lower confidence for legacy
-              source: 'fuzzy',
-            ));
-            assignedStages.putIfAbsent(legacyMatch.stage, () => []).add(path);
-          } else {
-            unmatched.add(UnmatchedImportFile(
-              fileName: _fileName(path),
-              filePath: path,
-              suggestions: [StageSuggestion(
-                stage: legacyMatch.stage,
-                confidence: legacyMatch.confidence,
-                reason: 'Matched but mechanic not enabled',
-              )],
-            ));
-          }
-        } else {
-          unmatched.add(UnmatchedImportFile(
-            fileName: _fileName(path),
-            filePath: path,
-          ));
-        }
+    for (final match in batchResult.matched) {
+      final existing = assignedStages[match.stage];
+      if (existing != null) {
+        warnings.add('Variant: "${match.audioFileName}" → ${match.stage} (${existing.length + 1} variants)');
       }
+      mappings.add(AudioMappingEntry(
+        stageId: match.stage,
+        audioPath: match.audioPath,
+        confidence: match.confidence,
+        source: 'fuzzy',
+      ));
+      assignedStages.putIfAbsent(match.stage, () => []).add(match.audioPath);
+    }
+
+    for (final um in batchResult.unmatched) {
+      unmatched.add(UnmatchedImportFile(
+        fileName: um.audioFileName,
+        filePath: um.audioPath,
+        suggestions: um.suggestions,
+      ));
     }
 
     // Sort by confidence (highest first)
@@ -203,15 +176,6 @@ class AudioMappingImportService {
           ));
         }
         warnings.add('${paths.length} variants registered for $stageId (random playback)');
-      }
-    }
-
-    // Coverage warning
-    if (composedStageIds.isNotEmpty) {
-      final coveredStages = assignedStages.keys.toSet();
-      final uncovered = composedStageIds.difference(coveredStages);
-      if (uncovered.isNotEmpty) {
-        warnings.add('${uncovered.length} stages still need audio: ${uncovered.take(5).join(", ")}${uncovered.length > 5 ? "..." : ""}');
       }
     }
 
