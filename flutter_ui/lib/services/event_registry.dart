@@ -735,7 +735,7 @@ class EventRegistry extends ChangeNotifier {
   static const Map<String, int> _crossfadeDurations = {
     // Music transitions need longer crossfade
     'MUSIC': 500,
-    'MUSIC_BASE': 500,
+    'MUSIC_BASE_L1': 500,
     'MUSIC_FEATURE': 400,
     'MUSIC_TENSION': 300,
     // Feature transitions
@@ -760,10 +760,10 @@ class EventRegistry extends ChangeNotifier {
   /// When a stage in group A ends and a stage in the same group starts, crossfade
   static const Map<String, String> _stageCrossfadeGroups = {
     // Music group - any music transition crossfades
-    'MUSIC_BASE': 'music',
+    'MUSIC_BASE_L1': 'music',
     'MUSIC_FEATURE': 'music',
     'MUSIC_TENSION': 'music',
-    'MUSIC_JACKPOT': 'music',
+    'MUSIC_JACKPOT_L1': 'music',
     'FS_MUSIC': 'music',
     'HOLD_MUSIC': 'music',
     'BONUS_MUSIC': 'music',

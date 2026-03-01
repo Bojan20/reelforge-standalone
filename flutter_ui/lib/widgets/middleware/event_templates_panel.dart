@@ -253,7 +253,7 @@ class _EventTemplatesPanelState extends State<EventTemplatesPanel> {
       name: 'Base Game Music',
       description: 'Main game music loop',
       category: _TemplateCategory.music,
-      stage: 'MUSIC_BASE',
+      stage: 'MUSIC_BASE_L1',
       isLooping: true,
       bus: 'Music',
       icon: Icons.queue_music,

@@ -729,7 +729,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     'UI_BET_DOWN',
     'UI_SPIN_PRESS',
     // ─── MUSIC ───
-    'MUSIC_BASE',
+    'MUSIC_BASE_L1',
     'MUSIC_WIN',
     'MUSIC_FEATURE',
     // ─── AMBIENCE ───

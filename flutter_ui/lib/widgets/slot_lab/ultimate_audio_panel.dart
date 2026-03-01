@@ -4391,23 +4391,125 @@ class _MusicSection extends _SectionConfig {
     // Add default music stages if no contexts
     if (contextGroups.isEmpty) {
       return const [
+        // ═══════════════════════════════════════════════════════════════════
+        // BASE GAME MUSIC — Full arrangement architecture
+        // Layer = complete arrangement (gradatively stronger)
+        // Extension = additional layer mixed ON TOP of active layer
+        // ═══════════════════════════════════════════════════════════════════
         _GroupConfig(
           id: 'base',
           title: 'Base Game',
           icon: '🎹',
           slots: [
-            _SlotConfig(stage: 'MUSIC_BASE', label: 'Base Music'),
-            _SlotConfig(stage: 'MUSIC_INTRO', label: 'Intro'),
-            _SlotConfig(stage: 'MUSIC_LAYER_1', label: 'Layer 1'),
-            _SlotConfig(stage: 'MUSIC_LAYER_2', label: 'Layer 2'),
-            _SlotConfig(stage: 'MUSIC_LAYER_3', label: 'Layer 3'),
+            _SlotConfig(stage: 'MUSIC_BASE_INTRO', label: 'Intro'),
+            _SlotConfig(stage: 'MUSIC_BASE_OUTRO', label: 'Outro'),
+            _SlotConfig(stage: 'MUSIC_BASE_L1', label: 'Layer 1'),
+            _SlotConfig(stage: 'MUSIC_BASE_L2', label: 'Layer 2'),
+            _SlotConfig(stage: 'MUSIC_BASE_L3', label: 'Layer 3'),
+            _SlotConfig(stage: 'MUSIC_BASE_L4', label: 'Layer 4'),
+            _SlotConfig(stage: 'MUSIC_BASE_L5', label: 'Layer 5'),
           ],
         ),
-        // NOTE: ATTRACT_LOOP and GAME_START moved to Section 1 (Base Game Loop)
-        // to avoid duplication — see 'idle' group in _BaseGameLoopSection
+        _GroupConfig(
+          id: 'freespins',
+          title: 'Free Spins',
+          icon: '🌀',
+          slots: [
+            _SlotConfig(stage: 'MUSIC_FS_INTRO', label: 'Intro'),
+            _SlotConfig(stage: 'MUSIC_FS_OUTRO', label: 'Outro'),
+            _SlotConfig(stage: 'MUSIC_FS_L1', label: 'Layer 1'),
+            _SlotConfig(stage: 'MUSIC_FS_L2', label: 'Layer 2'),
+            _SlotConfig(stage: 'MUSIC_FS_L3', label: 'Layer 3'),
+            _SlotConfig(stage: 'MUSIC_FS_L4', label: 'Layer 4'),
+            _SlotConfig(stage: 'MUSIC_FS_L5', label: 'Layer 5'),
+          ],
+        ),
+        _GroupConfig(
+          id: 'bonus',
+          title: 'Bonus',
+          icon: '🎁',
+          slots: [
+            _SlotConfig(stage: 'MUSIC_BONUS_INTRO', label: 'Intro'),
+            _SlotConfig(stage: 'MUSIC_BONUS_OUTRO', label: 'Outro'),
+            _SlotConfig(stage: 'MUSIC_BONUS_L1', label: 'Layer 1'),
+            _SlotConfig(stage: 'MUSIC_BONUS_L2', label: 'Layer 2'),
+            _SlotConfig(stage: 'MUSIC_BONUS_L3', label: 'Layer 3'),
+            _SlotConfig(stage: 'MUSIC_BONUS_L4', label: 'Layer 4'),
+            _SlotConfig(stage: 'MUSIC_BONUS_L5', label: 'Layer 5'),
+          ],
+        ),
+        _GroupConfig(
+          id: 'hold',
+          title: 'Hold & Spin',
+          icon: '🔒',
+          slots: [
+            _SlotConfig(stage: 'MUSIC_HOLD_INTRO', label: 'Intro'),
+            _SlotConfig(stage: 'MUSIC_HOLD_OUTRO', label: 'Outro'),
+            _SlotConfig(stage: 'MUSIC_HOLD_L1', label: 'Layer 1'),
+            _SlotConfig(stage: 'MUSIC_HOLD_L2', label: 'Layer 2'),
+            _SlotConfig(stage: 'MUSIC_HOLD_L3', label: 'Layer 3'),
+            _SlotConfig(stage: 'MUSIC_HOLD_L4', label: 'Layer 4'),
+            _SlotConfig(stage: 'MUSIC_HOLD_L5', label: 'Layer 5'),
+          ],
+        ),
+        _GroupConfig(
+          id: 'bigwin',
+          title: 'Big Win',
+          icon: '🏆',
+          slots: [
+            _SlotConfig(stage: 'MUSIC_BIGWIN_INTRO', label: 'Intro'),
+            _SlotConfig(stage: 'MUSIC_BIGWIN_OUTRO', label: 'Outro'),
+            _SlotConfig(stage: 'MUSIC_BIGWIN_L1', label: 'Layer 1'),
+            _SlotConfig(stage: 'MUSIC_BIGWIN_L2', label: 'Layer 2'),
+            _SlotConfig(stage: 'MUSIC_BIGWIN_L3', label: 'Layer 3'),
+            _SlotConfig(stage: 'MUSIC_BIGWIN_L4', label: 'Layer 4'),
+            _SlotConfig(stage: 'MUSIC_BIGWIN_L5', label: 'Layer 5'),
+          ],
+        ),
+        _GroupConfig(
+          id: 'jackpot',
+          title: 'Jackpot',
+          icon: '💎',
+          slots: [
+            _SlotConfig(stage: 'MUSIC_JACKPOT_INTRO', label: 'Intro'),
+            _SlotConfig(stage: 'MUSIC_JACKPOT_OUTRO', label: 'Outro'),
+            _SlotConfig(stage: 'MUSIC_JACKPOT_L1', label: 'Layer 1'),
+            _SlotConfig(stage: 'MUSIC_JACKPOT_L2', label: 'Layer 2'),
+            _SlotConfig(stage: 'MUSIC_JACKPOT_L3', label: 'Layer 3'),
+            _SlotConfig(stage: 'MUSIC_JACKPOT_L4', label: 'Layer 4'),
+            _SlotConfig(stage: 'MUSIC_JACKPOT_L5', label: 'Layer 5'),
+          ],
+        ),
+        _GroupConfig(
+          id: 'gamble',
+          title: 'Gamble',
+          icon: '🎲',
+          slots: [
+            _SlotConfig(stage: 'MUSIC_GAMBLE_INTRO', label: 'Intro'),
+            _SlotConfig(stage: 'MUSIC_GAMBLE_OUTRO', label: 'Outro'),
+            _SlotConfig(stage: 'MUSIC_GAMBLE_L1', label: 'Layer 1'),
+            _SlotConfig(stage: 'MUSIC_GAMBLE_L2', label: 'Layer 2'),
+            _SlotConfig(stage: 'MUSIC_GAMBLE_L3', label: 'Layer 3'),
+            _SlotConfig(stage: 'MUSIC_GAMBLE_L4', label: 'Layer 4'),
+            _SlotConfig(stage: 'MUSIC_GAMBLE_L5', label: 'Layer 5'),
+          ],
+        ),
+        _GroupConfig(
+          id: 'reveal',
+          title: 'Reveal / Pick',
+          icon: '🃏',
+          slots: [
+            _SlotConfig(stage: 'MUSIC_REVEAL_INTRO', label: 'Intro'),
+            _SlotConfig(stage: 'MUSIC_REVEAL_OUTRO', label: 'Outro'),
+            _SlotConfig(stage: 'MUSIC_REVEAL_L1', label: 'Layer 1'),
+            _SlotConfig(stage: 'MUSIC_REVEAL_L2', label: 'Layer 2'),
+            _SlotConfig(stage: 'MUSIC_REVEAL_L3', label: 'Layer 3'),
+            _SlotConfig(stage: 'MUSIC_REVEAL_L4', label: 'Layer 4'),
+            _SlotConfig(stage: 'MUSIC_REVEAL_L5', label: 'Layer 5'),
+          ],
+        ),
         // ═══════════════════════════════════════════════════════════════════
-        // TENSION MUSIC (P3 — 8 slots)
-        // Dynamic tension escalation
+        // TENSION MUSIC — Dynamic tension escalation
         // ═══════════════════════════════════════════════════════════════════
         _GroupConfig(
           id: 'tension',
@@ -4422,27 +4524,6 @@ class _MusicSection extends _SectionConfig {
             _SlotConfig(stage: 'MUSIC_CLIMAX', label: 'Climax'),
             _SlotConfig(stage: 'MUSIC_RESOLVE', label: 'Resolve'),
             _SlotConfig(stage: 'MUSIC_WIND_DOWN', label: 'Wind Down'),
-          ],
-        ),
-        // ═══════════════════════════════════════════════════════════════════
-        // FEATURE MUSIC (P3 — 10 slots)
-        // Context-specific music
-        // ═══════════════════════════════════════════════════════════════════
-        _GroupConfig(
-          id: 'features',
-          title: 'Feature Music',
-          icon: '🎼',
-          slots: [
-            _SlotConfig(stage: 'MUSIC_FREESPINS', label: 'FS Music'),
-            _SlotConfig(stage: 'MUSIC_FREESPINS_LAYER', label: 'FS Layer'),
-            _SlotConfig(stage: 'MUSIC_BONUS', label: 'Bonus Music'),
-            _SlotConfig(stage: 'MUSIC_BONUS_LAYER', label: 'Bonus Layer'),
-            _SlotConfig(stage: 'MUSIC_HOLD', label: 'Hold Music'),
-            _SlotConfig(stage: 'MUSIC_HOLD_LAYER', label: 'Hold Layer'),
-            _SlotConfig(stage: 'MUSIC_JACKPOT', label: 'Jackpot Music'),
-            _SlotConfig(stage: 'MUSIC_BIG_WIN', label: 'Big Win Music'),
-            _SlotConfig(stage: 'MUSIC_GAMBLE', label: 'Gamble Music'),
-            _SlotConfig(stage: 'MUSIC_REVEAL', label: 'Reveal Music'),
           ],
         ),
         // ═══════════════════════════════════════════════════════════════════
@@ -4467,23 +4548,21 @@ class _MusicSection extends _SectionConfig {
           ],
         ),
         // ═══════════════════════════════════════════════════════════════════
-        // AMBIENT (Industry Standard - Background atmosphere)
+        // AMBIENT — One per scene (background atmosphere per feature)
         // ═══════════════════════════════════════════════════════════════════
         _GroupConfig(
           id: 'ambient',
           title: 'Ambient',
           icon: '🌙',
           slots: [
-            _SlotConfig(stage: 'AMBIENT_CASINO_LOOP', label: 'Casino Loop'),
-            _SlotConfig(stage: 'AMBIENT_CROWD_MURMUR', label: 'Crowd Murmur'),
-            _SlotConfig(stage: 'AMBIENT_SLOT_FLOOR', label: 'Slot Floor'),
-            _SlotConfig(stage: 'AMBIENT_WIN_ROOM', label: 'Win Room'),
-            _SlotConfig(stage: 'AMBIENT_VIP_LOUNGE', label: 'VIP Lounge'),
-            _SlotConfig(stage: 'AMBIENT_NATURE', label: 'Nature'),
-            _SlotConfig(stage: 'AMBIENT_UNDERWATER', label: 'Underwater'),
-            _SlotConfig(stage: 'AMBIENT_SPACE', label: 'Space'),
-            _SlotConfig(stage: 'AMBIENT_MYSTICAL', label: 'Mystical'),
-            _SlotConfig(stage: 'AMBIENT_ADVENTURE', label: 'Adventure'),
+            _SlotConfig(stage: 'AMBIENT_BASE', label: 'Base Game'),
+            _SlotConfig(stage: 'AMBIENT_FS', label: 'Free Spins'),
+            _SlotConfig(stage: 'AMBIENT_BONUS', label: 'Bonus'),
+            _SlotConfig(stage: 'AMBIENT_HOLD', label: 'Hold & Spin'),
+            _SlotConfig(stage: 'AMBIENT_BIGWIN', label: 'Big Win'),
+            _SlotConfig(stage: 'AMBIENT_JACKPOT', label: 'Jackpot'),
+            _SlotConfig(stage: 'AMBIENT_GAMBLE', label: 'Gamble'),
+            _SlotConfig(stage: 'AMBIENT_REVEAL', label: 'Reveal'),
           ],
         ),
       ];

@@ -219,22 +219,81 @@ String generateEventName(String stage) {
     'COIN_BURST': 'onCoinBurst',
     'COIN_DROP': 'onCoinDrop',
 
-    // Music (unified MUSIC_* naming — matches UltimateAudioPanel)
+    // Music — unified MUSIC_{SCENE}_{TYPE} naming
+    // Layer = complete arrangement, Extension = additive overlay
     'GAME_START': 'onGameStart',
-    'MUSIC_BASE': 'onMusicBase',
-    'MUSIC_INTRO': 'onMusicIntro',
-    'MUSIC_LAYER_1': 'onMusicLayer1',
-    'MUSIC_LAYER_2': 'onMusicLayer2',
-    'MUSIC_LAYER_3': 'onMusicLayer3',
-    'MUSIC_FREESPINS': 'onMusicFreeSpins',
-    'MUSIC_FREESPINS_LAYER': 'onMusicFreeSpinsLayer',
-    'MUSIC_BONUS': 'onMusicBonus',
-    'MUSIC_BONUS_LAYER': 'onMusicBonusLayer',
-    'MUSIC_HOLD': 'onMusicHold',
-    'MUSIC_HOLD_LAYER': 'onMusicHoldLayer',
-    'MUSIC_BIG_WIN': 'onMusicBigWin',
-    'MUSIC_JACKPOT': 'onMusicJackpot',
-    'MUSIC_GAMBLE': 'onMusicGamble',
+    // Base game
+    'MUSIC_BASE_INTRO': 'onMusicBaseIntro',
+    'MUSIC_BASE_OUTRO': 'onMusicBaseOutro',
+    'MUSIC_BASE_L1': 'onMusicBaseL1',
+    'MUSIC_BASE_L2': 'onMusicBaseL2',
+    'MUSIC_BASE_L3': 'onMusicBaseL3',
+    'MUSIC_BASE_L4': 'onMusicBaseL4',
+    'MUSIC_BASE_L5': 'onMusicBaseL5',
+    // Free spins
+    'MUSIC_FS_INTRO': 'onMusicFsIntro',
+    'MUSIC_FS_OUTRO': 'onMusicFsOutro',
+    'MUSIC_FS_L1': 'onMusicFsL1',
+    'MUSIC_FS_L2': 'onMusicFsL2',
+    'MUSIC_FS_L3': 'onMusicFsL3',
+    'MUSIC_FS_L4': 'onMusicFsL4',
+    'MUSIC_FS_L5': 'onMusicFsL5',
+    // Bonus
+    'MUSIC_BONUS_INTRO': 'onMusicBonusIntro',
+    'MUSIC_BONUS_OUTRO': 'onMusicBonusOutro',
+    'MUSIC_BONUS_L1': 'onMusicBonusL1',
+    'MUSIC_BONUS_L2': 'onMusicBonusL2',
+    'MUSIC_BONUS_L3': 'onMusicBonusL3',
+    'MUSIC_BONUS_L4': 'onMusicBonusL4',
+    'MUSIC_BONUS_L5': 'onMusicBonusL5',
+    // Hold & Spin
+    'MUSIC_HOLD_INTRO': 'onMusicHoldIntro',
+    'MUSIC_HOLD_OUTRO': 'onMusicHoldOutro',
+    'MUSIC_HOLD_L1': 'onMusicHoldL1',
+    'MUSIC_HOLD_L2': 'onMusicHoldL2',
+    'MUSIC_HOLD_L3': 'onMusicHoldL3',
+    'MUSIC_HOLD_L4': 'onMusicHoldL4',
+    'MUSIC_HOLD_L5': 'onMusicHoldL5',
+    // Big Win
+    'MUSIC_BIGWIN_INTRO': 'onMusicBigwinIntro',
+    'MUSIC_BIGWIN_OUTRO': 'onMusicBigwinOutro',
+    'MUSIC_BIGWIN_L1': 'onMusicBigwinL1',
+    'MUSIC_BIGWIN_L2': 'onMusicBigwinL2',
+    'MUSIC_BIGWIN_L3': 'onMusicBigwinL3',
+    'MUSIC_BIGWIN_L4': 'onMusicBigwinL4',
+    'MUSIC_BIGWIN_L5': 'onMusicBigwinL5',
+    // Jackpot
+    'MUSIC_JACKPOT_INTRO': 'onMusicJackpotIntro',
+    'MUSIC_JACKPOT_OUTRO': 'onMusicJackpotOutro',
+    'MUSIC_JACKPOT_L1': 'onMusicJackpotL1',
+    'MUSIC_JACKPOT_L2': 'onMusicJackpotL2',
+    'MUSIC_JACKPOT_L3': 'onMusicJackpotL3',
+    'MUSIC_JACKPOT_L4': 'onMusicJackpotL4',
+    'MUSIC_JACKPOT_L5': 'onMusicJackpotL5',
+    // Gamble
+    'MUSIC_GAMBLE_INTRO': 'onMusicGambleIntro',
+    'MUSIC_GAMBLE_OUTRO': 'onMusicGambleOutro',
+    'MUSIC_GAMBLE_L1': 'onMusicGambleL1',
+    'MUSIC_GAMBLE_L2': 'onMusicGambleL2',
+    'MUSIC_GAMBLE_L3': 'onMusicGambleL3',
+    'MUSIC_GAMBLE_L4': 'onMusicGambleL4',
+    'MUSIC_GAMBLE_L5': 'onMusicGambleL5',
+    // Reveal
+    'MUSIC_REVEAL_INTRO': 'onMusicRevealIntro',
+    'MUSIC_REVEAL_OUTRO': 'onMusicRevealOutro',
+    'MUSIC_REVEAL_L1': 'onMusicRevealL1',
+    'MUSIC_REVEAL_L2': 'onMusicRevealL2',
+    'MUSIC_REVEAL_L3': 'onMusicRevealL3',
+    'MUSIC_REVEAL_L4': 'onMusicRevealL4',
+    'MUSIC_REVEAL_L5': 'onMusicRevealL5',
+    // Legacy compat
+    'MUSIC_BASE': 'onMusicBaseL1',
+    'MUSIC_FREESPINS': 'onMusicFsL1',
+    'MUSIC_BONUS': 'onMusicBonusL1',
+    'MUSIC_HOLD': 'onMusicHoldL1',
+    'MUSIC_BIG_WIN': 'onMusicBigwinL1',
+    'MUSIC_JACKPOT': 'onMusicJackpotL1',
+    'MUSIC_GAMBLE': 'onMusicGambleL1',
 
     // Free Spins
     'FREESPIN_TRIGGER': 'onFreeSpinTrigger',
@@ -384,17 +443,17 @@ class StageGroupService {
       ('win_small', 'WIN_SMALL'),
 
       // ── MUSIC ──
-      ('music_base', 'MUSIC_BASE'),
-      ('base_music_loop', 'MUSIC_BASE'),
-      ('mus_bg_lvl_1', 'MUSIC_BASE'),
-      ('mus_bg_lvl_2', 'MUSIC_LAYER_1'),
-      ('mus_bg_lvl_3', 'MUSIC_LAYER_2'),
-      ('mus_bw', 'MUSIC_BIG_WIN'),
-      ('mus_rs', 'MUSIC_HOLD'),
+      ('music_base', 'MUSIC_BASE_L1'),
+      ('base_music_loop', 'MUSIC_BASE_L1'),
+      ('mus_bg_lvl_1', 'MUSIC_BASE_L1'),
+      ('mus_bg_lvl_2', 'MUSIC_BASE_L2'),
+      ('mus_bg_lvl_3', 'MUSIC_BASE_L3'),
+      ('mus_bw', 'MUSIC_BIGWIN_L1'),
+      ('mus_rs', 'MUSIC_HOLD_L1'),
 
       // ── FREESPIN ──
       ('freespin_start', 'FREESPIN_START'),
-      ('freespin_music', 'MUSIC_FREESPINS'),
+      ('freespin_music', 'MUSIC_FS_L1'),
     ];
 
     int passed = 0;
@@ -433,28 +492,30 @@ class StageGroupService {
   /// Uses original filename (lowercased, without extension/prefix number).
   /// If ANY alias key is found as substring in the filename → instant match.
   static const Map<String, String> _aliasMap = {
-    // Music layers — lvl naming convention
-    'mus_bg_lvl_1': 'MUSIC_BASE',
-    'mus_bg_lvl_2': 'MUSIC_LAYER_1',
-    'mus_bg_lvl_3': 'MUSIC_LAYER_2',
+    // Base game music layers — lvl naming convention
+    'mus_bg_lvl_1': 'MUSIC_BASE_L1',
+    'mus_bg_lvl_2': 'MUSIC_BASE_L2',
+    'mus_bg_lvl_3': 'MUSIC_BASE_L3',
+    'mus_bg_lvl_4': 'MUSIC_BASE_L4',
+    'mus_bg_lvl_5': 'MUSIC_BASE_L5',
     // Base game music — various naming conventions
-    'basegame_music': 'MUSIC_BASE',
-    'base_game_music': 'MUSIC_BASE',
-    'bgm_loop': 'MUSIC_BASE',
-    'music_loop': 'MUSIC_BASE',
-    'musicloop': 'MUSIC_BASE',
+    'basegame_music': 'MUSIC_BASE_L1',
+    'base_game_music': 'MUSIC_BASE_L1',
+    'bgm_loop': 'MUSIC_BASE_L1',
+    'music_loop': 'MUSIC_BASE_L1',
+    'musicloop': 'MUSIC_BASE_L1',
     // Free spins music
-    'mus_fs_start': 'MUSIC_FREESPINS',
-    'mus_fs_loop': 'MUSIC_FREESPINS',
-    'mus_fs': 'MUSIC_FREESPINS',
-    'freespins_music': 'MUSIC_FREESPINS',
-    'free_spins_music': 'MUSIC_FREESPINS',
-    // Music — feature music
-    'mus_bw': 'MUSIC_BIG_WIN',
-    'mus_rs': 'MUSIC_HOLD',
-    'mus_bonus': 'MUSIC_BONUS',
-    'mus_hold': 'MUSIC_HOLD',
-    'mus_jackpot': 'MUSIC_JACKPOT',
+    'mus_fs_start': 'MUSIC_FS_L1',
+    'mus_fs_loop': 'MUSIC_FS_L1',
+    'mus_fs': 'MUSIC_FS_L1',
+    'freespins_music': 'MUSIC_FS_L1',
+    'free_spins_music': 'MUSIC_FS_L1',
+    // Feature music
+    'mus_bw': 'MUSIC_BIGWIN_L1',
+    'mus_rs': 'MUSIC_HOLD_L1',
+    'mus_bonus': 'MUSIC_BONUS_L1',
+    'mus_hold': 'MUSIC_HOLD_L1',
+    'mus_jackpot': 'MUSIC_JACKPOT_L1',
     // Spin / reel appearances
     'reels_appear': 'REEL_SPIN_LOOP',
     'reel_appear': 'REEL_SPIN_LOOP',
@@ -829,36 +890,49 @@ class StageGroupService {
         suffixes: ['_start', '_begin', '_init'],
         priority: 95,
       ),
-      // Base music
+      // Base game music — layers (full arrangements, gradatively stronger)
       _StageDefinition(
-        stage: 'MUSIC_BASE',
-        keywords: ['music', 'base', 'main', 'background', 'bg', 'ambient', 'mus', 'bgm', 'basegame', 'lvl'],
-        suffixes: ['_base', '_main', '_bg', '_music', '_loop'],
+        stage: 'MUSIC_BASE_L1',
+        keywords: ['music', 'base', 'main', 'background', 'bg', 'mus', 'bgm', 'basegame', 'l1', 'lvl_1'],
+        suffixes: ['_base', '_main', '_bg', '_music', '_loop', '_l1'],
         priority: 85,
       ),
       _StageDefinition(
-        stage: 'MUSIC_INTRO',
-        keywords: ['music', 'intro', 'start', 'opening'],
+        stage: 'MUSIC_BASE_L2',
+        keywords: ['music', 'base', 'l2', 'lvl_2', 'layer2'],
+        suffixes: ['_l2', '_lvl_2', '_layer2'],
+        priority: 84,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_BASE_L3',
+        keywords: ['music', 'base', 'l3', 'lvl_3', 'layer3'],
+        suffixes: ['_l3', '_lvl_3', '_layer3'],
+        priority: 83,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_BASE_L4',
+        keywords: ['music', 'base', 'l4', 'lvl_4', 'layer4'],
+        suffixes: ['_l4', '_lvl_4', '_layer4'],
+        priority: 82,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_BASE_L5',
+        keywords: ['music', 'base', 'l5', 'lvl_5', 'layer5'],
+        suffixes: ['_l5', '_lvl_5', '_layer5'],
+        priority: 81,
+      ),
+      // Base game music — intro/outro
+      _StageDefinition(
+        stage: 'MUSIC_BASE_INTRO',
+        keywords: ['music', 'base', 'intro', 'opening'],
         suffixes: ['_intro', '_opening'],
         priority: 82,
       ),
       _StageDefinition(
-        stage: 'MUSIC_LAYER_1',
-        keywords: ['music', 'layer', 'l1', 'level1', 'low'],
-        suffixes: ['_l1', '_layer1', '_low'],
-        priority: 78,
-      ),
-      _StageDefinition(
-        stage: 'MUSIC_LAYER_2',
-        keywords: ['music', 'layer', 'l2', 'level2', 'mid'],
-        suffixes: ['_l2', '_layer2', '_mid'],
-        priority: 79,
-      ),
-      _StageDefinition(
-        stage: 'MUSIC_LAYER_3',
-        keywords: ['music', 'layer', 'l3', 'level3', 'high'],
-        suffixes: ['_l3', '_layer3', '_high'],
-        priority: 80,
+        stage: 'MUSIC_BASE_OUTRO',
+        keywords: ['music', 'base', 'outro', 'ending'],
+        suffixes: ['_outro', '_ending'],
+        priority: 82,
       ),
 
       // Free spins
@@ -887,7 +961,7 @@ class StageGroupService {
         priority: 88,
       ),
       _StageDefinition(
-        stage: 'MUSIC_FREESPINS',
+        stage: 'MUSIC_FS_L1',
         keywords: ['freespin', 'free', 'spin', 'fs', 'music', 'bg'],
         suffixes: ['_music', '_bg'],
         priority: 86,
@@ -925,7 +999,7 @@ class StageGroupService {
         priority: 88,
       ),
       _StageDefinition(
-        stage: 'MUSIC_BONUS',
+        stage: 'MUSIC_BONUS_L1',
         keywords: ['bonus', 'music', 'bg'],
         suffixes: ['_music', '_bg'],
         priority: 84,
@@ -989,7 +1063,7 @@ class StageGroupService {
         priority: 86,
       ),
       _StageDefinition(
-        stage: 'MUSIC_HOLD',
+        stage: 'MUSIC_HOLD_L1',
         keywords: ['hold', 'respin', 'music', 'bg'],
         suffixes: ['_music', '_bg'],
         priority: 80,

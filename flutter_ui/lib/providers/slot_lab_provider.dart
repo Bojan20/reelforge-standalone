@@ -1881,11 +1881,11 @@ class SlotLabProvider extends ChangeNotifier {
     // Each event tracked independently so assigning one doesn't block the other
     if (stageType == 'SPIN_START') {
       // Safety net: ensure music events are registered before checking
-      _ensureAudioRegistered('MUSIC_BASE');
+      _ensureAudioRegistered('MUSIC_BASE_L1');
       _ensureAudioRegistered('GAME_START');
 
-      if (!_baseMusicStarted && eventRegistry.hasEventForStage('MUSIC_BASE')) {
-        eventRegistry.triggerStage('MUSIC_BASE', context: context);
+      if (!_baseMusicStarted && eventRegistry.hasEventForStage('MUSIC_BASE_L1')) {
+        eventRegistry.triggerStage('MUSIC_BASE_L1', context: context);
         _baseMusicStarted = true;
       }
       if (!_gameStartTriggered && eventRegistry.hasEventForStage('GAME_START')) {

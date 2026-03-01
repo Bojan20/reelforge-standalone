@@ -370,7 +370,7 @@ class SlotAudioAutomationService {
           suggestedStage = 'JACKPOT_MUSIC';
         case AudioContext.baseGame:
         case AudioContext.unknown:
-          suggestedStage = 'MUSIC_BASE';
+          suggestedStage = 'MUSIC_BASE_L1';
       }
     }
 
@@ -1019,7 +1019,7 @@ class SlotAudioAutomationService {
         FlowTemplateStage(stage: 'FS_RETRIGGER', bus: 'sfx', expectedAssetType: AssetCategory.feature, isOptional: true),
         FlowTemplateStage(stage: 'FS_OUTRO', bus: 'sfx', expectedAssetType: AssetCategory.feature, hint: 'Outro / total win'),
         FlowTemplateStage(stage: 'FS_MUSIC_STOP', bus: 'music', expectedAssetType: AssetCategory.music),
-        FlowTemplateStage(stage: 'MUSIC_BASE', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Resume base music'),
+        FlowTemplateStage(stage: 'MUSIC_BASE_L1', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Resume base music'),
       ],
     ),
 
@@ -1087,14 +1087,14 @@ class SlotAudioAutomationService {
       description: 'All game music contexts',
       category: FlowCategory.music,
       stages: [
-        FlowTemplateStage(stage: 'MUSIC_BASE', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Base game music'),
-        FlowTemplateStage(stage: 'MUSIC_LAYER_1', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Music layer 1 (low energy)', isOptional: true),
-        FlowTemplateStage(stage: 'MUSIC_LAYER_2', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Music layer 2 (mid energy)', isOptional: true),
-        FlowTemplateStage(stage: 'MUSIC_LAYER_3', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Music layer 3 (high energy)', isOptional: true),
-        FlowTemplateStage(stage: 'MUSIC_FREESPINS', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Free spins music'),
-        FlowTemplateStage(stage: 'MUSIC_BONUS', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Bonus game music', isOptional: true),
-        FlowTemplateStage(stage: 'MUSIC_HOLD', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Hold & Win music', isOptional: true),
-        FlowTemplateStage(stage: 'MUSIC_BIG_WIN', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Big win celebration', isOptional: true),
+        FlowTemplateStage(stage: 'MUSIC_BASE_L1', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Base game music'),
+        FlowTemplateStage(stage: 'MUSIC_BASE_L2', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Music layer 2 (low energy)', isOptional: true),
+        FlowTemplateStage(stage: 'MUSIC_BASE_L3', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Music layer 3 (mid energy)', isOptional: true),
+        FlowTemplateStage(stage: 'MUSIC_BASE_L4', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Music layer 4 (high energy)', isOptional: true),
+        FlowTemplateStage(stage: 'MUSIC_FS_L1', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Free spins music'),
+        FlowTemplateStage(stage: 'MUSIC_BONUS_L1', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Bonus game music', isOptional: true),
+        FlowTemplateStage(stage: 'MUSIC_HOLD_L1', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Hold & Win music', isOptional: true),
+        FlowTemplateStage(stage: 'MUSIC_BIGWIN_L1', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Big win celebration', isOptional: true),
       ],
     ),
   ];

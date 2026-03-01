@@ -909,32 +909,52 @@ class AudioMappingImportService {
     'totalizer': ['COUNTUP_TICK'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // MUSIC → MUSIC_BASE, MUSIC_FREESPINS, etc. (matches UltimateAudioPanel)
+    // MUSIC — Unified layer/extension architecture
+    // Default mapping goes to L1 (base arrangement) per scene
     // ═══════════════════════════════════════════════════════════════════
-    'base game music': ['MUSIC_BASE'],
-    'base game loop': ['MUSIC_BASE'],
-    'basegame music': ['MUSIC_BASE'],
-    'basegame musicloop': ['MUSIC_BASE'],
-    'base game musicloop': ['MUSIC_BASE'],
-    'basegame music start': ['MUSIC_BASE'],
-    'base music': ['MUSIC_BASE'],
-    'bg music': ['MUSIC_BASE'],
-    'bgm': ['MUSIC_BASE'],
-    'background music': ['MUSIC_BASE'],
-    'music loop': ['MUSIC_BASE'],
-    'music base': ['MUSIC_BASE'],
-    'music start': ['MUSIC_BASE'],
-    'win music': ['MUSIC_BIG_WIN'],
-    'feature music': ['MUSIC_FREESPINS'],
-    'free spin music': ['MUSIC_FREESPINS'],
-    'free spins music': ['MUSIC_FREESPINS'],
-    'freespins music': ['MUSIC_FREESPINS'],
-    'freespins music loop': ['MUSIC_FREESPINS'],
-    'fs music': ['MUSIC_FREESPINS'],
-    'bonus music': ['MUSIC_BONUS'],
-    'hold music': ['MUSIC_HOLD'],
-    'jackpot music': ['MUSIC_JACKPOT'],
-    'gamble music': ['MUSIC_GAMBLE'],
+    // Base game music → MUSIC_BASE_L1
+    'base game music': ['MUSIC_BASE_L1'],
+    'base game loop': ['MUSIC_BASE_L1'],
+    'basegame music': ['MUSIC_BASE_L1'],
+    'basegame musicloop': ['MUSIC_BASE_L1'],
+    'base game musicloop': ['MUSIC_BASE_L1'],
+    'basegame music start': ['MUSIC_BASE_L1'],
+    'base music': ['MUSIC_BASE_L1'],
+    'bg music': ['MUSIC_BASE_L1'],
+    'bgm': ['MUSIC_BASE_L1'],
+    'background music': ['MUSIC_BASE_L1'],
+    'music loop': ['MUSIC_BASE_L1'],
+    'music base': ['MUSIC_BASE_L1'],
+    'music start': ['MUSIC_BASE_L1'],
+    'base intro': ['MUSIC_BASE_INTRO'],
+    'base outro': ['MUSIC_BASE_OUTRO'],
+    // Win / Big Win music → MUSIC_BIGWIN_L1
+    'win music': ['MUSIC_BIGWIN_L1'],
+    'big win music': ['MUSIC_BIGWIN_L1'],
+    'bigwin music': ['MUSIC_BIGWIN_L1'],
+    // Free spins music → MUSIC_FS_L1
+    'feature music': ['MUSIC_FS_L1'],
+    'free spin music': ['MUSIC_FS_L1'],
+    'free spins music': ['MUSIC_FS_L1'],
+    'freespins music': ['MUSIC_FS_L1'],
+    'freespins music loop': ['MUSIC_FS_L1'],
+    'fs music': ['MUSIC_FS_L1'],
+    'fs intro': ['MUSIC_FS_INTRO'],
+    'fs outro': ['MUSIC_FS_OUTRO'],
+    // Bonus music → MUSIC_BONUS_L1
+    'bonus music': ['MUSIC_BONUS_L1'],
+    'bonus intro': ['MUSIC_BONUS_INTRO'],
+    'bonus outro': ['MUSIC_BONUS_OUTRO'],
+    // Hold music → MUSIC_HOLD_L1
+    'hold music': ['MUSIC_HOLD_L1'],
+    'hold intro': ['MUSIC_HOLD_INTRO'],
+    'hold outro': ['MUSIC_HOLD_OUTRO'],
+    // Jackpot music → MUSIC_JACKPOT_L1
+    'jackpot music': ['MUSIC_JACKPOT_L1'],
+    // Gamble music → MUSIC_GAMBLE_L1
+    'gamble music': ['MUSIC_GAMBLE_L1'],
+    // Reveal music → MUSIC_REVEAL_L1
+    'reveal music': ['MUSIC_REVEAL_L1'],
     'ambient': ['AMBIENCE'],
     'ambience': ['AMBIENCE'],
     'stinger': ['MUSIC_STINGER_WIN'],

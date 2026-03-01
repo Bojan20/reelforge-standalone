@@ -324,7 +324,7 @@ class EventNamingService {
     }
 
     // MUSIC stages
-    if (normalized == 'MUSIC_BASE') return 'onMusicBase';
+    if (normalized == 'MUSIC_BASE_L1') return 'onMusicBaseL1';
     if (normalized == 'MUSIC_TENSION') return 'onMusicTension';
     if (normalized == 'MUSIC_BIGWIN') return 'onMusicBigwin';
     if (normalized.startsWith('MUSIC_')) {
@@ -362,7 +362,7 @@ class EventNamingService {
     if (normalized == 'HOLD_RESPIN_RESET') return 'onHoldRespinReset';
     if (normalized == 'HOLD_GRID_FULL') return 'onHoldGridFull';
     if (normalized == 'HOLD_EXIT') return 'onHoldExit';
-    if (normalized == 'HOLD_MUSIC' || normalized == 'MUSIC_HOLD') return 'onMusicHold';
+    if (normalized == 'HOLD_MUSIC' || normalized == 'MUSIC_HOLD_L1') return 'onMusicHoldL1';
     if (normalized == 'HOLD_JACKPOT') return 'onHoldJackpot';
     if (normalized == 'HOLD_SPECIAL') return 'onHoldSpecial';
     if (normalized == 'HOLD_END') return 'onHoldEnd';

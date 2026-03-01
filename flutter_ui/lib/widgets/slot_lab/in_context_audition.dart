@@ -139,7 +139,7 @@ class AuditionTimeline {
               color: Colors.amber,
             ),
             AuditionStage(
-              stageName: 'MUSIC_BIG_WIN',
+              stageName: 'MUSIC_BIGWIN_L1',
               offset: const Duration(milliseconds: 200),
               duration: const Duration(milliseconds: 4000),
               color: Colors.purple,
@@ -173,7 +173,7 @@ class AuditionTimeline {
               color: Colors.deepPurple,
             ),
             AuditionStage(
-              stageName: 'MUSIC_BIG_WIN',
+              stageName: 'MUSIC_BIGWIN_L1',
               offset: const Duration(milliseconds: 200),
               duration: const Duration(milliseconds: 8000),
               color: Colors.purple,

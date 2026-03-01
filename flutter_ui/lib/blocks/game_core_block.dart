@@ -313,7 +313,7 @@ class GameCoreBlock extends FeatureBlockBase {
         ),
         if (getOptionValue<bool>('baseGameMusic') == true)
           GeneratedStage(
-            name: 'MUSIC_BASE',
+            name: 'MUSIC_BASE_L1',
             description: 'Base game background music',
             bus: 'music',
             priority: 10,
@@ -335,7 +335,7 @@ class GameCoreBlock extends FeatureBlockBase {
         return 'sfx';
       case 'REEL_SPIN_LOOP':
         return 'reels';
-      case 'MUSIC_BASE':
+      case 'MUSIC_BASE_L1':
         return 'music';
       default:
         return 'sfx';
@@ -351,7 +351,7 @@ class GameCoreBlock extends FeatureBlockBase {
         return 70;
       case 'REEL_SPIN_LOOP':
         return 60;
-      case 'MUSIC_BASE':
+      case 'MUSIC_BASE_L1':
         return 10;
       default:
         return 50;

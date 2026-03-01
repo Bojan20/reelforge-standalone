@@ -646,8 +646,8 @@ class SlotStageProvider extends ChangeNotifier {
       }
 
       if (!_baseMusicStarted) {
-        if (eventRegistry.hasEventForStage('MUSIC_BASE')) {
-          eventRegistry.triggerStage('MUSIC_BASE', context: context);
+        if (eventRegistry.hasEventForStage('MUSIC_BASE_L1')) {
+          eventRegistry.triggerStage('MUSIC_BASE_L1', context: context);
           _baseMusicStarted = true;
         }
         if (eventRegistry.hasEventForStage('GAME_START')) {

@@ -1162,7 +1162,7 @@ class StageConfigurationService extends ChangeNotifier {
     // ─────────────────────────────────────────────────────────────────────────
     // MUSIC & AMBIENT
     // ─────────────────────────────────────────────────────────────────────────
-    _register('MUSIC_BASE', StageCategory.music, 10, SpatialBus.music, 'DEFAULT', isLooping: true);
+    _register('MUSIC_BASE_L1', StageCategory.music, 10, SpatialBus.music, 'DEFAULT', isLooping: true);
     _register('MUSIC_TENSION', StageCategory.music, 15, SpatialBus.music, 'DEFAULT', isLooping: true);
     _register('MUSIC_BIGWIN', StageCategory.music, 25, SpatialBus.music, 'DEFAULT');
     _register('AMBIENT_LOOP', StageCategory.music, 5, SpatialBus.ambience, 'DEFAULT', isLooping: true);
@@ -1386,11 +1386,26 @@ class StageConfigurationService extends ChangeNotifier {
   /// Known looping stage names for fallback
   static const _loopingStages = {
     'REEL_SPIN_LOOP',
-    'MUSIC_BASE', 'MUSIC_LAYER_1', 'MUSIC_LAYER_2', 'MUSIC_LAYER_3',
+    // Base game layers
+    'MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5',
+    // Free spins
+    'MUSIC_FS_L1', 'MUSIC_FS_L2', 'MUSIC_FS_L3', 'MUSIC_FS_L4', 'MUSIC_FS_L5',
+    // Bonus
+    'MUSIC_BONUS_L1', 'MUSIC_BONUS_L2', 'MUSIC_BONUS_L3', 'MUSIC_BONUS_L4', 'MUSIC_BONUS_L5',
+    // Hold & Spin
+    'MUSIC_HOLD_L1', 'MUSIC_HOLD_L2', 'MUSIC_HOLD_L3', 'MUSIC_HOLD_L4', 'MUSIC_HOLD_L5',
+    // Big Win
+    'MUSIC_BIGWIN_L1', 'MUSIC_BIGWIN_L2', 'MUSIC_BIGWIN_L3', 'MUSIC_BIGWIN_L4', 'MUSIC_BIGWIN_L5',
+    // Jackpot
+    'MUSIC_JACKPOT_L1', 'MUSIC_JACKPOT_L2', 'MUSIC_JACKPOT_L3', 'MUSIC_JACKPOT_L4', 'MUSIC_JACKPOT_L5',
+    // Gamble
+    'MUSIC_GAMBLE_L1', 'MUSIC_GAMBLE_L2', 'MUSIC_GAMBLE_L3', 'MUSIC_GAMBLE_L4', 'MUSIC_GAMBLE_L5',
+    // Reveal
+    'MUSIC_REVEAL_L1', 'MUSIC_REVEAL_L2', 'MUSIC_REVEAL_L3', 'MUSIC_REVEAL_L4', 'MUSIC_REVEAL_L5',
+    // Tension
     'MUSIC_TENSION_LOW', 'MUSIC_TENSION_MED', 'MUSIC_TENSION_HIGH',
-    'MUSIC_FREESPINS', 'MUSIC_FREESPINS_LAYER',
-    'MUSIC_HOLD', 'MUSIC_HOLD_LAYER',
-    'MUSIC_BONUS', 'MUSIC_BONUS_LAYER',
+    // Legacy compat
+    'MUSIC_BASE', 'MUSIC_FREESPINS', 'MUSIC_HOLD', 'MUSIC_BONUS',
     'MUSIC_BIG_WIN', 'MUSIC_JACKPOT', 'MUSIC_GAMBLE',
     'AMBIENT_LOOP', 'ATTRACT_MODE', 'IDLE_LOOP', 'ATTRACT_LOOP',
     'ANTICIPATION_LOOP',

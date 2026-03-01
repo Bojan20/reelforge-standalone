@@ -147,7 +147,7 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
       final symbol = targetId.split('.').last.toUpperCase();
       return 'SYMBOL_LAND_$symbol';
     }
-    if (targetId == 'music.base') return 'MUSIC_BASE';
+    if (targetId == 'music.base') return 'MUSIC_BASE_L1';
     if (targetId == 'music.feature') return 'MUSIC_FEATURE';
 
     // Default: convert targetId to uppercase stage
