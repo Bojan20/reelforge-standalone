@@ -34,6 +34,7 @@ class GameFlowIntegration {
 
   bool _initialized = false;
   GameFlowProvider? _flowProvider;
+  FeatureBuilderProvider? _featureBuilder;
 
   /// Block ID → Executor factory
   static final Map<String, FeatureExecutor Function()> _executorFactories = {
@@ -64,7 +65,21 @@ class GameFlowIntegration {
     // Wire feature state update callback
     _flowProvider!.onFeatureStateUpdated = _onFeatureStateUpdated;
 
+    // Listen to FeatureBuilderProvider for real-time sync
+    _featureBuilder = sl<FeatureBuilderProvider>();
+    _featureBuilder!.addListener(_onFeatureBuilderChanged);
+
+    // Initial sync
+    syncFromFeatureBuilder(_featureBuilder!);
+
     _initialized = true;
+  }
+
+  void _onFeatureBuilderChanged() {
+    final fb = _featureBuilder;
+    if (fb != null) {
+      syncFromFeatureBuilder(fb);
+    }
   }
 
   /// Apply Feature Builder configuration to executors
@@ -183,6 +198,8 @@ class GameFlowIntegration {
 
   /// Dispose integration
   void dispose() {
+    _featureBuilder?.removeListener(_onFeatureBuilderChanged);
+    _featureBuilder = null;
     _flowProvider?.onAudioStage = null;
     _flowProvider?.onStateChanged = null;
     _flowProvider?.onFeatureStateUpdated = null;
