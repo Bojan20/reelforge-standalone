@@ -108,12 +108,15 @@ class EventSystemProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Delete an event
+  /// Delete an event — stops all playing instances first
   void deleteEvent(String eventId) {
     final event = _events.remove(eventId);
     if (event != null) {
-      _eventNameToId.remove(event.name);
-      // Note: Rust side doesn't have unregister, but IDs won't be reused
+      // Stop any playing instances in the engine before unregistering
+      final numericId = _eventNameToId.remove(event.name);
+      if (numericId != null) {
+        _ffi.middlewareStopEvent(numericId, fadeMs: 50);
+      }
     }
     notifyListeners();
   }

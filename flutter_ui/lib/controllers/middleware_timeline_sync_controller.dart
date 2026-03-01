@@ -294,6 +294,9 @@ class MiddlewareTimelineSyncController {
 
   /// Remove all tracks/clips/engine resources for an event
   _RemoveResult _removeTrackStructureForEvent(String eventId) {
+    // Stop all playing voices for this event (middleware + playback service)
+    _middlewareProvider?.stopCompositeEvent(eventId, fadeMs: 50);
+
     final trackIds = <String>[];
     final clipIds = <String>[];
     final previous = _lastSyncedEvents[eventId];

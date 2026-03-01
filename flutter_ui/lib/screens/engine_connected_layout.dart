@@ -2460,32 +2460,61 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // MODE SWITCH PLAYBACK ISOLATION
+  // MODE SWITCH PLAYBACK ISOLATION — Pause/Resume Architecture
   // ═══════════════════════════════════════════════════════════════════════════
+  //
+  // When switching modes, the LEAVING section is paused (not stopped) so the
+  // user can return and resume seamlessly. The ENTERING section is resumed if
+  // it was previously paused by a mode switch.
+  //
+  // SlotLab stage flow: pauseStages() / resumeStages() — preserves position
+  // DAW timeline: stop() — transport is manual, user restarts explicitly
+  // Middleware events: stopAllEvents() — one-shot voices, no resume semantic
 
-  /// Stop all playback from ALL sections when switching modes
-  /// This prevents audio bleeding between DAW/Middleware/SlotLab
-  void _stopAllPlaybackOnModeSwitch() {
-    // 1. Stop DAW timeline playback
+  /// Whether SlotLab was paused by a mode switch (vs user-initiated pause)
+  bool _slotLabPausedByModeSwitch = false;
+
+  /// Handle playback transitions when switching editor modes.
+  /// Pauses the leaving section and resumes the entering section if applicable.
+  void _handlePlaybackOnModeSwitch(EditorMode fromMode, EditorMode toMode) {
+    final slotLabProvider = context.read<SlotLabProvider>();
     final playbackProvider = context.read<TimelinePlaybackProvider>();
-    if (playbackProvider.isPlaying) {
-      playbackProvider.stop();
+    final middlewareProvider = context.read<MiddlewareProvider>();
+    final controller = UnifiedPlaybackController.instance;
+
+    // ─── PAUSE the LEAVING section ───────────────────────────────────────────
+
+    if (fromMode == EditorMode.slot) {
+      // SlotLab → pause stage flow (preserves position for resume)
+      if (slotLabProvider.isPlayingStages && !slotLabProvider.isPaused) {
+        slotLabProvider.pauseStages();
+        _slotLabPausedByModeSwitch = true;
+      }
+    } else if (fromMode == EditorMode.daw) {
+      // DAW → stop timeline transport
+      if (playbackProvider.isPlaying) {
+        playbackProvider.stop();
+      }
+    } else if (fromMode == EditorMode.middleware) {
+      // Middleware → stop one-shot events (no resume semantic)
+      middlewareProvider.stopAllEvents(fadeMs: 50);
     }
 
-    // 2. Stop SlotLab stage playback
-    final slotLabProvider = context.read<SlotLabProvider>();
-    slotLabProvider.stopAllPlayback();
-
-    // 3. Stop Middleware events
-    final middlewareProvider = context.read<MiddlewareProvider>();
-    middlewareProvider.stopAllEvents(fadeMs: 50);
-
-    // 4. Release any active section in UnifiedPlaybackController
-    final controller = UnifiedPlaybackController.instance;
+    // Release active section so the new mode can acquire it
     if (controller.activeSection != null) {
       controller.stop(releaseAfterStop: true);
     }
 
+    // ─── RESUME the ENTERING section ─────────────────────────────────────────
+
+    if (toMode == EditorMode.slot && _slotLabPausedByModeSwitch) {
+      // Returning to SlotLab — resume paused stage flow
+      _slotLabPausedByModeSwitch = false;
+      // Acquire SlotLab section and resume
+      if (controller.acquireSection(PlaybackSection.slotLab)) {
+        slotLabProvider.resumeStages();
+      }
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -5125,9 +5154,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             customControlBar: EngineConnectedControlBar(
               editorMode: _editorMode,
               onEditorModeChange: (mode) {
-                // CRITICAL: Stop all playback from ALL sections when switching modes
-                // This prevents audio bleeding between DAW/Middleware/SlotLab
-                _stopAllPlaybackOnModeSwitch();
+                // Pause/resume playback — SlotLab flow pauses and resumes
+                _handlePlaybackOnModeSwitch(_editorMode, mode);
 
                 setState(() {
                   _editorMode = mode;
