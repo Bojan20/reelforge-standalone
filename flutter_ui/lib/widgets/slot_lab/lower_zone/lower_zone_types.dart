@@ -73,6 +73,11 @@ enum BakeSubTab {
   batchExport, // Batch export panel
   validation,  // Validation checks
   package,     // Package builder
+  macro,       // FluxMacro control panel (P-FMC)
+  monitor,     // FluxMacro live monitor
+  reports,     // FluxMacro report viewer
+  config,      // FluxMacro config editor
+  history,     // FluxMacro run history
 }
 
 /// Sub-tabs for ENGINE super-tab
@@ -369,6 +374,41 @@ const List<SubTabConfig> kBakeSubTabs = [
     shortcutKey: '3',
     description: 'Package builder',
   ),
+  SubTabConfig(
+    id: 'macro',
+    label: 'Macro',
+    icon: Icons.auto_fix_high,
+    shortcutKey: '4',
+    description: 'FluxMacro control panel',
+  ),
+  SubTabConfig(
+    id: 'monitor',
+    label: 'Monitor',
+    icon: Icons.monitor,
+    shortcutKey: '5',
+    description: 'FluxMacro live progress monitor',
+  ),
+  SubTabConfig(
+    id: 'reports',
+    label: 'Reports',
+    icon: Icons.assessment,
+    shortcutKey: '6',
+    description: 'FluxMacro report viewer',
+  ),
+  SubTabConfig(
+    id: 'config',
+    label: 'Config',
+    icon: Icons.edit_document,
+    shortcutKey: '7',
+    description: 'FluxMacro YAML config editor',
+  ),
+  SubTabConfig(
+    id: 'history',
+    label: 'History',
+    icon: Icons.history,
+    shortcutKey: '8',
+    description: 'FluxMacro run history',
+  ),
 ];
 
 /// Sub-tabs for ENGINE super-tab
@@ -442,6 +482,12 @@ const List<SubTabConfig> kMenuItems = [
     label: 'Scenarios',
     icon: Icons.movie,
     description: 'Test scenarios',
+  ),
+  SubTabConfig(
+    id: 'fluxmacro',
+    label: 'FluxMacro',
+    icon: Icons.auto_fix_high,
+    description: 'Deterministic orchestration engine',
   ),
 ];
 

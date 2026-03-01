@@ -60,6 +60,13 @@ import '../../stage_ingest/stage_ingest_panel.dart';
 // Bake Panels
 import 'bake/gdd_validator_panel.dart';
 
+// FluxMacro Panels (P-FMC)
+import 'bake/macro_panel.dart';
+import 'bake/macro_monitor.dart';
+import 'bake/macro_report_viewer.dart';
+import 'bake/macro_config_editor.dart';
+import 'bake/macro_history.dart';
+
 // Audio Pool
 import '../audio_pool_manager_widget.dart';
 
@@ -326,6 +333,16 @@ class _LowerZoneContent extends StatelessWidget {
         return const GddValidatorPanel();
       case 2: // Package
         return _buildPlaceholder('Package Builder\n(Coming Soon)');
+      case 3: // FluxMacro
+        return const MacroPanel();
+      case 4: // FluxMacro Monitor
+        return const MacroMonitor();
+      case 5: // FluxMacro Reports
+        return const MacroReportViewer();
+      case 6: // FluxMacro Config
+        return const MacroConfigEditor();
+      case 7: // FluxMacro History
+        return const MacroHistory();
       default:
         return _buildPlaceholder('Batch Export\n(Coming Soon - SL-LZ-P0.4)');
     }
@@ -369,6 +386,8 @@ class _LowerZoneContent extends StatelessWidget {
         return const AutoSpatialPanel();
       case 'scenarios':
         return _buildPlaceholder('Test Scenarios\n(Coming Soon)');
+      case 'fluxmacro':
+        return const MacroPanel();
       default:
         return _buildPlaceholder('Unknown Panel');
     }
