@@ -38,7 +38,7 @@ PENDING SYSTEMS (ordered by dependency):
   P-SSS: Scale & Stability Suite ✅ (10/10 complete)
 
 NEW SYSTEMS (pending):
-  P-FMC: FluxMacro System ⬜ (0/53 — 6 phases, ~13,600 LOC)
+  P-FMC: FluxMacro System 🔄 (19/53 — Phase 1 COMPLETE, 4,419 LOC)
     Phase 1: Foundation (19 tasks)
     Phase 2: Core Steps (12 tasks)
     Phase 3: CLI + FFI (6 tasks)
@@ -105,29 +105,29 @@ Detaljne task tabele za sve completed sisteme: `.claude/docs/MASTER_TODO_FULL_BA
 **Purpose:** Casino-grade Audio Automation System — ADB generation, naming validation, QA simulation, release packaging.
 **New crates:** `rf-fluxmacro` (core engine) + `rf-fluxmacro-cli` (CLI binary)
 
-### Phase 1: Foundation (~4,100 LOC)
+### Phase 1: Foundation (~4,100 LOC est → 4,419 LOC actual) ✅ COMPLETE
 
 | # | Task | Status |
 |---|------|--------|
-| FM-1 | `context.rs` — MacroContext, LogEntry, QaTestResult, cancel_token (AtomicBool), progress callback | ⬜ |
-| FM-2 | `parser.rs` — YAML parser za .ffmacro fajlove (serde_yaml) | ⬜ |
-| FM-3 | `steps/mod.rs` — MacroStep trait, StepRegistry, StepResult | ⬜ |
-| FM-4 | `interpreter.rs` — MacroInterpreter, sequential execution, fail-fast, cancellation | ⬜ |
-| FM-5 | `error.rs` — FluxMacroError enum (12+ varijanti) | ⬜ |
-| FM-6 | `hash.rs` — SHA-256 streaming run hash, FNV-1a config hash | ⬜ |
-| FM-7 | `version.rs` — Run versioning, history save/load | ⬜ |
-| FM-8 | `security.rs` — Path sandboxing, input sanitization, HTML escaping | ⬜ |
-| FM-9 | `rules/mod.rs` — Rule loader (JSON → typed structs) | ⬜ |
-| FM-10 | `rules/naming_rules.rs` — NamingRuleSet, domain/pattern validation | ⬜ |
-| FM-11 | `rules/mechanics_map.rs` — 14 GameMechanic → AudioNeeds mapping | ⬜ |
-| FM-12 | `rules/loudness_targets.rs` — Per-domain LUFS/TP targets (5 domains) | ⬜ |
-| FM-13 | `rules/adb_templates.rs` — ADB section templates + emotional_arc_template (8 arcs) | ⬜ |
-| FM-14 | `reporter/mod.rs` — Reporter trait | ⬜ |
-| FM-15 | `reporter/json.rs` — JSON report (versioned stable API for CI) | ⬜ |
-| FM-16 | `reporter/markdown.rs` — Markdown report generator | ⬜ |
-| FM-17 | `reporter/html.rs` — Self-contained HTML report (XSS-safe) | ⬜ |
-| FM-18 | `reporter/svg.rs` — Inline SVG: voice timeline, loudness histogram, fatigue curve, determinism grid | ⬜ |
-| FM-19 | Unit tests (35+ tests: parser, interpreter, rules, reporter, security) | ⬜ |
+| FM-1 | `context.rs` — MacroContext, LogEntry, QaTestResult, cancel_token (AtomicBool), progress callback | ✅ |
+| FM-2 | `parser.rs` — YAML parser za .ffmacro fajlove (serde_yaml) | ✅ |
+| FM-3 | `steps/mod.rs` — MacroStep trait, StepRegistry, StepResult | ✅ |
+| FM-4 | `interpreter.rs` — MacroInterpreter, sequential execution, fail-fast, cancellation | ✅ |
+| FM-5 | `error.rs` — FluxMacroError enum (12+ varijanti) | ✅ |
+| FM-6 | `hash.rs` — SHA-256 streaming run hash, FNV-1a config hash | ✅ |
+| FM-7 | `version.rs` — Run versioning, history save/load | ✅ |
+| FM-8 | `security.rs` — Path sandboxing, input sanitization, HTML escaping | ✅ |
+| FM-9 | `rules/mod.rs` — Rule loader (JSON → typed structs) | ✅ |
+| FM-10 | `rules/naming_rules.rs` — NamingRuleSet, domain/pattern validation | ✅ |
+| FM-11 | `rules/mechanics_map.rs` — 14 GameMechanic → AudioNeeds mapping | ✅ |
+| FM-12 | `rules/loudness_targets.rs` — Per-domain LUFS/TP targets (5 domains) | ✅ |
+| FM-13 | `rules/adb_templates.rs` — ADB section templates + emotional_arc_template (8 arcs) | ✅ |
+| FM-14 | `reporter/mod.rs` — Reporter trait | ✅ |
+| FM-15 | `reporter/json.rs` — JSON report (versioned stable API for CI) | ✅ |
+| FM-16 | `reporter/markdown.rs` — Markdown report generator | ✅ |
+| FM-17 | `reporter/html.rs` — Self-contained HTML report (XSS-safe) | ✅ |
+| FM-18 | `reporter/svg.rs` — Inline SVG: voice timeline, loudness histogram, fatigue curve, determinism grid | ✅ |
+| FM-19 | Unit tests (58 tests: parser, interpreter, rules, reporter, security, hash, version) | ✅ |
 
 ### Phase 2: Core Steps (~3,800 LOC)
 
@@ -195,14 +195,14 @@ Detaljne task tabele za sve completed sisteme: `.claude/docs/MASTER_TODO_FULL_BA
 | System | Tasks | Done | Remaining |
 |--------|-------|------|-----------|
 | Core Systems (P-SRC...P-SSS) | 129 | 129 | 0 ✅ |
-| P-FMC Phase 1: Foundation | 19 | 0 | 19 ⬜ |
+| P-FMC Phase 1: Foundation | 19 | 19 | 0 ✅ |
 | P-FMC Phase 2: Core Steps | 12 | 0 | 12 ⬜ |
 | P-FMC Phase 3: CLI + FFI | 6 | 0 | 6 ⬜ |
 | P-FMC Phase 4: Studio UI | 9 | 0 | 9 ⬜ |
 | P-FMC Phase 5: GDD Parser | 4 | 0 | 4 ⬜ |
 | P-FMC Phase 6: CI/CD | 3 | 0 | 3 ⬜ |
-| **GRAND TOTAL** | **182** | **129** | **53 ⬜** |
+| **GRAND TOTAL** | **182** | **148** | **34 ⬜** |
 
 ---
 
-*Last Updated: 2026-03-01 — Core systems COMPLETE (129/129). FluxMacro system PENDING (0/53). Full spec: `FLUXMACRO_SYSTEM.md`*
+*Last Updated: 2026-03-01 — Core systems COMPLETE (129/129). FluxMacro Phase 1 COMPLETE (19/53, 58 tests, 4,419 LOC). Full spec: `FLUXMACRO_SYSTEM.md`*

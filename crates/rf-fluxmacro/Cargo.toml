@@ -1,0 +1,48 @@
+[package]
+name = "rf-fluxmacro"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Deterministic orchestration engine for slot audio pipeline"
+
+[dependencies]
+# Workspace crates
+rf-core = { path = "../rf-core" }
+rf-aurexis = { path = "../rf-aurexis" }
+rf-slot-lab = { path = "../rf-slot-lab" }
+rf-offline = { path = "../rf-offline" }
+rf-audio-diff = { path = "../rf-audio-diff" }
+rf-release = { path = "../rf-release" }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = "0.9"
+
+# Hashing
+sha2 = { workspace = true }
+
+# File system
+walkdir = { workspace = true }
+regex = "1"
+
+# Deterministic RNG
+rand = { workspace = true }
+rand_chacha = "0.3"
+
+# Parallelism
+rayon = { workspace = true }
+
+# Time
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Logging
+log = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

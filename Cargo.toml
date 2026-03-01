@@ -36,6 +36,8 @@ members = [
     "crates/rf-bench",
     "crates/rf-coverage",
     "crates/rf-release",
+    # FluxMacro — Deterministic Orchestration Engine
+    "crates/rf-fluxmacro",
     # WASM Port (standalone, edition 2021 for wasm-pack compatibility)
     "crates/rf-wasm",
     "ai-control-core/acc"
@@ -76,6 +78,7 @@ rf-ale = { path = "crates/rf-ale" }
 rf-aurexis = { path = "crates/rf-aurexis" }
 rf-offline = { path = "crates/rf-offline" }
 rf-audio-diff = { path = "crates/rf-audio-diff" }
+rf-fluxmacro = { path = "crates/rf-fluxmacro" }
 
 # Plugin hosting
 vst3 = "0.3"
