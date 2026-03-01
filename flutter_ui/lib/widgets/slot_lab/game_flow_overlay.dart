@@ -1,0 +1,958 @@
+/// Game Flow Overlay — Feature-aware UI overlay for SlotLab
+///
+/// Renders reactive overlays based on active GameFlowState:
+/// - Free Spins counter + multiplier
+/// - Cascade depth + progressive multiplier trail
+/// - Hold & Win coin grid + respin counter
+/// - Bonus Game pick/wheel/trail panel
+/// - Gamble double-up panel
+/// - Jackpot presentation sequence
+/// - Collector meter bars
+///
+/// Sits on top of SlotPreviewWidget inside PremiumSlotPreview.
+/// Consumes GameFlowProvider via ChangeNotifierProvider.
+library;
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../models/game_flow_models.dart';
+import '../../providers/slot_lab/game_flow_provider.dart';
+import '../../theme/fluxforge_theme.dart';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAIN OVERLAY — Dispatches to feature-specific widgets
+// ═══════════════════════════════════════════════════════════════════════════
+
+class GameFlowOverlay extends StatelessWidget {
+  const GameFlowOverlay({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<GameFlowProvider>(
+      builder: (context, flow, _) {
+        return Stack(
+          children: [
+            // Feature indicators bar (top)
+            if (flow.isInFeature)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: _FeatureStatusBar(flow: flow),
+              ),
+
+            // Feature-specific overlays
+            ..._buildFeatureOverlays(flow),
+
+            // Feature queue indicator
+            if (flow.hasQueuedFeatures)
+              Positioned(
+                bottom: 8,
+                right: 8,
+                child: _QueueIndicator(
+                  count: flow.featureQueue.length,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  List<Widget> _buildFeatureOverlays(GameFlowProvider flow) {
+    final widgets = <Widget>[];
+
+    switch (flow.currentState) {
+      case GameFlowState.freeSpins:
+        final fs = flow.freeSpinsState;
+        if (fs != null) {
+          widgets.add(Positioned(
+            top: 40,
+            left: 0,
+            right: 0,
+            child: _FreeSpinsOverlay(state: fs),
+          ));
+        }
+
+      case GameFlowState.cascading:
+        final cs = flow.cascadeState;
+        if (cs != null) {
+          widgets.add(Positioned(
+            top: 40,
+            right: 8,
+            child: _CascadeOverlay(state: cs),
+          ));
+        }
+
+      case GameFlowState.holdAndWin:
+        final hw = flow.holdAndWinState;
+        if (hw != null) {
+          widgets.add(Positioned.fill(
+            child: _HoldAndWinOverlay(state: hw),
+          ));
+        }
+
+      case GameFlowState.bonusGame:
+        final bg = flow.bonusGameState;
+        if (bg != null) {
+          widgets.add(Positioned.fill(
+            child: _BonusGameOverlay(state: bg),
+          ));
+        }
+
+      case GameFlowState.gamble:
+        final gs = flow.gambleState;
+        if (gs != null) {
+          widgets.add(Positioned.fill(
+            child: _GambleOverlay(state: gs, flow: flow),
+          ));
+        }
+
+      case GameFlowState.jackpotPresentation:
+        final jp = flow.getFeatureState('jackpot');
+        if (jp != null) {
+          widgets.add(Positioned.fill(
+            child: _JackpotOverlay(state: jp),
+          ));
+        }
+
+      default:
+        break;
+    }
+
+    // Collector meters (always visible if collector is active)
+    final collector = flow.getFeatureState('collector');
+    if (collector != null) {
+      widgets.add(Positioned(
+        bottom: 40,
+        left: 8,
+        right: 8,
+        child: _CollectorMeters(state: collector),
+      ));
+    }
+
+    return widgets;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FEATURE STATUS BAR — Top bar showing current state
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _FeatureStatusBar extends StatelessWidget {
+  final GameFlowProvider flow;
+
+  const _FeatureStatusBar({required this.flow});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            _colorForState(flow.currentState).withValues(alpha: 0.9),
+            _colorForState(flow.currentState).withValues(alpha: 0.6),
+          ],
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            _iconForState(flow.currentState),
+            color: Colors.white,
+            size: 16,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            flow.currentState.displayName,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const Spacer(),
+          if (flow.featureDepth > 1)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Depth: ${flow.featureDepth}',
+                style: const TextStyle(color: Colors.white70, fontSize: 10),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Color _colorForState(GameFlowState state) {
+    return switch (state) {
+      GameFlowState.freeSpins => const Color(0xFF4CAF50),
+      GameFlowState.cascading => const Color(0xFF2196F3),
+      GameFlowState.holdAndWin => const Color(0xFFFF9800),
+      GameFlowState.bonusGame => const Color(0xFF9C27B0),
+      GameFlowState.gamble => const Color(0xFFF44336),
+      GameFlowState.respin => const Color(0xFF00BCD4),
+      GameFlowState.jackpotPresentation => const Color(0xFFFFD700),
+      _ => FluxForgeTheme.accentCyan,
+    };
+  }
+
+  IconData _iconForState(GameFlowState state) {
+    return switch (state) {
+      GameFlowState.freeSpins => Icons.star,
+      GameFlowState.cascading => Icons.waterfall_chart,
+      GameFlowState.holdAndWin => Icons.lock,
+      GameFlowState.bonusGame => Icons.casino,
+      GameFlowState.gamble => Icons.swap_vert,
+      GameFlowState.respin => Icons.replay,
+      GameFlowState.jackpotPresentation => Icons.emoji_events,
+      _ => Icons.play_arrow,
+    };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FREE SPINS OVERLAY
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _FreeSpinsOverlay extends StatelessWidget {
+  final FeatureState state;
+
+  const _FreeSpinsOverlay({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // Spin counter
+        _OverlayBadge(
+          icon: Icons.star,
+          label: 'SPINS',
+          value: '${state.spinsRemaining} / ${state.totalSpins}',
+          color: const Color(0xFF4CAF50),
+        ),
+        const SizedBox(width: 12),
+
+        // Multiplier (if active)
+        if (state.currentMultiplier > 1.0)
+          _OverlayBadge(
+            icon: Icons.close,
+            label: 'MULTIPLIER',
+            value: '${state.currentMultiplier.toStringAsFixed(1)}x',
+            color: const Color(0xFFFFD700),
+          ),
+
+        // Retrigger count
+        if ((state.customData['retriggersUsed'] as int? ?? 0) > 0) ...[
+          const SizedBox(width: 12),
+          _OverlayBadge(
+            icon: Icons.refresh,
+            label: 'RETRIGGER',
+            value: '${state.customData['retriggersUsed']}',
+            color: const Color(0xFFFF9800),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CASCADE OVERLAY
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _CascadeOverlay extends StatelessWidget {
+  final FeatureState state;
+
+  const _CascadeOverlay({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        _OverlayBadge(
+          icon: Icons.waterfall_chart,
+          label: 'CASCADE',
+          value: '${state.cascadeDepth}',
+          color: const Color(0xFF2196F3),
+        ),
+        if (state.currentMultiplier > 1.0) ...[
+          const SizedBox(height: 4),
+          _OverlayBadge(
+            icon: Icons.close,
+            label: 'MULT',
+            value: '${state.currentMultiplier.toStringAsFixed(1)}x',
+            color: const Color(0xFFFFD700),
+          ),
+        ],
+        const SizedBox(height: 4),
+        _OverlayBadge(
+          icon: Icons.monetization_on,
+          label: 'WIN',
+          value: state.accumulatedWin.toStringAsFixed(2),
+          color: const Color(0xFF4CAF50),
+        ),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HOLD & WIN OVERLAY
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _HoldAndWinOverlay extends StatelessWidget {
+  final FeatureState state;
+
+  const _HoldAndWinOverlay({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Top bar: respins + total win
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _OverlayBadge(
+                icon: Icons.replay,
+                label: 'RESPINS',
+                value: '${state.respinsRemaining}',
+                color: const Color(0xFFFF9800),
+              ),
+              _OverlayBadge(
+                icon: Icons.grid_view,
+                label: 'FILLED',
+                value: '${state.gridPositionsFilled} / ${state.gridPositionsTotal}',
+                color: const Color(0xFF2196F3),
+              ),
+              _OverlayBadge(
+                icon: Icons.monetization_on,
+                label: 'TOTAL',
+                value: state.accumulatedWin.toStringAsFixed(2),
+                color: const Color(0xFF4CAF50),
+              ),
+            ],
+          ),
+        ),
+
+        // Coin grid visualization
+        Expanded(
+          child: _CoinGrid(
+            coins: state.lockedCoins,
+            totalPositions: state.gridPositionsTotal,
+            reelCount: _inferReelCount(state),
+            rowCount: _inferRowCount(state),
+          ),
+        ),
+      ],
+    );
+  }
+
+  int _inferReelCount(FeatureState state) {
+    if (state.lockedCoins.isEmpty) return 5;
+    int maxReel = 0;
+    for (final coin in state.lockedCoins) {
+      if (coin.reel > maxReel) maxReel = coin.reel;
+    }
+    return maxReel + 1;
+  }
+
+  int _inferRowCount(FeatureState state) {
+    if (state.gridPositionsTotal <= 0) return 3;
+    final reels = _inferReelCount(state);
+    return reels > 0 ? state.gridPositionsTotal ~/ reels : 3;
+  }
+}
+
+class _CoinGrid extends StatelessWidget {
+  final List<CoinPosition> coins;
+  final int totalPositions;
+  final int reelCount;
+  final int rowCount;
+
+  const _CoinGrid({
+    required this.coins,
+    required this.totalPositions,
+    required this.reelCount,
+    required this.rowCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final lockedPositions = <String, CoinPosition>{};
+    for (final coin in coins) {
+      lockedPositions[coin.positionKey] = coin;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: reelCount,
+          crossAxisSpacing: 4,
+          mainAxisSpacing: 4,
+        ),
+        itemCount: reelCount * rowCount,
+        itemBuilder: (context, index) {
+          final reel = index % reelCount;
+          final row = index ~/ reelCount;
+          final posKey = '$reel,$row';
+          final coin = lockedPositions[posKey];
+
+          if (coin != null) {
+            return _LockedCoinCell(coin: coin);
+          }
+
+          return Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.1),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _LockedCoinCell extends StatelessWidget {
+  final CoinPosition coin;
+
+  const _LockedCoinCell({required this.coin});
+
+  @override
+  Widget build(BuildContext context) {
+    final isSpecial = coin.specialType != null;
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isSpecial
+              ? [const Color(0xFFFFD700), const Color(0xFFFF8F00)]
+              : [const Color(0xFFFFA726), const Color(0xFFFF7043)],
+        ),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: (isSpecial
+                    ? const Color(0xFFFFD700)
+                    : const Color(0xFFFFA726))
+                .withValues(alpha: 0.5),
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSpecial)
+              Icon(
+                _specialIcon(coin.specialType!),
+                color: Colors.white,
+                size: 14,
+              ),
+            Text(
+              coin.value.toStringAsFixed(0),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  IconData _specialIcon(CoinSpecialType type) {
+    return switch (type) {
+      CoinSpecialType.multiplier => Icons.close,
+      CoinSpecialType.collector => Icons.all_inclusive,
+      CoinSpecialType.upgrade => Icons.arrow_upward,
+      CoinSpecialType.wild => Icons.auto_awesome,
+    };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BONUS GAME OVERLAY
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _BonusGameOverlay extends StatelessWidget {
+  final FeatureState state;
+
+  const _BonusGameOverlay({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final bonusType = state.customData['bonusType'] as String? ?? 'pick';
+
+    return Column(
+      children: [
+        // Info bar
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _OverlayBadge(
+                icon: Icons.casino,
+                label: bonusType.toUpperCase(),
+                value: _progressText(),
+                color: const Color(0xFF9C27B0),
+              ),
+              _OverlayBadge(
+                icon: Icons.monetization_on,
+                label: 'PRIZE',
+                value: state.accumulatedPrize.toStringAsFixed(2),
+                color: const Color(0xFF4CAF50),
+              ),
+            ],
+          ),
+        ),
+
+        // Bonus content
+        Expanded(
+          child: Center(
+            child: Text(
+              _bonusInstructions(bonusType),
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 16,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _progressText() {
+    if (state.picksRemaining > 0) {
+      final total = state.customData['totalPicks'] as int? ?? state.picksRemaining;
+      return '${total - state.picksRemaining} / $total';
+    }
+    if (state.totalLevels > 0) {
+      return 'Level ${state.currentLevel + 1} / ${state.totalLevels}';
+    }
+    return '';
+  }
+
+  String _bonusInstructions(String type) {
+    return switch (type) {
+      'pick' => 'Pick ${state.picksRemaining} items',
+      'wheel' => 'Spin the wheel',
+      'trail' => 'Roll to advance',
+      'ladder' => 'Climb the ladder',
+      _ => 'Bonus Round',
+    };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GAMBLE OVERLAY
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _GambleOverlay extends StatelessWidget {
+  final FeatureState state;
+  final GameFlowProvider flow;
+
+  const _GambleOverlay({required this.state, required this.flow});
+
+  @override
+  Widget build(BuildContext context) {
+    final gambleType = state.customData['gambleType'] as String? ?? 'card_color';
+    final history =
+        state.customData['history'] as List<dynamic>? ?? [];
+
+    return Column(
+      children: [
+        // Stake info
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _OverlayBadge(
+                icon: Icons.monetization_on,
+                label: 'STAKE',
+                value: state.currentStake.toStringAsFixed(2),
+                color: const Color(0xFFFFD700),
+              ),
+              _OverlayBadge(
+                icon: Icons.layers,
+                label: 'ROUND',
+                value: '${state.roundsPlayed} / ${state.maxRounds}',
+                color: const Color(0xFFF44336),
+              ),
+            ],
+          ),
+        ),
+
+        // Gamble area
+        Expanded(
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _gambleLabel(gambleType),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Action buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Collect button
+                    _GambleButton(
+                      label: 'COLLECT',
+                      color: const Color(0xFF4CAF50),
+                      onTap: () => flow.triggerManual(
+                        TransitionTrigger.playerCollect,
+                      ),
+                    ),
+                    const SizedBox(width: 24),
+                    // Gamble button
+                    _GambleButton(
+                      label: 'GAMBLE',
+                      color: const Color(0xFFF44336),
+                      onTap: () => flow.triggerManual(
+                        TransitionTrigger.playerPick,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // History
+        if (history.isNotEmpty)
+          Container(
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: history.map<Widget>((entry) {
+                final won = (entry as Map)['won'] as bool? ?? false;
+                return Container(
+                  width: 24,
+                  height: 24,
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  decoration: BoxDecoration(
+                    color: won
+                        ? const Color(0xFF4CAF50).withValues(alpha: 0.6)
+                        : const Color(0xFFF44336).withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Icon(
+                    won ? Icons.check : Icons.close,
+                    color: Colors.white,
+                    size: 14,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+      ],
+    );
+  }
+
+  String _gambleLabel(String type) {
+    return switch (type) {
+      'card_color' => 'Red or Black?',
+      'card_suit' => 'Pick a Suit',
+      'coin_flip' => 'Heads or Tails?',
+      'wheel' => 'Spin to Gamble',
+      _ => 'Double or Nothing',
+    };
+  }
+}
+
+class _GambleButton extends StatelessWidget {
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _GambleButton({
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [color, color.withValues(alpha: 0.7)],
+            ),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 12),
+            ],
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// JACKPOT OVERLAY
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _JackpotOverlay extends StatelessWidget {
+  final FeatureState state;
+
+  const _JackpotOverlay({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final tierName =
+        state.customData['wonTierName'] as String? ?? 'JACKPOT';
+    final wonValue =
+        state.customData['wonValue'] as double? ?? state.accumulatedWin;
+
+    return Container(
+      color: Colors.black.withValues(alpha: 0.7),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.emoji_events,
+              color: Color(0xFFFFD700),
+              size: 64,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              tierName.toUpperCase(),
+              style: const TextStyle(
+                color: Color(0xFFFFD700),
+                fontSize: 36,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 4,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              wonValue.toStringAsFixed(2),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 48,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COLLECTOR METERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _CollectorMeters extends StatelessWidget {
+  final FeatureState state;
+
+  const _CollectorMeters({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.meterValues.isEmpty) return const SizedBox.shrink();
+
+    return Row(
+      children: state.meterValues.entries.map((entry) {
+        final target = state.meterTargets[entry.key] ?? 100;
+        final progress = target > 0 ? (entry.value / target).clamp(0.0, 1.0) : 0.0;
+
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  entry.key,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 9,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    backgroundColor: Colors.white.withValues(alpha: 0.1),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color.lerp(
+                        const Color(0xFF2196F3),
+                        const Color(0xFF4CAF50),
+                        progress,
+                      )!,
+                    ),
+                    minHeight: 6,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${entry.value} / $target',
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 8,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// QUEUE INDICATOR — Shows pending features
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _QueueIndicator extends StatelessWidget {
+  final int count;
+
+  const _QueueIndicator({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.accentCyan.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        '+$count features',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SHARED OVERLAY BADGE — Reusable indicator
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _OverlayBadge extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _OverlayBadge({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color, color.withValues(alpha: 0.7)],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.4),
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 14),
+          const SizedBox(width: 6),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 8,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}

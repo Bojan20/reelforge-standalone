@@ -54,6 +54,7 @@ import 'providers/middleware_provider.dart';
 import 'providers/stage_provider.dart';
 import 'providers/stage_ingest_provider.dart';
 import 'providers/slot_lab/slot_lab_coordinator.dart';
+import 'providers/slot_lab/game_flow_provider.dart';
 import 'providers/slot_lab_project_provider.dart';
 import 'providers/ale_provider.dart';
 import 'providers/soundbank_provider.dart';
@@ -298,6 +299,9 @@ class FluxForgeApp extends StatelessWidget {
 
         // Slot Lab (Synthetic Slot Engine)
         ChangeNotifierProvider(create: (_) => SlotLabProvider()),
+
+        // Game Flow FSM (L3 Modular Slot Machine State Machine)
+        ChangeNotifierProvider.value(value: sl<GameFlowProvider>()),
 
         // Slot Lab Project (V6 Layout state)
         ChangeNotifierProvider(create: (_) => SlotLabProjectProvider()),
