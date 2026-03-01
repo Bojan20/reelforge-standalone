@@ -19,6 +19,7 @@ import 'package:provider/provider.dart';
 import '../../models/game_flow_models.dart';
 import '../../providers/slot_lab/game_flow_provider.dart';
 import '../../theme/fluxforge_theme.dart';
+import 'bonus_game_widgets.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MAIN OVERLAY — Dispatches to feature-specific widgets
@@ -109,6 +110,17 @@ class GameFlowOverlay extends StatelessWidget {
           ));
         }
 
+      case GameFlowState.respin:
+        final rs = flow.respinState;
+        if (rs != null) {
+          widgets.add(Positioned(
+            top: 40,
+            left: 0,
+            right: 0,
+            child: _RespinOverlay(state: rs),
+          ));
+        }
+
       case GameFlowState.jackpotPresentation:
         final jp = flow.getFeatureState('jackpot');
         if (jp != null) {
@@ -117,8 +129,27 @@ class GameFlowOverlay extends StatelessWidget {
           ));
         }
 
+      case GameFlowState.winPresentation:
+        widgets.add(Positioned.fill(
+          child: _WinPresentationOverlay(flow: flow),
+        ));
+
       default:
         break;
+    }
+
+    // Modifier feature indicators (visible during base game / free spins)
+    final wildState = flow.wildFeaturesState;
+    final multState = flow.multiplierState;
+    if (wildState != null || multState != null) {
+      widgets.add(Positioned(
+        top: flow.isInFeature ? 72 : 8,
+        right: 8,
+        child: _ModifierIndicators(
+          wildState: wildState,
+          multiplierState: multState,
+        ),
+      ));
     }
 
     // Collector meters (always visible if collector is active)
@@ -201,6 +232,7 @@ class _FeatureStatusBar extends StatelessWidget {
       GameFlowState.gamble => const Color(0xFFF44336),
       GameFlowState.respin => const Color(0xFF00BCD4),
       GameFlowState.jackpotPresentation => const Color(0xFFFFD700),
+      GameFlowState.winPresentation => const Color(0xFF4CAF50),
       _ => FluxForgeTheme.accentCyan,
     };
   }
@@ -214,6 +246,7 @@ class _FeatureStatusBar extends StatelessWidget {
       GameFlowState.gamble => Icons.swap_vert,
       GameFlowState.respin => Icons.replay,
       GameFlowState.jackpotPresentation => Icons.emoji_events,
+      GameFlowState.winPresentation => Icons.monetization_on,
       _ => Icons.play_arrow,
     };
   }
@@ -509,6 +542,7 @@ class _BonusGameOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bonusType = state.customData['bonusType'] as String? ?? 'pick';
+    final flow = context.read<GameFlowProvider>();
 
     return Column(
       children: [
@@ -534,21 +568,27 @@ class _BonusGameOverlay extends StatelessWidget {
           ),
         ),
 
-        // Bonus content
+        // Bonus content — dispatches to specific widget
         Expanded(
-          child: Center(
-            child: Text(
-              _bonusInstructions(bonusType),
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 16,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
+          child: _buildBonusContent(bonusType, flow),
         ),
       ],
     );
+  }
+
+  Widget _buildBonusContent(String bonusType, GameFlowProvider flow) {
+    return switch (bonusType) {
+      'pick' => PickGameWidget(state: state, flow: flow),
+      'wheel' => WheelGameWidget(state: state, flow: flow),
+      'trail' => TrailGameWidget(state: state, flow: flow),
+      'ladder' => LadderGameWidget(state: state, flow: flow),
+      _ => Center(
+          child: Text(
+            'Bonus Round: $bonusType',
+            style: const TextStyle(color: Colors.white70, fontSize: 16),
+          ),
+        ),
+    };
   }
 
   String _progressText() {
@@ -560,16 +600,6 @@ class _BonusGameOverlay extends StatelessWidget {
       return 'Level ${state.currentLevel + 1} / ${state.totalLevels}';
     }
     return '';
-  }
-
-  String _bonusInstructions(String type) {
-    return switch (type) {
-      'pick' => 'Pick ${state.picksRemaining} items',
-      'wheel' => 'Spin the wheel',
-      'trail' => 'Roll to advance',
-      'ladder' => 'Climb the ladder',
-      _ => 'Bonus Round',
-    };
   }
 }
 
@@ -760,40 +790,262 @@ class _JackpotOverlay extends StatelessWidget {
     final wonValue =
         state.customData['wonValue'] as double? ?? state.accumulatedWin;
 
+    // Build tier data for ticker widget
+    final tierData = _buildTierData();
+
     return Container(
       color: Colors.black.withValues(alpha: 0.7),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Progressive tickers at top
+          if (tierData.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: JackpotTickerWidget(tiers: tierData),
+            ),
+
+          const SizedBox(height: 24),
+
+          // Won jackpot display
+          const Icon(
+            Icons.emoji_events,
+            color: Color(0xFFFFD700),
+            size: 64,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            tierName.toUpperCase(),
+            style: const TextStyle(
+              color: Color(0xFFFFD700),
+              fontSize: 36,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 4,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            wonValue.toStringAsFixed(2),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 48,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<({String name, double value})> _buildTierData() {
+    final tierValues =
+        state.customData['tierValues'] as Map<String, dynamic>? ?? {};
+    if (tierValues.isEmpty) return [];
+
+    return tierValues.entries.map((e) {
+      return (name: e.key, value: (e.value as num).toDouble());
+    }).toList();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RESPIN OVERLAY
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _RespinOverlay extends StatelessWidget {
+  final FeatureState state;
+
+  const _RespinOverlay({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final triggerType =
+        state.customData['triggerType'] as String? ?? 'near_miss';
+    final hasNudge = state.customData['nudgeEnabled'] as bool? ?? false;
+    final stickyCount =
+        (state.customData['stickyPositions'] as List<dynamic>?)?.length ?? 0;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _OverlayBadge(
+          icon: Icons.replay,
+          label: 'RESPIN',
+          value: '${state.spinsRemaining}',
+          color: const Color(0xFF00BCD4),
+        ),
+        const SizedBox(width: 12),
+        _OverlayBadge(
+          icon: Icons.info_outline,
+          label: 'TYPE',
+          value: triggerType.replaceAll('_', ' ').toUpperCase(),
+          color: const Color(0xFF607D8B),
+        ),
+        if (stickyCount > 0) ...[
+          const SizedBox(width: 12),
+          _OverlayBadge(
+            icon: Icons.push_pin,
+            label: 'STICKY',
+            value: '$stickyCount',
+            color: const Color(0xFFFF9800),
+          ),
+        ],
+        if (hasNudge) ...[
+          const SizedBox(width: 12),
+          _OverlayBadge(
+            icon: Icons.swap_vert,
+            label: 'NUDGE',
+            value: 'ACTIVE',
+            color: const Color(0xFF9C27B0),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WIN PRESENTATION OVERLAY
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _WinPresentationOverlay extends StatelessWidget {
+  final GameFlowProvider flow;
+
+  const _WinPresentationOverlay({required this.flow});
+
+  @override
+  Widget build(BuildContext context) {
+    final totalWin = flow.totalWin;
+    final pipeline = flow.lastWinPipeline;
+    final multiplierSources = pipeline?.multiplierSources ?? [];
+
+    return Container(
+      color: Colors.black.withValues(alpha: 0.5),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(
-              Icons.emoji_events,
+              Icons.monetization_on,
               color: Color(0xFFFFD700),
-              size: 64,
+              size: 48,
             ),
-            const SizedBox(height: 16),
-            Text(
-              tierName.toUpperCase(),
-              style: const TextStyle(
-                color: Color(0xFFFFD700),
-                fontSize: 36,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 4,
+            const SizedBox(height: 12),
+            const Text(
+              'WIN',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 2,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Text(
-              wonValue.toStringAsFixed(2),
+              totalWin.toStringAsFixed(2),
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 48,
+                fontSize: 42,
                 fontWeight: FontWeight.bold,
               ),
             ),
+            if (multiplierSources.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              ...multiplierSources.map((source) => Text(
+                    source,
+                    style: const TextStyle(
+                      color: Color(0xFFFFD700),
+                      fontSize: 12,
+                    ),
+                  )),
+            ],
           ],
         ),
       ),
     );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MODIFIER INDICATORS — Wild features + Multiplier active badges
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _ModifierIndicators extends StatelessWidget {
+  final FeatureState? wildState;
+  final FeatureState? multiplierState;
+
+  const _ModifierIndicators({this.wildState, this.multiplierState});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        if (wildState != null) ..._buildWildIndicators(wildState!),
+        if (multiplierState != null &&
+            multiplierState!.currentMultiplier > 1.0) ...[
+          if (wildState != null) const SizedBox(height: 4),
+          _OverlayBadge(
+            icon: Icons.close,
+            label: 'GLOBAL MULT',
+            value:
+                '${multiplierState!.currentMultiplier.toStringAsFixed(1)}x',
+            color: const Color(0xFFE91E63),
+          ),
+        ],
+      ],
+    );
+  }
+
+  List<Widget> _buildWildIndicators(FeatureState state) {
+    final indicators = <Widget>[];
+    final data = state.customData;
+
+    final stickyCount =
+        (data['stickyPositions'] as List<dynamic>?)?.length ?? 0;
+    final walkingCount =
+        (data['walkingPositions'] as List<dynamic>?)?.length ?? 0;
+
+    if (stickyCount > 0) {
+      indicators.add(_OverlayBadge(
+        icon: Icons.push_pin,
+        label: 'STICKY WILDS',
+        value: '$stickyCount',
+        color: const Color(0xFF4CAF50),
+      ));
+    }
+    if (walkingCount > 0) {
+      if (indicators.isNotEmpty) indicators.add(const SizedBox(height: 4));
+      indicators.add(_OverlayBadge(
+        icon: Icons.directions_walk,
+        label: 'WALKING WILDS',
+        value: '$walkingCount',
+        color: const Color(0xFF2196F3),
+      ));
+    }
+
+    if (data['hasExpandingWilds'] == true) {
+      if (indicators.isNotEmpty) indicators.add(const SizedBox(height: 4));
+      indicators.add(const _OverlayBadge(
+        icon: Icons.unfold_more,
+        label: 'EXPANDING',
+        value: 'ON',
+        color: Color(0xFF9C27B0),
+      ));
+    }
+
+    if (state.currentMultiplier > 1.0) {
+      if (indicators.isNotEmpty) indicators.add(const SizedBox(height: 4));
+      indicators.add(_OverlayBadge(
+        icon: Icons.auto_awesome,
+        label: 'WILD MULT',
+        value: '${state.currentMultiplier.toStringAsFixed(1)}x',
+        color: Color(0xFFFFD700),
+      ));
+    }
+
+    return indicators;
   }
 }
 

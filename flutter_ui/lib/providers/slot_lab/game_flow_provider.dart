@@ -88,6 +88,8 @@ class GameFlowProvider extends ChangeNotifier {
   final FeatureQueue _featureQueue = FeatureQueue();
   final Map<String, FeatureState> _activeFeatures = {};
   final FeatureExecutorRegistry _executors = FeatureExecutorRegistry();
+  double _totalWin = 0;
+  ModifiedWinResult? _lastWinPipeline;
 
   // ─── Transition Rules ────────────────────────────────────────────────────
   final List<FlowTransition> _transitions = [];
@@ -149,6 +151,21 @@ class GameFlowProvider extends ChangeNotifier {
 
   /// Get the active bonus game state (convenience)
   FeatureState? get bonusGameState => _activeFeatures['bonus_game'];
+
+  /// Get the active respin state (convenience)
+  FeatureState? get respinState => _activeFeatures['respin'];
+
+  /// Current total win amount
+  double get totalWin => _totalWin;
+
+  /// Last win pipeline result (with multiplier sources)
+  ModifiedWinResult? get lastWinPipeline => _lastWinPipeline;
+
+  /// Get the active wild features state (convenience)
+  FeatureState? get wildFeaturesState => _activeFeatures['wild_features'];
+
+  /// Get the active multiplier state (convenience)
+  FeatureState? get multiplierState => _activeFeatures['multiplier'];
 
   // ═══════════════════════════════════════════════════════════════════════════
   // CONFIGURATION
@@ -624,12 +641,17 @@ class GameFlowProvider extends ChangeNotifier {
       }
     }
 
-    return ModifiedWinResult(
+    final result = ModifiedWinResult(
       originalAmount: rawWin,
       finalAmount: current,
       appliedMultiplier: rawWin > 0 ? current / rawWin : 1.0,
       multiplierSources: sources,
     );
+
+    _totalWin = result.finalAmount;
+    _lastWinPipeline = result;
+
+    return result;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
