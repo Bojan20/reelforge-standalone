@@ -108,48 +108,88 @@ class AudioMappingImportService {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Match all audio files from a folder against ALL composed stages.
-  /// Uses intelligent token-based matching with industry-standard aliases.
+  /// Uses dual-engine matching: OWN intelligent token+alias pipeline FIRST,
+  /// then falls back to StageGroupService for fuzzy keyword matching.
   ///
   /// Handles real slot audio naming conventions:
   /// - Numeric prefixes: "004_quick_win_1of8_1" → strips "004_"
   /// - Variant notation: "1of8_1", "2of3_3" → variant info, stripped for matching
   /// - CamelCase: "BigWinStart" → ["big", "win", "start"]
   /// - Compound names: "spins_loop_1of3_3" → tokens ["spins", "loop"]
-  /// - Industry aliases: "quick_win" → WIN_SMALL, "base_game" → base game music
+  /// - Music layers: "mus_bg_lvl_3" → MUSIC_BASE_L3
+  /// - Ambient scenes: "ambient_freespins" → AMBIENT_FS
   BulkImportResult matchFolder(List<String> audioPaths) {
     final mappings = <AudioMappingEntry>[];
     final unmatched = <UnmatchedImportFile>[];
     final warnings = <String>[];
 
-    // Use StageGroupService batch matching — handles XofY naming, indexing
-    // convention detection, and has well-tested exclude/keyword logic.
-    final batchResult = StageGroupService.instance.matchFilesToStages(
-      audioPaths: audioPaths,
-    );
+    // Build composed stage set from FeatureComposer (or use all known stages)
+    Set<String> composedStageIds = {};
+    if (GetIt.instance.isRegistered<FeatureComposerProvider>()) {
+      final composer = GetIt.instance<FeatureComposerProvider>();
+      composedStageIds = composer.composedStages.map((s) => s.id).toSet();
+    }
+    // If no composed stages, use all known stage IDs as fallback
+    if (composedStageIds.isEmpty) {
+      composedStageIds = _allKnownStageIds;
+    }
+
+    // Build token index for PASS 3 overlap scoring
+    final stageTokenIndex = _buildStageTokenIndex(composedStageIds);
 
     // Track assigned stages — allow variants (multiple files per stage)
     final assignedStages = <String, List<String>>{}; // stage → [paths]
 
-    for (final match in batchResult.matched) {
-      final existing = assignedStages[match.stage];
-      if (existing != null) {
-        warnings.add('Variant: "${match.audioFileName}" → ${match.stage} (${existing.length + 1} variants)');
+    // Paths that our engine couldn't match — will be sent to StageGroupService
+    final unmatchedPaths = <String>[];
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 1: OWN INTELLIGENT MATCHING ENGINE (token + alias + overlap)
+    // ═══════════════════════════════════════════════════════════════════════════
+    for (final path in audioPaths) {
+      final match = _intelligentMatch(path, composedStageIds, stageTokenIndex);
+      if (match != null) {
+        final existing = assignedStages[match.stageId];
+        if (existing != null) {
+          warnings.add('Variant: "${_fileName(path)}" → ${match.stageId} (${existing.length + 1} variants)');
+        }
+        mappings.add(match);
+        assignedStages.putIfAbsent(match.stageId, () => []).add(match.audioPath);
+      } else {
+        unmatchedPaths.add(path);
       }
-      mappings.add(AudioMappingEntry(
-        stageId: match.stage,
-        audioPath: match.audioPath,
-        confidence: match.confidence,
-        source: 'fuzzy',
-      ));
-      assignedStages.putIfAbsent(match.stage, () => []).add(match.audioPath);
     }
 
-    for (final um in batchResult.unmatched) {
-      unmatched.add(UnmatchedImportFile(
-        fileName: um.audioFileName,
-        filePath: um.audioPath,
-        suggestions: um.suggestions,
-      ));
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PHASE 2: FALLBACK — StageGroupService fuzzy keyword matching
+    // For files our engine couldn't match, try the fuzzy keyword engine
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (unmatchedPaths.isNotEmpty) {
+      final batchResult = StageGroupService.instance.matchFilesToStages(
+        audioPaths: unmatchedPaths,
+      );
+
+      for (final match in batchResult.matched) {
+        final existing = assignedStages[match.stage];
+        if (existing != null) {
+          warnings.add('Variant: "${match.audioFileName}" → ${match.stage} (${existing.length + 1} variants)');
+        }
+        mappings.add(AudioMappingEntry(
+          stageId: match.stage,
+          audioPath: match.audioPath,
+          confidence: match.confidence,
+          source: 'fuzzy',
+        ));
+        assignedStages.putIfAbsent(match.stage, () => []).add(match.audioPath);
+      }
+
+      for (final um in batchResult.unmatched) {
+        unmatched.add(UnmatchedImportFile(
+          fileName: um.audioFileName,
+          filePath: um.audioPath,
+          suggestions: um.suggestions,
+        ));
+      }
     }
 
     // Sort by confidence (highest first)
@@ -491,7 +531,13 @@ class AudioMappingImportService {
     return (n - 1, m); // Convert to 0-based index
   }
 
-  /// Core intelligent matcher — tokenizes filename, applies aliases, scores against stages
+  /// Core intelligent matcher — tokenizes filename, applies aliases, scores against stages.
+  ///
+  /// 5-pass matching pipeline:
+  /// 0. REGEX PRE-PASS — structural patterns (mus_bg_lvl_N, ambient_scene, music_scene_lN)
+  /// 1. ALIAS MAP — industry-standard compound name matching
+  /// 2. DIRECT TOKEN — reconstructed stage ID from tokens
+  /// 3. TOKEN OVERLAP — fuzzy scoring against stage token index
   AudioMappingEntry? _intelligentMatch(
     String path,
     Set<String> composedStageIds,
@@ -500,6 +546,18 @@ class AudioMappingImportService {
     if (composedStageIds.isEmpty) return null;
 
     final rawName = _fileName(path);
+
+    // PRE-PASS 0: Regex-based structural pattern matching
+    // Catches naming conventions that token-based matching would miss
+    final regexMatch = _regexStructuralMatch(rawName, composedStageIds);
+    if (regexMatch != null) {
+      return AudioMappingEntry(
+        stageId: regexMatch.$1,
+        audioPath: path,
+        confidence: regexMatch.$2,
+        source: 'fuzzy',
+      );
+    }
 
     // PRE-PASS: Extract NofM variant info for indexed stage matching
     // e.g. "spins_stop_1of5_2" → variantIndex=0 (for REEL_STOP_0)
@@ -543,6 +601,271 @@ class AudioMappingImportService {
 
     return null;
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PRE-PASS 0: REGEX STRUCTURAL PATTERN MATCHING
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Scene abbreviation → canonical scene name mapping
+  static const Map<String, String> _sceneAbbreviations = {
+    'bg': 'BASE', 'base': 'BASE', 'basegame': 'BASE', 'main': 'BASE',
+    'fs': 'FS', 'freespin': 'FS', 'freespins': 'FS', 'free_spin': 'FS', 'free_spins': 'FS',
+    'bonus': 'BONUS', 'bon': 'BONUS',
+    'hold': 'HOLD', 'hnw': 'HOLD', 'holdwin': 'HOLD', 'respin': 'HOLD', 'rs': 'HOLD',
+    'bw': 'BIGWIN', 'bigwin': 'BIGWIN', 'big_win': 'BIGWIN', 'win': 'BIGWIN',
+    'jp': 'JACKPOT', 'jackpot': 'JACKPOT',
+    'gamble': 'GAMBLE', 'gam': 'GAMBLE', 'risk': 'GAMBLE',
+    'reveal': 'REVEAL', 'rev': 'REVEAL',
+  };
+
+  /// Match structural filename patterns via regex.
+  /// Returns (stageId, confidence) or null.
+  (String, double)? _regexStructuralMatch(String rawName, Set<String> composedStageIds) {
+    final name = rawName.toLowerCase();
+
+    // ── PATTERN 1: mus_{scene}_lvl_{N} or mus_{scene}_level_{N} ──
+    // Examples: mus_bg_lvl_3, mus_fs_lvl_2, mus_bonus_level_4
+    final musLvlMatch = RegExp(r'mus[ic]*[-_\s]*(\w+?)[-_\s]*(?:lvl|level|lyr|layer)[-_\s]*(\d)').firstMatch(name);
+    if (musLvlMatch != null) {
+      final sceneRaw = musLvlMatch.group(1)!;
+      final level = musLvlMatch.group(2)!;
+      final scene = _sceneAbbreviations[sceneRaw];
+      if (scene != null) {
+        final stageId = 'MUSIC_${scene}_L$level';
+        if (composedStageIds.contains(stageId)) return (stageId, 0.95);
+      }
+    }
+
+    // ── PATTERN 2: mus_{scene}_start/loop/intro/outro ──
+    // Examples: mus_fs_start, mus_fs_loop, mus_bg_intro, mus_bonus_outro
+    final musTypeMatch = RegExp(r'mus[ic]*[-_\s]*(\w+?)[-_\s]*(start|loop|intro|outro)').firstMatch(name);
+    if (musTypeMatch != null) {
+      final sceneRaw = musTypeMatch.group(1)!;
+      final type = musTypeMatch.group(2)!;
+      final scene = _sceneAbbreviations[sceneRaw];
+      if (scene != null) {
+        if (type == 'intro') {
+          final stageId = 'MUSIC_${scene}_INTRO';
+          if (composedStageIds.contains(stageId)) return (stageId, 0.95);
+        } else if (type == 'outro') {
+          final stageId = 'MUSIC_${scene}_OUTRO';
+          if (composedStageIds.contains(stageId)) return (stageId, 0.95);
+        } else {
+          // start/loop → L1 (default layer)
+          final stageId = 'MUSIC_${scene}_L1';
+          if (composedStageIds.contains(stageId)) return (stageId, 0.90);
+        }
+      }
+    }
+
+    // ── PATTERN 3: mus_{scene} (bare scene reference) ──
+    // Examples: mus_bw, mus_rs, mus_fs, mus_bonus
+    final musSceneMatch = RegExp(r'^(?:\d{1,4}[-_\s])?mus[ic]*[-_\s]+(\w+?)(?:[-_\s]\d+)?$').firstMatch(name);
+    if (musSceneMatch != null) {
+      final sceneRaw = musSceneMatch.group(1)!;
+      final scene = _sceneAbbreviations[sceneRaw];
+      if (scene != null) {
+        final stageId = 'MUSIC_${scene}_L1';
+        if (composedStageIds.contains(stageId)) return (stageId, 0.85);
+      }
+    }
+
+    // ── PATTERN 4: music_{scene}_layer_{N} or music_{scene}_l{N} ──
+    // Examples: music_base_layer_3, music_freespins_l2, music_hold_l5
+    final musicLayerMatch = RegExp(r'music[-_\s]*(\w+?)[-_\s]*(?:layer|l|lvl)[-_\s]*(\d)').firstMatch(name);
+    if (musicLayerMatch != null) {
+      final sceneRaw = musicLayerMatch.group(1)!;
+      final level = musicLayerMatch.group(2)!;
+      final scene = _sceneAbbreviations[sceneRaw];
+      if (scene != null) {
+        final stageId = 'MUSIC_${scene}_L$level';
+        if (composedStageIds.contains(stageId)) return (stageId, 0.95);
+      }
+    }
+
+    // ── PATTERN 5: {scene}_music_layer_{N} or {scene}_music_l{N} ──
+    // Examples: base_music_layer_3, freespins_music_l2, bonus_music_l5
+    final sceneMusLayerMatch = RegExp(r'(\w+?)[-_\s]*music[-_\s]*(?:layer|l|lvl)[-_\s]*(\d)').firstMatch(name);
+    if (sceneMusLayerMatch != null) {
+      final sceneRaw = sceneMusLayerMatch.group(1)!;
+      final level = sceneMusLayerMatch.group(2)!;
+      final scene = _sceneAbbreviations[sceneRaw];
+      if (scene != null) {
+        final stageId = 'MUSIC_${scene}_L$level';
+        if (composedStageIds.contains(stageId)) return (stageId, 0.95);
+      }
+    }
+
+    // ── PATTERN 6: ambient_{scene} or amb_{scene} ──
+    // Examples: ambient_freespins, amb_bonus, ambient_base, ambient_hold_and_win
+    final ambientMatch = RegExp(r'(?:ambient|amb|ambience)[-_\s]*(\w+)').firstMatch(name);
+    if (ambientMatch != null) {
+      final sceneRaw = ambientMatch.group(1)!.replaceAll(RegExp(r'[-_\s]+'), '').toLowerCase();
+      // Try direct scene mapping
+      final scene = _sceneAbbreviations[sceneRaw];
+      if (scene != null) {
+        final stageId = 'AMBIENT_$scene';
+        if (composedStageIds.contains(stageId)) return (stageId, 0.95);
+      }
+      // Try with scene name remapping for compound names
+      for (final entry in _sceneAbbreviations.entries) {
+        if (sceneRaw.contains(entry.key)) {
+          final stageId = 'AMBIENT_${entry.value}';
+          if (composedStageIds.contains(stageId)) return (stageId, 0.90);
+        }
+      }
+    }
+
+    // ── PATTERN 7: {scene}_ambient or {scene}_amb ──
+    // Examples: base_ambient, freespins_amb, bonus_ambience
+    final sceneAmbientMatch = RegExp(r'(\w+?)[-_\s]*(?:ambient|amb|ambience)').firstMatch(name);
+    if (sceneAmbientMatch != null) {
+      final sceneRaw = sceneAmbientMatch.group(1)!.replaceAll(RegExp(r'[-_\s]+'), '').toLowerCase();
+      final scene = _sceneAbbreviations[sceneRaw];
+      if (scene != null) {
+        final stageId = 'AMBIENT_$scene';
+        if (composedStageIds.contains(stageId)) return (stageId, 0.90);
+      }
+    }
+
+    // ── PATTERN 8: {scene}_intro or {scene}_outro (music intro/outro) ──
+    // Examples: basegame_intro, freespins_intro, bonus_outro
+    final sceneIntroOutroMatch = RegExp(r'(\w+?)[-_\s]*(intro|outro)').firstMatch(name);
+    if (sceneIntroOutroMatch != null) {
+      final sceneRaw = sceneIntroOutroMatch.group(1)!.replaceAll(RegExp(r'[-_\s]+'), '').toLowerCase();
+      final type = sceneIntroOutroMatch.group(2)!.toUpperCase();
+      // Skip if it's clearly not a music scene (e.g., big_win_intro is BIG_WIN_INTRO not MUSIC_BIGWIN_INTRO)
+      final scene = _sceneAbbreviations[sceneRaw];
+      if (scene != null) {
+        // Try music intro/outro first
+        final musicStage = 'MUSIC_${scene}_$type';
+        if (composedStageIds.contains(musicStage)) return (musicStage, 0.85);
+      }
+    }
+
+    // ── PATTERN 9: win_present_{N} or win_tier_{N} ──
+    // Examples: win_present_3, win_tier_2
+    final winTierMatch = RegExp(r'win[-_\s]*(?:present|tier)[-_\s]*(\d)').firstMatch(name);
+    if (winTierMatch != null) {
+      final tier = winTierMatch.group(1)!;
+      final stageId = 'WIN_PRESENT_$tier';
+      if (composedStageIds.contains(stageId)) return (stageId, 0.95);
+    }
+
+    // ── PATTERN 10: big_win_tier_{N} ──
+    // Examples: big_win_tier_3, bigwin_tier_1
+    final bwTierMatch = RegExp(r'big[-_\s]*win[-_\s]*tier[-_\s]*(\d)').firstMatch(name);
+    if (bwTierMatch != null) {
+      final tier = bwTierMatch.group(1)!;
+      final stageId = 'BIG_WIN_TIER_$tier';
+      if (composedStageIds.contains(stageId)) return (stageId, 0.95);
+    }
+
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ALL KNOWN STAGE IDs (fallback when FeatureComposer has no composed stages)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static final Set<String> _allKnownStageIds = {
+    // Spins & Reels
+    'SPIN_START', 'SPIN_END', 'SPIN_CANCEL', 'REEL_SPIN_LOOP',
+    'REEL_STOP', 'REEL_STOP_0', 'REEL_STOP_1', 'REEL_STOP_2', 'REEL_STOP_3', 'REEL_STOP_4',
+    'TURBO_SPIN_LOOP', 'REEL_SLOW_STOP', 'REEL_SHAKE', 'REEL_WIGGLE',
+    'SPIN_ACCELERATION', 'SPIN_DECELERATION',
+    // Symbols
+    'SYMBOL_LAND', 'WILD_LAND', 'SCATTER_LAND',
+    // Anticipation
+    'ANTICIPATION_ON', 'ANTICIPATION_OFF', 'ANTICIPATION_LOOP',
+    'NEAR_MISS', 'NO_WIN',
+    // Wins
+    'WIN_PRESENT_LOW', 'WIN_PRESENT_EQUAL',
+    'WIN_PRESENT_1', 'WIN_PRESENT_2', 'WIN_PRESENT_3', 'WIN_PRESENT_4', 'WIN_PRESENT_5',
+    'BIG_WIN_TRIGGER', 'BIG_WIN_INTRO', 'BIG_WIN_LOOP', 'BIG_WIN_COINS',
+    'BIG_WIN_IMPACT', 'BIG_WIN_UPGRADE', 'BIG_WIN_END', 'BIG_WIN_OUTRO',
+    'BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_TIER_3', 'BIG_WIN_TIER_4', 'BIG_WIN_TIER_5',
+    'WIN_EVAL', 'WIN_DETECTED', 'WIN_CALCULATE',
+    'WIN_LINE_SHOW', 'WIN_LINE_HIDE', 'WIN_SYMBOL_HIGHLIGHT', 'WIN_LINE_CYCLE',
+    'WIN_FANFARE',
+    // Rollup
+    'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_TICK_FAST', 'ROLLUP_TICK_SLOW',
+    'ROLLUP_END', 'ROLLUP_SKIP', 'ROLLUP_ACCELERATION', 'ROLLUP_DECELERATION',
+    // Coins & Effects
+    'COIN_BURST', 'COIN_DROP', 'COIN_SHOWER', 'COIN_RAIN',
+    'COIN_LAND', 'COIN_LOCK', 'COIN_COLLECT', 'COIN_VALUE_REVEAL',
+    'SCREEN_SHAKE', 'LIGHT_FLASH', 'CONFETTI_BURST',
+    'FIREWORKS_LAUNCH', 'FIREWORKS_EXPLODE',
+    // Music — all scenes × (INTRO, OUTRO, L1-L5)
+    'MUSIC_BASE_INTRO', 'MUSIC_BASE_OUTRO',
+    'MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5',
+    'MUSIC_FS_INTRO', 'MUSIC_FS_OUTRO',
+    'MUSIC_FS_L1', 'MUSIC_FS_L2', 'MUSIC_FS_L3', 'MUSIC_FS_L4', 'MUSIC_FS_L5',
+    'MUSIC_BONUS_INTRO', 'MUSIC_BONUS_OUTRO',
+    'MUSIC_BONUS_L1', 'MUSIC_BONUS_L2', 'MUSIC_BONUS_L3', 'MUSIC_BONUS_L4', 'MUSIC_BONUS_L5',
+    'MUSIC_HOLD_INTRO', 'MUSIC_HOLD_OUTRO',
+    'MUSIC_HOLD_L1', 'MUSIC_HOLD_L2', 'MUSIC_HOLD_L3', 'MUSIC_HOLD_L4', 'MUSIC_HOLD_L5',
+    'MUSIC_BIGWIN_INTRO', 'MUSIC_BIGWIN_OUTRO',
+    'MUSIC_BIGWIN_L1', 'MUSIC_BIGWIN_L2', 'MUSIC_BIGWIN_L3', 'MUSIC_BIGWIN_L4', 'MUSIC_BIGWIN_L5',
+    'MUSIC_JACKPOT_INTRO', 'MUSIC_JACKPOT_OUTRO',
+    'MUSIC_JACKPOT_L1', 'MUSIC_JACKPOT_L2', 'MUSIC_JACKPOT_L3', 'MUSIC_JACKPOT_L4', 'MUSIC_JACKPOT_L5',
+    'MUSIC_GAMBLE_INTRO', 'MUSIC_GAMBLE_OUTRO',
+    'MUSIC_GAMBLE_L1', 'MUSIC_GAMBLE_L2', 'MUSIC_GAMBLE_L3', 'MUSIC_GAMBLE_L4', 'MUSIC_GAMBLE_L5',
+    'MUSIC_REVEAL_INTRO', 'MUSIC_REVEAL_OUTRO',
+    'MUSIC_REVEAL_L1', 'MUSIC_REVEAL_L2', 'MUSIC_REVEAL_L3', 'MUSIC_REVEAL_L4', 'MUSIC_REVEAL_L5',
+    // Music — special
+    'MUSIC_STINGER_WIN', 'MUSIC_STINGER_FEATURE', 'MUSIC_STINGER_BONUS', 'MUSIC_STINGER_JACKPOT',
+    'MUSIC_TENSION_LOW', 'MUSIC_TENSION_MED', 'MUSIC_TENSION_HIGH', 'MUSIC_TENSION_MAX',
+    'MUSIC_BUILDUP', 'MUSIC_CLIMAX', 'MUSIC_TRANSITION', 'MUSIC_CROSSFADE',
+    // Ambient — per scene
+    'AMBIENT_BASE', 'AMBIENT_FS', 'AMBIENT_BONUS', 'AMBIENT_HOLD',
+    'AMBIENT_BIGWIN', 'AMBIENT_JACKPOT', 'AMBIENT_GAMBLE', 'AMBIENT_REVEAL',
+    // Free Spins
+    'FREESPIN_TRIGGER', 'FREESPIN_START', 'FREESPIN_SPIN', 'FREESPIN_END',
+    'FREESPIN_RETRIGGER', 'FREESPIN_MUSIC',
+    // Bonus
+    'BONUS_TRIGGER', 'BONUS_ENTER', 'BONUS_STEP', 'BONUS_EXIT', 'BONUS_MUSIC', 'BONUS_SUMMARY',
+    'PICK_REVEAL', 'PICK_GOOD', 'PICK_BAD', 'PICK_BONUS', 'PICK_COLLECT',
+    'WHEEL_START', 'WHEEL_SPIN', 'WHEEL_TICK', 'WHEEL_LAND',
+    // Hold & Win
+    'HOLD_TRIGGER', 'HOLD_START', 'HOLD_SPIN', 'HOLD_LOCK', 'HOLD_END', 'HOLD_MUSIC',
+    'RESPIN_START', 'RESPIN_SPIN', 'RESPIN_STOP', 'RESPIN_END',
+    // Cascade
+    'CASCADE_START', 'CASCADE_STEP', 'CASCADE_POP', 'CASCADE_END',
+    'TUMBLE_DROP', 'AVALANCHE_TRIGGER',
+    // Jackpot
+    'JACKPOT_TRIGGER', 'JACKPOT_AWARD', 'JACKPOT_MINI', 'JACKPOT_MINOR',
+    'JACKPOT_MAJOR', 'JACKPOT_GRAND', 'JACKPOT_MEGA', 'JACKPOT_ULTRA',
+    // Gamble
+    'GAMBLE_ENTER', 'GAMBLE_WIN', 'GAMBLE_LOSE', 'GAMBLE_COLLECT', 'GAMBLE_EXIT',
+    'GAMBLE_CARD_FLIP',
+    // Multiplier
+    'MULTIPLIER_INCREASE', 'MULTIPLIER_APPLY', 'MULTIPLIER_RESET',
+    // Features
+    'FEATURE_ENTER', 'FEATURE_EXIT',
+    // UI
+    'UI_BUTTON_PRESS', 'UI_BUTTON_HOVER', 'UI_BUTTON_RELEASE',
+    'UI_MENU_OPEN', 'UI_MENU_CLOSE', 'UI_POPUP_OPEN', 'UI_POPUP_CLOSE',
+    'UI_NOTIFICATION', 'GAME_START', 'GAME_READY',
+    // Attract
+    'ATTRACT_LOOP', 'ATTRACT_EXIT', 'IDLE_LOOP',
+    // Wild mechanics
+    'WILD_EXPAND', 'WILD_STICKY', 'WILD_TRANSFORM',
+    'WILD_MULTIPLY', 'WILD_WALKING',
+    // Transitions
+    'TRANSITION_SWOOSH', 'TRANSITION_IMPACT',
+    // Collect
+    'COLLECT_TRIGGER', 'COLLECT_COIN',
+    // VO
+    'VO_WIN_1', 'VO_WIN_2', 'VO_WIN_3', 'VO_WIN_4', 'VO_WIN_5',
+    'VO_BIG_WIN', 'VO_CONGRATULATIONS', 'VO_FREE_SPINS', 'VO_BONUS',
+    // Megaways
+    'MEGAWAYS_REVEAL', 'MEGAWAYS_EXPAND',
+    // Reel mechanics
+    'REEL_NUDGE', 'NUDGE_UP', 'NUDGE_DOWN',
+    // Mystery
+    'MYSTERY_LAND', 'MYSTERY_REVEAL', 'MYSTERY_TRANSFORM',
+  };
 
   /// Tokenize a filename into meaningful words.
   ///
@@ -785,7 +1108,12 @@ class AudioMappingImportService {
   /// Industry-standard slot audio naming → stage ID mapping.
   /// Patterns are space-separated tokens (all must be present, order-independent).
   /// Values are candidate stage IDs (first match in composed stages wins).
-  /// Industry alias patterns → actual composed stage IDs.
+  ///
+  /// CRITICAL: Stage IDs MUST match actual UI stage IDs from ultimate_audio_panel:
+  /// - Wins: WIN_PRESENT_1-5, BIG_WIN_TIER_1-5, BIG_WIN_INTRO/LOOP/END
+  /// - Music: MUSIC_{SCENE}_L1-L5, MUSIC_{SCENE}_INTRO/OUTRO
+  /// - Ambient: AMBIENT_BASE/FS/BONUS/HOLD/BIGWIN/JACKPOT/GAMBLE/REVEAL
+  /// - Reels: REEL_STOP_0-4, REEL_SPIN_LOOP, SPIN_START
   ///
   /// Patterns ending with `_*` are INDEXED: expanded using NofM variant notation.
   /// E.g. "spins_stop_1of5_2" → NofM=(0,5) → "REEL_STOP_*" → "REEL_STOP_0"
@@ -799,7 +1127,7 @@ class AudioMappingImportService {
     'spin click': ['SPIN_START'],
     'spin press': ['SPIN_START'],
     'spin start': ['SPIN_START'],
-    'ui spin': ['SPIN_START'],
+    'ui spin': ['SPIN_START', 'UI_SPIN_PRESS'],
 
     // ═══════════════════════════════════════════════════════════════════
     // REEL SPINNING (loop while reels rotate) → REEL_SPIN_LOOP
@@ -811,19 +1139,18 @@ class AudioMappingImportService {
     'spinning': ['REEL_SPIN_LOOP'],
     'reels spin': ['REEL_SPIN_LOOP'],
     'reel spinning': ['REEL_SPIN_LOOP'],
+    'turbo spin': ['TURBO_SPIN_LOOP'],
 
     // ═══════════════════════════════════════════════════════════════════
     // REEL STOP (individual reel landing) → REEL_STOP_* (indexed by NofM)
     // "spins_stop_1of5_2" → REEL_STOP_0, "spins_stop_3of5_1" → REEL_STOP_2
-    // Without NofM → defaults to REEL_STOP_0
+    // Without NofM → defaults to REEL_STOP (generic)
     // ═══════════════════════════════════════════════════════════════════
-    'spin stop': ['REEL_STOP_*'],
-    'spins stop': ['REEL_STOP_*'],
-    'reel stop': ['REEL_STOP_*'],
-    'reel land': ['REEL_STOP_*'],
-    'reel end': ['REEL_STOP_*'],
-    'stop': ['REEL_STOP_*'],
-    'land': ['REEL_STOP_*', 'SYMBOL_LAND'],
+    'spin stop': ['REEL_STOP_*', 'REEL_STOP'],
+    'spins stop': ['REEL_STOP_*', 'REEL_STOP'],
+    'reel stop': ['REEL_STOP_*', 'REEL_STOP'],
+    'reel land': ['REEL_STOP_*', 'REEL_STOP'],
+    'reel end': ['REEL_STOP_*', 'REEL_STOP'],
 
     // ═══════════════════════════════════════════════════════════════════
     // SPIN END → SPIN_END
@@ -836,83 +1163,106 @@ class AudioMappingImportService {
     // SYMBOL LAND → SYMBOL_LAND + typed variants
     // ═══════════════════════════════════════════════════════════════════
     'symbol land': ['SYMBOL_LAND'],
-    'wild land': ['SYMBOL_LAND_WILD', 'WILD_EXPAND'],
-    'wild symbol': ['SYMBOL_LAND_WILD'],
-    'scatter land': ['SYMBOL_LAND_SCATTER'],
-    'scatter symbol': ['SYMBOL_LAND_SCATTER'],
+    'wild land': ['WILD_LAND', 'SYMBOL_LAND_WILD'],
+    'wild symbol': ['WILD_LAND', 'SYMBOL_LAND_WILD'],
+    'scatter land': ['SCATTER_LAND', 'SYMBOL_LAND_SCATTER'],
+    'scatter symbol': ['SCATTER_LAND', 'SYMBOL_LAND_SCATTER'],
     'bonus land': ['SYMBOL_LAND_BONUS'],
     'bonus symbol land': ['SYMBOL_LAND_BONUS'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // WINS → WIN_TIER_1 through WIN_TIER_5
-    // Tier 1 = small, Tier 2 = medium, Tier 3 = big, Tier 4 = mega, Tier 5 = epic
+    // WINS — ACTUAL UI STAGE IDs
+    // WIN_PRESENT_1-5 = standard win tiers
+    // BIG_WIN_TIER_1-5 = big win celebration tiers
     // ═══════════════════════════════════════════════════════════════════
-    'quick win': ['WIN_TIER_1'],
-    'small win': ['WIN_TIER_1'],
-    'normal win': ['WIN_TIER_2'],
-    'medium win': ['WIN_TIER_2'],
-    'big win': ['WIN_TIER_3'],
-    'bigwin': ['WIN_TIER_3'],
-    'mega win': ['WIN_TIER_4'],
-    'megawin': ['WIN_TIER_4'],
-    'epic win': ['WIN_TIER_5'],
-    'super win': ['WIN_TIER_5'],
-    'ultra win': ['WIN_TIER_5'],
-    'max win': ['WIN_TIER_5'],
-    'mega win start': ['WIN_TIER_4'],
-    'epic win start': ['WIN_TIER_5'],
-    'win start': ['WIN_TIER_1'],
-    'win end': ['WIN_TIER_1'],
-    'win show': ['WIN_TIER_1'],
+    'quick win': ['WIN_PRESENT_1', 'WIN_PRESENT_LOW'],
+    'small win': ['WIN_PRESENT_1', 'WIN_PRESENT_LOW'],
+    'low win': ['WIN_PRESENT_LOW', 'WIN_PRESENT_1'],
+    'normal win': ['WIN_PRESENT_2'],
+    'medium win': ['WIN_PRESENT_2', 'WIN_PRESENT_3'],
+    'big win': ['WIN_PRESENT_4', 'BIG_WIN_INTRO'],
+    'bigwin': ['WIN_PRESENT_4', 'BIG_WIN_INTRO'],
+    'mega win': ['WIN_PRESENT_5', 'BIG_WIN_TIER_2'],
+    'megawin': ['WIN_PRESENT_5', 'BIG_WIN_TIER_2'],
+    'epic win': ['BIG_WIN_TIER_3', 'WIN_PRESENT_5'],
+    'super win': ['BIG_WIN_TIER_3', 'WIN_PRESENT_5'],
+    'ultra win': ['BIG_WIN_TIER_4', 'WIN_PRESENT_5'],
+    'max win': ['BIG_WIN_TIER_5', 'WIN_PRESENT_5'],
+    'sensational win': ['BIG_WIN_TIER_5'],
+    'no win': ['NO_WIN'],
+    'win present': ['WIN_PRESENT_1'],
     'win line': ['WIN_LINE_SHOW'],
-    'win collect': ['WIN_COLLECT'],
+    'win line show': ['WIN_LINE_SHOW'],
+    'win line hide': ['WIN_LINE_HIDE'],
+    'win collect': ['GAMBLE_COLLECT', 'WIN_FANFARE'],
     'win highlight': ['WIN_SYMBOL_HIGHLIGHT'],
     'symbol highlight': ['WIN_SYMBOL_HIGHLIGHT'],
+    'win fanfare': ['WIN_FANFARE'],
+    'win eval': ['WIN_EVAL'],
 
-    // ─── WIN multiplier tiers → WIN_TIER_N ──────────────────────────
-    'win 1x': ['WIN_TIER_1'],
-    'win1x': ['WIN_TIER_1'],
-    'win 2x': ['WIN_TIER_1'],
-    'win2x': ['WIN_TIER_1'],
-    'win 3x': ['WIN_TIER_2'],
-    'win3x': ['WIN_TIER_2'],
-    'win 5x': ['WIN_TIER_2'],
-    'win5x': ['WIN_TIER_2'],
-    'win 10x': ['WIN_TIER_3'],
-    'win10x': ['WIN_TIER_3'],
-    'win 15x': ['WIN_TIER_3'],
-    'win15x': ['WIN_TIER_3'],
-    'win 20x': ['WIN_TIER_4'],
-    'win20x': ['WIN_TIER_4'],
-    'win 25x': ['WIN_TIER_4'],
-    'win25x': ['WIN_TIER_4'],
-    'win 50x': ['WIN_TIER_5'],
-    'win50x': ['WIN_TIER_5'],
-    'win 100x': ['WIN_TIER_5'],
-    'win100x': ['WIN_TIER_5'],
-
-    // ═══════════════════════════════════════════════════════════════════
-    // ROLLUP / COUNTUP → COUNTUP_TICK, COUNTUP_END, ROLLUP_START/END
-    // ═══════════════════════════════════════════════════════════════════
-    'rollup': ['COUNTUP_TICK', 'ROLLUP_TICK'],
-    'roll up': ['COUNTUP_TICK', 'ROLLUP_TICK'],
-    'rollup low': ['COUNTUP_TICK', 'ROLLUP_START'],
-    'rollupl': ['COUNTUP_TICK', 'ROLLUP_START'],
-    'rollup med': ['COUNTUP_TICK', 'ROLLUP_TICK'],
-    'rollupm': ['COUNTUP_TICK', 'ROLLUP_TICK'],
-    'rollup high': ['COUNTUP_END', 'ROLLUP_END'],
-    'rolluph': ['COUNTUP_END', 'ROLLUP_END'],
-    'rollup end': ['COUNTUP_END', 'ROLLUP_END'],
-    'rollup start': ['COUNTUP_TICK', 'ROLLUP_START'],
-    'count up': ['COUNTUP_TICK'],
-    'countup': ['COUNTUP_TICK'],
-    'totalizer': ['COUNTUP_TICK'],
+    // ─── WIN multiplier tiers → WIN_PRESENT_N ──────────────────────────
+    'win 1x': ['WIN_PRESENT_1'],
+    'win1x': ['WIN_PRESENT_1'],
+    'win 2x': ['WIN_PRESENT_1'],
+    'win2x': ['WIN_PRESENT_1'],
+    'win 3x': ['WIN_PRESENT_2'],
+    'win3x': ['WIN_PRESENT_2'],
+    'win 5x': ['WIN_PRESENT_2'],
+    'win5x': ['WIN_PRESENT_2'],
+    'win 10x': ['WIN_PRESENT_3'],
+    'win10x': ['WIN_PRESENT_3'],
+    'win 15x': ['WIN_PRESENT_4'],
+    'win15x': ['WIN_PRESENT_4'],
+    'win 20x': ['BIG_WIN_TIER_1', 'WIN_PRESENT_5'],
+    'win20x': ['BIG_WIN_TIER_1', 'WIN_PRESENT_5'],
+    'win 25x': ['BIG_WIN_TIER_1'],
+    'win25x': ['BIG_WIN_TIER_1'],
+    'win 50x': ['BIG_WIN_TIER_2'],
+    'win50x': ['BIG_WIN_TIER_2'],
+    'win 100x': ['BIG_WIN_TIER_3'],
+    'win100x': ['BIG_WIN_TIER_3'],
+    'win 250x': ['BIG_WIN_TIER_4'],
+    'win250x': ['BIG_WIN_TIER_4'],
+    'win 500x': ['BIG_WIN_TIER_5'],
+    'win500x': ['BIG_WIN_TIER_5'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // MUSIC — Unified layer/extension architecture
-    // Default mapping goes to L1 (base arrangement) per scene
+    // BIG WIN specific stages (celebration sequence)
     // ═══════════════════════════════════════════════════════════════════
-    // Base game music → MUSIC_BASE_L1
+    'big win intro': ['BIG_WIN_INTRO'],
+    'big win loop': ['BIG_WIN_LOOP'],
+    'big win coins': ['BIG_WIN_COINS'],
+    'big win impact': ['BIG_WIN_IMPACT'],
+    'big win end': ['BIG_WIN_END'],
+    'big win outro': ['BIG_WIN_OUTRO'],
+    'big win upgrade': ['BIG_WIN_UPGRADE'],
+    'big win trigger': ['BIG_WIN_TRIGGER'],
+
+    // ═══════════════════════════════════════════════════════════════════
+    // ROLLUP / COUNTUP → ROLLUP_START, ROLLUP_TICK, ROLLUP_END
+    // ═══════════════════════════════════════════════════════════════════
+    'rollup': ['ROLLUP_TICK'],
+    'roll up': ['ROLLUP_TICK'],
+    'rollup low': ['ROLLUP_TICK_SLOW', 'ROLLUP_START'],
+    'rollupl': ['ROLLUP_TICK_SLOW', 'ROLLUP_START'],
+    'rollup med': ['ROLLUP_TICK'],
+    'rollupm': ['ROLLUP_TICK'],
+    'rollup high': ['ROLLUP_TICK_FAST', 'ROLLUP_END'],
+    'rolluph': ['ROLLUP_TICK_FAST', 'ROLLUP_END'],
+    'rollup end': ['ROLLUP_END'],
+    'rollup start': ['ROLLUP_START'],
+    'rollup skip': ['ROLLUP_SKIP'],
+    'rollup fast': ['ROLLUP_TICK_FAST'],
+    'rollup slow': ['ROLLUP_TICK_SLOW'],
+    'count up': ['ROLLUP_TICK'],
+    'countup': ['ROLLUP_TICK'],
+    'totalizer': ['ROLLUP_TICK'],
+
+    // ═══════════════════════════════════════════════════════════════════
+    // MUSIC — All scenes: MUSIC_{SCENE}_L1-L5, INTRO, OUTRO
+    // ═══════════════════════════════════════════════════════════════════
+
+    // ─── Base Game Music ─────────────────────────────────────────────
     'base game music': ['MUSIC_BASE_L1'],
     'base game loop': ['MUSIC_BASE_L1'],
     'basegame music': ['MUSIC_BASE_L1'],
@@ -928,11 +1278,9 @@ class AudioMappingImportService {
     'music start': ['MUSIC_BASE_L1'],
     'base intro': ['MUSIC_BASE_INTRO'],
     'base outro': ['MUSIC_BASE_OUTRO'],
-    // Win / Big Win music → MUSIC_BIGWIN_L1
-    'win music': ['MUSIC_BIGWIN_L1'],
-    'big win music': ['MUSIC_BIGWIN_L1'],
-    'bigwin music': ['MUSIC_BIGWIN_L1'],
-    // Free spins music → MUSIC_FS_L1
+    'base music intro': ['MUSIC_BASE_INTRO'],
+    'base music outro': ['MUSIC_BASE_OUTRO'],
+    // ─── Free Spins Music ────────────────────────────────────────────
     'feature music': ['MUSIC_FS_L1'],
     'free spin music': ['MUSIC_FS_L1'],
     'free spins music': ['MUSIC_FS_L1'],
@@ -941,157 +1289,279 @@ class AudioMappingImportService {
     'fs music': ['MUSIC_FS_L1'],
     'fs intro': ['MUSIC_FS_INTRO'],
     'fs outro': ['MUSIC_FS_OUTRO'],
-    // Bonus music → MUSIC_BONUS_L1
+    'freespin music': ['MUSIC_FS_L1'],
+    'freespin intro': ['MUSIC_FS_INTRO'],
+    'freespin outro': ['MUSIC_FS_OUTRO'],
+    // ─── Win / Big Win Music ─────────────────────────────────────────
+    'win music': ['MUSIC_BIGWIN_L1'],
+    'big win music': ['MUSIC_BIGWIN_L1'],
+    'bigwin music': ['MUSIC_BIGWIN_L1'],
+    'bigwin intro': ['MUSIC_BIGWIN_INTRO'],
+    'bigwin outro': ['MUSIC_BIGWIN_OUTRO'],
+    // ─── Bonus Music ─────────────────────────────────────────────────
     'bonus music': ['MUSIC_BONUS_L1'],
     'bonus intro': ['MUSIC_BONUS_INTRO'],
     'bonus outro': ['MUSIC_BONUS_OUTRO'],
-    // Hold music → MUSIC_HOLD_L1
+    'bonus music intro': ['MUSIC_BONUS_INTRO'],
+    'bonus music outro': ['MUSIC_BONUS_OUTRO'],
+    // ─── Hold & Spin Music ───────────────────────────────────────────
     'hold music': ['MUSIC_HOLD_L1'],
     'hold intro': ['MUSIC_HOLD_INTRO'],
     'hold outro': ['MUSIC_HOLD_OUTRO'],
-    // Jackpot music → MUSIC_JACKPOT_L1
+    'hold spin music': ['MUSIC_HOLD_L1'],
+    'respin music': ['MUSIC_HOLD_L1'],
+    // ─── Jackpot Music ───────────────────────────────────────────────
     'jackpot music': ['MUSIC_JACKPOT_L1'],
-    // Gamble music → MUSIC_GAMBLE_L1
+    'jackpot intro': ['MUSIC_JACKPOT_INTRO'],
+    'jackpot outro': ['MUSIC_JACKPOT_OUTRO'],
+    // ─── Gamble Music ────────────────────────────────────────────────
     'gamble music': ['MUSIC_GAMBLE_L1'],
-    // Reveal music → MUSIC_REVEAL_L1
+    'gamble intro': ['MUSIC_GAMBLE_INTRO'],
+    'gamble outro': ['MUSIC_GAMBLE_OUTRO'],
+    // ─── Reveal Music ────────────────────────────────────────────────
     'reveal music': ['MUSIC_REVEAL_L1'],
-    'ambient': ['AMBIENCE'],
-    'ambience': ['AMBIENCE'],
+    'reveal intro': ['MUSIC_REVEAL_INTRO'],
+    'reveal outro': ['MUSIC_REVEAL_OUTRO'],
+    // ─── Stingers & Transitions ──────────────────────────────────────
     'stinger': ['MUSIC_STINGER_WIN'],
     'stinger win': ['MUSIC_STINGER_WIN'],
     'stinger feature': ['MUSIC_STINGER_FEATURE'],
     'stinger bonus': ['MUSIC_STINGER_BONUS'],
     'stinger jackpot': ['MUSIC_STINGER_JACKPOT'],
+    'music transition': ['MUSIC_TRANSITION'],
+    'music crossfade': ['MUSIC_CROSSFADE'],
+    // ─── Tension Music ───────────────────────────────────────────────
+    'tension low': ['MUSIC_TENSION_LOW'],
+    'tension med': ['MUSIC_TENSION_MED'],
+    'tension high': ['MUSIC_TENSION_HIGH'],
+    'tension max': ['MUSIC_TENSION_MAX'],
+    'music buildup': ['MUSIC_BUILDUP'],
+    'music climax': ['MUSIC_CLIMAX'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // FREE SPINS → FEATURE_ENTER, FEATURE_LOOP, FEATURE_EXIT
+    // AMBIENT — Per-scene ambient stages
     // ═══════════════════════════════════════════════════════════════════
-    'free spin': ['FEATURE_ENTER'],
-    'free spins': ['FEATURE_ENTER'],
-    'fs trigger': ['FEATURE_ENTER'],
-    'fs start': ['FEATURE_ENTER'],
-    'fs end': ['FEATURE_EXIT'],
-    'fs loop': ['FEATURE_LOOP'],
-    'free spin trigger': ['FEATURE_ENTER'],
-    'retrigger': ['FEATURE_ENTER'],
+    'ambient base': ['AMBIENT_BASE'],
+    'ambient basegame': ['AMBIENT_BASE'],
+    'ambient bg': ['AMBIENT_BASE'],
+    'base ambient': ['AMBIENT_BASE'],
+    'ambient freespins': ['AMBIENT_FS'],
+    'ambient free spins': ['AMBIENT_FS'],
+    'ambient fs': ['AMBIENT_FS'],
+    'fs ambient': ['AMBIENT_FS'],
+    'ambient bonus': ['AMBIENT_BONUS'],
+    'bonus ambient': ['AMBIENT_BONUS'],
+    'ambient hold': ['AMBIENT_HOLD'],
+    'hold ambient': ['AMBIENT_HOLD'],
+    'ambient bigwin': ['AMBIENT_BIGWIN'],
+    'ambient big win': ['AMBIENT_BIGWIN'],
+    'bigwin ambient': ['AMBIENT_BIGWIN'],
+    'ambient jackpot': ['AMBIENT_JACKPOT'],
+    'jackpot ambient': ['AMBIENT_JACKPOT'],
+    'ambient gamble': ['AMBIENT_GAMBLE'],
+    'gamble ambient': ['AMBIENT_GAMBLE'],
+    'ambient reveal': ['AMBIENT_REVEAL'],
+    'reveal ambient': ['AMBIENT_REVEAL'],
+    'ambient': ['AMBIENT_BASE'],
+    'ambience': ['AMBIENT_BASE'],
+    'amb base': ['AMBIENT_BASE'],
+    'amb fs': ['AMBIENT_FS'],
+    'amb bonus': ['AMBIENT_BONUS'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // BONUS → PICK_START, PICK_REVEAL, PICK_END, WHEEL_*
+    // FREE SPINS → FREESPIN_TRIGGER, FREESPIN_START, etc.
     // ═══════════════════════════════════════════════════════════════════
-    'bonus': ['PICK_START', 'FEATURE_ENTER'],
-    'bonus start': ['PICK_START', 'FEATURE_ENTER'],
-    'bonus end': ['PICK_END', 'FEATURE_EXIT'],
-    'bonus win': ['PICK_REVEAL'],
-    'pick bonus': ['PICK_START'],
+    'free spin': ['FREESPIN_START', 'FEATURE_ENTER'],
+    'free spins': ['FREESPIN_START', 'FEATURE_ENTER'],
+    'fs trigger': ['FREESPIN_TRIGGER', 'FEATURE_ENTER'],
+    'fs start': ['FREESPIN_START', 'FEATURE_ENTER'],
+    'fs end': ['FREESPIN_END', 'FEATURE_EXIT'],
+    'fs loop': ['FREESPIN_SPIN', 'FEATURE_LOOP'],
+    'free spin trigger': ['FREESPIN_TRIGGER'],
+    'free spin start': ['FREESPIN_START'],
+    'free spin end': ['FREESPIN_END'],
+    'retrigger': ['FREESPIN_RETRIGGER'],
+    'fs retrigger': ['FREESPIN_RETRIGGER'],
+
+    // ═══════════════════════════════════════════════════════════════════
+    // BONUS → BONUS_TRIGGER, BONUS_ENTER, PICK_*, WHEEL_*
+    // ═══════════════════════════════════════════════════════════════════
+    'bonus': ['BONUS_ENTER', 'FEATURE_ENTER'],
+    'bonus start': ['BONUS_ENTER', 'FEATURE_ENTER'],
+    'bonus trigger': ['BONUS_TRIGGER'],
+    'bonus end': ['BONUS_EXIT', 'FEATURE_EXIT'],
+    'bonus win': ['PICK_GOOD', 'PICK_REVEAL'],
+    'bonus summary': ['BONUS_SUMMARY'],
+    'pick bonus': ['PICK_REVEAL'],
     'pick reveal': ['PICK_REVEAL'],
+    'pick good': ['PICK_GOOD'],
+    'pick bad': ['PICK_BAD'],
     'wheel spin': ['WHEEL_SPIN'],
     'wheel start': ['WHEEL_START'],
-    'wheel stop': ['WHEEL_RESULT'],
-    'wheel result': ['WHEEL_RESULT'],
+    'wheel stop': ['WHEEL_LAND'],
+    'wheel result': ['WHEEL_LAND'],
+    'wheel tick': ['WHEEL_TICK'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // HOLD AND WIN → HOLD_WIN_LOCK, HOLD_WIN_SPIN, HOLD_WIN_REVEAL
+    // HOLD AND WIN → HOLD_TRIGGER, HOLD_START, RESPIN_*
     // ═══════════════════════════════════════════════════════════════════
-    'hold win': ['HOLD_WIN_LOCK'],
-    'hnw': ['HOLD_WIN_LOCK'],
-    'lock': ['HOLD_WIN_LOCK'],
-    'coin land': ['HOLD_WIN_LOCK'],
-    'respin': ['HOLD_WIN_SPIN', 'RESPIN_START'],
+    'hold win': ['HOLD_TRIGGER'],
+    'hold and win': ['HOLD_TRIGGER'],
+    'hnw': ['HOLD_TRIGGER'],
+    'hold trigger': ['HOLD_TRIGGER'],
+    'hold start': ['HOLD_START'],
+    'hold lock': ['HOLD_LOCK', 'COIN_LOCK'],
+    'hold end': ['HOLD_END'],
+    'lock': ['HOLD_LOCK', 'COIN_LOCK'],
+    'coin land': ['COIN_LAND'],
+    'coin lock': ['COIN_LOCK'],
+    'respin': ['RESPIN_START'],
+    'respin start': ['RESPIN_START'],
+    'respin spin': ['RESPIN_SPIN'],
+    'respin stop': ['RESPIN_STOP'],
+    'respin end': ['RESPIN_END'],
 
     // ═══════════════════════════════════════════════════════════════════
     // CASCADE → CASCADE_START, CASCADE_STEP, CASCADE_END
     // ═══════════════════════════════════════════════════════════════════
     'cascade': ['CASCADE_START'],
-    'tumble': ['CASCADE_START'],
-    'avalanche': ['CASCADE_START'],
+    'cascade start': ['CASCADE_START'],
+    'tumble': ['CASCADE_START', 'TUMBLE_DROP'],
+    'avalanche': ['CASCADE_START', 'AVALANCHE_TRIGGER'],
     'cascade step': ['CASCADE_STEP'],
     'cascade fill': ['CASCADE_STEP'],
     'cascade end': ['CASCADE_END'],
+    'cascade pop': ['CASCADE_POP'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // JACKPOT → JACKPOT_TRIGGER, JACKPOT_MINI, JACKPOT_MAJOR, JACKPOT_GRAND
+    // JACKPOT → JACKPOT_TRIGGER, JACKPOT_MINI/MINOR/MAJOR/GRAND
     // ═══════════════════════════════════════════════════════════════════
     'jackpot': ['JACKPOT_TRIGGER'],
     'jackpot trigger': ['JACKPOT_TRIGGER'],
-    'jackpot win': ['JACKPOT_TRIGGER'],
+    'jackpot win': ['JACKPOT_AWARD'],
+    'jackpot award': ['JACKPOT_AWARD'],
     'jackpot mini': ['JACKPOT_MINI'],
-    'jackpot minor': ['JACKPOT_MINI'],
+    'jackpot minor': ['JACKPOT_MINOR'],
     'jackpot major': ['JACKPOT_MAJOR'],
     'jackpot grand': ['JACKPOT_GRAND'],
+    'jackpot mega': ['JACKPOT_MEGA'],
+    'jackpot ultra': ['JACKPOT_ULTRA'],
+    'jp mini': ['JACKPOT_MINI'],
+    'jp minor': ['JACKPOT_MINOR'],
+    'jp major': ['JACKPOT_MAJOR'],
+    'jp grand': ['JACKPOT_GRAND'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // GAMBLE → GAMBLE_START, GAMBLE_WIN, GAMBLE_LOSE
+    // GAMBLE → GAMBLE_ENTER, GAMBLE_WIN, GAMBLE_LOSE
     // ═══════════════════════════════════════════════════════════════════
-    'gamble': ['GAMBLE_START'],
-    'double': ['GAMBLE_START'],
+    'gamble': ['GAMBLE_ENTER'],
+    'gamble enter': ['GAMBLE_ENTER'],
+    'gamble start': ['GAMBLE_ENTER'],
+    'double': ['GAMBLE_ENTER'],
     'gamble win': ['GAMBLE_WIN'],
     'gamble lose': ['GAMBLE_LOSE'],
+    'gamble collect': ['GAMBLE_COLLECT'],
+    'gamble exit': ['GAMBLE_EXIT'],
+    'card flip': ['GAMBLE_CARD_FLIP'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // ANTICIPATION → ANTICIPATION_ON
+    // ANTICIPATION → ANTICIPATION_ON, ANTICIPATION_OFF
     // ═══════════════════════════════════════════════════════════════════
     'anticipation': ['ANTICIPATION_ON'],
+    'anticipation start': ['ANTICIPATION_ON'],
+    'anticipation end': ['ANTICIPATION_OFF'],
     'tension': ['ANTICIPATION_ON'],
+    'suspense': ['ANTICIPATION_ON'],
     'near miss': ['NEAR_MISS'],
     'nearmiss': ['NEAR_MISS'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // WILDS → WILD_EXPAND, WILD_STICKY
+    // WILDS → WILD_LAND, WILD_EXPAND, WILD_STICKY
     // ═══════════════════════════════════════════════════════════════════
-    'wild': ['SYMBOL_LAND_WILD', 'WILD_EXPAND'],
+    'wild': ['WILD_LAND'],
     'wild expand': ['WILD_EXPAND'],
     'wild sticky': ['WILD_STICKY'],
-    'scatter': ['SYMBOL_LAND_SCATTER', 'SYMBOL_LAND'],
+    'wild transform': ['WILD_TRANSFORM'],
+    'wild multiply': ['WILD_MULTIPLY'],
+    'wild walk': ['WILD_WALKING'],
+    'walking wild': ['WILD_WALKING'],
+    'scatter': ['SCATTER_LAND'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // UI → BUTTON_PRESS, BUTTON_RELEASE, POPUP_SHOW, POPUP_DISMISS
+    // UI → UI_BUTTON_PRESS, UI_MENU_OPEN, etc.
     // ═══════════════════════════════════════════════════════════════════
-    'button': ['BUTTON_PRESS'],
-    'button press': ['BUTTON_PRESS'],
-    'button release': ['BUTTON_RELEASE'],
-    'ui click': ['BUTTON_PRESS'],
-    'popup': ['POPUP_SHOW'],
-    'menu open': ['POPUP_SHOW'],
-    'menu close': ['POPUP_DISMISS'],
-    'notification': ['POPUP_SHOW'],
+    'button': ['UI_BUTTON_PRESS'],
+    'button press': ['UI_BUTTON_PRESS'],
+    'button hover': ['UI_BUTTON_HOVER'],
+    'button release': ['UI_BUTTON_RELEASE'],
+    'ui click': ['UI_BUTTON_PRESS'],
+    'popup': ['UI_POPUP_OPEN'],
+    'menu open': ['UI_MENU_OPEN'],
+    'menu close': ['UI_MENU_CLOSE'],
+    'notification': ['UI_NOTIFICATION'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // TRANSITIONS / MISC
+    // TRANSITIONS
     // ═══════════════════════════════════════════════════════════════════
-    'transition': ['FEATURE_ENTER'],
-    'swoosh': ['FEATURE_ENTER'],
-    'whoosh': ['FEATURE_ENTER'],
-    'impact': ['SYMBOL_LAND'],
-    'reveal': ['PICK_REVEAL', 'HOLD_WIN_REVEAL'],
-    'collect': ['WIN_COLLECT'],
-    'coin collect': ['WIN_COLLECT'],
+    'transition': ['TRANSITION_TO_FEATURE', 'FEATURE_ENTER'],
+    'swoosh': ['TRANSITION_SWOOSH'],
+    'whoosh': ['TRANSITION_SWOOSH'],
+    'impact': ['TRANSITION_IMPACT', 'SYMBOL_LAND'],
+    'reveal': ['PICK_REVEAL', 'MYSTERY_REVEAL'],
+    'collect': ['COLLECT_TRIGGER'],
+    'coin collect': ['COIN_COLLECT'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // NUDGE / RESPIN → REEL_NUDGE, RESPIN_START
+    // COINS & EFFECTS
+    // ═══════════════════════════════════════════════════════════════════
+    'coin burst': ['COIN_BURST'],
+    'coin drop': ['COIN_DROP'],
+    'coin shower': ['COIN_SHOWER'],
+    'coin rain': ['COIN_RAIN'],
+    'confetti': ['CONFETTI_BURST'],
+    'fireworks': ['FIREWORKS_LAUNCH'],
+    'screen shake': ['SCREEN_SHAKE'],
+
+    // ═══════════════════════════════════════════════════════════════════
+    // NUDGE / RESPIN → REEL_NUDGE, NUDGE_*
     // ═══════════════════════════════════════════════════════════════════
     'nudge': ['REEL_NUDGE'],
-    'respin start': ['RESPIN_START'],
+    'nudge up': ['NUDGE_UP'],
+    'nudge down': ['NUDGE_DOWN'],
 
     // ═══════════════════════════════════════════════════════════════════
     // MEGAWAYS → MEGAWAYS_REVEAL
     // ═══════════════════════════════════════════════════════════════════
     'megaways': ['MEGAWAYS_REVEAL'],
     'megaways reveal': ['MEGAWAYS_REVEAL'],
+    'megaways expand': ['MEGAWAYS_EXPAND'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // MULTIPLIER → MULTIPLIER_INCREMENT, MULTIPLIER_APPLY
+    // MULTIPLIER → MULTIPLIER_INCREASE, MULTIPLIER_APPLY
     // ═══════════════════════════════════════════════════════════════════
-    'multiplier': ['MULTIPLIER_INCREMENT'],
-    'multiplier increment': ['MULTIPLIER_INCREMENT'],
+    'multiplier': ['MULTIPLIER_INCREASE'],
+    'multiplier increase': ['MULTIPLIER_INCREASE'],
     'multiplier apply': ['MULTIPLIER_APPLY'],
+    'multiplier reset': ['MULTIPLIER_RESET'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // BIG WIN specific stages (used in tier progression)
+    // VOICEOVER
     // ═══════════════════════════════════════════════════════════════════
-    'big win intro': ['BIG_WIN_INTRO', 'WIN_TIER_3'],
-    'big win loop': ['BIG_WIN_LOOP', 'WIN_TIER_3'],
-    'big win coins': ['BIG_WIN_COINS', 'WIN_TIER_3'],
-    'big win end': ['BIG_WIN_END', 'WIN_TIER_3'],
+    'vo win': ['VO_WIN_1'],
+    'vo big win': ['VO_BIG_WIN'],
+    'vo congrats': ['VO_CONGRATULATIONS'],
+    'vo free spins': ['VO_FREE_SPINS'],
+    'vo bonus': ['VO_BONUS'],
+
+    // ═══════════════════════════════════════════════════════════════════
+    // ATTRACT / IDLE
+    // ═══════════════════════════════════════════════════════════════════
+    'attract': ['ATTRACT_LOOP'],
+    'attract loop': ['ATTRACT_LOOP'],
+    'idle': ['IDLE_LOOP'],
+    'idle loop': ['IDLE_LOOP'],
+    'game start': ['GAME_START'],
+    'game ready': ['GAME_READY'],
   };
 
   /// Common abbreviations used in slot audio filenames

@@ -193,12 +193,34 @@ String generateEventName(String stage) {
 
     // Win Events
     'WIN_PRESENT': 'onWinPresent',
+    'WIN_PRESENT_LOW': 'onWinPresentLow',
+    'WIN_PRESENT_EQUAL': 'onWinPresentEqual',
+    'WIN_PRESENT_1': 'onWinPresent1',
+    'WIN_PRESENT_2': 'onWinPresent2',
+    'WIN_PRESENT_3': 'onWinPresent3',
+    'WIN_PRESENT_4': 'onWinPresent4',
+    'WIN_PRESENT_5': 'onWinPresent5',
     'WIN_SMALL': 'onWinSmall',
     'WIN_MEDIUM': 'onWinMedium',
     'WIN_BIG': 'onWinBig',
     'WIN_MEGA': 'onWinMega',
     'WIN_EPIC': 'onWinEpic',
     'WIN_ULTRA': 'onWinUltra',
+    'NO_WIN': 'onNoWin',
+    'BIG_WIN_TRIGGER': 'onBigWinTrigger',
+    'BIG_WIN_INTRO': 'onBigWinIntro',
+    'BIG_WIN_LOOP': 'onBigWinLoop',
+    'BIG_WIN_COINS': 'onBigWinCoins',
+    'BIG_WIN_IMPACT': 'onBigWinImpact',
+    'BIG_WIN_UPGRADE': 'onBigWinUpgrade',
+    'BIG_WIN_END': 'onBigWinEnd',
+    'BIG_WIN_OUTRO': 'onBigWinOutro',
+    'BIG_WIN_TIER_1': 'onBigWinTier1',
+    'BIG_WIN_TIER_2': 'onBigWinTier2',
+    'BIG_WIN_TIER_3': 'onBigWinTier3',
+    'BIG_WIN_TIER_4': 'onBigWinTier4',
+    'BIG_WIN_TIER_5': 'onBigWinTier5',
+    'WIN_FANFARE': 'onWinFanfare',
     'WIN_LINE_SHOW': 'onWinLineShow',
     'WIN_LINE_HIDE': 'onWinLineHide',
 
@@ -294,6 +316,16 @@ String generateEventName(String stage) {
     'MUSIC_BIG_WIN': 'onMusicBigwinL1',
     'MUSIC_JACKPOT': 'onMusicJackpotL1',
     'MUSIC_GAMBLE': 'onMusicGambleL1',
+
+    // Ambient — per scene
+    'AMBIENT_BASE': 'onAmbientBase',
+    'AMBIENT_FS': 'onAmbientFs',
+    'AMBIENT_BONUS': 'onAmbientBonus',
+    'AMBIENT_HOLD': 'onAmbientHold',
+    'AMBIENT_BIGWIN': 'onAmbientBigwin',
+    'AMBIENT_JACKPOT': 'onAmbientJackpot',
+    'AMBIENT_GAMBLE': 'onAmbientGamble',
+    'AMBIENT_REVEAL': 'onAmbientReveal',
 
     // Free Spins
     'FREESPIN_TRIGGER': 'onFreeSpinTrigger',
@@ -491,36 +523,212 @@ class StageGroupService {
   /// Alias map: substring → stage. Checked BEFORE fuzzy matching.
   /// Uses original filename (lowercased, without extension/prefix number).
   /// If ANY alias key is found as substring in the filename → instant match.
+  /// SORTED by specificity — longest aliases first to avoid partial matches.
   static const Map<String, String> _aliasMap = {
-    // Base game music layers — lvl naming convention
+    // ═══════════════════════════════════════════════════════════════════
+    // BASE GAME MUSIC — all layer naming conventions
+    // ═══════════════════════════════════════════════════════════════════
     'mus_bg_lvl_1': 'MUSIC_BASE_L1',
     'mus_bg_lvl_2': 'MUSIC_BASE_L2',
     'mus_bg_lvl_3': 'MUSIC_BASE_L3',
     'mus_bg_lvl_4': 'MUSIC_BASE_L4',
     'mus_bg_lvl_5': 'MUSIC_BASE_L5',
-    // Base game music — various naming conventions
+    'mus_bg_level_1': 'MUSIC_BASE_L1',
+    'mus_bg_level_2': 'MUSIC_BASE_L2',
+    'mus_bg_level_3': 'MUSIC_BASE_L3',
+    'mus_bg_level_4': 'MUSIC_BASE_L4',
+    'mus_bg_level_5': 'MUSIC_BASE_L5',
+    'mus_bg_l1': 'MUSIC_BASE_L1',
+    'mus_bg_l2': 'MUSIC_BASE_L2',
+    'mus_bg_l3': 'MUSIC_BASE_L3',
+    'mus_bg_l4': 'MUSIC_BASE_L4',
+    'mus_bg_l5': 'MUSIC_BASE_L5',
+    'music_base_l1': 'MUSIC_BASE_L1',
+    'music_base_l2': 'MUSIC_BASE_L2',
+    'music_base_l3': 'MUSIC_BASE_L3',
+    'music_base_l4': 'MUSIC_BASE_L4',
+    'music_base_l5': 'MUSIC_BASE_L5',
+    'base_music_layer_1': 'MUSIC_BASE_L1',
+    'base_music_layer_2': 'MUSIC_BASE_L2',
+    'base_music_layer_3': 'MUSIC_BASE_L3',
+    'base_music_layer_4': 'MUSIC_BASE_L4',
+    'base_music_layer_5': 'MUSIC_BASE_L5',
     'basegame_music': 'MUSIC_BASE_L1',
     'base_game_music': 'MUSIC_BASE_L1',
     'bgm_loop': 'MUSIC_BASE_L1',
     'music_loop': 'MUSIC_BASE_L1',
     'musicloop': 'MUSIC_BASE_L1',
-    // Free spins music
+    'mus_bg_intro': 'MUSIC_BASE_INTRO',
+    'mus_bg_outro': 'MUSIC_BASE_OUTRO',
+    'base_music_intro': 'MUSIC_BASE_INTRO',
+    'base_music_outro': 'MUSIC_BASE_OUTRO',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // FREE SPINS MUSIC — all naming conventions
+    // ═══════════════════════════════════════════════════════════════════
+    'mus_fs_lvl_1': 'MUSIC_FS_L1',
+    'mus_fs_lvl_2': 'MUSIC_FS_L2',
+    'mus_fs_lvl_3': 'MUSIC_FS_L3',
+    'mus_fs_lvl_4': 'MUSIC_FS_L4',
+    'mus_fs_lvl_5': 'MUSIC_FS_L5',
+    'mus_fs_l1': 'MUSIC_FS_L1',
+    'mus_fs_l2': 'MUSIC_FS_L2',
+    'mus_fs_l3': 'MUSIC_FS_L3',
+    'mus_fs_l4': 'MUSIC_FS_L4',
+    'mus_fs_l5': 'MUSIC_FS_L5',
     'mus_fs_start': 'MUSIC_FS_L1',
     'mus_fs_loop': 'MUSIC_FS_L1',
+    'mus_fs_intro': 'MUSIC_FS_INTRO',
+    'mus_fs_outro': 'MUSIC_FS_OUTRO',
     'mus_fs': 'MUSIC_FS_L1',
     'freespins_music': 'MUSIC_FS_L1',
     'free_spins_music': 'MUSIC_FS_L1',
-    // Feature music
-    'mus_bw': 'MUSIC_BIGWIN_L1',
-    'mus_rs': 'MUSIC_HOLD_L1',
+    'freespin_music': 'MUSIC_FS_L1',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // BONUS MUSIC — all naming conventions
+    // ═══════════════════════════════════════════════════════════════════
+    'mus_bonus_lvl_1': 'MUSIC_BONUS_L1',
+    'mus_bonus_lvl_2': 'MUSIC_BONUS_L2',
+    'mus_bonus_lvl_3': 'MUSIC_BONUS_L3',
+    'mus_bonus_lvl_4': 'MUSIC_BONUS_L4',
+    'mus_bonus_lvl_5': 'MUSIC_BONUS_L5',
+    'mus_bonus_l1': 'MUSIC_BONUS_L1',
+    'mus_bonus_l2': 'MUSIC_BONUS_L2',
+    'mus_bonus_l3': 'MUSIC_BONUS_L3',
+    'mus_bonus_l4': 'MUSIC_BONUS_L4',
+    'mus_bonus_l5': 'MUSIC_BONUS_L5',
+    'mus_bonus_intro': 'MUSIC_BONUS_INTRO',
+    'mus_bonus_outro': 'MUSIC_BONUS_OUTRO',
     'mus_bonus': 'MUSIC_BONUS_L1',
+    'bonus_music': 'MUSIC_BONUS_L1',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // HOLD & SPIN MUSIC — all naming conventions
+    // ═══════════════════════════════════════════════════════════════════
+    'mus_hold_lvl_1': 'MUSIC_HOLD_L1',
+    'mus_hold_lvl_2': 'MUSIC_HOLD_L2',
+    'mus_hold_lvl_3': 'MUSIC_HOLD_L3',
+    'mus_hold_lvl_4': 'MUSIC_HOLD_L4',
+    'mus_hold_lvl_5': 'MUSIC_HOLD_L5',
+    'mus_hold_l1': 'MUSIC_HOLD_L1',
+    'mus_hold_l2': 'MUSIC_HOLD_L2',
+    'mus_hold_l3': 'MUSIC_HOLD_L3',
+    'mus_hold_l4': 'MUSIC_HOLD_L4',
+    'mus_hold_l5': 'MUSIC_HOLD_L5',
+    'mus_hold_intro': 'MUSIC_HOLD_INTRO',
+    'mus_hold_outro': 'MUSIC_HOLD_OUTRO',
     'mus_hold': 'MUSIC_HOLD_L1',
+    'mus_rs': 'MUSIC_HOLD_L1',
+    'hold_music': 'MUSIC_HOLD_L1',
+    'respin_music': 'MUSIC_HOLD_L1',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // BIG WIN MUSIC — all naming conventions
+    // ═══════════════════════════════════════════════════════════════════
+    'mus_bw_lvl_1': 'MUSIC_BIGWIN_L1',
+    'mus_bw_lvl_2': 'MUSIC_BIGWIN_L2',
+    'mus_bw_lvl_3': 'MUSIC_BIGWIN_L3',
+    'mus_bw_lvl_4': 'MUSIC_BIGWIN_L4',
+    'mus_bw_lvl_5': 'MUSIC_BIGWIN_L5',
+    'mus_bw_l1': 'MUSIC_BIGWIN_L1',
+    'mus_bw_l2': 'MUSIC_BIGWIN_L2',
+    'mus_bw_l3': 'MUSIC_BIGWIN_L3',
+    'mus_bw_l4': 'MUSIC_BIGWIN_L4',
+    'mus_bw_l5': 'MUSIC_BIGWIN_L5',
+    'mus_bw_intro': 'MUSIC_BIGWIN_INTRO',
+    'mus_bw_outro': 'MUSIC_BIGWIN_OUTRO',
+    'mus_bw': 'MUSIC_BIGWIN_L1',
+    'bigwin_music': 'MUSIC_BIGWIN_L1',
+    'win_music': 'MUSIC_BIGWIN_L1',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // JACKPOT MUSIC — all naming conventions
+    // ═══════════════════════════════════════════════════════════════════
+    'mus_jackpot_l1': 'MUSIC_JACKPOT_L1',
+    'mus_jackpot_l2': 'MUSIC_JACKPOT_L2',
+    'mus_jackpot_l3': 'MUSIC_JACKPOT_L3',
+    'mus_jackpot_l4': 'MUSIC_JACKPOT_L4',
+    'mus_jackpot_l5': 'MUSIC_JACKPOT_L5',
+    'mus_jackpot_intro': 'MUSIC_JACKPOT_INTRO',
+    'mus_jackpot_outro': 'MUSIC_JACKPOT_OUTRO',
     'mus_jackpot': 'MUSIC_JACKPOT_L1',
-    // Spin / reel appearances
+    'mus_jp': 'MUSIC_JACKPOT_L1',
+    'jackpot_music': 'MUSIC_JACKPOT_L1',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // GAMBLE MUSIC
+    // ═══════════════════════════════════════════════════════════════════
+    'mus_gamble': 'MUSIC_GAMBLE_L1',
+    'mus_gam': 'MUSIC_GAMBLE_L1',
+    'gamble_music': 'MUSIC_GAMBLE_L1',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // REVEAL MUSIC
+    // ═══════════════════════════════════════════════════════════════════
+    'mus_reveal': 'MUSIC_REVEAL_L1',
+    'mus_rev': 'MUSIC_REVEAL_L1',
+    'reveal_music': 'MUSIC_REVEAL_L1',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // AMBIENT — per scene
+    // ═══════════════════════════════════════════════════════════════════
+    'ambient_base': 'AMBIENT_BASE',
+    'ambient_basegame': 'AMBIENT_BASE',
+    'ambient_bg': 'AMBIENT_BASE',
+    'amb_base': 'AMBIENT_BASE',
+    'amb_bg': 'AMBIENT_BASE',
+    'ambient_freespins': 'AMBIENT_FS',
+    'ambient_free_spins': 'AMBIENT_FS',
+    'ambient_fs': 'AMBIENT_FS',
+    'amb_fs': 'AMBIENT_FS',
+    'ambient_bonus': 'AMBIENT_BONUS',
+    'amb_bonus': 'AMBIENT_BONUS',
+    'ambient_hold': 'AMBIENT_HOLD',
+    'amb_hold': 'AMBIENT_HOLD',
+    'ambient_bigwin': 'AMBIENT_BIGWIN',
+    'ambient_big_win': 'AMBIENT_BIGWIN',
+    'amb_bw': 'AMBIENT_BIGWIN',
+    'ambient_jackpot': 'AMBIENT_JACKPOT',
+    'amb_jackpot': 'AMBIENT_JACKPOT',
+    'amb_jp': 'AMBIENT_JACKPOT',
+    'ambient_gamble': 'AMBIENT_GAMBLE',
+    'amb_gamble': 'AMBIENT_GAMBLE',
+    'ambient_reveal': 'AMBIENT_REVEAL',
+    'amb_reveal': 'AMBIENT_REVEAL',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // SPIN / REEL — special naming conventions
+    // ═══════════════════════════════════════════════════════════════════
     'reels_appear': 'REEL_SPIN_LOOP',
     'reel_appear': 'REEL_SPIN_LOOP',
-    // Suspense → anticipation
+
+    // ═══════════════════════════════════════════════════════════════════
+    // SUSPENSE / ANTICIPATION
+    // ═══════════════════════════════════════════════════════════════════
     'spins_susp': 'ANTICIPATION_ON',
+    'suspense': 'ANTICIPATION_ON',
+
+    // ═══════════════════════════════════════════════════════════════════
+    // WIN — direct aliases
+    // ═══════════════════════════════════════════════════════════════════
+    'quick_win': 'WIN_SMALL',
+    'small_win': 'WIN_SMALL',
+    'normal_win': 'WIN_MEDIUM',
+    'medium_win': 'WIN_MEDIUM',
+    'big_win': 'WIN_BIG',
+    'mega_win': 'WIN_MEGA',
+    'epic_win': 'WIN_EPIC',
+    'ultra_win': 'WIN_ULTRA',
+    'super_win': 'WIN_EPIC',
+    'max_win': 'WIN_ULTRA',
+    'no_win': 'NO_WIN',
+    'win_fanfare': 'WIN_FANFARE',
+    // Big Win celebration
+    'big_win_intro': 'BIG_WIN_INTRO',
+    'big_win_loop': 'BIG_WIN_LOOP',
+    'big_win_end': 'BIG_WIN_END',
+    'big_win_coins': 'BIG_WIN_COINS',
   };
 
   /// Check alias map for instant match. Returns stage ID or null.
@@ -754,11 +962,12 @@ class StageGroupService {
         priority: 85,
       ),
 
-      // Win tiers
+      // Win tiers — supports BOTH legacy (WIN_SMALL etc) and new (WIN_PRESENT_1 etc)
+      // Matcher outputs the legacy ID; AudioMappingImportService handles the mapping
       _StageDefinition(
         stage: 'WIN_SMALL',
-        keywords: ['win', 'small', 'minor', 'low', 'tiny'],
-        suffixes: ['_small', '_minor', '_low'],
+        keywords: ['win', 'small', 'minor', 'low', 'tiny', 'quick'],
+        suffixes: ['_small', '_minor', '_low', '_quick'],
         priority: 80,
       ),
       _StageDefinition(
@@ -790,6 +999,79 @@ class StageGroupService {
         keywords: ['win', 'ultra', 'max', 'ultimate', 'extreme'],
         suffixes: ['_ultra', '_max', '_ultimate'],
         priority: 95,
+      ),
+      _StageDefinition(
+        stage: 'NO_WIN',
+        keywords: ['no', 'win', 'loss', 'lose', 'empty'],
+        requiredKeywords: ['no'],
+        suffixes: ['_nowin', '_loss'],
+        priority: 75,
+      ),
+      // Win presentation tiers (new UI stage IDs)
+      _StageDefinition(
+        stage: 'WIN_PRESENT_1',
+        keywords: ['win', 'present', 'tier', '1'],
+        suffixes: ['_1'],
+        priority: 80,
+      ),
+      _StageDefinition(
+        stage: 'WIN_PRESENT_2',
+        keywords: ['win', 'present', 'tier', '2'],
+        suffixes: ['_2'],
+        priority: 82,
+      ),
+      _StageDefinition(
+        stage: 'WIN_PRESENT_3',
+        keywords: ['win', 'present', 'tier', '3'],
+        suffixes: ['_3'],
+        priority: 84,
+      ),
+      _StageDefinition(
+        stage: 'WIN_PRESENT_4',
+        keywords: ['win', 'present', 'tier', '4'],
+        suffixes: ['_4'],
+        priority: 86,
+      ),
+      _StageDefinition(
+        stage: 'WIN_PRESENT_5',
+        keywords: ['win', 'present', 'tier', '5'],
+        suffixes: ['_5'],
+        priority: 88,
+      ),
+      // Big Win celebration
+      _StageDefinition(
+        stage: 'BIG_WIN_INTRO',
+        keywords: ['big', 'win', 'intro', 'start'],
+        requiredKeywords: ['big'],
+        suffixes: ['_intro', '_start'],
+        priority: 92,
+      ),
+      _StageDefinition(
+        stage: 'BIG_WIN_LOOP',
+        keywords: ['big', 'win', 'loop', 'main'],
+        requiredKeywords: ['big'],
+        suffixes: ['_loop', '_main'],
+        priority: 91,
+      ),
+      _StageDefinition(
+        stage: 'BIG_WIN_END',
+        keywords: ['big', 'win', 'end', 'outro', 'finish'],
+        requiredKeywords: ['big'],
+        suffixes: ['_end', '_outro', '_finish'],
+        priority: 90,
+      ),
+      _StageDefinition(
+        stage: 'BIG_WIN_COINS',
+        keywords: ['big', 'win', 'coins', 'shower', 'rain'],
+        requiredKeywords: ['big'],
+        suffixes: ['_coins', '_shower'],
+        priority: 89,
+      ),
+      _StageDefinition(
+        stage: 'WIN_FANFARE',
+        keywords: ['win', 'fanfare', 'celebration', 'victory'],
+        suffixes: ['_fanfare', '_celebration'],
+        priority: 86,
       ),
 
       // Rollup
@@ -963,8 +1245,47 @@ class StageGroupService {
       _StageDefinition(
         stage: 'MUSIC_FS_L1',
         keywords: ['freespin', 'free', 'spin', 'fs', 'music', 'bg'],
-        suffixes: ['_music', '_bg'],
+        suffixes: ['_music', '_bg', '_l1'],
         priority: 86,
+      ),
+      // Free spins music layers L2-L5
+      _StageDefinition(
+        stage: 'MUSIC_FS_INTRO',
+        keywords: ['freespin', 'free', 'fs', 'music', 'intro'],
+        requiredKeywords: ['intro'],
+        suffixes: ['_intro'],
+        priority: 87,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_FS_OUTRO',
+        keywords: ['freespin', 'free', 'fs', 'music', 'outro'],
+        requiredKeywords: ['outro'],
+        suffixes: ['_outro'],
+        priority: 87,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_FS_L2',
+        keywords: ['freespin', 'free', 'fs', 'music', 'l2', 'lvl2', 'layer2'],
+        suffixes: ['_l2', '_lvl2', '_layer2'],
+        priority: 85,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_FS_L3',
+        keywords: ['freespin', 'free', 'fs', 'music', 'l3', 'lvl3', 'layer3'],
+        suffixes: ['_l3', '_lvl3', '_layer3'],
+        priority: 84,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_FS_L4',
+        keywords: ['freespin', 'free', 'fs', 'music', 'l4', 'lvl4', 'layer4'],
+        suffixes: ['_l4', '_lvl4', '_layer4'],
+        priority: 83,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_FS_L5',
+        keywords: ['freespin', 'free', 'fs', 'music', 'l5', 'lvl5', 'layer5'],
+        suffixes: ['_l5', '_lvl5', '_layer5'],
+        priority: 82,
       ),
       _StageDefinition(
         stage: 'FREESPIN_RETRIGGER',
@@ -1001,8 +1322,46 @@ class StageGroupService {
       _StageDefinition(
         stage: 'MUSIC_BONUS_L1',
         keywords: ['bonus', 'music', 'bg'],
-        suffixes: ['_music', '_bg'],
+        suffixes: ['_music', '_bg', '_l1'],
         priority: 84,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_BONUS_INTRO',
+        keywords: ['bonus', 'music', 'intro'],
+        requiredKeywords: ['intro'],
+        suffixes: ['_intro'],
+        priority: 85,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_BONUS_OUTRO',
+        keywords: ['bonus', 'music', 'outro'],
+        requiredKeywords: ['outro'],
+        suffixes: ['_outro'],
+        priority: 85,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_BONUS_L2',
+        keywords: ['bonus', 'music', 'l2', 'lvl2', 'layer2'],
+        suffixes: ['_l2', '_lvl2', '_layer2'],
+        priority: 83,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_BONUS_L3',
+        keywords: ['bonus', 'music', 'l3', 'lvl3', 'layer3'],
+        suffixes: ['_l3', '_lvl3', '_layer3'],
+        priority: 82,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_BONUS_L4',
+        keywords: ['bonus', 'music', 'l4', 'lvl4', 'layer4'],
+        suffixes: ['_l4', '_lvl4', '_layer4'],
+        priority: 81,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_BONUS_L5',
+        keywords: ['bonus', 'music', 'l5', 'lvl5', 'layer5'],
+        suffixes: ['_l5', '_lvl5', '_layer5'],
+        priority: 80,
       ),
 
       // Cascade
@@ -1065,8 +1424,46 @@ class StageGroupService {
       _StageDefinition(
         stage: 'MUSIC_HOLD_L1',
         keywords: ['hold', 'respin', 'music', 'bg'],
-        suffixes: ['_music', '_bg'],
+        suffixes: ['_music', '_bg', '_l1'],
         priority: 80,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_HOLD_INTRO',
+        keywords: ['hold', 'music', 'intro'],
+        requiredKeywords: ['intro'],
+        suffixes: ['_intro'],
+        priority: 81,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_HOLD_OUTRO',
+        keywords: ['hold', 'music', 'outro'],
+        requiredKeywords: ['outro'],
+        suffixes: ['_outro'],
+        priority: 81,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_HOLD_L2',
+        keywords: ['hold', 'respin', 'music', 'l2', 'lvl2', 'layer2'],
+        suffixes: ['_l2', '_lvl2', '_layer2'],
+        priority: 79,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_HOLD_L3',
+        keywords: ['hold', 'respin', 'music', 'l3', 'lvl3', 'layer3'],
+        suffixes: ['_l3', '_lvl3', '_layer3'],
+        priority: 78,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_HOLD_L4',
+        keywords: ['hold', 'respin', 'music', 'l4', 'lvl4', 'layer4'],
+        suffixes: ['_l4', '_lvl4', '_layer4'],
+        priority: 77,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_HOLD_L5',
+        keywords: ['hold', 'respin', 'music', 'l5', 'lvl5', 'layer5'],
+        suffixes: ['_l5', '_lvl5', '_layer5'],
+        priority: 76,
       ),
 
       // Multiplier
@@ -1123,11 +1520,238 @@ class StageGroupService {
         priority: 74,
       ),
 
+      // ─── Big Win Music Layers ─────────────────────────────────────────
+      _StageDefinition(
+        stage: 'MUSIC_BIGWIN_L1',
+        keywords: ['bigwin', 'big', 'win', 'music', 'bg'],
+        suffixes: ['_music', '_bg', '_l1'],
+        priority: 80,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_BIGWIN_INTRO',
+        keywords: ['bigwin', 'big', 'win', 'music', 'intro'],
+        suffixes: ['_intro'],
+        priority: 81,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_BIGWIN_OUTRO',
+        keywords: ['bigwin', 'big', 'win', 'music', 'outro'],
+        suffixes: ['_outro'],
+        priority: 81,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_BIGWIN_L2',
+        keywords: ['bigwin', 'big', 'win', 'music', 'l2', 'lvl2'],
+        suffixes: ['_l2', '_lvl2'],
+        priority: 79,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_BIGWIN_L3',
+        keywords: ['bigwin', 'big', 'win', 'music', 'l3', 'lvl3'],
+        suffixes: ['_l3', '_lvl3'],
+        priority: 78,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_BIGWIN_L4',
+        keywords: ['bigwin', 'big', 'win', 'music', 'l4', 'lvl4'],
+        suffixes: ['_l4', '_lvl4'],
+        priority: 77,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_BIGWIN_L5',
+        keywords: ['bigwin', 'big', 'win', 'music', 'l5', 'lvl5'],
+        suffixes: ['_l5', '_lvl5'],
+        priority: 76,
+      ),
+
+      // ─── Jackpot Music Layers ──────────────────────────────────────────
+      _StageDefinition(
+        stage: 'MUSIC_JACKPOT_L1',
+        keywords: ['jackpot', 'jp', 'music', 'bg'],
+        suffixes: ['_music', '_bg', '_l1'],
+        priority: 80,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_JACKPOT_INTRO',
+        keywords: ['jackpot', 'jp', 'music', 'intro'],
+        suffixes: ['_intro'],
+        priority: 81,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_JACKPOT_OUTRO',
+        keywords: ['jackpot', 'jp', 'music', 'outro'],
+        suffixes: ['_outro'],
+        priority: 81,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_JACKPOT_L2',
+        keywords: ['jackpot', 'jp', 'music', 'l2', 'lvl2'],
+        suffixes: ['_l2', '_lvl2'],
+        priority: 79,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_JACKPOT_L3',
+        keywords: ['jackpot', 'jp', 'music', 'l3', 'lvl3'],
+        suffixes: ['_l3', '_lvl3'],
+        priority: 78,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_JACKPOT_L4',
+        keywords: ['jackpot', 'jp', 'music', 'l4', 'lvl4'],
+        suffixes: ['_l4', '_lvl4'],
+        priority: 77,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_JACKPOT_L5',
+        keywords: ['jackpot', 'jp', 'music', 'l5', 'lvl5'],
+        suffixes: ['_l5', '_lvl5'],
+        priority: 76,
+      ),
+
+      // ─── Gamble Music Layers ───────────────────────────────────────────
+      _StageDefinition(
+        stage: 'MUSIC_GAMBLE_L1',
+        keywords: ['gamble', 'risk', 'double', 'music', 'bg'],
+        suffixes: ['_music', '_bg', '_l1'],
+        priority: 75,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_GAMBLE_INTRO',
+        keywords: ['gamble', 'music', 'intro'],
+        suffixes: ['_intro'],
+        priority: 76,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_GAMBLE_OUTRO',
+        keywords: ['gamble', 'music', 'outro'],
+        suffixes: ['_outro'],
+        priority: 76,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_GAMBLE_L2',
+        keywords: ['gamble', 'music', 'l2', 'lvl2'],
+        suffixes: ['_l2', '_lvl2'],
+        priority: 74,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_GAMBLE_L3',
+        keywords: ['gamble', 'music', 'l3', 'lvl3'],
+        suffixes: ['_l3', '_lvl3'],
+        priority: 73,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_GAMBLE_L4',
+        keywords: ['gamble', 'music', 'l4', 'lvl4'],
+        suffixes: ['_l4', '_lvl4'],
+        priority: 72,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_GAMBLE_L5',
+        keywords: ['gamble', 'music', 'l5', 'lvl5'],
+        suffixes: ['_l5', '_lvl5'],
+        priority: 71,
+      ),
+
+      // ─── Reveal Music Layers ───────────────────────────────────────────
+      _StageDefinition(
+        stage: 'MUSIC_REVEAL_L1',
+        keywords: ['reveal', 'music', 'bg'],
+        suffixes: ['_music', '_bg', '_l1'],
+        priority: 75,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_REVEAL_INTRO',
+        keywords: ['reveal', 'music', 'intro'],
+        suffixes: ['_intro'],
+        priority: 76,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_REVEAL_OUTRO',
+        keywords: ['reveal', 'music', 'outro'],
+        suffixes: ['_outro'],
+        priority: 76,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_REVEAL_L2',
+        keywords: ['reveal', 'music', 'l2', 'lvl2'],
+        suffixes: ['_l2', '_lvl2'],
+        priority: 74,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_REVEAL_L3',
+        keywords: ['reveal', 'music', 'l3', 'lvl3'],
+        suffixes: ['_l3', '_lvl3'],
+        priority: 73,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_REVEAL_L4',
+        keywords: ['reveal', 'music', 'l4', 'lvl4'],
+        suffixes: ['_l4', '_lvl4'],
+        priority: 72,
+      ),
+      _StageDefinition(
+        stage: 'MUSIC_REVEAL_L5',
+        keywords: ['reveal', 'music', 'l5', 'lvl5'],
+        suffixes: ['_l5', '_lvl5'],
+        priority: 71,
+      ),
+
+      // ─── Ambient — Per Scene ───────────────────────────────────────────
+      _StageDefinition(
+        stage: 'AMBIENT_BASE',
+        keywords: ['ambient', 'ambience', 'amb', 'base', 'basegame', 'bg', 'background'],
+        suffixes: ['_ambient', '_amb', '_ambience'],
+        excludeKeywords: ['free', 'fs', 'bonus', 'hold', 'jackpot', 'gamble', 'reveal', 'bigwin', 'win'],
+        priority: 65,
+      ),
+      _StageDefinition(
+        stage: 'AMBIENT_FS',
+        keywords: ['ambient', 'ambience', 'amb', 'free', 'fs', 'freespin'],
+        suffixes: ['_ambient', '_amb'],
+        priority: 66,
+      ),
+      _StageDefinition(
+        stage: 'AMBIENT_BONUS',
+        keywords: ['ambient', 'ambience', 'amb', 'bonus'],
+        suffixes: ['_ambient', '_amb'],
+        priority: 66,
+      ),
+      _StageDefinition(
+        stage: 'AMBIENT_HOLD',
+        keywords: ['ambient', 'ambience', 'amb', 'hold', 'respin'],
+        suffixes: ['_ambient', '_amb'],
+        priority: 66,
+      ),
+      _StageDefinition(
+        stage: 'AMBIENT_BIGWIN',
+        keywords: ['ambient', 'ambience', 'amb', 'bigwin', 'big', 'win'],
+        suffixes: ['_ambient', '_amb'],
+        priority: 66,
+      ),
+      _StageDefinition(
+        stage: 'AMBIENT_JACKPOT',
+        keywords: ['ambient', 'ambience', 'amb', 'jackpot', 'jp'],
+        suffixes: ['_ambient', '_amb'],
+        priority: 66,
+      ),
+      _StageDefinition(
+        stage: 'AMBIENT_GAMBLE',
+        keywords: ['ambient', 'ambience', 'amb', 'gamble', 'risk'],
+        suffixes: ['_ambient', '_amb'],
+        priority: 66,
+      ),
+      _StageDefinition(
+        stage: 'AMBIENT_REVEAL',
+        keywords: ['ambient', 'ambience', 'amb', 'reveal'],
+        suffixes: ['_ambient', '_amb'],
+        priority: 66,
+      ),
+
       // Attract / Idle
       _StageDefinition(
         stage: 'ATTRACT_LOOP',
-        keywords: ['attract', 'idle', 'demo', 'loop', 'ambient'],
-        suffixes: ['_loop', '_ambient'],
+        keywords: ['attract', 'idle', 'demo', 'loop'],
+        suffixes: ['_loop'],
         priority: 60,
       ),
     ],
