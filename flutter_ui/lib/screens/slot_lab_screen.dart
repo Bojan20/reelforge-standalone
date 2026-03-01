@@ -69,6 +69,7 @@ import '../providers/slot_lab/behavior_coverage_provider.dart';
 import '../providers/slot_lab/slotlab_template_provider.dart';
 import '../providers/slot_lab/feature_composer_provider.dart'; // V11: Trostepeni
 import '../providers/feature_builder_provider.dart'; // Grid block config for megaways
+import '../providers/slot_lab/game_flow_integration.dart';
 import '../providers/ale_provider.dart';
 import '../services/stage_audio_mapper.dart';
 import '../models/stage_models.dart';
@@ -3694,6 +3695,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       composer.applyConfig(config);
     }
 
+    // L3 Game Flow — Sync template mechanics → GameFlowProvider executors
+    if (GetIt.instance.isRegistered<FeatureBuilderProvider>()) {
+      final builder = GetIt.instance<FeatureBuilderProvider>();
+      GameFlowIntegration.instance.syncFromFeatureBuilder(builder);
+    }
+
     // Update grid settings from template
     setState(() {
       _slotLabSettings = _slotLabSettings.copyWith(
@@ -4023,6 +4030,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         enabledBlockIds: result.enabledBlockIds,
       );
       composer.applyConfig(config);
+    }
+
+    // L3 Game Flow — Sync Feature Builder blocks → GameFlowProvider executors
+    if (GetIt.instance.isRegistered<FeatureBuilderProvider>()) {
+      final builder = GetIt.instance<FeatureBuilderProvider>();
+      GameFlowIntegration.instance.syncFromFeatureBuilder(builder);
     }
 
     // Update settings with grid configuration

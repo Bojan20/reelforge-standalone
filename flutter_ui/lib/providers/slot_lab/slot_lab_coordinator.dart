@@ -31,6 +31,9 @@ import 'priority_engine_provider.dart';
 import 'orchestration_engine_provider.dart';
 import 'context_layer_provider.dart';
 import 'slotlab_notification_provider.dart';
+import 'game_flow_provider.dart';
+import 'game_flow_integration.dart';
+import '../../services/service_locator.dart';
 
 // Re-export sub-providers for convenience
 export 'slot_engine_provider.dart';
@@ -75,6 +78,15 @@ class SlotLabCoordinator extends ChangeNotifier {
        audioProvider = audioProvider ?? SlotAudioProvider() {
     _setupListeners();
     _setupCallbacks();
+    _initGameFlowIntegration();
+  }
+
+  void _initGameFlowIntegration() {
+    try {
+      GameFlowIntegration.instance.initialize();
+    } catch (_) {
+      // GetIt may not be ready yet — integration will init lazily
+    }
   }
 
   void _setupListeners() {
@@ -104,6 +116,14 @@ class SlotLabCoordinator extends ChangeNotifier {
         engineProvider.volatilitySlider,
         stages,
       );
+
+      // L3 Game Flow — Feed spin result to FSM for trigger evaluation
+      try {
+        final gameFlow = sl<GameFlowProvider>();
+        gameFlow.onSpinComplete(result);
+      } catch (_) {
+        // GameFlowProvider may not be registered yet
+      }
     };
 
     // Wire up stage provider callbacks to coordinator's public callbacks
@@ -323,7 +343,13 @@ class SlotLabCoordinator extends ChangeNotifier {
       engineProvider.getTriggerStageForWin(winAmount);
 
   // --- Spin Execution ---
-  Future<SlotLabSpinResult?> spin() => engineProvider.spin();
+  Future<SlotLabSpinResult?> spin() {
+    // Notify GameFlowProvider that a spin is starting
+    try {
+      sl<GameFlowProvider>().onSpinStart();
+    } catch (_) {}
+    return engineProvider.spin();
+  }
   Future<SlotLabSpinResult?> spinForced(ForcedOutcome outcome) =>
       engineProvider.spinForced(outcome);
   Future<SlotLabSpinResult?> spinForcedWithMultiplier(

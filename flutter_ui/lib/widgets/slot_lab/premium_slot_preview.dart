@@ -27,6 +27,7 @@ import '../../services/event_registry.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import 'forced_outcome_panel.dart';
+import 'game_flow_overlay.dart';
 import 'project_dashboard_dialog.dart';
 import 'slot_preview_widget.dart';
 
@@ -1710,6 +1711,10 @@ class _MainGameZone extends StatelessWidget {
                     reels: reels,
                     rows: rows,
                     showWinPresentation: true, // ✅ ENABLED — SlotPreviewWidget handles ALL win presentation
+                  ),
+                  // L5 Game Flow Overlay — feature-specific UI (FS counter, H&W grid, etc.)
+                  const Positioned.fill(
+                    child: GameFlowOverlay(),
                   ),
                   // Unconfigured overlay — shown when no slot machine config exists
                   if (!GetIt.instance<FeatureComposerProvider>().isConfigured)
