@@ -137,56 +137,56 @@ Detaljne task tabele za sve completed sisteme: `.claude/docs/MASTER_TODO_FULL_BA
 | FM-21 | `steps/naming_validate.rs` — Asset scanner (walkdir+rayon), naming rules, rename plan CSV, dry-run, silence detection | ⬜ |
 | FM-22 | `steps/volatility_profile.rs` — Profile generator (wraps rf-aurexis + slot-specific params) | ⬜ |
 | FM-23 | `steps/manifest_build.rs` — Manifest builder (wraps DRC, 12 JSON configs) | ⬜ |
-| FM-24 | `steps/qa_run_suite.rs` — QA suite orchestrator (meta-step, sequential/parallel) | ⬜ |
-| FM-25 | `steps/qa_event_storm.rs` — 500-spin event storm (wraps PBSE, 7 metrika + thresholds) | ⬜ |
-| FM-26 | `steps/qa_determinism.rs` — 10-run determinism lock (wraps DRC replay + SSS regression) | ⬜ |
-| FM-27 | `steps/qa_loudness.rs` — Per-category LUFS/TP compliance (wraps rf-offline, gain correction) | ⬜ |
-| FM-28 | `steps/qa_fatigue.rs` — 45-min fatigue simulation (wraps PBSE + SSS burn, 6 thresholds) | ⬜ |
-| FM-29 | `steps/qa_spectral_health.rs` — Crest factor, spectral centroid, mono compat, DC offset, clipping, trailing silence | ⬜ |
-| FM-30 | `steps/pack_release.rs` — RC packager (folder structure, unified RC_Report.html, fingerprint.sha256) | ⬜ |
-| FM-31 | Integration tests (12+ end-to-end macro execution tests) | ⬜ |
+| FM-24 | `steps/qa_run_suite.rs` — QA suite orchestrator (meta-step, sequential/parallel) | ✅ |
+| FM-25 | `steps/qa_event_storm.rs` — 500-spin event storm (wraps PBSE, 7 metrika + thresholds) | ✅ |
+| FM-26 | `steps/qa_determinism.rs` — 10-run determinism lock (wraps DRC replay + SSS regression) | ✅ |
+| FM-27 | `steps/qa_loudness.rs` — Per-category LUFS/TP compliance (wraps rf-offline, gain correction) | ✅ |
+| FM-28 | `steps/qa_fatigue.rs` — 45-min fatigue simulation (wraps PBSE + SSS burn, 6 thresholds) | ✅ |
+| FM-29 | `steps/qa_spectral_health.rs` — Crest factor, spectral centroid, mono compat, DC offset, clipping, trailing silence | ✅ |
+| FM-30 | `steps/pack_release.rs` — RC packager (folder structure, unified RC_Report.html, fingerprint.sha256) | ✅ |
+| FM-31 | Integration tests (12+ end-to-end macro execution tests) | ✅ |
 
-### Phase 3: CLI + FFI (~1,800 LOC)
-
-| # | Task | Status |
-|---|------|--------|
-| FM-32 | `rf-fluxmacro-cli/main.rs` — clap CLI (run/dry-run/replay/steps/validate/qa/adb) + `--ci` flag | ⬜ |
-| FM-33 | FFI bridge: `fluxmacro_ffi.rs` u rf-bridge (~25 extern "C" functions + progress + cancel) | ⬜ |
-| FM-34 | Dart FFI bindings u `native_ffi.dart` (~180 lines, progress stream) | ⬜ |
-| FM-35 | `FluxMacroProvider` (GetIt Layer 7.3) — state, progress, cancel, history | ⬜ |
-| FM-36 | CLI tests (7+ tests incl. --ci mode) | ⬜ |
-| FM-37 | FFI integration tests | ⬜ |
-
-### Phase 4: Studio UI (~2,400 LOC)
+### Phase 3: CLI + FFI (~1,800 LOC) ✅
 
 | # | Task | Status |
 |---|------|--------|
-| FM-38 | `macro_panel.dart` — 7-action control panel (ADB, Naming, Profile, QA, Spectral, Build RC, Reports) | ⬜ |
-| FM-39 | `macro_monitor.dart` — Circular progress + step name + ETA, monospace log stream (color coded) | ⬜ |
-| FM-40 | `macro_report_viewer.dart` — Split pane report viewer (content left, metrics right) | ⬜ |
-| FM-41 | `macro_config_editor.dart` — .ffmacro.yaml form editor (inputs + step picker + toggles) | ⬜ |
-| FM-42 | `macro_history.dart` — Run history list sa compare/diff opcijom | ⬜ |
-| FM-43 | SlotLab Plus menu integration + toast notifikacije | ⬜ |
-| FM-44 | Lower Zone tab registration | ⬜ |
-| FM-45 | Provider wiring + GetIt registration | ⬜ |
-| FM-46 | UI tests | ⬜ |
+| FM-32 | `rf-fluxmacro-cli/main.rs` — clap CLI (run/dry-run/replay/steps/validate/qa/adb) + `--ci` flag | ✅ |
+| FM-33 | FFI bridge: `fluxmacro_ffi.rs` u rf-bridge (~25 extern "C" functions + progress + cancel) | ✅ |
+| FM-34 | Dart FFI bindings u `native_ffi.dart` (~180 lines, progress stream) | ✅ |
+| FM-35 | `FluxMacroProvider` (GetIt Layer 7.3) — state, progress, cancel, history | ✅ |
+| FM-36 | CLI tests (7+ tests incl. --ci mode) | ✅ |
+| FM-37 | FFI integration tests | ✅ |
 
-### Phase 5: GDD Parser (~1,000 LOC)
+### Phase 4: Studio UI (~2,400 LOC) ✅
 
 | # | Task | Status |
 |---|------|--------|
-| FM-47 | `rf-slot-lab/parser/gdd_parser.rs` — JSON/YAML GDD parser | ⬜ |
-| FM-48 | `rf-slot-lab/parser/schema.rs` — GDD validation schema | ⬜ |
-| FM-49 | `rf-slot-lab/parser/validator.rs` — GDD constraint validation | ⬜ |
-| FM-50 | Parser tests | ⬜ |
+| FM-38 | `macro_panel.dart` — 7-action control panel (ADB, Naming, Profile, QA, Spectral, Build RC, Reports) | ✅ |
+| FM-39 | `macro_monitor.dart` — Circular progress + step name + ETA, monospace log stream (color coded) | ✅ |
+| FM-40 | `macro_report_viewer.dart` — Split pane report viewer (content left, metrics right) | ✅ |
+| FM-41 | `macro_config_editor.dart` — .ffmacro.yaml form editor (inputs + step picker + toggles) | ✅ |
+| FM-42 | `macro_history.dart` — Run history list sa compare/diff opcijom | ✅ |
+| FM-43 | SlotLab Plus menu integration + toast notifikacije | ✅ |
+| FM-44 | Lower Zone tab registration | ✅ |
+| FM-45 | Provider wiring + GetIt registration | ✅ |
+| FM-46 | UI tests | ✅ |
 
-### Phase 6: CI/CD Integration (~500 LOC)
+### Phase 5: GDD Parser (~1,000 LOC) ✅
 
 | # | Task | Status |
 |---|------|--------|
-| FM-51 | `fluxmacro-ci.yml` — GitHub Actions workflow (run --ci, artifact upload, PR check status) | ⬜ |
-| FM-52 | CI report formatter — PR comment generator sa QA summary table | ⬜ |
-| FM-53 | CI integration tests (headless, no TTY, JSON-only) | ⬜ |
+| FM-47 | `rf-slot-lab/parser/gdd_parser.rs` — JSON/YAML GDD parser | ✅ |
+| FM-48 | `rf-slot-lab/parser/schema.rs` — GDD validation schema | ✅ |
+| FM-49 | `rf-slot-lab/parser/validator.rs` — GDD constraint validation | ✅ |
+| FM-50 | Parser tests | ✅ |
+
+### Phase 6: CI/CD Integration (~500 LOC) ✅
+
+| # | Task | Status |
+|---|------|--------|
+| FM-51 | `fluxmacro-ci.yml` — GitHub Actions workflow (run --ci, artifact upload, PR check status) | ✅ |
+| FM-52 | CI report formatter — PR comment generator sa QA summary table | ✅ |
+| FM-53 | CI integration tests (headless, no TTY, JSON-only) | ✅ |
 
 ---
 
@@ -196,13 +196,13 @@ Detaljne task tabele za sve completed sisteme: `.claude/docs/MASTER_TODO_FULL_BA
 |--------|-------|------|-----------|
 | Core Systems (P-SRC...P-SSS) | 129 | 129 | 0 ✅ |
 | P-FMC Phase 1: Foundation | 19 | 19 | 0 ✅ |
-| P-FMC Phase 2: Core Steps | 12 | 0 | 12 ⬜ |
-| P-FMC Phase 3: CLI + FFI | 6 | 0 | 6 ⬜ |
-| P-FMC Phase 4: Studio UI | 9 | 0 | 9 ⬜ |
-| P-FMC Phase 5: GDD Parser | 4 | 0 | 4 ⬜ |
-| P-FMC Phase 6: CI/CD | 3 | 0 | 3 ⬜ |
-| **GRAND TOTAL** | **182** | **148** | **34 ⬜** |
+| P-FMC Phase 2: Core Steps | 12 | 12 | 0 ✅ |
+| P-FMC Phase 3: CLI + FFI | 6 | 6 | 0 ✅ |
+| P-FMC Phase 4: Studio UI | 9 | 9 | 0 ✅ |
+| P-FMC Phase 5: GDD Parser | 4 | 4 | 0 ✅ |
+| P-FMC Phase 6: CI/CD | 3 | 3 | 0 ✅ |
+| **GRAND TOTAL** | **182** | **182** | **0 ✅** |
 
 ---
 
-*Last Updated: 2026-03-01 — Core systems COMPLETE (129/129). FluxMacro Phase 1 COMPLETE (19/53, 58 tests, 4,419 LOC). Full spec: `FLUXMACRO_SYSTEM.md`*
+*Last Updated: 2026-03-02 — ALL SYSTEMS COMPLETE (182/182). P-FMC FluxMacro 53/53 DONE. Full spec: `FLUXMACRO_SYSTEM.md`*
