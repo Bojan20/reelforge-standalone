@@ -302,20 +302,40 @@ const List<ComposedStage> _engineCoreStages = [
 // =============================================================================
 
 const List<ComposedStage> _alwaysVisibleStages = [
-  // Music & Ambience
+  // Music & Ambience (IDs match UltimateAudioPanel PHASE 6 slots)
   ComposedStage(
-    id: 'BASE_MUSIC', displayName: 'Base Music',
+    id: 'MUSIC_BASE', displayName: 'Base Music',
     layer: StageLayer.alwaysVisible, sortOrder: 100,
     hooks: [], suggestedBus: 'music', priority: 'P1',
   ),
   ComposedStage(
-    id: 'WIN_MUSIC', displayName: 'Win Music',
+    id: 'MUSIC_LAYER_1', displayName: 'Music Layer 1',
     layer: StageLayer.alwaysVisible, sortOrder: 101,
     hooks: [], suggestedBus: 'music', priority: 'P1',
   ),
   ComposedStage(
-    id: 'FEATURE_MUSIC', displayName: 'Feature Music',
+    id: 'MUSIC_LAYER_2', displayName: 'Music Layer 2',
     layer: StageLayer.alwaysVisible, sortOrder: 102,
+    hooks: [], suggestedBus: 'music', priority: 'P1',
+  ),
+  ComposedStage(
+    id: 'MUSIC_LAYER_3', displayName: 'Music Layer 3',
+    layer: StageLayer.alwaysVisible, sortOrder: 103,
+    hooks: [], suggestedBus: 'music', priority: 'P1',
+  ),
+  ComposedStage(
+    id: 'MUSIC_FREESPINS', displayName: 'FS Music',
+    layer: StageLayer.alwaysVisible, sortOrder: 104,
+    hooks: [], suggestedBus: 'music', priority: 'P1',
+  ),
+  ComposedStage(
+    id: 'MUSIC_BONUS', displayName: 'Bonus Music',
+    layer: StageLayer.alwaysVisible, sortOrder: 105,
+    hooks: [], suggestedBus: 'music', priority: 'P1',
+  ),
+  ComposedStage(
+    id: 'MUSIC_BIG_WIN', displayName: 'Big Win Music',
+    layer: StageLayer.alwaysVisible, sortOrder: 106,
     hooks: [], suggestedBus: 'music', priority: 'P1',
   ),
   ComposedStage(

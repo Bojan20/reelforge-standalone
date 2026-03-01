@@ -1088,11 +1088,13 @@ class SlotAudioAutomationService {
       category: FlowCategory.music,
       stages: [
         FlowTemplateStage(stage: 'MUSIC_BASE', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Base game music'),
-        FlowTemplateStage(stage: 'MUSIC_TENSION', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Near win / anticipation', isOptional: true),
-        FlowTemplateStage(stage: 'FS_MUSIC', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Free spins music'),
-        FlowTemplateStage(stage: 'BONUS_MUSIC', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Bonus game music', isOptional: true),
-        FlowTemplateStage(stage: 'HOLD_MUSIC', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Hold & Win music', isOptional: true),
-        FlowTemplateStage(stage: 'BIGWIN_MUSIC', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Big win celebration', isOptional: true),
+        FlowTemplateStage(stage: 'MUSIC_LAYER_1', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Music layer 1 (low energy)', isOptional: true),
+        FlowTemplateStage(stage: 'MUSIC_LAYER_2', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Music layer 2 (mid energy)', isOptional: true),
+        FlowTemplateStage(stage: 'MUSIC_LAYER_3', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Music layer 3 (high energy)', isOptional: true),
+        FlowTemplateStage(stage: 'MUSIC_FREESPINS', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Free spins music'),
+        FlowTemplateStage(stage: 'MUSIC_BONUS', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Bonus game music', isOptional: true),
+        FlowTemplateStage(stage: 'MUSIC_HOLD', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Hold & Win music', isOptional: true),
+        FlowTemplateStage(stage: 'MUSIC_BIG_WIN', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Big win celebration', isOptional: true),
       ],
     ),
   ];

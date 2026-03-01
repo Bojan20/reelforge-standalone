@@ -219,20 +219,29 @@ String generateEventName(String stage) {
     'COIN_BURST': 'onCoinBurst',
     'COIN_DROP': 'onCoinDrop',
 
-    // Music
+    // Music (unified MUSIC_* naming — matches UltimateAudioPanel)
     'GAME_START': 'onGameStart',
     'MUSIC_BASE': 'onMusicBase',
     'MUSIC_INTRO': 'onMusicIntro',
     'MUSIC_LAYER_1': 'onMusicLayer1',
     'MUSIC_LAYER_2': 'onMusicLayer2',
     'MUSIC_LAYER_3': 'onMusicLayer3',
+    'MUSIC_FREESPINS': 'onMusicFreeSpins',
+    'MUSIC_FREESPINS_LAYER': 'onMusicFreeSpinsLayer',
+    'MUSIC_BONUS': 'onMusicBonus',
+    'MUSIC_BONUS_LAYER': 'onMusicBonusLayer',
+    'MUSIC_HOLD': 'onMusicHold',
+    'MUSIC_HOLD_LAYER': 'onMusicHoldLayer',
+    'MUSIC_BIG_WIN': 'onMusicBigWin',
+    'MUSIC_JACKPOT': 'onMusicJackpot',
+    'MUSIC_GAMBLE': 'onMusicGamble',
 
     // Free Spins
     'FREESPIN_TRIGGER': 'onFreeSpinTrigger',
     'FREESPIN_START': 'onFreeSpinStart',
     'FREESPIN_SPIN': 'onFreeSpinSpin',
     'FREESPIN_END': 'onFreeSpinEnd',
-    'FREESPIN_MUSIC': 'onFreeSpinMusic',
+    'FREESPIN_MUSIC': 'onMusicFreeSpins',
     'FREESPIN_RETRIGGER': 'onFreeSpinRetrigger',
 
     // Bonus
@@ -240,7 +249,7 @@ String generateEventName(String stage) {
     'BONUS_ENTER': 'onBonusEnter',
     'BONUS_STEP': 'onBonusStep',
     'BONUS_EXIT': 'onBonusExit',
-    'BONUS_MUSIC': 'onBonusMusic',
+    'BONUS_MUSIC': 'onMusicBonus',
 
     // Cascade
     'CASCADE_START': 'onCascadeStart',
@@ -254,7 +263,7 @@ String generateEventName(String stage) {
     'HOLD_SPIN': 'onHoldSpin',
     'HOLD_LOCK': 'onHoldLock',
     'HOLD_END': 'onHoldEnd',
-    'HOLD_MUSIC': 'onHoldMusic',
+    'HOLD_MUSIC': 'onMusicHold',
 
     // Multiplier
     'MULTIPLIER_INCREASE': 'onMultiplierIncrease',
@@ -380,12 +389,12 @@ class StageGroupService {
       ('mus_bg_lvl_1', 'MUSIC_BASE'),
       ('mus_bg_lvl_2', 'MUSIC_LAYER_1'),
       ('mus_bg_lvl_3', 'MUSIC_LAYER_2'),
-      ('mus_bw', 'WIN_BIG'),
-      ('mus_rs', 'HOLD_MUSIC'),
+      ('mus_bw', 'MUSIC_BIG_WIN'),
+      ('mus_rs', 'MUSIC_HOLD'),
 
       // ── FREESPIN ──
       ('freespin_start', 'FREESPIN_START'),
-      ('freespin_music', 'FREESPIN_MUSIC'),
+      ('freespin_music', 'MUSIC_FREESPINS'),
     ];
 
     int passed = 0;
@@ -428,9 +437,24 @@ class StageGroupService {
     'mus_bg_lvl_1': 'MUSIC_BASE',
     'mus_bg_lvl_2': 'MUSIC_LAYER_1',
     'mus_bg_lvl_3': 'MUSIC_LAYER_2',
+    // Base game music — various naming conventions
+    'basegame_music': 'MUSIC_BASE',
+    'base_game_music': 'MUSIC_BASE',
+    'bgm_loop': 'MUSIC_BASE',
+    'music_loop': 'MUSIC_BASE',
+    'musicloop': 'MUSIC_BASE',
+    // Free spins music
+    'mus_fs_start': 'MUSIC_FREESPINS',
+    'mus_fs_loop': 'MUSIC_FREESPINS',
+    'mus_fs': 'MUSIC_FREESPINS',
+    'freespins_music': 'MUSIC_FREESPINS',
+    'free_spins_music': 'MUSIC_FREESPINS',
     // Music — feature music
-    'mus_bw': 'WIN_BIG',
-    'mus_rs': 'HOLD_MUSIC',
+    'mus_bw': 'MUSIC_BIG_WIN',
+    'mus_rs': 'MUSIC_HOLD',
+    'mus_bonus': 'MUSIC_BONUS',
+    'mus_hold': 'MUSIC_HOLD',
+    'mus_jackpot': 'MUSIC_JACKPOT',
     // Spin / reel appearances
     'reels_appear': 'REEL_SPIN_LOOP',
     'reel_appear': 'REEL_SPIN_LOOP',
@@ -863,7 +887,7 @@ class StageGroupService {
         priority: 88,
       ),
       _StageDefinition(
-        stage: 'FREESPIN_MUSIC',
+        stage: 'MUSIC_FREESPINS',
         keywords: ['freespin', 'free', 'spin', 'fs', 'music', 'bg'],
         suffixes: ['_music', '_bg'],
         priority: 86,
@@ -901,7 +925,7 @@ class StageGroupService {
         priority: 88,
       ),
       _StageDefinition(
-        stage: 'BONUS_MUSIC',
+        stage: 'MUSIC_BONUS',
         keywords: ['bonus', 'music', 'bg'],
         suffixes: ['_music', '_bg'],
         priority: 84,
@@ -965,7 +989,7 @@ class StageGroupService {
         priority: 86,
       ),
       _StageDefinition(
-        stage: 'HOLD_MUSIC',
+        stage: 'MUSIC_HOLD',
         keywords: ['hold', 'respin', 'music', 'bg'],
         suffixes: ['_music', '_bg'],
         priority: 80,

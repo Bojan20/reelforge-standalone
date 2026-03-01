@@ -1386,12 +1386,15 @@ class StageConfigurationService extends ChangeNotifier {
   /// Known looping stage names for fallback
   static const _loopingStages = {
     'REEL_SPIN_LOOP',
-    'MUSIC_BASE', 'MUSIC_TENSION', 'MUSIC_FEATURE',
-    'FS_MUSIC', 'HOLD_MUSIC', 'BONUS_MUSIC',
-    'AMBIENT_LOOP', 'ATTRACT_MODE', 'IDLE_LOOP',
-    'ANTICIPATION_LOOP', 'FEATURE_MUSIC',
+    'MUSIC_BASE', 'MUSIC_LAYER_1', 'MUSIC_LAYER_2', 'MUSIC_LAYER_3',
+    'MUSIC_TENSION_LOW', 'MUSIC_TENSION_MED', 'MUSIC_TENSION_HIGH',
+    'MUSIC_FREESPINS', 'MUSIC_FREESPINS_LAYER',
+    'MUSIC_HOLD', 'MUSIC_HOLD_LAYER',
+    'MUSIC_BONUS', 'MUSIC_BONUS_LAYER',
+    'MUSIC_BIG_WIN', 'MUSIC_JACKPOT', 'MUSIC_GAMBLE',
+    'AMBIENT_LOOP', 'ATTRACT_MODE', 'IDLE_LOOP', 'ATTRACT_LOOP',
+    'ANTICIPATION_LOOP',
     'BIG_WIN_LOOP',
-    // P0 FIX: Game start stages should also loop (background music)
     'GAME_START', 'BASE_GAME_START', 'GAME_MUSIC',
   };
 

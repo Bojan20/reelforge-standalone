@@ -362,7 +362,7 @@ class EventNamingService {
     if (normalized == 'HOLD_RESPIN_RESET') return 'onHoldRespinReset';
     if (normalized == 'HOLD_GRID_FULL') return 'onHoldGridFull';
     if (normalized == 'HOLD_EXIT') return 'onHoldExit';
-    if (normalized == 'HOLD_MUSIC') return 'onHoldMusic';
+    if (normalized == 'HOLD_MUSIC' || normalized == 'MUSIC_HOLD') return 'onMusicHold';
     if (normalized == 'HOLD_JACKPOT') return 'onHoldJackpot';
     if (normalized == 'HOLD_SPECIAL') return 'onHoldSpecial';
     if (normalized == 'HOLD_END') return 'onHoldEnd';
