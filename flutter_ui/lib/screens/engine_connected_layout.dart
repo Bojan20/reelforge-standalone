@@ -1482,15 +1482,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   /// Delete a track
   void _handleDeleteTrack(String trackId) {
-    // Protect MW-synced tracks from manual deletion
+    // MW-synced track (folder or layer) — delete entire event from timeline
     if (_mwTimelineSyncController.isMwSyncedTrack(trackId)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Synced from Middleware — delete the event instead.'),
-            duration: Duration(seconds: 3),
-          ),
-        );
+      final eventId = _mwTimelineSyncController.getEventIdForTrack(trackId);
+      if (eventId == null) return;
+
+      final batch = _mwTimelineSyncController.removeEventFromTimeline(eventId);
+      if (batch != null) {
+        _handleMwSyncBatch(batch);
       }
       return;
     }
@@ -1523,16 +1522,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
     // Record undo action (skip for middleware tracks — those have their own undo)
     if (!isMiddlewareTrack) {
-      // Mutable ID tracks the current engine track ID across undo/redo cycles.
-      // Engine assigns new IDs on createTrack(), so redo must use the ID
-      // from the last undo (not the original delete ID).
       var currentId = trackId;
       final insertIndex = _tracks.indexWhere((t) => t.id == trackId);
 
       UiUndoManager.instance.record(TrackDeleteAction(
         trackId: trackId,
         onExecute: () {
-          // Redo: delete using whatever ID the track currently has
           engine.deleteTrack(currentId);
           context.read<MixerProvider>().deleteChannel('ch_$currentId');
           setState(() {
@@ -1541,13 +1536,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           });
         },
         onUndo: () {
-          // Undo: re-create track + restore clips
           final reId = engine.createTrack(
             name: deletedTrack.name,
             color: deletedTrack.color.value,
             busId: deletedTrack.outputBus.engineIndex,
           );
-          currentId = reId; // Update for future redo
+          currentId = reId;
           context.read<MixerProvider>().createChannelFromTrack(
             reId, deletedTrack.name, deletedTrack.color,
             channels: deletedTrack.channels,
@@ -1556,7 +1550,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           setState(() {
             final restoredTrack = deletedTrack.copyWith(id: reId);
             final restoredClips = deletedClips.map((c) => c.copyWith(trackId: reId)).toList();
-            // Insert at original position if possible
             if (insertIndex >= 0 && insertIndex <= _tracks.length) {
               _tracks = [..._tracks]..insert(insertIndex, restoredTrack);
             } else {
@@ -2231,8 +2224,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   }
 
   /// Handle EventFolder drop from DAW browser — places event on timeline
-  /// as a folder track with child audio tracks and clips.
-  void _handleEventFolderDrop(EventFolder folder) {
+  /// with FULL engine import (identical to pool file drop workflow).
+  Future<void> _handleEventFolderDrop(EventFolder folder) async {
     final middleware = context.read<MiddlewareProvider>();
 
     // Find the matching SlotCompositeEvent from middleware
@@ -2247,8 +2240,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       return;
     }
 
-    // Place via sync controller — creates folder + child tracks + clips
-    final batch = _mwTimelineSyncController.placeEventOnTimeline(compositeEvent);
+    // Place via sync controller — creates engine tracks, imports audio,
+    // gets waveforms, creates mixer channels (full engine pipeline)
+    final batch = await _mwTimelineSyncController.placeEventOnTimeline(compositeEvent);
     if (batch == null) return;
 
     _handleMwSyncBatch(batch);

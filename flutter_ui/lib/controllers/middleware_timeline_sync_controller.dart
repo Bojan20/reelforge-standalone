@@ -17,6 +17,7 @@ import '../models/slot_audio_events.dart';
 import '../models/timeline_models.dart' as timeline;
 import '../providers/middleware_provider.dart';
 import '../providers/mixer_provider.dart';
+import '../src/rust/engine_api.dart';
 
 /// Tracks and clips to add/remove in one batch
 class SyncBatch {
@@ -63,6 +64,10 @@ class MiddlewareTimelineSyncController {
   // Callback to create/delete engine tracks (needs engine_connected_layout context)
   String Function(String name, Color color, int busId)? onCreateEngineTrack;
   void Function(String trackId)? onDeleteEngineTrack;
+
+  /// Maps mw_clip_{eventId}__{layerId} → engine-returned clip ID (integer string).
+  /// Used for bidirectional clip parameter sync with native engine.
+  final Map<String, String> _engineClipIds = {};
 
   /// Initialize with dependencies. Call once from engine_connected_layout.initState()
   void initialize({
@@ -182,16 +187,22 @@ class MiddlewareTimelineSyncController {
   // MANUAL PLACEMENT — User drags event from browser onto DAW timeline
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Place an event on the DAW timeline. Called when user drags an EventFolder
-  /// from the browser onto the timeline. Creates folder + child tracks + clips.
+  /// Place an event on the DAW timeline with FULL engine import.
+  ///
+  /// Identical workflow to pool file drop:
+  /// 1. Creates engine tracks via FFI
+  /// 2. Imports audio files into engine (loads into playback cache)
+  /// 3. Gets real waveform peaks from engine
+  /// 4. Creates UI tracks/clips with real engine IDs
+  ///
   /// Returns the SyncBatch to apply, or null if event has no layers.
-  SyncBatch? placeEventOnTimeline(SlotCompositeEvent event) {
+  Future<SyncBatch?> placeEventOnTimeline(SlotCompositeEvent event) async {
     if (event.layers.isEmpty) return null;
 
     // Skip if already placed
     if (_lastSyncedEvents.containsKey(event.id)) return null;
 
-    final result = _createTrackStructureForEvent(event);
+    final result = await _createTrackStructureWithEngineImport(event);
     if (result.tracks.isEmpty) return null;
 
     // Record snapshot so future parameter changes are tracked
@@ -206,44 +217,86 @@ class MiddlewareTimelineSyncController {
   /// Check if an event is already placed on the timeline
   bool isEventPlaced(String eventId) => _lastSyncedEvents.containsKey(eventId);
 
-  /// Create folder + child tracks + clips for an event
-  _TrackStructure _createTrackStructureForEvent(SlotCompositeEvent event) {
+  /// Create folder + child tracks + clips with FULL ENGINE IMPORT.
+  ///
+  /// For each layer:
+  /// 1. Creates engine track (FFI createTrack)
+  /// 2. Imports audio file into engine (FFI importAudio → preload → playback ready)
+  /// 3. Gets real waveform peaks from engine (FFI getWaveformPeaks)
+  /// 4. Creates UI track/clip with real engine clip ID, duration, waveform
+  ///
+  /// This makes EventFolder drops behave IDENTICALLY to pool file drops.
+  Future<_TrackStructure> _createTrackStructureWithEngineImport(
+      SlotCompositeEvent event) async {
+    final engine = EngineApi.instance;
     final tracks = <timeline.TimelineTrack>[];
     final clips = <timeline.TimelineClip>[];
 
     final folderId = _folderIdForEvent(event.id);
     final childTrackIds = <String>[];
 
-    // Create child audio tracks + clips for each layer
     for (final layer in event.layers) {
       if (layer.audioPath.isEmpty) continue;
 
-      final trackId = _trackIdForLayer(event.id, layer.id);
-      childTrackIds.add(trackId);
+      final mwTrackId = _trackIdForLayer(event.id, layer.id);
+      final mwClipId = _clipIdForLayer(event.id, layer.id);
+      childTrackIds.add(mwTrackId);
 
-      // Create engine track for DSP processing
+      final layerColor = const Color(0xFF9370DB);
+
+      // 1. Create engine track (same as pool file drop)
       final engineTrackId = onCreateEngineTrack?.call(
         layer.name,
-        const Color(0xFF9370DB),
+        layerColor,
         layer.busId ?? 0,
       );
 
-      // Store mapping: mw_track_xxx → engine ID (e.g. "42")
-      // Critical for correct deletion of engine tracks and mixer channels
-      if (engineTrackId != null) {
-        _engineTrackIds[trackId] = engineTrackId;
-        _mixerProvider?.createChannelFromTrack(
-          engineTrackId,
-          layer.name,
-          const Color(0xFF9370DB),
-        );
+      if (engineTrackId == null) continue;
+
+      _engineTrackIds[mwTrackId] = engineTrackId;
+
+      // 2. Import audio file into engine (CRITICAL — loads audio for playback)
+      final startTime = layer.offsetMs / 1000.0;
+      final clipInfo = await engine.importAudioFile(
+        filePath: layer.audioPath,
+        trackId: engineTrackId,
+        startTime: startTime,
+      );
+
+      // 3. Get real waveform + clip metadata from engine
+      Float32List? waveform = _convertWaveformData(layer.waveformData);
+      String clipId = mwClipId;
+      double clipDuration = layer.durationSeconds ?? 1.0;
+      double sourceDuration = clipDuration;
+      int channels = 2;
+
+      if (clipInfo != null) {
+        clipId = clipInfo.clipId;
+        clipDuration = clipInfo.duration;
+        sourceDuration = clipInfo.sourceDuration;
+        channels = clipInfo.channels;
+
+        _engineClipIds[mwClipId] = clipInfo.clipId;
+
+        final peaks = await engine.getWaveformPeaks(clipId: clipInfo.clipId);
+        if (peaks.isNotEmpty) {
+          waveform = Float32List.fromList(
+              peaks.map((v) => v.toDouble()).toList().cast<double>());
+        }
       }
 
-      // Audio track
+      // 4. Create mixer channel with real channel count
+      _mixerProvider?.createChannelFromTrack(
+        engineTrackId,
+        layer.name,
+        layerColor,
+        channels: channels,
+      );
+
       tracks.add(timeline.TimelineTrack(
-        id: trackId,
+        id: mwTrackId,
         name: layer.name,
-        color: const Color(0xFF9370DB),
+        color: layerColor,
         trackType: timeline.TrackType.audio,
         parentFolderId: folderId,
         indentLevel: 1,
@@ -252,27 +305,27 @@ class MiddlewareTimelineSyncController {
         muted: layer.muted,
         soloed: layer.solo,
         outputBus: _busIdToOutputBus(layer.busId),
+        channels: channels,
       ));
 
-      // Clip on the track
-      final clipId = _clipIdForLayer(event.id, layer.id);
       clips.add(timeline.TimelineClip(
         id: clipId,
-        trackId: trackId,
+        trackId: mwTrackId,
         name: layer.name,
-        startTime: layer.offsetMs / 1000.0,
-        duration: layer.durationSeconds ?? 1.0,
+        startTime: startTime,
+        duration: clipDuration,
+        sourceDuration: sourceDuration,
         sourceFile: layer.audioPath,
-        waveform: _convertWaveformData(layer.waveformData),
+        waveform: waveform,
         fadeIn: layer.fadeInMs / 1000.0,
         fadeOut: layer.fadeOutMs / 1000.0,
         sourceOffset: layer.trimStartMs / 1000.0,
         eventId: event.id,
         loopEnabled: layer.loop,
+        channels: channels,
       ));
     }
 
-    // Folder track (always at position 0, parent of all child tracks)
     final displayName = event.triggerStages.isNotEmpty
         ? event.triggerStages.first
         : event.name;
@@ -292,6 +345,123 @@ class MiddlewareTimelineSyncController {
     return _TrackStructure(tracks: tracks, clips: clips);
   }
 
+  /// Lightweight track structure creation (NO engine import).
+  /// Used only for diff-based rebuilds when layer structure changes.
+  _TrackStructure _createTrackStructureForEvent(SlotCompositeEvent event) {
+    final tracks = <timeline.TimelineTrack>[];
+    final clips = <timeline.TimelineClip>[];
+
+    final folderId = _folderIdForEvent(event.id);
+    final childTrackIds = <String>[];
+
+    for (final layer in event.layers) {
+      if (layer.audioPath.isEmpty) continue;
+
+      final trackId = _trackIdForLayer(event.id, layer.id);
+      childTrackIds.add(trackId);
+
+      final engineTrackId = onCreateEngineTrack?.call(
+        layer.name,
+        const Color(0xFF9370DB),
+        layer.busId ?? 0,
+      );
+
+      if (engineTrackId != null) {
+        _engineTrackIds[trackId] = engineTrackId;
+        _mixerProvider?.createChannelFromTrack(
+          engineTrackId,
+          layer.name,
+          const Color(0xFF9370DB),
+        );
+      }
+
+      tracks.add(timeline.TimelineTrack(
+        id: trackId,
+        name: layer.name,
+        color: const Color(0xFF9370DB),
+        trackType: timeline.TrackType.audio,
+        parentFolderId: folderId,
+        indentLevel: 1,
+        volume: layer.volume,
+        pan: layer.pan,
+        muted: layer.muted,
+        soloed: layer.solo,
+        outputBus: _busIdToOutputBus(layer.busId),
+      ));
+
+      final clipId = _clipIdForLayer(event.id, layer.id);
+      clips.add(timeline.TimelineClip(
+        id: clipId,
+        trackId: trackId,
+        name: layer.name,
+        startTime: layer.offsetMs / 1000.0,
+        duration: layer.durationSeconds ?? 1.0,
+        sourceFile: layer.audioPath,
+        waveform: _convertWaveformData(layer.waveformData),
+        fadeIn: layer.fadeInMs / 1000.0,
+        fadeOut: layer.fadeOutMs / 1000.0,
+        sourceOffset: layer.trimStartMs / 1000.0,
+        eventId: event.id,
+        loopEnabled: layer.loop,
+      ));
+    }
+
+    final displayName = event.triggerStages.isNotEmpty
+        ? event.triggerStages.first
+        : event.name;
+    tracks.insert(
+      0,
+      timeline.TimelineTrack(
+        id: folderId,
+        name: '🎯 $displayName',
+        color: const Color(0xFF9370DB),
+        trackType: timeline.TrackType.folder,
+        folderExpanded: true,
+        volume: event.masterVolume,
+        childTrackIds: childTrackIds,
+      ),
+    );
+
+    return _TrackStructure(tracks: tracks, clips: clips);
+  }
+
+  /// Remove an event from the DAW timeline. Public API for user-initiated deletion.
+  /// Returns the SyncBatch to apply, or null if event was not placed.
+  SyncBatch? removeEventFromTimeline(String eventId) {
+    if (!_lastSyncedEvents.containsKey(eventId)) return null;
+
+    final result = _removeTrackStructureForEvent(eventId);
+    _lastSyncedEvents.remove(eventId);
+
+    if (result.trackIds.isEmpty && result.clipIds.isEmpty) return null;
+
+    return SyncBatch(
+      trackIdsToRemove: result.trackIds,
+      clipIdsToRemove: result.clipIds,
+    );
+  }
+
+  /// Get the eventId for a MW folder track ID, or null if not a MW folder.
+  String? getEventIdForFolder(String folderId) {
+    if (!folderId.startsWith('mw_folder_')) return null;
+    final eventId = folderId.replaceFirst('mw_folder_', '');
+    return _lastSyncedEvents.containsKey(eventId) ? eventId : null;
+  }
+
+  /// Get the eventId for any MW track ID (folder or layer track).
+  String? getEventIdForTrack(String trackId) {
+    if (trackId.startsWith('mw_folder_')) {
+      return getEventIdForFolder(trackId);
+    }
+    if (trackId.startsWith('mw_track_')) {
+      final parsed = _parseLayerTrackId(trackId);
+      if (parsed != null && _lastSyncedEvents.containsKey(parsed.eventId)) {
+        return parsed.eventId;
+      }
+    }
+    return null;
+  }
+
   /// Remove all tracks/clips/engine resources for an event
   _RemoveResult _removeTrackStructureForEvent(String eventId) {
     // Stop all playing voices for this event (middleware + playback service)
@@ -304,8 +474,15 @@ class MiddlewareTimelineSyncController {
     if (previous != null) {
       for (final layerId in previous.layerIds) {
         final mwTrackId = _trackIdForLayer(eventId, layerId);
+        final mwClipId = _clipIdForLayer(eventId, layerId);
         trackIds.add(mwTrackId);
-        clipIds.add(_clipIdForLayer(eventId, layerId));
+        clipIds.add(mwClipId);
+
+        // Clean up engine clip ID mapping
+        final engineClipId = _engineClipIds.remove(mwClipId);
+        if (engineClipId != null) {
+          clipIds.add(engineClipId);
+        }
 
         // Use stored engine track ID for deletion (NOT the mw_track_xxx ID)
         final engineTrackId = _engineTrackIds.remove(mwTrackId);

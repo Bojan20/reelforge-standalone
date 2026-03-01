@@ -1925,6 +1925,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       // Re-register UltimateAudioPanel audio on mount
       _syncAudioAssignmentsToRegistry();
 
+      // Reverse sync: composite events → audioAssignments (fills panel slots)
+      _syncCompositeEventsToAudioAssignments();
+
       // Initialize reel symbols (fallback or empty for engine)
       _reelSymbols = List.from(_fallbackReelSymbols);
       setState(() {});
@@ -10112,6 +10115,41 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       }
 
     } catch (e) { /* ignored */ }
+  }
+
+  /// Reverse sync: populate audioAssignments from composite events.
+  /// This ensures slots show as "bound" when events were created outside
+  /// the SlotLab import flow (e.g., middleware section, Feature Builder).
+  void _syncCompositeEventsToAudioAssignments() {
+    try {
+      final projectProvider = Provider.of<SlotLabProjectProvider>(context, listen: false);
+      final middleware = context.read<MiddlewareProvider>();
+      final existing = projectProvider.audioAssignments;
+      int synced = 0;
+
+      for (final event in middleware.compositeEvents) {
+        // Path 1: Events with triggerStages — map stage→first layer audio
+        for (final stage in event.triggerStages) {
+          if (existing.containsKey(stage)) continue;
+          final firstLayer = event.layers.where((l) => l.audioPath.isNotEmpty).firstOrNull;
+          if (firstLayer != null) {
+            projectProvider.setAudioAssignment(stage, firstLayer.audioPath, recordUndo: false);
+            synced++;
+          }
+        }
+
+        // Path 2: Events with audio_STAGE naming convention
+        if (event.id.startsWith('audio_')) {
+          final stage = event.id.substring(6); // strip 'audio_'
+          if (existing.containsKey(stage)) continue;
+          final firstLayer = event.layers.where((l) => l.audioPath.isNotEmpty).firstOrNull;
+          if (firstLayer != null) {
+            projectProvider.setAudioAssignment(stage, firstLayer.audioPath, recordUndo: false);
+            synced++;
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   /// Handle audio dropped on stage from StageTraceWidget drag & drop
