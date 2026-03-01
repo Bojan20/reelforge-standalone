@@ -4800,6 +4800,17 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         final symbolPopScale = _symbolPopScale[posKey] ?? 1.0;
         final symbolPopRotation = _symbolPopRotation[posKey] ?? 0.0;
 
+        // ═══════════════════════════════════════════════════════════════
+        // WIN LINE DIM: Non-winning symbols dim to 30% opacity during
+        // win presentation (both symbol highlight and line cycling).
+        // Only applies when reels are stopped and wins exist.
+        // ═══════════════════════════════════════════════════════════════
+        final bool shouldDim = !isWinningPosition
+            && !isReelSpinning
+            && _winningPositions.isNotEmpty
+            && _spinFinalized;
+        final double dimOpacity = shouldDim ? 0.3 : 1.0;
+
         return Transform.translate(
           offset: Offset(shakeOffset, bounceOffset),
           child: Transform.rotate(
@@ -4808,7 +4819,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
               scale: cascadeScale * landingScale * symbolPopScale, // V2 + V6: Combined scales
             child: Opacity(
               // CRITICAL: Ensure opacity is always valid (0.0-1.0) - double guard
-              opacity: cascadeOpacity.clamp(0.0, 1.0),
+              opacity: (cascadeOpacity * dimOpacity).clamp(0.0, 1.0),
               child: Container(
                 width: cellWidth,
                 height: cellHeight,
