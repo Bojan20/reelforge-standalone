@@ -47,12 +47,10 @@
 import 'dart:io'; // V11: Folder import
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // SL-LP-P1.3
-import 'package:provider/provider.dart'; // SL-INT-P1.1
 import '../../models/auto_event_builder_models.dart' show AudioAsset;
 import '../../models/slot_lab_models.dart';
 import '../../models/win_tier_config.dart'; // P5 Win Tier System
 import '../../providers/middleware_provider.dart'; // SL-INT-P1.1
-import '../../services/event_registry.dart'; // SL-INT-P1.1
 import '../../services/stage_group_service.dart';
 import '../../services/audio_playback_service.dart';
 import '../../services/waveform_thumbnail_cache.dart'; // SL-LP-P1.1
@@ -352,14 +350,14 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           if (!composer.isConfigured) {
             return Container(
               clipBehavior: Clip.hardEdge,
-              decoration: const BoxDecoration(color: Color(0xFF0D0D10)),
+              decoration: const BoxDecoration(color: Color(0xFF0C0C10)),
               child: _buildSetupWizard(composer),
             );
           }
 
           return Container(
             clipBehavior: Clip.hardEdge,
-            decoration: const BoxDecoration(color: Color(0xFF0D0D10)),
+            decoration: const BoxDecoration(color: Color(0xFF0C0C10)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -434,220 +432,95 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   }
 
   Widget _buildHeader() {
-    final totalAssigned = widget.audioAssignments.length;
     final stats = _getUnassignedStats();
-    final unassignedCount = stats.$2;
     final totalSlots = stats.$1;
+    final assignedCount = totalSlots - stats.$2;
     return Container(
-      height: 32, // Reduced from 36 to fit better
-      padding: const EdgeInsets.symmetric(horizontal: 6), // Reduced from 8
-      clipBehavior: Clip.hardEdge, // Prevent overflow
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A1A22),
+      height: 30,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      clipBehavior: Clip.hardEdge,
+      decoration: const BoxDecoration(
+        color: Color(0xFF141418),
         border: Border(
-          bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+          bottom: BorderSide(color: Color(0xFF2A2A32)),
         ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.audiotrack, size: 14, color: Colors.white54),
-          const SizedBox(width: 4),
-          // P3: Undo/Redo buttons (compact)
+          // Undo/Redo — minimal
           if (widget.onUndo != null || widget.onRedo != null) ...[
-            Tooltip(
-              message: widget.canUndo
-                  ? 'Undo: ${widget.undoDescription ?? "last action"}'
-                  : 'Nothing to undo',
-              waitDuration: const Duration(milliseconds: 300),
-              child: MouseRegion(
-                cursor: widget.canUndo ? SystemMouseCursors.click : SystemMouseCursors.basic,
-                child: GestureDetector(
-                  onTap: widget.canUndo ? widget.onUndo : null,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(4),
-                      color: Colors.transparent,
-                    ),
-                    child: Icon(
-                      Icons.undo,
-                      size: 14,
-                      color: widget.canUndo ? Colors.white70 : Colors.white24,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Tooltip(
-              message: widget.canRedo
-                  ? 'Redo: ${widget.redoDescription ?? "last undone action"}'
-                  : 'Nothing to redo',
-              waitDuration: const Duration(milliseconds: 300),
-              child: MouseRegion(
-                cursor: widget.canRedo ? SystemMouseCursors.click : SystemMouseCursors.basic,
-                child: GestureDetector(
-                  onTap: widget.canRedo ? widget.onRedo : null,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(4),
-                      color: Colors.transparent,
-                    ),
-                    child: Icon(
-                      Icons.redo,
-                      size: 14,
-                      color: widget.canRedo ? Colors.white70 : Colors.white24,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
+            _miniIconBtn(Icons.undo, widget.canUndo ? widget.onUndo : null,
+                widget.canUndo ? 'Undo' : 'Nothing to undo'),
+            _miniIconBtn(Icons.redo, widget.canRedo ? widget.onRedo : null,
+                widget.canRedo ? 'Redo' : 'Nothing to redo'),
+            Container(width: 1, height: 14, color: const Color(0xFF2A2A32),
+                margin: const EdgeInsets.symmetric(horizontal: 4)),
           ],
-          // V11: Bulk Import button
-          Tooltip(
-            message: 'Import audio: folder drop, CSV, or JSON mapping',
-            child: GestureDetector(
-              onTap: () => _showBulkImportDialog(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF40FF90).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(3),
-                  border: Border.all(color: const Color(0xFF40FF90).withValues(alpha: 0.3)),
-                ),
-                child: const Icon(Icons.file_download, size: 12, color: Color(0xFF40FF90)),
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          // V11: Reset machine — start over
-          Tooltip(
-            message: 'Reset slot machine config and start over',
-            child: GestureDetector(
-              onTap: () => _showResetConfirmDialog(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF4444).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(3),
-                  border: Border.all(color: const Color(0xFFFF4444).withValues(alpha: 0.3)),
-                ),
-                child: const Icon(Icons.restart_alt, size: 12, color: Color(0xFFFF4444)),
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
+          // Import
+          _miniIconBtn(Icons.file_download, () => _showBulkImportDialog(context), 'Import Audio'),
+          // Reset
+          _miniIconBtn(Icons.restart_alt, () => _showResetConfirmDialog(context), 'Reset Machine'),
           const Spacer(),
-          // M2-8: Quick Assign Mode toggle (icon only when inactive to save space)
+          // Stats — muted monospace
+          Text(
+            '$assignedCount/$totalSlots',
+            style: const TextStyle(
+              fontSize: 9, fontWeight: FontWeight.w500,
+              color: Color(0xFF606068), fontFamily: 'monospace',
+            ),
+          ),
+          const SizedBox(width: 6),
+          // Quick Assign toggle
           if (widget.onQuickAssignSlotSelected != null)
             Tooltip(
               message: widget.quickAssignMode
-                  ? 'Quick Assign ON: Click slot to select, then click audio in browser'
-                  : 'Enable Quick Assign: Click slot → Click audio = Done!',
-              child: Container(
-                margin: const EdgeInsets.only(right: 4), // Reduced from 6
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () {
-                      // Toggle is managed by parent - signal with empty string
-                      widget.onQuickAssignSlotSelected?.call('__TOGGLE__');
-                    },
+                  ? 'Quick Assign ON'
+                  : 'Quick Assign',
+              child: GestureDetector(
+                onTap: () => widget.onQuickAssignSlotSelected?.call('__TOGGLE__'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: widget.quickAssignMode
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(3),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: EdgeInsets.symmetric(
-                        horizontal: widget.quickAssignMode ? 4 : 3, // Reduced
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: widget.quickAssignMode
-                            ? LinearGradient(
-                                colors: [
-                                  FluxForgeTheme.accentGreen.withOpacity(0.3),
-                                  FluxForgeTheme.accentGreen.withOpacity(0.15),
-                                ],
-                              )
-                            : null,
-                        color: widget.quickAssignMode ? null : Colors.transparent,
-                        borderRadius: BorderRadius.circular(3),
-                        border: Border.all(
-                          color: widget.quickAssignMode
-                              ? FluxForgeTheme.accentGreen.withOpacity(0.6)
-                              : Colors.white.withOpacity(0.15),
-                          width: widget.quickAssignMode ? 1 : 1,
-                        ),
-                        boxShadow: widget.quickAssignMode
-                            ? [
-                                BoxShadow(
-                                  color: FluxForgeTheme.accentGreen.withOpacity(0.3),
-                                  blurRadius: 6,
-                                  spreadRadius: 0,
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Icon(
-                        widget.quickAssignMode ? Icons.touch_app : Icons.touch_app_outlined,
-                        size: 11, // Reduced from 12
-                        color: widget.quickAssignMode
-                            ? FluxForgeTheme.accentGreen
-                            : Colors.white38,
-                      ),
-                    ),
+                  ),
+                  child: Icon(
+                    widget.quickAssignMode ? Icons.touch_app : Icons.touch_app_outlined,
+                    size: 12,
+                    color: widget.quickAssignMode
+                        ? const Color(0xFFB0B0B8)
+                        : const Color(0xFF505058),
                   ),
                 ),
               ),
             ),
-          // P3-17: Unassigned filter toggle (icon only)
-          Tooltip(
-            message: _showUnassignedOnly
-                ? 'Showing $unassignedCount unassigned. Click to show all.'
-                : 'Show only unassigned ($unassignedCount remaining)',
-            child: GestureDetector(
-              onTap: () => setState(() => _showUnassignedOnly = !_showUnassignedOnly),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(
-                  color: _showUnassignedOnly
-                      ? Colors.orange.withOpacity(0.2)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(3),
-                  border: Border.all(
-                    color: _showUnassignedOnly
-                        ? Colors.orange.withOpacity(0.5)
-                        : Colors.white.withOpacity(0.1),
-                  ),
-                ),
-                child: Icon(
-                  _showUnassignedOnly ? Icons.filter_alt : Icons.filter_alt_outlined,
-                  size: 12,
-                  color: _showUnassignedOnly ? Colors.orange : Colors.white38,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          // Slot stats: assigned / total
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(3),
-            ),
-            child: Text(
-              '$totalAssigned/$totalSlots',
-              style: TextStyle(
-                fontSize: 8,
-                color: totalAssigned == totalSlots
-                    ? FluxForgeTheme.accentGreen
-                    : Colors.white54,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+          // Unassigned filter — minimal
+          _miniIconBtn(
+            _showUnassignedOnly ? Icons.filter_alt : Icons.filter_alt_outlined,
+            () => setState(() => _showUnassignedOnly = !_showUnassignedOnly),
+            _showUnassignedOnly ? 'Show all' : 'Show unassigned',
           ),
         ],
+      ),
+    );
+  }
+
+  /// Minimal icon button for panel header — 22x22, muted
+  Widget _miniIconBtn(IconData icon, VoidCallback? onTap, String tooltip) {
+    return Tooltip(
+      message: tooltip,
+      waitDuration: const Duration(milliseconds: 400),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 22,
+          height: 22,
+          margin: const EdgeInsets.symmetric(horizontal: 1),
+          child: Icon(icon, size: 13,
+            color: onTap != null ? const Color(0xFF808088) : const Color(0xFF404048)),
+        ),
       ),
     );
   }
@@ -1261,57 +1134,54 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildModeSwitch() {
+    const labels = ['STAGES', 'PACING'];
+    const icons = [Icons.audiotrack, Icons.functions];
     return Container(
-      height: 26,
-      decoration: BoxDecoration(
-        color: const Color(0xFF101016),
-        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06))),
+      height: 24,
+      decoration: const BoxDecoration(
+        color: Color(0xFF101014),
+        border: Border(bottom: BorderSide(color: Color(0xFF222228))),
       ),
       child: Row(
-        children: [
-          for (int i = 0; i < 2; i++)
-            Expanded(
-              child: GestureDetector(
+        children: List.generate(2, (i) {
+          final active = _panelMode == i;
+          return Expanded(
+            child: _HoverBuilder(
+              builder: (hovered) => GestureDetector(
                 onTap: () => setState(() => _panelMode = i),
-                child: Container(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 120),
                   decoration: BoxDecoration(
+                    color: hovered && !active ? Colors.white.withOpacity(0.02) : Colors.transparent,
                     border: Border(
                       bottom: BorderSide(
-                        color: _panelMode == i
-                            ? (i == 0 ? const Color(0xFF4A9EFF) : const Color(0xFF40FF90))
-                            : Colors.transparent,
-                        width: 2,
+                        color: active ? const Color(0xFF808088) : Colors.transparent,
+                        width: 1.5,
                       ),
                     ),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        i == 0 ? Icons.audiotrack : Icons.functions,
-                        size: 11,
-                        color: _panelMode == i
-                            ? (i == 0 ? const Color(0xFF4A9EFF) : const Color(0xFF40FF90))
-                            : Colors.white24,
-                      ),
+                      Icon(icons[i], size: 10,
+                        color: active
+                            ? const Color(0xFFB0B0B8)
+                            : hovered ? const Color(0xFF606068) : const Color(0xFF404048)),
                       const SizedBox(width: 4),
-                      Text(
-                        i == 0 ? 'STAGES' : 'PACING',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: _panelMode == i ? FontWeight.w700 : FontWeight.w500,
-                          color: _panelMode == i
-                              ? (i == 0 ? const Color(0xFF4A9EFF) : const Color(0xFF40FF90))
-                              : Colors.white30,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
+                      Text(labels[i], style: TextStyle(
+                        fontSize: 9, fontWeight: FontWeight.w600,
+                        color: active
+                            ? const Color(0xFFB0B0B8)
+                            : hovered ? const Color(0xFF606068) : const Color(0xFF404048),
+                        letterSpacing: 0.8,
+                      )),
                     ],
                   ),
                 ),
               ),
             ),
-        ],
+          );
+        }),
       ),
     );
   }
@@ -1329,39 +1199,32 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         final featureCount = composer.featureStageCount;
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0E0E14),
-            border: Border(
-              bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
-            ),
+          decoration: const BoxDecoration(
+            color: Color(0xFF0E0E12),
+            border: Border(bottom: BorderSide(color: Color(0xFF1E1E24))),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header row
               Row(
                 children: [
-                  const Icon(Icons.build_circle_outlined, size: 11, color: Color(0xFF40FF90)),
-                  const SizedBox(width: 4),
                   Text(
                     'MECHANICS',
                     style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white.withValues(alpha: 0.5),
-                      letterSpacing: 1.0,
+                      fontSize: 8, fontWeight: FontWeight.w600,
+                      color: Colors.white.withValues(alpha: 0.35),
+                      letterSpacing: 0.8,
                     ),
                   ),
                   const Spacer(),
                   if (featureCount > 0)
                     Text(
-                      '+$featureCount stages',
-                      style: const TextStyle(fontSize: 8, color: Color(0xFF40FF90)),
+                      '+$featureCount',
+                      style: const TextStyle(fontSize: 8, color: Color(0xFF505058), fontFamily: 'monospace'),
                     ),
                 ],
               ),
               const SizedBox(height: 4),
-              // Mechanic chips — compact wrap
               Wrap(
                 spacing: 4,
                 runSpacing: 3,
@@ -1373,13 +1236,11 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                       decoration: BoxDecoration(
                         color: isOn
-                            ? const Color(0xFF40FF90).withValues(alpha: 0.15)
-                            : Colors.white.withValues(alpha: 0.04),
+                            ? Colors.white.withValues(alpha: 0.07)
+                            : Colors.white.withValues(alpha: 0.02),
                         borderRadius: BorderRadius.circular(3),
                         border: Border.all(
-                          color: isOn
-                              ? const Color(0xFF40FF90).withValues(alpha: 0.4)
-                              : Colors.white.withValues(alpha: 0.08),
+                          color: isOn ? const Color(0xFF404048) : const Color(0xFF1E1E24),
                         ),
                       ),
                       child: Text(
@@ -1387,7 +1248,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                         style: TextStyle(
                           fontSize: 8,
                           fontWeight: isOn ? FontWeight.w600 : FontWeight.w400,
-                          color: isOn ? const Color(0xFF40FF90) : Colors.white38,
+                          color: isOn ? const Color(0xFFB0B0B8) : const Color(0xFF404048),
                         ),
                       ),
                     ),
@@ -1652,26 +1513,23 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Header
+        // Header — clean
         Container(
-          height: 36,
+          height: 30,
           padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF1A1A28), Color(0xFF12121A)],
-            ),
+            color: Color(0xFF141418),
+            border: Border(bottom: BorderSide(color: Color(0xFF2A2A32))),
           ),
           child: const Row(
             children: [
-              Icon(Icons.casino, size: 16, color: Color(0xFF4A9EFF)),
+              Icon(Icons.casino, size: 14, color: Color(0xFF808088)),
               SizedBox(width: 6),
               Text(
-                'CREATE SLOT MACHINE',
+                'NEW MACHINE',
                 style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF4A9EFF),
-                  letterSpacing: 1.0,
+                  fontSize: 10, fontWeight: FontWeight.w600,
+                  color: Color(0xFFB0B0B8), letterSpacing: 0.8,
                 ),
               ),
             ],
@@ -1742,17 +1600,17 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: isOn ? const Color(0xFF4A9EFF).withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.04),
-                          borderRadius: BorderRadius.circular(4),
+                          color: isOn ? Colors.white.withValues(alpha: 0.08) : Colors.white.withValues(alpha: 0.02),
+                          borderRadius: BorderRadius.circular(3),
                           border: Border.all(
-                            color: isOn ? const Color(0xFF4A9EFF).withValues(alpha: 0.5) : Colors.white.withValues(alpha: 0.08),
+                            color: isOn ? const Color(0xFF505058) : const Color(0xFF222228),
                           ),
                         ),
                         child: Text(
                           type.displayName,
                           style: TextStyle(
                             fontSize: 9,
-                            color: isOn ? const Color(0xFF4A9EFF) : Colors.white38,
+                            color: isOn ? const Color(0xFFD0D0D8) : const Color(0xFF505058),
                             fontWeight: isOn ? FontWeight.w600 : FontWeight.w400,
                           ),
                         ),
@@ -1787,13 +1645,11 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(
                           color: isOn
-                              ? const Color(0xFF40FF90).withValues(alpha: 0.15)
-                              : Colors.white.withValues(alpha: 0.04),
-                          borderRadius: BorderRadius.circular(4),
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : Colors.white.withValues(alpha: 0.02),
+                          borderRadius: BorderRadius.circular(3),
                           border: Border.all(
-                            color: isOn
-                                ? const Color(0xFF40FF90).withValues(alpha: 0.4)
-                                : Colors.white.withValues(alpha: 0.08),
+                            color: isOn ? const Color(0xFF505058) : const Color(0xFF222228),
                           ),
                         ),
                         child: Text(
@@ -1801,7 +1657,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                           style: TextStyle(
                             fontSize: 9,
                             fontWeight: isOn ? FontWeight.w600 : FontWeight.w400,
-                            color: isOn ? const Color(0xFF40FF90) : Colors.white38,
+                            color: isOn ? const Color(0xFFD0D0D8) : const Color(0xFF505058),
                           ),
                         ),
                       ),
@@ -1863,27 +1719,18 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                     widget.onSlotMachineCreated?.call(_wizardReels, _wizardRows);
                   },
                   child: Container(
-                    height: 36,
+                    height: 32,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF4A9EFF), Color(0xFF2060CC)],
-                      ),
-                      borderRadius: BorderRadius.circular(6),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF4A9EFF).withValues(alpha: 0.3),
-                          blurRadius: 8,
-                        ),
-                      ],
+                      color: const Color(0xFF1E1E28),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: const Color(0xFF404048)),
                     ),
                     child: const Center(
                       child: Text(
-                        'CREATE SLOT MACHINE',
+                        'CREATE',
                         style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          letterSpacing: 1.0,
+                          fontSize: 10, fontWeight: FontWeight.w600,
+                          color: Color(0xFFD0D0D8), letterSpacing: 1.0,
                         ),
                       ),
                     ),
@@ -2056,53 +1903,57 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
 
   /// Phase tab labels with icons
   static const _phaseTabLabels = [
-    ('ALL', Icons.grid_view, Colors.white54),
-    ('CORE', Icons.casino, Color(0xFF4A9EFF)),
-    ('WINS', Icons.emoji_events, Color(0xFFFFD700)),
-    ('FEAT', Icons.star, Color(0xFF40FF90)),
-    ('JACK', Icons.diamond, Color(0xFFFFD700)),
-    ('GAMB', Icons.casino_outlined, Color(0xFFFF6B6B)),
-    ('MUSIC', Icons.music_note, Color(0xFF9370DB)),
-    ('UI', Icons.widgets, Color(0xFF808080)),
+    'ALL', 'CORE', 'WINS', 'FEAT', 'JACK', 'GAMB', 'MUSIC', 'UI',
+  ];
+  // Matching desaturated phase colors for tab tinting (index 0 = ALL = neutral)
+  static const _phaseTabColors = [
+    Color(0xFF808088), // ALL — neutral
+    Color(0xFF4A9EFF), // CORE — blue
+    Color(0xFFFFD740), // WINS — amber
+    Color(0xFF40C4FF), // FEAT — cyan
+    Color(0xFFFF6E40), // JACK — orange
+    Color(0xFFAB47BC), // GAMB — purple
+    Color(0xFF9370DB), // MUSIC — medium purple
+    Color(0xFF78909C), // UI — blue-gray
   ];
 
   Widget _buildPhaseTabBar() {
     return Container(
-      height: 28,
-      decoration: BoxDecoration(
-        color: const Color(0xFF12121A),
-        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
+      height: 22,
+      decoration: const BoxDecoration(
+        color: Color(0xFF101014),
+        border: Border(bottom: BorderSide(color: Color(0xFF222228))),
       ),
       child: Row(
         children: List.generate(_phaseTabLabels.length, (i) {
-          final entry = _phaseTabLabels[i];
-          final label = entry.$1;
-          final icon = entry.$2;
-          final color = entry.$3;
           final isActive = _activePhaseTab == i;
+          final tabColor = _phaseTabColors[i];
+          final tabTint = Color.lerp(tabColor, const Color(0xFF808088), 0.55)!;
           return Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _activePhaseTab = i),
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: isActive ? color : Colors.transparent,
-                      width: 2,
+            child: _HoverBuilder(
+              builder: (hovered) => GestureDetector(
+                onTap: () => setState(() => _activePhaseTab = i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 120),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? tabColor.withOpacity(0.06)
+                        : hovered ? tabColor.withOpacity(0.03) : Colors.transparent,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: isActive ? tabTint : Colors.transparent,
+                        width: 1.5,
+                      ),
                     ),
                   ),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(icon, size: 11, color: isActive ? color : Colors.white24),
-                    Text(label, style: TextStyle(
-                      fontSize: 7,
-                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                      color: isActive ? color : Colors.white30,
-                      letterSpacing: 0.3,
-                    )),
-                  ],
+                  child: Text(_phaseTabLabels[i], style: TextStyle(
+                    fontSize: 8, fontWeight: FontWeight.w600,
+                    color: isActive
+                        ? tabTint
+                        : hovered ? const Color(0xFF707078) : const Color(0xFF505058),
+                    letterSpacing: 0.3,
+                  )),
                 ),
               ),
             ),
@@ -2331,134 +2182,77 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     final percentage = totalSlots > 0 ? (assignedSlots / totalSlots * 100).toInt() : 0;
     final isComplete = percentage == 100;
 
+    // Apple-style: desaturated tint of phase color for subtle identity
+    final tintColor = Color.lerp(phase.color, const Color(0xFF808088), 0.55)!;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Phase header
-        InkWell(
-          onTap: () {
-            if (widget.onSectionToggle != null) {
-              widget.onSectionToggle!(phase.id);
-            } else {
-              setState(() {
-                if (isExpanded) {
-                  _localExpandedSections.remove(phase.id);
-                } else {
-                  _localExpandedSections.add(phase.id);
-                }
-              });
-            }
-          },
-          child: Container(
-            height: 34,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  phase.color.withOpacity(0.25),
-                  phase.color.withOpacity(0.08),
+        // Phase header — subtle tinted
+        _HoverBuilder(
+          builder: (isHovered) => InkWell(
+            onTap: () {
+              if (widget.onSectionToggle != null) {
+                widget.onSectionToggle!(phase.id);
+              } else {
+                setState(() {
+                  if (isExpanded) {
+                    _localExpandedSections.remove(phase.id);
+                  } else {
+                    _localExpandedSections.add(phase.id);
+                  }
+                });
+              }
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              height: 28,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: isHovered
+                    ? phase.color.withOpacity(0.06)
+                    : const Color(0xFF141418),
+                border: Border(
+                  bottom: BorderSide(color: phase.color.withOpacity(0.08)),
+                  left: BorderSide(color: tintColor.withOpacity(0.7), width: 2),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    isExpanded ? Icons.expand_more : Icons.chevron_right,
+                    size: 14, color: tintColor.withOpacity(0.6),
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      phase.title,
+                      style: TextStyle(
+                        fontSize: 10, fontWeight: FontWeight.w600,
+                        color: tintColor, letterSpacing: 0.5,
+                      ),
+                      overflow: TextOverflow.ellipsis, maxLines: 1,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '$assignedSlots/$totalSlots',
+                    style: TextStyle(
+                      fontSize: 9, fontWeight: FontWeight.w500,
+                      color: tintColor.withOpacity(0.45), fontFamily: 'monospace',
+                    ),
+                  ),
                 ],
               ),
-              border: Border(
-                bottom: BorderSide(color: phase.color.withOpacity(0.3)),
-                left: BorderSide(color: phase.color, width: 3),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  isExpanded ? Icons.expand_more : Icons.chevron_right,
-                  size: 16,
-                  color: phase.color,
-                ),
-                const SizedBox(width: 4),
-                Text(phase.icon, style: const TextStyle(fontSize: 14)),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    phase.title,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: phase.color,
-                      letterSpacing: 0.5,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                // Priority badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: phase.priority.color.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(3),
-                    border: Border.all(
-                      color: phase.priority.color.withOpacity(0.5),
-                      width: 0.5,
-                    ),
-                  ),
-                  child: Text(
-                    phase.priority.label,
-                    style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w700,
-                      color: phase.priority.color,
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                // Slot count
-                Text(
-                  '$assignedSlots/$totalSlots',
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w500,
-                    color: phase.color.withOpacity(0.7),
-                    fontFamily: 'monospace',
-                  ),
-                ),
-                const SizedBox(width: 6),
-                // Completion ring
-                SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      CircularProgressIndicator(
-                        value: percentage / 100,
-                        strokeWidth: 2.5,
-                        backgroundColor: Colors.white.withOpacity(0.1),
-                        color: isComplete
-                            ? FluxForgeTheme.accentGreen
-                            : _getPercentageColor(percentage),
-                      ),
-                      if (isComplete)
-                        Icon(Icons.check, size: 10, color: FluxForgeTheme.accentGreen)
-                      else
-                        Text(
-                          '$percentage',
-                          style: TextStyle(
-                            fontSize: 7,
-                            fontWeight: FontWeight.bold,
-                            color: _getPercentageColor(percentage),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
             ),
           ),
         ),
-        // Phase content — render each section inside this phase
+        // Phase content
         if (isExpanded)
           Container(
             decoration: BoxDecoration(
               border: Border(
-                left: BorderSide(color: phase.color.withOpacity(0.15), width: 3),
+                left: BorderSide(color: phase.color.withOpacity(0.08), width: 2),
               ),
             ),
             child: Column(
@@ -2474,140 +2268,76 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       return const SizedBox.shrink();
     }
     final isExpanded = _isFiltering || _expandedSections.contains(config.id);
-    final assignedCount = _countAssignedInSection(config);
+    final sectionTint = Color.lerp(config.color, const Color(0xFF808088), 0.6)!;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Section header
-        InkWell(
-          onTap: () {
-            // Use external callback if provided, otherwise update local state
-            if (widget.onSectionToggle != null) {
-              widget.onSectionToggle!(config.id);
-            } else {
-              setState(() {
-                if (isExpanded) {
-                  _localExpandedSections.remove(config.id);
-                } else {
-                  _localExpandedSections.add(config.id);
-                }
-              });
-            }
-          },
-          child: Container(
-            height: 28,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            color: config.color.withOpacity(0.15),
-            child: Row(
-              children: [
-                Icon(
-                  isExpanded ? Icons.expand_more : Icons.chevron_right,
-                  size: 16,
-                  color: config.color,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  config.icon,
-                  style: const TextStyle(fontSize: 14),
-                ),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(
-                    config.title,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: config.color,
-                      letterSpacing: 0.5,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
+        // Section header — subtle hover tint
+        _HoverBuilder(
+          builder: (isHovered) => InkWell(
+            onTap: () {
+              if (widget.onSectionToggle != null) {
+                widget.onSectionToggle!(config.id);
+              } else {
+                setState(() {
+                  if (isExpanded) {
+                    _localExpandedSections.remove(config.id);
+                  } else {
+                    _localExpandedSections.add(config.id);
+                  }
+                });
+              }
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              height: 24,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              color: isHovered
+                  ? config.color.withOpacity(0.04)
+                  : const Color(0xFF121216),
+              child: Row(
+                children: [
+                  Icon(
+                    isExpanded ? Icons.expand_more : Icons.chevron_right,
+                    size: 12, color: sectionTint.withOpacity(0.5),
                   ),
-                ),
-                const Spacer(),
-                // Assigned count badge
-                if (assignedCount > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: config.color.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(3),
-                    ),
+                  const SizedBox(width: 4),
+                  Flexible(
                     child: Text(
-                      '$assignedCount',
+                      config.title,
                       style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w600,
-                        color: config.color,
+                        fontSize: 9, fontWeight: FontWeight.w600,
+                        color: sectionTint.withOpacity(0.8), letterSpacing: 0.3,
                       ),
+                      overflow: TextOverflow.ellipsis, maxLines: 1,
                     ),
                   ),
-                const SizedBox(width: 4),
-                // Completion percentage badge (SL-LP-P0.2)
-                Builder(
-                  builder: (context) {
-                    final percentage = _getSectionPercentage(config);
-                    final percentageColor = _getPercentageColor(percentage);
-                    final isComplete = percentage == 100;
-
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: percentageColor.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: percentageColor.withOpacity(0.4),
-                          width: 1,
+                  const Spacer(),
+                  Builder(
+                    builder: (context) {
+                      final percentage = _getSectionPercentage(config);
+                      return Text(
+                        '$percentage%',
+                        style: TextStyle(
+                          fontSize: 8, fontWeight: FontWeight.w500,
+                          color: percentage == 100
+                              ? sectionTint.withOpacity(0.6)
+                              : const Color(0xFF404048),
+                          fontFamily: 'monospace',
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '$percentage%',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: percentageColor,
-                              fontFamily: 'monospace',
-                            ),
-                          ),
-                          if (isComplete) ...[
-                            const SizedBox(width: 3),
-                            Icon(Icons.check_circle, size: 10, color: percentageColor),
-                          ],
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ],
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        // Progress bar (SL-LP-P0.2) — shown when expanded and not 100%
-        if (isExpanded) Builder(
-          builder: (context) {
-            final percentage = _getSectionPercentage(config);
-            if (percentage >= 100) return const SizedBox.shrink();
-
-            return Container(
-              height: 3,
-              margin: const EdgeInsets.symmetric(horizontal: 8),
-              child: LinearProgressIndicator(
-                value: percentage / 100,
-                backgroundColor: Colors.white.withOpacity(0.05),
-                color: config.color.withOpacity(0.6),
-                minHeight: 3,
-              ),
-            );
-          },
         ),
         // Section content
         if (isExpanded)
           Container(
-            color: const Color(0xFF0A0A0E),
+            color: const Color(0xFF0C0C10),
             child: Column(
               children: config.groups.map((group) => _buildGroup(group, config)).toList(),
             ),
@@ -2689,9 +2419,12 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       }
     }
 
+    final slotTint = Color.lerp(accentColor, const Color(0xFF808088), 0.6)!;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 3),
-      child: GestureDetector(
+      child: _HoverBuilder(
+        builder: (isSlotHovered) => GestureDetector(
         // M2-8: Quick Assign Mode - click to select/unselect slot
         onTap: widget.quickAssignMode
             ? () {
@@ -2731,270 +2464,132 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               (widget.quickAssignMode && isHovering);
 
           return AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            height: 26,
+            duration: const Duration(milliseconds: 120),
+            height: 24,
             clipBehavior: Clip.hardEdge,
             decoration: BoxDecoration(
               color: isQuickAssignSelected
-                  ? FluxForgeTheme.accentGreen.withOpacity(0.25)
+                  ? Colors.white.withOpacity(0.06)
                   : isHovering
-                      ? accentColor.withOpacity(0.2)
-                      : widget.quickAssignMode
-                          ? const Color(0xFF1A1A22) // Slightly lighter in quick mode
-                          : const Color(0xFF16161C),
-              borderRadius: BorderRadius.circular(4),
+                      ? Colors.white.withOpacity(0.04)
+                      : isSlotHovered
+                          ? accentColor.withOpacity(0.03)
+                          : const Color(0xFF111114),
+              borderRadius: BorderRadius.circular(3),
               border: Border.all(
                 color: isQuickAssignSelected
-                    ? FluxForgeTheme.accentGreen
+                    ? const Color(0xFF606068)
                     : isHovering
-                        ? accentColor
-                        : hasAudio
-                            ? accentColor.withOpacity(0.4)
-                            : widget.quickAssignMode
-                                ? Colors.white.withOpacity(0.15) // More visible in quick mode
-                                : Colors.white.withOpacity(0.08),
-                width: isQuickAssignSelected ? 2 : 1,
+                        ? const Color(0xFF404048)
+                        : isSlotHovered
+                            ? slotTint.withOpacity(0.3)
+                            : hasAudio
+                                ? const Color(0xFF2A2A32)
+                                : const Color(0xFF1E1E24),
               ),
-              boxShadow: isQuickAssignSelected
-                  ? [
-                      BoxShadow(
-                        color: FluxForgeTheme.accentGreen.withOpacity(0.4),
-                        blurRadius: 8,
-                        spreadRadius: 0,
-                      ),
-                    ]
-                  : null,
             ),
             child: Row(
               children: [
-                // Bus routing badge (V9)
-                Tooltip(
-                  message: '${slot.bus.label} bus',
-                  waitDuration: const Duration(milliseconds: 500),
-                  child: Container(
-                    width: 14,
-                    height: 26,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: slot.bus.color.withOpacity(0.15),
-                      borderRadius: const BorderRadius.horizontal(left: Radius.circular(3)),
-                    ),
-                    child: Text(
-                      slot.bus.icon,
-                      style: const TextStyle(fontSize: 8),
-                    ),
-                  ),
-                ),
-                // Stage label
+                // Stage label — fixed width
                 Container(
-                  width: 62,
-                  height: 26,
+                  width: 72,
+                  height: 24,
                   alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.only(left: 3),
-                  decoration: BoxDecoration(
-                    color: accentColor.withOpacity(0.1),
-                  ),
+                  padding: const EdgeInsets.only(left: 6),
                   child: Text(
                     slot.label,
-                    style: const TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white60,
+                    style: TextStyle(
+                      fontSize: 9, fontWeight: FontWeight.w500,
+                      color: isSlotHovered
+                          ? slotTint
+                          : hasAudio ? const Color(0xFF909098) : const Color(0xFF505058),
                     ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis, maxLines: 1,
                   ),
                 ),
-                const SizedBox(width: 2),
-                // Audio path or hint with waveform thumbnail (SL-LP-P1.1)
+                // Separator
+                Container(width: 1, height: 14, color: const Color(0xFF1E1E24)),
+                const SizedBox(width: 4),
+                // Audio content or hint
                 Expanded(
                   child: hasAudio
                       ? Row(
                           children: [
-                            // Waveform thumbnail (60x18px - reduced to prevent overflow)
                             WaveformThumbnail(
                               filePath: audioPath,
-                              width: 60,
-                              height: 18,
-                              color: accentColor.withOpacity(0.6),
-                              backgroundColor: Colors.black.withOpacity(0.3),
+                              width: 48, height: 16,
+                              color: const Color(0xFF505058),
+                              backgroundColor: Colors.black.withOpacity(0.2),
                             ),
                             const SizedBox(width: 4),
-                            // File name (truncated)
                             Expanded(
                               child: Text(
                                 fileName!,
                                 style: const TextStyle(
-                                  fontSize: 9,
-                                  color: Colors.white70,
+                                  fontSize: 9, color: Color(0xFF808088),
                                 ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis, maxLines: 1,
                               ),
                             ),
                           ],
                         )
                       : Text(
-                          // M2-8: Different hint text in Quick Assign mode
-                          widget.quickAssignMode
-                              ? (isQuickAssignSelected ? '← Click audio to assign' : 'Click to select')
-                              : 'Drop audio...',
+                          isQuickAssignSelected ? '← assign' : '—',
                           style: TextStyle(
                             fontSize: 9,
                             color: isQuickAssignSelected
-                                ? FluxForgeTheme.accentGreen
-                                : widget.quickAssignMode
-                                    ? Colors.white38
-                                    : Colors.white24,
-                            fontStyle: FontStyle.italic,
-                            fontWeight: isQuickAssignSelected ? FontWeight.w600 : FontWeight.normal,
+                                ? const Color(0xFF808088)
+                                : const Color(0xFF2A2A32),
                           ),
                         ),
                 ),
-                // M2-8: Quick Assign selected indicator
-                if (isQuickAssignSelected)
-                  Container(
-                    margin: const EdgeInsets.only(right: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: FluxForgeTheme.accentGreen.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.touch_app,
-                          size: 8,
-                          color: FluxForgeTheme.accentGreen,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          'SELECTED',
-                          style: TextStyle(
-                            fontSize: 7,
-                            fontWeight: FontWeight.w700,
-                            color: FluxForgeTheme.accentGreen,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                // Variant badge (SL-LP-P1.4) — shows count if >1
+                // Variant count — minimal
                 if (hasVariants && !isQuickAssignSelected)
-                  Container(
-                    margin: const EdgeInsets.only(right: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: FluxForgeTheme.accentPurple.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: FluxForgeTheme.accentPurple.withOpacity(0.5),
-                        width: 0.5,
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Text(
+                      'x$variantCount',
+                      style: const TextStyle(
+                        fontSize: 8, color: Color(0xFF505058), fontFamily: 'monospace',
                       ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.library_music,
-                          size: 8,
-                          color: FluxForgeTheme.accentPurple,
-                        ),
-                        const SizedBox(width: 2),
-                        Text(
-                          '$variantCount',
-                          style: TextStyle(
-                            fontSize: 8,
-                            fontWeight: FontWeight.w600,
-                            color: FluxForgeTheme.accentPurple,
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                 // Status icon + Event count badge (SL-INT-P1.1)
-                Consumer2<MiddlewareProvider, EventRegistry>(
-                  builder: (context, middlewareProvider, eventRegistry, _) {
-                    final hasEvent = eventRegistry.hasEventForStage(slot.stage);
-                    final eventCount = _countEventsForStage(middlewareProvider, slot.stage);
-
-                    return Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Status icon — hide warning when audio is assigned
-                        if (hasAudio)
-                          Icon(
-                            Icons.check_circle,
-                            size: 12,
-                            color: FluxForgeTheme.accentGreen.withOpacity(0.8),
-                          )
-                        else if (!hasEvent)
-                          Icon(
-                            Icons.warning_amber,
-                            size: 12,
-                            color: Colors.orange.withOpacity(0.5),
-                          ),
-                        const SizedBox(width: 4),
-                        // Event count badge
-                        if (eventCount > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: FluxForgeTheme.accentBlue.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: FluxForgeTheme.accentBlue.withOpacity(0.5),
-                                width: 0.5,
-                              ),
-                            ),
-                            child: Text(
-                              '$eventCount',
-                              style: TextStyle(
-                                fontSize: 8,
-                                fontWeight: FontWeight.w600,
-                                color: FluxForgeTheme.accentBlue,
-                              ),
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-                const SizedBox(width: 2),
-                // Play/Stop button (SL-LP-P0.1) - compact
+                // Status dot — minimal
                 if (hasAudio)
-                  InkWell(
-                    onTap: () => _togglePreview(slot.stage, audioPath),
-                    child: Container(
-                      width: 18,
-                      height: 26,
-                      alignment: Alignment.center,
-                      child: Icon(
-                        _playingStage == slot.stage ? Icons.stop : Icons.play_arrow,
-                        size: 11,
-                        color: _playingStage == slot.stage
-                            ? FluxForgeTheme.accentGreen
-                            : Colors.white54,
-                      ),
+                  Container(
+                    width: 5, height: 5, margin: const EdgeInsets.only(right: 4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF50FF98).withOpacity(0.5),
                     ),
                   ),
-                // Clear button - compact
-                if (hasAudio)
-                  InkWell(
+                // Play button — visible on hover or when playing
+                if (hasAudio && (isSlotHovered || _playingStage == slot.stage))
+                  GestureDetector(
+                    onTap: () => _togglePreview(slot.stage, audioPath),
+                    child: Icon(
+                      _playingStage == slot.stage ? Icons.stop : Icons.play_arrow,
+                      size: 12,
+                      color: _playingStage == slot.stage
+                          ? const Color(0xFFB0B0B8)
+                          : const Color(0xFF606068),
+                    ),
+                  ),
+                // Clear button — visible on hover only
+                if (hasAudio && isSlotHovered)
+                  GestureDetector(
                     onTap: () => widget.onAudioClear?.call(slot.stage),
-                    child: Container(
-                      width: 18,
-                      height: 26,
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.close, size: 11, color: Colors.white38),
+                    child: const Padding(
+                      padding: EdgeInsets.only(left: 2, right: 2),
+                      child: Icon(Icons.close, size: 10, color: Color(0xFF606068)),
                     ),
                   ),
               ],
             ),
           );
         },
+      ),
       ),
       ),
     );
@@ -3324,6 +2919,31 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
 }
 
 /// Group drop zone that accepts folders
+// ═══════════════════════════════════════════════════════════════════════════════
+// Apple-style hover detection wrapper — lightweight StatefulWidget
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _HoverBuilder extends StatefulWidget {
+  final Widget Function(bool isHovered) builder;
+  const _HoverBuilder({required this.builder});
+
+  @override
+  State<_HoverBuilder> createState() => _HoverBuilderState();
+}
+
+class _HoverBuilderState extends State<_HoverBuilder> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: widget.builder(_isHovered),
+    );
+  }
+}
+
 class _GroupDropZone extends StatefulWidget {
   final _GroupConfig group;
   final _SectionConfig section;
@@ -3346,7 +2966,8 @@ class _GroupDropZone extends StatefulWidget {
 }
 
 class _GroupDropZoneState extends State<_GroupDropZone> {
-  bool _isHovering = false;
+  bool _isHovering = false; // drag hover
+  bool _isMouseHover = false; // mouse hover
 
   @override
   Widget build(BuildContext context) {
@@ -3386,81 +3007,61 @@ class _GroupDropZoneState extends State<_GroupDropZone> {
         }
       },
       builder: (context, candidateData, rejectedData) {
-        return InkWell(
-          onTap: widget.onToggle,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            height: 26,
-            margin: const EdgeInsets.only(left: 8, right: 8, top: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            decoration: BoxDecoration(
-              color: _isHovering
-                  ? widget.section.color.withOpacity(0.3)
-                  : const Color(0xFF14141A),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(
+        final sectionColor = widget.section.color;
+        final groupTint = Color.lerp(sectionColor, const Color(0xFF808088), 0.65)!;
+
+        return MouseRegion(
+          onEnter: (_) => setState(() => _isMouseHover = true),
+          onExit: (_) => setState(() => _isMouseHover = false),
+          child: InkWell(
+            onTap: widget.onToggle,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              height: 22,
+              margin: const EdgeInsets.only(left: 6, right: 6, top: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              decoration: BoxDecoration(
                 color: _isHovering
-                    ? widget.section.color
-                    : Colors.white.withOpacity(0.08),
-                width: _isHovering ? 2 : 1,
+                    ? Colors.white.withOpacity(0.08)
+                    : _isMouseHover
+                        ? sectionColor.withOpacity(0.03)
+                        : Colors.transparent,
+                borderRadius: BorderRadius.circular(3),
+                border: _isHovering
+                    ? Border.all(color: const Color(0xFF505058))
+                    : null,
               ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  widget.isExpanded ? Icons.expand_more : Icons.chevron_right,
-                  size: 14,
-                  color: Colors.white38,
-                ),
-                const SizedBox(width: 2),
-                Text(
-                  widget.group.icon,
-                  style: const TextStyle(fontSize: 12),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    widget.group.title,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white60,
-                    ),
+              child: Row(
+                children: [
+                  Icon(
+                    widget.isExpanded ? Icons.expand_more : Icons.chevron_right,
+                    size: 12,
+                    color: _isMouseHover ? groupTint : const Color(0xFF505058),
                   ),
-                ),
-                // Drop hint when hovering
-                if (_isHovering)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: widget.section.color.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                    child: const Text(
-                      'DROP TO AUTO-ASSIGN',
-                      style: TextStyle(
-                        fontSize: 8,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  )
-                else if (widget.assignedCount > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: widget.section.color.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
+                  const SizedBox(width: 4),
+                  Expanded(
                     child: Text(
-                      '${widget.assignedCount}/${widget.group.slots.length}',
+                      widget.group.title,
                       style: TextStyle(
-                        fontSize: 8,
-                        color: widget.section.color,
+                        fontSize: 9, fontWeight: FontWeight.w500,
+                        color: _isMouseHover ? groupTint : const Color(0xFF808088),
                       ),
                     ),
                   ),
-              ],
+                  if (_isHovering)
+                    const Text('DROP', style: TextStyle(
+                      fontSize: 7, fontWeight: FontWeight.w600,
+                      color: Color(0xFF808088), letterSpacing: 0.5,
+                    ))
+                  else if (widget.assignedCount > 0)
+                    Text(
+                      '${widget.assignedCount}/${widget.group.slots.length}',
+                      style: const TextStyle(
+                        fontSize: 8, color: Color(0xFF404048), fontFamily: 'monospace',
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         );

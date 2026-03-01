@@ -3400,56 +3400,40 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   Widget _buildHeader() {
     return Container(
-      height: 44,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A1A22), Color(0xFF1E1E28), Color(0xFF1A1A22)],
-        ),
+      height: 38,
+      decoration: const BoxDecoration(
+        color: Color(0xFF141418),
         border: Border(
-          bottom: BorderSide(
-            color: const Color(0xFFFFD700).withValues(alpha: 0.25),
-            width: 1,
-          ),
+          bottom: BorderSide(color: Color(0xFF2A2A32), width: 1),
         ),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(
           children: [
-            // ═══════════════════════════════════════════════════════════════
-            // LEFT — Branding + Navigation
-            // ═══════════════════════════════════════════════════════════════
+            // ── NAV ──
             _buildHeaderIconBtn(Icons.arrow_back, widget.onClose, 'Back to DAW'),
-            const SizedBox(width: 10),
-            const Icon(Icons.casino, color: Color(0xFFFFD700), size: 18),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             const Text(
               'SLOT LAB',
               style: TextStyle(
-                color: Color(0xFFFFD700),
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5,
+                color: Color(0xFFD0D0D8),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.2,
               ),
             ),
-
-            // Separator
             _headerDivider(),
 
-            // Tool buttons — compact row
+            // ── TOOLS ──
             _buildHeaderIconBtn(Icons.dashboard_customize, _showTemplateGallery, 'Templates'),
             _buildHeaderIconBtn(Icons.extension, _showFeatureBuilder, 'Features'),
             _buildHeaderIconBtn(Icons.upload_file, _showGddImportWizard, 'Import GDD'),
             _buildHeaderIconBtn(Icons.settings, _showSettingsDialog, 'Settings'),
 
-            // ═══════════════════════════════════════════════════════════════
-            // CENTER — Status chips (flexible, clips on overflow)
-            // ═══════════════════════════════════════════════════════════════
+            // ── STATUS ──
             _headerDivider(),
-
-            // Inline toast
             buildToastWidget(),
-
             Expanded(
               child: ClipRect(
                 child: Row(
@@ -3466,27 +3450,17 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               ),
             ),
 
-            // ═══════════════════════════════════════════════════════════════
-            // RIGHT — View toggles + Panel toggles
-            // ═══════════════════════════════════════════════════════════════
+            // ── PANELS ──
             _headerDivider(),
-
-            // Coverage badge (compact)
             _buildCoverageBadge(),
-
-            const SizedBox(width: 6),
-
-            // Browser toggle
+            const SizedBox(width: 4),
             _buildHeaderIconBtn(
               Icons.folder_open,
               () => setState(() => _showAudioBrowser = !_showAudioBrowser),
               'Audio Browser',
               isActive: _showAudioBrowser,
             ),
-
             _headerDivider(),
-
-            // Panel visibility — grouped tight
             _buildHeaderIconBtn(
               Icons.view_sidebar,
               _toggleLeftPanel,
@@ -3521,26 +3495,26 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     );
   }
 
-  /// Compact header icon button — 28x28, consistent spacing
+  /// Header icon button — clean, minimal, 26x26
   Widget _buildHeaderIconBtn(IconData icon, VoidCallback onTap, String tooltip, {bool isActive = false}) {
     return Tooltip(
       message: tooltip,
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          width: 28,
-          height: 28,
-          margin: const EdgeInsets.symmetric(horizontal: 2),
+          width: 26,
+          height: 26,
+          margin: const EdgeInsets.symmetric(horizontal: 1),
           decoration: BoxDecoration(
             color: isActive
-                ? const Color(0xFF4A9EFF).withValues(alpha: 0.2)
+                ? Colors.white.withValues(alpha: 0.08)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(3),
           ),
           child: Icon(
             icon,
-            color: isActive ? const Color(0xFF4A9EFF) : Colors.white54,
-            size: 15,
+            color: isActive ? const Color(0xFFB0B0B8) : const Color(0xFF606068),
+            size: 14,
           ),
         ),
       ),
