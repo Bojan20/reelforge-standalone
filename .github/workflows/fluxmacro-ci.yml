@@ -1,0 +1,312 @@
+# FluxMacro CI Pipeline — FM-51
+# Runs FluxMacro validation, QA, and determinism checks on PRs and pushes.
+# Uses --ci flag for JSON output + exit code based pass/fail.
+
+name: FluxMacro CI
+
+on:
+  push:
+    branches: [main, develop, 'feature/**']
+    paths:
+      - 'crates/rf-fluxmacro/**'
+      - 'crates/rf-slot-lab/**'
+      - 'crates/rf-aurexis/**'
+      - 'crates/rf-offline/**'
+      - 'crates/rf-audio-diff/**'
+      - 'crates/rf-release/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'crates/rf-fluxmacro/**'
+      - 'crates/rf-slot-lab/**'
+      - 'crates/rf-aurexis/**'
+      - 'crates/rf-offline/**'
+      - 'crates/rf-audio-diff/**'
+      - 'crates/rf-release/**'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ============================================
+  # Build FluxMacro Binary
+  # ============================================
+  build:
+    name: Build FluxMacro
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libjack-jackd2-dev
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-fluxmacro-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build FluxMacro
+        run: cargo build --release --package rf-fluxmacro
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: fluxmacro-bin
+          path: target/release/fluxmacro
+          retention-days: 1
+
+  # ============================================
+  # Unit & Integration Tests
+  # ============================================
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libjack-jackd2-dev
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-fluxmacro-test-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run FluxMacro tests
+        run: cargo test --package rf-fluxmacro -- --test-threads=1
+
+      - name: Run SlotLab parser tests
+        run: cargo test --package rf-slot-lab -- --test-threads=1
+
+  # ============================================
+  # CLI Smoke Tests (--ci JSON mode)
+  # ============================================
+  cli-smoke:
+    name: CLI Smoke Tests
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download binary
+        uses: actions/download-artifact@v4
+        with:
+          name: fluxmacro-bin
+          path: bin/
+
+      - name: Make binary executable
+        run: chmod +x bin/fluxmacro
+
+      - name: Create test macro
+        run: |
+          cat > /tmp/test.ffmacro.yaml <<'EOF'
+          macro: ci_smoke_test
+          input:
+            game_id: "CISmokeTest"
+            volatility: "medium"
+            mechanics:
+              - "free_spins"
+            platforms:
+              - "desktop"
+          options:
+            seed: 12345
+            fail_fast: true
+          steps:
+            - naming.validate
+            - adb.generate
+          EOF
+
+      - name: Test steps command (--ci)
+        run: |
+          OUTPUT=$(bin/fluxmacro --ci steps)
+          echo "$OUTPUT" | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          assert data['count'] >= 10, f'Expected >=10 steps, got {data[\"count\"]}'
+          print(f'Steps: {data[\"count\"]} registered')
+          "
+
+      - name: Test validate command (--ci)
+        run: |
+          OUTPUT=$(bin/fluxmacro --ci validate /tmp/test.ffmacro.yaml)
+          echo "$OUTPUT" | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          assert data['valid'] == True, 'Validation should pass'
+          assert data['game_id'] == 'CISmokeTest', f'Wrong game_id: {data[\"game_id\"]}'
+          print(f'Validated: {data[\"macro_name\"]} ({data[\"step_count\"]} steps)')
+          "
+
+      - name: Test dry-run command (--ci)
+        run: |
+          OUTPUT=$(bin/fluxmacro --ci dry-run /tmp/test.ffmacro.yaml)
+          echo "$OUTPUT" | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          assert data['success'] == True, 'Dry-run should succeed'
+          assert data['mode'] == 'dry-run', 'Should be dry-run mode'
+          assert data['step_count'] == 2, f'Expected 2 steps, got {data[\"step_count\"]}'
+          print(f'Dry-run: {data[\"macro_name\"]} ({data[\"step_count\"]} steps)')
+          "
+
+      - name: Test run command (--ci)
+        run: |
+          OUTPUT=$(bin/fluxmacro --ci run /tmp/test.ffmacro.yaml --seed 12345 -w /tmp)
+          echo "$OUTPUT" | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          assert data['game_id'] == 'CISmokeTest', f'Wrong game_id: {data[\"game_id\"]}'
+          assert data['seed'] == 12345, f'Wrong seed: {data[\"seed\"]}'
+          assert 'run_hash' in data, 'Should have run_hash'
+          print(f'Run: {data[\"game_id\"]} seed={data[\"seed\"]} hash={data[\"run_hash\"][:12]}')
+          "
+
+      - name: Test error handling (--ci)
+        run: |
+          OUTPUT=$(bin/fluxmacro --ci validate /tmp/nonexistent.yaml 2>&1 || true)
+          echo "$OUTPUT" | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          assert data['success'] == False, 'Should fail for missing file'
+          assert 'error' in data, 'Should have error message'
+          print(f'Error handling OK: {data[\"error\"][:60]}')
+          "
+
+  # ============================================
+  # Determinism Check
+  # ============================================
+  determinism:
+    name: Determinism Verification
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download binary
+        uses: actions/download-artifact@v4
+        with:
+          name: fluxmacro-bin
+          path: bin/
+
+      - name: Make binary executable
+        run: chmod +x bin/fluxmacro
+
+      - name: Create determinism test macro
+        run: |
+          cat > /tmp/determinism.ffmacro.yaml <<'EOF'
+          macro: determinism_check
+          input:
+            game_id: "DeterminismTest"
+            volatility: "high"
+            mechanics:
+              - "free_spins"
+              - "hold_and_win"
+            platforms:
+              - "desktop"
+              - "mobile"
+          options:
+            seed: 99999
+            fail_fast: true
+          steps:
+            - naming.validate
+            - adb.generate
+            - volatility.profile.generate
+          EOF
+
+      - name: Run three times with same seed
+        run: |
+          HASH1=$(bin/fluxmacro --ci run /tmp/determinism.ffmacro.yaml --seed 99999 -w /tmp | python3 -c "import json,sys; print(json.load(sys.stdin)['run_hash'])")
+          HASH2=$(bin/fluxmacro --ci run /tmp/determinism.ffmacro.yaml --seed 99999 -w /tmp | python3 -c "import json,sys; print(json.load(sys.stdin)['run_hash'])")
+          HASH3=$(bin/fluxmacro --ci run /tmp/determinism.ffmacro.yaml --seed 99999 -w /tmp | python3 -c "import json,sys; print(json.load(sys.stdin)['run_hash'])")
+
+          echo "Run 1: $HASH1"
+          echo "Run 2: $HASH2"
+          echo "Run 3: $HASH3"
+
+          if [ "$HASH1" != "$HASH2" ] || [ "$HASH2" != "$HASH3" ]; then
+            echo "DETERMINISM FAILURE: Hashes do not match!"
+            exit 1
+          fi
+
+          echo "DETERMINISM VERIFIED: All 3 runs produce identical hash"
+
+  # ============================================
+  # PR Comment with Results
+  # ============================================
+  pr-comment:
+    name: PR Report
+    needs: [test, cli-smoke, determinism]
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download binary
+        uses: actions/download-artifact@v4
+        with:
+          name: fluxmacro-bin
+          path: bin/
+
+      - name: Make binary executable
+        run: chmod +x bin/fluxmacro
+
+      - name: Generate PR report
+        run: |
+          # Run full pipeline and capture JSON output
+          cat > /tmp/pr_macro.ffmacro.yaml <<'EOF'
+          macro: pr_check
+          input:
+            game_id: "PRCheck"
+            volatility: "medium"
+            mechanics:
+              - "free_spins"
+            platforms:
+              - "desktop"
+          options:
+            seed: 42
+            fail_fast: false
+          steps:
+            - naming.validate
+            - adb.generate
+          EOF
+
+          OUTPUT=$(bin/fluxmacro --ci run /tmp/pr_macro.ffmacro.yaml --seed 42 -w /tmp 2>&1 || true)
+
+          # Generate markdown comment using ci_report_formatter
+          python3 crates/rf-fluxmacro/scripts/ci_report_formatter.py \
+            --json-input <(echo "$OUTPUT") \
+            --output /tmp/pr_comment.md \
+            --commit "${{ github.sha }}" \
+            --pr-number "${{ github.event.pull_request.number }}"
+
+      - name: Post PR comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: fluxmacro-ci
+          path: /tmp/pr_comment.md
