@@ -91,5 +91,5 @@ pub use timing::*;
 // New module re-exports
 pub use features::{FeatureCategory, FeatureChapter, FeatureId, FeatureRegistry};
 pub use model::{GameInfo, GameMode, GameModel, Volatility, WinMechanism, WinTierConfig};
-pub use parser::{GddParseError, GddParser};
+pub use parser::{GddParseError, GddParser, GddSchema, ValidationReport};
 pub use scenario::{DemoScenario, LoopMode, ScenarioPlayback, ScriptedOutcome};

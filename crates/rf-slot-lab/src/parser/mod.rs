@@ -15,14 +15,11 @@
 //! let model = parser.parse_json(json_string)?;
 //! ```
 
-// TODO: Implement in Phase 4
-// mod gdd;
-// mod schema;
-// mod validator;
+pub mod schema;
+pub mod validator;
 
-// pub use gdd::*;
-// pub use schema::*;
-// pub use validator::*;
+pub use schema::GddSchema;
+pub use validator::{validate_constraints, ValidationReport};
 
 use serde::{Deserialize, Serialize};
 
@@ -75,15 +72,72 @@ impl GddParser {
 
     /// Parse JSON GDD into GameModel
     pub fn parse_json(&self, json: &str) -> Result<GameModel, GddParseError> {
-        // Parse JSON
         let doc: GddDocument =
             serde_json::from_str(json).map_err(|e| GddParseError::JsonError(e.to_string()))?;
+        self.validate(&doc)?;
+        self.to_game_model(doc)
+    }
 
-        // Validate
+    /// Parse YAML GDD into GameModel
+    pub fn parse_yaml(&self, yaml: &str) -> Result<GameModel, GddParseError> {
+        let doc: GddDocument =
+            serde_yaml::from_str(yaml).map_err(|e| GddParseError::YamlError(e.to_string()))?;
+        self.validate(&doc)?;
+        self.to_game_model(doc)
+    }
+
+    /// Parse GDD from a file (auto-detects JSON/YAML by extension)
+    pub fn parse_file(&self, path: &std::path::Path) -> Result<GameModel, GddParseError> {
+        let content = std::fs::read_to_string(path)
+            .map_err(|e| GddParseError::IoError(path.to_path_buf(), e.to_string()))?;
+
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+
+        match ext.as_str() {
+            "yaml" | "yml" => self.parse_yaml(&content),
+            "json" => self.parse_json(&content),
+            _ => {
+                // Try JSON first, then YAML
+                self.parse_json(&content)
+                    .or_else(|_| self.parse_yaml(&content))
+            }
+        }
+    }
+
+    /// Parse JSON GDD into raw document (for validation without model conversion)
+    pub fn parse_json_document(&self, json: &str) -> Result<GddDocument, GddParseError> {
+        serde_json::from_str(json).map_err(|e| GddParseError::JsonError(e.to_string()))
+    }
+
+    /// Parse YAML GDD into raw document (for validation without model conversion)
+    pub fn parse_yaml_document(&self, yaml: &str) -> Result<GddDocument, GddParseError> {
+        serde_yaml::from_str(yaml).map_err(|e| GddParseError::YamlError(e.to_string()))
+    }
+
+    /// Full validation pipeline: parse + schema + constraints
+    pub fn full_validate(&self, content: &str, is_yaml: bool) -> Result<ValidationReport, GddParseError> {
+        let doc = if is_yaml {
+            self.parse_yaml_document(content)?
+        } else {
+            self.parse_json_document(content)?
+        };
+
+        // Basic limits
         self.validate(&doc)?;
 
-        // Convert to GameModel
-        self.to_game_model(doc)
+        // Schema validation
+        let schema = GddSchema::default();
+        let schema_warnings = schema.validate(&doc)?;
+
+        // Constraint validation
+        let mut report = validate_constraints(&doc)?;
+        report.warnings.extend(schema_warnings);
+
+        Ok(report)
     }
 
     /// Validate GDD document
@@ -381,6 +435,12 @@ pub enum GddParseError {
     #[error("JSON parse error: {0}")]
     JsonError(String),
 
+    #[error("YAML parse error: {0}")]
+    YamlError(String),
+
+    #[error("I/O error reading {0}: {1}")]
+    IoError(std::path::PathBuf, String),
+
     #[error("Validation error: {0}")]
     ValidationError(String),
 
@@ -460,5 +520,145 @@ mod tests {
         let result = parser.parse_json(json);
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_yaml_minimal() {
+        let yaml = r#"
+game:
+  name: "Test YAML Game"
+  id: "test_yaml"
+grid:
+  reels: 5
+  rows: 3
+"#;
+
+        let parser = GddParser::new();
+        let model = parser.parse_yaml(yaml).unwrap();
+
+        assert_eq!(model.info.name, "Test YAML Game");
+        assert_eq!(model.info.id, "test_yaml");
+        assert_eq!(model.grid.reels, 5);
+        assert_eq!(model.grid.rows, 3);
+    }
+
+    #[test]
+    fn test_parse_yaml_full() {
+        let yaml = r#"
+game:
+  name: "Golden Pantheon"
+  id: "golden_pantheon"
+  volatility: "high"
+  target_rtp: 0.965
+grid:
+  reels: 5
+  rows: 3
+  paylines: 20
+win_mechanism: "paylines"
+symbols:
+  - id: 1
+    name: "Zeus"
+    type: "regular"
+    pays: [0, 0, 5.0, 15.0, 50.0]
+    tier: 1
+  - id: 10
+    name: "Wild"
+    type: "wild"
+    pays: []
+features:
+  - type: "free_spins"
+    trigger: "scatter_3"
+  - type: "hold_and_win"
+    trigger: "coins_6"
+win_tiers:
+  - name: "Small"
+    min_ratio: 1.0
+    max_ratio: 5.0
+  - name: "Big"
+    min_ratio: 5.0
+    max_ratio: 20.0
+  - name: "Mega"
+    min_ratio: 20.0
+    max_ratio: 100.0
+"#;
+
+        let parser = GddParser::new();
+        let model = parser.parse_yaml(yaml).unwrap();
+
+        assert_eq!(model.info.name, "Golden Pantheon");
+        assert_eq!(model.grid.paylines, 20);
+        assert_eq!(model.features.len(), 2);
+        assert_eq!(model.win_tiers.tiers.len(), 3);
+    }
+
+    #[test]
+    fn test_parse_yaml_invalid() {
+        let yaml = "not: [valid yaml {{{{";
+        let parser = GddParser::new();
+        let result = parser.parse_yaml(yaml);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_yaml_document() {
+        let yaml = r#"
+game:
+  name: "Test"
+  id: "test"
+grid:
+  reels: 5
+  rows: 3
+"#;
+
+        let parser = GddParser::new();
+        let doc = parser.parse_yaml_document(yaml).unwrap();
+
+        assert_eq!(doc.game.name, "Test");
+        assert_eq!(doc.grid.reels, 5);
+    }
+
+    #[test]
+    fn test_full_validate_json() {
+        let json = r#"{
+            "game": { "name": "Test", "id": "test", "volatility": "high" },
+            "grid": { "reels": 5, "rows": 3 }
+        }"#;
+
+        let parser = GddParser::new();
+        let report = parser.full_validate(json, false).unwrap();
+
+        assert!(report.valid);
+    }
+
+    #[test]
+    fn test_full_validate_yaml() {
+        let yaml = r#"
+game:
+  name: "Test"
+  id: "test"
+  volatility: "high"
+grid:
+  reels: 5
+  rows: 3
+"#;
+
+        let parser = GddParser::new();
+        let report = parser.full_validate(yaml, true).unwrap();
+
+        assert!(report.valid);
+    }
+
+    #[test]
+    fn test_full_validate_no_features_warning() {
+        let json = r#"{
+            "game": { "name": "Test", "id": "test" },
+            "grid": { "reels": 5, "rows": 3 }
+        }"#;
+
+        let parser = GddParser::new();
+        let report = parser.full_validate(json, false).unwrap();
+
+        // Should have FluxMacro warnings about missing features/volatility
+        assert!(!report.warnings.is_empty() || !report.suggestions.is_empty());
     }
 }
