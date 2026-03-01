@@ -44,5 +44,13 @@ thiserror = { workspace = true }
 # Logging
 log = { workspace = true }
 
+# CLI
+clap = { workspace = true }
+env_logger = { workspace = true }
+
+[[bin]]
+name = "fluxmacro"
+path = "src/bin/main.rs"
+
 [dev-dependencies]
 tempfile = "3"

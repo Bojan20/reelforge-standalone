@@ -451,19 +451,11 @@ steps:
 
     #[test]
     fn cancellation() {
-        let interp = make_interpreter(vec![Box::new(EchoStep)]);
-        let yaml = r#"
-macro: test
-input:
-  game_id: "TestGame"
-steps:
-  - echo
-"#;
-        let macro_file = parser::parse_macro_string(yaml).unwrap();
+        let _interp = make_interpreter(vec![Box::new(EchoStep)]);
         let dir = tempfile::tempdir().unwrap();
 
         // Pre-cancel
-        let mut ctx = MacroContext::new("TestGame".to_string(), dir.path().to_path_buf());
+        let ctx = MacroContext::new("TestGame".to_string(), dir.path().to_path_buf());
         ctx.cancel();
         assert!(ctx.is_cancelled());
     }

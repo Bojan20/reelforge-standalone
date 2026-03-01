@@ -103,6 +103,7 @@ import '../providers/slot_lab/pacing_engine_provider.dart';
 import '../providers/slot_lab/gad_provider.dart';
 import '../providers/slot_lab/sss_provider.dart';
 import '../providers/slot_lab/game_flow_provider.dart';
+import '../providers/fluxmacro_provider.dart';
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -541,6 +542,13 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<GameFlowProvider>(
       () => GameFlowProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 7.4: FluxMacro Provider (P-FMC Orchestration Engine)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<FluxMacroProvider>(
+      () => FluxMacroProvider(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════

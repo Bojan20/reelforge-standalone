@@ -55,6 +55,7 @@ pub mod sam_ffi;
 pub mod pbse_ffi;
 pub mod dsp_commands;
 mod engine_bridge;
+pub mod fluxmacro_ffi;
 pub mod ffi_bounds; // ✅ P12.0.5: FFI bounds checking
 pub mod ffi_error; // ✅ P12.0.2: FFI error result type
 pub mod ingest_ffi;
@@ -391,3 +392,6 @@ pub use gad_ffi::*;
 
 // Re-export SSS FFI (Scale & Stability Suite)
 pub use sss_ffi::*;
+
+// Re-export FluxMacro FFI (P-FMC Orchestration Engine)
+pub use fluxmacro_ffi::*;

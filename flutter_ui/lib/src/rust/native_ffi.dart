@@ -25711,5 +25711,359 @@ extension TimeStretchFFI on NativeFFI {
       return -1;
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FLUXMACRO — Deterministic Orchestration Engine (P-FMC)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Initialize FluxMacro engine with all registered steps.
+  bool fluxmacroInit() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'fluxmacro_init',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[FluxMacro] init error: $e');
+      return false;
+    }
+  }
+
+  /// Destroy FluxMacro engine and free resources.
+  bool fluxmacroDestroy() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'fluxmacro_destroy',
+      );
+      return fn() == 1;
+    } catch (e) {
+      print('[FluxMacro] destroy error: $e');
+      return false;
+    }
+  }
+
+  /// Check if FluxMacro engine is initialized.
+  bool fluxmacroIsInitialized() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'fluxmacro_is_initialized',
+      );
+      return fn() == 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Run a macro from YAML string. Blocks until complete.
+  /// Returns JSON result map or null on error.
+  Map<String, dynamic>? fluxmacroRunYaml(String yaml, String workingDir) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('fluxmacro_run_yaml');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('fluxmacro_free_string');
+
+      return withNativeStrings2(yaml, workingDir, (yamlPtr, dirPtr) {
+        final ptr = fn(yamlPtr, dirPtr);
+        if (ptr == nullptr) return null;
+        final jsonStr = ptr.toDartString();
+        freeFn(ptr);
+        return jsonDecode(jsonStr) as Map<String, dynamic>;
+      });
+    } catch (e) {
+      print('[FluxMacro] runYaml error: $e');
+      return null;
+    }
+  }
+
+  /// Run a macro from file path. Blocks until complete.
+  /// Returns JSON result map or null on error.
+  Map<String, dynamic>? fluxmacroRunFile(String filePath) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('fluxmacro_run_file');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('fluxmacro_free_string');
+
+      return withNativeString(filePath, (ptr) {
+        final resultPtr = fn(ptr);
+        if (resultPtr == nullptr) return null;
+        final jsonStr = resultPtr.toDartString();
+        freeFn(resultPtr);
+        return jsonDecode(jsonStr) as Map<String, dynamic>;
+      });
+    } catch (e) {
+      print('[FluxMacro] runFile error: $e');
+      return null;
+    }
+  }
+
+  /// Validate a macro YAML string without executing.
+  /// Returns validation result map or null on error.
+  Map<String, dynamic>? fluxmacroValidate(String yaml) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('fluxmacro_validate');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('fluxmacro_free_string');
+
+      return withNativeString(yaml, (ptr) {
+        final resultPtr = fn(ptr);
+        if (resultPtr == nullptr) return null;
+        final jsonStr = resultPtr.toDartString();
+        freeFn(resultPtr);
+        return jsonDecode(jsonStr) as Map<String, dynamic>;
+      });
+    } catch (e) {
+      print('[FluxMacro] validate error: $e');
+      return null;
+    }
+  }
+
+  /// Cancel a running macro.
+  bool fluxmacroCancel() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'fluxmacro_cancel',
+      );
+      return fn() == 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Check if a macro is currently running.
+  bool fluxmacroIsRunning() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'fluxmacro_is_running',
+      );
+      return fn() == 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Get current progress (0.0 to 1.0).
+  double fluxmacroGetProgress() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'fluxmacro_get_progress',
+      );
+      return fn();
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  /// Get current step name.
+  String? fluxmacroGetCurrentStep() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'fluxmacro_get_current_step',
+      );
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('fluxmacro_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str.isEmpty ? null : str;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get last run result as JSON map.
+  Map<String, dynamic>? fluxmacroGetLastResult() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'fluxmacro_get_last_result',
+      );
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('fluxmacro_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final jsonStr = ptr.toDartString();
+      freeFn(ptr);
+      return jsonDecode(jsonStr) as Map<String, dynamic>;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get last run hash string.
+  String? fluxmacroGetLastHash() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'fluxmacro_get_last_hash',
+      );
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('fluxmacro_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str.isEmpty ? null : str;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Check if last run was successful. Returns null if no run yet.
+  bool? fluxmacroLastSuccess() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'fluxmacro_last_success',
+      );
+      final result = fn();
+      if (result == -1) return null;
+      return result == 1;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// List all registered steps as JSON map.
+  Map<String, dynamic>? fluxmacroListSteps() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'fluxmacro_list_steps',
+      );
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('fluxmacro_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final jsonStr = ptr.toDartString();
+      freeFn(ptr);
+      return jsonDecode(jsonStr) as Map<String, dynamic>;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get step count.
+  int fluxmacroStepCount() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('fluxmacro_step_count')();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// List run history for a working directory.
+  Map<String, dynamic>? fluxmacroListHistory(String workingDir) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>)
+      >('fluxmacro_list_history');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('fluxmacro_free_string');
+
+      return withNativeString(workingDir, (ptr) {
+        final resultPtr = fn(ptr);
+        if (resultPtr == nullptr) return null;
+        final jsonStr = resultPtr.toDartString();
+        freeFn(resultPtr);
+        return jsonDecode(jsonStr) as Map<String, dynamic>;
+      });
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get run details by run ID.
+  Map<String, dynamic>? fluxmacroGetRun(String workingDir, String runId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>)
+      >('fluxmacro_get_run');
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('fluxmacro_free_string');
+
+      return withNativeStrings2(workingDir, runId, (dirPtr, idPtr) {
+        final resultPtr = fn(dirPtr, idPtr);
+        if (resultPtr == nullptr) return null;
+        final jsonStr = resultPtr.toDartString();
+        freeFn(resultPtr);
+        return jsonDecode(jsonStr) as Map<String, dynamic>;
+      });
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get QA results from last run as JSON map.
+  Map<String, dynamic>? fluxmacroGetQaResults() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'fluxmacro_get_qa_results',
+      );
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('fluxmacro_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final jsonStr = ptr.toDartString();
+      freeFn(ptr);
+      return jsonDecode(jsonStr) as Map<String, dynamic>;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Get logs from last run as JSON map.
+  Map<String, dynamic>? fluxmacroGetLogs() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(), Pointer<Utf8> Function()>(
+        'fluxmacro_get_logs',
+      );
+      final freeFn = _lib.lookupFunction<
+          Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)
+      >('fluxmacro_free_string');
+
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final jsonStr = ptr.toDartString();
+      freeFn(ptr);
+      return jsonDecode(jsonStr) as Map<String, dynamic>;
+    } catch (e) {
+      return null;
+    }
+  }
 }
 
