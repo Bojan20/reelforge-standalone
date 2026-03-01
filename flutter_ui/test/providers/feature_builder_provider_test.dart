@@ -8,7 +8,12 @@ library;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluxforge_ui/providers/feature_builder_provider.dart';
 import 'package:fluxforge_ui/models/feature_builder/block_category.dart';
+import 'package:fluxforge_ui/models/feature_builder/block_options.dart';
+import 'package:fluxforge_ui/models/feature_builder/block_dependency.dart';
+import 'package:fluxforge_ui/models/feature_builder/feature_block.dart';
 import 'package:fluxforge_ui/models/feature_builder/feature_preset.dart';
+import 'package:fluxforge_ui/widgets/slot_lab/forced_outcome_panel.dart';
+import 'package:fluxforge_ui/src/rust/native_ffi.dart' show ForcedOutcome;
 
 void main() {
   group('FeatureBuilderProvider — initialization', () {
@@ -23,9 +28,9 @@ void main() {
       expect(provider.allBlockIds, isNotEmpty);
     });
 
-    test('registers 15 blocks across 4 categories', () {
-      // 3 core + 5 feature + 3 presentation + 4 advanced = 15
-      expect(provider.allBlocks.length, 15);
+    test('registers all blocks across 4 categories', () {
+      // 3 core + 5 feature + 3 presentation + 6 bonus = 17
+      expect(provider.allBlocks.length, greaterThanOrEqualTo(16));
     });
 
     test('core blocks exist', () {
@@ -509,6 +514,436 @@ void main() {
       // Access should trigger fresh generation
       final stages = provider.generatedStages;
       expect(stages, isList);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // P13.8.7: ForcedOutcomeConfig — Dynamic Visibility Filtering
+  // ─────────────────────────────────────────────────────────────────────────
+
+  group('ForcedOutcomeConfig visibility (P13.8.7)', () {
+    test('outcomes list is populated', () {
+      expect(ForcedOutcomeConfig.outcomes, isNotEmpty);
+      expect(ForcedOutcomeConfig.outcomes.length, greaterThanOrEqualTo(15));
+    });
+
+    test('core outcomes have null featureBlockId', () {
+      final lose = ForcedOutcomeConfig.outcomes.firstWhere(
+        (c) => c.label == 'LOSE',
+      );
+      expect(lose.featureBlockId, isNull);
+
+      final nearMiss = ForcedOutcomeConfig.outcomes.firstWhere(
+        (c) => c.label == 'NEAR MISS',
+      );
+      expect(nearMiss.featureBlockId, isNull);
+    });
+
+    test('win tier outcomes have null featureBlockId', () {
+      final winOutcomes = ForcedOutcomeConfig.outcomes
+          .where((c) => c.label.startsWith('WIN '))
+          .toList();
+      expect(winOutcomes, isNotEmpty);
+      for (final win in winOutcomes) {
+        expect(win.featureBlockId, isNull,
+            reason: '${win.label} should have null featureBlockId');
+      }
+    });
+
+    test('free spins outcome linked to free_spins block', () {
+      final fs = ForcedOutcomeConfig.outcomes.firstWhere(
+        (c) => c.label == 'FREE SPINS',
+      );
+      expect(fs.featureBlockId, 'free_spins');
+      expect(fs.outcome, ForcedOutcome.freeSpins);
+    });
+
+    test('cascade outcome linked to cascades block', () {
+      final casc = ForcedOutcomeConfig.outcomes.firstWhere(
+        (c) => c.label == 'CASCADE',
+      );
+      expect(casc.featureBlockId, 'cascades');
+      expect(casc.outcome, ForcedOutcome.cascade);
+    });
+
+    test('all jackpot outcomes linked to jackpot block', () {
+      final jpOutcomes = ForcedOutcomeConfig.outcomes
+          .where((c) => c.label.startsWith('JP '))
+          .toList();
+      expect(jpOutcomes.length, 4); // MINI, MINOR, MAJOR, GRAND
+      for (final jp in jpOutcomes) {
+        expect(jp.featureBlockId, 'jackpot');
+      }
+    });
+
+    test('getVisibleOutcomes returns all when all feature blocks enabled', () {
+      final allBlockIds = {'free_spins', 'cascades', 'jackpot'};
+      final visible = ForcedOutcomeConfig.getVisibleOutcomes(allBlockIds);
+      expect(visible.length, ForcedOutcomeConfig.outcomes.length);
+    });
+
+    test('getVisibleOutcomes hides feature outcomes when no blocks enabled', () {
+      final noBlocks = <String>{};
+      final visible = ForcedOutcomeConfig.getVisibleOutcomes(noBlocks);
+      for (final config in visible) {
+        expect(config.featureBlockId, isNull,
+            reason: '${config.label} should not be visible with no blocks');
+      }
+    });
+
+    test('getVisibleOutcomes partial — only free_spins enabled', () {
+      final onlyFs = {'free_spins'};
+      final visible = ForcedOutcomeConfig.getVisibleOutcomes(onlyFs);
+      expect(visible.any((c) => c.label == 'FREE SPINS'), true);
+      expect(visible.any((c) => c.label == 'CASCADE'), false);
+      expect(visible.any((c) => c.label == 'JP GRAND'), false);
+      expect(visible.any((c) => c.label == 'LOSE'), true); // core always
+    });
+
+    test('getVisibleOutcomes partial — only jackpot enabled', () {
+      final onlyJp = {'jackpot'};
+      final visible = ForcedOutcomeConfig.getVisibleOutcomes(onlyJp);
+      expect(visible.any((c) => c.label == 'JP MINI'), true);
+      expect(visible.any((c) => c.label == 'JP GRAND'), true);
+      expect(visible.any((c) => c.label == 'FREE SPINS'), false);
+      expect(visible.any((c) => c.label == 'CASCADE'), false);
+    });
+
+    test('isOutcomeVisible with null featureBlockId always true', () {
+      final lose = ForcedOutcomeConfig.outcomes.firstWhere(
+        (c) => c.label == 'LOSE',
+      );
+      expect(ForcedOutcomeConfig.isOutcomeVisible(lose, {}), true);
+      expect(ForcedOutcomeConfig.isOutcomeVisible(lose, {'free_spins'}), true);
+    });
+
+    test('isOutcomeVisible with matching block returns true', () {
+      final fs = ForcedOutcomeConfig.outcomes.firstWhere(
+        (c) => c.label == 'FREE SPINS',
+      );
+      expect(ForcedOutcomeConfig.isOutcomeVisible(fs, {'free_spins'}), true);
+    });
+
+    test('isOutcomeVisible with missing block returns false', () {
+      final fs = ForcedOutcomeConfig.outcomes.firstWhere(
+        (c) => c.label == 'FREE SPINS',
+      );
+      expect(ForcedOutcomeConfig.isOutcomeVisible(fs, {'jackpot'}), false);
+      expect(ForcedOutcomeConfig.isOutcomeVisible(fs, {}), false);
+    });
+
+    test('getConfig returns matching config for outcome', () {
+      final config = ForcedOutcomeConfig.getConfig(ForcedOutcome.freeSpins);
+      expect(config, isNotNull);
+      expect(config!.outcome, ForcedOutcome.freeSpins);
+    });
+
+    test('expectedWinMultiplier set for win tiers', () {
+      final withMultiplier = ForcedOutcomeConfig.outcomes
+          .where((c) => c.expectedWinMultiplier != null)
+          .toList();
+      expect(withMultiplier, isNotEmpty);
+      for (final config in withMultiplier) {
+        expect(config.expectedWinMultiplier, greaterThan(0));
+      }
+    });
+
+    test('keyboard shortcuts exist for numbered outcomes', () {
+      final withShortcuts = ForcedOutcomeConfig.outcomes
+          .where((c) => c.keyboardShortcut != null)
+          .toList();
+      expect(withShortcuts, isNotEmpty);
+    });
+
+    test('expectedStages populated for every outcome', () {
+      for (final config in ForcedOutcomeConfig.outcomes) {
+        expect(config.expectedStages, isNotEmpty,
+            reason: '${config.label} should have expectedStages');
+      }
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BlockOption — additional tests
+  // ─────────────────────────────────────────────────────────────────────────
+
+  group('BlockOption', () {
+    test('initial value equals default', () {
+      final opt = BlockOption(
+        id: 'count',
+        name: 'Count',
+        type: BlockOptionType.count,
+        defaultValue: 5,
+      );
+      expect(opt.value, 5);
+      expect(opt.isModified, false);
+    });
+
+    test('setting value marks as modified', () {
+      final opt = BlockOption(
+        id: 'count',
+        name: 'Count',
+        type: BlockOptionType.count,
+        defaultValue: 5,
+      );
+      opt.value = 10;
+      expect(opt.value, 10);
+      expect(opt.isModified, true);
+    });
+
+    test('reset restores default', () {
+      final opt = BlockOption(
+        id: 'mode',
+        name: 'Mode',
+        type: BlockOptionType.dropdown,
+        defaultValue: 'scatter',
+      );
+      opt.value = 'bonus';
+      opt.reset();
+      expect(opt.value, 'scatter');
+      expect(opt.isModified, false);
+    });
+
+    test('validator rejects invalid values', () {
+      final opt = BlockOption(
+        id: 'spins',
+        name: 'Spins',
+        type: BlockOptionType.count,
+        defaultValue: 10,
+        validator: (v) => (v as int) < 1 ? 'Must be >= 1' : null,
+      );
+      expect(() => opt.value = 0, throwsA(isA<ArgumentError>()));
+      expect(opt.value, 10);
+    });
+
+    test('validate checks required fields', () {
+      final opt = BlockOption(
+        id: 'name',
+        name: 'Name',
+        type: BlockOptionType.text,
+        defaultValue: null,
+        required: true,
+      );
+      expect(opt.validate(), isNotNull);
+    });
+
+    test('JSON round-trip preserves state', () {
+      final opt = BlockOption(
+        id: 'count',
+        name: 'Count',
+        type: BlockOptionType.count,
+        defaultValue: 5,
+        min: 1,
+        max: 100,
+        group: 'General',
+      );
+      opt.value = 42;
+      final json = opt.toJson();
+      final restored = BlockOption.fromJson(json);
+      expect(restored.id, 'count');
+      expect(restored.value, 42);
+      expect(restored.defaultValue, 5);
+      expect(restored.min, 1);
+      expect(restored.max, 100);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BlockDependency — additional tests
+  // ─────────────────────────────────────────────────────────────────────────
+
+  group('BlockDependency', () {
+    test('requires factory creates correct type', () {
+      final dep = BlockDependency.requires(
+        source: 'free_spins',
+        target: 'symbol_set',
+        autoResolvable: true,
+      );
+      expect(dep.type, DependencyType.requires);
+      expect(dep.autoResolvable, true);
+    });
+
+    test('conflicts factory creates correct type', () {
+      final dep = BlockDependency.conflicts(
+        source: 'respin',
+        target: 'hold_and_win',
+      );
+      expect(dep.type, DependencyType.conflicts);
+      expect(dep.autoResolvable, false);
+    });
+
+    test('JSON round-trip', () {
+      final dep = BlockDependency.requires(
+        source: 'a',
+        target: 'b',
+        targetOption: 'scatter',
+      );
+      final json = dep.toJson();
+      final restored = BlockDependency.fromJson(json);
+      expect(restored.sourceBlockId, 'a');
+      expect(restored.targetBlockId, 'b');
+      expect(restored.type, DependencyType.requires);
+      expect(restored.targetOption, 'scatter');
+    });
+
+    test('equality works', () {
+      final a = BlockDependency.requires(source: 'x', target: 'y');
+      final b = BlockDependency.requires(source: 'x', target: 'y');
+      expect(a, b);
+      expect(a.hashCode, b.hashCode);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // GeneratedStage
+  // ─────────────────────────────────────────────────────────────────────────
+
+  group('GeneratedStage', () {
+    test('JSON round-trip', () {
+      const stage = GeneratedStage(
+        name: 'FS_TRIGGER',
+        description: 'Free spins triggered',
+        bus: 'sfx',
+        priority: 80,
+        pooled: true,
+        category: 'free_spins',
+        sourceBlockId: 'free_spins',
+      );
+      final json = stage.toJson();
+      final restored = GeneratedStage.fromJson(json);
+      expect(restored.name, 'FS_TRIGGER');
+      expect(restored.priority, 80);
+      expect(restored.pooled, true);
+      expect(restored.sourceBlockId, 'free_spins');
+    });
+
+    test('defaults are correct', () {
+      const stage = GeneratedStage(
+        name: 'TEST',
+        description: 'Test',
+        bus: 'sfx',
+        sourceBlockId: 'test',
+      );
+      expect(stage.priority, 50);
+      expect(stage.pooled, false);
+      expect(stage.looping, false);
+      expect(stage.category, isNull);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BlockStateSnapshot
+  // ─────────────────────────────────────────────────────────────────────────
+
+  group('BlockStateSnapshot', () {
+    test('JSON round-trip', () {
+      final snap = BlockStateSnapshot(
+        blockId: 'test',
+        isEnabled: true,
+        options: {'count': 10, 'mode': 'auto'},
+      );
+      final json = snap.toJson();
+      final restored = BlockStateSnapshot.fromJson(json);
+      expect(restored.blockId, 'test');
+      expect(restored.isEnabled, true);
+      expect(restored.options['count'], 10);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // AutoResolveAction
+  // ─────────────────────────────────────────────────────────────────────────
+
+  group('AutoResolveAction', () {
+    test('JSON round-trip', () {
+      const action = AutoResolveAction(
+        type: AutoResolveType.enableBlock,
+        targetBlockId: 'symbol_set',
+        description: 'Enable Symbol Set',
+      );
+      final json = action.toJson();
+      final restored = AutoResolveAction.fromJson(json);
+      expect(restored.type, AutoResolveType.enableBlock);
+      expect(restored.targetBlockId, 'symbol_set');
+    });
+
+    test('setOption with optionId and value', () {
+      const action = AutoResolveAction(
+        type: AutoResolveType.setOption,
+        targetBlockId: 'grid',
+        optionId: 'reels',
+        value: 5,
+        description: 'Set reels to 5',
+      );
+      final json = action.toJson();
+      final restored = AutoResolveAction.fromJson(json);
+      expect(restored.optionId, 'reels');
+      expect(restored.value, 5);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BlockCategory
+  // ─────────────────────────────────────────────────────────────────────────
+
+  group('BlockCategory', () {
+    test('displayName values', () {
+      expect(BlockCategory.core.displayName, 'Core');
+      expect(BlockCategory.feature.displayName, 'Features');
+      expect(BlockCategory.presentation.displayName, 'Presentation');
+      expect(BlockCategory.bonus.displayName, 'Bonus');
+    });
+
+    test('core is not optional', () {
+      expect(BlockCategory.core.isOptional, false);
+      expect(BlockCategory.feature.isOptional, true);
+    });
+
+    test('sortOrder ascending', () {
+      expect(BlockCategory.core.sortOrder, lessThan(BlockCategory.feature.sortOrder));
+      expect(BlockCategory.feature.sortOrder, lessThan(BlockCategory.presentation.sortOrder));
+      expect(BlockCategory.presentation.sortOrder, lessThan(BlockCategory.bonus.sortOrder));
+    });
+
+    test('BlockCategories.fromName case-insensitive', () {
+      expect(BlockCategories.fromName('CORE'), BlockCategory.core);
+      expect(BlockCategories.fromName('Features'), BlockCategory.feature);
+      expect(BlockCategories.fromName('unknown'), isNull);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // DependencyType severity ordering
+  // ─────────────────────────────────────────────────────────────────────────
+
+  group('DependencyType', () {
+    test('severity ordering: conflicts > requires > modifies > enables', () {
+      expect(DependencyType.conflicts.severity,
+          greaterThan(DependencyType.requires.severity));
+      expect(DependencyType.requires.severity,
+          greaterThan(DependencyType.modifies.severity));
+      expect(DependencyType.modifies.severity,
+          greaterThan(DependencyType.enables.severity));
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // OptionChoice
+  // ─────────────────────────────────────────────────────────────────────────
+
+  group('OptionChoice', () {
+    test('JSON round-trip', () {
+      const choice = OptionChoice(
+        value: 'scatter',
+        label: 'Scatter Trigger',
+        description: 'Trigger on scatter symbols',
+        group: 'Triggers',
+      );
+      final json = choice.toJson();
+      final restored = OptionChoice.fromJson(json);
+      expect(restored.value, 'scatter');
+      expect(restored.label, 'Scatter Trigger');
+      expect(restored.group, 'Triggers');
     });
   });
 }
