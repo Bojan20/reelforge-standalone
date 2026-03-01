@@ -100,6 +100,8 @@ import '../providers/slot_lab/slotlab_template_provider.dart';
 import '../providers/slot_lab/slotlab_export_provider.dart';
 import '../providers/slot_lab/feature_composer_provider.dart';
 import '../providers/slot_lab/pacing_engine_provider.dart';
+import '../providers/slot_lab/gad_provider.dart';
+import '../providers/slot_lab/sss_provider.dart';
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -518,6 +520,20 @@ class ServiceLocator {
 
     // Initialize search providers
     _initializeSearchProviders();
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 7.1: GAD Provider (Gameplay-Aware DAW §15)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<GadProvider>(
+      () => GadProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 7.2: SSS Provider (Scale & Stability Suite §16)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<SssProvider>(
+      () => SssProvider(),
+    );
 
     // ═══════════════════════════════════════════════════════════════════════════
     // LAYER 7: Plugin State System (depends on FFI)

@@ -25192,5 +25192,524 @@ extension TimeStretchFFI on NativeFFI {
       return null;
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GAD — Gameplay-Aware DAW
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ─── GAD Project ───
+
+  bool gadCreateProject() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('gad_create_project')() == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool gadCreateProjectCustom(double bpm, int lengthBars, int sampleRate) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Double, Uint32, Uint32),
+          int Function(double, int, int)>('gad_create_project_custom');
+      return fn(bpm, lengthBars, sampleRate) == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String? gadProjectName() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('gad_project_name');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('gad_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  int gadTrackCount() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('gad_track_count')();
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  String? gadProjectJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('gad_project_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('gad_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool gadLoadProjectJson(String json) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)>('gad_load_project_json');
+      return withNativeString(json, (ptr) => fn(ptr) == 1);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ─── GAD Track ───
+
+  bool gadAddTrack(String name, int trackType) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>, Uint8),
+          int Function(Pointer<Utf8>, int)>('gad_add_track');
+      return withNativeString(name, (ptr) => fn(ptr, trackType) == 1);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool gadRemoveTrack(String trackId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)>('gad_remove_track');
+      return withNativeString(trackId, (ptr) => fn(ptr) == 1);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool gadSetTrackAudio(String trackId, String audioPath) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>, Pointer<Utf8>),
+          int Function(Pointer<Utf8>, Pointer<Utf8>)>('gad_set_track_audio');
+      return withNativeStrings2(trackId, audioPath, (a, b) => fn(a, b) == 1);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool gadSetTrackBinding(String trackId, String hook, String substate) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>),
+          int Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>)>('gad_set_track_binding');
+      final pId = trackId.toNativeUtf8();
+      final pH = hook.toNativeUtf8();
+      final pS = substate.toNativeUtf8();
+      try {
+        return fn(pId, pH, pS) == 1;
+      } finally {
+        calloc.free(pId);
+        calloc.free(pH);
+        calloc.free(pS);
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool gadSetTrackMetadata(String trackId, double emotionalBias,
+      double energyWeight, int harmonicDensity, double turboReduction) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>, Double, Double, Uint32, Double),
+          int Function(Pointer<Utf8>, double, double, int, double)>('gad_set_track_metadata');
+      return withNativeString(trackId,
+          (ptr) => fn(ptr, emotionalBias, energyWeight, harmonicDensity, turboReduction) == 1);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ─── GAD Timeline ───
+
+  bool gadSetBpm(double bpm) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Double),
+          int Function(double)>('gad_set_bpm');
+      return fn(bpm) == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool gadAddAnchor(String id, int bar, int beat, int tick,
+      int gameplayFrame, String hook) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>, Uint32, Uint32, Uint32, Uint64, Pointer<Utf8>),
+          int Function(Pointer<Utf8>, int, int, int, int, Pointer<Utf8>)>('gad_add_anchor');
+      final pId = id.toNativeUtf8();
+      final pH = hook.toNativeUtf8();
+      try {
+        return fn(pId, bar, beat, tick, gameplayFrame, pH) == 1;
+      } finally {
+        calloc.free(pId);
+        calloc.free(pH);
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool gadAddMarker(String id, String name, int markerType,
+      int bar, int beat, int tick, int color) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>, Pointer<Utf8>, Uint8, Uint32, Uint32, Uint32, Uint32),
+          int Function(Pointer<Utf8>, Pointer<Utf8>, int, int, int, int, int)>('gad_add_marker');
+      final pId = id.toNativeUtf8();
+      final pN = name.toNativeUtf8();
+      try {
+        return fn(pId, pN, markerType, bar, beat, tick, color) == 1;
+      } finally {
+        calloc.free(pId);
+        calloc.free(pN);
+      }
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String? gadTimelineJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('gad_timeline_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('gad_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ─── GAD Bake ───
+
+  bool gadBake() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('gad_bake')() == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String? gadBakeResultJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('gad_bake_result_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('gad_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  int gadBakeStepCount() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('gad_bake_step_count')();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  double gadBakeProgress() {
+    try {
+      return _lib.lookupFunction<Double Function(),
+          double Function()>('gad_bake_progress')();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  int gadValidate() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('gad_validate')();
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  String? gadValidationErrorsJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('gad_validation_errors_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('gad_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SSS — Scale & Stability Suite
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ─── SSS Project Isolation ───
+
+  bool sssCreateProject(String name) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)>('sss_create_project');
+      return withNativeString(name, (ptr) => fn(ptr) == 1);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  int sssProjectCount() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('sss_project_count')();
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  bool sssSwitchProject(String id) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)>('sss_switch_project');
+      return withNativeString(id, (ptr) => fn(ptr) == 1);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool sssRemoveProject(String id) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)>('sss_remove_project');
+      return withNativeString(id, (ptr) => fn(ptr) == 1);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String? sssActiveProjectJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('sss_active_project_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('sss_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? sssListProjectsJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('sss_list_projects_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('sss_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ─── SSS Config Diff ───
+
+  String? sssConfigDiff(String oldJson, String newJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>),
+          Pointer<Utf8> Function(Pointer<Utf8>, Pointer<Utf8>)>('sss_config_diff');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('sss_free_string');
+      final pOld = oldJson.toNativeUtf8();
+      final pNew = newJson.toNativeUtf8();
+      try {
+        final ptr = fn(pOld, pNew);
+        if (ptr == nullptr) return null;
+        final str = ptr.toDartString();
+        freeFn(ptr);
+        return str;
+      } finally {
+        calloc.free(pOld);
+        calloc.free(pNew);
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
+  int sssRequiresRegression(String oldJson, String newJson) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>, Pointer<Utf8>),
+          int Function(Pointer<Utf8>, Pointer<Utf8>)>('sss_requires_regression');
+      final pOld = oldJson.toNativeUtf8();
+      final pNew = newJson.toNativeUtf8();
+      try {
+        return fn(pOld, pNew);
+      } finally {
+        calloc.free(pOld);
+        calloc.free(pNew);
+      }
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  // ─── SSS Regression ───
+
+  bool sssRegressionInit() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('sss_regression_init')() == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool sssRegressionInitCustom(int sessionCount, int spinsPerSession) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Uint32, Uint32),
+          int Function(int, int)>('sss_regression_init_custom');
+      return fn(sessionCount, spinsPerSession) == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  int sssRegressionRun() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('sss_regression_run')();
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  String? sssRegressionResultJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('sss_regression_result_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('sss_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  double sssRegressionPassRate() {
+    try {
+      return _lib.lookupFunction<Double Function(),
+          double Function()>('sss_regression_pass_rate')();
+    } catch (_) {
+      return 0.0;
+    }
+  }
+
+  // ─── SSS Burn Test ───
+
+  bool sssBurnTestInit() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('sss_burn_test_init')() == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool sssBurnTestInitCustom(int totalSpins, int sampleInterval) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Uint32, Uint32),
+          int Function(int, int)>('sss_burn_test_init_custom');
+      return fn(totalSpins, sampleInterval) == 1;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  int sssBurnTestRun() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('sss_burn_test_run')();
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  String? sssBurnTestResultJson() {
+    try {
+      final fn = _lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('sss_burn_test_result_json');
+      final freeFn = _lib.lookupFunction<Void Function(Pointer<Utf8>),
+          void Function(Pointer<Utf8>)>('sss_free_string');
+      final ptr = fn();
+      if (ptr == nullptr) return null;
+      final str = ptr.toDartString();
+      freeFn(ptr);
+      return str;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  int sssBurnTestDeterministic() {
+    try {
+      return _lib.lookupFunction<Int32 Function(),
+          int Function()>('sss_burn_test_deterministic')();
+    } catch (_) {
+      return -1;
+    }
+  }
 }
 

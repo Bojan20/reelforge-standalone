@@ -130,6 +130,8 @@ import '../models/slot_lab_models.dart';
 import '../widgets/template/template_gallery_panel.dart';
 import '../widgets/slot_lab/project_dashboard_dialog.dart';
 import '../widgets/slot_lab/feature_builder_panel.dart';
+import '../widgets/slot_lab/gad_panel.dart';
+import '../widgets/slot_lab/sss_panel.dart';
 import '../models/template_models.dart' show BuiltTemplate, FeatureModuleType;
 
 // =============================================================================
@@ -303,6 +305,8 @@ enum _PlusMenuItem {
   autoSpatial,    // AutoSpatial panel
   scenarios,      // Scenarios panel
   commandBuilder, // Command Builder
+  gadDaw,         // GAD — Gameplay-Aware DAW §15
+  sssQuality,     // SSS — Scale & Stability Suite §16
 }
 
 // =============================================================================
@@ -10645,6 +10649,27 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             ],
           ),
         ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(
+          value: _PlusMenuItem.gadDaw,
+          child: Row(
+            children: [
+              Icon(Icons.videogame_asset, size: 16, color: Color(0xFF40C8FF)),
+              SizedBox(width: 8),
+              Text('Gameplay-Aware DAW', style: TextStyle(fontSize: 12, color: Colors.white70)),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: _PlusMenuItem.sssQuality,
+          child: Row(
+            children: [
+              Icon(Icons.shield_outlined, size: 16, color: Color(0xFF4CAF50)),
+              SizedBox(width: 8),
+              Text('Scale & Stability Suite', style: TextStyle(fontSize: 12, color: Colors.white70)),
+            ],
+          ),
+        ),
       ],
       onSelected: _onPlusMenuItemSelected,
     );
@@ -10661,6 +10686,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         _showScenariosDialog();
       case _PlusMenuItem.commandBuilder:
         _showCommandBuilderDialog();
+      case _PlusMenuItem.gadDaw:
+        _showGadDawDialog();
+      case _PlusMenuItem.sssQuality:
+        _showSssQualityDialog();
     }
   }
 
@@ -10827,6 +10856,86 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 ),
               ),
               Expanded(child: _buildCommandBuilderContent()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showGadDawDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF1A1A22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: SizedBox(
+          width: 900,
+          height: 650,
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0D0D10),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.videogame_asset, color: Color(0xFF40C8FF), size: 18),
+                    const SizedBox(width: 8),
+                    const Text('Gameplay-Aware DAW', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18, color: Colors.white54),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              const Expanded(child: GadPanel()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showSssQualityDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF1A1A22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        child: SizedBox(
+          width: 900,
+          height: 650,
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0D0D10),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.shield_outlined, color: Color(0xFF4CAF50), size: 18),
+                    const SizedBox(width: 8),
+                    const Text('Scale & Stability Suite', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18, color: Colors.white54),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              const Expanded(child: SssPanel()),
             ],
           ),
         ),

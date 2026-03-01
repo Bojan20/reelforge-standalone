@@ -22,6 +22,8 @@ pub mod advisory;
 pub mod drc;
 pub mod qa;
 pub mod sam;
+pub mod gad;
+pub mod sss;
 
 pub use crate::core::engine::AurexisEngine;
 pub use crate::core::config::AurexisConfig;
@@ -34,6 +36,8 @@ pub use crate::qa::{PreBakeSimulator, SimulationDomain, ValidationThresholds, Pb
 pub use crate::advisory::{AuthoringIntelligence, AilDomain, AilScore, AilStatus, AilReport, AilRecommendation, RecommendationLevel, DomainAnalysis, FatigueAnalysis, VoiceEfficiency, SpectralClarityAnalysis, VolatilityAlignment};
 pub use crate::drc::{DeterministicReplayCore, TraceEntry, FrameHash, TraceMetadata, TraceFormat, ReplayResult, FluxManifest, VersionLocks, ConfigBundle, CertificationChain, CertificationStatus, SafetyEnvelope, SafetyLimits, EnvelopeViolation, EnvelopeViolationType, EnvelopeResult, CertificationGate, CertificationResult, CertificationReport};
 pub use crate::sam::{SmartAuthoringEngine, AuthoringMode, WizardStep, SmartAuthoringState, ParameterMapping, SlotArchetype, ArchetypeProfile, ArchetypeDefaults, VolatilityRange, MarketTarget, SmartControlGroup, SmartControl, SmartControlValue, EnergyControls, ClarityControls, StabilityControls, SmartControlSet};
+pub use crate::gad::{DualTimeline, MusicalTimeline, GameplayTimeline, TimelineMarker, MarkerType, MusicalPosition, GameplayPosition, TimeSignature, TempoChange, GadTrack, GadTrackType, TrackMetadata, TrackState, CanonicalEventBinding, VoicePriorityClass, BakeToSlot, BakeStep, BakeStepStatus, BakeResult, BakeConfig, BakeError, StemOutput, GadProject, GadProjectConfig, GadTrackLayout};
+pub use crate::sss::{ProjectManifest, ProjectConfig, ProjectIsolation, IsolatedProject, ConfigDiff, DiffEntry, DiffType, RiskLevel, ConfigDiffEngine, AutoRegression, RegressionConfig, RegressionResult, RegressionRun, RegressionStatus, StressScenario, BurnTest, BurnTestConfig, BurnTestResult, BurnTestMetrics, DriftMetric, TrendDirection};
 
 /// Result type for AUREXIS operations.
 pub type AurexisResult<T> = Result<T, AurexisError>;

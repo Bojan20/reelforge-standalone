@@ -50,6 +50,7 @@ pub mod device_preview_ffi;
 pub mod dpm_ffi;
 pub mod drc_ffi;
 pub mod energy_governance_ffi;
+pub mod gad_ffi;
 pub mod sam_ffi;
 pub mod pbse_ffi;
 pub mod dsp_commands;
@@ -70,6 +71,7 @@ mod project;
 pub mod project_ffi;
 pub mod sidechain_ffi; // ✅ P0.5: Sidechain routing
 pub mod samcl_ffi;
+pub mod sss_ffi;
 pub mod slot_lab_ffi;
 pub mod stage_ffi;
 pub mod time_stretch_ffi; // P12.1.4: Simple time-stretch for animation timing
@@ -383,3 +385,9 @@ pub use offline_ffi::*;
 
 // Re-export Project FFI
 pub use project_ffi::*;
+
+// Re-export GAD FFI (Gameplay-Aware DAW)
+pub use gad_ffi::*;
+
+// Re-export SSS FFI (Scale & Stability Suite)
+pub use sss_ffi::*;
