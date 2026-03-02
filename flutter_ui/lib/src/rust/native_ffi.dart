@@ -8477,6 +8477,63 @@ class NativeFFI {
   double controlRoomGetMonitorPeakL() => _controlRoomGetMonitorPeakL();
   double controlRoomGetMonitorPeakR() => _controlRoomGetMonitorPeakR();
 
+  // ── Bass Management ──
+  late final _controlRoomSetBassXover = _lib.lookupFunction<
+      Int32 Function(Double),
+      int Function(double)>('control_room_set_bass_xover');
+  late final _controlRoomGetBassXover = _lib.lookupFunction<
+      Double Function(),
+      double Function()>('control_room_get_bass_xover');
+  late final _controlRoomSetSubwooferEnabled = _lib.lookupFunction<
+      Int32 Function(Int32),
+      int Function(int)>('control_room_set_subwoofer_enabled');
+  late final _controlRoomGetSubwooferEnabled = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('control_room_get_subwoofer_enabled');
+  late final _controlRoomSetSubwooferPhase = _lib.lookupFunction<
+      Int32 Function(Int32),
+      int Function(int)>('control_room_set_subwoofer_phase');
+
+  int controlRoomSetBassXover(double freqHz) => _controlRoomSetBassXover(freqHz);
+  double controlRoomGetBassXover() => _controlRoomGetBassXover();
+  int controlRoomSetSubwooferEnabled(int enabled) => _controlRoomSetSubwooferEnabled(enabled);
+  int controlRoomGetSubwooferEnabled() => _controlRoomGetSubwooferEnabled();
+  int controlRoomSetSubwooferPhase(int inverted) => _controlRoomSetSubwooferPhase(inverted);
+
+  // ── Reference Level ──
+  late final _controlRoomSetReferenceLevel = _lib.lookupFunction<
+      Int32 Function(Double),
+      int Function(double)>('control_room_set_reference_level');
+  late final _controlRoomGetReferenceLevel = _lib.lookupFunction<
+      Double Function(),
+      double Function()>('control_room_get_reference_level');
+
+  int controlRoomSetReferenceLevel(double levelDb) => _controlRoomSetReferenceLevel(levelDb);
+  double controlRoomGetReferenceLevel() => _controlRoomGetReferenceLevel();
+
+  // ── Pink Noise ──
+  late final _controlRoomSetPinkNoiseEnabled = _lib.lookupFunction<
+      Int32 Function(Int32),
+      int Function(int)>('control_room_set_pink_noise_enabled');
+  late final _controlRoomGetPinkNoiseEnabled = _lib.lookupFunction<
+      Int32 Function(),
+      int Function()>('control_room_get_pink_noise_enabled');
+  late final _controlRoomSetPinkNoiseLevel = _lib.lookupFunction<
+      Int32 Function(Double),
+      int Function(double)>('control_room_set_pink_noise_level');
+  late final _controlRoomGetPinkNoiseLevel = _lib.lookupFunction<
+      Double Function(),
+      double Function()>('control_room_get_pink_noise_level');
+  late final _controlRoomSetSampleRate = _lib.lookupFunction<
+      Int32 Function(Double),
+      int Function(double)>('control_room_set_sample_rate');
+
+  int controlRoomSetPinkNoiseEnabled(int enabled) => _controlRoomSetPinkNoiseEnabled(enabled);
+  int controlRoomGetPinkNoiseEnabled() => _controlRoomGetPinkNoiseEnabled();
+  int controlRoomSetPinkNoiseLevel(double levelDb) => _controlRoomSetPinkNoiseLevel(levelDb);
+  double controlRoomGetPinkNoiseLevel() => _controlRoomGetPinkNoiseLevel();
+  int controlRoomSetSampleRate(double sr) => _controlRoomSetSampleRate(sr);
+
   // ═══════════════════════════════════════════════════════════════════════════
   // Export/Bounce System
   // ═══════════════════════════════════════════════════════════════════════════

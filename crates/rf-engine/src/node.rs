@@ -39,6 +39,24 @@ pub trait AudioNode: Send + Sync {
     /// Process audio
     fn process(&mut self, inputs: &[&[Sample]], outputs: &mut [&mut [Sample]]);
 
+    /// Process audio with sidechain input.
+    /// Default implementation ignores sidechain and delegates to process().
+    /// Nodes that need sidechain (compressor, gate, etc.) should override this.
+    fn process_with_sidechain(
+        &mut self,
+        inputs: &[&[Sample]],
+        outputs: &mut [&mut [Sample]],
+        sidechains: &[&[Sample]],
+    ) {
+        let _ = sidechains;
+        self.process(inputs, outputs);
+    }
+
+    /// Whether this node accepts sidechain input
+    fn has_sidechain_input(&self) -> bool {
+        false
+    }
+
     /// Reset node state
     fn reset(&mut self);
 

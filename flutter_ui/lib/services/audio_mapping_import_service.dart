@@ -12,6 +12,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:get_it/get_it.dart';
 import '../providers/slot_lab/feature_composer_provider.dart';
 import 'stage_group_service.dart';
@@ -1623,7 +1624,9 @@ class AudioMappingImportService {
     try {
       final decoded = jsonDecode(content);
       if (decoded is Map<String, dynamic>) return decoded;
-    } catch (_) {}
+    } catch (e) {
+      assert(() { debugPrint('[AudioMapping] JSON parse error: $e'); return true; }());
+    }
     return null;
   }
 }

@@ -14487,6 +14487,82 @@ lazy_static::lazy_static! {
     static ref CONTROL_ROOM: RwLock<ControlRoom> = RwLock::new(ControlRoom::new(256));
 }
 
+// ── Bass Management ──
+
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_set_bass_xover(freq_hz: f64) -> i32 {
+    let cr = CONTROL_ROOM.read();
+    cr.set_bass_xover_freq_hz(freq_hz);
+    0
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_bass_xover() -> f64 {
+    CONTROL_ROOM.read().bass_xover_freq_hz()
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_set_subwoofer_enabled(enabled: i32) -> i32 {
+    CONTROL_ROOM.read().set_subwoofer_enabled(enabled != 0);
+    0
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_subwoofer_enabled() -> i32 {
+    CONTROL_ROOM.read().subwoofer_enabled() as i32
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_set_subwoofer_phase(inverted: i32) -> i32 {
+    CONTROL_ROOM.read().set_subwoofer_phase_inverted(inverted != 0);
+    0
+}
+
+// ── Reference Level ──
+
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_set_reference_level(level_db: f64) -> i32 {
+    CONTROL_ROOM.read().set_reference_level_db(level_db);
+    0
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_reference_level() -> f64 {
+    CONTROL_ROOM.read().reference_level_db()
+}
+
+// ── Pink Noise ──
+
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_set_pink_noise_enabled(enabled: i32) -> i32 {
+    CONTROL_ROOM.read().set_pink_noise_enabled(enabled != 0);
+    0
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_pink_noise_enabled() -> i32 {
+    CONTROL_ROOM.read().pink_noise_enabled() as i32
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_set_pink_noise_level(level_db: f64) -> i32 {
+    CONTROL_ROOM.read().set_pink_noise_level_db(level_db);
+    0
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_get_pink_noise_level() -> f64 {
+    CONTROL_ROOM.read().pink_noise_level_db()
+}
+
+// ── Sample Rate ──
+
+#[unsafe(no_mangle)]
+pub extern "C" fn control_room_set_sample_rate(sr: f64) -> i32 {
+    CONTROL_ROOM.read().set_sample_rate(sr);
+    0
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PHASE 5.1: PLUGIN SYSTEM FFI
 // ═══════════════════════════════════════════════════════════════════════════

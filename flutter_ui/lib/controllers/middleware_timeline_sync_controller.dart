@@ -47,6 +47,9 @@ class MiddlewareTimelineSyncController {
   MixerProvider? _mixerProvider;
   MiddlewareProvider? _middlewareProvider;
 
+  // Guard against double-initialization
+  bool _isInitialized = false;
+
   // Suppression flags — prevent infinite update loops
   bool _isSyncingToTimeline = false;
   bool _isSyncingToMiddleware = false;
@@ -74,8 +77,13 @@ class MiddlewareTimelineSyncController {
     required MixerProvider mixerProvider,
     required MiddlewareProvider middlewareProvider,
   }) {
+    if (_isInitialized) {
+      // Already initialized — remove old listener before re-registering
+      _middlewareProvider?.removeListener(_onMiddlewareChanged);
+    }
     _mixerProvider = mixerProvider;
     _middlewareProvider = middlewareProvider;
+    _isInitialized = true;
 
     // Listen to middleware changes
     _middlewareProvider!.addListener(_onMiddlewareChanged);
@@ -84,6 +92,7 @@ class MiddlewareTimelineSyncController {
   /// Clean up listeners
   void dispose() {
     _middlewareProvider?.removeListener(_onMiddlewareChanged);
+    _isInitialized = false;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -257,32 +266,43 @@ class MiddlewareTimelineSyncController {
 
       // 2. Import audio file into engine (CRITICAL — loads audio for playback)
       final startTime = layer.offsetMs / 1000.0;
-      final clipInfo = await engine.importAudioFile(
-        filePath: layer.audioPath,
-        trackId: engineTrackId,
-        startTime: startTime,
-      );
-
-      // 3. Get real waveform + clip metadata from engine
       Float32List? waveform = _convertWaveformData(layer.waveformData);
       String clipId = mwClipId;
       double clipDuration = layer.durationSeconds ?? 1.0;
       double sourceDuration = clipDuration;
       int channels = 2;
 
-      if (clipInfo != null) {
-        clipId = clipInfo.clipId;
-        clipDuration = clipInfo.duration;
-        sourceDuration = clipInfo.sourceDuration;
-        channels = clipInfo.channels;
+      try {
+        final clipInfo = await engine.importAudioFile(
+          filePath: layer.audioPath,
+          trackId: engineTrackId,
+          startTime: startTime,
+        );
 
-        _engineClipIds[mwClipId] = clipInfo.clipId;
+        // 3. Get real waveform + clip metadata from engine
+        if (clipInfo != null) {
+          clipId = clipInfo.clipId;
+          clipDuration = clipInfo.duration;
+          sourceDuration = clipInfo.sourceDuration;
+          channels = clipInfo.channels;
 
-        final peaks = await engine.getWaveformPeaks(clipId: clipInfo.clipId);
-        if (peaks.isNotEmpty) {
-          waveform = Float32List.fromList(
-              peaks.map((v) => v.toDouble()).toList().cast<double>());
+          _engineClipIds[mwClipId] = clipInfo.clipId;
+
+          try {
+            final peaks = await engine.getWaveformPeaks(clipId: clipInfo.clipId);
+            if (peaks.isNotEmpty) {
+              waveform = Float32List.fromList(
+                  peaks.map((v) => v.toDouble()).toList().cast<double>());
+            }
+          } catch (_) {
+            // Waveform peaks failed — use fallback data, non-fatal
+          }
         }
+      } catch (e) {
+        // Audio import failed — skip this layer but continue with others
+        _engineTrackIds.remove(mwTrackId);
+        onDeleteEngineTrack?.call(engineTrackId);
+        continue;
       }
 
       // 4. Create mixer channel with real channel count

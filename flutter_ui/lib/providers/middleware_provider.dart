@@ -3513,11 +3513,15 @@ class MiddlewareProvider extends ChangeNotifier {
       try {
         final projectProvider = GetIt.instance<SlotLabProjectProvider>();
         projectProvider.removeAudioAssignment(stage);
-      } catch (_) {} // Provider may not be registered
+      } catch (e) {
+        assert(() { debugPrint('[MW] SlotLabProjectProvider not registered: $e'); return true; }());
+      }
       try {
         final registry = GetIt.instance<EventRegistry>();
         registry.unregisterEvent(eventId);
-      } catch (_) {}
+      } catch (e) {
+        assert(() { debugPrint('[MW] EventRegistry not registered: $e'); return true; }());
+      }
     }
 
     _compositeEventSystemProvider.deleteCompositeEvent(eventId);

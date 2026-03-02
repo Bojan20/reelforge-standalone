@@ -4581,6 +4581,19 @@ impl PlaybackEngine {
                 }
             }
 
+            // === PRE-FADER SEND CAPTURE ===
+            // Capture pre-fader signal for pre-fader sends (before volume/pan)
+            // Stack-allocated: zero heap alloc on audio thread (max 4096 samples)
+            let has_pre_fader_sends = track.sends.iter().any(|s| {
+                s.pre_fader && !s.muted && s.level > 0.0 && s.destination.is_some()
+            });
+            let mut pfl_buf = [0.0f64; 4096];
+            let mut pfr_buf = [0.0f64; 4096];
+            if has_pre_fader_sends {
+                pfl_buf[..frames].copy_from_slice(&track_l[..frames]);
+                pfr_buf[..frames].copy_from_slice(&track_r[..frames]);
+            }
+
             // Apply track volume and pan (fader stage)
             // Use per-sample smoothing for zipper-free automation
             let vca_gain = self.get_vca_gain(track.id.0);
@@ -4758,10 +4771,17 @@ impl PlaybackEngine {
                 }
                 let send_level = send.level;
 
-                // Route track signal to send destination
-                // Pre-fader sends would need different handling (pre-volume signal)
-                // For now, implement post-fader sends
-                if !send.pre_fader {
+                if send.pre_fader {
+                    // Pre-fader: use captured pre-volume signal (stack buffer)
+                    if has_pre_fader_sends {
+                        let (dest_l, dest_r) = bus_buffers.get_bus_mut(dest_bus);
+                        for i in 0..frames {
+                            dest_l[i] += pfl_buf[i] * send_level;
+                            dest_r[i] += pfr_buf[i] * send_level;
+                        }
+                    }
+                } else {
+                    // Post-fader: use current (post-volume/pan) signal
                     let (dest_l, dest_r) = bus_buffers.get_bus_mut(dest_bus);
                     for i in 0..frames {
                         dest_l[i] += track_l[i] * send_level;
@@ -5198,23 +5218,36 @@ impl PlaybackEngine {
                 }
             }
             TargetType::Send => {
-                // TODO: Apply send level when send system integrated
-                log::trace!(
-                    "Send automation not yet implemented: track={}, slot={:?}, value={}",
-                    track_id,
-                    param_id.slot,
-                    change.value
-                );
+                // Apply send level automation
+                if let Some(slot) = param_id.slot {
+                    if let Some(mut track) =
+                        self.track_manager.tracks.get_mut(&TrackId(track_id))
+                    {
+                        let slot_idx = slot as usize;
+                        if slot_idx < track.sends.len() {
+                            track.sends[slot_idx].level = change.value.clamp(0.0, 1.0);
+                        }
+                    }
+                }
             }
             TargetType::Plugin => {
-                // TODO: Apply plugin parameter when plugin system fully integrated
-                log::trace!(
-                    "Plugin parameter automation not yet implemented: track={}, slot={:?}, param={}, value={}",
-                    track_id,
-                    param_id.slot,
-                    param_id.param_name,
-                    change.value
-                );
+                // Apply plugin parameter automation to insert chain
+                if let Some(slot) = param_id.slot {
+                    if let Some(mut chains) = self.insert_chains.try_write() {
+                        if let Some(chain) = chains.get_mut(&track_id) {
+                            // Parse param index from param_name (format: "p<index>")
+                            let param_idx = param_id.param_name
+                                .strip_prefix('p')
+                                .and_then(|s| s.parse::<usize>().ok())
+                                .unwrap_or(0);
+                            chain.set_slot_param(
+                                slot as usize,
+                                param_idx,
+                                change.value,
+                            );
+                        }
+                    }
+                }
             }
             TargetType::Bus | TargetType::Master => {
                 // TODO: Apply bus/master volume when unified routing integrated

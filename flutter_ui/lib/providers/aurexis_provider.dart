@@ -150,7 +150,9 @@ class AurexisProvider extends ChangeNotifier {
         final map = jsonDecode(json) as Map<String, dynamic>;
         _parameters = AurexisParameterMap.fromJson(map);
         notifyListeners();
-      } catch (_) {}
+      } catch (e) {
+        assert(() { debugPrint('[AUREXIS] Failed to parse saved parameters: $e'); return true; }());
+      }
     }
   }
 

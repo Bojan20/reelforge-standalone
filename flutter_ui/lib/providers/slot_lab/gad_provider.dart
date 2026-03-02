@@ -281,7 +281,9 @@ class GadProvider extends ChangeNotifier {
             error: step['error'] as String?,
           );
         }).toList();
-      } catch (_) {}
+      } catch (e) {
+        assert(() { debugPrint('[GAD] Failed to parse test steps: $e'); return true; }());
+      }
     }
 
     notifyListeners();
@@ -321,7 +323,9 @@ class GadProvider extends ChangeNotifier {
         _tracks = trackList
             .map((t) => GadTrackData.fromJson(t as Map<String, dynamic>))
             .toList();
-      } catch (_) {}
+      } catch (e) {
+        assert(() { debugPrint('[GAD] Failed to parse track data: $e'); return true; }());
+      }
     }
     notifyListeners();
   }

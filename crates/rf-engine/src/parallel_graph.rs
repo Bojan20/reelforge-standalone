@@ -436,7 +436,7 @@ impl ParallelAudioGraph {
         // Process nodes in parallel
         let results: Vec<(NodeId, Vec<Vec<Sample>>)> = level_inputs
             .into_par_iter()
-            .map(|(node_id, inputs, _sidechains)| {
+            .map(|(node_id, inputs, sidechains)| {
                 let wrapper = &self.nodes[&node_id];
                 let mut node = wrapper.node.write();
 
@@ -449,8 +449,13 @@ impl ParallelAudioGraph {
                 let mut output_refs: Vec<&mut [Sample]> =
                     outputs.iter_mut().map(|v| v.as_mut_slice()).collect();
 
-                // Process (TODO: pass sidechain to node)
-                node.process(&input_refs, &mut output_refs);
+                // Process with sidechain if node supports it
+                if node.has_sidechain_input() {
+                    let sc_refs: Vec<&[Sample]> = sidechains.iter().map(|v| v.as_slice()).collect();
+                    node.process_with_sidechain(&input_refs, &mut output_refs, &sc_refs);
+                } else {
+                    node.process(&input_refs, &mut output_refs);
+                }
 
                 (node_id, outputs)
             })

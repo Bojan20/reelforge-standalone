@@ -14,6 +14,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../src/rust/engine_api.dart' as api;
+import '../src/rust/native_ffi.dart';
 
 enum MonitorSource {
   master(0),
@@ -405,24 +406,21 @@ class ControlRoomProvider extends ChangeNotifier {
   /// Set bass crossover frequency (40-120 Hz)
   void setBassXoverFreqHz(double freqHz) {
     _bassXoverFreqHz = freqHz.clamp(40.0, 120.0);
-    // TODO: FFI call when Rust bass management is implemented
-    // api.controlRoomSetBassXover(_bassXoverFreqHz);
+    NativeFFI.instance.controlRoomSetBassXover(_bassXoverFreqHz);
     notifyListeners();
   }
 
   /// Enable/disable subwoofer output
   void setSubwooferEnabled(bool enabled) {
     _subwooferEnabled = enabled;
-    // TODO: FFI call when Rust bass management is implemented
-    // api.controlRoomSetSubwoofer(enabled ? 1 : 0);
+    NativeFFI.instance.controlRoomSetSubwooferEnabled(enabled ? 1 : 0);
     notifyListeners();
   }
 
   /// Toggle subwoofer phase (0° / 180°)
   void setSubwooferPhaseInverted(bool inverted) {
     _subwooferPhaseInverted = inverted;
-    // TODO: FFI call when Rust bass management is implemented
-    // api.controlRoomSetSubwooferPhase(inverted ? 1 : 0);
+    NativeFFI.instance.controlRoomSetSubwooferPhase(inverted ? 1 : 0);
     notifyListeners();
   }
 
@@ -433,8 +431,7 @@ class ControlRoomProvider extends ChangeNotifier {
   /// Set reference level calibration offset (-20 to +20 dB)
   void setReferenceLevelDb(double levelDb) {
     _referenceLevelDb = levelDb.clamp(-20.0, 20.0);
-    // TODO: FFI call when Rust reference level is implemented
-    // api.controlRoomSetReferenceLevel(_referenceLevelDb);
+    NativeFFI.instance.controlRoomSetReferenceLevel(_referenceLevelDb);
     notifyListeners();
   }
 
@@ -452,20 +449,17 @@ class ControlRoomProvider extends ChangeNotifier {
   /// Set pink noise output level
   void setPinkNoiseLevelDb(double levelDb) {
     _pinkNoiseLevelDb = levelDb.clamp(-60.0, 0.0);
-    // TODO: FFI call to update pink noise level
-    // api.controlRoomSetPinkNoiseLevel(_pinkNoiseLevelDb);
+    NativeFFI.instance.controlRoomSetPinkNoiseLevel(_pinkNoiseLevelDb);
     notifyListeners();
   }
 
   void _startPinkNoise() {
-    // TODO: FFI call to start pink noise generator in Rust
-    // For now, just set state - Rust engine will handle actual audio
-    // api.controlRoomStartPinkNoise(_pinkNoiseLevelDb);
+    NativeFFI.instance.controlRoomSetPinkNoiseLevel(_pinkNoiseLevelDb);
+    NativeFFI.instance.controlRoomSetPinkNoiseEnabled(1);
   }
 
   void _stopPinkNoise() {
-    // TODO: FFI call to stop pink noise generator in Rust
-    // api.controlRoomStopPinkNoise();
+    NativeFFI.instance.controlRoomSetPinkNoiseEnabled(0);
     _pinkNoiseTimer?.cancel();
     _pinkNoiseTimer = null;
   }
@@ -478,17 +472,18 @@ class ControlRoomProvider extends ChangeNotifier {
   void setOutputDevice(String device) {
     if (_availableOutputDevices.contains(device)) {
       _outputDevice = device;
-      // TODO: FFI call to set output device
-      // api.controlRoomSetOutputDevice(device);
+      // Output device routing is handled by the OS audio subsystem,
+      // not through the engine FFI. CoreAudio device selection is
+      // managed at the host level.
       notifyListeners();
     }
   }
 
   /// Refresh available output devices
   Future<void> refreshOutputDevices() async {
-    // TODO: FFI call to get available devices from Rust
-    // final devices = api.controlRoomGetOutputDevices();
-    // _availableOutputDevices = devices.split(',');
+    // Audio device enumeration is platform-specific (CoreAudio on macOS).
+    // For now, use system defaults. Device enumeration will be added
+    // when rf-audio-host crate is implemented.
     _availableOutputDevices = [
       'System Default',
       'Built-in Output',

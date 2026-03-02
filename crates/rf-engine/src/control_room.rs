@@ -583,6 +583,37 @@ pub struct ControlRoom {
     /// Monitor peak meters
     pub monitor_peak_l: AtomicU64,
     pub monitor_peak_r: AtomicU64,
+
+    // ========== Bass Management ==========
+    /// Bass crossover frequency (40-120 Hz)
+    pub bass_xover_freq_hz: AtomicU64,
+    /// Subwoofer output enabled
+    pub subwoofer_enabled: AtomicBool,
+    /// Subwoofer phase inverted (180°)
+    pub subwoofer_phase_inverted: AtomicBool,
+    /// Bass management HPF state (z1, z2 per channel — biquad TDF-II)
+    bass_hpf_state: RwLock<[[f64; 2]; 2]>,
+    /// Bass management LPF state for sub output
+    bass_lpf_state: RwLock<[[f64; 2]; 2]>,
+
+    // ========== Reference Level & Calibration ==========
+    /// Reference level offset in dB (-20 to +20)
+    pub reference_level_db: AtomicU64,
+
+    // ========== Pink Noise Generator ==========
+    /// Pink noise enabled
+    pub pink_noise_enabled: AtomicBool,
+    /// Pink noise level in dB (stored as f64 bits)
+    pub pink_noise_level_db: AtomicU64,
+    /// Pink noise generator state (16 rows for Voss-McCartney)
+    pink_noise_rows: RwLock<[f64; 16]>,
+    /// Pink noise running sum
+    pink_noise_running_sum: RwLock<f64>,
+    /// Pink noise row counter
+    pink_noise_index: AtomicU32,
+
+    // ========== Sample Rate ==========
+    pub sample_rate: AtomicU64,
 }
 
 impl ControlRoom {
@@ -629,6 +660,26 @@ impl ControlRoom {
             // Metering
             monitor_peak_l: AtomicU64::new(0.0_f64.to_bits()),
             monitor_peak_r: AtomicU64::new(0.0_f64.to_bits()),
+
+            // Bass management
+            bass_xover_freq_hz: AtomicU64::new(80.0_f64.to_bits()),
+            subwoofer_enabled: AtomicBool::new(false),
+            subwoofer_phase_inverted: AtomicBool::new(false),
+            bass_hpf_state: RwLock::new([[0.0; 2]; 2]),
+            bass_lpf_state: RwLock::new([[0.0; 2]; 2]),
+
+            // Reference level
+            reference_level_db: AtomicU64::new(0.0_f64.to_bits()),
+
+            // Pink noise (Voss-McCartney algorithm)
+            pink_noise_enabled: AtomicBool::new(false),
+            pink_noise_level_db: AtomicU64::new((-20.0_f64).to_bits()),
+            pink_noise_rows: RwLock::new([0.0; 16]),
+            pink_noise_running_sum: RwLock::new(0.0),
+            pink_noise_index: AtomicU32::new(0),
+
+            // Sample rate
+            sample_rate: AtomicU64::new(48000.0_f64.to_bits()),
         }
     }
 
@@ -1148,6 +1199,216 @@ impl ControlRoom {
             .filter(|(_, c)| c.enabled.load(Ordering::Relaxed))
             .map(|(i, _)| i)
             .collect()
+    }
+
+    // ========== Bass Management ==========
+
+    /// Get bass crossover frequency in Hz
+    pub fn bass_xover_freq_hz(&self) -> f64 {
+        f64::from_bits(self.bass_xover_freq_hz.load(Ordering::Relaxed))
+    }
+
+    /// Set bass crossover frequency (40-120 Hz)
+    pub fn set_bass_xover_freq_hz(&self, freq_hz: f64) {
+        let clamped = freq_hz.clamp(40.0, 120.0);
+        self.bass_xover_freq_hz.store(clamped.to_bits(), Ordering::Relaxed);
+    }
+
+    /// Get subwoofer enabled state
+    pub fn subwoofer_enabled(&self) -> bool {
+        self.subwoofer_enabled.load(Ordering::Relaxed)
+    }
+
+    /// Set subwoofer enabled
+    pub fn set_subwoofer_enabled(&self, enabled: bool) {
+        self.subwoofer_enabled.store(enabled, Ordering::Relaxed);
+    }
+
+    /// Get subwoofer phase inverted state
+    pub fn subwoofer_phase_inverted(&self) -> bool {
+        self.subwoofer_phase_inverted.load(Ordering::Relaxed)
+    }
+
+    /// Set subwoofer phase inverted (0° / 180°)
+    pub fn set_subwoofer_phase_inverted(&self, inverted: bool) {
+        self.subwoofer_phase_inverted.store(inverted, Ordering::Relaxed);
+    }
+
+    /// Compute biquad HPF coefficients (Butterworth 2nd order)
+    fn compute_hpf_coeffs(freq_hz: f64, sample_rate: f64) -> [f64; 5] {
+        let w0 = 2.0 * std::f64::consts::PI * freq_hz / sample_rate;
+        let cos_w0 = w0.cos();
+        let alpha = w0.sin() / (2.0 * std::f64::consts::FRAC_1_SQRT_2); // Q = sqrt(2)/2
+        let a0 = 1.0 + alpha;
+        let b0 = ((1.0 + cos_w0) / 2.0) / a0;
+        let b1 = (-(1.0 + cos_w0)) / a0;
+        let b2 = ((1.0 + cos_w0) / 2.0) / a0;
+        let a1 = (-2.0 * cos_w0) / a0;
+        let a2 = (1.0 - alpha) / a0;
+        [b0, b1, b2, a1, a2]
+    }
+
+    /// Compute biquad LPF coefficients (Butterworth 2nd order)
+    fn compute_lpf_coeffs(freq_hz: f64, sample_rate: f64) -> [f64; 5] {
+        let w0 = 2.0 * std::f64::consts::PI * freq_hz / sample_rate;
+        let cos_w0 = w0.cos();
+        let alpha = w0.sin() / (2.0 * std::f64::consts::FRAC_1_SQRT_2);
+        let a0 = 1.0 + alpha;
+        let b0 = ((1.0 - cos_w0) / 2.0) / a0;
+        let b1 = (1.0 - cos_w0) / a0;
+        let b2 = ((1.0 - cos_w0) / 2.0) / a0;
+        let a1 = (-2.0 * cos_w0) / a0;
+        let a2 = (1.0 - alpha) / a0;
+        [b0, b1, b2, a1, a2]
+    }
+
+    /// Apply biquad filter (TDF-II) to a single sample
+    #[inline]
+    fn biquad_process(sample: f64, coeffs: &[f64; 5], state: &mut [f64; 2]) -> f64 {
+        let out = coeffs[0] * sample + state[0];
+        state[0] = coeffs[1] * sample - coeffs[3] * out + state[1];
+        state[1] = coeffs[2] * sample - coeffs[4] * out;
+        out
+    }
+
+    /// Process bass management on monitor output
+    /// Splits signal at crossover: HPF to mains, LPF summed to sub channel
+    /// Sub output is added to the monitor output as mono sum on both channels
+    pub fn process_bass_management(&self, output_l: &mut [Sample], output_r: &mut [Sample]) {
+        if !self.subwoofer_enabled.load(Ordering::Relaxed) {
+            return;
+        }
+
+        let freq = self.bass_xover_freq_hz();
+        let sr = f64::from_bits(self.sample_rate.load(Ordering::Relaxed));
+        let hpf_coeffs = Self::compute_hpf_coeffs(freq, sr);
+        let lpf_coeffs = Self::compute_lpf_coeffs(freq, sr);
+        let phase_inv = if self.subwoofer_phase_inverted.load(Ordering::Relaxed) { -1.0 } else { 1.0 };
+
+        let mut hpf_state = match self.bass_hpf_state.try_write() {
+            Some(s) => s,
+            None => return,
+        };
+        let mut lpf_state = match self.bass_lpf_state.try_write() {
+            Some(s) => s,
+            None => return,
+        };
+
+        let len = output_l.len().min(output_r.len());
+        for i in 0..len {
+            // HPF to mains (remove bass from main speakers)
+            let hp_l = Self::biquad_process(output_l[i], &hpf_coeffs, &mut hpf_state[0]);
+            let hp_r = Self::biquad_process(output_r[i], &hpf_coeffs, &mut hpf_state[1]);
+
+            // LPF for sub (extract bass content)
+            let lp_l = Self::biquad_process(output_l[i], &lpf_coeffs, &mut lpf_state[0]);
+            let lp_r = Self::biquad_process(output_r[i], &lpf_coeffs, &mut lpf_state[1]);
+            let sub_mono = (lp_l + lp_r) * 0.5 * phase_inv;
+
+            // Output: HPF mains + sub added back as mono LFE
+            output_l[i] = hp_l + sub_mono;
+            output_r[i] = hp_r + sub_mono;
+        }
+    }
+
+    // ========== Reference Level ==========
+
+    /// Get reference level offset in dB
+    pub fn reference_level_db(&self) -> f64 {
+        f64::from_bits(self.reference_level_db.load(Ordering::Relaxed))
+    }
+
+    /// Set reference level offset in dB (-20 to +20)
+    pub fn set_reference_level_db(&self, db: f64) {
+        let clamped = db.clamp(-20.0, 20.0);
+        self.reference_level_db.store(clamped.to_bits(), Ordering::Relaxed);
+    }
+
+    /// Get reference level as linear multiplier
+    pub fn reference_level_linear(&self) -> f64 {
+        10.0_f64.powf(self.reference_level_db() / 20.0)
+    }
+
+    // ========== Pink Noise Generator ==========
+
+    /// Get pink noise enabled
+    pub fn pink_noise_enabled(&self) -> bool {
+        self.pink_noise_enabled.load(Ordering::Relaxed)
+    }
+
+    /// Set pink noise enabled
+    pub fn set_pink_noise_enabled(&self, enabled: bool) {
+        self.pink_noise_enabled.store(enabled, Ordering::Relaxed);
+        if !enabled {
+            // Reset generator state
+            if let Some(mut rows) = self.pink_noise_rows.try_write() {
+                rows.fill(0.0);
+            }
+            if let Some(mut sum) = self.pink_noise_running_sum.try_write() {
+                *sum = 0.0;
+            }
+            self.pink_noise_index.store(0, Ordering::Relaxed);
+        }
+    }
+
+    /// Get pink noise level in dB
+    pub fn pink_noise_level_db(&self) -> f64 {
+        f64::from_bits(self.pink_noise_level_db.load(Ordering::Relaxed))
+    }
+
+    /// Set pink noise level in dB
+    pub fn set_pink_noise_level_db(&self, db: f64) {
+        let clamped = db.clamp(-60.0, 0.0);
+        self.pink_noise_level_db.store(clamped.to_bits(), Ordering::Relaxed);
+    }
+
+    /// Set sample rate (needed for filter coefficient calculation)
+    pub fn set_sample_rate(&self, sr: f64) {
+        self.sample_rate.store(sr.to_bits(), Ordering::Relaxed);
+    }
+
+    /// Generate pink noise into output buffers (Voss-McCartney algorithm)
+    /// Adds to existing signal at the configured level
+    pub fn generate_pink_noise(&self, output_l: &mut [Sample], output_r: &mut [Sample]) {
+        if !self.pink_noise_enabled.load(Ordering::Relaxed) {
+            return;
+        }
+
+        let level_db = self.pink_noise_level_db();
+        let level_linear = 10.0_f64.powf(level_db / 20.0);
+
+        let mut rows = match self.pink_noise_rows.try_write() {
+            Some(r) => r,
+            None => return,
+        };
+        let mut running_sum = match self.pink_noise_running_sum.try_write() {
+            Some(s) => s,
+            None => return,
+        };
+
+        let len = output_l.len().min(output_r.len());
+        let mut idx = self.pink_noise_index.load(Ordering::Relaxed);
+
+        for i in 0..len {
+            // Voss-McCartney: update rows based on trailing zeros of counter
+            let tz = idx.trailing_zeros().min(15) as usize;
+            // Simple LCG pseudo-random per row
+            let seed = idx.wrapping_mul(1664525).wrapping_add(1013904223);
+            let white = (seed as f64 / u32::MAX as f64) * 2.0 - 1.0;
+
+            *running_sum -= rows[tz];
+            rows[tz] = white;
+            *running_sum += white;
+
+            // Normalize: ~16 rows contributing, scale down
+            let pink = *running_sum / 16.0 * level_linear;
+            output_l[i] += pink;
+            output_r[i] += pink;
+
+            idx = idx.wrapping_add(1);
+        }
+
+        self.pink_noise_index.store(idx, Ordering::Relaxed);
     }
 }
 
