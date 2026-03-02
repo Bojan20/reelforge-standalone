@@ -951,6 +951,45 @@ class EngineApi {
     print('[Engine] Set clip $clipId muted to $muted (mock)');
   }
 
+  /// Set clip loop enabled
+  void setClipLoopEnabled(String clipId, bool enabled) {
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        _ffi.setClipLoopEnabled(nativeClipId, enabled);
+        print('[Engine] Set clip $clipId loop to $enabled via FFI');
+        return;
+      }
+    }
+    print('[Engine] Set clip $clipId loop to $enabled (mock)');
+  }
+
+  /// Set clip loop count (0 = infinite, 1+ = specific iterations)
+  void setClipLoopCount(String clipId, int count) {
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        _ffi.setClipLoopCount(nativeClipId, count);
+        print('[Engine] Set clip $clipId loop count to $count via FFI');
+        return;
+      }
+    }
+    print('[Engine] Set clip $clipId loop count to $count (mock)');
+  }
+
+  /// Set clip loop crossfade in seconds
+  void setClipLoopCrossfade(String clipId, double crossfadeSecs) {
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        _ffi.setClipLoopCrossfade(nativeClipId, crossfadeSecs);
+        print('[Engine] Set clip $clipId loop crossfade to ${crossfadeSecs}s via FFI');
+        return;
+      }
+    }
+    print('[Engine] Set clip $clipId loop crossfade to ${crossfadeSecs}s (mock)');
+  }
+
   /// Normalize clip to target dB
   bool normalizeClip(String clipId, {double targetDb = -3.0}) {
     print('[Engine] Normalize clip $clipId to $targetDb dB');

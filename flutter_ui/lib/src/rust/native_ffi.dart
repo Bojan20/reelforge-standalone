@@ -326,6 +326,15 @@ typedef EngineSetClipGainDart = int Function(int clipId, double gain);
 typedef EngineSetClipMutedNative = Int32 Function(Uint64 clipId, Int32 muted);
 typedef EngineSetClipMutedDart = int Function(int clipId, int muted);
 
+typedef EngineSetClipLoopEnabledNative = Int32 Function(Uint64 clipId, Int32 enabled);
+typedef EngineSetClipLoopEnabledDart = int Function(int clipId, int enabled);
+
+typedef EngineSetClipLoopCountNative = Int32 Function(Uint64 clipId, Uint32 count);
+typedef EngineSetClipLoopCountDart = int Function(int clipId, int count);
+
+typedef EngineSetClipLoopCrossfadeNative = Int32 Function(Uint64 clipId, Double crossfadeSecs);
+typedef EngineSetClipLoopCrossfadeDart = int Function(int clipId, double crossfadeSecs);
+
 typedef EngineGetClipDurationNative = Double Function(Uint64 clipId);
 typedef EngineGetClipDurationDart = double Function(int clipId);
 
@@ -2244,6 +2253,9 @@ class NativeFFI {
   late final EngineDeleteClipDart _deleteClip;
   late final EngineSetClipGainDart _setClipGain;
   late final EngineSetClipMutedDart _setClipMuted;
+  late final EngineSetClipLoopEnabledDart _setClipLoopEnabled;
+  late final EngineSetClipLoopCountDart _setClipLoopCount;
+  late final EngineSetClipLoopCrossfadeDart _setClipLoopCrossfade;
   late final EngineGetClipDurationDart _getClipDuration;
   late final EngineGetClipSourceDurationDart _getClipSourceDuration;
   late final EngineGetAudioFileDurationDart _getAudioFileDuration;
@@ -2959,6 +2971,9 @@ class NativeFFI {
     _deleteClip = _lib.lookupFunction<EngineDeleteClipNative, EngineDeleteClipDart>('engine_delete_clip');
     _setClipGain = _lib.lookupFunction<EngineSetClipGainNative, EngineSetClipGainDart>('engine_set_clip_gain');
     _setClipMuted = _lib.lookupFunction<EngineSetClipMutedNative, EngineSetClipMutedDart>('engine_set_clip_muted');
+    _setClipLoopEnabled = _lib.lookupFunction<EngineSetClipLoopEnabledNative, EngineSetClipLoopEnabledDart>('engine_set_clip_loop_enabled');
+    _setClipLoopCount = _lib.lookupFunction<EngineSetClipLoopCountNative, EngineSetClipLoopCountDart>('engine_set_clip_loop_count');
+    _setClipLoopCrossfade = _lib.lookupFunction<EngineSetClipLoopCrossfadeNative, EngineSetClipLoopCrossfadeDart>('engine_set_clip_loop_crossfade');
     _getClipDuration = _lib.lookupFunction<EngineGetClipDurationNative, EngineGetClipDurationDart>('engine_get_clip_duration');
     _getClipSourceDuration = _lib.lookupFunction<EngineGetClipSourceDurationNative, EngineGetClipSourceDurationDart>('engine_get_clip_source_duration');
     _getAudioFileDuration = _lib.lookupFunction<EngineGetAudioFileDurationNative, EngineGetAudioFileDurationDart>('engine_get_audio_file_duration');
@@ -4087,6 +4102,24 @@ class NativeFFI {
   bool setClipMuted(int clipId, bool muted) {
     if (!_loaded) return false;
     return _setClipMuted(clipId, muted ? 1 : 0) != 0;
+  }
+
+  /// Set clip loop enabled
+  bool setClipLoopEnabled(int clipId, bool enabled) {
+    if (!_loaded) return false;
+    return _setClipLoopEnabled(clipId, enabled ? 1 : 0) != 0;
+  }
+
+  /// Set clip loop count (0 = infinite, 1+ = specific iterations)
+  bool setClipLoopCount(int clipId, int count) {
+    if (!_loaded) return false;
+    return _setClipLoopCount(clipId, count) != 0;
+  }
+
+  /// Set clip loop crossfade in seconds
+  bool setClipLoopCrossfade(int clipId, double crossfadeSecs) {
+    if (!_loaded) return false;
+    return _setClipLoopCrossfade(clipId, crossfadeSecs) != 0;
   }
 
   /// Get clip duration (in seconds)

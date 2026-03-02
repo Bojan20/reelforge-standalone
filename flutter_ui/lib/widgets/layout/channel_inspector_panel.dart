@@ -102,6 +102,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
   bool _clipExpanded = true;
   bool _clipGainExpanded = true;
   bool _clipTimeStretchExpanded = false;
+  bool _clipLoopExpanded = false;
 
   bool _isEqBypassed(ChannelStripData ch) {
     final eqSlotIndex = ch.inserts.indexWhere((i) => i.name.contains('EQ'));
@@ -205,6 +206,8 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
             _buildClipGainSection(),
             const SizedBox(height: 6),
             _buildClipTimeStretchSection(),
+            const SizedBox(height: 6),
+            _buildClipLoopSection(),
           ],
         ],
       ),
@@ -863,6 +866,12 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
             _InfoRow('Source', clip.sourceFile!.split('/').last),
           if (widget.selectedClipTrack != null)
             _InfoRow('Track', widget.selectedClipTrack!.name),
+          if (clip.loopEnabled) ...[
+            const SizedBox(height: 4),
+            _InfoRow('Loop', clip.loopCount == 0 ? '\u221E' : '${clip.loopCount}x'),
+            if (clip.loopCrossfade > 0)
+              _InfoRow('Loop XF', '${(clip.loopCrossfade * 1000).round()}ms'),
+          ],
         ],
       ),
     );
@@ -1012,6 +1021,161 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
             widget.onClipChanged!(clip);
           }
         },
+      ),
+    );
+  }
+
+  // ═══ Clip Loop Section ═══════════════════════════════════════════════════
+
+  Widget _buildClipLoopSection() {
+    final clip = widget.selectedClip!;
+    final engine = NativeFFI.instance;
+    final clipIdInt = int.tryParse(clip.id) ?? 0;
+
+    return _Section(
+      title: 'Loop',
+      expanded: _clipLoopExpanded,
+      onToggle: () => setState(() => _clipLoopExpanded = !_clipLoopExpanded),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Loop enable toggle
+          Row(
+            children: [
+              const Text('Enabled', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary)),
+              const Spacer(),
+              Switch(
+                value: clip.loopEnabled,
+                onChanged: (val) {
+                  engine.setClipLoopEnabled(clipIdInt, val);
+                  final updated = clip.copyWith(loopEnabled: val);
+                  widget.onClipChanged?.call(updated);
+                },
+                activeColor: Colors.cyan,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ],
+          ),
+          if (clip.loopEnabled) ...[
+            const SizedBox(height: 4),
+            // Loop count
+            Row(
+              children: [
+                const Text('Count', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary)),
+                const Spacer(),
+                SizedBox(
+                  width: 60,
+                  height: 24,
+                  child: _CompactSpinner(
+                    value: clip.loopCount,
+                    min: 0,
+                    max: 99,
+                    label: clip.loopCount == 0 ? '\u221E' : '${clip.loopCount}',
+                    onChanged: (val) {
+                      engine.setClipLoopCount(clipIdInt, val);
+                      final updated = clip.copyWith(loopCount: val);
+                      widget.onClipChanged?.call(updated);
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            // Crossfade
+            Row(
+              children: [
+                const Text('Crossfade', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textSecondary)),
+                const Spacer(),
+                SizedBox(
+                  width: 80,
+                  child: SliderTheme(
+                    data: SliderThemeData(
+                      trackHeight: 2,
+                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+                      activeTrackColor: Colors.cyan,
+                      inactiveTrackColor: FluxForgeTheme.borderSubtle,
+                      thumbColor: Colors.cyan,
+                    ),
+                    child: Slider(
+                      value: clip.loopCrossfade,
+                      min: 0,
+                      max: 0.5,
+                      onChanged: (val) {
+                        engine.setClipLoopCrossfade(clipIdInt, val);
+                        final updated = clip.copyWith(loopCrossfade: val);
+                        widget.onClipChanged?.call(updated);
+                      },
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 36,
+                  child: Text(
+                    '${(clip.loopCrossfade * 1000).round()}ms',
+                    style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COMPACT SPINNER (for loop count)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _CompactSpinner extends StatelessWidget {
+  final int value;
+  final int min;
+  final int max;
+  final String label;
+  final ValueChanged<int> onChanged;
+
+  const _CompactSpinner({
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.label,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.surface,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _spinButton(Icons.remove, value > min ? () => onChanged(value - 1) : null),
+          Expanded(
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11, color: FluxForgeTheme.textPrimary, fontWeight: FontWeight.w600),
+            ),
+          ),
+          _spinButton(Icons.add, value < max ? () => onChanged(value + 1) : null),
+        ],
+      ),
+    );
+  }
+
+  Widget _spinButton(IconData icon, VoidCallback? onPressed) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Icon(icon, size: 12, color: onPressed != null ? FluxForgeTheme.textSecondary : FluxForgeTheme.textSecondary.withValues(alpha: 0.3)),
       ),
     );
   }

@@ -147,6 +147,8 @@ pub struct EventInstance {
     pub stop_fade_frames: u64,
     /// Stop fade total frames
     pub stop_fade_total: u64,
+    /// Loop break requested — stop looping after current iteration
+    pub loop_break_requested: bool,
 }
 
 impl EventInstance {
@@ -187,6 +189,7 @@ impl EventInstance {
             user_data: 0,
             stop_fade_frames: 0,
             stop_fade_total: 0,
+            loop_break_requested: false,
         }
     }
 

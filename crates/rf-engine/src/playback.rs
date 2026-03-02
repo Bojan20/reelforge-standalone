@@ -906,6 +906,10 @@ pub struct OneShotVoice {
     fade_gain: f32,
     /// P0.2: Loop playback (seamless, no gap)
     looping: bool,
+    /// Release mode — voice plays out remaining audio instead of looping back
+    loop_releasing: bool,
+    /// Random start offset range in samples (0 = disabled)
+    loop_random_start_samples: u64,
     // ═══════════════════════════════════════════════════════════════════════════
     // EXTENDED PARAMETERS: FadeIn and Trim support
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1025,6 +1029,8 @@ impl OneShotVoice {
             fade_increment: 0.0,
             fade_gain: 1.0,
             looping: false,
+            loop_releasing: false,
+            loop_random_start_samples: 0,
             // Extended parameters
             fade_in_samples_total: 0,
             fade_in_samples_elapsed: 0,
@@ -1063,6 +1069,8 @@ impl OneShotVoice {
         self.fade_gain = 0.0;
         self.pitch_semitones = 0.0; // P12.0.1: Reset pitch on activate
         self.looping = false;
+        self.loop_releasing = false;
+        self.loop_random_start_samples = 0;
         self.trim_start_sample = 0;
         self.trim_end_sample = 0;
         self.fade_out_samples_at_end = 0;
@@ -1111,6 +1119,8 @@ impl OneShotVoice {
         self.source = source;
         self.active = true;
         self.looping = false;
+        self.loop_releasing = false;
+        self.loop_random_start_samples = 0;
 
         // Fade out state (initially not fading)
         self.fade_samples_remaining = 0;
@@ -1145,6 +1155,15 @@ impl OneShotVoice {
     fn deactivate(&mut self) {
         self.active = false;
         self.position = 0;
+    }
+
+    /// Release loop — voice plays remaining audio without wrapping back
+    #[allow(dead_code)]
+    fn release_loop(&mut self) {
+        if self.looping {
+            self.loop_releasing = true;
+            self.looping = false;
+        }
     }
 
     /// Start fade out (for smooth stop)
@@ -1328,8 +1347,19 @@ impl OneShotVoice {
         self.position += (frames_needed as f64 * pitch_ratio) as u64;
 
         // P0.2: For looping, wrap position for next call
-        if self.looping {
-            self.position %= total_frames as u64;
+        if self.looping && !self.loop_releasing {
+            if self.position >= total_frames as u64 {
+                // Apply random start offset on loop wrap if configured
+                let random_offset = if self.loop_random_start_samples > 0 {
+                    // Deterministic pseudo-random from voice ID (no heap allocation)
+                    let hash = ((self.id as f64) * 1234.5678).sin().abs();
+                    (hash * self.loop_random_start_samples as f64) as u64
+                } else {
+                    0
+                };
+                self.position = random_offset + (self.position % total_frames as u64);
+                self.position %= total_frames as u64;
+            }
             true // Always playing until stopped
         } else {
             self.position < total_frames as u64
@@ -5407,7 +5437,10 @@ impl PlaybackEngine {
         for frame_idx in 0..frames {
             let global_sample = start_sample + frame_idx as u64;
 
-            if global_sample < clip_start_sample || global_sample >= clip_end_sample {
+            // Bounds check (looping clips extend beyond visual end)
+            if global_sample < clip_start_sample
+                || (global_sample >= clip_end_sample && !clip.loop_enabled)
+            {
                 continue;
             }
 
@@ -5415,8 +5448,47 @@ impl PlaybackEngine {
             let clip_offset = global_sample - clip_start_sample;
 
             // Apply time stretch + sample rate conversion with Lanczos-3 sinc interpolation
-            let source_pos_f64 =
+            let mut source_pos_f64 =
                 clip_offset as f64 * rate_ratio * playback_rate + source_offset_samples;
+
+            // Loop wrapping: wrap source position within source bounds
+            let mut loop_xf_gain = 1.0_f64;
+            if clip.loop_enabled {
+                let loop_length = clip.source_duration * source_sample_rate;
+                if loop_length > 0.0 {
+                    let offset_in_source = source_pos_f64 - source_offset_samples;
+                    if offset_in_source >= loop_length {
+                        // Check loop count (0 = infinite)
+                        if clip.loop_count > 0 {
+                            let iteration = (offset_in_source / loop_length) as u32;
+                            if iteration >= clip.loop_count {
+                                continue; // Past loop count limit
+                            }
+                        }
+                        let wrapped = offset_in_source % loop_length;
+                        source_pos_f64 = source_offset_samples + wrapped;
+
+                        // Crossfade at loop boundary (equal-power)
+                        if clip.loop_crossfade > 0.0 {
+                            let xf_len =
+                                (clip.loop_crossfade * source_sample_rate).min(loop_length * 0.5);
+                            let pos_in_loop = wrapped;
+                            // Near start of loop: fade in
+                            if pos_in_loop < xf_len {
+                                let xf_progress = pos_in_loop / xf_len;
+                                loop_xf_gain =
+                                    (xf_progress * std::f64::consts::FRAC_PI_2).sin();
+                            }
+                            // Near end of loop: fade out
+                            if pos_in_loop > (loop_length - xf_len) {
+                                let end_gain = (loop_length - pos_in_loop) / xf_len;
+                                loop_xf_gain *=
+                                    (end_gain * std::f64::consts::FRAC_PI_2).sin();
+                            }
+                        }
+                    }
+                }
+            }
 
             let channels = audio.channels as usize;
             let total_source_frames = audio.samples.len() / channels.max(1);
@@ -5439,10 +5511,10 @@ impl PlaybackEngine {
                     total_source_frames,
                     1,
                 ) as f64;
-                output_l[frame_idx] += interp_l * clip.gain;
-                output_r[frame_idx] += interp_r * clip.gain;
+                output_l[frame_idx] += interp_l * clip.gain * loop_xf_gain;
+                output_r[frame_idx] += interp_r * clip.gain * loop_xf_gain;
             } else {
-                let mono = interp_l * clip.gain;
+                let mono = interp_l * clip.gain * loop_xf_gain;
                 output_l[frame_idx] += mono;
                 output_r[frame_idx] += mono;
             }
@@ -5807,16 +5879,57 @@ impl PlaybackEngine {
             let playback_sample = start_sample as i64 + i as i64;
             let clip_relative_sample = playback_sample - clip_start_sample;
 
-            // Check if within clip bounds
-            if clip_relative_sample < 0 || clip_relative_sample >= clip_duration_samples {
+            // Check if within clip bounds (looping clips extend beyond visual duration)
+            if clip_relative_sample < 0
+                || (clip_relative_sample >= clip_duration_samples && !clip.loop_enabled)
+            {
                 continue;
             }
 
             // Calculate source position (with offset, rate conversion, AND time stretch)
             // playback_rate: stretch_ratio * pitch_rate — higher = faster source traversal
             let source_offset_samples = (clip.source_offset * source_sample_rate) as i64;
-            let source_pos_f64 = clip_relative_sample as f64 * rate_ratio * playback_rate
+            let mut source_pos_f64 = clip_relative_sample as f64 * rate_ratio * playback_rate
                 + source_offset_samples as f64;
+
+            // Loop wrapping: wrap source position within source bounds
+            let mut loop_xf_gain = 1.0_f64;
+            if clip.loop_enabled {
+                let loop_length = clip.source_duration * source_sample_rate;
+                if loop_length > 0.0 {
+                    let offset_in_source = source_pos_f64 - source_offset_samples as f64;
+                    if offset_in_source >= loop_length {
+                        // Check loop count (0 = infinite)
+                        if clip.loop_count > 0 {
+                            let iteration = (offset_in_source / loop_length) as u32;
+                            if iteration >= clip.loop_count {
+                                continue; // Past loop count limit
+                            }
+                        }
+                        let wrapped = offset_in_source % loop_length;
+                        source_pos_f64 = source_offset_samples as f64 + wrapped;
+
+                        // Crossfade at loop boundary (equal-power)
+                        if clip.loop_crossfade > 0.0 {
+                            let xf_len =
+                                (clip.loop_crossfade * source_sample_rate).min(loop_length * 0.5);
+                            let pos_in_loop = wrapped;
+                            // Near start of loop: fade in
+                            if pos_in_loop < xf_len {
+                                let xf_progress = pos_in_loop / xf_len;
+                                loop_xf_gain =
+                                    (xf_progress * std::f64::consts::FRAC_PI_2).sin();
+                            }
+                            // Near end of loop: fade out
+                            if pos_in_loop > (loop_length - xf_len) {
+                                let end_gain = (loop_length - pos_in_loop) / xf_len;
+                                loop_xf_gain *=
+                                    (end_gain * std::f64::consts::FRAC_PI_2).sin();
+                            }
+                        }
+                    }
+                }
+            }
 
             // Bounds check before interpolation
             if source_pos_f64 < 0.0 {
@@ -5899,8 +6012,8 @@ impl PlaybackEngine {
                 }
             }
 
-            // Apply gain and fade (pan is applied later in process())
-            let final_gain = gain * fade;
+            // Apply gain, fade, and loop crossfade (pan is applied later in process())
+            let final_gain = gain * fade * loop_xf_gain;
             output_l[i] += sample_l * final_gain;
             output_r[i] += sample_r * final_gain;
         }

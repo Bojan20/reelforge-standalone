@@ -57,6 +57,8 @@ class TrackLane extends StatefulWidget {
   final ValueChanged<String>? onClipMute;
   /// Loop toggle on clip (Logic Pro X style)
   final void Function(String clipId)? onClipLoopToggle;
+  /// Loop duration change on clip (drag to extend looped content)
+  final void Function(String clipId, double newDuration)? onClipLoopDurationChange;
   /// Time stretch on clip (Logic Pro X Flex Time style)
   final void Function(String clipId, double newDuration, double stretchRatio)? onClipTimeStretch;
   /// Called when time stretch drag ends — for FFI commit
@@ -112,6 +114,7 @@ class TrackLane extends StatefulWidget {
     this.onClipDelete,
     this.onClipMute,
     this.onClipLoopToggle,
+    this.onClipLoopDurationChange,
     this.onClipTimeStretch,
     this.onClipTimeStretchEnd,
     this.onClipSplitAtPosition,
@@ -218,6 +221,8 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                       onDelete: () => widget.onClipDelete?.call(clip.id),
                       onMute: () => widget.onClipMute?.call(clip.id),
                       onLoopToggle: () => widget.onClipLoopToggle?.call(clip.id),
+                      onLoopDurationChange: (newDur) =>
+                          widget.onClipLoopDurationChange?.call(clip.id, newDur),
                       onTimeStretch: (newDur, ratio) =>
                           widget.onClipTimeStretch?.call(clip.id, newDur, ratio),
                       onTimeStretchEnd: () => widget.onClipTimeStretchEnd?.call(clip.id),

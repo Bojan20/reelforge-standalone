@@ -791,6 +791,22 @@ pub struct Clip {
     #[serde(default)]
     pub pitch_shift: f64,
 
+    /// Loop enabled — repeat clip content (Logic Pro X style)
+    #[serde(default)]
+    pub loop_enabled: bool,
+
+    /// Loop count (0 = infinite, 1+ = specific count)
+    #[serde(default)]
+    pub loop_count: u32,
+
+    /// Crossfade duration at loop point in seconds
+    #[serde(default)]
+    pub loop_crossfade: f64,
+
+    /// Random start offset range in seconds (0 = disabled)
+    #[serde(default)]
+    pub loop_random_start: f64,
+
     // Clip-based FX chain (non-destructive, per-clip processing)
     #[serde(default)]
     pub fx_chain: ClipFxChain,
@@ -826,6 +842,10 @@ impl Clip {
             reversed: false,
             stretch_ratio: 1.0,
             pitch_shift: 0.0,
+            loop_enabled: false,
+            loop_count: 0,
+            loop_crossfade: 0.0,
+            loop_random_start: 0.0,
             fx_chain: ClipFxChain::new(),
         }
     }

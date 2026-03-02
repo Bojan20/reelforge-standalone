@@ -1684,6 +1684,33 @@ pub extern "C" fn engine_set_clip_muted(clip_id: u64, muted: i32) -> i32 {
     1
 }
 
+/// Set clip loop enabled state
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_clip_loop_enabled(clip_id: u64, enabled: i32) -> i32 {
+    TRACK_MANAGER.update_clip(ClipId(clip_id), |clip| {
+        clip.loop_enabled = enabled != 0;
+    });
+    1
+}
+
+/// Set clip loop count (0 = infinite, 1+ = specific count)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_clip_loop_count(clip_id: u64, count: u32) -> i32 {
+    TRACK_MANAGER.update_clip(ClipId(clip_id), |clip| {
+        clip.loop_count = count;
+    });
+    1
+}
+
+/// Set clip loop crossfade duration in seconds
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_clip_loop_crossfade(clip_id: u64, crossfade_secs: f64) -> i32 {
+    TRACK_MANAGER.update_clip(ClipId(clip_id), |clip| {
+        clip.loop_crossfade = crossfade_secs;
+    });
+    1
+}
+
 /// Get clips for a track (caller provides buffer)
 ///
 /// Returns actual number of clips
@@ -13738,6 +13765,10 @@ pub extern "C" fn render_selection_to_new_clip(
         reversed: false,
         stretch_ratio: 1.0,
         pitch_shift: 0.0,
+        loop_enabled: false,
+        loop_count: 0,
+        loop_crossfade: 0.0,
+        loop_random_start: 0.0,
         fx_chain: ClipFxChain::new(),
     };
 

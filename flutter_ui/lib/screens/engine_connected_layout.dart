@@ -6572,6 +6572,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
         if (clip.id != clipId) return;
         final newLoop = !clip.loopEnabled;
+        // Sync to audio engine
+        engine.setClipLoopEnabled(clipId, newLoop);
         setState(() {
           _clips = _clips.map((c) {
             if (c.id == clipId) {
@@ -6582,6 +6584,25 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         });
         // Sync clip loop to middleware layer
         _mwTimelineSyncController.handleClipParameterChanged(clipId, 'loop', newLoop);
+      },
+      onClipLoopDurationChange: (clipId, newDuration) {
+        final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
+        if (clip.id != clipId) return;
+        setState(() {
+          _clips = _clips.map((c) {
+            if (c.id == clipId) {
+              return c.copyWith(duration: newDuration);
+            }
+            return c;
+          }).toList();
+        });
+        // Sync loop duration to engine
+        engine.resizeClip(
+          clipId: clipId,
+          startTime: clip.startTime,
+          duration: newDuration,
+          sourceOffset: clip.sourceOffset,
+        );
       },
       onClipTimeStretch: (clipId, newDuration, stretchRatio) {
         setState(() {

@@ -70,6 +70,8 @@ class ClipWidget extends StatefulWidget {
   final VoidCallback? onMute;
   /// Called when loop handle is toggled (Logic Pro X style)
   final VoidCallback? onLoopToggle;
+  /// Called when loop duration changes via drag (extends clip duration for looped content)
+  final ValueChanged<double>? onLoopDurationChange;
   /// Called when time stretch drag changes clip duration (Logic Pro X Flex Time)
   /// Parameters: (newDuration, stretchRatio) — ratio = newDuration / originalDuration
   final void Function(double newDuration, double stretchRatio)? onTimeStretch;
@@ -112,6 +114,7 @@ class ClipWidget extends StatefulWidget {
     this.onSplit,
     this.onMute,
     this.onLoopToggle,
+    this.onLoopDurationChange,
     this.onTimeStretch,
     this.onTimeStretchEnd,
     this.onSplitAtPosition,
@@ -137,6 +140,8 @@ class _ClipWidgetState extends State<ClipWidget> {
   bool _isSlipEditing = false;
   bool _isDraggingVolumeHandle = false; // Cubase volume handle (top-center)
   bool _isDraggingTimeStretch = false; // Logic Pro X Flex Time stretch
+  bool _isDraggingLoopHandle = false; // Loop handle drag (extends clip duration)
+  double _loopDragStartDuration = 0; // Duration at drag start
   bool _timeStretchFromLeft = false; // Which edge initiated the stretch
   double _timeStretchOrigDuration = 0; // Original duration at drag start
   bool _isEditing = false;
@@ -628,8 +633,13 @@ class _ClipWidgetState extends State<ClipWidget> {
                   setState(() => _isDraggingTimeStretch = true);
                   return;
                 case SmartToolMode.loopHandle:
-                  // Loop handle click — toggle loop (Logic Pro X)
-                  widget.onLoopToggle?.call();
+                  // Loop handle drag — enable loop and extend duration (Logic Pro X)
+                  if (!clip.loopEnabled) {
+                    widget.onLoopToggle?.call();
+                  }
+                  _loopDragStartDuration = clip.duration;
+                  _dragStartMouseX = details.globalPosition.dx;
+                  setState(() => _isDraggingLoopHandle = true);
                   return;
                 case SmartToolMode.rangeSelectBody:
                   // Range select in upper body — fall through to range logic
@@ -764,6 +774,17 @@ class _ClipWidgetState extends State<ClipWidget> {
             return;
           }
 
+          // Loop handle drag — extend clip duration for looped content
+          if (_isDraggingLoopHandle && smartEnabled) {
+            final deltaPx = details.globalPosition.dx - _dragStartMouseX;
+            final deltaSecs = deltaPx / widget.zoom;
+            // Minimum duration = source duration (can't shrink below original)
+            final sourceDur = clip.sourceDuration ?? clip.duration;
+            final newDuration = (_loopDragStartDuration + deltaSecs).clamp(sourceDur, sourceDur * 100);
+            widget.onLoopDurationChange?.call(newDuration);
+            return;
+          }
+
           // Time stretch drag — Logic Pro X Flex Time style
           if (_isDraggingTimeStretch && smartEnabled) {
             final deltaTime = (details.globalPosition.dx - _dragStartMouseX) / widget.zoom;
@@ -860,6 +881,10 @@ class _ClipWidgetState extends State<ClipWidget> {
           if (_isDraggingTimeStretch && smartEnabled) {
             widget.onTimeStretchEnd?.call();
           }
+          // Smart Tool loop handle end — loop drag complete
+          if (_isDraggingLoopHandle && smartEnabled) {
+            // Duration already updated via onLoopDurationChange during drag
+          }
 
           if (_isDraggingMove) {
             // Use _wasCrossTrackDrag to ensure cleanup even if user moved back
@@ -892,6 +917,7 @@ class _ClipWidgetState extends State<ClipWidget> {
             _isDraggingFadeOut = false;
             _isDraggingVolumeHandle = false;
             _isDraggingTimeStretch = false;
+            _isDraggingLoopHandle = false;
             _isDraggingGain = false;
           });
         },
@@ -913,6 +939,7 @@ class _ClipWidgetState extends State<ClipWidget> {
             _isDraggingFadeOut = false;
             _isDraggingVolumeHandle = false;
             _isDraggingTimeStretch = false;
+            _isDraggingLoopHandle = false;
             _isDraggingGain = false;
           });
         },
@@ -1084,15 +1111,44 @@ class _ClipWidgetState extends State<ClipWidget> {
                   ),
                 ),
 
-              // Smart Tool: Loop handle indicator (Logic Pro X style, bottom-right)
-              if (!clip.locked && width > 80 && smartEnabled && clip.loopEnabled)
+              // Loop boundary markers (dashed lines at each loop point)
+              if (clip.loopEnabled && clip.sourceDuration != null && clip.sourceDuration! > 0 && width > 40)
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _LoopBoundaryPainter(
+                      sourceDuration: clip.sourceDuration!,
+                      clipDuration: clip.duration,
+                      zoom: widget.zoom,
+                      isDragging: _isDraggingLoopHandle,
+                    ),
+                  ),
+                ),
+
+              // Loop indicator (Logic Pro X style, bottom-right) — visible whenever loopEnabled
+              if (clip.loopEnabled && width > 60)
                 Positioned(
-                  right: 8,
+                  right: 6,
                   bottom: 2,
-                  child: Icon(
-                    Icons.loop,
-                    size: 12,
-                    color: Colors.cyan.withValues(alpha: 0.7),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (clip.loopCount > 0)
+                        Text(
+                          '${clip.loopCount}\u00D7',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: Colors.cyan.withValues(alpha: 0.8),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      Icon(
+                        Icons.loop,
+                        size: 12,
+                        color: _isDraggingLoopHandle
+                            ? Colors.cyanAccent
+                            : Colors.cyan.withValues(alpha: 0.7),
+                      ),
+                    ],
                   ),
                 ),
 
@@ -2323,6 +2379,69 @@ class _FadeOverlayPainter extends CustomPainter {
   @override
   bool shouldRepaint(_FadeOverlayPainter oldDelegate) =>
       isLeft != oldDelegate.isLeft || curve != oldDelegate.curve;
+}
+
+// ============ Loop Boundary Painter ============
+
+/// Draws dashed vertical lines at each loop boundary point within a looped clip
+class _LoopBoundaryPainter extends CustomPainter {
+  final double sourceDuration;
+  final double clipDuration;
+  final double zoom;
+  final bool isDragging;
+
+  _LoopBoundaryPainter({
+    required this.sourceDuration,
+    required this.clipDuration,
+    required this.zoom,
+    required this.isDragging,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (sourceDuration <= 0 || clipDuration <= sourceDuration) return;
+
+    final loopPixelWidth = sourceDuration * zoom;
+    if (loopPixelWidth < 4) return; // Too small to draw
+
+    final paint = Paint()
+      ..color = isDragging
+          ? Colors.cyan.withValues(alpha: 0.6)
+          : Colors.cyan.withValues(alpha: 0.35)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+
+    // Draw dashed vertical lines at each loop boundary
+    var x = loopPixelWidth;
+    while (x < size.width) {
+      // Dashed line
+      var y = 0.0;
+      while (y < size.height) {
+        final dashEnd = (y + 4).clamp(0.0, size.height);
+        canvas.drawLine(Offset(x, y), Offset(x, dashEnd), paint);
+        y += 7; // 4px dash + 3px gap
+      }
+      x += loopPixelWidth;
+    }
+
+    // Subtle overlay on looped region (past first source duration)
+    if (isDragging) {
+      final overlayPaint = Paint()
+        ..color = Colors.cyan.withValues(alpha: 0.06)
+        ..style = PaintingStyle.fill;
+      canvas.drawRect(
+        Rect.fromLTRB(loopPixelWidth, 0, size.width, size.height),
+        overlayPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_LoopBoundaryPainter oldDelegate) =>
+      oldDelegate.sourceDuration != sourceDuration ||
+      oldDelegate.clipDuration != clipDuration ||
+      oldDelegate.zoom != zoom ||
+      oldDelegate.isDragging != isDragging;
 }
 
 // ============ P3.3: Gain Envelope Painter ============

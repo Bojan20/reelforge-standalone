@@ -55,6 +55,10 @@ class TimelineClip {
   final ClipFxChain fxChain;
   /// Loop enabled (Logic Pro X style — repeat clip content)
   final bool loopEnabled;
+  /// Loop count (0 = infinite, 1+ = specific iterations)
+  final int loopCount;
+  /// Crossfade at loop point in seconds
+  final double loopCrossfade;
   /// Event ID this clip belongs to (null = global/all events)
   final String? eventId;
   /// Number of audio channels in source file (1 = mono, 2 = stereo)
@@ -84,6 +88,8 @@ class TimelineClip {
     this.selected = false,
     this.fxChain = const ClipFxChain(),
     this.loopEnabled = false,
+    this.loopCount = 0,
+    this.loopCrossfade = 0.0,
     this.eventId,
     this.channels = 2,
     this.stretchRatio = 1.0,
@@ -116,6 +122,8 @@ class TimelineClip {
     bool? selected,
     ClipFxChain? fxChain,
     bool? loopEnabled,
+    int? loopCount,
+    double? loopCrossfade,
     String? eventId,
     int? channels,
     double? stretchRatio,
@@ -142,6 +150,8 @@ class TimelineClip {
       selected: selected ?? this.selected,
       fxChain: fxChain ?? this.fxChain,
       loopEnabled: loopEnabled ?? this.loopEnabled,
+      loopCount: loopCount ?? this.loopCount,
+      loopCrossfade: loopCrossfade ?? this.loopCrossfade,
       eventId: eventId ?? this.eventId,
       channels: channels ?? this.channels,
       stretchRatio: stretchRatio ?? this.stretchRatio,

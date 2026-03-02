@@ -278,6 +278,10 @@ fn sync_tracks_from_project(e: &mut EngineBridge) {
                 reversed: false,
                 stretch_ratio: 1.0,
                 pitch_shift: 0.0,
+                loop_enabled: false,
+                loop_count: 0,
+                loop_crossfade: 0.0,
+                loop_random_start: 0.0,
                 fx_chain: rf_engine::track_manager::ClipFxChain::new(),
             };
 

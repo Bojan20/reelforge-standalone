@@ -674,8 +674,15 @@ impl EventManagerProcessor {
                 EventCommand::SeekPlayingId { .. } => {
                     // TODO: Implement seek
                 }
-                EventCommand::BreakLoop { .. } => {
-                    // TODO: Implement break loop
+                EventCommand::BreakLoop { playing_id } => {
+                    // Find the active instance and mark it to stop looping
+                    // after the current iteration completes
+                    for instance in self.instances.iter_mut() {
+                        if instance.playing_id == playing_id && instance.state.is_active() {
+                            instance.loop_break_requested = true;
+                            break;
+                        }
+                    }
                 }
             }
         }
