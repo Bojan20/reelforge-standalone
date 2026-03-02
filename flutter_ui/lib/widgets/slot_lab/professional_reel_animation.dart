@@ -292,13 +292,14 @@ class ReelAnimationState {
       }
 
       // ═══════════════════════════════════════════════════════════════════════════
-      // AUDIO SYNC (2026-02-14): Fire audio at t=0.6 — just before visual snap
+      // AUDIO SYNC (2026-03-02): Fire audio at t=0.5 — well before visual snap
       //
-      // Lerp to target begins at t=0.7. Audio needs a tiny head start (~25ms)
-      // to compensate for audio system latency, so the sound hits the ear
-      // at the same instant the reel visually snaps into place.
+      // Lerp to target begins at t=0.7. Audio needs ~50ms head start to
+      // compensate for: async chain overhead (triggerStage→triggerEvent→_playLayer),
+      // FFI disk I/O latency, and audio buffer scheduling. Scatter/symbol_land
+      // stages go through the same callback but with extra async hops.
       // ═══════════════════════════════════════════════════════════════════════════
-      if (t >= 0.6 && !_audioCallbackFired) {
+      if (t >= 0.5 && !_audioCallbackFired) {
         _audioCallbackFired = true;
         _audioShouldFireThisTick = true;
       }
@@ -648,8 +649,8 @@ class ProfessionalReelAnimationController extends ChangeNotifier {
       // ═══════════════════════════════════════════════════════════════════════════
       // AUDIO SYNC (2026-02-14): Fire reel stop audio in sync with visual landing
       //
-      // Primary: _audioShouldFireThisTick set at t=0.85 during deceleration
-      //          (reel velocity near zero, visually appears to have landed)
+      // Primary: _audioShouldFireThisTick set at t=0.5 during deceleration
+      //          (audio fires early to compensate for async chain + FFI latency)
       // Safety:  If reel transitions to stopped/bouncing without flag firing
       //          (edge case: very short deceleration, force stop, etc.)
       // ═══════════════════════════════════════════════════════════════════════════

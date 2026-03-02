@@ -810,13 +810,15 @@ class StageGroupService {
       // KEY INSIGHT: 'spin' (not just 'spinning') + 'loop/roll/reel' = REEL_SPIN_LOOP
       _StageDefinition(
         stage: 'REEL_SPIN_LOOP',
-        // CRITICAL FIX: Include 'spin' (not just 'spinning')
         keywords: ['spin', 'spinning', 'spins', 'loop', 'roll', 'reel', 'reels'],
-        requiredKeywords: [], // Need spin-related + loop/reel
+        // Positive intent only: MUST have spin/reel + loop/motion
+        requiredKeywords: [
+          'spin|spinning|spins|reel|reels',  // reel/spin context
+          'loop|spinning|roll|spin|spins',   // motion/loop context
+        ],
         suffixes: ['_loop', '_spinning', '_spins', '_roll'],
-        // CRITICAL FIX: Exclude UI indicators (button/click/press) and stop indicators
-        excludeKeywords: ['button', 'press', 'click', 'tap', 'ui', 'stop', 'land', 'start', 'end'],
-        priority: 92, // High priority for spinning sounds
+        excludeKeywords: ['button', 'press', 'click', 'tap', 'ui', 'stop', 'land'],
+        priority: 92,
       ),
 
       // ───────────────────────────────────────────────────────────────────

@@ -1007,6 +1007,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // When layers are added in Middleware center panel, Slot Lab updates automatically
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        // Clean false-positive audio assignments from previous sessions
+        Provider.of<SlotLabProjectProvider>(context, listen: false).sanitizeAssignments();
+
         // Cache middleware reference for safe dispose()
         _middlewareRef = _middleware;
 
@@ -2301,6 +2304,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       unmatchedCount += result.unmatched.length;
     }
 
+    // Sanitize false positives after batch binding
+    projectProvider.sanitizeAssignments();
+
     // Also generate trigger bindings for middleware layer
     triggers.generateAutoBindings();
 
@@ -2865,6 +2871,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                 _ensureCompositeEventForStage(stage, audioPath);
                                 count++;
                               }
+
+                              // Sanitize false positives after bulk import
+                              projectProvider.sanitizeAssignments();
 
                               // SINGLE SOURCE: Add all imported files to AudioAssetManager pool
                               final allPaths = mappings.values.toList();

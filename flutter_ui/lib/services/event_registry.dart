@@ -529,6 +529,7 @@ class EventRegistry extends ChangeNotifier {
   // ═══════════════════════════════════════════════════════════════════════════
   static const double kAnticipationPreTriggerMs = 50.0; // Default pre-trigger for anticipation
   static const double kReelStopPreTriggerMs = 20.0;     // Slight pre-trigger for reel stops
+  static const double kSymbolLandPreTriggerMs = 30.0;   // Pre-trigger for scatter/wild/bonus lands
   static const Set<String> _preTriggerStages = {
     'ANTICIPATION_ON',
     'ANTICIPATION_OFF',
@@ -1963,6 +1964,14 @@ class EventRegistry extends ChangeNotifier {
     if (normalizedStage.startsWith('REEL_STOP')) {
       context = context != null ? Map.from(context) : {};
       context['pre_trigger_ms'] = (context['pre_trigger_ms'] as double? ?? 0.0) + kReelStopPreTriggerMs;
+    }
+    // Pre-trigger for SCATTER_LAND and SYMBOL_LAND_* (scatter, wild, bonus)
+    // These fire from the same callback as REEL_STOP but go through async chain,
+    // which adds microtask scheduling latency. Compensate with pre-trigger offset.
+    if (normalizedStage.startsWith('SCATTER_LAND') ||
+        normalizedStage.startsWith('SYMBOL_LAND')) {
+      context = context != null ? Map.from(context) : {};
+      context['pre_trigger_ms'] = (context['pre_trigger_ms'] as double? ?? 0.0) + kSymbolLandPreTriggerMs;
     }
 
     // Try exact match first, then normalized

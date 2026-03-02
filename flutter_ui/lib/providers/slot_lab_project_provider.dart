@@ -1398,26 +1398,27 @@ class SlotLabProjectProvider extends ChangeNotifier {
           .where((t) => t.length > 1) // skip single chars
           .toSet();
 
-      // Check if ANY file token matches ANY stage token (exact, plural, or prefix≥4)
-      bool hasOverlap = false;
-      for (final ft in fileTokens) {
-        for (final st in stageTokens) {
+      // Count how many stage tokens are covered by file tokens
+      int overlapCount = 0;
+      for (final st in stageTokens) {
+        for (final ft in fileTokens) {
           if (ft == st || ft == '${st}s' || '${ft}s' == st) {
-            hasOverlap = true;
+            overlapCount++;
             break;
           }
-          // Allow prefix match for long tokens (≥4 chars)
           if (ft.length >= 4 && st.length >= 4 &&
               (ft.startsWith(st) || st.startsWith(ft))) {
-            hasOverlap = true;
+            overlapCount++;
             break;
           }
         }
-        if (hasOverlap) break;
       }
 
-      if (!hasOverlap && fileTokens.isNotEmpty) {
-        // Zero overlap — this is a false positive, remove it
+      // Require coverage proportional to stage complexity:
+      // 1-2 token stages: at least 1 overlap
+      // 3+ token stages (e.g. REEL_SPIN_LOOP): at least 2 overlaps
+      final minRequired = stageTokens.length >= 3 ? 2 : 1;
+      if (overlapCount < minRequired && fileTokens.isNotEmpty) {
         removals.add(stage);
         continue;
       }
