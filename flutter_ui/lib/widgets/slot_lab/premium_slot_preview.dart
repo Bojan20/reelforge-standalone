@@ -5173,6 +5173,10 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     eventRegistry.stopEvent('WIN_LINE_SHOW');
     eventRegistry.stopEvent('WIN_PRESENT');
 
+    // Stop big win music
+    eventRegistry.stopEvent('MUSIC_BIGWIN_L1');
+    eventRegistry.stopEvent('MUSIC_BIGWIN_INTRO');
+
     // Stop any tier-specific audio
     for (int i = 1; i <= 5; i++) {
       eventRegistry.stopEvent('WIN_PRESENT_$i');
@@ -5184,6 +5188,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     if (_currentWinTier.isNotEmpty) {
       eventRegistry.triggerStage('BIG_WIN_END');
       eventRegistry.triggerStage('WIN_PRESENT_END');
+
+      // Restore base game music after big win
+      eventRegistry.triggerStage('MUSIC_BASE_L1');
     }
     eventRegistry.triggerStage('WIN_COLLECT');
 
@@ -5996,6 +6003,11 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         _showWinPresenter = true;
         context.read<SlotLabProvider>().setWinPresentationActive(true); // Sync with provider for SKIP detection
 
+        // START BIG WIN MUSIC when big win detected (20x+)
+        if (_isBigWinTier(_currentWinTier)) {
+          eventRegistry.triggerStage('MUSIC_BIGWIN_L1');
+        }
+
         // Start Big Win protection countdown for big wins
         // Regular wins have 0s protection (immediate skip available)
         _startBigWinProtection(_currentWinTier);
@@ -6236,6 +6248,13 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   void _collectWin() {
     // Stop Big Win protection timer
     _stopBigWinProtection();
+
+    // Stop big win music on collect and restore base
+    if (_isBigWinTier(_currentWinTier)) {
+      eventRegistry.stopEvent('MUSIC_BIGWIN_L1');
+      eventRegistry.stopEvent('MUSIC_BIGWIN_INTRO');
+      eventRegistry.triggerStage('MUSIC_BASE_L1');
+    }
 
     setState(() {
       _balance += _pendingWinAmount;

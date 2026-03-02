@@ -2046,11 +2046,19 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       eventRegistry.stopEvent('BIG_WIN_TIER_$i');
     }
 
+    // Stop big win music on skip
+    eventRegistry.stopEvent('MUSIC_BIGWIN_L1');
+    eventRegistry.stopEvent('MUSIC_BIGWIN_INTRO');
+
     // Trigger END stages so audio designers can have "win end" sounds
     eventRegistry.triggerStage('ROLLUP_END');
     if (savedWinTier.isNotEmpty) {
       eventRegistry.triggerStage('BIG_WIN_END');
       eventRegistry.triggerStage('WIN_PRESENT_END');
+
+      // Restore base game music after big win skip
+      _ensureAudioRegistered('MUSIC_BASE_L1');
+      eventRegistry.triggerStage('MUSIC_BASE_L1');
     }
     eventRegistry.triggerStage('WIN_COLLECT');
 
@@ -3017,9 +3025,32 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // ENSURE BIG WIN AUDIO EVENTS ARE REGISTERED
+    // Safety net: register all big win stages before triggering
+    // ═══════════════════════════════════════════════════════════════════════════
+    _ensureAudioRegistered('BIG_WIN_INTRO');
+    _ensureAudioRegistered('BIG_WIN_END');
+    _ensureAudioRegistered('BIG_WIN_LOOP');
+    _ensureAudioRegistered('BIG_WIN_COINS');
+    _ensureAudioRegistered('BIG_WIN_IMPACT');
+    _ensureAudioRegistered('BIG_WIN_UPGRADE');
+    _ensureAudioRegistered('BIG_WIN_OUTRO');
+    // Big Win music layers
+    _ensureAudioRegistered('MUSIC_BIGWIN_L1');
+    _ensureAudioRegistered('MUSIC_BIGWIN_INTRO');
+    _ensureAudioRegistered('MUSIC_BIGWIN_OUTRO');
+    // Big Win tier stages
+    for (final tier in _tierProgressionList) {
+      _ensureAudioRegistered(tier);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // STEP 1: BIG_WIN_INTRO (0.5s) — Entry fanfare
     // ═══════════════════════════════════════════════════════════════════════════
     eventRegistry.triggerStage('BIG_WIN_INTRO');
+
+    // START BIG WIN MUSIC — crossfade from base game music
+    eventRegistry.triggerStage('MUSIC_BIGWIN_L1');
 
     // Show plaque immediately with first tier
     setState(() {
@@ -3112,6 +3143,19 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Counter je već STAO (dostigao target na kraju tier-ova)
     // ═══════════════════════════════════════════════════════════════════════════
     eventRegistry.triggerStage('BIG_WIN_END');
+
+    // STOP BIG WIN MUSIC — fade out, auto-restore base game music
+    eventRegistry.stopEvent('MUSIC_BIGWIN_L1');
+    eventRegistry.stopEvent('MUSIC_BIGWIN_INTRO');
+
+    // Trigger outro if assigned
+    _ensureAudioRegistered('MUSIC_BIGWIN_OUTRO');
+    eventRegistry.triggerStage('MUSIC_BIGWIN_OUTRO');
+
+    // Restore base game music
+    _ensureAudioRegistered('MUSIC_BASE_L1');
+    eventRegistry.triggerStage('MUSIC_BASE_L1');
+
     final lastTier = _currentDisplayTier;
 
     // Plaketa OSTAJE sa poslednjim tier-om (ne menja se)

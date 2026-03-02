@@ -460,8 +460,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final middleware = context.read<MiddlewareProvider>();
     final eventId = 'audio_$stage';
 
-    // Check if already exists — update layer path if needed
+    // Check if already exists — skip if audio path unchanged (performance)
     final existing = middleware.compositeEvents.where((e) => e.id == eventId).firstOrNull;
+    if (existing != null && existing.layers.isNotEmpty &&
+        existing.layers.first.audioPath == audioPath) {
+      return; // Already synced, no change needed
+    }
 
     final stageConfig = StageConfigurationService.instance;
     final busId = _getBusForStage(stage);
@@ -10170,6 +10174,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         );
 
         eventRegistry.registerEvent(audioEvent);
+
+        // Also ensure composite event exists in MiddlewareProvider
+        // so events panel shows these bindings
+        _ensureCompositeEventForStage(stage, audioPath);
       }
 
     } catch (e) { /* ignored */ }
