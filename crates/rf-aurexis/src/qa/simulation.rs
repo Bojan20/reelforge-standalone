@@ -89,9 +89,7 @@ impl VolatilitySimulator {
             outputs.push(map);
         }
 
-        let total_duration_s = outputs.last()
-            .map(|m| m.session_duration_s)
-            .unwrap_or(0.0);
+        let total_duration_s = outputs.last().map(|m| m.session_duration_s).unwrap_or(0.0);
 
         SimulationResult {
             outputs,
@@ -128,10 +126,13 @@ mod tests {
 
         // 50 ticks neutral, then 50 ticks with big win
         sim.add_constant_steps(50, SimulationStep::default());
-        sim.add_constant_steps(50, SimulationStep {
-            win_multiplier: 100.0,
-            ..Default::default()
-        });
+        sim.add_constant_steps(
+            50,
+            SimulationStep {
+                win_multiplier: 100.0,
+                ..Default::default()
+            },
+        );
 
         let result = sim.run();
         assert!(result.peak_escalation > 1.0, "Win should cause escalation");

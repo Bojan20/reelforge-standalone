@@ -1,5 +1,5 @@
-pub mod win;
 pub mod curves;
+pub mod win;
 
-pub use win::WinEscalationEngine;
 pub use curves::EscalationCurve;
+pub use win::WinEscalationEngine;

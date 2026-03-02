@@ -99,17 +99,17 @@ void main() {
 
     test('proTools preset should have Pro Tools-style ballistics', () {
       const config = GpuMeterConfig.proTools;
-      expect(config.peakHoldMs, 2000);
-      expect(config.peakDecayDbPerSec, 20);
-      expect(config.attackMs, 0.01); // Near instant attack
-      expect(config.releaseMs, 1500);
+      expect(config.peakHoldMs, 1500);
+      expect(config.peakDecayDbPerSec, 26);
+      expect(config.attackMs, 0); // Instant attack
+      expect(config.releaseMs, 300);
     });
 
     test('ppm preset should have EBU PPM ballistics', () {
       const config = GpuMeterConfig.ppm;
       expect(config.attackMs, 10);
-      expect(config.releaseMs, 1500);
-      expect(config.peakHoldMs, 3000);
+      expect(config.releaseMs, 600);
+      expect(config.peakHoldMs, 1500);
     });
 
     test('vu preset should have VU meter characteristics', () {
@@ -125,7 +125,7 @@ void main() {
     test('compact preset should hide scale', () {
       const config = GpuMeterConfig.compact;
       expect(config.showScale, false);
-      expect(config.peakDecayDbPerSec, 40); // Faster decay
+      expect(config.peakDecayDbPerSec, 26);
     });
 
     test('scaleMarks should contain standard dB values', () {

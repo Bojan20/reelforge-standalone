@@ -50,34 +50,50 @@ mod tests {
 
     #[test]
     fn test_exponential_endpoints() {
-        assert!((EscalationCurve::evaluate(0.0, EscalationCurveType::Exponential) - 0.0).abs() < 0.01);
-        assert!((EscalationCurve::evaluate(1.0, EscalationCurveType::Exponential) - 1.0).abs() < 0.01);
+        assert!(
+            (EscalationCurve::evaluate(0.0, EscalationCurveType::Exponential) - 0.0).abs() < 0.01
+        );
+        assert!(
+            (EscalationCurve::evaluate(1.0, EscalationCurveType::Exponential) - 1.0).abs() < 0.01
+        );
     }
 
     #[test]
     fn test_exponential_convex() {
         // Exponential should be below linear at midpoint
         let mid = EscalationCurve::evaluate(0.5, EscalationCurveType::Exponential);
-        assert!(mid < 0.5, "Exponential should be convex (below linear at mid): {mid}");
+        assert!(
+            mid < 0.5,
+            "Exponential should be convex (below linear at mid): {mid}"
+        );
     }
 
     #[test]
     fn test_logarithmic_concave() {
         // Logarithmic should be above linear at midpoint
         let mid = EscalationCurve::evaluate(0.5, EscalationCurveType::Logarithmic);
-        assert!(mid > 0.5, "Logarithmic should be concave (above linear at mid): {mid}");
+        assert!(
+            mid > 0.5,
+            "Logarithmic should be concave (above linear at mid): {mid}"
+        );
     }
 
     #[test]
     fn test_s_curve_midpoint() {
         let mid = EscalationCurve::evaluate(0.5, EscalationCurveType::SCurve);
-        assert!((mid - 0.5).abs() < 0.01, "S-curve midpoint should be ~0.5: {mid}");
+        assert!(
+            (mid - 0.5).abs() < 0.01,
+            "S-curve midpoint should be ~0.5: {mid}"
+        );
     }
 
     #[test]
     fn test_s_curve_beyond_one() {
         let val = EscalationCurve::evaluate(1.5, EscalationCurveType::SCurve);
-        assert!((val - 1.5).abs() < 0.01, "S-curve beyond 1.0 should be linear");
+        assert!(
+            (val - 1.5).abs() < 0.01,
+            "S-curve beyond 1.0 should be linear"
+        );
     }
 
     #[test]

@@ -1,3 +1,3 @@
 pub mod attention;
 
-pub use attention::{AttentionVectorEngine, ScreenEvent, AttentionVector};
+pub use attention::{AttentionVector, AttentionVectorEngine, ScreenEvent};

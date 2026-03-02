@@ -3,18 +3,17 @@
 //! Exposes multi-project isolation, config diff, auto regression,
 //! and burn test via C FFI.
 
-use std::ffi::{c_char, CStr, CString};
-use std::ptr;
-use std::collections::HashMap;
-use parking_lot::RwLock;
 use once_cell::sync::Lazy;
+use parking_lot::RwLock;
+use std::collections::HashMap;
+use std::ffi::{CStr, CString, c_char};
+use std::ptr;
 
-use rf_aurexis::sss::{
-    ProjectIsolation, ProjectConfig, ConfigDiffEngine,
-    AutoRegression, RegressionConfig, StressScenario,
-    BurnTest, BurnTestConfig,
-};
 use rf_aurexis::core::config::AurexisConfig;
+use rf_aurexis::sss::{
+    AutoRegression, BurnTest, BurnTestConfig, ConfigDiffEngine, ProjectConfig, ProjectIsolation,
+    RegressionConfig, StressScenario,
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GLOBAL STATE
@@ -54,7 +53,11 @@ pub extern "C" fn sss_switch_project(id: *const c_char) -> i32 {
         Some(s) => s,
         None => return 0,
     };
-    if PROJECT_ISOLATION.write().switch_project(&id_str) { 1 } else { 0 }
+    if PROJECT_ISOLATION.write().switch_project(&id_str) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Remove a project. Returns 1 on success.
@@ -64,7 +67,11 @@ pub extern "C" fn sss_remove_project(id: *const c_char) -> i32 {
         Some(s) => s,
         None => return 0,
     };
-    if PROJECT_ISOLATION.write().remove_project(&id_str) { 1 } else { 0 }
+    if PROJECT_ISOLATION.write().remove_project(&id_str) {
+        1
+    } else {
+        0
+    }
 }
 
 /// Get active project manifest JSON. Caller must free with sss_free_string.
@@ -84,13 +91,17 @@ pub extern "C" fn sss_active_project_json() -> *mut c_char {
 #[unsafe(no_mangle)]
 pub extern "C" fn sss_list_projects_json() -> *mut c_char {
     let guard = PROJECT_ISOLATION.read();
-    let projects: Vec<_> = guard.list_projects().iter()
-        .map(|p| serde_json::json!({
-            "id": p.manifest.project_id,
-            "name": p.manifest.project_name,
-            "certified": p.manifest.is_certified(),
-            "config_hash": p.manifest.config_hash,
-        }))
+    let projects: Vec<_> = guard
+        .list_projects()
+        .iter()
+        .map(|p| {
+            serde_json::json!({
+                "id": p.manifest.project_id,
+                "name": p.manifest.project_name,
+                "certified": p.manifest.is_certified(),
+                "config_hash": p.manifest.config_hash,
+            })
+        })
         .collect();
     match serde_json::to_string(&projects) {
         Ok(json) => string_to_c(&json),
@@ -107,8 +118,14 @@ pub extern "C" fn sss_list_projects_json() -> *mut c_char {
 /// Caller must free result with sss_free_string.
 #[unsafe(no_mangle)]
 pub extern "C" fn sss_config_diff(old_json: *const c_char, new_json: *const c_char) -> *mut c_char {
-    let old_str = match unsafe { c_str_to_string(old_json) } { Some(s) => s, None => return ptr::null_mut() };
-    let new_str = match unsafe { c_str_to_string(new_json) } { Some(s) => s, None => return ptr::null_mut() };
+    let old_str = match unsafe { c_str_to_string(old_json) } {
+        Some(s) => s,
+        None => return ptr::null_mut(),
+    };
+    let new_str = match unsafe { c_str_to_string(new_json) } {
+        Some(s) => s,
+        None => return ptr::null_mut(),
+    };
 
     let old: HashMap<String, String> = match serde_json::from_str(&old_str) {
         Ok(m) => m,
@@ -129,13 +146,29 @@ pub extern "C" fn sss_config_diff(old_json: *const c_char, new_json: *const c_ch
 /// Quick check: does a config change require regression? Returns 1 if yes.
 #[unsafe(no_mangle)]
 pub extern "C" fn sss_requires_regression(old_json: *const c_char, new_json: *const c_char) -> i32 {
-    let old_str = match unsafe { c_str_to_string(old_json) } { Some(s) => s, None => return -1 };
-    let new_str = match unsafe { c_str_to_string(new_json) } { Some(s) => s, None => return -1 };
+    let old_str = match unsafe { c_str_to_string(old_json) } {
+        Some(s) => s,
+        None => return -1,
+    };
+    let new_str = match unsafe { c_str_to_string(new_json) } {
+        Some(s) => s,
+        None => return -1,
+    };
 
-    let old: HashMap<String, String> = match serde_json::from_str(&old_str) { Ok(m) => m, Err(_) => return -1 };
-    let new: HashMap<String, String> = match serde_json::from_str(&new_str) { Ok(m) => m, Err(_) => return -1 };
+    let old: HashMap<String, String> = match serde_json::from_str(&old_str) {
+        Ok(m) => m,
+        Err(_) => return -1,
+    };
+    let new: HashMap<String, String> = match serde_json::from_str(&new_str) {
+        Ok(m) => m,
+        Err(_) => return -1,
+    };
 
-    if ConfigDiffEngine::requires_regression(&old, &new) { 1 } else { 0 }
+    if ConfigDiffEngine::requires_regression(&old, &new) {
+        1
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -260,7 +293,13 @@ pub extern "C" fn sss_burn_test_deterministic() -> i32 {
     let guard = BURN_TEST.read();
     match &*guard {
         Some(bt) => match bt.last_result() {
-            Some(r) => if r.deterministic { 1 } else { 0 },
+            Some(r) => {
+                if r.deterministic {
+                    1
+                } else {
+                    0
+                }
+            }
             None => -1,
         },
         None => -1,
@@ -271,7 +310,9 @@ pub extern "C" fn sss_burn_test_deterministic() -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn sss_free_string(s: *mut c_char) {
     if !s.is_null() {
-        unsafe { drop(CString::from_raw(s)); }
+        unsafe {
+            drop(CString::from_raw(s));
+        }
     }
 }
 
@@ -280,10 +321,14 @@ pub extern "C" fn sss_free_string(s: *mut c_char) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 fn string_to_c(s: &str) -> *mut c_char {
-    CString::new(s).map(|c| c.into_raw()).unwrap_or(ptr::null_mut())
+    CString::new(s)
+        .map(|c| c.into_raw())
+        .unwrap_or(ptr::null_mut())
 }
 
 unsafe fn c_str_to_string(s: *const c_char) -> Option<String> {
-    if s.is_null() { return None; }
+    if s.is_null() {
+        return None;
+    }
     unsafe { CStr::from_ptr(s) }.to_str().ok().map(String::from)
 }

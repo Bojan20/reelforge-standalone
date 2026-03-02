@@ -3,10 +3,10 @@
 //! 10 spectral roles, masking resolution, SCI collision index.
 //! Deterministic spectral allocation for slot audio voices.
 
-pub mod roles;
 pub mod allocation;
 pub mod masking;
+pub mod roles;
 
-pub use roles::{SpectralRole, SpectralBand};
-pub use allocation::{SpectralAllocator, SpectralAssignment, SpectralAllocationOutput};
-pub use masking::{MaskingResolver, MaskingStrategy, MaskingAction, SciAdvanced};
+pub use allocation::{SpectralAllocationOutput, SpectralAllocator, SpectralAssignment};
+pub use masking::{MaskingAction, MaskingResolver, MaskingStrategy, SciAdvanced};
+pub use roles::{SpectralBand, SpectralRole};

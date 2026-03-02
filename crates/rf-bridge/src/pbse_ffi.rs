@@ -4,7 +4,7 @@
 //! (separate from AUREXIS ENGINE) because it creates internal engines
 //! for each simulation run.
 
-use std::ffi::{c_char, CString};
+use std::ffi::{CString, c_char};
 use std::ptr;
 
 use once_cell::sync::Lazy;
@@ -16,7 +16,8 @@ use rf_aurexis::qa::pbse::{PreBakeSimulator, SimulationDomain, ValidationThresho
 // GLOBAL STATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-pub(crate) static PBSE: Lazy<RwLock<PreBakeSimulator>> = Lazy::new(|| RwLock::new(PreBakeSimulator::new()));
+pub(crate) static PBSE: Lazy<RwLock<PreBakeSimulator>> =
+    Lazy::new(|| RwLock::new(PreBakeSimulator::new()));
 
 /// Get PBSE result for cross-module access (used by AIL).
 pub(crate) fn get_pbse_result() -> Option<rf_aurexis::qa::pbse::PbseResult> {
@@ -126,14 +127,23 @@ pub extern "C" fn pbse_domain_passed(domain_index: u8) -> i32 {
 /// Get total spins from last full simulation.
 #[unsafe(no_mangle)]
 pub extern "C" fn pbse_total_spins() -> u32 {
-    PBSE.read().last_result().as_ref().map_or(0, |r| r.total_spins)
+    PBSE.read()
+        .last_result()
+        .as_ref()
+        .map_or(0, |r| r.total_spins)
 }
 
 /// Check if determinism was verified in last simulation.
 #[unsafe(no_mangle)]
 pub extern "C" fn pbse_determinism_verified() -> i32 {
     match PBSE.read().last_result() {
-        Some(r) => if r.determinism_verified { 1 } else { 0 },
+        Some(r) => {
+            if r.determinism_verified {
+                1
+            } else {
+                0
+            }
+        }
         None => -1,
     }
 }
@@ -142,7 +152,8 @@ pub extern "C" fn pbse_determinism_verified() -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn pbse_domain_peak_energy(domain_index: u8) -> f64 {
     let sim = PBSE.read();
-    sim.last_result().as_ref()
+    sim.last_result()
+        .as_ref()
         .and_then(|r| r.domains.get(domain_index as usize))
         .map_or(0.0, |d| d.peak_energy_cap)
 }
@@ -151,7 +162,8 @@ pub extern "C" fn pbse_domain_peak_energy(domain_index: u8) -> f64 {
 #[unsafe(no_mangle)]
 pub extern "C" fn pbse_domain_peak_voices(domain_index: u8) -> u32 {
     let sim = PBSE.read();
-    sim.last_result().as_ref()
+    sim.last_result()
+        .as_ref()
         .and_then(|r| r.domains.get(domain_index as usize))
         .map_or(0, |d| d.peak_voice_count)
 }
@@ -160,7 +172,8 @@ pub extern "C" fn pbse_domain_peak_voices(domain_index: u8) -> u32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn pbse_domain_peak_sci(domain_index: u8) -> f64 {
     let sim = PBSE.read();
-    sim.last_result().as_ref()
+    sim.last_result()
+        .as_ref()
         .and_then(|r| r.domains.get(domain_index as usize))
         .map_or(0.0, |d| d.peak_sci)
 }
@@ -169,7 +182,8 @@ pub extern "C" fn pbse_domain_peak_sci(domain_index: u8) -> f64 {
 #[unsafe(no_mangle)]
 pub extern "C" fn pbse_domain_peak_fatigue(domain_index: u8) -> f64 {
     let sim = PBSE.read();
-    sim.last_result().as_ref()
+    sim.last_result()
+        .as_ref()
         .and_then(|r| r.domains.get(domain_index as usize))
         .map_or(0.0, |d| d.peak_fatigue)
 }
@@ -178,7 +192,8 @@ pub extern "C" fn pbse_domain_peak_fatigue(domain_index: u8) -> f64 {
 #[unsafe(no_mangle)]
 pub extern "C" fn pbse_domain_escalation_slope(domain_index: u8) -> f64 {
     let sim = PBSE.read();
-    sim.last_result().as_ref()
+    sim.last_result()
+        .as_ref()
         .and_then(|r| r.domains.get(domain_index as usize))
         .map_or(0.0, |d| d.escalation_slope)
 }
@@ -187,7 +202,8 @@ pub extern "C" fn pbse_domain_escalation_slope(domain_index: u8) -> f64 {
 #[unsafe(no_mangle)]
 pub extern "C" fn pbse_domain_spin_count(domain_index: u8) -> u32 {
     let sim = PBSE.read();
-    sim.last_result().as_ref()
+    sim.last_result()
+        .as_ref()
         .and_then(|r| r.domains.get(domain_index as usize))
         .map_or(0, |d| d.spin_count)
 }
@@ -196,9 +212,18 @@ pub extern "C" fn pbse_domain_spin_count(domain_index: u8) -> u32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn pbse_domain_deterministic(domain_index: u8) -> i32 {
     let sim = PBSE.read();
-    match sim.last_result().as_ref()
-        .and_then(|r| r.domains.get(domain_index as usize)) {
-        Some(d) => if d.deterministic { 1 } else { 0 },
+    match sim
+        .last_result()
+        .as_ref()
+        .and_then(|r| r.domains.get(domain_index as usize))
+    {
+        Some(d) => {
+            if d.deterministic {
+                1
+            } else {
+                0
+            }
+        }
         None => -1,
     }
 }
@@ -210,14 +235,23 @@ pub extern "C" fn pbse_domain_deterministic(domain_index: u8) -> i32 {
 /// Get fatigue model index from last simulation.
 #[unsafe(no_mangle)]
 pub extern "C" fn pbse_fatigue_index() -> f64 {
-    PBSE.read().last_result().as_ref().map_or(0.0, |r| r.fatigue_model.fatigue_index)
+    PBSE.read()
+        .last_result()
+        .as_ref()
+        .map_or(0.0, |r| r.fatigue_model.fatigue_index)
 }
 
 /// Get fatigue model passed status.
 #[unsafe(no_mangle)]
 pub extern "C" fn pbse_fatigue_passed() -> i32 {
     match PBSE.read().last_result() {
-        Some(r) => if r.fatigue_model.passed { 1 } else { 0 },
+        Some(r) => {
+            if r.fatigue_model.passed {
+                1
+            } else {
+                0
+            }
+        }
         None => -1,
     }
 }
@@ -225,25 +259,37 @@ pub extern "C" fn pbse_fatigue_passed() -> i32 {
 /// Get fatigue model peak frequency.
 #[unsafe(no_mangle)]
 pub extern "C" fn pbse_fatigue_peak_frequency() -> f64 {
-    PBSE.read().last_result().as_ref().map_or(0.0, |r| r.fatigue_model.peak_frequency)
+    PBSE.read()
+        .last_result()
+        .as_ref()
+        .map_or(0.0, |r| r.fatigue_model.peak_frequency)
 }
 
 /// Get fatigue model harmonic density.
 #[unsafe(no_mangle)]
 pub extern "C" fn pbse_fatigue_harmonic_density() -> f64 {
-    PBSE.read().last_result().as_ref().map_or(0.0, |r| r.fatigue_model.harmonic_density)
+    PBSE.read()
+        .last_result()
+        .as_ref()
+        .map_or(0.0, |r| r.fatigue_model.harmonic_density)
 }
 
 /// Get fatigue model temporal density.
 #[unsafe(no_mangle)]
 pub extern "C" fn pbse_fatigue_temporal_density() -> f64 {
-    PBSE.read().last_result().as_ref().map_or(0.0, |r| r.fatigue_model.temporal_density)
+    PBSE.read()
+        .last_result()
+        .as_ref()
+        .map_or(0.0, |r| r.fatigue_model.temporal_density)
 }
 
 /// Get fatigue model recovery factor.
 #[unsafe(no_mangle)]
 pub extern "C" fn pbse_fatigue_recovery_factor() -> f64 {
-    PBSE.read().last_result().as_ref().map_or(0.0, |r| r.fatigue_model.recovery_factor)
+    PBSE.read()
+        .last_result()
+        .as_ref()
+        .map_or(0.0, |r| r.fatigue_model.recovery_factor)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

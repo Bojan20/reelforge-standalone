@@ -82,8 +82,14 @@ fn ci_steps_returns_valid_json() {
     // Each step should have name, description, estimated_ms
     for step in steps {
         assert!(step["name"].is_string(), "Step should have name");
-        assert!(step["description"].is_string(), "Step should have description");
-        assert!(step["estimated_ms"].is_number(), "Step should have estimated_ms");
+        assert!(
+            step["description"].is_string(),
+            "Step should have description"
+        );
+        assert!(
+            step["estimated_ms"].is_number(),
+            "Step should have estimated_ms"
+        );
     }
 }
 
@@ -105,7 +111,11 @@ fn ci_validate_returns_valid_json() {
 #[test]
 fn ci_dry_run_returns_valid_json() {
     let dir = tempfile::tempdir().unwrap();
-    let macro_path = create_macro(dir.path(), "ci_dryrun", &["adb.generate", "naming.validate"]);
+    let macro_path = create_macro(
+        dir.path(),
+        "ci_dryrun",
+        &["adb.generate", "naming.validate"],
+    );
 
     let (json, success) = run_ci(&["dry-run", macro_path.to_str().unwrap()]);
 
@@ -270,7 +280,11 @@ fn ci_deterministic_same_seed() {
 #[test]
 fn ci_different_seeds_different_hashes() {
     let dir = tempfile::tempdir().unwrap();
-    let macro_path = create_macro(dir.path(), "seed_test", &["naming.validate", "adb.generate"]);
+    let macro_path = create_macro(
+        dir.path(),
+        "seed_test",
+        &["naming.validate", "adb.generate"],
+    );
 
     let (json1, _) = run_ci(&[
         "run",
@@ -380,7 +394,10 @@ fn ci_report_formatter_produces_markdown() {
     );
 
     let md = fs::read_to_string(&output_path).unwrap();
-    assert!(md.contains("FluxMacro"), "Report should contain FluxMacro header");
+    assert!(
+        md.contains("FluxMacro"),
+        "Report should contain FluxMacro header"
+    );
     assert!(md.contains("TestGame"), "Report should contain game_id");
     assert!(md.contains("PASS"), "Report should show PASS status");
     assert!(md.contains("abc123"), "Report should contain commit SHA");
@@ -420,5 +437,8 @@ fn ci_report_formatter_handles_failure() {
 
     let md = fs::read_to_string(&output_path).unwrap();
     assert!(md.contains("FAIL"), "Report should show FAIL");
-    assert!(md.contains("Something went wrong"), "Report should contain error");
+    assert!(
+        md.contains("Something went wrong"),
+        "Report should contain error"
+    );
 }

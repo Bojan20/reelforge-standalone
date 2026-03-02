@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::core::config::PlatformType;
+use serde::{Deserialize, Serialize};
 
 /// Platform-specific audio profile with concrete coefficients.
 #[derive(Debug, Clone, Serialize, Deserialize)]

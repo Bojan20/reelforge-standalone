@@ -8,6 +8,6 @@
 pub mod dpm;
 
 pub use dpm::{
-    DynamicPriorityMatrix, EventType, EmotionalState, VoicePriority, VoiceSurvivalResult,
-    SurvivalAction, DpmOutput,
+    DpmOutput, DynamicPriorityMatrix, EmotionalState, EventType, SurvivalAction, VoicePriority,
+    VoiceSurvivalResult,
 };

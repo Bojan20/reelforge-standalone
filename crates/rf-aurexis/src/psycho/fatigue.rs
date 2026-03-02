@@ -190,7 +190,10 @@ mod tests {
     fn test_fresh_session() {
         let cfg = default_config();
         let tracker = SessionFatigueTracker::new(&cfg);
-        assert!(tracker.fatigue_index(&cfg) < 0.01, "Fresh session should have near-zero fatigue");
+        assert!(
+            tracker.fatigue_index(&cfg) < 0.01,
+            "Fresh session should have near-zero fatigue"
+        );
     }
 
     #[test]
@@ -219,7 +222,10 @@ mod tests {
             tracker.update_hf(-6.0); // -6 dB HF energy
         }
 
-        assert!(tracker.hf_exposure_cumulative() > 0.0, "HF energy should accumulate");
+        assert!(
+            tracker.hf_exposure_cumulative() > 0.0,
+            "HF energy should accumulate"
+        );
     }
 
     #[test]
@@ -247,7 +253,10 @@ mod tests {
             tracker.tick(50, &cfg);
         }
 
-        assert!(tracker.stereo_time_on_min() > 0.9, "Should track ~1 minute of stereo");
+        assert!(
+            tracker.stereo_time_on_min() > 0.9,
+            "Should track ~1 minute of stereo"
+        );
     }
 
     #[test]
@@ -266,7 +275,10 @@ mod tests {
         }
 
         let late = tracker.fatigue_index(&cfg);
-        assert!(late > early, "Fatigue should increase: early={early}, late={late}");
+        assert!(
+            late > early,
+            "Fatigue should increase: early={early}, late={late}"
+        );
     }
 
     #[test]

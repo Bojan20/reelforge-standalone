@@ -1,5 +1,5 @@
-pub mod profiles;
 pub mod adaptation;
+pub mod profiles;
 
-pub use profiles::PlatformProfile;
 pub use adaptation::PlatformAdapter;
+pub use profiles::PlatformProfile;

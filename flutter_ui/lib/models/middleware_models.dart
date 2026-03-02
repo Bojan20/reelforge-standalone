@@ -2082,7 +2082,7 @@ extension CrossfadeCurveExtension on CrossfadeCurve {
   int get value => index;
 
   static CrossfadeCurve fromValue(int v) {
-    if (v < 0 || v >= CrossfadeCurve.values.length) return CrossfadeCurve.linear;
+    if (v < 0 || v >= CrossfadeCurve.values.length) return CrossfadeCurve.equalPower;
     return CrossfadeCurve.values[v];
   }
 }
@@ -2202,7 +2202,7 @@ class BlendContainer {
       children: (json['children'] as List<dynamic>?)
           ?.map((c) => BlendChild.fromJson(c as Map<String, dynamic>))
           .toList() ?? [],
-      crossfadeCurve: CrossfadeCurveExtension.fromValue(json['crossfadeCurve'] as int? ?? 1),
+      crossfadeCurve: CrossfadeCurveExtension.fromValue(json['crossfadeCurve'] as int? ?? 8),
       enabled: json['enabled'] as bool? ?? true,
       smoothingMs: (json['smoothingMs'] as num?)?.toDouble() ?? 0.0,
     );

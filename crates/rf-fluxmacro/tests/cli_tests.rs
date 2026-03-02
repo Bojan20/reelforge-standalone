@@ -92,11 +92,7 @@ fn cli_steps_ci_json() {
 #[test]
 fn cli_validate_valid_macro() {
     let dir = tempfile::tempdir().unwrap();
-    let macro_path = create_test_macro(
-        dir.path(),
-        "valid_test",
-        &["naming.validate"],
-    );
+    let macro_path = create_test_macro(dir.path(), "valid_test", &["naming.validate"]);
 
     let output = Command::new(fluxmacro_bin())
         .args(["validate", macro_path.to_str().unwrap()])
@@ -111,11 +107,7 @@ fn cli_validate_valid_macro() {
 #[test]
 fn cli_validate_ci_json() {
     let dir = tempfile::tempdir().unwrap();
-    let macro_path = create_test_macro(
-        dir.path(),
-        "valid_ci",
-        &["naming.validate"],
-    );
+    let macro_path = create_test_macro(dir.path(), "valid_ci", &["naming.validate"]);
 
     let output = Command::new(fluxmacro_bin())
         .args(["--ci", "validate", macro_path.to_str().unwrap()])
@@ -161,7 +153,10 @@ fn cli_dry_run() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Dry-Run"), "Should show dry-run header");
     assert!(stdout.contains("adb.generate"), "Should list adb.generate");
-    assert!(stdout.contains("naming.validate"), "Should list naming.validate");
+    assert!(
+        stdout.contains("naming.validate"),
+        "Should list naming.validate"
+    );
     assert!(output.status.success(), "Should exit 0");
 }
 

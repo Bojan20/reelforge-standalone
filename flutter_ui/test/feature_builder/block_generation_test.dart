@@ -40,13 +40,13 @@ void main() {
       expect(spinStart.sourceBlockId, 'game_core');
     });
 
-    test('generates MUSIC_BASE when baseGameMusic is enabled', () {
+    test('generates MUSIC_BASE_L1 when baseGameMusic is enabled', () {
       final block = GameCoreBlock();
       block.setOptionValue('baseGameMusic', true);
       final stages = block.generateStages();
 
-      expect(stages.any((s) => s.name == 'MUSIC_BASE'), isTrue);
-      final musicBase = stages.firstWhere((s) => s.name == 'MUSIC_BASE');
+      expect(stages.any((s) => s.name == 'MUSIC_BASE_L1'), isTrue);
+      final musicBase = stages.firstWhere((s) => s.name == 'MUSIC_BASE_L1');
       expect(musicBase.looping, isTrue);
       expect(musicBase.bus, 'music');
     });

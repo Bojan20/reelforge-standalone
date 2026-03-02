@@ -56,41 +56,41 @@ impl SlotArchetype {
 
     pub fn name(&self) -> &'static str {
         match self {
-            Self::Classic3Reel  => "Classic 3-Reel",
-            Self::HoldAndWin    => "Hold & Win",
-            Self::CascadeHeavy  => "Cascade Heavy",
+            Self::Classic3Reel => "Classic 3-Reel",
+            Self::HoldAndWin => "Hold & Win",
+            Self::CascadeHeavy => "Cascade Heavy",
             Self::MegawaysStyle => "Megaways Style",
-            Self::ClusterPay    => "Cluster Pay",
-            Self::JackpotHeavy  => "Jackpot Heavy",
-            Self::FeatureStorm  => "Feature Storm",
-            Self::TurboArcade   => "Turbo Arcade",
+            Self::ClusterPay => "Cluster Pay",
+            Self::JackpotHeavy => "Jackpot Heavy",
+            Self::FeatureStorm => "Feature Storm",
+            Self::TurboArcade => "Turbo Arcade",
         }
     }
 
     pub fn description(&self) -> &'static str {
         match self {
-            Self::Classic3Reel  => "Traditional 3-reel slot with simple mechanics",
-            Self::HoldAndWin    => "Hold mechanics with respins and collect features",
-            Self::CascadeHeavy  => "Cascading/avalanche reels with chain multipliers",
+            Self::Classic3Reel => "Traditional 3-reel slot with simple mechanics",
+            Self::HoldAndWin => "Hold mechanics with respins and collect features",
+            Self::CascadeHeavy => "Cascading/avalanche reels with chain multipliers",
             Self::MegawaysStyle => "Dynamic reel sizes with high ways-to-win",
-            Self::ClusterPay    => "Cluster-based wins on grid layout",
-            Self::JackpotHeavy  => "Jackpot-focused with progressive tiers",
-            Self::FeatureStorm  => "Feature-rich with frequent bonus triggers",
-            Self::TurboArcade   => "Fast-paced arcade-style gameplay",
+            Self::ClusterPay => "Cluster-based wins on grid layout",
+            Self::JackpotHeavy => "Jackpot-focused with progressive tiers",
+            Self::FeatureStorm => "Feature-rich with frequent bonus triggers",
+            Self::TurboArcade => "Fast-paced arcade-style gameplay",
         }
     }
 
     /// Map to corresponding energy governance SlotProfile.
     pub fn slot_profile(&self) -> SlotProfile {
         match self {
-            Self::Classic3Reel  => SlotProfile::Classic3Reel,
-            Self::HoldAndWin    => SlotProfile::MediumVolatility,
-            Self::CascadeHeavy  => SlotProfile::CascadeHeavy,
+            Self::Classic3Reel => SlotProfile::Classic3Reel,
+            Self::HoldAndWin => SlotProfile::MediumVolatility,
+            Self::CascadeHeavy => SlotProfile::CascadeHeavy,
             Self::MegawaysStyle => SlotProfile::MegawaysStyle,
-            Self::ClusterPay    => SlotProfile::ClusterPay,
-            Self::JackpotHeavy  => SlotProfile::JackpotFocused,
-            Self::FeatureStorm  => SlotProfile::FeatureHeavy,
-            Self::TurboArcade   => SlotProfile::HighVolatility,
+            Self::ClusterPay => SlotProfile::ClusterPay,
+            Self::JackpotHeavy => SlotProfile::JackpotFocused,
+            Self::FeatureStorm => SlotProfile::FeatureHeavy,
+            Self::TurboArcade => SlotProfile::HighVolatility,
         }
     }
 
@@ -99,7 +99,11 @@ impl SlotArchetype {
         match self {
             Self::Classic3Reel => ArchetypeDefaults {
                 archetype: *self,
-                volatility: VolatilityRange { min: 0.1, max: 0.4, default: 0.25 },
+                volatility: VolatilityRange {
+                    min: 0.1,
+                    max: 0.4,
+                    default: 0.25,
+                },
                 market: MarketTarget::Casual,
                 intensity: 0.3,
                 build_speed: 0.2,
@@ -117,7 +121,11 @@ impl SlotArchetype {
             },
             Self::HoldAndWin => ArchetypeDefaults {
                 archetype: *self,
-                volatility: VolatilityRange { min: 0.3, max: 0.7, default: 0.5 },
+                volatility: VolatilityRange {
+                    min: 0.3,
+                    max: 0.7,
+                    default: 0.5,
+                },
                 market: MarketTarget::Standard,
                 intensity: 0.5,
                 build_speed: 0.4,
@@ -135,7 +143,11 @@ impl SlotArchetype {
             },
             Self::CascadeHeavy => ArchetypeDefaults {
                 archetype: *self,
-                volatility: VolatilityRange { min: 0.4, max: 0.8, default: 0.6 },
+                volatility: VolatilityRange {
+                    min: 0.4,
+                    max: 0.8,
+                    default: 0.6,
+                },
                 market: MarketTarget::Standard,
                 intensity: 0.7,
                 build_speed: 0.7,
@@ -153,7 +165,11 @@ impl SlotArchetype {
             },
             Self::MegawaysStyle => ArchetypeDefaults {
                 archetype: *self,
-                volatility: VolatilityRange { min: 0.5, max: 0.9, default: 0.7 },
+                volatility: VolatilityRange {
+                    min: 0.5,
+                    max: 0.9,
+                    default: 0.7,
+                },
                 market: MarketTarget::Standard,
                 intensity: 0.8,
                 build_speed: 0.6,
@@ -171,7 +187,11 @@ impl SlotArchetype {
             },
             Self::ClusterPay => ArchetypeDefaults {
                 archetype: *self,
-                volatility: VolatilityRange { min: 0.3, max: 0.7, default: 0.5 },
+                volatility: VolatilityRange {
+                    min: 0.3,
+                    max: 0.7,
+                    default: 0.5,
+                },
                 market: MarketTarget::Standard,
                 intensity: 0.6,
                 build_speed: 0.5,
@@ -189,7 +209,11 @@ impl SlotArchetype {
             },
             Self::JackpotHeavy => ArchetypeDefaults {
                 archetype: *self,
-                volatility: VolatilityRange { min: 0.6, max: 0.95, default: 0.8 },
+                volatility: VolatilityRange {
+                    min: 0.6,
+                    max: 0.95,
+                    default: 0.8,
+                },
                 market: MarketTarget::Premium,
                 intensity: 0.9,
                 build_speed: 0.3,
@@ -207,7 +231,11 @@ impl SlotArchetype {
             },
             Self::FeatureStorm => ArchetypeDefaults {
                 archetype: *self,
-                volatility: VolatilityRange { min: 0.5, max: 0.85, default: 0.65 },
+                volatility: VolatilityRange {
+                    min: 0.5,
+                    max: 0.85,
+                    default: 0.65,
+                },
                 market: MarketTarget::Standard,
                 intensity: 0.7,
                 build_speed: 0.8,
@@ -225,7 +253,11 @@ impl SlotArchetype {
             },
             Self::TurboArcade => ArchetypeDefaults {
                 archetype: *self,
-                volatility: VolatilityRange { min: 0.6, max: 0.95, default: 0.8 },
+                volatility: VolatilityRange {
+                    min: 0.6,
+                    max: 0.95,
+                    default: 0.8,
+                },
                 market: MarketTarget::Premium,
                 intensity: 0.9,
                 build_speed: 0.9,
@@ -264,9 +296,9 @@ pub enum MarketTarget {
 impl MarketTarget {
     pub fn name(&self) -> &'static str {
         match self {
-            Self::Casual   => "Casual",
+            Self::Casual => "Casual",
             Self::Standard => "Standard",
-            Self::Premium  => "Premium",
+            Self::Premium => "Premium",
         }
     }
 

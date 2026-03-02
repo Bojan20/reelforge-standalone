@@ -77,7 +77,11 @@ mod tests {
         let cfg = default_config();
         let pacing = RtpEmotionalMapper::pacing_curve(98.0, &cfg);
         // High RTP → build time close to max
-        assert!(pacing.build_time_ms > 2000.0, "High RTP should have slow build: {}", pacing.build_time_ms);
+        assert!(
+            pacing.build_time_ms > 2000.0,
+            "High RTP should have slow build: {}",
+            pacing.build_time_ms
+        );
     }
 
     #[test]
@@ -85,7 +89,11 @@ mod tests {
         let cfg = default_config();
         let pacing = RtpEmotionalMapper::pacing_curve(88.0, &cfg);
         // Low RTP → build time close to min
-        assert!(pacing.build_time_ms < 1500.0, "Low RTP should have fast build: {}", pacing.build_time_ms);
+        assert!(
+            pacing.build_time_ms < 1500.0,
+            "Low RTP should have fast build: {}",
+            pacing.build_time_ms
+        );
     }
 
     #[test]
@@ -93,7 +101,10 @@ mod tests {
         let cfg = default_config();
         let high = RtpEmotionalMapper::spike_frequency(98.0, &cfg);
         let low = RtpEmotionalMapper::spike_frequency(88.0, &cfg);
-        assert!(low > high, "Lower RTP should have more spikes: low={low}, high={high}");
+        assert!(
+            low > high,
+            "Lower RTP should have more spikes: low={low}, high={high}"
+        );
     }
 
     #[test]
@@ -101,7 +112,10 @@ mod tests {
         let cfg = default_config();
         let at_max = RtpEmotionalMapper::peak_elasticity(99.5, &cfg);
         let at_min = RtpEmotionalMapper::peak_elasticity(85.0, &cfg);
-        assert!((at_max - 1.0).abs() < 0.01, "At max RTP, elasticity should be ~1.0");
+        assert!(
+            (at_max - 1.0).abs() < 0.01,
+            "At max RTP, elasticity should be ~1.0"
+        );
         assert!((at_min - cfg.peak_elasticity_max).abs() < 0.01);
     }
 
@@ -123,9 +137,12 @@ mod tests {
         for rtp_10x in 850..=995 {
             let rtp = rtp_10x as f64 / 10.0;
             let pacing = RtpEmotionalMapper::pacing_curve(rtp, &cfg);
-            assert!(pacing.build_time_ms >= prev - 0.001,
+            assert!(
+                pacing.build_time_ms >= prev - 0.001,
                 "Build time should increase with higher RTP at rtp={rtp}: {} < {}",
-                pacing.build_time_ms, prev);
+                pacing.build_time_ms,
+                prev
+            );
             prev = pacing.build_time_ms;
         }
     }

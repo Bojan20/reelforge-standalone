@@ -33,7 +33,6 @@
 pub mod advanced_metering;
 pub mod ail_ffi;
 pub mod ale_ffi;
-pub mod aurexis_ffi;
 mod api;
 mod api_engine;
 mod api_metering;
@@ -41,6 +40,7 @@ mod api_mixer;
 mod api_project;
 mod api_transport;
 mod audio_io;
+pub mod aurexis_ffi;
 pub mod auto_spatial_ffi;
 pub mod autosave_ffi;
 pub mod command_queue;
@@ -49,15 +49,13 @@ pub mod container_ffi;
 pub mod device_preview_ffi;
 pub mod dpm_ffi;
 pub mod drc_ffi;
-pub mod energy_governance_ffi;
-pub mod gad_ffi;
-pub mod sam_ffi;
-pub mod pbse_ffi;
 pub mod dsp_commands;
+pub mod energy_governance_ffi;
 mod engine_bridge;
-pub mod fluxmacro_ffi;
 pub mod ffi_bounds; // ✅ P12.0.5: FFI bounds checking
 pub mod ffi_error; // ✅ P12.0.2: FFI error result type
+pub mod fluxmacro_ffi;
+pub mod gad_ffi;
 pub mod ingest_ffi;
 pub mod memory_ffi;
 mod metering;
@@ -65,15 +63,17 @@ pub mod middleware_ffi;
 pub mod midi_bridge;
 mod midi_ffi;
 pub mod offline_ffi;
+pub mod pbse_ffi;
 mod playback;
 pub mod plugin_state_ffi;
 pub mod profiler_ffi;
 mod project;
 pub mod project_ffi;
-pub mod sidechain_ffi; // ✅ P0.5: Sidechain routing
+pub mod sam_ffi;
 pub mod samcl_ffi;
-pub mod sss_ffi;
+pub mod sidechain_ffi; // ✅ P0.5: Sidechain routing
 pub mod slot_lab_ffi;
+pub mod sss_ffi;
 pub mod stage_ffi;
 pub mod time_stretch_ffi; // P12.1.4: Simple time-stretch for animation timing
 pub mod timestretch;

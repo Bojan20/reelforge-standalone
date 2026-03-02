@@ -133,11 +133,10 @@ pub use eq_ultra::{
 
 // Re-export Analog EQ models
 pub use eq_analog::{
-    ANALOG_MAX_BANDS, Api550, Api550HighFreq, Api550LowFreq, Api550MidFreq,
-    ClassASaturation, DiscreteSaturation,
-    Neve1073, Neve1073HpFreq, Neve1073LowFreq, Neve1073MidFreq, NeveTransformer,
-    OutputTransformer, PultecEqp1a, PultecHighAttenFreq, PultecHighBoostFreq, PultecLowFreq,
-    StereoApi550, StereoNeve1073, StereoPultec, TubeSaturation,
+    ANALOG_MAX_BANDS, Api550, Api550HighFreq, Api550LowFreq, Api550MidFreq, ClassASaturation,
+    DiscreteSaturation, Neve1073, Neve1073HpFreq, Neve1073LowFreq, Neve1073MidFreq,
+    NeveTransformer, OutputTransformer, PultecEqp1a, PultecHighAttenFreq, PultecHighBoostFreq,
+    PultecLowFreq, StereoApi550, StereoNeve1073, StereoPultec, TubeSaturation,
 };
 
 // Re-export Stereo EQ
@@ -156,9 +155,7 @@ pub use wavelet::{
 };
 
 // Re-export De-Esser and Compressor types
-pub use dynamics::{
-    CompressorCharacter, CompressorType, DeEsser, DeEsserMode, DetectionMode,
-};
+pub use dynamics::{CompressorCharacter, CompressorType, DeEsser, DeEsserMode, DetectionMode};
 
 // Re-export Limiter types (Pro-L 2 class)
 pub use dynamics::{
@@ -209,8 +206,8 @@ pub use saturation::{
 
 // Re-export Device Preview
 pub use device_preview::{
-    DeviceCategory, DevicePreviewEngine, DeviceProfile, DeviceStereoMode, DistortionModel,
-    DEVICE_PROFILES, get_profile, profile_count, profiles_by_category, category_names,
+    DEVICE_PROFILES, DeviceCategory, DevicePreviewEngine, DeviceProfile, DeviceStereoMode,
+    DistortionModel, category_names, get_profile, profile_count, profiles_by_category,
 };
 
 use rf_core::Sample;

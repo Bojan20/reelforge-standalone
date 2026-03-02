@@ -657,7 +657,11 @@ impl HaasDelay {
                 let filtered = self.apply_lp(delayed);
                 self.feedback_sample = filtered;
 
-                let wet = if self.phase_invert { -filtered } else { filtered };
+                let wet = if self.phase_invert {
+                    -filtered
+                } else {
+                    filtered
+                };
                 let out_l = left * (1.0 - self.mix) + wet * self.mix;
                 (out_l, right)
             }
@@ -668,7 +672,11 @@ impl HaasDelay {
                 let filtered = self.apply_lp(delayed);
                 self.feedback_sample = filtered;
 
-                let wet = if self.phase_invert { -filtered } else { filtered };
+                let wet = if self.phase_invert {
+                    -filtered
+                } else {
+                    filtered
+                };
                 let out_r = right * (1.0 - self.mix) + wet * self.mix;
                 (left, out_r)
             }
@@ -883,7 +891,10 @@ mod tests {
             max_diff = max_diff.max((l - r).abs());
         }
         // After warmup, L and R should be decorrelated (different)
-        assert!(max_diff > 1e-4, "Stereoize should create L/R difference, got {max_diff}");
+        assert!(
+            max_diff > 1e-4,
+            "Stereoize should create L/R difference, got {max_diff}"
+        );
     }
 
     #[test]
@@ -1010,7 +1021,10 @@ mod tests {
                 break;
             }
         }
-        assert!(found_impulse, "Delayed impulse should appear within 100 samples (>2ms)");
+        assert!(
+            found_impulse,
+            "Delayed impulse should appear within 100 samples (>2ms)"
+        );
     }
 
     #[test]
@@ -1111,7 +1125,10 @@ mod tests {
             sum_energy += (l + r).powi(2);
         }
         // Mono sum should retain significant energy (no full cancellation)
-        assert!(sum_energy > 100.0, "Mono sum should have energy, got {sum_energy}");
+        assert!(
+            sum_energy > 100.0,
+            "Mono sum should have energy, got {sum_energy}"
+        );
     }
 
     #[test]
@@ -1151,7 +1168,10 @@ mod tests {
                 last_impulse_amp = r.abs();
             }
         }
-        assert!(impulse_count >= 2, "Feedback should produce repeated impulses, got {impulse_count}");
+        assert!(
+            impulse_count >= 2,
+            "Feedback should produce repeated impulses, got {impulse_count}"
+        );
     }
 
     // ============ 6.2: StereoImager Signal Chain ============
@@ -1184,8 +1204,14 @@ mod tests {
         // Default settings = unity width, center pan, no rotation
         // Should pass through with minimal change
         let (l, r) = imager.process_sample(0.6, 0.4);
-        assert!((l - 0.6).abs() < 0.05, "Default imager should be near-unity for L");
-        assert!((r - 0.4).abs() < 0.05, "Default imager should be near-unity for R");
+        assert!(
+            (l - 0.6).abs() < 0.05,
+            "Default imager should be near-unity for L"
+        );
+        assert!(
+            (r - 0.4).abs() < 0.05,
+            "Default imager should be near-unity for R"
+        );
     }
 
     #[test]
@@ -1194,7 +1220,10 @@ mod tests {
         imager.width.set_width(0.0);
         // Full side signal should be killed
         let (l, r) = imager.process_sample(1.0, -1.0);
-        assert!((l - r).abs() < 0.01, "Width=0 should produce mono: L={l}, R={r}");
+        assert!(
+            (l - r).abs() < 0.01,
+            "Width=0 should produce mono: L={l}, R={r}"
+        );
     }
 
     #[test]
@@ -1206,7 +1235,10 @@ mod tests {
             imager.process_sample(0.5, 0.5);
         }
         let corr = imager.correlation.correlation();
-        assert!(corr > 0.9, "Mono signal correlation should be >0.9, got {corr}");
+        assert!(
+            corr > 0.9,
+            "Mono signal correlation should be >0.9, got {corr}"
+        );
     }
 
     // ============ 6.4: Stereoize Extended Tests ============
@@ -1235,7 +1267,10 @@ mod tests {
         for i in 0..512 {
             max_diff = max_diff.max((left[i] - right[i]).abs());
         }
-        assert!(max_diff > 1e-4, "Block stereoize should decorrelate: max_diff={max_diff}");
+        assert!(
+            max_diff > 1e-4,
+            "Block stereoize should decorrelate: max_diff={max_diff}"
+        );
     }
 
     #[test]
@@ -1278,6 +1313,9 @@ mod tests {
             diff_low = diff_low.max((l1 - r1).abs());
             diff_high = diff_high.max((l2 - r2).abs());
         }
-        assert!(diff_high > diff_low, "Higher amount should produce more decorrelation: low={diff_low}, high={diff_high}");
+        assert!(
+            diff_high > diff_low,
+            "Higher amount should produce more decorrelation: low={diff_low}, high={diff_high}"
+        );
     }
 }

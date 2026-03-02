@@ -573,7 +573,8 @@ impl ClickTrack {
 
     /// Set tempo (BPM) — thread-safe, called from UI
     pub fn set_tempo(&self, bpm: f64) {
-        self.tempo_bpm.store(bpm.clamp(20.0, 999.0).to_bits(), Ordering::Relaxed);
+        self.tempo_bpm
+            .store(bpm.clamp(20.0, 999.0).to_bits(), Ordering::Relaxed);
     }
 
     /// Get tempo (BPM)
@@ -741,8 +742,16 @@ impl ClickTrack {
                     * self.volume as f64
                     * per_vol as f64;
 
-                let left_gain = if self.pan <= 0.0 { 1.0 } else { 1.0 - self.pan as f64 };
-                let right_gain = if self.pan >= 0.0 { 1.0 } else { 1.0 + self.pan as f64 };
+                let left_gain = if self.pan <= 0.0 {
+                    1.0
+                } else {
+                    1.0 - self.pan as f64
+                };
+                let right_gain = if self.pan >= 0.0 {
+                    1.0
+                } else {
+                    1.0 + self.pan as f64
+                };
 
                 output_l[frame] += s * left_gain;
                 output_r[frame] += s * right_gain;
@@ -873,8 +882,7 @@ impl ClickTrack {
                     self.should_trigger(tick, beats_per_bar)
                 {
                     let ticks_per_beat = self.ppq as u64;
-                    let beat_in_bar =
-                        ((tick / ticks_per_beat) % beats_per_bar as u64) as u8;
+                    let beat_in_bar = ((tick / ticks_per_beat) % beats_per_bar as u64) as u8;
                     self.trigger(beat_in_bar, is_downbeat, is_subdivision);
                     self.last_trigger_tick = tick;
                 }

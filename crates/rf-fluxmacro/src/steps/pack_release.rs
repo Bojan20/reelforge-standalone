@@ -36,7 +36,10 @@ impl MacroStep for PackReleaseStep {
         ctx.log(
             LogLevel::Info,
             "pack.release",
-            &format!("Packaging release candidate: {} artifacts", ctx.artifacts.len()),
+            &format!(
+                "Packaging release candidate: {} artifacts",
+                ctx.artifacts.len()
+            ),
         );
 
         // Create release directory
@@ -61,7 +64,12 @@ impl MacroStep for PackReleaseStep {
             }
 
             let dest_filename = if let Some(ext) = src_path.extension().and_then(|e| e.to_str()) {
-                format!("{}_{}.{}", safe_game_id, security::sanitize_filename(name), ext)
+                format!(
+                    "{}_{}.{}",
+                    safe_game_id,
+                    security::sanitize_filename(name),
+                    ext
+                )
             } else {
                 format!("{}_{}", safe_game_id, security::sanitize_filename(name))
             };
@@ -73,10 +81,7 @@ impl MacroStep for PackReleaseStep {
                     copied_artifacts.push((name.clone(), dest_path));
                 }
                 Err(e) => {
-                    copy_errors.push(format!(
-                        "Failed to copy '{}': {}",
-                        name, e
-                    ));
+                    copy_errors.push(format!("Failed to copy '{}': {}", name, e));
                 }
             }
         }
@@ -143,10 +148,7 @@ impl MacroStep for PackReleaseStep {
     }
 }
 
-fn generate_release_manifest(
-    ctx: &MacroContext,
-    artifacts: &[(String, PathBuf)],
-) -> String {
+fn generate_release_manifest(ctx: &MacroContext, artifacts: &[(String, PathBuf)]) -> String {
     let manifest = serde_json::json!({
         "release_version": "1.0",
         "game_id": ctx.game_id,
@@ -183,11 +185,17 @@ fn generate_release_summary(
     let mut md = String::with_capacity(4096);
 
     md.push_str(&format!("# Release Summary — {}\n\n", ctx.game_id));
-    md.push_str(&format!("**Status:** {}\n", if ctx.is_success() { "PASS" } else { "FAIL" }));
+    md.push_str(&format!(
+        "**Status:** {}\n",
+        if ctx.is_success() { "PASS" } else { "FAIL" }
+    ));
     md.push_str(&format!("**Volatility:** {:?}\n", ctx.volatility));
     md.push_str(&format!("**Seed:** {}\n", ctx.seed));
     md.push_str(&format!("**Run Hash:** {}\n", &ctx.run_hash));
-    md.push_str(&format!("**Duration:** {:.1}s\n\n", ctx.duration().as_secs_f64()));
+    md.push_str(&format!(
+        "**Duration:** {:.1}s\n\n",
+        ctx.duration().as_secs_f64()
+    ));
 
     md.push_str("## QA Results\n\n");
     md.push_str(&format!(
@@ -202,7 +210,10 @@ fn generate_release_summary(
         md.push_str("|------|--------|---------|\n");
         for qa in &ctx.qa_results {
             let status = if qa.passed { "PASS" } else { "FAIL" };
-            md.push_str(&format!("| {} | {} | {} |\n", qa.test_name, status, qa.details));
+            md.push_str(&format!(
+                "| {} | {} | {} |\n",
+                qa.test_name, status, qa.details
+            ));
         }
         md.push_str("\n");
     }

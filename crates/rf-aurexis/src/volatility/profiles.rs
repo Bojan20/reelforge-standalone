@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::core::config::VolatilityConfig;
+use serde::{Deserialize, Serialize};
 
 /// Named volatility preset with associated config overrides.
 #[derive(Debug, Clone, Serialize, Deserialize)]

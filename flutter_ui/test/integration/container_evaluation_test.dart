@@ -162,15 +162,17 @@ void main() {
     });
 
     test('CrossfadeCurve enum covers all values', () {
-      expect(CrossfadeCurve.values.length, 4);
-      expect(CrossfadeCurve.values,
-          contains(CrossfadeCurve.linear));
-      expect(CrossfadeCurve.values,
-          contains(CrossfadeCurve.equalPower));
-      expect(CrossfadeCurve.values,
-          contains(CrossfadeCurve.sCurve));
-      expect(CrossfadeCurve.values,
-          contains(CrossfadeCurve.sinCos));
+      expect(CrossfadeCurve.values.length, 10);
+      expect(CrossfadeCurve.values, contains(CrossfadeCurve.linear));
+      expect(CrossfadeCurve.values, contains(CrossfadeCurve.log3));
+      expect(CrossfadeCurve.values, contains(CrossfadeCurve.sine));
+      expect(CrossfadeCurve.values, contains(CrossfadeCurve.log1));
+      expect(CrossfadeCurve.values, contains(CrossfadeCurve.invSCurve));
+      expect(CrossfadeCurve.values, contains(CrossfadeCurve.sCurve));
+      expect(CrossfadeCurve.values, contains(CrossfadeCurve.exp1));
+      expect(CrossfadeCurve.values, contains(CrossfadeCurve.exp3));
+      expect(CrossfadeCurve.values, contains(CrossfadeCurve.equalPower));
+      expect(CrossfadeCurve.values, contains(CrossfadeCurve.sinCos));
     });
 
     test('CrossfadeCurve fromValue handles out-of-range', () {

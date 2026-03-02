@@ -8,7 +8,7 @@
 
 use rf_fluxmacro::interpreter::MacroInterpreter;
 use rf_fluxmacro::parser;
-use rf_fluxmacro::steps::{register_all_steps, StepRegistry};
+use rf_fluxmacro::steps::{StepRegistry, register_all_steps};
 use rf_fluxmacro::version;
 
 /// Build a fully-equipped interpreter.
@@ -54,7 +54,11 @@ steps:
 #[test]
 fn ffi_init_and_step_count() {
     let interp = build_interpreter();
-    assert_eq!(interp.registry().len(), 11, "Should have 11 registered steps");
+    assert_eq!(
+        interp.registry().len(),
+        11,
+        "Should have 11 registered steps"
+    );
 }
 
 #[test]
@@ -151,7 +155,10 @@ fn ffi_run_full_pipeline() {
     assert_eq!(ctx.game_id, "FFIFullGame");
     assert!(!ctx.run_hash.is_empty());
     // Should have generated artifacts
-    assert!(!ctx.artifacts.is_empty(), "Full pipeline should produce artifacts");
+    assert!(
+        !ctx.artifacts.is_empty(),
+        "Full pipeline should produce artifacts"
+    );
 }
 
 #[test]
@@ -231,7 +238,11 @@ fn ffi_history_list_and_detail() {
     let _ctx2 = interp.run(&macro_file, dir.path().to_path_buf()).unwrap();
 
     let runs = version::list_runs(dir.path()).unwrap();
-    assert!(runs.len() >= 2, "Should have at least 2 runs, got {}", runs.len());
+    assert!(
+        runs.len() >= 2,
+        "Should have at least 2 runs, got {}",
+        runs.len()
+    );
 
     // Newest first
     assert!(runs[0].0 >= runs[1].0, "Should be sorted newest first");

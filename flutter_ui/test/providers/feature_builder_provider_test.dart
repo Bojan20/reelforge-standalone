@@ -29,8 +29,8 @@ void main() {
     });
 
     test('registers all blocks across 4 categories', () {
-      // 3 core + 5 feature + 3 presentation + 6 bonus = 17
-      expect(provider.allBlocks.length, greaterThanOrEqualTo(16));
+      // 3 core + 5 feature + 3 presentation + 4 bonus = 15
+      expect(provider.allBlocks.length, greaterThanOrEqualTo(14));
     });
 
     test('core blocks exist', () {

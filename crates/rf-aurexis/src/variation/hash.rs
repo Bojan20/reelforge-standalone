@@ -71,8 +71,10 @@ mod tests {
     fn test_seed_to_range_bounds() {
         for offset in 0..100 {
             let val = seed_to_range(12345, offset, -0.05, 0.05);
-            assert!(val >= -0.05 && val <= 0.05,
-                "Value {val} out of range at offset={offset}");
+            assert!(
+                val >= -0.05 && val <= 0.05,
+                "Value {val} out of range at offset={offset}"
+            );
         }
     }
 
@@ -88,7 +90,10 @@ mod tests {
         let a = seed_to_range(12345, 0, -1.0, 1.0);
         let b = seed_to_range(12345, 1, -1.0, 1.0);
         // Should be different (independent sub-seeds)
-        assert!((a - b).abs() > 0.001, "Different offsets should give different values");
+        assert!(
+            (a - b).abs() > 0.001,
+            "Different offsets should give different values"
+        );
     }
 
     #[test]

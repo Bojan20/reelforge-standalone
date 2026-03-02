@@ -4,9 +4,7 @@
 // Tests for Phase 2 step implementations.
 // ============================================================================
 
-use rf_fluxmacro::context::{
-    GameMechanic, MacroContext, Platform, VolatilityLevel,
-};
+use rf_fluxmacro::context::{GameMechanic, MacroContext, Platform, VolatilityLevel};
 use rf_fluxmacro::steps::{MacroStep, StepRegistry, register_all_steps};
 
 /// Create a test context with a temporary working directory.
@@ -56,8 +54,16 @@ fn step_names_and_descriptions_are_non_empty() {
     for name in registry.list() {
         let step = registry.get(name).unwrap();
         assert!(!step.name().is_empty(), "Step name is empty");
-        assert!(!step.description().is_empty(), "Step '{}' has empty description", name);
-        assert!(step.estimated_duration_ms() > 0, "Step '{}' has zero estimated duration", name);
+        assert!(
+            !step.description().is_empty(),
+            "Step '{}' has empty description",
+            name
+        );
+        assert!(
+            step.estimated_duration_ms() > 0,
+            "Step '{}' has zero estimated duration",
+            name
+        );
     }
 }
 
@@ -483,7 +489,8 @@ fn pack_release_packages_artifacts() {
     // Create a fake artifact
     let artifact_path = tmp.path().join("test_artifact.json");
     std::fs::write(&artifact_path, r#"{"test": true}"#).unwrap();
-    ctx.artifacts.insert("test_artifact".to_string(), artifact_path);
+    ctx.artifacts
+        .insert("test_artifact".to_string(), artifact_path);
 
     let step = rf_fluxmacro::steps::pack_release::PackReleaseStep;
     let result = step.execute(&mut ctx).unwrap();

@@ -1,6 +1,9 @@
 use crate::config::AccConfig;
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
-use std::{path::{Path, PathBuf}, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use tokio::sync::mpsc;
 
 pub async fn start_watcher(cfg: AccConfig) -> Result<(), String> {
@@ -36,7 +39,10 @@ pub async fn start_watcher(cfg: AccConfig) -> Result<(), String> {
         let _watcher_keepalive = watcher;
 
         while let Some((kind, abs_path)) = rx.recv().await {
-            let rel = abs_path.strip_prefix(&cfg.repo_root).unwrap_or(&abs_path).to_path_buf();
+            let rel = abs_path
+                .strip_prefix(&cfg.repo_root)
+                .unwrap_or(&abs_path)
+                .to_path_buf();
             if cfg.is_ignored(Path::new(&rel)) {
                 continue;
             }

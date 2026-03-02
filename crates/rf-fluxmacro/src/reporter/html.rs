@@ -21,16 +21,20 @@ impl Reporter for HtmlReporter {
         let mut html = String::with_capacity(8192);
 
         let status = if ctx.is_success() { "PASS" } else { "FAIL" };
-        let status_color = if ctx.is_success() { "#40FF90" } else { "#FF4444" };
+        let status_color = if ctx.is_success() {
+            "#40FF90"
+        } else {
+            "#FF4444"
+        };
         let game_id = html_escape(&ctx.game_id);
 
         // Document header
         html.push_str("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n");
         html.push_str("<meta charset=\"UTF-8\">\n");
-        html.push_str("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n");
-        html.push_str(&format!(
-            "<title>FluxMacro Report — {game_id}</title>\n"
-        ));
+        html.push_str(
+            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n",
+        );
+        html.push_str(&format!("<title>FluxMacro Report — {game_id}</title>\n"));
         html.push_str("<style>\n");
         html.push_str(CSS);
         html.push_str("</style>\n");
@@ -38,9 +42,7 @@ impl Reporter for HtmlReporter {
 
         // Header section
         html.push_str("<div class=\"header\">\n");
-        html.push_str(&format!(
-            "<h1>FluxMacro Report — {game_id}</h1>\n"
-        ));
+        html.push_str(&format!("<h1>FluxMacro Report — {game_id}</h1>\n"));
         html.push_str(&format!(
             "<span class=\"status\" style=\"color: {status_color}\">{status}</span>\n"
         ));
@@ -61,7 +63,9 @@ impl Reporter for HtmlReporter {
             html.push_str("<div class=\"section\">\n");
             html.push_str("<h2>QA Results</h2>\n");
             html.push_str("<table>\n");
-            html.push_str("<tr><th>Test</th><th>Status</th><th>Duration</th><th>Details</th></tr>\n");
+            html.push_str(
+                "<tr><th>Test</th><th>Status</th><th>Duration</th><th>Details</th></tr>\n",
+            );
             for qa in &ctx.qa_results {
                 let status_class = if qa.passed { "pass" } else { "fail" };
                 let status_text = if qa.passed { "PASS" } else { "FAIL" };

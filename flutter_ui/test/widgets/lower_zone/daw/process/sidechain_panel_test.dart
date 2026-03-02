@@ -5,7 +5,7 @@ import 'package:fluxforge_ui/widgets/lower_zone/daw/process/sidechain_panel.dart
 
 void main() {
   group('SidechainPanel', () {
-    testWidgets('shows no track selected when null', (tester) async {
+    testWidgets('shows sidechain header when no track selected', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
@@ -14,8 +14,9 @@ void main() {
         ),
       );
 
-      expect(find.text('No Track Selected'), findsOneWidget);
-      expect(find.text('Select a track to configure sidechain'), findsOneWidget);
+      // The DAW SidechainPanel always delegates to dsp.SidechainPanel
+      // (using processorId: selectedTrackId ?? 0), which renders its own header
+      expect(find.text('SIDECHAIN'), findsOneWidget);
       expect(find.byIcon(Icons.call_split), findsOneWidget);
     });
 
@@ -29,8 +30,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Should not show empty state
-      expect(find.text('No Track Selected'), findsNothing);
+      // Should show sidechain header
+      expect(find.text('SIDECHAIN'), findsOneWidget);
     });
 
     testWidgets('uses provided sources when available', (tester) async {
@@ -59,8 +60,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Should render without errors
-      expect(find.text('No Track Selected'), findsNothing);
+      // Should render without errors and show sidechain header
+      expect(find.text('SIDECHAIN'), findsOneWidget);
     });
 
     testWidgets('supports all source types', (tester) async {
@@ -110,7 +111,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Should render without errors for all source types
-      expect(find.text('No Track Selected'), findsNothing);
+      expect(find.text('SIDECHAIN'), findsOneWidget);
     });
   });
 

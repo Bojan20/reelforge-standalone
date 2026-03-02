@@ -26,10 +26,7 @@ impl ReplayVerifier {
     /// Verify that replaying the same sequence produces identical output.
     ///
     /// Returns the index of the first mismatch, or None if all match.
-    pub fn verify_replay(
-        &self,
-        replay_snapshots: &[DeterministicParameterMap],
-    ) -> Option<usize> {
+    pub fn verify_replay(&self, replay_snapshots: &[DeterministicParameterMap]) -> Option<usize> {
         for (i, (original, replay)) in self.snapshots.iter().zip(replay_snapshots).enumerate() {
             if !Self::maps_equal(original, replay) {
                 return Some(i);
@@ -115,6 +112,10 @@ mod tests {
             replay.push(engine_b.compute_cloned(50));
         }
 
-        assert_eq!(verifier.verify_replay(&replay), None, "Replay should match exactly");
+        assert_eq!(
+            verifier.verify_replay(&replay),
+            None,
+            "Replay should match exactly"
+        );
     }
 }

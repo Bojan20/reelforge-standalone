@@ -3,23 +3,24 @@
 //! Exposes CertificationGate (which wraps DRC, SafetyEnvelope, Manifest)
 //! via C FFI. Single global instance.
 
-use std::ffi::{c_char, CString};
+use std::ffi::{CString, c_char};
 use std::ptr;
 
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 
+use rf_aurexis::core::engine::AurexisEngine;
+use rf_aurexis::core::parameter_map::DeterministicParameterMap;
 use rf_aurexis::drc::certification::CertificationGate;
 use rf_aurexis::drc::manifest::CertificationStatus;
 use rf_aurexis::qa::simulation::SimulationStep;
-use rf_aurexis::core::parameter_map::DeterministicParameterMap;
-use rf_aurexis::core::engine::AurexisEngine;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GLOBAL STATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-static CERT_GATE: Lazy<RwLock<CertificationGate>> = Lazy::new(|| RwLock::new(CertificationGate::new()));
+static CERT_GATE: Lazy<RwLock<CertificationGate>> =
+    Lazy::new(|| RwLock::new(CertificationGate::new()));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // LIFECYCLE
@@ -78,25 +79,34 @@ pub extern "C" fn drc_run_certification_with_spins(spin_count: u32) -> i32 {
 /// Check if last certification passed.
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_is_certified() -> i32 {
-    if CERT_GATE.read().is_certified() { 1 } else { 0 }
+    if CERT_GATE.read().is_certified() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Has certification been run?
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_has_result() -> i32 {
-    if CERT_GATE.read().last_result().is_some() { 1 } else { 0 }
+    if CERT_GATE.read().last_result().is_some() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Get certification status: 0=Pending, 1=Certified, 2=Failed. Returns -1 if no result.
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_certification_status() -> i32 {
-    CERT_GATE.read().last_result().map_or(-1, |r| {
-        match r.report.overall_status {
+    CERT_GATE
+        .read()
+        .last_result()
+        .map_or(-1, |r| match r.report.overall_status {
             CertificationStatus::Pending => 0,
             CertificationStatus::Certified => 1,
             CertificationStatus::Failed => 2,
-        }
-    })
+        })
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -106,15 +116,20 @@ pub extern "C" fn drc_certification_status() -> i32 {
 /// Get certification stage count. Returns 0 if no result.
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_stage_count() -> u32 {
-    CERT_GATE.read().last_result().map_or(0, |r| r.report.stages.len() as u32)
+    CERT_GATE
+        .read()
+        .last_result()
+        .map_or(0, |r| r.report.stages.len() as u32)
 }
 
 /// Get stage name. Caller must free with drc_free_string.
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_stage_name(stage_index: u32) -> *mut c_char {
     let guard = CERT_GATE.read();
-    let name = match guard.last_result()
-        .and_then(|r| r.report.stages.get(stage_index as usize)) {
+    let name = match guard
+        .last_result()
+        .and_then(|r| r.report.stages.get(stage_index as usize))
+    {
         Some(s) => s.name,
         None => return ptr::null_mut(),
     };
@@ -127,7 +142,9 @@ pub extern "C" fn drc_stage_name(stage_index: u32) -> *mut c_char {
 /// Get stage pass status. Returns -1 if invalid.
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_stage_passed(stage_index: u32) -> i32 {
-    CERT_GATE.read().last_result()
+    CERT_GATE
+        .read()
+        .last_result()
         .and_then(|r| r.report.stages.get(stage_index as usize))
         .map_or(-1, |s| if s.passed { 1 } else { 0 })
 }
@@ -136,8 +153,10 @@ pub extern "C" fn drc_stage_passed(stage_index: u32) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_stage_details(stage_index: u32) -> *mut c_char {
     let guard = CERT_GATE.read();
-    let details = match guard.last_result()
-        .and_then(|r| r.report.stages.get(stage_index as usize)) {
+    let details = match guard
+        .last_result()
+        .and_then(|r| r.report.stages.get(stage_index as usize))
+    {
         Some(s) => &s.details,
         None => return ptr::null_mut(),
     };
@@ -154,15 +173,20 @@ pub extern "C" fn drc_stage_details(stage_index: u32) -> *mut c_char {
 /// Get blocking failure count.
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_blocking_failure_count() -> u32 {
-    CERT_GATE.read().last_result().map_or(0, |r| r.report.blocking_failures.len() as u32)
+    CERT_GATE
+        .read()
+        .last_result()
+        .map_or(0, |r| r.report.blocking_failures.len() as u32)
 }
 
 /// Get blocking failure message. Caller must free with drc_free_string.
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_blocking_failure(failure_index: u32) -> *mut c_char {
     let guard = CERT_GATE.read();
-    let msg = match guard.last_result()
-        .and_then(|r| r.report.blocking_failures.get(failure_index as usize)) {
+    let msg = match guard
+        .last_result()
+        .and_then(|r| r.report.blocking_failures.get(failure_index as usize))
+    {
         Some(m) => m,
         None => return ptr::null_mut(),
     };
@@ -202,7 +226,12 @@ pub extern "C" fn drc_manifest_version() -> *mut c_char {
 /// Get manifest certification status: 0=Pending, 1=Certified, 2=Failed.
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_manifest_certification_status() -> i32 {
-    match CERT_GATE.read().manifest().certification_chain.overall_certification {
+    match CERT_GATE
+        .read()
+        .manifest()
+        .certification_chain
+        .overall_certification
+    {
         CertificationStatus::Pending => 0,
         CertificationStatus::Certified => 1,
         CertificationStatus::Failed => 2,
@@ -228,48 +257,70 @@ pub extern "C" fn drc_manifest_json() -> *mut c_char {
 /// Get safety envelope pass status.
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_envelope_passed() -> i32 {
-    if CERT_GATE.read().safety_envelope().passed() { 1 } else { 0 }
+    if CERT_GATE.read().safety_envelope().passed() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Get envelope peak energy.
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_envelope_peak_energy() -> f64 {
-    CERT_GATE.read().safety_envelope().last_result()
+    CERT_GATE
+        .read()
+        .safety_envelope()
+        .last_result()
         .map_or(0.0, |r| r.peak_energy)
 }
 
 /// Get envelope peak voices.
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_envelope_peak_voices() -> u32 {
-    CERT_GATE.read().safety_envelope().last_result()
+    CERT_GATE
+        .read()
+        .safety_envelope()
+        .last_result()
         .map_or(0, |r| r.peak_voices)
 }
 
 /// Get envelope max peak duration (consecutive frames > 0.9).
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_envelope_max_peak_duration() -> u32 {
-    CERT_GATE.read().safety_envelope().last_result()
+    CERT_GATE
+        .read()
+        .safety_envelope()
+        .last_result()
         .map_or(0, |r| r.max_peak_duration)
 }
 
 /// Get envelope peak SCI.
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_envelope_peak_sci() -> f64 {
-    CERT_GATE.read().safety_envelope().last_result()
+    CERT_GATE
+        .read()
+        .safety_envelope()
+        .last_result()
         .map_or(0.0, |r| r.peak_sci)
 }
 
 /// Get envelope peak session percentage.
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_envelope_peak_session_pct() -> f64 {
-    CERT_GATE.read().safety_envelope().last_result()
+    CERT_GATE
+        .read()
+        .safety_envelope()
+        .last_result()
         .map_or(0.0, |r| r.peak_session_pct)
 }
 
 /// Get envelope violation count.
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_envelope_violation_count() -> u32 {
-    CERT_GATE.read().safety_envelope().last_result()
+    CERT_GATE
+        .read()
+        .safety_envelope()
+        .last_result()
         .map_or(0, |r| r.violations.len() as u32)
 }
 
@@ -286,7 +337,11 @@ pub extern "C" fn drc_limit_max_energy() -> f64 {
 /// Get max peak duration frames limit.
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_limit_max_peak_duration() -> u32 {
-    CERT_GATE.read().safety_envelope().limits().max_peak_duration_frames
+    CERT_GATE
+        .read()
+        .safety_envelope()
+        .limits()
+        .max_peak_duration_frames
 }
 
 /// Get max voices limit.
@@ -298,7 +353,11 @@ pub extern "C" fn drc_limit_max_voices() -> u32 {
 /// Get max harmonic density limit.
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_limit_max_harmonic_density() -> u32 {
-    CERT_GATE.read().safety_envelope().limits().max_harmonic_density
+    CERT_GATE
+        .read()
+        .safety_envelope()
+        .limits()
+        .max_harmonic_density
 }
 
 /// Get max SCI limit.
@@ -310,7 +369,11 @@ pub extern "C" fn drc_limit_max_sci() -> f64 {
 /// Get max peak session percentage limit.
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_limit_max_peak_session_pct() -> f64 {
-    CERT_GATE.read().safety_envelope().limits().max_peak_session_pct
+    CERT_GATE
+        .read()
+        .safety_envelope()
+        .limits()
+        .max_peak_session_pct
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -320,20 +383,30 @@ pub extern "C" fn drc_limit_max_peak_session_pct() -> f64 {
 /// Get DRC replay pass status.
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_replay_passed() -> i32 {
-    if CERT_GATE.read().replay_core().passed() { 1 } else { 0 }
+    if CERT_GATE.read().replay_core().passed() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Get DRC total frames from last replay.
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_replay_total_frames() -> u32 {
-    CERT_GATE.read().replay_core().last_result()
+    CERT_GATE
+        .read()
+        .replay_core()
+        .last_result()
         .map_or(0, |r| r.total_frames)
 }
 
 /// Get DRC mismatch count from last replay.
 #[unsafe(no_mangle)]
 pub extern "C" fn drc_replay_mismatch_count() -> u32 {
-    CERT_GATE.read().replay_core().last_result()
+    CERT_GATE
+        .read()
+        .replay_core()
+        .last_result()
         .map_or(0, |r| r.mismatches.len() as u32)
 }
 
@@ -412,15 +485,23 @@ pub extern "C" fn drc_free_string(ptr: *mut c_char) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 fn generate_test_steps(count: usize) -> Vec<SimulationStep> {
-    (0..count).map(|i| SimulationStep {
-        elapsed_ms: 50,
-        volatility: 0.5 + (i as f64 * 0.005).sin() * 0.3,
-        rtp: 96.0,
-        win_multiplier: if i % 10 == 0 { 5.0 } else if i % 7 == 0 { 2.0 } else { 0.0 },
-        jackpot_proximity: if i % 20 == 0 { 0.3 } else { 0.0 },
-        rms_db: -20.0,
-        hf_db: -26.0,
-    }).collect()
+    (0..count)
+        .map(|i| SimulationStep {
+            elapsed_ms: 50,
+            volatility: 0.5 + (i as f64 * 0.005).sin() * 0.3,
+            rtp: 96.0,
+            win_multiplier: if i % 10 == 0 {
+                5.0
+            } else if i % 7 == 0 {
+                2.0
+            } else {
+                0.0
+            },
+            jackpot_proximity: if i % 20 == 0 { 0.3 } else { 0.0 },
+            rms_db: -20.0,
+            hf_db: -26.0,
+        })
+        .collect()
 }
 
 fn run_engine_steps(steps: &[SimulationStep]) -> Vec<DeterministicParameterMap> {
@@ -428,16 +509,19 @@ fn run_engine_steps(steps: &[SimulationStep]) -> Vec<DeterministicParameterMap> 
     engine.initialize();
     engine.set_seed(0, 0, 0, 0);
 
-    steps.iter().map(|step| {
-        engine.set_volatility(step.volatility);
-        engine.set_rtp(step.rtp);
-        engine.set_win(step.win_multiplier, 1.0, step.jackpot_proximity);
-        engine.set_metering(step.rms_db, step.hf_db);
+    steps
+        .iter()
+        .map(|step| {
+            engine.set_volatility(step.volatility);
+            engine.set_rtp(step.rtp);
+            engine.set_win(step.win_multiplier, 1.0, step.jackpot_proximity);
+            engine.set_metering(step.rms_db, step.hf_db);
 
-        let is_jackpot = step.jackpot_proximity > 0.9 && step.win_multiplier > 100.0;
-        let is_feature = step.win_multiplier > 10.0;
-        engine.record_spin(step.win_multiplier, is_feature, is_jackpot);
+            let is_jackpot = step.jackpot_proximity > 0.9 && step.win_multiplier > 100.0;
+            let is_feature = step.win_multiplier > 10.0;
+            engine.record_spin(step.win_multiplier, is_feature, is_jackpot);
 
-        engine.compute_cloned(step.elapsed_ms)
-    }).collect()
+            engine.compute_cloned(step.elapsed_ms)
+        })
+        .collect()
 }

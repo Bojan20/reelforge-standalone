@@ -20,16 +20,16 @@ pub enum SmartControlGroup {
 impl SmartControlGroup {
     pub fn name(&self) -> &'static str {
         match self {
-            Self::Energy    => "Energy",
-            Self::Clarity   => "Clarity",
+            Self::Energy => "Energy",
+            Self::Clarity => "Clarity",
             Self::Stability => "Stability",
         }
     }
 
     pub fn description(&self) -> &'static str {
         match self {
-            Self::Energy    => "Controls how audio energy responds to game events",
-            Self::Clarity   => "Controls mix clarity and spectral characteristics",
+            Self::Energy => "Controls how audio energy responds to game events",
+            Self::Clarity => "Controls mix clarity and spectral characteristics",
             Self::Stability => "Controls fatigue, peak duration, and voice density",
         }
     }
@@ -59,9 +59,17 @@ impl SmartControl {
 
     pub fn all() -> &'static [SmartControl; 11] {
         &[
-            Self::Intensity, Self::BuildSpeed, Self::PeakAggression, Self::Decay,
-            Self::MixTightness, Self::TransientSharpness, Self::Width, Self::Harmonics,
-            Self::Fatigue, Self::PeakDuration, Self::VoiceDensity,
+            Self::Intensity,
+            Self::BuildSpeed,
+            Self::PeakAggression,
+            Self::Decay,
+            Self::MixTightness,
+            Self::TransientSharpness,
+            Self::Width,
+            Self::Harmonics,
+            Self::Fatigue,
+            Self::PeakDuration,
+            Self::VoiceDensity,
         ]
     }
 
@@ -84,44 +92,45 @@ impl SmartControl {
 
     pub fn name(&self) -> &'static str {
         match self {
-            Self::Intensity          => "Intensity",
-            Self::BuildSpeed         => "Build Speed",
-            Self::PeakAggression     => "Peak Aggression",
-            Self::Decay              => "Decay",
-            Self::MixTightness       => "Mix Tightness",
+            Self::Intensity => "Intensity",
+            Self::BuildSpeed => "Build Speed",
+            Self::PeakAggression => "Peak Aggression",
+            Self::Decay => "Decay",
+            Self::MixTightness => "Mix Tightness",
             Self::TransientSharpness => "Transient Sharpness",
-            Self::Width              => "Width",
-            Self::Harmonics          => "Harmonics",
-            Self::Fatigue            => "Fatigue",
-            Self::PeakDuration       => "Peak Duration",
-            Self::VoiceDensity       => "Voice Density",
+            Self::Width => "Width",
+            Self::Harmonics => "Harmonics",
+            Self::Fatigue => "Fatigue",
+            Self::PeakDuration => "Peak Duration",
+            Self::VoiceDensity => "Voice Density",
         }
     }
 
     pub fn group(&self) -> SmartControlGroup {
         match self {
-            Self::Intensity | Self::BuildSpeed | Self::PeakAggression | Self::Decay
-                => SmartControlGroup::Energy,
-            Self::MixTightness | Self::TransientSharpness | Self::Width | Self::Harmonics
-                => SmartControlGroup::Clarity,
-            Self::Fatigue | Self::PeakDuration | Self::VoiceDensity
-                => SmartControlGroup::Stability,
+            Self::Intensity | Self::BuildSpeed | Self::PeakAggression | Self::Decay => {
+                SmartControlGroup::Energy
+            }
+            Self::MixTightness | Self::TransientSharpness | Self::Width | Self::Harmonics => {
+                SmartControlGroup::Clarity
+            }
+            Self::Fatigue | Self::PeakDuration | Self::VoiceDensity => SmartControlGroup::Stability,
         }
     }
 
     pub fn description(&self) -> &'static str {
         match self {
-            Self::Intensity          => "Overall audio energy level in response to game events",
-            Self::BuildSpeed         => "How fast energy builds during escalation sequences",
-            Self::PeakAggression     => "Maximum peak intensity during big wins/features",
-            Self::Decay              => "Rate of energy decay after peak events",
-            Self::MixTightness       => "Spectral separation and mix clarity",
+            Self::Intensity => "Overall audio energy level in response to game events",
+            Self::BuildSpeed => "How fast energy builds during escalation sequences",
+            Self::PeakAggression => "Maximum peak intensity during big wins/features",
+            Self::Decay => "Rate of energy decay after peak events",
+            Self::MixTightness => "Spectral separation and mix clarity",
             Self::TransientSharpness => "Attack definition and transient preservation",
-            Self::Width              => "Stereo field width and spatial spread",
-            Self::Harmonics          => "Harmonic richness and overtone presence",
-            Self::Fatigue            => "Listener fatigue prevention target",
-            Self::PeakDuration       => "Maximum consecutive peak energy frames",
-            Self::VoiceDensity       => "Target voice count relative to budget",
+            Self::Width => "Stereo field width and spatial spread",
+            Self::Harmonics => "Harmonic richness and overtone presence",
+            Self::Fatigue => "Listener fatigue prevention target",
+            Self::PeakDuration => "Maximum consecutive peak energy frames",
+            Self::VoiceDensity => "Target voice count relative to budget",
         }
     }
 }
@@ -135,7 +144,10 @@ pub struct SmartControlValue {
 
 impl SmartControlValue {
     pub fn new(control: SmartControl, value: f64) -> Self {
-        Self { control, value: value.clamp(0.0, 1.0) }
+        Self {
+            control,
+            value: value.clamp(0.0, 1.0),
+        }
     }
 }
 
@@ -150,7 +162,12 @@ pub struct EnergyControls {
 
 impl Default for EnergyControls {
     fn default() -> Self {
-        Self { intensity: 0.5, build_speed: 0.5, peak_aggression: 0.5, decay: 0.5 }
+        Self {
+            intensity: 0.5,
+            build_speed: 0.5,
+            peak_aggression: 0.5,
+            decay: 0.5,
+        }
     }
 }
 
@@ -165,7 +182,12 @@ pub struct ClarityControls {
 
 impl Default for ClarityControls {
     fn default() -> Self {
-        Self { mix_tightness: 0.5, transient_sharpness: 0.5, width: 0.5, harmonics: 0.5 }
+        Self {
+            mix_tightness: 0.5,
+            transient_sharpness: 0.5,
+            width: 0.5,
+            harmonics: 0.5,
+        }
     }
 }
 
@@ -179,7 +201,11 @@ pub struct StabilityControls {
 
 impl Default for StabilityControls {
     fn default() -> Self {
-        Self { fatigue: 0.5, peak_duration: 0.5, voice_density: 0.5 }
+        Self {
+            fatigue: 0.5,
+            peak_duration: 0.5,
+            voice_density: 0.5,
+        }
     }
 }
 
@@ -195,17 +221,17 @@ impl SmartControlSet {
     /// Get value by control identifier.
     pub fn get(&self, control: SmartControl) -> f64 {
         match control {
-            SmartControl::Intensity          => self.energy.intensity,
-            SmartControl::BuildSpeed         => self.energy.build_speed,
-            SmartControl::PeakAggression     => self.energy.peak_aggression,
-            SmartControl::Decay              => self.energy.decay,
-            SmartControl::MixTightness       => self.clarity.mix_tightness,
+            SmartControl::Intensity => self.energy.intensity,
+            SmartControl::BuildSpeed => self.energy.build_speed,
+            SmartControl::PeakAggression => self.energy.peak_aggression,
+            SmartControl::Decay => self.energy.decay,
+            SmartControl::MixTightness => self.clarity.mix_tightness,
             SmartControl::TransientSharpness => self.clarity.transient_sharpness,
-            SmartControl::Width              => self.clarity.width,
-            SmartControl::Harmonics          => self.clarity.harmonics,
-            SmartControl::Fatigue            => self.stability.fatigue,
-            SmartControl::PeakDuration       => self.stability.peak_duration,
-            SmartControl::VoiceDensity       => self.stability.voice_density,
+            SmartControl::Width => self.clarity.width,
+            SmartControl::Harmonics => self.clarity.harmonics,
+            SmartControl::Fatigue => self.stability.fatigue,
+            SmartControl::PeakDuration => self.stability.peak_duration,
+            SmartControl::VoiceDensity => self.stability.voice_density,
         }
     }
 
@@ -213,28 +239,33 @@ impl SmartControlSet {
     pub fn set(&mut self, control: SmartControl, value: f64) {
         let v = value.clamp(0.0, 1.0);
         match control {
-            SmartControl::Intensity          => self.energy.intensity = v,
-            SmartControl::BuildSpeed         => self.energy.build_speed = v,
-            SmartControl::PeakAggression     => self.energy.peak_aggression = v,
-            SmartControl::Decay              => self.energy.decay = v,
-            SmartControl::MixTightness       => self.clarity.mix_tightness = v,
+            SmartControl::Intensity => self.energy.intensity = v,
+            SmartControl::BuildSpeed => self.energy.build_speed = v,
+            SmartControl::PeakAggression => self.energy.peak_aggression = v,
+            SmartControl::Decay => self.energy.decay = v,
+            SmartControl::MixTightness => self.clarity.mix_tightness = v,
             SmartControl::TransientSharpness => self.clarity.transient_sharpness = v,
-            SmartControl::Width              => self.clarity.width = v,
-            SmartControl::Harmonics          => self.clarity.harmonics = v,
-            SmartControl::Fatigue            => self.stability.fatigue = v,
-            SmartControl::PeakDuration       => self.stability.peak_duration = v,
-            SmartControl::VoiceDensity       => self.stability.voice_density = v,
+            SmartControl::Width => self.clarity.width = v,
+            SmartControl::Harmonics => self.clarity.harmonics = v,
+            SmartControl::Fatigue => self.stability.fatigue = v,
+            SmartControl::PeakDuration => self.stability.peak_duration = v,
+            SmartControl::VoiceDensity => self.stability.voice_density = v,
         }
     }
 
     /// Get all values as array (11 values).
     pub fn to_array(&self) -> [f64; 11] {
         [
-            self.energy.intensity, self.energy.build_speed,
-            self.energy.peak_aggression, self.energy.decay,
-            self.clarity.mix_tightness, self.clarity.transient_sharpness,
-            self.clarity.width, self.clarity.harmonics,
-            self.stability.fatigue, self.stability.peak_duration,
+            self.energy.intensity,
+            self.energy.build_speed,
+            self.energy.peak_aggression,
+            self.energy.decay,
+            self.clarity.mix_tightness,
+            self.clarity.transient_sharpness,
+            self.clarity.width,
+            self.clarity.harmonics,
+            self.stability.fatigue,
+            self.stability.peak_duration,
             self.stability.voice_density,
         ]
     }
@@ -296,9 +327,18 @@ mod tests {
 
     #[test]
     fn test_control_groups() {
-        let energy_count = SmartControl::all().iter().filter(|c| c.group() == SmartControlGroup::Energy).count();
-        let clarity_count = SmartControl::all().iter().filter(|c| c.group() == SmartControlGroup::Clarity).count();
-        let stability_count = SmartControl::all().iter().filter(|c| c.group() == SmartControlGroup::Stability).count();
+        let energy_count = SmartControl::all()
+            .iter()
+            .filter(|c| c.group() == SmartControlGroup::Energy)
+            .count();
+        let clarity_count = SmartControl::all()
+            .iter()
+            .filter(|c| c.group() == SmartControlGroup::Clarity)
+            .count();
+        let stability_count = SmartControl::all()
+            .iter()
+            .filter(|c| c.group() == SmartControlGroup::Stability)
+            .count();
         assert_eq!(energy_count, 4);
         assert_eq!(clarity_count, 4);
         assert_eq!(stability_count, 3);

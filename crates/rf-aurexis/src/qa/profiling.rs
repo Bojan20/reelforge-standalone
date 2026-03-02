@@ -1,6 +1,6 @@
-use std::time::Instant;
 use crate::core::config::AurexisConfig;
 use crate::core::engine::AurexisEngine;
+use std::time::Instant;
 
 /// Measures AUREXIS compute performance.
 pub struct PerformanceProfiler {
@@ -122,7 +122,11 @@ mod tests {
         let stats = profiler.run_benchmark(100);
         assert_eq!(stats.iterations, 100);
         // mean_ns is always > 0 (nanosecond precision)
-        assert!(stats.mean_ns > 0.0, "mean_ns should be > 0, got {}", stats.mean_ns);
+        assert!(
+            stats.mean_ns > 0.0,
+            "mean_ns should be > 0, got {}",
+            stats.mean_ns
+        );
         assert!(stats.min_us <= stats.median_us);
         assert!(stats.median_us <= stats.p95_us);
         assert!(stats.p95_us <= stats.p99_us);
@@ -134,7 +138,10 @@ mod tests {
         let mut profiler = PerformanceProfiler::new();
         let stats = profiler.run_benchmark(50);
         // AUREXIS compute is pure math, should be well under 1ms
-        assert!(stats.within_budget(),
-            "AUREXIS compute exceeded 1ms budget: p99={}us", stats.p99_us);
+        assert!(
+            stats.within_budget(),
+            "AUREXIS compute exceeded 1ms budget: p99={}us",
+            stats.p99_us
+        );
     }
 }

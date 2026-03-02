@@ -3,16 +3,14 @@
 //! Exposes GAD project management, dual timeline, track metadata, and
 //! Bake To Slot pipeline via C FFI.
 
-use std::ffi::{c_char, CStr, CString};
-use std::ptr;
-use parking_lot::RwLock;
 use once_cell::sync::Lazy;
+use parking_lot::RwLock;
+use std::ffi::{CStr, CString, c_char};
+use std::ptr;
 
 use rf_aurexis::gad::{
-    GadProject, GadProjectConfig, GadTrackType, GadTrackLayout,
-    BakeToSlot, BakeConfig, BakeStep, TrackMetadata,
-    CanonicalEventBinding,
-    MusicalPosition, MarkerType, TimelineMarker,
+    BakeConfig, BakeStep, BakeToSlot, CanonicalEventBinding, GadProject, GadProjectConfig,
+    GadTrackLayout, GadTrackType, MarkerType, MusicalPosition, TimelineMarker, TrackMetadata,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -39,7 +37,9 @@ pub extern "C" fn gad_create_project() -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn gad_create_project_custom(bpm: f64, length_bars: u32, sample_rate: u32) -> i32 {
     let config = GadProjectConfig {
-        bpm, length_bars, sample_rate,
+        bpm,
+        length_bars,
+        sample_rate,
         ..Default::default()
     };
     *GAD_PROJECT.write() = Some(GadProject::new(config));
@@ -113,7 +113,10 @@ pub extern "C" fn gad_add_track(name: *const c_char, track_type: u8) -> i32 {
     };
     let mut guard = GAD_PROJECT.write();
     match &mut *guard {
-        Some(p) => { p.add_track(name_str, tt); 1 }
+        Some(p) => {
+            p.add_track(name_str, tt);
+            1
+        }
         None => 0,
     }
 }
@@ -127,7 +130,13 @@ pub extern "C" fn gad_remove_track(track_id: *const c_char) -> i32 {
     };
     let mut guard = GAD_PROJECT.write();
     match &mut *guard {
-        Some(p) => if p.remove_track(&id) { 1 } else { 0 },
+        Some(p) => {
+            if p.remove_track(&id) {
+                1
+            } else {
+                0
+            }
+        }
         None => 0,
     }
 }
@@ -135,12 +144,21 @@ pub extern "C" fn gad_remove_track(track_id: *const c_char) -> i32 {
 /// Set track audio path. Returns 1 on success.
 #[unsafe(no_mangle)]
 pub extern "C" fn gad_set_track_audio(track_id: *const c_char, audio_path: *const c_char) -> i32 {
-    let id = match unsafe { c_str_to_string(track_id) } { Some(s) => s, None => return 0 };
-    let path = match unsafe { c_str_to_string(audio_path) } { Some(s) => s, None => return 0 };
+    let id = match unsafe { c_str_to_string(track_id) } {
+        Some(s) => s,
+        None => return 0,
+    };
+    let path = match unsafe { c_str_to_string(audio_path) } {
+        Some(s) => s,
+        None => return 0,
+    };
     let mut guard = GAD_PROJECT.write();
     match &mut *guard {
         Some(p) => match p.track_mut(&id) {
-            Some(track) => { track.audio_path = Some(path); 1 }
+            Some(track) => {
+                track.audio_path = Some(path);
+                1
+            }
             None => 0,
         },
         None => 0,
@@ -154,15 +172,26 @@ pub extern "C" fn gad_set_track_binding(
     hook: *const c_char,
     substate: *const c_char,
 ) -> i32 {
-    let id = match unsafe { c_str_to_string(track_id) } { Some(s) => s, None => return 0 };
-    let hook_str = match unsafe { c_str_to_string(hook) } { Some(s) => s, None => return 0 };
-    let sub = match unsafe { c_str_to_string(substate) } { Some(s) => s, None => return 0 };
+    let id = match unsafe { c_str_to_string(track_id) } {
+        Some(s) => s,
+        None => return 0,
+    };
+    let hook_str = match unsafe { c_str_to_string(hook) } {
+        Some(s) => s,
+        None => return 0,
+    };
+    let sub = match unsafe { c_str_to_string(substate) } {
+        Some(s) => s,
+        None => return 0,
+    };
     let mut guard = GAD_PROJECT.write();
     match &mut *guard {
         Some(p) => match p.track_mut(&id) {
             Some(track) => {
                 track.metadata.event_binding = Some(CanonicalEventBinding {
-                    hook: hook_str, substate: sub, required: true,
+                    hook: hook_str,
+                    substate: sub,
+                    required: true,
                 });
                 1
             }
@@ -181,7 +210,10 @@ pub extern "C" fn gad_set_track_metadata(
     harmonic_density: u32,
     turbo_reduction: f64,
 ) -> i32 {
-    let id = match unsafe { c_str_to_string(track_id) } { Some(s) => s, None => return 0 };
+    let id = match unsafe { c_str_to_string(track_id) } {
+        Some(s) => s,
+        None => return 0,
+    };
     let mut guard = GAD_PROJECT.write();
     match &mut *guard {
         Some(p) => match p.track_mut(&id) {
@@ -207,7 +239,10 @@ pub extern "C" fn gad_set_track_metadata(
 pub extern "C" fn gad_set_bpm(bpm: f64) -> i32 {
     let mut guard = GAD_PROJECT.write();
     match &mut *guard {
-        Some(p) => { p.timeline.musical.base_bpm = bpm; 1 }
+        Some(p) => {
+            p.timeline.musical.base_bpm = bpm;
+            1
+        }
         None => 0,
     }
 }
@@ -216,16 +251,29 @@ pub extern "C" fn gad_set_bpm(bpm: f64) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn gad_add_anchor(
     id: *const c_char,
-    bar: u32, beat: u32, tick: u32,
+    bar: u32,
+    beat: u32,
+    tick: u32,
     gameplay_frame: u64,
     hook: *const c_char,
 ) -> i32 {
-    let id_str = match unsafe { c_str_to_string(id) } { Some(s) => s, None => return 0 };
-    let hook_str = match unsafe { c_str_to_string(hook) } { Some(s) => s, None => return 0 };
+    let id_str = match unsafe { c_str_to_string(id) } {
+        Some(s) => s,
+        None => return 0,
+    };
+    let hook_str = match unsafe { c_str_to_string(hook) } {
+        Some(s) => s,
+        None => return 0,
+    };
     let mut guard = GAD_PROJECT.write();
     match &mut *guard {
         Some(p) => {
-            p.timeline.add_anchor(id_str, MusicalPosition::new(bar, beat, tick), gameplay_frame, hook_str);
+            p.timeline.add_anchor(
+                id_str,
+                MusicalPosition::new(bar, beat, tick),
+                gameplay_frame,
+                hook_str,
+            );
             1
         }
         None => 0,
@@ -238,11 +286,19 @@ pub extern "C" fn gad_add_marker(
     id: *const c_char,
     name: *const c_char,
     marker_type: u8,
-    bar: u32, beat: u32, tick: u32,
+    bar: u32,
+    beat: u32,
+    tick: u32,
     color: u32,
 ) -> i32 {
-    let id_str = match unsafe { c_str_to_string(id) } { Some(s) => s, None => return 0 };
-    let name_str = match unsafe { c_str_to_string(name) } { Some(s) => s, None => return 0 };
+    let id_str = match unsafe { c_str_to_string(id) } {
+        Some(s) => s,
+        None => return 0,
+    };
+    let name_str = match unsafe { c_str_to_string(name) } {
+        Some(s) => s,
+        None => return 0,
+    };
     let mt = match marker_type {
         0 => MarkerType::Cue,
         1 => MarkerType::HookAnchor,
@@ -256,9 +312,12 @@ pub extern "C" fn gad_add_marker(
     match &mut *guard {
         Some(p) => {
             p.timeline.add_marker(TimelineMarker {
-                id: id_str, name: name_str, marker_type: mt,
+                id: id_str,
+                name: name_str,
+                marker_type: mt,
                 musical_pos: MusicalPosition::new(bar, beat, tick),
-                gameplay_pos: None, color,
+                gameplay_pos: None,
+                color,
             });
             1
         }
@@ -362,7 +421,9 @@ pub extern "C" fn gad_validation_errors_json() -> *mut c_char {
 #[unsafe(no_mangle)]
 pub extern "C" fn gad_free_string(s: *mut c_char) {
     if !s.is_null() {
-        unsafe { drop(CString::from_raw(s)); }
+        unsafe {
+            drop(CString::from_raw(s));
+        }
     }
 }
 
@@ -371,11 +432,15 @@ pub extern "C" fn gad_free_string(s: *mut c_char) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 fn string_to_c(s: &str) -> *mut c_char {
-    CString::new(s).map(|c| c.into_raw()).unwrap_or(ptr::null_mut())
+    CString::new(s)
+        .map(|c| c.into_raw())
+        .unwrap_or(ptr::null_mut())
 }
 
 unsafe fn c_str_to_string(s: *const c_char) -> Option<String> {
-    if s.is_null() { return None; }
+    if s.is_null() {
+        return None;
+    }
     unsafe { CStr::from_ptr(s) }.to_str().ok().map(String::from)
 }
 

@@ -3,7 +3,7 @@
 //! Exposes GEG functions via C FFI. Uses the shared AUREXIS ENGINE global
 //! from aurexis_ffi.rs since EnergyGovernor lives inside AurexisEngine.
 
-use std::ffi::{c_char, CString};
+use std::ffi::{CString, c_char};
 use std::ptr;
 
 use crate::aurexis_ffi::ENGINE;
@@ -155,7 +155,15 @@ pub extern "C" fn geg_get_loss_streak() -> u32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn geg_is_feature_storm() -> i32 {
     if let Some(ref engine) = *ENGINE.read() {
-        return if engine.energy_governor().session_memory().feature_storm_active() { 1 } else { 0 };
+        return if engine
+            .energy_governor()
+            .session_memory()
+            .feature_storm_active()
+        {
+            1
+        } else {
+            0
+        };
     }
     0
 }
@@ -164,7 +172,15 @@ pub extern "C" fn geg_is_feature_storm() -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn geg_is_jackpot_compression() -> i32 {
     if let Some(ref engine) = *ENGINE.read() {
-        return if engine.energy_governor().session_memory().jackpot_compression_active() { 1 } else { 0 };
+        return if engine
+            .energy_governor()
+            .session_memory()
+            .jackpot_compression_active()
+        {
+            1
+        } else {
+            0
+        };
     }
     0
 }

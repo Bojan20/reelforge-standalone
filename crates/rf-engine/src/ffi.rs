@@ -3360,7 +3360,11 @@ pub extern "C" fn click_set_only_during_record(enabled: i32) {
 /// Get "only during recording" mode
 #[unsafe(no_mangle)]
 pub extern "C" fn click_get_only_during_record() -> i32 {
-    if CLICK_TRACK.read().get_only_during_record() { 1 } else { 0 }
+    if CLICK_TRACK.read().get_only_during_record() {
+        1
+    } else {
+        0
+    }
 }
 
 // ── Per-Sound Volumes ──
@@ -3426,7 +3430,11 @@ pub extern "C" fn click_start_count_in() {
 /// Check if count-in is currently active (1=active, 0=inactive)
 #[unsafe(no_mangle)]
 pub extern "C" fn click_is_count_in_active() -> i32 {
-    if CLICK_TRACK.read().is_count_in_active() { 1 } else { 0 }
+    if CLICK_TRACK.read().is_count_in_active() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Get current count-in beat number (0-based, returns -1 if inactive)
@@ -8114,7 +8122,10 @@ pub extern "C" fn elastic_apply_to_clip(clip_id: u32) -> i32 {
     } else if let Some(p) = old_procs.get_mut(&clip_id) {
         p
     } else {
-        eprintln!("[elastic_apply] No processor for clip {} (checked ELASTIC_PROS and ELASTIC_PROCESSORS)", clip_id);
+        eprintln!(
+            "[elastic_apply] No processor for clip {} (checked ELASTIC_PROS and ELASTIC_PROCESSORS)",
+            clip_id
+        );
         return 0;
     };
 
@@ -8131,11 +8142,17 @@ pub extern "C" fn elastic_apply_to_clip(clip_id: u32) -> i32 {
                 if let Some(a) = audio_map.get(&first_clip.id) {
                     (a.clone(), first_clip.id)
                 } else {
-                    eprintln!("[elastic_apply] No audio for clip {} (track {} has clip {} but no audio)", clip_id, clip_id, first_clip.id.0);
+                    eprintln!(
+                        "[elastic_apply] No audio for clip {} (track {} has clip {} but no audio)",
+                        clip_id, clip_id, first_clip.id.0
+                    );
                     return 0;
                 }
             } else {
-                eprintln!("[elastic_apply] No audio for clip {} and no clips on track {}", clip_id, clip_id);
+                eprintln!(
+                    "[elastic_apply] No audio for clip {} and no clips on track {}",
+                    clip_id, clip_id
+                );
                 return 0;
             }
         }
@@ -8184,7 +8201,11 @@ pub extern "C" fn elastic_apply_to_clip(clip_id: u32) -> i32 {
     for i in 0..new_frames {
         new_samples.push(stretched_l[i].clamp(-1.0, 1.0) as f32);
         if channels > 1 {
-            let r = if i < stretched_r.len() { stretched_r[i] } else { 0.0 };
+            let r = if i < stretched_r.len() {
+                stretched_r[i]
+            } else {
+                0.0
+            };
             new_samples.push(r.clamp(-1.0, 1.0) as f32);
         }
     }
@@ -9113,7 +9134,13 @@ pub extern "C" fn algorithmic_reverb_get_param(track_id: u32, param_index: u32) 
             11 => reverb.character(),
             12 => reverb.thickness(),
             13 => reverb.ducking(),
-            14 => if reverb.freeze() { 1.0 } else { 0.0 },
+            14 => {
+                if reverb.freeze() {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
             _ => 0.0,
         }
     } else {
@@ -9611,10 +9638,18 @@ fn with_imager<F: FnOnce(&mut rf_dsp::spatial::StereoImager)>(track_id: u32, f: 
         }
         id if id >= 1000 => {
             let bus_idx = (id - 1000) as usize;
-            if engine.with_bus_imager(bus_idx, f) { 1 } else { 0 }
+            if engine.with_bus_imager(bus_idx, f) {
+                1
+            } else {
+                0
+            }
         }
         id => {
-            if engine.with_track_imager(id, f) { 1 } else { 0 }
+            if engine.with_track_imager(id, f) {
+                1
+            } else {
+                0
+            }
         }
     }
 }
@@ -9649,7 +9684,11 @@ pub extern "C" fn stereo_imager_create(track_id: u32, sample_rate: f64) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn stereo_imager_remove(track_id: u32) -> i32 {
     let engine = &*PLAYBACK_ENGINE;
-    if engine.remove_stereo_imager(track_id) { 1 } else { 0 }
+    if engine.remove_stereo_imager(track_id) {
+        1
+    } else {
+        0
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -21746,10 +21785,14 @@ pub extern "C" fn engine_get_bus_peak(bus_id: u32, out_left: *mut f64, out_right
         (0.0, 0.0)
     };
     if !out_left.is_null() {
-        unsafe { *out_left = peak_l; }
+        unsafe {
+            *out_left = peak_l;
+        }
     }
     if !out_right.is_null() {
-        unsafe { *out_right = peak_r; }
+        unsafe {
+            *out_right = peak_r;
+        }
     }
 }
 

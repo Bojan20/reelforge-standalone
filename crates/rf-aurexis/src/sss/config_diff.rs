@@ -77,7 +77,10 @@ impl ConfigDiff {
 
     /// Get entries filtered by risk level.
     pub fn entries_at_risk(&self, level: RiskLevel) -> Vec<&DiffEntry> {
-        self.entries.iter().filter(|e| e.risk_level == level).collect()
+        self.entries
+            .iter()
+            .filter(|e| e.risk_level == level)
+            .collect()
     }
 
     /// Export diff to JSON.
@@ -105,10 +108,7 @@ pub struct ConfigDiffEngine;
 
 impl ConfigDiffEngine {
     /// Compute diff between two flat config maps.
-    pub fn diff(
-        old: &HashMap<String, String>,
-        new: &HashMap<String, String>,
-    ) -> ConfigDiff {
+    pub fn diff(old: &HashMap<String, String>, new: &HashMap<String, String>) -> ConfigDiff {
         let mut entries = Vec::new();
 
         // Check modified and removed keys
@@ -158,16 +158,24 @@ impl ConfigDiffEngine {
         // Sort by risk level (highest first)
         entries.sort_by(|a, b| b.risk_level.cmp(&a.risk_level));
 
-        let overall_risk = entries.iter()
+        let overall_risk = entries
+            .iter()
             .map(|e| e.risk_level)
             .max()
             .unwrap_or(RiskLevel::None);
 
-        let structural_changes = entries.iter()
-            .filter(|e| matches!(e.diff_type, DiffType::Added | DiffType::Removed | DiffType::TypeChanged))
+        let structural_changes = entries
+            .iter()
+            .filter(|e| {
+                matches!(
+                    e.diff_type,
+                    DiffType::Added | DiffType::Removed | DiffType::TypeChanged
+                )
+            })
             .count();
 
-        let behavioral_changes = entries.iter()
+        let behavioral_changes = entries
+            .iter()
             .filter(|e| e.risk_level >= RiskLevel::Medium)
             .count();
 
@@ -192,7 +200,10 @@ impl ConfigDiffEngine {
     }
 
     /// Quick check: does this change require regression?
-    pub fn requires_regression(old: &HashMap<String, String>, new: &HashMap<String, String>) -> bool {
+    pub fn requires_regression(
+        old: &HashMap<String, String>,
+        new: &HashMap<String, String>,
+    ) -> bool {
         Self::diff(old, new).regression_required
     }
 }
@@ -202,7 +213,10 @@ mod tests {
     use super::*;
 
     fn make_config(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-        pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
     }
 
     #[test]

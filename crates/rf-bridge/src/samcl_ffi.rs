@@ -3,11 +3,11 @@
 //! Exposes SAMCL functions via C FFI. Uses the shared AUREXIS ENGINE global
 //! from aurexis_ffi.rs since SpectralAllocator lives inside AurexisEngine.
 
-use std::ffi::{c_char, CString};
+use std::ffi::{CString, c_char};
 use std::ptr;
 
 use crate::aurexis_ffi::ENGINE;
-use rf_aurexis::spectral::{SpectralRole, SpectralAllocator};
+use rf_aurexis::spectral::{SpectralAllocator, SpectralRole};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // VOICE SPECTRAL ASSIGNMENT
@@ -26,7 +26,16 @@ pub extern "C" fn samcl_assign_role(
         None => return 0,
     };
     if let Some(ref mut engine) = *ENGINE.write() {
-        return if engine.spectral_allocator_mut().assign_role(voice_id, role, priority, harmonic_layers) { 1 } else { 0 };
+        return if engine.spectral_allocator_mut().assign_role(
+            voice_id,
+            role,
+            priority,
+            harmonic_layers,
+        ) {
+            1
+        } else {
+            0
+        };
     }
     0
 }
@@ -35,7 +44,11 @@ pub extern "C" fn samcl_assign_role(
 #[unsafe(no_mangle)]
 pub extern "C" fn samcl_remove_voice(voice_id: u32) -> i32 {
     if let Some(ref mut engine) = *ENGINE.write() {
-        return if engine.spectral_allocator_mut().remove_voice(voice_id) { 1 } else { 0 };
+        return if engine.spectral_allocator_mut().remove_voice(voice_id) {
+            1
+        } else {
+            0
+        };
     }
     0
 }
@@ -95,7 +108,15 @@ pub extern "C" fn samcl_get_slot_shifts() -> u32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn samcl_is_aggressive_carve() -> i32 {
     if let Some(ref engine) = *ENGINE.read() {
-        return if engine.spectral_allocator().last_output().aggressive_carve_active { 1 } else { 0 };
+        return if engine
+            .spectral_allocator()
+            .last_output()
+            .aggressive_carve_active
+        {
+            1
+        } else {
+            0
+        };
     }
     0
 }
@@ -164,7 +185,11 @@ pub extern "C" fn samcl_role_name(role_index: u8) -> *mut c_char {
 
 /// Get spectral role frequency band (low_hz, high_hz).
 #[unsafe(no_mangle)]
-pub extern "C" fn samcl_role_band(role_index: u8, out_low_hz: *mut f64, out_high_hz: *mut f64) -> i32 {
+pub extern "C" fn samcl_role_band(
+    role_index: u8,
+    out_low_hz: *mut f64,
+    out_high_hz: *mut f64,
+) -> i32 {
     if out_low_hz.is_null() || out_high_hz.is_null() {
         return 0;
     }

@@ -87,28 +87,27 @@ impl MacroStep for QaLoudnessStep {
                 return Err(FluxMacroError::Cancelled);
             }
 
-            let filename = file_path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("");
+            let filename = file_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
             // Determine domain from filename prefix
             let domain = detect_domain(filename);
 
             // Get target for this domain
-            let (target_lufs, target_tp, tolerance) = if let Some(target) =
-                rules.loudness.domains.get(&domain)
-            {
-                (target.lufs_target as f64, target.true_peak_max as f64, target.lufs_tolerance as f64)
-            } else {
-                (-18.0_f64, -1.0_f64, 2.0_f64)
-            };
+            let (target_lufs, target_tp, tolerance) =
+                if let Some(target) = rules.loudness.domains.get(&domain) {
+                    (
+                        target.lufs_target as f64,
+                        target.true_peak_max as f64,
+                        target.lufs_tolerance as f64,
+                    )
+                } else {
+                    (-18.0_f64, -1.0_f64, 2.0_f64)
+                };
 
             // Decode and measure
             match measure_file(file_path) {
                 Ok(info) => {
-                    let lufs_passed =
-                        (info.integrated - target_lufs).abs() <= tolerance;
+                    let lufs_passed = (info.integrated - target_lufs).abs() <= tolerance;
                     let tp_passed = info.true_peak <= target_tp;
                     let passed = lufs_passed && tp_passed;
 
@@ -153,13 +152,18 @@ impl MacroStep for QaLoudnessStep {
             .collect();
 
         for domain in &domains {
-            let domain_measurements: Vec<&LoudnessMeasurement> =
-                measurements.iter().filter(|m| &m.domain == domain).collect();
+            let domain_measurements: Vec<&LoudnessMeasurement> = measurements
+                .iter()
+                .filter(|m| &m.domain == domain)
+                .collect();
             let domain_passed = domain_measurements.iter().all(|m| m.passed);
             let avg_lufs = if domain_measurements.is_empty() {
                 0.0
             } else {
-                domain_measurements.iter().map(|m| m.integrated_lufs).sum::<f64>()
+                domain_measurements
+                    .iter()
+                    .map(|m| m.integrated_lufs)
+                    .sum::<f64>()
                     / domain_measurements.len() as f64
             };
 
@@ -256,11 +260,15 @@ fn detect_domain(filename: &str) -> String {
         "ui".to_string()
     } else if lower.starts_with("sfx_") || lower.starts_with("sfx-") {
         "sfx".to_string()
-    } else if lower.starts_with("mus_") || lower.starts_with("mus-") || lower.starts_with("music_") {
+    } else if lower.starts_with("mus_") || lower.starts_with("mus-") || lower.starts_with("music_")
+    {
         "mus".to_string()
     } else if lower.starts_with("vo_") || lower.starts_with("vo-") || lower.starts_with("voice_") {
         "vo".to_string()
-    } else if lower.starts_with("amb_") || lower.starts_with("amb-") || lower.starts_with("ambience_") {
+    } else if lower.starts_with("amb_")
+        || lower.starts_with("amb-")
+        || lower.starts_with("ambience_")
+    {
         "amb".to_string()
     } else {
         "sfx".to_string() // Default domain
@@ -296,10 +304,7 @@ fn measure_file(path: &Path) -> Result<rf_offline::LoudnessInfo, FluxMacroError>
     let buffer = rf_offline::AudioDecoder::decode(path)
         .map_err(|e| FluxMacroError::Other(format!("Decode error: {e}")))?;
 
-    let mut meter = rf_offline::LoudnessMeter::new(
-        buffer.sample_rate,
-        buffer.channels,
-    );
+    let mut meter = rf_offline::LoudnessMeter::new(buffer.sample_rate, buffer.channels);
 
     // Process all samples (already f64)
     meter.process(&buffer.samples);

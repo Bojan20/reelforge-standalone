@@ -99,10 +99,7 @@ impl MacroStep for QaFatigueStep {
 
         // Store in intermediate
         ctx.set_intermediate("qa_fatigue_passed", serde_json::json!(fatigue_passed));
-        ctx.set_intermediate(
-            "qa_fatigue_index",
-            serde_json::json!(fatigue_acc),
-        );
+        ctx.set_intermediate("qa_fatigue_index", serde_json::json!(fatigue_acc));
 
         // Generate fatigue curve data for SVG reporter
         // Simulate data points (time_min, fatigue_index)
@@ -115,10 +112,7 @@ impl MacroStep for QaFatigueStep {
             })
             .collect();
 
-        ctx.set_intermediate(
-            "fatigue_curve_data",
-            serde_json::json!(fatigue_curve),
-        );
+        ctx.set_intermediate("fatigue_curve_data", serde_json::json!(fatigue_curve));
 
         // Write report
         let reports_dir = ctx.working_dir.join("Reports");

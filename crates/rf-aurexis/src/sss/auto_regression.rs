@@ -1,11 +1,11 @@
 //! Auto Regression — on config change, run 10 .fftrace sessions + stress scenarios.
 //! Validates hash match across all replay sessions.
 
-use serde::{Deserialize, Serialize};
 use crate::core::config::AurexisConfig;
 use crate::core::engine::AurexisEngine;
 use crate::qa::pbse::SimulationDomain;
 use crate::qa::simulation::SimulationStep;
+use serde::{Deserialize, Serialize};
 
 /// Stress scenario for regression testing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -40,9 +40,15 @@ impl StressScenario {
 
     pub fn all() -> &'static [StressScenario] {
         &[
-            Self::NormalMix, Self::LossStreak, Self::WinEscalation,
-            Self::FeatureOverlap, Self::JackpotRun, Self::TurboBurst,
-            Self::AutoplayMarathon, Self::SessionDrift, Self::HookCollision,
+            Self::NormalMix,
+            Self::LossStreak,
+            Self::WinEscalation,
+            Self::FeatureOverlap,
+            Self::JackpotRun,
+            Self::TurboBurst,
+            Self::AutoplayMarathon,
+            Self::SessionDrift,
+            Self::HookCollision,
             Self::MaxVoiceLoad,
         ]
     }
@@ -124,8 +130,14 @@ pub struct RegressionResult {
 
 impl RegressionResult {
     pub fn pass_rate(&self) -> f64 {
-        if self.runs.is_empty() { return 0.0; }
-        let passed = self.runs.iter().filter(|r| r.status == RegressionStatus::Passed).count();
+        if self.runs.is_empty() {
+            return 0.0;
+        }
+        let passed = self
+            .runs
+            .iter()
+            .filter(|r| r.status == RegressionStatus::Passed)
+            .count();
         passed as f64 / self.runs.len() as f64
     }
 
@@ -143,7 +155,10 @@ pub struct AutoRegression {
 
 impl AutoRegression {
     pub fn new(config: RegressionConfig) -> Self {
-        Self { config, last_result: None }
+        Self {
+            config,
+            last_result: None,
+        }
     }
 
     /// Run full regression suite using AurexisEngine compute() API.
@@ -165,13 +180,16 @@ impl AutoRegression {
                 execute_and_collect_metrics(aurexis_config, &steps);
 
             let deterministic = record_hash == replay_hash;
-            if !deterministic { all_deterministic = false; }
+            if !deterministic {
+                all_deterministic = false;
+            }
 
             let status = if deterministic {
                 RegressionStatus::Passed
             } else {
                 RegressionStatus::Failed(format!(
-                    "Hash mismatch: record={}, replay={}", record_hash, replay_hash
+                    "Hash mismatch: record={}, replay={}",
+                    record_hash, replay_hash
                 ))
             };
 
@@ -190,7 +208,10 @@ impl AutoRegression {
             });
         }
 
-        let failed_count = runs.iter().filter(|r| !matches!(r.status, RegressionStatus::Passed)).count();
+        let failed_count = runs
+            .iter()
+            .filter(|r| !matches!(r.status, RegressionStatus::Passed))
+            .count();
         let total_spins = runs.iter().map(|r| r.spin_count as u64).sum();
 
         self.last_result = Some(RegressionResult {
@@ -234,7 +255,10 @@ fn execute_and_hash(config: &AurexisConfig, steps: &[SimulationStep]) -> String 
 }
 
 /// Execute steps, collect hash AND peak metrics.
-fn execute_and_collect_metrics(config: &AurexisConfig, steps: &[SimulationStep]) -> (String, f64, u32, f64) {
+fn execute_and_collect_metrics(
+    config: &AurexisConfig,
+    steps: &[SimulationStep],
+) -> (String, f64, u32, f64) {
     let mut engine = AurexisEngine::with_config(config.clone());
     engine.initialize();
     let mut hash = 0xcbf29ce484222325u64;
@@ -258,7 +282,12 @@ fn execute_and_collect_metrics(config: &AurexisConfig, steps: &[SimulationStep])
         peak_voices = peak_voices.max(output.dpm_retained + output.dpm_attenuated);
         peak_fatigue = peak_fatigue.max(output.fatigue_index);
     }
-    (format!("{:016x}", hash), peak_energy, peak_voices, peak_fatigue)
+    (
+        format!("{:016x}", hash),
+        peak_energy,
+        peak_voices,
+        peak_fatigue,
+    )
 }
 
 /// Generate simulation steps for a stress scenario.
@@ -267,47 +296,63 @@ fn generate_stress_steps(domain: SimulationDomain, count: u32) -> Vec<Simulation
     for i in 0..count {
         let step = match domain {
             SimulationDomain::LossStreaks => SimulationStep {
-                win_multiplier: 0.0, rtp: 96.0, ..Default::default()
+                win_multiplier: 0.0,
+                rtp: 96.0,
+                ..Default::default()
             },
             SimulationDomain::WinStreaks => SimulationStep {
-                win_multiplier: (i as f64 + 1.0) * 2.0, rtp: 96.0,
-                rms_db: -16.0, ..Default::default()
+                win_multiplier: (i as f64 + 1.0) * 2.0,
+                rtp: 96.0,
+                rms_db: -16.0,
+                ..Default::default()
             },
             SimulationDomain::CascadeChains => SimulationStep {
                 win_multiplier: if i % 3 == 0 { 5.0 } else { 0.0 },
-                rtp: 96.0, ..Default::default()
+                rtp: 96.0,
+                ..Default::default()
             },
             SimulationDomain::FeatureOverlaps => SimulationStep {
-                win_multiplier: 3.0, rtp: 96.0,
+                win_multiplier: 3.0,
+                rtp: 96.0,
                 jackpot_proximity: if i % 4 == 0 { 0.5 } else { 0.0 },
                 ..Default::default()
             },
             SimulationDomain::JackpotEscalation => SimulationStep {
-                win_multiplier: if i > count.saturating_sub(5) { 1000.0 } else { 0.0 },
+                win_multiplier: if i > count.saturating_sub(5) {
+                    1000.0
+                } else {
+                    0.0
+                },
                 jackpot_proximity: i as f64 / count as f64,
-                rtp: 96.0, ..Default::default()
+                rtp: 96.0,
+                ..Default::default()
             },
             SimulationDomain::TurboCompression => SimulationStep {
                 elapsed_ms: 25, // Turbo = faster ticks
                 win_multiplier: if i % 3 == 0 { 2.0 } else { 0.0 },
-                rtp: 96.0, ..Default::default()
+                rtp: 96.0,
+                ..Default::default()
             },
             SimulationDomain::AutoplayBurst => SimulationStep {
                 win_multiplier: if i % 7 == 0 { 3.0 } else { 0.0 },
-                rtp: 96.0, ..Default::default()
+                rtp: 96.0,
+                ..Default::default()
             },
             SimulationDomain::LongSessionDrift => SimulationStep {
                 win_multiplier: if i % 10 == 0 { 2.0 } else { 0.0 },
-                rtp: 96.0, ..Default::default()
+                rtp: 96.0,
+                ..Default::default()
             },
             SimulationDomain::HookBurstCollision => SimulationStep {
-                win_multiplier: 1.0, rtp: 96.0,
+                win_multiplier: 1.0,
+                rtp: 96.0,
                 jackpot_proximity: if i % 2 == 0 { 0.3 } else { 0.0 },
                 ..Default::default()
             },
             _ => SimulationStep {
                 win_multiplier: if i % 5 == 0 { 2.0 } else { 0.0 },
-                rtp: 96.0, ..Default::default()
+                rtp: 96.0,
+                ..Default::default()
             },
         };
         steps.push(step);
@@ -361,8 +406,12 @@ mod tests {
     #[test]
     fn test_regression_result_json() {
         let result = RegressionResult {
-            runs: vec![], all_passed: true, deterministic: true,
-            total_spins: 0, failed_count: 0, duration_ms: 0,
+            runs: vec![],
+            all_passed: true,
+            deterministic: true,
+            total_spins: 0,
+            failed_count: 0,
+            duration_ms: 0,
         };
         assert!(result.to_json().is_ok());
     }

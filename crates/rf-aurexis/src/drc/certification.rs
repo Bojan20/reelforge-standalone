@@ -4,13 +4,13 @@
 //!
 //! See: FLUXFORGE_MASTER_SPEC.md §10
 
+use super::manifest::{CertificationStatus, FluxManifest};
+use super::replay::DeterministicReplayCore;
+use super::safety::SafetyEnvelope;
 use crate::core::config::AurexisConfig;
 use crate::core::parameter_map::DeterministicParameterMap;
 use crate::qa::pbse::PbseResult;
 use crate::qa::simulation::SimulationStep;
-use super::manifest::{FluxManifest, CertificationStatus};
-use super::replay::DeterministicReplayCore;
-use super::safety::SafetyEnvelope;
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -116,7 +116,11 @@ impl CertificationGate {
         stages.push(StageResult {
             name: "PBSE",
             passed: pbse_pass,
-            details: if pbse_pass { "All 10 domains passed".into() } else { "PBSE validation failed or not run".into() },
+            details: if pbse_pass {
+                "All 10 domains passed".into()
+            } else {
+                "PBSE validation failed or not run".into()
+            },
         });
         if !pbse_pass {
             blocking_failures.push("PBSE validation failed".into());
@@ -132,11 +136,18 @@ impl CertificationGate {
             details: if drc_pass {
                 format!("{} frames verified deterministic", drc_result.total_frames)
             } else {
-                format!("{} hash mismatches in {} frames", drc_result.mismatches.len(), drc_result.total_frames)
+                format!(
+                    "{} hash mismatches in {} frames",
+                    drc_result.mismatches.len(),
+                    drc_result.total_frames
+                )
             },
         });
         if !drc_pass {
-            blocking_failures.push(format!("DRC: {} hash mismatches", drc_result.mismatches.len()));
+            blocking_failures.push(format!(
+                "DRC: {} hash mismatches",
+                drc_result.mismatches.len()
+            ));
         }
 
         // Stage 3: Safety Envelope
@@ -153,8 +164,13 @@ impl CertificationGate {
         });
         if !envelope_pass {
             for v in &envelope_result.violations {
-                blocking_failures.push(format!("{}: {:.4} > {:.4} at frame {}",
-                    v.violation_type.name(), v.value, v.limit, v.frame_index));
+                blocking_failures.push(format!(
+                    "{}: {:.4} > {:.4} at frame {}",
+                    v.violation_type.name(),
+                    v.value,
+                    v.limit,
+                    v.frame_index
+                ));
             }
         }
 
@@ -164,14 +180,18 @@ impl CertificationGate {
         stages.push(StageResult {
             name: "Manifest Lock",
             passed: manifest_check,
-            details: format!("Config bundle hash: {:016x}", self.manifest.config_bundle.config_bundle_hash),
+            details: format!(
+                "Config bundle hash: {:016x}",
+                self.manifest.config_bundle.config_bundle_hash
+            ),
         });
         if !manifest_check {
             blocking_failures.push("Manifest config hash mismatch".into());
         }
 
         // Stage 5: Final Hash Validation
-        self.manifest.update_certification(drc_pass, pbse_pass, envelope_pass);
+        self.manifest
+            .update_certification(drc_pass, pbse_pass, envelope_pass);
         let hash_pass = self.manifest.manifest_hash != 0;
         stages.push(StageResult {
             name: "Hash Validation",
@@ -181,7 +201,11 @@ impl CertificationGate {
 
         // Overall
         let certified = pbse_pass && drc_pass && envelope_pass && manifest_check && hash_pass;
-        let overall_status = if certified { CertificationStatus::Certified } else { CertificationStatus::Failed };
+        let overall_status = if certified {
+            CertificationStatus::Certified
+        } else {
+            CertificationStatus::Failed
+        };
 
         let report = CertificationReport {
             overall_status,
@@ -215,20 +239,35 @@ impl CertificationGate {
         let mut json = String::with_capacity(2048);
         write!(json, "{{").map_err(|e| e.to_string())?;
 
-        write!(json, "\"overall_status\":\"{}\",", result.report.overall_status.name()).map_err(|e| e.to_string())?;
+        write!(
+            json,
+            "\"overall_status\":\"{}\",",
+            result.report.overall_status.name()
+        )
+        .map_err(|e| e.to_string())?;
         write!(json, "\"certified\":{},", result.certified).map_err(|e| e.to_string())?;
 
         write!(json, "\"stages\":[").map_err(|e| e.to_string())?;
         for (i, stage) in result.report.stages.iter().enumerate() {
-            if i > 0 { write!(json, ",").map_err(|e| e.to_string())?; }
-            write!(json, "{{\"name\":\"{}\",\"passed\":{},\"details\":\"{}\"}}",
-                stage.name, stage.passed, stage.details.replace('\"', "\\\"")).map_err(|e| e.to_string())?;
+            if i > 0 {
+                write!(json, ",").map_err(|e| e.to_string())?;
+            }
+            write!(
+                json,
+                "{{\"name\":\"{}\",\"passed\":{},\"details\":\"{}\"}}",
+                stage.name,
+                stage.passed,
+                stage.details.replace('\"', "\\\"")
+            )
+            .map_err(|e| e.to_string())?;
         }
         write!(json, "],").map_err(|e| e.to_string())?;
 
         write!(json, "\"blocking_failures\":[").map_err(|e| e.to_string())?;
         for (i, failure) in result.report.blocking_failures.iter().enumerate() {
-            if i > 0 { write!(json, ",").map_err(|e| e.to_string())?; }
+            if i > 0 {
+                write!(json, ",").map_err(|e| e.to_string())?;
+            }
             write!(json, "\"{}\"", failure.replace('\"', "\\\"")).map_err(|e| e.to_string())?;
         }
         write!(json, "]").map_err(|e| e.to_string())?;
@@ -252,18 +291,20 @@ impl Default for CertificationGate {
 mod tests {
     use super::*;
     use crate::core::engine::AurexisEngine;
-    use crate::qa::pbse::{PreBakeSimulator, PbseResult};
+    use crate::qa::pbse::{PbseResult, PreBakeSimulator};
 
     fn test_steps() -> Vec<SimulationStep> {
-        (0..50).map(|i| SimulationStep {
-            elapsed_ms: 50,
-            volatility: 0.5,
-            rtp: 96.0,
-            win_multiplier: if i % 10 == 0 { 5.0 } else { 0.0 },
-            jackpot_proximity: 0.0,
-            rms_db: -20.0,
-            hf_db: -26.0,
-        }).collect()
+        (0..50)
+            .map(|i| SimulationStep {
+                elapsed_ms: 50,
+                volatility: 0.5,
+                rtp: 96.0,
+                win_multiplier: if i % 10 == 0 { 5.0 } else { 0.0 },
+                jackpot_proximity: 0.0,
+                rms_db: -20.0,
+                hf_db: -26.0,
+            })
+            .collect()
     }
 
     fn run_engine(steps: &[SimulationStep]) -> Vec<DeterministicParameterMap> {
@@ -271,14 +312,17 @@ mod tests {
         engine.initialize();
         engine.set_seed(0, 0, 0, 0);
 
-        steps.iter().map(|step| {
-            engine.set_volatility(step.volatility);
-            engine.set_rtp(step.rtp);
-            engine.set_win(step.win_multiplier, 1.0, step.jackpot_proximity);
-            engine.set_metering(step.rms_db, step.hf_db);
-            engine.record_spin(step.win_multiplier, false, false);
-            engine.compute_cloned(step.elapsed_ms)
-        }).collect()
+        steps
+            .iter()
+            .map(|step| {
+                engine.set_volatility(step.volatility);
+                engine.set_rtp(step.rtp);
+                engine.set_win(step.win_multiplier, 1.0, step.jackpot_proximity);
+                engine.set_metering(step.rms_db, step.hf_db);
+                engine.record_spin(step.win_multiplier, false, false);
+                engine.compute_cloned(step.elapsed_ms)
+            })
+            .collect()
     }
 
     #[test]
@@ -303,7 +347,12 @@ mod tests {
 
         let result = gate.certify(Some(&pbse_result), &steps, &outputs, "test config");
         // DRC should pass (deterministic replay)
-        let drc_stage = result.report.stages.iter().find(|s| s.name == "DRC").unwrap();
+        let drc_stage = result
+            .report
+            .stages
+            .iter()
+            .find(|s| s.name == "DRC")
+            .unwrap();
         assert!(drc_stage.passed, "DRC should pass for deterministic engine");
     }
 

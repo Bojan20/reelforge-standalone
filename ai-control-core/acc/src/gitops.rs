@@ -1,15 +1,15 @@
 use crate::config::AccConfig;
 use serde::{Deserialize, Serialize};
+use std::io::Write;
 use std::{path::PathBuf, process::Command};
 use tempfile::NamedTempFile;
-use std::io::Write;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct PatchApplyRequest {
-    pub provider: String,      // "claude" | "openai"
-    pub task_id: String,       // "TASK_001"
+    pub provider: String, // "claude" | "openai"
+    pub task_id: String,  // "TASK_001"
     pub reason: Option<String>,
-    pub patch: String,         // unified diff
+    pub patch: String, // unified diff
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -38,7 +38,11 @@ pub struct GateResult {
 
 impl Default for GateResult {
     fn default() -> Self {
-        Self { ran: false, passed: false, detail: None }
+        Self {
+            ran: false,
+            passed: false,
+            detail: None,
+        }
     }
 }
 
@@ -78,18 +82,27 @@ fn run_cmd(repo_root: &PathBuf, cmd: &str, args: &[&str]) -> Result<String, Stri
 /// Run flutter analyze gate. Returns (passed, detail).
 fn run_flutter_analyze_gate(cfg: &AccConfig) -> GateResult {
     if !cfg.gates.run_typecheck {
-        return GateResult { ran: false, passed: true, detail: Some("skipped (disabled in config)".into()) };
+        return GateResult {
+            ran: false,
+            passed: true,
+            detail: Some("skipped (disabled in config)".into()),
+        };
     }
 
     let flutter_ui = cfg.repo_root.join("flutter_ui");
     if !flutter_ui.exists() {
-        return GateResult { ran: false, passed: true, detail: Some("skipped (flutter_ui not found)".into()) };
+        return GateResult {
+            ran: false,
+            passed: true,
+            detail: Some("skipped (flutter_ui not found)".into()),
+        };
     }
 
     tracing::info!("Running flutter analyze gate...");
     match run_cmd(&flutter_ui, "flutter", &["analyze", "--no-fatal-infos"]) {
         Ok(output) => {
-            let passed = output.contains("No issues found") || !output.to_lowercase().contains("error");
+            let passed =
+                output.contains("No issues found") || !output.to_lowercase().contains("error");
             GateResult {
                 ran: true,
                 passed,
@@ -97,7 +110,8 @@ fn run_flutter_analyze_gate(cfg: &AccConfig) -> GateResult {
             }
         }
         Err(e) => {
-            let has_errors = e.to_lowercase().contains("error") && !e.to_lowercase().contains("0 error");
+            let has_errors =
+                e.to_lowercase().contains("error") && !e.to_lowercase().contains("0 error");
             GateResult {
                 ran: true,
                 passed: !has_errors,
@@ -148,7 +162,10 @@ fn rollback_branch(cfg: &AccConfig, current_branch: &str, branch: &str) {
     let _ = run(&cfg.repo_root, &["branch", "-D", branch]);
 }
 
-pub fn apply_patch_on_branch(cfg: &AccConfig, req: PatchApplyRequest) -> Result<PatchApplyResponse, String> {
+pub fn apply_patch_on_branch(
+    cfg: &AccConfig,
+    req: PatchApplyRequest,
+) -> Result<PatchApplyResponse, String> {
     // Determine current branch
     let current_branch = run(&cfg.repo_root, &["rev-parse", "--abbrev-ref", "HEAD"])?;
     let current_branch = current_branch.trim().to_string();
@@ -162,7 +179,8 @@ pub fn apply_patch_on_branch(cfg: &AccConfig, req: PatchApplyRequest) -> Result<
 
     // Write patch to temp file
     let mut tmp = NamedTempFile::new().map_err(|e| e.to_string())?;
-    tmp.write_all(req.patch.as_bytes()).map_err(|e| e.to_string())?;
+    tmp.write_all(req.patch.as_bytes())
+        .map_err(|e| e.to_string())?;
     let tmp_path = tmp.path().to_string_lossy().to_string();
 
     // Apply patch
@@ -181,7 +199,10 @@ pub fn apply_patch_on_branch(cfg: &AccConfig, req: PatchApplyRequest) -> Result<
             changed_files: vec![],
             blocked_files: vec![],
             gate_results: GateResults::default(),
-            error: Some(format!("git apply failed: {}", String::from_utf8_lossy(&apply_res.stderr))),
+            error: Some(format!(
+                "git apply failed: {}",
+                String::from_utf8_lossy(&apply_res.stderr)
+            )),
         };
         update_system_status(cfg, &req, &resp);
         return Ok(resp);
@@ -206,9 +227,17 @@ pub fn apply_patch_on_branch(cfg: &AccConfig, req: PatchApplyRequest) -> Result<
     }
 
     let locked_gate = if blocked.is_empty() {
-        GateResult { ran: true, passed: true, detail: None }
+        GateResult {
+            ran: true,
+            passed: true,
+            detail: None,
+        }
     } else {
-        GateResult { ran: true, passed: false, detail: Some(format!("Blocked: {}", blocked.join(", "))) }
+        GateResult {
+            ran: true,
+            passed: false,
+            detail: Some(format!("Blocked: {}", blocked.join(", "))),
+        }
     };
 
     if !locked_gate.passed {
@@ -219,7 +248,10 @@ pub fn apply_patch_on_branch(cfg: &AccConfig, req: PatchApplyRequest) -> Result<
             merged: false,
             changed_files,
             blocked_files: blocked,
-            gate_results: GateResults { locked_paths: locked_gate, ..Default::default() },
+            gate_results: GateResults {
+                locked_paths: locked_gate,
+                ..Default::default()
+            },
             error: Some("Locked paths modified. Patch rejected.".to_string()),
         };
         update_system_status(cfg, &req, &resp);
@@ -251,7 +283,10 @@ pub fn apply_patch_on_branch(cfg: &AccConfig, req: PatchApplyRequest) -> Result<
             merged: false,
             changed_files,
             blocked_files: vec![],
-            gate_results: GateResults { locked_paths: locked_gate, flutter_analyze: flutter_gate },
+            gate_results: GateResults {
+                locked_paths: locked_gate,
+                flutter_analyze: flutter_gate,
+            },
             error: Some("Flutter analyze gate FAILED. Patch rejected.".to_string()),
         };
         update_system_status(cfg, &req, &resp);
@@ -267,7 +302,16 @@ pub fn apply_patch_on_branch(cfg: &AccConfig, req: PatchApplyRequest) -> Result<
     run(&cfg.repo_root, &["checkout", &current_branch])?;
 
     // Merge the branch
-    let merge_result = run(&cfg.repo_root, &["merge", "--no-ff", &branch, "-m", &format!("ACC: {} ({})", req.task_id, safe_reason)]);
+    let merge_result = run(
+        &cfg.repo_root,
+        &[
+            "merge",
+            "--no-ff",
+            &branch,
+            "-m",
+            &format!("ACC: {} ({})", req.task_id, safe_reason),
+        ],
+    );
 
     let merged = match merge_result {
         Ok(_) => {
@@ -290,8 +334,15 @@ pub fn apply_patch_on_branch(cfg: &AccConfig, req: PatchApplyRequest) -> Result<
         merged,
         changed_files,
         blocked_files: vec![],
-        gate_results: GateResults { locked_paths: locked_gate, flutter_analyze: flutter_gate },
-        error: if merged { None } else { Some("Merge failed — branch preserved".into()) },
+        gate_results: GateResults {
+            locked_paths: locked_gate,
+            flutter_analyze: flutter_gate,
+        },
+        error: if merged {
+            None
+        } else {
+            Some("Merge failed — branch preserved".into())
+        },
     };
 
     update_system_status(cfg, &req, &resp);

@@ -442,24 +442,12 @@ class WinPresentationBlock extends FeatureBlockBase {
         target: 'game_core',
         description: 'Needs bet amount for tier calculations',
       ),
-      // Cascades modify win presentation (multipliers affect tier)
-      BlockDependency.modifies(
-        source: 'cascades',
-        target: id,
-        description: 'Cascade multipliers affect win tier',
-      ),
-      // Free spins modify win presentation
-      BlockDependency.modifies(
-        source: 'free_spins',
-        target: id,
-        description: 'Free spin multipliers affect win tier',
-      ),
-      // Collectors modify win presentation
-      BlockDependency.modifies(
-        source: 'collector',
-        target: id,
-        description: 'Collected values may affect presentation',
-      ),
+      // Note: Cascades, FreeSpins, and Collector declare their own
+      // BlockDependency.modifies(source: theirId, target: 'win_presentation')
+      // in their respective createDependencies(). Declaring them here with
+      // a foreign source causes a self-referencing cycle in the dependency
+      // resolver (the resolver reads block.dependencies and attributes them
+      // to the block's own node).
     ];
   }
 

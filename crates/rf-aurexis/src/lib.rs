@@ -6,38 +6,74 @@
 //! **No dependency** on rf-ale, rf-engine, rf-dsp, rf-spatial.
 //! Consumers read the parameter map and apply values themselves.
 
-pub mod core;
-pub mod volatility;
-pub mod rtp;
-pub mod psycho;
+pub mod advisory;
 pub mod collision;
+pub mod core;
+pub mod drc;
+pub mod energy;
 pub mod escalation;
-pub mod variation;
+pub mod gad;
 pub mod geometry;
 pub mod platform;
-pub mod energy;
 pub mod priority;
-pub mod spectral;
-pub mod advisory;
-pub mod drc;
+pub mod psycho;
 pub mod qa;
+pub mod rtp;
 pub mod sam;
-pub mod gad;
+pub mod spectral;
 pub mod sss;
+pub mod variation;
+pub mod volatility;
 
-pub use crate::core::engine::AurexisEngine;
+pub use crate::advisory::{
+    AilDomain, AilRecommendation, AilReport, AilScore, AilStatus, AuthoringIntelligence,
+    DomainAnalysis, FatigueAnalysis, RecommendationLevel, SpectralClarityAnalysis, VoiceEfficiency,
+    VolatilityAlignment,
+};
 pub use crate::core::config::AurexisConfig;
-pub use crate::core::state::AurexisState;
+pub use crate::core::engine::AurexisEngine;
 pub use crate::core::parameter_map::DeterministicParameterMap;
-pub use crate::energy::{EnergyGovernor, EnergyDomain, EnergyBudget, VoiceBudget, SlotProfile, SessionMemory, GegCurveType};
-pub use crate::priority::{DynamicPriorityMatrix, EventType, EmotionalState, VoicePriority, VoiceSurvivalResult, SurvivalAction, DpmOutput};
-pub use crate::spectral::{SpectralAllocator, SpectralRole, SpectralBand, SpectralAssignment, SpectralAllocationOutput, MaskingResolver, MaskingStrategy, MaskingAction, SciAdvanced};
-pub use crate::qa::{PreBakeSimulator, SimulationDomain, ValidationThresholds, PbseResult, DomainResult, FatigueModelResult, MetricValidation};
-pub use crate::advisory::{AuthoringIntelligence, AilDomain, AilScore, AilStatus, AilReport, AilRecommendation, RecommendationLevel, DomainAnalysis, FatigueAnalysis, VoiceEfficiency, SpectralClarityAnalysis, VolatilityAlignment};
-pub use crate::drc::{DeterministicReplayCore, TraceEntry, FrameHash, TraceMetadata, TraceFormat, ReplayResult, FluxManifest, VersionLocks, ConfigBundle, CertificationChain, CertificationStatus, SafetyEnvelope, SafetyLimits, EnvelopeViolation, EnvelopeViolationType, EnvelopeResult, CertificationGate, CertificationResult, CertificationReport};
-pub use crate::sam::{SmartAuthoringEngine, AuthoringMode, WizardStep, SmartAuthoringState, ParameterMapping, SlotArchetype, ArchetypeProfile, ArchetypeDefaults, VolatilityRange, MarketTarget, SmartControlGroup, SmartControl, SmartControlValue, EnergyControls, ClarityControls, StabilityControls, SmartControlSet};
-pub use crate::gad::{DualTimeline, MusicalTimeline, GameplayTimeline, TimelineMarker, MarkerType, MusicalPosition, GameplayPosition, TimeSignature, TempoChange, GadTrack, GadTrackType, TrackMetadata, TrackState, CanonicalEventBinding, VoicePriorityClass, BakeToSlot, BakeStep, BakeStepStatus, BakeResult, BakeConfig, BakeError, StemOutput, GadProject, GadProjectConfig, GadTrackLayout};
-pub use crate::sss::{ProjectManifest, ProjectConfig, ProjectIsolation, IsolatedProject, ConfigDiff, DiffEntry, DiffType, RiskLevel, ConfigDiffEngine, AutoRegression, RegressionConfig, RegressionResult, RegressionRun, RegressionStatus, StressScenario, BurnTest, BurnTestConfig, BurnTestResult, BurnTestMetrics, DriftMetric, TrendDirection};
+pub use crate::core::state::AurexisState;
+pub use crate::drc::{
+    CertificationChain, CertificationGate, CertificationReport, CertificationResult,
+    CertificationStatus, ConfigBundle, DeterministicReplayCore, EnvelopeResult, EnvelopeViolation,
+    EnvelopeViolationType, FluxManifest, FrameHash, ReplayResult, SafetyEnvelope, SafetyLimits,
+    TraceEntry, TraceFormat, TraceMetadata, VersionLocks,
+};
+pub use crate::energy::{
+    EnergyBudget, EnergyDomain, EnergyGovernor, GegCurveType, SessionMemory, SlotProfile,
+    VoiceBudget,
+};
+pub use crate::gad::{
+    BakeConfig, BakeError, BakeResult, BakeStep, BakeStepStatus, BakeToSlot, CanonicalEventBinding,
+    DualTimeline, GadProject, GadProjectConfig, GadTrack, GadTrackLayout, GadTrackType,
+    GameplayPosition, GameplayTimeline, MarkerType, MusicalPosition, MusicalTimeline, StemOutput,
+    TempoChange, TimeSignature, TimelineMarker, TrackMetadata, TrackState, VoicePriorityClass,
+};
+pub use crate::priority::{
+    DpmOutput, DynamicPriorityMatrix, EmotionalState, EventType, SurvivalAction, VoicePriority,
+    VoiceSurvivalResult,
+};
+pub use crate::qa::{
+    DomainResult, FatigueModelResult, MetricValidation, PbseResult, PreBakeSimulator,
+    SimulationDomain, ValidationThresholds,
+};
+pub use crate::sam::{
+    ArchetypeDefaults, ArchetypeProfile, AuthoringMode, ClarityControls, EnergyControls,
+    MarketTarget, ParameterMapping, SlotArchetype, SmartAuthoringEngine, SmartAuthoringState,
+    SmartControl, SmartControlGroup, SmartControlSet, SmartControlValue, StabilityControls,
+    VolatilityRange, WizardStep,
+};
+pub use crate::spectral::{
+    MaskingAction, MaskingResolver, MaskingStrategy, SciAdvanced, SpectralAllocationOutput,
+    SpectralAllocator, SpectralAssignment, SpectralBand, SpectralRole,
+};
+pub use crate::sss::{
+    AutoRegression, BurnTest, BurnTestConfig, BurnTestMetrics, BurnTestResult, ConfigDiff,
+    ConfigDiffEngine, DiffEntry, DiffType, DriftMetric, IsolatedProject, ProjectConfig,
+    ProjectIsolation, ProjectManifest, RegressionConfig, RegressionResult, RegressionRun,
+    RegressionStatus, RiskLevel, StressScenario, TrendDirection,
+};
 
 /// Result type for AUREXIS operations.
 pub type AurexisResult<T> = Result<T, AurexisError>;

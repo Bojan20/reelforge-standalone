@@ -22,9 +22,9 @@ pub enum CertificationStatus {
 impl CertificationStatus {
     pub fn name(&self) -> &'static str {
         match self {
-            Self::Pending   => "PENDING",
+            Self::Pending => "PENDING",
             Self::Certified => "CERTIFIED",
-            Self::Failed    => "FAILED",
+            Self::Failed => "FAILED",
         }
     }
 }
@@ -142,20 +142,15 @@ impl FluxManifest {
     }
 
     /// Update certification chain.
-    pub fn update_certification(
-        &mut self,
-        drc_pass: bool,
-        pbse_pass: bool,
-        envelope_pass: bool,
-    ) {
+    pub fn update_certification(&mut self, drc_pass: bool, pbse_pass: bool, envelope_pass: bool) {
         self.certification_chain.drc_pass = drc_pass;
         self.certification_chain.pbse_pass = pbse_pass;
         self.certification_chain.envelope_pass = envelope_pass;
         self.certification_chain.manifest_check_pass = self.config_bundle.config_bundle_hash != 0;
         self.certification_chain.hash_validation_pass = true; // Will be verified
 
-        let all_pass = drc_pass && pbse_pass && envelope_pass
-            && self.certification_chain.manifest_check_pass;
+        let all_pass =
+            drc_pass && pbse_pass && envelope_pass && self.certification_chain.manifest_check_pass;
 
         self.certification_chain.overall_certification = if all_pass {
             CertificationStatus::Certified
@@ -229,7 +224,10 @@ mod tests {
     fn test_manifest_creation() {
         let m = FluxManifest::new();
         assert_eq!(m.manifest_version, "1.0");
-        assert_eq!(m.certification_chain.overall_certification, CertificationStatus::Pending);
+        assert_eq!(
+            m.certification_chain.overall_certification,
+            CertificationStatus::Pending
+        );
         assert!(!m.is_certified());
     }
 
@@ -249,7 +247,10 @@ mod tests {
         m.set_config_hash("config");
         m.update_certification(true, true, true);
         assert!(m.is_certified());
-        assert_eq!(m.certification_chain.overall_certification, CertificationStatus::Certified);
+        assert_eq!(
+            m.certification_chain.overall_certification,
+            CertificationStatus::Certified
+        );
     }
 
     #[test]
@@ -285,7 +286,10 @@ mod tests {
 
         m.invalidate();
         assert!(!m.is_certified());
-        assert_eq!(m.certification_chain.overall_certification, CertificationStatus::Pending);
+        assert_eq!(
+            m.certification_chain.overall_certification,
+            CertificationStatus::Pending
+        );
     }
 
     #[test]

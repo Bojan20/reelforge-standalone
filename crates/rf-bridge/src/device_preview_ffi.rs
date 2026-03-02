@@ -213,11 +213,7 @@ pub extern "C" fn device_preview_category_name(category: u8) -> *mut c_char {
 
 /// Process stereo buffer in-place (called from audio thread)
 #[unsafe(no_mangle)]
-pub extern "C" fn device_preview_process(
-    left: *mut f64,
-    right: *mut f64,
-    frames: u32,
-) -> i32 {
+pub extern "C" fn device_preview_process(left: *mut f64, right: *mut f64, frames: u32) -> i32 {
     if left.is_null() || right.is_null() || frames == 0 {
         return 0;
     }
@@ -252,7 +248,9 @@ pub extern "C" fn device_preview_all_profiles_json() -> *mut c_char {
     let profiles = &device_preview::DEVICE_PROFILES;
     let mut json = String::from("[");
     for (i, p) in profiles.iter().enumerate() {
-        if i > 0 { json.push(','); }
+        if i > 0 {
+            json.push(',');
+        }
         let cat = match p.category {
             DeviceCategory::Smartphone => "smartphone",
             DeviceCategory::Headphone => "headphone",

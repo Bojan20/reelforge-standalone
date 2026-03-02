@@ -167,7 +167,11 @@ mod tests {
         for _ in 0..25 {
             sm.record_spin(0.0, false, false);
         }
-        assert!(sm.sm() < 1.0, "Long loss streak should reduce SM: {}", sm.sm());
+        assert!(
+            sm.sm() < 1.0,
+            "Long loss streak should reduce SM: {}",
+            sm.sm()
+        );
         assert!(sm.sm() >= 0.7, "SM should never go below 0.7: {}", sm.sm());
     }
 
@@ -201,7 +205,11 @@ mod tests {
         let mut sm = SessionMemory::new();
         sm.record_spin(100.0, false, true); // Jackpot!
         assert!(sm.jackpot_compression_active());
-        assert!(sm.sm() < 1.0, "Jackpot should trigger compression: {}", sm.sm());
+        assert!(
+            sm.sm() < 1.0,
+            "Jackpot should trigger compression: {}",
+            sm.sm()
+        );
 
         // 31 spins later, compression should fade
         for _ in 0..31 {
@@ -243,8 +251,13 @@ mod tests {
         let mut a = SessionMemory::new();
         let mut b = SessionMemory::new();
 
-        let spins = [(0.0, false, false), (5.0, true, false), (0.0, false, false),
-                     (100.0, false, true), (0.0, false, false)];
+        let spins = [
+            (0.0, false, false),
+            (5.0, true, false),
+            (0.0, false, false),
+            (100.0, false, true),
+            (0.0, false, false),
+        ];
         for (win, feat, jp) in &spins {
             a.record_spin(*win, *feat, *jp);
             b.record_spin(*win, *feat, *jp);

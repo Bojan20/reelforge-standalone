@@ -16,7 +16,7 @@ use rf_fluxmacro::error::FluxMacroError;
 use rf_fluxmacro::interpreter::MacroInterpreter;
 use rf_fluxmacro::parser;
 use rf_fluxmacro::reporter;
-use rf_fluxmacro::steps::{register_all_steps, StepRegistry};
+use rf_fluxmacro::steps::{StepRegistry, register_all_steps};
 use rf_fluxmacro::version;
 
 /// FluxMacro — Deterministic Orchestration Engine for slot audio pipelines.
@@ -227,14 +227,20 @@ fn cmd_run(
         println!("── FluxMacro Run Complete ──");
         println!("  Game:     {}", ctx.game_id);
         println!("  Seed:     {}", ctx.seed);
-        println!("  Hash:     {}", &ctx.run_hash[..16.min(ctx.run_hash.len())]);
+        println!(
+            "  Hash:     {}",
+            &ctx.run_hash[..16.min(ctx.run_hash.len())]
+        );
         println!("  Duration: {:.2}s", ctx.duration().as_secs_f64());
         println!(
             "  QA:       {}/{} passed",
             ctx.qa_passed_count(),
             ctx.qa_results.len()
         );
-        println!("  Status:   {}", if ctx.is_success() { "PASS" } else { "FAIL" });
+        println!(
+            "  Status:   {}",
+            if ctx.is_success() { "PASS" } else { "FAIL" }
+        );
 
         if !ctx.warnings.is_empty() {
             println!("  Warnings: {}", ctx.warnings.len());
@@ -316,7 +322,11 @@ fn cmd_validate(file: &PathBuf, ci: bool) -> Result<i32, FluxMacroError> {
         });
         println!("{}", serde_json::to_string_pretty(&output)?);
     } else {
-        println!("✓ Macro '{}' is valid ({} steps)", macro_file.name, macro_file.steps.len());
+        println!(
+            "✓ Macro '{}' is valid ({} steps)",
+            macro_file.name,
+            macro_file.steps.len()
+        );
         if !warnings.is_empty() {
             for w in &warnings {
                 println!("  ⚠ {w}");
@@ -469,7 +479,10 @@ fn cmd_adb(
         println!("{}", serde_json::to_string_pretty(&output)?);
     } else {
         println!("── ADB Generation ──");
-        println!("  Status: {}", if ctx.is_success() { "PASS" } else { "FAIL" });
+        println!(
+            "  Status: {}",
+            if ctx.is_success() { "PASS" } else { "FAIL" }
+        );
         for (name, path) in &ctx.artifacts {
             println!("  → {} → {}", name, path.display());
         }
@@ -522,22 +535,28 @@ fn cmd_replay(run_id: &str, workdir: &PathBuf, ci: bool) -> Result<i32, FluxMacr
         println!("{}", serde_json::to_string_pretty(&output)?);
     } else {
         println!("── Replay of {} ──", run_id);
-        println!("  Original hash: {}", &meta.run_hash[..16.min(meta.run_hash.len())]);
-        println!("  Replay hash:   {}", &ctx.run_hash[..16.min(ctx.run_hash.len())]);
+        println!(
+            "  Original hash: {}",
+            &meta.run_hash[..16.min(meta.run_hash.len())]
+        );
+        println!(
+            "  Replay hash:   {}",
+            &ctx.run_hash[..16.min(ctx.run_hash.len())]
+        );
         println!(
             "  Deterministic: {}",
-            if hash_matches { "YES" } else { "NO — MISMATCH" }
+            if hash_matches {
+                "YES"
+            } else {
+                "NO — MISMATCH"
+            }
         );
     }
 
     Ok(if hash_matches { 0 } else { 1 })
 }
 
-fn cmd_history(
-    workdir: &PathBuf,
-    detail: Option<&str>,
-    ci: bool,
-) -> Result<i32, FluxMacroError> {
+fn cmd_history(workdir: &PathBuf, detail: Option<&str>, ci: bool) -> Result<i32, FluxMacroError> {
     if let Some(run_id) = detail {
         let run_path = version::run_dir(workdir, run_id);
         let meta = version::load_run_meta(&run_path)?;
@@ -550,9 +569,15 @@ fn cmd_history(
             println!("  Game:      {}", meta.game_id);
             println!("  Timestamp: {}", meta.timestamp);
             println!("  Seed:      {}", meta.seed);
-            println!("  Hash:      {}", &meta.run_hash[..16.min(meta.run_hash.len())]);
+            println!(
+                "  Hash:      {}",
+                &meta.run_hash[..16.min(meta.run_hash.len())]
+            );
             println!("  Duration:  {}ms", meta.duration_ms);
-            println!("  Status:    {}", if meta.success { "PASS" } else { "FAIL" });
+            println!(
+                "  Status:    {}",
+                if meta.success { "PASS" } else { "FAIL" }
+            );
             println!(
                 "  QA:        {}/{} passed",
                 meta.qa_passed,

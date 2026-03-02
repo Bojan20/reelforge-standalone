@@ -158,8 +158,10 @@ mod tests {
         for mult_10x in 0..=200 {
             let mult = mult_10x as f64 / 10.0;
             let out = WinEscalationEngine::compute(mult, 0.0, EscalationCurveType::Linear, &cfg);
-            assert!(out.width >= prev_width - 0.001,
-                "Width should be monotonic at mult={mult}");
+            assert!(
+                out.width >= prev_width - 0.001,
+                "Width should be monotonic at mult={mult}"
+            );
             prev_width = out.width;
         }
     }

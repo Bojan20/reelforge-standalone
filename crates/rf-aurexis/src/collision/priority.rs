@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::MAX_VOICES;
+use serde::{Deserialize, Serialize};
 
 /// A registered voice in the collision system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -121,10 +121,10 @@ mod tests {
     #[test]
     fn test_center_occupancy() {
         let mut resolver = VoiceCollisionResolver::new();
-        resolver.register_voice(1, 0.0, 0.0, 10);   // center, front
-        resolver.register_voice(2, 0.1, 0.0, 8);    // center, front
-        resolver.register_voice(3, 0.5, 0.0, 5);    // off-center
-        resolver.register_voice(4, 0.0, 0.5, 3);    // center, back (z > 0.3)
+        resolver.register_voice(1, 0.0, 0.0, 10); // center, front
+        resolver.register_voice(2, 0.1, 0.0, 8); // center, front
+        resolver.register_voice(3, 0.5, 0.0, 5); // off-center
+        resolver.register_voice(4, 0.0, 0.5, 3); // center, back (z > 0.3)
 
         assert_eq!(resolver.center_occupancy(0.15), 2); // voices 1, 2
     }

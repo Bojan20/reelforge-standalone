@@ -1,11 +1,7 @@
 use crate::config::AccConfig;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::{
-    collections::BTreeSet,
-    fs,
-    path::Path,
-};
+use std::{collections::BTreeSet, fs, path::Path};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct DiffpackPokeRequest {
@@ -23,7 +19,8 @@ pub struct DiffpackPokeResponse {
 
 fn ensure_parent_dir(path: &Path) -> Result<(), String> {
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("create_dir_all({parent:?}) failed: {e}"))?;
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("create_dir_all({parent:?}) failed: {e}"))?;
     }
     Ok(())
 }
@@ -33,7 +30,11 @@ fn ensure_dir(path: &Path) -> Result<(), String> {
     Ok(())
 }
 
-pub fn write_diffpack(cfg: &AccConfig, changed_files: &BTreeSet<String>, reason: &str) -> Result<(String, bool), String> {
+pub fn write_diffpack(
+    cfg: &AccConfig,
+    changed_files: &BTreeSet<String>,
+    reason: &str,
+) -> Result<(String, bool), String> {
     ensure_parent_dir(&cfg.diffpack_path)?;
     ensure_dir(&cfg.history_dir)?;
 
@@ -56,7 +57,8 @@ pub fn write_diffpack(cfg: &AccConfig, changed_files: &BTreeSet<String>, reason:
     });
 
     let out = serde_json::to_string_pretty(&body).map_err(|e| e.to_string())?;
-    fs::write(&cfg.diffpack_path, out).map_err(|e| format!("write({:?}) failed: {e}", cfg.diffpack_path))?;
+    fs::write(&cfg.diffpack_path, out)
+        .map_err(|e| format!("write({:?}) failed: {e}", cfg.diffpack_path))?;
 
     let safe_ts = ts.replace(':', "-");
     let hist = cfg.history_dir.join(format!("diffpack_{safe_ts}.json"));

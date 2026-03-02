@@ -23,5 +23,5 @@ pub use context::{
 };
 pub use error::FluxMacroError;
 pub use interpreter::MacroInterpreter;
-pub use parser::{parse_macro_file, parse_macro_string, MacroFile};
+pub use parser::{MacroFile, parse_macro_file, parse_macro_string};
 pub use steps::{MacroStep, StepRegistry, StepResult, StepStatus};

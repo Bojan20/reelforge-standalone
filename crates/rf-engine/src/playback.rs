@@ -938,8 +938,12 @@ pub struct OneShotVoice {
 /// Lanczos kernel: sinc(x) * sinc(x/a), a=3
 #[inline(always)]
 fn lanczos3(x: f64) -> f64 {
-    if x.abs() < 1e-10 { return 1.0; }
-    if x.abs() >= 3.0 { return 0.0; }
+    if x.abs() < 1e-10 {
+        return 1.0;
+    }
+    if x.abs() >= 3.0 {
+        return 0.0;
+    }
     let pi_x = std::f64::consts::PI * x;
     let pi_x_3 = pi_x / 3.0;
     (pi_x.sin() * pi_x_3.sin()) / (pi_x * pi_x_3)
@@ -954,7 +958,13 @@ fn lanczos3(x: f64) -> f64 {
 ///
 /// Returns interpolated sample value. Zero-allocation, audio-thread safe.
 #[inline]
-fn lanczos3_sample(src_pos: f64, samples: &[f32], channels: usize, total_frames: usize, ch: usize) -> f32 {
+fn lanczos3_sample(
+    src_pos: f64,
+    samples: &[f32],
+    channels: usize,
+    total_frames: usize,
+    ch: usize,
+) -> f32 {
     let idx_floor = src_pos.floor() as i64;
     let frac = src_pos - idx_floor as f64;
 
@@ -1242,7 +1252,11 @@ impl OneShotVoice {
             let src_pos = if self.looping {
                 // Wrap fractional position for seamless looping
                 let wrapped = fractional_pos % total_frames as f64;
-                if wrapped < 0.0 { wrapped + total_frames as f64 } else { wrapped }
+                if wrapped < 0.0 {
+                    wrapped + total_frames as f64
+                } else {
+                    wrapped
+                }
             } else {
                 fractional_pos
             };
@@ -1254,11 +1268,16 @@ impl OneShotVoice {
                 break;
             }
 
-            let gain = if self.muted { 0.0 } else { self.volume * self.fade_gain };
+            let gain = if self.muted {
+                0.0
+            } else {
+                self.volume * self.fade_gain
+            };
 
             // Lanczos-3 sinc interpolation for pitch shift / SRC
             // 6-tap windowed sinc, ~-90dB noise floor, zero-allocation
-            let interp_l = lanczos3_sample(src_pos, &self.audio.samples, channels_src, total_frames, 0);
+            let interp_l =
+                lanczos3_sample(src_pos, &self.audio.samples, channels_src, total_frames, 0);
             let interp_r = if channels_src > 1 {
                 lanczos3_sample(src_pos, &self.audio.samples, channels_src, total_frames, 1)
             } else {
@@ -1497,8 +1516,8 @@ impl Default for BusState {
     fn default() -> Self {
         Self {
             volume: 1.0,
-            pan: -1.0,       // Stereo bus: L channel hard left
-            pan_right: 1.0,  // Stereo bus: R channel hard right
+            pan: -1.0,      // Stereo bus: L channel hard left
+            pan_right: 1.0, // Stereo bus: R channel hard right
             muted: false,
             soloed: false,
         }
@@ -1818,7 +1837,9 @@ impl PlaybackEngine {
             tail_duration_samples: AtomicU64::new(sample_rate as u64),
             // Per-track stereo imagers (SSL canonical: post-pan, pre-post-inserts)
             stereo_imagers: RwLock::new(HashMap::new()),
-            master_stereo_imager: RwLock::new(rf_dsp::spatial::StereoImager::new(sample_rate as f64)),
+            master_stereo_imager: RwLock::new(rf_dsp::spatial::StereoImager::new(
+                sample_rate as f64,
+            )),
             bus_stereo_imagers: RwLock::new(std::array::from_fn(|_| {
                 rf_dsp::spatial::StereoImager::new(sample_rate as f64)
             })),
@@ -3189,7 +3210,8 @@ impl PlaybackEngine {
     pub fn pause(&self) {
         // Start insert chain tail processing (reverb/delay tails ring out)
         let tail_dur = self.tail_duration_samples.load(Ordering::Relaxed);
-        self.tail_remaining_samples.store(tail_dur, Ordering::Relaxed);
+        self.tail_remaining_samples
+            .store(tail_dur, Ordering::Relaxed);
         self.position.set_state(PlaybackState::Paused);
     }
 
@@ -3201,7 +3223,8 @@ impl PlaybackEngine {
         }
         // Start insert chain tail processing (reverb/delay tails ring out)
         let tail_dur = self.tail_duration_samples.load(Ordering::Relaxed);
-        self.tail_remaining_samples.store(tail_dur, Ordering::Relaxed);
+        self.tail_remaining_samples
+            .store(tail_dur, Ordering::Relaxed);
         self.position.set_state(PlaybackState::Stopped);
         self.position.set_samples(0);
     }
@@ -4052,7 +4075,8 @@ impl PlaybackEngine {
             if tail_remaining > 0 {
                 // Decrement tail counter
                 let new_remaining = tail_remaining.saturating_sub(frames as u64);
-                self.tail_remaining_samples.store(new_remaining, Ordering::Relaxed);
+                self.tail_remaining_samples
+                    .store(new_remaining, Ordering::Relaxed);
 
                 // Anti-click: fade-out the last 480 samples (~10ms) of tail
                 let tail_fade_samples: u64 = 480;
@@ -4063,8 +4087,12 @@ impl PlaybackEngine {
                     SCRATCH_BUFFER_R.with(|buf_r| {
                         let mut sl = buf_l.borrow_mut();
                         let mut sr = buf_r.borrow_mut();
-                        if sl.len() < frames { sl.resize(frames, 0.0); }
-                        if sr.len() < frames { sr.resize(frames, 0.0); }
+                        if sl.len() < frames {
+                            sl.resize(frames, 0.0);
+                        }
+                        if sr.len() < frames {
+                            sr.resize(frames, 0.0);
+                        }
 
                         // Process track insert chains with silence (per-track reverb tails)
                         if let Some(mut chains) = self.insert_chains.try_write() {
@@ -4083,11 +4111,14 @@ impl PlaybackEngine {
                         if let Some(mut bus_inserts) = self.bus_inserts.try_write() {
                             let bus_states = self.bus_states.read();
                             for bus_idx in 0..6 {
-                                if bus_states[bus_idx].muted { continue; }
+                                if bus_states[bus_idx].muted {
+                                    continue;
+                                }
                                 sl[..frames].fill(0.0);
                                 sr[..frames].fill(0.0);
 
-                                bus_inserts[bus_idx].process_pre_fader(&mut sl[..frames], &mut sr[..frames]);
+                                bus_inserts[bus_idx]
+                                    .process_pre_fader(&mut sl[..frames], &mut sr[..frames]);
 
                                 let volume = bus_states[bus_idx].volume;
                                 for i in 0..frames {
@@ -4095,7 +4126,8 @@ impl PlaybackEngine {
                                     sr[i] *= volume;
                                 }
 
-                                bus_inserts[bus_idx].process_post_fader(&mut sl[..frames], &mut sr[..frames]);
+                                bus_inserts[bus_idx]
+                                    .process_post_fader(&mut sl[..frames], &mut sr[..frames]);
 
                                 for i in 0..frames {
                                     output_l[i] += sl[i];
@@ -4160,8 +4192,12 @@ impl PlaybackEngine {
                 mp_r = mp_r.max(output_r[i].abs());
             }
             // Clamp to zero below noise floor
-            if mp_l < 1e-10 { mp_l = 0.0; }
-            if mp_r < 1e-10 { mp_r = 0.0; }
+            if mp_l < 1e-10 {
+                mp_l = 0.0;
+            }
+            if mp_r < 1e-10 {
+                mp_r = 0.0;
+            }
             self.peak_l.store(mp_l.to_bits(), Ordering::Relaxed);
             self.peak_r.store(mp_r.to_bits(), Ordering::Relaxed);
             crate::ffi::SHARED_METERS.update_channel_peak(0, mp_l, mp_r);
@@ -4171,8 +4207,14 @@ impl PlaybackEngine {
             let prev_rms_r = f64::from_bits(self.rms_r.load(Ordering::Relaxed));
             let rms_l = (prev_rms_l * decay).max(0.0);
             let rms_r = (prev_rms_r * decay).max(0.0);
-            self.rms_l.store(if rms_l < 1e-10 { 0.0_f64 } else { rms_l }.to_bits(), Ordering::Relaxed);
-            self.rms_r.store(if rms_r < 1e-10 { 0.0_f64 } else { rms_r }.to_bits(), Ordering::Relaxed);
+            self.rms_l.store(
+                if rms_l < 1e-10 { 0.0_f64 } else { rms_l }.to_bits(),
+                Ordering::Relaxed,
+            );
+            self.rms_r.store(
+                if rms_r < 1e-10 { 0.0_f64 } else { rms_r }.to_bits(),
+                Ordering::Relaxed,
+            );
 
             // --- Per-bus peak decay ---
             // Decay all 6 bus meters so they don't freeze
@@ -4184,19 +4226,36 @@ impl PlaybackEngine {
                 let prev_br = f64::from_bits(
                     crate::ffi::SHARED_METERS.channel_peaks[idx + 1].load(Ordering::Relaxed),
                 );
-                let bl = if prev_bl * decay < 1e-10 { 0.0 } else { prev_bl * decay };
-                let br = if prev_br * decay < 1e-10 { 0.0 } else { prev_br * decay };
+                let bl = if prev_bl * decay < 1e-10 {
+                    0.0
+                } else {
+                    prev_bl * decay
+                };
+                let br = if prev_br * decay < 1e-10 {
+                    0.0
+                } else {
+                    prev_br * decay
+                };
                 crate::ffi::SHARED_METERS.update_channel_peak(bus_idx, bl, br);
             }
 
             // --- Correlation/balance decay toward defaults ---
             let prev_corr = f64::from_bits(self.correlation.load(Ordering::Relaxed));
             let smoothed_corr = prev_corr * decay + 1.0 * (1.0 - decay); // Decay toward 1.0 (mono)
-            self.correlation.store(smoothed_corr.to_bits(), Ordering::Relaxed);
+            self.correlation
+                .store(smoothed_corr.to_bits(), Ordering::Relaxed);
 
             let prev_bal = f64::from_bits(self.balance.load(Ordering::Relaxed));
             let smoothed_bal = prev_bal * decay; // Decay toward 0.0 (center)
-            self.balance.store(if smoothed_bal.abs() < 1e-10 { 0.0_f64 } else { smoothed_bal }.to_bits(), Ordering::Relaxed);
+            self.balance.store(
+                if smoothed_bal.abs() < 1e-10 {
+                    0.0_f64
+                } else {
+                    smoothed_bal
+                }
+                .to_bits(),
+                Ordering::Relaxed,
+            );
 
             // --- SHARED_METERS master update ---
             crate::ffi::SHARED_METERS.update_master(mp_l, mp_r, rms_l, rms_r);
@@ -4206,7 +4265,11 @@ impl PlaybackEngine {
                 let prev = f64::from_bits(
                     crate::ffi::SHARED_METERS.spectrum_bands[band_idx].load(Ordering::Relaxed),
                 );
-                let decayed = if prev * decay < 1e-10 { 0.0 } else { prev * decay };
+                let decayed = if prev * decay < 1e-10 {
+                    0.0
+                } else {
+                    prev * decay
+                };
                 crate::ffi::SHARED_METERS.spectrum_bands[band_idx]
                     .store(decayed.to_bits(), Ordering::Relaxed);
             }
@@ -4215,8 +4278,12 @@ impl PlaybackEngine {
             // Without this, SharedMeterReader sees stale sequence and skips reading.
             // Always increment during decay — stops naturally when all values hit zero
             // (decay block won't change anything once all meters are 0.0).
-            let any_activity = mp_l > 0.0 || mp_r > 0.0 || rms_l > 0.0 || rms_r > 0.0
-                || prev_peak_l > 0.0 || prev_peak_r > 0.0;
+            let any_activity = mp_l > 0.0
+                || mp_r > 0.0
+                || rms_l > 0.0
+                || rms_r > 0.0
+                || prev_peak_l > 0.0
+                || prev_peak_r > 0.0;
             if any_activity {
                 crate::ffi::SHARED_METERS.increment_sequence();
             }
@@ -4950,11 +5017,21 @@ impl PlaybackEngine {
                     let freq_low = freq / octave_factor;
                     let freq_high = freq * octave_factor;
                     let bin_low = analyzer.freq_to_bin(freq_low, sample_rate);
-                    let bin_high = analyzer.freq_to_bin(freq_high, sample_rate).min(bin_count - 1);
+                    let bin_high = analyzer
+                        .freq_to_bin(freq_high, sample_rate)
+                        .min(bin_count - 1);
 
                     // Ensure at least 1 bin width, use wider range for bass
-                    let low_bin = if bin_low < center_bin { bin_low } else { center_bin.saturating_sub(1) };
-                    let high_bin = if bin_high > center_bin { bin_high } else { (center_bin + 1).min(bin_count - 1) };
+                    let low_bin = if bin_low < center_bin {
+                        bin_low
+                    } else {
+                        center_bin.saturating_sub(1)
+                    };
+                    let high_bin = if bin_high > center_bin {
+                        bin_high
+                    } else {
+                        (center_bin + 1).min(bin_count - 1)
+                    };
 
                     let db = if high_bin > low_bin {
                         let sum: f64 = (low_bin..=high_bin).map(|b| analyzer.magnitude(b)).sum();
@@ -4980,9 +5057,8 @@ impl PlaybackEngine {
             if self.position.is_playing() || is_count_in {
                 let start_sample = self.position.samples().saturating_sub(frames as u64);
                 let is_recording = self.position.is_recording();
-                let count_in_done = click.process_block(
-                    output_l, output_r, start_sample, frames, is_recording,
-                );
+                let count_in_done =
+                    click.process_block(output_l, output_r, start_sample, frames, is_recording);
                 if count_in_done {
                     // Count-in completed — transport should now begin playing.
                     // The transport start is handled by the UI layer polling
@@ -5306,8 +5382,8 @@ impl PlaybackEngine {
             let clip_offset = global_sample - clip_start_sample;
 
             // Apply time stretch + sample rate conversion with Lanczos-3 sinc interpolation
-            let source_pos_f64 = clip_offset as f64 * rate_ratio * playback_rate
-                + source_offset_samples;
+            let source_pos_f64 =
+                clip_offset as f64 * rate_ratio * playback_rate + source_offset_samples;
 
             let channels = audio.channels as usize;
             let total_source_frames = audio.samples.len() / channels.max(1);
@@ -5315,9 +5391,21 @@ impl PlaybackEngine {
                 continue;
             }
 
-            let interp_l = lanczos3_sample(source_pos_f64, &audio.samples, channels, total_source_frames, 0) as f64;
+            let interp_l = lanczos3_sample(
+                source_pos_f64,
+                &audio.samples,
+                channels,
+                total_source_frames,
+                0,
+            ) as f64;
             if channels >= 2 {
-                let interp_r = lanczos3_sample(source_pos_f64, &audio.samples, channels, total_source_frames, 1) as f64;
+                let interp_r = lanczos3_sample(
+                    source_pos_f64,
+                    &audio.samples,
+                    channels,
+                    total_source_frames,
+                    1,
+                ) as f64;
                 output_l[frame_idx] += interp_l * clip.gain;
                 output_r[frame_idx] += interp_r * clip.gain;
             } else {
@@ -5707,11 +5795,24 @@ impl PlaybackEngine {
             let total_source_frames = audio.samples.len() / channels.max(1);
 
             let (mut sample_l, mut sample_r) = if audio.channels == 1 {
-                let s = lanczos3_sample(source_pos_f64, &audio.samples, 1, total_source_frames, 0) as f64;
+                let s = lanczos3_sample(source_pos_f64, &audio.samples, 1, total_source_frames, 0)
+                    as f64;
                 (s, s)
             } else {
-                let l = lanczos3_sample(source_pos_f64, &audio.samples, channels, total_source_frames, 0) as f64;
-                let r = lanczos3_sample(source_pos_f64, &audio.samples, channels, total_source_frames, 1) as f64;
+                let l = lanczos3_sample(
+                    source_pos_f64,
+                    &audio.samples,
+                    channels,
+                    total_source_frames,
+                    0,
+                ) as f64;
+                let r = lanczos3_sample(
+                    source_pos_f64,
+                    &audio.samples,
+                    channels,
+                    total_source_frames,
+                    1,
+                ) as f64;
                 (l, r)
             };
 

@@ -13,9 +13,9 @@
 //! 10. Update Manifest (version lock + config hash)
 //! 11. Create .fftrace (exportable trace file)
 
-use serde::{Deserialize, Serialize};
 use super::project::GadProject;
 use super::tracks::GadTrackType;
+use serde::{Deserialize, Serialize};
 
 /// The 11 bake steps.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -56,14 +56,23 @@ impl BakeStep {
 
     pub fn all() -> &'static [BakeStep] {
         &[
-            Self::FreezeTracks, Self::ValidateMetadata, Self::GenerateStems,
-            Self::BuildMapping, Self::DpmConfig, Self::SamclRoleMap,
-            Self::PbseValidation, Self::SafetyEnvelope, Self::DrcHash,
-            Self::UpdateManifest, Self::CreateTrace,
+            Self::FreezeTracks,
+            Self::ValidateMetadata,
+            Self::GenerateStems,
+            Self::BuildMapping,
+            Self::DpmConfig,
+            Self::SamclRoleMap,
+            Self::PbseValidation,
+            Self::SafetyEnvelope,
+            Self::DrcHash,
+            Self::UpdateManifest,
+            Self::CreateTrace,
         ]
     }
 
-    pub fn count() -> usize { 11 }
+    pub fn count() -> usize {
+        11
+    }
 }
 
 /// Status of a single bake step.
@@ -77,8 +86,12 @@ pub enum BakeStepStatus {
 }
 
 impl BakeStepStatus {
-    pub fn is_passed(&self) -> bool { matches!(self, Self::Passed) }
-    pub fn is_failed(&self) -> bool { matches!(self, Self::Failed(_)) }
+    pub fn is_passed(&self) -> bool {
+        matches!(self, Self::Passed)
+    }
+    pub fn is_failed(&self) -> bool {
+        matches!(self, Self::Failed(_))
+    }
 }
 
 /// Bake configuration.
@@ -143,8 +156,14 @@ impl std::fmt::Display for BakeError {
         match self {
             Self::MetadataInvalid(errs) => write!(f, "Metadata invalid: {}", errs.join(", ")),
             Self::PbseFailed(domains) => write!(f, "PBSE failed: {}", domains.join(", ")),
-            Self::SafetyViolation(violations) => write!(f, "Safety violation: {}", violations.join(", ")),
-            Self::DrcMismatch { expected, actual } => write!(f, "DRC hash mismatch: expected {}, got {}", expected, actual),
+            Self::SafetyViolation(violations) => {
+                write!(f, "Safety violation: {}", violations.join(", "))
+            }
+            Self::DrcMismatch { expected, actual } => write!(
+                f,
+                "DRC hash mismatch: expected {}, got {}",
+                expected, actual
+            ),
             Self::ManifestLocked => write!(f, "Manifest is locked"),
             Self::NoTracks => write!(f, "No tracks in project"),
             Self::IoError(e) => write!(f, "IO error: {}", e),
@@ -168,7 +187,8 @@ pub struct BakeResult {
 
 impl BakeResult {
     pub fn step_status(&self, step: BakeStep) -> &BakeStepStatus {
-        self.steps.iter()
+        self.steps
+            .iter()
             .find(|(s, _)| *s == step)
             .map(|(_, status)| status)
             .unwrap_or(&BakeStepStatus::Pending)
@@ -192,7 +212,10 @@ pub struct BakeToSlot {
 
 impl BakeToSlot {
     pub fn new(config: BakeConfig) -> Self {
-        Self { config, last_result: None }
+        Self {
+            config,
+            last_result: None,
+        }
     }
 
     /// Run the full 11-step bake pipeline.
@@ -209,12 +232,16 @@ impl BakeToSlot {
 
         // Step 1: Freeze Tracks
         let freeze_status = self.freeze_tracks(project);
-        if freeze_status.is_failed() { success = false; }
+        if freeze_status.is_failed() {
+            success = false;
+        }
         steps.push((BakeStep::FreezeTracks, freeze_status));
 
         // Step 2: Validate Metadata
         let validate_status = self.validate_metadata(project, &mut errors);
-        if validate_status.is_failed() { success = false; }
+        if validate_status.is_failed() {
+            success = false;
+        }
         steps.push((BakeStep::ValidateMetadata, validate_status));
 
         // Stop early on metadata failure
@@ -247,12 +274,16 @@ impl BakeToSlot {
             } else {
                 BakeStepStatus::Skipped
             };
-            if pbse_status.is_failed() { success = false; }
+            if pbse_status.is_failed() {
+                success = false;
+            }
             steps.push((BakeStep::PbseValidation, pbse_status));
 
             // Step 8: Safety Envelope
             let safety_status = self.check_safety_envelope(&mut errors);
-            if safety_status.is_failed() { success = false; }
+            if safety_status.is_failed() {
+                success = false;
+            }
             steps.push((BakeStep::SafetyEnvelope, safety_status));
 
             // Step 9: DRC Hash
@@ -262,7 +293,9 @@ impl BakeToSlot {
                 (BakeStepStatus::Skipped, None)
             };
             drc_hash = hash;
-            if hash_status.is_failed() { success = false; }
+            if hash_status.is_failed() {
+                success = false;
+            }
             steps.push((BakeStep::DrcHash, hash_status));
 
             // Step 10: Update Manifest
@@ -314,7 +347,9 @@ impl BakeToSlot {
             return BakeStepStatus::Failed("No tracks to freeze".into());
         }
         // Verify all tracks with audio have valid paths
-        let missing: Vec<_> = project.tracks.iter()
+        let missing: Vec<_> = project
+            .tracks
+            .iter()
             .filter(|t| t.audio_path.is_none())
             .map(|t| t.name.as_str())
             .collect();
@@ -324,7 +359,11 @@ impl BakeToSlot {
         BakeStepStatus::Passed
     }
 
-    fn validate_metadata(&self, project: &GadProject, errors: &mut Vec<BakeError>) -> BakeStepStatus {
+    fn validate_metadata(
+        &self,
+        project: &GadProject,
+        errors: &mut Vec<BakeError>,
+    ) -> BakeStepStatus {
         let validation_errors = project.validate();
         if validation_errors.is_empty() {
             BakeStepStatus::Passed
@@ -338,7 +377,10 @@ impl BakeToSlot {
         let mut stems = Vec::new();
         for track in &project.tracks {
             if let Some(ref path) = track.audio_path {
-                let binding = track.metadata.event_binding.as_ref()
+                let binding = track
+                    .metadata
+                    .event_binding
+                    .as_ref()
                     .map(|b| b.hook.clone())
                     .unwrap_or_else(|| format!("UNBOUND_{}", track.id));
                 stems.push(StemOutput {
@@ -346,8 +388,10 @@ impl BakeToSlot {
                     track_name: track.name.clone(),
                     track_type: track.track_type,
                     stage_binding: binding,
-                    file_path: format!("{}/{}.{}",
-                        self.config.output_dir, track.id, self.config.stem_format),
+                    file_path: format!(
+                        "{}/{}.{}",
+                        self.config.output_dir, track.id, self.config.stem_format
+                    ),
                     duration_samples: 0, // Would be computed from actual audio
                     sample_rate: self.config.output_sample_rate,
                 });
@@ -358,7 +402,8 @@ impl BakeToSlot {
     }
 
     fn build_mapping(&self, stems: &[StemOutput]) -> (BakeStepStatus, String) {
-        let mapping: std::collections::HashMap<&str, &str> = stems.iter()
+        let mapping: std::collections::HashMap<&str, &str> = stems
+            .iter()
             .map(|s| (s.stage_binding.as_str(), s.file_path.as_str()))
             .collect();
         let json = serde_json::to_string_pretty(&mapping).unwrap_or_default();
@@ -367,15 +412,25 @@ impl BakeToSlot {
 
     fn generate_dpm_config(&self, project: &GadProject) -> BakeStepStatus {
         // Generate DPM weight config from track metadata
-        let _weights: Vec<_> = project.tracks.iter()
-            .map(|t| (t.id.as_str(), t.metadata.dpm_base_weight, t.metadata.voice_priority.weight()))
+        let _weights: Vec<_> = project
+            .tracks
+            .iter()
+            .map(|t| {
+                (
+                    t.id.as_str(),
+                    t.metadata.dpm_base_weight,
+                    t.metadata.voice_priority.weight(),
+                )
+            })
             .collect();
         BakeStepStatus::Passed
     }
 
     fn generate_samcl_role_map(&self, project: &GadProject) -> BakeStepStatus {
         // Generate spectral role assignments from track metadata
-        let _roles: Vec<_> = project.tracks.iter()
+        let _roles: Vec<_> = project
+            .tracks
+            .iter()
             .map(|t| (t.id.as_str(), t.metadata.spectral_role))
             .collect();
         BakeStepStatus::Passed
@@ -398,7 +453,11 @@ impl BakeToSlot {
         (BakeStepStatus::Passed, Some(hash))
     }
 
-    fn update_manifest(&self, project: &GadProject, drc_hash: &Option<String>) -> (BakeStepStatus, String) {
+    fn update_manifest(
+        &self,
+        project: &GadProject,
+        drc_hash: &Option<String>,
+    ) -> (BakeStepStatus, String) {
         let manifest = serde_json::json!({
             "project": project.config.name,
             "version": "1.0.0",
@@ -407,7 +466,10 @@ impl BakeToSlot {
             "drc_hash": drc_hash,
             "timestamp": chrono_timestamp(),
         });
-        (BakeStepStatus::Passed, serde_json::to_string_pretty(&manifest).unwrap_or_default())
+        (
+            BakeStepStatus::Passed,
+            serde_json::to_string_pretty(&manifest).unwrap_or_default(),
+        )
     }
 
     fn create_trace(&self, project: &GadProject) -> (BakeStepStatus, Option<String>) {
@@ -427,7 +489,10 @@ impl BakeToSlot {
                 "bit_depth": self.config.output_bit_depth,
             },
         });
-        (BakeStepStatus::Passed, Some(serde_json::to_string_pretty(&trace).unwrap_or_default()))
+        (
+            BakeStepStatus::Passed,
+            Some(serde_json::to_string_pretty(&trace).unwrap_or_default()),
+        )
     }
 
     /// Export bake result to JSON.

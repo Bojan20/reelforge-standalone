@@ -117,10 +117,7 @@ impl MacroStep for NamingValidateStep {
                 return Err(FluxMacroError::Cancelled);
             }
 
-            let filename = file_path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("");
+            let filename = file_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
             let violations = rules.naming.validate_filename(filename);
 
@@ -138,11 +135,7 @@ impl MacroStep for NamingValidateStep {
             if let Some(suggested_domain) = rules.naming.suggest_domain(filename) {
                 let current_domain = filename.split('_').next().unwrap_or("");
                 if current_domain != suggested_domain
-                    && rules
-                        .naming
-                        .domains
-                        .iter()
-                        .any(|d| d.id == current_domain)
+                    && rules.naming.domains.iter().any(|d| d.id == current_domain)
                 {
                     report.domain_mismatches.push(DomainMismatch {
                         file: filename.to_string(),
@@ -174,8 +167,7 @@ impl MacroStep for NamingValidateStep {
             for s in &report.rename_suggestions {
                 csv.push_str(&format!("{},{},{}\n", s.original, s.suggested, s.reason));
             }
-            std::fs::write(&path, &csv)
-                .map_err(|e| FluxMacroError::FileWrite(path.clone(), e))?;
+            std::fs::write(&path, &csv).map_err(|e| FluxMacroError::FileWrite(path.clone(), e))?;
             Some(path)
         } else {
             None
@@ -202,9 +194,7 @@ impl MacroStep for NamingValidateStep {
         }
 
         let mut result = if warnings.is_empty() {
-            StepResult::success(format!(
-                "All {total} files pass naming validation"
-            ))
+            StepResult::success(format!("All {total} files pass naming validation"))
         } else {
             StepResult::success_with_warnings(
                 format!(

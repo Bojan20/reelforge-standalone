@@ -235,7 +235,8 @@ impl EnergyGovernor {
 
     /// Record a spin for session memory tracking.
     pub fn record_spin(&mut self, win_multiplier: f64, is_feature: bool, is_jackpot: bool) {
-        self.session_memory.record_spin(win_multiplier, is_feature, is_jackpot);
+        self.session_memory
+            .record_spin(win_multiplier, is_feature, is_jackpot);
     }
 
     /// Reset session (clears session memory, keeps profile).
@@ -285,11 +286,31 @@ mod tests {
         // MedVol SP domain caps: [0.85, 0.80, 0.80, 0.75, 0.75], SM=1.0
         // curve(1.0) for SCurve = 1.0
         // So caps = [0.85, 0.80, 0.80, 0.75, 0.75]
-        assert!((budget.caps[0] - 0.85).abs() < 0.01, "Dynamic: {}", budget.caps[0]);
-        assert!((budget.caps[1] - 0.80).abs() < 0.01, "Transient: {}", budget.caps[1]);
-        assert!((budget.caps[2] - 0.80).abs() < 0.01, "Spatial: {}", budget.caps[2]);
-        assert!((budget.caps[3] - 0.75).abs() < 0.01, "Harmonic: {}", budget.caps[3]);
-        assert!((budget.caps[4] - 0.75).abs() < 0.01, "Temporal: {}", budget.caps[4]);
+        assert!(
+            (budget.caps[0] - 0.85).abs() < 0.01,
+            "Dynamic: {}",
+            budget.caps[0]
+        );
+        assert!(
+            (budget.caps[1] - 0.80).abs() < 0.01,
+            "Transient: {}",
+            budget.caps[1]
+        );
+        assert!(
+            (budget.caps[2] - 0.80).abs() < 0.01,
+            "Spatial: {}",
+            budget.caps[2]
+        );
+        assert!(
+            (budget.caps[3] - 0.75).abs() < 0.01,
+            "Harmonic: {}",
+            budget.caps[3]
+        );
+        assert!(
+            (budget.caps[4] - 0.75).abs() < 0.01,
+            "Temporal: {}",
+            budget.caps[4]
+        );
     }
 
     #[test]
@@ -324,8 +345,12 @@ mod tests {
         let fatigued = gov.compute([0.8, 0.8, 0.8, 0.8, 0.8]).caps;
 
         // SM should be less than 1.0 now, so caps should be lower
-        assert!(fatigued[0] < fresh[0],
-            "Loss streak should reduce dynamic cap: fresh={}, fatigued={}", fresh[0], fatigued[0]);
+        assert!(
+            fatigued[0] < fresh[0],
+            "Loss streak should reduce dynamic cap: fresh={}, fatigued={}",
+            fresh[0],
+            fatigued[0]
+        );
     }
 
     #[test]
@@ -377,8 +402,12 @@ mod tests {
         let classic_caps = classic.compute(ei).caps;
 
         // HighVol should have higher caps than Classic3Reel
-        assert!(high_caps[0] > classic_caps[0],
-            "HighVol dynamic cap should > Classic: {} vs {}", high_caps[0], classic_caps[0]);
+        assert!(
+            high_caps[0] > classic_caps[0],
+            "HighVol dynamic cap should > Classic: {} vs {}",
+            high_caps[0],
+            classic_caps[0]
+        );
     }
 
     #[test]

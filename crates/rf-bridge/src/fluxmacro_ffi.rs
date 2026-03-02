@@ -8,17 +8,17 @@
 
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{CStr, CString, c_char};
 use std::path::PathBuf;
 use std::ptr;
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
 use rf_fluxmacro::context::MacroContext;
 use rf_fluxmacro::error::FluxMacroError;
 use rf_fluxmacro::interpreter::MacroInterpreter;
 use rf_fluxmacro::parser;
-use rf_fluxmacro::steps::{register_all_steps, StepRegistry};
+use rf_fluxmacro::steps::{StepRegistry, register_all_steps};
 use rf_fluxmacro::version;
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -324,7 +324,13 @@ pub extern "C" fn fluxmacro_get_last_hash() -> *mut c_char {
 pub extern "C" fn fluxmacro_last_success() -> i32 {
     let guard = LAST_CONTEXT.read();
     match guard.as_ref() {
-        Some(ctx) => if ctx.is_success() { 1 } else { 0 },
+        Some(ctx) => {
+            if ctx.is_success() {
+                1
+            } else {
+                0
+            }
+        }
         None => -1,
     }
 }

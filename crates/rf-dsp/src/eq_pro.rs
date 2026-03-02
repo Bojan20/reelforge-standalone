@@ -308,11 +308,11 @@ impl HalfbandFilter {
     pub fn new() -> Self {
         // 47-tap linear phase FIR, -96dB stopband
         let coeffs = vec![
-            -0.000043, 0.0, 0.000206, 0.0, -0.000693, 0.0, 0.001838, 0.0, -0.004148, 0.0,
-            0.008349, 0.0, -0.015542, 0.0, 0.027401, 0.0, -0.047430, 0.0, 0.083810, 0.0,
-            -0.168150, 0.0, 0.640994, 1.0, 0.640994, 0.0, -0.168150, 0.0, 0.083810, 0.0,
-            -0.047430, 0.0, 0.027401, 0.0, -0.015542, 0.0, 0.008349, 0.0, -0.004148, 0.0,
-            0.001838, 0.0, -0.000693, 0.0, 0.000206, 0.0, -0.000043,
+            -0.000043, 0.0, 0.000206, 0.0, -0.000693, 0.0, 0.001838, 0.0, -0.004148, 0.0, 0.008349,
+            0.0, -0.015542, 0.0, 0.027401, 0.0, -0.047430, 0.0, 0.083810, 0.0, -0.168150, 0.0,
+            0.640994, 1.0, 0.640994, 0.0, -0.168150, 0.0, 0.083810, 0.0, -0.047430, 0.0, 0.027401,
+            0.0, -0.015542, 0.0, 0.008349, 0.0, -0.004148, 0.0, 0.001838, 0.0, -0.000693, 0.0,
+            0.000206, 0.0, -0.000043,
         ];
         let len = coeffs.len();
         Self {
@@ -479,10 +479,10 @@ impl TransientDetector {
         Self {
             fast_env: 0.0,
             slow_env: 0.0,
-            fast_attack: (-1.0 / (0.001 * sample_rate)).exp(),    // 1ms
-            fast_release: (-1.0 / (0.010 * sample_rate)).exp(),   // 10ms
-            slow_attack: (-1.0 / (0.050 * sample_rate)).exp(),    // 50ms
-            slow_release: (-1.0 / (0.200 * sample_rate)).exp(),   // 200ms
+            fast_attack: (-1.0 / (0.001 * sample_rate)).exp(), // 1ms
+            fast_release: (-1.0 / (0.010 * sample_rate)).exp(), // 10ms
+            slow_attack: (-1.0 / (0.050 * sample_rate)).exp(), // 50ms
+            slow_release: (-1.0 / (0.200 * sample_rate)).exp(), // 200ms
             threshold: 2.0,
             is_transient: false,
             transient_countdown: 0,
@@ -659,8 +659,8 @@ impl EqualLoudness {
 
         // Equal loudness contour at ~60 phon (relative to 1kHz)
         let contour_60: [f64; 29] = [
-            74.3, 65.0, 56.3, 48.4, 41.7, 35.5, 29.8, 25.1, 20.7, 16.8, 13.8, 11.2, 8.9, 7.2,
-            6.0, 5.0, 4.4, 4.2, 3.7, 2.6, 1.0, -1.2, -3.6, -3.8, -1.1, 2.8, 7.0, 12.0, 18.0,
+            74.3, 65.0, 56.3, 48.4, 41.7, 35.5, 29.8, 25.1, 20.7, 16.8, 13.8, 11.2, 8.9, 7.2, 6.0,
+            5.0, 4.4, 4.2, 3.7, 2.6, 1.0, -1.2, -3.6, -3.8, -1.1, 2.8, 7.0, 12.0, 18.0,
         ];
 
         // Find surrounding reference points
@@ -829,7 +829,11 @@ impl FrequencyAnalyzer {
             return Vec::new();
         }
 
-        let avg: Vec<f64> = self.spectrum_sum.iter().map(|s| s / self.spectrum_count as f64).collect();
+        let avg: Vec<f64> = self
+            .spectrum_sum
+            .iter()
+            .map(|s| s / self.spectrum_count as f64)
+            .collect();
 
         let mut peaks = Vec::new();
         let threshold = avg.iter().cloned().fold(f64::NEG_INFINITY, f64::max) * 0.5;
@@ -1633,7 +1637,6 @@ pub struct EqBand {
     pub solo: bool,
 
     // === Ultra features (optional per-band) ===
-
     /// Use MZT filter instead of SVF (cramping-free at Nyquist)
     pub use_mzt: bool,
     /// MZT filter L/R channels
@@ -1791,9 +1794,12 @@ impl EqBand {
                 FilterShape::LowShelf => {
                     MztCoeffs::low_shelf_mzt(self.frequency, self.q, self.gain_db, self.sample_rate)
                 }
-                FilterShape::HighShelf => {
-                    MztCoeffs::high_shelf_mzt(self.frequency, self.q, self.gain_db, self.sample_rate)
-                }
+                FilterShape::HighShelf => MztCoeffs::high_shelf_mzt(
+                    self.frequency,
+                    self.q,
+                    self.gain_db,
+                    self.sample_rate,
+                ),
                 FilterShape::LowCut | FilterShape::HighCut => {
                     MztCoeffs::highpass_mzt(self.frequency, self.q, self.sample_rate)
                 }
@@ -1959,7 +1965,9 @@ impl EqBand {
         } else {
             // SVF path (original ProEq)
             if let Some(os) = oversampler {
-                os.process(input, |s| Self::process_svf_chain(svf_stages, svf_coeffs, s))
+                os.process(input, |s| {
+                    Self::process_svf_chain(svf_stages, svf_coeffs, s)
+                })
             } else {
                 Self::process_svf_chain(svf_stages, svf_coeffs, input)
             }
@@ -1999,8 +2007,12 @@ impl EqBand {
             {
                 let filtered = sc_svf.process(
                     (left + right) * 0.5,
-                    sc_coeffs.a1, sc_coeffs.a2, sc_coeffs.a3,
-                    sc_coeffs.m0, sc_coeffs.m1, sc_coeffs.m2,
+                    sc_coeffs.a1,
+                    sc_coeffs.a2,
+                    sc_coeffs.a3,
+                    sc_coeffs.m0,
+                    sc_coeffs.m1,
+                    sc_coeffs.m2,
                 );
                 (filtered.abs(), filtered.abs())
             } else {
@@ -2021,26 +2033,42 @@ impl EqBand {
         let (mut out_l, mut out_r) = match self.placement {
             StereoPlacement::Stereo => {
                 let fl = Self::process_filter_channel(
-                    left, self.use_mzt, &mut self.mzt_filter_l,
-                    &mut self.svf_stages_l, &self.svf_coeffs, &mut self.oversampler_l,
+                    left,
+                    self.use_mzt,
+                    &mut self.mzt_filter_l,
+                    &mut self.svf_stages_l,
+                    &self.svf_coeffs,
+                    &mut self.oversampler_l,
                 );
                 let fr = Self::process_filter_channel(
-                    right, self.use_mzt, &mut self.mzt_filter_r,
-                    &mut self.svf_stages_r, &self.svf_coeffs, &mut self.oversampler_r,
+                    right,
+                    self.use_mzt,
+                    &mut self.mzt_filter_r,
+                    &mut self.svf_stages_r,
+                    &self.svf_coeffs,
+                    &mut self.oversampler_r,
                 );
                 (fl * dyn_gain_l, fr * dyn_gain_r)
             }
             StereoPlacement::Left => {
                 let fl = Self::process_filter_channel(
-                    left, self.use_mzt, &mut self.mzt_filter_l,
-                    &mut self.svf_stages_l, &self.svf_coeffs, &mut self.oversampler_l,
+                    left,
+                    self.use_mzt,
+                    &mut self.mzt_filter_l,
+                    &mut self.svf_stages_l,
+                    &self.svf_coeffs,
+                    &mut self.oversampler_l,
                 );
                 (fl * dyn_gain_l, right)
             }
             StereoPlacement::Right => {
                 let fr = Self::process_filter_channel(
-                    right, self.use_mzt, &mut self.mzt_filter_r,
-                    &mut self.svf_stages_r, &self.svf_coeffs, &mut self.oversampler_r,
+                    right,
+                    self.use_mzt,
+                    &mut self.mzt_filter_r,
+                    &mut self.svf_stages_r,
+                    &self.svf_coeffs,
+                    &mut self.oversampler_r,
                 );
                 (left, fr * dyn_gain_r)
             }
@@ -2048,8 +2076,12 @@ impl EqBand {
                 let mid = (left + right) * 0.5;
                 let side = (left - right) * 0.5;
                 let mut out_mid = Self::process_filter_channel(
-                    mid, self.use_mzt, &mut self.mzt_filter_l,
-                    &mut self.svf_stages_l, &self.svf_coeffs, &mut self.oversampler_l,
+                    mid,
+                    self.use_mzt,
+                    &mut self.mzt_filter_l,
+                    &mut self.svf_stages_l,
+                    &self.svf_coeffs,
+                    &mut self.oversampler_l,
                 );
                 out_mid *= dyn_gain_l;
                 (out_mid + side, out_mid - side)
@@ -2058,8 +2090,12 @@ impl EqBand {
                 let mid = (left + right) * 0.5;
                 let side = (left - right) * 0.5;
                 let mut out_side = Self::process_filter_channel(
-                    side, self.use_mzt, &mut self.mzt_filter_l,
-                    &mut self.svf_stages_l, &self.svf_coeffs, &mut self.oversampler_l,
+                    side,
+                    self.use_mzt,
+                    &mut self.mzt_filter_l,
+                    &mut self.svf_stages_l,
+                    &self.svf_coeffs,
+                    &mut self.oversampler_l,
                 );
                 out_side *= dyn_gain_l;
                 (mid + out_side, mid - out_side)
@@ -3177,7 +3213,9 @@ impl ProEq {
         }
 
         // Feed frequency analyzer for AI suggestions
-        let mono_block: Vec<f64> = left.iter().zip(right.iter())
+        let mono_block: Vec<f64> = left
+            .iter()
+            .zip(right.iter())
             .map(|(&l, &r)| (l + r) * 0.5)
             .collect();
         self.frequency_analyzer.add_spectrum(&mono_block);
@@ -3238,7 +3276,13 @@ impl ProEq {
     }
 
     /// Set saturation on a specific band
-    pub fn set_band_saturator(&mut self, index: usize, drive_db: f64, mix: f64, sat_type: SaturationType) {
+    pub fn set_band_saturator(
+        &mut self,
+        index: usize,
+        drive_db: f64,
+        mix: f64,
+        sat_type: SaturationType,
+    ) {
         if let Some(band) = self.bands.get_mut(index) {
             band.set_saturator(drive_db, mix, sat_type);
         }

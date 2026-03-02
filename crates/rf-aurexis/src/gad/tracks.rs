@@ -3,9 +3,9 @@
 //! Each track type carries per-track metadata for AUREXIS integration:
 //! CanonicalEventBinding, SpectralRole, EmotionalBias, EnergyWeight, etc.
 
-use serde::{Deserialize, Serialize};
-use crate::spectral::SpectralRole;
 use crate::priority::EventType;
+use crate::spectral::SpectralRole;
+use serde::{Deserialize, Serialize};
 
 /// 8 track types per MASTER_SPEC §15.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -88,9 +88,14 @@ impl GadTrackType {
     /// All track types.
     pub fn all() -> &'static [GadTrackType] {
         &[
-            Self::MusicLayer, Self::Transient, Self::ReelBound,
-            Self::CascadeLayer, Self::JackpotLadder, Self::Ui,
-            Self::System, Self::AmbientPad,
+            Self::MusicLayer,
+            Self::Transient,
+            Self::ReelBound,
+            Self::CascadeLayer,
+            Self::JackpotLadder,
+            Self::Ui,
+            Self::System,
+            Self::AmbientPad,
         ]
     }
 }
@@ -167,7 +172,9 @@ impl TrackMetadata {
             dpm_base_weight: track_type.default_event_type().base_weight(),
             voice_priority: match track_type {
                 GadTrackType::JackpotLadder => VoicePriorityClass::Critical,
-                GadTrackType::MusicLayer | GadTrackType::AmbientPad => VoicePriorityClass::Background,
+                GadTrackType::MusicLayer | GadTrackType::AmbientPad => {
+                    VoicePriorityClass::Background
+                }
                 GadTrackType::Transient | GadTrackType::ReelBound => VoicePriorityClass::Normal,
                 GadTrackType::CascadeLayer => VoicePriorityClass::High,
                 GadTrackType::Ui | GadTrackType::System => VoicePriorityClass::Low,
@@ -182,8 +189,7 @@ impl TrackMetadata {
                 GadTrackType::Ui => 0.5,
                 _ => 1.0,
             },
-            mobile_optimized: matches!(track_type,
-                GadTrackType::AmbientPad | GadTrackType::System),
+            mobile_optimized: matches!(track_type, GadTrackType::AmbientPad | GadTrackType::System),
         }
     }
 
@@ -191,19 +197,34 @@ impl TrackMetadata {
     pub fn validate(&self) -> Vec<String> {
         let mut errors = Vec::new();
         if self.emotional_bias < -1.0 || self.emotional_bias > 1.0 {
-            errors.push(format!("emotional_bias {} out of range [-1, 1]", self.emotional_bias));
+            errors.push(format!(
+                "emotional_bias {} out of range [-1, 1]",
+                self.emotional_bias
+            ));
         }
         if self.energy_weight < 0.0 || self.energy_weight > 1.0 {
-            errors.push(format!("energy_weight {} out of range [0, 1]", self.energy_weight));
+            errors.push(format!(
+                "energy_weight {} out of range [0, 1]",
+                self.energy_weight
+            ));
         }
         if self.dpm_base_weight < 0.0 || self.dpm_base_weight > 1.0 {
-            errors.push(format!("dpm_base_weight {} out of range [0, 1]", self.dpm_base_weight));
+            errors.push(format!(
+                "dpm_base_weight {} out of range [0, 1]",
+                self.dpm_base_weight
+            ));
         }
         if self.harmonic_density > 4 {
-            errors.push(format!("harmonic_density {} exceeds max 4", self.harmonic_density));
+            errors.push(format!(
+                "harmonic_density {} exceeds max 4",
+                self.harmonic_density
+            ));
         }
         if self.turbo_reduction_factor < 0.0 || self.turbo_reduction_factor > 1.0 {
-            errors.push(format!("turbo_reduction_factor {} out of range [0, 1]", self.turbo_reduction_factor));
+            errors.push(format!(
+                "turbo_reduction_factor {} out of range [0, 1]",
+                self.turbo_reduction_factor
+            ));
         }
         errors
     }
@@ -286,7 +307,11 @@ mod tests {
     fn test_track_metadata_defaults() {
         for tt in GadTrackType::all() {
             let meta = TrackMetadata::for_track_type(*tt);
-            assert!(meta.validate().is_empty(), "Track type {:?} has invalid defaults", tt);
+            assert!(
+                meta.validate().is_empty(),
+                "Track type {:?} has invalid defaults",
+                tt
+            );
         }
     }
 
@@ -295,7 +320,10 @@ mod tests {
         let track = GadTrack::new("t1", "My Music", GadTrackType::MusicLayer);
         assert_eq!(track.track_type, GadTrackType::MusicLayer);
         assert_eq!(track.metadata.spectral_role, SpectralRole::BackgroundPad);
-        assert_eq!(track.metadata.voice_priority, VoicePriorityClass::Background);
+        assert_eq!(
+            track.metadata.voice_priority,
+            VoicePriorityClass::Background
+        );
         assert!(track.validate().is_empty());
     }
 

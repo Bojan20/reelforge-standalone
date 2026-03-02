@@ -66,8 +66,7 @@ impl MacroStep for VolatilityProfileStep {
         );
         let path = profiles_dir.join(&filename);
         let json = serde_json::to_string_pretty(&profile)?;
-        std::fs::write(&path, &json)
-            .map_err(|e| FluxMacroError::FileWrite(path.clone(), e))?;
+        std::fs::write(&path, &json).map_err(|e| FluxMacroError::FileWrite(path.clone(), e))?;
 
         ctx.set_intermediate(
             "volatility_profile",
@@ -88,7 +87,10 @@ impl MacroStep for VolatilityProfileStep {
             ctx.volatility, profile.volatility_index
         ))
         .with_artifact("volatility_profile".to_string(), path)
-        .with_metric("volatility_index".to_string(), profile.volatility_index as f64))
+        .with_metric(
+            "volatility_index".to_string(),
+            profile.volatility_index as f64,
+        ))
     }
 
     fn estimated_duration_ms(&self) -> u64 {

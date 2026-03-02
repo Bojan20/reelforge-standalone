@@ -1,8 +1,8 @@
 //! SAMCL-2: SpectralAllocator — assigns spectral roles and resolves collisions.
 
+use super::masking::{MaskingAction, MaskingResolver, MaskingStrategy, SciAdvanced};
+use super::roles::{SpectralBand, SpectralRole};
 use serde::{Deserialize, Serialize};
-use super::roles::{SpectralRole, SpectralBand};
-use super::masking::{MaskingResolver, MaskingStrategy, MaskingAction, SciAdvanced};
 
 /// A voice with its spectral assignment.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -245,12 +245,15 @@ impl SpectralAllocator {
         for i in 0..SpectralRole::COUNT {
             if let Some(role) = SpectralRole::from_index(i as u8) {
                 let band = role.band();
-                bands.insert(role.name().to_string(), serde_json::json!({
-                    "low_hz": band.low_hz,
-                    "high_hz": band.high_hz,
-                    "harmonic_density_limit": role.harmonic_density_limit(),
-                    "is_broadband": role.is_broadband(),
-                }));
+                bands.insert(
+                    role.name().to_string(),
+                    serde_json::json!({
+                        "low_hz": band.low_hz,
+                        "high_hz": band.high_hz,
+                        "harmonic_density_limit": role.harmonic_density_limit(),
+                        "is_broadband": role.is_broadband(),
+                    }),
+                );
             }
         }
         serde_json::to_string_pretty(&bands)
@@ -279,19 +282,24 @@ impl SpectralAllocator {
 
     /// Shift curves JSON for bake (SAMCL-12).
     pub fn shift_curves_json(&self) -> Result<String, serde_json::Error> {
-        let shifts: Vec<serde_json::Value> = self.last_output.assignments.iter()
+        let shifts: Vec<serde_json::Value> = self
+            .last_output
+            .assignments
+            .iter()
             .filter(|a| a.slot_shifted)
-            .map(|a| serde_json::json!({
-                "voice_id": a.voice_id,
-                "original_band": {
-                    "low_hz": a.role.band().low_hz,
-                    "high_hz": a.role.band().high_hz,
-                },
-                "shifted_band": {
-                    "low_hz": a.effective_band.low_hz,
-                    "high_hz": a.effective_band.high_hz,
-                },
-            }))
+            .map(|a| {
+                serde_json::json!({
+                    "voice_id": a.voice_id,
+                    "original_band": {
+                        "low_hz": a.role.band().low_hz,
+                        "high_hz": a.role.band().high_hz,
+                    },
+                    "shifted_band": {
+                        "low_hz": a.effective_band.low_hz,
+                        "high_hz": a.effective_band.high_hz,
+                    },
+                })
+            })
             .collect();
         serde_json::to_string_pretty(&shifts)
     }
@@ -322,7 +330,10 @@ mod tests {
         let mut alloc = SpectralAllocator::new();
         alloc.assign_role(1, SpectralRole::SubEnergy, 10, 10); // limit is 2
         let output = alloc.compute();
-        assert_eq!(output.assignments[0].harmonic_layers, 2, "Should clamp to density limit");
+        assert_eq!(
+            output.assignments[0].harmonic_layers, 2,
+            "Should clamp to density limit"
+        );
     }
 
     #[test]
@@ -332,7 +343,10 @@ mod tests {
         alloc.assign_role(1, SpectralRole::SubEnergy, 10, 2);
         alloc.assign_role(2, SpectralRole::LowBody, 8, 2);
         let output = alloc.compute();
-        assert!(output.collision_count > 0, "Overlapping bands should cause collision");
+        assert!(
+            output.collision_count > 0,
+            "Overlapping bands should cause collision"
+        );
     }
 
     #[test]
@@ -342,7 +356,10 @@ mod tests {
         alloc.assign_role(1, SpectralRole::SubEnergy, 10, 2);
         alloc.assign_role(2, SpectralRole::AirLayer, 8, 2);
         let output = alloc.compute();
-        assert_eq!(output.collision_count, 0, "Non-overlapping bands should not collide");
+        assert_eq!(
+            output.collision_count, 0,
+            "Non-overlapping bands should not collide"
+        );
     }
 
     #[test]
@@ -356,7 +373,10 @@ mod tests {
         let output = alloc.compute();
         // With 10 full spectrum voices, SCI should be very high
         if output.sci_adv > 0.85 {
-            assert!(output.aggressive_carve_active, "High SCI should trigger aggressive carve");
+            assert!(
+                output.aggressive_carve_active,
+                "High SCI should trigger aggressive carve"
+            );
         }
     }
 

@@ -28,8 +28,8 @@ pub fn sha256_str(s: &str) -> String {
 /// Compute SHA-256 hash of a file using streaming (constant memory).
 /// Reads in 8KB chunks to avoid loading entire file into memory.
 pub fn sha256_file(path: &Path) -> Result<String, FluxMacroError> {
-    let mut file = std::fs::File::open(path)
-        .map_err(|e| FluxMacroError::FileRead(path.to_path_buf(), e))?;
+    let mut file =
+        std::fs::File::open(path).map_err(|e| FluxMacroError::FileRead(path.to_path_buf(), e))?;
 
     let mut hasher = Sha256::new();
     let mut buffer = [0u8; 8192];

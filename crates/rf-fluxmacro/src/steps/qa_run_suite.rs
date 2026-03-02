@@ -48,10 +48,7 @@ impl MacroStep for QaRunSuiteStep {
         // The interpreter handles actual execution — this step just validates
         // that all sub-steps are registered and sets up the qa_suite intermediate.
 
-        let available: Vec<&str> = QA_STEPS
-            .iter()
-            .copied()
-            .collect();
+        let available: Vec<&str> = QA_STEPS.iter().copied().collect();
 
         let missing: Vec<&&str> = QA_STEPS
             .iter()
@@ -62,14 +59,8 @@ impl MacroStep for QaRunSuiteStep {
             })
             .collect();
 
-        ctx.set_intermediate(
-            "qa_suite_steps",
-            serde_json::json!(available),
-        );
-        ctx.set_intermediate(
-            "qa_suite_total",
-            serde_json::json!(QA_STEPS.len()),
-        );
+        ctx.set_intermediate("qa_suite_steps", serde_json::json!(available));
+        ctx.set_intermediate("qa_suite_total", serde_json::json!(QA_STEPS.len()));
 
         let mut warnings = Vec::new();
         if !missing.is_empty() {
@@ -94,8 +85,7 @@ impl MacroStep for QaRunSuiteStep {
             )
         };
 
-        Ok(result
-            .with_metric("qa_step_count".to_string(), QA_STEPS.len() as f64))
+        Ok(result.with_metric("qa_step_count".to_string(), QA_STEPS.len() as f64))
     }
 
     fn estimated_duration_ms(&self) -> u64 {

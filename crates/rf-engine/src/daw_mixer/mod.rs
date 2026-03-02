@@ -1,10 +1,10 @@
 //! DAW Mixer Orchestration Layer
 //! Pro Tools 2026–class mixer coordination (no audio processing).
 
-use crate::track_manager::TrackManager;
 use crate::routing::RoutingGraph;
-use std::collections::HashSet;
+use crate::track_manager::TrackManager;
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 pub type DawChannelId = u64;
 
@@ -19,7 +19,10 @@ pub struct SessionGraph {
 
 impl SessionGraph {
     pub fn new(track_manager: TrackManager, routing_graph: RoutingGraph) -> Self {
-        Self { track_manager, routing_graph }
+        Self {
+            track_manager,
+            routing_graph,
+        }
     }
 }
 
@@ -36,9 +39,17 @@ pub enum SoloMode {
 
 #[derive(Debug, Clone)]
 pub enum SoloCommand {
-    SetSolo { channel: DawChannelId, enabled: bool },
-    SetSoloSafe { channel: DawChannelId, safe: bool },
-    SetSoloMode { mode: SoloMode },
+    SetSolo {
+        channel: DawChannelId,
+        enabled: bool,
+    },
+    SetSoloSafe {
+        channel: DawChannelId,
+        safe: bool,
+    },
+    SetSoloMode {
+        mode: SoloMode,
+    },
 }
 
 pub struct SoloEngine {
@@ -47,7 +58,9 @@ pub struct SoloEngine {
 
 impl SoloEngine {
     pub fn new() -> Self {
-        Self { mode: SoloMode::Sip }
+        Self {
+            mode: SoloMode::Sip,
+        }
     }
 
     pub fn handle_command(&mut self, command: SoloCommand) {
@@ -68,7 +81,9 @@ impl SoloEngine {
 pub struct FolderEngine;
 
 impl FolderEngine {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
 
 // ==========================
@@ -78,7 +93,9 @@ impl FolderEngine {
 pub struct VcaEngine;
 
 impl VcaEngine {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 }
 
 // ==========================

@@ -33,11 +33,11 @@ pub struct SpectralHealthResult {
 }
 
 /// Thresholds for spectral health checks.
-const DC_OFFSET_MAX: f64 = 0.01;         // Max absolute DC offset
-const CLIPPING_THRESHOLD: f64 = 0.9999;   // Sample value threshold for clipping
-const MAX_CLIPPING_RATIO: f64 = 0.001;    // Max 0.1% clipping samples
-const SILENCE_MAX_RATIO: f64 = 0.5;       // Max 50% silence (< -60dB)
-const HIGH_FREQ_MAX_RATIO: f64 = 0.6;     // Max 60% energy above 10kHz
+const DC_OFFSET_MAX: f64 = 0.01; // Max absolute DC offset
+const CLIPPING_THRESHOLD: f64 = 0.9999; // Sample value threshold for clipping
+const MAX_CLIPPING_RATIO: f64 = 0.001; // Max 0.1% clipping samples
+const SILENCE_MAX_RATIO: f64 = 0.5; // Max 50% silence (< -60dB)
+const HIGH_FREQ_MAX_RATIO: f64 = 0.6; // Max 60% energy above 10kHz
 const SILENCE_THRESHOLD_DB: f64 = -60.0;
 
 impl MacroStep for QaSpectralHealthStep {
@@ -94,10 +94,7 @@ impl MacroStep for QaSpectralHealthStep {
                 return Err(FluxMacroError::Cancelled);
             }
 
-            let filename = file_path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("");
+            let filename = file_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
             match analyze_spectral_health(file_path) {
                 Ok(health) => {
@@ -130,7 +127,11 @@ impl MacroStep for QaSpectralHealthStep {
         ctx.qa_results.push(QaTestResult {
             test_name: "spectral.dc_offset".to_string(),
             passed: dc_failures == 0,
-            details: format!("{}/{} files pass DC offset check", results.len() - dc_failures, results.len()),
+            details: format!(
+                "{}/{} files pass DC offset check",
+                results.len() - dc_failures,
+                results.len()
+            ),
             duration_ms: duration_ms / 4,
             metrics: {
                 let mut m = std::collections::HashMap::new();
@@ -142,7 +143,11 @@ impl MacroStep for QaSpectralHealthStep {
         ctx.qa_results.push(QaTestResult {
             test_name: "spectral.clipping".to_string(),
             passed: clip_failures == 0,
-            details: format!("{}/{} files pass clipping check", results.len() - clip_failures, results.len()),
+            details: format!(
+                "{}/{} files pass clipping check",
+                results.len() - clip_failures,
+                results.len()
+            ),
             duration_ms: duration_ms / 4,
             metrics: {
                 let mut m = std::collections::HashMap::new();
@@ -154,7 +159,11 @@ impl MacroStep for QaSpectralHealthStep {
         ctx.qa_results.push(QaTestResult {
             test_name: "spectral.silence".to_string(),
             passed: silence_failures == 0,
-            details: format!("{}/{} files pass silence check", results.len() - silence_failures, results.len()),
+            details: format!(
+                "{}/{} files pass silence check",
+                results.len() - silence_failures,
+                results.len()
+            ),
             duration_ms: duration_ms / 4,
             metrics: {
                 let mut m = std::collections::HashMap::new();
@@ -166,7 +175,11 @@ impl MacroStep for QaSpectralHealthStep {
         ctx.qa_results.push(QaTestResult {
             test_name: "spectral.frequency_balance".to_string(),
             passed: hf_failures == 0,
-            details: format!("{}/{} files pass HF balance check", results.len() - hf_failures, results.len()),
+            details: format!(
+                "{}/{} files pass HF balance check",
+                results.len() - hf_failures,
+                results.len()
+            ),
             duration_ms: duration_ms / 4,
             metrics: {
                 let mut m = std::collections::HashMap::new();

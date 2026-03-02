@@ -102,8 +102,7 @@ mod tests {
     fn test_output_within_range() {
         let cfg = default_config();
         for sprite in 0..1000 {
-            let v =
-                DeterministicVariationEngine::compute_from_components(sprite, 500, 3, 0, &cfg);
+            let v = DeterministicVariationEngine::compute_from_components(sprite, 500, 3, 0, &cfg);
             assert!(v.pan_drift.abs() <= cfg.pan_drift_range + 1e-10);
             assert!(v.width_variance.abs() <= cfg.width_variance_range + 1e-10);
             assert!(v.harmonic_shift.abs() <= cfg.harmonic_shift_range + 1e-10);
@@ -116,7 +115,10 @@ mod tests {
         let cfg = default_config();
         let a = DeterministicVariationEngine::compute_from_components(42, 1000, 7, 0, &cfg);
         let b = DeterministicVariationEngine::compute_from_components(42, 1000, 7, 1, &cfg);
-        assert_ne!(a.pan_drift, b.pan_drift, "Different session should give different output");
+        assert_ne!(
+            a.pan_drift, b.pan_drift,
+            "Different session should give different output"
+        );
     }
 
     #[test]

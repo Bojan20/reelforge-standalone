@@ -41,7 +41,10 @@ impl MacroStep for QaDeterminismStep {
         ctx.log(
             LogLevel::Info,
             "qa.determinism",
-            &format!("Running {replay_count} deterministic replays (seed={})", ctx.seed),
+            &format!(
+                "Running {replay_count} deterministic replays (seed={})",
+                ctx.seed
+            ),
         );
 
         // Build simulation steps from seed
@@ -49,9 +52,8 @@ impl MacroStep for QaDeterminismStep {
         let sim_steps = build_simulation_steps(ctx.seed, 100); // 100 frames per run
 
         // Record reference trace
-        let mut drc = rf_aurexis::drc::replay::DeterministicReplayCore::with_config(
-            aurexis_config.clone(),
-        );
+        let mut drc =
+            rf_aurexis::drc::replay::DeterministicReplayCore::with_config(aurexis_config.clone());
         let reference_trace = drc.record(&sim_steps);
 
         // Replay N times and collect hashes
@@ -93,8 +95,7 @@ impl MacroStep for QaDeterminismStep {
             passed: all_passed,
             details: format!(
                 "{replay_count} runs, {} mismatches, ref_hash={}",
-                total_mismatches,
-                &run_hashes[0]
+                total_mismatches, &run_hashes[0]
             ),
             duration_ms,
             metrics: {
@@ -106,14 +107,8 @@ impl MacroStep for QaDeterminismStep {
         });
 
         // Store pass/fail for manifest
-        ctx.set_intermediate(
-            "qa_determinism_passed",
-            serde_json::json!(all_passed),
-        );
-        ctx.set_intermediate(
-            "qa_determinism_hashes",
-            serde_json::json!(run_hashes),
-        );
+        ctx.set_intermediate("qa_determinism_passed", serde_json::json!(all_passed));
+        ctx.set_intermediate("qa_determinism_hashes", serde_json::json!(run_hashes));
 
         // Write report
         let reports_dir = ctx.working_dir.join("Reports");
@@ -144,14 +139,22 @@ impl MacroStep for QaDeterminismStep {
             "qa.determinism",
             &format!(
                 "Determinism test: {replay_count} runs, {}, ref={}",
-                if all_passed { "ALL MATCH" } else { "MISMATCH DETECTED" },
+                if all_passed {
+                    "ALL MATCH"
+                } else {
+                    "MISMATCH DETECTED"
+                },
                 &run_hashes[0],
             ),
         );
 
         let summary = format!(
             "Determinism: {replay_count} runs, {}",
-            if all_passed { "ALL MATCH" } else { "MISMATCHES FOUND" }
+            if all_passed {
+                "ALL MATCH"
+            } else {
+                "MISMATCHES FOUND"
+            }
         );
 
         let result = if all_passed {
@@ -159,7 +162,9 @@ impl MacroStep for QaDeterminismStep {
         } else {
             StepResult::success_with_warnings(
                 &summary,
-                vec![format!("{total_mismatches} frame mismatches across {replay_count} runs")],
+                vec![format!(
+                    "{total_mismatches} frame mismatches across {replay_count} runs"
+                )],
             )
         };
 
@@ -180,8 +185,8 @@ fn build_simulation_steps(
     seed: u64,
     frame_count: usize,
 ) -> Vec<rf_aurexis::qa::simulation::SimulationStep> {
-    use rand::SeedableRng;
     use rand::Rng;
+    use rand::SeedableRng;
 
     let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(seed);
     let mut steps = Vec::with_capacity(frame_count);

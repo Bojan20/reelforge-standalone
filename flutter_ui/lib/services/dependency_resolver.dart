@@ -172,8 +172,13 @@ class _DependencyNode {
         conflicts = conflicts ?? {},
         inDegree = 0;
 
-  /// All blocks this node depends on (for topological sort)
-  Set<String> get allDependencies => {...requires, ...isModifiedBy};
+  /// All blocks this node depends on (for topological sort and cycle detection).
+  /// Only `requires` creates hard ordering constraints.
+  /// `modifies`/`isModifiedBy` are informational (soft relationships) and must
+  /// NOT be included here — otherwise mutual modifies declarations
+  /// (e.g., free_spins modifies music_states AND music_states modifies
+  /// free_spins) create false cycles.
+  Set<String> get allDependencies => {...requires};
 }
 
 /// Service for resolving block dependencies

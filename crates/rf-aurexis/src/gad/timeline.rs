@@ -22,9 +22,7 @@ impl MusicalPosition {
     /// Convert to absolute ticks (480 PPQN, assuming 4/4 time).
     pub fn to_ticks(&self, time_sig: &TimeSignature) -> u64 {
         let ticks_per_bar = 480 * time_sig.numerator as u64;
-        (self.bar as u64) * ticks_per_bar
-            + (self.beat as u64) * 480
-            + self.tick as u64
+        (self.bar as u64) * ticks_per_bar + (self.beat as u64) * 480 + self.tick as u64
     }
 
     /// Convert absolute ticks back to musical position.
@@ -40,7 +38,11 @@ impl MusicalPosition {
 
 impl Default for MusicalPosition {
     fn default() -> Self {
-        Self { bar: 0, beat: 0, tick: 0 }
+        Self {
+            bar: 0,
+            beat: 0,
+            tick: 0,
+        }
     }
 }
 
@@ -77,7 +79,10 @@ pub struct TimeSignature {
 
 impl Default for TimeSignature {
     fn default() -> Self {
-        Self { numerator: 4, denominator: 4 }
+        Self {
+            numerator: 4,
+            denominator: 4,
+        }
     }
 }
 
@@ -202,7 +207,8 @@ impl Default for GameplayTimeline {
 impl GameplayTimeline {
     /// Get hooks at a specific frame.
     pub fn hooks_at_frame(&self, frame: u64) -> Vec<&HookEvent> {
-        self.hook_events.iter()
+        self.hook_events
+            .iter()
             .filter(|h| h.frame <= frame && frame < h.frame + h.duration_frames.max(1))
             .collect()
     }
@@ -261,7 +267,13 @@ impl DualTimeline {
     }
 
     /// Add an anchor syncing musical and gameplay positions.
-    pub fn add_anchor(&mut self, id: impl Into<String>, musical_pos: MusicalPosition, gameplay_frame: u64, hook: impl Into<String>) {
+    pub fn add_anchor(
+        &mut self,
+        id: impl Into<String>,
+        musical_pos: MusicalPosition,
+        gameplay_frame: u64,
+        hook: impl Into<String>,
+    ) {
         self.anchors.push(TimelineAnchor {
             id: id.into(),
             musical_pos,
@@ -323,7 +335,9 @@ impl DualTimeline {
 
     /// Get all bake boundaries (sorted by musical position).
     pub fn bake_boundaries(&self) -> Vec<&TimelineMarker> {
-        let mut boundaries: Vec<_> = self.markers.iter()
+        let mut boundaries: Vec<_> = self
+            .markers
+            .iter()
             .filter(|m| m.marker_type == MarkerType::BakeBoundary)
             .collect();
         boundaries.sort_by_key(|m| m.musical_pos.to_ticks(&self.musical.time_sig));
@@ -342,7 +356,10 @@ mod tests {
 
     #[test]
     fn test_musical_position_ticks_roundtrip() {
-        let ts = TimeSignature { numerator: 4, denominator: 4 };
+        let ts = TimeSignature {
+            numerator: 4,
+            denominator: 4,
+        };
         let pos = MusicalPosition::new(2, 3, 120);
         let ticks = pos.to_ticks(&ts);
         let restored = MusicalPosition::from_ticks(ticks, &ts);
@@ -382,12 +399,18 @@ mod tests {
     fn test_gameplay_hooks_at_frame() {
         let mut gt = GameplayTimeline::default();
         gt.hook_events.push(HookEvent {
-            frame: 10, hook: "SPIN_START".into(), spin_index: 0,
-            substate: "base".into(), duration_frames: 5,
+            frame: 10,
+            hook: "SPIN_START".into(),
+            spin_index: 0,
+            substate: "base".into(),
+            duration_frames: 5,
         });
         gt.hook_events.push(HookEvent {
-            frame: 20, hook: "REEL_STOP".into(), spin_index: 0,
-            substate: "base".into(), duration_frames: 0,
+            frame: 20,
+            hook: "REEL_STOP".into(),
+            spin_index: 0,
+            substate: "base".into(),
+            duration_frames: 0,
         });
 
         assert_eq!(gt.hooks_at_frame(12).len(), 1);
@@ -400,22 +423,28 @@ mod tests {
     fn test_bake_boundaries() {
         let mut dt = DualTimeline::new(120.0, 8, 60.0);
         dt.add_marker(TimelineMarker {
-            id: "b1".into(), name: "Stem 1".into(),
+            id: "b1".into(),
+            name: "Stem 1".into(),
             marker_type: MarkerType::BakeBoundary,
             musical_pos: MusicalPosition::new(4, 0, 0),
-            gameplay_pos: None, color: 0xFF00FF00,
+            gameplay_pos: None,
+            color: 0xFF00FF00,
         });
         dt.add_marker(TimelineMarker {
-            id: "b0".into(), name: "Stem 0".into(),
+            id: "b0".into(),
+            name: "Stem 0".into(),
             marker_type: MarkerType::BakeBoundary,
             musical_pos: MusicalPosition::new(0, 0, 0),
-            gameplay_pos: None, color: 0xFF00FF00,
+            gameplay_pos: None,
+            color: 0xFF00FF00,
         });
         dt.add_marker(TimelineMarker {
-            id: "cue".into(), name: "Cue".into(),
+            id: "cue".into(),
+            name: "Cue".into(),
             marker_type: MarkerType::Cue,
             musical_pos: MusicalPosition::new(2, 0, 0),
-            gameplay_pos: None, color: 0xFFFF0000,
+            gameplay_pos: None,
+            color: 0xFFFF0000,
         });
 
         let boundaries = dt.bake_boundaries();

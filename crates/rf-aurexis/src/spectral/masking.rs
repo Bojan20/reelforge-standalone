@@ -3,9 +3,9 @@
 //! 5 strategies: notch attenuation, band EQ carve, harmonic attenuation,
 //! spatial narrowing, deterministic slot shift.
 
-use serde::{Deserialize, Serialize};
-use super::roles::{SpectralRole, SpectralBand};
 use super::allocation::SpectralAssignment;
+use super::roles::{SpectralBand, SpectralRole};
+use serde::{Deserialize, Serialize};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MASKING STRATEGY (SAMCL-3)
@@ -32,7 +32,10 @@ pub enum MaskingAction {
     /// Notch cut applied.
     NotchCut { attenuation_db: f64 },
     /// Band EQ carve applied.
-    BandCarve { attenuation_db: f64, bandwidth_hz: f64 },
+    BandCarve {
+        attenuation_db: f64,
+        bandwidth_hz: f64,
+    },
     /// Harmonic layers reduced.
     HarmonicReduced { layers_removed: u32 },
     /// Stereo width narrowed.
@@ -80,15 +83,13 @@ impl MaskingResolver {
     /// Resolve a masking conflict and return the action.
     pub fn resolve(strategy: MaskingStrategy, _voice_priority: i32) -> MaskingAction {
         match strategy {
-            MaskingStrategy::NotchAttenuation => {
-                MaskingAction::NotchCut { attenuation_db: -3.0 }
-            }
-            MaskingStrategy::BandEqCarve => {
-                MaskingAction::BandCarve {
-                    attenuation_db: -4.5,
-                    bandwidth_hz: 200.0,
-                }
-            }
+            MaskingStrategy::NotchAttenuation => MaskingAction::NotchCut {
+                attenuation_db: -3.0,
+            },
+            MaskingStrategy::BandEqCarve => MaskingAction::BandCarve {
+                attenuation_db: -4.5,
+                bandwidth_hz: 200.0,
+            },
             MaskingStrategy::HarmonicAttenuation => {
                 MaskingAction::HarmonicReduced { layers_removed: 1 }
             }
@@ -294,7 +295,10 @@ mod tests {
             },
         ];
         let sci = SciAdvanced::compute(&assignments, 0.8);
-        assert!(sci.overlapping_pairs > 0, "MidCore and MelodicTopline overlap");
+        assert!(
+            sci.overlapping_pairs > 0,
+            "MidCore and MelodicTopline overlap"
+        );
         assert!(sci.value > 0.0, "SCI should be > 0 with overlap");
     }
 
@@ -322,7 +326,11 @@ mod tests {
         ];
         let sci_low = SciAdvanced::compute(&assignments, 0.3);
         let sci_high = SciAdvanced::compute(&assignments, 0.9);
-        assert!(sci_high.value > sci_low.value,
-            "Higher energy cap should increase SCI: low={}, high={}", sci_low.value, sci_high.value);
+        assert!(
+            sci_high.value > sci_low.value,
+            "Higher energy cap should increase SCI: low={}, high={}",
+            sci_low.value,
+            sci_high.value
+        );
     }
 }

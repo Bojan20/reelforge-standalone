@@ -242,10 +242,10 @@ fn generate_adb_markdown(ctx: &MacroContext, rules: &RuleSet) -> String {
             platform.voice_budget()
         ));
     }
-    let suggested = rules
-        .mechanics
-        .total_suggested_voices(&mechanics);
-    md.push_str(&format!("\n**Suggested voices for selected mechanics:** {suggested}\n"));
+    let suggested = rules.mechanics.total_suggested_voices(&mechanics);
+    md.push_str(&format!(
+        "\n**Suggested voices for selected mechanics:** {suggested}\n"
+    ));
     md.push_str("\n");
 
     // Section 8: RTP Mapping

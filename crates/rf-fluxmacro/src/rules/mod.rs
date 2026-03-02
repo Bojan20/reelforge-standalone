@@ -4,19 +4,19 @@
 // FM-9: Rule loader — loads JSON rule files into typed structs.
 // ============================================================================
 
-pub mod naming_rules;
-pub mod mechanics_map;
-pub mod loudness_targets;
 pub mod adb_templates;
+pub mod loudness_targets;
+pub mod mechanics_map;
+pub mod naming_rules;
 
 use std::path::Path;
 
 use crate::error::FluxMacroError;
 
-use naming_rules::NamingRuleSet;
-use mechanics_map::MechanicsMap;
-use loudness_targets::LoudnessTargets;
 use adb_templates::AdbTemplates;
+use loudness_targets::LoudnessTargets;
+use mechanics_map::MechanicsMap;
+use naming_rules::NamingRuleSet;
 
 /// All loaded rules for a macro execution.
 #[derive(Debug, Clone)]

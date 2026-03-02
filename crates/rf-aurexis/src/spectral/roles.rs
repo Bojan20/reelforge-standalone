@@ -134,9 +134,11 @@ impl SpectralRole {
             // MID density zones
             SpectralRole::LowBody | SpectralRole::LowMidBody | SpectralRole::HighTransient => 3,
             // PEAK density zones
-            SpectralRole::MidCore | SpectralRole::FullSpectrum |
-            SpectralRole::NoiseImpact | SpectralRole::MelodicTopline |
-            SpectralRole::BackgroundPad => 4,
+            SpectralRole::MidCore
+            | SpectralRole::FullSpectrum
+            | SpectralRole::NoiseImpact
+            | SpectralRole::MelodicTopline
+            | SpectralRole::BackgroundPad => 4,
         }
     }
 }
@@ -149,7 +151,10 @@ mod tests {
     fn test_band_overlap() {
         let sub = SpectralRole::SubEnergy.band();
         let low = SpectralRole::LowBody.band();
-        assert!(sub.overlaps(&low), "Sub and LowBody should overlap (80-90 Hz)");
+        assert!(
+            sub.overlaps(&low),
+            "Sub and LowBody should overlap (80-90 Hz)"
+        );
 
         let air = SpectralRole::AirLayer.band();
         assert!(!sub.overlaps(&air), "Sub and Air should not overlap");
@@ -160,14 +165,21 @@ mod tests {
         let a = SpectralBand::new(0.0, 100.0);
         let b = SpectralBand::new(50.0, 150.0);
         let ratio = a.overlap_ratio(&b);
-        assert!((ratio - 0.5).abs() < 0.01, "50% overlap expected, got {ratio}");
+        assert!(
+            (ratio - 0.5).abs() < 0.01,
+            "50% overlap expected, got {ratio}"
+        );
     }
 
     #[test]
     fn test_all_roles_valid() {
         for i in 0..SpectralRole::COUNT {
             let role = SpectralRole::from_index(i as u8).unwrap();
-            assert!(role.band().bandwidth() > 0.0, "Band {} should have positive bandwidth", role.name());
+            assert!(
+                role.band().bandwidth() > 0.0,
+                "Band {} should have positive bandwidth",
+                role.name()
+            );
         }
     }
 

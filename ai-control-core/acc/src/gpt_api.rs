@@ -38,7 +38,9 @@ fn check_auth(headers: &HeaderMap, cfg: &AccConfig) -> Result<(), (StatusCode, J
     } else {
         Err((
             StatusCode::UNAUTHORIZED,
-            Json(json!({"ok": false, "error": "Invalid or missing API key. Set x-acc-key header."})),
+            Json(
+                json!({"ok": false, "error": "Invalid or missing API key. Set x-acc-key header."}),
+            ),
         ))
     }
 }
@@ -101,13 +103,42 @@ fn is_binary_file(path: &Path) -> bool {
 
     matches!(
         ext.as_str(),
-        "png" | "jpg" | "jpeg" | "gif" | "bmp" | "ico" | "webp"
-            | "mp3" | "wav" | "flac" | "ogg" | "aac" | "m4a"
-            | "mp4" | "mov" | "avi" | "mkv"
-            | "zip" | "tar" | "gz" | "bz2" | "xz" | "7z"
-            | "exe" | "dll" | "so" | "dylib" | "a" | "o"
-            | "pdf" | "woff" | "woff2" | "ttf" | "otf"
-            | "sqlite" | "db"
+        "png"
+            | "jpg"
+            | "jpeg"
+            | "gif"
+            | "bmp"
+            | "ico"
+            | "webp"
+            | "mp3"
+            | "wav"
+            | "flac"
+            | "ogg"
+            | "aac"
+            | "m4a"
+            | "mp4"
+            | "mov"
+            | "avi"
+            | "mkv"
+            | "zip"
+            | "tar"
+            | "gz"
+            | "bz2"
+            | "xz"
+            | "7z"
+            | "exe"
+            | "dll"
+            | "so"
+            | "dylib"
+            | "a"
+            | "o"
+            | "pdf"
+            | "woff"
+            | "woff2"
+            | "ttf"
+            | "otf"
+            | "sqlite"
+            | "db"
     )
 }
 
@@ -135,15 +166,29 @@ async fn files_read(
 
     let full_path = match resolve_path(&st.cfg.repo_root, &q.path) {
         Ok(p) => p,
-        Err(e) => return (StatusCode::BAD_REQUEST, Json(json!({"ok": false, "error": e}))).into_response(),
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"ok": false, "error": e})),
+            )
+                .into_response()
+        }
     };
 
     if !full_path.is_file() {
-        return (StatusCode::NOT_FOUND, Json(json!({"ok": false, "error": "Not a file"}))).into_response();
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({"ok": false, "error": "Not a file"})),
+        )
+            .into_response();
     }
 
     if is_binary_file(&full_path) {
-        return (StatusCode::BAD_REQUEST, Json(json!({"ok": false, "error": "Binary file — cannot read"}))).into_response();
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"ok": false, "error": "Binary file — cannot read"})),
+        )
+            .into_response();
     }
 
     // Check file size
@@ -176,15 +221,23 @@ async fn files_read(
                 .collect::<Vec<_>>()
                 .join("\n");
 
-            (StatusCode::OK, Json(json!({
-                "ok": true,
-                "path": q.path,
-                "total_lines": total_lines,
-                "showing_lines": [start + 1, end.min(total_lines)],
-                "content": sliced,
-            }))).into_response()
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "ok": true,
+                    "path": q.path,
+                    "total_lines": total_lines,
+                    "showing_lines": [start + 1, end.min(total_lines)],
+                    "content": sliced,
+                })),
+            )
+                .into_response()
         }
-        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"ok": false, "error": e.to_string()}))).into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"ok": false, "error": e.to_string()})),
+        )
+            .into_response(),
     }
 }
 
@@ -200,8 +253,12 @@ struct FilesTreeQuery {
     depth: usize,
 }
 
-fn default_tree_path() -> String { ".".into() }
-fn default_depth() -> usize { 2 }
+fn default_tree_path() -> String {
+    ".".into()
+}
+fn default_depth() -> usize {
+    2
+}
 
 #[derive(Serialize)]
 struct TreeEntry {
@@ -222,18 +279,35 @@ async fn files_tree(
 
     let full_path = match resolve_path(&st.cfg.repo_root, &q.path) {
         Ok(p) => p,
-        Err(e) => return (StatusCode::BAD_REQUEST, Json(json!({"ok": false, "error": e}))).into_response(),
+        Err(e) => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({"ok": false, "error": e})),
+            )
+                .into_response()
+        }
     };
 
     if !full_path.is_dir() {
-        return (StatusCode::BAD_REQUEST, Json(json!({"ok": false, "error": "Not a directory"}))).into_response();
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"ok": false, "error": "Not a directory"})),
+        )
+            .into_response();
     }
 
     let depth = q.depth.min(MAX_TREE_DEPTH);
     let repo_canonical = st.cfg.repo_root.canonicalize().unwrap_or_default();
     let mut entries: Vec<TreeEntry> = Vec::new();
 
-    fn walk(dir: &Path, repo_root: &Path, current_depth: usize, max_depth: usize, entries: &mut Vec<TreeEntry>, cfg: &AccConfig) {
+    fn walk(
+        dir: &Path,
+        repo_root: &Path,
+        current_depth: usize,
+        max_depth: usize,
+        entries: &mut Vec<TreeEntry>,
+        cfg: &AccConfig,
+    ) {
         if current_depth > max_depth || entries.len() >= MAX_TREE_ENTRIES {
             return;
         }
@@ -288,14 +362,18 @@ async fn files_tree(
 
     let truncated = entries.len() >= MAX_TREE_ENTRIES;
 
-    (StatusCode::OK, Json(json!({
-        "ok": true,
-        "root": q.path,
-        "depth": depth,
-        "count": entries.len(),
-        "truncated": truncated,
-        "entries": entries,
-    }))).into_response()
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "root": q.path,
+            "depth": depth,
+            "count": entries.len(),
+            "truncated": truncated,
+            "entries": entries,
+        })),
+    )
+        .into_response()
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -306,14 +384,16 @@ async fn files_tree(
 struct FilesSearchQuery {
     query: String,
     #[serde(default)]
-    glob: Option<String>,         // e.g. "*.rs", "*.dart"
+    glob: Option<String>, // e.g. "*.rs", "*.dart"
     #[serde(default)]
-    path: Option<String>,         // search within subdir
+    path: Option<String>, // search within subdir
     #[serde(default = "default_context")]
-    context: usize,               // lines of context around match
+    context: usize, // lines of context around match
 }
 
-fn default_context() -> usize { 2 }
+fn default_context() -> usize {
+    2
+}
 
 #[derive(Serialize)]
 struct SearchMatch {
@@ -332,13 +412,23 @@ async fn files_search(
     }
 
     if q.query.len() < 2 {
-        return (StatusCode::BAD_REQUEST, Json(json!({"ok": false, "error": "Query must be at least 2 characters"}))).into_response();
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"ok": false, "error": "Query must be at least 2 characters"})),
+        )
+            .into_response();
     }
 
     let search_dir = match &q.path {
         Some(p) => match resolve_path(&st.cfg.repo_root, p) {
             Ok(dir) => dir.to_string_lossy().to_string(),
-            Err(e) => return (StatusCode::BAD_REQUEST, Json(json!({"ok": false, "error": e}))).into_response(),
+            Err(e) => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({"ok": false, "error": e})),
+                )
+                    .into_response()
+            }
         },
         None => st.cfg.repo_root.to_string_lossy().to_string(),
     };
@@ -365,7 +455,13 @@ async fn files_search(
 
     let output = match cmd.output() {
         Ok(o) => o,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"ok": false, "error": format!("grep failed: {e}")}))).into_response(),
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"ok": false, "error": format!("grep failed: {e}")})),
+            )
+                .into_response()
+        }
     };
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -399,55 +495,58 @@ async fn files_search(
         seen.into_iter().collect()
     };
 
-    (StatusCode::OK, Json(json!({
-        "ok": true,
-        "query": q.query,
-        "glob": q.glob,
-        "match_count": matches.len(),
-        "files_matched": unique_files.len(),
-        "files": unique_files,
-        "matches": matches,
-    }))).into_response()
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "query": q.query,
+            "glob": q.glob,
+            "match_count": matches.len(),
+            "files_matched": unique_files.len(),
+            "files": unique_files,
+            "matches": matches,
+        })),
+    )
+        .into_response()
 }
 
 // ═══════════════════════════════════════════════════════════════
 // GET /gpt/context — Full project context for ChatGPT
 // ═══════════════════════════════════════════════════════════════
 
-async fn context(
-    State(st): State<GptState>,
-    headers: HeaderMap,
-) -> impl IntoResponse {
+async fn context(State(st): State<GptState>, headers: HeaderMap) -> impl IntoResponse {
     if let Err(e) = check_auth(&headers, &st.cfg) {
         return e.into_response();
     }
 
     // Read key AI_BRAIN docs
-    let architecture = std::fs::read_to_string(
-        st.cfg.repo_root.join("AI_BRAIN/memory/ARCHITECTURE.md")
-    ).unwrap_or_else(|_| "Not found".into());
+    let architecture =
+        std::fs::read_to_string(st.cfg.repo_root.join("AI_BRAIN/memory/ARCHITECTURE.md"))
+            .unwrap_or_else(|_| "Not found".into());
 
-    let constraints = std::fs::read_to_string(
-        st.cfg.repo_root.join("AI_BRAIN/memory/CONSTRAINTS.md")
-    ).unwrap_or_else(|_| "Not found".into());
+    let constraints =
+        std::fs::read_to_string(st.cfg.repo_root.join("AI_BRAIN/memory/CONSTRAINTS.md"))
+            .unwrap_or_else(|_| "Not found".into());
 
-    let glossary = std::fs::read_to_string(
-        st.cfg.repo_root.join("AI_BRAIN/memory/GLOSSARY.md")
-    ).unwrap_or_else(|_| "Not found".into());
+    let glossary = std::fs::read_to_string(st.cfg.repo_root.join("AI_BRAIN/memory/GLOSSARY.md"))
+        .unwrap_or_else(|_| "Not found".into());
 
     let template = std::fs::read_to_string(
-        st.cfg.repo_root.join("AI_BRAIN/docs/CHATGPT_TASK_TEMPLATE.md")
-    ).unwrap_or_else(|_| "Not found".into());
+        st.cfg
+            .repo_root
+            .join("AI_BRAIN/docs/CHATGPT_TASK_TEMPLATE.md"),
+    )
+    .unwrap_or_else(|_| "Not found".into());
 
     // Read active tasks
     let tasks: Value = read_json(&st.cfg.state_dir().join("TASKS_ACTIVE.json"))
         .unwrap_or_else(|_| json!({"active_tasks": []}));
 
-    let milestones: Value = read_json(&st.cfg.state_dir().join("MILESTONES.json"))
-        .unwrap_or_else(|_| json!({}));
+    let milestones: Value =
+        read_json(&st.cfg.state_dir().join("MILESTONES.json")).unwrap_or_else(|_| json!({}));
 
-    let system_status: Value = read_json(&st.cfg.state_dir().join("SYSTEM_STATUS.json"))
-        .unwrap_or_else(|_| json!({}));
+    let system_status: Value =
+        read_json(&st.cfg.state_dir().join("SYSTEM_STATUS.json")).unwrap_or_else(|_| json!({}));
 
     // Top-level tree (depth 1)
     let repo_canonical = st.cfg.repo_root.canonicalize().unwrap_or_default();
@@ -457,8 +556,12 @@ async fn context(
         items.sort_by_key(|e| e.file_name());
         for item in items {
             if let Some(name) = item.file_name().to_str() {
-                if name.starts_with('.') { continue; }
-                if name == "target" || name == "node_modules" || name == "build" { continue; }
+                if name.starts_with('.') {
+                    continue;
+                }
+                if name == "target" || name == "node_modules" || name == "build" {
+                    continue;
+                }
                 let suffix = if item.path().is_dir() { "/" } else { "" };
                 top_dirs.push(format!("{name}{suffix}"));
             }

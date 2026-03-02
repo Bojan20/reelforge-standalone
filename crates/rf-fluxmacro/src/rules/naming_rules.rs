@@ -217,13 +217,8 @@ impl NamingRuleSet {
                 violations.push(format!("segment '{part}' contains uppercase characters"));
             }
 
-            if part
-                .chars()
-                .any(|c| !c.is_ascii_alphanumeric() && c != '-')
-            {
-                violations.push(format!(
-                    "segment '{part}' contains special characters"
-                ));
+            if part.chars().any(|c| !c.is_ascii_alphanumeric() && c != '-') {
+                violations.push(format!("segment '{part}' contains special characters"));
             }
         }
 
@@ -271,9 +266,21 @@ mod tests {
         let rules = NamingRuleSet::default();
         assert!(rules.validate_filename("sfx_reel_stop_a_v1.wav").is_empty());
         assert!(rules.validate_filename("mus_base_loop.flac").is_empty());
-        assert!(rules.validate_filename("ui_button_click_b_v2.ogg").is_empty());
-        assert!(rules.validate_filename("vo_narrator_welcome.wav").is_empty());
-        assert!(rules.validate_filename("amb_background_forest.wav").is_empty());
+        assert!(
+            rules
+                .validate_filename("ui_button_click_b_v2.ogg")
+                .is_empty()
+        );
+        assert!(
+            rules
+                .validate_filename("vo_narrator_welcome.wav")
+                .is_empty()
+        );
+        assert!(
+            rules
+                .validate_filename("amb_background_forest.wav")
+                .is_empty()
+        );
     }
 
     #[test]

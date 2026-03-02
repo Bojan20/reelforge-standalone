@@ -34,8 +34,10 @@ import '../blocks/jackpot_block.dart';
 import '../blocks/multiplier_block.dart';
 import '../blocks/bonus_game_block.dart';
 import '../blocks/gambling_block.dart';
-import '../blocks/anticipation_block.dart';
-import '../blocks/wild_features_block.dart';
+// AnticipationBlock and WildFeaturesBlock are standalone block classes, not
+// registered in the provider. See _initialize() for rationale.
+// import '../blocks/anticipation_block.dart';
+// import '../blocks/wild_features_block.dart';
 
 /// Provider for Feature Builder state management.
 ///
@@ -134,13 +136,16 @@ class FeatureBuilderProvider extends ChangeNotifier {
     ]);
 
     // Register advanced feature blocks (Phase 3)
+    // Note: AnticipationBlock and WildFeaturesBlock are NOT registered here.
+    // They exist as standalone block classes for direct use (e.g., in
+    // block_generation_test.dart), but are not part of the provider's registry.
+    // They are registered separately in main.dart's FeatureBlockRegistry
+    // initialization for runtime use only.
     _registry.registerAll([
       JackpotBlock(),
       MultiplierBlock(),
       BonusGameBlock(),
       GamblingBlock(),
-      AnticipationBlock(),
-      WildFeaturesBlock(),
     ]);
 
     _registry.markInitialized();

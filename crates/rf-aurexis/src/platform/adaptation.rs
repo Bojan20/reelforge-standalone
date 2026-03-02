@@ -63,7 +63,10 @@ mod tests {
 
         PlatformAdapter::apply(&mut map, &PlatformProfile::mobile());
 
-        assert!(map.stereo_width < 1.5, "Mobile should compress stereo width");
+        assert!(
+            map.stereo_width < 1.5,
+            "Mobile should compress stereo width"
+        );
         assert!(map.pan_drift < 0.04, "Mobile should reduce pan drift");
         assert_eq!(map.platform_stereo_range, 0.6);
     }
@@ -86,7 +89,10 @@ mod tests {
 
         PlatformAdapter::apply(&mut map, &PlatformProfile::cabinet());
 
-        assert!(map.stereo_width < 1.0, "Cabinet should heavily compress stereo");
+        assert!(
+            map.stereo_width < 1.0,
+            "Cabinet should heavily compress stereo"
+        );
         assert!(map.reverb_send_bias < 0.5, "Cabinet should reduce reverb");
     }
 

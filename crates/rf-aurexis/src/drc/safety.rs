@@ -54,12 +54,12 @@ pub enum EnvelopeViolationType {
 impl EnvelopeViolationType {
     pub fn name(&self) -> &'static str {
         match self {
-            Self::Energy          => "ENERGY",
-            Self::PeakDuration    => "PEAK_DURATION",
-            Self::Voices          => "VOICES",
+            Self::Energy => "ENERGY",
+            Self::PeakDuration => "PEAK_DURATION",
+            Self::Voices => "VOICES",
             Self::HarmonicDensity => "HARMONIC_DENSITY",
-            Self::Sci             => "SCI",
-            Self::SessionPeak     => "SESSION_PEAK",
+            Self::Sci => "SCI",
+            Self::SessionPeak => "SESSION_PEAK",
         }
     }
 }
@@ -107,7 +107,10 @@ impl SafetyEnvelope {
     }
 
     pub fn with_limits(limits: SafetyLimits) -> Self {
-        Self { limits, last_result: None }
+        Self {
+            limits,
+            last_result: None,
+        }
     }
 
     pub fn limits(&self) -> &SafetyLimits {
@@ -146,7 +149,9 @@ impl SafetyEnvelope {
             if energy > self.limits.max_energy {
                 violations.push(EnvelopeViolation {
                     violation_type: EnvelopeViolationType::Energy,
-                    frame_index: frame, value: energy, limit: self.limits.max_energy,
+                    frame_index: frame,
+                    value: energy,
+                    limit: self.limits.max_energy,
                 });
             }
 
@@ -172,7 +177,9 @@ impl SafetyEnvelope {
             if voice_count > self.limits.max_voices {
                 violations.push(EnvelopeViolation {
                     violation_type: EnvelopeViolationType::Voices,
-                    frame_index: frame, value: voice_count as f64, limit: self.limits.max_voices as f64,
+                    frame_index: frame,
+                    value: voice_count as f64,
+                    limit: self.limits.max_voices as f64,
                 });
             }
 
@@ -182,18 +189,25 @@ impl SafetyEnvelope {
             if harmonic > self.limits.max_harmonic_density {
                 violations.push(EnvelopeViolation {
                     violation_type: EnvelopeViolationType::HarmonicDensity,
-                    frame_index: frame, value: harmonic as f64, limit: self.limits.max_harmonic_density as f64,
+                    frame_index: frame,
+                    value: harmonic as f64,
+                    limit: self.limits.max_harmonic_density as f64,
                 });
             }
 
             // 5. SCI check (estimate)
-            let sci = ((output.harmonic_excitation - 1.0).max(0.0) * energy
-                * (output.center_occupancy as f64 / 10.0).min(1.0) * 2.0).clamp(0.0, 1.0);
+            let sci = ((output.harmonic_excitation - 1.0).max(0.0)
+                * energy
+                * (output.center_occupancy as f64 / 10.0).min(1.0)
+                * 2.0)
+                .clamp(0.0, 1.0);
             peak_sci = peak_sci.max(sci);
             if sci > self.limits.max_sci {
                 violations.push(EnvelopeViolation {
                     violation_type: EnvelopeViolationType::Sci,
-                    frame_index: frame, value: sci, limit: self.limits.max_sci,
+                    frame_index: frame,
+                    value: sci,
+                    limit: self.limits.max_sci,
                 });
             }
 
@@ -253,13 +267,15 @@ mod tests {
     use super::*;
 
     fn safe_outputs(count: usize) -> Vec<DeterministicParameterMap> {
-        (0..count).map(|_| {
-            let mut m = DeterministicParameterMap::default();
-            m.energy_density = 0.3;
-            m.harmonic_excitation = 1.2;
-            m.center_occupancy = 5;
-            m
-        }).collect()
+        (0..count)
+            .map(|_| {
+                let mut m = DeterministicParameterMap::default();
+                m.energy_density = 0.3;
+                m.harmonic_excitation = 1.2;
+                m.center_occupancy = 5;
+                m
+            })
+            .collect()
     }
 
     #[test]
@@ -280,7 +296,12 @@ mod tests {
 
         let result = envelope.validate(&outputs);
         assert!(!result.passed);
-        assert!(result.violations.iter().any(|v| v.violation_type == EnvelopeViolationType::Energy));
+        assert!(
+            result
+                .violations
+                .iter()
+                .any(|v| v.violation_type == EnvelopeViolationType::Energy)
+        );
     }
 
     #[test]
@@ -290,30 +311,44 @@ mod tests {
             ..Default::default()
         });
 
-        let outputs: Vec<DeterministicParameterMap> = (0..20).map(|_| {
-            let mut m = DeterministicParameterMap::default();
-            m.energy_density = 0.95; // Above 0.9 threshold
-            m
-        }).collect();
+        let outputs: Vec<DeterministicParameterMap> = (0..20)
+            .map(|_| {
+                let mut m = DeterministicParameterMap::default();
+                m.energy_density = 0.95; // Above 0.9 threshold
+                m
+            })
+            .collect();
 
         let result = envelope.validate(&outputs);
         assert!(!result.passed);
-        assert!(result.violations.iter().any(|v| v.violation_type == EnvelopeViolationType::PeakDuration));
+        assert!(
+            result
+                .violations
+                .iter()
+                .any(|v| v.violation_type == EnvelopeViolationType::PeakDuration)
+        );
     }
 
     #[test]
     fn test_session_peak_violation() {
         let mut envelope = SafetyEnvelope::new();
         // All frames at high energy > 0.8 → session peak > 40%
-        let outputs: Vec<DeterministicParameterMap> = (0..100).map(|_| {
-            let mut m = DeterministicParameterMap::default();
-            m.energy_density = 0.85;
-            m
-        }).collect();
+        let outputs: Vec<DeterministicParameterMap> = (0..100)
+            .map(|_| {
+                let mut m = DeterministicParameterMap::default();
+                m.energy_density = 0.85;
+                m
+            })
+            .collect();
 
         let result = envelope.validate(&outputs);
         assert!(!result.passed);
-        assert!(result.violations.iter().any(|v| v.violation_type == EnvelopeViolationType::SessionPeak));
+        assert!(
+            result
+                .violations
+                .iter()
+                .any(|v| v.violation_type == EnvelopeViolationType::SessionPeak)
+        );
     }
 
     #[test]

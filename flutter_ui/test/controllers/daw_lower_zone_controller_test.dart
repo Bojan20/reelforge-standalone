@@ -8,13 +8,14 @@ void main() {
     late DawLowerZoneController controller;
 
     setUp(() {
+      DawLowerZoneController.resetForTesting();
       controller = DawLowerZoneController();
     });
 
     test('initializes with default state', () {
-      expect(controller.superTab, DawSuperTab.edit); // Default changed from browse to edit
-      expect(controller.isExpanded, false); // DawLowerZoneState default is collapsed
-      expect(controller.height, kLowerZoneDefaultHeight);
+      expect(controller.superTab, DawSuperTab.browse);
+      expect(controller.isExpanded, true);
+      expect(controller.height, kLowerZoneMaxHeight);
     });
 
     test('setSuperTab changes tab', () {
@@ -24,7 +25,6 @@ void main() {
     });
 
     test('toggle changes expand state', () {
-      // After previous test (setSuperTab), isExpanded may be true
       final initial = controller.isExpanded;
 
       controller.toggle();

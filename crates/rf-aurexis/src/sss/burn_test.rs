@@ -1,10 +1,10 @@
 //! Burn Test — 10,000 deterministic spins measuring long-term drift.
 //! Tracks: energy drift, harmonic creep, spectral bias, voice trend, fatigue accumulation.
 
-use serde::{Deserialize, Serialize};
 use crate::core::config::AurexisConfig;
 use crate::core::engine::AurexisEngine;
 use crate::qa::simulation::SimulationStep;
+use serde::{Deserialize, Serialize};
 
 /// Trend direction for a metric over time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -35,8 +35,8 @@ pub struct DriftMetric {
     pub peak_value: f64,
     pub min_value: f64,
     pub mean_value: f64,
-    pub drift_total: f64,     // final - initial
-    pub drift_pct: f64,       // drift as percentage of range
+    pub drift_total: f64, // final - initial
+    pub drift_pct: f64,   // drift as percentage of range
     pub trend: TrendDirection,
     /// Samples at 100-spin intervals for charting.
     pub samples: Vec<f64>,
@@ -118,7 +118,10 @@ pub struct BurnTest {
 
 impl BurnTest {
     pub fn new(config: BurnTestConfig) -> Self {
-        Self { config, last_result: None }
+        Self {
+            config,
+            last_result: None,
+        }
     }
 
     /// Run full 10,000-spin burn test.
@@ -150,17 +153,27 @@ impl BurnTest {
 
         for spin in 0..self.config.total_spins {
             // Deterministic win decision
-            rng_state = rng_state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            rng_state = rng_state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
             let win_roll = ((rng_state >> 33) as f64) / (u32::MAX as f64);
             let is_win = win_roll < self.config.win_probability as f64;
-            let win_mult = if is_win { self.config.avg_win_multiplier * (0.5 + win_roll) } else { 0.0 };
+            let win_mult = if is_win {
+                self.config.avg_win_multiplier * (0.5 + win_roll)
+            } else {
+                0.0
+            };
 
             let step = SimulationStep {
                 elapsed_ms: 50,
                 volatility: 0.5,
                 rtp: self.config.base_rtp,
                 win_multiplier: win_mult,
-                jackpot_proximity: if spin > self.config.total_spins.saturating_sub(100) { 0.5 } else { 0.0 },
+                jackpot_proximity: if spin > self.config.total_spins.saturating_sub(100) {
+                    0.5
+                } else {
+                    0.0
+                },
                 rms_db: if is_win { -16.0 } else { -24.0 },
                 hf_db: if is_win { -20.0 } else { -30.0 },
             };
@@ -195,7 +208,8 @@ impl BurnTest {
         // Build drift metrics
         let energy_drift = build_drift_metric("Energy", &energy_values, &energy_samples);
         let harmonic_creep = build_drift_metric("Harmonic", &harmonic_values, &harmonic_samples);
-        let spectral_bias = build_drift_metric("Spectral (SCI)", &spectral_values, &spectral_samples);
+        let spectral_bias =
+            build_drift_metric("Spectral (SCI)", &spectral_values, &spectral_samples);
         let voice_trend = build_drift_metric("Voice Count", &voice_values, &voice_samples);
         let fatigue_accumulation = build_drift_metric("Fatigue", &fatigue_values, &fatigue_samples);
 
@@ -207,15 +221,32 @@ impl BurnTest {
             let mut rng2 = 0x12345678u64;
 
             for spin in 0..self.config.total_spins {
-                rng2 = rng2.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                rng2 = rng2
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
                 let win_roll = ((rng2 >> 33) as f64) / (u32::MAX as f64);
                 let is_win = win_roll < self.config.win_probability as f64;
-                let win_mult = if is_win { self.config.avg_win_multiplier * (0.5 + win_roll) } else { 0.0 };
+                let win_mult = if is_win {
+                    self.config.avg_win_multiplier * (0.5 + win_roll)
+                } else {
+                    0.0
+                };
 
                 engine2.set_rtp(self.config.base_rtp);
                 engine2.set_volatility(0.5);
-                engine2.set_win(win_mult, 1.0, if spin > self.config.total_spins.saturating_sub(100) { 0.5 } else { 0.0 });
-                engine2.set_metering(if is_win { -16.0 } else { -24.0 }, if is_win { -20.0 } else { -30.0 });
+                engine2.set_win(
+                    win_mult,
+                    1.0,
+                    if spin > self.config.total_spins.saturating_sub(100) {
+                        0.5
+                    } else {
+                        0.0
+                    },
+                );
+                engine2.set_metering(
+                    if is_win { -16.0 } else { -24.0 },
+                    if is_win { -20.0 } else { -30.0 },
+                );
                 let output = engine2.compute(50);
                 h ^= output.energy_overall_cap.to_bits();
                 h = h.wrapping_mul(0x100000001b3);
@@ -229,16 +260,22 @@ impl BurnTest {
         // Validate
         let mut failures = Vec::new();
         if energy_drift.drift_pct.abs() > self.config.max_drift_pct {
-            failures.push(format!("Energy drift {:.1}% exceeds max {:.1}%",
-                energy_drift.drift_pct, self.config.max_drift_pct));
+            failures.push(format!(
+                "Energy drift {:.1}% exceeds max {:.1}%",
+                energy_drift.drift_pct, self.config.max_drift_pct
+            ));
         }
         if harmonic_creep.drift_pct.abs() > self.config.max_drift_pct {
-            failures.push(format!("Harmonic creep {:.1}% exceeds max {:.1}%",
-                harmonic_creep.drift_pct, self.config.max_drift_pct));
+            failures.push(format!(
+                "Harmonic creep {:.1}% exceeds max {:.1}%",
+                harmonic_creep.drift_pct, self.config.max_drift_pct
+            ));
         }
         if fatigue_accumulation.final_value > self.config.max_final_fatigue {
-            failures.push(format!("Final fatigue {:.3} exceeds max {:.3}",
-                fatigue_accumulation.final_value, self.config.max_final_fatigue));
+            failures.push(format!(
+                "Final fatigue {:.3} exceeds max {:.3}",
+                fatigue_accumulation.final_value, self.config.max_final_fatigue
+            ));
         }
         if !deterministic {
             failures.push("Non-deterministic: hash mismatch on replay".into());
@@ -279,9 +316,13 @@ fn build_drift_metric(name: &str, values: &[f64], samples: &[f64]) -> DriftMetri
     if values.is_empty() {
         return DriftMetric {
             name: name.into(),
-            initial_value: 0.0, final_value: 0.0,
-            peak_value: 0.0, min_value: 0.0, mean_value: 0.0,
-            drift_total: 0.0, drift_pct: 0.0,
+            initial_value: 0.0,
+            final_value: 0.0,
+            peak_value: 0.0,
+            min_value: 0.0,
+            mean_value: 0.0,
+            drift_total: 0.0,
+            drift_pct: 0.0,
             trend: TrendDirection::Stable,
             samples: vec![],
         };
@@ -295,21 +336,31 @@ fn build_drift_metric(name: &str, values: &[f64], samples: &[f64]) -> DriftMetri
     let mean = sum / values.len() as f64;
     let drift = final_val - initial;
     let range = peak - min;
-    let drift_pct = if range > f64::EPSILON { (drift / range) * 100.0 } else { 0.0 };
+    let drift_pct = if range > f64::EPSILON {
+        (drift / range) * 100.0
+    } else {
+        0.0
+    };
 
     // Determine trend from samples
     let trend = if samples.len() < 3 {
         TrendDirection::Stable
     } else {
-        let first_third: f64 = samples[..samples.len()/3].iter().sum::<f64>() / (samples.len()/3) as f64;
-        let last_third: f64 = samples[samples.len()*2/3..].iter().sum::<f64>() / (samples.len() - samples.len()*2/3) as f64;
+        let first_third: f64 =
+            samples[..samples.len() / 3].iter().sum::<f64>() / (samples.len() / 3) as f64;
+        let last_third: f64 = samples[samples.len() * 2 / 3..].iter().sum::<f64>()
+            / (samples.len() - samples.len() * 2 / 3) as f64;
         let diff = last_third - first_third;
-        let mid_third: f64 = samples[samples.len()/3..samples.len()*2/3].iter().sum::<f64>()
-            / (samples.len()*2/3 - samples.len()/3) as f64;
+        let mid_third: f64 = samples[samples.len() / 3..samples.len() * 2 / 3]
+            .iter()
+            .sum::<f64>()
+            / (samples.len() * 2 / 3 - samples.len() / 3) as f64;
 
         if range < f64::EPSILON || diff.abs() < range * 0.05 {
             TrendDirection::Stable
-        } else if (mid_third > first_third && mid_third > last_third) || (mid_third < first_third && mid_third < last_third) {
+        } else if (mid_third > first_third && mid_third > last_third)
+            || (mid_third < first_third && mid_third < last_third)
+        {
             TrendDirection::Oscillating
         } else if diff > 0.0 {
             TrendDirection::Rising

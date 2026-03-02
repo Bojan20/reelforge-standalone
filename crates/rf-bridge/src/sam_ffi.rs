@@ -2,21 +2,22 @@
 //!
 //! Exposes SmartAuthoringEngine via C FFI. Single global instance.
 
-use std::ffi::{c_char, CString};
+use std::ffi::{CString, c_char};
 use std::ptr;
 
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 
-use rf_aurexis::sam::engine::{SmartAuthoringEngine, AuthoringMode, WizardStep};
-use rf_aurexis::sam::archetypes::{SlotArchetype, MarketTarget};
+use rf_aurexis::sam::archetypes::{MarketTarget, SlotArchetype};
 use rf_aurexis::sam::controls::SmartControl;
+use rf_aurexis::sam::engine::{AuthoringMode, SmartAuthoringEngine, WizardStep};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GLOBAL STATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-static SAM: Lazy<RwLock<SmartAuthoringEngine>> = Lazy::new(|| RwLock::new(SmartAuthoringEngine::new()));
+static SAM: Lazy<RwLock<SmartAuthoringEngine>> =
+    Lazy::new(|| RwLock::new(SmartAuthoringEngine::new()));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // LIFECYCLE
@@ -43,7 +44,10 @@ pub extern "C" fn sam_mode() -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn sam_set_mode(mode_index: u8) -> i32 {
     match AuthoringMode::from_index(mode_index) {
-        Some(mode) => { SAM.write().set_mode(mode); 1 }
+        Some(mode) => {
+            SAM.write().set_mode(mode);
+            1
+        }
         None => 0,
     }
 }
@@ -52,7 +56,11 @@ pub extern "C" fn sam_set_mode(mode_index: u8) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn sam_mode_name() -> *mut c_char {
     let name = SAM.read().mode().name();
-    if let Ok(s) = CString::new(name) { s.into_raw() } else { ptr::null_mut() }
+    if let Ok(s) = CString::new(name) {
+        s.into_raw()
+    } else {
+        ptr::null_mut()
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -69,7 +77,10 @@ pub extern "C" fn sam_wizard_step() -> u8 {
 #[unsafe(no_mangle)]
 pub extern "C" fn sam_set_wizard_step(step_index: u8) -> i32 {
     match WizardStep::from_index(step_index) {
-        Some(step) => { SAM.write().set_wizard_step(step); 1 }
+        Some(step) => {
+            SAM.write().set_wizard_step(step);
+            1
+        }
         None => 0,
     }
 }
@@ -103,7 +114,11 @@ pub extern "C" fn sam_wizard_step_count() -> u32 {
 pub extern "C" fn sam_wizard_step_name(step_index: u8) -> *mut c_char {
     match WizardStep::from_index(step_index) {
         Some(step) => {
-            if let Ok(s) = CString::new(step.name()) { s.into_raw() } else { ptr::null_mut() }
+            if let Ok(s) = CString::new(step.name()) {
+                s.into_raw()
+            } else {
+                ptr::null_mut()
+            }
         }
         None => ptr::null_mut(),
     }
@@ -114,7 +129,11 @@ pub extern "C" fn sam_wizard_step_name(step_index: u8) -> *mut c_char {
 pub extern "C" fn sam_wizard_step_description(step_index: u8) -> *mut c_char {
     match WizardStep::from_index(step_index) {
         Some(step) => {
-            if let Ok(s) = CString::new(step.description()) { s.into_raw() } else { ptr::null_mut() }
+            if let Ok(s) = CString::new(step.description()) {
+                s.into_raw()
+            } else {
+                ptr::null_mut()
+            }
         }
         None => ptr::null_mut(),
     }
@@ -135,7 +154,11 @@ pub extern "C" fn sam_archetype_count() -> u32 {
 pub extern "C" fn sam_archetype_name(index: u8) -> *mut c_char {
     match SlotArchetype::from_index(index) {
         Some(a) => {
-            if let Ok(s) = CString::new(a.name()) { s.into_raw() } else { ptr::null_mut() }
+            if let Ok(s) = CString::new(a.name()) {
+                s.into_raw()
+            } else {
+                ptr::null_mut()
+            }
         }
         None => ptr::null_mut(),
     }
@@ -146,7 +169,11 @@ pub extern "C" fn sam_archetype_name(index: u8) -> *mut c_char {
 pub extern "C" fn sam_archetype_description(index: u8) -> *mut c_char {
     match SlotArchetype::from_index(index) {
         Some(a) => {
-            if let Ok(s) = CString::new(a.description()) { s.into_raw() } else { ptr::null_mut() }
+            if let Ok(s) = CString::new(a.description()) {
+                s.into_raw()
+            } else {
+                ptr::null_mut()
+            }
         }
         None => ptr::null_mut(),
     }
@@ -156,7 +183,10 @@ pub extern "C" fn sam_archetype_description(index: u8) -> *mut c_char {
 #[unsafe(no_mangle)]
 pub extern "C" fn sam_select_archetype(index: u8) -> i32 {
     match SlotArchetype::from_index(index) {
-        Some(a) => { SAM.write().select_archetype(a); 1 }
+        Some(a) => {
+            SAM.write().select_archetype(a);
+            1
+        }
         None => 0,
     }
 }
@@ -187,19 +217,22 @@ pub extern "C" fn sam_set_volatility(value: f64) -> i32 {
 /// Get archetype volatility range (min, default, max).
 #[unsafe(no_mangle)]
 pub extern "C" fn sam_volatility_min() -> f64 {
-    SAM.read().archetype()
+    SAM.read()
+        .archetype()
         .map_or(0.0, |a| a.defaults().volatility.min)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn sam_volatility_max() -> f64 {
-    SAM.read().archetype()
+    SAM.read()
+        .archetype()
         .map_or(1.0, |a| a.defaults().volatility.max)
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn sam_volatility_default() -> f64 {
-    SAM.read().archetype()
+    SAM.read()
+        .archetype()
         .map_or(0.5, |a| a.defaults().volatility.default)
 }
 
@@ -213,7 +246,10 @@ pub extern "C" fn sam_market() -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn sam_set_market(index: u8) -> i32 {
     match MarketTarget::from_index(index) {
-        Some(m) => { SAM.write().set_market(m); 1 }
+        Some(m) => {
+            SAM.write().set_market(m);
+            1
+        }
         None => 0,
     }
 }
@@ -241,7 +277,10 @@ pub extern "C" fn sam_control_value(control_index: u8) -> f64 {
 #[unsafe(no_mangle)]
 pub extern "C" fn sam_set_control_value(control_index: u8, value: f64) -> i32 {
     match SmartControl::from_index(control_index) {
-        Some(c) => { SAM.write().set_control(c, value); 1 }
+        Some(c) => {
+            SAM.write().set_control(c, value);
+            1
+        }
         None => 0,
     }
 }
@@ -251,7 +290,11 @@ pub extern "C" fn sam_set_control_value(control_index: u8, value: f64) -> i32 {
 pub extern "C" fn sam_control_name(control_index: u8) -> *mut c_char {
     match SmartControl::from_index(control_index) {
         Some(c) => {
-            if let Ok(s) = CString::new(c.name()) { s.into_raw() } else { ptr::null_mut() }
+            if let Ok(s) = CString::new(c.name()) {
+                s.into_raw()
+            } else {
+                ptr::null_mut()
+            }
         }
         None => ptr::null_mut(),
     }
@@ -280,7 +323,11 @@ pub extern "C" fn sam_auto_configure() -> i32 {
 /// Check if auto-configured.
 #[unsafe(no_mangle)]
 pub extern "C" fn sam_is_auto_configured() -> i32 {
-    if SAM.read().state().auto_configured { 1 } else { 0 }
+    if SAM.read().state().auto_configured {
+        1
+    } else {
+        0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -297,7 +344,11 @@ pub extern "C" fn sam_set_gdd_imported(imported: i32) -> i32 {
 /// Check if GDD imported.
 #[unsafe(no_mangle)]
 pub extern "C" fn sam_gdd_imported() -> i32 {
-    if SAM.read().state().gdd_imported { 1 } else { 0 }
+    if SAM.read().state().gdd_imported {
+        1
+    } else {
+        0
+    }
 }
 
 /// Set AIL result.

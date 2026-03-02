@@ -1,5 +1,5 @@
-use crate::core::config::CollisionConfig;
 use crate::collision::priority::VoiceCollisionResolver;
+use crate::core::config::CollisionConfig;
 
 /// Result of redistributing a single voice.
 #[derive(Debug, Clone)]
@@ -60,12 +60,7 @@ impl PanRedistributor {
 
             // Alternate left/right spread
             let direction = if push_idx % 2 == 0 { 1.0 } else { -1.0 };
-            let new_pan = Self::pan_spread(
-                voice.original_pan as f64,
-                direction,
-                step,
-                config,
-            );
+            let new_pan = Self::pan_spread(voice.original_pan as f64, direction, step, config);
             let new_z = Self::z_displacement(voice.z_depth as f64, step, config);
             let width_factor = Self::width_compression(step, config);
             let duck_db = Self::ducking_bias(step, config);
@@ -97,12 +92,7 @@ impl PanRedistributor {
 
     /// Spread a voice away from center.
     /// Each step pushes further out, alternating L/R.
-    fn pan_spread(
-        original_pan: f64,
-        direction: f64,
-        step: f64,
-        config: &CollisionConfig,
-    ) -> f64 {
+    fn pan_spread(original_pan: f64, direction: f64, step: f64, config: &CollisionConfig) -> f64 {
         let offset = direction * step * config.pan_spread_step;
         (original_pan + offset).clamp(-1.0, 1.0)
     }
@@ -143,7 +133,10 @@ mod tests {
         resolver.register_voice(2, 0.5, 0.0, 8);
 
         let redist = PanRedistributor::resolve(&mut resolver, &config);
-        assert!(redist.is_empty(), "No center collision should produce no redistribution");
+        assert!(
+            redist.is_empty(),
+            "No center collision should produce no redistribution"
+        );
     }
 
     #[test]
@@ -151,8 +144,8 @@ mod tests {
         let config = default_config();
         let mut resolver = VoiceCollisionResolver::new();
         // 3 voices in center — max is 2
-        resolver.register_voice(1, 0.0, 0.0, 10);  // stays (highest priority)
-        resolver.register_voice(2, 0.05, 0.0, 8);  // stays (second highest)
+        resolver.register_voice(1, 0.0, 0.0, 10); // stays (highest priority)
+        resolver.register_voice(2, 0.05, 0.0, 8); // stays (second highest)
         resolver.register_voice(3, -0.05, 0.0, 3); // pushed (lowest priority)
 
         let redist = PanRedistributor::resolve(&mut resolver, &config);
@@ -189,7 +182,10 @@ mod tests {
 
         let redist = PanRedistributor::resolve(&mut resolver, &config);
         assert_eq!(redist.len(), 1);
-        assert!(redist[0].new_z_depth > 0.0, "Pushed voice should be displaced in Z");
+        assert!(
+            redist[0].new_z_depth > 0.0,
+            "Pushed voice should be displaced in Z"
+        );
     }
 
     #[test]
@@ -201,7 +197,10 @@ mod tests {
         resolver.register_voice(3, 0.0, 0.0, 1);
 
         let redist = PanRedistributor::resolve(&mut resolver, &config);
-        assert!(redist[0].width_factor < 1.0, "Pushed voice should have compressed width");
+        assert!(
+            redist[0].width_factor < 1.0,
+            "Pushed voice should have compressed width"
+        );
     }
 
     #[test]
@@ -220,11 +219,14 @@ mod tests {
     fn test_back_voices_not_counted_as_center() {
         let config = default_config();
         let mut resolver = VoiceCollisionResolver::new();
-        resolver.register_voice(1, 0.0, 0.0, 10);  // front center
-        resolver.register_voice(2, 0.0, 0.0, 8);   // front center
-        resolver.register_voice(3, 0.0, 0.5, 1);   // back center (z > 0.3)
+        resolver.register_voice(1, 0.0, 0.0, 10); // front center
+        resolver.register_voice(2, 0.0, 0.0, 8); // front center
+        resolver.register_voice(3, 0.0, 0.5, 1); // back center (z > 0.3)
 
         let redist = PanRedistributor::resolve(&mut resolver, &config);
-        assert!(redist.is_empty(), "Back-Z voice shouldn't count as center collision");
+        assert!(
+            redist.is_empty(),
+            "Back-Z voice shouldn't count as center collision"
+        );
     }
 }

@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::MAX_SCREEN_EVENTS;
+use serde::{Deserialize, Serialize};
 
 /// A screen event with position and importance for attention tracking.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,7 +43,11 @@ impl AttentionVectorEngine {
     /// Register a screen event (or update existing by event_id).
     pub fn register_event(&mut self, event: ScreenEvent) -> bool {
         // Update existing
-        if let Some(existing) = self.events.iter_mut().find(|e| e.event_id == event.event_id) {
+        if let Some(existing) = self
+            .events
+            .iter_mut()
+            .find(|e| e.event_id == event.event_id)
+        {
             *existing = event;
             return true;
         }
@@ -162,10 +166,18 @@ mod tests {
     fn test_weighted_center() {
         let mut engine = AttentionVectorEngine::new();
         engine.register_event(ScreenEvent {
-            event_id: 1, x: -1.0, y: 0.0, weight: 1.0, priority: 1,
+            event_id: 1,
+            x: -1.0,
+            y: 0.0,
+            weight: 1.0,
+            priority: 1,
         });
         engine.register_event(ScreenEvent {
-            event_id: 2, x: 1.0, y: 0.0, weight: 1.0, priority: 1,
+            event_id: 2,
+            x: 1.0,
+            y: 0.0,
+            weight: 1.0,
+            priority: 1,
         });
 
         let v = engine.compute_vector();
@@ -176,45 +188,106 @@ mod tests {
     fn test_priority_weighting() {
         let mut engine = AttentionVectorEngine::new();
         engine.register_event(ScreenEvent {
-            event_id: 1, x: -1.0, y: 0.0, weight: 1.0, priority: 1,
+            event_id: 1,
+            x: -1.0,
+            y: 0.0,
+            weight: 1.0,
+            priority: 1,
         });
         engine.register_event(ScreenEvent {
-            event_id: 2, x: 1.0, y: 0.0, weight: 1.0, priority: 10,
+            event_id: 2,
+            x: 1.0,
+            y: 0.0,
+            weight: 1.0,
+            priority: 10,
         });
 
         let v = engine.compute_vector();
         // Higher priority event should pull center toward it
-        assert!(v.x > 0.5, "High-priority right event should pull center right: {}", v.x);
+        assert!(
+            v.x > 0.5,
+            "High-priority right event should pull center right: {}",
+            v.x
+        );
     }
 
     #[test]
     fn test_focus_dispersed() {
         let mut engine = AttentionVectorEngine::new();
         // Events at all corners
-        engine.register_event(ScreenEvent { event_id: 1, x: -1.0, y: -1.0, weight: 1.0, priority: 1 });
-        engine.register_event(ScreenEvent { event_id: 2, x: 1.0, y: -1.0, weight: 1.0, priority: 1 });
-        engine.register_event(ScreenEvent { event_id: 3, x: -1.0, y: 1.0, weight: 1.0, priority: 1 });
-        engine.register_event(ScreenEvent { event_id: 4, x: 1.0, y: 1.0, weight: 1.0, priority: 1 });
+        engine.register_event(ScreenEvent {
+            event_id: 1,
+            x: -1.0,
+            y: -1.0,
+            weight: 1.0,
+            priority: 1,
+        });
+        engine.register_event(ScreenEvent {
+            event_id: 2,
+            x: 1.0,
+            y: -1.0,
+            weight: 1.0,
+            priority: 1,
+        });
+        engine.register_event(ScreenEvent {
+            event_id: 3,
+            x: -1.0,
+            y: 1.0,
+            weight: 1.0,
+            priority: 1,
+        });
+        engine.register_event(ScreenEvent {
+            event_id: 4,
+            x: 1.0,
+            y: 1.0,
+            weight: 1.0,
+            priority: 1,
+        });
 
         let v = engine.compute_vector();
-        assert!(v.weight < 0.5, "Widely dispersed events should have low focus: {}", v.weight);
+        assert!(
+            v.weight < 0.5,
+            "Widely dispersed events should have low focus: {}",
+            v.weight
+        );
     }
 
     #[test]
     fn test_update_existing() {
         let mut engine = AttentionVectorEngine::new();
-        engine.register_event(ScreenEvent { event_id: 1, x: -1.0, y: 0.0, weight: 1.0, priority: 1 });
-        engine.register_event(ScreenEvent { event_id: 1, x: 1.0, y: 0.0, weight: 1.0, priority: 1 }); // update
+        engine.register_event(ScreenEvent {
+            event_id: 1,
+            x: -1.0,
+            y: 0.0,
+            weight: 1.0,
+            priority: 1,
+        });
+        engine.register_event(ScreenEvent {
+            event_id: 1,
+            x: 1.0,
+            y: 0.0,
+            weight: 1.0,
+            priority: 1,
+        }); // update
 
         assert_eq!(engine.event_count(), 1);
         let v = engine.compute_vector();
-        assert!((v.x - 1.0).abs() < 0.01, "Updated event should be at new position");
+        assert!(
+            (v.x - 1.0).abs() < 0.01,
+            "Updated event should be at new position"
+        );
     }
 
     #[test]
     fn test_clear() {
         let mut engine = AttentionVectorEngine::new();
-        engine.register_event(ScreenEvent { event_id: 1, x: 0.5, y: 0.5, weight: 1.0, priority: 1 });
+        engine.register_event(ScreenEvent {
+            event_id: 1,
+            x: 0.5,
+            y: 0.5,
+            weight: 1.0,
+            priority: 1,
+        });
         engine.clear();
         assert_eq!(engine.event_count(), 0);
     }

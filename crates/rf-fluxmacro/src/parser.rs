@@ -264,7 +264,10 @@ steps:
         let result = parse_macro_string(yaml);
         assert!(result.is_err());
         let err = format!("{}", result.unwrap_err());
-        assert!(err.contains("game_id"), "Error should mention game_id: {err}");
+        assert!(
+            err.contains("game_id"),
+            "Error should mention game_id: {err}"
+        );
     }
 
     #[test]

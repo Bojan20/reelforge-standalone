@@ -50,10 +50,30 @@ impl MacroStep for QaEventStormStep {
             let passed = domain.passed;
             let details = format!(
                 "energy={:.2}, voices_max={}, sci={:.3}, fatigue={:.3}",
-                domain.metrics.iter().find(|m| m.name == "MaxEnergyCap").map(|m| m.value).unwrap_or(0.0),
-                domain.metrics.iter().find(|m| m.name == "MaxVoices").map(|m| m.value as u32).unwrap_or(0),
-                domain.metrics.iter().find(|m| m.name == "SCI").map(|m| m.value).unwrap_or(0.0),
-                domain.metrics.iter().find(|m| m.name == "FatigueIndex").map(|m| m.value).unwrap_or(0.0),
+                domain
+                    .metrics
+                    .iter()
+                    .find(|m| m.name == "MaxEnergyCap")
+                    .map(|m| m.value)
+                    .unwrap_or(0.0),
+                domain
+                    .metrics
+                    .iter()
+                    .find(|m| m.name == "MaxVoices")
+                    .map(|m| m.value as u32)
+                    .unwrap_or(0),
+                domain
+                    .metrics
+                    .iter()
+                    .find(|m| m.name == "SCI")
+                    .map(|m| m.value)
+                    .unwrap_or(0.0),
+                domain
+                    .metrics
+                    .iter()
+                    .find(|m| m.name == "FatigueIndex")
+                    .map(|m| m.value)
+                    .unwrap_or(0.0),
             );
 
             ctx.qa_results.push(QaTestResult {
@@ -82,8 +102,14 @@ impl MacroStep for QaEventStormStep {
             duration_ms: 0,
             metrics: {
                 let mut m = std::collections::HashMap::new();
-                m.insert("fatigue_index".to_string(), result.fatigue_model.fatigue_index);
-                m.insert("peak_frequency".to_string(), result.fatigue_model.peak_frequency);
+                m.insert(
+                    "fatigue_index".to_string(),
+                    result.fatigue_model.fatigue_index,
+                );
+                m.insert(
+                    "peak_frequency".to_string(),
+                    result.fatigue_model.peak_frequency,
+                );
                 m
             },
         });
@@ -152,8 +178,7 @@ impl MacroStep for QaEventStormStep {
         if !result.fatigue_model.passed {
             warnings.push(format!(
                 "Fatigue model failed: index={:.3} (threshold={:.2})",
-                result.fatigue_model.fatigue_index,
-                result.fatigue_model.threshold,
+                result.fatigue_model.fatigue_index, result.fatigue_model.threshold,
             ));
         }
 
@@ -161,7 +186,11 @@ impl MacroStep for QaEventStormStep {
             "PBSE: {} spins, {} domains, {}",
             result.total_spins,
             result.domains.len(),
-            if result.all_passed { "ALL PASS" } else { "FAILURES DETECTED" }
+            if result.all_passed {
+                "ALL PASS"
+            } else {
+                "FAILURES DETECTED"
+            }
         );
 
         let step_result = if warnings.is_empty() {
@@ -173,8 +202,14 @@ impl MacroStep for QaEventStormStep {
         Ok(step_result
             .with_artifact("pbse_report".to_string(), report_path)
             .with_metric("total_spins".to_string(), result.total_spins as f64)
-            .with_metric("all_passed".to_string(), if result.all_passed { 1.0 } else { 0.0 })
-            .with_metric("fatigue_index".to_string(), result.fatigue_model.fatigue_index))
+            .with_metric(
+                "all_passed".to_string(),
+                if result.all_passed { 1.0 } else { 0.0 },
+            )
+            .with_metric(
+                "fatigue_index".to_string(),
+                result.fatigue_model.fatigue_index,
+            ))
     }
 
     fn estimated_duration_ms(&self) -> u64 {

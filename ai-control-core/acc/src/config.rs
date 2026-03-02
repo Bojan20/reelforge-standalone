@@ -1,6 +1,9 @@
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use serde::Deserialize;
-use std::{fs, path::{Path, PathBuf}};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct GatesConfig {
@@ -64,7 +67,10 @@ impl AccConfig {
             return Self::load_from_path(&p1);
         }
 
-        let p2 = cwd.join("ai-control-core").join("acc").join("acc.config.json");
+        let p2 = cwd
+            .join("ai-control-core")
+            .join("acc")
+            .join("acc.config.json");
         if p2.exists() {
             return Self::load_from_path(&p2);
         }
@@ -76,18 +82,23 @@ impl AccConfig {
     }
 
     pub fn load_from_path(cfg_path: &Path) -> Result<Self, String> {
-        let raw = fs::read_to_string(cfg_path).map_err(|e| format!("Failed to read {cfg_path:?}: {e}"))?;
-        let file_cfg: AccConfigFile = serde_json::from_str(&raw)
-            .map_err(|e| format!("Invalid acc.config.json: {e}"))?;
+        let raw = fs::read_to_string(cfg_path)
+            .map_err(|e| format!("Failed to read {cfg_path:?}: {e}"))?;
+        let file_cfg: AccConfigFile =
+            serde_json::from_str(&raw).map_err(|e| format!("Invalid acc.config.json: {e}"))?;
 
         let base_dir = cfg_path.parent().unwrap_or_else(|| Path::new("."));
-        let repo_root = base_dir.join(&file_cfg.repo_root).canonicalize()
+        let repo_root = base_dir
+            .join(&file_cfg.repo_root)
+            .canonicalize()
             .map_err(|e| format!("Invalid repo_root path: {e}"))?;
 
         let diffpack_path = repo_root.join(&file_cfg.diffpack_path);
         let history_dir = repo_root.join(&file_cfg.history_dir);
 
-        let listen_addr = file_cfg.listen_addr.unwrap_or_else(|| "127.0.0.1:8787".to_string());
+        let listen_addr = file_cfg
+            .listen_addr
+            .unwrap_or_else(|| "127.0.0.1:8787".to_string());
         let api_key = file_cfg.api_key;
 
         let ignore_globset = build_globset(&file_cfg.ignore)?;

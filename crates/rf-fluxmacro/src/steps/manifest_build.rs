@@ -65,8 +65,7 @@ impl MacroStep for ManifestBuildStep {
         let json = manifest
             .to_json()
             .map_err(|e| FluxMacroError::Other(format!("Manifest serialization failed: {e}")))?;
-        std::fs::write(&path, &json)
-            .map_err(|e| FluxMacroError::FileWrite(path.clone(), e))?;
+        std::fs::write(&path, &json).map_err(|e| FluxMacroError::FileWrite(path.clone(), e))?;
 
         // Store in intermediate
         ctx.set_intermediate(
@@ -80,7 +79,10 @@ impl MacroStep for ManifestBuildStep {
         ctx.log(
             LogLevel::Info,
             "manifest.build",
-            &format!("Manifest built: status={status_str}, hash={}", manifest.manifest_hash),
+            &format!(
+                "Manifest built: status={status_str}, hash={}",
+                manifest.manifest_hash
+            ),
         );
 
         let mut warnings = Vec::new();
@@ -96,7 +98,10 @@ impl MacroStep for ManifestBuildStep {
             }
         }
 
-        let summary = format!("Manifest built: {status_str} (hash={})", manifest.manifest_hash);
+        let summary = format!(
+            "Manifest built: {status_str} (hash={})",
+            manifest.manifest_hash
+        );
         let result = if warnings.is_empty() {
             StepResult::success(&summary)
         } else {

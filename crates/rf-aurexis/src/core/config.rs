@@ -106,13 +106,34 @@ impl Default for VolatilityConfig {
 impl VolatilityConfig {
     fn set(&mut self, key: &str, value: f64) -> bool {
         match key {
-            "elasticity_min" => { self.elasticity_min = value; true }
-            "elasticity_max" => { self.elasticity_max = value; true }
-            "elasticity_curve_exp" => { self.elasticity_curve_exp = value; true }
-            "energy_density_min" => { self.energy_density_min = value; true }
-            "energy_density_max" => { self.energy_density_max = value; true }
-            "escalation_rate_max" => { self.escalation_rate_max = value; true }
-            "micro_dynamics_max" => { self.micro_dynamics_max = value; true }
+            "elasticity_min" => {
+                self.elasticity_min = value;
+                true
+            }
+            "elasticity_max" => {
+                self.elasticity_max = value;
+                true
+            }
+            "elasticity_curve_exp" => {
+                self.elasticity_curve_exp = value;
+                true
+            }
+            "energy_density_min" => {
+                self.energy_density_min = value;
+                true
+            }
+            "energy_density_max" => {
+                self.energy_density_max = value;
+                true
+            }
+            "escalation_rate_max" => {
+                self.escalation_rate_max = value;
+                true
+            }
+            "micro_dynamics_max" => {
+                self.micro_dynamics_max = value;
+                true
+            }
             _ => false,
         }
     }
@@ -150,12 +171,30 @@ impl Default for RtpConfig {
 impl RtpConfig {
     fn set(&mut self, key: &str, value: f64) -> bool {
         match key {
-            "build_time_max_ms" => { self.build_time_max_ms = value; true }
-            "build_time_min_ms" => { self.build_time_min_ms = value; true }
-            "hold_time_ms" => { self.hold_time_ms = value; true }
-            "release_time_ms" => { self.release_time_ms = value; true }
-            "spike_rate_scale" => { self.spike_rate_scale = value; true }
-            "peak_elasticity_max" => { self.peak_elasticity_max = value; true }
+            "build_time_max_ms" => {
+                self.build_time_max_ms = value;
+                true
+            }
+            "build_time_min_ms" => {
+                self.build_time_min_ms = value;
+                true
+            }
+            "hold_time_ms" => {
+                self.hold_time_ms = value;
+                true
+            }
+            "release_time_ms" => {
+                self.release_time_ms = value;
+                true
+            }
+            "spike_rate_scale" => {
+                self.spike_rate_scale = value;
+                true
+            }
+            "peak_elasticity_max" => {
+                self.peak_elasticity_max = value;
+                true
+            }
             _ => false,
         }
     }
@@ -205,16 +244,46 @@ impl Default for FatigueConfig {
 impl FatigueConfig {
     fn set(&mut self, key: &str, value: f64) -> bool {
         match key {
-            "rms_threshold_db" => { self.rms_threshold_db = value; true }
-            "hf_threshold_db_s" => { self.hf_threshold_db_s = value; true }
-            "transient_threshold_per_min" => { self.transient_threshold_per_min = value; true }
-            "stereo_time_threshold_min" => { self.stereo_time_threshold_min = value; true }
-            "max_hf_atten_db" => { self.max_hf_atten_db = value; true }
-            "max_transient_smooth" => { self.max_transient_smooth = value; true }
-            "max_width_narrow" => { self.max_width_narrow = value; true }
-            "rms_window_s" => { self.rms_window_s = value; true }
-            "hf_band_lower_hz" => { self.hf_band_lower_hz = value; true }
-            "transient_detect_mult" => { self.transient_detect_mult = value; true }
+            "rms_threshold_db" => {
+                self.rms_threshold_db = value;
+                true
+            }
+            "hf_threshold_db_s" => {
+                self.hf_threshold_db_s = value;
+                true
+            }
+            "transient_threshold_per_min" => {
+                self.transient_threshold_per_min = value;
+                true
+            }
+            "stereo_time_threshold_min" => {
+                self.stereo_time_threshold_min = value;
+                true
+            }
+            "max_hf_atten_db" => {
+                self.max_hf_atten_db = value;
+                true
+            }
+            "max_transient_smooth" => {
+                self.max_transient_smooth = value;
+                true
+            }
+            "max_width_narrow" => {
+                self.max_width_narrow = value;
+                true
+            }
+            "rms_window_s" => {
+                self.rms_window_s = value;
+                true
+            }
+            "hf_band_lower_hz" => {
+                self.hf_band_lower_hz = value;
+                true
+            }
+            "transient_detect_mult" => {
+                self.transient_detect_mult = value;
+                true
+            }
             _ => false,
         }
     }
@@ -258,14 +327,38 @@ impl Default for CollisionConfig {
 impl CollisionConfig {
     fn set(&mut self, key: &str, value: f64) -> bool {
         match key {
-            "max_center_voices" => { self.max_center_voices = value as u32; true }
-            "center_zone_width" => { self.center_zone_width = value; true }
-            "pan_spread_step" => { self.pan_spread_step = value; true }
-            "z_displacement_amount" => { self.z_displacement_amount = value; true }
-            "width_compression" => { self.width_compression = value; true }
-            "duck_amount_db" => { self.duck_amount_db = value; true }
-            "duck_attack_ms" => { self.duck_attack_ms = value; true }
-            "duck_release_ms" => { self.duck_release_ms = value; true }
+            "max_center_voices" => {
+                self.max_center_voices = value as u32;
+                true
+            }
+            "center_zone_width" => {
+                self.center_zone_width = value;
+                true
+            }
+            "pan_spread_step" => {
+                self.pan_spread_step = value;
+                true
+            }
+            "z_displacement_amount" => {
+                self.z_displacement_amount = value;
+                true
+            }
+            "width_compression" => {
+                self.width_compression = value;
+                true
+            }
+            "duck_amount_db" => {
+                self.duck_amount_db = value;
+                true
+            }
+            "duck_attack_ms" => {
+                self.duck_attack_ms = value;
+                true
+            }
+            "duck_release_ms" => {
+                self.duck_release_ms = value;
+                true
+            }
             _ => false,
         }
     }
@@ -315,16 +408,46 @@ impl Default for EscalationConfig {
 impl EscalationConfig {
     fn set(&mut self, key: &str, value: f64) -> bool {
         match key {
-            "width_exponent" => { self.width_exponent = value; true }
-            "width_max" => { self.width_max = value; true }
-            "harmonic_rate" => { self.harmonic_rate = value; true }
-            "harmonic_max" => { self.harmonic_max = value; true }
-            "reverb_ms_per_unit" => { self.reverb_ms_per_unit = value; true }
-            "reverb_max_ms" => { self.reverb_max_ms = value; true }
-            "sub_db_per_unit" => { self.sub_db_per_unit = value; true }
-            "sub_max_db" => { self.sub_max_db = value; true }
-            "transient_rate" => { self.transient_rate = value; true }
-            "transient_max" => { self.transient_max = value; true }
+            "width_exponent" => {
+                self.width_exponent = value;
+                true
+            }
+            "width_max" => {
+                self.width_max = value;
+                true
+            }
+            "harmonic_rate" => {
+                self.harmonic_rate = value;
+                true
+            }
+            "harmonic_max" => {
+                self.harmonic_max = value;
+                true
+            }
+            "reverb_ms_per_unit" => {
+                self.reverb_ms_per_unit = value;
+                true
+            }
+            "reverb_max_ms" => {
+                self.reverb_max_ms = value;
+                true
+            }
+            "sub_db_per_unit" => {
+                self.sub_db_per_unit = value;
+                true
+            }
+            "sub_max_db" => {
+                self.sub_max_db = value;
+                true
+            }
+            "transient_rate" => {
+                self.transient_rate = value;
+                true
+            }
+            "transient_max" => {
+                self.transient_max = value;
+                true
+            }
             _ => false,
         }
     }
@@ -359,10 +482,22 @@ impl Default for VariationConfig {
 impl VariationConfig {
     fn set(&mut self, key: &str, value: f64) -> bool {
         match key {
-            "pan_drift_range" => { self.pan_drift_range = value; true }
-            "width_variance_range" => { self.width_variance_range = value; true }
-            "harmonic_shift_range" => { self.harmonic_shift_range = value; true }
-            "reflection_weight_range" => { self.reflection_weight_range = value; true }
+            "pan_drift_range" => {
+                self.pan_drift_range = value;
+                true
+            }
+            "width_variance_range" => {
+                self.width_variance_range = value;
+                true
+            }
+            "harmonic_shift_range" => {
+                self.harmonic_shift_range = value;
+                true
+            }
+            "reflection_weight_range" => {
+                self.reflection_weight_range = value;
+                true
+            }
             _ => false,
         }
     }
@@ -424,12 +559,30 @@ impl Default for EnergyConfig {
 impl EnergyConfig {
     fn set(&mut self, key: &str, value: f64) -> bool {
         match key {
-            "default_profile" => { self.default_profile = value as u8; true }
-            "loss_streak_threshold" => { self.loss_streak_threshold = value as u32; true }
-            "loss_streak_max_drop" => { self.loss_streak_max_drop = value; true }
-            "feature_storm_window" => { self.feature_storm_window = value as u32; true }
-            "feature_storm_threshold" => { self.feature_storm_threshold = value as u32; true }
-            "jackpot_compression_spins" => { self.jackpot_compression_spins = value as u32; true }
+            "default_profile" => {
+                self.default_profile = value as u8;
+                true
+            }
+            "loss_streak_threshold" => {
+                self.loss_streak_threshold = value as u32;
+                true
+            }
+            "loss_streak_max_drop" => {
+                self.loss_streak_max_drop = value;
+                true
+            }
+            "feature_storm_window" => {
+                self.feature_storm_window = value as u32;
+                true
+            }
+            "feature_storm_threshold" => {
+                self.feature_storm_threshold = value as u32;
+                true
+            }
+            "jackpot_compression_spins" => {
+                self.jackpot_compression_spins = value as u32;
+                true
+            }
             _ => false,
         }
     }

@@ -52,11 +52,7 @@ pub fn voice_timeline_svg(
         let y = padding + chart_h * (1.0 - *voices as f64 / max_v);
         path.push_str(&format!(" L{x:.1},{y:.1}"));
     }
-    path.push_str(&format!(
-        " L{},{} Z",
-        padding + chart_w,
-        padding + chart_h
-    ));
+    path.push_str(&format!(" L{},{} Z", padding + chart_w, padding + chart_h));
     svg.push_str(&format!(
         "<path d=\"{path}\" fill=\"rgba(74,158,255,0.2)\" stroke=\"#4A9EFF\" stroke-width=\"1.5\"/>\n"
     ));
@@ -210,11 +206,7 @@ pub fn fatigue_curve_svg(
 
 /// Generate a determinism hash grid SVG.
 /// `run_hashes` are hash strings from multiple runs. All should match.
-pub fn determinism_grid_svg(
-    run_hashes: &[&str],
-    width: u32,
-    height: u32,
-) -> String {
+pub fn determinism_grid_svg(run_hashes: &[&str], width: u32, height: u32) -> String {
     if run_hashes.is_empty() {
         return empty_svg(width, height, "No determinism data");
     }
@@ -256,7 +248,11 @@ pub fn determinism_grid_svg(
     // Hash preview (first 8 chars)
     let all_match = run_hashes.iter().all(|h| *h == reference);
     let status = if all_match {
-        format!("All {} runs match: {}...", cols, &reference[..8.min(reference.len())])
+        format!(
+            "All {} runs match: {}...",
+            cols,
+            &reference[..8.min(reference.len())]
+        )
     } else {
         format!("MISMATCH detected across {} runs", cols)
     };

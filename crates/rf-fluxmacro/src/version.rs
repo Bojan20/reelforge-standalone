@@ -62,8 +62,7 @@ pub fn save_run_history(
     let run_id = generate_run_id();
     let dir = run_dir(&ctx.working_dir, &run_id);
 
-    std::fs::create_dir_all(&dir)
-        .map_err(|e| FluxMacroError::DirectoryCreate(dir.clone(), e))?;
+    std::fs::create_dir_all(&dir).map_err(|e| FluxMacroError::DirectoryCreate(dir.clone(), e))?;
 
     // 1. Run metadata
     let meta = RunMeta {
@@ -85,8 +84,7 @@ pub fn save_run_history(
 
     let meta_path = dir.join("run_meta.json");
     let meta_json = serde_json::to_string_pretty(&meta)?;
-    std::fs::write(&meta_path, &meta_json)
-        .map_err(|e| FluxMacroError::FileWrite(meta_path, e))?;
+    std::fs::write(&meta_path, &meta_json).map_err(|e| FluxMacroError::FileWrite(meta_path, e))?;
 
     // 2. Original macro file (if provided)
     if let Some(content) = macro_content {
@@ -111,8 +109,7 @@ pub fn save_run_history(
             entry.step, entry.message
         ));
     }
-    std::fs::write(&logs_path, &logs_text)
-        .map_err(|e| FluxMacroError::FileWrite(logs_path, e))?;
+    std::fs::write(&logs_path, &logs_text).map_err(|e| FluxMacroError::FileWrite(logs_path, e))?;
 
     // 4. Result hash
     let hash_path = dir.join("result_hash.txt");
@@ -125,8 +122,8 @@ pub fn save_run_history(
 /// Load run metadata from a run directory.
 pub fn load_run_meta(run_path: &Path) -> Result<RunMeta, FluxMacroError> {
     let meta_path = run_path.join("run_meta.json");
-    let content = std::fs::read_to_string(&meta_path)
-        .map_err(|e| FluxMacroError::FileRead(meta_path, e))?;
+    let content =
+        std::fs::read_to_string(&meta_path).map_err(|e| FluxMacroError::FileRead(meta_path, e))?;
     let meta: RunMeta = serde_json::from_str(&content)?;
     Ok(meta)
 }
@@ -139,9 +136,7 @@ pub fn list_runs(working_dir: &Path) -> Result<Vec<(String, PathBuf)>, FluxMacro
     }
 
     let mut runs = Vec::new();
-    for entry in std::fs::read_dir(&dir)
-        .map_err(|e| FluxMacroError::FileRead(dir.clone(), e))?
-    {
+    for entry in std::fs::read_dir(&dir).map_err(|e| FluxMacroError::FileRead(dir.clone(), e))? {
         let entry = entry.map_err(|e| FluxMacroError::Other(format!("read_dir: {e}")))?;
         let path = entry.path();
         if path.is_dir() {

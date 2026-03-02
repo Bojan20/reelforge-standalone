@@ -78,7 +78,11 @@ impl MacroInterpreter {
         for (i, step_name) in macro_file.steps.iter().enumerate() {
             // Check cancellation
             if ctx.is_cancelled() {
-                ctx.log(LogLevel::Warning, "interpreter", "Macro execution cancelled");
+                ctx.log(
+                    LogLevel::Warning,
+                    "interpreter",
+                    "Macro execution cancelled",
+                );
                 return Err(FluxMacroError::Cancelled);
             }
 
@@ -110,7 +114,11 @@ impl MacroInterpreter {
 
             // Pre-validate
             if let Err(e) = step.validate(&ctx) {
-                ctx.log(LogLevel::Error, step_name, &format!("Validation failed: {e}"));
+                ctx.log(
+                    LogLevel::Error,
+                    step_name,
+                    &format!("Validation failed: {e}"),
+                );
                 return Err(FluxMacroError::StepValidationFailed {
                     step: step_name.clone(),
                     reason: format!("{e}"),
@@ -373,7 +381,10 @@ steps:
         let dir = tempfile::tempdir().unwrap();
         let result = interp.run(&macro_file, dir.path().to_path_buf());
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), FluxMacroError::StepNotFound(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            FluxMacroError::StepNotFound(_)
+        ));
     }
 
     #[test]
@@ -393,7 +404,10 @@ steps:
         let dir = tempfile::tempdir().unwrap();
         let result = interp.run(&macro_file, dir.path().to_path_buf());
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), FluxMacroError::StepFailed { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            FluxMacroError::StepFailed { .. }
+        ));
     }
 
     #[test]
@@ -415,7 +429,10 @@ steps:
         let ctx1 = interp.run(&macro_file, dir1.path().to_path_buf()).unwrap();
         let ctx2 = interp.run(&macro_file, dir2.path().to_path_buf()).unwrap();
 
-        assert_eq!(ctx1.run_hash, ctx2.run_hash, "Same seed should produce same hash");
+        assert_eq!(
+            ctx1.run_hash, ctx2.run_hash,
+            "Same seed should produce same hash"
+        );
     }
 
     #[test]

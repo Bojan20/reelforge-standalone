@@ -416,8 +416,22 @@ void main() {
     });
 
     test('should return valid targets for each processor type', () {
+      // Vintage/specialty processors intentionally have no RTPC targets yet
+      const noRtpcTargets = {
+        DspNodeType.pultec,
+        DspNodeType.api550,
+        DspNodeType.neve1073,
+        DspNodeType.haasDelay,
+        DspNodeType.stereoImager,
+        DspNodeType.multibandStereoImager,
+      };
+
       for (final processorType in DspNodeType.values) {
         final targets = DspParamMapping.getValidTargets(processorType);
+        if (noRtpcTargets.contains(processorType)) {
+          expect(targets, isEmpty, reason: '$processorType has no RTPC targets yet');
+          continue;
+        }
         expect(targets, isNotEmpty, reason: '$processorType should have valid targets');
 
         // All returned targets should have valid param indices

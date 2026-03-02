@@ -61,9 +61,9 @@ mod tests {
     fn test_density_map_distribution() {
         let mut resolver = VoiceCollisionResolver::new();
         resolver.register_voice(1, -0.9, 0.0, 10); // hard left, front
-        resolver.register_voice(2, 0.0, 0.0, 8);   // center, front
-        resolver.register_voice(3, 0.0, 0.0, 5);   // center, front
-        resolver.register_voice(4, 0.9, 0.6, 3);   // hard right, back
+        resolver.register_voice(2, 0.0, 0.0, 8); // center, front
+        resolver.register_voice(3, 0.0, 0.0, 5); // center, front
+        resolver.register_voice(4, 0.9, 0.6, 3); // hard right, back
 
         let map = VoiceDensityAnalyzer::density_map(&resolver);
         assert_eq!(map.total_voices, 4);

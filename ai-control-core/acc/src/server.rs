@@ -28,7 +28,9 @@ pub async fn run_server(cfg: AccConfig) -> Result<(), String> {
 
     let cfg_arc = Arc::new(cfg);
 
-    let state = AppState { cfg: cfg_arc.clone() };
+    let state = AppState {
+        cfg: cfg_arc.clone(),
+    };
     let gpt_state = GptState { cfg: cfg_arc };
 
     let app = Router::new()
@@ -55,10 +57,14 @@ pub async fn run_server(cfg: AccConfig) -> Result<(), String> {
 // ═══════════════════════════════════════════════════════════════
 
 async fn status(State(st): State<AppState>) -> impl IntoResponse {
-    let providers: Value = read_json(&st.cfg.state_dir().join("PROVIDERS.json")).unwrap_or_else(|e| json!({"error": e}));
-    let milestones: Value = read_json(&st.cfg.state_dir().join("MILESTONES.json")).unwrap_or_else(|e| json!({"error": e}));
-    let system_status: Value = read_json(&st.cfg.state_dir().join("SYSTEM_STATUS.json")).unwrap_or_else(|e| json!({"error": e}));
-    let tasks: Value = read_json(&st.cfg.state_dir().join("TASKS_ACTIVE.json")).unwrap_or_else(|e| json!({"error": e}));
+    let providers: Value = read_json(&st.cfg.state_dir().join("PROVIDERS.json"))
+        .unwrap_or_else(|e| json!({"error": e}));
+    let milestones: Value = read_json(&st.cfg.state_dir().join("MILESTONES.json"))
+        .unwrap_or_else(|e| json!({"error": e}));
+    let system_status: Value = read_json(&st.cfg.state_dir().join("SYSTEM_STATUS.json"))
+        .unwrap_or_else(|e| json!({"error": e}));
+    let tasks: Value = read_json(&st.cfg.state_dir().join("TASKS_ACTIVE.json"))
+        .unwrap_or_else(|e| json!({"error": e}));
 
     let body = json!({
         "ok": true,
@@ -83,7 +89,10 @@ async fn status(State(st): State<AppState>) -> impl IntoResponse {
 // POST /diffpack/poke
 // ═══════════════════════════════════════════════════════════════
 
-async fn diffpack_poke(State(st): State<AppState>, Json(req): Json<DiffpackPokeRequest>) -> impl IntoResponse {
+async fn diffpack_poke(
+    State(st): State<AppState>,
+    Json(req): Json<DiffpackPokeRequest>,
+) -> impl IntoResponse {
     let mut set = BTreeSet::new();
     for f in req.changed_files {
         set.insert(f);
@@ -111,7 +120,10 @@ async fn diffpack_poke(State(st): State<AppState>, Json(req): Json<DiffpackPokeR
 // POST /patch/apply
 // ═══════════════════════════════════════════════════════════════
 
-async fn patch_apply(State(st): State<AppState>, Json(req): Json<PatchApplyRequest>) -> impl IntoResponse {
+async fn patch_apply(
+    State(st): State<AppState>,
+    Json(req): Json<PatchApplyRequest>,
+) -> impl IntoResponse {
     let res: Result<PatchApplyResponse, String> = apply_patch_on_branch(&st.cfg, req);
 
     match res {
@@ -131,7 +143,7 @@ async fn patch_apply(State(st): State<AppState>, Json(req): Json<PatchApplyReque
 struct TaskCreateRequest {
     task_id: String,
     description: String,
-    provider: Option<String>,       // "claude" | "openai", default "claude"
+    provider: Option<String>, // "claude" | "openai", default "claude"
     acceptance_criteria: Option<Vec<String>>,
 }
 
@@ -142,14 +154,19 @@ struct TaskCreateResponse {
     error: Option<String>,
 }
 
-async fn task_create(State(st): State<AppState>, Json(req): Json<TaskCreateRequest>) -> impl IntoResponse {
+async fn task_create(
+    State(st): State<AppState>,
+    Json(req): Json<TaskCreateRequest>,
+) -> impl IntoResponse {
     let tasks_path = st.cfg.state_dir().join("TASKS_ACTIVE.json");
 
-    let mut tasks: Value = read_json(&tasks_path).unwrap_or_else(|_| json!({
-        "active_tasks": [],
-        "task_history": [],
-        "schema_version": "1.0",
-    }));
+    let mut tasks: Value = read_json(&tasks_path).unwrap_or_else(|_| {
+        json!({
+            "active_tasks": [],
+            "task_history": [],
+            "schema_version": "1.0",
+        })
+    });
 
     let ts = time::OffsetDateTime::now_utc()
         .format(&time::format_description::well_known::Rfc3339)
@@ -159,11 +176,15 @@ async fn task_create(State(st): State<AppState>, Json(req): Json<TaskCreateReque
     if let Some(active) = tasks["active_tasks"].as_array() {
         for t in active {
             if t["task_id"].as_str() == Some(&req.task_id) {
-                return (StatusCode::CONFLICT, Json(TaskCreateResponse {
-                    ok: false,
-                    task_id: req.task_id,
-                    error: Some("Task ID already exists".into()),
-                })).into_response();
+                return (
+                    StatusCode::CONFLICT,
+                    Json(TaskCreateResponse {
+                        ok: false,
+                        task_id: req.task_id,
+                        error: Some("Task ID already exists".into()),
+                    }),
+                )
+                    .into_response();
             }
         }
     }
@@ -186,19 +207,25 @@ async fn task_create(State(st): State<AppState>, Json(req): Json<TaskCreateReque
     match write_json(&tasks_path, &tasks) {
         Ok(_) => {
             tracing::info!(task_id=%req.task_id, "Task created");
-            (StatusCode::OK, Json(TaskCreateResponse {
-                ok: true,
-                task_id: req.task_id,
-                error: None,
-            })).into_response()
+            (
+                StatusCode::OK,
+                Json(TaskCreateResponse {
+                    ok: true,
+                    task_id: req.task_id,
+                    error: None,
+                }),
+            )
+                .into_response()
         }
-        Err(e) => {
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(TaskCreateResponse {
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(TaskCreateResponse {
                 ok: false,
                 task_id: req.task_id,
                 error: Some(e),
-            })).into_response()
-        }
+            }),
+        )
+            .into_response(),
     }
 }
 
@@ -209,7 +236,7 @@ async fn task_create(State(st): State<AppState>, Json(req): Json<TaskCreateReque
 #[derive(Debug, Deserialize)]
 struct TaskCloseRequest {
     task_id: String,
-    result: String,  // "PASS" | "FAIL" | "SKIPPED"
+    result: String, // "PASS" | "FAIL" | "SKIPPED"
     notes: Option<String>,
 }
 
@@ -220,14 +247,19 @@ struct TaskCloseResponse {
     error: Option<String>,
 }
 
-async fn task_close(State(st): State<AppState>, Json(req): Json<TaskCloseRequest>) -> impl IntoResponse {
+async fn task_close(
+    State(st): State<AppState>,
+    Json(req): Json<TaskCloseRequest>,
+) -> impl IntoResponse {
     let tasks_path = st.cfg.state_dir().join("TASKS_ACTIVE.json");
 
-    let mut tasks: Value = read_json(&tasks_path).unwrap_or_else(|_| json!({
-        "active_tasks": [],
-        "task_history": [],
-        "schema_version": "1.0",
-    }));
+    let mut tasks: Value = read_json(&tasks_path).unwrap_or_else(|_| {
+        json!({
+            "active_tasks": [],
+            "task_history": [],
+            "schema_version": "1.0",
+        })
+    });
 
     let ts = time::OffsetDateTime::now_utc()
         .format(&time::format_description::well_known::Rfc3339)
@@ -236,7 +268,10 @@ async fn task_close(State(st): State<AppState>, Json(req): Json<TaskCloseRequest
     // Find and remove from active_tasks
     let mut found = None;
     if let Some(active) = tasks["active_tasks"].as_array_mut() {
-        if let Some(idx) = active.iter().position(|t| t["task_id"].as_str() == Some(&req.task_id)) {
+        if let Some(idx) = active
+            .iter()
+            .position(|t| t["task_id"].as_str() == Some(&req.task_id))
+        {
             let mut task = active.remove(idx);
             task["status"] = json!(req.result);
             task["closed_at"] = json!(ts);
@@ -263,28 +298,36 @@ async fn task_close(State(st): State<AppState>, Json(req): Json<TaskCloseRequest
             match write_json(&tasks_path, &tasks) {
                 Ok(_) => {
                     tracing::info!(task_id=%req.task_id, result=%req.result, "Task closed");
-                    (StatusCode::OK, Json(TaskCloseResponse {
-                        ok: true,
-                        task_id: req.task_id,
-                        error: None,
-                    })).into_response()
+                    (
+                        StatusCode::OK,
+                        Json(TaskCloseResponse {
+                            ok: true,
+                            task_id: req.task_id,
+                            error: None,
+                        }),
+                    )
+                        .into_response()
                 }
-                Err(e) => {
-                    (StatusCode::INTERNAL_SERVER_ERROR, Json(TaskCloseResponse {
+                Err(e) => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(TaskCloseResponse {
                         ok: false,
                         task_id: req.task_id,
                         error: Some(e),
-                    })).into_response()
-                }
+                    }),
+                )
+                    .into_response(),
             }
         }
-        None => {
-            (StatusCode::NOT_FOUND, Json(TaskCloseResponse {
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(TaskCloseResponse {
                 ok: false,
                 task_id: req.task_id,
                 error: Some("Task not found in active_tasks".into()),
-            })).into_response()
-        }
+            }),
+        )
+            .into_response(),
     }
 }
 
@@ -294,17 +337,22 @@ async fn task_close(State(st): State<AppState>, Json(req): Json<TaskCloseRequest
 
 async fn task_list(State(st): State<AppState>) -> impl IntoResponse {
     let tasks_path = st.cfg.state_dir().join("TASKS_ACTIVE.json");
-    let tasks: Value = read_json(&tasks_path).unwrap_or_else(|_| json!({
-        "active_tasks": [],
-        "task_history": [],
-    }));
+    let tasks: Value = read_json(&tasks_path).unwrap_or_else(|_| {
+        json!({
+            "active_tasks": [],
+            "task_history": [],
+        })
+    });
 
-    (StatusCode::OK, Json(json!({
-        "ok": true,
-        "active_tasks": tasks["active_tasks"],
-        "history_count": tasks["task_history"].as_array().map(|a| a.len()).unwrap_or(0),
-        "recent_history": tasks["task_history"].as_array()
-            .map(|a| a.iter().rev().take(10).cloned().collect::<Vec<_>>())
-            .unwrap_or_default(),
-    })))
+    (
+        StatusCode::OK,
+        Json(json!({
+            "ok": true,
+            "active_tasks": tasks["active_tasks"],
+            "history_count": tasks["task_history"].as_array().map(|a| a.len()).unwrap_or(0),
+            "recent_history": tasks["task_history"].as_array()
+                .map(|a| a.iter().rev().take(10).cloned().collect::<Vec<_>>())
+                .unwrap_or_default(),
+        })),
+    )
 }

@@ -382,11 +382,36 @@ struct StyleScaling {
 impl ReverbType {
     fn scaling(&self) -> StyleScaling {
         match self {
-            ReverbType::Room => StyleScaling { space: 0.6, er: 0.8, diffusion: 0.7, modulation: 0.5 },
-            ReverbType::Hall => StyleScaling { space: 1.2, er: 1.0, diffusion: 0.9, modulation: 0.8 },
-            ReverbType::Plate => StyleScaling { space: 0.8, er: 0.3, diffusion: 1.0, modulation: 1.0 },
-            ReverbType::Chamber => StyleScaling { space: 0.7, er: 0.9, diffusion: 0.8, modulation: 0.6 },
-            ReverbType::Spring => StyleScaling { space: 0.5, er: 0.5, diffusion: 0.6, modulation: 1.2 },
+            ReverbType::Room => StyleScaling {
+                space: 0.6,
+                er: 0.8,
+                diffusion: 0.7,
+                modulation: 0.5,
+            },
+            ReverbType::Hall => StyleScaling {
+                space: 1.2,
+                er: 1.0,
+                diffusion: 0.9,
+                modulation: 0.8,
+            },
+            ReverbType::Plate => StyleScaling {
+                space: 0.8,
+                er: 0.3,
+                diffusion: 1.0,
+                modulation: 1.0,
+            },
+            ReverbType::Chamber => StyleScaling {
+                space: 0.7,
+                er: 0.9,
+                diffusion: 0.8,
+                modulation: 0.6,
+            },
+            ReverbType::Spring => StyleScaling {
+                space: 0.5,
+                er: 0.5,
+                diffusion: 0.6,
+                modulation: 1.2,
+            },
         }
     }
 }
@@ -549,10 +574,7 @@ impl DiffusionStage {
         let spread = 23; // Stereo spread samples
 
         let allpasses_l = std::array::from_fn(|i| {
-            DiffusionAllpass::new(
-                ((DIFFUSION_DELAYS[i] as f64) * scale) as usize,
-                0.5,
-            )
+            DiffusionAllpass::new(((DIFFUSION_DELAYS[i] as f64) * scale) as usize, 0.5)
         });
         let allpasses_r = std::array::from_fn(|i| {
             DiffusionAllpass::new(
@@ -676,9 +698,8 @@ impl FDNDelayLine {
         let mid = sample - low - high;
 
         // Apply per-band decay scaling
-        let shaped = low * base_feedback * low_mult
-            + mid * base_feedback
-            + high * base_feedback * high_mult;
+        let shaped =
+            low * base_feedback * low_mult + mid * base_feedback + high * base_feedback * high_mult;
 
         // DC blocker (first-order high-pass @ ~5 Hz) — prevents sub-bass rumble buildup
         // Bypassed in freeze mode to maintain energy
@@ -713,8 +734,8 @@ struct FDNCore {
     mod_depth: f64,
     freeze: bool,
     // Crossover coefficients for multi-band decay
-    lp_coeff: f64,  // ~250 Hz
-    hp_coeff: f64,  // ~4000 Hz
+    lp_coeff: f64, // ~250 Hz
+    hp_coeff: f64, // ~4000 Hz
 }
 
 /// FDN delay lengths (prime-distributed, samples @ 48kHz)
@@ -748,9 +769,7 @@ impl FDNCore {
         let feedback_gains = [0.92; 8]; // Default decay
 
         // 8 LFO phases evenly distributed
-        let lfo_phases = std::array::from_fn(|i| {
-            i as f64 * std::f64::consts::FRAC_PI_4
-        });
+        let lfo_phases = std::array::from_fn(|i| i as f64 * std::f64::consts::FRAC_PI_4);
 
         // LFO increment for ~0.3 Hz modulation (deterministic, prevents metallic ringing)
         let lfo_increment = 2.0 * std::f64::consts::PI * 0.3 / sample_rate;
@@ -807,8 +826,8 @@ impl FDNCore {
         // Read from all 8 delay lines (with LFO modulation)
         let mut outputs = [0.0f64; 8];
         for i in 0..8 {
-            let mod_offset = self.lfo_phases[i].sin() * self.mod_depth
-                * self.delay_lines[i].base_delay as f64;
+            let mod_offset =
+                self.lfo_phases[i].sin() * self.mod_depth * self.delay_lines[i].base_delay as f64;
             outputs[i] = self.delay_lines[i].read_modulated(mod_offset);
         }
 
@@ -841,12 +860,16 @@ impl FDNCore {
 
         // Thickness: low_boost for warm bass, saturation for density
         // Reduced from 0.5/0.15 to prevent LF buildup and runaway energy in feedback
-        let low_boost = 1.0 + thickness * 0.2;   // Max 1.2× bass (was 1.5×)
-        let saturation = thickness * 0.06;        // Gentler soft-clip (was 0.15)
+        let low_boost = 1.0 + thickness * 0.2; // Max 1.2× bass (was 1.5×)
+        let saturation = thickness * 0.06; // Gentler soft-clip (was 0.15)
 
         for i in 0..8 {
             // In freeze mode, override feedback to near-unity for infinite sustain
-            let fb = if self.freeze { 0.99999 } else { self.feedback_gains[i] };
+            let fb = if self.freeze {
+                0.99999
+            } else {
+                self.feedback_gains[i]
+            };
             let shaped = self.delay_lines[i].apply_decay_shaping(
                 mixed[i],
                 fb,
@@ -879,10 +902,8 @@ impl FDNCore {
 
         // Sum outputs to stereo (lines 0-3 → left, 4-7 → right)
         // Asymmetric gains to preserve stereo information
-        let out_l = outputs[0] * 0.30 + outputs[1] * 0.27
-                  + outputs[2] * 0.23 + outputs[3] * 0.20;
-        let out_r = outputs[4] * 0.30 + outputs[5] * 0.27
-                  + outputs[6] * 0.23 + outputs[7] * 0.20;
+        let out_l = outputs[0] * 0.30 + outputs[1] * 0.27 + outputs[2] * 0.23 + outputs[3] * 0.20;
+        let out_r = outputs[4] * 0.30 + outputs[5] * 0.27 + outputs[6] * 0.23 + outputs[7] * 0.20;
 
         (out_l, out_r)
     }
@@ -963,11 +984,11 @@ pub struct AlgorithmicReverb {
     ducker: SelfDucker,
 
     // Parameters (15 total)
-    space: f64,           // 0: Space (0.0-1.0) — replaces room_size
-    brightness: f64,      // 1: Brightness (0.0-1.0) — inverted damping
-    width: f64,           // 2: Width (0.0-2.0) — M/S processing
-    mix: f64,             // 3: Mix (0.0-1.0) — dry/wet
-    predelay_ms: f64,     // 4: PreDelay (0-500ms)
+    space: f64,       // 0: Space (0.0-1.0) — replaces room_size
+    brightness: f64,  // 1: Brightness (0.0-1.0) — inverted damping
+    width: f64,       // 2: Width (0.0-2.0) — M/S processing
+    mix: f64,         // 3: Mix (0.0-1.0) — dry/wet
+    predelay_ms: f64, // 4: PreDelay (0-500ms)
     // style is param 5
     diffusion_param: f64, // 6: Diffusion (0.0-1.0)
     distance: f64,        // 7: Distance (0.0-1.0)
@@ -1032,8 +1053,10 @@ impl AlgorithmicReverb {
 
         // Space affects ER spacing + FDN delay lengths
         let effective_space = self.space * scaling.space;
-        self.er_engine.update_space_scale(effective_space.max(0.1), self.sample_rate);
-        self.fdn.update_space_scale(effective_space.max(0.1), self.sample_rate);
+        self.er_engine
+            .update_space_scale(effective_space.max(0.1), self.sample_rate);
+        self.fdn
+            .update_space_scale(effective_space.max(0.1), self.sample_rate);
 
         // Brightness → high decay mult (inverted: bright=1.0 means more HF)
         // This is applied as an additional scale on top of user high_decay_mult
@@ -1047,7 +1070,8 @@ impl AlgorithmicReverb {
 
         // Diffusion
         let effective_diffusion = self.diffusion_param * scaling.diffusion;
-        self.diffusion.update_diffusion(effective_diffusion.clamp(0.0, 1.0));
+        self.diffusion
+            .update_diffusion(effective_diffusion.clamp(0.0, 1.0));
 
         // Character affects mod depth (chorus) — subtle range to avoid metallic artifacts
         let effective_mod = 0.0001 + self.character * 0.003; // 0.0001-0.0031 (was 0.0005-0.0105)
@@ -1144,34 +1168,80 @@ impl AlgorithmicReverb {
     // Getters
     // ====================================================================
 
-    pub fn space(&self) -> f64 { self.space }
-    pub fn brightness(&self) -> f64 { self.brightness }
-    pub fn width(&self) -> f64 { self.width }
-    pub fn mix(&self) -> f64 { self.mix }
-    pub fn predelay_ms(&self) -> f64 { self.predelay_ms }
-    pub fn style(&self) -> ReverbType { self.style }
-    pub fn diffusion(&self) -> f64 { self.diffusion_param }
-    pub fn distance(&self) -> f64 { self.distance }
-    pub fn decay(&self) -> f64 { self.decay }
-    pub fn low_decay_mult(&self) -> f64 { self.low_decay_mult }
-    pub fn high_decay_mult(&self) -> f64 { self.high_decay_mult }
-    pub fn character(&self) -> f64 { self.character }
-    pub fn thickness(&self) -> f64 { self.thickness }
-    pub fn ducking(&self) -> f64 { self.ducking }
-    pub fn freeze(&self) -> bool { self.freeze_param }
+    pub fn space(&self) -> f64 {
+        self.space
+    }
+    pub fn brightness(&self) -> f64 {
+        self.brightness
+    }
+    pub fn width(&self) -> f64 {
+        self.width
+    }
+    pub fn mix(&self) -> f64 {
+        self.mix
+    }
+    pub fn predelay_ms(&self) -> f64 {
+        self.predelay_ms
+    }
+    pub fn style(&self) -> ReverbType {
+        self.style
+    }
+    pub fn diffusion(&self) -> f64 {
+        self.diffusion_param
+    }
+    pub fn distance(&self) -> f64 {
+        self.distance
+    }
+    pub fn decay(&self) -> f64 {
+        self.decay
+    }
+    pub fn low_decay_mult(&self) -> f64 {
+        self.low_decay_mult
+    }
+    pub fn high_decay_mult(&self) -> f64 {
+        self.high_decay_mult
+    }
+    pub fn character(&self) -> f64 {
+        self.character
+    }
+    pub fn thickness(&self) -> f64 {
+        self.thickness
+    }
+    pub fn ducking(&self) -> f64 {
+        self.ducking
+    }
+    pub fn freeze(&self) -> bool {
+        self.freeze_param
+    }
 
     // ====================================================================
     // Backward-compatible aliases (for existing wrapper code)
     // ====================================================================
 
-    pub fn set_room_size(&mut self, size: f64) { self.set_space(size); }
-    pub fn room_size(&self) -> f64 { self.space }
-    pub fn set_damping(&mut self, damping: f64) { self.set_brightness(1.0 - damping); }
-    pub fn damping(&self) -> f64 { 1.0 - self.brightness }
-    pub fn set_dry_wet(&mut self, mix: f64) { self.set_mix(mix); }
-    pub fn dry_wet(&self) -> f64 { self.mix }
-    pub fn set_type(&mut self, rt: ReverbType) { self.set_style(rt); }
-    pub fn reverb_type(&self) -> ReverbType { self.style }
+    pub fn set_room_size(&mut self, size: f64) {
+        self.set_space(size);
+    }
+    pub fn room_size(&self) -> f64 {
+        self.space
+    }
+    pub fn set_damping(&mut self, damping: f64) {
+        self.set_brightness(1.0 - damping);
+    }
+    pub fn damping(&self) -> f64 {
+        1.0 - self.brightness
+    }
+    pub fn set_dry_wet(&mut self, mix: f64) {
+        self.set_mix(mix);
+    }
+    pub fn dry_wet(&self) -> f64 {
+        self.mix
+    }
+    pub fn set_type(&mut self, rt: ReverbType) {
+        self.set_style(rt);
+    }
+    pub fn reverb_type(&self) -> ReverbType {
+        self.style
+    }
 
     /// M/S width processing (replaces old cross-feed model)
     #[inline(always)]
@@ -1229,16 +1299,16 @@ impl StereoProcessor for AlgorithmicReverb {
             (1.0, 1.0, 0.0)
         } else {
             let brightness_hf = 0.3 + self.brightness * 0.7;
-            (self.low_decay_mult, self.high_decay_mult * brightness_hf, self.thickness)
+            (
+                self.low_decay_mult,
+                self.high_decay_mult * brightness_hf,
+                self.thickness,
+            )
         };
 
-        let (fdn_l, fdn_r) = self.fdn.process(
-            diff_l,
-            diff_r,
-            fdn_low_mult,
-            fdn_high_mult,
-            fdn_thickness,
-        );
+        let (fdn_l, fdn_r) =
+            self.fdn
+                .process(diff_l, diff_r, fdn_low_mult, fdn_high_mult, fdn_thickness);
 
         // 5. M/S Width (0.0=mono, 1.0=natural, 2.0=ultra-wide)
         let (wide_l, wide_r) = self.apply_width(fdn_l, fdn_r);
@@ -1336,12 +1406,17 @@ mod tests {
 
         // Process enough silence for full decay
         let mut last_energy = 1.0;
-        for _ in 0..48000 * 8 { // 8 seconds
+        for _ in 0..48000 * 8 {
+            // 8 seconds
             let (l, r) = reverb.process_sample(0.0, 0.0);
             last_energy = l.abs() + r.abs();
         }
 
-        assert!(last_energy < 1e-4, "Reverb tail didn't decay: {}", last_energy);
+        assert!(
+            last_energy < 1e-4,
+            "Reverb tail didn't decay: {}",
+            last_energy
+        );
     }
 
     #[test]
@@ -1350,21 +1425,21 @@ mod tests {
 
         // Test all 15 params at 3 values each
         let params_and_ranges: [(usize, f64, f64, f64); 15] = [
-            (0, 0.0, 0.5, 1.0),   // Space
-            (1, 0.0, 0.5, 1.0),   // Brightness
-            (2, 0.0, 1.0, 2.0),   // Width
-            (3, 0.0, 0.5, 1.0),   // Mix
+            (0, 0.0, 0.5, 1.0),     // Space
+            (1, 0.0, 0.5, 1.0),     // Brightness
+            (2, 0.0, 1.0, 2.0),     // Width
+            (3, 0.0, 0.5, 1.0),     // Mix
             (4, 0.0, 100.0, 500.0), // PreDelay
-            (5, 0.0, 2.0, 4.0),   // Style
-            (6, 0.0, 0.5, 1.0),   // Diffusion
-            (7, 0.0, 0.5, 1.0),   // Distance
-            (8, 0.0, 0.5, 1.0),   // Decay
-            (9, 0.5, 1.0, 2.0),   // LowDecayMult
-            (10, 0.5, 1.0, 2.0),  // HighDecayMult
-            (11, 0.0, 0.5, 1.0),  // Character
-            (12, 0.0, 0.5, 1.0),  // Thickness
-            (13, 0.0, 0.5, 1.0),  // Ducking
-            (14, 0.0, 0.0, 1.0),  // Freeze
+            (5, 0.0, 2.0, 4.0),     // Style
+            (6, 0.0, 0.5, 1.0),     // Diffusion
+            (7, 0.0, 0.5, 1.0),     // Distance
+            (8, 0.0, 0.5, 1.0),     // Decay
+            (9, 0.5, 1.0, 2.0),     // LowDecayMult
+            (10, 0.5, 1.0, 2.0),    // HighDecayMult
+            (11, 0.0, 0.5, 1.0),    // Character
+            (12, 0.0, 0.5, 1.0),    // Thickness
+            (13, 0.0, 0.5, 1.0),    // Ducking
+            (14, 0.0, 0.0, 1.0),    // Freeze
         ];
 
         for (idx, lo, mid, hi) in params_and_ranges {
@@ -1452,11 +1527,19 @@ mod tests {
         reverb.set_style(ReverbType::Hall);
 
         assert_eq!(reverb.space(), space_before, "Style overrode Space!");
-        assert_eq!(reverb.brightness(), brightness_before, "Style overrode Brightness!");
+        assert_eq!(
+            reverb.brightness(),
+            brightness_before,
+            "Style overrode Brightness!"
+        );
 
         reverb.set_style(ReverbType::Plate);
         assert_eq!(reverb.space(), space_before, "Style overrode Space!");
-        assert_eq!(reverb.brightness(), brightness_before, "Style overrode Brightness!");
+        assert_eq!(
+            reverb.brightness(),
+            brightness_before,
+            "Style overrode Brightness!"
+        );
     }
 
     #[test]
@@ -1497,8 +1580,16 @@ mod tests {
         let mut reverb_wide = AlgorithmicReverb::new(48000.0);
         reverb_wide.set_width(2.0);
         let (l2, r2) = reverb_wide.apply_width(0.8, 0.2);
-        assert!((l2 - 1.1).abs() < 1e-10, "Width=2.0 L expected 1.1, got {}", l2);
-        assert!((r2 - (-0.1)).abs() < 1e-10, "Width=2.0 R expected -0.1, got {}", r2);
+        assert!(
+            (l2 - 1.1).abs() < 1e-10,
+            "Width=2.0 L expected 1.1, got {}",
+            l2
+        );
+        assert!(
+            (r2 - (-0.1)).abs() < 1e-10,
+            "Width=2.0 R expected -0.1, got {}",
+            r2
+        );
 
         // Width=0.0: side_scaled=0.0, output=(0.5, 0.5) — mono
         let mut reverb_mono = AlgorithmicReverb::new(48000.0);
@@ -1534,9 +1625,12 @@ mod tests {
         }
 
         // Width=2.0 should have more side energy than width=0.5
-        assert!(wide_side_energy >= narrow_side_energy,
+        assert!(
+            wide_side_energy >= narrow_side_energy,
             "Width=2.0 should have ≥ side energy vs 0.5: wide={}, narrow={}",
-            wide_side_energy, narrow_side_energy);
+            wide_side_energy,
+            narrow_side_energy
+        );
     }
 
     #[test]
@@ -1566,9 +1660,12 @@ mod tests {
             energy_bass += l2 * l2 + r2 * r2;
         }
 
-        assert!(energy_bass > energy_normal,
+        assert!(
+            energy_bass > energy_normal,
             "Low mult=2.0 should produce more energy than 1.0: bass={}, normal={}",
-            energy_bass, energy_normal);
+            energy_bass,
+            energy_normal
+        );
     }
 
     #[test]
@@ -1598,7 +1695,10 @@ mod tests {
                 break;
             }
         }
-        assert!(different, "Character 0.0 vs 1.0 should produce different tails");
+        assert!(
+            different,
+            "Character 0.0 vs 1.0 should produce different tails"
+        );
     }
 
     #[test]
@@ -1625,9 +1725,12 @@ mod tests {
             far_energy += fl2 * fl2 + fr2 * fr2;
         }
 
-        assert!(close_energy > far_energy,
+        assert!(
+            close_energy > far_energy,
             "Distance=0 should have stronger ER than Distance=1: close={}, far={}",
-            close_energy, far_energy);
+            close_energy,
+            far_energy
+        );
     }
 
     #[test]
@@ -1650,8 +1753,12 @@ mod tests {
 
         if let Some(idx) = first_nonzero {
             // Should be at or after the predelay + ER delay
-            assert!(idx >= expected_delay - 10,
-                "Output appeared too early: sample {} (expected ≥{})", idx, expected_delay);
+            assert!(
+                idx >= expected_delay - 10,
+                "Output appeared too early: sample {} (expected ≥{})",
+                idx,
+                expected_delay
+            );
         }
     }
 
@@ -1680,7 +1787,8 @@ mod tests {
         // Measure total energy of the reverb tail
         let mut energy_thin = 0.0;
         let mut energy_thick = 0.0;
-        for _ in 0..48000 { // 1 second of tail
+        for _ in 0..48000 {
+            // 1 second of tail
             let (l1, r1) = reverb_thin.process_sample(0.0, 0.0);
             let (l2, r2) = reverb_thick.process_sample(0.0, 0.0);
             energy_thin += l1 * l1 + r1 * r1;
@@ -1690,9 +1798,12 @@ mod tests {
         // Thickness=1.0 uses tanh saturation (which slightly compresses peaks)
         // and low_boost=1.5 (which increases bass decay).
         // The combined effect should produce DIFFERENT total energy.
-        assert!((energy_thin - energy_thick).abs() > 1e-10,
+        assert!(
+            (energy_thin - energy_thick).abs() > 1e-10,
             "Thickness should affect reverb energy: thin={}, thick={}",
-            energy_thin, energy_thick);
+            energy_thin,
+            energy_thick
+        );
     }
 
     #[test]
@@ -1731,9 +1842,12 @@ mod tests {
         // During loud input: dry contribution is large BUT wet is ducked
         // After input stops: NO dry contribution, only wet tail (recovering)
         // The wet tail energy should be non-trivial (ducker releases)
-        assert!(energy_after > 1e-6,
+        assert!(
+            energy_after > 1e-6,
             "Wet tail should have energy after ducking releases: during={}, after={}",
-            energy_during, energy_after);
+            energy_during,
+            energy_after
+        );
     }
 
     #[test]
@@ -1751,11 +1865,16 @@ mod tests {
         // During input, output is ducked. Now feed silence — tail should recover.
         // We need to check if the output is non-trivial after ducker releases.
         let mut max_output = 0.0f64;
-        for _ in 0..48000 { // 1 second
+        for _ in 0..48000 {
+            // 1 second
             let (l, r) = reverb.process_sample(0.0, 0.0);
             max_output = max_output.max(l.abs()).max(r.abs());
         }
-        assert!(max_output > 0.001, "Wet signal should recover after input stops: max={}", max_output);
+        assert!(
+            max_output > 0.001,
+            "Wet signal should recover after input stops: max={}",
+            max_output
+        );
     }
 
     #[test]
@@ -1776,7 +1895,8 @@ mod tests {
         let mut energies = Vec::new();
         for block in 0..10 {
             let mut block_energy = 0.0;
-            for _ in 0..4800 { // 100ms blocks
+            for _ in 0..4800 {
+                // 100ms blocks
                 let (l, r) = reverb.process_sample(0.0, 0.0);
                 block_energy += l * l + r * r;
             }
@@ -1796,7 +1916,11 @@ mod tests {
         let last = energies[energies.len() - 1];
         if first > 1e-6 {
             let ratio = last / first;
-            assert!(ratio > 0.8, "Freeze should maintain energy: ratio={}", ratio);
+            assert!(
+                ratio > 0.8,
+                "Freeze should maintain energy: ratio={}",
+                ratio
+            );
         }
     }
 
@@ -1817,8 +1941,16 @@ mod tests {
 
         // Should have decayed significantly
         let (last_l, last_r) = reverb.process_sample(0.0, 0.0);
-        assert!(last_l.abs() < 0.01, "Should decay with freeze off: L={}", last_l);
-        assert!(last_r.abs() < 0.01, "Should decay with freeze off: R={}", last_r);
+        assert!(
+            last_l.abs() < 0.01,
+            "Should decay with freeze off: L={}",
+            last_l
+        );
+        assert!(
+            last_r.abs() < 0.01,
+            "Should decay with freeze off: R={}",
+            last_r
+        );
     }
 
     #[test]
@@ -1972,7 +2104,10 @@ mod tests {
             let (l, r) = reverb.process_sample(0.3, 0.3);
             total_energy += l * l + r * r;
         }
-        assert!(total_energy > 0.01,
-            "FDN should produce output, energy={}", total_energy);
+        assert!(
+            total_energy > 0.01,
+            "FDN should produce output, energy={}",
+            total_energy
+        );
     }
 }

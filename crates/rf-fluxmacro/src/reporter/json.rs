@@ -83,9 +83,7 @@ impl Reporter for JsonReporter {
             steps: ctx
                 .logs
                 .iter()
-                .filter(|l| {
-                    l.message.starts_with('[') && l.message.contains(']')
-                })
+                .filter(|l| l.message.starts_with('[') && l.message.contains(']'))
                 .map(|l| StepSummary {
                     name: l.step.clone(),
                     status: "executed".to_string(),

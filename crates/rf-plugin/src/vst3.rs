@@ -72,7 +72,9 @@ trait RackPluginTrait {
     fn latency(&self) -> Option<u32>;
 
     /// Whether this plugin supports native GUI (AudioUnit on macOS).
-    fn supports_gui(&self) -> bool { false }
+    fn supports_gui(&self) -> bool {
+        false
+    }
 
     /// Open a standalone window for the plugin's native GUI.
     /// Returns (width, height) if GUI was created successfully.
@@ -175,14 +177,16 @@ impl<P: rack::PluginInstance + Send + 'static> RackPluginTrait for RackPluginWra
         use std::sync::mpsc;
 
         if TypeId::of::<P>() != TypeId::of::<rack::au::AudioUnitPlugin>() {
-            return Err("GUI not supported for this plugin format (VST3 GUI not available in rack 0.4)".into());
+            return Err(
+                "GUI not supported for this plugin format (VST3 GUI not available in rack 0.4)"
+                    .into(),
+            );
         }
 
         // SAFETY: We verified P == AudioUnitPlugin via TypeId check above.
         // This is the standard Rust pattern for type-erased downcasting.
-        let au_plugin: &mut rack::au::AudioUnitPlugin = unsafe {
-            &mut *(&mut self.plugin as *mut P as *mut rack::au::AudioUnitPlugin)
-        };
+        let au_plugin: &mut rack::au::AudioUnitPlugin =
+            unsafe { &mut *(&mut self.plugin as *mut P as *mut rack::au::AudioUnitPlugin) };
 
         // Use a channel to receive the GUI from the async callback
         let (tx, rx) = mpsc::channel();
@@ -899,10 +903,7 @@ impl PluginInstance for Vst3Host {
 #[cfg(target_os = "macos")]
 impl Vst3Host {
     fn open_editor_macos(&mut self, _parent: *mut c_void) -> PluginResult<()> {
-        log::info!(
-            "macOS plugin editor: opening GUI for {}",
-            self.info.name
-        );
+        log::info!("macOS plugin editor: opening GUI for {}", self.info.name);
 
         // Use rack's AudioUnit GUI API (production-ready in rack 0.4.8).
         // For AudioUnit plugins: create_gui() + show_window() opens a standalone window.
@@ -917,14 +918,17 @@ impl Vst3Host {
                     Ok((w, h)) => {
                         log::info!(
                             "Plugin GUI window opened: {}x{} for {}",
-                            w, h, self.info.name
+                            w,
+                            h,
+                            self.info.name
                         );
                         return Ok(());
                     }
                     Err(e) => {
                         log::warn!(
                             "Failed to open native GUI for {}: {}. Dart will show generic parameter editor.",
-                            self.info.name, e
+                            self.info.name,
+                            e
                         );
                         return Err(PluginError::InitError(format!(
                             "Native GUI failed for {}: {}",

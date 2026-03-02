@@ -370,7 +370,7 @@ impl Default for OutputTransformer {
         Self {
             lf_corner: 18.0,
             hf_corner: 28000.0,
-            saturation: 0.08, // Very subtle
+            saturation: 0.08,  // Very subtle
             makeup_gain: 1.05, // Slight makeup for passive losses
             hp_state: 0.0,
             lp_state: 0.0,
@@ -729,8 +729,11 @@ impl ApiProportionalQ {
     /// Q = wide at low gain, narrow at high gain
     fn set_peak(&mut self, freq: f64, gain_db: f64, sample_rate: f64) {
         if gain_db.abs() < 0.01 {
-            self.b0 = 1.0; self.b1 = 0.0; self.b2 = 0.0;
-            self.a1 = 0.0; self.a2 = 0.0;
+            self.b0 = 1.0;
+            self.b1 = 0.0;
+            self.b2 = 0.0;
+            self.a1 = 0.0;
+            self.a2 = 0.0;
             return;
         }
         let omega = 2.0 * PI * freq / sample_rate;
@@ -756,8 +759,11 @@ impl ApiProportionalQ {
     /// Set as shelf filter (for low/high bands)
     fn set_shelf(&mut self, freq: f64, gain_db: f64, is_high: bool, sample_rate: f64) {
         if gain_db.abs() < 0.01 {
-            self.b0 = 1.0; self.b1 = 0.0; self.b2 = 0.0;
-            self.a1 = 0.0; self.a2 = 0.0;
+            self.b0 = 1.0;
+            self.b1 = 0.0;
+            self.b2 = 0.0;
+            self.a1 = 0.0;
+            self.a2 = 0.0;
             return;
         }
         let omega = 2.0 * PI * freq / sample_rate;
@@ -915,16 +921,19 @@ impl Api550 {
 
     fn update_low_filter(&mut self) {
         if self.low_is_shelf {
-            self.low_filter.set_shelf(self.low_freq.hz(), self.low_gain, false, self.sample_rate);
+            self.low_filter
+                .set_shelf(self.low_freq.hz(), self.low_gain, false, self.sample_rate);
         } else {
-            self.low_filter.set_peak(self.low_freq.hz(), self.low_gain, self.sample_rate);
+            self.low_filter
+                .set_peak(self.low_freq.hz(), self.low_gain, self.sample_rate);
         }
     }
 
     pub fn set_mid(&mut self, gain_db: f64, freq: Api550MidFreq) {
         self.mid_gain = snap_to_api_gain(gain_db.clamp(-12.0, 12.0));
         self.mid_freq = freq;
-        self.mid_filter.set_peak(freq.hz(), self.mid_gain, self.sample_rate);
+        self.mid_filter
+            .set_peak(freq.hz(), self.mid_gain, self.sample_rate);
     }
 
     pub fn set_high(&mut self, gain_db: f64, freq: Api550HighFreq) {
@@ -941,9 +950,11 @@ impl Api550 {
 
     fn update_high_filter(&mut self) {
         if self.high_is_shelf {
-            self.high_filter.set_shelf(self.high_freq.hz(), self.high_gain, true, self.sample_rate);
+            self.high_filter
+                .set_shelf(self.high_freq.hz(), self.high_gain, true, self.sample_rate);
         } else {
-            self.high_filter.set_peak(self.high_freq.hz(), self.high_gain, self.sample_rate);
+            self.high_filter
+                .set_peak(self.high_freq.hz(), self.high_gain, self.sample_rate);
         }
     }
 
@@ -1170,8 +1181,11 @@ impl NeveInductorFilter {
     /// Low shelf with inductor smoothness
     fn set_low_shelf(&mut self, freq: f64, gain_db: f64, sample_rate: f64) {
         if gain_db.abs() < 0.01 {
-            self.b0 = 1.0; self.b1 = 0.0; self.b2 = 0.0;
-            self.a1 = 0.0; self.a2 = 0.0;
+            self.b0 = 1.0;
+            self.b1 = 0.0;
+            self.b2 = 0.0;
+            self.a1 = 0.0;
+            self.a2 = 0.0;
             return;
         }
         let omega = 2.0 * PI * freq / sample_rate;
@@ -1194,8 +1208,11 @@ impl NeveInductorFilter {
     /// High shelf with inductor characteristics — used for fixed 12kHz Neve HF
     fn set_high_shelf(&mut self, freq: f64, gain_db: f64, sample_rate: f64) {
         if gain_db.abs() < 0.01 {
-            self.b0 = 1.0; self.b1 = 0.0; self.b2 = 0.0;
-            self.a1 = 0.0; self.a2 = 0.0;
+            self.b0 = 1.0;
+            self.b1 = 0.0;
+            self.b2 = 0.0;
+            self.a1 = 0.0;
+            self.a2 = 0.0;
             return;
         }
         let omega = 2.0 * PI * freq / sample_rate;
@@ -1218,8 +1235,11 @@ impl NeveInductorFilter {
     /// Peak filter with configurable Q — for MF band
     fn set_peak(&mut self, freq: f64, gain_db: f64, q: f64, sample_rate: f64) {
         if gain_db.abs() < 0.01 {
-            self.b0 = 1.0; self.b1 = 0.0; self.b2 = 0.0;
-            self.a1 = 0.0; self.a2 = 0.0;
+            self.b0 = 1.0;
+            self.b1 = 0.0;
+            self.b2 = 0.0;
+            self.a1 = 0.0;
+            self.a2 = 0.0;
             return;
         }
         let omega = 2.0 * PI * freq / sample_rate;
@@ -1352,8 +1372,12 @@ impl NeveTransformer {
         self.lp_state += lp_coeff * (hp_out - self.lp_state);
 
         // Sanitize
-        if !self.lp_state.is_finite() { self.lp_state = 0.0; }
-        if !self.hp_state.is_finite() { self.hp_state = 0.0; }
+        if !self.lp_state.is_finite() {
+            self.lp_state = 0.0;
+        }
+        if !self.hp_state.is_finite() {
+            self.hp_state = 0.0;
+        }
 
         self.lp_state
     }

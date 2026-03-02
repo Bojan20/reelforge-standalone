@@ -320,11 +320,7 @@ impl DynamicPriorityMatrix {
 
     /// Compute priority score for a single event.
     /// Formula: BaseWeight × EmotionalWeight × ProfileWeight × EnergyWeight × ContextModifier
-    pub fn compute_priority(
-        &self,
-        event_type: EventType,
-        context_modifier: f64,
-    ) -> f64 {
+    pub fn compute_priority(&self, event_type: EventType, context_modifier: f64) -> f64 {
         // DPM-7: JACKPOT_GRAND override — always returns maximum
         if event_type.is_jackpot_grand() {
             return f64::MAX;
@@ -362,7 +358,11 @@ impl DynamicPriorityMatrix {
             .collect();
 
         // Sort descending by priority score
-        priorities.sort_by(|a, b| b.priority_score.partial_cmp(&a.priority_score).unwrap_or(std::cmp::Ordering::Equal));
+        priorities.sort_by(|a, b| {
+            b.priority_score
+                .partial_cmp(&a.priority_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         // Voice survival logic (DPM-5)
         let budget = self.voice_budget_max as usize;
@@ -398,9 +398,7 @@ impl DynamicPriorityMatrix {
                 // Within budget → retain
                 retained += 1;
                 SurvivalAction::Retain
-            } else if threshold_score > 0.0
-                && vp.priority_score >= threshold_score * 0.9
-            {
+            } else if threshold_score > 0.0 && vp.priority_score >= threshold_score * 0.9 {
                 // Within 10% of threshold → attenuate (DPM-5)
                 attenuated += 1;
                 SurvivalAction::Attenuate
@@ -457,9 +455,15 @@ impl DynamicPriorityMatrix {
     /// Serialize profile modifiers to JSON for bake (DPM-10).
     pub fn profile_modifiers_json() -> Result<String, serde_json::Error> {
         let profile_names = [
-            "HighVolatility", "MediumVolatility", "LowVolatility",
-            "CascadeHeavy", "FeatureHeavy", "JackpotFocused",
-            "Classic3Reel", "ClusterPay", "MegawaysStyle",
+            "HighVolatility",
+            "MediumVolatility",
+            "LowVolatility",
+            "CascadeHeavy",
+            "FeatureHeavy",
+            "JackpotFocused",
+            "Classic3Reel",
+            "ClusterPay",
+            "MegawaysStyle",
         ];
         let event_names: Vec<&str> = (0..8)
             .filter_map(|i| EventType::from_index(i))
@@ -543,7 +547,10 @@ mod tests {
         let score = dpm.compute_priority(EventType::WinBig, 1.0);
         // base=0.95, emotional=1.0 (neutral), profile=1.0 (medium), energy=0.75 (cap=0.5)
         let expected = 0.95 * 1.0 * 1.0 * 0.75 * 1.0;
-        assert!((score - expected).abs() < 0.001, "Expected {expected}, got {score}");
+        assert!(
+            (score - expected).abs() < 0.001,
+            "Expected {expected}, got {score}"
+        );
     }
 
     #[test]
@@ -594,25 +601,32 @@ mod tests {
         ];
         let output = dpm.compute(&voices);
         assert_eq!(output.retained_count, 2, "Should retain 2 voices");
-        assert!(output.suppressed_count + output.attenuated_count > 0,
-            "Excess voices should be suppressed or attenuated");
+        assert!(
+            output.suppressed_count + output.attenuated_count > 0,
+            "Excess voices should be suppressed or attenuated"
+        );
     }
 
     #[test]
     fn test_background_never_suppressed() {
         let mut dpm = DynamicPriorityMatrix::new();
         dpm.set_voice_budget_max(1);
-        let voices: Vec<(u32, EventType, f64)> = vec![
-            (1, EventType::WinBig, 1.0),
-            (2, EventType::Background, 1.0),
-        ];
+        let voices: Vec<(u32, EventType, f64)> =
+            vec![(1, EventType::WinBig, 1.0), (2, EventType::Background, 1.0)];
         let output = dpm.compute(&voices);
         // Background should get DuckCurve, not Suppress
-        let bg_result = output.survival_results.iter().find(|r| r.voice_id == 2).unwrap();
+        let bg_result = output
+            .survival_results
+            .iter()
+            .find(|r| r.voice_id == 2)
+            .unwrap();
         match bg_result.action {
             SurvivalAction::DuckCurve { .. } => {} // OK
-            SurvivalAction::Retain => {} // Also OK if within budget
-            _ => panic!("Background should never be suppressed, got: {:?}", bg_result.action),
+            SurvivalAction::Retain => {}           // Also OK if within budget
+            _ => panic!(
+                "Background should never be suppressed, got: {:?}",
+                bg_result.action
+            ),
         }
     }
 
@@ -620,9 +634,7 @@ mod tests {
     fn test_jackpot_grand_always_retained() {
         let mut dpm = DynamicPriorityMatrix::new();
         dpm.set_voice_budget_max(0); // zero budget
-        let voices: Vec<(u32, EventType, f64)> = vec![
-            (1, EventType::JackpotGrand, 1.0),
-        ];
+        let voices: Vec<(u32, EventType, f64)> = vec![(1, EventType::JackpotGrand, 1.0)];
         let output = dpm.compute(&voices);
         assert!(output.jackpot_override_active);
         assert_eq!(output.retained_count, 1);
@@ -636,8 +648,10 @@ mod tests {
         dpm.set_emotional_state(EmotionalState::Euphoria);
         let euphoria_score = dpm.compute_priority(EventType::WinBig, 1.0);
 
-        assert!(euphoria_score > neutral_score,
-            "Euphoria should increase WinBig priority: neutral={neutral_score}, euphoria={euphoria_score}");
+        assert!(
+            euphoria_score > neutral_score,
+            "Euphoria should increase WinBig priority: neutral={neutral_score}, euphoria={euphoria_score}"
+        );
     }
 
     #[test]
@@ -649,8 +663,10 @@ mod tests {
         dpm.set_energy_cap(0.9);
         let high_score = dpm.compute_priority(EventType::ReelStop, 1.0);
 
-        assert!(high_score > low_score,
-            "Higher energy cap should increase priority: low={low_score}, high={high_score}");
+        assert!(
+            high_score > low_score,
+            "Higher energy cap should increase priority: low={low_score}, high={high_score}"
+        );
     }
 
     #[test]
@@ -692,7 +708,11 @@ mod tests {
         let out_b = dpm_b.compute(&voices);
 
         assert_eq!(out_a.retained_count, out_b.retained_count);
-        for (a, b) in out_a.voice_priorities.iter().zip(out_b.voice_priorities.iter()) {
+        for (a, b) in out_a
+            .voice_priorities
+            .iter()
+            .zip(out_b.voice_priorities.iter())
+        {
             assert_eq!(a.priority_score, b.priority_score);
         }
     }
@@ -703,15 +723,23 @@ mod tests {
         dpm.set_voice_budget_max(1);
         // Create voices with very close scores to trigger attenuation
         let voices: Vec<(u32, EventType, f64)> = vec![
-            (1, EventType::WinBig, 1.0),      // highest
+            (1, EventType::WinBig, 1.0),       // highest
             (2, EventType::FeatureEnter, 1.0), // close to WinBig
         ];
         let output = dpm.compute(&voices);
         // Voice 2 should be attenuated (within 10% of threshold), not suppressed
-        let v2 = output.survival_results.iter().find(|r| r.voice_id == 2).unwrap();
+        let v2 = output
+            .survival_results
+            .iter()
+            .find(|r| r.voice_id == 2)
+            .unwrap();
         assert!(
-            matches!(v2.action, SurvivalAction::Attenuate | SurvivalAction::Retain),
-            "Voice close to threshold should be attenuated or retained, got: {:?}", v2.action
+            matches!(
+                v2.action,
+                SurvivalAction::Attenuate | SurvivalAction::Retain
+            ),
+            "Voice close to threshold should be attenuated or retained, got: {:?}",
+            v2.action
         );
     }
 

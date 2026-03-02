@@ -727,9 +727,11 @@ impl BandSaturator {
                 };
                 let drive_mod = self.dynamics * (env_db + 20.0) / 40.0;
                 let effective_drive = self.drive_db + drive_mod * 12.0;
-                self.saturator.set_drive_db(effective_drive.clamp(-24.0, 52.0));
+                self.saturator
+                    .set_drive_db(effective_drive.clamp(-24.0, 52.0));
                 // Process this chunk
-                self.saturator.process(&mut left[offset..end], &mut right[offset..end]);
+                self.saturator
+                    .process(&mut left[offset..end], &mut right[offset..end]);
                 offset = end;
             }
             // Restore drive
@@ -1032,8 +1034,7 @@ impl MultibandSaturator {
             let mut rem_l = left[i];
             let mut rem_r = right[i];
             for c in 0..self.crossovers.len() {
-                let ((low_l, low_r), (high_l, high_r)) =
-                    self.crossovers[c].split(rem_l, rem_r);
+                let ((low_l, low_r), (high_l, high_r)) = self.crossovers[c].split(rem_l, rem_r);
                 self.band_buffers_l[c][i] = low_l;
                 self.band_buffers_r[c][i] = low_r;
                 rem_l = high_l;

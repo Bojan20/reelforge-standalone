@@ -42,8 +42,10 @@ impl ProjectConfig {
     pub fn compute_hash(&self) -> String {
         let mut hasher = 0xcbf29ce484222325u64; // FNV-1a offset basis
         let parts = [
-            &self.geg_config_hash, &self.dpm_config_hash,
-            &self.samcl_config_hash, &self.sam_archetype,
+            &self.geg_config_hash,
+            &self.dpm_config_hash,
+            &self.samcl_config_hash,
+            &self.sam_archetype,
             &self.slot_profile,
         ];
         for part in &parts {
@@ -77,7 +79,8 @@ impl ProjectManifest {
         let hash = config.compute_hash();
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs()).unwrap_or(0);
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
         Self {
             project_id: id.into(),
             project_name: name.into(),
@@ -100,7 +103,8 @@ impl ProjectManifest {
         self.config_hash = new_hash;
         self.modified_timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_secs()).unwrap_or(0);
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
         if changed {
             // Config changed → certification invalidated
             self.certification_hash = None;
@@ -167,11 +171,17 @@ impl ProjectIsolation {
     }
 
     /// Create a new isolated project.
-    pub fn create_project(&mut self, name: impl Into<String>, config: ProjectConfig) -> &IsolatedProject {
+    pub fn create_project(
+        &mut self,
+        name: impl Into<String>,
+        config: ProjectConfig,
+    ) -> &IsolatedProject {
         let name = name.into();
         let id = format!("proj_{:08x}", {
             let mut h = 0u32;
-            for b in name.as_bytes() { h = h.wrapping_mul(31).wrapping_add(*b as u32); }
+            for b in name.as_bytes() {
+                h = h.wrapping_mul(31).wrapping_add(*b as u32);
+            }
             h ^ (self.projects.len() as u32)
         });
         let manifest = ProjectManifest::new(&id, &name, config);
@@ -185,7 +195,8 @@ impl ProjectIsolation {
 
     /// Get active project.
     pub fn active_project(&self) -> Option<&IsolatedProject> {
-        self.active_project_id.as_ref()
+        self.active_project_id
+            .as_ref()
             .and_then(|id| self.projects.get(id))
     }
 
@@ -267,10 +278,16 @@ mod tests {
         let p2_id = p2.manifest.project_id.clone();
 
         assert_eq!(isolation.project_count(), 2);
-        assert_eq!(isolation.active_project().unwrap().manifest.project_id, p1_id);
+        assert_eq!(
+            isolation.active_project().unwrap().manifest.project_id,
+            p1_id
+        );
 
         assert!(isolation.switch_project(&p2_id));
-        assert_eq!(isolation.active_project().unwrap().manifest.project_id, p2_id);
+        assert_eq!(
+            isolation.active_project().unwrap().manifest.project_id,
+            p2_id
+        );
     }
 
     #[test]

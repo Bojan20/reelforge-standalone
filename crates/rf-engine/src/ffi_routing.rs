@@ -371,7 +371,7 @@ pub extern "C" fn routing_get_channel_count() -> u32 {
 /// Returns: Actual number of channels written
 /// SAFETY: Caller must ensure out_ids and out_kinds point to valid arrays of at least max_count elements
 #[unsafe(no_mangle)]
-pub extern "C" fn routing_get_all_channels(
+pub unsafe extern "C" fn routing_get_all_channels(
     out_ids: *mut u32,
     out_kinds: *mut u32,
     max_count: u32,
@@ -538,7 +538,7 @@ pub extern "C" fn routing_get_channel_count() -> u32 {
 
 #[cfg(not(feature = "unified_routing"))]
 #[unsafe(no_mangle)]
-pub extern "C" fn routing_get_all_channels(
+pub unsafe extern "C" fn routing_get_all_channels(
     _out_ids: *mut u32,
     _out_kinds: *mut u32,
     _max_count: u32,

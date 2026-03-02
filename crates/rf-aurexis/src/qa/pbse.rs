@@ -19,15 +19,15 @@ use crate::qa::simulation::SimulationStep;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum SimulationDomain {
-    SpinSequences      = 0,
-    LossStreaks         = 1,
-    WinStreaks          = 2,
-    CascadeChains      = 3,
-    FeatureOverlaps    = 4,
-    JackpotEscalation  = 5,
-    TurboCompression   = 6,
-    AutoplayBurst      = 7,
-    LongSessionDrift   = 8,
+    SpinSequences = 0,
+    LossStreaks = 1,
+    WinStreaks = 2,
+    CascadeChains = 3,
+    FeatureOverlaps = 4,
+    JackpotEscalation = 5,
+    TurboCompression = 6,
+    AutoplayBurst = 7,
+    LongSessionDrift = 8,
     HookBurstCollision = 9,
 }
 
@@ -36,15 +36,15 @@ impl SimulationDomain {
 
     pub fn name(&self) -> &'static str {
         match self {
-            Self::SpinSequences      => "Spin Sequences",
-            Self::LossStreaks         => "Loss Streaks",
-            Self::WinStreaks          => "Win Streaks",
-            Self::CascadeChains      => "Cascade Chains",
-            Self::FeatureOverlaps    => "Feature Overlaps",
-            Self::JackpotEscalation  => "Jackpot Escalation",
-            Self::TurboCompression   => "Turbo Compression",
-            Self::AutoplayBurst      => "Autoplay Burst",
-            Self::LongSessionDrift   => "Long Session Drift",
+            Self::SpinSequences => "Spin Sequences",
+            Self::LossStreaks => "Loss Streaks",
+            Self::WinStreaks => "Win Streaks",
+            Self::CascadeChains => "Cascade Chains",
+            Self::FeatureOverlaps => "Feature Overlaps",
+            Self::JackpotEscalation => "Jackpot Escalation",
+            Self::TurboCompression => "Turbo Compression",
+            Self::AutoplayBurst => "Autoplay Burst",
+            Self::LongSessionDrift => "Long Session Drift",
             Self::HookBurstCollision => "Hook Burst/Collision",
         }
     }
@@ -134,10 +134,7 @@ pub struct DomainResult {
 }
 
 impl DomainResult {
-    fn validate(
-        &mut self,
-        thresholds: &ValidationThresholds,
-    ) {
+    fn validate(&mut self, thresholds: &ValidationThresholds) {
         self.metrics.clear();
 
         let m_energy = MetricValidation {
@@ -278,9 +275,8 @@ impl PreBakeSimulator {
         // Run determinism verification
         let determinism_verified = self.verify_determinism();
 
-        let all_passed = domains.iter().all(|d| d.passed)
-            && fatigue_model.passed
-            && determinism_verified;
+        let all_passed =
+            domains.iter().all(|d| d.passed) && fatigue_model.passed && determinism_verified;
 
         self.last_result = Some(PbseResult {
             domains,
@@ -338,15 +334,15 @@ impl PreBakeSimulator {
 
     fn generate_domain_steps(&self, domain: SimulationDomain) -> Vec<SimulationStep> {
         match domain {
-            SimulationDomain::SpinSequences      => Self::gen_spin_sequences(),
-            SimulationDomain::LossStreaks         => Self::gen_loss_streaks(),
-            SimulationDomain::WinStreaks          => Self::gen_win_streaks(),
-            SimulationDomain::CascadeChains      => Self::gen_cascade_chains(),
-            SimulationDomain::FeatureOverlaps    => Self::gen_feature_overlaps(),
-            SimulationDomain::JackpotEscalation  => Self::gen_jackpot_escalation(),
-            SimulationDomain::TurboCompression   => Self::gen_turbo_compression(),
-            SimulationDomain::AutoplayBurst      => Self::gen_autoplay_burst(),
-            SimulationDomain::LongSessionDrift   => Self::gen_long_session_drift(),
+            SimulationDomain::SpinSequences => Self::gen_spin_sequences(),
+            SimulationDomain::LossStreaks => Self::gen_loss_streaks(),
+            SimulationDomain::WinStreaks => Self::gen_win_streaks(),
+            SimulationDomain::CascadeChains => Self::gen_cascade_chains(),
+            SimulationDomain::FeatureOverlaps => Self::gen_feature_overlaps(),
+            SimulationDomain::JackpotEscalation => Self::gen_jackpot_escalation(),
+            SimulationDomain::TurboCompression => Self::gen_turbo_compression(),
+            SimulationDomain::AutoplayBurst => Self::gen_autoplay_burst(),
+            SimulationDomain::LongSessionDrift => Self::gen_long_session_drift(),
             SimulationDomain::HookBurstCollision => Self::gen_hook_burst_collision(),
         }
     }
@@ -356,19 +352,38 @@ impl PreBakeSimulator {
         let mut steps = Vec::with_capacity(100);
         // 30 no-win → 20 small win → 10 medium win → 20 no-win → 20 big win
         for _ in 0..30 {
-            steps.push(SimulationStep { win_multiplier: 0.0, ..Default::default() });
+            steps.push(SimulationStep {
+                win_multiplier: 0.0,
+                ..Default::default()
+            });
         }
         for _ in 0..20 {
-            steps.push(SimulationStep { win_multiplier: 2.0, rms_db: -20.0, ..Default::default() });
+            steps.push(SimulationStep {
+                win_multiplier: 2.0,
+                rms_db: -20.0,
+                ..Default::default()
+            });
         }
         for _ in 0..10 {
-            steps.push(SimulationStep { win_multiplier: 10.0, rms_db: -16.0, ..Default::default() });
+            steps.push(SimulationStep {
+                win_multiplier: 10.0,
+                rms_db: -16.0,
+                ..Default::default()
+            });
         }
         for _ in 0..20 {
-            steps.push(SimulationStep { win_multiplier: 0.0, ..Default::default() });
+            steps.push(SimulationStep {
+                win_multiplier: 0.0,
+                ..Default::default()
+            });
         }
         for _ in 0..20 {
-            steps.push(SimulationStep { win_multiplier: 50.0, rms_db: -12.0, hf_db: -18.0, ..Default::default() });
+            steps.push(SimulationStep {
+                win_multiplier: 50.0,
+                rms_db: -12.0,
+                hf_db: -18.0,
+                ..Default::default()
+            });
         }
         steps
     }
@@ -473,7 +488,10 @@ impl PreBakeSimulator {
             }
             // Exit
             for _ in 0..5 {
-                steps.push(SimulationStep { win_multiplier: 2.0, ..Default::default() });
+                steps.push(SimulationStep {
+                    win_multiplier: 2.0,
+                    ..Default::default()
+                });
             }
         }
         steps
@@ -564,7 +582,13 @@ impl PreBakeSimulator {
         for i in 0..500 {
             let base_vol = 0.3 + (i as f64 / 1000.0) * 0.4; // Slowly increasing
             let spike = if i % 50 == 0 { 0.3 } else { 0.0 };
-            let win = if i % 100 == 0 { 30.0 } else if i % 20 == 0 { 3.0 } else { 0.0 };
+            let win = if i % 100 == 0 {
+                30.0
+            } else if i % 20 == 0 {
+                3.0
+            } else {
+                0.0
+            };
 
             steps.push(SimulationStep {
                 win_multiplier: win,
@@ -610,7 +634,10 @@ impl PreBakeSimulator {
     // EXECUTION
     // ═══════════════════════════════════════════════════════════════════════
 
-    fn execute_steps(&self, steps: &[SimulationStep]) -> (PeakMetrics, Vec<DeterministicParameterMap>) {
+    fn execute_steps(
+        &self,
+        steps: &[SimulationStep],
+    ) -> (PeakMetrics, Vec<DeterministicParameterMap>) {
         let mut engine = AurexisEngine::with_config(self.config.clone());
         engine.initialize();
         engine.set_seed(0, 0, 0, 0);
@@ -645,7 +672,8 @@ impl PreBakeSimulator {
         if outputs.len() < 2 {
             return 0.0;
         }
-        let total_delta: f64 = outputs.windows(2)
+        let total_delta: f64 = outputs
+            .windows(2)
             .map(|w| (w[1].escalation_multiplier - w[0].escalation_multiplier).abs())
             .sum();
         total_delta / (outputs.len() - 1) as f64
@@ -665,29 +693,27 @@ impl PreBakeSimulator {
         let total_spins = outputs.len() as f64;
 
         // PeakFrequency: ratio of spins with energy_density > 0.7
-        let peak_count = outputs.iter()
-            .filter(|m| m.energy_density > 0.7)
-            .count() as f64;
+        let peak_count = outputs.iter().filter(|m| m.energy_density > 0.7).count() as f64;
         let peak_frequency = peak_count / total_spins;
 
         // HarmonicDensity: average harmonic_excitation across session
-        let harmonic_density = outputs.iter()
-            .map(|m| m.harmonic_excitation)
-            .sum::<f64>() / total_spins;
+        let harmonic_density =
+            outputs.iter().map(|m| m.harmonic_excitation).sum::<f64>() / total_spins;
 
         // TemporalDensity: average transient_density_per_min
-        let temporal_density = outputs.iter()
+        let temporal_density = outputs
+            .iter()
             .map(|m| m.transient_density_per_min)
-            .sum::<f64>() / total_spins;
+            .sum::<f64>()
+            / total_spins;
         let temporal_density_norm = (temporal_density / 30.0).clamp(0.0, 1.0);
 
         // RecoveryFactor: derived from session_memory_sm (higher SM = better recovery)
-        let avg_sm = outputs.iter()
-            .map(|m| m.session_memory_sm)
-            .sum::<f64>() / total_spins;
+        let avg_sm = outputs.iter().map(|m| m.session_memory_sm).sum::<f64>() / total_spins;
         let recovery_factor = avg_sm.max(0.1); // Prevent div by zero
 
-        let fatigue_index = (peak_frequency * harmonic_density * temporal_density_norm) / recovery_factor;
+        let fatigue_index =
+            (peak_frequency * harmonic_density * temporal_density_norm) / recovery_factor;
 
         let threshold = self.thresholds.max_fatigue;
         FatigueModelResult {
@@ -728,25 +754,31 @@ impl PreBakeSimulator {
     pub fn simulation_summary_json(&self) -> Result<String, serde_json::Error> {
         let result = match &self.last_result {
             Some(r) => r,
-            None => return serde_json::to_string_pretty(&serde_json::json!({
-                "status": "not_run",
-                "bake_unlocked": false
-            })),
+            None => {
+                return serde_json::to_string_pretty(&serde_json::json!({
+                    "status": "not_run",
+                    "bake_unlocked": false
+                }));
+            }
         };
 
-        let domains: Vec<serde_json::Value> = result.domains.iter().map(|d| {
-            serde_json::json!({
-                "domain": d.domain.name(),
-                "passed": d.passed,
-                "spins": d.spin_count,
-                "peak_energy_cap": format!("{:.4}", d.peak_energy_cap),
-                "peak_voices": d.peak_voice_count,
-                "peak_sci": format!("{:.4}", d.peak_sci),
-                "peak_fatigue": format!("{:.4}", d.peak_fatigue),
-                "escalation_slope": format!("{:.4}", d.escalation_slope),
-                "deterministic": d.deterministic,
+        let domains: Vec<serde_json::Value> = result
+            .domains
+            .iter()
+            .map(|d| {
+                serde_json::json!({
+                    "domain": d.domain.name(),
+                    "passed": d.passed,
+                    "spins": d.spin_count,
+                    "peak_energy_cap": format!("{:.4}", d.peak_energy_cap),
+                    "peak_voices": d.peak_voice_count,
+                    "peak_sci": format!("{:.4}", d.peak_sci),
+                    "peak_fatigue": format!("{:.4}", d.peak_fatigue),
+                    "escalation_slope": format!("{:.4}", d.escalation_slope),
+                    "deterministic": d.deterministic,
+                })
             })
-        }).collect();
+            .collect();
 
         let fm = &result.fatigue_model;
         let summary = serde_json::json!({
@@ -829,7 +861,10 @@ mod tests {
     #[test]
     fn test_domain_names() {
         assert_eq!(SimulationDomain::SpinSequences.name(), "Spin Sequences");
-        assert_eq!(SimulationDomain::HookBurstCollision.name(), "Hook Burst/Collision");
+        assert_eq!(
+            SimulationDomain::HookBurstCollision.name(),
+            "Hook Burst/Collision"
+        );
     }
 
     #[test]
@@ -878,14 +913,20 @@ mod tests {
     fn test_win_streaks_domain() {
         let sim = PreBakeSimulator::new();
         let result = sim.run_domain(SimulationDomain::WinStreaks);
-        assert!(result.peak_escalation > 1.0, "Win streaks should cause escalation");
+        assert!(
+            result.peak_escalation > 1.0,
+            "Win streaks should cause escalation"
+        );
     }
 
     #[test]
     fn test_jackpot_escalation_domain() {
         let sim = PreBakeSimulator::new();
         let result = sim.run_domain(SimulationDomain::JackpotEscalation);
-        assert!(result.peak_escalation > 1.0, "Jackpot should cause high escalation");
+        assert!(
+            result.peak_escalation > 1.0,
+            "Jackpot should cause high escalation"
+        );
     }
 
     #[test]
@@ -893,7 +934,10 @@ mod tests {
         let sim = PreBakeSimulator::new();
         let result = sim.run_domain(SimulationDomain::LongSessionDrift);
         assert_eq!(result.spin_count, 500);
-        assert!(result.peak_fatigue > 0.0, "500 spins should accumulate fatigue");
+        assert!(
+            result.peak_fatigue > 0.0,
+            "500 spins should accumulate fatigue"
+        );
     }
 
     #[test]
@@ -907,7 +951,10 @@ mod tests {
     fn test_fatigue_model() {
         let sim = PreBakeSimulator::new();
         let fm = sim.run_fatigue_model();
-        assert!(fm.fatigue_index >= 0.0, "Fatigue index must be non-negative");
+        assert!(
+            fm.fatigue_index >= 0.0,
+            "Fatigue index must be non-negative"
+        );
         assert!(fm.peak_frequency >= 0.0 && fm.peak_frequency <= 1.0);
         assert!(fm.recovery_factor > 0.0);
     }
@@ -921,7 +968,10 @@ mod tests {
     #[test]
     fn test_bake_gate() {
         let mut sim = PreBakeSimulator::new();
-        assert!(!sim.bake_unlocked(), "Bake should be locked before simulation");
+        assert!(
+            !sim.bake_unlocked(),
+            "Bake should be locked before simulation"
+        );
 
         let result = sim.run_full_simulation();
 
@@ -930,22 +980,35 @@ mod tests {
             if !d.passed {
                 eprintln!(
                     "FAIL: {} — energy={:.4} voices={} sci={:.4} fatigue={:.4} slope={:.4} det={}",
-                    d.domain.name(), d.peak_energy_cap, d.peak_voice_count,
-                    d.peak_sci, d.peak_fatigue, d.escalation_slope, d.deterministic
+                    d.domain.name(),
+                    d.peak_energy_cap,
+                    d.peak_voice_count,
+                    d.peak_sci,
+                    d.peak_fatigue,
+                    d.escalation_slope,
+                    d.deterministic
                 );
                 for m in &d.metrics {
                     if !m.passed {
-                        eprintln!("  metric {} = {:.4} > limit {:.4}", m.name, m.value, m.limit);
+                        eprintln!(
+                            "  metric {} = {:.4} > limit {:.4}",
+                            m.name, m.value, m.limit
+                        );
                     }
                 }
             }
         }
         if !result.fatigue_model.passed {
-            eprintln!("FAIL: fatigue_model index={:.4} > threshold={:.4}",
-                result.fatigue_model.fatigue_index, result.fatigue_model.threshold);
+            eprintln!(
+                "FAIL: fatigue_model index={:.4} > threshold={:.4}",
+                result.fatigue_model.fatigue_index, result.fatigue_model.threshold
+            );
         }
 
-        assert!(sim.bake_unlocked(), "Bake should be unlocked after passing simulation");
+        assert!(
+            sim.bake_unlocked(),
+            "Bake should be unlocked after passing simulation"
+        );
     }
 
     #[test]
@@ -965,13 +1028,29 @@ mod tests {
     #[test]
     fn test_escalation_slope_computation() {
         let outputs = vec![
-            { let mut m = DeterministicParameterMap::default(); m.escalation_multiplier = 1.0; m },
-            { let mut m = DeterministicParameterMap::default(); m.escalation_multiplier = 1.1; m },
-            { let mut m = DeterministicParameterMap::default(); m.escalation_multiplier = 1.05; m },
+            {
+                let mut m = DeterministicParameterMap::default();
+                m.escalation_multiplier = 1.0;
+                m
+            },
+            {
+                let mut m = DeterministicParameterMap::default();
+                m.escalation_multiplier = 1.1;
+                m
+            },
+            {
+                let mut m = DeterministicParameterMap::default();
+                m.escalation_multiplier = 1.05;
+                m
+            },
         ];
         let slope = PreBakeSimulator::compute_escalation_slope(&outputs);
         // Average of |0.1| and |0.05| = 0.075
-        assert!((slope - 0.075).abs() < 0.001, "Slope should be ~0.075, got {}", slope);
+        assert!(
+            (slope - 0.075).abs() < 0.001,
+            "Slope should be ~0.075, got {}",
+            slope
+        );
     }
 
     #[test]
@@ -986,12 +1065,18 @@ mod tests {
             max_escalation_slope: 0.0001,
         });
         sim.run_full_simulation();
-        assert!(!sim.bake_unlocked(), "Strict thresholds should cause bake lock");
+        assert!(
+            !sim.bake_unlocked(),
+            "Strict thresholds should cause bake lock"
+        );
 
         // Verify at least some domains failed
         let result = sim.last_result().as_ref().unwrap();
         let failed_count = result.domains.iter().filter(|d| !d.passed).count();
-        assert!(failed_count > 0, "Should have failing domains with strict thresholds");
+        assert!(
+            failed_count > 0,
+            "Should have failing domains with strict thresholds"
+        );
     }
 
     #[test]

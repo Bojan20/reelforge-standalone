@@ -5,8 +5,8 @@
 //!
 //! See: FLUXFORGE_MASTER_SPEC.md §13
 
-use super::archetypes::{SlotArchetype, MarketTarget};
-use super::controls::{SmartControlSet, SmartControl};
+use super::archetypes::{MarketTarget, SlotArchetype};
+use super::controls::{SmartControl, SmartControlSet};
 
 // ═════════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -26,9 +26,9 @@ pub enum AuthoringMode {
 impl AuthoringMode {
     pub fn name(&self) -> &'static str {
         match self {
-            Self::Smart    => "SMART",
+            Self::Smart => "SMART",
             Self::Advanced => "ADVANCED",
-            Self::Debug    => "DEBUG",
+            Self::Debug => "DEBUG",
         }
     }
 
@@ -70,9 +70,15 @@ impl WizardStep {
 
     pub fn all() -> &'static [WizardStep; 9] {
         &[
-            Self::Archetype, Self::Volatility, Self::Market,
-            Self::GddImport, Self::AutoConfig, Self::Preview,
-            Self::AilPass, Self::Adjust, Self::Bake,
+            Self::Archetype,
+            Self::Volatility,
+            Self::Market,
+            Self::GddImport,
+            Self::AutoConfig,
+            Self::Preview,
+            Self::AilPass,
+            Self::Adjust,
+            Self::Bake,
         ]
     }
 
@@ -93,29 +99,31 @@ impl WizardStep {
 
     pub fn name(&self) -> &'static str {
         match self {
-            Self::Archetype  => "Archetype",
+            Self::Archetype => "Archetype",
             Self::Volatility => "Volatility",
-            Self::Market     => "Market",
-            Self::GddImport  => "GDD Import",
+            Self::Market => "Market",
+            Self::GddImport => "GDD Import",
             Self::AutoConfig => "Auto-Config",
-            Self::Preview    => "Preview",
-            Self::AilPass    => "AIL Pass",
-            Self::Adjust     => "Adjust",
-            Self::Bake       => "Bake",
+            Self::Preview => "Preview",
+            Self::AilPass => "AIL Pass",
+            Self::Adjust => "Adjust",
+            Self::Bake => "Bake",
         }
     }
 
     pub fn description(&self) -> &'static str {
         match self {
-            Self::Archetype  => "Choose game archetype (Classic, Hold&Win, Cascade, etc.)",
+            Self::Archetype => "Choose game archetype (Classic, Hold&Win, Cascade, etc.)",
             Self::Volatility => "Set game volatility level within archetype range",
-            Self::Market     => "Select target market (Casual, Standard, Premium)",
-            Self::GddImport  => "Import Game Design Document for auto-detection (optional)",
-            Self::AutoConfig => "Auto-configure engine parameters from archetype + market + volatility",
-            Self::Preview    => "Preview audio behavior with test scenarios",
-            Self::AilPass    => "Run AIL analysis for quality and safety review",
-            Self::Adjust     => "Adjust parameters based on AIL recommendations",
-            Self::Bake       => "Run PBSE + DRC certification and generate final build",
+            Self::Market => "Select target market (Casual, Standard, Premium)",
+            Self::GddImport => "Import Game Design Document for auto-detection (optional)",
+            Self::AutoConfig => {
+                "Auto-configure engine parameters from archetype + market + volatility"
+            }
+            Self::Preview => "Preview audio behavior with test scenarios",
+            Self::AilPass => "Run AIL analysis for quality and safety review",
+            Self::Adjust => "Adjust parameters based on AIL recommendations",
+            Self::Bake => "Run PBSE + DRC certification and generate final build",
         }
     }
 
@@ -128,7 +136,9 @@ impl WizardStep {
     }
 
     pub fn prev(&self) -> Option<Self> {
-        if self.index() == 0 { return None; }
+        if self.index() == 0 {
+            return None;
+        }
         Self::from_index(self.index() - 1)
     }
 }
@@ -154,17 +164,17 @@ impl EngineParameter {
     pub fn name(&self) -> &'static str {
         match self {
             Self::EnergyIntensityMultiplier => "energy_intensity_multiplier",
-            Self::EscalationRate            => "escalation_rate",
-            Self::DecayHalfLife             => "decay_half_life",
-            Self::PeakEnergyMultiplier      => "peak_energy_multiplier",
-            Self::VoiceBudgetScale          => "voice_budget_scale",
-            Self::SpectralBandwidth         => "spectral_bandwidth",
-            Self::TransientAttack           => "transient_attack",
-            Self::StereoWidth               => "stereo_width",
-            Self::HarmonicExcitation        => "harmonic_excitation",
-            Self::FatigueThreshold          => "fatigue_threshold",
-            Self::PeakDurationLimit         => "peak_duration_limit",
-            Self::SciTarget                 => "sci_target",
+            Self::EscalationRate => "escalation_rate",
+            Self::DecayHalfLife => "decay_half_life",
+            Self::PeakEnergyMultiplier => "peak_energy_multiplier",
+            Self::VoiceBudgetScale => "voice_budget_scale",
+            Self::SpectralBandwidth => "spectral_bandwidth",
+            Self::TransientAttack => "transient_attack",
+            Self::StereoWidth => "stereo_width",
+            Self::HarmonicExcitation => "harmonic_excitation",
+            Self::FatigueThreshold => "fatigue_threshold",
+            Self::PeakDurationLimit => "peak_duration_limit",
+            Self::SciTarget => "sci_target",
         }
     }
 }
@@ -336,16 +346,17 @@ impl SmartAuthoringEngine {
 
         let defaults = archetype.defaults();
         let vol_normalized = if defaults.volatility.max > defaults.volatility.min {
-            (self.state.volatility - defaults.volatility.min) / (defaults.volatility.max - defaults.volatility.min)
+            (self.state.volatility - defaults.volatility.min)
+                / (defaults.volatility.max - defaults.volatility.min)
         } else {
             0.5
         };
 
         // Market modifier: Casual dials down, Premium dials up
         let market_mod = match self.state.market {
-            MarketTarget::Casual   => 0.85,
+            MarketTarget::Casual => 0.85,
             MarketTarget::Standard => 1.0,
-            MarketTarget::Premium  => 1.15,
+            MarketTarget::Premium => 1.15,
         };
 
         // Scale controls based on volatility position + market
@@ -357,8 +368,10 @@ impl SmartAuthoringEngine {
         self.state.controls.energy.intensity = scale(defaults.intensity);
         self.state.controls.energy.build_speed = scale(defaults.build_speed);
         self.state.controls.energy.peak_aggression = scale(defaults.peak_aggression);
-        self.state.controls.energy.decay = (defaults.decay_rate * (1.3 - vol_normalized * 0.6)).clamp(0.0, 1.0);
-        self.state.controls.clarity.mix_tightness = (defaults.mix_tightness * market_mod).clamp(0.0, 1.0);
+        self.state.controls.energy.decay =
+            (defaults.decay_rate * (1.3 - vol_normalized * 0.6)).clamp(0.0, 1.0);
+        self.state.controls.clarity.mix_tightness =
+            (defaults.mix_tightness * market_mod).clamp(0.0, 1.0);
         self.state.controls.clarity.transient_sharpness = scale(defaults.transient_sharpness);
         self.state.controls.clarity.width = scale(defaults.width);
         self.state.controls.clarity.harmonics = scale(defaults.harmonics);
@@ -439,9 +452,20 @@ impl SmartAuthoringEngine {
 
         write!(json, "{{").map_err(|e| e.to_string())?;
         write!(json, "\"mode\":\"{}\",", self.state.mode.name()).map_err(|e| e.to_string())?;
-        write!(json, "\"wizard_step\":\"{}\",", self.state.wizard_step.name()).map_err(|e| e.to_string())?;
-        write!(json, "\"wizard_step_index\":{},", self.state.wizard_step.index()).map_err(|e| e.to_string())?;
-        write!(json, "\"wizard_progress\":{:.3},", self.wizard_progress()).map_err(|e| e.to_string())?;
+        write!(
+            json,
+            "\"wizard_step\":\"{}\",",
+            self.state.wizard_step.name()
+        )
+        .map_err(|e| e.to_string())?;
+        write!(
+            json,
+            "\"wizard_step_index\":{},",
+            self.state.wizard_step.index()
+        )
+        .map_err(|e| e.to_string())?;
+        write!(json, "\"wizard_progress\":{:.3},", self.wizard_progress())
+            .map_err(|e| e.to_string())?;
 
         if let Some(arch) = self.state.archetype {
             write!(json, "\"archetype\":\"{}\",", arch.name()).map_err(|e| e.to_string())?;
@@ -452,7 +476,8 @@ impl SmartAuthoringEngine {
         write!(json, "\"volatility\":{:.4},", self.state.volatility).map_err(|e| e.to_string())?;
         write!(json, "\"market\":\"{}\",", self.state.market.name()).map_err(|e| e.to_string())?;
         write!(json, "\"gdd_imported\":{},", self.state.gdd_imported).map_err(|e| e.to_string())?;
-        write!(json, "\"auto_configured\":{},", self.state.auto_configured).map_err(|e| e.to_string())?;
+        write!(json, "\"auto_configured\":{},", self.state.auto_configured)
+            .map_err(|e| e.to_string())?;
         write!(json, "\"ail_passed\":{},", self.state.ail_passed).map_err(|e| e.to_string())?;
         write!(json, "\"ail_score\":{:.1},", self.state.ail_score).map_err(|e| e.to_string())?;
         write!(json, "\"certified\":{},", self.state.certified).map_err(|e| e.to_string())?;
@@ -461,7 +486,9 @@ impl SmartAuthoringEngine {
         write!(json, "\"controls\":{{").map_err(|e| e.to_string())?;
         let arr = self.state.controls.to_array();
         for (i, ctrl) in SmartControl::all().iter().enumerate() {
-            if i > 0 { write!(json, ",").map_err(|e| e.to_string())?; }
+            if i > 0 {
+                write!(json, ",").map_err(|e| e.to_string())?;
+            }
             write!(json, "\"{}\":{:.4}", ctrl.name(), arr[i]).map_err(|e| e.to_string())?;
         }
         write!(json, "}}").map_err(|e| e.to_string())?;
@@ -479,65 +506,45 @@ impl SmartAuthoringEngine {
             // Energy → engine params
             ParameterMapping {
                 control: SmartControl::Intensity,
-                targets: vec![
-                    (EngineParameter::EnergyIntensityMultiplier, 0.3, 1.0),
-                ],
+                targets: vec![(EngineParameter::EnergyIntensityMultiplier, 0.3, 1.0)],
             },
             ParameterMapping {
                 control: SmartControl::BuildSpeed,
-                targets: vec![
-                    (EngineParameter::EscalationRate, 0.1, 2.0),
-                ],
+                targets: vec![(EngineParameter::EscalationRate, 0.1, 2.0)],
             },
             ParameterMapping {
                 control: SmartControl::PeakAggression,
-                targets: vec![
-                    (EngineParameter::PeakEnergyMultiplier, 0.5, 1.5),
-                ],
+                targets: vec![(EngineParameter::PeakEnergyMultiplier, 0.5, 1.5)],
             },
             ParameterMapping {
                 control: SmartControl::Decay,
-                targets: vec![
-                    (EngineParameter::DecayHalfLife, 100.0, 2000.0),
-                ],
+                targets: vec![(EngineParameter::DecayHalfLife, 100.0, 2000.0)],
             },
             // Clarity → engine params
             ParameterMapping {
                 control: SmartControl::MixTightness,
-                targets: vec![
-                    (EngineParameter::SpectralBandwidth, 0.3, 1.0),
-                ],
+                targets: vec![(EngineParameter::SpectralBandwidth, 0.3, 1.0)],
             },
             ParameterMapping {
                 control: SmartControl::TransientSharpness,
-                targets: vec![
-                    (EngineParameter::TransientAttack, 0.5, 50.0),
-                ],
+                targets: vec![(EngineParameter::TransientAttack, 0.5, 50.0)],
             },
             ParameterMapping {
                 control: SmartControl::Width,
-                targets: vec![
-                    (EngineParameter::StereoWidth, 0.0, 2.0),
-                ],
+                targets: vec![(EngineParameter::StereoWidth, 0.0, 2.0)],
             },
             ParameterMapping {
                 control: SmartControl::Harmonics,
-                targets: vec![
-                    (EngineParameter::HarmonicExcitation, 1.0, 3.0),
-                ],
+                targets: vec![(EngineParameter::HarmonicExcitation, 1.0, 3.0)],
             },
             // Stability → engine params
             ParameterMapping {
                 control: SmartControl::Fatigue,
-                targets: vec![
-                    (EngineParameter::FatigueThreshold, 0.3, 0.9),
-                ],
+                targets: vec![(EngineParameter::FatigueThreshold, 0.3, 0.9)],
             },
             ParameterMapping {
                 control: SmartControl::PeakDuration,
-                targets: vec![
-                    (EngineParameter::PeakDurationLimit, 60.0, 240.0),
-                ],
+                targets: vec![(EngineParameter::PeakDurationLimit, 60.0, 240.0)],
             },
             ParameterMapping {
                 control: SmartControl::VoiceDensity,
@@ -609,7 +616,7 @@ mod tests {
     fn test_wizard_progress() {
         let mut engine = SmartAuthoringEngine::new();
         let p1 = engine.wizard_progress();
-        assert!((p1 - 1.0/9.0).abs() < 0.01);
+        assert!((p1 - 1.0 / 9.0).abs() < 0.01);
 
         engine.set_wizard_step(WizardStep::Bake);
         let p9 = engine.wizard_progress();

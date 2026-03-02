@@ -3,11 +3,11 @@
 //! Exposes DPM functions via C FFI. Uses the shared AUREXIS ENGINE global
 //! from aurexis_ffi.rs since DynamicPriorityMatrix lives inside AurexisEngine.
 
-use std::ffi::{c_char, CString};
+use std::ffi::{CString, c_char};
 use std::ptr;
 
 use crate::aurexis_ffi::ENGINE;
-use rf_aurexis::priority::{EventType, EmotionalState, SurvivalAction};
+use rf_aurexis::priority::{EmotionalState, EventType, SurvivalAction};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // EMOTIONAL STATE
@@ -67,7 +67,9 @@ pub extern "C" fn dpm_compute_priority(event_type: u8, context_modifier: f64) ->
         None => return -1.0,
     };
     if let Some(ref engine) = *ENGINE.read() {
-        return engine.priority_matrix().compute_priority(et, context_modifier);
+        return engine
+            .priority_matrix()
+            .compute_priority(et, context_modifier);
     }
     -1.0
 }
@@ -150,7 +152,15 @@ pub extern "C" fn dpm_ducked_count() -> u32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn dpm_is_jackpot_override() -> i32 {
     if let Some(ref engine) = *ENGINE.read() {
-        return if engine.priority_matrix().last_output().jackpot_override_active { 1 } else { 0 };
+        return if engine
+            .priority_matrix()
+            .last_output()
+            .jackpot_override_active
+        {
+            1
+        } else {
+            0
+        };
     }
     0
 }

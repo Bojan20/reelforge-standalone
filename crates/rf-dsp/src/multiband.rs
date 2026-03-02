@@ -675,13 +675,15 @@ impl BandImager {
     /// Set mid gain in dB
     pub fn set_mid_gain_db(&mut self, db: f64) {
         self.imager.ms.set_mid_gain_db(db);
-        self.imager.enable_ms(db.abs() > 0.01 || self.side_gain_db().abs() > 0.01);
+        self.imager
+            .enable_ms(db.abs() > 0.01 || self.side_gain_db().abs() > 0.01);
     }
 
     /// Set side gain in dB
     pub fn set_side_gain_db(&mut self, db: f64) {
         self.imager.ms.set_side_gain_db(db);
-        self.imager.enable_ms(db.abs() > 0.01 || self.mid_gain_db().abs() > 0.01);
+        self.imager
+            .enable_ms(db.abs() > 0.01 || self.mid_gain_db().abs() > 0.01);
     }
 
     fn mid_gain_db(&self) -> f64 {
@@ -770,7 +772,9 @@ impl MultibandStereoImager {
             .map(|&freq| Crossover::new(freq, sample_rate, crossover_type))
             .collect();
 
-        let bands: Vec<BandImager> = (0..num_bands).map(|_| BandImager::new(sample_rate)).collect();
+        let bands: Vec<BandImager> = (0..num_bands)
+            .map(|_| BandImager::new(sample_rate))
+            .collect();
 
         Self {
             num_bands,
@@ -826,7 +830,8 @@ impl MultibandStereoImager {
             .map(|&freq| Crossover::new(freq, self.sample_rate, self.crossover_type))
             .collect();
 
-        self.bands.resize_with(num_bands, || BandImager::new(self.sample_rate));
+        self.bands
+            .resize_with(num_bands, || BandImager::new(self.sample_rate));
         self.band_buffers = vec![(0.0, 0.0); num_bands];
     }
 
@@ -1179,7 +1184,10 @@ mod tests {
             let (l, r) = mbi.process_sample(sig, sig);
             max_diff = max_diff.max((l - r).abs());
         }
-        assert!(max_diff > 1e-5, "Stereoize should create L/R difference, got {max_diff}");
+        assert!(
+            max_diff > 1e-5,
+            "Stereoize should create L/R difference, got {max_diff}"
+        );
     }
 
     #[test]

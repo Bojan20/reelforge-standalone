@@ -33,17 +33,20 @@ pub fn validate_game_id(game_id: &str) -> Result<(), FluxMacroError> {
 /// Returns the canonicalized path on success.
 pub fn sandbox_path(path: &Path, sandbox: &Path) -> Result<PathBuf, FluxMacroError> {
     // Canonicalize sandbox (must exist)
-    let canonical_sandbox = sandbox.canonicalize().map_err(|_| FluxMacroError::PathTraversal {
-        path: path.to_path_buf(),
-        sandbox: sandbox.to_path_buf(),
-    })?;
+    let canonical_sandbox = sandbox
+        .canonicalize()
+        .map_err(|_| FluxMacroError::PathTraversal {
+            path: path.to_path_buf(),
+            sandbox: sandbox.to_path_buf(),
+        })?;
 
     // For paths that don't exist yet, resolve what we can
     let canonical_path = if path.exists() {
-        path.canonicalize().map_err(|_| FluxMacroError::PathTraversal {
-            path: path.to_path_buf(),
-            sandbox: sandbox.to_path_buf(),
-        })?
+        path.canonicalize()
+            .map_err(|_| FluxMacroError::PathTraversal {
+                path: path.to_path_buf(),
+                sandbox: sandbox.to_path_buf(),
+            })?
     } else {
         // Resolve parent + append filename
         resolve_nonexistent_path(path, &canonical_sandbox)?
@@ -68,10 +71,12 @@ fn resolve_nonexistent_path(path: &Path, sandbox: &Path) -> Result<PathBuf, Flux
     // Walk up until we find an existing directory
     loop {
         if current.exists() {
-            let base = current.canonicalize().map_err(|_| FluxMacroError::PathTraversal {
-                path: path.to_path_buf(),
-                sandbox: sandbox.to_path_buf(),
-            })?;
+            let base = current
+                .canonicalize()
+                .map_err(|_| FluxMacroError::PathTraversal {
+                    path: path.to_path_buf(),
+                    sandbox: sandbox.to_path_buf(),
+                })?;
             // Re-append the non-existent components
             let mut result = base;
             for component in components.into_iter().rev() {
@@ -212,7 +217,10 @@ mod tests {
     fn sanitize_filename_basic() {
         assert_eq!(sanitize_filename("hello.txt"), "hello.txt");
         assert_eq!(sanitize_filename("my file.txt"), "my_file.txt");
-        assert_eq!(sanitize_filename("../../../etc/passwd"), ".._.._.._etc_passwd");
+        assert_eq!(
+            sanitize_filename("../../../etc/passwd"),
+            ".._.._.._etc_passwd"
+        );
     }
 
     #[test]

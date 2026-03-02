@@ -267,7 +267,11 @@ impl RtState {
                     // If no slot available, voice is dropped (graceful degradation)
                 }
                 PreviewCommand::StopVoice { voice_id } => {
-                    if let Some(voice) = self.voices.iter_mut().find(|v| v.id == voice_id && v.active) {
+                    if let Some(voice) = self
+                        .voices
+                        .iter_mut()
+                        .find(|v| v.id == voice_id && v.active)
+                    {
                         voice.start_fade_out();
                     }
                 }

@@ -58,6 +58,12 @@ class DawLowerZoneController extends ChangeNotifier {
     return instance;
   }
 
+  /// Reset singleton for testing — creates a fresh instance with default state
+  @visibleForTesting
+  static void resetForTesting() {
+    _instance = DawLowerZoneController._();
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // GETTERS
   // ═══════════════════════════════════════════════════════════════════════════

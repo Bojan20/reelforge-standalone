@@ -751,8 +751,7 @@ impl Compressor {
             self.sc_eq_mid_filter
                 .set_peaking(self.sc_eq_mid_freq, 1.0, self.sc_eq_mid_gain);
         } else {
-            self.sc_eq_mid_filter
-                .set_coeffs(BiquadCoeffs::bypass());
+            self.sc_eq_mid_filter.set_coeffs(BiquadCoeffs::bypass());
         }
     }
 
@@ -788,30 +787,78 @@ impl Compressor {
     // GETTERS (for wrapper get_param)
     // ═══════════════════════════════════════════════════════════════════════════════
 
-    pub fn threshold_db(&self) -> f64 { self.threshold_db }
-    pub fn ratio(&self) -> f64 { self.ratio }
-    pub fn attack_ms(&self) -> f64 { self.attack_ms }
-    pub fn release_ms(&self) -> f64 { self.release_ms }
-    pub fn makeup_gain_db(&self) -> f64 { self.makeup_gain_db }
-    pub fn mix(&self) -> f64 { self.mix }
-    pub fn knee_db(&self) -> f64 { self.knee_db }
-    pub fn comp_type(&self) -> CompressorType { self.comp_type }
-    pub fn character(&self) -> CompressorCharacter { self.character }
-    pub fn drive_db(&self) -> f64 { self.drive_db }
-    pub fn range_db(&self) -> f64 { self.range_db }
-    pub fn sc_hp_freq(&self) -> f64 { self.sc_hp_freq }
-    pub fn sc_lp_freq(&self) -> f64 { self.sc_lp_freq }
-    pub fn sc_audition(&self) -> bool { self.sc_audition }
-    pub fn lookahead_ms(&self) -> f64 { self.lookahead_ms }
-    pub fn sc_eq_mid_freq(&self) -> f64 { self.sc_eq_mid_freq }
-    pub fn sc_eq_mid_gain(&self) -> f64 { self.sc_eq_mid_gain }
-    pub fn auto_threshold_enabled(&self) -> bool { self.auto_threshold }
-    pub fn auto_makeup_enabled(&self) -> bool { self.auto_makeup }
-    pub fn detection_mode(&self) -> DetectionMode { self.detection_mode }
-    pub fn adaptive_release_enabled(&self) -> bool { self.adaptive_release }
-    pub fn host_sync_enabled(&self) -> bool { self.host_sync }
-    pub fn host_bpm(&self) -> f64 { self.host_bpm }
-    pub fn mid_side_enabled(&self) -> bool { self.mid_side }
+    pub fn threshold_db(&self) -> f64 {
+        self.threshold_db
+    }
+    pub fn ratio(&self) -> f64 {
+        self.ratio
+    }
+    pub fn attack_ms(&self) -> f64 {
+        self.attack_ms
+    }
+    pub fn release_ms(&self) -> f64 {
+        self.release_ms
+    }
+    pub fn makeup_gain_db(&self) -> f64 {
+        self.makeup_gain_db
+    }
+    pub fn mix(&self) -> f64 {
+        self.mix
+    }
+    pub fn knee_db(&self) -> f64 {
+        self.knee_db
+    }
+    pub fn comp_type(&self) -> CompressorType {
+        self.comp_type
+    }
+    pub fn character(&self) -> CompressorCharacter {
+        self.character
+    }
+    pub fn drive_db(&self) -> f64 {
+        self.drive_db
+    }
+    pub fn range_db(&self) -> f64 {
+        self.range_db
+    }
+    pub fn sc_hp_freq(&self) -> f64 {
+        self.sc_hp_freq
+    }
+    pub fn sc_lp_freq(&self) -> f64 {
+        self.sc_lp_freq
+    }
+    pub fn sc_audition(&self) -> bool {
+        self.sc_audition
+    }
+    pub fn lookahead_ms(&self) -> f64 {
+        self.lookahead_ms
+    }
+    pub fn sc_eq_mid_freq(&self) -> f64 {
+        self.sc_eq_mid_freq
+    }
+    pub fn sc_eq_mid_gain(&self) -> f64 {
+        self.sc_eq_mid_gain
+    }
+    pub fn auto_threshold_enabled(&self) -> bool {
+        self.auto_threshold
+    }
+    pub fn auto_makeup_enabled(&self) -> bool {
+        self.auto_makeup
+    }
+    pub fn detection_mode(&self) -> DetectionMode {
+        self.detection_mode
+    }
+    pub fn adaptive_release_enabled(&self) -> bool {
+        self.adaptive_release
+    }
+    pub fn host_sync_enabled(&self) -> bool {
+        self.host_sync
+    }
+    pub fn host_bpm(&self) -> f64 {
+        self.host_bpm
+    }
+    pub fn mid_side_enabled(&self) -> bool {
+        self.mid_side
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════════
     // METERING
@@ -869,9 +916,7 @@ impl Compressor {
     #[inline]
     fn detect_level(&mut self, signal: Sample) -> f64 {
         match self.detection_mode {
-            DetectionMode::Peak => {
-                self.envelope.process(signal)
-            }
+            DetectionMode::Peak => self.envelope.process(signal),
             DetectionMode::Rms => {
                 // Running RMS calculation
                 self.rms_sum += (signal * signal) as f64;
@@ -928,8 +973,7 @@ impl Compressor {
         }
         // Slow envelope follower tracks input level (~500ms time constant)
         let coeff = (-1.0 / (0.5 * self.sample_rate)).exp();
-        self.auto_threshold_envelope =
-            input_db + coeff * (self.auto_threshold_envelope - input_db);
+        self.auto_threshold_envelope = input_db + coeff * (self.auto_threshold_envelope - input_db);
     }
 
     /// Get effective threshold (may be auto-adjusted)
@@ -965,8 +1009,7 @@ impl Compressor {
         // Track GR envelope — heavier compression = faster release
         let gr_abs = self.gain_reduction.abs();
         let coeff = (-1.0 / (0.1 * self.sample_rate)).exp();
-        self.adaptive_release_envelope =
-            gr_abs + coeff * (self.adaptive_release_envelope - gr_abs);
+        self.adaptive_release_envelope = gr_abs + coeff * (self.adaptive_release_envelope - gr_abs);
 
         // Scale release: 100% at low GR → 30% at heavy GR (20dB+)
         let gr_factor = (1.0 - (self.adaptive_release_envelope / 20.0).min(1.0) * 0.7).max(0.3);
@@ -2037,7 +2080,8 @@ impl GainStageB {
     #[inline(always)]
     fn process(&mut self, target_gain: f64, input_level: f64) -> f64 {
         // Track signal level for program-dependent behavior
-        self.signal_level = input_level + self.signal_smooth_coeff * (self.signal_level - input_level);
+        self.signal_level =
+            input_level + self.signal_smooth_coeff * (self.signal_level - input_level);
 
         if target_gain < self.gain {
             // Attack (instant for sustain stage — transient containment is in StageA)
@@ -2188,8 +2232,10 @@ impl TruePeakLimiter {
 
     pub fn set_attack(&mut self, ms: f64) {
         self.attack_ms = ms.clamp(0.01, 10.0);
-        self.stage_a_l.update_coeffs(self.sample_rate, self.attack_ms);
-        self.stage_a_r.update_coeffs(self.sample_rate, self.attack_ms);
+        self.stage_a_l
+            .update_coeffs(self.sample_rate, self.attack_ms);
+        self.stage_a_r
+            .update_coeffs(self.sample_rate, self.attack_ms);
     }
 
     pub fn set_lookahead(&mut self, ms: f64) {
@@ -2209,8 +2255,10 @@ impl TruePeakLimiter {
 
     pub fn set_style(&mut self, style: LimiterStyle) {
         self.style = style;
-        self.stage_a_l.update_coeffs(self.sample_rate, style.transient_attack_ms());
-        self.stage_a_r.update_coeffs(self.sample_rate, style.transient_attack_ms());
+        self.stage_a_l
+            .update_coeffs(self.sample_rate, style.transient_attack_ms());
+        self.stage_a_r
+            .update_coeffs(self.sample_rate, style.transient_attack_ms());
         self.stage_b_l.update_coeffs(self.sample_rate, &style);
         self.stage_b_r.update_coeffs(self.sample_rate, &style);
     }
@@ -2248,20 +2296,48 @@ impl TruePeakLimiter {
 
     // ═══ Parameter Getters ═══
 
-    pub fn input_trim_db(&self) -> f64 { self.input_trim_db }
-    pub fn threshold_db(&self) -> f64 { self.threshold_db }
-    pub fn ceiling_db_val(&self) -> f64 { self.ceiling_db }
-    pub fn release_ms(&self) -> f64 { self.release_ms }
-    pub fn attack_ms(&self) -> f64 { self.attack_ms }
-    pub fn lookahead_ms(&self) -> f64 { self.lookahead_ms }
-    pub fn style(&self) -> LimiterStyle { self.style }
-    pub fn oversampling(&self) -> Oversampling { self.oversampling }
-    pub fn stereo_link_pct(&self) -> f64 { self.stereo_link_pct }
-    pub fn ms_mode(&self) -> bool { self.ms_mode }
-    pub fn mix_pct(&self) -> f64 { self.mix_pct }
-    pub fn dither_bits(&self) -> DitherBits { self.dither_bits }
-    pub fn latency_profile(&self) -> LimiterLatencyProfile { self.latency_profile }
-    pub fn channel_config(&self) -> LimiterChannelConfig { self.channel_config }
+    pub fn input_trim_db(&self) -> f64 {
+        self.input_trim_db
+    }
+    pub fn threshold_db(&self) -> f64 {
+        self.threshold_db
+    }
+    pub fn ceiling_db_val(&self) -> f64 {
+        self.ceiling_db
+    }
+    pub fn release_ms(&self) -> f64 {
+        self.release_ms
+    }
+    pub fn attack_ms(&self) -> f64 {
+        self.attack_ms
+    }
+    pub fn lookahead_ms(&self) -> f64 {
+        self.lookahead_ms
+    }
+    pub fn style(&self) -> LimiterStyle {
+        self.style
+    }
+    pub fn oversampling(&self) -> Oversampling {
+        self.oversampling
+    }
+    pub fn stereo_link_pct(&self) -> f64 {
+        self.stereo_link_pct
+    }
+    pub fn ms_mode(&self) -> bool {
+        self.ms_mode
+    }
+    pub fn mix_pct(&self) -> f64 {
+        self.mix_pct
+    }
+    pub fn dither_bits(&self) -> DitherBits {
+        self.dither_bits
+    }
+    pub fn latency_profile(&self) -> LimiterLatencyProfile {
+        self.latency_profile
+    }
+    pub fn channel_config(&self) -> LimiterChannelConfig {
+        self.channel_config
+    }
 
     // ═══ Meter Getters ═══
 
@@ -2276,19 +2352,33 @@ impl TruePeakLimiter {
     }
 
     /// Per-channel gain reduction (L)
-    pub fn gr_left_db(&self) -> f64 { self.gr_left }
+    pub fn gr_left_db(&self) -> f64 {
+        self.gr_left
+    }
     /// Per-channel gain reduction (R)
-    pub fn gr_right_db(&self) -> f64 { self.gr_right }
+    pub fn gr_right_db(&self) -> f64 {
+        self.gr_right
+    }
     /// Input peak L in dBFS
-    pub fn input_peak_l_db(&self) -> f64 { self.input_peak_l }
+    pub fn input_peak_l_db(&self) -> f64 {
+        self.input_peak_l
+    }
     /// Input peak R in dBFS
-    pub fn input_peak_r_db(&self) -> f64 { self.input_peak_r }
+    pub fn input_peak_r_db(&self) -> f64 {
+        self.input_peak_r
+    }
     /// Output true peak L in dBTP
-    pub fn output_true_peak_l_db(&self) -> f64 { self.output_true_peak_l }
+    pub fn output_true_peak_l_db(&self) -> f64 {
+        self.output_true_peak_l
+    }
     /// Output true peak R in dBTP
-    pub fn output_true_peak_r_db(&self) -> f64 { self.output_true_peak_r }
+    pub fn output_true_peak_r_db(&self) -> f64 {
+        self.output_true_peak_r
+    }
     /// GR max hold (2s decay)
-    pub fn gr_max_hold_db(&self) -> f64 { self.gr_max_hold }
+    pub fn gr_max_hold_db(&self) -> f64 {
+        self.gr_max_hold
+    }
 
     // ═══ Internal Helpers ═══
 
@@ -2296,7 +2386,9 @@ impl TruePeakLimiter {
     #[inline(always)]
     fn dither_sample(&mut self) -> f64 {
         let amp = self.dither_bits.amplitude();
-        if amp <= 0.0 { return 0.0; }
+        if amp <= 0.0 {
+            return 0.0;
+        }
         // xorshift64
         let mut s = self.dither_state;
         s ^= s << 13;
@@ -2463,8 +2555,12 @@ impl StereoProcessor for TruePeakLimiter {
         let in_peak_r = proc_r.abs();
         let in_peak_l_db = linear_to_db_fast(in_peak_l.max(1e-20));
         let in_peak_r_db = linear_to_db_fast(in_peak_r.max(1e-20));
-        if in_peak_l_db > self.input_peak_l { self.input_peak_l = in_peak_l_db; }
-        if in_peak_r_db > self.input_peak_r { self.input_peak_r = in_peak_r_db; }
+        if in_peak_l_db > self.input_peak_l {
+            self.input_peak_l = in_peak_l_db;
+        }
+        if in_peak_r_db > self.input_peak_r {
+            self.input_peak_r = in_peak_r_db;
+        }
 
         // ═══ Stage 4: Lookahead Delay ═══
         let buf_len = self.lookahead_buffer_l.len();
@@ -2511,7 +2607,8 @@ impl StereoProcessor for TruePeakLimiter {
 
         // ═══ Stage 8: Stereo Link ═══
         if self.stereo_link_pct > 0.0 {
-            let (linked_l, linked_r) = Self::stereo_link(final_gr_l, final_gr_r, self.stereo_link_pct);
+            let (linked_l, linked_r) =
+                Self::stereo_link(final_gr_l, final_gr_r, self.stereo_link_pct);
             final_gr_l = linked_l;
             final_gr_r = linked_r;
         }
@@ -2525,8 +2622,12 @@ impl StereoProcessor for TruePeakLimiter {
 
         // ═══ Stage 10: Ceiling Safety ═══
         let ceil = ceiling_linear;
-        if out_l.abs() > ceil { out_l = out_l.signum() * ceil; }
-        if out_r.abs() > ceil { out_r = out_r.signum() * ceil; }
+        if out_l.abs() > ceil {
+            out_l = out_l.signum() * ceil;
+        }
+        if out_r.abs() > ceil {
+            out_r = out_r.signum() * ceil;
+        }
 
         // ═══ Stage 11: M/S Decode (if M/S active) ═══
         if self.ms_mode {
@@ -2557,15 +2658,20 @@ impl StereoProcessor for TruePeakLimiter {
         // Output true peak metering
         let out_peak_l = linear_to_db_fast(out_l.abs().max(1e-20));
         let out_peak_r = linear_to_db_fast(out_r.abs().max(1e-20));
-        if out_peak_l > self.output_true_peak_l { self.output_true_peak_l = out_peak_l; }
-        if out_peak_r > self.output_true_peak_r { self.output_true_peak_r = out_peak_r; }
+        if out_peak_l > self.output_true_peak_l {
+            self.output_true_peak_l = out_peak_l;
+        }
+        if out_peak_r > self.output_true_peak_r {
+            self.output_true_peak_r = out_peak_r;
+        }
 
         // GR max hold with 2s decay
         let gr_max_now = gr_db_l.max(gr_db_r);
         if gr_max_now > self.gr_max_hold {
             self.gr_max_hold = gr_max_now;
         } else {
-            self.gr_max_hold = gr_max_now + self.gr_max_decay_coeff * (self.gr_max_hold - gr_max_now);
+            self.gr_max_hold =
+                gr_max_now + self.gr_max_decay_coeff * (self.gr_max_hold - gr_max_now);
         }
 
         (out_l, out_r)
@@ -2584,8 +2690,10 @@ impl ProcessorConfig for TruePeakLimiter {
         self.buffer_pos = 0;
 
         // Update gain stage coefficients
-        self.stage_a_l.update_coeffs(sample_rate, self.style.transient_attack_ms());
-        self.stage_a_r.update_coeffs(sample_rate, self.style.transient_attack_ms());
+        self.stage_a_l
+            .update_coeffs(sample_rate, self.style.transient_attack_ms());
+        self.stage_a_r
+            .update_coeffs(sample_rate, self.style.transient_attack_ms());
         self.stage_b_l.update_coeffs(sample_rate, &self.style);
         self.stage_b_r.update_coeffs(sample_rate, &self.style);
     }
@@ -2913,11 +3021,21 @@ impl Expander {
     }
 
     // Getters
-    pub fn threshold_db(&self) -> f64 { self.threshold_db }
-    pub fn ratio(&self) -> f64 { self.ratio }
-    pub fn knee_db(&self) -> f64 { self.knee_db }
-    pub fn attack_ms(&self) -> f64 { self.attack_ms }
-    pub fn release_ms(&self) -> f64 { self.release_ms }
+    pub fn threshold_db(&self) -> f64 {
+        self.threshold_db
+    }
+    pub fn ratio(&self) -> f64 {
+        self.ratio
+    }
+    pub fn knee_db(&self) -> f64 {
+        self.knee_db
+    }
+    pub fn attack_ms(&self) -> f64 {
+        self.attack_ms
+    }
+    pub fn release_ms(&self) -> f64 {
+        self.release_ms
+    }
 
     /// Enable/disable external sidechain input
     pub fn set_sidechain_enabled(&mut self, enabled: bool) {
@@ -3383,8 +3501,14 @@ mod tests {
         assert!(!limiter.ms_mode());
         assert!((limiter.mix_pct() - 100.0).abs() < 0.001);
         assert!(matches!(limiter.dither_bits(), DitherBits::Off));
-        assert!(matches!(limiter.latency_profile(), LimiterLatencyProfile::HighQuality));
-        assert!(matches!(limiter.channel_config(), LimiterChannelConfig::Stereo));
+        assert!(matches!(
+            limiter.latency_profile(),
+            LimiterLatencyProfile::HighQuality
+        ));
+        assert!(matches!(
+            limiter.channel_config(),
+            LimiterChannelConfig::Stereo
+        ));
     }
 
     #[test]
@@ -3418,8 +3542,14 @@ mod tests {
         assert!(limiter.ms_mode());
         assert!((limiter.mix_pct() - 75.0).abs() < 0.001);
         assert!(matches!(limiter.dither_bits(), DitherBits::Bits16));
-        assert!(matches!(limiter.latency_profile(), LimiterLatencyProfile::HighQuality));
-        assert!(matches!(limiter.channel_config(), LimiterChannelConfig::MidSide));
+        assert!(matches!(
+            limiter.latency_profile(),
+            LimiterLatencyProfile::HighQuality
+        ));
+        assert!(matches!(
+            limiter.channel_config(),
+            LimiterChannelConfig::MidSide
+        ));
     }
 
     #[test]
@@ -3482,7 +3612,11 @@ mod tests {
         // Tiny signal won't trigger limiter, so output should show trim
         let (l, _r) = limiter.process_sample(0.001, 0.001);
         // With +6dB trim, 0.001 → ~0.002, which is below threshold
-        assert!(l > 0.0015, "Input trim +6dB should approximately double the signal, got {}", l);
+        assert!(
+            l > 0.0015,
+            "Input trim +6dB should approximately double the signal, got {}",
+            l
+        );
     }
 
     #[test]
@@ -3502,10 +3636,18 @@ mod tests {
         for _ in 0..100 {
             let (l, r) = limiter.process_sample(2.0, 2.0);
             // Allow small tolerance for filter overshoot
-            assert!(l.abs() < ceiling_linear * 1.05,
-                "Output {:.4} exceeds ceiling {:.4}", l.abs(), ceiling_linear);
-            assert!(r.abs() < ceiling_linear * 1.05,
-                "Output {:.4} exceeds ceiling {:.4}", r.abs(), ceiling_linear);
+            assert!(
+                l.abs() < ceiling_linear * 1.05,
+                "Output {:.4} exceeds ceiling {:.4}",
+                l.abs(),
+                ceiling_linear
+            );
+            assert!(
+                r.abs() < ceiling_linear * 1.05,
+                "Output {:.4} exceeds ceiling {:.4}",
+                r.abs(),
+                ceiling_linear
+            );
         }
     }
 
@@ -3524,8 +3666,16 @@ mod tests {
         // (e.g., 6dB of gain reduction = gr_left_db() returns 6.0)
         let gr_l = limiter.gr_left_db();
         let gr_r = limiter.gr_right_db();
-        assert!(gr_l > 0.1, "GR left should be positive dB when limiting, got {}", gr_l);
-        assert!(gr_r > 0.1, "GR right should be positive dB when limiting, got {}", gr_r);
+        assert!(
+            gr_l > 0.1,
+            "GR left should be positive dB when limiting, got {}",
+            gr_l
+        );
+        assert!(
+            gr_r > 0.1,
+            "GR right should be positive dB when limiting, got {}",
+            gr_r
+        );
     }
 
     #[test]
@@ -3541,10 +3691,16 @@ mod tests {
         // 0.5 linear → ~-6.02 dB, 0.8 linear → ~-1.94 dB
         let peak_l = limiter.input_peak_l_db();
         let peak_r = limiter.input_peak_r_db();
-        assert!(peak_l > -7.0 && peak_l < -5.0,
-            "Input peak L should be ~-6dB for 0.5 input, got {}", peak_l);
-        assert!(peak_r > -3.0 && peak_r < -1.0,
-            "Input peak R should be ~-2dB for 0.8 input, got {}", peak_r);
+        assert!(
+            peak_l > -7.0 && peak_l < -5.0,
+            "Input peak L should be ~-6dB for 0.5 input, got {}",
+            peak_l
+        );
+        assert!(
+            peak_r > -3.0 && peak_r < -1.0,
+            "Input peak R should be ~-2dB for 0.8 input, got {}",
+            peak_r
+        );
     }
 
     #[test]
@@ -3566,7 +3722,11 @@ mod tests {
         // Dry (mix=0%) should pass through unchanged
         let (dry_l, _) = limiter_dry.process_sample(0.8, 0.8);
         // With lookahead delay, dry output should eventually approximate input
-        assert!((dry_l - 0.8).abs() < 0.1, "Mix 0% should be near-bypass, got {}", dry_l);
+        assert!(
+            (dry_l - 0.8).abs() < 0.1,
+            "Mix 0% should be near-bypass, got {}",
+            dry_l
+        );
     }
 
     #[test]
@@ -3583,8 +3743,12 @@ mod tests {
         // With 100% link, both channels should get same GR
         let gr_l = limiter.gr_left_db();
         let gr_r = limiter.gr_right_db();
-        assert!((gr_l - gr_r).abs() < 0.5,
-            "100% link: GR should be similar, got L={}, R={}", gr_l, gr_r);
+        assert!(
+            (gr_l - gr_r).abs() < 0.5,
+            "100% link: GR should be similar, got L={}, R={}",
+            gr_l,
+            gr_r
+        );
     }
 
     #[test]
@@ -3602,8 +3766,12 @@ mod tests {
         // GR is POSITIVE dB — L is loud → more positive GR, R is quiet → less/no GR
         let gr_l = limiter.gr_left_db();
         let gr_r = limiter.gr_right_db();
-        assert!(gr_l > gr_r + 1.0,
-            "0% link: L should have more GR (higher positive dB) than R, got L={}, R={}", gr_l, gr_r);
+        assert!(
+            gr_l > gr_r + 1.0,
+            "0% link: L should have more GR (higher positive dB) than R, got L={}, R={}",
+            gr_l,
+            gr_r
+        );
     }
 
     #[test]
@@ -3613,8 +3781,18 @@ mod tests {
         let r_in = 0.3;
         let (mid, side) = TruePeakLimiter::ms_encode_static(l_in, r_in);
         let (l_out, r_out) = TruePeakLimiter::ms_decode_static(mid, side);
-        assert!((l_out - l_in).abs() < 1e-10, "M/S roundtrip L: {} vs {}", l_out, l_in);
-        assert!((r_out - r_in).abs() < 1e-10, "M/S roundtrip R: {} vs {}", r_out, r_in);
+        assert!(
+            (l_out - l_in).abs() < 1e-10,
+            "M/S roundtrip L: {} vs {}",
+            l_out,
+            l_in
+        );
+        assert!(
+            (r_out - r_in).abs() < 1e-10,
+            "M/S roundtrip R: {} vs {}",
+            r_out,
+            r_in
+        );
     }
 
     #[test]
@@ -3622,9 +3800,14 @@ mod tests {
         // Styles differ in attack/release behavior, so use transient+sustain mix
         // to reveal different GR curves across styles
         let styles = [
-            LimiterStyle::Transparent, LimiterStyle::Punchy, LimiterStyle::Dynamic,
-            LimiterStyle::Aggressive, LimiterStyle::Bus, LimiterStyle::Safe,
-            LimiterStyle::Modern, LimiterStyle::Allround,
+            LimiterStyle::Transparent,
+            LimiterStyle::Punchy,
+            LimiterStyle::Dynamic,
+            LimiterStyle::Aggressive,
+            LimiterStyle::Bus,
+            LimiterStyle::Safe,
+            LimiterStyle::Modern,
+            LimiterStyle::Allround,
         ];
         let mut gr_sums = Vec::new();
 
@@ -3660,9 +3843,12 @@ mod tests {
             deduped.dedup_by(|a, b| (*a - *b).abs() < 1.0); // 1dB cumulative tolerance
             deduped.len()
         };
-        assert!(unique_count >= 3,
+        assert!(
+            unique_count >= 3,
             "Expected at least 3 unique cumulative GR values across 8 styles, got {} ({:?})",
-            unique_count, gr_sums);
+            unique_count,
+            gr_sums
+        );
     }
 
     #[test]
@@ -3706,7 +3892,11 @@ mod tests {
             prev = l;
         }
         // Max sample-to-sample jump should be small (no click)
-        assert!(max_jump < 0.2, "Style switch caused click: max_jump={}", max_jump);
+        assert!(
+            max_jump < 0.2,
+            "Style switch caused click: max_jump={}",
+            max_jump
+        );
     }
 
     #[test]
@@ -3722,10 +3912,20 @@ mod tests {
 
             for _ in 0..3000 {
                 let (l, r) = limiter.process_sample(2.0, 2.0);
-                assert!(l.abs() < ceiling_linear * 1.1,
-                    "Style {} broke ceiling: {} > {}", style_idx, l.abs(), ceiling_linear);
-                assert!(r.abs() < ceiling_linear * 1.1,
-                    "Style {} broke ceiling: {} > {}", style_idx, r.abs(), ceiling_linear);
+                assert!(
+                    l.abs() < ceiling_linear * 1.1,
+                    "Style {} broke ceiling: {} > {}",
+                    style_idx,
+                    l.abs(),
+                    ceiling_linear
+                );
+                assert!(
+                    r.abs() < ceiling_linear * 1.1,
+                    "Style {} broke ceiling: {} > {}",
+                    style_idx,
+                    r.abs(),
+                    ceiling_linear
+                );
             }
         }
     }
@@ -3755,8 +3955,12 @@ mod tests {
 
         // GR is POSITIVE dB — transient should have MORE positive GR (more reduction)
         // than sustained moderate signal
-        assert!(gr_transient > gr_sustained - 1.0,
-            "Transient GR ({} dB) should be >= sustained GR ({} dB)", gr_transient, gr_sustained);
+        assert!(
+            gr_transient > gr_sustained - 1.0,
+            "Transient GR ({} dB) should be >= sustained GR ({} dB)",
+            gr_transient,
+            gr_sustained
+        );
     }
 
     #[test]
@@ -3765,7 +3969,11 @@ mod tests {
         limiter.set_latency_profile(LimiterLatencyProfile::ZeroLatency);
 
         // Zero latency = 0 lookahead
-        assert_eq!(limiter.latency_samples(), 0, "ZeroLatency should have 0 latency");
+        assert_eq!(
+            limiter.latency_samples(),
+            0,
+            "ZeroLatency should have 0 latency"
+        );
 
         // Should still produce valid output
         for _ in 0..1000 {
@@ -3788,8 +3996,16 @@ mod tests {
 
         // With lookahead delay settled, output should match input closely
         let (l, r) = limiter.process_sample(0.1, 0.1);
-        assert!((l - 0.1).abs() < 0.05, "Dither off should be near-passthrough, got {}", l);
-        assert!((r - 0.1).abs() < 0.05, "Dither off should be near-passthrough, got {}", r);
+        assert!(
+            (l - 0.1).abs() < 0.05,
+            "Dither off should be near-passthrough, got {}",
+            l
+        );
+        assert!(
+            (r - 0.1).abs() < 0.05,
+            "Dither off should be near-passthrough, got {}",
+            r
+        );
     }
 
     #[test]
@@ -3816,7 +4032,11 @@ mod tests {
             diff_sum += (clean_l - dith_l).abs();
         }
         // Dither should add measurable noise
-        assert!(diff_sum > 1e-6, "16-bit dither should add measurable noise, diff_sum={}", diff_sum);
+        assert!(
+            diff_sum > 1e-6,
+            "16-bit dither should add measurable noise, diff_sum={}",
+            diff_sum
+        );
     }
 
     #[test]
@@ -3837,8 +4057,12 @@ mod tests {
         let gr_max_after = limiter.gr_max_hold_db();
 
         // Peak hold should retain the worst value (or decay slowly)
-        assert!(gr_max_after <= gr_max_during + 0.5,
-            "GR max hold should retain peak, during={} after={}", gr_max_during, gr_max_after);
+        assert!(
+            gr_max_after <= gr_max_during + 0.5,
+            "GR max hold should retain peak, during={} after={}",
+            gr_max_during,
+            gr_max_after
+        );
     }
 
     #[test]
@@ -3851,15 +4075,28 @@ mod tests {
             let _ = limiter.process_sample(2.0, 2.0);
         }
         // GR is POSITIVE dB when limiting
-        assert!(limiter.gr_left_db() > 0.1, "Should have positive GR before reset, got {}", limiter.gr_left_db());
+        assert!(
+            limiter.gr_left_db() > 0.1,
+            "Should have positive GR before reset, got {}",
+            limiter.gr_left_db()
+        );
 
         // Reset
         limiter.reset();
 
         // After reset, meters should be zeroed
-        assert!((limiter.gr_left_db() - 0.0).abs() < 0.001, "GR should be 0 after reset");
-        assert!((limiter.gr_right_db() - 0.0).abs() < 0.001, "GR should be 0 after reset");
-        assert!((limiter.gr_max_hold_db() - 0.0).abs() < 0.001, "GR max should be 0 after reset");
+        assert!(
+            (limiter.gr_left_db() - 0.0).abs() < 0.001,
+            "GR should be 0 after reset"
+        );
+        assert!(
+            (limiter.gr_right_db() - 0.0).abs() < 0.001,
+            "GR should be 0 after reset"
+        );
+        assert!(
+            (limiter.gr_max_hold_db() - 0.0).abs() < 0.001,
+            "GR max should be 0 after reset"
+        );
     }
 
     #[test]
@@ -3891,15 +4128,36 @@ mod tests {
         // Verify style DSP constants are sensible
         for idx in 0..8 {
             let style = LimiterStyle::from_index(idx);
-            assert!(style.transient_attack_ms() > 0.0, "Style {} attack <= 0", idx);
-            assert!(style.transient_attack_ms() < 10.0, "Style {} attack too high", idx);
-            assert!(style.fast_release_ms() > 0.0, "Style {} fast release <= 0", idx);
-            assert!(style.slow_release_ms() > style.fast_release_ms(),
-                "Style {} slow release should > fast release", idx);
-            assert!(style.anti_pump_strength() >= 0.0 && style.anti_pump_strength() <= 1.0,
-                "Style {} anti-pump out of range", idx);
-            assert!(style.sustain_sensitivity() >= 0.0 && style.sustain_sensitivity() <= 1.0,
-                "Style {} sustain sensitivity out of range", idx);
+            assert!(
+                style.transient_attack_ms() > 0.0,
+                "Style {} attack <= 0",
+                idx
+            );
+            assert!(
+                style.transient_attack_ms() < 10.0,
+                "Style {} attack too high",
+                idx
+            );
+            assert!(
+                style.fast_release_ms() > 0.0,
+                "Style {} fast release <= 0",
+                idx
+            );
+            assert!(
+                style.slow_release_ms() > style.fast_release_ms(),
+                "Style {} slow release should > fast release",
+                idx
+            );
+            assert!(
+                style.anti_pump_strength() >= 0.0 && style.anti_pump_strength() <= 1.0,
+                "Style {} anti-pump out of range",
+                idx
+            );
+            assert!(
+                style.sustain_sensitivity() >= 0.0 && style.sustain_sensitivity() <= 1.0,
+                "Style {} sustain sensitivity out of range",
+                idx
+            );
         }
     }
 
@@ -3926,7 +4184,10 @@ mod tests {
         limiter.set_latency_profile(LimiterLatencyProfile::OfflineMax);
         limiter.set_lookahead(20.0);
         let offline_latency = limiter.latency_samples();
-        assert!(offline_latency >= hq_latency, "Offline should have >= HQ latency");
+        assert!(
+            offline_latency >= hq_latency,
+            "Offline should have >= HQ latency"
+        );
     }
 
     #[test]
@@ -4286,9 +4547,15 @@ mod tests {
         comp.set_knee(12.0);
         assert!((comp.knee_db() - 12.0).abs() < 0.01);
         comp.set_knee(-5.0);
-        assert!((comp.knee_db() - 0.0).abs() < 0.01, "Knee should clamp to 0");
+        assert!(
+            (comp.knee_db() - 0.0).abs() < 0.01,
+            "Knee should clamp to 0"
+        );
         comp.set_knee(30.0);
-        assert!((comp.knee_db() - 24.0).abs() < 0.01, "Knee should clamp to 24");
+        assert!(
+            (comp.knee_db() - 24.0).abs() < 0.01,
+            "Knee should clamp to 24"
+        );
     }
 
     #[test]
@@ -4322,7 +4589,10 @@ mod tests {
         comp.set_range(-30.0);
         assert!((comp.range_db() - (-30.0)).abs() < 0.01);
         comp.set_range(-100.0);
-        assert!((comp.range_db() - (-60.0)).abs() < 0.01, "Range clamps to -60");
+        assert!(
+            (comp.range_db() - (-60.0)).abs() < 0.01,
+            "Range clamps to -60"
+        );
         comp.set_range(10.0);
         assert!((comp.range_db() - 0.0).abs() < 0.01, "Range clamps to 0");
     }
@@ -4340,9 +4610,15 @@ mod tests {
         comp.set_sc_lp_freq(5000.0);
         assert!((comp.sc_lp_freq() - 5000.0).abs() < 0.01);
         comp.set_sc_lp_freq(500.0);
-        assert!((comp.sc_lp_freq() - 1000.0).abs() < 0.01, "LP clamps to 1000");
+        assert!(
+            (comp.sc_lp_freq() - 1000.0).abs() < 0.01,
+            "LP clamps to 1000"
+        );
         comp.set_sc_lp_freq(25000.0);
-        assert!((comp.sc_lp_freq() - 20000.0).abs() < 0.01, "LP clamps to 20000");
+        assert!(
+            (comp.sc_lp_freq() - 20000.0).abs() < 0.01,
+            "LP clamps to 20000"
+        );
     }
 
     #[test]
@@ -4360,13 +4636,22 @@ mod tests {
         let mut comp = Compressor::new(44100.0);
         comp.set_lookahead(5.0);
         assert!((comp.lookahead_ms() - 5.0).abs() < 0.01);
-        assert!(comp.latency_samples() > 0, "5ms lookahead should have non-zero latency");
+        assert!(
+            comp.latency_samples() > 0,
+            "5ms lookahead should have non-zero latency"
+        );
 
         comp.set_lookahead(-1.0);
-        assert!((comp.lookahead_ms() - 0.0).abs() < 0.01, "Lookahead clamps to 0");
+        assert!(
+            (comp.lookahead_ms() - 0.0).abs() < 0.01,
+            "Lookahead clamps to 0"
+        );
 
         comp.set_lookahead(50.0);
-        assert!((comp.lookahead_ms() - 20.0).abs() < 0.01, "Lookahead clamps to 20");
+        assert!(
+            (comp.lookahead_ms() - 20.0).abs() < 0.01,
+            "Lookahead clamps to 20"
+        );
     }
 
     #[test]
@@ -4375,16 +4660,28 @@ mod tests {
         comp.set_sc_eq_mid_freq(1000.0);
         assert!((comp.sc_eq_mid_freq() - 1000.0).abs() < 0.01);
         comp.set_sc_eq_mid_freq(50.0);
-        assert!((comp.sc_eq_mid_freq() - 200.0).abs() < 0.01, "Mid freq clamps to 200");
+        assert!(
+            (comp.sc_eq_mid_freq() - 200.0).abs() < 0.01,
+            "Mid freq clamps to 200"
+        );
         comp.set_sc_eq_mid_freq(10000.0);
-        assert!((comp.sc_eq_mid_freq() - 5000.0).abs() < 0.01, "Mid freq clamps to 5000");
+        assert!(
+            (comp.sc_eq_mid_freq() - 5000.0).abs() < 0.01,
+            "Mid freq clamps to 5000"
+        );
 
         comp.set_sc_eq_mid_gain(6.0);
         assert!((comp.sc_eq_mid_gain() - 6.0).abs() < 0.01);
         comp.set_sc_eq_mid_gain(-20.0);
-        assert!((comp.sc_eq_mid_gain() - (-12.0)).abs() < 0.01, "Mid gain clamps to -12");
+        assert!(
+            (comp.sc_eq_mid_gain() - (-12.0)).abs() < 0.01,
+            "Mid gain clamps to -12"
+        );
         comp.set_sc_eq_mid_gain(20.0);
-        assert!((comp.sc_eq_mid_gain() - 12.0).abs() < 0.01, "Mid gain clamps to 12");
+        assert!(
+            (comp.sc_eq_mid_gain() - 12.0).abs() < 0.01,
+            "Mid gain clamps to 12"
+        );
     }
 
     #[test]
@@ -4406,7 +4703,11 @@ mod tests {
     #[test]
     fn test_compressor_detection_modes() {
         let mut comp = Compressor::new(44100.0);
-        for mode in [DetectionMode::Peak, DetectionMode::Rms, DetectionMode::Hybrid] {
+        for mode in [
+            DetectionMode::Peak,
+            DetectionMode::Rms,
+            DetectionMode::Hybrid,
+        ] {
             comp.set_detection_mode(mode);
             assert_eq!(comp.detection_mode(), mode);
         }
@@ -4455,8 +4756,11 @@ mod tests {
         }
 
         // GR is stored as positive dB (amount of reduction)
-        assert!(comp.gain_reduction_db() > 1.0,
-            "Should have positive GR (dB of reduction), got {}", comp.gain_reduction_db());
+        assert!(
+            comp.gain_reduction_db() > 1.0,
+            "Should have positive GR (dB of reduction), got {}",
+            comp.gain_reduction_db()
+        );
         assert!(comp.input_peak() > 0.0, "Input peak should be positive");
         assert!(comp.output_peak() > 0.0, "Output peak should be positive");
     }

@@ -219,11 +219,39 @@ fn default_emotional_arcs() -> HashMap<String, EmotionalArcTemplate> {
         EmotionalArcTemplate {
             mechanic_name: "Progressive Jackpot".to_string(),
             phases: vec![
-                ArcPhase { name: "build".to_string(), description: "Tension builds as jackpot approaches".to_string(), audio_cues: vec!["ladder_tick".to_string(), "music_layer_up".to_string()], duration_hint: "variable".to_string() },
-                ArcPhase { name: "suspense".to_string(), description: "Near-miss moments, heightened anticipation".to_string(), audio_cues: vec!["near_miss_stinger".to_string(), "anticipation_riser".to_string()], duration_hint: "2-5s".to_string() },
-                ArcPhase { name: "peak".to_string(), description: "Jackpot hit — maximum energy".to_string(), audio_cues: vec!["jackpot_tier_hit".to_string(), "explosion".to_string()], duration_hint: "1-2s".to_string() },
-                ArcPhase { name: "celebrate".to_string(), description: "Victory celebration with layered music".to_string(), audio_cues: vec!["celebration_layers".to_string(), "confetti".to_string()], duration_hint: "5-15s".to_string() },
-                ArcPhase { name: "resolve".to_string(), description: "Gradual wind-down back to base state".to_string(), audio_cues: vec!["music_layer_down".to_string(), "settle".to_string()], duration_hint: "3-5s".to_string() },
+                ArcPhase {
+                    name: "build".to_string(),
+                    description: "Tension builds as jackpot approaches".to_string(),
+                    audio_cues: vec!["ladder_tick".to_string(), "music_layer_up".to_string()],
+                    duration_hint: "variable".to_string(),
+                },
+                ArcPhase {
+                    name: "suspense".to_string(),
+                    description: "Near-miss moments, heightened anticipation".to_string(),
+                    audio_cues: vec![
+                        "near_miss_stinger".to_string(),
+                        "anticipation_riser".to_string(),
+                    ],
+                    duration_hint: "2-5s".to_string(),
+                },
+                ArcPhase {
+                    name: "peak".to_string(),
+                    description: "Jackpot hit — maximum energy".to_string(),
+                    audio_cues: vec!["jackpot_tier_hit".to_string(), "explosion".to_string()],
+                    duration_hint: "1-2s".to_string(),
+                },
+                ArcPhase {
+                    name: "celebrate".to_string(),
+                    description: "Victory celebration with layered music".to_string(),
+                    audio_cues: vec!["celebration_layers".to_string(), "confetti".to_string()],
+                    duration_hint: "5-15s".to_string(),
+                },
+                ArcPhase {
+                    name: "resolve".to_string(),
+                    description: "Gradual wind-down back to base state".to_string(),
+                    audio_cues: vec!["music_layer_down".to_string(), "settle".to_string()],
+                    duration_hint: "3-5s".to_string(),
+                },
             ],
         },
     );
@@ -233,10 +261,30 @@ fn default_emotional_arcs() -> HashMap<String, EmotionalArcTemplate> {
         EmotionalArcTemplate {
             mechanic_name: "Hold & Win".to_string(),
             phases: vec![
-                ArcPhase { name: "lock".to_string(), description: "Symbols lock in place with impact".to_string(), audio_cues: vec!["hold_lock_impact".to_string()], duration_hint: "0.5-1s per lock".to_string() },
-                ArcPhase { name: "tension".to_string(), description: "Tension builds with each respin".to_string(), audio_cues: vec!["respin_count_tick".to_string(), "coin_land".to_string()], duration_hint: "variable".to_string() },
-                ArcPhase { name: "collect".to_string(), description: "Collection moment — catharsis".to_string(), audio_cues: vec!["collect_celebration".to_string()], duration_hint: "3-5s".to_string() },
-                ArcPhase { name: "relief".to_string(), description: "Return to base game".to_string(), audio_cues: vec!["settle".to_string()], duration_hint: "1-2s".to_string() },
+                ArcPhase {
+                    name: "lock".to_string(),
+                    description: "Symbols lock in place with impact".to_string(),
+                    audio_cues: vec!["hold_lock_impact".to_string()],
+                    duration_hint: "0.5-1s per lock".to_string(),
+                },
+                ArcPhase {
+                    name: "tension".to_string(),
+                    description: "Tension builds with each respin".to_string(),
+                    audio_cues: vec!["respin_count_tick".to_string(), "coin_land".to_string()],
+                    duration_hint: "variable".to_string(),
+                },
+                ArcPhase {
+                    name: "collect".to_string(),
+                    description: "Collection moment — catharsis".to_string(),
+                    audio_cues: vec!["collect_celebration".to_string()],
+                    duration_hint: "3-5s".to_string(),
+                },
+                ArcPhase {
+                    name: "relief".to_string(),
+                    description: "Return to base game".to_string(),
+                    audio_cues: vec!["settle".to_string()],
+                    duration_hint: "1-2s".to_string(),
+                },
             ],
         },
     );
@@ -246,11 +294,36 @@ fn default_emotional_arcs() -> HashMap<String, EmotionalArcTemplate> {
         EmotionalArcTemplate {
             mechanic_name: "Cascades / Tumble".to_string(),
             phases: vec![
-                ArcPhase { name: "trigger".to_string(), description: "Initial win triggers cascade".to_string(), audio_cues: vec!["cascade_drop".to_string()], duration_hint: "0.5s".to_string() },
-                ArcPhase { name: "chain".to_string(), description: "Chain reactions with escalating sounds".to_string(), audio_cues: vec!["cascade_chain_n".to_string(), "cascade_clear".to_string()], duration_hint: "variable".to_string() },
-                ArcPhase { name: "accelerate".to_string(), description: "Audio accelerates with deeper chains".to_string(), audio_cues: vec!["cascade_multiplier_tick".to_string()], duration_hint: "variable".to_string() },
-                ArcPhase { name: "climax".to_string(), description: "Peak on max chain depth".to_string(), audio_cues: vec!["cascade_climax".to_string()], duration_hint: "1-2s".to_string() },
-                ArcPhase { name: "settle".to_string(), description: "Cascade ends, symbols settle".to_string(), audio_cues: vec!["settle".to_string()], duration_hint: "1s".to_string() },
+                ArcPhase {
+                    name: "trigger".to_string(),
+                    description: "Initial win triggers cascade".to_string(),
+                    audio_cues: vec!["cascade_drop".to_string()],
+                    duration_hint: "0.5s".to_string(),
+                },
+                ArcPhase {
+                    name: "chain".to_string(),
+                    description: "Chain reactions with escalating sounds".to_string(),
+                    audio_cues: vec!["cascade_chain_n".to_string(), "cascade_clear".to_string()],
+                    duration_hint: "variable".to_string(),
+                },
+                ArcPhase {
+                    name: "accelerate".to_string(),
+                    description: "Audio accelerates with deeper chains".to_string(),
+                    audio_cues: vec!["cascade_multiplier_tick".to_string()],
+                    duration_hint: "variable".to_string(),
+                },
+                ArcPhase {
+                    name: "climax".to_string(),
+                    description: "Peak on max chain depth".to_string(),
+                    audio_cues: vec!["cascade_climax".to_string()],
+                    duration_hint: "1-2s".to_string(),
+                },
+                ArcPhase {
+                    name: "settle".to_string(),
+                    description: "Cascade ends, symbols settle".to_string(),
+                    audio_cues: vec!["settle".to_string()],
+                    duration_hint: "1s".to_string(),
+                },
             ],
         },
     );
@@ -260,11 +333,36 @@ fn default_emotional_arcs() -> HashMap<String, EmotionalArcTemplate> {
         EmotionalArcTemplate {
             mechanic_name: "Free Spins".to_string(),
             phases: vec![
-                ArcPhase { name: "fanfare".to_string(), description: "Entry fanfare announcing free spins".to_string(), audio_cues: vec!["fs_trigger_fanfare".to_string()], duration_hint: "2-4s".to_string() },
-                ArcPhase { name: "loop".to_string(), description: "Free spins music loop".to_string(), audio_cues: vec!["fs_music_loop".to_string()], duration_hint: "variable".to_string() },
-                ArcPhase { name: "escalate".to_string(), description: "Music escalates with wins".to_string(), audio_cues: vec!["music_layer_up".to_string()], duration_hint: "variable".to_string() },
-                ArcPhase { name: "resolve".to_string(), description: "Final spin resolution".to_string(), audio_cues: vec!["fs_end_summary".to_string()], duration_hint: "2-3s".to_string() },
-                ArcPhase { name: "summary".to_string(), description: "Summary screen with total win".to_string(), audio_cues: vec!["summary_fanfare".to_string()], duration_hint: "3-5s".to_string() },
+                ArcPhase {
+                    name: "fanfare".to_string(),
+                    description: "Entry fanfare announcing free spins".to_string(),
+                    audio_cues: vec!["fs_trigger_fanfare".to_string()],
+                    duration_hint: "2-4s".to_string(),
+                },
+                ArcPhase {
+                    name: "loop".to_string(),
+                    description: "Free spins music loop".to_string(),
+                    audio_cues: vec!["fs_music_loop".to_string()],
+                    duration_hint: "variable".to_string(),
+                },
+                ArcPhase {
+                    name: "escalate".to_string(),
+                    description: "Music escalates with wins".to_string(),
+                    audio_cues: vec!["music_layer_up".to_string()],
+                    duration_hint: "variable".to_string(),
+                },
+                ArcPhase {
+                    name: "resolve".to_string(),
+                    description: "Final spin resolution".to_string(),
+                    audio_cues: vec!["fs_end_summary".to_string()],
+                    duration_hint: "2-3s".to_string(),
+                },
+                ArcPhase {
+                    name: "summary".to_string(),
+                    description: "Summary screen with total win".to_string(),
+                    audio_cues: vec!["summary_fanfare".to_string()],
+                    duration_hint: "3-5s".to_string(),
+                },
             ],
         },
     );
@@ -274,10 +372,33 @@ fn default_emotional_arcs() -> HashMap<String, EmotionalArcTemplate> {
         EmotionalArcTemplate {
             mechanic_name: "Pick Bonus".to_string(),
             phases: vec![
-                ArcPhase { name: "anticipation".to_string(), description: "Pre-pick tension".to_string(), audio_cues: vec!["pick_ambient_loop".to_string()], duration_hint: "continuous".to_string() },
-                ArcPhase { name: "reveal".to_string(), description: "Pick reveal moment".to_string(), audio_cues: vec!["pick_reveal_positive".to_string(), "pick_reveal_negative".to_string()], duration_hint: "0.5-1s".to_string() },
-                ArcPhase { name: "react".to_string(), description: "Reaction to reveal result".to_string(), audio_cues: vec!["pick_reveal_super".to_string()], duration_hint: "1-2s".to_string() },
-                ArcPhase { name: "collect".to_string(), description: "Final collection".to_string(), audio_cues: vec!["pick_collect".to_string()], duration_hint: "2-3s".to_string() },
+                ArcPhase {
+                    name: "anticipation".to_string(),
+                    description: "Pre-pick tension".to_string(),
+                    audio_cues: vec!["pick_ambient_loop".to_string()],
+                    duration_hint: "continuous".to_string(),
+                },
+                ArcPhase {
+                    name: "reveal".to_string(),
+                    description: "Pick reveal moment".to_string(),
+                    audio_cues: vec![
+                        "pick_reveal_positive".to_string(),
+                        "pick_reveal_negative".to_string(),
+                    ],
+                    duration_hint: "0.5-1s".to_string(),
+                },
+                ArcPhase {
+                    name: "react".to_string(),
+                    description: "Reaction to reveal result".to_string(),
+                    audio_cues: vec!["pick_reveal_super".to_string()],
+                    duration_hint: "1-2s".to_string(),
+                },
+                ArcPhase {
+                    name: "collect".to_string(),
+                    description: "Final collection".to_string(),
+                    audio_cues: vec!["pick_collect".to_string()],
+                    duration_hint: "2-3s".to_string(),
+                },
             ],
         },
     );
@@ -287,10 +408,30 @@ fn default_emotional_arcs() -> HashMap<String, EmotionalArcTemplate> {
         EmotionalArcTemplate {
             mechanic_name: "Wheel Bonus".to_string(),
             phases: vec![
-                ArcPhase { name: "spin".to_string(), description: "Wheel spinning at full speed".to_string(), audio_cues: vec!["wheel_spin_loop".to_string()], duration_hint: "2-4s".to_string() },
-                ArcPhase { name: "decelerate".to_string(), description: "Wheel slowing down".to_string(), audio_cues: vec!["wheel_tick".to_string(), "wheel_decelerate".to_string()], duration_hint: "3-6s".to_string() },
-                ArcPhase { name: "stop".to_string(), description: "Wheel stops on segment".to_string(), audio_cues: vec!["wheel_stop".to_string()], duration_hint: "0.5s".to_string() },
-                ArcPhase { name: "prize".to_string(), description: "Prize reveal".to_string(), audio_cues: vec!["wheel_prize".to_string()], duration_hint: "2-3s".to_string() },
+                ArcPhase {
+                    name: "spin".to_string(),
+                    description: "Wheel spinning at full speed".to_string(),
+                    audio_cues: vec!["wheel_spin_loop".to_string()],
+                    duration_hint: "2-4s".to_string(),
+                },
+                ArcPhase {
+                    name: "decelerate".to_string(),
+                    description: "Wheel slowing down".to_string(),
+                    audio_cues: vec!["wheel_tick".to_string(), "wheel_decelerate".to_string()],
+                    duration_hint: "3-6s".to_string(),
+                },
+                ArcPhase {
+                    name: "stop".to_string(),
+                    description: "Wheel stops on segment".to_string(),
+                    audio_cues: vec!["wheel_stop".to_string()],
+                    duration_hint: "0.5s".to_string(),
+                },
+                ArcPhase {
+                    name: "prize".to_string(),
+                    description: "Prize reveal".to_string(),
+                    audio_cues: vec!["wheel_prize".to_string()],
+                    duration_hint: "2-3s".to_string(),
+                },
             ],
         },
     );
@@ -300,9 +441,27 @@ fn default_emotional_arcs() -> HashMap<String, EmotionalArcTemplate> {
         EmotionalArcTemplate {
             mechanic_name: "Megaways".to_string(),
             phases: vec![
-                ArcPhase { name: "expand".to_string(), description: "Reels expanding to max symbols".to_string(), audio_cues: vec!["reel_expand".to_string()], duration_hint: "1-2s".to_string() },
-                ArcPhase { name: "chaos".to_string(), description: "Chaotic energy with many ways".to_string(), audio_cues: vec!["ways_counter_tick".to_string(), "mystery_transform".to_string()], duration_hint: "variable".to_string() },
-                ArcPhase { name: "resolve".to_string(), description: "Reels stop, ways counted".to_string(), audio_cues: vec!["big_reel_stop".to_string()], duration_hint: "1-2s".to_string() },
+                ArcPhase {
+                    name: "expand".to_string(),
+                    description: "Reels expanding to max symbols".to_string(),
+                    audio_cues: vec!["reel_expand".to_string()],
+                    duration_hint: "1-2s".to_string(),
+                },
+                ArcPhase {
+                    name: "chaos".to_string(),
+                    description: "Chaotic energy with many ways".to_string(),
+                    audio_cues: vec![
+                        "ways_counter_tick".to_string(),
+                        "mystery_transform".to_string(),
+                    ],
+                    duration_hint: "variable".to_string(),
+                },
+                ArcPhase {
+                    name: "resolve".to_string(),
+                    description: "Reels stop, ways counted".to_string(),
+                    audio_cues: vec!["big_reel_stop".to_string()],
+                    duration_hint: "1-2s".to_string(),
+                },
             ],
         },
     );
@@ -312,9 +471,24 @@ fn default_emotional_arcs() -> HashMap<String, EmotionalArcTemplate> {
         EmotionalArcTemplate {
             mechanic_name: "Gamble / Double Up".to_string(),
             phases: vec![
-                ArcPhase { name: "risk".to_string(), description: "Decision moment — risk or collect".to_string(), audio_cues: vec!["tension_loop".to_string()], duration_hint: "variable".to_string() },
-                ArcPhase { name: "flip".to_string(), description: "Card flip / reveal".to_string(), audio_cues: vec!["gamble_card_flip".to_string()], duration_hint: "0.5-1s".to_string() },
-                ArcPhase { name: "result".to_string(), description: "Win or lose reveal".to_string(), audio_cues: vec!["gamble_win".to_string(), "gamble_lose".to_string()], duration_hint: "1-2s".to_string() },
+                ArcPhase {
+                    name: "risk".to_string(),
+                    description: "Decision moment — risk or collect".to_string(),
+                    audio_cues: vec!["tension_loop".to_string()],
+                    duration_hint: "variable".to_string(),
+                },
+                ArcPhase {
+                    name: "flip".to_string(),
+                    description: "Card flip / reveal".to_string(),
+                    audio_cues: vec!["gamble_card_flip".to_string()],
+                    duration_hint: "0.5-1s".to_string(),
+                },
+                ArcPhase {
+                    name: "result".to_string(),
+                    description: "Win or lose reveal".to_string(),
+                    audio_cues: vec!["gamble_win".to_string(), "gamble_lose".to_string()],
+                    duration_hint: "1-2s".to_string(),
+                },
             ],
         },
     );
@@ -324,18 +498,63 @@ fn default_emotional_arcs() -> HashMap<String, EmotionalArcTemplate> {
 
 fn default_ducking_rules() -> Vec<DuckingRule> {
     vec![
-        DuckingRule { source: "vo".to_string(), target: "mus".to_string(), attenuation_db: -6.0, attack_ms: 50.0, release_ms: 300.0, priority: 1 },
-        DuckingRule { source: "vo".to_string(), target: "sfx".to_string(), attenuation_db: -3.0, attack_ms: 50.0, release_ms: 200.0, priority: 2 },
-        DuckingRule { source: "sfx".to_string(), target: "mus".to_string(), attenuation_db: -3.0, attack_ms: 30.0, release_ms: 200.0, priority: 3 },
-        DuckingRule { source: "sfx".to_string(), target: "amb".to_string(), attenuation_db: -6.0, attack_ms: 30.0, release_ms: 500.0, priority: 4 },
-        DuckingRule { source: "mus".to_string(), target: "amb".to_string(), attenuation_db: -9.0, attack_ms: 100.0, release_ms: 500.0, priority: 5 },
-        DuckingRule { source: "sfx".to_string(), target: "ui".to_string(), attenuation_db: -3.0, attack_ms: 20.0, release_ms: 150.0, priority: 6 },
+        DuckingRule {
+            source: "vo".to_string(),
+            target: "mus".to_string(),
+            attenuation_db: -6.0,
+            attack_ms: 50.0,
+            release_ms: 300.0,
+            priority: 1,
+        },
+        DuckingRule {
+            source: "vo".to_string(),
+            target: "sfx".to_string(),
+            attenuation_db: -3.0,
+            attack_ms: 50.0,
+            release_ms: 200.0,
+            priority: 2,
+        },
+        DuckingRule {
+            source: "sfx".to_string(),
+            target: "mus".to_string(),
+            attenuation_db: -3.0,
+            attack_ms: 30.0,
+            release_ms: 200.0,
+            priority: 3,
+        },
+        DuckingRule {
+            source: "sfx".to_string(),
+            target: "amb".to_string(),
+            attenuation_db: -6.0,
+            attack_ms: 30.0,
+            release_ms: 500.0,
+            priority: 4,
+        },
+        DuckingRule {
+            source: "mus".to_string(),
+            target: "amb".to_string(),
+            attenuation_db: -9.0,
+            attack_ms: 100.0,
+            release_ms: 500.0,
+            priority: 5,
+        },
+        DuckingRule {
+            source: "sfx".to_string(),
+            target: "ui".to_string(),
+            attenuation_db: -3.0,
+            attack_ms: 20.0,
+            release_ms: 150.0,
+            priority: 6,
+        },
     ]
 }
 
 impl AdbTemplates {
     /// Get the volatility audio profile for a level.
-    pub fn get_volatility_profile(&self, level: VolatilityLevel) -> Option<&VolatilityAudioProfile> {
+    pub fn get_volatility_profile(
+        &self,
+        level: VolatilityLevel,
+    ) -> Option<&VolatilityAudioProfile> {
         let key = match level {
             VolatilityLevel::Low => "low",
             VolatilityLevel::Medium => "medium",
@@ -376,7 +595,9 @@ mod tests {
     #[test]
     fn volatility_profile_lookup() {
         let templates = AdbTemplates::default();
-        let high = templates.get_volatility_profile(VolatilityLevel::High).unwrap();
+        let high = templates
+            .get_volatility_profile(VolatilityLevel::High)
+            .unwrap();
         assert_eq!(high.music_layers, 4);
         assert_eq!(high.dynamic_range_db, 12.0);
     }

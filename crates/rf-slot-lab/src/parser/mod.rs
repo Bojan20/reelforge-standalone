@@ -19,7 +19,7 @@ pub mod schema;
 pub mod validator;
 
 pub use schema::GddSchema;
-pub use validator::{validate_constraints, ValidationReport};
+pub use validator::{ValidationReport, validate_constraints};
 
 use serde::{Deserialize, Serialize};
 
@@ -119,7 +119,11 @@ impl GddParser {
     }
 
     /// Full validation pipeline: parse + schema + constraints
-    pub fn full_validate(&self, content: &str, is_yaml: bool) -> Result<ValidationReport, GddParseError> {
+    pub fn full_validate(
+        &self,
+        content: &str,
+        is_yaml: bool,
+    ) -> Result<ValidationReport, GddParseError> {
         let doc = if is_yaml {
             self.parse_yaml_document(content)?
         } else {

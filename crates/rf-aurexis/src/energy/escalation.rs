@@ -102,9 +102,17 @@ mod tests {
     #[test]
     fn test_capped_exponential_never_exceeds_one() {
         assert!(GegEscalationCurve::evaluate(0.5, GegCurveType::CappedExponential) <= 1.0);
-        assert!((GegEscalationCurve::evaluate(1.0, GegCurveType::CappedExponential) - 1.0).abs() < 0.01);
-        assert_eq!(GegEscalationCurve::evaluate(2.0, GegCurveType::CappedExponential), 1.0);
-        assert_eq!(GegEscalationCurve::evaluate(10.0, GegCurveType::CappedExponential), 1.0);
+        assert!(
+            (GegEscalationCurve::evaluate(1.0, GegCurveType::CappedExponential) - 1.0).abs() < 0.01
+        );
+        assert_eq!(
+            GegEscalationCurve::evaluate(2.0, GegCurveType::CappedExponential),
+            1.0
+        );
+        assert_eq!(
+            GegEscalationCurve::evaluate(10.0, GegCurveType::CappedExponential),
+            1.0
+        );
     }
 
     #[test]
@@ -120,13 +128,22 @@ mod tests {
     #[test]
     fn test_s_curve_midpoint() {
         let mid = GegEscalationCurve::evaluate(0.5, GegCurveType::SCurve);
-        assert!((mid - 0.5).abs() < 0.01, "S-curve midpoint should be ~0.5: {mid}");
+        assert!(
+            (mid - 0.5).abs() < 0.01,
+            "S-curve midpoint should be ~0.5: {mid}"
+        );
     }
 
     #[test]
     fn test_negative_input_clamped() {
-        for curve in [GegCurveType::Linear, GegCurveType::Logarithmic, GegCurveType::Exponential,
-                      GegCurveType::CappedExponential, GegCurveType::Step, GegCurveType::SCurve] {
+        for curve in [
+            GegCurveType::Linear,
+            GegCurveType::Logarithmic,
+            GegCurveType::Exponential,
+            GegCurveType::CappedExponential,
+            GegCurveType::Step,
+            GegCurveType::SCurve,
+        ] {
             assert!(GegEscalationCurve::evaluate(-1.0, curve) >= 0.0);
         }
     }

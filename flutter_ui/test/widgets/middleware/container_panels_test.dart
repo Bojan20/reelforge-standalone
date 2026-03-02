@@ -114,18 +114,30 @@ void main() {
   });
 
   group('CrossfadeCurve', () {
-    test('all 4 curves exist', () {
-      expect(CrossfadeCurve.values.length, 4);
+    test('all 10 curves exist', () {
+      expect(CrossfadeCurve.values.length, 10);
       expect(CrossfadeCurve.linear, isNotNull);
-      expect(CrossfadeCurve.equalPower, isNotNull);
+      expect(CrossfadeCurve.log3, isNotNull);
+      expect(CrossfadeCurve.sine, isNotNull);
+      expect(CrossfadeCurve.log1, isNotNull);
+      expect(CrossfadeCurve.invSCurve, isNotNull);
       expect(CrossfadeCurve.sCurve, isNotNull);
+      expect(CrossfadeCurve.exp1, isNotNull);
+      expect(CrossfadeCurve.exp3, isNotNull);
+      expect(CrossfadeCurve.equalPower, isNotNull);
       expect(CrossfadeCurve.sinCos, isNotNull);
     });
 
     test('display names are readable', () {
       expect(CrossfadeCurve.linear.displayName, 'Linear');
-      expect(CrossfadeCurve.equalPower.displayName, 'Equal Power');
+      expect(CrossfadeCurve.log3.displayName, 'Log 3dB');
+      expect(CrossfadeCurve.sine.displayName, 'Sine');
+      expect(CrossfadeCurve.log1.displayName, 'Log 1dB');
+      expect(CrossfadeCurve.invSCurve.displayName, 'Inv S-Curve');
       expect(CrossfadeCurve.sCurve.displayName, 'S-Curve');
+      expect(CrossfadeCurve.exp1.displayName, 'Exp 1dB');
+      expect(CrossfadeCurve.exp3.displayName, 'Exp 3dB');
+      expect(CrossfadeCurve.equalPower.displayName, 'Equal Power');
       expect(CrossfadeCurve.sinCos.displayName, 'Sin/Cos');
     });
 

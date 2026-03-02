@@ -114,18 +114,21 @@ fn validate_symbol_pays(doc: &GddDocument, report: &mut ValidationReport) {
         return;
     }
 
-    let has_wild = doc.symbols.iter().any(|s| {
-        s.symbol_type.to_lowercase() == "wild"
-    });
+    let has_wild = doc
+        .symbols
+        .iter()
+        .any(|s| s.symbol_type.to_lowercase() == "wild");
 
-    let has_scatter = doc.symbols.iter().any(|s| {
-        s.symbol_type.to_lowercase() == "scatter"
-    });
+    let has_scatter = doc
+        .symbols
+        .iter()
+        .any(|s| s.symbol_type.to_lowercase() == "scatter");
 
     // Check feature triggers reference existing symbols
-    let has_free_spins = doc.features.iter().any(|f| {
-        f.feature_type.to_lowercase().contains("free_spin")
-    });
+    let has_free_spins = doc
+        .features
+        .iter()
+        .any(|f| f.feature_type.to_lowercase().contains("free_spin"));
 
     if has_free_spins && !has_scatter {
         report.add_warning(
@@ -192,8 +195,14 @@ fn validate_feature_compatibility(doc: &GddDocument, report: &mut ValidationRepo
     let bonus_count = feature_types
         .iter()
         .filter(|f| {
-            ["free_spins", "pick_bonus", "wheel_bonus", "trail_bonus", "hold_and_win"]
-                .contains(&f.as_str())
+            [
+                "free_spins",
+                "pick_bonus",
+                "wheel_bonus",
+                "trail_bonus",
+                "hold_and_win",
+            ]
+            .contains(&f.as_str())
         })
         .count();
 
@@ -210,7 +219,8 @@ fn validate_feature_compatibility(doc: &GddDocument, report: &mut ValidationRepo
 fn validate_win_tier_coverage(doc: &GddDocument, report: &mut ValidationReport) {
     if doc.win_tiers.is_empty() {
         report.add_suggestion(
-            "No win tiers defined — default tiers will be used. Consider defining custom tiers.".into(),
+            "No win tiers defined — default tiers will be used. Consider defining custom tiers."
+                .into(),
         );
         return;
     }
@@ -220,7 +230,9 @@ fn validate_win_tier_coverage(doc: &GddDocument, report: &mut ValidationReport) 
     sorted_tiers.sort_by(|a, b| {
         let a_min = a.min_ratio.unwrap_or(0.0);
         let b_min = b.min_ratio.unwrap_or(0.0);
-        a_min.partial_cmp(&b_min).unwrap_or(std::cmp::Ordering::Equal)
+        a_min
+            .partial_cmp(&b_min)
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
 
     for i in 0..sorted_tiers.len().saturating_sub(1) {
@@ -230,8 +242,10 @@ fn validate_win_tier_coverage(doc: &GddDocument, report: &mut ValidationReport) 
         if current_max < next_min {
             report.add_warning(format!(
                 "Gap in win tier coverage between '{}' (max={:.1}x) and '{}' (min={:.1}x)",
-                sorted_tiers[i].name, current_max,
-                sorted_tiers[i + 1].name, next_min
+                sorted_tiers[i].name,
+                current_max,
+                sorted_tiers[i + 1].name,
+                next_min
             ));
         }
     }
@@ -295,7 +309,8 @@ fn validate_fluxmacro_requirements(doc: &GddDocument, report: &mut ValidationRep
     // FluxMacro needs features for ADB generation
     if doc.features.is_empty() {
         report.add_warning(
-            "No features defined — FluxMacro adb.generate will produce minimal Audio Design Brief".into(),
+            "No features defined — FluxMacro adb.generate will produce minimal Audio Design Brief"
+                .into(),
         );
     }
 

@@ -4,9 +4,9 @@
 // FM-14: Reporter trait + format registry.
 // ============================================================================
 
+pub mod html;
 pub mod json;
 pub mod markdown;
-pub mod html;
 pub mod svg;
 
 use crate::context::{MacroContext, ReportFormat};
@@ -48,16 +48,10 @@ pub fn generate_reports(
     let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
 
     for reporter in &reporters {
-        let filename = format!(
-            "{}_{}.{}",
-            game_id,
-            timestamp,
-            reporter.file_extension()
-        );
+        let filename = format!("{}_{}.{}", game_id, timestamp, reporter.file_extension());
         let path = output_dir.join(filename);
         let content = reporter.generate(ctx)?;
-        std::fs::write(&path, &content)
-            .map_err(|e| FluxMacroError::FileWrite(path.clone(), e))?;
+        std::fs::write(&path, &content).map_err(|e| FluxMacroError::FileWrite(path.clone(), e))?;
         paths.push(path);
     }
 

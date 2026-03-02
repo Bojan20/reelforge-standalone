@@ -6,7 +6,8 @@ import 'package:fluxforge_ui/providers/dsp_chain_provider.dart';
 
 void main() {
   group('FxChainPanel', () {
-    testWidgets('shows empty state when no track selected', (tester) async {
+    testWidgets('shows chain header when no track selected (defaults to track 0)',
+        (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
@@ -14,9 +15,15 @@ void main() {
           ),
         ),
       );
+      // FxChainPanel uses selectedTrackId ?? 0, so it always renders the chain view
+      // Use pump(Duration) instead of pumpAndSettle because
+      // ProcessorCpuMeterInline has a Timer.periodic(100ms) that never settles.
+      await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.text('No Track Selected'), findsOneWidget);
-      expect(find.text('Select a track to view FX chain'), findsOneWidget);
+      // It renders "FX CHAIN — Track 0" when selectedTrackId is null
+      expect(find.text('FX CHAIN — Track 0'), findsOneWidget);
+      expect(find.text('INPUT'), findsOneWidget);
+      expect(find.text('OUTPUT'), findsOneWidget);
     });
 
     testWidgets('shows chain when track selected', (tester) async {

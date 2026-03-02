@@ -1,21 +1,16 @@
-pub mod timeline;
-pub mod tracks;
 pub mod bake;
 pub mod project;
+pub mod timeline;
+pub mod tracks;
 
+pub use bake::{
+    BakeConfig, BakeError, BakeResult, BakeStep, BakeStepStatus, BakeToSlot, StemOutput,
+};
+pub use project::{GadProject, GadProjectConfig, GadTrackLayout};
 pub use timeline::{
-    DualTimeline, MusicalTimeline, GameplayTimeline,
-    TimelineMarker, MarkerType, MusicalPosition, GameplayPosition,
-    TimeSignature, TempoChange,
+    DualTimeline, GameplayPosition, GameplayTimeline, MarkerType, MusicalPosition, MusicalTimeline,
+    TempoChange, TimeSignature, TimelineMarker,
 };
 pub use tracks::{
-    GadTrack, GadTrackType, TrackMetadata, TrackState,
-    CanonicalEventBinding, VoicePriorityClass,
-};
-pub use bake::{
-    BakeToSlot, BakeStep, BakeStepStatus, BakeResult,
-    BakeConfig, BakeError, StemOutput,
-};
-pub use project::{
-    GadProject, GadProjectConfig, GadTrackLayout,
+    CanonicalEventBinding, GadTrack, GadTrackType, TrackMetadata, TrackState, VoicePriorityClass,
 };

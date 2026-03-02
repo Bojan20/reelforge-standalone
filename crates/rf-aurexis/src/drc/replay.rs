@@ -131,7 +131,11 @@ impl DeterministicReplayCore {
     }
 
     pub fn with_config(config: AurexisConfig) -> Self {
-        Self { config, last_trace: None, last_result: None }
+        Self {
+            config,
+            last_trace: None,
+            last_result: None,
+        }
     }
 
     pub fn last_trace(&self) -> Option<&TraceFormat> {
@@ -150,13 +154,16 @@ impl DeterministicReplayCore {
     pub fn record(&mut self, steps: &[SimulationStep]) -> &TraceFormat {
         let (hashes, outputs) = self.execute_and_hash(steps);
 
-        let entries: Vec<TraceEntry> = steps.iter().zip(hashes.iter()).enumerate().map(|(i, (step, hash))| {
-            TraceEntry {
+        let entries: Vec<TraceEntry> = steps
+            .iter()
+            .zip(hashes.iter())
+            .enumerate()
+            .map(|(i, (step, hash))| TraceEntry {
                 frame_index: i as u32,
                 step: SimulationStepData::from(step),
                 frame_hash: hash.clone(),
-            }
-        }).collect();
+            })
+            .collect();
 
         // Final hash = hash of all frame hashes concatenated
         let final_hash = Self::compute_final_hash(&hashes);
@@ -193,7 +200,8 @@ impl DeterministicReplayCore {
 
         // Compare
         let mut mismatches = Vec::new();
-        for (i, (recorded, replayed)) in trace.entries.iter().zip(replay_hashes.iter()).enumerate() {
+        for (i, (recorded, replayed)) in trace.entries.iter().zip(replay_hashes.iter()).enumerate()
+        {
             if recorded.frame_hash != *replayed {
                 mismatches.push(HashMismatch {
                     frame_index: i as u32,
@@ -233,7 +241,10 @@ impl DeterministicReplayCore {
     // INTERNAL
     // ═══════════════════════════════════════════════════════════════════════
 
-    fn execute_and_hash(&self, steps: &[SimulationStep]) -> (Vec<FrameHash>, Vec<DeterministicParameterMap>) {
+    fn execute_and_hash(
+        &self,
+        steps: &[SimulationStep],
+    ) -> (Vec<FrameHash>, Vec<DeterministicParameterMap>) {
         let mut engine = AurexisEngine::with_config(self.config.clone());
         engine.initialize();
         engine.set_seed(0, 0, 0, 0);
@@ -285,15 +296,17 @@ mod tests {
     use super::*;
 
     fn test_steps(count: usize) -> Vec<SimulationStep> {
-        (0..count).map(|i| SimulationStep {
-            elapsed_ms: 50,
-            volatility: 0.5 + (i as f64 * 0.01),
-            rtp: 96.0,
-            win_multiplier: if i % 5 == 0 { 10.0 } else { 0.0 },
-            jackpot_proximity: 0.0,
-            rms_db: -20.0,
-            hf_db: -26.0,
-        }).collect()
+        (0..count)
+            .map(|i| SimulationStep {
+                elapsed_ms: 50,
+                volatility: 0.5 + (i as f64 * 0.01),
+                rtp: 96.0,
+                win_multiplier: if i % 5 == 0 { 10.0 } else { 0.0 },
+                jackpot_proximity: 0.0,
+                rms_db: -20.0,
+                hf_db: -26.0,
+            })
+            .collect()
     }
 
     #[test]

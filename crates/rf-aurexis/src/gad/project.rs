@@ -1,8 +1,8 @@
 //! GAD Project — manages dual timeline + tracks as a coherent project.
 
-use serde::{Deserialize, Serialize};
 use super::timeline::DualTimeline;
 use super::tracks::{GadTrack, GadTrackType};
+use serde::{Deserialize, Serialize};
 
 /// Track layout descriptor for project initialization.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -37,14 +37,38 @@ impl Default for GadProjectConfig {
             length_bars: 32,
             frame_rate: 60.0,
             track_layout: vec![
-                GadTrackLayout { name: "Music Base".into(), track_type: GadTrackType::MusicLayer },
-                GadTrackLayout { name: "Music Wins".into(), track_type: GadTrackType::MusicLayer },
-                GadTrackLayout { name: "Reels".into(), track_type: GadTrackType::ReelBound },
-                GadTrackLayout { name: "Transients".into(), track_type: GadTrackType::Transient },
-                GadTrackLayout { name: "Cascades".into(), track_type: GadTrackType::CascadeLayer },
-                GadTrackLayout { name: "Jackpot".into(), track_type: GadTrackType::JackpotLadder },
-                GadTrackLayout { name: "UI".into(), track_type: GadTrackType::Ui },
-                GadTrackLayout { name: "Ambience".into(), track_type: GadTrackType::AmbientPad },
+                GadTrackLayout {
+                    name: "Music Base".into(),
+                    track_type: GadTrackType::MusicLayer,
+                },
+                GadTrackLayout {
+                    name: "Music Wins".into(),
+                    track_type: GadTrackType::MusicLayer,
+                },
+                GadTrackLayout {
+                    name: "Reels".into(),
+                    track_type: GadTrackType::ReelBound,
+                },
+                GadTrackLayout {
+                    name: "Transients".into(),
+                    track_type: GadTrackType::Transient,
+                },
+                GadTrackLayout {
+                    name: "Cascades".into(),
+                    track_type: GadTrackType::CascadeLayer,
+                },
+                GadTrackLayout {
+                    name: "Jackpot".into(),
+                    track_type: GadTrackType::JackpotLadder,
+                },
+                GadTrackLayout {
+                    name: "UI".into(),
+                    track_type: GadTrackType::Ui,
+                },
+                GadTrackLayout {
+                    name: "Ambience".into(),
+                    track_type: GadTrackType::AmbientPad,
+                },
             ],
         }
     }
@@ -65,15 +89,17 @@ impl GadProject {
     /// Create a new project from config.
     pub fn new(config: GadProjectConfig) -> Self {
         let timeline = DualTimeline::new(config.bpm, config.length_bars, config.frame_rate);
-        let tracks: Vec<GadTrack> = config.track_layout.iter().enumerate().map(|(i, layout)| {
-            let mut track = GadTrack::new(
-                format!("track_{}", i),
-                &layout.name,
-                layout.track_type,
-            );
-            track.order = i as u32;
-            track
-        }).collect();
+        let tracks: Vec<GadTrack> = config
+            .track_layout
+            .iter()
+            .enumerate()
+            .map(|(i, layout)| {
+                let mut track =
+                    GadTrack::new(format!("track_{}", i), &layout.name, layout.track_type);
+                track.order = i as u32;
+                track
+            })
+            .collect();
 
         Self {
             config,
@@ -142,13 +168,18 @@ impl GadProject {
             }
         }
         // Check for unbound tracks (no event binding)
-        let unbound: Vec<_> = self.tracks.iter()
+        let unbound: Vec<_> = self
+            .tracks
+            .iter()
             .filter(|t| t.metadata.event_binding.is_none())
             .map(|t| t.name.as_str())
             .collect();
         if !unbound.is_empty() {
-            errors.push(format!("{} tracks have no event binding: {}",
-                unbound.len(), unbound.join(", ")));
+            errors.push(format!(
+                "{} tracks have no event binding: {}",
+                unbound.len(),
+                unbound.join(", ")
+            ));
         }
         errors
     }

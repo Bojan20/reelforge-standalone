@@ -3,12 +3,12 @@
 //! Controls energy budget across 5 domains per tick.
 //! Formula: `FinalCap = min(1.0, EI × SP × SM)`
 
-pub mod governance;
-pub mod slot_profiles;
 pub mod escalation;
+pub mod governance;
 pub mod session_memory;
+pub mod slot_profiles;
 
-pub use governance::{EnergyGovernor, EnergyDomain, EnergyBudget, VoiceBudget};
-pub use slot_profiles::{SlotProfile, SlotProfileData, SLOT_PROFILES};
-pub use escalation::{GegEscalationCurve, GegCurveType};
+pub use escalation::{GegCurveType, GegEscalationCurve};
+pub use governance::{EnergyBudget, EnergyDomain, EnergyGovernor, VoiceBudget};
 pub use session_memory::SessionMemory;
+pub use slot_profiles::{SLOT_PROFILES, SlotProfile, SlotProfileData};

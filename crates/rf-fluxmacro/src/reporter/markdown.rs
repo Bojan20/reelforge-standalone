@@ -29,7 +29,10 @@ impl Reporter for MarkdownReporter {
         ));
         md.push_str(&format!("**Seed:** {}\n", ctx.seed));
         if !ctx.run_hash.is_empty() {
-            md.push_str(&format!("**Run Hash:** `{}`\n", &ctx.run_hash[..16.min(ctx.run_hash.len())]));
+            md.push_str(&format!(
+                "**Run Hash:** `{}`\n",
+                &ctx.run_hash[..16.min(ctx.run_hash.len())]
+            ));
         }
         md.push_str("\n---\n\n");
 

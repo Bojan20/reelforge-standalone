@@ -1,15 +1,15 @@
+use crate::collision::{PanRedistributor, VoiceCollisionResolver};
 use crate::core::config::AurexisConfig;
 use crate::core::parameter_map::{DeterministicParameterMap, EscalationCurveType};
 use crate::core::state::AurexisState;
-use crate::collision::{PanRedistributor, VoiceCollisionResolver};
 use crate::energy::EnergyGovernor;
-use crate::priority::DynamicPriorityMatrix;
-use crate::spectral::SpectralAllocator;
 use crate::escalation::WinEscalationEngine;
 use crate::geometry::AttentionVectorEngine;
 use crate::platform::{PlatformAdapter, PlatformProfile};
+use crate::priority::DynamicPriorityMatrix;
 use crate::psycho::{PsychoRegulator, SessionFatigueTracker};
 use crate::rtp::RtpEmotionalMapper;
+use crate::spectral::SpectralAllocator;
 use crate::variation::DeterministicVariationEngine;
 use crate::volatility::VolatilityTranslator;
 
@@ -126,7 +126,13 @@ impl AurexisEngine {
     }
 
     /// Set variation seed components.
-    pub fn set_seed(&mut self, sprite_id: u64, event_time: u64, game_state: u64, session_index: u64) {
+    pub fn set_seed(
+        &mut self,
+        sprite_id: u64,
+        event_time: u64,
+        game_state: u64,
+        session_index: u64,
+    ) {
         self.state.seed_sprite_id = sprite_id;
         self.state.seed_event_time = event_time;
         self.state.seed_game_state = game_state;
@@ -135,7 +141,8 @@ impl AurexisEngine {
 
     /// Register a voice for collision tracking.
     pub fn register_voice(&mut self, voice_id: u32, pan: f32, z_depth: f32, priority: i32) -> bool {
-        self.collision_resolver.register_voice(voice_id, pan, z_depth, priority)
+        self.collision_resolver
+            .register_voice(voice_id, pan, z_depth, priority)
     }
 
     /// Unregister a voice.
@@ -165,7 +172,8 @@ impl AurexisEngine {
 
     /// Record a spin result for session memory.
     pub fn record_spin(&mut self, win_multiplier: f64, is_feature: bool, is_jackpot: bool) {
-        self.energy_governor.record_spin(win_multiplier, is_feature, is_jackpot);
+        self.energy_governor
+            .record_spin(win_multiplier, is_feature, is_jackpot);
     }
 
     /// Get DPM reference.
@@ -265,26 +273,23 @@ impl AurexisEngine {
         let mut map = DeterministicParameterMap::default();
 
         // ─── STAGE 1: VOLATILITY ───
-        let vol_output = VolatilityTranslator::compute_all(
-            self.state.volatility_index,
-            &self.config.volatility,
-        );
+        let vol_output =
+            VolatilityTranslator::compute_all(self.state.volatility_index, &self.config.volatility);
         map.stereo_elasticity = vol_output.stereo_elasticity;
         map.energy_density = vol_output.energy_density;
 
         // ─── STAGE 2: RTP → PACING ───
-        let pacing = RtpEmotionalMapper::pacing_curve(
-            self.state.rtp_percent,
-            &self.config.rtp,
-        );
+        let pacing = RtpEmotionalMapper::pacing_curve(self.state.rtp_percent, &self.config.rtp);
         // Pacing affects escalation rate (stored for escalation stage)
         let escalation_rate = vol_output.escalation_rate;
 
         // ─── STAGE 3: FATIGUE ───
         self.fatigue_tracker.tick(elapsed_ms, &self.config.fatigue);
-        self.fatigue_tracker.update_rms(self.state.current_rms_db, &self.config.fatigue);
+        self.fatigue_tracker
+            .update_rms(self.state.current_rms_db, &self.config.fatigue);
         self.fatigue_tracker.update_hf(self.state.current_hf_db);
-        self.fatigue_tracker.update_stereo_width(map.stereo_elasticity);
+        self.fatigue_tracker
+            .update_stereo_width(map.stereo_elasticity);
 
         let fatigue_index = self.fatigue_tracker.fatigue_index(&self.config.fatigue);
         self.state.fatigue_index = fatigue_index;
@@ -334,13 +339,11 @@ impl AurexisEngine {
         map.harmonic_excitation += variation.harmonic_shift * var_scale;
 
         // ─── STAGE 6: COLLISION ───
-        let redistributions = PanRedistributor::resolve(
-            &mut self.collision_resolver,
-            &self.config.collision,
-        );
-        map.center_occupancy = self.collision_resolver.center_occupancy(
-            self.config.collision.center_zone_width,
-        );
+        let redistributions =
+            PanRedistributor::resolve(&mut self.collision_resolver, &self.config.collision);
+        map.center_occupancy = self
+            .collision_resolver
+            .center_occupancy(self.config.collision.center_zone_width);
         map.voices_redistributed = redistributions.len() as u32;
 
         // Aggregate ducking bias from all redistributed voices
@@ -369,11 +372,11 @@ impl AurexisEngine {
         // ─── STAGE 10: ENERGY GOVERNANCE ───
         // Derive emotional intensity per domain from current pipeline state
         let ei = [
-            map.energy_density,                                         // Dynamic
-            map.transient_sharpness.clamp(0.0, 2.0) / 2.0,            // Transient (normalize)
-            map.stereo_width.clamp(0.0, 2.0) / 2.0,                   // Spatial (normalize)
-            (map.harmonic_excitation - 1.0).clamp(0.0, 1.0),          // Harmonic (0=neutral)
-            (map.transient_density_per_min / 30.0).clamp(0.0, 1.0),   // Temporal (normalize)
+            map.energy_density,                                     // Dynamic
+            map.transient_sharpness.clamp(0.0, 2.0) / 2.0,          // Transient (normalize)
+            map.stereo_width.clamp(0.0, 2.0) / 2.0,                 // Spatial (normalize)
+            (map.harmonic_excitation - 1.0).clamp(0.0, 1.0),        // Harmonic (0=neutral)
+            (map.transient_density_per_min / 30.0).clamp(0.0, 1.0), // Temporal (normalize)
         ];
         let budget = self.energy_governor.compute(ei);
         map.energy_caps = budget.caps;
@@ -386,8 +389,10 @@ impl AurexisEngine {
         // ─── STAGE 11: DYNAMIC PRIORITY MATRIX ───
         // Feed GEG outputs into DPM
         self.priority_matrix.set_energy_cap(map.energy_overall_cap);
-        self.priority_matrix.set_voice_budget_max(map.voice_budget_max);
-        self.priority_matrix.set_profile_index(self.energy_governor.profile() as u8);
+        self.priority_matrix
+            .set_voice_budget_max(map.voice_budget_max);
+        self.priority_matrix
+            .set_profile_index(self.energy_governor.profile() as u8);
 
         // DPM computes internally when voices are submitted via FFI
         // Here we just sync the last output to the parameter map
@@ -399,7 +404,8 @@ impl AurexisEngine {
 
         // ─── STAGE 12: SPECTRAL ALLOCATION ───
         // Feed energy cap into spectral allocator
-        self.spectral_allocator.set_energy_cap(map.energy_overall_cap);
+        self.spectral_allocator
+            .set_energy_cap(map.energy_overall_cap);
 
         // SAMCL computes internally when voices are submitted via FFI
         // Here we sync the last output to the parameter map
@@ -496,9 +502,12 @@ mod tests {
         engine.set_win(100.0, 1.0, 0.0); // 100x bet
         let escalated = engine.compute_cloned(50);
 
-        assert!(escalated.stereo_width > neutral.stereo_width,
+        assert!(
+            escalated.stereo_width > neutral.stereo_width,
             "Win should increase stereo width: neutral={}, escalated={}",
-            neutral.stereo_width, escalated.stereo_width);
+            neutral.stereo_width,
+            escalated.stereo_width
+        );
         assert!(escalated.harmonic_excitation > neutral.harmonic_excitation);
         assert!(escalated.reverb_tail_extension_ms > neutral.reverb_tail_extension_ms);
         assert!(escalated.sub_reinforcement_db > neutral.sub_reinforcement_db);
@@ -514,9 +523,12 @@ mod tests {
         engine.set_volatility(0.9);
         let high = engine.compute_cloned(50);
 
-        assert!(high.stereo_elasticity > low.stereo_elasticity,
+        assert!(
+            high.stereo_elasticity > low.stereo_elasticity,
             "High volatility should increase elasticity: low={}, high={}",
-            low.stereo_elasticity, high.stereo_elasticity);
+            low.stereo_elasticity,
+            high.stereo_elasticity
+        );
         assert!(high.energy_density > low.energy_density);
     }
 
@@ -532,12 +544,16 @@ mod tests {
         }
 
         let map = engine.output();
-        assert!(map.fatigue_index > 0.0,
+        assert!(
+            map.fatigue_index > 0.0,
             "Sustained loud session should accumulate fatigue: {}",
-            map.fatigue_index);
-        assert!(map.hf_attenuation_db < 0.0,
+            map.fatigue_index
+        );
+        assert!(
+            map.hf_attenuation_db < 0.0,
             "Fatigue should cause HF attenuation: {}",
-            map.hf_attenuation_db);
+            map.hf_attenuation_db
+        );
     }
 
     #[test]
@@ -551,10 +567,16 @@ mod tests {
         }
 
         let map = engine.compute_cloned(50);
-        assert!(map.center_occupancy >= 2,
-            "Should detect center occupancy: {}", map.center_occupancy);
-        assert!(map.voices_redistributed > 0,
-            "Should redistribute excess center voices: {}", map.voices_redistributed);
+        assert!(
+            map.center_occupancy >= 2,
+            "Should detect center occupancy: {}",
+            map.center_occupancy
+        );
+        assert!(
+            map.voices_redistributed > 0,
+            "Should redistribute excess center voices: {}",
+            map.voices_redistributed
+        );
     }
 
     #[test]
@@ -571,8 +593,11 @@ mod tests {
         });
 
         let map = engine.compute_cloned(50);
-        assert!(map.attention_x > 0.5,
-            "Attention should follow screen event: {}", map.attention_x);
+        assert!(
+            map.attention_x > 0.5,
+            "Attention should follow screen event: {}",
+            map.attention_x
+        );
         assert_eq!(map.attention_weight, 1.0); // Single event = fully focused
     }
 
@@ -586,8 +611,11 @@ mod tests {
         engine.set_win(20.0, 1.0, 0.0);
         let map = engine.compute_cloned(50);
 
-        assert!(map.platform_stereo_range < 1.0,
-            "Mobile should compress stereo range: {}", map.platform_stereo_range);
+        assert!(
+            map.platform_stereo_range < 1.0,
+            "Mobile should compress stereo range: {}",
+            map.platform_stereo_range
+        );
     }
 
     #[test]
@@ -632,7 +660,9 @@ mod tests {
         let map_b = engine.compute_cloned(50);
 
         // Different seeds should produce different pan_drift
-        assert_ne!(map_a.pan_drift, map_b.pan_drift,
-            "Different seeds should produce different variation");
+        assert_ne!(
+            map_a.pan_drift, map_b.pan_drift,
+            "Different seeds should produce different variation"
+        );
     }
 }

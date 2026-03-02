@@ -134,7 +134,12 @@ impl GddSchema {
         }
 
         // ── Game ID Format ──
-        if !doc.game.id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+        if !doc
+            .game
+            .id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+        {
             return Err(GddParseError::InvalidValue(format!(
                 "game.id must be alphanumeric with underscores/hyphens, got: {}",
                 doc.game.id
@@ -188,15 +193,14 @@ impl GddSchema {
 
         // ── Symbols ──
         if self.require_symbols && doc.symbols.is_empty() {
-            return Err(GddParseError::MissingField("symbols (at least one required)".into()));
+            return Err(GddParseError::MissingField(
+                "symbols (at least one required)".into(),
+            ));
         }
 
         for (i, sym) in doc.symbols.iter().enumerate() {
             if sym.name.is_empty() {
-                return Err(GddParseError::MissingField(format!(
-                    "symbols[{}].name",
-                    i
-                )));
+                return Err(GddParseError::MissingField(format!("symbols[{}].name", i)));
             }
 
             if sym.id > self.max_symbol_id {

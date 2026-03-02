@@ -10,7 +10,7 @@
 
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{CStr, CString, c_char};
 use std::ptr;
 use std::sync::atomic::{AtomicU8, Ordering};
 
@@ -81,7 +81,11 @@ pub extern "C" fn aurexis_destroy() -> i32 {
 /// Returns 1 if initialized, 0 otherwise.
 #[unsafe(no_mangle)]
 pub extern "C" fn aurexis_is_initialized() -> i32 {
-    if AUREXIS_STATE.load(Ordering::SeqCst) == STATE_INITIALIZED { 1 } else { 0 }
+    if AUREXIS_STATE.load(Ordering::SeqCst) == STATE_INITIALIZED {
+        1
+    } else {
+        0
+    }
 }
 
 /// Reset session state (fatigue, timing, voices) without clearing config.
@@ -107,7 +111,10 @@ pub extern "C" fn aurexis_reset_session() -> i32 {
 pub extern "C" fn aurexis_set_volatility(index: f64) -> i32 {
     let mut guard = ENGINE.write();
     match guard.as_mut() {
-        Some(engine) => { engine.set_volatility(index); 1 }
+        Some(engine) => {
+            engine.set_volatility(index);
+            1
+        }
         None => 0,
     }
 }
@@ -117,7 +124,10 @@ pub extern "C" fn aurexis_set_volatility(index: f64) -> i32 {
 pub extern "C" fn aurexis_set_rtp(rtp: f64) -> i32 {
     let mut guard = ENGINE.write();
     match guard.as_mut() {
-        Some(engine) => { engine.set_rtp(rtp); 1 }
+        Some(engine) => {
+            engine.set_rtp(rtp);
+            1
+        }
         None => 0,
     }
 }
@@ -127,7 +137,10 @@ pub extern "C" fn aurexis_set_rtp(rtp: f64) -> i32 {
 pub extern "C" fn aurexis_set_win(amount: f64, bet: f64, jackpot_proximity: f64) -> i32 {
     let mut guard = ENGINE.write();
     match guard.as_mut() {
-        Some(engine) => { engine.set_win(amount, bet, jackpot_proximity); 1 }
+        Some(engine) => {
+            engine.set_win(amount, bet, jackpot_proximity);
+            1
+        }
         None => 0,
     }
 }
@@ -137,7 +150,10 @@ pub extern "C" fn aurexis_set_win(amount: f64, bet: f64, jackpot_proximity: f64)
 pub extern "C" fn aurexis_set_metering(rms_db: f64, hf_db: f64) -> i32 {
     let mut guard = ENGINE.write();
     match guard.as_mut() {
-        Some(engine) => { engine.set_metering(rms_db, hf_db); 1 }
+        Some(engine) => {
+            engine.set_metering(rms_db, hf_db);
+            1
+        }
         None => 0,
     }
 }
@@ -152,7 +168,10 @@ pub extern "C" fn aurexis_set_seed(
 ) -> i32 {
     let mut guard = ENGINE.write();
     match guard.as_mut() {
-        Some(engine) => { engine.set_seed(sprite_id, event_time, game_state, session_index); 1 }
+        Some(engine) => {
+            engine.set_seed(sprite_id, event_time, game_state, session_index);
+            1
+        }
         None => 0,
     }
 }
@@ -195,7 +214,11 @@ pub extern "C" fn aurexis_register_voice(
     let mut guard = ENGINE.write();
     match guard.as_mut() {
         Some(engine) => {
-            if engine.register_voice(voice_id, pan, z_depth, priority) { 1 } else { 0 }
+            if engine.register_voice(voice_id, pan, z_depth, priority) {
+                1
+            } else {
+                0
+            }
         }
         None => 0,
     }
@@ -207,7 +230,13 @@ pub extern "C" fn aurexis_register_voice(
 pub extern "C" fn aurexis_unregister_voice(voice_id: u32) -> i32 {
     let mut guard = ENGINE.write();
     match guard.as_mut() {
-        Some(engine) => { if engine.unregister_voice(voice_id) { 1 } else { 0 } }
+        Some(engine) => {
+            if engine.unregister_voice(voice_id) {
+                1
+            } else {
+                0
+            }
+        }
         None => 0,
     }
 }
@@ -229,8 +258,18 @@ pub extern "C" fn aurexis_register_screen_event(
     let mut guard = ENGINE.write();
     match guard.as_mut() {
         Some(engine) => {
-            let event = ScreenEvent { event_id, x, y, weight, priority };
-            if engine.register_screen_event(event) { 1 } else { 0 }
+            let event = ScreenEvent {
+                event_id,
+                x,
+                y,
+                weight,
+                priority,
+            };
+            if engine.register_screen_event(event) {
+                1
+            } else {
+                0
+            }
         }
         None => 0,
     }
@@ -241,7 +280,10 @@ pub extern "C" fn aurexis_register_screen_event(
 pub extern "C" fn aurexis_clear_screen_events() -> i32 {
     let mut guard = ENGINE.write();
     match guard.as_mut() {
-        Some(engine) => { engine.clear_screen_events(); 1 }
+        Some(engine) => {
+            engine.clear_screen_events();
+            1
+        }
         None => 0,
     }
 }
@@ -257,7 +299,10 @@ pub extern "C" fn aurexis_clear_screen_events() -> i32 {
 pub extern "C" fn aurexis_compute(elapsed_ms: u64) -> i32 {
     let mut guard = ENGINE.write();
     match guard.as_mut() {
-        Some(engine) => { engine.compute(elapsed_ms); 1 }
+        Some(engine) => {
+            engine.compute(elapsed_ms);
+            1
+        }
         None => 0,
     }
 }
@@ -313,14 +358,18 @@ pub extern "C" fn aurexis_get_hf_attenuation_db() -> f64 {
 #[unsafe(no_mangle)]
 pub extern "C" fn aurexis_get_harmonic_excitation() -> f64 {
     let guard = ENGINE.read();
-    guard.as_ref().map_or(1.0, |e| e.output().harmonic_excitation)
+    guard
+        .as_ref()
+        .map_or(1.0, |e| e.output().harmonic_excitation)
 }
 
 /// Get escalation multiplier.
 #[unsafe(no_mangle)]
 pub extern "C" fn aurexis_get_escalation_multiplier() -> f64 {
     let guard = ENGINE.read();
-    guard.as_ref().map_or(1.0, |e| e.output().escalation_multiplier)
+    guard
+        .as_ref()
+        .map_or(1.0, |e| e.output().escalation_multiplier)
 }
 
 /// Get fatigue index (0.0 = fresh, 1.0 = fatigued).
@@ -334,28 +383,36 @@ pub extern "C" fn aurexis_get_fatigue_index() -> f64 {
 #[unsafe(no_mangle)]
 pub extern "C" fn aurexis_get_reverb_tail_ms() -> f64 {
     let guard = ENGINE.read();
-    guard.as_ref().map_or(0.0, |e| e.output().reverb_tail_extension_ms)
+    guard
+        .as_ref()
+        .map_or(0.0, |e| e.output().reverb_tail_extension_ms)
 }
 
 /// Get sub reinforcement (dB).
 #[unsafe(no_mangle)]
 pub extern "C" fn aurexis_get_sub_reinforcement_db() -> f64 {
     let guard = ENGINE.read();
-    guard.as_ref().map_or(0.0, |e| e.output().sub_reinforcement_db)
+    guard
+        .as_ref()
+        .map_or(0.0, |e| e.output().sub_reinforcement_db)
 }
 
 /// Get transient sharpness multiplier.
 #[unsafe(no_mangle)]
 pub extern "C" fn aurexis_get_transient_sharpness() -> f64 {
     let guard = ENGINE.read();
-    guard.as_ref().map_or(1.0, |e| e.output().transient_sharpness)
+    guard
+        .as_ref()
+        .map_or(1.0, |e| e.output().transient_sharpness)
 }
 
 /// Get transient smoothing (0.0 = sharp, 1.0 = smooth).
 #[unsafe(no_mangle)]
 pub extern "C" fn aurexis_get_transient_smoothing() -> f64 {
     let guard = ENGINE.read();
-    guard.as_ref().map_or(0.0, |e| e.output().transient_smoothing)
+    guard
+        .as_ref()
+        .map_or(0.0, |e| e.output().transient_smoothing)
 }
 
 /// Get attention vector X (-1.0 left, +1.0 right).
@@ -390,7 +447,9 @@ pub extern "C" fn aurexis_get_center_occupancy() -> u32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn aurexis_get_voices_redistributed() -> u32 {
     let guard = ENGINE.read();
-    guard.as_ref().map_or(0, |e| e.output().voices_redistributed)
+    guard
+        .as_ref()
+        .map_or(0, |e| e.output().voices_redistributed)
 }
 
 /// Get variation seed.
@@ -404,7 +463,9 @@ pub extern "C" fn aurexis_get_variation_seed() -> u64 {
 #[unsafe(no_mangle)]
 pub extern "C" fn aurexis_get_session_duration_s() -> f64 {
     let guard = ENGINE.read();
-    guard.as_ref().map_or(0.0, |e| e.output().session_duration_s)
+    guard
+        .as_ref()
+        .map_or(0.0, |e| e.output().session_duration_s)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -502,12 +563,10 @@ pub extern "C" fn aurexis_export_config_json() -> *mut c_char {
             Ok(j) => j,
             Err(_) => return ptr::null_mut(),
         },
-        None => {
-            match CONFIG.read().to_json() {
-                Ok(j) => j,
-                Err(_) => return ptr::null_mut(),
-            }
-        }
+        None => match CONFIG.read().to_json() {
+            Ok(j) => j,
+            Err(_) => return ptr::null_mut(),
+        },
     };
 
     match CString::new(json) {
@@ -545,7 +604,11 @@ pub extern "C" fn aurexis_set_coefficient(
     let mut guard = ENGINE.write();
     match guard.as_mut() {
         Some(engine) => {
-            if engine.set_coefficient(section_str, key_str, value) { 1 } else { 0 }
+            if engine.set_coefficient(section_str, key_str, value) {
+                1
+            } else {
+                0
+            }
         }
         None => 0,
     }
@@ -763,14 +826,20 @@ mod tests {
         reset_for_test();
         aurexis_init();
 
-        let json = CString::new(r#"{"volatility": 0.8, "rtp": 91.0, "win_amount": 50.0, "bet_amount": 1.0}"#).unwrap();
+        let json = CString::new(
+            r#"{"volatility": 0.8, "rtp": 91.0, "win_amount": 50.0, "bet_amount": 1.0}"#,
+        )
+        .unwrap();
         assert_eq!(aurexis_update_state_json(json.as_ptr()), 1);
 
         aurexis_compute(50);
 
         // High volatility should give high elasticity
         let elasticity = aurexis_get_stereo_elasticity();
-        assert!(elasticity > 1.0, "High volatility should give high elasticity: {elasticity}");
+        assert!(
+            elasticity > 1.0,
+            "High volatility should give high elasticity: {elasticity}"
+        );
 
         aurexis_destroy();
     }
