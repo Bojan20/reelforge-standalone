@@ -23,6 +23,7 @@ import 'daw_files_browser.dart';
 import '../../services/track_preset_service.dart';
 import '../../providers/dsp_chain_provider.dart';
 import '../../providers/timeline_playback_provider.dart' show TimelineClipData;
+import '../../models/timeline_models.dart' show TimelineClip;
 import '../../services/native_file_picker.dart';
 import '../../utils/audio_math.dart';
 import '../../services/service_locator.dart';
@@ -155,6 +156,9 @@ class DawLowerZoneWidget extends StatefulWidget {
   /// Callback when clip fade out is changed (seconds)
   final void Function(String clipId, double fadeOut)? onClipFadeOutChanged;
 
+  /// All timeline clips for Loop Editor (filtered by track inside panel)
+  final List<TimelineClip> allClips;
+
   const DawLowerZoneWidget({
     super.key,
     required this.controller,
@@ -182,6 +186,7 @@ class DawLowerZoneWidget extends StatefulWidget {
     this.onClipGainChanged,
     this.onClipFadeInChanged,
     this.onClipFadeOutChanged,
+    this.allClips = const [],
   });
 
   @override
@@ -1036,7 +1041,11 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     onAction: widget.onDspAction,
   );
 
-  Widget _buildLoopEditorPanel() => const LoopEditorPanel();
+  Widget _buildLoopEditorPanel() => LoopEditorPanel(
+    selectedTrackId: widget.selectedTrackId,
+    clips: widget.allClips,
+    onAction: widget.onDspAction,
+  );
 
   /// Compact Timeline Overview
   // ✅ P0.1: Timeline Overview extracted to daw/edit/timeline_overview_panel.dart

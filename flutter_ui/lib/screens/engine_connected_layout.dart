@@ -5711,6 +5711,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           selectedTrackId: selectedTrackId,
           selectedTrackName: selectedTrackName,
           selectedTrackColor: selectedTrackColor,
+          allClips: _clips,
           onDspAction: (action, params) {
             switch (action) {
               case 'splitClip':
@@ -5802,6 +5803,26 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               case 'deleteSelection':
                 // Delete all selected clips
                 _handleDelete();
+              case 'setClipLoop':
+                // Set loop parameters on a timeline clip
+                final clipId = params?['clipId'] as String?;
+                if (clipId != null) {
+                  final loopEnabled = params?['loopEnabled'] as bool? ?? false;
+                  final loopCount = params?['loopCount'] as int? ?? 0;
+                  final loopCrossfade = params?['loopCrossfade'] as double? ?? 0.0;
+                  setState(() {
+                    _clips = _clips.map((c) {
+                      if (c.id == clipId) {
+                        return c.copyWith(
+                          loopEnabled: loopEnabled,
+                          loopCount: loopCount,
+                          loopCrossfade: loopCrossfade,
+                        );
+                      }
+                      return c;
+                    }).toList();
+                  });
+                }
               case 'addToProject':
                 // Add audio file from Browse tab to timeline
                 final path = params?['path'] as String?;

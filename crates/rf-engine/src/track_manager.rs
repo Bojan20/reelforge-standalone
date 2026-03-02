@@ -807,12 +807,30 @@ pub struct Clip {
     #[serde(default)]
     pub loop_random_start: f64,
 
+    /// Loop start boundary in samples (0 = from clip start)
+    /// Defines where the loop region begins within the source audio.
+    #[serde(default)]
+    pub loop_start_samples: u64,
+
+    /// Loop end boundary in samples (0 = use full clip duration)
+    /// Defines where the loop region ends within the source audio.
+    #[serde(default)]
+    pub loop_end_samples: u64,
+
+    /// Per-iteration gain factor (1.0 = unity, <1.0 = decay, >1.0 = crescendo)
+    #[serde(default = "default_iteration_gain")]
+    pub iteration_gain: f64,
+
     // Clip-based FX chain (non-destructive, per-clip processing)
     #[serde(default)]
     pub fx_chain: ClipFxChain,
 }
 
 fn default_stretch_ratio() -> f64 {
+    1.0
+}
+
+fn default_iteration_gain() -> f64 {
     1.0
 }
 
@@ -846,6 +864,9 @@ impl Clip {
             loop_count: 0,
             loop_crossfade: 0.0,
             loop_random_start: 0.0,
+            loop_start_samples: 0,
+            loop_end_samples: 0,
+            iteration_gain: 1.0,
             fx_chain: ClipFxChain::new(),
         }
     }

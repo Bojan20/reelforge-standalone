@@ -65,6 +65,14 @@ class TimelineClip {
   final int channels;
   /// Time stretch ratio (1.0 = original speed, 2.0 = double length, 0.5 = half length)
   final double stretchRatio;
+  /// Loop start boundary in samples (0 = from clip start)
+  final int loopStartSamples;
+  /// Loop end boundary in samples (0 = use full clip duration)
+  final int loopEndSamples;
+  /// Per-iteration gain factor (1.0 = unity, <1.0 = decay, >1.0 = crescendo)
+  final double iterationGain;
+  /// Random start offset range in seconds (0 = disabled)
+  final double loopRandomStart;
 
   const TimelineClip({
     required this.id,
@@ -93,6 +101,10 @@ class TimelineClip {
     this.eventId,
     this.channels = 2,
     this.stretchRatio = 1.0,
+    this.loopStartSamples = 0,
+    this.loopEndSamples = 0,
+    this.iterationGain = 1.0,
+    this.loopRandomStart = 0.0,
   });
 
   /// Check if clip has active FX processing
@@ -127,6 +139,10 @@ class TimelineClip {
     String? eventId,
     int? channels,
     double? stretchRatio,
+    int? loopStartSamples,
+    int? loopEndSamples,
+    double? iterationGain,
+    double? loopRandomStart,
   }) {
     return TimelineClip(
       id: id ?? this.id,
@@ -155,6 +171,10 @@ class TimelineClip {
       eventId: eventId ?? this.eventId,
       channels: channels ?? this.channels,
       stretchRatio: stretchRatio ?? this.stretchRatio,
+      loopStartSamples: loopStartSamples ?? this.loopStartSamples,
+      loopEndSamples: loopEndSamples ?? this.loopEndSamples,
+      iterationGain: iterationGain ?? this.iterationGain,
+      loopRandomStart: loopRandomStart ?? this.loopRandomStart,
     );
   }
 }

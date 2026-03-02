@@ -1711,6 +1711,42 @@ pub extern "C" fn engine_set_clip_loop_crossfade(clip_id: u64, crossfade_secs: f
     1
 }
 
+/// Set clip loop start boundary in samples
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_clip_loop_start(clip_id: u64, start_samples: u64) -> i32 {
+    TRACK_MANAGER.update_clip(ClipId(clip_id), |clip| {
+        clip.loop_start_samples = start_samples;
+    });
+    1
+}
+
+/// Set clip loop end boundary in samples (0 = full clip)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_clip_loop_end(clip_id: u64, end_samples: u64) -> i32 {
+    TRACK_MANAGER.update_clip(ClipId(clip_id), |clip| {
+        clip.loop_end_samples = end_samples;
+    });
+    1
+}
+
+/// Set clip per-iteration gain factor
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_clip_iteration_gain(clip_id: u64, factor: f64) -> i32 {
+    TRACK_MANAGER.update_clip(ClipId(clip_id), |clip| {
+        clip.iteration_gain = factor;
+    });
+    1
+}
+
+/// Set clip loop random start offset range in seconds
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_clip_loop_random_start(clip_id: u64, range_secs: f64) -> i32 {
+    TRACK_MANAGER.update_clip(ClipId(clip_id), |clip| {
+        clip.loop_random_start = range_secs;
+    });
+    1
+}
+
 /// Get clips for a track (caller provides buffer)
 ///
 /// Returns actual number of clips
@@ -13892,6 +13928,9 @@ pub extern "C" fn render_selection_to_new_clip(
         loop_count: 0,
         loop_crossfade: 0.0,
         loop_random_start: 0.0,
+        loop_start_samples: 0,
+        loop_end_samples: 0,
+        iteration_gain: 1.0,
         fx_chain: ClipFxChain::new(),
     };
 
