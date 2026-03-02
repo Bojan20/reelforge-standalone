@@ -134,8 +134,8 @@ impl TimeStretchConfig {
 pub struct PhaseVocoder {
     fft_size: usize,
     hop_size: usize,
-    overlap: usize,
-    sample_rate: u32,
+    _overlap: usize,
+    _sample_rate: u32,
 
     // FFT buffers
     fft_buffer: Vec<f64>,
@@ -146,8 +146,8 @@ pub struct PhaseVocoder {
     sum_phase: Vec<f64>,
 
     // Analysis/synthesis buffers
-    analysis_buffer: Vec<f64>,
-    synthesis_buffer: Vec<f64>,
+    _analysis_buffer: Vec<f64>,
+    _synthesis_buffer: Vec<f64>,
 }
 
 impl PhaseVocoder {
@@ -165,14 +165,14 @@ impl PhaseVocoder {
         Self {
             fft_size,
             hop_size,
-            overlap,
-            sample_rate,
+            _overlap: overlap,
+            _sample_rate: sample_rate,
             fft_buffer: vec![0.0; fft_size],
             window,
             last_phase: vec![0.0; fft_size / 2 + 1],
             sum_phase: vec![0.0; fft_size / 2 + 1],
-            analysis_buffer: Vec::new(),
-            synthesis_buffer: Vec::new(),
+            _analysis_buffer: Vec::new(),
+            _synthesis_buffer: Vec::new(),
         }
     }
 

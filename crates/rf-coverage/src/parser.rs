@@ -152,6 +152,7 @@ impl CoverageData {
         }
 
         #[derive(Deserialize)]
+        #[allow(dead_code)]
         struct LlvmCovFile {
             filename: String,
             summary: LlvmCovSummary,
@@ -159,6 +160,7 @@ impl CoverageData {
         }
 
         #[derive(Deserialize)]
+        #[allow(dead_code)]
         struct LlvmCovFunction {
             name: String,
             count: usize,

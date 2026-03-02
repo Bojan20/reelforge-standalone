@@ -9,7 +9,7 @@
 /// CRITICAL: All FFI functions should return FFIResult<T> instead of
 /// raw T, bool, or null pointers for proper error handling.
 use serde::{Deserialize, Serialize};
-use std::ffi::{CStr, CString, c_char};
+use std::ffi::{CString, c_char};
 use std::fmt;
 
 // =============================================================================

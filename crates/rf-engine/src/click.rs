@@ -214,27 +214,6 @@ pub enum ClickPreset {
 }
 
 impl ClickPreset {
-    /// Total number of presets
-    pub const COUNT: u8 = 12;
-
-    /// Get preset name
-    pub fn name(&self) -> &'static str {
-        match self {
-            ClickPreset::Sine => "Sine",
-            ClickPreset::Woodblock => "Woodblock",
-            ClickPreset::Rimshot => "Rimshot",
-            ClickPreset::Cowbell => "Cowbell",
-            ClickPreset::Marimba => "Marimba",
-            ClickPreset::Sticks => "Sticks",
-            ClickPreset::Clave => "Clave",
-            ClickPreset::Beep => "Beep",
-            ClickPreset::Click => "Click",
-            ClickPreset::SideStick => "SideStick",
-            ClickPreset::HiHat => "HiHat",
-            ClickPreset::Metronome => "Metronome",
-        }
-    }
-
     /// Convert from u8
     pub fn from_u8(v: u8) -> Self {
         match v {
@@ -788,7 +767,7 @@ impl ClickTrack {
         }
 
         // Average intervals from last N taps (max 8)
-        let usable = self.tap_count.min(8);
+        let _usable = self.tap_count.min(8);
         let start_idx = if self.tap_count > 8 {
             self.tap_count - 8
         } else {

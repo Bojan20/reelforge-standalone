@@ -123,6 +123,10 @@ pub enum StereoMode {
     Side,
 }
 
+/// Precomputed constant: ln(10) / 20.0  — used for fast dB→linear conversion
+/// `10^(x/20) == (x * LN_10_OVER_20).exp()` but avoids the expensive `powf` call.
+const LN_10_OVER_20: f64 = std::f64::consts::LN_10 / 20.0;
+
 /// Dynamic EQ settings for a band
 #[derive(Debug, Clone, Copy)]
 pub struct DynamicEqParams {
@@ -174,6 +178,10 @@ pub struct EqBand {
     // Cache
     sample_rate: f64,
     needs_update: bool,
+
+    // Cached envelope coefficients — recomputed only when attack_ms/release_ms/sample_rate changes
+    cached_attack_coeff: f64,
+    cached_release_coeff: f64,
 }
 
 /// Default sample rate for fallback
@@ -201,6 +209,12 @@ impl EqBand {
         ];
         let filters_r = filters_l.clone();
 
+        let dynamic = DynamicEqParams::default();
+        let cached_attack_coeff =
+            (-1.0 / (dynamic.attack_ms * 0.001 * sr)).exp();
+        let cached_release_coeff =
+            (-1.0 / (dynamic.release_ms * 0.001 * sr)).exp();
+
         Self {
             enabled: false,
             filter_type: EqFilterType::Bell,
@@ -209,14 +223,26 @@ impl EqBand {
             q: 1.0,
             slope: FilterSlope::Db12,
             stereo_mode: StereoMode::Stereo,
-            dynamic: DynamicEqParams::default(),
+            dynamic,
             filters_l,
             filters_r,
             active_stages: 1, // Start with 1 stage
             envelope: 0.0,
             sample_rate: sr,
             needs_update: true,
+            cached_attack_coeff,
+            cached_release_coeff,
         }
+    }
+
+    /// Recompute cached envelope coefficients.
+    /// Call whenever `attack_ms`, `release_ms`, or `sample_rate` changes.
+    #[inline]
+    fn update_envelope_coeffs(&mut self) {
+        self.cached_attack_coeff =
+            (-1.0 / (self.dynamic.attack_ms * 0.001 * self.sample_rate)).exp();
+        self.cached_release_coeff =
+            (-1.0 / (self.dynamic.release_ms * 0.001 * self.sample_rate)).exp();
     }
 
     /// Set band parameters
@@ -390,23 +416,18 @@ impl EqBand {
         }
     }
 
-    /// Calculate dynamic EQ gain reduction
+    /// Calculate dynamic EQ gain reduction.
+    ///
+    /// Uses cached `attack_coeff`/`release_coeff` (updated only when params change)
+    /// and a fast `exp`-based dB→linear conversion instead of `powf`.
     fn calculate_dynamic_gain(&mut self, left: Sample, right: Sample) -> f64 {
         let input_level = ((left * left + right * right) * 0.5).sqrt();
-        let _input_db = if input_level > 0.0 {
-            20.0 * input_level.log10()
-        } else {
-            -120.0
-        };
 
-        // Envelope follower
-        let attack_coeff = (-1.0 / (self.dynamic.attack_ms * 0.001 * self.sample_rate)).exp();
-        let release_coeff = (-1.0 / (self.dynamic.release_ms * 0.001 * self.sample_rate)).exp();
-
+        // Envelope follower — use pre-cached coefficients (no .exp() per sample)
         let coeff = if input_level > self.envelope {
-            attack_coeff
+            self.cached_attack_coeff
         } else {
-            release_coeff
+            self.cached_release_coeff
         };
         self.envelope = coeff * self.envelope + (1.0 - coeff) * input_level;
 
@@ -430,8 +451,9 @@ impl EqBand {
             (1.0 / self.dynamic.ratio - 1.0) * x * x / (2.0 * knee)
         };
 
-        // Convert to linear gain
-        10.0_f64.powf(-gain_reduction_db / 20.0)
+        // Fast dB→linear: (x * ln10/20).exp() is equivalent to 10^(x/20)
+        // but avoids the expensive powf() call.
+        (-gain_reduction_db * LN_10_OVER_20).exp()
     }
 
     /// Process stereo block (SIMD-optimized)
@@ -749,6 +771,7 @@ impl ParametricEq {
     pub fn set_band_dynamic(&mut self, index: usize, params: DynamicEqParams) {
         if let Some(band) = self.bands.get_mut(index) {
             band.dynamic = params;
+            band.update_envelope_coeffs();
         }
     }
 
@@ -943,6 +966,7 @@ impl ProcessorConfig for ParametricEq {
         for band in &mut self.bands {
             band.sample_rate = sample_rate;
             band.needs_update = true;
+            band.update_envelope_coeffs();
             for filter in &mut band.filters_l {
                 filter.set_sample_rate(sample_rate);
             }

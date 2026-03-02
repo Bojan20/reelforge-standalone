@@ -4562,34 +4562,67 @@ impl PlaybackEngine {
                     // Stereo dual-pan: L channel has own pan, R channel has own pan
                     let pan_r_val = track.pan_right.clamp(-1.0, 1.0);
 
+                    // Precompute constant-power gains at block start/end.
+                    // pan_r is static (no smoother), so its trig is constant.
+                    // pan_l is smoothed: interpolate gains linearly across the block
+                    // to avoid cos/sin per sample (48k trig calls/sec per track).
+                    let pan_l_start = self.param_smoother.get_track_pan(track.id.0).clamp(-1.0, 1.0);
+                    let pan_l_end = self.param_smoother.get_track_pan_target(track.id.0).clamp(-1.0, 1.0);
+
+                    let pan_l_start_angle = (pan_l_start + 1.0) * std::f64::consts::FRAC_PI_4;
+                    let pan_l_end_angle = (pan_l_end + 1.0) * std::f64::consts::FRAC_PI_4;
+
+                    let pan_l_l_start = pan_l_start_angle.cos();
+                    let pan_l_r_start = pan_l_start_angle.sin();
+                    let pan_l_l_end = pan_l_end_angle.cos();
+                    let pan_l_r_end = pan_l_end_angle.sin();
+
+                    // pan_r_val is not smoothed — trig computed once outside loop
+                    let pan_r_angle = (pan_r_val + 1.0) * std::f64::consts::FRAC_PI_4;
+                    let pan_r_l_gain = pan_r_angle.cos();
+                    let pan_r_r_gain = pan_r_angle.sin();
+
+                    let frames_f64_recip = if frames > 1 { 1.0 / (frames - 1) as f64 } else { 0.0 };
+
                     for i in 0..frames {
-                        let (volume, pan) = self.param_smoother.advance_track(track.id.0);
+                        let (volume, _pan) = self.param_smoother.advance_track(track.id.0);
                         let final_volume = volume * vca_gain;
-                        let pan_l_val = pan.clamp(-1.0, 1.0);
 
-                        let pan_l_angle = (pan_l_val + 1.0) * std::f64::consts::FRAC_PI_4;
-                        let pan_l_l = pan_l_angle.cos();
-                        let pan_l_r = pan_l_angle.sin();
-
-                        let pan_r_angle = (pan_r_val + 1.0) * std::f64::consts::FRAC_PI_4;
-                        let pan_r_l = pan_r_angle.cos();
-                        let pan_r_r = pan_r_angle.sin();
+                        // Linear interpolation of constant-power gains (no trig in loop)
+                        let t = i as f64 * frames_f64_recip;
+                        let pan_l_l = pan_l_l_start + (pan_l_l_end - pan_l_l_start) * t;
+                        let pan_l_r = pan_l_r_start + (pan_l_r_end - pan_l_r_start) * t;
 
                         let l_sample = track_l[i];
                         let r_sample = track_r[i];
-                        track_l[i] = final_volume * (l_sample * pan_l_l + r_sample * pan_r_l);
-                        track_r[i] = final_volume * (l_sample * pan_l_r + r_sample * pan_r_r);
+                        track_l[i] = final_volume * (l_sample * pan_l_l + r_sample * pan_r_l_gain);
+                        track_r[i] = final_volume * (l_sample * pan_l_r + r_sample * pan_r_r_gain);
                     }
                 } else {
                     // Mono: single pan knob
-                    for i in 0..frames {
-                        let (volume, pan) = self.param_smoother.advance_track(track.id.0);
-                        let final_volume = volume * vca_gain;
-                        let pan = pan.clamp(-1.0, 1.0);
+                    // Precompute constant-power gains at block start/end, interpolate linearly.
+                    // Eliminates cos/sin per sample — 2 trig calls total instead of 2*frames.
+                    let pan_start = self.param_smoother.get_track_pan(track.id.0).clamp(-1.0, 1.0);
+                    let pan_end = self.param_smoother.get_track_pan_target(track.id.0).clamp(-1.0, 1.0);
 
-                        let pan_angle = (pan + 1.0) * std::f64::consts::FRAC_PI_4;
-                        let pan_l = pan_angle.cos();
-                        let pan_r = pan_angle.sin();
+                    let pan_start_angle = (pan_start + 1.0) * std::f64::consts::FRAC_PI_4;
+                    let pan_end_angle = (pan_end + 1.0) * std::f64::consts::FRAC_PI_4;
+
+                    let pan_l_start = pan_start_angle.cos();
+                    let pan_r_start = pan_start_angle.sin();
+                    let pan_l_end = pan_end_angle.cos();
+                    let pan_r_end = pan_end_angle.sin();
+
+                    let frames_f64_recip = if frames > 1 { 1.0 / (frames - 1) as f64 } else { 0.0 };
+
+                    for i in 0..frames {
+                        let (volume, _pan) = self.param_smoother.advance_track(track.id.0);
+                        let final_volume = volume * vca_gain;
+
+                        // Linear interpolation of constant-power gains (no trig in loop)
+                        let t = i as f64 * frames_f64_recip;
+                        let pan_l = pan_l_start + (pan_l_end - pan_l_start) * t;
+                        let pan_r = pan_r_start + (pan_r_end - pan_r_start) * t;
 
                         track_l[i] *= final_volume * pan_l;
                         track_r[i] *= final_volume * pan_r;

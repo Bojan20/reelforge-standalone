@@ -389,6 +389,11 @@ class MixerProvider extends ChangeNotifier {
   // Drag anchor tracking: captures pre-drag value for undo on drag-end
   final Map<String, double> _panDragAnchors = {};
 
+  // Bus routing cache: busId → list of channelIds routed to that bus.
+  // Keeps O(channels) bus meter aggregation instead of O(channels × buses).
+  // Rebuilt on createChannel/deleteChannel; incrementally updated on setChannelOutput.
+  final Map<String, List<String>> _busRoutingCache = {};
+
   MixerProvider() {
     _initializeDefaultBuses();
     _subscribeToMetering();
@@ -626,6 +631,31 @@ class MixerProvider extends ChangeNotifier {
   // INITIALIZATION
   // ═══════════════════════════════════════════════════════════════════════════
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BUS ROUTING CACHE MANAGEMENT
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Rebuild the full bus routing cache from current channel state.
+  /// O(channels) — called on createChannel, deleteChannel, and bulk operations.
+  void _rebuildBusRoutingCache() {
+    _busRoutingCache.clear();
+    for (final channel in _channels.values) {
+      final busId = channel.outputBus ?? 'master';
+      _busRoutingCache.putIfAbsent(busId, () => []).add(channel.id);
+    }
+  }
+
+  /// Incrementally move one channel from [oldBusId] to [newBusId] in the cache.
+  /// O(1) amortized — called on setChannelOutput.
+  void _updateBusRoutingCache(String channelId, String oldBusId, String newBusId) {
+    if (oldBusId == newBusId) return;
+    _busRoutingCache[oldBusId]?.remove(channelId);
+    if (_busRoutingCache[oldBusId]?.isEmpty ?? false) {
+      _busRoutingCache.remove(oldBusId);
+    }
+    _busRoutingCache.putIfAbsent(newBusId, () => []).add(channelId);
+  }
+
   void _initializeDefaultBuses() {
     // Master bus only - Cubase style stereo output
     // Buses are created dynamically when tracks are added
@@ -726,14 +756,19 @@ class MixerProvider extends ChangeNotifier {
 
     // Update bus meters — aggregate peak/rms from all tracks routed to each bus.
     // User-created buses have no engine representation, so we sum routed tracks.
+    // Uses _busRoutingCache (busId → channelIds) for O(channels) instead of
+    // O(channels × buses) nested iteration.
     for (final bus in _buses.values) {
       double busPeakL = 0.0;
       double busPeakR = 0.0;
       double busRmsL = 0.0;
       double busRmsR = 0.0;
 
-      for (final channel in _channels.values) {
-        if (channel.outputBus == bus.id) {
+      final routed = _busRoutingCache[bus.id];
+      if (routed != null) {
+        for (final channelId in routed) {
+          final channel = _channels[channelId];
+          if (channel == null) continue;
           if (channel.peakL > busPeakL) busPeakL = channel.peakL;
           if (channel.peakR > busPeakR) busPeakR = channel.peakR;
           // RMS: sum of squares then sqrt (energy sum)
@@ -802,6 +837,9 @@ class MixerProvider extends ChangeNotifier {
 
     _channels[id] = channel;
     _channelOrder.add(id); // Maintain order list
+    // Keep bus routing cache in sync
+    final busId = channel.outputBus ?? 'master';
+    _busRoutingCache.putIfAbsent(busId, () => []).add(id);
     notifyListeners();
     return channel;
   }
@@ -856,6 +894,8 @@ class MixerProvider extends ChangeNotifier {
 
     _channels[id] = channel;
     _channelOrder.add(id); // Maintain order list
+    // Keep bus routing cache in sync
+    _busRoutingCache.putIfAbsent(outputBus, () => []).add(id);
 
     // Auto-create stereo imager for track (default width = 1.0 = no change)
     if (nativeTrackId != null) {
@@ -903,6 +943,13 @@ class MixerProvider extends ChangeNotifier {
     }
     for (final group in _groups.values) {
       group.memberIds.remove(id);
+    }
+
+    // Remove from bus routing cache before removing from _channels
+    final busId = channel.outputBus ?? 'master';
+    _busRoutingCache[busId]?.remove(id);
+    if (_busRoutingCache[busId]?.isEmpty ?? false) {
+      _busRoutingCache.remove(busId);
     }
 
     _channels.remove(id);
@@ -1072,6 +1119,7 @@ class MixerProvider extends ChangeNotifier {
     if (_isDefaultBus(id)) return;
 
     // Reroute channels to master and sync engine
+    // All channels routed to this bus move to 'master' — rebuild cache afterwards.
     for (final channel in _channels.values) {
       if (channel.outputBus == id) {
         _channels[channel.id] = channel.copyWith(outputBus: 'master');
@@ -1084,6 +1132,8 @@ class MixerProvider extends ChangeNotifier {
 
     _buses.remove(id);
     _busOrder.remove(id);
+    // Rebuild cache after bulk re-routing (simpler than incremental here)
+    _rebuildBusRoutingCache();
     notifyListeners();
   }
 
@@ -2183,7 +2233,11 @@ class MixerProvider extends ChangeNotifier {
     final channel = _channels[channelId];
     if (channel == null) return;
 
+    final oldBusId = channel.outputBus ?? 'master';
     _channels[channelId] = channel.copyWith(outputBus: busId);
+
+    // Keep bus routing cache in sync (O(1) incremental update)
+    _updateBusRoutingCache(channelId, oldBusId, busId);
 
     // Sync to engine: resolve logical bus → physical engine bus index
     if (channel.trackIndex != null) {

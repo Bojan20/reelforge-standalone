@@ -12,7 +12,7 @@ use std::ptr;
 use rf_aurexis::core::config::AurexisConfig;
 use rf_aurexis::sss::{
     AutoRegression, BurnTest, BurnTestConfig, ConfigDiffEngine, ProjectConfig, ProjectIsolation,
-    RegressionConfig, StressScenario,
+    RegressionConfig,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════

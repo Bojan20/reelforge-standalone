@@ -13,11 +13,13 @@ pub struct GatesConfig {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub struct ProviderToggle {
     pub enabled: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub struct ProvidersConfig {
     pub claude: ProviderToggle,
     pub openai: ProviderToggle,
@@ -38,6 +40,7 @@ pub struct AccConfigFile {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct AccConfig {
     pub repo_root: PathBuf,
     pub watch: Vec<String>,

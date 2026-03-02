@@ -3,7 +3,6 @@
 
 use crate::routing::RoutingGraph;
 use crate::track_manager::TrackManager;
-use std::collections::HashMap;
 use std::collections::HashSet;
 
 pub type DawChannelId = u64;
@@ -53,13 +52,13 @@ pub enum SoloCommand {
 }
 
 pub struct SoloEngine {
-    mode: SoloMode,
+    _mode: SoloMode,
 }
 
 impl SoloEngine {
     pub fn new() -> Self {
         Self {
-            mode: SoloMode::Sip,
+            _mode: SoloMode::Sip,
         }
     }
 
@@ -68,7 +67,7 @@ impl SoloEngine {
             SoloCommand::SetSolo { .. } => {}
             SoloCommand::SetSoloSafe { .. } => {}
             SoloCommand::SetSoloMode { mode } => {
-                self.mode = mode;
+                self._mode = mode;
             }
         }
     }
@@ -109,15 +108,15 @@ pub enum SpillMode {
 }
 
 pub struct SpillEngine {
-    mode: SpillMode,
-    spill_targets: HashSet<DawChannelId>,
+    _mode: SpillMode,
+    _spill_targets: HashSet<DawChannelId>,
 }
 
 impl SpillEngine {
     pub fn new() -> Self {
         Self {
-            mode: SpillMode::Vca,
-            spill_targets: HashSet::new(),
+            _mode: SpillMode::Vca,
+            _spill_targets: HashSet::new(),
         }
     }
 }

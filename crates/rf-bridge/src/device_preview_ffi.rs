@@ -7,7 +7,7 @@ use parking_lot::RwLock;
 use rf_dsp::device_preview::{
     self, DeviceCategory, DevicePreviewEngine, DeviceStereoMode, DistortionModel,
 };
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::os::raw::c_char;
 
 lazy_static! {

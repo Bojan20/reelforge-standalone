@@ -10,7 +10,7 @@ use std::ptr;
 
 use rf_aurexis::gad::{
     BakeConfig, BakeStep, BakeToSlot, CanonicalEventBinding, GadProject, GadProjectConfig,
-    GadTrackLayout, GadTrackType, MarkerType, MusicalPosition, TimelineMarker, TrackMetadata,
+    GadTrackType, MarkerType, MusicalPosition, TimelineMarker,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════

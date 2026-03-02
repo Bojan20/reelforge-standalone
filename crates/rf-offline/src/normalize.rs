@@ -391,11 +391,6 @@ impl TruePeakDetector {
         max_interp
     }
 
-    /// Get maximum true peak detected
-    fn get_max(&self) -> f64 {
-        self.max_peak
-    }
-
     /// Reset detector
     fn reset(&mut self) {
         self.delay_line = [0.0; 12];
@@ -419,7 +414,7 @@ struct LoudnessBlock {
 
 /// LUFS loudness meter (EBU R128 compliant)
 pub struct LoudnessMeter {
-    sample_rate: f64,
+    _sample_rate: f64,
     channels: usize,
 
     // K-weighting filters (one per channel)
@@ -463,7 +458,7 @@ impl LoudnessMeter {
         let tp_detectors = (0..channels).map(|_| TruePeakDetector::new()).collect();
 
         Self {
-            sample_rate: sr,
+            _sample_rate: sr,
             channels,
             k_filters,
             tp_detectors,
@@ -732,13 +727,15 @@ mod tests {
         // True peak should be >= sample peak
         let samples = [0.5, 0.8, -0.7, 0.3, -0.9, 0.6];
         let mut sample_peak = 0.0f64;
+        let mut detected_peak = 0.0f64;
 
         for &s in &samples {
-            detector.process(s);
+            let tp = detector.process(s);
+            detected_peak = detected_peak.max(tp);
             sample_peak = sample_peak.max(s.abs());
         }
 
-        assert!(detector.get_max() >= sample_peak * 0.99);
+        assert!(detected_peak >= sample_peak * 0.99);
     }
 
     #[test]

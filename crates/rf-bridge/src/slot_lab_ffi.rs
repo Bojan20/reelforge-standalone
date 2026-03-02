@@ -31,7 +31,7 @@ use rf_slot_lab::{
 use rf_stage::StageEvent;
 
 // P12.0.5: Ultimate FFI bounds checking
-use crate::ffi_bounds::{self, BoundsCheckResult};
+use crate::ffi_bounds;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GLOBAL STATE
@@ -524,7 +524,7 @@ pub extern "C" fn slot_lab_spin_p5() -> u64 {
     };
 
     // Execute spin (uses legacy win tier internally)
-    let (mut result, mut stages) = engine.spin_with_stages();
+    let (mut result, stages) = engine.spin_with_stages();
 
     // Reevaluate with P5 Win Tier config
     let win_config = WIN_TIER_CONFIG.read();
@@ -2700,7 +2700,7 @@ pub extern "C" fn slot_lab_cascade_get_state_json() -> *mut c_char {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 use rf_slot_lab::model::{
-    BigWinConfig, BigWinTier, RegularWinConfig, RegularWinTier, SlotWinConfig, WinTierResult,
+    RegularWinTier, SlotWinConfig,
 };
 
 /// Global Win Tier Configuration

@@ -55,7 +55,7 @@ pub struct CertificationResult {
 /// 6. Final Hash Validation
 /// 7. BAKE UNLOCKED
 pub struct CertificationGate {
-    config: AurexisConfig,
+    _config: AurexisConfig,
     replay_core: DeterministicReplayCore,
     safety_envelope: SafetyEnvelope,
     manifest: FluxManifest,
@@ -65,7 +65,7 @@ pub struct CertificationGate {
 impl CertificationGate {
     pub fn new() -> Self {
         Self {
-            config: AurexisConfig::default(),
+            _config: AurexisConfig::default(),
             replay_core: DeterministicReplayCore::new(),
             safety_envelope: SafetyEnvelope::new(),
             manifest: FluxManifest::new(),

@@ -405,6 +405,20 @@ impl ParamSmootherManager {
         }
     }
 
+    /// Get pan target value (audio thread - lock-free)
+    ///
+    /// Returns the target pan that the smoother is converging toward.
+    /// Used for block-level trig precomputation to avoid per-sample cos/sin calls.
+    #[inline]
+    pub fn get_track_pan_target(&self, track_id: u64) -> f64 {
+        let idx = Self::track_index(track_id);
+        if !self.atomic_state[idx].is_active() {
+            return 0.0; // Default
+        }
+        // Read the atomic target directly (same source advance_track uses)
+        self.atomic_state[idx].get_target_pan()
+    }
+
     /// Advance smoother and get next values (audio thread - lock-free)
     ///
     /// This is the main method called from audio callback.

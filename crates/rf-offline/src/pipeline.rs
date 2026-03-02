@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use crate::config::OfflineConfig;
 use crate::decoder::AudioDecoder;
 use crate::encoder::create_encoder;
-use crate::error::{OfflineError, OfflineResult};
+use crate::error::OfflineResult;
 use crate::formats::OutputFormat;
 use crate::job::{JobResult, OfflineJob};
 use crate::normalize::{LoudnessMeter, NormalizationMode};
@@ -451,7 +451,6 @@ impl OfflinePipeline {
     /// Process buffer through DSP chain
     fn process_buffer(&mut self, buffer: &mut AudioBuffer) -> OfflineResult<()> {
         let block_size = self.config.buffer_size;
-        let total_samples = buffer.samples.len();
         let mut processed = 0;
 
         // Process in blocks
