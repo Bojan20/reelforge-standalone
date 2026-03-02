@@ -4036,6 +4036,30 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     if (GetIt.instance.isRegistered<FeatureBuilderProvider>()) {
       final builder = GetIt.instance<FeatureBuilderProvider>();
       GameFlowIntegration.instance.syncFromFeatureBuilder(builder);
+
+      // ═══════════════════════════════════════════════════════════════════════
+      // AUTO-BIND: Register all block-generated stages in EventRegistry.
+      // This ensures every stage the engine can emit is "known" — even before
+      // the user assigns audio. Without this, stages fire into the void.
+      // ═══════════════════════════════════════════════════════════════════════
+      builder.exportStagesToConfiguration();
+      final stageResult = builder.generateStages();
+      if (stageResult.isValid) {
+        for (final entry in stageResult.stages) {
+          final busId = switch (entry.stage.bus.toLowerCase()) {
+            'music' => 1,
+            'sfx' => 2,
+            'voice' || 'vo' => 3,
+            'ambience' => 4,
+            _ => 2,
+          };
+          eventRegistry.registerStageSlot(
+            entry.stage.name,
+            priority: entry.stage.priority,
+            busId: busId,
+          );
+        }
+      }
     }
 
     // Update settings with grid configuration

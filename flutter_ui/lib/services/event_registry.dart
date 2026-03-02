@@ -1213,6 +1213,43 @@ class EventRegistry extends ChangeNotifier {
   // REGISTRATION
   // ==========================================================================
 
+  /// Register a stage slot — makes the stage known to EventRegistry without
+  /// requiring audio layers. When the engine emits this stage, it will be
+  /// recognized. Audio can be assigned later via composite events or drag-drop.
+  ///
+  /// Does NOT overwrite existing events that already have audio layers.
+  void registerStageSlot(String stage, {int priority = 50, int busId = 2}) {
+    final normalized = stage.toUpperCase().trim();
+    if (normalized.isEmpty) return;
+
+    // Don't overwrite existing events that already have audio
+    if (_stageToEvent.containsKey(normalized)) return;
+
+    final placeholder = AudioEvent(
+      id: 'slot_$normalized',
+      name: normalized,
+      stage: normalized,
+      layers: const [],
+      priority: priority,
+      targetBusId: busId,
+    );
+    _events[placeholder.id] = placeholder;
+    _stageToEvent[normalized] = placeholder;
+  }
+
+  /// Get all registered stages that have no audio layers (unbound slots).
+  List<String> get unboundStages {
+    return _stageToEvent.entries
+        .where((e) => e.value.layers.isEmpty)
+        .map((e) => e.key)
+        .toList()
+      ..sort();
+  }
+
+  /// Check if a stage is registered (even without audio).
+  bool isStageKnown(String stage) =>
+      _stageToEvent.containsKey(stage.toUpperCase().trim());
+
   /// Registruj event za stage
   /// CRITICAL: This REPLACES any existing event with same ID or stage
   /// Stops any playing instances ONLY if the event data has changed
@@ -2851,6 +2888,9 @@ class EventRegistry extends ChangeNotifier {
       final event = AudioEvent.fromJson(eventJson as Map<String, dynamic>);
       registerEvent(event);
     }
+
+    // Auto-bind any orphan stages from StageConfigurationService
+    bindOrphanStages();
   }
 
   // ==========================================================================
@@ -2893,6 +2933,47 @@ class EventRegistry extends ChangeNotifier {
       notifyListeners();
     } else {
     }
+  }
+
+  /// Find orphan stages — stages registered in StageConfigurationService
+  /// that have no corresponding event slot in EventRegistry.
+  /// Returns list of stage names that need binding.
+  List<String> findOrphanStages() {
+    final allConfigured = StageConfigurationService.instance.allStageNames;
+    final orphans = <String>[];
+    for (final stage in allConfigured) {
+      final normalized = stage.toUpperCase().trim();
+      if (!_stageToEvent.containsKey(normalized)) {
+        orphans.add(normalized);
+      }
+    }
+    return orphans..sort();
+  }
+
+  /// Auto-fix orphan stages by registering stage slots for all stages in
+  /// StageConfigurationService that don't have EventRegistry entries.
+  /// Returns count of newly registered slots.
+  int bindOrphanStages() {
+    final orphans = findOrphanStages();
+    if (orphans.isEmpty) return 0;
+
+    final service = StageConfigurationService.instance;
+    for (final stage in orphans) {
+      final def = service.getStage(stage);
+      final busId = def != null
+          ? switch (def.bus) {
+              SpatialBus.music => 1,
+              SpatialBus.sfx || SpatialBus.reels => 2,
+              SpatialBus.vo => 3,
+              SpatialBus.ui => 4,
+              SpatialBus.ambience => 5,
+            }
+          : 2;
+      final priority = def?.priority ?? 50;
+      registerStageSlot(stage, priority: priority, busId: busId);
+    }
+    notifyListeners();
+    return orphans.length;
   }
 
   // ==========================================================================
