@@ -2494,9 +2494,20 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       middlewareProvider.stopAllEvents(fadeMs: 50);
     }
 
-    // Release active section so the new mode can acquire it
+    // Release active section so the new mode can acquire it.
+    // CRITICAL: If SlotLab was just paused, only release — do NOT call
+    // controller.stop() which calls _ffi.stop() and destroys the Rust engine's
+    // paused state (resets position to 0, changes PlaybackState to Stopped).
+    // One-shot voices from the inactive section are automatically silenced by
+    // Rust engine's section filtering (process_one_shot_voices checks active_section).
     if (controller.activeSection != null) {
-      controller.stop(releaseAfterStop: true);
+      if (_slotLabPausedByModeSwitch &&
+          controller.activeSection == PlaybackSection.slotLab) {
+        // SlotLab is paused — just release, keep Rust engine in Paused state
+        controller.releaseSection(PlaybackSection.slotLab);
+      } else {
+        controller.stop(releaseAfterStop: true);
+      }
     }
 
     // ─── RESUME the ENTERING section ─────────────────────────────────────────
@@ -2504,7 +2515,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     if (toMode == EditorMode.slot && _slotLabPausedByModeSwitch) {
       // Returning to SlotLab — resume paused stage flow
       _slotLabPausedByModeSwitch = false;
-      // Acquire SlotLab section and resume
+      // Acquire SlotLab section (sets active_section → Rust un-silences SlotLab voices)
       if (controller.acquireSection(PlaybackSection.slotLab)) {
         slotLabProvider.resumeStages();
       }
