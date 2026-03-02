@@ -266,11 +266,12 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     super.dispose();
   }
 
-  /// Get effective expanded sections (external or local)
-  Set<String> get _expandedSections => widget.expandedSections ?? _localExpandedSections;
+  /// Expanded sections — ALWAYS local for instant UI response.
+  /// Synced to provider via callback for persistence.
+  Set<String> get _expandedSections => _localExpandedSections;
 
-  /// Get effective expanded groups (external or local)
-  Set<String> get _expandedGroups => widget.expandedGroups ?? _localExpandedGroups;
+  /// Expanded groups — ALWAYS local for instant UI response.
+  Set<String> get _expandedGroups => _localExpandedGroups;
 
   /// Handle keyboard shortcuts (SL-LP-P1.3)
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
@@ -2192,17 +2193,16 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         _HoverBuilder(
           builder: (isHovered) => InkWell(
             onTap: () {
-              if (widget.onSectionToggle != null) {
-                widget.onSectionToggle!(phase.id);
-              } else {
-                setState(() {
-                  if (isExpanded) {
-                    _localExpandedSections.remove(phase.id);
-                  } else {
-                    _localExpandedSections.add(phase.id);
-                  }
-                });
-              }
+              // INSTANT: local setState for zero-delay UI
+              setState(() {
+                if (isExpanded) {
+                  _localExpandedSections.remove(phase.id);
+                } else {
+                  _localExpandedSections.add(phase.id);
+                }
+              });
+              // PERSIST: sync to provider in background
+              widget.onSectionToggle?.call(phase.id);
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 120),
@@ -2277,17 +2277,16 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         _HoverBuilder(
           builder: (isHovered) => InkWell(
             onTap: () {
-              if (widget.onSectionToggle != null) {
-                widget.onSectionToggle!(config.id);
-              } else {
-                setState(() {
-                  if (isExpanded) {
-                    _localExpandedSections.remove(config.id);
-                  } else {
-                    _localExpandedSections.add(config.id);
-                  }
-                });
-              }
+              // INSTANT: local setState for zero-delay UI
+              setState(() {
+                if (isExpanded) {
+                  _localExpandedSections.remove(config.id);
+                } else {
+                  _localExpandedSections.add(config.id);
+                }
+              });
+              // PERSIST: sync to provider in background
+              widget.onSectionToggle?.call(config.id);
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 120),
@@ -2364,18 +2363,16 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           isExpanded: isExpanded,
           assignedCount: assignedCount,
           onToggle: () {
-            // Use external callback if provided, otherwise update local state
-            if (widget.onGroupToggle != null) {
-              widget.onGroupToggle!(groupKey);
-            } else {
-              setState(() {
-                if (isExpanded) {
-                  _localExpandedGroups.remove(groupKey);
-                } else {
-                  _localExpandedGroups.add(groupKey);
-                }
-              });
-            }
+            // INSTANT: local setState for zero-delay UI
+            setState(() {
+              if (isExpanded) {
+                _localExpandedGroups.remove(groupKey);
+              } else {
+                _localExpandedGroups.add(groupKey);
+              }
+            });
+            // PERSIST: sync to provider in background
+            widget.onGroupToggle?.call(groupKey);
           },
           onFolderDrop: (paths) => _handleFolderDrop(group, section, paths),
         ),

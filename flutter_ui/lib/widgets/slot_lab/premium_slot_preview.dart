@@ -4987,9 +4987,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _themeA = SlotThemePreset.values[themeIndex.clamp(0, SlotThemePreset.values.length - 1)];
     });
 
-    // Apply loaded settings to FFI
-    NativeFFI.instance.setBusMute(2, !_isMusicOn);
-    NativeFFI.instance.setBusMute(1, !_isSfxOn);
+    // Apply loaded settings to FFI — bus 1=music, bus 2=sfx
+    NativeFFI.instance.setBusMute(1, !_isMusicOn);
+    NativeFFI.instance.setBusMute(2, !_isSfxOn);
     NativeFFI.instance.setMasterVolume(_masterVolume);
   }
 
@@ -5192,19 +5192,19 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
   // === HANDLERS ===
 
-  /// Toggle music bus mute state (bus ID 2 = music)
+  /// Toggle music bus mute state (bus ID 1 = music)
   void _toggleMusic() {
     setState(() => _isMusicOn = !_isMusicOn);
-    // Mute/unmute music bus via FFI
-    NativeFFI.instance.setBusMute(2, !_isMusicOn);
+    // Mute/unmute music bus via FFI — bus 1 = music
+    NativeFFI.instance.setBusMute(1, !_isMusicOn);
     _saveSettings();
   }
 
-  /// Toggle SFX bus mute state (bus ID 1 = sfx)
+  /// Toggle SFX bus mute state (bus ID 2 = sfx)
   void _toggleSfx() {
     setState(() => _isSfxOn = !_isSfxOn);
-    // Mute/unmute SFX bus via FFI
-    NativeFFI.instance.setBusMute(1, !_isSfxOn);
+    // Mute/unmute SFX bus via FFI — bus 2 = sfx
+    NativeFFI.instance.setBusMute(2, !_isSfxOn);
     _saveSettings();
   }
 

@@ -102,6 +102,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   String _searchQuery = ''; // Audio browser search
   String _eventSearchQuery = ''; // Event list search (SL-RP-P1.4)
   bool _isPoolMode = false; // true = Project Pool (AudioAssetManager), false = File System
+  bool _eventsExpanded = false; // true = events list takes full height, browser hidden
 
   // Inline editing state
   String? _editingEventId;
@@ -508,17 +509,19 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Events folder section
-                _buildEventsFolder(),
-                // Divider with drag handle
-                _buildDivider(),
-                // Selected event / Audio browser toggle
-                // Only show audio browser if both internal toggle AND external control allow it
-                Expanded(
-                  child: (_showBrowser && widget.showAudioBrowser)
-                      ? _buildAudioBrowser()
-                      : _buildSelectedEvent(),
-                ),
+                // Events folder section — full height when expanded
+                _eventsExpanded
+                    ? Expanded(child: _buildEventsFolder())
+                    : _buildEventsFolder(),
+                // Divider and bottom section — hidden when events expanded
+                if (!_eventsExpanded) ...[
+                  _buildDivider(),
+                  Expanded(
+                    child: (_showBrowser && widget.showAudioBrowser)
+                        ? _buildAudioBrowser()
+                        : _buildSelectedEvent(),
+                  ),
+                ],
               ],
             ),
           ),
@@ -621,41 +624,19 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
               }).toList();
 
         return Container(
-          height: 200,
+          height: _eventsExpanded ? null : 200,
           decoration: BoxDecoration(
             border: Border(
-              bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+              bottom: _eventsExpanded
+                  ? BorderSide.none
+                  : BorderSide(color: Colors.white.withOpacity(0.1)),
             ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Section header
-              _buildSectionHeader('EVENT INSPECTOR', () async {
-                // Show create event dialog
-                final result = await CreateEventDialog.show(
-                  context,
-                  initialName: 'New Event ${events.length + 1}',
-                );
-                if (result != null) {
-                  final now = DateTime.now();
-                  final newEvent = SlotCompositeEvent(
-                    id: 'event_${now.millisecondsSinceEpoch}',
-                    name: result.name,
-                    color: FluxForgeTheme.accentBlue,
-                    triggerStages: result.triggerStages,
-                    layers: [],
-                    createdAt: now,
-                    modifiedAt: now,
-                  );
-                  middleware.addCompositeEvent(newEvent);
-                  // Select the new event
-                  _setSelectedEventId(newEvent.id);
-                  setState(() {
-                    _showBrowser = false;
-                  });
-                }
-              }),
+              // Section header with expand toggle
+              _buildEventsHeader2(middleware, events.length),
               // Search field (SL-RP-P1.4)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -1906,6 +1887,75 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
       audioInfo: audioInfo,
       onDragStarted: () => widget.onAudioDragStarted?.call([file.path]),
       onTap: () => widget.onAudioClicked?.call(file.path),
+    );
+  }
+
+  Widget _buildEventsHeader2(MiddlewareProvider middleware, int eventCount) {
+    return Container(
+      height: 24,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      color: const Color(0xFF16161C),
+      child: Row(
+        children: [
+          const Text(
+            'EVENTS',
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: Colors.white38,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            '($eventCount)',
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w500,
+              color: Colors.white.withValues(alpha: 0.2),
+            ),
+          ),
+          const Spacer(),
+          // Expand/collapse toggle — hides audio browser, events take full height
+          InkWell(
+            onTap: () => setState(() => _eventsExpanded = !_eventsExpanded),
+            child: Tooltip(
+              message: _eventsExpanded ? 'Show audio browser' : 'Expand events list',
+              child: Icon(
+                _eventsExpanded ? Icons.unfold_less : Icons.unfold_more,
+                size: 14,
+                color: _eventsExpanded ? const Color(0xFF50D8FF) : Colors.white38,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Add event button
+          InkWell(
+            onTap: () async {
+              final result = await CreateEventDialog.show(
+                context,
+                initialName: 'New Event ${eventCount + 1}',
+              );
+              if (result != null) {
+                final now = DateTime.now();
+                final newEvent = SlotCompositeEvent(
+                  id: 'event_${now.millisecondsSinceEpoch}',
+                  name: result.name,
+                  color: FluxForgeTheme.accentBlue,
+                  triggerStages: result.triggerStages,
+                  layers: [],
+                  createdAt: now,
+                  modifiedAt: now,
+                );
+                middleware.addCompositeEvent(newEvent);
+                _setSelectedEventId(newEvent.id);
+                setState(() => _showBrowser = false);
+              }
+            },
+            child: const Icon(Icons.add, size: 14, color: Colors.white38),
+          ),
+        ],
+      ),
     );
   }
 

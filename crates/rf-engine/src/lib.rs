@@ -39,6 +39,13 @@ mod sidechain;
 mod anticipatory;
 mod fx_container;
 
+// Advanced Looping System (Wwise-grade + superior)
+pub mod loop_asset;
+pub mod loop_instance;
+pub mod loop_manager;
+pub mod loop_qa;
+pub mod marker_ingest;
+
 // Phase 4: Timeline & Track Management
 pub mod audio_import;
 pub mod ffi;

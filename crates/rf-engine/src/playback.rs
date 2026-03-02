@@ -1733,6 +1733,22 @@ pub struct PlaybackEngine {
     /// Next voice ID counter
     next_one_shot_id: AtomicU64,
 
+    // === ADVANCED LOOP SYSTEM (Wwise-grade) ===
+    /// Loop command ring buffer (UI → Audio) — producer side
+    loop_cmd_tx: parking_lot::Mutex<rtrb::Producer<crate::loop_manager::LoopCommand>>,
+    /// Loop command ring buffer (UI → Audio) — consumer side (audio thread)
+    loop_cmd_rx: parking_lot::Mutex<rtrb::Consumer<crate::loop_manager::LoopCommand>>,
+    /// Loop callback ring buffer (Audio → UI) — producer side (audio thread)
+    loop_cb_tx: parking_lot::Mutex<rtrb::Producer<crate::loop_manager::LoopCallback>>,
+    /// Loop callback ring buffer (Audio → UI) — consumer side
+    loop_cb_rx: parking_lot::Mutex<rtrb::Consumer<crate::loop_manager::LoopCallback>>,
+    /// Registered loop assets (shared between UI and audio thread)
+    loop_assets: RwLock<HashMap<String, Arc<crate::loop_asset::LoopAsset>>>,
+    /// Loop instance pool (pre-allocated, audio thread only via try_lock)
+    loop_instances: parking_lot::Mutex<Vec<crate::loop_instance::LoopInstance>>,
+    /// Loop system initialized flag
+    loop_initialized: AtomicBool,
+
     // === SECTION-BASED PLAYBACK FILTERING ===
     /// Currently active playback section (0=DAW, 1=SlotLab, 2=Middleware, 3=Browser)
     /// One-shot voices from inactive sections are silenced.
@@ -1789,6 +1805,10 @@ impl PlaybackEngine {
 
         // Create one-shot voice command ring buffer
         let (one_shot_tx, one_shot_rx) = rtrb::RingBuffer::<OneShotCommand>::new(256);
+
+        // Create advanced loop system ring buffers
+        let (loop_cmd_tx, loop_cmd_rx) = rtrb::RingBuffer::<crate::loop_manager::LoopCommand>::new(256);
+        let (loop_cb_tx, loop_cb_rx) = rtrb::RingBuffer::<crate::loop_manager::LoopCallback>::new(512);
 
         Self {
             track_manager,
@@ -1856,6 +1876,14 @@ impl PlaybackEngine {
             one_shot_cmd_tx: parking_lot::Mutex::new(one_shot_tx),
             one_shot_cmd_rx: parking_lot::Mutex::new(one_shot_rx),
             next_one_shot_id: AtomicU64::new(1),
+            // Advanced loop system (Wwise-grade)
+            loop_cmd_tx: parking_lot::Mutex::new(loop_cmd_tx),
+            loop_cmd_rx: parking_lot::Mutex::new(loop_cmd_rx),
+            loop_cb_tx: parking_lot::Mutex::new(loop_cb_tx),
+            loop_cb_rx: parking_lot::Mutex::new(loop_cb_rx),
+            loop_assets: RwLock::new(HashMap::new()),
+            loop_instances: parking_lot::Mutex::new(Vec::new()),
+            loop_initialized: AtomicBool::new(false),
             // Section-based filtering: DAW is default active section
             active_section: AtomicU8::new(PlaybackSource::Daw as u8),
             // Graph-level PDC: enabled by default, no result until first calculation
@@ -4000,6 +4028,263 @@ impl PlaybackEngine {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // ADVANCED LOOP SYSTEM (Wwise-grade)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Initialize the advanced loop system.
+    pub fn loop_system_init(&self) {
+        self.loop_initialized.store(true, Ordering::Release);
+    }
+
+    /// Destroy the advanced loop system.
+    pub fn loop_system_destroy(&self) {
+        self.loop_initialized.store(false, Ordering::Release);
+        // Drain remaining commands
+        if let Some(mut rx) = self.loop_cmd_rx.try_lock() {
+            while rx.pop().is_ok() {}
+        }
+        // Clear assets and instances
+        if let Some(mut assets) = self.loop_assets.try_write() {
+            assets.clear();
+        }
+        if let Some(mut instances) = self.loop_instances.try_lock() {
+            instances.clear();
+        }
+    }
+
+    /// Check if loop system is initialized.
+    pub fn loop_system_is_initialized(&self) -> bool {
+        self.loop_initialized.load(Ordering::Acquire)
+    }
+
+    /// Get loop command producer (for FFI to send commands from UI thread).
+    pub fn loop_cmd_producer(&self) -> &parking_lot::Mutex<rtrb::Producer<crate::loop_manager::LoopCommand>> {
+        &self.loop_cmd_tx
+    }
+
+    /// Get loop callback consumer (for FFI to poll callbacks on UI thread).
+    pub fn loop_cb_consumer(&self) -> &parking_lot::Mutex<rtrb::Consumer<crate::loop_manager::LoopCallback>> {
+        &self.loop_cb_rx
+    }
+
+    /// Get loop assets map (for FFI to register assets).
+    pub fn loop_assets_map(&self) -> &RwLock<HashMap<String, Arc<crate::loop_asset::LoopAsset>>> {
+        &self.loop_assets
+    }
+
+    /// Process loop commands (called at start of audio block).
+    fn process_loop_commands(&self) {
+        if !self.loop_initialized.load(Ordering::Acquire) {
+            return;
+        }
+
+        let mut rx = match self.loop_cmd_rx.try_lock() {
+            Some(rx) => rx,
+            None => return,
+        };
+
+        let mut instances = match self.loop_instances.try_lock() {
+            Some(inst) => inst,
+            None => return,
+        };
+
+        let mut cb_tx = match self.loop_cb_tx.try_lock() {
+            Some(tx) => tx,
+            None => return,
+        };
+
+        while let Ok(cmd) = rx.pop() {
+            match cmd {
+                crate::loop_manager::LoopCommand::RegisterAsset { asset } => {
+                    let id = asset.id.clone();
+                    self.loop_assets.write().insert(id, Arc::new(*asset));
+                }
+                crate::loop_manager::LoopCommand::Play {
+                    asset_id, region, volume, bus, use_dual_voice, play_pre_entry: _, fade_in_ms: _,
+                } => {
+                    let assets = self.loop_assets.read();
+                    if let Some(asset) = assets.get(&asset_id) {
+                        if asset.regions.iter().any(|r| r.name == region) {
+                            let instance_id = instances.len() as u64 + 1;
+                            let mut inst = crate::loop_instance::LoopInstance::new(
+                                instance_id,
+                                &asset_id,
+                                &region,
+                                volume,
+                                bus,
+                                use_dual_voice,
+                            );
+                            inst.init_playhead(asset);
+                            instances.push(inst);
+                            let _ = cb_tx.push(crate::loop_manager::LoopCallback::Started {
+                                instance_id,
+                                asset_id,
+                            });
+                        }
+                    }
+                }
+                crate::loop_manager::LoopCommand::Stop { instance_id, fade_out_ms: _ } => {
+                    if let Some(inst) = instances.iter_mut().find(|i| i.instance_id == instance_id) {
+                        inst.state = crate::loop_instance::LoopState::Stopped;
+                        let _ = cb_tx.push(crate::loop_manager::LoopCallback::Stopped { instance_id });
+                    }
+                }
+                crate::loop_manager::LoopCommand::SetVolume { instance_id, volume, fade_ms: _ } => {
+                    if let Some(inst) = instances.iter_mut().find(|i| i.instance_id == instance_id) {
+                        inst.volume = volume;
+                    }
+                }
+                crate::loop_manager::LoopCommand::SetBus { instance_id, bus } => {
+                    if let Some(inst) = instances.iter_mut().find(|i| i.instance_id == instance_id) {
+                        inst.output_bus = bus;
+                    }
+                }
+                crate::loop_manager::LoopCommand::SetIterationGain { instance_id, factor } => {
+                    if let Some(inst) = instances.iter_mut().find(|i| i.instance_id == instance_id) {
+                        inst.iteration_gain = factor;
+                    }
+                }
+                crate::loop_manager::LoopCommand::SetRegion {
+                    instance_id, region, sync: _, crossfade_ms: _, crossfade_curve: _,
+                } => {
+                    if let Some(inst) = instances.iter_mut().find(|i| i.instance_id == instance_id) {
+                        let old_region = inst.active_region.clone();
+                        inst.active_region = region.clone();
+                        let _ = cb_tx.push(crate::loop_manager::LoopCallback::RegionSwitched {
+                            instance_id,
+                            from_region: old_region,
+                            to_region: region,
+                        });
+                    }
+                }
+                crate::loop_manager::LoopCommand::Exit { instance_id, sync: _, fade_out_ms: _, play_post_exit: _ } => {
+                    if let Some(inst) = instances.iter_mut().find(|i| i.instance_id == instance_id) {
+                        inst.state = crate::loop_instance::LoopState::Exiting;
+                        let _ = cb_tx.push(crate::loop_manager::LoopCallback::StateChanged {
+                            instance_id,
+                            new_state: 2, // exiting
+                        });
+                    }
+                }
+                crate::loop_manager::LoopCommand::Seek { instance_id, position_samples } => {
+                    if let Some(inst) = instances.iter_mut().find(|i| i.instance_id == instance_id) {
+                        inst.playhead_samples = position_samples;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Process loop instances and mix to bus buffers (called from audio block).
+    fn process_loop_voices(&self, bus_buffers: &mut BusBuffers, frames: usize) {
+        if !self.loop_initialized.load(Ordering::Acquire) {
+            return;
+        }
+
+        let mut instances = match self.loop_instances.try_lock() {
+            Some(inst) => inst,
+            None => return,
+        };
+
+        let assets = match self.loop_assets.try_read() {
+            Some(a) => a,
+            None => return,
+        };
+
+        let mut cb_tx = match self.loop_cb_tx.try_lock() {
+            Some(tx) => tx,
+            None => return,
+        };
+
+        // Process each active instance
+        for inst in instances.iter_mut() {
+            if inst.state == crate::loop_instance::LoopState::Stopped {
+                continue;
+            }
+
+            let asset = match assets.get(&inst.asset_id) {
+                Some(a) => a,
+                None => continue,
+            };
+
+            let region = match asset.regions.iter().find(|r| r.name == inst.active_region) {
+                Some(r) => r,
+                None => continue,
+            };
+
+            // Process frames — advance playhead, check wrap, apply gain
+            for frame_idx in 0..frames {
+                // Check loop wrap
+                if inst.state == crate::loop_instance::LoopState::Looping
+                    && inst.playhead_samples >= region.out_samples as u64
+                {
+                    inst.playhead_samples = region.in_samples as u64;
+                    inst.loop_count += 1;
+
+                    // Per-iteration gain decay
+                    if let Some(factor) = region.iteration_gain_factor {
+                        inst.iteration_gain *= factor;
+                        if inst.iteration_gain < 0.0001 {
+                            inst.state = crate::loop_instance::LoopState::Stopped;
+                            let _ = cb_tx.push(crate::loop_manager::LoopCallback::Stopped {
+                                instance_id: inst.instance_id,
+                            });
+                            break;
+                        }
+                    }
+
+                    // Max loops check
+                    if let Some(max) = region.max_loops {
+                        if inst.loop_count >= max {
+                            inst.state = crate::loop_instance::LoopState::Stopped;
+                            let _ = cb_tx.push(crate::loop_manager::LoopCallback::Stopped {
+                                instance_id: inst.instance_id,
+                            });
+                            break;
+                        }
+                    }
+
+                    let _ = cb_tx.push(crate::loop_manager::LoopCallback::Wrap {
+                        instance_id: inst.instance_id,
+                        loop_count: inst.loop_count,
+                        at_samples: inst.playhead_samples,
+                    });
+                }
+
+                // Check intro → looping transition
+                if inst.state == crate::loop_instance::LoopState::Intro
+                    && inst.playhead_samples >= region.in_samples as u64
+                {
+                    inst.state = crate::loop_instance::LoopState::Looping;
+                    let _ = cb_tx.push(crate::loop_manager::LoopCallback::StateChanged {
+                        instance_id: inst.instance_id,
+                        new_state: 1, // looping
+                    });
+                }
+
+                // Compute gain: volume * iteration_gain
+                let gain = inst.volume as f64 * inst.iteration_gain as f64;
+
+                // Read audio from cache if available, otherwise silence
+                // TODO: Wire AudioCache read here for actual audio playback
+                let sample = 0.0_f64 * gain;
+
+                // Route to bus
+                let bus_idx = (inst.output_bus as usize).min(bus_buffers.buffers.len() - 1);
+                if frame_idx < bus_buffers.buffers[bus_idx].0.len() {
+                    bus_buffers.buffers[bus_idx].0[frame_idx] += sample;
+                    bus_buffers.buffers[bus_idx].1[frame_idx] += sample;
+                }
+
+                inst.playhead_samples += 1;
+            }
+        }
+
+        // Clean up stopped instances
+        instances.retain(|i| i.state != crate::loop_instance::LoopState::Stopped);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // AUDIO PROCESSING (called from audio thread)
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -4072,6 +4357,10 @@ impl PlaybackEngine {
             self.process_one_shot_commands();
             // Mix one-shot voices into bus buffers
             self.process_one_shot_voices(&mut bus_buffers, frames);
+
+            // Process advanced loop system commands and voices
+            self.process_loop_commands();
+            self.process_loop_voices(&mut bus_buffers, frames);
 
             // Mix ALL bus outputs to main output (for one-shot when transport stopped)
             // One-shot voices can route to any bus (0=Sfx, 1=Music, 2=Voice, etc.)

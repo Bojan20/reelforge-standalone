@@ -969,46 +969,60 @@ class StageGroupService {
       _StageDefinition(
         stage: 'WIN_PRESENT',
         keywords: ['win', 'present', 'show', 'display'],
+        requiredKeywords: ['win'],
         suffixes: ['_present', '_show'],
+        excludeKeywords: ['loop', 'music', 'mus', 'panel', 'trn', 'transition', 'reel', 'appear'],
         priority: 85,
       ),
 
       // Win tiers — supports BOTH legacy (WIN_SMALL etc) and new (WIN_PRESENT_1 etc)
-      // Matcher outputs the legacy ID; AudioMappingImportService handles the mapping
+      // ALL win definitions require 'win' token to prevent non-win files from matching
       _StageDefinition(
         stage: 'WIN_SMALL',
         keywords: ['win', 'small', 'minor', 'low', 'tiny', 'quick'],
+        requiredKeywords: ['win'],
         suffixes: ['_small', '_minor', '_low', '_quick'],
+        excludeKeywords: ['loop', 'music', 'mus', 'panel', 'trn', 'transition', 'reel', 'spin'],
         priority: 80,
       ),
       _StageDefinition(
         stage: 'WIN_MEDIUM',
         keywords: ['win', 'medium', 'med', 'normal', 'regular'],
+        requiredKeywords: ['win'],
         suffixes: ['_medium', '_med', '_normal'],
+        excludeKeywords: ['loop', 'music', 'mus', 'panel', 'trn', 'transition', 'reel', 'spin'],
         priority: 82,
       ),
       _StageDefinition(
         stage: 'WIN_BIG',
         keywords: ['win', 'big', 'large', 'great'],
+        requiredKeywords: ['win'],
         suffixes: ['_big', '_large'],
+        excludeKeywords: ['music', 'mus', 'panel', 'trn', 'transition'],
         priority: 88,
       ),
       _StageDefinition(
         stage: 'WIN_MEGA',
         keywords: ['win', 'mega', 'huge', 'massive'],
+        requiredKeywords: ['win'],
         suffixes: ['_mega', '_huge'],
+        excludeKeywords: ['music', 'mus', 'panel', 'trn', 'transition'],
         priority: 90,
       ),
       _StageDefinition(
         stage: 'WIN_EPIC',
         keywords: ['win', 'epic', 'super', 'amazing', 'incredible'],
+        requiredKeywords: ['win'],
         suffixes: ['_epic', '_super'],
+        excludeKeywords: ['music', 'mus', 'panel', 'trn', 'transition'],
         priority: 92,
       ),
       _StageDefinition(
         stage: 'WIN_ULTRA',
         keywords: ['win', 'ultra', 'max', 'ultimate', 'extreme'],
+        requiredKeywords: ['win'],
         suffixes: ['_ultra', '_max', '_ultimate'],
+        excludeKeywords: ['music', 'mus', 'panel', 'trn', 'transition'],
         priority: 95,
       ),
       _StageDefinition(
@@ -1022,31 +1036,41 @@ class StageGroupService {
       _StageDefinition(
         stage: 'WIN_PRESENT_1',
         keywords: ['win', 'present', 'tier', '1'],
+        requiredKeywords: ['win'],
         suffixes: ['_1'],
+        excludeKeywords: ['loop', 'music', 'mus', 'panel', 'trn', 'transition', 'reel', 'appear'],
         priority: 80,
       ),
       _StageDefinition(
         stage: 'WIN_PRESENT_2',
         keywords: ['win', 'present', 'tier', '2'],
+        requiredKeywords: ['win'],
         suffixes: ['_2'],
+        excludeKeywords: ['loop', 'music', 'mus', 'panel', 'trn', 'transition', 'reel', 'appear'],
         priority: 82,
       ),
       _StageDefinition(
         stage: 'WIN_PRESENT_3',
         keywords: ['win', 'present', 'tier', '3'],
+        requiredKeywords: ['win'],
         suffixes: ['_3'],
+        excludeKeywords: ['loop', 'music', 'mus', 'panel', 'trn', 'transition', 'reel', 'appear'],
         priority: 84,
       ),
       _StageDefinition(
         stage: 'WIN_PRESENT_4',
         keywords: ['win', 'present', 'tier', '4'],
+        requiredKeywords: ['win'],
         suffixes: ['_4'],
+        excludeKeywords: ['loop', 'music', 'mus', 'panel', 'trn', 'transition', 'reel', 'appear'],
         priority: 86,
       ),
       _StageDefinition(
         stage: 'WIN_PRESENT_5',
         keywords: ['win', 'present', 'tier', '5'],
+        requiredKeywords: ['win'],
         suffixes: ['_5'],
+        excludeKeywords: ['loop', 'music', 'mus', 'panel', 'trn', 'transition', 'reel', 'appear'],
         priority: 88,
       ),
       // Big Win celebration
@@ -1186,45 +1210,59 @@ class StageGroupService {
       // Base game music — layers (full arrangements, gradatively stronger)
       _StageDefinition(
         stage: 'MUSIC_BASE_L1',
-        keywords: ['music', 'base', 'main', 'background', 'bg', 'mus', 'bgm', 'basegame', 'l1', 'lvl_1'],
+        keywords: ['music', 'base', 'main', 'background', 'bg', 'mus', 'bgm', 'basegame', 'l1', 'lvl1'],
+        requiredKeywords: ['music|mus|bgm|basegame'],
         suffixes: ['_base', '_main', '_bg', '_music', '_loop', '_l1'],
+        excludeKeywords: ['trn', 'transition', 'panel', 'wild', 'scatter', 'symbol'],
         priority: 85,
       ),
       _StageDefinition(
         stage: 'MUSIC_BASE_L2',
-        keywords: ['music', 'base', 'l2', 'lvl_2', 'layer2'],
-        suffixes: ['_l2', '_lvl_2', '_layer2'],
+        keywords: ['music', 'base', 'l2', 'lvl2', 'layer2', 'mus'],
+        requiredKeywords: ['music|mus|bgm'],
+        suffixes: ['_l2', '_lvl2', '_layer2'],
+        excludeKeywords: ['trn', 'transition', 'panel', 'wild', 'scatter', 'symbol'],
         priority: 84,
       ),
       _StageDefinition(
         stage: 'MUSIC_BASE_L3',
-        keywords: ['music', 'base', 'l3', 'lvl_3', 'layer3'],
-        suffixes: ['_l3', '_lvl_3', '_layer3'],
+        keywords: ['music', 'base', 'l3', 'lvl3', 'layer3', 'mus'],
+        requiredKeywords: ['music|mus|bgm'],
+        suffixes: ['_l3', '_lvl3', '_layer3'],
+        excludeKeywords: ['trn', 'transition', 'panel', 'wild', 'scatter', 'symbol'],
         priority: 83,
       ),
       _StageDefinition(
         stage: 'MUSIC_BASE_L4',
-        keywords: ['music', 'base', 'l4', 'lvl_4', 'layer4'],
-        suffixes: ['_l4', '_lvl_4', '_layer4'],
+        keywords: ['music', 'base', 'l4', 'lvl4', 'layer4', 'mus'],
+        requiredKeywords: ['music|mus|bgm'],
+        suffixes: ['_l4', '_lvl4', '_layer4'],
+        excludeKeywords: ['trn', 'transition', 'panel', 'wild', 'scatter', 'symbol'],
         priority: 82,
       ),
       _StageDefinition(
         stage: 'MUSIC_BASE_L5',
-        keywords: ['music', 'base', 'l5', 'lvl_5', 'layer5'],
-        suffixes: ['_l5', '_lvl_5', '_layer5'],
+        keywords: ['music', 'base', 'l5', 'lvl5', 'layer5', 'mus'],
+        requiredKeywords: ['music|mus|bgm'],
+        suffixes: ['_l5', '_lvl5', '_layer5'],
+        excludeKeywords: ['trn', 'transition', 'panel', 'wild', 'scatter', 'symbol'],
         priority: 81,
       ),
       // Base game music — intro/outro
       _StageDefinition(
         stage: 'MUSIC_BASE_INTRO',
-        keywords: ['music', 'base', 'intro', 'opening'],
+        keywords: ['music', 'base', 'intro', 'opening', 'mus'],
+        requiredKeywords: ['music|mus|bgm'],
         suffixes: ['_intro', '_opening'],
+        excludeKeywords: ['trn', 'transition', 'panel', 'wild', 'scatter', 'symbol'],
         priority: 82,
       ),
       _StageDefinition(
         stage: 'MUSIC_BASE_OUTRO',
-        keywords: ['music', 'base', 'outro', 'ending'],
+        keywords: ['music', 'base', 'outro', 'ending', 'mus'],
+        requiredKeywords: ['music|mus|bgm'],
         suffixes: ['_outro', '_ending'],
+        excludeKeywords: ['trn', 'transition', 'panel', 'wild', 'scatter', 'symbol'],
         priority: 82,
       ),
 
@@ -1666,44 +1704,58 @@ class StageGroupService {
       // ─── Reveal Music Layers ───────────────────────────────────────────
       _StageDefinition(
         stage: 'MUSIC_REVEAL_L1',
-        keywords: ['reveal', 'music', 'bg'],
+        keywords: ['reveal', 'music', 'mus', 'bg'],
+        requiredKeywords: ['music|mus'],
         suffixes: ['_music', '_bg', '_l1'],
+        excludeKeywords: ['wild', 'mystery', 'pick', 'bonus'],
         priority: 75,
       ),
       _StageDefinition(
         stage: 'MUSIC_REVEAL_INTRO',
-        keywords: ['reveal', 'music', 'intro'],
+        keywords: ['reveal', 'music', 'mus', 'intro'],
+        requiredKeywords: ['music|mus'],
         suffixes: ['_intro'],
+        excludeKeywords: ['wild', 'mystery', 'pick', 'bonus'],
         priority: 76,
       ),
       _StageDefinition(
         stage: 'MUSIC_REVEAL_OUTRO',
-        keywords: ['reveal', 'music', 'outro'],
+        keywords: ['reveal', 'music', 'mus', 'outro'],
+        requiredKeywords: ['music|mus'],
         suffixes: ['_outro'],
+        excludeKeywords: ['wild', 'mystery', 'pick', 'bonus'],
         priority: 76,
       ),
       _StageDefinition(
         stage: 'MUSIC_REVEAL_L2',
-        keywords: ['reveal', 'music', 'l2', 'lvl2'],
+        keywords: ['reveal', 'music', 'mus', 'l2', 'lvl2'],
+        requiredKeywords: ['music|mus'],
         suffixes: ['_l2', '_lvl2'],
+        excludeKeywords: ['wild', 'mystery', 'pick', 'bonus'],
         priority: 74,
       ),
       _StageDefinition(
         stage: 'MUSIC_REVEAL_L3',
-        keywords: ['reveal', 'music', 'l3', 'lvl3'],
+        keywords: ['reveal', 'music', 'mus', 'l3', 'lvl3'],
+        requiredKeywords: ['music|mus'],
         suffixes: ['_l3', '_lvl3'],
+        excludeKeywords: ['wild', 'mystery', 'pick', 'bonus'],
         priority: 73,
       ),
       _StageDefinition(
         stage: 'MUSIC_REVEAL_L4',
-        keywords: ['reveal', 'music', 'l4', 'lvl4'],
+        keywords: ['reveal', 'music', 'mus', 'l4', 'lvl4'],
+        requiredKeywords: ['music|mus'],
         suffixes: ['_l4', '_lvl4'],
+        excludeKeywords: ['wild', 'mystery', 'pick', 'bonus'],
         priority: 72,
       ),
       _StageDefinition(
         stage: 'MUSIC_REVEAL_L5',
-        keywords: ['reveal', 'music', 'l5', 'lvl5'],
+        keywords: ['reveal', 'music', 'mus', 'l5', 'lvl5'],
+        requiredKeywords: ['music|mus'],
         suffixes: ['_l5', '_lvl5'],
+        excludeKeywords: ['wild', 'mystery', 'pick', 'bonus'],
         priority: 71,
       ),
 
@@ -2030,9 +2082,9 @@ class StageGroupService {
         }
       }
 
-      // Threshold 0.3 = requires at least 2 keyword matches (0.40 base)
-      // or 1 keyword + suffix/exact match. Prevents weak single-keyword false positives.
-      if (bestMatch != null && bestConfidence >= 0.3) {
+      // Threshold 0.4 = requires at least 2 keyword matches (0.40 base).
+      // Single keyword (0.20) + suffix (0.15) = 0.35 NOT enough — prevents false positives.
+      if (bestMatch != null && bestConfidence >= 0.4) {
         matched.add(StageMatch(
           audioFileName: fileName,
           audioPath: path,
@@ -2097,7 +2149,7 @@ class StageGroupService {
       }
     }
 
-    if (bestMatch != null && bestConfidence >= 0.3) {
+    if (bestMatch != null && bestConfidence >= 0.4) {
       return StageMatch(
         audioFileName: fileName,
         audioPath: audioPath,
@@ -2129,44 +2181,40 @@ class StageGroupService {
   ) {
     final matchedKeywords = <String>[];
     double score = 0.0;
+    final fileTokens = _tokenizeNormalized(normalizedName);
 
     // ═══════════════════════════════════════════════════════════════════════
-    // STEP 1: Count keyword matches FIRST (before exclusions)
+    // STEP 1: Count keyword matches using TOKEN-BASED matching
+    // Token matching prevents substring false positives like:
+    //   'win' matching inside 'rewind', 'panel' inside 'panelsappear'
     // ═══════════════════════════════════════════════════════════════════════
     int keywordMatches = 0;
     for (final keyword in def.keywords) {
-      if (normalizedName.contains(keyword)) {
+      if (_keywordMatchesAsToken(normalizedName, keyword, fileTokens)) {
         matchedKeywords.add(keyword);
         keywordMatches++;
       }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // STEP 2: Check EXCLUDE keywords with SMART logic
+    // STEP 2: Check EXCLUDE keywords with TOKEN-BASED matching
     // ═══════════════════════════════════════════════════════════════════════
-    // KEY INSIGHT: Don't blindly exclude. If we have strong positive matches,
-    // exclusion keywords need to be MORE relevant than our matches.
     int excludeMatches = 0;
     String? primaryExclude;
     for (final exclude in def.excludeKeywords) {
-      if (normalizedName.contains(exclude)) {
+      if (_keywordMatchesAsToken(normalizedName, exclude, fileTokens)) {
         excludeMatches++;
         primaryExclude ??= exclude;
       }
     }
 
-    // SMART EXCLUSION LOGIC:
-    // - If we have NO keyword matches and ANY exclude → exclude
-    // - If keywords <= excludes → exclude (not enough positive signal)
-    // - If we have 3+ keyword matches and 1 exclude → DON'T exclude (strong intent)
+    // STRICT EXCLUSION: If ANY exclude keyword matches, block unless strong positive
     if (excludeMatches > 0) {
       if (keywordMatches == 0) {
         return (0.0, ['EXCLUDED:$primaryExclude (no positive matches)']);
       } else if (keywordMatches <= excludeMatches) {
-        // Not enough positive signal to override negatives
         return (0.0, ['EXCLUDED:$primaryExclude ($keywordMatches keywords <= $excludeMatches excludes)']);
       }
-      // keywords > excludes: strong enough positive, apply penalty instead
       score -= 0.1 * excludeMatches;
       matchedKeywords.add('PENALTY:${excludeMatches}x excludes');
     }
@@ -2175,7 +2223,10 @@ class StageGroupService {
     // STEP 3: Check REQUIRED keywords (all must be present)
     // ═══════════════════════════════════════════════════════════════════════
     for (final required in def.requiredKeywords) {
-      if (!normalizedName.contains(required)) {
+      // Support OR-alternatives in required keywords: "music|mus" means either matches
+      final alternatives = required.split('|');
+      final anyMatch = alternatives.any((alt) => _keywordMatchesAsToken(normalizedName, alt, fileTokens));
+      if (!anyMatch) {
         return (0.0, ['MISSING_REQUIRED:$required']);
       }
       matchedKeywords.add('required:$required');
@@ -2191,16 +2242,14 @@ class StageGroupService {
     //   - Prefix number: "004" at start is IGNORED (it's an asset ID)
     //   - Trailing number after XofY: "_2" at end is version/variant, IGNORED
     // ═══════════════════════════════════════════════════════════════════════
+    // Use compact form (no spaces) for number matching patterns
+    final compactName = normalizedName.replaceAll(' ', '');
     if (def.requiresNumber) {
       if (def.specificNumber != null) {
-        // Strategy 1: XofY pattern (e.g., "1of5", "3of5")
-        // In normalized form separators are stripped, so "1of5_2" → "1of52".
-        // Use single-digit capture for X and Y to avoid greedy matching with
-        // trailing version numbers. Real X/Y are always 1-9.
-        final xofyMatch = RegExp(r'(\d)of(\d)').firstMatch(normalizedName);
+        final xofyMatch = RegExp(r'(\d)of(\d)').firstMatch(compactName);
         if (xofyMatch != null) {
           final x = int.tryParse(xofyMatch.group(1) ?? '') ?? -1;
-          final reelIndex = x - 1; // 1of5 → 0, 3of5 → 2
+          final reelIndex = x - 1;
           if (reelIndex == def.specificNumber!) {
             matchedKeywords.add('xofy:${xofyMatch.group(0)}→index$reelIndex');
             score += 0.35;
@@ -2208,18 +2257,14 @@ class StageGroupService {
             return (0.0, ['XOFY_MISMATCH:${xofyMatch.group(0)}→index$reelIndex, need ${def.specificNumber}']);
           }
         } else {
-          // Strategy 2: Direct number after a stop/land/reel keyword
-          // Find numbers that appear AFTER a relevant keyword, ignore prefix IDs
-          final stopIdx = normalizedName.lastIndexOf('stop');
-          final landIdx = normalizedName.lastIndexOf('land');
-          final reelIdx = normalizedName.lastIndexOf('reel');
+          final stopIdx = compactName.lastIndexOf('stop');
+          final landIdx = compactName.lastIndexOf('land');
+          final reelIdx = compactName.lastIndexOf('reel');
           final keywordEnd = [stopIdx, landIdx, reelIdx]
               .where((i) => i >= 0)
               .fold<int>(-1, (a, b) => b > a ? b : a);
-
           if (keywordEnd >= 0) {
-            // Look for numbers after the last keyword
-            final afterKeyword = normalizedName.substring(keywordEnd);
+            final afterKeyword = compactName.substring(keywordEnd);
             final nums = RegExp(r'\d+')
                 .allMatches(afterKeyword)
                 .map((m) => int.tryParse(m.group(0) ?? '') ?? -1)
@@ -2235,22 +2280,19 @@ class StageGroupService {
             return (0.0, ['MISSING_NUMBER:${def.specificNumber} (no keyword context)']);
           }
         }
-      } else if (!RegExp(r'\d').hasMatch(normalizedName)) {
+      } else if (!RegExp(r'\d').hasMatch(compactName)) {
         return (0.0, ['MISSING_ANY_NUMBER']);
       }
     } else if (def.stage == 'REEL_STOP') {
-      // Generic REEL_STOP should not match if there's a specific reel index (XofY or direct)
-      final xofyMatch = RegExp(r'(\d)of(\d)').firstMatch(normalizedName);
+      final xofyMatch = RegExp(r'(\d)of(\d)').firstMatch(compactName);
       if (xofyMatch != null) {
-        // Has XofY → it's a specific reel stop, not generic
         return (0.0, ['HAS_XOFY:${xofyMatch.group(0)}']);
       }
-      // Check for direct number after stop/land keyword
-      final numbers = RegExp(r'\d+').allMatches(normalizedName).toList();
+      final numbers = RegExp(r'\d+').allMatches(compactName).toList();
       for (final m in numbers) {
         final num = int.tryParse(m.group(0) ?? '') ?? -1;
         if (num >= 0 && num <= 5) {
-          final beforeMatch = normalizedName.substring(0, m.start);
+          final beforeMatch = compactName.substring(0, m.start);
           if (beforeMatch.endsWith('stop') ||
               beforeMatch.endsWith('land') ||
               beforeMatch.endsWith('reel') ||
@@ -2281,7 +2323,8 @@ class StageGroupService {
     // ═══════════════════════════════════════════════════════════════════════
     for (final suffix in def.suffixes) {
       final normalizedSuffix = suffix.replaceAll('_', '');
-      if (normalizedName.endsWith(normalizedSuffix)) {
+      // Check compact filename ends with suffix
+      if (compactName.endsWith(normalizedSuffix)) {
         matchedKeywords.add('suffix:$suffix');
         score += 0.15;
         break; // Only count one suffix match
@@ -2289,10 +2332,11 @@ class StageGroupService {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // STEP 7: Boost for exact stage name match
+    // STEP 7: Boost for exact stage name match (token-joined comparison)
     // ═══════════════════════════════════════════════════════════════════════
-    final stageNormalized = def.stage.toLowerCase().replaceAll('_', '');
-    if (normalizedName.contains(stageNormalized)) {
+    final stageNormalized = def.stage.toLowerCase().replaceAll('_', ' ');
+    final joinedFileTokens = fileTokens.join(' ');
+    if (joinedFileTokens.contains(stageNormalized) || joinedFileTokens == stageNormalized) {
       matchedKeywords.add('exact:${def.stage}');
       score += 0.30;
     }
@@ -2340,12 +2384,39 @@ class StageGroupService {
     return dotIndex > 0 ? fileName.substring(0, dotIndex) : fileName;
   }
 
-  /// Normalize filename for matching
+  /// Normalize filename for matching — keeps separators as spaces for token matching
   String _normalizeFileName(String fileName) {
     return fileName
         .toLowerCase()
-        .replaceAll(RegExp(r'[-_\s]+'), '') // Remove separators
-        .replaceAll(RegExp(r'[^a-z0-9]'), ''); // Keep only alphanumeric
+        .replaceAll(RegExp(r'[-_\s]+'), ' ')   // Normalize separators to spaces
+        .replaceAll(RegExp(r'[^a-z0-9 ]'), '') // Keep alphanumeric + spaces
+        .trim();
+  }
+
+  /// Tokenize normalized filename into individual words
+  List<String> _tokenizeNormalized(String normalizedName) {
+    return normalizedName.split(' ').where((t) => t.isNotEmpty).toList();
+  }
+
+  /// Check if a keyword matches as a whole token in the filename.
+  /// Prevents substring false positives like 'win' matching inside 'rewind'.
+  bool _keywordMatchesAsToken(String normalizedName, String keyword, List<String> fileTokens) {
+    // Exact token match (highest priority)
+    if (fileTokens.contains(keyword)) return true;
+    // Singular/plural match
+    final singular = keyword.endsWith('s') && keyword.length > 2
+        ? keyword.substring(0, keyword.length - 1)
+        : keyword;
+    final plural = '${keyword}s';
+    if (fileTokens.contains(singular) || fileTokens.contains(plural)) return true;
+    // Token starts with keyword (for compound tokens like 'freespin' matching 'free')
+    // Only for keywords ≥ 4 chars to avoid false positives
+    if (keyword.length >= 4) {
+      for (final t in fileTokens) {
+        if (t.startsWith(keyword) && t.length <= keyword.length + 3) return true;
+      }
+    }
+    return false;
   }
 
   /// Levenshtein similarity (0-1)

@@ -57,6 +57,7 @@ pub mod ffi_error; // ✅ P12.0.2: FFI error result type
 pub mod fluxmacro_ffi;
 pub mod gad_ffi;
 pub mod ingest_ffi;
+pub mod loop_ffi;
 pub mod memory_ffi;
 mod metering;
 pub mod middleware_ffi;
@@ -395,3 +396,6 @@ pub use sss_ffi::*;
 
 // Re-export FluxMacro FFI (P-FMC Orchestration Engine)
 pub use fluxmacro_ffi::*;
+
+// Re-export Advanced Loop System FFI (Wwise-grade)
+pub use loop_ffi::*;

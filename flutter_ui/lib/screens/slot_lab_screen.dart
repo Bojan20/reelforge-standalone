@@ -126,6 +126,7 @@ import '../widgets/slot_lab/events_panel_widget.dart';
 // P0 PERFORMANCE: WaveformThumbnail removed from audio browser — too slow for large lists
 import '../services/stage_configuration_service.dart';
 import '../services/stage_group_service.dart';
+import '../services/audio_asset_manager.dart';
 import '../providers/slot_lab_project_provider.dart';
 import '../models/slot_lab_models.dart';
 import '../widgets/template/template_gallery_panel.dart';
@@ -440,6 +441,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // Update provider (persisted state)
     projectProvider.setAudioAssignment(stage, audioPath);
+
+    // SINGLE SOURCE: Add to AudioAssetManager pool
+    AudioAssetManager.instance.importFilesInstant([audioPath], folder: 'SlotLab Import');
 
     // INSTANT: Re-sync ALL audio assignments to EventRegistry
     // This ensures GAME_START and all other assignments are registered
@@ -2145,6 +2149,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         _audioPool.addAll(newEntries);
       });
 
+      // SINGLE SOURCE: Sync to AudioAssetManager for events panel pool view
+      AudioAssetManager.instance.importFilesInstant(
+        newEntries.map((e) => e['path'] as String).toList(),
+        folder: 'SlotLab Import',
+      );
+
       // 🔄 BACKGROUND: Persist state without blocking UI
       Future.microtask(() => _persistState());
 
@@ -2208,6 +2218,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       setState(() {
         _audioPool.addAll(newEntries);
       });
+
+      // SINGLE SOURCE: Sync to AudioAssetManager for events panel pool view
+      AudioAssetManager.instance.importFilesInstant(
+        newEntries.map((e) => e['path'] as String).toList(),
+        folder: 'SlotLab Import',
+      );
 
       // 🔄 BACKGROUND: Persist state without blocking UI
       Future.microtask(() => _persistState());
@@ -2693,6 +2709,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                               // CENTRAL BRIDGE: Create/update composite event for timeline + event folder
                               _ensureCompositeEventForStage(stage, audioPath);
 
+                              // SINGLE SOURCE: Add to AudioAssetManager pool so it appears in browser
+                              AudioAssetManager.instance.importFilesInstant(
+                                [audioPath],
+                                folder: 'SlotLab Import',
+                              );
 
                               // Auto-bind: refresh trigger bindings when audio assigned
                               final triggerLayer = GetIt.instance<TriggerLayerProvider>();
@@ -2841,6 +2862,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                 _ensureCompositeEventForStage(stage, audioPath);
                                 count++;
                               }
+
+                              // SINGLE SOURCE: Add all imported files to AudioAssetManager pool
+                              final allPaths = mappings.values.toList();
+                              AudioAssetManager.instance.importFilesInstant(
+                                allPaths,
+                                folder: 'SlotLab Import',
+                              );
 
                               // Refresh trigger bindings
                               final triggerLayer = GetIt.instance<TriggerLayerProvider>();

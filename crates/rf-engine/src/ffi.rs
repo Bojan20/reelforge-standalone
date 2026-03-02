@@ -131,7 +131,7 @@ lazy_static::lazy_static! {
         .thread_name(|i| format!("ff-metadata-{}", i))
         .build()
         .expect("Failed to create metadata thread pool");
-    static ref PLAYBACK_ENGINE: Arc<PlaybackEngine> = Arc::new(PlaybackEngine::new(Arc::clone(&TRACK_MANAGER), 48000));
+    pub static ref PLAYBACK_ENGINE: Arc<PlaybackEngine> = Arc::new(PlaybackEngine::new(Arc::clone(&TRACK_MANAGER), 48000));
     static ref UNDO_MANAGER: RwLock<UndoManager> = RwLock::new(UndoManager::new(500));
     /// Project dirty state tracking
     static ref PROJECT_STATE: ProjectState = ProjectState::new();

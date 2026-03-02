@@ -27,6 +27,7 @@
 import 'package:get_it/get_it.dart';
 
 import '../src/rust/native_ffi.dart';
+import '../providers/loop_provider.dart';
 import '../providers/subsystems/state_groups_provider.dart';
 import '../providers/subsystems/switch_groups_provider.dart';
 import '../providers/subsystems/rtpc_system_provider.dart';
@@ -549,6 +550,13 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<FluxMacroProvider>(
       () => FluxMacroProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 6.5: Advanced Loop System (depends on FFI)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<LoopProvider>(
+      () => LoopProvider.instance,
     );
 
     // ═══════════════════════════════════════════════════════════════════════════

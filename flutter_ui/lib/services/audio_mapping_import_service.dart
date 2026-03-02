@@ -1489,6 +1489,7 @@ class AudioMappingImportService {
     'respin': ['RESPIN_START'],
     'respin start': ['RESPIN_START'],
     'respin spin': ['RESPIN_SPIN'],
+    'respin loop': ['RESPIN_SPIN'],
     'respin stop': ['RESPIN_STOP'],
     'respin end': ['RESPIN_END'],
 

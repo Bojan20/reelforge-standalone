@@ -1125,6 +1125,21 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       if (hasScatter) {
         _scatterReels.add(reelIndex);
 
+        // SCATTER_LAND event — dedicated stage for scatter landing audio
+        // Fires SCATTER_LAND (generic, every scatter) + SCATTER_LAND_N for 2nd+ scatter
+        // Registered stages: SCATTER_LAND, SCATTER_LAND_2, _3, _4, _5
+        final scatterCount = _scatterReels.length;
+        eventRegistry.triggerStage('SCATTER_LAND', context: {
+          'reel_index': reelIndex,
+          'scatter_count': scatterCount,
+        });
+        if (scatterCount >= 2) {
+          eventRegistry.triggerStage('SCATTER_LAND_$scatterCount', context: {
+            'reel_index': reelIndex,
+            'scatter_count': scatterCount,
+          });
+        }
+
         // Trigger anticipation when we have 2 scatters and remaining reels exist
         if (_scatterReels.length >= _scattersNeededForAnticipation) {
           // Find remaining reels that haven't stopped yet
