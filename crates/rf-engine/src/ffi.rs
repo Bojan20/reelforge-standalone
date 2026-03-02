@@ -4418,6 +4418,129 @@ pub extern "C" fn engine_get_clip_total_frames(clip_id: u64) -> u64 {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// SMART TEMPO DETECTION FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Detect tempo from a clip's audio data (SmartTempo — Logic Pro X style)
+///
+/// Returns detected BPM. Also fills out_confidence, out_stable, out_alternatives (half/double),
+/// and out_downbeats (sample positions).
+///
+/// Parameters:
+///   clip_id: Clip ID to analyze
+///   min_bpm: Minimum BPM range (e.g. 60.0)
+///   max_bpm: Maximum BPM range (e.g. 200.0)
+///   out_confidence: Pointer to receive confidence (0.0-1.0)
+///   out_stable: Pointer to receive stability flag (0 or 1)
+///   out_alternatives: Pointer to receive alternative BPMs (half, double)
+///   out_alt_count: Capacity of alternatives array
+///   out_downbeats: Pointer to receive downbeat sample positions
+///   out_downbeat_capacity: Capacity of downbeats array
+///   out_downbeat_count: Pointer to receive actual downbeat count
+///
+/// Returns: Detected BPM (0.0 on failure)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_detect_clip_tempo(
+    clip_id: u64,
+    min_bpm: f64,
+    max_bpm: f64,
+    out_confidence: *mut f64,
+    out_stable: *mut i32,
+    out_alternatives: *mut f64,
+    out_alt_count: u32,
+    out_downbeats: *mut u64,
+    out_downbeat_capacity: u32,
+    out_downbeat_count: *mut u32,
+) -> f64 {
+    use rf_core::TempoDetector;
+
+    if out_confidence.is_null() || out_stable.is_null() {
+        return 0.0;
+    }
+
+    // Get clip audio data
+    let audio_map = IMPORTED_AUDIO.read();
+    let Some(audio) = audio_map.get(&ClipId(clip_id)) else {
+        return 0.0;
+    };
+
+    // Convert to mono f64 for analysis
+    let mono: Vec<f64> = if audio.channels == 2 {
+        audio
+            .samples
+            .chunks(2)
+            .map(|chunk| {
+                let l = chunk.first().copied().unwrap_or(0.0);
+                let r = chunk.get(1).copied().unwrap_or(0.0);
+                ((l + r) * 0.5) as f64
+            })
+            .collect()
+    } else {
+        audio.samples.iter().map(|&s| s as f64).collect()
+    };
+
+    // Create detector with specified range
+    let mut detector = TempoDetector::new(audio.sample_rate as f64);
+    detector.set_range(min_bpm, max_bpm);
+    detector.process(&mono);
+    let detection = detector.analyze();
+
+    // Write results
+    unsafe {
+        *out_confidence = detection.confidence;
+        *out_stable = if detection.stable { 1 } else { 0 };
+
+        // Write alternatives
+        if !out_alternatives.is_null() && out_alt_count > 0 {
+            for (i, &alt) in detection.alternatives.iter().take(out_alt_count as usize).enumerate() {
+                *out_alternatives.add(i) = alt;
+            }
+        }
+
+        // Write downbeats
+        if !out_downbeats.is_null() && !out_downbeat_count.is_null() && out_downbeat_capacity > 0 {
+            let count = detection.downbeats.len().min(out_downbeat_capacity as usize);
+            for (i, &db) in detection.downbeats.iter().take(count).enumerate() {
+                *out_downbeats.add(i) = db;
+            }
+            *out_downbeat_count = count as u32;
+        }
+    }
+
+    detection.bpm
+}
+
+/// Detect tempo from raw audio samples (for non-clip audio)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_detect_tempo_raw(
+    samples: *const f64,
+    length: u32,
+    sample_rate: f64,
+    min_bpm: f64,
+    max_bpm: f64,
+    out_confidence: *mut f64,
+) -> f64 {
+    use rf_core::TempoDetector;
+
+    if samples.is_null() || length == 0 || out_confidence.is_null() {
+        return 0.0;
+    }
+
+    let audio = unsafe { std::slice::from_raw_parts(samples, length as usize) };
+
+    let mut detector = TempoDetector::new(sample_rate);
+    detector.set_range(min_bpm, max_bpm);
+    detector.process(audio);
+    let detection = detector.analyze();
+
+    unsafe {
+        *out_confidence = detection.confidence;
+    }
+
+    detection.bpm
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // PITCH DETECTION FFI
 // ═══════════════════════════════════════════════════════════════════════════
 

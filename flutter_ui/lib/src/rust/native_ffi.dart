@@ -1185,6 +1185,32 @@ typedef EngineDetectClipTransientsDart = int Function(
   int outCapacity,
 );
 
+// SmartTempo detection
+typedef EngineDetectClipTempoNative = Double Function(
+  Uint64 clipId,
+  Double minBpm,
+  Double maxBpm,
+  Pointer<Double> outConfidence,
+  Pointer<Int32> outStable,
+  Pointer<Double> outAlternatives,
+  Uint32 outAltCount,
+  Pointer<Uint64> outDownbeats,
+  Uint32 outDownbeatCapacity,
+  Pointer<Uint32> outDownbeatCount,
+);
+typedef EngineDetectClipTempoDart = double Function(
+  int clipId,
+  double minBpm,
+  double maxBpm,
+  Pointer<Double> outConfidence,
+  Pointer<Int32> outStable,
+  Pointer<Double> outAlternatives,
+  int outAltCount,
+  Pointer<Uint64> outDownbeats,
+  int outDownbeatCapacity,
+  Pointer<Uint32> outDownbeatCount,
+);
+
 typedef EngineGetClipSampleRateNative = Uint32 Function(Uint64 clipId);
 typedef EngineGetClipSampleRateDart = int Function(int clipId);
 
@@ -2186,6 +2212,23 @@ typedef OfflineGetAudioChannelsNative = Uint32 Function(Pointer<Utf8> path);
 typedef OfflineGetAudioChannelsDart = int Function(Pointer<Utf8> path);
 
 // ═══════════════════════════════════════════════════════════════════════════
+/// SmartTempo detection result
+class TempoDetectionResult {
+  final double bpm;
+  final double confidence;
+  final bool stable;
+  final List<double> alternatives;
+  final List<int> downbeats;
+
+  const TempoDetectionResult({
+    required this.bpm,
+    required this.confidence,
+    required this.stable,
+    required this.alternatives,
+    required this.downbeats,
+  });
+}
+
 // NATIVE FFI CLASS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -2588,6 +2631,9 @@ class NativeFFI {
   late final EngineGetClipSampleRateDart _getClipSampleRate;
   late final EngineGetClipTotalFramesDart _getClipTotalFrames;
   late final EngineGetFirstClipIdDart _getFirstClipId;
+
+  // SmartTempo Detection
+  late final EngineDetectClipTempoDart _detectClipTempo;
 
   // P10.0.2: Graph-Level PDC
   late final EngineRecalculateGraphPdcDart _engineRecalculateGraphPdc;
@@ -3300,6 +3346,9 @@ class NativeFFI {
     _getClipSampleRate = _lib.lookupFunction<EngineGetClipSampleRateNative, EngineGetClipSampleRateDart>('engine_get_clip_sample_rate');
     _getClipTotalFrames = _lib.lookupFunction<EngineGetClipTotalFramesNative, EngineGetClipTotalFramesDart>('engine_get_clip_total_frames');
     _getFirstClipId = _lib.lookupFunction<EngineGetFirstClipIdNative, EngineGetFirstClipIdDart>('engine_get_first_clip_id');
+
+    // SmartTempo Detection
+    _detectClipTempo = _lib.lookupFunction<EngineDetectClipTempoNative, EngineDetectClipTempoDart>('engine_detect_clip_tempo');
 
     // P10.0.2: Graph-Level PDC
     _engineRecalculateGraphPdc = _lib.lookupFunction<EngineRecalculateGraphPdcNative, EngineRecalculateGraphPdcDart>('engine_recalculate_graph_pdc');
@@ -6622,6 +6671,65 @@ class NativeFFI {
   int getClipTotalFrames(int clipId) {
     if (!_loaded) return 0;
     return _getClipTotalFrames(clipId);
+  }
+
+  /// SmartTempo: Detect tempo from clip audio
+  /// Returns TempoDetection with bpm, confidence, stability, alternatives, downbeats
+  TempoDetectionResult detectClipTempo(
+    int clipId, {
+    double minBpm = 60.0,
+    double maxBpm = 200.0,
+    int maxDownbeats = 256,
+  }) {
+    if (!_loaded) return const TempoDetectionResult(bpm: 0, confidence: 0, stable: false, alternatives: [], downbeats: []);
+
+    final outConfidence = calloc<Double>(1);
+    final outStable = calloc<Int32>(1);
+    final outAlternatives = calloc<Double>(4);
+    final outDownbeats = calloc<Uint64>(maxDownbeats);
+    final outDownbeatCount = calloc<Uint32>(1);
+
+    try {
+      final bpm = _detectClipTempo(
+        clipId,
+        minBpm,
+        maxBpm,
+        outConfidence,
+        outStable,
+        outAlternatives,
+        2, // half + double
+        outDownbeats,
+        maxDownbeats,
+        outDownbeatCount,
+      );
+
+      final confidence = outConfidence.value;
+      final stable = outStable.value != 0;
+      final alternatives = <double>[];
+      for (int i = 0; i < 2; i++) {
+        final alt = outAlternatives[i];
+        if (alt > 0) alternatives.add(alt);
+      }
+      final dbCount = outDownbeatCount.value;
+      final downbeats = <int>[];
+      for (int i = 0; i < dbCount; i++) {
+        downbeats.add(outDownbeats[i]);
+      }
+
+      return TempoDetectionResult(
+        bpm: bpm,
+        confidence: confidence,
+        stable: stable,
+        alternatives: alternatives,
+        downbeats: downbeats,
+      );
+    } finally {
+      calloc.free(outConfidence);
+      calloc.free(outStable);
+      calloc.free(outAlternatives);
+      calloc.free(outDownbeats);
+      calloc.free(outDownbeatCount);
+    }
   }
 
   /// Get first clip ID for a track (resolves track index → clip ID for IMPORTED_AUDIO)

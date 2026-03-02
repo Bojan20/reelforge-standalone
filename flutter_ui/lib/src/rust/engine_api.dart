@@ -990,6 +990,17 @@ class EngineApi {
     print('[Engine] Set clip $clipId loop crossfade to ${crossfadeSecs}s (mock)');
   }
 
+  /// SmartTempo: Detect tempo from clip audio
+  TempoDetectionResult detectClipTempo(String clipId, {double minBpm = 60.0, double maxBpm = 200.0}) {
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        return _ffi.detectClipTempo(nativeClipId, minBpm: minBpm, maxBpm: maxBpm);
+      }
+    }
+    return const TempoDetectionResult(bpm: 0, confidence: 0, stable: false, alternatives: [], downbeats: []);
+  }
+
   /// Normalize clip to target dB
   bool normalizeClip(String clipId, {double targetDb = -3.0}) {
     print('[Engine] Normalize clip $clipId to $targetDb dB');

@@ -5861,6 +5861,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             final engine = context.read<EngineProvider>();
             engine.seek(time);
           },
+          tempo: context.read<EngineProvider>().transport.tempo,
+          onTempoChanged: (newTempo) {
+            final ffi = NativeFFI.instance;
+            ffi.clickSetTempo(newTempo);
+            ffi.projectSetTempo(newTempo);
+          },
         );
       case EditorMode.middleware:
         return MiddlewareLowerZoneWidget(

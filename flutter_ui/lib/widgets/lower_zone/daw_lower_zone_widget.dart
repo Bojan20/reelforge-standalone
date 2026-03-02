@@ -49,6 +49,7 @@ import 'daw/edit/comping_panel.dart';
 import 'daw/edit/audio_warping_panel.dart';
 import 'daw/edit/elastic_audio_panel.dart';
 import 'daw/edit/beat_detective_panel.dart';
+import 'daw/edit/smart_tempo_panel.dart';
 import 'daw/edit/strip_silence_panel.dart';
 // ✅ P0.1: Extracted MIX panels
 import 'daw/mix/sends_panel.dart';
@@ -726,6 +727,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.warp => _buildAudioWarpingPanel(),
       DawEditSubTab.elastic => _buildElasticAudioPanel(),
       DawEditSubTab.beatDetect => _buildBeatDetectivePanel(),
+      DawEditSubTab.tempoDetect => _buildSmartTempoPanel(),
       DawEditSubTab.stripSilence => _buildStripSilencePanel(),
     };
   }
@@ -957,6 +959,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.warp => _buildAudioWarpingPanel(),
       DawEditSubTab.elastic => _buildElasticAudioPanel(),
       DawEditSubTab.beatDetect => _buildBeatDetectivePanel(),
+      DawEditSubTab.tempoDetect => _buildSmartTempoPanel(),
       DawEditSubTab.stripSilence => _buildStripSilencePanel(),
     };
   }
@@ -1015,6 +1018,13 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   Widget _buildBeatDetectivePanel() => BeatDetectivePanel(
     selectedTrackId: widget.selectedTrackId,
     tempo: widget.tempo,
+    onAction: widget.onDspAction,
+  );
+
+  Widget _buildSmartTempoPanel() => SmartTempoPanel(
+    selectedTrackId: widget.selectedTrackId,
+    currentTempo: widget.tempo,
+    onTempoChange: widget.onTempoChanged,
     onAction: widget.onDspAction,
   );
 
