@@ -154,16 +154,12 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 5. .claude/03_SAFETY_GUARDRAILS.md
 
 **Quick References:**
-- .claude/guides/MODEL_SELECTION_CHEAT_SHEET.md — 3-second model decision
 - .claude/guides/PRE_TASK_CHECKLIST.md — Mandatory validation before tasks
 - .claude/guides/PROVIDER_ACCESS_PATTERN.md — Code standard for Provider usage
 
-**Active Roadmaps:**
-- .claude/tasks/P4_COMPLETE_VERIFICATION_2026_01_30.md — ALL P4 COMPLETE (26/26 ✅)
-- .claude/tasks/P9_AUDIO_PANEL_CONSOLIDATION_2026_01_31.md — P9 COMPLETE (12/12 ✅)
-- .claude/tasks/P13_FEATURE_BUILDER_INTEGRATION_2026_02_01.md — P13.8 Apply & Build (5/9 ✅)
-- .claude/tasks/P14_TIMELINE_COMPLETE_2026_02_01.md — P14 COMPLETE (17/17 ✅)
-- FLUXMACRO_SYSTEM.md — P-FMC FluxMacro System (0/53 ⬜) — Deterministic Orchestration Engine
+**Specs:**
+- FLUXMACRO_SYSTEM.md — P-FMC FluxMacro System (53/53 ✅)
+- .claude/MASTER_TODO.md — Grand total: 182/182 ✅
 
 **Architecture Documentation:**
 - .claude/architecture/SSL_CHANNEL_STRIP_ORDERING.md — SSL signal flow
@@ -194,8 +190,6 @@ Sledeći fajlovi sadrže detaljnu dokumentaciju. Claude čita ih SAMO kada su re
 | `.claude/docs/SLOTLAB_STAGE_FLOW.md` | Stage flow, timeline drag, reel phases | Kad radis na SlotLab stage sistemu |
 | `.claude/docs/CICD_PIPELINE.md` | GitHub Actions, build matrix, regression tests | Kad radis na CI/CD |
 | `.claude/docs/SYSTEM_ANALYSIS_PROTOCOL.md` | "Komplet analiza" procedura, SlotLab summary | Kad korisnik traži system review |
-| `.claude/docs/MODEL_SELECTION.md` | Opus vs Sonnet decision tree, task assignments | Kad treba odluka o modelu |
-| `.claude/docs/CLAUDE_MD_FULL_BACKUP_2026_02_27.md` | Kompletan originalni CLAUDE.md (7938 linija) | Ako nešto fali iz reference fajlova |
 
 ---
 

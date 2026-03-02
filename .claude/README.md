@@ -1,74 +1,33 @@
 # FluxForge Studio — .claude/ Documentation
 
-**Last Updated:** 2026-02-08
-**Status:** 100% Complete (362/362 tasks)
+**Status:** ALL SYSTEMS COMPLETE (182/182 ✅)
 
 ---
 
-## QUICK START
-
-**Project Status:** [MASTER_TODO.md](MASTER_TODO.md)
-**Build Instructions:** [CLAUDE.md](../CLAUDE.md#kritično-full-build-procedura)
-**Truth Hierarchy:** [00_AUTHORITY.md](00_AUTHORITY.md)
-**Full Documentation Index:** [INDEX.md](INDEX.md)
-
----
-
-## DIRECTORY STRUCTURE
+## Structure
 
 ```
 .claude/
 ├── 00_AUTHORITY.md           — Truth hierarchy
-├── 00_MODEL_USAGE_POLICY.md  — Opus vs Sonnet rules
+├── 00_MODEL_USAGE_POLICY.md  — Model selection rules
 ├── 01_BUILD_MATRIX.md        — Build configurations
-├── 02_DOD_MILESTONES.md      — Production gates
+├── 02_DOD_MILESTONES.md      — Production gates (summary)
 ├── 03_SAFETY_GUARDRAILS.md   — Audio thread rules
-├── CLEANUP_TODO.md           — Cleanup tracker
-├── DOC_RULES.md              — Documentation rules
-├── INDEX.md                  — Navigation hub
-├── MASTER_TODO.md            — Global task tracker
-├── README.md                 — This file
+├── MASTER_TODO.md            — Grand total: 182/182 ✅
 ├── REVIEW_MODE.md            — Review procedure
-├── SYSTEM_AUDIT_2026_01_21.md — Architecture audit
+├── README.md                 — This file
 │
-├── analysis/      (13 docs)  — Code analysis reports
-├── architecture/  (24 docs)  — System designs
-├── audits/        (1 doc)    — Security audits
-├── docs/          (4 docs)   — Technical docs
-├── domains/       (5 docs)   — Domain specs
-├── guides/        (6 docs)   — Development guides
-├── performance/   (1 doc)    — Optimization guide
+├── architecture/  (33 docs)  — System designs & specs
+├── docs/          (10 docs)  — Reference documentation
+├── domains/       (5 docs)   — Domain specs (audio, engine)
+├── guides/        (6 docs)   — Quick reference cards
 ├── project/       (1 doc)    — Project spec
-├── reviews/       (1 doc)    — System review
-├── roadmap/       (1 doc)    — SlotLab roadmap
-├── specs/         (5 docs)   — Technical specs
-├── tasks/         (6 docs)   — Task tracking
-└── verification/  (1 doc)    — Verification reports
+└── specs/         (6 docs)   — Technical specifications
 ```
 
-**Total:** 12 root files, 14 folders, 69 subfolder docs = **81 files**
+## Rules
 
----
-
-## DOCUMENTATION RULES
-
-See [DOC_RULES.md](DOC_RULES.md) for:
-- Forbidden file types (no session reports, progress reports, changelogs)
-- Folder structure with max file limits
-- Pre-creation checklist
-- Naming conventions
-
----
-
-## PREVENTION MECHANISMS
-
-| Mechanism | Location | Purpose |
-|-----------|----------|---------|
-| AppleDouble cleanup | `scripts/clean-appledouble.sh` | Removes `._*` from project |
-| Build integration | `scripts/run-macos.sh` | Auto-cleanup before build |
-| Pre-commit hook | `.git/hooks/pre-commit` | Blocks `._*` commits |
-| Documentation rules | `.claude/DOC_RULES.md` | Prevents doc spam |
-
----
-
-*For questions: See MASTER_TODO.md for current priorities*
+- **No session reports, progress reports, changelogs** — use git
+- **No new root files** without explicit user permission
+- **Edit existing** before creating new
+- **Every new file** must be referenced from CLAUDE.md or another authority doc
