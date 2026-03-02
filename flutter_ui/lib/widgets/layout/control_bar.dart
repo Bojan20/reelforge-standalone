@@ -1330,34 +1330,112 @@ class _IconBtnState extends State<_IconBtn> {
 // TEMPO & TIME
 // ════════════════════════════════════════════════════════════════════════════
 
-class _TempoDisplay extends StatelessWidget {
+class _TempoDisplay extends StatefulWidget {
   final double tempo;
   final ValueChanged<double>? onTempoChange;
 
   const _TempoDisplay({required this.tempo, this.onTempoChange});
 
   @override
+  State<_TempoDisplay> createState() => _TempoDisplayState();
+}
+
+class _TempoDisplayState extends State<_TempoDisplay> {
+  bool _isEditing = false;
+  late TextEditingController _controller;
+  late FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+    _focusNode = FocusNode();
+    _focusNode.addListener(() {
+      if (!_focusNode.hasFocus && _isEditing) {
+        _commit();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _startEdit() {
+    setState(() {
+      _isEditing = true;
+      _controller.text = widget.tempo.toStringAsFixed(1);
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+      _controller.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _controller.text.length,
+      );
+    });
+  }
+
+  void _commit() {
+    final value = double.tryParse(_controller.text);
+    if (value != null && value >= 20 && value <= 999) {
+      widget.onTempoChange?.call(value);
+    }
+    setState(() => _isEditing = false);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onVerticalDragUpdate: (d) {
+      onDoubleTap: _isEditing ? null : _startEdit,
+      onVerticalDragUpdate: _isEditing ? null : (d) {
         final delta = -d.delta.dy / 5;
-        onTempoChange?.call((tempo + delta).clamp(20.0, 999.0));
+        widget.onTempoChange?.call((widget.tempo + delta).clamp(20.0, 999.0));
       },
       child: Tooltip(
-        message: 'Scroll to adjust tempo',
+        message: 'Double-click to edit · Drag to adjust',
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           margin: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
-            color: FluxForgeTheme.bgMid,
+            color: _isEditing
+                ? FluxForgeTheme.accentOrange.withValues(alpha: 0.15)
+                : FluxForgeTheme.bgMid,
             borderRadius: BorderRadius.circular(4),
+            border: _isEditing
+                ? Border.all(color: FluxForgeTheme.accentOrange)
+                : null,
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(tempo.toStringAsFixed(1),
-                  style: FluxForgeTheme.monoSmall
-                      .copyWith(fontSize: 14, fontWeight: FontWeight.w600)),
+              _isEditing
+                  ? SizedBox(
+                      width: 55,
+                      height: 18,
+                      child: TextField(
+                        controller: _controller,
+                        focusNode: _focusNode,
+                        style: FluxForgeTheme.monoSmall.copyWith(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: FluxForgeTheme.accentOrange,
+                        ),
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                          isDense: true,
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        textAlign: TextAlign.center,
+                        onSubmitted: (_) => _commit(),
+                      ),
+                    )
+                  : Text(widget.tempo.toStringAsFixed(1),
+                      style: FluxForgeTheme.monoSmall
+                          .copyWith(fontSize: 14, fontWeight: FontWeight.w600)),
               Text('BPM',
                   style:
                       TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 9)),

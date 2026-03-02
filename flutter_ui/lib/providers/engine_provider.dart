@@ -10,6 +10,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../src/rust/engine_api.dart';
+import '../src/rust/native_ffi.dart' hide ProjectInfo;
 
 // ============ Types ============
 
@@ -226,6 +227,14 @@ class EngineProvider extends ChangeNotifier {
   void setTempo(double bpm) {
     if (!isRunning) return;
     engine.setTempo(bpm);
+    // Sync metronome click tempo via FFI
+    final ffi = NativeFFI.instance;
+    if (ffi.isLoaded) {
+      ffi.clickSetTempo(bpm);
+    }
+    // Force immediate UI update
+    _transport = engine.transport;
+    notifyListeners();
   }
 
   void setTimeSignature(int numerator, int denominator) {
