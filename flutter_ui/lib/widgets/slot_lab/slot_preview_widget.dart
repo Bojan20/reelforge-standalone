@@ -2139,9 +2139,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // P1.2: Animate line growth (250ms, 0→1)
     _lineGrowController.forward(from: 0);
 
-    // Trigger WIN_LINE_SHOW audio (for first line and cycling)
+    // Trigger payline + per-symbol win audio
     if (triggerAudio) {
-      eventRegistry.triggerStage('WIN_LINE_SHOW');
+      _triggerWinLineAudio(currentLine);
     }
 
   }
@@ -2166,11 +2166,34 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // P1.2: Animate line growth (250ms, 0→1)
     _lineGrowController.forward(from: 0);
 
-    // Trigger WIN_LINE_SHOW audio (for first line and cycling)
+    // Trigger payline + per-symbol win audio
     if (triggerAudio) {
-      eventRegistry.triggerStage('WIN_LINE_SHOW');
+      _triggerWinLineAudio(currentLine);
     }
 
+  }
+
+  /// Trigger audio for a win line: payline highlight + per-symbol win sound
+  void _triggerWinLineAudio(LineWin lineWin) {
+    // 1. Payline highlight sound (generic line-show sound)
+    //    PAYLINE_HIGHLIGHT → fallback → WIN_LINE_SHOW
+    eventRegistry.triggerStage('PAYLINE_HIGHLIGHT', context: {
+      'line_index': lineWin.lineIndex,
+      'symbol': lineWin.symbolName,
+      'match_count': lineWin.matchCount,
+      'win_amount': lineWin.winAmount,
+    });
+
+    // 2. Per-symbol win sound: WIN_SYMBOL_HIGHLIGHT_HP1, _LP3, etc.
+    //    Fallback chain: _HP1 → _HP → WIN_SYMBOL_HIGHLIGHT (generic)
+    final symbolName = lineWin.symbolName.toUpperCase();
+    if (symbolName.isNotEmpty) {
+      eventRegistry.triggerStage('WIN_SYMBOL_HIGHLIGHT_$symbolName', context: {
+        'line_index': lineWin.lineIndex,
+        'match_count': lineWin.matchCount,
+        'win_amount': lineWin.winAmount,
+      });
+    }
   }
 
   /// Get current line win for display (or null if no presentation active)

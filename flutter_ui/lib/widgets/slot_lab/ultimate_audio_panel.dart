@@ -3195,7 +3195,9 @@ SlotPriority _resolveSlotPriority(String stage) {
       s.startsWith('REEL_STOP') || s == 'REEL_SPIN_LOOP' ||
       s == 'WIN_PRESENT' || s == 'ROLLUP_START' || s == 'ROLLUP_TICK' ||
       s == 'ROLLUP_END' || s.startsWith('WIN_LINE_') ||
-      s == 'WIN_SYMBOL_HIGHLIGHT' || s == 'EVALUATE_WINS' ||
+      s == 'PAYLINE_HIGHLIGHT' ||
+      s == 'WIN_SYMBOL_HIGHLIGHT' || s.startsWith('WIN_SYMBOL_HIGHLIGHT_') ||
+      s == 'EVALUATE_WINS' ||
       s == 'ANTICIPATION_ON' || s == 'ANTICIPATION_OFF' ||
       s.startsWith('ANTICIPATION_') ||
       s.startsWith('SYMBOL_LAND')) {
@@ -3617,16 +3619,40 @@ class _WinPresentationSection extends _SectionConfig {
           _SlotConfig(stage: 'WIN_CALCULATE', label: 'Win Calculate'),
         ],
       ),
-      // ─── WIN LINES ⚡ (pooled) ───
+      // ─── PAYLINES & WIN LINES ⚡ (pooled) ───
       const _GroupConfig(
         id: 'lines',
-        title: 'Win Lines ⚡',
+        title: 'Paylines & Win Lines ⚡',
         icon: '📊',
         slots: [
+          _SlotConfig(stage: 'PAYLINE_HIGHLIGHT', label: 'Payline Highlight'),
           _SlotConfig(stage: 'WIN_LINE_SHOW', label: 'Line Show'),
           _SlotConfig(stage: 'WIN_LINE_HIDE', label: 'Line Hide'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT', label: 'Symbol Highlight'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT', label: 'Symbol Highlight (Generic)'),
           _SlotConfig(stage: 'WIN_LINE_CYCLE', label: 'Line Cycle'),
+        ],
+      ),
+      // ─── PER-SYMBOL WIN AUDIO ⚡ (pooled) ───
+      const _GroupConfig(
+        id: 'symbol_wins',
+        title: 'Per-Symbol Win ⚡',
+        icon: '💎',
+        slots: [
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_HP', label: 'HP (All) Win'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_HP1', label: 'HP1 Win'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_HP2', label: 'HP2 Win'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_HP3', label: 'HP3 Win'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_HP4', label: 'HP4 Win'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LP', label: 'LP (All) Win'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LP1', label: 'LP1 Win'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LP2', label: 'LP2 Win'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LP3', label: 'LP3 Win'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LP4', label: 'LP4 Win'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LP5', label: 'LP5 Win'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LP6', label: 'LP6 Win'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_WILD', label: 'Wild Win'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_SCATTER', label: 'Scatter Win'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_BONUS', label: 'Bonus Win'),
         ],
       ),
       // ─── WIN TIERS (P5 DYNAMIC) ───

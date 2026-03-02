@@ -1846,6 +1846,11 @@ class EventRegistry extends ChangeNotifier {
       return 'ANTICIPATION_ON';
     }
 
+    // Payline highlight fallback: PAYLINE_HIGHLIGHT → WIN_LINE_SHOW
+    if (stage == 'PAYLINE_HIGHLIGHT') {
+      return 'WIN_LINE_SHOW';
+    }
+
     return null;
   }
 

@@ -801,6 +801,38 @@ class AudioMappingImportService {
       if (composedStageIds.contains('MUSIC_TRANSITION')) return ('MUSIC_TRANSITION', 0.80);
     }
 
+    // ── PATTERN 12: sym_{SYMBOL}_win or symbol_{SYMBOL}_win ──
+    // Examples: sym_hp1_win, symbol_lp3_win, hp2_win_highlight, sym_wild_win
+    // Matches: {sym|symbol}_{HP1-4|LP1-6|WILD|SCATTER|BONUS}_{win|highlight}
+    final symWinMatch = RegExp(
+      r'(?:sym(?:bol)?[-_\s]*)?'   // optional sym/symbol prefix
+      r'(hp[1-4]|lp[1-6]|wild|scatter|bonus)'  // symbol name
+      r'[-_\s]*(?:win|highlight)',  // win/highlight suffix
+      caseSensitive: false,
+    ).firstMatch(name);
+    if (symWinMatch != null) {
+      final symbolName = symWinMatch.group(1)!.toUpperCase();
+      final stageId = 'WIN_SYMBOL_HIGHLIGHT_$symbolName';
+      if (composedStageIds.contains(stageId)) return (stageId, 0.95);
+      // Fallback: try category level (HP, LP)
+      final catMatch = RegExp(r'^(HP|LP)\d+$').firstMatch(symbolName);
+      if (catMatch != null) {
+        final catStage = 'WIN_SYMBOL_HIGHLIGHT_${catMatch.group(1)}';
+        if (composedStageIds.contains(catStage)) return (catStage, 0.90);
+      }
+    }
+
+    // ── PATTERN 13: payline/line_highlight/pay_line ──
+    // Examples: payline_highlight, line_highlight_2, pay_line_1of3, payline_win
+    final paylineMatch = RegExp(
+      r'(?:payline|pay[-_\s]*line|line[-_\s]*highlight)',
+      caseSensitive: false,
+    ).firstMatch(name);
+    if (paylineMatch != null) {
+      if (composedStageIds.contains('PAYLINE_HIGHLIGHT')) return ('PAYLINE_HIGHLIGHT', 0.95);
+      if (composedStageIds.contains('WIN_LINE_SHOW')) return ('WIN_LINE_SHOW', 0.90);
+    }
+
     return null;
   }
 
@@ -828,6 +860,13 @@ class AudioMappingImportService {
     'BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_TIER_3', 'BIG_WIN_TIER_4', 'BIG_WIN_TIER_5',
     'WIN_EVAL', 'WIN_DETECTED', 'WIN_CALCULATE',
     'WIN_LINE_SHOW', 'WIN_LINE_HIDE', 'WIN_SYMBOL_HIGHLIGHT', 'WIN_LINE_CYCLE',
+    'PAYLINE_HIGHLIGHT',
+    'WIN_SYMBOL_HIGHLIGHT_HP', 'WIN_SYMBOL_HIGHLIGHT_HP1', 'WIN_SYMBOL_HIGHLIGHT_HP2',
+    'WIN_SYMBOL_HIGHLIGHT_HP3', 'WIN_SYMBOL_HIGHLIGHT_HP4',
+    'WIN_SYMBOL_HIGHLIGHT_LP', 'WIN_SYMBOL_HIGHLIGHT_LP1', 'WIN_SYMBOL_HIGHLIGHT_LP2',
+    'WIN_SYMBOL_HIGHLIGHT_LP3', 'WIN_SYMBOL_HIGHLIGHT_LP4', 'WIN_SYMBOL_HIGHLIGHT_LP5',
+    'WIN_SYMBOL_HIGHLIGHT_LP6',
+    'WIN_SYMBOL_HIGHLIGHT_WILD', 'WIN_SYMBOL_HIGHLIGHT_SCATTER', 'WIN_SYMBOL_HIGHLIGHT_BONUS',
     'WIN_FANFARE',
     // Rollup
     'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_TICK_FAST', 'ROLLUP_TICK_SLOW',
@@ -895,6 +934,11 @@ class AudioMappingImportService {
     'WILD_MULTIPLY', 'WILD_WALKING',
     // Transitions
     'TRANSITION_SWOOSH', 'TRANSITION_IMPACT',
+    'CONTEXT_BASE_TO_FS', 'CONTEXT_FS_TO_BASE',
+    'CONTEXT_BASE_TO_BONUS', 'CONTEXT_BONUS_TO_BASE',
+    'CONTEXT_BASE_TO_HOLDWIN', 'CONTEXT_HOLDWIN_TO_BASE',
+    'CONTEXT_BASE_TO_GAMBLE', 'CONTEXT_GAMBLE_TO_BASE',
+    'CONTEXT_BASE_TO_JACKPOT', 'CONTEXT_JACKPOT_TO_BASE',
     // Collect
     'COLLECT_TRIGGER', 'COLLECT_COIN',
     // VO
@@ -1281,11 +1325,77 @@ class AudioMappingImportService {
     'win line': ['WIN_LINE_SHOW'],
     'win line show': ['WIN_LINE_SHOW'],
     'win line hide': ['WIN_LINE_HIDE'],
+    'line highlight': ['WIN_LINE_SHOW', 'PAYLINE_HIGHLIGHT'],
+    'payline': ['PAYLINE_HIGHLIGHT', 'WIN_LINE_SHOW'],
+    'payline highlight': ['PAYLINE_HIGHLIGHT', 'WIN_LINE_SHOW'],
+    'pay line': ['PAYLINE_HIGHLIGHT', 'WIN_LINE_SHOW'],
+    'pay line highlight': ['PAYLINE_HIGHLIGHT', 'WIN_LINE_SHOW'],
+    'line win': ['WIN_LINE_SHOW', 'PAYLINE_HIGHLIGHT'],
     'win collect': ['GAMBLE_COLLECT', 'WIN_FANFARE'],
     'win highlight': ['WIN_SYMBOL_HIGHLIGHT'],
     'symbol highlight': ['WIN_SYMBOL_HIGHLIGHT'],
     'win fanfare': ['WIN_FANFARE'],
     'win eval': ['WIN_EVAL'],
+
+    // ─── Per-symbol win highlights — HP (High Pay) ───────────────────────
+    'hp1 win': ['WIN_SYMBOL_HIGHLIGHT_HP1'],
+    'hp2 win': ['WIN_SYMBOL_HIGHLIGHT_HP2'],
+    'hp3 win': ['WIN_SYMBOL_HIGHLIGHT_HP3'],
+    'hp4 win': ['WIN_SYMBOL_HIGHLIGHT_HP4'],
+    'sym hp1 win': ['WIN_SYMBOL_HIGHLIGHT_HP1'],
+    'sym hp2 win': ['WIN_SYMBOL_HIGHLIGHT_HP2'],
+    'sym hp3 win': ['WIN_SYMBOL_HIGHLIGHT_HP3'],
+    'sym hp4 win': ['WIN_SYMBOL_HIGHLIGHT_HP4'],
+    'symbol hp1 win': ['WIN_SYMBOL_HIGHLIGHT_HP1'],
+    'symbol hp2 win': ['WIN_SYMBOL_HIGHLIGHT_HP2'],
+    'symbol hp3 win': ['WIN_SYMBOL_HIGHLIGHT_HP3'],
+    'symbol hp4 win': ['WIN_SYMBOL_HIGHLIGHT_HP4'],
+    'high pay 1 win': ['WIN_SYMBOL_HIGHLIGHT_HP1'],
+    'high pay 2 win': ['WIN_SYMBOL_HIGHLIGHT_HP2'],
+    'high pay 3 win': ['WIN_SYMBOL_HIGHLIGHT_HP3'],
+    'high pay 4 win': ['WIN_SYMBOL_HIGHLIGHT_HP4'],
+    'hp1 highlight': ['WIN_SYMBOL_HIGHLIGHT_HP1'],
+    'hp2 highlight': ['WIN_SYMBOL_HIGHLIGHT_HP2'],
+    'hp3 highlight': ['WIN_SYMBOL_HIGHLIGHT_HP3'],
+    'hp4 highlight': ['WIN_SYMBOL_HIGHLIGHT_HP4'],
+    'hp win': ['WIN_SYMBOL_HIGHLIGHT_HP'],
+    'high pay win': ['WIN_SYMBOL_HIGHLIGHT_HP'],
+
+    // ─── Per-symbol win highlights — LP (Low Pay) ────────────────────────
+    'lp1 win': ['WIN_SYMBOL_HIGHLIGHT_LP1'],
+    'lp2 win': ['WIN_SYMBOL_HIGHLIGHT_LP2'],
+    'lp3 win': ['WIN_SYMBOL_HIGHLIGHT_LP3'],
+    'lp4 win': ['WIN_SYMBOL_HIGHLIGHT_LP4'],
+    'lp5 win': ['WIN_SYMBOL_HIGHLIGHT_LP5'],
+    'lp6 win': ['WIN_SYMBOL_HIGHLIGHT_LP6'],
+    'sym lp1 win': ['WIN_SYMBOL_HIGHLIGHT_LP1'],
+    'sym lp2 win': ['WIN_SYMBOL_HIGHLIGHT_LP2'],
+    'sym lp3 win': ['WIN_SYMBOL_HIGHLIGHT_LP3'],
+    'sym lp4 win': ['WIN_SYMBOL_HIGHLIGHT_LP4'],
+    'sym lp5 win': ['WIN_SYMBOL_HIGHLIGHT_LP5'],
+    'sym lp6 win': ['WIN_SYMBOL_HIGHLIGHT_LP6'],
+    'symbol lp1 win': ['WIN_SYMBOL_HIGHLIGHT_LP1'],
+    'symbol lp2 win': ['WIN_SYMBOL_HIGHLIGHT_LP2'],
+    'symbol lp3 win': ['WIN_SYMBOL_HIGHLIGHT_LP3'],
+    'symbol lp4 win': ['WIN_SYMBOL_HIGHLIGHT_LP4'],
+    'symbol lp5 win': ['WIN_SYMBOL_HIGHLIGHT_LP5'],
+    'symbol lp6 win': ['WIN_SYMBOL_HIGHLIGHT_LP6'],
+    'low pay 1 win': ['WIN_SYMBOL_HIGHLIGHT_LP1'],
+    'low pay 2 win': ['WIN_SYMBOL_HIGHLIGHT_LP2'],
+    'low pay 3 win': ['WIN_SYMBOL_HIGHLIGHT_LP3'],
+    'low pay 4 win': ['WIN_SYMBOL_HIGHLIGHT_LP4'],
+    'low pay 5 win': ['WIN_SYMBOL_HIGHLIGHT_LP5'],
+    'low pay 6 win': ['WIN_SYMBOL_HIGHLIGHT_LP6'],
+    'lp win': ['WIN_SYMBOL_HIGHLIGHT_LP'],
+    'low pay win': ['WIN_SYMBOL_HIGHLIGHT_LP'],
+
+    // ─── Per-symbol win highlights — Special ─────────────────────────────
+    'wild win': ['WIN_SYMBOL_HIGHLIGHT_WILD'],
+    'scatter win': ['WIN_SYMBOL_HIGHLIGHT_SCATTER'],
+    'bonus symbol win': ['WIN_SYMBOL_HIGHLIGHT_BONUS'],
+    'sym wild win': ['WIN_SYMBOL_HIGHLIGHT_WILD'],
+    'sym scatter win': ['WIN_SYMBOL_HIGHLIGHT_SCATTER'],
+    'sym bonus win': ['WIN_SYMBOL_HIGHLIGHT_BONUS'],
 
     // ─── WIN multiplier tiers → WIN_PRESENT_N ──────────────────────────
     'win 1x': ['WIN_PRESENT_1'],
@@ -1616,6 +1726,18 @@ class AudioMappingImportService {
     'trn swoosh': ['TRANSITION_SWOOSH'],
     'trn impact': ['TRANSITION_IMPACT'],
     'trn': ['TRANSITION_SWOOSH', 'TRANSITION_IMPACT'],
+    'transition to free spins': ['CONTEXT_BASE_TO_FS'],
+    'transition to fs': ['CONTEXT_BASE_TO_FS'],
+    'transition to bonus': ['CONTEXT_BASE_TO_BONUS'],
+    'transition to hold': ['CONTEXT_BASE_TO_HOLDWIN'],
+    'transition from free spins': ['CONTEXT_FS_TO_BASE'],
+    'transition from fs': ['CONTEXT_FS_TO_BASE'],
+    'transition from bonus': ['CONTEXT_BONUS_TO_BASE'],
+    'transition from hold': ['CONTEXT_HOLDWIN_TO_BASE'],
+    'context base to fs': ['CONTEXT_BASE_TO_FS'],
+    'context fs to base': ['CONTEXT_FS_TO_BASE'],
+    'context base to bonus': ['CONTEXT_BASE_TO_BONUS'],
+    'context bonus to base': ['CONTEXT_BONUS_TO_BASE'],
     'swoosh': ['TRANSITION_SWOOSH'],
     'whoosh': ['TRANSITION_SWOOSH'],
     'impact': ['TRANSITION_IMPACT', 'SYMBOL_LAND'],

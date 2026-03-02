@@ -55,6 +55,15 @@ class GameFlowOverlay extends StatelessWidget {
                   count: flow.featureQueue.length,
                 ),
               ),
+
+            // Scene transition overlay (full-screen, above everything)
+            if (flow.isInTransition)
+              Positioned.fill(
+                child: _SceneTransitionOverlay(
+                  transition: flow.activeTransition!,
+                  onDismiss: () => flow.dismissTransition(),
+                ),
+              ),
           ],
         );
       },
@@ -1206,5 +1215,223 @@ class _OverlayBadge extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SCENE TRANSITION OVERLAY — Full-screen transition between game phases
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _SceneTransitionOverlay extends StatefulWidget {
+  final ActiveTransition transition;
+  final VoidCallback onDismiss;
+
+  const _SceneTransitionOverlay({
+    required this.transition,
+    required this.onDismiss,
+  });
+
+  @override
+  State<_SceneTransitionOverlay> createState() => _SceneTransitionOverlayState();
+}
+
+class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
+    with TickerProviderStateMixin {
+  late AnimationController _fadeController;
+  late AnimationController _plaqueController;
+  late Animation<double> _fadeAnim;
+  late Animation<double> _plaqueScale;
+  late Animation<double> _plaqueOpacity;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _plaqueController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+
+    _fadeAnim = CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut);
+    _plaqueScale = Tween<double>(begin: 0.7, end: 1.0).animate(
+      CurvedAnimation(parent: _plaqueController, curve: Curves.elasticOut),
+    );
+    _plaqueOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _plaqueController,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
+      ),
+    );
+
+    _fadeController.forward();
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (mounted) _plaqueController.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    _plaqueController.dispose();
+    super.dispose();
+  }
+
+  Color get _accentColor {
+    return switch (widget.transition.toState) {
+      GameFlowState.freeSpins => const Color(0xFF00E5FF),
+      GameFlowState.bonusGame => const Color(0xFFFFD700),
+      GameFlowState.holdAndWin => const Color(0xFFFF6D00),
+      GameFlowState.gamble => const Color(0xFFE040FB),
+      GameFlowState.jackpotPresentation => const Color(0xFFFF1744),
+      _ => const Color(0xFF4A9EFF),
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = widget.transition;
+    final canDismiss = t.config.dismissMode == TransitionDismissMode.clickToContinue ||
+        t.config.dismissMode == TransitionDismissMode.timedOrClick;
+
+    return GestureDetector(
+      onTap: canDismiss ? widget.onDismiss : null,
+      child: AnimatedBuilder(
+        animation: _fadeAnim,
+        builder: (context, child) {
+          return Container(
+            color: Colors.black.withValues(alpha: 0.85 * _fadeAnim.value),
+            child: Center(
+              child: AnimatedBuilder(
+                animation: _plaqueController,
+                builder: (context, _) {
+                  return Opacity(
+                    opacity: _plaqueOpacity.value,
+                    child: Transform.scale(
+                      scale: _plaqueScale.value,
+                      child: _buildPlaqueContent(t, canDismiss),
+                    ),
+                  );
+                },
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPlaqueContent(ActiveTransition t, bool canDismiss) {
+    final isExit = t.phase == TransitionPhase.exiting;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            _accentColor.withValues(alpha: 0.3),
+            const Color(0xFF0A0A14),
+            _accentColor.withValues(alpha: 0.2),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _accentColor.withValues(alpha: 0.6),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: _accentColor.withValues(alpha: 0.3),
+            blurRadius: 30,
+            spreadRadius: 5,
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Feature icon
+          Icon(
+            isExit ? Icons.emoji_events : _featureIcon(t.toState),
+            color: _accentColor,
+            size: 40,
+          ),
+          const SizedBox(height: 12),
+
+          // Plaque title
+          if (t.config.showPlaque)
+            Text(
+              t.plaqueText,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2,
+                shadows: [
+                  Shadow(color: _accentColor, blurRadius: 12),
+                ],
+              ),
+            ),
+
+          // Total win (exit only)
+          if (isExit && t.config.showWinOnExit && t.totalWin > 0) ...[
+            const SizedBox(height: 16),
+            Text(
+              'TOTAL WIN',
+              style: TextStyle(
+                color: Colors.white60,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              t.totalWin.toStringAsFixed(2),
+              style: TextStyle(
+                color: _accentColor,
+                fontSize: 32,
+                fontWeight: FontWeight.w900,
+                shadows: [
+                  Shadow(color: _accentColor, blurRadius: 16),
+                ],
+              ),
+            ),
+          ],
+
+          // Click to continue hint
+          if (canDismiss) ...[
+            const SizedBox(height: 20),
+            Text(
+              'TAP TO CONTINUE',
+              style: TextStyle(
+                color: Colors.white38,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  IconData _featureIcon(GameFlowState state) {
+    return switch (state) {
+      GameFlowState.freeSpins => Icons.stars,
+      GameFlowState.bonusGame => Icons.casino,
+      GameFlowState.holdAndWin => Icons.lock,
+      GameFlowState.gamble => Icons.swap_vert,
+      GameFlowState.jackpotPresentation => Icons.diamond,
+      GameFlowState.respin => Icons.refresh,
+      _ => Icons.play_arrow,
+    };
   }
 }

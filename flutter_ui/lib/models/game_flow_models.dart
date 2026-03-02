@@ -587,3 +587,127 @@ class ModifiedWinResult {
     this.multiplierSources = const [],
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCENE TRANSITION — Visual transition between game phases
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Transition dismissal mode
+enum TransitionDismissMode {
+  /// Auto-dismiss after configured duration
+  timed('Timed'),
+
+  /// Wait for user tap/click
+  clickToContinue('Click to Continue'),
+
+  /// Timed with optional early dismiss on click
+  timedOrClick('Timed + Click');
+
+  final String label;
+  const TransitionDismissMode(this.label);
+}
+
+/// Visual transition style
+enum TransitionStyle {
+  fade('Fade'),
+  slideUp('Slide Up'),
+  slideDown('Slide Down'),
+  zoom('Zoom'),
+  swoosh('Swoosh');
+
+  final String label;
+  const TransitionStyle(this.label);
+}
+
+/// Configuration for a scene transition (e.g., Base → Free Spins)
+class SceneTransitionConfig {
+  /// Duration in milliseconds (used when mode is timed)
+  final int durationMs;
+
+  /// How the transition is dismissed
+  final TransitionDismissMode dismissMode;
+
+  /// Visual style
+  final TransitionStyle style;
+
+  /// Whether to show a plaque (e.g., "FREE SPINS WON!")
+  final bool showPlaque;
+
+  /// Plaque text override (null = auto-generated from feature name)
+  final String? plaqueText;
+
+  /// Whether to show win amount on exit plaque
+  final bool showWinOnExit;
+
+  /// Audio stage to fire when transition starts
+  final String? audioStage;
+
+  const SceneTransitionConfig({
+    this.durationMs = 3000,
+    this.dismissMode = TransitionDismissMode.timedOrClick,
+    this.style = TransitionStyle.fade,
+    this.showPlaque = true,
+    this.plaqueText,
+    this.showWinOnExit = true,
+    this.audioStage,
+  });
+
+  SceneTransitionConfig copyWith({
+    int? durationMs,
+    TransitionDismissMode? dismissMode,
+    TransitionStyle? style,
+    bool? showPlaque,
+    String? plaqueText,
+    bool? showWinOnExit,
+    String? audioStage,
+  }) {
+    return SceneTransitionConfig(
+      durationMs: durationMs ?? this.durationMs,
+      dismissMode: dismissMode ?? this.dismissMode,
+      style: style ?? this.style,
+      showPlaque: showPlaque ?? this.showPlaque,
+      plaqueText: plaqueText ?? this.plaqueText,
+      showWinOnExit: showWinOnExit ?? this.showWinOnExit,
+      audioStage: audioStage ?? this.audioStage,
+    );
+  }
+}
+
+/// Active transition state (runtime — what's currently showing)
+enum TransitionPhase {
+  /// No transition active
+  none,
+
+  /// Entering a feature (Base → Feature intro)
+  entering,
+
+  /// Exiting a feature (Feature outro → Base)
+  exiting,
+}
+
+/// Runtime state for an active transition
+class ActiveTransition {
+  final TransitionPhase phase;
+  final GameFlowState fromState;
+  final GameFlowState toState;
+  final SceneTransitionConfig config;
+  final double totalWin;
+  final DateTime startedAt;
+
+  const ActiveTransition({
+    required this.phase,
+    required this.fromState,
+    required this.toState,
+    required this.config,
+    this.totalWin = 0,
+    required this.startedAt,
+  });
+
+  String get plaqueText {
+    if (config.plaqueText != null) return config.plaqueText!;
+    if (phase == TransitionPhase.entering) {
+      return '${toState.displayName.toUpperCase()}!';
+    }
+    return '${fromState.displayName.toUpperCase()} COMPLETE';
+  }
+}

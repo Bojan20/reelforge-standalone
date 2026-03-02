@@ -3528,6 +3528,44 @@ pub extern "C" fn click_get_audibility_mode() -> u8 {
     CLICK_TRACK.read().get_audibility_mode()
 }
 
+// ── Tempo Map Sync (Zero-Drift Metronome) ──
+
+/// Push tempo events from TempoMap to ClickTrack for variable tempo support.
+/// `ticks` and `bpms` are parallel arrays of length `count`.
+/// Each entry defines a tempo change: at `ticks[i]`, tempo becomes `bpms[i]`.
+/// Events MUST be sorted by tick (ascending).
+///
+/// Call this whenever the TempoMap changes (tempo add/edit/delete).
+/// Pass count=0 to clear tempo events (revert to constant tempo).
+#[unsafe(no_mangle)]
+pub extern "C" fn click_set_tempo_events(
+    ticks: *const u64,
+    bpms: *const f64,
+    count: u32,
+) {
+    if count == 0 {
+        CLICK_TRACK.write().clear_tempo_events();
+        return;
+    }
+
+    if ticks.is_null() || bpms.is_null() {
+        return;
+    }
+
+    let events: Vec<crate::click::ClickTempoEvent> = unsafe {
+        let tick_slice = std::slice::from_raw_parts(ticks, count as usize);
+        let bpm_slice = std::slice::from_raw_parts(bpms, count as usize);
+
+        tick_slice
+            .iter()
+            .zip(bpm_slice.iter())
+            .map(|(&tick, &bpm)| crate::click::ClickTempoEvent { tick, bpm })
+            .collect()
+    };
+
+    CLICK_TRACK.write().set_tempo_events(events);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // SEND/RETURN FFI
 // ═══════════════════════════════════════════════════════════════════════════

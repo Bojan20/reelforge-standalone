@@ -963,6 +963,12 @@ typedef ClickSetAudibilityModeDart = void Function(int mode);
 typedef ClickGetAudibilityModeNative = Uint8 Function();
 typedef ClickGetAudibilityModeDart = int Function();
 
+// Click track — tempo map sync (zero-drift metronome)
+typedef ClickSetTempoEventsNative = Void Function(
+    Pointer<Uint64> ticks, Pointer<Double> bpms, Uint32 count);
+typedef ClickSetTempoEventsDart = void Function(
+    Pointer<Uint64> ticks, Pointer<Double> bpms, int count);
+
 // Send functions
 typedef SendSetLevelNative = Void Function(Uint64 trackId, Uint32 sendIndex, Double level);
 typedef SendSetLevelDart = void Function(int trackId, int sendIndex, double level);
@@ -2557,6 +2563,7 @@ class NativeFFI {
   // Click track — audibility mode
   late final ClickSetAudibilityModeDart _clickSetAudibilityMode;
   late final ClickGetAudibilityModeDart _clickGetAudibilityMode;
+  late final ClickSetTempoEventsDart _clickSetTempoEvents;
 
   // Send functions
   late final SendSetLevelDart _sendSetLevel;
@@ -3282,6 +3289,8 @@ class NativeFFI {
     // Click track — audibility mode
     _clickSetAudibilityMode = _lib.lookupFunction<ClickSetAudibilityModeNative, ClickSetAudibilityModeDart>('click_set_audibility_mode');
     _clickGetAudibilityMode = _lib.lookupFunction<ClickGetAudibilityModeNative, ClickGetAudibilityModeDart>('click_get_audibility_mode');
+    // Click track — tempo map sync
+    _clickSetTempoEvents = _lib.lookupFunction<ClickSetTempoEventsNative, ClickSetTempoEventsDart>('click_set_tempo_events');
 
     // Send functions
     _sendSetLevel = _lib.lookupFunction<SendSetLevelNative, SendSetLevelDart>('send_set_level');
@@ -6020,6 +6029,28 @@ class NativeFFI {
   int clickGetAudibilityMode() {
     if (!_loaded) return 0;
     return _clickGetAudibilityMode();
+  }
+
+  /// Push tempo events to click track for variable tempo sync (zero-drift).
+  /// [ticks] and [bpms] must be same length, sorted by tick ascending.
+  /// Pass empty lists to clear (revert to constant tempo).
+  void clickSetTempoEvents(List<int> ticks, List<double> bpms) {
+    if (!_loaded) return;
+    assert(ticks.length == bpms.length);
+    final count = ticks.length;
+    if (count == 0) {
+      _clickSetTempoEvents(nullptr, nullptr, 0);
+      return;
+    }
+    final tickPtr = malloc<Uint64>(count);
+    final bpmPtr = malloc<Double>(count);
+    for (int i = 0; i < count; i++) {
+      tickPtr[i] = ticks[i];
+      bpmPtr[i] = bpms[i];
+    }
+    _clickSetTempoEvents(tickPtr, bpmPtr, count);
+    malloc.free(tickPtr);
+    malloc.free(bpmPtr);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

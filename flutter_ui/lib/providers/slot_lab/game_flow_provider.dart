@@ -91,6 +91,14 @@ class GameFlowProvider extends ChangeNotifier {
   double _totalWin = 0;
   ModifiedWinResult? _lastWinPipeline;
 
+  // ─── Scene Transitions ─────────────────────────────────────────────────
+  ActiveTransition? _activeTransition;
+  bool _transitionsEnabled = true;
+  final Map<String, SceneTransitionConfig> _transitionConfigs = {};
+
+  /// Default transition config (used when no specific config exists)
+  SceneTransitionConfig _defaultTransitionConfig = const SceneTransitionConfig();
+
   // ─── Transition Rules ────────────────────────────────────────────────────
   final List<FlowTransition> _transitions = [];
 
@@ -157,6 +165,15 @@ class GameFlowProvider extends ChangeNotifier {
 
   /// Current total win amount
   double get totalWin => _totalWin;
+
+  /// Active scene transition (null = no transition in progress)
+  ActiveTransition? get activeTransition => _activeTransition;
+
+  /// Whether a transition is currently active (blocks spins)
+  bool get isInTransition => _activeTransition != null;
+
+  /// Whether scene transitions are enabled
+  bool get transitionsEnabled => _transitionsEnabled;
 
   /// Last win pipeline result (with multiplier sources)
   ModifiedWinResult? get lastWinPipeline => _lastWinPipeline;
@@ -445,7 +462,7 @@ class GameFlowProvider extends ChangeNotifier {
     _enterFeature(executor, pending);
   }
 
-  /// Enter a feature state
+  /// Enter a feature state (with optional scene transition)
   void _enterFeature(FeatureExecutor executor, PendingFeature pending) {
     final triggerCtx = TriggerContext(
       scatterCount: pending.triggerContext['scatterCount'] as int?,
@@ -464,8 +481,19 @@ class GameFlowProvider extends ChangeNotifier {
       _fireAudioStage(transition!.audioStageId!);
     }
 
-    _transitionTo(pending.targetState);
-    onFeatureStateUpdated?.call(executor.blockId, featureState);
+    // Scene transition: show intro plaque before entering feature
+    final fromState = _currentState;
+    final toState = pending.targetState;
+
+    if (_transitionsEnabled && toState.isFeature && toState != GameFlowState.cascading) {
+      _startEnterTransition(fromState, toState, onComplete: () {
+        _transitionTo(toState);
+        onFeatureStateUpdated?.call(executor.blockId, featureState);
+      });
+    } else {
+      _transitionTo(toState);
+      onFeatureStateUpdated?.call(executor.blockId, featureState);
+    }
   }
 
   /// Step the current feature with a spin result
@@ -508,9 +536,11 @@ class GameFlowProvider extends ChangeNotifier {
 
     final executor = _executors.getExecutor(blockId);
     final featureState = _activeFeatures[blockId];
+    double exitWin = 0;
 
     if (executor != null && featureState != null) {
       final exitResult = executor.exit(featureState);
+      exitWin = exitResult.totalWin;
 
       // Fire exit audio
       for (final stage in exitResult.audioStages) {
@@ -533,19 +563,39 @@ class GameFlowProvider extends ChangeNotifier {
       }
     }
 
+    final exitingState = _currentState;
+
+    // Determine return state
+    GameFlowState returnState;
+    if (_stack.isNotEmpty) {
+      returnState = _stack.pop().state;
+    } else {
+      returnState = GameFlowState.idle;
+    }
+
     // Remove active feature
     _activeFeatures.remove(blockId);
 
-    // Return to parent state or process queue
-    if (_stack.isNotEmpty) {
-      final parent = _stack.pop();
-      _currentState = parent.state;
-      onStateChanged?.call(_currentState, parent.state);
-      notifyListeners();
-    } else if (_featureQueue.isNotEmpty) {
-      _processNextQueuedFeature();
+    // Scene transition: show exit plaque with total win before returning
+    if (_transitionsEnabled && exitingState.isFeature &&
+        exitingState != GameFlowState.cascading) {
+      _startExitTransition(exitingState, returnState, exitWin, onComplete: () {
+        if (_featureQueue.isNotEmpty) {
+          _processNextQueuedFeature();
+        } else {
+          _currentState = returnState;
+          onStateChanged?.call(exitingState, returnState);
+          notifyListeners();
+        }
+      });
     } else {
-      _transitionTo(GameFlowState.idle);
+      if (_featureQueue.isNotEmpty) {
+        _processNextQueuedFeature();
+      } else {
+        _currentState = returnState;
+        onStateChanged?.call(exitingState, returnState);
+        notifyListeners();
+      }
     }
   }
 
@@ -695,6 +745,149 @@ class GameFlowProvider extends ChangeNotifier {
         // EventRegistry may not be initialized
       }
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SCENE TRANSITIONS — Visual transitions between game phases
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Configure transition settings
+  void configureTransitions({
+    bool? enabled,
+    SceneTransitionConfig? defaultConfig,
+    Map<String, SceneTransitionConfig>? configs,
+  }) {
+    if (enabled != null) _transitionsEnabled = enabled;
+    if (defaultConfig != null) _defaultTransitionConfig = defaultConfig;
+    if (configs != null) {
+      _transitionConfigs
+        ..clear()
+        ..addAll(configs);
+    }
+  }
+
+  /// Set transition config for a specific scene pair (e.g., "base_to_freeSpins")
+  void setTransitionConfig(String key, SceneTransitionConfig config) {
+    _transitionConfigs[key] = config;
+  }
+
+  /// Get transition config for a scene pair
+  SceneTransitionConfig _getTransitionConfig(GameFlowState from, GameFlowState to) {
+    final key = '${from.name}_to_${to.name}';
+    return _transitionConfigs[key] ?? _defaultTransitionConfig;
+  }
+
+  /// Start an entering transition (Base → Feature)
+  void _startEnterTransition(GameFlowState from, GameFlowState to, {
+    void Function()? onComplete,
+  }) {
+    if (!_transitionsEnabled) {
+      onComplete?.call();
+      return;
+    }
+
+    final config = _getTransitionConfig(from, to);
+    _activeTransition = ActiveTransition(
+      phase: TransitionPhase.entering,
+      fromState: from,
+      toState: to,
+      config: config,
+      startedAt: DateTime.now(),
+    );
+
+    // Fire transition audio
+    if (config.audioStage != null) {
+      _fireAudioStage(config.audioStage!);
+    }
+    _fireAudioStage('CONTEXT_${_stateKey(from)}_TO_${_stateKey(to)}');
+
+    notifyListeners();
+
+    // Auto-dismiss if timed
+    if (config.dismissMode == TransitionDismissMode.timed ||
+        config.dismissMode == TransitionDismissMode.timedOrClick) {
+      Future.delayed(Duration(milliseconds: config.durationMs), () {
+        if (_activeTransition?.phase == TransitionPhase.entering &&
+            _activeTransition?.toState == to) {
+          dismissTransition();
+          onComplete?.call();
+        }
+      });
+    }
+
+    _pendingTransitionComplete = onComplete;
+  }
+
+  /// Start an exit transition (Feature → Base) with total win plaque
+  void _startExitTransition(GameFlowState from, GameFlowState to, double totalWin, {
+    void Function()? onComplete,
+  }) {
+    if (!_transitionsEnabled) {
+      onComplete?.call();
+      return;
+    }
+
+    final config = _getTransitionConfig(from, to);
+    _activeTransition = ActiveTransition(
+      phase: TransitionPhase.exiting,
+      fromState: from,
+      toState: to,
+      config: config,
+      totalWin: totalWin,
+      startedAt: DateTime.now(),
+    );
+
+    // Fire transition audio
+    if (config.audioStage != null) {
+      _fireAudioStage(config.audioStage!);
+    }
+    _fireAudioStage('CONTEXT_${_stateKey(from)}_TO_${_stateKey(to)}');
+
+    notifyListeners();
+
+    // Auto-dismiss if timed
+    if (config.dismissMode == TransitionDismissMode.timed ||
+        config.dismissMode == TransitionDismissMode.timedOrClick) {
+      Future.delayed(Duration(milliseconds: config.durationMs), () {
+        if (_activeTransition?.phase == TransitionPhase.exiting &&
+            _activeTransition?.fromState == from) {
+          dismissTransition();
+          onComplete?.call();
+        }
+      });
+    }
+
+    _pendingTransitionComplete = onComplete;
+  }
+
+  /// Dismiss the active transition (click-to-continue or early dismiss)
+  void dismissTransition() {
+    if (_activeTransition == null) return;
+
+    final pending = _pendingTransitionComplete;
+    _activeTransition = null;
+    _pendingTransitionComplete = null;
+    notifyListeners();
+
+    // Execute pending completion callback
+    pending?.call();
+  }
+
+  void Function()? _pendingTransitionComplete;
+
+  /// State name key for audio stage naming (e.g., "BASE", "FS", "BONUS")
+  String _stateKey(GameFlowState state) {
+    return switch (state) {
+      GameFlowState.idle || GameFlowState.baseGame => 'BASE',
+      GameFlowState.freeSpins => 'FS',
+      GameFlowState.cascading => 'CASCADE',
+      GameFlowState.holdAndWin => 'HOLDWIN',
+      GameFlowState.bonusGame => 'BONUS',
+      GameFlowState.gamble => 'GAMBLE',
+      GameFlowState.respin => 'RESPIN',
+      GameFlowState.jackpotPresentation => 'JACKPOT',
+      GameFlowState.winPresentation => 'WIN',
+    };
   }
 
   @override

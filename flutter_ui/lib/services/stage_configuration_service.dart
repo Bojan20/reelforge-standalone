@@ -792,10 +792,30 @@ class StageConfigurationService extends ChangeNotifier {
     // Win collection — Triggered when SKIP pressed or win flow ends naturally
     _register('WIN_COLLECT', StageCategory.win, 50, SpatialBus.sfx, 'DEFAULT');
 
-    // Special Symbol Win Highlights — Triggered when WILD/SCATTER/BONUS are in winning combination
+    // Special Symbol Win Highlights — Triggered when symbols are in winning combination
+    // Full hierarchy: WIN_SYMBOL_HIGHLIGHT_HP1 → WIN_SYMBOL_HIGHLIGHT_HP → WIN_SYMBOL_HIGHLIGHT
     _register('WIN_SYMBOL_HIGHLIGHT_WILD', StageCategory.win, 65, SpatialBus.sfx, 'WIN_BIG');
     _register('WIN_SYMBOL_HIGHLIGHT_SCATTER', StageCategory.win, 70, SpatialBus.sfx, 'FREE_SPIN_TRIGGER');
     _register('WIN_SYMBOL_HIGHLIGHT_BONUS', StageCategory.win, 70, SpatialBus.sfx, 'FEATURE_ENTER');
+
+    // Per-symbol win highlights — High Pay symbols
+    _register('WIN_SYMBOL_HIGHLIGHT_HP', StageCategory.win, 45, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('WIN_SYMBOL_HIGHLIGHT_HP1', StageCategory.win, 50, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('WIN_SYMBOL_HIGHLIGHT_HP2', StageCategory.win, 48, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('WIN_SYMBOL_HIGHLIGHT_HP3', StageCategory.win, 46, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('WIN_SYMBOL_HIGHLIGHT_HP4', StageCategory.win, 44, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+
+    // Per-symbol win highlights — Low Pay symbols
+    _register('WIN_SYMBOL_HIGHLIGHT_LP', StageCategory.win, 35, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('WIN_SYMBOL_HIGHLIGHT_LP1', StageCategory.win, 38, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('WIN_SYMBOL_HIGHLIGHT_LP2', StageCategory.win, 37, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('WIN_SYMBOL_HIGHLIGHT_LP3', StageCategory.win, 36, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('WIN_SYMBOL_HIGHLIGHT_LP4', StageCategory.win, 35, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('WIN_SYMBOL_HIGHLIGHT_LP5', StageCategory.win, 34, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('WIN_SYMBOL_HIGHLIGHT_LP6', StageCategory.win, 33, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+
+    // Payline highlight — Triggered when win line is shown during presentation
+    _register('PAYLINE_HIGHLIGHT', StageCategory.win, 28, SpatialBus.sfx, 'DEFAULT', isPooled: true);
 
     // ─────────────────────────────────────────────────────────────────────────
     // FEATURE / FREE SPINS
@@ -807,6 +827,18 @@ class StageConfigurationService extends ChangeNotifier {
     _register('FS_RETRIGGER', StageCategory.feature, 80, SpatialBus.sfx, 'FREE_SPIN_TRIGGER', ducksMusic: true);
     _register('FS_EXIT', StageCategory.feature, 70, SpatialBus.sfx, 'DEFAULT');
     _register('FS_MUSIC', StageCategory.music, 40, SpatialBus.music, 'DEFAULT', isLooping: true);
+
+    // Scene transitions (context switches between game phases)
+    _register('CONTEXT_BASE_TO_FS', StageCategory.feature, 85, SpatialBus.music, 'FEATURE_ENTER', ducksMusic: true);
+    _register('CONTEXT_FS_TO_BASE', StageCategory.feature, 80, SpatialBus.music, 'DEFAULT');
+    _register('CONTEXT_BASE_TO_BONUS', StageCategory.feature, 88, SpatialBus.music, 'FEATURE_ENTER', ducksMusic: true);
+    _register('CONTEXT_BONUS_TO_BASE', StageCategory.feature, 78, SpatialBus.music, 'DEFAULT');
+    _register('CONTEXT_BASE_TO_HOLDWIN', StageCategory.feature, 87, SpatialBus.music, 'FEATURE_ENTER', ducksMusic: true);
+    _register('CONTEXT_HOLDWIN_TO_BASE', StageCategory.feature, 76, SpatialBus.music, 'DEFAULT');
+    _register('CONTEXT_BASE_TO_GAMBLE', StageCategory.feature, 75, SpatialBus.music, 'DEFAULT');
+    _register('CONTEXT_GAMBLE_TO_BASE', StageCategory.feature, 74, SpatialBus.music, 'DEFAULT');
+    _register('CONTEXT_BASE_TO_JACKPOT', StageCategory.feature, 92, SpatialBus.music, 'WIN_EPIC', ducksMusic: true);
+    _register('CONTEXT_JACKPOT_TO_BASE', StageCategory.feature, 74, SpatialBus.music, 'DEFAULT');
 
     // Bonus
     _register('BONUS_TRIGGER', StageCategory.feature, 85, SpatialBus.sfx, 'FEATURE_ENTER', ducksMusic: true);

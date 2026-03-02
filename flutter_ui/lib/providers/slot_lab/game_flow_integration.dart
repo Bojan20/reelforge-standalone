@@ -173,6 +173,59 @@ class GameFlowIntegration {
     }
 
     applyFeatureBuilderConfig(blockConfigs);
+
+    // Sync transition config from 'transitions' block
+    _syncTransitionConfig(featureBuilder);
+  }
+
+  /// Sync transition configuration from Feature Builder transitions block
+  void _syncTransitionConfig(FeatureBuilderProvider fb) {
+    final flow = _flowProvider;
+    if (flow == null) return;
+
+    final transitionsBlock = fb.allBlocks
+        .where((b) => b.id == 'transitions')
+        .firstOrNull;
+
+    if (transitionsBlock == null || !transitionsBlock.isEnabled) {
+      flow.configureTransitions(enabled: false);
+      return;
+    }
+
+    // Read transition options from block config
+    final optionsMap = <String, dynamic>{};
+    for (final option in transitionsBlock.options) {
+      optionsMap[option.id] = option.value;
+    }
+
+    final durationMs = optionsMap['transitionDuration'] as int? ?? 3000;
+    final dismissModeStr = optionsMap['dismissMode'] as String? ?? 'timedOrClick';
+    final styleStr = optionsMap['transitionStyle'] as String? ?? 'fade';
+
+    final dismissMode = switch (dismissModeStr) {
+      'timed' => TransitionDismissMode.timed,
+      'click' || 'clickToContinue' => TransitionDismissMode.clickToContinue,
+      _ => TransitionDismissMode.timedOrClick,
+    };
+
+    final style = switch (styleStr) {
+      'slideUp' => TransitionStyle.slideUp,
+      'slideDown' => TransitionStyle.slideDown,
+      'zoom' => TransitionStyle.zoom,
+      'swoosh' => TransitionStyle.swoosh,
+      _ => TransitionStyle.fade,
+    };
+
+    final defaultConfig = SceneTransitionConfig(
+      durationMs: durationMs,
+      dismissMode: dismissMode,
+      style: style,
+    );
+
+    flow.configureTransitions(
+      enabled: true,
+      defaultConfig: defaultConfig,
+    );
   }
 
   /// Map Feature Builder block IDs to executor block IDs
