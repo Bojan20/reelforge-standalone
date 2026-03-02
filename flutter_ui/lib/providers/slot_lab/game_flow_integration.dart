@@ -65,14 +65,31 @@ class GameFlowIntegration {
     // Wire feature state update callback
     _flowProvider!.onFeatureStateUpdated = _onFeatureStateUpdated;
 
-    // Listen to FeatureBuilderProvider for real-time sync
+    // Register default executors so forced outcomes work even without FeatureBuilder config
+    _registerDefaultExecutors();
+
+    // Listen to FeatureBuilderProvider for real-time sync (overrides defaults)
     _featureBuilder = sl<FeatureBuilderProvider>();
     _featureBuilder!.addListener(_onFeatureBuilderChanged);
 
-    // Initial sync
+    // Initial sync from FeatureBuilder (replaces defaults with user config)
     syncFromFeatureBuilder(_featureBuilder!);
 
     _initialized = true;
+  }
+
+  /// Register default executors with default config.
+  /// Ensures forced outcomes (FREE SPINS, CASCADE, etc.) work out of the box
+  /// even before user configures anything in Feature Builder.
+  void _registerDefaultExecutors() {
+    final flow = _flowProvider;
+    if (flow == null) return;
+
+    for (final entry in _executorFactories.entries) {
+      final executor = entry.value();
+      executor.configure({'enabled': true});
+      flow.registerExecutor(executor);
+    }
   }
 
   void _onFeatureBuilderChanged() {

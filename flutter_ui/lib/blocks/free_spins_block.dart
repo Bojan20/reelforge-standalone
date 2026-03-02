@@ -79,7 +79,7 @@ enum RetriggerMode {
 /// - Special free spins features (sticky wilds, extra wilds)
 /// - Audio stages for all free spins phases
 class FreeSpinsBlock extends FeatureBlockBase {
-  FreeSpinsBlock() : super(enabled: false);
+  FreeSpinsBlock() : super(enabled: true);
 
   @override
   String get id => 'free_spins';

@@ -1772,6 +1772,7 @@ class EventRegistry extends ChangeNotifier {
         'ROLLUP_TICK',
         'WHEEL_TICK',
         'TRAIL_MOVE_STEP',
+        'ANTICIPATION',
       };
 
       if (fallbackablePatterns.contains(baseName)) {
@@ -1836,6 +1837,12 @@ class EventRegistry extends ChangeNotifier {
     }
     // Third fallback: ANTICIPATION_TENSION → ANTICIPATION_ON
     if (stage == 'ANTICIPATION_TENSION') {
+      return 'ANTICIPATION_ON';
+    }
+
+    // Sequential anticipation fallback: ANTICIPATION → ANTICIPATION_ON
+    // Chain: ANTICIPATION_1 → ANTICIPATION (via fallbackablePatterns) → ANTICIPATION_ON
+    if (stage == 'ANTICIPATION') {
       return 'ANTICIPATION_ON';
     }
 

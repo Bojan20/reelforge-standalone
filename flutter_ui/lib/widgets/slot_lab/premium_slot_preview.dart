@@ -20,7 +20,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/win_tier_config.dart';
 import 'package:get_it/get_it.dart';
-import '../../providers/feature_builder_provider.dart';
 import '../../providers/slot_lab/feature_composer_provider.dart';
 import '../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../providers/slot_lab_project_provider.dart';
@@ -635,6 +634,15 @@ class _HeaderZone extends StatelessWidget {
             tooltip: 'SFX ${isSfxOn ? 'On' : 'Off'}',
             isActive: isSfxOn,
             onTap: onSfxToggle,
+          ),
+          const SizedBox(width: 8),
+
+          // Debug / Forced Outcomes
+          _HeaderIconButton(
+            icon: showDebugToolbar ? Icons.bug_report : Icons.bug_report_outlined,
+            tooltip: 'Debug Panel (D)',
+            isActive: showDebugToolbar,
+            onTap: onDebugToggle,
           ),
           const SizedBox(width: 16),
 
@@ -6739,16 +6747,26 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                         );
                       },
                     ),
-                    // Forced outcome buttons
-                    ForcedOutcomePanel(
-                      provider: provider,
-                      height: 140,
-                      compact: true,
-                      showHistory: false,
-                      featureBuilderProvider:
-                          GetIt.instance.isRegistered<FeatureBuilderProvider>()
-                              ? GetIt.instance<FeatureBuilderProvider>()
-                              : null,
+                    // Force outcome buttons — always visible, no FeatureBuilder dependency
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      color: const Color(0xFF1A1A2E),
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          _ForceButton(label: 'LOSE', color: const Color(0xFF4A4A5A), onTap: () => provider.spinForced(ForcedOutcome.lose)),
+                          _ForceButton(label: 'WIN 1', color: const Color(0xFF66BB6A), onTap: () => provider.spinForced(ForcedOutcome.smallWin)),
+                          _ForceButton(label: 'WIN 2', color: const Color(0xFF42A5F5), onTap: () => provider.spinForced(ForcedOutcome.mediumWin)),
+                          _ForceButton(label: 'WIN 3', color: const Color(0xFFFFA726), onTap: () => provider.spinForced(ForcedOutcome.bigWin)),
+                          _ForceButton(label: 'WIN 4', color: const Color(0xFFEF5350), onTap: () => provider.spinForced(ForcedOutcome.megaWin)),
+                          _ForceButton(label: 'WIN 5', color: const Color(0xFFAB47BC), onTap: () => provider.spinForced(ForcedOutcome.epicWin)),
+                          _ForceButton(label: 'FREE SPINS', color: const Color(0xFFE040FB), onTap: () => provider.spinForced(ForcedOutcome.freeSpins)),
+                          _ForceButton(label: 'NEAR MISS', color: const Color(0xFFFF7043), onTap: () => provider.spinForced(ForcedOutcome.nearMiss)),
+                          _ForceButton(label: 'CASCADE', color: const Color(0xFF26C6DA), onTap: () => provider.spinForced(ForcedOutcome.cascade)),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -6797,6 +6815,39 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         ),
       ),
       ), // End of SlotThemeProvider
+    );
+  }
+}
+
+/// Compact force outcome button for debug panel
+class _ForceButton extends StatelessWidget {
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ForceButton({required this.label, required this.color, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: color, width: 1),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ),
     );
   }
 }

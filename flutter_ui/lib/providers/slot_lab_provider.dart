@@ -1615,6 +1615,17 @@ class SlotLabProvider extends ChangeNotifier {
     if (_useVisualSyncForReelStop && (stageType == 'REEL_STOP' || stageType == 'REEL_SPIN_LOOP')) {
       return; // Visual callback in slot_preview_widget.dart will handle this
     }
+    // ANTICIPATION_ON — visual sync: slot_preview_widget triggers ANTICIPATION_1/2/3
+    // sequentially (per-reel order). Skip engine path to prevent duplicate audio.
+    if (_useVisualSyncForReelStop && stageType.startsWith('ANTICIPATION_ON')) {
+      // Still invoke visual callbacks for dimming/slow effects
+      final reelIdx = _extractReelIndexFromStage(stageType);
+      final reason = stage.payload['reason'] as String? ??
+          stage.rawStage['reason'] as String? ?? 'scatter';
+      final tensionLevel = reelIdx.clamp(1, 4);
+      onAnticipationStart?.call(reelIdx, reason, tensionLevel: tensionLevel);
+      return; // Audio handled by slot_preview_widget ANTICIPATION_1/2/3
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ═══════════════════════════════════════════════════════════════════════════

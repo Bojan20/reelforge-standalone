@@ -389,6 +389,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   bool _sequentialAnticipationMode = false; // When true, reels stop sequentially
   final List<int> _sequentialAnticipationQueue = []; // Queue of reels waiting to stop
   bool _anticipationTriggeredThisSpin = false; // Guard: anticipation can only trigger ONCE per spin
+  int _anticipationSequenceIndex = 0; // Sequential counter: 1st anticipation=1, 2nd=2, 3rd=3
 
 
   // P3.1: Camera zoom — zoom intensity escalates with number of reels in anticipation
@@ -1230,11 +1231,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
               }
             }
 
-            // Start first reel in sequence
+            // Start first reel in sequence — triggers ANTICIPATION_1 audio
             _startNextSequentialAnticipationReel();
-
-            // Trigger anticipation audio stage
-            eventRegistry.triggerStage('ANTICIPATION_ON');
           }
         }
       }
@@ -1259,6 +1257,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // First anticipation reel = L1, second = L2, etc.
     final tensionLevel = (_anticipationReels.length + 1).clamp(1, 4);
 
+    // Sequential anticipation index: 1st reel=1, 2nd=2, 3rd=3
+    // This allows different audio per anticipation order (short/medium/long)
+    _anticipationSequenceIndex++;
+    final seqIdx = _anticipationSequenceIndex;
+
     // Set anticipation flags on this reel. The isInAnticipation flag in
     // ReelAnimationState holds the reel in spinning phase regardless of elapsed time.
     // forceStopReel() clears anticipation and triggers deceleration after the timer.
@@ -1267,10 +1270,24 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Start visual anticipation with tension level
     _startSequentialReelAnticipation(nextReel, tensionLevel);
 
-    // Trigger per-reel anticipation audio with tension level
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SEQUENTIAL ANTICIPATION AUDIO — Each anticipation gets its own index
+    // ANTICIPATION_1 (1st reel), ANTICIPATION_2 (2nd reel), ANTICIPATION_3 (3rd reel)
+    // Fallback cascade: ANTICIPATION_3 → ANTICIPATION → ANTICIPATION_ON
+    // This allows designers to assign different audio per anticipation order:
+    //   ANTICIPATION_1 = short buildup, ANTICIPATION_2 = medium, ANTICIPATION_3 = long
+    // ═══════════════════════════════════════════════════════════════════════════
+    eventRegistry.triggerStage('ANTICIPATION_$seqIdx', context: {
+      'reel_index': nextReel,
+      'tension_level': tensionLevel,
+      'anticipation_index': seqIdx,
+    });
+
+    // Also trigger per-reel tension stage for fine-grained control
     eventRegistry.triggerStage('ANTICIPATION_TENSION_R${nextReel}_L$tensionLevel', context: {
       'reel_index': nextReel,
       'tension_level': tensionLevel,
+      'anticipation_index': seqIdx,
     });
   }
 
@@ -1627,6 +1644,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _sequentialAnticipationMode = false;
       _sequentialAnticipationQueue.clear();
       _anticipationTriggeredThisSpin = false;
+      _anticipationSequenceIndex = 0;
       // SPINNING→DECEL FIX: Clear last spinning offsets for new spin
       _lastSpinningOffset.clear();
     });
