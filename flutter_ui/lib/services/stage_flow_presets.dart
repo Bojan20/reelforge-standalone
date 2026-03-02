@@ -152,8 +152,12 @@ class StageFlowPresets {
           timing: const TimingConfig(durationMs: 500)),
       _stageNode('n_tumble_land', 'TUMBLE_LAND', x: 1920, y: 100,
           timing: const TimingConfig(durationMs: 200)),
+      // Gate: continue cascade? (Game controller re-runs flow for each step)
       _gateNode('n_gate_cascade', 'cascade_check', x: 2080, y: 100,
           enterCondition: 'cascade_step <= 10 && win_amount > 0'),
+      // Cascade continues — this represents "needs another step" (game controller handles)
+      _stageNode('n_cascade_continue', 'CASCADE_CONTINUE', x: 2240, y: 50,
+          timing: const TimingConfig(durationMs: 100)),
       _stageNode('n_cascade_end', 'CASCADE_END', x: 2240, y: 200,
           timing: const TimingConfig(durationMs: 200)),
       _stageNode('n_rollup', 'ROLLUP_START', x: 2400, y: 200,
@@ -179,8 +183,8 @@ class StageFlowPresets {
       _edge('e13', 'n_symbol_pop', 'n_tumble_drop'),
       _edge('e14', 'n_tumble_drop', 'n_tumble_land'),
       _edge('e15', 'n_tumble_land', 'n_gate_cascade'),
-      // Cascade continue → loop back to eval
-      _edgeTyped('e16', 'n_gate_cascade', 'n_eval_wins', EdgeType.onTrue),
+      // Cascade continue → signal to game controller (no loop — DAG)
+      _edgeTyped('e16', 'n_gate_cascade', 'n_cascade_continue', EdgeType.onTrue),
       // Cascade end
       _edgeTyped('e17', 'n_gate_cascade', 'n_cascade_end', EdgeType.onFalse),
       _edge('e18', 'n_cascade_end', 'n_rollup'),
@@ -203,6 +207,7 @@ class StageFlowPresets {
   // ═════════════════════════════════════════════════════════════════════
 
   static FlowPreset holdAndWin() {
+    // Single respin iteration — game controller re-runs for each hold spin
     final nodes = <StageFlowNode>[
       _gateNode('n_gate_trigger', 'hold_trigger_check', x: 0, y: 200,
           enterCondition: 'bonus_count >= 6'),
@@ -222,13 +227,16 @@ class StageFlowPresets {
           enterCondition: 'bonus_count > 0'),
       _stageNode('n_coin_land', 'HOLD_SYMBOL_LAND', x: 1600, y: 0,
           timing: const TimingConfig(durationMs: 400)),
-      _gateNode('n_gate_grid', 'grid_full_check', x: 1800, y: 100,
-          enterCondition: 'balance > 0'),
-      _stageNode('n_grid_full', 'HOLD_GRID_FULL', x: 2000, y: 0,
+      // After spin iteration — game controller evaluates grid_full externally
+      _stageNode('n_hold_spin_done', 'HOLD_SPIN_DONE', x: 1800, y: 50,
+          timing: const TimingConfig.instant()),
+      _gateNode('n_gate_grid', 'grid_full_check', x: 1800, y: 200,
+          enterCondition: 'grid_full'),
+      _stageNode('n_grid_full', 'HOLD_GRID_FULL', x: 2000, y: 100,
           timing: const TimingConfig(durationMs: 1000)),
-      _stageNode('n_jackpot_grand', 'JACKPOT_GRAND', x: 2200, y: 0,
+      _stageNode('n_jackpot_grand', 'JACKPOT_GRAND', x: 2200, y: 100,
           timing: const TimingConfig(durationMs: 3000)),
-      _stageNode('n_hold_exit', 'HOLD_EXIT', x: 2000, y: 200,
+      _stageNode('n_hold_exit', 'HOLD_EXIT', x: 2000, y: 300,
           timing: const TimingConfig(durationMs: 500)),
     ];
 
@@ -242,8 +250,8 @@ class StageFlowPresets {
       _edge('e7', 'n_hold_spin', 'n_hold_stop'),
       _edge('e8', 'n_hold_stop', 'n_gate_coin'),
       _edgeTyped('e9', 'n_gate_coin', 'n_coin_land', EdgeType.onTrue),
-      _edgeTyped('e10', 'n_gate_coin', 'n_gate_spins', EdgeType.onFalse),
-      _edge('e11', 'n_coin_land', 'n_gate_spins'),
+      _edgeTyped('e10', 'n_gate_coin', 'n_hold_spin_done', EdgeType.onFalse),
+      _edge('e11', 'n_coin_land', 'n_hold_spin_done'),
       _edgeTyped('e12', 'n_gate_grid', 'n_grid_full', EdgeType.onTrue),
       _edgeTyped('e13', 'n_gate_grid', 'n_hold_exit', EdgeType.onFalse),
       _edge('e14', 'n_grid_full', 'n_jackpot_grand'),
@@ -265,53 +273,62 @@ class StageFlowPresets {
   // ═════════════════════════════════════════════════════════════════════
 
   static FlowPreset jackpotProgressive() {
+    // Chain of gates: mini → minor → major → grand (each gate checks its level)
     final nodes = <StageFlowNode>[
       _stageNode('n_jp_trigger', 'JACKPOT_TRIGGER', x: 0, y: 200,
           timing: const TimingConfig(durationMs: 500)),
       _stageNode('n_jp_buildup', 'JACKPOT_BUILDUP', x: 200, y: 200,
           timing: const TimingConfig(durationMs: 2000)),
-      _gateNode('n_gate_level', 'jackpot_level_check', x: 400, y: 200,
-          enterCondition: "jackpot_level != 'none'"),
-      _stageNode('n_jp_mini', 'JACKPOT_MINI', x: 600, y: 0,
-          timing: const TimingConfig(durationMs: 1500),
+      // Gate chain: is it mini?
+      _gateNode('n_gate_mini', 'is_mini', x: 400, y: 200,
           enterCondition: "jackpot_level == 'mini'"),
-      _stageNode('n_jp_minor', 'JACKPOT_MINOR', x: 600, y: 100,
-          timing: const TimingConfig(durationMs: 2000),
-          enterCondition: "jackpot_level == 'minor'"),
-      _stageNode('n_jp_major', 'JACKPOT_MAJOR', x: 600, y: 200,
-          timing: const TimingConfig(durationMs: 3000),
-          enterCondition: "jackpot_level == 'major'"),
-      _stageNode('n_jp_grand', 'JACKPOT_GRAND', x: 600, y: 300,
-          timing: const TimingConfig(durationMs: 5000),
-          enterCondition: "jackpot_level == 'grand'"),
-      _stageNode('n_jp_celebration', 'JACKPOT_CELEBRATION', x: 800, y: 300,
-          timing: const TimingConfig(durationMs: 3000)),
-      _stageNode('n_jp_present', 'JACKPOT_PRESENT', x: 1000, y: 200,
-          timing: const TimingConfig(durationMs: 2000)),
-      _stageNode('n_jp_reveal', 'JACKPOT_REVEAL', x: 1200, y: 200,
+      _stageNode('n_jp_mini', 'JACKPOT_MINI', x: 600, y: 50,
           timing: const TimingConfig(durationMs: 1500)),
-      _stageNode('n_jp_end', 'JACKPOT_END', x: 1400, y: 200,
+      // Not mini — is it minor?
+      _gateNode('n_gate_minor', 'is_minor', x: 600, y: 200,
+          enterCondition: "jackpot_level == 'minor'"),
+      _stageNode('n_jp_minor', 'JACKPOT_MINOR', x: 800, y: 100,
+          timing: const TimingConfig(durationMs: 2000)),
+      // Not minor — is it major?
+      _gateNode('n_gate_major', 'is_major', x: 800, y: 250,
+          enterCondition: "jackpot_level == 'major'"),
+      _stageNode('n_jp_major', 'JACKPOT_MAJOR', x: 1000, y: 150,
+          timing: const TimingConfig(durationMs: 3000)),
+      // Not major — must be grand
+      _stageNode('n_jp_grand', 'JACKPOT_GRAND', x: 1000, y: 350,
+          timing: const TimingConfig(durationMs: 5000)),
+      _stageNode('n_jp_celebration', 'JACKPOT_CELEBRATION', x: 1200, y: 350,
+          timing: const TimingConfig(durationMs: 3000)),
+      // All tiers converge here
+      _stageNode('n_jp_present', 'JACKPOT_PRESENT', x: 1400, y: 200,
+          timing: const TimingConfig(durationMs: 2000)),
+      _stageNode('n_jp_reveal', 'JACKPOT_REVEAL', x: 1600, y: 200,
+          timing: const TimingConfig(durationMs: 1500)),
+      _stageNode('n_jp_end', 'JACKPOT_END', x: 1800, y: 200,
           timing: const TimingConfig(durationMs: 500)),
     ];
 
     final edges = <StageFlowEdge>[
       _edge('e1', 'n_jp_trigger', 'n_jp_buildup'),
-      _edge('e2', 'n_jp_buildup', 'n_gate_level'),
-      _edgeTyped('e3', 'n_gate_level', 'n_jp_mini', EdgeType.onTrue,
-          condition: "jackpot_level == 'mini'"),
-      _edgeTyped('e4', 'n_gate_level', 'n_jp_minor', EdgeType.onTrue,
-          condition: "jackpot_level == 'minor'"),
-      _edgeTyped('e5', 'n_gate_level', 'n_jp_major', EdgeType.onTrue,
-          condition: "jackpot_level == 'major'"),
-      _edgeTyped('e6', 'n_gate_level', 'n_jp_grand', EdgeType.onTrue,
-          condition: "jackpot_level == 'grand'"),
-      _edge('e7', 'n_jp_mini', 'n_jp_present'),
+      _edge('e2', 'n_jp_buildup', 'n_gate_mini'),
+      // Mini gate
+      _edgeTyped('e3', 'n_gate_mini', 'n_jp_mini', EdgeType.onTrue),
+      _edgeTyped('e4', 'n_gate_mini', 'n_gate_minor', EdgeType.onFalse),
+      _edge('e5', 'n_jp_mini', 'n_jp_present'),
+      // Minor gate
+      _edgeTyped('e6', 'n_gate_minor', 'n_jp_minor', EdgeType.onTrue),
+      _edgeTyped('e7', 'n_gate_minor', 'n_gate_major', EdgeType.onFalse),
       _edge('e8', 'n_jp_minor', 'n_jp_present'),
-      _edge('e9', 'n_jp_major', 'n_jp_present'),
-      _edge('e10', 'n_jp_grand', 'n_jp_celebration'),
-      _edge('e11', 'n_jp_celebration', 'n_jp_present'),
-      _edge('e12', 'n_jp_present', 'n_jp_reveal'),
-      _edge('e13', 'n_jp_reveal', 'n_jp_end'),
+      // Major gate
+      _edgeTyped('e9', 'n_gate_major', 'n_jp_major', EdgeType.onTrue),
+      _edgeTyped('e10', 'n_gate_major', 'n_jp_grand', EdgeType.onFalse),
+      _edge('e11', 'n_jp_major', 'n_jp_present'),
+      // Grand (fallthrough from major)
+      _edge('e12', 'n_jp_grand', 'n_jp_celebration'),
+      _edge('e13', 'n_jp_celebration', 'n_jp_present'),
+      // Convergence → present → reveal → end
+      _edge('e14', 'n_jp_present', 'n_jp_reveal'),
+      _edge('e15', 'n_jp_reveal', 'n_jp_end'),
     ];
 
     return _preset(
@@ -337,7 +354,7 @@ class StageFlowPresets {
       _stageNode('n_fs_music', 'FS_MUSIC', x: 400, y: 200,
           timing: const TimingConfig.instant()),
       _gateNode('n_gate_fs', 'fs_remaining_check', x: 600, y: 200,
-          enterCondition: 'is_free_spin'),
+          enterCondition: 'free_spins_remaining > 0'),
       _stageNode('n_fs_spin', 'FS_SPIN_START', x: 800, y: 200,
           timing: const TimingConfig.instant()),
       _coreNode('n_reel_spin', 'REEL_SPIN_LOOP', x: 1000, y: 200,
@@ -354,7 +371,7 @@ class StageFlowPresets {
           timing: const TimingConfig(delayMs: 370, durationMs: 100)),
       _coreNode('n_eval_wins', 'EVALUATE_WINS', x: 1800, y: 200),
       _gateNode('n_gate_retrigger', 'retrigger_check', x: 2000, y: 100,
-          enterCondition: 'scatter_count >= 3 && is_free_spin'),
+          enterCondition: 'scatter_count >= 3 && free_spins_remaining > 0'),
       _stageNode('n_fs_retrigger', 'FS_RETRIGGER', x: 2200, y: 100,
           timing: const TimingConfig(durationMs: 1000)),
       _gateNode('n_gate_fs_win', 'fs_win_check', x: 2000, y: 300,
@@ -393,12 +410,9 @@ class StageFlowPresets {
       _edge('e19', 'n_win_present', 'n_rollup'),
       _edge('e20', 'n_rollup', 'n_win_collect'),
       _edge('e21', 'n_win_collect', 'n_fs_spin_end'),
-      _edge('e22', 'n_fs_spin_end', 'n_gate_fs'),
-      _edge('e23', 'n_fs_exit', 'n_fs_exit'), // Terminal — self-reference removed
+      // Single iteration — game controller re-runs for each free spin
+      _edge('e22', 'n_fs_spin_end', 'n_fs_exit'),
     ];
-
-    // Remove self-referencing edge
-    final cleanEdges = edges.where((e) => e.sourceNodeId != e.targetNodeId).toList();
 
     return _preset(
       'preset_free_spins',
@@ -406,7 +420,7 @@ class StageFlowPresets {
       'Free spins feature with retrigger, per-spin win handling, and exit.',
       FlowPresetCategory.freeSpins,
       nodes,
-      cleanEdges,
+      edges,
     );
   }
 
@@ -446,7 +460,8 @@ class StageFlowPresets {
       _edge('e5', 'n_bonus_step', 'n_bonus_reveal'),
       _edge('e6', 'n_bonus_reveal', 'n_gate_grand'),
       _edgeTyped('e7', 'n_gate_grand', 'n_bonus_exit', EdgeType.onTrue),
-      _edgeTyped('e8', 'n_gate_grand', 'n_gate_picks', EdgeType.onFalse),
+      // Not grand — single pick complete (game controller re-runs for next pick)
+      _edgeTyped('e8', 'n_gate_grand', 'n_bonus_exit', EdgeType.onFalse),
       _edge('e9', 'n_bonus_exit', 'n_win_present'),
       _edge('e10', 'n_win_present', 'n_rollup'),
       _edge('e11', 'n_rollup', 'n_win_collect'),

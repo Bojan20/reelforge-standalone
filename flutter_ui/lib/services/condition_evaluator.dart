@@ -188,8 +188,13 @@ class _Tokenizer {
   }
 
   void _skipWhitespace() {
-    while (_pos < source.length && source[_pos] == ' ') {
-      _pos++;
+    while (_pos < source.length) {
+      final c = source[_pos];
+      if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
+        _pos++;
+      } else {
+        break;
+      }
     }
   }
 
@@ -231,7 +236,10 @@ class _Tokenizer {
       buf.write(source[_pos]);
       _pos++;
     }
-    if (_pos < source.length) _pos++; // skip closing quote
+    if (_pos >= source.length) {
+      throw FormatException('Unterminated string literal starting at position $start');
+    }
+    _pos++; // skip closing quote
     return _Token(_TokenType.string, buf.toString(), start);
   }
 
@@ -391,8 +399,13 @@ class _Parser {
     var left = _parseAnd();
     while (_currentToken.type == _TokenType.or) {
       _advance();
-      final right = _parseAnd();
-      left = _toBool(left) || _toBool(right);
+      // Short-circuit: if left is true, skip right evaluation
+      if (_toBool(left)) {
+        _parseAnd(); // consume tokens but discard result
+        left = true;
+      } else {
+        left = _parseAnd();
+      }
     }
     return left;
   }
@@ -401,8 +414,13 @@ class _Parser {
     var left = _parseNot();
     while (_currentToken.type == _TokenType.and) {
       _advance();
-      final right = _parseNot();
-      left = _toBool(left) && _toBool(right);
+      // Short-circuit: if left is false, skip right evaluation
+      if (!_toBool(left)) {
+        _parseNot(); // consume tokens but discard result
+        left = false;
+      } else {
+        left = _parseNot();
+      }
     }
     return left;
   }
@@ -512,6 +530,9 @@ class _Parser {
         final result = parseExpression();
         if (_currentToken.type == _TokenType.rparen) {
           _advance();
+        } else {
+          throw FormatException(
+              'Expected closing ")" at position ${_currentToken.position}');
         }
         return result;
       default:

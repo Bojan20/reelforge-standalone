@@ -97,6 +97,10 @@ class StageFlowProvider extends ChangeNotifier {
 
   /// Load a graph for editing.
   void loadGraph(StageFlowGraph graph) {
+    // Cancel any active execution before loading a new graph
+    if (_isDryRunning) {
+      cancelExecution();
+    }
     _graph = graph;
     _selectedNodeId = null;
     _selectedNodeIds.clear();
@@ -151,9 +155,10 @@ class StageFlowProvider extends ChangeNotifier {
       _graph!.removeNode(nodeId),
       'Remove ${node.stageId}',
     );
+    _selectedNodeIds.remove(nodeId);
     if (_selectedNodeId == nodeId) {
-      _selectedNodeId = null;
-      _selectedNodeIds.remove(nodeId);
+      _selectedNodeId =
+          _selectedNodeIds.isNotEmpty ? _selectedNodeIds.first : null;
     }
   }
 
@@ -260,6 +265,7 @@ class StageFlowProvider extends ChangeNotifier {
     if (previous != null) {
       _graph = previous;
       _validationErrors = _graph!.validate();
+      _invalidateSelectionForGraph();
       notifyListeners();
     }
   }
@@ -269,7 +275,18 @@ class StageFlowProvider extends ChangeNotifier {
     if (next != null) {
       _graph = next;
       _validationErrors = _graph!.validate();
+      _invalidateSelectionForGraph();
       notifyListeners();
+    }
+  }
+
+  /// Remove selected nodes that no longer exist in the current graph.
+  void _invalidateSelectionForGraph() {
+    if (_graph == null) return;
+    _selectedNodeIds.removeWhere((id) => _graph!.getNode(id) == null);
+    if (_selectedNodeId != null && _graph!.getNode(_selectedNodeId!) == null) {
+      _selectedNodeId =
+          _selectedNodeIds.isNotEmpty ? _selectedNodeIds.first : null;
     }
   }
 
@@ -403,9 +420,11 @@ class StageFlowProvider extends ChangeNotifier {
     if (_graph == null || _isDryRunning) return null;
 
     _isDryRunning = true;
+    _isDryRunPaused = false;
     _activeNodeId = null;
     _completedNodeIds.clear();
     _skippedNodeIds.clear();
+    _lastResult = null;
     notifyListeners();
 
     _executor = FlowExecutor(

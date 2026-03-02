@@ -55,7 +55,8 @@ class TimingResolver {
         if (currentBpm != null && currentBpm > 0 && config.beatQuantize != null) {
           final beatMs = (60000.0 / currentBpm) * config.beatQuantize!;
           if (beatMs > 0) {
-            delayMs = (delayMs / beatMs).round() * beatMs.round();
+            // Round the final result, not the intermediate beatMs value
+            delayMs = ((delayMs / beatMs).round() * beatMs).round();
             if (delayMs < 0) delayMs = 0;
           }
         }
@@ -99,7 +100,8 @@ class FlowRecorder {
     String description,
   ) {
     _undoStack.add(FlowSnapshot(
-      graph: before,
+      beforeGraph: before,
+      afterGraph: after,
       description: description,
       timestamp: DateTime.now(),
     ));
@@ -109,20 +111,20 @@ class FlowRecorder {
     _redoStack.clear();
   }
 
-  /// Undo last mutation. Returns previous graph state.
+  /// Undo last mutation. Returns the graph state before the mutation.
   StageFlowGraph? undo() {
     if (_undoStack.isEmpty) return null;
     final snapshot = _undoStack.removeLast();
     _redoStack.add(snapshot);
-    return snapshot.graph;
+    return snapshot.beforeGraph;
   }
 
-  /// Redo last undone mutation.
+  /// Redo last undone mutation. Returns the graph state after the mutation.
   StageFlowGraph? redo() {
     if (_redoStack.isEmpty) return null;
     final snapshot = _redoStack.removeLast();
     _undoStack.add(snapshot);
-    return snapshot.graph;
+    return snapshot.afterGraph;
   }
 
   bool get canUndo => _undoStack.isNotEmpty;
@@ -353,8 +355,11 @@ class FlowExecutor {
 
   // ─── Internal execution ───────────────────────────────────────────────
 
-  Future<void> _executeNode(StageFlowNode node, bool dryRun) async {
+  Future<void> _executeNode(StageFlowNode node, bool dryRun, {String? stopBeforeNodeId}) async {
     if (_isCancelled) return;
+
+    // Stop before reaching this node (used by branch execution)
+    if (stopBeforeNodeId != null && node.id == stopBeforeNodeId) return;
 
     // Pause check
     if (_isPaused) {
@@ -371,32 +376,36 @@ class FlowExecutor {
     final nodeStartMs =
         DateTime.now().difference(_flowStartTime!).inMilliseconds;
 
-    // Check enterCondition
-    final enterResult = evaluator.evaluate(node.enterCondition, _variables);
-    if (enterResult == false) {
-      // Check skipCondition
-      final skipResult = evaluator.evaluate(node.skipCondition, _variables);
-      if (skipResult != false) {
-        // Skip this node
-        onNodeSkipped?.call(node.id, node);
-        _executionEntries.add(NodeExecutionEntry(
-          nodeId: node.id,
-          stageId: node.stageId,
-          startMs: nodeStartMs,
-          durationMs: 0,
-          skipped: true,
-          skipReason: 'enterCondition false: ${node.enterCondition}',
-        ));
-        _completedNodes.add(node.id);
-        _activeNodes.remove(node.id);
+    // Gate nodes use enterCondition as their routing expression, not as an entry guard.
+    // Skip the enterCondition check for gates — _executeGate handles routing.
+    if (node.type != StageFlowNodeType.gate) {
+      // Check enterCondition
+      final enterResult = evaluator.evaluate(node.enterCondition, _variables);
+      if (enterResult == false) {
+        // Check skipCondition
+        final skipResult = evaluator.evaluate(node.skipCondition, _variables);
+        if (skipResult != false) {
+          // Skip this node
+          onNodeSkipped?.call(node.id, node);
+          _executionEntries.add(NodeExecutionEntry(
+            nodeId: node.id,
+            stageId: node.stageId,
+            startMs: nodeStartMs,
+            durationMs: 0,
+            skipped: true,
+            skipReason: 'enterCondition false: ${node.enterCondition}',
+          ));
+          _completedNodes.add(node.id);
+          _activeNodes.remove(node.id);
 
-        // Continue to successors
-        await _executeSuccessors(node, dryRun);
+          // Continue to successors
+          await _executeSuccessors(node, dryRun, stopBeforeNodeId: stopBeforeNodeId);
+          return;
+        }
+        // enterCondition false and skipCondition false → block (don't proceed)
+        _activeNodes.remove(node.id);
         return;
       }
-      // enterCondition false and skipCondition false → block (don't proceed)
-      _activeNodes.remove(node.id);
-      return;
     }
 
     onNodeEnter?.call(node.id, node);
@@ -429,7 +438,7 @@ class FlowExecutor {
 
       case StageFlowNodeType.gate:
         // Evaluate gate condition, then follow appropriate edge
-        await _executeGate(node, dryRun);
+        await _executeGate(node, dryRun, stopBeforeNodeId: stopBeforeNodeId);
         // Gate handles its own successor routing — skip normal successor flow
         _recordCompletion(node, nodeStartMs);
         return;
@@ -461,7 +470,7 @@ class FlowExecutor {
     _recordCompletion(node, nodeStartMs);
 
     // Continue to successors
-    await _executeSuccessors(node, dryRun);
+    await _executeSuccessors(node, dryRun, stopBeforeNodeId: stopBeforeNodeId);
   }
 
   void _recordCompletion(StageFlowNode node, int nodeStartMs) {
@@ -481,7 +490,7 @@ class FlowExecutor {
     onNodeComplete?.call(node.id, node);
   }
 
-  Future<void> _executeSuccessors(StageFlowNode node, bool dryRun) async {
+  Future<void> _executeSuccessors(StageFlowNode node, bool dryRun, {String? stopBeforeNodeId}) async {
     final outEdges = graph.getOutEdges(node.id);
     final normalEdges =
         outEdges.where((e) => e.type == EdgeType.normal).toList();
@@ -496,13 +505,16 @@ class FlowExecutor {
         await _delayWithPauseSupport(edge.transitionDelayMs);
       }
 
-      await _executeNode(targetNode, dryRun);
+      await _executeNode(targetNode, dryRun, stopBeforeNodeId: stopBeforeNodeId);
     }
   }
 
-  Future<void> _executeGate(StageFlowNode gate, bool dryRun) async {
+  Future<void> _executeGate(StageFlowNode gate, bool dryRun, {String? stopBeforeNodeId}) async {
     final outEdges = graph.getOutEdges(gate.id);
-    final condition = gate.enterCondition ?? gate.skipCondition ?? 'true';
+
+    // Gate's enterCondition IS the routing expression (not an entry guard).
+    // We evaluate it here fresh to determine routing direction.
+    final condition = gate.enterCondition ?? 'true';
     final result = evaluator.evaluate(condition, _variables);
     final isTrue = result ?? true;
 
@@ -532,7 +544,7 @@ class FlowExecutor {
         if (targetEdge.transitionDelayMs > 0 && !dryRun) {
           await _delayWithPauseSupport(targetEdge.transitionDelayMs);
         }
-        await _executeNode(targetNode, dryRun);
+        await _executeNode(targetNode, dryRun, stopBeforeNodeId: stopBeforeNodeId);
       }
     }
   }
@@ -548,11 +560,14 @@ class FlowExecutor {
       return;
     }
 
-    // Find the join node — follow each branch until we hit a join
+    // Find the join node — follow each branch until we hit a join.
+    // Use a visited set to prevent infinite loops on malformed graphs.
     String? joinNodeId;
     for (final edge in parallelEdges) {
+      final visited = <String>{};
       var currentId = edge.targetNodeId;
-      while (true) {
+      while (!visited.contains(currentId)) {
+        visited.add(currentId);
         final node = graph.getNode(currentId);
         if (node == null) break;
         if (node.type == StageFlowNodeType.join) {
@@ -570,56 +585,52 @@ class FlowExecutor {
     final joinNode = joinNodeId != null ? graph.getNode(joinNodeId) : null;
     final joinMode = joinNode?.joinMode ?? JoinMode.all;
 
-    // Spawn parallel executions
+    // Spawn parallel executions.
+    // Each branch uses _executeNode with stopBeforeNodeId=joinNodeId,
+    // which naturally chains via _executeSuccessors but stops at the join.
     final branchFutures = <Future<void>>[];
     for (final edge in parallelEdges) {
       final targetNode = graph.getNode(edge.targetNodeId);
       if (targetNode == null) continue;
-      branchFutures.add(_executeBranch(targetNode, joinNodeId, dryRun));
+      branchFutures.add(
+        _executeNode(targetNode, dryRun, stopBeforeNodeId: joinNodeId),
+      );
     }
 
     // Wait based on join mode
-    if (joinMode == JoinMode.all) {
+    if (joinMode == JoinMode.all || branchFutures.length <= 1) {
       await Future.wait(branchFutures);
     } else {
-      // JoinMode.any — first to complete wins
-      await Future.any(branchFutures);
+      // JoinMode.any — first to complete wins, cancel remaining via _isCancelled
+      // We use Completer to track first-completion without cancelling the entire flow.
+      final completer = Completer<void>();
+      var completedCount = 0;
+      for (final future in branchFutures) {
+        future.then((_) {
+          completedCount++;
+          if (!completer.isCompleted) {
+            completer.complete();
+          }
+        }).catchError((e) {
+          if (!completer.isCompleted) {
+            completer.completeError(e);
+          }
+        });
+      }
+      await completer.future;
+      // Note: remaining branches will see _completedNodes and short-circuit
+      // via the "already completed" check in _executeNode.
     }
 
     // Execute join node and continue
     if (joinNode != null && !_isCancelled) {
-      _completedNodes.add(joinNode.id);
-      _nodeCompletionTimes[joinNode.id] = DateTime.now();
-      onNodeComplete?.call(joinNode.id, joinNode);
+      final joinStartMs =
+          DateTime.now().difference(_flowStartTime!).inMilliseconds;
+      onNodeEnter?.call(joinNode.id, joinNode);
+      _recordCompletion(joinNode, joinStartMs);
 
       // Continue after join
       await _executeSuccessors(joinNode, dryRun);
-    }
-  }
-
-  /// Execute a single branch of a fork until we hit joinNodeId or dead end.
-  Future<void> _executeBranch(
-    StageFlowNode startNode,
-    String? joinNodeId,
-    bool dryRun,
-  ) async {
-    var currentNode = startNode;
-    while (!_isCancelled) {
-      if (currentNode.id == joinNodeId) return;
-      await _executeNode(currentNode, dryRun);
-
-      // Find next node in this branch
-      final outEdges = graph.getOutEdges(currentNode.id);
-      final normalEdges =
-          outEdges.where((e) => e.type == EdgeType.normal).toList();
-      if (normalEdges.isEmpty) return;
-
-      final nextId = normalEdges.first.targetNodeId;
-      if (nextId == joinNodeId) return;
-
-      final nextNode = graph.getNode(nextId);
-      if (nextNode == null) return;
-      currentNode = nextNode;
     }
   }
 

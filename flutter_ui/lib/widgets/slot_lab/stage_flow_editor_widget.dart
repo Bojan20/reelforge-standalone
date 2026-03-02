@@ -64,6 +64,15 @@ class _StageFlowEditorWidgetState extends State<StageFlowEditorWidget> {
   }
 
   @override
+  void didUpdateWidget(covariant StageFlowEditorWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.provider != widget.provider) {
+      oldWidget.provider.removeListener(_onProviderChanged);
+      widget.provider.addListener(_onProviderChanged);
+    }
+  }
+
+  @override
   void dispose() {
     widget.provider.removeListener(_onProviderChanged);
     super.dispose();
@@ -351,11 +360,12 @@ class _StageFlowEditorWidgetState extends State<StageFlowEditorWidget> {
     return DragTarget<_PaletteData>(
       onAcceptWithDetails: (details) {
         final data = details.data;
-        // Convert screen position to canvas position
+        // Convert screen position to canvas position.
+        // globalToLocal already gives us widget-local coords, so we only
+        // need to remove the canvas transform (offset + scale).
         final box = context.findRenderObject() as RenderBox;
         final local = box.globalToLocal(details.offset);
-        final canvasPos =
-            (local - _offset - Offset(_showPalette ? 160 : 0, 40)) / _scale;
+        final canvasPos = (local - _offset) / _scale;
 
         final nodeId = 'n_${DateTime.now().millisecondsSinceEpoch}';
         final stageId = data.stageId ?? data.label.toUpperCase().replaceAll(' ', '_');
@@ -927,9 +937,17 @@ class _CanvasPainter extends CustomPainter {
         offset != oldDelegate.offset ||
         scale != oldDelegate.scale ||
         selectedNodeId != oldDelegate.selectedNodeId ||
+        !_setsEqual(selectedNodeIds, oldDelegate.selectedNodeIds) ||
         activeNodeId != oldDelegate.activeNodeId ||
-        completedNodeIds != oldDelegate.completedNodeIds ||
+        !_setsEqual(completedNodeIds, oldDelegate.completedNodeIds) ||
+        !_setsEqual(skippedNodeIds, oldDelegate.skippedNodeIds) ||
+        connectingFromNodeId != oldDelegate.connectingFromNodeId ||
         connectingEndPoint != oldDelegate.connectingEndPoint ||
         isDryRunning != oldDelegate.isDryRunning;
+  }
+
+  static bool _setsEqual(Set<String> a, Set<String> b) {
+    if (a.length != b.length) return false;
+    return a.containsAll(b);
   }
 }

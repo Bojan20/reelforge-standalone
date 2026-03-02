@@ -42,6 +42,15 @@ class _StageFlowInspectorWidgetState extends State<StageFlowInspectorWidget>
   }
 
   @override
+  void didUpdateWidget(covariant StageFlowInspectorWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.provider != widget.provider) {
+      oldWidget.provider.removeListener(_onChanged);
+      widget.provider.addListener(_onChanged);
+    }
+  }
+
+  @override
   void dispose() {
     widget.provider.removeListener(_onChanged);
     _tabController.dispose();
@@ -262,22 +271,43 @@ class _StageFlowInspectorWidgetState extends State<StageFlowInspectorWidget>
 
   Widget _buildDryRunTimeline() {
     if (!_p.isDryRunning && _p.lastResult == null) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.play_circle_outline, size: 32, color: Colors.white24),
+            SizedBox(height: 8),
+            Text('Click Dry Run to simulate flow',
+                style: TextStyle(color: Colors.white38, fontSize: 12)),
+          ],
+        ),
+      );
+    }
+
+    // Show last result summary when not actively running
+    if (!_p.isDryRunning && _p.lastResult != null) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.play_circle_outline,
-                size: 32, color: Colors.white24),
+            Icon(
+              _p.lastResult!.status == FlowExecutionStatus.completed
+                  ? Icons.check_circle
+                  : Icons.warning,
+              size: 32,
+              color: _p.lastResult!.status == FlowExecutionStatus.completed
+                  ? Colors.green
+                  : Colors.amber,
+            ),
             const SizedBox(height: 8),
-            const Text('Click Dry Run to simulate flow',
-                style: TextStyle(color: Colors.white38, fontSize: 12)),
-            if (_p.lastResult != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Last: ${_p.lastResult!.status.name} — ${_p.lastResult!.totalDurationMs}ms',
-                style: const TextStyle(color: Colors.white54, fontSize: 11),
-              ),
-            ],
+            Text(
+              'Last: ${_p.lastResult!.status.name} — ${_p.lastResult!.totalDurationMs}ms',
+              style: const TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+            Text(
+              '${_p.lastResult!.nodesExecuted} executed, ${_p.lastResult!.nodesSkipped} skipped',
+              style: const TextStyle(color: Colors.white38, fontSize: 10),
+            ),
           ],
         ),
       );

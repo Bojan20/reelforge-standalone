@@ -11,6 +11,9 @@ library;
 
 import 'dart:collection';
 
+/// Sentinel value for copyWith — allows explicitly setting nullable fields to null.
+const Object _sentinel = Object();
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ENUMS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -272,9 +275,9 @@ class TimingConfig {
     TimingMode? mode,
     int? delayMs,
     int? durationMs,
-    String? relativeToNodeId,
+    Object? relativeToNodeId = _sentinel,
     int? relativeOffsetMs,
-    double? beatQuantize,
+    Object? beatQuantize = _sentinel,
     int? minDurationMs,
     int? maxDurationMs,
     bool? canSkip,
@@ -284,9 +287,13 @@ class TimingConfig {
       mode: mode ?? this.mode,
       delayMs: delayMs ?? this.delayMs,
       durationMs: durationMs ?? this.durationMs,
-      relativeToNodeId: relativeToNodeId ?? this.relativeToNodeId,
+      relativeToNodeId: identical(relativeToNodeId, _sentinel)
+          ? this.relativeToNodeId
+          : relativeToNodeId as String?,
       relativeOffsetMs: relativeOffsetMs ?? this.relativeOffsetMs,
-      beatQuantize: beatQuantize ?? this.beatQuantize,
+      beatQuantize: identical(beatQuantize, _sentinel)
+          ? this.beatQuantize
+          : beatQuantize as double?,
       minDurationMs: minDurationMs ?? this.minDurationMs,
       maxDurationMs: maxDurationMs ?? this.maxDurationMs,
       canSkip: canSkip ?? this.canSkip,
@@ -383,16 +390,16 @@ class StageFlowNode {
     FlowLayer? layer,
     bool? locked,
     TimingConfig? timing,
-    String? enterCondition,
-    String? skipCondition,
-    String? exitCondition,
+    Object? enterCondition = _sentinel,
+    Object? skipCondition = _sentinel,
+    Object? exitCondition = _sentinel,
     double? x,
     double? y,
     Map<String, dynamic>? properties,
-    String? description,
-    String? color,
+    Object? description = _sentinel,
+    Object? color = _sentinel,
     JoinMode? joinMode,
-    String? parentGroupId,
+    Object? parentGroupId = _sentinel,
   }) {
     return StageFlowNode(
       id: id ?? this.id,
@@ -401,16 +408,26 @@ class StageFlowNode {
       layer: layer ?? this.layer,
       locked: locked ?? this.locked,
       timing: timing ?? this.timing,
-      enterCondition: enterCondition ?? this.enterCondition,
-      skipCondition: skipCondition ?? this.skipCondition,
-      exitCondition: exitCondition ?? this.exitCondition,
+      enterCondition: identical(enterCondition, _sentinel)
+          ? this.enterCondition
+          : enterCondition as String?,
+      skipCondition: identical(skipCondition, _sentinel)
+          ? this.skipCondition
+          : skipCondition as String?,
+      exitCondition: identical(exitCondition, _sentinel)
+          ? this.exitCondition
+          : exitCondition as String?,
       x: x ?? this.x,
       y: y ?? this.y,
       properties: properties ?? this.properties,
-      description: description ?? this.description,
-      color: color ?? this.color,
+      description: identical(description, _sentinel)
+          ? this.description
+          : description as String?,
+      color: identical(color, _sentinel) ? this.color : color as String?,
       joinMode: joinMode ?? this.joinMode,
-      parentGroupId: parentGroupId ?? this.parentGroupId,
+      parentGroupId: identical(parentGroupId, _sentinel)
+          ? this.parentGroupId
+          : parentGroupId as String?,
     );
   }
 
@@ -493,7 +510,7 @@ class StageFlowEdge {
     String? id,
     String? sourceNodeId,
     String? targetNodeId,
-    String? condition,
+    Object? condition = _sentinel,
     int? transitionDelayMs,
     EdgeType? type,
   }) {
@@ -501,7 +518,9 @@ class StageFlowEdge {
       id: id ?? this.id,
       sourceNodeId: sourceNodeId ?? this.sourceNodeId,
       targetNodeId: targetNodeId ?? this.targetNodeId,
-      condition: condition ?? this.condition,
+      condition: identical(condition, _sentinel)
+          ? this.condition
+          : condition as String?,
       transitionDelayMs: transitionDelayMs ?? this.transitionDelayMs,
       type: type ?? this.type,
     );
@@ -1391,12 +1410,14 @@ class FlowPreset {
 
 /// Snapshot of a graph state for undo/redo.
 class FlowSnapshot {
-  final StageFlowGraph graph;
+  final StageFlowGraph beforeGraph;
+  final StageFlowGraph afterGraph;
   final String description;
   final DateTime timestamp;
 
   const FlowSnapshot({
-    required this.graph,
+    required this.beforeGraph,
+    required this.afterGraph,
     required this.description,
     required this.timestamp,
   });
