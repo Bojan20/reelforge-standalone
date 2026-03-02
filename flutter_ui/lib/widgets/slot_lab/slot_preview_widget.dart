@@ -388,6 +388,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   // ═══════════════════════════════════════════════════════════════════════════
   bool _sequentialAnticipationMode = false; // When true, reels stop sequentially
   final List<int> _sequentialAnticipationQueue = []; // Queue of reels waiting to stop
+  bool _anticipationTriggeredThisSpin = false; // Guard: anticipation can only trigger ONCE per spin
 
 
   // P3.1: Camera zoom — zoom intensity escalates with number of reels in anticipation
@@ -993,16 +994,15 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Animation callback fires exactly when reel enters stopped/bouncing phase,
     // which is the exact moment the visual shows the reel at its final position.
     // No delay needed — the timing is already perfect from the animation system.
+    //
+    // FIX (2026-03-02): SPECIAL SYMBOL PRIORITY
+    // Industry standard: When a special symbol (SCATTER, WILD, BONUS) lands on
+    // a reel, play ONLY the special symbol sound — NOT the generic REEL_STOP.
+    // This prevents audio overlap and makes scatter/wild lands feel impactful.
     // ═══════════════════════════════════════════════════════════════════════════
 
-    // 1. REEL_STOP AUDIO — Primary reel landing sound
-    // Safety net: ensure per-reel and generic stop events are registered
-    _ensureAudioRegistered('REEL_STOP_$reelIndex');
-    _ensureAudioRegistered('REEL_STOP');
-    eventRegistry.triggerStage('REEL_STOP_$reelIndex', context: {'timestamp_ms': timestampMs});
-
-    // 2. SPECIAL SYMBOL LAND EVENTS — Trigger when WILD, SCATTER, BONUS land on reel
-    // Symbol IDs: WILD=11, SCATTER=12, BONUS=13 (matches StandardSymbolSet)
+    // 1. Detect special symbols on this reel FIRST
+    bool hasSpecialSymbol = false;
     if (reelIndex < _targetGrid.length) {
       for (int rowIndex = 0; rowIndex < _targetGrid[reelIndex].length; rowIndex++) {
         final symbolId = _targetGrid[reelIndex][rowIndex];
@@ -1021,6 +1021,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         }
 
         if (symbolLandStage != null) {
+          hasSpecialSymbol = true;
+          _ensureAudioRegistered(symbolLandStage);
           eventRegistry.triggerStage(symbolLandStage, context: {
             'reel_index': reelIndex,
             'row_index': rowIndex,
@@ -1029,6 +1031,36 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           });
         }
       }
+
+      // SCATTER_LAND — fire here (same timing as reel stop) instead of
+      // _checkScatterAndTriggerAnticipation (which only handles anticipation logic now)
+      final hasScatter = _targetGrid[reelIndex].any((id) => SlotSymbol.isScatterSymbol(id));
+      if (hasScatter) {
+        _scatterReels.add(reelIndex);
+        final scatterCount = _scatterReels.length;
+        _ensureAudioRegistered('SCATTER_LAND');
+        eventRegistry.triggerStage('SCATTER_LAND', context: {
+          'reel_index': reelIndex,
+          'scatter_count': scatterCount,
+          'timestamp_ms': timestampMs,
+        });
+        if (scatterCount >= 2) {
+          _ensureAudioRegistered('SCATTER_LAND_$scatterCount');
+          eventRegistry.triggerStage('SCATTER_LAND_$scatterCount', context: {
+            'reel_index': reelIndex,
+            'scatter_count': scatterCount,
+            'timestamp_ms': timestampMs,
+          });
+        }
+      }
+    }
+
+    // 2. REEL_STOP AUDIO — ONLY if no special symbol on this reel
+    // Special symbols replace the generic reel stop sound
+    if (!hasSpecialSymbol) {
+      _ensureAudioRegistered('REEL_STOP_$reelIndex');
+      _ensureAudioRegistered('REEL_STOP');
+      eventRegistry.triggerStage('REEL_STOP_$reelIndex', context: {'timestamp_ms': timestampMs});
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1115,30 +1147,29 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   /// Check if the stopped reel has scatter symbols and trigger anticipation if 2+ found
   /// P7.2.1: Now activates SEQUENTIAL anticipation mode where reels stop one-by-one
   /// DYNAMIC SCATTER DETECTION: Works with default symbols (ID 12) AND GDD-imported symbols
+  ///
+  /// FIX (2026-03-02): Guard against re-trigger. Anticipation can only activate ONCE per spin.
+  /// Without this guard, the following infinite loop occurs:
+  ///   1. Scatter detected → anticipation starts → reelStoppedFlags cleared for queued reels
+  ///   2. Anticipation timer completes → forceStopReel → onReelStop fires again
+  ///   3. onReelStop → _triggerReelStopAudio → _checkScatterAndTriggerAnticipation
+  ///   4. Still has 2+ scatters → RE-TRIGGERS anticipation → back to step 1 → infinite loop
   void _checkScatterAndTriggerAnticipation(int reelIndex) {
+    // CRITICAL GUARD: Anticipation can only trigger ONCE per spin.
+    // Once sequential anticipation has been activated, don't re-trigger it
+    // when reels complete their anticipation phase and fire onReelStop again.
+    if (_anticipationTriggeredThisSpin) return;
+
     // Check if this reel has any scatter symbols (DYNAMIC detection)
+    // NOTE: SCATTER_LAND audio is now triggered in _triggerReelStopAudio() for correct
+    // timing (same moment as reel stop). This method only handles anticipation logic.
     if (reelIndex < _targetGrid.length) {
       final reelSymbols = _targetGrid[reelIndex];
       // Use dynamic scatter detection — works with any symbol configuration
       final hasScatter = reelSymbols.any((symbolId) => SlotSymbol.isScatterSymbol(symbolId));
 
       if (hasScatter) {
-        _scatterReels.add(reelIndex);
-
-        // SCATTER_LAND event — dedicated stage for scatter landing audio
-        // Fires SCATTER_LAND (generic, every scatter) + SCATTER_LAND_N for 2nd+ scatter
-        // Registered stages: SCATTER_LAND, SCATTER_LAND_2, _3, _4, _5
-        final scatterCount = _scatterReels.length;
-        eventRegistry.triggerStage('SCATTER_LAND', context: {
-          'reel_index': reelIndex,
-          'scatter_count': scatterCount,
-        });
-        if (scatterCount >= 2) {
-          eventRegistry.triggerStage('SCATTER_LAND_$scatterCount', context: {
-            'reel_index': reelIndex,
-            'scatter_count': scatterCount,
-          });
-        }
+        // _scatterReels is already updated in _triggerReelStopAudio
 
         // Trigger anticipation when we have 2 scatters and remaining reels exist
         if (_scatterReels.length >= _scattersNeededForAnticipation) {
@@ -1157,6 +1188,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             // Industry standard (IGT, Pragmatic Play, NetEnt): Reels stop one-by-one
             // Each reel waits for previous to complete anticipation before stopping
             // ═══════════════════════════════════════════════════════════════════════════
+            // CRITICAL: Mark anticipation as triggered for this spin.
+            // This prevents re-trigger when forceStopReel fires onReelStop
+            // for reels that complete their anticipation phase.
+            _anticipationTriggeredThisSpin = true;
+
             setState(() {
               _sequentialAnticipationMode = true;
               _sequentialAnticipationQueue.clear();
@@ -1168,12 +1204,22 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             // The isInAnticipation flag in ReelAnimationState prevents deceleration,
             // so the extension value is just a safety net. forceStopReel() handles
             // precise stopping after the anticipation timer completes.
+            //
+            // FIX (2026-03-02): Do NOT remove _reelStoppedFlags here.
+            // Previously we cleared flags so onReelStop would fire again,
+            // but that caused infinite re-trigger of _checkScatterAndTriggerAnticipation.
+            // Instead, extendSpinTime() already resets _audioCallbackFired in
+            // ReelAnimationState, which allows the reel stop callback to fire
+            // again from the animation controller. The _anticipationTriggeredThisSpin
+            // guard prevents the callback from re-triggering anticipation.
             for (int i = 0; i < _sequentialAnticipationQueue.length; i++) {
               final queuedReel = _sequentialAnticipationQueue[i];
               _reelAnimController.extendReelSpinTime(queuedReel, _anticipationDurationMs);
 
-              // If this reel already stopped (edge case: fast timing), remove from stopped flags
-              // so it can fire onReelStop callback again when it actually stops after anticipation
+              // If this reel already fired its stop callback, we need to allow
+              // it to fire again after anticipation completes. Clear only the
+              // _reelStoppedFlags (for audio), but the _anticipationTriggeredThisSpin
+              // guard prevents scatter re-detection.
               if (_reelStoppedFlags.contains(queuedReel)) {
                 _reelStoppedFlags.remove(queuedReel);
                 _pendingReelStops.remove(queuedReel);
@@ -1580,6 +1626,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       // P7.2.1: Reset sequential anticipation mode for new spin
       _sequentialAnticipationMode = false;
       _sequentialAnticipationQueue.clear();
+      _anticipationTriggeredThisSpin = false;
       // SPINNING→DECEL FIX: Clear last spinning offsets for new spin
       _lastSpinningOffset.clear();
     });
@@ -3154,8 +3201,14 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
   /// P0.3: Handle anticipation start from provider (visual only, no audio)
   /// tensionLevel: 1-4, higher = more intense (based on NUMBER of reels in anticipation)
+  ///
+  /// FIX (2026-03-02): Skip if sequential anticipation mode is active.
+  /// Widget's scatter detection (_checkScatterAndTriggerAnticipation) already manages
+  /// anticipation in sequential mode. Provider callback would cause double-extension
+  /// of reel spin time and duplicate timer creation.
   void _onProviderAnticipationStart(int reelIndex, String reason, {int? tensionLevel}) {
     if (_anticipationReels.contains(reelIndex)) return; // Already anticipating
+    if (_sequentialAnticipationMode) return; // Sequential mode handles this
 
     // Calculate tension level based on NUMBER OF REELS already in anticipation
     // First anticipation reel = L1, second = L2, third = L3, fourth = L4

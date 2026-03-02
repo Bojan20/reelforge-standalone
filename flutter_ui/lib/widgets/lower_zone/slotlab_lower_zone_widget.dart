@@ -1175,6 +1175,9 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   // Duration cache: layerId → seconds
   final Map<String, double> _tlDurationCache = {};
 
+  /// Cached event structure fingerprint to skip unnecessary timeline rebuilds
+  int _tlLastEventFingerprint = 0;
+
   Widget _buildEventLayerTimeline() {
     return Consumer<MiddlewareProvider>(
       builder: (context, mw, _) {
@@ -1196,7 +1199,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           );
         }
 
-        // Ensure waveforms are loaded for all layers
+        // Ensure waveforms are loaded for all layers (async — non-blocking)
         _ensureTlWaveforms(events);
 
         final totalRows = _countTotalRows(events);
@@ -1744,6 +1747,13 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
 
   // ── Waveform loading for timeline ──
 
+  /// Track which layers are currently loading waveforms (prevent duplicate requests)
+  final Set<String> _tlWaveformLoading = {};
+
+  /// Queue for staggered FFI waveform generation (1 per frame to avoid jank)
+  final List<SlotEventLayer> _tlWaveformQueue = [];
+  bool _tlWaveformProcessing = false;
+
   void _ensureTlWaveforms(List<SlotCompositeEvent> events) {
     for (final event in events) {
       for (final layer in event.layers) {
@@ -1757,31 +1767,62 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           continue;
         }
 
-        // Generate via FFI
-        try {
-          final cacheKey = 'tl-${layer.id}';
-          final json = NativeFFI.instance.generateWaveformFromFile(layer.audioPath, cacheKey);
-          if (json != null) {
-            final (left, right) = parseWaveformFromJson(json, maxSamples: 2048);
-            if (left != null) {
-              final waveform = <double>[];
-              if (right != null && right.length == left.length) {
-                for (int i = 0; i < left.length; i++) {
-                  waveform.add((left[i] + right[i]) / 2.0);
-                }
-              } else {
-                waveform.addAll(left);
-              }
-              _tlWaveformCache[layer.id] = waveform;
-            }
-          }
-        } catch (_) {
-          // FFI may not be available
-        }
+        // Skip if already queued or loading
+        if (_tlWaveformLoading.contains(layer.id)) continue;
+        _tlWaveformLoading.add(layer.id);
+        _tlWaveformQueue.add(layer);
 
         _ensureTlDuration(layer);
       }
     }
+    // Kick off staggered processing (1 FFI call per frame)
+    _processWaveformQueue();
+  }
+
+  /// Process waveform queue one item per frame to avoid blocking UI
+  void _processWaveformQueue() {
+    if (_tlWaveformProcessing || _tlWaveformQueue.isEmpty || !mounted) return;
+    _tlWaveformProcessing = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _tlWaveformQueue.isEmpty) {
+        _tlWaveformProcessing = false;
+        return;
+      }
+
+      final layer = _tlWaveformQueue.removeAt(0);
+      try {
+        final cacheKey = 'tl-${layer.id}';
+        final json = NativeFFI.instance.generateWaveformFromFile(layer.audioPath, cacheKey);
+        if (json != null) {
+          final (left, right) = parseWaveformFromJson(json, maxSamples: 2048);
+          if (left != null) {
+            final waveform = <double>[];
+            if (right != null && right.length == left.length) {
+              for (int i = 0; i < left.length; i++) {
+                waveform.add((left[i] + right[i]) / 2.0);
+              }
+            } else {
+              waveform.addAll(left);
+            }
+            if (mounted) {
+              setState(() {
+                _tlWaveformCache[layer.id] = waveform;
+              });
+            }
+          }
+        }
+      } catch (_) {
+        // FFI may not be available
+      }
+      _tlWaveformLoading.remove(layer.id);
+      _tlWaveformProcessing = false;
+
+      // Continue with next item on next frame
+      if (_tlWaveformQueue.isNotEmpty && mounted) {
+        _processWaveformQueue();
+      }
+    });
   }
 
   void _ensureTlDuration(SlotEventLayer layer) {

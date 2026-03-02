@@ -1877,18 +1877,25 @@ class SlotLabProvider extends ChangeNotifier {
       notifyListeners();
     }
 
-    // MUSIC AUTO-TRIGGER: Start base music / game start on first SPIN_START
-    // Each event tracked independently so assigning one doesn't block the other
+    // MUSIC AUTO-TRIGGER: Start base music / game start on SPIN_START
+    // FIX: Check if music is ACTUALLY playing (not just if we triggered it before).
+    // Events Panel stopAll() or external interruption can stop music while flag stays true.
+    // Now re-triggers music whenever it's not currently playing.
     if (stageType == 'SPIN_START') {
       // Safety net: ensure music events are registered before checking
       _ensureAudioRegistered('MUSIC_BASE_L1');
       _ensureAudioRegistered('GAME_START');
 
-      if (!_baseMusicStarted && eventRegistry.hasEventForStage('MUSIC_BASE_L1')) {
+      final musicPlaying = _baseMusicStarted &&
+          eventRegistry.isEventPlaying('audio_MUSIC_BASE_L1');
+      if (!musicPlaying && eventRegistry.hasEventForStage('MUSIC_BASE_L1')) {
         eventRegistry.triggerStage('MUSIC_BASE_L1', context: context);
         _baseMusicStarted = true;
       }
-      if (!_gameStartTriggered && eventRegistry.hasEventForStage('GAME_START')) {
+
+      final gameStartPlaying = _gameStartTriggered &&
+          eventRegistry.isEventPlaying('audio_GAME_START');
+      if (!gameStartPlaying && eventRegistry.hasEventForStage('GAME_START')) {
         eventRegistry.triggerStage('GAME_START', context: context);
         _gameStartTriggered = true;
       }

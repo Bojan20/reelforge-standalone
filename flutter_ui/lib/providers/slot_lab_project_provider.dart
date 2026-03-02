@@ -542,36 +542,40 @@ class SlotLabProjectProvider extends ChangeNotifier {
   }
 
   /// Toggle section expanded state
+  /// NOTE: Does NOT call notifyListeners() — section expand/collapse is purely
+  /// UI state handled by local setState in UltimateAudioPanel. The provider only
+  /// persists the state for save/load. This prevents expensive full-panel rebuilds
+  /// via Consumer of SlotLabProjectProvider when toggling sections.
   void toggleSection(String sectionId) {
     if (_expandedSections.contains(sectionId)) {
       _expandedSections.remove(sectionId);
     } else {
       _expandedSections.add(sectionId);
     }
-    notifyListeners();
+    // No notifyListeners() — local setState in panel handles UI instantly
   }
 
   /// Check if section is expanded
   bool isSectionExpanded(String sectionId) => _expandedSections.contains(sectionId);
 
   /// Set expanded state for a group
+  /// NOTE: No notifyListeners() — same as toggleSection, UI state only.
   void setGroupExpanded(String groupId, bool expanded) {
     if (expanded) {
       _expandedGroups.add(groupId);
     } else {
       _expandedGroups.remove(groupId);
     }
-    notifyListeners();
   }
 
   /// Toggle group expanded state
+  /// NOTE: No notifyListeners() — same as toggleSection, UI state only.
   void toggleGroup(String groupId) {
     if (_expandedGroups.contains(groupId)) {
       _expandedGroups.remove(groupId);
     } else {
       _expandedGroups.add(groupId);
     }
-    notifyListeners();
   }
 
   /// Check if group is expanded
@@ -598,6 +602,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
   /// Bulk update audio assignments (for restoring state)
   void setAudioAssignments(Map<String, String> assignments) {
     _audioAssignments = Map.from(assignments);
+    _sanitizeNofMVariantAssignments(); // Clean false positives on bulk set
     _markDirty();
   }
 
@@ -1357,8 +1362,108 @@ class SlotLabProjectProvider extends ChangeNotifier {
       }
     }
     _isDirty = false;
+    _sanitizeNofMVariantAssignments(); // Fix persisted NofM variant paths
     _syncSymbolStages(); // Sync stages for loaded symbols
     notifyListeners();
+  }
+
+  /// Sanitize audio assignments: remove false positives and fix NofM variants.
+  ///
+  /// Two passes:
+  /// 1. Remove OBVIOUSLY WRONG assignments — filename shares zero tokens with stage name
+  ///    (e.g., "abacuses_fs_appear" assigned to REEL_SPIN_LOOP)
+  /// 2. Fix NofM variant paths on non-indexed stages
+  ///    (e.g., "spins_loop_2of3_1.wav" on REEL_SPIN_LOOP → try 1of3 or base file)
+  void _sanitizeNofMVariantAssignments() {
+    final removals = <String>[];
+    final updates = <String, String>{};
+    final nofmPattern = RegExp(r'(\d+)of(\d+)');
+
+    for (final entry in _audioAssignments.entries) {
+      final stage = entry.key;
+      final audioPath = entry.value;
+
+      // Skip indexed stages (REEL_STOP_0, CASCADE_STEP_1, etc.)
+      if (RegExp(r'_\d+$').hasMatch(stage)) continue;
+
+      // ── PASS 1: False positive detection ──
+      // Tokenize both stage name and filename, check for ANY overlap.
+      // If zero tokens match → this is a false positive from fuzzy matching.
+      final stageTokens = stage.toLowerCase().split('_').where((t) => t.isNotEmpty).toSet();
+      final fileName = audioPath.split('/').last.split('.').first.toLowerCase();
+      final fileTokens = fileName
+          .replaceAll(RegExp(r'[\d]+of\d+'), '') // strip NofM
+          .replaceAll(RegExp(r'^\d+[-_]'), '') // strip numeric prefix
+          .split(RegExp(r'[-_\s]+'))
+          .where((t) => t.length > 1) // skip single chars
+          .toSet();
+
+      // Check if ANY file token matches ANY stage token (exact, plural, or prefix≥4)
+      bool hasOverlap = false;
+      for (final ft in fileTokens) {
+        for (final st in stageTokens) {
+          if (ft == st || ft == '${st}s' || '${ft}s' == st) {
+            hasOverlap = true;
+            break;
+          }
+          // Allow prefix match for long tokens (≥4 chars)
+          if (ft.length >= 4 && st.length >= 4 &&
+              (ft.startsWith(st) || st.startsWith(ft))) {
+            hasOverlap = true;
+            break;
+          }
+        }
+        if (hasOverlap) break;
+      }
+
+      if (!hasOverlap && fileTokens.isNotEmpty) {
+        // Zero overlap — this is a false positive, remove it
+        removals.add(stage);
+        continue;
+      }
+
+      // ── PASS 2: NofM variant fix ──
+      final match = nofmPattern.firstMatch(audioPath);
+      if (match == null) continue;
+
+      final n = int.tryParse(match.group(1)!) ?? 1;
+      if (n == 1) continue; // First variant (1ofN) is acceptable
+
+      // Try to find the 1ofN variant file
+      final basePath = audioPath.replaceFirst(
+        match.group(0)!,
+        '1of${match.group(2)}',
+      );
+      if (File(basePath).existsSync()) {
+        updates[stage] = basePath;
+        continue;
+      }
+
+      // Try to find a file without any NofM notation
+      final cleanPath = audioPath.replaceAll(RegExp(r'_?\d+of\d+(_\d+)?'), '');
+      if (cleanPath != audioPath && File(cleanPath).existsSync()) {
+        updates[stage] = cleanPath;
+      }
+    }
+
+    // Apply removals
+    for (final stage in removals) {
+      _audioAssignments.remove(stage);
+    }
+    // Apply updates
+    for (final entry in updates.entries) {
+      _audioAssignments[entry.key] = entry.value;
+    }
+  }
+
+  /// Public API: sanitize audio assignments (remove false positives, fix NofM)
+  /// Call on app startup or screen init to clean up stale/wrong assignments.
+  void sanitizeAssignments() {
+    final beforeCount = _audioAssignments.length;
+    _sanitizeNofMVariantAssignments();
+    if (_audioAssignments.length < beforeCount) {
+      notifyListeners();
+    }
   }
 
   /// Import from JSON string (for GDD import, etc.)
@@ -1386,6 +1491,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
         composer.resetConfig();
       }
     }
+    _sanitizeNofMVariantAssignments(); // Fix persisted NofM variant paths
     _syncSymbolStages(); // Sync stages for imported symbols
     _markDirty();
   }

@@ -570,6 +570,16 @@ class AudioMappingImportService {
     // PASS 1: Check industry alias map for compound patterns
     final aliasMatch = _checkAliasMap(tokens, composedStageIds, nofm);
     if (aliasMatch != null) {
+      // FIX: For non-indexed stages (no _* in candidates), if file has NofM
+      // variant notation, only accept the FIRST variant (1ofN).
+      // This prevents "spins_loop_2of3" from overwriting "spins_loop_1of3"
+      // on REEL_SPIN_LOOP (which is a single stage, not indexed).
+      if (nofm != null && !aliasMatch.$1.contains(RegExp(r'_\d+$'))) {
+        // Non-indexed stage with NofM variant — only accept first variant
+        if (nofm.$1 != 0) {
+          return null; // Skip non-first variants for non-indexed stages
+        }
+      }
       return AudioMappingEntry(
         stageId: aliasMatch.$1,
         audioPath: path,
@@ -581,23 +591,33 @@ class AudioMappingImportService {
     // PASS 2: Direct token→stage matching (tokens join to stage name)
     final directMatch = _tokenDirectMatch(tokens, composedStageIds);
     if (directMatch != null) {
-      return AudioMappingEntry(
-        stageId: directMatch.$1,
-        audioPath: path,
-        confidence: directMatch.$2,
-        source: 'fuzzy',
-      );
+      // FIX: Same NofM guard as PASS 1 — skip non-first variants for non-indexed stages
+      if (nofm != null && nofm.$1 != 0 && !directMatch.$1.contains(RegExp(r'_\d+$'))) {
+        // Non-first variant on non-indexed stage — skip
+      } else {
+        return AudioMappingEntry(
+          stageId: directMatch.$1,
+          audioPath: path,
+          confidence: directMatch.$2,
+          source: 'fuzzy',
+        );
+      }
     }
 
     // PASS 3: Token overlap scoring against stage token index
     final overlapMatch = _tokenOverlapMatch(tokens, composedStageIds, stageTokenIndex);
     if (overlapMatch != null) {
-      return AudioMappingEntry(
-        stageId: overlapMatch.$1,
-        audioPath: path,
-        confidence: overlapMatch.$2,
-        source: 'fuzzy',
-      );
+      // FIX: Same NofM guard — skip non-first variants for non-indexed stages
+      if (nofm != null && nofm.$1 != 0 && !overlapMatch.$1.contains(RegExp(r'_\d+$'))) {
+        // Non-first variant on non-indexed stage — skip
+      } else {
+        return AudioMappingEntry(
+          stageId: overlapMatch.$1,
+          audioPath: path,
+          confidence: overlapMatch.$2,
+          source: 'fuzzy',
+        );
+      }
     }
 
     return null;

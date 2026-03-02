@@ -241,6 +241,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   int _selectedSectionIndex = 0;
   int _selectedGroupIndex = 0;
 
+  // Phase config cache — invalidated only when composer config actually changes
+  List<_PhaseConfig>? _cachedPhases;
+  int _cachedComposerHash = 0;
+
   @override
   void initState() {
     super.initState();
@@ -347,6 +351,18 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       child: ListenableBuilder(
         listenable: composer,
         builder: (context, _) {
+          // Invalidate phase cache ONLY when composer config actually changes
+          final composerHash = Object.hashAll([
+            composer.isConfigured,
+            ...composer.enabledMechanics,
+            composer.config?.paylineType,
+            composer.config?.enabledBlockIds.length ?? 0,
+            ...?(composer.config?.enabledBlockIds),
+          ]);
+          if (composerHash != _cachedComposerHash) {
+            _cachedComposerHash = composerHash;
+            _cachedPhases = null;
+          }
           // V11: Show wizard if no slot machine config exists
           if (!composer.isConfigured) {
             return Container(
@@ -406,17 +422,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   // V10: Phase tab bar — navigate between phases
                   _buildPhaseTabBar(),
                   Expanded(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // V11: Mechanic composer — quick toggles
-                          _buildMechanicComposer(),
-                          // V10: Show selected phase only (or all if in All mode)
-                          ..._getVisiblePhases().map((phase) => _buildPhase(phase)),
-                        ],
-                      ),
-                    ),
+                    child: _buildLazyPhaseList(),
                   ),
                 ] else ...[
                   // PACING mode — math-driven orchestration
@@ -1964,6 +1970,20 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     );
   }
 
+  /// Lazy phase list — uses ListView.builder to avoid building all phases/sections/slots
+  /// at once. The mechanic composer is item 0, then phases follow.
+  Widget _buildLazyPhaseList() {
+    final phases = _getVisiblePhases();
+    return ListView.builder(
+      padding: EdgeInsets.zero,
+      itemCount: phases.length + 1, // +1 for mechanic composer at top
+      itemBuilder: (context, index) {
+        if (index == 0) return _buildMechanicComposer();
+        return _buildPhase(phases[index - 1]);
+      },
+    );
+  }
+
   /// Get phases filtered by active tab
   List<_PhaseConfig> _getVisiblePhases() {
     final all = _buildPhases();
@@ -1987,6 +2007,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   /// Build phases from widget data — filtered by enabled mechanics
   /// Only shows sections relevant to the current slot machine configuration
   List<_PhaseConfig> _buildPhases() {
+    if (_cachedPhases != null) return _cachedPhases!;
     final composer = GetIt.instance<FeatureComposerProvider>();
     final enabled = composer.enabledMechanics;
     final hasCascading = enabled.contains(SlotMechanic.cascading);
@@ -2157,6 +2178,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       sections: [_UISystemSection(widget: widget)],
     ));
 
+    _cachedPhases = phases;
     return phases;
   }
 
@@ -2376,12 +2398,15 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           },
           onFolderDrop: (paths) => _handleFolderDrop(group, section, paths),
         ),
-        // Individual slots
+        // Individual slots — sized box constrains height for lazy rendering
         if (isExpanded)
           Padding(
             padding: const EdgeInsets.only(left: 16, right: 8, bottom: 8),
             child: Column(
-              children: group.slots.map((slot) => _buildSlot(slot, section.color)).toList(),
+              children: [
+                for (final slot in group.slots)
+                  _buildSlot(slot, section.color),
+              ],
             ),
           ),
       ],

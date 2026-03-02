@@ -1350,6 +1350,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     try {
       final provider = _slotLabProvider;
 
+      // Sanitize stale/wrong audio assignments (removes false positives)
+      context.read<SlotLabProjectProvider>().sanitizeAssignments();
+
       // Restore grid config from FeatureComposerProvider if available
       if (GetIt.instance.isRegistered<FeatureComposerProvider>()) {
         final composer = GetIt.instance<FeatureComposerProvider>();
