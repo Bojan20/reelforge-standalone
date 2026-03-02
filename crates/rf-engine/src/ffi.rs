@@ -1706,7 +1706,7 @@ pub extern "C" fn engine_set_clip_loop_count(clip_id: u64, count: u32) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_clip_loop_crossfade(clip_id: u64, crossfade_secs: f64) -> i32 {
     TRACK_MANAGER.update_clip(ClipId(clip_id), |clip| {
-        clip.loop_crossfade = crossfade_secs;
+        clip.loop_crossfade = crossfade_secs.max(0.0);
     });
     1
 }
@@ -1729,11 +1729,11 @@ pub extern "C" fn engine_set_clip_loop_end(clip_id: u64, end_samples: u64) -> i3
     1
 }
 
-/// Set clip per-iteration gain factor
+/// Set clip per-iteration gain factor (clamped to [0.0, 2.0])
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_clip_iteration_gain(clip_id: u64, factor: f64) -> i32 {
     TRACK_MANAGER.update_clip(ClipId(clip_id), |clip| {
-        clip.iteration_gain = factor;
+        clip.iteration_gain = factor.clamp(0.0, 2.0);
     });
     1
 }
@@ -1742,7 +1742,7 @@ pub extern "C" fn engine_set_clip_iteration_gain(clip_id: u64, factor: f64) -> i
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_set_clip_loop_random_start(clip_id: u64, range_secs: f64) -> i32 {
     TRACK_MANAGER.update_clip(ClipId(clip_id), |clip| {
-        clip.loop_random_start = range_secs;
+        clip.loop_random_start = range_secs.max(0.0);
     });
     1
 }

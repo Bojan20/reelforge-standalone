@@ -4093,16 +4093,20 @@ impl PlaybackEngine {
             None => return,
         };
 
+        let sample_rate = self.sample_rate();
+
         while let Ok(cmd) = rx.pop() {
             match cmd {
                 crate::loop_manager::LoopCommand::RegisterAsset { asset } => {
                     let id = asset.id.clone();
-                    self.loop_assets.write().insert(id, Arc::new(*asset));
+                    if let Some(mut w) = self.loop_assets.try_write() {
+                        w.insert(id, Arc::new(*asset));
+                    }
                 }
                 crate::loop_manager::LoopCommand::Play {
-                    asset_id, region, volume, bus, use_dual_voice, play_pre_entry: _, fade_in_ms: _,
+                    asset_id, region, volume, bus, use_dual_voice, play_pre_entry: _, fade_in_ms,
                 } => {
-                    let assets = self.loop_assets.read();
+                    let assets = match self.loop_assets.try_read() { Some(a) => a, None => continue };
                     if let Some(asset) = assets.get(&asset_id) {
                         if asset.regions.iter().any(|r| r.name == region) {
                             let instance_id = instances.len() as u64 + 1;
@@ -4115,6 +4119,13 @@ impl PlaybackEngine {
                                 use_dual_voice,
                             );
                             inst.init_playhead(asset);
+                            // Apply fade-in if requested
+                            let fade_in = fade_in_ms.unwrap_or(0.0);
+                            if fade_in > 0.0 {
+                                let fade_samples = (fade_in * sample_rate as f32 / 1000.0) as u64;
+                                inst.fade = crate::loop_instance::FadeState::idle(0.0);
+                                inst.fade.start(volume, fade_samples);
+                            }
                             instances.push(inst);
                             let _ = cb_tx.push(crate::loop_manager::LoopCallback::Started {
                                 instance_id,
@@ -4123,15 +4134,30 @@ impl PlaybackEngine {
                         }
                     }
                 }
-                crate::loop_manager::LoopCommand::Stop { instance_id, fade_out_ms: _ } => {
+                crate::loop_manager::LoopCommand::Stop { instance_id, fade_out_ms } => {
                     if let Some(inst) = instances.iter_mut().find(|i| i.instance_id == instance_id) {
-                        inst.state = crate::loop_instance::LoopState::Stopped;
-                        let _ = cb_tx.push(crate::loop_manager::LoopCallback::Stopped { instance_id });
+                        if fade_out_ms > 0.0 {
+                            // Graceful fade-out then stop
+                            let fade_samples = (fade_out_ms * sample_rate as f32 / 1000.0) as u64;
+                            inst.state = crate::loop_instance::LoopState::Exiting;
+                            inst.fade.start(0.0, fade_samples);
+                        } else {
+                            inst.state = crate::loop_instance::LoopState::Stopped;
+                            let _ = cb_tx.push(crate::loop_manager::LoopCallback::Stopped { instance_id });
+                        }
                     }
                 }
-                crate::loop_manager::LoopCommand::SetVolume { instance_id, volume, fade_ms: _ } => {
+                crate::loop_manager::LoopCommand::SetVolume { instance_id, volume, fade_ms } => {
                     if let Some(inst) = instances.iter_mut().find(|i| i.instance_id == instance_id) {
                         inst.volume = volume;
+                        if fade_ms > 0.0 {
+                            let fade_samples = (fade_ms * sample_rate as f32 / 1000.0) as u64;
+                            inst.fade.start(volume, fade_samples);
+                        } else {
+                            inst.volume = volume;
+                            inst.gain = volume * inst.iteration_gain;
+                            inst.fade = crate::loop_instance::FadeState::idle(volume);
+                        }
                     }
                 }
                 crate::loop_manager::LoopCommand::SetBus { instance_id, bus } => {
@@ -4142,28 +4168,30 @@ impl PlaybackEngine {
                 crate::loop_manager::LoopCommand::SetIterationGain { instance_id, factor } => {
                     if let Some(inst) = instances.iter_mut().find(|i| i.instance_id == instance_id) {
                         inst.iteration_gain = factor;
+                        inst.gain = inst.volume * inst.iteration_gain;
                     }
                 }
                 crate::loop_manager::LoopCommand::SetRegion {
-                    instance_id, region, sync: _, crossfade_ms: _, crossfade_curve: _,
+                    instance_id, region, sync, crossfade_ms, crossfade_curve,
                 } => {
                     if let Some(inst) = instances.iter_mut().find(|i| i.instance_id == instance_id) {
-                        let old_region = inst.active_region.clone();
-                        inst.active_region = region.clone();
-                        let _ = cb_tx.push(crate::loop_manager::LoopCallback::RegionSwitched {
-                            instance_id,
-                            from_region: old_region,
-                            to_region: region,
+                        // Queue as pending region switch with sync boundary
+                        inst.pending_region = Some(crate::loop_instance::PendingRegionSwitch {
+                            target_region: region,
+                            sync,
+                            crossfade_ms,
+                            crossfade_curve,
                         });
                     }
                 }
-                crate::loop_manager::LoopCommand::Exit { instance_id, sync: _, fade_out_ms: _, play_post_exit: _ } => {
+                crate::loop_manager::LoopCommand::Exit { instance_id, sync, fade_out_ms, play_post_exit } => {
+                    let assets = match self.loop_assets.try_read() { Some(a) => a, None => continue };
                     if let Some(inst) = instances.iter_mut().find(|i| i.instance_id == instance_id) {
-                        inst.state = crate::loop_instance::LoopState::Exiting;
-                        let _ = cb_tx.push(crate::loop_manager::LoopCallback::StateChanged {
-                            instance_id,
-                            new_state: 2, // exiting
-                        });
+                        if let Some(asset) = assets.get(&inst.asset_id) {
+                            if let Some(region) = asset.region_by_name(&inst.active_region) {
+                                inst.begin_exit(sync, fade_out_ms, play_post_exit.unwrap_or(false), region, asset, sample_rate);
+                            }
+                        }
                     }
                 }
                 crate::loop_manager::LoopCommand::Seek { instance_id, position_samples } => {
@@ -4176,6 +4204,8 @@ impl PlaybackEngine {
     }
 
     /// Process loop instances and mix to bus buffers (called from audio block).
+    /// Full Wwise-grade processing: state machine, seam fade, dual-voice crossfade,
+    /// cue detection, fade in/out, per-iteration gain, pre/post exit zones.
     fn process_loop_voices(&self, bus_buffers: &mut BusBuffers, frames: usize) {
         if !self.loop_initialized.load(Ordering::Acquire) {
             return;
@@ -4196,6 +4226,8 @@ impl PlaybackEngine {
             None => return,
         };
 
+        let sample_rate = self.sample_rate();
+
         // Process each active instance
         for inst in instances.iter_mut() {
             if inst.state == crate::loop_instance::LoopState::Stopped {
@@ -4212,74 +4244,184 @@ impl PlaybackEngine {
                 None => continue,
             };
 
-            // Process frames — advance playhead, check wrap, apply gain
+            // Resolve audio source from cache
+            let audio = self.cache.get(&asset.sound_ref.sound_id);
+            let (audio_samples, audio_channels, _audio_total_frames) = match &audio {
+                Some(a) => (&a.samples[..], a.channels as usize, a.samples.len() / (a.channels as usize).max(1)),
+                None => continue, // No audio loaded for this asset
+            };
+            let audio_total_frames = audio_samples.len() / audio_channels.max(1);
+
+            let bus_idx = (inst.output_bus as usize).min(bus_buffers.buffers.len().saturating_sub(1));
+            let seam_fade_samples = (region.seam_fade_ms * sample_rate as f32 / 1000.0) as u64;
+            let prev_state = inst.state;
+
+            // Process frames — full state machine per sample
             for frame_idx in 0..frames {
-                // Check loop wrap
-                if inst.state == crate::loop_instance::LoopState::Looping
-                    && inst.playhead_samples >= region.out_samples as u64
-                {
-                    inst.playhead_samples = region.in_samples as u64;
-                    inst.loop_count += 1;
+                // 1. Check exit point (scheduled exit via sync boundary)
+                inst.check_exit_point(sample_rate);
 
-                    // Per-iteration gain decay
-                    if let Some(factor) = region.iteration_gain_factor {
-                        inst.iteration_gain *= factor;
-                        if inst.iteration_gain < 0.0001 {
-                            inst.state = crate::loop_instance::LoopState::Stopped;
-                            let _ = cb_tx.push(crate::loop_manager::LoopCallback::Stopped {
-                                instance_id: inst.instance_id,
-                            });
-                            break;
-                        }
-                    }
+                // 2. Check intro → looping transition
+                inst.check_intro_transition(region);
 
-                    // Max loops check
-                    if let Some(max) = region.max_loops {
-                        if inst.loop_count >= max {
-                            inst.state = crate::loop_instance::LoopState::Stopped;
-                            let _ = cb_tx.push(crate::loop_manager::LoopCallback::Stopped {
-                                instance_id: inst.instance_id,
-                            });
-                            break;
-                        }
-                    }
+                // 3. Tick fade (smooth volume transitions)
+                let fade_gain = inst.fade.tick();
 
+                // 4. Check loop wrap (LoopOut → LoopIn)
+                let wrapped = inst.check_loop_wrap(region);
+                if wrapped {
                     let _ = cb_tx.push(crate::loop_manager::LoopCallback::Wrap {
                         instance_id: inst.instance_id,
                         loop_count: inst.loop_count,
-                        at_samples: inst.playhead_samples,
+                        at_samples: inst.last_wrap_at_samples,
                     });
                 }
 
-                // Check intro → looping transition
-                if inst.state == crate::loop_instance::LoopState::Intro
-                    && inst.playhead_samples >= region.in_samples as u64
-                {
-                    inst.state = crate::loop_instance::LoopState::Looping;
-                    let _ = cb_tx.push(crate::loop_manager::LoopCallback::StateChanged {
-                        instance_id: inst.instance_id,
-                        new_state: 1, // looping
-                    });
+                // 5. Check exit complete (fade done → Stopped)
+                inst.check_exit_complete();
+
+                if inst.state == crate::loop_instance::LoopState::Stopped {
+                    break;
                 }
 
-                // Compute gain: volume * iteration_gain
-                let gain = inst.volume as f64 * inst.iteration_gain as f64;
+                // 6. Read audio sample (voice A)
+                let (sample_l, sample_r) = if (inst.playhead_samples as usize) < audio_total_frames {
+                    let pos = inst.playhead_samples as usize;
+                    let l = audio_samples[pos * audio_channels] as f64;
+                    let r = if audio_channels >= 2 {
+                        audio_samples[pos * audio_channels + 1] as f64
+                    } else {
+                        l
+                    };
+                    (l, r)
+                } else {
+                    (0.0, 0.0)
+                };
 
-                // Read audio from cache if available, otherwise silence
-                // TODO: Wire AudioCache read here for actual audio playback
-                let sample = 0.0_f64 * gain;
+                // 7. Compute seam fade gain (micro-fade at loop boundaries to prevent clicks)
+                let seam_gain = if inst.state == crate::loop_instance::LoopState::Looping && seam_fade_samples > 0 {
+                    crate::loop_manager::compute_seam_fade(
+                        inst.playhead_samples,
+                        region.in_samples,
+                        region.out_samples,
+                        seam_fade_samples,
+                    ) as f64
+                } else {
+                    1.0
+                };
 
-                // Route to bus
-                let bus_idx = (inst.output_bus as usize).min(bus_buffers.buffers.len() - 1);
+                // 8. Dual-voice crossfade (for region switches and crossfade-mode wraps)
+                let (final_l, final_r) = if let Some(ref mut xf) = inst.crossfade {
+                    // Read voice B sample
+                    let (xf_l, xf_r) = if (xf.voice_b_playhead as usize) < audio_total_frames {
+                        let pos = xf.voice_b_playhead as usize;
+                        let l = audio_samples[pos * audio_channels] as f64;
+                        let r = if audio_channels >= 2 {
+                            audio_samples[pos * audio_channels + 1] as f64
+                        } else {
+                            l
+                        };
+                        (l, r)
+                    } else {
+                        (0.0, 0.0)
+                    };
+
+                    let t = xf.progress;
+                    let (gain_a, gain_b) = crate::loop_manager::crossfade_gains(t, xf.curve);
+                    let gain_a = gain_a as f64;
+                    let gain_b = gain_b as f64;
+
+                    xf.voice_b_playhead += 1;
+                    xf.elapsed_samples += 1;
+                    xf.progress = if xf.crossfade_samples > 0 {
+                        xf.elapsed_samples as f32 / xf.crossfade_samples as f32
+                    } else {
+                        1.0
+                    };
+
+                    (
+                        sample_l * gain_a * seam_gain + xf_l * gain_b,
+                        sample_r * gain_a * seam_gain + xf_r * gain_b,
+                    )
+                } else {
+                    (sample_l * seam_gain, sample_r * seam_gain)
+                };
+
+                // 9. Effective gain: volume * iteration_gain, modulated by fade
+                let effective_gain = if inst.fade.active {
+                    fade_gain as f64 * inst.iteration_gain as f64
+                } else {
+                    inst.gain as f64
+                };
+
+                // 10. Write to bus buffer
                 if frame_idx < bus_buffers.buffers[bus_idx].0.len() {
-                    bus_buffers.buffers[bus_idx].0[frame_idx] += sample;
-                    bus_buffers.buffers[bus_idx].1[frame_idx] += sample;
+                    bus_buffers.buffers[bus_idx].0[frame_idx] += final_l * effective_gain;
+                    bus_buffers.buffers[bus_idx].1[frame_idx] += final_r * effective_gain;
                 }
 
+                // 11. Advance playhead
                 inst.playhead_samples += 1;
+
+                // 12. Complete crossfade if done
+                if let Some(ref xf) = inst.crossfade {
+                    if xf.progress >= 1.0 {
+                        if let Some(ref target) = xf.target_region {
+                            let old = inst.active_region.clone();
+                            inst.active_region = target.clone();
+                            inst.playhead_samples = xf.voice_b_playhead;
+                            let _ = cb_tx.push(crate::loop_manager::LoopCallback::RegionSwitched {
+                                instance_id: inst.instance_id,
+                                from_region: old,
+                                to_region: target.clone(),
+                            });
+                        }
+                        inst.crossfade = None;
+                    }
+                }
+
+                // 13. Check pending region switch at sync boundary
+                if inst.pending_region.is_some() {
+                    let pending_sync = inst
+                        .pending_region
+                        .as_ref()
+                        .map(|p| p.sync)
+                        .unwrap_or(crate::loop_asset::SyncMode::OnWrap);
+                    let boundary = inst.resolve_sync_boundary(pending_sync, region, asset);
+                    if inst.playhead_samples >= boundary {
+                        let _ = inst.apply_pending_region(asset, sample_rate);
+                    }
+                }
+
+                // 14. Check custom cues (fire callback on exact match)
+                for cue in asset.custom_cues() {
+                    if inst.playhead_samples == cue.at_samples {
+                        let _ = cb_tx.push(crate::loop_manager::LoopCallback::CueHit {
+                            instance_id: inst.instance_id,
+                            cue_name: cue.name.clone(),
+                            at_samples: cue.at_samples,
+                        });
+                    }
+                }
+            }
+
+            // State change callback (once per buffer, not per sample)
+            if inst.state != prev_state {
+                let _ = cb_tx.push(crate::loop_manager::LoopCallback::StateChanged {
+                    instance_id: inst.instance_id,
+                    new_state: crate::loop_manager::LoopCallback::state_byte(inst.state),
+                });
             }
         }
 
+        // Send Stopped callbacks for instances that transitioned to Stopped during processing
+        for inst in instances.iter() {
+            if inst.state == crate::loop_instance::LoopState::Stopped {
+                let _ = cb_tx.push(crate::loop_manager::LoopCallback::Stopped {
+                    instance_id: inst.instance_id,
+                });
+            }
+        }
         // Clean up stopped instances
         instances.retain(|i| i.state != crate::loop_instance::LoopState::Stopped);
     }
@@ -5773,39 +5915,75 @@ impl PlaybackEngine {
             let mut source_pos_f64 =
                 clip_offset as f64 * rate_ratio * playback_rate + source_offset_samples;
 
-            // Loop wrapping: wrap source position within source bounds
+            // Loop wrapping: wrap source position within loop region boundaries
             let mut loop_xf_gain = 1.0_f64;
             if clip.loop_enabled {
-                let loop_length = clip.source_duration * source_sample_rate;
+                // Determine loop region: use loop_start/end_samples if set, else full source
+                let loop_start = if clip.loop_start_samples > 0 {
+                    clip.loop_start_samples as f64
+                } else {
+                    0.0
+                };
+                let loop_end = if clip.loop_end_samples > 0 {
+                    clip.loop_end_samples as f64
+                } else {
+                    clip.source_duration * source_sample_rate
+                };
+                let loop_length = loop_end - loop_start;
+
                 if loop_length > 0.0 {
-                    let offset_in_source = source_pos_f64 - source_offset_samples;
-                    if offset_in_source >= loop_length {
-                        // Check loop count (0 = infinite)
-                        if clip.loop_count > 0 {
-                            let iteration = (offset_in_source / loop_length) as u32;
-                            if iteration >= clip.loop_count {
+                    // Check if source position has passed the loop end boundary
+                    if source_pos_f64 >= loop_end {
+                        let region_offset = source_pos_f64 - loop_start;
+                        if region_offset >= loop_length {
+                            // Check loop count (0 = infinite)
+                            let iteration = (region_offset / loop_length) as u32;
+                            if clip.loop_count > 0 && iteration >= clip.loop_count {
                                 continue; // Past loop count limit
                             }
-                        }
-                        let wrapped = offset_in_source % loop_length;
-                        source_pos_f64 = source_offset_samples + wrapped;
 
-                        // Crossfade at loop boundary (equal-power)
-                        if clip.loop_crossfade > 0.0 {
-                            let xf_len =
-                                (clip.loop_crossfade * source_sample_rate).min(loop_length * 0.5);
-                            let pos_in_loop = wrapped;
-                            // Near start of loop: fade in
-                            if pos_in_loop < xf_len {
-                                let xf_progress = pos_in_loop / xf_len;
-                                loop_xf_gain =
-                                    (xf_progress * std::f64::consts::FRAC_PI_2).sin();
+                            // Per-iteration gain decay/crescendo
+                            if clip.iteration_gain != 1.0 && iteration > 0 {
+                                let iter_gain = clip.iteration_gain.powi(iteration as i32);
+                                // Denormal protection
+                                if iter_gain < 1e-10 {
+                                    continue; // Faded to silence
+                                }
+                                loop_xf_gain *= iter_gain;
                             }
-                            // Near end of loop: fade out
-                            if pos_in_loop > (loop_length - xf_len) {
-                                let end_gain = (loop_length - pos_in_loop) / xf_len;
-                                loop_xf_gain *=
-                                    (end_gain * std::f64::consts::FRAC_PI_2).sin();
+
+                            let wrapped = region_offset % loop_length;
+                            // Random start offset per iteration (variation)
+                            let random_offset = if clip.loop_random_start > 0.0 {
+                                // Deterministic pseudo-random based on iteration index
+                                let seed = (iteration as f64 * 0.61803398875).fract();
+                                seed * clip.loop_random_start * source_sample_rate
+                            } else {
+                                0.0
+                            };
+                            source_pos_f64 = loop_start + wrapped + random_offset;
+                            // Clamp within loop region
+                            if source_pos_f64 >= loop_end {
+                                source_pos_f64 = loop_start + (source_pos_f64 - loop_start) % loop_length;
+                            }
+
+                            // Crossfade at loop boundary (equal-power)
+                            if clip.loop_crossfade > 0.0 {
+                                let xf_len =
+                                    (clip.loop_crossfade * source_sample_rate).min(loop_length * 0.5);
+                                let pos_in_loop = wrapped;
+                                // Near start of loop: fade in
+                                if pos_in_loop < xf_len {
+                                    let xf_progress = pos_in_loop / xf_len;
+                                    loop_xf_gain *=
+                                        (xf_progress * std::f64::consts::FRAC_PI_2).sin();
+                                }
+                                // Near end of loop: fade out
+                                if pos_in_loop > (loop_length - xf_len) {
+                                    let end_gain = (loop_length - pos_in_loop) / xf_len;
+                                    loop_xf_gain *=
+                                        (end_gain * std::f64::consts::FRAC_PI_2).sin();
+                                }
                             }
                         }
                     }

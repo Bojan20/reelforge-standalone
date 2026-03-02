@@ -990,6 +990,58 @@ class EngineApi {
     print('[Engine] Set clip $clipId loop crossfade to ${crossfadeSecs}s (mock)');
   }
 
+  /// Set clip loop start boundary in samples
+  void setClipLoopStart(String clipId, int startSamples) {
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        _ffi.setClipLoopStart(nativeClipId, startSamples);
+        print('[Engine] Set clip $clipId loop start to $startSamples samples via FFI');
+        return;
+      }
+    }
+    print('[Engine] Set clip $clipId loop start to $startSamples samples (mock)');
+  }
+
+  /// Set clip loop end boundary in samples (0 = full clip)
+  void setClipLoopEnd(String clipId, int endSamples) {
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        _ffi.setClipLoopEnd(nativeClipId, endSamples);
+        print('[Engine] Set clip $clipId loop end to $endSamples samples via FFI');
+        return;
+      }
+    }
+    print('[Engine] Set clip $clipId loop end to $endSamples samples (mock)');
+  }
+
+  /// Set clip per-iteration gain factor (1.0 = unity)
+  void setClipIterationGain(String clipId, double factor) {
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        _ffi.setClipIterationGain(nativeClipId, factor);
+        print('[Engine] Set clip $clipId iteration gain to $factor via FFI');
+        return;
+      }
+    }
+    print('[Engine] Set clip $clipId iteration gain to $factor (mock)');
+  }
+
+  /// Set clip loop random start range in seconds
+  void setClipLoopRandomStart(String clipId, double rangeSecs) {
+    if (!_useMock) {
+      final nativeClipId = int.tryParse(clipId);
+      if (nativeClipId != null) {
+        _ffi.setClipLoopRandomStart(nativeClipId, rangeSecs);
+        print('[Engine] Set clip $clipId loop random start to ${rangeSecs}s via FFI');
+        return;
+      }
+    }
+    print('[Engine] Set clip $clipId loop random start to ${rangeSecs}s (mock)');
+  }
+
   /// SmartTempo: Detect tempo from clip audio
   TempoDetectionResult detectClipTempo(String clipId, {double minBpm = 60.0, double maxBpm = 200.0}) {
     if (!_useMock) {

@@ -5804,12 +5804,24 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 // Delete all selected clips
                 _handleDelete();
               case 'setClipLoop':
-                // Set loop parameters on a timeline clip
+                // Set loop parameters on a timeline clip (Wwise-grade)
                 final clipId = params?['clipId'] as String?;
                 if (clipId != null) {
                   final loopEnabled = params?['loopEnabled'] as bool? ?? false;
                   final loopCount = params?['loopCount'] as int? ?? 0;
                   final loopCrossfade = params?['loopCrossfade'] as double? ?? 0.0;
+                  final loopStartSamples = params?['loopStartSamples'] as int? ?? 0;
+                  final loopEndSamples = params?['loopEndSamples'] as int? ?? 0;
+                  final iterationGain = params?['iterationGain'] as double? ?? 1.0;
+                  final loopRandomStart = params?['loopRandomStart'] as double? ?? 0.0;
+                  // Sync all 7 parameters to audio engine via FFI
+                  engine.setClipLoopEnabled(clipId, loopEnabled);
+                  engine.setClipLoopCount(clipId, loopCount);
+                  engine.setClipLoopCrossfade(clipId, loopCrossfade);
+                  engine.setClipLoopStart(clipId, loopStartSamples);
+                  engine.setClipLoopEnd(clipId, loopEndSamples);
+                  engine.setClipIterationGain(clipId, iterationGain);
+                  engine.setClipLoopRandomStart(clipId, loopRandomStart);
                   setState(() {
                     _clips = _clips.map((c) {
                       if (c.id == clipId) {
@@ -5817,6 +5829,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                           loopEnabled: loopEnabled,
                           loopCount: loopCount,
                           loopCrossfade: loopCrossfade,
+                          loopStartSamples: loopStartSamples,
+                          loopEndSamples: loopEndSamples,
+                          iterationGain: iterationGain,
+                          loopRandomStart: loopRandomStart,
                         );
                       }
                       return c;
