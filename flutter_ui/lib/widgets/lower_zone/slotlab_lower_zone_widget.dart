@@ -52,6 +52,11 @@ import 'package:get_it/get_it.dart';
 import '../slot_lab/lower_zone/slotlab_logic_tab.dart';
 import '../slot_lab/lower_zone/slotlab_intel_tab.dart';
 import '../slot_lab/lower_zone/slotlab_monitor_tab.dart';
+import '../slot_lab/lower_zone/bake/macro_panel.dart';
+import '../slot_lab/lower_zone/bake/macro_monitor.dart';
+import '../slot_lab/lower_zone/bake/macro_report_viewer.dart';
+import '../slot_lab/lower_zone/bake/macro_config_editor.dart';
+import '../slot_lab/lower_zone/bake/macro_history.dart';
 import '../../providers/slot_lab/slotlab_export_provider.dart';
 import '../../providers/slot_lab/slotlab_notification_provider.dart';
 
@@ -899,6 +904,8 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       SlotLabDspSubTab.eq => _buildFabFilterEqPanel(),
       SlotLabDspSubTab.comp => _buildFabFilterCompressorPanel(),
       SlotLabDspSubTab.reverb => _buildFabFilterReverbPanel(),
+      SlotLabDspSubTab.gate => _buildFabFilterGatePanel(),
+      SlotLabDspSubTab.limiter => _buildFabFilterLimiterPanel(),
     };
   }
 
@@ -919,6 +926,16 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     return const FabFilterReverbPanel(trackId: 0);
   }
 
+  /// FF-G Gate Panel
+  Widget _buildFabFilterGatePanel() {
+    return const FabFilterGatePanel(trackId: 0);
+  }
+
+  /// FF-L Limiter Panel
+  Widget _buildFabFilterLimiterPanel() {
+    return const FabFilterLimiterPanel(trackId: 0);
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // BAKE CONTENT
   // ═══════════════════════════════════════════════════════════════════════════
@@ -933,6 +950,11 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       SlotLabBakeSubTab.git => _buildGitPanel(),
       SlotLabBakeSubTab.analytics => _buildAnalyticsPanel(),
       SlotLabBakeSubTab.docs => _buildDocsPanel(),
+      SlotLabBakeSubTab.macro => const MacroPanel(),
+      SlotLabBakeSubTab.macroMon => const MacroMonitor(),
+      SlotLabBakeSubTab.macroReport => const MacroReportViewer(),
+      SlotLabBakeSubTab.macroConfig => const MacroConfigEditor(),
+      SlotLabBakeSubTab.macroHistory => const MacroHistory(),
     };
   }
 

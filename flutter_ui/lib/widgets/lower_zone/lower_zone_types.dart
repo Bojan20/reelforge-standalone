@@ -813,8 +813,8 @@ extension SlotLabSuperTabX on SlotLabSuperTab {
 enum SlotLabStagesSubTab { trace, timeline, symbols, timing }
 enum SlotLabEventsSubTab { folder, editor, layers, pool, auto }
 enum SlotLabMixSubTab { buses, sends, pan, meter }
-enum SlotLabDspSubTab { chain, eq, comp, reverb }
-enum SlotLabBakeSubTab { export, stems, variations, package, git, analytics, docs }
+enum SlotLabDspSubTab { chain, eq, comp, reverb, gate, limiter }
+enum SlotLabBakeSubTab { export, stems, variations, package, git, analytics, docs, macro, macroMon, macroReport, macroConfig, macroHistory }
 
 /// LOGIC sub-tabs — Core middleware panels (behavior tree, triggers, state gate, etc.)
 enum SlotLabLogicSubTab { behavior, triggers, gate, priority, orchestration, emotional, context, simulation }
@@ -841,13 +841,13 @@ extension SlotLabMixSubTabX on SlotLabMixSubTab {
 }
 
 extension SlotLabDspSubTabX on SlotLabDspSubTab {
-  String get label => ['Chain', 'FF-Q', 'FF-C', 'FF-R'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R'][index];
+  String get label => ['Chain', 'FF-Q', 'FF-C', 'FF-R', 'FF-G', 'FF-L'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y'][index];
 }
 
 extension SlotLabBakeSubTabX on SlotLabBakeSubTab {
-  String get label => ['Export', 'Stems', 'Variations', 'Package', 'Git', 'Analytics', 'Docs'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U'][index];
+  String get label => ['Export', 'Stems', 'Variations', 'Package', 'Git', 'Analytics', 'Docs', 'Macro', 'Monitor', 'Reports', 'Config', 'History'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'S'][index];
 }
 
 extension SlotLabLogicSubTabX on SlotLabLogicSubTab {
@@ -907,21 +907,21 @@ class SlotLabLowerZoneState {
   void setSubTabIndex(int index) {
     switch (superTab) {
       case SlotLabSuperTab.stages:
-        stagesSubTab = SlotLabStagesSubTab.values[index.clamp(0, 3)];
+        stagesSubTab = SlotLabStagesSubTab.values[index.clamp(0, SlotLabStagesSubTab.values.length - 1)];
       case SlotLabSuperTab.events:
-        eventsSubTab = SlotLabEventsSubTab.values[index.clamp(0, 4)];
+        eventsSubTab = SlotLabEventsSubTab.values[index.clamp(0, SlotLabEventsSubTab.values.length - 1)];
       case SlotLabSuperTab.mix:
-        mixSubTab = SlotLabMixSubTab.values[index.clamp(0, 3)];
+        mixSubTab = SlotLabMixSubTab.values[index.clamp(0, SlotLabMixSubTab.values.length - 1)];
       case SlotLabSuperTab.dsp:
-        dspSubTab = SlotLabDspSubTab.values[index.clamp(0, 3)];
+        dspSubTab = SlotLabDspSubTab.values[index.clamp(0, SlotLabDspSubTab.values.length - 1)];
       case SlotLabSuperTab.bake:
-        bakeSubTab = SlotLabBakeSubTab.values[index.clamp(0, 6)];
+        bakeSubTab = SlotLabBakeSubTab.values[index.clamp(0, SlotLabBakeSubTab.values.length - 1)];
       case SlotLabSuperTab.logic:
-        logicSubTab = SlotLabLogicSubTab.values[index.clamp(0, 7)];
+        logicSubTab = SlotLabLogicSubTab.values[index.clamp(0, SlotLabLogicSubTab.values.length - 1)];
       case SlotLabSuperTab.intel:
-        intelSubTab = SlotLabIntelSubTab.values[index.clamp(0, 7)];
+        intelSubTab = SlotLabIntelSubTab.values[index.clamp(0, SlotLabIntelSubTab.values.length - 1)];
       case SlotLabSuperTab.monitor:
-        monitorSubTab = SlotLabMonitorSubTab.values[index.clamp(0, 7)];
+        monitorSubTab = SlotLabMonitorSubTab.values[index.clamp(0, SlotLabMonitorSubTab.values.length - 1)];
     }
   }
 
