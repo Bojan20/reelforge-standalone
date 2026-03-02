@@ -18,9 +18,9 @@ pub struct ThroughputMetrics {
 impl ThroughputMetrics {
     /// Calculate metrics from benchmark results
     pub fn from_benchmark(samples: usize, duration: Duration, sample_rate: f64) -> Self {
-        let secs = duration.as_secs_f64();
+        let secs = duration.as_secs_f64().max(1e-12); // Guard against zero-duration on fast hardware
         let samples_per_sec = samples as f64 / secs;
-        let ns_per_sample = duration.as_nanos() as f64 / samples as f64;
+        let ns_per_sample = (duration.as_nanos() as f64 / samples as f64).max(1e-6);
         let realtime_ratio = samples_per_sec / sample_rate;
         let latency_ms = secs * 1000.0;
 

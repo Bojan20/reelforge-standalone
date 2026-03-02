@@ -105,6 +105,7 @@ import '../providers/slot_lab/gad_provider.dart';
 import '../providers/slot_lab/sss_provider.dart';
 import '../providers/slot_lab/game_flow_provider.dart';
 import '../providers/fluxmacro_provider.dart';
+import '../providers/slot_lab/stage_flow_provider.dart';
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -567,6 +568,13 @@ class ServiceLocator {
     );
     sl.registerLazySingleton<MissingPluginDetector>(
       () => MissingPluginDetector.instance,
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 7.5: Stage Flow Provider (P-DSF Dynamic Stage Flow Editor)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<StageFlowProvider>(
+      () => StageFlowProvider(),
     );
 
     // Initialize plugin alternatives registry
