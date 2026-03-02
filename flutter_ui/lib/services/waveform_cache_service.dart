@@ -200,6 +200,24 @@ class WaveformCacheService {
     return _memoryCache.containsKey(audioPath);
   }
 
+  /// Get waveform from memory cache ONLY (synchronous, zero-copy)
+  /// Returns null if not in memory — does NOT check disk.
+  /// Use this in build() methods where async is not allowed.
+  Float32List? getMemorySync(String audioPath) {
+    final cached = _memoryCache[audioPath];
+    if (cached != null) {
+      _memoryHits++;
+      _touchLru(audioPath);
+    }
+    return cached;
+  }
+
+  /// Put waveform into MEMORY cache only (synchronous, for pre-caching)
+  void putMemorySync(String audioPath, Float32List waveform) {
+    if (waveform.isEmpty) return;
+    _putMemoryFloat32(audioPath, waveform);
+  }
+
   /// Check if waveform exists in disk cache
   Future<bool> existsOnDisk(String audioPath) async {
     if (!_initialized) await init();

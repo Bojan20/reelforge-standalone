@@ -11,6 +11,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import '../../services/native_file_picker.dart';
 import 'package:flutter/material.dart';
@@ -33,6 +34,7 @@ import '../../models/timeline_models.dart' show parseWaveformFromJson;
 import '../../models/middleware_models.dart' show ActionType, CrossfadeCurve, CrossfadeCurveExtension;
 import '../../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
 import '../../services/audio_playback_service.dart';
+import '../../services/waveform_cache_service.dart';
 import '../slot_lab/stage_trace_widget.dart';
 import '../slot_lab/event_log_panel.dart';
 import '../slot_lab/profiler_panel.dart';
@@ -1170,8 +1172,8 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   double _tlPixelsPerSecond = 100.0;
   String? _tlDraggingLayerId;
   final ScrollController _tlScrollController = ScrollController();
-  // Waveform cache: layerId → waveform peaks (absolute 0-1 values)
-  final Map<String, List<double>> _tlWaveformCache = {};
+  // Waveform cache: layerId → waveform peaks (Float32List for 50% memory savings)
+  final Map<String, Float32List> _tlWaveformCache = {};
   // Duration cache: layerId → seconds
   final Map<String, double> _tlDurationCache = {};
 
@@ -1199,8 +1201,8 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           );
         }
 
-        // Ensure waveforms are loaded for all layers (async — non-blocking)
-        _ensureTlWaveforms(events);
+        // Sync: populate from memory cache; schedule cold loads outside build
+        _syncTlWaveformsFromCache(events);
 
         final totalRows = _countTotalRows(events);
 
@@ -1556,6 +1558,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                     onTap: () {
                       _tlWaveformCache.remove(l.id);
                       _tlDurationCache.remove(l.id);
+                      _tlWaveformLoaded.remove(l.id);
                       mw.removeLayerFromEvent(event.id, l.id);
                     },
                     child: const Icon(Icons.close, size: 10, color: Colors.white24),
@@ -1745,84 +1748,95 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
-  // ── Waveform loading for timeline ──
+  // ── Waveform loading for timeline (DAW-grade: sync cache + batch cold load) ──
 
-  /// Track which layers are currently loading waveforms (prevent duplicate requests)
-  final Set<String> _tlWaveformLoading = {};
+  /// Track which layers have been cold-loaded (prevent duplicate FFI calls)
+  final Set<String> _tlWaveformLoaded = {};
 
-  /// Queue for staggered FFI waveform generation (1 per frame to avoid jank)
-  final List<SlotEventLayer> _tlWaveformQueue = [];
-  bool _tlWaveformProcessing = false;
+  /// Synchronous cache check — runs in build(), O(1) per layer.
+  /// Cold misses are batched and loaded outside build via postFrameCallback.
+  void _syncTlWaveformsFromCache(List<SlotCompositeEvent> events) {
+    final coldMissLayers = <SlotEventLayer>[];
 
-  void _ensureTlWaveforms(List<SlotCompositeEvent> events) {
     for (final event in events) {
       for (final layer in event.layers) {
         if (layer.audioPath.isEmpty) continue;
         if (_tlWaveformCache.containsKey(layer.id)) continue;
 
-        // Use layer's own waveformData if available
+        // Layer has inline waveformData — use directly
         if (layer.waveformData != null && layer.waveformData!.isNotEmpty) {
-          _tlWaveformCache[layer.id] = layer.waveformData!;
+          _tlWaveformCache[layer.id] = Float32List.fromList(
+            layer.waveformData!.map((v) => v.toDouble()).toList(),
+          );
           _ensureTlDuration(layer);
           continue;
         }
 
-        // Skip if already queued or loading
-        if (_tlWaveformLoading.contains(layer.id)) continue;
-        _tlWaveformLoading.add(layer.id);
-        _tlWaveformQueue.add(layer);
+        // Check WaveformCacheService memory (O(1), no allocation)
+        final cached = WaveformCacheService.instance.getMemorySync(layer.audioPath);
+        if (cached != null) {
+          _tlWaveformCache[layer.id] = cached;
+          _ensureTlDuration(layer);
+          continue;
+        }
 
+        // Cold miss — schedule for batch FFI load (outside build)
+        if (!_tlWaveformLoaded.contains(layer.id)) {
+          coldMissLayers.add(layer);
+        }
         _ensureTlDuration(layer);
       }
     }
-    // Kick off staggered processing (1 FFI call per frame)
-    _processWaveformQueue();
+
+    // Batch cold load in next frame (NOT in build)
+    if (coldMissLayers.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _batchLoadWaveforms(coldMissLayers);
+      });
+    }
   }
 
-  /// Process waveform queue one item per frame to avoid blocking UI
-  void _processWaveformQueue() {
-    if (_tlWaveformProcessing || _tlWaveformQueue.isEmpty || !mounted) return;
-    _tlWaveformProcessing = true;
+  /// Batch-load cold miss waveforms via FFI, then single setState.
+  /// Each FFI call is ~5-15ms for small audio files (2048 peak samples = 8KB).
+  void _batchLoadWaveforms(List<SlotEventLayer> layers) {
+    bool anyNew = false;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _tlWaveformQueue.isEmpty) {
-        _tlWaveformProcessing = false;
-        return;
-      }
+    for (final layer in layers) {
+      if (_tlWaveformCache.containsKey(layer.id)) continue;
+      if (_tlWaveformLoaded.contains(layer.id)) continue;
+      _tlWaveformLoaded.add(layer.id);
 
-      final layer = _tlWaveformQueue.removeAt(0);
       try {
         final cacheKey = 'tl-${layer.id}';
         final json = NativeFFI.instance.generateWaveformFromFile(layer.audioPath, cacheKey);
         if (json != null) {
           final (left, right) = parseWaveformFromJson(json, maxSamples: 2048);
           if (left != null) {
-            final waveform = <double>[];
+            Float32List waveform;
             if (right != null && right.length == left.length) {
+              waveform = Float32List(left.length);
               for (int i = 0; i < left.length; i++) {
-                waveform.add((left[i] + right[i]) / 2.0);
+                waveform[i] = (left[i] + right[i]) * 0.5;
               }
             } else {
-              waveform.addAll(left);
+              waveform = Float32List.fromList(left);
             }
-            if (mounted) {
-              setState(() {
-                _tlWaveformCache[layer.id] = waveform;
-              });
-            }
+            _tlWaveformCache[layer.id] = waveform;
+            // Store in WaveformCacheService memory for cross-session reuse
+            WaveformCacheService.instance.putMemorySync(layer.audioPath, waveform);
+            anyNew = true;
           }
         }
       } catch (_) {
         // FFI may not be available
       }
-      _tlWaveformLoading.remove(layer.id);
-      _tlWaveformProcessing = false;
+    }
 
-      // Continue with next item on next frame
-      if (_tlWaveformQueue.isNotEmpty && mounted) {
-        _processWaveformQueue();
-      }
-    });
+    // Single setState for ALL loaded waveforms (not one per waveform)
+    if (anyNew && mounted) {
+      setState(() {});
+    }
   }
 
   void _ensureTlDuration(SlotEventLayer layer) {
@@ -4714,77 +4728,79 @@ class _TlWaveformPainter extends CustomPainter {
   final Color color;
   final bool isMuted;
 
-  const _TlWaveformPainter({required this.data, required this.color, this.isMuted = false});
+  // Pre-allocated paints (zero allocation in paint())
+  late final Paint _fillPaint;
+  late final Paint _strokePaint;
+  late final Paint _centerPaint;
+
+  _TlWaveformPainter({required this.data, required this.color, this.isMuted = false}) {
+    final waveColor = isMuted ? Colors.grey.withValues(alpha: 0.4) : color.withValues(alpha: 0.7);
+    _fillPaint = Paint()
+      ..color = (isMuted ? Colors.grey.withValues(alpha: 0.15) : color.withValues(alpha: 0.2))
+      ..style = PaintingStyle.fill;
+    _strokePaint = Paint()
+      ..color = waveColor
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+    _centerPaint = Paint()
+      ..color = waveColor.withValues(alpha: 0.15)
+      ..strokeWidth = 0.5;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
     if (data.isEmpty) return;
 
-    final waveColor = isMuted ? Colors.grey.withValues(alpha: 0.4) : color.withValues(alpha: 0.7);
-    final fillColor = isMuted ? Colors.grey.withValues(alpha: 0.15) : color.withValues(alpha: 0.2);
     final centerY = size.height / 2;
     final scaleY = size.height / 2 * 0.85;
+    final w = size.width.toInt();
     final samplesPerPixel = data.length / size.width;
+    final len = data.length;
 
-    // Fill path (mirrored)
+    // Pre-compute peaks ONCE (not 3x)
+    final peaks = Float32List(w);
+    for (int x = 0; x < w; x++) {
+      final start = (x * samplesPerPixel).floor();
+      final end = ((x + 1) * samplesPerPixel).floor().clamp(0, len);
+      if (start >= len) break;
+      double peak = 0.0;
+      for (int i = start; i < end && i < len; i++) {
+        final s = data[i].abs();
+        if (s > peak) peak = s > 1.0 ? 1.0 : s;
+      }
+      peaks[x] = peak;
+    }
+
+    // Fill path (mirrored waveform)
     final fillPath = Path();
     fillPath.moveTo(0, centerY);
-
-    for (int x = 0; x < size.width.toInt(); x++) {
-      final startSample = (x * samplesPerPixel).floor();
-      final endSample = ((x + 1) * samplesPerPixel).floor().clamp(0, data.length);
-      if (startSample >= data.length) break;
-      double peak = 0.0;
-      for (int i = startSample; i < endSample && i < data.length; i++) {
-        final s = data[i].abs().clamp(0.0, 1.0);
-        if (s > peak) peak = s;
-      }
-      fillPath.lineTo(x.toDouble(), centerY - peak * scaleY);
+    for (int x = 0; x < w; x++) {
+      fillPath.lineTo(x.toDouble(), centerY - peaks[x] * scaleY);
     }
-
-    for (int x = size.width.toInt() - 1; x >= 0; x--) {
-      final startSample = (x * samplesPerPixel).floor();
-      final endSample = ((x + 1) * samplesPerPixel).floor().clamp(0, data.length);
-      if (startSample >= data.length) continue;
-      double peak = 0.0;
-      for (int i = startSample; i < endSample && i < data.length; i++) {
-        final s = data[i].abs().clamp(0.0, 1.0);
-        if (s > peak) peak = s;
-      }
-      fillPath.lineTo(x.toDouble(), centerY + peak * scaleY);
+    for (int x = w - 1; x >= 0; x--) {
+      fillPath.lineTo(x.toDouble(), centerY + peaks[x] * scaleY);
     }
-
     fillPath.close();
-    canvas.drawPath(fillPath, Paint()..color = fillColor..style = PaintingStyle.fill);
+    canvas.drawPath(fillPath, _fillPaint);
 
-    // Outline stroke
-    final strokePaint = Paint()..color = waveColor..strokeWidth = 1.0..style = PaintingStyle.stroke;
+    // Stroke path (vertical bars)
     final strokePath = Path();
-    for (int x = 0; x < size.width.toInt(); x++) {
-      final startSample = (x * samplesPerPixel).floor();
-      final endSample = ((x + 1) * samplesPerPixel).floor().clamp(0, data.length);
-      if (startSample >= data.length) break;
-      double peak = 0.0;
-      for (int i = startSample; i < endSample && i < data.length; i++) {
-        final s = data[i].abs().clamp(0.0, 1.0);
-        if (s > peak) peak = s;
-      }
-      final y1 = centerY - peak * scaleY;
-      final y2 = centerY + peak * scaleY;
-      if (x == 0) strokePath.moveTo(x.toDouble(), y1);
+    for (int x = 0; x < w; x++) {
+      final y1 = centerY - peaks[x] * scaleY;
+      final y2 = centerY + peaks[x] * scaleY;
+      if (x == 0) strokePath.moveTo(0, y1);
       strokePath.lineTo(x.toDouble(), y1);
       strokePath.lineTo(x.toDouble(), y2);
     }
-    canvas.drawPath(strokePath, strokePaint);
+    canvas.drawPath(strokePath, _strokePaint);
 
     // Center line
-    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY),
-      Paint()..color = waveColor.withValues(alpha: 0.15)..strokeWidth = 0.5);
+    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), _centerPaint);
   }
 
   @override
   bool shouldRepaint(_TlWaveformPainter oldDelegate) =>
-      oldDelegate.data != data || oldDelegate.color != color || oldDelegate.isMuted != isMuted;
+      !identical(oldDelegate.data, data) || oldDelegate.color != color || oldDelegate.isMuted != isMuted;
 }
 
 /// Grid line painter for track backgrounds

@@ -20,6 +20,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/win_tier_config.dart';
 import 'package:get_it/get_it.dart';
+import '../../providers/feature_builder_provider.dart';
 import '../../providers/slot_lab/feature_composer_provider.dart';
 import '../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../providers/slot_lab_project_provider.dart';
@@ -6411,10 +6412,10 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         _handleAutoSpinToggle();
         return KeyEventResult.handled;
 
-      // P6: D = Debug toolbar toggle
+      // D = Debug/Forced Outcome panel toggle
       case LogicalKeyboardKey.keyD:
-        if (kDebugMode) _toggleDebugToolbar();
-        return kDebugMode ? KeyEventResult.handled : KeyEventResult.ignored;
+        _toggleDebugToolbar();
+        return KeyEventResult.handled;
 
       // P6: R = Recording toggle, Shift+R = Reset session
       case LogicalKeyboardKey.keyR:
@@ -6664,6 +6665,92 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                     );
                   },
                   onClose: () => setState(() => _showMenuPanel = false),
+                ),
+              ),
+
+            // H2. Debug / Forced Outcome Panel (D key toggle)
+            if (_showDebugToolbar)
+              Positioned(
+                top: 56,
+                left: 0,
+                right: 0,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // GameFlow state indicator
+                    Consumer<GameFlowProvider>(
+                      builder: (context, flow, _) {
+                        final state = flow.currentState;
+                        final isFeature = flow.isInFeature;
+                        final fsState = flow.freeSpinsState;
+                        return Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          color: isFeature
+                              ? const Color(0xFF4CAF50).withOpacity(0.85)
+                              : Colors.black54,
+                          child: Row(
+                            children: [
+                              Icon(
+                                isFeature ? Icons.star : Icons.casino,
+                                color: Colors.white,
+                                size: 14,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'State: ${state.displayName}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              if (fsState != null) ...[
+                                const SizedBox(width: 12),
+                                Text(
+                                  'Spins: ${fsState.spinsRemaining}/${fsState.totalSpins}',
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                if (fsState.currentMultiplier > 1.0) ...[
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${fsState.currentMultiplier.toStringAsFixed(1)}x',
+                                    style: const TextStyle(
+                                      color: Color(0xFFFFD700),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                              const Spacer(),
+                              Text(
+                                'D to close',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.4),
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    // Forced outcome buttons
+                    ForcedOutcomePanel(
+                      provider: provider,
+                      height: 140,
+                      compact: true,
+                      showHistory: false,
+                      featureBuilderProvider:
+                          GetIt.instance.isRegistered<FeatureBuilderProvider>()
+                              ? GetIt.instance<FeatureBuilderProvider>()
+                              : null,
+                    ),
+                  ],
                 ),
               ),
 

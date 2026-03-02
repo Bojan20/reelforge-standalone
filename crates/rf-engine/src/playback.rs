@@ -4504,20 +4504,35 @@ impl PlaybackEngine {
             self.process_loop_commands();
             self.process_loop_voices(&mut bus_buffers, frames);
 
-            // Mix ALL bus outputs to main output (for one-shot when transport stopped)
-            // One-shot voices can route to any bus (0=Sfx, 1=Music, 2=Voice, etc.)
+            // Mix bus outputs to main output (for one-shot when transport stopped)
+            // One-shot voices can route to any bus (0=Master, 1=Music, 2=Sfx, etc.)
+            // CRITICAL: Respect bus mute/solo/volume state — same as transport path.
+            // Without this, SFX/Music mute buttons have no effect on SlotLab/Middleware
+            // one-shot voices because they bypass the transport processing path.
+            let bus_states = self.bus_states.read();
+            let any_solo = self.any_solo.load(Ordering::Relaxed);
             for (bus_idx, (bus_l, bus_r)) in bus_buffers.buffers.iter().enumerate() {
-                // Per-bus peak metering (one-shot path)
+                let state = &bus_states[bus_idx];
+                // Skip muted buses, or non-soloed buses when solo is active
+                if state.muted || (any_solo && !state.soloed) {
+                    crate::ffi::SHARED_METERS.update_channel_peak(bus_idx, 0.0, 0.0);
+                    continue;
+                }
+
+                let volume = state.volume;
                 let mut bp_l: f64 = 0.0;
                 let mut bp_r: f64 = 0.0;
                 for i in 0..frames {
-                    output_l[i] += bus_l[i];
-                    output_r[i] += bus_r[i];
-                    bp_l = bp_l.max(bus_l[i].abs());
-                    bp_r = bp_r.max(bus_r[i].abs());
+                    let l = bus_l[i] * volume;
+                    let r = bus_r[i] * volume;
+                    output_l[i] += l;
+                    output_r[i] += r;
+                    bp_l = bp_l.max(l.abs());
+                    bp_r = bp_r.max(r.abs());
                 }
                 crate::ffi::SHARED_METERS.update_channel_peak(bus_idx, bp_l, bp_r);
             }
+            drop(bus_states);
         }
 
         // === LOCK-FREE PARAM CONSUMPTION ===
