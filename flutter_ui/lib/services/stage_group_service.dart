@@ -700,8 +700,8 @@ class StageGroupService {
     // ═══════════════════════════════════════════════════════════════════
     // SPIN / REEL — special naming conventions
     // ═══════════════════════════════════════════════════════════════════
-    'reels_appear': 'REEL_SPIN_LOOP',
-    'reel_appear': 'REEL_SPIN_LOOP',
+    // NOTE: reels_appear is NOT a spin loop — it's a visual reel animation sound
+    // Removed: 'reels_appear': 'REEL_SPIN_LOOP' (was wrong binding)
 
     // ═══════════════════════════════════════════════════════════════════
     // SUSPENSE / ANTICIPATION
@@ -732,13 +732,24 @@ class StageGroupService {
   };
 
   /// Check alias map for instant match. Returns stage ID or null.
+  ///
+  /// Uses BOUNDARY-AWARE matching: alias must match at word boundaries
+  /// (start/end of string, or adjacent to separators like _ - space).
+  /// This prevents partial matches like "mus_rs" matching inside "mus_rs_end".
   String? _checkAlias(String audioPath) {
     final fileName = _extractFileName(audioPath).toLowerCase();
     // Try longest alias first to avoid partial matches
     final sortedAliases = _aliasMap.keys.toList()
       ..sort((a, b) => b.length.compareTo(a.length));
     for (final alias in sortedAliases) {
-      if (fileName.contains(alias)) {
+      // Exact match (whole filename)
+      if (fileName == alias) {
+        return _aliasMap[alias];
+      }
+      // Boundary-aware: alias must be at start/end or bounded by separators
+      final escaped = RegExp.escape(alias);
+      final pattern = RegExp('(?:^|[-_\\s])$escaped(?:\$|[-_\\s])');
+      if (pattern.hasMatch(fileName)) {
         return _aliasMap[alias];
       }
     }

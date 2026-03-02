@@ -612,7 +612,7 @@ class AudioMappingImportService {
     'bg': 'BASE', 'base': 'BASE', 'basegame': 'BASE', 'main': 'BASE',
     'fs': 'FS', 'freespin': 'FS', 'freespins': 'FS', 'free_spin': 'FS', 'free_spins': 'FS',
     'bonus': 'BONUS', 'bon': 'BONUS',
-    'hold': 'HOLD', 'hnw': 'HOLD', 'holdwin': 'HOLD', 'respin': 'HOLD', 'rs': 'HOLD',
+    'hold': 'HOLD', 'hnw': 'HOLD', 'holdwin': 'HOLD', 'respin': 'HOLD', 'rs': 'HOLD', 'resp': 'HOLD',
     'bw': 'BIGWIN', 'bigwin': 'BIGWIN', 'big_win': 'BIGWIN', 'win': 'BIGWIN',
     'jp': 'JACKPOT', 'jackpot': 'JACKPOT',
     'gamble': 'GAMBLE', 'gam': 'GAMBLE', 'risk': 'GAMBLE',
@@ -637,22 +637,27 @@ class AudioMappingImportService {
       }
     }
 
-    // ── PATTERN 2: mus_{scene}_start/loop/intro/outro ──
-    // Examples: mus_fs_start, mus_fs_loop, mus_bg_intro, mus_bonus_outro
-    final musTypeMatch = RegExp(r'mus[ic]*[-_\s]*(\w+?)[-_\s]*(start|loop|intro|outro)').firstMatch(name);
+    // ── PATTERN 2: mus_{scene}_start/loop/intro/outro/end ──
+    // Examples: mus_fs_start, mus_fs_loop, mus_bg_intro, mus_bonus_outro, mus_rs_end
+    final musTypeMatch = RegExp(r'mus[ic]*[-_\s]*(\w+?)[-_\s]*(start|loop|intro|outro|end)').firstMatch(name);
     if (musTypeMatch != null) {
       final sceneRaw = musTypeMatch.group(1)!;
       final type = musTypeMatch.group(2)!;
       final scene = _sceneAbbreviations[sceneRaw];
       if (scene != null) {
-        if (type == 'intro') {
+        if (type == 'intro' || type == 'start') {
           final stageId = 'MUSIC_${scene}_INTRO';
           if (composedStageIds.contains(stageId)) return (stageId, 0.95);
-        } else if (type == 'outro') {
+          // Fallback: start → L1 if no INTRO stage exists
+          if (type == 'start') {
+            final l1 = 'MUSIC_${scene}_L1';
+            if (composedStageIds.contains(l1)) return (l1, 0.90);
+          }
+        } else if (type == 'outro' || type == 'end') {
           final stageId = 'MUSIC_${scene}_OUTRO';
           if (composedStageIds.contains(stageId)) return (stageId, 0.95);
         } else {
-          // start/loop → L1 (default layer)
+          // loop → L1 (default layer)
           final stageId = 'MUSIC_${scene}_L1';
           if (composedStageIds.contains(stageId)) return (stageId, 0.90);
         }
@@ -760,6 +765,20 @@ class AudioMappingImportService {
       final tier = bwTierMatch.group(1)!;
       final stageId = 'BIG_WIN_TIER_$tier';
       if (composedStageIds.contains(stageId)) return (stageId, 0.95);
+    }
+
+    // ── PATTERN 11: transition/trn prefix → TRANSITION_SWOOSH/IMPACT ──
+    // Examples: trn_bg_1, transition_bg, transition_swoosh, trn_impact
+    // CRITICAL: Prevents transition files from being mismatched to MUSIC_BASE_*
+    final transMatch = RegExp(r'^(?:\d{1,4}[-_\s])?(?:trn|trans|transition)[-_\s]+(\w+)').firstMatch(name);
+    if (transMatch != null) {
+      final qualifier = transMatch.group(1)!;
+      if (qualifier.contains('impact') || qualifier.contains('hit')) {
+        if (composedStageIds.contains('TRANSITION_IMPACT')) return ('TRANSITION_IMPACT', 0.90);
+      }
+      if (composedStageIds.contains('TRANSITION_SWOOSH')) return ('TRANSITION_SWOOSH', 0.90);
+      // Fallback to generic MUSIC_TRANSITION if transition-specific stages don't exist
+      if (composedStageIds.contains('MUSIC_TRANSITION')) return ('MUSIC_TRANSITION', 0.80);
     }
 
     return null;
@@ -939,6 +958,20 @@ class AudioMappingImportService {
     return index;
   }
 
+  /// Tokens that indicate a transition/SFX context — NEVER bind to music layers
+  static const Set<String> _transitionContextTokens = {
+    'trn', 'trans', 'transition', 'swoosh', 'impact', 'whoosh', 'swipe',
+    'wipe', 'sweep', 'slide', 'reveal', 'stab', 'hit', 'riser',
+  };
+
+  /// Check if tokens contain transition/SFX context that should block music matching.
+  bool _hasTransitionContext(List<String> tokens) {
+    for (final t in tokens) {
+      if (_transitionContextTokens.contains(t)) return true;
+    }
+    return false;
+  }
+
   /// PASS 1: Check compound alias patterns against industry-standard names
   /// [nofm] is the NofM variant info (0-based index, total) for indexed stage expansion.
   (String stageId, double confidence)? _checkAliasMap(
@@ -953,14 +986,25 @@ class AudioMappingImportService {
     final sortedAliases = _aliasPatterns.entries.toList()
       ..sort((a, b) => b.key.split(' ').length.compareTo(a.key.split(' ').length));
 
+    final hasTransCtx = _hasTransitionContext(tokens);
+
     for (final entry in sortedAliases) {
       final pattern = entry.key;
       final candidates = entry.value;
       final patternNoSpace = pattern.replaceAll(' ', '');
 
-      // Match against both spaced and joined token forms
-      if (_matchesPattern(joined, tokens, pattern) ||
-          joinedNoSpace.contains(patternNoSpace)) {
+      // Context guard: if file has transition tokens, block music/ambient alias matches
+      if (hasTransCtx) {
+        final firstCandidate = candidates.firstOrNull ?? '';
+        if (firstCandidate.startsWith('MUSIC_') || firstCandidate.startsWith('AMBIENT_')) {
+          continue;
+        }
+      }
+
+      // Match against token forms only — NO substring matching.
+      // joinedNoSpace.contains() caused false positives:
+      //   "mus_rs_end" contains "mus_rs" → wrong match to MUSIC_HOLD_L1
+      if (_matchesPattern(joined, tokens, pattern)) {
         // Find first candidate that exists in composed stages
         for (final candidate in candidates) {
           // Indexed stage expansion: "REEL_STOP_*" with NofM → "REEL_STOP_0", "REEL_STOP_1"...
@@ -994,12 +1038,19 @@ class AudioMappingImportService {
     for (final part in patternParts) {
       bool found = false;
       for (final token in tokens) {
-        // Support plural/singular matching
+        // Exact match, plural/singular, or abbreviation expansion only
         if (token == part ||
             token == '${part}s' ||
             '${token}s' == part ||
-            token.startsWith(part) ||
-            part.startsWith(token)) {
+            _singularize(token) == part ||
+            _singularize(token) == _singularize(part)) {
+          found = true;
+          break;
+        }
+        // Allow startsWith ONLY for long tokens (≥5 chars) to avoid
+        // false positives like 'trn' matching 'transition'
+        if (token.length >= 5 && part.length >= 5 &&
+            (token.startsWith(part) || part.startsWith(token))) {
           found = true;
           break;
         }
@@ -1055,20 +1106,27 @@ class AudioMappingImportService {
   ) {
     String? bestStage;
     double bestScore = 0.0;
+    final hasTransCtx = _hasTransitionContext(tokens);
 
-    // Expand tokens with singulars for matching
+    // Expand tokens with ONLY direct singulars — NO abbreviation expansion.
+    // Abbreviations caused cascading false positives:
+    //   fs → spins → (singularize) spin → matches SPIN_START
+    //   bg → base → matches MUSIC_BASE_L1
+    // Abbreviation matching belongs in PASS 1 (alias map), not fuzzy overlap.
     final expandedTokens = <String>{};
     for (final t in tokens) {
       expandedTokens.add(t);
       expandedTokens.add(_singularize(t));
-      // Add common abbreviations
-      final abbr = _abbreviations[t];
-      if (abbr != null) expandedTokens.addAll(abbr);
     }
 
     for (final entry in stageTokenIndex.entries) {
       final stageId = entry.key;
       final stageTokens = entry.value;
+
+      // Context guard: transition files must not match MUSIC_* or AMBIENT_*
+      if (hasTransCtx && (stageId.startsWith('MUSIC_') || stageId.startsWith('AMBIENT_'))) {
+        continue;
+      }
 
       // Count how many stage tokens are matched by file tokens
       int matched = 0;
@@ -1085,8 +1143,8 @@ class AudioMappingImportService {
       final precision = matched / expandedTokens.length.clamp(1, 100);
       final score = coverage * 0.7 + precision * 0.3;
 
-      // Require at least 50% coverage of stage tokens
-      if (score > bestScore && coverage >= 0.5) {
+      // Require at least 67% coverage of stage tokens
+      if (score > bestScore && coverage >= 0.67) {
         bestScore = score;
         bestStage = stageId;
       }
@@ -1254,6 +1312,10 @@ class AudioMappingImportService {
     'rollup start': ['ROLLUP_START'],
     'rollup skip': ['ROLLUP_SKIP'],
     'rollup fast': ['ROLLUP_TICK_FAST'],
+    'countup end': ['ROLLUP_END'],
+    'countup start': ['ROLLUP_START'],
+    'count up end': ['ROLLUP_END'],
+    'count up start': ['ROLLUP_START'],
     'rollup slow': ['ROLLUP_TICK_SLOW'],
     'count up': ['ROLLUP_TICK'],
     'countup': ['ROLLUP_TICK'],
@@ -1311,6 +1373,14 @@ class AudioMappingImportService {
     'hold outro': ['MUSIC_HOLD_OUTRO'],
     'hold spin music': ['MUSIC_HOLD_L1'],
     'respin music': ['MUSIC_HOLD_L1'],
+    'mus rs': ['MUSIC_HOLD_L1'],
+    'mus rs start': ['MUSIC_HOLD_INTRO'],
+    'mus rs intro': ['MUSIC_HOLD_INTRO'],
+    'mus rs end': ['MUSIC_HOLD_OUTRO'],
+    'mus rs outro': ['MUSIC_HOLD_OUTRO'],
+    'mus hold': ['MUSIC_HOLD_L1'],
+    'mus hold intro': ['MUSIC_HOLD_INTRO'],
+    'mus hold end': ['MUSIC_HOLD_OUTRO'],
     // ─── Jackpot Music ───────────────────────────────────────────────
     'jackpot music': ['MUSIC_JACKPOT_L1'],
     'jackpot intro': ['MUSIC_JACKPOT_INTRO'],
@@ -1502,9 +1572,16 @@ class AudioMappingImportService {
     'notification': ['UI_NOTIFICATION'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // TRANSITIONS
+    // TRANSITIONS — "trn", "trans", "transition" prefixed files
     // ═══════════════════════════════════════════════════════════════════
-    'transition': ['TRANSITION_TO_FEATURE', 'FEATURE_ENTER'],
+    'transition': ['TRANSITION_SWOOSH', 'TRANSITION_IMPACT'],
+    'transition swoosh': ['TRANSITION_SWOOSH'],
+    'transition impact': ['TRANSITION_IMPACT'],
+    'transition bg': ['TRANSITION_SWOOSH'],
+    'trn bg': ['TRANSITION_SWOOSH'],
+    'trn swoosh': ['TRANSITION_SWOOSH'],
+    'trn impact': ['TRANSITION_IMPACT'],
+    'trn': ['TRANSITION_SWOOSH', 'TRANSITION_IMPACT'],
     'swoosh': ['TRANSITION_SWOOSH'],
     'whoosh': ['TRANSITION_SWOOSH'],
     'impact': ['TRANSITION_IMPACT', 'SYMBOL_LAND'],
@@ -1563,20 +1640,6 @@ class AudioMappingImportService {
     'idle loop': ['IDLE_LOOP'],
     'game start': ['GAME_START'],
     'game ready': ['GAME_READY'],
-  };
-
-  /// Common abbreviations used in slot audio filenames
-  static const Map<String, List<String>> _abbreviations = {
-    'fs': ['free', 'spins', 'freespin'],
-    'hnw': ['hold', 'win'],
-    'bg': ['base', 'game', 'background'],
-    'sfx': ['sound', 'effect'],
-    'jp': ['jackpot'],
-    'ui': ['button', 'interface'],
-    'vo': ['voice', 'voiceover'],
-    'amb': ['ambient', 'ambience'],
-    'mus': ['music'],
-    'antic': ['anticipation'],
   };
 
   /// Extract filename without extension
