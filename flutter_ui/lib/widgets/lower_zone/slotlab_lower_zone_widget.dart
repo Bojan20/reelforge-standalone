@@ -1181,9 +1181,22 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   int _tlLastEventFingerprint = 0;
 
   Widget _buildEventLayerTimeline() {
-    return Consumer<MiddlewareProvider>(
-      builder: (context, mw, _) {
-        final events = mw.compositeEvents;
+    return Selector<MiddlewareProvider, List<SlotCompositeEvent>>(
+      selector: (_, mw) => mw.compositeEvents,
+      shouldRebuild: (prev, next) {
+        // Only rebuild when composite events actually changed
+        if (prev.length != next.length) return true;
+        for (int i = 0; i < prev.length; i++) {
+          if (prev[i].id != next[i].id ||
+              prev[i].layers.length != next[i].layers.length ||
+              prev[i].modifiedAt != next[i].modifiedAt) {
+            return true;
+          }
+        }
+        return false;
+      },
+      builder: (context, events, _) {
+        final mw = context.read<MiddlewareProvider>();
         if (events.isEmpty) {
           return Center(
             child: Column(

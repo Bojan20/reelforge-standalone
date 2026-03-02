@@ -11,6 +11,7 @@
 /// Part of P3.3: Centralize stage configuration
 library;
 
+import 'dart:ui' show Color;
 import 'package:flutter/foundation.dart';
 import '../models/slot_lab_models.dart';
 import '../models/win_tier_config.dart' show SlotWinConfiguration, BigWinConfig;
@@ -207,6 +208,36 @@ class StageConfigurationService extends ChangeNotifier {
     // Fallback: prefix-based priority
     return _getPriorityByPrefix(stage.toUpperCase());
   }
+
+  /// Get category for stage (SSoT for all category lookups)
+  StageCategory getCategory(String stage) {
+    final def = getStage(stage);
+    if (def != null) return def.category;
+
+    // Fallback: comprehensive prefix-based category detection
+    final upper = stage.toUpperCase();
+    if (upper.startsWith('SPIN_') || upper.startsWith('REEL_')) return StageCategory.spin;
+    if (upper.startsWith('WIN_') || upper.startsWith('ROLLUP_') || upper.startsWith('BIGWIN_')) return StageCategory.win;
+    if (upper.startsWith('FS_') || upper.startsWith('BONUS_') || upper.startsWith('FEATURE_') ||
+        upper.startsWith('FREE_SPIN')) return StageCategory.feature;
+    if (upper.startsWith('CASCADE_') || upper.startsWith('TUMBLE_')) return StageCategory.cascade;
+    if (upper.startsWith('JACKPOT_')) return StageCategory.jackpot;
+    if (upper.startsWith('HOLD_') || upper.startsWith('RESPIN_')) return StageCategory.hold;
+    if (upper.startsWith('GAMBLE_')) return StageCategory.gamble;
+    if (upper.startsWith('UI_') || upper.startsWith('SYSTEM_') || upper.startsWith('MENU_')) return StageCategory.ui;
+    if (upper.startsWith('MUSIC_') || upper.startsWith('AMBIENT_') || upper.startsWith('IDLE_') ||
+        upper.startsWith('ATTRACT_') || upper.startsWith('FS_MUSIC') || upper.startsWith('HOLD_MUSIC')) return StageCategory.music;
+    if (upper.startsWith('SYMBOL_') || upper.startsWith('WILD_') || upper.startsWith('SCATTER_') ||
+        upper.startsWith('ANTICIPATION_') || upper.startsWith('NEAR_MISS')) return StageCategory.symbol;
+    if (upper.startsWith('TRANSITION_') || upper.startsWith('COLLECT_')) return StageCategory.custom;
+    return StageCategory.custom;
+  }
+
+  /// Get category label for stage (convenience method for UI display)
+  String getCategoryLabel(String stage) => getCategory(stage).label;
+
+  /// Get category color for stage (convenience method for UI display)
+  Color getCategoryColor(String stage) => Color(getCategory(stage).color);
 
   /// Get bus for stage
   SpatialBus getBus(String stage) {
@@ -871,10 +902,13 @@ class StageConfigurationService extends ChangeNotifier {
     _register('SCATTER_LAND_4', StageCategory.symbol, 80, SpatialBus.sfx, 'FREE_SPIN_TRIGGER');
     _register('SCATTER_LAND_5', StageCategory.symbol, 85, SpatialBus.sfx, 'FREE_SPIN_TRIGGER');
 
-    // Anticipation
+    // Anticipation — sequential (ANTICIPATION_1=1st reel, _2=2nd, _3=3rd)
     _register('ANTICIPATION_ON', StageCategory.symbol, 65, SpatialBus.sfx, 'ANTICIPATION');
     _register('ANTICIPATION_OFF', StageCategory.symbol, 45, SpatialBus.sfx, 'DEFAULT');
     _register('ANTICIPATION_LOOP', StageCategory.symbol, 60, SpatialBus.sfx, 'ANTICIPATION', isLooping: true);
+    _register('ANTICIPATION_1', StageCategory.symbol, 66, SpatialBus.sfx, 'ANTICIPATION');
+    _register('ANTICIPATION_2', StageCategory.symbol, 67, SpatialBus.sfx, 'ANTICIPATION');
+    _register('ANTICIPATION_3', StageCategory.symbol, 68, SpatialBus.sfx, 'ANTICIPATION');
 
     // P0.2: Per-reel tension stages — matches Rust engine output
     // Fallback hierarchy: ANTICIPATION_TENSION_R2_L3 → ANTICIPATION_TENSION_R2 → ANTICIPATION_TENSION → ANTICIPATION_ON

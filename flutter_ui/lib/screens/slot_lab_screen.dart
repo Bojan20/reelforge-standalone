@@ -10054,30 +10054,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // NOTE: _syncEventToMiddleware removed - MiddlewareProvider is now the single source of truth
 
   String _categoryFromStage(String stage) {
-    final lower = stage.toLowerCase();
-    if (lower.contains('spin')) return 'spin';
-    if (lower.contains('reel')) return 'reelStop';
-    if (lower.contains('anticipation')) return 'anticipation';
-    if (lower.contains('win') && lower.contains('big')) return 'bigWin';
-    if (lower.contains('win')) return 'win';
-    if (lower.contains('feature')) return 'feature';
-    if (lower.contains('bonus')) return 'bonus';
-    if (lower.contains('jackpot')) return 'bigWin';
-    return 'general';
+    return StageConfigurationService.instance.getCategoryLabel(stage);
   }
 
   Color _colorFromStage(String stage) {
-    final category = _categoryFromStage(stage);
-    return switch (category) {
-      'spin' => const Color(0xFF4A9EFF),
-      'reelStop' => const Color(0xFF9B59B6),
-      'anticipation' => const Color(0xFFE74C3C),
-      'win' => const Color(0xFFF1C40F),
-      'bigWin' => const Color(0xFFFF9040),
-      'feature' => const Color(0xFF40FF90),
-      'bonus' => const Color(0xFFFF40FF),
-      _ => const Color(0xFF888888),
-    };
+    return StageConfigurationService.instance.getCategoryColor(stage);
   }
 
   /// Sinhronizuj sve evente sa registry-jem i Middleware

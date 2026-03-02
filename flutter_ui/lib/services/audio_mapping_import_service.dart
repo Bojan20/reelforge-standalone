@@ -816,8 +816,9 @@ class AudioMappingImportService {
     'SPIN_ACCELERATION', 'SPIN_DECELERATION',
     // Symbols
     'SYMBOL_LAND', 'WILD_LAND', 'SCATTER_LAND',
-    // Anticipation
+    // Anticipation (sequential: ANTICIPATION_1=1st reel, _2=2nd, _3=3rd)
     'ANTICIPATION_ON', 'ANTICIPATION_OFF', 'ANTICIPATION_LOOP',
+    'ANTICIPATION_1', 'ANTICIPATION_2', 'ANTICIPATION_3',
     'NEAR_MISS', 'NO_WIN',
     // Wins
     'WIN_PRESENT_LOW', 'WIN_PRESENT_EQUAL',
@@ -1028,18 +1029,25 @@ class AudioMappingImportService {
         // Find first candidate that exists in composed stages
         for (final candidate in candidates) {
           // Indexed stage expansion: "REEL_STOP_*" with NofM → "REEL_STOP_0", "REEL_STOP_1"...
+          // Some stages are 0-based (REEL_STOP_0), others 1-based (ANTICIPATION_1)
           if (candidate.endsWith('_*') && nofm != null) {
             final base = candidate.substring(0, candidate.length - 1); // "REEL_STOP_"
-            final indexed = '$base${nofm.$1}';
-            if (composedStageIds.contains(indexed)) {
-              return (indexed, 0.90);
+            final indexed0 = '$base${nofm.$1}'; // 0-based
+            final indexed1 = '$base${nofm.$1 + 1}'; // 1-based
+            if (composedStageIds.contains(indexed0)) {
+              return (indexed0, 0.90);
+            } else if (composedStageIds.contains(indexed1)) {
+              return (indexed1, 0.90);
             }
           } else if (candidate.endsWith('_*')) {
-            // No NofM info — try _0 as default
+            // No NofM info — try _0 then _1 as defaults
             final base = candidate.substring(0, candidate.length - 1);
-            final defaulted = '${base}0';
-            if (composedStageIds.contains(defaulted)) {
-              return (defaulted, 0.80);
+            final defaulted0 = '${base}0';
+            final defaulted1 = '${base}1';
+            if (composedStageIds.contains(defaulted0)) {
+              return (defaulted0, 0.80);
+            } else if (composedStageIds.contains(defaulted1)) {
+              return (defaulted1, 0.80);
             }
           } else if (composedStageIds.contains(candidate)) {
             return (candidate, 0.85);
@@ -1557,13 +1565,18 @@ class AudioMappingImportService {
     'card flip': ['GAMBLE_CARD_FLIP'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // ANTICIPATION → ANTICIPATION_ON, ANTICIPATION_OFF
+    // ANTICIPATION → ANTICIPATION_* (sequential: 1=short, 2=medium, 3=long)
+    // NofM variants (e.g. anticipation_1of3) → ANTICIPATION_1, ANTICIPATION_2, ANTICIPATION_3
+    // Single files without NofM → ANTICIPATION_ON (generic fallback)
     // ═══════════════════════════════════════════════════════════════════
-    'anticipation': ['ANTICIPATION_ON'],
-    'anticipation start': ['ANTICIPATION_ON'],
+    'anticipation': ['ANTICIPATION_*', 'ANTICIPATION_ON'],
+    'anticipation start': ['ANTICIPATION_*', 'ANTICIPATION_ON'],
     'anticipation end': ['ANTICIPATION_OFF'],
-    'tension': ['ANTICIPATION_ON'],
-    'suspense': ['ANTICIPATION_ON'],
+    'tension': ['ANTICIPATION_*', 'ANTICIPATION_ON'],
+    'suspense': ['ANTICIPATION_*', 'ANTICIPATION_ON'],
+    'suspension': ['ANTICIPATION_*', 'ANTICIPATION_ON'],
+    'spins susp': ['ANTICIPATION_*', 'ANTICIPATION_ON'],
+    'spin susp': ['ANTICIPATION_*', 'ANTICIPATION_ON'],
     'near miss': ['NEAR_MISS'],
     'nearmiss': ['NEAR_MISS'],
 
