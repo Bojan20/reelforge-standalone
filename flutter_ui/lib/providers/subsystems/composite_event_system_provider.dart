@@ -1235,10 +1235,7 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     int actionIndex = 0;
 
     for (final layer in composite.layers) {
-      if (layer.muted) continue;
-      if (composite.hasSoloedLayer && !layer.solo) continue;
-
-      // Per-layer bus name: use layer.busId if available, fallback to category
+      // Sync ALL layers for display — mute/solo only affects audio playback, not visibility
       final busName = layer.busId != null
           ? const {0: 'Master', 1: 'Music', 2: 'SFX', 3: 'Voice', 4: 'Ambience'}[layer.busId] ?? 'SFX'
           : _getBusNameForCategory(composite.category);
