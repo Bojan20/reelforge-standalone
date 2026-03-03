@@ -1830,43 +1830,49 @@ class StageGroupService {
       // ─── Big Win Music Layers ─────────────────────────────────────────
       _StageDefinition(
         stage: 'MUSIC_BIGWIN_L1',
-        keywords: ['bigwin', 'big', 'win', 'music', 'bg'],
+        keywords: ['bigwin', 'big', 'win', 'music', 'bg', 'bw'],
         suffixes: ['_music', '_bg', '_l1'],
         priority: 80,
       ),
       _StageDefinition(
         stage: 'MUSIC_BIGWIN_INTRO',
-        keywords: ['bigwin', 'big', 'win', 'music', 'intro'],
+        keywords: ['bigwin', 'big', 'win', 'music', 'intro', 'bw'],
         suffixes: ['_intro'],
         priority: 81,
       ),
       _StageDefinition(
         stage: 'MUSIC_BIGWIN_OUTRO',
-        keywords: ['bigwin', 'big', 'win', 'music', 'outro'],
+        keywords: ['bigwin', 'big', 'win', 'music', 'outro', 'bw'],
         suffixes: ['_outro'],
         priority: 81,
       ),
       _StageDefinition(
+        stage: 'MUSIC_BIGWIN_END',
+        keywords: ['bigwin', 'big', 'win', 'music', 'end', 'bw'],
+        suffixes: ['_end'],
+        priority: 82,
+      ),
+      _StageDefinition(
         stage: 'MUSIC_BIGWIN_L2',
-        keywords: ['bigwin', 'big', 'win', 'music', 'l2', 'lvl2'],
+        keywords: ['bigwin', 'big', 'win', 'music', 'l2', 'lvl2', 'bw'],
         suffixes: ['_l2', '_lvl2'],
         priority: 79,
       ),
       _StageDefinition(
         stage: 'MUSIC_BIGWIN_L3',
-        keywords: ['bigwin', 'big', 'win', 'music', 'l3', 'lvl3'],
+        keywords: ['bigwin', 'big', 'win', 'music', 'l3', 'lvl3', 'bw'],
         suffixes: ['_l3', '_lvl3'],
         priority: 78,
       ),
       _StageDefinition(
         stage: 'MUSIC_BIGWIN_L4',
-        keywords: ['bigwin', 'big', 'win', 'music', 'l4', 'lvl4'],
+        keywords: ['bigwin', 'big', 'win', 'music', 'l4', 'lvl4', 'bw'],
         suffixes: ['_l4', '_lvl4'],
         priority: 77,
       ),
       _StageDefinition(
         stage: 'MUSIC_BIGWIN_L5',
-        keywords: ['bigwin', 'big', 'win', 'music', 'l5', 'lvl5'],
+        keywords: ['bigwin', 'big', 'win', 'music', 'l5', 'lvl5', 'bw'],
         suffixes: ['_l5', '_lvl5'],
         priority: 76,
       ),
@@ -2105,9 +2111,25 @@ class StageGroupService {
       if (kDebugMode) debugPrint('[BatchMatch] Detected 1-indexed naming convention, applying offset: $indexOffset');
     }
 
+    // Collect valid stage names for this group (for alias filtering)
+    final groupStages = definitions.map((d) => d.stage).toSet();
+
     for (final path in audioPaths) {
       final fileName = _extractFileName(path);
       final normalizedName = _normalizeFileName(fileName);
+
+      // ── ALIAS PRE-CHECK: instant match for known naming patterns ──
+      final aliasStage = _checkAlias(path);
+      if (aliasStage != null && groupStages.contains(aliasStage)) {
+        matched.add(StageMatch(
+          audioFileName: fileName,
+          audioPath: path,
+          stage: aliasStage,
+          confidence: 0.95,
+          matchedKeywords: ['alias:$aliasStage'],
+        ));
+        continue;
+      }
 
       // Apply indexing offset to normalized name for matching
       final adjustedName = indexOffset != 0
