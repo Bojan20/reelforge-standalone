@@ -1124,8 +1124,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         }
 
         // Trigger symbol-specific highlights (V14)
+        _ensureAudioRegistered('WIN_SYMBOL_HIGHLIGHT');
         for (final symbolName in _winningSymbolNames) {
           final stage = 'WIN_SYMBOL_HIGHLIGHT_$symbolName';
+          _ensureAudioRegistered(stage);
           eventRegistry.triggerStage(stage);
         }
 
@@ -1829,8 +1831,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         // P0.2: Guard with pre-trigger flag - may have been triggered on last reel stop
         if (!_symbolHighlightPreTriggered) {
 
+          // Ensure all symbol highlight audio is registered before triggering
+          _ensureAudioRegistered('WIN_SYMBOL_HIGHLIGHT');
           for (final symbolName in _winningSymbolNames) {
             final stage = 'WIN_SYMBOL_HIGHLIGHT_$symbolName';
+            _ensureAudioRegistered(stage);
             eventRegistry.triggerStage(stage);
           }
 
@@ -1869,6 +1874,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             // ═══════════════════════════════════════════════════════════════════
 
             // 🔊 Trigger WIN_PRESENT audio when plaque appears
+            _ensureAudioRegistered('WIN_PRESENT_$winPresentTier');
             eventRegistry.triggerStage('WIN_PRESENT_$winPresentTier');
 
             // Show plaque with tier label (WIN_1, WIN_2, etc.)
@@ -1908,6 +1914,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             // ═══════════════════════════════════════════════════════════════════
 
             // 🔊 Trigger WIN_PRESENT audio when plaque appears
+            _ensureAudioRegistered('WIN_PRESENT_$winPresentTier');
             eventRegistry.triggerStage('WIN_PRESENT_$winPresentTier');
 
             // ═══════════════════════════════════════════════════════════════════
@@ -2050,6 +2057,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     }
 
     // Trigger END stages so audio designers can have "win end" sounds
+    _ensureAudioRegistered('WIN_PRESENT_END');
+    _ensureAudioRegistered('WIN_COLLECT');
     eventRegistry.triggerStage('ROLLUP_END');
     if (savedWinTier.isNotEmpty) {
       eventRegistry.triggerStage('BIG_WIN_END');
@@ -2184,6 +2193,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   void _triggerWinLineAudio(LineWin lineWin) {
     // 1. Payline highlight sound (generic line-show sound)
     //    PAYLINE_HIGHLIGHT → fallback → WIN_LINE_SHOW
+    _ensureAudioRegistered('PAYLINE_HIGHLIGHT');
+    _ensureAudioRegistered('WIN_LINE_SHOW');
     eventRegistry.triggerStage('PAYLINE_HIGHLIGHT', context: {
       'line_index': lineWin.lineIndex,
       'symbol': lineWin.symbolName,
@@ -2195,6 +2206,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     //    Fallback chain: _HP1 → _HP → WIN_SYMBOL_HIGHLIGHT (generic)
     final symbolName = lineWin.symbolName.toUpperCase();
     if (symbolName.isNotEmpty) {
+      _ensureAudioRegistered('WIN_SYMBOL_HIGHLIGHT_$symbolName');
       eventRegistry.triggerStage('WIN_SYMBOL_HIGHLIGHT_$symbolName', context: {
         'line_index': lineWin.lineIndex,
         'match_count': lineWin.matchCount,
@@ -2859,6 +2871,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _winCounterController.forward(from: 0);
 
     // Start tick audio
+    _ensureAudioRegistered('ROLLUP_START');
+    _ensureAudioRegistered('ROLLUP_TICK');
+    _ensureAudioRegistered('ROLLUP_END');
     eventRegistry.triggerStage('ROLLUP_START');
 
     _rollupTickCount = 0;
@@ -3067,7 +3082,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _winCounterController.duration = Duration(milliseconds: counterDurationMs);
     _winCounterController.forward(from: 0);
 
-    // Start ROLLUP audio
+    // Start ROLLUP audio (ensure registered from _startRollup path)
+    _ensureAudioRegistered('ROLLUP_START');
+    _ensureAudioRegistered('ROLLUP_TICK');
+    _ensureAudioRegistered('ROLLUP_END');
     eventRegistry.triggerStage('ROLLUP_START');
     _startTierProgressionRollupTicks(counterDurationMs);
 
@@ -3154,7 +3172,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     eventRegistry.triggerStage('BIG_WIN_END');
 
     // Play BIG_WIN_END music — ONE-SHOT, no loop
+    _ensureAudioRegistered('MUSIC_BIGWIN_END');
     _ensureAudioRegistered('MUSIC_BIGWIN_OUTRO');
+    eventRegistry.triggerStage('MUSIC_BIGWIN_END');
     eventRegistry.triggerStage('MUSIC_BIGWIN_OUTRO');
 
     final lastTier = _currentDisplayTier;
@@ -3173,10 +3193,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
       _isInTierProgression = false;
 
-      // RESTORE BASE GAME MUSIC — fade in when plaque closes
-      _ensureAudioRegistered('MUSIC_BASE_L1');
-      eventRegistry.triggerStage('MUSIC_BASE_L1');
-
       // ═══════════════════════════════════════════════════════════════════════
       // STEP 4: Fade out plaque
       // ═══════════════════════════════════════════════════════════════════════
@@ -3184,6 +3200,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         if (!mounted) return;
         // FIX: Don't start win lines if skip completed during fade-out
         if (_winTier.isEmpty) return;
+
+        // RESTORE BASE GAME MUSIC — fade in AFTER plaque closes
+        _ensureAudioRegistered('MUSIC_BASE_L1');
+        eventRegistry.triggerStage('MUSIC_BASE_L1');
 
         // ═══════════════════════════════════════════════════════════════════
         // STEP 5: Start win line presentation

@@ -4507,6 +4507,7 @@ class _MusicSection extends _SectionConfig {
           icon: '🏆',
           slots: [
             _SlotConfig(stage: 'MUSIC_BIGWIN_INTRO', label: 'Intro'),
+            _SlotConfig(stage: 'MUSIC_BIGWIN_END', label: 'End'),
             _SlotConfig(stage: 'MUSIC_BIGWIN_OUTRO', label: 'Outro'),
             _SlotConfig(stage: 'MUSIC_BIGWIN_L1', label: 'Layer 1'),
             _SlotConfig(stage: 'MUSIC_BIGWIN_L2', label: 'Layer 2'),

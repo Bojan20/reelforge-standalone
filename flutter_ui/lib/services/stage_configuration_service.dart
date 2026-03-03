@@ -1238,6 +1238,7 @@ class StageConfigurationService extends ChangeNotifier {
     _register('MUSIC_TENSION', StageCategory.music, 15, SpatialBus.music, 'DEFAULT', isLooping: true);
     _register('MUSIC_BIGWIN', StageCategory.music, 25, SpatialBus.music, 'DEFAULT');
     _register('MUSIC_BIGWIN_INTRO', StageCategory.music, 25, SpatialBus.music, 'DEFAULT');
+    _register('MUSIC_BIGWIN_END', StageCategory.music, 25, SpatialBus.music, 'DEFAULT');
     _register('MUSIC_BIGWIN_OUTRO', StageCategory.music, 25, SpatialBus.music, 'DEFAULT');
     _register('MUSIC_BIGWIN_L1', StageCategory.music, 25, SpatialBus.music, 'DEFAULT', isLooping: true);
     _register('MUSIC_BIGWIN_L2', StageCategory.music, 25, SpatialBus.music, 'DEFAULT', isLooping: true);

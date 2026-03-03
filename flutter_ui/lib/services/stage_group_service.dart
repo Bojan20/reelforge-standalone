@@ -278,6 +278,7 @@ String generateEventName(String stage) {
     'MUSIC_HOLD_L5': 'onMusicHoldL5',
     // Big Win
     'MUSIC_BIGWIN_INTRO': 'onMusicBigwinIntro',
+    'MUSIC_BIGWIN_END': 'onMusicBigwinEnd',
     'MUSIC_BIGWIN_OUTRO': 'onMusicBigwinOutro',
     'MUSIC_BIGWIN_L1': 'onMusicBigwinL1',
     'MUSIC_BIGWIN_L2': 'onMusicBigwinL2',
