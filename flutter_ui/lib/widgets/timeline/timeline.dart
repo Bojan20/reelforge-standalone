@@ -114,6 +114,8 @@ class Timeline extends StatefulWidget {
   final ValueChanged<String>? onClipDelete;
   /// Toggle clip mute (from Mute tool)
   final ValueChanged<String>? onClipMute;
+  /// Toggle clip reverse (flip audio)
+  final ValueChanged<String>? onClipReverse;
   /// Loop toggle on clip (Logic Pro X style)
   final void Function(String clipId)? onClipLoopToggle;
   /// Loop duration change on clip (drag to extend looped content)
@@ -294,6 +296,7 @@ class Timeline extends StatefulWidget {
     this.onClipDuplicate,
     this.onClipDelete,
     this.onClipMute,
+    this.onClipReverse,
     this.onClipLoopToggle,
     this.onClipLoopDurationChange,
     this.onClipTimeStretch,
@@ -2001,6 +2004,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                     onClipSplit: widget.onClipSplit,
                     onClipDelete: widget.onClipDelete,
                     onClipMute: widget.onClipMute,
+                    onClipReverse: widget.onClipReverse,
                     onClipLoopToggle: widget.onClipLoopToggle,
                     onClipLoopDurationChange: widget.onClipLoopDurationChange,
                     onClipTimeStretch: widget.onClipTimeStretch,

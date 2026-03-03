@@ -55,6 +55,8 @@ class TrackLane extends StatefulWidget {
   final ValueChanged<String>? onClipSplit;
   final ValueChanged<String>? onClipDelete;
   final ValueChanged<String>? onClipMute;
+  /// Reverse clip audio toggle
+  final ValueChanged<String>? onClipReverse;
   /// Loop toggle on clip (Logic Pro X style)
   final void Function(String clipId)? onClipLoopToggle;
   /// Loop duration change on clip (drag to extend looped content)
@@ -113,6 +115,7 @@ class TrackLane extends StatefulWidget {
     this.onClipSplit,
     this.onClipDelete,
     this.onClipMute,
+    this.onClipReverse,
     this.onClipLoopToggle,
     this.onClipLoopDurationChange,
     this.onClipTimeStretch,
@@ -220,6 +223,7 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                       onSplit: () => widget.onClipSplit?.call(clip.id),
                       onDelete: () => widget.onClipDelete?.call(clip.id),
                       onMute: () => widget.onClipMute?.call(clip.id),
+                      onReverse: () => widget.onClipReverse?.call(clip.id),
                       onLoopToggle: () => widget.onClipLoopToggle?.call(clip.id),
                       onLoopDurationChange: (newDur) =>
                           widget.onClipLoopDurationChange?.call(clip.id, newDur),

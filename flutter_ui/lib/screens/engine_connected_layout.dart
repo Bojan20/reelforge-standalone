@@ -5563,7 +5563,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             },
             onRewind: () {
               final engine = context.read<EngineProvider>();
-              engine.seek(0);
+              engine.goToStart();
             },
           ),
           // Floating EQ windows - optimized
@@ -6657,6 +6657,22 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         // Sync clip mute to middleware layer
         _mwTimelineSyncController.handleClipParameterChanged(clipId, 'mute', newMuted);
       },
+      onClipReverse: (clipId) {
+        final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
+        if (clip.id != clipId || clip.locked) return;
+        final newReversed = !clip.reversed;
+        // Toggle reverse in Rust engine via FFI (instant)
+        engine.reverseClip(clipId);
+        // Update UI state immediately — waveform flips via GPU transform
+        setState(() {
+          _clips = _clips.map((c) {
+            if (c.id == clipId) {
+              return c.copyWith(reversed: newReversed);
+            }
+            return c;
+          }).toList();
+        });
+      },
       onClipLoopToggle: (clipId) {
         final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
         if (clip.id != clipId) return;
@@ -6893,6 +6909,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       },
       onTrackHideToggle: (trackId) {
         _updateTrackById(trackId, (t) => t.copyWith(hidden: !t.hidden));
+      },
+      onTrackFolderToggle: (trackId) {
+        _updateTrackById(trackId, (t) => t.copyWith(folderExpanded: !t.folderExpanded));
       },
       onTrackHeightChange: (trackId, height) {
         _updateTrackById(trackId, (t) => t.copyWith(height: height));

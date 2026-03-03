@@ -68,6 +68,8 @@ class ClipWidget extends StatefulWidget {
   final VoidCallback? onDuplicate;
   final VoidCallback? onSplit;
   final VoidCallback? onMute;
+  /// Called when clip audio is reversed (toggle)
+  final VoidCallback? onReverse;
   /// Called when loop handle is toggled (Logic Pro X style)
   final VoidCallback? onLoopToggle;
   /// Called when loop duration changes via drag (extends clip duration for looped content)
@@ -113,6 +115,7 @@ class ClipWidget extends StatefulWidget {
     this.onDuplicate,
     this.onSplit,
     this.onMute,
+    this.onReverse,
     this.onLoopToggle,
     this.onLoopDurationChange,
     this.onTimeStretch,
@@ -322,6 +325,21 @@ class _ClipWidgetState extends State<ClipWidget> {
           ),
         ),
         PopupMenuItem(
+          value: 'reverse',
+          enabled: !clip.locked,
+          child: Row(
+            children: [
+              Icon(Icons.swap_horiz, size: 18,
+                color: clip.reversed ? FluxForgeTheme.accentCyan : null),
+              const SizedBox(width: 8),
+              Text(clip.reversed ? 'Unreverse' : 'Reverse',
+                style: clip.reversed ? TextStyle(color: FluxForgeTheme.accentCyan) : null),
+              const Spacer(),
+              Text('R', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
           value: 'fx',
           child: Row(
             children: [
@@ -363,6 +381,9 @@ class _ClipWidgetState extends State<ClipWidget> {
           break;
         case 'mute':
           widget.onMute?.call();
+          break;
+        case 'reverse':
+          if (!clip.locked) widget.onReverse?.call();
           break;
         case 'fx':
           widget.onOpenFxEditor?.call();
@@ -969,6 +990,7 @@ class _ClipWidgetState extends State<ClipWidget> {
                     clipColor: clipColor,
                     trackHeight: widget.trackHeight,
                     channels: clip.channels,
+                    reversed: clip.reversed,
                   ),
                 ),
 
@@ -1001,6 +1023,32 @@ class _ClipWidgetState extends State<ClipWidget> {
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
+                ),
+
+              // Reversed badge indicator
+              if (clip.reversed && width > 30)
+                Positioned(
+                  right: 4,
+                  top: 2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: FluxForgeTheme.accentCyan.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.swap_horiz, size: 10, color: Colors.white),
+                        SizedBox(width: 2),
+                        Text('R', style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        )),
+                      ],
+                    ),
+                  ),
                 ),
 
               // Gain handle — uses Listener to bypass gesture arena (parent pan can't steal it)
@@ -1444,6 +1492,7 @@ class _UltimateClipWaveform extends StatefulWidget {
   final Color clipColor;
   final double trackHeight;
   final int channels;
+  final bool reversed;
 
   const _UltimateClipWaveform({
     required this.clipId,
@@ -1456,6 +1505,7 @@ class _UltimateClipWaveform extends StatefulWidget {
     required this.clipColor,
     required this.trackHeight,
     this.channels = 2,
+    this.reversed = false,
   });
 
   @override
@@ -1593,6 +1643,12 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
 
     const waveColor = Color(0xFFFFFFFF);
 
+    // Wrap waveform in horizontal flip when reversed (GPU transform, zero cost)
+    Widget wrapReversed(Widget child) {
+      if (!widget.reversed) return child;
+      return Transform.flip(flipX: true, child: child);
+    }
+
     // Cached stereo path - GPU scales fixed-resolution waveform
     if (_cachedStereoData != null && !_cachedStereoData!.isEmpty) {
       // For stereo (2 channels) AND expanded track (> 100px), show split L/R display
@@ -1602,9 +1658,9 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
 
       if (showStereoSplit) {
         return RepaintBoundary(
-          key: const ValueKey('stereo_split'),
+          key: ValueKey('stereo_split_${widget.reversed}'),
           child: ClipRect(
-            child: CustomPaint(
+            child: wrapReversed(CustomPaint(
               size: Size.infinite,
               painter: _StereoWaveformPainter(
                 leftMins: _cachedStereoData!.left.mins,
@@ -1616,7 +1672,7 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
                 color: waveColor,
                 gain: widget.gain,
               ),
-            ),
+            )),
           ),
         );
       }
@@ -1624,9 +1680,9 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
       // Default: Combined L+R display (pre-computed, zero allocation)
       if (_combinedMins != null) {
         return RepaintBoundary(
-          key: const ValueKey('combined_mono'),
+          key: ValueKey('combined_mono_${widget.reversed}'),
           child: ClipRect(
-            child: CustomPaint(
+            child: wrapReversed(CustomPaint(
               size: Size.infinite,
               painter: _CubaseWaveformPainter(
                 mins: _combinedMins!,
@@ -1635,7 +1691,7 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
                 color: waveColor,
                 gain: widget.gain,
               ),
-            ),
+            )),
           ),
         );
       }
@@ -1644,7 +1700,7 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
     // Fallback - simple legacy waveform
     return RepaintBoundary(
       child: ClipRect(
-        child: CustomPaint(
+        child: wrapReversed(CustomPaint(
           size: Size.infinite,
           painter: _WaveformPainter(
             waveform: widget.waveform,
@@ -1653,7 +1709,7 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
             color: waveColor,
             gain: widget.gain,
           ),
-        ),
+        )),
       ),
     );
   }
