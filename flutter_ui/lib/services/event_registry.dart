@@ -1179,6 +1179,12 @@ class EventRegistry extends ChangeNotifier {
   /// Get all registered stages (for debugging)
   Iterable<String> get registeredStages => _stageToEvent.keys;
 
+  /// Get the event ID for a stage (for direct AudioPlaybackService access)
+  String? getEventIdForStage(String stage) {
+    final event = _stageToEvent[stage] ?? _stageToEvent[stage.toUpperCase()];
+    return event?.id;
+  }
+
   /// Enable/disable audio pooling for rapid-fire events
   void setUseAudioPool(bool enabled) {
     _useAudioPool = enabled;

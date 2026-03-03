@@ -256,6 +256,15 @@ class GameFlowIntegration {
   }
 
   void _onStateChanged(GameFlowState oldState, GameFlowState newState) {
+    // Entering feature → fire feature music L1
+    if (newState == GameFlowState.freeSpins) {
+      _onAudioStage('MUSIC_FS_L1');
+    } else if (newState == GameFlowState.holdAndWin) {
+      _onAudioStage('MUSIC_HOLD_L1');
+    } else if (newState == GameFlowState.bonusGame) {
+      _onAudioStage('MUSIC_BONUS_L1');
+    }
+
     // Returning to base game → fade in base game layer 1 music
     if ((newState == GameFlowState.baseGame || newState == GameFlowState.idle) &&
         oldState != GameFlowState.baseGame && oldState != GameFlowState.idle) {

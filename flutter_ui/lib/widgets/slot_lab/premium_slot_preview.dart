@@ -5188,8 +5188,11 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       eventRegistry.triggerStage('BIG_WIN_END');
       eventRegistry.triggerStage('WIN_PRESENT_END');
 
-      // Restore base game music after skip
-      eventRegistry.triggerStage('MUSIC_BASE_L1');
+      // Restore all BG music layers at vol 0 (looping), then fade L1 in
+      for (final layer in ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
+        eventRegistry.triggerStage(layer, context: {'volumeMultiplier': 0.0});
+      }
+      eventRegistry.triggerStageWithFadeIn('MUSIC_BASE_L1', fadeMs: 800);
     }
     eventRegistry.triggerStage('WIN_COLLECT');
 

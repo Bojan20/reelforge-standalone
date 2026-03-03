@@ -1889,6 +1889,13 @@ class MiddlewareProvider extends ChangeNotifier {
     _eventSystemProvider.deleteEvent(eventId);
   }
 
+  /// Clear all events and composite events (used on project reset)
+  void clearAllEvents() {
+    _compositeEventSystemProvider.clearAllCompositeEvents();
+    _eventSystemProvider.clear();
+    _markChanged(changeAll);
+  }
+
   /// Add action to an event (delegates to EventSystemProvider)
   void addActionToEvent(String eventId, MiddlewareAction action) {
     _eventSystemProvider.addActionToEvent(eventId, action);

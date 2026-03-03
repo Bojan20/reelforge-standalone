@@ -1219,7 +1219,10 @@ class _OverlayBadge extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SCENE TRANSITION OVERLAY — Full-screen transition between game phases
+// SCENE TRANSITION OVERLAY — Premium casino-quality transition between phases
+// Inspired by: NetEnt, Pragmatic Play, Big Time Gaming slot machines
+// Features: Burst rays, metallic text, multi-layer glow, staggered animations,
+//           feature-specific color palettes, decorative particles
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class _SceneTransitionOverlay extends StatefulWidget {
@@ -1237,51 +1240,155 @@ class _SceneTransitionOverlay extends StatefulWidget {
 
 class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
     with TickerProviderStateMixin {
+  // Phase 1: Background fade-in
   late AnimationController _fadeController;
-  late AnimationController _plaqueController;
   late Animation<double> _fadeAnim;
+
+  // Phase 2: Burst rays expansion
+  late AnimationController _burstController;
+  late Animation<double> _burstExpand;
+  late Animation<double> _burstRotation;
+
+  // Phase 3: Plaque entrance (scale + slide)
+  late AnimationController _plaqueController;
   late Animation<double> _plaqueScale;
+  late Animation<double> _plaqueSlide;
   late Animation<double> _plaqueOpacity;
+
+  // Phase 4: Glow pulse (continuous loop)
+  late AnimationController _glowPulseController;
+  late Animation<double> _glowPulse;
+
+  // Phase 5: Shimmer sweep across plaque
+  late AnimationController _shimmerController;
+  late Animation<double> _shimmerPosition;
+
+  // Phase 6: "TAP TO CONTINUE" blink
+  late AnimationController _hintBlinkController;
+  late Animation<double> _hintOpacity;
+
+  bool get _isExit => widget.transition.phase == TransitionPhase.exiting;
 
   @override
   void initState() {
     super.initState();
 
+    // ═══════════════════════════════════════════════════════════════════
+    // PHASE 1: Background blackout (0ms → 350ms)
+    // ═══════════════════════════════════════════════════════════════════
     _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 350),
     );
-    _plaqueController = AnimationController(
+    _fadeAnim = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
+
+    // ═══════════════════════════════════════════════════════════════════
+    // PHASE 2: Burst rays (150ms → 900ms) — radiating lines behind plaque
+    // ═══════════════════════════════════════════════════════════════════
+    _burstController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 750),
+    );
+    _burstExpand = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _burstController, curve: Curves.easeOutCubic),
+    );
+    _burstRotation = Tween<double>(begin: 0.0, end: 0.15).animate(
+      CurvedAnimation(parent: _burstController, curve: Curves.easeOut),
     );
 
-    _fadeAnim = CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut);
-    _plaqueScale = Tween<double>(begin: 0.7, end: 1.0).animate(
+    // ═══════════════════════════════════════════════════════════════════
+    // PHASE 3: Plaque entrance (250ms → 950ms) — dramatic elasticOut
+    // ═══════════════════════════════════════════════════════════════════
+    _plaqueController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _plaqueScale = Tween<double>(begin: 0.3, end: 1.0).animate(
       CurvedAnimation(parent: _plaqueController, curve: Curves.elasticOut),
+    );
+    _plaqueSlide = Tween<double>(begin: -100.0, end: 0.0).animate(
+      CurvedAnimation(parent: _plaqueController, curve: Curves.easeOutBack),
     );
     _plaqueOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _plaqueController,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
+        curve: const Interval(0.0, 0.4, curve: Curves.easeIn),
       ),
     );
 
+    // ═══════════════════════════════════════════════════════════════════
+    // PHASE 4: Glow pulse (continuous) — breathing effect on glow layers
+    // ═══════════════════════════════════════════════════════════════════
+    _glowPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    );
+    _glowPulse = Tween<double>(begin: 0.7, end: 1.0).animate(
+      CurvedAnimation(parent: _glowPulseController, curve: Curves.easeInOut),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════
+    // PHASE 5: Shimmer sweep (1200ms → loops) — glossy highlight sweep
+    // ═══════════════════════════════════════════════════════════════════
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    );
+    _shimmerPosition = Tween<double>(begin: -1.0, end: 2.0).animate(
+      CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════
+    // PHASE 6: Hint blink (after plaque settles)
+    // ═══════════════════════════════════════════════════════════════════
+    _hintBlinkController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _hintOpacity = Tween<double>(begin: 0.3, end: 0.9).animate(
+      CurvedAnimation(parent: _hintBlinkController, curve: Curves.easeInOut),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════
+    // STAGGERED LAUNCH SEQUENCE
+    // ═══════════════════════════════════════════════════════════════════
     _fadeController.forward();
-    Future.delayed(const Duration(milliseconds: 200), () {
+    Future.delayed(const Duration(milliseconds: 150), () {
+      if (mounted) _burstController.forward();
+    });
+    Future.delayed(const Duration(milliseconds: 250), () {
       if (mounted) _plaqueController.forward();
+    });
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) {
+        _glowPulseController.repeat(reverse: true);
+        _hintBlinkController.repeat(reverse: true);
+      }
+    });
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (mounted) _shimmerController.repeat();
     });
   }
 
   @override
   void dispose() {
     _fadeController.dispose();
+    _burstController.dispose();
     _plaqueController.dispose();
+    _glowPulseController.dispose();
+    _shimmerController.dispose();
+    _hintBlinkController.dispose();
     super.dispose();
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FEATURE COLOR PALETTES — Rich multi-color palettes per feature type
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Primary accent color (border, text glow)
   Color get _accentColor {
-    return switch (widget.transition.toState) {
+    final state = _isExit ? widget.transition.fromState : widget.transition.toState;
+    return switch (state) {
       GameFlowState.freeSpins => const Color(0xFF00E5FF),
       GameFlowState.bonusGame => const Color(0xFFFFD700),
       GameFlowState.holdAndWin => const Color(0xFFFF6D00),
@@ -1290,6 +1397,33 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
       _ => const Color(0xFF4A9EFF),
     };
   }
+
+  /// Secondary color (gradient end, burst rays alternate)
+  Color get _secondaryColor {
+    final state = _isExit ? widget.transition.fromState : widget.transition.toState;
+    return switch (state) {
+      GameFlowState.freeSpins => const Color(0xFF40C8FF),
+      GameFlowState.bonusGame => const Color(0xFFFF9040),
+      GameFlowState.holdAndWin => const Color(0xFFFFD700),
+      GameFlowState.gamble => const Color(0xFFFF66FF),
+      GameFlowState.jackpotPresentation => const Color(0xFFFFD700),
+      _ => const Color(0xFF81D4FA),
+    };
+  }
+
+  /// Metallic gradient colors for text
+  List<Color> get _metallicColors {
+    return [
+      Colors.white,
+      _accentColor,
+      _secondaryColor,
+      Colors.white.withOpacity(0.9),
+    ];
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BUILD — Layered composition: bg → burst → plaque → shimmer → hint
+  // ═══════════════════════════════════════════════════════════════════════════
 
   @override
   Widget build(BuildContext context) {
@@ -1300,128 +1434,505 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
     return GestureDetector(
       onTap: canDismiss ? widget.onDismiss : null,
       child: AnimatedBuilder(
-        animation: _fadeAnim,
-        builder: (context, child) {
-          return Container(
-            color: Colors.black.withValues(alpha: 0.85 * _fadeAnim.value),
-            child: Center(
-              child: AnimatedBuilder(
-                animation: _plaqueController,
-                builder: (context, _) {
-                  return Opacity(
-                    opacity: _plaqueOpacity.value,
-                    child: Transform.scale(
-                      scale: _plaqueScale.value,
-                      child: _buildPlaqueContent(t, canDismiss),
+        animation: Listenable.merge([
+          _fadeAnim,
+          _burstController,
+          _plaqueController,
+          _glowPulseController,
+          _shimmerController,
+          _hintBlinkController,
+        ]),
+        builder: (context, _) {
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              return Container(
+                color: Colors.black.withOpacity(0.9 * _fadeAnim.value),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // LAYER 1: Ambient radial gradient (feature-colored)
+                    if (_fadeAnim.value > 0.3)
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: RadialGradient(
+                              colors: [
+                                _accentColor.withOpacity(0.12 * _fadeAnim.value),
+                                Colors.transparent,
+                              ],
+                              radius: 0.8,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // LAYER 2: Burst rays (radiating behind plaque)
+                    if (_burstExpand.value > 0.01)
+                      CustomPaint(
+                        size: Size(
+                          constraints.maxWidth * 0.9,
+                          constraints.maxHeight * 0.7,
+                        ),
+                        painter: _TransitionBurstPainter(
+                          progress: _burstExpand.value,
+                          rotation: _burstRotation.value,
+                          pulseValue: _glowPulse.value,
+                          primaryColor: _accentColor,
+                          secondaryColor: _secondaryColor,
+                          rayCount: _isExit ? 20 : 16,
+                          isExit: _isExit,
+                        ),
+                      ),
+
+                    // LAYER 3: Outer glow halo (pulsing)
+                    Container(
+                      width: 400,
+                      height: 200,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _accentColor.withOpacity(
+                              0.3 * _glowPulse.value * _plaqueOpacity.value,
+                            ),
+                            blurRadius: 80 * _glowPulse.value,
+                            spreadRadius: 20,
+                          ),
+                          BoxShadow(
+                            color: _secondaryColor.withOpacity(
+                              0.15 * _glowPulse.value * _plaqueOpacity.value,
+                            ),
+                            blurRadius: 120 * _glowPulse.value,
+                            spreadRadius: 40,
+                          ),
+                        ],
+                      ),
                     ),
-                  );
-                },
-              ),
-            ),
+
+                    // LAYER 4: Main plaque with slide + scale entrance
+                    Opacity(
+                      opacity: _plaqueOpacity.value,
+                      child: Transform.translate(
+                        offset: Offset(0, _plaqueSlide.value),
+                        child: Transform.scale(
+                          scale: _plaqueScale.value,
+                          child: _buildPremiumPlaque(t, canDismiss),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           );
         },
       ),
     );
   }
 
-  Widget _buildPlaqueContent(ActiveTransition t, bool canDismiss) {
-    final isExit = t.phase == TransitionPhase.exiting;
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PREMIUM PLAQUE — Multi-layer container with metallic styling
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildPremiumPlaque(ActiveTransition t, bool canDismiss) {
+    final glowIntensity = _glowPulse.value.clamp(0.0, 1.0);
+    final borderOpacity = (0.6 + glowIntensity * 0.4).clamp(0.0, 1.0);
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // Main container
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 28),
+          constraints: const BoxConstraints(minWidth: 300, maxWidth: 500),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                _accentColor.withOpacity(0.35),
+                _accentColor.withOpacity(0.12),
+                Colors.black.withOpacity(0.88),
+                _accentColor.withOpacity(0.08),
+              ],
+              stops: const [0.0, 0.2, 0.65, 1.0],
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: _accentColor.withOpacity(borderOpacity),
+              width: 3,
+            ),
+            boxShadow: [
+              // Inner depth
+              BoxShadow(
+                color: Colors.black.withOpacity(0.8),
+                blurRadius: 15,
+                spreadRadius: -5,
+                offset: const Offset(0, 5),
+              ),
+              // Primary glow
+              BoxShadow(
+                color: _accentColor.withOpacity(0.7 * glowIntensity),
+                blurRadius: 40,
+                spreadRadius: 5,
+              ),
+              // Pulsing outer glow
+              BoxShadow(
+                color: _accentColor.withOpacity(0.4 * glowIntensity),
+                blurRadius: 80 * glowIntensity,
+                spreadRadius: 12 * glowIntensity,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ═══════════════════════════════════════════════════════════
+              // DECORATIVE STARS — Top row
+              // ═══════════════════════════════════════════════════════════
+              _buildStarRow(glowIntensity, [16, 20, 24, 20, 16]),
+              const SizedBox(height: 10),
+
+              // ═══════════════════════════════════════════════════════════
+              // FEATURE ICON — Animated with glow
+              // ═══════════════════════════════════════════════════════════
+              _buildFeatureIcon(t),
+              const SizedBox(height: 8),
+
+              // ═══════════════════════════════════════════════════════════
+              // TITLE — Metallic gradient text
+              // ═══════════════════════════════════════════════════════════
+              if (t.config.showPlaque) _buildMetallicTitle(t),
+
+              // ═══════════════════════════════════════════════════════════
+              // TOTAL WIN (exit only) — Premium counter display
+              // ═══════════════════════════════════════════════════════════
+              if (_isExit && t.config.showWinOnExit && t.totalWin > 0)
+                _buildTotalWinDisplay(t.totalWin, glowIntensity),
+
+              // ═══════════════════════════════════════════════════════════
+              // DECORATIVE STARS — Bottom row
+              // ═══════════════════════════════════════════════════════════
+              const SizedBox(height: 10),
+              _buildStarRow(glowIntensity, [14, 18, 14]),
+
+              // ═══════════════════════════════════════════════════════════
+              // TAP TO CONTINUE — Blinking hint
+              // ═══════════════════════════════════════════════════════════
+              if (canDismiss) ...[
+                const SizedBox(height: 16),
+                Opacity(
+                  opacity: _hintOpacity.value,
+                  child: Text(
+                    'TAP TO CONTINUE',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.6),
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 3,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        // Glossy highlight overlay (top shine)
+        Positioned(
+          top: 0,
+          left: 20,
+          right: 20,
+          child: IgnorePointer(
+            child: Container(
+              height: 35,
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.white.withOpacity(0.22),
+                    Colors.white.withOpacity(0.04),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // Shimmer sweep (diagonal highlight moving across)
+        if (_shimmerPosition.value > -0.5 && _shimmerPosition.value < 1.5)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: ShaderMask(
+                  shaderCallback: (bounds) => LinearGradient(
+                    begin: Alignment(-1.0 + _shimmerPosition.value * 2, -0.3),
+                    end: Alignment(-0.5 + _shimmerPosition.value * 2, 0.3),
+                    colors: [
+                      Colors.transparent,
+                      Colors.white.withOpacity(0.08),
+                      Colors.transparent,
+                    ],
+                  ).createShader(bounds),
+                  blendMode: BlendMode.srcATop,
+                  child: Container(color: Colors.white.withOpacity(0.01)),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FEATURE ICON — Large, glowing, feature-specific icon
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildFeatureIcon(ActiveTransition t) {
+    final icon = _isExit ? Icons.emoji_events : _featureIcon(t.toState);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+      width: 56,
+      height: 56,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            _accentColor.withValues(alpha: 0.3),
-            const Color(0xFF0A0A14),
-            _accentColor.withValues(alpha: 0.2),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: _accentColor.withValues(alpha: 0.6),
-          width: 2,
-        ),
+        shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: _accentColor.withValues(alpha: 0.3),
-            blurRadius: 30,
+            color: _accentColor.withOpacity(0.5 * _glowPulse.value),
+            blurRadius: 20,
             spreadRadius: 5,
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Feature icon
-          Icon(
-            isExit ? Icons.emoji_events : _featureIcon(t.toState),
-            color: _accentColor,
-            size: 40,
-          ),
-          const SizedBox(height: 12),
-
-          // Plaque title
-          if (t.config.showPlaque)
-            Text(
-              t.plaqueText,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 2,
-                shadows: [
-                  Shadow(color: _accentColor, blurRadius: 12),
-                ],
-              ),
-            ),
-
-          // Total win (exit only)
-          if (isExit && t.config.showWinOnExit && t.totalWin > 0) ...[
-            const SizedBox(height: 16),
-            Text(
-              'TOTAL WIN',
-              style: TextStyle(
-                color: Colors.white60,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              t.totalWin.toStringAsFixed(2),
-              style: TextStyle(
-                color: _accentColor,
-                fontSize: 32,
-                fontWeight: FontWeight.w900,
-                shadows: [
-                  Shadow(color: _accentColor, blurRadius: 16),
-                ],
-              ),
-            ),
-          ],
-
-          // Click to continue hint
-          if (canDismiss) ...[
-            const SizedBox(height: 20),
-            Text(
-              'TAP TO CONTINUE',
-              style: TextStyle(
-                color: Colors.white38,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
-            ),
-          ],
+      child: Icon(
+        icon,
+        color: _accentColor,
+        size: 44,
+        shadows: [
+          Shadow(color: Colors.white.withOpacity(0.8), blurRadius: 3),
+          Shadow(color: _accentColor, blurRadius: 15),
+          Shadow(color: _accentColor.withOpacity(0.6), blurRadius: 30),
         ],
       ),
     );
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // METALLIC TITLE — ShaderMask gradient text with emboss shadows
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildMetallicTitle(ActiveTransition t) {
+    final fontSize = _isExit ? 28.0 : 32.0;
+
+    return Stack(
+      children: [
+        // Background glow layer
+        ShaderMask(
+          shaderCallback: (bounds) => RadialGradient(
+            colors: [
+              _accentColor,
+              _accentColor.withOpacity(0.5),
+              Colors.transparent,
+            ],
+          ).createShader(bounds),
+          child: Text(
+            t.plaqueText,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: fontSize + 2,
+              fontWeight: FontWeight.w900,
+              color: Colors.white.withOpacity(0.3),
+              letterSpacing: 5,
+            ),
+          ),
+        ),
+        // Main metallic text
+        ShaderMask(
+          shaderCallback: (bounds) => LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: _metallicColors,
+            stops: const [0.0, 0.3, 0.7, 1.0],
+          ).createShader(bounds),
+          child: Text(
+            t.plaqueText,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              letterSpacing: 4,
+              shadows: [
+                // Emboss shadow
+                Shadow(
+                  color: Colors.black.withOpacity(0.8),
+                  blurRadius: 2,
+                  offset: const Offset(1, 2),
+                ),
+                // Primary glow
+                Shadow(color: _accentColor, blurRadius: 20),
+                // Outer ambient glow
+                Shadow(color: _accentColor.withOpacity(0.6), blurRadius: 40),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TOTAL WIN DISPLAY — Premium counter with metallic styling (exit only)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildTotalWinDisplay(double totalWin, double glowIntensity) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(height: 16),
+        // "TOTAL WIN" label
+        Text(
+          'TOTAL WIN',
+          style: TextStyle(
+            color: _secondaryColor.withOpacity(0.8),
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 3,
+            shadows: [
+              Shadow(color: _secondaryColor.withOpacity(0.5), blurRadius: 8),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Win amount with premium styling
+        Transform.scale(
+          scale: 1.0 + (_glowPulse.value - 0.7) * 0.04,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.black.withOpacity(0.5),
+                  _accentColor.withOpacity(0.1),
+                  Colors.black.withOpacity(0.5),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _accentColor.withOpacity(0.35),
+                width: 1,
+              ),
+            ),
+            child: ShaderMask(
+              shaderCallback: (bounds) => LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.white,
+                  const Color(0xFFFFD700),
+                  _accentColor,
+                  Colors.white,
+                ],
+                stops: const [0.0, 0.25, 0.75, 1.0],
+              ).createShader(bounds),
+              child: Text(
+                totalWin.toStringAsFixed(2),
+                style: TextStyle(
+                  fontSize: 44,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  letterSpacing: 3,
+                  height: 1.1,
+                  shadows: [
+                    const Shadow(color: Colors.white, blurRadius: 4),
+                    Shadow(
+                      color: Colors.black.withOpacity(0.9),
+                      blurRadius: 3,
+                      offset: const Offset(2, 3),
+                    ),
+                    Shadow(
+                      color: _accentColor.withOpacity(0.9),
+                      blurRadius: 30,
+                    ),
+                    const Shadow(
+                      color: Color(0xFFFFD700),
+                      blurRadius: 20,
+                    ),
+                    Shadow(
+                      color: _accentColor.withOpacity(glowIntensity * 0.8),
+                      blurRadius: 50 * glowIntensity,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DECORATIVE STARS ROW — Animated with glow pulse
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildStarRow(double glowIntensity, List<double> sizes) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (int i = 0; i < sizes.length; i++) ...[
+          if (i > 0) const SizedBox(width: 7),
+          _buildDecorativeStar(sizes[i], glowIntensity),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildDecorativeStar(double size, double glowIntensity) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: size * 0.8,
+            height: size * 0.8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: _accentColor.withOpacity(0.5 * glowIntensity),
+                  blurRadius: size * 0.5,
+                  spreadRadius: size * 0.1,
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.star,
+            size: size,
+            color: _accentColor,
+            shadows: [
+              Shadow(color: Colors.white.withOpacity(0.8), blurRadius: 2),
+              Shadow(color: _accentColor, blurRadius: 8),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FEATURE ICONS
+  // ═══════════════════════════════════════════════════════════════════════════
 
   IconData _featureIcon(GameFlowState state) {
     return switch (state) {
@@ -1434,4 +1945,106 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
       _ => Icons.play_arrow,
     };
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BURST RAY PAINTER — Radiating lines behind plaque (casino-standard effect)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _TransitionBurstPainter extends CustomPainter {
+  final double progress;
+  final double rotation;
+  final double pulseValue;
+  final Color primaryColor;
+  final Color secondaryColor;
+  final int rayCount;
+  final bool isExit;
+
+  _TransitionBurstPainter({
+    required this.progress,
+    required this.rotation,
+    required this.pulseValue,
+    required this.primaryColor,
+    required this.secondaryColor,
+    required this.rayCount,
+    required this.isExit,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final maxRadius = size.width * 0.5 * progress;
+    if (maxRadius < 1) return;
+
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(rotation);
+
+    final angleStep = (3.14159265 * 2) / rayCount;
+    final rayWidth = angleStep * 0.35;
+
+    for (int i = 0; i < rayCount; i++) {
+      final angle = i * angleStep;
+      final isPrimary = i % 2 == 0;
+      final color = isPrimary ? primaryColor : secondaryColor;
+
+      // Pulsing opacity per ray
+      final baseOpacity = isPrimary ? 0.35 : 0.2;
+      final pulseAdd = (pulseValue - 0.7) * 0.15;
+      final opacity = (baseOpacity + pulseAdd).clamp(0.05, 0.5);
+
+      // Ray length varies by index for organic feel
+      final lengthMod = 0.85 + (i % 3) * 0.075;
+      final rayLength = maxRadius * lengthMod;
+
+      final path = Path();
+      path.moveTo(0, 0);
+      path.lineTo(
+        rayLength * _cos(angle - rayWidth / 2),
+        rayLength * _sin(angle - rayWidth / 2),
+      );
+      path.lineTo(
+        rayLength * _cos(angle + rayWidth / 2),
+        rayLength * _sin(angle + rayWidth / 2),
+      );
+      path.close();
+
+      final paint = Paint()
+        ..shader = RadialGradient(
+          colors: [
+            color.withOpacity(opacity),
+            color.withOpacity(opacity * 0.3),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.6, 1.0],
+        ).createShader(Rect.fromCircle(center: Offset.zero, radius: rayLength))
+        ..style = PaintingStyle.fill;
+
+      canvas.drawPath(path, paint);
+    }
+
+    canvas.restore();
+  }
+
+  double _cos(double angle) => _cosApprox(angle);
+  double _sin(double angle) => _sinApprox(angle);
+
+  // Fast trig approximation (good enough for visual effects)
+  static double _cosApprox(double x) {
+    // Normalize to [-pi, pi]
+    while (x > 3.14159265) x -= 6.28318530;
+    while (x < -3.14159265) x += 6.28318530;
+    final x2 = x * x;
+    return 1.0 - x2 * 0.5 + x2 * x2 * 0.04166667;
+  }
+
+  static double _sinApprox(double x) {
+    return _cosApprox(x - 1.57079632);
+  }
+
+  @override
+  bool shouldRepaint(_TransitionBurstPainter old) =>
+      old.progress != progress ||
+      old.rotation != rotation ||
+      old.pulseValue != pulseValue;
 }

@@ -22,6 +22,7 @@ import '../../providers/slot_lab_project_provider.dart';
 import '../../services/stage_configuration_service.dart';
 import '../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../services/event_registry.dart';
+import '../../services/audio_playback_service.dart';
 import '../../services/win_analytics_service.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
@@ -468,6 +469,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   // ═══════════════════════════════════════════════════════════════════════════
   String _currentDisplayTier = ''; // Currently shown tier label on plaque
   Timer? _tierProgressionTimer;
+  Timer? _baseGameFadeTimer;
   int _tierProgressionIndex = 0;
   List<String> _tierProgressionList = []; // Tiers to progress through (e.g., ['BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_TIER_3'])
   bool _isInTierProgression = false;
@@ -1444,6 +1446,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     widget.provider.onAnticipationEnd = null;
     _winLineCycleTimer?.cancel();
     _tierProgressionTimer?.cancel(); // Clean up tier progression
+    _baseGameFadeTimer?.cancel(); // Clean up base game music fade
     _stopRollupTicks(); // Clean up rollup audio sequence
     _disposeControllers();
     super.dispose();
@@ -2093,7 +2096,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _ensureAudioRegistered('MUSIC_BIGWIN_OUTRO');
       eventRegistry.triggerStage('MUSIC_BIGWIN_END');
       eventRegistry.triggerStage('MUSIC_BIGWIN_OUTRO');
-      // Restore BG music with fadeIn
+      // Restore all BG music layers at vol 0 (looping), then fade L1 in
+      for (final layer in ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
+        _ensureAudioRegistered(layer);
+        eventRegistry.triggerStage(layer, context: {'volumeMultiplier': 0.0});
+      }
+      // Skip = immediate fade (no 3500ms delay)
       _ensureAudioRegistered('MUSIC_BASE_L1');
       eventRegistry.triggerStageWithFadeIn('MUSIC_BASE_L1', fadeMs: 800);
     }
@@ -3205,6 +3213,35 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     eventRegistry.triggerStage('MUSIC_BIGWIN_END');
     eventRegistry.triggerStage('MUSIC_BIGWIN_OUTRO');
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // BASE GAME MUSIC PRE-LOAD: Start all layers at volume 0, looping
+    // They sit silent while plaketa fades out, then L1 fades in
+    // ═══════════════════════════════════════════════════════════════════════
+    for (final layer in ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
+      _ensureAudioRegistered(layer);
+      eventRegistry.triggerStage(layer, context: {'volumeMultiplier': 0.0});
+    }
+
+    // L1 delayed fade-in: 3500ms delay, then 1300ms fade from 0→1
+    _baseGameFadeTimer?.cancel();
+    _baseGameFadeTimer = Timer(const Duration(milliseconds: 3500), () {
+      if (!mounted) return;
+      final eventId = eventRegistry.getEventIdForStage('MUSIC_BASE_L1') ?? 'audio_MUSIC_BASE_L1';
+      const fadeDurationMs = 1300;
+      const stepMs = 16;
+      final steps = (fadeDurationMs / stepMs).ceil().clamp(1, 1000);
+      int currentStep = 0;
+      Timer.periodic(const Duration(milliseconds: stepMs), (timer) {
+        currentStep++;
+        final t = (currentStep / steps).clamp(0.0, 1.0);
+        AudioPlaybackService.instance.updateEventVolume(eventId, t);
+        if (currentStep >= steps) {
+          AudioPlaybackService.instance.updateEventVolume(eventId, 1.0);
+          timer.cancel();
+        }
+      });
+    });
+
     final lastTier = _currentDisplayTier;
 
     _tierProgressionTimer?.cancel();
@@ -3215,15 +3252,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _isInTierProgression = false;
 
       // ═══════════════════════════════════════════════════════════════════════
-      // STEP 4: Fade out plaque — fadeIn BG music when plaque is gone
+      // STEP 4: Fade out plaque — BG music L1 already fading in via timer
       // ═══════════════════════════════════════════════════════════════════════
       _winAmountController.reverse().then((_) {
         if (!mounted) return;
         if (_winTier.isEmpty) return;
-
-        // RESTORE BG MUSIC — trigger at vol 0, fade in over 800ms
-        _ensureAudioRegistered('MUSIC_BASE_L1');
-        eventRegistry.triggerStageWithFadeIn('MUSIC_BASE_L1', fadeMs: 800);
 
         // ═══════════════════════════════════════════════════════════════════
         // STEP 5: Start win line presentation

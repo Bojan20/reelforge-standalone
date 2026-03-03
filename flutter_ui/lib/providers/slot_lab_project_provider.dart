@@ -16,6 +16,8 @@ import '../services/gdd_import_service.dart';
 import '../services/stage_configuration_service.dart';
 import '../src/rust/native_ffi.dart';
 import 'package:get_it/get_it.dart';
+import '../services/event_registry.dart';
+import 'middleware_provider.dart';
 import 'slot_lab/feature_composer_provider.dart';
 
 /// Provider for SlotLab V6 project state
@@ -271,6 +273,14 @@ class SlotLabProjectProvider extends ChangeNotifier {
     // V11: Reset slot machine config (force wizard)
     if (GetIt.instance.isRegistered<FeatureComposerProvider>()) {
       GetIt.instance<FeatureComposerProvider>().resetConfig();
+    }
+    // Clear EventRegistry — all audio events/stage mappings/playing voices
+    try {
+      EventRegistry.instance.clearAllEvents();
+    } catch (_) {}
+    // Clear Middleware events & composite events (DAW section sync)
+    if (GetIt.instance.isRegistered<MiddlewareProvider>()) {
+      GetIt.instance<MiddlewareProvider>().clearAllEvents();
     }
     _isDirty = false;
     _syncSymbolStages(); // Sync stages for default symbols
