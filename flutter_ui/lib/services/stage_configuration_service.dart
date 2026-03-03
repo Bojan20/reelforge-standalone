@@ -787,7 +787,11 @@ class StageConfigurationService extends ChangeNotifier {
     // Win lines (pooled)
     _register('WIN_LINE_SHOW', StageCategory.win, 30, SpatialBus.sfx, 'DEFAULT', isPooled: true);
     _register('WIN_LINE_HIDE', StageCategory.win, 20, SpatialBus.sfx, 'DEFAULT');
+    _register('WIN_LINE_CYCLE', StageCategory.win, 25, SpatialBus.sfx, 'DEFAULT');
     _register('WIN_SYMBOL_HIGHLIGHT', StageCategory.win, 30, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('WIN_DETECTED', StageCategory.win, 55, SpatialBus.sfx, 'DEFAULT');
+    _register('WIN_CALCULATE', StageCategory.win, 55, SpatialBus.sfx, 'DEFAULT');
+    _register('WIN_PRESENT_END', StageCategory.win, 45, SpatialBus.sfx, 'DEFAULT');
 
     // Win collection — Triggered when SKIP pressed or win flow ends naturally
     _register('WIN_COLLECT', StageCategory.win, 50, SpatialBus.sfx, 'DEFAULT');
@@ -929,10 +933,12 @@ class StageConfigurationService extends ChangeNotifier {
 
     // Scatter
     _register('SCATTER_LAND', StageCategory.symbol, 55, SpatialBus.sfx, 'DEFAULT');
+    _register('SCATTER_LAND_1', StageCategory.symbol, 55, SpatialBus.sfx, 'DEFAULT');
     _register('SCATTER_LAND_2', StageCategory.symbol, 60, SpatialBus.sfx, 'DEFAULT');
     _register('SCATTER_LAND_3', StageCategory.symbol, 75, SpatialBus.sfx, 'FREE_SPIN_TRIGGER');
     _register('SCATTER_LAND_4', StageCategory.symbol, 80, SpatialBus.sfx, 'FREE_SPIN_TRIGGER');
     _register('SCATTER_LAND_5', StageCategory.symbol, 85, SpatialBus.sfx, 'FREE_SPIN_TRIGGER');
+    _register('SCATTER_COLLECT', StageCategory.symbol, 70, SpatialBus.sfx, 'DEFAULT');
 
     // Anticipation — sequential (ANTICIPATION_1=1st reel, _2=2nd, _3=3rd)
     _register('ANTICIPATION_ON', StageCategory.symbol, 65, SpatialBus.sfx, 'ANTICIPATION');
