@@ -722,60 +722,43 @@ class StageConfigurationService extends ChangeNotifier {
     // This stage fires immediately after last reel stops and before win display
     // Audio: Short "calculation" or "whoosh" sound to fill the gap
     // ─────────────────────────────────────────────────────────────────────────
-    _register('EVALUATE_WINS', StageCategory.win, 58, SpatialBus.sfx, 'DEFAULT');
-    _register('WIN_EVAL', StageCategory.win, 58, SpatialBus.sfx, 'DEFAULT'); // Alias
+    _register('WIN_EVAL', StageCategory.win, 58, SpatialBus.sfx, 'DEFAULT');
 
     // ─────────────────────────────────────────────────────────────────────────
-    // WIN LIFECYCLE
+    // WIN PRESENTATION AUDIO — THE unified win sound system (win/bet ratio)
+    //
+    // WIN_PRESENT_LOW:   < 1x bet  — sub-bet win (often silent or subtle)
+    // WIN_PRESENT_EQUAL: = 1x bet  — break-even
+    // WIN_PRESENT_1:     >1x, ≤2x  — small win
+    // WIN_PRESENT_2:     >2x, ≤4x  — medium win
+    // WIN_PRESENT_3:     >4x, ≤8x  — good win
+    // WIN_PRESENT_4:     >8x, ≤13x — great win (ducks music)
+    // WIN_PRESENT_5:     >13x      — excellent win (ducks music)
+    //
+    // For ≥20x → BIG_WIN_TIER_1..5 (configured via BigWinConfig)
     // ─────────────────────────────────────────────────────────────────────────
-    _register('WIN_PRESENT', StageCategory.win, 55, SpatialBus.sfx, 'DEFAULT');
-    _register('WIN_SMALL', StageCategory.win, 50, SpatialBus.sfx, 'WIN_SMALL');
-    _register('WIN_MEDIUM', StageCategory.win, 55, SpatialBus.sfx, 'WIN_MEDIUM');
-    _register('WIN_BIG', StageCategory.win, 65, SpatialBus.sfx, 'WIN_BIG', ducksMusic: true);
-    _register('WIN_MEGA', StageCategory.win, 75, SpatialBus.sfx, 'WIN_EPIC', ducksMusic: true);
-    _register('WIN_EPIC', StageCategory.win, 85, SpatialBus.sfx, 'WIN_EPIC', ducksMusic: true);
-    _register('WIN_ULTRA', StageCategory.win, 90, SpatialBus.sfx, 'JACKPOT_TRIGGER', ducksMusic: true);
-
-    // Win tiers (0-7)
-    for (var i = 0; i <= 7; i++) {
-      final priority = 45 + i * 5;
-      final intent = i < 3 ? 'WIN_SMALL' : (i < 5 ? 'WIN_MEDIUM' : 'WIN_BIG');
-      _register('WIN_TIER_$i', StageCategory.win, priority, SpatialBus.sfx, intent, ducksMusic: i >= 4);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // WIN PRESENTATION AUDIO — Unified win sound tiers based on win/bet ratio
-    // This is THE win presentation audio system. Duration in parentheses:
-    // WIN_PRESENT_1: >1x, ≤2x bet  (0.5s) — small win
-    // WIN_PRESENT_2: >2x, ≤4x      (1.0s)
-    // WIN_PRESENT_3: >4x, ≤8x      (1.5s)
-    // WIN_PRESENT_4: >8x, ≤13x     (2.0s)
-    // WIN_PRESENT_5: >13x          (3.0s) — default for regular wins, ducks music
-    // WIN_6 REMOVED — WIN_5 is now the highest regular tier before BIG_WIN
-    // ─────────────────────────────────────────────────────────────────────────
+    _register('WIN_PRESENT_LOW', StageCategory.win, 35, SpatialBus.sfx, 'DEFAULT');
+    _register('WIN_PRESENT_EQUAL', StageCategory.win, 38, SpatialBus.sfx, 'DEFAULT');
     _register('WIN_PRESENT_1', StageCategory.win, 40, SpatialBus.sfx, 'DEFAULT');
     _register('WIN_PRESENT_2', StageCategory.win, 45, SpatialBus.sfx, 'DEFAULT');
-    _register('WIN_PRESENT_3', StageCategory.win, 50, SpatialBus.sfx, 'WIN_SMALL');
-    _register('WIN_PRESENT_4', StageCategory.win, 55, SpatialBus.sfx, 'WIN_BIG');
-    _register('WIN_PRESENT_5', StageCategory.win, 65, SpatialBus.sfx, 'WIN_SUPER', ducksMusic: true);
+    _register('WIN_PRESENT_3', StageCategory.win, 50, SpatialBus.sfx, 'DEFAULT');
+    _register('WIN_PRESENT_4', StageCategory.win, 55, SpatialBus.sfx, 'DEFAULT', ducksMusic: true);
+    _register('WIN_PRESENT_5', StageCategory.win, 65, SpatialBus.sfx, 'DEFAULT', ducksMusic: true);
 
     // ─────────────────────────────────────────────────────────────────────────
-    // BIG WIN (≥20x bet) — Celebration loop and coin sfx
+    // BIG WIN (≥20x bet) — Celebration SFX
+    // BIG_WIN_INTRO/END/TIER_1..5: Registered dynamically from BigWinConfig
     // BIG_WIN_LOOP: Looping celebration music (ducks base music)
     // BIG_WIN_COINS: Coin shower particle sfx
     // ─────────────────────────────────────────────────────────────────────────
-    _register('BIG_WIN_LOOP', StageCategory.win, 90, SpatialBus.music, 'WIN_EPIC', ducksMusic: true, isLooping: true);
-    _register('BIG_WIN_COINS', StageCategory.win, 75, SpatialBus.sfx, 'WIN_EPIC');
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // WIN TIER VISUAL STAGES — Optional per-tier audio during BIG+ progression
-    // These fire during tier progression display (BIG → SUPER → MEGA → ...)
-    // ─────────────────────────────────────────────────────────────────────────
-    _register('WIN_TIER_BIG', StageCategory.win, 55, SpatialBus.sfx, 'WIN_BIG');
-    _register('WIN_TIER_SUPER', StageCategory.win, 65, SpatialBus.sfx, 'WIN_SUPER');
-    _register('WIN_TIER_MEGA', StageCategory.win, 75, SpatialBus.sfx, 'WIN_MEGA');
-    _register('WIN_TIER_EPIC', StageCategory.win, 85, SpatialBus.sfx, 'WIN_EPIC');
-    _register('WIN_TIER_ULTRA', StageCategory.win, 95, SpatialBus.sfx, 'WIN_EPIC');
+    _register('BIG_WIN_TRIGGER', StageCategory.win, 80, SpatialBus.sfx, 'DEFAULT');
+    _register('BIG_WIN_INTRO', StageCategory.win, 85, SpatialBus.sfx, 'DEFAULT');
+    _register('BIG_WIN_LOOP', StageCategory.win, 90, SpatialBus.music, 'DEFAULT', ducksMusic: true, isLooping: true);
+    _register('BIG_WIN_COINS', StageCategory.win, 75, SpatialBus.sfx, 'DEFAULT');
+    _register('BIG_WIN_IMPACT', StageCategory.win, 80, SpatialBus.sfx, 'DEFAULT');
+    _register('BIG_WIN_UPGRADE', StageCategory.win, 82, SpatialBus.sfx, 'DEFAULT');
+    _register('BIG_WIN_END', StageCategory.win, 75, SpatialBus.sfx, 'DEFAULT');
+    _register('BIG_WIN_OUTRO', StageCategory.win, 70, SpatialBus.sfx, 'DEFAULT');
 
     // Rollup counter (pooled for rapid fire)
     _register('ROLLUP_START', StageCategory.win, 45, SpatialBus.sfx, 'DEFAULT');
@@ -783,6 +766,7 @@ class StageConfigurationService extends ChangeNotifier {
     _register('ROLLUP_TICK_FAST', StageCategory.win, 25, SpatialBus.sfx, 'DEFAULT', isPooled: true);
     _register('ROLLUP_TICK_SLOW', StageCategory.win, 25, SpatialBus.sfx, 'DEFAULT', isPooled: true);
     _register('ROLLUP_END', StageCategory.win, 50, SpatialBus.sfx, 'DEFAULT');
+    _register('ROLLUP_SKIP', StageCategory.win, 45, SpatialBus.sfx, 'DEFAULT');
 
     // Win lines (pooled)
     _register('WIN_LINE_SHOW', StageCategory.win, 30, SpatialBus.sfx, 'DEFAULT', isPooled: true);
@@ -793,8 +777,10 @@ class StageConfigurationService extends ChangeNotifier {
     _register('WIN_CALCULATE', StageCategory.win, 55, SpatialBus.sfx, 'DEFAULT');
     _register('WIN_PRESENT_END', StageCategory.win, 45, SpatialBus.sfx, 'DEFAULT');
 
-    // Win collection — Triggered when SKIP pressed or win flow ends naturally
+    // No-win & Win collection
+    _register('NO_WIN', StageCategory.win, 20, SpatialBus.sfx, 'DEFAULT');
     _register('WIN_COLLECT', StageCategory.win, 50, SpatialBus.sfx, 'DEFAULT');
+    _register('WIN_FANFARE', StageCategory.win, 70, SpatialBus.sfx, 'DEFAULT');
 
     // Special Symbol Win Highlights — Triggered when symbols are in winning combination
     // Full hierarchy: WIN_SYMBOL_HIGHLIGHT_HP1 → WIN_SYMBOL_HIGHLIGHT_HP → WIN_SYMBOL_HIGHLIGHT
