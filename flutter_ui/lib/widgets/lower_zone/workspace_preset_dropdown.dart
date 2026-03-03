@@ -340,7 +340,10 @@ class _WorkspacePresetDropdownState extends State<WorkspacePresetDropdown> {
           ),
         ],
       ),
-    );
+    ).then((_) {
+      nameController.dispose();
+      descController.dispose();
+    });
   }
 
   void _confirmDelete(WorkspacePreset preset) {

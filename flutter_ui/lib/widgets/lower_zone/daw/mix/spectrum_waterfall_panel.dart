@@ -99,6 +99,7 @@ class _SpectrumWaterfallPanelState extends State<SpectrumWaterfallPanel>
 
   // Waterfall history
   final List<Float64List> _history = [];
+  int _historyVersion = 0;
 
   @override
   void initState() {
@@ -184,6 +185,8 @@ class _SpectrumWaterfallPanelState extends State<SpectrumWaterfallPanel>
     while (_history.length > maxHistory) {
       _history.removeLast();
     }
+
+    _historyVersion++;
   }
 
   @override
@@ -425,6 +428,7 @@ class _SpectrumWaterfallPanelState extends State<SpectrumWaterfallPanel>
           size: Size(width, height),
           painter: _WaterfallDisplayPainter(
             history: _history,
+            historyVersion: _historyVersion,
             displayMode: _displayMode,
             colorGradient: _colorGradient,
             minDb: _minDb,
@@ -523,6 +527,7 @@ class _SpectrumWaterfallPanelState extends State<SpectrumWaterfallPanel>
 /// Custom painter for waterfall/spectrogram display
 class _WaterfallDisplayPainter extends CustomPainter {
   final List<Float64List> history;
+  final int historyVersion;
   final WaterfallDisplayMode displayMode;
   final WaterfallColorGradient colorGradient;
   final double minDb;
@@ -535,6 +540,7 @@ class _WaterfallDisplayPainter extends CustomPainter {
 
   _WaterfallDisplayPainter({
     required this.history,
+    required this.historyVersion,
     required this.displayMode,
     required this.colorGradient,
     required this.minDb,
@@ -753,7 +759,7 @@ class _WaterfallDisplayPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _WaterfallDisplayPainter oldDelegate) {
-    return history != oldDelegate.history ||
+    return historyVersion != oldDelegate.historyVersion ||
         displayMode != oldDelegate.displayMode ||
         colorGradient != oldDelegate.colorGradient ||
         showGrid != oldDelegate.showGrid;

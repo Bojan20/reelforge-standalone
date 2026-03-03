@@ -156,6 +156,6 @@ class WorkspaceLayoutDropdown extends StatelessWidget {
           ),
         ],
       ),
-    );
+    ).then((_) => nameController.dispose());
   }
 }

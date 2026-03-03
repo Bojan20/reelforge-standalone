@@ -823,7 +823,7 @@ class _FabSilenceRegionPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _FabSilenceRegionPainter old) =>
-      old.regions.length != regions.length ||
+      !identical(old.regions, regions) ||
       old.totalDuration != totalDuration ||
       old.previewMode != previewMode;
 }

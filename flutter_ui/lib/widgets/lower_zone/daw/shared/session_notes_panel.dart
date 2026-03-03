@@ -48,6 +48,7 @@ class _SessionNotesPanelState extends State<SessionNotesPanel> {
   // Formatting state
   bool _isBold = false;
   bool _isItalic = false;
+  late FocusNode _rawKeyFocusNode;
   bool _hasUnsavedChanges = false;
 
   // Stats
@@ -59,6 +60,7 @@ class _SessionNotesPanelState extends State<SessionNotesPanel> {
     super.initState();
     _controller = TextEditingController(text: widget.initialNotes);
     _focusNode = FocusNode();
+    _rawKeyFocusNode = FocusNode();
     _updateStats();
 
     _controller.addListener(_onTextChanged);
@@ -69,6 +71,7 @@ class _SessionNotesPanelState extends State<SessionNotesPanel> {
     _autoSaveTimer?.cancel();
     _controller.dispose();
     _focusNode.dispose();
+    _rawKeyFocusNode.dispose();
     super.dispose();
   }
 
@@ -244,7 +247,7 @@ class _SessionNotesPanelState extends State<SessionNotesPanel> {
         borderRadius: BorderRadius.circular(4),
       ),
       child: RawKeyboardListener(
-        focusNode: FocusNode(),
+        focusNode: _rawKeyFocusNode,
         onKey: (event) {
           if (event is RawKeyDownEvent) {
             if (event.isControlPressed || event.isMetaPressed) {
