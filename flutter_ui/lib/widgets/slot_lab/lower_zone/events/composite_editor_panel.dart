@@ -69,7 +69,7 @@ class _CompositeEditorPanelState extends State<CompositeEditorPanel> {
   Widget build(BuildContext context) {
     return Consumer<MiddlewareProvider>(
       builder: (context, middleware, _) {
-        final events = middleware.compositeEvents;
+        final events = sortEventsHierarchically(middleware.compositeEvents);
 
         if (events.isEmpty) {
           return _buildEmptyState(

@@ -56,21 +56,26 @@ class _EventListPanelState extends State<EventListPanel> {
       return true;
     }).toList();
 
-    // Sort
+    // Sort — always hierarchical by category first, then by selected field within category
     filtered.sort((a, b) {
+      // Primary: category hierarchy (game flow order)
+      final catA = kCategoryHierarchyOrder[a.category] ?? 99;
+      final catB = kCategoryHierarchyOrder[b.category] ?? 99;
+      if (catA != catB) return catA.compareTo(catB);
+      // Secondary: user-selected sort within category
       int cmp;
       switch (_sortBy) {
         case 'name':
-          cmp = a.name.compareTo(b.name);
+          cmp = a.name.toLowerCase().compareTo(b.name.toLowerCase());
           break;
         case 'bus':
-          cmp = a.category.compareTo(b.category);
+          cmp = (a.targetBusId ?? 0).compareTo(b.targetBusId ?? 0);
           break;
         case 'date':
           cmp = a.createdAt.compareTo(b.createdAt);
           break;
         default:
-          cmp = 0;
+          cmp = a.name.toLowerCase().compareTo(b.name.toLowerCase());
       }
       return _sortAscending ? cmp : -cmp;
     });

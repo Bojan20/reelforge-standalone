@@ -25,6 +25,7 @@ import '../../models/middleware_models.dart';
 import '../../providers/middleware_provider.dart';
 import '../../services/stage_configuration_service.dart';
 import '../../services/audio_playback_service.dart';
+import '../../models/slot_audio_events.dart' show kCategoryHierarchyOrder;
 import '../../theme/fluxforge_theme.dart';
 import '../../utils/audio_math.dart';
 
@@ -793,8 +794,17 @@ class _EventEditorPanelState extends State<EventEditorPanel>
       groupedByCategory.putIfAbsent(event.category, () => []).add(event);
     }
 
-    // Sort categories
-    final sortedCategories = groupedByCategory.keys.toList()..sort();
+    // Sort categories hierarchically (game flow order)
+    final sortedCategories = groupedByCategory.keys.toList()
+      ..sort((a, b) {
+        final orderA = kCategoryHierarchyOrder[a] ?? 99;
+        final orderB = kCategoryHierarchyOrder[b] ?? 99;
+        return orderA.compareTo(orderB);
+      });
+    // Sort events within each category alphabetically
+    for (final cat in sortedCategories) {
+      groupedByCategory[cat]!.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    }
 
     return ListView.builder(
       controller: _eventListScrollController,

@@ -29,7 +29,7 @@ import '../../providers/middleware_provider.dart';
 import '../../providers/dsp_chain_provider.dart';
 import '../../providers/mixer_dsp_provider.dart';
 import '../../src/rust/native_ffi.dart' show NativeFFI, VolatilityPreset, TimingProfileType, VoicePoolFFI;
-import '../../models/slot_audio_events.dart' show SlotCompositeEvent, SlotEventLayer;
+import '../../models/slot_audio_events.dart' show SlotCompositeEvent, SlotEventLayer, sortCategoriesHierarchically, sortEventsHierarchically;
 import '../../models/timeline_models.dart' show parseWaveformFromJson;
 import '../../models/middleware_models.dart' show ActionType, CrossfadeCurve, CrossfadeCurveExtension;
 import '../../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
@@ -2073,12 +2073,15 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       categoryMap.putIfAbsent(cat, () => []).add(event);
     }
 
-    // Sort categories alphabetically
-    final sortedCategories = categoryMap.keys.toList()..sort();
+    // Sort categories by game flow hierarchy
+    final sortedCategories = sortCategoriesHierarchically(categoryMap.keys);
 
-    // Filter events based on selected category
+    // Filter events based on selected category, sort within categories alphabetically
+    for (final cat in categoryMap.keys) {
+      categoryMap[cat]!.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    }
     final filteredEvents = _selectedCategory == 'all'
-        ? events
+        ? sortEventsHierarchically(events)
         : categoryMap[_selectedCategory] ?? [];
 
     return Padding(

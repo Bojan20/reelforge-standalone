@@ -723,8 +723,12 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                         final cat = event.category.isEmpty ? 'general' : event.category;
                         grouped.putIfAbsent(cat, () => []).add(event);
                       }
+                      // Sort events within each category alphabetically
+                      for (final cat in grouped.keys) {
+                        grouped[cat]!.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+                      }
                       _cachedGrouped = grouped;
-                      _cachedCategories = grouped.keys.toList()..sort();
+                      _cachedCategories = sortCategoriesHierarchically(grouped.keys);
                       _cachedEventCount = events.length;
                       _cachedSearchQuery = _eventSearchQuery;
                     }

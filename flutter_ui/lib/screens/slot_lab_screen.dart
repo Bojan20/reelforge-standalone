@@ -5567,7 +5567,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         break;
 
       case 'reset':
-        // Reset to normal play mode
+        // Stop ALL playing audio immediately
+        eventRegistry.stopAll(); // async but fire-and-forget
+        AudioPlaybackService.instance.stopAll();
+        eventRegistry.stopAllSpinLoops();
+        eventRegistry.stopAllMusicVoices(fadeMs: 0);
         break;
     }
   }
@@ -10639,27 +10643,69 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final stageConfig = StageConfigurationService.instance;
     final shouldLoop = stageConfig.isLooping(stage);
 
-    final compositeLayers = audioLayers.map((l) => SlotEventLayer(
-      id: l.id, name: l.name, audioPath: l.audioPath,
-      volume: l.volume, pan: l.pan,
-      offsetMs: l.delay, // AudioLayer.delay is already in ms
-      fadeInMs: l.fadeInMs, fadeOutMs: l.fadeOutMs,
-      busId: l.busId, loop: shouldLoop,
-    )).toList();
-
-    final now = DateTime.now();
-    final composite = SlotCompositeEvent(
-      id: eventId, name: stage.replaceAll('_', ' '),
-      color: stage.contains('INTRO') ? const Color(0xFFFF6B35) : const Color(0xFF4ECDC4),
-      layers: compositeLayers, looping: shouldLoop,
-      overlap: false, crossfadeMs: stage.contains('INTRO') ? 500 : 300,
-      targetBusId: 1, triggerStages: [stage],
-      createdAt: now, modifiedAt: now,
-    );
+    // Build new layers from audio assignments
+    final autoLayerIds = <String>{};
+    final newAutoLayers = audioLayers.map((l) {
+      autoLayerIds.add(l.id);
+      return SlotEventLayer(
+        id: l.id, name: l.name, audioPath: l.audioPath,
+        volume: l.volume, pan: l.pan,
+        offsetMs: l.delay, // AudioLayer.delay is already in ms
+        fadeInMs: l.fadeInMs, fadeOutMs: l.fadeOutMs,
+        busId: l.busId, loop: shouldLoop,
+      );
+    }).toList();
 
     if (existing != null) {
-      middleware.updateCompositeEvent(composite);
+      // MERGE: keep manually added layers, update auto-generated ones
+      final manualLayers = existing.layers.where((l) => !autoLayerIds.contains(l.id)).toList();
+      // Update existing auto layers, add new ones
+      final mergedLayers = <SlotEventLayer>[];
+      for (final newLayer in newAutoLayers) {
+        final old = existing.layers.where((l) => l.id == newLayer.id).firstOrNull;
+        if (old != null) {
+          // Preserve user edits (actionType, volume, pan, etc.) but update audioPath
+          mergedLayers.add(old.copyWith(
+            audioPath: newLayer.audioPath,
+            name: newLayer.name,
+            durationSeconds: newLayer.durationSeconds ?? old.durationSeconds,
+          ));
+        } else {
+          mergedLayers.add(newLayer);
+        }
+      }
+      // Append manual layers at end
+      mergedLayers.addAll(manualLayers);
+
+      // Skip update if layers haven't changed (prevents audio restart on remount)
+      if (mergedLayers.length == existing.layers.length) {
+        bool allSame = true;
+        for (int i = 0; i < mergedLayers.length; i++) {
+          final m = mergedLayers[i];
+          final e = existing.layers[i];
+          if (m.id != e.id || m.audioPath != e.audioPath || m.actionType != e.actionType ||
+              m.volume != e.volume || m.pan != e.pan || m.busId != e.busId) {
+            allSame = false;
+            break;
+          }
+        }
+        if (allSame) return; // No changes — skip update to preserve playing audio
+      }
+
+      middleware.updateCompositeEvent(existing.copyWith(
+        layers: mergedLayers,
+        modifiedAt: DateTime.now(),
+      ));
     } else {
+      final now = DateTime.now();
+      final composite = SlotCompositeEvent(
+        id: eventId, name: stage.replaceAll('_', ' '),
+        color: stage.contains('INTRO') ? const Color(0xFFFF6B35) : const Color(0xFF4ECDC4),
+        layers: newAutoLayers, looping: shouldLoop,
+        overlap: false, crossfadeMs: stage.contains('INTRO') ? 500 : 300,
+        targetBusId: 1, triggerStages: [stage],
+        createdAt: now, modifiedAt: now,
+      );
       middleware.addCompositeEvent(composite);
     }
   }

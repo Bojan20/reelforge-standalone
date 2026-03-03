@@ -78,10 +78,19 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
         final filteredEvents = _filterEvents(events);
 
         // Group by category
-        final grouped = <String, List<SlotCompositeEvent>>{};
+        final rawGrouped = <String, List<SlotCompositeEvent>>{};
         for (final event in filteredEvents) {
           final cat = event.category;
-          grouped.putIfAbsent(cat, () => []).add(event);
+          rawGrouped.putIfAbsent(cat, () => []).add(event);
+        }
+        // Sort events within each category alphabetically
+        for (final cat in rawGrouped.keys) {
+          rawGrouped[cat]!.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        }
+        // Reorder categories by game flow hierarchy
+        final grouped = <String, List<SlotCompositeEvent>>{};
+        for (final cat in sortCategoriesHierarchically(rawGrouped.keys)) {
+          grouped[cat] = rawGrouped[cat]!;
         }
 
         return Focus(

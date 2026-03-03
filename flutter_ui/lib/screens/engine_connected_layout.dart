@@ -79,7 +79,7 @@ import '../models/layout_models.dart';
 import '../models/editor_mode_config.dart';
 import '../models/middleware_models.dart';
 import '../models/event_folder_models.dart' show EventFolder;
-import '../models/slot_audio_events.dart' show SlotCompositeEvent, SlotEventLayer;
+import '../models/slot_audio_events.dart' show SlotCompositeEvent, SlotEventLayer, sortEventsHierarchically, sortCategoriesHierarchically;
 import '../widgets/common/audio_waveform_picker_dialog.dart';
 import '../models/timeline_models.dart' as timeline;
 import '../theme/fluxforge_theme.dart';
@@ -487,18 +487,35 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       // ========== MIDDLEWARE MODE: Wwise-style event browser ==========
 
       // Events folder - uses compositeEvents passed from build()
+      // Group by category (game flow hierarchy), then alphabetical within each
+      final sortedEvents = sortEventsHierarchically(compositeEvents);
+      final categoryGroups = <String, List<SlotCompositeEvent>>{};
+      for (final event in sortedEvents) {
+        final cat = event.category.isEmpty ? 'general' : event.category;
+        categoryGroups.putIfAbsent(cat, () => []).add(event);
+      }
+      final orderedCats = sortCategoriesHierarchically(categoryGroups.keys);
       tree.add(ProjectTreeNode(
         id: 'events',
         type: TreeItemType.folder,
         label: 'Events',
         count: compositeEvents.length,
-        children: compositeEvents
-            .map((event) => ProjectTreeNode(
-                  id: 'evt-${event.id}',
-                  type: TreeItemType.event,
-                  label: '${event.name} (${event.layers.length})',
-                ))
-            .toList(),
+        children: orderedCats.expand((cat) {
+          final catEvents = categoryGroups[cat]!;
+          return [
+            ProjectTreeNode(
+              id: 'evt-cat-$cat',
+              type: TreeItemType.folder,
+              label: '${cat[0].toUpperCase()}${cat.substring(1)}',
+              count: catEvents.length,
+              children: catEvents.map((event) => ProjectTreeNode(
+                id: 'evt-${event.id}',
+                type: TreeItemType.event,
+                label: '${event.name} (${event.layers.length})',
+              )).toList(),
+            ),
+          ];
+        }).toList(),
       ));
 
       // Buses - always 5 buses
@@ -7253,7 +7270,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       builder: (context, middleware, _) {
         // Get selected event from provider (single source of truth)
         final selectedCompositeId = middleware.selectedCompositeEventId;
-        final compositeEvents = middleware.compositeEvents;
+        final compositeEvents = sortEventsHierarchically(middleware.compositeEvents);
 
         // Auto-select first event if nothing is selected and events exist
         if (selectedCompositeId == null && compositeEvents.isNotEmpty) {
@@ -7996,8 +8013,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                           _CellDropdown(value: _busIdToName(layer.busId), options: const ['Master', 'Music', 'SFX', 'Voice', 'UI', 'Ambience'], color: FluxForgeTheme.accentCyan, onChanged: (val) => _updateLayer(event, idx, layer.copyWith(busId: _busNameToId(val)), provider), onInteract: () { setState(() => _selectedLayerIndex = idx); _syncHeaderFromSelectedLayer(); }),
                         ])),
                         const SizedBox(width: 3),
-                        // Asset dropdown with label — fixed width
-                        SizedBox(width: 120, child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        // Asset dropdown with label — expanded for long filenames
+                        Expanded(flex: 3, child: Column(mainAxisSize: MainAxisSize.min, children: [
                           const Text('Asset', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary, fontWeight: FontWeight.w600, height: 1)),
                           const SizedBox(height: 2),
                           _CellDropdown(value: assetName, options: assetOptions, color: FluxForgeTheme.accentCyan, onChanged: (val) {
@@ -8007,7 +8024,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                         ])),
                         const SizedBox(width: 4),
                         // All param boxes — expand to fill available space
-                        Expanded(flex: 5, child: Builder(builder: (context) {
+                        Expanded(flex: 4, child: Builder(builder: (context) {
                           final durMs = (layer.durationSeconds ?? 60.0) * 1000.0;
                           return Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
@@ -14589,26 +14606,41 @@ class _CellDropdownState extends State<_CellDropdown> {
           borderRadius: BorderRadius.circular(4),
           side: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
-        itemBuilder: (context) => widget.options.map((option) {
-          final isSelected = option == widget.value;
-          final displayText = option.isEmpty ? '(none)' : option;
-          return PopupMenuItem<String>(
-            value: option,
-            height: 28,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text(
-              displayText,
-              style: TextStyle(
-                fontSize: 11,
-                color: isSelected
-                    ? accentColor
-                    : (option.isEmpty ? FluxForgeTheme.textTertiary : FluxForgeTheme.textPrimary),
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                fontStyle: option.isEmpty ? FontStyle.italic : FontStyle.normal,
+        itemBuilder: (context) {
+          // Normalize for matching: strip path and compare case-insensitive
+          String _norm(String s) => s.split('/').last.toLowerCase();
+          final normValue = _norm(widget.value);
+          return widget.options.map((option) {
+            final isSelected = option == widget.value || (option.isNotEmpty && widget.value.isNotEmpty && _norm(option) == normValue);
+            final displayText = option.isEmpty ? '(none)' : option;
+            return PopupMenuItem<String>(
+              value: option,
+              height: 28,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isSelected)
+                    Padding(padding: const EdgeInsets.only(right: 6), child: Icon(Icons.check, size: 12, color: accentColor))
+                  else
+                    const SizedBox(width: 18),
+                  Flexible(child: Text(
+                    displayText,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isSelected
+                          ? accentColor
+                          : (option.isEmpty ? FluxForgeTheme.textTertiary : FluxForgeTheme.textPrimary),
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      fontStyle: option.isEmpty ? FontStyle.italic : FontStyle.normal,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  )),
+                ],
               ),
-            ),
-          );
-        }).toList(),
+            );
+          }).toList();
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           margin: const EdgeInsets.only(right: 4),

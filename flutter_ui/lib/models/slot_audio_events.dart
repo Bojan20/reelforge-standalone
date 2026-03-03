@@ -1980,6 +1980,49 @@ enum SlotEventCategory {
   const SlotEventCategory(this.displayName, this.color);
 }
 
+/// Hierarchical sort order for event categories (game flow order)
+const Map<String, int> kCategoryHierarchyOrder = {
+  'spin': 0,
+  'reelStop': 1,
+  'anticipation': 2,
+  'win': 3,
+  'bigWin': 4,
+  'feature': 5,
+  'bonus': 6,
+  'cascade': 7,
+  'jackpot': 8,
+  'hold': 9,
+  'gamble': 10,
+  'symbol': 11,
+  'music': 12,
+  'ambient': 13,
+  'ui': 14,
+  'general': 15,
+};
+
+/// Sort composite events hierarchically by category (game flow order), then alphabetically by name
+List<SlotCompositeEvent> sortEventsHierarchically(List<SlotCompositeEvent> events) {
+  final sorted = List<SlotCompositeEvent>.from(events);
+  sorted.sort((a, b) {
+    final catA = kCategoryHierarchyOrder[a.category] ?? 99;
+    final catB = kCategoryHierarchyOrder[b.category] ?? 99;
+    if (catA != catB) return catA.compareTo(catB);
+    return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+  });
+  return sorted;
+}
+
+/// Sort category keys hierarchically (game flow order)
+List<String> sortCategoriesHierarchically(Iterable<String> categories) {
+  final sorted = categories.toList();
+  sorted.sort((a, b) {
+    final orderA = kCategoryHierarchyOrder[a] ?? 99;
+    final orderB = kCategoryHierarchyOrder[b] ?? 99;
+    return orderA.compareTo(orderB);
+  });
+  return sorted;
+}
+
 /// Predefined slot event templates
 class SlotEventTemplates {
   static SlotCompositeEvent spinStart() => SlotCompositeEvent(
