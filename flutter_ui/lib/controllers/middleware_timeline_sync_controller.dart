@@ -226,6 +226,26 @@ class MiddlewareTimelineSyncController {
   /// Check if an event is already placed on the timeline
   bool isEventPlaced(String eventId) => _lastSyncedEvents.containsKey(eventId);
 
+  /// Get all event IDs currently placed on the timeline
+  Set<String> get placedEventIds => _lastSyncedEvents.keys.toSet();
+
+  /// Get engine track IDs (numeric) for a given event.
+  /// Returns empty list if event is not placed.
+  List<int> getEngineTrackIdsForEvent(String eventId) {
+    final snapshot = _lastSyncedEvents[eventId];
+    if (snapshot == null) return const [];
+    final result = <int>[];
+    for (final layerId in snapshot.layerIds) {
+      final mwTrackId = _trackIdForLayer(eventId, layerId);
+      final engineId = _engineTrackIds[mwTrackId];
+      if (engineId != null) {
+        final parsed = int.tryParse(engineId);
+        if (parsed != null) result.add(parsed);
+      }
+    }
+    return result;
+  }
+
   /// Create folder + child tracks + clips with FULL ENGINE IMPORT.
   ///
   /// For each layer:

@@ -758,6 +758,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         _clips = [..._clips, ...batch.clipsToAdd];
       }
     });
+    // Keep engine mute state consistent with current event filter
+    _syncEngineTrackMutesForEventFilter();
   }
 
   /// Handle mixer channel reorder → sync to timeline tracks
@@ -1200,6 +1202,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       // Auto-select the new event filter
       _currentEventId = filter.id;
     });
+    _syncEngineTrackMutesForEventFilter();
   }
 
   /// Select an event (filters timeline to show only this event's clips)
@@ -1207,6 +1210,31 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     setState(() {
       _currentEventId = eventId;
     });
+    _syncEngineTrackMutesForEventFilter();
+  }
+
+  /// Sync engine track mute state to match the current event filter.
+  ///
+  /// When an event is selected (_currentEventId != null), mute engine tracks
+  /// belonging to OTHER middleware events so only the selected event is audible.
+  /// When no event is selected (null), unmute all middleware event tracks.
+  ///
+  /// Non-middleware tracks (regular DAW tracks) are never affected.
+  void _syncEngineTrackMutesForEventFilter() {
+    final ffi = NativeFFI.instance;
+    final placedIds = _mwTimelineSyncController.placedEventIds;
+
+    for (final eventId in placedIds) {
+      final engineTrackIds =
+          _mwTimelineSyncController.getEngineTrackIdsForEvent(eventId);
+      // Mute if another event is selected; unmute if this event is selected or no filter
+      final shouldMute =
+          _currentEventId != null && _currentEventId != eventId;
+
+      for (final engineId in engineTrackIds) {
+        ffi.setTrackMute(engineId, shouldMute);
+      }
+    }
   }
 
   /// Delete an event and optionally its clips
@@ -1232,6 +1260,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         _currentEventId = null;
       }
     });
+    _syncEngineTrackMutesForEventFilter();
   }
 
   /// Rename an event
@@ -2246,6 +2275,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     if (batch == null) return;
 
     _handleMwSyncBatch(batch);
+    // Mute newly added event's engine tracks if another event is selected
+    _syncEngineTrackMutesForEventFilter();
     _showSnackBar('Added ${folder.name} (${folder.layers.length} layers)');
   }
 
