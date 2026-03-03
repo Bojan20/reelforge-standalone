@@ -48,6 +48,7 @@ class _StageFlowEditorWidgetState extends State<StageFlowEditorWidget> {
   String? _draggingNodeId;
   String? _connectingFromNodeId;
   Offset? _connectingEndPoint;
+  ({bool shift, bool alt, bool ctrl}) _lastPointerModifiers = (shift: false, alt: false, ctrl: false);
 
   // Palette
   bool _showPalette = true;
@@ -431,13 +432,24 @@ class _StageFlowEditorWidgetState extends State<StageFlowEditorWidget> {
                   connectingEndPoint: _connectingEndPoint,
                   isDryRunning: _p.isDryRunning,
                 ),
-                child: GestureDetector(
+                child: Listener(
                   behavior: HitTestBehavior.opaque,
-                  onTapDown: _onCanvasTapDown,
-                  onPanStart: _onCanvasDragStart,
-                  onPanUpdate: _onCanvasDragUpdate,
-                  onPanEnd: _onCanvasDragEnd,
-                  child: const SizedBox.expand(),
+                  onPointerDown: (event) {
+                    _lastPointerModifiers = (
+                      shift: HardwareKeyboard.instance.isShiftPressed,
+                      alt: HardwareKeyboard.instance.isAltPressed,
+                      ctrl: HardwareKeyboard.instance.isControlPressed ||
+                          HardwareKeyboard.instance.isMetaPressed,
+                    );
+                  },
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: _onCanvasTapDown,
+                    onPanStart: _onCanvasDragStart,
+                    onPanUpdate: _onCanvasDragUpdate,
+                    onPanEnd: _onCanvasDragEnd,
+                    child: const SizedBox.expand(),
+                  ),
                 ),
               ),
             ),
@@ -452,7 +464,7 @@ class _StageFlowEditorWidgetState extends State<StageFlowEditorWidget> {
     final hitNode = _hitTestNode(canvasPos);
 
     if (hitNode != null) {
-      final isShift = HardwareKeyboard.instance.isShiftPressed;
+      final isShift = _lastPointerModifiers.shift;
       if (isShift) {
         _p.toggleNodeSelection(hitNode.id);
       } else {
@@ -468,7 +480,7 @@ class _StageFlowEditorWidgetState extends State<StageFlowEditorWidget> {
     final hitNode = _hitTestNode(canvasPos);
 
     if (hitNode != null) {
-      final isAlt = HardwareKeyboard.instance.isAltPressed;
+      final isAlt = _lastPointerModifiers.alt;
       if (isAlt) {
         // Alt+drag = connect
         _connectingFromNodeId = hitNode.id;

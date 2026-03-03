@@ -953,16 +953,6 @@ pub extern "C" fn slot_lab_in_free_spins() -> i32 {
     }
 }
 
-/// Get remaining free spins (legacy wrapper - uses ENGINE_V2)
-#[unsafe(no_mangle)]
-pub extern "C" fn slot_lab_free_spins_remaining_legacy() -> u32 {
-    let guard = ENGINE_V2.read();
-    match &*guard {
-        Some(engine) => engine.free_spins_remaining(),
-        None => 0,
-    }
-}
-
 // ═══════════════════════════════════════════════════════════════════════════════
 // CONFIG EXPORT/IMPORT
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -2377,6 +2367,9 @@ pub extern "C" fn slot_lab_jackpot_won_amount() -> f64 {
 /// Returns 1 if triggered, 0 if failed
 #[unsafe(no_mangle)]
 pub extern "C" fn slot_lab_jackpot_force_trigger(tier: i32) -> i32 {
+    if tier < 0 || tier > 3 {
+        return 0;
+    }
     let mut guard = ENGINE_V2.write();
     match &mut *guard {
         Some(engine) => {

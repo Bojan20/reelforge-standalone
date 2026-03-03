@@ -67,18 +67,18 @@ class StageTemplates {
       stages: ['spin_start', 'reel_stop_0', 'reel_stop_1', 'reel_stop_2', 'anticipation_on', 'reel_stop_3', 'reel_stop_4', 'anticipation_off', 'spin_end'],
     ),
     StageTemplate(
-      id: 'small_win',
-      name: 'Small Win',
+      id: 'regular_win',
+      name: 'Regular Win',
       description: 'Basic win presentation without rollup',
       icon: Icons.celebration,
-      stages: ['win_present', 'win_line_show', 'win_line_hide'],
+      stages: ['win_present_1', 'win_line_show', 'win_line_hide'],
     ),
     StageTemplate(
       id: 'big_win',
       name: 'Big Win Flow',
       description: 'Full big win with rollup and celebration',
       icon: Icons.stars,
-      stages: ['win_present', 'bigwin_tier', 'rollup_start', 'rollup_tick', 'rollup_end', 'win_line_show', 'win_line_hide'],
+      stages: ['big_win_trigger', 'big_win_intro', 'big_win_tier_1', 'rollup_start', 'rollup_tick', 'rollup_end', 'big_win_end'],
     ),
     StageTemplate(
       id: 'free_spins_trigger',
@@ -979,6 +979,11 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final primaryFocus = FocusManager.instance.primaryFocus;
+    if (primaryFocus != null && primaryFocus.context != null) {
+      final editable = primaryFocus.context!.findAncestorWidgetOfExactType<EditableText>();
+      if (editable != null) return KeyEventResult.ignored;
+    }
     if (_stages.isEmpty) return KeyEventResult.ignored;
 
     switch (event.logicalKey) {
@@ -3114,9 +3119,11 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
                           if (_mouseHoverIndex == index) _mouseHoverIndex = null;
                         }),
                         cursor: SystemMouseCursors.click,
-                        child: GestureDetector(
-                          onTap: () {
-                            // P1.6: Multi-select support with modifier keys
+                        child: Listener(
+                          behavior: HitTestBehavior.opaque,
+                          onPointerDown: (event) {
+                            if (event.buttons != kPrimaryButton) return;
+                            // P1.6: Multi-select support with modifier keys (Listener = immediate)
                             final shiftPressed = HardwareKeyboard.instance.isShiftPressed;
                             final ctrlPressed = HardwareKeyboard.instance.isControlPressed ||
                                 HardwareKeyboard.instance.isMetaPressed; // Cmd on Mac
@@ -3129,6 +3136,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
                               widget.provider.triggerStageManually(index);
                             }
                           },
+                          child: GestureDetector(
                           // P1.5: Right-click context menu
                           onSecondaryTapUp: (details) {
                             _showStageContextMenu(
@@ -3370,6 +3378,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
                         },
                         ),
                       ), // Close GestureDetector
+                    ), // Close Listener
                     ), // Close MouseRegion
                     ), // Close Tooltip
                     ); // P2.5: Close RepaintBoundary + return

@@ -1230,11 +1230,11 @@ class _EmbeddedSlotMockupState extends State<EmbeddedSlotMockup>
 
   String _getWinTypeLabel() => switch (_winType) {
         WinType.noWin => '',
-        WinType.smallWin => 'WIN',
-        WinType.mediumWin => 'NICE WIN',
-        WinType.bigWin => 'BIG WIN',
-        WinType.megaWin => 'MEGA WIN',
-        WinType.epicWin => 'EPIC WIN',
+        WinType.smallWin => 'WIN 1',
+        WinType.mediumWin => 'WIN 2',
+        WinType.bigWin => 'WIN 3',
+        WinType.megaWin => 'WIN 4',
+        WinType.epicWin => 'WIN 5',
       };
 
   // ===========================================================================

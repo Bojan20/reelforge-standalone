@@ -157,6 +157,11 @@ class _StageKeyboardNavigatorState extends State<StageKeyboardNavigator> {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
+    final primaryFocus = FocusManager.instance.primaryFocus;
+    if (primaryFocus != null && primaryFocus.context != null) {
+      final editable = primaryFocus.context!.findAncestorWidgetOfExactType<EditableText>();
+      if (editable != null) return KeyEventResult.ignored;
+    }
 
     final key = event.logicalKey;
 

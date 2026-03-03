@@ -4,6 +4,7 @@
 /// Supports fuzzy matching of audio filenames to stages.
 
 import 'dart:math';
+import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 
 /// Three main stage groups for simplified batch import
 enum StageGroup {
@@ -441,10 +442,10 @@ class StageGroupService {
   /// Call this to diagnose matching issues
   void debugTestMatch(String fileName) {
     final normalized = _normalizeFileName(fileName);
-    print('═══════════════════════════════════════════════════════════════');
-    print('[DEBUG] Testing match for: "$fileName"');
-    print('[DEBUG] Normalized: "$normalized"');
-    print('───────────────────────────────────────────────────────────────');
+    if (kDebugMode) debugPrint('═══════════════════════════════════════════════════════════════');
+    if (kDebugMode) debugPrint('[DEBUG] Testing match for: "$fileName"');
+    if (kDebugMode) debugPrint('[DEBUG] Normalized: "$normalized"');
+    if (kDebugMode) debugPrint('───────────────────────────────────────────────────────────────');
 
     for (final group in StageGroup.values) {
       final definitions = _stageDefinitions[group] ?? [];
@@ -452,7 +453,7 @@ class StageGroupService {
         final (confidence, keywords) = _calculateConfidence(normalized, def);
         if (confidence > 0 || keywords.any((k) => k.startsWith('EXCLUDED:') || k.startsWith('MISSING'))) {
           final status = confidence > 0 ? '✅' : '❌';
-          print('$status ${def.stage}: ${(confidence * 100).toStringAsFixed(0)}% — ${keywords.join(", ")}');
+          if (kDebugMode) debugPrint('$status ${def.stage}: ${(confidence * 100).toStringAsFixed(0)}% — ${keywords.join(", ")}');
         }
       }
     }
@@ -460,22 +461,22 @@ class StageGroupService {
     // Final result
     final match = matchSingleFile('/fake/$fileName.wav');
     if (match != null) {
-      print('───────────────────────────────────────────────────────────────');
-      print('[RESULT] MATCHED: ${match.stage} (${(match.confidence * 100).toStringAsFixed(0)}%)');
-      print('[RESULT] Event name: ${match.eventName}');
+      if (kDebugMode) debugPrint('───────────────────────────────────────────────────────────────');
+      if (kDebugMode) debugPrint('[RESULT] MATCHED: ${match.stage} (${(match.confidence * 100).toStringAsFixed(0)}%)');
+      if (kDebugMode) debugPrint('[RESULT] Event name: ${match.eventName}');
     } else {
-      print('───────────────────────────────────────────────────────────────');
-      print('[RESULT] NO MATCH');
+      if (kDebugMode) debugPrint('───────────────────────────────────────────────────────────────');
+      if (kDebugMode) debugPrint('[RESULT] NO MATCH');
     }
-    print('═══════════════════════════════════════════════════════════════');
+    if (kDebugMode) debugPrint('═══════════════════════════════════════════════════════════════');
   }
 
   /// RUN ALL TESTS: Verify matching logic with common filenames
   /// Returns true if all tests pass
   bool runMatchingTests() {
-    print('\n╔═══════════════════════════════════════════════════════════════╗');
-    print('║        BATCH IMPORT MATCHING TESTS v2.0                        ║');
-    print('╚═══════════════════════════════════════════════════════════════╝\n');
+    if (kDebugMode) debugPrint('\n╔═══════════════════════════════════════════════════════════════╗');
+    if (kDebugMode) debugPrint('║        BATCH IMPORT MATCHING TESTS v2.0                        ║');
+    if (kDebugMode) debugPrint('╚═══════════════════════════════════════════════════════════════╝\n');
 
     final tests = <(String fileName, String expectedStage)>[
       // ── SPIN_START (UI spin button) ──
@@ -535,24 +536,24 @@ class StageGroupService {
 
       if (actualStage == expectedStage) {
         passed++;
-        print('✅ "$fileName" → $expectedStage');
+        if (kDebugMode) debugPrint('✅ "$fileName" → $expectedStage');
       } else {
         failed++;
         final msg = '❌ "$fileName" → Expected: $expectedStage, Got: ${actualStage ?? "NO MATCH"}';
-        print(msg);
+        if (kDebugMode) debugPrint(msg);
         failures.add(msg);
       }
     }
 
-    print('\n────────────────────────────────────────────────────────────────');
-    print('RESULTS: $passed passed, $failed failed');
+    if (kDebugMode) debugPrint('\n────────────────────────────────────────────────────────────────');
+    if (kDebugMode) debugPrint('RESULTS: $passed passed, $failed failed');
     if (failures.isNotEmpty) {
-      print('\nFAILURES:');
+      if (kDebugMode) debugPrint('\nFAILURES:');
       for (final f in failures) {
-        print('  $f');
+        if (kDebugMode) debugPrint('  $f');
       }
     }
-    print('────────────────────────────────────────────────────────────────\n');
+    if (kDebugMode) debugPrint('────────────────────────────────────────────────────────────────\n');
 
     return failed == 0;
   }
@@ -2101,7 +2102,7 @@ class StageGroupService {
     // ═══════════════════════════════════════════════════════════════════════
     final indexOffset = _detectIndexingConvention(audioPaths);
     if (indexOffset != 0) {
-      print('[BatchMatch] Detected 1-indexed naming convention, applying offset: $indexOffset');
+      if (kDebugMode) debugPrint('[BatchMatch] Detected 1-indexed naming convention, applying offset: $indexOffset');
     }
 
     for (final path in audioPaths) {

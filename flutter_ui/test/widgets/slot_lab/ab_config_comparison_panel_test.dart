@@ -12,9 +12,9 @@ void main() {
         grid: const SlotGridConfig(reels: 5, rows: 3, paylines: 10, mechanic: 'lines'),
         symbols: const [],
         winTiers: const SlotWinTierConfig(
-          bigWinThreshold: 20.0,
-          megaWinThreshold: 50.0,
-          epicWinThreshold: 100.0,
+          tier3Threshold: 20.0,
+          tier4Threshold: 50.0,
+          tier5Threshold: 100.0,
           rollupDurationMs: 2500,
         ),
         audioAssignments: const {},
@@ -23,7 +23,7 @@ void main() {
       expect(config.id, 'test-1');
       expect(config.name, 'Test Config');
       expect(config.grid.reels, 5);
-      expect(config.winTiers.bigWinThreshold, 20.0);
+      expect(config.winTiers.tier3Threshold, 20.0);
     });
 
     test('toJson and fromJson roundtrip', () {
@@ -36,9 +36,9 @@ void main() {
           SlotSymbolConfig(id: 'HP1', name: 'High Pay 1', type: 'high', payouts: {3: 10.0, 4: 20.0, 5: 50.0}),
         ],
         winTiers: const SlotWinTierConfig(
-          bigWinThreshold: 20.0,
-          megaWinThreshold: 50.0,
-          epicWinThreshold: 100.0,
+          tier3Threshold: 20.0,
+          tier4Threshold: 50.0,
+          tier5Threshold: 100.0,
           rollupDurationMs: 2500,
         ),
         audioAssignments: const {'SPIN_START': 'spin.wav'},
@@ -62,9 +62,9 @@ void main() {
         grid: const SlotGridConfig(reels: 5, rows: 3, paylines: 10, mechanic: 'lines'),
         symbols: const [],
         winTiers: const SlotWinTierConfig(
-          bigWinThreshold: 20.0,
-          megaWinThreshold: 50.0,
-          epicWinThreshold: 100.0,
+          tier3Threshold: 20.0,
+          tier4Threshold: 50.0,
+          tier5Threshold: 100.0,
           rollupDurationMs: 2500,
         ),
         audioAssignments: const {},
@@ -99,21 +99,21 @@ void main() {
   group('SlotWinTierConfig', () {
     test('equality check works correctly', () {
       const tiers1 = SlotWinTierConfig(
-        bigWinThreshold: 20.0,
-        megaWinThreshold: 50.0,
-        epicWinThreshold: 100.0,
+        tier3Threshold: 20.0,
+        tier4Threshold: 50.0,
+        tier5Threshold: 100.0,
         rollupDurationMs: 2500,
       );
       const tiers2 = SlotWinTierConfig(
-        bigWinThreshold: 20.0,
-        megaWinThreshold: 50.0,
-        epicWinThreshold: 100.0,
+        tier3Threshold: 20.0,
+        tier4Threshold: 50.0,
+        tier5Threshold: 100.0,
         rollupDurationMs: 2500,
       );
       const tiers3 = SlotWinTierConfig(
-        bigWinThreshold: 25.0,
-        megaWinThreshold: 50.0,
-        epicWinThreshold: 100.0,
+        tier3Threshold: 25.0,
+        tier4Threshold: 50.0,
+        tier5Threshold: 100.0,
         rollupDurationMs: 2500,
       );
 
@@ -180,9 +180,9 @@ void main() {
         grid: const SlotGridConfig(reels: 5, rows: 3, paylines: 10, mechanic: 'lines'),
         symbols: const [],
         winTiers: const SlotWinTierConfig(
-          bigWinThreshold: 20.0,
-          megaWinThreshold: 50.0,
-          epicWinThreshold: 100.0,
+          tier3Threshold: 20.0,
+          tier4Threshold: 50.0,
+          tier5Threshold: 100.0,
           rollupDurationMs: 2500,
         ),
         audioAssignments: const {},
@@ -195,9 +195,9 @@ void main() {
         grid: const SlotGridConfig(reels: 5, rows: 3, paylines: 10, mechanic: 'lines'),
         symbols: const [],
         winTiers: const SlotWinTierConfig(
-          bigWinThreshold: 20.0,
-          megaWinThreshold: 50.0,
-          epicWinThreshold: 100.0,
+          tier3Threshold: 20.0,
+          tier4Threshold: 50.0,
+          tier5Threshold: 100.0,
           rollupDurationMs: 2500,
         ),
         audioAssignments: const {},
@@ -254,9 +254,9 @@ void main() {
         grid: const SlotGridConfig(reels: 5, rows: 3, paylines: 10, mechanic: 'lines'),
         symbols: const [],
         winTiers: const SlotWinTierConfig(
-          bigWinThreshold: 20.0,
-          megaWinThreshold: 50.0,
-          epicWinThreshold: 100.0,
+          tier3Threshold: 20.0,
+          tier4Threshold: 50.0,
+          tier5Threshold: 100.0,
           rollupDurationMs: 2500,
         ),
         audioAssignments: const {},
@@ -295,9 +295,9 @@ void main() {
         grid: const SlotGridConfig(reels: 5, rows: 3, paylines: 10, mechanic: 'lines'),
         symbols: const [],
         winTiers: const SlotWinTierConfig(
-          bigWinThreshold: 20.0,
-          megaWinThreshold: 50.0,
-          epicWinThreshold: 100.0,
+          tier3Threshold: 20.0,
+          tier4Threshold: 50.0,
+          tier5Threshold: 100.0,
           rollupDurationMs: 2500,
         ),
         audioAssignments: const {},
@@ -310,9 +310,9 @@ void main() {
         grid: const SlotGridConfig(reels: 6, rows: 4, paylines: 20, mechanic: 'ways'),
         symbols: const [],
         winTiers: const SlotWinTierConfig(
-          bigWinThreshold: 25.0,
-          megaWinThreshold: 60.0,
-          epicWinThreshold: 120.0,
+          tier3Threshold: 25.0,
+          tier4Threshold: 60.0,
+          tier5Threshold: 120.0,
           rollupDurationMs: 3000,
         ),
         audioAssignments: const {},

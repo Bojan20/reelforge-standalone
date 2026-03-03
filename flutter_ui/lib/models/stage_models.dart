@@ -34,11 +34,11 @@ enum BigWinTier {
   };
 
   String get displayName => switch (this) {
-    win => 'WIN',
-    bigWin => 'BIG WIN',
-    megaWin => 'MEGA WIN',
-    epicWin => 'EPIC WIN',
-    ultraWin => 'ULTRA WIN',
+    win => 'WIN 1',
+    bigWin => 'WIN 2',
+    megaWin => 'WIN 3',
+    epicWin => 'WIN 4',
+    ultraWin => 'WIN 5',
   };
 
   static BigWinTier? fromJson(dynamic json) {

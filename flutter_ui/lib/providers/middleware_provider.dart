@@ -282,6 +282,7 @@ class MiddlewareProvider extends ChangeNotifier {
 
   /// Composite Event System subsystem (extracted P1.5)
   late final composite_provider.CompositeEventSystemProvider _compositeEventSystemProvider;
+  final Map<Function, void Function(String, composite_provider.CompositeEventChangeType)> _compositeAdapters = {};
 
   /// Bus Hierarchy subsystem (extracted Provider Decomposition)
   late final BusHierarchyProvider _busHierarchyProvider;
@@ -435,37 +436,31 @@ class MiddlewareProvider extends ChangeNotifier {
   /// Handle bus hierarchy changes
   void _onBusHierarchyChanged() {
     _markChanged(changeBusHierarchy);
-    notifyListeners();
   }
 
   /// Handle aux send changes
   void _onAuxSendChanged() {
-    _markChanged(changeBusHierarchy);  // Reuse bus hierarchy flag for routing changes
-    notifyListeners();
+    _markChanged(changeBusHierarchy);
   }
 
   /// Handle voice pool changes
   void _onVoicePoolChanged() {
     _markChanged(changeVoicePool);
-    notifyListeners();
   }
 
   /// Handle attenuation curve changes
   void _onAttenuationCurveChanged() {
-    _markChanged(changeSlotElements);  // Reuse slot elements flag for attenuation
-    notifyListeners();
+    _markChanged(changeSlotElements);
   }
 
   /// Handle memory manager changes
   void _onMemoryManagerChanged() {
-    _markChanged(changeSlotElements);  // Reuse slot elements flag for memory changes
-    notifyListeners();
+    _markChanged(changeSlotElements);
   }
 
   /// Handle event profiler changes
   void _onEventProfilerChanged() {
-    // Profiler is typically read-only, but notify for UI updates
-    notifyListeners();
+    _markChanged(changeSlotElements);
   }
 
   /// Initialize audio services with this provider reference
@@ -549,20 +544,28 @@ class MiddlewareProvider extends ChangeNotifier {
   /// Register a listener for composite event changes (delegated)
   void addCompositeChangeListener(
       void Function(String eventId, CompositeEventChangeType type) listener) {
-    // Adapt MiddlewareProvider's enum to provider's enum
-    _compositeEventSystemProvider.addCompositeChangeListener(
-      (eventId, type) {
-        final mappedType = switch (type) {
-          composite_provider.CompositeEventChangeType.created =>
-            CompositeEventChangeType.created,
-          composite_provider.CompositeEventChangeType.updated =>
-            CompositeEventChangeType.updated,
-          composite_provider.CompositeEventChangeType.deleted =>
-            CompositeEventChangeType.deleted,
-        };
-        listener(eventId, mappedType);
-      },
-    );
+    void adapter(String eventId, composite_provider.CompositeEventChangeType type) {
+      final mappedType = switch (type) {
+        composite_provider.CompositeEventChangeType.created =>
+          CompositeEventChangeType.created,
+        composite_provider.CompositeEventChangeType.updated =>
+          CompositeEventChangeType.updated,
+        composite_provider.CompositeEventChangeType.deleted =>
+          CompositeEventChangeType.deleted,
+      };
+      listener(eventId, mappedType);
+    }
+    _compositeAdapters[listener] = adapter;
+    _compositeEventSystemProvider.addCompositeChangeListener(adapter);
+  }
+
+  /// Remove a previously registered composite change listener
+  void removeCompositeChangeListener(
+      void Function(String eventId, CompositeEventChangeType type) listener) {
+    final adapter = _compositeAdapters.remove(listener);
+    if (adapter != null) {
+      _compositeEventSystemProvider.removeCompositeChangeListener(adapter);
+    }
   }
 
   StateGroup? getStateGroup(int groupId) => _stateGroupsProvider.getStateGroup(groupId);
@@ -3979,8 +3982,15 @@ class MiddlewareProvider extends ChangeNotifier {
       _blendContainersProvider.removeListener(_onBlendContainersChanged);
       _randomContainersProvider.removeListener(_onRandomContainersChanged);
       _sequenceContainersProvider.removeListener(_onSequenceContainersChanged);
+      _musicSystemProvider.removeListener(_onMusicSystemChanged);
       _eventSystemProvider.removeListener(_onEventSystemChanged);
       _compositeEventSystemProvider.removeListener(_onCompositeEventsChanged);
+      _busHierarchyProvider.removeListener(_onBusHierarchyChanged);
+      _auxSendProvider.removeListener(_onAuxSendChanged);
+      _voicePoolProvider.removeListener(_onVoicePoolChanged);
+      _attenuationCurveProvider.removeListener(_onAttenuationCurveChanged);
+      _memoryManagerProvider.removeListener(_onMemoryManagerChanged);
+      _eventProfilerProvider.removeListener(_onEventProfilerChanged);
       _listenersRegistered = false;
     }
 

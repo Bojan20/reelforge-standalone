@@ -5912,11 +5912,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         eventRegistry.triggerStage('BIG_WIN_TIER_1');
         break;
       default:
-        eventRegistry.triggerStage('WIN_SMALL');
+        eventRegistry.triggerStage('WIN_PRESENT_1');
     }
-
-    // Also trigger WIN_PRESENT for general win celebration
-    eventRegistry.triggerStage('WIN_PRESENT');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -6188,28 +6185,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     return tier.startsWith('BIG_WIN_TIER_');
   }
 
-  /// LEGACY: Get win tier string for UI display (DEPRECATED - use _getWinTierFromRatio)
-  /// Returns 'BIG_WIN_TIER_1' through 'BIG_WIN_TIER_5'
-  @Deprecated('Use _getWinTierFromRatio(result.winRatio) instead')
-  String _getWinTier(double win) {
-    // win parameter is actually totalWin in this context
-    // We need bet amount to calculate ratio properly
-    final bet = _totalBetAmount > 0 ? _totalBetAmount : 1.0;
-    final tierResult = _getP5WinTierResult(win, bet);
-
-    if (tierResult == null || !tierResult.isBigWin) return '';
-
-    // Map P5 big win tier ID to tier string
-    return switch (tierResult.bigWinMaxTier) {
-      1 => 'BIG_WIN_TIER_1',
-      2 => 'BIG_WIN_TIER_2',
-      3 => 'BIG_WIN_TIER_3',
-      4 => 'BIG_WIN_TIER_4',
-      5 => 'BIG_WIN_TIER_5',
-      _ => 'BIG_WIN_TIER_1',
-    };
-  }
-
   /// P5: Get display label from configurable tier system
   /// Returns user-configured label instead of hardcoded "BIG WIN!" etc.
   String _getP5WinTierDisplayLabel(double totalWin, double bet) {
@@ -6343,6 +6318,11 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final primaryFocus = FocusManager.instance.primaryFocus;
+    if (primaryFocus != null && primaryFocus.context != null) {
+      final editable = primaryFocus.context!.findAncestorWidgetOfExactType<EditableText>();
+      if (editable != null) return KeyEventResult.ignored;
+    }
 
     final provider = context.read<SlotLabProvider>();
 

@@ -177,7 +177,7 @@ class ForcedOutcomeConfig {
     // ═══════════════════════════════════════════════════════════════════
     ForcedOutcomeConfig(
       outcome: ForcedOutcome.megaWin, // Maps to BIG_WIN in P5
-      label: 'BIG WIN',
+      label: 'WIN 4',
       shortLabel: 'BIG WIN TIER 1',
       description: 'Big Win: 20x+ bet with tier escalation (BIG_WIN_TIER_1→5)',
       icon: Icons.auto_awesome,
@@ -483,6 +483,11 @@ class _ForcedOutcomePanelState extends State<ForcedOutcomePanel>
 
   void _handleKeyPress(KeyEvent event) {
     if (event is! KeyDownEvent) return;
+    final primaryFocus = FocusManager.instance.primaryFocus;
+    if (primaryFocus != null && primaryFocus.context != null) {
+      final editable = primaryFocus.context!.findAncestorWidgetOfExactType<EditableText>();
+      if (editable != null) return;
+    }
 
     // Check for number keys 1-0
     // P13.8.7: Only trigger if outcome is visible (block enabled)

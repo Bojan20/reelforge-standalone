@@ -119,7 +119,6 @@ import '../widgets/stage_ingest/stage_ingest_panel.dart';
 import '../widgets/slot_lab/gdd_import_wizard.dart';
 import '../widgets/slot_lab/gdd_preview_dialog.dart';
 import '../widgets/ale/ale_panel.dart';
-// import '../widgets/slot_lab/symbol_strip_widget.dart'; // LEGACY - replaced by UltimateAudioPanel
 import '../widgets/slot_lab/ultimate_audio_panel.dart';
 import '../widgets/aurexis/aurexis_panel.dart';
 import '../widgets/slot_lab/events_panel_widget.dart';
@@ -669,18 +668,38 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     'REEL_STOP_3',
     'REEL_STOP_4',
     // ─── WIN STAGES ───
-    'WIN_PRESENT',
-    'WIN_SMALL',
-    'WIN_MEDIUM',
-    'WIN_BIG',
-    'WIN_MEGA',
-    'WIN_EPIC',
-    'WIN_ULTRA',
-    'BIGWIN_TIER',
+    'WIN_PRESENT_1',
+    'WIN_PRESENT_2',
+    'WIN_PRESENT_3',
+    'WIN_PRESENT_4',
+    'WIN_PRESENT_5',
+    'WIN_PRESENT_LOW',
+    'WIN_PRESENT_EQUAL',
+    'NO_WIN',
+    'WIN_EVAL',
+    'WIN_DETECTED',
+    'WIN_CALCULATE',
+    'WIN_PRESENT_END',
+    'WIN_FANFARE',
+    'WIN_LINE_CYCLE',
+    'WIN_SYMBOL_HIGHLIGHT',
+    // ─── BIG WIN ───
+    'BIG_WIN_TRIGGER',
+    'BIG_WIN_INTRO',
+    'BIG_WIN_TIER_1',
+    'BIG_WIN_TIER_2',
+    'BIG_WIN_TIER_3',
+    'BIG_WIN_TIER_4',
+    'BIG_WIN_TIER_5',
+    'BIG_WIN_IMPACT',
+    'BIG_WIN_UPGRADE',
+    'BIG_WIN_END',
+    'BIG_WIN_OUTRO',
     // ─── ROLLUP ───
     'ROLLUP_START',
     'ROLLUP_TICK',
     'ROLLUP_END',
+    'ROLLUP_SKIP',
     // ─── ANTICIPATION ───
     'ANTICIPATION_ON',
     'ANTICIPATION_OFF',
@@ -703,6 +722,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     'BONUS_EXIT',
     'BONUS_PICK',
     'BONUS_REVEAL',
+    // ─── GAMBLE ───
+    'GAMBLE_ENTER',
+    'GAMBLE_WIN',
+    'GAMBLE_LOSE',
+    'GAMBLE_COLLECT',
+    'GAMBLE_EXIT',
     // ─── CASCADE/TUMBLE ───
     'CASCADE_START',
     'CASCADE_STEP',
@@ -714,9 +739,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     'WILD_EXPAND',
     'WILD_STACK',
     'SCATTER_LAND',
+    'SCATTER_LAND_1',
+    'SCATTER_LAND_2',
     'SCATTER_LAND_3',
     'SCATTER_LAND_4',
     'SCATTER_LAND_5',
+    'SCATTER_COLLECT',
     // ─── MULTIPLIERS ───
     'MULT_INCREASE',
     'MULT_APPLY',
@@ -751,8 +779,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     return const {
       'SPIN_START', 'REEL_SPIN', 'REEL_STOP',
       'REEL_STOP_0', 'REEL_STOP_1', 'REEL_STOP_2', 'REEL_STOP_3', 'REEL_STOP_4',
-      'WIN_PRESENT', 'WIN_BIG', 'BIGWIN_TIER',
+      'WIN_PRESENT_1', 'WIN_PRESENT_3', 'WIN_PRESENT_5',
+      'BIG_WIN_TIER_1', 'BIG_WIN_TIER_3', 'BIG_WIN_TIER_5',
       'ANTICIPATION_ON', 'FEATURE_ENTER', 'BONUS_ENTER',
+      'ROLLUP_TICK', 'ROLLUP_END',
     }.contains(stage);
   }
 
@@ -789,8 +819,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       'spin' => 'SPIN_START',
       'reelstop' => 'REEL_STOP',
       'anticipation' => 'ANTICIPATION_ON',
-      'win' => 'WIN_PRESENT',
-      'bigwin' => 'BIGWIN_TIER',
+      'win' => 'WIN_PRESENT_1',
+      'bigwin' => 'BIG_WIN_TIER_1',
       'feature' => 'FEATURE_ENTER',
       'bonus' => 'BONUS_ENTER',
       'general' => event.name.toUpperCase().replaceAll(' ', '_'),
@@ -3700,8 +3730,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   }
 
   Future<void> _applyTemplate(BuiltTemplate builtTemplate) async {
-    // ignore: unused_local_variable
-    final projectProvider = context.read<SlotLabProjectProvider>();
     final template = builtTemplate.source;
 
     // V11: Auto-configure FeatureComposer from template

@@ -862,7 +862,7 @@ pub extern "C" fn stage_bigwin_tier_from_ratio(win_ratio: f64) -> *mut c_char {
 /// Caller must free
 #[unsafe(no_mangle)]
 pub extern "C" fn stage_bigwin_tier_all() -> *mut c_char {
-    let tiers = vec!["Win", "BigWin", "MegaWin", "EpicWin", "UltraWin"];
+    let tiers = vec!["WIN 1", "WIN 2", "WIN 3", "WIN 4", "WIN 5"];
     match serde_json::to_string(&tiers) {
         Ok(json) => match CString::new(json) {
             Ok(cs) => cs.into_raw(),

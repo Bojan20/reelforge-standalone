@@ -779,11 +779,14 @@ class EventRegistry extends ChangeNotifier {
     'AMBIENT_FEATURE': 'ambient',
     'AMBIENT_LOOP': 'ambient',
     // Win presentation group (for tier transitions)
-    'WIN_PRESENT': 'win_tier',
-    'BIGWIN_START': 'win_tier',
-    'MEGAWIN_START': 'win_tier',
-    'EPICWIN_START': 'win_tier',
-    'ULTRAWIN_START': 'win_tier',
+    'WIN_PRESENT_1': 'win_tier',
+    'WIN_PRESENT_3': 'win_tier',
+    'WIN_PRESENT_5': 'win_tier',
+    'BIG_WIN_TIER_1': 'win_tier',
+    'BIG_WIN_TIER_2': 'win_tier',
+    'BIG_WIN_TIER_3': 'win_tier',
+    'BIG_WIN_TIER_4': 'win_tier',
+    'BIG_WIN_TIER_5': 'win_tier',
   };
 
   /// P1.10: Currently playing voices per crossfade group
@@ -2906,7 +2909,7 @@ class EventRegistry extends ChangeNotifier {
     return AudioEvent(
       id: 'slot_bigwin_tier_$tier',
       name: 'Big Win - ${tier[0].toUpperCase()}${tier.substring(1)}',
-      stage: stageMap[tier] ?? 'BIGWIN_TIER',
+      stage: stageMap[tier] ?? 'BIG_WIN_TIER_1',
       layers: layers,
       priority: tier == 'ultra' ? 100 : (tier == 'epic' ? 80 : (tier == 'mega' ? 60 : 40)),
     );

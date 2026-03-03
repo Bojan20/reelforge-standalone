@@ -273,16 +273,15 @@ class SlotLabProvider extends ChangeNotifier {
   // ─── Free Spins State ──────────────────────────────────────────────────────
   bool _inFreeSpins = false;
   int _freeSpinsRemaining = 0;
+  int _freeSpinsTotal = 0;
 
   // ─── Audio Integration ─────────────────────────────────────────────────────
   MiddlewareProvider? _middleware;
-  VoidCallback? _middlewareListener; // P1-H2: Track for cleanup
   StageAudioMapper? _audioMapper;
   bool _autoTriggerAudio = true;
 
   // ─── ALE Integration ──────────────────────────────────────────────────────
   AleProvider? _aleProvider;
-  VoidCallback? _aleListener; // P1-H2: Track for cleanup
   bool _aleAutoSync = true;
 
   // ─── Stage Event Playback ──────────────────────────────────────────────────
@@ -618,7 +617,7 @@ class SlotLabProvider extends ChangeNotifier {
       case WinTier.epicWin:
         return 'BIG_WIN_TIER_3';
       case WinTier.ultraWin:
-        return 'BIG_WIN_TIER_4';
+        return 'BIG_WIN_TIER_5';
       case WinTier.jackpotMini:
         return 'JACKPOT MINI';
       case WinTier.jackpotMinor:
@@ -830,23 +829,13 @@ class SlotLabProvider extends ChangeNotifier {
   }
 
   /// Connect middleware for audio triggering
-  /// P1-H2: Remove old listener before setting new reference to prevent leaks
   void connectMiddleware(MiddlewareProvider middleware) {
-    if (_middleware != null && _middlewareListener != null) {
-      _middleware!.removeListener(_middlewareListener!);
-      _middlewareListener = null;
-    }
     _middleware = middleware;
     _audioMapper = StageAudioMapper(middleware, _ffi);
   }
 
   /// Connect ALE provider for signal sync
-  /// P1-H2: Remove old listener before setting new reference to prevent leaks
   void connectAle(AleProvider ale) {
-    if (_aleProvider != null && _aleListener != null) {
-      _aleProvider!.removeListener(_aleListener!);
-      _aleListener = null;
-    }
     _aleProvider = ale;
   }
 
@@ -1231,8 +1220,8 @@ class SlotLabProvider extends ChangeNotifier {
       'sessionProgress': (_spinCount / 100.0).clamp(0.0, 1.0),
 
       // Feature progress (free spins progress if active)
-      'featureProgress': _inFreeSpins
-          ? 1.0 - (_freeSpinsRemaining / 15.0).clamp(0.0, 1.0)
+      'featureProgress': _inFreeSpins && _freeSpinsTotal > 0
+          ? 1.0 - (_freeSpinsRemaining / _freeSpinsTotal.toDouble()).clamp(0.0, 1.0)
           : 0.0,
 
       // Bet multiplier (normalized)
@@ -1415,6 +1404,7 @@ class SlotLabProvider extends ChangeNotifier {
       }
 
       _currentStageIndex++;
+      if (_currentStageIndex >= _lastStages.length) return;
       final stage = _lastStages[_currentStageIndex];
 
       // DIRECT TRIGGER — No pre-trigger, exact sync with animation
@@ -2208,6 +2198,10 @@ class SlotLabProvider extends ChangeNotifier {
 
     _inFreeSpins = _ffi.slotLabInFreeSpins();
     _freeSpinsRemaining = _ffi.slotLabFreeSpinsRemaining();
+    if (_inFreeSpins) {
+      final total = _ffi.freeSpinsTotal();
+      if (total > 0) _freeSpinsTotal = total;
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2598,15 +2592,6 @@ class SlotLabProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    // P1-H2: Clean up listeners to prevent memory leaks
-    if (_middleware != null && _middlewareListener != null) {
-      _middleware!.removeListener(_middlewareListener!);
-      _middlewareListener = null;
-    }
-    if (_aleProvider != null && _aleListener != null) {
-      _aleProvider!.removeListener(_aleListener!);
-      _aleListener = null;
-    }
     _stagePlaybackTimer?.cancel();
     _audioPreTriggerTimer?.cancel();
     shutdownEngineV2();

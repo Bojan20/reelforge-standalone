@@ -623,8 +623,8 @@ class GddTemplateGenerator {
         'REEL_SPIN',
         'REEL_STOP',
         'ANTICIPATION',
-        'WIN_SMALL',
-        'WIN_BIG',
+        'WIN_PRESENT_1',
+        'WIN_PRESENT_5',
         'FREE_SPINS_TRIGGER',
       ],
     };

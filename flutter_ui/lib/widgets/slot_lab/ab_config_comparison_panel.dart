@@ -156,45 +156,48 @@ class SlotSymbolConfig {
 }
 
 class SlotWinTierConfig {
-  final double bigWinThreshold;
-  final double megaWinThreshold;
-  final double epicWinThreshold;
+  final double tier3Threshold;
+  final double tier4Threshold;
+  final double tier5Threshold;
   final int rollupDurationMs;
 
   const SlotWinTierConfig({
-    required this.bigWinThreshold,
-    required this.megaWinThreshold,
-    required this.epicWinThreshold,
+    required this.tier3Threshold,
+    required this.tier4Threshold,
+    required this.tier5Threshold,
     required this.rollupDurationMs,
   });
 
   Map<String, dynamic> toJson() => {
-    'bigWinThreshold': bigWinThreshold,
-    'megaWinThreshold': megaWinThreshold,
-    'epicWinThreshold': epicWinThreshold,
+    'tier3Threshold': tier3Threshold,
+    'tier4Threshold': tier4Threshold,
+    'tier5Threshold': tier5Threshold,
     'rollupDurationMs': rollupDurationMs,
   };
 
   factory SlotWinTierConfig.fromJson(Map<String, dynamic> json) {
     return SlotWinTierConfig(
-      bigWinThreshold: (json['bigWinThreshold'] as num).toDouble(),
-      megaWinThreshold: (json['megaWinThreshold'] as num).toDouble(),
-      epicWinThreshold: (json['epicWinThreshold'] as num).toDouble(),
-      rollupDurationMs: json['rollupDurationMs'] as int,
+      tier3Threshold: (json['tier3Threshold'] as num?)?.toDouble() ??
+          (json['bigWinThreshold'] as num?)?.toDouble() ?? 20.0,
+      tier4Threshold: (json['tier4Threshold'] as num?)?.toDouble() ??
+          (json['megaWinThreshold'] as num?)?.toDouble() ?? 50.0,
+      tier5Threshold: (json['tier5Threshold'] as num?)?.toDouble() ??
+          (json['epicWinThreshold'] as num?)?.toDouble() ?? 100.0,
+      rollupDurationMs: json['rollupDurationMs'] as int? ?? 2000,
     );
   }
 
   @override
   bool operator ==(Object other) =>
       other is SlotWinTierConfig &&
-      other.bigWinThreshold == bigWinThreshold &&
-      other.megaWinThreshold == megaWinThreshold &&
-      other.epicWinThreshold == epicWinThreshold &&
+      other.tier3Threshold == tier3Threshold &&
+      other.tier4Threshold == tier4Threshold &&
+      other.tier5Threshold == tier5Threshold &&
       other.rollupDurationMs == rollupDurationMs;
 
   @override
   int get hashCode => Object.hash(
-    bigWinThreshold, megaWinThreshold, epicWinThreshold, rollupDurationMs);
+    tier3Threshold, tier4Threshold, tier5Threshold, rollupDurationMs);
 }
 
 /// Type of difference between configurations
@@ -495,9 +498,9 @@ class _ABConfigComparisonPanelState extends State<ABConfigComparisonPanel> {
                 _buildConfigSection(
                   'Win Tiers',
                   [
-                    _buildConfigRow('Big Win', '${config.winTiers.bigWinThreshold}x', diffs, 'winTiers.bigWinThreshold', isA),
-                    _buildConfigRow('Mega Win', '${config.winTiers.megaWinThreshold}x', diffs, 'winTiers.megaWinThreshold', isA),
-                    _buildConfigRow('Epic Win', '${config.winTiers.epicWinThreshold}x', diffs, 'winTiers.epicWinThreshold', isA),
+                    _buildConfigRow('Tier 3', '${config.winTiers.tier3Threshold}x', diffs, 'winTiers.tier3Threshold', isA),
+                    _buildConfigRow('Tier 4', '${config.winTiers.tier4Threshold}x', diffs, 'winTiers.tier4Threshold', isA),
+                    _buildConfigRow('Tier 5', '${config.winTiers.tier5Threshold}x', diffs, 'winTiers.tier5Threshold', isA),
                     _buildConfigRow('Rollup', '${config.winTiers.rollupDurationMs}ms', diffs, 'winTiers.rollupDurationMs', isA),
                   ],
                 ),
@@ -795,31 +798,31 @@ class _ABConfigComparisonPanelState extends State<ABConfigComparisonPanel> {
     }
 
     // Win tier diffs
-    if (configA.winTiers.bigWinThreshold != configB.winTiers.bigWinThreshold) {
+    if (configA.winTiers.tier3Threshold != configB.winTiers.tier3Threshold) {
       diffs.add(ConfigDiff(
         category: 'winTiers',
-        path: 'winTiers.bigWinThreshold',
+        path: 'winTiers.tier3Threshold',
         type: DiffType.changed,
-        valueA: configA.winTiers.bigWinThreshold,
-        valueB: configB.winTiers.bigWinThreshold,
+        valueA: configA.winTiers.tier3Threshold,
+        valueB: configB.winTiers.tier3Threshold,
       ));
     }
-    if (configA.winTiers.megaWinThreshold != configB.winTiers.megaWinThreshold) {
+    if (configA.winTiers.tier4Threshold != configB.winTiers.tier4Threshold) {
       diffs.add(ConfigDiff(
         category: 'winTiers',
-        path: 'winTiers.megaWinThreshold',
+        path: 'winTiers.tier4Threshold',
         type: DiffType.changed,
-        valueA: configA.winTiers.megaWinThreshold,
-        valueB: configB.winTiers.megaWinThreshold,
+        valueA: configA.winTiers.tier4Threshold,
+        valueB: configB.winTiers.tier4Threshold,
       ));
     }
-    if (configA.winTiers.epicWinThreshold != configB.winTiers.epicWinThreshold) {
+    if (configA.winTiers.tier5Threshold != configB.winTiers.tier5Threshold) {
       diffs.add(ConfigDiff(
         category: 'winTiers',
-        path: 'winTiers.epicWinThreshold',
+        path: 'winTiers.tier5Threshold',
         type: DiffType.changed,
-        valueA: configA.winTiers.epicWinThreshold,
-        valueB: configB.winTiers.epicWinThreshold,
+        valueA: configA.winTiers.tier5Threshold,
+        valueB: configB.winTiers.tier5Threshold,
       ));
     }
     if (configA.winTiers.rollupDurationMs != configB.winTiers.rollupDurationMs) {

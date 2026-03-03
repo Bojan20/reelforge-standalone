@@ -801,7 +801,7 @@ class AudioPlaybackService extends ChangeNotifier {
 
   /// Check if we should release playback (no active voices)
   void _checkAndReleasePlayback() {
-    if (_activeVoices.isEmpty && _activeSource != PlaybackSource.daw) {
+    if (_activeVoices.isEmpty && _activeSource != null && _activeSource != PlaybackSource.daw) {
       _releasePlayback(_activeSource!);
     }
   }
@@ -992,6 +992,7 @@ class AudioPlaybackService extends ChangeNotifier {
   /// Dispose service
   @override
   void dispose() {
+    cancelAllPreTriggers();
     stopAll();
     super.dispose();
   }

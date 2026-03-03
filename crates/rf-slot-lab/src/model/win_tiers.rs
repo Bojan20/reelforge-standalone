@@ -440,7 +440,7 @@ impl RegularWinConfig {
                 // WIN_EQUAL: = 1x bet (push)
                 RegularWinTier {
                     tier_id: 0,
-                    display_label: "PUSH".to_string(),
+                    display_label: "WIN 0".to_string(),
                     from_multiplier: 1.0,
                     to_multiplier: 1.001,
                     rollup_duration_ms: 500,
@@ -450,7 +450,7 @@ impl RegularWinConfig {
                 // WIN_1: 1x < w ≤ 2x
                 RegularWinTier {
                     tier_id: 1,
-                    display_label: "WIN".to_string(),
+                    display_label: "WIN 1".to_string(),
                     from_multiplier: 1.001,
                     to_multiplier: 2.0,
                     rollup_duration_ms: 800,
@@ -460,7 +460,7 @@ impl RegularWinConfig {
                 // WIN_2: 2x < w ≤ 3x
                 RegularWinTier {
                     tier_id: 2,
-                    display_label: "WIN".to_string(),
+                    display_label: "WIN 2".to_string(),
                     from_multiplier: 2.0,
                     to_multiplier: 3.0,
                     rollup_duration_ms: 1000,
@@ -470,7 +470,7 @@ impl RegularWinConfig {
                 // WIN_3: 3x < w ≤ 5x
                 RegularWinTier {
                     tier_id: 3,
-                    display_label: "NICE".to_string(),
+                    display_label: "WIN 3".to_string(),
                     from_multiplier: 3.0,
                     to_multiplier: 5.0,
                     rollup_duration_ms: 1200,
@@ -480,7 +480,7 @@ impl RegularWinConfig {
                 // WIN_4: 5x < w ≤ 8x
                 RegularWinTier {
                     tier_id: 4,
-                    display_label: "NICE WIN".to_string(),
+                    display_label: "WIN 4".to_string(),
                     from_multiplier: 5.0,
                     to_multiplier: 8.0,
                     rollup_duration_ms: 1500,
@@ -490,7 +490,7 @@ impl RegularWinConfig {
                 // WIN_5: 8x < w ≤ 12x
                 RegularWinTier {
                     tier_id: 5,
-                    display_label: "GREAT WIN".to_string(),
+                    display_label: "WIN 5".to_string(),
                     from_multiplier: 8.0,
                     to_multiplier: 12.0,
                     rollup_duration_ms: 2000,
@@ -500,7 +500,7 @@ impl RegularWinConfig {
                 // WIN_6: 12x < w ≤ 20x
                 RegularWinTier {
                     tier_id: 6,
-                    display_label: "SUPER WIN".to_string(),
+                    display_label: "WIN 6".to_string(),
                     from_multiplier: 12.0,
                     to_multiplier: 20.0,
                     rollup_duration_ms: 2500,

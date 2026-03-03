@@ -49,15 +49,15 @@ impl BigWinTier {
         }
     }
 
-    /// Get display name
+    /// Get display name (generic tier identifiers per SlotLab spec)
     pub fn display_name(&self) -> &'static str {
         match self {
-            Self::Win => "WIN",
-            Self::BigWin => "BIG WIN",
-            Self::MegaWin => "MEGA WIN",
-            Self::EpicWin => "EPIC WIN",
-            Self::UltraWin => "ULTRA WIN",
-            Self::Custom(_) => "CUSTOM WIN",
+            Self::Win => "WIN 1",
+            Self::BigWin => "WIN 2",
+            Self::MegaWin => "WIN 3",
+            Self::EpicWin => "WIN 4",
+            Self::UltraWin => "WIN 5",
+            Self::Custom(_) => "WIN",
         }
     }
 }

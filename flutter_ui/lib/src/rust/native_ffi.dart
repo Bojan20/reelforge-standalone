@@ -17120,7 +17120,7 @@ extension SlotLabFFI on NativeFFI {
   /// Get remaining free spins
   int slotLabFreeSpinsRemaining() {
     try {
-      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>(
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
         'slot_lab_free_spins_remaining',
       );
       return fn();

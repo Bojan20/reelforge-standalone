@@ -280,6 +280,11 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   /// Handle keyboard shortcuts (SL-LP-P1.3)
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final primaryFocus = FocusManager.instance.primaryFocus;
+    if (primaryFocus != null && primaryFocus.context != null) {
+      final editable = primaryFocus.context!.findAncestorWidgetOfExactType<EditableText>();
+      if (editable != null) return KeyEventResult.ignored;
+    }
 
     // When search field has focus, let TextField handle ALL key events
     // (typing, space, backspace, arrows, etc.) — only intercept Escape

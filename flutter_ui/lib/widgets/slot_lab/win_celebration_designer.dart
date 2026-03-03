@@ -165,12 +165,12 @@ class _WinCelebrationDesignerState extends State<WinCelebrationDesigner>
 
   // Default tier configurations
   static const List<({int id, String name, Color color, int durationMs})> _defaultTiers = [
-    (id: 1, name: 'Small', color: Color(0xFF4A9EFF), durationMs: 1500),
-    (id: 2, name: 'Big', color: Color(0xFF40FF90), durationMs: 2500),
-    (id: 3, name: 'Super', color: Color(0xFFFFD700), durationMs: 4000),
-    (id: 4, name: 'Mega', color: Color(0xFFFF9040), durationMs: 7000),
-    (id: 5, name: 'Epic', color: Color(0xFFE040FB), durationMs: 12000),
-    (id: 6, name: 'Ultra', color: Color(0xFFFF4040), durationMs: 20000),
+    (id: 1, name: 'WIN 1', color: Color(0xFF4A9EFF), durationMs: 1500),
+    (id: 2, name: 'WIN 2', color: Color(0xFF40FF90), durationMs: 2500),
+    (id: 3, name: 'WIN 3', color: Color(0xFFFFD700), durationMs: 4000),
+    (id: 4, name: 'WIN 4', color: Color(0xFFFF9040), durationMs: 7000),
+    (id: 5, name: 'WIN 5', color: Color(0xFFE040FB), durationMs: 12000),
+    (id: 6, name: 'WIN 6', color: Color(0xFFFF4040), durationMs: 20000),
   ];
 
   @override
