@@ -554,6 +554,19 @@ class ContextDefinition {
     this.description,
   });
 
+  /// Engine-compatible stage prefix (e.g., 'FS' for freespins, 'HOLD' for holdwin)
+  /// Maps context id to the canonical stage naming used across all services.
+  String get stagePrefix => switch (id) {
+    'base' => 'BASE',
+    'freespins' => 'FS',
+    'holdwin' => 'HOLD',
+    'bonus' => 'BONUS',
+    'cascade' => 'CASCADE',
+    'jackpot' => 'JACKPOT',
+    'gamble' => 'GAMBLE',
+    _ => id.toUpperCase(),
+  };
+
   /// Factory for base game context
   factory ContextDefinition.base() {
     return const ContextDefinition(

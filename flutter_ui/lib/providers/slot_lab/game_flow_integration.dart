@@ -256,9 +256,11 @@ class GameFlowIntegration {
   }
 
   void _onStateChanged(GameFlowState oldState, GameFlowState newState) {
-    // Sync state to existing SlotLabCoordinator flags for backward compat
-    // This allows existing UI that reads _inFreeSpins etc. to keep working
-    // Future: migrate all UI to read from GameFlowProvider directly
+    // Returning to base game → fade in base game layer 1 music
+    if ((newState == GameFlowState.baseGame || newState == GameFlowState.idle) &&
+        oldState != GameFlowState.baseGame && oldState != GameFlowState.idle) {
+      _onAudioStage('MUSIC_BASE_L1');
+    }
   }
 
   void _onFeatureStateUpdated(String featureId, FeatureState state) {

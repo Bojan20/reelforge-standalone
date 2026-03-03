@@ -4437,7 +4437,7 @@ class _MusicSection extends _SectionConfig {
       title: ctx.displayName,
       icon: ctx.icon,
       slots: List.generate(ctx.layerCount, (i) => _SlotConfig(
-        stage: 'MUSIC_${ctx.id.toUpperCase()}_L${i + 1}',
+        stage: 'MUSIC_${ctx.stagePrefix}_L${i + 1}',
         label: 'Layer ${i + 1}',
       )),
     )).toList();
