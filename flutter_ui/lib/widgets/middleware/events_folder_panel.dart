@@ -1374,7 +1374,8 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
   }
 
   void _playEvent(SlotCompositeEvent event) {
-    AudioPlaybackService.instance.previewCompositeEvent(event);
+    final middleware = context.read<MiddlewareProvider>();
+    middleware.togglePreviewEvent(event.id);
   }
 
   void _toggleLayerMute(BuildContext context, SlotCompositeEvent event, SlotEventLayer layer) {
@@ -1837,7 +1838,8 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
   }
 
   void _previewEvent(SlotCompositeEvent event) {
-    AudioPlaybackService.instance.previewCompositeEvent(event);
+    final middleware = context.read<MiddlewareProvider>();
+    middleware.togglePreviewEvent(event.id);
   }
 
   void _deleteEvent(BuildContext context, MiddlewareProvider middleware, SlotCompositeEvent event) {

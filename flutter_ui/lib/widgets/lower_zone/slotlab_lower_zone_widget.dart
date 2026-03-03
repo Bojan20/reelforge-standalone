@@ -440,8 +440,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           // Spin button
           _buildSpinButton(),
           const SizedBox(width: 8),
-          // P0.3: Play/Pause/Stop controls
-          _buildPlaybackControls(),
+          // P0.3: Play/Pause/Stop controls — Consumer ensures rebuild on preview state change
+          Consumer<MiddlewareProvider>(
+            builder: (context, middleware, child) => _buildPlaybackControls(),
+          ),
         ],
       ),
     );
@@ -599,27 +601,51 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   }
 
   /// P0.3: Professional Play/Pause/Stop controls with state awareness
+  /// Also supports playing selected middleware event when stages are idle
   Widget _buildPlaybackControls() {
     final provider = widget.slotLabProvider ?? _tryGetSlotLabProvider();
     if (provider == null) {
       return _buildPauseButtonDisabled();
     }
 
-    final isPlaying = provider.isPlayingStages;
+    final isStagesPlaying = provider.isPlayingStages;
     final isPaused = provider.isPaused;
+
+    // Check if a middleware event preview is active
+    final middleware = _tryGetMiddlewareProvider();
+    final isEventPreviewing = middleware?.isPreviewingEvent ?? false;
+    final selectedEvent = middleware?.selectedCompositeEvent;
+    final hasSelectedEvent = selectedEvent != null;
+
+    // Combined playing state: either stages or event preview
+    final isPlaying = isStagesPlaying || isEventPreviewing;
 
     return Row(
       // mainAxisSize removed — fills Flexible parent
       children: [
         // Play/Pause toggle button
         Tooltip(
-          message: isPaused ? 'Resume (Space)' : (isPlaying ? 'Pause (Space)' : 'No active playback'),
+          message: isPaused
+              ? 'Resume (Space)'
+              : isStagesPlaying
+                  ? 'Pause (Space)'
+                  : isEventPreviewing
+                      ? 'Stop Preview (Space)'
+                      : hasSelectedEvent
+                          ? 'Play "${selectedEvent.name}" (Space)'
+                          : 'No event selected',
           child: GestureDetector(
             onTap: () {
               if (isPaused) {
                 widget.onResume?.call();
-              } else if (isPlaying) {
+              } else if (isStagesPlaying) {
                 widget.onPause?.call();
+              } else if (isEventPreviewing) {
+                // Stop current event preview
+                middleware?.stopPreviewEvent();
+              } else if (hasSelectedEvent) {
+                // Play selected event immediately
+                middleware?.togglePreviewEvent(selectedEvent.id);
               }
             },
             child: Container(
@@ -628,24 +654,44 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                 color: isPlaying || isPaused
                     ? (isPaused
                         ? LowerZoneColors.warning.withValues(alpha: 0.2)
-                        : LowerZoneColors.success.withValues(alpha: 0.2))
-                    : LowerZoneColors.bgSurface,
+                        : isEventPreviewing
+                            ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.2)
+                            : LowerZoneColors.success.withValues(alpha: 0.2))
+                    : hasSelectedEvent
+                        ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.08)
+                        : LowerZoneColors.bgSurface,
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
                   color: isPlaying || isPaused
-                      ? (isPaused ? LowerZoneColors.warning : LowerZoneColors.success)
-                      : LowerZoneColors.border,
+                      ? (isPaused
+                          ? LowerZoneColors.warning
+                          : isEventPreviewing
+                              ? LowerZoneColors.slotLabAccent
+                              : LowerZoneColors.success)
+                      : hasSelectedEvent
+                          ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.4)
+                          : LowerZoneColors.border,
                 ),
               ),
               child: Row(
                 // mainAxisSize removed — fills Flexible parent
                 children: [
                   Icon(
-                    isPaused ? Icons.play_arrow : Icons.pause,
+                    isEventPreviewing
+                        ? Icons.stop
+                        : isPaused || !isPlaying
+                            ? Icons.play_arrow
+                            : Icons.pause,
                     size: 14,
                     color: isPlaying || isPaused
-                        ? (isPaused ? LowerZoneColors.warning : LowerZoneColors.success)
-                        : LowerZoneColors.textMuted,
+                        ? (isPaused
+                            ? LowerZoneColors.warning
+                            : isEventPreviewing
+                                ? LowerZoneColors.slotLabAccent
+                                : LowerZoneColors.success)
+                        : hasSelectedEvent
+                            ? LowerZoneColors.slotLabAccent
+                            : LowerZoneColors.textMuted,
                   ),
                   if (isPaused) ...[
                     const SizedBox(width: 2),
@@ -668,7 +714,16 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         Tooltip(
           message: 'Stop (Esc)',
           child: GestureDetector(
-            onTap: isPlaying || isPaused ? widget.onStop : null,
+            onTap: isPlaying || isPaused
+                ? () {
+                    if (isEventPreviewing) {
+                      middleware?.stopPreviewEvent();
+                    }
+                    if (isStagesPlaying || isPaused) {
+                      widget.onStop?.call();
+                    }
+                  }
+                : null,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(

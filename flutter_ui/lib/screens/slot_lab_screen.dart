@@ -1196,6 +1196,30 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       return true; // Handled — SPIN button appears, user must press again
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // EVENT PREVIEW: When Events tab is active and event is selected,
+    // SPACE toggles event playback instead of spinning.
+    // If event preview is already playing → stop it.
+    // If idle with selected event on Events tab → play the event.
+    // ═══════════════════════════════════════════════════════════════════════════
+    final isEventsTab = _lowerZoneController.superTab == SlotLabSuperTab.events;
+    final middleware = _middleware;
+
+    // Stop event preview regardless of tab (if playing)
+    if (middleware.isPreviewingEvent) {
+      middleware.stopPreviewEvent();
+      return true;
+    }
+
+    // Play selected event when on Events tab
+    if (isEventsTab) {
+      final selectedEvent = middleware.selectedCompositeEvent;
+      if (selectedEvent != null) {
+        middleware.togglePreviewEvent(selectedEvent.id);
+        return true;
+      }
+    }
+
     // Idle → SPIN
     if (_slotLabProvider.initialized) {
       _slotLabProvider.spin();

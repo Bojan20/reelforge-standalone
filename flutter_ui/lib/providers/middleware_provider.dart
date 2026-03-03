@@ -3574,6 +3574,11 @@ class MiddlewareProvider extends ChangeNotifier {
     selectCompositeEvent(newEvent.id);
   }
 
+  /// Currently previewing event ID (for toggle play/stop in header)
+  String? _previewingEventId;
+  String? get previewingEventId => _previewingEventId;
+  bool get isPreviewingEvent => _previewingEventId != null;
+
   /// Preview a composite event (play all layers)
   /// Uses playCompositeEvent internally for actual audio playback
   void previewCompositeEvent(String eventId) {
@@ -3582,9 +3587,36 @@ class MiddlewareProvider extends ChangeNotifier {
       return;
     }
 
-
     // Use playCompositeEvent for actual audio playback
     final voicesStarted = playCompositeEvent(eventId);
+    if (voicesStarted > 0) {
+      _previewingEventId = eventId;
+      _markChanged(changeCompositeEvents);
+    }
+  }
+
+  /// Stop previewing the current event
+  void stopPreviewEvent() {
+    if (_previewingEventId != null) {
+      stopCompositeEvent(_previewingEventId!);
+      AudioPlaybackService.instance.stopSource(PlaybackSource.slotlab);
+      _previewingEventId = null;
+      _markChanged(changeCompositeEvents);
+    }
+  }
+
+  /// Toggle preview: if same event is playing → stop, otherwise play new
+  void togglePreviewEvent(String eventId) {
+    if (_previewingEventId == eventId) {
+      stopPreviewEvent();
+    } else {
+      // Stop any currently playing preview first
+      if (_previewingEventId != null) {
+        stopCompositeEvent(_previewingEventId!);
+        AudioPlaybackService.instance.stopSource(PlaybackSource.slotlab);
+      }
+      previewCompositeEvent(eventId);
+    }
   }
 
   /// Add existing composite event (for sync from external sources)
