@@ -5188,8 +5188,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       eventRegistry.triggerStage('BIG_WIN_END');
       eventRegistry.triggerStage('WIN_PRESENT_END');
 
-      // Restore all BG music layers at vol 0 (looping), then fade L1 in
-      for (final layer in ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
+      // Restore BG music: L2-L5 silent (looping), L1 fades in over 800ms
+      for (final layer in ['MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
         eventRegistry.triggerStage(layer, context: {'volumeMultiplier': 0.0});
       }
       eventRegistry.triggerStageWithFadeIn('MUSIC_BASE_L1', fadeMs: 800);

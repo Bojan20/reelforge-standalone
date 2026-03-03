@@ -2096,13 +2096,14 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _ensureAudioRegistered('MUSIC_BIGWIN_OUTRO');
       eventRegistry.triggerStage('MUSIC_BIGWIN_END');
       eventRegistry.triggerStage('MUSIC_BIGWIN_OUTRO');
-      // Restore all BG music layers at vol 0 (looping), then fade L1 in
+      // Restore BG music: L2-L5 silent (looping), L1 fades in over 800ms
       for (final layer in ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
         _ensureAudioRegistered(layer);
+      }
+      for (final layer in ['MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
         eventRegistry.triggerStage(layer, context: {'volumeMultiplier': 0.0});
       }
       // Skip = immediate fade (no 3500ms delay)
-      _ensureAudioRegistered('MUSIC_BASE_L1');
       eventRegistry.triggerStageWithFadeIn('MUSIC_BASE_L1', fadeMs: 800);
     }
 
@@ -3223,10 +3224,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     }
 
     // L1 delayed fade-in: 3500ms delay, then 1300ms fade from 0→1
+    // CRITICAL: _eventVoices key is the STAGE name (e.g. "MUSIC_BASE_L1"),
+    // NOT event.id — getEventIdForStage returns event.id which is a different key.
     _baseGameFadeTimer?.cancel();
     _baseGameFadeTimer = Timer(const Duration(milliseconds: 3500), () {
       if (!mounted) return;
-      final eventId = eventRegistry.getEventIdForStage('MUSIC_BASE_L1') ?? 'audio_MUSIC_BASE_L1';
+      const stageKey = 'MUSIC_BASE_L1';
       const fadeDurationMs = 1300;
       const stepMs = 16;
       final steps = (fadeDurationMs / stepMs).ceil().clamp(1, 1000);
@@ -3234,9 +3237,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       Timer.periodic(const Duration(milliseconds: stepMs), (timer) {
         currentStep++;
         final t = (currentStep / steps).clamp(0.0, 1.0);
-        AudioPlaybackService.instance.updateEventVolume(eventId, t);
+        AudioPlaybackService.instance.updateEventVolume(stageKey, t);
         if (currentStep >= steps) {
-          AudioPlaybackService.instance.updateEventVolume(eventId, 1.0);
+          AudioPlaybackService.instance.updateEventVolume(stageKey, 1.0);
           timer.cancel();
         }
       });

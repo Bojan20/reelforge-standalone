@@ -911,16 +911,19 @@ class EventRegistry extends ChangeNotifier {
     final event = _stageToEvent[stage] ?? _stageToEvent[normalizedStage];
     final eventId = event?.id ?? 'audio_$normalizedStage';
 
-    // Clear stale playing instances so looping dedup allows re-trigger
+    // _playingInstances uses event.id as key
     _playingInstances.removeWhere((i) => i.eventId == eventId);
-    // Clear stale voice tracking so updateEventVolume only hits new voices
-    AudioPlaybackService.instance.clearEventVoices(eventId);
+
+    // _eventVoices uses STAGE NAME as key (set by _playLayer via eventKey param).
+    // CRITICAL: clearEventVoices and updateEventVolume must use stage name, not event.id.
+    final voiceKey = event?.stage ?? normalizedStage;
+    AudioPlaybackService.instance.clearEventVoices(voiceKey);
 
     // Trigger at volume 0 — await ensures voice is created and registered
     await triggerStage(stage, context: {'volumeMultiplier': 0.0});
 
     // Verify voice was actually created
-    final voices = AudioPlaybackService.instance.getEventVoices(eventId);
+    final voices = AudioPlaybackService.instance.getEventVoices(voiceKey);
     if (voices.isEmpty) {
       await Future.delayed(const Duration(milliseconds: 50));
     }
@@ -933,9 +936,9 @@ class EventRegistry extends ChangeNotifier {
       currentStep++;
       final t = (currentStep / steps).clamp(0.0, 1.0);
       final vol = t * t; // ease-in curve
-      AudioPlaybackService.instance.updateEventVolume(eventId, vol);
+      AudioPlaybackService.instance.updateEventVolume(voiceKey, vol);
       if (currentStep >= steps) {
-        AudioPlaybackService.instance.updateEventVolume(eventId, 1.0);
+        AudioPlaybackService.instance.updateEventVolume(voiceKey, 1.0);
         timer.cancel();
       }
     });
