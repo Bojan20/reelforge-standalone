@@ -311,8 +311,10 @@ class FluxForgeApp extends StatelessWidget {
         // Game Flow FSM (L3 Modular Slot Machine State Machine)
         ChangeNotifierProvider.value(value: sl<GameFlowProvider>()),
 
-        // Slot Lab Project (V6 Layout state)
-        ChangeNotifierProvider(create: (_) => SlotLabProjectProvider()),
+        // Slot Lab Project (V6 Layout state) — MUST use GetIt singleton, not new instance
+        ChangeNotifierProvider<SlotLabProjectProvider>.value(
+          value: GetIt.instance<SlotLabProjectProvider>(),
+        ),
 
         // Adaptive Layer Engine (ALE)
         ChangeNotifierProvider(create: (_) => AleProvider()),

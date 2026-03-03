@@ -522,7 +522,10 @@ class EventRegistry extends ChangeNotifier {
   // ═══════════════════════════════════════════════════════════════════════════
   static final EventRegistry _instance = EventRegistry._internal();
   static EventRegistry get instance => _instance;
-  EventRegistry._internal();
+  factory EventRegistry() => _instance;
+  EventRegistry._internal() {
+    _startCleanupTimer();
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // P0.8: PRE-TRIGGER CONFIGURATION
@@ -552,11 +555,6 @@ class EventRegistry extends ChangeNotifier {
   // P0 WF-06: Custom Event Handler Extension (2026-01-30)
   // Allows external systems to register custom handlers that run before default event triggering
   final Map<String, CustomEventHandler> _customHandlers = {};
-
-  // P1.3: Constructor starts cleanup timer
-  EventRegistry() {
-    _startCleanupTimer();
-  }
 
   /// P1.3: Start periodic cleanup timer
   void _startCleanupTimer() {

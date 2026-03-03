@@ -22,6 +22,10 @@ class EventSyncService extends ChangeNotifier {
   // Track sync state to avoid infinite loops
   bool _syncing = false;
 
+  // Track composite event count for change detection (avoid unnecessary full syncs)
+  int _lastCompositeCount = 0;
+  int _lastCompositeHash = 0;
+
   EventSyncService({
     required EventRegistry registry,
     required MiddlewareProvider middleware,
@@ -394,8 +398,15 @@ class EventSyncService extends ChangeNotifier {
 
   void _onMiddlewareChanged() {
     if (_syncing) return;
-    // Don't auto-sync back to avoid infinite loops
-    // Only sync explicitly when user edits in Middleware
+    // Quick change detection — only sync when composite events actually changed
+    final events = _middleware.compositeEvents;
+    final count = events.length;
+    final hash = Object.hashAll(events.map((e) => Object.hash(e.id, e.name, e.layers.length, e.looping, e.overlap)));
+    if (count == _lastCompositeCount && hash == _lastCompositeHash) return;
+    _lastCompositeCount = count;
+    _lastCompositeHash = hash;
+    // Bidirectional sync: Middleware edits propagate back to EventRegistry
+    syncAllFromMiddleware();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
