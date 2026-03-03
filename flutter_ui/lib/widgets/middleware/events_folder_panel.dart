@@ -559,6 +559,48 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
                 ),
               ],
             ),
+            // Inline layer action type badges
+            if (event.layers.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(left: 14, top: 3),
+                child: Wrap(
+                  spacing: 3,
+                  runSpacing: 2,
+                  children: event.layers.map((layer) {
+                    final color = _actionTypeColor(layer.actionType);
+                    final icon = _actionTypeIcon(layer.actionType);
+                    final name = layer.name.isNotEmpty
+                        ? layer.name
+                        : (layer.audioPath.isNotEmpty
+                            ? layer.audioPath.split('/').last.split('.').first
+                            : layer.actionType);
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(color: color.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(icon, size: 8, color: color),
+                          const SizedBox(width: 2),
+                          Text(
+                            name,
+                            style: TextStyle(
+                              fontSize: 8,
+                              color: color,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
             // Trigger stages
             if (event.triggerStages.isNotEmpty)
               Padding(
@@ -1269,6 +1311,47 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
       'bonus' => const Color(0xFFFF40FF),
       'general' => const Color(0xFF888888),
       _ => const Color(0xFF888888),
+    };
+  }
+
+  static Color _actionTypeColor(String actionType) {
+    return switch (actionType) {
+      'Play' || 'PlayAndContinue' => Colors.green,
+      'Stop' || 'StopAll' || 'Break' => Colors.red,
+      'Pause' || 'PauseAll' => Colors.orange,
+      'Resume' || 'ResumeAll' => Colors.green,
+      'Mute' || 'Unmute' || 'SetVolume' || 'SetBusVolume' => Colors.blue,
+      'SetPitch' || 'SetLPF' || 'SetHPF' => Colors.purple,
+      'Seek' => Colors.teal,
+      'SetState' || 'SetSwitch' => Colors.amber,
+      'SetRTPC' || 'ResetRTPC' => Colors.pink,
+      'Trigger' => Colors.lime,
+      'PostEvent' => Colors.cyan,
+      'Fade' => Colors.deepOrange,
+      _ => Colors.grey,
+    };
+  }
+
+  static IconData _actionTypeIcon(String actionType) {
+    return switch (actionType) {
+      'Play' || 'PlayAndContinue' => Icons.play_arrow,
+      'Stop' => Icons.stop,
+      'StopAll' => Icons.stop_circle,
+      'Pause' || 'PauseAll' => Icons.pause,
+      'Resume' || 'ResumeAll' => Icons.play_circle,
+      'Break' => Icons.stop,
+      'Mute' => Icons.volume_off,
+      'Unmute' || 'SetVolume' || 'SetBusVolume' => Icons.volume_up,
+      'SetPitch' => Icons.tune,
+      'SetLPF' || 'SetHPF' => Icons.graphic_eq,
+      'Seek' => Icons.fast_forward,
+      'SetState' => Icons.flag,
+      'SetSwitch' => Icons.toggle_on,
+      'SetRTPC' || 'ResetRTPC' => Icons.settings_input_component,
+      'Trigger' => Icons.notifications,
+      'PostEvent' => Icons.send,
+      'Fade' => Icons.trending_down,
+      _ => Icons.layers,
     };
   }
 
