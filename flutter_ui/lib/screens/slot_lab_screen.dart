@@ -2759,6 +2759,16 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                 folder: 'SlotLab Import',
                               );
 
+                              // Add to audio pool if not already there
+                              if (!_audioPool.any((a) => a['path'] == audioPath)) {
+                                final name = audioPath.split('/').last;
+                                setState(() {
+                                  _audioPool.add(_createAudioPoolEntry(audioPath, name));
+                                });
+                                Future.microtask(() => _persistState());
+                                _loadMetadataInBackground([audioPath]);
+                              }
+
                               // Auto-bind: refresh trigger bindings when audio assigned
                               final triggerLayer = GetIt.instance<TriggerLayerProvider>();
                               if (triggerLayer.autoBindingsEnabled) {
@@ -2791,6 +2801,33 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                               projectProvider.toggleGroup(groupId);
                             },
                             onBatchDistribute: (matched, unmatched) async {
+                              // Add ALL files (matched + unmatched) to audio pool
+                              final allPaths = <String>[
+                                ...matched.map((m) => m.audioPath),
+                                ...unmatched.map((u) => u.audioPath),
+                              ];
+                              final newEntries = <Map<String, dynamic>>[];
+                              for (final path in allPaths) {
+                                if (_audioPool.any((a) => a['path'] == path)) continue;
+                                final name = path.split('/').last;
+                                newEntries.add(_createAudioPoolEntry(path, name));
+                              }
+                              if (newEntries.isNotEmpty) {
+                                setState(() {
+                                  _audioPool.addAll(newEntries);
+                                });
+                                // Sync to AudioAssetManager
+                                AudioAssetManager.instance.importFilesInstant(
+                                  newEntries.map((e) => e['path'] as String).toList(),
+                                  folder: 'SlotLab Import',
+                                );
+                                // Persist + load metadata
+                                Future.microtask(() => _persistState());
+                                _loadMetadataInBackground(
+                                  newEntries.map((e) => e['path'] as String).toList(),
+                                );
+                              }
+
                               // Show results dialog (SL-LP-P0.3)
                               await BatchDistributionDialog.show(
                                 context,
@@ -2916,6 +2953,23 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                 allPaths,
                                 folder: 'SlotLab Import',
                               );
+
+                              // Add to audio pool if not already there
+                              final poolEntries = <Map<String, dynamic>>[];
+                              for (final path in allPaths) {
+                                if (_audioPool.any((a) => a['path'] == path)) continue;
+                                final name = path.split('/').last;
+                                poolEntries.add(_createAudioPoolEntry(path, name));
+                              }
+                              if (poolEntries.isNotEmpty) {
+                                setState(() {
+                                  _audioPool.addAll(poolEntries);
+                                });
+                                Future.microtask(() => _persistState());
+                                _loadMetadataInBackground(
+                                  poolEntries.map((e) => e['path'] as String).toList(),
+                                );
+                              }
 
                               // Refresh trigger bindings
                               final triggerLayer = GetIt.instance<TriggerLayerProvider>();

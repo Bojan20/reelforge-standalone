@@ -158,7 +158,7 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 - .claude/guides/PROVIDER_ACCESS_PATTERN.md — Code standard for Provider usage
 
 **Specs:**
-- FLUXMACRO_SYSTEM.md — P-FMC FluxMacro System (53/53 ✅)
+- .claude/specs/FLUXMACRO_SYSTEM.md — P-FMC FluxMacro System (53/53 ✅)
 - .claude/MASTER_TODO.md — Grand total: 182/182 ✅
 
 **Architecture Documentation:**
