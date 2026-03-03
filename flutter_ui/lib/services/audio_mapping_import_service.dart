@@ -885,7 +885,7 @@ class AudioMappingImportService {
     'MUSIC_BONUS_L1', 'MUSIC_BONUS_L2', 'MUSIC_BONUS_L3', 'MUSIC_BONUS_L4', 'MUSIC_BONUS_L5',
     'MUSIC_HOLD_INTRO', 'MUSIC_HOLD_OUTRO',
     'MUSIC_HOLD_L1', 'MUSIC_HOLD_L2', 'MUSIC_HOLD_L3', 'MUSIC_HOLD_L4', 'MUSIC_HOLD_L5',
-    'MUSIC_BIGWIN_INTRO', 'MUSIC_BIGWIN_OUTRO',
+    'MUSIC_BIGWIN_INTRO', 'MUSIC_BIGWIN_END', 'MUSIC_BIGWIN_OUTRO',
     'MUSIC_BIGWIN_L1', 'MUSIC_BIGWIN_L2', 'MUSIC_BIGWIN_L3', 'MUSIC_BIGWIN_L4', 'MUSIC_BIGWIN_L5',
     'MUSIC_JACKPOT_INTRO', 'MUSIC_JACKPOT_OUTRO',
     'MUSIC_JACKPOT_L1', 'MUSIC_JACKPOT_L2', 'MUSIC_JACKPOT_L3', 'MUSIC_JACKPOT_L4', 'MUSIC_JACKPOT_L5',
@@ -1498,6 +1498,7 @@ class AudioMappingImportService {
     'big win music': ['MUSIC_BIGWIN_L1'],
     'bigwin music': ['MUSIC_BIGWIN_L1'],
     'bigwin intro': ['MUSIC_BIGWIN_INTRO'],
+    'bigwin end': ['MUSIC_BIGWIN_END'],
     'bigwin outro': ['MUSIC_BIGWIN_OUTRO'],
     // ─── Bonus Music ─────────────────────────────────────────────────
     'bonus music': ['MUSIC_BONUS_L1'],

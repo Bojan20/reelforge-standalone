@@ -638,6 +638,7 @@ class StageGroupService {
     'mus_bw_l4': 'MUSIC_BIGWIN_L4',
     'mus_bw_l5': 'MUSIC_BIGWIN_L5',
     'mus_bw_intro': 'MUSIC_BIGWIN_INTRO',
+    'mus_bw_end': 'MUSIC_BIGWIN_END',
     'mus_bw_outro': 'MUSIC_BIGWIN_OUTRO',
     'mus_bw': 'MUSIC_BIGWIN_L1',
     'bigwin_music': 'MUSIC_BIGWIN_L1',
