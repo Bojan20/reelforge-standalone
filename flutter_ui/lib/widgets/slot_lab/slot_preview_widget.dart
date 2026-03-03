@@ -1279,6 +1279,22 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // This allows designers to assign different audio per anticipation order:
     //   ANTICIPATION_1 = short buildup, ANTICIPATION_2 = medium, ANTICIPATION_3 = long
     // ═══════════════════════════════════════════════════════════════════════════
+
+    // Stop previous anticipation audio to prevent phase cancellation/overlap
+    if (seqIdx > 1) {
+      for (int prev = 1; prev < seqIdx; prev++) {
+        eventRegistry.stopEvent('ANTICIPATION_$prev');
+      }
+    }
+    // Also stop per-reel tension stages from previous anticipation reels
+    for (final prevReel in _anticipationReels) {
+      if (prevReel != nextReel) {
+        for (int l = 1; l <= 4; l++) {
+          eventRegistry.stopEvent('ANTICIPATION_TENSION_R${prevReel}_L$l');
+        }
+      }
+    }
+
     eventRegistry.triggerStage('ANTICIPATION_$seqIdx', context: {
       'reel_index': nextReel,
       'tension_level': tensionLevel,
@@ -3172,10 +3188,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     eventRegistry.triggerStage('BIG_WIN_END');
 
     // Play BIG_WIN_END music — ONE-SHOT, no loop
+    // Only trigger MUSIC_BIGWIN_END (end fanfare). MUSIC_BASE_L1 starts after plaque.
     _ensureAudioRegistered('MUSIC_BIGWIN_END');
-    _ensureAudioRegistered('MUSIC_BIGWIN_OUTRO');
     eventRegistry.triggerStage('MUSIC_BIGWIN_END');
-    eventRegistry.triggerStage('MUSIC_BIGWIN_OUTRO');
 
     final lastTier = _currentDisplayTier;
 
@@ -3201,7 +3216,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         // FIX: Don't start win lines if skip completed during fade-out
         if (_winTier.isEmpty) return;
 
-        // RESTORE BASE GAME MUSIC — fade in AFTER plaque closes
+        // RESTORE BASE GAME MUSIC — crossfades in naturally via non-overlap system
         _ensureAudioRegistered('MUSIC_BASE_L1');
         eventRegistry.triggerStage('MUSIC_BASE_L1');
 
@@ -3242,6 +3257,16 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       timer.cancel();
     }
     _anticipationTimers.clear();
+
+    // Stop ALL anticipation audio to prevent lingering phase sounds
+    for (int i = 1; i <= _anticipationSequenceIndex; i++) {
+      eventRegistry.stopEvent('ANTICIPATION_$i');
+    }
+    for (final reel in _anticipationReels) {
+      for (int l = 1; l <= 4; l++) {
+        eventRegistry.stopEvent('ANTICIPATION_TENSION_R${reel}_L$l');
+      }
+    }
 
     setState(() {
       _isAnticipation = false;

@@ -866,7 +866,9 @@ class EventRegistry extends ChangeNotifier {
 
   /// Fade out all active voices on a specific bus
   /// Returns the crossfade duration to use for fade-in (max of all active voices)
-  int _fadeOutBusVoices(int busId, {int? overrideFadeMs}) {
+  /// [clearPlayingInstances]: true when called from explicit stop (stopAllMusicVoices),
+  /// false when called from crossfade within triggerEvent (new event replaces old).
+  int _fadeOutBusVoices(int busId, {int? overrideFadeMs, bool clearPlayingInstances = false}) {
     final activeVoices = _activeBusVoices[busId];
     if (activeVoices == null || activeVoices.isEmpty) {
       return overrideFadeMs ?? 0;
@@ -887,13 +889,35 @@ class EventRegistry extends ChangeNotifier {
     // Clear the tracking for this bus
     _activeBusVoices[busId] = [];
 
-    // Remove playing instances for faded events so looping dedup doesn't
-    // block re-trigger after fade-out (e.g. MUSIC_BASE_L1 after big win)
-    if (fadedEventIds.isNotEmpty) {
+    // Only remove playing instances on explicit stop (e.g. stopAllMusicVoices).
+    // During crossfade within triggerEvent, the new event's instance was already
+    // added to _playingInstances — removing by eventId here would kill it too
+    // and break looping dedup on subsequent triggers.
+    if (clearPlayingInstances && fadedEventIds.isNotEmpty) {
       _playingInstances.removeWhere((i) => fadedEventIds.contains(i.eventId));
     }
 
     return maxFadeMs;
+  }
+
+  /// Fade in an event from 0 → target volume over fadeMs
+  /// Used for silent-start + delayed fade-in (e.g. BG music after big win plaque)
+  void fadeInEvent(String eventId, {int fadeMs = 500, double targetVolume = 1.0}) {
+    const stepMs = 16; // ~60fps
+    final steps = (fadeMs / stepMs).ceil().clamp(1, 1000);
+    int currentStep = 0;
+
+    Timer.periodic(Duration(milliseconds: stepMs), (timer) {
+      currentStep++;
+      final t = (currentStep / steps).clamp(0.0, 1.0);
+      // Ease-in curve for natural fade
+      final vol = targetVolume * t * t;
+      AudioPlaybackService.instance.updateEventVolume(eventId, vol);
+      if (currentStep >= steps) {
+        AudioPlaybackService.instance.updateEventVolume(eventId, targetVolume);
+        timer.cancel();
+      }
+    });
   }
 
   /// Track a voice for non-overlapping bus playback
@@ -909,7 +933,7 @@ class EventRegistry extends ChangeNotifier {
   /// Stop all music voices (e.g., when feature ends)
   void stopAllMusicVoices({int fadeMs = 500}) {
     const musicBusId = 1; // SlotBusIds.music
-    _fadeOutBusVoices(musicBusId, overrideFadeMs: fadeMs);
+    _fadeOutBusVoices(musicBusId, overrideFadeMs: fadeMs, clearPlayingInstances: true);
   }
 
   /// Clear all bus voice tracking (call on stop/reset)
