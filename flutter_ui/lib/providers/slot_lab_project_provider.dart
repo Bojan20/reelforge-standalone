@@ -1389,6 +1389,25 @@ class SlotLabProjectProvider extends ChangeNotifier {
     final updates = <String, String>{};
     final nofmPattern = RegExp(r'(\d+)of(\d+)');
 
+    // Known abbreviation mappings: short form → full stage token
+    // These prevent sanitization from removing valid alias-based matches
+    const knownAbbreviations = <String, String>{
+      'mus': 'music',
+      'bw': 'bigwin',
+      'bg': 'base',
+      'bgm': 'music',
+      'sfx': 'sfx',
+      'amb': 'ambience',
+      'vo': 'voice',
+      'fs': 'freespin',
+      'rs': 'spin',
+      'trn': 'transition',
+      'btn': 'button',
+      'ui': 'ui',
+      'anx': 'anticipation',
+      'ant': 'anticipation',
+    };
+
     for (final entry in _audioAssignments.entries) {
       final stage = entry.key;
       final audioPath = entry.value;
@@ -1408,10 +1427,17 @@ class SlotLabProjectProvider extends ChangeNotifier {
           .where((t) => t.length > 1) // skip single chars
           .toSet();
 
-      // Count how many stage tokens are covered by file tokens
+      // Expand file tokens with known abbreviations
+      final expandedFileTokens = <String>{...fileTokens};
+      for (final ft in fileTokens) {
+        final expansion = knownAbbreviations[ft];
+        if (expansion != null) expandedFileTokens.add(expansion);
+      }
+
+      // Count how many stage tokens are covered by file tokens (including expanded)
       int overlapCount = 0;
       for (final st in stageTokens) {
-        for (final ft in fileTokens) {
+        for (final ft in expandedFileTokens) {
           if (ft == st || ft == '${st}s' || '${ft}s' == st) {
             overlapCount++;
             break;

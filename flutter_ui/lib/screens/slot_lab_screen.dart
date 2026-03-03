@@ -2316,9 +2316,23 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Sort: by stage name alphabetically → hierarchical order
     allMatched.sort((a, b) => a.stage.compareTo(b.stage));
 
+    // Stages that are COMPONENTS of multi-layer composite events
+    const compositeComponentStages = {
+      'BIG_WIN_INTRO', 'BIG_WIN_END',
+      'MUSIC_BIGWIN_L1', 'MUSIC_BIGWIN_L2', 'MUSIC_BIGWIN_L3', 'MUSIC_BIGWIN_L4', 'MUSIC_BIGWIN_L5',
+      'MUSIC_BIGWIN_INTRO', 'MUSIC_BIGWIN_END', 'MUSIC_BIGWIN_OUTRO',
+    };
+
     for (final match in allMatched) {
-        // Use the SAME pipeline as drag-drop assignment
+        // Use the SAME pipeline as drag-drop assignment — ALWAYS persist
         projectProvider.setAudioAssignment(match.stage, match.audioPath, recordUndo: false);
+
+        // Skip single-layer event registration for composite component stages
+        // They will be combined into multi-layer BIG_WIN events below
+        if (compositeComponentStages.contains(match.stage)) {
+          boundCount++;
+          continue;
+        }
 
         // Register in EventRegistry for instant playback
         final busId = _getBusForStage(match.stage);
@@ -2350,6 +2364,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
         boundCount++;
       }
+
+    // Create multi-layer BIG_WIN composite events after auto-bind
+    // These combine individual stage assignments into proper transition events
+    _ensureCompositeBigWinIntroOnMount(projectProvider);
+    _ensureCompositeBigWinEndOnMount(projectProvider);
 
     // Sanitize false positives after batch binding
     projectProvider.sanitizeAssignments();
@@ -10438,9 +10457,21 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       }
 
 
+      // Stages that are COMPONENTS of multi-layer composite events — skip single-layer registration
+      // These will be properly registered as multi-layer events below
+      // NOTE: MUSIC_BASE_L1-L5 are NOT in this set — they're standalone base game events
+      const compositeComponentStages = {
+        'BIG_WIN_INTRO', 'BIG_WIN_END',
+        'MUSIC_BIGWIN_L1', 'MUSIC_BIGWIN_L2', 'MUSIC_BIGWIN_L3', 'MUSIC_BIGWIN_L4', 'MUSIC_BIGWIN_L5',
+        'MUSIC_BIGWIN_INTRO', 'MUSIC_BIGWIN_END', 'MUSIC_BIGWIN_OUTRO',
+      };
+
       for (final entry in audioAssignments.entries) {
         final stage = entry.key;
         final audioPath = entry.value;
+
+        // Skip stages that are part of multi-layer composite events
+        if (compositeComponentStages.contains(stage)) continue;
 
         // CRITICAL: Check if stage should loop (GAME_START, MUSIC_*, etc.)
         final shouldLoop = StageConfigurationService.instance.isLooping(stage);
@@ -10481,6 +10512,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       // ═══════════════════════════════════════════════════════════════════════
       // COMPOSITE BIG_WIN EVENTS — multi-layer events created on mount
       // These define the full audio transition for big win intro/end flow
+      // MUST run AFTER single-layer registration so they can overwrite
       // ═══════════════════════════════════════════════════════════════════════
       _ensureCompositeBigWinIntroOnMount(projectProvider);
       _ensureCompositeBigWinEndOnMount(projectProvider);
@@ -10492,7 +10524,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// Layers: BIG_WIN_INTRO sfx, MUSIC_BIGWIN_L1 (loop), MUSIC_BIGWIN_INTRO (one-shot)
   void _ensureCompositeBigWinIntroOnMount(SlotLabProjectProvider project) {
     const stage = 'BIG_WIN_INTRO';
-    if (eventRegistry.hasEventForStage(stage)) return;
 
     final layers = <AudioLayer>[];
     int idx = 0;
@@ -10541,7 +10572,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   ///         MUSIC_BASE_L1-L5 (silent start, L1 fades in after 3500ms delay)
   void _ensureCompositeBigWinEndOnMount(SlotLabProjectProvider project) {
     const stage = 'BIG_WIN_END';
-    if (eventRegistry.hasEventForStage(stage)) return;
 
     final layers = <AudioLayer>[];
     int idx = 0;
@@ -10604,9 +10634,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final middleware = context.read<MiddlewareProvider>();
     final eventId = 'audio_$stage';
 
-    // Skip if already exists with same layer count
     final existing = middleware.compositeEvents.where((e) => e.id == eventId).firstOrNull;
-    if (existing != null && existing.layers.length == audioLayers.length) return;
 
     final stageConfig = StageConfigurationService.instance;
     final shouldLoop = stageConfig.isLooping(stage);

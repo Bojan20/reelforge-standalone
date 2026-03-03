@@ -886,7 +886,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   /// 2. MUSIC_BIGWIN_L1 loop (Music bus, immediate, overlap=false → stops base game music)
   void _ensureCompositeBigWinIntro() {
     const stage = 'BIG_WIN_INTRO';
-    if (eventRegistry.hasEventForStage(stage)) return;
+    // Skip only if multi-layer event already exists (not a single-layer auto-bind stub)
+    final existing = eventRegistry.getEventForStage(stage);
+    if (existing != null && existing.layers.length > 1) return;
 
     final project = GetIt.instance<SlotLabProjectProvider>();
     final layers = <AudioLayer>[];
@@ -955,7 +957,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   /// overlap=false → automatically stops big win music before playing
   void _ensureCompositeBigWinEnd() {
     const stage = 'BIG_WIN_END';
-    if (eventRegistry.hasEventForStage(stage)) return;
+    // Skip only if multi-layer event already exists (not a single-layer auto-bind stub)
+    final existing = eventRegistry.getEventForStage(stage);
+    if (existing != null && existing.layers.length > 1) return;
 
     final project = GetIt.instance<SlotLabProjectProvider>();
     final layers = <AudioLayer>[];
@@ -2240,7 +2244,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _ensureAudioRegistered('WIN_PRESENT_END');
     _ensureAudioRegistered('WIN_COLLECT');
     eventRegistry.triggerStage('ROLLUP_END');
-    if (savedWinTier.isNotEmpty) {
+    if (wasBigWin) {
       // BIG_WIN_END is composite: sfx + music end + outro + base game restore
       // All layers defined in _ensureCompositeBigWinEnd()
       _ensureCompositeBigWinEnd();
@@ -3359,8 +3363,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _isInTierProgression = false;
 
       // ═══════════════════════════════════════════════════════════════════════
-      // STEP 4: Fade out plaque — BG music L1 already fading in via timer
+      // STEP 4: Fade out plaque + fade IN base game music (BIG WIN END ONLY)
+      // _finishTierProgression is ONLY called from big win flow
       // ═══════════════════════════════════════════════════════════════════════
+      eventRegistry.triggerStageWithFadeIn('MUSIC_BASE_L1', fadeMs: 1300);
       _winAmountController.reverse().then((_) {
         if (!mounted) return;
         if (_winTier.isEmpty) return;
