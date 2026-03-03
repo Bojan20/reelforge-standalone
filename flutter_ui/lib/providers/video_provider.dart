@@ -283,9 +283,8 @@ class VideoProvider extends ChangeNotifier {
     try {
       final ffi = NativeFFI.instance;
       if (ffi.isLoaded) {
-        // Convert time to samples (assuming 48kHz sample rate)
-        const sampleRate = 48000;
-        final samples = ((_currentTime + _syncOffset) * sampleRate).toInt();
+        final sr = ffi.getSampleRate();
+        final samples = ((_currentTime + _syncOffset) * sr).toInt();
         ffi.videoSetPlayhead(samples);
       }
     } catch (e) { /* ignored */ }
@@ -370,9 +369,8 @@ class VideoProvider extends ChangeNotifier {
       final clipId = int.tryParse(clipIdStr) ?? 0;
       if (clipId == 0) return;
 
-      // Convert time to samples (assuming 48kHz sample rate)
-      const sampleRate = 48000;
-      final timeSamples = ((_currentTime + _syncOffset) * sampleRate).toInt();
+      final sr = ffi.getSampleRate();
+      final timeSamples = ((_currentTime + _syncOffset) * sr).toInt();
 
       // Get frame data from engine
       final result = ffi.videoGetFrame(clipId, timeSamples);

@@ -106,6 +106,9 @@ import '../providers/slot_lab/sss_provider.dart';
 import '../providers/slot_lab/game_flow_provider.dart';
 import '../providers/fluxmacro_provider.dart';
 import '../providers/slot_lab/stage_flow_provider.dart';
+import '../providers/video_provider.dart';
+import 'video_export_service.dart';
+import 'video_playback_service.dart';
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -575,6 +578,19 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<StageFlowProvider>(
       () => StageFlowProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 8: Video System
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<VideoProvider>(
+      () => VideoProvider(),
+    );
+    sl.registerLazySingleton<VideoExportService>(
+      () => VideoExportService.instance,
+    );
+    sl.registerLazySingleton<VideoPlaybackService>(
+      () => VideoPlaybackService(),
     );
 
     // Initialize plugin alternatives registry

@@ -6,7 +6,7 @@ authors.workspace = true
 license.workspace = true
 
 [features]
-default = []
+default = ["ffmpeg"]
 # Enable FFmpeg backend (requires system FFmpeg installation)
 ffmpeg = ["dep:ffmpeg-next"]
 
@@ -14,7 +14,7 @@ ffmpeg = ["dep:ffmpeg-next"]
 rf-core = { workspace = true }
 
 # Video decoding via FFmpeg (optional - requires system FFmpeg)
-ffmpeg-next = { version = "7.1", optional = true }
+ffmpeg-next = { version = "8.0", optional = true }
 
 # Pure Rust video container parsing
 mp4 = "0.14"

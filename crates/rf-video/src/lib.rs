@@ -516,6 +516,11 @@ impl VideoEngine {
         self.sample_rate = sr;
     }
 
+    /// Get current sample rate
+    pub fn sample_rate(&self) -> SampleRate {
+        self.sample_rate
+    }
+
     /// Get playhead in samples
     pub fn playhead_samples(&self) -> u64 {
         self.playhead

@@ -19324,7 +19324,8 @@ pub extern "C" fn video_get_track_count() -> u32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn video_clear_all() {
     let mut engine = VIDEO_ENGINE.write();
-    *engine = rf_video::VideoEngine::new(rf_core::SampleRate::Hz48000);
+    let sr = engine.sample_rate();
+    *engine = rf_video::VideoEngine::new(sr);
 }
 
 /// Format timecode from seconds

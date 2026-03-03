@@ -1337,9 +1337,32 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         _createBusTrack(name, result.color);
       case timeline.TrackType.aux:
         _createAuxTrack(name, result.color);
+      case timeline.TrackType.video:
+        _createVideoTrack(name, result.color);
       default:
         _createAudioOrInstrumentTrack(result, name);
     }
+  }
+
+  /// Create a video track
+  void _createVideoTrack(String name, Color color) {
+    // Video tracks don't create engine audio tracks — they are display-only
+    final track = timeline.TimelineTrack(
+      id: 'video-${DateTime.now().millisecondsSinceEpoch}',
+      name: name,
+      color: color,
+      height: 100,
+      muted: false,
+      soloed: false,
+      armed: false,
+      volume: 1.0,
+      pan: 0.0,
+      trackType: timeline.TrackType.video,
+    );
+    setState(() {
+      // Insert video track at position 0 (top of timeline)
+      _tracks.insert(0, track);
+    });
   }
 
   /// Create an audio or instrument track with engine + mixer channel

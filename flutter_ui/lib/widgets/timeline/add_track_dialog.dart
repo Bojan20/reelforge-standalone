@@ -130,6 +130,13 @@ const _trackTypes = [
     namePrefix: 'Aux',
     lockStereo: true,
   ),
+  _TrackTypeInfo(
+    type: TrackType.video,
+    label: 'Video',
+    icon: Icons.videocam,
+    iconColor: Color(0xFF8B5CF6),
+    namePrefix: 'Video',
+  ),
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════════

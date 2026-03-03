@@ -61,6 +61,10 @@ import 'providers/soundbank_provider.dart';
 import 'providers/feature_builder_provider.dart';
 import 'services/audio_asset_manager.dart';
 import 'services/event_registry.dart';
+import 'providers/video_provider.dart';
+import 'services/video_export_service.dart';
+import 'services/video_playback_service.dart';
+import 'package:media_kit/media_kit.dart';
 import 'services/service_locator.dart';
 import 'services/lower_zone_persistence_service.dart';
 import 'services/stage_configuration_service.dart';
@@ -99,6 +103,9 @@ import 'blocks/gambling_block.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize media_kit for cross-platform video playback
+  MediaKit.ensureInitialized();
 
   // ═══════════════════════════════════════════════════════════════════════════
   // P12.0.4: INITIALIZE PATH VALIDATOR SANDBOX — CRITICAL SECURITY
@@ -321,6 +328,17 @@ class FluxForgeApp extends StatelessWidget {
         // Feature Builder Provider (P13) — MUST use GetIt singleton, not new instance
         ChangeNotifierProvider<FeatureBuilderProvider>.value(
           value: GetIt.instance<FeatureBuilderProvider>(),
+        ),
+
+        // Video System — GetIt singletons
+        ChangeNotifierProvider<VideoProvider>.value(
+          value: GetIt.instance<VideoProvider>(),
+        ),
+        ChangeNotifierProvider<VideoExportService>.value(
+          value: GetIt.instance<VideoExportService>(),
+        ),
+        ChangeNotifierProvider<VideoPlaybackService>.value(
+          value: GetIt.instance<VideoPlaybackService>(),
         ),
       ],
       child: MaterialApp(

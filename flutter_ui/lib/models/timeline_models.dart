@@ -213,6 +213,7 @@ enum TrackType {
   bus,        // Bus/Group track
   aux,        // Aux/Return track
   master,     // Master output
+  video,      // Video track
 }
 
 /// Track on the timeline

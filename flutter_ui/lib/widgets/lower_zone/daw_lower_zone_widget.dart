@@ -53,6 +53,7 @@ import 'daw/edit/beat_detective_panel.dart';
 import 'daw/edit/smart_tempo_panel.dart';
 import 'daw/edit/strip_silence_panel.dart';
 import '../panels/loop_editor_panel.dart';
+import 'daw/edit/video_panel.dart';
 // ✅ P0.1: Extracted MIX panels
 import 'daw/mix/sends_panel.dart';
 import 'daw/mix/pan_panel.dart';
@@ -736,6 +737,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.tempoDetect => _buildSmartTempoPanel(),
       DawEditSubTab.stripSilence => _buildStripSilencePanel(),
       DawEditSubTab.loopEditor => _buildLoopEditorPanel(),
+      DawEditSubTab.video => _buildVideoPanel(),
     };
   }
 
@@ -969,6 +971,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.tempoDetect => _buildSmartTempoPanel(),
       DawEditSubTab.stripSilence => _buildStripSilencePanel(),
       DawEditSubTab.loopEditor => _buildLoopEditorPanel(),
+      DawEditSubTab.video => _buildVideoPanel(),
     };
   }
 
@@ -1046,6 +1049,8 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     clips: widget.allClips,
     onAction: widget.onDspAction,
   );
+
+  Widget _buildVideoPanel() => const VideoLowerZonePanel();
 
   /// Compact Timeline Overview
   // ✅ P0.1: Timeline Overview extracted to daw/edit/timeline_overview_panel.dart

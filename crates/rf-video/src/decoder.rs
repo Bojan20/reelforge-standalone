@@ -4,7 +4,9 @@
 //! Default: Pure Rust MP4 container parsing (metadata + placeholder frames)
 //! With "ffmpeg" feature: Full codec support via FFmpeg
 
+#[cfg(not(feature = "ffmpeg"))]
 use std::fs::File;
+#[cfg(not(feature = "ffmpeg"))]
 use std::io::BufReader;
 use std::path::Path;
 
@@ -169,23 +171,79 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> (u8, u8, u8) {
 
 // ============ Video Decoder ============
 
-/// Pure Rust MP4 container decoder (metadata + placeholder frames)
-/// For actual video decoding, enable the "ffmpeg" feature
+/// Unified video decoder — uses FFmpeg when available, pure Rust MP4 fallback.
 pub struct VideoDecoder {
+    #[cfg(feature = "ffmpeg")]
+    inner: ffmpeg_backend::FfmpegDecoder,
+    #[cfg(not(feature = "ffmpeg"))]
     info: VideoInfo,
+    #[cfg(not(feature = "ffmpeg"))]
     current_frame: u64,
 }
 
 impl VideoDecoder {
     pub fn open(path: &Path) -> VideoResult<Self> {
-        let file = File::open(path).map_err(|e| VideoError::OpenFailed(e.to_string()))?;
+        #[cfg(feature = "ffmpeg")]
+        {
+            let inner = ffmpeg_backend::FfmpegDecoder::open(path)?;
+            Ok(Self { inner })
+        }
+        #[cfg(not(feature = "ffmpeg"))]
+        {
+            Self::open_mp4_fallback(path)
+        }
+    }
 
+    pub fn info(&self) -> &VideoInfo {
+        #[cfg(feature = "ffmpeg")]
+        { self.inner.info() }
+        #[cfg(not(feature = "ffmpeg"))]
+        { &self.info }
+    }
+
+    pub fn seek_to_frame(&mut self, frame: u64) -> VideoResult<()> {
+        #[cfg(feature = "ffmpeg")]
+        { self.inner.seek_to_frame(frame) }
+        #[cfg(not(feature = "ffmpeg"))]
+        {
+            self.current_frame = frame.min(self.info.duration_frames.saturating_sub(1));
+            Ok(())
+        }
+    }
+
+    pub fn decode_frame(&mut self, frame: u64) -> VideoResult<Option<VideoFrame>> {
+        #[cfg(feature = "ffmpeg")]
+        { self.inner.decode_frame(frame) }
+        #[cfg(not(feature = "ffmpeg"))]
+        {
+            self.current_frame = frame;
+            Ok(Some(VideoFrame::placeholder(frame, self.info.width, self.info.height)))
+        }
+    }
+
+    pub fn frame_count(&self) -> u64 {
+        #[cfg(feature = "ffmpeg")]
+        { self.inner.frame_count() }
+        #[cfg(not(feature = "ffmpeg"))]
+        { self.info.duration_frames }
+    }
+
+    pub fn current_frame(&self) -> u64 {
+        #[cfg(feature = "ffmpeg")]
+        { self.inner.current_frame() }
+        #[cfg(not(feature = "ffmpeg"))]
+        { self.current_frame }
+    }
+
+    /// Pure Rust MP4 fallback (metadata only, placeholder frames)
+    #[cfg(not(feature = "ffmpeg"))]
+    fn open_mp4_fallback(path: &Path) -> VideoResult<Self> {
+        let file = File::open(path).map_err(|e| VideoError::OpenFailed(e.to_string()))?;
         let size = file.metadata()?.len();
         let reader = BufReader::new(file);
         let mp4 = mp4::Mp4Reader::read_header(reader, size)
             .map_err(|e| VideoError::OpenFailed(e.to_string()))?;
 
-        // Find video track
         let video_track = mp4
             .tracks()
             .values()
@@ -202,32 +260,12 @@ impl VideoDecoder {
         let frame_rate = if video_track.frame_rate() > 0.0 {
             video_track.frame_rate()
         } else {
-            24.0 // Default
+            24.0
         };
 
         let duration_frames = (duration_secs * frame_rate) as u64;
+        let frame_rate_enum = fps_to_frame_rate(frame_rate);
 
-        let frame_rate_enum = if (frame_rate - 24.0).abs() < 0.01 {
-            FrameRate::Fps24
-        } else if (frame_rate - 23.976).abs() < 0.05 {
-            FrameRate::Fps23_976
-        } else if (frame_rate - 25.0).abs() < 0.01 {
-            FrameRate::Fps25
-        } else if (frame_rate - 29.97).abs() < 0.05 {
-            FrameRate::Fps29_97
-        } else if (frame_rate - 30.0).abs() < 0.01 {
-            FrameRate::Fps30
-        } else if (frame_rate - 50.0).abs() < 0.01 {
-            FrameRate::Fps50
-        } else if (frame_rate - 59.94).abs() < 0.05 {
-            FrameRate::Fps59_94
-        } else if (frame_rate - 60.0).abs() < 0.01 {
-            FrameRate::Fps60
-        } else {
-            FrameRate::Custom(frame_rate)
-        };
-
-        // Check for audio
         let has_audio = mp4.tracks().values().any(|t| {
             t.track_type()
                 .map(|tt| tt == mp4::TrackType::Audio)
@@ -287,7 +325,7 @@ impl VideoDecoder {
             frame_rate: frame_rate_enum,
             width,
             height,
-            pixel_format: PixelFormat::Yuv420p, // Most MP4s are YUV
+            pixel_format: PixelFormat::Yuv420p,
             codec,
             bitrate: video_track.bitrate() as u64,
             has_audio,
@@ -301,34 +339,28 @@ impl VideoDecoder {
             current_frame: 0,
         })
     }
+}
 
-    pub fn info(&self) -> &VideoInfo {
-        &self.info
-    }
-
-    pub fn seek_to_frame(&mut self, frame: u64) -> VideoResult<()> {
-        self.current_frame = frame.min(self.info.duration_frames.saturating_sub(1));
-        Ok(())
-    }
-
-    /// Decode frame - returns placeholder without FFmpeg feature
-    /// Enable "ffmpeg" feature for actual video decoding
-    pub fn decode_frame(&mut self, frame: u64) -> VideoResult<Option<VideoFrame>> {
-        self.current_frame = frame;
-        // Return placeholder frame - actual decoding requires FFmpeg
-        Ok(Some(VideoFrame::placeholder(
-            frame,
-            self.info.width,
-            self.info.height,
-        )))
-    }
-
-    pub fn frame_count(&self) -> u64 {
-        self.info.duration_frames
-    }
-
-    pub fn current_frame(&self) -> u64 {
-        self.current_frame
+/// Convert fps float to FrameRate enum
+fn fps_to_frame_rate(fps: f64) -> FrameRate {
+    if (fps - 24.0).abs() < 0.01 {
+        FrameRate::Fps24
+    } else if (fps - 23.976).abs() < 0.05 {
+        FrameRate::Fps23_976
+    } else if (fps - 25.0).abs() < 0.01 {
+        FrameRate::Fps25
+    } else if (fps - 29.97).abs() < 0.05 {
+        FrameRate::Fps29_97
+    } else if (fps - 30.0).abs() < 0.01 {
+        FrameRate::Fps30
+    } else if (fps - 50.0).abs() < 0.01 {
+        FrameRate::Fps50
+    } else if (fps - 59.94).abs() < 0.05 {
+        FrameRate::Fps59_94
+    } else if (fps - 60.0).abs() < 0.01 {
+        FrameRate::Fps60
+    } else {
+        FrameRate::Custom(fps)
     }
 }
 
@@ -348,6 +380,11 @@ pub mod ffmpeg_backend {
         current_frame: u64,
         time_base: ffmpeg_next::Rational,
     }
+
+    // SAFETY: FfmpegDecoder is only accessed behind a Mutex<VideoDecoder> in VideoPlayer.
+    // All FFmpeg contexts are single-threaded but we guarantee exclusive access via Mutex.
+    unsafe impl Send for FfmpegDecoder {}
+    unsafe impl Sync for FfmpegDecoder {}
 
     impl FfmpegDecoder {
         pub fn open(path: &Path) -> VideoResult<Self> {
@@ -391,19 +428,7 @@ pub mod ffmpeg_backend {
             let frame_rate = stream.rate();
             let fps = frame_rate.0 as f64 / frame_rate.1 as f64;
 
-            let frame_rate_enum = if (fps - 24.0).abs() < 0.01 {
-                FrameRate::Fps24
-            } else if (fps - 23.976).abs() < 0.05 {
-                FrameRate::Fps23_976
-            } else if (fps - 25.0).abs() < 0.01 {
-                FrameRate::Fps25
-            } else if (fps - 29.97).abs() < 0.05 {
-                FrameRate::Fps29_97
-            } else if (fps - 30.0).abs() < 0.01 {
-                FrameRate::Fps30
-            } else {
-                FrameRate::Custom(fps)
-            };
+            let frame_rate_enum = super::fps_to_frame_rate(fps);
 
             let duration_secs = input.duration() as f64 / ffmpeg_next::ffi::AV_TIME_BASE as f64;
             let duration_frames = (duration_secs * fps) as u64;

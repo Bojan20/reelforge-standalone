@@ -788,6 +788,8 @@ class TrackTypeColors {
         return Icons.alt_route;
       case TrackType.master:
         return Icons.speaker;
+      case TrackType.video:
+        return Icons.videocam;
     }
   }
 
@@ -808,6 +810,8 @@ class TrackTypeColors {
         return aux;
       case TrackType.master:
         return master;
+      case TrackType.video:
+        return const Color(0xFF8B5CF6); // Purple for video
     }
   }
 }
