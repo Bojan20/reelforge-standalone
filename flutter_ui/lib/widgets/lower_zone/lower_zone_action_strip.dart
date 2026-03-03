@@ -51,10 +51,9 @@ class LowerZoneActionStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // P2-10: Flexible height — wraps actions if needed
     return Container(
-      constraints: BoxConstraints(minHeight: minHeight),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      height: minHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: const BoxDecoration(
         color: LowerZoneColors.bgMid,
         border: Border(

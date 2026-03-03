@@ -234,6 +234,11 @@ class UnifiedPlaybackController extends ChangeNotifier {
 
     if (_activeSection == section) {
       _activeSection = null;
+      // Reset Rust active_section to DAW (default).
+      // This silences SlotLab/Middleware one-shot voices immediately because
+      // process_one_shot_voices only plays voices whose source == active_section.
+      // DAW voices have a special-case bypass (always play), so this is safe.
+      _setActiveSection(PlaybackSection.daw);
       notifyListeners();
     }
   }
