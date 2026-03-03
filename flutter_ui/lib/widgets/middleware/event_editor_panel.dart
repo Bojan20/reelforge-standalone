@@ -105,12 +105,37 @@ class _EventEditorPanelState extends State<EventEditorPanel>
   // BUG FIX: Without this, provider sync would overwrite local slider changes before debounce completes
   String? _pendingEditEventId;
 
+  /// Cached reference to MiddlewareProvider for listener management
+  MiddlewareProvider? _middlewareProvider;
+
   @override
   void initState() {
     super.initState();
     _initAnimations();
     _initSampleData();
     _keyboardFocusNode.requestFocus();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Attach listener to MiddlewareProvider to sync events on any change
+    final provider = context.read<MiddlewareProvider>();
+    if (_middlewareProvider != provider) {
+      _middlewareProvider?.removeListener(_onMiddlewareProviderChanged);
+      _middlewareProvider = provider;
+      _middlewareProvider!.addListener(_onMiddlewareProviderChanged);
+      // Initial sync
+      _syncEventsFromProviderList(_middlewareProvider!.events);
+    }
+  }
+
+  /// Called when MiddlewareProvider notifies (composite events changed, etc.)
+  void _onMiddlewareProviderChanged() {
+    if (!mounted) return;
+    final providerEvents = _middlewareProvider?.events ?? [];
+    _syncEventsFromProviderList(providerEvents);
+    setState(() {});
   }
 
   void _initAnimations() {
@@ -199,17 +224,22 @@ class _EventEditorPanelState extends State<EventEditorPanel>
             existing.category != event.category ||
             existing.actions.length != event.actions.length;
 
-        // Also check if any action parameters have changed (including pan, gain, etc.)
+        // Also check if any action parameters have changed (including type, pan, gain, etc.)
         if (!needsUpdate && existing.actions.length == event.actions.length) {
           for (int i = 0; i < existing.actions.length; i++) {
             final oldAction = existing.actions[i];
             final newAction = event.actions[i];
-            if (oldAction.pan != newAction.pan ||
+            if (oldAction.type != newAction.type ||
+                oldAction.pan != newAction.pan ||
                 oldAction.gain != newAction.gain ||
                 oldAction.delay != newAction.delay ||
                 oldAction.assetId != newAction.assetId ||
                 oldAction.bus != newAction.bus ||
-                oldAction.loop != newAction.loop) {
+                oldAction.loop != newAction.loop ||
+                oldAction.fadeInMs != newAction.fadeInMs ||
+                oldAction.fadeOutMs != newAction.fadeOutMs ||
+                oldAction.trimStartMs != newAction.trimStartMs ||
+                oldAction.trimEndMs != newAction.trimEndMs) {
               needsUpdate = true;
               break;
             }
@@ -232,6 +262,7 @@ class _EventEditorPanelState extends State<EventEditorPanel>
 
   @override
   void dispose() {
+    _middlewareProvider?.removeListener(_onMiddlewareProviderChanged);
     _sliderDebounceTimer?.cancel();
     _searchController.dispose();
     _newEventNameController.dispose();
@@ -247,56 +278,48 @@ class _EventEditorPanelState extends State<EventEditorPanel>
     return KeyboardListener(
       focusNode: _keyboardFocusNode,
       onKeyEvent: _handleKeyEvent,
-      child: Selector<MiddlewareProvider, List<MiddlewareEvent>>(
-        selector: (_, p) => p.events,
-        builder: (context, providerEvents, _) {
-          // Sync events from provider (includes Slot Lab events)
-          _syncEventsFromProviderList(providerEvents);
-
-          return Container(
-            decoration: BoxDecoration(
-              color: FluxForgeTheme.bgDeep,
-              border: Border.all(color: FluxForgeTheme.borderSubtle),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              children: [
-                _buildToolbar(),
-                Expanded(
-                  child: Row(
-                    children: [
-                      // Event Browser
-                      _buildEventBrowser(),
-                      // Resize handle
-                      _buildResizeHandle(
-                        onDrag: (dx) {
-                          setState(() {
-                            _eventListWidth = (_eventListWidth + dx)
-                                .clamp(_kMinPanelWidth, 500);
-                          });
-                        },
-                      ),
-                      // Main Editor Area
-                      Expanded(child: _buildMainEditor()),
-                      // Inspector
-                      if (_showInspector) ...[
-                        _buildResizeHandle(
-                          onDrag: (dx) {
-                            setState(() {
-                              _inspectorWidth = (_inspectorWidth - dx)
-                                  .clamp(_kMinPanelWidth, 500);
-                            });
-                          },
-                        ),
-                        _buildInspector(),
-                      ],
-                    ],
+      child: Container(
+        decoration: BoxDecoration(
+          color: FluxForgeTheme.bgDeep,
+          border: Border.all(color: FluxForgeTheme.borderSubtle),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          children: [
+            _buildToolbar(),
+            Expanded(
+              child: Row(
+                children: [
+                  // Event Browser
+                  _buildEventBrowser(),
+                  // Resize handle
+                  _buildResizeHandle(
+                    onDrag: (dx) {
+                      setState(() {
+                        _eventListWidth = (_eventListWidth + dx)
+                            .clamp(_kMinPanelWidth, 500);
+                      });
+                    },
                   ),
-                ),
-              ],
+                  // Main Editor Area
+                  Expanded(child: _buildMainEditor()),
+                  // Inspector
+                  if (_showInspector) ...[
+                    _buildResizeHandle(
+                      onDrag: (dx) {
+                        setState(() {
+                          _inspectorWidth = (_inspectorWidth - dx)
+                              .clamp(_kMinPanelWidth, 500);
+                        });
+                      },
+                    ),
+                    _buildInspector(),
+                  ],
+                ],
+              ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
