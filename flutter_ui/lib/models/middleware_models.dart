@@ -33,6 +33,7 @@ enum ActionType {
   seek,
   trigger,
   postEvent,
+  fade,
 }
 
 extension ActionTypeExtension on ActionType {
@@ -61,6 +62,7 @@ extension ActionTypeExtension on ActionType {
       case ActionType.seek: return 'Seek';
       case ActionType.trigger: return 'Trigger';
       case ActionType.postEvent: return 'PostEvent';
+      case ActionType.fade: return 'Fade';
     }
   }
 
@@ -89,6 +91,7 @@ extension ActionTypeExtension on ActionType {
       case 'Seek': return ActionType.seek;
       case 'Trigger': return ActionType.trigger;
       case 'PostEvent': return ActionType.postEvent;
+      case 'Fade': return ActionType.fade;
       default: return ActionType.play;
     }
   }

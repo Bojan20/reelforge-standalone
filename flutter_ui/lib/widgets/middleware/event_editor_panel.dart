@@ -3705,6 +3705,8 @@ class _EventEditorPanelState extends State<EventEditorPanel>
         return Icons.notifications;
       case ActionType.postEvent:
         return Icons.send;
+      case ActionType.fade:
+        return Icons.trending_down;
     }
   }
 
@@ -3744,6 +3746,8 @@ class _EventEditorPanelState extends State<EventEditorPanel>
         return Colors.lime;
       case ActionType.postEvent:
         return Colors.cyan;
+      case ActionType.fade:
+        return Colors.deepOrange;
     }
   }
 

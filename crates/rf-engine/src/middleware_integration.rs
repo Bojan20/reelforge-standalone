@@ -360,6 +360,13 @@ impl ActionExecutor {
                 } => {
                     self.execute_set_volume(bus_id, volume);
                 }
+                ExecutedAction::Fade {
+                    bus_id,
+                    target_volume,
+                    fade_frames: _,
+                } => {
+                    self.execute_set_volume(bus_id, target_volume);
+                }
                 ExecutedAction::SetState { .. }
                 | ExecutedAction::SetSwitch { .. }
                 | ExecutedAction::SetRtpc { .. }

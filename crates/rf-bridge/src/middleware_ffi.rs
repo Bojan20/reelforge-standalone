@@ -317,6 +317,7 @@ pub extern "C" fn middleware_add_action(
         20 => ActionType::Seek,
         21 => ActionType::Trigger,
         22 => ActionType::PostEvent,
+        23 => ActionType::Fade,
         _ => {
             log::error!("middleware_add_action: Invalid action type {}", action_type);
             return 0;
@@ -426,6 +427,7 @@ pub extern "C" fn middleware_add_action_ex(
         20 => ActionType::Seek,
         21 => ActionType::Trigger,
         22 => ActionType::PostEvent,
+        23 => ActionType::Fade,
         _ => {
             log::error!(
                 "middleware_add_action_ex: Invalid action type {}",

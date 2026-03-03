@@ -115,6 +115,12 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   // Category folder expansion state — collapsed by default
   Set<String> _expandedCategories = {};
 
+  // P0 PERFORMANCE: Cached category grouping (avoid re-grouping on expand/collapse)
+  Map<String, List<SlotCompositeEvent>>? _cachedGrouped;
+  List<String>? _cachedCategories;
+  int _cachedEventCount = -1;
+  String _cachedSearchQuery = '';
+
   // Test playback state (SL-RP-P1.2)
   String? _playingEventId;
 
@@ -710,85 +716,40 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                         ),
                       );
                     }
-                    // Group events by category
-                    final grouped = <String, List<SlotCompositeEvent>>{};
-                    for (final event in events) {
-                      final cat = event.category.isEmpty ? 'general' : event.category;
-                      grouped.putIfAbsent(cat, () => []).add(event);
+                    // P0 PERFORMANCE: Cache grouped categories — only re-group when events change
+                    if (_cachedGrouped == null || _cachedEventCount != events.length || _cachedSearchQuery != _eventSearchQuery) {
+                      final grouped = <String, List<SlotCompositeEvent>>{};
+                      for (final event in events) {
+                        final cat = event.category.isEmpty ? 'general' : event.category;
+                        grouped.putIfAbsent(cat, () => []).add(event);
+                      }
+                      _cachedGrouped = grouped;
+                      _cachedCategories = grouped.keys.toList()..sort();
+                      _cachedEventCount = events.length;
+                      _cachedSearchQuery = _eventSearchQuery;
                     }
-                    final categories = grouped.keys.toList()..sort();
+                    final grouped = _cachedGrouped!;
+                    final categories = _cachedCategories!;
+                    // P0 PERFORMANCE: Build flat list of (header, event) entries
+                    // for fully virtualized ListView — no spread, no Column children
+                    final flatItems = <({bool isHeader, String category, SlotCompositeEvent? event})>[];
+                    for (final cat in categories) {
+                      flatItems.add((isHeader: true, category: cat, event: null));
+                      if (_expandedCategories.contains(cat)) {
+                        for (final e in grouped[cat]!) {
+                          flatItems.add((isHeader: false, category: cat, event: e));
+                        }
+                      }
+                    }
                     return ListView.builder(
-                      itemCount: categories.length,
+                      itemCount: flatItems.length,
+                      itemExtent: null, // headers=24, items=28 (variable)
                       itemBuilder: (ctx, i) {
-                        final cat = categories[i];
-                        final catEvents = grouped[cat]!;
-                        final isExpanded = _expandedCategories.contains(cat);
-                        // Format category name: "spin" → "Spin"
-                        final displayName = cat.isNotEmpty
-                            ? '${cat[0].toUpperCase()}${cat.substring(1)}'
-                            : 'General';
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            // Category folder header
-                            GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  if (isExpanded) {
-                                    _expandedCategories.remove(cat);
-                                  } else {
-                                    _expandedCategories.add(cat);
-                                  }
-                                });
-                              },
-                              child: Container(
-                                height: 24,
-                                padding: const EdgeInsets.symmetric(horizontal: 6),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.04),
-                                  border: Border(
-                                    bottom: BorderSide(color: Colors.white.withOpacity(0.08)),
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      isExpanded ? Icons.expand_more : Icons.chevron_right,
-                                      size: 14,
-                                      color: Colors.white54,
-                                    ),
-                                    const SizedBox(width: 2),
-                                    Icon(
-                                      isExpanded ? Icons.folder_open : Icons.folder,
-                                      size: 13,
-                                      color: Colors.amber.withOpacity(0.7),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      displayName,
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.white70,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '(${catEvents.length})',
-                                      style: TextStyle(
-                                        fontSize: 9,
-                                        color: Colors.white38,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            // Category events (only when expanded)
-                            if (isExpanded)
-                              ...catEvents.map((e) => _buildEventItem(e)),
-                          ],
-                        );
+                        final item = flatItems[i];
+                        if (item.isHeader) {
+                          return _buildCategoryHeader(item.category, grouped[item.category]!.length);
+                        }
+                        return _buildEventItem(item.event!);
                       },
                     );
                   },
@@ -863,6 +824,67 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   /// 3-Column Event Item: NAME | STAGE | LAYERS
   /// - Single tap: select event
   /// - Double tap: edit event name inline
+  /// P0 PERFORMANCE: Extracted category header — lightweight, no Consumer rebuild
+  Widget _buildCategoryHeader(String cat, int count) {
+    final isExpanded = _expandedCategories.contains(cat);
+    final displayName = cat.isNotEmpty
+        ? '${cat[0].toUpperCase()}${cat.substring(1)}'
+        : 'General';
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          if (isExpanded) {
+            _expandedCategories.remove(cat);
+          } else {
+            _expandedCategories.add(cat);
+          }
+        });
+      },
+      child: Container(
+        height: 24,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.04),
+          border: Border(
+            bottom: BorderSide(color: Colors.white.withOpacity(0.08)),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isExpanded ? Icons.expand_more : Icons.chevron_right,
+              size: 14,
+              color: Colors.white54,
+            ),
+            const SizedBox(width: 2),
+            Icon(
+              isExpanded ? Icons.folder_open : Icons.folder,
+              size: 13,
+              color: Colors.amber.withOpacity(0.7),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              displayName,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: Colors.white70,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '($count)',
+              style: const TextStyle(
+                fontSize: 9,
+                color: Colors.white38,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEventItem(SlotCompositeEvent event) {
     final isSelected = _selectedEventId == event.id.toString();
     final isEditing = _editingEventId == event.id;

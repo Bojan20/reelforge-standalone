@@ -127,6 +127,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   // P2.7: Focus node for keyboard shortcuts (Ctrl+C/V)
   final FocusNode _layerListFocusNode = FocusNode();
 
+  // P0 PERFORMANCE: Cache built tab widgets to avoid re-creating on every switch
+  final Map<SlotLabSuperTab, Widget> _cachedTabs = {};
+  SlotLabSuperTab? _lastSuperTab;
+
   @override
   void initState() {
     super.initState();
@@ -238,6 +242,12 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   }
 
   void _onControllerChanged() {
+    // P0 PERFORMANCE: Invalidate cached tab when sub-tab changes
+    final currentTab = widget.controller.superTab;
+    if (_lastSuperTab == currentTab) {
+      // Sub-tab or height changed — only invalidate current tab cache
+      _cachedTabs.remove(currentTab);
+    }
     setState(() {});
   }
 
@@ -726,24 +736,28 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   }
 
   Widget _getContentForCurrentTab() {
-    switch (widget.controller.superTab) {
-      case SlotLabSuperTab.stages:
-        return _buildStagesContent();
-      case SlotLabSuperTab.events:
-        return _buildEventsContent();
-      case SlotLabSuperTab.mix:
-        return _buildMixContent();
-      case SlotLabSuperTab.dsp:
-        return _buildDspContent();
-      case SlotLabSuperTab.bake:
-        return _buildBakeContent();
-      case SlotLabSuperTab.logic:
-        return SlotLabLogicTabContent(subTab: widget.controller.state.logicSubTab);
-      case SlotLabSuperTab.intel:
-        return SlotLabIntelTabContent(subTab: widget.controller.state.intelSubTab);
-      case SlotLabSuperTab.monitor:
-        return SlotLabMonitorTabContent(subTab: widget.controller.state.monitorSubTab);
+    final tab = widget.controller.superTab;
+    // P0 PERFORMANCE: Invalidate cache when switching tabs to force fresh sub-tab state,
+    // but keep previously visited tabs cached for instant back-navigation
+    if (_lastSuperTab != tab) {
+      // Invalidate the NEW tab so it picks up current sub-tab state
+      _cachedTabs.remove(tab);
+      _lastSuperTab = tab;
     }
+    return _cachedTabs.putIfAbsent(tab, () => _buildTabContent(tab));
+  }
+
+  Widget _buildTabContent(SlotLabSuperTab tab) {
+    return switch (tab) {
+      SlotLabSuperTab.stages => _buildStagesContent(),
+      SlotLabSuperTab.events => _buildEventsContent(),
+      SlotLabSuperTab.mix => _buildMixContent(),
+      SlotLabSuperTab.dsp => _buildDspContent(),
+      SlotLabSuperTab.bake => _buildBakeContent(),
+      SlotLabSuperTab.logic => SlotLabLogicTabContent(subTab: widget.controller.state.logicSubTab),
+      SlotLabSuperTab.intel => SlotLabIntelTabContent(subTab: widget.controller.state.intelSubTab),
+      SlotLabSuperTab.monitor => SlotLabMonitorTabContent(subTab: widget.controller.state.monitorSubTab),
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

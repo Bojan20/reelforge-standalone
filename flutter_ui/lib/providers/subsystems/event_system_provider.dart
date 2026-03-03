@@ -267,6 +267,7 @@ class EventSystemProvider extends ChangeNotifier {
       ActionType.seek => MiddlewareActionType.seek,
       ActionType.trigger => MiddlewareActionType.trigger,
       ActionType.postEvent => MiddlewareActionType.postEvent,
+      ActionType.fade => MiddlewareActionType.fade,
     };
   }
 

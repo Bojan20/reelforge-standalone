@@ -1096,6 +1096,11 @@ fn execute_action(
             event_id: action.target_event_id.unwrap_or(0),
             game_object,
         },
+        ActionType::Fade => ExecutedAction::Fade {
+            bus_id: action.bus_id,
+            target_volume: action.gain,
+            fade_frames: action.fade_frames(sample_rate),
+        },
         _ => ExecutedAction::Other {
             action_type: action.action_type,
         },
@@ -1164,6 +1169,12 @@ pub enum ExecutedAction {
     PostEvent {
         event_id: u32,
         game_object: GameObjectId,
+    },
+    /// Fade — apply volume fade to active sound
+    Fade {
+        bus_id: u32,
+        target_volume: f32,
+        fade_frames: u64,
     },
     /// Other action type
     Other { action_type: ActionType },

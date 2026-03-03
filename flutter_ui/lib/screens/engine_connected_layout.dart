@@ -7845,6 +7845,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       ActionType.seek => const Color(0xFFFF66FF),
       ActionType.trigger => FluxForgeTheme.accentOrange,
       ActionType.postEvent => const Color(0xFF66FFFF),
+      ActionType.fade => const Color(0xFFFF6E40),
     };
   }
 

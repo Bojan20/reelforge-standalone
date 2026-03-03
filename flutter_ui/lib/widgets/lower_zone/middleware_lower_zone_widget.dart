@@ -2358,6 +2358,7 @@ class _MiddlewareLowerZoneWidgetState extends State<MiddlewareLowerZoneWidget> {
       ('Stop', Colors.red, Icons.stop),
       ('Pause', Colors.orange, Icons.pause),
       ('SetVolume', Colors.blue, Icons.volume_up),
+      ('Fade', Colors.deepOrange, Icons.trending_down),
     ];
 
     final current = actionTypes.firstWhere(

@@ -63,6 +63,8 @@ pub enum ActionType {
     Trigger = 21,
     /// Post another event (nested)
     PostEvent = 22,
+    /// Fade — apply volume fade to active sound (no play/stop)
+    Fade = 23,
 }
 
 impl ActionType {
@@ -93,6 +95,7 @@ impl ActionType {
             20 => ActionType::Seek,
             21 => ActionType::Trigger,
             22 => ActionType::PostEvent,
+            23 => ActionType::Fade,
             _ => ActionType::Play,
         }
     }
@@ -123,6 +126,7 @@ impl ActionType {
             ActionType::Seek => "Seek",
             ActionType::Trigger => "Trigger",
             ActionType::PostEvent => "PostEvent",
+            ActionType::Fade => "Fade",
         }
     }
 

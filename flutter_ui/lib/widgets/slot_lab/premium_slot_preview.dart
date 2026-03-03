@@ -4922,6 +4922,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   /// Remaining seconds of Big Win protection (0 = can skip immediately)
   double _bigWinProtectionRemaining = 0.0;
 
+  /// Two-phase skip: first skip → play BIG_WIN_END, second skip → stop everything
+  bool _isPlayingBigWinEnd = false;
+
   /// Timestamp when win presentation started (for protection tracking)
   int _winPresentationStartMs = 0;
   bool? _gambleWon; // Result of gamble
@@ -5143,12 +5146,12 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   }
 
   /// Handle SKIP button press during win presentation.
-  /// Industry standard (IGT, NetEnt, Pragmatic Play):
-  /// - SKIP does NOT start a new spin
-  /// - SKIP jumps to END of ENTIRE win flow (not just current phase)
-  /// - Stops ALL win-related audio immediately
-  /// - Shows total win plaque with final amount
-  /// - Triggers WIN_COLLECT stage, then collects
+  ///
+  /// TWO-PHASE SKIP for Big Wins:
+  /// - Phase 1 (first skip): Stop celebration, trigger BIG_WIN_END event (plays fully)
+  /// - Phase 2 (second skip): Stop BIG_WIN_END, collect immediately
+  ///
+  /// Regular wins skip in one phase (no BIG_WIN_END).
   void _handleSkipWinPresentation() {
     // Don't allow skip if protection is still active
     if (_bigWinProtectionRemaining > 0) {
@@ -5156,6 +5159,39 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     }
 
     final provider = context.read<SlotLabProvider>();
+    final eventRegistry = EventRegistry.instance;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PHASE 2: BIG_WIN_END is already playing → stop it and collect
+    // ═══════════════════════════════════════════════════════════════════════
+    if (_isPlayingBigWinEnd) {
+      _isPlayingBigWinEnd = false;
+
+      // Stop BIG_WIN_END audio
+      eventRegistry.stopEvent('BIG_WIN_END');
+      eventRegistry.stopEvent('MUSIC_BIGWIN_END');
+      eventRegistry.stopEvent('MUSIC_BIGWIN_OUTRO');
+      eventRegistry.stopAllMusicVoices(fadeMs: 200);
+
+      // Trigger collect and restore base game
+      eventRegistry.triggerStage('WIN_COLLECT');
+
+      // Collect win IMMEDIATELY
+      _stopBigWinProtection();
+      setState(() {
+        _balance += _pendingWinAmount;
+        _pendingWinAmount = 0.0;
+        _showWinPresenter = false;
+        _showGambleScreen = false;
+        _currentWinTier = '';
+      });
+      provider.setWinPresentationActive(false);
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PHASE 1: First skip — stop celebration, play BIG_WIN_END
+    // ═══════════════════════════════════════════════════════════════════════
 
     // Stop ALL stage playback timers immediately
     if (provider.isPlayingStages) {
@@ -5166,7 +5202,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     _stopAnticipationAudio();
 
     // Stop ALL music (big win music fades out)
-    final eventRegistry = EventRegistry.instance;
     eventRegistry.stopAllMusicVoices(fadeMs: 300);
 
     // Stop all win-related sfx events
@@ -5185,17 +5220,26 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       eventRegistry.stopEvent('BIG_WIN_TIER_$i');
     }
 
-    // Trigger END stages so designers can have "win end" sounds
+    // Trigger END stages
     eventRegistry.triggerStage('ROLLUP_END');
+
     if (_currentWinTier.isNotEmpty) {
-      // BIG_WIN_END is composite: sfx + music end + outro + base game restore
-      // All layers defined dynamically — visible and editable in middleware panel
+      // Big Win: trigger BIG_WIN_END and enter Phase 2 (wait for second skip)
       eventRegistry.triggerStage('BIG_WIN_END');
       eventRegistry.triggerStage('WIN_PRESENT_END');
+      _stopBigWinProtection();
+      setState(() {
+        _isPlayingBigWinEnd = true;
+        // Show win amount but keep presenter visible while BIG_WIN_END plays
+        _balance += _pendingWinAmount;
+        _pendingWinAmount = 0.0;
+      });
+      // WIN presentation stays active — user can skip again (Phase 2)
+      return;
     }
-    eventRegistry.triggerStage('WIN_COLLECT');
 
-    // Collect win IMMEDIATELY — no delay, SPIN button appears right away
+    // Regular win (no big win tier): collect immediately
+    eventRegistry.triggerStage('WIN_COLLECT');
     _stopBigWinProtection();
     setState(() {
       _balance += _pendingWinAmount;
@@ -5309,6 +5353,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _currentWinAmount = 0.0;
       _pendingWinAmount = 0.0;
       _bigWinProtectionRemaining = 0.0;
+      _isPlayingBigWinEnd = false;
       _winPresentationStartMs = 0;
       _gambleWon = null;
       _gambleCardRevealed = null;
@@ -5684,6 +5729,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _majorJackpot += _totalBetAmount * 0.002;
       _grandJackpot += _totalBetAmount * 0.001;
       _showWinPresenter = false;
+      _isPlayingBigWinEnd = false;
     });
     provider.setWinPresentationActive(false); // Sync with provider
 
@@ -5742,6 +5788,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _sessionTotalBet += _totalBetAmount; // Session tracking for RTP calculation
       _totalSpins++;
       _showWinPresenter = false;
+      _isPlayingBigWinEnd = false;
     });
     provider.setWinPresentationActive(false); // Sync with provider
 
@@ -6238,6 +6285,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _pendingWinAmount = 0.0;
       _showWinPresenter = false;
       _showGambleScreen = false;
+      _isPlayingBigWinEnd = false;
     });
     context.read<SlotLabProvider>().setWinPresentationActive(false); // Sync with provider
   }
@@ -6249,6 +6297,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _showGambleScreen = true;
       _gambleCardRevealed = null;
       _gambleWon = null;
+      _isPlayingBigWinEnd = false;
     });
     context.read<SlotLabProvider>().setWinPresentationActive(false); // Sync with provider (gamble is separate flow)
   }
@@ -6358,7 +6407,10 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         } else if (_showSettingsPanel) {
           setState(() => _showSettingsPanel = false);
         } else if (_showWinPresenter) {
-          setState(() => _showWinPresenter = false);
+          setState(() {
+            _showWinPresenter = false;
+            _isPlayingBigWinEnd = false;
+          });
           context.read<SlotLabProvider>().setWinPresentationActive(false); // Sync with provider
         } else {
           widget.onExit();

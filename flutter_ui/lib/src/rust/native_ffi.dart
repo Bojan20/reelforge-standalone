@@ -15707,6 +15707,7 @@ enum MiddlewareActionType {
   seek,
   trigger,
   postEvent,
+  fade,
 }
 
 /// Action scope for middleware events
