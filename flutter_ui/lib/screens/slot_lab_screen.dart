@@ -2932,10 +2932,62 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                       },
                     ), // End of if (actualShowLeft) Consumer2 (P13.8.6)
 
-                        // CENTER: Premium Slot Preview
+                        // CENTER: Premium Slot Preview (with drag-drop from Audio Browser)
                         Expanded(
-                          child: ClipRect(
-                            child: _buildMockSlot(),
+                          child: DragTarget<String>(
+                            onWillAcceptWithDetails: (details) => details.data.isNotEmpty,
+                            onAcceptWithDetails: (details) {
+                              _handleAudioDropOnSlotPreview(details.data);
+                            },
+                            builder: (context, candidateData, rejectedData) {
+                              return Stack(
+                                children: [
+                                  ClipRect(
+                                    child: _buildMockSlot(),
+                                  ),
+                                  // Drop highlight overlay
+                                  if (candidateData.isNotEmpty)
+                                    Positioned.fill(
+                                      child: IgnorePointer(
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: FluxForgeTheme.accentBlue.withOpacity(0.08),
+                                            border: Border.all(
+                                              color: FluxForgeTheme.accentBlue.withOpacity(0.6),
+                                              width: 2,
+                                            ),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Center(
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                              decoration: BoxDecoration(
+                                                color: FluxForgeTheme.accentBlue.withOpacity(0.9),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: const Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(Icons.add_circle, color: Colors.white, size: 16),
+                                                  SizedBox(width: 6),
+                                                  Text(
+                                                    'Drop to create event',
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            },
                           ),
                         ),
 
@@ -6940,6 +6992,71 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final cache = WaveformCache();
     if (cache.hasMultiRes(cacheKey)) return; // Already in cache — instant
     cache.getOrComputeMultiResFromPath(cacheKey, audioPath);
+  }
+
+  /// Handle audio drop on central Slot Preview — creates composite event identical to Add button
+  void _handleAudioDropOnSlotPreview(String audioPath) {
+    if (audioPath.isEmpty) return;
+
+    // Extract display name from path
+    final fileName = audioPath.split('/').last;
+    final displayName = fileName.replaceAll(
+      RegExp(r'\.(wav|mp3|ogg|flac|aiff|aif|m4a|wma)$', caseSensitive: false),
+      '',
+    );
+
+    final now = DateTime.now();
+    final eventId = 'event_${now.millisecondsSinceEpoch}';
+
+    // Create layer from dropped audio
+    final layer = SlotEventLayer(
+      id: 'layer_${now.millisecondsSinceEpoch}',
+      name: displayName,
+      audioPath: audioPath,
+      volume: 1.0,
+      pan: 0.0,
+      offsetMs: 0.0,
+      durationSeconds: 2.0, // Default until FFI resolves actual duration
+      busId: 0, // SFX bus
+    );
+
+    // Create composite event (same as _finishCreateEvent + Add button flow)
+    final event = SlotCompositeEvent(
+      id: eventId,
+      name: displayName,
+      category: 'general',
+      color: FluxForgeTheme.accentBlue,
+      layers: [layer],
+      masterVolume: 1.0,
+      targetBusId: 0,
+      looping: false,
+      maxInstances: 1,
+      createdAt: now,
+      modifiedAt: now,
+      triggerStages: ['SPIN_START'],
+      triggerConditions: const {},
+      timelinePositionMs: 0,
+      trackIndex: 0,
+    );
+
+    // Add to MiddlewareProvider (single source of truth)
+    _middleware.addCompositeEvent(event);
+
+    // Select the new event
+    setState(() {
+      _selectedEventId = event.id;
+    });
+
+    // Register in Event Registry
+    _syncEventToRegistry(event);
+
+    // Persist state
+    _persistState();
+
+    // Show status
+    _lastDragStatus = '✅ Created "$displayName"';
+    _lastDragStatusTime = DateTime.now();
+    setState(() {});
   }
 
   /// Handle audio drop to Ultimate Timeline
