@@ -695,6 +695,7 @@ class EventRegistry extends ChangeNotifier {
   /// [fadeMs] - Fade-out duration in milliseconds (default: 100ms)
   void _autoFadeOutMatchingStages(String stagePrefix, {int fadeMs = 100}) {
     int fadedCount = 0;
+    final fadedEventIds = <String>{};
 
     // Find all playing instances where event stage starts with prefix
     for (final instance in _playingInstances) {
@@ -713,10 +714,13 @@ class EventRegistry extends ChangeNotifier {
             fadedCount++;
           }
         }
+        fadedEventIds.add(instance.eventId);
       }
     }
 
-    if (fadedCount > 0) {
+    // Remove playing instances so looping dedup doesn't block re-trigger
+    if (fadedEventIds.isNotEmpty) {
+      _playingInstances.removeWhere((i) => fadedEventIds.contains(i.eventId));
     }
   }
 
@@ -868,16 +872,27 @@ class EventRegistry extends ChangeNotifier {
       return overrideFadeMs ?? 0;
     }
 
+    // Collect event IDs being faded so we can clear their playing instances
+    final fadedEventIds = <String>{};
+
     int maxFadeMs = overrideFadeMs ?? 0;
     for (final voice in activeVoices) {
       final fadeMs = overrideFadeMs ?? voice.crossfadeMs;
       if (fadeMs > maxFadeMs) maxFadeMs = fadeMs;
 
       AudioPlaybackService.instance.fadeOutVoice(voice.voiceId, fadeMs: fadeMs);
+      fadedEventIds.add(voice.eventId);
     }
 
     // Clear the tracking for this bus
     _activeBusVoices[busId] = [];
+
+    // Remove playing instances for faded events so looping dedup doesn't
+    // block re-trigger after fade-out (e.g. MUSIC_BASE_L1 after big win)
+    if (fadedEventIds.isNotEmpty) {
+      _playingInstances.removeWhere((i) => fadedEventIds.contains(i.eventId));
+    }
+
     return maxFadeMs;
   }
 
