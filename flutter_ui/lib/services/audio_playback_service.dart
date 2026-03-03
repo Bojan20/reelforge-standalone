@@ -824,6 +824,11 @@ class AudioPlaybackService extends ChangeNotifier {
     return _eventVoices[eventId] ?? [];
   }
 
+  /// Clear stale voice tracking for an event (before re-trigger)
+  void clearEventVoices(String eventId) {
+    _eventVoices.remove(eventId);
+  }
+
   /// Update volume for all active voices of an event in real-time
   void updateEventVolume(String eventId, double volume) {
     final voices = _eventVoices[eventId];

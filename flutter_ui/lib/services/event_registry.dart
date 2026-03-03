@@ -34,6 +34,7 @@ import 'unified_playback_controller.dart';
 import 'hook_dispatcher.dart';
 import '../models/hook_models.dart';
 import '../utils/path_validator.dart';
+import 'variant_manager.dart';
 
 // =============================================================================
 // P0 WF-06: CUSTOM EVENT HANDLER TYPEDEF (2026-01-30)
@@ -901,34 +902,39 @@ class EventRegistry extends ChangeNotifier {
   }
 
   /// Trigger a looping stage at volume 0, then fade in over fadeMs.
-  /// Clears stale playing instances first so dedup doesn't block re-trigger.
-  /// Waits for async voice creation before starting volume ramp.
-  void triggerStageWithFadeIn(String stage, {int fadeMs = 800}) {
+  /// Clears stale state first so dedup doesn't block and fadeIn hits fresh voices.
+  Future<void> triggerStageWithFadeIn(String stage, {int fadeMs = 800}) async {
     final normalizedStage = stage.toUpperCase();
     final event = _stageToEvent[stage] ?? _stageToEvent[normalizedStage];
     final eventId = event?.id ?? 'audio_$normalizedStage';
 
     // Clear stale playing instances so looping dedup allows re-trigger
     _playingInstances.removeWhere((i) => i.eventId == eventId);
+    // Clear stale voice tracking so updateEventVolume only hits new voices
+    AudioPlaybackService.instance.clearEventVoices(eventId);
 
-    // Trigger at volume 0 (keeps loop=true for proper looping playback)
-    triggerStage(stage, context: {'volumeMultiplier': 0.0});
+    // Trigger at volume 0 — await ensures voice is created and registered
+    await triggerStage(stage, context: {'volumeMultiplier': 0.0});
 
-    // Wait for async voice creation, then ramp volume
+    // Verify voice was actually created
+    final voices = AudioPlaybackService.instance.getEventVoices(eventId);
+    if (voices.isEmpty) {
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+
+    // Ramp volume 0→1
     const stepMs = 16;
     final steps = (fadeMs / stepMs).ceil().clamp(1, 1000);
     int currentStep = 0;
-    Future.delayed(const Duration(milliseconds: 80), () {
-      Timer.periodic(Duration(milliseconds: stepMs), (timer) {
-        currentStep++;
-        final t = (currentStep / steps).clamp(0.0, 1.0);
-        final vol = t * t; // ease-in curve
-        AudioPlaybackService.instance.updateEventVolume(eventId, vol);
-        if (currentStep >= steps) {
-          AudioPlaybackService.instance.updateEventVolume(eventId, 1.0);
-          timer.cancel();
-        }
-      });
+    Timer.periodic(Duration(milliseconds: stepMs), (timer) {
+      currentStep++;
+      final t = (currentStep / steps).clamp(0.0, 1.0);
+      final vol = t * t; // ease-in curve
+      AudioPlaybackService.instance.updateEventVolume(eventId, vol);
+      if (currentStep >= steps) {
+        AudioPlaybackService.instance.updateEventVolume(eventId, 1.0);
+        timer.cancel();
+      }
     });
   }
 
@@ -2481,12 +2487,18 @@ class EventRegistry extends ChangeNotifier {
     bool loop = false, // P0.2: Seamless loop support
     String? eventId,
   }) async {
-    if (layer.audioPath.isEmpty) {
+    // Variant resolution: if VariantManager has variants for this stage,
+    // pick the next variant path instead of the fixed layer path.
+    final effectivePath = (eventKey != null && VariantManager.instance.hasVariants(eventKey))
+        ? (VariantManager.instance.getNext(eventKey) ?? layer.audioPath)
+        : layer.audioPath;
+
+    if (effectivePath.isEmpty) {
       return;
     }
 
     // P1.1 SECURITY: Validate audio path before playback
-    if (!_validateAudioPath(layer.audioPath)) {
+    if (!_validateAudioPath(effectivePath)) {
       _lastTriggerSuccess = false;
       _lastTriggerError = 'Invalid audio path (security)';
       return;
@@ -2622,7 +2634,7 @@ class EventRegistry extends ChangeNotifier {
       if (source == PlaybackSource.browser) {
         // Browser uses isolated PreviewEngine
         voiceId = AudioPlaybackService.instance.previewFile(
-          layer.audioPath,
+          effectivePath,
           volume: volume.clamp(0.0, 1.0),
           source: source,
         );
@@ -2630,7 +2642,7 @@ class EventRegistry extends ChangeNotifier {
         // CRITICAL: Loop MUST come BEFORE usePool and fade/trim checks!
         // Looping events (GAME_START, MUSIC_*) ignore fade/trim parameters
         voiceId = AudioPlaybackService.instance.playLoopingToBus(
-          layer.audioPath,
+          effectivePath,
           volume: volume.clamp(0.0, 1.0),
           pan: pan.clamp(-1.0, 1.0),
           busId: layer.busId,
@@ -2642,7 +2654,7 @@ class EventRegistry extends ChangeNotifier {
         // Use AudioPool for rapid-fire events (CASCADE_STEP, ROLLUP_TICK, etc.)
         voiceId = AudioPool.instance.acquire(
           eventKey: eventKey,
-          audioPath: layer.audioPath,
+          audioPath: effectivePath,
           busId: layer.busId,
           volume: volume.clamp(0.0, 1.0),
           pan: pan.clamp(-1.0, 1.0),
@@ -2670,7 +2682,7 @@ class EventRegistry extends ChangeNotifier {
 
         if (hasFadeTrim) {
           voiceId = AudioPlaybackService.instance.playFileToBusEx(
-            layer.audioPath,
+            effectivePath,
             volume: volume.clamp(0.0, 1.0),
             pan: pan.clamp(-1.0, 1.0),
             busId: layer.busId,
@@ -2686,7 +2698,7 @@ class EventRegistry extends ChangeNotifier {
           }
         } else {
           voiceId = AudioPlaybackService.instance.playFileToBus(
-            layer.audioPath,
+            effectivePath,
             volume: volume.clamp(0.0, 1.0),
             pan: pan.clamp(-1.0, 1.0),
             busId: layer.busId,
@@ -2700,7 +2712,7 @@ class EventRegistry extends ChangeNotifier {
       // P2-M3: Check FFI return value — negative voiceId means playback failed
       if (voiceId < 0) {
         _lastTriggerSuccess = false;
-        _lastTriggerError = 'FFI playback failed for ${layer.audioPath} (voiceId=$voiceId)';
+        _lastTriggerError = 'FFI playback failed for $effectivePath (voiceId=$voiceId)';
         return; // Skip this layer
       }
 
@@ -2718,7 +2730,7 @@ class EventRegistry extends ChangeNotifier {
         // ═══════════════════════════════════════════════════════════════════════
         HookDispatcher.instance.dispatch(HookContext.onAudioPlayed(
           eventId: eventKey ?? layer.id,
-          audioPath: layer.audioPath,
+          audioPath: effectivePath,
           data: {
             'voiceId': voiceId,
             'busId': layer.busId,
