@@ -2088,17 +2088,14 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
     // For big wins: play end music then restore BG music with fadeIn
     if (wasBigWin) {
+      // Play big win end music
       _ensureAudioRegistered('MUSIC_BIGWIN_END');
       _ensureAudioRegistered('MUSIC_BIGWIN_OUTRO');
-      if (eventRegistry.hasEventForStage('MUSIC_BIGWIN_END')) {
-        eventRegistry.triggerStage('MUSIC_BIGWIN_END');
-      } else {
-        eventRegistry.triggerStage('MUSIC_BIGWIN_OUTRO');
-      }
+      eventRegistry.triggerStage('MUSIC_BIGWIN_END');
+      eventRegistry.triggerStage('MUSIC_BIGWIN_OUTRO');
       // Restore BG music with fadeIn
       _ensureAudioRegistered('MUSIC_BASE_L1');
-      eventRegistry.triggerStage('MUSIC_BASE_L1', context: {'volumeMultiplier': 0.0});
-      eventRegistry.fadeInEvent('audio_MUSIC_BASE_L1', fadeMs: 800);
+      eventRegistry.triggerStageWithFadeIn('MUSIC_BASE_L1', fadeMs: 800);
     }
 
     // Helper to reset state and notify provider
@@ -3193,7 +3190,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Counter je već STAO (dostigao target na kraju tier-ova)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    // STOP ALL BIG WIN MUSIC — fade out everything
+    // STOP ALL BIG WIN MUSIC — fade out everything on music bus
     eventRegistry.stopAllMusicVoices(fadeMs: 300);
     eventRegistry.stopEvent('BIG_WIN_LOOP');
     eventRegistry.stopEvent('BIG_WIN_COINS');
@@ -3202,44 +3199,31 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Trigger BIG_WIN_END stage (sfx)
     eventRegistry.triggerStage('BIG_WIN_END');
 
-    // Play BIG_WIN_END music — ONE-SHOT, no loop
-    // Try MUSIC_BIGWIN_END first, fallback to MUSIC_BIGWIN_OUTRO
+    // Play BIG_WIN_END music (one-shot end fanfare)
     _ensureAudioRegistered('MUSIC_BIGWIN_END');
     _ensureAudioRegistered('MUSIC_BIGWIN_OUTRO');
-    if (eventRegistry.hasEventForStage('MUSIC_BIGWIN_END')) {
-      eventRegistry.triggerStage('MUSIC_BIGWIN_END');
-    } else {
-      eventRegistry.triggerStage('MUSIC_BIGWIN_OUTRO');
-    }
+    eventRegistry.triggerStage('MUSIC_BIGWIN_END');
+    eventRegistry.triggerStage('MUSIC_BIGWIN_OUTRO');
 
     final lastTier = _currentDisplayTier;
-
-    // Plaketa OSTAJE sa poslednjim tier-om (ne menja se)
-    // Counter je već stao i ostaje na finalnoj vrednosti
-    // setState() NIJE potreban — _currentDisplayTier već ima pravi tier
 
     _tierProgressionTimer?.cancel();
     _tierProgressionTimer = Timer(const Duration(milliseconds: _bigWinEndDurationMs), () {
       if (!mounted) return;
-      // FIX: Guard against skip race condition
-      if (widget.provider.skipRequested) {
-        return;
-      }
+      if (widget.provider.skipRequested) return;
 
       _isInTierProgression = false;
 
       // ═══════════════════════════════════════════════════════════════════════
-      // STEP 4: Fade out plaque
+      // STEP 4: Fade out plaque — fadeIn BG music when plaque is gone
       // ═══════════════════════════════════════════════════════════════════════
       _winAmountController.reverse().then((_) {
         if (!mounted) return;
-        // FIX: Don't start win lines if skip completed during fade-out
         if (_winTier.isEmpty) return;
 
-        // RESTORE BASE GAME MUSIC — start silent, then fade in over 800ms
+        // RESTORE BG MUSIC — trigger at vol 0, fade in over 800ms
         _ensureAudioRegistered('MUSIC_BASE_L1');
-        eventRegistry.triggerStage('MUSIC_BASE_L1', context: {'volumeMultiplier': 0.0});
-        eventRegistry.fadeInEvent('audio_MUSIC_BASE_L1', fadeMs: 800);
+        eventRegistry.triggerStageWithFadeIn('MUSIC_BASE_L1', fadeMs: 800);
 
         // ═══════════════════════════════════════════════════════════════════
         // STEP 5: Start win line presentation

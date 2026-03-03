@@ -900,23 +900,35 @@ class EventRegistry extends ChangeNotifier {
     return maxFadeMs;
   }
 
-  /// Fade in an event from 0 → target volume over fadeMs
-  /// Used for silent-start + delayed fade-in (e.g. BG music after big win plaque)
-  void fadeInEvent(String eventId, {int fadeMs = 500, double targetVolume = 1.0}) {
-    const stepMs = 16; // ~60fps
+  /// Trigger a looping stage at volume 0, then fade in over fadeMs.
+  /// Clears stale playing instances first so dedup doesn't block re-trigger.
+  /// Waits for async voice creation before starting volume ramp.
+  void triggerStageWithFadeIn(String stage, {int fadeMs = 800}) {
+    final normalizedStage = stage.toUpperCase();
+    final event = _stageToEvent[stage] ?? _stageToEvent[normalizedStage];
+    final eventId = event?.id ?? 'audio_$normalizedStage';
+
+    // Clear stale playing instances so looping dedup allows re-trigger
+    _playingInstances.removeWhere((i) => i.eventId == eventId);
+
+    // Trigger at volume 0 (keeps loop=true for proper looping playback)
+    triggerStage(stage, context: {'volumeMultiplier': 0.0});
+
+    // Wait for async voice creation, then ramp volume
+    const stepMs = 16;
     final steps = (fadeMs / stepMs).ceil().clamp(1, 1000);
     int currentStep = 0;
-
-    Timer.periodic(Duration(milliseconds: stepMs), (timer) {
-      currentStep++;
-      final t = (currentStep / steps).clamp(0.0, 1.0);
-      // Ease-in curve for natural fade
-      final vol = targetVolume * t * t;
-      AudioPlaybackService.instance.updateEventVolume(eventId, vol);
-      if (currentStep >= steps) {
-        AudioPlaybackService.instance.updateEventVolume(eventId, targetVolume);
-        timer.cancel();
-      }
+    Future.delayed(const Duration(milliseconds: 80), () {
+      Timer.periodic(Duration(milliseconds: stepMs), (timer) {
+        currentStep++;
+        final t = (currentStep / steps).clamp(0.0, 1.0);
+        final vol = t * t; // ease-in curve
+        AudioPlaybackService.instance.updateEventVolume(eventId, vol);
+        if (currentStep >= steps) {
+          AudioPlaybackService.instance.updateEventVolume(eventId, 1.0);
+          timer.cancel();
+        }
+      });
     });
   }
 
