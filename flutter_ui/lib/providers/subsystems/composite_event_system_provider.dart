@@ -1244,7 +1244,7 @@ class CompositeEventSystemProvider extends ChangeNotifier {
           : _getBusNameForCategory(composite.category);
       actions.add(MiddlewareAction(
         id: '${middlewareId}_action_${actionIndex++}',
-        type: ActionType.play,
+        type: ActionTypeExtension.fromString(layer.actionType),
         assetId: layer.audioPath,
         bus: busName,
         gain: layer.volume * composite.masterVolume,
