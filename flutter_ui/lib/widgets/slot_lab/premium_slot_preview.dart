@@ -5162,8 +5162,11 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       provider.stopStagePlayback();
     }
 
-    // Stop ALL win-related audio immediately
+    // Stop ALL music (big win music fades out)
     final eventRegistry = EventRegistry.instance;
+    eventRegistry.stopAllMusicVoices(fadeMs: 300);
+
+    // Stop all win-related sfx events
     eventRegistry.stopEvent('BIG_WIN_LOOP');
     eventRegistry.stopEvent('BIG_WIN_COINS');
     eventRegistry.stopEvent('BIG_WIN_INTRO');
@@ -5172,10 +5175,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     eventRegistry.stopEvent('WIN_SYMBOL_HIGHLIGHT');
     eventRegistry.stopEvent('WIN_LINE_SHOW');
     eventRegistry.stopEvent('WIN_PRESENT');
-
-    // Stop big win music
-    eventRegistry.stopEvent('MUSIC_BIGWIN_L1');
-    eventRegistry.stopEvent('MUSIC_BIGWIN_INTRO');
 
     // Stop any tier-specific audio
     for (int i = 1; i <= 5; i++) {
@@ -5189,7 +5188,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       eventRegistry.triggerStage('BIG_WIN_END');
       eventRegistry.triggerStage('WIN_PRESENT_END');
 
-      // Restore base game music after big win
+      // Restore base game music after skip
       eventRegistry.triggerStage('MUSIC_BASE_L1');
     }
     eventRegistry.triggerStage('WIN_COLLECT');
@@ -6004,7 +6003,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         context.read<SlotLabProvider>().setWinPresentationActive(true); // Sync with provider for SKIP detection
 
         // START BIG WIN MUSIC when big win detected (20x+)
+        // Fade out ALL background music first, then start big win music
         if (_isBigWinTier(_currentWinTier)) {
+          eventRegistry.stopAllMusicVoices(fadeMs: 500);
           eventRegistry.triggerStage('MUSIC_BIGWIN_L1');
         }
 
@@ -6249,10 +6250,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // Stop Big Win protection timer
     _stopBigWinProtection();
 
-    // Stop big win music on collect and restore base
+    // Stop all music on collect and restore base game music
     if (_isBigWinTier(_currentWinTier)) {
-      eventRegistry.stopEvent('MUSIC_BIGWIN_L1');
-      eventRegistry.stopEvent('MUSIC_BIGWIN_INTRO');
+      eventRegistry.stopAllMusicVoices(fadeMs: 300);
       eventRegistry.triggerStage('MUSIC_BASE_L1');
     }
 
