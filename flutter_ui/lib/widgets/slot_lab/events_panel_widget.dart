@@ -1304,6 +1304,8 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                 },
               ),
             ),
+            // Event-level properties
+            _buildEventProperties(selectedEvent, middleware),
             // Layers list
             Expanded(
               child: ListView.builder(
@@ -1342,6 +1344,128 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
           ],
         );
       },
+    );
+  }
+
+  static const _busNames = {0: 'Master', 1: 'Music', 2: 'SFX', 3: 'Voice', 4: 'Ambience'};
+
+  Widget _buildEventProperties(SlotCompositeEvent event, MiddlewareProvider middleware) {
+    final busName = _busNames[event.targetBusId] ?? 'Bus ${event.targetBusId ?? '-'}';
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF12121A),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Row 1: Loop, Overlap, Bus
+          Row(
+            children: [
+              _buildEventChip(
+                label: 'Loop',
+                active: event.looping,
+                icon: Icons.loop,
+                onTap: () => middleware.updateCompositeEvent(
+                  event.copyWith(looping: !event.looping),
+                ),
+              ),
+              const SizedBox(width: 6),
+              _buildEventChip(
+                label: event.overlap ? 'Overlap' : 'Non-Overlap',
+                active: !event.overlap,
+                icon: Icons.compare_arrows,
+                activeColor: Colors.orange,
+                onTap: () => middleware.updateCompositeEvent(
+                  event.copyWith(overlap: !event.overlap),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.speaker, size: 10, color: Colors.white38),
+                    const SizedBox(width: 3),
+                    Text(busName, style: const TextStyle(fontSize: 9, color: Colors.white54)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          // Row 2: Crossfade (only when non-overlap)
+          if (!event.overlap) ...[
+            const SizedBox(height: 6),
+            _buildPropertySlider(
+              label: 'Crossfade',
+              value: event.crossfadeMs.toDouble(),
+              min: 0,
+              max: 3000,
+              divisions: 60,
+              valueDisplay: '${event.crossfadeMs}ms',
+              onChanged: (v) => middleware.updateCompositeEvent(
+                event.copyWith(crossfadeMs: v.toInt()),
+              ),
+            ),
+          ],
+          // Row 3: Trigger stages
+          if (event.triggerStages.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 4,
+              runSpacing: 2,
+              children: event.triggerStages.map((s) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: event.color.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(color: event.color.withOpacity(0.3), width: 0.5),
+                ),
+                child: Text(s, style: TextStyle(fontSize: 8, color: event.color.withOpacity(0.8))),
+              )).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEventChip({
+    required String label,
+    required bool active,
+    required IconData icon,
+    Color activeColor = FluxForgeTheme.accentBlue,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: active ? activeColor.withOpacity(0.15) : Colors.white.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(
+            color: active ? activeColor.withOpacity(0.4) : Colors.white.withOpacity(0.08),
+            width: 0.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 10, color: active ? activeColor : Colors.white24),
+            const SizedBox(width: 3),
+            Text(label, style: TextStyle(fontSize: 9, color: active ? activeColor : Colors.white38)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1538,6 +1662,129 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                             layer.copyWith(offsetMs: v),
                           );
                         },
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Fade In slider
+                      _buildPropertySlider(
+                        label: 'Fade In',
+                        value: layer.fadeInMs,
+                        min: 0.0,
+                        max: 5000.0,
+                        divisions: 100,
+                        valueDisplay: '${layer.fadeInMs.toInt()}ms',
+                        onChanged: (v) {
+                          final middleware = context.read<MiddlewareProvider>();
+                          middleware.updateEventLayer(
+                            event.id,
+                            layer.copyWith(fadeInMs: v),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Fade Out slider
+                      _buildPropertySlider(
+                        label: 'Fade Out',
+                        value: layer.fadeOutMs,
+                        min: 0.0,
+                        max: 5000.0,
+                        divisions: 100,
+                        valueDisplay: '${layer.fadeOutMs.toInt()}ms',
+                        onChanged: (v) {
+                          final middleware = context.read<MiddlewareProvider>();
+                          middleware.updateEventLayer(
+                            event.id,
+                            layer.copyWith(fadeOutMs: v),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Bus / Loop / Action row
+                      Row(
+                        children: [
+                          // Bus label
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.06),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.speaker, size: 10, color: Colors.white38),
+                                const SizedBox(width: 3),
+                                Text(
+                                  _busNames[layer.busId] ?? 'Bus ${layer.busId ?? '-'}',
+                                  style: const TextStyle(fontSize: 9, color: Colors.white54),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          // Loop toggle
+                          GestureDetector(
+                            onTap: () {
+                              final middleware = context.read<MiddlewareProvider>();
+                              middleware.updateEventLayer(
+                                event.id,
+                                layer.copyWith(loop: !layer.loop),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: layer.loop
+                                    ? FluxForgeTheme.accentBlue.withOpacity(0.15)
+                                    : Colors.white.withOpacity(0.04),
+                                borderRadius: BorderRadius.circular(3),
+                                border: Border.all(
+                                  color: layer.loop
+                                      ? FluxForgeTheme.accentBlue.withOpacity(0.4)
+                                      : Colors.white.withOpacity(0.08),
+                                  width: 0.5,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.loop, size: 10,
+                                    color: layer.loop ? FluxForgeTheme.accentBlue : Colors.white24),
+                                  const SizedBox(width: 3),
+                                  Text('Loop', style: TextStyle(fontSize: 9,
+                                    color: layer.loop ? FluxForgeTheme.accentBlue : Colors.white38)),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          // Action type badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: layer.actionType == 'Stop'
+                                  ? Colors.red.withOpacity(0.12)
+                                  : layer.actionType == 'FadeOut'
+                                      ? Colors.orange.withOpacity(0.12)
+                                      : FluxForgeTheme.accentGreen.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Text(
+                              layer.actionType,
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: layer.actionType == 'Stop'
+                                    ? Colors.red.shade300
+                                    : layer.actionType == 'FadeOut'
+                                        ? Colors.orange.shade300
+                                        : FluxForgeTheme.accentGreen,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
 
                       // Preview button

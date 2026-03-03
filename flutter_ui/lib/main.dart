@@ -67,6 +67,7 @@ import 'services/video_playback_service.dart';
 import 'package:media_kit/media_kit.dart';
 import 'services/service_locator.dart';
 import 'services/lower_zone_persistence_service.dart';
+import 'services/event_sync_service.dart';
 import 'services/stage_configuration_service.dart';
 import 'services/workspace_preset_service.dart';
 import 'services/analytics_service.dart';
@@ -419,7 +420,14 @@ class _AppInitializerState extends State<_AppInitializer> {
       // Phase 3.5: Register keyboard focus handlers (Pro Tools-style commands)
       _registerKeyboardHandlers(context, engine, history);
 
-      // Phase 4: Engine ready — enable launcher buttons
+      // Phase 4: Activate EventSyncService (EventRegistry ↔ MiddlewareProvider)
+      // CRITICAL: Use global `eventRegistry` (same instance as SlotLab), NOT EventRegistry.instance
+      if (mounted) {
+        final middleware = context.read<MiddlewareProvider>();
+        getEventSyncService(eventRegistry, middleware);
+      }
+
+      // Phase 5: Engine ready — enable launcher buttons
       if (mounted) {
         setState(() => _engineReady = true);
       }

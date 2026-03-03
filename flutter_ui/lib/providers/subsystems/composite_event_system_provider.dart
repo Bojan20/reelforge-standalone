@@ -1238,16 +1238,24 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       if (layer.muted) continue;
       if (composite.hasSoloedLayer && !layer.solo) continue;
 
+      // Per-layer bus name: use layer.busId if available, fallback to category
+      final busName = layer.busId != null
+          ? const {0: 'Master', 1: 'Music', 2: 'SFX', 3: 'Voice', 4: 'Ambience'}[layer.busId] ?? 'SFX'
+          : _getBusNameForCategory(composite.category);
       actions.add(MiddlewareAction(
         id: '${middlewareId}_action_${actionIndex++}',
         type: ActionType.play,
         assetId: layer.audioPath,
-        bus: _getBusNameForCategory(composite.category),
+        bus: busName,
         gain: layer.volume * composite.masterVolume,
         pan: layer.pan,
         delay: layer.offsetMs / 1000.0,
         fadeTime: layer.fadeInMs / 1000.0,
-        loop: composite.looping,
+        fadeInMs: layer.fadeInMs,
+        fadeOutMs: layer.fadeOutMs,
+        trimStartMs: layer.trimStartMs,
+        trimEndMs: layer.trimEndMs,
+        loop: layer.loop || composite.looping,
         priority: ActionPriority.normal,
       ));
     }
@@ -1256,7 +1264,9 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       id: middlewareId,
       name: composite.name,
       category: 'Slot_${_capitalizeCategory(composite.category)}',
+      stage: composite.triggerStages.isNotEmpty ? composite.triggerStages.first : '',
       actions: actions,
+      loop: composite.looping,
     );
 
     _eventSystemProvider.importEvent(middlewareEvent);

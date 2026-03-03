@@ -273,7 +273,7 @@ class EventSyncService extends ChangeNotifier {
 
   /// Sync AudioEvent → SlotCompositeEvent
   void _syncEventToMiddleware(AudioEvent event) {
-    // Convert AudioLayers to SlotEventLayers
+    // Convert AudioLayers to SlotEventLayers — preserve ALL parameters
     final layers = event.layers.map((layer) {
       return SlotEventLayer(
         id: layer.id,
@@ -282,10 +282,13 @@ class EventSyncService extends ChangeNotifier {
         volume: layer.volume,
         pan: layer.pan,
         offsetMs: layer.delay + (layer.offset * 1000),
-        fadeInMs: 0,
-        fadeOutMs: 0,
+        fadeInMs: layer.fadeInMs,
+        fadeOutMs: layer.fadeOutMs,
+        trimStartMs: layer.trimStartMs,
+        trimEndMs: layer.trimEndMs,
         muted: false,
         solo: false,
+        loop: event.loop,
         busId: layer.busId,
       );
     }).toList();
@@ -296,18 +299,21 @@ class EventSyncService extends ChangeNotifier {
         .firstOrNull;
 
     if (existing != null) {
-      // Update existing
+      // Update existing — preserve ALL event-level properties
       _middleware.updateCompositeEvent(
         existing.copyWith(
           name: event.name,
           layers: layers,
           looping: event.loop,
+          overlap: event.overlap,
+          crossfadeMs: event.crossfadeMs,
+          targetBusId: event.targetBusId,
           modifiedAt: DateTime.now(),
           triggerStages: [event.stage],
         ),
       );
     } else {
-      // Create new
+      // Create new — sync ALL event-level properties
       final composite = SlotCompositeEvent(
         id: event.id,
         name: event.name,
@@ -316,6 +322,9 @@ class EventSyncService extends ChangeNotifier {
         layers: layers,
         masterVolume: 1.0,
         looping: event.loop,
+        overlap: event.overlap,
+        crossfadeMs: event.crossfadeMs,
+        targetBusId: event.targetBusId,
         maxInstances: 1,
         createdAt: DateTime.now(),
         modifiedAt: DateTime.now(),
