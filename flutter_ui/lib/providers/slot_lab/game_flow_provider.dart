@@ -486,10 +486,16 @@ class GameFlowProvider extends ChangeNotifier {
     final toState = pending.targetState;
 
     if (_transitionsEnabled && toState.isFeature && toState != GameFlowState.cascading) {
+      // Pass feature data to transition for dynamic plaque content
+      final transitionData = <String, dynamic>{
+        'totalSpins': featureState.totalSpins,
+        'scatterCount': pending.triggerContext['scatterCount'],
+        ...pending.triggerContext,
+      };
       _startEnterTransition(fromState, toState, onComplete: () {
         _transitionTo(toState);
         onFeatureStateUpdated?.call(executor.blockId, featureState);
-      });
+      }, featureData: transitionData);
     } else {
       _transitionTo(toState);
       onFeatureStateUpdated?.call(executor.blockId, featureState);
@@ -780,6 +786,7 @@ class GameFlowProvider extends ChangeNotifier {
   /// Start an entering transition (Base → Feature)
   void _startEnterTransition(GameFlowState from, GameFlowState to, {
     void Function()? onComplete,
+    Map<String, dynamic> featureData = const {},
   }) {
     if (!_transitionsEnabled) {
       onComplete?.call();
@@ -793,6 +800,7 @@ class GameFlowProvider extends ChangeNotifier {
       toState: to,
       config: config,
       startedAt: DateTime.now(),
+      featureData: featureData,
     );
 
     // Fire transition audio
@@ -801,21 +809,20 @@ class GameFlowProvider extends ChangeNotifier {
     }
     _fireAudioStage('CONTEXT_${_stateKey(from)}_TO_${_stateKey(to)}');
 
+    _pendingTransitionComplete = onComplete;
     notifyListeners();
 
-    // Auto-dismiss if timed
+    // Auto-dismiss if timed (clickToContinue waits for user tap → dismissTransition)
     if (config.dismissMode == TransitionDismissMode.timed ||
         config.dismissMode == TransitionDismissMode.timedOrClick) {
       Future.delayed(Duration(milliseconds: config.durationMs), () {
         if (_activeTransition?.phase == TransitionPhase.entering &&
             _activeTransition?.toState == to) {
+          // dismissTransition() handles calling _pendingTransitionComplete
           dismissTransition();
-          onComplete?.call();
         }
       });
     }
-
-    _pendingTransitionComplete = onComplete;
   }
 
   /// Start an exit transition (Feature → Base) with total win plaque
@@ -843,21 +850,20 @@ class GameFlowProvider extends ChangeNotifier {
     }
     _fireAudioStage('CONTEXT_${_stateKey(from)}_TO_${_stateKey(to)}');
 
+    _pendingTransitionComplete = onComplete;
     notifyListeners();
 
-    // Auto-dismiss if timed
+    // Auto-dismiss if timed (clickToContinue waits for user tap → dismissTransition)
     if (config.dismissMode == TransitionDismissMode.timed ||
         config.dismissMode == TransitionDismissMode.timedOrClick) {
       Future.delayed(Duration(milliseconds: config.durationMs), () {
         if (_activeTransition?.phase == TransitionPhase.exiting &&
             _activeTransition?.fromState == from) {
+          // dismissTransition() handles calling _pendingTransitionComplete
           dismissTransition();
-          onComplete?.call();
         }
       });
     }
-
-    _pendingTransitionComplete = onComplete;
   }
 
   /// Dismiss the active transition (click-to-continue or early dismiss)

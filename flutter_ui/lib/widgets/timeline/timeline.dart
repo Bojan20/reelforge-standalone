@@ -647,9 +647,25 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
   double get _playheadX => (widget.playheadPosition - widget.scrollOffset) * _effectiveZoom;
 
-  /// Get visible tracks (filter out hidden)
-  List<TimelineTrack> get _visibleTracks =>
-      widget.tracks.where((t) => !t.hidden).toList();
+  /// Get visible tracks (filter out hidden + collapsed folder children)
+  List<TimelineTrack> get _visibleTracks {
+    // Build set of collapsed folder IDs
+    final collapsedFolderIds = <String>{};
+    for (final t in widget.tracks) {
+      if (t.isFolder && !t.folderExpanded) {
+        collapsedFolderIds.add(t.id);
+      }
+    }
+
+    return widget.tracks.where((t) {
+      if (t.hidden) return false;
+      // If any ancestor folder is collapsed, hide this track
+      if (t.parentFolderId != null && collapsedFolderIds.contains(t.parentFolderId)) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
 
   /// Calculate cumulative Y position of a track lane (relative to tracks area start).
   /// Accounts for variable track heights. Returns top edge Y of the track at [trackIndex].
@@ -1941,6 +1957,9 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                       onRename: (n) => widget.onTrackRename?.call(track.id, n),
                       onContextMenu: (pos) => widget.onTrackContextMenu?.call(track.id, pos),
                       onHeightChange: (h) => widget.onTrackHeightChange?.call(track.id, h),
+                      onFolderToggle: track.isFolder
+                          ? () => widget.onTrackFolderToggle?.call(track.id)
+                          : null,
                     );
                   },
                 ),

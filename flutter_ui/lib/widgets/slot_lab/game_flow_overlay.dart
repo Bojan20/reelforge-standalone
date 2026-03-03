@@ -1445,8 +1445,11 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
         builder: (context, _) {
           return LayoutBuilder(
             builder: (context, constraints) {
+              // Exit phase: fully opaque to hide reels (only plaque visible)
+              // Entry phase: semi-transparent (reels still visible underneath)
+              final bgOpacity = _isExit ? 1.0 : 0.9;
               return Container(
-                color: Colors.black.withOpacity(0.9 * _fadeAnim.value),
+                color: Colors.black.withOpacity(bgOpacity * _fadeAnim.value),
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
@@ -1729,8 +1732,27 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildMetallicTitle(ActiveTransition t) {
-    final fontSize = _isExit ? 28.0 : 32.0;
+    final lines = t.plaqueText.split('\n');
+    final mainText = lines.first;
+    final subText = lines.length > 1 ? lines.sublist(1).join('\n') : null;
+    final mainFontSize = _isExit ? 28.0 : 32.0;
 
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Main title — metallic gradient
+        _buildMetallicText(mainText, mainFontSize),
+
+        // Sub text (e.g., "10 SPINS WON") — smaller, accent colored
+        if (subText != null) ...[
+          const SizedBox(height: 8),
+          _buildMetallicText(subText, mainFontSize * 0.65),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildMetallicText(String text, double fontSize) {
     return Stack(
       children: [
         // Background glow layer
@@ -1743,7 +1765,7 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
             ],
           ).createShader(bounds),
           child: Text(
-            t.plaqueText,
+            text,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: fontSize + 2,
@@ -1762,7 +1784,7 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
             stops: const [0.0, 0.3, 0.7, 1.0],
           ).createShader(bounds),
           child: Text(
-            t.plaqueText,
+            text,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: fontSize,

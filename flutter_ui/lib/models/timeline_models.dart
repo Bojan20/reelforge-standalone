@@ -73,6 +73,8 @@ class TimelineClip {
   final double iterationGain;
   /// Random start offset range in seconds (0 = disabled)
   final double loopRandomStart;
+  /// Whether clip audio is reversed
+  final bool reversed;
 
   const TimelineClip({
     required this.id,
@@ -105,6 +107,7 @@ class TimelineClip {
     this.loopEndSamples = 0,
     this.iterationGain = 1.0,
     this.loopRandomStart = 0.0,
+    this.reversed = false,
   });
 
   /// Check if clip has active FX processing
@@ -143,6 +146,7 @@ class TimelineClip {
     int? loopEndSamples,
     double? iterationGain,
     double? loopRandomStart,
+    bool? reversed,
   }) {
     return TimelineClip(
       id: id ?? this.id,
@@ -175,6 +179,7 @@ class TimelineClip {
       loopEndSamples: loopEndSamples ?? this.loopEndSamples,
       iterationGain: iterationGain ?? this.iterationGain,
       loopRandomStart: loopRandomStart ?? this.loopRandomStart,
+      reversed: reversed ?? this.reversed,
     );
   }
 }

@@ -47,6 +47,158 @@ class TransitionsBlock extends FeatureBlockBase {
   @override
   List<BlockOption> createOptions() => [
         // ═══════════════════════════════════════════════════════════════════
+        // SCENE TRANSITIONS (visual overlay / plaque durations)
+        // ═══════════════════════════════════════════════════════════════════
+        BlockOptionFactory.dropdown(
+          id: 'transitionStyle',
+          name: 'Transition Style',
+          description: 'Visual style of scene transition overlay',
+          choices: [
+            const OptionChoice(value: 'fade', label: 'Fade'),
+            const OptionChoice(value: 'slideUp', label: 'Slide Up'),
+            const OptionChoice(value: 'slideDown', label: 'Slide Down'),
+            const OptionChoice(value: 'zoom', label: 'Zoom'),
+            const OptionChoice(value: 'swoosh', label: 'Swoosh'),
+          ],
+          defaultValue: 'fade',
+          group: 'Scene Transitions',
+          order: -100,
+        ),
+        BlockOptionFactory.dropdown(
+          id: 'dismissMode',
+          name: 'Default Dismiss Mode',
+          description: 'How scene overlays are dismissed by default',
+          choices: [
+            const OptionChoice(
+              value: 'timedOrClick',
+              label: 'Timed or Click',
+              description: 'Auto-dismiss after duration or on player click',
+            ),
+            const OptionChoice(
+              value: 'timed',
+              label: 'Timed Only',
+              description: 'Auto-dismiss after set duration',
+            ),
+            const OptionChoice(
+              value: 'clickToContinue',
+              label: 'Click to Continue',
+              description: 'Wait for player click',
+            ),
+          ],
+          defaultValue: 'timedOrClick',
+          group: 'Scene Transitions',
+          order: -99,
+        ),
+        BlockOptionFactory.count(
+          id: 'transitionDuration',
+          name: 'Default Duration (ms)',
+          description: 'Default transition overlay duration in milliseconds',
+          min: 500,
+          max: 15000,
+
+          defaultValue: 3000,
+          group: 'Scene Transitions',
+          order: -98,
+        ),
+        // Per-scene entry durations
+        BlockOptionFactory.count(
+          id: 'fsEntryDurationMs',
+          name: 'FS Entry Duration (ms)',
+          description:
+              'Free Spins entry overlay — 0 = use default, otherwise ms',
+          min: 0,
+          max: 15000,
+
+          defaultValue: 0,
+          group: 'Scene Transitions',
+          order: -97,
+        ),
+        BlockOptionFactory.count(
+          id: 'fsExitDurationMs',
+          name: 'FS Exit Duration (ms)',
+          description:
+              'Free Spins exit overlay — 0 = use default, otherwise ms',
+          min: 0,
+          max: 15000,
+
+          defaultValue: 4000,
+          group: 'Scene Transitions',
+          order: -96,
+        ),
+        BlockOptionFactory.count(
+          id: 'holdWinEntryDurationMs',
+          name: 'H&W Entry Duration (ms)',
+          description:
+              'Hold & Win entry overlay — 0 = use default, otherwise ms',
+          min: 0,
+          max: 15000,
+
+          defaultValue: 0,
+          group: 'Scene Transitions',
+          order: -95,
+        ),
+        BlockOptionFactory.count(
+          id: 'holdWinExitDurationMs',
+          name: 'H&W Exit Duration (ms)',
+          description:
+              'Hold & Win exit overlay — 0 = use default, otherwise ms',
+          min: 0,
+          max: 15000,
+
+          defaultValue: 4000,
+          group: 'Scene Transitions',
+          order: -94,
+        ),
+        BlockOptionFactory.count(
+          id: 'bonusEntryDurationMs',
+          name: 'Bonus Entry Duration (ms)',
+          description:
+              'Bonus Game entry overlay — 0 = use default, otherwise ms',
+          min: 0,
+          max: 15000,
+
+          defaultValue: 0,
+          group: 'Scene Transitions',
+          order: -93,
+        ),
+        BlockOptionFactory.count(
+          id: 'bonusExitDurationMs',
+          name: 'Bonus Exit Duration (ms)',
+          description:
+              'Bonus Game exit overlay — 0 = use default, otherwise ms',
+          min: 0,
+          max: 15000,
+
+          defaultValue: 4000,
+          group: 'Scene Transitions',
+          order: -92,
+        ),
+        BlockOptionFactory.count(
+          id: 'jackpotEntryDurationMs',
+          name: 'Jackpot Entry Duration (ms)',
+          description:
+              'Jackpot entry overlay — 0 = use default, otherwise ms',
+          min: 0,
+          max: 15000,
+
+          defaultValue: 0,
+          group: 'Scene Transitions',
+          order: -91,
+        ),
+        BlockOptionFactory.count(
+          id: 'jackpotExitDurationMs',
+          name: 'Jackpot Exit Duration (ms)',
+          description:
+              'Jackpot exit overlay — 0 = use default, otherwise ms',
+          min: 0,
+          max: 15000,
+
+          defaultValue: 5000,
+          group: 'Scene Transitions',
+          order: -90,
+        ),
+
+        // ═══════════════════════════════════════════════════════════════════
         // CONTEXT TRANSITIONS
         // ═══════════════════════════════════════════════════════════════════
         BlockOptionFactory.toggle(

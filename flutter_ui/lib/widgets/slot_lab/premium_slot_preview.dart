@@ -5162,6 +5162,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       provider.stopStagePlayback();
     }
 
+    // Kill any lingering anticipation audio
+    _stopAnticipationAudio();
+
     // Stop ALL music (big win music fades out)
     final eventRegistry = EventRegistry.instance;
     eventRegistry.stopAllMusicVoices(fadeMs: 300);
@@ -6291,6 +6294,29 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     if (provider.isPlayingStages) {
       provider.stopStagePlayback();
     }
+
+    // Kill anticipation audio immediately (don't wait for widget listener cycle)
+    _stopAnticipationAudio();
+  }
+
+  /// Stop all anticipation audio events immediately.
+  /// Called from STOP button to prevent lingering anticipation sounds.
+  void _stopAnticipationAudio() {
+    final er = EventRegistry.instance;
+    // Stop sequential anticipation stages (ANTICIPATION_1, ANTICIPATION_2, ...)
+    for (int i = 1; i <= 10; i++) {
+      er.stopEvent('ANTICIPATION_$i');
+    }
+    // Stop per-reel tension stages (all reels × all levels)
+    for (int reel = 0; reel < 7; reel++) {
+      for (int l = 1; l <= 4; l++) {
+        er.stopEvent('ANTICIPATION_TENSION_R${reel}_L$l');
+      }
+    }
+    // Stop generic anticipation events
+    er.stopEvent('ANTICIPATION');
+    er.stopEvent('ANTICIPATION_START');
+    er.stopEvent('ANTICIPATION_END');
   }
 
   void _handleMaxBet() {

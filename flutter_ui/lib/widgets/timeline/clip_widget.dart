@@ -1392,6 +1392,20 @@ class _ClipWidgetState extends State<ClipWidget> {
                   ),
                 ),
 
+              // ═══ Smart Tool Zone Overlay (Logic Pro X style) ═══
+              // Shows active zone indicator on hover when smart tool is enabled
+              if (smartEnabled && !isExplicitTool && _smartToolHitResult != null && !clip.locked)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: _SmartToolZoneOverlay(
+                      mode: _smartToolHitResult!.mode,
+                      clipWidth: clampedWidth,
+                      clipHeight: clipHeight,
+                      zones: smartTool.zones,
+                    ),
+                  ),
+                ),
+
               // Muted overlay
               if (clip.muted)
                 Positioned.fill(
@@ -3072,4 +3086,319 @@ class _DiamondPainter extends CustomPainter {
   @override
   bool shouldRepaint(_DiamondPainter oldDelegate) =>
       color != oldDelegate.color || isActive != oldDelegate.isActive;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SMART TOOL ZONE OVERLAY — Logic Pro X style visual feedback
+// Shows which zone is active on hover with subtle highlight indicators
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _SmartToolZoneOverlay extends StatelessWidget {
+  final SmartToolMode mode;
+  final double clipWidth;
+  final double clipHeight;
+  final SmartToolZones zones;
+
+  const _SmartToolZoneOverlay({
+    required this.mode,
+    required this.clipWidth,
+    required this.clipHeight,
+    required this.zones,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (mode == SmartToolMode.none) return const SizedBox.shrink();
+
+    return CustomPaint(
+      painter: _SmartToolZonePainter(
+        mode: mode,
+        clipWidth: clipWidth,
+        clipHeight: clipHeight,
+        zones: zones,
+      ),
+    );
+  }
+}
+
+class _SmartToolZonePainter extends CustomPainter {
+  final SmartToolMode mode;
+  final double clipWidth;
+  final double clipHeight;
+  final SmartToolZones zones;
+
+  _SmartToolZonePainter({
+    required this.mode,
+    required this.clipWidth,
+    required this.clipHeight,
+    required this.zones,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // Zone dimensions
+    final topH = (h * zones.topRowPercent).clamp(zones.minZoneRowPixels, h * 0.35);
+    final botH = (h * zones.bottomRowPercent).clamp(zones.minZoneRowPixels, h * 0.35);
+    final botTop = h - botH;
+    final trimW = (w * zones.trimZonePercent).clamp(zones.minTrimZonePixels, w * 0.25);
+    final fadeW = (w * zones.fadeCornerPercent).clamp(zones.minTrimZonePixels, w * 0.30);
+    final bodyMidY = topH + (botTop - topH) * zones.bodyMidpoint;
+
+    switch (mode) {
+      case SmartToolMode.trimLeft:
+        _paintTrimZone(canvas, Rect.fromLTWH(0, 0, trimW, h), true);
+        break;
+      case SmartToolMode.trimRight:
+        _paintTrimZone(canvas, Rect.fromLTWH(w - trimW, 0, trimW, h), false);
+        break;
+      case SmartToolMode.fadeIn:
+        _paintFadeZone(canvas, Rect.fromLTWH(0, 0, fadeW, topH), true);
+        break;
+      case SmartToolMode.fadeOut:
+        _paintFadeZone(canvas, Rect.fromLTWH(w - fadeW, 0, fadeW, topH), false);
+        break;
+      case SmartToolMode.volumeHandle:
+        _paintVolumeZone(canvas, Rect.fromLTWH(fadeW, 0, w - fadeW * 2, topH));
+        break;
+      case SmartToolMode.rangeSelectBody:
+        _paintRangeZone(canvas, Rect.fromLTWH(trimW, topH, w - trimW * 2, bodyMidY - topH));
+        break;
+      case SmartToolMode.select:
+        _paintMoveZone(canvas, Rect.fromLTWH(trimW, bodyMidY, w - trimW * 2, botTop - bodyMidY));
+        break;
+      case SmartToolMode.loopHandle:
+        final loopW = (w * zones.loopZonePercent).clamp(zones.minTrimZonePixels, w * 0.20);
+        _paintLoopZone(canvas, Rect.fromLTWH(w - trimW - loopW, botTop, loopW, botH));
+        break;
+      case SmartToolMode.timeStretch:
+        _paintTimeStretchZone(canvas, size, trimW, topH, botTop);
+        break;
+      case SmartToolMode.crossfade:
+        _paintCrossfadeZone(canvas, size, trimW, botTop, botH);
+        break;
+      case SmartToolMode.slipContent:
+        _paintSlipZone(canvas, size);
+        break;
+      default:
+        break;
+    }
+
+    // Always draw the body midpoint line when smart tool is active (subtle)
+    if (mode != SmartToolMode.none && h > 30) {
+      _paintMidpointLine(canvas, w, bodyMidY, trimW);
+    }
+  }
+
+  /// Trim zone — vertical highlight strip on clip edge
+  void _paintTrimZone(Canvas canvas, Rect rect, bool isLeft) {
+    // Subtle edge highlight
+    final edgePaint = Paint()
+      ..color = const Color(0xFF4a9eff).withValues(alpha: 0.25)
+      ..style = PaintingStyle.fill;
+    canvas.drawRect(rect, edgePaint);
+
+    // Bright edge line (3px)
+    final linePaint = Paint()
+      ..color = const Color(0xFF4a9eff).withValues(alpha: 0.8)
+      ..style = PaintingStyle.fill;
+    final lineRect = isLeft
+        ? Rect.fromLTWH(rect.left, rect.top, 3, rect.height)
+        : Rect.fromLTWH(rect.right - 3, rect.top, 3, rect.height);
+    canvas.drawRect(lineRect, linePaint);
+
+    // Trim arrows (◀▶) — small triangles
+    final arrowPaint = Paint()
+      ..color = const Color(0xFF4a9eff).withValues(alpha: 0.9)
+      ..style = PaintingStyle.fill;
+    final cx = isLeft ? rect.left + rect.width * 0.5 : rect.right - rect.width * 0.5;
+    final cy = rect.top + rect.height * 0.5;
+    final arrowPath = Path();
+    if (isLeft) {
+      arrowPath.moveTo(cx + 3, cy - 5);
+      arrowPath.lineTo(cx - 3, cy);
+      arrowPath.lineTo(cx + 3, cy + 5);
+    } else {
+      arrowPath.moveTo(cx - 3, cy - 5);
+      arrowPath.lineTo(cx + 3, cy);
+      arrowPath.lineTo(cx - 3, cy + 5);
+    }
+    arrowPath.close();
+    canvas.drawPath(arrowPath, arrowPaint);
+  }
+
+  /// Fade zone — triangular highlight in corner
+  void _paintFadeZone(Canvas canvas, Rect rect, bool isLeft) {
+    final fadePaint = Paint()
+      ..color = const Color(0xFFFF9F43).withValues(alpha: 0.2)
+      ..style = PaintingStyle.fill;
+
+    final path = Path();
+    if (isLeft) {
+      path.moveTo(rect.left, rect.top);
+      path.lineTo(rect.right, rect.top);
+      path.lineTo(rect.left, rect.bottom);
+    } else {
+      path.moveTo(rect.right, rect.top);
+      path.lineTo(rect.left, rect.top);
+      path.lineTo(rect.right, rect.bottom);
+    }
+    path.close();
+    canvas.drawPath(path, fadePaint);
+
+    // Corner dot
+    final dotPaint = Paint()
+      ..color = const Color(0xFFFF9F43).withValues(alpha: 0.9)
+      ..style = PaintingStyle.fill;
+    final dotCenter = isLeft
+        ? Offset(rect.left + 6, rect.top + 6)
+        : Offset(rect.right - 6, rect.top + 6);
+    canvas.drawCircle(dotCenter, 3, dotPaint);
+  }
+
+  /// Volume zone — horizontal highlight strip across top center
+  void _paintVolumeZone(Canvas canvas, Rect rect) {
+    final paint = Paint()
+      ..color = const Color(0xFF40ff90).withValues(alpha: 0.12)
+      ..style = PaintingStyle.fill;
+    canvas.drawRect(rect, paint);
+
+    // Horizontal line at center of top zone
+    final linePaint = Paint()
+      ..color = const Color(0xFF40ff90).withValues(alpha: 0.6)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    final cy = rect.top + rect.height * 0.5;
+    canvas.drawLine(
+      Offset(rect.left + 8, cy),
+      Offset(rect.right - 8, cy),
+      linePaint,
+    );
+  }
+
+  /// Range select zone — subtle I-beam tint in upper body
+  void _paintRangeZone(Canvas canvas, Rect rect) {
+    final paint = Paint()
+      ..color = const Color(0xFF4a9eff).withValues(alpha: 0.06)
+      ..style = PaintingStyle.fill;
+    canvas.drawRect(rect, paint);
+  }
+
+  /// Move zone — subtle hand/grab tint in lower body
+  void _paintMoveZone(Canvas canvas, Rect rect) {
+    final paint = Paint()
+      ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.04)
+      ..style = PaintingStyle.fill;
+    canvas.drawRect(rect, paint);
+  }
+
+  /// Loop handle zone — small badge area bottom-right
+  void _paintLoopZone(Canvas canvas, Rect rect) {
+    final paint = Paint()
+      ..color = const Color(0xFF00BCD4).withValues(alpha: 0.2)
+      ..style = PaintingStyle.fill;
+    final rRect = RRect.fromRectAndRadius(rect, const Radius.circular(3));
+    canvas.drawRRect(rRect, paint);
+
+    // Loop circle icon
+    final iconPaint = Paint()
+      ..color = const Color(0xFF00BCD4).withValues(alpha: 0.7)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    final cx = rect.center.dx;
+    final cy = rect.center.dy;
+    canvas.drawCircle(Offset(cx, cy), 5, iconPaint);
+    // Arrow on circle
+    final arrowPaint = Paint()
+      ..color = const Color(0xFF00BCD4).withValues(alpha: 0.7)
+      ..style = PaintingStyle.fill;
+    final arrowPath = Path()
+      ..moveTo(cx + 3, cy - 6)
+      ..lineTo(cx + 7, cy - 3)
+      ..lineTo(cx + 1, cy - 3)
+      ..close();
+    canvas.drawPath(arrowPath, arrowPaint);
+  }
+
+  /// Time stretch zone — double-arrow indicators on body edges
+  void _paintTimeStretchZone(Canvas canvas, Size size, double trimW, double topH, double botTop) {
+    final stretchPaint = Paint()
+      ..color = const Color(0xFFFF6B6B).withValues(alpha: 0.2)
+      ..style = PaintingStyle.fill;
+
+    // Left edge body
+    canvas.drawRect(Rect.fromLTWH(0, topH, trimW, botTop - topH), stretchPaint);
+    // Right edge body
+    canvas.drawRect(Rect.fromLTWH(size.width - trimW, topH, trimW, botTop - topH), stretchPaint);
+
+    // Double arrow icon (⟺)
+    final arrowPaint = Paint()
+      ..color = const Color(0xFFFF6B6B).withValues(alpha: 0.8)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    final cy = (topH + botTop) / 2;
+    // Left arrows
+    canvas.drawLine(Offset(2, cy), Offset(trimW - 2, cy), arrowPaint);
+    canvas.drawLine(Offset(2, cy), Offset(6, cy - 4), arrowPaint);
+    canvas.drawLine(Offset(2, cy), Offset(6, cy + 4), arrowPaint);
+    // Right arrows
+    canvas.drawLine(Offset(size.width - trimW + 2, cy), Offset(size.width - 2, cy), arrowPaint);
+    canvas.drawLine(Offset(size.width - 2, cy), Offset(size.width - 6, cy - 4), arrowPaint);
+    canvas.drawLine(Offset(size.width - 2, cy), Offset(size.width - 6, cy + 4), arrowPaint);
+  }
+
+  /// Crossfade zone indicator
+  void _paintCrossfadeZone(Canvas canvas, Size size, double trimW, double botTop, double botH) {
+    final paint = Paint()
+      ..color = const Color(0xFFE040FB).withValues(alpha: 0.2)
+      ..style = PaintingStyle.fill;
+    // Paint on both edges in bottom row
+    canvas.drawRect(Rect.fromLTWH(0, botTop, trimW * 0.5, botH), paint);
+    canvas.drawRect(Rect.fromLTWH(size.width - trimW * 0.5, botTop, trimW * 0.5, botH), paint);
+  }
+
+  /// Slip content indicator — horizontal arrows overlay
+  void _paintSlipZone(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFFFFD700).withValues(alpha: 0.08)
+      ..style = PaintingStyle.fill;
+    canvas.drawRect(Offset.zero & size, paint);
+
+    // H-resize arrows in center
+    final arrowPaint = Paint()
+      ..color = const Color(0xFFFFD700).withValues(alpha: 0.6)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    canvas.drawLine(Offset(cx - 15, cy), Offset(cx + 15, cy), arrowPaint);
+    canvas.drawLine(Offset(cx - 15, cy), Offset(cx - 11, cy - 4), arrowPaint);
+    canvas.drawLine(Offset(cx - 15, cy), Offset(cx - 11, cy + 4), arrowPaint);
+    canvas.drawLine(Offset(cx + 15, cy), Offset(cx + 11, cy - 4), arrowPaint);
+    canvas.drawLine(Offset(cx + 15, cy), Offset(cx + 11, cy + 4), arrowPaint);
+  }
+
+  /// Body midpoint separator — subtle dashed line at 50%
+  void _paintMidpointLine(Canvas canvas, double w, double midY, double trimW) {
+    final paint = Paint()
+      ..color = const Color(0xFFFFFFFF).withValues(alpha: 0.08)
+      ..strokeWidth = 0.5;
+
+    // Dashed line
+    const dashW = 4.0;
+    const gapW = 3.0;
+    var x = trimW;
+    while (x < w - trimW) {
+      canvas.drawLine(Offset(x, midY), Offset((x + dashW).clamp(0, w - trimW), midY), paint);
+      x += dashW + gapW;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SmartToolZonePainter oldDelegate) =>
+      mode != oldDelegate.mode ||
+      clipWidth != oldDelegate.clipWidth ||
+      clipHeight != oldDelegate.clipHeight;
 }

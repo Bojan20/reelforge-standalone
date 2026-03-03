@@ -112,6 +112,9 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   // Layer property editing state (SL-RP-P0.3)
   Set<String> _expandedLayerIds = {};
 
+  // Category folder expansion state — collapsed by default
+  Set<String> _expandedCategories = {};
+
   // Test playback state (SL-RP-P1.2)
   String? _playingEventId;
 
@@ -655,8 +658,6 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                   ),
                 ),
               ),
-              // Column headers
-              if (events.isNotEmpty) _buildEventsHeader(),
               // Events list — accepts audio drop to create new event
               Expanded(
                 child: DragTarget<String>(
@@ -709,9 +710,86 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                         ),
                       );
                     }
+                    // Group events by category
+                    final grouped = <String, List<SlotCompositeEvent>>{};
+                    for (final event in events) {
+                      final cat = event.category.isEmpty ? 'general' : event.category;
+                      grouped.putIfAbsent(cat, () => []).add(event);
+                    }
+                    final categories = grouped.keys.toList()..sort();
                     return ListView.builder(
-                      itemCount: events.length,
-                      itemBuilder: (ctx, i) => _buildEventItem(events[i]),
+                      itemCount: categories.length,
+                      itemBuilder: (ctx, i) {
+                        final cat = categories[i];
+                        final catEvents = grouped[cat]!;
+                        final isExpanded = _expandedCategories.contains(cat);
+                        // Format category name: "spin" → "Spin"
+                        final displayName = cat.isNotEmpty
+                            ? '${cat[0].toUpperCase()}${cat.substring(1)}'
+                            : 'General';
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Category folder header
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  if (isExpanded) {
+                                    _expandedCategories.remove(cat);
+                                  } else {
+                                    _expandedCategories.add(cat);
+                                  }
+                                });
+                              },
+                              child: Container(
+                                height: 24,
+                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.04),
+                                  border: Border(
+                                    bottom: BorderSide(color: Colors.white.withOpacity(0.08)),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      isExpanded ? Icons.expand_more : Icons.chevron_right,
+                                      size: 14,
+                                      color: Colors.white54,
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Icon(
+                                      isExpanded ? Icons.folder_open : Icons.folder,
+                                      size: 13,
+                                      color: Colors.amber.withOpacity(0.7),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      displayName,
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white70,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '(${catEvents.length})',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        color: Colors.white38,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            // Category events (only when expanded)
+                            if (isExpanded)
+                              ...catEvents.map((e) => _buildEventItem(e)),
+                          ],
+                        );
+                      },
                     );
                   },
                 ),

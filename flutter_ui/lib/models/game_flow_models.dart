@@ -694,6 +694,10 @@ class ActiveTransition {
   final double totalWin;
   final DateTime startedAt;
 
+  /// Feature-specific data for dynamic plaque content
+  /// (e.g., scatterCount, totalSpins for FS entry)
+  final Map<String, dynamic> featureData;
+
   const ActiveTransition({
     required this.phase,
     required this.fromState,
@@ -701,12 +705,24 @@ class ActiveTransition {
     required this.config,
     this.totalWin = 0,
     required this.startedAt,
+    this.featureData = const {},
   });
 
   String get plaqueText {
     if (config.plaqueText != null) return config.plaqueText!;
+
+    // Dynamic plaque text based on feature data
     if (phase == TransitionPhase.entering) {
+      final spins = featureData['totalSpins'] as int?;
+      if (toState == GameFlowState.freeSpins && spins != null) {
+        return 'FREE SPINS!\n$spins SPINS WON';
+      }
       return '${toState.displayName.toUpperCase()}!';
+    }
+
+    // Exit: show "TOTAL WIN" text — amount rendered separately
+    if (totalWin > 0) {
+      return '${fromState.displayName.toUpperCase()}\nCOMPLETE';
     }
     return '${fromState.displayName.toUpperCase()} COMPLETE';
   }

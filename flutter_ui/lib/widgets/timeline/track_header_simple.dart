@@ -32,6 +32,8 @@ class TrackHeaderSimple extends StatefulWidget {
   final ValueChanged<String>? onRename;
   final void Function(Offset position)? onContextMenu;
   final ValueChanged<double>? onHeightChange;
+  /// Toggle folder expand/collapse (Reaper-style)
+  final VoidCallback? onFolderToggle;
 
   const TrackHeaderSimple({
     super.key,
@@ -50,6 +52,7 @@ class TrackHeaderSimple extends StatefulWidget {
     this.onRename,
     this.onContextMenu,
     this.onHeightChange,
+    this.onFolderToggle,
   });
 
   @override
@@ -90,65 +93,110 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
   @override
   Widget build(BuildContext context) {
     final track = widget.track;
+    final isFolder = track.isFolder;
+    // Reaper-style indent: 12px per nesting level
+    final indentPx = track.indentLevel * 12.0;
 
     // Build the content stack
     Widget contentStack = Stack(
       children: [
         // Main content
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: EdgeInsets.only(left: 8 + indentPx, right: 8, top: 4, bottom: 4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Row 1: Track number + name + M/S/R
+              // Row 1: Folder toggle / Track number + name + M/S/R
               SizedBox(
                 height: 20,
                 child: Row(
                   children: [
-                    // Track number
-                    SizedBox(
-                      width: 18,
-                      child: Text(
-                        '${widget.trackNumber}',
-                        style: TextStyle(
-                          color: FluxForgeTheme.textTertiary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
+                    // Folder expand/collapse toggle (Reaper-style triangle)
+                    if (isFolder)
+                      Listener(
+                        onPointerDown: (_) => widget.onFolderToggle?.call(),
+                        child: Container(
+                          width: 18,
+                          height: 18,
+                          alignment: Alignment.center,
+                          child: Icon(
+                            track.folderExpanded
+                                ? Icons.arrow_drop_down
+                                : Icons.arrow_right,
+                            size: 18,
+                            color: track.color,
+                          ),
                         ),
                       ),
-                    ),
+                    // Folder icon or track number
+                    if (isFolder)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 2),
+                        child: Icon(
+                          track.folderExpanded ? Icons.folder_open : Icons.folder,
+                          size: 14,
+                          color: track.color,
+                        ),
+                      )
+                    else
+                      SizedBox(
+                        width: 18,
+                        child: Text(
+                          '${widget.trackNumber}',
+                          style: TextStyle(
+                            color: FluxForgeTheme.textTertiary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     // Name
                     Expanded(child: _buildName()),
                     const SizedBox(width: 4),
-                    // M/S/I/R buttons
+                    // M/S buttons for folders, full M/S/I/R for audio tracks
                     _MiniButton('M', track.muted, FluxForgeTheme.accentOrange, widget.onMuteToggle),
                     const SizedBox(width: 2),
                     _MiniButton('S', track.soloed, FluxForgeTheme.accentYellow, widget.onSoloToggle),
-                    const SizedBox(width: 2),
-                    _MiniButton('I', track.inputMonitor, FluxForgeTheme.accentCyan, widget.onInputMonitorToggle),
-                    const SizedBox(width: 2),
-                    _RecordButton(track.armed, widget.onArmToggle),
+                    if (!isFolder) ...[
+                      const SizedBox(width: 2),
+                      _MiniButton('I', track.inputMonitor, FluxForgeTheme.accentCyan, widget.onInputMonitorToggle),
+                      const SizedBox(width: 2),
+                      _RecordButton(track.armed, widget.onArmToggle),
+                    ],
                   ],
                 ),
               ),
-              // Row 2: Volume (if shown and height allows)
-              if (_showVolume && widget.height > 44)
+              // Row 2: Volume (if shown and height allows) — skip for folders
+              if (!isFolder && _showVolume && widget.height > 44)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: _buildVolumeRow(),
+                ),
+              // Row 2 for folders: child count info
+              if (isFolder && widget.height > 44)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    '${track.childTrackIds.length} track${track.childTrackIds.length == 1 ? '' : 's'}',
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: FluxForgeTheme.textTertiary,
+                    ),
+                  ),
                 ),
             ],
           ),
         ),
 
-        // Meter bar (right edge)
-        Positioned(
-          top: 4,
-          bottom: 4,
-          right: 2,
-          width: 3,
-          child: _MeterBar(level: widget.signalLevel),
-        ),
+        // Meter bar (right edge) — only for audio tracks
+        if (!isFolder)
+          Positioned(
+            top: 4,
+            bottom: 4,
+            right: 2,
+            width: 3,
+            child: _MeterBar(level: widget.signalLevel),
+          ),
 
         // Resize handle
         if (_isHovered || _isResizing)
@@ -162,16 +210,26 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
       ],
     );
 
-    // Build the container with classic decoration
+    // Reaper-style: folders have darker, more distinct background
     final decoration = BoxDecoration(
-      color: widget.isSelected
-          ? track.color.withValues(alpha: 0.18)
-          : (_isHovered
-              ? track.color.withValues(alpha: 0.10)
-              : track.color.withValues(alpha: 0.06)),
+      color: isFolder
+          ? (widget.isSelected
+              ? track.color.withValues(alpha: 0.22)
+              : (_isHovered
+                  ? track.color.withValues(alpha: 0.14)
+                  : track.color.withValues(alpha: 0.10)))
+          : (widget.isSelected
+              ? track.color.withValues(alpha: 0.18)
+              : (_isHovered
+                  ? track.color.withValues(alpha: 0.10)
+                  : track.color.withValues(alpha: 0.06))),
       border: Border(
-        left: BorderSide(color: track.color, width: 3),
+        left: BorderSide(color: track.color, width: isFolder ? 4 : 3),
         bottom: BorderSide(color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)),
+        // Reaper-style: folder bottom border is thicker when collapsed
+        top: isFolder && !track.folderExpanded
+            ? BorderSide(color: track.color.withValues(alpha: 0.3), width: 1)
+            : BorderSide.none,
       ),
     );
 
@@ -186,7 +244,7 @@ class _TrackHeaderSimpleState extends State<TrackHeaderSimple> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
-        onTap: widget.onClick,
+        onTap: isFolder ? widget.onFolderToggle : widget.onClick,
         onDoubleTap: () => setState(() => _isEditingName = true),
         onSecondaryTapDown: (d) => widget.onContextMenu?.call(d.globalPosition),
         child: container,

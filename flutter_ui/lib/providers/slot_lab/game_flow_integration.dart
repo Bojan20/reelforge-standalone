@@ -68,6 +68,11 @@ class GameFlowIntegration {
     // Register default executors so forced outcomes work even without FeatureBuilder config
     _registerDefaultExecutors();
 
+    // Register per-scene transition defaults (FS entry=clickToContinue, exit=timed 4s, etc.)
+    // These work even without Feature Builder transitions block configured
+    _flowProvider!.configureTransitions(enabled: true);
+    _registerPerSceneConfigs(_flowProvider!, const SceneTransitionConfig());
+
     // Listen to FeatureBuilderProvider for real-time sync (overrides defaults)
     _featureBuilder = sl<FeatureBuilderProvider>();
     _featureBuilder!.addListener(_onFeatureBuilderChanged);
@@ -188,7 +193,8 @@ class GameFlowIntegration {
         .firstOrNull;
 
     if (transitionsBlock == null || !transitionsBlock.isEnabled) {
-      flow.configureTransitions(enabled: false);
+      // No transitions block — keep per-scene defaults, don't disable transitions
+      // Per-scene configs were registered in initialize() with sensible defaults
       return;
     }
 
@@ -225,6 +231,165 @@ class GameFlowIntegration {
     flow.configureTransitions(
       enabled: true,
       defaultConfig: defaultConfig,
+    );
+
+    // Per-scene overrides — real slot machine behavior
+    _registerPerSceneConfigs(flow, defaultConfig, optionsMap);
+  }
+
+  /// Register per-scene transition configs for authentic slot machine flow.
+  ///
+  /// Entry transitions (Base → Feature): clickToContinue — player must tap
+  /// Exit transitions (Feature → Base): timed — auto-dismiss with total win
+  ///
+  /// When [perSceneOptions] is provided, per-scene duration overrides are read
+  /// from it (e.g., 'fsEntryDurationMs', 'fsExitDurationMs'). A value of 0
+  /// means "use default behavior" (clickToContinue for entry = no timer,
+  /// baseConfig.durationMs for exit).
+  void _registerPerSceneConfigs(
+    GameFlowProvider flow,
+    SceneTransitionConfig baseConfig, [
+    Map<String, dynamic>? perSceneOptions,
+  ]) {
+    int _dur(String key, int fallback) {
+      final v = perSceneOptions?[key] as int?;
+      return (v != null && v > 0) ? v : fallback;
+    }
+
+    // FS ENTRY: clickToContinue by default, but if user set duration > 0 → timed
+    final fsEntryMs = perSceneOptions?['fsEntryDurationMs'] as int? ?? 0;
+    flow.setTransitionConfig(
+      'baseGame_to_freeSpins',
+      baseConfig.copyWith(
+        durationMs: fsEntryMs > 0 ? fsEntryMs : baseConfig.durationMs,
+        dismissMode: fsEntryMs > 0
+            ? TransitionDismissMode.timedOrClick
+            : TransitionDismissMode.clickToContinue,
+        audioStage: 'FS_INTRO',
+      ),
+    );
+
+    // FS EXIT: timed (user-configurable)
+    final fsExitMs = _dur('fsExitDurationMs', 4000);
+    flow.setTransitionConfig(
+      'freeSpins_to_idle',
+      baseConfig.copyWith(
+        durationMs: fsExitMs,
+        dismissMode: TransitionDismissMode.timed,
+        showWinOnExit: true,
+        audioStage: 'FS_OUTRO',
+      ),
+    );
+    flow.setTransitionConfig(
+      'freeSpins_to_baseGame',
+      baseConfig.copyWith(
+        durationMs: fsExitMs,
+        dismissMode: TransitionDismissMode.timed,
+        showWinOnExit: true,
+        audioStage: 'FS_OUTRO',
+      ),
+    );
+
+    // H&W ENTRY: clickToContinue unless duration set
+    final hwEntryMs = perSceneOptions?['holdWinEntryDurationMs'] as int? ?? 0;
+    flow.setTransitionConfig(
+      'baseGame_to_holdAndWin',
+      baseConfig.copyWith(
+        durationMs: hwEntryMs > 0 ? hwEntryMs : baseConfig.durationMs,
+        dismissMode: hwEntryMs > 0
+            ? TransitionDismissMode.timedOrClick
+            : TransitionDismissMode.clickToContinue,
+        audioStage: 'HOLD_INTRO',
+      ),
+    );
+
+    // H&W EXIT: timed (user-configurable)
+    final hwExitMs = _dur('holdWinExitDurationMs', 4000);
+    flow.setTransitionConfig(
+      'holdAndWin_to_idle',
+      baseConfig.copyWith(
+        durationMs: hwExitMs,
+        dismissMode: TransitionDismissMode.timed,
+        showWinOnExit: true,
+        audioStage: 'HOLD_OUTRO',
+      ),
+    );
+    flow.setTransitionConfig(
+      'holdAndWin_to_baseGame',
+      baseConfig.copyWith(
+        durationMs: hwExitMs,
+        dismissMode: TransitionDismissMode.timed,
+        showWinOnExit: true,
+        audioStage: 'HOLD_OUTRO',
+      ),
+    );
+
+    // BONUS ENTRY: clickToContinue unless duration set
+    final bonusEntryMs = perSceneOptions?['bonusEntryDurationMs'] as int? ?? 0;
+    flow.setTransitionConfig(
+      'baseGame_to_bonusGame',
+      baseConfig.copyWith(
+        durationMs: bonusEntryMs > 0 ? bonusEntryMs : baseConfig.durationMs,
+        dismissMode: bonusEntryMs > 0
+            ? TransitionDismissMode.timedOrClick
+            : TransitionDismissMode.clickToContinue,
+        audioStage: 'BONUS_INTRO',
+      ),
+    );
+
+    // BONUS EXIT: timed (user-configurable)
+    final bonusExitMs = _dur('bonusExitDurationMs', 4000);
+    flow.setTransitionConfig(
+      'bonusGame_to_idle',
+      baseConfig.copyWith(
+        durationMs: bonusExitMs,
+        dismissMode: TransitionDismissMode.timed,
+        showWinOnExit: true,
+        audioStage: 'BONUS_OUTRO',
+      ),
+    );
+    flow.setTransitionConfig(
+      'bonusGame_to_baseGame',
+      baseConfig.copyWith(
+        durationMs: bonusExitMs,
+        dismissMode: TransitionDismissMode.timed,
+        showWinOnExit: true,
+        audioStage: 'BONUS_OUTRO',
+      ),
+    );
+
+    // JACKPOT ENTRY: clickToContinue unless duration set
+    final jpEntryMs = perSceneOptions?['jackpotEntryDurationMs'] as int? ?? 0;
+    flow.setTransitionConfig(
+      'baseGame_to_jackpotPresentation',
+      baseConfig.copyWith(
+        durationMs: jpEntryMs > 0 ? jpEntryMs : baseConfig.durationMs,
+        dismissMode: jpEntryMs > 0
+            ? TransitionDismissMode.timedOrClick
+            : TransitionDismissMode.clickToContinue,
+        audioStage: 'JACKPOT_INTRO',
+      ),
+    );
+
+    // JACKPOT EXIT: timed (user-configurable, default 5s)
+    final jpExitMs = _dur('jackpotExitDurationMs', 5000);
+    flow.setTransitionConfig(
+      'jackpotPresentation_to_idle',
+      baseConfig.copyWith(
+        durationMs: jpExitMs,
+        dismissMode: TransitionDismissMode.timed,
+        showWinOnExit: true,
+        audioStage: 'JACKPOT_OUTRO',
+      ),
+    );
+    flow.setTransitionConfig(
+      'jackpotPresentation_to_baseGame',
+      baseConfig.copyWith(
+        durationMs: jpExitMs,
+        dismissMode: TransitionDismissMode.timed,
+        showWinOnExit: true,
+        audioStage: 'JACKPOT_OUTRO',
+      ),
     );
   }
 
