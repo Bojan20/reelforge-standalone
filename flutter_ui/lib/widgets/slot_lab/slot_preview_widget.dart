@@ -22,7 +22,6 @@ import '../../providers/slot_lab_project_provider.dart';
 import '../../services/stage_configuration_service.dart';
 import '../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../services/event_registry.dart';
-import '../../services/audio_playback_service.dart';
 import '../../services/win_analytics_service.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
@@ -867,6 +866,164 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       overlap: !isMusicStage && !shouldLoop,
       crossfadeMs: isMusicStage ? 500 : 0,
       targetBusId: busId,
+    ));
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COMPOSITE BIG WIN REGISTRATION — Dynamic multi-layer events
+  //
+  // BIG_WIN_INTRO and BIG_WIN_END are COMPOSITE events with multiple layers:
+  // Each layer = one audio command (play sfx, play music, preload base, etc.)
+  // All layers are visible in middleware panel and fully editable by designer.
+  // NO hardcoded audio logic in tier progression — everything driven by events.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Register BIG_WIN_INTRO as composite event with all its layers.
+  /// Called once before tier progression starts.
+  ///
+  /// Layers:
+  /// 1. BIG_WIN_INTRO sfx (SFX bus, immediate)
+  /// 2. MUSIC_BIGWIN_L1 loop (Music bus, immediate, overlap=false → stops base game music)
+  void _ensureCompositeBigWinIntro() {
+    const stage = 'BIG_WIN_INTRO';
+    if (eventRegistry.hasEventForStage(stage)) return;
+
+    final project = GetIt.instance<SlotLabProjectProvider>();
+    final layers = <AudioLayer>[];
+    int layerIdx = 0;
+
+    // Layer 1: BIG_WIN_INTRO sfx
+    final introSfx = project.getAudioAssignment('BIG_WIN_INTRO');
+    if (introSfx != null && introSfx.isNotEmpty) {
+      layers.add(AudioLayer(
+        id: 'bwi_layer_${layerIdx++}',
+        name: 'BIG WIN INTRO SFX',
+        audioPath: introSfx,
+        volume: 1.0,
+        busId: 2, // SFX
+      ));
+    }
+
+    // Layer 2: MUSIC_BIGWIN_L1 (looping big win music — driven by event loop flag)
+    final bigwinMusic = project.getAudioAssignment('MUSIC_BIGWIN_L1');
+    if (bigwinMusic != null && bigwinMusic.isNotEmpty) {
+      layers.add(AudioLayer(
+        id: 'bwi_layer_${layerIdx++}',
+        name: 'MUSIC BIGWIN L1',
+        audioPath: bigwinMusic,
+        volume: 1.0,
+        busId: 1, // Music
+      ));
+    }
+
+    // Layer 3: MUSIC_BIGWIN_INTRO (one-shot intro fanfare)
+    final bigwinIntroMusic = project.getAudioAssignment('MUSIC_BIGWIN_INTRO');
+    if (bigwinIntroMusic != null && bigwinIntroMusic.isNotEmpty) {
+      layers.add(AudioLayer(
+        id: 'bwi_layer_${layerIdx++}',
+        name: 'MUSIC BIGWIN INTRO',
+        audioPath: bigwinIntroMusic,
+        volume: 1.0,
+        busId: 1, // Music
+      ));
+    }
+
+    if (layers.isEmpty) return;
+
+    eventRegistry.registerEvent(AudioEvent(
+      id: 'audio_$stage',
+      name: 'BIG WIN INTRO',
+      stage: stage,
+      layers: layers,
+      loop: true, // Big win music loops
+      overlap: false, // Stops base game music on music bus
+      crossfadeMs: 500,
+      targetBusId: 1, // Music bus (non-overlap target)
+    ));
+  }
+
+  /// Register BIG_WIN_END as composite event with all its layers.
+  /// Called once before tier progression finishes.
+  ///
+  /// Layers:
+  /// 1. BIG_WIN_END sfx (SFX bus, immediate)
+  /// 2. MUSIC_BIGWIN_END (Music bus, immediate)
+  /// 3. MUSIC_BIGWIN_OUTRO (Music bus, immediate)
+  /// 4. MUSIC_BASE_L1 (Music bus, vol 0, delay 3500ms, fadeIn 1300ms, loop)
+  /// 5-8. MUSIC_BASE_L2-L5 (Music bus, vol 0, delay 3500ms, loop)
+  ///
+  /// overlap=false → automatically stops big win music before playing
+  void _ensureCompositeBigWinEnd() {
+    const stage = 'BIG_WIN_END';
+    if (eventRegistry.hasEventForStage(stage)) return;
+
+    final project = GetIt.instance<SlotLabProjectProvider>();
+    final layers = <AudioLayer>[];
+    int layerIdx = 0;
+
+    // Layer 1: BIG_WIN_END sfx
+    final endSfx = project.getAudioAssignment('BIG_WIN_END');
+    if (endSfx != null && endSfx.isNotEmpty) {
+      layers.add(AudioLayer(
+        id: 'bwe_layer_${layerIdx++}',
+        name: 'BIG WIN END SFX',
+        audioPath: endSfx,
+        volume: 1.0,
+        busId: 2, // SFX
+      ));
+    }
+
+    // Layer 2: MUSIC_BIGWIN_END
+    final endMusic = project.getAudioAssignment('MUSIC_BIGWIN_END');
+    if (endMusic != null && endMusic.isNotEmpty) {
+      layers.add(AudioLayer(
+        id: 'bwe_layer_${layerIdx++}',
+        name: 'MUSIC BIGWIN END',
+        audioPath: endMusic,
+        volume: 1.0,
+        busId: 1, // Music
+      ));
+    }
+
+    // Layer 3: MUSIC_BIGWIN_OUTRO
+    final outroMusic = project.getAudioAssignment('MUSIC_BIGWIN_OUTRO');
+    if (outroMusic != null && outroMusic.isNotEmpty) {
+      layers.add(AudioLayer(
+        id: 'bwe_layer_${layerIdx++}',
+        name: 'MUSIC BIGWIN OUTRO',
+        audioPath: outroMusic,
+        volume: 1.0,
+        busId: 1, // Music
+      ));
+    }
+
+    // Layers 4-8: BASE GAME MUSIC L1-L5 — preloaded silent, L1 fades in after delay
+    for (int i = 1; i <= 5; i++) {
+      final basePath = project.getAudioAssignment('MUSIC_BASE_L$i');
+      if (basePath != null && basePath.isNotEmpty) {
+        layers.add(AudioLayer(
+          id: 'bwe_layer_${layerIdx++}',
+          name: 'MUSIC BASE L$i${i == 1 ? ' (FADE IN)' : ' (SILENT)'}',
+          audioPath: basePath,
+          volume: i == 1 ? 0.0 : 0.0, // All start silent
+          busId: 1, // Music
+          delay: 3500, // 3500ms delay before starting
+          fadeInMs: i == 1 ? 1300.0 : 0.0, // Only L1 fades in
+        ));
+      }
+    }
+
+    if (layers.isEmpty) return;
+
+    eventRegistry.registerEvent(AudioEvent(
+      id: 'audio_$stage',
+      name: 'BIG WIN END',
+      stage: stage,
+      layers: layers,
+      loop: false, // SFX/outro don't loop (base game layers need separate handling)
+      overlap: false, // Stops big win music on music bus
+      crossfadeMs: 300,
+      targetBusId: 1, // Music bus (non-overlap target)
     ));
   }
 
@@ -2084,28 +2241,13 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _ensureAudioRegistered('WIN_COLLECT');
     eventRegistry.triggerStage('ROLLUP_END');
     if (savedWinTier.isNotEmpty) {
+      // BIG_WIN_END is composite: sfx + music end + outro + base game restore
+      // All layers defined in _ensureCompositeBigWinEnd()
+      _ensureCompositeBigWinEnd();
       eventRegistry.triggerStage('BIG_WIN_END');
       eventRegistry.triggerStage('WIN_PRESENT_END');
     }
     eventRegistry.triggerStage('WIN_COLLECT');
-
-    // For big wins: play end music then restore BG music with fadeIn
-    if (wasBigWin) {
-      // Play big win end music
-      _ensureAudioRegistered('MUSIC_BIGWIN_END');
-      _ensureAudioRegistered('MUSIC_BIGWIN_OUTRO');
-      eventRegistry.triggerStage('MUSIC_BIGWIN_END');
-      eventRegistry.triggerStage('MUSIC_BIGWIN_OUTRO');
-      // Restore BG music: L2-L5 silent (looping), L1 fades in over 800ms
-      for (final layer in ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
-        _ensureAudioRegistered(layer);
-      }
-      for (final layer in ['MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
-        eventRegistry.triggerStage(layer, context: {'volumeMultiplier': 0.0});
-      }
-      // Skip = immediate fade (no 3500ms delay)
-      eventRegistry.triggerStageWithFadeIn('MUSIC_BASE_L1', fadeMs: 800);
-    }
 
     // Helper to reset state and notify provider
     void completeSkip() {
@@ -3077,19 +3219,16 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ENSURE BIG WIN AUDIO EVENTS ARE REGISTERED
-    // Safety net: register all big win stages before triggering
+    // BIG_WIN_INTRO and BIG_WIN_END are COMPOSITE events with all their layers.
+    // Other stages are simple single-layer events.
     // ═══════════════════════════════════════════════════════════════════════════
-    _ensureAudioRegistered('BIG_WIN_INTRO');
-    _ensureAudioRegistered('BIG_WIN_END');
+    _ensureCompositeBigWinIntro();
+    _ensureCompositeBigWinEnd();
     _ensureAudioRegistered('BIG_WIN_LOOP');
     _ensureAudioRegistered('BIG_WIN_COINS');
     _ensureAudioRegistered('BIG_WIN_IMPACT');
     _ensureAudioRegistered('BIG_WIN_UPGRADE');
     _ensureAudioRegistered('BIG_WIN_OUTRO');
-    // Big Win music layers
-    _ensureAudioRegistered('MUSIC_BIGWIN_L1');
-    _ensureAudioRegistered('MUSIC_BIGWIN_INTRO');
-    _ensureAudioRegistered('MUSIC_BIGWIN_OUTRO');
     // Big Win tier stages
     for (final tier in _tierProgressionList) {
       _ensureAudioRegistered(tier);
@@ -3097,13 +3236,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
     // ═══════════════════════════════════════════════════════════════════════════
     // STEP 1: BIG_WIN_INTRO (0.5s) — Entry fanfare
-    // Fade out ALL background music first, then start big win music
+    // Composite event: overlap=false → fades out base game music on music bus,
+    // then plays intro sfx + big win music (all layers defined in event)
     // ═══════════════════════════════════════════════════════════════════════════
-    eventRegistry.stopAllMusicVoices(fadeMs: 500);
     eventRegistry.triggerStage('BIG_WIN_INTRO');
-
-    // START BIG WIN MUSIC (after base music fade-out begins)
-    eventRegistry.triggerStage('MUSIC_BIGWIN_L1');
 
     // Show plaque immediately with first tier
     setState(() {
@@ -3199,51 +3335,19 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Counter je već STAO (dostigao target na kraju tier-ova)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    // STOP ALL BIG WIN MUSIC — fade out everything on music bus
-    eventRegistry.stopAllMusicVoices(fadeMs: 300);
+    // ═══════════════════════════════════════════════════════════════════════
+    // BIG_WIN_END — SINGLE COMPOSITE TRIGGER
+    // Composite event with overlap=false → stops big win music on music bus.
+    // All layers defined in _ensureCompositeBigWinEnd():
+    //   - BIG_WIN_END sfx (SFX bus, immediate)
+    //   - MUSIC_BIGWIN_END + OUTRO (Music bus, immediate)
+    //   - MUSIC_BASE_L1 (Music bus, vol 0, delay 3500ms, fadeIn 1300ms)
+    //   - MUSIC_BASE_L2-L5 (Music bus, vol 0, delay 3500ms, silent standby)
+    // Designer can edit all layers in middleware panel.
+    // ═══════════════════════════════════════════════════════════════════════
     eventRegistry.stopEvent('BIG_WIN_LOOP');
     eventRegistry.stopEvent('BIG_WIN_COINS');
-    eventRegistry.stopEvent('BIG_WIN_INTRO');
-
-    // Trigger BIG_WIN_END stage (sfx)
     eventRegistry.triggerStage('BIG_WIN_END');
-
-    // Play BIG_WIN_END music (one-shot end fanfare)
-    _ensureAudioRegistered('MUSIC_BIGWIN_END');
-    _ensureAudioRegistered('MUSIC_BIGWIN_OUTRO');
-    eventRegistry.triggerStage('MUSIC_BIGWIN_END');
-    eventRegistry.triggerStage('MUSIC_BIGWIN_OUTRO');
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // BASE GAME MUSIC PRE-LOAD: Start all layers at volume 0, looping
-    // They sit silent while plaketa fades out, then L1 fades in
-    // ═══════════════════════════════════════════════════════════════════════
-    for (final layer in ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
-      _ensureAudioRegistered(layer);
-      eventRegistry.triggerStage(layer, context: {'volumeMultiplier': 0.0});
-    }
-
-    // L1 delayed fade-in: 3500ms delay, then 1300ms fade from 0→1
-    // CRITICAL: _eventVoices key is the STAGE name (e.g. "MUSIC_BASE_L1"),
-    // NOT event.id — getEventIdForStage returns event.id which is a different key.
-    _baseGameFadeTimer?.cancel();
-    _baseGameFadeTimer = Timer(const Duration(milliseconds: 3500), () {
-      if (!mounted) return;
-      const stageKey = 'MUSIC_BASE_L1';
-      const fadeDurationMs = 1300;
-      const stepMs = 16;
-      final steps = (fadeDurationMs / stepMs).ceil().clamp(1, 1000);
-      int currentStep = 0;
-      Timer.periodic(const Duration(milliseconds: stepMs), (timer) {
-        currentStep++;
-        final t = (currentStep / steps).clamp(0.0, 1.0);
-        AudioPlaybackService.instance.updateEventVolume(stageKey, t);
-        if (currentStep >= steps) {
-          AudioPlaybackService.instance.updateEventVolume(stageKey, 1.0);
-          timer.cancel();
-        }
-      });
-    });
 
     final lastTier = _currentDisplayTier;
 

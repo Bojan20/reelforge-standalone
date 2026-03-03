@@ -5185,14 +5185,10 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // Trigger END stages so designers can have "win end" sounds
     eventRegistry.triggerStage('ROLLUP_END');
     if (_currentWinTier.isNotEmpty) {
+      // BIG_WIN_END is composite: sfx + music end + outro + base game restore
+      // All layers defined dynamically — visible and editable in middleware panel
       eventRegistry.triggerStage('BIG_WIN_END');
       eventRegistry.triggerStage('WIN_PRESENT_END');
-
-      // Restore BG music: L2-L5 silent (looping), L1 fades in over 800ms
-      for (final layer in ['MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
-        eventRegistry.triggerStage(layer, context: {'volumeMultiplier': 0.0});
-      }
-      eventRegistry.triggerStageWithFadeIn('MUSIC_BASE_L1', fadeMs: 800);
     }
     eventRegistry.triggerStage('WIN_COLLECT');
 
