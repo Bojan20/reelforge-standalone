@@ -5082,10 +5082,16 @@ impl PlaybackEngine {
                         let pan_l_l = pan_l_l_start + (pan_l_l_end - pan_l_l_start) * t;
                         let pan_l_r = pan_l_r_start + (pan_l_r_end - pan_l_r_start) * t;
 
+                        // Gain compensation: normalize when cross-mix exceeds unity
+                        let sum_l_sq = pan_l_l * pan_l_l + pan_r_l_gain * pan_r_l_gain;
+                        let sum_r_sq = pan_l_r * pan_l_r + pan_r_r_gain * pan_r_r_gain;
+                        let comp_l = if sum_l_sq > 1.0 { 1.0 / sum_l_sq.sqrt() } else { 1.0 };
+                        let comp_r = if sum_r_sq > 1.0 { 1.0 / sum_r_sq.sqrt() } else { 1.0 };
+
                         let l_sample = track_l[i];
                         let r_sample = track_r[i];
-                        track_l[i] = final_volume * (l_sample * pan_l_l + r_sample * pan_r_l_gain);
-                        track_r[i] = final_volume * (l_sample * pan_l_r + r_sample * pan_r_r_gain);
+                        track_l[i] = final_volume * comp_l * (l_sample * pan_l_l + r_sample * pan_r_l_gain);
+                        track_r[i] = final_volume * comp_r * (l_sample * pan_l_r + r_sample * pan_r_r_gain);
                     }
                 } else {
                     // Mono: single pan knob
@@ -5136,12 +5142,18 @@ impl PlaybackEngine {
                     let pan_r_l = pan_r_angle.cos(); // R input to L output
                     let pan_r_r = pan_r_angle.sin(); // R input to R output
 
+                    // Gain compensation: when both channels cross-mix into the same output,
+                    // normalize so total gain never exceeds unity (prevents +3dB at center)
+                    let sum_l_sq = pan_l_l * pan_l_l + pan_r_l * pan_r_l;
+                    let sum_r_sq = pan_l_r * pan_l_r + pan_r_r * pan_r_r;
+                    let comp_l = if sum_l_sq > 1.0 { 1.0 / sum_l_sq.sqrt() } else { 1.0 };
+                    let comp_r = if sum_r_sq > 1.0 { 1.0 / sum_r_sq.sqrt() } else { 1.0 };
+
                     for i in 0..frames {
                         let l_sample = track_l[i];
                         let r_sample = track_r[i];
-                        // Mix: L out = L*pan_l_l + R*pan_r_l, R out = L*pan_l_r + R*pan_r_r
-                        track_l[i] = final_volume * (l_sample * pan_l_l + r_sample * pan_r_l);
-                        track_r[i] = final_volume * (l_sample * pan_l_r + r_sample * pan_r_r);
+                        track_l[i] = final_volume * comp_l * (l_sample * pan_l_l + r_sample * pan_r_l);
+                        track_r[i] = final_volume * comp_r * (l_sample * pan_l_r + r_sample * pan_r_r);
                     }
                 } else {
                     // Mono: single pan knob - constant power pan
@@ -5309,12 +5321,18 @@ impl PlaybackEngine {
             let r_to_l = pan_r_angle.cos();
             let r_to_r = pan_r_angle.sin();
 
+            // Gain compensation: prevent boost when cross-mixing (same as track dual-pan)
+            let sum_l_sq = l_to_l * l_to_l + r_to_l * r_to_l;
+            let sum_r_sq = l_to_r * l_to_r + r_to_r * r_to_r;
+            let comp_l = if sum_l_sq > 1.0 { 1.0 / sum_l_sq.sqrt() } else { 1.0 };
+            let comp_r = if sum_r_sq > 1.0 { 1.0 / sum_r_sq.sqrt() } else { 1.0 };
+
             // Apply volume and dual-pan in-place
             for i in 0..frames {
                 let l = bus_l[i] * volume;
                 let r = bus_r[i] * volume;
-                bus_l[i] = l * l_to_l + r * r_to_l;
-                bus_r[i] = l * l_to_r + r * r_to_r;
+                bus_l[i] = comp_l * (l * l_to_l + r * r_to_l);
+                bus_r[i] = comp_r * (l * l_to_r + r * r_to_r);
             }
 
             // ═══ PER-BUS STEREO IMAGER (post-fader, pre-post-inserts) ═══

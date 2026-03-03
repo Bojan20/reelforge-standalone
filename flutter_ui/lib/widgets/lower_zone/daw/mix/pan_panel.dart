@@ -132,8 +132,14 @@ class _PanPanelState extends State<PanPanel> {
 
   MixerChannel? _getSelectedChannel(MixerProvider? provider) {
     if (provider == null || widget.selectedTrackId == null) return null;
+    final trackIdStr = widget.selectedTrackId.toString();
+    // Search tracks first, then buses, then auxes
+    final channel = provider.getChannel(trackIdStr)
+        ?? provider.getBus(trackIdStr)
+        ?? provider.getAux(trackIdStr);
+    if (channel != null) return channel;
+    // Also try matching by numeric track index
     try {
-      final trackIdStr = widget.selectedTrackId.toString();
       return provider.channels.firstWhere((ch) => ch.id == trackIdStr);
     } catch (_) {
       return null;

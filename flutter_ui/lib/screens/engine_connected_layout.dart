@@ -5565,6 +5565,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               final engine = context.read<EngineProvider>();
               engine.goToStart();
             },
+            onGoToLeftLocator: () {
+              if (_loopRegion != null) {
+                final engine = context.read<EngineProvider>();
+                engine.seek(_loopRegion!.start);
+              }
+            },
+            onGoToRightLocator: () {
+              if (_loopRegion != null) {
+                final engine = context.read<EngineProvider>();
+                engine.seek(_loopRegion!.end);
+              }
+            },
           ),
           // Floating EQ windows - optimized
           ..._buildFloatingEqWindowsOptimized(),

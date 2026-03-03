@@ -37,6 +37,10 @@ class EngineProvider extends ChangeNotifier {
   MeteringState _metering = MeteringState.empty();
   ProjectInfo _project = ProjectInfo.empty();
 
+  // DAW-standard: remember where playback started so Stop returns there
+  double _playbackStartPosition = 0;
+  bool _returnedToStart = true; // true when already at start pos (next stop → 0)
+
   // PERFORMANCE: Throttle notifyListeners to prevent rebuild storm
   // Transport/metering streams fire at ~60fps, but UI only needs ~20fps
   DateTime _lastNotifyTime = DateTime.now();
@@ -50,6 +54,7 @@ class EngineProvider extends ChangeNotifier {
   TransportState get transport => _transport;
   MeteringState get metering => _metering;
   ProjectInfo get project => _project;
+  double get playbackStartPosition => _playbackStartPosition;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // LIFECYCLE
@@ -145,16 +150,49 @@ class EngineProvider extends ChangeNotifier {
 
   void play() {
     if (!isRunning) return;
+    // DAW-standard: remember cursor position before playback starts
+    _playbackStartPosition = _transport.positionSeconds;
+    _returnedToStart = false;
     engine.play();
     // INSTANT: Force immediate UI update - no throttle for play
     _transport = engine.transport;
     notifyListeners();
   }
 
+  /// DAW-standard Stop behavior (Cubase / Logic Pro X):
+  /// - 1st stop: return playhead to where playback started
+  /// - 2nd stop: return playhead to absolute 0
   void stop() {
     if (!isRunning) return;
+    final wasPlaying = _transport.isPlaying;
     engine.stop();
+
+    if (wasPlaying) {
+      // Was playing → return to playback start position
+      engine.setPosition(_playbackStartPosition);
+      _returnedToStart = false;
+    } else if (!_returnedToStart) {
+      // Already stopped, first extra stop → return to start position
+      engine.setPosition(_playbackStartPosition);
+      _returnedToStart = true;
+    } else {
+      // Already at start position → go to absolute 0
+      engine.setPosition(0);
+      _playbackStartPosition = 0;
+    }
+
     // INSTANT: Force immediate UI update - no throttle for stop
+    _transport = engine.transport;
+    notifyListeners();
+  }
+
+  /// Go to absolute start (position 0) — resets playback start marker
+  void goToStart() {
+    if (!isRunning) return;
+    engine.stop();
+    engine.setPosition(0);
+    _playbackStartPosition = 0;
+    _returnedToStart = true;
     _transport = engine.transport;
     notifyListeners();
   }

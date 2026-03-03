@@ -42,6 +42,8 @@ class MainLayout extends StatefulWidget {
   final VoidCallback? onRecord;
   final VoidCallback? onRewind;
   final VoidCallback? onForward;
+  final VoidCallback? onGoToLeftLocator;
+  final VoidCallback? onGoToRightLocator;
   final double tempo;
   final ValueChanged<double>? onTempoChange;
   final TimeSignature timeSignature;
@@ -155,6 +157,8 @@ class MainLayout extends StatefulWidget {
     this.onRecord,
     this.onRewind,
     this.onForward,
+    this.onGoToLeftLocator,
+    this.onGoToRightLocator,
     this.tempo = 120,
     this.onTempoChange,
     this.timeSignature = const TimeSignature(4, 4),
@@ -362,6 +366,10 @@ class _MainLayoutState extends State<MainLayout>
       // K (no modifier) - Toggle Metronome
       widget.onMetronomeToggle?.call();
       return KeyEventResult.handled;
+    } else if (key == LogicalKeyboardKey.home) {
+      // Home key — go to timeline start (position 0)
+      widget.onRewind?.call();
+      return KeyEventResult.handled;
     } else if (key == LogicalKeyboardKey.comma) {
       widget.onRewind?.call();
       return KeyEventResult.handled;
@@ -376,14 +384,25 @@ class _MainLayoutState extends State<MainLayout>
       return KeyEventResult.handled;
     }
 
+    // ═══ Locator navigation (DAW only, no modifiers) ═══
+    // 1 = go to loop start, 2 = go to loop end (Cubase-style locators)
+    if (!isCtrl && !isShift && widget.editorMode == EditorMode.daw) {
+      if (key == LogicalKeyboardKey.digit1) {
+        widget.onGoToLeftLocator?.call();
+        return KeyEventResult.handled;
+      }
+      if (key == LogicalKeyboardKey.digit2) {
+        widget.onGoToRightLocator?.call();
+        return KeyEventResult.handled;
+      }
+    }
+
     // ═══ Smart Tool shortcuts (DAW only, no modifiers) ═══
     if (!isCtrl && !isShift && widget.editorMode == EditorMode.daw) {
       final smartTool = context.read<SmartToolProvider>();
 
-      // Number keys 1-0: Tool selection (Cubase-style)
+      // Number keys 3-0: Tool selection (1/2 reserved for locator navigation)
       final toolMap = <LogicalKeyboardKey, TimelineEditTool>{
-        LogicalKeyboardKey.digit1: TimelineEditTool.smart,
-        LogicalKeyboardKey.digit2: TimelineEditTool.objectSelect,
         LogicalKeyboardKey.digit3: TimelineEditTool.rangeSelect,
         LogicalKeyboardKey.digit4: TimelineEditTool.split,
         LogicalKeyboardKey.digit5: TimelineEditTool.glue,

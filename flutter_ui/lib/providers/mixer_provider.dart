@@ -2902,19 +2902,25 @@ class MixerProvider extends ChangeNotifier {
   }
 
   /// Apply bus pan to all tracks routed through this bus.
-  /// Bus pan acts as an offset on track pan (both mono and stereo).
+  /// Bus pan is expressed as offset from default stereo position (L=-1, R=1).
+  /// This ensures that moving the bus pan knob always has audible effect,
+  /// regardless of the track's own pan setting.
   void _applyBusPanToRoutedTracks(String busId) {
     final bus = _buses[busId];
     if (bus == null) return;
 
+    // Bus pan offset = deviation from default stereo rest position
+    // Default: pan=-1.0, panRight=1.0 → offset=0 (no change)
+    final busOffsetL = bus.pan - (-1.0); // 0..2 range at default -1
+    final busOffsetR = bus.panRight - 1.0; // -2..0 range at default 1
+
     for (final channel in _channels.values) {
       if (channel.outputBus == busId && channel.trackIndex != null) {
         if (FFIBoundsChecker.validateTrackId(channel.trackIndex!)) {
-          // Bus pan offsets track pan (consistent for mono and stereo)
-          final effectivePan = (channel.pan + bus.pan).clamp(-1.0, 1.0);
+          final effectivePan = (channel.pan + busOffsetL).clamp(-1.0, 1.0);
           engine.setTrackPan(channel.trackIndex!, effectivePan);
           if (bus.isStereo) {
-            final effectivePanR = (channel.panRight + bus.panRight).clamp(-1.0, 1.0);
+            final effectivePanR = (channel.panRight + busOffsetR).clamp(-1.0, 1.0);
             engine.setTrackPanRight(channel.trackIndex!, effectivePanR);
           }
         }

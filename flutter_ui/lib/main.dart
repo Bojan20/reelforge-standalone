@@ -387,7 +387,7 @@ class _AppInitializerState extends State<_AppInitializer> {
         }
       };
       actions.onStop = () => engine.stop();
-      actions.onGoToStart = () => engine.seek(0);
+      actions.onGoToStart = () => engine.goToStart();
       actions.onUndo = () {
         engine.undo();
         history.undo();

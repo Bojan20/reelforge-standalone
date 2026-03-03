@@ -67,10 +67,14 @@ class MixerPanel extends StatelessWidget {
         color: bus.color,
         volume: bus.volume,
         pan: bus.pan,
+        panRight: bus.panRight,
+        isStereo: bus.isStereo,
         muted: bus.muted,
         soloed: bus.soloed,
         peakL: bus.peakL,
         peakR: bus.peakR,
+        rmsL: bus.rmsL,
+        rmsR: bus.rmsR,
       );
     }).toList();
 
