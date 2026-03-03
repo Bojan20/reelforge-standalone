@@ -352,19 +352,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
         return;
       }
     }
-    // No EQ node found — auto-create one so the panel is functional
-    dsp.addNode(widget.trackId, DspNodeType.eq);
-    chain = dsp.getChain(widget.trackId);
-    for (int i = 0; i < chain.nodes.length; i++) {
-      if (chain.nodes[i].type == DspNodeType.eq) {
-        _nodeId = chain.nodes[i].id;
-        _slotIndex = i;
-        setState(() => _initialized = true);
-        // Fresh processor — no bands to read, skip _readBandsFromEngine
-        _startSpectrum();
-        return;
-      }
-    }
+    // No EQ node found — stay uninitialized, build() shows buildNotLoadedState
   }
 
   /// Reset all 64 bands in engine to disabled, then start clean.
