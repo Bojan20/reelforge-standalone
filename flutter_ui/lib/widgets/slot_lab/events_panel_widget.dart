@@ -657,14 +657,64 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
               ),
               // Column headers
               if (events.isNotEmpty) _buildEventsHeader(),
-              // Events list
+              // Events list — accepts audio drop to create new event
               Expanded(
-                child: events.isEmpty
-                    ? _buildEmptyState('No events', 'Click + to create')
-                    : ListView.builder(
-                        itemCount: events.length,
-                        itemBuilder: (ctx, i) => _buildEventItem(events[i]),
-                      ),
+                child: DragTarget<String>(
+                  onWillAcceptWithDetails: (details) => details.data.isNotEmpty,
+                  onAcceptWithDetails: (details) {
+                    _handleAudioDropCreateEvent(middleware, details.data);
+                  },
+                  builder: (context, candidateData, rejectedData) {
+                    final isDragHovering = candidateData.isNotEmpty;
+                    if (events.isEmpty) {
+                      return Container(
+                        decoration: isDragHovering
+                            ? BoxDecoration(
+                                color: FluxForgeTheme.accentBlue.withOpacity(0.08),
+                                border: Border.all(
+                                  color: FluxForgeTheme.accentBlue.withOpacity(0.4),
+                                  width: 1,
+                                ),
+                                borderRadius: BorderRadius.circular(4),
+                              )
+                            : null,
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                isDragHovering ? Icons.add_circle : Icons.layers,
+                                size: 24,
+                                color: isDragHovering
+                                    ? FluxForgeTheme.accentBlue
+                                    : Colors.white24,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                isDragHovering ? 'Drop to create event' : 'No events',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isDragHovering
+                                      ? FluxForgeTheme.accentBlue
+                                      : Colors.white38,
+                                ),
+                              ),
+                              if (!isDragHovering)
+                                const Text(
+                                  'Click + or drag audio here',
+                                  style: TextStyle(fontSize: 9, color: Colors.white24),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      itemCount: events.length,
+                      itemBuilder: (ctx, i) => _buildEventItem(events[i]),
+                    );
+                  },
+                ),
               ),
             ],
           ),
@@ -763,7 +813,14 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
           .join(' ');
     }
 
-    return GestureDetector(
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (details) => details.data.isNotEmpty,
+      onAcceptWithDetails: (details) {
+        _handleAudioDropOnEvent(event, details.data);
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isDragHovering = candidateData.isNotEmpty;
+        return GestureDetector(
       onTap: () {
         if (isEditing) return; // Don't interfere with editing
         // Toggle selection: if already selected, unselect
@@ -788,13 +845,17 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
         height: 28,
         padding: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
-          color: isSelected ? FluxForgeTheme.accentBlue.withOpacity(0.2) : null,
+          color: isDragHovering
+              ? FluxForgeTheme.accentBlue.withOpacity(0.35)
+              : (isSelected ? FluxForgeTheme.accentBlue.withOpacity(0.2) : null),
           border: Border(
             bottom: BorderSide(color: Colors.white.withOpacity(0.05)),
             left: BorderSide(
-              color: isEditing
-                  ? FluxForgeTheme.accentOrange
-                  : (isSelected ? FluxForgeTheme.accentBlue : Colors.transparent),
+              color: isDragHovering
+                  ? FluxForgeTheme.accentBlue
+                  : (isEditing
+                      ? FluxForgeTheme.accentOrange
+                      : (isSelected ? FluxForgeTheme.accentBlue : Colors.transparent)),
               width: 2,
             ),
           ),
@@ -1025,6 +1086,72 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
         ),
       ),
     );
+      },
+    );
+  }
+
+  /// Handle audio drop on an event — adds layer with full parameters
+  void _handleAudioDropOnEvent(SlotCompositeEvent event, String audioPath) {
+    if (audioPath.isEmpty) return;
+
+    final fileName = audioPath.split('/').last;
+    final displayName = fileName.replaceAll(
+      RegExp(r'\.(wav|mp3|ogg|flac|aiff|aif|m4a|wma)$', caseSensitive: false),
+      '',
+    );
+
+    final middleware = context.read<MiddlewareProvider>();
+    middleware.addLayerToEvent(
+      event.id,
+      audioPath: audioPath,
+      name: displayName,
+    );
+
+    // Select the event and switch to editor view
+    _setSelectedEventId(event.id);
+    setState(() {
+      _showBrowser = false;
+    });
+
+    widget.onToast?.call('Added "$displayName" to "${event.name}"');
+  }
+
+  /// Handle audio drop on empty events area — creates new event with the audio layer
+  void _handleAudioDropCreateEvent(MiddlewareProvider middleware, String audioPath) {
+    if (audioPath.isEmpty) return;
+
+    final fileName = audioPath.split('/').last;
+    final displayName = fileName.replaceAll(
+      RegExp(r'\.(wav|mp3|ogg|flac|aiff|aif|m4a|wma)$', caseSensitive: false),
+      '',
+    );
+
+    final now = DateTime.now();
+    final newEvent = SlotCompositeEvent(
+      id: 'event_${now.millisecondsSinceEpoch}',
+      name: displayName,
+      color: FluxForgeTheme.accentBlue,
+      triggerStages: ['SPIN_START'],
+      layers: [],
+      createdAt: now,
+      modifiedAt: now,
+    );
+    middleware.addCompositeEvent(newEvent);
+
+    // Add layer to the new event
+    middleware.addLayerToEvent(
+      newEvent.id,
+      audioPath: audioPath,
+      name: displayName,
+    );
+
+    // Select and switch to editor
+    _setSelectedEventId(newEvent.id);
+    setState(() {
+      _showBrowser = false;
+    });
+
+    widget.onToast?.call('Created event "$displayName"');
   }
 
   /// Get color for layer visualization
