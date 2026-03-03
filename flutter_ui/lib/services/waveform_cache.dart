@@ -272,6 +272,18 @@ class WaveformCache {
     return data;
   }
 
+  /// Get cached multi-res data without generating (read-only lookup)
+  /// Used by TimelineWaveformPainter for instant rendering from shared cache
+  MultiResWaveform? getMultiRes(String clipId) {
+    final cached = _multiResCache[clipId];
+    if (cached != null) {
+      // LRU: move to end
+      _multiResCache.remove(clipId);
+      _multiResCache[clipId] = cached;
+    }
+    return cached;
+  }
+
   /// Check if multi-res data is cached
   bool hasMultiRes(String clipId) => _multiResCache.containsKey(clipId);
 

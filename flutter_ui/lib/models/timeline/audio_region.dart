@@ -44,8 +44,11 @@ class AudioRegion {
   final bool isMuted;
   final bool isSelected;
 
-  // Waveform cache
-  final List<double>? waveformData; // Cached waveform from FFI
+  // Waveform cache — key into shared WaveformCache singleton (same as DAW)
+  final String? waveformCacheKey;
+
+  // Legacy: inline waveform data for backward compat during migration
+  final List<double>? waveformData;
 
   const AudioRegion({
     required this.id,
@@ -64,8 +67,12 @@ class AudioRegion {
     this.regionColor = const Color(0xFF4A9EFF),
     this.isMuted = false,
     this.isSelected = false,
+    this.waveformCacheKey,
     this.waveformData,
   });
+
+  /// Whether this region has waveform data available (from shared cache or inline)
+  bool get hasWaveform => waveformCacheKey != null || (waveformData != null && waveformData!.isNotEmpty);
 
   /// Get end time on timeline
   double get endTime => startTime + duration;
@@ -152,6 +159,7 @@ class AudioRegion {
     Color? regionColor,
     bool? isMuted,
     bool? isSelected,
+    String? waveformCacheKey,
     List<double>? waveformData,
   }) {
     return AudioRegion(
@@ -171,6 +179,7 @@ class AudioRegion {
       regionColor: regionColor ?? this.regionColor,
       isMuted: isMuted ?? this.isMuted,
       isSelected: isSelected ?? this.isSelected,
+      waveformCacheKey: waveformCacheKey ?? this.waveformCacheKey,
       waveformData: waveformData ?? this.waveformData,
     );
   }

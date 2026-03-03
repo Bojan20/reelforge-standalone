@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../../models/timeline/timeline_state.dart';
 import '../../models/timeline/audio_region.dart';
 import '../../models/timeline/stage_marker.dart';
-import '../../models/timeline_models.dart' show parseWaveformFromJson;
+import '../../services/waveform_cache.dart';
 
 class TimelineController extends ChangeNotifier {
   TimelineState _state = const TimelineState();
@@ -275,83 +275,94 @@ class TimelineController extends ChangeNotifier {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // WAVEFORM LOADING (Phase 2)
+  // WAVEFORM LOADING — Shared WaveformCache (same source as DAW)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Load waveform data from Rust FFI
+  /// Tracks waveform loading in progress to prevent duplicate FFI calls
+  final Set<String> _waveformLoading = {};
+
+  /// Ensure waveform is in shared WaveformCache and set region's cacheKey.
+  /// Uses the SAME WaveformCache singleton as DAW — zero duplication.
+  ///
+  /// The generateFn parameter is a sync FFI call wrapped in an async shell
+  /// to allow the caller to yield before/after the expensive call.
   Future<void> loadWaveformForRegion(
     String trackId,
     String regionId, {
-    required Future<String> Function(String path, String cacheKey) generateWaveformFn,
+    required Future<String?> Function(String path, String cacheKey) generateFn,
   }) async {
     final track = _state.getTrack(trackId);
     if (track == null) return;
 
-    final region = track.regions.firstWhere(
-      (r) => r.id == regionId,
-      orElse: () => throw Exception('Region not found'),
-    );
+    final region = track.regions.where((r) => r.id == regionId).firstOrNull;
+    if (region == null) return;
+
+    // Deterministic cache key — SAME key DAW would use for this audio path
+    final cacheKey = 'slotlab_${region.audioPath.hashCode}';
+
+    // Already has a cache key pointing to valid data — instant, no work needed
+    if (region.waveformCacheKey == cacheKey && WaveformCache().hasMultiRes(cacheKey)) {
+      return;
+    }
+
+    // Prevent duplicate concurrent loads for same path
+    if (_waveformLoading.contains(cacheKey)) return;
+    _waveformLoading.add(cacheKey);
 
     try {
-      // Call FFI to generate waveform JSON
-      final cacheKey = 'timeline_${region.audioPath.hashCode}';
-      final waveformJson = await generateWaveformFn(region.audioPath, cacheKey);
-
-      // Parse JSON to Float32List (using existing helper)
-      final waveformData = _parseWaveformJson(waveformJson);
-
-      // Update region with waveform data
-      if (waveformData != null) {
-        final updatedRegion = region.copyWith(waveformData: waveformData);
-        updateRegion(trackId, regionId, updatedRegion);
+      // Check if already in shared cache (may have been loaded by DAW)
+      if (!WaveformCache().hasMultiRes(cacheKey)) {
+        // Generate via FFI → populates WaveformCache singleton
+        final json = await generateFn(region.audioPath, cacheKey);
+        if (json != null && json.isNotEmpty) {
+          // Parse into shared cache
+          WaveformCache().getOrComputeMultiResFromPath(cacheKey, region.audioPath);
+        }
       }
+
+      // Set the cache key on the region — painter reads from WaveformCache
+      final freshTrack = _state.getTrack(trackId);
+      if (freshTrack == null) return;
+      final freshRegion = freshTrack.regions.where((r) => r.id == regionId).firstOrNull;
+      if (freshRegion == null) return;
+
+      final updatedRegion = freshRegion.copyWith(waveformCacheKey: cacheKey);
+      updateRegion(trackId, regionId, updatedRegion);
     } catch (e) {
-      // Waveform load failed — region will display filename instead
+      // Waveform load failed — region will display filename placeholder
+    } finally {
+      _waveformLoading.remove(cacheKey);
     }
   }
 
-  /// Parse waveform JSON from Rust FFI (uses existing parseWaveformFromJson helper)
-  List<double>? _parseWaveformJson(String json) {
-    final (leftChannel, rightChannel) = parseWaveformFromJson(json, maxSamples: 2048);
-
-    if (leftChannel == null) return null;
-
-    // Convert Float32List to List<double>
-    final waveformData = <double>[];
-
-    // Mix stereo to mono if needed, or just use left
-    if (rightChannel != null && rightChannel.length == leftChannel.length) {
-      for (int i = 0; i < leftChannel.length; i++) {
-        final mono = (leftChannel[i] + rightChannel[i]) / 2.0;
-        waveformData.add(mono);
-      }
-    } else {
-      waveformData.addAll(leftChannel);
-    }
-
-    return waveformData;
-  }
-
-  /// Load waveforms for all regions in a track
+  /// Load waveforms for all regions in a track — PARALLEL
   Future<void> loadWaveformsForTrack(
     String trackId, {
-    required Future<String> Function(String path, String cacheKey) generateWaveformFn,
+    required Future<String?> Function(String path, String cacheKey) generateFn,
   }) async {
     final track = _state.getTrack(trackId);
     if (track == null) return;
 
-    for (final region in track.regions) {
-      await loadWaveformForRegion(trackId, region.id, generateWaveformFn: generateWaveformFn);
-    }
+    // Launch all region waveform loads in parallel
+    await Future.wait(
+      track.regions.map((region) => loadWaveformForRegion(
+        trackId,
+        region.id,
+        generateFn: generateFn,
+      )),
+    );
   }
 
-  /// Load waveforms for all tracks
+  /// Load waveforms for all tracks — PARALLEL
   Future<void> loadAllWaveforms({
-    required Future<String> Function(String path, String cacheKey) generateWaveformFn,
+    required Future<String?> Function(String path, String cacheKey) generateFn,
   }) async {
-    for (final track in _state.tracks) {
-      await loadWaveformsForTrack(track.id, generateWaveformFn: generateWaveformFn);
-    }
+    await Future.wait(
+      _state.tracks.map((track) => loadWaveformsForTrack(
+        track.id,
+        generateFn: generateFn,
+      )),
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

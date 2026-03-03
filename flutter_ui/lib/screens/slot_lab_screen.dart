@@ -93,6 +93,7 @@ import '../widgets/slot_lab/slot_lab_settings_panel.dart' as settings;
 import '../src/rust/native_ffi.dart';
 import '../services/event_registry.dart';
 import '../services/slotlab_track_bridge.dart';
+import '../services/waveform_cache.dart';
 import '../services/waveform_cache_service.dart';
 import '../controllers/slot_lab/timeline_drag_controller.dart';
 import '../controllers/slot_lab/timeline_controller.dart' as ultimate;
@@ -6844,11 +6845,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   Widget _buildUltimateTimelineMode(BoxConstraints constraints) {
     return Consumer<SlotLabProvider>(
       builder: (context, slotLabProvider, _) {
-        // Sync stage markers from SlotLabProvider
-        _syncStageMarkersToUltimateTimeline(slotLabProvider);
-
-        // Migrate existing tracks/regions to Ultimate Timeline (one-time)
-        _migrateTracksToUltimateTimeline();
+        // Sync stage markers — deferred to avoid setState during build
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _syncStageMarkersToUltimateTimeline(slotLabProvider);
+            _migrateTracksToUltimateTimeline();
+          }
+        });
 
         // Wrap in DragTarget for audio browser drops
         return DragTarget<Object>(
@@ -6875,48 +6878,68 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   }
 
   /// Migrate existing _tracks to Ultimate Timeline format (one-time)
+  bool _ultimateTimelineMigrated = false;
+
   void _migrateTracksToUltimateTimeline() {
     if (_ultimateTimelineController == null) return;
-    if (_ultimateTimelineController!.state.tracks.isNotEmpty) return; // Already migrated
+    if (_ultimateTimelineMigrated) return;
+    if (_ultimateTimelineController!.state.tracks.isNotEmpty) {
+      _ultimateTimelineMigrated = true;
+      return; // Already has data
+    }
+    if (_tracks.isEmpty) return; // Nothing to migrate
+
+    _ultimateTimelineMigrated = true;
 
     // Convert each _SlotAudioTrack to TimelineTrack
+    final waveformFutures = <Future<void>>[];
+
     for (int i = 0; i < _tracks.length; i++) {
       final oldTrack = _tracks[i];
 
       // Create track in Ultimate Timeline
       _ultimateTimelineController!.addTrack(name: oldTrack.name);
-
       final newTrack = _ultimateTimelineController!.state.tracks.last;
 
       // Migrate regions
       for (final oldRegion in oldTrack.regions) {
-        // Convert _AudioRegion to timeline's AudioRegion
+        final audioPath = oldRegion.audioPath ?? '';
+        final cacheKey = audioPath.isNotEmpty ? 'slotlab_${audioPath.hashCode}' : null;
+
         final newRegion = timeline_models.AudioRegion(
           id: oldRegion.id,
           trackId: newTrack.id,
-          audioPath: oldRegion.audioPath ?? '',
+          audioPath: audioPath,
           startTime: oldRegion.start,
           duration: oldRegion.end - oldRegion.start,
-          volume: 1.0, // Default
-          pan: 0.0,    // Default
+          volume: 1.0,
+          pan: 0.0,
+          waveformCacheKey: cacheKey,
         );
 
         _ultimateTimelineController!.addRegion(newTrack.id, newRegion);
 
-        // Load waveform asynchronously
-        if (oldRegion.audioPath != null) {
-          _ultimateTimelineController!.loadWaveformForRegion(
-            newTrack.id,
-            newRegion.id,
-            generateWaveformFn: (path, key) async {
-              final json = _ffi.generateWaveformFromFile(path, key);
-              return json ?? ''; // Return empty string if null
-            },
-          );
+        // Queue waveform load (parallel — all at once)
+        if (audioPath.isNotEmpty) {
+          waveformFutures.add(_ensureWaveformInCache(audioPath, cacheKey!));
         }
       }
     }
 
+    // Load all waveforms in parallel — non-blocking
+    if (waveformFutures.isNotEmpty) {
+      Future.wait(waveformFutures).then((_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  /// Ensure audio path has waveform data in shared WaveformCache.
+  /// No-op if already cached (instant for DAW-loaded audio).
+  Future<void> _ensureWaveformInCache(String audioPath, String cacheKey) async {
+    final cache = WaveformCache();
+    if (cache.hasMultiRes(cacheKey)) return; // Already in cache — instant
+    cache.getOrComputeMultiResFromPath(cacheKey, audioPath);
   }
 
   /// Handle audio drop to Ultimate Timeline
@@ -6936,7 +6959,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final dropX = globalPosition.dx - 120; // Track header width
     final dropTime = (dropX / canvasWidth) * state.totalDuration;
 
-    // Create region
+    // Deterministic cache key for shared WaveformCache
+    final cacheKey = 'slotlab_${audioPath.hashCode}';
+
+    // Create region with cache key — waveform shows INSTANTLY if in cache
     final region = timeline_models.AudioRegion(
       id: 'region_${DateTime.now().millisecondsSinceEpoch}',
       trackId: track.id,
@@ -6945,59 +6971,76 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       duration: 2.0, // Placeholder (will be updated from FFI)
       volume: 1.0,
       pan: 0.0,
+      waveformCacheKey: cacheKey,
     );
 
     _ultimateTimelineController!.addRegion(track.id, region);
 
     // Load waveform + get real duration
     _loadWaveformAndDuration(track.id, region);
-
   }
 
-  /// Load waveform and update region duration
+  /// Load waveform into shared WaveformCache and update region duration.
+  /// Uses the SAME cache as DAW — waveform appears instantly if already loaded.
   Future<void> _loadWaveformAndDuration(String trackId, timeline_models.AudioRegion region) async {
     try {
-      // Get real audio duration from FFI
+      // 1. Get real audio duration from FFI
       final durationSeconds = _ffi.offlineGetAudioDuration(region.audioPath);
       final realDuration = durationSeconds > 0 ? durationSeconds : 2.0;
 
-      // Update region with real duration
-      final updatedRegion = region.copyWith(duration: realDuration);
+      // 2. Deterministic cache key for shared WaveformCache
+      final cacheKey = 'slotlab_${region.audioPath.hashCode}';
+
+      // 3. Update region with real duration + cache key immediately
+      //    If cache already has data (loaded by DAW), waveform shows INSTANTLY
+      final updatedRegion = region.copyWith(
+        duration: realDuration,
+        waveformCacheKey: cacheKey,
+      );
       _ultimateTimelineController!.updateRegion(trackId, region.id, updatedRegion);
 
-      // Load waveform
-      await _ultimateTimelineController!.loadWaveformForRegion(
-        trackId,
-        region.id,
-        generateWaveformFn: (path, key) async {
-          final json = _ffi.generateWaveformFromFile(path, key);
-          return json ?? '';
-        },
-      );
+      // 4. Ensure waveform is in shared cache (no-op if DAW already loaded it)
+      final cache = WaveformCache();
+      if (!cache.hasMultiRes(cacheKey)) {
+        // Generate via FFI — populates cache for both DAW and SlotLab
+        cache.getOrComputeMultiResFromPath(cacheKey, region.audioPath);
+      }
+
+      // 5. Notify to repaint with waveform data
+      if (mounted) setState(() {});
     } catch (e) { /* ignored */ }
   }
 
-  /// Sync stage markers from SlotLabProvider to Ultimate Timeline
+  /// Last synced stage count — prevents re-syncing on every Consumer rebuild
+  int _lastSyncedStageCount = -1;
+
+  /// Sync stage markers from SlotLabProvider to Ultimate Timeline.
+  /// Deduplicates: only re-syncs when stage count actually changes.
   void _syncStageMarkersToUltimateTimeline(SlotLabProvider provider) {
     if (_ultimateTimelineController == null) return;
 
     final stages = provider.lastStages;
+
+    // Dedup: skip if stage count hasn't changed since last sync
+    if (stages.length == _lastSyncedStageCount) return;
+    _lastSyncedStageCount = stages.length;
+
     if (stages.isEmpty) return;
 
-    // Clear existing markers
+    // Clear ALL existing stage markers (not win tier markers) to rebuild
     final currentMarkers = _ultimateTimelineController!.state.markers;
-    if (currentMarkers.length > 100) {
-      // Prevent marker overflow — clear old markers
-      for (final marker in currentMarkers.take(currentMarkers.length - 50)) {
-        _ultimateTimelineController!.removeMarker(marker.id);
-      }
+    final stageMarkerIds = currentMarkers
+        .where((m) => !m.id.startsWith('win_tier_') && !m.id.startsWith('big_win_tier_'))
+        .map((m) => m.id)
+        .toList();
+    for (final id in stageMarkerIds) {
+      _ultimateTimelineController!.removeMarker(id);
     }
 
     // Add markers from stage events
     for (final stage in stages) {
-      final timeSeconds = stage.timestampMs / 1000.0; // Convert ms to seconds
+      final timeSeconds = stage.timestampMs / 1000.0;
 
-      // Use timeline_models.StageMarker (to avoid conflict with old _StageMarker)
       final marker = timeline_models.StageMarker.fromStageId(
         stage.stageType,
         timeSeconds,
@@ -8102,6 +8145,21 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   List<double>? _getWaveformForPath(String audioPath) {
     if (audioPath.isEmpty) return null;
 
+    // 0. Check shared WaveformCache (same as DAW + Ultimate Timeline — instant)
+    final cacheKey = 'slotlab_${audioPath.hashCode}';
+    final multiRes = WaveformCache().getMultiRes(cacheKey);
+    if (multiRes != null && multiRes.leftLevels.isNotEmpty) {
+      // Extract peaks from coarsest LOD for legacy List<double> format
+      final coarsest = multiRes.leftLevels.last;
+      final peaks = <double>[];
+      for (int i = 0; i < coarsest.length; i++) {
+        peaks.add(coarsest.minPeaks[i].toDouble());
+        peaks.add(coarsest.maxPeaks[i].toDouble());
+      }
+      _waveformCache[audioPath] = peaks; // Cache locally for future lookups
+      return peaks;
+    }
+
     // 1. Check memory cache first (fastest)
     if (_waveformCache.containsKey(audioPath)) {
       return _waveformCache[audioPath];
@@ -8180,15 +8238,37 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     WaveformCacheService.instance.put(audioPath, waveform);
   }
 
-  /// Asynchronously load waveform for a path
+  /// Asynchronously load waveform for a path.
+  ///
+  /// Populates BOTH shared WaveformCache (for Ultimate Timeline LOD) AND
+  /// legacy _waveformCache (for legacy timeline). Single FFI call serves both.
   ///
   /// CRITICAL: Uses generateWaveformFromFile instead of importAudio to avoid
-  /// corrupting DAW waveforms. importAudio modifies Rust engine clip state,
-  /// which can overwrite waveform data for clips already loaded in DAW.
+  /// corrupting DAW waveforms.
   void _loadWaveformAsync(String audioPath) async {
     if (_waveformCache.containsKey(audioPath) || !_ffi.isLoaded) return;
 
-    // First check disk cache before doing expensive FFI generation
+    final cacheKey = 'slotlab_${audioPath.hashCode}';
+
+    // Check shared WaveformCache first — may already have data from DAW
+    final cache = WaveformCache();
+    if (cache.hasMultiRes(cacheKey)) {
+      // Extract peaks for legacy format and cache locally
+      final multiRes = cache.getMultiRes(cacheKey)!;
+      if (multiRes.leftLevels.isNotEmpty) {
+        final coarsest = multiRes.leftLevels.last;
+        final peaks = <double>[];
+        for (int i = 0; i < coarsest.length; i++) {
+          peaks.add(coarsest.minPeaks[i].toDouble());
+          peaks.add(coarsest.maxPeaks[i].toDouble());
+        }
+        _cacheWaveform(audioPath, peaks);
+        if (mounted) setState(() {});
+        return;
+      }
+    }
+
+    // Check disk cache before doing expensive FFI generation
     try {
       final diskWaveform = await WaveformCacheService.instance.get(audioPath);
       if (diskWaveform != null && diskWaveform.isNotEmpty) {
@@ -8201,9 +8281,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     }
 
     try {
-      // Generate waveform directly from file WITHOUT importing to engine
-      // This prevents corruption of DAW clips that use the same audio file
-      final cacheKey = 'slotlab_${audioPath.hashCode}';
+      // Generate into shared WaveformCache — serves BOTH DAW and SlotLab
+      cache.getOrComputeMultiResFromPath(cacheKey, audioPath);
+
+      // Also generate legacy format for backward compat
       final waveformJson = _ffi.generateWaveformFromFile(audioPath, cacheKey);
 
       if (waveformJson != null && waveformJson.isNotEmpty) {

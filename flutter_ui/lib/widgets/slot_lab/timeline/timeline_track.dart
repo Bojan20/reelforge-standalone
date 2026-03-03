@@ -225,10 +225,11 @@ class TimelineTrackWidget extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
             child: Stack(
               children: [
-                // Waveform
+                // Waveform (shared WaveformCache with DAW — instant LOD)
                 CustomPaint(
                   size: Size(width, 60),
                   painter: TimelineWaveformPainter(
+                    cacheKey: region.waveformCacheKey,
                     waveformData: region.waveformData,
                     zoom: zoom,
                     isSelected: region.isSelected,
@@ -291,7 +292,7 @@ class TimelineTrackWidget extends StatelessWidget {
                   ),
 
                 // Region name (if no waveform)
-                if (region.waveformData == null)
+                if (!region.hasWaveform)
                   Center(
                     child: Text(
                       region.audioPath.split('/').last,

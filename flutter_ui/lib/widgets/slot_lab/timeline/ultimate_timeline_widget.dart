@@ -386,20 +386,21 @@ class _UltimateTimelineState extends State<UltimateTimeline> {
           ),
           child: Stack(
             children: [
-              // Waveform rendering
-              if (region.waveformData != null && region.waveformData!.isNotEmpty)
+              // Waveform rendering (shared WaveformCache with DAW — instant LOD)
+              if (region.hasWaveform)
                 Positioned.fill(
                   child: CustomPaint(
                     painter: TimelineWaveformPainter(
+                      cacheKey: region.waveformCacheKey,
                       waveformData: region.waveformData,
-                      sampleRate: 44100,  // Default (FFI provides actual rate if needed)
-                      channels: 2,        // Default stereo
+                      sampleRate: 44100,
+                      channels: 2,
                       style: WaveformStyle.peaks,
                       isSelected: region.isSelected,
                       isMuted: region.isMuted,
                       zoom: state.zoom,
-                      trimStart: region.trimStart,  // Already in seconds
-                      trimEnd: region.trimEnd,      // Already in seconds
+                      trimStart: region.trimStart,
+                      trimEnd: region.trimEnd,
                     ),
                   ),
                 )
