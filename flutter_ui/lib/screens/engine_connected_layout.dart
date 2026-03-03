@@ -2525,12 +2525,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       middlewareProvider.stopAllEvents(fadeMs: 50);
     }
 
+    // Silence one-shot voices from the leaving section immediately.
+    // This resets Rust active_section to DAW so SlotLab/Middleware voices
+    // stop producing sound. Must happen BEFORE releaseSection so voices
+    // are silenced even while section ownership is still held.
+    controller.silenceNonDawVoices();
+
     // Release active section so the new mode can acquire it.
     // CRITICAL: If SlotLab was just paused, only release — do NOT call
     // controller.stop() which calls _ffi.stop() and destroys the Rust engine's
     // paused state (resets position to 0, changes PlaybackState to Stopped).
-    // One-shot voices from the inactive section are automatically silenced by
-    // Rust engine's section filtering (process_one_shot_voices checks active_section).
     if (controller.activeSection != null) {
       if (_slotLabPausedByModeSwitch &&
           controller.activeSection == PlaybackSection.slotLab) {
