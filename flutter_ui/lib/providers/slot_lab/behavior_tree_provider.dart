@@ -331,10 +331,18 @@ class BehaviorTreeProvider extends ChangeNotifier {
       }
     }
 
-    // Apply assignments
-    for (final entry in matches.entries) {
-      final nodeType = entry.key;
-      final files = entry.value;
+    // Apply assignments — sorted by node type index (hierarchical) then files alphabetically
+    final sortedNodeTypes = matches.keys.toList()
+      ..sort((a, b) => a.index.compareTo(b.index));
+
+    for (final nodeType in sortedNodeTypes) {
+      final files = matches[nodeType]!;
+      // Sort files alphabetically within each node
+      files.sort((a, b) {
+        final nameA = (a['name'] as String? ?? '').toLowerCase();
+        final nameB = (b['name'] as String? ?? '').toLowerCase();
+        return nameA.compareTo(nameB);
+      });
       final nodeId = nodeType.nodeId;
       final node = _tree.getNode(nodeId);
       if (node == null) continue;

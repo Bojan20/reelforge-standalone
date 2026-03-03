@@ -905,10 +905,20 @@ class _GroupBatchImportPanelState extends State<GroupBatchImportPanel> {
   void _processFiles(List<String> paths) {
     if (_selectedGroup == null) return;
 
+    // Sort paths alphabetically for consistent ordering
+    paths.sort((a, b) {
+      final nameA = a.split('/').last.toLowerCase();
+      final nameB = b.split('/').last.toLowerCase();
+      return nameA.compareTo(nameB);
+    });
+
     final result = _service.matchFilesToGroup(
       group: _selectedGroup!,
       audioPaths: paths,
     );
+
+    // Sort matched by stage name for hierarchical display
+    result.matched.sort((a, b) => a.stage.compareTo(b.stage));
 
     setState(() {
       // Add matched files

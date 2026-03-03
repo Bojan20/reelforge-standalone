@@ -2175,6 +2175,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
       if (paths.isEmpty) return;
 
+      // Sort alphabetically by filename for consistent pool ordering
+      paths.sort((a, b) {
+        final nameA = a.split('/').last.toLowerCase();
+        final nameB = b.split('/').last.toLowerCase();
+        return nameA.compareTo(nameB);
+      });
+
       // ⚡ INSTANT: Batch add - collect all entries first, then single setState
       final newEntries = <Map<String, dynamic>>[];
       for (final path in paths) {
@@ -2298,10 +2305,18 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     int unmatchedCount = 0;
 
     // Match against ALL stage groups (spins/reels, wins, music/features)
+    // Collect all matches first, then sort hierarchically before applying
+    final allMatched = <StageMatch>[];
     for (final group in StageGroup.values) {
       final result = matcher.matchFilesToGroup(group: group, audioPaths: paths);
+      allMatched.addAll(result.matched);
+      unmatchedCount += result.unmatched.length;
+    }
 
-      for (final match in result.matched) {
+    // Sort: by stage name alphabetically → hierarchical order
+    allMatched.sort((a, b) => a.stage.compareTo(b.stage));
+
+    for (final match in allMatched) {
         // Use the SAME pipeline as drag-drop assignment
         projectProvider.setAudioAssignment(match.stage, match.audioPath, recordUndo: false);
 
@@ -2335,9 +2350,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
         boundCount++;
       }
-
-      unmatchedCount += result.unmatched.length;
-    }
 
     // Sanitize false positives after batch binding
     projectProvider.sanitizeAssignments();
@@ -2806,6 +2818,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                 ...matched.map((m) => m.audioPath),
                                 ...unmatched.map((u) => u.audioPath),
                               ];
+                              // Sort alphabetically for consistent pool ordering
+                              allPaths.sort((a, b) {
+                                final nameA = a.split('/').last.toLowerCase();
+                                final nameB = b.split('/').last.toLowerCase();
+                                return nameA.compareTo(nameB);
+                              });
                               final newEntries = <Map<String, dynamic>>[];
                               for (final path in allPaths) {
                                 if (_audioPool.any((a) => a['path'] == path)) continue;

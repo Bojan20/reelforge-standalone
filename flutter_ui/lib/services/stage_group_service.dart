@@ -2148,8 +2148,8 @@ class StageGroupService {
       }
     }
 
-    // Sort matched by confidence (highest first)
-    matched.sort((a, b) => b.confidence.compareTo(a.confidence));
+    // Sort matched by stage name for hierarchical ordering
+    matched.sort((a, b) => a.stage.compareTo(b.stage));
 
     return BatchMatchResult(
       group: group,
@@ -2365,7 +2365,8 @@ class StageGroupService {
       }
     }
 
-    matched.sort((a, b) => b.confidence.compareTo(a.confidence));
+    // Sort by stage name for hierarchical ordering (reel_land_0, reel_land_1, ...)
+    matched.sort((a, b) => a.stage.compareTo(b.stage));
 
     return BatchMatchResult(
       group: StageGroup.spinsAndReels, // placeholder — cross-group result
