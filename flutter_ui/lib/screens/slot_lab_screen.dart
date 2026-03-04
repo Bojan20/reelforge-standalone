@@ -58,9 +58,7 @@ import '../providers/middleware_provider.dart';
 import '../providers/stage_provider.dart';
 import 'package:get_it/get_it.dart';
 import '../providers/slot_lab/slot_lab_coordinator.dart';
-import '../providers/slot_lab/emotional_state_provider.dart';
 import '../providers/slot_lab/error_prevention_provider.dart';
-import '../providers/slot_lab/slotlab_view_mode_provider.dart';
 import '../providers/slot_lab/slotlab_notification_provider.dart';
 import '../providers/slot_lab/slotlab_undo_provider.dart';
 import '../providers/slot_lab/trigger_layer_provider.dart';
@@ -91,7 +89,6 @@ import '../widgets/slot_lab/event_log_panel.dart';
 import '../widgets/slot_lab/audio_hover_preview.dart';
 import '../widgets/slot_lab/slot_lab_settings_panel.dart' as settings;
 import '../src/rust/native_ffi.dart';
-import '../widgets/middleware/events_folder_panel.dart';
 import '../services/event_registry.dart';
 import '../services/slotlab_track_bridge.dart';
 import '../services/waveform_cache.dart';
@@ -2928,8 +2925,32 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                             builder: (context, candidateData, rejectedData) {
                               return Stack(
                                 children: [
-                                  ClipRect(
-                                    child: _buildMockSlot(),
+                                  Column(
+                                    children: [
+                                      // ── Center toolbar ──
+                                      Container(
+                                        height: 36,
+                                        color: const Color(0xFF111116),
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        child: Row(
+                                          children: [
+                                            _buildCenterToolBtn(Icons.dashboard_customize, 'Templates', const Color(0xFF4A9EFF), _showTemplateGallery),
+                                            const SizedBox(width: 6),
+                                            _buildCenterToolBtn(Icons.extension, 'Features', const Color(0xFF40FF90), _showFeatureBuilder),
+                                            const SizedBox(width: 6),
+                                            _buildCenterToolBtn(Icons.upload_file, 'Import GDD', const Color(0xFFFFAA00), _showGddImportWizard),
+                                            const SizedBox(width: 6),
+                                            _buildCenterToolBtn(Icons.settings, 'Settings', const Color(0xFF9370DB), _showSettingsDialog),
+                                            const Spacer(),
+                                          ],
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: ClipRect(
+                                          child: _buildMockSlot(),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                   // Drop highlight overlay
                                   if (candidateData.isNotEmpty)
@@ -3512,8 +3533,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               children: [
                 // ── NAV ──
                 _buildHeaderIconBtn(Icons.arrow_back, widget.onClose, 'Back to DAW'),
-                const SizedBox(width: 8),
-                // Logo / Title
+                const SizedBox(width: 6),
+
+                // ── Logo ──
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
@@ -3538,32 +3560,23 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     ),
                   ),
                 ),
-                _headerDivider(),
+                _headerDividerSmall(),
 
-                // ── TOOLS ──
-                _buildHeaderIconBtn(Icons.dashboard_customize, _showTemplateGallery, 'Templates'),
-                _buildHeaderIconBtn(Icons.extension, _showFeatureBuilder, 'Features'),
-                _buildHeaderIconBtn(Icons.upload_file, _showGddImportWizard, 'Import GDD'),
-                _buildHeaderIconBtn(Icons.settings, _showSettingsDialog, 'Settings'),
+                // ── STAGE + COVERAGE (flexible center) ──
+                Expanded(
+                  child: Row(
+                    children: [
+                      _buildCurrentStageIndicator(),
+                    ],
+                  ),
+                ),
 
-                const Spacer(),
-
-                // ── PANEL TOGGLES ──
+                // ── PANEL TOGGLES (right) ──
                 _buildHeaderIconBtn(
                   Icons.view_sidebar,
                   _toggleLeftPanel,
                   _leftPanelManuallyHidden ? 'Show Left' : 'Hide Left',
                   isActive: !_leftPanelManuallyHidden,
-                ),
-                _buildHeaderIconBtn(
-                  Icons.auto_awesome,
-                  () => setState(() {
-                    _leftPanelTab = _leftPanelAurexisMode
-                        ? _LeftPanelTab.audio
-                        : _LeftPanelTab.aurexis;
-                  }),
-                  _leftPanelAurexisMode ? 'Audio Panel' : 'AUREXIS',
-                  isActive: _leftPanelAurexisMode,
                 ),
                 _buildHeaderIconBtn(
                   Icons.view_sidebar_outlined,
@@ -3586,7 +3599,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           ),
         ),
         // ═══════════════════════════════════════════════════════════════════
-        // ROW 2: Context Bar (28px) — Status, Coverage, Stage Info, Toasts
+        // ROW 2: Context Bar (28px) — Tools, Coverage, Status, Toasts
         // ═══════════════════════════════════════════════════════════════════
         Container(
           height: 28,
@@ -3600,14 +3613,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Row(
               children: [
-                // ── STAGE INFO ──
-                _buildCurrentStageIndicator(),
-                _headerDividerSmall(),
-
-                // ── COVERAGE ──
-                _buildCoverageBadge(),
-                _headerDividerSmall(),
-
                 // ── STATUS CHIPS ──
                 _buildMiddlewareStatusChips(),
 
@@ -3630,6 +3635,40 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   }
 
   /// Header icon button — clean, minimal, 26x26
+  /// Center toolbar button — larger, with color accent and label
+  Widget _buildCenterToolBtn(IconData icon, String label, Color color, VoidCallback onTap) {
+    return Tooltip(
+      message: label,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(5),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeaderIconBtn(IconData icon, VoidCallback onTap, String tooltip, {bool isActive = false}) {
     return Tooltip(
       message: tooltip,
@@ -5207,41 +5246,17 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   /// Middleware status chips — ViewMode, Emotional state, ErrorPrevention
   Widget _buildMiddlewareStatusChips() {
-    final emotional = GetIt.instance<EmotionalStateProvider>();
     final errors = GetIt.instance<ErrorPreventionProvider>();
-    final viewMode = GetIt.instance<SlotLabViewModeProvider>();
     final notifications = GetIt.instance<SlotLabNotificationProvider>();
 
     return ListenableBuilder(
-      listenable: Listenable.merge([emotional, errors, viewMode, notifications]),
+      listenable: Listenable.merge([errors, notifications]),
       builder: (context, _) {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // View mode chip
-            GestureDetector(
-              onTap: () => viewMode.cycleMode(),
-              child: _buildStatusChip(
-                'MODE',
-                switch (viewMode.currentMode) {
-                  SlotLabViewMode.build => 'BLD',
-                  SlotLabViewMode.flow => 'FLW',
-                  SlotLabViewMode.simulation => 'SIM',
-                  SlotLabViewMode.diagnostic => 'DIA',
-                },
-                const Color(0xFF9370DB),
-              ),
-            ),
-            const SizedBox(width: 6),
-            // Emotional state chip
-            _buildStatusChip(
-              'EMOTION',
-              '${(emotional.output.intensity * 100).toStringAsFixed(0)}%',
-              Color.lerp(const Color(0xFF40C8FF), const Color(0xFFFF4040), emotional.output.tension) ?? const Color(0xFF40C8FF),
-            ),
             // Error badge — only show if errors exist
             if (errors.hasErrors) ...[
-              const SizedBox(width: 6),
               _buildStatusChip(
                 'ERRORS',
                 '${errors.errorCount}',
@@ -8862,7 +8877,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           Expanded(
             child: switch (_leftPanelTab) {
               _LeftPanelTab.audio => _buildUltimateAudioPanelContent(),
-              _LeftPanelTab.events => const EventsFolderPanel(),
+              _LeftPanelTab.events => _buildEventsLeftPanel(),
               _LeftPanelTab.stages => _buildStagesLeftPanel(),
               _LeftPanelTab.aurexis => const AurexisPanel(),
             },
@@ -8938,9 +8953,107 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     );
   }
 
+  /// EVENTS tab in left panel — compact event list (single-column for narrow panel)
+  Widget _buildEventsLeftPanel() {
+    return Consumer<MiddlewareProvider>(
+      builder: (context, mw, _) {
+        final events = mw.compositeEvents;
+        final selected = mw.selectedCompositeEvent;
+
+        if (events.isEmpty) {
+          return Center(
+            child: Text(
+              'No events defined',
+              style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
+            ),
+          );
+        }
+
+        // Group by category
+        final grouped = <String, List<SlotCompositeEvent>>{};
+        for (final e in events) {
+          grouped.putIfAbsent(e.category, () => []).add(e);
+        }
+
+        return ListView(
+          padding: const EdgeInsets.all(4),
+          children: grouped.entries.expand((entry) {
+            return [
+              // Category header
+              Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 2, left: 4),
+                child: Text(
+                  entry.key.toUpperCase(),
+                  style: TextStyle(
+                    color: FluxForgeTheme.accentCyan.withValues(alpha: 0.7),
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+              ),
+              // Events in category
+              ...entry.value.map((evt) {
+                final isSelected = selected?.id == evt.id;
+                return GestureDetector(
+                  onTap: () => mw.selectCompositeEvent(evt.id),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 1),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? FluxForgeTheme.accentGreen.withValues(alpha: 0.15)
+                          : const Color(0xFF161620),
+                      borderRadius: BorderRadius.circular(3),
+                      border: isSelected
+                          ? Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.4))
+                          : null,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.audio_file,
+                          size: 10,
+                          color: isSelected
+                              ? FluxForgeTheme.accentGreen
+                              : const Color(0xFF606068),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            evt.name,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? const Color(0xFFE0E0E8)
+                                  : const Color(0xFFB0B0B8),
+                              fontSize: 10,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          '${evt.layers.length}L',
+                          style: TextStyle(
+                            color: const Color(0xFF808088).withValues(alpha: 0.6),
+                            fontSize: 8,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ];
+          }).toList(),
+        );
+      },
+    );
+  }
+
   /// STAGES tab in left panel — stage flow overview with config
   Widget _buildStagesLeftPanel() {
-    final stageConfig = GetIt.instance<StageConfigurationService>();
+    final stageConfig = StageConfigurationService.instance;
     final stages = stageConfig.allStageNames;
 
     return ListView.builder(
@@ -9255,7 +9368,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   /// Config tab in right panel — stage configuration quick edit
   Widget _buildRightConfigContent() {
-    final stageConfig = GetIt.instance<StageConfigurationService>();
+    final stageConfig = StageConfigurationService.instance;
 
     return Consumer<SlotLabProjectProvider>(
       builder: (context, projectProvider, _) {

@@ -590,18 +590,6 @@ class _HeaderZone extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Menu button
-          _HeaderIconButton(
-            icon: Icons.menu,
-            tooltip: 'Menu',
-            onTap: onMenuTap,
-          ),
-          const SizedBox(width: 12),
-
-          // Logo
-          _buildLogo(theme),
-          const SizedBox(width: 24),
-
           // Balance display (animated)
           _BalanceDisplay(balance: balance),
 
@@ -4606,7 +4594,7 @@ class _SettingToggleState extends State<_SettingToggle> {
         onTap: widget.onToggle,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
             color: widget.isOn
                 ? FluxForgeTheme.accentBlue.withOpacity(0.2)
@@ -4619,34 +4607,36 @@ class _SettingToggleState extends State<_SettingToggle> {
             ),
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 widget.icon,
                 color: widget.isOn
                     ? FluxForgeTheme.accentBlue
                     : theme.textMuted,
-                size: 16,
+                size: 14,
               ),
-              const SizedBox(width: 8),
-              Text(
-                widget.label,
-                style: TextStyle(
-                  color: widget.isOn
-                      ? theme.textPrimary
-                      : theme.textSecondary,
-                  fontSize: 12,
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: TextStyle(
+                    color: widget.isOn
+                        ? theme.textPrimary
+                        : theme.textSecondary,
+                    fontSize: 11,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               Container(
-                width: 32,
-                height: 18,
+                width: 28,
+                height: 16,
                 decoration: BoxDecoration(
                   color: widget.isOn
                       ? FluxForgeTheme.accentBlue
                       : theme.bgSurface,
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: AnimatedAlign(
                   duration: const Duration(milliseconds: 150),
@@ -4654,8 +4644,8 @@ class _SettingToggleState extends State<_SettingToggle> {
                       ? Alignment.centerRight
                       : Alignment.centerLeft,
                   child: Container(
-                    width: 14,
-                    height: 14,
+                    width: 12,
+                    height: 12,
                     margin: const EdgeInsets.all(2),
                     decoration: const BoxDecoration(
                       color: Colors.white,

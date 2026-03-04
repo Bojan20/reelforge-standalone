@@ -459,51 +459,42 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       ),
       child: Row(
         children: [
-          // Undo/Redo — minimal
-          if (widget.onUndo != null || widget.onRedo != null) ...[
-            _miniIconBtn(Icons.undo, widget.canUndo ? widget.onUndo : null,
-                widget.canUndo ? 'Undo' : 'Nothing to undo'),
-            _miniIconBtn(Icons.redo, widget.canRedo ? widget.onRedo : null,
-                widget.canRedo ? 'Redo' : 'Nothing to redo'),
-            Container(width: 1, height: 14, color: const Color(0xFF2A2A32),
-                margin: const EdgeInsets.symmetric(horizontal: 4)),
-          ],
-          // Import — prominent labeled button
+          // Import — labeled with color
           _labeledActionBtn(
             Icons.file_download, 'Import',
             const Color(0xFF42A5F5),
             () => _showBulkImportDialog(context),
           ),
-          const SizedBox(width: 4),
-          // Reset — prominent labeled button
+          const SizedBox(width: 3),
+          // Reset — labeled with color
           _labeledActionBtn(
             Icons.restart_alt, 'Reset',
             const Color(0xFFEF5350),
             () => _showResetConfirmDialog(context),
           ),
           const Spacer(),
-          // Stats — muted monospace
+          // Stats
           Text(
             '$assignedCount/$totalSlots',
             style: const TextStyle(
-              fontSize: 9, fontWeight: FontWeight.w500,
+              fontSize: 8, fontWeight: FontWeight.w500,
               color: Color(0xFF606068), fontFamily: 'monospace',
             ),
           ),
-          const SizedBox(width: 6),
           // Quick Assign toggle
           if (widget.onQuickAssignSlotSelected != null)
             Tooltip(
               message: widget.quickAssignMode
-                  ? 'Quick Assign ON'
+                  ? 'Quick Assign ON — click slots to assign'
                   : 'Quick Assign',
               child: GestureDetector(
                 onTap: () => widget.onQuickAssignSlotSelected?.call('__TOGGLE__'),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  margin: const EdgeInsets.only(left: 3),
+                  padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
                     color: widget.quickAssignMode
-                        ? Colors.white.withValues(alpha: 0.1)
+                        ? const Color(0xFFFFAA00).withValues(alpha: 0.2)
                         : Colors.transparent,
                     borderRadius: BorderRadius.circular(3),
                   ),
@@ -511,13 +502,13 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                     widget.quickAssignMode ? Icons.touch_app : Icons.touch_app_outlined,
                     size: 12,
                     color: widget.quickAssignMode
-                        ? const Color(0xFFB0B0B8)
-                        : const Color(0xFF505058),
+                        ? const Color(0xFFFFAA00)
+                        : const Color(0xFF808088),
                   ),
                 ),
               ),
             ),
-          // Unassigned filter — minimal
+          // Unassigned filter
           _miniIconBtn(
             _showUnassignedOnly ? Icons.filter_alt : Icons.filter_alt_outlined,
             () => setState(() => _showUnassignedOnly = !_showUnassignedOnly),
@@ -533,19 +524,19 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 24,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        height: 22,
+        padding: const EdgeInsets.symmetric(horizontal: 5),
         decoration: BoxDecoration(
           color: color.withOpacity(0.12),
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(3),
           border: Border.all(color: color.withOpacity(0.4), width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13, color: color),
-            const SizedBox(width: 4),
-            Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+            Icon(icon, size: 11, color: color),
+            const SizedBox(width: 3),
+            Text(label, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
