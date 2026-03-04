@@ -1587,7 +1587,7 @@ class SlotEventLayer {
   final double variantWeight; // Weight within variant group (0.0–1.0)
   final double minMultiplier; // Minimum win multiplier to activate (0 = always)
   final double betThreshold; // Minimum bet threshold to activate (0 = always)
-  final String? targetEventId; // Target event for Fade/Stop actions (e.g., "MUSIC_BASE_L1")
+  final String? targetAudioPath; // Target event for Fade/Stop actions (e.g., "MUSIC_BASE_L1")
 
   const SlotEventLayer({
     required this.id,
@@ -1616,7 +1616,7 @@ class SlotEventLayer {
     this.variantWeight = 1.0,
     this.minMultiplier = 0.0,
     this.betThreshold = 0.0,
-    this.targetEventId,
+    this.targetAudioPath,
   });
 
   SlotEventLayer copyWith({
@@ -1646,7 +1646,7 @@ class SlotEventLayer {
     double? variantWeight,
     double? minMultiplier,
     double? betThreshold,
-    String? targetEventId,
+    String? targetAudioPath,
   }) {
     return SlotEventLayer(
       id: id ?? this.id,
@@ -1675,7 +1675,7 @@ class SlotEventLayer {
       variantWeight: variantWeight ?? this.variantWeight,
       minMultiplier: minMultiplier ?? this.minMultiplier,
       betThreshold: betThreshold ?? this.betThreshold,
-      targetEventId: targetEventId ?? this.targetEventId,
+      targetAudioPath: targetAudioPath ?? this.targetAudioPath,
     );
   }
 
@@ -1715,7 +1715,7 @@ class SlotEventLayer {
     'variantWeight': variantWeight,
     'minMultiplier': minMultiplier,
     'betThreshold': betThreshold,
-    if (targetEventId != null) 'targetEventId': targetEventId,
+    if (targetAudioPath != null) 'targetAudioPath': targetAudioPath,
     // Note: waveformData is not saved - it's regenerated on load
   };
 
@@ -1755,7 +1755,7 @@ class SlotEventLayer {
       variantWeight: (json['variantWeight'] as num?)?.toDouble() ?? 1.0,
       minMultiplier: (json['minMultiplier'] as num?)?.toDouble() ?? 0.0,
       betThreshold: (json['betThreshold'] as num?)?.toDouble() ?? 0.0,
-      targetEventId: json['targetEventId'] as String?,
+      targetAudioPath: json['targetAudioPath'] as String?,
     );
   }
 }

@@ -62,11 +62,11 @@ class AudioLayer {
   final double fadeOutMs;   // Fade-out duration at end in milliseconds (0 = instant stop)
   final double trimStartMs; // Start playback from this position in milliseconds
   final double trimEndMs;   // Stop playback at this position in milliseconds (0 = play to end)
-  /// Action type: Play, Stop, StopAll, FadeOut, FadeEvent, StopEvent, SetVolume, SetBusVolume, Pause, Resume
+  /// Action type: Play, Stop, StopAll, FadeOut, FadeVoice, StopVoice, SetVolume, SetBusVolume, Pause, Resume
   final String actionType;
   final bool loop; // Whether this layer loops (for Play actions)
-  /// Target event stage for FadeEvent/StopEvent actions (e.g., "MUSIC_BASE_L1")
-  final String? targetEventId;
+  /// Target audio file path for FadeVoice/StopVoice actions — fades/stops voice by asset
+  final String? targetAudioPath;
 
   const AudioLayer({
     required this.id,
@@ -83,7 +83,7 @@ class AudioLayer {
     this.trimEndMs = 0.0,
     this.actionType = 'Play',
     this.loop = false,
-    this.targetEventId,
+    this.targetAudioPath,
   });
 
   Map<String, dynamic> toJson() => {
@@ -448,12 +448,14 @@ class TriggerHistoryEntry {
 
 class _PlayingInstance {
   final String eventId;
+  final String audioPath; // Audio file path for voice-level targeting
   final List<int> voiceIds; // Rust voice IDs from PlaybackEngine one-shots
   final DateTime startTime;
   final bool isLooping; // P0: Looping instances are NOT auto-cleaned
 
   _PlayingInstance({
     required this.eventId,
+    required this.audioPath,
     required this.voiceIds,
     required this.startTime,
     this.isLooping = false,
@@ -876,7 +878,7 @@ class EventRegistry extends ChangeNotifier {
 
   /// Active voices per bus for non-overlapping events
   /// Maps busId -> list of (voiceId, eventId, crossfadeMs)
-  final Map<int, List<({int voiceId, String eventId, int crossfadeMs})>> _activeBusVoices = {};
+  final Map<int, List<({int voiceId, String eventId, int crossfadeMs, String audioPath})>> _activeBusVoices = {};
 
   /// Fade out all active voices on a specific bus
   /// Returns the crossfade duration to use for fade-in (max of all active voices)
@@ -955,12 +957,13 @@ class EventRegistry extends ChangeNotifier {
   }
 
   /// Track a voice for non-overlapping bus playback
-  void _trackBusVoice(int busId, int voiceId, String eventId, int crossfadeMs) {
+  void _trackBusVoice(int busId, int voiceId, String eventId, int crossfadeMs, {String audioPath = ''}) {
     _activeBusVoices.putIfAbsent(busId, () => []);
     _activeBusVoices[busId]!.add((
       voiceId: voiceId,
       eventId: eventId,
       crossfadeMs: crossfadeMs,
+      audioPath: audioPath,
     ));
   }
 
@@ -1268,19 +1271,8 @@ class EventRegistry extends ChangeNotifier {
   /// Map stage name to SpatialBus
   /// Now delegated to StageConfigurationService for centralized configuration
   SpatialBus _stageToBus(String stage, int busId) {
-    final serviceBus = StageConfigurationService.instance.getBus(stage);
-    // If service returns default and busId is provided, use busId for fallback
-    if (busId > 0) {
-      return switch (busId) {
-        1 => SpatialBus.music,
-        2 => SpatialBus.sfx,
-        3 => SpatialBus.vo,
-        4 => SpatialBus.ui,
-        5 => SpatialBus.ambience,
-        _ => serviceBus,
-      };
-    }
-    return serviceBus;
+    // StageConfigurationService is the SSoT for bus routing
+    return StageConfigurationService.instance.getBus(stage);
   }
 
   /// Get spatial intent from stage name (maps to SlotIntentRules)
@@ -2269,8 +2261,14 @@ class EventRegistry extends ChangeNotifier {
     // P0: Track isLooping so cleanup timer doesn't kill looping voices
     final voiceIds = <int>[];
     final actualLoop = forceNoLoop ? false : event.loop;
+    // Get primary audio path from first Play layer (for voice-level targeting)
+    final primaryAudioPath = event.layers
+        .where((l) => l.actionType == 'Play' && l.audioPath.isNotEmpty)
+        .map((l) => l.audioPath)
+        .firstOrNull ?? '';
     final instance = _PlayingInstance(
       eventId: eventId,
+      audioPath: primaryAudioPath,
       voiceIds: voiceIds,
       startTime: DateTime.now(),
       isLooping: actualLoop,
@@ -2293,7 +2291,8 @@ class EventRegistry extends ChangeNotifier {
     // ═══════════════════════════════════════════════════════════════════════════
     int crossfadeInMs = 0;
 
-    // Skip implicit bus fadeout if event has explicit FadeOut/Stop action layers
+    // Skip implicit bus fadeout if event has explicit bus-level FadeOut/Stop action layers
+    // NOTE: FadeVoice/StopVoice target specific files, NOT bus — they don't skip bus fadeout
     final hasExplicitFadeActions = event.layers.any((l) =>
         l.actionType == 'FadeOut' || l.actionType == 'Stop' || l.actionType == 'StopAll');
 
@@ -2377,14 +2376,14 @@ class EventRegistry extends ChangeNotifier {
           _dispatchResumeAction(layer);
           break;
 
-        case 'FadeEvent':
-          // Fade a specific event by stage name (like industry JSON: Fade spriteId)
-          _dispatchFadeEventAction(layer);
+        case 'FadeVoice':
+          // Fade active voice by audio path (industry standard: Fade spriteId)
+          _dispatchFadeVoiceAction(layer);
           break;
 
-        case 'StopEvent':
-          // Stop a specific event by stage name (like industry JSON: Stop spriteId)
-          _dispatchStopEventAction(layer);
+        case 'StopVoice':
+          // Stop active voice by audio path (industry standard: Stop spriteId)
+          _dispatchStopVoiceAction(layer);
           break;
 
         default:
@@ -2410,7 +2409,7 @@ class EventRegistry extends ChangeNotifier {
       Timer(const Duration(milliseconds: 50), () {
         if (voiceIds.isNotEmpty) {
           for (final voiceId in voiceIds) {
-            _trackBusVoice(event.targetBusId, voiceId, event.id, event.crossfadeMs);
+            _trackBusVoice(event.targetBusId, voiceId, event.id, event.crossfadeMs, audioPath: primaryAudioPath);
           }
         }
       });
@@ -2482,8 +2481,8 @@ class EventRegistry extends ChangeNotifier {
       return;
     }
 
-    // Determine bus from stage (use default bus 0 for container playback)
-    final busId = _stageToBus(event.stage, 0).index;
+    // Determine engine bus from stage via StageConfigurationService
+    final busId = _stageToBus(event.stage, 0).engineBusId;
     final containerService = ContainerService.instance;
 
     // Update tracking for Event Log
@@ -2702,14 +2701,14 @@ class EventRegistry extends ChangeNotifier {
     }
   }
 
-  /// FadeEvent — fade out a specific event by stage name (industry standard: Fade spriteId)
-  void _dispatchFadeEventAction(AudioLayer layer) {
-    final target = layer.targetEventId;
-    if (target == null || target.isEmpty) return;
+  /// FadeVoice — fade out active voices playing a specific audio file
+  void _dispatchFadeVoiceAction(AudioLayer layer) {
+    final targetPath = layer.targetAudioPath;
+    if (targetPath == null || targetPath.isEmpty) return;
     final delayMs = layer.delay.round();
     final fadeMs = layer.fadeOutMs.round();
     void doFade() {
-      fadeOutEvent(target, fadeMs: fadeMs > 0 ? fadeMs : 100);
+      _fadeOutVoicesByAudioPath(targetPath, fadeMs: fadeMs > 0 ? fadeMs : 100);
     }
     if (delayMs > 0) {
       Future.delayed(Duration(milliseconds: delayMs), doFade);
@@ -2718,18 +2717,62 @@ class EventRegistry extends ChangeNotifier {
     }
   }
 
-  /// StopEvent — stop a specific event by stage name (industry standard: Stop spriteId)
-  void _dispatchStopEventAction(AudioLayer layer) {
-    final target = layer.targetEventId;
-    if (target == null || target.isEmpty) return;
+  /// StopVoice — stop active voices playing a specific audio file
+  void _dispatchStopVoiceAction(AudioLayer layer) {
+    final targetPath = layer.targetAudioPath;
+    if (targetPath == null || targetPath.isEmpty) return;
     final delayMs = layer.delay.round();
     void doStop() {
-      stopEvent(target);
+      _stopVoicesByAudioPath(targetPath);
     }
     if (delayMs > 0) {
       Future.delayed(Duration(milliseconds: delayMs), doStop);
     } else {
       doStop();
+    }
+  }
+
+  /// Find and fade out all active voices playing a specific audio file
+  void _fadeOutVoicesByAudioPath(String audioPath, {int fadeMs = 100}) {
+    // Search through all playing instances for matching audio path
+    for (final instance in _playingInstances) {
+      if (instance.audioPath == audioPath) {
+        for (final voiceId in instance.voiceIds) {
+          AudioPlaybackService.instance.fadeOutVoice(voiceId, fadeMs: fadeMs);
+        }
+      }
+    }
+    // Also check bus voices
+    for (final busVoices in _activeBusVoices.values) {
+      for (final voice in busVoices) {
+        if (voice.audioPath == audioPath) {
+          AudioPlaybackService.instance.fadeOutVoice(voice.voiceId, fadeMs: fadeMs);
+        }
+      }
+    }
+  }
+
+  /// Find and stop all active voices playing a specific audio file
+  void _stopVoicesByAudioPath(String audioPath) {
+    final toRemove = <_PlayingInstance>[];
+    for (final instance in _playingInstances) {
+      if (instance.audioPath == audioPath) {
+        for (final voiceId in instance.voiceIds) {
+          NativeFFI.instance.playbackStopOneShot(voiceId);
+        }
+        toRemove.add(instance);
+      }
+    }
+    _playingInstances.removeWhere((i) => toRemove.contains(i));
+    // Also stop from bus voices
+    for (final busVoices in _activeBusVoices.values) {
+      busVoices.removeWhere((voice) {
+        if (voice.audioPath == audioPath) {
+          NativeFFI.instance.playbackStopOneShot(voice.voiceId);
+          return true;
+        }
+        return false;
+      });
     }
   }
 

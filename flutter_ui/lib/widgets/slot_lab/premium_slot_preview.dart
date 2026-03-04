@@ -6049,13 +6049,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         context.read<SlotLabProvider>().setWinPresentationActive(true); // Sync with provider for SKIP detection
 
         // START BIG WIN when big win detected (20x+)
-        // Industry standard: Fade specific music events to 0, then play big win music
+        // Composite event handles everything: FadeVoice base music → StopVoice → Play big win
         if (_isBigWinTier(_currentWinTier)) {
-          // Fade base game and bonus music to 0 (by event name, not by bus)
-          eventRegistry.fadeOutEvent('MUSIC_BASE_L1', fadeMs: 100);
-          eventRegistry.fadeOutEvent('GAME_START', fadeMs: 100);
-          eventRegistry.fadeOutEvent('BONUS_MUSIC', fadeMs: 100);
-          // Play big win music (looping)
           eventRegistry.triggerStage('BIG_WIN_START');
         }
 

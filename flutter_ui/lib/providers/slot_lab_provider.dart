@@ -1532,30 +1532,25 @@ class SlotLabProvider extends ChangeNotifier {
 
   /// Ensure audio assignment is registered in EventRegistry before triggering.
   /// SAFETY NET: If audioAssignment exists in SlotLabProjectProvider but NOT in
-  /// EventRegistry (e.g., cleared by sync, race condition, or re-init), re-register
-  /// it immediately so playback works reliably.
+  /// EventRegistry, re-register as single Play layer.
+  /// NOTE: Does NOT override multi-layer composite events (BIG_WIN_START/END etc.)
   void _ensureAudioRegistered(String stageUppercase) {
     if (eventRegistry.hasEventForStage(stageUppercase)) return;
-    // Check if audio assignment exists in project provider
     final projectProvider = GetIt.instance<SlotLabProjectProvider>();
     final audioPath = projectProvider.getAudioAssignment(stageUppercase);
     if (audioPath == null || audioPath.isEmpty) return;
 
     final stageConfig = StageConfigurationService.instance;
     final shouldLoop = stageConfig.isLooping(stageUppercase);
-    // Bus: music=1 for MUSIC_*/GAME_START, sfx=2 for everything else
-    final s = stageUppercase;
-    final isMusicStage = s.startsWith('MUSIC_') || s.startsWith('ATTRACT_') ||
-        s.startsWith('AMBIENT_') || s.startsWith('IDLE_') ||
-        s == 'GAME_START' || s == 'BASE_GAME_START';
-    final busId = isMusicStage ? 1 : 2;
-    final shouldOverlap = !isMusicStage && !shouldLoop;
-    final crossfadeMs = isMusicStage ? 500 : 0;
+    final bus = stageConfig.getBus(stageUppercase);
+    final busId = bus.engineBusId;
+    final isMusicBus = busId == 1;
+    final shouldOverlap = !isMusicBus && !shouldLoop;
+    final crossfadeMs = isMusicBus ? 500 : 0;
 
-    // Per-reel panning for REEL_STOP_$i
     double pan = 0.0;
-    if (s.startsWith('REEL_STOP_')) {
-      final idx = int.tryParse(s.replaceAll('REEL_STOP_', ''));
+    if (stageUppercase.startsWith('REEL_STOP_')) {
+      final idx = int.tryParse(stageUppercase.replaceAll('REEL_STOP_', ''));
       if (idx != null) {
         const pans = [-0.8, -0.4, 0.0, 0.4, 0.8];
         if (idx >= 0 && idx < pans.length) pan = pans[idx];

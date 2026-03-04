@@ -1326,7 +1326,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
   static Color _actionTypeColor(String actionType) {
     return switch (actionType) {
       'Play' || 'PlayAndContinue' => Colors.green,
-      'Stop' || 'StopAll' || 'Break' => Colors.red,
+      'Stop' || 'StopAll' || 'StopVoice' || 'Break' => Colors.red,
       'Pause' || 'PauseAll' => Colors.orange,
       'Resume' || 'ResumeAll' => Colors.green,
       'Mute' || 'Unmute' || 'SetVolume' || 'SetBusVolume' => Colors.blue,
@@ -1336,7 +1336,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
       'SetRTPC' || 'ResetRTPC' => Colors.pink,
       'Trigger' => Colors.lime,
       'PostEvent' => Colors.cyan,
-      'Fade' => Colors.deepOrange,
+      'Fade' || 'FadeVoice' => Colors.deepOrange,
       _ => Colors.grey,
     };
   }
@@ -1344,7 +1344,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
   static IconData _actionTypeIcon(String actionType) {
     return switch (actionType) {
       'Play' || 'PlayAndContinue' => Icons.play_arrow,
-      'Stop' => Icons.stop,
+      'Stop' || 'StopVoice' => Icons.stop,
       'StopAll' => Icons.stop_circle,
       'Pause' || 'PauseAll' => Icons.pause,
       'Resume' || 'ResumeAll' => Icons.play_circle,
@@ -1359,7 +1359,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
       'SetRTPC' || 'ResetRTPC' => Icons.settings_input_component,
       'Trigger' => Icons.notifications,
       'PostEvent' => Icons.send,
-      'Fade' => Icons.trending_down,
+      'Fade' || 'FadeVoice' => Icons.trending_down,
       _ => Icons.layers,
     };
   }

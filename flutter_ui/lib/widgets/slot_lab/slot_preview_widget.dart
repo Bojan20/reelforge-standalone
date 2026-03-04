@@ -842,10 +842,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       return;
     }
 
-    final shouldLoop = StageConfigurationService.instance.isLooping(stageUppercase);
-    final isMusicStage = stageUppercase.startsWith('MUSIC_') ||
-        stageUppercase == 'GAME_START' || stageUppercase == 'BASE_GAME_START';
-    final busId = isMusicStage ? 1 : 2;
+    final stageConfig = StageConfigurationService.instance;
+    final shouldLoop = stageConfig.isLooping(stageUppercase);
+    final busId = stageConfig.getBus(stageUppercase).engineBusId;
+    final isMusicBus = busId == 1;
 
     double pan = 0.0;
     if (stageUppercase.startsWith('REEL_STOP_')) {
@@ -874,8 +874,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       stage: stageUppercase,
       layers: layers,
       loop: shouldLoop,
-      overlap: !isMusicStage && !shouldLoop,
-      crossfadeMs: isMusicStage ? 500 : 0,
+      overlap: !isMusicBus && !shouldLoop,
+      crossfadeMs: isMusicBus ? 500 : 0,
       targetBusId: busId,
     ));
   }

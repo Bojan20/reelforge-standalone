@@ -754,13 +754,13 @@ class StageConfigurationService extends ChangeNotifier {
     // BIG_WIN_COINS: Coin shower particle sfx
     // ─────────────────────────────────────────────────────────────────────────
     _register('BIG_WIN_TRIGGER', StageCategory.win, 80, SpatialBus.sfx, 'DEFAULT');
-    _register('BIG_WIN_START', StageCategory.win, 85, SpatialBus.sfx, 'DEFAULT');
+    _register('BIG_WIN_START', StageCategory.win, 85, SpatialBus.music, 'DEFAULT', isLooping: true);
     _register('BIG_WIN_LOOP', StageCategory.win, 90, SpatialBus.music, 'DEFAULT', ducksMusic: true, isLooping: true);
     _register('BIG_WIN_COINS', StageCategory.win, 75, SpatialBus.sfx, 'DEFAULT');
     _register('BIG_WIN_IMPACT', StageCategory.win, 80, SpatialBus.sfx, 'DEFAULT');
     _register('BIG_WIN_UPGRADE', StageCategory.win, 82, SpatialBus.sfx, 'DEFAULT');
-    _register('BIG_WIN_END', StageCategory.win, 75, SpatialBus.sfx, 'DEFAULT');
-    _register('BIG_WIN_OUTRO', StageCategory.win, 70, SpatialBus.sfx, 'DEFAULT');
+    _register('BIG_WIN_END', StageCategory.win, 75, SpatialBus.music, 'DEFAULT');
+    _register('BIG_WIN_OUTRO', StageCategory.win, 70, SpatialBus.music, 'DEFAULT');
     _register('MAX_AWARD_CAP', StageCategory.win, 95, SpatialBus.sfx, 'JACKPOT_TRIGGER', ducksMusic: true);
 
     // Rollup counter (pooled for rapid fire)

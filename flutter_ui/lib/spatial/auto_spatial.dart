@@ -97,7 +97,18 @@ enum SpatialBus {
   music,
 
   /// Ambience - full surround, minimal panning
-  ambience,
+  ambience;
+
+  /// Map SpatialBus to engine bus ID
+  /// Engine uses: master=0, music=1, sfx=2, voice=3, ambience=4, aux=5
+  int get engineBusId => switch (this) {
+    SpatialBus.music => 1,
+    SpatialBus.sfx => 2,
+    SpatialBus.ui => 2,      // UI sounds route through SFX engine bus
+    SpatialBus.reels => 2,   // Reel sounds route through SFX engine bus
+    SpatialBus.vo => 3,
+    SpatialBus.ambience => 4,
+  };
 }
 
 /// Spatial rendering mode
