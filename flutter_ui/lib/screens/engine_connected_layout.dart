@@ -486,38 +486,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     } else {
       // ========== MIDDLEWARE MODE: Wwise-style event browser ==========
 
-      // Events folder - uses compositeEvents passed from build()
-      // Group by category (game flow hierarchy), then alphabetical within each
-      final sortedEvents = sortEventsHierarchically(compositeEvents);
-      final categoryGroups = <String, List<SlotCompositeEvent>>{};
-      for (final event in sortedEvents) {
-        final cat = event.category.isEmpty ? 'general' : event.category;
-        categoryGroups.putIfAbsent(cat, () => []).add(event);
-      }
-      final orderedCats = sortCategoriesHierarchically(categoryGroups.keys);
-      tree.add(ProjectTreeNode(
-        id: 'events',
-        type: TreeItemType.folder,
-        label: 'Events',
-        count: compositeEvents.length,
-        children: orderedCats.expand((cat) {
-          final catEvents = categoryGroups[cat]!;
-          return [
-            ProjectTreeNode(
-              id: 'evt-cat-$cat',
-              type: TreeItemType.folder,
-              label: '${cat[0].toUpperCase()}${cat.substring(1)}',
-              count: catEvents.length,
-              children: catEvents.map((event) => ProjectTreeNode(
-                id: 'evt-${event.id}',
-                type: TreeItemType.event,
-                label: '${event.name} (${event.layers.length})',
-              )).toList(),
-            ),
-          ];
-        }).toList(),
-      ));
-
       // Buses - always 5 buses
       tree.add(const ProjectTreeNode(
         id: 'buses',
@@ -574,6 +542,41 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                   data: file,
                 ))
             .toList(),
+      ));
+    }
+
+    // ========== EVENTS FOLDER — shared across DAW & Middleware ==========
+    // Composite events from SlotLab appear here in both modes.
+    // Drag & drop onto timeline to place; single-click only selects.
+    if (compositeEvents.isNotEmpty) {
+      final sortedEvents = sortEventsHierarchically(compositeEvents);
+      final categoryGroups = <String, List<SlotCompositeEvent>>{};
+      for (final event in sortedEvents) {
+        final cat = event.category.isEmpty ? 'general' : event.category;
+        categoryGroups.putIfAbsent(cat, () => []).add(event);
+      }
+      final orderedCats = sortCategoriesHierarchically(categoryGroups.keys);
+      tree.add(ProjectTreeNode(
+        id: 'events',
+        type: TreeItemType.folder,
+        label: 'Events',
+        count: compositeEvents.length,
+        children: orderedCats.expand((cat) {
+          final catEvents = categoryGroups[cat]!;
+          return [
+            ProjectTreeNode(
+              id: 'evt-cat-$cat',
+              type: TreeItemType.folder,
+              label: '${cat[0].toUpperCase()}${cat.substring(1)}',
+              count: catEvents.length,
+              children: catEvents.map((event) => ProjectTreeNode(
+                id: 'evt-${event.id}',
+                type: TreeItemType.event,
+                label: '${event.name} (${event.layers.length})',
+              )).toList(),
+            ),
+          ];
+        }).toList(),
       ));
     }
 
@@ -1914,12 +1917,17 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   // POOL & TIMELINE
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Handle single-click on pool/tree item - selects and loads event to timeline
+  /// Handle single-click on pool/tree item — select only, no auto-load
   void _handlePoolItemClick(String id, TreeItemType type, dynamic data) {
-    // Event click in middleware mode - load to timeline
-    if (id.startsWith('evt-')) {
+    // Event click in middleware mode — select composite event (no timeline load)
+    if (id.startsWith('evt-') && !id.startsWith('evt-cat-')) {
       final eventId = id.substring(4); // Remove 'evt-' prefix
-      _loadEventToTimeline(eventId);
+      final middleware = context.read<MiddlewareProvider>();
+      middleware.selectCompositeEvent(eventId);
+      setState(() {
+        _selectedEventId = 'mw_$eventId';
+        _selectedActionIndex = -1;
+      });
     }
   }
 
@@ -1936,9 +1944,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       final eventId = id.substring(4); // Remove 'evt-' prefix
       if (_editorMode == EditorMode.middleware) {
         _showRenameEventDialog(eventId);
-      } else {
-        _loadEventToTimeline(eventId);
       }
+      // DAW mode: events are placed via drag & drop onto track headers only
     }
   }
 

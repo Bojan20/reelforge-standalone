@@ -132,20 +132,9 @@ class _ProjectTreeState extends State<ProjectTree> {
   @override
   void didUpdateWidget(ProjectTree oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Auto-expand all folders when nodes change (first load) - only for local state
-    if (widget.externalExpandedIds == null && !_initialized && widget.nodes.isNotEmpty) {
-      _expandAllFolders(widget.nodes);
+    // Folders start collapsed — user expands what they need
+    if (!_initialized && widget.nodes.isNotEmpty) {
       _initialized = true;
-    }
-  }
-
-  /// Recursively collect all folder IDs to expand by default
-  void _expandAllFolders(List<ProjectTreeNode> nodes) {
-    for (final node in nodes) {
-      if (node.children.isNotEmpty) {
-        _localExpandedIds.add(node.id);
-        _expandAllFolders(node.children);
-      }
     }
   }
 
@@ -168,12 +157,6 @@ class _ProjectTreeState extends State<ProjectTree> {
 
   @override
   Widget build(BuildContext context) {
-    // Auto-expand all folders on first build with nodes (only for local state)
-    if (widget.externalExpandedIds == null && !_initialized && widget.nodes.isNotEmpty) {
-      _expandAllFolders(widget.nodes);
-      _initialized = true;
-    }
-
     return Column(
       children: [
         // Tree view

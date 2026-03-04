@@ -241,8 +241,7 @@ class AudioAssetManager extends ChangeNotifier {
   }
 
   AudioAssetManager._() {
-    // Default: all folders expanded
-    _ensureDefaultFoldersExpanded();
+    // Folders start collapsed — user expands what they need
   }
 
   /// Reset singleton (for testing)
@@ -731,9 +730,16 @@ class AudioAssetManager extends ChangeNotifier {
       } catch (e) { /* ignored */ }
     }
 
-    // Load expanded state
+    // Load expanded state — only restore user-created folder expansions,
+    // top-level folders always start collapsed
     final expandedList = json['expandedFolderIds'] as List<dynamic>? ?? [];
-    _expandedFolderIds.addAll(expandedList.cast<String>());
+    for (final id in expandedList) {
+      final s = id as String;
+      // Only restore custom audio sub-folders, not top-level navigation folders
+      if (s.startsWith('folder_')) {
+        _expandedFolderIds.add(s);
+      }
+    }
 
     notifyListeners();
   }
