@@ -485,20 +485,50 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       if (dur > 0) durationSec = dur;
     } catch (_) {}
 
-    // Build layers — BIG_WIN_INTRO/END show fade/restore actions as visible layers
-    final baseLayers = <SlotEventLayer>[
-      SlotEventLayer(
-        id: 'layer_$stage',
-        name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
-        audioPath: audioPath,
-        volume: 1.0,
-        pan: _getPanForStage(stage),
-        busId: busId,
-        durationSeconds: durationSec,
-      ),
-    ];
+    // Build layers — ALL implicit actions shown as visible action tracks
+    final baseLayers = <SlotEventLayer>[];
+    final stageDef = stageConfig.getStage(stage);
+    final stageDucksMusic = stageDef?.ducksMusic ?? false;
+    const busNames = ['Master', 'Music', 'SFX', 'Voice', 'Ambience', 'Aux'];
+    final targetBusName = effectiveTargetBus < busNames.length ? busNames[effectiveTargetBus] : 'Bus $effectiveTargetBus';
 
-    // BIG_WIN_INTRO: show "Fade Out Music" info layer
+    // ── 1. Non-overlap: FadeOut/Stop existing audio on target bus (before Play) ──
+    if (!shouldOverlap && crossfadeMs > 0) {
+      baseLayers.add(SlotEventLayer(
+        id: 'auto_fadeout_$stage',
+        name: 'FadeOut $targetBusName Bus (auto)',
+        audioPath: '',
+        actionType: 'FadeOut',
+        volume: 0.0,
+        busId: effectiveTargetBus,
+        fadeOutMs: crossfadeMs.toDouble(),
+      ));
+    } else if (!shouldOverlap) {
+      baseLayers.add(SlotEventLayer(
+        id: 'auto_stop_$stage',
+        name: 'Stop $targetBusName Bus (auto)',
+        audioPath: '',
+        actionType: 'Stop',
+        volume: 0.0,
+        busId: effectiveTargetBus,
+      ));
+    }
+
+    // ── 2. Main Play layer ──
+    baseLayers.add(SlotEventLayer(
+      id: 'layer_$stage',
+      name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
+      audioPath: audioPath,
+      actionType: 'Play',
+      volume: 1.0,
+      pan: _getPanForStage(stage),
+      busId: busId,
+      loop: effectiveLoop,
+      fadeInMs: crossfadeMs > 0 ? crossfadeMs.toDouble() : 0.0,
+      durationSeconds: durationSec,
+    ));
+
+    // ── 3. BIG_WIN_INTRO: explicit Fade Out Music layer ──
     if (stage == 'BIG_WIN_INTRO') {
       baseLayers.add(SlotEventLayer(
         id: 'bwi_fadeout_music',
@@ -507,11 +537,23 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         actionType: 'FadeOut',
         volume: 0.0,
         busId: 1,
+        fadeOutMs: 500,
       ));
     }
 
-    // BIG_WIN_END: add music restore layer visible in middleware
+    // ── 4. BIG_WIN_END: Stop big win music + restore base game music ──
     if (stage == 'BIG_WIN_END') {
+      // Stop the big win loop
+      baseLayers.add(SlotEventLayer(
+        id: 'bwe_stop_bigwin',
+        name: 'Stop Big Win Music (auto)',
+        audioPath: '',
+        actionType: 'Stop',
+        volume: 0.0,
+        busId: 1,
+      ));
+
+      // Restore base game music with delay + fade
       try {
         final project = Provider.of<SlotLabProjectProvider>(context, listen: false);
         final baseMusic = project.getAudioAssignment('MUSIC_BASE_L1');
@@ -520,13 +562,27 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             id: 'bwe_restore_base_l1',
             name: 'Base Game Music Restore',
             audioPath: baseMusic,
+            actionType: 'Play',
             volume: 0.0,
             busId: 1,
             offsetMs: 3500,
             fadeInMs: 1300.0,
+            loop: true,
           ));
         }
       } catch (_) {}
+    }
+
+    // ── 5. Music ducking layer (if stage ducks music and isn't on music bus) ──
+    if (stageDucksMusic && busId != 1) {
+      baseLayers.add(SlotEventLayer(
+        id: 'auto_duck_$stage',
+        name: 'Duck Music Bus (auto)',
+        audioPath: '',
+        actionType: 'SetBusVolume',
+        volume: 0.3,
+        busId: 1,
+      ));
     }
 
     if (existing != null) {
