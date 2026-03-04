@@ -5175,32 +5175,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 _previewEvent();
                 return KeyEventResult.handled;
               }
-              // Handle SPACE for SlotLab spin — ensures SPACE works even when
-              // SlotLabScreen's FocusNode doesn't have focus (e.g. after returning
-              // from middleware mode, focus may remain on control bar button)
-              if (event is KeyDownEvent &&
-                  event.logicalKey == LogicalKeyboardKey.space &&
-                  _editorMode == EditorMode.slot) {
-                final slotLab = context.read<SlotLabProvider>();
-                if (slotLab.initialized) {
-                  // STOP when reels are spinning
-                  if (slotLab.isReelsSpinning) {
-                    slotLab.stopStagePlayback();
-                    return KeyEventResult.handled;
-                  }
-                  // SKIP win presentation
-                  if (slotLab.isWinPresentationActive) {
-                    slotLab.requestSkipPresentation(() {});
-                    return KeyEventResult.handled;
-                  }
-                  // Idle → SPIN
-                  if (!slotLab.isSpinning && !slotLab.isPlayingStages) {
-                    slotLab.spin();
-                    return KeyEventResult.handled;
-                  }
-                }
-                return KeyEventResult.handled;
-              }
               // Handle SPACE for DAW playback toggle when in fullscreen mixer
               if (event is KeyDownEvent &&
                   event.logicalKey == LogicalKeyboardKey.space &&

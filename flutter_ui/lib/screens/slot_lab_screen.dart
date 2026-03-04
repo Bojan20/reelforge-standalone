@@ -461,11 +461,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final middleware = context.read<MiddlewareProvider>();
     final eventId = 'audio_$stage';
 
-    // Check if already exists — skip if audio path unchanged (performance)
+    // Check if already exists
     final existing = middleware.compositeEvents.where((e) => e.id == eventId).firstOrNull;
-    if (existing != null && existing.layers.isNotEmpty &&
-        existing.layers.first.audioPath == audioPath) {
-      return; // Already synced, no change needed
+    // Skip ONLY if main audio layer matches AND auto-generated layers already present
+    if (existing != null && existing.layers.isNotEmpty) {
+      final mainLayer = existing.layers.where((l) => l.id == 'layer_$stage').firstOrNull;
+      final hasAutoLayers = existing.layers.any((l) => l.id.startsWith('auto_') || l.id.startsWith('bwi_') || l.id.startsWith('bwe_'));
+      if (mainLayer != null && mainLayer.audioPath == audioPath && hasAutoLayers) {
+        return; // Already synced with all auto layers
+      }
     }
 
     final stageConfig = StageConfigurationService.instance;
@@ -1261,18 +1265,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     if (_slotLabProvider.isWinPresentationActive) {
       _slotLabProvider.requestSkipPresentation(() {});
       return true;
-    }
-
-    // Events tab + no active slot spin → toggle event preview
-    final isEventsTab = _lowerZoneController.superTab == SlotLabSuperTab.events;
-    final slotLabBusy = _slotLabProvider.isPlayingStages || _slotLabProvider.isSpinning;
-
-    if (isEventsTab && !slotLabBusy) {
-      final selectedEvent = _middleware.selectedCompositeEvent;
-      if (selectedEvent != null) {
-        _middleware.togglePreviewEvent(selectedEvent.id);
-        return true;
-      }
     }
 
     // Idle → SPIN
