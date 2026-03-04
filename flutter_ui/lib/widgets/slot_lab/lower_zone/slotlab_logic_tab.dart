@@ -21,6 +21,9 @@ import '../../../providers/slot_lab/smart_collapsing_provider.dart';
 import '../../../providers/slot_lab/slotlab_notification_provider.dart';
 import '../../../models/behavior_tree_models.dart';
 import '../../lower_zone/lower_zone_types.dart';
+import '../../middleware/priority_tier_preset_panel.dart';
+import '../../middleware/state_machine_graph_widget.dart';
+import '../../middleware/state_transition_history_panel.dart';
 
 class SlotLabLogicTabContent extends StatelessWidget {
   final SlotLabLogicSubTab subTab;
@@ -38,6 +41,9 @@ class SlotLabLogicTabContent extends StatelessWidget {
       SlotLabLogicSubTab.emotional => const _EmotionalPanel(),
       SlotLabLogicSubTab.context => const _ContextPanel(),
       SlotLabLogicSubTab.simulation => const _SimulationPanel(),
+      SlotLabLogicSubTab.priorityPreset => const PriorityTierPresetPanel(),
+      SlotLabLogicSubTab.stateMachine => const StateMachineGraphWidget(nodes: [], edges: []),
+      SlotLabLogicSubTab.stateHistory => const StateTransitionHistoryPanel(),
     };
   }
 }

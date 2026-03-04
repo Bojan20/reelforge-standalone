@@ -680,42 +680,42 @@ extension SlotLabSuperTabX on SlotLabSuperTab {
 
 // --- SlotLab Sub-tabs ---
 
-enum SlotLabStagesSubTab { trace, timeline, symbols, timing }
-enum SlotLabEventsSubTab { folder, editor, layers, pool, auto }
-enum SlotLabMixSubTab { buses, sends, pan, meter }
-enum SlotLabDspSubTab { chain, eq, comp, reverb, gate, limiter }
+enum SlotLabStagesSubTab { trace, timeline, symbols, timing, layerTimeline }
+enum SlotLabEventsSubTab { folder, editor, layers, pool, auto, templates, depGraph }
+enum SlotLabMixSubTab { buses, sends, pan, meter, hierarchy, ducking }
+enum SlotLabDspSubTab { chain, eq, comp, reverb, gate, limiter, attenuation, signatures, dspProfiler, layerDsp, presetMorph, spatial }
 enum SlotLabRtpcSubTab { curves, macros, dspBinding, debugger }
-enum SlotLabContainersSubTab { blend, random, sequence }
-enum SlotLabMusicSubTab { segments, stingers, transitions }
+enum SlotLabContainersSubTab { blend, random, sequence, abCompare, crossfade, groups, presets, metrics, timeline, wizard }
+enum SlotLabMusicSubTab { segments, stingers, transitions, looping, beatGrid }
 enum SlotLabBakeSubTab { export, stems, variations, package, git, analytics, docs, macro, macroMon, macroReport, macroConfig, macroHistory }
 
 /// LOGIC sub-tabs — Core middleware panels (behavior tree, triggers, state gate, etc.)
-enum SlotLabLogicSubTab { behavior, triggers, gate, priority, orchestration, emotional, context, simulation }
+enum SlotLabLogicSubTab { behavior, triggers, gate, priority, orchestration, emotional, context, simulation, priorityPreset, stateMachine, stateHistory }
 
 /// INTEL sub-tabs — MWUI intelligence views (build, flow, diagnostics, etc.)
 enum SlotLabIntelSubTab { build, flow, sim, diagnostic, templates, export, coverage, inspector }
 
 /// MONITOR sub-tabs — UCP monitoring zones (timeline, energy, spectral, etc.)
-enum SlotLabMonitorSubTab { timeline, energy, voice, spectral, fatigue, ail, debug, export }
+enum SlotLabMonitorSubTab { timeline, energy, voice, spectral, fatigue, ail, debug, export, profiler, profilerAdv, evtDebug, resource, voiceStats }
 
 extension SlotLabStagesSubTabX on SlotLabStagesSubTab {
-  String get label => ['Trace', 'Timeline', 'Symbols', 'Timing'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R'][index];
-}
-
-extension SlotLabEventsSubTabX on SlotLabEventsSubTab {
-  String get label => ['Folder', 'Editor', 'Layers', 'Pool', 'Auto'][index];
+  String get label => ['Trace', 'Timeline', 'Symbols', 'Timing', 'Layers'][index];
   String get shortcut => ['Q', 'W', 'E', 'R', 'T'][index];
 }
 
+extension SlotLabEventsSubTabX on SlotLabEventsSubTab {
+  String get label => ['Folder', 'Editor', 'Layers', 'Pool', 'Auto', 'Templates', 'Dep Graph'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U'][index];
+}
+
 extension SlotLabMixSubTabX on SlotLabMixSubTab {
-  String get label => ['Buses', 'Sends', 'Pan', 'Meter'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R'][index];
+  String get label => ['Buses', 'Sends', 'Pan', 'Meter', 'Hierarchy', 'Ducking'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y'][index];
 }
 
 extension SlotLabDspSubTabX on SlotLabDspSubTab {
-  String get label => ['Chain', 'FF-Q', 'FF-C', 'FF-R', 'FF-G', 'FF-L'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y'][index];
+  String get label => ['Chain', 'FF-Q', 'FF-C', 'FF-R', 'FF-G', 'FF-L', 'Atten', 'Sigs', 'DSP Prof', 'Layer DSP', 'Morph', 'Spatial'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'S'][index];
 }
 
 extension SlotLabBakeSubTabX on SlotLabBakeSubTab {
@@ -724,8 +724,8 @@ extension SlotLabBakeSubTabX on SlotLabBakeSubTab {
 }
 
 extension SlotLabLogicSubTabX on SlotLabLogicSubTab {
-  String get label => ['Behavior', 'Triggers', 'Gate', 'Priority', 'Orch', 'Emotion', 'Context', 'Sim'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I'][index];
+  String get label => ['Behavior', 'Triggers', 'Gate', 'Priority', 'Orch', 'Emotion', 'Context', 'Sim', 'Pri Preset', 'State Machine', 'State Hist'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A'][index];
 }
 
 extension SlotLabIntelSubTabX on SlotLabIntelSubTab {
@@ -734,8 +734,8 @@ extension SlotLabIntelSubTabX on SlotLabIntelSubTab {
 }
 
 extension SlotLabMonitorSubTabX on SlotLabMonitorSubTab {
-  String get label => ['Timeline', 'Energy', 'Voice', 'Spectral', 'Fatigue', 'AIL', 'Debug', 'Export'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I'][index];
+  String get label => ['Timeline', 'Energy', 'Voice', 'Spectral', 'Fatigue', 'AIL', 'Debug', 'Export', 'Profiler', 'Prof Adv', 'Evt Debug', 'Resources', 'Voice Stats'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'S', 'D'][index];
 }
 
 extension SlotLabRtpcSubTabX on SlotLabRtpcSubTab {
@@ -744,13 +744,13 @@ extension SlotLabRtpcSubTabX on SlotLabRtpcSubTab {
 }
 
 extension SlotLabContainersSubTabX on SlotLabContainersSubTab {
-  String get label => ['Blend', 'Random', 'Sequence'][index];
-  String get shortcut => ['Q', 'W', 'E'][index];
+  String get label => ['Blend', 'Random', 'Sequence', 'A/B', 'Crossfade', 'Groups', 'Presets', 'Metrics', 'Timeline', 'Wizard'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'][index];
 }
 
 extension SlotLabMusicSubTabX on SlotLabMusicSubTab {
-  String get label => ['Segments', 'Stingers', 'Transitions'][index];
-  String get shortcut => ['Q', 'W', 'E'][index];
+  String get label => ['Segments', 'Stingers', 'Transitions', 'Looping', 'Beat Grid'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T'][index];
 }
 
 /// Complete SlotLab Lower Zone state

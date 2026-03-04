@@ -7,6 +7,8 @@ import '../../lower_zone/lower_zone_types.dart';
 import '../../middleware/music_system_panel.dart';
 import '../../middleware/stinger_preview_panel.dart';
 import '../../middleware/music_transition_preview_panel.dart';
+import '../../middleware/music_segment_looping_panel.dart';
+import '../../middleware/beat_grid_editor.dart';
 
 class SlotLabMusicTabContent extends StatelessWidget {
   final SlotLabMusicSubTab subTab;
@@ -19,7 +21,35 @@ class SlotLabMusicTabContent extends StatelessWidget {
       SlotLabMusicSubTab.segments => const _SegmentsPanel(),
       SlotLabMusicSubTab.stingers => const _StingersPanel(),
       SlotLabMusicSubTab.transitions => const _TransitionsPanel(),
+      SlotLabMusicSubTab.looping => const _LoopingPanel(),
+      SlotLabMusicSubTab.beatGrid => const _BeatGridPanel(),
     };
+  }
+}
+
+class _LoopingPanel extends StatelessWidget {
+  const _LoopingPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => MusicSegmentLoopingPanel(
+        height: constraints.maxHeight.isFinite ? constraints.maxHeight : 300,
+      ),
+    );
+  }
+}
+
+class _BeatGridPanel extends StatelessWidget {
+  const _BeatGridPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => BeatGridEditor(
+        height: constraints.maxHeight.isFinite ? constraints.maxHeight : 300,
+      ),
+    );
   }
 }
 

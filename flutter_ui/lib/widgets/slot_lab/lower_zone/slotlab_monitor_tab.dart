@@ -5,6 +5,11 @@
 
 import 'package:flutter/material.dart';
 import '../../lower_zone/lower_zone_types.dart';
+import '../../middleware/event_profiler_panel.dart';
+import '../../middleware/event_profiler_advanced.dart';
+import '../../middleware/event_debugger_panel.dart';
+import '../../middleware/resource_dashboard_panel.dart';
+import '../../middleware/voice_pool_stats_panel.dart';
 import '../ucp/event_timeline_zone.dart';
 import '../ucp/energy_emotional_monitor.dart';
 import '../ucp/voice_priority_monitor.dart';
@@ -30,6 +35,11 @@ class SlotLabMonitorTabContent extends StatelessWidget {
       SlotLabMonitorSubTab.ail => const AilPanelZone(),
       SlotLabMonitorSubTab.debug => const DebugMonitorZone(),
       SlotLabMonitorSubTab.export => const ExportZone(),
+      SlotLabMonitorSubTab.profiler => const EventProfilerPanel(),
+      SlotLabMonitorSubTab.profilerAdv => const EventProfilerAdvanced(entries: []),
+      SlotLabMonitorSubTab.evtDebug => const EventDebuggerPanel(),
+      SlotLabMonitorSubTab.resource => const ResourceDashboardPanel(),
+      SlotLabMonitorSubTab.voiceStats => const VoicePoolStatsPanel(),
     };
   }
 }

@@ -91,6 +91,7 @@ import '../widgets/slot_lab/event_log_panel.dart';
 import '../widgets/slot_lab/audio_hover_preview.dart';
 import '../widgets/slot_lab/slot_lab_settings_panel.dart' as settings;
 import '../src/rust/native_ffi.dart';
+import '../widgets/middleware/events_folder_panel.dart';
 import '../services/event_registry.dart';
 import '../services/slotlab_track_bridge.dart';
 import '../services/waveform_cache.dart';
@@ -330,6 +331,12 @@ class SlotLabScreen extends StatefulWidget {
   State<SlotLabScreen> createState() => _SlotLabScreenState();
 }
 
+/// Left panel tab modes for multi-mode switching
+enum _LeftPanelTab { audio, events, stages, aurexis }
+
+/// Right panel tab modes for context-aware inspector
+enum _RightPanelTab { events, inspector, config }
+
 class _SlotLabScreenState extends State<SlotLabScreen>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin, InlineToastMixin {
 
@@ -422,8 +429,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   bool _leftPanelManuallyHidden = false;
   bool _rightPanelManuallyHidden = false;
 
-  // Left panel mode: true = AUREXIS panel, false = UltimateAudioPanel
-  bool _leftPanelAurexisMode = false;
+  // Left panel multi-mode tab system
+  _LeftPanelTab _leftPanelTab = _LeftPanelTab.audio;
+  // Legacy compat alias
+  bool get _leftPanelAurexisMode => _leftPanelTab == _LeftPanelTab.aurexis;
+
+  // Right panel multi-mode tab system
+  _RightPanelTab _rightPanelTab = _RightPanelTab.events;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ULTIMATE AUDIO PANEL STATE — now persisted in SlotLabProjectProvider
@@ -2888,7 +2900,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     final forceHideBoth = availableWidth < _breakpointHideBoth;
 
                     // Calculate center width to ensure minimum
-                    final leftWidth = (showLeftPanel && !forceHideBoth) ? (_leftPanelAurexisMode ? 280.0 : 240.0) : 0.0;
+                    final leftWidth = (showLeftPanel && !forceHideBoth) ? (_leftPanelTab == _LeftPanelTab.aurexis ? 280.0 : 260.0) : 0.0;
                     final rightWidth = (showRightPanel && !forceHideBoth) ? 300.0 : 0.0;
                     final centerWidth = availableWidth - leftWidth - rightWidth;
 
@@ -2899,243 +2911,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
                     return Row(
                       children: [
-                        // LEFT: AUREXIS Panel or Ultimate Audio Panel
-                        if (actualShowLeft && _leftPanelAurexisMode)
-                          const AurexisPanel(),
-                        if (actualShowLeft && !_leftPanelAurexisMode)
-                          Consumer<SlotLabProjectProvider>(
-                      builder: (context, projectProvider, _) {
-                        return Container(
-                          width: 240,
-                          clipBehavior: Clip.hardEdge,
-                          decoration: const BoxDecoration(),
-                          child: UltimateAudioPanel(
-                            audioAssignments: projectProvider.audioAssignments,
-                            symbols: projectProvider.symbols,
-                            contexts: projectProvider.contexts,
-                            expandedSections: projectProvider.expandedSections,
-                            expandedGroups: projectProvider.expandedGroups,
-                            // P5: Dynamic win tier configuration
-                            winConfiguration: projectProvider.winConfiguration,
-                            // P3-19: Quick Assign Mode
-                            quickAssignMode: _quickAssignMode,
-                            quickAssignSelectedSlot: _quickAssignSelectedSlot,
-                            onQuickAssignSlotSelected: (stage) {
-                              if (stage == '__TOGGLE__') {
-                                // Toggle mode
-                                setState(() {
-                                  _quickAssignMode = !_quickAssignMode;
-                                  if (!_quickAssignMode) {
-                                    _quickAssignSelectedSlot = null;
-                                  }
-                                });
-                              } else if (stage == '__UNSELECT__') {
-                                // Unselect (toggle off)
-                                setState(() => _quickAssignSelectedSlot = null);
-                              } else {
-                                // Select slot
-                                setState(() => _quickAssignSelectedSlot = stage);
-                              }
-                            },
-                            onAudioAssign: (stage, audioPath) {
-
-                              // Update provider (persisted state)
-                              projectProvider.setAudioAssignment(stage, audioPath);
-
-                              // Composite event is SSoT — creates all layers (including FadeVoice/StopVoice for BIG_WIN)
-                              _ensureCompositeEventForStage(stage, audioPath);
-                              // Explicit sync to EventRegistry (ensures playback works immediately)
-                              final mw = context.read<MiddlewareProvider>();
-                              final ce = mw.compositeEvents.where((e) => e.id == 'audio_$stage').firstOrNull;
-                              if (ce != null) _syncEventToRegistry(ce);
-
-                              // SINGLE SOURCE: Add to AudioAssetManager pool so it appears in browser
-                              AudioAssetManager.instance.importFilesInstant(
-                                [audioPath],
-                                folder: 'SlotLab Import',
-                              );
-
-                              // Add to audio pool if not already there
-                              if (!_audioPool.any((a) => a['path'] == audioPath)) {
-                                final name = audioPath.split('/').last;
-                                setState(() {
-                                  _audioPool.add(_createAudioPoolEntry(audioPath, name));
-                                });
-                                Future.microtask(() => _persistState());
-                                _loadMetadataInBackground([audioPath]);
-                              }
-
-                              // Auto-bind: refresh trigger bindings when audio assigned
-                              final triggerLayer = GetIt.instance<TriggerLayerProvider>();
-                              if (triggerLayer.autoBindingsEnabled) {
-                                triggerLayer.generateAutoBindings();
-                              }
-
-                              // Track coverage
-                              final coverage = GetIt.instance<BehaviorCoverageProvider>();
-                              coverage.recordTrigger(stage, stage);
-
-                              // SL-INT-P1.1: Show inline toast confirmation
-                              if (mounted) {
-                                final fileName = audioPath.split('/').last;
-                                showToast('Assigned "$fileName" → ${stage.replaceAll("_", " ")}', icon: Icons.audiotrack);
-                              }
-                            },
-                            onAudioClear: (stage) {
-                              // Update provider (persisted state)
-                              projectProvider.removeAudioAssignment(stage);
-                              // Remove from EventRegistry
-                              eventRegistry.unregisterEvent('audio_$stage');
-                              // Remove from MiddlewareProvider (Event Folder)
-                              final middleware = context.read<MiddlewareProvider>();
-                              middleware.deleteCompositeEvent('audio_$stage');
-                            },
-                            onSectionToggle: (sectionId) {
-                              projectProvider.toggleSection(sectionId);
-                            },
-                            onGroupToggle: (groupId) {
-                              projectProvider.toggleGroup(groupId);
-                            },
-                            onBatchDistribute: (matched, unmatched) async {
-                              // Add ALL files (matched + unmatched) to audio pool
-                              final allPaths = <String>[
-                                ...matched.map((m) => m.audioPath),
-                                ...unmatched.map((u) => u.audioPath),
-                              ];
-                              // Sort alphabetically for consistent pool ordering
-                              allPaths.sort((a, b) {
-                                final nameA = a.split('/').last.toLowerCase();
-                                final nameB = b.split('/').last.toLowerCase();
-                                return nameA.compareTo(nameB);
-                              });
-                              final newEntries = <Map<String, dynamic>>[];
-                              for (final path in allPaths) {
-                                if (_audioPool.any((a) => a['path'] == path)) continue;
-                                final name = path.split('/').last;
-                                newEntries.add(_createAudioPoolEntry(path, name));
-                              }
-                              if (newEntries.isNotEmpty) {
-                                setState(() {
-                                  _audioPool.addAll(newEntries);
-                                });
-                                // Sync to AudioAssetManager
-                                AudioAssetManager.instance.importFilesInstant(
-                                  newEntries.map((e) => e['path'] as String).toList(),
-                                  folder: 'SlotLab Import',
-                                );
-                                // Persist + load metadata
-                                Future.microtask(() => _persistState());
-                                _loadMetadataInBackground(
-                                  newEntries.map((e) => e['path'] as String).toList(),
-                                );
-                              }
-
-                              // Show results dialog (SL-LP-P0.3)
-                              await BatchDistributionDialog.show(
-                                context,
-                                matched: matched,
-                                unmatched: unmatched,
-                              );
-                            },
-                            // ═══════════════════════════════════════════════════════
-                            // P3 RECOMMENDATIONS: Undo/Redo & Bulk Assign
-                            // ═══════════════════════════════════════════════════════
-                            canUndo: projectProvider.canUndoAudioAssignment,
-                            canRedo: projectProvider.canRedoAudioAssignment,
-                            undoDescription: projectProvider.undoAudioDescription,
-                            redoDescription: projectProvider.redoAudioDescription,
-                            onUndo: () {
-                              final success = projectProvider.undoAudioAssignment();
-                              if (success && mounted) {
-                                showToast('Undo successful', type: ToastType.info, icon: Icons.undo);
-                              }
-                            },
-                            onRedo: () {
-                              final success = projectProvider.redoAudioAssignment();
-                              if (success && mounted) {
-                                showToast('Redo successful', type: ToastType.info, icon: Icons.redo);
-                              }
-                            },
-                            onBulkAssign: (baseStage, audioPath) {
-                              final expandedStages = projectProvider.bulkAssignToSimilarStages(
-                                baseStage,
-                                audioPath,
-                              );
-                              if (expandedStages.isNotEmpty && mounted) {
-                                for (final stage in expandedStages) {
-                                  _ensureCompositeEventForStage(stage, audioPath);
-                                }
-                                showToast('Bulk assigned to ${expandedStages.length} stages', icon: Icons.copy_all);
-                              }
-                            },
-                            // V11: Slot Machine Created via Setup Wizard
-                            onSlotMachineCreated: (reels, rows) {
-                              // Sync grid to engine + UI state (no auto-spin)
-                              final slotLabProvider = context.read<SlotLabProvider>();
-                              setState(() {
-                                _slotLabSettings = _slotLabSettings.copyWith(
-                                  reels: reels,
-                                  rows: rows,
-                                );
-                              });
-                              slotLabProvider.updateGridSize(reels, rows);
-                            },
-                            // V11: Bulk Import — apply all mappings at once
-                            onBulkImport: (mappings) {
-                              int count = 0;
-                              for (final entry in mappings.entries) {
-                                final stage = entry.key;
-                                final audioPath = entry.value;
-
-                                // Update provider
-                                projectProvider.setAudioAssignment(stage, audioPath);
-
-                                // Composite event is SSoT
-                                _ensureCompositeEventForStage(stage, audioPath);
-                                count++;
-                              }
-
-                              // Sanitize false positives after bulk import
-                              projectProvider.sanitizeAssignments();
-
-                              // SINGLE SOURCE: Add all imported files to AudioAssetManager pool
-                              final allPaths = mappings.values.toList();
-                              AudioAssetManager.instance.importFilesInstant(
-                                allPaths,
-                                folder: 'SlotLab Import',
-                              );
-
-                              // Add to audio pool if not already there
-                              final poolEntries = <Map<String, dynamic>>[];
-                              for (final path in allPaths) {
-                                if (_audioPool.any((a) => a['path'] == path)) continue;
-                                final name = path.split('/').last;
-                                poolEntries.add(_createAudioPoolEntry(path, name));
-                              }
-                              if (poolEntries.isNotEmpty) {
-                                setState(() {
-                                  _audioPool.addAll(poolEntries);
-                                });
-                                Future.microtask(() => _persistState());
-                                _loadMetadataInBackground(
-                                  poolEntries.map((e) => e['path'] as String).toList(),
-                                );
-                              }
-
-                              // Refresh trigger bindings
-                              final triggerLayer = GetIt.instance<TriggerLayerProvider>();
-                              if (triggerLayer.autoBindingsEnabled) {
-                                triggerLayer.generateAutoBindings();
-                              }
-
-                              if (mounted) {
-                                showToast('Imported $count audio mappings', icon: Icons.file_download);
-                              }
-                            },
+                        // LEFT: Multi-tab Panel (Audio / Events / Stages / AUREXIS)
+                        if (actualShowLeft)
+                          SizedBox(
+                            width: leftWidth,
+                            child: _buildLeftPanelV2(),
                           ),
-                        );
-                      },
-                    ), // End of if (actualShowLeft) Consumer2 (P13.8.6)
 
                         // CENTER: Premium Slot Preview (with drag-drop from Audio Browser)
                         Expanded(
@@ -3196,36 +2977,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                           ),
                         ),
 
-                        // RIGHT: Events Panel (V6) — conditional visibility
+                        // RIGHT: Multi-tab Inspector Panel — conditional visibility
                         if (actualShowRight)
                           SizedBox(
                             width: 300,
-                            child: EventsPanelWidget(
-                              selectedEventId: _selectedEventId,
-                              onSelectionChanged: (eventId) {
-                                setState(() {
-                                  _selectedEventId = eventId;
-                                });
-                              },
-                              onAudioDragStarted: (audioPaths) {
-                                setState(() {
-                                  _draggingAudioPaths = audioPaths;
-                                });
-                              },
-                              // P3-19: Quick Assign Mode — click audio to assign to selected slot
-                              onAudioClicked: (audioPath) {
-                                if (_quickAssignMode && _quickAssignSelectedSlot != null) {
-                                  // Use existing onAudioAssign logic
-                                  final projectProvider = context.read<SlotLabProjectProvider>();
-                                  _handleQuickAssign(audioPath, _quickAssignSelectedSlot!, projectProvider);
-                                  // Clear selection after assign
-                                  setState(() => _quickAssignSelectedSlot = null);
-                                }
-                              },
-                              onToast: (message, {isWarning = false}) {
-                                showToast(message, type: isWarning ? ToastType.warning : ToastType.success);
-                              },
-                            ),
+                            child: _buildRightPanelV2(),
                           ),
                       ],
                     );
@@ -3739,93 +3495,137 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildHeader() {
-    return Container(
-      height: 38,
-      decoration: const BoxDecoration(
-        color: Color(0xFF141418),
-        border: Border(
-          bottom: BorderSide(color: Color(0xFF2A2A32), width: 1),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Row(
-          children: [
-            // ── NAV ──
-            _buildHeaderIconBtn(Icons.arrow_back, widget.onClose, 'Back to DAW'),
-            const SizedBox(width: 8),
-            const Text(
-              'SLOT LAB',
-              style: TextStyle(
-                color: Color(0xFFD0D0D8),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.2,
-              ),
-            ),
-            _headerDivider(),
-
-            // ── TOOLS ──
-            _buildHeaderIconBtn(Icons.dashboard_customize, _showTemplateGallery, 'Templates'),
-            _buildHeaderIconBtn(Icons.extension, _showFeatureBuilder, 'Features'),
-            _buildHeaderIconBtn(Icons.upload_file, _showGddImportWizard, 'Import GDD'),
-            _buildHeaderIconBtn(Icons.settings, _showSettingsDialog, 'Settings'),
-
-            // ── STATUS ──
-            _headerDivider(),
-            buildToastWidget(),
-            Expanded(
-              child: ClipRect(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildMiddlewareStatusChips(),
-                    if (_isPreloadingAudio) ...[
-                      const SizedBox(width: 4),
-                      _buildAudioPreloadIndicator(),
-                    ],
-                  ],
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // ═══════════════════════════════════════════════════════════════════
+        // ROW 1: Main Toolbar (32px) — Nav, Title, Tools, Panel Toggles
+        // ═══════════════════════════════════════════════════════════════════
+        Container(
+          height: 32,
+          decoration: const BoxDecoration(
+            color: Color(0xFF141418),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                // ── NAV ──
+                _buildHeaderIconBtn(Icons.arrow_back, widget.onClose, 'Back to DAW'),
+                const SizedBox(width: 8),
+                // Logo / Title
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        FluxForgeTheme.accentGreen.withValues(alpha: 0.15),
+                        FluxForgeTheme.accentCyan.withValues(alpha: 0.08),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: FluxForgeTheme.accentGreen.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: const Text(
+                    'SLOT LAB',
+                    style: TextStyle(
+                      color: Color(0xFFD0D0D8),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
                 ),
-              ),
-            ),
+                _headerDivider(),
 
-            // ── PANELS ──
-            _headerDivider(),
-            _buildCoverageBadge(),
-            const SizedBox(width: 4),
-            _headerDivider(),
-            _buildHeaderIconBtn(
-              Icons.view_sidebar,
-              _toggleLeftPanel,
-              _leftPanelManuallyHidden ? 'Show Left' : 'Hide Left',
-              isActive: !_leftPanelManuallyHidden,
+                // ── TOOLS ──
+                _buildHeaderIconBtn(Icons.dashboard_customize, _showTemplateGallery, 'Templates'),
+                _buildHeaderIconBtn(Icons.extension, _showFeatureBuilder, 'Features'),
+                _buildHeaderIconBtn(Icons.upload_file, _showGddImportWizard, 'Import GDD'),
+                _buildHeaderIconBtn(Icons.settings, _showSettingsDialog, 'Settings'),
+
+                const Spacer(),
+
+                // ── PANEL TOGGLES ──
+                _buildHeaderIconBtn(
+                  Icons.view_sidebar,
+                  _toggleLeftPanel,
+                  _leftPanelManuallyHidden ? 'Show Left' : 'Hide Left',
+                  isActive: !_leftPanelManuallyHidden,
+                ),
+                _buildHeaderIconBtn(
+                  Icons.auto_awesome,
+                  () => setState(() {
+                    _leftPanelTab = _leftPanelAurexisMode
+                        ? _LeftPanelTab.audio
+                        : _LeftPanelTab.aurexis;
+                  }),
+                  _leftPanelAurexisMode ? 'Audio Panel' : 'AUREXIS',
+                  isActive: _leftPanelAurexisMode,
+                ),
+                _buildHeaderIconBtn(
+                  Icons.view_sidebar_outlined,
+                  _toggleRightPanel,
+                  _rightPanelManuallyHidden ? 'Show Right' : 'Hide Right',
+                  isActive: !_rightPanelManuallyHidden,
+                ),
+                _buildHeaderIconBtn(
+                  Icons.horizontal_split,
+                  () {
+                    final ctrl = SlotLabLowerZoneController.instance;
+                    ctrl.toggle();
+                  },
+                  'Lower Zone',
+                  isActive: SlotLabLowerZoneController.instance.isExpanded,
+                ),
+                const SizedBox(width: 4),
+              ],
             ),
-            _buildHeaderIconBtn(
-              Icons.auto_awesome,
-              () => setState(() => _leftPanelAurexisMode = !_leftPanelAurexisMode),
-              _leftPanelAurexisMode ? 'Audio Panel' : 'AUREXIS',
-              isActive: _leftPanelAurexisMode,
-            ),
-            _buildHeaderIconBtn(
-              Icons.view_sidebar_outlined,
-              _toggleRightPanel,
-              _rightPanelManuallyHidden ? 'Show Right' : 'Hide Right',
-              isActive: !_rightPanelManuallyHidden,
-            ),
-            _buildHeaderIconBtn(
-              Icons.horizontal_split,
-              () {
-                final ctrl = SlotLabLowerZoneController.instance;
-                ctrl.toggle();
-              },
-              'Lower Zone',
-              isActive: SlotLabLowerZoneController.instance.isExpanded,
-            ),
-            const SizedBox(width: 4),
-          ],
+          ),
         ),
-      ),
+        // ═══════════════════════════════════════════════════════════════════
+        // ROW 2: Context Bar (28px) — Status, Coverage, Stage Info, Toasts
+        // ═══════════════════════════════════════════════════════════════════
+        Container(
+          height: 28,
+          decoration: const BoxDecoration(
+            color: Color(0xFF0F0F14),
+            border: Border(
+              bottom: BorderSide(color: Color(0xFF2A2A32), width: 1),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                // ── STAGE INFO ──
+                _buildCurrentStageIndicator(),
+                _headerDividerSmall(),
+
+                // ── COVERAGE ──
+                _buildCoverageBadge(),
+                _headerDividerSmall(),
+
+                // ── STATUS CHIPS ──
+                _buildMiddlewareStatusChips(),
+
+                // ── PRELOAD ──
+                if (_isPreloadingAudio) ...[
+                  const SizedBox(width: 4),
+                  _buildAudioPreloadIndicator(),
+                ],
+
+                const Spacer(),
+
+                // ── TOAST ──
+                buildToastWidget(),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -3855,12 +3655,59 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     );
   }
 
-  /// Inline grid size chip with +/- controls in header bar
   /// Thin vertical divider for header sections
   Widget _headerDivider() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
       child: Container(height: 20, width: 1, color: Colors.white.withValues(alpha: 0.12)),
+    );
+  }
+
+  /// Smaller divider for context bar (Row 2)
+  Widget _headerDividerSmall() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Container(height: 14, width: 1, color: Colors.white.withValues(alpha: 0.08)),
+    );
+  }
+
+  /// Current stage indicator for context bar — shows active stage name
+  Widget _buildCurrentStageIndicator() {
+    return Consumer<SlotLabProvider>(
+      builder: (ctx, slotLab, _) {
+        final stages = slotLab.lastStages;
+        final idx = slotLab.currentStageIndex;
+        final isPlaying = slotLab.isPlayingStages;
+        final stageName = (isPlaying && stages.isNotEmpty && idx < stages.length)
+            ? stages[idx].stageType
+            : '';
+        final stageColor = isPlaying
+            ? FluxForgeTheme.accentGreen
+            : const Color(0xFF808088);
+
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isPlaying ? Icons.play_circle_filled : Icons.circle_outlined,
+              size: 10,
+              color: stageColor,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              stageName.isNotEmpty
+                  ? stageName.replaceAll('_', ' ')
+                  : 'IDLE',
+              style: TextStyle(
+                color: stageColor,
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -8993,6 +8840,644 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // ═══════════════════════════════════════════════════════════════════════════
   // MOCK SLOT VIEW
   // ═══════════════════════════════════════════════════════════════════════════
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LEFT PANEL V2 — Multi-tab (Audio / Events / Stages / AUREXIS)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildLeftPanelV2() {
+    return Container(
+      clipBehavior: Clip.hardEdge,
+      decoration: const BoxDecoration(
+        color: Color(0xFF0E0E12),
+        border: Border(
+          right: BorderSide(color: Color(0xFF2A2A32), width: 1),
+        ),
+      ),
+      child: Column(
+        children: [
+          // Tab bar
+          _buildLeftPanelTabBar(),
+          // Content
+          Expanded(
+            child: switch (_leftPanelTab) {
+              _LeftPanelTab.audio => _buildUltimateAudioPanelContent(),
+              _LeftPanelTab.events => const EventsFolderPanel(),
+              _LeftPanelTab.stages => _buildStagesLeftPanel(),
+              _LeftPanelTab.aurexis => const AurexisPanel(),
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLeftPanelTabBar() {
+    const tabs = _LeftPanelTab.values;
+    const labels = ['AUDIO', 'EVENTS', 'STAGES', 'AUREXIS'];
+    const icons = [Icons.audiotrack, Icons.event_note, Icons.layers, Icons.auto_awesome];
+
+    return Container(
+      height: 28,
+      decoration: const BoxDecoration(
+        color: Color(0xFF111116),
+        border: Border(
+          bottom: BorderSide(color: Color(0xFF2A2A32), width: 1),
+        ),
+      ),
+      child: Row(
+        children: List.generate(tabs.length, (i) {
+          final isActive = _leftPanelTab == tabs[i];
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _leftPanelTab = tabs[i]),
+              child: Container(
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? FluxForgeTheme.accentGreen.withValues(alpha: 0.1)
+                      : Colors.transparent,
+                  border: Border(
+                    bottom: BorderSide(
+                      color: isActive
+                          ? FluxForgeTheme.accentGreen
+                          : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icons[i],
+                      size: 11,
+                      color: isActive
+                          ? FluxForgeTheme.accentGreen
+                          : const Color(0xFF606068),
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      labels[i],
+                      style: TextStyle(
+                        color: isActive
+                            ? const Color(0xFFD0D0D8)
+                            : const Color(0xFF606068),
+                        fontSize: 9,
+                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  /// STAGES tab in left panel — stage flow overview with config
+  Widget _buildStagesLeftPanel() {
+    final stageConfig = GetIt.instance<StageConfigurationService>();
+    final stages = stageConfig.allStageNames;
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(4),
+      itemCount: stages.length,
+      itemBuilder: (context, index) {
+        final stage = stages[index];
+        final bus = stageConfig.getBus(stage).name;
+        final priority = stageConfig.getPriority(stage);
+        return Container(
+          margin: const EdgeInsets.only(bottom: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFF161620),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: FluxForgeTheme.accentGreen.withValues(alpha: 0.6),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  stage.replaceAll('_', ' '),
+                  style: const TextStyle(
+                    color: Color(0xFFB0B0B8),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                bus,
+                style: TextStyle(
+                  color: FluxForgeTheme.accentCyan.withValues(alpha: 0.6),
+                  fontSize: 8,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'P$priority',
+                style: TextStyle(
+                  color: const Color(0xFFFFAA00).withValues(alpha: 0.6),
+                  fontSize: 8,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RIGHT PANEL V2 — Multi-tab (Events / Inspector / Config)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildRightPanelV2() {
+    return Container(
+      clipBehavior: Clip.hardEdge,
+      decoration: const BoxDecoration(
+        color: Color(0xFF0E0E12),
+        border: Border(
+          left: BorderSide(color: Color(0xFF2A2A32), width: 1),
+        ),
+      ),
+      child: Column(
+        children: [
+          // Tab bar
+          _buildRightPanelTabBar(),
+          // Content
+          Expanded(
+            child: switch (_rightPanelTab) {
+              _RightPanelTab.events => _buildRightEventsContent(),
+              _RightPanelTab.inspector => _buildRightInspectorContent(),
+              _RightPanelTab.config => _buildRightConfigContent(),
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRightPanelTabBar() {
+    const tabs = _RightPanelTab.values;
+    const labels = ['EVENTS', 'INSPECT', 'CONFIG'];
+    const icons = [Icons.event_note, Icons.info_outline, Icons.tune];
+
+    return Container(
+      height: 28,
+      decoration: const BoxDecoration(
+        color: Color(0xFF111116),
+        border: Border(
+          bottom: BorderSide(color: Color(0xFF2A2A32), width: 1),
+        ),
+      ),
+      child: Row(
+        children: List.generate(tabs.length, (i) {
+          final isActive = _rightPanelTab == tabs[i];
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _rightPanelTab = tabs[i]),
+              child: Container(
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? FluxForgeTheme.accentCyan.withValues(alpha: 0.1)
+                      : Colors.transparent,
+                  border: Border(
+                    bottom: BorderSide(
+                      color: isActive
+                          ? FluxForgeTheme.accentCyan
+                          : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icons[i],
+                      size: 11,
+                      color: isActive
+                          ? FluxForgeTheme.accentCyan
+                          : const Color(0xFF606068),
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      labels[i],
+                      style: TextStyle(
+                        color: isActive
+                            ? const Color(0xFFD0D0D8)
+                            : const Color(0xFF606068),
+                        fontSize: 9,
+                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  /// Events tab in right panel — event list with audio drag source
+  Widget _buildRightEventsContent() {
+    return EventsPanelWidget(
+      selectedEventId: _selectedEventId,
+      onSelectionChanged: (eventId) {
+        setState(() => _selectedEventId = eventId);
+      },
+      onAudioDragStarted: (audioPaths) {
+        setState(() => _draggingAudioPaths = audioPaths);
+      },
+      onAudioClicked: (audioPath) {
+        if (_quickAssignMode && _quickAssignSelectedSlot != null) {
+          final projectProvider = context.read<SlotLabProjectProvider>();
+          _handleQuickAssign(audioPath, _quickAssignSelectedSlot!, projectProvider);
+          setState(() => _quickAssignSelectedSlot = null);
+        }
+      },
+      onToast: (message, {isWarning = false}) {
+        showToast(message, type: isWarning ? ToastType.warning : ToastType.success);
+      },
+    );
+  }
+
+  /// Inspector tab in right panel — selected event properties
+  Widget _buildRightInspectorContent() {
+    return Consumer<MiddlewareProvider>(
+      builder: (context, middleware, _) {
+        if (_selectedEventId == null) {
+          return const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.touch_app, size: 32, color: Color(0xFF404048)),
+                SizedBox(height: 8),
+                Text(
+                  'Select an event to inspect',
+                  style: TextStyle(color: Color(0xFF606068), fontSize: 11),
+                ),
+              ],
+            ),
+          );
+        }
+        final event = middleware.compositeEvents
+            .where((e) => e.id == _selectedEventId)
+            .firstOrNull;
+        if (event == null) {
+          return const Center(
+            child: Text('Event not found', style: TextStyle(color: Color(0xFF606068), fontSize: 11)),
+          );
+        }
+        return ListView(
+          padding: const EdgeInsets.all(8),
+          children: [
+            // Event name header
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.accentCyan.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: FluxForgeTheme.accentCyan.withValues(alpha: 0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    event.name,
+                    style: const TextStyle(color: Color(0xFFD0D0D8), fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'ID: ${event.id}',
+                    style: const TextStyle(color: Color(0xFF808088), fontSize: 9),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Properties
+            _inspectorRow('Category', event.category),
+            _inspectorRow('Trigger Stages', event.triggerStages.join(', ')),
+            _inspectorRow('Layers', '${event.layers.length}'),
+            _inspectorRow('Max Instances', '${event.maxInstances}'),
+            _inspectorRow('Looping', event.looping ? 'Yes' : 'No'),
+            const SizedBox(height: 8),
+            // Layers list
+            const Text(
+              'LAYERS',
+              style: TextStyle(color: Color(0xFF808088), fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 1),
+            ),
+            const SizedBox(height: 4),
+            ...event.layers.asMap().entries.map((entry) {
+              final layer = entry.value;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF161620),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      '${entry.key + 1}',
+                      style: const TextStyle(color: Color(0xFF606068), fontSize: 9, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        layer.audioPath.isNotEmpty ? layer.audioPath.split('/').last : layer.actionType,
+                        style: const TextStyle(color: Color(0xFFB0B0B8), fontSize: 10),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      layer.actionType,
+                      style: TextStyle(
+                        color: FluxForgeTheme.accentCyan.withValues(alpha: 0.6),
+                        fontSize: 8,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _inspectorRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: const TextStyle(color: Color(0xFF606068), fontSize: 9),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(color: Color(0xFFB0B0B8), fontSize: 10, fontWeight: FontWeight.w500),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Config tab in right panel — stage configuration quick edit
+  Widget _buildRightConfigContent() {
+    final stageConfig = GetIt.instance<StageConfigurationService>();
+
+    return Consumer<SlotLabProjectProvider>(
+      builder: (context, projectProvider, _) {
+        final assignments = projectProvider.audioAssignments;
+        final assignedStages = assignments.keys.toList()..sort();
+
+        if (assignedStages.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.settings_suggest, size: 32, color: Color(0xFF404048)),
+                SizedBox(height: 8),
+                Text(
+                  'Assign audio to see config',
+                  style: TextStyle(color: Color(0xFF606068), fontSize: 11),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(4),
+          itemCount: assignedStages.length,
+          itemBuilder: (context, index) {
+            final stage = assignedStages[index];
+            final audio = assignments[stage] ?? '';
+            final bus = stageConfig.getBus(stage).name;
+            final priority = stageConfig.getPriority(stage);
+            final fileName = audio.split('/').last;
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 4),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF161620),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: const Color(0xFF2A2A32)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          stage.replaceAll('_', ' '),
+                          style: const TextStyle(
+                            color: Color(0xFFD0D0D8),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: FluxForgeTheme.accentCyan.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                        child: Text(
+                          bus,
+                          style: TextStyle(
+                            color: FluxForgeTheme.accentCyan.withValues(alpha: 0.7),
+                            fontSize: 8,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'P$priority',
+                        style: const TextStyle(
+                          color: Color(0xFFFFAA00),
+                          fontSize: 8,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    fileName,
+                    style: const TextStyle(color: Color(0xFF808088), fontSize: 9),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildUltimateAudioPanelContent() {
+    return Consumer<SlotLabProjectProvider>(
+      builder: (context, projectProvider, _) {
+        return UltimateAudioPanel(
+          audioAssignments: projectProvider.audioAssignments,
+          symbols: projectProvider.symbols,
+          contexts: projectProvider.contexts,
+          expandedSections: projectProvider.expandedSections,
+          expandedGroups: projectProvider.expandedGroups,
+          winConfiguration: projectProvider.winConfiguration,
+          quickAssignMode: _quickAssignMode,
+          quickAssignSelectedSlot: _quickAssignSelectedSlot,
+          onQuickAssignSlotSelected: (stage) {
+            if (stage == '__TOGGLE__') {
+              setState(() {
+                _quickAssignMode = !_quickAssignMode;
+                if (!_quickAssignMode) _quickAssignSelectedSlot = null;
+              });
+            } else if (stage == '__UNSELECT__') {
+              setState(() => _quickAssignSelectedSlot = null);
+            } else {
+              setState(() => _quickAssignSelectedSlot = stage);
+            }
+          },
+          onAudioAssign: (stage, audioPath) {
+            projectProvider.setAudioAssignment(stage, audioPath);
+            _ensureCompositeEventForStage(stage, audioPath);
+            final mw = context.read<MiddlewareProvider>();
+            final ce = mw.compositeEvents.where((e) => e.id == 'audio_$stage').firstOrNull;
+            if (ce != null) _syncEventToRegistry(ce);
+            AudioAssetManager.instance.importFilesInstant([audioPath], folder: 'SlotLab Import');
+            if (!_audioPool.any((a) => a['path'] == audioPath)) {
+              final name = audioPath.split('/').last;
+              setState(() => _audioPool.add(_createAudioPoolEntry(audioPath, name)));
+              Future.microtask(() => _persistState());
+              _loadMetadataInBackground([audioPath]);
+            }
+            final triggerLayer = GetIt.instance<TriggerLayerProvider>();
+            if (triggerLayer.autoBindingsEnabled) triggerLayer.generateAutoBindings();
+            final coverage = GetIt.instance<BehaviorCoverageProvider>();
+            coverage.recordTrigger(stage, stage);
+            if (mounted) {
+              final fileName = audioPath.split('/').last;
+              showToast('Assigned "$fileName" → ${stage.replaceAll("_", " ")}', icon: Icons.audiotrack);
+            }
+          },
+          onAudioClear: (stage) {
+            projectProvider.removeAudioAssignment(stage);
+            eventRegistry.unregisterEvent('audio_$stage');
+            final middleware = context.read<MiddlewareProvider>();
+            middleware.deleteCompositeEvent('audio_$stage');
+          },
+          onSectionToggle: (sectionId) => projectProvider.toggleSection(sectionId),
+          onGroupToggle: (groupId) => projectProvider.toggleGroup(groupId),
+          onBatchDistribute: (matched, unmatched) async {
+            final allPaths = <String>[
+              ...matched.map((m) => m.audioPath),
+              ...unmatched.map((u) => u.audioPath),
+            ];
+            allPaths.sort((a, b) => a.split('/').last.toLowerCase().compareTo(b.split('/').last.toLowerCase()));
+            final newEntries = <Map<String, dynamic>>[];
+            for (final path in allPaths) {
+              if (_audioPool.any((a) => a['path'] == path)) continue;
+              newEntries.add(_createAudioPoolEntry(path, path.split('/').last));
+            }
+            if (newEntries.isNotEmpty) {
+              setState(() => _audioPool.addAll(newEntries));
+              AudioAssetManager.instance.importFilesInstant(
+                newEntries.map((e) => e['path'] as String).toList(), folder: 'SlotLab Import');
+              Future.microtask(() => _persistState());
+              _loadMetadataInBackground(newEntries.map((e) => e['path'] as String).toList());
+            }
+            await BatchDistributionDialog.show(context, matched: matched, unmatched: unmatched);
+          },
+          canUndo: projectProvider.canUndoAudioAssignment,
+          canRedo: projectProvider.canRedoAudioAssignment,
+          undoDescription: projectProvider.undoAudioDescription,
+          redoDescription: projectProvider.redoAudioDescription,
+          onUndo: () {
+            final success = projectProvider.undoAudioAssignment();
+            if (success && mounted) showToast('Undo successful', type: ToastType.info, icon: Icons.undo);
+          },
+          onRedo: () {
+            final success = projectProvider.redoAudioAssignment();
+            if (success && mounted) showToast('Redo successful', type: ToastType.info, icon: Icons.redo);
+          },
+          onBulkAssign: (baseStage, audioPath) {
+            final expandedStages = projectProvider.bulkAssignToSimilarStages(baseStage, audioPath);
+            if (expandedStages.isNotEmpty && mounted) {
+              for (final stage in expandedStages) _ensureCompositeEventForStage(stage, audioPath);
+              showToast('Bulk assigned to ${expandedStages.length} stages', icon: Icons.copy_all);
+            }
+          },
+          onSlotMachineCreated: (reels, rows) {
+            final slotLabProvider = context.read<SlotLabProvider>();
+            setState(() => _slotLabSettings = _slotLabSettings.copyWith(reels: reels, rows: rows));
+            slotLabProvider.updateGridSize(reels, rows);
+          },
+          onBulkImport: (mappings) {
+            int count = 0;
+            for (final entry in mappings.entries) {
+              projectProvider.setAudioAssignment(entry.key, entry.value);
+              _ensureCompositeEventForStage(entry.key, entry.value);
+              count++;
+            }
+            projectProvider.sanitizeAssignments();
+            final allPaths = mappings.values.toList();
+            AudioAssetManager.instance.importFilesInstant(allPaths, folder: 'SlotLab Import');
+            final poolEntries = <Map<String, dynamic>>[];
+            for (final path in allPaths) {
+              if (_audioPool.any((a) => a['path'] == path)) continue;
+              poolEntries.add(_createAudioPoolEntry(path, path.split('/').last));
+            }
+            if (poolEntries.isNotEmpty) {
+              setState(() => _audioPool.addAll(poolEntries));
+              Future.microtask(() => _persistState());
+              _loadMetadataInBackground(poolEntries.map((e) => e['path'] as String).toList());
+            }
+            final triggerLayer = GetIt.instance<TriggerLayerProvider>();
+            if (triggerLayer.autoBindingsEnabled) triggerLayer.generateAutoBindings();
+            if (mounted) showToast('Imported $count audio mappings', icon: Icons.file_download);
+          },
+        );
+      },
+    );
+  }
 
   Widget _buildMockSlot() {
     return Container(

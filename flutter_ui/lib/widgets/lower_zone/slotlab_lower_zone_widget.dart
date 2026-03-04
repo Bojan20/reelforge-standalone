@@ -51,6 +51,14 @@ import '../../providers/git_provider.dart';
 import '../slot_lab/slotlab_bus_mixer.dart';
 import '../slot_lab/lower_zone/events/composite_editor_panel.dart';
 import 'package:get_it/get_it.dart';
+import '../middleware/event_templates_panel.dart';
+import '../middleware/event_dependency_graph_panel.dart';
+import '../middleware/bus_hierarchy_panel.dart';
+import '../middleware/ducking_matrix_panel.dart';
+import '../middleware/attenuation_curve_panel.dart';
+import '../middleware/audio_signatures_panel.dart';
+import '../middleware/dsp_profiler_panel.dart';
+import '../middleware/preset_morph_editor_panel.dart';
 import '../slot_lab/lower_zone/slotlab_logic_tab.dart';
 import '../slot_lab/lower_zone/slotlab_intel_tab.dart';
 import '../slot_lab/lower_zone/slotlab_monitor_tab.dart';
@@ -832,6 +840,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       SlotLabStagesSubTab.timeline => _buildTimelinePanel(),
       SlotLabStagesSubTab.symbols => _buildSymbolsPanel(),
       SlotLabStagesSubTab.timing => _buildProfilerPanel(),
+      SlotLabStagesSubTab.layerTimeline => const Center(child: Text('Layer timeline requires active playback', style: TextStyle(color: Color(0xFF606068), fontSize: 11))),
     };
   }
 
@@ -878,11 +887,29 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       SlotLabEventsSubTab.layers => _buildEventLogPanel(),
       SlotLabEventsSubTab.pool => _buildPoolPanel(),
       SlotLabEventsSubTab.auto => _buildAutomationPanel(),
+      SlotLabEventsSubTab.templates => const EventTemplatesPanel(),
+      SlotLabEventsSubTab.depGraph => _buildDepGraphPanel(),
     };
   }
 
   Widget _buildFolderPanel() => _buildCompactEventFolder();
   Widget _buildEditorPanel() => const CompositeEditorPanel();
+
+  Widget _buildDepGraphPanel() {
+    return Consumer<MiddlewareProvider>(
+      builder: (context, middleware, _) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            return EventDependencyGraphPanel(
+              events: middleware.compositeEvents,
+              width: constraints.maxWidth,
+              height: constraints.maxHeight,
+            );
+          },
+        );
+      },
+    );
+  }
 
   Widget _buildEventLogPanel() {
     // Event Log requires both providers
@@ -969,6 +996,8 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       ),
       SlotLabMixSubTab.pan => _buildPanPanel(),
       SlotLabMixSubTab.meter => _buildMeterPanel(),
+      SlotLabMixSubTab.hierarchy => const BusHierarchyPanel(),
+      SlotLabMixSubTab.ducking => const DuckingMatrixPanel(),
     };
   }
 
@@ -990,6 +1019,12 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       SlotLabDspSubTab.reverb => _buildFabFilterReverbPanel(),
       SlotLabDspSubTab.gate => _buildFabFilterGatePanel(),
       SlotLabDspSubTab.limiter => _buildFabFilterLimiterPanel(),
+      SlotLabDspSubTab.attenuation => const AttenuationCurvePanel(),
+      SlotLabDspSubTab.signatures => const AudioSignaturesPanel(),
+      SlotLabDspSubTab.dspProfiler => const DspProfilerPanel(),
+      SlotLabDspSubTab.layerDsp => const Center(child: Text('Select a layer to edit DSP chain', style: TextStyle(color: Color(0xFF606068), fontSize: 11))),
+      SlotLabDspSubTab.presetMorph => const PresetMorphEditorPanel(),
+      SlotLabDspSubTab.spatial => const Center(child: Text('Select a layer to design spatial audio', style: TextStyle(color: Color(0xFF606068), fontSize: 11))),
     };
   }
 

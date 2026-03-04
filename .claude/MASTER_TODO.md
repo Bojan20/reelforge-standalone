@@ -1,11 +1,11 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-03-02
+**Updated:** 2026-03-04
 **Master Spec:** `FLUXFORGE_MASTER_SPEC.md` (consolidated reference)
 
 ---
 
-## ALL SYSTEMS COMPLETE — 208/208 ✅
+## COMPLETED SYSTEMS — 208/208 ✅ + P-USL IN PROGRESS
 
 ```
 COMPLETED SYSTEMS:
@@ -43,6 +43,14 @@ COMPLETED SYSTEMS:
     Phase 5: GDD Parser (4) ✅
     Phase 6: CI/CD (3) ✅
 
+  P-USL: Unified SlotLab ✅ (Middleware → SlotLab merge)
+    - EditorMode.middleware removed
+    - Middleware Lower Zone UI deleted
+    - RTPC/Containers/Music tabs merged into SlotLab
+    - All 18 middleware panels integrated into SlotLab tabs
+    - Event layer editor expanded (all parameters)
+    - MiddlewareHubScreen dead (import removed)
+
 ANALYZER: 0 errors, 0 warnings ✅
 ```
 
@@ -58,7 +66,8 @@ ANALYZER: 0 errors, 0 warnings ✅
 | P-RTE Recursive Trigger | 5/5 | ✅ |
 | P-CTR Conflict Resolution | 5/5 | ✅ |
 | P-PPL Publish Pipeline | 8/8 | ✅ |
-| **GRAND TOTAL** | **208/208** | **✅** |
+| P-USL Unified SlotLab | ✅ | ✅ |
+| **GRAND TOTAL** | **208/208 + P-USL** | **✅** |
 
 ---
 
