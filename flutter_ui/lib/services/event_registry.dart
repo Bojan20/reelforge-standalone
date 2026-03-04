@@ -62,9 +62,11 @@ class AudioLayer {
   final double fadeOutMs;   // Fade-out duration at end in milliseconds (0 = instant stop)
   final double trimStartMs; // Start playback from this position in milliseconds
   final double trimEndMs;   // Stop playback at this position in milliseconds (0 = play to end)
-  /// Action type: Play, Stop, StopAll, FadeOut, SetVolume, SetBusVolume, Pause, Resume
+  /// Action type: Play, Stop, StopAll, FadeOut, FadeEvent, StopEvent, SetVolume, SetBusVolume, Pause, Resume
   final String actionType;
   final bool loop; // Whether this layer loops (for Play actions)
+  /// Target event stage for FadeEvent/StopEvent actions (e.g., "MUSIC_BASE_L1")
+  final String? targetEventId;
 
   const AudioLayer({
     required this.id,
@@ -81,6 +83,7 @@ class AudioLayer {
     this.trimEndMs = 0.0,
     this.actionType = 'Play',
     this.loop = false,
+    this.targetEventId,
   });
 
   Map<String, dynamic> toJson() => {
@@ -2374,6 +2377,16 @@ class EventRegistry extends ChangeNotifier {
           _dispatchResumeAction(layer);
           break;
 
+        case 'FadeEvent':
+          // Fade a specific event by stage name (like industry JSON: Fade spriteId)
+          _dispatchFadeEventAction(layer);
+          break;
+
+        case 'StopEvent':
+          // Stop a specific event by stage name (like industry JSON: Stop spriteId)
+          _dispatchStopEventAction(layer);
+          break;
+
         default:
           // Unknown action type — treat as Play for backward compatibility
           _playLayer(
@@ -2686,6 +2699,37 @@ class EventRegistry extends ChangeNotifier {
       Future.delayed(Duration(milliseconds: delayMs), doResume);
     } else {
       doResume();
+    }
+  }
+
+  /// FadeEvent — fade out a specific event by stage name (industry standard: Fade spriteId)
+  void _dispatchFadeEventAction(AudioLayer layer) {
+    final target = layer.targetEventId;
+    if (target == null || target.isEmpty) return;
+    final delayMs = layer.delay.round();
+    final fadeMs = layer.fadeOutMs.round();
+    void doFade() {
+      fadeOutEvent(target, fadeMs: fadeMs > 0 ? fadeMs : 100);
+    }
+    if (delayMs > 0) {
+      Future.delayed(Duration(milliseconds: delayMs), doFade);
+    } else {
+      doFade();
+    }
+  }
+
+  /// StopEvent — stop a specific event by stage name (industry standard: Stop spriteId)
+  void _dispatchStopEventAction(AudioLayer layer) {
+    final target = layer.targetEventId;
+    if (target == null || target.isEmpty) return;
+    final delayMs = layer.delay.round();
+    void doStop() {
+      stopEvent(target);
+    }
+    if (delayMs > 0) {
+      Future.delayed(Duration(milliseconds: delayMs), doStop);
+    } else {
+      doStop();
     }
   }
 

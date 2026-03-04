@@ -219,7 +219,8 @@ class StageConfigurationService extends ChangeNotifier {
     if (upper.startsWith('SPIN_') || upper.startsWith('REEL_')) return StageCategory.spin;
     if (upper.startsWith('WIN_') || upper.startsWith('ROLLUP_') || upper.startsWith('BIGWIN_')) return StageCategory.win;
     if (upper.startsWith('FS_') || upper.startsWith('BONUS_') || upper.startsWith('FEATURE_') ||
-        upper.startsWith('FREE_SPIN')) return StageCategory.feature;
+        upper.startsWith('FREE_SPIN') || upper.startsWith('WHEEL_') || upper.startsWith('PICK_') ||
+        upper.startsWith('CASH_COLLECT')) return StageCategory.feature;
     if (upper.startsWith('CASCADE_') || upper.startsWith('TUMBLE_')) return StageCategory.cascade;
     if (upper.startsWith('JACKPOT_')) return StageCategory.jackpot;
     if (upper.startsWith('HOLD_') || upper.startsWith('RESPIN_')) return StageCategory.hold;
@@ -228,7 +229,8 @@ class StageConfigurationService extends ChangeNotifier {
     if (upper.startsWith('MUSIC_') || upper.startsWith('AMBIENT_') || upper.startsWith('IDLE_') ||
         upper.startsWith('ATTRACT_') || upper.startsWith('FS_MUSIC') || upper.startsWith('HOLD_MUSIC')) return StageCategory.music;
     if (upper.startsWith('SYMBOL_') || upper.startsWith('WILD_') || upper.startsWith('SCATTER_') ||
-        upper.startsWith('ANTICIPATION_') || upper.startsWith('NEAR_MISS')) return StageCategory.symbol;
+        upper.startsWith('ANTICIPATION_') || upper.startsWith('NEAR_MISS') || upper.startsWith('STICKY_') ||
+        upper.startsWith('CASH_SYMBOL') || upper.startsWith('CASH_VALUE')) return StageCategory.symbol;
     if (upper.startsWith('TRANSITION_') || upper.startsWith('COLLECT_')) return StageCategory.custom;
     return StageCategory.custom;
   }
@@ -759,6 +761,7 @@ class StageConfigurationService extends ChangeNotifier {
     _register('BIG_WIN_UPGRADE', StageCategory.win, 82, SpatialBus.sfx, 'DEFAULT');
     _register('BIG_WIN_END', StageCategory.win, 75, SpatialBus.sfx, 'DEFAULT');
     _register('BIG_WIN_OUTRO', StageCategory.win, 70, SpatialBus.sfx, 'DEFAULT');
+    _register('MAX_AWARD_CAP', StageCategory.win, 95, SpatialBus.sfx, 'JACKPOT_TRIGGER', ducksMusic: true);
 
     // Rollup counter (pooled for rapid fire)
     _register('ROLLUP_START', StageCategory.win, 45, SpatialBus.sfx, 'DEFAULT');
@@ -830,13 +833,16 @@ class StageConfigurationService extends ChangeNotifier {
     _register('CONTEXT_BASE_TO_JACKPOT', StageCategory.feature, 92, SpatialBus.music, 'WIN_EPIC', ducksMusic: true);
     _register('CONTEXT_JACKPOT_TO_BASE', StageCategory.feature, 74, SpatialBus.music, 'DEFAULT');
 
-    // Bonus
+    // Bonus / Pick (IGT: onPickBonusStart/Select/Reveal/End)
     _register('BONUS_TRIGGER', StageCategory.feature, 85, SpatialBus.sfx, 'FEATURE_ENTER', ducksMusic: true);
     _register('BONUS_ENTER', StageCategory.feature, 75, SpatialBus.sfx, 'FEATURE_ENTER', ducksMusic: true);
     _register('BONUS_STEP', StageCategory.feature, 55, SpatialBus.sfx, 'DEFAULT');
     _register('BONUS_REVEAL', StageCategory.feature, 60, SpatialBus.sfx, 'DEFAULT');
     _register('BONUS_EXIT', StageCategory.feature, 70, SpatialBus.sfx, 'DEFAULT');
     _register('BONUS_LAND_3', StageCategory.feature, 80, SpatialBus.sfx, 'FEATURE_ENTER');
+    _register('PICK_SELECT', StageCategory.feature, 55, SpatialBus.sfx, 'DEFAULT');
+    _register('PICK_REVEAL', StageCategory.feature, 60, SpatialBus.sfx, 'DEFAULT');
+    _register('PICK_MUSIC', StageCategory.music, 40, SpatialBus.music, 'DEFAULT', isLooping: true);
 
     // ─────────────────────────────────────────────────────────────────────────
     // CASCADE / TUMBLE
@@ -856,6 +862,21 @@ class StageConfigurationService extends ChangeNotifier {
       final intent = i >= 7 ? 'WIN_EPIC' : (i >= 5 ? 'WIN_BIG' : 'DEFAULT');
       _register('CASCADE_COMBO_$i', StageCategory.cascade, priority, SpatialBus.sfx, intent, ducksMusic: i >= 6);
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // LAYOUT — Megaways/expanding reels (IGT: onReelExpand/Contract, onExtraRow)
+    // ─────────────────────────────────────────────────────────────────────────
+    _register('REEL_EXPAND_START', StageCategory.spin, 45, SpatialBus.sfx, 'DEFAULT');
+    _register('REEL_EXPAND_END', StageCategory.spin, 40, SpatialBus.sfx, 'DEFAULT');
+    _register('REEL_CONTRACT', StageCategory.spin, 40, SpatialBus.sfx, 'DEFAULT');
+    _register('EXTRA_ROW_ENABLE', StageCategory.spin, 50, SpatialBus.sfx, 'DEFAULT');
+    _register('EXTRA_ROW_DISABLE', StageCategory.spin, 40, SpatialBus.sfx, 'DEFAULT');
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // STICKY SYMBOLS (IGT: onStickySymbolApply/Release)
+    // ─────────────────────────────────────────────────────────────────────────
+    _register('STICKY_SYMBOL_APPLY', StageCategory.symbol, 55, SpatialBus.sfx, 'DEFAULT');
+    _register('STICKY_SYMBOL_RELEASE', StageCategory.symbol, 45, SpatialBus.sfx, 'DEFAULT');
 
     // ─────────────────────────────────────────────────────────────────────────
     // JACKPOT
@@ -881,10 +902,32 @@ class StageConfigurationService extends ChangeNotifier {
     _register('HOLD_SPIN', StageCategory.hold, 50, SpatialBus.sfx, 'DEFAULT');
     _register('HOLD_RESPIN_STOP', StageCategory.hold, 55, SpatialBus.sfx, 'DEFAULT', isPooled: true);
     _register('HOLD_SYMBOL_LAND', StageCategory.hold, 55, SpatialBus.sfx, 'DEFAULT');
+    _register('HOLD_SYMBOL_LOCK', StageCategory.hold, 60, SpatialBus.sfx, 'DEFAULT');
+    _register('HOLD_RESPIN_STEP', StageCategory.hold, 50, SpatialBus.sfx, 'DEFAULT', isPooled: true);
     _register('HOLD_RESPIN_RESET', StageCategory.hold, 60, SpatialBus.sfx, 'DEFAULT');
     _register('HOLD_GRID_FULL', StageCategory.hold, 90, SpatialBus.sfx, 'WIN_EPIC', ducksMusic: true);
     _register('HOLD_EXIT', StageCategory.hold, 65, SpatialBus.sfx, 'DEFAULT');
     _register('HOLD_MUSIC', StageCategory.music, 40, SpatialBus.music, 'DEFAULT', isLooping: true);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // WHEEL BONUS (IGT: onWheelBonusEnter/SpinStart/Tick/Stop/Reveal/Exit)
+    // ─────────────────────────────────────────────────────────────────────────
+    _register('WHEEL_ENTER', StageCategory.feature, 70, SpatialBus.sfx, 'FEATURE_ENTER', ducksMusic: true);
+    _register('WHEEL_SPIN_START', StageCategory.feature, 55, SpatialBus.sfx, 'DEFAULT');
+    _register('WHEEL_SPIN_LOOP', StageCategory.feature, 50, SpatialBus.sfx, 'DEFAULT', isLooping: true);
+    _register('WHEEL_TICK', StageCategory.feature, 25, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('WHEEL_SPIN_STOP', StageCategory.feature, 60, SpatialBus.sfx, 'DEFAULT');
+    _register('WHEEL_RESULT_REVEAL', StageCategory.feature, 65, SpatialBus.sfx, 'WIN_BIG');
+    _register('WHEEL_EXIT', StageCategory.feature, 55, SpatialBus.sfx, 'DEFAULT');
+    _register('WHEEL_MUSIC', StageCategory.music, 40, SpatialBus.music, 'DEFAULT', isLooping: true);
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CASH ON REELS / COLLECT (IGT: onCashSymbolLand/ValueReveal/CollectStart/End)
+    // ─────────────────────────────────────────────────────────────────────────
+    _register('CASH_SYMBOL_LAND', StageCategory.symbol, 55, SpatialBus.sfx, 'DEFAULT');
+    _register('CASH_VALUE_REVEAL', StageCategory.symbol, 50, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('CASH_COLLECT_START', StageCategory.feature, 65, SpatialBus.sfx, 'DEFAULT');
+    _register('CASH_COLLECT_END', StageCategory.feature, 60, SpatialBus.sfx, 'DEFAULT');
 
     // ─────────────────────────────────────────────────────────────────────────
     // GAMBLE
@@ -1301,7 +1344,8 @@ class StageConfigurationService extends ChangeNotifier {
 
   SpatialBus _getBusByPrefix(String stage) {
     if (stage.startsWith('REEL_') || stage.startsWith('SYMBOL_LAND')) return SpatialBus.reels;
-    if (stage.startsWith('MUSIC_') || stage.startsWith('FS_MUSIC') || stage.startsWith('HOLD_MUSIC')) return SpatialBus.music;
+    if (stage.startsWith('MUSIC_') || stage.startsWith('FS_MUSIC') || stage.startsWith('HOLD_MUSIC') ||
+        stage.startsWith('WHEEL_MUSIC') || stage.startsWith('PICK_MUSIC')) return SpatialBus.music;
     if (stage.startsWith('UI_') || stage.startsWith('SYSTEM_') || stage.startsWith('MENU_')) return SpatialBus.ui;
     if (stage.startsWith('AMBIENT_') || stage.startsWith('IDLE_')) return SpatialBus.ambience;
     if (stage.contains('VOICE') || stage.contains('_VO')) return SpatialBus.vo;

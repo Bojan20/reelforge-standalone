@@ -463,10 +463,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // Check if already exists
     final existing = middleware.compositeEvents.where((e) => e.id == eventId).firstOrNull;
-    // Skip ONLY if main audio layer matches AND auto-generated layers already present
-    if (existing != null && existing.layers.isNotEmpty) {
+    // BIG_WIN_START/END: ALWAYS update (must have FadeOut/Stop/Play layers visible)
+    final isBigWin = stage == 'BIG_WIN_START' || stage == 'BIG_WIN_END';
+    if (!isBigWin && existing != null && existing.layers.isNotEmpty) {
       final mainLayer = existing.layers.where((l) => l.id == 'layer_$stage').firstOrNull;
-      final hasAutoLayers = existing.layers.any((l) => l.id.startsWith('auto_') || l.id.startsWith('bwi_') || l.id.startsWith('bwe_'));
+      final hasAutoLayers = existing.layers.any((l) => l.id.startsWith('auto_') || l.id.startsWith('bws_') || l.id.startsWith('bwe_'));
       if (mainLayer != null && mainLayer.audioPath == audioPath && hasAutoLayers) {
         return; // Already synced with all auto layers
       }
@@ -498,32 +499,47 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     if (stage == 'BIG_WIN_START') {
       // ══════════════════════════════════════════════════════════════
-      // BIG_WIN_START: FadeOut base game layers → Stop → Play big win
+      // BIG_WIN_START: Fade base music → Stop base music → Play big win
+      // Industry standard: target events by NAME, not by bus
       // ══════════════════════════════════════════════════════════════
 
-      // 1. FadeOut all base game music layers (100ms)
+      // 1. FadeOut MUSIC_BASE_L1 by event name (100ms)
       baseLayers.add(SlotEventLayer(
         id: 'bws_fadeout_base',
-        name: 'FadeOut Base Game Music (auto)',
+        name: 'Fade MUSIC_BASE_L1 → 0 (auto)',
         audioPath: '',
-        actionType: 'FadeOut',
+        actionType: 'FadeEvent',
+        targetEventId: 'MUSIC_BASE_L1',
         volume: 0.0,
-        busId: 1, // Music bus
+        busId: 1,
         fadeOutMs: 100,
       ));
 
-      // 2. Stop all base game music (110ms — after fade completes)
+      // 2. FadeOut GAME_START music if playing (100ms)
+      baseLayers.add(SlotEventLayer(
+        id: 'bws_fadeout_gamestart',
+        name: 'Fade GAME_START → 0 (auto)',
+        audioPath: '',
+        actionType: 'FadeEvent',
+        targetEventId: 'GAME_START',
+        volume: 0.0,
+        busId: 1,
+        fadeOutMs: 100,
+      ));
+
+      // 3. Stop MUSIC_BASE_L1 (110ms — after fade completes)
       baseLayers.add(SlotEventLayer(
         id: 'bws_stop_base',
-        name: 'Stop Base Game Music (auto)',
+        name: 'Stop MUSIC_BASE_L1 (auto)',
         audioPath: '',
-        actionType: 'StopAll',
+        actionType: 'StopEvent',
+        targetEventId: 'MUSIC_BASE_L1',
         volume: 0.0,
         busId: 1,
         offsetMs: 110,
       ));
 
-      // 3. Play Big Win music (immediate, loop)
+      // 4. Play Big Win music (immediate, loop)
       baseLayers.add(SlotEventLayer(
         id: 'layer_$stage',
         name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
@@ -538,11 +554,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     } else if (stage == 'BIG_WIN_END') {
       // ══════════════════════════════════════════════════════════════
-      // BIG_WIN_END: All actions visible — designer can adjust timing
+      // BIG_WIN_END: Industry standard — target events by NAME
       //
-      // Flow: Play end SFX → FadeOut big win music → Stop big win →
-      //       Start base game music at vol 0 → FadeIn base game
-      //       (smooth transition when plaketa fades out)
+      // Flow: Play end SFX → Stop BIG_WIN_START → Fade base music back
       // ══════════════════════════════════════════════════════════════
 
       // 1. Play Big Win End SFX/stinger
@@ -557,29 +571,18 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         durationSeconds: durationSec,
       ));
 
-      // 2. FadeOut Big Win music loop (100ms)
-      baseLayers.add(SlotEventLayer(
-        id: 'bwe_fadeout_bigwin',
-        name: 'FadeOut Big Win Music (auto)',
-        audioPath: '',
-        actionType: 'FadeOut',
-        volume: 0.0,
-        busId: 1,
-        fadeOutMs: 100,
-      ));
-
-      // 3. Stop Big Win music loop (110ms — after fade completes)
+      // 2. Stop BIG_WIN_START music by event name
       baseLayers.add(SlotEventLayer(
         id: 'bwe_stop_bigwin',
-        name: 'Stop Big Win Music (auto)',
+        name: 'Stop BIG_WIN_START (auto)',
         audioPath: '',
-        actionType: 'Stop',
+        actionType: 'StopEvent',
+        targetEventId: 'BIG_WIN_START',
         volume: 0.0,
         busId: 1,
-        offsetMs: 110,
       ));
 
-      // 4. Start Base Game Music at volume 0 (preload — ready for fadeIn)
+      // 3. Start Base Game Music at volume 0 (preload — ready for fadeIn)
       try {
         final project = Provider.of<SlotLabProjectProvider>(context, listen: false);
         final baseMusic = project.getAudioAssignment('MUSIC_BASE_L1');
@@ -594,16 +597,16 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             loop: true,
           ));
 
-          // 5. FadeIn Base Game Music (when plaketa fades out, reels appear)
+          // 4. FadeIn Base Game Music (500ms — industry standard restore)
           baseLayers.add(SlotEventLayer(
             id: 'bwe_fadein_base_l1',
-            name: 'FadeIn Base Game Music (auto)',
+            name: 'Fade MUSIC_BASE_L1 → 1 (auto)',
             audioPath: '',
             actionType: 'SetVolume',
             volume: 1.0,
             busId: 1,
-            offsetMs: 3500,
-            fadeInMs: 1300.0,
+            offsetMs: 500,
+            fadeInMs: 500.0,
           ));
         }
       } catch (_) {}
@@ -10430,6 +10433,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       trimEndMs: l.trimEndMs,
       actionType: l.actionType,
       loop: l.loop,
+      targetEventId: l.targetEventId,
     )).toList();
 
     // Register event under EACH trigger stage

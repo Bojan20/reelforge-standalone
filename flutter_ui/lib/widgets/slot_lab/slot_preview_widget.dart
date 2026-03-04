@@ -3209,7 +3209,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // ═══════════════════════════════════════════════════════════════════════
     eventRegistry.stopEvent('BIG_WIN_LOOP');
     eventRegistry.stopEvent('BIG_WIN_COINS');
+    // Play BIG_WIN_END sfx, stop BIG_WIN_START music, fade base music back to 1
     eventRegistry.triggerStage('BIG_WIN_END');
+    eventRegistry.stopEvent('BIG_WIN_START');
+    eventRegistry.triggerStageWithFadeIn('MUSIC_BASE_L1', fadeMs: 500);
 
     final lastTier = _currentDisplayTier;
 
@@ -3221,8 +3224,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _isInTierProgression = false;
 
       // ═══════════════════════════════════════════════════════════════════════
-      // STEP 4: Fade out plaque (base game music restore handled by BIG_WIN_END
-      // composite event layers — FadeOut big win + Play silent + FadeIn base game)
+      // STEP 4: Fade out plaque
       // ═══════════════════════════════════════════════════════════════════════
       _winAmountController.reverse().then((_) {
         if (!mounted) return;
