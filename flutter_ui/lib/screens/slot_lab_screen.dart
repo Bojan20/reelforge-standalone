@@ -10576,8 +10576,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             (compositeEvent.layers.length > 1 ||
              compositeEvent.layers.any((l) => l.actionType != 'Play'));
         if (hasMultiLayerActions) {
-          // Still ensure composite event is up to date, but don't overwrite registry
+          // Ensure composite event is up to date, then register from composite (SSoT)
           _ensureCompositeEventForStage(stage, audioPath);
+          // Re-fetch (may have been updated) and register with all layers
+          final updated = middleware.compositeEvents
+              .where((e) => e.triggerStages.any((s) => s.toUpperCase() == stage.toUpperCase()))
+              .firstOrNull;
+          if (updated != null) {
+            _syncEventToRegistry(updated);
+          }
           continue;
         }
 
