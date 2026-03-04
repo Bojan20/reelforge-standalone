@@ -833,6 +833,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     final audioPath = projectProvider.getAudioAssignment(stageUppercase);
     if (audioPath == null || audioPath.isEmpty) return;
 
+    // BIG_WIN_INTRO/END are special: sfx on bus 2 but overlap=false on music bus 1
+    // so they fade out active music when triggered
+    final isBigWinTransition = stageUppercase == 'BIG_WIN_INTRO' ||
+        stageUppercase == 'BIG_WIN_END';
+
     final shouldLoop = StageConfigurationService.instance.isLooping(stageUppercase);
     final isMusicStage = stageUppercase.startsWith('MUSIC_') ||
         stageUppercase == 'GAME_START' || stageUppercase == 'BASE_GAME_START';
@@ -847,36 +852,47 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       }
     }
 
+    // Build layers — BIG_WIN_INTRO/END get additional music restore layers
+    final layers = <AudioLayer>[
+      AudioLayer(
+        id: 'layer_$stageUppercase',
+        name: '${stageUppercase.replaceAll('_', ' ')} Audio',
+        audioPath: audioPath,
+        volume: 1.0,
+        pan: pan,
+        delay: 0.0,
+        busId: busId,
+      ),
+    ];
+
+    // BIG_WIN_END: add MUSIC_BASE_L1 restore layer (delay 3500ms, fadeIn 1300ms)
+    if (stageUppercase == 'BIG_WIN_END') {
+      final baseMusic = projectProvider.getAudioAssignment('MUSIC_BASE_L1');
+      if (baseMusic != null && baseMusic.isNotEmpty) {
+        layers.add(AudioLayer(
+          id: 'bwe_restore_base_l1',
+          name: 'Base Game Music Restore',
+          audioPath: baseMusic,
+          volume: 0.0, // Starts silent
+          busId: 1,    // Music bus
+          delay: 3500,
+          fadeInMs: 1300.0,
+        ));
+      }
+    }
+
     eventRegistry.registerEvent(AudioEvent(
       id: 'audio_$stageUppercase',
       name: stageUppercase.replaceAll('_', ' '),
       stage: stageUppercase,
-      layers: [
-        AudioLayer(
-          id: 'layer_$stageUppercase',
-          name: '${stageUppercase.replaceAll('_', ' ')} Audio',
-          audioPath: audioPath,
-          volume: 1.0,
-          pan: pan,
-          delay: 0.0,
-          busId: busId,
-        ),
-      ],
-      loop: shouldLoop,
-      overlap: !isMusicStage && !shouldLoop,
-      crossfadeMs: isMusicStage ? 500 : 0,
-      targetBusId: busId,
+      layers: layers,
+      loop: stageUppercase == 'BIG_WIN_INTRO' ? true : shouldLoop,
+      // BIG_WIN transitions: overlap=false on music bus to fade out active music
+      overlap: isBigWinTransition ? false : (!isMusicStage && !shouldLoop),
+      crossfadeMs: isBigWinTransition ? 500 : (isMusicStage ? 500 : 0),
+      targetBusId: isBigWinTransition ? 1 : busId,
     ));
   }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // COMPOSITE BIG WIN REGISTRATION — Dynamic multi-layer events
-  //
-  // BIG_WIN_INTRO and BIG_WIN_END are COMPOSITE events with multiple layers:
-  // Each layer = one audio command (play sfx, play music, preload base, etc.)
-  // All layers are visible in middleware panel and fully editable by designer.
-  // NO hardcoded audio logic in tier progression — everything driven by events.
-  // ═══════════════════════════════════════════════════════════════════════════
 
   // ═══════════════════════════════════════════════════════════════════════════
   // VISUAL-SYNC CALLBACKS — Audio triggers on VISUAL reel stop

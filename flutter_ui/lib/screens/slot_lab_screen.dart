@@ -472,8 +472,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final busId = _getBusForStage(stage);
     final shouldLoop = stageConfig.isLooping(stage);
     final isMusicBus = busId == 1;
-    final shouldOverlap = !isMusicBus && !shouldLoop;
-    final crossfadeMs = isMusicBus ? 500 : 0;
+    final isBigWinTransition = stage == 'BIG_WIN_INTRO' || stage == 'BIG_WIN_END';
+    final shouldOverlap = isBigWinTransition ? false : (!isMusicBus && !shouldLoop);
+    final crossfadeMs = isBigWinTransition ? 500 : (isMusicBus ? 500 : 0);
+    final effectiveTargetBus = isBigWinTransition ? 1 : busId;
+    final effectiveLoop = stage == 'BIG_WIN_INTRO' ? true : shouldLoop;
 
     // Auto-detect duration via FFI
     double? durationSec;
@@ -482,32 +485,78 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       if (dur > 0) durationSec = dur;
     } catch (_) {}
 
+    // Build layers — BIG_WIN_INTRO/END show fade/restore actions as visible layers
+    final baseLayers = <SlotEventLayer>[
+      SlotEventLayer(
+        id: 'layer_$stage',
+        name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
+        audioPath: audioPath,
+        volume: 1.0,
+        pan: _getPanForStage(stage),
+        busId: busId,
+        durationSeconds: durationSec,
+      ),
+    ];
+
+    // BIG_WIN_INTRO: show "Fade Out Music" info layer
+    if (stage == 'BIG_WIN_INTRO') {
+      baseLayers.add(SlotEventLayer(
+        id: 'bwi_fadeout_music',
+        name: 'Fade Out All Music (auto)',
+        audioPath: '',
+        actionType: 'FadeOut',
+        volume: 0.0,
+        busId: 1,
+      ));
+    }
+
+    // BIG_WIN_END: add music restore layer visible in middleware
+    if (stage == 'BIG_WIN_END') {
+      try {
+        final project = Provider.of<SlotLabProjectProvider>(context, listen: false);
+        final baseMusic = project.getAudioAssignment('MUSIC_BASE_L1');
+        if (baseMusic != null && baseMusic.isNotEmpty) {
+          baseLayers.add(SlotEventLayer(
+            id: 'bwe_restore_base_l1',
+            name: 'Base Game Music Restore',
+            audioPath: baseMusic,
+            volume: 0.0,
+            busId: 1,
+            offsetMs: 3500,
+            fadeInMs: 1300.0,
+          ));
+        }
+      } catch (_) {}
+    }
+
     if (existing != null) {
-      // Update existing event — replace first layer or add new one
-      final updatedLayers = existing.layers.isEmpty
-          ? [
-              SlotEventLayer(
-                id: 'layer_$stage',
-                name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
-                audioPath: audioPath,
-                volume: 1.0,
-                pan: _getPanForStage(stage),
-                busId: busId,
-                durationSeconds: durationSec,
-              ),
-            ]
-          : existing.layers.map((l) {
-              if (l.id == 'layer_$stage') {
-                return l.copyWith(
-                  audioPath: audioPath,
-                  name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
-                  durationSeconds: durationSec ?? l.durationSeconds,
-                );
-              }
-              return l;
-            }).toList();
+      // Update existing event — replace auto layers, keep manual ones
+      final autoLayerIds = baseLayers.map((l) => l.id).toSet();
+      final manualLayers = existing.layers
+          .where((l) => !autoLayerIds.contains(l.id) && l.id != 'layer_$stage')
+          .toList();
+
+      final mergedLayers = <SlotEventLayer>[];
+      for (final newLayer in baseLayers) {
+        final old = existing.layers.where((l) => l.id == newLayer.id).firstOrNull;
+        if (old != null && newLayer.audioPath.isNotEmpty) {
+          mergedLayers.add(old.copyWith(
+            audioPath: newLayer.audioPath,
+            name: newLayer.name,
+            durationSeconds: newLayer.durationSeconds ?? old.durationSeconds,
+          ));
+        } else {
+          mergedLayers.add(newLayer);
+        }
+      }
+      mergedLayers.addAll(manualLayers);
+
       middleware.updateCompositeEvent(existing.copyWith(
-        layers: updatedLayers,
+        layers: mergedLayers,
+        overlap: shouldOverlap,
+        targetBusId: effectiveTargetBus,
+        looping: effectiveLoop,
+        crossfadeMs: crossfadeMs,
         modifiedAt: DateTime.now(),
       ));
     } else {
@@ -523,20 +572,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         ).join(' '),
         category: category,
         color: color,
-        layers: [
-          SlotEventLayer(
-            id: 'layer_$stage',
-            name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
-            audioPath: audioPath,
-            volume: 1.0,
-            pan: _getPanForStage(stage),
-            busId: busId,
-            durationSeconds: durationSec,
-          ),
-        ],
+        layers: baseLayers,
         triggerStages: [stage],
-        targetBusId: busId,
-        looping: shouldLoop,
+        targetBusId: effectiveTargetBus,
+        looping: effectiveLoop,
         overlap: shouldOverlap,
         crossfadeMs: crossfadeMs,
         createdAt: now,
@@ -555,6 +594,60 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     if (stage == 'REEL_STOP_4') return 0.8;
     // Default: center
     return 0.0;
+  }
+
+  /// Build AudioEvent for a stage, handling BIG_WIN_INTRO/END specially:
+  /// - overlap=false, targetBusId=1 → fades out active music on music bus
+  /// - BIG_WIN_INTRO: loop=true (big win music loops)
+  /// - BIG_WIN_END: adds MUSIC_BASE_L1 restore layer (delay 3500ms, fadeIn 1300ms)
+  AudioEvent _buildAudioEventForStage(String stage, String audioPath) {
+    final busId = _getBusForStage(stage);
+    final shouldLoop = StageConfigurationService.instance.isLooping(stage);
+    final isMusicBus = busId == 1;
+    final isBigWinTransition = stage == 'BIG_WIN_INTRO' || stage == 'BIG_WIN_END';
+
+    final layers = <AudioLayer>[
+      AudioLayer(
+        id: 'layer_$stage',
+        name: '${stage.replaceAll('_', ' ')} Audio',
+        audioPath: audioPath,
+        volume: 1.0,
+        pan: _getPanForStage(stage),
+        delay: 0.0,
+        busId: busId,
+      ),
+    ];
+
+    // BIG_WIN_END: restore base game music after big win ends
+    if (stage == 'BIG_WIN_END') {
+      try {
+        final project = Provider.of<SlotLabProjectProvider>(context, listen: false);
+        final baseMusic = project.getAudioAssignment('MUSIC_BASE_L1');
+        if (baseMusic != null && baseMusic.isNotEmpty) {
+          layers.add(AudioLayer(
+            id: 'bwe_restore_base_l1',
+            name: 'Base Game Music Restore',
+            audioPath: baseMusic,
+            volume: 0.0, // Starts silent
+            busId: 1,    // Music bus
+            delay: 3500,
+            fadeInMs: 1300.0,
+          ));
+        }
+      } catch (_) {}
+    }
+
+    return AudioEvent(
+      id: 'audio_$stage',
+      name: stage.replaceAll('_', ' '),
+      stage: stage,
+      layers: layers,
+      loop: stage == 'BIG_WIN_INTRO' ? true : shouldLoop,
+      // BIG_WIN transitions: overlap=false on music bus to fade out active music
+      overlap: isBigWinTransition ? false : (!isMusicBus && !shouldLoop),
+      crossfadeMs: isBigWinTransition ? 500 : (isMusicBus ? 500 : 0),
+      targetBusId: isBigWinTransition ? 1 : busId,
+    );
   }
 
   /// Get bus ID for a stage based on category
@@ -1070,36 +1163,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       final stage = entry.key;
       final audioPath = entry.value;
 
-      final eventId = 'audio_$stage';
-
-      // CRITICAL: Check if stage should loop + get proper bus
-      final shouldLoop = StageConfigurationService.instance.isLooping(stage);
-      final busId = _getBusForStage(stage);
-      final isMusicBus = busId == 1;
-      final shouldOverlap = !isMusicBus && !shouldLoop;
-      final crossfadeMs = isMusicBus ? 500 : 0;
-
       // Register in EventRegistry for runtime playback
-      eventRegistry.registerEvent(AudioEvent(
-        id: eventId,
-        name: stage.replaceAll('_', ' '),
-        stage: stage,
-        layers: [
-          AudioLayer(
-            id: 'layer_$stage',
-            name: '${stage.replaceAll('_', ' ')} Audio',
-            audioPath: audioPath,
-            volume: 1.0,
-            pan: _getPanForStage(stage),
-            delay: 0.0,
-            busId: busId,
-          ),
-        ],
-        loop: shouldLoop,
-        overlap: shouldOverlap,
-        crossfadeMs: crossfadeMs,
-        targetBusId: busId,
-      ));
+      // _buildAudioEventForStage handles BIG_WIN_INTRO/END specially
+      eventRegistry.registerEvent(_buildAudioEventForStage(stage, audioPath));
 
       // CENTRAL BRIDGE: Ensure composite event exists for timeline visibility
       _ensureCompositeEventForStage(stage, audioPath);
@@ -2303,29 +2369,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         projectProvider.setAudioAssignment(match.stage, match.audioPath, recordUndo: false);
 
         // Register in EventRegistry for instant playback
-        final busId = _getBusForStage(match.stage);
-        final shouldLoop = StageConfigurationService.instance.isLooping(match.stage);
-        final isMusicBus = busId == 1;
-        eventRegistry.registerEvent(AudioEvent(
-          id: 'audio_${match.stage}',
-          name: match.stage.replaceAll('_', ' '),
-          stage: match.stage,
-          layers: [
-            AudioLayer(
-              id: 'layer_${match.stage}',
-              name: match.audioFileName,
-              audioPath: match.audioPath,
-              volume: 1.0,
-              pan: _getPanForStage(match.stage),
-              delay: 0.0,
-              busId: busId,
-            ),
-          ],
-          loop: shouldLoop,
-          overlap: !isMusicBus && !shouldLoop,
-          crossfadeMs: isMusicBus ? 500 : 0,
-          targetBusId: busId,
-        ));
+        // _buildAudioEventForStage handles BIG_WIN_INTRO/END specially
+        eventRegistry.registerEvent(_buildAudioEventForStage(match.stage, match.audioPath));
 
         // Create composite event for timeline visibility
         _ensureCompositeEventForStage(match.stage, match.audioPath);
@@ -10416,36 +10461,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         final stage = entry.key;
         final audioPath = entry.value;
 
-        // CRITICAL: Check if stage should loop (GAME_START, MUSIC_*, etc.)
-        final shouldLoop = StageConfigurationService.instance.isLooping(stage);
-        final busId = _getBusForStage(stage);
-        final isMusicBus = busId == 1;
-        // Music bus events: overlap=false (only one music at a time), crossfade 500ms
-        final shouldOverlap = !isMusicBus && !shouldLoop;
-        final crossfadeMs = isMusicBus ? 500 : 0;
-
-        final audioEvent = AudioEvent(
-          id: 'audio_$stage',
-          name: stage.replaceAll('_', ' '),
-          stage: stage,
-          layers: [
-            AudioLayer(
-              id: 'layer_$stage',
-              name: '${stage.replaceAll('_', ' ')} Audio',
-              audioPath: audioPath,
-              volume: 1.0,
-              pan: _getPanForStage(stage),
-              delay: 0.0,
-              busId: busId,
-            ),
-          ],
-          loop: shouldLoop,
-          overlap: shouldOverlap,
-          crossfadeMs: crossfadeMs,
-          targetBusId: busId,
-        );
-
-        eventRegistry.registerEvent(audioEvent);
+        // _buildAudioEventForStage handles BIG_WIN_INTRO/END specially
+        eventRegistry.registerEvent(_buildAudioEventForStage(stage, audioPath));
 
         // Also ensure composite event exists in MiddlewareProvider
         // so events panel shows these bindings
