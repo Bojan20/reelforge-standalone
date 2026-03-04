@@ -2173,6 +2173,7 @@ class MiddlewareProvider extends ChangeNotifier {
   void stopAllEvents({int fadeMs = 100}) {
     _ffi.middlewareStopAll(fadeMs: fadeMs);
     _playingInstances.clear();
+    _previewingEventIds.clear();
 
     // Release Middleware section when all events stopped
     UnifiedPlaybackController.instance.releaseSection(PlaybackSection.middleware);
@@ -3574,13 +3575,16 @@ class MiddlewareProvider extends ChangeNotifier {
     selectCompositeEvent(newEvent.id);
   }
 
-  /// Currently previewing event ID (for toggle play/stop in header)
-  String? _previewingEventId;
-  String? get previewingEventId => _previewingEventId;
-  bool get isPreviewingEvent => _previewingEventId != null;
+  /// Currently previewing event IDs (multiple events can play simultaneously)
+  final Set<String> _previewingEventIds = {};
+  Set<String> get previewingEventIds => Set.unmodifiable(_previewingEventIds);
+  bool get isPreviewingEvent => _previewingEventIds.isNotEmpty;
+
+  /// Check if a specific event is currently previewing
+  bool isEventPreviewing(String eventId) => _previewingEventIds.contains(eventId);
 
   /// Preview a composite event (play all layers)
-  /// Uses playCompositeEvent internally for actual audio playback
+  /// Does NOT stop other playing events — they continue independently
   void previewCompositeEvent(String eventId) {
     final event = compositeEvents.where((e) => e.id == eventId).firstOrNull;
     if (event == null) {
@@ -3590,31 +3594,41 @@ class MiddlewareProvider extends ChangeNotifier {
     // Use playCompositeEvent for actual audio playback
     final voicesStarted = playCompositeEvent(eventId);
     if (voicesStarted > 0) {
-      _previewingEventId = eventId;
+      _previewingEventIds.add(eventId);
       _markChanged(changeCompositeEvents);
     }
   }
 
-  /// Stop previewing the current event
-  void stopPreviewEvent() {
-    if (_previewingEventId != null) {
-      stopCompositeEvent(_previewingEventId!);
-      AudioPlaybackService.instance.stopSource(PlaybackSource.slotlab);
-      _previewingEventId = null;
-      _markChanged(changeCompositeEvents);
-    }
-  }
-
-  /// Toggle preview: if same event is playing → stop, otherwise play new
-  void togglePreviewEvent(String eventId) {
-    if (_previewingEventId == eventId) {
-      stopPreviewEvent();
-    } else {
-      // Stop any currently playing preview first
-      if (_previewingEventId != null) {
-        stopCompositeEvent(_previewingEventId!);
+  /// Stop previewing a specific event
+  void stopPreviewEventById(String eventId) {
+    if (_previewingEventIds.contains(eventId)) {
+      stopCompositeEvent(eventId);
+      _previewingEventIds.remove(eventId);
+      if (_previewingEventIds.isEmpty) {
         AudioPlaybackService.instance.stopSource(PlaybackSource.slotlab);
       }
+      _markChanged(changeCompositeEvents);
+    }
+  }
+
+  /// Stop ALL previewing events
+  void stopPreviewEvent() {
+    if (_previewingEventIds.isNotEmpty) {
+      for (final eventId in _previewingEventIds.toList()) {
+        stopCompositeEvent(eventId);
+      }
+      AudioPlaybackService.instance.stopSource(PlaybackSource.slotlab);
+      _previewingEventIds.clear();
+      _markChanged(changeCompositeEvents);
+    }
+  }
+
+  /// Toggle preview: if same event is playing → stop it, otherwise play new
+  /// Does NOT auto-stop other playing events
+  void togglePreviewEvent(String eventId) {
+    if (_previewingEventIds.contains(eventId)) {
+      stopPreviewEventById(eventId);
+    } else {
       previewCompositeEvent(eventId);
     }
   }

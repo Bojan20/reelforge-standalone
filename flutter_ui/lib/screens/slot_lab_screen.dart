@@ -1215,11 +1215,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       }
     }
 
-    // Stop any active event preview before spinning
-    if (_middleware.isPreviewingEvent) {
-      _middleware.stopPreviewEvent();
-    }
-
     // Idle → SPIN
     if (_slotLabProvider.initialized) {
       _slotLabProvider.spin();
