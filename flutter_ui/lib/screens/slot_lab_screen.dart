@@ -1105,35 +1105,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     }
   }
 
-  /// Global keyboard handler — handles Space + Timeline shortcuts
-  /// This fixes the bug where Space stops working after clicking on other elements
-  bool _globalKeyHandler(KeyEvent event) {
-    if (!mounted) return false;
-    // Only handle KeyDown, not KeyUp or KeyRepeat
-    if (event is! KeyDownEvent) return false;
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // CRITICAL: If ANY text field has focus, let it handle ALL key events.
-    // This prevents global shortcuts (G, L, 0, Space, etc.) from firing
-    // while the user is typing in search bars or text fields.
-    // ═══════════════════════════════════════════════════════════════════════════
-    final focus = FocusManager.instance.primaryFocus;
-    if (focus != null && focus.context != null) {
-      final editable = focus.context!.findAncestorWidgetOfExactType<EditableText>();
-      if (editable != null) return false;
-    }
-
-    // P14: Ultimate Timeline keyboard shortcuts
-    if (_ultimateTimelineController != null) {
-      if (_handleUltimateTimelineShortcut(event)) {
-        return true; // Handled
-      }
-    }
-
-    // Only handle Space key below
-    if (event.logicalKey != LogicalKeyboardKey.space) return false;
-
-    // Don't handle if we're not mounted or visible
+  /// Shared SPACE key logic — called from both Focus handler and global handler.
+  /// Returns true if handled.
+  bool _handleSpaceKey() {
     if (!mounted) return false;
 
     // No interaction without a built slot machine
@@ -1142,71 +1116,34 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       return true; // Swallow — machine not built
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // CRITICAL: Skip global handler ONLY when in FULLSCREEN preview mode!
-    // PremiumSlotPreview has its own Focus-based keyboard handler that properly
-    // manages spin/stop toggle when in fullscreen (F11) mode. In that mode,
-    // PremiumSlotPreview has guaranteed focus.
-    //
-    // BUT: When in embedded mode, PremiumSlotPreview does NOT have focus
-    // (slot_lab_screen's GestureDetector takes focus), so we MUST handle Space here.
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (_isPreviewMode) {
-      return false; // Let PremiumSlotPreview handle it (it has focus in fullscreen)
-    }
+    // Fullscreen preview mode — let PremiumSlotPreview handle it
+    if (_isPreviewMode) return false;
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // DEBOUNCE CHECK — Prevents double-trigger from multiple Focus widgets
-    // Bug: slot_lab_screen Focus AND premium_slot_preview Focus both receive
-    // the same SPACE event, causing spin→immediate stop in same frame
-    // ═══════════════════════════════════════════════════════════════════════════
+    // Debounce — prevents double-trigger from Focus + global handler
     final now = DateTime.now().millisecondsSinceEpoch;
     if (now - _lastSpaceKeyTime < _spaceKeyDebounceMs) {
       return true; // Handled (debounced)
     }
     _lastSpaceKeyTime = now;
 
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // SPACE KEY LOGIC (matches premium_slot_preview.dart):
-    //
-    // - isReelsSpinning = true ONLY while reels are visually spinning
-    // - isWinPresentationActive = true ONLY during win presentation
-    //
-    // Correct behavior (IGT, NetEnt, Pragmatic Play standard):
-    // - During reel spin → STOP (stop reels immediately)
-    // - During win presentation → SKIP (skip to end, do NOT start new spin!)
-    // - Idle → SPIN (start new spin)
-    // ═══════════════════════════════════════════════════════════════════════════
-
     if (!_hasSlotLabProvider) return false;
 
     // STOP only when reels are actually spinning
     if (_slotLabProvider.isReelsSpinning) {
       _slotLabProvider.stopStagePlayback();
-      return true; // Handled
+      return true;
     }
 
     // SKIP win presentation — do NOT start a new spin!
     if (_slotLabProvider.isWinPresentationActive) {
-      // Request skip with empty callback — skip only, no spin after
-      _slotLabProvider.requestSkipPresentation(() {
-        // No-op: just skip, don't auto-spin
-      });
-      return true; // Handled — SPIN button appears, user must press again
+      _slotLabProvider.requestSkipPresentation(() {});
+      return true;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // CONTEXT-AWARE SPACE:
-    // - SlotLab active (stages playing or idle with initialized engine) → SPIN
-    // - Events tab with selected event, no active spin → toggle event preview
-    // - Middleware SPACE must NOT interfere with SlotLab spin
-    // ═══════════════════════════════════════════════════════════════════════════
-
+    // Events tab + no active slot spin → toggle event preview
     final isEventsTab = _lowerZoneController.superTab == SlotLabSuperTab.events;
     final slotLabBusy = _slotLabProvider.isPlayingStages || _slotLabProvider.isSpinning;
 
-    // Events tab + no active slot spin → toggle event preview
     if (isEventsTab && !slotLabBusy) {
       final selectedEvent = _middleware.selectedCompositeEvent;
       if (selectedEvent != null) {
@@ -1218,12 +1155,37 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Idle → SPIN
     if (_slotLabProvider.initialized) {
       _slotLabProvider.spin();
-      return true; // Handled
+      return true;
     }
 
-    // Fallback: Toggle timeline playback (non-slot contexts)
+    // Fallback: Toggle timeline playback
     _togglePlayback();
-    return true; // Handled
+    return true;
+  }
+
+  /// Global keyboard handler — fallback for when Focus is not on SlotLabScreen
+  bool _globalKeyHandler(KeyEvent event) {
+    if (!mounted) return false;
+    if (event is! KeyDownEvent) return false;
+
+    // EditableText guard
+    final focus = FocusManager.instance.primaryFocus;
+    if (focus != null && focus.context != null) {
+      final editable = focus.context!.findAncestorWidgetOfExactType<EditableText>();
+      if (editable != null) return false;
+    }
+
+    // P14: Ultimate Timeline keyboard shortcuts
+    if (_ultimateTimelineController != null) {
+      if (_handleUltimateTimelineShortcut(event)) {
+        return true;
+      }
+    }
+
+    // Only handle Space key
+    if (event.logicalKey != LogicalKeyboardKey.space) return false;
+
+    return _handleSpaceKey();
   }
 
   /// Callback when drag controller state changes
@@ -3254,11 +3216,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Only allow repeat for zoom and arrow keys
     if (event is KeyRepeatEvent && !isZoomKey && !isArrowKey) return KeyEventResult.ignored;
 
-    // Space = Handled by global keyboard handler (_globalKeyHandler)
-    // This ensures Space works even when focus is lost to Lower Zone panels
-    // See initState() for the global handler registration
+    // Space: Handle directly in Focus to prevent parent Focus handlers from
+    // swallowing the event (e.g., engine_connected_layout middleware preview).
+    // Global handler (_globalKeyHandler) is kept as fallback for lost focus.
     if (key == LogicalKeyboardKey.space) {
-      // Let global handler handle it — don't double-process
+      if (_handleSpaceKey()) {
+        return KeyEventResult.handled;
+      }
       return KeyEventResult.ignored;
     }
 
