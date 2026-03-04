@@ -460,7 +460,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// These must NOT get standalone single-layer events — they are combined into
   /// BIG_WIN_INTRO / BIG_WIN_END multi-layer composites instead.
   static const _compositeComponentStages = {
-    'BIG_WIN_INTRO', 'BIG_WIN_END',
     'MUSIC_BIGWIN_L1', 'MUSIC_BIGWIN_L2', 'MUSIC_BIGWIN_L3', 'MUSIC_BIGWIN_L4', 'MUSIC_BIGWIN_L5',
     'MUSIC_BIGWIN_INTRO', 'MUSIC_BIGWIN_END', 'MUSIC_BIGWIN_OUTRO',
   };
@@ -916,7 +915,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   bool _isPreviewMode = false;
 
   // Audio browser
-  bool _showAudioBrowser = true;
   String _browserSearchQuery = '';
   String _selectedBrowserFolder = 'All';
 
@@ -3098,8 +3096,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                   setState(() => _quickAssignSelectedSlot = null);
                                 }
                               },
-                              // Connect header toggle to audio browser visibility
-                              showAudioBrowser: _showAudioBrowser,
                               onToast: (message, {isWarning = false}) {
                                 showToast(message, type: isWarning ? ToastType.warning : ToastType.success);
                               },
@@ -3672,12 +3668,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             _headerDivider(),
             _buildCoverageBadge(),
             const SizedBox(width: 4),
-            _buildHeaderIconBtn(
-              Icons.folder_open,
-              () => setState(() => _showAudioBrowser = !_showAudioBrowser),
-              'Audio Browser',
-              isActive: _showAudioBrowser,
-            ),
             _headerDivider(),
             _buildHeaderIconBtn(
               Icons.view_sidebar,
@@ -8915,13 +8905,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             flex: 2,
             child: _buildCompositeEventsPanel(),
           ),
-          const Divider(color: Color(0xFF2A2A35), height: 1),
-          // Audio Browser
-          if (_showAudioBrowser)
-            Expanded(
-              flex: 3,
-              child: _buildAudioBrowser(),
-            ),
+          // Audio Browser removed
         ],
       ),
     );

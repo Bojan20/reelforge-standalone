@@ -72,8 +72,6 @@ class EventsPanelWidget extends StatefulWidget {
   final Function(String? eventId)? onSelectionChanged;
   /// P3-19: Callback when audio file is clicked (for Quick Assign Mode)
   final Function(String audioPath)? onAudioClicked;
-  /// External control for showing/hiding audio browser section
-  final bool showAudioBrowser;
   /// Callback for inline toast messages (replaces SnackBar)
   final void Function(String message, {bool isWarning})? onToast;
 
@@ -84,7 +82,6 @@ class EventsPanelWidget extends StatefulWidget {
     this.selectedEventId,
     this.onSelectionChanged,
     this.onAudioClicked,
-    this.showAudioBrowser = true,
     this.onToast,
   });
 
@@ -98,7 +95,6 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   String? _localSelectedEventId;
   String _currentDirectory = '';
   List<FileSystemEntity> _audioFiles = [];
-  bool _showBrowser = true;
   String _searchQuery = ''; // Audio browser search
   String _eventSearchQuery = ''; // Event list search (SL-RP-P1.4)
   bool _isPoolMode = false; // true = Project Pool (AudioAssetManager), false = File System
@@ -522,13 +518,11 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                 _eventsExpanded
                     ? Expanded(child: _buildEventsFolder())
                     : _buildEventsFolder(),
-                // Divider and bottom section — hidden when events expanded
+                // Selected event editor — hidden when events expanded
                 if (!_eventsExpanded) ...[
                   _buildDivider(),
                   Expanded(
-                    child: (_showBrowser && widget.showAudioBrowser)
-                        ? _buildAudioBrowser()
-                        : _buildSelectedEvent(),
+                    child: _buildSelectedEvent(),
                   ),
                 ],
               ],
@@ -604,15 +598,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
               );
             },
           ),
-          // Toggle browser/event view
-          InkWell(
-            onTap: () => setState(() => _showBrowser = !_showBrowser),
-            child: Icon(
-              _showBrowser ? Icons.event : Icons.folder_open,
-              size: 14,
-              color: Colors.white38,
-            ),
-          ),
+          const SizedBox(width: 4),
         ],
       ),
     );
@@ -933,9 +919,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
         } else {
           _setSelectedEventId(event.id); // Select
         }
-        setState(() {
-          _showBrowser = false; // Switch to event editor
-        });
+        setState(() {});
       },
       onDoubleTap: () {
         // Enter edit mode on double-tap
@@ -1213,9 +1197,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
 
     // Select the event and switch to editor view
     _setSelectedEventId(event.id);
-    setState(() {
-      _showBrowser = false;
-    });
+    setState(() {});
 
     widget.onToast?.call('Added "$displayName" to "${event.name}"');
   }
@@ -1251,9 +1233,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
 
     // Select and switch to editor
     _setSelectedEventId(newEvent.id);
-    setState(() {
-      _showBrowser = false;
-    });
+    setState(() {});
 
     widget.onToast?.call('Created event "$displayName"');
   }
@@ -2427,7 +2407,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                 );
                 middleware.addCompositeEvent(newEvent);
                 _setSelectedEventId(newEvent.id);
-                setState(() => _showBrowser = false);
+                setState(() {});
               }
             },
             child: const Icon(Icons.add, size: 14, color: Colors.white38),
