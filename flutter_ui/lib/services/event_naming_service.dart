@@ -326,7 +326,6 @@ class EventNamingService {
     // MUSIC stages
     if (normalized == 'MUSIC_BASE_L1') return 'onMusicBaseL1';
     if (normalized == 'MUSIC_TENSION') return 'onMusicTension';
-    if (normalized == 'MUSIC_BIGWIN') return 'onMusicBigwin';
     if (normalized.startsWith('MUSIC_')) {
       final suffix = _toCamelCase(normalized.replaceFirst('MUSIC_', ''));
       return 'onMusic$suffix';

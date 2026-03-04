@@ -1228,15 +1228,7 @@ class StageConfigurationService extends ChangeNotifier {
     _register('MUSIC_BASE_L4', StageCategory.music, 10, SpatialBus.music, 'DEFAULT', isLooping: true);
     _register('MUSIC_BASE_L5', StageCategory.music, 10, SpatialBus.music, 'DEFAULT', isLooping: true);
     _register('MUSIC_TENSION', StageCategory.music, 15, SpatialBus.music, 'DEFAULT', isLooping: true);
-    _register('MUSIC_BIGWIN', StageCategory.music, 25, SpatialBus.music, 'DEFAULT');
-    _register('MUSIC_BIGWIN_INTRO', StageCategory.music, 25, SpatialBus.music, 'DEFAULT');
-    _register('MUSIC_BIGWIN_END', StageCategory.music, 25, SpatialBus.music, 'DEFAULT');
-    _register('MUSIC_BIGWIN_OUTRO', StageCategory.music, 25, SpatialBus.music, 'DEFAULT');
-    _register('MUSIC_BIGWIN_L1', StageCategory.music, 25, SpatialBus.music, 'DEFAULT', isLooping: true);
-    _register('MUSIC_BIGWIN_L2', StageCategory.music, 25, SpatialBus.music, 'DEFAULT', isLooping: true);
-    _register('MUSIC_BIGWIN_L3', StageCategory.music, 25, SpatialBus.music, 'DEFAULT', isLooping: true);
-    _register('MUSIC_BIGWIN_L4', StageCategory.music, 25, SpatialBus.music, 'DEFAULT', isLooping: true);
-    _register('MUSIC_BIGWIN_L5', StageCategory.music, 25, SpatialBus.music, 'DEFAULT', isLooping: true);
+    // Big Win music handled via BIG_WIN_INTRO/END/OUTRO composite event layers
     // Free Spins music
     _register('MUSIC_FS_INTRO', StageCategory.music, 20, SpatialBus.music, 'DEFAULT');
     _register('MUSIC_FS_OUTRO', StageCategory.music, 20, SpatialBus.music, 'DEFAULT');
@@ -1474,8 +1466,7 @@ class StageConfigurationService extends ChangeNotifier {
     'MUSIC_BONUS_L1', 'MUSIC_BONUS_L2', 'MUSIC_BONUS_L3', 'MUSIC_BONUS_L4', 'MUSIC_BONUS_L5',
     // Hold & Spin
     'MUSIC_HOLD_L1', 'MUSIC_HOLD_L2', 'MUSIC_HOLD_L3', 'MUSIC_HOLD_L4', 'MUSIC_HOLD_L5',
-    // Big Win
-    'MUSIC_BIGWIN_L1', 'MUSIC_BIGWIN_L2', 'MUSIC_BIGWIN_L3', 'MUSIC_BIGWIN_L4', 'MUSIC_BIGWIN_L5',
+    // Big Win — handled via BIG_WIN_INTRO/END/OUTRO composite event layers
     // Jackpot
     'MUSIC_JACKPOT_L1', 'MUSIC_JACKPOT_L2', 'MUSIC_JACKPOT_L3', 'MUSIC_JACKPOT_L4', 'MUSIC_JACKPOT_L5',
     // Gamble
@@ -1840,7 +1831,7 @@ class PriorityTierPreset {
       'JACKPOT_GRAND': 100,
       'JACKPOT_MAJOR': 98,
       'FS_TRIGGER': 95,
-      'MUSIC_BIGWIN': 50, // Big win music gets extra priority
+      'BIG_WIN_INTRO': 50, // Big win gets extra priority
       'ANTICIPATION_ON': 70,
     },
   );

@@ -456,17 +456,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// CENTRAL BRIDGE: Ensure a composite event exists in MiddlewareProvider for a stage+audio assignment.
   /// Called from: Quick Assign, onAudioAssign, mount sync — ALL paths converge here.
   /// Creates new event or updates existing one. Auto-detects duration via FFI.
-  /// Stages that are COMPONENTS of multi-layer composite events.
-  /// These must NOT get standalone single-layer events — they are combined into
-  /// BIG_WIN_INTRO / BIG_WIN_END multi-layer composites instead.
-  static const _compositeComponentStages = {
-    'MUSIC_BIGWIN_L1', 'MUSIC_BIGWIN_L2', 'MUSIC_BIGWIN_L3', 'MUSIC_BIGWIN_L4', 'MUSIC_BIGWIN_L5',
-    'MUSIC_BIGWIN_INTRO', 'MUSIC_BIGWIN_END', 'MUSIC_BIGWIN_OUTRO',
-  };
-
   void _ensureCompositeEventForStage(String stage, String audioPath) {
-    // Skip stages that are layers of multi-layer composite events
-    if (_compositeComponentStages.contains(stage)) return;
 
     final middleware = context.read<MiddlewareProvider>();
     final eventId = 'audio_$stage';
@@ -1079,9 +1069,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     for (final entry in assignments.entries) {
       final stage = entry.key;
       final audioPath = entry.value;
-
-      // Skip composite component stages — registered as multi-layer events separately
-      if (_compositeComponentStages.contains(stage)) continue;
 
       final eventId = 'audio_$stage';
 
@@ -2315,13 +2302,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         // Use the SAME pipeline as drag-drop assignment — ALWAYS persist
         projectProvider.setAudioAssignment(match.stage, match.audioPath, recordUndo: false);
 
-        // Skip single-layer event registration for composite component stages
-        // They will be combined into multi-layer BIG_WIN events below
-        if (_compositeComponentStages.contains(match.stage)) {
-          boundCount++;
-          continue;
-        }
-
         // Register in EventRegistry for instant playback
         final busId = _getBusForStage(match.stage);
         final shouldLoop = StageConfigurationService.instance.isLooping(match.stage);
@@ -2352,11 +2332,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
         boundCount++;
       }
-
-    // Create multi-layer BIG_WIN composite events after auto-bind
-    // These combine individual stage assignments into proper transition events
-    _ensureCompositeBigWinIntroOnMount(projectProvider);
-    _ensureCompositeBigWinEndOnMount(projectProvider);
 
     // Sanitize false positives after batch binding
     projectProvider.sanitizeAssignments();
@@ -10441,9 +10416,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         final stage = entry.key;
         final audioPath = entry.value;
 
-        // Skip stages that are part of multi-layer composite events
-        if (_compositeComponentStages.contains(stage)) continue;
-
         // CRITICAL: Check if stage should loop (GAME_START, MUSIC_*, etc.)
         final shouldLoop = StageConfigurationService.instance.isLooping(stage);
         final busId = _getBusForStage(stage);
@@ -10482,199 +10454,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
       // ═══════════════════════════════════════════════════════════════════════
       // COMPOSITE BIG_WIN EVENTS — multi-layer events created on mount
-      // These define the full audio transition for big win intro/end flow
-      // MUST run AFTER single-layer registration so they can overwrite
-      // ═══════════════════════════════════════════════════════════════════════
-      _ensureCompositeBigWinIntroOnMount(projectProvider);
-      _ensureCompositeBigWinEndOnMount(projectProvider);
-
     } catch (e) { /* ignored */ }
-  }
-
-  /// Create BIG_WIN_INTRO composite event on mount with all assigned layers.
-  /// Layers: BIG_WIN_INTRO sfx, MUSIC_BIGWIN_L1 (loop), MUSIC_BIGWIN_INTRO (one-shot)
-  void _ensureCompositeBigWinIntroOnMount(SlotLabProjectProvider project) {
-    const stage = 'BIG_WIN_INTRO';
-
-    final layers = <AudioLayer>[];
-    int idx = 0;
-
-    // Layer 1: BIG_WIN_INTRO sfx
-    final introSfx = project.getAudioAssignment('BIG_WIN_INTRO');
-    if (introSfx != null && introSfx.isNotEmpty) {
-      layers.add(AudioLayer(
-        id: 'bwi_layer_${idx++}', name: 'BIG WIN INTRO SFX',
-        audioPath: introSfx, volume: 1.0, busId: 2,
-      ));
-    }
-
-    // Layer 2: MUSIC_BIGWIN_L1 (looping big win music)
-    final bwMusic = project.getAudioAssignment('MUSIC_BIGWIN_L1');
-    if (bwMusic != null && bwMusic.isNotEmpty) {
-      layers.add(AudioLayer(
-        id: 'bwi_layer_${idx++}', name: 'MUSIC BIGWIN L1',
-        audioPath: bwMusic, volume: 1.0, busId: 1,
-      ));
-    }
-
-    // Layer 3: MUSIC_BIGWIN_INTRO (one-shot intro fanfare)
-    final bwIntroMusic = project.getAudioAssignment('MUSIC_BIGWIN_INTRO');
-    if (bwIntroMusic != null && bwIntroMusic.isNotEmpty) {
-      layers.add(AudioLayer(
-        id: 'bwi_layer_${idx++}', name: 'MUSIC BIGWIN INTRO',
-        audioPath: bwIntroMusic, volume: 1.0, busId: 1,
-      ));
-    }
-
-    if (layers.isEmpty) return;
-
-    eventRegistry.registerEvent(AudioEvent(
-      id: 'audio_$stage', name: 'BIG WIN INTRO', stage: stage,
-      layers: layers, loop: true, overlap: false,
-      crossfadeMs: 500, targetBusId: 1,
-    ));
-
-    // Also create composite event in MiddlewareProvider
-    _ensureCompositeEventForStageMultiLayer(stage, layers);
-  }
-
-  /// Create BIG_WIN_END composite event on mount with all assigned layers.
-  /// Layers: BIG_WIN_END sfx, MUSIC_BIGWIN_END, MUSIC_BIGWIN_OUTRO,
-  ///         MUSIC_BASE_L1-L5 (silent start, L1 fades in after 3500ms delay)
-  void _ensureCompositeBigWinEndOnMount(SlotLabProjectProvider project) {
-    const stage = 'BIG_WIN_END';
-
-    final layers = <AudioLayer>[];
-    int idx = 0;
-
-    // Layer 1: BIG_WIN_END sfx
-    final endSfx = project.getAudioAssignment('BIG_WIN_END');
-    if (endSfx != null && endSfx.isNotEmpty) {
-      layers.add(AudioLayer(
-        id: 'bwe_layer_${idx++}', name: 'BIG WIN END SFX',
-        audioPath: endSfx, volume: 1.0, busId: 2,
-      ));
-    }
-
-    // Layer 2: MUSIC_BIGWIN_END
-    final endMusic = project.getAudioAssignment('MUSIC_BIGWIN_END');
-    if (endMusic != null && endMusic.isNotEmpty) {
-      layers.add(AudioLayer(
-        id: 'bwe_layer_${idx++}', name: 'MUSIC BIGWIN END',
-        audioPath: endMusic, volume: 1.0, busId: 1,
-      ));
-    }
-
-    // Layer 3: MUSIC_BIGWIN_OUTRO
-    final outroMusic = project.getAudioAssignment('MUSIC_BIGWIN_OUTRO');
-    if (outroMusic != null && outroMusic.isNotEmpty) {
-      layers.add(AudioLayer(
-        id: 'bwe_layer_${idx++}', name: 'MUSIC BIGWIN OUTRO',
-        audioPath: outroMusic, volume: 1.0, busId: 1,
-      ));
-    }
-
-    // Layers 4-8: BASE GAME MUSIC L1-L5 — silent start, L1 fades in after delay
-    for (int i = 1; i <= 5; i++) {
-      final basePath = project.getAudioAssignment('MUSIC_BASE_L$i');
-      if (basePath != null && basePath.isNotEmpty) {
-        layers.add(AudioLayer(
-          id: 'bwe_layer_${idx++}',
-          name: 'MUSIC BASE L$i${i == 1 ? ' (FADE IN)' : ' (SILENT)'}',
-          audioPath: basePath, volume: 0.0, busId: 1,
-          delay: 3500, fadeInMs: i == 1 ? 1300.0 : 0.0,
-        ));
-      }
-    }
-
-    if (layers.isEmpty) return;
-
-    eventRegistry.registerEvent(AudioEvent(
-      id: 'audio_$stage', name: 'BIG WIN END', stage: stage,
-      layers: layers, loop: false, overlap: false,
-      crossfadeMs: 300, targetBusId: 1,
-    ));
-
-    // Also create composite event in MiddlewareProvider
-    _ensureCompositeEventForStageMultiLayer(stage, layers);
-  }
-
-  /// Create a multi-layer composite event in MiddlewareProvider.
-  /// Used for BIG_WIN_INTRO and BIG_WIN_END which have complex layer setups.
-  void _ensureCompositeEventForStageMultiLayer(String stage, List<AudioLayer> audioLayers) {
-    final middleware = context.read<MiddlewareProvider>();
-    final eventId = 'audio_$stage';
-
-    final existing = middleware.compositeEvents.where((e) => e.id == eventId).firstOrNull;
-
-    final stageConfig = StageConfigurationService.instance;
-    final shouldLoop = stageConfig.isLooping(stage);
-
-    // Build new layers from audio assignments
-    final autoLayerIds = <String>{};
-    final newAutoLayers = audioLayers.map((l) {
-      autoLayerIds.add(l.id);
-      return SlotEventLayer(
-        id: l.id, name: l.name, audioPath: l.audioPath,
-        volume: l.volume, pan: l.pan,
-        offsetMs: l.delay, // AudioLayer.delay is already in ms
-        fadeInMs: l.fadeInMs, fadeOutMs: l.fadeOutMs,
-        busId: l.busId, loop: shouldLoop,
-      );
-    }).toList();
-
-    if (existing != null) {
-      // MERGE: keep manually added layers, update auto-generated ones
-      final manualLayers = existing.layers.where((l) => !autoLayerIds.contains(l.id)).toList();
-      // Update existing auto layers, add new ones
-      final mergedLayers = <SlotEventLayer>[];
-      for (final newLayer in newAutoLayers) {
-        final old = existing.layers.where((l) => l.id == newLayer.id).firstOrNull;
-        if (old != null) {
-          // Preserve user edits (actionType, volume, pan, etc.) but update audioPath
-          mergedLayers.add(old.copyWith(
-            audioPath: newLayer.audioPath,
-            name: newLayer.name,
-            durationSeconds: newLayer.durationSeconds ?? old.durationSeconds,
-          ));
-        } else {
-          mergedLayers.add(newLayer);
-        }
-      }
-      // Append manual layers at end
-      mergedLayers.addAll(manualLayers);
-
-      // Skip update if layers haven't changed (prevents audio restart on remount)
-      if (mergedLayers.length == existing.layers.length) {
-        bool allSame = true;
-        for (int i = 0; i < mergedLayers.length; i++) {
-          final m = mergedLayers[i];
-          final e = existing.layers[i];
-          if (m.id != e.id || m.audioPath != e.audioPath || m.actionType != e.actionType ||
-              m.volume != e.volume || m.pan != e.pan || m.busId != e.busId) {
-            allSame = false;
-            break;
-          }
-        }
-        if (allSame) return; // No changes — skip update to preserve playing audio
-      }
-
-      middleware.updateCompositeEvent(existing.copyWith(
-        layers: mergedLayers,
-        modifiedAt: DateTime.now(),
-      ));
-    } else {
-      final now = DateTime.now();
-      final composite = SlotCompositeEvent(
-        id: eventId, name: stage.replaceAll('_', ' '),
-        color: stage.contains('INTRO') ? const Color(0xFFFF6B35) : const Color(0xFF4ECDC4),
-        layers: newAutoLayers, looping: shouldLoop,
-        overlap: false, crossfadeMs: stage.contains('INTRO') ? 500 : 300,
-        targetBusId: 1, triggerStages: [stage],
-        createdAt: now, modifiedAt: now,
-      );
-      middleware.addCompositeEvent(composite);
-    }
   }
 
   /// Reverse sync: populate audioAssignments from composite events.

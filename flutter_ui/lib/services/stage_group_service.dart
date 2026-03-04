@@ -319,15 +319,6 @@ String generateEventName(String stage) {
     'MUSIC_HOLD_L3': 'onMusicHoldL3',
     'MUSIC_HOLD_L4': 'onMusicHoldL4',
     'MUSIC_HOLD_L5': 'onMusicHoldL5',
-    // Big Win
-    'MUSIC_BIGWIN_INTRO': 'onMusicBigwinIntro',
-    'MUSIC_BIGWIN_END': 'onMusicBigwinEnd',
-    'MUSIC_BIGWIN_OUTRO': 'onMusicBigwinOutro',
-    'MUSIC_BIGWIN_L1': 'onMusicBigwinL1',
-    'MUSIC_BIGWIN_L2': 'onMusicBigwinL2',
-    'MUSIC_BIGWIN_L3': 'onMusicBigwinL3',
-    'MUSIC_BIGWIN_L4': 'onMusicBigwinL4',
-    'MUSIC_BIGWIN_L5': 'onMusicBigwinL5',
     // Jackpot
     'MUSIC_JACKPOT_INTRO': 'onMusicJackpotIntro',
     'MUSIC_JACKPOT_OUTRO': 'onMusicJackpotOutro',
@@ -518,7 +509,7 @@ class StageGroupService {
       ('mus_bg_lvl_1', 'MUSIC_BASE_L1'),
       ('mus_bg_lvl_2', 'MUSIC_BASE_L2'),
       ('mus_bg_lvl_3', 'MUSIC_BASE_L3'),
-      ('mus_bw', 'MUSIC_BIGWIN_L1'),
+      ('mus_bw', 'BIG_WIN_INTRO'),
       ('mus_rs', 'MUSIC_HOLD_L1'),
 
       // ── FREESPIN ──
@@ -662,24 +653,14 @@ class StageGroupService {
     'respin_music': 'MUSIC_HOLD_L1',
 
     // ═══════════════════════════════════════════════════════════════════
-    // BIG WIN MUSIC — all naming conventions
+    // BIG WIN — all naming conventions map to BIG_WIN_* stages
     // ═══════════════════════════════════════════════════════════════════
-    'mus_bw_lvl_1': 'MUSIC_BIGWIN_L1',
-    'mus_bw_lvl_2': 'MUSIC_BIGWIN_L2',
-    'mus_bw_lvl_3': 'MUSIC_BIGWIN_L3',
-    'mus_bw_lvl_4': 'MUSIC_BIGWIN_L4',
-    'mus_bw_lvl_5': 'MUSIC_BIGWIN_L5',
-    'mus_bw_l1': 'MUSIC_BIGWIN_L1',
-    'mus_bw_l2': 'MUSIC_BIGWIN_L2',
-    'mus_bw_l3': 'MUSIC_BIGWIN_L3',
-    'mus_bw_l4': 'MUSIC_BIGWIN_L4',
-    'mus_bw_l5': 'MUSIC_BIGWIN_L5',
-    'mus_bw_intro': 'MUSIC_BIGWIN_INTRO',
-    'mus_bw_end': 'MUSIC_BIGWIN_END',
-    'mus_bw_outro': 'MUSIC_BIGWIN_OUTRO',
-    'mus_bw': 'MUSIC_BIGWIN_L1',
-    'bigwin_music': 'MUSIC_BIGWIN_L1',
-    'win_music': 'MUSIC_BIGWIN_L1',
+    'mus_bw_intro': 'BIG_WIN_INTRO',
+    'mus_bw_end': 'BIG_WIN_END',
+    'mus_bw_outro': 'BIG_WIN_OUTRO',
+    'mus_bw': 'BIG_WIN_INTRO',
+    'bigwin_music': 'BIG_WIN_INTRO',
+    'win_music': 'BIG_WIN_INTRO',
 
     // ═══════════════════════════════════════════════════════════════════
     // JACKPOT MUSIC — all naming conventions
@@ -1825,56 +1806,6 @@ class StageGroupService {
         keywords: ['feature', 'special', 'exit', 'end'],
         suffixes: ['_exit', '_end'],
         priority: 74,
-      ),
-
-      // ─── Big Win Music Layers ─────────────────────────────────────────
-      _StageDefinition(
-        stage: 'MUSIC_BIGWIN_L1',
-        keywords: ['bigwin', 'big', 'win', 'music', 'bg', 'bw'],
-        suffixes: ['_music', '_bg', '_l1'],
-        priority: 80,
-      ),
-      _StageDefinition(
-        stage: 'MUSIC_BIGWIN_INTRO',
-        keywords: ['bigwin', 'big', 'win', 'music', 'intro', 'bw'],
-        suffixes: ['_intro'],
-        priority: 81,
-      ),
-      _StageDefinition(
-        stage: 'MUSIC_BIGWIN_OUTRO',
-        keywords: ['bigwin', 'big', 'win', 'music', 'outro', 'bw'],
-        suffixes: ['_outro'],
-        priority: 81,
-      ),
-      _StageDefinition(
-        stage: 'MUSIC_BIGWIN_END',
-        keywords: ['bigwin', 'big', 'win', 'music', 'end', 'bw'],
-        suffixes: ['_end'],
-        priority: 82,
-      ),
-      _StageDefinition(
-        stage: 'MUSIC_BIGWIN_L2',
-        keywords: ['bigwin', 'big', 'win', 'music', 'l2', 'lvl2', 'bw'],
-        suffixes: ['_l2', '_lvl2'],
-        priority: 79,
-      ),
-      _StageDefinition(
-        stage: 'MUSIC_BIGWIN_L3',
-        keywords: ['bigwin', 'big', 'win', 'music', 'l3', 'lvl3', 'bw'],
-        suffixes: ['_l3', '_lvl3'],
-        priority: 78,
-      ),
-      _StageDefinition(
-        stage: 'MUSIC_BIGWIN_L4',
-        keywords: ['bigwin', 'big', 'win', 'music', 'l4', 'lvl4', 'bw'],
-        suffixes: ['_l4', '_lvl4'],
-        priority: 77,
-      ),
-      _StageDefinition(
-        stage: 'MUSIC_BIGWIN_L5',
-        keywords: ['bigwin', 'big', 'win', 'music', 'l5', 'lvl5', 'bw'],
-        suffixes: ['_l5', '_lvl5'],
-        priority: 76,
       ),
 
       // ─── Jackpot Music Layers ──────────────────────────────────────────

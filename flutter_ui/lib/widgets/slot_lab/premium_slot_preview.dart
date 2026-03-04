@@ -5169,8 +5169,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
       // Stop BIG_WIN_END audio
       eventRegistry.stopEvent('BIG_WIN_END');
-      eventRegistry.stopEvent('MUSIC_BIGWIN_END');
-      eventRegistry.stopEvent('MUSIC_BIGWIN_OUTRO');
+      eventRegistry.stopEvent('BIG_WIN_END');
+      eventRegistry.stopEvent('BIG_WIN_OUTRO');
       eventRegistry.stopAllMusicVoices(fadeMs: 200);
 
       // Trigger collect and restore base game
@@ -6052,7 +6052,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         // Fade out ALL background music first, then start big win music
         if (_isBigWinTier(_currentWinTier)) {
           eventRegistry.stopAllMusicVoices(fadeMs: 500);
-          eventRegistry.triggerStage('MUSIC_BIGWIN_L1');
+          eventRegistry.triggerStage('BIG_WIN_INTRO');
         }
 
         // Start Big Win protection countdown for big wins

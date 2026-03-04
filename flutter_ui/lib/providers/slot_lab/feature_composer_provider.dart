@@ -334,7 +334,7 @@ const List<ComposedStage> _alwaysVisibleStages = [
     hooks: [], suggestedBus: 'music', priority: 'P1',
   ),
   ComposedStage(
-    id: 'MUSIC_BIGWIN_L1', displayName: 'Big Win Music',
+    id: 'BIG_WIN_INTRO', displayName: 'Big Win Music',
     layer: StageLayer.alwaysVisible, sortOrder: 106,
     hooks: [], suggestedBus: 'music', priority: 'P1',
   ),
