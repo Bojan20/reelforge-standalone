@@ -468,10 +468,19 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             Container(width: 1, height: 14, color: const Color(0xFF2A2A32),
                 margin: const EdgeInsets.symmetric(horizontal: 4)),
           ],
-          // Import
-          _miniIconBtn(Icons.file_download, () => _showBulkImportDialog(context), 'Import Audio'),
-          // Reset
-          _miniIconBtn(Icons.restart_alt, () => _showResetConfirmDialog(context), 'Reset Machine'),
+          // Import — prominent labeled button
+          _labeledActionBtn(
+            Icons.file_download, 'Import',
+            const Color(0xFF42A5F5),
+            () => _showBulkImportDialog(context),
+          ),
+          const SizedBox(width: 4),
+          // Reset — prominent labeled button
+          _labeledActionBtn(
+            Icons.restart_alt, 'Reset',
+            const Color(0xFFEF5350),
+            () => _showResetConfirmDialog(context),
+          ),
           const Spacer(),
           // Stats — muted monospace
           Text(
@@ -520,6 +529,29 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   }
 
   /// Minimal icon button for panel header — 22x22, muted
+  Widget _labeledActionBtn(IconData icon, String label, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 24,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: color.withOpacity(0.4), width: 1),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 4),
+            Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _miniIconBtn(IconData icon, VoidCallback? onTap, String tooltip) {
     return Tooltip(
       message: tooltip,

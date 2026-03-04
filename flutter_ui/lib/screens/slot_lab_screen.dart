@@ -10444,18 +10444,21 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     for (int i = 0; i < stages.length; i++) {
       final stage = stages[i];
 
-      // Don't overwrite direct audio assignments from UltimateAudioPanel.
-      // Check BOTH the provider map AND if EventRegistry already has an audio_$stage event
-      // (safety: audioAssignments might use slightly different key casing)
-      if (audioAssignments.containsKey(stage) ||
-          eventRegistry.hasEventWithId('audio_$stage')) {
+      // Composite events with multiple layers (FadeOut, Stop, Play, etc.) are the
+      // single source of truth — they ALWAYS take priority over simple audio assignments.
+      // Only skip for single-layer events where UltimateAudioPanel assignment should win.
+      final hasMultiLayerActions = event.layers.length > 1 ||
+          event.layers.any((l) => l.actionType != 'Play');
+      if (!hasMultiLayerActions &&
+          (audioAssignments.containsKey(stage) ||
+           eventRegistry.hasEventWithId('audio_$stage'))) {
         continue;
       }
 
       final eventId = i == 0 ? event.id : '${event.id}_stage_$i';
 
-      // Determine target bus from first layer (or default to SFX=2)
-      final targetBus = layers.isNotEmpty ? layers.first.busId : 2;
+      // Use composite event's targetBusId (set in middleware), fallback to first layer
+      final targetBus = event.targetBusId ?? (layers.isNotEmpty ? layers.first.busId : 2);
 
       final audioEvent = AudioEvent(
         id: eventId,
@@ -10558,11 +10561,26 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       }
 
 
+      final middleware = context.read<MiddlewareProvider>();
+
       for (final entry in audioAssignments.entries) {
         final stage = entry.key;
         final audioPath = entry.value;
 
-        // _buildAudioEventForStage handles BIG_WIN_START/END specially
+        // Skip stages that have a multi-layer composite event (FadeOut, Stop, Play, etc.)
+        // Composite events are the single source of truth — _syncAllEventsToRegistry handles them
+        final compositeEvent = middleware.compositeEvents
+            .where((e) => e.triggerStages.any((s) => s.toUpperCase() == stage.toUpperCase()))
+            .firstOrNull;
+        final hasMultiLayerActions = compositeEvent != null &&
+            (compositeEvent.layers.length > 1 ||
+             compositeEvent.layers.any((l) => l.actionType != 'Play'));
+        if (hasMultiLayerActions) {
+          // Still ensure composite event is up to date, but don't overwrite registry
+          _ensureCompositeEventForStage(stage, audioPath);
+          continue;
+        }
+
         eventRegistry.registerEvent(_buildAudioEventForStage(stage, audioPath));
 
         // Also ensure composite event exists in MiddlewareProvider

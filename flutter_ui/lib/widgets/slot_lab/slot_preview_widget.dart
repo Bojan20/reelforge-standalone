@@ -828,15 +828,19 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   // SAFETY NET: Ensure audio assignment is in EventRegistry before triggering
   // ═══════════════════════════════════════════════════════════════════════════
   void _ensureAudioRegistered(String stageUppercase) {
+    // If composite event already registered with all layers → skip
     if (eventRegistry.hasEventForStage(stageUppercase)) return;
+
     final projectProvider = GetIt.instance<SlotLabProjectProvider>();
     final audioPath = projectProvider.getAudioAssignment(stageUppercase);
     if (audioPath == null || audioPath.isEmpty) return;
 
-    // BIG_WIN_START/END are special: sfx on bus 2 but overlap=false on music bus 1
-    // so they fade out active music when triggered
-    final isBigWinTransition = stageUppercase == 'BIG_WIN_START' ||
-        stageUppercase == 'BIG_WIN_END';
+    // BIG_WIN_START/END should come from composite events (middleware SSoT)
+    // If not registered yet, it means _syncAllEventsToRegistry hasn't run — skip,
+    // the composite event with FadeOut/Stop/Play layers will be registered on mount
+    if (stageUppercase == 'BIG_WIN_START' || stageUppercase == 'BIG_WIN_END') {
+      return;
+    }
 
     final shouldLoop = StageConfigurationService.instance.isLooping(stageUppercase);
     final isMusicStage = stageUppercase.startsWith('MUSIC_') ||
@@ -852,7 +856,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       }
     }
 
-    // Build layers — BIG_WIN_START/END get additional music restore layers
     final layers = <AudioLayer>[
       AudioLayer(
         id: 'layer_$stageUppercase',
@@ -865,32 +868,15 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       ),
     ];
 
-    // BIG_WIN_END: add MUSIC_BASE_L1 restore layer (delay 3500ms, fadeIn 1300ms)
-    if (stageUppercase == 'BIG_WIN_END') {
-      final baseMusic = projectProvider.getAudioAssignment('MUSIC_BASE_L1');
-      if (baseMusic != null && baseMusic.isNotEmpty) {
-        layers.add(AudioLayer(
-          id: 'bwe_restore_base_l1',
-          name: 'Base Game Music Restore',
-          audioPath: baseMusic,
-          volume: 0.0, // Starts silent
-          busId: 1,    // Music bus
-          delay: 3500,
-          fadeInMs: 1300.0,
-        ));
-      }
-    }
-
     eventRegistry.registerEvent(AudioEvent(
       id: 'audio_$stageUppercase',
       name: stageUppercase.replaceAll('_', ' '),
       stage: stageUppercase,
       layers: layers,
-      loop: stageUppercase == 'BIG_WIN_START' ? true : shouldLoop,
-      // BIG_WIN transitions: overlap=false on music bus to fade out active music
-      overlap: isBigWinTransition ? false : (!isMusicStage && !shouldLoop),
-      crossfadeMs: isBigWinTransition ? 500 : (isMusicStage ? 500 : 0),
-      targetBusId: isBigWinTransition ? 1 : busId,
+      loop: shouldLoop,
+      overlap: !isMusicStage && !shouldLoop,
+      crossfadeMs: isMusicStage ? 500 : 0,
+      targetBusId: busId,
     ));
   }
 
@@ -3235,10 +3221,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _isInTierProgression = false;
 
       // ═══════════════════════════════════════════════════════════════════════
-      // STEP 4: Fade out plaque + fade IN base game music (BIG WIN END ONLY)
-      // _finishTierProgression is ONLY called from big win flow
+      // STEP 4: Fade out plaque (base game music restore handled by BIG_WIN_END
+      // composite event layers — FadeOut big win + Play silent + FadeIn base game)
       // ═══════════════════════════════════════════════════════════════════════
-      eventRegistry.triggerStageWithFadeIn('MUSIC_BASE_L1', fadeMs: 1300);
       _winAmountController.reverse().then((_) {
         if (!mounted) return;
         if (_winTier.isEmpty) return;
