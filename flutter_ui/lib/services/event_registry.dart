@@ -45,6 +45,20 @@ import 'variant_manager.dart';
 typedef CustomEventHandler = bool Function(String stage, Map<String, dynamic>? context);
 
 // =============================================================================
+// P-CTR: CONFLICT RESOLUTION STRATEGY
+// =============================================================================
+
+/// Strategy for resolving co-timed event layer conflicts
+enum ConflictStrategy {
+  /// Apply micro-offsets (100μs) for deterministic priority-based execution order
+  strict,
+  /// Merge conflicting layers into a single dispatch (reserved for future)
+  merge,
+  /// No conflict resolution — legacy behavior, layers fire in list order
+  ignore,
+}
+
+// =============================================================================
 // AUDIO LAYER — Pojedinačni zvuk u eventu
 // =============================================================================
 
@@ -2184,8 +2198,12 @@ class EventRegistry extends ChangeNotifier {
     _lastContainerName = null;
     _lastContainerChildCount = 0;
 
-    // Check if event has any actionable layers (Play with audio, or action commands)
-    final hasActionLayers = event.layers.any((l) => l.actionType != 'Play' || l.audioPath.isNotEmpty);
+    // Check if event has any actionable layers (Play with audio, action commands, or event chaining)
+    final hasActionLayers = event.layers.any((l) =>
+        l.actionType != 'Play' ||
+        l.audioPath.isNotEmpty ||
+        l.actionType == 'PostEvent' ||
+        l.actionType == 'Trigger');
     if (!hasActionLayers) {
       _lastTriggerSuccess = false;
       _lastTriggerError = 'No audio layers';
@@ -2333,8 +2351,14 @@ class EventRegistry extends ChangeNotifier {
       context['crossfade_in_ms'] = crossfadeInMs;
     }
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // P-CTR: CO-TIMED EVENT CONFLICT RESOLUTION
+    // Sort and apply micro-offsets to co-timed layers targeting the same bus
+    // ═══════════════════════════════════════════════════════════════════════════
+    final resolvedLayers = _resolveCoTimedConflicts(event.layers);
+
     // Dispatch ALL layers by actionType — visible actions from composite event builder
-    for (final layer in event.layers) {
+    for (final layer in resolvedLayers) {
       switch (layer.actionType) {
         case 'Play':
           _playLayer(
@@ -2384,6 +2408,16 @@ class EventRegistry extends ChangeNotifier {
         case 'StopVoice':
           // Stop active voice by audio path (industry standard: Stop spriteId)
           _dispatchStopVoiceAction(layer);
+          break;
+
+        case 'PostEvent':
+          // P-RTE: Recursive trigger expansion — dispatch referenced event with delay accumulation
+          _dispatchPostEventAction(layer, context);
+          break;
+
+        case 'Trigger':
+          // P-RTE: Immediate trigger — dispatch referenced event without additional delay
+          _dispatchTriggerAction(layer, context);
           break;
 
         default:
@@ -2731,6 +2765,228 @@ class EventRegistry extends ChangeNotifier {
       doStop();
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P-RTE: RECURSIVE TRIGGER EXPANSION — PostEvent & Trigger Dispatch
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Maximum recursion depth for postEvent/trigger chains.
+  /// Prevents infinite loops (A→B→A). Configurable per-project.
+  static const int _maxRecursionDepth = 8;
+
+  /// Dispatch a PostEvent action — triggers another event with delay accumulation.
+  /// Uses `layer.targetAudioPath` as the target event ID.
+  /// Respects layer delay for cascaded timing.
+  /// Context carries recursion tracking for cycle detection and depth limiting.
+  void _dispatchPostEventAction(AudioLayer layer, Map<String, dynamic>? context) {
+    final targetEventId = layer.targetAudioPath;
+    if (targetEventId == null || targetEventId.isEmpty) return;
+
+    // Extract recursion state from context
+    final currentDepth = (context?['_rte_depth'] as int?) ?? 0;
+    final chain = List<String>.from((context?['_rte_chain'] as List<String>?) ?? <String>[]);
+
+    // P-RTE-3: Depth limit check
+    if (currentDepth >= _maxRecursionDepth) {
+      debugPrint('[P-RTE] Max recursion depth ($currentDepth) reached. '
+          'Chain: ${chain.join(" → ")} → $targetEventId (BLOCKED)');
+      return;
+    }
+
+    // P-RTE-4: Cycle detection — check if target already in chain
+    if (chain.contains(targetEventId)) {
+      debugPrint('[P-RTE] Cycle detected! '
+          'Chain: ${chain.join(" → ")} → $targetEventId (BLOCKED)');
+      return;
+    }
+
+    // Build child context with recursion tracking
+    final childContext = Map<String, dynamic>.from(context ?? {});
+    childContext['_rte_depth'] = currentDepth + 1;
+    childContext['_rte_chain'] = [...chain, targetEventId];
+
+    // P-RTE-2: Delay accumulation — layer delay schedules the child event
+    final delayMs = layer.delay.round();
+    if (delayMs > 0) {
+      Future.delayed(Duration(milliseconds: delayMs), () {
+        triggerEvent(targetEventId, context: childContext);
+      });
+    } else {
+      triggerEvent(targetEventId, context: childContext);
+    }
+  }
+
+  /// Dispatch a Trigger action — immediate event dispatch (no additional delay).
+  /// Same as PostEvent but ignores layer delay — fires immediately.
+  /// Used for synchronous event chaining within a single frame.
+  void _dispatchTriggerAction(AudioLayer layer, Map<String, dynamic>? context) {
+    final targetEventId = layer.targetAudioPath;
+    if (targetEventId == null || targetEventId.isEmpty) return;
+
+    // Extract recursion state from context
+    final currentDepth = (context?['_rte_depth'] as int?) ?? 0;
+    final chain = List<String>.from((context?['_rte_chain'] as List<String>?) ?? <String>[]);
+
+    // P-RTE-3: Depth limit check
+    if (currentDepth >= _maxRecursionDepth) {
+      debugPrint('[P-RTE] Max recursion depth ($currentDepth) reached. '
+          'Chain: ${chain.join(" → ")} → $targetEventId (BLOCKED)');
+      return;
+    }
+
+    // P-RTE-4: Cycle detection
+    if (chain.contains(targetEventId)) {
+      debugPrint('[P-RTE] Cycle detected! '
+          'Chain: ${chain.join(" → ")} → $targetEventId (BLOCKED)');
+      return;
+    }
+
+    // Build child context — no delay, immediate dispatch
+    final childContext = Map<String, dynamic>.from(context ?? {});
+    childContext['_rte_depth'] = currentDepth + 1;
+    childContext['_rte_chain'] = [...chain, targetEventId];
+
+    // Immediate — no delay accumulation for Trigger (unlike PostEvent)
+    triggerEvent(targetEventId, context: childContext);
+  }
+
+  /// Get the current recursion chain for debugging/UI display.
+  /// Returns empty list if no active recursion.
+  List<String> getRecursionChain(Map<String, dynamic>? context) {
+    return List<String>.from((context?['_rte_chain'] as List<String>?) ?? <String>[]);
+  }
+
+  /// Check if an event would create a cycle if triggered from current context.
+  bool wouldCreateCycle(String targetEventId, Map<String, dynamic>? context) {
+    final chain = (context?['_rte_chain'] as List<String>?) ?? <String>[];
+    return chain.contains(targetEventId);
+  }
+
+  /// Check if recursion depth would exceed limit from current context.
+  bool wouldExceedDepth(Map<String, dynamic>? context) {
+    final currentDepth = (context?['_rte_depth'] as int?) ?? 0;
+    return currentDepth >= _maxRecursionDepth;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P-CTR: CO-TIMED EVENT CONFLICT RESOLUTION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Conflict resolution strategy for co-timed layers
+  /// - strict: Apply micro-offsets for deterministic execution order
+  /// - merge: Combine conflicting layers (not implemented yet)
+  /// - ignore: Legacy behavior — no conflict resolution
+  static ConflictStrategy _conflictStrategy = ConflictStrategy.strict;
+
+  /// Micro-offset between conflicting layers (microseconds converted to ms)
+  static const double _microOffsetMs = 0.1; // 100μs
+
+  /// Action type priority for conflict resolution ordering.
+  /// Lower number = executes first. CANCEL/STOP before FADE before PLAY.
+  static int _actionPriority(String actionType) {
+    return switch (actionType) {
+      'StopAll'   => 0,
+      'Stop'      => 1,
+      'StopVoice' => 2,
+      'FadeOut'   => 3,
+      'FadeVoice' => 4,
+      'Pause'     => 5,
+      'Resume'    => 6,
+      'SetVolume' || 'SetBusVolume' => 7,
+      'Play'      => 8,
+      'PostEvent' => 9,
+      'Trigger'   => 10,
+      _           => 8, // Default = Play priority
+    };
+  }
+
+  /// Resolve co-timed layer conflicts.
+  /// Groups layers by (delay, busId), sorts by action priority,
+  /// and adds micro-offsets for deterministic execution order.
+  List<AudioLayer> _resolveCoTimedConflicts(List<AudioLayer> layers) {
+    if (_conflictStrategy == ConflictStrategy.ignore || layers.length < 2) {
+      return layers;
+    }
+
+    // P-CTR-1: Group layers by effective delay time + target bus
+    final groups = <String, List<AudioLayer>>{};
+    for (final layer in layers) {
+      final effectiveDelayMs = (layer.delay + layer.offset * 1000).round();
+      final key = '${effectiveDelayMs}_${layer.busId}';
+      groups.putIfAbsent(key, () => []).add(layer);
+    }
+
+    // Check for conflicts (groups with >1 layer)
+    final hasConflicts = groups.values.any((g) => g.length > 1);
+    if (!hasConflicts) return layers;
+
+    // P-CTR-2: Sort each group by action priority
+    final resolved = <AudioLayer>[];
+    final conflictCount = <String, int>{};
+
+    for (final entry in groups.entries) {
+      final group = entry.value;
+      if (group.length < 2) {
+        resolved.addAll(group);
+        continue;
+      }
+
+      // Sort by priority (STOP first, PLAY last)
+      group.sort((a, b) => _actionPriority(a.actionType).compareTo(_actionPriority(b.actionType)));
+
+      // P-CTR-3: Apply micro-offsets within group
+      for (int i = 0; i < group.length; i++) {
+        if (i == 0) {
+          resolved.add(group[i]);
+        } else {
+          // Add micro-offset to subsequent layers in the group
+          final offset = _microOffsetMs * i;
+          resolved.add(AudioLayer(
+            id: group[i].id,
+            audioPath: group[i].audioPath,
+            name: group[i].name,
+            volume: group[i].volume,
+            pan: group[i].pan,
+            delay: group[i].delay + offset,
+            offset: group[i].offset,
+            busId: group[i].busId,
+            fadeInMs: group[i].fadeInMs,
+            fadeOutMs: group[i].fadeOutMs,
+            trimStartMs: group[i].trimStartMs,
+            trimEndMs: group[i].trimEndMs,
+            actionType: group[i].actionType,
+            loop: group[i].loop,
+            targetAudioPath: group[i].targetAudioPath,
+          ));
+        }
+      }
+
+      conflictCount[entry.key] = group.length;
+    }
+
+    // Log detected conflicts
+    if (conflictCount.isNotEmpty) {
+      _lastConflictResolutions = conflictCount.entries
+          .map((e) => 'Bus group ${e.key}: ${e.value} layers resolved')
+          .toList();
+    }
+
+    return resolved;
+  }
+
+  /// Last conflict resolutions for UI display
+  List<String> _lastConflictResolutions = [];
+
+  /// Get last conflict resolutions (for debug/UI)
+  List<String> get lastConflictResolutions => _lastConflictResolutions;
+
+  /// Set conflict resolution strategy
+  static void setConflictStrategy(ConflictStrategy strategy) {
+    _conflictStrategy = strategy;
+  }
+
+  /// Get current conflict resolution strategy
+  static ConflictStrategy get conflictStrategy => _conflictStrategy;
 
   /// Find and fade out all active voices playing a specific audio file
   void _fadeOutVoicesByAudioPath(String audioPath, {int fadeMs = 100}) {

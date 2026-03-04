@@ -156,6 +156,8 @@ import '../models/track_template.dart';
 import '../providers/undo_manager.dart';
 import '../widgets/middleware/events_folder_panel.dart';
 import '../widgets/middleware/event_editor_panel.dart';
+import '../widgets/middleware/intensity_crossfade_wizard.dart';
+import '../widgets/publish/publish_pipeline_panel.dart';
 import '../widgets/ale/ale_panel.dart';
 import '../services/unified_playback_controller.dart';
 import '../providers/timeline_playback_provider.dart';
@@ -13036,6 +13038,20 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         content: const AlePanel(),
         groupId: 'middleware',
       ),
+      LowerZoneTab(
+        id: 'intensity-crossfade',
+        label: 'Intensity XF',
+        icon: Icons.tune,
+        content: const IntensityCrossfadeWizard(),
+        groupId: 'middleware',
+      ),
+      LowerZoneTab(
+        id: 'publish',
+        label: 'Publish',
+        icon: Icons.rocket_launch,
+        content: const PublishPipelinePanel(),
+        groupId: 'middleware',
+      ),
     ];
 
     // Filter tabs based on mode visibility
@@ -13095,7 +13111,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       const TabGroup(
         id: 'middleware',
         label: 'Middleware',
-        tabs: ['events-folder', 'event-editor', 'ale'],
+        tabs: ['events-folder', 'event-editor', 'ale', 'intensity-crossfade', 'publish'],
       ),
     ];
 

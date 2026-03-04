@@ -516,13 +516,44 @@ class VersionControlService {
     String? remote,
     String? branch,
     bool setUpstream = false,
+    bool includeTags = false,
   }) async {
     final args = ['push'];
     if (setUpstream) args.add('-u');
+    if (includeTags) args.add('--tags');
     if (remote != null) args.add(remote);
     if (branch != null) args.add(branch);
 
     return _runGit(args);
+  }
+
+  /// Create an annotated tag
+  Future<void> createTag(String tagName, {String? message}) async {
+    final args = ['tag', '-a', tagName];
+    if (message != null) {
+      args.addAll(['-m', message]);
+    } else {
+      args.addAll(['-m', tagName]);
+    }
+    await _runGit(args);
+  }
+
+  /// Get commit log
+  Future<List<GitCommit>> getLog({int limit = 50}) async {
+    final output = await _runGit([
+      'log',
+      '--format=%H|||%s|||%an|||%ae|||%aI',
+      '-$limit',
+    ]);
+
+    if (output.trim().isEmpty) return [];
+
+    return output
+        .trim()
+        .split('\n')
+        .where((line) => line.contains('|||'))
+        .map((line) => GitCommit.fromLog(line))
+        .toList();
   }
 
   /// Fetch from remote

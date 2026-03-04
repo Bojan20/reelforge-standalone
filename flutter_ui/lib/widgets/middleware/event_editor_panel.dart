@@ -1220,6 +1220,11 @@ class _EventEditorPanelState extends State<EventEditorPanel>
         _buildEventHeader(event),
         // Event-level parameters
         _buildEventLevelParameters(event),
+        // P-RTE-5: Event chain visualization (only if event has PostEvent/Trigger actions)
+        if (event.actions.any((a) => a.type == ActionType.postEvent || a.type == ActionType.trigger))
+          _buildEventChainVisualization(event),
+        // P-CTR-5: Conflict warning (only if co-timed layers detected on same bus)
+        _buildConflictWarning(event),
         // Action timeline
         if (_showTimeline) _buildActionTimeline(event),
         // Action list (always visible)
@@ -1309,6 +1314,289 @@ class _EventEditorPanelState extends State<EventEditorPanel>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P-RTE-5: EVENT CHAIN VISUALIZATION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P-CTR-5: CONFLICT WARNING UI
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildConflictWarning(MiddlewareEvent event) {
+    // Detect co-timed actions on the same bus
+    final conflicts = <String, List<MiddlewareAction>>{};
+    for (final action in event.actions) {
+      final delayMs = (action.delay * 1000).round();
+      final key = '${delayMs}_${action.bus}';
+      conflicts.putIfAbsent(key, () => []).add(action);
+    }
+
+    // Filter to only groups with actual conflicts (>1 action)
+    final conflictGroups = conflicts.entries
+        .where((e) => e.value.length > 1)
+        .toList();
+
+    if (conflictGroups.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.orange.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, size: 14, color: Colors.orange.withValues(alpha: 0.9)),
+              const SizedBox(width: 6),
+              Text(
+                'Co-timed Conflicts',
+                style: TextStyle(
+                  color: Colors.orange.withValues(alpha: 0.9),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${conflictGroups.length} group${conflictGroups.length > 1 ? "s" : ""} — auto-resolved',
+                style: TextStyle(
+                  color: FluxForgeTheme.textTertiary,
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ...conflictGroups.map((group) {
+            final parts = group.key.split('_');
+            final delayMs = parts[0];
+            final bus = group.value.first.bus;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      '${delayMs}ms',
+                      style: TextStyle(
+                        color: Colors.orange.withValues(alpha: 0.8),
+                        fontSize: 9,
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    bus,
+                    style: TextStyle(
+                      color: FluxForgeTheme.textSecondary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '${group.value.length} actions: ${group.value.map((a) => a.type.displayName).join(", ")}',
+                      style: TextStyle(
+                        color: FluxForgeTheme.textTertiary,
+                        fontSize: 10,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // P-RTE-5: EVENT CHAIN VISUALIZATION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildEventChainVisualization(MiddlewareEvent event) {
+    final chainActions = event.actions
+        .where((a) => a.type == ActionType.postEvent || a.type == ActionType.trigger)
+        .toList();
+
+    if (chainActions.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.bgDeep.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.cyan.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Icon(Icons.account_tree, size: 14, color: Colors.cyan.withValues(alpha: 0.8)),
+              const SizedBox(width: 6),
+              Text(
+                'Event Chain',
+                style: TextStyle(
+                  color: Colors.cyan.withValues(alpha: 0.9),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${chainActions.length} link${chainActions.length > 1 ? "s" : ""}',
+                style: TextStyle(
+                  color: FluxForgeTheme.textTertiary,
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Chain nodes
+          ...chainActions.map((action) {
+            final isPostEvent = action.type == ActionType.postEvent;
+            final targetId = action.assetId;
+            final targetEvent = _events[targetId];
+            final exists = targetEvent != null;
+            final delayMs = (action.delay * 1000).round();
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: InkWell(
+                onTap: exists ? () {
+                  setState(() {
+                    _selectedEventId = targetId;
+                  });
+                } : null,
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: (exists
+                        ? (isPostEvent ? Colors.cyan : Colors.lime)
+                        : Colors.red
+                    ).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: (exists
+                          ? (isPostEvent ? Colors.cyan : Colors.lime)
+                          : Colors.red
+                      ).withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      // Source event name
+                      Text(
+                        event.name,
+                        style: TextStyle(
+                          color: FluxForgeTheme.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      // Arrow with delay
+                      Icon(
+                        Icons.arrow_forward,
+                        size: 12,
+                        color: isPostEvent ? Colors.cyan : Colors.lime,
+                      ),
+                      if (delayMs > 0) ...[
+                        const SizedBox(width: 2),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: FluxForgeTheme.bgElevated.withValues(alpha: 0.5),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            '${delayMs}ms',
+                            style: TextStyle(
+                              color: FluxForgeTheme.textTertiary,
+                              fontSize: 9,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(width: 6),
+                      // Target event
+                      Icon(
+                        exists ? Icons.event_note : Icons.error_outline,
+                        size: 12,
+                        color: exists
+                            ? (isPostEvent ? Colors.cyan : Colors.lime)
+                            : Colors.red,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          exists ? targetEvent.name : '$targetId (not found)',
+                          style: TextStyle(
+                            color: exists ? FluxForgeTheme.textPrimary : Colors.red,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            fontStyle: exists ? FontStyle.normal : FontStyle.italic,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      // Type badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: (isPostEvent ? Colors.cyan : Colors.lime).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          isPostEvent ? 'POST' : 'TRIGGER',
+                          style: TextStyle(
+                            color: isPostEvent ? Colors.cyan : Colors.lime,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
@@ -2461,6 +2749,7 @@ class _EventEditorPanelState extends State<EventEditorPanel>
                 ActionType.setSwitch,
                 ActionType.setRTPC,
                 ActionType.postEvent,
+                ActionType.trigger,
               ].map((type) {
                 final isSelected = selectedType == type;
                 final color = _getActionColor(type);
