@@ -168,14 +168,12 @@ import '../widgets/common/collaboration_panel.dart';
 import '../widgets/common/asset_cloud_panel.dart';
 import '../widgets/common/marketplace_panel.dart';
 import '../widgets/common/crdt_sync_panel.dart';
-// Section-specific Lower Zone imports (DAW and Middleware)
+// Section-specific Lower Zone imports (DAW only)
 // SlotLab uses its own fullscreen layout with dedicated bottom panel
 import '../widgets/lower_zone/daw_lower_zone_widget.dart';
 import '../widgets/lower_zone/daw/edit/timeline_overview_panel.dart' show TimelineOverviewTrack, TimelineOverviewClip;
 import '../widgets/lower_zone/daw_lower_zone_controller.dart';
 import '../widgets/lower_zone/lower_zone_types.dart';
-import '../widgets/lower_zone/middleware_lower_zone_widget.dart';
-import '../widgets/lower_zone/middleware_lower_zone_controller.dart';
 import '../controllers/mixer/mixer_view_controller.dart';
 import '../controllers/mixer/spill_controller.dart';
 import '../models/mixer_view_models.dart';
@@ -264,10 +262,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   late String _activeLowerTab;
   LeftZoneTab _activeLeftTab = LeftZoneTab.project;
 
-  // Section-specific Lower Zone controllers (DAW and Middleware)
+  // Section-specific Lower Zone controller (DAW only)
   // SlotLab uses its own fullscreen layout with dedicated bottom panel
   late final DawLowerZoneController _dawLowerZoneController;
-  late final MiddlewareLowerZoneController _middlewareLowerZoneController;
 
   // Middleware ↔ DAW Timeline Sync Controller
   late final MiddlewareTimelineSyncController _mwTimelineSyncController;
@@ -617,9 +614,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     // Set default tab based on initial mode
     _activeLowerTab = getDefaultTabForMode(_editorMode);
 
-    // Initialize Section-specific Lower Zone controllers (DAW and Middleware)
+    // Initialize DAW Lower Zone controller
     _dawLowerZoneController = DawLowerZoneController();
-    _middlewareLowerZoneController = MiddlewareLowerZoneController();
 
     // Load Lower Zone states from persistent storage
     // If no persisted state, set height to half screen in addPostFrameCallback
@@ -633,17 +629,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         });
       }
     });
-    _middlewareLowerZoneController.loadFromStorage().then((hadPersistedState) {
-      if (!hadPersistedState && mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            final screenHeight = MediaQuery.of(context).size.height;
-            _middlewareLowerZoneController.setHeightToHalfScreen(screenHeight);
-          }
-        });
-      }
-    });
-
     // Initialize mixer view controller — listen for changes to rebuild inline mixer
     _mixerViewController = MixerViewController();
     _mixerViewController.addListener(_onMixerViewChanged);
@@ -1027,9 +1012,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     // Dispose Mixer View Controller
     _mixerViewController.removeListener(_onMixerViewChanged);
     _mixerViewController.dispose();
-    // Dispose Lower Zone controllers
+    // Dispose Lower Zone controller
     _dawLowerZoneController.dispose();
-    _middlewareLowerZoneController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -1578,9 +1562,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     final mixerProvider = context.read<MixerProvider>();
     mixerProvider.deleteChannel('ch_$trackId');
 
-    // In middleware mode, sync deletion to event actions
-    final isMiddlewareTrack = _editorMode == EditorMode.middleware && trackId.startsWith('evt_track_');
-    if (isMiddlewareTrack) {
+    // In slot mode, sync deletion to event actions
+    final isEventTrack = _editorMode == EditorMode.slot && trackId.startsWith('evt_track_');
+    if (isEventTrack) {
       _syncTrackDeletionToEvent(trackId);
     }
 
@@ -1590,12 +1574,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     });
 
     // After syncing, reload timeline to update indices
-    if (isMiddlewareTrack && _selectedEventId.isNotEmpty) {
+    if (isEventTrack && _selectedEventId.isNotEmpty) {
       Future.microtask(() => _loadEventToTimeline(_selectedEventId));
     }
 
     // Record undo action (skip for middleware tracks — those have their own undo)
-    if (!isMiddlewareTrack) {
+    if (!isEventTrack) {
       var currentId = trackId;
       final insertIndex = _tracks.indexWhere((t) => t.id == trackId);
 
@@ -1944,7 +1928,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     // Check if it's an event from Events folder (middleware mode)
     if (id.startsWith('evt-')) {
       final eventId = id.substring(4); // Remove 'evt-' prefix
-      if (_editorMode == EditorMode.middleware) {
+      if (_editorMode == EditorMode.slot) {
         _showRenameEventDialog(eventId);
       }
       // DAW mode: events are placed via drag & drop onto track headers only
@@ -2572,9 +2556,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       if (playbackProvider.isPlaying) {
         playbackProvider.stop();
       }
-    } else if (fromMode == EditorMode.middleware) {
-      // Middleware → stop one-shot events (no resume semantic)
-      middlewareProvider.stopAllEvents(fadeMs: 50);
     }
 
     // Silence one-shot voices from the leaving section immediately.
@@ -5103,7 +5084,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     // ═══════════════════════════════════════════════════════════════════════════
     // DIRECT SYNC FROM PROVIDER (backup for listener in case of timing issues)
     // ═══════════════════════════════════════════════════════════════════════════
-    if (_editorMode == EditorMode.middleware) {
+    if (_editorMode == EditorMode.slot) {
       final providerSelectedId = middlewareProvider.selectedCompositeEventId;
       if (providerSelectedId != null && providerSelectedId.isNotEmpty) {
         final expectedLocalId = 'mw_$providerSelectedId';
@@ -5124,7 +5105,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
     // Auto-sync timeline when selected event's actions change externally
     // (e.g., when action is added from another source like MiddlewareProvider)
-    if (_editorMode == EditorMode.middleware && _selectedEventId.isNotEmpty) {
+    if (_editorMode == EditorMode.slot && _selectedEventId.isNotEmpty) {
       final currentEvent = middlewareProvider.events.cast<MiddlewareEvent?>().firstWhere(
         (e) => e?.id == _selectedEventId,
         orElse: () => null,
@@ -5183,7 +5164,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               // Handle SPACE for middleware preview at this level
               if (event is KeyDownEvent &&
                   event.logicalKey == LogicalKeyboardKey.space &&
-                  _editorMode == EditorMode.middleware) {
+                  _editorMode == EditorMode.slot) {
                 _previewEvent();
                 return KeyEventResult.handled;
               }
@@ -5289,10 +5270,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               onToggleLowerZone: () => setState(() => _lowerVisible = !_lowerVisible),
               menuCallbacks: _buildMenuCallbacks(),
               onBackToLauncher: widget.onBackToLauncher,
-              onBackToMiddleware: _editorMode == EditorMode.slot
+              onBackToMiddleware: _editorMode == EditorMode.slot && widget.initialEditorMode != EditorMode.slot
                   ? () => setState(() {
-                      _editorMode = EditorMode.middleware;
-                      _activeLowerTab = getDefaultTabForMode(EditorMode.middleware);
+                      _editorMode = EditorMode.daw;
+                      _activeLowerTab = getDefaultTabForMode(EditorMode.daw);
                     })
                   : null,
               // P3 Cloud callbacks
@@ -5592,7 +5573,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             // Transport keyboard shortcuts
             onPlay: () {
               // In middleware mode, SPACE triggers event preview
-              if (_editorMode == EditorMode.middleware) {
+              if (_editorMode == EditorMode.slot) {
                 _previewEvent();
                 return;
               }
@@ -5763,7 +5744,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     // Slot Lab mode — fullscreen slot lab as center content (control bar stays visible)
     if (_editorMode == EditorMode.slot) {
       return SlotLabScreen(
-        onClose: () => setState(() => _editorMode = EditorMode.middleware),
+        onClose: () {
+          // If launched directly as SlotLab, go back to launcher
+          // If switched from DAW, go back to DAW
+          if (widget.initialEditorMode == EditorMode.slot) {
+            widget.onBackToLauncher?.call();
+          } else {
+            setState(() => _editorMode = EditorMode.daw);
+          }
+        },
         audioPool: _audioPool.map((f) => <String, dynamic>{
           'path': f.path,
           'name': f.name,
@@ -6014,10 +6003,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             ffi.clickSetTempo(newTempo);
             ffi.projectSetTempo(newTempo);
           },
-        );
-      case EditorMode.middleware:
-        return MiddlewareLowerZoneWidget(
-          controller: _middlewareLowerZoneController,
         );
       case EditorMode.slot:
         // Slot mode uses fullscreen SlotLabScreen, not MainLayout
@@ -6688,7 +6673,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         }
         // In middleware mode, sync deletion to event actions FIRST
         // (before removing clip from list, as we need to find the track)
-        if (_editorMode == EditorMode.middleware && clipId.startsWith('evt_clip_')) {
+        if (_editorMode == EditorMode.slot && clipId.startsWith('evt_clip_')) {
           _syncClipDeletionToEvent(clipId);
           // After syncing, reload timeline to update indices
           final eventId = _selectedEventId;
@@ -7067,7 +7052,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
         // In middleware mode, track selection = action selection
         // Track IDs are "evt_track_0", "evt_track_1", etc. - extract index
-        if (_editorMode == EditorMode.middleware && trackId.startsWith('evt_track_')) {
+        if (_editorMode == EditorMode.slot && trackId.startsWith('evt_track_')) {
           final indexStr = trackId.substring('evt_track_'.length);
           final actionIndex = int.tryParse(indexStr) ?? -1;
           if (actionIndex >= 0) {
@@ -7097,7 +7082,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       // Transport shortcuts (SPACE)
       onPlayPause: () {
         // In middleware mode, SPACE triggers event preview
-        if (_editorMode == EditorMode.middleware) {
+        if (_editorMode == EditorMode.slot) {
           _previewEvent();
           return;
         }
@@ -7206,10 +7191,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   // Complete Wwise/FMOD-style action types
   static const List<String> kActionTypes = [
-    'Play', 'PlayAndContinue', 'Stop', 'StopAll', 'Pause', 'PauseAll',
-    'Resume', 'ResumeAll', 'Break', 'Mute', 'Unmute', 'SetVolume',
-    'SetPitch', 'SetLPF', 'SetHPF', 'SetBusVolume', 'SetState',
-    'SetSwitch', 'SetRTPC', 'ResetRTPC', 'Seek', 'Trigger', 'PostEvent',
+    'Play', 'PlayAndContinue', 'Stop', 'StopAll', 'StopVoice',
+    'Pause', 'PauseAll', 'Resume', 'ResumeAll', 'Break',
+    'FadeOut', 'FadeVoice', 'Mute', 'Unmute',
+    'SetVolume', 'SetPitch', 'SetLPF', 'SetHPF', 'SetBusVolume',
+    'SetState', 'SetSwitch', 'SetRTPC', 'ResetRTPC',
+    'Seek', 'Trigger', 'PostEvent',
   ];
 
   // Complete bus list (for middleware mode dropdowns)
@@ -7989,7 +7976,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               final layer = entry.value;
               final isSelected = idx == _selectedLayerIndex;
 
-              final assetName = layer.audioPath.isEmpty ? '' : layer.audioPath.split('/').last;
+              // For FadeVoice/StopVoice: show targetAudioPath as the asset (what gets faded/stopped)
+              final isVoiceTarget = layer.actionType == 'FadeVoice' || layer.actionType == 'StopVoice';
+              final displayPath = isVoiceTarget && layer.audioPath.isEmpty && layer.targetAudioPath != null
+                  ? layer.targetAudioPath!
+                  : layer.audioPath;
+              final assetName = displayPath.isEmpty ? '' : displayPath.split('/').last;
 
               return GestureDetector(
                 onTap: () {
@@ -8106,8 +8098,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         return FluxForgeTheme.accentGreen;
       case 'Stop':
       case 'StopAll':
+      case 'StopVoice':
       case 'Break':
         return FluxForgeTheme.errorRed;
+      case 'FadeOut':
+      case 'FadeVoice':
+        return const Color(0xFFFF6B6B); // Soft red for fades
       case 'Pause':
       case 'PauseAll':
         return FluxForgeTheme.accentOrange;

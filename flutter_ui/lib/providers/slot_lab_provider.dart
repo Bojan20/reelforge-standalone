@@ -1880,14 +1880,19 @@ class SlotLabProvider extends ChangeNotifier {
     // Now re-triggers music whenever it's not currently playing.
     if (stageType == 'SPIN_START') {
       // Safety net: ensure music events are registered before checking
-      _ensureAudioRegistered('MUSIC_BASE_L1');
+      for (final layer in const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
+        _ensureAudioRegistered(layer);
+      }
       _ensureAudioRegistered('GAME_START');
 
-      final musicPlaying = _baseMusicStarted &&
-          eventRegistry.isEventPlaying('audio_MUSIC_BASE_L1');
-      if (!musicPlaying && eventRegistry.hasEventForStage('MUSIC_BASE_L1')) {
-        eventRegistry.triggerStage('MUSIC_BASE_L1', context: context);
-        _baseMusicStarted = true;
+      // Trigger ALL registered MUSIC_BASE layers (L1..L5)
+      for (final layer in const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
+        final layerPlaying = _baseMusicStarted &&
+            eventRegistry.isEventPlaying('audio_$layer');
+        if (!layerPlaying && eventRegistry.hasEventForStage(layer)) {
+          eventRegistry.triggerStage(layer, context: context);
+          _baseMusicStarted = true;
+        }
       }
 
       final gameStartPlaying = _gameStartTriggered &&

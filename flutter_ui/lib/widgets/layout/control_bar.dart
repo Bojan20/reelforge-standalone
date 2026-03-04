@@ -94,20 +94,12 @@ const Map<EditorMode, ModeConfigData> modeConfigs = {
     shortcut: '1',
     accentColor: FluxForgeTheme.accentBlue,
   ),
-  EditorMode.middleware: ModeConfigData(
-    mode: EditorMode.middleware,
-    name: 'Middleware',
-    description: 'Event routing',
-    icon: '🔀',
-    shortcut: '2',
-    accentColor: FluxForgeTheme.accentOrange,
-  ),
   EditorMode.slot: ModeConfigData(
     mode: EditorMode.slot,
-    name: 'Slot',
-    description: 'Slot audio',
+    name: 'SlotLab',
+    description: 'Slot audio studio',
     icon: '🎰',
-    shortcut: '3',
+    shortcut: '2',
     accentColor: FluxForgeTheme.accentGreen,
   ),
 };

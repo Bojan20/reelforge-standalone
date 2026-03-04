@@ -14,8 +14,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/native_file_picker.dart';
 import '../../utils/path_validator.dart';
-import '../../models/auto_event_builder_models.dart';
+import '../../models/auto_event_builder_models.dart' hide CrossfadeCurve;
 import '../../models/slot_audio_events.dart';
+import '../../models/middleware_models.dart' show CrossfadeCurve, CrossfadeCurveExtension;
 import 'package:get_it/get_it.dart';
 import '../../providers/middleware_provider.dart';
 import '../../providers/slot_lab/inspector_context_provider.dart';
@@ -1706,91 +1707,244 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                           );
                         },
                       ),
+                      const SizedBox(height: 8),
+
+                      // Fade In Curve
+                      _buildDropdownRow<CrossfadeCurve>(
+                        label: 'FadeIn Curve',
+                        value: layer.fadeInCurve,
+                        items: CrossfadeCurve.values,
+                        displayName: (v) => v.displayName,
+                        onChanged: (v) {
+                          final middleware = context.read<MiddlewareProvider>();
+                          middleware.updateEventLayer(event.id, layer.copyWith(fadeInCurve: v));
+                        },
+                      ),
+                      const SizedBox(height: 6),
+
+                      // Fade Out Curve
+                      _buildDropdownRow<CrossfadeCurve>(
+                        label: 'FadeOut Curve',
+                        value: layer.fadeOutCurve,
+                        items: CrossfadeCurve.values,
+                        displayName: (v) => v.displayName,
+                        onChanged: (v) {
+                          final middleware = context.read<MiddlewareProvider>();
+                          middleware.updateEventLayer(event.id, layer.copyWith(fadeOutCurve: v));
+                        },
+                      ),
                       const SizedBox(height: 10),
 
-                      // Bus / Loop / Action row
+                      // Action Type / Priority / Scope row
                       Row(
                         children: [
-                          // Bus label
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.06),
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.speaker, size: 10, color: Colors.white38),
-                                const SizedBox(width: 3),
-                                Text(
-                                  _busNames[layer.busId] ?? 'Bus ${layer.busId ?? '-'}',
-                                  style: const TextStyle(fontSize: 9, color: Colors.white54),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          // Loop toggle
-                          GestureDetector(
-                            onTap: () {
-                              final middleware = context.read<MiddlewareProvider>();
-                              middleware.updateEventLayer(
-                                event.id,
-                                layer.copyWith(loop: !layer.loop),
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: layer.loop
-                                    ? FluxForgeTheme.accentBlue.withOpacity(0.15)
-                                    : Colors.white.withOpacity(0.04),
-                                borderRadius: BorderRadius.circular(3),
-                                border: Border.all(
-                                  color: layer.loop
-                                      ? FluxForgeTheme.accentBlue.withOpacity(0.4)
-                                      : Colors.white.withOpacity(0.08),
-                                  width: 0.5,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.loop, size: 10,
-                                    color: layer.loop ? FluxForgeTheme.accentBlue : Colors.white24),
-                                  const SizedBox(width: 3),
-                                  Text('Loop', style: TextStyle(fontSize: 9,
-                                    color: layer.loop ? FluxForgeTheme.accentBlue : Colors.white38)),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          // Action type badge
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: layer.actionType == 'Stop'
-                                  ? Colors.red.withOpacity(0.12)
-                                  : layer.actionType == 'FadeOut'
-                                      ? Colors.orange.withOpacity(0.12)
-                                      : FluxForgeTheme.accentGreen.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: Text(
-                              layer.actionType,
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: layer.actionType == 'Stop'
-                                    ? Colors.red.shade300
-                                    : layer.actionType == 'FadeOut'
-                                        ? Colors.orange.shade300
-                                        : FluxForgeTheme.accentGreen,
-                              ),
+                          // Action Type dropdown
+                          Expanded(
+                            child: _buildDropdownRow<String>(
+                              label: 'Action',
+                              value: layer.actionType,
+                              items: const ['Play', 'Stop', 'FadeOut', 'FadeIn', 'SetVolume', 'SetPitch', 'Pause', 'Resume'],
+                              displayName: (v) => v,
+                              onChanged: (v) {
+                                final middleware = context.read<MiddlewareProvider>();
+                                middleware.updateEventLayer(event.id, layer.copyWith(actionType: v));
+                              },
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 6),
+
+                      // Priority / Scope row
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildDropdownRow<String>(
+                              label: 'Priority',
+                              value: layer.priority,
+                              items: const ['Highest', 'High', 'Above Normal', 'Normal', 'Below Normal', 'Low', 'Lowest'],
+                              displayName: (v) => v,
+                              onChanged: (v) {
+                                final middleware = context.read<MiddlewareProvider>();
+                                middleware.updateEventLayer(event.id, layer.copyWith(priority: v));
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildDropdownRow<String>(
+                              label: 'Scope',
+                              value: layer.scope,
+                              items: const ['Global', 'Game Object', 'Emitter', 'All', 'First Only'],
+                              displayName: (v) => v,
+                              onChanged: (v) {
+                                final middleware = context.read<MiddlewareProvider>();
+                                middleware.updateEventLayer(event.id, layer.copyWith(scope: v));
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+
+                      // ALE Layer / Bus row
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildDropdownRow<int?>(
+                              label: 'ALE',
+                              value: layer.aleLayerId,
+                              items: const [null, 1, 2, 3, 4, 5],
+                              displayName: (v) => v == null ? 'None' : 'L$v',
+                              onChanged: (v) {
+                                final middleware = context.read<MiddlewareProvider>();
+                                middleware.updateEventLayer(event.id, layer.copyWith(aleLayerId: v ?? 0));
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildDropdownRow<int?>(
+                              label: 'Bus',
+                              value: layer.busId,
+                              items: const [null, 0, 1, 2, 3, 4],
+                              displayName: (v) => _busNames[v] ?? 'Bus ${v ?? '-'}',
+                              onChanged: (v) {
+                                final middleware = context.read<MiddlewareProvider>();
+                                middleware.updateEventLayer(event.id, layer.copyWith(busId: v ?? 0));
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+
+                      // Loop / Overlap toggles
+                      Row(
+                        children: [
+                          _buildToggleChip(
+                            label: 'Loop',
+                            icon: Icons.loop,
+                            active: layer.loop,
+                            onTap: () {
+                              final middleware = context.read<MiddlewareProvider>();
+                              middleware.updateEventLayer(event.id, layer.copyWith(loop: !layer.loop));
+                            },
+                          ),
+                          const SizedBox(width: 6),
+                          _buildToggleChip(
+                            label: 'Overlap',
+                            icon: Icons.layers,
+                            active: layer.overlap,
+                            onTap: () {
+                              final middleware = context.read<MiddlewareProvider>();
+                              middleware.updateEventLayer(event.id, layer.copyWith(overlap: !layer.overlap));
+                            },
+                          ),
+                        ],
+                      ),
+
+                      // Target Audio Path (for Stop/FadeOut actions)
+                      if (layer.actionType == 'Stop' || layer.actionType == 'FadeOut' || layer.actionType == 'Pause') ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            SizedBox(
+                              width: 50,
+                              child: Text('Target', style: const TextStyle(fontSize: 9, color: Colors.white54)),
+                            ),
+                            Expanded(
+                              child: Container(
+                                height: 22,
+                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: TextField(
+                                  controller: TextEditingController(text: layer.targetAudioPath ?? ''),
+                                  style: const TextStyle(fontSize: 9, color: Colors.white70),
+                                  decoration: const InputDecoration(
+                                    hintText: 'Event name to target...',
+                                    hintStyle: TextStyle(fontSize: 9, color: Colors.white24),
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.symmetric(vertical: 4),
+                                  ),
+                                  onSubmitted: (v) {
+                                    final middleware = context.read<MiddlewareProvider>();
+                                    middleware.updateEventLayer(
+                                      event.id,
+                                      layer.copyWith(targetAudioPath: v.isEmpty ? null : v),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+
+                      // Variant / Game Rules section
+                      const SizedBox(height: 10),
+                      Text('GAME RULES', style: TextStyle(fontSize: 8, color: Colors.white24, letterSpacing: 1.2)),
+                      const SizedBox(height: 6),
+
+                      // Variant group
+                      _buildDropdownRow<String?>(
+                        label: 'Variant',
+                        value: layer.variantGroup,
+                        items: const [null, 'A', 'B', 'C', 'D'],
+                        displayName: (v) => v ?? 'Always',
+                        onChanged: (v) {
+                          final middleware = context.read<MiddlewareProvider>();
+                          middleware.updateEventLayer(event.id, layer.copyWith(variantGroup: v));
+                        },
+                      ),
+                      const SizedBox(height: 6),
+
+                      // Variant weight
+                      if (layer.variantGroup != null)
+                        _buildPropertySlider(
+                          label: 'Weight',
+                          value: layer.variantWeight,
+                          min: 0.0,
+                          max: 1.0,
+                          divisions: 20,
+                          valueDisplay: '${(layer.variantWeight * 100).toInt()}%',
+                          onChanged: (v) {
+                            final middleware = context.read<MiddlewareProvider>();
+                            middleware.updateEventLayer(event.id, layer.copyWith(variantWeight: v));
+                          },
+                        ),
+
+                      // Min Multiplier
+                      _buildPropertySlider(
+                        label: 'Min Mult',
+                        value: layer.minMultiplier,
+                        min: 0.0,
+                        max: 100.0,
+                        divisions: 100,
+                        valueDisplay: layer.minMultiplier == 0 ? 'Any' : '${layer.minMultiplier.toStringAsFixed(1)}x',
+                        onChanged: (v) {
+                          final middleware = context.read<MiddlewareProvider>();
+                          middleware.updateEventLayer(event.id, layer.copyWith(minMultiplier: v));
+                        },
+                      ),
+                      const SizedBox(height: 6),
+
+                      // Bet Threshold
+                      _buildPropertySlider(
+                        label: 'Min Bet',
+                        value: layer.betThreshold,
+                        min: 0.0,
+                        max: 1000.0,
+                        divisions: 100,
+                        valueDisplay: layer.betThreshold == 0 ? 'Any' : '${layer.betThreshold.toStringAsFixed(0)}',
+                        onChanged: (v) {
+                          final middleware = context.read<MiddlewareProvider>();
+                          middleware.updateEventLayer(event.id, layer.copyWith(betThreshold: v));
+                        },
                       ),
 
                       // Preview button
@@ -1803,7 +1957,6 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                             icon: Icon(Icons.play_arrow, size: 14),
                             label: const Text('Preview', style: TextStyle(fontSize: 10)),
                             onPressed: () {
-                              // Stop any other browser preview before starting new one
                               AudioPlaybackService.instance.stopSource(PlaybackSource.browser);
                               AudioPlaybackService.instance.previewFile(
                                 layer.audioPath,
@@ -1880,6 +2033,87 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Compact dropdown row for enum/string values
+  Widget _buildDropdownRow<T>({
+    required String label,
+    required T value,
+    required List<T> items,
+    required String Function(T) displayName,
+    required ValueChanged<T> onChanged,
+  }) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 50,
+          child: Text(label, style: const TextStyle(fontSize: 9, color: Colors.white54)),
+        ),
+        Expanded(
+          child: Container(
+            height: 22,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<T>(
+                value: items.contains(value) ? value : items.first,
+                isExpanded: true,
+                isDense: true,
+                dropdownColor: const Color(0xFF1A1A24),
+                style: const TextStyle(fontSize: 9, color: Colors.white70),
+                icon: const Icon(Icons.arrow_drop_down, size: 14, color: Colors.white38),
+                items: items.map((item) => DropdownMenuItem<T>(
+                  value: item,
+                  child: Text(displayName(item), style: const TextStyle(fontSize: 9)),
+                )).toList(),
+                onChanged: (v) {
+                  if (v != null) onChanged(v);
+                },
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Toggle chip for bool properties
+  Widget _buildToggleChip({
+    required String label,
+    required IconData icon,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        decoration: BoxDecoration(
+          color: active
+              ? FluxForgeTheme.accentBlue.withOpacity(0.15)
+              : Colors.white.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(
+            color: active
+                ? FluxForgeTheme.accentBlue.withOpacity(0.4)
+                : Colors.white.withOpacity(0.08),
+            width: 0.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 10, color: active ? FluxForgeTheme.accentBlue : Colors.white24),
+            const SizedBox(width: 3),
+            Text(label, style: TextStyle(fontSize: 9,
+              color: active ? FluxForgeTheme.accentBlue : Colors.white38)),
+          ],
+        ),
+      ),
     );
   }
 

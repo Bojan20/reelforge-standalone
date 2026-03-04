@@ -313,6 +313,44 @@ class VoicePool {
     _virtualVoices.clear();
   }
 
+  /// Resurrect virtual voices whose effective volume has risen above threshold.
+  /// Called periodically (e.g., every 100ms) to check if virtualized voices
+  /// should become active again — Wwise-style virtual voice resurrection.
+  /// Returns list of resurrected voice IDs for the caller to re-allocate
+  /// engine resources (restart playback from tracked position).
+  List<ActiveVoice> resurrectVirtualVoices() {
+    if (!config.enableVirtualVoices || _virtualVoices.isEmpty) return const [];
+
+    final resurrected = <ActiveVoice>[];
+    final remaining = <ActiveVoice>[];
+
+    for (final voice in _virtualVoices) {
+      if (voice.effectiveVolume >= config.virtualThreshold &&
+          activeCount < config.maxVoices) {
+        // Resurrect: move back to active
+        voice.state = VoiceState.playing;
+        _activeVoices[voice.voiceId] = voice;
+        resurrected.add(voice);
+      } else {
+        remaining.add(voice);
+      }
+    }
+
+    _virtualVoices
+      ..clear()
+      ..addAll(remaining);
+
+    return resurrected;
+  }
+
+  /// Get all virtual voices (read-only)
+  List<ActiveVoice> get virtualVoices => List.unmodifiable(_virtualVoices);
+
+  /// Remove a specific virtual voice (e.g., when its source is destroyed)
+  void removeVirtualVoice(int voiceId) {
+    _virtualVoices.removeWhere((v) => v.voiceId == voiceId);
+  }
+
   /// Get statistics
   VoicePoolStats getStats() {
     return VoicePoolStats(

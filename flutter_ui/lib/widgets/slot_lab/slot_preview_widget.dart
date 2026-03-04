@@ -3212,7 +3212,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Play BIG_WIN_END sfx, stop BIG_WIN_START music, fade base music back to 1
     eventRegistry.triggerStage('BIG_WIN_END');
     eventRegistry.stopEvent('BIG_WIN_START');
-    eventRegistry.triggerStageWithFadeIn('MUSIC_BASE_L1', fadeMs: 500);
+    // Restore ALL base music layers
+    for (final layer in const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
+      if (eventRegistry.hasEventForStage(layer)) {
+        eventRegistry.triggerStageWithFadeIn(layer, fadeMs: 500);
+      }
+    }
 
     final lastTier = _currentDisplayTier;
 

@@ -14,9 +14,9 @@ void main() {
       expect(EditorMode.values.length, 2);
     });
 
-    test('daw and middleware exist', () {
+    test('daw and slot exist', () {
       expect(EditorMode.daw, isNotNull);
-      expect(EditorMode.middleware, isNotNull);
+      expect(EditorMode.slot, isNotNull);
     });
   });
 
@@ -30,10 +30,10 @@ void main() {
       expect(config.shortcut, isNotEmpty);
     });
 
-    test('Middleware config has correct fields', () {
-      final config = kModeConfigs[EditorMode.middleware]!;
-      expect(config.mode, EditorMode.middleware);
-      expect(config.name, 'Events');
+    test('SlotLab config has correct fields', () {
+      final config = kModeConfigs[EditorMode.slot]!;
+      expect(config.mode, EditorMode.slot);
+      expect(config.name, 'SlotLab');
       expect(config.description, isNotEmpty);
       expect(config.icon, isNotEmpty);
       expect(config.shortcut, isNotEmpty);
@@ -54,8 +54,8 @@ void main() {
     });
 
     test('accepts custom initial mode', () {
-      final provider = EditorModeProvider(initialMode: EditorMode.middleware);
-      expect(provider.mode, EditorMode.middleware);
+      final provider = EditorModeProvider(initialMode: EditorMode.slot);
+      expect(provider.mode, EditorMode.slot);
       provider.dispose();
     });
 
@@ -90,8 +90,8 @@ void main() {
     });
 
     test('setMode changes mode', () {
-      provider.setMode(EditorMode.middleware);
-      expect(provider.mode, EditorMode.middleware);
+      provider.setMode(EditorMode.slot);
+      expect(provider.mode, EditorMode.slot);
     });
 
     test('setMode to same mode does not notify', () {
@@ -104,33 +104,33 @@ void main() {
     test('setMode to different mode notifies', () {
       int count = 0;
       provider.addListener(() => count++);
-      provider.setMode(EditorMode.middleware);
+      provider.setMode(EditorMode.slot);
       expect(count, 1);
     });
 
-    test('toggleMode flips daw to middleware', () {
+    test('toggleMode flips daw to slot', () {
       provider.toggleMode();
-      expect(provider.mode, EditorMode.middleware);
+      expect(provider.mode, EditorMode.slot);
     });
 
-    test('toggleMode flips middleware to daw', () {
-      provider.setMode(EditorMode.middleware);
+    test('toggleMode flips slot to daw', () {
+      provider.setMode(EditorMode.slot);
       provider.toggleMode();
       expect(provider.mode, EditorMode.daw);
     });
 
     test('isMode checks correctly', () {
       expect(provider.isMode(EditorMode.daw), true);
-      expect(provider.isMode(EditorMode.middleware), false);
-      provider.setMode(EditorMode.middleware);
+      expect(provider.isMode(EditorMode.slot), false);
+      provider.setMode(EditorMode.slot);
       expect(provider.isMode(EditorMode.daw), false);
-      expect(provider.isMode(EditorMode.middleware), true);
+      expect(provider.isMode(EditorMode.slot), true);
     });
 
     test('config updates after mode switch', () {
-      provider.setMode(EditorMode.middleware);
-      expect(provider.config.mode, EditorMode.middleware);
-      expect(provider.config.name, 'Events');
+      provider.setMode(EditorMode.slot);
+      expect(provider.config.mode, EditorMode.slot);
+      expect(provider.config.name, 'SlotLab');
     });
   });
 
@@ -146,12 +146,12 @@ void main() {
     });
 
     test('counter does not increment when switching away from DAW', () {
-      provider.setMode(EditorMode.middleware);
+      provider.setMode(EditorMode.slot);
       expect(provider.waveformGeneration, 0);
     });
 
-    test('counter increments when returning TO DAW from middleware', () {
-      provider.setMode(EditorMode.middleware);
+    test('counter increments when returning TO DAW from slot', () {
+      provider.setMode(EditorMode.slot);
       expect(provider.waveformGeneration, 0);
       provider.setMode(EditorMode.daw);
       expect(provider.waveformGeneration, 1);
@@ -163,13 +163,13 @@ void main() {
     });
 
     test('counter increments on each round trip', () {
-      provider.setMode(EditorMode.middleware);
+      provider.setMode(EditorMode.slot);
       provider.setMode(EditorMode.daw);
       expect(provider.waveformGeneration, 1);
-      provider.setMode(EditorMode.middleware);
+      provider.setMode(EditorMode.slot);
       provider.setMode(EditorMode.daw);
       expect(provider.waveformGeneration, 2);
-      provider.setMode(EditorMode.middleware);
+      provider.setMode(EditorMode.slot);
       provider.setMode(EditorMode.daw);
       expect(provider.waveformGeneration, 3);
     });
@@ -198,7 +198,7 @@ void main() {
     test('setMode notifies on change', () {
       int count = 0;
       provider.addListener(() => count++);
-      provider.setMode(EditorMode.middleware);
+      provider.setMode(EditorMode.slot);
       expect(count, 1);
     });
 

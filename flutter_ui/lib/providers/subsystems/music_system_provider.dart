@@ -288,7 +288,171 @@ class MusicSystemProvider extends ChangeNotifier {
     _segmentLayers.clear();
     _activeLayers.clear();
     _nextLayerId = 1;
+    _transitionRules.clear();
+    _musicSwitchContainers.clear();
     notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TRANSITION MATRIX — Source→Destination transition rules (Wwise parity)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Transition rules: key = "sourceId→destId" (or "*→destId" for any-source)
+  final Map<String, MusicTransitionRule> _transitionRules = {};
+
+  /// Get all transition rules
+  List<MusicTransitionRule> get transitionRules => _transitionRules.values.toList();
+
+  /// Add a transition rule between two segments
+  void addTransitionRule(MusicTransitionRule rule) {
+    final key = '${rule.sourceSegmentId ?? "*"}→${rule.destSegmentId ?? "*"}';
+    _transitionRules[key] = rule;
+    notifyListeners();
+  }
+
+  /// Remove a transition rule
+  void removeTransitionRule(int? sourceId, int? destId) {
+    final key = '${sourceId ?? "*"}→${destId ?? "*"}';
+    _transitionRules.remove(key);
+    notifyListeners();
+  }
+
+  /// Get the best transition rule for source→destination.
+  /// Priority: exact match > any-source > any-dest > default crossfade
+  MusicTransitionRule? getTransitionRule(int? sourceId, int destId) {
+    // 1. Exact match
+    final exact = _transitionRules['$sourceId→$destId'];
+    if (exact != null) return exact;
+    // 2. Any source → specific dest
+    final anySrc = _transitionRules['*→$destId'];
+    if (anySrc != null) return anySrc;
+    // 3. Specific source → any dest
+    final anyDst = _transitionRules['$sourceId→*'];
+    if (anyDst != null) return anyDst;
+    // 4. Any → Any (global default)
+    return _transitionRules['*→*'];
+  }
+
+  /// Transition between music segments using transition matrix rules
+  void transitionToSegment(int destSegmentId) {
+    final rule = getTransitionRule(_currentMusicSegmentId, destSegmentId);
+    if (rule != null) {
+      // Use rule-specific timing
+      if (rule.bridgeSoundId != null) {
+        // Play bridge segment first, then queue destination
+        _ffi.middlewareSetMusicSegment(rule.bridgeSoundId!);
+        Future.delayed(Duration(milliseconds: rule.bridgeDurationMs), () {
+          _ffi.middlewareSetMusicSegment(destSegmentId);
+          _currentMusicSegmentId = destSegmentId;
+          notifyListeners();
+        });
+      } else {
+        // Direct transition with rule's crossfade
+        _ffi.middlewareQueueMusicSegment(destSegmentId);
+        _currentMusicSegmentId = destSegmentId;
+        notifyListeners();
+      }
+    } else {
+      // No rule — use default queue behavior
+      queueMusicSegment(destSegmentId);
+      _currentMusicSegmentId = destSegmentId;
+      notifyListeners();
+    }
+  }
+
+  /// Export transition rules to JSON
+  List<Map<String, dynamic>> transitionRulesToJson() {
+    return _transitionRules.values.map((r) => r.toJson()).toList();
+  }
+
+  /// Import transition rules from JSON
+  void transitionRulesFromJson(List<dynamic> json) {
+    _transitionRules.clear();
+    for (final item in json) {
+      final rule = MusicTransitionRule.fromJson(item as Map<String, dynamic>);
+      final key = '${rule.sourceSegmentId ?? "*"}→${rule.destSegmentId ?? "*"}';
+      _transitionRules[key] = rule;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // MUSIC SWITCH CONTAINER — State/Switch-based music selection (Wwise parity)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Music switch containers: switch group → segment mapping
+  final Map<String, MusicSwitchContainer> _musicSwitchContainers = {};
+
+  /// Get all music switch containers
+  List<MusicSwitchContainer> get musicSwitchContainers =>
+      _musicSwitchContainers.values.toList();
+
+  /// Add a music switch container
+  void addMusicSwitchContainer(MusicSwitchContainer container) {
+    _musicSwitchContainers[container.id] = container;
+    notifyListeners();
+  }
+
+  /// Remove a music switch container
+  void removeMusicSwitchContainer(String id) {
+    _musicSwitchContainers.remove(id);
+    notifyListeners();
+  }
+
+  /// Get music switch container by ID
+  MusicSwitchContainer? getMusicSwitchContainer(String id) =>
+      _musicSwitchContainers[id];
+
+  /// Evaluate a music switch container — returns the segment ID to play
+  /// based on current switch/state values.
+  int? evaluateMusicSwitchContainer(String containerId, {
+    required Map<int, int> currentSwitches,
+    required Map<int, int> currentStates,
+  }) {
+    final container = _musicSwitchContainers[containerId];
+    if (container == null) return null;
+
+    // Build lookup key from switch/state values
+    for (final mapping in container.mappings) {
+      bool matches = true;
+      for (final condition in mapping.conditions) {
+        final currentValue = condition.isState
+            ? currentStates[condition.groupId]
+            : currentSwitches[condition.groupId];
+        if (currentValue != condition.valueId) {
+          matches = false;
+          break;
+        }
+      }
+      if (matches) return mapping.segmentId;
+    }
+
+    return container.defaultSegmentId;
+  }
+
+  /// Trigger music switch container — evaluate and transition
+  void triggerMusicSwitchContainer(String containerId, {
+    required Map<int, int> currentSwitches,
+    required Map<int, int> currentStates,
+  }) {
+    final segmentId = evaluateMusicSwitchContainer(containerId,
+        currentSwitches: currentSwitches, currentStates: currentStates);
+    if (segmentId != null && segmentId != _currentMusicSegmentId) {
+      transitionToSegment(segmentId);
+    }
+  }
+
+  /// Export music switch containers to JSON
+  List<Map<String, dynamic>> musicSwitchContainersToJson() {
+    return _musicSwitchContainers.values.map((c) => c.toJson()).toList();
+  }
+
+  /// Import music switch containers from JSON
+  void musicSwitchContainersFromJson(List<dynamic> json) {
+    _musicSwitchContainers.clear();
+    for (final item in json) {
+      final container = MusicSwitchContainer.fromJson(item as Map<String, dynamic>);
+      _musicSwitchContainers[container.id] = container;
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -456,4 +620,154 @@ class MusicLoopLayer {
     volumeDb: (json['volumeDb'] as num?)?.toDouble() ?? 0.0,
     behaviorNodeId: json['behaviorNodeId'] as String?,
   );
+}
+
+// =============================================================================
+// TRANSITION MATRIX MODEL — Source→Destination transition rules
+// =============================================================================
+
+/// A transition rule between two music segments (Wwise Transition Matrix parity).
+/// sourceSegmentId/destSegmentId = null means "any" (wildcard).
+class MusicTransitionRule {
+  final int? sourceSegmentId;
+  final int? destSegmentId;
+  /// Crossfade duration in ms for this specific transition
+  final int crossfadeMs;
+  /// Optional bridge segment sound ID (plays between source and dest)
+  final int? bridgeSoundId;
+  /// Bridge segment duration in ms (how long bridge plays before dest starts)
+  final int bridgeDurationMs;
+  /// Sync point: when to start the transition (immediate, nextBeat, nextBar, nextMarker)
+  final String syncPoint;
+  /// Fade-out curve for source ('linear', 'sCurve', 'exponential')
+  final String fadeOutCurve;
+  /// Fade-in curve for destination
+  final String fadeInCurve;
+
+  const MusicTransitionRule({
+    this.sourceSegmentId,
+    this.destSegmentId,
+    this.crossfadeMs = 500,
+    this.bridgeSoundId,
+    this.bridgeDurationMs = 2000,
+    this.syncPoint = 'immediate',
+    this.fadeOutCurve = 'linear',
+    this.fadeInCurve = 'linear',
+  });
+
+  Map<String, dynamic> toJson() => {
+    'sourceSegmentId': sourceSegmentId,
+    'destSegmentId': destSegmentId,
+    'crossfadeMs': crossfadeMs,
+    'bridgeSoundId': bridgeSoundId,
+    'bridgeDurationMs': bridgeDurationMs,
+    'syncPoint': syncPoint,
+    'fadeOutCurve': fadeOutCurve,
+    'fadeInCurve': fadeInCurve,
+  };
+
+  factory MusicTransitionRule.fromJson(Map<String, dynamic> json) =>
+      MusicTransitionRule(
+        sourceSegmentId: json['sourceSegmentId'] as int?,
+        destSegmentId: json['destSegmentId'] as int?,
+        crossfadeMs: json['crossfadeMs'] as int? ?? 500,
+        bridgeSoundId: json['bridgeSoundId'] as int?,
+        bridgeDurationMs: json['bridgeDurationMs'] as int? ?? 2000,
+        syncPoint: json['syncPoint'] as String? ?? 'immediate',
+        fadeOutCurve: json['fadeOutCurve'] as String? ?? 'linear',
+        fadeInCurve: json['fadeInCurve'] as String? ?? 'linear',
+      );
+}
+
+// =============================================================================
+// MUSIC SWITCH CONTAINER MODEL — Switch/State-based music selection
+// =============================================================================
+
+/// A music switch container maps switch/state combinations to music segments.
+/// When switch values change, the container auto-transitions to the matching segment
+/// using the transition matrix rules.
+class MusicSwitchContainer {
+  final String id;
+  final String name;
+  /// Ordered list of switch→segment mappings (first match wins)
+  final List<MusicSwitchMapping> mappings;
+  /// Default segment when no mapping matches
+  final int? defaultSegmentId;
+
+  const MusicSwitchContainer({
+    required this.id,
+    required this.name,
+    this.mappings = const [],
+    this.defaultSegmentId,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'mappings': mappings.map((m) => m.toJson()).toList(),
+    'defaultSegmentId': defaultSegmentId,
+  };
+
+  factory MusicSwitchContainer.fromJson(Map<String, dynamic> json) =>
+      MusicSwitchContainer(
+        id: json['id'] as String,
+        name: json['name'] as String,
+        mappings: (json['mappings'] as List?)
+            ?.map((m) => MusicSwitchMapping.fromJson(m as Map<String, dynamic>))
+            .toList() ?? [],
+        defaultSegmentId: json['defaultSegmentId'] as int?,
+      );
+}
+
+/// A mapping entry: conditions → segment
+class MusicSwitchMapping {
+  final List<SwitchCondition> conditions;
+  final int segmentId;
+
+  const MusicSwitchMapping({
+    required this.conditions,
+    required this.segmentId,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'conditions': conditions.map((c) => c.toJson()).toList(),
+    'segmentId': segmentId,
+  };
+
+  factory MusicSwitchMapping.fromJson(Map<String, dynamic> json) =>
+      MusicSwitchMapping(
+        conditions: (json['conditions'] as List)
+            .map((c) => SwitchCondition.fromJson(c as Map<String, dynamic>))
+            .toList(),
+        segmentId: json['segmentId'] as int,
+      );
+}
+
+/// A single condition in a music switch mapping
+class SwitchCondition {
+  /// Switch or State group ID
+  final int groupId;
+  /// Expected switch/state value ID
+  final int valueId;
+  /// true = state group, false = switch group
+  final bool isState;
+
+  const SwitchCondition({
+    required this.groupId,
+    required this.valueId,
+    this.isState = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'groupId': groupId,
+    'valueId': valueId,
+    'isState': isState,
+  };
+
+  factory SwitchCondition.fromJson(Map<String, dynamic> json) =>
+      SwitchCondition(
+        groupId: json['groupId'] as int,
+        valueId: json['valueId'] as int,
+        isState: json['isState'] as bool? ?? false,
+      );
 }

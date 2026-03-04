@@ -875,6 +875,7 @@ class ContainerTypeBadge extends StatelessWidget {
       ContainerType.blend => Colors.purple,
       ContainerType.random => Colors.amber,
       ContainerType.sequence => Colors.teal,
+      ContainerType.switchContainer => Colors.cyan,
     };
   }
 
@@ -884,6 +885,7 @@ class ContainerTypeBadge extends StatelessWidget {
       ContainerType.blend => Icons.blur_linear,
       ContainerType.random => Icons.shuffle,
       ContainerType.sequence => Icons.queue_music,
+      ContainerType.switchContainer => Icons.swap_horiz,
     };
   }
 
@@ -893,6 +895,7 @@ class ContainerTypeBadge extends StatelessWidget {
       ContainerType.blend => 'Blend',
       ContainerType.random => 'Random',
       ContainerType.sequence => 'Sequence',
+      ContainerType.switchContainer => 'Switch',
     };
   }
 }
@@ -976,6 +979,7 @@ class ContainerPreviewCard extends StatelessWidget {
       ContainerType.blend => Colors.purple,
       ContainerType.random => Colors.amber,
       ContainerType.sequence => Colors.teal,
+      ContainerType.switchContainer => Colors.cyan,
     };
   }
 }

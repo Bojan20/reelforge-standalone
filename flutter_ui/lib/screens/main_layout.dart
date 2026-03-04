@@ -17,7 +17,7 @@ import '../models/layout_models.dart';
 import '../models/timeline_models.dart' as timeline;
 import '../widgets/layout/control_bar.dart';
 import '../widgets/layout/left_zone.dart' show LeftZone, LeftZoneTab;
-import '../widgets/layout/right_zone.dart' show RightZone, InspectedObjectType;
+import '../widgets/layout/right_zone.dart' show InspectedObjectType;
 import '../widgets/layout/lower_zone.dart' show LowerZone;
 import '../widgets/mixer/ultimate_mixer.dart' as ultimate;
 import '../providers/mixer_provider.dart';
@@ -343,10 +343,8 @@ class _MainLayoutState extends State<MainLayout>
 
     // Transport shortcuts
     // Space = Play/Pause toggle (onPlay callback handles the toggle logic)
-    // In DAW mode: toggles playback
-    // In Middleware mode: triggers event preview (handled by callback)
     if (key == LogicalKeyboardKey.space) {
-      if (widget.editorMode == EditorMode.daw || widget.editorMode == EditorMode.middleware) {
+      if (widget.editorMode == EditorMode.daw || widget.editorMode == EditorMode.slot) {
         widget.onPlay?.call();
         return KeyEventResult.handled;
       }
@@ -609,16 +607,7 @@ class _MainLayoutState extends State<MainLayout>
                 ),
               ),
 
-              // Right Zone (Inspector) - Middleware mode only
-              // Slot mode has its own dedicated panel (EventsPanelWidget)
-              if (widget.editorMode == EditorMode.middleware)
-                RightZone(
-                  collapsed: !_rightVisible,
-                  objectType: widget.inspectorType,
-                  objectName: widget.inspectorName,
-                  sections: widget.inspectorSections,
-                  onToggleCollapse: _toggleRight,
-                ),
+              // Right Zone removed — SlotLab has dedicated panel (EventsPanelWidget)
             ],
           ),
         ),

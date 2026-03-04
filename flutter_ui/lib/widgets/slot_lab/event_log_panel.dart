@@ -804,6 +804,11 @@ class _EventLogPanelState extends State<EventLogPanel> {
         badgeIcon = Icons.list;
         typeName = 'SEQ';
         break;
+      case ContainerType.switchContainer:
+        badgeColor = Colors.cyan;
+        badgeIcon = Icons.swap_horiz;
+        typeName = 'SWITCH';
+        break;
       case ContainerType.none:
         return const SizedBox.shrink();
     }

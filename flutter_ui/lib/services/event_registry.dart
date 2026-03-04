@@ -20,8 +20,11 @@
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:get_it/get_it.dart';
 import '../spatial/auto_spatial.dart';
 import '../src/rust/native_ffi.dart';
+import '../providers/subsystems/state_groups_provider.dart';
+import '../providers/subsystems/switch_groups_provider.dart';
 import 'audio_playback_service.dart';
 import 'audio_pool.dart';
 import 'container_service.dart';
@@ -141,10 +144,11 @@ class AudioLayer {
 
 /// Container type for AudioEvent delegation
 enum ContainerType {
-  none,      // Direct layer playback (default)
-  blend,     // BlendContainer — RTPC-based crossfade
-  random,    // RandomContainer — Weighted random selection
-  sequence,  // SequenceContainer — Timed sound sequence
+  none,            // Direct layer playback (default)
+  blend,           // BlendContainer — RTPC-based crossfade
+  random,          // RandomContainer — Weighted random selection
+  sequence,        // SequenceContainer — Timed sound sequence
+  switchContainer, // SwitchContainer — Per-object switch-based child selection
 }
 
 extension ContainerTypeExtension on ContainerType {
@@ -154,6 +158,7 @@ extension ContainerTypeExtension on ContainerType {
       case ContainerType.blend: return 'Blend Container';
       case ContainerType.random: return 'Random Container';
       case ContainerType.sequence: return 'Sequence Container';
+      case ContainerType.switchContainer: return 'Switch Container';
     }
   }
 
@@ -2420,6 +2425,21 @@ class EventRegistry extends ChangeNotifier {
           _dispatchTriggerAction(layer, context);
           break;
 
+        case 'SetState':
+          // Set global state group value (Wwise-style: event action → state change)
+          _dispatchSetStateAction(layer);
+          break;
+
+        case 'SetSwitch':
+          // Set per-object switch value (Wwise-style: event action → switch change)
+          _dispatchSetSwitchAction(layer, context);
+          break;
+
+        case 'Seek':
+          // Seek active voices to position on bus or by audio path
+          _dispatchSeekAction(layer);
+          break;
+
         default:
           // Unknown action type — treat as Play for backward compatibility
           _playLayer(
@@ -2578,6 +2598,53 @@ class EventRegistry extends ChangeNotifier {
         if (instanceId < 0) {
           _lastTriggerSuccess = false;
           _lastTriggerError = 'Sequence start failed';
+        }
+        break;
+
+      case ContainerType.switchContainer:
+        // Switch Container: select child based on per-object switch value
+        _lastContainerName = 'Switch Container';
+        _lastContainerChildCount = 0;
+        final gameObjectId = (context?['gameObjectId'] as int?) ?? 0;
+        try {
+          final switchProvider = GetIt.instance<SwitchGroupsProvider>();
+          // Container's switchGroupId stored in context or event metadata
+          final switchGroupId = (context?['switchGroupId'] as int?) ??
+              event.layers.firstOrNull?.busId ?? 0;
+          final currentSwitch = switchProvider.getSwitch(gameObjectId, switchGroupId);
+          if (currentSwitch != null) {
+            // Find matching layer by name convention: "switch_<switchId>"
+            // or by index matching the switch ID
+            final matchingLayer = event.layers.where(
+              (l) => l.name == 'switch_$currentSwitch' || l.id == 'switch_$currentSwitch'
+            ).firstOrNull ?? (currentSwitch < event.layers.length
+              ? event.layers[currentSwitch] : null);
+            if (matchingLayer != null) {
+              final voiceIds = <int>[];
+              _playLayer(matchingLayer, voiceIds, context,
+                  usePool: false, eventKey: event.stage,
+                  loop: matchingLayer.loop, eventId: event.id);
+              _lastContainerChildCount = event.layers.length;
+              _lastTriggeredLayers = ['switch:selected_$currentSwitch'];
+            } else {
+              _lastTriggerSuccess = false;
+              _lastTriggerError = 'No child for switch value $currentSwitch';
+            }
+          } else {
+            // No switch set — use first layer as default
+            if (event.layers.isNotEmpty) {
+              final defaultLayer = event.layers.first;
+              final voiceIds = <int>[];
+              _playLayer(defaultLayer, voiceIds, context,
+                  usePool: false, eventKey: event.stage,
+                  loop: defaultLayer.loop, eventId: event.id);
+              _lastContainerChildCount = event.layers.length;
+              _lastTriggeredLayers = ['switch:default'];
+            }
+          }
+        } catch (_) {
+          _lastTriggerSuccess = false;
+          _lastTriggerError = 'SwitchGroupsProvider not available';
         }
         break;
 
@@ -2848,6 +2915,113 @@ class EventRegistry extends ChangeNotifier {
 
     // Immediate — no delay accumulation for Trigger (unlike PostEvent)
     triggerEvent(targetEventId, context: childContext);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // GAP CLOSURE: SetState / SetSwitch / Seek Action Dispatch
+  // Wwise parity — events can trigger state/switch changes as action layers
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// SetState — change a global state group value from within an event action.
+  /// Uses `name` field as "groupName:stateName" (colon-separated).
+  /// This allows composite events to trigger state changes visible in the
+  /// middleware event builder, just like Wwise's SetState action type.
+  void _dispatchSetStateAction(AudioLayer layer) {
+    final parts = layer.name.split(':');
+    if (parts.length < 2) return;
+    final groupName = parts[0].trim();
+    final stateName = parts[1].trim();
+
+    final delayMs = layer.delay.round();
+    void doSetState() {
+      try {
+        final stateProvider = GetIt.instance<StateGroupsProvider>();
+        // Find group by name
+        final group = stateProvider.stateGroups.values
+            .where((g) => g.name == groupName)
+            .firstOrNull;
+        if (group != null) {
+          stateProvider.setStateByName(group.id, stateName);
+        }
+      } catch (_) {
+        // Provider not registered — silent fail in dispatch
+      }
+    }
+
+    if (delayMs > 0) {
+      Future.delayed(Duration(milliseconds: delayMs), doSetState);
+    } else {
+      doSetState();
+    }
+  }
+
+  /// SetSwitch — change a per-object switch value from within an event action.
+  /// Uses `name` field as "groupName:switchName" (colon-separated).
+  /// Game object ID comes from context['gameObjectId'] (default: 0).
+  void _dispatchSetSwitchAction(AudioLayer layer, Map<String, dynamic>? context) {
+    final parts = layer.name.split(':');
+    if (parts.length < 2) return;
+    final groupName = parts[0].trim();
+    final switchName = parts[1].trim();
+    final gameObjectId = (context?['gameObjectId'] as int?) ?? 0;
+
+    final delayMs = layer.delay.round();
+    void doSetSwitch() {
+      try {
+        final switchProvider = GetIt.instance<SwitchGroupsProvider>();
+        final group = switchProvider.switchGroups.values
+            .where((g) => g.name == groupName)
+            .firstOrNull;
+        if (group != null) {
+          switchProvider.setSwitchByName(gameObjectId, group.id, switchName);
+        }
+      } catch (_) {
+        // Provider not registered — silent fail in dispatch
+      }
+    }
+
+    if (delayMs > 0) {
+      Future.delayed(Duration(milliseconds: delayMs), doSetSwitch);
+    } else {
+      doSetSwitch();
+    }
+  }
+
+  /// Seek — seek active voices to a position.
+  /// If `targetAudioPath` is set, seeks voices playing that specific file.
+  /// Otherwise seeks all voices on `busId`.
+  /// Position in ms is taken from `trimStartMs` field.
+  void _dispatchSeekAction(AudioLayer layer) {
+    final seekMs = layer.trimStartMs;
+    final delayMs = layer.delay.round();
+
+    void doSeek() {
+      final targetPath = layer.targetAudioPath;
+      if (targetPath != null && targetPath.isNotEmpty) {
+        // Seek voices by audio path
+        for (final entry in _activeBusVoices.entries) {
+          for (final voice in entry.value) {
+            if (voice.audioPath == targetPath) {
+              AudioPlaybackService.instance.seekVoice(voice.voiceId, seekMs);
+            }
+          }
+        }
+      } else {
+        // Seek all voices on bus
+        final activeVoices = _activeBusVoices[layer.busId];
+        if (activeVoices != null) {
+          for (final voice in activeVoices) {
+            AudioPlaybackService.instance.seekVoice(voice.voiceId, seekMs);
+          }
+        }
+      }
+    }
+
+    if (delayMs > 0) {
+      Future.delayed(Duration(milliseconds: delayMs), doSeek);
+    } else {
+      doSeek();
+    }
   }
 
   /// Get the current recursion chain for debugging/UI display.

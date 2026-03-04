@@ -54,6 +54,9 @@ import 'package:get_it/get_it.dart';
 import '../slot_lab/lower_zone/slotlab_logic_tab.dart';
 import '../slot_lab/lower_zone/slotlab_intel_tab.dart';
 import '../slot_lab/lower_zone/slotlab_monitor_tab.dart';
+import '../slot_lab/lower_zone/slotlab_rtpc_tab.dart';
+import '../slot_lab/lower_zone/slotlab_containers_tab.dart';
+import '../slot_lab/lower_zone/slotlab_music_tab.dart';
 import '../slot_lab/lower_zone/bake/macro_panel.dart';
 import '../slot_lab/lower_zone/bake/macro_monitor.dart';
 import '../slot_lab/lower_zone/bake/macro_report_viewer.dart';
@@ -808,6 +811,9 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       SlotLabSuperTab.events => _buildEventsContent(),
       SlotLabSuperTab.mix => _buildMixContent(),
       SlotLabSuperTab.dsp => _buildDspContent(),
+      SlotLabSuperTab.rtpc => SlotLabRtpcTabContent(subTab: widget.controller.state.rtpcSubTab),
+      SlotLabSuperTab.containers => SlotLabContainersTabContent(subTab: widget.controller.state.containersSubTab),
+      SlotLabSuperTab.music => SlotLabMusicTabContent(subTab: widget.controller.state.musicSubTab),
       SlotLabSuperTab.bake => _buildBakeContent(),
       SlotLabSuperTab.logic => SlotLabLogicTabContent(subTab: widget.controller.state.logicSubTab),
       SlotLabSuperTab.intel => SlotLabIntelTabContent(subTab: widget.controller.state.intelSubTab),
@@ -4360,6 +4366,23 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           // Switch to Package sub-tab
           widget.controller.setSubTabIndex(2);
         },
+      ),
+      SlotLabSuperTab.rtpc => SlotLabActions.forMiddleware(
+        onReset: null,
+        onInspect: () {
+          widget.controller.setRtpcSubTab(SlotLabRtpcSubTab.debugger);
+        },
+        onSimulate: null,
+      ),
+      SlotLabSuperTab.containers => SlotLabActions.forMiddleware(
+        onReset: null,
+        onInspect: null,
+        onSimulate: null,
+      ),
+      SlotLabSuperTab.music => SlotLabActions.forMiddleware(
+        onReset: null,
+        onInspect: null,
+        onSimulate: null,
       ),
       SlotLabSuperTab.logic => SlotLabActions.forMiddleware(
         onReset: () {

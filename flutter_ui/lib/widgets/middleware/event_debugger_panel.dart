@@ -232,6 +232,8 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
         return 'Random';
       case ContainerType.sequence:
         return 'Sequence';
+      case ContainerType.switchContainer:
+        return 'Switch Container';
       case ContainerType.none:
         return '';
     }

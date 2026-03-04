@@ -38,7 +38,7 @@ void main() {
       await waitForAppReady(tester);
 
       final launcher = LauncherPage(tester);
-      await launcher.navigateToMiddleware();
+      await launcher.navigateToSlotLab();
       await settle(tester, const Duration(seconds: 3));
       await drainExceptions(tester);
 

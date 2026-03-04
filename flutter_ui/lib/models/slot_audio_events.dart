@@ -1588,6 +1588,8 @@ class SlotEventLayer {
   final double minMultiplier; // Minimum win multiplier to activate (0 = always)
   final double betThreshold; // Minimum bet threshold to activate (0 = always)
   final String? targetAudioPath; // Target event for Fade/Stop actions (e.g., "MUSIC_BASE_L1")
+  final String priority; // Action priority: "Normal", "High", "Highest", etc.
+  final String scope; // Action scope: "Global", "Game Object", "Emitter"
 
   const SlotEventLayer({
     required this.id,
@@ -1617,6 +1619,8 @@ class SlotEventLayer {
     this.minMultiplier = 0.0,
     this.betThreshold = 0.0,
     this.targetAudioPath,
+    this.priority = 'Normal',
+    this.scope = 'Global',
   });
 
   SlotEventLayer copyWith({
@@ -1647,6 +1651,8 @@ class SlotEventLayer {
     double? minMultiplier,
     double? betThreshold,
     String? targetAudioPath,
+    String? priority,
+    String? scope,
   }) {
     return SlotEventLayer(
       id: id ?? this.id,
@@ -1676,6 +1682,8 @@ class SlotEventLayer {
       minMultiplier: minMultiplier ?? this.minMultiplier,
       betThreshold: betThreshold ?? this.betThreshold,
       targetAudioPath: targetAudioPath ?? this.targetAudioPath,
+      priority: priority ?? this.priority,
+      scope: scope ?? this.scope,
     );
   }
 
@@ -1716,6 +1724,8 @@ class SlotEventLayer {
     'minMultiplier': minMultiplier,
     'betThreshold': betThreshold,
     if (targetAudioPath != null) 'targetAudioPath': targetAudioPath,
+    'priority': priority,
+    'scope': scope,
     // Note: waveformData is not saved - it's regenerated on load
   };
 
@@ -1756,6 +1766,8 @@ class SlotEventLayer {
       minMultiplier: (json['minMultiplier'] as num?)?.toDouble() ?? 0.0,
       betThreshold: (json['betThreshold'] as num?)?.toDouble() ?? 0.0,
       targetAudioPath: json['targetAudioPath'] as String?,
+      priority: json['priority'] as String? ?? 'Normal',
+      scope: json['scope'] as String? ?? 'Global',
     );
   }
 }

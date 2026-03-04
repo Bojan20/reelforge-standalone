@@ -13,7 +13,7 @@ import 'theme/fluxforge_theme.dart';
 import 'screens/engine_connected_layout.dart';
 import 'screens/launcher_screen.dart';
 import 'screens/daw_hub_screen.dart';
-import 'screens/middleware_hub_screen.dart';
+// middleware_hub_screen removed — SlotLab is unified
 import 'screens/eq_test_screen.dart';
 import 'providers/engine_provider.dart';
 import 'providers/timeline_playback_provider.dart';
@@ -366,7 +366,7 @@ class _AppInitializer extends StatefulWidget {
   State<_AppInitializer> createState() => _AppInitializerState();
 }
 
-enum _AppState { launcher, dawHub, middlewareHub, main, middleware }
+enum _AppState { launcher, dawHub, main, slotLab }
 
 class _AppInitializerState extends State<_AppInitializer> {
   _AppState _appState = _AppState.launcher;
@@ -568,9 +568,9 @@ class _AppInitializerState extends State<_AppInitializer> {
   void _handleModeSelected(AppMode mode) {
     setState(() {
       _selectedMode = mode;
-      if (mode == AppMode.middleware) {
-        // Middleware mode - show middleware hub
-        _appState = _AppState.middlewareHub;
+      if (mode == AppMode.slotLab) {
+        _projectName = 'SlotLab Session';
+        _appState = _AppState.slotLab;
       } else {
         // DAW mode - show DAW hub
         _appState = _AppState.dawHub;
@@ -621,38 +621,14 @@ class _AppInitializerState extends State<_AppInitializer> {
           onBackToLauncher: _handleBackToLauncher,
         );
 
-      case _AppState.middlewareHub:
-        return MiddlewareHubScreen(
-          onNewProject: (name) {
-            // For middleware, go directly to slot lab
-            setState(() {
-              _projectName = name;
-              _appState = _AppState.middleware;
-            });
-          },
-          onOpenProject: (path) {
-            setState(() {
-              _projectName = path.split('/').last.replaceAll('.fxm', '');
-              _appState = _AppState.middleware;
-            });
-          },
-          onQuickStart: () {
-            setState(() {
-              _projectName = 'Sandbox';
-              _appState = _AppState.middleware;
-            });
-          },
-          onBackToLauncher: _handleBackToLauncher,
-        );
-
       case _AppState.main:
         return _DawLayout(
           onBackToLauncher: _handleBackToLauncher,
           projectName: _projectName,
         );
 
-      case _AppState.middleware:
-        return _MiddlewareLayout(
+      case _AppState.slotLab:
+        return _SlotLabLayout(
           onBackToLauncher: _handleBackToLauncher,
           projectName: _projectName,
         );
@@ -660,38 +636,36 @@ class _AppInitializerState extends State<_AppInitializer> {
   }
 }
 
-/// Middleware-focused layout (uses EngineConnectedLayout with middleware mode)
-class _MiddlewareLayout extends StatefulWidget {
+/// SlotLab-focused layout (uses EngineConnectedLayout with slot mode)
+class _SlotLabLayout extends StatefulWidget {
   final VoidCallback onBackToLauncher;
   final String? projectName;
 
-  const _MiddlewareLayout({
+  const _SlotLabLayout({
     required this.onBackToLauncher,
     this.projectName,
   });
 
   @override
-  State<_MiddlewareLayout> createState() => _MiddlewareLayoutState();
+  State<_SlotLabLayout> createState() => _SlotLabLayoutState();
 }
 
-class _MiddlewareLayoutState extends State<_MiddlewareLayout> {
+class _SlotLabLayoutState extends State<_SlotLabLayout> {
   @override
   void initState() {
     super.initState();
-    // Set editor mode to middleware on init
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final editorMode = context.read<EditorModeProvider>();
-      editorMode.setMode(EditorMode.middleware);
+      editorMode.setMode(EditorMode.slot);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // Back button is now in header (ControlBar), not overlay
     return EngineConnectedLayout(
       projectName: widget.projectName,
       onBackToLauncher: widget.onBackToLauncher,
-      initialEditorMode: layout.EditorMode.middleware,
+      initialEditorMode: layout.EditorMode.slot,
     );
   }
 }

@@ -209,8 +209,6 @@ class _LeftZoneState extends State<LeftZone> {
     switch (widget.editorMode) {
       case EditorMode.daw:
         return 'Browser';
-      case EditorMode.middleware:
-        return 'Project';
       case EditorMode.slot:
         return 'Assets';
     }
@@ -221,8 +219,6 @@ class _LeftZoneState extends State<LeftZone> {
     switch (widget.editorMode) {
       case EditorMode.daw:
         return Icons.audio_file;
-      case EditorMode.middleware:
-        return Icons.folder_outlined;
       case EditorMode.slot:
         return Icons.casino;
     }
@@ -233,8 +229,6 @@ class _LeftZoneState extends State<LeftZone> {
     switch (widget.editorMode) {
       case EditorMode.daw:
         return FluxForgeTheme.accentBlue;
-      case EditorMode.middleware:
-        return FluxForgeTheme.accentOrange;
       case EditorMode.slot:
         return FluxForgeTheme.accentGreen;
     }
@@ -254,7 +248,7 @@ class _LeftZoneState extends State<LeftZone> {
           placeholder: _getSearchPlaceholder(),
           isNarrow: isNarrow, // P2-11: Compact search on narrow width
         ),
-        // Event Folder Panel — DAW mode only, shows SlotLab event folders
+        // Event Folder Panel — DAW mode, shows SlotLab event folders
         if (widget.editorMode == EditorMode.daw)
           ListenableBuilder(
             listenable: sl<EventFolderProvider>(),
@@ -263,6 +257,7 @@ class _LeftZoneState extends State<LeftZone> {
               return EventFolderPanel(
                 folders: folderProvider.folders,
                 isCollapsed: _eventFoldersCollapsed,
+                alwaysShowHeader: false,
                 onToggleCollapsed: () => setState(() {
                   _eventFoldersCollapsed = !_eventFoldersCollapsed;
                 }),
@@ -298,8 +293,6 @@ class _LeftZoneState extends State<LeftZone> {
     switch (widget.editorMode) {
       case EditorMode.daw:
         return 'Search audio files...';
-      case EditorMode.middleware:
-        return 'Search events, buses...';
       case EditorMode.slot:
         return 'Search slot assets...';
     }
@@ -308,7 +301,6 @@ class _LeftZoneState extends State<LeftZone> {
   Widget _buildEmptyBrowser() {
     final (icon, message) = switch (widget.editorMode) {
       EditorMode.daw => (Icons.audio_file, 'Drop audio files here\nor import from File menu'),
-      EditorMode.middleware => (Icons.account_tree, 'No events defined\nCreate events from Project menu'),
       EditorMode.slot => (Icons.casino, 'No slot assets\nImport from File menu'),
     };
 
@@ -506,7 +498,6 @@ class _ModeIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     final (label, icon) = switch (mode) {
       EditorMode.daw => ('DAW Browser', Icons.audio_file),
-      EditorMode.middleware => ('Middleware Project', Icons.account_tree),
       EditorMode.slot => ('Slot Assets', Icons.casino),
     };
 

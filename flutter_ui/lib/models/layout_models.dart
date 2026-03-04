@@ -348,7 +348,6 @@ class ChannelStripData {
 /// Editor mode enum
 enum EditorMode {
   daw,
-  middleware,
   slot,
 }
 

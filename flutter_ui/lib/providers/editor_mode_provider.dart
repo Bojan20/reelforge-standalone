@@ -1,8 +1,8 @@
 // Editor Mode Provider
 //
-// Manages the current editor mode (DAW vs Middleware):
+// Manages the current editor mode (DAW vs SlotLab):
 // - DAW Mode: Timeline-centric editing, full mixer
-// - Middleware Mode: Event-centric editing, game integration
+// - SlotLab Mode: Slot game audio studio
 //
 // Features:
 // - Keyboard shortcuts (Cmd+1, Cmd+2, Cmd+`)
@@ -14,7 +14,7 @@ import 'package:flutter/widgets.dart';
 
 // ============ Types ============
 
-enum EditorMode { daw, middleware }
+enum EditorMode { daw, slot }
 
 class EditorModeConfig {
   final EditorMode mode;
@@ -45,11 +45,11 @@ const Map<EditorMode, EditorModeConfig> kModeConfigs = {
     accentColor: 0xFF0EA5E9, // Blue
     shortcut: '⌘1',
   ),
-  EditorMode.middleware: EditorModeConfig(
-    mode: EditorMode.middleware,
-    name: 'Events',
-    description: 'Event routing & game integration',
-    icon: '🎮',
+  EditorMode.slot: EditorModeConfig(
+    mode: EditorMode.slot,
+    name: 'SlotLab',
+    description: 'Slot game audio studio',
+    icon: '🎰',
     accentColor: 0xFFF97316, // Orange
     shortcut: '⌘2',
   ),
@@ -96,7 +96,8 @@ class EditorModeProvider extends ChangeNotifier {
   }
 
   void toggleMode() {
-    _mode = _mode == EditorMode.daw ? EditorMode.middleware : EditorMode.daw;
+    // Cycle: daw → slot → daw (skip middleware — it's legacy)
+    _mode = _mode == EditorMode.daw ? EditorMode.slot : EditorMode.daw;
     notifyListeners();
   }
 
@@ -115,13 +116,13 @@ class EditorModeProvider extends ChangeNotifier {
       return KeyEventResult.handled;
     }
 
-    // Cmd+2 = Middleware mode
+    // Cmd+2 = SlotLab mode
     if (event.logicalKey == LogicalKeyboardKey.digit2) {
-      setMode(EditorMode.middleware);
+      setMode(EditorMode.slot);
       return KeyEventResult.handled;
     }
 
-    // Cmd+` = Toggle mode
+    // Cmd+` = Toggle DAW/SlotLab
     if (event.logicalKey == LogicalKeyboardKey.backquote) {
       toggleMode();
       return KeyEventResult.handled;

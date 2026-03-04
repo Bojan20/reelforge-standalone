@@ -229,11 +229,11 @@ Future<void> navigateToDAW(WidgetTester tester) async {
   }
 }
 
-/// Navigate through launcher to Middleware mode
-Future<void> navigateToMiddleware(WidgetTester tester) async {
-  final mwFinder = find.text('Game Audio');
-  if (mwFinder.evaluate().isNotEmpty) {
-    await tester.tap(mwFinder);
+/// Navigate through launcher to SlotLab mode
+Future<void> navigateToSlotLab(WidgetTester tester) async {
+  final slFinder = find.text('SLOTLAB');
+  if (slFinder.evaluate().isNotEmpty) {
+    await tester.tap(slFinder);
     for (int i = 0; i < 30; i++) {
       await tester.pump(const Duration(milliseconds: 16));
       _tryDrain(tester);

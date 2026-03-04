@@ -1,6 +1,6 @@
 // Lower Zone Persistence Service
 //
-// Saves and loads Lower Zone state for each section (DAW, Middleware, SlotLab)
+// Saves and loads Lower Zone state for each section (DAW, SlotLab)
 // using SharedPreferences for persistent storage.
 
 import 'dart:convert';
@@ -10,7 +10,6 @@ import '../widgets/lower_zone/lower_zone_types.dart';
 /// Service for persisting Lower Zone state across sessions
 class LowerZonePersistenceService {
   static const String _dawKey = 'lower_zone_daw_state';
-  static const String _middlewareKey = 'lower_zone_middleware_state';
   static const String _slotLabKey = 'lower_zone_slotlab_state';
 
   static LowerZonePersistenceService? _instance;
@@ -28,10 +27,9 @@ class LowerZonePersistenceService {
   /// Initialize the service (call once at app startup)
   Future<void> init() async {
     _prefs ??= await SharedPreferences.getInstance();
-    // One-time migration: clear old DAW/Middleware defaults so new defaults apply
+    // One-time migration: clear old defaults so new defaults apply
     if (_prefs!.getBool(_migrationKey) != true) {
       await _prefs!.remove(_dawKey);
-      await _prefs!.remove(_middlewareKey);
       await _prefs!.setBool(_migrationKey, true);
     }
   }
@@ -73,34 +71,6 @@ class LowerZonePersistenceService {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // MIDDLEWARE STATE
-  // ═══════════════════════════════════════════════════════════════════════════════
-
-  /// Save Middleware Lower Zone state
-  Future<bool> saveMiddlewareState(MiddlewareLowerZoneState state) async {
-    try {
-      final prefs = await _getPrefs();
-      final json = jsonEncode(state.toJson());
-      return await prefs.setString(_middlewareKey, json);
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /// Load Middleware Lower Zone state
-  Future<MiddlewareLowerZoneState> loadMiddlewareState() async {
-    try {
-      final prefs = await _getPrefs();
-      final json = prefs.getString(_middlewareKey);
-      if (json == null) return MiddlewareLowerZoneState();
-      final map = jsonDecode(json) as Map<String, dynamic>;
-      return MiddlewareLowerZoneState.fromJson(map);
-    } catch (e) {
-      return MiddlewareLowerZoneState();
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════════
   // SLOTLAB STATE
   // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -135,30 +105,25 @@ class LowerZonePersistenceService {
   /// Load all Lower Zone states at once
   Future<({
     DawLowerZoneState daw,
-    MiddlewareLowerZoneState middleware,
     SlotLabLowerZoneState slotLab,
   })> loadAllStates() async {
     final results = await Future.wait([
       loadDawState(),
-      loadMiddlewareState(),
       loadSlotLabState(),
     ]);
     return (
       daw: results[0] as DawLowerZoneState,
-      middleware: results[1] as MiddlewareLowerZoneState,
-      slotLab: results[2] as SlotLabLowerZoneState,
+      slotLab: results[1] as SlotLabLowerZoneState,
     );
   }
 
   /// Save all Lower Zone states at once
   Future<void> saveAllStates({
     DawLowerZoneState? daw,
-    MiddlewareLowerZoneState? middleware,
     SlotLabLowerZoneState? slotLab,
   }) async {
     await Future.wait([
       if (daw != null) saveDawState(daw),
-      if (middleware != null) saveMiddlewareState(middleware),
       if (slotLab != null) saveSlotLabState(slotLab),
     ]);
   }
@@ -168,7 +133,6 @@ class LowerZonePersistenceService {
     final prefs = await _getPrefs();
     await Future.wait([
       prefs.remove(_dawKey),
-      prefs.remove(_middlewareKey),
       prefs.remove(_slotLabKey),
     ]);
   }

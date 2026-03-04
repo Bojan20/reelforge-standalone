@@ -593,6 +593,11 @@ class AudioPlaybackService extends ChangeNotifier {
     // No pause/resume FFI support — this is a no-op placeholder
   }
 
+  /// Seek a voice to a position in milliseconds
+  void seekVoice(int voiceId, double positionMs) {
+    // Seek not yet supported in FFI — placeholder for future rf-engine seek support
+  }
+
   /// Stop all voices for a specific event
   void stopEvent(String eventId) {
     final voices = _eventVoices.remove(eventId);

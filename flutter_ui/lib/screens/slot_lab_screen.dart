@@ -454,7 +454,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // When base music changes, refresh BIG_WIN_START/END composite events
     // so their FadeVoice/StopVoice layers target the correct audio path
-    if (stage == 'MUSIC_BASE_L1' || stage == 'GAME_START') {
+    if (stage.startsWith('MUSIC_BASE_L') || stage == 'GAME_START') {
       final bwsPath = projectProvider.getAudioAssignment('BIG_WIN_START');
       if (bwsPath != null && bwsPath.isNotEmpty) {
         _ensureCompositeEventForStage('BIG_WIN_START', bwsPath);
@@ -525,23 +525,28 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       // Voice-level targeting: fade/stop by audio file path, not event
       // ══════════════════════════════════════════════════════════════
 
-      // Resolve actual audio paths from assignments
-      String? baseMusicPath;
+      // Resolve actual audio paths from ALL base music layers
+      final baseMusicPaths = <String, String>{};
       String? gameStartPath;
       try {
         final project = Provider.of<SlotLabProjectProvider>(context, listen: false);
-        baseMusicPath = project.getAudioAssignment('MUSIC_BASE_L1');
+        for (final layer in const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
+          final path = project.getAudioAssignment(layer);
+          if (path != null && path.isNotEmpty) {
+            baseMusicPaths[layer] = path;
+          }
+        }
         gameStartPath = project.getAudioAssignment('GAME_START');
       } catch (_) {}
 
-      // 1. Fade base game music voice (100ms)
-      if (baseMusicPath != null && baseMusicPath.isNotEmpty) {
+      // 1. Fade ALL base game music voices (100ms)
+      for (final entry in baseMusicPaths.entries) {
         baseLayers.add(SlotEventLayer(
-          id: 'bws_fadeout_base',
-          name: 'Fade ${baseMusicPath.split('/').last} → 0',
+          id: 'bws_fadeout_${entry.key.toLowerCase()}',
+          name: 'Fade ${entry.value.split('/').last} → 0',
           audioPath: '',
           actionType: 'FadeVoice',
-          targetAudioPath: baseMusicPath,
+          targetAudioPath: entry.value,
           volume: 0.0,
           busId: 1,
           fadeOutMs: 100,
@@ -549,11 +554,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
         // 2. Stop base game music voice (110ms — after fade)
         baseLayers.add(SlotEventLayer(
-          id: 'bws_stop_base',
-          name: 'Stop ${baseMusicPath.split('/').last}',
+          id: 'bws_stop_${entry.key.toLowerCase()}',
+          name: 'Stop ${entry.value.split('/').last}',
           audioPath: '',
           actionType: 'StopVoice',
-          targetAudioPath: baseMusicPath,
+          targetAudioPath: entry.value,
           volume: 0.0,
           busId: 1,
           offsetMs: 110,
@@ -625,32 +630,34 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         ));
       }
 
-      // 3. Start Base Game Music at volume 0 (preload — ready for fadeIn)
+      // 3. Start ALL Base Game Music layers at volume 0 (preload — ready for fadeIn)
       try {
         final project = Provider.of<SlotLabProjectProvider>(context, listen: false);
-        final baseMusic = project.getAudioAssignment('MUSIC_BASE_L1');
-        if (baseMusic != null && baseMusic.isNotEmpty) {
-          baseLayers.add(SlotEventLayer(
-            id: 'bwe_preload_base_l1',
-            name: 'Start Base Game Music (silent)',
-            audioPath: baseMusic,
-            actionType: 'Play',
-            volume: 0.0,
-            busId: 1,
-            loop: true,
-          ));
+        for (final layer in const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
+          final baseMusic = project.getAudioAssignment(layer);
+          if (baseMusic != null && baseMusic.isNotEmpty) {
+            baseLayers.add(SlotEventLayer(
+              id: 'bwe_preload_${layer.toLowerCase()}',
+              name: 'Start $layer (silent)',
+              audioPath: baseMusic,
+              actionType: 'Play',
+              volume: 0.0,
+              busId: 1,
+              loop: true,
+            ));
 
-          // 4. FadeIn Base Game Music (500ms — industry standard restore)
-          baseLayers.add(SlotEventLayer(
-            id: 'bwe_fadein_base_l1',
-            name: 'Fade MUSIC_BASE_L1 → 1 (auto)',
-            audioPath: '',
-            actionType: 'SetVolume',
-            volume: 1.0,
-            busId: 1,
-            offsetMs: 500,
-            fadeInMs: 500.0,
-          ));
+            // 4. FadeIn Base Game Music (500ms — industry standard restore)
+            baseLayers.add(SlotEventLayer(
+              id: 'bwe_fadein_${layer.toLowerCase()}',
+              name: 'Fade $layer → 1 (auto)',
+              audioPath: '',
+              actionType: 'SetVolume',
+              volume: 1.0,
+              busId: 1,
+              offsetMs: 500,
+              fadeInMs: 500.0,
+            ));
+          }
         }
       } catch (_) {}
 
@@ -757,7 +764,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// Build AudioEvent for a stage, handling BIG_WIN_START/END specially:
   /// - overlap=false, targetBusId=1 → fades out active music on music bus
   /// - BIG_WIN_START: loop=true (big win music loops)
-  /// - BIG_WIN_END: adds MUSIC_BASE_L1 restore layer (delay 3500ms, fadeIn 1300ms)
+  /// - BIG_WIN_END: adds MUSIC_BASE_L* restore layers (delay 3500ms, fadeIn 1300ms)
   AudioEvent _buildAudioEventForStage(String stage, String audioPath) {
     final busId = _getBusForStage(stage);
     final shouldLoop = StageConfigurationService.instance.isLooping(stage);
@@ -776,21 +783,55 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       ),
     ];
 
-    // BIG_WIN_END: restore base game music after big win ends
+    // BIG_WIN_START: fade/stop ALL base music layers before playing big win
+    if (stage == 'BIG_WIN_START') {
+      try {
+        final project = Provider.of<SlotLabProjectProvider>(context, listen: false);
+        for (final layer in const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
+          final path = project.getAudioAssignment(layer);
+          if (path != null && path.isNotEmpty) {
+            layers.add(AudioLayer(
+              id: 'bws_fadeout_${layer.toLowerCase()}',
+              name: 'Fade ${path.split('/').last} → 0',
+              audioPath: '',
+              busId: 1,
+              delay: 0,
+              volume: 0.0,
+              actionType: 'FadeVoice',
+              targetAudioPath: path,
+            ));
+            layers.add(AudioLayer(
+              id: 'bws_stop_${layer.toLowerCase()}',
+              name: 'Stop ${path.split('/').last}',
+              audioPath: '',
+              busId: 1,
+              delay: 110,
+              volume: 0.0,
+              actionType: 'StopVoice',
+              targetAudioPath: path,
+            ));
+          }
+        }
+      } catch (_) {}
+    }
+
+    // BIG_WIN_END: restore ALL base game music layers after big win ends
     if (stage == 'BIG_WIN_END') {
       try {
         final project = Provider.of<SlotLabProjectProvider>(context, listen: false);
-        final baseMusic = project.getAudioAssignment('MUSIC_BASE_L1');
-        if (baseMusic != null && baseMusic.isNotEmpty) {
-          layers.add(AudioLayer(
-            id: 'bwe_restore_base_l1',
-            name: 'Base Game Music Restore',
-            audioPath: baseMusic,
-            volume: 0.0, // Starts silent
-            busId: 1,    // Music bus
-            delay: 3500,
-            fadeInMs: 1300.0,
-          ));
+        for (final layer in const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
+          final baseMusic = project.getAudioAssignment(layer);
+          if (baseMusic != null && baseMusic.isNotEmpty) {
+            layers.add(AudioLayer(
+              id: 'bwe_restore_${layer.toLowerCase()}',
+              name: '$layer Restore',
+              audioPath: baseMusic,
+              volume: 0.0,
+              busId: 1,
+              delay: 3500,
+              fadeInMs: 1300.0,
+            ));
+          }
         }
       } catch (_) {}
     }
@@ -9453,6 +9494,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       case ContainerType.sequence:
         containers = middleware.sequenceContainers.map((c) => (id: c.id, name: c.name)).toList();
         break;
+      case ContainerType.switchContainer:
+        containers = middleware.randomContainers.map((c) => (id: c.id, name: c.name)).toList();
+        break;
       case ContainerType.none:
         break;
     }
@@ -9529,6 +9573,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           childCount = container.steps.length;
         }
         break;
+      case ContainerType.switchContainer:
+        final container = middleware.randomContainers.where((c) => c.id == event.containerId).firstOrNull;
+        if (container != null) {
+          containerName = container.name;
+          childCount = container.children.length;
+        }
+        break;
       case ContainerType.none:
         break;
     }
@@ -9537,6 +9588,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       ContainerType.blend => Colors.purple,
       ContainerType.random => Colors.amber,
       ContainerType.sequence => Colors.teal,
+      ContainerType.switchContainer => Colors.cyan,
       ContainerType.none => Colors.grey,
     };
 

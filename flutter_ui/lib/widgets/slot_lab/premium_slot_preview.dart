@@ -6276,7 +6276,12 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // Stop all music on collect and restore base game music
     if (_isBigWinTier(_currentWinTier)) {
       eventRegistry.stopAllMusicVoices(fadeMs: 300);
-      eventRegistry.triggerStage('MUSIC_BASE_L1');
+      // Restore ALL base music layers
+      for (final layer in const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
+        if (eventRegistry.hasEventForStage(layer)) {
+          eventRegistry.triggerStage(layer);
+        }
+      }
     }
 
     setState(() {

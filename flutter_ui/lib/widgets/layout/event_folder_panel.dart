@@ -18,6 +18,7 @@ class EventFolderPanel extends StatelessWidget {
   final void Function(String eventId, String layerId)? onLayerTap;
   final void Function(String eventId)? onOpenInSlotLab;
   final bool isCollapsed;
+  final bool alwaysShowHeader;
 
   const EventFolderPanel({
     super.key,
@@ -27,11 +28,12 @@ class EventFolderPanel extends StatelessWidget {
     this.onLayerTap,
     this.onOpenInSlotLab,
     this.isCollapsed = false,
+    this.alwaysShowHeader = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (folders.isEmpty) return const SizedBox.shrink();
+    if (folders.isEmpty && !alwaysShowHeader) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -99,6 +101,15 @@ class EventFolderPanel extends StatelessWidget {
   // ─── Folder List ───────────────────────────────────────────────────────────
 
   Widget _buildFolderList() {
+    if (folders.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Text(
+          'No events yet. Assign audio in SlotLab.',
+          style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
+        ),
+      );
+    }
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: 280),
       child: ListView.builder(

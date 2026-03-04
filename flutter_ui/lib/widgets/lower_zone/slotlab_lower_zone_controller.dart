@@ -148,6 +148,30 @@ class SlotLabLowerZoneController extends ChangeNotifier {
     _updateAndSave(newState);
   }
 
+  void setRtpcSubTab(SlotLabRtpcSubTab tab) {
+    var newState = _state.copyWith(rtpcSubTab: tab);
+    if (_state.superTab != SlotLabSuperTab.rtpc) {
+      newState = newState.copyWith(superTab: SlotLabSuperTab.rtpc);
+    }
+    _updateAndSave(newState);
+  }
+
+  void setContainersSubTab(SlotLabContainersSubTab tab) {
+    var newState = _state.copyWith(containersSubTab: tab);
+    if (_state.superTab != SlotLabSuperTab.containers) {
+      newState = newState.copyWith(superTab: SlotLabSuperTab.containers);
+    }
+    _updateAndSave(newState);
+  }
+
+  void setMusicSubTab(SlotLabMusicSubTab tab) {
+    var newState = _state.copyWith(musicSubTab: tab);
+    if (_state.superTab != SlotLabSuperTab.music) {
+      newState = newState.copyWith(superTab: SlotLabSuperTab.music);
+    }
+    _updateAndSave(newState);
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // EXPAND/COLLAPSE
   // ═══════════════════════════════════════════════════════════════════════════
@@ -203,37 +227,45 @@ class SlotLabLowerZoneController extends ChangeNotifier {
       return KeyEventResult.handled;
     }
 
-    // 1-8 = Super-tabs
+    // 1-9, 0 = Super-tabs (by enum order)
     if (event.logicalKey == LogicalKeyboardKey.digit1) {
-      setSuperTab(SlotLabSuperTab.stages);
+      setSuperTabIndex(0); // STAGES
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.digit2) {
-      setSuperTab(SlotLabSuperTab.events);
+      setSuperTabIndex(1); // EVENTS
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.digit3) {
-      setSuperTab(SlotLabSuperTab.mix);
+      setSuperTabIndex(2); // MIX
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.digit4) {
-      setSuperTab(SlotLabSuperTab.dsp);
+      setSuperTabIndex(3); // DSP
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.digit5) {
-      setSuperTab(SlotLabSuperTab.logic);
+      setSuperTabIndex(4); // RTPC
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.digit6) {
-      setSuperTab(SlotLabSuperTab.intel);
+      setSuperTabIndex(5); // CONTAINERS
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.digit7) {
-      setSuperTab(SlotLabSuperTab.monitor);
+      setSuperTabIndex(6); // MUSIC
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.digit8) {
-      setSuperTab(SlotLabSuperTab.bake);
+      setSuperTabIndex(7); // LOGIC
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.digit9) {
+      setSuperTabIndex(8); // INTEL
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.digit0) {
+      setSuperTabIndex(9); // MONITOR
       return KeyEventResult.handled;
     }
 

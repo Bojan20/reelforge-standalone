@@ -653,9 +653,12 @@ class SlotStageProvider extends ChangeNotifier {
       }
 
       if (!_baseMusicStarted) {
-        if (eventRegistry.hasEventForStage('MUSIC_BASE_L1')) {
-          eventRegistry.triggerStage('MUSIC_BASE_L1', context: context);
-          _baseMusicStarted = true;
+        // Trigger ALL registered MUSIC_BASE layers (L1..L5)
+        for (final layer in const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
+          if (eventRegistry.hasEventForStage(layer)) {
+            eventRegistry.triggerStage(layer, context: context);
+            _baseMusicStarted = true;
+          }
         }
         if (eventRegistry.hasEventForStage('GAME_START')) {
           eventRegistry.triggerStage('GAME_START', context: context);

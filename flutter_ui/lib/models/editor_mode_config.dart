@@ -1,7 +1,6 @@
 // Editor Mode Layout Configuration
 //
-// Defines layout differences between DAW and Middleware modes.
-// 1:1 migration from React editorModeConfig.ts
+// Defines layout differences between DAW and SlotLab modes.
 //
 // DAW Mode:
 // - Timeline-centric editing
@@ -10,12 +9,11 @@
 // - Transport bar prominent
 // - Default tab: Mixer
 //
-// Middleware Mode:
+// SlotLab Mode:
+// - Slot game audio studio
 // - Event-centric editing
-// - Routing and states focus
 // - Game integration tools
-// - Console/debug prominent
-// - Default tab: Slot Studio
+// - Default tab: Spin Cycle
 
 import 'layout_models.dart' show EditorMode;
 
@@ -150,49 +148,7 @@ const EditorModeLayoutConfig dawModeConfig = EditorModeLayoutConfig(
   ),
 );
 
-/// Middleware Mode - Game audio middleware layout
-///
-/// Lower Zone tabs (left to right):
-/// - Middleware (States, Switches, RTPC, Ducking, Blend, Random, Sequence, Music, Curves)
-/// - Mix (Mixer ONLY - simplified bus masters, NO Recording)
-/// - Analyze (Meters, Loudness, Spectrum)
-/// - Process (DSP for bus-level processing)
-///
-/// Hidden: Recording, Control Room, Edit tools, Media browser
-const EditorModeLayoutConfig middlewareModeConfig = EditorModeLayoutConfig(
-  mode: EditorMode.middleware,
-  lowerZone: LowerZoneConfig(
-    defaultTab: 'events-folder',
-    visibleGroups: ['middleware', 'mix', 'analyze', 'process'],
-    hiddenTabs: [
-      // DAW-centric tabs
-      'timeline', 'control-room', 'layers', 'audio-browser', 'audio-pool',
-      'clip-editor', 'crossfade', 'automation', 'piano-roll',
-      // Recording (not needed in middleware - no timeline recording)
-      'recording',
-    ],
-    groupOrder: ['middleware', 'mix', 'analyze', 'process'],
-  ),
-  leftZone: LeftZoneConfig(
-    defaultExpanded: ['events'],
-    visibleFolders: ['events', 'buses', 'states', 'switches', 'rtpc'],
-  ),
-  rightZone: RightZoneConfig(
-    defaultType: 'event',
-    sectionPresets: ['event-commands', 'bus-routing', 'game-sync'],
-  ),
-  centerDefault: 'events',
-  features: EditorModeFeatures(
-    showTransport: false,
-    showTempo: false,
-    showTimecode: false,
-    showMusicLayers: false,
-    showSlotTools: true,
-    showGameSync: true,
-  ),
-);
-
-/// Slot Mode - Slot machine focused layout (extends Middleware)
+/// Slot Mode - Slot machine focused layout
 const EditorModeLayoutConfig slotModeConfig = EditorModeLayoutConfig(
   mode: EditorMode.slot,
   lowerZone: LowerZoneConfig(
@@ -225,7 +181,6 @@ const EditorModeLayoutConfig slotModeConfig = EditorModeLayoutConfig(
 /// Map of editor modes to their layout configurations
 const Map<EditorMode, EditorModeLayoutConfig> modeLayoutConfigs = {
   EditorMode.daw: dawModeConfig,
-  EditorMode.middleware: middlewareModeConfig,
   EditorMode.slot: slotModeConfig,
 };
 

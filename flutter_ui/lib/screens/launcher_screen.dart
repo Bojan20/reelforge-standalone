@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 /// Application mode selected by user
 enum AppMode {
   daw,
-  middleware,
+  slotLab,
 }
 
 class LauncherScreen extends StatefulWidget {
@@ -225,7 +225,7 @@ class _LauncherScreenState extends State<LauncherScreen>
       // Set target for smooth interpolation
       if (mode == AppMode.daw) {
         _targetHoverValue = -1.0;
-      } else if (mode == AppMode.middleware) {
+      } else if (mode == AppMode.slotLab) {
         _targetHoverValue = 1.0;
       } else {
         _targetHoverValue = 0.0;
@@ -309,25 +309,25 @@ class _LauncherScreenState extends State<LauncherScreen>
                             // Center divider
                             _buildDivider(),
 
-                            // RIGHT: Middleware Mode
+                            // RIGHT: SlotLab Mode
                             Expanded(
                               child: SlideTransition(
                                 position: _rightPanelSlide,
                                 child: _buildModePanel(
-                                  mode: AppMode.middleware,
-                                  title: 'MIDDLEWARE',
-                                  subtitle: 'Game Audio Authoring',
-                                  description: 'Interactive audio for games,\nWwise/FMOD-style workflow',
-                                  icon: Icons.gamepad_rounded,
+                                  mode: AppMode.slotLab,
+                                  title: 'SLOTLAB',
+                                  subtitle: 'Slot Game Audio Studio',
+                                  description: 'Complete slot game audio design,\nevent system & live preview',
+                                  icon: Icons.casino_rounded,
                                   accentColor: const Color(0xFFFF9040),
                                   secondaryColor: const Color(0xFFFFD700),
                                   features: [
                                     'Event-based audio system',
                                     'RTPC & state management',
-                                    'Ducking & sidechain matrix',
-                                    'Random & sequence containers',
-                                    'Slot game audio profiles',
-                                    'Live engine integration',
+                                    'Blend, random & sequence containers',
+                                    'Live slot machine preview',
+                                    'Stage-driven audio design',
+                                    'Professional mixing & metering',
                                   ],
                                 ),
                               ),
@@ -780,7 +780,7 @@ class _LauncherScreenState extends State<LauncherScreen>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'ENTER ${mode == AppMode.daw ? 'DAW' : 'MIDDLEWARE'}',
+                          'ENTER ${mode == AppMode.daw ? 'DAW' : 'SLOTLAB'}',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,

@@ -1369,6 +1369,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
       ContainerType.blend => const Color(0xFF9370DB),
       ContainerType.random => const Color(0xFFFFBF00),
       ContainerType.sequence => const Color(0xFF40C8FF),
+      ContainerType.switchContainer => Colors.cyan,
       ContainerType.none => Colors.grey,
     };
   }
