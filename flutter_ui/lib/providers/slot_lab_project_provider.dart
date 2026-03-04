@@ -166,7 +166,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
 
   /// Get big win tier stages only
   List<String> get bigWinStages => [
-    'BIG_WIN_INTRO',
+    'BIG_WIN_START',
     ..._winConfiguration.bigWins.tiers.map((t) => t.stageName),
     'BIG_WIN_END',
     'BIG_WIN_FADE_OUT',

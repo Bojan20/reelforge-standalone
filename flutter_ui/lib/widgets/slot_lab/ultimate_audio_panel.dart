@@ -3584,7 +3584,7 @@ class _WinPresentationSection extends _SectionConfig {
 
       // Big Win common stages
       tierSlots.addAll(const [
-        _SlotConfig(stage: 'BIG_WIN_INTRO', label: 'Big Win Intro'),
+        _SlotConfig(stage: 'BIG_WIN_START', label: 'Big Win Intro'),
         _SlotConfig(stage: 'BIG_WIN_LOOP', label: 'Big Win Loop'),
         _SlotConfig(stage: 'BIG_WIN_COINS', label: 'Big Win Coins'),
         _SlotConfig(stage: 'BIG_WIN_IMPACT', label: 'Big Win Impact'),
@@ -4511,7 +4511,7 @@ class _MusicSection extends _SectionConfig {
           title: 'Big Win',
           icon: '🏆',
           slots: [
-            _SlotConfig(stage: 'BIG_WIN_INTRO', label: 'Intro'),
+            _SlotConfig(stage: 'BIG_WIN_START', label: 'Intro'),
             _SlotConfig(stage: 'BIG_WIN_END', label: 'End'),
             _SlotConfig(stage: 'BIG_WIN_OUTRO', label: 'Outro'),
           ],

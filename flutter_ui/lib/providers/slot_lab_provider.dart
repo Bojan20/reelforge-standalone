@@ -513,6 +513,7 @@ class SlotLabProvider extends ChangeNotifier {
 
   bool get initialized => _initialized;
   bool get isSpinning => _isSpinning;
+
   int get spinCount => _spinCount;
 
   SlotLabSpinResult? get lastResult => _lastResult;
@@ -1635,7 +1636,7 @@ class SlotLabProvider extends ChangeNotifier {
       'ROLLUP_START',
       'ROLLUP_TICK',
       'ROLLUP_END',
-      'BIG_WIN_INTRO',
+      'BIG_WIN_START',
       'BIG_WIN_END',
       'BIG_WIN_TIER',  // Widget triggers BIG_WIN_TIER_1..5 with correct timing
     };

@@ -361,6 +361,7 @@ class SlotLabCoordinator extends ChangeNotifier {
   void stopStagePlayback() => stageProvider.stopStagePlayback();
   void stopAllPlayback() => stageProvider.stopAllPlayback();
   void pauseStages() => stageProvider.pauseStages();
+  void resetBaseMusicFlag() => stageProvider.resetBaseMusicFlag();
   void resumeStages() => stageProvider.resumeStages();
   void togglePauseResume() => stageProvider.togglePauseResume();
   void triggerStageManually(int stageIndex) => stageProvider.triggerStageManually(stageIndex);

@@ -5207,7 +5207,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // Stop all win-related sfx events
     eventRegistry.stopEvent('BIG_WIN_LOOP');
     eventRegistry.stopEvent('BIG_WIN_COINS');
-    eventRegistry.stopEvent('BIG_WIN_INTRO');
+    eventRegistry.stopEvent('BIG_WIN_START');
     eventRegistry.stopEvent('ROLLUP');
     eventRegistry.stopEvent('ROLLUP_TICK');
     eventRegistry.stopEvent('WIN_SYMBOL_HIGHLIGHT');
@@ -6052,7 +6052,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         // Fade out ALL background music first, then start big win music
         if (_isBigWinTier(_currentWinTier)) {
           eventRegistry.stopAllMusicVoices(fadeMs: 500);
-          eventRegistry.triggerStage('BIG_WIN_INTRO');
+          eventRegistry.triggerStage('BIG_WIN_START');
         }
 
         // Start Big Win protection countdown for big wins

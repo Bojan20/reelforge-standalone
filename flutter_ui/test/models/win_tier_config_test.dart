@@ -402,7 +402,7 @@ void main() {
       final stages = config.allStageNames;
 
       // Should contain BIG_WIN intro/end
-      expect(stages.contains('BIG_WIN_INTRO'), isTrue);
+      expect(stages.contains('BIG_WIN_START'), isTrue);
       expect(stages.contains('BIG_WIN_END'), isTrue);
 
       // Should contain tier stages
@@ -446,7 +446,7 @@ void main() {
 
       expect(bigWinResult.isBigWin, isTrue);
       expect(bigWinResult.displayLabel, 'BIG WIN');
-      expect(bigWinResult.primaryStageName, 'BIG_WIN_INTRO');
+      expect(bigWinResult.primaryStageName, 'BIG_WIN_START');
     });
 
     test('regularTier provides correct stage name for regular wins', () {

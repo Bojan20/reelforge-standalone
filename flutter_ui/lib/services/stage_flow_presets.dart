@@ -56,7 +56,7 @@ class StageFlowPresets {
       _gateNode('n_gate_bigwin', 'bigwin_check', x: 1440, y: 100,
           enterCondition: 'win_ratio >= 20.0'),
       // Big win path
-      _stageNode('n_bigwin_intro', 'BIG_WIN_INTRO', x: 1600, y: 0,
+      _stageNode('n_bigwin_intro', 'BIG_WIN_START', x: 1600, y: 0,
           timing: const TimingConfig(durationMs: 500)),
       _stageNode('n_bigwin_tier', 'BIG_WIN_TIER', x: 1760, y: 0,
           timing: const TimingConfig(durationMs: 4000)),

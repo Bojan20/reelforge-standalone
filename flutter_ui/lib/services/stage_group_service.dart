@@ -202,7 +202,7 @@ String generateEventName(String stage) {
     'WIN_PRESENT_4': 'onWinPresent4',
     'WIN_PRESENT_5': 'onWinPresent5',
     'BIG_WIN_TRIGGER': 'onBigWinTrigger',
-    'BIG_WIN_INTRO': 'onBigWinIntro',
+    'BIG_WIN_START': 'onBigWinIntro',
     'BIG_WIN_LOOP': 'onBigWinLoop',
     'BIG_WIN_COINS': 'onBigWinCoins',
     'BIG_WIN_IMPACT': 'onBigWinImpact',
@@ -509,7 +509,7 @@ class StageGroupService {
       ('mus_bg_lvl_1', 'MUSIC_BASE_L1'),
       ('mus_bg_lvl_2', 'MUSIC_BASE_L2'),
       ('mus_bg_lvl_3', 'MUSIC_BASE_L3'),
-      ('mus_bw', 'BIG_WIN_INTRO'),
+      ('mus_bw', 'BIG_WIN_START'),
       ('mus_rs', 'MUSIC_HOLD_L1'),
 
       // ── FREESPIN ──
@@ -655,12 +655,12 @@ class StageGroupService {
     // ═══════════════════════════════════════════════════════════════════
     // BIG WIN — all naming conventions map to BIG_WIN_* stages
     // ═══════════════════════════════════════════════════════════════════
-    'mus_bw_intro': 'BIG_WIN_INTRO',
+    'mus_bw_intro': 'BIG_WIN_START',
     'mus_bw_end': 'BIG_WIN_END',
     'mus_bw_outro': 'BIG_WIN_OUTRO',
-    'mus_bw': 'BIG_WIN_INTRO',
-    'bigwin_music': 'BIG_WIN_INTRO',
-    'win_music': 'BIG_WIN_INTRO',
+    'mus_bw': 'BIG_WIN_START',
+    'bigwin_music': 'BIG_WIN_START',
+    'win_music': 'BIG_WIN_START',
 
     // ═══════════════════════════════════════════════════════════════════
     // JACKPOT MUSIC — all naming conventions
@@ -921,8 +921,8 @@ class StageGroupService {
     'sfx_coin_value': 'COIN_VALUE_REVEAL',
 
     // Big Win celebration
-    'big_win_intro': 'BIG_WIN_INTRO',
-    'sfx_bw_intro': 'BIG_WIN_INTRO',
+    'big_win_intro': 'BIG_WIN_START',
+    'sfx_bw_intro': 'BIG_WIN_START',
     'big_win_loop': 'BIG_WIN_LOOP',
     'sfx_bw_loop': 'BIG_WIN_LOOP',
     'big_win_end': 'BIG_WIN_END',
@@ -1314,7 +1314,7 @@ class StageGroupService {
       ),
       // Big Win celebration
       _StageDefinition(
-        stage: 'BIG_WIN_INTRO',
+        stage: 'BIG_WIN_START',
         keywords: ['big', 'win', 'intro', 'start'],
         requiredKeywords: ['big'],
         suffixes: ['_intro', '_start'],

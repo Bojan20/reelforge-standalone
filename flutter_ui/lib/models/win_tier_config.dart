@@ -499,7 +499,7 @@ class BigWinConfig {
   });
 
   /// Stage names for big win flow
-  static const String introStageName = 'BIG_WIN_INTRO';
+  static const String startStageName = 'BIG_WIN_START';
   static const String endStageName = 'BIG_WIN_END';
   static const String fadeOutStageName = 'BIG_WIN_FADE_OUT';
   static const String rollupTickStageName = 'BIG_WIN_ROLLUP_TICK';
@@ -745,7 +745,7 @@ class SlotWinConfiguration {
     }
 
     // Big win stages
-    stages.add(BigWinConfig.introStageName);
+    stages.add(BigWinConfig.startStageName);
     for (final tier in bigWins.tiers) {
       stages.add(tier.stageName);
     }
@@ -1185,7 +1185,7 @@ class WinTierResult {
   /// Get primary stage name to trigger
   String get primaryStageName {
     if (isBigWin) {
-      return BigWinConfig.introStageName;
+      return BigWinConfig.startStageName;
     }
     return regularTier?.stageName ?? 'WIN_1';
   }
@@ -1226,8 +1226,8 @@ const legacyStageMapping = <String, String>{
   'WIN_PRESENT_SMALL': 'WIN_PRESENT_1',
 
   // Big wins (old names → new system)
-  'BIG_WIN': 'BIG_WIN_INTRO',
-  'WIN_PRESENT_BIG': 'BIG_WIN_INTRO',
+  'BIG_WIN': 'BIG_WIN_START',
+  'WIN_PRESENT_BIG': 'BIG_WIN_START',
   'MEGA_WIN': 'BIG_WIN_TIER_2',
   'WIN_PRESENT_MEGA': 'BIG_WIN_TIER_2',
   'EPIC_WIN': 'BIG_WIN_TIER_3',

@@ -424,6 +424,13 @@ class SlotStageProvider extends ChangeNotifier {
 
   void stopAllPlayback() => stopStagePlayback();
 
+  /// Reset base music flag so next spin re-triggers background music.
+  /// Called when leaving SlotLab mode (voices silenced but EventRegistry stale).
+  void resetBaseMusicFlag() {
+    _baseMusicStarted = false;
+    eventRegistry.stopAll();
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // PAUSE/RESUME SYSTEM
   // ═══════════════════════════════════════════════════════════════════════════
@@ -839,7 +846,7 @@ class SlotStageProvider extends ChangeNotifier {
     const exactMatches = {
       'WIN_LINE_SHOW', 'WIN_LINE_HIDE',
       'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END',
-      'BIG_WIN_INTRO', 'BIG_WIN_END',
+      'BIG_WIN_START', 'BIG_WIN_END',
     };
 
     if (exactMatches.contains(stageType)) return true;

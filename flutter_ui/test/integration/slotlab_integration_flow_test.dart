@@ -347,7 +347,7 @@ void main() {
       });
 
       test('static stage names are correct', () {
-        expect(BigWinConfig.introStageName, 'BIG_WIN_INTRO');
+        expect(BigWinConfig.startStageName, 'BIG_WIN_START');
         expect(BigWinConfig.endStageName, 'BIG_WIN_END');
         expect(BigWinConfig.fadeOutStageName, 'BIG_WIN_FADE_OUT');
         expect(BigWinConfig.rollupTickStageName, 'BIG_WIN_ROLLUP_TICK');
@@ -421,7 +421,7 @@ void main() {
       expect(stages, contains('ROLLUP_END_1'));
 
       // Big win stages
-      expect(stages, contains('BIG_WIN_INTRO'));
+      expect(stages, contains('BIG_WIN_START'));
       expect(stages, contains('BIG_WIN_TIER_1'));
       expect(stages, contains('BIG_WIN_TIER_5'));
       expect(stages, contains('BIG_WIN_END'));
@@ -525,7 +525,7 @@ void main() {
       expect(result.rollupDurationMs, 1500);
     });
 
-    test('big win result has BIG_WIN_INTRO as primaryStageName', () {
+    test('big win result has BIG_WIN_START as primaryStageName', () {
       const result = WinTierResult(
         isBigWin: true,
         multiplier: 75.0,
@@ -538,7 +538,7 @@ void main() {
         ),
         bigWinMaxTier: 2,
       );
-      expect(result.primaryStageName, 'BIG_WIN_INTRO');
+      expect(result.primaryStageName, 'BIG_WIN_START');
       expect(result.displayLabel, 'BIG WIN TIER 2');
       expect(result.rollupDurationMs, 4000);
     });
@@ -584,8 +584,8 @@ void main() {
   // ═══════════════════════════════════════════════════════════════════════════
 
   group('Flow 4: Legacy Stage Mapping', () {
-    test('BIG_WIN maps to BIG_WIN_INTRO', () {
-      expect(getMappedStageName('BIG_WIN'), 'BIG_WIN_INTRO');
+    test('BIG_WIN maps to BIG_WIN_START', () {
+      expect(getMappedStageName('BIG_WIN'), 'BIG_WIN_START');
     });
 
     test('MEGA_WIN maps to BIG_WIN_TIER_2', () {

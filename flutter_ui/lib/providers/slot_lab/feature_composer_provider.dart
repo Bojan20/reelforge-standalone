@@ -264,7 +264,7 @@ const List<ComposedStage> _engineCoreStages = [
 
   // ═══ Big Win Presentation ═══
   ComposedStage(
-    id: 'BIG_WIN_INTRO', displayName: 'Big Win Intro',
+    id: 'BIG_WIN_START', displayName: 'Big Win Intro',
     layer: StageLayer.engineCore, locked: true, sortOrder: 35,
     hooks: ['onBigWinStart'], suggestedBus: 'sfx', priority: 'P0',
   ),
@@ -334,7 +334,7 @@ const List<ComposedStage> _alwaysVisibleStages = [
     hooks: [], suggestedBus: 'music', priority: 'P1',
   ),
   ComposedStage(
-    id: 'BIG_WIN_INTRO', displayName: 'Big Win Music',
+    id: 'BIG_WIN_START', displayName: 'Big Win Music',
     layer: StageLayer.alwaysVisible, sortOrder: 106,
     hooks: [], suggestedBus: 'music', priority: 'P1',
   ),

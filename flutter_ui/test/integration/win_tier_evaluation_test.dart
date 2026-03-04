@@ -315,7 +315,7 @@ void main() {
     });
 
     test('static stage names', () {
-      expect(BigWinConfig.introStageName, 'BIG_WIN_INTRO');
+      expect(BigWinConfig.startStageName, 'BIG_WIN_START');
       expect(BigWinConfig.endStageName, 'BIG_WIN_END');
       expect(BigWinConfig.fadeOutStageName, 'BIG_WIN_FADE_OUT');
       expect(BigWinConfig.rollupTickStageName, 'BIG_WIN_ROLLUP_TICK');
@@ -380,7 +380,7 @@ void main() {
       expect(stages, contains('ROLLUP_TICK_1'));
 
       // Big win stages
-      expect(stages, contains('BIG_WIN_INTRO'));
+      expect(stages, contains('BIG_WIN_START'));
       expect(stages, contains('BIG_WIN_TIER_1'));
       expect(stages, contains('BIG_WIN_TIER_5'));
       expect(stages, contains('BIG_WIN_END'));

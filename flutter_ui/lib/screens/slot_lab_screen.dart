@@ -476,11 +476,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final busId = _getBusForStage(stage);
     final shouldLoop = stageConfig.isLooping(stage);
     final isMusicBus = busId == 1;
-    final isBigWinTransition = stage == 'BIG_WIN_INTRO' || stage == 'BIG_WIN_END';
+    final isBigWinTransition = stage == 'BIG_WIN_START' || stage == 'BIG_WIN_END';
     final shouldOverlap = isBigWinTransition ? false : (!isMusicBus && !shouldLoop);
     final crossfadeMs = isBigWinTransition ? 500 : (isMusicBus ? 500 : 0);
     final effectiveTargetBus = isBigWinTransition ? 1 : busId;
-    final effectiveLoop = stage == 'BIG_WIN_INTRO' ? true : shouldLoop;
+    final effectiveLoop = stage == 'BIG_WIN_START' ? true : shouldLoop;
 
     // Auto-detect duration via FFI
     double? durationSec;
@@ -496,58 +496,79 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     const busNames = ['Master', 'Music', 'SFX', 'Voice', 'Ambience', 'Aux'];
     final targetBusName = effectiveTargetBus < busNames.length ? busNames[effectiveTargetBus] : 'Bus $effectiveTargetBus';
 
-    // ── 1. Non-overlap: FadeOut/Stop existing audio on target bus (before Play) ──
-    if (!shouldOverlap && crossfadeMs > 0) {
+    if (stage == 'BIG_WIN_START') {
+      // ══════════════════════════════════════════════════════════════
+      // BIG_WIN_START: FadeOut base game layers → Stop → Play big win
+      // ══════════════════════════════════════════════════════════════
+
+      // 1. FadeOut all base game music layers (100ms)
       baseLayers.add(SlotEventLayer(
-        id: 'auto_fadeout_$stage',
-        name: 'FadeOut $targetBusName Bus (auto)',
+        id: 'bws_fadeout_base',
+        name: 'FadeOut Base Game Music (auto)',
         audioPath: '',
         actionType: 'FadeOut',
         volume: 0.0,
-        busId: effectiveTargetBus,
-        fadeOutMs: crossfadeMs.toDouble(),
+        busId: 1, // Music bus
+        fadeOutMs: 100,
       ));
-    } else if (!shouldOverlap) {
+
+      // 2. Stop all base game music (110ms — after fade completes)
       baseLayers.add(SlotEventLayer(
-        id: 'auto_stop_$stage',
-        name: 'Stop $targetBusName Bus (auto)',
+        id: 'bws_stop_base',
+        name: 'Stop Base Game Music (auto)',
         audioPath: '',
-        actionType: 'Stop',
+        actionType: 'StopAll',
         volume: 0.0,
-        busId: effectiveTargetBus,
+        busId: 1,
+        offsetMs: 110,
       ));
-    }
 
-    // ── 2. Main Play layer ──
-    baseLayers.add(SlotEventLayer(
-      id: 'layer_$stage',
-      name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
-      audioPath: audioPath,
-      actionType: 'Play',
-      volume: 1.0,
-      pan: _getPanForStage(stage),
-      busId: busId,
-      loop: effectiveLoop,
-      fadeInMs: crossfadeMs > 0 ? crossfadeMs.toDouble() : 0.0,
-      durationSeconds: durationSec,
-    ));
-
-    // ── 3. BIG_WIN_INTRO: explicit Fade Out Music layer ──
-    if (stage == 'BIG_WIN_INTRO') {
+      // 3. Play Big Win music (immediate, loop)
       baseLayers.add(SlotEventLayer(
-        id: 'bwi_fadeout_music',
-        name: 'Fade Out All Music (auto)',
+        id: 'layer_$stage',
+        name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
+        audioPath: audioPath,
+        actionType: 'Play',
+        volume: 1.0,
+        pan: 0.0,
+        busId: 1,
+        loop: true,
+        durationSeconds: durationSec,
+      ));
+
+    } else if (stage == 'BIG_WIN_END') {
+      // ══════════════════════════════════════════════════════════════
+      // BIG_WIN_END: All actions visible — designer can adjust timing
+      //
+      // Flow: Play end SFX → FadeOut big win music → Stop big win →
+      //       Start base game music at vol 0 → FadeIn base game
+      //       (smooth transition when plaketa fades out)
+      // ══════════════════════════════════════════════════════════════
+
+      // 1. Play Big Win End SFX/stinger
+      baseLayers.add(SlotEventLayer(
+        id: 'layer_$stage',
+        name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
+        audioPath: audioPath,
+        actionType: 'Play',
+        volume: 1.0,
+        pan: 0.0,
+        busId: busId,
+        durationSeconds: durationSec,
+      ));
+
+      // 2. FadeOut Big Win music loop (100ms)
+      baseLayers.add(SlotEventLayer(
+        id: 'bwe_fadeout_bigwin',
+        name: 'FadeOut Big Win Music (auto)',
         audioPath: '',
         actionType: 'FadeOut',
         volume: 0.0,
         busId: 1,
-        fadeOutMs: 500,
+        fadeOutMs: 100,
       ));
-    }
 
-    // ── 4. BIG_WIN_END: Stop big win music + restore base game music ──
-    if (stage == 'BIG_WIN_END') {
-      // Stop the big win loop
+      // 3. Stop Big Win music loop (110ms — after fade completes)
       baseLayers.add(SlotEventLayer(
         id: 'bwe_stop_bigwin',
         name: 'Stop Big Win Music (auto)',
@@ -555,38 +576,68 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         actionType: 'Stop',
         volume: 0.0,
         busId: 1,
+        offsetMs: 110,
       ));
 
-      // Restore base game music with delay + fade
+      // 4. Start Base Game Music at volume 0 (preload — ready for fadeIn)
       try {
         final project = Provider.of<SlotLabProjectProvider>(context, listen: false);
         final baseMusic = project.getAudioAssignment('MUSIC_BASE_L1');
         if (baseMusic != null && baseMusic.isNotEmpty) {
           baseLayers.add(SlotEventLayer(
-            id: 'bwe_restore_base_l1',
-            name: 'Base Game Music Restore',
+            id: 'bwe_preload_base_l1',
+            name: 'Start Base Game Music (silent)',
             audioPath: baseMusic,
             actionType: 'Play',
             volume: 0.0,
             busId: 1,
+            loop: true,
+          ));
+
+          // 5. FadeIn Base Game Music (when plaketa fades out, reels appear)
+          baseLayers.add(SlotEventLayer(
+            id: 'bwe_fadein_base_l1',
+            name: 'FadeIn Base Game Music (auto)',
+            audioPath: '',
+            actionType: 'SetVolume',
+            volume: 1.0,
+            busId: 1,
             offsetMs: 3500,
             fadeInMs: 1300.0,
-            loop: true,
           ));
         }
       } catch (_) {}
-    }
 
-    // ── 5. Music ducking layer (if stage ducks music and isn't on music bus) ──
-    if (stageDucksMusic && busId != 1) {
+    } else {
+      // ══════════════════════════════════════════════════════════════
+      // ALL OTHER STAGES: Generic auto-action generation
+      // ══════════════════════════════════════════════════════════════
+
+      // Main Play layer — implicit Stop/FadeOut handled by runtime
       baseLayers.add(SlotEventLayer(
-        id: 'auto_duck_$stage',
-        name: 'Duck Music Bus (auto)',
-        audioPath: '',
-        actionType: 'SetBusVolume',
-        volume: 0.3,
-        busId: 1,
+        id: 'layer_$stage',
+        name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
+        audioPath: audioPath,
+        actionType: 'Play',
+        volume: 1.0,
+        pan: _getPanForStage(stage),
+        busId: busId,
+        loop: effectiveLoop,
+        fadeInMs: crossfadeMs > 0 ? crossfadeMs.toDouble() : 0.0,
+        durationSeconds: durationSec,
       ));
+
+      // 3. Music ducking (if stage ducks music and isn't on music bus)
+      if (stageDucksMusic && busId != 1) {
+        baseLayers.add(SlotEventLayer(
+          id: 'auto_duck_$stage',
+          name: 'Duck Music Bus (auto)',
+          audioPath: '',
+          actionType: 'SetBusVolume',
+          volume: 0.3,
+          busId: 1,
+        ));
+      }
     }
 
     if (existing != null) {
@@ -656,15 +707,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     return 0.0;
   }
 
-  /// Build AudioEvent for a stage, handling BIG_WIN_INTRO/END specially:
+  /// Build AudioEvent for a stage, handling BIG_WIN_START/END specially:
   /// - overlap=false, targetBusId=1 → fades out active music on music bus
-  /// - BIG_WIN_INTRO: loop=true (big win music loops)
+  /// - BIG_WIN_START: loop=true (big win music loops)
   /// - BIG_WIN_END: adds MUSIC_BASE_L1 restore layer (delay 3500ms, fadeIn 1300ms)
   AudioEvent _buildAudioEventForStage(String stage, String audioPath) {
     final busId = _getBusForStage(stage);
     final shouldLoop = StageConfigurationService.instance.isLooping(stage);
     final isMusicBus = busId == 1;
-    final isBigWinTransition = stage == 'BIG_WIN_INTRO' || stage == 'BIG_WIN_END';
+    final isBigWinTransition = stage == 'BIG_WIN_START' || stage == 'BIG_WIN_END';
 
     final layers = <AudioLayer>[
       AudioLayer(
@@ -702,7 +753,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       name: stage.replaceAll('_', ' '),
       stage: stage,
       layers: layers,
-      loop: stage == 'BIG_WIN_INTRO' ? true : shouldLoop,
+      loop: stage == 'BIG_WIN_START' ? true : shouldLoop,
       // BIG_WIN transitions: overlap=false on music bus to fade out active music
       overlap: isBigWinTransition ? false : (!isMusicBus && !shouldLoop),
       crossfadeMs: isBigWinTransition ? 500 : (isMusicBus ? 500 : 0),
@@ -840,7 +891,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     'WIN_SYMBOL_HIGHLIGHT',
     // ─── BIG WIN ───
     'BIG_WIN_TRIGGER',
-    'BIG_WIN_INTRO',
+    'BIG_WIN_START',
     'BIG_WIN_TIER_1',
     'BIG_WIN_TIER_2',
     'BIG_WIN_TIER_3',
@@ -1224,7 +1275,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       final audioPath = entry.value;
 
       // Register in EventRegistry for runtime playback
-      // _buildAudioEventForStage handles BIG_WIN_INTRO/END specially
+      // _buildAudioEventForStage handles BIG_WIN_START/END specially
       eventRegistry.registerEvent(_buildAudioEventForStage(stage, audioPath));
 
       // CENTRAL BRIDGE: Ensure composite event exists for timeline visibility
@@ -2417,7 +2468,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         projectProvider.setAudioAssignment(match.stage, match.audioPath, recordUndo: false);
 
         // Register in EventRegistry for instant playback
-        // _buildAudioEventForStage handles BIG_WIN_INTRO/END specially
+        // _buildAudioEventForStage handles BIG_WIN_START/END specially
         eventRegistry.registerEvent(_buildAudioEventForStage(match.stage, match.audioPath));
 
         // Create composite event for timeline visibility
@@ -10377,6 +10428,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       fadeOutMs: l.fadeOutMs,
       trimStartMs: l.trimStartMs,
       trimEndMs: l.trimEndMs,
+      actionType: l.actionType,
+      loop: l.loop,
     )).toList();
 
     // Register event under EACH trigger stage
@@ -10509,7 +10562,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         final stage = entry.key;
         final audioPath = entry.value;
 
-        // _buildAudioEventForStage handles BIG_WIN_INTRO/END specially
+        // _buildAudioEventForStage handles BIG_WIN_START/END specially
         eventRegistry.registerEvent(_buildAudioEventForStage(stage, audioPath));
 
         // Also ensure composite event exists in MiddlewareProvider

@@ -320,7 +320,7 @@ class _StageFlowEditorWidgetState extends State<StageFlowEditorWidget> {
         _paletteItem('WIN_PRESENT', StageFlowNodeType.stage, Icons.star),
         _paletteItem('ROLLUP_START', StageFlowNodeType.stage, Icons.trending_up),
         _paletteItem('WIN_LINE_SHOW', StageFlowNodeType.stage, Icons.linear_scale),
-        _paletteItem('BIG_WIN_INTRO', StageFlowNodeType.stage, Icons.celebration),
+        _paletteItem('BIG_WIN_START', StageFlowNodeType.stage, Icons.celebration),
       ];
     }
 

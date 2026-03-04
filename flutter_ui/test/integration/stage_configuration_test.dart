@@ -384,7 +384,7 @@ void main() {
       expect(win1, isNotNull);
 
       // Check big win stages
-      final bigIntro = service.getStage('BIG_WIN_INTRO');
+      final bigIntro = service.getStage('BIG_WIN_START');
       expect(bigIntro, isNotNull);
 
       final bigTier1 = service.getStage('BIG_WIN_TIER_1');

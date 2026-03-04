@@ -555,6 +555,44 @@ class AudioPlaybackService extends ChangeNotifier {
     _checkAndReleasePlayback();
   }
 
+  /// Fade in a voice from current volume to target over fadeMs
+  void fadeInVoice(int voiceId, {required double targetVolume, int fadeMs = 500}) {
+    if (fadeMs <= 0) {
+      _ffi.setVoiceVolume(voiceId, targetVolume);
+      return;
+    }
+    const stepMs = 16; // ~60fps
+    final steps = (fadeMs / stepMs).ceil();
+    // Read current volume — assume 0 if just started silent
+    double currentVol = 0.0;
+    int step = 0;
+    Timer.periodic(Duration(milliseconds: stepMs), (timer) {
+      step++;
+      final t = (step / steps).clamp(0.0, 1.0);
+      final vol = currentVol + (targetVolume - currentVol) * t;
+      _ffi.setVoiceVolume(voiceId, vol);
+      if (step >= steps) {
+        _ffi.setVoiceVolume(voiceId, targetVolume);
+        timer.cancel();
+      }
+    });
+  }
+
+  /// Set volume on a specific voice directly
+  void setVoiceVolume(int voiceId, double volume) {
+    _ffi.setVoiceVolume(voiceId, volume);
+  }
+
+  /// Pause a voice (stop playback but keep position)
+  void pauseVoice(int voiceId) {
+    _ffi.playbackStopOneShot(voiceId); // No pause FFI — use stop as fallback
+  }
+
+  /// Resume a paused voice (restart — no real pause/resume in FFI)
+  void resumeVoice(int voiceId) {
+    // No pause/resume FFI support — this is a no-op placeholder
+  }
+
   /// Stop all voices for a specific event
   void stopEvent(String eventId) {
     final voices = _eventVoices.remove(eventId);

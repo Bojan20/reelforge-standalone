@@ -315,7 +315,7 @@ class StageConfigurationService extends ChangeNotifier {
   /// - WIN_LOW, WIN_EQUAL, WIN_1..6 — Regular win tiers
   /// - WIN_PRESENT_LOW, WIN_PRESENT_1..6 — Win presentation
   /// - ROLLUP_START_*, ROLLUP_TICK_*, ROLLUP_END_* — Rollup stages
-  /// - BIG_WIN_INTRO, BIG_WIN_TIER_1..5, BIG_WIN_END — Big win celebration
+  /// - BIG_WIN_START, BIG_WIN_TIER_1..5, BIG_WIN_END — Big win celebration
   void registerWinTierStages(SlotWinConfiguration config) {
     // Clear previous win tier stages
     for (final stageName in _winTierGeneratedStages) {
@@ -367,7 +367,7 @@ class StageConfigurationService extends ChangeNotifier {
 
     // Register big win stages
     _registerWinStage(
-      name: BigWinConfig.introStageName, // BIG_WIN_INTRO
+      name: BigWinConfig.startStageName, // BIG_WIN_START
       category: StageCategory.win,
       priority: 85,
       ducksMusic: true,
@@ -747,12 +747,12 @@ class StageConfigurationService extends ChangeNotifier {
 
     // ─────────────────────────────────────────────────────────────────────────
     // BIG WIN (≥20x bet) — Celebration SFX
-    // BIG_WIN_INTRO/END/TIER_1..5: Registered dynamically from BigWinConfig
+    // BIG_WIN_START/END/TIER_1..5: Registered dynamically from BigWinConfig
     // BIG_WIN_LOOP: Looping celebration music (ducks base music)
     // BIG_WIN_COINS: Coin shower particle sfx
     // ─────────────────────────────────────────────────────────────────────────
     _register('BIG_WIN_TRIGGER', StageCategory.win, 80, SpatialBus.sfx, 'DEFAULT');
-    _register('BIG_WIN_INTRO', StageCategory.win, 85, SpatialBus.sfx, 'DEFAULT');
+    _register('BIG_WIN_START', StageCategory.win, 85, SpatialBus.sfx, 'DEFAULT');
     _register('BIG_WIN_LOOP', StageCategory.win, 90, SpatialBus.music, 'DEFAULT', ducksMusic: true, isLooping: true);
     _register('BIG_WIN_COINS', StageCategory.win, 75, SpatialBus.sfx, 'DEFAULT');
     _register('BIG_WIN_IMPACT', StageCategory.win, 80, SpatialBus.sfx, 'DEFAULT');
@@ -1228,7 +1228,7 @@ class StageConfigurationService extends ChangeNotifier {
     _register('MUSIC_BASE_L4', StageCategory.music, 10, SpatialBus.music, 'DEFAULT', isLooping: true);
     _register('MUSIC_BASE_L5', StageCategory.music, 10, SpatialBus.music, 'DEFAULT', isLooping: true);
     _register('MUSIC_TENSION', StageCategory.music, 15, SpatialBus.music, 'DEFAULT', isLooping: true);
-    // Big Win music handled via BIG_WIN_INTRO/END/OUTRO composite event layers
+    // Big Win music handled via BIG_WIN_START/END/OUTRO composite event layers
     // Free Spins music
     _register('MUSIC_FS_INTRO', StageCategory.music, 20, SpatialBus.music, 'DEFAULT');
     _register('MUSIC_FS_OUTRO', StageCategory.music, 20, SpatialBus.music, 'DEFAULT');
@@ -1466,7 +1466,7 @@ class StageConfigurationService extends ChangeNotifier {
     'MUSIC_BONUS_L1', 'MUSIC_BONUS_L2', 'MUSIC_BONUS_L3', 'MUSIC_BONUS_L4', 'MUSIC_BONUS_L5',
     // Hold & Spin
     'MUSIC_HOLD_L1', 'MUSIC_HOLD_L2', 'MUSIC_HOLD_L3', 'MUSIC_HOLD_L4', 'MUSIC_HOLD_L5',
-    // Big Win — handled via BIG_WIN_INTRO/END/OUTRO composite event layers
+    // Big Win — handled via BIG_WIN_START/END/OUTRO composite event layers
     // Jackpot
     'MUSIC_JACKPOT_L1', 'MUSIC_JACKPOT_L2', 'MUSIC_JACKPOT_L3', 'MUSIC_JACKPOT_L4', 'MUSIC_JACKPOT_L5',
     // Gamble
@@ -1831,7 +1831,7 @@ class PriorityTierPreset {
       'JACKPOT_GRAND': 100,
       'JACKPOT_MAJOR': 98,
       'FS_TRIGGER': 95,
-      'BIG_WIN_INTRO': 50, // Big win gets extra priority
+      'BIG_WIN_START': 50, // Big win gets extra priority
       'ANTICIPATION_ON': 70,
     },
   );

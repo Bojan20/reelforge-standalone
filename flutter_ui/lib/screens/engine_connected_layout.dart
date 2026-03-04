@@ -2562,6 +2562,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         slotLabProvider.pauseStages();
         _slotLabPausedByModeSwitch = true;
       }
+      // Reset base music flag — silenceNonDawVoices kills audio but
+      // EventRegistry still thinks it's playing, so next spin must re-trigger
+      slotLabProvider.resetBaseMusicFlag();
     } else if (fromMode == EditorMode.daw) {
       // DAW → stop timeline transport
       if (playbackProvider.isPlaying) {

@@ -511,7 +511,7 @@ pub extern "C" fn slot_lab_spin_forced(outcome: i32) -> u64 {
 ///
 /// This uses the dynamic P5 SlotWinConfig to evaluate win tiers instead of
 /// the legacy hardcoded thresholds. The spin result includes:
-/// - win_tier_name: P5 stage name (e.g., "WIN_3", "BIG_WIN_INTRO")
+/// - win_tier_name: P5 stage name (e.g., "WIN_3", "BIG_WIN_START")
 /// - big_win_tier: Legacy enum for backwards compatibility
 ///
 /// Returns spin ID (> 0) on success, 0 if engine not initialized

@@ -474,7 +474,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   bool _isInTierProgression = false;
 
   // Tier progression timing constants
-  static const int _bigWinIntroDurationMs = 500;  // BIG_WIN_INTRO duration
+  static const int _bigWinIntroDurationMs = 500;  // BIG_WIN_START duration
   static const int _tierDisplayDurationMs = 4000;  // Each tier shows for 4s
   static const int _bigWinEndDurationMs = 4000;    // BIG_WIN_END duration
 
@@ -833,9 +833,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     final audioPath = projectProvider.getAudioAssignment(stageUppercase);
     if (audioPath == null || audioPath.isEmpty) return;
 
-    // BIG_WIN_INTRO/END are special: sfx on bus 2 but overlap=false on music bus 1
+    // BIG_WIN_START/END are special: sfx on bus 2 but overlap=false on music bus 1
     // so they fade out active music when triggered
-    final isBigWinTransition = stageUppercase == 'BIG_WIN_INTRO' ||
+    final isBigWinTransition = stageUppercase == 'BIG_WIN_START' ||
         stageUppercase == 'BIG_WIN_END';
 
     final shouldLoop = StageConfigurationService.instance.isLooping(stageUppercase);
@@ -852,7 +852,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       }
     }
 
-    // Build layers — BIG_WIN_INTRO/END get additional music restore layers
+    // Build layers — BIG_WIN_START/END get additional music restore layers
     final layers = <AudioLayer>[
       AudioLayer(
         id: 'layer_$stageUppercase',
@@ -886,7 +886,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       name: stageUppercase.replaceAll('_', ' '),
       stage: stageUppercase,
       layers: layers,
-      loop: stageUppercase == 'BIG_WIN_INTRO' ? true : shouldLoop,
+      loop: stageUppercase == 'BIG_WIN_START' ? true : shouldLoop,
       // BIG_WIN transitions: overlap=false on music bus to fade out active music
       overlap: isBigWinTransition ? false : (!isMusicStage && !shouldLoop),
       crossfadeMs: isBigWinTransition ? 500 : (isMusicStage ? 500 : 0),
@@ -1951,7 +1951,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           } else {
             // ═══════════════════════════════════════════════════════════════════
             // BIG+ WIN: Tier progression plaque with counter (this IS the total win)
-            // BIG_WIN_INTRO → BIG → SUPER → ... → BIG_WIN_END → Win lines
+            // BIG_WIN_START → BIG → SUPER → ... → BIG_WIN_END → Win lines
             // No separate "total win" plaque — the tier plaque shows the counter
             // WIN_PRESENT_X audio triggers NOW when plaque appears (not during symbol highlight)
             // ═══════════════════════════════════════════════════════════════════
@@ -1971,7 +1971,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             }
 
             // Start tier progression — this handles everything:
-            // - BIG_WIN_INTRO
+            // - BIG_WIN_START
             // - Each tier display (4s each)
             // - BIG_WIN_END
             // - Plaque fade-out
@@ -2078,7 +2078,22 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _rollupTickTimer?.cancel();
     _rollupTickTimer = null;
 
-    // 2. Stop all win-related audio and trigger END stages
+    // 2. FadeOut + Stop anticipation audio (400ms fade, 410ms stop)
+    if (_isAnticipation) {
+      for (int i = 1; i <= _anticipationSequenceIndex; i++) {
+        eventRegistry.fadeOutEvent('ANTICIPATION_$i', fadeMs: 400);
+      }
+      for (final reel in _anticipationReels) {
+        for (int l = 1; l <= 4; l++) {
+          eventRegistry.fadeOutEvent('ANTICIPATION_TENSION_R${reel}_L$l', fadeMs: 400);
+        }
+      }
+      Future.delayed(const Duration(milliseconds: 410), () {
+        if (mounted) _stopAnticipation();
+      });
+    }
+
+    // 3. Stop all win-related audio and trigger END stages
     final savedWinTier = _winTier; // Save before reset
 
     // Check if this was a big win (tier progression active)
@@ -2092,7 +2107,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Stop all win-related sfx events
     eventRegistry.stopEvent('BIG_WIN_LOOP');
     eventRegistry.stopEvent('BIG_WIN_COINS');
-    eventRegistry.stopEvent('BIG_WIN_INTRO');
+    eventRegistry.stopEvent('BIG_WIN_START');
     eventRegistry.stopEvent('ROLLUP');
     eventRegistry.stopEvent('ROLLUP_TICK');
     eventRegistry.stopEvent('WIN_SYMBOL_HIGHLIGHT');
@@ -3053,7 +3068,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
   // ═══════════════════════════════════════════════════════════════════════════
   // TIER PROGRESSION — Progressive reveal from BIG to final tier
-  // Flow: BIG_WIN_INTRO (0.5s) → BIG (4s) → SUPER (4s) → ... → BIG_WIN_END (4s) → Fade → Win Lines
+  // Flow: BIG_WIN_START (0.5s) → BIG (4s) → SUPER (4s) → ... → BIG_WIN_END (4s) → Fade → Win Lines
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Build list of tiers to progress through, from BIG up to finalTier
@@ -3064,7 +3079,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   }
 
   /// Start the tier progression sequence
-  /// This shows BIG_WIN_INTRO, then progresses through each tier, then BIG_WIN_END
+  /// This shows BIG_WIN_START, then progresses through each tier, then BIG_WIN_END
   /// The tier plaque IS the total win plaque — includes counter rollup
   void _startTierProgression(String finalTier, List<LineWin> lineWinsForPhase3, VoidCallback? onComplete) {
     // Build the list of tiers to show
@@ -3085,10 +3100,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
     // ═══════════════════════════════════════════════════════════════════════════
     // ENSURE BIG WIN AUDIO EVENTS ARE REGISTERED
-    // BIG_WIN_INTRO and BIG_WIN_END are COMPOSITE events with all their layers.
+    // BIG_WIN_START and BIG_WIN_END are COMPOSITE events with all their layers.
     // Other stages are simple single-layer events.
     // ═══════════════════════════════════════════════════════════════════════════
-    _ensureAudioRegistered('BIG_WIN_INTRO');
+    _ensureAudioRegistered('BIG_WIN_START');
     _ensureAudioRegistered('BIG_WIN_END');
     _ensureAudioRegistered('BIG_WIN_LOOP');
     _ensureAudioRegistered('BIG_WIN_COINS');
@@ -3101,11 +3116,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // STEP 1: BIG_WIN_INTRO (0.5s) — Entry fanfare
+    // STEP 1: BIG_WIN_START (0.5s) — Entry fanfare
     // Composite event: overlap=false → fades out base game music on music bus,
     // then plays intro sfx + big win music (all layers defined in event)
     // ═══════════════════════════════════════════════════════════════════════════
-    eventRegistry.triggerStage('BIG_WIN_INTRO');
+    eventRegistry.triggerStage('BIG_WIN_START');
 
     // Show plaque immediately with first tier
     setState(() {

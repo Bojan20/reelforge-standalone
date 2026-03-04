@@ -760,7 +760,7 @@ class AudioMappingImportService {
     if (sceneIntroOutroMatch != null) {
       final sceneRaw = sceneIntroOutroMatch.group(1)!.replaceAll(RegExp(r'[-_\s]+'), '').toLowerCase();
       final type = sceneIntroOutroMatch.group(2)!.toUpperCase();
-      // Skip if it's clearly not a music scene (e.g., big_win_intro maps to BIG_WIN_INTRO)
+      // Skip if it's clearly not a music scene (e.g., big_win_intro maps to BIG_WIN_START)
       final scene = _sceneAbbreviations[sceneRaw];
       if (scene != null) {
         // Try music intro/outro first
@@ -858,7 +858,7 @@ class AudioMappingImportService {
     'WIN_PRESENT_LOW', 'WIN_PRESENT_EQUAL', 'WIN_PRESENT_END',
     'WIN_PRESENT_1', 'WIN_PRESENT_2', 'WIN_PRESENT_3', 'WIN_PRESENT_4', 'WIN_PRESENT_5',
     'WIN_COLLECT',
-    'BIG_WIN_TRIGGER', 'BIG_WIN_INTRO', 'BIG_WIN_LOOP', 'BIG_WIN_COINS',
+    'BIG_WIN_TRIGGER', 'BIG_WIN_START', 'BIG_WIN_LOOP', 'BIG_WIN_COINS',
     'BIG_WIN_IMPACT', 'BIG_WIN_UPGRADE', 'BIG_WIN_END', 'BIG_WIN_OUTRO',
     'BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_TIER_3', 'BIG_WIN_TIER_4', 'BIG_WIN_TIER_5',
     'WIN_EVAL', 'WIN_DETECTED', 'WIN_CALCULATE',
@@ -888,7 +888,7 @@ class AudioMappingImportService {
     'MUSIC_BONUS_L1', 'MUSIC_BONUS_L2', 'MUSIC_BONUS_L3', 'MUSIC_BONUS_L4', 'MUSIC_BONUS_L5',
     'MUSIC_HOLD_INTRO', 'MUSIC_HOLD_OUTRO',
     'MUSIC_HOLD_L1', 'MUSIC_HOLD_L2', 'MUSIC_HOLD_L3', 'MUSIC_HOLD_L4', 'MUSIC_HOLD_L5',
-    // Big Win music handled via BIG_WIN_INTRO/END/OUTRO composite event layers
+    // Big Win music handled via BIG_WIN_START/END/OUTRO composite event layers
     'MUSIC_JACKPOT_INTRO', 'MUSIC_JACKPOT_OUTRO',
     'MUSIC_JACKPOT_L1', 'MUSIC_JACKPOT_L2', 'MUSIC_JACKPOT_L3', 'MUSIC_JACKPOT_L4', 'MUSIC_JACKPOT_L5',
     'MUSIC_GAMBLE_INTRO', 'MUSIC_GAMBLE_OUTRO',
@@ -1243,7 +1243,7 @@ class AudioMappingImportService {
   /// Values are candidate stage IDs (first match in composed stages wins).
   ///
   /// CRITICAL: Stage IDs MUST match actual UI stage IDs from ultimate_audio_panel:
-  /// - Wins: WIN_PRESENT_1-5, BIG_WIN_TIER_1-5, BIG_WIN_INTRO/LOOP/END
+  /// - Wins: WIN_PRESENT_1-5, BIG_WIN_TIER_1-5, BIG_WIN_START/LOOP/END
   /// - Music: MUSIC_{SCENE}_L1-L5, MUSIC_{SCENE}_INTRO/OUTRO
   /// - Ambient: AMBIENT_BASE/FS/BONUS/HOLD/BIGWIN/JACKPOT/GAMBLE/REVEAL
   /// - Reels: REEL_STOP_0-4, REEL_SPIN_LOOP, SPIN_START
@@ -1325,8 +1325,8 @@ class AudioMappingImportService {
     'low win': ['WIN_PRESENT_LOW', 'WIN_PRESENT_1'],
     'normal win': ['WIN_PRESENT_2'],
     'medium win': ['WIN_PRESENT_2', 'WIN_PRESENT_3'],
-    'big win': ['WIN_PRESENT_4', 'BIG_WIN_INTRO'],
-    'bigwin': ['WIN_PRESENT_4', 'BIG_WIN_INTRO'],
+    'big win': ['WIN_PRESENT_4', 'BIG_WIN_START'],
+    'bigwin': ['WIN_PRESENT_4', 'BIG_WIN_START'],
     'mega win': ['WIN_PRESENT_5', 'BIG_WIN_TIER_2'],
     'megawin': ['WIN_PRESENT_5', 'BIG_WIN_TIER_2'],
     'epic win': ['BIG_WIN_TIER_3', 'WIN_PRESENT_5'],
@@ -1452,7 +1452,7 @@ class AudioMappingImportService {
     // ═══════════════════════════════════════════════════════════════════
     // BIG WIN specific stages (celebration sequence)
     // ═══════════════════════════════════════════════════════════════════
-    'big win intro': ['BIG_WIN_INTRO'],
+    'big win intro': ['BIG_WIN_START'],
     'big win loop': ['BIG_WIN_LOOP'],
     'big win coins': ['BIG_WIN_COINS'],
     'big win impact': ['BIG_WIN_IMPACT'],
@@ -1520,10 +1520,10 @@ class AudioMappingImportService {
     'freespin intro': ['MUSIC_FS_INTRO'],
     'freespin outro': ['MUSIC_FS_OUTRO'],
     // ─── Win / Big Win ────────────────────────────────────────────────
-    'win music': ['BIG_WIN_INTRO'],
-    'big win music': ['BIG_WIN_INTRO'],
-    'bigwin music': ['BIG_WIN_INTRO'],
-    'bigwin intro': ['BIG_WIN_INTRO'],
+    'win music': ['BIG_WIN_START'],
+    'big win music': ['BIG_WIN_START'],
+    'bigwin music': ['BIG_WIN_START'],
+    'bigwin intro': ['BIG_WIN_START'],
     'bigwin end': ['BIG_WIN_END'],
     'bigwin outro': ['BIG_WIN_OUTRO'],
     // ─── Bonus Music ─────────────────────────────────────────────────

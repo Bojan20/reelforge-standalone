@@ -580,7 +580,7 @@ impl SlotWinConfig {
                 multiplier,
                 regular_tier_id: None,
                 big_win_max_tier: Some(max_tier),
-                primary_stage: "BIG_WIN_INTRO".to_string(),
+                primary_stage: "BIG_WIN_START".to_string(),
                 display_label: String::new(),
                 rollup_duration_ms: 4000,
             };
@@ -720,7 +720,7 @@ impl SlotWinConfig {
         }
 
         // Big win stages
-        stages.push("BIG_WIN_INTRO".to_string());
+        stages.push("BIG_WIN_START".to_string());
         for tier in &self.big_wins.tiers {
             stages.push(tier.stage_name());
         }
@@ -796,7 +796,7 @@ impl WinTierResult {
             multiplier,
             regular_tier_id: None,
             big_win_max_tier: Some(max_tier),
-            primary_stage: "BIG_WIN_INTRO".to_string(),
+            primary_stage: "BIG_WIN_START".to_string(),
             display_label: tier.display_label.clone(),
             rollup_duration_ms: tier.duration_ms,
         }
@@ -1077,7 +1077,7 @@ mod tests {
         assert!(stages.contains(&"ROLLUP_START_1".to_string()));
 
         // Check big win stages
-        assert!(stages.contains(&"BIG_WIN_INTRO".to_string()));
+        assert!(stages.contains(&"BIG_WIN_START".to_string()));
         assert!(stages.contains(&"BIG_WIN_TIER_1".to_string()));
         assert!(stages.contains(&"BIG_WIN_TIER_5".to_string()));
         assert!(stages.contains(&"BIG_WIN_END".to_string()));
@@ -1129,7 +1129,7 @@ mod tests {
         let result = config.evaluate(25.0, 1.0);
         assert!(result.is_big_win);
         assert_eq!(result.big_win_max_tier, Some(1));
-        assert_eq!(result.primary_stage, "BIG_WIN_INTRO");
+        assert_eq!(result.primary_stage, "BIG_WIN_START");
 
         // Tier 2 (60x)
         let result = config.evaluate(60.0, 1.0);

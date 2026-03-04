@@ -62,6 +62,9 @@ class AudioLayer {
   final double fadeOutMs;   // Fade-out duration at end in milliseconds (0 = instant stop)
   final double trimStartMs; // Start playback from this position in milliseconds
   final double trimEndMs;   // Stop playback at this position in milliseconds (0 = play to end)
+  /// Action type: Play, Stop, StopAll, FadeOut, SetVolume, SetBusVolume, Pause, Resume
+  final String actionType;
+  final bool loop; // Whether this layer loops (for Play actions)
 
   const AudioLayer({
     required this.id,
@@ -76,6 +79,8 @@ class AudioLayer {
     this.fadeOutMs = 0.0,
     this.trimStartMs = 0.0,
     this.trimEndMs = 0.0,
+    this.actionType = 'Play',
+    this.loop = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -91,6 +96,8 @@ class AudioLayer {
     'fadeOutMs': fadeOutMs,
     'trimStartMs': trimStartMs,
     'trimEndMs': trimEndMs,
+    'actionType': actionType,
+    'loop': loop,
   };
 
   factory AudioLayer.fromJson(Map<String, dynamic> json) => AudioLayer(
@@ -106,6 +113,8 @@ class AudioLayer {
     fadeOutMs: (json['fadeOutMs'] as num?)?.toDouble() ?? 0.0,
     trimStartMs: (json['trimStartMs'] as num?)?.toDouble() ?? 0.0,
     trimEndMs: (json['trimEndMs'] as num?)?.toDouble() ?? 0.0,
+    actionType: json['actionType'] as String? ?? 'Play',
+    loop: json['loop'] as bool? ?? false,
   );
 }
 
@@ -2007,8 +2016,15 @@ class EventRegistry extends ChangeNotifier {
     // Fade duration: 100ms (smooth transition)
     // ═══════════════════════════════════════════════════════════════════════════
     if (normalizedStage.endsWith('_END') && normalizedStage != 'SPIN_END') {
-      final basePrefix = normalizedStage.substring(0, normalizedStage.length - 4); // Remove '_END'
-      _autoFadeOutMatchingStages(basePrefix, fadeMs: 100);
+      // Skip auto-fadeout if this event has explicit action layers (FadeOut, Stop, etc.)
+      // — designer has defined exactly what should happen in the composite event builder
+      final endEvent = _stageToEvent[normalizedStage] ?? _stageToEvent[stage];
+      final hasExplicitActions = endEvent != null &&
+          endEvent.layers.any((l) => l.actionType != 'Play');
+      if (!hasExplicitActions) {
+        final basePrefix = normalizedStage.substring(0, normalizedStage.length - 4);
+        _autoFadeOutMatchingStages(basePrefix, fadeMs: 100);
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -2173,8 +2189,9 @@ class EventRegistry extends ChangeNotifier {
     _lastContainerName = null;
     _lastContainerChildCount = 0;
 
-    // Check if event has playable layers
-    if (_lastTriggeredLayers.isEmpty) {
+    // Check if event has any actionable layers (Play with audio, or action commands)
+    final hasActionLayers = event.layers.any((l) => l.actionType != 'Play' || l.audioPath.isNotEmpty);
+    if (!hasActionLayers) {
       _lastTriggerSuccess = false;
       _lastTriggerError = 'No audio layers';
       notifyListeners();
@@ -2273,7 +2290,11 @@ class EventRegistry extends ChangeNotifier {
     // ═══════════════════════════════════════════════════════════════════════════
     int crossfadeInMs = 0;
 
-    if (!event.overlap) {
+    // Skip implicit bus fadeout if event has explicit FadeOut/Stop action layers
+    final hasExplicitFadeActions = event.layers.any((l) =>
+        l.actionType == 'FadeOut' || l.actionType == 'Stop' || l.actionType == 'StopAll');
+
+    if (!event.overlap && !hasExplicitFadeActions) {
       // Non-overlapping event: fade out all active voices on the same bus
       final busId = event.targetBusId;
       crossfadeInMs = _fadeOutBusVoices(busId, overrideFadeMs: event.crossfadeMs);
@@ -2310,17 +2331,61 @@ class EventRegistry extends ChangeNotifier {
       context['crossfade_in_ms'] = crossfadeInMs;
     }
 
-    // Pokreni sve layer-e sa njihovim delay-ima
+    // Dispatch ALL layers by actionType — visible actions from composite event builder
     for (final layer in event.layers) {
-      _playLayer(
-        layer,
-        voiceIds,
-        context,
-        usePool: usePool,
-        eventKey: event.stage,
-        loop: actualLoop,
-        eventId: event.id,
-      );
+      switch (layer.actionType) {
+        case 'Play':
+          _playLayer(
+            layer,
+            voiceIds,
+            context,
+            usePool: usePool,
+            eventKey: event.stage,
+            loop: layer.loop || actualLoop,
+            eventId: event.id,
+          );
+          break;
+
+        case 'Stop':
+          _dispatchStopAction(layer);
+          break;
+
+        case 'StopAll':
+          _dispatchStopAllAction(layer);
+          break;
+
+        case 'FadeOut':
+          _dispatchFadeOutAction(layer);
+          break;
+
+        case 'SetVolume':
+          _dispatchSetVolumeAction(layer);
+          break;
+
+        case 'SetBusVolume':
+          _dispatchSetBusVolumeAction(layer);
+          break;
+
+        case 'Pause':
+          _dispatchPauseAction(layer);
+          break;
+
+        case 'Resume':
+          _dispatchResumeAction(layer);
+          break;
+
+        default:
+          // Unknown action type — treat as Play for backward compatibility
+          _playLayer(
+            layer,
+            voiceIds,
+            context,
+            usePool: usePool,
+            eventKey: event.stage,
+            loop: actualLoop,
+            eventId: event.id,
+          );
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -2486,6 +2551,142 @@ class EventRegistry extends ChangeNotifier {
       error: _lastTriggerSuccess ? null : _lastTriggerError,
       containerType: event.containerType,
     );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ACTION DISPATCH — Execute non-Play actions from composite event layers
+  // These make ALL implicit audio actions visible in the middleware event builder
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Stop all voices on the layer's bus (immediate or delayed)
+  void _dispatchStopAction(AudioLayer layer) {
+    final delayMs = layer.delay.round();
+    void doStop() {
+      _fadeOutBusVoices(layer.busId, overrideFadeMs: 0, clearPlayingInstances: true);
+    }
+    if (delayMs > 0) {
+      Future.delayed(Duration(milliseconds: delayMs), doStop);
+    } else {
+      doStop();
+    }
+  }
+
+  /// StopAll — stop all voices on the specified bus with cleanup
+  void _dispatchStopAllAction(AudioLayer layer) {
+    final delayMs = layer.delay.round();
+    void doStopAll() {
+      _fadeOutBusVoices(layer.busId, overrideFadeMs: 0, clearPlayingInstances: true);
+    }
+    if (delayMs > 0) {
+      Future.delayed(Duration(milliseconds: delayMs), doStopAll);
+    } else {
+      doStopAll();
+    }
+  }
+
+  /// FadeOut all voices on the layer's bus with specified fade duration
+  void _dispatchFadeOutAction(AudioLayer layer) {
+    final fadeMs = layer.fadeOutMs.round();
+    final delayMs = layer.delay.round();
+    void doFade() {
+      _fadeOutBusVoices(layer.busId, overrideFadeMs: fadeMs > 0 ? fadeMs : 100, clearPlayingInstances: false);
+    }
+    if (delayMs > 0) {
+      Future.delayed(Duration(milliseconds: delayMs), doFade);
+    } else {
+      doFade();
+    }
+  }
+
+  /// SetVolume — set volume on all active voices on a bus (for fadeIn transitions)
+  void _dispatchSetVolumeAction(AudioLayer layer) {
+    final delayMs = layer.delay.round();
+    final targetVolume = layer.volume;
+    final fadeInMs = layer.fadeInMs.round();
+    void doSetVolume() {
+      final activeVoices = _activeBusVoices[layer.busId];
+      if (activeVoices != null) {
+        for (final voice in activeVoices) {
+          if (fadeInMs > 0) {
+            AudioPlaybackService.instance.fadeInVoice(voice.voiceId, targetVolume: targetVolume, fadeMs: fadeInMs);
+          } else {
+            AudioPlaybackService.instance.setVoiceVolume(voice.voiceId, targetVolume);
+          }
+        }
+      }
+      // Also set volume on any playing instances on this bus
+      for (final instance in _playingInstances) {
+        for (final voiceId in instance.voiceIds) {
+          if (voiceId > 0) {
+            if (fadeInMs > 0) {
+              AudioPlaybackService.instance.fadeInVoice(voiceId, targetVolume: targetVolume, fadeMs: fadeInMs);
+            } else {
+              AudioPlaybackService.instance.setVoiceVolume(voiceId, targetVolume);
+            }
+          }
+        }
+      }
+    }
+    if (delayMs > 0) {
+      Future.delayed(Duration(milliseconds: delayMs), doSetVolume);
+    } else {
+      doSetVolume();
+    }
+  }
+
+  /// SetBusVolume — duck or restore bus volume (affects all voices on bus)
+  void _dispatchSetBusVolumeAction(AudioLayer layer) {
+    final delayMs = layer.delay.round();
+    final targetVolume = layer.volume;
+    void doSetBusVolume() {
+      final activeVoices = _activeBusVoices[layer.busId];
+      if (activeVoices != null) {
+        for (final voice in activeVoices) {
+          AudioPlaybackService.instance.setVoiceVolume(voice.voiceId, targetVolume);
+        }
+      }
+    }
+    if (delayMs > 0) {
+      Future.delayed(Duration(milliseconds: delayMs), doSetBusVolume);
+    } else {
+      doSetBusVolume();
+    }
+  }
+
+  /// Pause all voices on the specified bus
+  void _dispatchPauseAction(AudioLayer layer) {
+    final delayMs = layer.delay.round();
+    void doPause() {
+      final activeVoices = _activeBusVoices[layer.busId];
+      if (activeVoices != null) {
+        for (final voice in activeVoices) {
+          AudioPlaybackService.instance.pauseVoice(voice.voiceId);
+        }
+      }
+    }
+    if (delayMs > 0) {
+      Future.delayed(Duration(milliseconds: delayMs), doPause);
+    } else {
+      doPause();
+    }
+  }
+
+  /// Resume all paused voices on the specified bus
+  void _dispatchResumeAction(AudioLayer layer) {
+    final delayMs = layer.delay.round();
+    void doResume() {
+      final activeVoices = _activeBusVoices[layer.busId];
+      if (activeVoices != null) {
+        for (final voice in activeVoices) {
+          AudioPlaybackService.instance.resumeVoice(voice.voiceId);
+        }
+      }
+    }
+    if (delayMs > 0) {
+      Future.delayed(Duration(milliseconds: delayMs), doResume);
+    } else {
+      doResume();
+    }
   }
 
   Future<void> _playLayer(
@@ -2793,6 +2994,20 @@ class EventRegistry extends ChangeNotifier {
     if (toRemove.isNotEmpty) {
     }
     notifyListeners();
+  }
+
+  /// FadeOut all voices of an event, then remove from playing instances
+  void fadeOutEvent(String eventIdOrStage, {int fadeMs = 400}) {
+    final eventByStage = _stageToEvent[eventIdOrStage];
+    final targetEventId = eventByStage?.id ?? eventIdOrStage;
+
+    for (final instance in _playingInstances) {
+      if (instance.eventId == targetEventId) {
+        for (final voiceId in instance.voiceIds) {
+          AudioPlaybackService.instance.fadeOutVoice(voiceId, fadeMs: fadeMs);
+        }
+      }
+    }
   }
 
   /// Zaustavi sve

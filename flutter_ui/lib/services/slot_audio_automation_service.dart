@@ -1094,7 +1094,7 @@ class SlotAudioAutomationService {
         FlowTemplateStage(stage: 'MUSIC_FS_L1', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Free spins music'),
         FlowTemplateStage(stage: 'MUSIC_BONUS_L1', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Bonus game music', isOptional: true),
         FlowTemplateStage(stage: 'MUSIC_HOLD_L1', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Hold & Win music', isOptional: true),
-        FlowTemplateStage(stage: 'BIG_WIN_INTRO', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Big win celebration', isOptional: true),
+        FlowTemplateStage(stage: 'BIG_WIN_START', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Big win celebration', isOptional: true),
       ],
     ),
   ];
