@@ -1197,27 +1197,27 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // EVENT PREVIEW: When Events tab is active and event is selected,
-    // SPACE toggles event playback instead of spinning.
-    // If event preview is already playing → stop it.
-    // If idle with selected event on Events tab → play the event.
+    // CONTEXT-AWARE SPACE:
+    // - SlotLab active (stages playing or idle with initialized engine) → SPIN
+    // - Events tab with selected event, no active spin → toggle event preview
+    // - Middleware SPACE must NOT interfere with SlotLab spin
     // ═══════════════════════════════════════════════════════════════════════════
+
     final isEventsTab = _lowerZoneController.superTab == SlotLabSuperTab.events;
-    final middleware = _middleware;
+    final slotLabBusy = _slotLabProvider.isPlayingStages || _slotLabProvider.isSpinning;
 
-    // Stop event preview regardless of tab (if playing)
-    if (middleware.isPreviewingEvent) {
-      middleware.stopPreviewEvent();
-      return true;
-    }
-
-    // Play selected event when on Events tab
-    if (isEventsTab) {
-      final selectedEvent = middleware.selectedCompositeEvent;
+    // Events tab + no active slot spin → toggle event preview
+    if (isEventsTab && !slotLabBusy) {
+      final selectedEvent = _middleware.selectedCompositeEvent;
       if (selectedEvent != null) {
-        middleware.togglePreviewEvent(selectedEvent.id);
+        _middleware.togglePreviewEvent(selectedEvent.id);
         return true;
       }
+    }
+
+    // Stop any active event preview before spinning
+    if (_middleware.isPreviewingEvent) {
+      _middleware.stopPreviewEvent();
     }
 
     // Idle → SPIN
