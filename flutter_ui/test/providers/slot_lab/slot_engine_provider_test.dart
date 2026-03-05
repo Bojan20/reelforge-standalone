@@ -137,9 +137,9 @@ void main() {
       expect(provider.loadedScenarioId, isNull);
     });
 
-    test('winTierConfig uses DefaultWinTierConfigs.standard', () {
-      expect(provider.winTierConfig.gameId, 'standard');
-      expect(provider.winTierConfig.gameName, 'Standard Slot');
+    test('slotWinConfig uses P5 default config', () {
+      expect(provider.slotWinConfig.regularWins.configId, 'default');
+      expect(provider.slotWinConfig.bigWins.threshold, 20.0);
     });
 
     test('anticipationPreTriggerMs is 0', () {
@@ -434,47 +434,33 @@ void main() {
   // 5. WIN TIER CONFIGURATION
   // ═══════════════════════════════════════════════════════════════════════════
 
-  group('Win tier configuration', () {
-    test('default is standard config', () {
-      expect(provider.winTierConfig.gameId, 'standard');
+  group('Win tier configuration (P5)', () {
+    test('default is P5 standard config', () {
+      expect(provider.slotWinConfig.regularWins.configId, 'default');
     });
 
-    test('setWinTierConfig updates config', () {
-      final customConfig = DefaultWinTierConfigs.highVolatility;
-      provider.setWinTierConfig(customConfig);
-      expect(provider.winTierConfig.gameId, 'high_volatility');
-      expect(provider.winTierConfig.gameName, 'High Volatility Slot');
+    test('setSlotWinConfig updates config', () {
+      final customConfig = SlotWinConfigurationPresets.highVolatility;
+      provider.setSlotWinConfig(customConfig);
+      expect(provider.slotWinConfig.regularWins.configId, 'high_volatility');
     });
 
-    test('setWinTierConfig to jackpot config', () {
-      provider.setWinTierConfig(DefaultWinTierConfigs.jackpot);
-      expect(provider.winTierConfig.gameId, 'jackpot');
-      expect(provider.winTierConfig.gameName, 'Jackpot Slot');
+    test('setSlotWinConfig to jackpot config', () {
+      provider.setSlotWinConfig(SlotWinConfigurationPresets.jackpotFocus);
+      expect(provider.slotWinConfig.regularWins.configId, 'jackpot');
     });
 
-    test('setWinTierConfig notifies listeners', () {
+    test('setSlotWinConfig notifies listeners', () {
       int notifyCount = 0;
       provider.addListener(() => notifyCount++);
-      provider.setWinTierConfig(DefaultWinTierConfigs.highVolatility);
+      provider.setSlotWinConfig(SlotWinConfigurationPresets.highVolatility);
       expect(notifyCount, 1);
     });
 
-    test('setWinTierConfig with custom config', () {
-      final custom = WinTierConfig(
-        gameId: 'custom_test',
-        gameName: 'Custom Test',
-        tiers: const [
-          WinTierThreshold(
-            tier: WinTier.smallWin,
-            minXBet: 0.5,
-            maxXBet: 5.0,
-            rtpcValue: 0.3,
-          ),
-        ],
-      );
-      provider.setWinTierConfig(custom);
-      expect(provider.winTierConfig.gameId, 'custom_test');
-      expect(provider.winTierConfig.tiers.length, 1);
+    test('P5 config has regular and big win tiers', () {
+      final config = provider.slotWinConfig;
+      expect(config.regularWins.tiers.length, greaterThan(0));
+      expect(config.bigWins.tiers.length, 5);
     });
   });
 
@@ -712,7 +698,7 @@ void main() {
       provider.setAnticipationPreTriggerMs(50);
       provider.setTimingProfile(TimingProfileType.turbo);
       provider.setVolatilityPreset(VolatilityPreset.high);
-      provider.setWinTierConfig(DefaultWinTierConfigs.highVolatility);
+      provider.setSlotWinConfig(SlotWinConfigurationPresets.highVolatility);
 
       expect(notifyCount, 10);
     });
@@ -731,32 +717,36 @@ void main() {
   // 11. WIN TIER HELPERS (state-only, when uninitialized)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  group('Win tier helpers', () {
-    test('getVisualTierForWin returns empty for small win', () {
-      // betAmount defaults to 1.0
-      // winAmount = 0.5 → 0.5x bet → noWin or smallWin tier
+  group('Win tier helpers (P5)', () {
+    test('getVisualTierForWin returns WIN_LOW for sub-bet win', () {
+      provider.setBetAmount(1.0);
+      // 0.5x bet → WIN_LOW tier
       final tier = provider.getVisualTierForWin(0.5);
-      // noWin/smallWin/mediumWin return ''
-      expect(tier, '');
+      expect(tier, 'WIN_LOW');
     });
 
-    test('getVisualTierForWin returns BIG_WIN_TIER_1 for big win', () {
+    test('getVisualTierForWin returns WIN_1 for small win', () {
       provider.setBetAmount(1.0);
-      // Standard config: bigWin tier = 5x-20x bet
-      final tier = provider.getVisualTierForWin(10.0);
+      // 1.5x bet → WIN_1 tier (1.001x-2x)
+      final tier = provider.getVisualTierForWin(1.5);
+      expect(tier, 'WIN_1');
+    });
+
+    test('getVisualTierForWin returns BIG_WIN_TIER_1 for 25x', () {
+      provider.setBetAmount(1.0);
+      // 25x → BIG Win Tier 1 (20x-50x)
+      final tier = provider.getVisualTierForWin(25.0);
       expect(tier, 'BIG_WIN_TIER_1');
     });
 
-    test('getVisualTierForWin returns BIG_WIN_TIER_2 for mega win', () {
+    test('getVisualTierForWin returns BIG_WIN_TIER_2 for 60x', () {
       provider.setBetAmount(1.0);
-      // megaWin tier = 20x-50x
-      final tier = provider.getVisualTierForWin(30.0);
+      // 60x → BIG Win Tier 2 (50x-100x)
+      final tier = provider.getVisualTierForWin(60.0);
       expect(tier, 'BIG_WIN_TIER_2');
     });
 
-    test('getVisualTierForWin returns empty when betAmount is 0', () {
-      // We cannot set bet to 0 due to clamping, but we test the helper
-      // with a small enough win that it falls into noWin/smallWin
+    test('getVisualTierForWin returns empty for 0 win', () {
       final tier = provider.getVisualTierForWin(0.0);
       expect(tier, '');
     });
@@ -768,42 +758,37 @@ void main() {
 
     test('getRtpcForWin returns value for valid win', () {
       provider.setBetAmount(1.0);
-      // smallWin: 0.1x-2.0x → rtpcValue=0.2
-      final rtpc = provider.getRtpcForWin(1.0);
+      final rtpc = provider.getRtpcForWin(5.0);
       expect(rtpc, greaterThan(0.0));
     });
 
-    test('shouldTriggerCelebration false for small win', () {
+    test('shouldTriggerCelebration false for regular win', () {
       provider.setBetAmount(1.0);
-      // smallWin (0.5x) does not trigger celebration
-      expect(provider.shouldTriggerCelebration(0.5), false);
+      expect(provider.shouldTriggerCelebration(5.0), false);
     });
 
-    test('shouldTriggerCelebration true for big win', () {
+    test('shouldTriggerCelebration true for big win (20x+)', () {
       provider.setBetAmount(1.0);
-      // bigWin (10x bet) triggers celebration in standard config
-      expect(provider.shouldTriggerCelebration(10.0), true);
+      expect(provider.shouldTriggerCelebration(25.0), true);
     });
 
-    test('getRollupMultiplier returns 1.0 for no win', () {
-      expect(provider.getRollupMultiplier(0.0), 1.0);
+    test('getRollupDurationMs returns default for 0 win', () {
+      expect(provider.getRollupDurationMs(0.0), 1000);
     });
 
-    test('getRollupMultiplier returns higher for big wins', () {
+    test('getRollupDurationMs returns tier duration for big wins', () {
       provider.setBetAmount(1.0);
-      // bigWin tier has rollupDurationMultiplier > 1.0
-      final mult = provider.getRollupMultiplier(10.0);
-      expect(mult, greaterThan(1.0));
+      final dur = provider.getRollupDurationMs(25.0);
+      expect(dur, greaterThan(1000));
     });
 
     test('getTriggerStageForWin returns null for no win', () {
       expect(provider.getTriggerStageForWin(0.0), isNull);
     });
 
-    test('getTriggerStageForWin returns stage for valid win', () {
+    test('getTriggerStageForWin returns present stage for valid win', () {
       provider.setBetAmount(1.0);
-      // smallWin triggers 'WIN_SMALL'
-      final stage = provider.getTriggerStageForWin(1.0);
+      final stage = provider.getTriggerStageForWin(1.5);
       expect(stage, isNotNull);
     });
   });

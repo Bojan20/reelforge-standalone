@@ -87,16 +87,15 @@ enum FeatureModuleType {
   final String description;
 }
 
-/// Win tier levels (user-configurable thresholds)
-enum WinTier {
-  tier1('TIER_1', 'Small Win', 1.0), // ≤1x bet always
-  tier2('TIER_2', 'Medium Win', 5.0),
-  tier3('TIER_3', 'Big Win', 15.0),
-  tier4('TIER_4', 'Super Win', 30.0),
-  tier5('TIER_5', 'Mega Win', 60.0),
-  tier6('TIER_6', 'Epic Win', 100.0);
+/// Win tier levels for templates (P5 naming: WIN_1–WIN_5)
+enum TemplateWinTier {
+  tier1('WIN_1', 'WIN 1', 1.0),
+  tier2('WIN_2', 'WIN 2', 5.0),
+  tier3('WIN_3', 'WIN 3', 15.0),
+  tier4('WIN_4', 'WIN 4', 30.0),
+  tier5('WIN_5', 'WIN 5', 60.0);
 
-  const WinTier(this.id, this.defaultLabel, this.defaultThreshold);
+  const TemplateWinTier(this.id, this.defaultLabel, this.defaultThreshold);
   final String id;
   final String defaultLabel;
   final double defaultThreshold;
@@ -206,17 +205,17 @@ class TemplateSymbol {
 // WIN TIER CONFIGURATION
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// User-configurable win tier settings
-class WinTierConfig {
-  final WinTier tier;
-  final String label; // User-defined label like "BIG WIN!"
-  final double threshold; // Multiplier threshold (e.g., 15.0 = 15x bet)
-  final double volumeMultiplier; // Audio volume scaling
-  final double pitchOffset; // Pitch adjustment in semitones
-  final int rollupDurationMs; // How long the rollup animation lasts
-  final bool hasScreenEffect; // Screen flash/shake
+/// User-configurable win tier settings for templates
+class TemplateWinTierConfig {
+  final TemplateWinTier tier;
+  final String label;
+  final double threshold;
+  final double volumeMultiplier;
+  final double pitchOffset;
+  final int rollupDurationMs;
+  final bool hasScreenEffect;
 
-  const WinTierConfig({
+  const TemplateWinTierConfig({
     required this.tier,
     required this.label,
     required this.threshold,
@@ -226,10 +225,10 @@ class WinTierConfig {
     this.hasScreenEffect = false,
   });
 
-  /// Stage ID for this tier
-  String get stageStart => 'WIN_${tier.id}_START';
-  String get stageLoop => 'WIN_${tier.id}_LOOP';
-  String get stageEnd => 'WIN_${tier.id}_END';
+  /// Stage ID for this tier (P5 naming)
+  String get stageStart => '${tier.id}_START';
+  String get stageLoop => '${tier.id}_LOOP';
+  String get stageEnd => '${tier.id}_END';
 
   Map<String, dynamic> toJson() => {
         'tier': tier.name,
@@ -241,10 +240,10 @@ class WinTierConfig {
         'hasScreenEffect': hasScreenEffect,
       };
 
-  factory WinTierConfig.fromJson(Map<String, dynamic> json) => WinTierConfig(
-        tier: WinTier.values.firstWhere(
+  factory TemplateWinTierConfig.fromJson(Map<String, dynamic> json) => TemplateWinTierConfig(
+        tier: TemplateWinTier.values.firstWhere(
           (t) => t.name == json['tier'],
-          orElse: () => WinTier.tier1,
+          orElse: () => TemplateWinTier.tier1,
         ),
         label: json['label'] as String,
         threshold: (json['threshold'] as num).toDouble(),
@@ -254,8 +253,8 @@ class WinTierConfig {
         hasScreenEffect: json['hasScreenEffect'] as bool? ?? false,
       );
 
-  WinTierConfig copyWith({
-    WinTier? tier,
+  TemplateWinTierConfig copyWith({
+    TemplateWinTier? tier,
     String? label,
     double? threshold,
     double? volumeMultiplier,
@@ -263,7 +262,7 @@ class WinTierConfig {
     int? rollupDurationMs,
     bool? hasScreenEffect,
   }) =>
-      WinTierConfig(
+      TemplateWinTierConfig(
         tier: tier ?? this.tier,
         label: label ?? this.label,
         threshold: threshold ?? this.threshold,
@@ -664,7 +663,7 @@ class SlotTemplate {
   final List<TemplateSymbol> symbols;
 
   // Win tiers (user-configurable)
-  final List<WinTierConfig> winTiers;
+  final List<TemplateWinTierConfig> winTiers;
 
   // Core stages (always present)
   final List<TemplateStageDefinition> coreStages;
@@ -783,7 +782,7 @@ class SlotTemplate {
             .map((s) => TemplateSymbol.fromJson(s as Map<String, dynamic>))
             .toList(),
         winTiers: (json['winTiers'] as List<dynamic>)
-            .map((t) => WinTierConfig.fromJson(t as Map<String, dynamic>))
+            .map((t) => TemplateWinTierConfig.fromJson(t as Map<String, dynamic>))
             .toList(),
         coreStages: (json['coreStages'] as List<dynamic>)
             .map((s) => TemplateStageDefinition.fromJson(s as Map<String, dynamic>))
@@ -820,7 +819,7 @@ class SlotTemplate {
     int? rowCount,
     bool? hasMegaways,
     List<TemplateSymbol>? symbols,
-    List<WinTierConfig>? winTiers,
+    List<TemplateWinTierConfig>? winTiers,
     List<TemplateStageDefinition>? coreStages,
     List<FeatureModule>? modules,
     List<TemplateDuckingRule>? duckingRules,

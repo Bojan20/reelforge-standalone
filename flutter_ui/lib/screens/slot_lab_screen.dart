@@ -5603,7 +5603,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   void _triggerBigWinSequence(StageProvider provider, int tier) {
     final winAmount = tier == 1 ? 500.0 : (tier == 2 ? 1500.0 : 5000.0);
-    final bigWinTier = tier == 1 ? BigWinTier.bigWin : (tier == 2 ? BigWinTier.megaWin : BigWinTier.epicWin);
+    final bigWinTier = tier == 1 ? BigWinTier.tier2 : (tier == 2 ? BigWinTier.tier3 : BigWinTier.tier4);
     double ts = 0.0;
 
     final events = [

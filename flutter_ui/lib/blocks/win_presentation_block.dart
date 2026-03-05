@@ -683,48 +683,32 @@ class WinPresentationBlock extends FeatureBlockBase {
     return stages;
   }
 
-  /// Get tier names based on system and count
+  /// Get tier names based on system and count — numbered tiers only
   List<String> _getTierNames(WinTierSystem system, int count) {
-    switch (system) {
-      case WinTierSystem.simple:
-        return ['small', 'big', 'mega'];
-      case WinTierSystem.standard:
-        return ['small', 'big', 'super', 'mega', 'epic', 'ultra'];
-      case WinTierSystem.extended:
-        final tiers = <String>['small', 'big', 'super', 'mega', 'epic', 'ultra'];
-        for (var i = 7; i <= count; i++) {
-          tiers.add('tier_$i');
-        }
-        return tiers.take(count).toList();
-      case WinTierSystem.dynamic:
-        return ['low', 'medium', 'high', 'very_high', 'extreme', 'legendary'];
-    }
+    final tierCount = switch (system) {
+      WinTierSystem.simple => 3,
+      WinTierSystem.standard => 5,
+      WinTierSystem.extended => count,
+      WinTierSystem.dynamic => 6,
+    };
+    return [for (var i = 1; i <= tierCount; i++) 'tier_$i'];
   }
 
-  /// Check if tier is considered a "big" win tier
+  /// Check if tier is considered a "big" win tier (tier 2+)
   bool _isBigWinTier(String tier) {
-    return ['big', 'super', 'mega', 'epic', 'ultra', 'extreme', 'legendary']
-            .contains(tier.toLowerCase()) ||
-        tier.startsWith('tier_');
+    final match = RegExp(r'tier_(\d+)').firstMatch(tier);
+    if (match != null) return int.parse(match.group(1)!) >= 2;
+    return false;
   }
 
   /// Get priority for a tier (higher tiers = higher priority)
   int _getTierPriority(String tier) {
-    final priorities = {
-      'small': 50,
-      'low': 50,
-      'medium': 55,
-      'big': 60,
-      'high': 60,
-      'super': 70,
-      'very_high': 70,
-      'mega': 80,
-      'epic': 85,
-      'extreme': 85,
-      'ultra': 90,
-      'legendary': 95,
-    };
-    return priorities[tier.toLowerCase()] ?? 75;
+    final match = RegExp(r'tier_(\d+)').firstMatch(tier);
+    if (match != null) {
+      final n = int.parse(match.group(1)!);
+      return 50 + (n * 10).clamp(0, 50);
+    }
+    return 75;
   }
 
   @override

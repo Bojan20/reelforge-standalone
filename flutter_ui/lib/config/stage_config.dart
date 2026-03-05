@@ -266,43 +266,6 @@ class StageConfig {
       category: StageCategory.bigwin,
       description: 'Big win tier determined',
     ),
-    'win_present_small': const StageConfigEntry(
-      color: Color(0xFF40FF90),
-      icon: Icons.star_outline,
-      category: StageCategory.bigwin,
-      description: 'Small win (<5x)',
-    ),
-    'win_present_big': const StageConfigEntry(
-      color: Color(0xFFFF4080),
-      icon: Icons.star_half,
-      category: StageCategory.bigwin,
-      description: 'Big win (5-15x)',
-    ),
-    'win_present_super': const StageConfigEntry(
-      color: Color(0xFFFF4080),
-      icon: Icons.star,
-      category: StageCategory.bigwin,
-      description: 'Super win (15-30x)',
-    ),
-    'win_present_mega': const StageConfigEntry(
-      color: Color(0xFFFFD700),
-      icon: Icons.stars,
-      category: StageCategory.bigwin,
-      description: 'Mega win (30-60x)',
-    ),
-    'win_present_epic': const StageConfigEntry(
-      color: Color(0xFFFFD700),
-      icon: Icons.auto_awesome,
-      category: StageCategory.bigwin,
-      description: 'Epic win (60-100x)',
-    ),
-    'win_present_ultra': const StageConfigEntry(
-      color: Color(0xFFE040FB),
-      icon: Icons.workspace_premium,
-      category: StageCategory.bigwin,
-      description: 'Ultra win (100x+)',
-    ),
-
     // ─────────────────────────────────────────────────────────────────────────
     // FEATURES
     // ─────────────────────────────────────────────────────────────────────────
@@ -519,35 +482,10 @@ class StageConfig {
       description: 'UI button pressed',
       isPooled: true,
     ),
-    'ui_button_hover': const StageConfigEntry(
-      color: Color(0xFF808080),
-      icon: Icons.mouse,
-      category: StageCategory.ui,
-      description: 'UI button hovered',
-      isPooled: true,
-    ),
-    'ui_popup_open': const StageConfigEntry(
-      color: Color(0xFF808080),
-      icon: Icons.open_in_new,
-      category: StageCategory.ui,
-      description: 'Popup opened',
-    ),
-    'ui_popup_close': const StageConfigEntry(
-      color: Color(0xFF808080),
-      icon: Icons.close,
-      category: StageCategory.ui,
-      description: 'Popup closed',
-    ),
 
     // ─────────────────────────────────────────────────────────────────────────
     // SYSTEM
     // ─────────────────────────────────────────────────────────────────────────
-    'game_load': const StageConfigEntry(
-      color: Color(0xFF6B7280),
-      icon: Icons.download,
-      category: StageCategory.system,
-      description: 'Game loading',
-    ),
     'game_ready': const StageConfigEntry(
       color: Color(0xFF40FF90),
       icon: Icons.check_circle,

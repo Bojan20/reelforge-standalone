@@ -348,7 +348,7 @@ void main() {
     test('ID ranges are non-overlapping', () {
       expect(SlotEventIds.spinStart, inInclusiveRange(1000, 1099));
       expect(SlotEventIds.winPresent, inInclusiveRange(1200, 1299));
-      expect(SlotEventIds.bigWinBase, inInclusiveRange(1300, 1399));
+      expect(SlotEventIds.bigWinTier1, inInclusiveRange(1300, 1399));
       expect(SlotEventIds.featureEnter, inInclusiveRange(1400, 1499));
       expect(SlotEventIds.cascadeStart, inInclusiveRange(1500, 1599));
       expect(SlotEventIds.bonusEnter, inInclusiveRange(1600, 1699));

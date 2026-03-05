@@ -53,7 +53,7 @@ class SlotEngineProvider extends ChangeNotifier {
   bool _jackpotEnabled = true;
 
   // ─── Win Tier Configuration ────────────────────────────────────────────────
-  WinTierConfig _winTierConfig = DefaultWinTierConfigs.standard;
+  SlotWinConfiguration _slotWinConfig = SlotWinConfiguration.defaultConfig();
 
   // ─── Audio Timing Configuration ─────────────────────────────────────────────
   SlotLabTimingConfig? _timingConfig;
@@ -108,7 +108,7 @@ class SlotEngineProvider extends ChangeNotifier {
   bool get freeSpinsEnabled => _freeSpinsEnabled;
   bool get jackpotEnabled => _jackpotEnabled;
 
-  WinTierConfig get winTierConfig => _winTierConfig;
+  SlotWinConfiguration get slotWinConfig => _slotWinConfig;
   SlotLabTimingConfig? get timingConfig => _timingConfig;
   int get anticipationPreTriggerMs => _anticipationPreTriggerMs;
   int get reelStopPreTriggerMs => _reelStopPreTriggerMs;
@@ -264,9 +264,9 @@ class SlotEngineProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Set win tier configuration
-  void setWinTierConfig(WinTierConfig config) {
-    _winTierConfig = config;
+  /// Set P5 win tier configuration
+  void setSlotWinConfig(SlotWinConfiguration config) {
+    _slotWinConfig = config;
     notifyListeners();
   }
 
@@ -328,57 +328,59 @@ class SlotEngineProvider extends ChangeNotifier {
   // WIN TIER HELPERS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Get the visual tier name for a win amount
+  /// Get the visual tier name for a win amount (P5 system)
+  /// Returns: '', 'WIN_1'–'WIN_5', or 'BIG_WIN_TIER_1'–'BIG_WIN_TIER_5'
   String getVisualTierForWin(double winAmount) {
     if (_betAmount <= 0) return '';
-    final tier = _winTierConfig.getTierForWin(winAmount, _betAmount);
-    if (tier == null) return '';
 
-    switch (tier.tier) {
-      case WinTier.noWin:
-      case WinTier.smallWin:
-      case WinTier.mediumWin:
-        return '';
-      case WinTier.bigWin:
-        return 'BIG_WIN_TIER_1';
-      case WinTier.megaWin:
-        return 'BIG_WIN_TIER_2';
-      case WinTier.epicWin:
-        return 'BIG_WIN_TIER_3';
-      case WinTier.ultraWin:
-        return 'BIG_WIN_TIER_4';
-      case WinTier.jackpotMini:
-        return 'JACKPOT MINI';
-      case WinTier.jackpotMinor:
-        return 'JACKPOT MINOR';
-      case WinTier.jackpotMajor:
-        return 'JACKPOT MAJOR';
-      case WinTier.jackpotGrand:
-        return 'JACKPOT GRAND';
+    if (_slotWinConfig.isBigWin(winAmount, _betAmount)) {
+      final maxTier = _slotWinConfig.getBigWinMaxTier(winAmount, _betAmount);
+      if (maxTier > 0) return 'BIG_WIN_TIER_$maxTier';
+      return 'BIG_WIN_TIER_1';
     }
+
+    final tier = _slotWinConfig.getRegularTier(winAmount, _betAmount);
+    if (tier == null) return '';
+    return tier.stageName;
   }
 
   /// Get RTPC value for a win amount (0.0 to 1.0)
   double getRtpcForWin(double winAmount) {
-    return _winTierConfig.getRtpcForWin(winAmount, _betAmount);
+    if (_betAmount <= 0) return 0.0;
+    final multiplier = winAmount / _betAmount;
+    final threshold = _slotWinConfig.bigWins.threshold;
+    return (multiplier / threshold).clamp(0.0, 1.0);
   }
 
   /// Check if a win should trigger celebration animation
   bool shouldTriggerCelebration(double winAmount) {
-    final tier = _winTierConfig.getTierForWin(winAmount, _betAmount);
-    return tier?.triggerCelebration ?? false;
+    return _slotWinConfig.isBigWin(winAmount, _betAmount);
   }
 
-  /// Get rollup duration multiplier for a win
-  double getRollupMultiplier(double winAmount) {
-    final tier = _winTierConfig.getTierForWin(winAmount, _betAmount);
-    return tier?.rollupDurationMultiplier ?? 1.0;
+  /// Get rollup duration in ms for a win (P5 system)
+  int getRollupDurationMs(double winAmount) {
+    if (_betAmount <= 0) return 1000;
+
+    if (_slotWinConfig.isBigWin(winAmount, _betAmount)) {
+      final tiers = _slotWinConfig.bigWins.getTiersForWin(winAmount, _betAmount);
+      if (tiers.isNotEmpty) return tiers.last.durationMs;
+      return 4000;
+    }
+
+    final tier = _slotWinConfig.getRegularTier(winAmount, _betAmount);
+    return tier?.rollupDurationMs ?? 1000;
   }
 
-  /// Get the stage to trigger for a win
+  /// Get the stage to trigger for a win (P5 system)
   String? getTriggerStageForWin(double winAmount) {
-    final tier = _winTierConfig.getTierForWin(winAmount, _betAmount);
-    return tier?.triggerStage;
+    if (_betAmount <= 0) return null;
+
+    if (_slotWinConfig.isBigWin(winAmount, _betAmount)) {
+      return BigWinConfig.startStageName;
+    }
+
+    final tier = _slotWinConfig.getRegularTier(winAmount, _betAmount);
+    return tier?.presentStageName;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

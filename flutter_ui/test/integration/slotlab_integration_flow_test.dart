@@ -579,39 +579,7 @@ void main() {
     });
   });
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // FLOW 4: LEGACY STAGE MAPPING
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  group('Flow 4: Legacy Stage Mapping', () {
-    test('BIG_WIN maps to BIG_WIN_START', () {
-      expect(getMappedStageName('BIG_WIN'), 'BIG_WIN_START');
-    });
-
-    test('MEGA_WIN maps to BIG_WIN_TIER_2', () {
-      expect(getMappedStageName('MEGA_WIN'), 'BIG_WIN_TIER_2');
-    });
-
-    test('EPIC_WIN maps to BIG_WIN_TIER_3', () {
-      expect(getMappedStageName('EPIC_WIN'), 'BIG_WIN_TIER_3');
-    });
-
-    test('ULTRA_WIN maps to BIG_WIN_TIER_5', () {
-      expect(getMappedStageName('ULTRA_WIN'), 'BIG_WIN_TIER_5');
-    });
-
-    test('SMALL_WIN maps to WIN_1', () {
-      expect(getMappedStageName('SMALL_WIN'), 'WIN_1');
-    });
-
-    test('ROLLUP_START maps to ROLLUP_START_1', () {
-      expect(getMappedStageName('ROLLUP_START'), 'ROLLUP_START_1');
-    });
-
-    test('unknown stage returns original', () {
-      expect(getMappedStageName('CUSTOM_STAGE'), 'CUSTOM_STAGE');
-    });
-  });
+  // Flow 4: Legacy Stage Mapping — REMOVED (legacy M4 system deleted)
 
   // ═══════════════════════════════════════════════════════════════════════════
   // FLOW 5: SLOT AUDIO EVENT FACTORY
@@ -1468,99 +1436,8 @@ void main() {
     });
   });
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // FLOW 12: LEGACY WIN TIER SYSTEM (M4)
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  group('Flow 12: Legacy Win Tier System (M4)', () {
-    test('WinTier enum has all values', () {
-      expect(WinTier.values.length, 11);
-    });
-
-    test('WinTier display names are correct', () {
-      expect(WinTier.noWin.displayName, 'No Win');
-      expect(WinTier.bigWin.displayName, 'Big Win');
-      expect(WinTier.jackpotGrand.displayName, 'Grand Jackpot');
-    });
-
-    test('WinTier audio intensity scales correctly', () {
-      expect(WinTier.noWin.audioIntensity, 0);
-      expect(WinTier.smallWin.audioIntensity, 2);
-      expect(WinTier.jackpotGrand.audioIntensity, 10);
-      // Higher tiers should have higher intensity
-      expect(WinTier.bigWin.audioIntensity,
-          greaterThan(WinTier.smallWin.audioIntensity));
-    });
-
-    group('WinTierConfig (M4 legacy)', () {
-      test('standard config has 6 tiers', () {
-        final config = DefaultWinTierConfigs.standard;
-        expect(config.tiers.length, 6);
-      });
-
-      test('getTierForWin returns correct tier', () {
-        final config = DefaultWinTierConfigs.standard;
-        // 3x bet
-        final tier = config.getTierForWin(30.0, 10.0);
-        expect(tier, isNotNull);
-        expect(tier!.tier, WinTier.mediumWin);
-      });
-
-      test('getTierForWin returns null for zero bet', () {
-        final config = DefaultWinTierConfigs.standard;
-        expect(config.getTierForWin(10.0, 0.0), isNull);
-      });
-
-      test('getRtpcForWin maps win to RTPC value', () {
-        final config = DefaultWinTierConfigs.standard;
-        // Big win (10x)
-        final rtpc = config.getRtpcForWin(100.0, 10.0);
-        expect(rtpc, 0.6); // bigWin tier
-      });
-
-      test('getRtpcForWin returns 0 for no win', () {
-        final config = DefaultWinTierConfigs.standard;
-        final rtpc = config.getRtpcForWin(0.05, 10.0);
-        expect(rtpc, 0.0);
-      });
-
-      test('highVolatility config has higher thresholds', () {
-        final config = DefaultWinTierConfigs.highVolatility;
-        final bigWin = config.tiers.firstWhere((t) => t.tier == WinTier.bigWin);
-        expect(bigWin.minXBet, 20.0);
-      });
-
-      test('jackpot config includes jackpot tiers', () {
-        final config = DefaultWinTierConfigs.jackpot;
-        final jackpotTiers = config.tiers.where(
-          (t) => t.tier.name.startsWith('jackpot'),
-        );
-        expect(jackpotTiers.length, 4);
-      });
-
-      test('serialization round-trip', () {
-        final config = DefaultWinTierConfigs.standard;
-        final json = config.toJsonString();
-        final restored = WinTierConfig.fromJsonString(json);
-        expect(restored.tiers.length, config.tiers.length);
-        expect(restored.gameId, config.gameId);
-      });
-
-      test('WinTierThreshold copyWith works', () {
-        const threshold = WinTierThreshold(
-          tier: WinTier.bigWin,
-          minXBet: 5.0,
-          maxXBet: 20.0,
-          rtpcValue: 0.6,
-          triggerStage: 'WIN_BIG',
-        );
-        final updated = threshold.copyWith(rtpcValue: 0.8);
-        expect(updated.rtpcValue, 0.8);
-        expect(updated.tier, WinTier.bigWin);
-        expect(updated.triggerStage, 'WIN_BIG');
-      });
-    });
-  });
+  // Flow 12: Legacy Win Tier System (M4) — REMOVED (legacy M4 system deleted)
+  // P5 win tier system is tested via SlotWinConfiguration in win_tier_config tests
 
   // ═══════════════════════════════════════════════════════════════════════════
   // FLOW 13: SLOT AUDIO LAYER MODEL

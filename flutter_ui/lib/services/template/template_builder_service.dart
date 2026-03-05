@@ -159,7 +159,7 @@ class TemplateBuilderService {
         category: TemplateStageCategory.win,
         priority: 76 + (tier.tier.index * 2),
         isPooled: false,
-        isLooping: tier.tier.index >= WinTier.tier3.index, // Loop for big wins
+        isLooping: tier.tier.index >= TemplateWinTier.tier3.index, // Loop for big wins
         description: '${tier.label} celebration',
       ));
     }

@@ -9,60 +9,52 @@ library;
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Big win tier classification based on win-to-bet ratio
+/// Tiers are numbered 1-5 — display names and thresholds are data-driven.
 enum BigWinTier {
-  win,       // 10-15x
-  bigWin,    // 15-25x
-  megaWin,   // 25-50x
-  epicWin,   // 50-100x
-  ultraWin;  // 100x+
+  tier1,  // Default: 10-15x
+  tier2,  // Default: 15-25x
+  tier3,  // Default: 25-50x
+  tier4,  // Default: 50-100x
+  tier5;  // Default: 100x+
 
   /// Get tier from win-to-bet ratio
   static BigWinTier fromRatio(double ratio) {
-    if (ratio >= 100.0) return BigWinTier.ultraWin;
-    if (ratio >= 50.0) return BigWinTier.epicWin;
-    if (ratio >= 25.0) return BigWinTier.megaWin;
-    if (ratio >= 15.0) return BigWinTier.bigWin;
-    return BigWinTier.win;
+    if (ratio >= 100.0) return BigWinTier.tier5;
+    if (ratio >= 50.0) return BigWinTier.tier4;
+    if (ratio >= 25.0) return BigWinTier.tier3;
+    if (ratio >= 15.0) return BigWinTier.tier2;
+    return BigWinTier.tier1;
   }
 
+  /// 1-based tier number
+  int get tierNumber => index + 1;
+
   double get minRatio => switch (this) {
-    win => 10.0,
-    bigWin => 15.0,
-    megaWin => 25.0,
-    epicWin => 50.0,
-    ultraWin => 100.0,
+    tier1 => 10.0,
+    tier2 => 15.0,
+    tier3 => 25.0,
+    tier4 => 50.0,
+    tier5 => 100.0,
   };
 
-  String get displayName => switch (this) {
-    win => 'WIN 1',
-    bigWin => 'WIN 2',
-    megaWin => 'WIN 3',
-    epicWin => 'WIN 4',
-    ultraWin => 'WIN 5',
-  };
+  String get displayName => 'BIG WIN TIER $tierNumber';
 
   static BigWinTier? fromJson(dynamic json) {
     if (json == null) return null;
     if (json is Map) {
-      if (json.containsKey('custom')) return BigWinTier.win; // Custom tier
+      if (json.containsKey('custom')) return BigWinTier.tier1;
     }
     return switch (json.toString()) {
-      'win' => BigWinTier.win,
-      'big_win' => BigWinTier.bigWin,
-      'mega_win' => BigWinTier.megaWin,
-      'epic_win' => BigWinTier.epicWin,
-      'ultra_win' => BigWinTier.ultraWin,
+      'tier_1' => BigWinTier.tier1,
+      'tier_2' => BigWinTier.tier2,
+      'tier_3' => BigWinTier.tier3,
+      'tier_4' => BigWinTier.tier4,
+      'tier_5' => BigWinTier.tier5,
       _ => null,
     };
   }
 
-  String toJson() => switch (this) {
-    win => 'win',
-    bigWin => 'big_win',
-    megaWin => 'mega_win',
-    epicWin => 'epic_win',
-    ultraWin => 'ultra_win',
-  };
+  String toJson() => 'tier_$tierNumber';
 }
 
 /// Feature type classification
@@ -400,7 +392,7 @@ sealed class Stage {
       ),
       'rollup_end' => RollupEnd(finalAmount: (json['final_amount'] as num?)?.toDouble() ?? 0.0),
       'bigwin_tier' => BigWinTierStage(
-        tier: BigWinTier.fromJson(json['tier']) ?? BigWinTier.win,
+        tier: BigWinTier.fromJson(json['tier']) ?? BigWinTier.tier1,
         amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
       ),
 

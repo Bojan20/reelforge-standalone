@@ -40,7 +40,7 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
   String? _reelAudioPath;
 
   // Win tier state
-  final Map<WinTier, String?> _winTierPaths = {};
+  final Map<AudioWinTier, String?> _winTierPaths = {};
 
   // Cascade state
   int _cascadeStepCount = 8;
@@ -249,7 +249,7 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
           // Tier slots
           Expanded(
             child: ListView(
-              children: WinTier.values.map((tier) {
+              children: AudioWinTier.values.map((tier) {
                 return _buildWinTierSlot(tier);
               }).toList(),
             ),
@@ -268,15 +268,19 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
     );
   }
 
-  Widget _buildWinTierSlot(WinTier tier) {
+  Widget _buildWinTierSlot(AudioWinTier tier) {
     final path = _winTierPaths[tier];
     final volumeScale = {
-      WinTier.small: 0.7,
-      WinTier.medium: 0.8,
-      WinTier.big: 0.9,
-      WinTier.mega: 1.0,
-      WinTier.epic: 1.0,
-      WinTier.ultra: 1.0,
+      AudioWinTier.win1: 0.7,
+      AudioWinTier.win2: 0.8,
+      AudioWinTier.win3: 0.9,
+      AudioWinTier.win4: 1.0,
+      AudioWinTier.win5: 1.0,
+      AudioWinTier.bigWinTier1: 1.0,
+      AudioWinTier.bigWinTier2: 1.0,
+      AudioWinTier.bigWinTier3: 1.0,
+      AudioWinTier.bigWinTier4: 1.0,
+      AudioWinTier.bigWinTier5: 1.0,
     };
 
     return Container(
@@ -359,25 +363,23 @@ class _SlotAutomationPanelState extends State<SlotAutomationPanel>
     );
   }
 
-  Color _winTierColor(WinTier tier) {
-    switch (tier) {
-      case WinTier.small:
-        return Colors.grey;
-      case WinTier.medium:
-        return Colors.green;
-      case WinTier.big:
-        return Colors.blue;
-      case WinTier.mega:
-        return Colors.purple;
-      case WinTier.epic:
-        return Colors.orange;
-      case WinTier.ultra:
-        return Colors.red;
-    }
+  Color _winTierColor(AudioWinTier tier) {
+    return switch (tier) {
+      AudioWinTier.win1 => Colors.grey,
+      AudioWinTier.win2 => Colors.green,
+      AudioWinTier.win3 => Colors.blue,
+      AudioWinTier.win4 => Colors.purple,
+      AudioWinTier.win5 => Colors.orange,
+      AudioWinTier.bigWinTier1 => Colors.red,
+      AudioWinTier.bigWinTier2 => Colors.red.shade700,
+      AudioWinTier.bigWinTier3 => Colors.red.shade900,
+      AudioWinTier.bigWinTier4 => Colors.amber,
+      AudioWinTier.bigWinTier5 => Colors.amber.shade700,
+    };
   }
 
   void _generateWinTiers() {
-    final audioByTier = <WinTier, String>{};
+    final audioByTier = <AudioWinTier, String>{};
     for (final entry in _winTierPaths.entries) {
       if (entry.value != null) {
         audioByTier[entry.key] = entry.value!;

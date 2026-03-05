@@ -33,7 +33,7 @@ class ParsedAudioAsset {
   final int? reelIndex;
 
   /// Detected win tier if applicable
-  final WinTier? winTier;
+  final AudioWinTier? winTier;
 
   /// Detected feature type if applicable
   final FeatureType? featureType;
@@ -87,14 +87,33 @@ enum AssetCategory {
   unknown,
 }
 
-/// Win tier levels
-enum WinTier {
-  small,
-  medium,
-  big,
-  mega,
-  epic,
-  ultra,
+/// Audio win tier levels — maps filename keywords to P5 tier system
+/// Regular: win1–win5, Big: bigWinTier1–bigWinTier5
+enum AudioWinTier {
+  win1,        // small/minor wins
+  win2,        // medium wins
+  win3,        // big/large wins
+  win4,        // mega wins
+  win5,        // epic wins
+  bigWinTier1, // ultra/big_win_tier_1
+  bigWinTier2,
+  bigWinTier3,
+  bigWinTier4,
+  bigWinTier5;
+
+  /// P5 stage name for this tier
+  String get stageName => switch (this) {
+    win1 => 'WIN_1',
+    win2 => 'WIN_2',
+    win3 => 'WIN_3',
+    win4 => 'WIN_4',
+    win5 => 'WIN_5',
+    bigWinTier1 => 'BIG_WIN_TIER_1',
+    bigWinTier2 => 'BIG_WIN_TIER_2',
+    bigWinTier3 => 'BIG_WIN_TIER_3',
+    bigWinTier4 => 'BIG_WIN_TIER_4',
+    bigWinTier5 => 'BIG_WIN_TIER_5',
+  };
 }
 
 /// Feature types
@@ -243,7 +262,7 @@ class SlotAudioAutomationService {
     // Try to detect category and details
     AssetCategory category = AssetCategory.unknown;
     int? reelIndex;
-    WinTier? winTier;
+    AudioWinTier? winTier;
     FeatureType? featureType;
     StagePhase? phase;
     String suggestedStage = 'UNKNOWN';
@@ -311,25 +330,25 @@ class SlotAudioAutomationService {
       suggestedBus = 'wins';
       confidence = 0.85;
 
-      // Detect win tier
-      if (baseName.contains('ultra')) {
-        winTier = WinTier.ultra;
-        suggestedStage = 'WIN_ULTRA';
+      // Detect win tier — map filename keywords to P5 naming
+      if (baseName.contains('big_win_tier') || baseName.contains('ultra')) {
+        winTier = AudioWinTier.bigWinTier1;
+        suggestedStage = 'BIG_WIN_TIER_1';
       } else if (baseName.contains('epic')) {
-        winTier = WinTier.epic;
-        suggestedStage = 'WIN_EPIC';
+        winTier = AudioWinTier.win5;
+        suggestedStage = 'WIN_5';
       } else if (baseName.contains('mega')) {
-        winTier = WinTier.mega;
-        suggestedStage = 'WIN_MEGA';
+        winTier = AudioWinTier.win4;
+        suggestedStage = 'WIN_4';
       } else if (baseName.contains('big') || baseName.contains('large')) {
-        winTier = WinTier.big;
-        suggestedStage = 'WIN_BIG';
+        winTier = AudioWinTier.win3;
+        suggestedStage = 'WIN_3';
       } else if (baseName.contains('medium') || baseName.contains('med')) {
-        winTier = WinTier.medium;
-        suggestedStage = 'WIN_MEDIUM';
+        winTier = AudioWinTier.win2;
+        suggestedStage = 'WIN_2';
       } else if (baseName.contains('small') || baseName.contains('minor')) {
-        winTier = WinTier.small;
-        suggestedStage = 'WIN_SMALL';
+        winTier = AudioWinTier.win1;
+        suggestedStage = 'WIN_1';
       } else {
         suggestedStage = 'WIN_PRESENT';
       }
@@ -597,7 +616,7 @@ class SlotAudioAutomationService {
 
   /// Generate escalating win tier events from audio files
   AutomationResult generateWinTierSet({
-    required Map<WinTier, String> audioByTier,
+    required Map<AudioWinTier, String> audioByTier,
     String bus = 'wins',
   }) {
     final events = <AutoEventSpec>[];
@@ -605,32 +624,40 @@ class SlotAudioAutomationService {
 
     // Volume scaling per tier
     const volumeScale = {
-      WinTier.small: 0.7,
-      WinTier.medium: 0.8,
-      WinTier.big: 0.9,
-      WinTier.mega: 1.0,
-      WinTier.epic: 1.0,
-      WinTier.ultra: 1.0,
+      AudioWinTier.win1: 0.7,
+      AudioWinTier.win2: 0.8,
+      AudioWinTier.win3: 0.9,
+      AudioWinTier.win4: 1.0,
+      AudioWinTier.win5: 1.0,
+      AudioWinTier.bigWinTier1: 1.0,
+      AudioWinTier.bigWinTier2: 1.0,
+      AudioWinTier.bigWinTier3: 1.0,
+      AudioWinTier.bigWinTier4: 1.0,
+      AudioWinTier.bigWinTier5: 1.0,
     };
 
     // Priority per tier
     const priorityScale = {
-      WinTier.small: 40,
-      WinTier.medium: 50,
-      WinTier.big: 60,
-      WinTier.mega: 70,
-      WinTier.epic: 80,
-      WinTier.ultra: 90,
+      AudioWinTier.win1: 40,
+      AudioWinTier.win2: 50,
+      AudioWinTier.win3: 60,
+      AudioWinTier.win4: 65,
+      AudioWinTier.win5: 70,
+      AudioWinTier.bigWinTier1: 75,
+      AudioWinTier.bigWinTier2: 80,
+      AudioWinTier.bigWinTier3: 85,
+      AudioWinTier.bigWinTier4: 90,
+      AudioWinTier.bigWinTier5: 95,
     };
 
-    for (final tier in WinTier.values) {
+    for (final tier in AudioWinTier.values) {
       final audioPath = audioByTier[tier];
       if (audioPath == null) {
         warnings.add('No audio for ${tier.name} tier');
         continue;
       }
 
-      final stageName = 'WIN_${tier.name.toUpperCase()}';
+      final stageName = tier.stageName;
       events.add(AutoEventSpec(
         eventId: stageName.toLowerCase(),
         stage: stageName,
@@ -650,8 +677,8 @@ class SlotAudioAutomationService {
   }
 
   /// Auto-detect win tiers from a list of audio paths
-  Map<WinTier, String> detectWinTiersFromPaths(List<String> paths) {
-    final result = <WinTier, String>{};
+  Map<AudioWinTier, String> detectWinTiersFromPaths(List<String> paths) {
+    final result = <AudioWinTier, String>{};
 
     for (final path in paths) {
       final parsed = parseAsset(path);

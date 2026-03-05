@@ -310,12 +310,7 @@ class StageAudioMapper {
     // Set music mode state
     _middleware.setState(SlotStateGroupIds.musicMode, 2); // BigWin mode
 
-    return switch (tier) {
-      BigWinTier.win || BigWinTier.bigWin => ['slot_bigwin_base'],
-      BigWinTier.megaWin => ['slot_bigwin_mega'],
-      BigWinTier.epicWin => ['slot_bigwin_epic'],
-      BigWinTier.ultraWin => ['slot_bigwin_ultra'],
-    };
+    return ['slot_bigwin_tier_${tier.tierNumber}'];
   }
 
   List<String> _handleFeatureEnter(FeatureType featureType) {

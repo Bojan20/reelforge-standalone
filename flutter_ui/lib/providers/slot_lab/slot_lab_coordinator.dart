@@ -188,7 +188,7 @@ class SlotLabCoordinator extends ChangeNotifier {
   bool get cascadesEnabled => engineProvider.cascadesEnabled;
   bool get freeSpinsEnabled => engineProvider.freeSpinsEnabled;
   bool get jackpotEnabled => engineProvider.jackpotEnabled;
-  WinTierConfig get winTierConfig => engineProvider.winTierConfig;
+  SlotWinConfiguration get slotWinConfig => engineProvider.slotWinConfig;
   bool get useP5WinTier => engineProvider.useP5WinTier;
   bool get inFreeSpins => engineProvider.inFreeSpins;
   int get freeSpinsRemaining => engineProvider.freeSpinsRemaining;
@@ -293,7 +293,7 @@ class SlotLabCoordinator extends ChangeNotifier {
   void setCascadesEnabled(bool enabled) => engineProvider.setCascadesEnabled(enabled);
   void setFreeSpinsEnabled(bool enabled) => engineProvider.setFreeSpinsEnabled(enabled);
   void setJackpotEnabled(bool enabled) => engineProvider.setJackpotEnabled(enabled);
-  void setWinTierConfig(WinTierConfig config) => engineProvider.setWinTierConfig(config);
+  void setSlotWinConfig(SlotWinConfiguration config) => engineProvider.setSlotWinConfig(config);
   void setUseP5WinTier(bool enabled) => engineProvider.setUseP5WinTier(enabled);
   void setAnticipationPreTriggerMs(int ms) => engineProvider.setAnticipationPreTriggerMs(ms);
   void seedRng(int seed) => engineProvider.seedRng(seed);
@@ -337,8 +337,8 @@ class SlotLabCoordinator extends ChangeNotifier {
       engineProvider.getRtpcForWin(winAmount);
   bool shouldTriggerCelebration(double winAmount) =>
       engineProvider.shouldTriggerCelebration(winAmount);
-  double getRollupMultiplier(double winAmount) =>
-      engineProvider.getRollupMultiplier(winAmount);
+  int getRollupDurationMs(double winAmount) =>
+      engineProvider.getRollupDurationMs(winAmount);
   String? getTriggerStageForWin(double winAmount) =>
       engineProvider.getTriggerStageForWin(winAmount);
 

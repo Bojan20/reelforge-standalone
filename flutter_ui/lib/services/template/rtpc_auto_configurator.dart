@@ -82,7 +82,7 @@ class RtpcAutoConfigurator {
       final winTiers = template.source.winTiers;
       if (winTiers.isNotEmpty) {
         // Sort tiers by threshold
-        final sortedTiers = List<WinTierConfig>.from(winTiers)
+        final sortedTiers = List<TemplateWinTierConfig>.from(winTiers)
           ..sort((a, b) => a.threshold.compareTo(b.threshold));
 
         final maxThreshold = sortedTiers.last.threshold;

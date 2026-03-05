@@ -201,14 +201,13 @@ class StageAutoRegistrar {
   }
 
   /// Calculate priority for win tier
-  int _priorityForWinTier(WinTier tier) {
+  int _priorityForWinTier(TemplateWinTier tier) {
     return switch (tier) {
-      WinTier.tier1 => 60,
-      WinTier.tier2 => 65,
-      WinTier.tier3 => 75,
-      WinTier.tier4 => 80,
-      WinTier.tier5 => 85,
-      WinTier.tier6 => 90,
+      TemplateWinTier.tier1 => 60,
+      TemplateWinTier.tier2 => 65,
+      TemplateWinTier.tier3 => 75,
+      TemplateWinTier.tier4 => 80,
+      TemplateWinTier.tier5 => 85,
     };
   }
 

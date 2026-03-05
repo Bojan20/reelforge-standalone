@@ -466,46 +466,46 @@ void main() {
   group('BigWinTier', () {
     test('fromRatio returns correct tier for boundary values', () {
       // Below any threshold
-      expect(BigWinTier.fromRatio(0.0), BigWinTier.win);
-      expect(BigWinTier.fromRatio(5.0), BigWinTier.win);
-      expect(BigWinTier.fromRatio(10.0), BigWinTier.win);
-      expect(BigWinTier.fromRatio(14.9), BigWinTier.win);
+      expect(BigWinTier.fromRatio(0.0), BigWinTier.tier1);
+      expect(BigWinTier.fromRatio(5.0), BigWinTier.tier1);
+      expect(BigWinTier.fromRatio(10.0), BigWinTier.tier1);
+      expect(BigWinTier.fromRatio(14.9), BigWinTier.tier1);
 
       // bigWin boundary (>= 15.0)
-      expect(BigWinTier.fromRatio(15.0), BigWinTier.bigWin);
-      expect(BigWinTier.fromRatio(20.0), BigWinTier.bigWin);
-      expect(BigWinTier.fromRatio(24.9), BigWinTier.bigWin);
+      expect(BigWinTier.fromRatio(15.0), BigWinTier.tier2);
+      expect(BigWinTier.fromRatio(20.0), BigWinTier.tier2);
+      expect(BigWinTier.fromRatio(24.9), BigWinTier.tier2);
 
       // megaWin boundary (>= 25.0)
-      expect(BigWinTier.fromRatio(25.0), BigWinTier.megaWin);
-      expect(BigWinTier.fromRatio(35.0), BigWinTier.megaWin);
-      expect(BigWinTier.fromRatio(49.9), BigWinTier.megaWin);
+      expect(BigWinTier.fromRatio(25.0), BigWinTier.tier3);
+      expect(BigWinTier.fromRatio(35.0), BigWinTier.tier3);
+      expect(BigWinTier.fromRatio(49.9), BigWinTier.tier3);
 
       // epicWin boundary (>= 50.0)
-      expect(BigWinTier.fromRatio(50.0), BigWinTier.epicWin);
-      expect(BigWinTier.fromRatio(75.0), BigWinTier.epicWin);
-      expect(BigWinTier.fromRatio(99.9), BigWinTier.epicWin);
+      expect(BigWinTier.fromRatio(50.0), BigWinTier.tier4);
+      expect(BigWinTier.fromRatio(75.0), BigWinTier.tier4);
+      expect(BigWinTier.fromRatio(99.9), BigWinTier.tier4);
 
       // ultraWin boundary (>= 100.0)
-      expect(BigWinTier.fromRatio(100.0), BigWinTier.ultraWin);
-      expect(BigWinTier.fromRatio(500.0), BigWinTier.ultraWin);
-      expect(BigWinTier.fromRatio(1000.0), BigWinTier.ultraWin);
+      expect(BigWinTier.fromRatio(100.0), BigWinTier.tier5);
+      expect(BigWinTier.fromRatio(500.0), BigWinTier.tier5);
+      expect(BigWinTier.fromRatio(1000.0), BigWinTier.tier5);
     });
 
-    test('displayName returns industry-standard labels', () {
-      expect(BigWinTier.win.displayName, 'WIN');
-      expect(BigWinTier.bigWin.displayName, 'BIG WIN');
-      expect(BigWinTier.megaWin.displayName, 'MEGA WIN');
-      expect(BigWinTier.epicWin.displayName, 'EPIC WIN');
-      expect(BigWinTier.ultraWin.displayName, 'ULTRA WIN');
+    test('displayName returns numbered tier labels', () {
+      expect(BigWinTier.tier1.displayName, 'WIN 1');
+      expect(BigWinTier.tier2.displayName, 'WIN 2');
+      expect(BigWinTier.tier3.displayName, 'WIN 3');
+      expect(BigWinTier.tier4.displayName, 'WIN 4');
+      expect(BigWinTier.tier5.displayName, 'WIN 5');
     });
 
     test('minRatio returns correct thresholds', () {
-      expect(BigWinTier.win.minRatio, 10.0);
-      expect(BigWinTier.bigWin.minRatio, 15.0);
-      expect(BigWinTier.megaWin.minRatio, 25.0);
-      expect(BigWinTier.epicWin.minRatio, 50.0);
-      expect(BigWinTier.ultraWin.minRatio, 100.0);
+      expect(BigWinTier.tier1.minRatio, 10.0);
+      expect(BigWinTier.tier2.minRatio, 15.0);
+      expect(BigWinTier.tier3.minRatio, 25.0);
+      expect(BigWinTier.tier4.minRatio, 50.0);
+      expect(BigWinTier.tier5.minRatio, 100.0);
     });
 
     test('minRatio values are strictly increasing', () {
@@ -516,20 +516,27 @@ void main() {
       }
     });
 
-    test('toJson returns snake_case strings', () {
-      expect(BigWinTier.win.toJson(), 'win');
-      expect(BigWinTier.bigWin.toJson(), 'big_win');
-      expect(BigWinTier.megaWin.toJson(), 'mega_win');
-      expect(BigWinTier.epicWin.toJson(), 'epic_win');
-      expect(BigWinTier.ultraWin.toJson(), 'ultra_win');
+    test('toJson returns tier_N format', () {
+      expect(BigWinTier.tier1.toJson(), 'tier_1');
+      expect(BigWinTier.tier2.toJson(), 'tier_2');
+      expect(BigWinTier.tier3.toJson(), 'tier_3');
+      expect(BigWinTier.tier4.toJson(), 'tier_4');
+      expect(BigWinTier.tier5.toJson(), 'tier_5');
     });
 
-    test('fromJson parses snake_case strings', () {
-      expect(BigWinTier.fromJson('win'), BigWinTier.win);
-      expect(BigWinTier.fromJson('big_win'), BigWinTier.bigWin);
-      expect(BigWinTier.fromJson('mega_win'), BigWinTier.megaWin);
-      expect(BigWinTier.fromJson('epic_win'), BigWinTier.epicWin);
-      expect(BigWinTier.fromJson('ultra_win'), BigWinTier.ultraWin);
+    test('fromJson parses both new and legacy formats', () {
+      // New format
+      expect(BigWinTier.fromJson('tier_1'), BigWinTier.tier1);
+      expect(BigWinTier.fromJson('tier_2'), BigWinTier.tier2);
+      expect(BigWinTier.fromJson('tier_3'), BigWinTier.tier3);
+      expect(BigWinTier.fromJson('tier_4'), BigWinTier.tier4);
+      expect(BigWinTier.fromJson('tier_5'), BigWinTier.tier5);
+      // Legacy format (backward compat)
+      expect(BigWinTier.fromJson('win'), BigWinTier.tier1);
+      expect(BigWinTier.fromJson('big_win'), BigWinTier.tier2);
+      expect(BigWinTier.fromJson('mega_win'), BigWinTier.tier3);
+      expect(BigWinTier.fromJson('epic_win'), BigWinTier.tier4);
+      expect(BigWinTier.fromJson('ultra_win'), BigWinTier.tier5);
     });
 
     test('fromJson returns null for invalid input', () {
@@ -540,8 +547,8 @@ void main() {
     });
 
     test('fromJson handles custom map format', () {
-      // Custom tier maps return BigWinTier.win as fallback
-      expect(BigWinTier.fromJson({'custom': true}), BigWinTier.win);
+      // Custom tier maps return BigWinTier.tier1 as fallback
+      expect(BigWinTier.fromJson({'custom': true}), BigWinTier.tier1);
     });
 
     test('toJson/fromJson round-trip for all tiers', () {
@@ -748,9 +755,9 @@ void main() {
     });
 
     test('BigWinTierStage should duck music', () {
-      const stage = BigWinTierStage(tier: BigWinTier.megaWin, amount: 5000.0);
+      const stage = BigWinTierStage(tier: BigWinTier.tier3, amount: 5000.0);
       expect(stage.shouldDuckMusic, true);
-      expect(stage.tier, BigWinTier.megaWin);
+      expect(stage.tier, BigWinTier.tier3);
       expect(stage.amount, 5000.0);
     });
 
@@ -1196,16 +1203,16 @@ void main() {
         gameId: 'game',
         events: [
           StageEvent(
-            stage: const BigWinTierStage(tier: BigWinTier.bigWin, amount: 300.0),
+            stage: const BigWinTierStage(tier: BigWinTier.tier2, amount: 300.0),
             timestampMs: 0.0,
           ),
           StageEvent(
-            stage: const BigWinTierStage(tier: BigWinTier.megaWin, amount: 1000.0),
+            stage: const BigWinTierStage(tier: BigWinTier.tier3, amount: 1000.0),
             timestampMs: 500.0,
           ),
         ],
       );
-      expect(bigWinTrace.maxBigWinTier, BigWinTier.megaWin);
+      expect(bigWinTrace.maxBigWinTier, BigWinTier.tier3);
       expect(trace.maxBigWinTier, isNull);
     });
 
@@ -1821,7 +1828,7 @@ void main() {
         totalWin: 350.0,
         hasFeature: true,
         hasJackpot: false,
-        maxBigWinTier: BigWinTier.bigWin,
+        maxBigWinTier: BigWinTier.tier2,
       );
 
       final json = original.toJson();
@@ -1833,7 +1840,7 @@ void main() {
       expect(restored.totalWin, 350.0);
       expect(restored.hasFeature, true);
       expect(restored.hasJackpot, false);
-      expect(restored.maxBigWinTier, BigWinTier.bigWin);
+      expect(restored.maxBigWinTier, BigWinTier.tier2);
     });
 
     test('toJson omits null maxBigWinTier', () {
