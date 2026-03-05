@@ -246,7 +246,7 @@ String generateEventName(String stage) {
     'SCATTER_LAND_3': 'onScatterLand3',
     'SCATTER_LAND_4': 'onScatterLand4',
     'SCATTER_LAND_5': 'onScatterLand5',
-    'SCATTER_COLLECT': 'onScatterCollect',
+    'SCATTER_WIN': 'onScatterWin',
 
     // Rollup
     'ROLLUP_START': 'onRollupStart',
@@ -856,7 +856,7 @@ class StageGroupService {
     'sfx_lp5_win': 'WIN_SYMBOL_HIGHLIGHT_LP5',
     'sfx_lp6_win': 'WIN_SYMBOL_HIGHLIGHT_LP6',
     'sfx_wild_win': 'WIN_SYMBOL_HIGHLIGHT_WILD',
-    'sfx_scatter_win': 'WIN_SYMBOL_HIGHLIGHT_SCATTER',
+    'sfx_scatter_highlight': 'WIN_SYMBOL_HIGHLIGHT_SCATTER',
     'sfx_bonus_win': 'WIN_SYMBOL_HIGHLIGHT_BONUS',
     'hp1_win': 'WIN_SYMBOL_HIGHLIGHT_HP1',
     'hp2_win': 'WIN_SYMBOL_HIGHLIGHT_HP2',
@@ -869,7 +869,7 @@ class StageGroupService {
     'lp5_win': 'WIN_SYMBOL_HIGHLIGHT_LP5',
     'lp6_win': 'WIN_SYMBOL_HIGHLIGHT_LP6',
     'wild_win': 'WIN_SYMBOL_HIGHLIGHT_WILD',
-    'scatter_win': 'WIN_SYMBOL_HIGHLIGHT_SCATTER',
+    'scatter_highlight': 'WIN_SYMBOL_HIGHLIGHT_SCATTER',
     'bonus_sym_win': 'WIN_SYMBOL_HIGHLIGHT_BONUS',
 
     // Symbol lands
@@ -961,9 +961,9 @@ class StageGroupService {
     'sfx_bw_tier_4': 'BIG_WIN_TIER_4',
     'sfx_bw_tier_5': 'BIG_WIN_TIER_5',
 
-    // Scatter collect
-    'scatter_collect': 'SCATTER_COLLECT',
-    'sfx_scatter_collect': 'SCATTER_COLLECT',
+    // Scatter win
+    'scatter_win': 'SCATTER_WIN',
+    'sfx_scatter_win': 'SCATTER_WIN',
 
     // Bonus
     'bonus_trigger': 'BONUS_TRIGGER',

@@ -538,10 +538,10 @@ class SlotLabProjectProvider extends ChangeNotifier {
   }
 
   /// Auto-bind audio files from a folder to stages based on filename patterns.
-  /// Returns map of stage→filePath for all successful bindings.
-  Map<String, String> autoBindFromFolder(String folderPath) {
+  /// Returns record with bindings (stage→filePath) and unmapped file names.
+  ({Map<String, String> bindings, List<String> unmapped}) autoBindFromFolder(String folderPath) {
     final dir = Directory(folderPath);
-    if (!dir.existsSync()) return {};
+    if (!dir.existsSync()) return (bindings: {}, unmapped: []);
 
     final files = dir.listSync()
         .whereType<File>()
@@ -550,6 +550,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
       ..sort((a, b) => a.path.compareTo(b.path));
 
     final bindings = <String, String>{};
+    final mappedPaths = <String>{};
 
     for (final file in files) {
       final name = file.uri.pathSegments.last.split('.').first.toLowerCase();
@@ -560,6 +561,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
 
       final stage = _resolveStageFromFilename(base, stripped);
       if (stage != null) {
+        mappedPaths.add(file.path);
         // For variant stages (e.g., REEL_SPIN_LOOP with 3 variants),
         // only bind the first variant as the primary
         if (!bindings.containsKey(stage)) {
@@ -567,6 +569,12 @@ class SlotLabProjectProvider extends ChangeNotifier {
         }
       }
     }
+
+    // Collect unmapped filenames
+    final unmapped = files
+        .where((f) => !mappedPaths.contains(f.path))
+        .map((f) => f.uri.pathSegments.last)
+        .toList();
 
     // WIN_PRESENT_LOW and WIN_PRESENT_EQUAL share the same sound
     if (bindings.containsKey('WIN_PRESENT_LOW') && !bindings.containsKey('WIN_PRESENT_EQUAL')) {
@@ -587,7 +595,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
       _markDirty();
     }
 
-    return bindings;
+    return (bindings: bindings, unmapped: unmapped);
   }
 
   /// Create GAME_START composite event with synchronized base game music layers.
@@ -710,7 +718,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
     if (base == 'scatter_land_3of5') return 'SCATTER_LAND_3';
     if (base == 'scatter_land_4of5') return 'SCATTER_LAND_4';
     if (base == 'scatter_land_5of5') return 'SCATTER_LAND_5';
-    if (base == 'scatter_win') return 'SCATTER_COLLECT';
+    if (base == 'scatter_win') return 'SCATTER_WIN';
     if (base == 'panels_appear') return 'FS_HOLD_INTRO';
     if (base == 'trn_fs_intro') return 'CONTEXT_BASE_TO_FS';
     if (base == 'trn_fs_outro_panel') return 'FS_END';

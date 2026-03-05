@@ -849,7 +849,7 @@ class AudioMappingImportService {
     // Symbols
     'SYMBOL_LAND', 'WILD_LAND', 'SCATTER_LAND',
     'SCATTER_LAND_1', 'SCATTER_LAND_2', 'SCATTER_LAND_3', 'SCATTER_LAND_4', 'SCATTER_LAND_5',
-    'SCATTER_COLLECT',
+    'SCATTER_WIN',
     // Anticipation tension system
     'ANTICIPATION_TENSION', 'ANTICIPATION_MISS',
     'ANTICIPATION_TENSION_R1', 'ANTICIPATION_TENSION_R2', 'ANTICIPATION_TENSION_R3', 'ANTICIPATION_TENSION_R4',
@@ -1318,7 +1318,7 @@ class AudioMappingImportService {
     'scatter 3': ['SCATTER_LAND_3'],
     'scatter 4': ['SCATTER_LAND_4'],
     'scatter 5': ['SCATTER_LAND_5'],
-    'scatter collect': ['SCATTER_COLLECT'],
+    'scatter win': ['SCATTER_WIN'],
     'bonus land': ['SYMBOL_LAND_BONUS'],
     'bonus symbol land': ['SYMBOL_LAND_BONUS'],
 
@@ -1442,7 +1442,7 @@ class AudioMappingImportService {
 
     // ─── Per-symbol win highlights — Special ─────────────────────────────
     'wild win': ['WIN_SYMBOL_HIGHLIGHT_WILD'],
-    'scatter win': ['WIN_SYMBOL_HIGHLIGHT_SCATTER'],
+    'scatter highlight': ['WIN_SYMBOL_HIGHLIGHT_SCATTER'],
     'bonus symbol win': ['WIN_SYMBOL_HIGHLIGHT_BONUS'],
     'sym wild win': ['WIN_SYMBOL_HIGHLIGHT_WILD'],
     'sym scatter win': ['WIN_SYMBOL_HIGHLIGHT_SCATTER'],

@@ -181,6 +181,9 @@ class UltimateAudioPanel extends StatefulWidget {
   /// Parameters: reelCount, rowCount
   final void Function(int reels, int rows)? onSlotMachineCreated;
 
+  /// Called after auto-bind completes to sync assignments to EventRegistry
+  final VoidCallback? onAutoBindComplete;
+
   const UltimateAudioPanel({
     super.key,
     this.audioAssignments = const {},
@@ -208,6 +211,7 @@ class UltimateAudioPanel extends StatefulWidget {
     this.onBulkAssign,
     this.onBulkImport,
     this.onSlotMachineCreated,
+    this.onAutoBindComplete,
   });
 
   @override
@@ -460,20 +464,13 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       ),
       child: Row(
         children: [
-          // Import — labeled with color
-          _labeledActionBtn(
-            Icons.file_download, 'Import',
-            const Color(0xFF42A5F5),
-            () => _showBulkImportDialog(context),
-          ),
-          const SizedBox(width: 3),
           // Auto-Bind — scan folder and auto-map by filename
           _labeledActionBtn(
             Icons.auto_fix_high, 'Auto-Bind',
             const Color(0xFF66BB6A),
             () => _showAutoBindDialog(context),
           ),
-          const SizedBox(width: 3),
+          const SizedBox(width: 2),
           // Reset — labeled with color
           _labeledActionBtn(
             Icons.restart_alt, 'Reset',
@@ -532,8 +529,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 22,
-        padding: const EdgeInsets.symmetric(horizontal: 5),
+        height: 20,
+        padding: const EdgeInsets.symmetric(horizontal: 3),
         decoration: BoxDecoration(
           color: color.withOpacity(0.12),
           borderRadius: BorderRadius.circular(3),
@@ -542,9 +539,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 11, color: color),
-            const SizedBox(width: 3),
-            Text(label, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w600)),
+            Icon(icon, size: 10, color: color),
+            const SizedBox(width: 2),
+            Text(label, style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -653,7 +650,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     if (path == null || !mounted) return;
 
     final projectProvider = GetIt.instance<SlotLabProjectProvider>();
-    final bindings = projectProvider.autoBindFromFolder(path);
+    final result = projectProvider.autoBindFromFolder(path);
+    final bindings = result.bindings;
+    final unmapped = result.unmapped;
 
     if (!mounted) return;
 
@@ -667,10 +666,14 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       return;
     }
 
+    // Sync to EventRegistry so audio actually plays
+    widget.onAutoBindComplete?.call();
+
     // Refresh UI
     setState(() {});
 
     // Show result dialog
+    final totalFiles = bindings.length + unmapped.length;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -680,41 +683,68 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           children: [
             const Icon(Icons.auto_fix_high, color: Color(0xFF66BB6A), size: 20),
             const SizedBox(width: 8),
-            Text('Auto-Bind: ${bindings.length} stages mapped',
-              style: const TextStyle(color: Colors.white, fontSize: 14)),
+            Expanded(
+              child: Text('Auto-Bind: ${bindings.length}/$totalFiles files mapped',
+                style: const TextStyle(color: Colors.white, fontSize: 14)),
+            ),
           ],
         ),
         content: SizedBox(
-          width: 400,
-          height: 300,
-          child: ListView.builder(
-            itemCount: bindings.length,
-            itemBuilder: (_, i) {
-              final stage = bindings.keys.elementAt(i);
-              final file = bindings.values.elementAt(i).split('/').last;
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 1),
-                child: Row(
-                  children: [
-                    const Icon(Icons.check_circle, size: 10, color: Color(0xFF66BB6A)),
-                    const SizedBox(width: 4),
-                    SizedBox(
-                      width: 180,
-                      child: Text(stage, style: const TextStyle(
-                        color: Color(0xFF66BB6A), fontSize: 10,
-                        fontFamily: 'monospace', fontWeight: FontWeight.w600,
-                      )),
-                    ),
-                    Expanded(
-                      child: Text(file, style: const TextStyle(
-                        color: Colors.white54, fontSize: 9,
-                        fontFamily: 'monospace',
-                      ), overflow: TextOverflow.ellipsis),
-                    ),
-                  ],
+          width: 420,
+          height: 350,
+          child: ListView(
+            children: [
+              // Mapped stages
+              for (final entry in bindings.entries)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 1),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle, size: 10, color: Color(0xFF66BB6A)),
+                      const SizedBox(width: 4),
+                      SizedBox(
+                        width: 180,
+                        child: Text(entry.key, style: const TextStyle(
+                          color: Color(0xFF66BB6A), fontSize: 10,
+                          fontFamily: 'monospace', fontWeight: FontWeight.w600,
+                        )),
+                      ),
+                      Expanded(
+                        child: Text(entry.value.split('/').last, style: const TextStyle(
+                          color: Colors.white54, fontSize: 9,
+                          fontFamily: 'monospace',
+                        ), overflow: TextOverflow.ellipsis),
+                      ),
+                    ],
+                  ),
                 ),
-              );
-            },
+              // Unmapped files section
+              if (unmapped.isNotEmpty) ...[
+                const Padding(
+                  padding: EdgeInsets.only(top: 8, bottom: 4),
+                  child: Text('Unmapped files:', style: TextStyle(
+                    color: Color(0xFFFF9040), fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  )),
+                ),
+                for (final file in unmapped)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 1),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.remove_circle_outline, size: 10, color: Color(0xFF665533)),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(file, style: const TextStyle(
+                            color: Color(0xFF887755), fontSize: 9,
+                            fontFamily: 'monospace',
+                          ), overflow: TextOverflow.ellipsis),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ],
           ),
         ),
         actions: [
@@ -3606,7 +3636,7 @@ class _SymbolsSection extends _SectionConfig {
           _SlotConfig(stage: 'SCATTER_LAND_3', label: 'Scatter #3'),
           _SlotConfig(stage: 'SCATTER_LAND_4', label: 'Scatter #4'),
           _SlotConfig(stage: 'SCATTER_LAND_5', label: 'Scatter #5'),
-          _SlotConfig(stage: 'SCATTER_COLLECT', label: 'Scatter Collect'),
+          _SlotConfig(stage: 'SCATTER_WIN', label: 'Scatter Win'),
         ],
       ),
     ];

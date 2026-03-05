@@ -1916,6 +1916,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                 } else {
                   // V13: No win lines — win presentation is COMPLETE
                   widget.provider.setWinPresentationActive(false);
+                  // Flush deferred game flow (e.g. FS trigger with win combo)
+                  widget.provider.flushGameFlowResult();
                 }
               });
             }, winPresentTier: winPresentTier);
@@ -1954,6 +1956,33 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         _spawnWinParticles(_winTier);
       }
     });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GAME FLOW EVALUATION — Deferred until presentation completes
+    //
+    // The coordinator stores the spin result but does NOT evaluate game flow
+    // triggers immediately. We flush it here at the correct moment:
+    // - NO WIN + FEATURE TRIGGERED (scatter): SCATTER_WIN audio → delay → flush
+    // - NO WIN + NO FEATURE: immediate flush (nothing to present)
+    // - WIN: flush happens at end of win presentation (see _stopWinLinePresentation
+    //   and _executeSkipFadeOut)
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (!result.isWin) {
+      if (result.featureTriggered) {
+        // Scatter win: trigger audio, brief scatter highlight, then game flow
+        _ensureAudioRegistered('SCATTER_WIN');
+        eventRegistry.triggerStage('SCATTER_WIN');
+
+        // Allow scatter win sound + visual to play before FS plaketa appears
+        Future.delayed(const Duration(milliseconds: 1200), () {
+          if (!mounted) return;
+          widget.provider.flushGameFlowResult();
+        });
+      } else {
+        // No win, no feature — flush immediately (no-op if no pending result)
+        widget.provider.flushGameFlowResult();
+      }
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
@@ -2029,6 +2058,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
     // V13: Mark win presentation as COMPLETE — allows next spin
     widget.provider.setWinPresentationActive(false);
+
+    // Game flow evaluation: now that win presentation is done,
+    // evaluate any deferred feature triggers (e.g. FS from scatter + win combo)
+    widget.provider.flushGameFlowResult();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
@@ -2132,6 +2165,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
       // Notify provider that skip is complete
       widget.provider.onSkipComplete();
+
+      // Game flow evaluation: flush any deferred feature triggers after skip
+      widget.provider.flushGameFlowResult();
     }
 
     // 3. Check if plaque is already hidden — if so, complete immediately
@@ -3223,6 +3259,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         } else {
           // V13: No win lines — win presentation is COMPLETE
           widget.provider.setWinPresentationActive(false);
+          // Flush deferred game flow (e.g. FS trigger with big win combo)
+          widget.provider.flushGameFlowResult();
         }
 
         onComplete?.call();

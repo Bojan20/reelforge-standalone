@@ -1868,7 +1868,7 @@ class GddImportService {
 
       // Scatter-specific stages
       if (symbol.isScatter) {
-        stages.add('SCATTER_COLLECT_$symbolId');
+        stages.add('SCATTER_WIN_$symbolId');
         stages.add('SCATTER_TRIGGER_$symbolId');
       }
 

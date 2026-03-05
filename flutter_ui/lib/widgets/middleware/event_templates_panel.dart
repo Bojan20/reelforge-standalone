@@ -183,7 +183,7 @@ class _EventTemplatesPanelState extends State<EventTemplatesPanel> {
     _EventTemplate(
       id: 't_fs_trigger',
       name: 'Free Spins Trigger',
-      description: 'Scatter collect + trigger fanfare',
+      description: 'Scatter win + trigger fanfare',
       category: _TemplateCategory.feature,
       stage: 'FS_HOLD_INTRO',
       layerCount: 3,

@@ -1040,7 +1040,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     'SCATTER_LAND_3',
     'SCATTER_LAND_4',
     'SCATTER_LAND_5',
-    'SCATTER_COLLECT',
+    'SCATTER_WIN',
     // ─── MULTIPLIERS ───
     'MULT_INCREASE',
     'MULT_APPLY',
@@ -1197,6 +1197,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   // Fullscreen preview mode
   bool _isPreviewMode = false;
+  bool _showSplashOnPreview = false; // Splash only after auto-bind or GENERATE
 
   // Audio browser
   String _browserSearchQuery = '';
@@ -2852,11 +2853,16 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Fullscreen preview mode - immersive slot testing
     if (_isPreviewMode) {
       return PremiumSlotPreview(
-        key: ValueKey('fullscreen_slot_${_reelCount}x$_rowCount'),
-        onExit: () => setState(() => _isPreviewMode = false),
+        key: ValueKey('fullscreen_slot_${_reelCount}x${_rowCount}_splash$_showSplashOnPreview'),
+        onExit: () => setState(() {
+          _isPreviewMode = false;
+          _showSplashOnPreview = false;
+        }),
         reels: _reelCount,
         rows: _rowCount,
         isFullscreen: true, // Fullscreen mode — handles SPACE key internally
+        showSplash: _showSplashOnPreview,
+        onSplashComplete: () => setState(() => _showSplashOnPreview = false),
         // P5: Pass project provider for dynamic win tier configuration
         projectProvider: context.read<SlotLabProjectProvider>(),
       );
@@ -4482,6 +4488,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             volatility: _volatilityFromGdd(result.gdd.math.volatility),
           );
           _isPreviewMode = true;  // Open fullscreen slot machine
+          _showSplashOnPreview = true; // Show splash for new game
         });
 
 
@@ -9575,7 +9582,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           },
           onSlotMachineCreated: (reels, rows) {
             final slotLabProvider = context.read<SlotLabProvider>();
-            setState(() => _slotLabSettings = _slotLabSettings.copyWith(reels: reels, rows: rows));
+            setState(() {
+              _slotLabSettings = _slotLabSettings.copyWith(reels: reels, rows: rows);
+              _showSplashOnPreview = true; // Show splash for new game
+            });
             slotLabProvider.updateGridSize(reels, rows);
           },
           onBulkImport: (mappings) {
@@ -9602,6 +9612,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             if (triggerLayer.autoBindingsEnabled) triggerLayer.generateAutoBindings();
             if (mounted) showToast('Imported $count audio mappings', icon: Icons.file_download);
           },
+          onAutoBindComplete: () {
+            // Sync all auto-bind assignments to EventRegistry + composite events
+            _syncAudioAssignmentsToRegistry();
+            // Next time preview opens, show splash screen
+            setState(() => _showSplashOnPreview = true);
+          },
         );
       },
     );
@@ -9613,11 +9629,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       clipBehavior: Clip.hardEdge,
       decoration: const BoxDecoration(), // Required for clipBehavior
       child: PremiumSlotPreview(
-        key: ValueKey('premium_slot_${_reelCount}x$_rowCount'),
+        key: ValueKey('premium_slot_${_reelCount}x${_rowCount}_splash$_showSplashOnPreview'),
         onExit: () {}, // Embedded mode - no fullscreen exit
         reels: _reelCount,
         rows: _rowCount,
         isFullscreen: false, // Embedded mode — SPACE handled by global handler
+        showSplash: _showSplashOnPreview,
+        onSplashComplete: () => setState(() => _showSplashOnPreview = false),
         // P5: Pass project provider for dynamic win tier configuration
         projectProvider: context.read<SlotLabProjectProvider>(),
       ),

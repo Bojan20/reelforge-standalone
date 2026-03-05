@@ -1869,31 +1869,30 @@ class SlotLabProvider extends ChangeNotifier {
     }
 
     // MUSIC AUTO-TRIGGER: Start base music / game start on UI_SPIN_PRESS
-    // FIX: Check if music is ACTUALLY playing (not just if we triggered it before).
-    // Events Panel stopAll() or external interruption can stop music while flag stays true.
-    // Now re-triggers music whenever it's not currently playing.
+    // Splash screen triggers GAME_START on CONTINUE. This is a safety net
+    // that re-triggers music if it stopped (e.g., Events Panel stopAll).
     if (stageType == 'UI_SPIN_PRESS') {
-      // Safety net: ensure music events are registered before checking
-      for (final layer in const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
-        _ensureAudioRegistered(layer);
-      }
       _ensureAudioRegistered('GAME_START');
 
-      // Trigger ALL registered MUSIC_BASE layers (L1..L5)
-      for (final layer in const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
-        final layerPlaying = _baseMusicStarted &&
-            eventRegistry.isEventPlaying('audio_$layer');
-        if (!layerPlaying && eventRegistry.hasEventForStage(layer)) {
-          eventRegistry.triggerStage(layer, context: context);
-          _baseMusicStarted = true;
-        }
-      }
-
+      // Prefer GAME_START composite (has L1=vol1.0, L2/L3=vol0.0 for crossfade)
       final gameStartPlaying = _gameStartTriggered &&
           eventRegistry.isEventPlaying('audio_GAME_START');
       if (!gameStartPlaying && eventRegistry.hasEventForStage('GAME_START')) {
         eventRegistry.triggerStage('GAME_START', context: context);
         _gameStartTriggered = true;
+        _baseMusicStarted = true;
+      }
+
+      // Fallback: if no GAME_START composite, trigger individual layers
+      if (!_baseMusicStarted) {
+        for (final layer in const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
+          _ensureAudioRegistered(layer);
+          final layerPlaying = eventRegistry.isEventPlaying('audio_$layer');
+          if (!layerPlaying && eventRegistry.hasEventForStage(layer)) {
+            eventRegistry.triggerStage(layer, context: context);
+            _baseMusicStarted = true;
+          }
+        }
       }
     }
 

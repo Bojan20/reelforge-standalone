@@ -69,6 +69,23 @@ class SlotLabCoordinator extends ChangeNotifier {
   /// Prevents scheduling multiple callbacks in the same frame.
   bool _notifyScheduled = false;
 
+  /// Deferred game flow result — evaluated after reels stop + scatter animation
+  SlotLabSpinResult? _pendingGameFlowResult;
+
+  /// Flush pending game flow result to GameFlowProvider.
+  /// Called by slot_preview_widget._finalizeSpin() after all reel animations
+  /// and scatter presentations complete. This ensures FS plaketa shows AFTER
+  /// scatter win, not during anticipation.
+  void flushGameFlowResult() {
+    final result = _pendingGameFlowResult;
+    if (result == null) return;
+    _pendingGameFlowResult = null;
+    try {
+      final gameFlow = sl<GameFlowProvider>();
+      gameFlow.onSpinComplete(result);
+    } catch (_) {}
+  }
+
   SlotLabCoordinator({
     SlotEngineProvider? engineProvider,
     SlotStageProvider? stageProvider,
@@ -117,13 +134,10 @@ class SlotLabCoordinator extends ChangeNotifier {
         stages,
       );
 
-      // L3 Game Flow — Feed spin result to FSM for trigger evaluation
-      try {
-        final gameFlow = sl<GameFlowProvider>();
-        gameFlow.onSpinComplete(result);
-      } catch (_) {
-        // GameFlowProvider may not be registered yet
-      }
+      // L3 Game Flow — DEFERRED: Don't evaluate triggers until reels stop
+      // and scatter animation completes. slot_preview_widget calls
+      // flushGameFlowResult() from _finalizeSpin() at the right time.
+      _pendingGameFlowResult = result;
     };
 
     // Wire up stage provider callbacks to coordinator's public callbacks

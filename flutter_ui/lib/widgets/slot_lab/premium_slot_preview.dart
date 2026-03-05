@@ -1584,7 +1584,7 @@ class _MainGameZone extends StatelessWidget {
   final List<int>? winningPayline;
   final bool isAnticipation;
   final bool showWildExpansion;
-  final bool showScatterCollect;
+  final bool showScatterWin;
   final bool showCascade;
 
   const _MainGameZone({
@@ -1596,7 +1596,7 @@ class _MainGameZone extends StatelessWidget {
     this.winningPayline,
     this.isAnticipation = false,
     this.showWildExpansion = false,
-    this.showScatterCollect = false,
+    this.showScatterWin = false,
     this.showCascade = false,
   });
 
@@ -1631,8 +1631,8 @@ class _MainGameZone extends StatelessWidget {
         // Wild expansion layer
         if (showWildExpansion) _buildWildExpansion(),
 
-        // Scatter collection layer
-        if (showScatterCollect) _buildScatterCollect(),
+        // Scatter win layer
+        if (showScatterWin) _buildScatterWin(),
 
         // Cascade/tumble layer
         if (showCascade) _buildCascadeLayer(),
@@ -1803,8 +1803,8 @@ class _MainGameZone extends StatelessWidget {
     return const _WildExpansionOverlay();
   }
 
-  Widget _buildScatterCollect() {
-    return const _ScatterCollectOverlay();
+  Widget _buildScatterWin() {
+    return const _ScatterWinOverlay();
   }
 
   Widget _buildCascadeLayer() {
@@ -2338,17 +2338,17 @@ class _SparklePainter extends CustomPainter {
 }
 
 // =============================================================================
-// SCATTER COLLECT OVERLAY — Scatter symbols flying to counter
+// SCATTER WIN OVERLAY — Scatter symbols flying to counter
 // =============================================================================
 
-class _ScatterCollectOverlay extends StatefulWidget {
-  const _ScatterCollectOverlay();
+class _ScatterWinOverlay extends StatefulWidget {
+  const _ScatterWinOverlay();
 
   @override
-  State<_ScatterCollectOverlay> createState() => _ScatterCollectOverlayState();
+  State<_ScatterWinOverlay> createState() => _ScatterWinOverlayState();
 }
 
-class _ScatterCollectOverlayState extends State<_ScatterCollectOverlay>
+class _ScatterWinOverlayState extends State<_ScatterWinOverlay>
     with TickerProviderStateMixin {
   late AnimationController _collectController;
   late AnimationController _glowController;
@@ -4741,6 +4741,12 @@ class PremiumSlotPreview extends StatefulWidget {
   /// When null, uses context.read or legacy fallback
   final SlotLabProjectProvider? projectProvider;
 
+  /// Show splash loading screen before entering base game
+  final bool showSplash;
+
+  /// Called when splash completes and user clicks CONTINUE
+  final VoidCallback? onSplashComplete;
+
   const PremiumSlotPreview({
     super.key,
     required this.onExit,
@@ -4748,6 +4754,8 @@ class PremiumSlotPreview extends StatefulWidget {
     this.rows = 3,
     this.isFullscreen = false,
     this.projectProvider,
+    this.showSplash = false,
+    this.onSplashComplete,
   });
 
   @override
@@ -4764,6 +4772,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   final _random = math.Random();
 
   // === STATE ===
+
+  // Splash screen — shown before base game (only after auto-bind or GENERATE)
+  late bool _showSplashScreen;
 
   // Session
   double _balance = 1000.0;
@@ -4940,6 +4951,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   @override
   void initState() {
     super.initState();
+    _showSplashScreen = widget.showSplash;
     _reelsStopped = List.filled(widget.reels, true); // Start as stopped
     _composer = GetIt.instance<FeatureComposerProvider>();
     _composer.addListener(_onComposerChanged);
@@ -6515,6 +6527,25 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
   @override
   Widget build(BuildContext context) {
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SPLASH SCREEN — Loading screen before base game (industry standard)
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (_showSplashScreen) {
+      return _SlotSplashScreen(
+        onContinue: () {
+          setState(() => _showSplashScreen = false);
+          widget.onSplashComplete?.call();
+          // Trigger GAME_START → starts base game music via composite event
+          // Composite has L1=vol1.0, L2/L3=vol0.0 (crossfade-ready)
+          // Do NOT trigger individual MUSIC_BASE layers — they'd play at full volume
+          final eventRegistry = EventRegistry.instance;
+          if (eventRegistry.hasEventForStage('GAME_START')) {
+            eventRegistry.triggerStage('GAME_START');
+          }
+        },
+      );
+    }
+
     final provider = context.watch<SlotLabProvider>();
     final projectProvider = context.watch<SlotLabProjectProvider>();
 
@@ -6897,6 +6928,241 @@ class _ForceButton extends StatelessWidget {
             fontSize: 10,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.5,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// SLOT SPLASH SCREEN — Loading screen before base game
+// =============================================================================
+
+class _SlotSplashScreen extends StatefulWidget {
+  final VoidCallback onContinue;
+
+  const _SlotSplashScreen({required this.onContinue});
+
+  @override
+  State<_SlotSplashScreen> createState() => _SlotSplashScreenState();
+}
+
+class _SlotSplashScreenState extends State<_SlotSplashScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _progressController;
+  int _currentPhase = 0;
+  bool _loadingComplete = false;
+
+  static const _phases = [
+    (label: 'Initializing audio engine...', weight: 0.10),
+    (label: 'Loading sound assets...', weight: 0.25),
+    (label: 'Preparing reel strips...', weight: 0.15),
+    (label: 'Building paytable...', weight: 0.10),
+    (label: 'Configuring win evaluation...', weight: 0.10),
+    (label: 'Loading symbol animations...', weight: 0.10),
+    (label: 'Setting up free spins engine...', weight: 0.08),
+    (label: 'Calibrating RTP model...', weight: 0.07),
+    (label: 'Ready!', weight: 0.05),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _progressController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3500),
+    );
+    _progressController.addListener(_updatePhase);
+    _progressController.addStatusListener((status) {
+      if (status == AnimationStatus.completed && mounted) {
+        setState(() => _loadingComplete = true);
+      }
+    });
+    // Start loading after a brief delay (feels more natural)
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) _progressController.forward();
+    });
+  }
+
+  void _updatePhase() {
+    final progress = _progressController.value;
+    double accumulated = 0;
+    for (int i = 0; i < _phases.length; i++) {
+      accumulated += _phases[i].weight;
+      if (progress <= accumulated) {
+        if (_currentPhase != i && mounted) {
+          setState(() => _currentPhase = i);
+        }
+        break;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _progressController.removeListener(_updatePhase);
+    _progressController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF050508),
+      body: Center(
+        child: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Logo / Title
+              ShaderMask(
+                shaderCallback: (bounds) => const LinearGradient(
+                  colors: [Color(0xFFFFD700), Color(0xFFFFA500), Color(0xFFFFD700)],
+                ).createShader(bounds),
+                child: const Text(
+                  'FLUXFORGE',
+                  style: TextStyle(
+                    fontSize: 36,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 8,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'S L O T   L A B',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w300,
+                  letterSpacing: 6,
+                  color: Color(0xFF888888),
+                ),
+              ),
+              const SizedBox(height: 48),
+
+              // Progress bar
+              AnimatedBuilder(
+                animation: _progressController,
+                builder: (context, _) {
+                  final progress = _progressController.value;
+                  final percent = (progress * 100).round();
+                  return Column(
+                    children: [
+                      // Phase label
+                      SizedBox(
+                        height: 20,
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          child: Text(
+                            _phases[_currentPhase].label,
+                            key: ValueKey(_currentPhase),
+                            style: const TextStyle(
+                              color: Color(0xFFAAAAAA),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Progress bar track
+                      Container(
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1A1A22),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: FractionallySizedBox(
+                              widthFactor: progress,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      const Color(0xFFFFD700).withOpacity(0.8),
+                                      const Color(0xFFFFA500),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(3),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFFFFD700).withOpacity(0.4),
+                                      blurRadius: 8,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Percentage
+                      Text(
+                        '$percent%',
+                        style: TextStyle(
+                          color: _loadingComplete
+                              ? const Color(0xFFFFD700)
+                              : const Color(0xFF666666),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+
+              const SizedBox(height: 32),
+
+              // CONTINUE button (appears when loading complete)
+              AnimatedOpacity(
+                opacity: _loadingComplete ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 400),
+                child: AnimatedScale(
+                  scale: _loadingComplete ? 1.0 : 0.8,
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeOutBack,
+                  child: GestureDetector(
+                    onTap: _loadingComplete ? widget.onContinue : null,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 14),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                        ),
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFFD700).withOpacity(0.3),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Text(
+                        'CONTINUE',
+                        style: TextStyle(
+                          color: Color(0xFF1A1000),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 3,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
