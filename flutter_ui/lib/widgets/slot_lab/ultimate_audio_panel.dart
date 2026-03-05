@@ -60,6 +60,7 @@ import '../../providers/slot_lab/feature_composer_provider.dart'; // V11
 import '../../providers/slot_lab/pacing_engine_provider.dart'; // V11
 import '../../services/audio_mapping_import_service.dart'; // V11: Bulk Import
 import '../../services/native_file_picker.dart'; // V11: Native folder picker
+import '../../providers/slot_lab_project_provider.dart'; // Auto-Bind
 import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -466,6 +467,13 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             () => _showBulkImportDialog(context),
           ),
           const SizedBox(width: 3),
+          // Auto-Bind — scan folder and auto-map by filename
+          _labeledActionBtn(
+            Icons.auto_fix_high, 'Auto-Bind',
+            const Color(0xFF66BB6A),
+            () => _showAutoBindDialog(context),
+          ),
+          const SizedBox(width: 3),
           // Reset — labeled with color
           _labeledActionBtn(
             Icons.restart_alt, 'Reset',
@@ -633,6 +641,90 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       _localExpandedSections.clear();
       _localExpandedGroups.clear();
     });
+  }
+
+  // Auto-Bind: Scan folder and auto-map by filename patterns
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  void _showAutoBindDialog(BuildContext context) async {
+    final path = await NativeFilePicker.pickDirectory(
+      title: 'Select Sound Folder for Auto-Bind',
+    );
+    if (path == null || !mounted) return;
+
+    final projectProvider = GetIt.instance<SlotLabProjectProvider>();
+    final bindings = projectProvider.autoBindFromFolder(path);
+
+    if (!mounted) return;
+
+    if (bindings.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No matching sound files found in folder'),
+          backgroundColor: Color(0xFF442222),
+        ),
+      );
+      return;
+    }
+
+    // Refresh UI
+    setState(() {});
+
+    // Show result dialog
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A22),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            const Icon(Icons.auto_fix_high, color: Color(0xFF66BB6A), size: 20),
+            const SizedBox(width: 8),
+            Text('Auto-Bind: ${bindings.length} stages mapped',
+              style: const TextStyle(color: Colors.white, fontSize: 14)),
+          ],
+        ),
+        content: SizedBox(
+          width: 400,
+          height: 300,
+          child: ListView.builder(
+            itemCount: bindings.length,
+            itemBuilder: (_, i) {
+              final stage = bindings.keys.elementAt(i);
+              final file = bindings.values.elementAt(i).split('/').last;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 1),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle, size: 10, color: Color(0xFF66BB6A)),
+                    const SizedBox(width: 4),
+                    SizedBox(
+                      width: 180,
+                      child: Text(stage, style: const TextStyle(
+                        color: Color(0xFF66BB6A), fontSize: 10,
+                        fontFamily: 'monospace', fontWeight: FontWeight.w600,
+                      )),
+                    ),
+                    Expanded(
+                      child: Text(file, style: const TextStyle(
+                        color: Colors.white54, fontSize: 9,
+                        fontFamily: 'monospace',
+                      ), overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('OK', style: TextStyle(color: Color(0xFF66BB6A))),
+          ),
+        ],
+      ),
+    );
   }
 
   // V11: Bulk Import Dialog
@@ -3665,6 +3757,12 @@ class _WinPresentationSection extends _SectionConfig {
           _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_HP2', label: 'HP2 Win'),
           _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_HP3', label: 'HP3 Win'),
           _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_HP4', label: 'HP4 Win'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_MP', label: 'MP (All) Win'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_MP1', label: 'MP1 Win'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_MP2', label: 'MP2 Win'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_MP3', label: 'MP3 Win'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_MP4', label: 'MP4 Win'),
+          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_MP5', label: 'MP5 Win'),
           _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LP', label: 'LP (All) Win'),
           _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LP1', label: 'LP1 Win'),
           _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LP2', label: 'LP2 Win'),

@@ -867,6 +867,8 @@ class AudioMappingImportService {
     'PAYLINE_HIGHLIGHT',
     'WIN_SYMBOL_HIGHLIGHT_HP', 'WIN_SYMBOL_HIGHLIGHT_HP1', 'WIN_SYMBOL_HIGHLIGHT_HP2',
     'WIN_SYMBOL_HIGHLIGHT_HP3', 'WIN_SYMBOL_HIGHLIGHT_HP4',
+    'WIN_SYMBOL_HIGHLIGHT_MP', 'WIN_SYMBOL_HIGHLIGHT_MP1', 'WIN_SYMBOL_HIGHLIGHT_MP2',
+    'WIN_SYMBOL_HIGHLIGHT_MP3', 'WIN_SYMBOL_HIGHLIGHT_MP4', 'WIN_SYMBOL_HIGHLIGHT_MP5',
     'WIN_SYMBOL_HIGHLIGHT_LP', 'WIN_SYMBOL_HIGHLIGHT_LP1', 'WIN_SYMBOL_HIGHLIGHT_LP2',
     'WIN_SYMBOL_HIGHLIGHT_LP3', 'WIN_SYMBOL_HIGHLIGHT_LP4', 'WIN_SYMBOL_HIGHLIGHT_LP5',
     'WIN_SYMBOL_HIGHLIGHT_LP6',
@@ -1391,6 +1393,24 @@ class AudioMappingImportService {
     'hp4 highlight': ['WIN_SYMBOL_HIGHLIGHT_HP4'],
     'hp win': ['WIN_SYMBOL_HIGHLIGHT_HP'],
     'high pay win': ['WIN_SYMBOL_HIGHLIGHT_HP'],
+
+    // ─── Per-symbol win highlights — MP (Medium Pay) ─────────────────────
+    'mp1 win': ['WIN_SYMBOL_HIGHLIGHT_MP1'],
+    'mp2 win': ['WIN_SYMBOL_HIGHLIGHT_MP2'],
+    'mp3 win': ['WIN_SYMBOL_HIGHLIGHT_MP3'],
+    'mp4 win': ['WIN_SYMBOL_HIGHLIGHT_MP4'],
+    'mp5 win': ['WIN_SYMBOL_HIGHLIGHT_MP5'],
+    'sym mp1 win': ['WIN_SYMBOL_HIGHLIGHT_MP1'],
+    'sym mp2 win': ['WIN_SYMBOL_HIGHLIGHT_MP2'],
+    'sym mp3 win': ['WIN_SYMBOL_HIGHLIGHT_MP3'],
+    'sym mp4 win': ['WIN_SYMBOL_HIGHLIGHT_MP4'],
+    'sym mp5 win': ['WIN_SYMBOL_HIGHLIGHT_MP5'],
+    'medium pay 1 win': ['WIN_SYMBOL_HIGHLIGHT_MP1'],
+    'medium pay 2 win': ['WIN_SYMBOL_HIGHLIGHT_MP2'],
+    'medium pay 3 win': ['WIN_SYMBOL_HIGHLIGHT_MP3'],
+    'medium pay 4 win': ['WIN_SYMBOL_HIGHLIGHT_MP4'],
+    'medium pay 5 win': ['WIN_SYMBOL_HIGHLIGHT_MP5'],
+    'medium pay win': ['WIN_SYMBOL_HIGHLIGHT_MP'],
 
     // ─── Per-symbol win highlights — LP (Low Pay) ────────────────────────
     'lp1 win': ['WIN_SYMBOL_HIGHLIGHT_LP1'],

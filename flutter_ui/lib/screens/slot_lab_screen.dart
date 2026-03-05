@@ -876,7 +876,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     if (s.startsWith('HOLD_') || s.startsWith('RESPIN_')) return 'hold';
     if (s.startsWith('GAMBLE_')) return 'gamble';
     if (s.startsWith('UI_') || s.startsWith('BUTTON_')) return 'ui';
-    if (s.startsWith('MUSIC_') || s.startsWith('AMBIENT_') || s.startsWith('BIG_WIN') || s == 'GAME_START' || s == 'BASE_GAME_START') return 'music';
+    if (s.startsWith('MUSIC_') || s.startsWith('AMBIENT_') || s.startsWith('BIG_WIN') || s == 'GAME_START') return 'music';
     if (s.startsWith('SYMBOL_') || s.startsWith('WILD_') || s.startsWith('SCATTER_')) return 'symbol';
     if (s.startsWith('ANTICIPATION_') || s.startsWith('NEAR_MISS')) return 'anticipation';
     return 'general';

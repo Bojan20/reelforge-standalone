@@ -794,6 +794,14 @@ class StageConfigurationService extends ChangeNotifier {
     _register('WIN_SYMBOL_HIGHLIGHT_HP3', StageCategory.win, 46, SpatialBus.sfx, 'DEFAULT', isPooled: true);
     _register('WIN_SYMBOL_HIGHLIGHT_HP4', StageCategory.win, 44, SpatialBus.sfx, 'DEFAULT', isPooled: true);
 
+    // Per-symbol win highlights — Medium Pay symbols
+    _register('WIN_SYMBOL_HIGHLIGHT_MP', StageCategory.win, 40, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('WIN_SYMBOL_HIGHLIGHT_MP1', StageCategory.win, 43, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('WIN_SYMBOL_HIGHLIGHT_MP2', StageCategory.win, 42, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('WIN_SYMBOL_HIGHLIGHT_MP3', StageCategory.win, 41, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('WIN_SYMBOL_HIGHLIGHT_MP4', StageCategory.win, 40, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('WIN_SYMBOL_HIGHLIGHT_MP5', StageCategory.win, 39, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+
     // Per-symbol win highlights — Low Pay symbols
     _register('WIN_SYMBOL_HIGHLIGHT_LP', StageCategory.win, 35, SpatialBus.sfx, 'DEFAULT', isPooled: true);
     _register('WIN_SYMBOL_HIGHLIGHT_LP1', StageCategory.win, 38, SpatialBus.sfx, 'DEFAULT', isPooled: true);
@@ -1153,7 +1161,6 @@ class StageConfigurationService extends ChangeNotifier {
     // NOTE: These are looping music stages — they loop until explicitly stopped
     // ─────────────────────────────────────────────────────────────────────────
     _register('GAME_START', StageCategory.music, 5, SpatialBus.music, 'DEFAULT', isLooping: true);
-    _register('BASE_GAME_START', StageCategory.music, 5, SpatialBus.music, 'DEFAULT', isLooping: true);
 
     // ─────────────────────────────────────────────────────────────────────────
     // MUSIC & AMBIENT
@@ -1417,7 +1424,7 @@ class StageConfigurationService extends ChangeNotifier {
     'MUSIC_BIG_WIN', 'MUSIC_JACKPOT', 'MUSIC_GAMBLE',
     'AMBIENT_LOOP', 'ATTRACT_MODE', 'IDLE_LOOP', 'ATTRACT_LOOP',
     'ANTICIPATION_TENSION',
-    'GAME_START', 'BASE_GAME_START', 'GAME_MUSIC',
+    'GAME_START', 'GAME_MUSIC',
   };
 
   // ═══════════════════════════════════════════════════════════════════════════

@@ -534,6 +534,139 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _markDirty();
   }
 
+  /// Auto-bind audio files from a folder to stages based on filename patterns.
+  /// Returns map of stage→filePath for all successful bindings.
+  Map<String, String> autoBindFromFolder(String folderPath) {
+    final dir = Directory(folderPath);
+    if (!dir.existsSync()) return {};
+
+    final files = dir.listSync()
+        .whereType<File>()
+        .where((f) => _isAudioFile(f.path))
+        .toList()
+      ..sort((a, b) => a.path.compareTo(b.path));
+
+    final bindings = <String, String>{};
+
+    for (final file in files) {
+      final name = file.uri.pathSegments.last.split('.').first.toLowerCase();
+      // Strip numeric prefix (e.g., "004_" or "043_" or "048_")
+      final stripped = name.replaceFirst(RegExp(r'^\d+_'), '');
+      // Strip trailing variant number (e.g., "_2" or "_1")
+      final base = stripped.replaceFirst(RegExp(r'_\d+$'), '');
+
+      final stage = _resolveStageFromFilename(base, stripped);
+      if (stage != null) {
+        // For variant stages (e.g., REEL_SPIN_LOOP with 3 variants),
+        // only bind the first variant as the primary
+        if (!bindings.containsKey(stage)) {
+          bindings[stage] = file.path;
+        }
+      }
+    }
+
+    // WIN_PRESENT_LOW and WIN_PRESENT_EQUAL share the same sound
+    if (bindings.containsKey('WIN_PRESENT_LOW') && !bindings.containsKey('WIN_PRESENT_EQUAL')) {
+      bindings['WIN_PRESENT_EQUAL'] = bindings['WIN_PRESENT_LOW']!;
+    }
+
+    // Apply all bindings
+    for (final entry in bindings.entries) {
+      setAudioAssignment(entry.key, entry.value, recordUndo: false);
+    }
+
+    if (bindings.isNotEmpty) {
+      _markDirty();
+    }
+
+    return bindings;
+  }
+
+  static bool _isAudioFile(String path) {
+    final ext = path.split('.').last.toLowerCase();
+    return const {'wav', 'mp3', 'ogg', 'flac', 'aiff', 'aif'}.contains(ext);
+  }
+
+  static String? _resolveStageFromFilename(String base, String full) {
+    // ─── REELS ───
+    if (base == 'spins_loop_1of3' || base == 'spins_loop_2of3' || base == 'spins_loop_3of3') return 'REEL_SPIN_LOOP';
+    if (base == 'spins_stop_1of5') return 'REEL_STOP_0';
+    if (base == 'spins_stop_2of5') return 'REEL_STOP_1';
+    if (base == 'spins_stop_3of5') return 'REEL_STOP_2';
+    if (base == 'spins_stop_4of5') return 'REEL_STOP_3';
+    if (base == 'spins_stop_5of5') return 'REEL_STOP_4';
+
+    // ─── ANTICIPATION (sequential per-reel: short→R2, med→R3, long→R4) ───
+    if (base == 'spins_susp_short') return 'ANTICIPATION_TENSION_R2';
+    if (base == 'spins_susp_med') return 'ANTICIPATION_TENSION_R3';
+    if (base == 'spins_susp_long') return 'ANTICIPATION_TENSION_R4';
+
+    // ─── SYMBOLS — High Pay ───
+    if (base == 'hp_sym_1' || full.startsWith('hp_sym_1')) return 'WIN_SYMBOL_HIGHLIGHT_HP1';
+    if (base == 'hp_sym_2' || full.startsWith('hp_sym_2')) return 'WIN_SYMBOL_HIGHLIGHT_HP2';
+    if (base == 'hp_sym_3' || full.startsWith('hp_sym_3')) return 'WIN_SYMBOL_HIGHLIGHT_HP3';
+    if (base == 'hp_sym_4' || full.startsWith('hp_sym_4')) return 'WIN_SYMBOL_HIGHLIGHT_HP4';
+
+    // ─── SYMBOLS — Medium Pay ───
+    if (base == 'mp1' || full.startsWith('mp1')) return 'WIN_SYMBOL_HIGHLIGHT_MP1';
+    if (base == 'mp2' || full.startsWith('mp2')) return 'WIN_SYMBOL_HIGHLIGHT_MP2';
+    if (base == 'mp3' || full.startsWith('mp3')) return 'WIN_SYMBOL_HIGHLIGHT_MP3';
+    if (base == 'mp4' || full.startsWith('mp4')) return 'WIN_SYMBOL_HIGHLIGHT_MP4';
+    if (base == 'mp5' || full.startsWith('mp5')) return 'WIN_SYMBOL_HIGHLIGHT_MP5';
+
+    // ─── SYMBOLS — Low Pay ───
+    if (base == 'lp_sym_1of3' || full.startsWith('lp_sym_1of3')) return 'WIN_SYMBOL_HIGHLIGHT_LP1';
+    if (base == 'lp_sym_2of3' || full.startsWith('lp_sym_2of3')) return 'WIN_SYMBOL_HIGHLIGHT_LP2';
+    if (base == 'lp_sym_3of3' || full.startsWith('lp_sym_3of3')) return 'WIN_SYMBOL_HIGHLIGHT_LP3';
+
+    // ─── WIN HIGHLIGHTS ───
+    if (base == 'reel_highlight') return 'PAYLINE_HIGHLIGHT';
+    // linewin = duplicate of reel_highlight, skip
+
+    // ─── WINS (bet multiplier tiers) ───
+    if (base == 'winlessthanequal') return 'WIN_PRESENT_LOW';
+    if (base == 'win_2x') return 'WIN_PRESENT_1';
+    if (base == 'win_3x') return 'WIN_PRESENT_2';
+    if (base == 'win_4x') return 'WIN_PRESENT_3';
+    if (base == 'win_5x') return 'WIN_PRESENT_4';
+    if (base == 'win_6x') return 'WIN_PRESENT_5';
+    // win_7x, win_8x = surplus, skip
+
+    // ─── BIG WIN ───
+    if (base == 'bw_alert') return 'BIG_WIN_TRIGGER';
+    if (base == 'coin_loop') return 'BIG_WIN_TICK_START';
+    if (base == 'coin_loop_end') return 'BIG_WIN_TICK_END';
+    if (base == 'mus_bw') return 'BIG_WIN_START';
+    if (base == 'mus_bw_end') return 'BIG_WIN_END';
+
+    // ─── SCATTER / FREE SPINS ───
+    if (base == 'scatter_land_1of5') return 'SCATTER_LAND_1';
+    if (base == 'scatter_land_2of5') return 'SCATTER_LAND_2';
+    if (base == 'scatter_land_3of5') return 'SCATTER_LAND_3';
+    if (base == 'scatter_land_4of5') return 'SCATTER_LAND_4';
+    if (base == 'scatter_land_5of5') return 'SCATTER_LAND_5';
+    if (base == 'scatter_win') return 'SCATTER_COLLECT';
+    if (base == 'panels_appear') return 'FS_HOLD_INTRO';
+    if (base == 'trn_fs_intro') return 'CONTEXT_BASE_TO_FS';
+    if (base == 'trn_fs_outro_panel') return 'FS_END';
+    if (base == 'trn_return_to_base') return 'CONTEXT_FS_TO_BASE';
+    if (base == 'mus_fs') return 'MUSIC_FS_L1';
+    if (base == 'mus_fs_end') return 'MUSIC_FS_OUTRO';
+
+    // ─── UI ───
+    if (base == 'ui_spin_button') return 'UI_SPIN_PRESS';
+    if (base == 'ui_open') return 'UI_MENU_OPEN';
+    if (base == 'ui_close') return 'UI_MENU_CLOSE';
+    if (base == 'ui_interact_1of3' || base == 'ui_interact_2of3' || base == 'ui_interact_3of3') return 'UI_BUTTON_PRESS';
+
+    // ─── MUSIC (base game layers — all on GAME_START composite) ───
+    if (base == 'mus_bg_lvl_1') return 'MUSIC_BASE_L1';
+    if (base == 'mus_bg_lvl_2') return 'MUSIC_BASE_L2';
+    if (base == 'mus_bg_lvl_3') return 'MUSIC_BASE_L3';
+
+    return null;
+  }
+
   /// Get audio path for a stage (null if not assigned)
   String? getAudioAssignment(String stage) => _audioAssignments[stage];
 
