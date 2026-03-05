@@ -452,9 +452,7 @@ class StageAudioMapper {
     return eventId == 'slot_reel_spin' ||
            eventId == 'slot_anticipation_on' ||
            eventId == 'slot_rollup_start' ||
-           eventId == 'slot_bigwin_tier_mega' ||
-           eventId == 'slot_bigwin_tier_epic' ||
-           eventId == 'slot_bigwin_tier_legendary';
+           eventId.startsWith('slot_bigwin_tier_');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

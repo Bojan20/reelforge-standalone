@@ -1914,23 +1914,6 @@ class SlotLabProvider extends ChangeNotifier {
       }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // LEGACY SISTEMI — ONEMOGUĆENI (uzrokuju dupli audio)
-    // ═══════════════════════════════════════════════════════════════════════════
-    // DISABLED: Middleware postEvent causes duplicate audio playback
-    // if (_middleware != null) {
-    //   final eventId = _mapStageToEventId(stage);
-    //   if (eventId != null) {
-    //     final context = _buildStageContext(stage);
-    //     _middleware!.postEvent(eventId, context: context);
-    //   }
-    // }
-
-    // DISABLED: StageAudioMapper causes duplicate audio playback
-    // final stageEvent = _convertToStageEvent(stage);
-    // if (stageEvent != null) {
-    //   _audioMapper?.mapAndTrigger(stageEvent);
-    // }
   }
 
   /// Convert SlotLabStageEvent to StageEvent (for StageAudioMapper)
@@ -1954,65 +1937,6 @@ class SlotLabProvider extends ChangeNotifier {
     return Stage.fromTypeName(type, data);
   }
 
-  String? _mapStageToEventId(SlotLabStageEvent stage) {
-    // Map stage types to middleware event IDs
-    switch (stage.stageType) {
-      case 'spin_start': return 'slot_spin_start';
-      case 'reel_spinning': return 'slot_reel_spin';
-      case 'reel_stop': return 'slot_reel_stop';
-      case 'evaluate_wins': return null; // Internal, no audio
-      case 'spin_end': return 'slot_spin_end';
-      case 'anticipation_on': return 'slot_anticipation_on';
-      case 'anticipation_off': return 'slot_anticipation_off';
-      case 'win_present': return 'slot_win_present';
-      case 'win_line_show': return 'slot_win_line';
-      case 'rollup_start': return 'slot_rollup_start';
-      case 'rollup_tick': return 'slot_rollup_tick';
-      case 'rollup_end': return 'slot_rollup_end';
-      case 'bigwin_tier':
-        // Get tier from raw stage data
-        final tierData = stage.rawStage['tier'];
-        if (tierData is String) {
-          switch (tierData) {
-            case 'win': return 'slot_bigwin_tier_nice';
-            case 'big_win': return 'slot_bigwin_tier_super';
-            case 'mega_win': return 'slot_bigwin_tier_mega';
-            case 'epic_win': return 'slot_bigwin_tier_epic';
-            case 'ultra_win': return 'slot_bigwin_tier_ultra';
-          }
-        }
-        return 'slot_bigwin';
-      case 'feature_enter': return 'slot_feature_start';
-      case 'feature_step': return 'slot_feature_spin';
-      case 'feature_exit': return 'slot_feature_end';
-      case 'cascade_start': return 'slot_cascade_start';
-      case 'cascade_step': return 'slot_cascade_step';
-      case 'cascade_end': return 'slot_cascade_end';
-      case 'jackpot_trigger': return 'slot_jackpot_trigger';
-      case 'jackpot_present': return 'slot_jackpot_present';
-      default: return null;
-    }
-  }
-
-  Map<String, dynamic> _buildStageContext(SlotLabStageEvent stage) {
-    final context = <String, dynamic>{
-      'bet_amount': _betAmount,
-      'stage_type': stage.stageType,
-      'timestamp_ms': stage.timestampMs,
-    };
-
-    // Add result data if available
-    if (_lastResult != null) {
-      context['win_amount'] = _lastResult!.totalWin;
-      context['win_ratio'] = _lastResult!.winRatio;
-      context['is_win'] = _lastResult!.isWin;
-    }
-
-    // Add payload data
-    context.addAll(stage.payload);
-
-    return context;
-  }
 
   /// Stop stage playback (full reset)
   void stopStagePlayback() {

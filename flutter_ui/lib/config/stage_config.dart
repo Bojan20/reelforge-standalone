@@ -264,7 +264,37 @@ class StageConfig {
       color: Color(0xFFFF4080),
       icon: Icons.emoji_events,
       category: StageCategory.bigwin,
-      description: 'Big win tier determined',
+      description: 'Big win tier (generic)',
+    ),
+    'bigwin_tier_1': const StageConfigEntry(
+      color: Color(0xFFFF4080),
+      icon: Icons.emoji_events,
+      category: StageCategory.bigwin,
+      description: 'Big Win Tier 1 (10x+)',
+    ),
+    'bigwin_tier_2': const StageConfigEntry(
+      color: Color(0xFFFF5090),
+      icon: Icons.emoji_events,
+      category: StageCategory.bigwin,
+      description: 'Big Win Tier 2 (15x+)',
+    ),
+    'bigwin_tier_3': const StageConfigEntry(
+      color: Color(0xFFFF60A0),
+      icon: Icons.emoji_events,
+      category: StageCategory.bigwin,
+      description: 'Big Win Tier 3 (25x+)',
+    ),
+    'bigwin_tier_4': const StageConfigEntry(
+      color: Color(0xFFFF70B0),
+      icon: Icons.emoji_events,
+      category: StageCategory.bigwin,
+      description: 'Big Win Tier 4 (50x+)',
+    ),
+    'bigwin_tier_5': const StageConfigEntry(
+      color: Color(0xFFFF80C0),
+      icon: Icons.emoji_events,
+      category: StageCategory.bigwin,
+      description: 'Big Win Tier 5 (100x+)',
     ),
     // ─────────────────────────────────────────────────────────────────────────
     // FEATURES

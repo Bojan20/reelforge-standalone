@@ -278,14 +278,14 @@ class SlotAudioEventFactory {
   }
 
   // ─── BIG WIN TIERS ─────────────────────────────────────────────────────────
-  // Ranges from BigWinTier enum: T1 (10x+) → T2 (15x+) → T3 (25x+) → T4 (50x+) → T5 (100x+)
+  // BigWinTier enum: T1 (10x+) → T2 (15x+) → T3 (25x+) → T4 (50x+) → T5 (100x+)
 
   static List<MiddlewareEvent> createBigWinEvents() {
     return [
       for (int i = 1; i <= 5; i++)
         MiddlewareEvent(
           id: 'slot_bigwin_tier_$i',
-          name: 'WIN $i',
+          name: 'BIG WIN TIER $i',
           category: 'Slot_BigWin',
           actions: [
             MiddlewareAction(id: _nextActionId(), type: ActionType.setVolume, bus: 'Music', gain: 0.6 - (i * 0.1), fadeTime: 0.1),
@@ -1114,7 +1114,7 @@ class SlotElementMappingFactory {
 
     // Win
     SlotElementType.winDisplay: 'slot_win_present',
-    SlotElementType.bigWinOverlay: 'slot_bigwin_mega',
+    SlotElementType.bigWinOverlay: 'slot_bigwin_tier_1',
     SlotElementType.jackpotDisplay: 'slot_jackpot_trigger',
 
     // Features
@@ -1133,7 +1133,7 @@ class SlotElementMappingFactory {
     SlotElementType.stageAnticipation: 'slot_anticipation_on',
     SlotElementType.stageWinPresent: 'slot_win_present',
     SlotElementType.stageRollup: 'slot_rollup_start',
-    SlotElementType.stageBigWin: 'slot_bigwin_mega',
+    SlotElementType.stageBigWin: 'slot_bigwin_tier_1',
     SlotElementType.stageFeature: 'slot_feature_enter',
     SlotElementType.stageSpinEnd: 'slot_spin_end',
   };
