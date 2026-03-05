@@ -219,17 +219,17 @@ void main() {
   });
 
   group('AnticipationBlock Stage Generation', () {
-    test('generates ANTICIPATION_ON and ANTICIPATION_OFF stages', () {
+    test('generates ANTICIPATION_TENSION and ANTICIPATION_MISS stages', () {
       final block = AnticipationBlock();
       block.isEnabled = true;
       final stages = block.generateStages();
 
-      expect(stages.any((s) => s.name == 'ANTICIPATION_ON'), isTrue);
-      expect(stages.any((s) => s.name == 'ANTICIPATION_OFF'), isTrue);
+      expect(stages.any((s) => s.name == 'ANTICIPATION_TENSION'), isTrue);
+      expect(stages.any((s) => s.name == 'ANTICIPATION_MISS'), isTrue);
 
-      final anticipationOn = stages.firstWhere((s) => s.name == 'ANTICIPATION_ON');
-      expect(anticipationOn.priority, 80);
-      expect(anticipationOn.sourceBlockId, 'anticipation');
+      final anticipationTension = stages.firstWhere((s) => s.name == 'ANTICIPATION_TENSION');
+      expect(anticipationTension.priority, 78);
+      expect(anticipationTension.sourceBlockId, 'anticipation');
     });
 
     test('generates ANTICIPATION_TENSION looping stage', () {

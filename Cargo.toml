@@ -40,7 +40,6 @@ members = [
     "crates/rf-fluxmacro",
     # WASM Port (standalone, edition 2021 for wasm-pack compatibility)
     "crates/rf-wasm",
-    "ai-control-core/acc"
 ]
 
 [workspace.package]

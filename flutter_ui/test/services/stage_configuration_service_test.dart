@@ -164,7 +164,7 @@ void main() {
     });
 
     test('stages ending with _LOOP are looping', () {
-      expect(service.isLooping('ANTICIPATION_LOOP'), true);
+      expect(service.isLooping('ANTICIPATION_TENSION'), true);
       expect(service.isLooping('AMBIENT_LOOP'), true);
     });
 

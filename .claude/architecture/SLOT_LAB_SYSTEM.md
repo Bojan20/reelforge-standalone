@@ -964,12 +964,12 @@ Audio anticipation počinje pre vizuala za bolju sinhronizaciju.
 - `flutter_ui/lib/providers/slot_lab_provider.dart`:
   - `_anticipationPreTriggerMs` config (default 50ms)
   - `_audioPreTriggerTimer` za odvojeni audio trigger
-  - Lookahead u `_scheduleNextStage()` za `ANTICIPATION_ON`
+  - Lookahead u `_scheduleNextStage()` za `ANTICIPATION_TENSION`
   - `_triggerAudioOnly()` metoda
 
 **Flow:**
 ```
-Visual Timeline:    |-------- ANTICIPATION_ON --------|
+Visual Timeline:    |-------- ANTICIPATION_TENSION --------|
 Audio Timeline: |-- PRE-TRIGGER (50ms earlier) --|
 ```
 
@@ -1016,7 +1016,7 @@ ANTICIPATION_TENSION_R{reel}_L{level}
 
 **Fallback Chain:**
 ```
-ANTICIPATION_TENSION_R2_L3 → ANTICIPATION_TENSION_R2 → ANTICIPATION_TENSION → ANTICIPATION_ON
+ANTICIPATION_TENSION_R2_L3 → ANTICIPATION_TENSION_R2 → ANTICIPATION_TENSION → ANTICIPATION_TENSION
 ```
 
 **Audio Context Enrichment:**
@@ -1092,7 +1092,7 @@ Intenzitet anticipation zvuka raste sa blizinom dobitka.
 **Promene:**
 - `flutter_ui/lib/providers/slot_lab_provider.dart`:
   - `_calculateAnticipationEscalation()` — vraća stage i volumeMultiplier
-  - `_triggerStage()` primenjuje escalation za `ANTICIPATION_ON`
+  - `_triggerStage()` primenjuje escalation za `ANTICIPATION_TENSION`
   - Context sadrži `volumeMultiplier`
 
 **Intensity Formula:**
@@ -1106,7 +1106,7 @@ combinedIntensity = intensity * reelFactor * missingFactor;
 // Stages po intenzitetu:
 // > 0.8 → ANTICIPATION_CRITICAL (vol 1.0)
 // > 0.5 → ANTICIPATION_HIGH (vol 0.9)
-// else  → ANTICIPATION_ON (vol 0.7-0.85)
+// else  → ANTICIPATION_TENSION (vol 0.7-0.85)
 ```
 
 **EventRegistry podrška:**
@@ -1865,11 +1865,11 @@ SPIN_START
     ↓
 REEL_SPINNING × N (za svaki reel)
     ↓
-[ANTICIPATION_ON] (opciono, na poslednja 1-2 reel-a)
+[ANTICIPATION_TENSION] (opciono, na poslednja 1-2 reel-a)
     ↓
 REEL_STOP_0 → REEL_STOP_1 → ... → REEL_STOP_N
     ↓
-[ANTICIPATION_OFF] (ako je bio uključen)
+[ANTICIPATION_MISS] (ako je bio uključen)
     ↓
 EVALUATE_WINS
     ↓

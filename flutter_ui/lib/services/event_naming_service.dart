@@ -91,8 +91,8 @@ class EventNamingService {
     if (normalized == 'REEL_SPIN_LOOP') return 'onReelSpinLoop';
 
     // ANTICIPATION stages
-    if (normalized == 'ANTICIPATION_ON') return 'onAnticipationStart';
-    if (normalized == 'ANTICIPATION_OFF') return 'onAnticipationEnd';
+    if (normalized == 'ANTICIPATION_TENSION') return 'onAnticipationStart';
+    if (normalized == 'ANTICIPATION_MISS') return 'onAnticipationMiss';
     if (normalized.startsWith('ANTICIPATION_')) {
       final suffix = _toCamelCase(normalized.replaceFirst('ANTICIPATION_', ''));
       return 'onAnticipation$suffix';

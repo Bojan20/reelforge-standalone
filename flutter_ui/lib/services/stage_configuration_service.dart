@@ -180,8 +180,8 @@ class StageConfigurationService extends ChangeNotifier {
     _registerDefaultStages();
   }
 
-  /// Get all stage names
-  List<String> get allStageNames => [..._stages.keys, ..._customStages.keys]..sort();
+  /// Get all stage names (custom overrides default)
+  List<String> get allStageNames => ({..._stages, ..._customStages}).keys.toList()..sort();
 
   /// Get stages by category
   List<StageDefinition> getByCategory(StageCategory category) {
@@ -189,10 +189,8 @@ class StageConfigurationService extends ChangeNotifier {
   }
 
   /// Get all stage definitions
-  List<StageDefinition> get allStages => [
-    ..._stages.values,
-    ..._customStages.values,
-  ];
+  /// All stages (custom overrides default when names overlap)
+  List<StageDefinition> get allStages => ({..._stages, ..._customStages}).values.toList();
 
   /// Get stage definition by name (case insensitive)
   StageDefinition? getStage(String name) {
@@ -660,7 +658,7 @@ class StageConfigurationService extends ChangeNotifier {
       case SymbolAudioContext.trigger:
         return 'FEATURE_TRIGGER';
       case SymbolAudioContext.anticipation:
-        return 'ANTICIPATION_ON';
+        return 'ANTICIPATION_TENSION';
     }
   }
 
@@ -969,48 +967,37 @@ class StageConfigurationService extends ChangeNotifier {
     _register('SCATTER_LAND_5', StageCategory.symbol, 85, SpatialBus.sfx, 'FREE_SPIN_TRIGGER');
     _register('SCATTER_COLLECT', StageCategory.symbol, 70, SpatialBus.sfx, 'DEFAULT');
 
-    // Anticipation — sequential (ANTICIPATION_1=1st reel, _2=2nd, _3=3rd)
-    _register('ANTICIPATION_ON', StageCategory.symbol, 65, SpatialBus.sfx, 'ANTICIPATION');
-    _register('ANTICIPATION_OFF', StageCategory.symbol, 45, SpatialBus.sfx, 'DEFAULT');
-    _register('ANTICIPATION_LOOP', StageCategory.symbol, 60, SpatialBus.sfx, 'ANTICIPATION', isLooping: true);
-    _register('ANTICIPATION_1', StageCategory.symbol, 66, SpatialBus.sfx, 'ANTICIPATION');
-    _register('ANTICIPATION_2', StageCategory.symbol, 67, SpatialBus.sfx, 'ANTICIPATION');
-    _register('ANTICIPATION_3', StageCategory.symbol, 68, SpatialBus.sfx, 'ANTICIPATION');
-
-    // P0.2: Per-reel tension stages — matches Rust engine output
-    // Fallback hierarchy: ANTICIPATION_TENSION_R2_L3 → ANTICIPATION_TENSION_R2 → ANTICIPATION_TENSION → ANTICIPATION_ON
+    // ─────────────────────────────────────────────────────────────────────────
+    // ANTICIPATION SYSTEM
+    //
+    // 3 layers of specificity:
+    //   1. ANTICIPATION_TENSION — single sound for all anticipation
+    //   2. ANTICIPATION_TENSION_R1..R4 — different sound per reel
+    //   3. ANTICIPATION_TENSION_R*_L* — per-reel + tension level
+    // Fallback: R2_L3 → R2 → TENSION
+    //
+    // ANTICIPATION_MISS — fires when anticipation resolves without trigger
+    // ─────────────────────────────────────────────────────────────────────────
     _register('ANTICIPATION_TENSION', StageCategory.symbol, 66, SpatialBus.sfx, 'ANTICIPATION');
+    _register('ANTICIPATION_MISS', StageCategory.symbol, 50, SpatialBus.sfx, 'DEFAULT');
 
-    // Per-reel tension (reel fallback — used when specific level not configured)
-    // Reel 1 (index 0) never has anticipation (first reel can't trigger anticipation)
+    // Per-reel tension (R1=reel 2, R4=reel 5; reel 1 can't trigger anticipation)
     _register('ANTICIPATION_TENSION_R1', StageCategory.symbol, 67, SpatialBus.sfx, 'ANTICIPATION');
     _register('ANTICIPATION_TENSION_R2', StageCategory.symbol, 68, SpatialBus.sfx, 'ANTICIPATION');
     _register('ANTICIPATION_TENSION_R3', StageCategory.symbol, 69, SpatialBus.sfx, 'ANTICIPATION');
     _register('ANTICIPATION_TENSION_R4', StageCategory.symbol, 70, SpatialBus.sfx, 'ANTICIPATION');
 
     // Full specificity: per-reel + tension level (L1=low, L2=medium, L3=high, L4=max)
-    // Priority escalates with reel index and tension level (later reels + higher levels = more dramatic)
-    // R1 (Reel 2): L1 only possible
     _register('ANTICIPATION_TENSION_R1_L1', StageCategory.symbol, 67, SpatialBus.sfx, 'ANTICIPATION');
-
-    // R2 (Reel 3): L1-L2 possible
     _register('ANTICIPATION_TENSION_R2_L1', StageCategory.symbol, 68, SpatialBus.sfx, 'ANTICIPATION');
     _register('ANTICIPATION_TENSION_R2_L2', StageCategory.symbol, 69, SpatialBus.sfx, 'ANTICIPATION');
-
-    // R3 (Reel 4): L1-L3 possible
     _register('ANTICIPATION_TENSION_R3_L1', StageCategory.symbol, 69, SpatialBus.sfx, 'ANTICIPATION');
     _register('ANTICIPATION_TENSION_R3_L2', StageCategory.symbol, 70, SpatialBus.sfx, 'ANTICIPATION');
     _register('ANTICIPATION_TENSION_R3_L3', StageCategory.symbol, 71, SpatialBus.sfx, 'ANTICIPATION');
-
-    // R4 (Reel 5): L1-L4 all possible (maximum tension on last reel)
     _register('ANTICIPATION_TENSION_R4_L1', StageCategory.symbol, 70, SpatialBus.sfx, 'ANTICIPATION');
     _register('ANTICIPATION_TENSION_R4_L2', StageCategory.symbol, 71, SpatialBus.sfx, 'ANTICIPATION');
     _register('ANTICIPATION_TENSION_R4_L3', StageCategory.symbol, 72, SpatialBus.sfx, 'ANTICIPATION');
-    _register('ANTICIPATION_TENSION_R4_L4', StageCategory.symbol, 75, SpatialBus.sfx, 'ANTICIPATION'); // MAX TENSION
-
-    // Legacy anticipation types (optional — designers can use these for specific effects)
-    _register('ANTICIPATION_HEARTBEAT', StageCategory.symbol, 64, SpatialBus.sfx, 'ANTICIPATION', isLooping: true);
-    _register('ANTICIPATION_RESOLVE', StageCategory.symbol, 50, SpatialBus.sfx, 'DEFAULT');
+    _register('ANTICIPATION_TENSION_R4_L4', StageCategory.symbol, 75, SpatialBus.sfx, 'ANTICIPATION');
 
     _register('NEAR_MISS', StageCategory.symbol, 55, SpatialBus.sfx, 'NEAR_MISS');
 
@@ -1523,7 +1510,7 @@ class StageConfigurationService extends ChangeNotifier {
     'MUSIC_BASE', 'MUSIC_FREESPINS', 'MUSIC_HOLD', 'MUSIC_BONUS',
     'MUSIC_BIG_WIN', 'MUSIC_JACKPOT', 'MUSIC_GAMBLE',
     'AMBIENT_LOOP', 'ATTRACT_MODE', 'IDLE_LOOP', 'ATTRACT_LOOP',
-    'ANTICIPATION_LOOP',
+    'ANTICIPATION_TENSION',
     'BIG_WIN_LOOP',
     'GAME_START', 'BASE_GAME_START', 'GAME_MUSIC',
   };
@@ -1876,7 +1863,7 @@ class PriorityTierPreset {
       'JACKPOT_MAJOR': 98,
       'FS_TRIGGER': 95,
       'BIG_WIN_START': 50, // Big win gets extra priority
-      'ANTICIPATION_ON': 70,
+      'ANTICIPATION_TENSION': 70,
     },
   );
 

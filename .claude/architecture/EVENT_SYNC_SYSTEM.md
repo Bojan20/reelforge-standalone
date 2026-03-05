@@ -817,7 +817,7 @@ EmbeddedSlotMockup(
   // VISUAL-SYNC callbacks:
   onSpinStart: () => _triggerVisualStage('SPIN_START'),
   onReelStop: (reelIdx) => _triggerVisualStage('REEL_STOP_$reelIdx', context: {'reel_index': reelIdx}),
-  onAnticipation: () => _triggerVisualStage('ANTICIPATION_ON'),
+  onAnticipation: () => _triggerVisualStage('ANTICIPATION_TENSION'),
   onReveal: () => _triggerVisualStage('SPIN_END'),
   onWinStart: (winType, amount) => _triggerWinStage(winType, amount),
   onWinEnd: () => _triggerVisualStage('WIN_END'),
@@ -2186,8 +2186,8 @@ String? _resolveAnticipationStage(String stage) {
     }
   }
 
-  // Fallback to generic ANTICIPATION_ON
-  if (_hasEventForStage('ANTICIPATION_ON')) return 'ANTICIPATION_ON';
+  // Fallback to generic ANTICIPATION_TENSION
+  if (_hasEventForStage('ANTICIPATION_TENSION')) return 'ANTICIPATION_TENSION';
 
   return null;  // No audio for this stage
 }

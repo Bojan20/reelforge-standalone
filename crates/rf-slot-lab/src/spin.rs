@@ -1826,7 +1826,7 @@ mod tests {
         println!("   Total stages: {}", stages.len());
         println!("   SPIN_START: {}", spin_starts);
         println!("   REEL_STOP: {}", reel_stops);
-        println!("   ANTICIPATION_ON: {}", anticipation_ons);
+        println!("   ANTICIPATION_TENSION: {}", anticipation_ons);
         println!("   TENSION_LAYER: {}", tension_layers);
         println!("   EVALUATE_WINS: {}", evaluate_wins);
         println!("   WIN_PRESENT: {}", win_presents);

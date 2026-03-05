@@ -180,7 +180,7 @@ class SlotAudioProvider extends ChangeNotifier {
 
   double _calculateNearMissRate(List<SlotLabStageEvent> stages) {
     final anticipations = stages.where((s) =>
-        s.stageType.toUpperCase() == 'ANTICIPATION_ON').length;
+        s.stageType.toUpperCase().startsWith('ANTICIPATION_TENSION')).length;
     return (anticipations / 5.0).clamp(0.0, 1.0);
   }
 
@@ -305,18 +305,18 @@ class SlotAudioProvider extends ChangeNotifier {
       } else if (eventRegistry.hasEventForStage('ANTICIPATION_HIGH')) {
         effectiveStage = 'ANTICIPATION_HIGH';
       } else {
-        effectiveStage = 'ANTICIPATION_ON';
+        effectiveStage = 'ANTICIPATION_TENSION';
       }
       volumeMultiplier = 1.0;
     } else if (combinedIntensity >= 0.5) {
       if (eventRegistry.hasEventForStage('ANTICIPATION_HIGH')) {
         effectiveStage = 'ANTICIPATION_HIGH';
       } else {
-        effectiveStage = 'ANTICIPATION_ON';
+        effectiveStage = 'ANTICIPATION_TENSION';
       }
       volumeMultiplier = 0.9;
     } else {
-      effectiveStage = 'ANTICIPATION_ON';
+      effectiveStage = 'ANTICIPATION_TENSION';
       volumeMultiplier = 0.7 + (combinedIntensity * 0.3);
     }
 

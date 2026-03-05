@@ -205,7 +205,7 @@ class ForcedOutcomeConfig {
       icon: Icons.loop,
       gradientColors: [Color(0xFFE040FB), Color(0xFF7C4DFF)],
       expectedStages: [
-        'SPIN_START', 'REEL_STOP', 'ANTICIPATION_ON', 'ANTICIPATION_OFF',
+        'SPIN_START', 'REEL_STOP', 'ANTICIPATION_TENSION', 'ANTICIPATION_MISS',
         'FEATURE_ENTER', 'FEATURE_STEP', 'FEATURE_EXIT', 'SPIN_END',
       ],
       featureBlockId: 'free_spins',  // P13.8.7
@@ -302,7 +302,7 @@ class ForcedOutcomeConfig {
       gradientColors: [Color(0xFFFF9040), Color(0xFFFF6B00)],
       expectedStages: [
         'SPIN_START', 'REEL_STOP',
-        'ANTICIPATION_ON', 'ANTICIPATION_TENSION_R3_L2', 'ANTICIPATION_OFF',
+        'ANTICIPATION_TENSION', 'ANTICIPATION_TENSION_R3_L2', 'ANTICIPATION_MISS',
         'EVALUATE_WINS', 'SPIN_END',
       ],
     ),

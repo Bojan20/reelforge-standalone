@@ -173,12 +173,12 @@ class MockEventSequence {
       events: [
         MockStageEvent(stage: 'SPIN_START', timestampMs: now),
         MockStageEvent(stage: 'REEL_SPIN', timestampMs: now + 100),
-        MockStageEvent(stage: 'ANTICIPATION_ON', timestampMs: now + 500),
+        MockStageEvent(stage: 'ANTICIPATION_TENSION', timestampMs: now + 500),
         MockStageEvent(stage: 'REEL_STOP_0', timestampMs: now + 700),
         MockStageEvent(stage: 'REEL_STOP_1', timestampMs: now + 900),
         MockStageEvent(stage: 'REEL_STOP_2', timestampMs: now + 1100),
         MockStageEvent(stage: 'REEL_STOP_3', timestampMs: now + 1300),
-        MockStageEvent(stage: 'ANTICIPATION_OFF', timestampMs: now + 1400),
+        MockStageEvent(stage: 'ANTICIPATION_MISS', timestampMs: now + 1400),
         MockStageEvent(stage: 'REEL_STOP_4', timestampMs: now + 1500),
         MockStageEvent(stage: 'WIN_EVAL', timestampMs: now + 1600),
         MockStageEvent(stage: 'WIN_BIG', timestampMs: now + 1700, data: {'amount': 50.0}),
@@ -207,11 +207,11 @@ class MockEventSequence {
         MockStageEvent(stage: 'REEL_STOP_1', timestampMs: now + 800),
         MockStageEvent(stage: 'REEL_STOP_2', timestampMs: now + 1000),
         MockStageEvent(stage: 'SCATTER_LAND', timestampMs: now + 1050, data: {'reel': 2}),
-        MockStageEvent(stage: 'ANTICIPATION_ON', timestampMs: now + 1100),
+        MockStageEvent(stage: 'ANTICIPATION_TENSION', timestampMs: now + 1100),
         MockStageEvent(stage: 'REEL_STOP_3', timestampMs: now + 1500),
         MockStageEvent(stage: 'REEL_STOP_4', timestampMs: now + 1900),
         MockStageEvent(stage: 'SCATTER_LAND', timestampMs: now + 1950, data: {'reel': 4}),
-        MockStageEvent(stage: 'ANTICIPATION_OFF', timestampMs: now + 2000),
+        MockStageEvent(stage: 'ANTICIPATION_MISS', timestampMs: now + 2000),
         MockStageEvent(stage: 'FS_TRIGGER', timestampMs: now + 2200, data: {'spins': 10}),
         MockStageEvent(stage: 'FS_INTRO', timestampMs: now + 2500),
         MockStageEvent(stage: 'CONTEXT_ENTER', timestampMs: now + 4000, data: {'context': 'FREESPINS'}),
@@ -267,13 +267,13 @@ class MockEventSequence {
       events: [
         MockStageEvent(stage: 'SPIN_START', timestampMs: now),
         MockStageEvent(stage: 'REEL_SPIN', timestampMs: now + 100),
-        MockStageEvent(stage: 'ANTICIPATION_ON', timestampMs: now + 400),
+        MockStageEvent(stage: 'ANTICIPATION_TENSION', timestampMs: now + 400),
         MockStageEvent(stage: 'REEL_STOP_0', timestampMs: now + 800),
         MockStageEvent(stage: 'REEL_STOP_1', timestampMs: now + 1200),
         MockStageEvent(stage: 'REEL_STOP_2', timestampMs: now + 1600),
         MockStageEvent(stage: 'REEL_STOP_3', timestampMs: now + 2000),
         MockStageEvent(stage: 'REEL_STOP_4', timestampMs: now + 2400),
-        MockStageEvent(stage: 'ANTICIPATION_OFF', timestampMs: now + 2500),
+        MockStageEvent(stage: 'ANTICIPATION_MISS', timestampMs: now + 2500),
         MockStageEvent(stage: 'JACKPOT_TRIGGER', timestampMs: now + 2700),
         MockStageEvent(stage: 'JACKPOT_GRAND', timestampMs: now + 3000, data: {'amount': 10000.0}),
         MockStageEvent(stage: 'JACKPOT_CELEBRATION', timestampMs: now + 3500),
@@ -481,7 +481,7 @@ class MockEngineService {
         (outcome.index >= MockWinTier.big.index || _random.nextDouble() < 0.1);
 
     if (hasAnticipation) {
-      events.add(MockStageEvent(stage: 'ANTICIPATION_ON', timestampMs: time));
+      events.add(MockStageEvent(stage: 'ANTICIPATION_TENSION', timestampMs: time));
       time += _config.baseDelayMs;
     }
 
@@ -507,7 +507,7 @@ class MockEngineService {
 
     if (hasAnticipation) {
       time += _config.baseDelayMs;
-      events.add(MockStageEvent(stage: 'ANTICIPATION_OFF', timestampMs: time));
+      events.add(MockStageEvent(stage: 'ANTICIPATION_MISS', timestampMs: time));
     }
 
     // WIN_EVAL

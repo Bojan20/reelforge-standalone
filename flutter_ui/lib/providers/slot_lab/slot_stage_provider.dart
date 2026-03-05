@@ -607,13 +607,13 @@ class SlotStageProvider extends ChangeNotifier {
     }
 
     // Handle anticipation callbacks
-    if (stageType.startsWith('ANTICIPATION_ON')) {
+    if (stageType.startsWith('ANTICIPATION_TENSION')) {
       final reelIdx = _extractReelIndexFromStage(stageType);
       final reason = stage.payload['reason'] as String? ??
           stage.rawStage['reason'] as String? ?? 'scatter';
       final tensionLevel = reelIdx.clamp(1, 4);
       onAnticipationStart?.call(reelIdx, reason, tensionLevel: tensionLevel);
-    } else if (stageType.startsWith('ANTICIPATION_OFF')) {
+    } else if (stageType == 'ANTICIPATION_MISS') {
       final reelIdx = _extractReelIndexFromStage(stageType);
       onAnticipationEnd?.call(reelIdx);
     }
@@ -832,9 +832,9 @@ class SlotStageProvider extends ChangeNotifier {
       case 'REEL_NUDGE':
         return ['onReelNudge'];
       default:
-        if (stageType.startsWith('ANTICIPATION_ON')) {
+        if (stageType.startsWith('ANTICIPATION_TENSION')) {
           return ['onAnticipationStart'];
-        } else if (stageType.startsWith('ANTICIPATION_OFF')) {
+        } else if (stageType == 'ANTICIPATION_MISS') {
           return ['onAnticipationEnd'];
         } else if (stageType.startsWith('REEL_STOP_')) {
           final idx = stageType.replaceAll('REEL_STOP_', '');

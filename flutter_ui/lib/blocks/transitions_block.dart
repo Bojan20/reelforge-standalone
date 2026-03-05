@@ -1038,8 +1038,8 @@ class TransitionsBlock extends FeatureBlockBase {
           sourceBlockId: id,
         ),
         GeneratedStage(
-          name: 'ANTICIPATION_RESOLVE_MISS',
-          description: 'Resolve anticipation with miss',
+          name: 'ANTICIPATION_MISS',
+          description: 'Anticipation resolved without trigger',
           bus: 'sfx',
           priority: 70,
           sourceBlockId: id,

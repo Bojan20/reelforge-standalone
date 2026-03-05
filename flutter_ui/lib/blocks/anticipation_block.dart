@@ -316,30 +316,20 @@ class AnticipationBlock extends FeatureBlockBase {
 
     // ========== Core Anticipation Stages ==========
     stages.add(const GeneratedStage(
-      name: 'ANTICIPATION_ON',
-      description: 'Anticipation mode activated',
-      bus: 'sfx',
-      priority: 80,
-      sourceBlockId: 'anticipation',
-      category: 'Anticipation',
-    ));
-
-    stages.add(const GeneratedStage(
-      name: 'ANTICIPATION_OFF',
-      description: 'Anticipation mode deactivated',
-      bus: 'sfx',
-      priority: 75,
-      sourceBlockId: 'anticipation',
-      category: 'Anticipation',
-    ));
-
-    // ========== Anticipation Tension Loop ==========
-    stages.add(const GeneratedStage(
       name: 'ANTICIPATION_TENSION',
       description: 'Generic anticipation tension (fallback)',
       bus: 'sfx',
       priority: 78,
       looping: true,
+      sourceBlockId: 'anticipation',
+      category: 'Anticipation',
+    ));
+
+    stages.add(const GeneratedStage(
+      name: 'ANTICIPATION_MISS',
+      description: 'Anticipation resolved without trigger',
+      bus: 'sfx',
+      priority: 50,
       sourceBlockId: 'anticipation',
       category: 'Anticipation',
     ));
@@ -439,7 +429,7 @@ class AnticipationBlock extends FeatureBlockBase {
   int getPriorityForStage(String stageName) {
     // Success/Fail results
     if (stageName == 'ANTICIPATION_SUCCESS') return 85;
-    if (stageName == 'ANTICIPATION_ON') return 80;
+    if (stageName == 'ANTICIPATION_TENSION') return 80;
 
     // Tension levels (higher level = higher priority)
     if (stageName.contains('_L4')) return 80;
@@ -454,7 +444,7 @@ class AnticipationBlock extends FeatureBlockBase {
     if (stageName.contains('NEAR_MISS')) return 72;
 
     // Off/Fail
-    if (stageName == 'ANTICIPATION_OFF') return 75;
+    if (stageName == 'ANTICIPATION_MISS') return 50;
     if (stageName == 'ANTICIPATION_FAIL') return 70;
 
     return 75;

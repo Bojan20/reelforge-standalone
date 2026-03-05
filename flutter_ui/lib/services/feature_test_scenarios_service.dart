@@ -256,15 +256,15 @@ class BuiltInScenarios {
     description: 'Scatter anticipation on multiple reels',
     type: ScenarioType.anticipation,
     isBuiltIn: true,
-    requiredStages: ['ANTICIPATION_ON', 'ANTICIPATION_TENSION_R2_L1', 'ANTICIPATION_OFF'],
+    requiredStages: ['ANTICIPATION_TENSION', 'ANTICIPATION_TENSION_R2_L1', 'ANTICIPATION_MISS'],
     steps: [
       ScenarioStep(stageName: 'SPIN_START', delayMs: 0),
       ScenarioStep(stageName: 'REEL_STOP_0', delayMs: 600, payload: {'hasScatter': true}),
       ScenarioStep(stageName: 'REEL_STOP_1', delayMs: 370, payload: {'hasScatter': true}),
-      ScenarioStep(stageName: 'ANTICIPATION_ON', delayMs: 100, payload: {'reelIndex': 2}),
+      ScenarioStep(stageName: 'ANTICIPATION_TENSION', delayMs: 100, payload: {'reelIndex': 2}),
       ScenarioStep(stageName: 'ANTICIPATION_TENSION_R2_L1', delayMs: 200),
       ScenarioStep(stageName: 'REEL_STOP_2', delayMs: 800),
-      ScenarioStep(stageName: 'ANTICIPATION_OFF', delayMs: 100),
+      ScenarioStep(stageName: 'ANTICIPATION_MISS', delayMs: 100),
     ],
   );
 

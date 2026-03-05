@@ -359,7 +359,7 @@ class IntensityCrossfadeService {
     final stageIntensityMap = <String, int>{
       'IDLE': 0,
       'SPIN_START': 1,
-      'ANTICIPATION_ON': 2,
+      'ANTICIPATION_TENSION': 2,
       'WIN_PRESENT': 2,
       'BIG_WIN_START': n > 2 ? n - 2 : n - 1,
       'BIG_WIN_MEGA': n - 1,

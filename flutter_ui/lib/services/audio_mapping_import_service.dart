@@ -850,9 +850,9 @@ class AudioMappingImportService {
     'SYMBOL_LAND', 'WILD_LAND', 'SCATTER_LAND',
     'SCATTER_LAND_1', 'SCATTER_LAND_2', 'SCATTER_LAND_3', 'SCATTER_LAND_4', 'SCATTER_LAND_5',
     'SCATTER_COLLECT',
-    // Anticipation (sequential: ANTICIPATION_1=1st reel, _2=2nd, _3=3rd)
-    'ANTICIPATION_ON', 'ANTICIPATION_OFF', 'ANTICIPATION_LOOP',
-    'ANTICIPATION_1', 'ANTICIPATION_2', 'ANTICIPATION_3',
+    // Anticipation tension system
+    'ANTICIPATION_TENSION', 'ANTICIPATION_MISS',
+    'ANTICIPATION_TENSION_R1', 'ANTICIPATION_TENSION_R2', 'ANTICIPATION_TENSION_R3', 'ANTICIPATION_TENSION_R4',
     'NEAR_MISS', 'NO_WIN',
     // Wins — unified WIN_PRESENT system
     'WIN_PRESENT_LOW', 'WIN_PRESENT_EQUAL', 'WIN_PRESENT_END',
@@ -1075,7 +1075,7 @@ class AudioMappingImportService {
         // Find first candidate that exists in composed stages
         for (final candidate in candidates) {
           // Indexed stage expansion: "REEL_STOP_*" with NofM → "REEL_STOP_0", "REEL_STOP_1"...
-          // Some stages are 0-based (REEL_STOP_0), others 1-based (ANTICIPATION_1)
+          // Some stages are 0-based (REEL_STOP_0), others 1-based (ANTICIPATION_TENSION_R1)
           if (candidate.endsWith('_*') && nofm != null) {
             final base = candidate.substring(0, candidate.length - 1); // "REEL_STOP_"
             final indexed0 = '$base${nofm.$1}'; // 0-based
@@ -1702,18 +1702,17 @@ class AudioMappingImportService {
     'card flip': ['GAMBLE_CARD_FLIP'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // ANTICIPATION → ANTICIPATION_* (sequential: 1=short, 2=medium, 3=long)
-    // NofM variants (e.g. anticipation_1of3) → ANTICIPATION_1, ANTICIPATION_2, ANTICIPATION_3
-    // Single files without NofM → ANTICIPATION_ON (generic fallback)
+    // ANTICIPATION → ANTICIPATION_TENSION (+ per-reel R1-R4)
     // ═══════════════════════════════════════════════════════════════════
-    'anticipation': ['ANTICIPATION_*', 'ANTICIPATION_ON'],
-    'anticipation start': ['ANTICIPATION_*', 'ANTICIPATION_ON'],
-    'anticipation end': ['ANTICIPATION_OFF'],
-    'tension': ['ANTICIPATION_*', 'ANTICIPATION_ON'],
-    'suspense': ['ANTICIPATION_*', 'ANTICIPATION_ON'],
-    'suspension': ['ANTICIPATION_*', 'ANTICIPATION_ON'],
-    'spins susp': ['ANTICIPATION_*', 'ANTICIPATION_ON'],
-    'spin susp': ['ANTICIPATION_*', 'ANTICIPATION_ON'],
+    'anticipation': ['ANTICIPATION_TENSION_R*', 'ANTICIPATION_TENSION'],
+    'anticipation start': ['ANTICIPATION_TENSION_R*', 'ANTICIPATION_TENSION'],
+    'anticipation end': ['ANTICIPATION_MISS'],
+    'anticipation miss': ['ANTICIPATION_MISS'],
+    'tension': ['ANTICIPATION_TENSION_R*', 'ANTICIPATION_TENSION'],
+    'suspense': ['ANTICIPATION_TENSION_R*', 'ANTICIPATION_TENSION'],
+    'suspension': ['ANTICIPATION_TENSION_R*', 'ANTICIPATION_TENSION'],
+    'spins susp': ['ANTICIPATION_TENSION_R*', 'ANTICIPATION_TENSION'],
+    'spin susp': ['ANTICIPATION_TENSION_R*', 'ANTICIPATION_TENSION'],
     'near miss': ['NEAR_MISS'],
     'nearmiss': ['NEAR_MISS'],
 

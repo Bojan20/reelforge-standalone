@@ -380,7 +380,7 @@ Map<String, dynamic> _migrateV4toV5(Map<String, dynamic> data) {
     data['stage_definitions'] = {
       'canonical_stages': [
         'SPIN_START', 'SPIN_STOP', 'REEL_STOP',
-        'ANTICIPATION_ON', 'ANTICIPATION_OFF',
+        'ANTICIPATION_TENSION', 'ANTICIPATION_MISS',
         'WIN_PRESENT', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END',
         'BIGWIN_TIER', 'FEATURE_ENTER', 'FEATURE_STEP', 'FEATURE_EXIT',
         'CASCADE_STEP', 'JACKPOT_TRIGGER', 'BONUS_ENTER', 'BONUS_EXIT',
@@ -436,8 +436,8 @@ String _convertOldEventToStage(String oldType) {
     'spin' || 'spin_start' => 'SPIN_START',
     'stop' || 'spin_stop' => 'SPIN_STOP',
     'reel_stop' || 'reel' => 'REEL_STOP',
-    'anticipation' || 'anticipation_start' => 'ANTICIPATION_ON',
-    'anticipation_end' => 'ANTICIPATION_OFF',
+    'anticipation' || 'anticipation_start' => 'ANTICIPATION_TENSION',
+    'anticipation_end' || 'anticipation_miss' => 'ANTICIPATION_MISS',
     'win' || 'win_present' => 'WIN_PRESENT',
     'rollup' || 'rollup_start' => 'ROLLUP_START',
     'rollup_end' => 'ROLLUP_END',

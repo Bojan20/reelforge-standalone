@@ -461,22 +461,22 @@ class TemplateBuilderService {
     // Generic anticipation
     stages.addAll([
       TemplateStageDefinition(
-        id: 'ANTICIPATION_ON',
-        name: 'Anticipation Start',
+        id: 'ANTICIPATION_TENSION',
+        name: 'Anticipation Tension',
         category: TemplateStageCategory.feature,
         priority: 68,
         isPooled: false,
         isLooping: true,
-        description: 'Anticipation start',
+        description: 'Anticipation tension (generic)',
       ),
       TemplateStageDefinition(
-        id: 'ANTICIPATION_OFF',
-        name: 'Anticipation End',
+        id: 'ANTICIPATION_MISS',
+        name: 'Anticipation Miss',
         category: TemplateStageCategory.feature,
-        priority: 67,
+        priority: 50,
         isPooled: false,
         isLooping: false,
-        description: 'Anticipation end',
+        description: 'Anticipation resolved without trigger',
       ),
     ]);
 

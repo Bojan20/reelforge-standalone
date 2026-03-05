@@ -11,7 +11,7 @@ enum StageMarkerType {
   reelStop,    // REEL_STOP_0..4
   win,         // WIN_PRESENT_*, ROLLUP_*
   feature,     // FS_TRIGGER, BONUS_ENTER
-  anticipation, // ANTICIPATION_ON/OFF
+  anticipation, // ANTICIPATION_TENSION/MISS
   custom,      // User-defined markers
 }
 
@@ -101,7 +101,7 @@ class StageMarker {
 
     if (upper == 'SPIN_START') return 'Spin';
     if (upper == 'SPIN_END') return 'Spin End';
-    if (upper == 'ANTICIPATION_ON') return 'Anticipation';
+    if (upper == 'ANTICIPATION_TENSION') return 'Anticipation';
 
     // Default: Capitalize and remove underscores
     return stageId.replaceAll('_', ' ').capitalize();

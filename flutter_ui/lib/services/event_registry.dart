@@ -568,10 +568,8 @@ class EventRegistry extends ChangeNotifier {
   static const double kReelStopPreTriggerMs = 20.0;     // Slight pre-trigger for reel stops
   static const double kSymbolLandPreTriggerMs = 30.0;   // Pre-trigger for scatter/wild/bonus lands
   static const Set<String> _preTriggerStages = {
-    'ANTICIPATION_ON',
-    'ANTICIPATION_OFF',
-    'ANTICIPATION',
     'ANTICIPATION_TENSION',
+    'ANTICIPATION_MISS',
     'ANTICIPATION_TENSION_LAYER',
     'SCATTER_ANTICIPATION',
     'BONUS_ANTICIPATION',
@@ -1274,7 +1272,7 @@ class EventRegistry extends ChangeNotifier {
     final normalized = stage.toUpperCase();
     // Check exact match
     if (_preTriggerStages.contains(normalized)) return true;
-    // Check prefix match for numbered anticipation (ANTICIPATION_ON_3, etc.)
+    // Check prefix match for anticipation tension variants
     for (final preTriggerStage in _preTriggerStages) {
       if (normalized.startsWith(preTriggerStage)) return true;
     }
@@ -1908,32 +1906,20 @@ class EventRegistry extends ChangeNotifier {
 
     // ═══════════════════════════════════════════════════════════════════════════
     // P0.4: ANTICIPATION TENSION LAYER FALLBACK — Multi-level fallback chain
-    // ANTICIPATION_TENSION_R2_L3 → ANTICIPATION_TENSION_R2 → ANTICIPATION_TENSION → ANTICIPATION_ON
-    // This allows designers to create generic anticipation sounds that work for all reels
+    // ANTICIPATION_TENSION_R2_L3 → ANTICIPATION_TENSION_R2 → ANTICIPATION_TENSION
     // ═══════════════════════════════════════════════════════════════════════════
     if (stage.startsWith('ANTICIPATION_TENSION_R')) {
       // Pattern: ANTICIPATION_TENSION_R{reel}_L{level}
       final match = RegExp(r'^ANTICIPATION_TENSION_R(\d+)_L(\d+)$').firstMatch(stage);
       if (match != null) {
         final reel = match.group(1);
-        // First fallback: Try ANTICIPATION_TENSION_R{reel} (without level)
         return 'ANTICIPATION_TENSION_R$reel';
       }
-      // Second fallback: Try ANTICIPATION_TENSION (generic)
+      // Reel-only → generic tension
       final reelOnlyMatch = RegExp(r'^ANTICIPATION_TENSION_R\d+$').firstMatch(stage);
       if (reelOnlyMatch != null) {
         return 'ANTICIPATION_TENSION';
       }
-    }
-    // Third fallback: ANTICIPATION_TENSION → ANTICIPATION_ON
-    if (stage == 'ANTICIPATION_TENSION') {
-      return 'ANTICIPATION_ON';
-    }
-
-    // Sequential anticipation fallback: ANTICIPATION → ANTICIPATION_ON
-    // Chain: ANTICIPATION_1 → ANTICIPATION (via fallbackablePatterns) → ANTICIPATION_ON
-    if (stage == 'ANTICIPATION') {
-      return 'ANTICIPATION_ON';
     }
 
     // Payline highlight fallback: PAYLINE_HIGHLIGHT → WIN_LINE_SHOW

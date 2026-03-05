@@ -189,8 +189,8 @@ String generateEventName(String stage) {
     'SCATTER_LAND': 'onScatterLand',
 
     // Anticipation
-    'ANTICIPATION_ON': 'onAnticipationStart',
-    'ANTICIPATION_OFF': 'onAnticipationEnd',
+    'ANTICIPATION_TENSION': 'onAnticipationStart',
+    'ANTICIPATION_MISS': 'onAnticipationMiss',
 
     // Win Events — unified WIN_PRESENT_1..5 system
     'NO_WIN': 'onNoWin',
@@ -726,8 +726,8 @@ class StageGroupService {
     // ═══════════════════════════════════════════════════════════════════
     // SUSPENSE / ANTICIPATION
     // ═══════════════════════════════════════════════════════════════════
-    'spins_susp': 'ANTICIPATION_ON',
-    'suspense': 'ANTICIPATION_ON',
+    'spins_susp': 'ANTICIPATION_TENSION',
+    'suspense': 'ANTICIPATION_TENSION',
 
     // ═══════════════════════════════════════════════════════════════════
     // WIN — all legacy and modern naming → unified WIN_PRESENT_1..5
@@ -1182,15 +1182,15 @@ class StageGroupService {
 
       // Anticipation
       _StageDefinition(
-        stage: 'ANTICIPATION_ON',
+        stage: 'ANTICIPATION_TENSION',
         keywords: ['anticipation', 'antici', 'tension', 'buildup', 'suspense'],
-        suffixes: ['_on', '_start', '_begin'],
+        suffixes: ['_on', '_start', '_begin', '_tension'],
         priority: 75,
       ),
       _StageDefinition(
-        stage: 'ANTICIPATION_OFF',
-        keywords: ['anticipation', 'antici', 'tension', 'release'],
-        suffixes: ['_off', '_end', '_stop'],
+        stage: 'ANTICIPATION_MISS',
+        keywords: ['anticipation', 'antici', 'miss', 'release'],
+        suffixes: ['_off', '_end', '_stop', '_miss'],
         priority: 74,
       ),
 

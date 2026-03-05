@@ -3226,7 +3226,6 @@ SlotPriority _resolveSlotPriority(String stage) {
       s == 'PAYLINE_HIGHLIGHT' ||
       s == 'WIN_SYMBOL_HIGHLIGHT' || s.startsWith('WIN_SYMBOL_HIGHLIGHT_') ||
       s == 'EVALUATE_WINS' ||
-      s == 'ANTICIPATION_ON' || s == 'ANTICIPATION_OFF' ||
       s.startsWith('ANTICIPATION_') ||
       s.startsWith('SYMBOL_LAND')) {
     return SlotPriority.p0;
@@ -3303,9 +3302,8 @@ class _BaseGameLoopSection extends _SectionConfig {
 
     // Anticipation: basic always, per-reel filtered
     final anticSlots = <_SlotConfig>[
-      const _SlotConfig(stage: 'ANTICIPATION_ON', label: 'Antic Start (Fallback)'),
-      const _SlotConfig(stage: 'ANTICIPATION_OFF', label: 'Antic End'),
-      const _SlotConfig(stage: 'ANTICIPATION_TENSION', label: 'Antic Tension (Fallback)'),
+      const _SlotConfig(stage: 'ANTICIPATION_TENSION', label: 'Anticipation (Global)'),
+      const _SlotConfig(stage: 'ANTICIPATION_MISS', label: 'Anticipation Miss'),
       // Per-reel tension (R index is reel-1, anticipation starts from reel 2)
       for (int r = 1; r < rc; r++)
         _SlotConfig(stage: 'ANTICIPATION_TENSION_R$r', label: 'Reel ${r + 1} Tension'),
@@ -3313,9 +3311,6 @@ class _BaseGameLoopSection extends _SectionConfig {
       for (int r = 1; r < rc; r++)
         for (int l = 1; l <= r; l++)
           _SlotConfig(stage: 'ANTICIPATION_TENSION_R${r}_L$l', label: 'R${r + 1} Level $l'),
-      const _SlotConfig(stage: 'ANTICIPATION_LOOP', label: 'Antic Loop'),
-      const _SlotConfig(stage: 'ANTICIPATION_HEARTBEAT', label: 'Heartbeat'),
-      const _SlotConfig(stage: 'ANTICIPATION_RESOLVE', label: 'Resolve'),
     ];
 
     // Near-miss: generic + per-reel filtered
@@ -4937,16 +4932,12 @@ class _AnticipationSection extends _SectionConfig {
   @override
   List<_GroupConfig> get groups => const [
     _GroupConfig(
-      id: 'sequential',
-      title: 'Sequential Anticipation',
+      id: 'anticipation',
+      title: 'Anticipation',
       icon: '🔢',
       slots: [
-        _SlotConfig(stage: 'ANTICIPATION_ON', label: 'Anticipation On'),
-        _SlotConfig(stage: 'ANTICIPATION_1', label: 'Anticipation 1'),
-        _SlotConfig(stage: 'ANTICIPATION_2', label: 'Anticipation 2'),
-        _SlotConfig(stage: 'ANTICIPATION_3', label: 'Anticipation 3'),
-        _SlotConfig(stage: 'ANTICIPATION_OFF', label: 'Anticipation Off'),
-        _SlotConfig(stage: 'ANTICIPATION_LOOP', label: 'Anticipation Loop'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION', label: 'Tension (Global)'),
+        _SlotConfig(stage: 'ANTICIPATION_MISS', label: 'Anticipation Miss'),
       ],
     ),
     _GroupConfig(
@@ -4954,12 +4945,10 @@ class _AnticipationSection extends _SectionConfig {
       title: 'Tension Per-Reel',
       icon: '📈',
       slots: [
-        _SlotConfig(stage: 'ANTICIPATION_TENSION', label: 'Tension (Global)'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R1', label: 'Tension Reel 1'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R2', label: 'Tension Reel 2'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3', label: 'Tension Reel 3'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4', label: 'Tension Reel 4'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R5', label: 'Tension Reel 5'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R1', label: 'Tension Reel 2'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R2', label: 'Tension Reel 3'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3', label: 'Tension Reel 4'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4', label: 'Tension Reel 5'),
       ],
     ),
     _GroupConfig(
@@ -4967,29 +4956,24 @@ class _AnticipationSection extends _SectionConfig {
       title: 'Tension Levels',
       icon: '🎚️',
       slots: [
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R1_L1', label: 'R1 Level 1'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R1_L2', label: 'R1 Level 2'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R2_L1', label: 'R2 Level 1'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R2_L2', label: 'R2 Level 2'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R2_L3', label: 'R2 Level 3'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3_L1', label: 'R3 Level 1'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3_L2', label: 'R3 Level 2'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3_L3', label: 'R3 Level 3'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3_L4', label: 'R3 Level 4'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L1', label: 'R4 Level 1'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L2', label: 'R4 Level 2'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L3', label: 'R4 Level 3'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L4', label: 'R4 Level 4'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R1_L1', label: 'R2 Level 1'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R2_L1', label: 'R3 Level 1'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R2_L2', label: 'R3 Level 2'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3_L1', label: 'R4 Level 1'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3_L2', label: 'R4 Level 2'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3_L3', label: 'R4 Level 3'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L1', label: 'R5 Level 1'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L2', label: 'R5 Level 2'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L3', label: 'R5 Level 3'),
+        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L4', label: 'R5 Level 4'),
       ],
     ),
     _GroupConfig(
       id: 'near_miss',
-      title: 'Near Miss & Effects',
+      title: 'Near Miss',
       icon: '🎯',
       slots: [
         _SlotConfig(stage: 'NEAR_MISS', label: 'Near Miss'),
-        _SlotConfig(stage: 'ANTICIPATION_HEARTBEAT', label: 'Heartbeat'),
-        _SlotConfig(stage: 'ANTICIPATION_RESOLVE', label: 'Resolve'),
       ],
     ),
   ];

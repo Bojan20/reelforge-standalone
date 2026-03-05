@@ -725,11 +725,11 @@ fn parse_stage_string(s: &str) -> Option<Stage> {
         }
 
         // Anticipation
-        "ANTICIPATION_ON" | "ANTICIPATION_START" => Some(Stage::AnticipationOn {
+        "ANTICIPATION_TENSION" | "ANTICIPATION_ON" | "ANTICIPATION_START" => Some(Stage::AnticipationOn {
             reel_index: 0,
             reason: None,
         }),
-        "ANTICIPATION_OFF" | "ANTICIPATION_END" => Some(Stage::AnticipationOff { reel_index: 0 }),
+        "ANTICIPATION_MISS" | "ANTICIPATION_OFF" | "ANTICIPATION_END" => Some(Stage::AnticipationOff { reel_index: 0 }),
 
         // Wins
         "EVALUATE_WINS" | "WIN_EVAL" => Some(Stage::EvaluateWins),
@@ -789,13 +789,13 @@ fn parse_stage_string(s: &str) -> Option<Stage> {
                     reel_index: idx as u8,
                 });
             }
-            if let Some(idx) = parse_indexed_stage(&normalized, "ANTICIPATION_ON") {
+            if let Some(idx) = parse_indexed_stage(&normalized, "ANTICIPATION_TENSION") {
                 return Some(Stage::AnticipationOn {
                     reel_index: idx as u8,
                     reason: None,
                 });
             }
-            if let Some(idx) = parse_indexed_stage(&normalized, "ANTICIPATION_OFF") {
+            if let Some(idx) = parse_indexed_stage(&normalized, "ANTICIPATION_MISS") {
                 return Some(Stage::AnticipationOff {
                     reel_index: idx as u8,
                 });

@@ -982,13 +982,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     'ROLLUP_END',
     'ROLLUP_SKIP',
     // ─── ANTICIPATION ───
-    'ANTICIPATION_ON',
-    'ANTICIPATION_OFF',
-    'ANTICIPATION_REEL_0',
-    'ANTICIPATION_REEL_1',
-    'ANTICIPATION_REEL_2',
-    'ANTICIPATION_REEL_3',
-    'ANTICIPATION_REEL_4',
+    'ANTICIPATION_TENSION',
+    'ANTICIPATION_TENSION_R1',
+    'ANTICIPATION_TENSION_R2',
+    'ANTICIPATION_TENSION_R3',
+    'ANTICIPATION_TENSION_R4',
+    'ANTICIPATION_MISS',
     // ─── FEATURES ───
     'FEATURE_ENTER',
     'FEATURE_STEP',
@@ -1062,7 +1061,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       'REEL_STOP_0', 'REEL_STOP_1', 'REEL_STOP_2', 'REEL_STOP_3', 'REEL_STOP_4',
       'WIN_PRESENT_1', 'WIN_PRESENT_3', 'WIN_PRESENT_5',
       'BIG_WIN_TIER_1', 'BIG_WIN_TIER_3', 'BIG_WIN_TIER_5',
-      'ANTICIPATION_ON', 'FEATURE_ENTER', 'BONUS_ENTER',
+      'ANTICIPATION_TENSION', 'FEATURE_ENTER', 'BONUS_ENTER',
       'ROLLUP_TICK', 'ROLLUP_END',
     }.contains(stage);
   }
@@ -1099,7 +1098,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     return switch (category) {
       'spin' => 'SPIN_START',
       'reelstop' => 'REEL_STOP',
-      'anticipation' => 'ANTICIPATION_ON',
+      'anticipation' => 'ANTICIPATION_TENSION',
       'win' => 'WIN_PRESENT_1',
       'bigwin' => 'BIG_WIN_TIER_1',
       'feature' => 'FEATURE_ENTER',

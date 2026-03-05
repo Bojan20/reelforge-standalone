@@ -394,7 +394,7 @@ class TestCombinatorService {
     if (conditions.containsKey(TestDimension.anticipation)) {
       final anticipation = conditions[TestDimension.anticipation] as AnticipationTest;
       if (anticipation != AnticipationTest.none) {
-        stages.addAll(['ANTICIPATION_ON', 'ANTICIPATION_OFF']);
+        stages.addAll(['ANTICIPATION_TENSION', 'ANTICIPATION_MISS']);
       }
     }
 

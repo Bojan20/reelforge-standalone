@@ -1245,7 +1245,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
               }
             }
 
-            // Start first reel in sequence — triggers ANTICIPATION_1 audio
+            // Start first reel in sequence — triggers ANTICIPATION_TENSION_R* audio
             _startNextSequentialAnticipationReel();
           }
         }
@@ -1285,35 +1285,21 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _startSequentialReelAnticipation(nextReel, tensionLevel);
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // SEQUENTIAL ANTICIPATION AUDIO — Each anticipation gets its own index
-    // ANTICIPATION_1 (1st reel), ANTICIPATION_2 (2nd reel), ANTICIPATION_3 (3rd reel)
-    // Fallback cascade: ANTICIPATION_3 → ANTICIPATION → ANTICIPATION_ON
-    // This allows designers to assign different audio per anticipation order:
-    //   ANTICIPATION_1 = short buildup, ANTICIPATION_2 = medium, ANTICIPATION_3 = long
+    // SEQUENTIAL ANTICIPATION AUDIO — Per-reel tension with level
+    // Fallback: ANTICIPATION_TENSION_R2_L3 → ANTICIPATION_TENSION_R2 → ANTICIPATION_TENSION
     // ═══════════════════════════════════════════════════════════════════════════
 
     // Stop previous anticipation audio to prevent phase cancellation/overlap
-    if (seqIdx > 1) {
-      for (int prev = 1; prev < seqIdx; prev++) {
-        eventRegistry.stopEvent('ANTICIPATION_$prev');
-      }
-    }
-    // Also stop per-reel tension stages from previous anticipation reels
     for (final prevReel in _anticipationReels) {
       if (prevReel != nextReel) {
         for (int l = 1; l <= 4; l++) {
           eventRegistry.stopEvent('ANTICIPATION_TENSION_R${prevReel}_L$l');
         }
+        eventRegistry.stopEvent('ANTICIPATION_TENSION_R$prevReel');
       }
     }
 
-    eventRegistry.triggerStage('ANTICIPATION_$seqIdx', context: {
-      'reel_index': nextReel,
-      'tension_level': tensionLevel,
-      'anticipation_index': seqIdx,
-    });
-
-    // Also trigger per-reel tension stage for fine-grained control
+    // Trigger per-reel tension stage with level
     eventRegistry.triggerStage('ANTICIPATION_TENSION_R${nextReel}_L$tensionLevel', context: {
       'reel_index': nextReel,
       'tension_level': tensionLevel,
@@ -1380,7 +1366,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _reelAnimController.setReelSpeedMultiplier(reelIndex, 1.0);
 
     // Trigger per-reel anticipation off
-    eventRegistry.triggerStage('ANTICIPATION_OFF_$reelIndex', context: {'reel_index': reelIndex});
+    eventRegistry.triggerStage('ANTICIPATION_MISS', context: {'reel_index': reelIndex});
 
     setState(() {
       _anticipationReels.remove(reelIndex);
@@ -1576,15 +1562,14 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // matching would match stages like "REEL_STOP_0" (contains no "anticipation"
     // but the fallback _startAnticipation always targeted reels 3,4).
     //
-    // Now anticipation ONLY triggers when Rust engine sends ANTICIPATION_ON
+    // Now anticipation ONLY triggers when Rust engine sends ANTICIPATION_TENSION
     // (i.e., when 2+ scatters are detected on allowed reels).
     // ═══════════════════════════════════════════════════════════════════════════
     if (isPlaying && stages.isNotEmpty) {
-      // Safety net: Stop anticipation if ANTICIPATION_OFF stage arrives
-      // (in case provider callback doesn't fire)
+      // Safety net: Stop anticipation if ANTICIPATION_MISS stage arrives
       final anticipationOff = stages.any((s) {
         final stage = s.stageType.toUpperCase();
-        return stage == 'ANTICIPATION_OFF' || stage.startsWith('ANTICIPATION_OFF_');
+        return stage == 'ANTICIPATION_MISS';
       });
       if (anticipationOff && _isAnticipation) {
         _stopAnticipation();
@@ -3404,7 +3389,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
         if (elapsed >= _anticipationDurationMs) {
           timer.cancel();
-          // Don't auto-end - wait for provider's ANTICIPATION_OFF callback
+          // Don't auto-end - wait for provider's ANTICIPATION_MISS callback
         }
       },
     );

@@ -1801,7 +1801,7 @@ void main() {
     });
 
     test('anticipation tension fallback chain is well-formed', () {
-      // ANTICIPATION_TENSION_R2_L3 → ANTICIPATION_TENSION_R2 → ANTICIPATION_TENSION → ANTICIPATION_ON
+      // ANTICIPATION_TENSION_R2_L3 → ANTICIPATION_TENSION_R2 → ANTICIPATION_TENSION
       final fullPattern = RegExp(r'^ANTICIPATION_TENSION_R(\d+)_L(\d+)$');
       final reelOnlyPattern = RegExp(r'^ANTICIPATION_TENSION_R\d+$');
 

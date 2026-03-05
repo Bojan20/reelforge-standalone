@@ -1405,8 +1405,8 @@ class GddImportService {
         'SCATTER_LAND',
         'SCATTER_LAND_2',
         'SCATTER_LAND_3',
-        'ANTICIPATION_ON',
-        'ANTICIPATION_OFF',
+        'ANTICIPATION_TENSION',
+        'ANTICIPATION_MISS',
       ]);
     }
 

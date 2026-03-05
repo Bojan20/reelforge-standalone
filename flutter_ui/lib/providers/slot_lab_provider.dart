@@ -1278,7 +1278,7 @@ class SlotLabProvider extends ChangeNotifier {
   }
 
   /// P0.3: Extract reel index from stage type
-  /// Examples: "ANTICIPATION_ON_3" → 3, "ANTICIPATION_OFF" → 0, "ANTICIPATION_ON" → 0
+  /// Examples: "ANTICIPATION_TENSION_3" → 3, "ANTICIPATION_MISS" → 0
   int _extractReelIndexFromStage(String stageType) {
     final parts = stageType.split('_');
     if (parts.length >= 3) {
@@ -1292,7 +1292,7 @@ class SlotLabProvider extends ChangeNotifier {
   /// Calculate near miss rate from stages
   double _calculateNearMissRate() {
     final anticipations = _lastStages.where((s) =>
-        s.stageType.toUpperCase() == 'ANTICIPATION_ON').length;
+        s.stageType.toUpperCase().startsWith('ANTICIPATION_TENSION')).length;
     // More anticipations = higher near miss rate
     return (anticipations / 5.0).clamp(0.0, 1.0);
   }
@@ -1458,12 +1458,10 @@ class SlotLabProvider extends ChangeNotifier {
     // ═══════════════════════════════════════════════════════════════════════════
     // P1.2: NEAR MISS AUDIO ESCALATION — Intensity-based anticipation (legacy)
     // ═══════════════════════════════════════════════════════════════════════════
-    else if (stageType == 'ANTICIPATION_ON') {
+    else if (stageType == 'ANTICIPATION_TENSION') {
       final escalationResult = _calculateAnticipationEscalation(stage);
       effectiveStage = escalationResult.effectiveStage;
       context['volumeMultiplier'] = escalationResult.volumeMultiplier;
-      if (escalationResult.effectiveStage != 'ANTICIPATION_ON') {
-      }
     }
 
     // Debug: Show all registered stages
@@ -1513,7 +1511,7 @@ class SlotLabProvider extends ChangeNotifier {
       } else if (eventRegistry.hasEventForStage('ANTICIPATION_HIGH')) {
         effectiveStage = 'ANTICIPATION_HIGH';
       } else {
-        effectiveStage = 'ANTICIPATION_ON';
+        effectiveStage = 'ANTICIPATION_TENSION';
       }
       volumeMultiplier = 1.0;
     } else if (combinedIntensity >= 0.5) {
@@ -1521,12 +1519,12 @@ class SlotLabProvider extends ChangeNotifier {
       if (eventRegistry.hasEventForStage('ANTICIPATION_HIGH')) {
         effectiveStage = 'ANTICIPATION_HIGH';
       } else {
-        effectiveStage = 'ANTICIPATION_ON';
+        effectiveStage = 'ANTICIPATION_TENSION';
       }
       volumeMultiplier = 0.9;
     } else {
       // Medium tension - use default
-      effectiveStage = 'ANTICIPATION_ON';
+      effectiveStage = 'ANTICIPATION_TENSION';
       volumeMultiplier = 0.7 + (combinedIntensity * 0.3); // 0.7 to 0.85
     }
 
@@ -1604,16 +1602,15 @@ class SlotLabProvider extends ChangeNotifier {
     if (_useVisualSyncForReelStop && (stageType == 'REEL_STOP' || stageType == 'REEL_SPIN_LOOP')) {
       return; // Visual callback in slot_preview_widget.dart will handle this
     }
-    // ANTICIPATION_ON — visual sync: slot_preview_widget triggers ANTICIPATION_1/2/3
-    // sequentially (per-reel order). Skip engine path to prevent duplicate audio.
-    if (_useVisualSyncForReelStop && stageType.startsWith('ANTICIPATION_ON')) {
-      // Still invoke visual callbacks for dimming/slow effects
+    // ANTICIPATION_TENSION — visual sync: slot_preview_widget triggers per-reel tension.
+    // Skip engine path to prevent duplicate audio.
+    if (_useVisualSyncForReelStop && stageType.startsWith('ANTICIPATION_TENSION')) {
       final reelIdx = _extractReelIndexFromStage(stageType);
       final reason = stage.payload['reason'] as String? ??
           stage.rawStage['reason'] as String? ?? 'scatter';
       final tensionLevel = reelIdx.clamp(1, 4);
       onAnticipationStart?.call(reelIdx, reason, tensionLevel: tensionLevel);
-      return; // Audio handled by slot_preview_widget ANTICIPATION_1/2/3
+      return;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1661,20 +1658,16 @@ class SlotLabProvider extends ChangeNotifier {
     // ═══════════════════════════════════════════════════════════════════════════
     // P0.3: ANTICIPATION VISUAL-AUDIO SYNC — Invoke callbacks for synchronized visuals
     // Callbacks notify UI to dim background and slow reel animation at SAME TIME as audio
-    // Includes per-reel variants (ANTICIPATION_ON_0, etc.)
     // ═══════════════════════════════════════════════════════════════════════════
-    if (stageType.startsWith('ANTICIPATION_ON')) {
+    if (stageType.startsWith('ANTICIPATION_TENSION')) {
       final reelIdx = _extractReelIndexFromStage(stageType);
       final reason = stage.payload['reason'] as String? ??
           stage.rawStage['reason'] as String? ?? 'scatter';
-      // Calculate tension level based on reel position: R1=L1, R2=L2, etc. (max L4)
       final tensionLevel = reelIdx.clamp(1, 4);
       onAnticipationStart?.call(reelIdx, reason, tensionLevel: tensionLevel);
-      // Continue to trigger audio below (don't return)
-    } else if (stageType.startsWith('ANTICIPATION_OFF')) {
+    } else if (stageType == 'ANTICIPATION_MISS') {
       final reelIdx = _extractReelIndexFromStage(stageType);
       onAnticipationEnd?.call(reelIdx);
-      // Continue to trigger audio below (don't return)
     }
 
     // Simplified debug - only show stage name, skip per-reel spam for REEL_SPINNING
@@ -1733,7 +1726,7 @@ class SlotLabProvider extends ChangeNotifier {
       context['tensionLevel'] = tensionLevel;
       context['progress'] = progress;
 
-      // Invoke visual callback for anticipation start (if not already invoked by ANTICIPATION_ON)
+      // Invoke visual callback for anticipation start
       if (progress == 0.0) {
         onAnticipationStart?.call(reelIdx, reason, tensionLevel: tensionLevel);
       }
@@ -1744,12 +1737,10 @@ class SlotLabProvider extends ChangeNotifier {
     // ═══════════════════════════════════════════════════════════════════════════
     // P1.2: NEAR MISS AUDIO ESCALATION — Intensity-based anticipation (legacy)
     // ═══════════════════════════════════════════════════════════════════════════
-    else if (stageType == 'ANTICIPATION_ON') {
+    else if (stageType == 'ANTICIPATION_TENSION') {
       final escalationResult = _calculateAnticipationEscalation(stage);
       effectiveStage = escalationResult.effectiveStage;
       context['volumeMultiplier'] = escalationResult.volumeMultiplier;
-      if (escalationResult.effectiveStage != 'ANTICIPATION_ON') {
-      }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

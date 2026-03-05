@@ -16,8 +16,8 @@ const List<String> _canonicalStages = [
   'REEL_STOP_2',
   'REEL_STOP_3',
   'REEL_STOP_4',
-  'ANTICIPATION_ON',
-  'ANTICIPATION_OFF',
+  'ANTICIPATION_TENSION',
+  'ANTICIPATION_MISS',
   'WIN_PRESENT',
   'WIN_SMALL',
   'WIN_BIG',
@@ -136,8 +136,8 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
 
     // Anticipation
     if (lower.contains('anticipation')) {
-      if (lower.contains('off') || lower.contains('end')) return 'ANTICIPATION_OFF';
-      return 'ANTICIPATION_ON';
+      if (lower.contains('off') || lower.contains('end') || lower.contains('miss')) return 'ANTICIPATION_MISS';
+      return 'ANTICIPATION_TENSION';
     }
 
     // Rollup

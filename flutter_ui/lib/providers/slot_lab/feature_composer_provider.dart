@@ -286,7 +286,7 @@ const List<ComposedStage> _engineCoreStages = [
 
   // ═══ Anticipation & Near Miss ═══
   ComposedStage(
-    id: 'ANTICIPATION_ON', displayName: 'Anticipation On',
+    id: 'ANTICIPATION_TENSION', displayName: 'Anticipation Tension',
     layer: StageLayer.engineCore, locked: true, sortOrder: 39,
     hooks: ['onAnticipation'], suggestedBus: 'sfx', priority: 'P0',
   ),

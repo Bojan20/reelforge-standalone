@@ -5886,19 +5886,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   /// Called when second-to-last reel stops
   void _checkAnticipation() {
     // ═══════════════════════════════════════════════════════════════════════
-    // ANTICIPATION_ON — DISABLED: Engine generates ANTICIPATION stages with
-    // correct timestamps. Visual-sync timing causes mismatch/duplicates.
-    // See: crates/rf-slot-lab/src/spin.rs:170 — Stage::AnticipationOn
-    // ═══════════════════════════════════════════════════════════════════════
-    // final result = _pendingResultForWinStage;
-    // if (result == null) return;
-    //
-    // final tier = _winTierFromEngine(result.bigWinTier) ?? _getWinTier(result.totalWin);
-    // final shouldAnticipate = tier == 'EPIC' || tier == 'ULTRA' || tier == 'MEGA';
-    //
-    // if (shouldAnticipate) {
-    //   eventRegistry.triggerStage('ANTICIPATION_ON');
-    // }
+    // ANTICIPATION_TENSION — DISABLED: Engine generates ANTICIPATION_TENSION stages
+    // with correct timestamps. Visual-sync timing causes mismatch/duplicates.
+    // See: crates/rf-slot-lab/src/spin.rs — Stage::AnticipationOn
   }
 
   /// Called when ALL reels have visually stopped
@@ -6346,20 +6336,15 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   /// Called from STOP button to prevent lingering anticipation sounds.
   void _stopAnticipationAudio() {
     final er = EventRegistry.instance;
-    // Stop sequential anticipation stages (ANTICIPATION_1, ANTICIPATION_2, ...)
-    for (int i = 1; i <= 10; i++) {
-      er.stopEvent('ANTICIPATION_$i');
-    }
     // Stop per-reel tension stages (all reels × all levels)
     for (int reel = 0; reel < 7; reel++) {
+      er.stopEvent('ANTICIPATION_TENSION_R$reel');
       for (int l = 1; l <= 4; l++) {
         er.stopEvent('ANTICIPATION_TENSION_R${reel}_L$l');
       }
     }
-    // Stop generic anticipation events
-    er.stopEvent('ANTICIPATION');
-    er.stopEvent('ANTICIPATION_START');
-    er.stopEvent('ANTICIPATION_END');
+    er.stopEvent('ANTICIPATION_TENSION');
+    er.stopEvent('ANTICIPATION_MISS');
   }
 
   void _handleMaxBet() {

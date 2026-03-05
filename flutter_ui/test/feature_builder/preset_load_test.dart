@@ -233,7 +233,7 @@ void main() {
       final result = provider.generateStages();
       final stageNames = result.stages.map((s) => s.name).toList();
 
-      expect(stageNames.contains('ANTICIPATION_ON'), isFalse);
+      expect(stageNames.contains('ANTICIPATION_TENSION'), isFalse);
       expect(stageNames.contains('ANTICIPATION_TENSION'), isFalse);
       expect(stageNames.any((s) => s.contains('_L4')), isFalse);
     });
