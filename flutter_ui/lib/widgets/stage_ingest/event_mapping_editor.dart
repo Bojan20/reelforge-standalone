@@ -7,7 +7,7 @@ import '../../providers/stage_ingest_provider.dart';
 
 /// Canonical stage types for mapping
 const List<String> _canonicalStages = [
-  'SPIN_START',
+  'UI_SPIN_PRESS',
   'SPIN_END',
   'REEL_SPINNING',
   'REEL_STOP',
@@ -84,7 +84,7 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
 
     // Spin events
     if (lower.contains('spin_start') || lower.contains('spinstart') || lower == 'spin') {
-      return 'SPIN_START';
+      return 'UI_SPIN_PRESS';
     }
     if (lower.contains('spin_end') || lower.contains('spinend') || lower.contains('result')) {
       return 'SPIN_END';

@@ -51,7 +51,7 @@ enum StageFlowNodeType {
 
 /// Layer determines editability constraints.
 enum FlowLayer {
-  /// Layer 1: Engine Core — SPIN_START through SPIN_END
+  /// Layer 1: Engine Core — UI_SPIN_PRESS through SPIN_END
   /// LOCKED — cannot be deleted or reordered relative to other engineCore nodes
   engineCore,
 

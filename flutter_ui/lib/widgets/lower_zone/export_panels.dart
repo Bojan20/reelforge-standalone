@@ -1788,7 +1788,7 @@ class _SlotLabEventDataExportPanelState extends State<SlotLabEventDataExportPane
   }
 
   List<SlotLabEventItem> _getDefaultEvents() => [
-    SlotLabEventItem(id: '1', name: 'SPIN_START', stage: 'SPIN_START', selected: true),
+    SlotLabEventItem(id: '1', name: 'UI_SPIN_PRESS', stage: 'UI_SPIN_PRESS', selected: true),
     SlotLabEventItem(id: '2', name: 'REEL_SPIN', stage: 'REEL_SPIN', selected: true),
     SlotLabEventItem(id: '3', name: 'REEL_STOP', stage: 'REEL_STOP', selected: true),
     SlotLabEventItem(id: '4', name: 'WIN_SMALL', stage: 'WIN_SMALL', selected: true),
@@ -2389,7 +2389,7 @@ class _SlotLabBatchExportPanelState extends State<SlotLabBatchExportPanel> {
   }
 
   List<SlotLabEventItem> _getDefaultEvents() => [
-    SlotLabEventItem(id: '1', name: 'SPIN_START', stage: 'SPIN_START', selected: true),
+    SlotLabEventItem(id: '1', name: 'UI_SPIN_PRESS', stage: 'UI_SPIN_PRESS', selected: true),
     SlotLabEventItem(id: '2', name: 'REEL_SPIN', stage: 'REEL_SPIN', selected: true),
     SlotLabEventItem(id: '3', name: 'REEL_STOP', stage: 'REEL_STOP', selected: true),
     SlotLabEventItem(id: '4', name: 'WIN_SMALL', stage: 'WIN_SMALL', selected: true),
@@ -2950,7 +2950,7 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
   }
 
   List<SlotLabEventItem> _getDefaultEvents() => [
-    SlotLabEventItem(id: '1', name: 'SPIN_START', stage: 'SPIN_START', selected: true),
+    SlotLabEventItem(id: '1', name: 'UI_SPIN_PRESS', stage: 'UI_SPIN_PRESS', selected: true),
     SlotLabEventItem(id: '2', name: 'REEL_SPIN', stage: 'REEL_SPIN', selected: true),
     SlotLabEventItem(id: '3', name: 'REEL_STOP', stage: 'REEL_STOP', selected: true),
     SlotLabEventItem(id: '4', name: 'WIN_SMALL', stage: 'WIN_SMALL', selected: true),

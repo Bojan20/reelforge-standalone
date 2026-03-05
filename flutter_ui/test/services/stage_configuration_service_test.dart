@@ -50,7 +50,7 @@ void main() {
 
   group('Priority mapping', () {
     test('SPIN_START has medium-high priority', () {
-      final p = service.getPriority('SPIN_START');
+      final p = service.getPriority('UI_SPIN_PRESS');
       expect(p, greaterThanOrEqualTo(40));
       expect(p, lessThanOrEqualTo(80));
     });
@@ -94,7 +94,7 @@ void main() {
     });
 
     test('SPIN_START maps to sfx bus', () {
-      final bus = service.getBus('SPIN_START');
+      final bus = service.getBus('UI_SPIN_PRESS');
       expect(bus, SpatialBus.sfx);
     });
 
@@ -142,7 +142,7 @@ void main() {
     });
 
     test('SPIN_START is NOT pooled', () {
-      expect(service.isPooled('SPIN_START'), false);
+      expect(service.isPooled('UI_SPIN_PRESS'), false);
     });
 
     test('JACKPOT_TRIGGER is NOT pooled', () {
@@ -178,7 +178,7 @@ void main() {
     });
 
     test('SPIN_START is NOT looping', () {
-      expect(service.isLooping('SPIN_START'), false);
+      expect(service.isLooping('UI_SPIN_PRESS'), false);
     });
 
     test('REEL_STOP is NOT looping', () {
@@ -219,22 +219,22 @@ void main() {
 
     test('default stage takes precedence over custom with same name', () {
       // SPIN_START exists in default _stages with priority 70
-      final defaultPriority = service.getPriority('SPIN_START');
+      final defaultPriority = service.getPriority('UI_SPIN_PRESS');
       expect(defaultPriority, 70);
 
       // registerCustomStage stores in _customStages, but getStage()
       // checks _stages first, so the default stage takes precedence
       service.registerCustomStage(const StageDefinition(
-        name: 'SPIN_START',
+        name: 'UI_SPIN_PRESS',
         category: StageCategory.spin,
         priority: 99,
       ));
 
       // Default still wins because _stages is checked before _customStages
-      expect(service.getPriority('SPIN_START'), defaultPriority);
+      expect(service.getPriority('UI_SPIN_PRESS'), defaultPriority);
 
       // Cleanup
-      service.removeCustomStage('SPIN_START');
+      service.removeCustomStage('UI_SPIN_PRESS');
     });
   });
 

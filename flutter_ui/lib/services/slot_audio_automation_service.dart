@@ -312,13 +312,13 @@ class SlotAudioAutomationService {
       confidence = 0.8;
 
       if (baseName.contains('start') || baseName.contains('press') || baseName.contains('click')) {
-        suggestedStage = 'SPIN_START';
+        suggestedStage = 'UI_SPIN_PRESS';
         phase = StagePhase.start;
       } else if (baseName.contains('stop') || baseName.contains('end')) {
         suggestedStage = 'SPIN_END';
         phase = StagePhase.end;
       } else {
-        suggestedStage = 'SPIN_START';
+        suggestedStage = 'UI_SPIN_PRESS';
       }
     }
 
@@ -967,7 +967,7 @@ class SlotAudioAutomationService {
       description: 'Essential spin cycle: start → spin loop → reel stops',
       category: FlowCategory.spin,
       stages: [
-        FlowTemplateStage(stage: 'SPIN_START', bus: 'sfx', expectedAssetType: AssetCategory.spin, hint: 'Button press / spin initiate'),
+        FlowTemplateStage(stage: 'UI_SPIN_PRESS', bus: 'sfx', expectedAssetType: AssetCategory.spin, hint: 'Button press / spin initiate'),
         FlowTemplateStage(stage: 'REEL_SPIN_LOOP', bus: 'reels', expectedAssetType: AssetCategory.reelSpin, hint: 'Looping reel spin sound'),
         FlowTemplateStage(stage: 'REEL_STOP_0', bus: 'reels', expectedAssetType: AssetCategory.reelStop, defaultPan: -0.8, hint: 'First reel stop'),
         FlowTemplateStage(stage: 'REEL_STOP_1', bus: 'reels', expectedAssetType: AssetCategory.reelStop, defaultPan: -0.4, hint: 'Second reel stop'),
@@ -983,7 +983,7 @@ class SlotAudioAutomationService {
       description: 'Full spin cycle with anticipation and win evaluation',
       category: FlowCategory.spin,
       stages: [
-        FlowTemplateStage(stage: 'SPIN_START', bus: 'sfx', expectedAssetType: AssetCategory.spin),
+        FlowTemplateStage(stage: 'UI_SPIN_PRESS', bus: 'sfx', expectedAssetType: AssetCategory.spin),
         FlowTemplateStage(stage: 'REEL_SPIN_LOOP', bus: 'reels', expectedAssetType: AssetCategory.reelSpin),
         FlowTemplateStage(stage: 'ANTICIPATION_START', bus: 'sfx', expectedAssetType: AssetCategory.feature, isOptional: true),
         FlowTemplateStage(stage: 'REEL_STOP_0', bus: 'reels', expectedAssetType: AssetCategory.reelStop, defaultPan: -0.8),

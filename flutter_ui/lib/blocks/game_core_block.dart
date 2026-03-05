@@ -287,7 +287,7 @@ class GameCoreBlock extends FeatureBlockBase {
   @override
   List<GeneratedStage> generateStages() => [
         GeneratedStage(
-          name: 'SPIN_START',
+          name: 'UI_SPIN_PRESS',
           description: 'Spin button pressed, reels start spinning',
           bus: 'ui',
           priority: 80,
@@ -329,7 +329,7 @@ class GameCoreBlock extends FeatureBlockBase {
   @override
   String getBusForStage(String stageName) {
     switch (stageName) {
-      case 'SPIN_START':
+      case 'UI_SPIN_PRESS':
         return 'ui';
       case 'SPIN_END':
         return 'sfx';
@@ -345,7 +345,7 @@ class GameCoreBlock extends FeatureBlockBase {
   @override
   int getPriorityForStage(String stageName) {
     switch (stageName) {
-      case 'SPIN_START':
+      case 'UI_SPIN_PRESS':
         return 80;
       case 'SPIN_END':
         return 70;

@@ -906,7 +906,7 @@ Usage in SlotPreviewWidget:
 3. When spin starts:
    _animController.setTargetGrid(result.grid);
    _animController.startSpin();
-   eventRegistry.triggerStage('SPIN_START');
+   eventRegistry.triggerStage('UI_SPIN_PRESS');
 
 4. Build reels:
    for (int i = 0; i < 5; i++) {

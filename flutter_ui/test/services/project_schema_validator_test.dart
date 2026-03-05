@@ -710,7 +710,7 @@ void main() {
         final mappings = result.migratedData!['stage_audio_mappings'] as List;
         expect(mappings.length, equals(2));
         expect(
-          mappings.any((m) => (m as Map)['stage'] == 'SPIN_START'),
+          mappings.any((m) => (m as Map)['stage'] == 'UI_SPIN_PRESS'),
           isTrue,
         );
       });

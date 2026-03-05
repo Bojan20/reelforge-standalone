@@ -61,7 +61,7 @@ class TutorialSteps {
       instructions: [
         'Click the "+" button in the Events Panel (right side)',
         'Give your event a descriptive name (e.g., "Spin Button Click")',
-        'Select a target stage from the dropdown (e.g., SPIN_START)',
+        'Select a target stage from the dropdown (e.g., UI_SPIN_PRESS)',
         'Click "Create" to add the event',
       ],
       tips: [
@@ -248,7 +248,7 @@ class TutorialSteps {
           'Slot games follow a predictable sequence of stages. Each stage can trigger audio events.',
       instructions: [
         'Spin the reels and watch the Stage Trace panel',
-        'Observe the sequence: SPIN_START → REEL_STOP_0 → WIN_PRESENT',
+        'Observe the sequence: UI_SPIN_PRESS → REEL_STOP_0 → WIN_PRESENT',
         'Each stage is an audio trigger point',
         'Events are automatically matched to stages',
       ],

@@ -780,7 +780,7 @@ class BuiltInTestScenarios {
             name: 'Execute Spin',
             actions: [TestAction.spin()],
             assertions: [
-              TestAssertion.stageTriggered('SPIN_START'),
+              TestAssertion.stageTriggered('UI_SPIN_PRESS'),
               TestAssertion.stageTriggered('REEL_STOP'),
               TestAssertion.stageTriggered('SPIN_END'),
             ],

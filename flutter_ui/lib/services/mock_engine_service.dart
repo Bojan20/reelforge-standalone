@@ -144,7 +144,7 @@ class MockEventSequence {
       name: 'Normal Win',
       description: 'Standard spin with small win',
       events: [
-        MockStageEvent(stage: 'SPIN_START', timestampMs: now),
+        MockStageEvent(stage: 'UI_SPIN_PRESS', timestampMs: now),
         MockStageEvent(stage: 'REEL_SPIN', timestampMs: now + 100),
         MockStageEvent(stage: 'REEL_STOP_0', timestampMs: now + 600),
         MockStageEvent(stage: 'REEL_STOP_1', timestampMs: now + 800),
@@ -171,7 +171,7 @@ class MockEventSequence {
       name: 'Big Win',
       description: 'Spin with big win celebration',
       events: [
-        MockStageEvent(stage: 'SPIN_START', timestampMs: now),
+        MockStageEvent(stage: 'UI_SPIN_PRESS', timestampMs: now),
         MockStageEvent(stage: 'REEL_SPIN', timestampMs: now + 100),
         MockStageEvent(stage: 'ANTICIPATION_TENSION', timestampMs: now + 500),
         MockStageEvent(stage: 'REEL_STOP_0', timestampMs: now + 700),
@@ -200,7 +200,7 @@ class MockEventSequence {
       name: 'Free Spins Trigger',
       description: 'Scatter lands triggering free spins',
       events: [
-        MockStageEvent(stage: 'SPIN_START', timestampMs: now),
+        MockStageEvent(stage: 'UI_SPIN_PRESS', timestampMs: now),
         MockStageEvent(stage: 'REEL_SPIN', timestampMs: now + 100),
         MockStageEvent(stage: 'REEL_STOP_0', timestampMs: now + 600),
         MockStageEvent(stage: 'SCATTER_LAND', timestampMs: now + 650, data: {'reel': 0}),
@@ -227,7 +227,7 @@ class MockEventSequence {
       name: 'Cascade Win',
       description: 'Tumble mechanics with multiple cascades',
       events: [
-        MockStageEvent(stage: 'SPIN_START', timestampMs: now),
+        MockStageEvent(stage: 'UI_SPIN_PRESS', timestampMs: now),
         MockStageEvent(stage: 'REEL_SPIN', timestampMs: now + 100),
         MockStageEvent(stage: 'REEL_STOP_0', timestampMs: now + 600),
         MockStageEvent(stage: 'REEL_STOP_1', timestampMs: now + 800),
@@ -265,7 +265,7 @@ class MockEventSequence {
       name: 'Jackpot Grand',
       description: 'Grand jackpot win',
       events: [
-        MockStageEvent(stage: 'SPIN_START', timestampMs: now),
+        MockStageEvent(stage: 'UI_SPIN_PRESS', timestampMs: now),
         MockStageEvent(stage: 'REEL_SPIN', timestampMs: now + 100),
         MockStageEvent(stage: 'ANTICIPATION_TENSION', timestampMs: now + 400),
         MockStageEvent(stage: 'REEL_STOP_0', timestampMs: now + 800),
@@ -469,7 +469,7 @@ class MockEngineService {
     var time = 0.0;
 
     // SPIN_START
-    events.add(MockStageEvent(stage: 'SPIN_START', timestampMs: time));
+    events.add(MockStageEvent(stage: 'UI_SPIN_PRESS', timestampMs: time));
     time += _config.baseDelayMs;
 
     // REEL_SPIN

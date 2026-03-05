@@ -320,14 +320,14 @@ class _TemplateDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final templates = {
       'Create Event': '''-- Create a new event
-local result = fluxforge.createEvent("MyEvent", "SPIN_START")
+local result = fluxforge.createEvent("MyEvent", "UI_SPIN_PRESS")
 return result''',
       'Add Layers to Event': '''-- Add multiple layers to an event
 fluxforge.addLayer("evt_123", "/audio/spin.wav", 1.0, 0.0)
 fluxforge.addLayer("evt_123", "/audio/whoosh.wav", 0.8, -0.3)
 return "Layers added"''',
       'Trigger Multiple Stages': '''-- Trigger a sequence of stages
-fluxforge.triggerStage("SPIN_START")
+fluxforge.triggerStage("UI_SPIN_PRESS")
 fluxforge.triggerStage("REEL_STOP_0")
 fluxforge.triggerStage("REEL_STOP_1")
 return "Stages triggered"''',

@@ -37,7 +37,7 @@
 //
 // Features:
 // - Audio tracks timeline with drag & drop
-// - Stage markers ruler (SPIN_START, REEL_STOP, etc.)
+// - Stage markers ruler (UI_SPIN_PRESS, REEL_STOP, etc.)
 // - Composite events editor
 // - Bottom panel with Timeline, Bus, Profiler, RTPC, Resources, Aux tabs
 // - Shared audio pool integration with DAW/Middleware
@@ -875,7 +875,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     if (s.startsWith('JACKPOT_')) return 'jackpot';
     if (s.startsWith('HOLD_') || s.startsWith('RESPIN_')) return 'hold';
     if (s.startsWith('GAMBLE_')) return 'gamble';
-    if (s.startsWith('UI_') || s.startsWith('MENU_') || s.startsWith('BUTTON_')) return 'ui';
+    if (s.startsWith('UI_') || s.startsWith('BUTTON_')) return 'ui';
     if (s.startsWith('MUSIC_') || s.startsWith('AMBIENT_') || s.startsWith('BIG_WIN') || s == 'GAME_START' || s == 'BASE_GAME_START') return 'music';
     if (s.startsWith('SYMBOL_') || s.startsWith('WILD_') || s.startsWith('SCATTER_')) return 'symbol';
     if (s.startsWith('ANTICIPATION_') || s.startsWith('NEAR_MISS')) return 'anticipation';
@@ -940,7 +940,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // ═══════════════════════════════════════════════════════════════════════════
   static const List<String> _allStageOptions = [
     // ─── SPIN CYCLE (most common) ───
-    'SPIN_START',
     'REEL_SPIN',
     'REEL_STOP',
     'REEL_STOP_0',
@@ -1074,7 +1073,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// Check if stage is commonly used (for highlighting in dropdown)
   bool _isCommonStage(String stage) {
     return const {
-      'SPIN_START', 'REEL_SPIN', 'REEL_STOP',
+      'UI_SPIN_PRESS', 'REEL_SPIN', 'REEL_STOP',
       'REEL_STOP_0', 'REEL_STOP_1', 'REEL_STOP_2', 'REEL_STOP_3', 'REEL_STOP_4',
       'WIN_PRESENT_1', 'WIN_PRESENT_3', 'WIN_PRESENT_5',
       'BIG_WIN_TIER_1', 'BIG_WIN_TIER_3', 'BIG_WIN_TIER_5',
@@ -1113,7 +1112,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Fallback: derive stage from category (already UPPERCASE)
     final category = event.category.toLowerCase();
     return switch (category) {
-      'spin' => 'SPIN_START',
+      'spin' => 'UI_SPIN_PRESS',
       'reelstop' => 'REEL_STOP',
       'anticipation' => 'ANTICIPATION_TENSION',
       'win' => 'WIN_PRESENT_1',
@@ -7114,7 +7113,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       maxInstances: 1,
       createdAt: now,
       modifiedAt: now,
-      triggerStages: ['SPIN_START'],
+      triggerStages: ['UI_SPIN_PRESS'],
       triggerConditions: const {},
       timelinePositionMs: 0,
       trackIndex: 0,
@@ -10922,7 +10921,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   void _createCompositeEvent() {
     final controller = TextEditingController(text: 'Event ${_compositeEvents.length + 1}');
-    String selectedStage = 'SPIN_START';
+    String selectedStage = 'UI_SPIN_PRESS';
 
     showDialog(
       context: context,

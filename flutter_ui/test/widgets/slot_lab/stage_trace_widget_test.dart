@@ -166,7 +166,7 @@ void main() {
 
       test('should be case-insensitive', () {
         final color1 = StageConfig.instance.getColor('spin_start');
-        final color2 = StageConfig.instance.getColor('SPIN_START');
+        final color2 = StageConfig.instance.getColor('UI_SPIN_PRESS');
         final color3 = StageConfig.instance.getColor('Spin_Start');
 
         expect(color1, color2);
@@ -195,7 +195,7 @@ void main() {
 
       test('should be case-insensitive', () {
         final icon1 = StageConfig.instance.getIcon('spin_start');
-        final icon2 = StageConfig.instance.getIcon('SPIN_START');
+        final icon2 = StageConfig.instance.getIcon('UI_SPIN_PRESS');
 
         expect(icon1, icon2);
       });

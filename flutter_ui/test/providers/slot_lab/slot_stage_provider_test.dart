@@ -20,13 +20,13 @@ void main() {
       final event = PooledStageEvent();
 
       event.reset(
-        stageType: 'SPIN_START',
+        stageType: 'UI_SPIN_PRESS',
         timestampMs: 123.45,
         payload: {'key': 'value'},
         rawStage: {'type': 'spin_start'},
       );
 
-      expect(event.stageType, 'SPIN_START');
+      expect(event.stageType, 'UI_SPIN_PRESS');
       expect(event.timestampMs, 123.45);
       expect(event.payload, {'key': 'value'});
       expect(event.rawStage, {'type': 'spin_start'});
@@ -54,12 +54,12 @@ void main() {
       final event = PooledStageEvent();
 
       event.reset(
-        stageType: 'SPIN_START',
+        stageType: 'UI_SPIN_PRESS',
         timestampMs: 100.0,
         payload: {},
         rawStage: {},
       );
-      expect(event.stageType, 'SPIN_START');
+      expect(event.stageType, 'UI_SPIN_PRESS');
 
       event.release();
       expect(event.stageType, '');

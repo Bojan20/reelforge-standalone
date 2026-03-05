@@ -293,7 +293,7 @@ class SlotLabProvider extends ChangeNotifier {
   int _totalReels = 3; // Default 3×3 (matches Rust engine default)
 
   // ─── Reel Spinning State (for STOP button) ────────────────────────────────
-  /// True ONLY while reels are visually spinning (SPIN_START → all REEL_STOP)
+  /// True ONLY while reels are visually spinning (UI_SPIN_PRESS → all REEL_STOP)
   /// Used by STOP button - should NOT include win presentation phase
   bool _isReelsSpinning = false;
   bool _spinEndTriggered = false; // Guard: prevents double SPIN_END audio trigger
@@ -664,7 +664,7 @@ class SlotLabProvider extends ChangeNotifier {
   int get currentStageIndex => _currentStageIndex;
   bool get aleAutoSync => _aleAutoSync;
 
-  /// True ONLY while reels are visually spinning (SPIN_START → all REEL_STOP)
+  /// True ONLY while reels are visually spinning (UI_SPIN_PRESS → all REEL_STOP)
   /// Use this for STOP button visibility - does NOT include win presentation
   bool get isReelsSpinning => _isReelsSpinning;
 
@@ -1862,17 +1862,17 @@ class SlotLabProvider extends ChangeNotifier {
     // ═══════════════════════════════════════════════════════════════════════════
     // REEL SPINNING STATE — For STOP button visibility
     // ═══════════════════════════════════════════════════════════════════════════
-    if (stageType == 'SPIN_START') {
+    if (stageType == 'UI_SPIN_PRESS') {
       _isReelsSpinning = true;
       _spinEndTriggered = false; // Reset guard for new spin
       notifyListeners();
     }
 
-    // MUSIC AUTO-TRIGGER: Start base music / game start on SPIN_START
+    // MUSIC AUTO-TRIGGER: Start base music / game start on UI_SPIN_PRESS
     // FIX: Check if music is ACTUALLY playing (not just if we triggered it before).
     // Events Panel stopAll() or external interruption can stop music while flag stays true.
     // Now re-triggers music whenever it's not currently playing.
-    if (stageType == 'SPIN_START') {
+    if (stageType == 'UI_SPIN_PRESS') {
       // Safety net: ensure music events are registered before checking
       for (final layer in const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
         _ensureAudioRegistered(layer);
@@ -2153,11 +2153,11 @@ class SlotLabProvider extends ChangeNotifier {
 
     final stageTypes = _lastStages.map((s) => s.stageType.toUpperCase()).toList();
 
-    // 1. SPIN_START must be first
-    if (stageTypes.isNotEmpty && stageTypes.first != 'SPIN_START') {
+    // 1. UI_SPIN_PRESS must be first
+    if (stageTypes.isNotEmpty && stageTypes.first != 'UI_SPIN_PRESS') {
       issues.add(StageValidationIssue(
         type: StageValidationType.orderViolation,
-        message: 'SPIN_START must be first stage (found: ${stageTypes.first})',
+        message: 'UI_SPIN_PRESS must be first stage (found: ${stageTypes.first})',
         severity: StageValidationSeverity.error,
         stageIndex: 0,
       ));
@@ -2186,7 +2186,7 @@ class SlotLabProvider extends ChangeNotifier {
     }
 
     // 4. Required stages check
-    const requiredStages = {'SPIN_START', 'SPIN_END'};
+    const requiredStages = {'UI_SPIN_PRESS', 'SPIN_END'};
     for (final required in requiredStages) {
       if (!stageTypes.contains(required)) {
         issues.add(StageValidationIssue(

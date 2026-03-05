@@ -1740,7 +1740,7 @@ class EngineCommand {
 
 /// Type of validation issue found
 enum StageValidationType {
-  /// Stage ordering violated (e.g., SPIN_END before SPIN_START)
+  /// Stage ordering violated (e.g., SPIN_END before UI_SPIN_PRESS)
   orderViolation,
   /// Required stage missing
   missingStage,

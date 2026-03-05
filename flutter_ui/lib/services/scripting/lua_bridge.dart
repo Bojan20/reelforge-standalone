@@ -16,7 +16,7 @@
 // Usage:
 //   final bridge = LuaBridge.instance;
 //   await bridge.initialize();
-//   final result = await bridge.execute('return fluxforge.createEvent("Test", "SPIN_START")');
+//   final result = await bridge.execute('return fluxforge.createEvent("Test", "UI_SPIN_PRESS")');
 
 import 'dart:async';
 import 'fluxforge_api.dart';

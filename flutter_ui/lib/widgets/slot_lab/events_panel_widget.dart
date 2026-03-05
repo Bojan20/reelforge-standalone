@@ -1218,7 +1218,7 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
       id: 'event_${now.millisecondsSinceEpoch}',
       name: displayName,
       color: FluxForgeTheme.accentBlue,
-      triggerStages: ['SPIN_START'],
+      triggerStages: ['UI_SPIN_PRESS'],
       layers: [],
       createdAt: now,
       modifiedAt: now,

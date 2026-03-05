@@ -78,9 +78,8 @@ class EventNamingService {
     final normalized = stage.toUpperCase().trim();
 
     // SPIN stages
-    if (normalized == 'SPIN_START') return 'onSpinStart';
+    if (normalized == 'UI_SPIN_PRESS') return 'onUiPaSpinButton';
     if (normalized == 'SPIN_END') return 'onSpinEnd';
-    if (normalized == 'SPIN_BUTTON_PRESS') return 'onUiPaSpinButton';
 
     // REEL stages
     if (normalized.startsWith('REEL_STOP_')) {
@@ -312,16 +311,16 @@ class EventNamingService {
     }
 
     // MENU stages
-    if (normalized == 'MENU_OPEN') return 'onMenuOpen';
-    if (normalized == 'MENU_CLOSE') return 'onMenuClose';
+    if (normalized == 'UI_MENU_OPEN') return 'onMenuOpen';
+    if (normalized == 'UI_MENU_CLOSE') return 'onMenuClose';
     if (normalized.startsWith('MENU_')) {
       final suffix = _toCamelCase(normalized.replaceFirst('MENU_', ''));
       return 'onMenu$suffix';
     }
 
     // AUTOPLAY stages
-    if (normalized == 'AUTOPLAY_START') return 'onAutoplayStart';
-    if (normalized == 'AUTOPLAY_STOP') return 'onAutoplayStop';
+    if (normalized == 'UI_AUTOPLAY_START') return 'onAutoplayStart';
+    if (normalized == 'UI_AUTOPLAY_STOP') return 'onAutoplayStop';
     if (normalized.startsWith('AUTOPLAY_')) {
       final suffix = _toCamelCase(normalized.replaceFirst('AUTOPLAY_', ''));
       return 'onAutoplay$suffix';

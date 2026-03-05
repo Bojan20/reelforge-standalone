@@ -128,13 +128,13 @@ void main() {
     test('should create with required parameters', () {
       const event = StageFlowEvent(
         id: 'event_1',
-        stageName: 'SPIN_START',
+        stageName: 'UI_SPIN_PRESS',
         category: StageCategory.spin,
         timestampMs: 0,
       );
 
       expect(event.id, 'event_1');
-      expect(event.stageName, 'SPIN_START');
+      expect(event.stageName, 'UI_SPIN_PRESS');
       expect(event.category, StageCategory.spin);
       expect(event.timestampMs, 0);
       expect(event.durationMs, isNull);

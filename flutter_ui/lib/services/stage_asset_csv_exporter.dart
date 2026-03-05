@@ -15,7 +15,7 @@ class StageAssetCsvExporter {
   /// Example output:
   /// ```csv
   /// stage,event_name,audio_path,volume,pan,offset,bus,fade_in,fade_out,trim_start,trim_end,ale_layer
-  /// SPIN_START,onUiSpin,/audio/spin_button.wav,1.0,0.0,0.0,SFX,0.0,0.0,0.0,0.0,
+  /// UI_SPIN_PRESS,onUiSpin,/audio/spin_button.wav,1.0,0.0,0.0,SFX,0.0,0.0,0.0,0.0,
   /// REEL_STOP_0,onReelLand1,/audio/reel_stop.wav,0.8,-0.8,0.0,Reels,0.0,50.0,0.0,0.0,2
   /// ```
   static String exportToCsv(List<MiddlewareEvent> events) {

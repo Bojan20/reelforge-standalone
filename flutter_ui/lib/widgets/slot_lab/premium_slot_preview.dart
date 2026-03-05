@@ -5824,10 +5824,10 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     });
 
     // ═══════════════════════════════════════════════════════════════════════
-    // SPIN_START — DISABLED: Engine stages handle this via SlotLabProvider._playStages()
+    // UI_SPIN_PRESS — DISABLED: Engine stages handle this via SlotLabProvider._playStages()
     // Keeping visual-sync here caused DUPLICATE TRIGGERS (audio played twice)
     // ═══════════════════════════════════════════════════════════════════════
-    // eventRegistry.triggerStage('SPIN_START'); // REMOVED - causes double trigger
+    // eventRegistry.triggerStage('UI_SPIN_PRESS'); // REMOVED - causes double trigger
 
     // ═══════════════════════════════════════════════════════════════════════
     // Staggered reel stop timing — matches SlotPreviewWidget animation

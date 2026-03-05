@@ -706,8 +706,8 @@ class StageConfigurationService extends ChangeNotifier {
     // ─────────────────────────────────────────────────────────────────────────
     // SPIN LIFECYCLE
     // ─────────────────────────────────────────────────────────────────────────
-    _register('SPIN_START', StageCategory.spin, 70, SpatialBus.sfx, 'SPIN_START');
-    _register('SPIN_BUTTON_PRESS', StageCategory.spin, 60, SpatialBus.ui, 'DEFAULT');
+    // SPIN_START removed — UI_SPIN_PRESS covers button press
+    // SPIN_BUTTON_PRESS removed — UI_SPIN_PRESS covers this
     _register('REEL_SPIN_LOOP', StageCategory.spin, 45, SpatialBus.reels, 'DEFAULT', isLooping: true);
 
     // Per-reel stops (pooled for rapid fire)
@@ -812,7 +812,7 @@ class StageConfigurationService extends ChangeNotifier {
     _register('FS_HOLD_INTRO', StageCategory.feature, 85, SpatialBus.sfx, 'FEATURE_ENTER', ducksMusic: true);
     _register('FS_HOLD_OUTRO', StageCategory.feature, 80, SpatialBus.sfx, 'DEFAULT');
     _register('FS_START', StageCategory.feature, 75, SpatialBus.sfx, 'DEFAULT');
-    _register('FS_SPIN_START', StageCategory.feature, 55, SpatialBus.sfx, 'SPIN_START');
+    _register('FS_SPIN_START', StageCategory.feature, 55, SpatialBus.sfx, 'DEFAULT');
     _register('FS_SPIN_END', StageCategory.feature, 45, SpatialBus.sfx, 'DEFAULT');
     _register('FS_WIN', StageCategory.feature, 60, SpatialBus.sfx, 'DEFAULT');
     _register('FS_SCATTER_LAND', StageCategory.feature, 70, SpatialBus.sfx, 'DEFAULT');
@@ -1037,7 +1037,6 @@ class StageConfigurationService extends ChangeNotifier {
     _register('UI_SPIN_PRESS', StageCategory.ui, 35, SpatialBus.ui, 'DEFAULT');
     _register('UI_SPIN_HOVER', StageCategory.ui, 15, SpatialBus.ui, 'DEFAULT', isPooled: true);
     _register('UI_SPIN_RELEASE', StageCategory.ui, 20, SpatialBus.ui, 'DEFAULT');
-    _register('UI_SPIN_DISABLED', StageCategory.ui, 20, SpatialBus.ui, 'DEFAULT');
     _register('UI_STOP_PRESS', StageCategory.ui, 30, SpatialBus.ui, 'DEFAULT');
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1045,36 +1044,22 @@ class StageConfigurationService extends ChangeNotifier {
     // ═══════════════════════════════════════════════════════════════════════
     _register('UI_BUTTON_PRESS', StageCategory.ui, 20, SpatialBus.ui, 'DEFAULT', isPooled: true);
     _register('UI_BUTTON_HOVER', StageCategory.ui, 15, SpatialBus.ui, 'DEFAULT', isPooled: true);
-    _register('UI_BUTTON_RELEASE', StageCategory.ui, 18, SpatialBus.ui, 'DEFAULT', isPooled: true);
-    _register('UI_BUTTON_DISABLED', StageCategory.ui, 15, SpatialBus.ui, 'DEFAULT');
 
     // ═══════════════════════════════════════════════════════════════════════
-    // BET CONTROLS (NetEnt, Pragmatic Play, IGT standard)
+    // BET CONTROLS
     // ═══════════════════════════════════════════════════════════════════════
     _register('UI_BET_UP', StageCategory.ui, 25, SpatialBus.ui, 'DEFAULT', isPooled: true);
     _register('UI_BET_DOWN', StageCategory.ui, 25, SpatialBus.ui, 'DEFAULT', isPooled: true);
     _register('UI_BET_MAX', StageCategory.ui, 30, SpatialBus.ui, 'DEFAULT');
     _register('UI_BET_MIN', StageCategory.ui, 25, SpatialBus.ui, 'DEFAULT');
-    _register('UI_BET_CHANGE', StageCategory.ui, 22, SpatialBus.ui, 'DEFAULT', isPooled: true);
-    _register('UI_COIN_UP', StageCategory.ui, 22, SpatialBus.ui, 'DEFAULT', isPooled: true);
-    _register('UI_COIN_DOWN', StageCategory.ui, 22, SpatialBus.ui, 'DEFAULT', isPooled: true);
-    _register('UI_COIN_CHANGE', StageCategory.ui, 22, SpatialBus.ui, 'DEFAULT', isPooled: true);
-    _register('UI_LINES_UP', StageCategory.ui, 22, SpatialBus.ui, 'DEFAULT', isPooled: true);
-    _register('UI_LINES_DOWN', StageCategory.ui, 22, SpatialBus.ui, 'DEFAULT', isPooled: true);
-    _register('UI_LINES_MAX', StageCategory.ui, 25, SpatialBus.ui, 'DEFAULT');
-    _register('UI_TOTALBET_CHANGE', StageCategory.ui, 22, SpatialBus.ui, 'DEFAULT', isPooled: true);
 
     // ═══════════════════════════════════════════════════════════════════════
-    // AUTOPLAY (Industry standard — all major providers)
+    // AUTOPLAY
     // ═══════════════════════════════════════════════════════════════════════
-    _register('AUTOPLAY_START', StageCategory.ui, 35, SpatialBus.ui, 'DEFAULT');
-    _register('AUTOPLAY_STOP', StageCategory.ui, 35, SpatialBus.ui, 'DEFAULT');
+    _register('UI_AUTOPLAY_START', StageCategory.ui, 35, SpatialBus.ui, 'DEFAULT');
+    _register('UI_AUTOPLAY_STOP', StageCategory.ui, 35, SpatialBus.ui, 'DEFAULT');
     _register('UI_AUTOPLAY_CONFIG_OPEN', StageCategory.ui, 28, SpatialBus.ui, 'DEFAULT');
     _register('UI_AUTOPLAY_CONFIG_CLOSE', StageCategory.ui, 25, SpatialBus.ui, 'DEFAULT');
-    _register('UI_AUTOPLAY_SPIN_TICK', StageCategory.ui, 18, SpatialBus.ui, 'DEFAULT', isPooled: true);
-    _register('UI_AUTOPLAY_LOSS_LIMIT', StageCategory.ui, 40, SpatialBus.ui, 'DEFAULT');
-    _register('UI_AUTOPLAY_WIN_LIMIT', StageCategory.ui, 40, SpatialBus.ui, 'DEFAULT');
-    _register('UI_AUTOPLAY_FEATURE_STOP', StageCategory.ui, 35, SpatialBus.ui, 'DEFAULT');
 
     // ═══════════════════════════════════════════════════════════════════════
     // TURBO / QUICK SPIN (Pragmatic Play, BTG, Play'n GO)
@@ -1085,10 +1070,10 @@ class StageConfigurationService extends ChangeNotifier {
     _register('UI_QUICKSPIN_OFF', StageCategory.ui, 25, SpatialBus.ui, 'DEFAULT');
 
     // ═══════════════════════════════════════════════════════════════════════
-    // MENUS & NAVIGATION (All major providers)
+    // MENUS & NAVIGATION
     // ═══════════════════════════════════════════════════════════════════════
-    _register('MENU_OPEN', StageCategory.ui, 30, SpatialBus.ui, 'DEFAULT');
-    _register('MENU_CLOSE', StageCategory.ui, 25, SpatialBus.ui, 'DEFAULT');
+    _register('UI_MENU_OPEN', StageCategory.ui, 30, SpatialBus.ui, 'DEFAULT');
+    _register('UI_MENU_CLOSE', StageCategory.ui, 25, SpatialBus.ui, 'DEFAULT');
     _register('UI_MENU_HOVER', StageCategory.ui, 15, SpatialBus.ui, 'DEFAULT', isPooled: true);
     _register('UI_MENU_SELECT', StageCategory.ui, 22, SpatialBus.ui, 'DEFAULT');
     _register('UI_TAB_SWITCH', StageCategory.ui, 20, SpatialBus.ui, 'DEFAULT', isPooled: true);
@@ -1108,16 +1093,7 @@ class StageConfigurationService extends ChangeNotifier {
     _register('UI_INFO_PRESS', StageCategory.ui, 25, SpatialBus.ui, 'DEFAULT');
 
     // ═══════════════════════════════════════════════════════════════════════
-    // HISTORY / STATS (Play'n GO, NetEnt, Microgaming)
-    // ═══════════════════════════════════════════════════════════════════════
-    _register('UI_HISTORY_OPEN', StageCategory.ui, 26, SpatialBus.ui, 'DEFAULT');
-    _register('UI_HISTORY_CLOSE', StageCategory.ui, 24, SpatialBus.ui, 'DEFAULT');
-    _register('UI_HISTORY_SCROLL', StageCategory.ui, 15, SpatialBus.ui, 'DEFAULT', isPooled: true);
-    _register('UI_STATS_OPEN', StageCategory.ui, 26, SpatialBus.ui, 'DEFAULT');
-    _register('UI_STATS_CLOSE', StageCategory.ui, 24, SpatialBus.ui, 'DEFAULT');
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // SETTINGS / PREFERENCES (All providers)
+    // SETTINGS / PREFERENCES
     // ═══════════════════════════════════════════════════════════════════════
     _register('UI_SETTINGS_OPEN', StageCategory.ui, 28, SpatialBus.ui, 'DEFAULT');
     _register('UI_SETTINGS_CLOSE', StageCategory.ui, 25, SpatialBus.ui, 'DEFAULT');
@@ -1126,9 +1102,6 @@ class StageConfigurationService extends ChangeNotifier {
     _register('UI_CHECKBOX_OFF', StageCategory.ui, 18, SpatialBus.ui, 'DEFAULT', isPooled: true);
     _register('UI_SLIDER_DRAG', StageCategory.ui, 12, SpatialBus.ui, 'DEFAULT', isPooled: true);
     _register('UI_SLIDER_RELEASE', StageCategory.ui, 18, SpatialBus.ui, 'DEFAULT');
-    _register('UI_DROPDOWN_OPEN', StageCategory.ui, 22, SpatialBus.ui, 'DEFAULT');
-    _register('UI_DROPDOWN_SELECT', StageCategory.ui, 20, SpatialBus.ui, 'DEFAULT');
-    _register('UI_DROPDOWN_CLOSE', StageCategory.ui, 18, SpatialBus.ui, 'DEFAULT');
 
     // ═══════════════════════════════════════════════════════════════════════
     // AUDIO CONTROLS (NetEnt, Pragmatic, BTG — essential)
@@ -1142,97 +1115,28 @@ class StageConfigurationService extends ChangeNotifier {
     _register('UI_VOLUME_CHANGE', StageCategory.ui, 15, SpatialBus.ui, 'DEFAULT', isPooled: true);
 
     // ═══════════════════════════════════════════════════════════════════════
-    // FULLSCREEN / WINDOW (Desktop & Mobile)
+    // FULLSCREEN / WINDOW
     // ═══════════════════════════════════════════════════════════════════════
     _register('UI_FULLSCREEN_ENTER', StageCategory.ui, 25, SpatialBus.ui, 'DEFAULT');
     _register('UI_FULLSCREEN_EXIT', StageCategory.ui, 25, SpatialBus.ui, 'DEFAULT');
-    _register('UI_MINIMIZE', StageCategory.ui, 20, SpatialBus.ui, 'DEFAULT');
     _register('UI_EXIT_PRESS', StageCategory.ui, 28, SpatialBus.ui, 'DEFAULT');
     _register('UI_HOME_PRESS', StageCategory.ui, 26, SpatialBus.ui, 'DEFAULT');
 
     // ═══════════════════════════════════════════════════════════════════════
-    // POPUPS & DIALOGS (All providers)
+    // POPUPS & TOOLTIPS
     // ═══════════════════════════════════════════════════════════════════════
     _register('UI_POPUP_OPEN', StageCategory.ui, 30, SpatialBus.ui, 'DEFAULT');
     _register('UI_POPUP_CLOSE', StageCategory.ui, 25, SpatialBus.ui, 'DEFAULT');
-    _register('UI_DIALOG_OPEN', StageCategory.ui, 32, SpatialBus.ui, 'DEFAULT');
-    _register('UI_DIALOG_CLOSE', StageCategory.ui, 26, SpatialBus.ui, 'DEFAULT');
-    _register('UI_DIALOG_CONFIRM', StageCategory.ui, 28, SpatialBus.ui, 'DEFAULT');
-    _register('UI_DIALOG_CANCEL', StageCategory.ui, 24, SpatialBus.ui, 'DEFAULT');
     _register('UI_TOOLTIP_SHOW', StageCategory.ui, 12, SpatialBus.ui, 'DEFAULT');
     _register('UI_TOOLTIP_HIDE', StageCategory.ui, 10, SpatialBus.ui, 'DEFAULT');
 
     // ═══════════════════════════════════════════════════════════════════════
-    // BALANCE & CURRENCY (Critical for regulated markets)
-    // ═══════════════════════════════════════════════════════════════════════
-    _register('UI_BALANCE_UPDATE', StageCategory.ui, 35, SpatialBus.ui, 'DEFAULT');
-    _register('UI_BALANCE_LOW', StageCategory.ui, 45, SpatialBus.ui, 'DEFAULT');
-    _register('UI_BALANCE_EMPTY', StageCategory.ui, 50, SpatialBus.ui, 'DEFAULT');
-    _register('UI_BALANCE_ADD', StageCategory.ui, 40, SpatialBus.ui, 'DEFAULT');
-    _register('UI_WIN_TRANSFER', StageCategory.ui, 35, SpatialBus.ui, 'DEFAULT');
-    _register('UI_CREDIT_METER_TICK', StageCategory.ui, 18, SpatialBus.ui, 'DEFAULT', isPooled: true);
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // JACKPOT METERS (IGT, Aristocrat, Scientific Games)
-    // ═══════════════════════════════════════════════════════════════════════
-    _register('UI_JACKPOT_METER_TICK', StageCategory.ui, 20, SpatialBus.ui, 'DEFAULT', isPooled: true);
-    _register('UI_JACKPOT_METER_UPDATE', StageCategory.ui, 25, SpatialBus.ui, 'DEFAULT');
-    _register('UI_PROGRESSIVE_GROW', StageCategory.ui, 22, SpatialBus.ui, 'DEFAULT', isPooled: true);
-    _register('UI_JACKPOT_MINI_TICK', StageCategory.ui, 18, SpatialBus.ui, 'DEFAULT', isPooled: true);
-    _register('UI_JACKPOT_MINOR_TICK', StageCategory.ui, 20, SpatialBus.ui, 'DEFAULT', isPooled: true);
-    _register('UI_JACKPOT_MAJOR_TICK', StageCategory.ui, 22, SpatialBus.ui, 'DEFAULT', isPooled: true);
-    _register('UI_JACKPOT_GRAND_TICK', StageCategory.ui, 25, SpatialBus.ui, 'DEFAULT', isPooled: true);
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // NOTIFICATIONS & ALERTS (All providers)
+    // NOTIFICATIONS & ALERTS
     // ═══════════════════════════════════════════════════════════════════════
     _register('UI_NOTIFICATION', StageCategory.ui, 35, SpatialBus.ui, 'DEFAULT');
-    _register('UI_SUCCESS', StageCategory.ui, 32, SpatialBus.ui, 'DEFAULT');
     _register('UI_ERROR', StageCategory.ui, 45, SpatialBus.ui, 'DEFAULT');
     _register('UI_WARNING', StageCategory.ui, 40, SpatialBus.ui, 'DEFAULT');
     _register('UI_ALERT', StageCategory.ui, 42, SpatialBus.ui, 'DEFAULT');
-    _register('UI_INFO_TOAST', StageCategory.ui, 30, SpatialBus.ui, 'DEFAULT');
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // GAMIFICATION (Modern slots — loyalty, achievements)
-    // ═══════════════════════════════════════════════════════════════════════
-    _register('UI_ACHIEVEMENT_UNLOCK', StageCategory.ui, 50, SpatialBus.ui, 'DEFAULT');
-    _register('UI_LEVEL_UP', StageCategory.ui, 55, SpatialBus.ui, 'DEFAULT');
-    _register('UI_XP_GAIN', StageCategory.ui, 25, SpatialBus.ui, 'DEFAULT', isPooled: true);
-    _register('UI_REWARD_CLAIM', StageCategory.ui, 45, SpatialBus.ui, 'DEFAULT');
-    _register('UI_BADGE_EARN', StageCategory.ui, 40, SpatialBus.ui, 'DEFAULT');
-    _register('UI_DAILY_BONUS', StageCategory.ui, 48, SpatialBus.ui, 'DEFAULT');
-    _register('UI_LOYALTY_POINT', StageCategory.ui, 22, SpatialBus.ui, 'DEFAULT', isPooled: true);
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // GAME STATE (Essential for all providers)
-    // ═══════════════════════════════════════════════════════════════════════
-    _register('UI_GAME_LOADING', StageCategory.ui, 15, SpatialBus.ui, 'DEFAULT');
-    _register('UI_GAME_LOADED', StageCategory.ui, 35, SpatialBus.ui, 'DEFAULT');
-    _register('UI_GAME_READY', StageCategory.ui, 30, SpatialBus.ui, 'DEFAULT');
-    _register('UI_GAME_START', StageCategory.ui, 38, SpatialBus.ui, 'DEFAULT');
-    _register('UI_GAME_EXIT', StageCategory.ui, 28, SpatialBus.ui, 'DEFAULT');
-    _register('UI_GAME_PAUSE', StageCategory.ui, 25, SpatialBus.ui, 'DEFAULT');
-    _register('UI_GAME_RESUME', StageCategory.ui, 28, SpatialBus.ui, 'DEFAULT');
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // CONNECTION / NETWORK (Critical for online play)
-    // ═══════════════════════════════════════════════════════════════════════
-    _register('UI_CONNECTION_LOST', StageCategory.ui, 55, SpatialBus.ui, 'DEFAULT');
-    _register('UI_CONNECTION_RESTORED', StageCategory.ui, 45, SpatialBus.ui, 'DEFAULT');
-    _register('UI_RECONNECTING', StageCategory.ui, 35, SpatialBus.ui, 'DEFAULT');
-    _register('UI_SESSION_TIMEOUT', StageCategory.ui, 50, SpatialBus.ui, 'DEFAULT');
-    _register('UI_SERVER_ERROR', StageCategory.ui, 55, SpatialBus.ui, 'DEFAULT');
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // RESPONSIBLE GAMING (Regulated markets — UK, EU, AU)
-    // ═══════════════════════════════════════════════════════════════════════
-    _register('UI_REALITY_CHECK', StageCategory.ui, 60, SpatialBus.ui, 'DEFAULT');
-    _register('UI_SESSION_LIMIT', StageCategory.ui, 58, SpatialBus.ui, 'DEFAULT');
-    _register('UI_PLAY_TIME_WARNING', StageCategory.ui, 55, SpatialBus.ui, 'DEFAULT');
-    _register('UI_DEPOSIT_LIMIT', StageCategory.ui, 52, SpatialBus.ui, 'DEFAULT');
-    _register('UI_LOSS_LIMIT_WARNING', StageCategory.ui, 55, SpatialBus.ui, 'DEFAULT');
-    _register('UI_COOL_OFF_PERIOD', StageCategory.ui, 50, SpatialBus.ui, 'DEFAULT');
 
     // ═══════════════════════════════════════════════════════════════════════
     // BUY FEATURE (Pragmatic, BTG — Feature Buy)
@@ -1243,13 +1147,6 @@ class StageConfigurationService extends ChangeNotifier {
     _register('UI_BUYIN_CANCEL', StageCategory.ui, 30, SpatialBus.ui, 'DEFAULT');
     _register('UI_BUYIN_HOVER', StageCategory.ui, 18, SpatialBus.ui, 'DEFAULT');
     _register('UI_FEATURE_INFO', StageCategory.ui, 26, SpatialBus.ui, 'DEFAULT');
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // DISPLAY UPDATES (Win/Bet meters)
-    // ═══════════════════════════════════════════════════════════════════════
-    _register('UI_WIN_DISPLAY_UPDATE', StageCategory.ui, 25, SpatialBus.ui, 'DEFAULT');
-    _register('UI_BET_DISPLAY_UPDATE', StageCategory.ui, 22, SpatialBus.ui, 'DEFAULT');
-    _register('UI_METER_FLASH', StageCategory.ui, 28, SpatialBus.ui, 'DEFAULT');
 
     // ─────────────────────────────────────────────────────────────────────────
     // GAME START (triggers base music automatically on first spin)
@@ -1317,7 +1214,7 @@ class StageConfigurationService extends ChangeNotifier {
 
     // HIGH (60-79)
     if (stage.startsWith('WIN_BIG') || stage.startsWith('WIN_MEGA')) return 70;
-    if (stage.startsWith('SPIN_START')) return 70;
+    if (stage.startsWith('UI_SPIN_PRESS')) return 70;
     if (stage.startsWith('REEL_STOP')) return 65;
     if (stage.startsWith('WILD_')) return 60;
     if (stage.startsWith('SCATTER_')) return 60;
@@ -1344,7 +1241,7 @@ class StageConfigurationService extends ChangeNotifier {
     if (stage.startsWith('REEL_') || stage.startsWith('SYMBOL_LAND')) return SpatialBus.reels;
     if (stage.startsWith('MUSIC_') || stage.startsWith('HOLD_MUSIC') ||
         stage.startsWith('WHEEL_MUSIC') || stage.startsWith('PICK_MUSIC')) return SpatialBus.music;
-    if (stage.startsWith('UI_') || stage.startsWith('SYSTEM_') || stage.startsWith('MENU_')) return SpatialBus.ui;
+    if (stage.startsWith('UI_') || stage.startsWith('SYSTEM_')) return SpatialBus.ui;
     if (stage.startsWith('AMBIENT_') || stage.startsWith('IDLE_')) return SpatialBus.ambience;
     if (stage.contains('VOICE') || stage.contains('_VO')) return SpatialBus.vo;
     return SpatialBus.sfx;
@@ -1371,7 +1268,7 @@ class StageConfigurationService extends ChangeNotifier {
     if (stage.startsWith('REEL_')) return 'DEFAULT';
 
     // SPIN
-    if (stage.startsWith('SPIN_')) return 'SPIN_START';
+    if (stage.startsWith('SPIN_')) return 'DEFAULT';
 
     // WILD — position-based or win-level
     if (stage.startsWith('WILD_LAND_')) {
@@ -1896,8 +1793,7 @@ class PriorityTierPreset {
       StageCategory.music: 10,
     },
     stageOverrides: {
-      'SPIN_START': 85,
-      'SPIN_BUTTON_PRESS': 80,
+      'UI_SPIN_PRESS': 85,
       'REEL_STOP': 75,
       'REEL_STOP_0': 75,
       'REEL_STOP_1': 75,

@@ -308,7 +308,7 @@ class _TimelinePainter extends CustomPainter {
 
   Color _getStageColor(String stage) {
     final upper = stage.toUpperCase();
-    if (upper.contains('SPIN_START')) return const Color(0xFF40ff90);
+    if (upper.contains('UI_SPIN_PRESS')) return const Color(0xFF40ff90);
     if (upper.contains('SPIN_END')) return const Color(0xFF40c8ff);
     if (upper.contains('REEL_STOP')) return const Color(0xFF4a9eff);
     if (upper.contains('WIN')) return const Color(0xFFffff40);

@@ -41,7 +41,7 @@ void main() {
           tier5Threshold: 100.0,
           rollupDurationMs: 2500,
         ),
-        audioAssignments: const {'SPIN_START': 'spin.wav'},
+        audioAssignments: const {'UI_SPIN_PRESS': 'spin.wav'},
       );
 
       final json = original.toJson();
@@ -51,7 +51,7 @@ void main() {
       expect(restored.name, original.name);
       expect(restored.grid.reels, original.grid.reels);
       expect(restored.symbols.length, original.symbols.length);
-      expect(restored.audioAssignments['SPIN_START'], 'spin.wav');
+      expect(restored.audioAssignments['UI_SPIN_PRESS'], 'spin.wav');
     });
 
     test('copyWith creates modified copy', () {

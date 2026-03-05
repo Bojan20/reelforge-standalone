@@ -346,7 +346,7 @@ class TestCombinatorService {
 
   /// Generate expected stages
   Set<String> _generateExpectedStages(Map<TestDimension, dynamic> conditions) {
-    final stages = <String>{'SPIN_START', 'SPIN_END'};
+    final stages = <String>{'UI_SPIN_PRESS', 'SPIN_END'};
 
     // Win tier stages
     if (conditions.containsKey(TestDimension.winTier)) {

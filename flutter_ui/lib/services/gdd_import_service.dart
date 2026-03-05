@@ -1353,7 +1353,7 @@ class GddImportService {
 
     // Core spin stages (always present)
     stages.addAll([
-      'SPIN_START',
+      'UI_SPIN_PRESS',
       'SPIN_END',
       'REEL_SPIN_LOOP',
     ]);

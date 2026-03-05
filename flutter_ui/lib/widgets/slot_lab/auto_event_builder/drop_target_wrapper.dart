@@ -123,7 +123,7 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
   /// Determine stage from target ID using StageGroupService
   String _targetIdToStage(String targetId) {
     // Map common target patterns to stages
-    if (targetId == 'ui.spin') return 'SPIN_START';
+    if (targetId == 'ui.spin') return 'UI_SPIN_PRESS';
     if (targetId == 'ui.autospin') return 'AUTOSPIN_START';
     if (targetId == 'ui.turbo') return 'TURBO_TOGGLE';
     if (targetId.startsWith('reel.')) {

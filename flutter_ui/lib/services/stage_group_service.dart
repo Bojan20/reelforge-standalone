@@ -158,7 +158,7 @@ class _StageDefinition {
 
 /// Generates standard event name from stage name
 /// Examples:
-/// - SPIN_START → onUiSpin
+/// - UI_SPIN_PRESS → onUiSpin
 /// - REEL_STOP → onReelStop
 /// - REEL_STOP_0 → onReelLand1 (1-indexed for display)
 /// - REEL_SPIN_LOOP → onReelSpin
@@ -167,7 +167,7 @@ String generateEventName(String stage) {
   // Special cases with custom naming
   const customNames = {
     // UI Events
-    'SPIN_START': 'onUiSpin',
+    'UI_SPIN_PRESS': 'onUiSpin',
     'SPIN_END': 'onUiSpinEnd',
     'UI_BUTTON_PRESS': 'onUiButtonPress',
     'UI_BUTTON_HOVER': 'onUiButtonHover',
@@ -483,13 +483,13 @@ class StageGroupService {
     if (kDebugMode) debugPrint('╚═══════════════════════════════════════════════════════════════╝\n');
 
     final tests = <(String fileName, String expectedStage)>[
-      // ── SPIN_START (UI spin button) ──
-      ('spin_button', 'SPIN_START'),
-      ('spin_click', 'SPIN_START'),
-      ('ui_spin', 'SPIN_START'),
-      ('spin_press', 'SPIN_START'),
-      ('spin_start', 'SPIN_START'),
-      ('button_spin_click', 'SPIN_START'),
+      // ── UI_SPIN_PRESS (UI spin button) ──
+      ('spin_button', 'UI_SPIN_PRESS'),
+      ('spin_click', 'UI_SPIN_PRESS'),
+      ('ui_spin', 'UI_SPIN_PRESS'),
+      ('spin_press', 'UI_SPIN_PRESS'),
+      ('spin_start', 'UI_SPIN_PRESS'),
+      ('button_spin_click', 'UI_SPIN_PRESS'),
 
       // ── REEL_SPIN_LOOP (spinning loop) ──
       ('reel_spin', 'REEL_SPIN_LOOP'),
@@ -1019,7 +1019,7 @@ class StageGroupService {
   /// MATCHING LOGIC v2.0 — Intent-Based Matching
   ///
   /// Instead of simple keyword matching, we use INTENT patterns:
-  /// - SPIN_START = UI spin button → requires 'spin' + UI indicators (button/click/press/ui/start)
+  /// - UI_SPIN_PRESS = UI spin button → requires 'spin' + UI indicators (button/click/press/ui/start)
   /// - REEL_SPIN_LOOP = Reel spinning loop → requires 'spin' + loop indicators (loop/roll/spinning)
   /// - REEL_STOP = Reel stop sound → requires 'stop/land' + reel indicators
   ///
@@ -1031,7 +1031,7 @@ class StageGroupService {
     // ═══════════════════════════════════════════════════════════════════
     StageGroup.spinsAndReels: [
       // ───────────────────────────────────────────────────────────────────
-      // SPIN_START — UI spin button click sound
+      // UI_SPIN_PRESS — UI spin button click sound
       // ───────────────────────────────────────────────────────────────────
       // INTENT: User clicks spin button → plays UI click sound
       // MATCHES: spin_button, spin_click, ui_spin, spin_press, spin_start
@@ -1040,7 +1040,7 @@ class StageGroupService {
       // KEY INSIGHT: Even if 'reel' is in the name, if 'button/click/press/ui'
       // is ALSO present, it's still a UI spin sound!
       _StageDefinition(
-        stage: 'SPIN_START',
+        stage: 'UI_SPIN_PRESS',
         keywords: ['spin', 'start', 'button', 'press', 'click', 'ui', 'tap'],
         requiredKeywords: [], // At least one of: spin, button, click, press, ui
         suffixes: ['_start', '_press', '_click', '_spin', '_tap'],
@@ -1063,7 +1063,7 @@ class StageGroupService {
       // ───────────────────────────────────────────────────────────────────
       // INTENT: Reels are spinning → plays looping spin sound
       // MATCHES: reel_spin, reel_spinning, reel_loop, spins_loop, spin_roll
-      // DOES NOT MATCH: spin_button (that's SPIN_START)
+      // DOES NOT MATCH: spin_button (that's UI_SPIN_PRESS)
       //
       // KEY INSIGHT: 'spin' (not just 'spinning') + 'loop/roll/reel' = REEL_SPIN_LOOP
       _StageDefinition(
@@ -2390,8 +2390,8 @@ class StageGroupService {
   /// 3. CONFLICT DETECTION — If both intents match, use context to disambiguate
   ///
   /// Example: "reel_spin_button"
-  /// - Old algorithm: EXCLUDED from SPIN_START (has 'reel')
-  /// - New algorithm: Matches SPIN_START (has 'button' which indicates UI intent)
+  /// - Old algorithm: EXCLUDED from UI_SPIN_PRESS (has 'reel')
+  /// - New algorithm: Matches UI_SPIN_PRESS (has 'button' which indicates UI intent)
   ///
   (double confidence, List<String> matchedKeywords) _calculateConfidence(
     String normalizedName,

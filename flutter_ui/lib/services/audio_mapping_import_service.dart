@@ -842,7 +842,7 @@ class AudioMappingImportService {
 
   static final Set<String> _allKnownStageIds = {
     // Spins & Reels
-    'SPIN_START', 'SPIN_END', 'SPIN_CANCEL', 'REEL_SPIN_LOOP',
+    'UI_SPIN_PRESS', 'SPIN_END', 'SPIN_CANCEL', 'REEL_SPIN_LOOP',
     'REEL_STOP', 'REEL_STOP_0', 'REEL_STOP_1', 'REEL_STOP_2', 'REEL_STOP_3', 'REEL_STOP_4',
     'TURBO_SPIN_LOOP', 'REEL_SLOW_STOP', 'REEL_SHAKE', 'REEL_WIGGLE',
     'SPIN_ACCELERATION', 'SPIN_DECELERATION',
@@ -931,7 +931,7 @@ class AudioMappingImportService {
     // Features
     'FEATURE_ENTER', 'FEATURE_EXIT',
     // UI
-    'UI_BUTTON_PRESS', 'UI_BUTTON_HOVER', 'UI_BUTTON_RELEASE',
+    'UI_BUTTON_PRESS', 'UI_BUTTON_HOVER',
     'UI_MENU_OPEN', 'UI_MENU_CLOSE', 'UI_POPUP_OPEN', 'UI_POPUP_CLOSE',
     'UI_NOTIFICATION', 'GAME_START', 'GAME_READY',
     // Attract
@@ -1189,7 +1189,7 @@ class AudioMappingImportService {
 
     // Expand tokens with ONLY direct singulars — NO abbreviation expansion.
     // Abbreviations caused cascading false positives:
-    //   fs → spins → (singularize) spin → matches SPIN_START
+    //   fs → spins → (singularize) spin → matches UI_SPIN_PRESS
     //   bg → base → matches MUSIC_BASE_L1
     // Abbreviation matching belongs in PASS 1 (alias map), not fuzzy overlap.
     final expandedTokens = <String>{};
@@ -1251,7 +1251,7 @@ class AudioMappingImportService {
   /// - Wins: WIN_PRESENT_1-5, BIG_WIN_TIER_1-5, BIG_WIN_START/END
   /// - Music: MUSIC_{SCENE}_L1-L5, MUSIC_{SCENE}_INTRO/OUTRO
   /// - Ambient: AMBIENT_BASE/FS/BONUS/HOLD/BIGWIN/JACKPOT/GAMBLE/REVEAL
-  /// - Reels: REEL_STOP_0-4, REEL_SPIN_LOOP, SPIN_START
+  /// - Reels: REEL_STOP_0-4, REEL_SPIN_LOOP, UI_SPIN_PRESS
   ///
   /// Patterns ending with `_*` are INDEXED: expanded using NofM variant notation.
   /// E.g. "spins_stop_1of5_2" → NofM=(0,5) → "REEL_STOP_*" → "REEL_STOP_0"
@@ -1259,13 +1259,13 @@ class AudioMappingImportService {
   /// Candidates are tried in order — first match in composed stages wins.
   static const Map<String, List<String>> _aliasPatterns = {
     // ═══════════════════════════════════════════════════════════════════
-    // SPIN BUTTON (user presses spin) → SPIN_START
+    // SPIN BUTTON (user presses spin) → UI_SPIN_PRESS
     // ═══════════════════════════════════════════════════════════════════
-    'spin button': ['SPIN_START'],
-    'spin click': ['SPIN_START'],
-    'spin press': ['SPIN_START'],
-    'spin start': ['SPIN_START'],
-    'ui spin': ['SPIN_START', 'UI_SPIN_PRESS'],
+    'spin button': ['UI_SPIN_PRESS'],
+    'spin click': ['UI_SPIN_PRESS'],
+    'spin press': ['UI_SPIN_PRESS'],
+    'spin start': ['UI_SPIN_PRESS'],
+    'ui spin': ['UI_SPIN_PRESS'],
 
     // ═══════════════════════════════════════════════════════════════════
     // REEL SPINNING (loop while reels rotate) → REEL_SPIN_LOOP
@@ -1730,12 +1730,12 @@ class AudioMappingImportService {
     'scatter': ['SCATTER_LAND'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // UI → UI_BUTTON_PRESS, UI_MENU_OPEN, etc.
+    // UI → UI_BUTTON_PRESS, UI_MENU_OPEN, UI_SPIN_PRESS, etc.
     // ═══════════════════════════════════════════════════════════════════
     'button': ['UI_BUTTON_PRESS'],
     'button press': ['UI_BUTTON_PRESS'],
     'button hover': ['UI_BUTTON_HOVER'],
-    'button release': ['UI_BUTTON_RELEASE'],
+    'button release': ['UI_BUTTON_PRESS'],
     'ui click': ['UI_BUTTON_PRESS'],
     'popup': ['UI_POPUP_OPEN'],
     'menu open': ['UI_MENU_OPEN'],

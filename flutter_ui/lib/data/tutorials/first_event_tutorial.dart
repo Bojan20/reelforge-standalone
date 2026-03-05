@@ -40,7 +40,7 @@ class FirstEventTutorial {
             id: 'create_event',
             title: 'Create New Event',
             content: 'Click the + button to create a new event. '
-                'Give it a descriptive name like "SPIN_START" or "WIN_SMALL". '
+                'Give it a descriptive name like "UI_SPIN_PRESS" or "WIN_SMALL". '
                 'Event names should match your game\'s stage names.',
             icon: Icons.add_circle,
             tooltipPosition: TutorialTooltipPosition.right,
@@ -50,7 +50,7 @@ class FirstEventTutorial {
             id: 'assign_stage',
             title: 'Assign Stage',
             content: 'Each event is triggered by a stage. '
-                'Stages are game events like SPIN_START, REEL_STOP, WIN_PRESENT. '
+                'Stages are game events like UI_SPIN_PRESS, REEL_STOP, WIN_PRESENT. '
                 'Select the stage that should trigger this audio event.',
             icon: Icons.link,
             tooltipPosition: TutorialTooltipPosition.bottom,

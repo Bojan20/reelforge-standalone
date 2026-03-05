@@ -5,9 +5,9 @@ import 'package:fluxforge_ui/services/feature_test_scenarios_service.dart';
 void main() {
   group('ScenarioStep', () {
     test('creates with required fields', () {
-      const step = ScenarioStep(stageName: 'SPIN_START');
+      const step = ScenarioStep(stageName: 'UI_SPIN_PRESS');
 
-      expect(step.stageName, 'SPIN_START');
+      expect(step.stageName, 'UI_SPIN_PRESS');
       expect(step.delayMs, 0);
       expect(step.payload, isEmpty);
     });
@@ -116,7 +116,7 @@ void main() {
       final spin = BuiltInScenarios.basicSpin;
       final stageNames = spin.steps.map((s) => s.stageName).toList();
 
-      expect(stageNames.first, 'SPIN_START');
+      expect(stageNames.first, 'UI_SPIN_PRESS');
       expect(stageNames.last, 'SPIN_END');
       expect(stageNames, contains('REEL_STOP_0'));
       expect(stageNames, contains('REEL_STOP_4'));

@@ -736,7 +736,7 @@ class SlotIntentRules {
 
     // Spin
     IntentRule(
-      intent: 'SPIN_START',
+      intent: 'UI_SPIN_PRESS',
       defaultAnchorId: 'reels_center',
       wAnchor: 0.70,
       wMotion: 0.20,
@@ -1230,7 +1230,7 @@ class MotionField {
       'REEL_STOP' => SpatialPosition.origin, // Generic fallback = center
       'BIG_WIN' || 'MEGA_WIN' || 'SUPER_WIN' || 'EPIC_WIN' =>
           const SpatialPosition(x: 0, y: 0.1, z: 0),
-      'SPIN_START' => SpatialPosition.origin,
+      'UI_SPIN_PRESS' => SpatialPosition.origin,
       'UI_CLICK' || 'UI_HOVER' => const SpatialPosition(x: 0, y: -0.6, z: 0),
       'ROLLUP' => const SpatialPosition(x: 0, y: 0.4, z: 0),
       'JACKPOT_WIN' => SpatialPosition.origin,

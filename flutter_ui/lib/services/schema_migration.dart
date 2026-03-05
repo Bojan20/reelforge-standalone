@@ -379,7 +379,7 @@ Map<String, dynamic> _migrateV4toV5(Map<String, dynamic> data) {
   if (!data.containsKey('stage_definitions')) {
     data['stage_definitions'] = {
       'canonical_stages': [
-        'SPIN_START', 'SPIN_STOP', 'REEL_STOP',
+        'UI_SPIN_PRESS', 'SPIN_STOP', 'REEL_STOP',
         'ANTICIPATION_TENSION', 'ANTICIPATION_MISS',
         'WIN_PRESENT', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END',
         'BIGWIN_TIER', 'FEATURE_ENTER', 'FEATURE_STEP', 'FEATURE_EXIT',
@@ -433,7 +433,7 @@ Map<String, dynamic> _migrateV4toV5(Map<String, dynamic> data) {
 /// Convert old event type to STAGES canonical name
 String _convertOldEventToStage(String oldType) {
   return switch (oldType.toLowerCase()) {
-    'spin' || 'spin_start' => 'SPIN_START',
+    'spin' || 'spin_start' => 'UI_SPIN_PRESS',
     'stop' || 'spin_stop' => 'SPIN_STOP',
     'reel_stop' || 'reel' => 'REEL_STOP',
     'anticipation' || 'anticipation_start' => 'ANTICIPATION_TENSION',

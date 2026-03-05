@@ -3219,7 +3219,7 @@ SlotPriority _resolveSlotPriority(String stage) {
   final s = stage.toUpperCase();
 
   // P0: Critical — core loop that EVERY slot game needs
-  if (s == 'SPIN_START' || s == 'SPIN_END' || s == 'NO_WIN' ||
+  if (s == 'UI_SPIN_PRESS' || s == 'SPIN_END' || s == 'NO_WIN' ||
       s.startsWith('REEL_STOP') || s == 'REEL_SPIN_LOOP' ||
       s == 'WIN_PRESENT' || s == 'ROLLUP_START' || s == 'ROLLUP_TICK' ||
       s == 'ROLLUP_END' || s.startsWith('WIN_LINE_') ||
@@ -3346,14 +3346,14 @@ class _BaseGameLoopSection extends _SectionConfig {
         title: 'Spin Controls',
         icon: '🔄',
         slots: [
-          _SlotConfig(stage: 'SPIN_START', label: 'Spin Press'),
+          _SlotConfig(stage: 'UI_SPIN_PRESS', label: 'Spin Press'),
           _SlotConfig(stage: 'SPIN_CANCEL', label: 'Spin Cancel'),
           _SlotConfig(stage: 'UI_STOP_PRESS', label: 'Stop Press'),
           _SlotConfig(stage: 'QUICK_STOP', label: 'Quick Stop'),
           _SlotConfig(stage: 'SLAM_STOP', label: 'Slam Stop'),
           _SlotConfig(stage: 'SLAM_STOP_IMPACT', label: 'Slam Impact'),
-          _SlotConfig(stage: 'AUTOPLAY_START', label: 'AutoSpin On'),
-          _SlotConfig(stage: 'AUTOPLAY_STOP', label: 'AutoSpin Off'),
+          _SlotConfig(stage: 'UI_AUTOPLAY_START', label: 'AutoSpin On'),
+          _SlotConfig(stage: 'UI_AUTOPLAY_STOP', label: 'AutoSpin Off'),
           _SlotConfig(stage: 'UI_TURBO_ON', label: 'Turbo On'),
           _SlotConfig(stage: 'UI_TURBO_OFF', label: 'Turbo Off'),
         ],
@@ -4667,13 +4667,13 @@ class _UISystemSection extends _SectionConfig {
       slots: [
         _SlotConfig(stage: 'UI_BUTTON_PRESS', label: 'Button Press'),
         _SlotConfig(stage: 'UI_BUTTON_HOVER', label: 'Button Hover'),
-        _SlotConfig(stage: 'UI_BUTTON_RELEASE', label: 'Button Release'),
         _SlotConfig(stage: 'UI_SPIN_PRESS', label: 'Spin Press'),
+        _SlotConfig(stage: 'UI_SPIN_HOVER', label: 'Spin Hover'),
         _SlotConfig(stage: 'UI_SPIN_RELEASE', label: 'Spin Release'),
-        _SlotConfig(stage: 'UI_BET_CHANGE', label: 'Bet Change'),
-        _SlotConfig(stage: 'UI_LINES_CHANGE', label: 'Lines Change'),
-        // NOTE: AUTOPLAY_ON/OFF → Use AUTOPLAY_START/STOP in Section 1
-        // NOTE: TURBO_ON/OFF → Use UI_TURBO_ON/OFF in Section 1
+        _SlotConfig(stage: 'UI_BET_UP', label: 'Bet Up'),
+        _SlotConfig(stage: 'UI_BET_DOWN', label: 'Bet Down'),
+        _SlotConfig(stage: 'UI_BET_MAX', label: 'Bet Max'),
+        _SlotConfig(stage: 'UI_BET_MIN', label: 'Bet Min'),
       ],
     ),
     // ═══════════════════════════════════════════════════════════════════════
@@ -4686,12 +4686,18 @@ class _UISystemSection extends _SectionConfig {
       slots: [
         _SlotConfig(stage: 'UI_MENU_OPEN', label: 'Menu Open'),
         _SlotConfig(stage: 'UI_MENU_CLOSE', label: 'Menu Close'),
-        _SlotConfig(stage: 'UI_TAB_SELECT', label: 'Tab Select'),
-        _SlotConfig(stage: 'UI_PANEL_SLIDE', label: 'Panel Slide'),
+        _SlotConfig(stage: 'UI_MENU_HOVER', label: 'Menu Hover'),
+        _SlotConfig(stage: 'UI_MENU_SELECT', label: 'Menu Select'),
+        _SlotConfig(stage: 'UI_TAB_SWITCH', label: 'Tab Switch'),
+        _SlotConfig(stage: 'UI_PAGE_FLIP', label: 'Page Flip'),
+        _SlotConfig(stage: 'UI_SCROLL', label: 'Scroll'),
         _SlotConfig(stage: 'UI_PAYTABLE_OPEN', label: 'Paytable Open'),
+        _SlotConfig(stage: 'UI_PAYTABLE_CLOSE', label: 'Paytable Close'),
+        _SlotConfig(stage: 'UI_RULES_OPEN', label: 'Rules Open'),
+        _SlotConfig(stage: 'UI_HELP_OPEN', label: 'Help Open'),
+        _SlotConfig(stage: 'UI_INFO_PRESS', label: 'Info Press'),
         _SlotConfig(stage: 'UI_SETTINGS_OPEN', label: 'Settings Open'),
-        _SlotConfig(stage: 'UI_HISTORY_OPEN', label: 'History Open'),
-        _SlotConfig(stage: 'UI_INFO_OPEN', label: 'Info Open'),
+        _SlotConfig(stage: 'UI_SETTINGS_CLOSE', label: 'Settings Close'),
       ],
     ),
     // ═══════════════════════════════════════════════════════════════════════
@@ -4705,12 +4711,11 @@ class _UISystemSection extends _SectionConfig {
         _SlotConfig(stage: 'UI_NOTIFICATION', label: 'Notification'),
         _SlotConfig(stage: 'UI_ALERT', label: 'Alert'),
         _SlotConfig(stage: 'UI_ERROR', label: 'Error'),
-        _SlotConfig(stage: 'UI_SUCCESS', label: 'Success'),
         _SlotConfig(stage: 'UI_WARNING', label: 'Warning'),
         _SlotConfig(stage: 'UI_POPUP_OPEN', label: 'Popup Open'),
         _SlotConfig(stage: 'UI_POPUP_CLOSE', label: 'Popup Close'),
-        _SlotConfig(stage: 'UI_LOADING_START', label: 'Loading Start'),
-        _SlotConfig(stage: 'UI_LOADING_END', label: 'Loading End'),
+        _SlotConfig(stage: 'UI_TOOLTIP_SHOW', label: 'Tooltip Show'),
+        _SlotConfig(stage: 'UI_TOOLTIP_HIDE', label: 'Tooltip Hide'),
       ],
     ),
     // ═══════════════════════════════════════════════════════════════════════
@@ -4721,14 +4726,15 @@ class _UISystemSection extends _SectionConfig {
       title: 'Feedback',
       icon: '✅',
       slots: [
-        _SlotConfig(stage: 'UI_CONFIRM', label: 'Confirm'),
-        _SlotConfig(stage: 'UI_CANCEL', label: 'Cancel'),
-        _SlotConfig(stage: 'UI_TOGGLE_ON', label: 'Toggle On'),
-        _SlotConfig(stage: 'UI_TOGGLE_OFF', label: 'Toggle Off'),
-        _SlotConfig(stage: 'UI_SLIDER_MOVE', label: 'Slider Move'),
-        _SlotConfig(stage: 'UI_SLIDER_SNAP', label: 'Slider Snap'),
-        _SlotConfig(stage: 'UI_COIN_INSERT', label: 'Coin Insert'),
-        _SlotConfig(stage: 'UI_BALANCE_UPDATE', label: 'Balance Update'),
+        _SlotConfig(stage: 'UI_CHECKBOX_ON', label: 'Checkbox On'),
+        _SlotConfig(stage: 'UI_CHECKBOX_OFF', label: 'Checkbox Off'),
+        _SlotConfig(stage: 'UI_SLIDER_DRAG', label: 'Slider Drag'),
+        _SlotConfig(stage: 'UI_SLIDER_RELEASE', label: 'Slider Release'),
+        _SlotConfig(stage: 'UI_SOUND_ON', label: 'Sound On'),
+        _SlotConfig(stage: 'UI_SOUND_OFF', label: 'Sound Off'),
+        _SlotConfig(stage: 'UI_VOLUME_CHANGE', label: 'Volume Change'),
+        _SlotConfig(stage: 'UI_FULLSCREEN_ENTER', label: 'Fullscreen Enter'),
+        _SlotConfig(stage: 'UI_FULLSCREEN_EXIT', label: 'Fullscreen Exit'),
       ],
     ),
   ];

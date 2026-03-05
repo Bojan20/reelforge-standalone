@@ -453,7 +453,7 @@ class BuiltInScripts {
       description: 'Simulates a basic spin cycle with audio',
       commands: [
         ScriptCommand.log('Starting spin test...'),
-        ScriptCommand.triggerStage('SPIN_START'),
+        ScriptCommand.triggerStage('UI_SPIN_PRESS'),
         ScriptCommand.wait(500),
         ScriptCommand.triggerStage('REEL_STOP_0'),
         ScriptCommand.wait(200),

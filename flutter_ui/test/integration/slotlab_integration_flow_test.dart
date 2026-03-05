@@ -1068,7 +1068,7 @@ void main() {
         maxInstances: 4,
         createdAt: now,
         modifiedAt: now,
-        triggerStages: ['SPIN_START', 'REEL_STOP'],
+        triggerStages: ['UI_SPIN_PRESS', 'REEL_STOP'],
         timelinePositionMs: 1500,
         trackIndex: 2,
         containerType: ContainerType.blend,
@@ -1090,7 +1090,7 @@ void main() {
       expect(restored.targetBusId, 2);
       expect(restored.looping, true);
       expect(restored.maxInstances, 4);
-      expect(restored.triggerStages, ['SPIN_START', 'REEL_STOP']);
+      expect(restored.triggerStages, ['UI_SPIN_PRESS', 'REEL_STOP']);
       expect(restored.timelinePositionMs, 1500);
       expect(restored.trackIndex, 2);
       expect(restored.containerType, ContainerType.blend);

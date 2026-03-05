@@ -358,7 +358,7 @@ class IntensityCrossfadeService {
     // Common slot stages mapped to intensity levels
     final stageIntensityMap = <String, int>{
       'IDLE': 0,
-      'SPIN_START': 1,
+      'UI_SPIN_PRESS': 1,
       'ANTICIPATION_TENSION': 2,
       'WIN_PRESENT': 2,
       'BIG_WIN_START': n > 2 ? n - 2 : n - 1,

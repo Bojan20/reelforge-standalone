@@ -221,7 +221,7 @@ void main() {
         id: 'orig', name: 'Original', color: Colors.red,
         createdAt: now, modifiedAt: now,
         layers: const [SlotEventLayer(id: 'l1', name: 'L1', audioPath: '/a.wav', volume: 0.8)],
-        triggerStages: const ['SPIN_START'],
+        triggerStages: const ['UI_SPIN_PRESS'],
       );
       final dup = original.copyWith(id: 'dup', name: 'Dup');
       expect(dup.id, 'dup');
@@ -276,7 +276,7 @@ void main() {
         ],
         masterVolume: 0.9, targetBusId: 2, looping: true, maxInstances: 3,
         createdAt: now, modifiedAt: now,
-        triggerStages: const ['SPIN_START', 'REEL_STOP_0'],
+        triggerStages: const ['UI_SPIN_PRESS', 'REEL_STOP_0'],
         triggerConditions: const {'tension': '>= 5'},
         timelinePositionMs: 250.0, trackIndex: 1, overlap: false, crossfadeMs: 300,
       );

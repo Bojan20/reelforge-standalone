@@ -600,7 +600,7 @@ void main() {
           math: GddMathModel(rtp: 0.96, volatility: 'medium', hitFrequency: 0.25),
           symbols: [], features: [],
         ),
-        generatedStages: ['SPIN_START', 'SPIN_END'],
+        generatedStages: ['UI_SPIN_PRESS', 'SPIN_END'],
         generatedSymbols: [],
       );
       expect(clean.hasErrors, false);

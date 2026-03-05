@@ -409,7 +409,7 @@ class EventProfilerProvider extends ChangeNotifier {
   /// Export events to CSV format
   ///
   /// Format: timestamp,eventId,type,description,soundId,busId,voiceId,latencyUs
-  /// Example: 2026-01-23T12:34:56.789,1,voiceStart,SPIN_START,101,2,5,450
+  /// Example: 2026-01-23T12:34:56.789,1,voiceStart,UI_SPIN_PRESS,101,2,5,450
   String exportToCSV({int count = 1000, bool includeHeader = true}) {
     final buffer = StringBuffer();
 

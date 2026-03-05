@@ -54,7 +54,7 @@ void main() {
 
   group('Stage lookup', () {
     test('getStage is case-insensitive', () {
-      final upper = service.getStage('SPIN_START');
+      final upper = service.getStage('UI_SPIN_PRESS');
       final lower = service.getStage('spin_start');
       final mixed = service.getStage('Spin_Start');
       // All should resolve the same (or all null if not registered)
@@ -76,7 +76,7 @@ void main() {
 
   group('Priority levels', () {
     test('getPriority returns value for known stages', () {
-      final priority = service.getPriority('SPIN_START');
+      final priority = service.getPriority('UI_SPIN_PRESS');
       expect(priority, greaterThanOrEqualTo(0));
       expect(priority, lessThanOrEqualTo(100));
     });
@@ -101,7 +101,7 @@ void main() {
 
   group('Bus routing', () {
     test('getBus returns SpatialBus for known stages', () {
-      final bus = service.getBus('SPIN_START');
+      final bus = service.getBus('UI_SPIN_PRESS');
       expect(SpatialBus.values, contains(bus));
     });
 
@@ -155,7 +155,7 @@ void main() {
     });
 
     test('non-looping stages return false', () {
-      expect(service.isLooping('SPIN_START'), false);
+      expect(service.isLooping('UI_SPIN_PRESS'), false);
       expect(service.isLooping('REEL_STOP_0'), false);
       expect(service.isLooping('WIN_PRESENT'), false);
     });
@@ -178,7 +178,7 @@ void main() {
     });
 
     test('non-pooled stages return false', () {
-      expect(service.isPooled('SPIN_START'), false);
+      expect(service.isPooled('UI_SPIN_PRESS'), false);
       expect(service.isPooled('JACKPOT_TRIGGER'), false);
     });
 
@@ -279,7 +279,7 @@ void main() {
 
     test('JSON roundtrip', () {
       const def = StageDefinition(
-        name: 'SPIN_START',
+        name: 'UI_SPIN_PRESS',
         category: StageCategory.spin,
         priority: 70,
         bus: SpatialBus.reels,

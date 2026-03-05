@@ -6,7 +6,7 @@
 /// Features:
 /// - Compact slot mockup with drop zones
 /// - Direct event creation into MiddlewareProvider.compositeEvents
-/// - Stage-based triggers (REEL_STOP_0, SPIN_START, etc.)
+/// - Stage-based triggers (REEL_STOP_0, UI_SPIN_PRESS, etc.)
 /// - Shows existing events per zone
 library;
 
@@ -31,7 +31,7 @@ String _targetIdToStage(String targetId) {
   if (targetId == 'reel.4') return 'REEL_STOP_4';
 
   // UI buttons
-  if (targetId == 'ui.spin') return 'SPIN_START';
+  if (targetId == 'ui.spin') return 'UI_SPIN_PRESS';
   if (targetId == 'ui.autospin') return 'AUTOSPIN_START';
   if (targetId == 'ui.turbo') return 'TURBO_TOGGLE';
 

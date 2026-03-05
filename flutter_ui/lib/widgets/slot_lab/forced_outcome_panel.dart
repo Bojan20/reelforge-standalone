@@ -64,7 +64,7 @@ class ForcedOutcomeConfig {
       description: 'No winning combinations',
       icon: Icons.close,
       gradientColors: [Color(0xFF4A4A5A), Color(0xFF2A2A3A)],
-      expectedStages: ['SPIN_START', 'REEL_STOP', 'EVALUATE_WINS', 'SPIN_END'],
+      expectedStages: ['UI_SPIN_PRESS', 'REEL_STOP', 'EVALUATE_WINS', 'SPIN_END'],
       keyboardShortcut: '1',
     ),
 
@@ -81,7 +81,7 @@ class ForcedOutcomeConfig {
       icon: Icons.arrow_downward,
       gradientColors: [Color(0xFF78909C), Color(0xFF546E7A)],
       expectedStages: [
-        'SPIN_START', 'REEL_STOP', 'EVALUATE_WINS',
+        'UI_SPIN_PRESS', 'REEL_STOP', 'EVALUATE_WINS',
         'WIN_PRESENT_LOW', 'SPIN_END',  // No rollup for sub-bet
       ],
       keyboardShortcut: '2',
@@ -95,7 +95,7 @@ class ForcedOutcomeConfig {
       icon: Icons.drag_handle,
       gradientColors: [Color(0xFF90A4AE), Color(0xFF78909C)],
       expectedStages: [
-        'SPIN_START', 'REEL_STOP', 'EVALUATE_WINS',
+        'UI_SPIN_PRESS', 'REEL_STOP', 'EVALUATE_WINS',
         'WIN_PRESENT_EQUAL', 'SPIN_END',  // No rollup for push
       ],
       keyboardShortcut: '3',
@@ -109,7 +109,7 @@ class ForcedOutcomeConfig {
       icon: Icons.looks_one,
       gradientColors: [Color(0xFF64B5F6), Color(0xFF42A5F5)],
       expectedStages: [
-        'SPIN_START', 'REEL_STOP', 'EVALUATE_WINS',
+        'UI_SPIN_PRESS', 'REEL_STOP', 'EVALUATE_WINS',
         'WIN_PRESENT_1', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END', 'SPIN_END',
       ],
       keyboardShortcut: '4',
@@ -123,7 +123,7 @@ class ForcedOutcomeConfig {
       icon: Icons.looks_two,
       gradientColors: [Color(0xFF4FC3F7), Color(0xFF29B6F6)],
       expectedStages: [
-        'SPIN_START', 'REEL_STOP', 'EVALUATE_WINS',
+        'UI_SPIN_PRESS', 'REEL_STOP', 'EVALUATE_WINS',
         'WIN_PRESENT_2', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END', 'SPIN_END',
       ],
       keyboardShortcut: '5',
@@ -137,7 +137,7 @@ class ForcedOutcomeConfig {
       icon: Icons.looks_3,
       gradientColors: [Color(0xFF81C784), Color(0xFF66BB6A)],
       expectedStages: [
-        'SPIN_START', 'REEL_STOP', 'EVALUATE_WINS',
+        'UI_SPIN_PRESS', 'REEL_STOP', 'EVALUATE_WINS',
         'WIN_PRESENT_3', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END', 'SPIN_END',
       ],
       keyboardShortcut: '6',
@@ -151,7 +151,7 @@ class ForcedOutcomeConfig {
       icon: Icons.looks_4,
       gradientColors: [Color(0xFF4DB6AC), Color(0xFF26A69A)],
       expectedStages: [
-        'SPIN_START', 'REEL_STOP', 'EVALUATE_WINS',
+        'UI_SPIN_PRESS', 'REEL_STOP', 'EVALUATE_WINS',
         'WIN_PRESENT_4', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END', 'SPIN_END',
       ],
       keyboardShortcut: '7',
@@ -165,7 +165,7 @@ class ForcedOutcomeConfig {
       icon: Icons.looks_5,
       gradientColors: [Color(0xFF4CAF50), Color(0xFF43A047)],
       expectedStages: [
-        'SPIN_START', 'REEL_STOP', 'EVALUATE_WINS',
+        'UI_SPIN_PRESS', 'REEL_STOP', 'EVALUATE_WINS',
         'WIN_PRESENT_5', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END', 'SPIN_END',
       ],
       keyboardShortcut: '8',
@@ -183,7 +183,7 @@ class ForcedOutcomeConfig {
       icon: Icons.auto_awesome,
       gradientColors: [Color(0xFFFFD700), Color(0xFFFFA500)],
       expectedStages: [
-        'SPIN_START', 'REEL_STOP', 'EVALUATE_WINS',
+        'UI_SPIN_PRESS', 'REEL_STOP', 'EVALUATE_WINS',
         'BIG_WIN_START',
         'BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_TIER_3',
         'BIG_WIN_TICK_START',
@@ -205,7 +205,7 @@ class ForcedOutcomeConfig {
       icon: Icons.loop,
       gradientColors: [Color(0xFFE040FB), Color(0xFF7C4DFF)],
       expectedStages: [
-        'SPIN_START', 'REEL_STOP', 'ANTICIPATION_TENSION', 'ANTICIPATION_MISS',
+        'UI_SPIN_PRESS', 'REEL_STOP', 'ANTICIPATION_TENSION', 'ANTICIPATION_MISS',
         'FEATURE_ENTER', 'FEATURE_STEP', 'FEATURE_EXIT', 'SPIN_END',
       ],
       featureBlockId: 'free_spins',  // P13.8.7
@@ -218,7 +218,7 @@ class ForcedOutcomeConfig {
       icon: Icons.waterfall_chart,
       gradientColors: [Color(0xFF00BCD4), Color(0xFF00ACC1)],
       expectedStages: [
-        'SPIN_START', 'REEL_STOP',
+        'UI_SPIN_PRESS', 'REEL_STOP',
         'CASCADE_START', 'CASCADE_STEP', 'CASCADE_STEP', 'CASCADE_END',
         'SPIN_END',
       ],
@@ -237,7 +237,7 @@ class ForcedOutcomeConfig {
       icon: Icons.workspace_premium,
       gradientColors: [Color(0xFF9CA3AF), Color(0xFF6B7280)],
       expectedStages: [
-        'SPIN_START', 'REEL_STOP',
+        'UI_SPIN_PRESS', 'REEL_STOP',
         'JACKPOT_TRIGGER', 'JACKPOT_PRESENT_MINI', 'JACKPOT_AWARD',
         'SPIN_END',
       ],
@@ -252,7 +252,7 @@ class ForcedOutcomeConfig {
       icon: Icons.workspace_premium,
       gradientColors: [Color(0xFF60A5FA), Color(0xFF3B82F6)],
       expectedStages: [
-        'SPIN_START', 'REEL_STOP',
+        'UI_SPIN_PRESS', 'REEL_STOP',
         'JACKPOT_TRIGGER', 'JACKPOT_PRESENT_MINOR', 'JACKPOT_AWARD',
         'SPIN_END',
       ],
@@ -267,7 +267,7 @@ class ForcedOutcomeConfig {
       icon: Icons.emoji_events,
       gradientColors: [Color(0xFFA78BFA), Color(0xFF8B5CF6)],
       expectedStages: [
-        'SPIN_START', 'REEL_STOP',
+        'UI_SPIN_PRESS', 'REEL_STOP',
         'JACKPOT_TRIGGER', 'JACKPOT_PRESENT_MAJOR', 'JACKPOT_AWARD',
         'SPIN_END',
       ],
@@ -282,7 +282,7 @@ class ForcedOutcomeConfig {
       icon: Icons.emoji_events,
       gradientColors: [Color(0xFFFFD700), Color(0xFFFF6B00)],
       expectedStages: [
-        'SPIN_START', 'REEL_STOP',
+        'UI_SPIN_PRESS', 'REEL_STOP',
         'JACKPOT_TRIGGER', 'JACKPOT_PRESENT_GRAND', 'JACKPOT_AWARD',
         'SPIN_END',
       ],
@@ -301,7 +301,7 @@ class ForcedOutcomeConfig {
       icon: Icons.track_changes,
       gradientColors: [Color(0xFFFF9040), Color(0xFFFF6B00)],
       expectedStages: [
-        'SPIN_START', 'REEL_STOP',
+        'UI_SPIN_PRESS', 'REEL_STOP',
         'ANTICIPATION_TENSION', 'ANTICIPATION_TENSION_R3_L2', 'ANTICIPATION_MISS',
         'EVALUATE_WINS', 'SPIN_END',
       ],

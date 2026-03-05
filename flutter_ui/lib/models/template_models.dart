@@ -937,7 +937,7 @@ class BuiltTemplate {
   /// Check if all critical stages are mapped
   bool get allCriticalStagesMapped {
     const criticalPrefixes = [
-      'SPIN_START',
+      'UI_SPIN_PRESS',
       'SPIN_END',
       'REEL_STOP',
       'WIN_',

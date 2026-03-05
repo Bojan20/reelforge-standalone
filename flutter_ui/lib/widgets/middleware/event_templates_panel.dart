@@ -117,7 +117,7 @@ class _EventTemplatesPanelState extends State<EventTemplatesPanel> {
       name: 'Spin Button Press',
       description: 'UI click + whoosh layer',
       category: _TemplateCategory.spin,
-      stage: 'SPIN_START',
+      stage: 'UI_SPIN_PRESS',
       layerCount: 2,
       bus: 'UI',
       icon: Icons.play_circle,

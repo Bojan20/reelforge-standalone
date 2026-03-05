@@ -715,7 +715,7 @@ class _StageEventsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final stages = [
-      ('SPIN_START', Icons.play_arrow, SlotAudioColors.casinoGreen),
+      ('UI_SPIN_PRESS', Icons.play_arrow, SlotAudioColors.casinoGreen),
       ('REEL_STOP', Icons.stop, SlotAudioColors.goldPrimary),
       ('ANTICIPATION', Icons.hourglass_top, SlotAudioColors.casinoPurple),
       ('WIN_PRESENT', Icons.emoji_events, SlotAudioColors.winBig),

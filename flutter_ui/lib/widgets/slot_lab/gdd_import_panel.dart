@@ -619,7 +619,7 @@ class GddTemplateGenerator {
         },
       },
       'audio_events': [
-        'SPIN_START',
+        'UI_SPIN_PRESS',
         'REEL_SPIN',
         'REEL_STOP',
         'ANTICIPATION',

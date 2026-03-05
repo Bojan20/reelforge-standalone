@@ -642,8 +642,8 @@ class SlotStageProvider extends ChangeNotifier {
       eventRegistry.triggerStage(stageType, context: context);
     }
 
-    // Handle SPIN_START
-    if (stageType == 'SPIN_START') {
+    // Handle UI_SPIN_PRESS
+    if (stageType == 'UI_SPIN_PRESS') {
       _isReelsSpinning = true;
 
       if (eventRegistry.hasEventForStage('REEL_SPIN_LOOP')) {
@@ -781,7 +781,7 @@ class SlotStageProvider extends ChangeNotifier {
   /// Convert stage type to middleware hook names
   List<String> _stageToHooks(String stageType, dynamic reelIndex, Map<String, dynamic> context) {
     switch (stageType) {
-      case 'SPIN_START':
+      case 'UI_SPIN_PRESS':
         return ['onSpinStart'];
       case 'REEL_STOP':
         if (reelIndex is int) {
@@ -947,11 +947,11 @@ class SlotStageProvider extends ChangeNotifier {
 
     final stageTypes = _lastStages.map((s) => s.stageType.toUpperCase()).toList();
 
-    // SPIN_START must be first
-    if (stageTypes.isNotEmpty && stageTypes.first != 'SPIN_START') {
+    // UI_SPIN_PRESS must be first
+    if (stageTypes.isNotEmpty && stageTypes.first != 'UI_SPIN_PRESS') {
       issues.add(StageValidationIssue(
         type: StageValidationType.orderViolation,
-        message: 'SPIN_START must be first stage',
+        message: 'UI_SPIN_PRESS must be first stage',
         severity: StageValidationSeverity.error,
         stageIndex: 0,
       ));
@@ -980,7 +980,7 @@ class SlotStageProvider extends ChangeNotifier {
     }
 
     // Required stages check
-    const requiredStages = {'SPIN_START', 'SPIN_END'};
+    const requiredStages = {'UI_SPIN_PRESS', 'SPIN_END'};
     for (final required in requiredStages) {
       if (!stageTypes.contains(required)) {
         issues.add(StageValidationIssue(

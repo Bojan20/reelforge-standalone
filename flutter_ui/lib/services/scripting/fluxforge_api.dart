@@ -10,7 +10,7 @@
 //
 // Usage:
 //   final api = FluxForgeApi.instance;
-//   final result = await api.createEvent({'name': 'Test', 'stage': 'SPIN_START'});
+//   final result = await api.createEvent({'name': 'Test', 'stage': 'UI_SPIN_PRESS'});
 
 import 'dart:async';
 import 'package:flutter/material.dart';

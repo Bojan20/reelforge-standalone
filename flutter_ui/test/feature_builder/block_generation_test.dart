@@ -30,11 +30,11 @@ void main() {
       final block = GameCoreBlock();
       final stages = block.generateStages();
 
-      expect(stages.any((s) => s.name == 'SPIN_START'), isTrue);
+      expect(stages.any((s) => s.name == 'UI_SPIN_PRESS'), isTrue);
       expect(stages.any((s) => s.name == 'SPIN_END'), isTrue);
       expect(stages.any((s) => s.name == 'REEL_SPIN_LOOP'), isTrue);
 
-      final spinStart = stages.firstWhere((s) => s.name == 'SPIN_START');
+      final spinStart = stages.firstWhere((s) => s.name == 'UI_SPIN_PRESS');
       expect(spinStart.bus, 'ui');
       expect(spinStart.priority, 80);
       expect(spinStart.sourceBlockId, 'game_core');

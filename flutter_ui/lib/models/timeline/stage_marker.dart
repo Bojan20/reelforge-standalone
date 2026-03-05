@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 
 /// Marker type categories
 enum StageMarkerType {
-  spin,        // SPIN_START, SPIN_END
+  spin,        // UI_SPIN_PRESS, SPIN_END
   reelStop,    // REEL_STOP_0..4
   win,         // WIN_PRESENT_*, ROLLUP_*
   feature,     // FS_HOLD_INTRO, BONUS_ENTER
@@ -86,7 +86,7 @@ class StageMarker {
   static String _labelFromStageId(String stageId) {
     // REEL_STOP_0 → "Reel 1"
     // WIN_PRESENT_BIG → "Big Win"
-    // SPIN_START → "Spin"
+    // UI_SPIN_PRESS → "Spin"
     final upper = stageId.toUpperCase();
 
     if (upper.startsWith('REEL_STOP_')) {
@@ -99,7 +99,7 @@ class StageMarker {
       return '${tier.capitalize()} Win';
     }
 
-    if (upper == 'SPIN_START') return 'Spin';
+    if (upper == 'UI_SPIN_PRESS') return 'Spin';
     if (upper == 'SPIN_END') return 'Spin End';
     if (upper == 'ANTICIPATION_TENSION') return 'Anticipation';
 

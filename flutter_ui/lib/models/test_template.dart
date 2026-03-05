@@ -111,7 +111,7 @@ class BuiltInTestTemplates {
     estimatedDurationMs: 3500,
     tags: ['basic', 'win', 'rollup'],
     actions: [
-      TestStageAction(stage: 'SPIN_START', delayMs: 0),
+      TestStageAction(stage: 'UI_SPIN_PRESS', delayMs: 0),
       TestStageAction(stage: 'REEL_STOP_0', delayMs: 400),
       TestStageAction(stage: 'REEL_STOP_1', delayMs: 800),
       TestStageAction(stage: 'REEL_STOP_2', delayMs: 1200),
@@ -135,7 +135,7 @@ class BuiltInTestTemplates {
     estimatedDurationMs: 4500,
     tags: ['cascade', 'tumble', 'multi-step'],
     actions: [
-      TestStageAction(stage: 'SPIN_START', delayMs: 0),
+      TestStageAction(stage: 'UI_SPIN_PRESS', delayMs: 0),
       TestStageAction(stage: 'REEL_STOP_4', delayMs: 2000),
       TestStageAction(stage: 'CASCADE_START', delayMs: 2300),
       TestStageAction(stage: 'CASCADE_STEP', delayMs: 2600, context: {'step_index': 0}),
@@ -155,7 +155,7 @@ class BuiltInTestTemplates {
     estimatedDurationMs: 5000,
     tags: ['feature', 'free-spins', 'anticipation'],
     actions: [
-      TestStageAction(stage: 'SPIN_START', delayMs: 0),
+      TestStageAction(stage: 'UI_SPIN_PRESS', delayMs: 0),
       TestStageAction(stage: 'REEL_STOP_0', delayMs: 400),
       TestStageAction(stage: 'REEL_STOP_1', delayMs: 800),
       TestStageAction(stage: 'ANTICIPATION_TENSION', delayMs: 1100, context: {'reason': 'scatter'}),
@@ -178,7 +178,7 @@ class BuiltInTestTemplates {
     estimatedDurationMs: 8000,
     tags: ['edge-case', 'multi-feature', 'stress'],
     actions: [
-      TestStageAction(stage: 'SPIN_START', delayMs: 0),
+      TestStageAction(stage: 'UI_SPIN_PRESS', delayMs: 0),
       TestStageAction(stage: 'REEL_STOP_4', delayMs: 2000),
       TestStageAction(stage: 'FS_HOLD_INTRO', delayMs: 2300),
       TestStageAction(stage: 'BONUS_TRIGGER', delayMs: 2500),

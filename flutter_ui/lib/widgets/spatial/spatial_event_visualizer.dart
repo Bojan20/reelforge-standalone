@@ -492,7 +492,7 @@ class _SpatialEventVisualizerState extends State<SpatialEventVisualizer> {
             children: [
               _TestEventButton(
                 label: 'Spin Start',
-                intent: 'SPIN_START',
+                intent: 'UI_SPIN_PRESS',
                 provider: provider,
               ),
               _TestEventButton(

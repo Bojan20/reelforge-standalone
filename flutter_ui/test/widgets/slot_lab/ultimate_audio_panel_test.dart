@@ -33,19 +33,19 @@ void main() {
 
     test('accepts audio assignments map', () {
       const panel = UltimateAudioPanel(
-        audioAssignments: {'SPIN_START': '/audio/spin.wav', 'REEL_STOP': '/audio/stop.wav'},
+        audioAssignments: {'UI_SPIN_PRESS': '/audio/spin.wav', 'REEL_STOP': '/audio/stop.wav'},
       );
       expect(panel.audioAssignments.length, 2);
-      expect(panel.audioAssignments['SPIN_START'], '/audio/spin.wav');
+      expect(panel.audioAssignments['UI_SPIN_PRESS'], '/audio/spin.wav');
     });
 
     test('quick assign mode parameters', () {
       const panel = UltimateAudioPanel(
         quickAssignMode: true,
-        quickAssignSelectedSlot: 'SPIN_START',
+        quickAssignSelectedSlot: 'UI_SPIN_PRESS',
       );
       expect(panel.quickAssignMode, true);
-      expect(panel.quickAssignSelectedSlot, 'SPIN_START');
+      expect(panel.quickAssignSelectedSlot, 'UI_SPIN_PRESS');
     });
 
     test('undo/redo state', () {
@@ -56,7 +56,7 @@ void main() {
       );
       expect(panel.canUndo, true);
       expect(panel.canRedo, false);
-      expect(panel.undoDescription, contains('SPIN_START'));
+      expect(panel.undoDescription, contains('UI_SPIN_PRESS'));
     });
   });
 
@@ -136,7 +136,7 @@ void main() {
 
     test('non-pooled stages should not be marked', () {
       const nonPooledStages = {
-        'SPIN_START',
+        'UI_SPIN_PRESS',
         'SPIN_END',
         'WIN_PRESENT',
         'JACKPOT_TRIGGER',
@@ -263,7 +263,7 @@ void main() {
   group('Stage-to-section mapping', () {
     test('spin stages map to base_game_loop', () {
       const baseGameStages = [
-        'SPIN_START',
+        'UI_SPIN_PRESS',
         'SPIN_END',
         'REEL_SPIN_LOOP',
         'REEL_STOP',

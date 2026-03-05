@@ -32,7 +32,7 @@ class StageFlowPresets {
 
   static FlowPreset classic5Reel() {
     final nodes = <StageFlowNode>[
-      _coreNode('n_spin_start', 'SPIN_START', x: 0, y: 200),
+      _coreNode('n_spin_start', 'UI_SPIN_PRESS', x: 0, y: 200),
       _coreNode('n_reel_spin', 'REEL_SPIN_LOOP', x: 160, y: 200,
           timing: const TimingConfig(durationMs: 1000)),
       _coreNode('n_reel_stop_0', 'REEL_STOP_0', x: 320, y: 200,
@@ -126,7 +126,7 @@ class StageFlowPresets {
 
   static FlowPreset cascadeTumble() {
     final nodes = <StageFlowNode>[
-      _coreNode('n_spin_start', 'SPIN_START', x: 0, y: 200),
+      _coreNode('n_spin_start', 'UI_SPIN_PRESS', x: 0, y: 200),
       _coreNode('n_reel_spin', 'REEL_SPIN_LOOP', x: 160, y: 200,
           timing: const TimingConfig(durationMs: 1000)),
       _coreNode('n_reel_stop_0', 'REEL_STOP_0', x: 320, y: 200,

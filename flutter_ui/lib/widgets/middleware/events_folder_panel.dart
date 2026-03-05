@@ -1520,7 +1520,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
     final stageController = TextEditingController();
 
     final commonStages = [
-      'SPIN_START', 'SPIN_END', 'REEL_STOP', 'REEL_SPIN_LOOP',
+      'UI_SPIN_PRESS', 'SPIN_END', 'REEL_STOP', 'REEL_SPIN_LOOP',
       'WIN_PRESENT', 'WIN_LINE_SHOW', 'ROLLUP_START', 'ROLLUP_TICK', 'ROLLUP_END',
       'ANTICIPATION_TENSION', 'ANTICIPATION_MISS',
       'CASCADE_START', 'CASCADE_STEP', 'CASCADE_END',

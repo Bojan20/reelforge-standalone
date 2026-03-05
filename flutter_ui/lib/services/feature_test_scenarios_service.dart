@@ -161,9 +161,9 @@ class BuiltInScenarios {
     description: 'Standard spin sequence with reel stops',
     type: ScenarioType.spin,
     isBuiltIn: true,
-    requiredStages: ['SPIN_START', 'REEL_SPIN_LOOP', 'REEL_STOP_0', 'REEL_STOP_1', 'REEL_STOP_2', 'REEL_STOP_3', 'REEL_STOP_4', 'SPIN_END'],
+    requiredStages: ['UI_SPIN_PRESS', 'REEL_SPIN_LOOP', 'REEL_STOP_0', 'REEL_STOP_1', 'REEL_STOP_2', 'REEL_STOP_3', 'REEL_STOP_4', 'SPIN_END'],
     steps: [
-      ScenarioStep(stageName: 'SPIN_START', delayMs: 0),
+      ScenarioStep(stageName: 'UI_SPIN_PRESS', delayMs: 0),
       ScenarioStep(stageName: 'REEL_SPIN_LOOP', delayMs: 100),
       ScenarioStep(stageName: 'REEL_STOP_0', delayMs: 500),
       ScenarioStep(stageName: 'REEL_STOP_1', delayMs: 370),
@@ -258,7 +258,7 @@ class BuiltInScenarios {
     isBuiltIn: true,
     requiredStages: ['ANTICIPATION_TENSION', 'ANTICIPATION_TENSION_R2_L1', 'ANTICIPATION_MISS'],
     steps: [
-      ScenarioStep(stageName: 'SPIN_START', delayMs: 0),
+      ScenarioStep(stageName: 'UI_SPIN_PRESS', delayMs: 0),
       ScenarioStep(stageName: 'REEL_STOP_0', delayMs: 600, payload: {'hasScatter': true}),
       ScenarioStep(stageName: 'REEL_STOP_1', delayMs: 370, payload: {'hasScatter': true}),
       ScenarioStep(stageName: 'ANTICIPATION_TENSION', delayMs: 100, payload: {'reelIndex': 2}),

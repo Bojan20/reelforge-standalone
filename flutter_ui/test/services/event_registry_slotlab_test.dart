@@ -237,13 +237,13 @@ void main() {
       const event = AudioEvent(
         id: 'evt_1',
         name: 'Spin Start',
-        stage: 'SPIN_START',
+        stage: 'UI_SPIN_PRESS',
         layers: [],
       );
 
       expect(event.id, 'evt_1');
       expect(event.name, 'Spin Start');
-      expect(event.stage, 'SPIN_START');
+      expect(event.stage, 'UI_SPIN_PRESS');
       expect(event.layers, isEmpty);
       expect(event.duration, 0.0);
       expect(event.loop, false);
@@ -434,7 +434,7 @@ void main() {
       const original = AudioEvent(
         id: 'orig',
         name: 'Original',
-        stage: 'SPIN_START',
+        stage: 'UI_SPIN_PRESS',
         layers: [],
         priority: 10,
       );
@@ -452,7 +452,7 @@ void main() {
 
       // Unchanged fields
       expect(modified.id, 'orig');
-      expect(modified.stage, 'SPIN_START');
+      expect(modified.stage, 'UI_SPIN_PRESS');
       expect(modified.layers, isEmpty);
       expect(modified.duration, 0.0);
       expect(modified.containerType, ContainerType.none);
@@ -1733,7 +1733,7 @@ void main() {
 
       // These should NOT match (no trailing number)
       expect(pattern.hasMatch('REEL_STOP'), false);
-      expect(pattern.hasMatch('SPIN_START'), false);
+      expect(pattern.hasMatch('UI_SPIN_PRESS'), false);
     });
 
     test('known fallbackable patterns include all expected stages', () {

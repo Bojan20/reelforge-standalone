@@ -704,7 +704,7 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
     ));
 
     // Check 2: Core stages covered
-    final coreStages = ['SPIN_START', 'REEL_STOP', 'WIN_PRESENT'];
+    final coreStages = ['UI_SPIN_PRESS', 'REEL_STOP', 'WIN_PRESENT'];
     final coveredCoreStages = coreStages.where((stage) {
       return middlewareProvider.compositeEvents.any(
         (e) => e.triggerStages.any((s) => s.toUpperCase().contains(stage)),

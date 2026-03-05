@@ -80,7 +80,7 @@ enum SlotMechanic {
 
 /// A stage in the composed state machine
 class ComposedStage {
-  /// Unique stage ID (e.g. 'CASCADE_STEP', 'SPIN_START')
+  /// Unique stage ID (e.g. 'CASCADE_STEP', 'UI_SPIN_PRESS')
   final String id;
 
   /// Human-readable name
@@ -127,7 +127,7 @@ class ComposedStage {
 const List<ComposedStage> _engineCoreStages = [
   // ═══ Spin Lifecycle ═══
   ComposedStage(
-    id: 'SPIN_START', displayName: 'Spin Start',
+    id: 'UI_SPIN_PRESS', displayName: 'Spin Start',
     layer: StageLayer.engineCore, locked: true, sortOrder: 0,
     hooks: ['onSpinStart'], suggestedBus: 'reels', priority: 'P0',
   ),
@@ -902,7 +902,7 @@ class FeatureComposerProvider extends ChangeNotifier {
 
     final stages = <ComposedStage>[
       const ComposedStage(
-        id: 'SPIN_START', displayName: 'Spin Start',
+        id: 'UI_SPIN_PRESS', displayName: 'Spin Start',
         layer: StageLayer.engineCore, locked: true, sortOrder: 0,
         hooks: ['onSpinStart'], suggestedBus: 'reels', priority: 'P0',
       ),

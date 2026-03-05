@@ -101,7 +101,7 @@ void main() {
     });
 
     test('clears dirty flag', () {
-      provider.setAudioAssignment('SPIN_START', '/a.wav');
+      provider.setAudioAssignment('UI_SPIN_PRESS', '/a.wav');
       expect(provider.isDirty, true);
       provider.newProject('Fresh');
       expect(provider.isDirty, false);
@@ -121,7 +121,7 @@ void main() {
     });
 
     test('clears audio assignments', () {
-      provider.setAudioAssignment('SPIN_START', '/a.wav');
+      provider.setAudioAssignment('UI_SPIN_PRESS', '/a.wav');
       provider.newProject('Fresh');
       expect(provider.audioAssignments, isEmpty);
     });
@@ -140,29 +140,29 @@ void main() {
 
   group('Audio assignments', () {
     test('setAudioAssignment stores assignment', () {
-      provider.setAudioAssignment('SPIN_START', '/audio/spin.wav');
-      expect(provider.audioAssignments['SPIN_START'], '/audio/spin.wav');
+      provider.setAudioAssignment('UI_SPIN_PRESS', '/audio/spin.wav');
+      expect(provider.audioAssignments['UI_SPIN_PRESS'], '/audio/spin.wav');
     });
 
     test('setAudioAssignment marks dirty', () {
-      provider.setAudioAssignment('SPIN_START', '/a.wav');
+      provider.setAudioAssignment('UI_SPIN_PRESS', '/a.wav');
       expect(provider.isDirty, true);
     });
 
     test('hasAudioAssignment returns true for assigned stage', () {
-      provider.setAudioAssignment('SPIN_START', '/a.wav');
-      expect(provider.hasAudioAssignment('SPIN_START'), true);
+      provider.setAudioAssignment('UI_SPIN_PRESS', '/a.wav');
+      expect(provider.hasAudioAssignment('UI_SPIN_PRESS'), true);
       expect(provider.hasAudioAssignment('NONEXISTENT'), false);
     });
 
     test('removeAudioAssignment removes assignment', () {
-      provider.setAudioAssignment('SPIN_START', '/a.wav');
-      provider.removeAudioAssignment('SPIN_START');
-      expect(provider.hasAudioAssignment('SPIN_START'), false);
+      provider.setAudioAssignment('UI_SPIN_PRESS', '/a.wav');
+      provider.removeAudioAssignment('UI_SPIN_PRESS');
+      expect(provider.hasAudioAssignment('UI_SPIN_PRESS'), false);
     });
 
     test('audioAssignments map is unmodifiable', () {
-      provider.setAudioAssignment('SPIN_START', '/a.wav');
+      provider.setAudioAssignment('UI_SPIN_PRESS', '/a.wav');
       expect(
         () => provider.audioAssignments['X'] = 'Y',
         throwsA(isA<UnsupportedError>()),
@@ -170,13 +170,13 @@ void main() {
     });
 
     test('overwriting assignment replaces old value', () {
-      provider.setAudioAssignment('SPIN_START', '/old.wav');
-      provider.setAudioAssignment('SPIN_START', '/new.wav');
-      expect(provider.audioAssignments['SPIN_START'], '/new.wav');
+      provider.setAudioAssignment('UI_SPIN_PRESS', '/old.wav');
+      provider.setAudioAssignment('UI_SPIN_PRESS', '/new.wav');
+      expect(provider.audioAssignments['UI_SPIN_PRESS'], '/new.wav');
     });
 
     test('clearAllAudioAssignments removes all', () {
-      provider.setAudioAssignment('SPIN_START', '/a.wav');
+      provider.setAudioAssignment('UI_SPIN_PRESS', '/a.wav');
       provider.setAudioAssignment('REEL_STOP', '/b.wav');
       provider.clearAllAudioAssignments();
       expect(provider.audioAssignments, isEmpty);
@@ -184,7 +184,7 @@ void main() {
 
     test('setAudioAssignments bulk replaces', () {
       provider.setAudioAssignments({
-        'SPIN_START': '/a.wav',
+        'UI_SPIN_PRESS': '/a.wav',
         'REEL_STOP': '/b.wav',
       });
       expect(provider.audioAssignments.length, 2);
@@ -201,24 +201,24 @@ void main() {
     });
 
     test('undo after set restores previous state', () {
-      provider.setAudioAssignment('SPIN_START', '/a.wav');
+      provider.setAudioAssignment('UI_SPIN_PRESS', '/a.wav');
       expect(provider.canUndoAudioAssignment, true);
 
       provider.undoAudioAssignment();
-      expect(provider.hasAudioAssignment('SPIN_START'), false);
+      expect(provider.hasAudioAssignment('UI_SPIN_PRESS'), false);
     });
 
     test('redo after undo restores assignment', () {
-      provider.setAudioAssignment('SPIN_START', '/a.wav');
+      provider.setAudioAssignment('UI_SPIN_PRESS', '/a.wav');
       provider.undoAudioAssignment();
       expect(provider.canRedoAudioAssignment, true);
 
       provider.redoAudioAssignment();
-      expect(provider.audioAssignments['SPIN_START'], '/a.wav');
+      expect(provider.audioAssignments['UI_SPIN_PRESS'], '/a.wav');
     });
 
     test('new action clears redo stack', () {
-      provider.setAudioAssignment('SPIN_START', '/a.wav');
+      provider.setAudioAssignment('UI_SPIN_PRESS', '/a.wav');
       provider.undoAudioAssignment();
       expect(provider.canRedoAudioAssignment, true);
 
@@ -227,16 +227,16 @@ void main() {
     });
 
     test('undo after remove restores assignment', () {
-      provider.setAudioAssignment('SPIN_START', '/a.wav');
-      provider.removeAudioAssignment('SPIN_START');
-      expect(provider.hasAudioAssignment('SPIN_START'), false);
+      provider.setAudioAssignment('UI_SPIN_PRESS', '/a.wav');
+      provider.removeAudioAssignment('UI_SPIN_PRESS');
+      expect(provider.hasAudioAssignment('UI_SPIN_PRESS'), false);
 
       provider.undoAudioAssignment();
-      expect(provider.audioAssignments['SPIN_START'], '/a.wav');
+      expect(provider.audioAssignments['UI_SPIN_PRESS'], '/a.wav');
     });
 
     test('undo after clearAll restores all assignments', () {
-      provider.setAudioAssignment('SPIN_START', '/a.wav');
+      provider.setAudioAssignment('UI_SPIN_PRESS', '/a.wav');
       provider.setAudioAssignment('REEL_STOP', '/b.wav');
       provider.clearAllAudioAssignments();
 
@@ -260,7 +260,7 @@ void main() {
     });
 
     test('canBulkExpand returns false for non-expandable stages', () {
-      expect(provider.canBulkExpand('SPIN_START'), false);
+      expect(provider.canBulkExpand('UI_SPIN_PRESS'), false);
     });
 
     test('getBulkExpandCount returns correct count', () {
