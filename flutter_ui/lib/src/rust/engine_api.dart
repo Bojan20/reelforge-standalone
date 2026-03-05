@@ -45,7 +45,6 @@ class EngineApi {
 
   Timer? _updateTimer;
   int _meteringFrameCounter = 0; // For 20Hz metering (every 3rd frame @ 60fps)
-  int _debugFrameCount = 0; // For debug logging (every 60 frames = ~1s)
 
   EngineApi._();
 
@@ -62,7 +61,6 @@ class EngineApi {
       throw Exception('[Engine] FATAL: Native library failed to load. Cannot continue.');
     }
     _useMock = false;
-    print('[Engine] Native FFI loaded successfully');
 
     _initialized = true;
 
@@ -70,7 +68,6 @@ class EngineApi {
     try {
       await startAudioPlayback();
     } catch (e) {
-      print('[Engine] Audio playback init failed: $e');
       rethrow;
     }
 
@@ -89,13 +86,11 @@ class EngineApi {
       if (!_useMock) {
         // Use unified playback service (stops other sources automatically)
         AudioPlaybackService.instance.startDAWPlayback();
-        print('[Engine] Audio playback started via AudioPlaybackService');
       } else {
-        print('[Engine] Audio playback ready (mock mode)');
+        // Removed debug print
       }
       _audioStarted = true;
     } catch (e) {
-      print('[Engine] Audio playback failed: $e');
       rethrow;
     }
   }
@@ -108,11 +103,10 @@ class EngineApi {
       if (!_useMock) {
         // Use unified playback service
         AudioPlaybackService.instance.stopDAWPlayback();
-        print('[Engine] Audio playback stopped via AudioPlaybackService');
       }
       _audioStarted = false;
     } catch (e) {
-      print('[Engine] Audio stop failed: $e');
+      // Removed debug print
     }
   }
 
@@ -291,10 +285,9 @@ class EngineApi {
       // Without this, audio thread won't be running and position won't advance
       final streamStarted = _ffi.startPlayback();
       if (!streamStarted) {
-        print('[EngineApi] WARNING: Failed to start audio stream');
+        // Removed debug print
       }
       _ffi.play();
-      print('[EngineApi] play() called - stream: $streamStarted, debugInfo: ${_ffi.getPlaybackDebugInfo()}');
     }
     _transport = TransportState(
       isPlaying: true,
@@ -558,7 +551,6 @@ class EngineApi {
 
   /// Save project
   Future<bool> saveProject(String path) async {
-    print('[Engine] Saving project to: $path');
     if (!_useMock) {
       final result = _ffi.saveProject(path);
       if (result) {
@@ -574,33 +566,28 @@ class EngineApi {
           createdAt: _project.createdAt,
           modifiedAt: DateTime.now().millisecondsSinceEpoch,
         );
-        print('[Engine] Project saved via FFI');
         return true;
       }
       return false;
     }
     // Mock save
     await Future.delayed(const Duration(milliseconds: 100));
-    print('[Engine] Project saved (mock)');
     return true;
   }
 
   /// Load project
   Future<bool> loadProject(String path) async {
-    print('[Engine] Loading project from: $path');
     if (!_useMock) {
       final result = _ffi.loadProject(path);
       if (result) {
         // Sync project info from engine
         _ffi.preloadAll();
-        print('[Engine] Project loaded via FFI');
         return true;
       }
       return false;
     }
     // Mock load
     await Future.delayed(const Duration(milliseconds: 100));
-    print('[Engine] Project loaded (mock)');
     return true;
   }
 
@@ -659,13 +646,11 @@ class EngineApi {
     if (!_useMock) {
       final nativeId = _ffi.createTrack(name, color, busId);
       if (nativeId != 0) {
-        print('[Engine] Created track via FFI: $name (id: $nativeId)');
         return nativeId.toString();
       }
     }
     // Fallback to mock
     final id = 'track-${DateTime.now().millisecondsSinceEpoch}';
-    print('[Engine] Created track (mock): $name (id: $id)');
     return id;
   }
 
@@ -675,11 +660,9 @@ class EngineApi {
       final nativeId = int.tryParse(trackId);
       if (nativeId != null) {
         _ffi.deleteTrack(nativeId);
-        print('[Engine] Deleted track via FFI: $trackId');
         return;
       }
     }
-    print('[Engine] Deleted track (mock): $trackId');
   }
 
   /// Update track properties
@@ -703,11 +686,9 @@ class EngineApi {
         if (volume != null) _ffi.setTrackVolume(nativeId, volume);
         if (pan != null) _ffi.setTrackPan(nativeId, pan);
         if (busId != null) _ffi.setTrackBus(nativeId, busId);
-        print('[Engine] Updated track via FFI: $trackId');
         return;
       }
     }
-    print('[Engine] Updated track (mock): $trackId');
   }
 
   /// Get track peak level for metering (0.0 - 1.0+)
@@ -768,7 +749,6 @@ class EngineApi {
     required String trackId,
     required double startTime,
   }) async {
-    print('[Engine] Importing audio: $filePath to track $trackId at $startTime');
 
     if (!_useMock) {
       final nativeTrackId = int.tryParse(trackId);
@@ -776,14 +756,12 @@ class EngineApi {
         final clipId = _ffi.importAudio(filePath, nativeTrackId, startTime);
         if (clipId != 0) {
           final fileName = filePath.split('/').last;
-          print('[Engine] Imported via FFI: $fileName (clip: $clipId)');
           // Preload audio for playback
           _ffi.preloadAll();
 
           // Get actual duration from engine
           final duration = _ffi.getClipDuration(clipId);
           final sourceDuration = _ffi.getClipSourceDuration(clipId);
-          print('[Engine] Clip duration: $duration, source: $sourceDuration');
 
           return ImportedClipInfo(
             clipId: clipId.toString(),
@@ -850,11 +828,9 @@ class EngineApi {
       final nativeTrackId = int.tryParse(targetTrackId);
       if (nativeClipId != null && nativeTrackId != null) {
         _ffi.moveClip(nativeClipId, nativeTrackId, startTime);
-        print('[Engine] Moved clip via FFI: $clipId');
         return;
       }
     }
-    print('[Engine] Move clip (mock): $clipId to track $targetTrackId at $startTime');
   }
 
   /// Resize a clip
@@ -868,11 +844,9 @@ class EngineApi {
       final nativeClipId = int.tryParse(clipId);
       if (nativeClipId != null) {
         _ffi.resizeClip(nativeClipId, startTime, duration, sourceOffset);
-        print('[Engine] Resized clip via FFI: $clipId');
         return;
       }
     }
-    print('[Engine] Resize clip (mock): $clipId');
   }
 
   /// Split a clip at playhead
@@ -886,12 +860,10 @@ class EngineApi {
       if (nativeClipId != null) {
         final newId = _ffi.splitClip(nativeClipId, atTime);
         if (newId != 0) {
-          print('[Engine] Split clip via FFI: $clipId -> $newId');
           return newId.toString();
         }
       }
     }
-    print('[Engine] Split clip (mock): $clipId at $atTime');
     return 'clip-${DateTime.now().millisecondsSinceEpoch}';
   }
 
@@ -903,12 +875,10 @@ class EngineApi {
       if (nativeClipId != null) {
         final newId = _ffi.duplicateClip(nativeClipId);
         if (newId != 0) {
-          print('[Engine] Duplicated clip via FFI: $clipId -> $newId');
           return newId.toString();
         }
       }
     }
-    print('[Engine] Duplicate clip (mock): $clipId');
     return 'clip-${DateTime.now().millisecondsSinceEpoch}';
   }
 
@@ -918,11 +888,9 @@ class EngineApi {
       final nativeClipId = int.tryParse(clipId);
       if (nativeClipId != null) {
         _ffi.deleteClip(nativeClipId);
-        print('[Engine] Deleted clip via FFI: $clipId');
         return;
       }
     }
-    print('[Engine] Delete clip (mock): $clipId');
   }
 
   /// Set clip gain
@@ -931,11 +899,9 @@ class EngineApi {
       final nativeClipId = int.tryParse(clipId);
       if (nativeClipId != null) {
         _ffi.setClipGain(nativeClipId, gain);
-        print('[Engine] Set clip gain via FFI: $clipId = $gain');
         return;
       }
     }
-    print('[Engine] Set clip gain (mock): $clipId = $gain');
   }
 
   /// Set clip mute state
@@ -944,11 +910,9 @@ class EngineApi {
       final nativeClipId = int.tryParse(clipId);
       if (nativeClipId != null) {
         _ffi.setClipMuted(nativeClipId, muted);
-        print('[Engine] Set clip $clipId muted to $muted via FFI');
         return;
       }
     }
-    print('[Engine] Set clip $clipId muted to $muted (mock)');
   }
 
   /// Set clip loop enabled
@@ -957,11 +921,9 @@ class EngineApi {
       final nativeClipId = int.tryParse(clipId);
       if (nativeClipId != null) {
         _ffi.setClipLoopEnabled(nativeClipId, enabled);
-        print('[Engine] Set clip $clipId loop to $enabled via FFI');
         return;
       }
     }
-    print('[Engine] Set clip $clipId loop to $enabled (mock)');
   }
 
   /// Set clip loop count (0 = infinite, 1+ = specific iterations)
@@ -970,11 +932,9 @@ class EngineApi {
       final nativeClipId = int.tryParse(clipId);
       if (nativeClipId != null) {
         _ffi.setClipLoopCount(nativeClipId, count);
-        print('[Engine] Set clip $clipId loop count to $count via FFI');
         return;
       }
     }
-    print('[Engine] Set clip $clipId loop count to $count (mock)');
   }
 
   /// Set clip loop crossfade in seconds
@@ -983,11 +943,9 @@ class EngineApi {
       final nativeClipId = int.tryParse(clipId);
       if (nativeClipId != null) {
         _ffi.setClipLoopCrossfade(nativeClipId, crossfadeSecs);
-        print('[Engine] Set clip $clipId loop crossfade to ${crossfadeSecs}s via FFI');
         return;
       }
     }
-    print('[Engine] Set clip $clipId loop crossfade to ${crossfadeSecs}s (mock)');
   }
 
   /// Set clip loop start boundary in samples
@@ -996,11 +954,9 @@ class EngineApi {
       final nativeClipId = int.tryParse(clipId);
       if (nativeClipId != null) {
         _ffi.setClipLoopStart(nativeClipId, startSamples);
-        print('[Engine] Set clip $clipId loop start to $startSamples samples via FFI');
         return;
       }
     }
-    print('[Engine] Set clip $clipId loop start to $startSamples samples (mock)');
   }
 
   /// Set clip loop end boundary in samples (0 = full clip)
@@ -1009,11 +965,9 @@ class EngineApi {
       final nativeClipId = int.tryParse(clipId);
       if (nativeClipId != null) {
         _ffi.setClipLoopEnd(nativeClipId, endSamples);
-        print('[Engine] Set clip $clipId loop end to $endSamples samples via FFI');
         return;
       }
     }
-    print('[Engine] Set clip $clipId loop end to $endSamples samples (mock)');
   }
 
   /// Set clip per-iteration gain factor (1.0 = unity)
@@ -1022,11 +976,9 @@ class EngineApi {
       final nativeClipId = int.tryParse(clipId);
       if (nativeClipId != null) {
         _ffi.setClipIterationGain(nativeClipId, factor);
-        print('[Engine] Set clip $clipId iteration gain to $factor via FFI');
         return;
       }
     }
-    print('[Engine] Set clip $clipId iteration gain to $factor (mock)');
   }
 
   /// Set clip loop random start range in seconds
@@ -1035,11 +987,9 @@ class EngineApi {
       final nativeClipId = int.tryParse(clipId);
       if (nativeClipId != null) {
         _ffi.setClipLoopRandomStart(nativeClipId, rangeSecs);
-        print('[Engine] Set clip $clipId loop random start to ${rangeSecs}s via FFI');
         return;
       }
     }
-    print('[Engine] Set clip $clipId loop random start to ${rangeSecs}s (mock)');
   }
 
   /// SmartTempo: Detect tempo from clip audio
@@ -1055,7 +1005,6 @@ class EngineApi {
 
   /// Normalize clip to target dB
   bool normalizeClip(String clipId, {double targetDb = -3.0}) {
-    print('[Engine] Normalize clip $clipId to $targetDb dB');
     if (!_useMock) {
       final nativeClipId = int.tryParse(clipId);
       if (nativeClipId != null) {
@@ -1067,7 +1016,6 @@ class EngineApi {
 
   /// Reverse clip audio
   bool reverseClip(String clipId) {
-    print('[Engine] Reverse clip $clipId');
     if (!_useMock) {
       final nativeClipId = int.tryParse(clipId);
       if (nativeClipId != null) {
@@ -1080,7 +1028,6 @@ class EngineApi {
   /// Apply fade in to clip
   /// curveType: 0=Linear, 1=EqualPower, 2=SCurve
   bool fadeInClip(String clipId, double durationSec, {int curveType = 1}) {
-    print('[Engine] Fade in clip $clipId for $durationSec sec');
     if (!_useMock) {
       final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
@@ -1092,7 +1039,6 @@ class EngineApi {
 
   /// Apply fade out to clip
   bool fadeOutClip(String clipId, double durationSec, {int curveType = 1}) {
-    print('[Engine] Fade out clip $clipId for $durationSec sec');
     if (!_useMock) {
       final nativeClipId = _parseClipId(clipId);
       if (nativeClipId != null) {
@@ -1120,7 +1066,6 @@ class EngineApi {
 
   /// Apply gain adjustment to clip
   bool applyGainToClip(String clipId, double gainDb) {
-    print('[Engine] Apply $gainDb dB gain to clip $clipId');
     if (!_useMock) {
       final nativeClipId = int.tryParse(clipId);
       if (nativeClipId != null) {
@@ -1137,7 +1082,6 @@ class EngineApi {
   /// Add FX to a clip
   /// fxType: 0=Gain, 1=Compressor, 2=Limiter, 3=Gate, 4=Saturation, etc.
   String? addClipFx(String clipId, int fxType) {
-    print('[Engine] Add FX type $fxType to clip $clipId');
     if (!_useMock) {
       final nativeClipId = int.tryParse(clipId);
       if (nativeClipId != null) {
@@ -1152,7 +1096,6 @@ class EngineApi {
 
   /// Remove FX from a clip
   bool removeClipFx(String clipId, String slotId) {
-    print('[Engine] Remove FX slot $slotId from clip $clipId');
     if (!_useMock) {
       final nativeClipId = int.tryParse(clipId);
       final nativeSlotId = int.tryParse(slotId);
@@ -1165,7 +1108,6 @@ class EngineApi {
 
   /// Bypass/enable a clip FX slot
   bool setClipFxBypass(String clipId, String slotId, bool bypass) {
-    print('[Engine] Set FX slot $slotId bypass: $bypass');
     if (!_useMock) {
       final nativeClipId = int.tryParse(clipId);
       final nativeSlotId = int.tryParse(slotId);
@@ -1178,7 +1120,6 @@ class EngineApi {
 
   /// Bypass/enable entire clip FX chain
   bool setClipFxChainBypass(String clipId, bool bypass) {
-    print('[Engine] Set clip $clipId FX chain bypass: $bypass');
     if (!_useMock) {
       final nativeClipId = int.tryParse(clipId);
       if (nativeClipId != null) {
@@ -1190,7 +1131,6 @@ class EngineApi {
 
   /// Set clip FX slot wet/dry mix (0.0-1.0)
   bool setClipFxWetDry(String clipId, String slotId, double wetDry) {
-    print('[Engine] Set FX slot $slotId wet/dry: $wetDry');
     if (!_useMock) {
       final nativeClipId = int.tryParse(clipId);
       final nativeSlotId = int.tryParse(slotId);
@@ -1203,7 +1143,6 @@ class EngineApi {
 
   /// Set clip FX chain input gain (dB)
   bool setClipFxInputGain(String clipId, double gainDb) {
-    print('[Engine] Set clip $clipId FX input gain: $gainDb dB');
     if (!_useMock) {
       final nativeClipId = int.tryParse(clipId);
       if (nativeClipId != null) {
@@ -1215,7 +1154,6 @@ class EngineApi {
 
   /// Set clip FX chain output gain (dB)
   bool setClipFxOutputGain(String clipId, double gainDb) {
-    print('[Engine] Set clip $clipId FX output gain: $gainDb dB');
     if (!_useMock) {
       final nativeClipId = int.tryParse(clipId);
       if (nativeClipId != null) {
@@ -1227,7 +1165,6 @@ class EngineApi {
 
   /// Set Gain FX parameters
   bool setClipFxGainParams(String clipId, String slotId, double db, double pan) {
-    print('[Engine] Set Gain FX params: $db dB, pan $pan');
     if (!_useMock) {
       final nativeClipId = int.tryParse(clipId);
       final nativeSlotId = int.tryParse(slotId);
@@ -1247,7 +1184,6 @@ class EngineApi {
     required double attackMs,
     required double releaseMs,
   }) {
-    print('[Engine] Set Compressor FX params');
     if (!_useMock) {
       final nativeClipId = int.tryParse(clipId);
       final nativeSlotId = int.tryParse(slotId);
@@ -1267,7 +1203,6 @@ class EngineApi {
 
   /// Set Limiter FX parameters
   bool setClipFxLimiterParams(String clipId, String slotId, double ceilingDb) {
-    print('[Engine] Set Limiter FX ceiling: $ceilingDb dB');
     if (!_useMock) {
       final nativeClipId = int.tryParse(clipId);
       final nativeSlotId = int.tryParse(slotId);
@@ -1286,7 +1221,6 @@ class EngineApi {
     required double attackMs,
     required double releaseMs,
   }) {
-    print('[Engine] Set Gate FX params');
     if (!_useMock) {
       final nativeClipId = int.tryParse(clipId);
       final nativeSlotId = int.tryParse(slotId);
@@ -1310,7 +1244,6 @@ class EngineApi {
     required double drive,
     required double mix,
   }) {
-    print('[Engine] Set Saturation FX params: drive $drive, mix $mix');
     if (!_useMock) {
       final nativeClipId = int.tryParse(clipId);
       final nativeSlotId = int.tryParse(slotId);
@@ -1323,7 +1256,6 @@ class EngineApi {
 
   /// Move FX slot to new position in chain
   bool moveClipFx(String clipId, String slotId, int newIndex) {
-    print('[Engine] Move FX slot $slotId to index $newIndex');
     if (!_useMock) {
       final nativeClipId = int.tryParse(clipId);
       final nativeSlotId = int.tryParse(slotId);
@@ -1336,7 +1268,6 @@ class EngineApi {
 
   /// Copy FX chain from one clip to another
   bool copyClipFx(String sourceClipId, String targetClipId) {
-    print('[Engine] Copy FX from clip $sourceClipId to $targetClipId');
     if (!_useMock) {
       final nativeSourceId = int.tryParse(sourceClipId);
       final nativeTargetId = int.tryParse(targetClipId);
@@ -1349,7 +1280,6 @@ class EngineApi {
 
   /// Clear all FX from a clip
   bool clearClipFx(String clipId) {
-    print('[Engine] Clear all FX from clip $clipId');
     if (!_useMock) {
       final nativeClipId = int.tryParse(clipId);
       if (nativeClipId != null) {
@@ -1361,7 +1291,6 @@ class EngineApi {
 
   /// Rename a track
   bool renameTrack(String trackId, String name) {
-    print('[Engine] Rename track $trackId to "$name"');
     if (!_useMock) {
       final nativeTrackId = int.tryParse(trackId);
       if (nativeTrackId != null) {
@@ -1373,7 +1302,6 @@ class EngineApi {
 
   /// Duplicate a track and return new track ID
   String? duplicateTrack(String trackId) {
-    print('[Engine] Duplicate track $trackId');
     if (!_useMock) {
       final nativeTrackId = int.tryParse(trackId);
       if (nativeTrackId != null) {
@@ -1388,7 +1316,6 @@ class EngineApi {
 
   /// Set track color
   bool setTrackColor(String trackId, int color) {
-    print('[Engine] Set track $trackId color to $color');
     if (!_useMock) {
       final nativeTrackId = int.tryParse(trackId);
       if (nativeTrackId != null) {
@@ -1410,14 +1337,12 @@ class EngineApi {
     required double duration,
     int curve = 1, // EqualPower default
   }) {
-    print('[Engine] Create crossfade between $clipAId and $clipBId');
     if (!_useMock) {
       final nativeClipAId = int.tryParse(clipAId);
       final nativeClipBId = int.tryParse(clipBId);
       if (nativeClipAId != null && nativeClipBId != null) {
         final xfadeId = _ffi.createCrossfade(nativeClipAId, nativeClipBId, duration, curve);
         if (xfadeId != 0) {
-          print('[Engine] Crossfade created via FFI: $xfadeId');
           return xfadeId.toString();
         }
       }
@@ -1428,12 +1353,10 @@ class EngineApi {
   /// Update crossfade
   /// curve: 0=Linear, 1=EqualPower, 2=SCurve, 3=Logarithmic, 4=Exponential
   bool updateCrossfade(String crossfadeId, double duration, int curve) {
-    print('[Engine] Update crossfade $crossfadeId: duration=$duration, curve=$curve');
     if (!_useMock) {
       final nativeId = int.tryParse(crossfadeId);
       if (nativeId != null) {
         final result = _ffi.updateCrossfade(nativeId, duration, curve);
-        print('[Engine] Crossfade updated via FFI: $result');
         return result;
       }
     }
@@ -1442,12 +1365,10 @@ class EngineApi {
 
   /// Delete crossfade
   void deleteCrossfade(String crossfadeId) {
-    print('[Engine] Delete crossfade $crossfadeId');
     if (!_useMock) {
       final nativeId = int.tryParse(crossfadeId);
       if (nativeId != null) {
         _ffi.deleteCrossfade(nativeId);
-        print('[Engine] Crossfade deleted via FFI');
         return;
       }
     }
@@ -1463,11 +1384,9 @@ class EngineApi {
     required double time,
     required int color,
   }) {
-    print('[Engine] Add marker $name at $time');
     if (!_useMock) {
       final markerId = _ffi.addMarker(name, time, color);
       if (markerId != 0) {
-        print('[Engine] Marker added via FFI: $markerId');
         return markerId.toString();
       }
     }
@@ -1476,12 +1395,10 @@ class EngineApi {
 
   /// Delete a marker
   void deleteMarker(String markerId) {
-    print('[Engine] Delete marker $markerId');
     if (!_useMock) {
       final nativeId = int.tryParse(markerId);
       if (nativeId != null) {
         _ffi.deleteMarker(nativeId);
-        print('[Engine] Marker deleted via FFI');
         return;
       }
     }
@@ -1525,12 +1442,8 @@ class EngineApi {
 
   /// Undo last action
   bool undo() {
-    print('[Engine] Undo');
     if (!_useMock) {
       final result = _ffi.undo();
-      if (result) {
-        print('[Engine] Undo successful via FFI');
-      }
       return result;
     }
     return false;
@@ -1538,12 +1451,8 @@ class EngineApi {
 
   /// Redo last undone action
   bool redo() {
-    print('[Engine] Redo');
     if (!_useMock) {
       final result = _ffi.redo();
-      if (result) {
-        print('[Engine] Redo successful via FFI');
-      }
       return result;
     }
     return false;
@@ -1591,7 +1500,6 @@ class EngineApi {
 
   /// Set EQ band enabled state
   bool eqSetBandEnabled(String trackId, int bandIndex, bool enabled) {
-    print('[Engine] EQ track $trackId band $bandIndex enabled: $enabled');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -1603,7 +1511,6 @@ class EngineApi {
 
   /// Set EQ band frequency
   bool eqSetBandFrequency(String trackId, int bandIndex, double frequency) {
-    print('[Engine] EQ track $trackId band $bandIndex freq: $frequency Hz');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -1615,7 +1522,6 @@ class EngineApi {
 
   /// Set EQ band gain
   bool eqSetBandGain(String trackId, int bandIndex, double gain) {
-    print('[Engine] EQ track $trackId band $bandIndex gain: $gain dB');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -1627,7 +1533,6 @@ class EngineApi {
 
   /// Set EQ band Q
   bool eqSetBandQ(String trackId, int bandIndex, double q) {
-    print('[Engine] EQ track $trackId band $bandIndex Q: $q');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -1640,7 +1545,6 @@ class EngineApi {
   /// Set EQ band filter shape
   /// shape: 0=Bell, 1=LowShelf, 2=HighShelf, 3=LowCut, 4=HighCut, 5=Notch, 6=Bandpass, 7=TiltShelf, 8=Allpass, 9=Brickwall
   bool eqSetBandShape(String trackId, int bandIndex, int shape) {
-    print('[Engine] EQ track $trackId band $bandIndex shape: $shape');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -1652,7 +1556,6 @@ class EngineApi {
 
   /// Set EQ bypass
   bool eqSetBypass(String trackId, bool bypass) {
-    print('[Engine] EQ track $trackId bypass: $bypass');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -1884,7 +1787,6 @@ class EngineApi {
 
   /// Create Pro EQ for a track
   bool proEqCreate(String trackId, {double sampleRate = 48000.0}) {
-    print('[Engine] Pro EQ create: $trackId @ ${sampleRate}Hz');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -1896,7 +1798,6 @@ class EngineApi {
 
   /// Destroy Pro EQ for a track
   bool proEqDestroy(String trackId) {
-    print('[Engine] Pro EQ destroy: $trackId');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -1908,7 +1809,6 @@ class EngineApi {
 
   /// Set Pro EQ band enabled
   bool proEqSetBandEnabled(String trackId, int bandIndex, bool enabled) {
-    print('[Engine] Pro EQ $trackId band $bandIndex enabled: $enabled');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -1920,7 +1820,6 @@ class EngineApi {
 
   /// Set Pro EQ band frequency
   bool proEqSetBandFrequency(String trackId, int bandIndex, double freq) {
-    print('[Engine] Pro EQ $trackId band $bandIndex freq: $freq Hz');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -1932,7 +1831,6 @@ class EngineApi {
 
   /// Set Pro EQ band gain
   bool proEqSetBandGain(String trackId, int bandIndex, double gainDb) {
-    print('[Engine] Pro EQ $trackId band $bandIndex gain: $gainDb dB');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -1944,7 +1842,6 @@ class EngineApi {
 
   /// Set Pro EQ band Q
   bool proEqSetBandQ(String trackId, int bandIndex, double q) {
-    print('[Engine] Pro EQ $trackId band $bandIndex Q: $q');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -1956,7 +1853,6 @@ class EngineApi {
 
   /// Set Pro EQ band shape
   bool proEqSetBandShape(String trackId, int bandIndex, ProEqFilterShape shape) {
-    print('[Engine] Pro EQ $trackId band $bandIndex shape: $shape');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -1975,7 +1871,6 @@ class EngineApi {
     required double q,
     required ProEqFilterShape shape,
   }) {
-    print('[Engine] Pro EQ $trackId band $bandIndex: f=$freq g=$gainDb q=$q shape=$shape');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -1987,7 +1882,6 @@ class EngineApi {
 
   /// Set Pro EQ band stereo placement
   bool proEqSetBandPlacement(String trackId, int bandIndex, ProEqPlacement placement) {
-    print('[Engine] Pro EQ $trackId band $bandIndex placement: $placement');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -1999,7 +1893,6 @@ class EngineApi {
 
   /// Set Pro EQ band slope
   bool proEqSetBandSlope(String trackId, int bandIndex, ProEqSlope slope) {
-    print('[Engine] Pro EQ $trackId band $bandIndex slope: $slope');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -2011,7 +1904,6 @@ class EngineApi {
 
   /// Enable/disable dynamic EQ for a band
   bool proEqSetBandDynamicEnabled(String trackId, int bandIndex, bool enabled) {
-    print('[Engine] Pro EQ $trackId band $bandIndex dynamic enabled: $enabled');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -2031,7 +1923,6 @@ class EngineApi {
     double? releaseMs,
     double? kneeDb,
   }) {
-    print('[Engine] Pro EQ $trackId band $bandIndex dynamic params: thr=$threshold ratio=$ratio att=$attackMs rel=$releaseMs knee=$kneeDb');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -2058,7 +1949,6 @@ class EngineApi {
     required double attackMs,
     required double releaseMs,
   }) {
-    print('[Engine] Pro EQ $trackId band $bandIndex dynamic: enabled=$enabled thr=$thresholdDb');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -2077,7 +1967,6 @@ class EngineApi {
 
   /// Set Pro EQ output gain
   bool proEqSetOutputGain(String trackId, double gainDb) {
-    print('[Engine] Pro EQ $trackId output gain: $gainDb dB');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -2089,7 +1978,6 @@ class EngineApi {
 
   /// Set Pro EQ phase mode (0=ZeroLatency, 1=Natural, 2=Linear)
   bool proEqSetPhaseMode(String trackId, int mode) {
-    print('[Engine] Pro EQ $trackId phase mode: $mode');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -2101,7 +1989,6 @@ class EngineApi {
 
   /// Set Pro EQ analyzer mode
   bool proEqSetAnalyzerMode(String trackId, ProEqAnalyzerMode mode) {
-    print('[Engine] Pro EQ $trackId analyzer: $mode');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -2113,7 +2000,6 @@ class EngineApi {
 
   /// Enable/disable Pro EQ auto gain
   bool proEqSetAutoGain(String trackId, bool enabled) {
-    print('[Engine] Pro EQ $trackId auto gain: $enabled');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -2125,7 +2011,6 @@ class EngineApi {
 
   /// Enable/disable Pro EQ match mode
   bool proEqSetMatchEnabled(String trackId, bool enabled) {
-    print('[Engine] Pro EQ $trackId match: $enabled');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -2137,7 +2022,6 @@ class EngineApi {
 
   /// Store Pro EQ state A
   bool proEqStoreStateA(String trackId) {
-    print('[Engine] Pro EQ $trackId store state A');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -2149,7 +2033,6 @@ class EngineApi {
 
   /// Store Pro EQ state B
   bool proEqStoreStateB(String trackId) {
-    print('[Engine] Pro EQ $trackId store state B');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -2161,7 +2044,6 @@ class EngineApi {
 
   /// Recall Pro EQ state A
   bool proEqRecallStateA(String trackId) {
-    print('[Engine] Pro EQ $trackId recall state A');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -2173,7 +2055,6 @@ class EngineApi {
 
   /// Recall Pro EQ state B
   bool proEqRecallStateB(String trackId) {
-    print('[Engine] Pro EQ $trackId recall state B');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -2196,7 +2077,6 @@ class EngineApi {
 
   /// Reset Pro EQ state
   bool proEqReset(String trackId) {
-    print('[Engine] Pro EQ $trackId reset');
     if (!_useMock) {
       final nativeTrackId = _trackIdToNative(trackId);
       if (nativeTrackId != null) {
@@ -2266,7 +2146,6 @@ class EngineApi {
 
   /// Enable/disable PDC
   void pdcSetEnabled(bool enabled) {
-    print('[Engine] PDC enabled: $enabled');
     if (!_useMock) {
       _ffi.pdcSetEnabled(enabled);
     }
@@ -2372,7 +2251,6 @@ class EngineApi {
 
   /// Set bus volume (in dB)
   bool mixerSetBusVolume(int busId, double volumeDb) {
-    print('[Engine] Bus $busId volume: $volumeDb dB');
     if (!_useMock) {
       return _ffi.mixerSetBusVolume(busId, volumeDb);
     }
@@ -2381,7 +2259,6 @@ class EngineApi {
 
   /// Set bus mute
   bool mixerSetBusMute(int busId, bool muted) {
-    print('[Engine] Bus $busId mute: $muted');
     if (!_useMock) {
       return _ffi.mixerSetBusMute(busId, muted);
     }
@@ -2390,7 +2267,6 @@ class EngineApi {
 
   /// Set bus solo
   bool mixerSetBusSolo(int busId, bool solo) {
-    print('[Engine] Bus $busId solo: $solo');
     if (!_useMock) {
       return _ffi.mixerSetBusSolo(busId, solo);
     }
@@ -2399,7 +2275,6 @@ class EngineApi {
 
   /// Set bus pan
   bool mixerSetBusPan(int busId, double pan) {
-    print('[Engine] Bus $busId pan: $pan');
     if (!_useMock) {
       return _ffi.mixerSetBusPan(busId, pan);
     }
@@ -2408,7 +2283,6 @@ class EngineApi {
 
   /// Set master volume
   bool mixerSetMasterVolume(double volumeDb) {
-    print('[Engine] Master volume: $volumeDb dB');
     if (!_useMock) {
       return _ffi.mixerSetMasterVolume(volumeDb);
     }
@@ -2422,7 +2296,6 @@ class EngineApi {
   /// Create a new VCA fader
   /// Returns VCA ID
   int vcaCreate(String name) {
-    print('[Engine] Create VCA: $name');
     if (!_useMock) {
       return _ffi.vcaCreate(name);
     }
@@ -2431,7 +2304,6 @@ class EngineApi {
 
   /// Delete a VCA fader
   bool vcaDelete(int vcaId) {
-    print('[Engine] Delete VCA: $vcaId');
     if (!_useMock) {
       return _ffi.vcaDelete(vcaId);
     }
@@ -2440,7 +2312,6 @@ class EngineApi {
 
   /// Set VCA level (0.0 - 1.5, where 1.0 = unity/0dB)
   bool vcaSetLevel(int vcaId, double level) {
-    print('[Engine] VCA $vcaId level: $level');
     if (!_useMock) {
       return _ffi.vcaSetLevel(vcaId, level);
     }
@@ -2457,7 +2328,6 @@ class EngineApi {
 
   /// Set VCA mute state
   bool vcaSetMute(int vcaId, bool muted) {
-    print('[Engine] VCA $vcaId mute: $muted');
     if (!_useMock) {
       return _ffi.vcaSetMute(vcaId, muted);
     }
@@ -2466,7 +2336,6 @@ class EngineApi {
 
   /// Assign track to VCA
   bool vcaAssignTrack(int vcaId, int trackId) {
-    print('[Engine] Assign track $trackId to VCA $vcaId');
     if (!_useMock) {
       return _ffi.vcaAssignTrack(vcaId, trackId);
     }
@@ -2475,7 +2344,6 @@ class EngineApi {
 
   /// Remove track from VCA
   bool vcaRemoveTrack(int vcaId, int trackId) {
-    print('[Engine] Remove track $trackId from VCA $vcaId');
     if (!_useMock) {
       return _ffi.vcaRemoveTrack(vcaId, trackId);
     }
@@ -2497,7 +2365,6 @@ class EngineApi {
   /// Create a new track group
   /// Returns group ID
   int groupCreate(String name) {
-    print('[Engine] Create group: $name');
     if (!_useMock) {
       return _ffi.groupCreate(name);
     }
@@ -2506,7 +2373,6 @@ class EngineApi {
 
   /// Delete a track group
   bool groupDelete(int groupId) {
-    print('[Engine] Delete group: $groupId');
     if (!_useMock) {
       return _ffi.groupDelete(groupId);
     }
@@ -2515,7 +2381,6 @@ class EngineApi {
 
   /// Add track to group
   bool groupAddTrack(int groupId, int trackId) {
-    print('[Engine] Add track $trackId to group $groupId');
     if (!_useMock) {
       return _ffi.groupAddTrack(groupId, trackId);
     }
@@ -2524,7 +2389,6 @@ class EngineApi {
 
   /// Remove track from group
   bool groupRemoveTrack(int groupId, int trackId) {
-    print('[Engine] Remove track $trackId from group $groupId');
     if (!_useMock) {
       return _ffi.groupRemoveTrack(groupId, trackId);
     }
@@ -2534,7 +2398,6 @@ class EngineApi {
   /// Set group link mode
   /// linkMode: 0=Relative, 1=Absolute
   bool groupSetLinkMode(int groupId, int linkMode) {
-    print('[Engine] Group $groupId link mode: $linkMode');
     if (!_useMock) {
       return _ffi.groupSetLinkMode(groupId, linkMode);
     }
@@ -2558,12 +2421,6 @@ class EngineApi {
     // Read actual playback state from FFI (supports external callers like UnifiedPlaybackController)
     final actuallyPlaying = !_useMock ? _ffi.isPlaying() : _transport.isPlaying;
 
-    // DEBUG: Log state periodically (every 60 frames = ~1 second)
-    _debugFrameCount++;
-    if (_debugFrameCount % 60 == 0 && actuallyPlaying) {
-      final pos = !_useMock ? _ffi.getPosition() : _transport.positionSeconds;
-      print('[EngineApi] _updateState: isPlaying=$actuallyPlaying, position=$pos');
-    }
 
     // Update transport position when playing
     if (actuallyPlaying) {
