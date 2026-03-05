@@ -24,20 +24,17 @@ void main() {
 
   group('StageCategory', () {
     test('should have all expected categories', () {
-      expect(StageCategory.values.length, 14);
+      expect(StageCategory.values.length, 11);
       expect(StageCategory.spin, isNotNull);
-      expect(StageCategory.anticipation, isNotNull);
       expect(StageCategory.win, isNotNull);
-      expect(StageCategory.rollup, isNotNull);
-      expect(StageCategory.bigwin, isNotNull);
       expect(StageCategory.feature, isNotNull);
       expect(StageCategory.cascade, isNotNull);
       expect(StageCategory.jackpot, isNotNull);
-      expect(StageCategory.bonus, isNotNull);
+      expect(StageCategory.hold, isNotNull);
       expect(StageCategory.gamble, isNotNull);
-      expect(StageCategory.music, isNotNull);
       expect(StageCategory.ui, isNotNull);
-      expect(StageCategory.system, isNotNull);
+      expect(StageCategory.music, isNotNull);
+      expect(StageCategory.symbol, isNotNull);
       expect(StageCategory.custom, isNotNull);
     });
 
@@ -467,7 +464,7 @@ void main() {
         expect(config!.color.value, 0xFF112233);
         expect(config.description, 'Restored from JSON');
         expect(config.isPooled, true);
-        expect(config.category, StageCategory.system);
+        expect(config.category, StageCategory.custom); // 'system' not in enum, fallback
       });
     });
 

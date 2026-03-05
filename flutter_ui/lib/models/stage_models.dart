@@ -290,7 +290,7 @@ class WinLine {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Stage category for grouping
-enum StageCategory {
+enum StageDomainCategory {
   spinLifecycle,
   anticipation,
   winLifecycle,
@@ -315,17 +315,17 @@ enum StageCategory {
     special => 'Special',
   };
 
-  static StageCategory? fromJson(String? json) => switch (json) {
-    'spin_lifecycle' => StageCategory.spinLifecycle,
-    'anticipation' => StageCategory.anticipation,
-    'win_lifecycle' => StageCategory.winLifecycle,
-    'feature' => StageCategory.feature,
-    'cascade' => StageCategory.cascade,
-    'bonus' => StageCategory.bonus,
-    'gamble' => StageCategory.gamble,
-    'jackpot' => StageCategory.jackpot,
-    'ui' => StageCategory.ui,
-    'special' => StageCategory.special,
+  static StageDomainCategory? fromJson(String? json) => switch (json) {
+    'spin_lifecycle' => StageDomainCategory.spinLifecycle,
+    'anticipation' => StageDomainCategory.anticipation,
+    'win_lifecycle' => StageDomainCategory.winLifecycle,
+    'feature' => StageDomainCategory.feature,
+    'cascade' => StageDomainCategory.cascade,
+    'bonus' => StageDomainCategory.bonus,
+    'gamble' => StageDomainCategory.gamble,
+    'jackpot' => StageDomainCategory.jackpot,
+    'ui' => StageDomainCategory.ui,
+    'special' => StageDomainCategory.special,
     _ => null,
   };
 }
@@ -339,7 +339,7 @@ sealed class Stage {
   const Stage();
 
   String get typeName;
-  StageCategory get category;
+  StageDomainCategory get category;
   bool get isLooping => false;
   bool get shouldDuckMusic => false;
 
@@ -496,7 +496,7 @@ class SpinStart extends Stage {
   const SpinStart();
 
   @override String get typeName => 'spin_start';
-  @override StageCategory get category => StageCategory.spinLifecycle;
+  @override StageDomainCategory get category => StageDomainCategory.spinLifecycle;
   @override Map<String, dynamic> toJson() => {'type': 'spin_start'};
 }
 
@@ -505,7 +505,7 @@ class ReelSpinning extends Stage {
   const ReelSpinning({required this.reelIndex});
 
   @override String get typeName => 'reel_spinning';
-  @override StageCategory get category => StageCategory.spinLifecycle;
+  @override StageDomainCategory get category => StageDomainCategory.spinLifecycle;
   @override bool get isLooping => true;
   @override Map<String, dynamic> toJson() => {'type': 'reel_spinning', 'reel_index': reelIndex};
 }
@@ -516,7 +516,7 @@ class ReelStop extends Stage {
   const ReelStop({required this.reelIndex, this.symbols = const []});
 
   @override String get typeName => 'reel_stop';
-  @override StageCategory get category => StageCategory.spinLifecycle;
+  @override StageDomainCategory get category => StageDomainCategory.spinLifecycle;
   @override Map<String, dynamic> toJson() => {
     'type': 'reel_stop',
     'reel_index': reelIndex,
@@ -528,7 +528,7 @@ class EvaluateWins extends Stage {
   const EvaluateWins();
 
   @override String get typeName => 'evaluate_wins';
-  @override StageCategory get category => StageCategory.spinLifecycle;
+  @override StageDomainCategory get category => StageDomainCategory.spinLifecycle;
   @override Map<String, dynamic> toJson() => {'type': 'evaluate_wins'};
 }
 
@@ -536,7 +536,7 @@ class SpinEnd extends Stage {
   const SpinEnd();
 
   @override String get typeName => 'spin_end';
-  @override StageCategory get category => StageCategory.spinLifecycle;
+  @override StageDomainCategory get category => StageDomainCategory.spinLifecycle;
   @override Map<String, dynamic> toJson() => {'type': 'spin_end'};
 }
 
@@ -548,7 +548,7 @@ class AnticipationOn extends Stage {
   const AnticipationOn({required this.reelIndex, this.reason});
 
   @override String get typeName => 'anticipation_on';
-  @override StageCategory get category => StageCategory.anticipation;
+  @override StageDomainCategory get category => StageDomainCategory.anticipation;
   @override bool get isLooping => true;
   @override Map<String, dynamic> toJson() => {
     'type': 'anticipation_on',
@@ -562,7 +562,7 @@ class AnticipationOff extends Stage {
   const AnticipationOff({required this.reelIndex});
 
   @override String get typeName => 'anticipation_off';
-  @override StageCategory get category => StageCategory.anticipation;
+  @override StageDomainCategory get category => StageDomainCategory.anticipation;
   @override Map<String, dynamic> toJson() => {'type': 'anticipation_off', 'reel_index': reelIndex};
 }
 
@@ -574,7 +574,7 @@ class WinPresent extends Stage {
   const WinPresent({this.winAmount = 0.0, this.lineCount = 0});
 
   @override String get typeName => 'win_present';
-  @override StageCategory get category => StageCategory.winLifecycle;
+  @override StageDomainCategory get category => StageDomainCategory.winLifecycle;
   @override Map<String, dynamic> toJson() => {
     'type': 'win_present',
     'win_amount': winAmount,
@@ -588,7 +588,7 @@ class WinLineShow extends Stage {
   const WinLineShow({required this.lineIndex, this.lineAmount = 0.0});
 
   @override String get typeName => 'win_line_show';
-  @override StageCategory get category => StageCategory.winLifecycle;
+  @override StageDomainCategory get category => StageDomainCategory.winLifecycle;
   @override Map<String, dynamic> toJson() => {
     'type': 'win_line_show',
     'line_index': lineIndex,
@@ -602,7 +602,7 @@ class RollupStart extends Stage {
   const RollupStart({required this.targetAmount, this.startAmount = 0.0});
 
   @override String get typeName => 'rollup_start';
-  @override StageCategory get category => StageCategory.winLifecycle;
+  @override StageDomainCategory get category => StageDomainCategory.winLifecycle;
   @override Map<String, dynamic> toJson() => {
     'type': 'rollup_start',
     'target_amount': targetAmount,
@@ -616,7 +616,7 @@ class RollupTick extends Stage {
   const RollupTick({required this.currentAmount, required this.progress});
 
   @override String get typeName => 'rollup_tick';
-  @override StageCategory get category => StageCategory.winLifecycle;
+  @override StageDomainCategory get category => StageDomainCategory.winLifecycle;
   @override bool get isLooping => true;
   @override Map<String, dynamic> toJson() => {
     'type': 'rollup_tick',
@@ -630,7 +630,7 @@ class RollupEnd extends Stage {
   const RollupEnd({required this.finalAmount});
 
   @override String get typeName => 'rollup_end';
-  @override StageCategory get category => StageCategory.winLifecycle;
+  @override StageDomainCategory get category => StageDomainCategory.winLifecycle;
   @override Map<String, dynamic> toJson() => {'type': 'rollup_end', 'final_amount': finalAmount};
 }
 
@@ -640,7 +640,7 @@ class BigWinTierStage extends Stage {
   const BigWinTierStage({required this.tier, this.amount = 0.0});
 
   @override String get typeName => 'bigwin_tier';
-  @override StageCategory get category => StageCategory.winLifecycle;
+  @override StageDomainCategory get category => StageDomainCategory.winLifecycle;
   @override bool get shouldDuckMusic => true;
   @override Map<String, dynamic> toJson() => {
     'type': 'bigwin_tier',
@@ -658,7 +658,7 @@ class FeatureEnter extends Stage {
   const FeatureEnter({required this.featureType, this.totalSteps, this.multiplier = 1.0});
 
   @override String get typeName => 'feature_enter';
-  @override StageCategory get category => StageCategory.feature;
+  @override StageDomainCategory get category => StageDomainCategory.feature;
   @override bool get shouldDuckMusic => true;
   @override Map<String, dynamic> toJson() => {
     'type': 'feature_enter',
@@ -675,7 +675,7 @@ class FeatureStep extends Stage {
   const FeatureStep({required this.stepIndex, this.stepsRemaining, this.currentMultiplier = 1.0});
 
   @override String get typeName => 'feature_step';
-  @override StageCategory get category => StageCategory.feature;
+  @override StageDomainCategory get category => StageDomainCategory.feature;
   @override Map<String, dynamic> toJson() => {
     'type': 'feature_step',
     'step_index': stepIndex,
@@ -690,7 +690,7 @@ class FeatureRetrigger extends Stage {
   const FeatureRetrigger({required this.additionalSteps, this.newTotal});
 
   @override String get typeName => 'feature_retrigger';
-  @override StageCategory get category => StageCategory.feature;
+  @override StageDomainCategory get category => StageDomainCategory.feature;
   @override Map<String, dynamic> toJson() => {
     'type': 'feature_retrigger',
     'additional_steps': additionalSteps,
@@ -703,7 +703,7 @@ class FeatureExit extends Stage {
   const FeatureExit({this.totalWin = 0.0});
 
   @override String get typeName => 'feature_exit';
-  @override StageCategory get category => StageCategory.feature;
+  @override StageDomainCategory get category => StageDomainCategory.feature;
   @override Map<String, dynamic> toJson() => {'type': 'feature_exit', 'total_win': totalWin};
 }
 
@@ -713,7 +713,7 @@ class CascadeStart extends Stage {
   const CascadeStart();
 
   @override String get typeName => 'cascade_start';
-  @override StageCategory get category => StageCategory.cascade;
+  @override StageDomainCategory get category => StageDomainCategory.cascade;
   @override Map<String, dynamic> toJson() => {'type': 'cascade_start'};
 }
 
@@ -723,7 +723,7 @@ class CascadeStep extends Stage {
   const CascadeStep({required this.stepIndex, this.multiplier = 1.0});
 
   @override String get typeName => 'cascade_step';
-  @override StageCategory get category => StageCategory.cascade;
+  @override StageDomainCategory get category => StageDomainCategory.cascade;
   @override Map<String, dynamic> toJson() => {
     'type': 'cascade_step',
     'step_index': stepIndex,
@@ -737,7 +737,7 @@ class CascadeEnd extends Stage {
   const CascadeEnd({required this.totalSteps, this.totalWin = 0.0});
 
   @override String get typeName => 'cascade_end';
-  @override StageCategory get category => StageCategory.cascade;
+  @override StageDomainCategory get category => StageDomainCategory.cascade;
   @override Map<String, dynamic> toJson() => {
     'type': 'cascade_end',
     'total_steps': totalSteps,
@@ -752,7 +752,7 @@ class BonusEnter extends Stage {
   const BonusEnter({this.bonusName});
 
   @override String get typeName => 'bonus_enter';
-  @override StageCategory get category => StageCategory.bonus;
+  @override StageDomainCategory get category => StageDomainCategory.bonus;
   @override Map<String, dynamic> toJson() => {
     'type': 'bonus_enter',
     if (bonusName != null) 'bonus_name': bonusName,
@@ -765,7 +765,7 @@ class BonusChoice extends Stage {
   const BonusChoice({required this.choiceType, this.optionCount = 0});
 
   @override String get typeName => 'bonus_choice';
-  @override StageCategory get category => StageCategory.bonus;
+  @override StageDomainCategory get category => StageDomainCategory.bonus;
   @override Map<String, dynamic> toJson() => {
     'type': 'bonus_choice',
     'choice_type': choiceType.toJson(),
@@ -779,7 +779,7 @@ class BonusReveal extends Stage {
   const BonusReveal({this.revealedValue = 0.0, this.isTerminal = false});
 
   @override String get typeName => 'bonus_reveal';
-  @override StageCategory get category => StageCategory.bonus;
+  @override StageDomainCategory get category => StageDomainCategory.bonus;
   @override Map<String, dynamic> toJson() => {
     'type': 'bonus_reveal',
     'revealed_value': revealedValue,
@@ -792,7 +792,7 @@ class BonusExit extends Stage {
   const BonusExit({this.totalWin = 0.0});
 
   @override String get typeName => 'bonus_exit';
-  @override StageCategory get category => StageCategory.bonus;
+  @override StageDomainCategory get category => StageDomainCategory.bonus;
   @override Map<String, dynamic> toJson() => {'type': 'bonus_exit', 'total_win': totalWin};
 }
 
@@ -803,7 +803,7 @@ class GambleStart extends Stage {
   const GambleStart({required this.stakeAmount});
 
   @override String get typeName => 'gamble_start';
-  @override StageCategory get category => StageCategory.gamble;
+  @override StageDomainCategory get category => StageDomainCategory.gamble;
   @override Map<String, dynamic> toJson() => {'type': 'gamble_start', 'stake_amount': stakeAmount};
 }
 
@@ -812,7 +812,7 @@ class GambleChoice extends Stage {
   const GambleChoice({required this.choiceType});
 
   @override String get typeName => 'gamble_choice';
-  @override StageCategory get category => StageCategory.gamble;
+  @override StageDomainCategory get category => StageDomainCategory.gamble;
   @override Map<String, dynamic> toJson() => {'type': 'gamble_choice', 'choice_type': choiceType.toJson()};
 }
 
@@ -822,7 +822,7 @@ class GambleResultStage extends Stage {
   const GambleResultStage({required this.result, this.newAmount = 0.0});
 
   @override String get typeName => 'gamble_result';
-  @override StageCategory get category => StageCategory.gamble;
+  @override StageDomainCategory get category => StageDomainCategory.gamble;
   @override Map<String, dynamic> toJson() => {
     'type': 'gamble_result',
     'result': result.toJson(),
@@ -835,7 +835,7 @@ class GambleEnd extends Stage {
   const GambleEnd({required this.collectedAmount});
 
   @override String get typeName => 'gamble_end';
-  @override StageCategory get category => StageCategory.gamble;
+  @override StageDomainCategory get category => StageDomainCategory.gamble;
   @override Map<String, dynamic> toJson() => {'type': 'gamble_end', 'collected_amount': collectedAmount};
 }
 
@@ -846,7 +846,7 @@ class JackpotTrigger extends Stage {
   const JackpotTrigger({required this.tier});
 
   @override String get typeName => 'jackpot_trigger';
-  @override StageCategory get category => StageCategory.jackpot;
+  @override StageDomainCategory get category => StageDomainCategory.jackpot;
   @override bool get shouldDuckMusic => true;
   @override Map<String, dynamic> toJson() => {'type': 'jackpot_trigger', 'tier': tier.toJson()};
 }
@@ -857,7 +857,7 @@ class JackpotPresent extends Stage {
   const JackpotPresent({required this.amount, required this.tier});
 
   @override String get typeName => 'jackpot_present';
-  @override StageCategory get category => StageCategory.jackpot;
+  @override StageDomainCategory get category => StageDomainCategory.jackpot;
   @override bool get shouldDuckMusic => true;
   @override Map<String, dynamic> toJson() => {
     'type': 'jackpot_present',
@@ -870,7 +870,7 @@ class JackpotEnd extends Stage {
   const JackpotEnd();
 
   @override String get typeName => 'jackpot_end';
-  @override StageCategory get category => StageCategory.jackpot;
+  @override StageDomainCategory get category => StageDomainCategory.jackpot;
   @override Map<String, dynamic> toJson() => {'type': 'jackpot_end'};
 }
 
@@ -880,7 +880,7 @@ class IdleStart extends Stage {
   const IdleStart();
 
   @override String get typeName => 'idle_start';
-  @override StageCategory get category => StageCategory.ui;
+  @override StageDomainCategory get category => StageDomainCategory.ui;
   @override Map<String, dynamic> toJson() => {'type': 'idle_start'};
 }
 
@@ -888,7 +888,7 @@ class IdleLoop extends Stage {
   const IdleLoop();
 
   @override String get typeName => 'idle_loop';
-  @override StageCategory get category => StageCategory.ui;
+  @override StageDomainCategory get category => StageDomainCategory.ui;
   @override bool get isLooping => true;
   @override Map<String, dynamic> toJson() => {'type': 'idle_loop'};
 }
@@ -898,7 +898,7 @@ class MenuOpen extends Stage {
   const MenuOpen({this.menuName});
 
   @override String get typeName => 'menu_open';
-  @override StageCategory get category => StageCategory.ui;
+  @override StageDomainCategory get category => StageDomainCategory.ui;
   @override Map<String, dynamic> toJson() => {
     'type': 'menu_open',
     if (menuName != null) 'menu_name': menuName,
@@ -909,7 +909,7 @@ class MenuClose extends Stage {
   const MenuClose();
 
   @override String get typeName => 'menu_close';
-  @override StageCategory get category => StageCategory.ui;
+  @override StageDomainCategory get category => StageDomainCategory.ui;
   @override Map<String, dynamic> toJson() => {'type': 'menu_close'};
 }
 
@@ -918,7 +918,7 @@ class AutoplayStart extends Stage {
   const AutoplayStart({this.spinCount});
 
   @override String get typeName => 'autoplay_start';
-  @override StageCategory get category => StageCategory.ui;
+  @override StageDomainCategory get category => StageDomainCategory.ui;
   @override Map<String, dynamic> toJson() => {
     'type': 'autoplay_start',
     if (spinCount != null) 'spin_count': spinCount,
@@ -930,7 +930,7 @@ class AutoplayStop extends Stage {
   const AutoplayStop({this.reason});
 
   @override String get typeName => 'autoplay_stop';
-  @override StageCategory get category => StageCategory.ui;
+  @override StageDomainCategory get category => StageDomainCategory.ui;
   @override Map<String, dynamic> toJson() => {
     'type': 'autoplay_stop',
     if (reason != null) 'reason': reason,
@@ -952,7 +952,7 @@ class SymbolTransform extends Stage {
   });
 
   @override String get typeName => 'symbol_transform';
-  @override StageCategory get category => StageCategory.special;
+  @override StageDomainCategory get category => StageDomainCategory.special;
   @override Map<String, dynamic> toJson() => {
     'type': 'symbol_transform',
     'reel_index': reelIndex,
@@ -968,7 +968,7 @@ class WildExpand extends Stage {
   const WildExpand({required this.reelIndex, this.direction});
 
   @override String get typeName => 'wild_expand';
-  @override StageCategory get category => StageCategory.special;
+  @override StageDomainCategory get category => StageDomainCategory.special;
   @override Map<String, dynamic> toJson() => {
     'type': 'wild_expand',
     'reel_index': reelIndex,
@@ -982,7 +982,7 @@ class MultiplierChange extends Stage {
   const MultiplierChange({required this.newValue, this.oldValue});
 
   @override String get typeName => 'multiplier_change';
-  @override StageCategory get category => StageCategory.special;
+  @override StageDomainCategory get category => StageDomainCategory.special;
   @override Map<String, dynamic> toJson() => {
     'type': 'multiplier_change',
     'new_value': newValue,
@@ -996,7 +996,7 @@ class CustomStage extends Stage {
   const CustomStage({required this.name, this.id = 0});
 
   @override String get typeName => 'custom';
-  @override StageCategory get category => StageCategory.special;
+  @override StageDomainCategory get category => StageDomainCategory.special;
   @override Map<String, dynamic> toJson() => {'type': 'custom', 'name': name, 'id': id};
 }
 
@@ -1210,7 +1210,7 @@ class StageTrace {
     return last - first;
   }
 
-  List<StageEvent> eventsByCategory(StageCategory category) =>
+  List<StageEvent> eventsByCategory(StageDomainCategory category) =>
       events.where((e) => e.stage.category == category).toList();
 
   List<StageEvent> eventsByType(String typeName) =>

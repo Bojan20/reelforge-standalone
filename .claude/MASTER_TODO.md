@@ -2,7 +2,7 @@
 
 **Updated:** 2026-03-05
 
-## Status: ALL COMPLETE — 208/208 + P-USL + P5-CLEAN
+## Status: ALL COMPLETE — 208/208 + P-USL + P5-CLEAN + P5-CONSOLIDATION
 
 | System | Tasks | Status |
 |--------|-------|--------|
@@ -17,40 +17,25 @@
 | P-USL Unified SlotLab | Done | Done |
 | P5 Win Tier Naming | Done | Done |
 | P5 Stage Event Cleanup | Done | Done |
+| P5 StageCategory Consolidation | Done | Done |
 
 Analyzer: 0 errors, 0 warnings
 
 ---
 
-## NEXT: Stage/Event System Consolidation
+## Completed: StageCategory Consolidation
 
-### 1. Migrate stage_config.dart consumers to stage_configuration_service.dart
-**Priority:** Medium | **Files:** 6
+### What was done:
+1. **Unified StageCategory enum** — `stage_config.dart` now imports+re-exports `StageCategory` from `stage_configuration_service.dart` (11 values: spin, win, feature, cascade, jackpot, hold, gamble, ui, music, symbol, custom)
+2. **Legacy category mapping** — Removed 5 legacy categories: anticipation→spin, rollup→win, bigwin→win, bonus→feature, system→ui
+3. **Migrated all 6 consumer files** — audio_suggestion_service, stage_color_picker, stage_occurrence_stats, stage_trace_widget, stage_analytics_panel, stage_trace_comparator
+4. **Renamed stage_models.dart StageCategory → StageDomainCategory** — Domain-level enum (10 values: spinLifecycle, anticipation, winLifecycle, etc.) now has distinct name, no confusion with UI-level StageCategory
+5. **Updated tests** — stage_trace_widget_test.dart, event_registry_slotlab_test.dart
 
-`stage_config.dart` (legacy UI config, 14-value StageCategory) is superseded by
-`stage_configuration_service.dart` (active UI config, 11-value StageCategory with `symbol`, `hold`).
+### Two StageCategory enums — final state
+| File | Enum Name | Values | Usage |
+|------|-----------|--------|-------|
+| `models/stage_models.dart` | `StageDomainCategory` | 10 (spinLifecycle, anticipation, winLifecycle...) | Sealed Stage hierarchy |
+| `services/stage_configuration_service.dart` | `StageCategory` | 11 (spin, win, feature, cascade, jackpot, hold, gamble, ui, music, symbol, custom) | SSoT for UI — re-exported via stage_config.dart |
 
-Migrate these 6 files that still import stage_config.dart:
-- [ ] `services/audio_suggestion_service.dart` — uses StageCategory enum directly
-- [ ] `widgets/slot_lab/stage_color_picker.dart` — uses StageCategory enum directly
-- [ ] `widgets/slot_lab/stage_occurrence_stats.dart` — uses StageCategory enum directly
-- [ ] `widgets/slot_lab/stage_trace_widget.dart` — uses StageConfig.instance only
-- [ ] `widgets/slot_lab/stage_analytics_panel.dart` — uses StageConfig.instance only
-- [ ] `widgets/slot_lab/stage_trace_comparator.dart` — uses StageConfig.instance only
-- [ ] Delete `config/stage_config.dart` after migration
-
-### 2. Rename stage_models.dart StageCategory
-**Priority:** Low | **Impact:** Internal only
-
-`stage_models.dart` has a `StageCategory` enum (10 values: spinLifecycle, anticipation, winLifecycle...)
-used only in sealed Stage class hierarchy. No external files reference it by name.
-Rename to `StageDomainCategory` for clarity (avoids confusion with UI-level StageCategory).
-
-### 3. Three StageCategory enums — current state
-| File | Values | Usage |
-|------|--------|-------|
-| `models/stage_models.dart` | 10 (spinLifecycle, anticipation, winLifecycle, feature, cascade, bonus, gamble, jackpot, ui, special) | Sealed Stage hierarchy |
-| `config/stage_config.dart` | 14 (spin, anticipation, win, rollup, bigwin, feature, cascade, jackpot, bonus, gamble, music, ui, system, custom) | Legacy UI config — 6 consumers |
-| `services/stage_configuration_service.dart` | 11 (spin, win, feature, cascade, jackpot, hold, gamble, ui, music, symbol, custom) | Active UI config — 27 consumers |
-
-No compile conflicts (never imported together). Task #1 eliminates stage_config.dart.
+`config/stage_config.dart` remains as visual layer (per-stage colors, icons, high contrast mode) but no longer has its own enum.

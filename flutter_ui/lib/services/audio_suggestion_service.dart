@@ -59,33 +59,36 @@ class AudioSuggestionService {
   }
 
   AudioSuggestion _getSuggestionForCategory(String stage, StageCategory category) {
+    // Detect sub-types within unified categories by stage name
+    if (stage.contains('anticipation')) return _getAnticipationSuggestion(stage);
+    if (stage.contains('rollup')) return _getRollupSuggestion(stage);
+    if (stage.contains('bigwin') || stage.contains('big_win')) return _getBigWinSuggestion(stage);
+    if (stage.contains('bonus') || stage.contains('pick_bonus')) return _getBonusSuggestion(stage);
+
     switch (category) {
       case StageCategory.spin:
         return _getSpinSuggestion(stage);
-      case StageCategory.anticipation:
-        return _getAnticipationSuggestion(stage);
       case StageCategory.win:
         return _getWinSuggestion(stage);
-      case StageCategory.rollup:
-        return _getRollupSuggestion(stage);
-      case StageCategory.bigwin:
-        return _getBigWinSuggestion(stage);
       case StageCategory.feature:
         return _getFeatureSuggestion(stage);
       case StageCategory.cascade:
         return _getCascadeSuggestion(stage);
       case StageCategory.jackpot:
         return _getJackpotSuggestion(stage);
-      case StageCategory.bonus:
-        return _getBonusSuggestion(stage);
+      case StageCategory.hold:
+        return _getFeatureSuggestion(stage);
       case StageCategory.gamble:
         return _getGambleSuggestion(stage);
       case StageCategory.music:
         return _getMusicSuggestion(stage);
       case StageCategory.ui:
+        if (stage.contains('system') || stage.contains('error') || stage.contains('game_ready')) {
+          return _getSystemSuggestion(stage);
+        }
         return _getUiSuggestion(stage);
-      case StageCategory.system:
-        return _getSystemSuggestion(stage);
+      case StageCategory.symbol:
+        return _getGenericSuggestion(stage);
       case StageCategory.custom:
         return _getGenericSuggestion(stage);
     }

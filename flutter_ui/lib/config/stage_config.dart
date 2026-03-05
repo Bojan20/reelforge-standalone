@@ -11,24 +11,8 @@
 //   StageConfig.instance.registerStage('custom_stage', color: myColor, icon: Icons.star);
 
 import 'package:flutter/material.dart';
-
-/// P1.16 + P1.17: Stage category for grouping related stages
-enum StageCategory {
-  spin,       // Spin lifecycle: start, spinning, stop, end
-  anticipation, // Anticipation stages
-  win,        // Win presentation: present, line_show, line_hide
-  rollup,     // Rollup counter stages
-  bigwin,     // Big win tiers
-  feature,    // Feature stages: enter, step, exit
-  cascade,    // Cascade/tumble stages
-  jackpot,    // Jackpot stages
-  bonus,      // Bonus game stages
-  gamble,     // Gamble feature stages
-  music,      // Music/ambient stages
-  ui,         // UI interaction stages
-  system,     // System stages
-  custom,     // User-defined stages
-}
+import '../services/stage_configuration_service.dart' show StageCategory, StageCategoryExtension;
+export '../services/stage_configuration_service.dart' show StageCategory, StageCategoryExtension;
 
 /// P1.16 + P1.17: Stage configuration entry
 class StageConfigEntry {
@@ -90,18 +74,15 @@ class StageConfig {
   /// P2.2: High contrast colors per category (WCAG 2.1 AA compliant)
   static const Map<StageCategory, Color> _highContrastColors = {
     StageCategory.spin: Color(0xFF0066FF),      // Bright blue
-    StageCategory.anticipation: Color(0xFFFF6600), // Bright orange
     StageCategory.win: Color(0xFF00FF00),       // Pure green
-    StageCategory.rollup: Color(0xFFFFFF00),    // Pure yellow
-    StageCategory.bigwin: Color(0xFFFF0066),    // Hot pink
     StageCategory.feature: Color(0xFF00FFFF),   // Cyan
     StageCategory.cascade: Color(0xFFFF00FF),   // Magenta
     StageCategory.jackpot: Color(0xFFFFD700),   // Gold
-    StageCategory.bonus: Color(0xFF9933FF),     // Purple
+    StageCategory.hold: Color(0xFFFF6600),      // Bright orange
     StageCategory.gamble: Color(0xFFFF3333),    // Red
     StageCategory.music: Color(0xFF33CCFF),     // Light blue
     StageCategory.ui: Color(0xFFCCCCCC),        // Light gray
-    StageCategory.system: Color(0xFF999999),    // Medium gray
+    StageCategory.symbol: Color(0xFFFF0066),    // Hot pink
     StageCategory.custom: Color(0xFFFFFFFF),    // White
   };
 
@@ -193,13 +174,13 @@ class StageConfig {
     'anticipation_on': const StageConfigEntry(
       color: Color(0xFFFF9040),
       icon: Icons.warning_amber,
-      category: StageCategory.anticipation,
+      category: StageCategory.spin,
       description: 'Anticipation starts',
     ),
     'anticipation_off': const StageConfigEntry(
       color: Color(0xFFFF9040),
       icon: Icons.warning_amber,
-      category: StageCategory.anticipation,
+      category: StageCategory.spin,
       description: 'Anticipation ends',
     ),
 
@@ -240,20 +221,20 @@ class StageConfig {
     'rollup_start': const StageConfigEntry(
       color: Color(0xFFFFD700),
       icon: Icons.trending_up,
-      category: StageCategory.rollup,
+      category: StageCategory.win,
       description: 'Rollup counter starts',
     ),
     'rollup_tick': const StageConfigEntry(
       color: Color(0xFFFFD700),
       icon: Icons.add_circle_outline,
-      category: StageCategory.rollup,
+      category: StageCategory.win,
       description: 'Rollup counter tick',
       isPooled: true,
     ),
     'rollup_end': const StageConfigEntry(
       color: Color(0xFFFFD700),
       icon: Icons.check_circle_outline,
-      category: StageCategory.rollup,
+      category: StageCategory.win,
       description: 'Rollup counter complete',
     ),
 
@@ -263,37 +244,37 @@ class StageConfig {
     'bigwin_tier': const StageConfigEntry(
       color: Color(0xFFFF4080),
       icon: Icons.emoji_events,
-      category: StageCategory.bigwin,
+      category: StageCategory.win,
       description: 'Big win tier (generic)',
     ),
     'bigwin_tier_1': const StageConfigEntry(
       color: Color(0xFFFF4080),
       icon: Icons.emoji_events,
-      category: StageCategory.bigwin,
+      category: StageCategory.win,
       description: 'Big Win Tier 1 (10x+)',
     ),
     'bigwin_tier_2': const StageConfigEntry(
       color: Color(0xFFFF5090),
       icon: Icons.emoji_events,
-      category: StageCategory.bigwin,
+      category: StageCategory.win,
       description: 'Big Win Tier 2 (15x+)',
     ),
     'bigwin_tier_3': const StageConfigEntry(
       color: Color(0xFFFF60A0),
       icon: Icons.emoji_events,
-      category: StageCategory.bigwin,
+      category: StageCategory.win,
       description: 'Big Win Tier 3 (25x+)',
     ),
     'bigwin_tier_4': const StageConfigEntry(
       color: Color(0xFFFF70B0),
       icon: Icons.emoji_events,
-      category: StageCategory.bigwin,
+      category: StageCategory.win,
       description: 'Big Win Tier 4 (50x+)',
     ),
     'bigwin_tier_5': const StageConfigEntry(
       color: Color(0xFFFF80C0),
       icon: Icons.emoji_events,
-      category: StageCategory.bigwin,
+      category: StageCategory.win,
       description: 'Big Win Tier 5 (100x+)',
     ),
     // ─────────────────────────────────────────────────────────────────────────
@@ -412,37 +393,37 @@ class StageConfig {
     'bonus_trigger': const StageConfigEntry(
       color: Color(0xFF9370DB),
       icon: Icons.card_giftcard,
-      category: StageCategory.bonus,
+      category: StageCategory.feature,
       description: 'Bonus triggered',
     ),
     'bonus_enter': const StageConfigEntry(
       color: Color(0xFF9370DB),
       icon: Icons.gamepad,
-      category: StageCategory.bonus,
+      category: StageCategory.feature,
       description: 'Bonus game starts',
     ),
     'bonus_exit': const StageConfigEntry(
       color: Color(0xFF9370DB),
       icon: Icons.exit_to_app,
-      category: StageCategory.bonus,
+      category: StageCategory.feature,
       description: 'Bonus game ends',
     ),
     'pick_bonus_start': const StageConfigEntry(
       color: Color(0xFF9370DB),
       icon: Icons.touch_app,
-      category: StageCategory.bonus,
+      category: StageCategory.feature,
       description: 'Pick bonus starts',
     ),
     'pick_bonus_pick': const StageConfigEntry(
       color: Color(0xFF9370DB),
       icon: Icons.pan_tool,
-      category: StageCategory.bonus,
+      category: StageCategory.feature,
       description: 'Pick made',
     ),
     'pick_bonus_end': const StageConfigEntry(
       color: Color(0xFF9370DB),
       icon: Icons.done_all,
-      category: StageCategory.bonus,
+      category: StageCategory.feature,
       description: 'Pick bonus ends',
     ),
 
@@ -519,13 +500,13 @@ class StageConfig {
     'game_ready': const StageConfigEntry(
       color: Color(0xFF40FF90),
       icon: Icons.check_circle,
-      category: StageCategory.system,
+      category: StageCategory.ui,
       description: 'Game ready',
     ),
     'error': const StageConfigEntry(
       color: Color(0xFFFF4040),
       icon: Icons.error,
-      category: StageCategory.system,
+      category: StageCategory.ui,
       description: 'Error occurred',
     ),
   };
@@ -751,103 +732,25 @@ class StageConfig {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Get default color for a category
-Color getCategoryColor(StageCategory category) {
-  switch (category) {
-    case StageCategory.spin:
-      return const Color(0xFF4A9EFF);
-    case StageCategory.anticipation:
-      return const Color(0xFFFF9040);
-    case StageCategory.win:
-      return const Color(0xFF40FF90);
-    case StageCategory.rollup:
-      return const Color(0xFFFFD700);
-    case StageCategory.bigwin:
-      return const Color(0xFFFF4080);
-    case StageCategory.feature:
-      return const Color(0xFF40C8FF);
-    case StageCategory.cascade:
-      return const Color(0xFFE040FB);
-    case StageCategory.jackpot:
-      return const Color(0xFFFFD700);
-    case StageCategory.bonus:
-      return const Color(0xFF9370DB);
-    case StageCategory.gamble:
-      return const Color(0xFFFF6B6B);
-    case StageCategory.music:
-      return const Color(0xFF40C8FF);
-    case StageCategory.ui:
-      return const Color(0xFF808080);
-    case StageCategory.system:
-      return const Color(0xFF6B7280);
-    case StageCategory.custom:
-      return const Color(0xFF6B7280);
-  }
-}
+Color getCategoryColor(StageCategory category) =>
+    Color(category.color);
 
 /// Get default icon for a category
 IconData getCategoryIcon(StageCategory category) {
-  switch (category) {
-    case StageCategory.spin:
-      return Icons.play_circle;
-    case StageCategory.anticipation:
-      return Icons.warning_amber;
-    case StageCategory.win:
-      return Icons.stars;
-    case StageCategory.rollup:
-      return Icons.trending_up;
-    case StageCategory.bigwin:
-      return Icons.emoji_events;
-    case StageCategory.feature:
-      return Icons.auto_awesome;
-    case StageCategory.cascade:
-      return Icons.south;
-    case StageCategory.jackpot:
-      return Icons.diamond;
-    case StageCategory.bonus:
-      return Icons.card_giftcard;
-    case StageCategory.gamble:
-      return Icons.casino;
-    case StageCategory.music:
-      return Icons.music_note;
-    case StageCategory.ui:
-      return Icons.touch_app;
-    case StageCategory.system:
-      return Icons.settings;
-    case StageCategory.custom:
-      return Icons.circle;
-  }
+  return switch (category) {
+    StageCategory.spin => Icons.play_circle,
+    StageCategory.win => Icons.stars,
+    StageCategory.feature => Icons.auto_awesome,
+    StageCategory.cascade => Icons.south,
+    StageCategory.jackpot => Icons.diamond,
+    StageCategory.hold => Icons.pause_circle,
+    StageCategory.gamble => Icons.casino,
+    StageCategory.ui => Icons.touch_app,
+    StageCategory.music => Icons.music_note,
+    StageCategory.symbol => Icons.extension,
+    StageCategory.custom => Icons.circle,
+  };
 }
 
 /// Get display name for a category
-String getCategoryName(StageCategory category) {
-  switch (category) {
-    case StageCategory.spin:
-      return 'Spin';
-    case StageCategory.anticipation:
-      return 'Anticipation';
-    case StageCategory.win:
-      return 'Win';
-    case StageCategory.rollup:
-      return 'Rollup';
-    case StageCategory.bigwin:
-      return 'Big Win';
-    case StageCategory.feature:
-      return 'Feature';
-    case StageCategory.cascade:
-      return 'Cascade';
-    case StageCategory.jackpot:
-      return 'Jackpot';
-    case StageCategory.bonus:
-      return 'Bonus';
-    case StageCategory.gamble:
-      return 'Gamble';
-    case StageCategory.music:
-      return 'Music';
-    case StageCategory.ui:
-      return 'UI';
-    case StageCategory.system:
-      return 'System';
-    case StageCategory.custom:
-      return 'Custom';
-  }
-}
+String getCategoryName(StageCategory category) => category.label;

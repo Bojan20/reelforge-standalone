@@ -60,7 +60,7 @@ class _StagePreviewPanelState extends State<StagePreviewPanel>
   double _zoom = 1.0;
   double _scrollOffset = 0.0;
   StageEvent? _selectedEvent;
-  Set<StageCategory> _visibleCategories = Set.from(StageCategory.values);
+  Set<StageDomainCategory> _visibleCategories = Set.from(StageDomainCategory.values);
   String _searchQuery = '';
   bool _autoScroll = true;
   bool _showPayloads = false;
@@ -231,7 +231,7 @@ class _StagePreviewPanelState extends State<StagePreviewPanel>
     return events;
   }
 
-  void _toggleCategory(StageCategory category) {
+  void _toggleCategory(StageDomainCategory category) {
     setState(() {
       if (_visibleCategories.contains(category)) {
         _visibleCategories.remove(category);
@@ -541,8 +541,8 @@ class _ZoomControls extends StatelessWidget {
 // =============================================================================
 
 class _CategoryFilters extends StatelessWidget {
-  final Set<StageCategory> visibleCategories;
-  final void Function(StageCategory) onToggle;
+  final Set<StageDomainCategory> visibleCategories;
+  final void Function(StageDomainCategory) onToggle;
   final List<StageEvent> events;
 
   const _CategoryFilters({
@@ -554,7 +554,7 @@ class _CategoryFilters extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Count events per category
-    final counts = <StageCategory, int>{};
+    final counts = <StageDomainCategory, int>{};
     for (final event in events) {
       counts[event.stage.category] = (counts[event.stage.category] ?? 0) + 1;
     }
@@ -568,7 +568,7 @@ class _CategoryFilters extends StatelessWidget {
       ),
       child: ListView(
         scrollDirection: Axis.horizontal,
-        children: StageCategory.values.map((category) {
+        children: StageDomainCategory.values.map((category) {
           final count = counts[category] ?? 0;
           final isVisible = visibleCategories.contains(category);
           final color = _getCategoryColor(category);
@@ -1064,7 +1064,7 @@ class _FlowDiagramView extends StatelessWidget {
     }
 
     // Group events by category
-    final grouped = <StageCategory, List<StageEvent>>{};
+    final grouped = <StageDomainCategory, List<StageEvent>>{};
     for (final event in events) {
       grouped.putIfAbsent(event.stage.category, () => []).add(event);
     }
@@ -1649,17 +1649,17 @@ class _MetricChip extends StatelessWidget {
 // UTILITIES
 // =============================================================================
 
-Color _getCategoryColor(StageCategory category) => switch (category) {
-      StageCategory.spinLifecycle => FluxForgeTheme.accentBlue,
-      StageCategory.anticipation => FluxForgeTheme.accentOrange,
-      StageCategory.winLifecycle => FluxForgeTheme.accentGreen,
-      StageCategory.feature => const Color(0xFFff40ff),
-      StageCategory.cascade => FluxForgeTheme.accentCyan,
-      StageCategory.bonus => const Color(0xFFffff40),
-      StageCategory.gamble => FluxForgeTheme.accentRed,
-      StageCategory.jackpot => const Color(0xFFffd700),
-      StageCategory.ui => FluxForgeTheme.textMuted,
-      StageCategory.special => const Color(0xFFc040ff),
+Color _getCategoryColor(StageDomainCategory category) => switch (category) {
+      StageDomainCategory.spinLifecycle => FluxForgeTheme.accentBlue,
+      StageDomainCategory.anticipation => FluxForgeTheme.accentOrange,
+      StageDomainCategory.winLifecycle => FluxForgeTheme.accentGreen,
+      StageDomainCategory.feature => const Color(0xFFff40ff),
+      StageDomainCategory.cascade => FluxForgeTheme.accentCyan,
+      StageDomainCategory.bonus => const Color(0xFFffff40),
+      StageDomainCategory.gamble => FluxForgeTheme.accentRed,
+      StageDomainCategory.jackpot => const Color(0xFFffd700),
+      StageDomainCategory.ui => FluxForgeTheme.textMuted,
+      StageDomainCategory.special => const Color(0xFFc040ff),
     };
 
 extension StringCapitalize on String {

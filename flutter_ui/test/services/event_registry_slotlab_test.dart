@@ -735,7 +735,7 @@ void main() {
     test('SpinStart has correct typeName and category', () {
       const stage = SpinStart();
       expect(stage.typeName, 'spin_start');
-      expect(stage.category, StageCategory.spinLifecycle);
+      expect(stage.category, StageDomainCategory.spinLifecycle);
       expect(stage.isLooping, false);
       expect(stage.shouldDuckMusic, false);
     });
@@ -777,7 +777,7 @@ void main() {
     test('IdleLoop is looping', () {
       const stage = IdleLoop();
       expect(stage.isLooping, true);
-      expect(stage.category, StageCategory.ui);
+      expect(stage.category, StageDomainCategory.ui);
     });
 
     test('RollupTick is looping', () {
@@ -854,30 +854,30 @@ void main() {
   // STAGE CATEGORY TESTS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  group('StageCategory', () {
+  group('StageDomainCategory', () {
     test('all categories have displayNames', () {
-      for (final cat in StageCategory.values) {
+      for (final cat in StageDomainCategory.values) {
         expect(cat.displayName, isNotEmpty,
             reason: '${cat.name} should have a displayName');
       }
     });
 
     test('fromJson parses known categories', () {
-      expect(StageCategory.fromJson('spin_lifecycle'), StageCategory.spinLifecycle);
-      expect(StageCategory.fromJson('anticipation'), StageCategory.anticipation);
-      expect(StageCategory.fromJson('win_lifecycle'), StageCategory.winLifecycle);
-      expect(StageCategory.fromJson('feature'), StageCategory.feature);
-      expect(StageCategory.fromJson('cascade'), StageCategory.cascade);
-      expect(StageCategory.fromJson('bonus'), StageCategory.bonus);
-      expect(StageCategory.fromJson('gamble'), StageCategory.gamble);
-      expect(StageCategory.fromJson('jackpot'), StageCategory.jackpot);
-      expect(StageCategory.fromJson('ui'), StageCategory.ui);
-      expect(StageCategory.fromJson('special'), StageCategory.special);
+      expect(StageDomainCategory.fromJson('spin_lifecycle'), StageDomainCategory.spinLifecycle);
+      expect(StageDomainCategory.fromJson('anticipation'), StageDomainCategory.anticipation);
+      expect(StageDomainCategory.fromJson('win_lifecycle'), StageDomainCategory.winLifecycle);
+      expect(StageDomainCategory.fromJson('feature'), StageDomainCategory.feature);
+      expect(StageDomainCategory.fromJson('cascade'), StageDomainCategory.cascade);
+      expect(StageDomainCategory.fromJson('bonus'), StageDomainCategory.bonus);
+      expect(StageDomainCategory.fromJson('gamble'), StageDomainCategory.gamble);
+      expect(StageDomainCategory.fromJson('jackpot'), StageDomainCategory.jackpot);
+      expect(StageDomainCategory.fromJson('ui'), StageDomainCategory.ui);
+      expect(StageDomainCategory.fromJson('special'), StageDomainCategory.special);
     });
 
     test('fromJson returns null for unknown category', () {
-      expect(StageCategory.fromJson('invalid'), isNull);
-      expect(StageCategory.fromJson(null), isNull);
+      expect(StageDomainCategory.fromJson('invalid'), isNull);
+      expect(StageDomainCategory.fromJson(null), isNull);
     });
   });
 
@@ -1142,10 +1142,10 @@ void main() {
     });
 
     test('eventsByCategory filters correctly', () {
-      final spinEvents = trace.eventsByCategory(StageCategory.spinLifecycle);
+      final spinEvents = trace.eventsByCategory(StageDomainCategory.spinLifecycle);
       expect(spinEvents.length, greaterThanOrEqualTo(5)); // spin_start, 3 reel_stop, evaluate_wins, spin_end
 
-      final winEvents = trace.eventsByCategory(StageCategory.winLifecycle);
+      final winEvents = trace.eventsByCategory(StageDomainCategory.winLifecycle);
       expect(winEvents, hasLength(1)); // win_present
     });
 

@@ -369,36 +369,7 @@ class _StageColorPickerPanelState extends State<StageColorPickerPanel> {
   }
 
   IconData _getCategoryIcon(StageCategory category) {
-    switch (category) {
-      case StageCategory.spin:
-        return Icons.rotate_right;
-      case StageCategory.anticipation:
-        return Icons.warning_amber;
-      case StageCategory.win:
-        return Icons.emoji_events;
-      case StageCategory.rollup:
-        return Icons.trending_up;
-      case StageCategory.bigwin:
-        return Icons.star;
-      case StageCategory.feature:
-        return Icons.auto_awesome;
-      case StageCategory.cascade:
-        return Icons.layers;
-      case StageCategory.jackpot:
-        return Icons.diamond;
-      case StageCategory.bonus:
-        return Icons.card_giftcard;
-      case StageCategory.gamble:
-        return Icons.casino;
-      case StageCategory.music:
-        return Icons.music_note;
-      case StageCategory.ui:
-        return Icons.touch_app;
-      case StageCategory.system:
-        return Icons.settings;
-      case StageCategory.custom:
-        return Icons.extension;
-    }
+    return getCategoryIcon(category);
   }
 
   void _updateHexController() {

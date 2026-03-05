@@ -1091,17 +1091,17 @@ class _EventTile extends StatelessWidget {
     );
   }
 
-  Color _getCategoryColor(StageCategory category) => switch (category) {
-        StageCategory.spinLifecycle => const Color(0xFF4a9eff),
-        StageCategory.anticipation => const Color(0xFFff9040),
-        StageCategory.winLifecycle => const Color(0xFF40ff90),
-        StageCategory.feature => const Color(0xFFff40ff),
-        StageCategory.cascade => const Color(0xFF40c8ff),
-        StageCategory.bonus => const Color(0xFFffff40),
-        StageCategory.gamble => const Color(0xFFff4040),
-        StageCategory.jackpot => const Color(0xFFffd700),
-        StageCategory.ui => const Color(0xFF808090),
-        StageCategory.special => const Color(0xFFc040ff),
+  Color _getCategoryColor(StageDomainCategory category) => switch (category) {
+        StageDomainCategory.spinLifecycle => const Color(0xFF4a9eff),
+        StageDomainCategory.anticipation => const Color(0xFFff9040),
+        StageDomainCategory.winLifecycle => const Color(0xFF40ff90),
+        StageDomainCategory.feature => const Color(0xFFff40ff),
+        StageDomainCategory.cascade => const Color(0xFF40c8ff),
+        StageDomainCategory.bonus => const Color(0xFFffff40),
+        StageDomainCategory.gamble => const Color(0xFFff4040),
+        StageDomainCategory.jackpot => const Color(0xFFffd700),
+        StageDomainCategory.ui => const Color(0xFF808090),
+        StageDomainCategory.special => const Color(0xFFc040ff),
       };
 
   String _getEventDescription(StageEvent event) {
