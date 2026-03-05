@@ -105,6 +105,13 @@ import '../providers/undo_manager.dart';
 import '../widgets/slot_lab/game_model_editor.dart';
 import '../widgets/slot_lab/scenario_editor.dart';
 import '../widgets/slot_lab/win_tier_config_panel.dart';
+import '../widgets/slot_lab/diagnostics_panel.dart';
+import '../services/diagnostics/diagnostics_service.dart';
+import '../services/diagnostics/stage_contract_validator.dart';
+import '../services/diagnostics/rust_dart_sync_checker.dart';
+import '../services/diagnostics/audio_voice_auditor.dart';
+import '../services/diagnostics/event_flow_monitor.dart';
+import '../services/diagnostics/timing_drift_monitor.dart';
 import '../widgets/slot_lab/gdd_import_panel.dart';
 import '../services/gdd_import_service.dart'; // GddSymbol, SymbolTier
 import '../widgets/lower_zone/slotlab_lower_zone_controller.dart';
@@ -333,7 +340,7 @@ class SlotLabScreen extends StatefulWidget {
 enum _LeftPanelTab { audio, events, stages, aurexis }
 
 /// Right panel tab modes for context-aware inspector
-enum _RightPanelTab { events, inspector, config }
+enum _RightPanelTab { events, inspector, config, diagnostics }
 
 class _SlotLabScreenState extends State<SlotLabScreen>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin, InlineToastMixin {
@@ -1327,6 +1334,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     _loadAudioPool();
     _restorePersistedState();
     _initWaveformCache();
+    _initDiagnostics();
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CRITICAL FIX: Global keyboard handler that doesn't depend on focus
@@ -1352,6 +1360,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         _focusNode.requestFocus();
       }
     });
+  }
+
+  void _initDiagnostics() {
+    final diagnostics = DiagnosticsService.instance;
+    diagnostics.registerChecker(StageContractValidator());
+    diagnostics.registerChecker(RustDartSyncChecker());
+    diagnostics.registerChecker(AudioVoiceAuditor());
+    diagnostics.registerMonitor(EventFlowMonitor());
+    diagnostics.registerMonitor(TimingDriftMonitor());
   }
 
   /// Sync persisted audio assignments to composite events (SSoT) and EventRegistry.
@@ -9162,6 +9179,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               _RightPanelTab.events => _buildRightEventsContent(),
               _RightPanelTab.inspector => _buildRightInspectorContent(),
               _RightPanelTab.config => _buildRightConfigContent(),
+              _RightPanelTab.diagnostics => const DiagnosticsPanel(),
             },
           ),
         ],
@@ -9171,8 +9189,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   Widget _buildRightPanelTabBar() {
     const tabs = _RightPanelTab.values;
-    const labels = ['EVENTS', 'INSPECT', 'CONFIG'];
-    const icons = [Icons.event_note, Icons.info_outline, Icons.tune];
+    const labels = ['EVENTS', 'INSPECT', 'CONFIG', 'DIAG'];
+    const icons = [Icons.event_note, Icons.info_outline, Icons.tune, Icons.health_and_safety];
 
     return Container(
       height: 28,
