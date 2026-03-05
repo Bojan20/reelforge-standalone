@@ -124,8 +124,8 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
   String _targetIdToStage(String targetId) {
     // Map common target patterns to stages
     if (targetId == 'ui.spin') return 'UI_SPIN_PRESS';
-    if (targetId == 'ui.autospin') return 'AUTOSPIN_START';
-    if (targetId == 'ui.turbo') return 'TURBO_TOGGLE';
+    if (targetId == 'ui.autospin') return 'UI_AUTOPLAY_START';
+    if (targetId == 'ui.turbo') return 'UI_TURBO_ON';
     if (targetId.startsWith('reel.')) {
       final reelIndex = int.tryParse(targetId.split('.').last);
       if (reelIndex != null) return 'REEL_STOP_$reelIndex';

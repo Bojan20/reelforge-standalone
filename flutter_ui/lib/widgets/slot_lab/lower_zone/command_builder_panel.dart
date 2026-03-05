@@ -32,8 +32,8 @@ String _targetIdToStage(String targetId) {
 
   // UI buttons
   if (targetId == 'ui.spin') return 'UI_SPIN_PRESS';
-  if (targetId == 'ui.autospin') return 'AUTOSPIN_START';
-  if (targetId == 'ui.turbo') return 'TURBO_TOGGLE';
+  if (targetId == 'ui.autospin') return 'UI_AUTOPLAY_START';
+  if (targetId == 'ui.turbo') return 'UI_TURBO_ON';
 
   // Win overlays
   if (targetId == 'overlay.win') return 'WIN_PRESENT';
