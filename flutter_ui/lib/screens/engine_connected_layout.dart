@@ -2471,7 +2471,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     );
 
     if (clipInfo == null) {
-      print('[UI] Failed to import audio: $filePath');
       return;
     }
 

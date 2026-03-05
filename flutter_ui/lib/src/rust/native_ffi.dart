@@ -138,9 +138,6 @@ DynamicLibrary _loadNativeLibrary() {
   // Get script/executable directory for reliable path resolution
   final scriptDir = Platform.script.toFilePath();
   final execDir = Platform.resolvedExecutable;
-  print('[NativeFFI] Script path: $scriptDir');
-  print('[NativeFFI] Executable path: $execDir');
-  print('[NativeFFI] CWD: ${Directory.current.path}');
 
   // Try multiple paths
   // Get executable directory for macOS app bundle
@@ -173,12 +170,9 @@ DynamicLibrary _loadNativeLibrary() {
 
   for (final path in paths) {
     try {
-      print('[NativeFFI] Trying: $path');
       _cachedLib = DynamicLibrary.open(path);
-      print('[NativeFFI] SUCCESS: Loaded from $path');
       return _cachedLib!;
     } catch (e) {
-      print('[NativeFFI] Failed: $path - $e');
       continue;
     }
   }
@@ -2987,7 +2981,6 @@ class NativeFFI {
       _loaded = true;
       return true;
     } catch (e) {
-      print('[NativeFFI] Failed to load native library: $e');
       return false;
     }
   }
@@ -4922,7 +4915,6 @@ class NativeFFI {
         // Extract error message
         final errorMatch = RegExp(r'"error":"([^"]*)"').firstMatch(result);
         lastPreviewError = errorMatch?.group(1) ?? result;
-        print('[NativeFFI] Preview error: $lastPreviewError');
         return -1;
       }
       // Extract voice_id from {"voice_id":123}
@@ -6460,7 +6452,6 @@ class NativeFFI {
   /// Returns 0 on success
   int insertSetParam(int trackId, int slotIndex, int paramIndex, double value) {
     if (!_loaded) return -1;
-    print('[NativeFFI] insertSetParam: track=$trackId, slot=$slotIndex, param=$paramIndex, value=${value.toStringAsFixed(3)}');
     return _insertSetParam(trackId, slotIndex, paramIndex, value);
   }
 
@@ -6545,7 +6536,6 @@ class NativeFFI {
     if (!_loaded) return 0;
     final namePtr = processorName.toNativeUtf8();
     try {
-      print('[NativeFFI] busInsertLoadProcessor: bus=$busId, slot=$slotIndex, processor=$processorName');
       return _busInsertLoadProcessor(busId, slotIndex, namePtr);
     } finally {
       calloc.free(namePtr);
@@ -15232,7 +15222,6 @@ extension ControlRoomAPI on NativeFFI {
         malloc.free(targetBusPtr);
       }
     } catch (e) {
-      print('[NativeFFI] middlewareAddDuckingRule not available: $e');
       return true; // Return success for UI purposes when native not rebuilt
     }
   }
@@ -16659,7 +16648,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[SlotLab] slotLabInit error: $e');
       return false;
     }
   }
@@ -16672,7 +16660,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[SlotLab] slotLabInitAudioTest error: $e');
       return false;
     }
   }
@@ -16684,8 +16671,8 @@ extension SlotLabFFI on NativeFFI {
         'slot_lab_shutdown',
       );
       fn();
-    } catch (e) {
-      print('[SlotLab] slotLabShutdown error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -16697,7 +16684,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[SlotLab] slotLabIsInitialized error: $e');
       return false;
     }
   }
@@ -16713,8 +16699,8 @@ extension SlotLabFFI on NativeFFI {
         'slot_lab_set_volatility_slider',
       );
       fn(value);
-    } catch (e) {
-      print('[SlotLab] slotLabSetVolatilitySlider error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -16725,8 +16711,8 @@ extension SlotLabFFI on NativeFFI {
         'slot_lab_set_volatility_preset',
       );
       fn(preset.value);
-    } catch (e) {
-      print('[SlotLab] slotLabSetVolatilityPreset error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -16737,8 +16723,8 @@ extension SlotLabFFI on NativeFFI {
         'slot_lab_set_timing_profile',
       );
       fn(profile.value);
-    } catch (e) {
-      print('[SlotLab] slotLabSetTimingProfile error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -16749,8 +16735,8 @@ extension SlotLabFFI on NativeFFI {
         'slot_lab_set_bet',
       );
       fn(bet);
-    } catch (e) {
-      print('[SlotLab] slotLabSetBet error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -16761,8 +16747,8 @@ extension SlotLabFFI on NativeFFI {
         'slot_lab_seed_rng',
       );
       fn(seed);
-    } catch (e) {
-      print('[SlotLab] slotLabSeedRng error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -16773,8 +16759,8 @@ extension SlotLabFFI on NativeFFI {
         'slot_lab_set_grid_size',
       );
       fn(reels, rows);
-    } catch (e) {
-      print('[SlotLab] slotLabSetGridSize error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -16785,8 +16771,8 @@ extension SlotLabFFI on NativeFFI {
         'slot_lab_reset_stats',
       );
       fn();
-    } catch (e) {
-      print('[SlotLab] slotLabResetStats error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -16797,8 +16783,8 @@ extension SlotLabFFI on NativeFFI {
         'slot_lab_set_cascades_enabled',
       );
       fn(enabled ? 1 : 0);
-    } catch (e) {
-      print('[SlotLab] slotLabSetCascadesEnabled error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -16809,8 +16795,8 @@ extension SlotLabFFI on NativeFFI {
         'slot_lab_set_free_spins_enabled',
       );
       fn(enabled ? 1 : 0);
-    } catch (e) {
-      print('[SlotLab] slotLabSetFreeSpinsEnabled error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -16821,8 +16807,8 @@ extension SlotLabFFI on NativeFFI {
         'slot_lab_set_jackpot_enabled',
       );
       fn(enabled ? 1 : 0);
-    } catch (e) {
-      print('[SlotLab] slotLabSetJackpotEnabled error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -16838,7 +16824,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[SlotLab] slotLabSpin error: $e');
       return 0;
     }
   }
@@ -16851,7 +16836,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn(outcome.value);
     } catch (e) {
-      print('[SlotLab] slotLabSpinForced error: $e');
       return 0;
     }
   }
@@ -16868,7 +16852,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[SlotLab] slotLabSpinP5 error: $e');
       return 0;
     }
   }
@@ -16883,7 +16866,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn(outcome.value);
     } catch (e) {
-      print('[SlotLab] slotLabSpinForcedP5 error: $e');
       return 0;
     }
   }
@@ -16913,7 +16895,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn(outcome.value, targetMultiplier);
     } catch (e) {
-      print('[SlotLab] slotLabSpinForcedWithMultiplier error: $e');
       return 0;
     }
   }
@@ -16949,7 +16930,6 @@ extension SlotLabFFI on NativeFFI {
 
       return jsonDecode(json) as Map<String, dynamic>;
     } catch (e) {
-      print('[SlotLab] slotLabGetLastSpinP5TierJson error: $e');
       return null;
     }
   }
@@ -16962,7 +16942,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[SlotLab] slotLabIsP5WinTierEnabled error: $e');
       return false;
     }
   }
@@ -16992,7 +16971,6 @@ extension SlotLabFFI on NativeFFI {
       final map = jsonDecode(json) as Map<String, dynamic>;
       return SlotLabSpinResult.fromJson(map);
     } catch (e) {
-      print('[SlotLab] slotLabGetSpinResult error: $e');
       return null;
     }
   }
@@ -17018,7 +16996,6 @@ extension SlotLabFFI on NativeFFI {
       final list = jsonDecode(json) as List;
       return list.map((e) => SlotLabStageEvent.fromJson(e as Map<String, dynamic>)).toList();
     } catch (e) {
-      print('[SlotLab] slotLabGetStages error: $e');
       return [];
     }
   }
@@ -17031,7 +17008,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[SlotLab] slotLabGetStageCount error: $e');
       return 0;
     }
   }
@@ -17061,7 +17037,6 @@ extension SlotLabFFI on NativeFFI {
       final map = jsonDecode(json) as Map<String, dynamic>;
       return SlotLabStats.fromJson(map);
     } catch (e) {
-      print('[SlotLab] slotLabGetStats error: $e');
       return null;
     }
   }
@@ -17074,7 +17049,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[SlotLab] slotLabGetRtp error: $e');
       return 0.0;
     }
   }
@@ -17087,7 +17061,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[SlotLab] slotLabGetHitRate error: $e');
       return 0.0;
     }
   }
@@ -17100,7 +17073,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[SlotLab] slotLabGetTotalSpins error: $e');
       return 0;
     }
   }
@@ -17113,7 +17085,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[SlotLab] slotLabInFreeSpins error: $e');
       return false;
     }
   }
@@ -17126,7 +17097,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[SlotLab] slotLabFreeSpinsRemaining error: $e');
       return 0;
     }
   }
@@ -17143,7 +17113,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[SlotLab] slotLabLastSpinIsWin error: $e');
       return false;
     }
   }
@@ -17156,7 +17125,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[SlotLab] slotLabLastSpinWinAmount error: $e');
       return 0.0;
     }
   }
@@ -17169,7 +17137,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[SlotLab] slotLabLastSpinWinRatio error: $e');
       return 0.0;
     }
   }
@@ -17182,7 +17149,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return SlotLabWinTier.fromInt(fn());
     } catch (e) {
-      print('[SlotLab] slotLabLastSpinSlotLabWinTier error: $e');
       return SlotLabWinTier.none;
     }
   }
@@ -17195,7 +17161,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[SlotLab] slotLabLastSpinTriggeredFeature error: $e');
       return false;
     }
   }
@@ -17208,7 +17173,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[SlotLab] slotLabLastSpinNearMiss error: $e');
       return false;
     }
   }
@@ -17221,7 +17185,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[SlotLab] slotLabLastSpinCascadeCount error: $e');
       return 0;
     }
   }
@@ -17248,7 +17211,6 @@ extension SlotLabFFI on NativeFFI {
 
       return json;
     } catch (e) {
-      print('[SlotLab] slotLabExportConfig error: $e');
       return null;
     }
   }
@@ -17267,7 +17229,6 @@ extension SlotLabFFI on NativeFFI {
 
       return result == 1;
     } catch (e) {
-      print('[SlotLab] slotLabImportConfig error: $e');
       return false;
     }
   }
@@ -17297,7 +17258,6 @@ extension SlotLabFFI on NativeFFI {
       final map = jsonDecode(json) as Map<String, dynamic>;
       return SlotLabTimingConfig.fromJson(map);
     } catch (e) {
-      print('[SlotLab] slotLabGetTimingConfig error: $e');
       return null;
     }
   }
@@ -17310,7 +17270,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[SlotLab] slotLabGetAudioLatencyCompensationMs error: $e');
       return 0.0;
     }
   }
@@ -17323,7 +17282,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[SlotLab] slotLabGetVisualAudioSyncOffsetMs error: $e');
       return 0.0;
     }
   }
@@ -17336,7 +17294,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[SlotLab] slotLabGetAnticipationPreTriggerMs error: $e');
       return 0.0;
     }
   }
@@ -17349,7 +17306,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[SlotLab] slotLabGetReelStopPreTriggerMs error: $e');
       return 0.0;
     }
   }
@@ -17362,7 +17318,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[SlotLab] slotLabGetCascadeStepDurationMs error: $e');
       return 400.0;
     }
   }
@@ -17379,7 +17334,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[HoldAndWin] holdAndWinIsActive error: $e');
       return false;
     }
   }
@@ -17392,7 +17346,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[HoldAndWin] holdAndWinRemainingRespins error: $e');
       return 0;
     }
   }
@@ -17405,7 +17358,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[HoldAndWin] holdAndWinFillPercentage error: $e');
       return 0.0;
     }
   }
@@ -17418,7 +17370,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[HoldAndWin] holdAndWinLockedCount error: $e');
       return 0;
     }
   }
@@ -17441,7 +17392,6 @@ extension SlotLabFFI on NativeFFI {
 
       return json;
     } catch (e) {
-      print('[HoldAndWin] holdAndWinGetStateJson error: $e');
       return null;
     }
   }
@@ -17454,7 +17404,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[HoldAndWin] holdAndWinTotalValue error: $e');
       return 0.0;
     }
   }
@@ -17467,7 +17416,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[HoldAndWin] holdAndWinForceTrigger error: $e');
       return false;
     }
   }
@@ -17483,7 +17431,6 @@ extension SlotLabFFI on NativeFFI {
       >('slot_lab_hold_and_win_add_locked_symbol');
       return fn(position, value, symbolType) == 1;
     } catch (e) {
-      print('[HoldAndWin] holdAndWinAddLockedSymbol error: $e');
       return false;
     }
   }
@@ -17496,7 +17443,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[HoldAndWin] holdAndWinComplete error: $e');
       return 0.0;
     }
   }
@@ -17513,7 +17459,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[PickBonus] pickBonusIsActive error: $e');
       return false;
     }
   }
@@ -17526,7 +17471,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[PickBonus] pickBonusPicksMade error: $e');
       return 0;
     }
   }
@@ -17539,7 +17483,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[PickBonus] pickBonusTotalItems error: $e');
       return 0;
     }
   }
@@ -17552,7 +17495,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[PickBonus] pickBonusMultiplier error: $e');
       return 1.0;
     }
   }
@@ -17565,7 +17507,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[PickBonus] pickBonusTotalWin error: $e');
       return 0.0;
     }
   }
@@ -17578,7 +17519,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[PickBonus] pickBonusForceTrigger error: $e');
       return false;
     }
   }
@@ -17599,7 +17539,6 @@ extension SlotLabFFI on NativeFFI {
 
       return jsonDecode(jsonStr) as Map<String, dynamic>;
     } catch (e) {
-      print('[PickBonus] pickBonusMakePick error: $e');
       return null;
     }
   }
@@ -17619,7 +17558,6 @@ extension SlotLabFFI on NativeFFI {
 
       return jsonDecode(jsonStr) as Map<String, dynamic>;
     } catch (e) {
-      print('[PickBonus] pickBonusGetStateJson error: $e');
       return null;
     }
   }
@@ -17632,7 +17570,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[PickBonus] pickBonusComplete error: $e');
       return 0.0;
     }
   }
@@ -17649,7 +17586,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[Gamble] gambleIsActive error: $e');
       return false;
     }
   }
@@ -17662,7 +17598,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[Gamble] gambleCurrentStake error: $e');
       return 0.0;
     }
   }
@@ -17675,7 +17610,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[Gamble] gambleAttemptsUsed error: $e');
       return 0;
     }
   }
@@ -17689,7 +17623,6 @@ extension SlotLabFFI on NativeFFI {
       >('slot_lab_gamble_force_trigger');
       return fn(initialStake) == 1;
     } catch (e) {
-      print('[Gamble] gambleForceTrigger error: $e');
       return false;
     }
   }
@@ -17711,7 +17644,6 @@ extension SlotLabFFI on NativeFFI {
 
       return jsonDecode(jsonStr) as Map<String, dynamic>;
     } catch (e) {
-      print('[Gamble] gambleMakeChoice error: $e');
       return null;
     }
   }
@@ -17724,7 +17656,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[Gamble] gambleCollect error: $e');
       return 0.0;
     }
   }
@@ -17744,7 +17675,6 @@ extension SlotLabFFI on NativeFFI {
 
       return jsonDecode(jsonStr) as Map<String, dynamic>;
     } catch (e) {
-      print('[Gamble] gambleGetStateJson error: $e');
       return null;
     }
   }
@@ -17761,7 +17691,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[Jackpot] jackpotIsActive error: $e');
       return false;
     }
   }
@@ -17774,7 +17703,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn(tier);
     } catch (e) {
-      print('[Jackpot] jackpotGetTierValue error: $e');
       return 0.0;
     }
   }
@@ -17792,7 +17720,6 @@ extension SlotLabFFI on NativeFFI {
       final list = jsonDecode(jsonStr) as List;
       return list.cast<double>();
     } catch (e) {
-      print('[Jackpot] jackpotGetAllValues error: $e');
       return null;
     }
   }
@@ -17805,7 +17732,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[Jackpot] jackpotTotalContributions error: $e');
       return 0.0;
     }
   }
@@ -17818,7 +17744,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[Jackpot] jackpotWonTier error: $e');
       return -1;
     }
   }
@@ -17831,7 +17756,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[Jackpot] jackpotWonAmount error: $e');
       return 0.0;
     }
   }
@@ -17844,7 +17768,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn(tier) == 1;
     } catch (e) {
-      print('[Jackpot] jackpotForceTrigger error: $e');
       return false;
     }
   }
@@ -17857,7 +17780,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[Jackpot] jackpotComplete error: $e');
       return 0.0;
     }
   }
@@ -17874,7 +17796,6 @@ extension SlotLabFFI on NativeFFI {
       calloc.free(ptr);
       return jsonDecode(jsonStr) as Map<String, dynamic>;
     } catch (e) {
-      print('[Jackpot] jackpotGetStateJson error: $e');
       return null;
     }
   }
@@ -17891,7 +17812,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[FreeSpins] freeSpinsIsActive error: $e');
       return false;
     }
   }
@@ -17904,7 +17824,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[FreeSpins] freeSpinsRemaining error: $e');
       return 0;
     }
   }
@@ -17917,7 +17836,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[FreeSpins] freeSpinsTotal error: $e');
       return 0;
     }
   }
@@ -17930,7 +17848,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[FreeSpins] freeSpinsMultiplier error: $e');
       return 1.0;
     }
   }
@@ -17943,7 +17860,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[FreeSpins] freeSpinsTotalWin error: $e');
       return 0.0;
     }
   }
@@ -17956,7 +17872,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn(numSpins) == 1;
     } catch (e) {
-      print('[FreeSpins] freeSpinsForceTrigger error: $e');
       return false;
     }
   }
@@ -17969,7 +17884,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn(extraSpins) == 1;
     } catch (e) {
-      print('[FreeSpins] freeSpinsAdd error: $e');
       return false;
     }
   }
@@ -17982,7 +17896,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[FreeSpins] freeSpinsComplete error: $e');
       return 0.0;
     }
   }
@@ -17999,7 +17912,6 @@ extension SlotLabFFI on NativeFFI {
       calloc.free(ptr);
       return jsonDecode(jsonStr) as Map<String, dynamic>;
     } catch (e) {
-      print('[FreeSpins] freeSpinsGetStateJson error: $e');
       return null;
     }
   }
@@ -18016,7 +17928,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[Cascade] cascadeIsActive error: $e');
       return false;
     }
   }
@@ -18029,7 +17940,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[Cascade] cascadeCurrentStep error: $e');
       return 0;
     }
   }
@@ -18042,7 +17952,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[Cascade] cascadeMultiplier error: $e');
       return 1.0;
     }
   }
@@ -18055,7 +17964,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[Cascade] cascadePeakMultiplier error: $e');
       return 1.0;
     }
   }
@@ -18068,7 +17976,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[Cascade] cascadeTotalWin error: $e');
       return 0.0;
     }
   }
@@ -18081,7 +17988,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[Cascade] cascadeForceTrigger error: $e');
       return false;
     }
   }
@@ -18094,7 +18000,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[Cascade] cascadeComplete error: $e');
       return 0.0;
     }
   }
@@ -18111,7 +18016,6 @@ extension SlotLabFFI on NativeFFI {
       calloc.free(ptr);
       return jsonDecode(jsonStr) as Map<String, dynamic>;
     } catch (e) {
-      print('[Cascade] cascadeGetStateJson error: $e');
       return null;
     }
   }
@@ -18158,7 +18062,6 @@ extension SlotLabFFI on NativeFFI {
 
       return result == 1;
     } catch (e) {
-      print('[WinTier] winTierSetConfigJson error: $e');
       return false;
     }
   }
@@ -18181,7 +18084,6 @@ extension SlotLabFFI on NativeFFI {
 
       return json;
     } catch (e) {
-      print('[WinTier] winTierGetConfigJson error: $e');
       return null;
     }
   }
@@ -18216,7 +18118,6 @@ extension SlotLabFFI on NativeFFI {
 
       return jsonDecode(json) as Map<String, dynamic>;
     } catch (e) {
-      print('[WinTier] winTierEvaluate error: $e');
       return null;
     }
   }
@@ -18229,7 +18130,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[WinTier] winTierGetBigWinThreshold error: $e');
       return 20.0;
     }
   }
@@ -18244,7 +18144,6 @@ extension SlotLabFFI on NativeFFI {
 
       return fn(threshold) == 1;
     } catch (e) {
-      print('[WinTier] winTierSetBigWinThreshold error: $e');
       return false;
     }
   }
@@ -18257,7 +18156,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[WinTier] winTierRegularCount error: $e');
       return 0;
     }
   }
@@ -18270,7 +18168,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[WinTier] winTierBigCount error: $e');
       return 0;
     }
   }
@@ -18289,7 +18186,6 @@ extension SlotLabFFI on NativeFFI {
 
       return result == 1;
     } catch (e) {
-      print('[WinTier] winTierAddRegular error: $e');
       return false;
     }
   }
@@ -18308,7 +18204,6 @@ extension SlotLabFFI on NativeFFI {
 
       return result == 1;
     } catch (e) {
-      print('[WinTier] winTierUpdateRegular error: $e');
       return false;
     }
   }
@@ -18323,7 +18218,6 @@ extension SlotLabFFI on NativeFFI {
 
       return fn(tierId) == 1;
     } catch (e) {
-      print('[WinTier] winTierRemoveRegular error: $e');
       return false;
     }
   }
@@ -18342,7 +18236,6 @@ extension SlotLabFFI on NativeFFI {
 
       return result == 1;
     } catch (e) {
-      print('[WinTier] winTierUpdateBig error: $e');
       return false;
     }
   }
@@ -18366,7 +18259,6 @@ extension SlotLabFFI on NativeFFI {
       final list = jsonDecode(json) as List;
       return list.cast<String>();
     } catch (e) {
-      print('[WinTier] winTierGetAllStageNames error: $e');
       return [];
     }
   }
@@ -18378,8 +18270,8 @@ extension SlotLabFFI on NativeFFI {
         'slot_lab_win_tier_reset_to_defaults',
       );
       fn();
-    } catch (e) {
-      print('[WinTier] winTierResetToDefaults error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -18391,7 +18283,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[WinTier] winTierValidate error: $e');
       return false;
     }
   }
@@ -18415,7 +18306,6 @@ extension SlotLabFFI on NativeFFI {
       final list = jsonDecode(json) as List;
       return list.cast<String>();
     } catch (e) {
-      print('[WinTier] winTierGetValidationErrors error: $e');
       return [];
     }
   }
@@ -18438,7 +18328,6 @@ extension SlotLabFFI on NativeFFI {
         fadeOutDurationMs ?? 0,
       ) == 1;
     } catch (e) {
-      print('[WinTier] winTierSetBigWinDurations error: $e');
       return false;
     }
   }
@@ -18455,7 +18344,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[ALE] aleInit error: $e');
       return false;
     }
   }
@@ -18467,8 +18355,8 @@ extension SlotLabFFI on NativeFFI {
         'ale_shutdown',
       );
       fn();
-    } catch (e) {
-      print('[ALE] aleShutdown error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -18486,7 +18374,6 @@ extension SlotLabFFI on NativeFFI {
 
       return result == 1;
     } catch (e) {
-      print('[ALE] aleLoadProfile error: $e');
       return false;
     }
   }
@@ -18509,7 +18396,6 @@ extension SlotLabFFI on NativeFFI {
 
       return json;
     } catch (e) {
-      print('[ALE] aleExportProfile error: $e');
       return null;
     }
   }
@@ -18530,7 +18416,6 @@ extension SlotLabFFI on NativeFFI {
 
       return result == 1;
     } catch (e) {
-      print('[ALE] aleEnterContext error: $e');
       return false;
     }
   }
@@ -18549,7 +18434,6 @@ extension SlotLabFFI on NativeFFI {
 
       return result == 1;
     } catch (e) {
-      print('[ALE] aleExitContext error: $e');
       return false;
     }
   }
@@ -18565,8 +18449,8 @@ extension SlotLabFFI on NativeFFI {
       final signalPtr = signalId.toNativeUtf8();
       fn(signalPtr, value);
       calloc.free(signalPtr);
-    } catch (e) {
-      print('[ALE] aleUpdateSignal error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -18584,7 +18468,6 @@ extension SlotLabFFI on NativeFFI {
 
       return result;
     } catch (e) {
-      print('[ALE] aleGetSignalNormalized error: $e');
       return 0.0;
     }
   }
@@ -18599,7 +18482,6 @@ extension SlotLabFFI on NativeFFI {
 
       return fn(level) == 1;
     } catch (e) {
-      print('[ALE] aleSetLevel error: $e');
       return false;
     }
   }
@@ -18612,7 +18494,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[ALE] aleStepUp error: $e');
       return false;
     }
   }
@@ -18625,7 +18506,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[ALE] aleStepDown error: $e');
       return false;
     }
   }
@@ -18638,8 +18518,8 @@ extension SlotLabFFI on NativeFFI {
           void Function(double)
       >('ale_set_tempo');
       fn(bpm);
-    } catch (e) {
-      print('[ALE] aleSetTempo error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -18651,8 +18531,8 @@ extension SlotLabFFI on NativeFFI {
           void Function(int, int)
       >('ale_set_time_signature');
       fn(numerator, denominator);
-    } catch (e) {
-      print('[ALE] aleSetTimeSignature error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -18663,8 +18543,8 @@ extension SlotLabFFI on NativeFFI {
         'ale_tick',
       );
       fn();
-    } catch (e) {
-      print('[ALE] aleTick error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -18686,7 +18566,6 @@ extension SlotLabFFI on NativeFFI {
 
       return json;
     } catch (e) {
-      print('[ALE] aleGetState error: $e');
       return null;
     }
   }
@@ -18709,7 +18588,6 @@ extension SlotLabFFI on NativeFFI {
 
       return json;
     } catch (e) {
-      print('[ALE] aleGetLayerVolumes error: $e');
       return null;
     }
   }
@@ -18722,7 +18600,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[ALE] aleGetLevel error: $e');
       return 0;
     }
   }
@@ -18745,7 +18622,6 @@ extension SlotLabFFI on NativeFFI {
 
       return str.isEmpty ? null : str;
     } catch (e) {
-      print('[ALE] aleGetActiveContext error: $e');
       return null;
     }
   }
@@ -18758,7 +18634,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[ALE] aleInTransition error: $e');
       return false;
     }
   }
@@ -18779,7 +18654,6 @@ extension SlotLabFFI on NativeFFI {
         malloc.free(ptr);
       }
     } catch (e) {
-      print('[ALE] aleSetStabilityJson error: $e');
       return false;
     }
   }
@@ -18802,7 +18676,6 @@ extension SlotLabFFI on NativeFFI {
 
       return jsonDecode(json) as Map<String, dynamic>?;
     } catch (e) {
-      print('[ALE] aleGetStabilityJson error: $e');
       return null;
     }
   }
@@ -18819,7 +18692,6 @@ extension SlotLabFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[AutoSpatial] init error: $e');
       return false;
     }
   }
@@ -18831,8 +18703,8 @@ extension SlotLabFFI on NativeFFI {
         'auto_spatial_shutdown',
       );
       fn();
-    } catch (e) {
-      print('[AutoSpatial] shutdown error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -18863,7 +18735,6 @@ extension SlotLabFFI on NativeFFI {
 
       return result;
     } catch (e) {
-      print('[AutoSpatial] startEvent error: $e');
       return 0;
     }
   }
@@ -18878,7 +18749,6 @@ extension SlotLabFFI on NativeFFI {
 
       return fn(eventId, x, y, z) == 1;
     } catch (e) {
-      print('[AutoSpatial] updateEvent error: $e');
       return false;
     }
   }
@@ -18893,7 +18763,6 @@ extension SlotLabFFI on NativeFFI {
 
       return fn(eventId) == 1;
     } catch (e) {
-      print('[AutoSpatial] stopEvent error: $e');
       return false;
     }
   }
@@ -18930,7 +18799,6 @@ extension SlotLabFFI on NativeFFI {
       calloc.free(outPtr);
       return data;
     } catch (e) {
-      print('[AutoSpatial] getOutput error: $e');
       return null;
     }
   }
@@ -18944,8 +18812,8 @@ extension SlotLabFFI on NativeFFI {
       >('auto_spatial_set_listener');
 
       fn(x, y, z, rotation);
-    } catch (e) {
-      print('[AutoSpatial] setListener error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -18957,8 +18825,8 @@ extension SlotLabFFI on NativeFFI {
           void Function(double)
       >('auto_spatial_set_pan_scale');
       fn(scale);
-    } catch (e) {
-      print('[AutoSpatial] setPanScale error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -18970,8 +18838,8 @@ extension SlotLabFFI on NativeFFI {
           void Function(double)
       >('auto_spatial_set_width_scale');
       fn(scale);
-    } catch (e) {
-      print('[AutoSpatial] setWidthScale error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -18983,8 +18851,8 @@ extension SlotLabFFI on NativeFFI {
           void Function(int)
       >('auto_spatial_set_doppler_enabled');
       fn(enabled ? 1 : 0);
-    } catch (e) {
-      print('[AutoSpatial] setDopplerEnabled error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -18996,8 +18864,8 @@ extension SlotLabFFI on NativeFFI {
           void Function(int)
       >('auto_spatial_set_hrtf_enabled');
       fn(enabled ? 1 : 0);
-    } catch (e) {
-      print('[AutoSpatial] setHrtfEnabled error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -19009,8 +18877,8 @@ extension SlotLabFFI on NativeFFI {
           void Function(int)
       >('auto_spatial_set_distance_atten_enabled');
       fn(enabled ? 1 : 0);
-    } catch (e) {
-      print('[AutoSpatial] setDistanceAttenEnabled error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -19022,8 +18890,8 @@ extension SlotLabFFI on NativeFFI {
           void Function(int)
       >('auto_spatial_set_reverb_enabled');
       fn(enabled ? 1 : 0);
-    } catch (e) {
-      print('[AutoSpatial] setReverbEnabled error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -19035,8 +18903,8 @@ extension SlotLabFFI on NativeFFI {
           void Function(int)
       >('auto_spatial_set_time');
       fn(timeMs);
-    } catch (e) {
-      print('[AutoSpatial] setTime error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -19048,8 +18916,8 @@ extension SlotLabFFI on NativeFFI {
           void Function(int)
       >('auto_spatial_tick');
       fn(dtMs);
-    } catch (e) {
-      print('[AutoSpatial] tick error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -19082,7 +18950,6 @@ extension SlotLabFFI on NativeFFI {
 
       return stats;
     } catch (e) {
-      print('[AutoSpatial] getStats error: $e');
       return const NativeSpatialStats();
     }
   }
@@ -22090,7 +21957,6 @@ extension PluginStateFFI on NativeFFI {
       >('insert_set_sidechain_source');
       return fn(trackId, slotIndex, sourceTrackId);
     } catch (e) {
-      print('[NativeFFI] insertSetSidechainSource error: $e');
       return -1;
     }
   }
@@ -22105,7 +21971,6 @@ extension PluginStateFFI on NativeFFI {
       >('insert_get_sidechain_source');
       return fn(trackId, slotIndex);
     } catch (e) {
-      print('[NativeFFI] insertGetSidechainSource error: $e');
       return -1;
     }
   }
@@ -22120,7 +21985,6 @@ extension PluginStateFFI on NativeFFI {
       >('insert_set_sidechain_enabled');
       return fn(trackId, slotIndex, enabled ? 1 : 0);
     } catch (e) {
-      print('[NativeFFI] insertSetSidechainEnabled error: $e');
       return -1;
     }
   }
@@ -22748,7 +22612,6 @@ extension TimeStretchFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[AUREXIS] aurexisInit error: $e');
       return false;
     }
   }
@@ -22761,7 +22624,6 @@ extension TimeStretchFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[AUREXIS] aurexisDestroy error: $e');
       return false;
     }
   }
@@ -22786,7 +22648,6 @@ extension TimeStretchFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[AUREXIS] aurexisResetSession error: $e');
       return false;
     }
   }
@@ -22800,7 +22661,6 @@ extension TimeStretchFFI on NativeFFI {
       >('aurexis_set_volatility');
       return fn(index) == 1;
     } catch (e) {
-      print('[AUREXIS] aurexisSetVolatility error: $e');
       return false;
     }
   }
@@ -22814,7 +22674,6 @@ extension TimeStretchFFI on NativeFFI {
       >('aurexis_set_rtp');
       return fn(rtp) == 1;
     } catch (e) {
-      print('[AUREXIS] aurexisSetRtp error: $e');
       return false;
     }
   }
@@ -22828,7 +22687,6 @@ extension TimeStretchFFI on NativeFFI {
       >('aurexis_set_win');
       return fn(amount, bet, jackpotProximity) == 1;
     } catch (e) {
-      print('[AUREXIS] aurexisSetWin error: $e');
       return false;
     }
   }
@@ -22842,7 +22700,6 @@ extension TimeStretchFFI on NativeFFI {
       >('aurexis_set_metering');
       return fn(rmsDb, hfDb) == 1;
     } catch (e) {
-      print('[AUREXIS] aurexisSetMetering error: $e');
       return false;
     }
   }
@@ -22856,7 +22713,6 @@ extension TimeStretchFFI on NativeFFI {
       >('aurexis_set_seed');
       return fn(spriteId, eventTime, gameState, sessionIndex) == 1;
     } catch (e) {
-      print('[AUREXIS] aurexisSetSeed error: $e');
       return false;
     }
   }
@@ -22870,7 +22726,6 @@ extension TimeStretchFFI on NativeFFI {
       >('aurexis_set_platform');
       return fn(platformId) == 1;
     } catch (e) {
-      print('[AUREXIS] aurexisSetPlatform error: $e');
       return false;
     }
   }
@@ -22884,7 +22739,6 @@ extension TimeStretchFFI on NativeFFI {
       >('aurexis_register_voice');
       return fn(voiceId, pan, zDepth, priority) == 1;
     } catch (e) {
-      print('[AUREXIS] aurexisRegisterVoice error: $e');
       return false;
     }
   }
@@ -22898,7 +22752,6 @@ extension TimeStretchFFI on NativeFFI {
       >('aurexis_unregister_voice');
       return fn(voiceId) == 1;
     } catch (e) {
-      print('[AUREXIS] aurexisUnregisterVoice error: $e');
       return false;
     }
   }
@@ -22912,7 +22765,6 @@ extension TimeStretchFFI on NativeFFI {
       >('aurexis_register_screen_event');
       return fn(eventId, x, y, weight, priority) == 1;
     } catch (e) {
-      print('[AUREXIS] aurexisRegisterScreenEvent error: $e');
       return false;
     }
   }
@@ -22925,7 +22777,6 @@ extension TimeStretchFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[AUREXIS] aurexisClearScreenEvents error: $e');
       return false;
     }
   }
@@ -22939,7 +22790,6 @@ extension TimeStretchFFI on NativeFFI {
       >('aurexis_compute');
       return fn(elapsedMs) == 1;
     } catch (e) {
-      print('[AUREXIS] aurexisCompute error: $e');
       return false;
     }
   }
@@ -22954,7 +22804,6 @@ extension TimeStretchFFI on NativeFFI {
 
       return withNativeString(name, fn);
     } catch (e) {
-      print('[AUREXIS] aurexisGetParameter error: $e');
       return -999.0;
     }
   }
@@ -23038,7 +22887,6 @@ extension TimeStretchFFI on NativeFFI {
 
       return json;
     } catch (e) {
-      print('[AUREXIS] aurexisGetOutputJson error: $e');
       return null;
     }
   }
@@ -23062,7 +22910,6 @@ extension TimeStretchFFI on NativeFFI {
 
       return json;
     } catch (e) {
-      print('[AUREXIS] aurexisComputeAndGetJson error: $e');
       return null;
     }
   }
@@ -23077,7 +22924,6 @@ extension TimeStretchFFI on NativeFFI {
 
       return withNativeString(json, (ptr) => fn(ptr) == 1);
     } catch (e) {
-      print('[AUREXIS] aurexisLoadConfig error: $e');
       return false;
     }
   }
@@ -23100,7 +22946,6 @@ extension TimeStretchFFI on NativeFFI {
 
       return json;
     } catch (e) {
-      print('[AUREXIS] aurexisExportConfig error: $e');
       return null;
     }
   }
@@ -23115,7 +22960,6 @@ extension TimeStretchFFI on NativeFFI {
 
       return withNativeStrings2(section, key, (s, k) => fn(s, k, value) == 1);
     } catch (e) {
-      print('[AUREXIS] aurexisSetCoefficient error: $e');
       return false;
     }
   }
@@ -23130,7 +22974,6 @@ extension TimeStretchFFI on NativeFFI {
 
       return withNativeString(json, (ptr) => fn(ptr) == 1);
     } catch (e) {
-      print('[AUREXIS] aurexisUpdateStateJson error: $e');
       return false;
     }
   }
@@ -25998,7 +25841,6 @@ extension TimeStretchFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[FluxMacro] init error: $e');
       return false;
     }
   }
@@ -26011,7 +25853,6 @@ extension TimeStretchFFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[FluxMacro] destroy error: $e');
       return false;
     }
   }
@@ -26049,7 +25890,6 @@ extension TimeStretchFFI on NativeFFI {
         return jsonDecode(jsonStr) as Map<String, dynamic>;
       });
     } catch (e) {
-      print('[FluxMacro] runYaml error: $e');
       return null;
     }
   }
@@ -26075,7 +25915,6 @@ extension TimeStretchFFI on NativeFFI {
         return jsonDecode(jsonStr) as Map<String, dynamic>;
       });
     } catch (e) {
-      print('[FluxMacro] runFile error: $e');
       return null;
     }
   }
@@ -26101,7 +25940,6 @@ extension TimeStretchFFI on NativeFFI {
         return jsonDecode(jsonStr) as Map<String, dynamic>;
       });
     } catch (e) {
-      print('[FluxMacro] validate error: $e');
       return null;
     }
   }

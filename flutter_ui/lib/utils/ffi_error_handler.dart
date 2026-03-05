@@ -213,9 +213,6 @@ class FFIErrorHandler {
     void Function(FFIError)? onError,
     bool throwOnError = false,
   }) {
-    // Log error
-    print('[FFIErrorHandler] ${error.displayMessage}');
-
     // Call custom handler if provided
     onError?.call(error);
 

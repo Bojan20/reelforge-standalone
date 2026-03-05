@@ -180,16 +180,12 @@ class PathValidator {
           final canonicalRoot = Directory(root).resolveSymbolicLinksSync();
           _sandboxRoots.add(canonicalRoot);
         } catch (e) {
-          // Log warning but continue
-          print('[PathValidator] Warning: Failed to canonicalize root "$root": $e');
+          // Failed to canonicalize root, skip it
         }
       }
     }
 
-    print('[PathValidator] Sandbox initialized with ${_sandboxRoots.length} root(s):');
-    for (final root in _sandboxRoots) {
-      print('[PathValidator]   - $root');
-    }
+    // Sandbox initialized
   }
 
   /// Check if sandbox is initialized

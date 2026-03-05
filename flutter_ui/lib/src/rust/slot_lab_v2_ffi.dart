@@ -29,7 +29,7 @@ extension SlotLabV2FFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[SlotLabV2] slotLabV2Init error: $e');
+
       return false;
     }
   }
@@ -50,7 +50,6 @@ extension SlotLabV2FFI on NativeFFI {
         calloc.free(jsonPtr);
       }
     } catch (e) {
-      print('[SlotLabV2] slotLabV2InitWithModelJson error: $e');
       return false;
     }
   }
@@ -71,7 +70,6 @@ extension SlotLabV2FFI on NativeFFI {
         calloc.free(jsonPtr);
       }
     } catch (e) {
-      print('[SlotLabV2] slotLabV2InitFromGdd error: $e');
       return false;
     }
   }
@@ -83,8 +81,8 @@ extension SlotLabV2FFI on NativeFFI {
         'slot_lab_v2_shutdown',
       );
       fn();
-    } catch (e) {
-      print('[SlotLabV2] slotLabV2Shutdown error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -96,7 +94,6 @@ extension SlotLabV2FFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[SlotLabV2] slotLabV2IsInitialized error: $e');
       return false;
     }
   }
@@ -110,7 +107,6 @@ extension SlotLabV2FFI on NativeFFI {
       );
       return fn();
     } catch (e) {
-      print('[SlotLabV2] slotLabV2Spin error: $e');
       return 0;
     }
   }
@@ -125,7 +121,6 @@ extension SlotLabV2FFI on NativeFFI {
       >('slot_lab_v2_spin_forced');
       return fn(outcome);
     } catch (e) {
-      print('[SlotLabV2] slotLabV2SpinForced error: $e');
       return 0;
     }
   }
@@ -154,7 +149,6 @@ extension SlotLabV2FFI on NativeFFI {
         freeFn(ptr);
       }
     } catch (e) {
-      print('[SlotLabV2] slotLabV2GetSpinResult error: $e');
       return null;
     }
   }
@@ -184,7 +178,6 @@ extension SlotLabV2FFI on NativeFFI {
         freeFn(ptr);
       }
     } catch (e) {
-      print('[SlotLabV2] slotLabV2GetStages error: $e');
       return [];
     }
   }
@@ -213,7 +206,6 @@ extension SlotLabV2FFI on NativeFFI {
         freeFn(ptr);
       }
     } catch (e) {
-      print('[SlotLabV2] slotLabV2GetModel error: $e');
       return null;
     }
   }
@@ -242,7 +234,6 @@ extension SlotLabV2FFI on NativeFFI {
         freeFn(ptr);
       }
     } catch (e) {
-      print('[SlotLabV2] slotLabV2GetStats error: $e');
       return null;
     }
   }
@@ -256,8 +247,8 @@ extension SlotLabV2FFI on NativeFFI {
         void Function(int)
       >('slot_lab_v2_set_mode');
       fn(mode);
-    } catch (e) {
-      print('[SlotLabV2] slotLabV2SetMode error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -269,8 +260,8 @@ extension SlotLabV2FFI on NativeFFI {
         void Function(double)
       >('slot_lab_v2_set_bet');
       fn(bet);
-    } catch (e) {
-      print('[SlotLabV2] slotLabV2SetBet error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -282,8 +273,8 @@ extension SlotLabV2FFI on NativeFFI {
         void Function(int)
       >('slot_lab_v2_seed');
       fn(seed);
-    } catch (e) {
-      print('[SlotLabV2] slotLabV2Seed error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -294,8 +285,8 @@ extension SlotLabV2FFI on NativeFFI {
         'slot_lab_v2_reset_stats',
       );
       fn();
-    } catch (e) {
-      print('[SlotLabV2] slotLabV2ResetStats error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -322,7 +313,6 @@ extension SlotLabV2FFI on NativeFFI {
         freeFn(ptr);
       }
     } catch (e) {
-      print('[SlotLabV2] slotLabV2LastWinTier error: $e');
       return null;
     }
   }
@@ -356,7 +346,6 @@ extension SlotLabV2FFI on NativeFFI {
         freeFn(ptr);
       }
     } catch (e) {
-      print('[SlotLabV2] slotLabScenarioList error: $e');
       return [];
     }
   }
@@ -377,7 +366,6 @@ extension SlotLabV2FFI on NativeFFI {
         calloc.free(idPtr);
       }
     } catch (e) {
-      print('[SlotLabV2] slotLabScenarioLoad error: $e');
       return false;
     }
   }
@@ -390,7 +378,6 @@ extension SlotLabV2FFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[SlotLabV2] slotLabScenarioIsLoaded error: $e');
       return false;
     }
   }
@@ -419,7 +406,6 @@ extension SlotLabV2FFI on NativeFFI {
         freeFn(ptr);
       }
     } catch (e) {
-      print('[SlotLabV2] slotLabScenarioNextSpin error: $e');
       return null;
     }
   }
@@ -450,7 +436,6 @@ extension SlotLabV2FFI on NativeFFI {
         freeFn(ptr);
       }
     } catch (e) {
-      print('[SlotLabV2] slotLabScenarioProgress error: $e');
       return (0, 0);
     }
   }
@@ -463,7 +448,6 @@ extension SlotLabV2FFI on NativeFFI {
       );
       return fn() == 1;
     } catch (e) {
-      print('[SlotLabV2] slotLabScenarioIsComplete error: $e');
       return false;
     }
   }
@@ -475,8 +459,8 @@ extension SlotLabV2FFI on NativeFFI {
         'slot_lab_scenario_reset',
       );
       fn();
-    } catch (e) {
-      print('[SlotLabV2] slotLabScenarioReset error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -487,8 +471,8 @@ extension SlotLabV2FFI on NativeFFI {
         'slot_lab_scenario_unload',
       );
       fn();
-    } catch (e) {
-      print('[SlotLabV2] slotLabScenarioUnload error: $e');
+    } catch (_) {
+      // ignored
     }
   }
 
@@ -508,7 +492,6 @@ extension SlotLabV2FFI on NativeFFI {
         calloc.free(jsonPtr);
       }
     } catch (e) {
-      print('[SlotLabV2] slotLabScenarioRegister error: $e');
       return false;
     }
   }
@@ -542,7 +525,6 @@ extension SlotLabV2FFI on NativeFFI {
         calloc.free(idPtr);
       }
     } catch (e) {
-      print('[SlotLabV2] slotLabScenarioGet error: $e');
       return null;
     }
   }
@@ -583,7 +565,6 @@ extension SlotLabV2FFI on NativeFFI {
         calloc.free(jsonPtr);
       }
     } catch (e) {
-      print('[SlotLabV2] slotLabGddValidate error: $e');
       return GddValidationResult(valid: false, errors: ['Exception: $e']);
     }
   }
@@ -625,7 +606,6 @@ extension SlotLabV2FFI on NativeFFI {
         calloc.free(jsonPtr);
       }
     } catch (e) {
-      print('[SlotLabV2] slotLabGddToModel error: $e');
       return GameModelResult.error('Exception: $e');
     }
   }
