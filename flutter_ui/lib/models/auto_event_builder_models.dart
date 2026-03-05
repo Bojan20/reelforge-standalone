@@ -410,7 +410,7 @@ extension TargetTypeExtension on TargetType {
       case TargetType.hudMeter:
         return ['fill', 'drain', 'threshold'];
       case TargetType.reelSurface:
-        return ['spin_start', 'spin_stop'];
+        return ['ui_spin_press', 'spin_stop'];
       case TargetType.reelStopZone:
         return ['reel_stop', 'anticipation_on', 'anticipation_off'];
       case TargetType.symbol:

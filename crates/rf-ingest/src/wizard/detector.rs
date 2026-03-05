@@ -9,11 +9,11 @@ use super::DetectedEvent;
 /// Common event name mappings to stages
 const EVENT_STAGE_MAPPINGS: &[(&str, &str)] = &[
     // Spin lifecycle
-    ("spin_start", "SpinStart"),
-    ("spinstart", "SpinStart"),
-    ("SPIN_START", "SpinStart"),
-    ("startSpin", "SpinStart"),
-    ("begin_spin", "SpinStart"),
+    ("spin_start", "UiSpinPress"),
+    ("spinstart", "UiSpinPress"),
+    ("SPIN_START", "UiSpinPress"),
+    ("startSpin", "UiSpinPress"),
+    ("begin_spin", "UiSpinPress"),
     ("spin_end", "SpinEnd"),
     ("spinend", "SpinEnd"),
     ("SPIN_END", "SpinEnd"),
@@ -201,7 +201,7 @@ fn find_stage_mapping(event_name: &str) -> Option<String> {
 
     // Spin detection
     if lower.contains("spin") && (lower.contains("start") || lower.contains("begin")) {
-        return Some("SpinStart".to_string());
+        return Some("UiSpinPress".to_string());
     }
     if lower.contains("spin")
         && (lower.contains("end") || lower.contains("complete") || lower.contains("result"))
@@ -276,7 +276,7 @@ mod tests {
     fn test_find_stage_mapping() {
         assert_eq!(
             find_stage_mapping("spin_start"),
-            Some("SpinStart".to_string())
+            Some("UiSpinPress".to_string())
         );
         assert_eq!(
             find_stage_mapping("SPIN_RESULT"),
@@ -296,7 +296,7 @@ mod tests {
     fn test_fuzzy_mapping() {
         assert_eq!(
             find_stage_mapping("begin_game_spin"),
-            Some("SpinStart".to_string())
+            Some("UiSpinPress".to_string())
         );
         assert_eq!(
             find_stage_mapping("gameSpinComplete"),
@@ -327,7 +327,7 @@ mod tests {
         assert_eq!(spin_start.unwrap().sample_count, 2);
         assert_eq!(
             spin_start.unwrap().suggested_stage,
-            Some("SpinStart".to_string())
+            Some("UiSpinPress".to_string())
         );
     }
 }

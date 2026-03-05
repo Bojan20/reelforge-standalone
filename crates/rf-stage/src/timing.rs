@@ -426,7 +426,7 @@ mod tests {
     fn create_test_trace() -> StageTrace {
         let mut trace = StageTrace::new("test", "test_game");
 
-        trace.push(StageEvent::new(Stage::SpinStart, 0.0));
+        trace.push(StageEvent::new(Stage::UiSpinPress, 0.0));
         for i in 0..5u8 {
             trace.push(StageEvent::new(
                 Stage::ReelStop {

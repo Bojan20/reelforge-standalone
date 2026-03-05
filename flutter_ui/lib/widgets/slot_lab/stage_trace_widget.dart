@@ -57,14 +57,14 @@ class StageTemplates {
       name: 'Basic Spin',
       description: 'Standard spin flow: start → stops → end',
       icon: Icons.play_circle_outline,
-      stages: ['spin_start', 'reel_stop_0', 'reel_stop_1', 'reel_stop_2', 'reel_stop_3', 'reel_stop_4', 'spin_end'],
+      stages: ['ui_spin_press', 'reel_stop_0', 'reel_stop_1', 'reel_stop_2', 'reel_stop_3', 'reel_stop_4', 'spin_end'],
     ),
     StageTemplate(
       id: 'spin_with_anticipation',
       name: 'Spin + Anticipation',
       description: 'Spin with anticipation on last reels',
       icon: Icons.trending_up,
-      stages: ['spin_start', 'reel_stop_0', 'reel_stop_1', 'reel_stop_2', 'anticipation_on', 'reel_stop_3', 'reel_stop_4', 'anticipation_off', 'spin_end'],
+      stages: ['ui_spin_press', 'reel_stop_0', 'reel_stop_1', 'reel_stop_2', 'anticipation_on', 'reel_stop_3', 'reel_stop_4', 'anticipation_off', 'spin_end'],
     ),
     StageTemplate(
       id: 'regular_win',
@@ -297,7 +297,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
 
   // P1.3: Stage grouping
   static const Map<String, String> _stageGroups = {
-    'spin_start': 'spin',
+    'ui_spin_press': 'spin',
     'reel_spinning': 'spin',
     'reel_stop': 'spin',
     'spin_end': 'spin',
@@ -3448,7 +3448,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
 
     // Common stage types for pre-assignment
     final commonStages = [
-      'spin_start',
+      'ui_spin_press',
       'reel_stop',
       'win_present',
       'bigwin_tier',

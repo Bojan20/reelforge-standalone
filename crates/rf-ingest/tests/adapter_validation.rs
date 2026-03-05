@@ -22,7 +22,7 @@ use serde_json::{json, Value};
 fn create_basic_config() -> AdapterConfig {
     let mut config = AdapterConfig::new("test-adapter", "Test Company", "Test Engine");
     config.layers = vec![IngestLayer::DirectEvent];
-    config.map_event("spin_start", "SpinStart");
+    config.map_event("spin_start", "UiSpinPress");
     config.map_event("spin_end", "SpinEnd");
     config.map_event("reel_stop", "ReelStop");
     config
@@ -33,7 +33,7 @@ fn create_full_config() -> AdapterConfig {
     config.layers = vec![IngestLayer::DirectEvent, IngestLayer::SnapshotDiff];
 
     // Event mappings
-    config.map_event("cmd_spin", "SpinStart");
+    config.map_event("cmd_spin", "UiSpinPress");
     config.map_event("reel_stopping_0", "ReelStop { reel_index: 0 }");
     config.map_event("reel_stopping_1", "ReelStop { reel_index: 1 }");
     config.map_event("reel_stopping_2", "ReelStop { reel_index: 2 }");
@@ -171,7 +171,7 @@ fn test_config_validation_multiple_layers() {
 fn test_event_mapping_basic() {
     let config = create_basic_config();
 
-    assert_eq!(config.get_stage("spin_start"), Some("SpinStart"));
+    assert_eq!(config.get_stage("spin_start"), Some("UiSpinPress"));
     assert_eq!(config.get_stage("spin_end"), Some("SpinEnd"));
     assert_eq!(config.get_stage("reel_stop"), Some("ReelStop"));
 }
@@ -189,7 +189,7 @@ fn test_event_mapping_case_sensitive() {
     let config = create_basic_config();
 
     // Event names should be case-sensitive
-    assert_eq!(config.get_stage("spin_start"), Some("SpinStart"));
+    assert_eq!(config.get_stage("spin_start"), Some("UiSpinPress"));
     assert_eq!(config.get_stage("SPIN_START"), None);
     assert_eq!(config.get_stage("Spin_Start"), None);
 }
@@ -199,7 +199,7 @@ fn test_event_mapping_overwrite() {
     let mut config = create_basic_config();
 
     // Initial mapping
-    assert_eq!(config.get_stage("spin_start"), Some("SpinStart"));
+    assert_eq!(config.get_stage("spin_start"), Some("UiSpinPress"));
 
     // Overwrite with new mapping
     config.map_event("spin_start", "SpinStartV2");
@@ -469,10 +469,10 @@ fn test_config_with_special_characters() {
 #[test]
 fn test_config_with_unicode() {
     let mut config = AdapterConfig::new("unicode-adapter", "会社名", "引擎");
-    config.map_event("スピン開始", "SpinStart");
+    config.map_event("スピン開始", "UiSpinPress");
 
     assert!(config.validate().is_ok());
-    assert_eq!(config.get_stage("スピン開始"), Some("SpinStart"));
+    assert_eq!(config.get_stage("スピン開始"), Some("UiSpinPress"));
 }
 
 #[test]

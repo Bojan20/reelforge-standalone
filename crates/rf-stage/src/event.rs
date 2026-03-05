@@ -288,11 +288,11 @@ mod tests {
 
     #[test]
     fn test_stage_event_creation() {
-        let event = StageEvent::new(Stage::SpinStart, 0.0)
+        let event = StageEvent::new(Stage::UiSpinPress, 0.0)
             .with_source("cmd_spin_start")
             .with_tag("user_initiated");
 
-        assert_eq!(event.stage, Stage::SpinStart);
+        assert_eq!(event.stage, Stage::UiSpinPress);
         assert_eq!(event.timestamp_ms, 0.0);
         assert_eq!(event.source_event, Some("cmd_spin_start".to_string()));
         assert!(event.tags.contains(&"user_initiated".to_string()));

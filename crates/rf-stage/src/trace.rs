@@ -337,7 +337,7 @@ mod tests {
     fn create_basic_trace() -> StageTrace {
         let mut trace = StageTrace::new("test-001", "test_game");
 
-        trace.push(StageEvent::new(Stage::SpinStart, 0.0));
+        trace.push(StageEvent::new(Stage::UiSpinPress, 0.0));
         for i in 0..5 {
             trace.push(StageEvent::new(
                 Stage::ReelStop {
@@ -394,7 +394,7 @@ mod tests {
     fn test_trace_with_feature() {
         let mut trace = StageTrace::new("test-002", "test_game");
 
-        trace.push(StageEvent::new(Stage::SpinStart, 0.0));
+        trace.push(StageEvent::new(Stage::UiSpinPress, 0.0));
         trace.push(StageEvent::new(
             Stage::FeatureEnter {
                 feature_type: FeatureType::FreeSpins,

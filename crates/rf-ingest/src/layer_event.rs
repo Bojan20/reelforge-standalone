@@ -184,7 +184,7 @@ fn parse_stage_string(stage_str: &str, event: &Value) -> Result<Stage, AdapterEr
 
     // Simple stages
     match stage_str {
-        "SpinStart" => Ok(Stage::SpinStart),
+        "UiSpinPress" | "SpinStart" => Ok(Stage::UiSpinPress),
         "SpinEnd" => Ok(Stage::SpinEnd),
         "EvaluateWins" => Ok(Stage::EvaluateWins),
         "WinPresent" => Ok(Stage::WinPresent {
@@ -418,7 +418,7 @@ mod tests {
     #[test]
     fn test_parse_simple_events() {
         let mut config = AdapterConfig::new("test", "Test", "TestEngine");
-        config.map_event("spin_start", "SpinStart");
+        config.map_event("spin_start", "UiSpinPress");
         config.map_event("spin_end", "SpinEnd");
 
         let json = serde_json::json!({

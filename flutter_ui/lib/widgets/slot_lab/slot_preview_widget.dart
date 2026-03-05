@@ -1491,7 +1491,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     final canStartSpin = isPlaying && stages.isNotEmpty && !_isSpinning && !_spinFinalized;
 
     if (canStartSpin) {
-      final hasSpinStart = stages.any((s) => s.stageType == 'spin_start');
+      final hasSpinStart = stages.any((s) => s.stageType == 'ui_spin_press');
 
       // Only start if this is a genuinely new spin
       if (hasSpinStart && spinId != null && spinId != _lastProcessedSpinId) {
@@ -1934,11 +1934,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             eventRegistry.triggerStage('WIN_PRESENT_$winPresentTier');
 
             // ═══════════════════════════════════════════════════════════════════
-            // BIG WIN (≥20x bet) — Trigger celebration loop and coins
+            // BIG WIN — Trigger celebration loop and coins (data-driven)
+            // Uses P5 WinTierConfig threshold, NOT hardcoded value
             // ═══════════════════════════════════════════════════════════════════
-            final bet = widget.provider.betAmount;
-            final winRatio = bet > 0 ? result.totalWin / bet : 0.0;
-            if (winRatio >= 20) {
+            if (isBigWin) {
               eventRegistry.triggerStage('COIN_SHOWER_START');
             }
 
@@ -2326,102 +2325,17 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     return _legacyGetWinTierResult(totalWin, bet);
   }
 
-  /// Legacy fallback when projectProvider is not available
-  /// Returns P5-compatible WinTierResult with hardcoded thresholds
+  /// Fallback when projectProvider is not available.
+  /// Uses SlotWinConfiguration.defaultConfig() to avoid any hardcoded values.
   WinTierResult? _legacyGetWinTierResult(double totalWin, double bet) {
-    final ratio = totalWin / bet;
-
-    // Big Win threshold (legacy: 20x)
-    if (ratio >= 20) {
-      // Determine which big win tier (1-5)
-      final int bigTierId;
-      if (ratio >= 500) {
-        bigTierId = 5;
-      } else if (ratio >= 250) {
-        bigTierId = 4;
-      } else if (ratio >= 100) {
-        bigTierId = 3;
-      } else if (ratio >= 50) {
-        bigTierId = 2;
-      } else {
-        bigTierId = 1;
-      }
-
-      return WinTierResult(
-        isBigWin: true,
-        multiplier: ratio,
-        regularTier: null,
-        bigWinTier: BigWinTierDefinition(
-          tierId: bigTierId,
-          fromMultiplier: bigTierId == 1 ? 20 : (bigTierId == 2 ? 50 : (bigTierId == 3 ? 100 : (bigTierId == 4 ? 250 : 500))),
-          toMultiplier: bigTierId == 5 ? double.infinity : (bigTierId == 4 ? 500 : (bigTierId == 3 ? 250 : (bigTierId == 2 ? 100 : 50))),
-          displayLabel: _legacyBigWinLabel(bigTierId),
-        ),
-        bigWinMaxTier: bigTierId,
-      );
-    }
-
-    // Regular win tiers (legacy) - using simple tier identifiers
-    final int regularTierId;
-    final String regularLabel;
-    if (ratio < 1) {
-      regularTierId = 0; // WIN_LOW
-      regularLabel = 'WIN LOW';
-    } else if (ratio == 1) {
-      regularTierId = -1; // WIN_EQUAL
-      regularLabel = 'WIN =';
-    } else if (ratio <= 2) {
-      regularTierId = 1;
-      regularLabel = 'WIN 1';
-    } else if (ratio <= 4) {
-      regularTierId = 2;
-      regularLabel = 'WIN 2';
-    } else if (ratio <= 6) {
-      regularTierId = 3;
-      regularLabel = 'WIN 3';
-    } else if (ratio <= 10) {
-      regularTierId = 4;
-      regularLabel = 'WIN 4';
-    } else if (ratio <= 15) {
-      regularTierId = 5;
-      regularLabel = 'WIN 5';
-    } else {
-      regularTierId = 6;
-      regularLabel = 'WIN 5'; // No WIN_6, use WIN 5 for high regular wins
-    }
-
-    return WinTierResult(
-      isBigWin: false,
-      multiplier: ratio,
-      regularTier: WinTierDefinition(
-        tierId: regularTierId,
-        fromMultiplier: 0,
-        toMultiplier: 20,
-        displayLabel: regularLabel,
-        rollupDurationMs: _legacyRegularRollupDuration(regularTierId),
-        rollupTickRate: 15,
-      ),
-      bigWinTier: null,
-      bigWinMaxTier: null,
-    );
-  }
-
-  /// Legacy regular tier rollup duration mapping (WIN_6 removed)
-  /// WIN_1: >1x,≤2x | WIN_2: >2x,≤4x | WIN_3: >4x,≤8x | WIN_4: >8x,≤13x | WIN_5: >13x
-  int _legacyRegularRollupDuration(int tierId) {
-    return switch (tierId) {
-      0 => 500,   // WIN_EQUAL (push - short)
-      1 => 1000,  // WIN_1: 1 second
-      2 => 1500,  // WIN_2: 1.5 seconds
-      3 => 2000,  // WIN_3: 2 seconds
-      4 => 3000,  // WIN_4: 3 seconds
-      5 => 4000,  // WIN_5: 4 seconds
-      _ => 500,   // fallback
-    };
+    // Use the default config from the model — single source of truth
+    final defaultConfig = SlotWinConfiguration.defaultConfig();
+    return defaultConfig.getWinTierResult(totalWin, bet);
   }
 
   /// Legacy big win label mapping (fallback only)
   /// Uses simple tier identifiers - NO hardcoded labels
+  @Deprecated('Use WinTierConfig system instead')
   String _legacyBigWinLabel(int tierId) {
     return switch (tierId) {
       1 => 'BIG WIN TIER 1',

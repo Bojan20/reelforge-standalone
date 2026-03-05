@@ -76,10 +76,10 @@ pub extern "C" fn stage_create_event_json(
     }
 }
 
-/// Create SpinStart event
+/// Create UiSpinPress event
 #[unsafe(no_mangle)]
 pub extern "C" fn stage_create_spin_start(timestamp_ms: f64) -> *mut c_char {
-    create_event_json(Stage::SpinStart, timestamp_ms)
+    create_event_json(Stage::UiSpinPress, timestamp_ms)
 }
 
 /// Create SpinEnd event
@@ -716,7 +716,7 @@ fn parse_stage_string(s: &str) -> Option<Stage> {
 
     match normalized.as_str() {
         // Core lifecycle
-        "SPIN_START" | "SPINSTART" => Some(Stage::SpinStart),
+        "UI_SPIN_PRESS" | "UISPINPRESS" | "SPIN_START" | "SPINSTART" => Some(Stage::UiSpinPress),
         "SPIN_END" | "SPINEND" | "SPIN_RESULT" => Some(Stage::SpinEnd),
 
         // Reels

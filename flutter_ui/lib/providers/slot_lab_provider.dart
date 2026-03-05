@@ -1358,7 +1358,6 @@ class SlotLabProvider extends ChangeNotifier {
     _currentStageIndex = 0;
     _isPlayingStages = true;
 
-
     // Trigeruj prvi stage odmah
     _triggerStage(_lastStages[0]);
 

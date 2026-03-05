@@ -357,7 +357,7 @@ sealed class Stage {
     final type = json['type'] as String?;
     return switch (type) {
       // Spin lifecycle
-      'spin_start' => const SpinStart(),
+      'ui_spin_press' || 'spin_start' => const SpinStart(),
       'reel_spinning' => ReelSpinning(reelIndex: json['reel_index'] as int? ?? 0),
       'reel_stop' => ReelStop(
         reelIndex: json['reel_index'] as int? ?? 0,
@@ -495,9 +495,9 @@ sealed class Stage {
 class SpinStart extends Stage {
   const SpinStart();
 
-  @override String get typeName => 'spin_start';
+  @override String get typeName => 'ui_spin_press';
   @override StageDomainCategory get category => StageDomainCategory.spinLifecycle;
-  @override Map<String, dynamic> toJson() => {'type': 'spin_start'};
+  @override Map<String, dynamic> toJson() => {'type': 'ui_spin_press'};
 }
 
 class ReelSpinning extends Stage {

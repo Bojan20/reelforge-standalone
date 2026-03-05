@@ -2,7 +2,35 @@
 
 **Updated:** 2026-03-05
 
-## Status: ALL COMPLETE — 208/208 + P-USL + P5-CLEAN + P5-CONSOLIDATION
+## Status: ALL COMPLETE — 208/208 + P-USL + P5-CLEAN + P5-CONSOLIDATION + P5-WINTIER-UI
+
+## Recent: P5 Win Tier Config UI + QA Fixes
+
+### Win Tier Config Panel (CONFIG tab, right panel)
+- **New file:** `widgets/slot_lab/win_tier_config_panel.dart`
+- Regular win tier editor: multiplier ranges, labels, rollup durations, tick rates
+- Big win tier editor: thresholds, labels, intensities (visual/particle/audio), celebration durations
+- Preset selector: Standard, High Volatility, Jackpot Focus, Mobile
+- JSON import/export, Reset, Validation display
+- `SlotWinConfiguration.getWinTierResult()` method added to model
+
+### Hardcoded Threshold Elimination
+- COIN_SHOWER_START: `>= 20` → `isBigWin` (from P5 config)
+- Legacy fallbacks: replaced with `SlotWinConfiguration.defaultConfig().getWinTierResult()`
+- `_getWinTierFromRatio()`: replaced hardcoded thresholds with P5 config lookup
+- Zero hardcoded win tier values remain in widget code
+
+### FS Flow Fix (deferred game flow evaluation)
+- `flushGameFlowResult()` at 6 correct exit points in slot_preview_widget
+- SCATTER_WIN audio + 1.2s delay before FS plaketa
+- SCATTER_COLLECT → SCATTER_WIN rename (all files)
+
+### QA Audit Results (P0-P3)
+- **P0:** Audio thread allocs/locks in playback.rs (architectural — future refactor)
+- **P1 FIXED:** Win tier hardcoding eliminated
+- **P2:** OutputBus.index (session_template_service), MixerProvider old methods (daw_lower_zone_widget)
+- **P2:** 136 print() in engine_api.dart (korisnik nema konzolu)
+- **P1:** HardwareKeyboard.instance (5 instances in 3 files) — pending
 
 | System | Tasks | Status |
 |--------|-------|--------|

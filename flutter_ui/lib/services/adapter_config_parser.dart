@@ -451,9 +451,9 @@ class AdapterRegistry {
     engine: 'Any',
     layer: IngestLayer.directEvent,
     mappings: [
-      EventMapping(event: 'spin_start', stage: 'spin_start'),
-      EventMapping(event: 'spinStart', stage: 'spin_start'),
-      EventMapping(event: 'onSpinStart', stage: 'spin_start'),
+      EventMapping(event: 'spin_start', stage: 'ui_spin_press'),
+      EventMapping(event: 'spinStart', stage: 'ui_spin_press'),
+      EventMapping(event: 'onSpinStart', stage: 'ui_spin_press'),
       EventMapping(event: 'spin_end', stage: 'spin_end'),
       EventMapping(event: 'spinEnd', stage: 'spin_end'),
       EventMapping(event: 'onSpinEnd', stage: 'spin_end'),

@@ -240,17 +240,17 @@ mod tests {
     #[test]
     fn test_config_creation() {
         let mut config = AdapterConfig::new("test-adapter", "Test Company", "Test Engine");
-        config.map_event("spin_start", "SpinStart");
+        config.map_event("spin_start", "UiSpinPress");
         config.map_event("reel_stop_0", "ReelStop { reel_index: 0 }");
 
         assert_eq!(config.adapter_id, "test-adapter");
-        assert_eq!(config.get_stage("spin_start"), Some("SpinStart"));
+        assert_eq!(config.get_stage("spin_start"), Some("UiSpinPress"));
     }
 
     #[test]
     fn test_config_toml_roundtrip() {
         let mut config = AdapterConfig::new("igt-avp", "IGT", "AVP");
-        config.map_event("cmd_spin", "SpinStart");
+        config.map_event("cmd_spin", "UiSpinPress");
         config.layers = vec![IngestLayer::DirectEvent, IngestLayer::SnapshotDiff];
 
         let toml = config.to_toml().unwrap();

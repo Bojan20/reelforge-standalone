@@ -703,7 +703,7 @@ class SlotLabDropTargets {
         targetType: TargetType.reelSurface,
         targetTags: const ['reel', 'main'],
         stageContext: context,
-        interactionSemantics: const ['spin_start', 'spin_stop'],
+        interactionSemantics: const ['ui_spin_press', 'spin_stop'],
       );
 
   /// Individual reel stop zone

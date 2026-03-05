@@ -262,7 +262,7 @@ impl RuleEngine {
         timestamp_ms: f64,
     ) -> Option<StageEvent> {
         let stage = match emit_stage {
-            "SpinStart" => Stage::SpinStart,
+            "UiSpinPress" | "SpinStart" => Stage::UiSpinPress,
             "SpinEnd" => Stage::SpinEnd,
             "IdleStart" => Stage::IdleStart,
 
@@ -368,7 +368,7 @@ fn default_rules() -> Vec<DerivationRule> {
             conditions: vec![RuleCondition::FieldDecreased {
                 path: "balance".to_string(),
             }],
-            emit_stage: "SpinStart".to_string(),
+            emit_stage: "UiSpinPress".to_string(),
             priority: 100,
             enabled: true,
         },
@@ -497,7 +497,7 @@ mod tests {
         });
         let events = engine.process(&data2, 100.0).unwrap();
 
-        assert!(events.iter().any(|e| matches!(e.stage, Stage::SpinStart)));
+        assert!(events.iter().any(|e| matches!(e.stage, Stage::UiSpinPress)));
     }
 
     #[test]

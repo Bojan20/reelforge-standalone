@@ -6106,69 +6106,11 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     return _legacyGetWinTierResult(totalWin, bet);
   }
 
-  /// Legacy fallback when projectProvider is not available
+  /// Fallback when projectProvider is not available.
+  /// Uses SlotWinConfiguration.defaultConfig() to avoid any hardcoded values.
   WinTierResult? _legacyGetWinTierResult(double totalWin, double bet) {
-    final ratio = totalWin / bet;
-
-    // Big Win threshold (legacy: 20x)
-    if (ratio >= 20) {
-      final int bigTierId;
-      if (ratio >= 500) {
-        bigTierId = 5;
-      } else if (ratio >= 250) {
-        bigTierId = 4;
-      } else if (ratio >= 100) {
-        bigTierId = 3;
-      } else if (ratio >= 50) {
-        bigTierId = 2;
-      } else {
-        bigTierId = 1;
-      }
-
-      return WinTierResult(
-        isBigWin: true,
-        multiplier: ratio,
-        regularTier: null,
-        bigWinTier: BigWinTierDefinition(
-          tierId: bigTierId,
-          fromMultiplier: bigTierId == 1 ? 20 : (bigTierId == 2 ? 50 : (bigTierId == 3 ? 100 : (bigTierId == 4 ? 250 : 500))),
-          toMultiplier: bigTierId == 5 ? double.infinity : (bigTierId == 4 ? 500 : (bigTierId == 3 ? 250 : (bigTierId == 2 ? 100 : 50))),
-          displayLabel: _legacyBigWinLabel(bigTierId),
-        ),
-        bigWinMaxTier: bigTierId,
-      );
-    }
-
-    // Regular win (legacy - just return empty tier for small wins)
-    final regularTierId = ratio >= 5 ? 4 : (ratio >= 2 ? 2 : 1);
-    return WinTierResult(
-      isBigWin: false,
-      multiplier: ratio,
-      regularTier: WinTierDefinition(
-        tierId: regularTierId,
-        fromMultiplier: 0,
-        toMultiplier: 20,
-        displayLabel: '',
-        rollupDurationMs: _legacyRegularRollupDuration(regularTierId),
-        rollupTickRate: 15,
-      ),
-      bigWinTier: null,
-      bigWinMaxTier: null,
-    );
-  }
-
-  /// Legacy regular tier rollup duration mapping
-  /// WIN_1: 1s | WIN_2: 1.5s | WIN_3: 2s | WIN_4: 3s | WIN_5: 4s
-  int _legacyRegularRollupDuration(int tierId) {
-    return switch (tierId) {
-      0 => 500,   // WIN_EQUAL (push)
-      1 => 1000,  // WIN_1: 1 second
-      2 => 1500,  // WIN_2: 1.5 seconds
-      3 => 2000,  // WIN_3: 2 seconds
-      4 => 3000,  // WIN_4: 3 seconds
-      5 => 4000,  // WIN_5: 4 seconds
-      _ => 500,   // fallback
-    };
+    final defaultConfig = SlotWinConfiguration.defaultConfig();
+    return defaultConfig.getWinTierResult(totalWin, bet);
   }
 
   /// Legacy big win label mapping (fallback only)
@@ -6188,32 +6130,21 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   /// This is the CORRECT method - uses ratio without bet calculation errors
   /// Returns 'BIG_WIN_TIER_1' through 'BIG_WIN_TIER_5' for big wins, or WIN_X for regular
   String _getWinTierFromRatio(double winRatio) {
-    // P5 big win threshold is 20x
-    // For regular wins (< 20x), return WIN_1 through WIN_5
-    // For big wins (>= 20x), return BIG_WIN_TIER_1 through BIG_WIN_TIER_5
+    // P5 data-driven: use project provider's config or default config
+    // Zero hardcoded thresholds — all values come from SlotWinConfiguration
+    final bet = _totalBet;
+    final winAmount = winRatio * bet;
+    final provider = _projectProvider;
+    final WinTierResult? result;
 
-    // Big wins first (>= 20x)
-    if (winRatio >= 100.0) return 'BIG_WIN_TIER_5';
-    if (winRatio >= 60.0) return 'BIG_WIN_TIER_4';
-    if (winRatio >= 30.0) return 'BIG_WIN_TIER_3';
-    if (winRatio >= 25.0) return 'BIG_WIN_TIER_2';
-    if (winRatio >= 20.0) return 'BIG_WIN_TIER_1';
+    if (provider != null) {
+      result = provider.getWinTierForAmount(winAmount, bet);
+    } else {
+      result = SlotWinConfiguration.defaultConfig().getWinTierResult(winAmount, bet);
+    }
 
-    // Regular wins (< 20x) - P5 tier system
-    // WIN_5: >13x bet (highest regular tier)
-    // WIN_4: >8x, ≤13x bet
-    // WIN_3: >4x, ≤8x bet
-    // WIN_2: >2x, ≤4x bet
-    // WIN_1: >1x, ≤2x bet
-    // WIN_EQUAL: =1x bet (push)
-    // WIN_LOW: <1x bet
-    if (winRatio > 13.0) return 'WIN_5';
-    if (winRatio > 8.0) return 'WIN_4';
-    if (winRatio > 4.0) return 'WIN_3';
-    if (winRatio > 2.0) return 'WIN_2';
-    if (winRatio > 1.0) return 'WIN_1';
-    if (winRatio >= 1.0) return 'WIN_EQUAL';
-    return 'WIN_LOW';
+    if (result == null) return 'WIN_LOW';
+    return result.primaryStageName;
   }
 
   /// Check if tier is a BIG WIN tier (20x+ - BIG_WIN_TIER_1 through BIG_WIN_TIER_5)

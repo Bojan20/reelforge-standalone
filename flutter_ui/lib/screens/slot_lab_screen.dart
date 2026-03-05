@@ -104,6 +104,7 @@ import '../widgets/slot_lab/timeline/ultimate_timeline_widget.dart';
 import '../providers/undo_manager.dart';
 import '../widgets/slot_lab/game_model_editor.dart';
 import '../widgets/slot_lab/scenario_editor.dart';
+import '../widgets/slot_lab/win_tier_config_panel.dart';
 import '../widgets/slot_lab/gdd_import_panel.dart';
 import '../services/gdd_import_service.dart'; // GddSymbol, SymbolTier
 import '../widgets/lower_zone/slotlab_lower_zone_controller.dart';
@@ -9390,99 +9391,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   /// Config tab in right panel — stage configuration quick edit
   Widget _buildRightConfigContent() {
-    final stageConfig = StageConfigurationService.instance;
-
     return Consumer<SlotLabProjectProvider>(
       builder: (context, projectProvider, _) {
-        final assignments = projectProvider.audioAssignments;
-        final assignedStages = assignments.keys.toList()..sort();
-
-        if (assignedStages.isEmpty) {
-          return const Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.settings_suggest, size: 32, color: Color(0xFF404048)),
-                SizedBox(height: 8),
-                Text(
-                  'Assign audio to see config',
-                  style: TextStyle(color: Color(0xFF606068), fontSize: 11),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.all(4),
-          itemCount: assignedStages.length,
-          itemBuilder: (context, index) {
-            final stage = assignedStages[index];
-            final audio = assignments[stage] ?? '';
-            final bus = stageConfig.getBus(stage).name;
-            final priority = stageConfig.getPriority(stage);
-            final fileName = audio.split('/').last;
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 4),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF161620),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: const Color(0xFF2A2A32)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          stage.replaceAll('_', ' '),
-                          style: const TextStyle(
-                            color: Color(0xFFD0D0D8),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: FluxForgeTheme.accentCyan.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                        child: Text(
-                          bus,
-                          style: TextStyle(
-                            color: FluxForgeTheme.accentCyan.withValues(alpha: 0.7),
-                            fontSize: 8,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'P$priority',
-                        style: const TextStyle(
-                          color: Color(0xFFFFAA00),
-                          fontSize: 8,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    fileName,
-                    style: const TextStyle(color: Color(0xFF808088), fontSize: 9),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            );
-          },
-        );
+        return WinTierConfigPanel(projectProvider: projectProvider);
       },
     );
   }

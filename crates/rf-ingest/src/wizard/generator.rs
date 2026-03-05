@@ -167,7 +167,7 @@ pub fn calculate_confidence(
 
     // Event type coverage (20% of score)
     max_score += 20.0;
-    let critical_stages = ["SpinStart", "SpinEnd", "ReelStop", "WinPresent"];
+    let critical_stages = ["UiSpinPress", "SpinEnd", "ReelStop", "WinPresent"];
     let found_critical = critical_stages
         .iter()
         .filter(|stage| config.event_mapping.values().any(|s| s == *stage))
@@ -197,7 +197,7 @@ mod tests {
         let events = vec![
             DetectedEvent {
                 event_name: "spin_start".to_string(),
-                suggested_stage: Some("SpinStart".to_string()),
+                suggested_stage: Some("UiSpinPress".to_string()),
                 sample_count: 10,
                 sample_payload: None,
             },
@@ -254,7 +254,7 @@ mod tests {
         let events = vec![
             DetectedEvent {
                 event_name: "spin_start".to_string(),
-                suggested_stage: Some("SpinStart".to_string()),
+                suggested_stage: Some("UiSpinPress".to_string()),
                 sample_count: 10,
                 sample_payload: None,
             },
@@ -268,7 +268,7 @@ mod tests {
 
         let mapping = generate_event_mapping(&events);
 
-        assert_eq!(mapping.get("spin_start"), Some(&"SpinStart".to_string()));
+        assert_eq!(mapping.get("spin_start"), Some(&"UiSpinPress".to_string()));
         assert!(!mapping.contains_key("unknown_event"));
     }
 
@@ -277,7 +277,7 @@ mod tests {
         let events = vec![
             DetectedEvent {
                 event_name: "spin_start".to_string(),
-                suggested_stage: Some("SpinStart".to_string()),
+                suggested_stage: Some("UiSpinPress".to_string()),
                 sample_count: 10,
                 sample_payload: None,
             },

@@ -892,7 +892,7 @@ mod tests {
         assert!(!stages.is_empty());
 
         // Should have spin_start at beginning
-        assert!(matches!(stages.first().unwrap().stage, Stage::SpinStart));
+        assert!(matches!(stages.first().unwrap().stage, Stage::UiSpinPress));
 
         // Should have spin_end at end
         assert!(matches!(stages.last().unwrap().stage, Stage::SpinEnd));

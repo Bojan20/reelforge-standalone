@@ -18,7 +18,7 @@ pub enum Stage {
     // SPIN LIFECYCLE
     // ═══════════════════════════════════════════════════════════════════════
     /// Spin button pressed, spin initiated
-    SpinStart,
+    UiSpinPress,
 
     /// Shared spin loop audio — triggered once on spin start, loops until SPIN_END
     /// This is the single looping reel spin audio (not per-reel)
@@ -484,7 +484,7 @@ impl Stage {
     /// Get the stage category for grouping
     pub fn category(&self) -> StageCategory {
         match self {
-            Stage::SpinStart
+            Stage::UiSpinPress
             | Stage::ReelSpinLoop
             | Stage::ReelSpinning { .. }
             | Stage::ReelSpinningStart { .. }  // P0.1
@@ -554,7 +554,7 @@ impl Stage {
     /// Get a simple string name for this stage type
     pub fn type_name(&self) -> &'static str {
         match self {
-            Stage::SpinStart => "spin_start",
+            Stage::UiSpinPress => "ui_spin_press",
             Stage::ReelSpinLoop => "reel_spin_loop",
             Stage::ReelSpinning { .. } => "reel_spinning",
             Stage::ReelSpinningStart { .. } => "reel_spinning_start", // P0.1
@@ -735,7 +735,7 @@ impl Stage {
         };
 
         match name_lower.as_str() {
-            "spin_start" => Some(Stage::SpinStart),
+            "ui_spin_press" | "spin_start" => Some(Stage::UiSpinPress),
             "reel_spin_loop" => Some(Stage::ReelSpinLoop),
             "reel_spinning" => Some(Stage::ReelSpinning {
                 reel_index: get_u8("reel_index"),
@@ -981,7 +981,7 @@ mod tests {
 
     #[test]
     fn test_stage_category() {
-        assert_eq!(Stage::SpinStart.category(), StageCategory::SpinLifecycle);
+        assert_eq!(Stage::UiSpinPress.category(), StageCategory::SpinLifecycle);
         assert_eq!(
             Stage::AnticipationOn {
                 reel_index: 0,
@@ -1004,7 +1004,7 @@ mod tests {
     fn test_is_looping() {
         assert!(Stage::ReelSpinning { reel_index: 0 }.is_looping());
         assert!(Stage::IdleLoop.is_looping());
-        assert!(!Stage::SpinStart.is_looping());
+        assert!(!Stage::UiSpinPress.is_looping());
         assert!(!Stage::ReelStop {
             reel_index: 0,
             symbols: vec![]

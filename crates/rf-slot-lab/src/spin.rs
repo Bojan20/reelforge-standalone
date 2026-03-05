@@ -535,7 +535,7 @@ impl SpinResult {
         );
 
         // 1. Spin Start
-        events.push(StageEvent::new(Stage::SpinStart, timing.current()));
+        events.push(StageEvent::new(Stage::UiSpinPress, timing.current()));
 
         // 1b. Shared reel spin loop — single looping audio for ALL reels
         // Triggered on every spin, loops until SPIN_END stops it
@@ -1105,8 +1105,8 @@ mod tests {
         // Should have spin_start, reel_spinning, reel_stop, evaluate, win_present, etc.
         assert!(stages.len() > 10);
 
-        // First stage should be SpinStart
-        assert!(matches!(stages[0].stage, Stage::SpinStart));
+        // First stage should be UiSpinPress
+        assert!(matches!(stages[0].stage, Stage::UiSpinPress));
 
         // Last stage should be SpinEnd
         assert!(matches!(stages.last().unwrap().stage, Stage::SpinEnd));
@@ -1684,12 +1684,12 @@ mod tests {
         // ═══════════════════════════════════════════════════════════════════════════
 
         // 1. Verify SPIN_START is first
-        assert!(matches!(&stages[0].stage, Stage::SpinStart { .. }));
+        assert!(matches!(&stages[0].stage, Stage::UiSpinPress { .. }));
 
         // 2. Count all stage types
         let spin_starts = stages
             .iter()
-            .filter(|s| matches!(&s.stage, Stage::SpinStart { .. }))
+            .filter(|s| matches!(&s.stage, Stage::UiSpinPress { .. }))
             .count();
         let reel_stops = stages
             .iter()

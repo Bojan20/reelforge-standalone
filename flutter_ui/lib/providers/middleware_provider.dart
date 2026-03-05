@@ -3843,7 +3843,7 @@ class MiddlewareProvider extends ChangeNotifier {
   /// Get all available stage type names (canonical STAGES)
   static const List<String> availableStageTypes = [
     // Spin Lifecycle
-    'spin_start',
+    'ui_spin_press',
     'reel_spinning',
     'reel_stop',
     'evaluate_wins',
@@ -3898,7 +3898,7 @@ class MiddlewareProvider extends ChangeNotifier {
   /// Get stage display name
   static String getStageDisplayName(String stageType) {
     return switch (stageType) {
-      'spin_start' => 'Spin Start',
+      'ui_spin_press' || 'spin_start' => 'Spin Start',
       'reel_spinning' => 'Reel Spinning',
       'reel_stop' => 'Reel Stop',
       'evaluate_wins' => 'Evaluate Wins',
@@ -3946,7 +3946,7 @@ class MiddlewareProvider extends ChangeNotifier {
   /// Get stage category
   static String getStageCategory(String stageType) {
     return switch (stageType) {
-      'spin_start' || 'reel_spinning' || 'reel_stop' || 'evaluate_wins' || 'spin_end' => 'Spin Lifecycle',
+      'ui_spin_press' || 'spin_start' || 'reel_spinning' || 'reel_stop' || 'evaluate_wins' || 'spin_end' => 'Spin Lifecycle',
       'anticipation_on' || 'anticipation_off' || 'anticipation_tension_layer' => 'Anticipation',
       'win_present' || 'win_line_show' || 'rollup_start' || 'rollup_tick' || 'rollup_end' || 'bigwin_tier' => 'Win Lifecycle',
       'feature_enter' || 'feature_step' || 'feature_retrigger' || 'feature_exit' => 'Feature',

@@ -100,7 +100,7 @@ class StageConfig {
     // ─────────────────────────────────────────────────────────────────────────
     // SPIN LIFECYCLE
     // ─────────────────────────────────────────────────────────────────────────
-    'spin_start': const StageConfigEntry(
+    'ui_spin_press': const StageConfigEntry(
       color: Color(0xFF4A9EFF),
       icon: Icons.play_circle_outline,
       category: StageCategory.spin,

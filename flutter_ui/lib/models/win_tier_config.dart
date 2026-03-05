@@ -722,6 +722,33 @@ class SlotWinConfiguration {
     return bigWins.getMaxTierForWin(winAmount, betAmount);
   }
 
+  /// Get complete WinTierResult for a given win amount and bet
+  WinTierResult? getWinTierResult(double winAmount, double betAmount) {
+    if (winAmount <= 0 || betAmount <= 0) return null;
+    final ratio = winAmount / betAmount;
+
+    if (bigWins.isBigWin(winAmount, betAmount)) {
+      final maxTier = bigWins.getMaxTierForWin(winAmount, betAmount);
+      final tierDef = bigWins.getTierById(maxTier);
+      return WinTierResult(
+        isBigWin: true,
+        multiplier: ratio,
+        regularTier: null,
+        bigWinTier: tierDef,
+        bigWinMaxTier: maxTier,
+      );
+    }
+
+    final regularTier = regularWins.getTierForWin(winAmount, betAmount);
+    return WinTierResult(
+      isBigWin: false,
+      multiplier: ratio,
+      regularTier: regularTier,
+      bigWinTier: null,
+      bigWinMaxTier: null,
+    );
+  }
+
   /// Get all stage names for audio assignment (getter form)
   List<String> get allStageNames => getAllStageNames();
 

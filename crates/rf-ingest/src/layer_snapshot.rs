@@ -98,7 +98,7 @@ pub fn parse_snapshots(
         } else {
             // First snapshot - check if we're already in a state
             if snapshot.state.is_spinning {
-                events.push(StageEvent::new(Stage::SpinStart, snapshot.timestamp_ms));
+                events.push(StageEvent::new(Stage::UiSpinPress, snapshot.timestamp_ms));
             }
         }
 
@@ -173,7 +173,7 @@ fn compute_diff(prev: &GameSnapshot, curr: &GameSnapshot) -> Result<SnapshotDiff
     // Check for spin start (balance decreased)
     if let (Some(prev_bal), Some(curr_bal)) = (prev.state.balance, curr.state.balance) {
         if curr_bal < prev_bal && prev.state.win_amount.is_none() {
-            stages.push(StageEvent::new(Stage::SpinStart, timestamp));
+            stages.push(StageEvent::new(Stage::UiSpinPress, timestamp));
         }
     }
 
@@ -343,7 +343,7 @@ mod tests {
 
         let diff = compute_diff(&prev, &curr).unwrap();
         assert_eq!(diff.stages.len(), 1);
-        assert!(matches!(diff.stages[0].stage, Stage::SpinStart));
+        assert!(matches!(diff.stages[0].stage, Stage::UiSpinPress));
     }
 
     #[test]
