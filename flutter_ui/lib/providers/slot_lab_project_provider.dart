@@ -8,6 +8,8 @@
 
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import '../models/slot_audio_events.dart';
 import '../models/slot_lab_models.dart';
 import '../models/win_tier_config.dart';
 import '../providers/ale_provider.dart';
@@ -19,6 +21,7 @@ import 'package:get_it/get_it.dart';
 import '../services/event_registry.dart';
 import 'middleware_provider.dart';
 import 'slot_lab/feature_composer_provider.dart';
+import 'subsystems/composite_event_system_provider.dart';
 
 /// Provider for SlotLab V6 project state
 class SlotLabProjectProvider extends ChangeNotifier {
@@ -575,11 +578,73 @@ class SlotLabProjectProvider extends ChangeNotifier {
       setAudioAssignment(entry.key, entry.value, recordUndo: false);
     }
 
+    // ─── GAME_START composite: sync-start all base game music layers ───
+    // All layers start simultaneously on GAME_START trigger.
+    // L1 at full volume, L2/L3 at 0 — crossfade by adjusting layer volumes.
+    _createBaseGameMusicComposite(bindings);
+
     if (bindings.isNotEmpty) {
       _markDirty();
     }
 
     return bindings;
+  }
+
+  /// Create GAME_START composite event with synchronized base game music layers.
+  /// L1 plays at full volume, L2/L3 start at volume 0 for crossfade readiness.
+  void _createBaseGameMusicComposite(Map<String, String> bindings) {
+    final l1Path = bindings['MUSIC_BASE_L1'];
+    if (l1Path == null) return; // No base music, skip
+
+    final sl = GetIt.instance;
+    if (!sl.isRegistered<CompositeEventSystemProvider>()) return;
+    final compositeProvider = sl<CompositeEventSystemProvider>();
+
+    // Check if GAME_START composite already exists — update instead of duplicate
+    final existing = compositeProvider.compositeEvents
+        .where((e) => e.triggerStages.contains('GAME_START') && e.name == 'Base Game Music')
+        .toList();
+    for (final old in existing) {
+      compositeProvider.deleteCompositeEvent(old.id);
+    }
+
+    // Build layers — all loop, all on music bus, sync-started
+    final layers = <SlotEventLayer>[];
+    final musicStages = ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3'];
+    for (int i = 0; i < musicStages.length; i++) {
+      final path = bindings[musicStages[i]];
+      if (path == null) continue;
+      layers.add(SlotEventLayer(
+        id: 'game_start_l${i + 1}',
+        name: 'Base L${i + 1}',
+        audioPath: path,
+        volume: i == 0 ? 1.0 : 0.0, // L1 = full, L2/L3 = silent
+        loop: true,
+        busId: SlotBusIds.music,
+        actionType: 'Play',
+      ));
+    }
+
+    if (layers.isEmpty) return;
+
+    final now = DateTime.now();
+    final event = SlotCompositeEvent(
+      id: 'event_game_start_music_${now.millisecondsSinceEpoch}',
+      name: 'Base Game Music',
+      category: 'music',
+      color: const Color(0xFF4CAF50),
+      layers: layers,
+      masterVolume: 1.0,
+      targetBusId: SlotBusIds.music,
+      looping: true,
+      triggerStages: const ['GAME_START'],
+      overlap: false,
+      crossfadeMs: 500,
+      createdAt: now,
+      modifiedAt: now,
+    );
+
+    compositeProvider.addCompositeEvent(event, select: false);
   }
 
   static bool _isAudioFile(String path) {
