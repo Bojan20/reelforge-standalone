@@ -801,8 +801,8 @@ void main() {
   group('GeneratedStage', () {
     test('JSON round-trip', () {
       const stage = GeneratedStage(
-        name: 'FS_TRIGGER',
-        description: 'Free spins triggered',
+        name: 'FS_HOLD_INTRO',
+        description: 'Free spins hold intro',
         bus: 'sfx',
         priority: 80,
         pooled: true,
@@ -811,7 +811,7 @@ void main() {
       );
       final json = stage.toJson();
       final restored = GeneratedStage.fromJson(json);
-      expect(restored.name, 'FS_TRIGGER');
+      expect(restored.name, 'FS_HOLD_INTRO');
       expect(restored.priority, 80);
       expect(restored.pooled, true);
       expect(restored.sourceBlockId, 'free_spins');

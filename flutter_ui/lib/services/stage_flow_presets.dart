@@ -347,11 +347,11 @@ class StageFlowPresets {
 
   static FlowPreset freeSpins() {
     final nodes = <StageFlowNode>[
-      _stageNode('n_fs_trigger', 'FS_TRIGGER', x: 0, y: 200,
+      _stageNode('n_fs_hold_intro', 'FS_HOLD_INTRO', x: 0, y: 200,
           timing: const TimingConfig(durationMs: 500)),
-      _stageNode('n_fs_enter', 'FS_ENTER', x: 200, y: 200,
+      _stageNode('n_fs_hold_outro', 'FS_HOLD_OUTRO', x: 200, y: 200,
           timing: const TimingConfig(durationMs: 1000)),
-      _stageNode('n_fs_music', 'FS_MUSIC', x: 400, y: 200,
+      _stageNode('n_fs_start', 'FS_START', x: 400, y: 200,
           timing: const TimingConfig.instant()),
       _gateNode('n_gate_fs', 'fs_remaining_check', x: 600, y: 200,
           enterCondition: 'free_spins_remaining > 0'),
@@ -384,16 +384,16 @@ class StageFlowPresets {
           timing: const TimingConfig(durationMs: 300)),
       _stageNode('n_fs_spin_end', 'FS_SPIN_END', x: 2800, y: 200,
           timing: const TimingConfig.instant()),
-      _stageNode('n_fs_exit', 'FS_EXIT', x: 3000, y: 200,
+      _stageNode('n_fs_end', 'FS_END', x: 3000, y: 200,
           timing: const TimingConfig(durationMs: 1000)),
     ];
 
     final edges = <StageFlowEdge>[
-      _edge('e1', 'n_fs_trigger', 'n_fs_enter'),
-      _edge('e2', 'n_fs_enter', 'n_fs_music'),
-      _edge('e3', 'n_fs_music', 'n_gate_fs'),
+      _edge('e1', 'n_fs_hold_intro', 'n_fs_hold_outro'),
+      _edge('e2', 'n_fs_hold_outro', 'n_fs_start'),
+      _edge('e3', 'n_fs_start', 'n_gate_fs'),
       _edgeTyped('e4', 'n_gate_fs', 'n_fs_spin', EdgeType.onTrue),
-      _edgeTyped('e5', 'n_gate_fs', 'n_fs_exit', EdgeType.onFalse),
+      _edgeTyped('e5', 'n_gate_fs', 'n_fs_end', EdgeType.onFalse),
       _edge('e6', 'n_fs_spin', 'n_reel_spin'),
       _edge('e7', 'n_reel_spin', 'n_reel_stop_0'),
       _edge('e8', 'n_reel_stop_0', 'n_reel_stop_1'),
@@ -411,7 +411,7 @@ class StageFlowPresets {
       _edge('e20', 'n_rollup', 'n_win_collect'),
       _edge('e21', 'n_win_collect', 'n_fs_spin_end'),
       // Single iteration — game controller re-runs for each free spin
-      _edge('e22', 'n_fs_spin_end', 'n_fs_exit'),
+      _edge('e22', 'n_fs_spin_end', 'n_fs_end'),
     ];
 
     return _preset(

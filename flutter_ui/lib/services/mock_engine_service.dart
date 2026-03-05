@@ -212,8 +212,8 @@ class MockEventSequence {
         MockStageEvent(stage: 'REEL_STOP_4', timestampMs: now + 1900),
         MockStageEvent(stage: 'SCATTER_LAND', timestampMs: now + 1950, data: {'reel': 4}),
         MockStageEvent(stage: 'ANTICIPATION_MISS', timestampMs: now + 2000),
-        MockStageEvent(stage: 'FS_TRIGGER', timestampMs: now + 2200, data: {'spins': 10}),
-        MockStageEvent(stage: 'FS_INTRO', timestampMs: now + 2500),
+        MockStageEvent(stage: 'FS_HOLD_INTRO', timestampMs: now + 2200, data: {'spins': 10}),
+        MockStageEvent(stage: 'FS_START', timestampMs: now + 2500),
         MockStageEvent(stage: 'CONTEXT_ENTER', timestampMs: now + 4000, data: {'context': 'FREESPINS'}),
         MockStageEvent(stage: 'SPIN_END', timestampMs: now + 4200),
       ],
@@ -526,7 +526,7 @@ class MockEngineService {
         _context == MockGameContext.base) {
       time += _config.baseDelayMs;
       events.add(MockStageEvent(
-        stage: 'FS_TRIGGER',
+        stage: 'FS_HOLD_INTRO',
         timestampMs: time,
         data: {'spins': 10},
       ));

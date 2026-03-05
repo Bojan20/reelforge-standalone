@@ -171,9 +171,7 @@ class AudioContextService {
     final s = stage.toUpperCase();
 
     // Free Spins stages
-    if (s.contains('FREESPIN') ||
-        s.contains('FREE_SPIN') ||
-        s.startsWith('FS_') ||
+    if (s.startsWith('FS_') ||
         s.contains('_FS_')) {
       return AudioContext.freeSpins;
     }

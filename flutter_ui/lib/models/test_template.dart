@@ -164,7 +164,7 @@ class BuiltInTestTemplates {
       TestStageAction(stage: 'REEL_STOP_4', delayMs: 2600),
       TestStageAction(stage: 'ANTICIPATION_MISS', delayMs: 2900),
       TestStageAction(stage: 'FEATURE_TRIGGER', delayMs: 3100),
-      TestStageAction(stage: 'FS_ENTER', delayMs: 3500),
+      TestStageAction(stage: 'FS_START', delayMs: 3500),
     ],
     expectedResults: {'anticipationTriggered': true, 'featureEntered': true},
   );
@@ -180,13 +180,13 @@ class BuiltInTestTemplates {
     actions: [
       TestStageAction(stage: 'SPIN_START', delayMs: 0),
       TestStageAction(stage: 'REEL_STOP_4', delayMs: 2000),
-      TestStageAction(stage: 'FS_TRIGGER', delayMs: 2300),
+      TestStageAction(stage: 'FS_HOLD_INTRO', delayMs: 2300),
       TestStageAction(stage: 'BONUS_TRIGGER', delayMs: 2500),
       TestStageAction(stage: 'HOLD_TRIGGER', delayMs: 2700),
-      TestStageAction(stage: 'FS_ENTER', delayMs: 3000),
+      TestStageAction(stage: 'FS_START', delayMs: 3000),
       TestStageAction(stage: 'BONUS_ENTER', delayMs: 3200), // Conflict!
-      TestStageAction(stage: 'FS_SPIN', delayMs: 4000),
-      TestStageAction(stage: 'FS_EXIT', delayMs: 7000),
+      TestStageAction(stage: 'FS_SPIN_START', delayMs: 4000),
+      TestStageAction(stage: 'FS_END', delayMs: 7000),
     ],
     expectedResults: {'priorityConflict': true, 'voiceLimit': true},
   );

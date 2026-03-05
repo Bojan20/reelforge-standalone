@@ -161,24 +161,28 @@ class EventNamingService {
     }
 
     // FREE SPINS (FS_*) stages
-    if (normalized == 'FS_TRIGGER') return 'onFsTrigger';
-    if (normalized == 'FS_ENTER') return 'onFsEnter';
+    if (normalized == 'FS_HOLD_INTRO') return 'onFsHoldIntro';
+    if (normalized == 'FS_HOLD_OUTRO') return 'onFsHoldOutro';
+    if (normalized == 'FS_START') return 'onFsStart';
     if (normalized == 'FS_SPIN_START') return 'onFsSpinStart';
     if (normalized == 'FS_SPIN_END') return 'onFsSpinEnd';
+    if (normalized == 'FS_WIN') return 'onFsWin';
+    if (normalized == 'FS_SCATTER_LAND') return 'onFsScatterLand';
+    if (normalized == 'FS_SCATTER_LAND_R1') return 'onFsScatterLandR1';
+    if (normalized == 'FS_SCATTER_LAND_R2') return 'onFsScatterLandR2';
+    if (normalized == 'FS_SCATTER_LAND_R3') return 'onFsScatterLandR3';
+    if (normalized == 'FS_SCATTER_LAND_R4') return 'onFsScatterLandR4';
+    if (normalized == 'FS_SCATTER_LAND_R5') return 'onFsScatterLandR5';
+    if (normalized == 'FS_STICKY_WILD') return 'onFsStickyWild';
+    if (normalized == 'FS_EXPANDING_WILD') return 'onFsExpandingWild';
+    if (normalized == 'FS_MULTIPLIER_UP') return 'onFsMultiplierUp';
     if (normalized == 'FS_RETRIGGER') return 'onFsRetrigger';
-    if (normalized == 'FS_EXIT') return 'onFsExit';
-    if (normalized == 'FS_MUSIC') return 'onFsMusic';
-    if (normalized == 'FS_SUMMARY') return 'onFsSummary';
-    if (normalized == 'FS_MULTIPLIER') return 'onFsMultiplier';
-    if (normalized == 'FS_LAST_SPIN') return 'onFsLastSpin';
+    if (normalized == 'FS_RETRIGGER_3') return 'onFsRetrigger3';
+    if (normalized == 'FS_RETRIGGER_5') return 'onFsRetrigger5';
+    if (normalized == 'FS_RETRIGGER_10') return 'onFsRetrigger10';
+    if (normalized == 'FS_END') return 'onFsEnd';
     if (normalized == 'FS_TRANSITION_IN') return 'onFsTransitionIn';
     if (normalized == 'FS_TRANSITION_OUT') return 'onFsTransitionOut';
-    if (normalized == 'FREESPIN_START' || normalized == 'FS_START') {
-      return 'onFsStart';
-    }
-    if (normalized == 'FREESPIN_END' || normalized == 'FS_END') {
-      return 'onFsEnd';
-    }
     if (normalized.startsWith('FS_')) {
       final suffix = _toCamelCase(normalized.replaceFirst('FS_', ''));
       return 'onFs$suffix';

@@ -262,7 +262,7 @@ class GameFlowProvider extends ChangeNotifier {
           target: GameFlowState.freeSpins,
           trigger: TransitionTrigger.scatterCount,
           priority: 80,
-          audioStageId: 'FS_TRIGGER',
+          audioStageId: 'FS_HOLD_INTRO',
         ));
         result.add(FlowTransition(
           source: GameFlowState.freeSpins,

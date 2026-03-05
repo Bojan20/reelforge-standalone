@@ -3179,7 +3179,7 @@ SlotBus _resolveSlotBus(String stage) {
   if (s.startsWith('MUSIC_') || s.startsWith('AMBIENT_') ||
       s.startsWith('ATTRACT_') || s.startsWith('IDLE_') ||
       s.contains('_MUSIC') || s.contains('_LOOP') && !s.contains('REEL') ||
-      s == 'BIG_WIN_LOOP' || s.startsWith('MUSIC_STINGER')) {
+      s.startsWith('MUSIC_STINGER')) {
     return SlotBus.music;
   }
 
@@ -3603,12 +3603,11 @@ class _WinPresentationSection extends _SectionConfig {
       // Big Win common stages
       tierSlots.addAll(const [
         _SlotConfig(stage: 'BIG_WIN_START', label: 'Big Win Intro'),
-        _SlotConfig(stage: 'BIG_WIN_LOOP', label: 'Big Win Loop'),
-        _SlotConfig(stage: 'BIG_WIN_COINS', label: 'Big Win Coins'),
-        _SlotConfig(stage: 'BIG_WIN_IMPACT', label: 'Big Win Impact'),
-        _SlotConfig(stage: 'BIG_WIN_UPGRADE', label: 'Big Win Upgrade'),
         _SlotConfig(stage: 'BIG_WIN_END', label: 'Big Win End'),
-        _SlotConfig(stage: 'BIG_WIN_OUTRO', label: 'Big Win Outro'),
+        _SlotConfig(stage: 'BIG_WIN_TICK_START', label: 'Big Win Tick Start'),
+        _SlotConfig(stage: 'BIG_WIN_TICK_END', label: 'Big Win Tick End'),
+        _SlotConfig(stage: 'COIN_SHOWER_START', label: 'Coin Shower Start'),
+        _SlotConfig(stage: 'COIN_SHOWER_END', label: 'Coin Shower End'),
       ]);
     } else {
       // Fallback: Default slots when no config (legacy compatibility)
@@ -3956,34 +3955,43 @@ class _FreeSpinsSection extends _SectionConfig {
 
   @override
   List<_GroupConfig> get groups => const [
-    // ─── TRIGGER ───
+    // ─── HOLD (Base → FS Transition) ───
     _GroupConfig(
-      id: 'trigger',
-      title: 'Trigger',
+      id: 'hold',
+      title: 'Hold',
       icon: '🎯',
       slots: [
-        _SlotConfig(stage: 'FREESPIN_TRIGGER', label: 'FS Trigger'),
-        _SlotConfig(stage: 'FREESPIN_START', label: 'FS Start'),
-        _SlotConfig(stage: 'FS_INTRO', label: 'FS Intro'),
-        _SlotConfig(stage: 'FS_COUNTDOWN', label: 'FS Countdown'),
-        _SlotConfig(stage: 'FS_BANNER_SHOW', label: 'FS Banner Show'),
-        _SlotConfig(stage: 'FS_SCATTER_LAND_SEQUENCE', label: 'Scatter Sequence'),
+        _SlotConfig(stage: 'FS_HOLD_INTRO', label: 'Hold Intro'),
+        _SlotConfig(stage: 'FS_HOLD_OUTRO', label: 'Hold Outro'),
       ],
     ),
-    // ─── SPIN LOOP ───
+    // ─── GAMEPLAY ───
     _GroupConfig(
-      id: 'loop',
-      title: 'Spin Loop',
+      id: 'gameplay',
+      title: 'Gameplay',
       icon: '🔄',
       slots: [
-        _SlotConfig(stage: 'FREESPIN_SPIN', label: 'FS Spin'),
-        _SlotConfig(stage: 'FREESPIN_MUSIC', label: 'FS Music'),
-        _SlotConfig(stage: 'FS_SPIN_1', label: 'FS Spin #1'),
-        _SlotConfig(stage: 'FS_SPIN_LAST', label: 'FS Last Spin'),
-        _SlotConfig(stage: 'FS_STICKY_WILD', label: 'FS Sticky Wild'),
-        _SlotConfig(stage: 'FS_EXPANDING_WILD', label: 'FS Expand Wild'),
-        _SlotConfig(stage: 'FS_MULTIPLIER_UP', label: 'FS Multi Up'),
-        _SlotConfig(stage: 'FS_UPGRADE', label: 'FS Upgrade'),
+        _SlotConfig(stage: 'FS_START', label: 'FS Start'),
+        _SlotConfig(stage: 'FS_SPIN_START', label: 'Spin Start'),
+        _SlotConfig(stage: 'FS_SPIN_END', label: 'Spin End'),
+        _SlotConfig(stage: 'FS_WIN', label: 'FS Win'),
+        _SlotConfig(stage: 'FS_STICKY_WILD', label: 'Sticky Wild'),
+        _SlotConfig(stage: 'FS_EXPANDING_WILD', label: 'Expand Wild'),
+        _SlotConfig(stage: 'FS_MULTIPLIER_UP', label: 'Multi Up'),
+      ],
+    ),
+    // ─── SCATTER ───
+    _GroupConfig(
+      id: 'scatter',
+      title: 'Scatter Land',
+      icon: '⭐',
+      slots: [
+        _SlotConfig(stage: 'FS_SCATTER_LAND', label: 'Scatter Land'),
+        _SlotConfig(stage: 'FS_SCATTER_LAND_R1', label: 'Reel 1'),
+        _SlotConfig(stage: 'FS_SCATTER_LAND_R2', label: 'Reel 2'),
+        _SlotConfig(stage: 'FS_SCATTER_LAND_R3', label: 'Reel 3'),
+        _SlotConfig(stage: 'FS_SCATTER_LAND_R4', label: 'Reel 4'),
+        _SlotConfig(stage: 'FS_SCATTER_LAND_R5', label: 'Reel 5'),
       ],
     ),
     // ─── RETRIGGER ───
@@ -3992,26 +4000,19 @@ class _FreeSpinsSection extends _SectionConfig {
       title: 'Retrigger',
       icon: '➕',
       slots: [
-        _SlotConfig(stage: 'FREESPIN_RETRIGGER', label: 'FS Retrigger'),
-        _SlotConfig(stage: 'FS_RETRIGGER_X3', label: 'FS +3'),
-        _SlotConfig(stage: 'FS_RETRIGGER_X5', label: 'FS +5'),
-        _SlotConfig(stage: 'FS_RETRIGGER_X10', label: 'FS +10'),
+        _SlotConfig(stage: 'FS_RETRIGGER', label: 'Retrigger'),
+        _SlotConfig(stage: 'FS_RETRIGGER_3', label: '+3'),
+        _SlotConfig(stage: 'FS_RETRIGGER_5', label: '+5'),
+        _SlotConfig(stage: 'FS_RETRIGGER_10', label: '+10'),
       ],
     ),
-    // ─── SUMMARY ───
+    // ─── END ───
     _GroupConfig(
-      id: 'summary',
-      title: 'Summary',
-      icon: '📋',
+      id: 'end',
+      title: 'End',
+      icon: '🏁',
       slots: [
-        _SlotConfig(stage: 'FREESPIN_END', label: 'FS End'),
-        _SlotConfig(stage: 'FS_SUMMARY', label: 'FS Summary'),
-        _SlotConfig(stage: 'FS_TOTAL_WIN', label: 'FS Total Win'),
-        _SlotConfig(stage: 'FS_OUTRO', label: 'FS Outro'),
-        _SlotConfig(stage: 'FS_BANNER_HIDE', label: 'FS Banner Hide'),
-        _SlotConfig(stage: 'FS_CHOICE', label: 'FS Choice'),
-        _SlotConfig(stage: 'FS_BUY_POPUP', label: 'FS Buy Popup'),
-        _SlotConfig(stage: 'VO_FREE_SPINS', label: 'VO Free Spins'),
+        _SlotConfig(stage: 'FS_END', label: 'FS End'),
       ],
     ),
   ];
@@ -4531,7 +4532,6 @@ class _MusicSection extends _SectionConfig {
           slots: [
             _SlotConfig(stage: 'BIG_WIN_START', label: 'Intro'),
             _SlotConfig(stage: 'BIG_WIN_END', label: 'End'),
-            _SlotConfig(stage: 'BIG_WIN_OUTRO', label: 'Outro'),
           ],
         ),
         _GroupConfig(

@@ -29,9 +29,9 @@ const List<String> _canonicalStages = [
   'ROLLUP_END',
   'FEATURE_ENTER',
   'FEATURE_EXIT',
-  'FREESPINS_TRIGGER',
-  'FREESPINS_START',
-  'FREESPINS_END',
+  'FS_HOLD_INTRO',
+  'FS_START',
+  'FS_END',
   'BONUS_ENTER',
   'BONUS_EXIT',
   'JACKPOT_WIN',
@@ -112,9 +112,9 @@ class _EventMappingEditorState extends State<EventMappingEditor> {
 
     // Feature events
     if (lower.contains('freespin')) {
-      if (lower.contains('trigger')) return 'FREESPINS_TRIGGER';
-      if (lower.contains('start')) return 'FREESPINS_START';
-      if (lower.contains('end')) return 'FREESPINS_END';
+      if (lower.contains('trigger')) return 'FS_HOLD_INTRO';
+      if (lower.contains('start')) return 'FS_START';
+      if (lower.contains('end')) return 'FS_END';
     }
     if (lower.contains('feature')) {
       if (lower.contains('enter') || lower.contains('start')) return 'FEATURE_ENTER';

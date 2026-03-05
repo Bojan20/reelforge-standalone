@@ -186,7 +186,7 @@ class ForcedOutcomeConfig {
         'SPIN_START', 'REEL_STOP', 'EVALUATE_WINS',
         'BIG_WIN_START',
         'BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_TIER_3',
-        'BIG_WIN_ROLLUP_TICK',
+        'BIG_WIN_TICK_START',
         'BIG_WIN_END', 'SPIN_END',
       ],
       keyboardShortcut: '9',  // Was '0', now '9' since WIN_6 removed

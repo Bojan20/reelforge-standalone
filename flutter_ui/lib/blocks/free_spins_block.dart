@@ -527,8 +527,8 @@ class FreeSpinsBlock extends FeatureBlockBase {
 
     // ========== Trigger Stages ==========
     stages.add(GeneratedStage(
-      name: 'FS_TRIGGER',
-      description: 'Free spins feature triggered',
+      name: 'FS_HOLD_INTRO',
+      description: 'Free spins hold intro (trigger)',
       bus: 'sfx',
       priority: 90,
       sourceBlockId: id,
@@ -547,17 +547,9 @@ class FreeSpinsBlock extends FeatureBlockBase {
 
     // ========== Intro/Transition Stages ==========
     if (hasIntro) {
+      // FS_HOLD_INTRO already generated above (trigger)
       stages.add(GeneratedStage(
-        name: 'FS_INTRO_START',
-        description: 'Free spins intro sequence begins',
-        bus: 'sfx',
-        priority: 88,
-        sourceBlockId: id,
-        category: 'Free Spins',
-      ));
-
-      stages.add(GeneratedStage(
-        name: 'FS_INTRO_END',
+        name: 'FS_HOLD_OUTRO',
         description: 'Free spins intro sequence ends',
         bus: 'sfx',
         priority: 87,
@@ -567,26 +559,15 @@ class FreeSpinsBlock extends FeatureBlockBase {
     }
 
     stages.add(GeneratedStage(
-      name: 'FS_ENTER',
-      description: 'Enter free spins mode',
+      name: 'FS_START',
+      description: 'Free spins mode starts',
       bus: 'sfx',
       priority: 85,
       sourceBlockId: id,
       category: 'Free Spins',
     ));
 
-    // ========== Music Stages ==========
-    if (hasMusic) {
-      stages.add(GeneratedStage(
-        name: 'FS_MUSIC',
-        description: 'Free spins background music',
-        bus: 'music',
-        priority: 20,
-        looping: true,
-        sourceBlockId: id,
-        category: 'Free Spins',
-      ));
-    }
+    // FS_MUSIC removed — music handled by music states block
 
     // ========== Spin Stages ==========
     stages.add(GeneratedStage(
@@ -738,40 +719,11 @@ class FreeSpinsBlock extends FeatureBlockBase {
     }
 
     // ========== Exit Stages ==========
-    if (hasOutro) {
-      stages.add(GeneratedStage(
-        name: 'FS_OUTRO_START',
-        description: 'Free spins outro sequence begins',
-        bus: 'sfx',
-        priority: 82,
-        sourceBlockId: id,
-        category: 'Free Spins',
-      ));
-
-      stages.add(GeneratedStage(
-        name: 'FS_OUTRO_END',
-        description: 'Free spins outro sequence ends',
-        bus: 'sfx',
-        priority: 81,
-        sourceBlockId: id,
-        category: 'Free Spins',
-      ));
-    }
-
     stages.add(GeneratedStage(
-      name: 'FS_EXIT',
-      description: 'Exit free spins mode',
+      name: 'FS_END',
+      description: 'Free spins mode ends',
       bus: 'sfx',
       priority: 80,
-      sourceBlockId: id,
-      category: 'Free Spins',
-    ));
-
-    stages.add(GeneratedStage(
-      name: 'FS_TOTAL_WIN',
-      description: 'Total free spins win presentation',
-      bus: 'sfx',
-      priority: 85,
       sourceBlockId: id,
       category: 'Free Spins',
     ));
@@ -790,7 +742,6 @@ class FreeSpinsBlock extends FeatureBlockBase {
 
   @override
   String getBusForStage(String stageName) {
-    if (stageName == 'FS_MUSIC') return 'music';
     if (stageName.contains('COUNTER')) return 'ui';
     return 'sfx';
   }
@@ -798,20 +749,16 @@ class FreeSpinsBlock extends FeatureBlockBase {
   @override
   int getPriorityForStage(String stageName) {
     // Trigger and feature entry are highest
-    if (stageName == 'FS_TRIGGER') return 90;
-    if (stageName.contains('INTRO')) return 88;
-    if (stageName == 'FS_ENTER') return 85;
+    if (stageName == 'FS_HOLD_INTRO') return 90;
+    if (stageName == 'FS_HOLD_OUTRO') return 87;
+    if (stageName == 'FS_START') return 85;
     if (stageName == 'FS_RETRIGGER') return 85;
-    if (stageName == 'FS_TOTAL_WIN') return 85;
-    if (stageName == 'FS_EXIT') return 80;
+    if (stageName == 'FS_END') return 80;
 
     // Spin and multiplier events
     if (stageName.contains('SPIN')) return 70;
     if (stageName.contains('MULTIPLIER')) return 72;
     if (stageName.contains('WILD')) return 68;
-
-    // Music lowest
-    if (stageName == 'FS_MUSIC') return 20;
 
     return 50;
   }

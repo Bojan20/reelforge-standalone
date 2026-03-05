@@ -1209,7 +1209,7 @@ class _GddPreviewDialogState extends State<GddPreviewDialog>
   String _getCategoryForStage(String stage) {
     if (stage.startsWith('SPIN_') || stage.startsWith('REEL_')) return 'Spin';
     if (stage.startsWith('WIN_') || stage.startsWith('ROLLUP_')) return 'Win';
-    if (stage.startsWith('FS_') || stage.startsWith('FREESPIN_')) return 'Free Spins';
+    if (stage.startsWith('FS_')) return 'Free Spins';
     if (stage.startsWith('BONUS_')) return 'Bonus';
     if (stage.startsWith('HOLD_') || stage.startsWith('RESPIN_')) return 'Hold & Win';
     if (stage.startsWith('CASCADE_') || stage.startsWith('TUMBLE_')) return 'Cascade';

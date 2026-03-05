@@ -1937,8 +1937,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             final bet = widget.provider.betAmount;
             final winRatio = bet > 0 ? result.totalWin / bet : 0.0;
             if (winRatio >= 20) {
-              eventRegistry.triggerStage('BIG_WIN_LOOP');
-              eventRegistry.triggerStage('BIG_WIN_COINS');
+              eventRegistry.triggerStage('COIN_SHOWER_START');
             }
 
             // Start tier progression — this handles everything:
@@ -2076,8 +2075,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     }
 
     // Stop all win-related sfx events
-    eventRegistry.stopEvent('BIG_WIN_LOOP');
-    eventRegistry.stopEvent('BIG_WIN_COINS');
+    eventRegistry.stopEvent('COIN_SHOWER_START');
     eventRegistry.stopEvent('BIG_WIN_START');
     eventRegistry.stopEvent('ROLLUP');
     eventRegistry.stopEvent('ROLLUP_TICK');
@@ -3076,11 +3074,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // ═══════════════════════════════════════════════════════════════════════════
     _ensureAudioRegistered('BIG_WIN_START');
     _ensureAudioRegistered('BIG_WIN_END');
-    _ensureAudioRegistered('BIG_WIN_LOOP');
-    _ensureAudioRegistered('BIG_WIN_COINS');
-    _ensureAudioRegistered('BIG_WIN_IMPACT');
-    _ensureAudioRegistered('BIG_WIN_UPGRADE');
-    _ensureAudioRegistered('BIG_WIN_OUTRO');
+    _ensureAudioRegistered('COIN_SHOWER_START');
+    _ensureAudioRegistered('COIN_SHOWER_END');
     // Big Win tier stages
     for (final tier in _tierProgressionList) {
       _ensureAudioRegistered(tier);
@@ -3192,8 +3187,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Composite event with overlap=false → stops big win music on music bus.
     // BIG_WIN_END event — designer adds layers via middleware panel.
     // ═══════════════════════════════════════════════════════════════════════
-    eventRegistry.stopEvent('BIG_WIN_LOOP');
-    eventRegistry.stopEvent('BIG_WIN_COINS');
+    eventRegistry.triggerStage('COIN_SHOWER_END');
+    eventRegistry.stopEvent('COIN_SHOWER_START');
     // Play BIG_WIN_END sfx, stop BIG_WIN_START music, fade base music back to 1
     eventRegistry.triggerStage('BIG_WIN_END');
     eventRegistry.stopEvent('BIG_WIN_START');

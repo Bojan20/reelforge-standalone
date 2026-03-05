@@ -539,7 +539,7 @@ class SlotStageProvider extends ChangeNotifier {
       _isWinPresentationActive = active;
 
       if (!active) {
-        eventRegistry.stopEvent('BIG_WIN_LOOP');
+        eventRegistry.stopEvent('COIN_SHOWER_START');
       }
 
       notifyListeners();

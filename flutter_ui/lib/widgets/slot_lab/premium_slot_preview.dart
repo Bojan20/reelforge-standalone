@@ -5160,7 +5160,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       // Stop BIG_WIN_END audio
       eventRegistry.stopEvent('BIG_WIN_END');
       eventRegistry.stopEvent('BIG_WIN_END');
-      eventRegistry.stopEvent('BIG_WIN_OUTRO');
       eventRegistry.stopAllMusicVoices(fadeMs: 200);
 
       // Trigger collect and restore base game
@@ -5195,8 +5194,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     eventRegistry.stopAllMusicVoices(fadeMs: 300);
 
     // Stop all win-related sfx events
-    eventRegistry.stopEvent('BIG_WIN_LOOP');
-    eventRegistry.stopEvent('BIG_WIN_COINS');
+    eventRegistry.stopEvent('COIN_SHOWER_START');
     eventRegistry.stopEvent('BIG_WIN_START');
     eventRegistry.stopEvent('ROLLUP');
     eventRegistry.stopEvent('ROLLUP_TICK');
@@ -5272,8 +5270,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     reg.stopAllMusicVoices(fadeMs: 100);
 
     // Stop specific win/celebration events
-    reg.stopEvent('BIG_WIN_LOOP');
-    reg.stopEvent('BIG_WIN_COINS');
+    reg.stopEvent('COIN_SHOWER_START');
     reg.stopEvent('ROLLUP');
     reg.stopEvent('WIN_COLLECT');
     reg.stopEvent('WIN_PRESENT');

@@ -1433,14 +1433,12 @@ class GddImportService {
     switch (feature.type) {
       case GddFeatureType.freeSpins:
         return [
-          'FS_TRIGGER',
-          'FS_ENTER',
+          'FS_HOLD_INTRO',
+          'FS_START',
           'FS_SPIN_START',
           'FS_SPIN_END',
           'FS_RETRIGGER',
-          'FS_EXIT',
-          'FS_SUMMARY',
-          'FS_MUSIC',
+          'FS_END',
         ];
 
       case GddFeatureType.bonus:

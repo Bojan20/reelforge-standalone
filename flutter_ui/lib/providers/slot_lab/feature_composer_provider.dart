@@ -269,14 +269,14 @@ const List<ComposedStage> _engineCoreStages = [
     hooks: ['onBigWinStart'], suggestedBus: 'sfx', priority: 'P0',
   ),
   ComposedStage(
-    id: 'BIG_WIN_LOOP', displayName: 'Big Win Loop',
+    id: 'COIN_SHOWER_START', displayName: 'Coin Shower Start',
     layer: StageLayer.engineCore, locked: true, sortOrder: 36,
-    hooks: ['onBigWinLoop'], suggestedBus: 'sfx', priority: 'P0',
+    hooks: ['onCoinShowerStart'], suggestedBus: 'sfx', priority: 'P0',
   ),
   ComposedStage(
-    id: 'BIG_WIN_COINS', displayName: 'Big Win Coins',
+    id: 'COIN_SHOWER_END', displayName: 'Coin Shower End',
     layer: StageLayer.engineCore, locked: true, sortOrder: 37,
-    hooks: ['onBigWinCoins'], suggestedBus: 'sfx', priority: 'P0',
+    hooks: ['onCoinShowerEnd'], suggestedBus: 'sfx', priority: 'P0',
   ),
   ComposedStage(
     id: 'BIG_WIN_END', displayName: 'Big Win End',

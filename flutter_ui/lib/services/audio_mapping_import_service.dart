@@ -858,8 +858,9 @@ class AudioMappingImportService {
     'WIN_PRESENT_LOW', 'WIN_PRESENT_EQUAL', 'WIN_PRESENT_END',
     'WIN_PRESENT_1', 'WIN_PRESENT_2', 'WIN_PRESENT_3', 'WIN_PRESENT_4', 'WIN_PRESENT_5',
     'WIN_COLLECT',
-    'BIG_WIN_TRIGGER', 'BIG_WIN_START', 'BIG_WIN_LOOP', 'BIG_WIN_COINS',
-    'BIG_WIN_IMPACT', 'BIG_WIN_UPGRADE', 'BIG_WIN_END', 'BIG_WIN_OUTRO',
+    'BIG_WIN_TRIGGER', 'BIG_WIN_START', 'BIG_WIN_END',
+    'BIG_WIN_TICK_START', 'BIG_WIN_TICK_END',
+    'COIN_SHOWER_START', 'COIN_SHOWER_END',
     'BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_TIER_3', 'BIG_WIN_TIER_4', 'BIG_WIN_TIER_5',
     'WIN_EVAL', 'WIN_DETECTED', 'WIN_CALCULATE',
     'WIN_LINE_SHOW', 'WIN_LINE_HIDE', 'WIN_SYMBOL_HIGHLIGHT', 'WIN_LINE_CYCLE',
@@ -888,7 +889,7 @@ class AudioMappingImportService {
     'MUSIC_BONUS_L1', 'MUSIC_BONUS_L2', 'MUSIC_BONUS_L3', 'MUSIC_BONUS_L4', 'MUSIC_BONUS_L5',
     'MUSIC_HOLD_INTRO', 'MUSIC_HOLD_OUTRO',
     'MUSIC_HOLD_L1', 'MUSIC_HOLD_L2', 'MUSIC_HOLD_L3', 'MUSIC_HOLD_L4', 'MUSIC_HOLD_L5',
-    // Big Win music handled via BIG_WIN_START/END/OUTRO composite event layers
+    // Big Win music handled via BIG_WIN_START/END composite event layers
     'MUSIC_JACKPOT_INTRO', 'MUSIC_JACKPOT_OUTRO',
     'MUSIC_JACKPOT_L1', 'MUSIC_JACKPOT_L2', 'MUSIC_JACKPOT_L3', 'MUSIC_JACKPOT_L4', 'MUSIC_JACKPOT_L5',
     'MUSIC_GAMBLE_INTRO', 'MUSIC_GAMBLE_OUTRO',
@@ -903,8 +904,12 @@ class AudioMappingImportService {
     'AMBIENT_BASE', 'AMBIENT_FS', 'AMBIENT_BONUS', 'AMBIENT_HOLD',
     'AMBIENT_BIGWIN', 'AMBIENT_JACKPOT', 'AMBIENT_GAMBLE', 'AMBIENT_REVEAL',
     // Free Spins
-    'FREESPIN_TRIGGER', 'FREESPIN_START', 'FREESPIN_SPIN', 'FREESPIN_END',
-    'FREESPIN_RETRIGGER', 'FREESPIN_MUSIC',
+    'FS_HOLD_INTRO', 'FS_HOLD_OUTRO', 'FS_START', 'FS_SPIN_START', 'FS_SPIN_END',
+    'FS_WIN', 'FS_SCATTER_LAND', 'FS_SCATTER_LAND_R1', 'FS_SCATTER_LAND_R2',
+    'FS_SCATTER_LAND_R3', 'FS_SCATTER_LAND_R4', 'FS_SCATTER_LAND_R5',
+    'FS_STICKY_WILD', 'FS_EXPANDING_WILD', 'FS_MULTIPLIER_UP',
+    'FS_RETRIGGER', 'FS_RETRIGGER_3', 'FS_RETRIGGER_5', 'FS_RETRIGGER_10',
+    'FS_END',
     // Bonus
     'BONUS_TRIGGER', 'BONUS_ENTER', 'BONUS_STEP', 'BONUS_EXIT', 'BONUS_MUSIC', 'BONUS_SUMMARY',
     'PICK_REVEAL', 'PICK_GOOD', 'PICK_BAD', 'PICK_BONUS', 'PICK_COLLECT',
@@ -1243,7 +1248,7 @@ class AudioMappingImportService {
   /// Values are candidate stage IDs (first match in composed stages wins).
   ///
   /// CRITICAL: Stage IDs MUST match actual UI stage IDs from ultimate_audio_panel:
-  /// - Wins: WIN_PRESENT_1-5, BIG_WIN_TIER_1-5, BIG_WIN_START/LOOP/END
+  /// - Wins: WIN_PRESENT_1-5, BIG_WIN_TIER_1-5, BIG_WIN_START/END
   /// - Music: MUSIC_{SCENE}_L1-L5, MUSIC_{SCENE}_INTRO/OUTRO
   /// - Ambient: AMBIENT_BASE/FS/BONUS/HOLD/BIGWIN/JACKPOT/GAMBLE/REVEAL
   /// - Reels: REEL_STOP_0-4, REEL_SPIN_LOOP, SPIN_START
@@ -1453,13 +1458,10 @@ class AudioMappingImportService {
     // BIG WIN specific stages (celebration sequence)
     // ═══════════════════════════════════════════════════════════════════
     'big win intro': ['BIG_WIN_START'],
-    'big win loop': ['BIG_WIN_LOOP'],
-    'big win coins': ['BIG_WIN_COINS'],
-    'big win impact': ['BIG_WIN_IMPACT'],
     'big win end': ['BIG_WIN_END'],
-    'big win outro': ['BIG_WIN_OUTRO'],
-    'big win upgrade': ['BIG_WIN_UPGRADE'],
     'big win trigger': ['BIG_WIN_TRIGGER'],
+    'big win coins': ['COIN_SHOWER_START'],
+    'big win tick': ['BIG_WIN_TICK_START'],
 
     // ═══════════════════════════════════════════════════════════════════
     // ROLLUP / COUNTUP → ROLLUP_START, ROLLUP_TICK, ROLLUP_END
@@ -1525,7 +1527,6 @@ class AudioMappingImportService {
     'bigwin music': ['BIG_WIN_START'],
     'bigwin intro': ['BIG_WIN_START'],
     'bigwin end': ['BIG_WIN_END'],
-    'bigwin outro': ['BIG_WIN_OUTRO'],
     // ─── Bonus Music ─────────────────────────────────────────────────
     'bonus music': ['MUSIC_BONUS_L1'],
     'bonus intro': ['MUSIC_BONUS_INTRO'],
@@ -1605,19 +1606,19 @@ class AudioMappingImportService {
     'amb bonus': ['AMBIENT_BONUS'],
 
     // ═══════════════════════════════════════════════════════════════════
-    // FREE SPINS → FREESPIN_TRIGGER, FREESPIN_START, etc.
+    // FREE SPINS → FS_HOLD_INTRO, FS_START, etc.
     // ═══════════════════════════════════════════════════════════════════
-    'free spin': ['FREESPIN_START', 'FEATURE_ENTER'],
-    'free spins': ['FREESPIN_START', 'FEATURE_ENTER'],
-    'fs trigger': ['FREESPIN_TRIGGER', 'FEATURE_ENTER'],
-    'fs start': ['FREESPIN_START', 'FEATURE_ENTER'],
-    'fs end': ['FREESPIN_END', 'FEATURE_EXIT'],
-    'fs loop': ['FREESPIN_SPIN', 'FEATURE_LOOP'],
-    'free spin trigger': ['FREESPIN_TRIGGER'],
-    'free spin start': ['FREESPIN_START'],
-    'free spin end': ['FREESPIN_END'],
-    'retrigger': ['FREESPIN_RETRIGGER'],
-    'fs retrigger': ['FREESPIN_RETRIGGER'],
+    'free spin': ['FS_START', 'FEATURE_ENTER'],
+    'free spins': ['FS_START', 'FEATURE_ENTER'],
+    'fs trigger': ['FS_HOLD_INTRO', 'FEATURE_ENTER'],
+    'fs start': ['FS_START', 'FEATURE_ENTER'],
+    'fs end': ['FS_END', 'FEATURE_EXIT'],
+    'fs loop': ['FS_SPIN_START', 'FEATURE_LOOP'],
+    'free spin trigger': ['FS_HOLD_INTRO'],
+    'free spin start': ['FS_START'],
+    'free spin end': ['FS_END'],
+    'retrigger': ['FS_RETRIGGER'],
+    'fs retrigger': ['FS_RETRIGGER'],
 
     // ═══════════════════════════════════════════════════════════════════
     // BONUS → BONUS_TRIGGER, BONUS_ENTER, PICK_*, WHEEL_*
@@ -1776,7 +1777,7 @@ class AudioMappingImportService {
     // ═══════════════════════════════════════════════════════════════════
     'coin burst': ['COIN_BURST'],
     'coin drop': ['COIN_DROP'],
-    'coin shower': ['COIN_SHOWER'],
+    'coin shower': ['COIN_SHOWER_START'],
     'coin rain': ['COIN_RAIN'],
     'confetti': ['CONFETTI_BURST'],
     'fireworks': ['FIREWORKS_LAUNCH'],

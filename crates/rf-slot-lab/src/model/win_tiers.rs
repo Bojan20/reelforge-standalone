@@ -725,8 +725,10 @@ impl SlotWinConfig {
             stages.push(tier.stage_name());
         }
         stages.push("BIG_WIN_END".to_string());
-        stages.push("BIG_WIN_FADE_OUT".to_string());
-        stages.push("BIG_WIN_ROLLUP_TICK".to_string());
+        stages.push("BIG_WIN_TICK_START".to_string());
+        stages.push("BIG_WIN_TICK_END".to_string());
+        stages.push("COIN_SHOWER_START".to_string());
+        stages.push("COIN_SHOWER_END".to_string());
 
         stages
     }

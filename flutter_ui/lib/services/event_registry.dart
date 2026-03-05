@@ -719,7 +719,7 @@ class EventRegistry extends ChangeNotifier {
   /// Auto fade-out all active voices matching stage prefix (2026-02-01)
   ///
   /// Used by _END stages to fade out corresponding active audio.
-  /// Example: BIG_WIN_END fades out BIG_WIN_LOOP, BIG_WIN_COINS, etc.
+  /// Example: BIG_WIN_END fades out COIN_SHOWER_START, etc.
   ///
   /// [stagePrefix] - Stage prefix to match (e.g., 'BIG_WIN', 'FREESPIN', 'CASCADE')
   /// [fadeMs] - Fade-out duration in milliseconds (default: 100ms)
@@ -774,7 +774,7 @@ class EventRegistry extends ChangeNotifier {
     'MUSIC_FEATURE': 400,
     'MUSIC_TENSION': 300,
     // Feature transitions
-    'FREESPIN': 200,
+    'FS': 200,
     'BONUS': 200,
     'HOLD': 200,
     // Win stages - shorter for impact
@@ -799,7 +799,7 @@ class EventRegistry extends ChangeNotifier {
     'MUSIC_FEATURE': 'music',
     'MUSIC_TENSION': 'music',
     'MUSIC_JACKPOT_L1': 'music',
-    'FS_MUSIC': 'music',
+    // FS_MUSIC removed — no longer a stage
     'HOLD_MUSIC': 'music',
     'BONUS_MUSIC': 'music',
     'ATTRACT_MUSIC': 'music',
@@ -2001,8 +2001,8 @@ class EventRegistry extends ChangeNotifier {
     // the corresponding base stage prefix.
     //
     // Examples:
-    //   BIG_WIN_END       → fade out BIG_WIN_LOOP, BIG_WIN_COINS, BIG_WIN_IMPACT
-    //   FREESPIN_END      → fade out FREESPIN_MUSIC, FREESPIN_LOOP
+    //   BIG_WIN_END       → fade out COIN_SHOWER_START, BIG_WIN_TICK_START
+    //   FS_END            → fade out FS music/loop voices
     //   CASCADE_END       → fade out CASCADE_STEP, CASCADE_LOOP
     //   BONUS_END         → fade out BONUS_MUSIC, BONUS_LOOP
     //   JACKPOT_END       → fade out JACKPOT_BUILDUP, JACKPOT_CELEBRATION

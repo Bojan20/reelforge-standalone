@@ -244,7 +244,7 @@ class FeatureTemplateService extends ChangeNotifier {
           order: 0,
           audioSlots: const [
             AudioSlotDef(
-              stage: 'FS_TRIGGER',
+              stage: 'FS_HOLD_INTRO',
               label: 'Trigger Sound',
               description: 'Sound when free spins are triggered',
               required: true,
@@ -260,20 +260,20 @@ class FeatureTemplateService extends ChangeNotifier {
           order: 1,
           audioSlots: const [
             AudioSlotDef(
-              stage: 'FS_ENTER',
-              label: 'Enter Sound',
-              description: 'Transition into free spins',
+              stage: 'FS_HOLD_OUTRO',
+              label: 'Hold Outro Sound',
+              description: 'End of hold, enter FS game',
               required: true,
               priority: 85,
               defaultBus: 'SFX',
             ),
             AudioSlotDef(
-              stage: 'FS_MUSIC',
-              label: 'Feature Music',
-              description: 'Background music during free spins',
-              looping: true,
-              priority: 40,
-              defaultBus: 'Music',
+              stage: 'FS_START',
+              label: 'Start Sound',
+              description: 'FS session begins',
+              required: true,
+              priority: 85,
+              defaultBus: 'SFX',
             ),
           ],
         ),
@@ -284,9 +284,16 @@ class FeatureTemplateService extends ChangeNotifier {
           order: 2,
           audioSlots: const [
             AudioSlotDef(
-              stage: 'FS_SPIN',
-              label: 'Spin Sound',
-              description: 'Each free spin',
+              stage: 'FS_SPIN_START',
+              label: 'Spin Start Sound',
+              description: 'Each free spin button press',
+              priority: 60,
+              defaultBus: 'SFX',
+            ),
+            AudioSlotDef(
+              stage: 'FS_SPIN_END',
+              label: 'Spin End Sound',
+              description: 'Spin ends',
               priority: 60,
               defaultBus: 'SFX',
             ),
@@ -322,20 +329,14 @@ class FeatureTemplateService extends ChangeNotifier {
           order: 4,
           audioSlots: const [
             AudioSlotDef(
-              stage: 'FS_EXIT',
+              stage: 'FS_END',
               label: 'Exit Sound',
               description: 'Return to base game',
               required: true,
               priority: 80,
               defaultBus: 'SFX',
             ),
-            AudioSlotDef(
-              stage: 'FS_SUMMARY',
-              label: 'Summary Sound',
-              description: 'Total win summary',
-              priority: 75,
-              defaultBus: 'Wins',
-            ),
+            // FS_SUMMARY removed — handled by FS_END
           ],
         ),
       ],

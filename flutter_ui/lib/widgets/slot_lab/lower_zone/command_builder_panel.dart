@@ -43,7 +43,7 @@ String _targetIdToStage(String targetId) {
   if (targetId == 'overlay.jackpot.mini') return 'JACKPOT_MINI';
 
   // Features
-  if (targetId == 'feature.freespins') return 'FS_TRIGGER';
+  if (targetId == 'feature.freespins') return 'FS_HOLD_INTRO';
   if (targetId == 'feature.bonus') return 'BONUS_TRIGGER';
 
   // Symbols

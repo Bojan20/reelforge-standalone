@@ -546,16 +546,16 @@ class MusicStatesBlock extends FeatureBlockBase {
     if (getOptionValue<bool>('free_spins_context') ?? true) {
       stages.addAll([
         GeneratedStage(
-          name: 'MUSIC_FS_ENTER',
-          description: 'Enter free spins music context',
+          name: 'MUSIC_FS_START',
+          description: 'Start free spins music context',
           bus: 'music',
           priority: 60,
           sourceBlockId: id,
           category: 'music',
         ),
         GeneratedStage(
-          name: 'MUSIC_FS_EXIT',
-          description: 'Exit free spins music context',
+          name: 'MUSIC_FS_END',
+          description: 'End free spins music context',
           bus: 'music',
           priority: 60,
           sourceBlockId: id,
@@ -655,8 +655,8 @@ class MusicStatesBlock extends FeatureBlockBase {
           category: 'music',
         ),
         GeneratedStage(
-          name: 'MUSIC_BIG_WIN_LOOP',
-          description: 'Big win celebration music loop',
+          name: 'MUSIC_BIG_WIN',
+          description: 'Big win celebration music',
           bus: 'music',
           priority: 75,
           looping: true,

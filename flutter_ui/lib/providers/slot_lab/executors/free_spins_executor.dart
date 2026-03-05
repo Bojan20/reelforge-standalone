@@ -214,11 +214,7 @@ class FreeSpinsExecutor extends FeatureExecutor {
   FeatureExitResult exit(FeatureState finalState) {
     final audioStages = <String>[];
 
-    if (_hasOutroSequence) {
-      audioStages.add('FS_OUTRO_START');
-    }
-    audioStages.add('FS_EXIT');
-    audioStages.add('FS_TOTAL_WIN');
+    audioStages.add('FS_END');
 
     return FeatureExitResult(
       totalWin: finalState.accumulatedWin,
@@ -246,8 +242,8 @@ class FreeSpinsExecutor extends FeatureExecutor {
 
   @override
   String? getCurrentAudioStage(FeatureState state) {
-    if (state.spinsRemaining == state.totalSpins) return 'FS_ENTER';
-    if (state.spinsRemaining <= 0) return 'FS_EXIT';
+    if (state.spinsRemaining == state.totalSpins) return 'FS_START';
+    if (state.spinsRemaining <= 0) return 'FS_END';
     return 'FS_SPIN_START';
   }
 }

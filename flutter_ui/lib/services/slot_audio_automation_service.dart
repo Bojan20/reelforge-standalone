@@ -377,7 +377,7 @@ class SlotAudioAutomationService {
       final audioContext = AudioContextService.instance.detectContextFromAudio(path);
       switch (audioContext) {
         case AudioContext.freeSpins:
-          suggestedStage = 'FS_MUSIC';
+          suggestedStage = 'MUSIC_FS_L1';
           featureType = FeatureType.freeSpins;
         case AudioContext.bonus:
           suggestedStage = 'BONUS_MUSIC';
@@ -403,19 +403,19 @@ class SlotAudioAutomationService {
       confidence = 0.85;
 
       if (baseName.contains('trigger') || baseName.contains('intro')) {
-        suggestedStage = 'FS_TRIGGER';
+        suggestedStage = 'FS_HOLD_INTRO';
         phase = StagePhase.trigger;
       } else if (baseName.contains('start') || baseName.contains('enter')) {
-        suggestedStage = 'FS_ENTER';
+        suggestedStage = 'FS_START';
         phase = StagePhase.start;
       } else if (baseName.contains('spin')) {
-        suggestedStage = 'FS_SPIN';
+        suggestedStage = 'FS_SPIN_START';
         phase = StagePhase.step;
       } else if (baseName.contains('end') || baseName.contains('exit') || baseName.contains('outro')) {
-        suggestedStage = 'FS_EXIT';
+        suggestedStage = 'FS_END';
         phase = StagePhase.exit;
       } else {
-        suggestedStage = 'FS_TRIGGER';
+        suggestedStage = 'FS_HOLD_INTRO';
       }
     }
 
@@ -698,7 +698,7 @@ class SlotAudioAutomationService {
   AutomationResult generateMusicTransitionPair({
     required String newMusicPath,
     required String oldMusicContext, // e.g., 'base', 'fs', 'bonus'
-    required String triggerStage, // e.g., 'FS_TRIGGER'
+    required String triggerStage, // e.g., 'FS_HOLD_INTRO'
     String bus = 'music',
   }) {
     final events = <AutoEventSpec>[];
@@ -746,8 +746,8 @@ class SlotAudioAutomationService {
     required String contextMusicPath,
     required String baseMusicPath,
     required String contextName, // 'fs', 'bonus', 'hold'
-    required String enterStage, // 'FS_TRIGGER'
-    required String exitStage, // 'FS_EXIT'
+    required String enterStage, // 'FS_HOLD_INTRO'
+    required String exitStage, // 'FS_END'
   }) {
     final events = <AutoEventSpec>[];
 
@@ -1037,15 +1037,15 @@ class SlotAudioAutomationService {
       description: 'Full free spins feature with music transitions',
       category: FlowCategory.feature,
       stages: [
-        FlowTemplateStage(stage: 'FS_TRIGGER', bus: 'sfx', expectedAssetType: AssetCategory.feature, hint: 'Scatter land / trigger'),
+        FlowTemplateStage(stage: 'FS_HOLD_INTRO', bus: 'sfx', expectedAssetType: AssetCategory.feature, hint: 'Transition base→FS'),
         FlowTemplateStage(stage: 'MUSIC_BASE_STOP', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Stop base music'),
-        FlowTemplateStage(stage: 'FS_INTRO', bus: 'sfx', expectedAssetType: AssetCategory.feature, hint: 'Intro fanfare'),
-        FlowTemplateStage(stage: 'FS_MUSIC', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Free spins music loop'),
-        FlowTemplateStage(stage: 'FS_SPIN', bus: 'sfx', expectedAssetType: AssetCategory.spin, isOptional: true),
+        FlowTemplateStage(stage: 'FS_HOLD_OUTRO', bus: 'sfx', expectedAssetType: AssetCategory.feature, hint: 'End of hold, enter FS'),
+        FlowTemplateStage(stage: 'FS_START', bus: 'sfx', expectedAssetType: AssetCategory.feature, hint: 'FS session begins'),
+        FlowTemplateStage(stage: 'FS_SPIN_START', bus: 'sfx', expectedAssetType: AssetCategory.spin, isOptional: true),
+        FlowTemplateStage(stage: 'FS_SPIN_END', bus: 'sfx', expectedAssetType: AssetCategory.spin, isOptional: true),
         FlowTemplateStage(stage: 'FS_WIN', bus: 'wins', expectedAssetType: AssetCategory.win, isOptional: true),
         FlowTemplateStage(stage: 'FS_RETRIGGER', bus: 'sfx', expectedAssetType: AssetCategory.feature, isOptional: true),
-        FlowTemplateStage(stage: 'FS_OUTRO', bus: 'sfx', expectedAssetType: AssetCategory.feature, hint: 'Outro / total win'),
-        FlowTemplateStage(stage: 'FS_MUSIC_STOP', bus: 'music', expectedAssetType: AssetCategory.music),
+        FlowTemplateStage(stage: 'FS_END', bus: 'sfx', expectedAssetType: AssetCategory.feature, hint: 'FS session ends'),
         FlowTemplateStage(stage: 'MUSIC_BASE_L1', bus: 'music', expectedAssetType: AssetCategory.music, hint: 'Resume base music'),
       ],
     ),

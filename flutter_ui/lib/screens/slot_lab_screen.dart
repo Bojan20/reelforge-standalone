@@ -869,7 +869,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final s = stage.toUpperCase();
     if (s.startsWith('SPIN_') || s.startsWith('REEL_')) return 'spin';
     if (s.startsWith('WIN_') || s.startsWith('ROLLUP_')) return 'win';
-    if (s.startsWith('FREESPIN_') || s.startsWith('FS_')) return 'feature';
+    if (s.startsWith('FS_')) return 'feature';
     if (s.startsWith('BONUS_')) return 'bonus';
     if (s.startsWith('CASCADE_') || s.startsWith('TUMBLE_')) return 'cascade';
     if (s.startsWith('JACKPOT_')) return 'jackpot';
@@ -972,10 +972,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     'BIG_WIN_TIER_3',
     'BIG_WIN_TIER_4',
     'BIG_WIN_TIER_5',
-    'BIG_WIN_IMPACT',
-    'BIG_WIN_UPGRADE',
     'BIG_WIN_END',
-    'BIG_WIN_OUTRO',
+    'BIG_WIN_TICK_START',
+    'BIG_WIN_TICK_END',
+    'COIN_SHOWER_START',
+    'COIN_SHOWER_END',
     // ─── ROLLUP ───
     'ROLLUP_START',
     'ROLLUP_TICK',
@@ -992,9 +993,25 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     'FEATURE_ENTER',
     'FEATURE_STEP',
     'FEATURE_EXIT',
-    'FS_TRIGGER',
-    'FS_SPIN',
+    'FS_HOLD_INTRO',
+    'FS_HOLD_OUTRO',
+    'FS_START',
+    'FS_SPIN_START',
+    'FS_SPIN_END',
+    'FS_WIN',
+    'FS_SCATTER_LAND',
+    'FS_SCATTER_LAND_R1',
+    'FS_SCATTER_LAND_R2',
+    'FS_SCATTER_LAND_R3',
+    'FS_SCATTER_LAND_R4',
+    'FS_SCATTER_LAND_R5',
+    'FS_STICKY_WILD',
+    'FS_EXPANDING_WILD',
+    'FS_MULTIPLIER_UP',
     'FS_RETRIGGER',
+    'FS_RETRIGGER_3',
+    'FS_RETRIGGER_5',
+    'FS_RETRIGGER_10',
     'FS_END',
     // ─── BONUS ───
     'BONUS_ENTER',

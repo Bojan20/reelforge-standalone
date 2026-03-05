@@ -215,7 +215,7 @@ void main() {
         triggerCondition: '3+ scatter',
         initialSpins: 10,
         retriggerable: 1,
-        stages: ['FS_TRIGGER', 'FS_ENTER', 'FS_EXIT'],
+        stages: ['FS_HOLD_INTRO', 'FS_START', 'FS_END'],
       );
       final json = feature.toJson();
       final restored = GddFeature.fromJson(json);

@@ -677,9 +677,9 @@ class SlotLabProvider extends ChangeNotifier {
     if (_isWinPresentationActive != active) {
       _isWinPresentationActive = active;
 
-      // Stop BIG_WIN_LOOP when win presentation ends
+      // Stop COIN_SHOWER when win presentation ends
       if (!active) {
-        eventRegistry.stopEvent('BIG_WIN_LOOP');
+        eventRegistry.stopEvent('COIN_SHOWER_START');
       }
 
       notifyListeners();

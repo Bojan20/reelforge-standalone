@@ -10,7 +10,7 @@ enum StageMarkerType {
   spin,        // SPIN_START, SPIN_END
   reelStop,    // REEL_STOP_0..4
   win,         // WIN_PRESENT_*, ROLLUP_*
-  feature,     // FS_TRIGGER, BONUS_ENTER
+  feature,     // FS_HOLD_INTRO, BONUS_ENTER
   anticipation, // ANTICIPATION_TENSION/MISS
   custom,      // User-defined markers
 }

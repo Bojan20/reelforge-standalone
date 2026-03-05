@@ -1525,7 +1525,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
       'ANTICIPATION_TENSION', 'ANTICIPATION_MISS',
       'CASCADE_START', 'CASCADE_STEP', 'CASCADE_END',
       'FEATURE_ENTER', 'FEATURE_EXIT',
-      'FREESPIN_START', 'FREESPIN_END',
+      'FS_START', 'FS_END',
       'BONUS_ENTER', 'BONUS_EXIT',
       'JACKPOT_TRIGGER', 'JACKPOT_AWARD',
     ];

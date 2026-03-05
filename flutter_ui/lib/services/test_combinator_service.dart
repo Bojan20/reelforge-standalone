@@ -365,7 +365,7 @@ class TestCombinatorService {
       final feature = conditions[TestDimension.feature] as FeatureTest;
       switch (feature) {
         case FeatureTest.freeSpins:
-          stages.addAll(['FS_TRIGGER', 'FS_ENTER']);
+          stages.addAll(['FS_HOLD_INTRO', 'FS_START']);
           break;
         case FeatureTest.bonus:
           stages.addAll(['BONUS_TRIGGER', 'BONUS_ENTER']);

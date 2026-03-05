@@ -225,7 +225,7 @@ class StageConfigurationService extends ChangeNotifier {
     if (upper.startsWith('GAMBLE_')) return StageCategory.gamble;
     if (upper.startsWith('UI_') || upper.startsWith('SYSTEM_') || upper.startsWith('MENU_')) return StageCategory.ui;
     if (upper.startsWith('MUSIC_') || upper.startsWith('AMBIENT_') || upper.startsWith('IDLE_') ||
-        upper.startsWith('ATTRACT_') || upper.startsWith('FS_MUSIC') || upper.startsWith('HOLD_MUSIC')) return StageCategory.music;
+        upper.startsWith('ATTRACT_') || upper.startsWith('HOLD_MUSIC')) return StageCategory.music;
     if (upper.startsWith('SYMBOL_') || upper.startsWith('WILD_') || upper.startsWith('SCATTER_') ||
         upper.startsWith('ANTICIPATION_') || upper.startsWith('NEAR_MISS') || upper.startsWith('STICKY_') ||
         upper.startsWith('CASH_SYMBOL') || upper.startsWith('CASH_VALUE')) return StageCategory.symbol;
@@ -392,18 +392,18 @@ class StageConfigurationService extends ChangeNotifier {
     );
 
     _registerWinStage(
-      name: BigWinConfig.fadeOutStageName, // BIG_WIN_FADE_OUT
+      name: BigWinConfig.tickStartStageName, // BIG_WIN_TICK_START
       category: StageCategory.win,
-      priority: 70,
-      description: 'Big win fade out transition',
+      priority: 60,
+      isPooled: true,
+      description: 'Big win rollup tick',
     );
 
     _registerWinStage(
-      name: BigWinConfig.rollupTickStageName, // BIG_WIN_ROLLUP_TICK
+      name: BigWinConfig.tickEndStageName, // BIG_WIN_TICK_END
       category: StageCategory.win,
-      priority: 60,
-      isPooled: true, // Rapid-fire event
-      description: 'Big win rollup tick',
+      priority: 55,
+      description: 'Big win rollup tick end',
     );
 
     notifyListeners();
@@ -746,19 +746,17 @@ class StageConfigurationService extends ChangeNotifier {
     _register('WIN_PRESENT_5', StageCategory.win, 65, SpatialBus.sfx, 'DEFAULT', ducksMusic: true);
 
     // ─────────────────────────────────────────────────────────────────────────
-    // BIG WIN (≥20x bet) — Celebration SFX
+    // BIG WIN (≥20x bet) — Celebration
     // BIG_WIN_START/END/TIER_1..5: Registered dynamically from BigWinConfig
-    // BIG_WIN_LOOP: Looping celebration music (ducks base music)
-    // BIG_WIN_COINS: Coin shower particle sfx
+    // BIG_WIN_TICK_START/END: Rollup ticks during big win
+    // COIN_SHOWER_START/END: Coin animation audio
     // ─────────────────────────────────────────────────────────────────────────
     _register('BIG_WIN_TRIGGER', StageCategory.win, 80, SpatialBus.sfx, 'DEFAULT');
-    _register('BIG_WIN_START', StageCategory.win, 85, SpatialBus.music, 'DEFAULT', isLooping: true);
-    _register('BIG_WIN_LOOP', StageCategory.win, 90, SpatialBus.music, 'DEFAULT', ducksMusic: true, isLooping: true);
-    _register('BIG_WIN_COINS', StageCategory.win, 75, SpatialBus.sfx, 'DEFAULT');
-    _register('BIG_WIN_IMPACT', StageCategory.win, 80, SpatialBus.sfx, 'DEFAULT');
-    _register('BIG_WIN_UPGRADE', StageCategory.win, 82, SpatialBus.sfx, 'DEFAULT');
     _register('BIG_WIN_END', StageCategory.win, 75, SpatialBus.music, 'DEFAULT');
-    _register('BIG_WIN_OUTRO', StageCategory.win, 70, SpatialBus.music, 'DEFAULT');
+    _register('BIG_WIN_TICK_START', StageCategory.win, 60, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('BIG_WIN_TICK_END', StageCategory.win, 55, SpatialBus.sfx, 'DEFAULT');
+    _register('COIN_SHOWER_START', StageCategory.win, 75, SpatialBus.sfx, 'DEFAULT');
+    _register('COIN_SHOWER_END', StageCategory.win, 70, SpatialBus.sfx, 'DEFAULT');
     _register('MAX_AWARD_CAP', StageCategory.win, 95, SpatialBus.sfx, 'JACKPOT_TRIGGER', ducksMusic: true);
 
     // Rollup counter (pooled for rapid fire)
@@ -811,13 +809,26 @@ class StageConfigurationService extends ChangeNotifier {
     // ─────────────────────────────────────────────────────────────────────────
     // FEATURE / FREE SPINS
     // ─────────────────────────────────────────────────────────────────────────
-    _register('FS_TRIGGER', StageCategory.feature, 85, SpatialBus.sfx, 'FREE_SPIN_TRIGGER', ducksMusic: true);
-    _register('FS_ENTER', StageCategory.feature, 75, SpatialBus.sfx, 'FEATURE_ENTER', ducksMusic: true);
+    _register('FS_HOLD_INTRO', StageCategory.feature, 85, SpatialBus.sfx, 'FEATURE_ENTER', ducksMusic: true);
+    _register('FS_HOLD_OUTRO', StageCategory.feature, 80, SpatialBus.sfx, 'DEFAULT');
+    _register('FS_START', StageCategory.feature, 75, SpatialBus.sfx, 'DEFAULT');
     _register('FS_SPIN_START', StageCategory.feature, 55, SpatialBus.sfx, 'SPIN_START');
     _register('FS_SPIN_END', StageCategory.feature, 45, SpatialBus.sfx, 'DEFAULT');
+    _register('FS_WIN', StageCategory.feature, 60, SpatialBus.sfx, 'DEFAULT');
+    _register('FS_SCATTER_LAND', StageCategory.feature, 70, SpatialBus.sfx, 'DEFAULT');
+    _register('FS_SCATTER_LAND_R1', StageCategory.feature, 70, SpatialBus.sfx, 'DEFAULT');
+    _register('FS_SCATTER_LAND_R2', StageCategory.feature, 70, SpatialBus.sfx, 'DEFAULT');
+    _register('FS_SCATTER_LAND_R3', StageCategory.feature, 70, SpatialBus.sfx, 'DEFAULT');
+    _register('FS_SCATTER_LAND_R4', StageCategory.feature, 70, SpatialBus.sfx, 'DEFAULT');
+    _register('FS_SCATTER_LAND_R5', StageCategory.feature, 70, SpatialBus.sfx, 'DEFAULT');
+    _register('FS_STICKY_WILD', StageCategory.feature, 65, SpatialBus.sfx, 'DEFAULT');
+    _register('FS_EXPANDING_WILD', StageCategory.feature, 65, SpatialBus.sfx, 'DEFAULT');
+    _register('FS_MULTIPLIER_UP', StageCategory.feature, 65, SpatialBus.sfx, 'DEFAULT');
     _register('FS_RETRIGGER', StageCategory.feature, 80, SpatialBus.sfx, 'FREE_SPIN_TRIGGER', ducksMusic: true);
-    _register('FS_EXIT', StageCategory.feature, 70, SpatialBus.sfx, 'DEFAULT');
-    _register('FS_MUSIC', StageCategory.music, 40, SpatialBus.music, 'DEFAULT', isLooping: true);
+    _register('FS_RETRIGGER_3', StageCategory.feature, 80, SpatialBus.sfx, 'FREE_SPIN_TRIGGER', ducksMusic: true);
+    _register('FS_RETRIGGER_5', StageCategory.feature, 80, SpatialBus.sfx, 'FREE_SPIN_TRIGGER', ducksMusic: true);
+    _register('FS_RETRIGGER_10', StageCategory.feature, 80, SpatialBus.sfx, 'FREE_SPIN_TRIGGER', ducksMusic: true);
+    _register('FS_END', StageCategory.feature, 70, SpatialBus.sfx, 'DEFAULT');
 
     // Scene transitions (context switches between game phases)
     _register('CONTEXT_BASE_TO_FS', StageCategory.feature, 85, SpatialBus.music, 'FEATURE_ENTER', ducksMusic: true);
@@ -1258,7 +1269,7 @@ class StageConfigurationService extends ChangeNotifier {
     _register('MUSIC_BASE_L4', StageCategory.music, 10, SpatialBus.music, 'DEFAULT', isLooping: true);
     _register('MUSIC_BASE_L5', StageCategory.music, 10, SpatialBus.music, 'DEFAULT', isLooping: true);
     _register('MUSIC_TENSION', StageCategory.music, 15, SpatialBus.music, 'DEFAULT', isLooping: true);
-    // Big Win music handled via BIG_WIN_START/END/OUTRO composite event layers
+    // Big Win music handled via BIG_WIN_START/END composite event layers
     // Free Spins music
     _register('MUSIC_FS_INTRO', StageCategory.music, 20, SpatialBus.music, 'DEFAULT');
     _register('MUSIC_FS_OUTRO', StageCategory.music, 20, SpatialBus.music, 'DEFAULT');
@@ -1302,7 +1313,7 @@ class StageConfigurationService extends ChangeNotifier {
     // HIGHEST (80-100)
     if (stage.startsWith('JACKPOT')) return 95;
     if (stage.startsWith('WIN_EPIC') || stage.startsWith('WIN_ULTRA')) return 85;
-    if (stage.startsWith('FS_TRIGGER') || stage.startsWith('BONUS_TRIGGER')) return 85;
+    if (stage.startsWith('FS_HOLD_INTRO') || stage.startsWith('BONUS_TRIGGER')) return 85;
 
     // HIGH (60-79)
     if (stage.startsWith('WIN_BIG') || stage.startsWith('WIN_MEGA')) return 70;
@@ -1331,7 +1342,7 @@ class StageConfigurationService extends ChangeNotifier {
 
   SpatialBus _getBusByPrefix(String stage) {
     if (stage.startsWith('REEL_') || stage.startsWith('SYMBOL_LAND')) return SpatialBus.reels;
-    if (stage.startsWith('MUSIC_') || stage.startsWith('FS_MUSIC') || stage.startsWith('HOLD_MUSIC') ||
+    if (stage.startsWith('MUSIC_') || stage.startsWith('HOLD_MUSIC') ||
         stage.startsWith('WHEEL_MUSIC') || stage.startsWith('PICK_MUSIC')) return SpatialBus.music;
     if (stage.startsWith('UI_') || stage.startsWith('SYSTEM_') || stage.startsWith('MENU_')) return SpatialBus.ui;
     if (stage.startsWith('AMBIENT_') || stage.startsWith('IDLE_')) return SpatialBus.ambience;
@@ -1416,12 +1427,10 @@ class StageConfigurationService extends ChangeNotifier {
     if (stage.startsWith('TUMBLE_') || stage.startsWith('AVALANCHE_')) return 'CASCADE_STEP';
 
     // FREE SPINS
-    if (stage.startsWith('FS_TRIGGER') || stage.startsWith('FS_RETRIGGER')) return 'FREE_SPIN_TRIGGER';
-    if (stage.startsWith('FS_ENTER') || stage.startsWith('FS_TRANSITION_IN')) return 'FEATURE_ENTER';
-    if (stage.startsWith('FS_EXIT') || stage.startsWith('FS_TRANSITION_OUT')) return 'FEATURE_EXIT';
-    if (stage.startsWith('FS_SUMMARY')) return 'WIN_MEGA';
+    if (stage.startsWith('FS_RETRIGGER')) return 'FREE_SPIN_TRIGGER';
+    if (stage.startsWith('FS_HOLD_INTRO') || stage.startsWith('FS_TRANSITION_IN')) return 'FEATURE_ENTER';
+    if (stage.startsWith('FS_END') || stage.startsWith('FS_TRANSITION_OUT')) return 'FEATURE_EXIT';
     if (stage.startsWith('FS_MULTIPLIER')) return 'WIN_BIG';
-    if (stage.startsWith('FS_LAST_SPIN')) return 'ANTICIPATION';
     if (stage.startsWith('FS_')) return 'DEFAULT';
 
     // HOLD & SPIN
@@ -1497,7 +1506,7 @@ class StageConfigurationService extends ChangeNotifier {
     'MUSIC_BONUS_L1', 'MUSIC_BONUS_L2', 'MUSIC_BONUS_L3', 'MUSIC_BONUS_L4', 'MUSIC_BONUS_L5',
     // Hold & Spin
     'MUSIC_HOLD_L1', 'MUSIC_HOLD_L2', 'MUSIC_HOLD_L3', 'MUSIC_HOLD_L4', 'MUSIC_HOLD_L5',
-    // Big Win — handled via BIG_WIN_START/END/OUTRO composite event layers
+    // Big Win — handled via BIG_WIN_START/END composite event layers
     // Jackpot
     'MUSIC_JACKPOT_L1', 'MUSIC_JACKPOT_L2', 'MUSIC_JACKPOT_L3', 'MUSIC_JACKPOT_L4', 'MUSIC_JACKPOT_L5',
     // Gamble
@@ -1511,7 +1520,6 @@ class StageConfigurationService extends ChangeNotifier {
     'MUSIC_BIG_WIN', 'MUSIC_JACKPOT', 'MUSIC_GAMBLE',
     'AMBIENT_LOOP', 'ATTRACT_MODE', 'IDLE_LOOP', 'ATTRACT_LOOP',
     'ANTICIPATION_TENSION',
-    'BIG_WIN_LOOP',
     'GAME_START', 'BASE_GAME_START', 'GAME_MUSIC',
   };
 
@@ -1807,7 +1815,7 @@ class PriorityTierPreset {
       'WIN_ULTRA': 100,
       'WIN_EPIC': 98,
       'WIN_MEGA': 95,
-      'FS_TRIGGER': 98,
+      'FS_HOLD_INTRO': 98,
       'BONUS_TRIGGER': 98,
     },
   );
@@ -1861,7 +1869,7 @@ class PriorityTierPreset {
       'WIN_BIG': 85,
       'JACKPOT_GRAND': 100,
       'JACKPOT_MAJOR': 98,
-      'FS_TRIGGER': 95,
+      'FS_HOLD_INTRO': 95,
       'BIG_WIN_START': 50, // Big win gets extra priority
       'ANTICIPATION_TENSION': 70,
     },

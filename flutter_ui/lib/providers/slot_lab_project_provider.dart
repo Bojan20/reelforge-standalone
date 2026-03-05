@@ -169,7 +169,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     'BIG_WIN_START',
     ..._winConfiguration.bigWins.tiers.map((t) => t.stageName),
     'BIG_WIN_END',
-    'BIG_WIN_FADE_OUT',
   ];
 
   // UI state getters (SL-INT-P1.2, SL-INT-P1.4)
@@ -1676,7 +1675,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
     ('win_presentation', 'Win Presentation', 41, ['WIN_', 'ROLLUP_', 'BIG_WIN', 'CELEBRATION', 'COIN_']),
     ('cascading', 'Cascading Mechanics', 24, ['CASCADE_', 'TUMBLE_', 'AVALANCHE_', 'CLUSTER_']),
     ('multipliers', 'Multipliers', 18, ['MULT_', 'MULTIPLIER_']),
-    ('free_spins', 'Free Spins', 24, ['FS_', 'FREESPIN_', 'FREE_SPIN']),
+    ('free_spins', 'Free Spins', 24, ['FS_']),
     ('bonus', 'Bonus Games', 32, ['BONUS_', 'PICK_', 'WHEEL_', 'TRAIL_']),
     ('hold_win', 'Hold & Win', 23, ['HOLD_', 'RESPIN_', 'LOCK_', 'COIN_LAND', 'RESPINS_']),
     ('jackpots', 'Jackpots', 26, ['JACKPOT_', 'JP_', 'GRAND_', 'MAJOR_', 'MINOR_', 'MINI_']),

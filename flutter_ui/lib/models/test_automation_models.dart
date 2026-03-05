@@ -827,7 +827,7 @@ class BuiltInTestScenarios {
             actions: [TestAction.spinForced('freeSpins')],
             assertions: [
               TestAssertion.stageTriggered('FEATURE_TRIGGER'),
-              TestAssertion.stageTriggered('FREESPIN_INTRO'),
+              TestAssertion.stageTriggered('FS_HOLD_INTRO'),
             ],
           ),
           TestStep(
@@ -838,7 +838,7 @@ class BuiltInTestScenarios {
               TestAction.spin(),
             ],
             assertions: [
-              TestAssertion.stageTriggered('FREESPIN_SPIN_START'),
+              TestAssertion.stageTriggered('FS_SPIN_START'),
             ],
           ),
         ],

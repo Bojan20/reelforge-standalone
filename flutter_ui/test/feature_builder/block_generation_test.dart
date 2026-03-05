@@ -95,29 +95,29 @@ void main() {
   });
 
   group('FreeSpinsBlock Stage Generation', () {
-    test('generates FS_TRIGGER, FS_ENTER, FS_EXIT stages', () {
+    test('generates FS_HOLD_INTRO, FS_START, FS_END stages', () {
       final block = FreeSpinsBlock();
       block.isEnabled = true;
       final stages = block.generateStages();
 
-      expect(stages.any((s) => s.name == 'FS_TRIGGER'), isTrue);
-      expect(stages.any((s) => s.name == 'FS_ENTER'), isTrue);
-      expect(stages.any((s) => s.name == 'FS_EXIT'), isTrue);
+      expect(stages.any((s) => s.name == 'FS_HOLD_INTRO'), isTrue);
+      expect(stages.any((s) => s.name == 'FS_START'), isTrue);
+      expect(stages.any((s) => s.name == 'FS_END'), isTrue);
 
-      final trigger = stages.firstWhere((s) => s.name == 'FS_TRIGGER');
-      expect(trigger.priority, 90);
+      final holdIntro = stages.firstWhere((s) => s.name == 'FS_HOLD_INTRO');
+      expect(holdIntro.priority, 90);
     });
 
-    test('generates FS_MUSIC when hasDedicatedMusic is true', () {
+    test('generates FS_START when hasDedicatedMusic is true', () {
       final block = FreeSpinsBlock();
       block.isEnabled = true;
       block.setOptionValue('hasDedicatedMusic', true);
       final stages = block.generateStages();
 
-      expect(stages.any((s) => s.name == 'FS_MUSIC'), isTrue);
-      final music = stages.firstWhere((s) => s.name == 'FS_MUSIC');
-      expect(music.looping, isTrue);
-      expect(music.bus, 'music');
+      expect(stages.any((s) => s.name == 'FS_START'), isTrue);
+      final start = stages.firstWhere((s) => s.name == 'FS_START');
+      expect(start.looping, isTrue);
+      expect(start.bus, 'music');
     });
 
     test('generates retrigger stages when enabled', () {

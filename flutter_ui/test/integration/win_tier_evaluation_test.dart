@@ -317,8 +317,8 @@ void main() {
     test('static stage names', () {
       expect(BigWinConfig.startStageName, 'BIG_WIN_START');
       expect(BigWinConfig.endStageName, 'BIG_WIN_END');
-      expect(BigWinConfig.fadeOutStageName, 'BIG_WIN_FADE_OUT');
-      expect(BigWinConfig.rollupTickStageName, 'BIG_WIN_ROLLUP_TICK');
+      expect(BigWinConfig.tickStartStageName, 'BIG_WIN_TICK_START');
+      expect(BigWinConfig.tickEndStageName, 'BIG_WIN_TICK_END');
     });
 
     test('getTotalDurationMs calculates correctly', () {
@@ -384,8 +384,10 @@ void main() {
       expect(stages, contains('BIG_WIN_TIER_1'));
       expect(stages, contains('BIG_WIN_TIER_5'));
       expect(stages, contains('BIG_WIN_END'));
-      expect(stages, contains('BIG_WIN_FADE_OUT'));
-      expect(stages, contains('BIG_WIN_ROLLUP_TICK'));
+      expect(stages, contains('BIG_WIN_TICK_START'));
+      expect(stages, contains('BIG_WIN_TICK_END'));
+      expect(stages, contains('COIN_SHOWER_START'));
+      expect(stages, contains('COIN_SHOWER_END'));
     });
 
     test('allStageNames getter matches method', () {

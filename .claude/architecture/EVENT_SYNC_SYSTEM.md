@@ -1570,8 +1570,10 @@ String get stageName {
 | `WIN_SYMBOL_HIGHLIGHT_*` | SlotPreviewWidget | `slot_preview_widget.dart:1173` |
 | `REEL_STOP_0..4` | ProfessionalReelAnimation | `professional_reel_animation.dart:tick()` |
 | `WIN_PRESENT_*` | SlotPreviewWidget | `slot_preview_widget.dart:_startWinPresentation()` |
-| `BIG_WIN_LOOP` | SlotPreviewWidget | `slot_preview_widget.dart` (win ratio ≥ 20x) |
-| `BIG_WIN_COINS` | SlotPreviewWidget | `slot_preview_widget.dart` (win ratio ≥ 20x) |
+| `COIN_SHOWER_START` | SlotPreviewWidget | `slot_preview_widget.dart` (win ratio ≥ 20x) |
+| `COIN_SHOWER_END` | SlotPreviewWidget | `slot_preview_widget.dart` (win ratio ≥ 20x) |
+| `BIG_WIN_TICK_START` | SlotPreviewWidget | `slot_preview_widget.dart` (win ratio ≥ 20x) |
+| `BIG_WIN_TICK_END` | SlotPreviewWidget | `slot_preview_widget.dart` (win ratio ≥ 20x) |
 
 ### Big Win Celebration System (2026-01-25) ✅
 
@@ -1582,10 +1584,12 @@ Dedicirani audio sistem za Big Win celebracije.
 **Stages:**
 | Stage | Bus | Priority | Loop | Opis |
 |-------|-----|----------|------|------|
-| `BIG_WIN_LOOP` | Music (1) | 90 | ✅ | Looping celebration muzika |
-| `BIG_WIN_COINS` | SFX (2) | 75 | Ne | Coin particle SFX |
+| `COIN_SHOWER_START` | SFX (2) | 75 | Ne | Coin shower start SFX |
+| `COIN_SHOWER_END` | SFX (2) | 75 | Ne | Coin shower end SFX |
+| `BIG_WIN_TICK_START` | SFX (2) | 80 | Ne | Big win rollup tick start |
+| `BIG_WIN_TICK_END` | SFX (2) | 80 | Ne | Big win rollup tick end |
 
-**Auto-Stop:** `BIG_WIN_LOOP` automatski se zaustavlja kada se završi win prezentacija (`setWinPresentationActive(false)`).
+**Auto-Stop:** `COIN_SHOWER_END` i `BIG_WIN_TICK_END` automatski se triggeruju kada se završi win prezentacija (`setWinPresentationActive(false)`).
 
 ### Verification Checklist
 
@@ -2380,7 +2384,8 @@ if (normalizedStage.endsWith('_END') && normalizedStage != 'SPIN_END') {
 
 | _END Stage | Fade-Out Targets | Example |
 |------------|------------------|---------|
-| `BIG_WIN_END` | `BIG_WIN_*` | BIG_WIN_LOOP, BIG_WIN_COINS, BIG_WIN_IMPACT |
+| `BIG_WIN_END` | `BIG_WIN_*` | BIG_WIN_TICK_START, BIG_WIN_TICK_END |
+| `COIN_SHOWER_END` | `COIN_SHOWER_*` | COIN_SHOWER_START |
 | `FREESPIN_END` | `FREESPIN_*` | FREESPIN_MUSIC, FREESPIN_LOOP |
 | `FS_END` | `FS_*` | FS_MUSIC, FS_LOOP |
 | `CASCADE_END` | `CASCADE_*` | CASCADE_STEP, CASCADE_LOOP |
@@ -2423,7 +2428,7 @@ When user presses SKIP during win presentation, both embedded and fullscreen mod
 
 ```
 1. STOP all active win audio:
-   - BIG_WIN_LOOP, BIG_WIN_COINS, BIG_WIN_INTRO
+   - COIN_SHOWER_START, BIG_WIN_TICK_START
    - ROLLUP, ROLLUP_TICK
    - WIN_SYMBOL_HIGHLIGHT, WIN_LINE_SHOW, WIN_PRESENT
    - WIN_PRESENT_BIG/SUPER/MEGA/EPIC/ULTRA
@@ -2431,6 +2436,8 @@ When user presses SKIP during win presentation, both embedded and fullscreen mod
 
 2. TRIGGER END stages:
    - ROLLUP_END (always)
+   - COIN_SHOWER_END (if coin shower was active)
+   - BIG_WIN_TICK_END (if big win tick was active)
    - BIG_WIN_END (if win tier was active)
    - WIN_PRESENT_END (if win tier was active)
    - WIN_COLLECT (always)

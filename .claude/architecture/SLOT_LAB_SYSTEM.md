@@ -1158,8 +1158,10 @@ Dedicirani audio sistem za Big Win celebracije (≥20x bet).
 **Komponente:**
 | Stage | Bus | Priority | Loop | Opis |
 |-------|-----|----------|------|------|
-| `BIG_WIN_LOOP` | Music (1) | 90 | ✅ Da | Looping celebration muzika, ducks base music |
-| `BIG_WIN_COINS` | SFX (2) | 75 | Ne | Coin particle zvuk efekti |
+| `COIN_SHOWER_START` | SFX (2) | 75 | Ne | Coin shower start SFX |
+| `COIN_SHOWER_END` | SFX (2) | 75 | Ne | Coin shower end SFX |
+| `BIG_WIN_TICK_START` | SFX (2) | 80 | Ne | Big win rollup tick start |
+| `BIG_WIN_TICK_END` | SFX (2) | 80 | Ne | Big win rollup tick end |
 
 **Trigger Logic (`slot_preview_widget.dart`):**
 ```dart
@@ -1167,8 +1169,8 @@ Dedicirani audio sistem za Big Win celebracije (≥20x bet).
 final bet = widget.provider.betAmount;
 final winRatio = bet > 0 ? result.totalWin / bet : 0.0;
 if (winRatio >= 20) {
-  eventRegistry.triggerStage('BIG_WIN_LOOP');
-  eventRegistry.triggerStage('BIG_WIN_COINS');
+  eventRegistry.triggerStage('COIN_SHOWER_START');
+  eventRegistry.triggerStage('BIG_WIN_TICK_START');
 }
 ```
 
@@ -1176,16 +1178,18 @@ if (winRatio >= 20) {
 ```dart
 void setWinPresentationActive(bool active) {
   if (!active) {
-    eventRegistry.stopEvent('BIG_WIN_LOOP');  // Stop loop when win ends
+    eventRegistry.triggerStage('COIN_SHOWER_END');
+    eventRegistry.triggerStage('BIG_WIN_TICK_END');
   }
 }
 ```
 
 **Stage Configuration (`stage_configuration_service.dart`):**
 ```dart
-_register('BIG_WIN_LOOP', StageCategory.win, 90, SpatialBus.music, 'WIN_EPIC',
-          ducksMusic: true, isLooping: true);
-_register('BIG_WIN_COINS', StageCategory.win, 75, SpatialBus.sfx, 'WIN_EPIC');
+_register('COIN_SHOWER_START', StageCategory.win, 75, SpatialBus.sfx, 'WIN_EPIC');
+_register('COIN_SHOWER_END', StageCategory.win, 75, SpatialBus.sfx, 'WIN_EPIC');
+_register('BIG_WIN_TICK_START', StageCategory.win, 80, SpatialBus.sfx, 'WIN_EPIC');
+_register('BIG_WIN_TICK_END', StageCategory.win, 80, SpatialBus.sfx, 'WIN_EPIC');
 ```
 
 **UltimateAudioPanel V8 Integration:**
@@ -1975,8 +1979,8 @@ SMALL: 500ms, BIG: 1000ms, SUPER: 2000ms
 MEGA: 3000ms, EPIC: 5000ms, ULTRA: 8000ms
 
 On SKIP press:
-1. Stop ALL win audio (BIG_WIN_LOOP, ROLLUP_TICK, WIN_PRESENT_*, etc.)
-2. Trigger END stages: ROLLUP_END, BIG_WIN_END, WIN_PRESENT_END, WIN_COLLECT
+1. Stop ALL win audio (COIN_SHOWER_START, BIG_WIN_TICK_START, ROLLUP_TICK, WIN_PRESENT_*, etc.)
+2. Trigger END stages: ROLLUP_END, COIN_SHOWER_END, BIG_WIN_TICK_END, BIG_WIN_END, WIN_PRESENT_END, WIN_COLLECT
 3. Fade out win plaque (300ms)
 4. Reset all presentation state
 5. Guard against stale .then() callbacks via _winTier.isEmpty check
@@ -1989,7 +1993,7 @@ On SKIP press:
 
 **END Stage Parity (P1.7, 2026-02-14):**
 - Embedded mode (`_executeSkipFadeOut`) now matches fullscreen mode (`_handleSkipWinPresentation`)
-- Both trigger `ROLLUP_END`, `BIG_WIN_END`, `WIN_PRESENT_END`, `WIN_COLLECT`
+- Both trigger `ROLLUP_END`, `COIN_SHOWER_END`, `BIG_WIN_TICK_END`, `BIG_WIN_END`, `WIN_PRESENT_END`, `WIN_COLLECT`
 
 **Implementation Files:**
 - `slot_preview_widget.dart` — `_executeSkipFadeOut()`, WinPresentationTiming class

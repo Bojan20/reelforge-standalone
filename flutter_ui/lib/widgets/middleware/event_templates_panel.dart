@@ -185,20 +185,11 @@ class _EventTemplatesPanelState extends State<EventTemplatesPanel> {
       name: 'Free Spins Trigger',
       description: 'Scatter collect + trigger fanfare',
       category: _TemplateCategory.feature,
-      stage: 'FS_TRIGGER',
+      stage: 'FS_HOLD_INTRO',
       layerCount: 3,
       icon: Icons.auto_awesome,
     ),
-    _EventTemplate(
-      id: 't_fs_music',
-      name: 'Free Spins Music',
-      description: 'Looping feature music',
-      category: _TemplateCategory.feature,
-      stage: 'FS_MUSIC',
-      isLooping: true,
-      bus: 'Music',
-      icon: Icons.music_note,
-    ),
+    // FS_MUSIC removed — music handled by music states block
     _EventTemplate(
       id: 't_bonus',
       name: 'Bonus Enter',

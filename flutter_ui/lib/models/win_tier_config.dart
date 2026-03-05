@@ -497,8 +497,8 @@ class BigWinConfig {
   /// Stage names for big win flow
   static const String startStageName = 'BIG_WIN_START';
   static const String endStageName = 'BIG_WIN_END';
-  static const String fadeOutStageName = 'BIG_WIN_FADE_OUT';
-  static const String rollupTickStageName = 'BIG_WIN_ROLLUP_TICK';
+  static const String tickStartStageName = 'BIG_WIN_TICK_START';
+  static const String tickEndStageName = 'BIG_WIN_TICK_END';
 
   /// Check if win qualifies for Big Win
   bool isBigWin(double winAmount, double betAmount) {
@@ -746,8 +746,8 @@ class SlotWinConfiguration {
       stages.add(tier.stageName);
     }
     stages.add(BigWinConfig.endStageName);
-    stages.add(BigWinConfig.fadeOutStageName);
-    stages.add(BigWinConfig.rollupTickStageName);
+    stages.add(BigWinConfig.tickStartStageName);
+    stages.add(BigWinConfig.tickEndStageName);
 
     return stages;
   }

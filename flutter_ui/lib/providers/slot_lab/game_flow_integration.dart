@@ -265,7 +265,7 @@ class GameFlowIntegration {
         dismissMode: fsEntryMs > 0
             ? TransitionDismissMode.timedOrClick
             : TransitionDismissMode.clickToContinue,
-        audioStage: 'FS_INTRO',
+        audioStage: 'FS_HOLD_INTRO',
       ),
     );
 
@@ -277,7 +277,7 @@ class GameFlowIntegration {
         durationMs: fsExitMs,
         dismissMode: TransitionDismissMode.timed,
         showWinOnExit: true,
-        audioStage: 'FS_OUTRO',
+        audioStage: 'FS_END',
       ),
     );
     flow.setTransitionConfig(
@@ -286,7 +286,7 @@ class GameFlowIntegration {
         durationMs: fsExitMs,
         dismissMode: TransitionDismissMode.timed,
         showWinOnExit: true,
-        audioStage: 'FS_OUTRO',
+        audioStage: 'FS_END',
       ),
     );
 
