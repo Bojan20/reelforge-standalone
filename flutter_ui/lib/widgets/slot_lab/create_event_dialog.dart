@@ -261,7 +261,6 @@ class _CreateEventDialogState extends State<CreateEventDialog> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: ListView.builder(
-                  shrinkWrap: true,
                   itemCount: _filteredStages.length,
                   itemBuilder: (ctx, i) {
                     final stage = _filteredStages[i];

@@ -231,29 +231,35 @@ class _CompositeEditorPanelState extends State<CompositeEditorPanel> {
             },
           ),
           const Spacer(),
-          // Zoom controls
+          // Zoom controls — 24px hit targets for usability
           MouseRegion(
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
               onTap: () => setState(() {
                 _pixelsPerSecond = (_pixelsPerSecond * 0.8).clamp(30.0, 500.0);
               }),
-              child: const Icon(Icons.zoom_out, size: 14, color: Colors.white38),
+              child: const SizedBox(
+                width: 24, height: 24,
+                child: Icon(Icons.zoom_out, size: 14, color: Colors.white38),
+              ),
             ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 2),
           Text(
             '${_pixelsPerSecond.toInt()}px/s',
             style: const TextStyle(fontSize: 8, color: Colors.white24, fontFamily: 'monospace'),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 2),
           MouseRegion(
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
               onTap: () => setState(() {
                 _pixelsPerSecond = (_pixelsPerSecond * 1.25).clamp(30.0, 500.0);
               }),
-              child: const Icon(Icons.zoom_in, size: 14, color: Colors.white38),
+              child: const SizedBox(
+                width: 24, height: 24,
+                child: Icon(Icons.zoom_in, size: 14, color: Colors.white38),
+              ),
             ),
           ),
         ],
@@ -600,7 +606,9 @@ class _CompositeEditorPanelState extends State<CompositeEditorPanel> {
                         else
                           Center(
                             child: Text(
-                              hasAudio ? 'Loading...' : 'No audio',
+                              hasAudio
+                                  ? (_waveformCache.containsKey(layer.id) ? 'No waveform' : 'Loading...')
+                                  : 'No audio',
                               style: const TextStyle(fontSize: 8, color: Colors.white24),
                             ),
                           ),
@@ -608,8 +616,11 @@ class _CompositeEditorPanelState extends State<CompositeEditorPanel> {
                         Positioned(
                           left: 4,
                           top: 2,
+                          right: 40,
                           child: Text(
                             fileName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 8,
                               color: trackColor.withValues(alpha: 0.9),
@@ -687,10 +698,16 @@ class _CompositeEditorPanelState extends State<CompositeEditorPanel> {
               waveform.addAll(left);
             }
             _waveformCache[layer.id] = waveform;
+          } else {
+            // Mark as failed so we don't retry and show "No waveform"
+            _waveformCache[layer.id] = const [];
           }
+        } else {
+          _waveformCache[layer.id] = const [];
         }
       } catch (_) {
-        // FFI may not be available
+        // FFI not available — mark as failed
+        _waveformCache[layer.id] = const [];
       }
 
       _ensureDuration(layer);

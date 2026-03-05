@@ -69,6 +69,11 @@ class _DebuggerPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const RtpcDebuggerPanel();
+    return LayoutBuilder(
+      builder: (context, constraints) => SizedBox(
+        height: constraints.maxHeight.isFinite ? constraints.maxHeight : 400,
+        child: const RtpcDebuggerPanel(),
+      ),
+    );
   }
 }

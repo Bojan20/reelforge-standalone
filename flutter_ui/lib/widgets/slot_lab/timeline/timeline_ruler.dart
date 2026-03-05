@@ -10,8 +10,8 @@ import 'package:flutter/material.dart';
 import '../../../models/timeline/timeline_state.dart';
 
 class TimelineRuler extends StatelessWidget {
-  final double duration;              // Total timeline duration (seconds)
-  final double zoom;                  // Zoom level
+  final double duration;
+  final double zoom;
   final TimeDisplayMode displayMode;
   final GridMode gridMode;
   final int millisecondInterval;
@@ -47,7 +47,6 @@ class TimelineRuler extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // Ruler ticks and labels
           CustomPaint(
             size: Size.infinite,
             painter: _TimelineRulerPainter(
@@ -59,15 +58,12 @@ class TimelineRuler extends StatelessWidget {
               frameRate: frameRate,
             ),
           ),
-
-          // Loop region handles
           if (loopStart != null)
             _buildLoopHandle(
               position: loopStart! / duration,
               isStart: true,
               onDrag: onLoopStartDrag,
             ),
-
           if (loopEnd != null)
             _buildLoopHandle(
               position: loopEnd! / duration,
@@ -79,14 +75,13 @@ class TimelineRuler extends StatelessWidget {
     );
   }
 
-  /// Loop region handle (draggable)
   Widget _buildLoopHandle({
     required double position,
     required bool isStart,
     VoidCallback? onDrag,
   }) {
     return Positioned(
-      left: position * 10000, // Will be constrained by LayoutBuilder
+      left: position * 10000,
       top: 0,
       bottom: 0,
       child: GestureDetector(
@@ -113,7 +108,7 @@ class TimelineRuler extends StatelessWidget {
   }
 }
 
-/// Ruler CustomPainter
+/// Ruler CustomPainter — pre-allocated paints and cached ticks
 class _TimelineRulerPainter extends CustomPainter {
   final double duration;
   final double zoom;
@@ -122,37 +117,36 @@ class _TimelineRulerPainter extends CustomPainter {
   final int millisecondInterval;
   final int frameRate;
 
-  const _TimelineRulerPainter({
+  // Pre-allocated
+  late final Paint _majorTickPaint;
+  late final Paint _minorTickPaint;
+  late final List<_GridLineTick> _ticks;
+  late final Map<int, TextPainter> _labelPainters;
+
+  _TimelineRulerPainter({
     required this.duration,
     required this.zoom,
     required this.displayMode,
     required this.gridMode,
     required this.millisecondInterval,
     required this.frameRate,
-  });
+  }) {
+    _majorTickPaint = Paint()
+      ..color = Colors.white.withOpacity(0.7)
+      ..strokeWidth = 1.5;
 
-  @override
-  void paint(Canvas canvas, Size size) {
-    final ticks = _generateTicks();
+    _minorTickPaint = Paint()
+      ..color = Colors.white.withOpacity(0.4)
+      ..strokeWidth = 1.0;
 
-    for (final tick in ticks) {
-      final x = tick.position * size.width;
+    _ticks = _generateTicks();
 
-      // Draw tick line
-      final tickHeight = tick.isMajor ? 12.0 : 6.0;
-      final paint = Paint()
-        ..color = Colors.white.withOpacity(tick.isMajor ? 0.7 : 0.4)
-        ..strokeWidth = tick.isMajor ? 1.5 : 1.0;
-
-      canvas.drawLine(
-        Offset(x, size.height - tickHeight),
-        Offset(x, size.height),
-        paint,
-      );
-
-      // Draw label (major ticks only)
+    // Pre-create TextPainters for major ticks
+    _labelPainters = {};
+    for (int i = 0; i < _ticks.length; i++) {
+      final tick = _ticks[i];
       if (tick.isMajor && tick.label != null) {
-        final textPainter = TextPainter(
+        final tp = TextPainter(
           text: TextSpan(
             text: tick.label,
             style: TextStyle(
@@ -162,18 +156,32 @@ class _TimelineRulerPainter extends CustomPainter {
             ),
           ),
           textDirection: TextDirection.ltr,
-        );
-
-        textPainter.layout();
-        textPainter.paint(
-          canvas,
-          Offset(x + 4, size.height - tickHeight - 14),
-        );
+        )..layout();
+        _labelPainters[i] = tp;
       }
     }
   }
 
-  /// Generate ticks based on grid mode
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (int i = 0; i < _ticks.length; i++) {
+      final tick = _ticks[i];
+      final x = tick.position * size.width;
+      final tickHeight = tick.isMajor ? 12.0 : 6.0;
+
+      canvas.drawLine(
+        Offset(x, size.height - tickHeight),
+        Offset(x, size.height),
+        tick.isMajor ? _majorTickPaint : _minorTickPaint,
+      );
+
+      final tp = _labelPainters[i];
+      if (tp != null) {
+        tp.paint(canvas, Offset(x + 4, size.height - tickHeight - 14));
+      }
+    }
+  }
+
   List<_GridLineTick> _generateTicks() {
     switch (gridMode) {
       case GridMode.millisecond:
@@ -183,16 +191,14 @@ class _TimelineRulerPainter extends CustomPainter {
       case GridMode.beat:
         return _generateBeatTicks();
       case GridMode.free:
-        return _generateSecondTicks(); // Default to seconds
+        return _generateSecondTicks();
     }
   }
 
-  /// Millisecond ticks
   List<_GridLineTick> _generateMillisecondTicks() {
     final lines = <_GridLineTick>[];
     final intervalSeconds = millisecondInterval / 1000.0;
 
-    // Auto-adjust major tick interval based on zoom
     int majorEvery = 10;
     if (zoom < 0.5) majorEvery = 20;
     if (zoom > 4.0) majorEvery = 5;
@@ -214,7 +220,6 @@ class _TimelineRulerPainter extends CustomPainter {
     return lines;
   }
 
-  /// Frame ticks (24/30/60 fps)
   List<_GridLineTick> _generateFrameTicks() {
     final lines = <_GridLineTick>[];
     final frameSeconds = 1.0 / frameRate;
@@ -237,24 +242,20 @@ class _TimelineRulerPainter extends CustomPainter {
     return lines;
   }
 
-  /// Beat ticks (TODO: Requires tempo map)
   List<_GridLineTick> _generateBeatTicks() {
     final lines = <_GridLineTick>[];
-    const tempo = 120.0; // BPM
+    const tempo = 120.0;
     final beatSeconds = 60.0 / tempo;
 
     int beatIndex = 0;
     for (double time = 0; time <= duration; time += beatSeconds) {
-      final bar = (beatIndex ~/ 4) + 1;
-      final beat = (beatIndex % 4) + 1;
-      final isMajor = beatIndex % 4 == 0; // Bar boundaries
-
+      final isMajor = beatIndex % 4 == 0;
       final position = time / duration;
 
       lines.add(_GridLineTick(
         position: position,
         isMajor: isMajor,
-        label: isMajor ? '$bar.1.1' : null,
+        label: isMajor ? '${(beatIndex ~/ 4) + 1}.1.1' : null,
       ));
 
       beatIndex++;
@@ -263,7 +264,6 @@ class _TimelineRulerPainter extends CustomPainter {
     return lines;
   }
 
-  /// Second ticks (fallback)
   List<_GridLineTick> _generateSecondTicks() {
     final lines = <_GridLineTick>[];
 
@@ -280,21 +280,15 @@ class _TimelineRulerPainter extends CustomPainter {
     return lines;
   }
 
-  /// Format time based on display mode
   String _formatTime(double timeSeconds) {
     switch (displayMode) {
       case TimeDisplayMode.milliseconds:
         return '${(timeSeconds * 1000).toInt()}ms';
-
       case TimeDisplayMode.seconds:
         return '${timeSeconds.toStringAsFixed(1)}s';
-
       case TimeDisplayMode.beats:
-        // TODO: Requires tempo map
         return '1.1.1';
-
       case TimeDisplayMode.timecode:
-        // SMPTE: HH:MM:SS:FF
         final hours = timeSeconds ~/ 3600;
         final minutes = (timeSeconds % 3600) ~/ 60;
         final seconds = (timeSeconds % 60).floor();
@@ -317,7 +311,6 @@ class _TimelineRulerPainter extends CustomPainter {
   }
 }
 
-/// Internal grid line tick (for ruler painter)
 class _GridLineTick {
   final double position;
   final bool isMajor;

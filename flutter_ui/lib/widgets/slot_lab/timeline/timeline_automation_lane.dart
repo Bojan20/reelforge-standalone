@@ -149,49 +149,53 @@ class _TimelineAutomationLaneState extends State<TimelineAutomationLane> {
   }
 }
 
-/// Automation curve painter
+/// Automation curve painter — cached sorted points, reduced pixel work
 class _AutomationCurvePainter extends CustomPainter {
   final AutomationLane lane;
   final double duration;
   final Offset? hoverPosition;
 
-  const _AutomationCurvePainter({
+  // Pre-allocated
+  late final Paint _centerPaint;
+  late final Paint _curvePaint;
+  late final List<AutomationPoint> _sortedPoints;
+
+  _AutomationCurvePainter({
     required this.lane,
     required this.duration,
     this.hoverPosition,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Draw center line (zero/default value)
-    final centerPaint = Paint()
+  }) {
+    _centerPaint = Paint()
       ..color = Colors.white.withOpacity(0.1)
       ..strokeWidth = 1.0;
 
-    canvas.drawLine(
-      Offset(0, size.height / 2),
-      Offset(size.width, size.height / 2),
-      centerPaint,
-    );
-
-    // Draw automation curve
-    if (lane.points.isEmpty) return;
-
-    final curvePaint = Paint()
+    _curvePaint = Paint()
       ..color = lane.curveColor.withOpacity(0.8)
       ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke;
 
-    final path = Path();
-
-    // Sort points by time
-    final sortedPoints = List<AutomationPoint>.from(lane.points)
+    _sortedPoints = List<AutomationPoint>.from(lane.points)
       ..sort((a, b) => a.time.compareTo(b.time));
+  }
 
-    // Draw interpolated curve
-    for (int x = 0; x < size.width.toInt(); x++) {
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawLine(
+      Offset(0, size.height / 2),
+      Offset(size.width, size.height / 2),
+      _centerPaint,
+    );
+
+    if (_sortedPoints.isEmpty) return;
+
+    final path = Path();
+    final widthInt = size.width.toInt();
+
+    // Sample every 2px for performance, lineTo smooths the gaps
+    const step = 2;
+    for (int x = 0; x < widthInt; x += step) {
       final time = (x / size.width) * duration;
-      final normalizedValue = _getInterpolatedValue(time, sortedPoints);
+      final normalizedValue = _getInterpolatedValue(time);
       final y = (1.0 - normalizedValue) * size.height;
 
       if (x == 0) {
@@ -201,36 +205,44 @@ class _AutomationCurvePainter extends CustomPainter {
       }
     }
 
-    canvas.drawPath(path, curvePaint);
+    // Ensure we reach the end
+    if (widthInt > 0) {
+      final lastTime = ((widthInt - 1) / size.width) * duration;
+      final lastY = (1.0 - _getInterpolatedValue(lastTime)) * size.height;
+      path.lineTo(size.width, lastY);
+    }
 
-    // Draw hover crosshair
+    canvas.drawPath(path, _curvePaint);
+
     if (hoverPosition != null) {
       _drawHoverCrosshair(canvas, size);
     }
   }
 
-  /// Get interpolated value at time
-  double _getInterpolatedValue(double time, List<AutomationPoint> sortedPoints) {
-    if (sortedPoints.isEmpty) return 0.5;
-    if (sortedPoints.length == 1) return sortedPoints[0].value;
+  /// Get interpolated value at time using binary search
+  double _getInterpolatedValue(double time) {
+    if (_sortedPoints.isEmpty) return 0.5;
+    if (_sortedPoints.length == 1) return _sortedPoints[0].value;
 
-    // Find surrounding points
-    AutomationPoint? before;
-    AutomationPoint? after;
+    // Binary search for surrounding points
+    int lo = 0, hi = _sortedPoints.length - 1;
 
-    for (int i = 0; i < sortedPoints.length; i++) {
-      if (sortedPoints[i].time <= time) before = sortedPoints[i];
-      if (sortedPoints[i].time >= time && after == null) {
-        after = sortedPoints[i];
-        break;
+    if (time <= _sortedPoints[lo].time) return _sortedPoints[lo].value;
+    if (time >= _sortedPoints[hi].time) return _sortedPoints[hi].value;
+
+    while (hi - lo > 1) {
+      final mid = (lo + hi) ~/ 2;
+      if (_sortedPoints[mid].time <= time) {
+        lo = mid;
+      } else {
+        hi = mid;
       }
     }
 
-    if (before == null) return sortedPoints.first.value;
-    if (after == null) return sortedPoints.last.value;
+    final before = _sortedPoints[lo];
+    final after = _sortedPoints[hi];
     if (before.time == after.time) return before.value;
 
-    // Interpolate
     final t = (time - before.time) / (after.time - before.time);
     return _interpolate(before, after, t);
   }

@@ -58,12 +58,11 @@ class _SegmentsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // MusicSystemPanel already has internal tabs for segments/stingers
-    // Here we show it focused on segments with the looping editor below
-    return const Column(
-      children: [
-        Expanded(child: MusicSystemPanel()),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) => SizedBox(
+        height: constraints.maxHeight.isFinite ? constraints.maxHeight : 300,
+        child: const MusicSystemPanel(),
+      ),
     );
   }
 }

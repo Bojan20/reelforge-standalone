@@ -19,7 +19,7 @@ class GridLine {
   });
 }
 
-/// Timeline grid painter
+/// Timeline grid painter with pre-allocated paints
 class TimelineGridPainter extends CustomPainter {
   final double zoom;
   final double duration;
@@ -28,34 +28,42 @@ class TimelineGridPainter extends CustomPainter {
   final int frameRate;
   final bool snapEnabled;
 
-  const TimelineGridPainter({
+  // Pre-allocated paints
+  late final Paint _majorPaint;
+  late final Paint _minorPaint;
+
+  // Cached grid lines
+  late final List<GridLine> _gridLines;
+
+  TimelineGridPainter({
     required this.zoom,
     required this.duration,
     this.gridMode = GridMode.millisecond,
     this.millisecondInterval = 100,
     this.frameRate = 60,
     this.snapEnabled = false,
-  });
+  }) {
+    final baseOpacity = snapEnabled ? 0.20 : 0.10;
+
+    _majorPaint = Paint()
+      ..color = Colors.white.withOpacity(baseOpacity)
+      ..strokeWidth = 1.0;
+
+    _minorPaint = Paint()
+      ..color = Colors.white.withOpacity(baseOpacity * 0.5)
+      ..strokeWidth = 0.5;
+
+    _gridLines = _generateGridLines();
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
-    final gridLines = _generateGridLines();
-
-    // Base opacity: 10% when snap off, 20% when on
-    final baseOpacity = snapEnabled ? 0.20 : 0.10;
-
-    for (final line in gridLines) {
+    for (final line in _gridLines) {
       final x = line.position * size.width;
-      final opacity = line.isMajor ? baseOpacity : baseOpacity * 0.5;
-
-      final paint = Paint()
-        ..color = Colors.white.withOpacity(opacity)
-        ..strokeWidth = line.isMajor ? 1.0 : 0.5;
-
       canvas.drawLine(
         Offset(x, 0),
         Offset(x, size.height),
-        paint,
+        line.isMajor ? _majorPaint : _minorPaint,
       );
     }
   }
@@ -70,7 +78,7 @@ class TimelineGridPainter extends CustomPainter {
       case GridMode.beat:
         return _generateBeatGrid();
       case GridMode.free:
-        return []; // No grid in free mode
+        return const [];
     }
   }
 
@@ -79,12 +87,11 @@ class TimelineGridPainter extends CustomPainter {
     final lines = <GridLine>[];
     final intervalSeconds = millisecondInterval / 1000.0;
 
-    // Auto-adjust density based on zoom
-    int majorEvery = 10; // Major line every 10 minor lines
+    int majorEvery = 10;
     if (zoom < 0.5) {
-      majorEvery = 20; // Less dense when zoomed out
+      majorEvery = 20;
     } else if (zoom > 4.0) {
-      majorEvery = 5;  // More dense when zoomed in
+      majorEvery = 5;
     }
 
     int lineIndex = 0;
@@ -108,8 +115,6 @@ class TimelineGridPainter extends CustomPainter {
   List<GridLine> _generateFrameGrid() {
     final lines = <GridLine>[];
     final frameSeconds = 1.0 / frameRate;
-
-    // Major tick every second
     final framesPerSecond = frameRate;
 
     int frameIndex = 0;
@@ -132,21 +137,18 @@ class TimelineGridPainter extends CustomPainter {
   /// Beat grid (requires tempo — placeholder)
   List<GridLine> _generateBeatGrid() {
     final lines = <GridLine>[];
-    const tempo = 120.0; // BPM (TODO: Get from tempo map)
+    const tempo = 120.0;
     final beatSeconds = 60.0 / tempo;
 
     int beatIndex = 0;
     for (double time = 0; time <= duration; time += beatSeconds) {
-      final bar = (beatIndex ~/ 4) + 1;
-      final beat = (beatIndex % 4) + 1;
-      final isMajor = beatIndex % 4 == 0; // Bar boundaries
-
+      final isMajor = beatIndex % 4 == 0;
       final position = time / duration;
 
       lines.add(GridLine(
         position: position,
         isMajor: isMajor,
-        label: isMajor ? '$bar.1.1' : null,
+        label: isMajor ? '${(beatIndex ~/ 4) + 1}.1.1' : null,
       ));
 
       beatIndex++;
