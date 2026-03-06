@@ -130,6 +130,7 @@ class SymbolDefinition {
   final Color? customColor; // Optional custom color override
   final int sortOrder; // Display order in UI
   final Map<String, dynamic>? metadata; // Additional custom data
+  final String? artworkPath; // Optional path to symbol artwork image (PNG/JPG)
 
   const SymbolDefinition({
     required this.id,
@@ -141,6 +142,7 @@ class SymbolDefinition {
     this.customColor,
     this.sortOrder = 0,
     this.metadata,
+    this.artworkPath,
   });
 
   /// Get the effective display color
@@ -222,6 +224,7 @@ class SymbolDefinition {
     Color? customColor,
     int? sortOrder,
     Map<String, dynamic>? metadata,
+    String? artworkPath,
   }) {
     return SymbolDefinition(
       id: id ?? this.id,
@@ -233,6 +236,7 @@ class SymbolDefinition {
       customColor: customColor ?? this.customColor,
       sortOrder: sortOrder ?? this.sortOrder,
       metadata: metadata ?? this.metadata,
+      artworkPath: artworkPath ?? this.artworkPath,
     );
   }
 
@@ -255,6 +259,7 @@ class SymbolDefinition {
           : null,
       sortOrder: json['sortOrder'] as int? ?? 0,
       metadata: json['metadata'] as Map<String, dynamic>?,
+      artworkPath: json['artworkPath'] as String?,
     );
   }
 
@@ -269,6 +274,7 @@ class SymbolDefinition {
       if (customColor != null) 'customColor': customColor!.value,
       if (sortOrder != 0) 'sortOrder': sortOrder,
       if (metadata != null) 'metadata': metadata,
+      if (artworkPath != null) 'artworkPath': artworkPath,
     };
   }
 

@@ -10,6 +10,7 @@
 library;
 
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -60,6 +61,10 @@ class SlotSymbol {
   final bool isSpecial;
   final SymbolShape shape;
 
+  /// Optional path to symbol artwork image (PNG/JPG).
+  /// When set, the image is rendered instead of the gradient+text fallback.
+  final String? imagePath;
+
   const SlotSymbol({
     required this.id,
     required this.name,
@@ -68,7 +73,15 @@ class SlotSymbol {
     required this.glowColor,
     this.isSpecial = false,
     this.shape = SymbolShape.roundedRect,
+    this.imagePath,
   });
+
+  /// Create a copy with an updated imagePath
+  SlotSymbol withImagePath(String? path) => SlotSymbol(
+    id: id, name: name, displayChar: displayChar,
+    gradientColors: gradientColors, glowColor: glowColor,
+    isSpecial: isSpecial, shape: shape, imagePath: path,
+  );
 
   // ═══════════════════════════════════════════════════════════════════════════
   // DYNAMIC SYMBOL REGISTRY — Populated from GDD when imported
@@ -5495,7 +5508,23 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                 ),
               ),
             ),
-          // Symbol name (text instead of emoji)
+          // Symbol content: artwork image (if imported) or text fallback
+          if (symbol.imagePath != null && symbol.imagePath!.isNotEmpty)
+            Positioned.fill(
+              child: Padding(
+                padding: const EdgeInsets.all(2),
+                child: Image.file(
+                  File(symbol.imagePath!),
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Center(
+                    child: Text(symbol.name, style: TextStyle(
+                      fontSize: fontSize * 0.5, fontWeight: FontWeight.bold, color: Colors.white,
+                    )),
+                  ),
+                ),
+              ),
+            )
+          else
           Center(
             child: Text(
               symbol.name,

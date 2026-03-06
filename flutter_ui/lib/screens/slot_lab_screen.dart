@@ -105,6 +105,7 @@ import '../widgets/slot_lab/timeline/ultimate_timeline_widget.dart';
 import '../providers/undo_manager.dart';
 import '../widgets/slot_lab/game_model_editor.dart';
 import '../widgets/slot_lab/scenario_editor.dart';
+import '../widgets/slot_lab/symbol_art_panel.dart';
 import '../widgets/slot_lab/transition_config_panel.dart';
 import '../widgets/slot_lab/win_tier_config_panel.dart';
 import '../services/diagnostics/diagnostics_service.dart';
@@ -4783,6 +4784,30 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     );
 
     SlotSymbol.setDynamicSymbols(dynamicSymbols);
+
+    // Sync artwork paths from project symbols → runtime SlotSymbol registry
+    _syncArtworkToSlotSymbols();
+  }
+
+  /// Propagate artworkPath from SymbolDefinition → SlotSymbol.imagePath
+  void _syncArtworkToSlotSymbols() {
+    final projectProvider = context.read<SlotLabProjectProvider>();
+    final effective = SlotSymbol.effectiveSymbols;
+    final updated = <int, SlotSymbol>{};
+    for (final entry in effective.entries) {
+      final def = projectProvider.symbols.where((s) {
+        return s.name.toLowerCase() == entry.value.name.toLowerCase() ||
+            s.id.toLowerCase() == entry.value.name.toLowerCase();
+      }).firstOrNull;
+      if (def != null &&
+          def.artworkPath != null &&
+          def.artworkPath!.isNotEmpty) {
+        updated[entry.key] = entry.value.withImagePath(def.artworkPath);
+      } else {
+        updated[entry.key] = entry.value.withImagePath(null);
+      }
+    }
+    SlotSymbol.setDynamicSymbols(updated);
   }
 
   /// Helper to create SlotSymbol from GddSymbol
@@ -9735,10 +9760,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       builder: (context, projectProvider, _) {
         return Column(
           children: [
-            // Scene Transition Config (top half)
+            // Symbol Art (top third)
+            const Expanded(child: SymbolArtPanel()),
+            const Divider(height: 1, color: Color(0xFF2A2A38)),
+            // Scene Transition Config (middle third)
             const Expanded(child: TransitionConfigPanel()),
             const Divider(height: 1, color: Color(0xFF2A2A38)),
-            // Win Tier Config (bottom half)
+            // Win Tier Config (bottom third)
             Expanded(
               child: WinTierConfigPanel(projectProvider: projectProvider),
             ),

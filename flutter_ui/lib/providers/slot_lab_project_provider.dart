@@ -1022,6 +1022,19 @@ class SlotLabProjectProvider extends ChangeNotifier {
     }
   }
 
+  /// Update artwork path for a symbol
+  void updateSymbolArtwork(String id, String? artworkPath) {
+    final index = _symbols.indexWhere((s) => s.id == id);
+    if (index != -1) {
+      _symbols = [
+        ..._symbols.sublist(0, index),
+        _symbols[index].copyWith(artworkPath: artworkPath),
+        ..._symbols.sublist(index + 1),
+      ];
+      _markDirty();
+    }
+  }
+
   /// Remove symbol and its audio assignments
   void removeSymbol(String id) {
     _symbols = _symbols.where((s) => s.id != id).toList();
