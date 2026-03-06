@@ -330,8 +330,12 @@ class DiagnosticsService extends ChangeNotifier {
 
   /// Run N automated spins, collecting diagnostics after each.
   /// [spinFn] should call provider.spin() and return the result.
+  /// [beforeSpin] optional callback before each spin (e.g. grid changes).
+  /// [label] optional label for this QA run shown in logs/findings.
   Future<void> runAutoSpinQA({
     required Future<dynamic> Function() spinFn,
+    void Function(int spinIndex)? beforeSpin,
+    String label = 'AutoSpinQA',
     int count = 20,
     Duration delayBetween = const Duration(milliseconds: 500),
   }) async {
@@ -343,30 +347,43 @@ class DiagnosticsService extends ChangeNotifier {
     if (!_monitoring) startMonitoring();
     notifyListeners();
 
-    log('═══ AUTO-SPIN QA START — $count spins ═══');
+    log('═══ $label START — $count spins ═══');
 
     int errors = 0;
     int warnings = 0;
 
     for (int i = 0; i < count; i++) {
       if (!_autoSpinRunning) {
-        log('AUTO-SPIN CANCELLED at spin ${i + 1}/$count');
+        log('$label CANCELLED at spin ${i + 1}/$count');
         break;
       }
 
-      log('── AUTO-SPIN ${i + 1}/$count ──');
+      // Pre-spin callback (grid changes, config, etc.)
+      if (beforeSpin != null) {
+        try {
+          beforeSpin(i);
+        } catch (e) {
+          log('$label beforeSpin($i) EXCEPTION: $e');
+          reportFinding(DiagnosticFinding(
+            checker: label,
+            severity: DiagnosticSeverity.error,
+            message: 'beforeSpin($i) threw: $e',
+          ));
+        }
+      }
+
+      log('── $label ${i + 1}/$count ──');
 
       try {
         final result = await spinFn();
-        // Drain monitors immediately after each spin
         _drainMonitors();
         if (result == null) {
-          log('AUTO-SPIN ${i + 1}: spin() returned null');
+          log('$label ${i + 1}: spin() returned null');
         }
       } catch (e) {
-        log('AUTO-SPIN ${i + 1}: EXCEPTION $e');
+        log('$label ${i + 1}: EXCEPTION $e');
         reportFinding(DiagnosticFinding(
-          checker: 'AutoSpinQA',
+          checker: label,
           severity: DiagnosticSeverity.error,
           message: 'Spin ${i + 1} threw: $e',
         ));
@@ -375,7 +392,6 @@ class DiagnosticsService extends ChangeNotifier {
       _autoSpinCompleted = i + 1;
       notifyListeners();
 
-      // Wait for audio stages to finish before next spin
       await Future<void>.delayed(delayBetween);
     }
 
@@ -385,11 +401,11 @@ class DiagnosticsService extends ChangeNotifier {
       if (f.isWarning) warnings++;
     }
 
-    log('═══ AUTO-SPIN QA DONE — $_autoSpinCompleted/$count spins ═══');
+    log('═══ $label DONE — $_autoSpinCompleted/$count spins ═══');
     log('═══ SUMMARY: $errors errors, $warnings warnings, ${_liveFindings.length} total findings ═══');
 
     reportFinding(DiagnosticFinding(
-      checker: 'AutoSpinQA',
+      checker: label,
       severity: errors > 0
           ? DiagnosticSeverity.error
           : warnings > 0

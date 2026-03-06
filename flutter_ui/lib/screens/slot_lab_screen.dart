@@ -1373,41 +1373,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Auto-start monitoring so diagnostics work without manual activation
     diagnostics.startMonitoring();
 
-    // Auto QA: create slot machine + spin 20 times
+    // Auto QA: multi-grid comprehensive QA — casino-grade testing
     Future.delayed(const Duration(seconds: 3), () {
       if (!mounted) return;
-      final provider = _slotLabProvider;
-
-      // 1. Create slot machine via FeatureComposer (same as CREATE button)
-      if (GetIt.instance.isRegistered<FeatureComposerProvider>()) {
-        final composer = GetIt.instance<FeatureComposerProvider>();
-        if (!composer.isConfigured) {
-          const config = SlotMachineConfig(
-            name: 'Auto QA Test',
-            reelCount: 5,
-            rowCount: 3,
-            paylineCount: 20,
-            winTierCount: 5,
-          );
-          composer.applyConfig(config);
-          diagnostics.log('Auto QA: SlotMachineConfig applied (5×3)');
-        }
-      }
-
-      // 2. Initialize engine
-      if (!provider.initialized) {
-        final ok = provider.initialize();
-        diagnostics.log('Auto QA: initialize() = $ok');
-      }
-      provider.updateGridSize(5, 3);
-      diagnostics.log('Auto QA: engine initialized=${provider.initialized}');
-
-      // 3. Run 20 spins
-      diagnostics.runAutoSpinQA(
-        spinFn: () => provider.spin(),
-        count: 20,
-        delayBetween: const Duration(milliseconds: 800),
-      );
+      _runComprehensiveQA(diagnostics);
     });
   }
 
@@ -1422,6 +1391,87 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         _diagFindingsCount = newCount;
       });
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COMPREHENSIVE QA — Multi-grid, all events, 100+ spins
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Grid configurations to test — real casino layouts
+  static const _qaGrids = [
+    (reels: 3, rows: 3, name: '3×3 Retro'),       // Sizzling Hot
+    (reels: 5, rows: 3, name: '5×3 Standard'),     // Book of Ra, Starburst
+    (reels: 5, rows: 4, name: '5×4 Extended'),     // Gonzo's Quest
+    (reels: 6, rows: 4, name: '6×4 Wide'),         // Buffalo, Sweet Bonanza
+    (reels: 4, rows: 4, name: '4×4 Cluster'),      // Cluster pays
+    (reels: 6, rows: 6, name: '6×6 Megaways'),     // Bonanza Megaways base
+    (reels: 8, rows: 4, name: '8×4 Ultra Wide'),   // Edge case / stress test
+  ];
+
+  /// All forced outcomes to test per grid
+  static const _qaOutcomes = ForcedOutcome.values; // 14 outcomes
+
+  void _runComprehensiveQA(DiagnosticsService diagnostics) {
+    final provider = _slotLabProvider;
+
+    // 1. Create slot machine via FeatureComposer
+    if (GetIt.instance.isRegistered<FeatureComposerProvider>()) {
+      final composer = GetIt.instance<FeatureComposerProvider>();
+      if (!composer.isConfigured) {
+        const config = SlotMachineConfig(
+          name: 'QA Multi-Grid',
+          reelCount: 5,
+          rowCount: 3,
+          paylineCount: 20,
+          winTierCount: 5,
+        );
+        composer.applyConfig(config);
+      }
+    }
+
+    // 2. Initialize engine
+    if (!provider.initialized) {
+      provider.initialize();
+    }
+    diagnostics.log('QA: engine initialized=${provider.initialized}');
+
+    // 3. Build spin plan: for each grid → all 14 forced outcomes + 6 random = 20 per grid
+    // Total: 7 grids × 20 spins = 140 spins
+    final spinsPerGrid = _qaOutcomes.length + 6; // 14 forced + 6 random = 20
+    final totalSpins = _qaGrids.length * spinsPerGrid; // 7 × 20 = 140
+
+    int currentGridIdx = -1;
+    String currentGridName = '';
+
+    diagnostics.runAutoSpinQA(
+      label: 'MultiGridQA',
+      spinFn: () {
+        // Determine which grid and outcome for this spin
+        final spinInGrid = diagnostics.autoSpinCompleted % spinsPerGrid;
+        final gridIdx = diagnostics.autoSpinCompleted ~/ spinsPerGrid;
+
+        // Grid change needed?
+        if (gridIdx != currentGridIdx && gridIdx < _qaGrids.length) {
+          currentGridIdx = gridIdx;
+          final grid = _qaGrids[gridIdx];
+          currentGridName = grid.name;
+          provider.updateGridSize(grid.reels, grid.rows);
+          diagnostics.log('╔═══ GRID CHANGE: ${grid.name} (${grid.reels}×${grid.rows}) ═══╗');
+        }
+
+        // Forced outcome or random?
+        if (spinInGrid < _qaOutcomes.length) {
+          final outcome = _qaOutcomes[spinInGrid];
+          diagnostics.log('[$currentGridName] FORCED: ${outcome.name}');
+          return provider.spinForced(outcome);
+        } else {
+          diagnostics.log('[$currentGridName] RANDOM');
+          return provider.spin();
+        }
+      },
+      count: totalSpins,
+      delayBetween: const Duration(milliseconds: 600),
+    );
   }
 
   /// Register checkers that need SlotLabProvider (called after provider is available)
@@ -9348,18 +9398,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     _buildDiagButton(
                       diag.autoSpinRunning
                           ? 'Stop QA (${diag.autoSpinCompleted}/${diag.autoSpinTotal})'
-                          : 'Auto QA ×20',
+                          : 'Full QA',
                       diag.autoSpinRunning ? Icons.stop_circle : Icons.auto_mode,
                       diag.autoSpinRunning ? const Color(0xFFFF9800) : const Color(0xFFCE93D8),
                       () {
                         if (diag.autoSpinRunning) {
                           diag.stopAutoSpin();
                         } else {
-                          diag.runAutoSpinQA(
-                            spinFn: () => _slotLabProvider.spin(),
-                            count: 20,
-                            delayBetween: const Duration(milliseconds: 800),
-                          );
+                          _runComprehensiveQA(diag);
                         }
                       },
                     ),

@@ -85,10 +85,15 @@ class EventFlowMonitor extends DiagnosticMonitor
     _ensureWindow(now);
     _triggerCountWindow[upper] = (_triggerCountWindow[upper] ?? 0) + 1;
     final count = _triggerCountWindow[upper]!;
-    // Exclude looping stages from rapid fire check
-    const loopingStages = {'REEL_SPINNING', 'REEL_SPIN_LOOP', 'IDLE_LOOP'};
-    if (count > 5 && !loopingStages.contains(upper) &&
-        !upper.startsWith('REEL_SPINNING_')) {
+    // Exclude looping and per-reel stages from rapid fire check
+    const excludeFromRapidFire = {
+      'REEL_SPINNING', 'REEL_SPIN_LOOP', 'IDLE_LOOP',
+      'REEL_STOP', 'REEL_SPINNING_START', 'REEL_SPINNING_STOP',
+      'ROLLUP_TICK',
+    };
+    if (count > 5 && !excludeFromRapidFire.contains(upper) &&
+        !upper.startsWith('REEL_SPINNING_') &&
+        !upper.startsWith('REEL_STOP_')) {
       _findings.add(DiagnosticFinding(
         checker: name,
         severity: DiagnosticSeverity.warning,
