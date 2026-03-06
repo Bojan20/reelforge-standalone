@@ -606,10 +606,12 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   }
 
   Widget _buildEventsFolder() {
-    return Consumer<MiddlewareProvider>(
-      builder: (context, middleware, _) {
+    return Selector<MiddlewareProvider, List<SlotCompositeEvent>>(
+      selector: (_, mw) => mw.compositeEvents,
+      shouldRebuild: (prev, next) => !listEquals(prev, next),
+      builder: (context, allEvents, _) {
+        final middleware = context.read<MiddlewareProvider>();
         // Filter events by search query (SL-RP-P1.4)
-        final allEvents = middleware.compositeEvents;
         final events = _eventSearchQuery.isEmpty
             ? allEvents
             : allEvents.where((e) {
@@ -1272,16 +1274,33 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
       return _buildEmptyState('No event selected', 'Select an event above');
     }
 
-    return Consumer<MiddlewareProvider>(
-      builder: (context, middleware, _) {
-        final event = middleware.compositeEvents.where(
-          (e) => e.id.toString() == _selectedEventId,
-        );
-        if (event.isEmpty) {
+    return Selector<MiddlewareProvider, SlotCompositeEvent?>(
+      selector: (_, mw) => mw.compositeEvents
+          .where((e) => e.id.toString() == _selectedEventId)
+          .firstOrNull,
+      shouldRebuild: (prev, next) {
+        if (prev == null || next == null) return prev != next;
+        if (prev.layers.length != next.layers.length) return true;
+        if (prev.name != next.name) return true;
+        if (prev.looping != next.looping) return true;
+        if (prev.overlap != next.overlap) return true;
+        if (prev.targetBusId != next.targetBusId) return true;
+        if (prev.masterVolume != next.masterVolume) return true;
+        for (int i = 0; i < prev.layers.length; i++) {
+          final pl = prev.layers[i], nl = next.layers[i];
+          if (pl.audioPath != nl.audioPath || pl.volume != nl.volume ||
+              pl.pan != nl.pan || pl.offsetMs != nl.offsetMs ||
+              pl.fadeInMs != nl.fadeInMs || pl.fadeOutMs != nl.fadeOutMs) {
+            return true;
+          }
+        }
+        return false;
+      },
+      builder: (context, selectedEvent, _) {
+        if (selectedEvent == null) {
           return _buildEmptyState('Event not found', 'Select another event');
         }
-
-        final selectedEvent = event.first;
+        final middleware = context.read<MiddlewareProvider>();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

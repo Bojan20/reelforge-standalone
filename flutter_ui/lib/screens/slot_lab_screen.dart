@@ -946,6 +946,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // Flag: EventRegistry sync was skipped during playback, needs sync when idle
   bool _pendingRegistrySync = false;
 
+  // Fingerprint of last middleware state that caused a setState rebuild
+  int _lastMiddlewareFingerprint = 0;
+
   // ═══════════════════════════════════════════════════════════════════════════
   // ALL AVAILABLE STAGES — Complete list for dropdown
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1662,7 +1665,31 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Without this, deleted layers continue playing on timeline playback
     _syncLayersToTrackManager();
 
-    setState(() {});
+    // Only rebuild UI if composite event structure actually changed
+    final fingerprint = _computeMiddlewareFingerprint();
+    if (fingerprint != _lastMiddlewareFingerprint) {
+      _lastMiddlewareFingerprint = fingerprint;
+      setState(() {});
+    }
+  }
+
+  /// Compute a lightweight fingerprint of composite events for dirty-checking.
+  /// Covers event count, layer count, audio paths, and trigger stages.
+  int _computeMiddlewareFingerprint() {
+    var hash = _compositeEvents.length;
+    for (final event in _compositeEvents) {
+      hash = hash * 31 + event.layers.length;
+      hash = hash * 31 + event.triggerStages.length;
+      for (final layer in event.layers) {
+        hash = hash * 31 + layer.audioPath.hashCode;
+        hash = hash * 31 + layer.offsetMs.hashCode;
+        hash = hash * 31 + layer.volume.hashCode;
+      }
+      for (final stage in event.triggerStages) {
+        hash = hash * 31 + stage.hashCode;
+      }
+    }
+    return hash;
   }
 
   /// Callback when SlotLabLowerZoneController changes (persist tab state)
@@ -8497,32 +8524,23 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       }
     }
 
-    // 4. Try to find clip ID in existing regions
-    for (final track in _tracks) {
-      for (final region in track.regions) {
-        for (final layer in region.layers) {
-          if (layer.audioPath == audioPath && layer.ffiClipId != null && layer.ffiClipId! > 0) {
-            final data = _loadWaveformForClip(layer.ffiClipId!);
-            if (data != null) {
-              _cacheWaveform(audioPath, data);
-              return data;
+    // 4. Populate clip ID cache from existing regions (no sync FFI calls)
+    if (!_clipIdCache.containsKey(audioPath)) {
+      for (final track in _tracks) {
+        for (final region in track.regions) {
+          for (final layer in region.layers) {
+            if (layer.audioPath == audioPath && layer.ffiClipId != null && layer.ffiClipId! > 0) {
+              _clipIdCache[audioPath] = layer.ffiClipId!;
+              break;
             }
           }
+          if (_clipIdCache.containsKey(audioPath)) break;
         }
+        if (_clipIdCache.containsKey(audioPath)) break;
       }
     }
 
-    // 5. Check clip ID cache
-    if (_clipIdCache.containsKey(audioPath)) {
-      final clipId = _clipIdCache[audioPath]!;
-      final data = _loadWaveformForClip(clipId);
-      if (data != null) {
-        _cacheWaveform(audioPath, data);
-        return data;
-      }
-    }
-
-    // 6. Try to load waveform asynchronously (will be available on next rebuild)
+    // 5. Load waveform asynchronously (will be available on next rebuild)
     _loadWaveformAsync(audioPath);
 
     return null;

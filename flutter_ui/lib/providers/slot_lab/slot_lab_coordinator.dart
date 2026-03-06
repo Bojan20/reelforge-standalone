@@ -358,9 +358,12 @@ class SlotLabCoordinator extends ChangeNotifier {
 
   // --- Spin Execution ---
   Future<SlotLabSpinResult?> spin() {
-    // Notify GameFlowProvider that a spin is starting
+    // Gate: block spin while scene transition is active (industry standard —
+    // reels must not spin during feature enter/exit plaques)
     try {
-      sl<GameFlowProvider>().onSpinStart();
+      final gameFlow = sl<GameFlowProvider>();
+      if (gameFlow.isInTransition) return Future.value(null);
+      gameFlow.onSpinStart();
     } catch (_) {}
     return engineProvider.spin();
   }

@@ -1445,9 +1445,9 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
         builder: (context, _) {
           return LayoutBuilder(
             builder: (context, constraints) {
-              // Exit phase: fully opaque to hide reels (only plaque visible)
-              // Entry phase: semi-transparent (reels still visible underneath)
-              final bgOpacity = _isExit ? 1.0 : 0.9;
+              // Both phases: fully opaque — reels MUST NOT be visible during transitions
+              // (industry standard: transition plaque completely covers the reel area)
+              const bgOpacity = 1.0;
               return Container(
                 color: Colors.black.withOpacity(bgOpacity * _fadeAnim.value),
                 child: Stack(
