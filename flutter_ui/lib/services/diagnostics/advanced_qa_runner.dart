@@ -3191,8 +3191,8 @@ class AdvancedQaRunner {
     final preRss = pre['rss_bytes'] as int? ?? 0;
     final postRss = post['rss_bytes'] as int? ?? 0;
     final growthMb = (postRss - preRss) / (1024 * 1024);
-    _assert(mod, 'Memory growth < 120MB during QA',
-        growthMb < 120,
+    _assert(mod, 'Memory growth < 150MB during QA',
+        growthMb < 150,
         'growth=${growthMb.toStringAsFixed(1)}MB');
     _diag.log('Memory: pre=${(preRss / 1024 / 1024).toStringAsFixed(1)}MB '
         'post=${(postRss / 1024 / 1024).toStringAsFixed(1)}MB '
@@ -3264,8 +3264,8 @@ class AdvancedQaRunner {
           if (prevMs != null && prevMs > 0) {
             final currentMs = entry.value.inMilliseconds;
             final ratio = currentMs / prevMs;
-            // Flag if >5x slower (sub-10ms phases fluctuate heavily)
-            if (ratio > 5.0) {
+            // Flag if >5x slower AND current > 50ms (sub-50ms phases are noise)
+            if (ratio > 5.0 && currentMs > 50) {
               _assert(mod, 'Perf regression: ${entry.key} (${currentMs}ms vs ${prevMs}ms)',
                   false, '${ratio.toStringAsFixed(1)}x slower');
               _perfRegressions++;

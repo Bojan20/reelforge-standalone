@@ -18,6 +18,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:get_it/get_it.dart';
 
+import 'game_math_validator.dart';
+
 import 'diagnostics_service.dart';
 import '../../providers/mixer_provider.dart';
 import '../../providers/engine_provider.dart';
@@ -563,6 +565,16 @@ class ComprehensiveQaRunner {
       _diag.log('SKIP: SlotLabProvider not available');
     }
     _endPhase('PHASE 5: SlotLab Engine');
+    if (_cancelled) return _buildReport(sw, memBefore, mixerProvider, mixerSnapshot);
+
+    // Phase 5.5: Game Math Validation (100 spins — quick sanity check)
+    _startPhase('PHASE 5.5: Game Math');
+    if (slotLabProvider != null && slotLabProvider.initialized) {
+      await _testGameMath(slotLabProvider);
+    } else {
+      _diag.log('SKIP: SlotLabProvider not available for Game Math');
+    }
+    _endPhase('PHASE 5.5: Game Math');
     if (_cancelled) return _buildReport(sw, memBefore, mixerProvider, mixerSnapshot);
 
     // Phase 6: SlotLab subsystems
@@ -1517,6 +1529,33 @@ class ComprehensiveQaRunner {
       return result != null;
     });
     await Future<void>.delayed(const Duration(milliseconds: 300));
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PHASE 5.5: GAME MATH VALIDATION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Future<void> _testGameMath(SlotLabProvider slotLab) async {
+    const mod = 'GameMath';
+
+    final validator = GameMathValidator(_diag);
+    try {
+      // Quick 100-spin validation during full QA (full validation via UI button)
+      final report = await validator.validate(
+        slotLab: slotLab,
+        spinCount: 100,
+      );
+
+      // Convert GameMath findings to QA assertions
+      for (final f in report.findings) {
+        _assert(mod, '${f.category}: ${f.test}', f.passed,
+            f.detail);
+      }
+
+      _diag.log('[QA] Game Math: ${report.passed}/${report.total} passed');
+    } catch (e) {
+      _assert(mod, 'Game Math did not throw', false, '$e');
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
