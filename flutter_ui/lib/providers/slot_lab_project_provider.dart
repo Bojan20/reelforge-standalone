@@ -233,6 +233,9 @@ class SlotLabProjectProvider extends ChangeNotifier {
         audioBrowserDirectory: _audioBrowserDirectory,
         // V11: Slot machine config
         slotMachineConfig: machineConfig,
+        // V12: Audio persistence — composite events + EventRegistry
+        compositeEventsJson: _snapshotCompositeEvents(),
+        eventRegistryJson: _snapshotEventRegistry(),
       );
   }
 
@@ -1576,10 +1579,58 @@ class SlotLabProjectProvider extends ChangeNotifier {
         composer.resetConfig();
       }
     }
+    // V12: Restore composite events + EventRegistry
+    _restoreCompositeEvents(loaded.compositeEventsJson);
+    _restoreEventRegistry(loaded.eventRegistryJson);
     _isDirty = false;
     _sanitizeNofMVariantAssignments(); // Fix persisted NofM variant paths
     _syncSymbolStages(); // Sync stages for loaded symbols
     notifyListeners();
+  }
+
+  // ── V12: Audio persistence helpers ──────────────────────────────────────
+
+  List<Map<String, dynamic>>? _snapshotCompositeEvents() {
+    try {
+      if (!GetIt.instance.isRegistered<MiddlewareProvider>()) return null;
+      final middleware = GetIt.instance<MiddlewareProvider>();
+      final exported = middleware.exportCompositeEventsToJson();
+      final events = exported['compositeEvents'] as List<dynamic>?;
+      return events?.cast<Map<String, dynamic>>();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<Map<String, dynamic>>? _snapshotEventRegistry() {
+    try {
+      final registry = EventRegistry.instance;
+      final exported = registry.toJson();
+      final events = exported['events'] as List<dynamic>?;
+      return events?.cast<Map<String, dynamic>>();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _restoreCompositeEvents(List<Map<String, dynamic>>? eventsJson) {
+    if (eventsJson == null || eventsJson.isEmpty) return;
+    try {
+      if (!GetIt.instance.isRegistered<MiddlewareProvider>()) return;
+      final middleware = GetIt.instance<MiddlewareProvider>();
+      middleware.importCompositeEventsFromJson({
+        'version': 1,
+        'compositeEvents': eventsJson,
+      });
+    } catch (_) {}
+  }
+
+  void _restoreEventRegistry(List<Map<String, dynamic>>? eventsJson) {
+    if (eventsJson == null || eventsJson.isEmpty) return;
+    try {
+      final registry = EventRegistry.instance;
+      registry.loadFromJson({'events': eventsJson});
+    } catch (_) {}
   }
 
   /// Sanitize audio assignments: remove false positives and fix NofM variants.

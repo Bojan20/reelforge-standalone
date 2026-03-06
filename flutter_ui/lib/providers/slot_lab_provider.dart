@@ -15,6 +15,7 @@ import 'package:flutter/foundation.dart';
 import '../models/stage_models.dart';
 import '../models/win_tier_config.dart';
 import '../services/event_registry.dart';
+import '../services/container_service.dart';
 import '../services/audio_pool.dart';
 import '../services/audio_asset_manager.dart';
 import '../services/stage_configuration_service.dart';
@@ -1870,6 +1871,8 @@ class SlotLabProvider extends ChangeNotifier {
         _spinEndTriggered = true;
         eventRegistry.triggerStage('SPIN_END', context: context);
       }
+      // Reset container state (shuffle history, round-robin, active sequences)
+      ContainerService.instance.resetState();
       // Diagnostics: notify monitors that spin is complete
       DiagnosticsService.instance.onSpinComplete();
     }

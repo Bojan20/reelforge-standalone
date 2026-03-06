@@ -812,6 +812,10 @@ class SlotLabProject {
   // V11: Slot Machine Config (Trostepeni Stage System)
   final SlotMachineConfig? slotMachineConfig;
 
+  // V12: Audio persistence (composite events + EventRegistry)
+  final List<Map<String, dynamic>>? compositeEventsJson;
+  final List<Map<String, dynamic>>? eventRegistryJson;
+
   const SlotLabProject({
     required this.name,
     this.version = '1.0',
@@ -840,6 +844,9 @@ class SlotLabProject {
     this.audioBrowserDirectory,
     // V11: Slot machine config
     this.slotMachineConfig,
+    // V12: Audio persistence
+    this.compositeEventsJson,
+    this.eventRegistryJson,
   });
 
   /// Create default project with standard symbols and contexts
@@ -949,6 +956,11 @@ class SlotLabProject {
       slotMachineConfig: json['slotMachineConfig'] != null
           ? SlotMachineConfig.fromJson(json['slotMachineConfig'] as Map<String, dynamic>)
           : null,
+      // V12: Audio persistence
+      compositeEventsJson: (json['compositeEvents'] as List<dynamic>?)
+          ?.cast<Map<String, dynamic>>(),
+      eventRegistryJson: (json['eventRegistry'] as List<dynamic>?)
+          ?.cast<Map<String, dynamic>>(),
     );
   }
 
@@ -975,6 +987,11 @@ class SlotLabProject {
       if (audioBrowserDirectory != null) 'audioBrowserDirectory': audioBrowserDirectory,
       // V11: Slot machine config
       if (slotMachineConfig != null) 'slotMachineConfig': slotMachineConfig!.toJson(),
+      // V12: Audio persistence
+      if (compositeEventsJson != null && compositeEventsJson!.isNotEmpty)
+        'compositeEvents': compositeEventsJson,
+      if (eventRegistryJson != null && eventRegistryJson!.isNotEmpty)
+        'eventRegistry': eventRegistryJson,
     };
   }
 

@@ -560,23 +560,24 @@ class FlowExecutor {
       return;
     }
 
-    // Find the join node — follow each branch until we hit a join.
-    // Use a visited set to prevent infinite loops on malformed graphs.
+    // Find the join node — BFS through each branch (follows all edges,
+    // including gate onTrue/onFalse) until we hit a join node.
     String? joinNodeId;
     for (final edge in parallelEdges) {
       final visited = <String>{};
-      var currentId = edge.targetNodeId;
-      while (!visited.contains(currentId)) {
-        visited.add(currentId);
+      final queue = <String>[edge.targetNodeId];
+      while (queue.isNotEmpty) {
+        final currentId = queue.removeAt(0);
+        if (!visited.add(currentId)) continue;
         final node = graph.getNode(currentId);
-        if (node == null) break;
+        if (node == null) continue;
         if (node.type == StageFlowNodeType.join) {
           joinNodeId = node.id;
           break;
         }
-        final nextEdges = graph.getOutEdges(currentId);
-        if (nextEdges.isEmpty) break;
-        currentId = nextEdges.first.targetNodeId;
+        for (final nextEdge in graph.getOutEdges(currentId)) {
+          queue.add(nextEdge.targetNodeId);
+        }
       }
       if (joinNodeId != null) break;
     }
@@ -616,8 +617,20 @@ class FlowExecutor {
         });
       }
       await completer.future;
-      // Note: remaining branches will see _completedNodes and short-circuit
-      // via the "already completed" check in _executeNode.
+      // Mark all nodes in each branch as completed so remaining branches
+      // short-circuit via the "already completed" check in _executeNode.
+      for (final edge in parallelEdges) {
+        final visited = <String>{};
+        var curId = edge.targetNodeId;
+        while (!visited.contains(curId)) {
+          visited.add(curId);
+          _completedNodes.add(curId);
+          final nextEdges = graph.getOutEdges(curId);
+          if (nextEdges.isEmpty) break;
+          if (joinNodeId != null && nextEdges.first.targetNodeId == joinNodeId) break;
+          curId = nextEdges.first.targetNodeId;
+        }
+      }
     }
 
     // Execute join node and continue

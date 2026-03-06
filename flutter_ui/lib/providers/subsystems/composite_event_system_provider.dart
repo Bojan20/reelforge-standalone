@@ -413,6 +413,9 @@ class CompositeEventSystemProvider extends ChangeNotifier {
               fadeOutMs: layer.fadeOutMs,
               trimStartMs: layer.trimStartMs,
               trimEndMs: layer.trimEndMs,
+              actionType: layer.actionType,
+              targetAudioPath: layer.targetAudioPath,
+              loop: layer.loop,
             );
           }
         }
@@ -640,6 +643,9 @@ class CompositeEventSystemProvider extends ChangeNotifier {
         fadeOutMs: layer.fadeOutMs,
         trimStartMs: layer.trimStartMs,
         trimEndMs: layer.trimEndMs,
+        actionType: layer.actionType,
+        targetAudioPath: layer.targetAudioPath,
+        loop: layer.loop,
       );
     }
 

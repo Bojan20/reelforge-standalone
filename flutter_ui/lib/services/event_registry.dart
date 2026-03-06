@@ -170,6 +170,16 @@ extension ContainerTypeExtension on ContainerType {
     if (v < 0 || v >= ContainerType.values.length) return ContainerType.none;
     return ContainerType.values[v];
   }
+
+  /// Deserialize from name string (V12+) or legacy int index.
+  static ContainerType fromJson(dynamic value) {
+    if (value is String) {
+      return ContainerType.values.where((e) => e.name == value).firstOrNull
+          ?? ContainerType.none;
+    }
+    if (value is int) return fromValue(value);
+    return ContainerType.none;
+  }
 }
 
 // =============================================================================
@@ -380,7 +390,7 @@ class AudioEvent {
     'duration': duration,
     'loop': loop,
     'priority': priority,
-    'containerType': containerType.value,
+    'containerType': containerType.name,
     'containerId': containerId,
     'overlap': overlap,
     'crossfadeMs': crossfadeMs,
@@ -397,7 +407,7 @@ class AudioEvent {
     duration: (json['duration'] as num?)?.toDouble() ?? 0.0,
     loop: json['loop'] as bool? ?? false,
     priority: json['priority'] as int? ?? 0,
-    containerType: ContainerTypeExtension.fromValue(json['containerType'] as int? ?? 0),
+    containerType: ContainerTypeExtension.fromJson(json['containerType']),
     containerId: json['containerId'] as int?,
     overlap: json['overlap'] as bool? ?? true,
     crossfadeMs: json['crossfadeMs'] as int? ?? 0,
@@ -2588,31 +2598,27 @@ class EventRegistry extends ChangeNotifier {
       case ContainerType.switchContainer:
         // Switch Container: select child based on per-object switch value
         _lastContainerName = 'Switch Container';
-        _lastContainerChildCount = 0;
+        _lastContainerChildCount = event.layers.length;
         final gameObjectId = (context?['gameObjectId'] as int?) ?? 0;
         try {
           final switchProvider = GetIt.instance<SwitchGroupsProvider>();
-          // Container's switchGroupId stored in context or event metadata
-          final switchGroupId = (context?['switchGroupId'] as int?) ??
-              event.layers.firstOrNull?.busId ?? 0;
+          final switchGroupId = (context?['switchGroupId'] as int?) ?? 0;
           final currentSwitch = switchProvider.getSwitch(gameObjectId, switchGroupId);
           if (currentSwitch != null) {
-            // Find matching layer by name convention: "switch_<switchId>"
-            // or by index matching the switch ID
+            // Match by name convention "switch_<id>", then by index
             final matchingLayer = event.layers.where(
               (l) => l.name == 'switch_$currentSwitch' || l.id == 'switch_$currentSwitch'
-            ).firstOrNull ?? (currentSwitch < event.layers.length
+            ).firstOrNull ?? (currentSwitch >= 0 && currentSwitch < event.layers.length
               ? event.layers[currentSwitch] : null);
             if (matchingLayer != null) {
               final voiceIds = <int>[];
               _playLayer(matchingLayer, voiceIds, context,
                   usePool: false, eventKey: event.stage,
                   loop: matchingLayer.loop, eventId: event.id);
-              _lastContainerChildCount = event.layers.length;
               _lastTriggeredLayers = ['switch:selected_$currentSwitch'];
             } else {
               _lastTriggerSuccess = false;
-              _lastTriggerError = 'No child for switch value $currentSwitch';
+              _lastTriggerError = 'No child for switch value $currentSwitch (${event.layers.length} layers)';
             }
           } else {
             // No switch set — use first layer as default
@@ -2622,7 +2628,6 @@ class EventRegistry extends ChangeNotifier {
               _playLayer(defaultLayer, voiceIds, context,
                   usePool: false, eventKey: event.stage,
                   loop: defaultLayer.loop, eventId: event.id);
-              _lastContainerChildCount = event.layers.length;
               _lastTriggeredLayers = ['switch:default'];
             }
           }
@@ -3833,6 +3838,9 @@ class EventRegistry extends ChangeNotifier {
     double? fadeOutMs,
     double? trimStartMs,
     double? trimEndMs,
+    String? actionType,
+    String? targetAudioPath,
+    bool? loop,
   }) {
     final existingEvent = _events[eventId];
     if (existingEvent == null) return;
@@ -3852,6 +3860,9 @@ class EventRegistry extends ChangeNotifier {
         fadeOutMs: fadeOutMs ?? layer.fadeOutMs,
         trimStartMs: trimStartMs ?? layer.trimStartMs,
         trimEndMs: trimEndMs ?? layer.trimEndMs,
+        actionType: actionType ?? layer.actionType,
+        targetAudioPath: targetAudioPath ?? layer.targetAudioPath,
+        loop: loop ?? layer.loop,
       );
     }).toList();
 
