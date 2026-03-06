@@ -150,7 +150,7 @@ class ContainerService {
         return t;
       case CrossfadeCurve.log3:
       case CrossfadeCurve.equalPower:
-        return math.sqrt(t);
+        return math.sin(t * math.pi / 2);
       case CrossfadeCurve.log1:
         return math.log(1 + t * (math.e - 1));
       case CrossfadeCurve.sCurve:
@@ -601,7 +601,6 @@ class ContainerService {
 
     if (voiceId > 0) {
       instance.voiceIds.add(voiceId);
-      final stepName = step?.childName ?? 'step_$stepIdx';
     }
   }
 

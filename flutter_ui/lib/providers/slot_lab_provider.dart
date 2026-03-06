@@ -703,6 +703,9 @@ class SlotLabProvider extends ChangeNotifier {
       return;
     }
 
+    // Guard: already skipping — don't overwrite pending callback
+    if (_skipRequested) return;
+
     // ANALYTICS: Track skip requested (get current tier from last result)
     final tier = getVisualTierForWin(_lastResult?.totalWin.toDouble() ?? 0.0);
     WinAnalyticsService.instance.trackSkipRequested(
@@ -972,6 +975,11 @@ class SlotLabProvider extends ChangeNotifier {
       return null;
     }
 
+    // Reset stale win presentation state from previous spin
+    _isWinPresentationActive = false;
+    _skipRequested = false;
+    _pendingSkipCallback = null;
+
     _isSpinning = true;
     notifyListeners();
 
@@ -1020,10 +1028,6 @@ class SlotLabProvider extends ChangeNotifier {
       // P0.10: Validate stage sequence
       validateStageSequence();
 
-      // Compact spin summary
-      final win = _lastResult?.totalWin ?? 0;
-      final isWin = _lastResult?.isWin ?? false;
-
       _reportSpinDiagnostics();
 
       // Auto-trigger audio if enabled
@@ -1054,6 +1058,11 @@ class SlotLabProvider extends ChangeNotifier {
   Future<SlotLabSpinResult?> spinForced(ForcedOutcome outcome) async {
     if (!_initialized || _isSpinning) return null;
 
+    // Reset stale win presentation state from previous spin
+    _isWinPresentationActive = false;
+    _skipRequested = false;
+    _pendingSkipCallback = null;
+
     _isSpinning = true;
     notifyListeners();
 
@@ -1077,6 +1086,9 @@ class SlotLabProvider extends ChangeNotifier {
 
       _spinCount++;
 
+      // ANALYTICS: Track spin for win rate calculation
+      WinAnalyticsService.instance.trackSpin();
+
       // Get results from appropriate engine
       if (_engineV2Initialized) {
         _lastResult = _convertV2Result(_ffi.slotLabV2GetSpinResult());
@@ -1097,9 +1109,6 @@ class SlotLabProvider extends ChangeNotifier {
 
       // P0.10: Validate stage sequence
       validateStageSequence();
-
-      final win = _lastResult?.totalWin ?? 0;
-      final isWin = _lastResult?.isWin ?? false;
 
       _reportSpinDiagnostics();
 
@@ -1142,11 +1151,15 @@ class SlotLabProvider extends ChangeNotifier {
   ) async {
     if (!_initialized || _isSpinning) return null;
 
+    // Reset stale win presentation state from previous spin
+    _isWinPresentationActive = false;
+    _skipRequested = false;
+    _pendingSkipCallback = null;
+
     _isSpinning = true;
     notifyListeners();
 
     try {
-
       final int spinId = _ffi.slotLabSpinForcedWithMultiplier(outcome, targetMultiplier);
 
       if (spinId == 0) {
@@ -1156,6 +1169,9 @@ class SlotLabProvider extends ChangeNotifier {
       }
 
       _spinCount++;
+
+      // ANALYTICS: Track spin for win rate calculation
+      WinAnalyticsService.instance.trackSpin();
 
       // Get results - always from V1 engine since we're using the new FFI function
       _lastResult = _ffi.slotLabGetSpinResult();
@@ -1172,10 +1188,6 @@ class SlotLabProvider extends ChangeNotifier {
 
       // P0.10: Validate stage sequence
       validateStageSequence();
-
-      final win = _lastResult?.totalWin ?? 0;
-      final isWin = _lastResult?.isWin ?? false;
-      final tierName = _lastResult?.winTierName ?? 'unknown';
 
       _reportSpinDiagnostics();
 
@@ -1335,11 +1347,16 @@ class SlotLabProvider extends ChangeNotifier {
           'win=${_lastResult?.totalWin ?? 0}',
     ));
 
-    // Feed stages to monitors (onStageTrigger/onSpinComplete have own guards)
-    for (final stage in _lastStages) {
-      diag.onStageTrigger(stage.stageType.toUpperCase(), stage.timestampMs);
+    // Feed stages to monitors ONLY if auto-trigger is off.
+    // When auto-trigger is on, _triggerStage() already calls onStageTrigger()
+    // for each stage, and SPIN_END handler calls onSpinComplete().
+    // Calling both would double-feed diagnostics and trigger false warnings.
+    if (!_autoTriggerAudio) {
+      for (final stage in _lastStages) {
+        diag.onStageTrigger(stage.stageType.toUpperCase(), stage.timestampMs);
+      }
+      diag.onSpinComplete();
     }
-    diag.onSpinComplete();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1907,6 +1924,11 @@ class SlotLabProvider extends ChangeNotifier {
     _lastStages = [];
     _currentStageIndex = 0;
     _cachedStagesSpinId = null; // P0.18: Clear cache
+    // Reset rollup tracking to prevent stale progress on next spin
+    _rollupStartTimestampMs = 0.0;
+    _rollupEndTimestampMs = 0.0;
+    _rollupTickCount = 0;
+    _rollupTotalTicks = 0;
     notifyListeners();
   }
 

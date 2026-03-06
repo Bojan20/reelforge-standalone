@@ -32,6 +32,7 @@ class HoldAndWinExecutor extends FeatureExecutor {
   double _miniJackpotMultiplier = 10.0;
   bool _stickyCoins = true;
   int _maxRespins = 10;
+  int _coinSymbolId = 13;
 
   // Special coin probabilities (designer-configurable)
   double _multiplierCoinChance = 0.05;
@@ -73,6 +74,7 @@ class HoldAndWinExecutor extends FeatureExecutor {
         (options['upgradeCoinChance'] as num?)?.toDouble() ?? 0.02;
     _wildCoinChance =
         (options['wildCoinChance'] as num?)?.toDouble() ?? 0.01;
+    _coinSymbolId = options['coinSymbolId'] as int? ?? 13;
   }
 
   @override
@@ -134,9 +136,7 @@ class HoldAndWinExecutor extends FeatureExecutor {
         final posKey = '$reel,$row';
         if (lockedPositions.contains(posKey)) continue;
 
-        // Check if this position has a coin symbol (ID 13 default)
-        if (reelData[row] == 13) {
-          // TODO: configurable coin symbol ID
+        if (reelData[row] == _coinSymbolId) {
           final coinValue = _generateCoinValue(result.bet);
           final specialType = _hasSpecialCoins ? _rollSpecialType() : null;
 

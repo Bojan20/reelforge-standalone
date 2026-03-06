@@ -284,7 +284,7 @@ class RegularWinTierConfig {
         // WIN_LOW: < 1x bet (sub-bet win)
         const WinTierDefinition(
           tierId: -1,
-          displayLabel: '',
+          displayLabel: 'WIN LOW',
           fromMultiplier: 0,
           toMultiplier: 1,
           rollupDurationMs: 0, // Instant
@@ -294,7 +294,7 @@ class RegularWinTierConfig {
         // WIN_EQUAL: = 1x bet (push)
         const WinTierDefinition(
           tierId: 0,
-          displayLabel: 'PUSH',
+          displayLabel: 'WIN EQUAL',
           fromMultiplier: 1,
           toMultiplier: 1.001, // Effectively = 1x
           rollupDurationMs: 500,
@@ -351,7 +351,6 @@ class RegularWinTierConfig {
           rollupTickRate: 8,
           particleBurstCount: 25,
         ),
-        // WIN_6 REMOVED - WIN_5 is now default for >13x
       ],
     );
   }
@@ -855,7 +854,7 @@ class SlotWinConfigurationPresets {
             tierId: 0,
             fromMultiplier: 1.0,
             toMultiplier: 1.001, // Small epsilon for WIN_EQUAL
-            displayLabel: 'WIN =',
+            displayLabel: 'WIN EQUAL',
             rollupDurationMs: 1000,
             rollupTickRate: 15,
           ),

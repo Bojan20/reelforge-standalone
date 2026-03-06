@@ -142,6 +142,11 @@ class BlendContainersProvider extends ChangeNotifier {
     _containers[containerId] = container.copyWith(children: updatedChildren);
 
     _ffi.middlewareBlendAddChild(containerId, child);
+
+    // Re-sync to ContainerService (Rust sub-ms evaluation)
+    ContainerService.instance.unsyncBlendFromRust(containerId);
+    ContainerService.instance.syncBlendToRust(_containers[containerId]!);
+
     notifyListeners();
   }
 
@@ -154,6 +159,11 @@ class BlendContainersProvider extends ChangeNotifier {
     _containers[containerId] = container.copyWith(children: updatedChildren);
 
     _ffi.middlewareBlendRemoveChild(containerId, childId);
+
+    // Re-sync to ContainerService (Rust sub-ms evaluation)
+    ContainerService.instance.unsyncBlendFromRust(containerId);
+    ContainerService.instance.syncBlendToRust(_containers[containerId]!);
+
     notifyListeners();
   }
 

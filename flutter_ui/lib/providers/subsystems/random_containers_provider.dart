@@ -265,6 +265,11 @@ class RandomContainersProvider extends ChangeNotifier {
     _shuffleOrder.remove(containerId);
 
     _ffi.middlewareRandomAddChild(containerId, child);
+
+    // Re-sync to ContainerService (Rust sub-ms evaluation)
+    ContainerService.instance.unsyncRandomFromRust(containerId);
+    ContainerService.instance.syncRandomToRust(_containers[containerId]!);
+
     notifyListeners();
   }
 
@@ -280,6 +285,11 @@ class RandomContainersProvider extends ChangeNotifier {
     _shuffleOrder.remove(containerId);
 
     _ffi.middlewareRandomRemoveChild(containerId, childId);
+
+    // Re-sync to ContainerService (Rust sub-ms evaluation)
+    ContainerService.instance.unsyncRandomFromRust(containerId);
+    ContainerService.instance.syncRandomToRust(_containers[containerId]!);
+
     notifyListeners();
   }
 

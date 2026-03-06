@@ -32,6 +32,7 @@ class FreeSpinsExecutor extends FeatureExecutor {
   double _multiplierStep = 1.0;
   bool _hasIntroSequence = true;
   bool _hasOutroSequence = true;
+  int _scatterSymbolId = 12;
 
   @override
   void configure(Map<String, dynamic> options) {
@@ -57,6 +58,7 @@ class FreeSpinsExecutor extends FeatureExecutor {
     _multiplierStep = (options['multiplierStep'] as num?)?.toDouble() ?? 1.0;
     _hasIntroSequence = options['hasIntroSequence'] as bool? ?? true;
     _hasOutroSequence = options['hasOutroSequence'] as bool? ?? true;
+    _scatterSymbolId = options['scatterSymbolId'] as int? ?? 12;
   }
 
   @override
@@ -142,7 +144,7 @@ class FreeSpinsExecutor extends FeatureExecutor {
     int scatterCount = 0;
     for (final reel in result.grid) {
       for (final sym in reel) {
-        if (sym == 12) scatterCount++; // TODO: configurable scatter ID
+        if (sym == _scatterSymbolId) scatterCount++;
       }
     }
     if (_retriggerMode != 'none' &&

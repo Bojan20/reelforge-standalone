@@ -180,9 +180,13 @@ class SequenceContainersProvider extends ChangeNotifier {
     final updatedSteps = [...container.steps, step];
     _containers[containerId] = container.copyWith(steps: updatedSteps);
 
-    // Update Rust
+    // Update Rust middleware
     _ffi.middlewareRemoveSequenceContainer(containerId);
     _ffi.middlewareCreateSequenceContainer(_containers[containerId]!);
+
+    // Re-sync to ContainerService (Rust sub-ms tick)
+    ContainerService.instance.unsyncSequenceFromRust(containerId);
+    ContainerService.instance.syncSequenceToRust(_containers[containerId]!);
 
     notifyListeners();
   }
@@ -198,9 +202,13 @@ class SequenceContainersProvider extends ChangeNotifier {
     }
     _containers[containerId] = container.copyWith(steps: updatedSteps);
 
-    // Update Rust
+    // Update Rust middleware
     _ffi.middlewareRemoveSequenceContainer(containerId);
     _ffi.middlewareCreateSequenceContainer(_containers[containerId]!);
+
+    // Re-sync to ContainerService (Rust sub-ms tick)
+    ContainerService.instance.unsyncSequenceFromRust(containerId);
+    ContainerService.instance.syncSequenceToRust(_containers[containerId]!);
 
     notifyListeners();
   }
@@ -216,9 +224,13 @@ class SequenceContainersProvider extends ChangeNotifier {
     }
     _containers[containerId] = container.copyWith(steps: updatedSteps);
 
-    // Update Rust
+    // Update Rust middleware
     _ffi.middlewareRemoveSequenceContainer(containerId);
     _ffi.middlewareCreateSequenceContainer(_containers[containerId]!);
+
+    // Re-sync to ContainerService (Rust sub-ms tick)
+    ContainerService.instance.unsyncSequenceFromRust(containerId);
+    ContainerService.instance.syncSequenceToRust(_containers[containerId]!);
 
     notifyListeners();
   }
@@ -237,9 +249,13 @@ class SequenceContainersProvider extends ChangeNotifier {
 
     _containers[containerId] = container.copyWith(steps: updatedSteps);
 
-    // Update Rust
+    // Update Rust middleware
     _ffi.middlewareRemoveSequenceContainer(containerId);
     _ffi.middlewareCreateSequenceContainer(_containers[containerId]!);
+
+    // Re-sync to ContainerService (Rust sub-ms tick)
+    ContainerService.instance.unsyncSequenceFromRust(containerId);
+    ContainerService.instance.syncSequenceToRust(_containers[containerId]!);
 
     notifyListeners();
   }
@@ -287,9 +303,13 @@ class SequenceContainersProvider extends ChangeNotifier {
 
     _containers[containerId] = container.copyWith(steps: updatedSteps);
 
-    // Re-register with Rust
+    // Re-register with Rust middleware
     _ffi.middlewareRemoveSequenceContainer(containerId);
     _ffi.middlewareCreateSequenceContainer(_containers[containerId]!);
+
+    // Re-sync to ContainerService (Rust sub-ms tick)
+    ContainerService.instance.unsyncSequenceFromRust(containerId);
+    ContainerService.instance.syncSequenceToRust(_containers[containerId]!);
 
     notifyListeners();
   }

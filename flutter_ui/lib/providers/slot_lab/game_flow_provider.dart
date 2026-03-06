@@ -11,6 +11,7 @@
 /// feature-specific behavior.
 library;
 
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../models/game_flow_models.dart';
 import '../../src/rust/native_ffi.dart' show SlotLabSpinResult;
@@ -609,6 +610,8 @@ class GameFlowProvider extends ChangeNotifier {
   void triggerManual(TransitionTrigger trigger, {Map<String, dynamic>? context}) {
     switch (trigger) {
       case TransitionTrigger.playerGamble:
+        if (_currentState != GameFlowState.baseGame &&
+            _currentState != GameFlowState.winPresentation) return;
         final executor = _executors.getExecutor('gambling');
         if (executor != null) {
           _enterFeature(executor, PendingFeature(
@@ -674,10 +677,16 @@ class GameFlowProvider extends ChangeNotifier {
 
   /// Force return to base game (error recovery)
   void resetToBaseGame() {
+    _transitionDismissTimer?.cancel();
+    _transitionDismissTimer = null;
+    _activeTransition = null;
+    _pendingTransitionComplete = null;
     _activeFeatures.clear();
     _featureQueue.clear();
     _stack.clear();
     _currentState = GameFlowState.idle;
+    _totalWin = 0.0;
+    _lastWinPipeline = null;
     notifyListeners();
   }
 
@@ -834,10 +843,10 @@ class GameFlowProvider extends ChangeNotifier {
     // Auto-dismiss if timed (clickToContinue waits for user tap → dismissTransition)
     if (config.dismissMode == TransitionDismissMode.timed ||
         config.dismissMode == TransitionDismissMode.timedOrClick) {
-      Future.delayed(Duration(milliseconds: config.durationMs), () {
+      _transitionDismissTimer?.cancel();
+      _transitionDismissTimer = Timer(Duration(milliseconds: config.durationMs), () {
         if (_activeTransition?.phase == TransitionPhase.entering &&
             _activeTransition?.toState == to) {
-          // dismissTransition() handles calling _pendingTransitionComplete
           dismissTransition();
         }
       });
@@ -875,10 +884,10 @@ class GameFlowProvider extends ChangeNotifier {
     // Auto-dismiss if timed (clickToContinue waits for user tap → dismissTransition)
     if (config.dismissMode == TransitionDismissMode.timed ||
         config.dismissMode == TransitionDismissMode.timedOrClick) {
-      Future.delayed(Duration(milliseconds: config.durationMs), () {
+      _transitionDismissTimer?.cancel();
+      _transitionDismissTimer = Timer(Duration(milliseconds: config.durationMs), () {
         if (_activeTransition?.phase == TransitionPhase.exiting &&
             _activeTransition?.fromState == from) {
-          // dismissTransition() handles calling _pendingTransitionComplete
           dismissTransition();
         }
       });
@@ -889,6 +898,8 @@ class GameFlowProvider extends ChangeNotifier {
   void dismissTransition() {
     if (_activeTransition == null) return;
 
+    _transitionDismissTimer?.cancel();
+    _transitionDismissTimer = null;
     final pending = _pendingTransitionComplete;
     _activeTransition = null;
     _pendingTransitionComplete = null;
@@ -899,6 +910,7 @@ class GameFlowProvider extends ChangeNotifier {
   }
 
   void Function()? _pendingTransitionComplete;
+  Timer? _transitionDismissTimer;
 
   /// State name key for audio stage naming (e.g., "BASE", "FS", "BONUS")
   String _stateKey(GameFlowState state) {
@@ -917,6 +929,8 @@ class GameFlowProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _transitionDismissTimer?.cancel();
+    _transitionDismissTimer = null;
     _executors.clear();
     super.dispose();
   }

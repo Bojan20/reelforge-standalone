@@ -523,6 +523,31 @@ class EffectSlot {
       wetDry: wetDry ?? this.wetDry,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'slotIndex': slotIndex,
+    'type': type.name,
+    'params': params,
+    'bypass': bypass,
+    'wetDry': wetDry,
+  };
+
+  factory EffectSlot.fromJson(Map<String, dynamic> json) {
+    final typeName = json['type'] as String;
+    final type = EffectType.values.firstWhere(
+      (e) => e.name == typeName,
+      orElse: () => EffectType.eq,
+    );
+    return EffectSlot(
+      slotIndex: json['slotIndex'] as int? ?? 0,
+      type: type,
+      params: (json['params'] as Map<String, dynamic>?)?.map(
+        (k, v) => MapEntry(k, (v as num).toDouble()),
+      ),
+      bypass: json['bypass'] as bool? ?? false,
+      wetDry: (json['wetDry'] as num?)?.toDouble() ?? 0.5,
+    );
+  }
 }
 
 /// Bus with hierarchy and effects

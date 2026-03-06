@@ -166,16 +166,34 @@ class BusHierarchyProvider extends ChangeNotifier {
     return bus;
   }
 
-  /// Remove a bus (children become orphaned and should be handled separately)
-  /// Note: parentBusId is final in AudioBus, so true reparenting would require
-  /// creating new AudioBus instances. For now, we just remove from parent's childBusIds.
+  /// Remove a bus (children are reparented to the removed bus's parent)
   void removeBus(int busId) {
     final bus = _buses[busId];
     if (bus == null || busId == 0) return; // Can't remove master
 
-    // Add children to parent's childBusIds (they keep their old parentBusId)
-    if (bus.parentBusId != null) {
-      final parent = _buses[bus.parentBusId];
+    final newParentId = bus.parentBusId;
+
+    // Reparent children: create new AudioBus with updated parentBusId
+    for (final childId in bus.childBusIds) {
+      final child = _buses[childId];
+      if (child == null) continue;
+      _buses[childId] = AudioBus(
+        busId: child.busId,
+        name: child.name,
+        parentBusId: newParentId,
+        childBusIds: child.childBusIds,
+        preInserts: child.preInserts,
+        postInserts: child.postInserts,
+      )
+        ..volume = child.volume
+        ..pan = child.pan
+        ..mute = child.mute
+        ..solo = child.solo;
+    }
+
+    // Update parent's childBusIds
+    if (newParentId != null) {
+      final parent = _buses[newParentId];
       if (parent != null) {
         parent.childBusIds.addAll(bus.childBusIds);
         parent.childBusIds.remove(busId);
@@ -319,6 +337,10 @@ class BusHierarchyProvider extends ChangeNotifier {
         'pan': v.pan,
         'mute': v.mute,
         'solo': v.solo,
+        if (v.preInserts.isNotEmpty)
+          'preInserts': v.preInserts.map((e) => e.toJson()).toList(),
+        if (v.postInserts.isNotEmpty)
+          'postInserts': v.postInserts.map((e) => e.toJson()).toList(),
       })),
       'nextBusId': _nextBusId,
     };
@@ -332,11 +354,17 @@ class BusHierarchyProvider extends ChangeNotifier {
     if (busesJson != null) {
       for (final entry in busesJson.entries) {
         final busData = entry.value as Map<String, dynamic>;
+        final preInsertsJson = busData['preInserts'] as List<dynamic>?;
+        final postInsertsJson = busData['postInserts'] as List<dynamic>?;
         final bus = AudioBus(
           busId: busData['busId'] as int,
           name: busData['name'] as String,
           parentBusId: busData['parentBusId'] as int?,
           childBusIds: (busData['childBusIds'] as List<dynamic>?)?.cast<int>() ?? [],
+          preInserts: preInsertsJson?.map((e) =>
+            EffectSlot.fromJson(e as Map<String, dynamic>)).toList(),
+          postInserts: postInsertsJson?.map((e) =>
+            EffectSlot.fromJson(e as Map<String, dynamic>)).toList(),
         );
         bus.volume = (busData['volume'] as num?)?.toDouble() ?? 1.0;
         bus.pan = (busData['pan'] as num?)?.toDouble() ?? 0.0;
