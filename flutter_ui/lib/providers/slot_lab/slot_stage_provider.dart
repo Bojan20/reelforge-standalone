@@ -19,6 +19,7 @@ import '../../services/event_registry.dart';
 import '../../services/unified_playback_controller.dart';
 import '../../services/diagnostics/diagnostics_service.dart';
 import '../ale_provider.dart';
+import 'game_flow_provider.dart';
 import 'slot_lab_coordinator.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -179,6 +180,10 @@ class SlotStageProvider extends ChangeNotifier {
   int _scheduledNextStageTimeMs = 0;
   int _pausedRemainingDelayMs = 0;
   int _pausedAtTimestampMs = 0;
+
+  // ─── Transition Gate ─────────────────────────────────────────────────────
+  bool _transitionPaused = false;
+  VoidCallback? _transitionListener;
 
   // ─── Reel State ──────────────────────────────────────────────────────────
   bool _isReelsSpinning = false;
@@ -416,9 +421,11 @@ class SlotStageProvider extends ChangeNotifier {
     _isPlayingStages = false;
     _isReelsSpinning = false;
     _isPaused = false;
+    _transitionPaused = false;
     _pausedAtTimestampMs = 0;
     _pausedRemainingDelayMs = 0;
     _currentStageIndex = 0;
+    _cleanupTransitionListener();
     UnifiedPlaybackController.instance.releaseSection(PlaybackSection.slotLab);
     if (!_isDisposed) notifyListeners();
   }
@@ -506,6 +513,46 @@ class SlotStageProvider extends ChangeNotifier {
       _triggerStage(_lastStages[_currentStageIndex]);
       _scheduleNextStage();
     });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TRANSITION GATE — Pause/resume around scene transitions
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Pause stage playback and listen for transition dismissal.
+  /// When GameFlowProvider.isInTransition becomes false, auto-resumes.
+  void _pauseForTransition() {
+    if (!_isPlayingStages || _transitionPaused) return;
+
+    GameFlowProvider? gameFlow;
+    try {
+      gameFlow = GetIt.instance<GameFlowProvider>();
+    } catch (_) {
+      return; // GameFlowProvider not registered — skip gate
+    }
+
+    if (!gameFlow.isInTransition) return; // No active transition — skip
+
+    _transitionPaused = true;
+    pauseStages();
+
+    // Listen for transition end → auto-resume
+    void listener() {
+      if (gameFlow!.isInTransition) return; // Still in transition
+      _transitionPaused = false;
+      _removeTransitionListener(gameFlow);
+      resumeStages();
+    }
+
+    _transitionListener = listener;
+    gameFlow.addListener(listener);
+  }
+
+  void _removeTransitionListener(GameFlowProvider? gameFlow) {
+    if (_transitionListener != null && gameFlow != null) {
+      gameFlow.removeListener(_transitionListener!);
+      _transitionListener = null;
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -710,6 +757,16 @@ class SlotStageProvider extends ChangeNotifier {
 
     // Sync ALE signals
     _syncAleSignals(stage);
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TRANSITION GATE — Pause stage playback during scene transitions
+    // Industry standard: feature enter/exit plaques must fully complete before
+    // any further stages execute (reels must not spin behind plaques)
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (stageType == 'FEATURE_ENTER' || stageType == 'FEATURE_START' ||
+        stageType == 'FEATURE_EXIT' || stageType == 'FEATURE_END') {
+      _pauseForTransition();
+    }
   }
 
   /// Map stage events to middleware hook names and dispatch through pipeline.
@@ -1011,6 +1068,16 @@ class SlotStageProvider extends ChangeNotifier {
     _isDisposed = true;
     _stagePlaybackTimer?.cancel();
     _audioPreTriggerTimer?.cancel();
+    _cleanupTransitionListener();
     super.dispose();
+  }
+
+  void _cleanupTransitionListener() {
+    if (_transitionListener == null) return;
+    try {
+      final gameFlow = GetIt.instance<GameFlowProvider>();
+      gameFlow.removeListener(_transitionListener!);
+    } catch (_) {}
+    _transitionListener = null;
   }
 }

@@ -1702,13 +1702,17 @@ class _MainGameZone extends StatelessWidget {
               child: Stack(
                 children: [
                   // Reel content - ValueKey forces rebuild when dimensions change
-                  SlotPreviewWidget(
-                    key: ValueKey('slot_preview_${reels}x$rows'),
-                    provider: provider,
-                    projectProvider: projectProvider ?? context.read<SlotLabProjectProvider>(),
-                    reels: reels,
-                    rows: rows,
-                    showWinPresentation: true, // ✅ ENABLED — SlotPreviewWidget handles ALL win presentation
+                  // Consumer ensures reels are hidden during scene transitions
+                  Consumer<GameFlowProvider>(
+                    builder: (context, flow, _) => SlotPreviewWidget(
+                      key: ValueKey('slot_preview_${reels}x$rows'),
+                      provider: provider,
+                      projectProvider: projectProvider ?? context.read<SlotLabProjectProvider>(),
+                      reels: reels,
+                      rows: rows,
+                      showWinPresentation: true,
+                      isTransitionActive: flow.isInTransition,
+                    ),
                   ),
                   // L5 Game Flow Overlay — feature-specific UI (FS counter, H&W grid, etc.)
                   const Positioned.fill(

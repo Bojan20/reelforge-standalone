@@ -772,9 +772,28 @@ class GameFlowProvider extends ChangeNotifier {
     }
   }
 
-  /// Set transition config for a specific scene pair (e.g., "base_to_freeSpins")
+  /// Set transition config for a specific scene pair (e.g., "baseGame_to_freeSpins")
   void setTransitionConfig(String key, SceneTransitionConfig config) {
     _transitionConfigs[key] = config;
+    notifyListeners();
+  }
+
+  /// All per-scene transition configs (read-only)
+  Map<String, SceneTransitionConfig> get transitionConfigs =>
+      Map.unmodifiable(_transitionConfigs);
+
+  /// Default transition config (used when no per-scene config exists)
+  SceneTransitionConfig get defaultTransitionConfig => _defaultTransitionConfig;
+
+  /// Set default transition config
+  set defaultTransitionConfig(SceneTransitionConfig config) {
+    _defaultTransitionConfig = config;
+    notifyListeners();
+  }
+
+  /// Get transition config for a scene pair (public)
+  SceneTransitionConfig getTransitionConfigForPair(GameFlowState from, GameFlowState to) {
+    return _getTransitionConfig(from, to);
   }
 
   /// Get transition config for a scene pair

@@ -28,6 +28,26 @@ import '../../theme/fluxforge_theme.dart';
 import 'professional_reel_animation.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
+// SYMBOL SHAPE — Visual differentiation by symbol tier
+// Industry standard: instant visual hierarchy through shape language
+// ═══════════════════════════════════════════════════════════════════════════
+
+enum SymbolShape {
+  /// Default rounded rectangle (LP symbols)
+  roundedRect,
+  /// Diamond/rhombus (Wild — premium, stands out)
+  diamond,
+  /// Circle with glow (Scatter — trigger symbol)
+  circle,
+  /// Octagon/shield (Bonus — special action)
+  octagon,
+  /// Soft rounded square (HP symbols — premium feel)
+  softSquare,
+  /// Hexagon (LP high-tier — geometric distinction)
+  hexagon,
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SLOT SYMBOL DEFINITIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -38,6 +58,7 @@ class SlotSymbol {
   final List<Color> gradientColors;
   final Color glowColor;
   final bool isSpecial;
+  final SymbolShape shape;
 
   const SlotSymbol({
     required this.id,
@@ -46,6 +67,7 @@ class SlotSymbol {
     required this.gradientColors,
     required this.glowColor,
     this.isSpecial = false,
+    this.shape = SymbolShape.roundedRect,
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -80,27 +102,27 @@ class SlotSymbol {
     // ═══════════════════════════════════════════════════════════════════════════
     1: SlotSymbol(
       id: 1, name: 'HP1', displayChar: '7',
-      // RUBY RED — Pure crimson, maximum prestige, no pink/orange tint
       gradientColors: [Color(0xFFFF3333), Color(0xFFE60000), Color(0xFF990000)],
       glowColor: Color(0xFFFF0000),
+      shape: SymbolShape.softSquare,
     ),
     2: SlotSymbol(
       id: 2, name: 'HP2', displayChar: '▬',
-      // ROYAL GOLD — Rich metallic gold, distinct from yellow fruits
       gradientColors: [Color(0xFFFFDD44), Color(0xFFDAA520), Color(0xFFB8860B)],
       glowColor: Color(0xFFFFCC00),
+      shape: SymbolShape.softSquare,
     ),
     3: SlotSymbol(
       id: 3, name: 'HP3', displayChar: '🔔',
-      // BRONZE/COPPER — Warm metallic, completely distinct from any fruit
       gradientColors: [Color(0xFFE8A060), Color(0xFFCD7F32), Color(0xFF8B4513)],
       glowColor: Color(0xFFD4954A),
+      shape: SymbolShape.softSquare,
     ),
     4: SlotSymbol(
       id: 4, name: 'HP4', displayChar: '🍒',
-      // HOT PINK/MAGENTA — Warm but distinct, NOT purple (no LP confusion)
       gradientColors: [Color(0xFFFF66AA), Color(0xFFFF1493), Color(0xFFB30059)],
       glowColor: Color(0xFFFF3399),
+      shape: SymbolShape.softSquare,
     ),
     // ═══════════════════════════════════════════════════════════════════════════
     // LOW PAYING SYMBOLS — NATURAL FRUIT COLORS (Cooler, Less Saturated, Muted)
@@ -109,37 +131,33 @@ class SlotSymbol {
     // ═══════════════════════════════════════════════════════════════════════════
     5: SlotSymbol(
       id: 5, name: 'LP1', displayChar: '🍋',
-      // LEMON — Pale yellow-green, NOT gold (distinct from HP2)
       gradientColors: [Color(0xFFE8E855), Color(0xFFCDCD00), Color(0xFF9A9A00)],
       glowColor: Color(0xFFD4D400),
+      shape: SymbolShape.hexagon,
     ),
     6: SlotSymbol(
       id: 6, name: 'LP2', displayChar: '🍊',
-      // ORANGE — Muted orange, NOT bright like HP colors
       gradientColors: [Color(0xFFE89040), Color(0xFFCC7722), Color(0xFF995511)],
       glowColor: Color(0xFFDD8833),
+      shape: SymbolShape.hexagon,
     ),
     7: SlotSymbol(
       id: 7, name: 'LP3', displayChar: '🍇',
-      // GRAPE — DEEP VIOLET/INDIGO, NOT purple-pink like HP4
       gradientColors: [Color(0xFF7744AA), Color(0xFF4B0082), Color(0xFF2E0052)],
       glowColor: Color(0xFF6633AA),
     ),
     8: SlotSymbol(
       id: 8, name: 'LP4', displayChar: '🍏',
-      // APPLE GREEN — Cool green, NOT warm/bright
       gradientColors: [Color(0xFF88CC55), Color(0xFF669944), Color(0xFF446622)],
       glowColor: Color(0xFF77BB44),
     ),
     9: SlotSymbol(
       id: 9, name: 'LP5', displayChar: '🍓',
-      // STRAWBERRY — Muted coral/salmon, NOT pure red like HP1
       gradientColors: [Color(0xFFDD7766), Color(0xFFBB5544), Color(0xFF883322)],
       glowColor: Color(0xFFCC6655),
     ),
     10: SlotSymbol(
       id: 10, name: 'LP6', displayChar: '🫐',
-      // BLUEBERRY — Deep teal/blue-green, cool and muted
       gradientColors: [Color(0xFF5588AA), Color(0xFF336688), Color(0xFF224455)],
       glowColor: Color(0xFF447799),
     ),
@@ -150,24 +168,21 @@ class SlotSymbol {
     // ═══════════════════════════════════════════════════════════════════════════
     11: SlotSymbol(
       id: 11, name: 'WILD', displayChar: '★',
-      // RAINBOW/IRIDESCENT — Multi-color shimmer effect (white-gold-silver)
-      // NOT plain gold (HP2 uses gold now), uses platinum/silver-white
       gradientColors: [Color(0xFFFFFFEE), Color(0xFFE8E8D0), Color(0xFFC0C0A0)],
       glowColor: Color(0xFFFFFFCC), isSpecial: true,
+      shape: SymbolShape.diamond,
     ),
     12: SlotSymbol(
       id: 12, name: 'SCATTER', displayChar: '◆',
-      // ELECTRIC LIME/CHARTREUSE — Neon green-yellow, triggers features
-      // NOT magenta (too close to HP4 pink), uses unique neon green
       gradientColors: [Color(0xFFCCFF00), Color(0xFFAADD00), Color(0xFF77AA00)],
       glowColor: Color(0xFFBBEE00), isSpecial: true,
+      shape: SymbolShape.circle,
     ),
     13: SlotSymbol(
       id: 13, name: 'BONUS', displayChar: '♦',
-      // ELECTRIC CYAN/AQUA — Pure cyan, bonus trigger
-      // Distinct from all LP blues (which are teal/muted)
       gradientColors: [Color(0xFF00FFFF), Color(0xFF00DDDD), Color(0xFF009999)],
       glowColor: Color(0xFF00EEEE), isSpecial: true,
+      shape: SymbolShape.octagon,
     ),
     // Fallback for ID 0 (should not occur in normal operation)
     0: SlotSymbol(
@@ -253,6 +268,88 @@ class SlotSymbol {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// SYMBOL SHAPE CLIPPERS — Custom clip paths for each shape type
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _DiamondClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    path.moveTo(size.width / 2, 0);
+    path.lineTo(size.width, size.height / 2);
+    path.lineTo(size.width / 2, size.height);
+    path.lineTo(0, size.height / 2);
+    path.close();
+    return path;
+  }
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
+class _HexagonClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final w = size.width;
+    final h = size.height;
+    final path = Path();
+    path.moveTo(w * 0.25, 0);
+    path.lineTo(w * 0.75, 0);
+    path.lineTo(w, h * 0.5);
+    path.lineTo(w * 0.75, h);
+    path.lineTo(w * 0.25, h);
+    path.lineTo(0, h * 0.5);
+    path.close();
+    return path;
+  }
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
+class _OctagonClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final w = size.width;
+    final h = size.height;
+    final c = w * 0.28; // corner cut
+    final path = Path();
+    path.moveTo(c, 0);
+    path.lineTo(w - c, 0);
+    path.lineTo(w, c);
+    path.lineTo(w, h - c);
+    path.lineTo(w - c, h);
+    path.lineTo(c, h);
+    path.lineTo(0, h - c);
+    path.lineTo(0, c);
+    path.close();
+    return path;
+  }
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
+/// Wraps a child widget in the appropriate clip shape for a symbol.
+/// Returns the child unmodified for roundedRect (handled by BorderRadius).
+Widget _clipForShape(SymbolShape shape, Widget child) {
+  return switch (shape) {
+    SymbolShape.diamond => ClipPath(clipper: _DiamondClipper(), child: child),
+    SymbolShape.circle => ClipOval(child: child),
+    SymbolShape.hexagon => ClipPath(clipper: _HexagonClipper(), child: child),
+    SymbolShape.octagon => ClipPath(clipper: _OctagonClipper(), child: child),
+    SymbolShape.softSquare || SymbolShape.roundedRect => child,
+  };
+}
+
+/// Returns border radius appropriate for each shape.
+/// Non-rect shapes use 0 radius (clipping handles shape).
+BorderRadius _borderRadiusForShape(SymbolShape shape) {
+  return switch (shape) {
+    SymbolShape.softSquare => BorderRadius.circular(8),
+    SymbolShape.roundedRect => BorderRadius.circular(3),
+    _ => BorderRadius.zero,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SLOT PREVIEW WIDGET - FULLSCREEN REELS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -275,6 +372,11 @@ class SlotPreviewWidget extends StatefulWidget {
   /// PremiumSlotPreview has its own _WinPresenter overlay — this prevents DOUBLE PLAQUE
   final bool showWinPresentation;
 
+  /// When true, reel animations are frozen and the reel area is hidden.
+  /// Used during scene transitions (feature enter/exit plaques) to ensure
+  /// reels are not visible or spinning behind the transition overlay.
+  final bool isTransitionActive;
+
   const SlotPreviewWidget({
     super.key,
     required this.provider,
@@ -283,6 +385,7 @@ class SlotPreviewWidget extends StatefulWidget {
     this.rows = 3,
     this.onSpaceKeyHandled,
     this.showWinPresentation = true, // Default: show (for standalone usage)
+    this.isTransitionActive = false,
   });
 
   @override
@@ -562,6 +665,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _disposeControllers();
       _initializeControllers();
       _initializeGrid();
+    }
+    // Transition gate: freeze reel animations during scene transitions
+    if (widget.isTransitionActive && !oldWidget.isTransitionActive) {
+      _reelAnimController.stopImmediately();
     }
   }
 
@@ -3697,6 +3804,14 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     final reduceMotion = MediaQuery.of(context).disableAnimations;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // TRANSITION GATE — Hide reels completely during scene transitions
+    // Industry standard: reels must not be visible behind feature plaques
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (widget.isTransitionActive) {
+      return Container(color: const Color(0xFF050508));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // KEYBOARD HANDLING — Removed nested Focus to fix focus conflict!
     // Parent (slot_lab_screen.dart) now handles Space key and calls handleSpaceKey()
     // ═══════════════════════════════════════════════════════════════════════════
@@ -4836,6 +4951,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // V14: Get symbol name for this position (for label display)
     final symbolName = _getSymbolNameForPosition(posKey);
 
+    // Symbol shape for visual differentiation by tier
+    final symbolId = _displayGrid[reelIndex][rowIndex];
+    final cellSymbol = SlotSymbol.getSymbol(symbolId);
+    final cellShape = cellSymbol.shape;
+
     // When win line presentation is active, only highlight CURRENT line positions
     // Otherwise highlight all winning positions
     final isWinningPosition = _isShowingWinLines
@@ -4968,13 +5088,13 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             child: Opacity(
               // CRITICAL: Ensure opacity is always valid (0.0-1.0) - double guard
               opacity: (cascadeOpacity * dimOpacity).clamp(0.0, 1.0),
-              child: Container(
+              child: _clipForShape(cellShape, Container(
                 width: cellWidth,
                 height: cellHeight,
                 margin: const EdgeInsets.all(1),
                 decoration: BoxDecoration(
                   color: const Color(0xFF08080C),
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: _borderRadiusForShape(cellShape),
                   border: Border.all(
                     color: isCascadePopPosition && _isCascading
                         ? const Color(0xFFFFD700).withOpacity(cascadeOpacity)
@@ -5037,7 +5157,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                       ),
                   ],
                 ),
-              ),
+              )),
             ),
           ), // V6: Close Transform.rotate
         ),
@@ -5328,14 +5448,18 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       glowColors = symbol.gradientColors;
     }
 
-    return Container(
+    final shapeRadius = _borderRadiusForShape(symbol.shape);
+
+    return _clipForShape(
+      symbol.shape,
+      Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: glowColors,
         ),
-        borderRadius: BorderRadius.circular(3),
+        borderRadius: shapeRadius,
         boxShadow: isWinning
             ? [
                 BoxShadow(
@@ -5367,7 +5491,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                       Colors.transparent,
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(3),
+                  borderRadius: shapeRadius,
                 ),
               ),
             ),
@@ -5408,7 +5532,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                         ],
                         stops: const [0.0, 0.5, 1.0],
                       ),
-                      borderRadius: BorderRadius.circular(3),
+                      borderRadius: shapeRadius,
                     ),
                   );
                 },
@@ -5479,6 +5603,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           ),
         ],
       ),
+    ),
     );
   }
 }
