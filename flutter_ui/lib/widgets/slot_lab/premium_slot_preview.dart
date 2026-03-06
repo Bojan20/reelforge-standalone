@@ -31,6 +31,7 @@ import 'game_flow_overlay.dart';
 import '../../providers/slot_lab/game_flow_provider.dart';
 import 'project_dashboard_dialog.dart';
 import 'slot_preview_widget.dart';
+import '../../services/diagnostics/diagnostics_service.dart';
 
 // =============================================================================
 // CONSTANTS & THEME
@@ -5747,6 +5748,18 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         setState(() {
           _debugMessage = 'Got result! spinId=${result.spinId}, calling _processResult...';
         });
+        // Diagnostics: report spin completed
+        final diag = DiagnosticsService.instance;
+        final stages = provider.lastStages;
+        diag.reportFinding(DiagnosticFinding(
+          checker: 'SpinResult',
+          severity: DiagnosticSeverity.ok,
+          message: 'Spin: ${stages.length} stages, win=${result.totalWin}',
+        ));
+        for (final stage in stages) {
+          diag.onStageTrigger(stage.stageType.toUpperCase(), stage.timestampMs);
+        }
+        diag.onSpinComplete();
         // Store result for win stage triggering (used by _onAllReelsStopped)
         _pendingResultForWinStage = result;
         _processResult(result);

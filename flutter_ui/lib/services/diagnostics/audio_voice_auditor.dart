@@ -107,7 +107,7 @@ class AudioVoiceAuditor extends DiagnosticChecker {
 }
 
 /// Runtime monitor that tracks voice allocation over time
-class AudioVoiceMonitor extends DiagnosticMonitor {
+class AudioVoiceMonitor extends DiagnosticMonitor implements SpinCompleteAware {
   final List<DiagnosticFinding> _findings = [];
   bool _active = false;
   int _baselineVoices = 0;
@@ -138,7 +138,7 @@ class AudioVoiceMonitor extends DiagnosticMonitor {
     return drained;
   }
 
-  /// Call after a spin completes and all audio should have stopped
+  @override
   void onSpinComplete() {
     if (!_active) return;
 

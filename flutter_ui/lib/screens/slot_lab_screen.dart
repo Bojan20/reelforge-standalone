@@ -105,7 +105,6 @@ import '../providers/undo_manager.dart';
 import '../widgets/slot_lab/game_model_editor.dart';
 import '../widgets/slot_lab/scenario_editor.dart';
 import '../widgets/slot_lab/win_tier_config_panel.dart';
-import '../widgets/slot_lab/diagnostics_panel.dart';
 import '../services/diagnostics/diagnostics_service.dart';
 import '../services/diagnostics/stage_contract_validator.dart';
 import '../services/diagnostics/rust_dart_sync_checker.dart';
@@ -1335,6 +1334,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     _restorePersistedState();
     _initWaveformCache();
     _initDiagnostics();
+    DiagnosticsService.instance.addListener(_onDiagnosticsChanged);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CRITICAL FIX: Global keyboard handler that doesn't depend on focus
@@ -1364,11 +1364,84 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   void _initDiagnostics() {
     final diagnostics = DiagnosticsService.instance;
-    diagnostics.registerChecker(StageContractValidator());
-    diagnostics.registerChecker(RustDartSyncChecker());
-    diagnostics.registerChecker(AudioVoiceAuditor());
+    // Monitors don't need SlotLabProvider — register immediately
     diagnostics.registerMonitor(EventFlowMonitor());
     diagnostics.registerMonitor(TimingDriftMonitor());
+    diagnostics.registerMonitor(AudioVoiceMonitor());
+    // Checkers registered without provider for now — updated in _registerDiagnosticCheckers
+    diagnostics.registerChecker(AudioVoiceAuditor());
+    // Auto-start monitoring so diagnostics work without manual activation
+    diagnostics.startMonitoring();
+
+    // Auto QA: create slot machine + spin 20 times
+    Future.delayed(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      final provider = _slotLabProvider;
+
+      // 1. Create slot machine via FeatureComposer (same as CREATE button)
+      if (GetIt.instance.isRegistered<FeatureComposerProvider>()) {
+        final composer = GetIt.instance<FeatureComposerProvider>();
+        if (!composer.isConfigured) {
+          const config = SlotMachineConfig(
+            name: 'Auto QA Test',
+            reelCount: 5,
+            rowCount: 3,
+            paylineCount: 20,
+            winTierCount: 5,
+          );
+          composer.applyConfig(config);
+          diagnostics.log('Auto QA: SlotMachineConfig applied (5×3)');
+        }
+      }
+
+      // 2. Initialize engine
+      if (!provider.initialized) {
+        final ok = provider.initialize();
+        diagnostics.log('Auto QA: initialize() = $ok');
+      }
+      provider.updateGridSize(5, 3);
+      diagnostics.log('Auto QA: engine initialized=${provider.initialized}');
+
+      // 3. Run 20 spins
+      diagnostics.runAutoSpinQA(
+        spinFn: () => provider.spin(),
+        count: 20,
+        delayBetween: const Duration(milliseconds: 800),
+      );
+    });
+  }
+
+  int _diagFindingsCount = 0;
+
+  void _onDiagnosticsChanged() {
+    if (!mounted) return;
+    final diag = DiagnosticsService.instance;
+    final newCount = diag.liveFindings.length;
+    if (newCount != _diagFindingsCount) {
+      setState(() {
+        _diagFindingsCount = newCount;
+      });
+    }
+  }
+
+  /// Register checkers that need SlotLabProvider (called after provider is available)
+  void _registerDiagnosticCheckers() {
+    final diagnostics = DiagnosticsService.instance;
+    final slp = _hasSlotLabProvider ? _slotLabProvider : null;
+    diagnostics.registerChecker(StageContractValidator(
+      getLastStages: slp != null
+          ? () => slp.lastStages.map((s) => StageSnapshot(
+                stageType: s.stageType,
+                timestampMs: s.timestampMs,
+                rawStage: s.rawStage,
+              )).toList()
+          : null,
+    ));
+    diagnostics.registerChecker(RustDartSyncChecker(
+      getLastStageTypes: slp != null
+          ? () => slp.lastStages.map((s) => s.stageType).toList()
+          : null,
+    ));
   }
 
   /// Sync persisted audio assignments to composite events (SSoT) and EventRegistry.
@@ -2244,6 +2317,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
       // Start background audio preload (does NOT block UI!)
       _startBackgroundAudioPreload();
+
+      // Register diagnostic checkers now that SlotLabProvider is available
+      _registerDiagnosticCheckers();
     } catch (e) {
       _engineInitialized = false;
       _reelSymbols = List.from(_fallbackReelSymbols);
@@ -2741,6 +2817,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   @override
   void dispose() {
+    // Remove diagnostics listener
+    DiagnosticsService.instance.removeListener(_onDiagnosticsChanged);
+
     // Remove global keyboard handler
     HardwareKeyboard.instance.removeHandler(_globalKeyHandler);
 
@@ -3607,6 +3686,21 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     children: [
                       _buildCurrentStageIndicator(),
                     ],
+                  ),
+                ),
+
+                // ── DIAG STATUS ──
+                Container(
+                  margin: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  color: const Color(0xFFFF0000),
+                  child: Text(
+                    'DIAG: $_diagFindingsCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
 
@@ -9179,10 +9273,199 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               _RightPanelTab.events => _buildRightEventsContent(),
               _RightPanelTab.inspector => _buildRightInspectorContent(),
               _RightPanelTab.config => _buildRightConfigContent(),
-              _RightPanelTab.diagnostics => const DiagnosticsPanel(),
+              _RightPanelTab.diagnostics => _buildDiagnosticsContent(),
             },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDiagnosticsContent() {
+    final diag = DiagnosticsService.instance;
+    return ListenableBuilder(
+      listenable: diag,
+      builder: (context, _) {
+        final findings = diag.liveFindings;
+        final report = diag.lastReport;
+        return Container(
+          color: const Color(0xFF1A1A2E),
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                color: diag.isMonitoring
+                    ? const Color(0xFF66BB6A).withOpacity(0.15)
+                    : Colors.white.withOpacity(0.05),
+                child: Row(
+                  children: [
+                    Icon(
+                      diag.isMonitoring ? Icons.monitor_heart : Icons.health_and_safety,
+                      color: diag.isMonitoring ? const Color(0xFF66BB6A) : Colors.white38,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      diag.isMonitoring ? 'MONITORING' : 'IDLE',
+                      style: TextStyle(
+                        color: diag.isMonitoring ? const Color(0xFF66BB6A) : Colors.white38,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${findings.length} findings',
+                      style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10),
+                    ),
+                  ],
+                ),
+              ),
+              // Toolbar
+              Padding(
+                padding: const EdgeInsets.all(4),
+                child: Row(
+                  children: [
+                    _buildDiagButton('Run Check', Icons.play_arrow, const Color(0xFF4FC3F7), () {
+                      diag.runFullCheck();
+                    }),
+                    const SizedBox(width: 4),
+                    _buildDiagButton(
+                      diag.isMonitoring ? 'Stop' : 'Monitor',
+                      diag.isMonitoring ? Icons.stop : Icons.monitor_heart,
+                      diag.isMonitoring ? const Color(0xFFFF5252) : const Color(0xFF66BB6A),
+                      () {
+                        if (diag.isMonitoring) {
+                          diag.stopMonitoring();
+                        } else {
+                          diag.startMonitoring();
+                        }
+                      },
+                    ),
+                    const SizedBox(width: 4),
+                    _buildDiagButton(
+                      diag.autoSpinRunning
+                          ? 'Stop QA (${diag.autoSpinCompleted}/${diag.autoSpinTotal})'
+                          : 'Auto QA ×20',
+                      diag.autoSpinRunning ? Icons.stop_circle : Icons.auto_mode,
+                      diag.autoSpinRunning ? const Color(0xFFFF9800) : const Color(0xFFCE93D8),
+                      () {
+                        if (diag.autoSpinRunning) {
+                          diag.stopAutoSpin();
+                        } else {
+                          diag.runAutoSpinQA(
+                            spinFn: () => _slotLabProvider.spin(),
+                            count: 20,
+                            delayBetween: const Duration(milliseconds: 800),
+                          );
+                        }
+                      },
+                    ),
+                    const Spacer(),
+                    if (findings.isNotEmpty)
+                      _buildDiagButton('Clear', Icons.clear_all, Colors.white38, () {
+                        diag.clearFindings();
+                      }),
+                  ],
+                ),
+              ),
+              // Findings list
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(4),
+                  itemCount: (report?.findings.length ?? 0) + findings.length +
+                      (report == null && findings.isEmpty ? 1 : 0),
+                  itemBuilder: (context, i) {
+                    // Empty state
+                    if (report == null && findings.isEmpty) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Text('No diagnostics yet\nRun a check or start monitoring',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12)),
+                        ),
+                      );
+                    }
+                    // Report findings first
+                    final reportLen = report?.findings.length ?? 0;
+                    final DiagnosticFinding f;
+                    if (i < reportLen) {
+                      f = report!.findings[i];
+                    } else {
+                      final liveIdx = findings.length - 1 - (i - reportLen);
+                      if (liveIdx < 0) return const SizedBox.shrink();
+                      f = findings[liveIdx];
+                    }
+                    final color = switch (f.severity) {
+                      DiagnosticSeverity.ok => const Color(0xFF66BB6A),
+                      DiagnosticSeverity.warning => const Color(0xFFFFB74D),
+                      DiagnosticSeverity.error => const Color(0xFFFF5252),
+                    };
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.05),
+                        border: Border(left: BorderSide(color: color, width: 2)),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: color.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                                child: Text(f.checker, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w600)),
+                              ),
+                              if (f.affectedStage != null) ...[
+                                const SizedBox(width: 4),
+                                Text(f.affectedStage!, style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 9, fontFamily: 'monospace')),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 1),
+                          Text(f.message, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 11)),
+                          if (f.detail != null)
+                            Text(f.detail!, style: TextStyle(color: Colors.white.withOpacity(0.35), fontSize: 10)),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDiagButton(String label, IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 13),
+            const SizedBox(width: 4),
+            Text(label, style: TextStyle(color: color, fontSize: 11)),
+          ],
+        ),
       ),
     );
   }

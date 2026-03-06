@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 /// Severity level for diagnostic findings
@@ -96,7 +97,9 @@ abstract class DiagnosticMonitor {
 /// Central diagnostics service — orchestrates all checkers and monitors
 class DiagnosticsService extends ChangeNotifier {
   static final DiagnosticsService instance = DiagnosticsService._();
-  DiagnosticsService._();
+  DiagnosticsService._() {
+    _initLogFile();
+  }
 
   final List<DiagnosticChecker> _checkers = [];
   final List<DiagnosticMonitor> _monitors = [];
@@ -104,6 +107,24 @@ class DiagnosticsService extends ChangeNotifier {
   DiagnosticReport? _lastReport;
   Timer? _autoCheckTimer;
   bool _monitoring = false;
+  File? _logFile;
+
+  void _initLogFile() {
+    try {
+      final home = Platform.environment['HOME'] ?? '/tmp';
+      _logFile = File('$home/diag.log');
+      _logFile!.writeAsStringSync('--- DIAG LOG START ${DateTime.now()} ---\n');
+    } catch (_) {}
+  }
+
+  void log(String msg) {
+    try {
+      _logFile?.writeAsStringSync(
+        '${DateTime.now().toIso8601String()} $msg\n',
+        mode: FileMode.append,
+      );
+    } catch (_) {}
+  }
 
   /// Last full diagnostic report
   DiagnosticReport? get lastReport => _lastReport;
@@ -204,11 +225,19 @@ class DiagnosticsService extends ChangeNotifier {
 
   /// Start continuous monitoring + periodic auto-checks
   void startMonitoring({Duration interval = const Duration(seconds: 30)}) {
+    log('startMonitoring called, already=$_monitoring');
     if (_monitoring) return;
     _monitoring = true;
     for (final monitor in _monitors) {
       monitor.start();
     }
+    // Confirm monitoring is active with a finding
+    _liveFindings.add(DiagnosticFinding(
+      checker: 'System',
+      severity: DiagnosticSeverity.ok,
+      message: 'Monitoring started — ${_monitors.length} monitors, '
+          '${_checkers.length} checkers active. Spin to see results.',
+    ));
     _autoCheckTimer = Timer.periodic(interval, (_) {
       _drainMonitors();
     });
@@ -232,6 +261,9 @@ class DiagnosticsService extends ChangeNotifier {
     for (final monitor in _monitors) {
       final findings = monitor.drain();
       if (findings.isNotEmpty) {
+        for (final f in findings) {
+          log('DRAIN [${f.checker}] ${f.severity.name}: ${f.message}${f.detail != null ? ' | ${f.detail}' : ''}');
+        }
         _liveFindings.addAll(findings);
         hasNew = true;
       }
@@ -243,8 +275,34 @@ class DiagnosticsService extends ChangeNotifier {
     if (hasNew) notifyListeners();
   }
 
+  /// Forward a stage trigger to all active monitors.
+  /// Call this from SlotLabProvider._triggerStage() for every stage.
+  void onStageTrigger(String stageName, double engineTimestampMs) {
+    if (!_monitoring) return;
+    for (final monitor in _monitors) {
+      if (monitor is StageTriggerAware) {
+        (monitor as StageTriggerAware).onStageTrigger(stageName, engineTimestampMs);
+      }
+    }
+  }
+
+  /// Notify monitors that a spin has completed.
+  /// Call this from SlotLabProvider when SPIN_END fires.
+  void onSpinComplete() {
+    log('onSpinComplete called, monitoring=$_monitoring');
+    if (!_monitoring) return;
+    for (final monitor in _monitors) {
+      if (monitor is SpinCompleteAware) {
+        (monitor as SpinCompleteAware).onSpinComplete();
+      }
+    }
+    // Auto-drain after spin to surface findings quickly
+    _drainMonitors();
+  }
+
   /// Add a finding from external source (e.g., inline assertion failure)
   void reportFinding(DiagnosticFinding finding) {
+    log('FINDING [${finding.checker}] ${finding.severity.name}: ${finding.message}');
     _liveFindings.add(finding);
     if (_liveFindings.length > 500) {
       _liveFindings.removeRange(0, _liveFindings.length - 500);
@@ -258,9 +316,109 @@ class DiagnosticsService extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUTO-SPIN QA
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  bool _autoSpinRunning = false;
+  int _autoSpinCompleted = 0;
+  int _autoSpinTotal = 0;
+
+  bool get autoSpinRunning => _autoSpinRunning;
+  int get autoSpinCompleted => _autoSpinCompleted;
+  int get autoSpinTotal => _autoSpinTotal;
+
+  /// Run N automated spins, collecting diagnostics after each.
+  /// [spinFn] should call provider.spin() and return the result.
+  Future<void> runAutoSpinQA({
+    required Future<dynamic> Function() spinFn,
+    int count = 20,
+    Duration delayBetween = const Duration(milliseconds: 500),
+  }) async {
+    if (_autoSpinRunning) return;
+    _autoSpinRunning = true;
+    _autoSpinCompleted = 0;
+    _autoSpinTotal = count;
+    clearFindings();
+    if (!_monitoring) startMonitoring();
+    notifyListeners();
+
+    log('═══ AUTO-SPIN QA START — $count spins ═══');
+
+    int errors = 0;
+    int warnings = 0;
+
+    for (int i = 0; i < count; i++) {
+      if (!_autoSpinRunning) {
+        log('AUTO-SPIN CANCELLED at spin ${i + 1}/$count');
+        break;
+      }
+
+      log('── AUTO-SPIN ${i + 1}/$count ──');
+
+      try {
+        final result = await spinFn();
+        // Drain monitors immediately after each spin
+        _drainMonitors();
+        if (result == null) {
+          log('AUTO-SPIN ${i + 1}: spin() returned null');
+        }
+      } catch (e) {
+        log('AUTO-SPIN ${i + 1}: EXCEPTION $e');
+        reportFinding(DiagnosticFinding(
+          checker: 'AutoSpinQA',
+          severity: DiagnosticSeverity.error,
+          message: 'Spin ${i + 1} threw: $e',
+        ));
+      }
+
+      _autoSpinCompleted = i + 1;
+      notifyListeners();
+
+      // Wait for audio stages to finish before next spin
+      await Future<void>.delayed(delayBetween);
+    }
+
+    // Final summary
+    for (final f in _liveFindings) {
+      if (f.isError) errors++;
+      if (f.isWarning) warnings++;
+    }
+
+    log('═══ AUTO-SPIN QA DONE — $_autoSpinCompleted/$count spins ═══');
+    log('═══ SUMMARY: $errors errors, $warnings warnings, ${_liveFindings.length} total findings ═══');
+
+    reportFinding(DiagnosticFinding(
+      checker: 'AutoSpinQA',
+      severity: errors > 0
+          ? DiagnosticSeverity.error
+          : warnings > 0
+              ? DiagnosticSeverity.warning
+              : DiagnosticSeverity.ok,
+      message: 'QA complete: $_autoSpinCompleted spins, $errors errors, $warnings warnings',
+    ));
+
+    _autoSpinRunning = false;
+    notifyListeners();
+  }
+
+  void stopAutoSpin() {
+    _autoSpinRunning = false;
+  }
+
   @override
   void dispose() {
     stopMonitoring();
     super.dispose();
   }
+}
+
+/// Interface for monitors that respond to individual stage triggers
+abstract class StageTriggerAware {
+  void onStageTrigger(String stageName, double engineTimestampMs);
+}
+
+/// Interface for monitors that respond to spin completion
+abstract class SpinCompleteAware {
+  void onSpinComplete();
 }

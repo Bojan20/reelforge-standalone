@@ -17,6 +17,7 @@ import '../../models/stage_models.dart';
 import '../../src/rust/native_ffi.dart' show SlotLabStageEvent;
 import '../../services/event_registry.dart';
 import '../../services/unified_playback_controller.dart';
+import '../../services/diagnostics/diagnostics_service.dart';
 import '../ale_provider.dart';
 import 'slot_lab_coordinator.dart';
 
@@ -589,6 +590,9 @@ class SlotStageProvider extends ChangeNotifier {
 
   void _triggerStage(SlotLabStageEvent stage) {
     final stageType = stage.stageType.toUpperCase();
+
+    // Diagnostics: feed every stage to monitors for live analysis
+    DiagnosticsService.instance.onStageTrigger(stageType, stage.timestampMs);
     final reelIndex = stage.rawStage['reel_index'];
     Map<String, dynamic> context = {
       ...stage.payload,
@@ -700,6 +704,8 @@ class SlotStageProvider extends ChangeNotifier {
     if (stageType == 'SPIN_END') {
       eventRegistry.stopEvent('REEL_SPIN_LOOP');
       eventRegistry.stopEvent('REEL_SPIN');
+      // Diagnostics: notify monitors that spin is complete
+      DiagnosticsService.instance.onSpinComplete();
     }
 
     // Sync ALE signals

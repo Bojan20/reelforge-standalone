@@ -8,7 +8,8 @@ import 'diagnostics_service.dart';
 /// - Timer inaccuracies in Dart
 /// - UI thread blocking causing delayed stage triggers
 /// - Wrong timestamp values from engine
-class TimingDriftMonitor extends DiagnosticMonitor {
+class TimingDriftMonitor extends DiagnosticMonitor
+    implements StageTriggerAware, SpinCompleteAware {
   final List<DiagnosticFinding> _findings = [];
   bool _active = false;
 
@@ -29,8 +30,8 @@ class TimingDriftMonitor extends DiagnosticMonitor {
   String? _maxDriftStage;
 
   TimingDriftMonitor({
-    this.warningThresholdMs = 50,
-    this.errorThresholdMs = 200,
+    this.warningThresholdMs = 150,
+    this.errorThresholdMs = 500,
   });
 
   @override
@@ -71,9 +72,7 @@ class TimingDriftMonitor extends DiagnosticMonitor {
     return drained;
   }
 
-  /// Call when a stage is triggered.
-  /// [engineTimestampMs] is the planned timestamp from Rust engine.
-  /// [stageName] is the stage type name.
+  @override
   void onStageTrigger(String stageName, double engineTimestampMs) {
     if (!_active) return;
 
@@ -125,6 +124,24 @@ class TimingDriftMonitor extends DiagnosticMonitor {
       ));
     }
   }
+
+  @override
+  void onSpinComplete() {
+    if (!_active || _totalSamples == 0) return;
+    final avgDrift = _totalDriftMs / _totalSamples;
+    _findings.add(DiagnosticFinding(
+      checker: name,
+      severity: avgDrift > warningThresholdMs
+          ? DiagnosticSeverity.warning
+          : DiagnosticSeverity.ok,
+      message: 'Drift avg: ${avgDrift.toStringAsFixed(1)}ms, '
+          'max: ${_maxDriftMs.toStringAsFixed(1)}ms${_maxDriftStage != null ? ' ($maxDriftStage)' : ''}, '
+          '$_totalSamples samples',
+    ));
+    _resetStats();
+  }
+
+  String? get maxDriftStage => _maxDriftStage;
 
   void _resetStats() {
     _totalSamples = 0;

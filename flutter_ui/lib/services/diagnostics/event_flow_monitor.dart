@@ -8,7 +8,8 @@ import '../event_registry.dart';
 /// 2. Orphan triggers — stage triggered but no audio event registered
 /// 3. Rapid fire — same stage fired >5 times in 1 second
 /// 4. Sequence violations — REEL_STOP before UI_SPIN_PRESS in same spin
-class EventFlowMonitor extends DiagnosticMonitor {
+class EventFlowMonitor extends DiagnosticMonitor
+    implements StageTriggerAware, SpinCompleteAware {
   final List<DiagnosticFinding> _findings = [];
   final Map<String, DateTime> _lastTriggerTime = {};
   final Map<String, int> _triggerCountWindow = {};
@@ -19,6 +20,10 @@ class EventFlowMonitor extends DiagnosticMonitor {
   bool _spinActive = false;
   bool _seenUiSpinPress = false;
   final Set<int> _stoppedReels = {};
+
+  // Per-spin counters for summary
+  int _spinStageCount = 0;
+  int _spinNumber = 0;
 
   @override
   String get name => 'EventFlow';
@@ -44,24 +49,34 @@ class EventFlowMonitor extends DiagnosticMonitor {
     return drained;
   }
 
-  /// Call this from EventRegistry when a stage is triggered
-  void onStageTrigger(String stageName) {
+  @override
+  void onStageTrigger(String stageName, double engineTimestampMs) {
     if (!_active) return;
 
     final now = DateTime.now();
     final upper = stageName.toUpperCase();
 
     // ── Double trigger detection ──
-    final lastTime = _lastTriggerTime[upper];
-    if (lastTime != null) {
-      final elapsed = now.difference(lastTime).inMilliseconds;
-      if (elapsed < 50 && elapsed >= 0) {
-        _findings.add(DiagnosticFinding(
-          checker: name,
-          severity: DiagnosticSeverity.warning,
-          message: 'Double trigger: $upper fired twice within ${elapsed}ms',
-          affectedStage: upper,
-        ));
+    // Skip per-reel stages (same type fires once per reel, not a real double)
+    final isPerReelStage = upper == 'REEL_SPINNING_START' ||
+        upper == 'REEL_SPINNING' ||
+        upper == 'REEL_SPINNING_STOP' ||
+        upper == 'REEL_STOP' ||
+        upper.startsWith('REEL_SPINNING_START_') ||
+        upper.startsWith('REEL_SPINNING_') ||
+        upper.startsWith('REEL_STOP_');
+    if (!isPerReelStage) {
+      final lastTime = _lastTriggerTime[upper];
+      if (lastTime != null) {
+        final elapsed = now.difference(lastTime).inMilliseconds;
+        if (elapsed < 50 && elapsed >= 0) {
+          _findings.add(DiagnosticFinding(
+            checker: name,
+            severity: DiagnosticSeverity.warning,
+            message: 'Double trigger: $upper fired twice within ${elapsed}ms',
+            affectedStage: upper,
+          ));
+        }
       }
     }
     _lastTriggerTime[upper] = now;
@@ -84,11 +99,14 @@ class EventFlowMonitor extends DiagnosticMonitor {
       _triggerCountWindow[upper] = 0;
     }
 
+    _spinStageCount++;
+
     // ── Spin sequence validation ──
     if (upper == 'UI_SPIN_PRESS') {
       _resetSpinState();
       _spinActive = true;
       _seenUiSpinPress = true;
+      _spinStageCount = 1;
     } else if (upper == 'REEL_STOP' || upper.startsWith('REEL_STOP_')) {
       if (_spinActive && !_seenUiSpinPress) {
         _findings.add(DiagnosticFinding(
@@ -117,6 +135,22 @@ class EventFlowMonitor extends DiagnosticMonitor {
         ));
       }
     }
+  }
+
+  @override
+  void onSpinComplete() {
+    if (!_active) return;
+    _spinNumber++;
+    // Always emit a summary so the user sees the system is working
+    final issueCount = _findings.where((f) => !f.isOk).length;
+    if (issueCount == 0) {
+      _findings.add(DiagnosticFinding(
+        checker: name,
+        severity: DiagnosticSeverity.ok,
+        message: 'Spin #$_spinNumber OK — $_spinStageCount stages, no issues',
+      ));
+    }
+    _spinStageCount = 0;
   }
 
   void _ensureWindow(DateTime now) {

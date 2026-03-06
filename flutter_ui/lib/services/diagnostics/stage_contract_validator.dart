@@ -1,6 +1,13 @@
 import 'diagnostics_service.dart';
 import '../event_registry.dart';
-import '../../providers/slot_lab_provider.dart';
+
+/// Stage data needed by the validator (decoupled from SlotLabProvider)
+class StageSnapshot {
+  final String stageType;
+  final double timestampMs;
+  final Map<String, dynamic> rawStage;
+  StageSnapshot({required this.stageType, required this.timestampMs, required this.rawStage});
+}
 
 /// Validates stage sequence contracts and naming consistency.
 ///
@@ -11,10 +18,10 @@ import '../../providers/slot_lab_provider.dart';
 /// 4. Engine stages match Dart-side expected names
 /// 5. All stages in EventRegistry have valid configuration
 class StageContractValidator extends DiagnosticChecker {
-  final SlotLabProvider? _slotLabProvider;
+  final List<StageSnapshot> Function()? _getLastStages;
 
-  StageContractValidator({SlotLabProvider? slotLabProvider})
-      : _slotLabProvider = slotLabProvider;
+  StageContractValidator({List<StageSnapshot> Function()? getLastStages})
+      : _getLastStages = getLastStages;
 
   @override
   String get name => 'StageContract';
@@ -30,7 +37,7 @@ class StageContractValidator extends DiagnosticChecker {
     findings.addAll(_checkStageNaming());
     findings.addAll(_checkEventRegistryConsistency());
 
-    if (_slotLabProvider != null) {
+    if (_getLastStages != null) {
       findings.addAll(_checkLastSpinSequence());
     }
 
@@ -128,9 +135,9 @@ class StageContractValidator extends DiagnosticChecker {
     }
 
     // Check if last spin stages contain any unknown stages
-    final slp = _slotLabProvider;
-    if (slp != null) {
-      final lastStages = slp.lastStages;
+    final getStages = _getLastStages;
+    if (getStages != null) {
+      final lastStages = getStages();
       for (final stage in lastStages) {
         final type = stage.stageType.toLowerCase();
         final upper = stage.stageType.toUpperCase();
@@ -166,10 +173,10 @@ class StageContractValidator extends DiagnosticChecker {
 
   List<DiagnosticFinding> _checkLastSpinSequence() {
     final findings = <DiagnosticFinding>[];
-    final provider = _slotLabProvider;
-    if (provider == null) return findings;
+    final getStages = _getLastStages;
+    if (getStages == null) return findings;
 
-    final stages = provider.lastStages;
+    final stages = getStages();
     if (stages.isEmpty) return findings;
 
     final stageTypes =

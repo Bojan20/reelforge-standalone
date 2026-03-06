@@ -25,6 +25,7 @@ import '../src/rust/native_ffi.dart';
 import '../src/rust/slot_lab_v2_ffi.dart';
 import 'package:get_it/get_it.dart';
 
+import '../services/diagnostics/diagnostics_service.dart';
 import 'middleware_provider.dart';
 import 'ale_provider.dart';
 import 'slot_lab_project_provider.dart';
@@ -969,8 +970,7 @@ class SlotLabProvider extends ChangeNotifier {
 
   /// Execute a random spin
   Future<SlotLabSpinResult?> spin() async {
-    // DEBUG: Trace entry conditions
-
+    DiagnosticsService.instance.log('spin() called: initialized=$_initialized, isSpinning=$_isSpinning');
     if (!_initialized || _isSpinning) {
       return null;
     }
@@ -1034,6 +1034,8 @@ class SlotLabProvider extends ChangeNotifier {
       final win = _lastResult?.totalWin ?? 0;
       final isWin = _lastResult?.isWin ?? false;
 
+      _reportSpinDiagnostics();
+
       // Auto-trigger audio if enabled
       if (_autoTriggerAudio && _lastStages.isNotEmpty) {
         _playStagesSequentially();
@@ -1045,7 +1047,13 @@ class SlotLabProvider extends ChangeNotifier {
       _isSpinning = false;
       notifyListeners();
       return _lastResult;
-    } catch (e) {
+    } catch (e, stack) {
+      DiagnosticsService.instance.reportFinding(DiagnosticFinding(
+        checker: 'SpinCrash',
+        severity: DiagnosticSeverity.error,
+        message: 'spin() threw: $e',
+        detail: stack.toString().split('\n').take(5).join('\n'),
+      ));
       _isSpinning = false;
       notifyListeners();
       return null;
@@ -1102,6 +1110,8 @@ class SlotLabProvider extends ChangeNotifier {
 
       final win = _lastResult?.totalWin ?? 0;
       final isWin = _lastResult?.isWin ?? false;
+
+      _reportSpinDiagnostics();
 
       // Auto-trigger audio if enabled
       if (_autoTriggerAudio && _lastStages.isNotEmpty) {
@@ -1176,6 +1186,8 @@ class SlotLabProvider extends ChangeNotifier {
       final win = _lastResult?.totalWin ?? 0;
       final isWin = _lastResult?.isWin ?? false;
       final tierName = _lastResult?.winTierName ?? 'unknown';
+
+      _reportSpinDiagnostics();
 
       // Auto-trigger audio if enabled
       if (_autoTriggerAudio && _lastStages.isNotEmpty) {
@@ -1318,6 +1330,26 @@ class SlotLabProvider extends ChangeNotifier {
     if (currentContext != targetContext) {
       _aleProvider!.enterContext(targetContext);
     }
+  }
+
+  /// Report spin results to diagnostics — feeds all stages to monitors
+  void _reportSpinDiagnostics() {
+    final diag = DiagnosticsService.instance;
+    diag.log('_reportSpinDiagnostics: stages=${_lastStages.length}, win=${_lastResult?.totalWin ?? 0}');
+
+    // Always report spin summary (reportFinding works regardless of monitoring state)
+    diag.reportFinding(DiagnosticFinding(
+      checker: 'SpinResult',
+      severity: DiagnosticSeverity.ok,
+      message: 'Spin #$_spinCount: ${_lastStages.length} stages, '
+          'win=${_lastResult?.totalWin ?? 0}',
+    ));
+
+    // Feed stages to monitors (onStageTrigger/onSpinComplete have own guards)
+    for (final stage in _lastStages) {
+      diag.onStageTrigger(stage.stageType.toUpperCase(), stage.timestampMs);
+    }
+    diag.onSpinComplete();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1583,6 +1615,10 @@ class SlotLabProvider extends ChangeNotifier {
   /// CRITICAL: Uses ONLY EventRegistry. Legacy systems DISABLED to prevent duplicate audio.
   void _triggerStage(SlotLabStageEvent stage) {
     final stageType = stage.stageType.toUpperCase();
+
+    // Diagnostics: feed every stage to monitors for live analysis
+    DiagnosticsService.instance.onStageTrigger(stageType, stage.timestampMs);
+
     // CRITICAL: reel_index and symbols are in rawStage (from stage JSON), not payload
     final reelIndex = stage.rawStage['reel_index'];
     // CRITICAL: Include timestamp_ms for Event Log ordering display
@@ -1901,6 +1937,8 @@ class SlotLabProvider extends ChangeNotifier {
         _spinEndTriggered = true;
         eventRegistry.triggerStage('SPIN_END', context: context);
       }
+      // Diagnostics: notify monitors that spin is complete
+      DiagnosticsService.instance.onSpinComplete();
     }
 
   }
