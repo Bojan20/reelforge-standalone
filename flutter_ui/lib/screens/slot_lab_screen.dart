@@ -111,6 +111,9 @@ import '../services/diagnostics/rust_dart_sync_checker.dart';
 import '../services/diagnostics/audio_voice_auditor.dart';
 import '../services/diagnostics/event_flow_monitor.dart';
 import '../services/diagnostics/timing_drift_monitor.dart';
+import '../services/diagnostics/comprehensive_qa_runner.dart';
+import '../providers/mixer_provider.dart'; // ComprehensiveQA
+import '../providers/engine_provider.dart'; // ComprehensiveQA
 import '../widgets/slot_lab/gdd_import_panel.dart';
 import '../services/gdd_import_service.dart'; // GddSymbol, SymbolTier
 import '../widgets/lower_zone/slotlab_lower_zone_controller.dart';
@@ -1394,83 +1397,26 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // COMPREHENSIVE QA — Multi-grid, all events, 100+ spins
+  // COMPREHENSIVE QA — Full App Test Suite (SlotLab + DAW + Subsystems)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Grid configurations to test — real casino layouts
-  static const _qaGrids = [
-    (reels: 3, rows: 3, name: '3×3 Retro'),       // Sizzling Hot
-    (reels: 5, rows: 3, name: '5×3 Standard'),     // Book of Ra, Starburst
-    (reels: 5, rows: 4, name: '5×4 Extended'),     // Gonzo's Quest
-    (reels: 6, rows: 4, name: '6×4 Wide'),         // Buffalo, Sweet Bonanza
-    (reels: 4, rows: 4, name: '4×4 Cluster'),      // Cluster pays
-    (reels: 6, rows: 6, name: '6×6 Megaways'),     // Bonanza Megaways base
-    (reels: 8, rows: 4, name: '8×4 Ultra Wide'),   // Edge case / stress test
-  ];
-
-  /// All forced outcomes to test per grid
-  static const _qaOutcomes = ForcedOutcome.values; // 14 outcomes
+  ComprehensiveQaRunner? _qaRunner;
 
   void _runComprehensiveQA(DiagnosticsService diagnostics) {
-    final provider = _slotLabProvider;
+    _qaRunner ??= ComprehensiveQaRunner(diagnostics);
+    if (_qaRunner!.isRunning) return;
 
-    // 1. Create slot machine via FeatureComposer
-    if (GetIt.instance.isRegistered<FeatureComposerProvider>()) {
-      final composer = GetIt.instance<FeatureComposerProvider>();
-      if (!composer.isConfigured) {
-        const config = SlotMachineConfig(
-          name: 'QA Multi-Grid',
-          reelCount: 5,
-          rowCount: 3,
-          paylineCount: 20,
-          winTierCount: 5,
-        );
-        composer.applyConfig(config);
-      }
-    }
+    // Get providers for QA — SlotLab from state, Mixer/Engine from Provider tree
+    final slotLab = _hasSlotLabProvider ? _slotLabProvider : null;
+    MixerProvider? mixer;
+    EngineProvider? engine;
+    try { mixer = context.read<MixerProvider>(); } catch (_) {}
+    try { engine = context.read<EngineProvider>(); } catch (_) {}
 
-    // 2. Initialize engine
-    if (!provider.initialized) {
-      provider.initialize();
-    }
-    diagnostics.log('QA: engine initialized=${provider.initialized}');
-
-    // 3. Build spin plan: for each grid → all 14 forced outcomes + 6 random = 20 per grid
-    // Total: 7 grids × 20 spins = 140 spins
-    final spinsPerGrid = _qaOutcomes.length + 6; // 14 forced + 6 random = 20
-    final totalSpins = _qaGrids.length * spinsPerGrid; // 7 × 20 = 140
-
-    int currentGridIdx = -1;
-    String currentGridName = '';
-
-    diagnostics.runAutoSpinQA(
-      label: 'MultiGridQA',
-      spinFn: () {
-        // Determine which grid and outcome for this spin
-        final spinInGrid = diagnostics.autoSpinCompleted % spinsPerGrid;
-        final gridIdx = diagnostics.autoSpinCompleted ~/ spinsPerGrid;
-
-        // Grid change needed?
-        if (gridIdx != currentGridIdx && gridIdx < _qaGrids.length) {
-          currentGridIdx = gridIdx;
-          final grid = _qaGrids[gridIdx];
-          currentGridName = grid.name;
-          provider.updateGridSize(grid.reels, grid.rows);
-          diagnostics.log('╔═══ GRID CHANGE: ${grid.name} (${grid.reels}×${grid.rows}) ═══╗');
-        }
-
-        // Forced outcome or random?
-        if (spinInGrid < _qaOutcomes.length) {
-          final outcome = _qaOutcomes[spinInGrid];
-          diagnostics.log('[$currentGridName] FORCED: ${outcome.name}');
-          return provider.spinForced(outcome);
-        } else {
-          diagnostics.log('[$currentGridName] RANDOM');
-          return provider.spin();
-        }
-      },
-      count: totalSpins,
-      delayBetween: const Duration(milliseconds: 600),
+    _qaRunner!.runAll(
+      slotLabProvider: slotLab,
+      mixerProvider: mixer,
+      engineProvider: engine,
     );
   }
 
