@@ -73,8 +73,6 @@ class ProjectPluginIntegration {
         filePath,
       );
 
-      if (success) {
-      }
     }
   }
 
@@ -169,8 +167,6 @@ class ProjectPluginIntegration {
         slotIndex: slot.slotIndex,
       );
 
-      if (success) {
-      }
     }
   }
 

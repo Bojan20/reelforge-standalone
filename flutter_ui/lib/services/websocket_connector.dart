@@ -357,8 +357,6 @@ class WebSocketConnector {
       final message = _messageQueue.removeAt(0);
       _sendRaw(message);
     }
-    if (_messageQueue.isNotEmpty) {
-    }
   }
 
   // ─── Event Handlers ─────────────────────────────────────────────────────────

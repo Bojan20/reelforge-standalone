@@ -249,9 +249,6 @@ class _DropTargetWrapperState extends State<DropTargetWrapper>
     final shouldLoop = isMusicBus && !isEndFile; // loop music unless it's an _END file
     final crossfadeDuration = isMusicBus ? 500 : 0; // 500ms crossfade for music
 
-    if (isMusicBus) {
-    }
-
     // Create composite event with music-aware defaults
     final event = SlotCompositeEvent(
       id: eventId,

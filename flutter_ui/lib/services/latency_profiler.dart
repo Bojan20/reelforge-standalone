@@ -376,18 +376,6 @@ class LatencyProfiler extends ChangeNotifier {
       _completedMeasurements.removeAt(0);
     }
 
-    // Log results
-    final totalMs = completedMeasurement.totalLatencyMs;
-    final meetsTarget = completedMeasurement.meetsTarget;
-    final icon = meetsTarget ? '✅' : '⚠️';
-
-    if (completedMeasurement.dartToFfiUs != null) {
-    }
-    if (completedMeasurement.ffiToEngineUs != null) {
-    }
-    if (completedMeasurement.scheduledToOutputUs != null) {
-    }
-
     notifyListeners();
   }
 

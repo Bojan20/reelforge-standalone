@@ -997,10 +997,6 @@ class SlotStageProvider extends ChangeNotifier {
       }
     }
 
-    if (issues.isEmpty) {
-    } else {
-    }
-
     _lastValidationIssues = issues;
     notifyListeners();
     return issues;

@@ -1716,7 +1716,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Stop visual animation ONLY if still spinning (avoid duplicate callback from stopImmediately)
     if (_reelAnimController.isSpinning) {
       _reelAnimController.stopImmediately();
-    } else {
     }
 
     // Stop spin loop audio — all reels have stopped
@@ -1857,7 +1856,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           eventRegistry.triggerStage('WIN_SYMBOL_HIGHLIGHT');
 
           _startSymbolPulseAnimation();
-        } else {
         }
         _triggerStaggeredSymbolPopups(); // V6: Staggered popup effect (always runs)
 

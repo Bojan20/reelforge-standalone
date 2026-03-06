@@ -809,7 +809,6 @@ class SlotLabProvider extends ChangeNotifier {
       AudioPool.instance.preloadSlotLabEvents();
 
       notifyListeners();
-    } else {
     }
 
     return success;

@@ -616,7 +616,6 @@ class AleProvider extends ChangeNotifier {
       _initialized = true;
       _refreshState();
       notifyListeners();
-    } else {
     }
 
     return success;
@@ -777,9 +776,6 @@ class AleProvider extends ChangeNotifier {
 
     // P2.1 FIX: Clamp level to valid range to prevent invalid state
     final clampedLevel = level.clamp(kMinLevel, kMaxLevel);
-    if (clampedLevel != level) {
-    }
-
     final success = _ffi.aleSetLevel(clampedLevel);
     if (success) {
       _refreshState();
@@ -841,7 +837,6 @@ class AleProvider extends ChangeNotifier {
         );
       }
       notifyListeners();
-    } else {
     }
 
     return success;

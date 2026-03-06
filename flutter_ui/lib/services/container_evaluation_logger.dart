@@ -207,8 +207,6 @@ class ContainerEvaluationLogger {
     _notifyListeners();
 
     // Debug print
-    if (kDebugMode) {
-    }
   }
 
   /// Get all logs (newest first)

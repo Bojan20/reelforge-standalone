@@ -476,9 +476,6 @@ class ContainerService {
       // Note: pitch variation would need engine support
     );
 
-    if (voiceId > 0) {
-    }
-
     return voiceId;
   }
 
@@ -570,7 +567,6 @@ class ContainerService {
     // Handle sequence end
     if (result.ended) {
       _stopRustSequence(instanceId, 'ended');
-    } else if (result.looped) {
     }
   }
 
@@ -765,7 +761,6 @@ class ContainerService {
             instance.context,
             reversed: nextReversed,
           );
-        } else {
         }
         break;
     }

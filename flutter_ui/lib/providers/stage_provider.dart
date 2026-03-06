@@ -453,7 +453,6 @@ class StageProvider extends ChangeNotifier {
     // Route to audio mapper for intelligent Stage→Audio mapping
     if (_audioMapper != null) {
       _audioMapper!.mapAndTrigger(event);
-    } else {
     }
   }
 

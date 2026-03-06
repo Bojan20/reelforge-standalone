@@ -343,8 +343,6 @@ class AutoSpatialProvider extends ChangeNotifier {
     try {
       if (NativeFFI.instance.isLoaded) {
         _ffiAvailable = NativeFFI.instance.autoSpatialInit();
-        if (_ffiAvailable) {
-        }
       }
     } catch (e) {
       _ffiAvailable = false;

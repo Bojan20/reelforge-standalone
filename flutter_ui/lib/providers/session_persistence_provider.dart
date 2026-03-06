@@ -403,10 +403,6 @@ class SessionPersistenceProvider extends ChangeNotifier {
       final data = jsonDecode(json) as Map<String, dynamic>;
       final state = SessionState.fromJson(data);
 
-      // Version check
-      if (state.version != _sessionVersion) {
-      }
-
       onRestore?.call(state);
       return state;
     } catch (e) {

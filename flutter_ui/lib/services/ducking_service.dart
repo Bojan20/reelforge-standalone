@@ -73,21 +73,11 @@ class DuckingService {
     _startUpdateLoop();
 
     // Apply instant duck for relevant rules
-    for (final rule in _rules.values) {
-      if (rule.enabled && rule.sourceBusId == busId) {
-      }
-    }
   }
 
   /// Notify that a bus stopped playing
   void notifyBusInactive(int busId) {
     _activeSources.remove(busId);
-
-    // Check if we need to release any ducks
-    for (final rule in _rules.values) {
-      if (rule.enabled && rule.sourceBusId == busId) {
-      }
-    }
   }
 
   /// Get current duck multiplier for a bus (0.0-1.0, where 1.0 = no ducking)

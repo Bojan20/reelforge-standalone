@@ -745,8 +745,6 @@ class UltimateWebSocketClient {
       final message = _messageQueue.removeFirst();
       _sendInternal(message);
     }
-    if (_messageQueue.isEmpty) {
-    }
   }
 
   // =============================================================================

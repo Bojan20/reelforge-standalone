@@ -317,8 +317,6 @@ class DspAttributionProfiler extends ChangeNotifier {
     stats.recordOperation(attribution);
 
     // Log expensive operations (> 10% CPU)
-    if (attribution.loadPercent > 10.0) {
-    }
 
     notifyListeners();
   }

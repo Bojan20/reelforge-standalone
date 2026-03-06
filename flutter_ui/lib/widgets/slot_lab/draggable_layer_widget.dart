@@ -101,7 +101,6 @@ class _DraggableLayerWidgetState extends State<DraggableLayerWidget> {
       // but our own just-committed drag value won't be overwritten
       if (delta > 1.0) {
         _currentOffsetMs = widget.initialOffsetMs;
-      } else {
       }
     }
   }

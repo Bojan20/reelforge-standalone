@@ -334,9 +334,6 @@ class PluginStateService {
       final ffi = sl<NativeFFI>();
       final success = await _setPluginStateToFFI(ffi, trackId, slotIndex, chunk);
 
-      if (success) {
-      }
-
       return success;
     } catch (e) {
       return false;
@@ -353,8 +350,6 @@ class PluginStateService {
   Future<Uint8List?> _getPluginStateFromFFI(NativeFFI ffi, int trackId, int slotIndex) async {
     try {
       final data = ffi.pluginStateGet(trackId, slotIndex);
-      if (data != null) {
-      }
       return data;
     } catch (e) {
       return null;
@@ -379,8 +374,6 @@ class PluginStateService {
         stateData: chunk.stateData,
         presetName: chunk.presetName,
       );
-      if (success) {
-      }
       return success;
     } catch (e) {
       return false;

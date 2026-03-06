@@ -1998,7 +1998,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               break;
             }
           }
-        } else {
         }
 
         // Update known count
@@ -2294,7 +2293,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           // Listen to provider changes
           _slotLabProvider.addListener(_onSlotLabUpdate);
 
-        } else {
         }
 
       // ═══════════════════════════════════════════════════════════════════════
@@ -2508,11 +2506,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       }
     } catch (e) { /* ignored */ }
 
-    // Keep existing audio pool if we have one (don't clear user's imported files)
-    // Only initialize to empty if pool is truly uninitialized
-    if (_audioPool.isEmpty) {
-    } else {
-    }
   }
 
   /// Import audio files via native file picker (faster than file_picker plugin)
@@ -3634,7 +3627,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           _deleteMiddlewareEvent(deletedEventId);
         }
       });
-    } else {
     }
   }
 
@@ -5489,8 +5481,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         source: PlaybackSource.browser,
       );
 
-      if (voiceId >= 0) {
-      } else {
+      if (voiceId < 0) {
         _stopAudioPreview();
         return;
       }

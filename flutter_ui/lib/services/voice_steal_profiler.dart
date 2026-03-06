@@ -261,8 +261,6 @@ class VoiceStealProfiler extends ChangeNotifier {
     _updateSourceStats(event);
 
     // Log abnormal steals
-    if (event.isAbnormal) {
-    }
 
     notifyListeners();
   }

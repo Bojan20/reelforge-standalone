@@ -872,16 +872,12 @@ class MidiProvider extends ChangeNotifier {
 
   void _sendMidiNoteOn(int pitch, int velocity, int channel) {
     // Send via FFI to connected MIDI output device
-    final success = _ffi.midiSendNoteOn(channel, pitch, velocity);
-    if (!success) {
-    }
+    _ffi.midiSendNoteOn(channel, pitch, velocity);
   }
 
   void _sendMidiNoteOff(int pitch, int channel) {
     // Send via FFI to connected MIDI output device
-    final success = _ffi.midiSendNoteOff(channel, pitch, 64); // Standard release velocity
-    if (!success) {
-    }
+    _ffi.midiSendNoteOff(channel, pitch, 64); // Standard release velocity
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

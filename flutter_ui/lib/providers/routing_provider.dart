@@ -200,8 +200,6 @@ class RoutingProvider extends ChangeNotifier {
   /// UPDATED (2026-01-24): Full FFI sync now available via routing_get_channels_json()
   /// Queries engine for complete channel list and syncs local state.
   void _updateChannelList() {
-    final count = api.routingGetChannelCount();
-
     // Try to get full channel list from engine (JSON format)
     final json = api.routingGetChannelsJson();
     if (json != null && json.isNotEmpty) {
@@ -226,9 +224,6 @@ class RoutingProvider extends ChangeNotifier {
       } catch (e) { /* ignored */ }
     }
 
-    // Fallback: just log count mismatch
-    if (count != _channels.length) {
-    }
   }
 
   /// Refresh routing state

@@ -1105,9 +1105,6 @@ class StageIngestProvider extends ChangeNotifier {
       processed++;
     }
 
-    // Log if we hit the limit (may indicate backpressure)
-    if (processed >= _kMaxEventsPerPoll) {
-    }
   }
 
   /// Get pending event count

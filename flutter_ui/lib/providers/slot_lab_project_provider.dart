@@ -1419,10 +1419,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
       final rustJson = _convertToRustJson(jsonConfig);
       final jsonStr = _jsonEncode(rustJson);
 
-      final success = ffi.winTierSetConfigJson(jsonStr);
-      if (success) {
-      } else {
-      }
+      ffi.winTierSetConfigJson(jsonStr);
     } catch (e) { /* ignored */ }
   }
 

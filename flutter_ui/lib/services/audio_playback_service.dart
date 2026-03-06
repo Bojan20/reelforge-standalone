@@ -191,7 +191,7 @@ class AudioPlaybackService extends ChangeNotifier {
   // ===========================================================================
 
   /// Play single audio file through a specific bus (uses PlaybackEngine)
-  /// busId: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+  /// busId: 0=Master, 1=Music, 2=Sfx, 3=Voice, 4=Ambience, 5=Aux
   /// pan: -1.0 = full left, 0.0 = center, +1.0 = full right
   /// Returns voice_id on success, -1 on error
   int playFileToBus(
@@ -239,7 +239,7 @@ class AudioPlaybackService extends ChangeNotifier {
   }
 
   /// Extended play through specific bus with fadeIn/fadeOut/trim parameters
-  /// busId: 0=Sfx, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
+  /// busId: 0=Master, 1=Music, 2=Sfx, 3=Voice, 4=Ambience, 5=Aux
   /// pan: -1.0 = full left, 0.0 = center, +1.0 = full right
   /// fadeInMs: fade-in duration in milliseconds (0 = instant start)
   /// fadeOutMs: fade-out duration at end in milliseconds (0 = instant stop)
@@ -620,8 +620,6 @@ class AudioPlaybackService extends ChangeNotifier {
     }
     _activeVoices.removeWhere((v) => v.layerId == layerId);
     _checkAndReleasePlayback();
-    if (voicesToStop.isNotEmpty) {
-    }
   }
 
   /// Stop all voices from a specific source
@@ -729,10 +727,7 @@ class AudioPlaybackService extends ChangeNotifier {
     for (final timer in _preTriggerTimers.values) {
       timer.cancel();
     }
-    final count = _preTriggerTimers.length;
     _preTriggerTimers.clear();
-    if (count > 0) {
-    }
   }
 
   // ===========================================================================

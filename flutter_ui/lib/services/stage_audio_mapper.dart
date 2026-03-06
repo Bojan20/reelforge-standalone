@@ -125,8 +125,6 @@ class StageAudioMapper {
       }
     }
 
-    if (userEvents.isNotEmpty) {
-    }
   }
 
   /// Trigger a user-defined composite event directly

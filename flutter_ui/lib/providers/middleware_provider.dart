@@ -207,22 +207,6 @@ class MiddlewareProvider extends ChangeNotifier {
     _notificationScheduled = false;
     _lastNotifyTime = DateTime.now();
 
-    // Debug: log which domains changed
-    if (kDebugMode) {
-      final domains = <String>[];
-      if ((_lastChanges & changeStateGroups) != 0) domains.add('StateGroups');
-      if ((_lastChanges & changeSwitchGroups) != 0) domains.add('SwitchGroups');
-      if ((_lastChanges & changeRtpc) != 0) domains.add('RTPC');
-      if ((_lastChanges & changeDucking) != 0) domains.add('Ducking');
-      if ((_lastChanges & changeBlendContainers) != 0) domains.add('Blend');
-      if ((_lastChanges & changeRandomContainers) != 0) domains.add('Random');
-      if ((_lastChanges & changeSequenceContainers) != 0) domains.add('Sequence');
-      if ((_lastChanges & changeCompositeEvents) != 0) domains.add('Events');
-      if ((_lastChanges & changeMusicSystem) != 0) domains.add('Music');
-      if (domains.isNotEmpty) {
-      }
-    }
-
     notifyListeners();
   }
 

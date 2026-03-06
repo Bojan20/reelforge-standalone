@@ -3830,7 +3830,6 @@ class _SpinButtonState extends State<_SpinButton>
             case SpinButtonPhase.spin:
               if (widget.canSpin) {
                 widget.onSpin();
-              } else {
               }
             case SpinButtonPhase.stop:
               widget.onStop();

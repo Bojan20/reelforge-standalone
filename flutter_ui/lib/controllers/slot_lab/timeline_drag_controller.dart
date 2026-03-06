@@ -168,8 +168,6 @@ class TimelineDragController extends ChangeNotifier {
   /// Cancel region drag without syncing (keeps original position)
   /// Call this on ESC key press to revert to original position
   void cancelRegionDrag() {
-    if (_draggingRegionId != null) {
-    }
     _clearRegionDrag();
   }
 
@@ -279,8 +277,6 @@ class TimelineDragController extends ChangeNotifier {
   /// Cancel layer drag without syncing (keeps original position)
   /// Call this on ESC key press to revert to original position
   void cancelLayerDrag() {
-    if (_draggingLayerEventId != null) {
-    }
     _clearLayerDrag();
   }
 

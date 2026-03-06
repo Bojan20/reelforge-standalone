@@ -1417,14 +1417,11 @@ class EventRegistry extends ChangeNotifier {
 
   /// Unregister a custom handler
   void unregisterCustomHandler(String stageName) {
-    final removed = _customHandlers.remove(stageName.toUpperCase().trim());
-    if (removed != null) {
-    }
+    _customHandlers.remove(stageName.toUpperCase().trim());
   }
 
   /// Clear all custom handlers
   void clearCustomHandlers() {
-    final count = _customHandlers.length;
     _customHandlers.clear();
   }
 
@@ -1591,8 +1588,6 @@ class EventRegistry extends ChangeNotifier {
     }
 
     _playingInstances.removeWhere((i) => toRemove.contains(i));
-    if (toRemove.isNotEmpty) {
-    }
   }
 
   /// Check if two AudioEvents are equivalent (same layers, same audio data)
@@ -2110,22 +2105,10 @@ class EventRegistry extends ChangeNotifier {
         if (fallbackStage == null) break;
 
         event = _stageToEvent[fallbackStage];
-        if (event != null) {
-        } else {
+        if (event == null) {
           currentStage = fallbackStage; // Try next level of fallback
         }
         fallbackAttempts++;
-      }
-    }
-
-    // V14: Specific debug for WIN_SYMBOL_HIGHLIGHT stages
-    if (normalizedStage.contains('WIN_SYMBOL_HIGHLIGHT')) {
-      if (event != null) {
-      } else {
-        // Check if generic WIN_SYMBOL_HIGHLIGHT is registered
-        final genericEvent = _stageToEvent['WIN_SYMBOL_HIGHLIGHT'];
-        if (genericEvent != null) {
-        }
       }
     }
 
@@ -3218,8 +3201,6 @@ class EventRegistry extends ChangeNotifier {
     final preTriggerMs = (context?['pre_trigger_ms'] as double?) ?? 0.0;
     final baseDelayMs = (layer.delay + layer.offset * 1000).round();
     final totalDelayMs = (baseDelayMs - preTriggerMs).round().clamp(0, 10000);
-    if (preTriggerMs > 0) {
-    }
     if (totalDelayMs > 0) {
       await Future.delayed(Duration(milliseconds: totalDelayMs));
     }
@@ -3402,8 +3383,6 @@ class EventRegistry extends ChangeNotifier {
             trimStartMs: layer.trimStartMs,
             trimEndMs: layer.trimEndMs,
           );
-          if (crossfadeInMs > 0) {
-          }
         } else {
           voiceId = AudioPlaybackService.instance.playFileToBus(
             effectivePath,
@@ -3488,8 +3467,6 @@ class EventRegistry extends ChangeNotifier {
     }
 
     _playingInstances.removeWhere((i) => toRemove.contains(i));
-    if (toRemove.isNotEmpty) {
-    }
     notifyListeners();
   }
 

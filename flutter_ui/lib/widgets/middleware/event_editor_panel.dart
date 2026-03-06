@@ -4623,12 +4623,6 @@ class _EventEditorPanelState extends State<EventEditorPanel>
       _events[event.id] = event.copyWith(actions: newActions);
     });
 
-    // DEBUG: Log parameter updates
-    if (pan != null) {
-    }
-    if (gain != null) {
-    }
-
     // P1.1 FIX: Auto-sync to provider on edit
     _syncEventToProvider(_events[event.id]!);
   }

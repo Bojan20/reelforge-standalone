@@ -417,9 +417,7 @@ class PluginSandboxService {
 
   /// Remove a sandbox
   void removeSandbox(String sandboxId) {
-    final state = _sandboxes.remove(sandboxId);
-    if (state != null) {
-    }
+    _sandboxes.remove(sandboxId);
   }
 
   // ═══════════════════════════════════════════════════════════════════════

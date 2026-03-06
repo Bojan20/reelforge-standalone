@@ -228,7 +228,6 @@ class LiveEngineService {
           // Try to parse as stage event anyway
           if (json.containsKey('stage') || json.containsKey('event')) {
             _processStageEvent(json);
-          } else {
           }
       }
 

@@ -223,8 +223,6 @@ class TemplateAutoWireService {
         unmappedStages: template.unmappedStages.length,
       );
 
-      if (template.unmappedStages.isNotEmpty) {
-      }
 
       // ─────────────────────────────────────────────────────────────────────
       // STEP 3: Configure Buses
@@ -291,11 +289,6 @@ class TemplateAutoWireService {
 
         validationReport = _validationService.validate(template);
 
-        if (!validationReport.allPassed) {
-          for (final result in validationReport.results.where((r) => !r.passed)) {
-          }
-        } else {
-        }
       }
 
       // ─────────────────────────────────────────────────────────────────────

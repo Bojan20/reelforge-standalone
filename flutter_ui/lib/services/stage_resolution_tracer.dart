@@ -350,14 +350,6 @@ class StageResolutionTracer extends ChangeNotifier {
       _completedTraces.removeAt(0);
     }
 
-    // Log result
-    final icon = success ? '✅' : '❌';
-    final resolutionMs = trace.resolutionTimeMs?.toStringAsFixed(2) ?? '?';
-
-    if (success) {
-    } else {
-    }
-
     notifyListeners();
   }
 
