@@ -451,9 +451,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           // Spin button
           _buildSpinButton(),
           const SizedBox(width: 8),
-          // P0.3: Play/Pause/Stop controls — Consumer ensures rebuild on preview state change
-          Consumer<MiddlewareProvider>(
-            builder: (context, middleware, child) => _buildPlaybackControls(),
+          // P0.3: Play/Pause/Stop controls — Selector rebuilds only on preview state change
+          Selector<MiddlewareProvider, bool>(
+            selector: (_, mw) => mw.isPreviewingEvent,
+            builder: (context, _, child) => _buildPlaybackControls(),
           ),
         ],
       ),
@@ -896,12 +897,14 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   Widget _buildEditorPanel() => const CompositeEditorPanel();
 
   Widget _buildDepGraphPanel() {
-    return Consumer<MiddlewareProvider>(
-      builder: (context, middleware, _) {
+    return Selector<MiddlewareProvider, List<SlotCompositeEvent>>(
+      selector: (_, mw) => mw.compositeEvents,
+      shouldRebuild: (prev, next) => prev.length != next.length || !identical(prev, next),
+      builder: (context, events, _) {
         return LayoutBuilder(
           builder: (context, constraints) {
             return EventDependencyGraphPanel(
-              events: middleware.compositeEvents,
+              events: events,
               width: constraints.maxWidth,
               height: constraints.maxHeight,
             );

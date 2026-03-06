@@ -19,7 +19,18 @@ class EventFlowMonitor extends DiagnosticMonitor
   // Track spin state for sequence validation
   bool _spinActive = false;
   bool _seenUiSpinPress = false;
-  final Set<int> _stoppedReels = {};
+
+  /// Stages that fire multiple times per spin (per-reel, per-symbol, looping)
+  /// Shared exclusion list for both double-trigger and rapid-fire detection
+  static const _perReelPrefixes = [
+    'REEL_SPINNING_START_', 'REEL_SPINNING_', 'REEL_STOP_',
+    'WIN_SYMBOL_HIGHLIGHT', 'SCATTER_LAND', 'SYMBOL_LAND',
+    'ANTICIPATION_TENSION',
+  ];
+  static const _perReelExact = {
+    'REEL_SPINNING_START', 'REEL_SPINNING', 'REEL_SPINNING_STOP',
+    'REEL_STOP', 'REEL_SPIN_LOOP', 'IDLE_LOOP', 'ROLLUP_TICK',
+  };
 
   // Per-spin counters for summary
   int _spinStageCount = 0;
@@ -58,17 +69,8 @@ class EventFlowMonitor extends DiagnosticMonitor
 
     // ── Double trigger detection ──
     // Skip per-reel and per-symbol stages (fire multiple times per spin, not real doubles)
-    final isPerReelStage = upper == 'REEL_SPINNING_START' ||
-        upper == 'REEL_SPINNING' ||
-        upper == 'REEL_SPINNING_STOP' ||
-        upper == 'REEL_STOP' ||
-        upper.startsWith('REEL_SPINNING_START_') ||
-        upper.startsWith('REEL_SPINNING_') ||
-        upper.startsWith('REEL_STOP_') ||
-        upper.startsWith('WIN_SYMBOL_HIGHLIGHT') ||
-        upper.startsWith('SCATTER_LAND') ||
-        upper.startsWith('SYMBOL_LAND') ||
-        upper.startsWith('ANTICIPATION_TENSION');
+    final isPerReelStage = _perReelExact.contains(upper) ||
+        _perReelPrefixes.any((p) => upper.startsWith(p));
     if (!isPerReelStage) {
       final lastTime = _lastTriggerTime[upper];
       if (lastTime != null) {
@@ -89,19 +91,7 @@ class EventFlowMonitor extends DiagnosticMonitor
     _ensureWindow(now);
     _triggerCountWindow[upper] = (_triggerCountWindow[upper] ?? 0) + 1;
     final count = _triggerCountWindow[upper]!;
-    // Exclude looping and per-reel stages from rapid fire check
-    const excludeFromRapidFire = {
-      'REEL_SPINNING', 'REEL_SPIN_LOOP', 'IDLE_LOOP',
-      'REEL_STOP', 'REEL_SPINNING_START', 'REEL_SPINNING_STOP',
-      'ROLLUP_TICK',
-    };
-    if (count > 5 && !excludeFromRapidFire.contains(upper) &&
-        !upper.startsWith('REEL_SPINNING_') &&
-        !upper.startsWith('REEL_STOP_') &&
-        !upper.startsWith('WIN_SYMBOL_HIGHLIGHT') &&
-        !upper.startsWith('SCATTER_LAND') &&
-        !upper.startsWith('SYMBOL_LAND') &&
-        !upper.startsWith('ANTICIPATION_TENSION')) {
+    if (count > 5 && !isPerReelStage) {
       _findings.add(DiagnosticFinding(
         checker: name,
         severity: DiagnosticSeverity.warning,
@@ -182,7 +172,8 @@ class EventFlowMonitor extends DiagnosticMonitor
   void _resetSpinState() {
     _spinActive = false;
     _seenUiSpinPress = false;
-    _stoppedReels.clear();
+    // Clear trigger time cache to prevent unbounded map growth across spins
+    _lastTriggerTime.clear();
   }
 
   bool _isInternalStage(String upper) {

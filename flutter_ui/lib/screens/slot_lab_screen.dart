@@ -68,6 +68,7 @@ import '../providers/slot_lab/slotlab_template_provider.dart';
 import '../providers/slot_lab/feature_composer_provider.dart'; // V11: Trostepeni
 import '../providers/feature_builder_provider.dart'; // Grid block config for megaways
 import '../providers/slot_lab/game_flow_integration.dart';
+import '../providers/slot_lab/game_flow_provider.dart';
 import '../providers/ale_provider.dart';
 import '../services/stage_audio_mapper.dart';
 import '../models/stage_models.dart';
@@ -1507,6 +1508,16 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     _lastSpaceKeyTime = now;
 
     if (!_hasSlotLabProvider) return false;
+
+    // TRANSITION GATE — During scene transitions, Space dismisses the plaque
+    // (same as "TAP TO CONTINUE"). No spin or stop during transitions.
+    try {
+      final gameFlow = GetIt.instance<GameFlowProvider>();
+      if (gameFlow.isInTransition) {
+        gameFlow.dismissTransition();
+        return true;
+      }
+    } catch (_) {}
 
     // STOP only when reels are actually spinning
     if (_slotLabProvider.isReelsSpinning) {
@@ -7123,13 +7134,16 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   Widget _buildUltimateTimelineMode(BoxConstraints constraints) {
     return Consumer<SlotLabProvider>(
       builder: (context, slotLabProvider, _) {
-        // Sync stage markers — deferred to avoid setState during build
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            _syncStageMarkersToUltimateTimeline(slotLabProvider);
-            _migrateTracksToUltimateTimeline();
-          }
-        });
+        // Sync stage markers — only schedule if stage count actually changed
+        final stageCount = slotLabProvider.lastStages.length;
+        if (stageCount != _lastSyncedStageCount) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _syncStageMarkersToUltimateTimeline(slotLabProvider);
+              _migrateTracksToUltimateTimeline();
+            }
+          });
+        }
 
         // Wrap in DragTarget for audio browser drops
         return DragTarget<Object>(
@@ -7354,18 +7368,25 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     } catch (e) { /* ignored */ }
   }
 
-  /// Last synced stage count — prevents re-syncing on every Consumer rebuild
+  /// Last synced stage fingerprint — prevents re-syncing when stages unchanged
   int _lastSyncedStageCount = -1;
+  int _lastSyncedStageFingerprint = 0;
 
   /// Sync stage markers from SlotLabProvider to Ultimate Timeline.
-  /// Deduplicates: only re-syncs when stage count actually changes.
+  /// Deduplicates via fingerprint: only re-syncs when stages actually change.
   void _syncStageMarkersToUltimateTimeline(SlotLabProvider provider) {
     if (_ultimateTimelineController == null) return;
 
     final stages = provider.lastStages;
 
-    // Dedup: skip if stage count hasn't changed since last sync
-    if (stages.length == _lastSyncedStageCount) return;
+    // Dedup: skip if stage fingerprint hasn't changed since last sync
+    var fingerprint = stages.length;
+    for (final s in stages) {
+      fingerprint = fingerprint * 31 + s.stageType.hashCode;
+      fingerprint = fingerprint * 31 + s.timestampMs.hashCode;
+    }
+    if (fingerprint == _lastSyncedStageFingerprint && stages.length == _lastSyncedStageCount) return;
+    _lastSyncedStageFingerprint = fingerprint;
     _lastSyncedStageCount = stages.length;
 
     if (stages.isEmpty) return;
@@ -7403,39 +7424,39 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final projectProvider = context.read<SlotLabProjectProvider>();
     final winConfig = projectProvider.winConfiguration;
 
+    // O(1) lookup set for existing marker IDs
+    final existingIds = _ultimateTimelineController!.state.markers
+        .map((m) => m.id)
+        .toSet();
+
     // Add regular win tier boundaries
     for (final tier in winConfig.regularWins.tiers) {
-      final marker = timeline_models.StageMarker(
-        id: 'win_tier_${tier.tierId}',
+      final markerId = 'win_tier_${tier.tierId}';
+      if (existingIds.contains(markerId)) continue;
+
+      _ultimateTimelineController!.addMarker(timeline_models.StageMarker(
+        id: markerId,
         stageId: tier.stageName,
-        timeSeconds: 0.0, // Tier boundaries are vertical lines at time=0 (visual reference)
+        timeSeconds: 0.0,
         type: timeline_models.StageMarkerType.win,
         label: tier.displayLabel,
         color: const Color(0xFFFFD700).withOpacity(0.5),
-      );
-
-      // Only add if not already present
-      final exists = _ultimateTimelineController!.state.markers.any((m) => m.id == marker.id);
-      if (!exists) {
-        _ultimateTimelineController!.addMarker(marker);
-      }
+      ));
     }
 
     // Add big win tier boundaries
     for (final tier in winConfig.bigWins.tiers) {
-      final marker = timeline_models.StageMarker(
-        id: 'big_win_tier_${tier.tierId}',
+      final markerId = 'big_win_tier_${tier.tierId}';
+      if (existingIds.contains(markerId)) continue;
+
+      _ultimateTimelineController!.addMarker(timeline_models.StageMarker(
+        id: markerId,
         stageId: tier.stageName,
         timeSeconds: 0.0,
         type: timeline_models.StageMarkerType.win,
         label: tier.displayLabel,
         color: const Color(0xFFFF9040).withOpacity(0.7),
-      );
-
-      final exists = _ultimateTimelineController!.state.markers.any((m) => m.id == marker.id);
-      if (!exists) {
-        _ultimateTimelineController!.addMarker(marker);
-      }
+      ));
     }
   }
 

@@ -52,22 +52,6 @@ class TimingDriftMonitor extends DiagnosticMonitor
   @override
   List<DiagnosticFinding> drain() {
     final drained = List<DiagnosticFinding>.from(_findings);
-
-    // Add summary finding if we have data
-    if (_totalSamples > 0) {
-      final avgDrift = _totalDriftMs / _totalSamples;
-      drained.add(DiagnosticFinding(
-        checker: name,
-        severity: avgDrift > warningThresholdMs
-            ? DiagnosticSeverity.warning
-            : DiagnosticSeverity.ok,
-        message: 'Avg drift: ${avgDrift.toStringAsFixed(1)}ms '
-            '(max: ${_maxDriftMs.toStringAsFixed(1)}ms on $_maxDriftStage, '
-            '$_totalSamples samples)',
-      ));
-      _resetStats();
-    }
-
     _findings.clear();
     return drained;
   }
@@ -135,7 +119,7 @@ class TimingDriftMonitor extends DiagnosticMonitor
           ? DiagnosticSeverity.warning
           : DiagnosticSeverity.ok,
       message: 'Drift avg: ${avgDrift.toStringAsFixed(1)}ms, '
-          'max: ${_maxDriftMs.toStringAsFixed(1)}ms${_maxDriftStage != null ? ' ($maxDriftStage)' : ''}, '
+          'max: ${_maxDriftMs.toStringAsFixed(1)}ms${_maxDriftStage != null ? ' ($_maxDriftStage)' : ''}, '
           '$_totalSamples samples',
     ));
     _resetStats();

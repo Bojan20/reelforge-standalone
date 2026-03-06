@@ -496,6 +496,7 @@ class CompositeEventSystemProvider extends ChangeNotifier {
 
   /// Select a composite event
   void selectCompositeEvent(String? eventId) {
+    if (_selectedCompositeEventId == eventId) return;
     _selectedCompositeEventId = eventId;
     notifyListeners();
   }
@@ -606,6 +607,25 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       (l) => l?.id == layer.id,
       orElse: () => null,
     );
+
+    // No-change guard: skip notification if layer parameters are identical
+    if (oldLayer != null &&
+        oldLayer.audioPath == layer.audioPath &&
+        oldLayer.volume == layer.volume &&
+        oldLayer.pan == layer.pan &&
+        oldLayer.offsetMs == layer.offsetMs &&
+        oldLayer.muted == layer.muted &&
+        oldLayer.solo == layer.solo &&
+        oldLayer.fadeInMs == layer.fadeInMs &&
+        oldLayer.fadeOutMs == layer.fadeOutMs &&
+        oldLayer.trimStartMs == layer.trimStartMs &&
+        oldLayer.trimEndMs == layer.trimEndMs &&
+        oldLayer.busId == layer.busId &&
+        oldLayer.loop == layer.loop &&
+        oldLayer.actionType == layer.actionType &&
+        oldLayer.targetAudioPath == layer.targetAudioPath) {
+      return;
+    }
 
     final updated = event.copyWith(
       layers: event.layers.map((l) => l.id == layer.id ? layer : l).toList(),
@@ -852,6 +872,7 @@ class CompositeEventSystemProvider extends ChangeNotifier {
 
   /// Select a layer for clipboard operations
   void selectLayer(String? layerId) {
+    if (_selectedLayerId == layerId && _selectedLayerIds.length <= 1) return;
     _selectedLayerId = layerId;
     _selectedLayerIds.clear();
     if (layerId != null) {
