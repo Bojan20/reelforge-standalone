@@ -937,12 +937,19 @@ class MixerProvider extends ChangeNotifier {
       NativeFFI.instance.deleteTrack(channel.trackIndex!);
     }
 
-    // Remove from VCAs and groups
-    for (final vca in _vcas.values) {
-      vca.memberIds.remove(id);
+    // Remove from VCAs and groups (use copyWith — memberIds may be const [])
+    for (final vcaId in _vcas.keys.toList()) {
+      final vca = _vcas[vcaId]!;
+      if (vca.memberIds.contains(id)) {
+        _vcas[vcaId] = vca.copyWith(
+          memberIds: vca.memberIds.where((m) => m != id).toList(),
+        );
+      }
     }
     for (final group in _groups.values) {
-      group.memberIds.remove(id);
+      if (group.memberIds.contains(id)) {
+        group.memberIds = group.memberIds.where((m) => m != id).toList();
+      }
     }
 
     // Remove from bus routing cache before removing from _channels
