@@ -112,6 +112,7 @@ import '../services/diagnostics/audio_voice_auditor.dart';
 import '../services/diagnostics/event_flow_monitor.dart';
 import '../services/diagnostics/timing_drift_monitor.dart';
 import '../services/diagnostics/advanced_qa_runner.dart';
+import '../services/diagnostics/game_math_validator.dart';
 import '../providers/mixer_provider.dart'; // ComprehensiveQA
 import '../providers/engine_provider.dart'; // ComprehensiveQA
 import '../widgets/slot_lab/gdd_import_panel.dart';
@@ -1401,6 +1402,17 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // ═══════════════════════════════════════════════════════════════════════════
 
   AdvancedQaRunner? _advancedQaRunner;
+  GameMathValidator? _gameMathValidator;
+
+  void _runGameMathValidation(DiagnosticsService diagnostics) {
+    _gameMathValidator ??= GameMathValidator(diagnostics);
+    if (_gameMathValidator!.isRunning) return;
+    if (!_hasSlotLabProvider || !_slotLabProvider.initialized) return;
+    _gameMathValidator!.validate(
+      slotLab: _slotLabProvider,
+      spinCount: 1000,
+    );
+  }
 
   void _runComprehensiveQA(DiagnosticsService diagnostics) {
     // Run Advanced QA (which includes Comprehensive QA as Phase A)
@@ -9325,10 +9337,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 padding: const EdgeInsets.all(4),
                 child: Row(
                   children: [
-                    _buildDiagButton('Run Check', Icons.play_arrow, const Color(0xFF4FC3F7), () {
-                      diag.runFullCheck();
-                    }),
-                    const SizedBox(width: 4),
                     _buildDiagButton(
                       diag.isMonitoring ? 'Stop' : 'Monitor',
                       diag.isMonitoring ? Icons.stop : Icons.monitor_heart,
@@ -9355,6 +9363,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                           _runComprehensiveQA(diag);
                         }
                       },
+                    ),
+                    const SizedBox(width: 4),
+                    _buildDiagButton(
+                      'Math',
+                      Icons.calculate,
+                      const Color(0xFFFFD54F),
+                      () => _runGameMathValidation(diag),
                     ),
                     const Spacer(),
                     if (findings.isNotEmpty)
