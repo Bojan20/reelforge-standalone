@@ -269,10 +269,7 @@ class UnifiedPlaybackController extends ChangeNotifier {
     }
 
     // Ensure audio stream is running before transport play
-    final streamStarted = _ffi.startPlayback();
-    if (!streamStarted) {
-    }
-
+    _ffi.startPlayback();
     _ffi.play();
     notifyListeners();
   }

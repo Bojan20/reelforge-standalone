@@ -1015,13 +1015,6 @@ class SlotLabProvider extends ChangeNotifier {
       // P0.18: Cache stages with spinId to prevent re-parsing
       _cachedStagesSpinId = _lastResult?.spinId;
 
-      // DEBUG: Log stage details
-      for (int i = 0; i < _lastStages.length && i < 10; i++) {
-        final s = _lastStages[i];
-      }
-      if (_lastStages.length > 10) {
-      }
-
       _updateFreeSpinsState();
       _updateStats();
 
@@ -1357,17 +1350,6 @@ class SlotLabProvider extends ChangeNotifier {
   /// Play stages sequentially with timing
   void _playStagesSequentially() {
     if (_lastStages.isEmpty) return;
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // DEBUG: Dump ALL stages with timing and reel indices for verification
-    // ═══════════════════════════════════════════════════════════════════════════
-    for (int i = 0; i < _lastStages.length; i++) {
-      final s = _lastStages[i];
-      final type = s.stageType.toUpperCase();
-      final reelIdx = s.rawStage['reel_index'];
-      final ts = s.timestampMs.toStringAsFixed(0);
-      final reelInfo = reelIdx != null ? ' [reel=$reelIdx]' : '';
-    }
 
     // Acquire SlotLab section in UnifiedPlaybackController
     final controller = UnifiedPlaybackController.instance;
@@ -2171,13 +2153,6 @@ class SlotLabProvider extends ChangeNotifier {
       ));
     }
 
-    // Log validation result
-    if (issues.isEmpty) {
-    } else {
-      for (final issue in issues) {
-      }
-    }
-
     _lastValidationIssues = issues;
     notifyListeners();
     return issues;
@@ -2218,8 +2193,7 @@ class SlotLabProvider extends ChangeNotifier {
   /// Check if symbols list contains a Scatter (typically symbol ID 9)
   bool _containsScatter(List<dynamic>? symbols) {
     if (symbols == null || symbols.isEmpty) return false;
-    // Scatter is typically ID 9 in standard slot configurations
-    return symbols.contains(9);
+    return symbols.contains(_scatterSymbolId);
   }
 
   /// Check if symbols list contains a Seven (typically symbol ID 7)
@@ -2227,12 +2201,6 @@ class SlotLabProvider extends ChangeNotifier {
     if (symbols == null || symbols.isEmpty) return false;
     // Seven is typically ID 7 in standard slot configurations
     return symbols.contains(7);
-  }
-
-  /// Check if symbols list contains a high-paying symbol (7, 8, or wild)
-  bool _containsHighPaySymbol(List<dynamic>? symbols) {
-    if (symbols == null || symbols.isEmpty) return false;
-    return symbols.any((s) => s == 0 || s == 7 || s == 8 || s == 10);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2335,7 +2303,7 @@ class SlotLabProvider extends ChangeNotifier {
     }
 
     // Convert model to JSON and initialize
-    final modelJson = model.toString(); // Will be proper JSON in real impl
+    final modelJson = jsonEncode(model);
     final success = _ffi.slotLabV2InitWithModelJson(modelJson);
     if (success) {
       _engineV2Initialized = true;
@@ -2423,7 +2391,7 @@ class SlotLabProvider extends ChangeNotifier {
 
   /// Register a custom scenario from Map
   bool registerScenario(Map<String, dynamic> scenarioJson) {
-    final jsonStr = scenarioJson.toString(); // Will be proper JSON
+    final jsonStr = jsonEncode(scenarioJson);
     final success = _ffi.slotLabScenarioRegister(jsonStr);
     if (success) {
       _refreshScenarioList();

@@ -367,10 +367,6 @@ class AudioPool extends ChangeNotifier {
 
     final result = NativeFFI.instance.cachePreloadFiles(uniquePaths);
 
-    if (result.containsKey('error')) {
-    } else {
-    }
-
     return result;
   }
 
@@ -471,8 +467,6 @@ class AudioPool extends ChangeNotifier {
       });
     }
 
-    if (cleaned > 0) {
-    }
   }
 
   // P0.4 FIX: Separate cleanup for overflow voices
@@ -506,8 +500,6 @@ class AudioPool extends ChangeNotifier {
       _overflowVoices.remove(voiceId);
     }
 
-    if (toRemove.isNotEmpty) {
-    }
   }
 
   /// Manually release an overflow voice (call when audio completes)

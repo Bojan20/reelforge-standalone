@@ -318,6 +318,7 @@ class MiddlewareAction {
     'pan': pan,
     'delay': delay,
     'loop': loop,
+    'selected': selected,
     // Extended playback parameters
     'fadeInMs': fadeInMs,
     'fadeOutMs': fadeOutMs,
@@ -341,6 +342,7 @@ class MiddlewareAction {
       pan: (json['pan'] as num?)?.toDouble() ?? 0.0,
       delay: (json['delay'] as num?)?.toDouble() ?? 0.0,
       loop: json['loop'] as bool? ?? false,
+      selected: json['selected'] as bool? ?? false,
       // Extended playback parameters
       fadeInMs: (json['fadeInMs'] as num?)?.toDouble() ?? 0.0,
       fadeOutMs: (json['fadeOutMs'] as num?)?.toDouble() ?? 0.0,
@@ -398,6 +400,7 @@ class MiddlewareEvent {
     'category': category,
     'stage': stage,
     'actions': actions.map((a) => a.toJson()).toList(),
+    'expanded': expanded,
     'loop': loop,
   };
 
@@ -410,6 +413,7 @@ class MiddlewareEvent {
       actions: (json['actions'] as List<dynamic>?)
           ?.map((a) => MiddlewareAction.fromJson(a as Map<String, dynamic>))
           .toList() ?? [],
+      expanded: json['expanded'] as bool? ?? true,
       loop: json['loop'] as bool? ?? false,
     );
   }

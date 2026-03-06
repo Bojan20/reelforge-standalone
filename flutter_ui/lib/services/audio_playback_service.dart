@@ -133,9 +133,6 @@ class AudioPlaybackService extends ChangeNotifier {
 
     // If source doesn't match active section, it means the caller didn't acquire first
     // We still allow it but log a warning for debugging
-    if (activeSection != expectedSection && activeSection != null) {
-    }
-
     // If switching sources locally, stop previous voices (not transport)
     if (_activeSource != null && _activeSource != source && _activeSource != PlaybackSource.browser) {
       _activeVoices.clear();
