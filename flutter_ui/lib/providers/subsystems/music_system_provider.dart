@@ -353,8 +353,9 @@ class MusicSystemProvider extends ChangeNotifier {
         notifyListeners();
       }
     } else {
-      // No rule — use default queue behavior
-      queueMusicSegment(destSegmentId);
+      // No rule — use default queue behavior (single notify)
+      _nextMusicSegmentId = destSegmentId;
+      _ffi.middlewareQueueMusicSegment(destSegmentId);
       _currentMusicSegmentId = destSegmentId;
       notifyListeners();
     }

@@ -215,7 +215,7 @@ class RandomContainersProvider extends ChangeNotifier {
   /// Enable/disable a random container
   void setContainerEnabled(int containerId, bool enabled) {
     final container = _containers[containerId];
-    if (container == null) return;
+    if (container == null || container.enabled == enabled) return;
 
     _containers[containerId] = container.copyWith(enabled: enabled);
     notifyListeners();

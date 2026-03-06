@@ -149,7 +149,7 @@ class SequenceContainersProvider extends ChangeNotifier {
   /// Enable/disable a sequence container
   void setContainerEnabled(int containerId, bool enabled) {
     final container = _containers[containerId];
-    if (container == null) return;
+    if (container == null || container.enabled == enabled) return;
 
     if (!enabled && isPlaying(containerId)) {
       stop(containerId);

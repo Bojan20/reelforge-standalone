@@ -1086,8 +1086,8 @@ class RtpcSystemProvider extends ChangeNotifier {
     switch (target) {
       case RtpcTargetParameter.volume:
       case RtpcTargetParameter.busVolume:
-        // Apply to master volume - specific bus targeting via binding.targetBusId
-        _ffi.setBusVolume(5, value); // Master bus
+        // Apply to master bus (0) — TODO: route via binding.targetBusId
+        _ffi.setBusVolume(0, value);
 
       case RtpcTargetParameter.pitch:
       case RtpcTargetParameter.playbackRate:
@@ -1095,7 +1095,7 @@ class RtpcSystemProvider extends ChangeNotifier {
         break;
 
       case RtpcTargetParameter.pan:
-        _ffi.setBusPan(5, (value * 2.0) - 1.0); // Convert 0-1 to -1..1
+        _ffi.setBusPan(0, (value * 2.0) - 1.0); // Convert 0-1 to -1..1
 
       case RtpcTargetParameter.width:
         // Width modulation
@@ -1328,10 +1328,10 @@ class RtpcSystemProvider extends ChangeNotifier {
     switch (target) {
       case RtpcTargetParameter.volume:
       case RtpcTargetParameter.busVolume:
-        _ffi.setBusVolume(5, value);
+        _ffi.setBusVolume(0, value);
 
       case RtpcTargetParameter.pan:
-        _ffi.setBusPan(5, (value * 2.0) - 1.0);
+        _ffi.setBusPan(0, (value * 2.0) - 1.0);
 
       case RtpcTargetParameter.pitch:
       case RtpcTargetParameter.playbackRate:

@@ -196,8 +196,8 @@ class BusHierarchyProvider extends ChangeNotifier {
     if (bus != null) {
       bus.volume = volume.clamp(0.0, 1.0);
 
-      // Sync to Rust engine
-      _ffi.setBusVolume(busId, volume);
+      // Sync to Rust engine (send clamped value)
+      _ffi.setBusVolume(busId, bus.volume);
 
       notifyListeners();
     }
@@ -235,8 +235,8 @@ class BusHierarchyProvider extends ChangeNotifier {
     if (bus != null) {
       bus.pan = pan.clamp(-1.0, 1.0);
 
-      // Sync to Rust engine
-      _ffi.setBusPan(busId, pan);
+      // Sync to Rust engine (send clamped value)
+      _ffi.setBusPan(busId, bus.pan);
 
       notifyListeners();
     }
