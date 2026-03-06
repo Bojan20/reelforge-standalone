@@ -111,7 +111,7 @@ import '../services/diagnostics/rust_dart_sync_checker.dart';
 import '../services/diagnostics/audio_voice_auditor.dart';
 import '../services/diagnostics/event_flow_monitor.dart';
 import '../services/diagnostics/timing_drift_monitor.dart';
-import '../services/diagnostics/comprehensive_qa_runner.dart';
+import '../services/diagnostics/advanced_qa_runner.dart';
 import '../providers/mixer_provider.dart'; // ComprehensiveQA
 import '../providers/engine_provider.dart'; // ComprehensiveQA
 import '../widgets/slot_lab/gdd_import_panel.dart';
@@ -1400,11 +1400,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // COMPREHENSIVE QA — Full App Test Suite (SlotLab + DAW + Subsystems)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  ComprehensiveQaRunner? _qaRunner;
+  AdvancedQaRunner? _advancedQaRunner;
 
   void _runComprehensiveQA(DiagnosticsService diagnostics) {
-    _qaRunner ??= ComprehensiveQaRunner(diagnostics);
-    if (_qaRunner!.isRunning) return;
+    // Run Advanced QA (which includes Comprehensive QA as Phase A)
+    _advancedQaRunner ??= AdvancedQaRunner(diagnostics);
+    if (_advancedQaRunner!.isRunning) return;
 
     // Get providers for QA — SlotLab from state, Mixer/Engine from Provider tree
     final slotLab = _hasSlotLabProvider ? _slotLabProvider : null;
@@ -1413,7 +1414,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     try { mixer = context.read<MixerProvider>(); } catch (_) {}
     try { engine = context.read<EngineProvider>(); } catch (_) {}
 
-    _qaRunner!.runAll(
+    _advancedQaRunner!.runAll(
       slotLabProvider: slotLab,
       mixerProvider: mixer,
       engineProvider: engine,
