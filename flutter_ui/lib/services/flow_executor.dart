@@ -604,10 +604,8 @@ class FlowExecutor {
       // JoinMode.any — first to complete wins, cancel remaining via _isCancelled
       // We use Completer to track first-completion without cancelling the entire flow.
       final completer = Completer<void>();
-      var completedCount = 0;
       for (final future in branchFutures) {
         future.then((_) {
-          completedCount++;
           if (!completer.isCompleted) {
             completer.complete();
           }

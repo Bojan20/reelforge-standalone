@@ -1025,39 +1025,6 @@ class StageFlowGraph {
     return false;
   }
 
-  /// Topological sort (Kahn's algorithm).
-  List<StageFlowNode> topologicalSort() {
-    final index = _nodeIndex;
-    final inDegree = <String, int>{};
-
-    for (final n in nodes) {
-      inDegree[n.id] = 0;
-    }
-    for (final e in edges) {
-      inDegree[e.targetNodeId] = (inDegree[e.targetNodeId] ?? 0) + 1;
-    }
-
-    final queue = Queue<String>();
-    for (final entry in inDegree.entries) {
-      if (entry.value == 0) queue.add(entry.key);
-    }
-
-    final result = <StageFlowNode>[];
-    while (queue.isNotEmpty) {
-      final id = queue.removeFirst();
-      final node = index[id];
-      if (node != null) result.add(node);
-
-      for (final edge in getOutEdges(id)) {
-        final target = edge.targetNodeId;
-        inDegree[target] = (inDegree[target] ?? 1) - 1;
-        if (inDegree[target] == 0) queue.add(target);
-      }
-    }
-
-    return result;
-  }
-
   /// First node — entry point of the flow.
   StageFlowNode? get entryNode {
     final hasIncoming = edges.map((e) => e.targetNodeId).toSet();
@@ -1074,42 +1041,6 @@ class StageFlowGraph {
       if (!hasOutgoing.contains(n.id)) return n;
     }
     return nodes.isNotEmpty ? nodes.last : null;
-  }
-
-  // ─── Subgraph operations ──────────────────────────────────────────────
-
-  /// Extract a subgraph containing only the specified node IDs.
-  StageFlowGraph extractSubgraph(Set<String> nodeIds) {
-    return _copyWith(
-      nodes: nodes.where((n) => nodeIds.contains(n.id)).toList(),
-      edges: edges
-          .where((e) =>
-              nodeIds.contains(e.sourceNodeId) &&
-              nodeIds.contains(e.targetNodeId))
-          .toList(),
-      modifiedAt: DateTime.now(),
-    );
-  }
-
-  /// Merge a subgraph after a specific node.
-  StageFlowGraph mergeSubgraph(StageFlowGraph sub, String attachAfterNodeId) {
-    var result = _copyWith(
-      nodes: [...nodes, ...sub.nodes],
-      edges: [...edges, ...sub.edges],
-      modifiedAt: DateTime.now(),
-    );
-
-    // Connect attachAfterNode → subgraph entry
-    final subEntry = sub.entryNode;
-    if (subEntry != null) {
-      result = result.addEdge(StageFlowEdge(
-        id: '${attachAfterNodeId}_to_${subEntry.id}',
-        sourceNodeId: attachAfterNodeId,
-        targetNodeId: subEntry.id,
-      ));
-    }
-
-    return result;
   }
 
   // ─── Validation ───────────────────────────────────────────────────────

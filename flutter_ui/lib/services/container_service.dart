@@ -786,6 +786,7 @@ class ContainerService {
         'name': container.name,
         'enabled': container.enabled,
         'curve': container.crossfadeCurve.index,
+        'smoothing_ms': container.smoothingMs,
         'rtpc_name': 'rtpc_${container.rtpcId}',
         'children': container.children.map((c) => {
           'id': c.id,
@@ -819,12 +820,15 @@ class ContainerService {
         'name': container.name,
         'enabled': container.enabled,
         'mode': container.mode.index,
-        'avoid_repeat': true,
-        'avoid_repeat_count': 1,
+        'avoid_repeat': container.avoidRepeatCount > 0,
+        'avoid_repeat_count': container.avoidRepeatCount,
         'global_pitch_min': container.globalPitchMin,
         'global_pitch_max': container.globalPitchMax,
         'global_volume_min': container.globalVolumeMin,
         'global_volume_max': container.globalVolumeMax,
+        'deterministic': container.useDeterministicMode,
+        if (container.useDeterministicMode && container.seed != null)
+          'seed': container.seed,
         'children': container.children.map((c) => {
           'id': c.id,
           'name': c.name,

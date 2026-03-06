@@ -118,6 +118,7 @@ class AudioLayer {
     'trimEndMs': trimEndMs,
     'actionType': actionType,
     'loop': loop,
+    if (targetAudioPath != null) 'targetAudioPath': targetAudioPath,
   };
 
   factory AudioLayer.fromJson(Map<String, dynamic> json) => AudioLayer(
@@ -135,6 +136,7 @@ class AudioLayer {
     trimEndMs: (json['trimEndMs'] as num?)?.toDouble() ?? 0.0,
     actionType: json['actionType'] as String? ?? 'Play',
     loop: json['loop'] as bool? ?? false,
+    targetAudioPath: json['targetAudioPath'] as String?,
   );
 }
 
@@ -2145,10 +2147,6 @@ class EventRegistry extends ChangeNotifier {
       return;
     }
 
-    // DEBUG: Log found event for REEL_STOP stages
-    if (normalizedStage.contains('REEL_STOP')) {
-    }
-
     await triggerEvent(event.id, context: context);
   }
 
@@ -2713,18 +2711,9 @@ class EventRegistry extends ChangeNotifier {
           }
         }
       }
-      // Also set volume on any playing instances on this bus
-      for (final instance in _playingInstances) {
-        for (final voiceId in instance.voiceIds) {
-          if (voiceId > 0) {
-            if (fadeInMs > 0) {
-              AudioPlaybackService.instance.fadeInVoice(voiceId, targetVolume: targetVolume, fadeMs: fadeInMs);
-            } else {
-              AudioPlaybackService.instance.setVoiceVolume(voiceId, targetVolume);
-            }
-          }
-        }
-      }
+      // _activeBusVoices is authoritative for bus-scoped volume changes.
+      // Do NOT iterate _playingInstances here — they have no bus info
+      // and would incorrectly change volume on ALL voices across all buses.
     }
     if (delayMs > 0) {
       Future.delayed(Duration(milliseconds: delayMs), doSetVolume);

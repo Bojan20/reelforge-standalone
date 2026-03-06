@@ -142,9 +142,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     // Trim whitespace
     sanitized = sanitized.trim();
 
-    if (sanitized != input) {
-    }
-
     return sanitized;
   }
 
@@ -540,9 +537,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     // Auto-detect duration if not provided
     final actualDuration = durationSeconds ?? _ffi.getAudioFileDuration(audioPath);
     final validDuration = (actualDuration > 0) ? actualDuration : null;
-
-    if (durationSeconds == null && validDuration != null) {
-    }
 
     final layerId = 'layer_${_nextLayerId++}';
     final layer = SlotEventLayer(
@@ -1329,6 +1323,16 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   }
 
   /// Remove MiddlewareEvent when composite is deleted
+  /// Unregister specific stages from EventRegistry for a composite event.
+  void _unregisterCompositeStages(String compositeId, List<String> stages) {
+    final registry = EventRegistry.instance;
+    for (final stageName in stages) {
+      final normalized = stageName.toUpperCase().trim();
+      if (normalized.isEmpty) continue;
+      registry.unregisterEvent('composite_${compositeId}_$normalized');
+    }
+  }
+
   void _removeMiddlewareEventForComposite(String compositeId) {
     final middlewareId = _compositeToMiddlewareId(compositeId);
     _eventSystemProvider.deleteEvent(middlewareId);
@@ -1384,9 +1388,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       modifiedAt: DateTime.now(),
     );
 
-    // Log synced pan values
-    for (int i = 0; i < updatedLayers.length; i++) {
-    }
     notifyListeners();
   }
 
@@ -1488,9 +1489,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     if (version == null || version < 1) {
       return;
     }
-    if (version > 1) {
-    }
-
     // Validate events array exists and is a list
     final events = json['compositeEvents'];
     if (events == null) {
@@ -1582,9 +1580,6 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       return _validateAudioPath(layer.audioPath);
     }).toList();
 
-    if (validLayers.length != event.layers.length) {
-    }
-
     return event.copyWith(layers: validLayers);
   }
 
@@ -1652,10 +1647,14 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     final event = _compositeEvents[eventId];
     if (event == null) return;
     _pushUndoState();
-    _compositeEvents[eventId] = event.copyWith(
+    // Unregister old stages from EventRegistry before overwriting
+    _unregisterCompositeStages(eventId, event.triggerStages);
+    final updated = event.copyWith(
       triggerStages: stages,
       modifiedAt: DateTime.now(),
     );
+    _compositeEvents[eventId] = updated;
+    _syncCompositeToMiddleware(updated);
     notifyListeners();
   }
 
@@ -1665,10 +1664,12 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     if (event == null) return;
     if (event.triggerStages.contains(stageType)) return;
     _pushUndoState();
-    _compositeEvents[eventId] = event.copyWith(
+    final updated = event.copyWith(
       triggerStages: [...event.triggerStages, stageType],
       modifiedAt: DateTime.now(),
     );
+    _compositeEvents[eventId] = updated;
+    _syncCompositeToMiddleware(updated);
     notifyListeners();
   }
 
@@ -1678,10 +1679,14 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     if (event == null) return;
     if (!event.triggerStages.contains(stageType)) return;
     _pushUndoState();
-    _compositeEvents[eventId] = event.copyWith(
+    // Unregister removed stage from EventRegistry
+    _unregisterCompositeStages(eventId, [stageType]);
+    final updated = event.copyWith(
       triggerStages: event.triggerStages.where((s) => s != stageType).toList(),
       modifiedAt: DateTime.now(),
     );
+    _compositeEvents[eventId] = updated;
+    _syncCompositeToMiddleware(updated);
     notifyListeners();
   }
 
