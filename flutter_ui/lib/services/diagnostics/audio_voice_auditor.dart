@@ -23,6 +23,17 @@ class AudioVoiceAuditor extends DiagnosticChecker {
     try {
       final debugInfo = ffi.getPlaybackDebugInfo();
 
+      // Guard: engine not loaded or returned empty/sentinel
+      if (debugInfo.isEmpty || debugInfo == 'not loaded' || debugInfo == 'null') {
+        findings.add(DiagnosticFinding(
+          checker: name,
+          severity: DiagnosticSeverity.warning,
+          message: 'Engine not loaded — cannot audit voice allocation',
+          detail: 'Debug info response: "$debugInfo"',
+        ));
+        return findings;
+      }
+
       // Parse voice count from debug info
       final activeVoices = _extractInt(debugInfo, 'active_voices');
       final maxVoices = _extractInt(debugInfo, 'max_voices');
@@ -73,10 +84,10 @@ class AudioVoiceAuditor extends DiagnosticChecker {
           ));
         }
       } else {
-        // Can't read voice info — engine may not expose it
+        // Can't read voice info — engine may not expose it or format changed
         findings.add(DiagnosticFinding(
           checker: name,
-          severity: DiagnosticSeverity.ok,
+          severity: DiagnosticSeverity.warning,
           message: 'Voice pool info not available from engine',
           detail: 'Engine debug info: ${debugInfo.length > 100 ? '${debugInfo.substring(0, 100)}...' : debugInfo}',
         ));
@@ -84,8 +95,9 @@ class AudioVoiceAuditor extends DiagnosticChecker {
     } catch (e) {
       findings.add(DiagnosticFinding(
         checker: name,
-        severity: DiagnosticSeverity.warning,
-        message: 'Cannot read engine voice info: $e',
+        severity: DiagnosticSeverity.error,
+        message: 'Engine voice audit failed: $e',
+        detail: 'FFI call threw exception — engine may be crashed or uninitialized',
       ));
     }
 
@@ -121,7 +133,8 @@ class AudioVoiceMonitor extends DiagnosticMonitor implements SpinCompleteAware {
   void start() {
     _active = true;
     _findings.clear();
-    _baselineVoices = _getCurrentVoiceCount();
+    final baseline = _getCurrentVoiceCount();
+    _baselineVoices = baseline >= 0 ? baseline : 0;
     _peakVoices = _baselineVoices;
     _spinCount = 0;
   }
@@ -144,6 +157,7 @@ class AudioVoiceMonitor extends DiagnosticMonitor implements SpinCompleteAware {
 
     _spinCount++;
     final current = _getCurrentVoiceCount();
+    if (current < 0) return; // FFI failure — skip this spin
     if (current > _peakVoices) _peakVoices = current;
 
     // Check for leak: voices should return to near baseline after spin
@@ -168,11 +182,12 @@ class AudioVoiceMonitor extends DiagnosticMonitor implements SpinCompleteAware {
   int _getCurrentVoiceCount() {
     try {
       final info = NativeFFI.instance.getPlaybackDebugInfo();
+      if (info.isEmpty || info == 'not loaded' || info == 'null') return -1;
       final pattern = RegExp(r'active_voices[=:]\s*(\d+)');
       final match = pattern.firstMatch(info);
-      return match != null ? int.tryParse(match.group(1)!) ?? 0 : 0;
+      return match != null ? int.tryParse(match.group(1) ?? '') ?? 0 : 0;
     } catch (_) {
-      return 0;
+      return -1; // Distinct from 0 (idle) — indicates FFI failure
     }
   }
 }

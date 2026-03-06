@@ -81,7 +81,7 @@ class StageContractValidator extends DiagnosticChecker {
       'rollup_start', // Stage::RollupStart
       'rollup_tick', // Stage::RollupTick
       'rollup_end', // Stage::RollupEnd
-      'big_win_tier', // Stage::BigWinTier
+      'bigwin_tier', // Stage::BigWinTier (serde: "bigwin_tier")
       'big_win_start', // Stage::BigWinStart
       'big_win_end', // Stage::BigWinEnd
       'feature_enter', // Stage::FeatureEnter
@@ -119,22 +119,6 @@ class StageContractValidator extends DiagnosticChecker {
       'ANTICIPATION_TENSION',  // Legacy tension stage (non-LAYER variant)
     };
 
-    // Verify Rust stages can be uppercased to match Dart convention
-    for (final rustStage in rustGeneratedStages) {
-      final dartStage = rustStage.toUpperCase();
-      // This is mainly a documentation check — the mapping is implicit via toUpperCase()
-      // but if someone adds a stage with non-snake_case naming, it breaks
-      if (rustStage != dartStage.toLowerCase().replaceAll(' ', '_')) {
-        findings.add(DiagnosticFinding(
-          checker: name,
-          severity: DiagnosticSeverity.error,
-          message: 'Stage "$rustStage" does not round-trip: '
-              'upper="${dartStage}", lower="${dartStage.toLowerCase()}"',
-          affectedStage: rustStage,
-        ));
-      }
-    }
-
     // Check if last spin stages contain any unknown stages
     final getStages = _getLastStages;
     if (getStages != null) {
@@ -148,7 +132,7 @@ class StageContractValidator extends DiagnosticChecker {
             !type.startsWith('anticipation_tension_') &&
             !type.startsWith('win_present_') &&
             !type.startsWith('win_tier_') &&
-            !type.startsWith('big_win_tier_') &&
+            !type.startsWith('bigwin_tier_') &&
             !type.startsWith('rollup_') &&
             !type.startsWith('win_symbol_highlight_') &&
             !type.startsWith('scatter_land_') &&
@@ -237,7 +221,7 @@ class StageContractValidator extends DiagnosticChecker {
               'after previous at ${prevTs}ms',
           affectedStage: stage.stageType,
         ));
-        break; // One finding is enough
+        // Continue to report all regressions, not just first
       }
       prevTs = stage.timestampMs;
     }
@@ -267,22 +251,22 @@ class StageContractValidator extends DiagnosticChecker {
     final findings = <DiagnosticFinding>[];
     final registry = EventRegistry.instance;
 
-    // Check for events with stages that have no audio assigned
-    // These are OK if intentional, but worth knowing about
+    // Check for registered stages whose events have no audio layers
     final registeredStages = registry.registeredStages;
-    int noAudioCount = 0;
+    int emptyLayerCount = 0;
     for (final stage in registeredStages) {
-      if (!registry.hasEventForStage(stage)) {
-        noAudioCount++;
+      final event = registry.getEventForStage(stage);
+      if (event != null && event.layers.isEmpty) {
+        emptyLayerCount++;
       }
     }
 
-    if (noAudioCount > 0) {
+    if (emptyLayerCount > 0) {
       findings.add(DiagnosticFinding(
         checker: name,
         severity: DiagnosticSeverity.ok,
-        message: '$noAudioCount registered stages without audio assignments',
-        detail: 'Normal — not all stages need audio',
+        message: '$emptyLayerCount registered events with no audio layers',
+        detail: 'Normal — events may use containers or be placeholders',
       ));
     }
 
