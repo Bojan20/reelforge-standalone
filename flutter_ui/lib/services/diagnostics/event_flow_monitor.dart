@@ -57,14 +57,18 @@ class EventFlowMonitor extends DiagnosticMonitor
     final upper = stageName.toUpperCase();
 
     // ── Double trigger detection ──
-    // Skip per-reel stages (same type fires once per reel, not a real double)
+    // Skip per-reel and per-symbol stages (fire multiple times per spin, not real doubles)
     final isPerReelStage = upper == 'REEL_SPINNING_START' ||
         upper == 'REEL_SPINNING' ||
         upper == 'REEL_SPINNING_STOP' ||
         upper == 'REEL_STOP' ||
         upper.startsWith('REEL_SPINNING_START_') ||
         upper.startsWith('REEL_SPINNING_') ||
-        upper.startsWith('REEL_STOP_');
+        upper.startsWith('REEL_STOP_') ||
+        upper.startsWith('WIN_SYMBOL_HIGHLIGHT') ||
+        upper.startsWith('SCATTER_LAND') ||
+        upper.startsWith('SYMBOL_LAND') ||
+        upper.startsWith('ANTICIPATION_TENSION');
     if (!isPerReelStage) {
       final lastTime = _lastTriggerTime[upper];
       if (lastTime != null) {
@@ -93,7 +97,11 @@ class EventFlowMonitor extends DiagnosticMonitor
     };
     if (count > 5 && !excludeFromRapidFire.contains(upper) &&
         !upper.startsWith('REEL_SPINNING_') &&
-        !upper.startsWith('REEL_STOP_')) {
+        !upper.startsWith('REEL_STOP_') &&
+        !upper.startsWith('WIN_SYMBOL_HIGHLIGHT') &&
+        !upper.startsWith('SCATTER_LAND') &&
+        !upper.startsWith('SYMBOL_LAND') &&
+        !upper.startsWith('ANTICIPATION_TENSION')) {
       _findings.add(DiagnosticFinding(
         checker: name,
         severity: DiagnosticSeverity.warning,

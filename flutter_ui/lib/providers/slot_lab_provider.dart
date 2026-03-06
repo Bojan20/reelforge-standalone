@@ -14,7 +14,6 @@ import 'package:flutter/foundation.dart';
 
 import '../models/stage_models.dart';
 import '../models/win_tier_config.dart';
-import '../services/stage_audio_mapper.dart';
 import '../services/event_registry.dart';
 import '../services/audio_pool.dart';
 import '../services/audio_asset_manager.dart';
@@ -279,7 +278,6 @@ class SlotLabProvider extends ChangeNotifier {
 
   // ─── Audio Integration ─────────────────────────────────────────────────────
   MiddlewareProvider? _middleware;
-  StageAudioMapper? _audioMapper;
   bool _autoTriggerAudio = true;
 
   // ─── ALE Integration ──────────────────────────────────────────────────────
@@ -836,7 +834,6 @@ class SlotLabProvider extends ChangeNotifier {
   /// Connect middleware for audio triggering
   void connectMiddleware(MiddlewareProvider middleware) {
     _middleware = middleware;
-    _audioMapper = StageAudioMapper(middleware, _ffi);
   }
 
   /// Connect ALE provider for signal sync
@@ -1451,64 +1448,6 @@ class SlotLabProvider extends ChangeNotifier {
   }
 
 
-  /// Trigger only the audio for a stage (no UI state changes)
-  /// Used for P0.6 anticipation pre-trigger
-  void _triggerAudioOnly(SlotLabStageEvent stage) {
-    final stageType = stage.stageType.toUpperCase();
-    // CRITICAL: reel_index is in rawStage, not payload
-    final reelIndex = stage.rawStage['reel_index'];
-
-    String effectiveStage = stageType;
-    // CRITICAL: Include timestamp_ms for Event Log ordering display
-    Map<String, dynamic> context = {...stage.payload, ...stage.rawStage, 'timestamp_ms': stage.timestampMs};
-
-    if (stageType == 'REEL_STOP' && reelIndex != null) {
-      effectiveStage = 'REEL_STOP_$reelIndex';
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // P0.4/P0.5: ANTICIPATION TENSION LAYER — Per-reel escalating audio (v2)
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (stageType == 'ANTICIPATION_TENSION_LAYER') {
-      final reelIdx = stage.payload['reel_index'] as int? ??
-                      stage.rawStage['reel_index'] as int? ?? 0;
-      final tensionLevel = stage.payload['tension_level'] as int? ??
-                          stage.rawStage['tension_level'] as int? ?? 1;
-      final progress = (stage.payload['progress'] as num?)?.toDouble() ??
-                      (stage.rawStage['progress'] as num?)?.toDouble() ?? 0.0;
-
-      // Per-reel volume/pitch escalation
-      context['volumeMultiplier'] = 0.5 + (tensionLevel * 0.1);
-      context['pitchSemitones'] = tensionLevel.toDouble();
-      context['tensionLevel'] = tensionLevel;
-      context['progress'] = progress;
-
-      // Map to stage name for EventRegistry
-      effectiveStage = 'ANTICIPATION_TENSION_R${reelIdx}_L$tensionLevel';
-    }
-    // ═══════════════════════════════════════════════════════════════════════════
-    // P1.2: NEAR MISS AUDIO ESCALATION — Intensity-based anticipation (legacy)
-    // ═══════════════════════════════════════════════════════════════════════════
-    else if (stageType == 'ANTICIPATION_TENSION') {
-      final escalationResult = _calculateAnticipationEscalation(stage);
-      effectiveStage = escalationResult.effectiveStage;
-      context['volumeMultiplier'] = escalationResult.volumeMultiplier;
-    }
-
-    // Debug: Show all registered stages
-    final registeredStages = eventRegistry.allEvents.map((e) => e.stage).toList();
-
-    // ALWAYS call triggerStage() - EventRegistry will notify Event Log even for stages without audio
-    if (eventRegistry.hasEventForStage(effectiveStage)) {
-      eventRegistry.triggerStage(effectiveStage, context: context);
-    } else if (effectiveStage != stageType && eventRegistry.hasEventForStage(stageType)) {
-      eventRegistry.triggerStage(stageType, context: context);
-    } else {
-      // STILL trigger so Event Log shows the stage (even without audio)
-      eventRegistry.triggerStage(stageType, context: context);
-    }
-  }
-
   /// P1.2: Calculate anticipation escalation based on near miss info
   ({String effectiveStage, double volumeMultiplier}) _calculateAnticipationEscalation(SlotLabStageEvent stage) {
     // Get near miss info from both payload and rawStage
@@ -1649,6 +1588,49 @@ class SlotLabProvider extends ChangeNotifier {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // ROLLUP TRACKING — Must run BEFORE visual-sync return so progress data
+    // is available when widget triggers rollup audio with context['progress']
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (stageType == 'ROLLUP_START') {
+      _rollupStartTimestampMs = stage.timestampMs;
+      _rollupTickCount = 0;
+      _rollupTotalTicks = 0;
+      for (final s in _lastStages) {
+        final sType = s.stageType.toUpperCase();
+        if (sType == 'ROLLUP_TICK') _rollupTotalTicks++;
+        if (sType == 'ROLLUP_END') {
+          _rollupEndTimestampMs = s.timestampMs;
+        }
+      }
+    } else if (stageType == 'ROLLUP_TICK') {
+      _rollupTickCount++;
+      double progress = 0.0;
+      if (_rollupTotalTicks > 0) {
+        progress = _rollupTickCount / _rollupTotalTicks;
+      } else if (_rollupEndTimestampMs > _rollupStartTimestampMs) {
+        final elapsed = stage.timestampMs - _rollupStartTimestampMs;
+        final total = _rollupEndTimestampMs - _rollupStartTimestampMs;
+        progress = (elapsed / total).clamp(0.0, 1.0);
+      }
+      context['progress'] = progress;
+    } else if (stageType == 'ROLLUP_END') {
+      _rollupStartTimestampMs = 0.0;
+      _rollupEndTimestampMs = 0.0;
+      _rollupTickCount = 0;
+      _rollupTotalTicks = 0;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WIN_LINE_SHOW PAN — Must run BEFORE visual-sync return so pan data
+    // is available when widget triggers win line audio
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (stageType == 'WIN_LINE_SHOW') {
+      final lineIndex = stage.payload['line_index'] as int? ?? 0;
+      final linePan = _calculateWinLinePan(lineIndex);
+      context['pan'] = linePan;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // ═══════════════════════════════════════════════════════════════════════════
     // V12: WIN PRESENTATION VISUAL-SYNC — Skip ALL win/presentation stages
     // These stages are handled by slot_preview_widget.dart's 3-phase win presentation:
@@ -1693,8 +1675,10 @@ class SlotLabProvider extends ChangeNotifier {
     // ═══════════════════════════════════════════════════════════════════════════
     // P0.3: ANTICIPATION VISUAL-AUDIO SYNC — Invoke callbacks for synchronized visuals
     // Callbacks notify UI to dim background and slow reel animation at SAME TIME as audio
+    // NOTE: ANTICIPATION_TENSION_LAYER is handled separately below (with progress/DSP params)
     // ═══════════════════════════════════════════════════════════════════════════
-    if (stageType.startsWith('ANTICIPATION_TENSION')) {
+    if (stageType.startsWith('ANTICIPATION_TENSION') &&
+        stageType != 'ANTICIPATION_TENSION_LAYER') {
       final reelIdx = _extractReelIndexFromStage(stageType);
       final reason = stage.payload['reason'] as String? ??
           stage.rawStage['reason'] as String? ?? 'scatter';
@@ -1703,10 +1687,6 @@ class SlotLabProvider extends ChangeNotifier {
     } else if (stageType == 'ANTICIPATION_MISS') {
       final reelIdx = _extractReelIndexFromStage(stageType);
       onAnticipationEnd?.call(reelIdx);
-    }
-
-    // Simplified debug - only show stage name, skip per-reel spam for REEL_SPINNING
-    if (stageType != 'REEL_SPINNING') {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1778,54 +1758,7 @@ class SlotLabProvider extends ChangeNotifier {
       context['volumeMultiplier'] = escalationResult.volumeMultiplier;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // P1.3: WIN LINE AUDIO PANNING — Pan based on symbol positions
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (stageType == 'WIN_LINE_SHOW') {
-      final lineIndex = stage.payload['line_index'] as int? ?? 0;
-      final linePan = _calculateWinLinePan(lineIndex);
-      context['pan'] = linePan;
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // P1.2: ROLLUP PITCH/VOLUME DYNAMICS — Progress-based escalation
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (stageType == 'ROLLUP_START') {
-      // Scan remaining stages to find ROLLUP_END timestamp
-      _rollupStartTimestampMs = stage.timestampMs;
-      _rollupTickCount = 0;
-      _rollupTotalTicks = 0;
-
-      // Count total ROLLUP_TICKs and find ROLLUP_END
-      for (final s in _lastStages) {
-        final sType = s.stageType.toUpperCase();
-        if (sType == 'ROLLUP_TICK') _rollupTotalTicks++;
-        if (sType == 'ROLLUP_END') {
-          _rollupEndTimestampMs = s.timestampMs;
-        }
-      }
-    } else if (stageType == 'ROLLUP_TICK') {
-      _rollupTickCount++;
-
-      // Calculate progress (0.0 to 1.0)
-      double progress = 0.0;
-      if (_rollupTotalTicks > 0) {
-        progress = _rollupTickCount / _rollupTotalTicks;
-      } else if (_rollupEndTimestampMs > _rollupStartTimestampMs) {
-        final elapsed = stage.timestampMs - _rollupStartTimestampMs;
-        final total = _rollupEndTimestampMs - _rollupStartTimestampMs;
-        progress = (elapsed / total).clamp(0.0, 1.0);
-      }
-
-      // Add progress to context — EventRegistry will use this for pitch/volume modulation
-      context['progress'] = progress;
-    } else if (stageType == 'ROLLUP_END') {
-      // Reset rollup tracking
-      _rollupStartTimestampMs = 0.0;
-      _rollupEndTimestampMs = 0.0;
-      _rollupTickCount = 0;
-      _rollupTotalTicks = 0;
-    }
+    // (Rollup tracking and WIN_LINE_SHOW pan moved above visual-sync return)
 
     // ═══════════════════════════════════════════════════════════════════════════
     // P0: PER-REEL SPINNING — Each reel has its own spin loop for independent fade-out
@@ -1942,28 +1875,6 @@ class SlotLabProvider extends ChangeNotifier {
     }
 
   }
-
-  /// Convert SlotLabStageEvent to StageEvent (for StageAudioMapper)
-  StageEvent? _convertToStageEvent(SlotLabStageEvent slotLabStage) {
-    final stageObj = _mapStageType(slotLabStage.stageType, slotLabStage.rawStage);
-    if (stageObj == null) return null;
-
-    return StageEvent(
-      stage: stageObj,
-      timestampMs: slotLabStage.timestampMs,
-      payload: StagePayload(
-        winAmount: slotLabStage.payload['win_amount'] as double?,
-        betAmount: _betAmount,
-        winRatio: slotLabStage.payload['win_ratio'] as double?,
-      ),
-    );
-  }
-
-  Stage? _mapStageType(String type, Map<String, dynamic> data) {
-    // Use Stage.fromJson which handles the sealed class types
-    return Stage.fromTypeName(type, data);
-  }
-
 
   /// Stop stage playback (full reset)
   void stopStagePlayback() {

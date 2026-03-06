@@ -1268,13 +1268,80 @@ class CompositeEventSystemProvider extends ChangeNotifier {
 
     _eventSystemProvider.importEvent(middlewareEvent);
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SYNC TO EVENT REGISTRY — Ensure composite triggerStages are playable
+    // EventRegistry is the SOLE audio dispatch path (StageAudioMapper disabled).
+    // Without this sync, composites with triggerStages would be silent.
+    // ═══════════════════════════════════════════════════════════════════════════
+    _syncCompositeToEventRegistry(composite);
+
     _notifyCompositeChange(composite.id, CompositeEventChangeType.updated);
+  }
+
+  /// Sync composite event layers to EventRegistry for each triggerStage
+  void _syncCompositeToEventRegistry(SlotCompositeEvent composite) {
+    final registry = EventRegistry.instance;
+
+    for (final stageName in composite.triggerStages) {
+      final normalized = stageName.toUpperCase().trim();
+      if (normalized.isEmpty) continue;
+
+      // Convert SlotEventLayers to AudioLayers for EventRegistry
+      final audioLayers = <AudioLayer>[];
+      for (int i = 0; i < composite.layers.length; i++) {
+        final layer = composite.layers[i];
+        // Skip muted layers (solo handled at playback time)
+        if (layer.muted) continue;
+        audioLayers.add(AudioLayer(
+          id: '${composite.id}_layer_$i',
+          audioPath: layer.audioPath,
+          name: layer.name,
+          volume: layer.volume * composite.masterVolume,
+          pan: layer.pan,
+          delay: layer.offsetMs,
+          busId: layer.busId ?? 0,
+          fadeInMs: layer.fadeInMs,
+          fadeOutMs: layer.fadeOutMs,
+          trimStartMs: layer.trimStartMs,
+          trimEndMs: layer.trimEndMs,
+          actionType: layer.actionType,
+          loop: layer.loop || composite.looping,
+          targetAudioPath: layer.targetAudioPath,
+        ));
+      }
+
+      final audioEvent = AudioEvent(
+        id: 'composite_${composite.id}_$normalized',
+        name: composite.name,
+        stage: normalized,
+        layers: audioLayers,
+        loop: composite.looping,
+        priority: 0,
+        overlap: !composite.looping,
+        crossfadeMs: composite.looping ? 500 : 0,
+        targetBusId: composite.layers.isNotEmpty
+            ? (composite.layers.first.busId ?? 0)
+            : 0,
+      );
+
+      registry.registerEvent(audioEvent);
+    }
   }
 
   /// Remove MiddlewareEvent when composite is deleted
   void _removeMiddlewareEventForComposite(String compositeId) {
     final middlewareId = _compositeToMiddlewareId(compositeId);
     _eventSystemProvider.deleteEvent(middlewareId);
+
+    // Also remove from EventRegistry
+    final composite = _compositeEvents[compositeId];
+    if (composite != null) {
+      final registry = EventRegistry.instance;
+      for (final stageName in composite.triggerStages) {
+        final normalized = stageName.toUpperCase().trim();
+        registry.unregisterEvent('composite_${compositeId}_$normalized');
+      }
+    }
 
     _notifyCompositeChange(compositeId, CompositeEventChangeType.deleted);
   }

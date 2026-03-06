@@ -13,7 +13,6 @@ import 'package:flutter/foundation.dart';
 
 import '../../services/event_registry.dart';
 import '../../services/audio_asset_manager.dart';
-import '../../services/stage_audio_mapper.dart';
 import '../../src/rust/native_ffi.dart';
 import '../middleware_provider.dart';
 import '../ale_provider.dart';
@@ -28,7 +27,6 @@ class SlotAudioProvider extends ChangeNotifier {
 
   // ─── Dependencies ────────────────────────────────────────────────────────
   MiddlewareProvider? _middleware;
-  StageAudioMapper? _audioMapper;
   AleProvider? _aleProvider;
 
   // ─── Configuration ──────────────────────────────────────────────────────
@@ -79,7 +77,6 @@ class SlotAudioProvider extends ChangeNotifier {
   /// Connect middleware for audio triggering
   void connectMiddleware(MiddlewareProvider middleware) {
     _middleware = middleware;
-    _audioMapper = StageAudioMapper(middleware, _ffi);
   }
 
   /// Connect ALE provider for signal sync

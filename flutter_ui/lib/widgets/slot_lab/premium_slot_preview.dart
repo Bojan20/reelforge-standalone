@@ -4937,9 +4937,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   /// Tracks which reels have visually stopped (for staggered audio triggering)
   late List<bool> _reelsStopped;
 
-  /// Pending result for win stage triggering after reveal
-  SlotLabSpinResult? _pendingResultForWinStage;
-
   /// Timers for scheduled reel stops (canceled on dispose)
   final List<Timer> _reelStopTimers = [];
 
@@ -5171,7 +5168,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
       // Stop BIG_WIN_END audio
       eventRegistry.stopEvent('BIG_WIN_END');
-      eventRegistry.stopEvent('BIG_WIN_END');
       eventRegistry.stopAllMusicVoices(fadeMs: 200);
 
       // Trigger collect and restore base game
@@ -5369,7 +5365,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       // VISUAL-SYNC STATE — All reels stopped
       // ═══════════════════════════════════════════════════════════════════════════
       _reelsStopped = List.filled(widget.reels, true);
-      _pendingResultForWinStage = null;
 
       // ═══════════════════════════════════════════════════════════════════════════
       // DEBUG STATE — Clear message
@@ -5736,7 +5731,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // VISUAL-SYNC: Schedule reel stop callbacks IMMEDIATELY on spin start
     // Result will be stored when it arrives for win stage triggering
     // ═══════════════════════════════════════════════════════════════════════
-    _scheduleVisualSyncCallbacks(null);
+    _scheduleVisualSyncCallbacks();
 
     setState(() {
       _debugMessage = 'Spin started, waiting for result...';
@@ -5750,7 +5745,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         // Diagnostics: stage triggers + onSpinComplete already handled by
         // SlotStageProvider._triggerStage() in real-time — no retroactive replay needed
         // Store result for win stage triggering (used by _onAllReelsStopped)
-        _pendingResultForWinStage = result;
         _processResult(result);
       } else {
         setState(() {
@@ -5796,7 +5790,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // ═══════════════════════════════════════════════════════════════════════
     // VISUAL-SYNC: Schedule reel stop callbacks IMMEDIATELY on spin start
     // ═══════════════════════════════════════════════════════════════════════
-    _scheduleVisualSyncCallbacks(null);
+    _scheduleVisualSyncCallbacks();
 
     setState(() {
       _debugMessage = 'Forced spin started, waiting for result...';
@@ -5808,7 +5802,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
           _debugMessage = 'Got forced result! Calling _processResult...';
         });
         // Store result for win stage triggering (used by _onAllReelsStopped)
-        _pendingResultForWinStage = result;
         _processResult(result);
       } else {
         setState(() {
@@ -5824,7 +5817,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
   /// Schedule Visual-Sync callbacks for staggered reel stops
   /// Called at SPIN START — triggers REEL_STOP_0..4 at visual stop moments
-  void _scheduleVisualSyncCallbacks(SlotLabSpinResult? pendingResult) {
+  void _scheduleVisualSyncCallbacks() {
     // Cancel any existing timers
     for (final timer in _reelStopTimers) {
       timer.cancel();
@@ -5834,7 +5827,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // Reset reels stopped state
     setState(() {
       _reelsStopped = List.filled(widget.reels, false);
-      _pendingResultForWinStage = pendingResult;
     });
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -5910,50 +5902,6 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     final provider = context.read<SlotLabProvider>();
     provider.onAllReelsVisualStop();
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // REVEAL — DISABLED: Engine stages handle timing via SlotLabProvider._playStages()
-    // Visual-sync timing is NOT synchronized with engine timestamps, causing
-    // REVEAL to fire BETWEEN engine REEL_STOP stages (wrong order!)
-    // ═══════════════════════════════════════════════════════════════════════
-    // eventRegistry.triggerStage('REVEAL'); // REMOVED — causes timing mismatch
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // WIN STAGES — DISABLED: Engine generates WIN_PRESENT and BigWinTier stages
-    // with correct timestamps. Visual-sync triggering causes duplicates.
-    // ═══════════════════════════════════════════════════════════════════════
-    // final result = _pendingResultForWinStage;
-    // if (result != null && result.isWin) {
-    //   _triggerWinStage(result);
-    // }
-
-    // Clear pending result
-    _pendingResultForWinStage = null;
-  }
-
-  /// Trigger appropriate WIN stage based on win tier
-  void _triggerWinStage(SlotLabSpinResult result) {
-    // Use winRatio for tier determination (not totalWin which depends on engine bet)
-    final tier = _winTierFromEngine(result.bigWinTier) ?? _getWinTierFromRatio(result.winRatio);
-
-    switch (tier) {
-      case 'BIG_WIN_TIER_5':
-        eventRegistry.triggerStage('BIG_WIN_TIER_5');
-        break;
-      case 'BIG_WIN_TIER_4':
-        eventRegistry.triggerStage('BIG_WIN_TIER_4');
-        break;
-      case 'BIG_WIN_TIER_3':
-        eventRegistry.triggerStage('BIG_WIN_TIER_3');
-        break;
-      case 'BIG_WIN_TIER_2':
-        eventRegistry.triggerStage('BIG_WIN_TIER_2');
-        break;
-      case 'BIG_WIN_TIER_1':
-        eventRegistry.triggerStage('BIG_WIN_TIER_1');
-        break;
-      default:
-        eventRegistry.triggerStage('WIN_PRESENT_1');
-    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

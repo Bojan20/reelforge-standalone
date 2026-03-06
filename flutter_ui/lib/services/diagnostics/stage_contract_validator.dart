@@ -116,6 +116,7 @@ class StageContractValidator extends DiagnosticChecker {
       'COIN_SHOWER_START',
       'COIN_SHOWER_END',
       'WIN_SYMBOL_HIGHLIGHT',
+      'ANTICIPATION_TENSION',  // Legacy tension stage (non-LAYER variant)
     };
 
     // Verify Rust stages can be uppercased to match Dart convention
@@ -151,6 +152,8 @@ class StageContractValidator extends DiagnosticChecker {
             !type.startsWith('rollup_') &&
             !type.startsWith('win_symbol_highlight_') &&
             !type.startsWith('scatter_land_') &&
+            !type.startsWith('symbol_land_') &&
+            !type.startsWith('reel_spinning_') &&
             !type.startsWith('fs_') &&
             type != 'custom') {
           findings.add(DiagnosticFinding(
