@@ -100,6 +100,10 @@ class LowerZoneContextBar extends StatelessWidget {
   /// Map of tab index → badge count. Only shown when count > 0.
   final Map<int, int>? superTabBadges;
 
+  /// Sub-tab group separators — indices after which a visual divider is inserted.
+  /// Used to visually group sub-tabs (e.g., DSP: Processing | Advanced | Debug).
+  final List<int>? subTabGroupBreaks;
+
   const LowerZoneContextBar({
     super.key,
     required this.superTabLabels,
@@ -130,6 +134,7 @@ class LowerZoneContextBar extends StatelessWidget {
     this.onPanelCountChanged,
     this.superTabGroupBreaks,
     this.superTabBadges,
+    this.subTabGroupBreaks,
   });
 
   @override
@@ -193,10 +198,13 @@ class LowerZoneContextBar extends StatelessWidget {
                         ),
                         if (needsSeparator)
                           Container(
-                            width: 1,
-                            height: 16,
-                            margin: const EdgeInsets.only(right: 6),
-                            color: LowerZoneColors.border,
+                            width: 2,
+                            height: 18,
+                            margin: const EdgeInsets.symmetric(horizontal: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF505060),
+                              borderRadius: BorderRadius.circular(1),
+                            ),
                           ),
                       ],
                     );
@@ -432,9 +440,27 @@ class LowerZoneContextBar extends StatelessWidget {
           children: [
             const SizedBox(width: 32), // Align with super-tabs (toggle button space)
             ...List.generate(subTabLabels.length, (index) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 4),
-                child: _buildSubTab(index),
+              final needsSeparator = subTabGroupBreaks != null &&
+                  subTabGroupBreaks!.contains(index) &&
+                  index < subTabLabels.length - 1;
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: _buildSubTab(index),
+                  ),
+                  if (needsSeparator)
+                    Container(
+                      width: 2,
+                      height: 16,
+                      margin: const EdgeInsets.symmetric(horizontal: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF505060),
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    ),
+                ],
               );
             }),
           ],

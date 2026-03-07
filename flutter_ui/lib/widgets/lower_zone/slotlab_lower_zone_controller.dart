@@ -51,6 +51,22 @@ class SlotLabLowerZoneController extends ChangeNotifier {
 
   Color get accentColor => LowerZoneColors.slotLabAccent;
 
+  /// Sub-tab group break indices for current super-tab.
+  /// Inserts visual separators between logical groups of sub-tabs.
+  List<int>? get subTabGroupBreaks => switch (_state.superTab) {
+    SlotLabSuperTab.stages    => null, // 5 tabs — no grouping needed
+    SlotLabSuperTab.events    => const [2, 4],    // Folder+Editor+Layers | Pool+Auto | Templates+DepGraph
+    SlotLabSuperTab.mix       => const [2],       // Buses+Sends+Pan | Meter+Hierarchy+Ducking
+    SlotLabSuperTab.dsp       => const [5, 8],    // Chain+EQ+Comp+Rev+Gate+Lim | Atten+Sigs+DSPProf | LayerDSP+Morph+Spatial
+    SlotLabSuperTab.rtpc      => null, // 4 tabs — no grouping needed
+    SlotLabSuperTab.containers=> const [4, 6],    // Blend+Random+Seq+A/B+Xfade | Groups+Presets | Metrics+Timeline+Wizard
+    SlotLabSuperTab.music     => null, // 5 tabs — no grouping needed
+    SlotLabSuperTab.logic     => const [4, 7],    // Behavior+Triggers+Gate+Priority+Orch | Emotional+Context+Sim | PriPreset+StateMachine+StateHist
+    SlotLabSuperTab.intel     => const [3],       // Build+Flow+Sim+Diag | Templates+Export+Coverage+Inspector
+    SlotLabSuperTab.monitor   => const [3, 5],    // Timeline+Energy+Voice+Spectral | Fatigue+AIL | Debug+Export+Profiler+...
+    SlotLabSuperTab.bake      => const [3, 6],    // Export+Stems+Variations+Package | Git+Analytics+Docs | Macro+...
+  };
+
   // ═══════════════════════════════════════════════════════════════════════════
   // SUPER-TAB ACTIONS
   // ═══════════════════════════════════════════════════════════════════════════

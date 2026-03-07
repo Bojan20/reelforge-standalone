@@ -312,6 +312,8 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                               superTabGroupBreaks: const [0, 3, 6, 9],
                               // Diagnostics findings badge on MONITOR tab (index 9)
                               superTabBadges: findingsCount > 0 ? {SlotLabSuperTab.monitor.index: findingsCount} : null,
+                              // Sub-tab group separators per super-tab
+                              subTabGroupBreaks: widget.controller.subTabGroupBreaks,
                             );
                           },
                         ),
