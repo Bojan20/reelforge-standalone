@@ -75,13 +75,13 @@ class _SequenceContainerPanelState extends State<SequenceContainerPanel> {
   Widget _buildHeader() {
     return Row(
       children: [
-        Icon(Icons.queue_music, color: Colors.teal, size: 20),
-        const SizedBox(width: 8),
+        Icon(Icons.queue_music, color: Colors.teal, size: 16),
+        const SizedBox(width: 6),
         Text(
           'Sequence Containers',
           style: TextStyle(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 16,
+            fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
         ),

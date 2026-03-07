@@ -184,19 +184,19 @@ class _ContainerMetricsPanelState extends State<ContainerMetricsPanel> {
             size: 64,
             color: FluxForgeTheme.textSecondary.withOpacity(0.3),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           Text(
             'No Container Metrics',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 12,
               color: FluxForgeTheme.textSecondary,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
             'Trigger container evaluations to see metrics',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 10,
               color: FluxForgeTheme.textSecondary.withOpacity(0.7),
             ),
           ),

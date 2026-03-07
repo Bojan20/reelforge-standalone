@@ -77,13 +77,13 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
   Widget _buildHeader() {
     return Row(
       children: [
-        Icon(Icons.blur_linear, color: Colors.purple, size: 20),
-        const SizedBox(width: 8),
+        Icon(Icons.blur_linear, color: Colors.purple, size: 16),
+        const SizedBox(width: 6),
         Text(
           'Blend Containers',
           style: TextStyle(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 16,
+            fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
         ),

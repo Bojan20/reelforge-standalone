@@ -73,13 +73,13 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
   Widget _buildHeader() {
     return Row(
       children: [
-        Icon(Icons.shuffle, color: Colors.orange, size: 20),
-        const SizedBox(width: 8),
+        Icon(Icons.shuffle, color: Colors.orange, size: 16),
+        const SizedBox(width: 6),
         Text(
           'Random Containers',
           style: TextStyle(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 16,
+            fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
         ),

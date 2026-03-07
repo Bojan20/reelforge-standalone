@@ -96,13 +96,13 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
   Widget _buildHeader() {
     return Row(
       children: [
-        Icon(Icons.grid_on, color: FluxForgeTheme.accentBlue, size: 20),
-        const SizedBox(width: 8),
+        Icon(Icons.grid_on, color: FluxForgeTheme.accentBlue, size: 16),
+        const SizedBox(width: 6),
         Text(
           'Ducking Matrix',
           style: TextStyle(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 16,
+            fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
         ),
