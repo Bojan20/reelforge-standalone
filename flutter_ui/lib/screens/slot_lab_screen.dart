@@ -2878,6 +2878,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     _leftPanelTabNotifier.removeListener(_onLeftPanelTabChanged);
     _leftPanelTabNotifier.dispose();
     _rightPanelTabNotifier.dispose();
+    _configExpandedSection.dispose();
     _disposeLayerPlayers(); // Dispose audio players
     // Only remove listener if it was added (after restore)
     if (_lowerZoneRestoreComplete) {
@@ -3027,6 +3028,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             final maxLowerZone = outerConstraints.maxHeight - SlotLabDimens.headerTotalHeight - minSlotArea;
             if (maxLowerZone > 0) {
               _lowerZoneController.clampHeight(maxLowerZone);
+            }
+            // Adaptive initial sizing: 35% of available height (clamped 250-500px)
+            // Only applies when height is still at hardcoded default
+            if (_lowerZoneController.height == kLowerZoneDefaultHeight) {
+              final adaptiveHeight = (outerConstraints.maxHeight * 0.35).clamp(250.0, 500.0);
+              if ((adaptiveHeight - kLowerZoneDefaultHeight).abs() > 20) {
+                _lowerZoneController.setHeight(adaptiveHeight);
+              }
             }
             return Column(
             children: [
@@ -8967,7 +8976,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildResizeHandle({required bool isLeft}) {
-    return MouseRegion(
+    return Tooltip(
+      message: 'Drag to resize\nDouble-click to reset',
+      waitDuration: const Duration(milliseconds: 800),
+      child: MouseRegion(
       cursor: SystemMouseCursors.resizeColumn,
       child: GestureDetector(
         onHorizontalDragUpdate: (details) {
@@ -9012,6 +9024,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             ),
           ),
         ),
+      ),
       ),
     );
   }
@@ -9172,7 +9185,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         children: List.generate(tabs.length, (i) {
           final isActive = _leftPanelTab == tabs[i];
           return Expanded(
-            child: _InstantTapDetector(
+            child: Tooltip(
+              message: '${labels[i]}\nDouble-click to hide panel',
+              waitDuration: const Duration(milliseconds: 600),
+              child: _InstantTapDetector(
               onTap: () { _leftPanelTab = tabs[i]; _savePanelLayout(); },
               onDoubleTap: _toggleLeftPanel,
               child: Container(
@@ -9219,6 +9235,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   ],
                 ),
               ),
+            ),
             ),
           );
         }),
@@ -9574,7 +9591,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         children: List.generate(tabs.length, (i) {
           final isActive = _rightPanelTab == tabs[i];
           return Expanded(
-            child: _InstantTapDetector(
+            child: Tooltip(
+              message: '${labels[i]}\nDouble-click to hide panel',
+              waitDuration: const Duration(milliseconds: 600),
+              child: _InstantTapDetector(
               onTap: () { _rightPanelTab = tabs[i]; _savePanelLayout(); },
               onDoubleTap: _toggleRightPanel,
               child: Container(
@@ -9621,6 +9641,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   ],
                 ),
               ),
+            ),
             ),
           );
         }),
@@ -9806,24 +9827,76 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   }
 
   /// Config tab in right panel — scene transitions + win tier configuration
+  /// CONFIG tab: which section is expanded (null = all collapsed)
+  /// Uses ValueNotifier so it works inside _StableTabSwitcher cached widgets
+  final ValueNotifier<int?> _configExpandedSection = ValueNotifier<int?>(0);
+
   Widget _buildRightConfigContent() {
     return Consumer<SlotLabProjectProvider>(
       builder: (context, projectProvider, _) {
-        return Column(
-          children: [
-            // Symbol Art (top third)
-            const Expanded(child: SymbolArtPanel()),
-            const Divider(height: 1, color: Color(0xFF2A2A38)),
-            // Scene Transition Config (middle third)
-            const Expanded(child: TransitionConfigPanel()),
-            const Divider(height: 1, color: Color(0xFF2A2A38)),
-            // Win Tier Config (bottom third)
-            Expanded(
-              child: WinTierConfigPanel(projectProvider: projectProvider),
-            ),
-          ],
+        return ValueListenableBuilder<int?>(
+          valueListenable: _configExpandedSection,
+          builder: (context, expanded, _) {
+            return Column(
+              children: [
+                _buildConfigAccordionHeader(0, 'SYMBOLS', Icons.casino, expanded),
+                if (expanded == 0)
+                  const Expanded(child: SymbolArtPanel()),
+                _buildConfigAccordionHeader(1, 'TRANSITIONS', Icons.swap_horiz, expanded),
+                if (expanded == 1)
+                  const Expanded(child: TransitionConfigPanel()),
+                _buildConfigAccordionHeader(2, 'WIN TIERS', Icons.emoji_events, expanded),
+                if (expanded == 2)
+                  Expanded(
+                    child: WinTierConfigPanel(projectProvider: projectProvider),
+                  ),
+              ],
+            );
+          },
         );
       },
+    );
+  }
+
+  Widget _buildConfigAccordionHeader(int index, String label, IconData icon, int? expanded) {
+    final isExpanded = expanded == index;
+    return GestureDetector(
+      onTap: () {
+        _configExpandedSection.value = isExpanded ? null : index;
+      },
+      child: Container(
+        height: 28,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: isExpanded
+              ? FluxForgeTheme.accentCyan.withValues(alpha: 0.08)
+              : const Color(0xFF111116),
+          border: const Border(
+            bottom: BorderSide(color: Color(0xFF2A2A38), width: 0.5),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
+              size: 14,
+              color: isExpanded ? FluxForgeTheme.accentCyan : const Color(0xFF606068),
+            ),
+            const SizedBox(width: 4),
+            Icon(icon, size: 12, color: isExpanded ? FluxForgeTheme.accentCyan : const Color(0xFF606068)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+                color: isExpanded ? const Color(0xFFD0D0D8) : const Color(0xFF606068),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

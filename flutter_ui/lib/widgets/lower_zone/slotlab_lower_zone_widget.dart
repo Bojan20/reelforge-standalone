@@ -25,6 +25,7 @@ import 'lower_zone_context_bar.dart';
 import 'lower_zone_action_strip.dart';
 import '../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../providers/slot_lab_project_provider.dart';
+import '../../services/gdd_import_service.dart' show GddGridConfig;
 import '../../providers/middleware_provider.dart';
 import '../../providers/dsp_chain_provider.dart';
 import '../../providers/mixer_dsp_provider.dart';
@@ -480,10 +481,8 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           _buildVolatilityDropdown(provider),
           // P1.1: Timing dropdown — connected to provider
           _buildTimingDropdown(provider),
-          // Grid dropdown (currently UI-only, future: connect to provider)
-          _buildSpinDropdown('Grid', _selectedGrid,
-              ['5×3', '5×4', '6×4', 'Custom'],
-              (v) => setState(() => _selectedGrid = v)),
+          // Grid dropdown — connected to SlotLabProjectProvider
+          _buildGridDropdown(),
           const Spacer(),
           // Spin button
           _buildSpinButton(),
@@ -588,6 +587,61 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
+  /// Grid dropdown — connected to SlotLabProjectProvider
+  Widget _buildGridDropdown() {
+    final projectProvider = context.read<SlotLabProjectProvider>();
+    final gridConfig = projectProvider.gridConfig;
+    // Derive current label from provider state
+    final cols = gridConfig?.columns ?? 5;
+    final rows = gridConfig?.rows ?? 3;
+    final currentLabel = '${cols}×$rows';
+    const gridOptions = ['5×3', '5×4', '6×4', '3×3', '4×5'];
+    // Ensure current value is in options
+    final displayValue = gridOptions.contains(currentLabel) ? currentLabel : gridOptions.first;
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Container(
+        height: 22,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: LowerZoneColors.slotLabAccent),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: displayValue,
+            dropdownColor: LowerZoneColors.bgDeep,
+            isDense: true,
+            icon: Icon(Icons.arrow_drop_down, size: 14, color: LowerZoneColors.textMuted),
+            items: gridOptions.map((o) => DropdownMenuItem(
+              value: o,
+              child: Text(o, style: const TextStyle(fontSize: 10)),
+            )).toList(),
+            onChanged: (v) {
+              if (v != null) {
+                final parts = v.split('×');
+                final newCols = int.tryParse(parts[0]) ?? 5;
+                final newRows = int.tryParse(parts[1]) ?? 3;
+                projectProvider.setGridConfig(GddGridConfig(
+                  columns: newCols,
+                  rows: newRows,
+                  mechanic: gridConfig?.mechanic ?? 'ways',
+                ));
+                setState(() => _selectedGrid = v);
+              }
+            },
+            style: TextStyle(
+              fontSize: 10,
+              color: LowerZoneColors.slotLabAccent,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSpinDropdown(String label, String value, List<String> options, ValueChanged<String> onChanged) {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
@@ -615,6 +669,72 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               color: LowerZoneColors.slotLabAccent,
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Reusable empty state for context-dependent / inactive sub-tabs
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        margin: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: LowerZoneColors.textTertiary.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: LowerZoneColors.textTertiary.withValues(alpha: 0.12),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 28, color: LowerZoneColors.textTertiary.withValues(alpha: 0.5)),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              style: const TextStyle(
+                color: LowerZoneColors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: const TextStyle(color: LowerZoneColors.textTertiary, fontSize: 10),
+              textAlign: TextAlign.center,
+            ),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: onAction,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.4)),
+                  ),
+                  child: Text(
+                    actionLabel,
+                    style: const TextStyle(
+                      color: LowerZoneColors.slotLabAccent,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -877,7 +997,13 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       SlotLabStagesSubTab.trace => _buildTracePanel(),
       SlotLabStagesSubTab.timeline => _buildTimelinePanel(),
       SlotLabStagesSubTab.timing => _buildProfilerPanel(),
-      SlotLabStagesSubTab.layerTimeline => const Center(child: Text('Layer timeline requires active playback', style: TextStyle(color: LowerZoneColors.textTertiary, fontSize: 11))),
+      SlotLabStagesSubTab.layerTimeline => _buildEmptyState(
+        icon: Icons.layers,
+        title: 'Layer Timeline',
+        subtitle: 'Start a spin to see layer-by-layer audio playback timeline',
+        actionLabel: 'Spin',
+        onAction: widget.onSpin,
+      ),
     };
   }
 
@@ -1060,9 +1186,17 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       SlotLabDspSubTab.attenuation => const AttenuationCurvePanel(),
       SlotLabDspSubTab.signatures => const AudioSignaturesPanel(),
       SlotLabDspSubTab.dspProfiler => const DspProfilerPanel(),
-      SlotLabDspSubTab.layerDsp => const Center(child: Text('Select a layer to edit DSP chain', style: TextStyle(color: LowerZoneColors.textTertiary, fontSize: 11))),
+      SlotLabDspSubTab.layerDsp => _buildEmptyState(
+        icon: Icons.tune,
+        title: 'Layer DSP',
+        subtitle: 'Select an event layer in the Inspector to edit its DSP chain',
+      ),
       SlotLabDspSubTab.presetMorph => const PresetMorphEditorPanel(),
-      SlotLabDspSubTab.spatial => const Center(child: Text('Select a layer to design spatial audio', style: TextStyle(color: LowerZoneColors.textTertiary, fontSize: 11))),
+      SlotLabDspSubTab.spatial => _buildEmptyState(
+        icon: Icons.surround_sound,
+        title: 'Spatial Audio',
+        subtitle: 'Select an event layer in the Inspector to design spatial positioning',
+      ),
     };
   }
 

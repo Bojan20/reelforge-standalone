@@ -494,7 +494,9 @@ class LowerZoneContextBar extends StatelessWidget {
   }
 
   Widget _buildSubTabs() {
-    return Container(
+    // Fade gradient hints that more tabs exist when scrollable
+    final needsScroll = subTabLabels.length > 6;
+    final content = Container(
       height: 28,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: const BoxDecoration(
@@ -541,6 +543,22 @@ class LowerZoneContextBar extends StatelessWidget {
           ],
         ),
       ),
+    );
+
+    if (!needsScroll) return content;
+
+    // ShaderMask fade on right edge to hint at scrollable content
+    return ShaderMask(
+      shaderCallback: (Rect bounds) {
+        return const LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [Colors.white, Colors.white, Colors.white, Colors.transparent],
+          stops: [0.0, 0.85, 0.92, 1.0],
+        ).createShader(bounds);
+      },
+      blendMode: BlendMode.dstIn,
+      child: content,
     );
   }
 

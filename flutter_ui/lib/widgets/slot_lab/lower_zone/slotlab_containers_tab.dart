@@ -37,25 +37,37 @@ class SlotLabContainersTabContent extends StatelessWidget {
   /// Placeholder for context-dependent panels that require a selected container
   static Widget _buildContextRequired(String title, String hint) {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.touch_app, size: 32, color: FluxForgeTheme.textTertiary),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: TextStyle(
-              color: FluxForgeTheme.textSecondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        margin: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: FluxForgeTheme.textTertiary.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: FluxForgeTheme.textTertiary.withValues(alpha: 0.12),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.touch_app, size: 28, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5)),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              style: TextStyle(
+                color: FluxForgeTheme.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            hint,
-            style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
-          ),
-        ],
+            const SizedBox(height: 4),
+            Text(
+              hint,
+              style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
