@@ -40,8 +40,8 @@ class _ControlRoomPanelState extends State<ControlRoomPanel> {
         if (mounted) {
           try {
             context.read<ControlRoomProvider>().updateMetering();
-          } catch (_) {
-            // Provider not available - likely widget disposed or not in tree
+          } catch (e) {
+            assert(() { debugPrint('ControlRoom metering error: $e'); return true; }());
           }
         }
       });

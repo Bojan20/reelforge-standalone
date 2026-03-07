@@ -619,7 +619,7 @@ class _FabFilterPresetBrowserState extends State<FabFilterPresetBrowser> {
           ),
         ],
       ),
-    );
+    ).then((_) => controller.dispose());
   }
 
   void _showRenameDialog(PresetInfo preset) {
@@ -663,7 +663,7 @@ class _FabFilterPresetBrowserState extends State<FabFilterPresetBrowser> {
           ),
         ],
       ),
-    );
+    ).then((_) => controller.dispose());
   }
 }
 

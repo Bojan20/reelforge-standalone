@@ -83,7 +83,9 @@ class SlotLabCoordinator extends ChangeNotifier {
     try {
       final gameFlow = sl<GameFlowProvider>();
       gameFlow.onSpinComplete(result);
-    } catch (_) {}
+    } catch (e) {
+      assert(() { debugPrint('GameFlow onSpinComplete error: $e'); return true; }());
+    }
   }
 
   SlotLabCoordinator({
@@ -364,7 +366,9 @@ class SlotLabCoordinator extends ChangeNotifier {
       final gameFlow = sl<GameFlowProvider>();
       if (gameFlow.isInTransition) return Future.value(null);
       gameFlow.onSpinStart();
-    } catch (_) {}
+    } catch (e) {
+      assert(() { debugPrint('GameFlow onSpinStart error: $e'); return true; }());
+    }
     return engineProvider.spin();
   }
   Future<SlotLabSpinResult?> spinForced(ForcedOutcome outcome) =>

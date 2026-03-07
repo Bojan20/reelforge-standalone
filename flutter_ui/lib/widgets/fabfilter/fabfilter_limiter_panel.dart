@@ -341,7 +341,9 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
         _outputTpL = _ffi.insertGetMeter(t, s, 4);
         _outputTpR = _ffi.insertGetMeter(t, s, 5);
         _grMaxHold = _ffi.insertGetMeter(t, s, 6);
-      } catch (_) {}
+      } catch (e) {
+        assert(() { debugPrint('Limiter meter error: $e'); return true; }());
+      }
 
       // LUFS from engine metering API
       try {
@@ -349,7 +351,9 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
         _lufsMomentary = mom;
         _lufsShortTerm = st;
         _lufsIntegrated = integ;
-      } catch (_) {}
+      } catch (e) {
+        assert(() { debugPrint('Limiter LUFS meter error: $e'); return true; }());
+      }
 
       final outTpMax = math.max(_outputTpL, _outputTpR);
       _truePeakClipping = outTpMax > _output + 0.1;

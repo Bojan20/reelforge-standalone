@@ -1480,7 +1480,7 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
           ),
         ],
       ),
-    );
+    ).then((_) => controller.dispose());
   }
 
   /// Channel format badge: Mono / Stereo / 5.1

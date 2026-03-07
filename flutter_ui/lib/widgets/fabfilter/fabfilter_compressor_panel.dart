@@ -387,14 +387,18 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
         final grL = _ffi.insertGetMeter(t, s, 0);
         final grR = _ffi.insertGetMeter(t, s, 1);
         _grCurrent = (grL + grR) / 2.0;
-      } catch (_) { _grCurrent = 0.0; }
+      } catch (e) { _grCurrent = 0.0;
+        assert(() { debugPrint('Compressor GR meter error: $e'); return true; }());
+      }
 
       try {
         final peaks = _ffi.getPeakMeters();
         final peakLin = math.max(peaks.$1, peaks.$2);
         _inputLevel = peakLin > 1e-10 ? 20.0 * math.log(peakLin) / math.ln10 : -60.0;
         _outputLevel = _inputLevel + _grCurrent;
-      } catch (_) {}
+      } catch (e) {
+        assert(() { debugPrint('Compressor peak meter error: $e'); return true; }());
+      }
 
       if (_grCurrent.abs() > _grPeakHold.abs()) _grPeakHold = _grCurrent;
 

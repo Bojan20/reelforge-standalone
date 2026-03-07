@@ -40,13 +40,17 @@ class _GpuSpectrumState extends State<GpuSpectrum> {
     try {
       _program = await ui.FragmentProgram.fromAsset('shaders/spectrum.frag');
       _shader = _program!.fragmentShader();
-      setState(() {
-        _shaderLoaded = true;
-      });
+      if (mounted) {
+        setState(() {
+          _shaderLoaded = true;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _loadError = e.toString();
-      });
+      if (mounted) {
+        setState(() {
+          _loadError = e.toString();
+        });
+      }
     }
   }
 

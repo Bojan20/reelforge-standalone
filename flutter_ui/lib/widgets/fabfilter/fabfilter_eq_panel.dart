@@ -298,7 +298,9 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
         _inPeakR = _ffi.insertGetMeter(t, s, 1);
         _outPeakL = _ffi.insertGetMeter(t, s, 2);
         _outPeakR = _ffi.insertGetMeter(t, s, 3);
-      } catch (_) {}
+      } catch (e) {
+        assert(() { debugPrint('EQ meter error: $e'); return true; }());
+      }
     });
   }
 

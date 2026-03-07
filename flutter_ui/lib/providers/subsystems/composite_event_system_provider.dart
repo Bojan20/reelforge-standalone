@@ -577,15 +577,21 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     final event = _compositeEvents[eventId];
     if (event == null) return;
 
-    try { _pushUndoState(); } catch (_) {}
-    try { AudioPlaybackService.instance.stopLayer(layerId); } catch (_) {}
+    try { _pushUndoState(); } catch (e) {
+      assert(() { debugPrint('Composite undo push error: $e'); return true; }());
+    }
+    try { AudioPlaybackService.instance.stopLayer(layerId); } catch (e) {
+      assert(() { debugPrint('Composite stop layer error: $e'); return true; }());
+    }
 
     final updated = event.copyWith(
       layers: event.layers.where((l) => l.id != layerId).toList(),
       modifiedAt: DateTime.now(),
     );
     _compositeEvents[eventId] = updated;
-    try { _syncCompositeToMiddleware(updated); } catch (_) {}
+    try { _syncCompositeToMiddleware(updated); } catch (e) {
+      assert(() { debugPrint('Composite sync middleware error: $e'); return true; }());
+    }
     try {
       _recordHistory(
         eventId: eventId,
@@ -593,7 +599,9 @@ class CompositeEventSystemProvider extends ChangeNotifier {
         changeType: CompositeEventChangeType.updated,
         description: 'Removed layer from "${event.name}"',
       );
-    } catch (_) {}
+    } catch (e) {
+      assert(() { debugPrint('Composite record history error: $e'); return true; }());
+    }
 
     notifyListeners();
   }

@@ -46,8 +46,8 @@ class _MixerStatusBarState extends State<MixerStatusBar> {
       setState(() {
         _dspLoad = load;
       });
-    } catch (_) {
-      // FFI not available
+    } catch (e) {
+      assert(() { debugPrint('DSP load FFI error: $e'); return true; }());
     }
   }
 

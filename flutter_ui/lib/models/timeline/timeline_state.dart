@@ -193,11 +193,10 @@ class TimelineState {
 
   /// Get track by ID
   TimelineTrack? getTrack(String trackId) {
-    try {
-      return tracks.firstWhere((t) => t.id == trackId);
-    } catch (_) {
-      return null;
+    for (final t in tracks) {
+      if (t.id == trackId) return t;
     }
+    return null;
   }
 
   /// Add track

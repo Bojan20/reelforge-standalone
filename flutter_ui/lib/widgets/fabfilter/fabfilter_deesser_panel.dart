@@ -240,7 +240,9 @@ class _FabFilterDeEsserPanelState extends State<FabFilterDeEsserPanel>
       try {
         // DeEsserWrapper exposes gain_reduction_db() via meter slot 0
         _gainReduction = _ffi.insertGetMeter(widget.trackId, _slotIndex, 0);
-      } catch (_) {}
+      } catch (e) {
+        assert(() { debugPrint('DeEsser meter error: $e'); return true; }());
+      }
     });
   }
 

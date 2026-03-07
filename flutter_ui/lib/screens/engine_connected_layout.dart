@@ -9128,7 +9128,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       final (_, s, i) = NativeFFI.instance.getLufsMeters();
       lzLufsS = s;
       lzLufsI = i;
-    } catch (_) {}
+    } catch (e) {
+      assert(() { debugPrint('LUFS meter FFI error: $e'); return true; }());
+    }
     final masterChannel = ultimate.UltimateMixerChannel(
       id: 'master',
       name: 'MASTER',
@@ -9396,7 +9398,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           final (_, s, i) = NativeFFI.instance.getLufsMeters();
           lufsS = s;
           lufsI = i;
-        } catch (_) {}
+        } catch (e) {
+          assert(() { debugPrint('LUFS meter FFI error: $e'); return true; }());
+        }
         return ultimate.UltimateMixerChannel(
           id: 'master', name: 'MASTER', type: ultimate.ChannelType.master,
           color: FluxForgeTheme.warningOrange,
@@ -10104,7 +10108,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       final (_, s, i) = NativeFFI.instance.getLufsMeters();
       dawLufsS = s;
       dawLufsI = i;
-    } catch (_) {}
+    } catch (e) {
+      assert(() { debugPrint('LUFS meter FFI error: $e'); return true; }());
+    }
     final masterChannel = ultimate.UltimateMixerChannel(
       id: 'master',
       name: 'MASTER',
@@ -10409,7 +10415,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       final (_, s, i) = NativeFFI.instance.getLufsMeters();
       mwLufsS = s;
       mwLufsI = i;
-    } catch (_) {}
+    } catch (e) {
+      assert(() { debugPrint('LUFS meter FFI error: $e'); return true; }());
+    }
     final masterChannel = ultimate.UltimateMixerChannel(
       id: 'master',
       name: 'MASTER',

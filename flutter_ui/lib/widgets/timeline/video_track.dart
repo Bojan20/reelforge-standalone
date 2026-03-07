@@ -159,8 +159,8 @@ class _VideoTrackState extends State<VideoTrack> {
             _thumbnailImages[i] = frame.image;
           });
         }
-      } catch (_) {
-        // Ignore decode errors
+      } catch (e) {
+        assert(() { debugPrint('Video thumbnail decode error: $e'); return true; }());
       }
     }
   }
@@ -562,7 +562,7 @@ class _VideoTrackState extends State<VideoTrack> {
           ],
         ),
       ),
-    );
+    ).then((_) => offsetController.dispose());
   }
 
   String _formatTimecode(double seconds) {

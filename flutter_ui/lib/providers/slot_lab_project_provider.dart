@@ -282,7 +282,9 @@ class SlotLabProjectProvider extends ChangeNotifier {
     // Clear EventRegistry — all audio events/stage mappings/playing voices
     try {
       EventRegistry.instance.clearAllEvents();
-    } catch (_) {}
+    } catch (e) {
+      assert(() { debugPrint('EventRegistry clear error: $e'); return true; }());
+    }
     // Clear Middleware events & composite events (DAW section sync)
     if (GetIt.instance.isRegistered<MiddlewareProvider>()) {
       GetIt.instance<MiddlewareProvider>().clearAllEvents();
@@ -1632,7 +1634,9 @@ class SlotLabProjectProvider extends ChangeNotifier {
         'version': 1,
         'compositeEvents': eventsJson,
       });
-    } catch (_) {}
+    } catch (e) {
+      assert(() { debugPrint('Restore composite events error: $e'); return true; }());
+    }
   }
 
   void _restoreEventRegistry(List<Map<String, dynamic>>? eventsJson) {
@@ -1640,7 +1644,9 @@ class SlotLabProjectProvider extends ChangeNotifier {
     try {
       final registry = EventRegistry.instance;
       registry.loadFromJson({'events': eventsJson});
-    } catch (_) {}
+    } catch (e) {
+      assert(() { debugPrint('Restore event registry error: $e'); return true; }());
+    }
   }
 
   /// Sanitize audio assignments: remove false positives and fix NofM variants.

@@ -201,7 +201,9 @@ class _FabFilterHaasPanelState extends State<FabFilterHaasPanel>
         _inPeakL = meter.rmsL;
         _inPeakR = meter.rmsR;
       });
-    } catch (_) {}
+    } catch (e) {
+      assert(() { debugPrint('Haas meter error: $e'); return true; }());
+    }
   }
 
   // ─── A/B SNAPSHOT (FabFilterPanelMixin pattern) ─────────────────────

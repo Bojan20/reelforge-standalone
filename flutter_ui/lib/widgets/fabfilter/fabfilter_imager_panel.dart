@@ -233,7 +233,9 @@ class _FabFilterImagerPanelState extends State<FabFilterImagerPanel>
         _peakR = meter.peakR;
         _correlation = meter.correlation;
       });
-    } catch (_) {}
+    } catch (e) {
+      assert(() { debugPrint('Imager meter error: $e'); return true; }());
+    }
   }
 
   // ─── A/B SNAPSHOT ─────────────────────────────────────────────────────

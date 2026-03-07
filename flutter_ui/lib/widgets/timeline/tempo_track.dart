@@ -423,7 +423,7 @@ class _TempoTrackState extends State<TempoTrack> {
           ],
         ),
       ),
-    );
+    ).then((_) => bpmController.dispose());
   }
 
   double _getTempoAtTime(double time) {

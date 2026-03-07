@@ -1077,7 +1077,9 @@ class SlotStageProvider extends ChangeNotifier {
     try {
       final gameFlow = GetIt.instance<GameFlowProvider>();
       gameFlow.removeListener(_transitionListener!);
-    } catch (_) {}
+    } catch (e) {
+      assert(() { debugPrint('GameFlow cleanup listener error: $e'); return true; }());
+    }
     _transitionListener = null;
   }
 }

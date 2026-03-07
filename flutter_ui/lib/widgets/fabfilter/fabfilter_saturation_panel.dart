@@ -328,7 +328,9 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
         for (int b = 0; b < 6; b++) {
           _bandPeaks[b] = _ffi.insertGetMeter(t, s, 4 + b);
         }
-      } catch (_) {}
+      } catch (e) {
+        assert(() { debugPrint('Saturation meter error: $e'); return true; }());
+      }
     });
   }
 

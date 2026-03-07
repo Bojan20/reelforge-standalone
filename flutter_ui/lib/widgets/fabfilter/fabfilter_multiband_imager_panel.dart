@@ -363,7 +363,9 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
           }
         }
         _vectorscopePoints = points;
-      } catch (_) {}
+      } catch (e) {
+        assert(() { debugPrint('Multiband imager meter error: $e'); return true; }());
+      }
     });
   }
 
