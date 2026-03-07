@@ -207,6 +207,18 @@ class SlotLabLowerZoneController extends ChangeNotifier {
     setHeight(_state.height + delta);
   }
 
+  /// Clamp content height so totalHeight doesn't exceed available space.
+  /// Called by parent LayoutBuilder to prevent overflow on small screens.
+  void clampHeight(double maxTotalHeight) {
+    if (!_state.isExpanded) return;
+    final overhead = kContextBarHeight + kActionStripHeight + kResizeHandleHeight + kSpinControlBarHeight;
+    final maxContent = (maxTotalHeight - overhead).clamp(kLowerZoneMinHeight, kLowerZoneMaxHeight);
+    if (_state.height > maxContent) {
+      _state = _state.copyWith(height: maxContent);
+      // Silent update — no notifyListeners to avoid rebuild loop
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // KEYBOARD SHORTCUTS
   // ═══════════════════════════════════════════════════════════════════════════

@@ -75,6 +75,7 @@ import '../models/stage_models.dart';
 import '../models/middleware_models.dart';
 import '../models/slot_audio_events.dart';
 import '../theme/fluxforge_theme.dart';
+import '../theme/slotlab_layout.dart';
 import '../widgets/common/inline_toast.dart';
 import '../widgets/slot_lab/rtpc_editor_panel.dart';
 import '../widgets/slot_lab/bus_hierarchy_panel.dart';
@@ -2988,7 +2989,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           ),
 
           // Main content
-          Column(
+          LayoutBuilder(
+            builder: (context, outerConstraints) {
+            // Clamp lower zone so slot preview always has minimum space
+            const minSlotArea = 200.0;
+            final maxLowerZone = outerConstraints.maxHeight - SlotLabDimens.headerTotalHeight - minSlotArea;
+            if (maxLowerZone > 0) {
+              _lowerZoneController.clampHeight(maxLowerZone);
+            }
+            return Column(
             children: [
               // Header
               _buildHeader(),
@@ -3009,8 +3018,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     final forceHideBoth = availableWidth < _breakpointHideBoth;
 
                     // Calculate center width to ensure minimum
-                    final leftWidth = (showLeftPanel && !forceHideBoth) ? (_leftPanelTab == _LeftPanelTab.aurexis ? 280.0 : 260.0) : 0.0;
-                    final rightWidth = (showRightPanel && !forceHideBoth) ? 300.0 : 0.0;
+                    final leftWidth = (showLeftPanel && !forceHideBoth) ? (_leftPanelTab == _LeftPanelTab.aurexis ? SlotLabDimens.leftPanelWideWidth : SlotLabDimens.leftPanelWidth) : 0.0;
+                    final rightWidth = (showRightPanel && !forceHideBoth) ? SlotLabDimens.rightPanelWidth : 0.0;
                     final centerWidth = availableWidth - leftWidth - rightWidth;
 
                     // If center would be too small, hide side panels
@@ -3041,9 +3050,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                     children: [
                                       // ── Center toolbar ──
                                       Container(
-                                        height: 36,
+                                        height: SlotLabDimens.centerToolbarHeight,
                                         color: const Color(0xFF111116),
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        padding: SlotLabSpacing.toolbarPadding,
                                         child: Row(
                                           children: [
                                             _buildCenterToolBtn(Icons.dashboard_customize, 'Templates', const Color(0xFF4A9EFF), _showTemplateGallery),
@@ -3113,7 +3122,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                         // RIGHT: Multi-tab Inspector Panel — conditional visibility
                         if (actualShowRight)
                           SizedBox(
-                            width: 300,
+                            width: SlotLabDimens.rightPanelWidth,
                             child: _buildRightPanelV2(),
                           ),
                       ],
@@ -3139,6 +3148,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 onBuildTimelineContent: _buildTimelineContent,
               ),
             ],
+          );
+          },
           ),
 
           // Drag overlay (supports multiple files)
@@ -3634,12 +3645,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         // ROW 1: Main Toolbar (32px) — Nav, Title, Tools, Panel Toggles
         // ═══════════════════════════════════════════════════════════════════
         Container(
-          height: 32,
+          height: SlotLabDimens.headerRow1Height,
           decoration: const BoxDecoration(
             color: Color(0xFF141418),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: SlotLabSpacing.tabBarPadding,
             child: Row(
               children: [
                 // ── NAV ──
@@ -3728,15 +3739,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         // ROW 2: Context Bar (28px) — Tools, Coverage, Status, Toasts
         // ═══════════════════════════════════════════════════════════════════
         Container(
-          height: 28,
+          height: SlotLabDimens.headerRow2Height,
           decoration: const BoxDecoration(
             color: Color(0xFF0F0F14),
             border: Border(
-              bottom: BorderSide(color: Color(0xFF2A2A32), width: 1),
+              bottom: BorderSide(color: Color(0xFF2A2A32), width: SlotLabDimens.borderWidth),
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: SlotLabSpacing.tabBarPadding,
             child: Row(
               children: [
                 // ── STATUS CHIPS ──
@@ -8976,11 +8987,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     const icons = [Icons.audiotrack, Icons.event_note, Icons.layers, Icons.auto_awesome];
 
     return Container(
-      height: 28,
+      height: SlotLabDimens.panelTabBarHeight,
       decoration: const BoxDecoration(
         color: Color(0xFF111116),
         border: Border(
-          bottom: BorderSide(color: Color(0xFF2A2A32), width: 1),
+          bottom: BorderSide(color: Color(0xFF2A2A32), width: SlotLabDimens.borderWidth),
         ),
       ),
       child: Row(
@@ -9009,21 +9020,25 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   children: [
                     Icon(
                       icons[i],
-                      size: 11,
+                      size: SlotLabDimens.tabIconSize,
                       color: isActive
                           ? FluxForgeTheme.accentGreen
                           : const Color(0xFF606068),
                     ),
-                    const SizedBox(width: 3),
-                    Text(
-                      labels[i],
-                      style: TextStyle(
-                        color: isActive
-                            ? const Color(0xFFD0D0D8)
-                            : const Color(0xFF606068),
-                        fontSize: 9,
-                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                        letterSpacing: 0.5,
+                    const SizedBox(width: SlotLabDimens.tabIconLabelGap),
+                    Flexible(
+                      child: Text(
+                        labels[i],
+                        style: TextStyle(
+                          color: isActive
+                              ? const Color(0xFFD0D0D8)
+                              : const Color(0xFF606068),
+                          fontSize: SlotLabTypo.body,
+                          fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                          letterSpacing: 0.5,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                     ),
                   ],
@@ -9425,11 +9440,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     const icons = [Icons.event_note, Icons.info_outline, Icons.tune, Icons.health_and_safety, Icons.library_music];
 
     return Container(
-      height: 28,
+      height: SlotLabDimens.panelTabBarHeight,
       decoration: const BoxDecoration(
         color: Color(0xFF111116),
         border: Border(
-          bottom: BorderSide(color: Color(0xFF2A2A32), width: 1),
+          bottom: BorderSide(color: Color(0xFF2A2A32), width: SlotLabDimens.borderWidth),
         ),
       ),
       child: Row(
@@ -9458,21 +9473,25 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   children: [
                     Icon(
                       icons[i],
-                      size: 11,
+                      size: SlotLabDimens.tabIconSize,
                       color: isActive
                           ? FluxForgeTheme.accentCyan
                           : const Color(0xFF606068),
                     ),
-                    const SizedBox(width: 3),
-                    Text(
-                      labels[i],
-                      style: TextStyle(
-                        color: isActive
-                            ? const Color(0xFFD0D0D8)
-                            : const Color(0xFF606068),
-                        fontSize: 9,
-                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                        letterSpacing: 0.5,
+                    const SizedBox(width: SlotLabDimens.tabIconLabelGap),
+                    Flexible(
+                      child: Text(
+                        labels[i],
+                        style: TextStyle(
+                          color: isActive
+                              ? const Color(0xFFD0D0D8)
+                              : const Color(0xFF606068),
+                          fontSize: SlotLabTypo.body,
+                          fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                          letterSpacing: 0.5,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
                       ),
                     ),
                   ],
