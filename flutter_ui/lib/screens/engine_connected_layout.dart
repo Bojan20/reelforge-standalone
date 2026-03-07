@@ -2251,6 +2251,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       }
     }
 
+    if (!mounted) return;
+
     setState(() {
       _clips = [
         ..._clips,
@@ -2358,6 +2360,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         waveform = Float32List.fromList(peaks.map((v) => v.toDouble()).toList().cast<double>());
       }
     }
+
+    if (!mounted) return;
 
     final newClip = timeline.TimelineClip(
       id: clipId,

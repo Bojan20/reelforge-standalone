@@ -6461,7 +6461,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   }
 
   void _showAddMarkerDialog() {
-    final TextEditingController nameController = TextEditingController();
+    final nameController = TextEditingController();
     Color selectedColor = const Color(0xFF4A9EFF);
 
     final markerPresets = [
@@ -6561,7 +6561,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           ],
         ),
       ),
-    );
+    ).then((_) => nameController.dispose());
   }
 
   void _addStageMarker(String name, Color color) {
@@ -6971,7 +6971,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           ],
         ),
       ),
-    );
+    ).then((_) {
+      nameController.dispose();
+      emojiController.dispose();
+    });
   }
 
   /// Show dialog to add a new game context (music layer)
@@ -7167,7 +7170,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           ],
         ),
       ),
-    );
+    ).then((_) => nameController.dispose());
   }
 
   String _contextTypeName(ContextType type) {

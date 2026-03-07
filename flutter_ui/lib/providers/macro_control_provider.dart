@@ -774,7 +774,7 @@ class MacroControlProvider extends ChangeNotifier {
       minValue: (json['minValue'] ?? 0.0).toDouble(),
       maxValue: (json['maxValue'] ?? 1.0).toDouble(),
       bipolar: json['bipolar'] ?? false,
-      curve: MacroCurve.values[json['curve'] ?? 0],
+      curve: MacroCurve.values[((json['curve'] as int?) ?? 0).clamp(0, MacroCurve.values.length - 1)],
       curveAmount: (json['curveAmount'] ?? 0.5).toDouble(),
       enabled: json['enabled'] ?? true,
     );

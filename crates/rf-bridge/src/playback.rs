@@ -333,16 +333,10 @@ impl DspStorage {
                 band_index,
                 gain_db,
             } => {
-                println!(
-                    "[DSP] EqSetGain track={} band={} gain={}dB",
-                    track_id, band_index, gain_db
-                );
                 let dsp = self.get_or_create(track_id);
                 if let Some(ref mut eq) = dsp.pro_eq {
-                    // Get current params and update gain
                     let idx = band_index as usize;
                     eq.set_param(idx * 5 + 1, gain_db); // Param 1 = gain
-                    println!("[DSP] -> Applied gain to band {}", band_index);
                 }
             }
             DspCommand::EqSetFrequency {
@@ -372,14 +366,9 @@ impl DspStorage {
                 band_index,
                 enabled,
             } => {
-                println!(
-                    "[DSP] EqEnableBand track={} band={} enabled={}",
-                    track_id, band_index, enabled
-                );
                 let dsp = self.get_or_create(track_id);
                 if let Some(ref mut eq) = dsp.pro_eq {
                     eq.set_band_enabled(band_index as usize, enabled);
-                    println!("[DSP] -> Band {} enabled={}", band_index, enabled);
                 }
             }
             DspCommand::EqBypass { track_id, bypass } => {
@@ -795,13 +784,19 @@ impl PlaybackEngine {
             cpal::SampleFormat::I16 => {
                 // For I16, we need a separate closure with its own dsp_storage
                 let mut dsp_storage_i16 = DspStorage::new(sample_rate);
+                // Pre-allocate f32 conversion buffer outside callback (P0: zero allocs on audio thread)
+                let mut float_data: Vec<f32> = vec![0.0; 8192];
                 device.build_output_stream(
                     &config.into(),
                     move |data: &mut [i16], _| {
                         let frames = data.len() / channels;
 
-                        // Convert to f32 for processing
-                        let mut float_data: Vec<f32> = vec![0.0; data.len()];
+                        // Reuse pre-allocated buffer, grow only if needed (rare — only on buffer size change)
+                        if float_data.len() < data.len() {
+                            float_data.resize(data.len(), 0.0);
+                        }
+                        // Zero the portion we'll use
+                        float_data[..data.len()].fill(0.0);
 
                         if engine_output_l.len() < frames {
                             engine_output_l.resize(frames, 0.0);
@@ -809,7 +804,7 @@ impl PlaybackEngine {
                         }
 
                         process_audio_unified(
-                            &mut float_data,
+                            &mut float_data[..data.len()],
                             channels,
                             frames,
                             &state,
@@ -825,7 +820,8 @@ impl PlaybackEngine {
                         );
 
                         // Convert back
-                        for (out, &f) in data.iter_mut().zip(float_data.iter()) {
+                        let data_len = data.len();
+                        for (out, &f) in data.iter_mut().zip(float_data[..data_len].iter()) {
                             *out = (f * 32767.0).clamp(-32768.0, 32767.0) as i16;
                         }
                     },
