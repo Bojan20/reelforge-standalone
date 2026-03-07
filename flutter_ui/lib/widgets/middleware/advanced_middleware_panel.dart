@@ -1145,7 +1145,7 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 48, color: FluxForgeTheme.textTertiary),
+          Icon(icon, size: 28, color: FluxForgeTheme.textTertiary),
           const SizedBox(height: 16),
           Text(message, style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 14)),
           const SizedBox(height: 8),

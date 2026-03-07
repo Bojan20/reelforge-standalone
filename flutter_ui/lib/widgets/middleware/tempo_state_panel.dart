@@ -753,7 +753,7 @@ class _TempoStatePanelState extends State<TempoStatePanel> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.speed, size: 48, color: _kAccent.withValues(alpha: 0.2)),
+                      Icon(Icons.speed, size: 28, color: _kAccent.withValues(alpha: 0.2)),
                       const SizedBox(height: 12),
                       const Text(
                         'Engine initializing...',

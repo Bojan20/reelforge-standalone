@@ -191,7 +191,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.shuffle, size: 32, color: FluxForgeTheme.textSecondary),
+            Icon(Icons.shuffle, size: 22, color: FluxForgeTheme.textSecondary),
             const SizedBox(height: 8),
             Text(
               'No random containers',
@@ -362,7 +362,7 @@ class _RandomContainerPanelState extends State<RandomContainerPanel> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.touch_app, size: 32, color: FluxForgeTheme.textSecondary),
+              Icon(Icons.touch_app, size: 22, color: FluxForgeTheme.textSecondary),
               const SizedBox(height: 8),
               Text(
                 'Select a container to edit',

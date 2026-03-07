@@ -2010,7 +2010,7 @@ class _EventEditorPanelState extends State<EventEditorPanel>
           children: [
             Icon(
               Icons.flash_off,
-              size: 48,
+              size: 28,
               color: FluxForgeTheme.textDisabled,
             ),
             const SizedBox(height: 12),

@@ -436,7 +436,7 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.timeline, size: 48, color: Colors.white.withValues(alpha: 0.2)),
+            Icon(Icons.timeline, size: 28, color: Colors.white.withValues(alpha: 0.2)),
             const SizedBox(height: 12),
             Text(
               'No events traced yet',
@@ -637,7 +637,7 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.link_off, size: 48, color: Colors.white.withValues(alpha: 0.2)),
+                Icon(Icons.link_off, size: 28, color: Colors.white.withValues(alpha: 0.2)),
                 const SizedBox(height: 12),
                 Text(
                   'No event mappings',

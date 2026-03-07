@@ -567,7 +567,7 @@ class _ContainerABComparisonPanelState extends State<ContainerABComparisonPanel>
                       children: [
                         Icon(
                           Icons.camera_alt_outlined,
-                          size: 32,
+                          size: 22,
                           color: FluxForgeTheme.textSecondary.withValues(alpha: 0.5),
                         ),
                         const SizedBox(height: 8),

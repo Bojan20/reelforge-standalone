@@ -155,7 +155,7 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.compare_arrows, size: 48, color: FluxForgeTheme.textMuted.withValues(alpha: 0.5)),
+              Icon(Icons.compare_arrows, size: 28, color: FluxForgeTheme.textMuted.withValues(alpha: 0.5)),
               const SizedBox(height: 12),
               Text(
                 'No Morphs',
@@ -619,7 +619,7 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.arrow_back, size: 32, color: FluxForgeTheme.textMuted.withValues(alpha: 0.5)),
+          Icon(Icons.arrow_back, size: 22, color: FluxForgeTheme.textMuted.withValues(alpha: 0.5)),
           const SizedBox(height: 12),
           Text(
             'Select a morph to edit',

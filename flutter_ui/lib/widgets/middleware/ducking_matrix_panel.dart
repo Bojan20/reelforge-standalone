@@ -232,7 +232,7 @@ class _DuckingMatrixPanelState extends State<DuckingMatrixPanel> {
         child: Center(
           child: Column(
             children: [
-              Icon(Icons.grid_off, size: 48, color: FluxForgeTheme.textSecondary),
+              Icon(Icons.grid_off, size: 28, color: FluxForgeTheme.textSecondary),
               const SizedBox(height: 8),
               Text(
                 'No ducking rules configured',

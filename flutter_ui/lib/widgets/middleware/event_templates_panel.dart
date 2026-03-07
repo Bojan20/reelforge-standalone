@@ -550,7 +550,7 @@ class _EventTemplatesPanelState extends State<EventTemplatesPanel> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.library_books, size: 32, color: FluxForgeTheme.textTertiary),
+          Icon(Icons.library_books, size: 22, color: FluxForgeTheme.textTertiary),
           const SizedBox(height: 8),
           Text(
             _searchQuery.isNotEmpty ? 'No matching templates' : 'No templates',

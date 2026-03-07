@@ -137,7 +137,7 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.show_chart, size: 32, color: FluxForgeTheme.textSecondary),
+            Icon(Icons.show_chart, size: 22, color: FluxForgeTheme.textSecondary),
             const SizedBox(height: 8),
             Text(
               'No attenuation curves',
@@ -335,7 +335,7 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.touch_app, size: 32, color: FluxForgeTheme.textSecondary),
+              Icon(Icons.touch_app, size: 22, color: FluxForgeTheme.textSecondary),
               const SizedBox(height: 8),
               Text(
                 'Select a curve to edit',

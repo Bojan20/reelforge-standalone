@@ -297,7 +297,7 @@ class _AudioSignaturesPanelState extends State<AudioSignaturesPanel> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.fingerprint, size: 32, color: FluxForgeTheme.textTertiary),
+            Icon(Icons.fingerprint, size: 22, color: FluxForgeTheme.textTertiary),
             const SizedBox(height: 8),
             Text(
               _searchQuery.isNotEmpty ? 'No matching signatures' : 'No audio signatures',

@@ -362,7 +362,7 @@ class _ContainerGroupsPanelState extends State<ContainerGroupsPanel> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.account_tree, size: 32, color: FluxForgeTheme.textTertiary),
+          Icon(Icons.account_tree, size: 22, color: FluxForgeTheme.textTertiary),
           const SizedBox(height: 8),
           Text(
             'No container groups',

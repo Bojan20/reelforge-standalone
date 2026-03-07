@@ -158,7 +158,7 @@ class _RtpcMacroEditorPanelState extends State<RtpcMacroEditorPanel>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.tune_outlined, size: 48, color: FluxForgeTheme.textMuted.withValues(alpha: 0.5)),
+              Icon(Icons.tune_outlined, size: 28, color: FluxForgeTheme.textMuted.withValues(alpha: 0.5)),
               const SizedBox(height: 12),
               Text(
                 'No Macros',
@@ -490,7 +490,7 @@ class _RtpcMacroEditorPanelState extends State<RtpcMacroEditorPanel>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.arrow_back, size: 32, color: FluxForgeTheme.textMuted.withValues(alpha: 0.5)),
+          Icon(Icons.arrow_back, size: 22, color: FluxForgeTheme.textMuted.withValues(alpha: 0.5)),
           const SizedBox(height: 12),
           Text(
             'Select a macro to edit',

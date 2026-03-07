@@ -463,7 +463,7 @@ class _RtpcCurveTemplatePanelState extends State<RtpcCurveTemplatePanel> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.timeline, size: 48, color: FluxForgeTheme.textMuted.withValues(alpha: 0.5)),
+            Icon(Icons.timeline, size: 28, color: FluxForgeTheme.textMuted.withValues(alpha: 0.5)),
             const SizedBox(height: 12),
             Text(
               'Select a template',

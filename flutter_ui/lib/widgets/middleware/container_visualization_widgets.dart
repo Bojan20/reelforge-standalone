@@ -605,7 +605,7 @@ class SequenceTimelineVisualization extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.queue_music, size: 32, color: FluxForgeTheme.textSecondary),
+                        Icon(Icons.queue_music, size: 22, color: FluxForgeTheme.textSecondary),
                         const SizedBox(height: 8),
                         Text(
                           'No steps in sequence',

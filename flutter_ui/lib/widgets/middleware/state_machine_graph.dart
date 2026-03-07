@@ -127,7 +127,7 @@ class _StateMachineGraphState extends State<StateMachineGraph>
           children: [
             Icon(
               Icons.account_tree_outlined,
-              size: 48,
+              size: 28,
               color: FluxForgeTheme.textSecondary,
             ),
             const SizedBox(height: 12),

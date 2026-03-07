@@ -591,7 +591,7 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.tune, size: 32, color: FluxForgeTheme.textSecondary),
+          Icon(Icons.tune, size: 22, color: FluxForgeTheme.textSecondary),
           SizedBox(height: 8),
           Text(
             'Select a parameter to view details',

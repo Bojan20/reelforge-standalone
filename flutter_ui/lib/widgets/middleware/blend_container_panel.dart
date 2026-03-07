@@ -230,7 +230,7 @@ class _BlendContainerPanelState extends State<BlendContainerPanel> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.blur_off, size: 32, color: FluxForgeTheme.textSecondary),
+            Icon(Icons.blur_off, size: 22, color: FluxForgeTheme.textSecondary),
             const SizedBox(height: 8),
             Text(
               'No blend containers',

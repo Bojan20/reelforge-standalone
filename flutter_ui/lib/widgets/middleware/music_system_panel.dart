@@ -948,7 +948,7 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 32, color: FluxForgeTheme.textSecondary),
+            Icon(icon, size: 22, color: FluxForgeTheme.textSecondary),
             const SizedBox(height: 8),
             Text(
               message,

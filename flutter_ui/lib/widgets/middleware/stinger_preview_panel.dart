@@ -551,7 +551,7 @@ class _StingerPreviewPanelState extends State<StingerPreviewPanel>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.flash_off, size: 32, color: FluxForgeTheme.textMuted),
+          Icon(Icons.flash_off, size: 22, color: FluxForgeTheme.textMuted),
           const SizedBox(height: 8),
           Text(
             'Select a stinger',

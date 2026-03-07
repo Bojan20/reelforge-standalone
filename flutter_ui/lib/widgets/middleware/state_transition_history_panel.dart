@@ -391,7 +391,7 @@ class _StateTransitionHistoryPanelState
         children: [
           Icon(
             Icons.swap_horiz,
-            size: 32,
+            size: 22,
             color: Colors.white12,
           ),
           const SizedBox(height: 8),

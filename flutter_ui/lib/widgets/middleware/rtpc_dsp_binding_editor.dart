@@ -183,7 +183,7 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.link_off, size: 48, color: FluxForgeTheme.textMuted.withValues(alpha: 0.5)),
+              Icon(Icons.link_off, size: 28, color: FluxForgeTheme.textMuted.withValues(alpha: 0.5)),
               const SizedBox(height: 12),
               Text(
                 'No DSP Bindings',
@@ -229,7 +229,7 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.touch_app, size: 48, color: FluxForgeTheme.textMuted.withValues(alpha: 0.3)),
+          Icon(Icons.touch_app, size: 28, color: FluxForgeTheme.textMuted.withValues(alpha: 0.3)),
           const SizedBox(height: 12),
           Text(
             'Select a binding or create new',

@@ -377,7 +377,7 @@ class _ContainerPresetBrowserState extends State<ContainerPresetBrowser> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.search_off, size: 32, color: FluxForgeTheme.textSecondary),
+            Icon(Icons.search_off, size: 22, color: FluxForgeTheme.textSecondary),
             const SizedBox(height: 8),
             Text(
               'No presets found',

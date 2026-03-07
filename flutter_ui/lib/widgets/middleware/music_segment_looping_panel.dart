@@ -745,7 +745,7 @@ class _MusicSegmentLoopingPanelState extends State<MusicSegmentLoopingPanel>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.music_off, size: 48, color: FluxForgeTheme.textMuted),
+          Icon(Icons.music_off, size: 28, color: FluxForgeTheme.textMuted),
           const SizedBox(height: 16),
           Text(
             'No segment selected',

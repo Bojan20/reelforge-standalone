@@ -213,7 +213,7 @@ class _EventProfilerAdvancedState extends State<EventProfilerAdvanced> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.analytics_outlined, size: 32, color: Colors.white24),
+            Icon(Icons.analytics_outlined, size: 22, color: Colors.white24),
             const SizedBox(height: 8),
             Text('No profiler data',
                 style: TextStyle(fontSize: 11, color: Colors.white38)),
