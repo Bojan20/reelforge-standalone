@@ -1,6 +1,6 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-03-05
+**Updated:** 2026-03-07
 
 ## Status: ALL COMPLETE — 208/208 + P-USL + P5-CLEAN + P5-CONSOLIDATION + P5-WINTIER-UI
 
@@ -32,6 +32,11 @@
 - **P2 FIXED:** OutputBus.index (already clean), MixerProvider old methods (setVolume→setChannelVolume, setPan→setChannelPan)
 - **P2 VERIFIED:** engine_api.dart print() — already clean (0 instances)
 - **P2 FIXED:** unnecessary_underscores lint in slot_preview_widget, symbol_art_panel
+- **P2 FIXED:** 9 bare debugPrint() wrapped in assert() for release builds
+- **P2 FIXED:** 4 inline FocusNode() in build() → field+dispose (memory leaks)
+- **P2 FIXED:** Missing ScrollController.dispose() in engine_connected_layout
+- **P2 VERIFIED:** All 58 TextEditingController fields properly disposed
+- **P2 VERIFIED:** All 28 ScrollController fields properly disposed (1 fixed)
 
 | System | Tasks | Status |
 |--------|-------|--------|
