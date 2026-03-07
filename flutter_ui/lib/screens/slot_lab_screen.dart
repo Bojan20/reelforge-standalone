@@ -137,7 +137,6 @@ import '../widgets/slot_lab/gdd_preview_dialog.dart';
 import '../widgets/ale/ale_panel.dart';
 import '../widgets/slot_lab/ultimate_audio_panel.dart';
 import '../widgets/aurexis/aurexis_panel.dart';
-import '../widgets/slot_lab/events_panel_widget.dart';
 // P0 PERFORMANCE: WaveformThumbnail removed from audio browser — too slow for large lists
 import '../services/stage_configuration_service.dart';
 import '../services/stage_group_service.dart';
@@ -347,8 +346,8 @@ class SlotLabScreen extends StatefulWidget {
 /// Left panel tab modes for multi-mode switching
 enum _LeftPanelTab { audio, events, aurexis }
 
-/// Right panel tab modes for context-aware inspector
-enum _RightPanelTab { inspector, config, pool }
+/// Right panel tab modes — CONFIG (scene config) + POOL (audio file browser)
+enum _RightPanelTab { config, pool }
 
 class _SlotLabScreenState extends State<SlotLabScreen>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin, InlineToastMixin {
@@ -461,7 +460,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   bool get _leftPanelAurexisMode => _leftPanelTab == _LeftPanelTab.aurexis;
 
   // Right panel multi-mode tab system — ValueNotifier for isolated rebuilds
-  final ValueNotifier<_RightPanelTab> _rightPanelTabNotifier = ValueNotifier(_RightPanelTab.inspector);
+  final ValueNotifier<_RightPanelTab> _rightPanelTabNotifier = ValueNotifier(_RightPanelTab.config);
   _RightPanelTab get _rightPanelTab => _rightPanelTabNotifier.value;
   set _rightPanelTab(_RightPanelTab v) => _rightPanelTabNotifier.value = v;
 
@@ -9178,7 +9177,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   Widget _buildLeftPanelTabBar() {
     const tabs = _LeftPanelTab.values;
-    const labels = ['AUDIO', 'BROWSE', 'AUREXIS'];
+    const labels = ['ASSIGN', 'BROWSE', 'AUREXIS'];
     const icons = [Icons.audiotrack, Icons.event_note, Icons.auto_awesome];
 
     return Container(
@@ -9288,67 +9287,230 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 ),
               ),
               // Events in category
-              ...entry.value.map((evt) {
+              ...entry.value.expand((evt) {
                 final isSelected = selected?.id == evt.id;
-                return GestureDetector(
-                  onTap: () {
-                    mw.selectCompositeEvent(evt.id);
-                    setState(() {
-                      _selectedEventId = evt.id;
-                      _rightPanelTab = _RightPanelTab.inspector;
-                    });
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 1),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? FluxForgeTheme.accentGreen.withValues(alpha: 0.15)
-                          : const Color(0xFF161620),
-                      borderRadius: BorderRadius.circular(3),
-                      border: isSelected
-                          ? Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.4))
-                          : null,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.audio_file,
-                          size: 10,
-                          color: isSelected
-                              ? FluxForgeTheme.accentGreen
-                              : const Color(0xFF606068),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            evt.name,
-                            style: TextStyle(
-                              color: isSelected
-                                  ? const Color(0xFFE0E0E8)
-                                  : const Color(0xFFB0B0B8),
-                              fontSize: 10,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                return [
+                  GestureDetector(
+                    onTap: () {
+                      mw.selectCompositeEvent(evt.id);
+                      setState(() {
+                        _selectedEventId = evt.id;
+                      });
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 1),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? FluxForgeTheme.accentGreen.withValues(alpha: 0.15)
+                            : const Color(0xFF161620),
+                        borderRadius: BorderRadius.circular(3),
+                        border: isSelected
+                            ? Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.4))
+                            : null,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isSelected ? Icons.expand_more : Icons.chevron_right,
+                            size: 12,
+                            color: isSelected
+                                ? FluxForgeTheme.accentGreen
+                                : const Color(0xFF606068),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              evt.name,
+                              style: TextStyle(
+                                color: isSelected
+                                    ? const Color(0xFFE0E0E8)
+                                    : const Color(0xFFB0B0B8),
+                                fontSize: 10,
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        Text(
-                          '${evt.layers.length}L',
-                          style: TextStyle(
-                            color: const Color(0xFF808088).withValues(alpha: 0.6),
-                            fontSize: 8,
+                          Text(
+                            '${evt.layers.length}L',
+                            style: TextStyle(
+                              color: const Color(0xFF808088).withValues(alpha: 0.6),
+                              fontSize: 8,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                );
+                  // Inline editor when selected
+                  if (isSelected)
+                    _buildInlineEventEditor(evt, mw),
+                ];
               }),
             ];
           }).toList(),
         );
       },
+    );
+  }
+
+  /// Inline event editor — expands below selected event in BROWSE tab
+  Widget _buildInlineEventEditor(SlotCompositeEvent event, MiddlewareProvider mw) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF121218),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(4),
+          bottomRight: Radius.circular(4),
+        ),
+        border: Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Properties row
+          _browseEditorRow('Category', event.category),
+          _browseEditorRow('Stages', event.triggerStages.join(', ')),
+          _browseEditorRow('Instances', '${event.maxInstances}'),
+          _browseEditorRow('Looping', event.looping ? 'Yes' : 'No'),
+          const SizedBox(height: 4),
+          // Layers header with add button
+          Row(
+            children: [
+              const Text(
+                'LAYERS',
+                style: TextStyle(color: Color(0xFF808088), fontSize: 8, fontWeight: FontWeight.w600, letterSpacing: 1),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => _addLayerToEvent(event, ''),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: FluxForgeTheme.accentGreen.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.3)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add, size: 10, color: FluxForgeTheme.accentGreen),
+                      SizedBox(width: 2),
+                      Text('Add', style: TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 8)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          // Layer list
+          ...event.layers.asMap().entries.map((entry) {
+            final layer = entry.value;
+            final fileName = layer.audioPath.isNotEmpty
+                ? layer.audioPath.split('/').last
+                : layer.actionType;
+            return DragTarget<String>(
+              onAcceptWithDetails: (details) {
+                _addLayerToMiddlewareEvent(event.id, details.data, details.data.split('/').last);
+              },
+              builder: (context, candidateData, rejectedData) {
+                final isDragOver = candidateData.isNotEmpty;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isDragOver
+                        ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15)
+                        : const Color(0xFF161620),
+                    borderRadius: BorderRadius.circular(3),
+                    border: isDragOver
+                        ? Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.4))
+                        : null,
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        '${entry.key + 1}',
+                        style: const TextStyle(color: Color(0xFF606068), fontSize: 8, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          fileName,
+                          style: const TextStyle(color: Color(0xFFB0B0B8), fontSize: 9),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => _removeLayerFromMiddlewareEvent(event.id, layer.id),
+                        child: const Icon(Icons.close, size: 10, color: Color(0xFF606068)),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          }),
+          // Drop zone for new layers
+          if (event.layers.isEmpty)
+            DragTarget<String>(
+              onAcceptWithDetails: (details) {
+                _addLayerToMiddlewareEvent(event.id, details.data, details.data.split('/').last);
+              },
+              builder: (context, candidateData, rejectedData) {
+                final isDragOver = candidateData.isNotEmpty;
+                return Container(
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: isDragOver
+                        ? FluxForgeTheme.accentBlue.withValues(alpha: 0.1)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(
+                      color: isDragOver
+                          ? FluxForgeTheme.accentBlue.withValues(alpha: 0.4)
+                          : const Color(0xFF2A2A32),
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      isDragOver ? 'Drop audio here' : 'Drag audio from POOL →',
+                      style: TextStyle(
+                        color: isDragOver ? FluxForgeTheme.accentBlue : const Color(0xFF404048),
+                        fontSize: 8,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _browseEditorRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 1),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 56,
+            child: Text(label, style: const TextStyle(color: Color(0xFF606068), fontSize: 8)),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(color: Color(0xFFB0B0B8), fontSize: 9, fontWeight: FontWeight.w500),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -9575,7 +9737,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     return _StableTabSwitcher<_RightPanelTab>(
       tabNotifier: _rightPanelTabNotifier,
       builders: [
-        (ctx) => _buildUnifiedInspector(),
         (ctx) => _buildRightConfigContent(),
         (ctx) => _buildAudioBrowser(),
       ],
@@ -9584,8 +9745,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   Widget _buildRightPanelTabBar() {
     const tabs = _RightPanelTab.values;
-    const labels = ['INSPECTOR', 'CONFIG', 'POOL'];
-    const icons = [Icons.manage_search, Icons.tune, Icons.library_music];
+    const labels = ['CONFIG', 'POOL'];
+    const icons = [Icons.tune, Icons.library_music];
 
     return Container(
       height: SlotLabDimens.panelTabBarHeight,
@@ -9657,182 +9818,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     );
   }
 
-  /// Unified Inspector — event browser (top) + selected event properties (bottom)
-  Widget _buildUnifiedInspector() {
-    return Column(
-      children: [
-        // Event list (top half — browsing + drag source)
-        Expanded(
-          flex: 3,
-          child: _buildRightEventsContent(),
-        ),
-        // Divider
-        Container(
-          height: 1,
-          color: const Color(0xFF2A2A32),
-        ),
-        // Inspector detail (bottom half — properties of selected event)
-        Expanded(
-          flex: 4,
-          child: _buildRightInspectorContent(),
-        ),
-      ],
-    );
-  }
-
-  /// Events section in unified inspector — event list with audio drag source
-  Widget _buildRightEventsContent() {
-    return EventsPanelWidget(
-      selectedEventId: _selectedEventId,
-      onSelectionChanged: (eventId) {
-        setState(() => _selectedEventId = eventId);
-      },
-      onAudioDragStarted: (audioPaths) {
-        setState(() => _draggingAudioPaths = audioPaths);
-      },
-      onAudioClicked: (audioPath) {
-        if (_quickAssignMode && _quickAssignSelectedSlot != null) {
-          final projectProvider = context.read<SlotLabProjectProvider>();
-          _handleQuickAssign(audioPath, _quickAssignSelectedSlot!, projectProvider);
-          setState(() => _quickAssignSelectedSlot = null);
-        }
-      },
-      onToast: (message, {isWarning = false}) {
-        showToast(message, type: isWarning ? ToastType.warning : ToastType.success);
-      },
-    );
-  }
-
-  /// Inspector tab in right panel — selected event properties
-  Widget _buildRightInspectorContent() {
-    return Consumer<MiddlewareProvider>(
-      builder: (context, middleware, _) {
-        if (_selectedEventId == null) {
-          return const Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.touch_app, size: 32, color: Color(0xFF404048)),
-                SizedBox(height: 8),
-                Text(
-                  'Select an event to inspect',
-                  style: TextStyle(color: Color(0xFF606068), fontSize: 11),
-                ),
-              ],
-            ),
-          );
-        }
-        final event = middleware.compositeEvents
-            .where((e) => e.id == _selectedEventId)
-            .firstOrNull;
-        if (event == null) {
-          return const Center(
-            child: Text('Event not found', style: TextStyle(color: Color(0xFF606068), fontSize: 11)),
-          );
-        }
-        return ListView(
-          padding: SlotLabSpacing.panelPadding,
-          children: [
-            // Event name header
-            Container(
-              padding: SlotLabSpacing.panelPadding,
-              decoration: BoxDecoration(
-                color: FluxForgeTheme.accentCyan.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: FluxForgeTheme.accentCyan.withValues(alpha: 0.2)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    event.name,
-                    style: const TextStyle(color: Color(0xFFD0D0D8), fontSize: 12, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'ID: ${event.id}',
-                    style: const TextStyle(color: Color(0xFF808088), fontSize: 9),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            // Properties
-            _inspectorRow('Category', event.category),
-            _inspectorRow('Trigger Stages', event.triggerStages.join(', ')),
-            _inspectorRow('Layers', '${event.layers.length}'),
-            _inspectorRow('Max Instances', '${event.maxInstances}'),
-            _inspectorRow('Looping', event.looping ? 'Yes' : 'No'),
-            const SizedBox(height: 8),
-            // Layers list
-            const Text(
-              'LAYERS',
-              style: TextStyle(color: Color(0xFF808088), fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 1),
-            ),
-            const SizedBox(height: 4),
-            ...event.layers.asMap().entries.map((entry) {
-              final layer = entry.value;
-              return Container(
-                margin: const EdgeInsets.only(bottom: 2),
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF161620),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-                child: Row(
-                  children: [
-                    Text(
-                      '${entry.key + 1}',
-                      style: const TextStyle(color: Color(0xFF606068), fontSize: 9, fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        layer.audioPath.isNotEmpty ? layer.audioPath.split('/').last : layer.actionType,
-                        style: const TextStyle(color: Color(0xFFB0B0B8), fontSize: 10),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Text(
-                      layer.actionType,
-                      style: TextStyle(
-                        color: FluxForgeTheme.accentCyan.withValues(alpha: 0.6),
-                        fontSize: 8,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _inspectorRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              label,
-              style: const TextStyle(color: Color(0xFF606068), fontSize: 9),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(color: Color(0xFFB0B0B8), fontSize: 10, fontWeight: FontWeight.w500),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   /// Config tab in right panel — scene transitions + win tier configuration
   /// CONFIG tab: which section is expanded (null = all collapsed)
