@@ -435,7 +435,7 @@ class _CrdtSyncPanelState extends State<CrdtSyncPanel>
   void _showNewDocumentDialog() {
     final nameController = TextEditingController();
 
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E1E2E),
@@ -465,7 +465,7 @@ class _CrdtSyncPanelState extends State<CrdtSyncPanel>
           ),
         ],
       ),
-    );
+    ).then((_) => nameController.dispose());
   }
 
   void _showResolveConflictDialog(SyncConflict conflict) {

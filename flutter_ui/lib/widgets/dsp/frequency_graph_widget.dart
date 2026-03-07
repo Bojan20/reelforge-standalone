@@ -10,6 +10,8 @@
 ///
 /// Visual style: FF-Q inspired
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../models/frequency_graph_data.dart';
@@ -523,15 +525,22 @@ class AnimatedCompressorCurve extends StatefulWidget {
 
 class _AnimatedCompressorCurveState extends State<AnimatedCompressorCurve> {
   double _currentInput = -60.0;
+  StreamSubscription<double>? _levelSub;
 
   @override
   void initState() {
     super.initState();
-    widget.inputLevelStream?.listen((level) {
+    _levelSub = widget.inputLevelStream?.listen((level) {
       if (mounted) {
         setState(() => _currentInput = level);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _levelSub?.cancel();
+    super.dispose();
   }
 
   @override

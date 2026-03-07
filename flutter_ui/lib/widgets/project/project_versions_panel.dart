@@ -109,7 +109,7 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
     final nameController = TextEditingController(text: 'Version ${_versions.length + 1}');
     final descController = TextEditingController();
 
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: FluxForgeTheme.bgMid,
@@ -173,7 +173,10 @@ class _ProjectVersionsPanelState extends State<ProjectVersionsPanel> {
           ),
         ],
       ),
-    );
+    ).then((_) {
+      nameController.dispose();
+      descController.dispose();
+    });
   }
 
   void _toggleMilestone(ProjectVersionData version) {

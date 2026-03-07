@@ -148,6 +148,7 @@ class FluxForgeSearchField extends StatefulWidget {
 class _FluxForgeSearchFieldState extends State<FluxForgeSearchField> {
   late TextEditingController _controller;
   late FocusNode _focusNode;
+  final FocusNode _keyboardListenerFocusNode = FocusNode(skipTraversal: true);
   Timer? _debounceTimer;
   bool _isNotEmpty = false;
   bool _isFocused = false;
@@ -197,6 +198,7 @@ class _FluxForgeSearchFieldState extends State<FluxForgeSearchField> {
     if (widget.focusNode == null) {
       _focusNode.dispose();
     }
+    _keyboardListenerFocusNode.dispose();
     super.dispose();
   }
 
@@ -256,7 +258,7 @@ class _FluxForgeSearchFieldState extends State<FluxForgeSearchField> {
     final style = widget.style;
 
     return KeyboardListener(
-      focusNode: FocusNode(skipTraversal: true),
+      focusNode: _keyboardListenerFocusNode,
       onKeyEvent: _handleKeyEvent,
       child: Container(
         height: style.height,
