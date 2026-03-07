@@ -1037,6 +1037,23 @@ class SlotLabProjectProvider extends ChangeNotifier {
     }
   }
 
+  /// Batch update multiple symbol artworks — single notifyListeners at end
+  void updateSymbolArtworkBatch(Map<String, String> assignments) {
+    var symbols = _symbols;
+    for (final entry in assignments.entries) {
+      final index = symbols.indexWhere((s) => s.id == entry.key);
+      if (index != -1) {
+        symbols = [
+          ...symbols.sublist(0, index),
+          symbols[index].copyWith(artworkPath: entry.value),
+          ...symbols.sublist(index + 1),
+        ];
+      }
+    }
+    _symbols = symbols;
+    _markDirty();
+  }
+
   /// Remove symbol and its audio assignments
   void removeSymbol(String id) {
     _symbols = _symbols.where((s) => s.id != id).toList();
@@ -1258,10 +1275,10 @@ class SlotLabProjectProvider extends ChangeNotifier {
   // ==========================================================================
 
   /// Set complete win tier configuration
-  void setWinConfiguration(SlotWinConfiguration config) {
+  void setWinConfiguration(SlotWinConfiguration config, {bool syncStages = true}) {
     _winConfiguration = config;
     _winConfigFromGdd = false;
-    _syncWinTierStages();
+    if (syncStages) _syncWinTierStages();
     _markDirty();
   }
 
@@ -1294,7 +1311,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
   }
 
   /// Update existing regular win tier
-  void updateRegularWinTier(int tierId, WinTierDefinition tier) {
+  void updateRegularWinTier(int tierId, WinTierDefinition tier, {bool syncStages = true}) {
     final currentTiers = List<WinTierDefinition>.from(_winConfiguration.regularWins.tiers);
     final index = currentTiers.indexWhere((t) => t.tierId == tierId);
 
@@ -1308,7 +1325,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
       regularWins: _winConfiguration.regularWins.copyWith(tiers: currentTiers),
     );
     _winConfigFromGdd = false;
-    _syncWinTierStages();
+    if (syncStages) _syncWinTierStages();
     _markDirty();
   }
 
@@ -1332,7 +1349,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
   }
 
   /// Update big win tier
-  void updateBigWinTier(int tierId, BigWinTierDefinition tier) {
+  void updateBigWinTier(int tierId, BigWinTierDefinition tier, {bool syncStages = true}) {
     final currentTiers = List<BigWinTierDefinition>.from(_winConfiguration.bigWins.tiers);
     final index = currentTiers.indexWhere((t) => t.tierId == tierId);
 
@@ -1346,7 +1363,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
       bigWins: _winConfiguration.bigWins.copyWith(tiers: currentTiers),
     );
     _winConfigFromGdd = false;
-    _syncWinTierStages();
+    if (syncStages) _syncWinTierStages();
     _markDirty();
   }
 
@@ -1413,6 +1430,9 @@ class SlotLabProjectProvider extends ChangeNotifier {
   }
 
   /// Sync win tier stages to StageConfigurationService AND Rust engine
+  /// Public entry point for deferred win tier sync (e.g. slider onChangeEnd)
+  void syncWinTierStages() => _syncWinTierStages();
+
   void _syncWinTierStages() {
     // 1. Register all win tier stages with StageConfigurationService (Dart side)
     StageConfigurationService.instance.registerWinTierStages(_winConfiguration);

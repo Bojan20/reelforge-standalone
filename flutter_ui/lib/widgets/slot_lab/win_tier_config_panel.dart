@@ -28,11 +28,12 @@ class WinTierConfigPanel extends StatefulWidget {
 }
 
 class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
-  bool _showBigWin = false;
-  bool _showPresets = false;
+  final ValueNotifier<bool> _showRegular = ValueNotifier(false);
+  final ValueNotifier<bool> _showBigWin = ValueNotifier(false);
+  final ValueNotifier<bool> _showPresets = ValueNotifier(false);
+  final ValueNotifier<String?> _editingField = ValueNotifier(null);
 
   // Inline editing state
-  String? _editingField; // e.g. "regular_1_from", "big_2_dur"
   late TextEditingController _inlineController;
   late FocusNode _inlineFocus;
 
@@ -40,22 +41,27 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
   RegularWinTierConfig get _regular => _config.regularWins;
   BigWinConfig get _bigWin => _config.bigWins;
 
+  /// Manual refresh notifier — bumped after local edits to trigger rebuild
+  /// without listening to the mega-provider's every notifyListeners.
+  final ValueNotifier<int> _revision = ValueNotifier(0);
+  void _bumpRevision() => _revision.value++;
+
   @override
   void initState() {
     super.initState();
     _inlineController = TextEditingController();
     _inlineFocus = FocusNode();
-    _inlineFocus.addListener(() {
-      if (!_inlineFocus.hasFocus && _editingField != null) {
-        _commitInlineEdit();
-      }
-    });
   }
 
   @override
   void dispose() {
     _inlineController.dispose();
     _inlineFocus.dispose();
+    _showRegular.dispose();
+    _showBigWin.dispose();
+    _showPresets.dispose();
+    _editingField.dispose();
+    _revision.dispose();
     super.dispose();
   }
 
@@ -63,80 +69,85 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Header with presets/export
         _buildHeader(),
-        // Content
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(6),
-            children: [
-              if (_showPresets) ...[
-                _buildPresetsSection(),
-                const SizedBox(height: 8),
-              ],
-              // Regular win tiers
-              _buildSectionHeader(
-                'REGULAR WIN TIERS',
-                icon: Icons.emoji_events_outlined,
-                color: const Color(0xFF66BB6A),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '${_regular.tiers.length} tiers',
-                      style: const TextStyle(color: Color(0xFF606068), fontSize: 9),
-                    ),
-                    const SizedBox(width: 6),
-                    _addTierButton(),
+          child: ListenableBuilder(
+            listenable: Listenable.merge([_revision, _showRegular, _showBigWin, _showPresets, _editingField]),
+            builder: (context, _) {
+              return ListView(
+                padding: const EdgeInsets.all(6),
+                children: [
+                  if (_showPresets.value) ...[
+                    _buildPresetsSection(),
+                    const SizedBox(height: 8),
                   ],
-                ),
-              ),
-              const SizedBox(height: 4),
-              ..._regular.tiers.map(_buildRegularTierRow),
-              const SizedBox(height: 12),
-              // Big win threshold
-              _buildBigWinThresholdRow(),
-              const SizedBox(height: 8),
-              // Big win tiers
-              _buildSectionHeader(
-                'BIG WIN TIERS',
-                icon: Icons.stars,
-                color: const Color(0xFFFFAA00),
-                trailing: GestureDetector(
-                  onTap: () => setState(() => _showBigWin = !_showBigWin),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _showBigWin ? 'COLLAPSE' : 'EXPAND',
-                        style: const TextStyle(
-                          color: Color(0xFF606068),
-                          fontSize: 8,
-                          fontWeight: FontWeight.w600,
-                        ),
+                  GestureDetector(
+                    onTap: () => _showRegular.value = !_showRegular.value,
+                    child: _buildSectionHeader(
+                      'REGULAR WIN TIERS',
+                      icon: Icons.emoji_events_outlined,
+                      color: const Color(0xFF66BB6A),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${_regular.tiers.length} tiers',
+                            style: const TextStyle(color: Color(0xFF606068), fontSize: 9),
+                          ),
+                          const SizedBox(width: 6),
+                          if (_showRegular.value) _addTierButton(),
+                          const SizedBox(width: 4),
+                          Icon(
+                            _showRegular.value ? Icons.expand_less : Icons.expand_more,
+                            size: 12,
+                            color: const Color(0xFF606068),
+                          ),
+                        ],
                       ),
-                      Icon(
-                        _showBigWin ? Icons.expand_less : Icons.expand_more,
-                        size: 12,
-                        color: const Color(0xFF606068),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 4),
-              if (_showBigWin) ...[
-                _buildBigWinTimingRow(),
-                const SizedBox(height: 4),
-                ..._bigWin.tiers.map(_buildBigWinTierRow),
-              ] else ...[
-                // Compact summary
-                ..._bigWin.tiers.map(_buildBigWinTierCompact),
-              ],
-              const SizedBox(height: 12),
-              // Validation
-              _buildValidationSection(),
-            ],
+                  const SizedBox(height: 4),
+                  if (_showRegular.value)
+                    ..._regular.tiers.map(_buildRegularTierRow),
+                  const SizedBox(height: 12),
+                  _buildBigWinThresholdRow(),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () => _showBigWin.value = !_showBigWin.value,
+                    child: _buildSectionHeader(
+                      'BIG WIN TIERS',
+                      icon: Icons.stars,
+                      color: const Color(0xFFFFAA00),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${_bigWin.tiers.length} tiers',
+                            style: const TextStyle(color: Color(0xFF606068), fontSize: 9),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            _showBigWin.value ? Icons.expand_less : Icons.expand_more,
+                            size: 12,
+                            color: const Color(0xFF606068),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  if (_showBigWin.value) ...[
+                    _buildBigWinTimingRow(),
+                    const SizedBox(height: 4),
+                    ..._bigWin.tiers.map(_buildBigWinTierRow),
+                  ] else ...[
+                    ..._bigWin.tiers.map(_buildBigWinTierCompact),
+                  ],
+                  const SizedBox(height: 12),
+                  _buildValidationSection(),
+                ],
+              );
+            },
           ),
         ),
       ],
@@ -172,11 +183,14 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
           ),
           const Spacer(),
           // Presets toggle
-          _headerButton(
-            icon: Icons.style,
-            label: 'PRESETS',
-            isActive: _showPresets,
-            onTap: () => setState(() => _showPresets = !_showPresets),
+          ValueListenableBuilder<bool>(
+            valueListenable: _showPresets,
+            builder: (context, active, _) => _headerButton(
+              icon: Icons.style,
+              label: 'PRESETS',
+              isActive: active,
+              onTap: () => _showPresets.value = !_showPresets.value,
+            ),
           ),
           const SizedBox(width: 4),
           // Export
@@ -307,7 +321,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
               return GestureDetector(
                 onTap: () {
                   widget.projectProvider.applyWinTierPreset(e.value);
-                  setState(() {});
+                  _bumpRevision();
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -394,7 +408,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
     );
 
     widget.projectProvider.addRegularWinTier(newTier);
-    setState(() {});
+    _bumpRevision();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -404,7 +418,6 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
   Widget _buildRegularTierRow(WinTierDefinition tier) {
     final tierName = tier.stageName;
     final color = _tierColor(tier.tierId);
-    final canRemove = tier.tierId > 0; // Can't remove WIN_LOW or WIN_EQUAL
 
     return Container(
       margin: const EdgeInsets.only(bottom: 3),
@@ -417,26 +430,11 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Row 1: Tier name + label + remove button
           Row(
             children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                ),
-              ),
+              Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
               const SizedBox(width: 4),
-              Text(
-                tierName,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              Text(tierName, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w700)),
               const SizedBox(width: 6),
               Expanded(
                 child: _inlineTextField(
@@ -447,27 +445,9 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                   isText: true,
                 ),
               ),
-              if (canRemove) ...[
-                const SizedBox(width: 4),
-                GestureDetector(
-                  onTap: () {
-                    widget.projectProvider.removeRegularWinTier(tier.tierId);
-                    setState(() {});
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFF6060).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                    child: const Icon(Icons.close, size: 10, color: Color(0xFFFF6060)),
-                  ),
-                ),
-              ],
             ],
           ),
           const SizedBox(height: 4),
-          // Row 2: Multiplier range + rollup + tick
           Row(
             children: [
               _inlineNumericField(
@@ -511,15 +491,39 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
               ),
             ],
           ),
-          // Row 3: Particles slider (only for tiers > 0)
           if (tier.tierId > 0) ...[
             const SizedBox(height: 4),
-            _intensitySlider(
-              'PARTICLES',
-              tier.particleBurstCount.toDouble(),
-              0, 50, color,
-              (val) => _updateRegularTier(tier, particleBurstCount: val.toInt()),
-              isInt: true,
+            SizedBox(
+              height: 14,
+              child: SliderTheme(
+                data: SliderThemeData(
+                  trackHeight: 1.5,
+                  rangeThumbShape: const RoundRangeSliderThumbShape(enabledThumbRadius: 3),
+                  activeTrackColor: color.withValues(alpha: 0.6),
+                  inactiveTrackColor: const Color(0xFF2A2A32),
+                  overlayShape: SliderComponentShape.noOverlay,
+                ),
+                child: RangeSlider(
+                  values: () {
+                    final s = tier.fromMultiplier.clamp(0.0, 25.0);
+                    final e = tier.toMultiplier.clamp(0.0, 25.0);
+                    return RangeValues(s, e < s ? s : e);
+                  }(),
+                  min: 0,
+                  max: 25,
+                  divisions: 250,
+                  onChanged: (range) {
+                    _updateRegularTier(tier,
+                      fromMultiplier: double.parse(range.start.toStringAsFixed(1)),
+                      toMultiplier: double.parse(range.end.toStringAsFixed(1)),
+                      syncStages: false,
+                    );
+                  },
+                  onChangeEnd: (range) {
+                    widget.projectProvider.syncWinTierStages();
+                  },
+                ),
+              ),
             ),
           ],
         ],
@@ -560,7 +564,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
             suffix: 'x bet',
             onSubmit: (val) {
               widget.projectProvider.setBigWinThreshold(val);
-              setState(() {});
+              _bumpRevision();
             },
             width: 70,
             accentColor: const Color(0xFFFFAA00),
@@ -699,18 +703,57 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
               ),
             ],
           ),
+          // RangeSlider for FROM/TO (skip if toMultiplier is infinity)
+          if (tier.toMultiplier != double.infinity) ...[
+            const SizedBox(height: 4),
+            SizedBox(
+              height: 14,
+              child: SliderTheme(
+                data: SliderThemeData(
+                  trackHeight: 1.5,
+                  rangeThumbShape: const RoundRangeSliderThumbShape(enabledThumbRadius: 3),
+                  activeTrackColor: color.withValues(alpha: 0.6),
+                  inactiveTrackColor: const Color(0xFF2A2A32),
+                  overlayShape: SliderComponentShape.noOverlay,
+                ),
+                child: RangeSlider(
+                  values: () {
+                    final s = tier.fromMultiplier.clamp(0.0, 100.0);
+                    final e = tier.toMultiplier.clamp(0.0, 100.0);
+                    return RangeValues(s, e < s ? s : e);
+                  }(),
+                  min: 0,
+                  max: 100,
+                  divisions: 1000,
+                  onChanged: (range) {
+                    _updateBigWinTier(tier,
+                      fromMultiplier: double.parse(range.start.toStringAsFixed(1)),
+                      toMultiplier: double.parse(range.end.toStringAsFixed(1)),
+                      syncStages: false,
+                    );
+                  },
+                  onChangeEnd: (range) {
+                    widget.projectProvider.syncWinTierStages();
+                  },
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 4),
           // Row 3: Intensities
           Row(
             children: [
-              _intensitySlider('VIS', tier.visualIntensity, 1.0, 2.0, color,
-                  (val) => _updateBigWinTier(tier, visualIntensity: val)),
+              Expanded(child: _intensitySlider('VIS', tier.visualIntensity, 1.0, 2.0, color,
+                  (val) => _updateBigWinTier(tier, visualIntensity: val, syncStages: false),
+                  onChangeEnd: widget.projectProvider.syncWinTierStages)),
               const SizedBox(width: 4),
-              _intensitySlider('PART', tier.particleMultiplier, 0.5, 4.0, color,
-                  (val) => _updateBigWinTier(tier, particleMultiplier: val)),
+              Expanded(child: _intensitySlider('PART', tier.particleMultiplier, 0.5, 4.0, color,
+                  (val) => _updateBigWinTier(tier, particleMultiplier: val, syncStages: false),
+                  onChangeEnd: widget.projectProvider.syncWinTierStages)),
               const SizedBox(width: 4),
-              _intensitySlider('AUD', tier.audioIntensity, 0.5, 2.0, color,
-                  (val) => _updateBigWinTier(tier, audioIntensity: val)),
+              Expanded(child: _intensitySlider('AUD', tier.audioIntensity, 0.5, 2.0, color,
+                  (val) => _updateBigWinTier(tier, audioIntensity: val, syncStages: false),
+                  onChangeEnd: widget.projectProvider.syncWinTierStages)),
             ],
           ),
         ],
@@ -846,7 +889,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
     bool dim = false,
     bool isText = false,
   }) {
-    final isEditing = _editingField == fieldId;
+    final isEditing = _editingField.value == fieldId;
 
     if (isEditing) {
       return SizedBox(
@@ -874,8 +917,9 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
           ),
           onSubmitted: (val) {
             onSubmit(val);
-            setState(() => _editingField = null);
+            _editingField.value = null;
           },
+          onTapOutside: (_) => _commitInlineEdit(),
         ),
       );
     }
@@ -912,7 +956,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
     bool isInt = false,
     Color accentColor = const Color(0xFF808088),
   }) {
-    final isEditing = _editingField == fieldId;
+    final isEditing = _editingField.value == fieldId;
     final displayValue = isInt
         ? value.toInt().toString()
         : (value == value.roundToDouble()
@@ -963,8 +1007,9 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                 onSubmitted: (val) {
                   final parsed = double.tryParse(val);
                   if (parsed != null) onSubmit(parsed);
-                  setState(() => _editingField = null);
+                  _editingField.value = null;
                 },
+                onTapOutside: (_) => _commitInlineEdit(),
               ),
             ),
           ],
@@ -1025,13 +1070,11 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
 
   void _startInlineEdit(String fieldId, String currentValue) {
     // Commit any previous edit first
-    if (_editingField != null) {
+    if (_editingField.value != null) {
       _commitInlineEdit();
     }
-    setState(() {
-      _editingField = fieldId;
-      _inlineController.text = currentValue;
-    });
+    _editingField.value = fieldId;
+    _inlineController.text = currentValue;
     // Focus after frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -1045,7 +1088,8 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
   }
 
   void _commitInlineEdit() {
-    setState(() => _editingField = null);
+    if (_editingField.value == null) return;
+    _editingField.value = null;
   }
 
   Widget _intensitySlider(
@@ -1056,9 +1100,9 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
     Color color,
     ValueChanged<double> onChanged, {
     bool isInt = false,
+    VoidCallback? onChangeEnd,
   }) {
-    return Expanded(
-      child: Column(
+    return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -1100,13 +1144,12 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                 onChanged: (v) {
                   final rounded = isInt ? v.roundToDouble() : double.parse(v.toStringAsFixed(1));
                   onChanged(rounded);
-                  setState(() {});
                 },
+                onChangeEnd: onChangeEnd != null ? (_) => onChangeEnd() : null,
               ),
             ),
           ),
         ],
-      ),
     );
   }
 
@@ -1121,6 +1164,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
     int? rollupDurationMs,
     int? rollupTickRate,
     int? particleBurstCount,
+    bool syncStages = true,
   }) {
     final updated = tier.copyWith(
       displayLabel: displayLabel,
@@ -1130,8 +1174,48 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
       rollupTickRate: rollupTickRate,
       particleBurstCount: particleBurstCount,
     );
-    widget.projectProvider.updateRegularWinTier(tier.tierId, updated);
-    setState(() {});
+    widget.projectProvider.updateRegularWinTier(tier.tierId, updated, syncStages: syncStages);
+
+    // Chain ALL tiers: push values up/down so no gaps or overlaps
+    if (fromMultiplier != null || toMultiplier != null) {
+      final sorted = List<WinTierDefinition>.from(_regular.tiers)
+        ..sort((a, b) => a.fromMultiplier.compareTo(b.fromMultiplier));
+      final idx = sorted.indexWhere((t) => t.tierId == tier.tierId);
+      if (idx >= 0) {
+        final newFrom = fromMultiplier ?? tier.fromMultiplier;
+        final newTo = toMultiplier ?? tier.toMultiplier;
+
+        // Push all tiers BELOW: walk backwards, each tier's TO = next tier's FROM
+        var boundary = newFrom;
+        for (var i = idx - 1; i >= 0; i--) {
+          final t = sorted[i];
+          var tTo = boundary;
+          var tFrom = t.fromMultiplier;
+          if (tFrom > tTo) tFrom = tTo;
+          widget.projectProvider.updateRegularWinTier(
+            t.tierId, t.copyWith(fromMultiplier: tFrom, toMultiplier: tTo),
+            syncStages: false,
+          );
+          boundary = tFrom;
+        }
+
+        // Push all tiers ABOVE: walk forwards, each tier's FROM = prev tier's TO
+        boundary = newTo;
+        for (var i = idx + 1; i < sorted.length; i++) {
+          final t = sorted[i];
+          var tFrom = boundary;
+          var tTo = t.toMultiplier;
+          if (tTo < tFrom) tTo = tFrom;
+          widget.projectProvider.updateRegularWinTier(
+            t.tierId, t.copyWith(fromMultiplier: tFrom, toMultiplier: tTo),
+            syncStages: false,
+          );
+          boundary = tTo;
+        }
+      }
+    }
+
+    _bumpRevision();
   }
 
   void _updateBigWinTier(BigWinTierDefinition tier, {
@@ -1142,6 +1226,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
     double? visualIntensity,
     double? particleMultiplier,
     double? audioIntensity,
+    bool syncStages = true,
   }) {
     final updated = tier.copyWith(
       displayLabel: displayLabel,
@@ -1152,8 +1237,49 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
       particleMultiplier: particleMultiplier,
       audioIntensity: audioIntensity,
     );
-    widget.projectProvider.updateBigWinTier(tier.tierId, updated);
-    setState(() {});
+    widget.projectProvider.updateBigWinTier(tier.tierId, updated, syncStages: syncStages);
+
+    // Chain ALL tiers: push values up/down so no gaps or overlaps
+    if (fromMultiplier != null || toMultiplier != null) {
+      final sorted = List<BigWinTierDefinition>.from(_bigWin.tiers)
+        ..sort((a, b) => a.fromMultiplier.compareTo(b.fromMultiplier));
+      final idx = sorted.indexWhere((t) => t.tierId == tier.tierId);
+      if (idx >= 0) {
+        final newFrom = fromMultiplier ?? tier.fromMultiplier;
+        final newTo = toMultiplier ?? tier.toMultiplier;
+
+        // Push all tiers BELOW
+        var boundary = newFrom;
+        for (var i = idx - 1; i >= 0; i--) {
+          final t = sorted[i];
+          var tTo = boundary;
+          var tFrom = t.fromMultiplier;
+          if (tFrom > tTo) tFrom = tTo;
+          widget.projectProvider.updateBigWinTier(
+            t.tierId, t.copyWith(fromMultiplier: tFrom, toMultiplier: tTo),
+            syncStages: false,
+          );
+          boundary = tFrom;
+        }
+
+        // Push all tiers ABOVE (skip infinity toMultiplier)
+        boundary = newTo;
+        for (var i = idx + 1; i < sorted.length; i++) {
+          final t = sorted[i];
+          var tFrom = boundary;
+          var tTo = t.toMultiplier;
+          if (tTo != double.infinity && tTo < tFrom) tTo = tFrom;
+          widget.projectProvider.updateBigWinTier(
+            t.tierId, t.copyWith(fromMultiplier: tFrom, toMultiplier: tTo),
+            syncStages: false,
+          );
+          if (tTo == double.infinity) break;
+          boundary = tTo;
+        }
+      }
+    }
+
+    _bumpRevision();
   }
 
   void _updateBigWinTiming({int? introDurationMs, int? endDurationMs, int? fadeOutDurationMs}) {
@@ -1163,7 +1289,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
       fadeOutDurationMs: fadeOutDurationMs,
     );
     widget.projectProvider.setWinConfiguration(_config.copyWith(bigWins: updated));
-    setState(() {});
+    _bumpRevision();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1222,9 +1348,8 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
             onPressed: () {
               final success = widget.projectProvider.importWinConfigurationJson(controller.text);
               Navigator.of(ctx).pop();
-              if (success) {
-                setState(() {});
-              } else {
+              if (success) _bumpRevision();
+              if (!success) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Invalid JSON config'),
@@ -1261,8 +1386,8 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
           TextButton(
             onPressed: () {
               widget.projectProvider.resetWinConfiguration();
+              _bumpRevision();
               Navigator.of(ctx).pop();
-              setState(() {});
             },
             child: const Text('RESET', style: TextStyle(color: Color(0xFFFF6060))),
           ),

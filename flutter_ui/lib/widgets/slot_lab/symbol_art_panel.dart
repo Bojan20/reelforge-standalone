@@ -301,6 +301,7 @@ class SymbolArtPanel extends StatelessWidget {
 
     // Auto-match: try to match filenames to symbol names/IDs
     final symbols = provider.symbols;
+    final assignments = <String, String>{};
     for (final symbol in symbols) {
       final match = imageFiles.where((f) {
         final name = f.path.split('/').last.split('.').first.toLowerCase();
@@ -311,26 +312,27 @@ class SymbolArtPanel extends StatelessWidget {
       }).firstOrNull;
 
       if (match != null) {
-        provider.updateSymbolArtwork(symbol.id, match.path);
+        assignments[symbol.id] = match.path;
       }
     }
 
     // For unmatched symbols, assign remaining files in order
-    final assignedPaths = provider.symbols
-        .where((s) => s.artworkPath != null && s.artworkPath!.isNotEmpty)
-        .map((s) => s.artworkPath!)
-        .toSet();
+    final assignedPaths = assignments.values.toSet();
     final unassignedFiles =
         imageFiles.where((f) => !assignedPaths.contains(f.path)).toList();
-    final unassignedSymbols = provider.symbols
-        .where((s) => s.artworkPath == null || s.artworkPath!.isEmpty)
+    final unassignedSymbols = symbols
+        .where((s) => !assignments.containsKey(s.id) &&
+            (s.artworkPath == null || s.artworkPath!.isEmpty))
         .toList();
 
     for (var i = 0;
         i < unassignedFiles.length && i < unassignedSymbols.length;
         i++) {
-      provider.updateSymbolArtwork(
-          unassignedSymbols[i].id, unassignedFiles[i].path);
+      assignments[unassignedSymbols[i].id] = unassignedFiles[i].path;
+    }
+
+    if (assignments.isNotEmpty) {
+      provider.updateSymbolArtworkBatch(assignments);
     }
 
     _syncArtworkToSlotSymbols(provider);

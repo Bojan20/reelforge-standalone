@@ -108,6 +108,7 @@ import '../widgets/slot_lab/game_model_editor.dart';
 import '../widgets/slot_lab/scenario_editor.dart';
 import '../widgets/slot_lab/symbol_art_panel.dart';
 import '../widgets/slot_lab/transition_config_panel.dart';
+import '../widgets/slot_lab/win_tier_config_panel.dart';
 import '../widgets/common/command_palette.dart';
 import '../services/lower_zone_persistence_service.dart';
 import '../services/diagnostics/diagnostics_service.dart';
@@ -9892,20 +9893,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             _buildConfigAccordionHeader(2, 'WIN TIERS', Icons.emoji_events, expanded),
             if (expanded == 2)
               Expanded(
-                child: Builder(
-                  builder: (ctx) {
-                    final provider = ctx.read<SlotLabProjectProvider>();
-                    final config = provider.winConfiguration;
-                    return Container(
-                      color: const Color(0xFF111116),
-                      child: Center(
-                        child: Text(
-                          'Regular: ${config.regularWins.tiers.length}, Big: ${config.bigWins.tiers.length}',
-                          style: const TextStyle(color: Color(0xFFFFFFFF), fontSize: 12),
-                        ),
-                      ),
-                    );
-                  },
+                child: WinTierConfigPanel(
+                  projectProvider: context.read<SlotLabProjectProvider>(),
                 ),
               ),
           ],
