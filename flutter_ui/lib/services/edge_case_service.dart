@@ -8,6 +8,7 @@
 /// Created: 2026-01-30 (P4.14)
 
 import 'dart:convert';
+import 'package:collection/collection.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -67,11 +68,7 @@ class EdgeCaseService extends ChangeNotifier {
     if (builtIn != null) return builtIn;
 
     // Check custom
-    try {
-      return _customPresets.firstWhere((p) => p.id == id);
-    } catch (_) {
-      return null;
-    }
+    return _customPresets.firstWhereOrNull((p) => p.id == id);
   }
 
   /// Get presets by category

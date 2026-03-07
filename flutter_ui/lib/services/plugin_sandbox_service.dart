@@ -12,6 +12,7 @@
 /// - Plugin state preservation on crash
 
 import 'dart:async';
+import 'package:collection/collection.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PLUGIN SANDBOX STATUS
@@ -405,15 +406,10 @@ class PluginSandboxService {
   PluginSandboxState? getSandbox(String sandboxId) => _sandboxes[sandboxId];
 
   /// Get sandbox by track and slot
-  PluginSandboxState? getSandboxBySlot(int trackId, int slotIndex) {
-    try {
-      return _sandboxes.values.firstWhere(
+  PluginSandboxState? getSandboxBySlot(int trackId, int slotIndex) =>
+      _sandboxes.values.firstWhereOrNull(
         (s) => s.trackId == trackId && s.slotIndex == slotIndex,
       );
-    } catch (_) {
-      return null;
-    }
-  }
 
   /// Remove a sandbox
   void removeSandbox(String sandboxId) {

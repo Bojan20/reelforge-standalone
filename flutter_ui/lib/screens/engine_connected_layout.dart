@@ -52,6 +52,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -11609,11 +11610,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     };
     final id = mapping[type];
     if (id == null) return null;
-    try {
-      return PluginRegistry.builtIn.firstWhere((p) => p.id == id);
-    } catch (_) {
-      return null;
-    }
+    return PluginRegistry.builtIn.firstWhereOrNull((p) => p.id == id);
   }
 
   /// Find which insert slot contains an EQ for given channel

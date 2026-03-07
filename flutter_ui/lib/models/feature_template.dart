@@ -6,6 +6,7 @@
 /// Part of P1-12: Feature Template Library
 library;
 
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 
 // =============================================================================
@@ -253,22 +254,12 @@ class FeatureTemplate {
   }
 
   /// Get parameter by id
-  ParameterDef? getParameter(String id) {
-    try {
-      return parameters.firstWhere((p) => p.id == id);
-    } catch (_) {
-      return null;
-    }
-  }
+  ParameterDef? getParameter(String id) =>
+      parameters.firstWhereOrNull((p) => p.id == id);
 
   /// Get phase by id
-  FeaturePhase? getPhase(String id) {
-    try {
-      return phases.firstWhere((p) => p.id == id);
-    } catch (_) {
-      return null;
-    }
-  }
+  FeaturePhase? getPhase(String id) =>
+      phases.firstWhereOrNull((p) => p.id == id);
 
   Map<String, dynamic> toJson() => {
     'id': id,

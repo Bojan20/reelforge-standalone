@@ -11,6 +11,7 @@
 library;
 
 import 'dart:math' as math;
+import 'package:collection/collection.dart';
 import '../utils/path_validator.dart';
 
 // =============================================================================
@@ -2784,13 +2785,8 @@ class BindingGraph {
   });
 
   /// Get node by ID
-  GraphNode? getNode(String nodeId) {
-    try {
-      return nodes.firstWhere((n) => n.nodeId == nodeId);
-    } catch (_) {
-      return null;
-    }
-  }
+  GraphNode? getNode(String nodeId) =>
+      nodes.firstWhereOrNull((n) => n.nodeId == nodeId);
 
   /// Get edges from a node
   List<GraphEdge> getOutgoingEdges(String nodeId) {
@@ -3370,11 +3366,6 @@ class StandardPresets {
   ];
 
   /// Get preset by ID
-  static EventPreset? getById(String presetId) {
-    try {
-      return all.firstWhere((p) => p.presetId == presetId);
-    } catch (_) {
-      return null;
-    }
-  }
+  static EventPreset? getById(String presetId) =>
+      all.firstWhereOrNull((p) => p.presetId == presetId);
 }

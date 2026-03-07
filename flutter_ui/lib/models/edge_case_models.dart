@@ -1,3 +1,5 @@
+import 'package:collection/collection.dart';
+
 /// Edge Case Preset Models
 ///
 /// Predefined game state configurations for edge case testing:
@@ -537,13 +539,8 @@ class BuiltInEdgeCasePresets {
   ];
 
   /// Get preset by ID
-  static EdgeCasePreset? byId(String id) {
-    try {
-      return all().firstWhere((p) => p.id == id);
-    } catch (_) {
-      return null;
-    }
-  }
+  static EdgeCasePreset? byId(String id) =>
+      all().firstWhereOrNull((p) => p.id == id);
 
   /// Get presets by category
   static List<EdgeCasePreset> byCategory(EdgeCaseCategory category) {

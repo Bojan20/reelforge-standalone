@@ -13,6 +13,7 @@
 // - toggleSolo → engine_set_bus_solo
 
 import 'dart:math' as math;
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import '../src/rust/native_ffi.dart';
 
@@ -241,13 +242,8 @@ class MixerDSPProvider extends ChangeNotifier {
   String? get error => _error;
   List<PluginInfo> get availablePlugins => kAvailablePlugins;
 
-  MixerBus? getBus(String id) {
-    try {
-      return _buses.firstWhere((b) => b.id == id);
-    } catch (_) {
-      return null;
-    }
-  }
+  MixerBus? getBus(String id) =>
+      _buses.firstWhereOrNull((b) => b.id == id);
 
   /// Connect to audio backend and sync initial bus state to engine
   Future<void> connect() async {

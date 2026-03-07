@@ -9,6 +9,7 @@
 library;
 
 import 'dart:async';
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 
 // =============================================================================
@@ -144,13 +145,8 @@ class AudioExportQueueService extends ChangeNotifier {
     return total / _queue.length;
   }
 
-  AudioExportJob? get currentJob {
-    try {
-      return _queue.firstWhere((j) => j.status == ExportJobStatus.processing);
-    } catch (_) {
-      return null;
-    }
-  }
+  AudioExportJob? get currentJob =>
+      _queue.firstWhereOrNull((j) => j.status == ExportJobStatus.processing);
 
   // ─── Queue Management ───────────────────────────────────────────────────────
 

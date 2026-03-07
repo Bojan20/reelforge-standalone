@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import '../src/rust/native_ffi.dart';
 
@@ -111,11 +112,7 @@ class DevicePreviewProvider extends ChangeNotifier {
   /// Get current profile info
   DeviceProfileInfo? get currentProfile {
     if (_currentProfileId == 0) return null;
-    try {
-      return _profiles.firstWhere((p) => p.id == _currentProfileId);
-    } catch (_) {
-      return null;
-    }
+    return _profiles.firstWhereOrNull((p) => p.id == _currentProfileId);
   }
 
   /// Initialize the engine

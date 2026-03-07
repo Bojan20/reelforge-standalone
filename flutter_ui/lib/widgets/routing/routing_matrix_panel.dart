@@ -7,6 +7,7 @@
 // - Bus sends visualization
 // - Drag-to-connect interface
 
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import '../../theme/fluxforge_theme.dart';
 
@@ -183,11 +184,7 @@ class _RoutingMatrixPanelState extends State<RoutingMatrixPanel> {
   }
 
   RoutingConnection? _getConnection(int trackId, int busId) {
-    try {
-      return _connections.firstWhere((c) => c.sourceId == trackId && c.targetId == busId);
-    } catch (_) {
-      return null;
-    }
+    return _connections.firstWhereOrNull((c) => c.sourceId == trackId && c.targetId == busId);
   }
 
   void _toggleConnection(int trackId, int busId) {

@@ -10,6 +10,7 @@
 
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -246,13 +247,8 @@ class BrandingService extends ChangeNotifier {
   }
 
   /// Get config by ID
-  BrandingConfig? getConfig(String configId) {
-    try {
-      return _configs.firstWhere((c) => c.id == configId);
-    } catch (e) {
-      return null;
-    }
-  }
+  BrandingConfig? getConfig(String configId) =>
+      _configs.firstWhereOrNull((c) => c.id == configId);
 
   /// Check if a config is built-in
   bool isBuiltIn(String configId) {

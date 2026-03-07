@@ -5,6 +5,7 @@
 library;
 
 import 'dart:typed_data';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'middleware_models.dart';
 import '../services/event_registry.dart' show ContainerType, ContainerTypeExtension;
@@ -1187,13 +1188,8 @@ class SlotAudioProfile {
   }
 
   /// Get mapping for a specific element type
-  SlotElementEventMapping? getMappingForElement(SlotElementType element) {
-    try {
-      return elementMappings.firstWhere((m) => m.element == element);
-    } catch (_) {
-      return null;
-    }
-  }
+  SlotElementEventMapping? getMappingForElement(SlotElementType element) =>
+      elementMappings.firstWhereOrNull((m) => m.element == element);
 
   /// Get event ID for a specific element
   String? getEventIdForElement(SlotElementType element) {

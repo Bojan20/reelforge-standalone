@@ -10,6 +10,7 @@
 /// - Uses dedicated layer track IDs (offset by 10000 to avoid collision)
 library;
 
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import '../models/slot_audio_events.dart';
 import '../src/rust/native_ffi.dart';
@@ -344,13 +345,8 @@ class LayerDspPresets {
       all.map((p) => p.category).toSet().toList()..sort();
 
   /// Find preset by ID
-  static LayerDspPreset? findById(String id) {
-    try {
-      return all.firstWhere((p) => p.id == id);
-    } catch (_) {
-      return null;
-    }
-  }
+  static LayerDspPreset? findById(String id) =>
+      all.firstWhereOrNull((p) => p.id == id);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -10,6 +10,7 @@
 /// Connected to selectedTrackId from Lower Zone for track context.
 
 import 'dart:typed_data';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../models/loop_asset_models.dart';
@@ -75,11 +76,7 @@ class _LoopEditorPanelState extends State<LoopEditorPanel> {
 
   TimelineClip? get _selectedClip {
     if (_selectedClipId == null) return null;
-    try {
-      return _trackClips.firstWhere((c) => c.id == _selectedClipId);
-    } catch (_) {
-      return null;
-    }
+    return _trackClips.firstWhereOrNull((c) => c.id == _selectedClipId);
   }
 
   LoopAsset? get _selectedAsset =>

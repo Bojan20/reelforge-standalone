@@ -6,6 +6,7 @@
 /// See: .claude/architecture/DYNAMIC_SYMBOL_CONFIGURATION.md
 
 import 'dart:convert';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import '../services/gdd_import_service.dart';
 import '../providers/slot_lab/feature_composer_provider.dart';
@@ -31,15 +32,10 @@ enum SymbolAudioContext {
   String get stageSuffix => name.toUpperCase();
 
   /// Parse from string
-  static SymbolAudioContext? fromString(String value) {
-    try {
-      return SymbolAudioContext.values.firstWhere(
+  static SymbolAudioContext? fromString(String value) =>
+      SymbolAudioContext.values.firstWhereOrNull(
         (e) => e.name.toLowerCase() == value.toLowerCase(),
       );
-    } catch (_) {
-      return null;
-    }
-  }
 }
 
 // =============================================================================
@@ -468,13 +464,8 @@ class SymbolPreset {
   ];
 
   /// Get preset by ID
-  static SymbolPreset? getById(String id) {
-    try {
-      return builtInPresets.firstWhere((p) => p.id == id);
-    } catch (_) {
-      return null;
-    }
-  }
+  static SymbolPreset? getById(String id) =>
+      builtInPresets.firstWhereOrNull((p) => p.id == id);
 
   SymbolPreset copyWith({
     String? id,
@@ -1038,13 +1029,8 @@ List<String> getAllSymbolStageIds(List<SymbolDefinition> symbols) {
 }
 
 /// Find symbol by ID
-SymbolDefinition? findSymbolById(List<SymbolDefinition> symbols, String id) {
-  try {
-    return symbols.firstWhere((s) => s.id == id);
-  } catch (_) {
-    return null;
-  }
-}
+SymbolDefinition? findSymbolById(List<SymbolDefinition> symbols, String id) =>
+    symbols.firstWhereOrNull((s) => s.id == id);
 
 /// Get symbols by type
 List<SymbolDefinition> getSymbolsByType(List<SymbolDefinition> symbols, SymbolType type) {

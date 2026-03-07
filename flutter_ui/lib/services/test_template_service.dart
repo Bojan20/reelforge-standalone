@@ -6,6 +6,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import '../models/test_template.dart';
 import 'event_registry.dart';
@@ -230,13 +231,8 @@ class TestTemplateService extends ChangeNotifier {
   }
 
   /// Get latest result for a template
-  TestTemplateResult? getLatestResult(String templateId) {
-    try {
-      return _resultHistory.firstWhere((r) => r.templateId == templateId);
-    } catch (_) {
-      return null;
-    }
-  }
+  TestTemplateResult? getLatestResult(String templateId) =>
+      _resultHistory.firstWhereOrNull((r) => r.templateId == templateId);
 
   /// Export result history to JSON
   Future<void> exportResultHistory(String filePath) async {

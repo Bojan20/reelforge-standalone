@@ -14,6 +14,7 @@
 library;
 
 import 'dart:math' as math;
+import 'package:collection/collection.dart';
 import '../models/middleware_models.dart' show ActionType;
 import 'audio_context_service.dart';
 
@@ -841,13 +842,8 @@ class SlotAudioAutomationService {
   List<FlowTemplate> getFlowTemplates() => _flowTemplates;
 
   /// Get template by ID
-  FlowTemplate? getTemplate(String id) {
-    try {
-      return _flowTemplates.firstWhere((t) => t.id == id);
-    } catch (_) {
-      return null;
-    }
-  }
+  FlowTemplate? getTemplate(String id) =>
+      _flowTemplates.firstWhereOrNull((t) => t.id == id);
 
   /// Apply flow template with provided audio assets
   AutomationResult applyFlowTemplate({

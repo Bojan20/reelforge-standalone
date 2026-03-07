@@ -21,6 +21,7 @@
 /// ```
 
 import 'dart:convert';
+import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -346,24 +347,14 @@ class PanelPresetsService extends ChangeNotifier {
   }
 
   /// Get preset by ID
-  PanelLayoutState? getPreset(String id) {
-    try {
-      return _presets.firstWhere((p) => p.id == id);
-    } catch (e) {
-      return null;
-    }
-  }
+  PanelLayoutState? getPreset(String id) =>
+      _presets.firstWhereOrNull((p) => p.id == id);
 
   /// Get preset by name
-  PanelLayoutState? getPresetByName(String name) {
-    try {
-      return _presets.firstWhere(
+  PanelLayoutState? getPresetByName(String name) =>
+      _presets.firstWhereOrNull(
         (p) => p.name.toLowerCase() == name.toLowerCase(),
       );
-    } catch (e) {
-      return null;
-    }
-  }
 
   /// Save a new preset or update existing
   Future<void> savePreset(String name, {

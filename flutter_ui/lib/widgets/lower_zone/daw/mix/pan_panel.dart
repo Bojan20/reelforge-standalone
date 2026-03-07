@@ -11,6 +11,7 @@
 library;
 
 import 'dart:math' as math;
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../lower_zone_types.dart';
@@ -139,11 +140,7 @@ class _PanPanelState extends State<PanPanel> {
         ?? provider.getAux(trackIdStr);
     if (channel != null) return channel;
     // Also try matching by numeric track index
-    try {
-      return provider.channels.firstWhere((ch) => ch.id == trackIdStr);
-    } catch (_) {
-      return null;
-    }
+    return provider.channels.firstWhereOrNull((ch) => ch.id == trackIdStr);
   }
 
   PanLaw _stringToPanLaw(String law) {

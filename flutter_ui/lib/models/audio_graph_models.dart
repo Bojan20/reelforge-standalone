@@ -2,6 +2,7 @@
 // Part of P10.1.7 — Node-based audio routing visualization
 
 import 'dart:math' as math;
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 
 /// Node types in audio graph
@@ -246,13 +247,8 @@ class AudioGraphState {
   }
 
   /// Find node by ID
-  AudioGraphNode? findNode(String id) {
-    try {
-      return nodes.firstWhere((n) => n.id == id);
-    } catch (_) {
-      return null;
-    }
-  }
+  AudioGraphNode? findNode(String id) =>
+      nodes.firstWhereOrNull((n) => n.id == id);
 
   /// Find all edges connected to node
   List<AudioGraphEdge> getConnectedEdges(String nodeId) {
