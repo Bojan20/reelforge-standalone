@@ -1276,13 +1276,13 @@ class _SimulationPanel extends StatelessWidget {
 
 Widget _headerWithActions(String title, String subtitle, {List<Widget> actions = const []}) {
   return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
     decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1)))),
     child: Row(
       children: [
-        Text(title, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-        const SizedBox(width: 6),
-        Expanded(child: Text(subtitle, style: const TextStyle(color: Colors.white38, fontSize: 10), overflow: TextOverflow.ellipsis)),
+        Text(title, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+        const SizedBox(width: 5),
+        Expanded(child: Text(subtitle, style: const TextStyle(color: Colors.white38, fontSize: 9), overflow: TextOverflow.ellipsis)),
         ...actions,
       ],
     ),
@@ -1366,20 +1366,20 @@ class _StateMachinePanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               child: Row(
                 children: [
-                  const Text('STATE MACHINE', style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                  const SizedBox(width: 8),
-                  Text('${nodes.length} states — ${edges.length} transitions', style: const TextStyle(color: Colors.white30, fontSize: 10)),
+                  const Text('STATE MACHINE', style: TextStyle(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+                  const SizedBox(width: 6),
+                  Text('${nodes.length} states — ${edges.length} transitions', style: const TextStyle(color: Colors.white30, fontSize: 9)),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                     decoration: BoxDecoration(
                       color: const Color(0xFF4A9EFF).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(3),
                     ),
-                    child: Text(currentState.displayName, style: const TextStyle(color: Color(0xFF4A9EFF), fontSize: 10, fontWeight: FontWeight.w600)),
+                    child: Text(currentState.displayName, style: const TextStyle(color: Color(0xFF4A9EFF), fontSize: 9, fontWeight: FontWeight.w600)),
                   ),
                 ],
               ),

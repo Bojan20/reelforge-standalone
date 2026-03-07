@@ -38,11 +38,11 @@ class SlotLabContainersTabContent extends StatelessWidget {
   static Widget _buildContextRequired(String title, String hint) {
     return Center(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        margin: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: FluxForgeTheme.textTertiary.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: FluxForgeTheme.textTertiary.withValues(alpha: 0.12),
           ),
@@ -50,20 +50,20 @@ class SlotLabContainersTabContent extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.touch_app, size: 28, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5)),
-            const SizedBox(height: 10),
+            Icon(Icons.touch_app, size: 22, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5)),
+            const SizedBox(height: 6),
             Text(
               title,
               style: TextStyle(
                 color: FluxForgeTheme.textSecondary,
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             Text(
               hint,
-              style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
+              style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 9),
               textAlign: TextAlign.center,
             ),
           ],
