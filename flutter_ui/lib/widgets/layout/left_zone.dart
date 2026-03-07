@@ -419,6 +419,7 @@ class _Header extends StatelessWidget {
           if (onToggleCollapse != null)
             IconButton(
               icon: const Icon(Icons.chevron_left, size: 18),
+              tooltip: 'Collapse left panel',
               onPressed: onToggleCollapse,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
@@ -582,6 +583,7 @@ class _SearchBar extends StatelessWidget {
             if (!isNarrow && controller.text.isNotEmpty)
               IconButton(
                 icon: const Icon(Icons.close, size: 14),
+                tooltip: 'Clear search',
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                 onPressed: () {

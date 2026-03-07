@@ -80,11 +80,9 @@ import '../providers/aurexis_profile_provider.dart';
 import '../providers/slot_lab/behavior_tree_provider.dart';
 import '../providers/slot_lab/state_gate_provider.dart';
 import '../providers/slot_lab/emotional_state_provider.dart';
-import '../providers/slot_lab/slotlab_view_mode_provider.dart';
 import '../providers/slot_lab/transition_system_provider.dart';
 import '../providers/slot_lab/priority_engine_provider.dart';
 import '../providers/slot_lab/orchestration_engine_provider.dart';
-import 'autobind_engine.dart';
 import '../providers/slot_lab/ail_provider.dart';
 import '../providers/slot_lab/drc_provider.dart';
 import '../providers/slot_lab/sam_provider.dart';
@@ -359,24 +357,10 @@ class ServiceLocator {
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // LAYER 5.9.8: AutoBind Engine (SlotLab Middleware §6)
-    // ═══════════════════════════════════════════════════════════════════════════
-    sl.registerLazySingleton<AutoBindEngine>(
-      () => AutoBindEngine.instance,
-    );
-
-    // ═══════════════════════════════════════════════════════════════════════════
     // LAYER 5.9.9: Emotional State Provider (SlotLab Middleware §9)
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<EmotionalStateProvider>(
       () => EmotionalStateProvider(),
-    );
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // LAYER 5.9.10: SlotLab View Mode Provider (Middleware §16 + §19)
-    // ═══════════════════════════════════════════════════════════════════════════
-    sl.registerLazySingleton<SlotLabViewModeProvider>(
-      () => SlotLabViewModeProvider(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
