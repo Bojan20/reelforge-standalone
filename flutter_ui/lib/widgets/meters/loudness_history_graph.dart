@@ -20,9 +20,11 @@ class LoudnessHistoryGraph extends StatelessWidget {
       return const Center(child: Text('No data', style: TextStyle(color: FluxForgeTheme.textSecondary)));
     }
 
-    return CustomPaint(
-      painter: _LoudnessGraphPainter(lufsHistory, targetLufs),
-      child: Container(),
+    return RepaintBoundary(
+      child: CustomPaint(
+        painter: _LoudnessGraphPainter(lufsHistory, targetLufs),
+        child: Container(),
+      ),
     );
   }
 }

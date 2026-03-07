@@ -38,18 +38,43 @@ class GoniometerConfig {
   });
 }
 
+/// Ring buffer for history frames — O(1) insert/remove, zero allocations at steady state
+class _RingBuffer<T> {
+  final List<T?> _buffer;
+  int _head = 0;
+  int _count = 0;
+
+  _RingBuffer(int capacity) : _buffer = List<T?>.filled(capacity, null);
+
+  int get length => _count;
+  int get capacity => _buffer.length;
+  bool get isEmpty => _count == 0;
+
+  void pushFront(T item) {
+    _head = (_head - 1) % _buffer.length;
+    _buffer[_head] = item;
+    if (_count < _buffer.length) _count++;
+  }
+
+  T operator [](int index) {
+    assert(index >= 0 && index < _count);
+    return _buffer[(_head + index) % _buffer.length] as T;
+  }
+
+  void clear() {
+    for (int i = 0; i < _buffer.length; i++) {
+      _buffer[i] = null;
+    }
+    _head = 0;
+    _count = 0;
+  }
+}
+
 /// Goniometer Widget
 class Goniometer extends StatefulWidget {
-  /// Left channel samples (normalized -1 to 1)
   final Float64List? leftData;
-
-  /// Right channel samples (normalized -1 to 1)
   final Float64List? rightData;
-
-  /// Configuration
   final GoniometerConfig config;
-
-  /// Size
   final double? size;
 
   const Goniometer({
@@ -68,8 +93,11 @@ class _GoniometerState extends State<Goniometer>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
-  // History buffer for persistence effect
-  List<List<Offset>> _history = [];
+  // Ring buffer for history — capacity = historyLength / 64
+  late _RingBuffer<Float64List> _history;
+
+  // Pre-allocated point buffer (x,y interleaved pairs)
+  Float64List _pointBuffer = Float64List(0);
 
   // Peak hold positions
   double _maxX = 0;
@@ -80,6 +108,7 @@ class _GoniometerState extends State<Goniometer>
   @override
   void initState() {
     super.initState();
+    _history = _RingBuffer<Float64List>(widget.config.historyLength ~/ 64);
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 16),
@@ -102,18 +131,20 @@ class _GoniometerState extends State<Goniometer>
 
     if (len == 0) return;
 
-    // Convert L/R to M/S (rotated 45 degrees)
-    final points = <Offset>[];
+    // Ensure point buffer capacity (x,y pairs → len*2)
+    if (_pointBuffer.length < len * 2) {
+      _pointBuffer = Float64List(len * 2);
+    }
+
+    // Convert L/R to M/S (rotated 45 degrees) into pre-allocated buffer
     for (int i = 0; i < len; i++) {
       final l = left[i];
       final r = right[i];
-
-      // Mid = (L + R) / 2, Side = (L - R) / 2
-      // Rotated display: x = Side, y = Mid
       final x = (l - r) / 2; // Side (width)
       final y = (l + r) / 2; // Mid (center)
 
-      points.add(Offset(x, y));
+      _pointBuffer[i * 2] = x;
+      _pointBuffer[i * 2 + 1] = y;
 
       // Update peak hold
       if (x > _maxX) _maxX = x;
@@ -122,11 +153,10 @@ class _GoniometerState extends State<Goniometer>
       if (y < _minY) _minY = y;
     }
 
-    // Add to history
-    _history.insert(0, points);
-    if (_history.length > widget.config.historyLength ~/ 64) {
-      _history.removeLast();
-    }
+    // Store a typed snapshot for this frame (compact: only the used portion)
+    final snapshot = Float64List(len * 2);
+    snapshot.setRange(0, len * 2, _pointBuffer);
+    _history.pushFront(snapshot);
 
     // Decay peak hold
     _maxX *= 0.999;
@@ -153,15 +183,17 @@ class _GoniometerState extends State<Goniometer>
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(7),
-            child: CustomPaint(
-              size: Size(size, size),
-              painter: _GoniometerPainter(
-                history: _history,
-                maxX: _maxX,
-                minX: _minX,
-                maxY: _maxY,
-                minY: _minY,
-                config: widget.config,
+            child: RepaintBoundary(
+              child: CustomPaint(
+                size: Size(size, size),
+                painter: _GoniometerPainter(
+                  history: _history,
+                  maxX: _maxX,
+                  minX: _minX,
+                  maxY: _maxY,
+                  minY: _minY,
+                  config: widget.config,
+                ),
               ),
             ),
           ),
@@ -172,9 +204,26 @@ class _GoniometerState extends State<Goniometer>
 }
 
 class _GoniometerPainter extends CustomPainter {
-  final List<List<Offset>> history;
+  final _RingBuffer<Float64List> history;
   final double maxX, minX, maxY, minY;
   final GoniometerConfig config;
+
+  // Pre-allocated paint objects — reused across frames
+  final Paint _tracePaint = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeCap = StrokeCap.round;
+
+  final Paint _peakPaint = Paint()
+    ..strokeWidth = 1
+    ..style = PaintingStyle.stroke;
+
+  final Paint _gridPaint = Paint()..strokeWidth = 1;
+
+  // Reusable path — reset per history entry instead of re-allocating
+  final Path _tracePath = Path();
+
+  // Cached label TextPainters — created once, never re-allocated
+  final Map<String, TextPainter> _labelCache = {};
 
   _GoniometerPainter({
     required this.history,
@@ -187,57 +236,53 @@ class _GoniometerPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
+    final centerX = size.width / 2;
+    final centerY = size.height / 2;
     final scale = size.width / 2.5;
 
     // Draw grid
     if (config.showGrid) {
-      _drawGrid(canvas, size, center, scale);
+      _drawGrid(canvas, size, centerX, centerY, scale);
     }
 
-    // Draw traces with fade effect
+    // Draw traces with fade effect — single Paint reused, Path reset per entry
+    _tracePaint.strokeWidth = config.lineWidth;
+
     for (int h = 0; h < history.length; h++) {
       final alpha = ((1.0 - h / history.length) * 255 * config.fadeRate).toInt();
-      final paint = Paint()
-        ..color = config.traceColor.withAlpha(alpha)
-        ..strokeWidth = config.lineWidth
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round;
+      _tracePaint.color = config.traceColor.withAlpha(alpha);
 
       final points = history[h];
-      if (points.isEmpty) continue;
+      final pointCount = points.length ~/ 2;
+      if (pointCount == 0) continue;
 
-      final path = Path();
-      for (int i = 0; i < points.length; i++) {
-        final p = points[i];
-        final x = center.dx + p.dx * scale;
-        final y = center.dy - p.dy * scale;
+      _tracePath.reset();
+      for (int i = 0; i < pointCount; i++) {
+        final x = centerX + points[i * 2] * scale;
+        final y = centerY - points[i * 2 + 1] * scale;
 
         if (i == 0) {
-          path.moveTo(x, y);
+          _tracePath.moveTo(x, y);
         } else {
-          path.lineTo(x, y);
+          _tracePath.lineTo(x, y);
         }
       }
 
-      canvas.drawPath(path, paint);
+      canvas.drawPath(_tracePath, _tracePaint);
     }
 
     // Draw peak hold box
     if (config.showPeakHold) {
-      final peakPaint = Paint()
-        ..color = config.peakColor.withAlpha(128)
-        ..strokeWidth = 1
-        ..style = PaintingStyle.stroke;
+      _peakPaint.color = config.peakColor.withAlpha(128);
 
       final peakRect = Rect.fromLTRB(
-        center.dx + minX * scale,
-        center.dy - maxY * scale,
-        center.dx + maxX * scale,
-        center.dy - minY * scale,
+        centerX + minX * scale,
+        centerY - maxY * scale,
+        centerX + maxX * scale,
+        centerY - minY * scale,
       );
 
-      canvas.drawRect(peakRect, peakPaint);
+      canvas.drawRect(peakRect, _peakPaint);
     }
 
     // Draw labels
@@ -246,39 +291,40 @@ class _GoniometerPainter extends CustomPainter {
     }
   }
 
-  void _drawGrid(Canvas canvas, Size size, Offset center, double scale) {
-    final gridPaint = Paint()
-      ..color = config.gridColor
-      ..strokeWidth = 1;
+  void _drawGrid(Canvas canvas, Size size, double centerX, double centerY, double scale) {
+    _gridPaint.color = config.gridColor;
+
+    final center = Offset(centerX, centerY);
 
     // Circle guides
     for (double r = 0.25; r <= 1.0; r += 0.25) {
-      canvas.drawCircle(center, r * scale, gridPaint);
+      canvas.drawCircle(center, r * scale, _gridPaint);
     }
 
     // Cross lines (0 and 90 degrees - L/R and M/S axes)
     canvas.drawLine(
-      Offset(center.dx - scale, center.dy),
-      Offset(center.dx + scale, center.dy),
-      gridPaint,
+      Offset(centerX - scale, centerY),
+      Offset(centerX + scale, centerY),
+      _gridPaint,
     );
     canvas.drawLine(
-      Offset(center.dx, center.dy - scale),
-      Offset(center.dx, center.dy + scale),
-      gridPaint,
+      Offset(centerX, centerY - scale),
+      Offset(centerX, centerY + scale),
+      _gridPaint,
     );
 
     // Diagonal lines (+45 and -45 degrees - L and R)
     final diag = scale * 0.707; // cos(45)
+    _gridPaint.color = config.gridColor.withAlpha(77);
     canvas.drawLine(
-      Offset(center.dx - diag, center.dy - diag),
-      Offset(center.dx + diag, center.dy + diag),
-      gridPaint..color = config.gridColor.withAlpha(77),
+      Offset(centerX - diag, centerY - diag),
+      Offset(centerX + diag, centerY + diag),
+      _gridPaint,
     );
     canvas.drawLine(
-      Offset(center.dx + diag, center.dy - diag),
-      Offset(center.dx - diag, center.dy + diag),
-      gridPaint,
+      Offset(centerX + diag, centerY - diag),
+      Offset(centerX - diag, centerY + diag),
+      _gridPaint,
     );
   }
 
@@ -289,33 +335,27 @@ class _GoniometerPainter extends CustomPainter {
       fontWeight: FontWeight.bold,
     );
 
-    // L label (top-left diagonal)
-    _drawText(canvas, 'L', Offset(8, 8), textStyle);
-
-    // R label (top-right diagonal)
-    _drawText(canvas, 'R', Offset(size.width - 16, 8), textStyle);
-
-    // M label (top center)
-    _drawText(canvas, 'M', Offset(size.width / 2 - 4, 4), textStyle);
-
-    // S label (right center)
-    _drawText(canvas, 'S', Offset(size.width - 14, size.height / 2 - 6), textStyle);
-
-    // +/- labels
-    _drawText(canvas, '+', Offset(size.width / 2 - 4, size.height / 2 - size.height / 3), textStyle);
-    _drawText(canvas, '-', Offset(size.width / 2 - 4, size.height / 2 + size.height / 3 - 12), textStyle);
+    _drawCachedText(canvas, 'L', Offset(8, 8), textStyle);
+    _drawCachedText(canvas, 'R', Offset(size.width - 16, 8), textStyle);
+    _drawCachedText(canvas, 'M', Offset(size.width / 2 - 4, 4), textStyle);
+    _drawCachedText(canvas, 'S', Offset(size.width - 14, size.height / 2 - 6), textStyle);
+    _drawCachedText(canvas, '+', Offset(size.width / 2 - 4, size.height / 2 - size.height / 3), textStyle);
+    _drawCachedText(canvas, '-', Offset(size.width / 2 - 4, size.height / 2 + size.height / 3 - 12), textStyle);
   }
 
-  void _drawText(Canvas canvas, String text, Offset position, TextStyle style) {
-    final tp = TextPainter(
-      text: TextSpan(text: text, style: style),
-      textDirection: TextDirection.ltr,
-    )..layout();
+  TextPainter _drawCachedText(Canvas canvas, String text, Offset position, TextStyle style) {
+    final tp = _labelCache.putIfAbsent(text, () {
+      return TextPainter(
+        text: TextSpan(text: text, style: style),
+        textDirection: TextDirection.ltr,
+      )..layout();
+    });
     tp.paint(canvas, position);
+    return tp;
   }
 
   @override
   bool shouldRepaint(covariant _GoniometerPainter oldDelegate) {
-    return history != oldDelegate.history;
+    return true; // Always repaint — 60fps animation
   }
 }

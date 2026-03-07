@@ -131,8 +131,6 @@ class TimelinePlaybackState {
 class TimelinePlaybackProvider extends ChangeNotifier {
   TimelinePlaybackState _state = const TimelinePlaybackState();
   List<TimelineClipData> _clips = [];
-  // ignore: unused_field
-  List<PlaybackCrossfade> _crossfades = [];
 
   Ticker? _ticker;
 
@@ -168,9 +166,6 @@ class TimelinePlaybackProvider extends ChangeNotifier {
     _updateDuration();
   }
 
-  void setCrossfades(List<PlaybackCrossfade> crossfades) {
-    _crossfades = crossfades;
-  }
 
   void _updateDuration() {
     if (_clips.isEmpty) return;

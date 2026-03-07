@@ -199,18 +199,20 @@ class _ProMeterState extends State<ProMeter> with SingleTickerProviderStateMixin
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: widget.onClipReset,
-      child: CustomPaint(
-        size: Size(widget.width, widget.height),
-        painter: _ProMeterPainter(
-          readings: widget.readings,
-          mode: widget.mode,
-          orientation: widget.orientation,
-          showLabels: widget.showLabels,
-          showPeakHold: widget.showPeakHold,
-          peakHoldLeft: _peakHoldLeft,
-          peakHoldRight: _peakHoldRight,
-          smoothedLeft: _smoothedLeft,
-          smoothedRight: _smoothedRight,
+      child: RepaintBoundary(
+        child: CustomPaint(
+          size: Size(widget.width, widget.height),
+          painter: _ProMeterPainter(
+            readings: widget.readings,
+            mode: widget.mode,
+            orientation: widget.orientation,
+            showLabels: widget.showLabels,
+            showPeakHold: widget.showPeakHold,
+            peakHoldLeft: _peakHoldLeft,
+            peakHoldRight: _peakHoldRight,
+            smoothedLeft: _smoothedLeft,
+            smoothedRight: _smoothedRight,
+          ),
         ),
       ),
     );

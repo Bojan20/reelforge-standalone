@@ -554,16 +554,18 @@ class LoudnessMeter extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(3),
-        child: CustomPaint(
-          painter: _LoudnessMeterPainter(
-            lufsM: metering.masterLufsM,
-            lufsS: metering.masterLufsS,
-            lufsI: metering.masterLufsI,
-            truePeak: metering.masterTruePeak,
-            targetLufs: _targetLufs,
-            truePeakCeiling: _truePeakCeiling,
+        child: RepaintBoundary(
+          child: CustomPaint(
+            painter: _LoudnessMeterPainter(
+              lufsM: metering.masterLufsM,
+              lufsS: metering.masterLufsS,
+              lufsI: metering.masterLufsI,
+              truePeak: metering.masterTruePeak,
+              targetLufs: _targetLufs,
+              truePeakCeiling: _truePeakCeiling,
+            ),
+            size: const Size(double.infinity, 60),
           ),
-          size: const Size(double.infinity, 60),
         ),
       ),
     );

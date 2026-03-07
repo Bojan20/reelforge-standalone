@@ -218,11 +218,13 @@ class _VectorscopeState extends State<Vectorscope>
               SizedBox(
                 width: scopeSize,
                 height: scopeSize,
-                child: CustomPaint(
-                  painter: _VectorscopePainter(
-                    trail: _trail,
-                    trailOpacity: _trailOpacity,
-                    config: widget.config,
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                    painter: _VectorscopePainter(
+                      trail: _trail,
+                      trailOpacity: _trailOpacity,
+                      config: widget.config,
+                    ),
                   ),
                 ),
               ),

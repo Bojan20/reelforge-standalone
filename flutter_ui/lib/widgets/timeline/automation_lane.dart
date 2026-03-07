@@ -277,11 +277,10 @@ class AutomationLane extends StatefulWidget {
 
 class _AutomationLaneState extends State<AutomationLane> {
   String? _draggingPointId;
-  // ignore: unused_field
-  String? _draggingHandle;  // 'in' or 'out'
   bool _isDrawing = false;
   Offset? _lastDrawPosition;
   final Set<String> _selectedPoints = {};
+  bool _pointerDownShift = false;
   Offset? _hoverPosition;
   bool _showValueTooltip = false;
   final FocusNode _focusNode = FocusNode();
@@ -704,10 +703,14 @@ class _AutomationLaneState extends State<AutomationLane> {
       top: y - 6,
       width: 12,
       height: 12,
-      child: GestureDetector(
+      child: Listener(
+        onPointerDown: (_) {
+          _pointerDownShift = HardwareKeyboard.instance.isShiftPressed;
+        },
+        child: GestureDetector(
         onTap: () {
           setState(() {
-            if (HardwareKeyboard.instance.isShiftPressed) {
+            if (_pointerDownShift) {
               if (_selectedPoints.contains(point.id)) {
                 _selectedPoints.remove(point.id);
               } else {
@@ -756,6 +759,7 @@ class _AutomationLaneState extends State<AutomationLane> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

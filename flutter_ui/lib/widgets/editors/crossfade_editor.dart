@@ -208,8 +208,6 @@ class _CrossfadeEditorState extends State<CrossfadeEditor> {
   late CrossfadeConfig _config;
   bool _showWaveforms = true;
   bool _abComparison = false;
-  // ignore: unused_field
-  final int _editingCurve = 0; // 0 = both, 1 = fade out, 2 = fade in (reserved for future)
 
   @override
   void initState() {

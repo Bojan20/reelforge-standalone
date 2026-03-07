@@ -404,22 +404,18 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   bool _isDraggingLoopLeft = false;
   bool _isDraggingLoopRight = false;
   bool _isDroppingFile = false;
-  // ignore: unused_field
   bool _isDroppingPoolFile = false;
   bool _isResizingHeader = false;
   Offset? _dropPosition;
-  // ignore: unused_field
   Offset? _poolDropPosition;
 
   // Cross-track drag state
   String? _crossTrackDraggingClipId;
   double _crossTrackDragTime = 0;
-  // ignore: unused_field
   double _crossTrackDragYDelta = 0;
   int _crossTrackTargetIndex = -1;
 
   // Drag state (Cubase-style direct move)
-  // ignore: unused_field
   int _dragSourceTrackIndex = -1;
 
   // Ghost preview state (visual feedback during drag)

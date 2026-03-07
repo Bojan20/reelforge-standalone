@@ -399,13 +399,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   // Analysis state (Transient/Pitch detection)
   double _transientSensitivity = 0.5;
   int _transientAlgorithm = 2; // 0=Energy, 1=Spectral, 2=Enhanced, 3=Onset, 4=ML
-  // Analysis state - used by transient/pitch detection UI (future)
-  // ignore: unused_field
+  // Analysis state - used by transient/pitch detection UI
   double _detectedPitch = 0.0;
-  // ignore: unused_field
   int _detectedMidi = -1;
-  // ignore: unused_field
-  List<int> _detectedTransients = [];
 
   // Clip Editor Hitpoint state (Cubase-style sample editor)
   List<clip_editor.Hitpoint> _clipHitpoints = [];
@@ -2782,8 +2778,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   // EQ state
   List<generic_eq.EqBand> _eqBands = [];
-  // ignore: unused_field
-  String? _selectedEqBandId;
 
   /// Paste clips from clipboard
   void _handlePaste() {
@@ -7201,31 +7195,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     'Seek', 'Trigger', 'PostEvent',
   ];
 
-  // Complete bus list (for middleware mode dropdowns)
-  // ignore: unused_field
-  static const List<String> kBuses = [
-    'Master', 'Music', 'SFX', 'Voice', 'UI', 'Ambience', 'Reels', 'Wins', 'VO',
-  ];
-
-  // Complete event list (for middleware mode dropdowns)
-  // ignore: unused_field
-  static const List<String> kEvents = [
-    'Play_Music', 'Stop_Music', 'Play_SFX', 'Stop_All', 'Pause_All',
-    'Set_State', 'Trigger_Win', 'Spin_Start', 'Spin_Stop', 'Reel_Land',
-    'BigWin_Start', 'BigWin_Loop', 'BigWin_End', 'Bonus_Enter', 'Bonus_Exit',
-    'UI_Click', 'UI_Hover', 'Ambient_Start', 'Ambient_Stop', 'VO_Play',
-  ];
-
-  // Asset IDs (for middleware mode dropdowns)
-  // ignore: unused_field
-  static const List<String> kAssetIds = [
-    'music_main', 'music_bonus', 'music_freespins', 'music_bigwin',
-    'sfx_spin', 'sfx_reel_land', 'sfx_win_small', 'sfx_win_medium', 'sfx_win_big',
-    'sfx_click', 'sfx_hover', 'sfx_coins', 'sfx_jackpot',
-    'amb_casino', 'amb_nature', 'amb_crowd',
-    'vo_bigwin', 'vo_megawin', 'vo_jackpot', 'vo_freespins',
-    '—',
-  ];
 
   // Scope options
   static const List<String> kScopes = [
@@ -7242,27 +7211,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     'Linear', 'Log3', 'Sine', 'Log1', 'InvSCurve', 'SCurve', 'Exp1', 'Exp3',
   ];
 
-  // State groups (Wwise-style) - for middleware dropdowns
-  // ignore: unused_field
-  static const List<String> kStateGroups = [
-    'GameState', 'MusicState', 'PlayerState', 'BonusState', 'Intensity',
-  ];
-
-  // States per group - for middleware dropdowns
-  // ignore: unused_field
-  static const Map<String, List<String>> kStates = {
-    'GameState': ['Menu', 'BaseGame', 'Bonus', 'FreeSpins', 'Paused'],
-    'MusicState': ['Normal', 'Suspense', 'Action', 'Victory', 'Defeat'],
-    'PlayerState': ['Idle', 'Spinning', 'Winning', 'Waiting'],
-    'BonusState': ['None', 'Triggered', 'Active', 'Ending'],
-    'Intensity': ['Low', 'Medium', 'High', 'Extreme'],
-  };
-
-  // Switch groups - for middleware dropdowns
-  // ignore: unused_field
-  static const List<String> kSwitchGroups = [
-    'Surface', 'Footsteps', 'Material', 'Weapon', 'Environment',
-  ];
 
   /// Middleware Mode: Events Editor in center - FULLY FUNCTIONAL
   Widget _buildMiddlewareCenterContent() {

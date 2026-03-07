@@ -116,8 +116,6 @@ class _PianoRollWidgetState extends State<PianoRollWidget> {
   Offset? _dragStart;
   Offset? _dragCurrent;
   int? _dragNoteId;
-  // ignore: unused_field
-  int? _drawingNoteStart;
 
   // Resize state
   bool _isResizing = false;
