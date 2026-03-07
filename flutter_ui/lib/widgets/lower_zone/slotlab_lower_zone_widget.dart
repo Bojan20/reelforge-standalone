@@ -455,8 +455,8 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     final provider = widget.slotLabProvider ?? _tryGetSlotLabProvider();
 
     return Container(
-      height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      height: 26,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: const BoxDecoration(
         color: LowerZoneColors.bgMid,
         border: Border(
@@ -473,7 +473,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               color: LowerZoneColors.slotLabAccent,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           // Outcome dropdown (force outcome)
           _buildSpinDropdown('Outcome', _selectedOutcome,
               ['Random', 'SmallWin', 'BigWin', 'FreeSpins', 'Jackpot', 'Lose'],
@@ -503,7 +503,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: Container(
-        height: 22,
+        height: 20,
         padding: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
           color: provider != null
@@ -548,7 +548,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: Container(
-        height: 22,
+        height: 20,
         padding: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
           color: provider != null
@@ -603,7 +603,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: Container(
-        height: 22,
+        height: 20,
         padding: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
           color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.1),
@@ -647,7 +647,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: Container(
-        height: 22,
+        height: 20,
         padding: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
           color: LowerZoneColors.bgSurface,
@@ -685,11 +685,11 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   }) {
     return Center(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        margin: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: LowerZoneColors.textTertiary.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: LowerZoneColors.textTertiary.withValues(alpha: 0.12),
           ),
@@ -697,13 +697,13 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 28, color: LowerZoneColors.textTertiary.withValues(alpha: 0.5)),
-            const SizedBox(height: 10),
+            Icon(icon, size: 22, color: LowerZoneColors.textTertiary.withValues(alpha: 0.5)),
+            const SizedBox(height: 6),
             Text(
               title,
               style: const TextStyle(
                 color: LowerZoneColors.textSecondary,
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -1419,15 +1419,15 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   Widget _buildPanelHeader(String title, IconData icon) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: LowerZoneColors.slotLabAccent),
-        const SizedBox(width: 8),
+        Icon(icon, size: 13, color: LowerZoneColors.slotLabAccent),
+        const SizedBox(width: 5),
         Text(
           title,
           style: TextStyle(
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: FontWeight.bold,
             color: LowerZoneColors.slotLabAccent,
-            letterSpacing: 1.0,
+            letterSpacing: 0.8,
           ),
         ),
       ],
@@ -1438,10 +1438,10 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   // EVENT-LAYER TIMELINE — DAW-style waveform view with unified scroll
   // ═══════════════════════════════════════════════════════════════════════════
 
-  static const double _kTlTrackHeight = 56.0;
-  static const double _kTlHeaderHeight = 32.0;
-  static const double _kTlLabelWidth = 120.0;
-  static const double _kTlRulerHeight = 20.0;
+  static const double _kTlTrackHeight = 48.0;
+  static const double _kTlHeaderHeight = 26.0;
+  static const double _kTlLabelWidth = 110.0;
+  static const double _kTlRulerHeight = 18.0;
 
   String? _tlSelectedEventId;
   String? _tlSelectedLayerId;

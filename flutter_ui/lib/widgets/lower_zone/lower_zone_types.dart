@@ -22,19 +22,19 @@ const double kLowerZoneMaxHeight = 600.0;
 const double kLowerZoneDefaultHeight = 350.0;
 
 /// Height of the context bar when expanded (super-tabs + sub-tabs)
-const double kContextBarHeight = 60.0;
+const double kContextBarHeight = 54.0;
 
 /// Height of the context bar when collapsed (super-tabs only)
-const double kContextBarCollapsedHeight = 32.0;
+const double kContextBarCollapsedHeight = 30.0;
 
 /// Height of the action strip
-const double kActionStripHeight = 36.0;
+const double kActionStripHeight = 28.0;
 
 /// Height of the resize handle
 const double kResizeHandleHeight = 4.0;
 
 /// Height of the spin control bar (SlotLab only)
-const double kSpinControlBarHeight = 32.0;
+const double kSpinControlBarHeight = 26.0;
 
 /// Height of the slot context bar (Middleware only)
 const double kSlotContextBarHeight = 28.0;

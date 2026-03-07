@@ -189,7 +189,7 @@ class LowerZoneContextBar extends StatelessWidget {
         // Minimap strip — colored segments for each super-tab (3px)
         if (superTabColors != null) _buildMinimap(),
         Container(
-      height: superTabColors != null ? 29 : 32,
+      height: superTabColors != null ? kContextBarCollapsedHeight - 3 : kContextBarCollapsedHeight,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
         children: [
@@ -502,7 +502,7 @@ class LowerZoneContextBar extends StatelessWidget {
     // Fade gradient hints that more tabs exist when scrollable
     final needsScroll = subTabLabels.length > 6;
     final content = Container(
-      height: 28,
+      height: kContextBarHeight - kContextBarCollapsedHeight,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: const BoxDecoration(
         color: LowerZoneColors.bgDeep,
