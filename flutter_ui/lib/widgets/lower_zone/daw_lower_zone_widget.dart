@@ -163,6 +163,9 @@ class DawLowerZoneWidget extends StatefulWidget {
   /// Quick Switcher callback (⌘K) — opens command palette for DAW sub-tabs
   final VoidCallback? onQuickSwitcher;
 
+  /// When true, fills all available space instead of using fixed totalHeight
+  final bool isFullScreen;
+
   const DawLowerZoneWidget({
     super.key,
     required this.controller,
@@ -192,6 +195,7 @@ class DawLowerZoneWidget extends StatefulWidget {
     this.onClipFadeOutChanged,
     this.allClips = const [],
     this.onQuickSwitcher,
+    this.isFullScreen = false,
   });
 
   @override
@@ -242,9 +246,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: kLowerZoneAnimationDuration,
-      height: widget.controller.totalHeight,
+    final content = Container(
       clipBehavior: Clip.hardEdge,
       decoration: const BoxDecoration(
         color: LowerZoneColors.bgDeep,
@@ -254,8 +256,8 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       ),
       child: Column(
         children: [
-          // Resize handle
-          _buildResizeHandle(),
+          // Resize handle — hidden in fullscreen
+          if (!widget.isFullScreen) _buildResizeHandle(),
           // Context bar
           LowerZoneContextBar(
             superTabLabels: DawSuperTab.values.map((t) => t.label).toList(),
@@ -303,6 +305,18 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           ],
         ],
       ),
+    );
+
+    // In fullscreen mode, fill all available space
+    if (widget.isFullScreen) {
+      return content;
+    }
+
+    // Normal mode: fixed height with animation
+    return AnimatedContainer(
+      duration: kLowerZoneAnimationDuration,
+      height: widget.controller.totalHeight,
+      child: content,
     );
   }
 

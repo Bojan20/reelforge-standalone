@@ -107,6 +107,9 @@ class SlotLabLowerZoneWidget extends StatefulWidget {
   /// Quick Switcher callback (⌘K)
   final VoidCallback? onQuickSwitcher;
 
+  /// When true, fills all available space instead of using fixed totalHeight
+  final bool isFullScreen;
+
   const SlotLabLowerZoneWidget({
     super.key,
     required this.controller,
@@ -120,6 +123,7 @@ class SlotLabLowerZoneWidget extends StatefulWidget {
     this.onBuildTimelineContent,
     this.timelineController,
     this.onQuickSwitcher,
+    this.isFullScreen = false,
   });
 
   @override
@@ -280,97 +284,101 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     final isCollapsed = !widget.controller.isExpanded;
     final totalHeight = widget.controller.totalHeight;
 
-    // P0 CRITICAL FIX: Use Stack to place border OUTSIDE the content area
-    // This prevents the 1px border from causing overflow
-    return SizedBox(
-      height: totalHeight,
-      child: Stack(
-        clipBehavior: Clip.hardEdge,
-        children: [
-          // Main content (fills entire height)
-          AnimatedContainer(
-            duration: kLowerZoneAnimationDuration,
-            height: totalHeight,
-            color: LowerZoneColors.bgDeep,
-            clipBehavior: Clip.hardEdge,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Resize handle (fixed: 4px)
-                _buildResizeHandle(),
-                // Context bar (dynamic: 60px expanded, 32px collapsed) with shortcuts help button
-                SizedBox(
-                  height: isCollapsed ? kContextBarCollapsedHeight : kContextBarHeight,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ListenableBuilder(
-                          listenable: DiagnosticsService.instance,
-                          builder: (context, _) {
-                            final findingsCount = DiagnosticsService.instance.liveFindings.length;
-                            return LowerZoneContextBar(
-                              superTabLabels: SlotLabSuperTab.values.map((t) => t.label).toList(),
-                              superTabIcons: SlotLabSuperTab.values.map((t) => t.icon).toList(),
-                              superTabColors: SlotLabSuperTab.values.map((t) => t.color).toList(),
-                              superTabTooltips: SlotLabSuperTab.values.map((t) => t.tooltip).toList(),
-                              selectedSuperTab: widget.controller.superTab.index,
-                              subTabLabels: widget.controller.subTabLabels,
-                              selectedSubTab: widget.controller.currentSubTabIndex,
-                              accentColor: widget.controller.accentColor,
-                              isExpanded: widget.controller.isExpanded,
-                              onSuperTabSelected: widget.controller.setSuperTabIndex,
-                              onSubTabSelected: widget.controller.setSubTabIndex,
-                              onToggle: widget.controller.toggle,
-                              // Visual group separators: STAGES | EVENTS+MIX+DSP | RTPC+CONTAINERS+MUSIC | LOGIC+INTEL+MONITOR | BAKE
-                              superTabGroupBreaks: const [0, 3, 6, 9],
-                              // Diagnostics findings badge on MONITOR tab (index 9)
-                              superTabBadges: findingsCount > 0 ? {SlotLabSuperTab.monitor.index: findingsCount} : null,
-                              // Sub-tab group separators per super-tab
-                              subTabGroupBreaks: widget.controller.subTabGroupBreaks,
-                              subTabTooltips: widget.controller.subTabTooltips,
-                              breadcrumbCategory: widget.controller.superTab.category,
-                              onQuickSwitcher: widget.onQuickSwitcher,
-                              superTabSubLabels: _allSuperTabSubLabels,
-                            );
-                          },
-                        ),
+    final content = Stack(
+      clipBehavior: Clip.hardEdge,
+      children: [
+        // Main content (fills entire height)
+        Container(
+          color: LowerZoneColors.bgDeep,
+          clipBehavior: Clip.hardEdge,
+          child: Column(
+            mainAxisSize: widget.isFullScreen ? MainAxisSize.max : MainAxisSize.min,
+            children: [
+              // Resize handle (fixed: 4px) — hidden in fullscreen
+              if (!widget.isFullScreen) _buildResizeHandle(),
+              // Context bar (dynamic: 60px expanded, 32px collapsed) with shortcuts help button
+              SizedBox(
+                height: isCollapsed ? kContextBarCollapsedHeight : kContextBarHeight,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ListenableBuilder(
+                        listenable: DiagnosticsService.instance,
+                        builder: (context, _) {
+                          final findingsCount = DiagnosticsService.instance.liveFindings.length;
+                          return LowerZoneContextBar(
+                            superTabLabels: SlotLabSuperTab.values.map((t) => t.label).toList(),
+                            superTabIcons: SlotLabSuperTab.values.map((t) => t.icon).toList(),
+                            superTabColors: SlotLabSuperTab.values.map((t) => t.color).toList(),
+                            superTabTooltips: SlotLabSuperTab.values.map((t) => t.tooltip).toList(),
+                            selectedSuperTab: widget.controller.superTab.index,
+                            subTabLabels: widget.controller.subTabLabels,
+                            selectedSubTab: widget.controller.currentSubTabIndex,
+                            accentColor: widget.controller.accentColor,
+                            isExpanded: widget.controller.isExpanded,
+                            onSuperTabSelected: widget.controller.setSuperTabIndex,
+                            onSubTabSelected: widget.controller.setSubTabIndex,
+                            onToggle: widget.controller.toggle,
+                            // Visual group separators: STAGES | EVENTS+MIX+DSP | RTPC+CONTAINERS+MUSIC | LOGIC+INTEL+MONITOR | BAKE
+                            superTabGroupBreaks: const [0, 3, 6, 9],
+                            // Diagnostics findings badge on MONITOR tab (index 9)
+                            superTabBadges: findingsCount > 0 ? {SlotLabSuperTab.monitor.index: findingsCount} : null,
+                            // Sub-tab group separators per super-tab
+                            subTabGroupBreaks: widget.controller.subTabGroupBreaks,
+                            subTabTooltips: widget.controller.subTabTooltips,
+                            breadcrumbCategory: widget.controller.superTab.category,
+                            onQuickSwitcher: widget.onQuickSwitcher,
+                            superTabSubLabels: _allSuperTabSubLabels,
+                          );
+                        },
                       ),
-                      // P0.3: Keyboard shortcuts help button (adapts to context bar height)
-                      _buildShortcutsHelpButton(),
+                    ),
+                    // P0.3: Keyboard shortcuts help button (adapts to context bar height)
+                    _buildShortcutsHelpButton(),
+                  ],
+                ),
+              ),
+              // Content panel (only when expanded)
+              if (!isCollapsed)
+                Expanded(
+                  child: Column(
+                    children: [
+                      // Spin Control Bar (fixed: 32px)
+                      _buildSpinControlBar(),
+                      // Content panel (flexible)
+                      Expanded(
+                        child: ClipRect(child: _buildContentPanel()),
+                      ),
+                      // Action strip (fixed: 36px)
+                      _buildActionStrip(),
                     ],
                   ),
                 ),
-                // Content panel (only when expanded)
-                if (!isCollapsed)
-                  Expanded(
-                    child: Column(
-                      children: [
-                        // Spin Control Bar (fixed: 32px)
-                        _buildSpinControlBar(),
-                        // Content panel (flexible)
-                        Expanded(
-                          child: ClipRect(child: _buildContentPanel()),
-                        ),
-                        // Action strip (fixed: 36px)
-                        _buildActionStrip(),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
+            ],
           ),
-          // Top border line - positioned at top, doesn't affect layout
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              height: 1,
-              color: LowerZoneColors.border,
-            ),
+        ),
+        // Top border line - positioned at top, doesn't affect layout
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: Container(
+            height: 1,
+            color: LowerZoneColors.border,
           ),
-        ],
-      ),
+        ),
+      ],
+    );
+
+    // In fullscreen mode, fill all available space
+    if (widget.isFullScreen) {
+      return content;
+    }
+
+    // Normal mode: fixed height with animation
+    return SizedBox(
+      height: totalHeight,
+      child: content,
     );
   }
 

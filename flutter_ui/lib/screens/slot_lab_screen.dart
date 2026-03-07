@@ -3235,6 +3235,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     // Lower zone content at full height
                     Expanded(
                       child: SlotLabLowerZoneWidget(
+                        isFullScreen: true,
                         controller: _lowerZoneController,
                         slotLabProvider: _slotLabProvider,
                         onSpin: () {

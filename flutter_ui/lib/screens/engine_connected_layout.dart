@@ -261,6 +261,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   bool _leftVisible = true;
   bool _rightVisible = true;
   bool _lowerVisible = true;
+  bool _dawLowerZoneFullscreen = false;
   late String _activeLowerTab;
   LeftZoneTab _activeLeftTab = LeftZoneTab.project;
 
@@ -5209,6 +5210,23 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 });
                 return KeyEventResult.handled;
               }
+              // Cmd+Shift+F = Toggle DAW lower zone fullscreen (panel zoom)
+              if (event is KeyDownEvent &&
+                  event.logicalKey == LogicalKeyboardKey.keyF &&
+                  (HardwareKeyboard.instance.isMetaPressed ||
+                   HardwareKeyboard.instance.isControlPressed) &&
+                  HardwareKeyboard.instance.isShiftPressed &&
+                  _editorMode == EditorMode.daw) {
+                setState(() => _dawLowerZoneFullscreen = !_dawLowerZoneFullscreen);
+                return KeyEventResult.handled;
+              }
+              // ESC = Exit DAW lower zone fullscreen
+              if (event is KeyDownEvent &&
+                  event.logicalKey == LogicalKeyboardKey.escape &&
+                  _dawLowerZoneFullscreen) {
+                setState(() => _dawLowerZoneFullscreen = false);
+                return KeyEventResult.handled;
+              }
               return KeyEventResult.ignored;
             },
             // MIXER VIEW MODE: Full-screen mixer (Pro Tools Mix Window)
@@ -5612,6 +5630,61 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               }
             },
           ),
+          // DAW Lower Zone panel zoom — fullscreen overlay
+          if (_dawLowerZoneFullscreen && _editorMode == EditorMode.daw)
+            Positioned.fill(
+              child: Container(
+                color: const Color(0xFF0A0A0E),
+                child: Column(
+                  children: [
+                    // Zoom header with exit button
+                    Container(
+                      height: 28,
+                      color: const Color(0xFF111116),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          Icon(Icons.fullscreen, size: 14, color: _dawLowerZoneController.accentColor),
+                          const SizedBox(width: 6),
+                          Text(
+                            'FOCUS: ${_dawLowerZoneController.superTab.label} › ${_dawLowerZoneController.subTabLabels.length > _dawLowerZoneController.currentSubTabIndex ? _dawLowerZoneController.subTabLabels[_dawLowerZoneController.currentSubTabIndex] : ""}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: _dawLowerZoneController.accentColor,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const Spacer(),
+                          GestureDetector(
+                            onTap: () => setState(() => _dawLowerZoneFullscreen = false),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2A2A32),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('ESC', style: TextStyle(fontSize: 9, color: Color(0xFF808088), fontFamily: 'monospace')),
+                                  SizedBox(width: 4),
+                                  Icon(Icons.fullscreen_exit, size: 12, color: Color(0xFF808088)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Lower zone content fills remaining space
+                    Expanded(
+                      child: _buildDawLowerZoneWidget(isFullScreen: true),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           // Floating EQ windows - optimized
           ..._buildFloatingEqWindowsOptimized(),
         ],
@@ -5787,6 +5860,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   Widget? _buildCustomLowerZone() {
     switch (_editorMode) {
       case EditorMode.daw:
+        return _buildDawLowerZoneWidget(isFullScreen: false);
+      case EditorMode.slot:
+        // Slot mode uses fullscreen SlotLabScreen, not MainLayout
+        // Return null to use default tabs (shouldn't reach here)
+        return null;
+    }
+  }
+
+  /// Build DAW Lower Zone widget (shared between normal and fullscreen modes)
+  Widget _buildDawLowerZoneWidget({required bool isFullScreen}) {
         // Get selected track info for DSP panels and display
         final selectedTrackId = _selectedTrackId != null
             ? int.tryParse(_selectedTrackId!)
@@ -5807,6 +5890,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           }
         }
         return DawLowerZoneWidget(
+          isFullScreen: isFullScreen,
           controller: _dawLowerZoneController,
           selectedTrackId: selectedTrackId,
           selectedTrackName: selectedTrackName,
@@ -6006,11 +6090,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           },
           onQuickSwitcher: () => _openDawQuickSwitcher(),
         );
-      case EditorMode.slot:
-        // Slot mode uses fullscreen SlotLabScreen, not MainLayout
-        // Return null to use default tabs (shouldn't reach here)
-        return null;
-    }
   }
 
   /// DAW Quick Switcher — opens CommandPalette with all DAW sub-tabs
