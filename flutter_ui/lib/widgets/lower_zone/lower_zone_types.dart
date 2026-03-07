@@ -745,13 +745,13 @@ extension SlotLabSuperTabX on SlotLabSuperTab {
 
 // --- SlotLab Sub-tabs ---
 
-enum SlotLabStagesSubTab { trace, timeline, symbols, timing, layerTimeline }
+enum SlotLabStagesSubTab { trace, timeline, timing, layerTimeline }
 enum SlotLabEventsSubTab { folder, editor, layers, pool, auto, templates, depGraph }
 enum SlotLabMixSubTab { buses, sends, pan, meter, hierarchy, ducking }
 enum SlotLabDspSubTab { chain, eq, comp, reverb, gate, limiter, attenuation, signatures, dspProfiler, layerDsp, presetMorph, spatial }
 enum SlotLabRtpcSubTab { curves, macros, dspBinding, debugger }
 enum SlotLabContainersSubTab { blend, random, sequence, abCompare, crossfade, groups, presets, metrics, timeline, wizard }
-enum SlotLabMusicSubTab { segments, stingers, transitions, looping, beatGrid }
+enum SlotLabMusicSubTab { segments, stingers, transitions, looping, beatGrid, tempoStates }
 enum SlotLabBakeSubTab { export, stems, variations, package, git, analytics, docs, macro, macroMon, macroReport, macroConfig, macroHistory }
 
 /// LOGIC sub-tabs — Core middleware panels (behavior tree, triggers, state gate, etc.)
@@ -764,12 +764,11 @@ enum SlotLabIntelSubTab { build, flow, sim, diagnostic, templates, export, cover
 enum SlotLabMonitorSubTab { timeline, energy, voice, spectral, fatigue, ail, debug, export, profiler, profilerAdv, evtDebug, resource, voiceStats }
 
 extension SlotLabStagesSubTabX on SlotLabStagesSubTab {
-  String get label => ['Trace', 'Timeline', 'Symbols', 'Timing', 'Layers'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R', 'T'][index];
+  String get label => ['Trace', 'Timeline', 'Timing', 'Layers'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R'][index];
   String get tooltip => [
     'Stage event trace — chronological log of triggered stages',
     'Timeline — visual event-layer timeline with waveforms',
-    'Symbols — compact symbol grid overview',
     'Timing — stage timing profiler and latency analysis',
     'Layers — per-layer timeline with crossfades',
   ][index];
@@ -922,14 +921,15 @@ extension SlotLabContainersSubTabX on SlotLabContainersSubTab {
 }
 
 extension SlotLabMusicSubTabX on SlotLabMusicSubTab {
-  String get label => ['Segments', 'Stingers', 'Transitions', 'Looping', 'Beat Grid'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R', 'T'][index];
+  String get label => ['Segments', 'Stingers', 'Transitions', 'Looping', 'Beat Grid', 'Tempo States'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y'][index];
   String get tooltip => [
     'Music segments — interactive music section editor',
     'Stingers — one-shot musical transitions',
     'Transitions — segment-to-segment transition rules',
     'Looping — seamless loop point editor',
     'Beat grid — tempo/beat alignment grid',
+    'Tempo states — Wwise-style tempo transitions with beat-synced crossfade',
   ][index];
 }
 

@@ -32,7 +32,6 @@ import '../../src/rust/native_ffi.dart' show NativeFFI, VolatilityPreset, Timing
 import '../../models/slot_audio_events.dart' show SlotCompositeEvent, SlotEventLayer, sortCategoriesHierarchically, sortEventsHierarchically;
 import '../../models/timeline_models.dart' show parseWaveformFromJson;
 import '../../models/middleware_models.dart' show ActionType, CrossfadeCurve, CrossfadeCurveExtension;
-import '../../models/slot_lab_models.dart' show SymbolDefinition, SymbolType;
 import '../../services/audio_playback_service.dart';
 import '../../services/waveform_cache_service.dart';
 import '../slot_lab/stage_trace_widget.dart';
@@ -877,7 +876,6 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     return switch (subTab) {
       SlotLabStagesSubTab.trace => _buildTracePanel(),
       SlotLabStagesSubTab.timeline => _buildTimelinePanel(),
-      SlotLabStagesSubTab.symbols => _buildSymbolsPanel(),
       SlotLabStagesSubTab.timing => _buildProfilerPanel(),
       SlotLabStagesSubTab.layerTimeline => const Center(child: Text('Layer timeline requires active playback', style: TextStyle(color: LowerZoneColors.textTertiary, fontSize: 11))),
     };
@@ -905,7 +903,6 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     return _buildEventLayerTimeline();
   }
 
-  Widget _buildSymbolsPanel() => _buildCompactSymbolsPanel();
   Widget _buildProfilerPanel() {
     return LayoutBuilder(
       builder: (context, constraints) => ProfilerPanel(
@@ -2025,170 +2022,6 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
         // FFI may not be available
       }
     }
-  }
-
-  /// P2.6: Compact Symbols Panel — Connected to MiddlewareProvider for symbol-to-sound mapping
-  Widget _buildCompactSymbolsPanel() {
-    // Use SlotLabProjectProvider for symbol definitions
-    return Consumer<SlotLabProjectProvider>(
-      builder: (context, projectProvider, _) {
-        final symbols = projectProvider.symbols;
-        final symbolAudio = projectProvider.symbolAudio;
-
-        // Count symbols with any audio assignment
-        final mappedSymbolIds = symbolAudio.map((a) => a.symbolId).toSet();
-        final mappedCount = symbols.where((s) => mappedSymbolIds.contains(s.id)).length;
-
-        return Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            // mainAxisSize removed — fills Flexible parent
-            children: [
-              // Header (compact)
-              Row(
-                children: [
-                  _buildPanelHeader('SYMBOL AUDIO', Icons.casino),
-                  const Spacer(),
-                  Text(
-                    '$mappedCount/${symbols.length} mapped',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: mappedCount > 0 ? LowerZoneColors.success : LowerZoneColors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              // Grid (flexible)
-              Flexible(
-                fit: FlexFit.loose,
-                child: GridView.builder(
-                  shrinkWrap: true,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    childAspectRatio: 1.5,
-                    crossAxisSpacing: 6,
-                    mainAxisSpacing: 6,
-                  ),
-                  itemCount: symbols.length,
-                  itemBuilder: (context, index) {
-                    final symbol = symbols[index];
-                    final hasAudio = mappedSymbolIds.contains(symbol.id);
-                    final audioCount = symbolAudio.where((a) => a.symbolId == symbol.id).length;
-                    return _buildSymbolCard(symbol, hasAudio, audioCount);
-                  },
-                ),
-              ),
-              const SizedBox(height: 6),
-              // Help text (compact)
-              Row(
-                children: [
-                  Text(
-                    'Drop audio to assign • ',
-                    style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted),
-                  ),
-                  GestureDetector(
-                    onTap: () => projectProvider.addSymbol(SymbolDefinition(
-                      id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
-                      name: 'New Symbol',
-                      emoji: '🎰',
-                      type: SymbolType.low,
-                    )),
-                    child: Text(
-                      '+ Add Symbol',
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: LowerZoneColors.slotLabAccent,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildSymbolCard(SymbolDefinition symbol, bool hasAudio, int audioCount) {
-    // Icon based on symbol type
-    IconData symbolIcon;
-    switch (symbol.type) {
-      case SymbolType.wild:
-        symbolIcon = Icons.star;
-      case SymbolType.scatter:
-        symbolIcon = Icons.scatter_plot;
-      case SymbolType.bonus:
-        symbolIcon = Icons.card_giftcard;
-      case SymbolType.high:
-      case SymbolType.highPay:
-        symbolIcon = Icons.diamond;
-      case SymbolType.mediumPay:
-        symbolIcon = Icons.square;
-      case SymbolType.multiplier:
-        symbolIcon = Icons.close;
-      case SymbolType.collector:
-        symbolIcon = Icons.monetization_on;
-      case SymbolType.mystery:
-        symbolIcon = Icons.help;
-      case SymbolType.low:
-      case SymbolType.lowPay:
-        symbolIcon = Icons.casino;
-      case SymbolType.custom:
-        symbolIcon = Icons.extension;
-    }
-
-    return Tooltip(
-      message: '${symbol.name}\nContexts: ${symbol.contexts.join(", ")}\n${hasAudio ? "$audioCount audio assigned" : "No audio"}',
-      child: Container(
-        decoration: BoxDecoration(
-          color: hasAudio
-              ? LowerZoneColors.slotLabAccent.withValues(alpha: 0.1)
-              : LowerZoneColors.bgDeepest,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(
-            color: hasAudio ? LowerZoneColors.slotLabAccent : LowerZoneColors.border,
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Emoji or icon
-            Text(
-              symbol.emoji,
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              symbol.name.length > 8 ? '${symbol.name.substring(0, 8)}…' : symbol.name,
-              style: TextStyle(
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
-                color: hasAudio ? LowerZoneColors.slotLabAccent : LowerZoneColors.textMuted,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (hasAudio) ...[
-              const SizedBox(height: 1),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.volume_up, size: 8, color: LowerZoneColors.success),
-                  const SizedBox(width: 2),
-                  Text(
-                    '$audioCount',
-                    style: TextStyle(fontSize: 8, color: LowerZoneColors.success),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
   }
 
   // ─── P1.4: Event Folder State ─────────────────────────────────────────────

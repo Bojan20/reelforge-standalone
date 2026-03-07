@@ -1514,18 +1514,18 @@ class _UltimateClipWaveform extends StatefulWidget {
 
 class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
   // ═══════════════════════════════════════════════════════════════════════════
-  // GPU OPTIMIZATION: Fixed resolution cache with pre-computed combined L+R
-  // - Render ONCE at fixed resolution, GPU scales during zoom
+  // PIXEL-PERFECT RESOLUTION: Query exactly as many data points as screen pixels
+  // - Re-query only when pixel count changes significantly (>20% difference)
   // - Combined L+R computed in _loadCacheOnce(), not in build()
   // - Zero allocations during build/paint cycle
   // ═══════════════════════════════════════════════════════════════════════════
-  static const int _fixedPixels = 1024;
 
   // Stereo data cache (L/R channels)
   StereoWaveformPixelData? _cachedStereoData;
   int _cachedClipId = 0;
   double _cachedSourceOffset = -1;
   double _cachedDuration = -1;
+  int _cachedPixelCount = 0; // Track pixel count we cached at
 
   // Waveform generation tracking - invalidates cache when switching back to DAW
   // This prevents stale waveform rendering after SlotLab/Middleware usage
@@ -1556,13 +1556,23 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
   @override
   void didUpdateWidget(_UltimateClipWaveform oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // ONLY reload if CLIP CONTENT changed - NEVER on zoom!
     final clipChanged = widget.clipId != oldWidget.clipId;
     final offsetChanged = (widget.sourceOffset - oldWidget.sourceOffset).abs() > 0.01;
     final durationChanged = (widget.duration - oldWidget.duration).abs() > 0.01;
 
+    // Reload on clip content change
     if (clipChanged || offsetChanged || durationChanged) {
       _loadCacheOnce();
+      return;
+    }
+
+    // Reload when screen pixel count changes significantly (>20% diff)
+    final screenPixels = (widget.zoom * widget.duration).round().clamp(64, 16384);
+    if (_cachedPixelCount > 0) {
+      final ratio = screenPixels / _cachedPixelCount;
+      if (ratio > 1.2 || ratio < 0.8) {
+        _loadCacheOnce();
+      }
     }
   }
 
@@ -1570,21 +1580,25 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
     final clipIdNum = int.tryParse(widget.clipId.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
     if (clipIdNum <= 0 || widget.duration <= 0) return;
 
+    // Pixel-perfect: query exactly as many data points as screen pixels
+    final screenPixels = (widget.zoom * widget.duration).round().clamp(64, 16384);
+
     // Check waveform generation to detect mode switch invalidation
-    // When user returns to DAW from SlotLab/Middleware, generation increases
-    // which forces waveform cache refresh to prevent stale rendering
     final currentGeneration = context.read<EditorModeProvider>().waveformGeneration;
     final generationChanged = _cachedWaveformGeneration != currentGeneration;
 
-    // Skip if already cached for this clip AND generation hasn't changed
+    // Skip if already cached for this clip AND pixel count is close enough
     if (!generationChanged &&
         _cachedClipId == clipIdNum &&
         (_cachedSourceOffset - widget.sourceOffset).abs() < 0.01 &&
         (_cachedDuration - widget.duration).abs() < 0.01) {
-      return;
+      // Only skip if pixel count hasn't changed significantly
+      if (_cachedPixelCount > 0) {
+        final ratio = screenPixels / _cachedPixelCount;
+        if (ratio <= 1.2 && ratio >= 0.8) return;
+      }
     }
 
-    // Update cached generation
     _cachedWaveformGeneration = currentGeneration;
 
     final sampleRate = NativeFFI.instance.getWaveformSampleRate(clipIdNum);
@@ -1594,9 +1608,9 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
     final startFrame = (widget.sourceOffset * sampleRate).round();
     final endFrame = ((widget.sourceOffset + widget.duration) * sampleRate).round();
 
-    // Render at FIXED resolution with STEREO data - GPU will scale to any zoom level
+    // Pixel-perfect resolution — 1 data point per screen pixel
     final stereoData = NativeFFI.instance.queryWaveformPixelsStereo(
-      clipIdNum, startFrame, endFrame, _fixedPixels,
+      clipIdNum, startFrame, endFrame, screenPixels,
     );
 
     if (stereoData != null && !stereoData.isEmpty) {
@@ -1604,6 +1618,7 @@ class _UltimateClipWaveformState extends State<_UltimateClipWaveform> {
       _cachedClipId = clipIdNum;
       _cachedSourceOffset = widget.sourceOffset;
       _cachedDuration = widget.duration;
+      _cachedPixelCount = screenPixels;
 
       // ═══════════════════════════════════════════════════════════════════════
       // PRE-COMPUTE combined L+R here — NOT in build()!
@@ -1734,11 +1749,12 @@ class _CubaseWaveformPainter extends CustomPainter {
   final Color color;
   final double gain;
 
-  // Cached Path objects — rebuilt only on size change
+  // Cached Path objects — rebuilt on size, gain, or data change
   Path? _cachedWavePath;
   Path? _cachedRmsPath;
   Size? _cachedSize;
   double? _cachedGain;
+  int _cachedDataLen = -1;
 
   // Pre-allocated Paint objects (zero allocation in paint())
   late final Paint _rmsFillPaint;
@@ -1779,11 +1795,12 @@ class _CubaseWaveformPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (mins.isEmpty || size.width <= 0 || size.height <= 0) return;
 
-    // GPU OPTIMIZATION: Only rebuild paths when size or gain changes
-    if (_cachedWavePath == null || _cachedSize != size || _cachedGain != gain) {
+    // Rebuild paths when size, gain, or data resolution changes
+    if (_cachedWavePath == null || _cachedSize != size || _cachedGain != gain || _cachedDataLen != mins.length) {
       _rebuildPaths(size);
       _cachedSize = size;
       _cachedGain = gain;
+      _cachedDataLen = mins.length;
     }
 
     final centerY = size.height / 2;
@@ -1872,13 +1889,14 @@ class _StereoWaveformPainter extends CustomPainter {
   final Color color;
   final double gain;
 
-  // Cached Path objects — rebuilt only on size change
+  // Cached Path objects — rebuilt on size, gain, or data change
   Path? _leftWavePath;
   Path? _leftRmsPath;
   Path? _rightWavePath;
   Path? _rightRmsPath;
   Size? _cachedSize;
   double? _cachedGain;
+  int _cachedDataLen = -1;
 
   // Pre-allocated Paint objects (zero allocation in paint())
   late final Paint _rmsFillPaint;
@@ -1962,11 +1980,12 @@ class _StereoWaveformPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (leftMins.isEmpty || size.width <= 0 || size.height <= 0) return;
 
-    // GPU OPTIMIZATION: Only rebuild paths when size or gain changes
-    if (_leftWavePath == null || _cachedSize != size || _cachedGain != gain) {
+    // Rebuild paths when size, gain, or data resolution changes
+    if (_leftWavePath == null || _cachedSize != size || _cachedGain != gain || _cachedDataLen != leftMins.length) {
       _rebuildAllPaths(size);
       _cachedSize = size;
       _cachedGain = gain;
+      _cachedDataLen = leftMins.length;
     }
 
     final leftCenterY = size.height * 0.25;

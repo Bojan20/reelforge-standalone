@@ -16,6 +16,7 @@ import 'dart:math' as math;
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import '../src/rust/native_ffi.dart';
+import '../utils/audio_math.dart';
 
 // ============ Types ============
 
@@ -110,11 +111,11 @@ class PluginInfo {
 // ============ Default Buses ============
 
 const List<MixerBus> kDefaultBuses = [
-  MixerBus(id: 'master', name: 'Master', volume: 0.85),
-  MixerBus(id: 'music', name: 'Music', volume: 0.7),
-  MixerBus(id: 'sfx', name: 'SFX', volume: 0.9),
-  MixerBus(id: 'ambience', name: 'Ambience', volume: 0.5),
-  MixerBus(id: 'voice', name: 'Voice', volume: 0.95),
+  MixerBus(id: 'master', name: 'Master', volume: 1.0),
+  MixerBus(id: 'music', name: 'Music', volume: 1.0),
+  MixerBus(id: 'sfx', name: 'SFX', volume: 1.0),
+  MixerBus(id: 'ambience', name: 'Ambience', volume: 1.0),
+  MixerBus(id: 'voice', name: 'Voice', volume: 1.0),
 ];
 
 // ============ Available Plugins ============
@@ -273,7 +274,7 @@ class MixerDSPProvider extends ChangeNotifier {
 
   /// Set bus volume — syncs to Rust engine via FFI
   void setBusVolume(String busId, double volume) {
-    final clampedVolume = volume.clamp(0.0, 1.0);
+    final clampedVolume = volume.clamp(0.0, kMaxVolume);
     _buses = _buses.map((bus) {
       if (bus.id == busId) {
         return bus.copyWith(volume: clampedVolume);

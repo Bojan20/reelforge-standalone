@@ -340,26 +340,152 @@ class _OctagonClipper extends CustomClipper<Path> {
   bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
 
-/// Wraps a child widget in the appropriate clip shape for a symbol.
-/// Returns the child unmodified for roundedRect (handled by BorderRadius).
-Widget _clipForShape(SymbolShape shape, Widget child) {
-  return switch (shape) {
-    SymbolShape.diamond => ClipPath(clipper: _DiamondClipper(), child: child),
-    SymbolShape.circle => ClipOval(child: child),
-    SymbolShape.hexagon => ClipPath(clipper: _HexagonClipper(), child: child),
-    SymbolShape.octagon => ClipPath(clipper: _OctagonClipper(), child: child),
-    SymbolShape.softSquare || SymbolShape.roundedRect => child,
-  };
-}
+/// All symbols use uniform rounded square shape — no special clipping.
+Widget _clipForShape(SymbolShape shape, Widget child) => child;
 
-/// Returns border radius appropriate for each shape.
-/// Non-rect shapes use 0 radius (clipping handles shape).
-BorderRadius _borderRadiusForShape(SymbolShape shape) {
-  return switch (shape) {
-    SymbolShape.softSquare => BorderRadius.circular(8),
-    SymbolShape.roundedRect => BorderRadius.circular(3),
-    _ => BorderRadius.zero,
-  };
+/// Uniform border radius for all symbols — rounded square (kocka).
+BorderRadius _borderRadiusForShape(SymbolShape shape) => BorderRadius.circular(6);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PREMIUM SYMBOL PAINTER — Professional casino-grade symbol rendering
+// Multi-layer: base gradient → inner depth → edge highlight → center glow
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _PremiumSymbolPainter extends CustomPainter {
+  final SlotSymbol symbol;
+  final bool isWinning;
+  final bool isNearMiss;
+  final double winPulse;
+
+  _PremiumSymbolPainter({
+    required this.symbol,
+    required this.isWinning,
+    required this.isNearMiss,
+    required this.winPulse,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final minDim = size.width < size.height ? size.width : size.height;
+
+    // ── Layer 1: Deep background gradient (dark to symbol color) ──
+    final baseColors = isNearMiss
+        ? [const Color(0xFF401020), const Color(0xFF200810), const Color(0xFF100408)]
+        : [
+            symbol.gradientColors[0].withOpacity(0.35),
+            symbol.gradientColors[1].withOpacity(0.2),
+            symbol.gradientColors[2].withOpacity(0.12),
+          ];
+    final basePaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: baseColors,
+      ).createShader(rect);
+    canvas.drawRect(rect, basePaint);
+
+    // ── Layer 2: Radial center glow (light source from center-top) ──
+    final glowColor = isNearMiss
+        ? const Color(0xFFFF4060)
+        : isWinning
+            ? symbol.glowColor
+            : symbol.gradientColors[0];
+    final glowOpacity = isWinning ? 0.5 + winPulse * 0.3 : (symbol.isSpecial ? 0.35 : 0.2);
+    final glowPaint = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(0, -0.3),
+        radius: 0.9,
+        colors: [
+          glowColor.withOpacity(glowOpacity),
+          glowColor.withOpacity(glowOpacity * 0.3),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(rect);
+    canvas.drawRect(rect, glowPaint);
+
+    // ── Layer 3: Subtle vignette (darkened edges for depth) ──
+    final vignettePaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          Colors.transparent,
+          Colors.black.withOpacity(0.4),
+        ],
+        stops: const [0.6, 1.0],
+      ).createShader(rect);
+    canvas.drawRect(rect, vignettePaint);
+
+    // ── Layer 4: Top edge highlight (glass reflection) ──
+    final highlightRect = Rect.fromLTWH(0, 0, size.width, size.height * 0.35);
+    final highlightPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.white.withOpacity(symbol.isSpecial ? 0.12 : 0.07),
+          Colors.transparent,
+        ],
+      ).createShader(highlightRect);
+    canvas.drawRect(highlightRect, highlightPaint);
+
+    // ── Layer 5: Bottom edge (subtle warm reflection) ──
+    final bottomRect = Rect.fromLTWH(0, size.height * 0.75, size.width, size.height * 0.25);
+    final bottomPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.transparent,
+          symbol.gradientColors.last.withOpacity(0.08),
+        ],
+      ).createShader(bottomRect);
+    canvas.drawRect(bottomRect, bottomPaint);
+
+    // ── Layer 6: Inner border glow (1px soft edge) ──
+    final borderColor = isWinning
+        ? symbol.glowColor.withOpacity(0.6 + winPulse * 0.3)
+        : isNearMiss
+            ? const Color(0xFFFF4060).withOpacity(0.5)
+            : symbol.gradientColors[0].withOpacity(0.15);
+    final borderPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = isWinning ? 1.5 : 0.5
+      ..color = borderColor;
+    canvas.drawRect(rect.deflate(0.5), borderPaint);
+
+    // ── Layer 7: Special symbol sparkle dots ──
+    if (symbol.isSpecial && !isNearMiss) {
+      _drawSparkles(canvas, size, minDim, glowColor);
+    }
+  }
+
+  void _drawSparkles(Canvas canvas, Size size, double minDim, Color color) {
+    final sparklePaint = Paint()
+      ..color = color.withOpacity(isWinning ? 0.6 : 0.25)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
+    final r = minDim * 0.015;
+
+    // Fixed sparkle positions (deterministic, no random)
+    const positions = [
+      Offset(0.15, 0.2), Offset(0.85, 0.25),
+      Offset(0.2, 0.75), Offset(0.8, 0.8),
+      Offset(0.5, 0.15), Offset(0.12, 0.5),
+      Offset(0.88, 0.55),
+    ];
+    for (final p in positions) {
+      canvas.drawCircle(Offset(p.dx * size.width, p.dy * size.height), r, sparklePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PremiumSymbolPainter oldDelegate) =>
+      isWinning != oldDelegate.isWinning ||
+      isNearMiss != oldDelegate.isNearMiss ||
+      winPulse != oldDelegate.winPulse ||
+      symbol.id != oldDelegate.symbol.id;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -5406,199 +5532,171 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     bool isNearMiss = false,
   }) {
     final symbol = SlotSymbol.getSymbol(symbolId);
-    final fontSize = (cellSize * 0.5).clamp(12.0, 60.0);
 
-    // Enhanced glow for winning symbols or near miss
-    List<Color> glowColors;
-    if (isNearMiss) {
-      // Near miss - desaturated red tint
-      glowColors = [
-        const Color(0xFFFF4060).withOpacity(0.7),
-        const Color(0xFF802030),
-        const Color(0xFF401020),
-      ];
-    } else if (isWinning) {
-      glowColors = [
-        symbol.glowColor.withOpacity(0.8),
-        symbol.gradientColors.first,
-        symbol.gradientColors.last,
-      ];
-    } else {
-      glowColors = symbol.gradientColors;
+    // Custom artwork takes priority
+    if (symbol.imagePath != null && symbol.imagePath!.isNotEmpty) {
+      return _clipForShape(
+        symbol.shape,
+        Stack(
+          children: [
+            Positioned.fill(
+              child: Image.file(
+                File(symbol.imagePath!),
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => _buildPremiumSymbol(symbol, cellSize, isWinning, isSpinning, isNearMiss),
+              ),
+            ),
+            if (isWinning) _buildWinShimmer(cellSize),
+          ],
+        ),
+      );
     }
 
-    final shapeRadius = _borderRadiusForShape(symbol.shape);
+    return _buildPremiumSymbol(symbol, cellSize, isWinning, isSpinning, isNearMiss);
+  }
 
+  Widget _buildPremiumSymbol(SlotSymbol symbol, double cellSize, bool isWinning, bool isSpinning, bool isNearMiss) {
     return _clipForShape(
       symbol.shape,
-      Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: glowColors,
+      CustomPaint(
+        painter: _PremiumSymbolPainter(
+          symbol: symbol,
+          isWinning: isWinning,
+          isNearMiss: isNearMiss,
+          winPulse: isWinning ? _winPulseAnimation.value : 0.0,
         ),
-        borderRadius: shapeRadius,
-        boxShadow: isWinning
-            ? [
-                BoxShadow(
-                  color: symbol.glowColor.withOpacity(0.6),
-                  blurRadius: 8,
-                  spreadRadius: 1,
-                ),
-              ]
-            : isNearMiss
-                ? [
-                    BoxShadow(
-                      color: const Color(0xFFFF4060).withOpacity(0.5),
-                      blurRadius: 10,
-                      spreadRadius: 2,
-                    ),
-                  ]
-                : null,
-      ),
-      child: Stack(
-        children: [
-          // Inner glow for special symbols
-          if (symbol.isSpecial)
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    colors: [
-                      symbol.glowColor.withOpacity(isSpinning ? 0.1 : 0.3),
-                      Colors.transparent,
-                    ],
-                  ),
-                  borderRadius: shapeRadius,
-                ),
-              ),
+        child: Stack(
+          children: [
+            // Canvas-drawn symbol icon centered
+            Center(
+              child: _buildSymbolIcon(symbol, cellSize, isWinning, isNearMiss),
             ),
-          // Symbol content: artwork image (if imported) or text fallback
-          if (symbol.imagePath != null && symbol.imagePath!.isNotEmpty)
-            Positioned.fill(
-              child: Padding(
-                padding: const EdgeInsets.all(2),
-                child: Image.file(
-                  File(symbol.imagePath!),
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, _, _) => Center(
-                    child: Text(symbol.name, style: TextStyle(
-                      fontSize: fontSize * 0.5, fontWeight: FontWeight.bold, color: Colors.white,
-                    )),
-                  ),
-                ),
+            // Win shimmer
+            if (isWinning) _buildWinShimmer(cellSize),
+            // Near miss overlay
+            if (isNearMiss) _buildNearMissOverlay(cellSize),
+            // Label badge at top
+            _buildLabelBadge(symbol, cellSize),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Premium symbol icon — drawn with proper typography and effects
+  Widget _buildSymbolIcon(SlotSymbol symbol, double cellSize, bool isWinning, bool isNearMiss) {
+    final iconSize = (cellSize * 0.42).clamp(14.0, 52.0);
+    final displayChar = symbol.displayChar;
+
+    // Special symbols get larger, more prominent display
+    final scale = symbol.isSpecial ? 1.25 : 1.0;
+    final effectiveSize = iconSize * scale;
+
+    return Padding(
+      padding: EdgeInsets.only(top: cellSize * 0.08),
+      child: Text(
+        displayChar,
+        style: TextStyle(
+          fontSize: effectiveSize,
+          fontWeight: FontWeight.w900,
+          color: Colors.white,
+          height: 1.0,
+          shadows: [
+            // Deep shadow for 3D depth
+            Shadow(
+              color: Colors.black.withOpacity(0.8),
+              blurRadius: 4,
+              offset: const Offset(1.5, 2),
+            ),
+            // Symbol glow
+            Shadow(
+              color: symbol.glowColor.withOpacity(isWinning ? 0.9 : 0.5),
+              blurRadius: isWinning ? 16 : 8,
+            ),
+            // Secondary glow for specials
+            if (symbol.isSpecial)
+              Shadow(
+                color: symbol.gradientColors.first.withOpacity(0.4),
+                blurRadius: 20,
               ),
-            )
-          else
-          Center(
-            child: Text(
-              symbol.name,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: fontSize * 0.5, // Smaller for text names
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                shadows: [
-                  Shadow(color: Colors.black.withOpacity(0.6), blurRadius: 3, offset: const Offset(1, 1)),
-                  if (isWinning || symbol.isSpecial)
-                    Shadow(color: symbol.glowColor.withOpacity(0.8), blurRadius: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWinShimmer(double cellSize) {
+    return Positioned.fill(
+      child: AnimatedBuilder(
+        animation: _winPulseAnimation,
+        builder: (context, child) {
+          return Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment(-1.5 + _winPulseAnimation.value * 3, -1),
+                end: Alignment(-0.5 + _winPulseAnimation.value * 3, 1),
+                colors: [
+                  Colors.transparent,
+                  Colors.white.withOpacity(0.08),
+                  Colors.white.withOpacity(0.2),
+                  Colors.white.withOpacity(0.08),
+                  Colors.transparent,
                 ],
+                stops: const [0.0, 0.35, 0.5, 0.65, 1.0],
               ),
             ),
-          ),
-          // Win shimmer effect
-          if (isWinning)
-            Positioned.fill(
-              child: AnimatedBuilder(
-                animation: _winPulseAnimation,
-                builder: (context, child) {
-                  return Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment(-1 + _winPulseAnimation.value * 2, -1),
-                        end: Alignment(1 + _winPulseAnimation.value * 2, 1),
-                        colors: [
-                          Colors.transparent,
-                          Colors.white.withOpacity(0.15),
-                          Colors.transparent,
-                        ],
-                        stops: const [0.0, 0.5, 1.0],
-                      ),
-                      borderRadius: shapeRadius,
-                    ),
-                  );
-                },
-              ),
-            ),
-          // Near miss X overlay
-          if (isNearMiss)
-            Positioned.fill(
-              child: Center(
-                child: Text(
-                  '✕',
-                  style: TextStyle(
-                    fontSize: fontSize * 1.2,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFFFF4060).withOpacity(0.9),
-                    shadows: const [
-                      Shadow(
-                        color: Color(0xFFFF4060),
-                        blurRadius: 12,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          // ═══════════════════════════════════════════════════════════════════
-          // SYMBOL TYPE LABEL - Always visible at top of each cell
-          // Shows: WILD, SCAT, BONUS, HP1, HP2, MP1, MP2, LP1, LP2, LP3
-          // ═══════════════════════════════════════════════════════════════════
-          Positioned(
-            top: 2,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(3),
-                  border: Border.all(
-                    color: symbol.labelColor.withOpacity(0.8),
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: symbol.labelColor.withOpacity(0.5),
-                      blurRadius: 4,
-                    ),
-                  ],
-                ),
-                child: Text(
-                  symbol.shortLabel,
-                  style: TextStyle(
-                    fontSize: (cellSize * 0.18).clamp(8.0, 14.0),
-                    fontWeight: FontWeight.w900,
-                    color: symbol.labelColor,
-                    letterSpacing: 0.5,
-                    shadows: [
-                      Shadow(
-                        color: Colors.black,
-                        blurRadius: 2,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+          );
+        },
       ),
-    ),
+    );
+  }
+
+  Widget _buildNearMissOverlay(double cellSize) {
+    final fontSize = (cellSize * 0.5).clamp(12.0, 60.0);
+    return Positioned.fill(
+      child: Center(
+        child: Text(
+          '✕',
+          style: TextStyle(
+            fontSize: fontSize * 1.2,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFFFF4060).withOpacity(0.9),
+            shadows: const [
+              Shadow(color: Color(0xFFFF4060), blurRadius: 12),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLabelBadge(SlotSymbol symbol, double cellSize) {
+    return Positioned(
+      top: 2,
+      left: 0,
+      right: 0,
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.75),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: symbol.labelColor.withOpacity(0.6),
+              width: 0.5,
+            ),
+          ),
+          child: Text(
+            symbol.shortLabel,
+            style: TextStyle(
+              fontSize: (cellSize * 0.15).clamp(7.0, 12.0),
+              fontWeight: FontWeight.w800,
+              color: symbol.labelColor.withOpacity(0.9),
+              letterSpacing: 0.8,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

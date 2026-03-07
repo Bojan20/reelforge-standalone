@@ -917,12 +917,18 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
       onTap: () {
         if (isEditing) return; // Don't interfere with editing
         // Toggle selection: if already selected, unselect
-        if (_selectedEventId == event.id) {
+        final wasSelected = _selectedEventId == event.id;
+        if (wasSelected) {
           _setSelectedEventId(null); // Unselect
         } else {
           _setSelectedEventId(event.id); // Select
         }
-        setState(() {});
+        setState(() {
+          // Auto-collapse events list to show detail panel with Add Layer
+          if (!wasSelected && _eventsExpanded) {
+            _eventsExpanded = false;
+          }
+        });
       },
       onDoubleTap: () {
         // Enter edit mode on double-tap
@@ -1200,7 +1206,9 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
 
     // Select the event and switch to editor view
     _setSelectedEventId(event.id);
-    setState(() {});
+    setState(() {
+      _eventsExpanded = false;
+    });
 
     widget.onToast?.call('Added "$displayName" to "${event.name}"');
   }
@@ -1236,7 +1244,9 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
 
     // Select and switch to editor
     _setSelectedEventId(newEvent.id);
-    setState(() {});
+    setState(() {
+      _eventsExpanded = false;
+    });
 
     widget.onToast?.call('Created event "$displayName"');
   }
@@ -2660,7 +2670,9 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
                 );
                 middleware.addCompositeEvent(newEvent);
                 _setSelectedEventId(newEvent.id);
-                setState(() {});
+                setState(() {
+                  _eventsExpanded = false;
+                });
               }
             },
             child: const Icon(Icons.add, size: 14, color: Colors.white38),

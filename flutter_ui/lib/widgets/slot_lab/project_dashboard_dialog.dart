@@ -1610,7 +1610,6 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
         final contexts = projectProvider.contexts.length;
         final events = middlewareProvider.compositeEvents.length;
         final counts = projectProvider.getAudioAssignmentCounts();
-        final symbolAudio = counts['symbol_total'] ?? 0;
         final musicAudio = counts['music_total'] ?? 0;
 
         // Get SlotLabProvider for session data
@@ -1637,9 +1636,7 @@ class _ProjectDashboardDialogState extends State<ProjectDashboardDialog>
                   _buildStatCard('Symbols', '$symbols', Icons.category, FluxForgeTheme.accentPurple),
                   _buildStatCard('Contexts', '$contexts', Icons.layers, FluxForgeTheme.accentCyan),
                   _buildStatCard('Events', '$events', Icons.event, FluxForgeTheme.accentOrange),
-                  _buildStatCard('Symbol Audio', '$symbolAudio', Icons.music_note, FluxForgeTheme.accentBlue),
                   _buildStatCard('Music Audio', '$musicAudio', Icons.audiotrack, FluxForgeTheme.accentGreen),
-                  _buildStatCard('Total Audio', '${symbolAudio + musicAudio}', Icons.library_music, FluxForgeTheme.textPrimary),
                 ],
               ),
 

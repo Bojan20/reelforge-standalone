@@ -9,6 +9,7 @@ import '../../middleware/stinger_preview_panel.dart';
 import '../../middleware/music_transition_preview_panel.dart';
 import '../../middleware/music_segment_looping_panel.dart';
 import '../../middleware/beat_grid_editor.dart';
+import '../../middleware/tempo_state_panel.dart';
 
 class SlotLabMusicTabContent extends StatelessWidget {
   final SlotLabMusicSubTab subTab;
@@ -23,6 +24,7 @@ class SlotLabMusicTabContent extends StatelessWidget {
       SlotLabMusicSubTab.transitions => const _TransitionsPanel(),
       SlotLabMusicSubTab.looping => const _LoopingPanel(),
       SlotLabMusicSubTab.beatGrid => const _BeatGridPanel(),
+      SlotLabMusicSubTab.tempoStates => const _TempoStatesPanel(),
     };
   }
 }
@@ -87,6 +89,19 @@ class _TransitionsPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) => MusicTransitionPreviewPanel(
+        height: constraints.maxHeight.isFinite ? constraints.maxHeight : 300,
+      ),
+    );
+  }
+}
+
+class _TempoStatesPanel extends StatelessWidget {
+  const _TempoStatesPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => TempoStatePanel(
         height: constraints.maxHeight.isFinite ? constraints.maxHeight : 300,
       ),
     );
