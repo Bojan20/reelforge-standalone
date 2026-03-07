@@ -413,6 +413,15 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
             ),
           ],
         ),
+        const SizedBox(height: 4),
+        // Row 3: Audio stage
+        _buildAudioStageField(
+          value: config.audioStage,
+          color: color,
+          onChanged: (stage) {
+            onChanged(config.copyWith(audioStage: stage));
+          },
+        ),
       ],
     );
   }
@@ -561,6 +570,68 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildAudioStageField({
+    required String? value,
+    required Color color,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Row(
+      children: [
+        Icon(Icons.volume_up, color: color.withOpacity(0.5), size: 10),
+        const SizedBox(width: 4),
+        Text(
+          'AUDIO',
+          style: TextStyle(
+            color: color.withOpacity(0.5),
+            fontSize: 8,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Container(
+            height: 20,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(
+                color: value != null && value.isNotEmpty
+                    ? color.withOpacity(0.3)
+                    : Colors.white.withOpacity(0.06),
+              ),
+            ),
+            child: TextField(
+              controller: TextEditingController(text: value ?? ''),
+              style: TextStyle(color: color, fontSize: 9),
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                hintText: 'stage name...',
+                hintStyle: TextStyle(
+                  color: color.withOpacity(0.2),
+                  fontSize: 9,
+                ),
+              ),
+              onSubmitted: (val) {
+                final stage = val.trim().toUpperCase();
+                onChanged(stage.isEmpty ? '' : stage);
+              },
+            ),
+          ),
+        ),
+        if (value != null && value.isNotEmpty) ...[
+          const SizedBox(width: 2),
+          GestureDetector(
+            onTap: () => onChanged(''),
+            child: Icon(Icons.close, color: color.withOpacity(0.4), size: 10),
+          ),
+        ],
+      ],
     );
   }
 

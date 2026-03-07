@@ -832,7 +832,7 @@ class GameFlowProvider extends ChangeNotifier {
     );
 
     // Fire transition audio
-    if (config.audioStage != null) {
+    if (config.audioStage != null && config.audioStage!.isNotEmpty) {
       _fireAudioStage(config.audioStage!);
     }
     _fireAudioStage('CONTEXT_${_stateKey(from)}_TO_${_stateKey(to)}');
@@ -873,7 +873,7 @@ class GameFlowProvider extends ChangeNotifier {
     );
 
     // Fire transition audio
-    if (config.audioStage != null) {
+    if (config.audioStage != null && config.audioStage!.isNotEmpty) {
       _fireAudioStage(config.audioStage!);
     }
     _fireAudioStage('CONTEXT_${_stateKey(from)}_TO_${_stateKey(to)}');

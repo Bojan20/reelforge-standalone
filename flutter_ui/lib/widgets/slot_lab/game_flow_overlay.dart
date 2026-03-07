@@ -1269,25 +1269,37 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
 
   bool get _isExit => widget.transition.phase == TransitionPhase.exiting;
 
+  /// Duration scale factor relative to default 3000ms
+  double get _dScale {
+    final ms = widget.transition.config.durationMs.clamp(500, 30000);
+    return ms / 3000.0;
+  }
+
+  int _scaled(int baseMs) => (_dScale * baseMs).round();
+
+  TransitionStyle get _style => widget.transition.config.style;
+
   @override
   void initState() {
     super.initState();
 
+    final s = _dScale;
+
     // ═══════════════════════════════════════════════════════════════════
-    // PHASE 1: Background blackout (0ms → 350ms)
+    // PHASE 1: Background blackout
     // ═══════════════════════════════════════════════════════════════════
     _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 350),
+      duration: Duration(milliseconds: _scaled(350)),
     );
     _fadeAnim = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
 
     // ═══════════════════════════════════════════════════════════════════
-    // PHASE 2: Burst rays (150ms → 900ms) — radiating lines behind plaque
+    // PHASE 2: Burst rays — radiating lines behind plaque
     // ═══════════════════════════════════════════════════════════════════
     _burstController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 750),
+      duration: Duration(milliseconds: _scaled(750)),
     );
     _burstExpand = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _burstController, curve: Curves.easeOutCubic),
@@ -1297,42 +1309,31 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
     );
 
     // ═══════════════════════════════════════════════════════════════════
-    // PHASE 3: Plaque entrance (250ms → 950ms) — dramatic elasticOut
+    // PHASE 3: Plaque entrance — style-dependent animation
     // ═══════════════════════════════════════════════════════════════════
     _plaqueController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 700),
+      duration: Duration(milliseconds: _scaled(700)),
     );
-    _plaqueScale = Tween<double>(begin: 0.3, end: 1.0).animate(
-      CurvedAnimation(parent: _plaqueController, curve: Curves.elasticOut),
-    );
-    _plaqueSlide = Tween<double>(begin: -100.0, end: 0.0).animate(
-      CurvedAnimation(parent: _plaqueController, curve: Curves.easeOutBack),
-    );
-    _plaqueOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _plaqueController,
-        curve: const Interval(0.0, 0.4, curve: Curves.easeIn),
-      ),
-    );
+    _setupPlaqueAnimations();
 
     // ═══════════════════════════════════════════════════════════════════
-    // PHASE 4: Glow pulse (continuous) — breathing effect on glow layers
+    // PHASE 4: Glow pulse (continuous) — breathing effect
     // ═══════════════════════════════════════════════════════════════════
     _glowPulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1600),
+      duration: Duration(milliseconds: (1600 * s).round().clamp(800, 4000)),
     );
     _glowPulse = Tween<double>(begin: 0.7, end: 1.0).animate(
       CurvedAnimation(parent: _glowPulseController, curve: Curves.easeInOut),
     );
 
     // ═══════════════════════════════════════════════════════════════════
-    // PHASE 5: Shimmer sweep (1200ms → loops) — glossy highlight sweep
+    // PHASE 5: Shimmer sweep (loops) — glossy highlight
     // ═══════════════════════════════════════════════════════════════════
     _shimmerController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2000),
+      duration: Duration(milliseconds: (2000 * s).round().clamp(1000, 5000)),
     );
     _shimmerPosition = Tween<double>(begin: -1.0, end: 2.0).animate(
       CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut),
@@ -1350,24 +1351,95 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
     );
 
     // ═══════════════════════════════════════════════════════════════════
-    // STAGGERED LAUNCH SEQUENCE
+    // STAGGERED LAUNCH SEQUENCE (scaled to duration)
     // ═══════════════════════════════════════════════════════════════════
     _fadeController.forward();
-    Future.delayed(const Duration(milliseconds: 150), () {
+    Future.delayed(Duration(milliseconds: _scaled(150)), () {
       if (mounted) _burstController.forward();
     });
-    Future.delayed(const Duration(milliseconds: 250), () {
+    Future.delayed(Duration(milliseconds: _scaled(250)), () {
       if (mounted) _plaqueController.forward();
     });
-    Future.delayed(const Duration(milliseconds: 800), () {
+    Future.delayed(Duration(milliseconds: _scaled(800)), () {
       if (mounted) {
         _glowPulseController.repeat(reverse: true);
         _hintBlinkController.repeat(reverse: true);
       }
     });
-    Future.delayed(const Duration(milliseconds: 1200), () {
+    Future.delayed(Duration(milliseconds: _scaled(1200)), () {
       if (mounted) _shimmerController.repeat();
     });
+  }
+
+  /// Setup plaque entrance animations based on TransitionStyle
+  void _setupPlaqueAnimations() {
+    switch (_style) {
+      case TransitionStyle.fade:
+        // Pure fade — no movement, no scale
+        _plaqueScale = Tween<double>(begin: 1.0, end: 1.0).animate(_plaqueController);
+        _plaqueSlide = Tween<double>(begin: 0.0, end: 0.0).animate(_plaqueController);
+        _plaqueOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+          CurvedAnimation(parent: _plaqueController, curve: Curves.easeIn),
+        );
+
+      case TransitionStyle.slideUp:
+        // Slide from below with elastic bounce
+        _plaqueScale = Tween<double>(begin: 0.95, end: 1.0).animate(
+          CurvedAnimation(parent: _plaqueController, curve: Curves.easeOut),
+        );
+        _plaqueSlide = Tween<double>(begin: 200.0, end: 0.0).animate(
+          CurvedAnimation(parent: _plaqueController, curve: Curves.easeOutBack),
+        );
+        _plaqueOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+          CurvedAnimation(
+            parent: _plaqueController,
+            curve: const Interval(0.0, 0.3, curve: Curves.easeIn),
+          ),
+        );
+
+      case TransitionStyle.slideDown:
+        // Slide from above, drop-in feel
+        _plaqueScale = Tween<double>(begin: 0.95, end: 1.0).animate(
+          CurvedAnimation(parent: _plaqueController, curve: Curves.easeOut),
+        );
+        _plaqueSlide = Tween<double>(begin: -200.0, end: 0.0).animate(
+          CurvedAnimation(parent: _plaqueController, curve: Curves.easeOutCubic),
+        );
+        _plaqueOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+          CurvedAnimation(
+            parent: _plaqueController,
+            curve: const Interval(0.0, 0.3, curve: Curves.easeIn),
+          ),
+        );
+
+      case TransitionStyle.zoom:
+        // Explosive zoom from center
+        _plaqueScale = Tween<double>(begin: 0.0, end: 1.0).animate(
+          CurvedAnimation(parent: _plaqueController, curve: Curves.elasticOut),
+        );
+        _plaqueSlide = Tween<double>(begin: 0.0, end: 0.0).animate(_plaqueController);
+        _plaqueOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+          CurvedAnimation(
+            parent: _plaqueController,
+            curve: const Interval(0.0, 0.2, curve: Curves.easeIn),
+          ),
+        );
+
+      case TransitionStyle.swoosh:
+        // Fast horizontal sweep from left with slight rotation
+        _plaqueScale = Tween<double>(begin: 0.8, end: 1.0).animate(
+          CurvedAnimation(parent: _plaqueController, curve: Curves.easeOutBack),
+        );
+        _plaqueSlide = Tween<double>(begin: -400.0, end: 0.0).animate(
+          CurvedAnimation(parent: _plaqueController, curve: Curves.easeOutCubic),
+        );
+        _plaqueOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+          CurvedAnimation(
+            parent: _plaqueController,
+            curve: const Interval(0.0, 0.25, curve: Curves.easeIn),
+          ),
+        );
+    }
   }
 
   @override
@@ -1512,11 +1584,13 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
                       ),
                     ),
 
-                    // LAYER 4: Main plaque with slide + scale entrance
+                    // LAYER 4: Main plaque with style-dependent entrance
                     Opacity(
                       opacity: _plaqueOpacity.value,
                       child: Transform.translate(
-                        offset: Offset(0, _plaqueSlide.value),
+                        offset: _style == TransitionStyle.swoosh
+                            ? Offset(_plaqueSlide.value, 0)
+                            : Offset(0, _plaqueSlide.value),
                         child: Transform.scale(
                           scale: _plaqueScale.value,
                           child: _buildPremiumPlaque(t, canDismiss),
