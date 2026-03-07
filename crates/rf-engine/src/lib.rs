@@ -92,6 +92,9 @@ pub mod wave_cache;
 // Phase 15: Stage Audio Integration
 pub mod stage_audio;
 
+// Tempo State Transitions (Wwise-style interactive music for SlotLab)
+pub mod tempo_state;
+
 // Phase 16: Middleware Integration
 pub mod middleware_integration;
 
@@ -242,6 +245,9 @@ pub use wave_cache::{
 
 // Re-exports: Phase 15 - Stage Audio
 pub use stage_audio::{StageAudioEngine, StageCue};
+
+// Re-exports: Tempo State Transitions
+pub use tempo_state::{EnginePhase, TempoState, TempoStateEngine, TempoTransitionRule, VoiceGains};
 
 // Re-exports: Phase 16 - Middleware Integration
 pub use middleware_integration::{

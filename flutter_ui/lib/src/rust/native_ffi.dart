@@ -26197,5 +26197,212 @@ extension TimeStretchFFI on NativeFFI {
       return null;
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // TEMPO STATE ENGINE (Wwise-style interactive music)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// Initialize the Tempo State Engine
+  bool tempoStateInit(double sourceBpm, int beatsPerBar, double sampleRate) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Double, Uint32, Double),
+          int Function(double, int, double)>(
+        'tempo_state_init',
+      );
+      return fn(sourceBpm, beatsPerBar, sampleRate) == 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Destroy the Tempo State Engine
+  void tempoStateDestroy() {
+    try {
+      final fn = _lib.lookupFunction<Void Function(), void Function()>(
+        'tempo_state_destroy',
+      );
+      fn();
+    } catch (_) {}
+  }
+
+  /// Check if engine is initialized
+  bool tempoStateIsInitialized() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'tempo_state_is_initialized',
+      );
+      return fn() == 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Add a tempo state. Returns state ID (0 on failure).
+  int tempoStateAdd(String name, double targetBpm) {
+    try {
+      final fn = _lib.lookupFunction<
+          Uint32 Function(Pointer<Utf8>, Double),
+          int Function(Pointer<Utf8>, double)>(
+        'tempo_state_add',
+      );
+      return withNativeString(name, (ptr) => fn(ptr, targetBpm));
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Set the initial active state
+  bool tempoStateSetInitial(String name) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)>(
+        'tempo_state_set_initial',
+      );
+      return withNativeString(name, (ptr) => fn(ptr)) == 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Set a transition rule between two states
+  ///
+  /// syncMode: 0=immediate, 1=beat, 2=bar, 3=phrase, 4=downbeat
+  /// rampType: 0=instant, 1=linear, 2=sCurve
+  /// fadeCurve: 0=linear, 1=equalPower, 2=sCurve
+  bool tempoStateSetTransition(
+    int fromStateId, int toStateId,
+    int syncMode, int durationBars,
+    int rampType, int fadeCurve,
+  ) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Uint32, Uint32, Uint32, Uint32, Uint32, Uint32),
+          int Function(int, int, int, int, int, int)>(
+        'tempo_state_set_transition',
+      );
+      return fn(fromStateId, toStateId, syncMode, durationBars, rampType, fadeCurve) == 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Set the default transition rule
+  bool tempoStateSetDefaultTransition(
+    int syncMode, int durationBars,
+    int rampType, int fadeCurve,
+  ) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Uint32, Uint32, Uint32, Uint32),
+          int Function(int, int, int, int)>(
+        'tempo_state_set_default_transition',
+      );
+      return fn(syncMode, durationBars, rampType, fadeCurve) == 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Trigger a transition to a new tempo state
+  bool tempoStateTrigger(String name) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)>(
+        'tempo_state_trigger',
+      );
+      return withNativeString(name, (ptr) => fn(ptr)) == 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Trigger a transition by state ID
+  bool tempoStateTriggerById(int stateId) {
+    try {
+      final fn = _lib.lookupFunction<
+          Int32 Function(Uint32),
+          int Function(int)>(
+        'tempo_state_trigger_by_id',
+      );
+      return fn(stateId) == 1;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Get current BPM
+  double tempoStateGetBpm() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'tempo_state_get_bpm',
+      );
+      return fn();
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  /// Get current beat position within the bar
+  double tempoStateGetBeat() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'tempo_state_get_beat',
+      );
+      return fn();
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  /// Get current bar number
+  int tempoStateGetBar() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>(
+        'tempo_state_get_bar',
+      );
+      return fn();
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Get engine phase: 0=steady, 1=waitingForSync, 2=crossfading
+  int tempoStateGetPhase() {
+    try {
+      final fn = _lib.lookupFunction<Uint32 Function(), int Function()>(
+        'tempo_state_get_phase',
+      );
+      return fn();
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  /// Get crossfade progress (0.0-1.0)
+  double tempoStateGetCrossfadeProgress() {
+    try {
+      final fn = _lib.lookupFunction<Double Function(), double Function()>(
+        'tempo_state_get_crossfade_progress',
+      );
+      return fn();
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  /// Reset tempo state engine
+  bool tempoStateReset() {
+    try {
+      final fn = _lib.lookupFunction<Int32 Function(), int Function()>(
+        'tempo_state_reset',
+      );
+      return fn() == 1;
+    } catch (e) {
+      return false;
+    }
+  }
 }
 

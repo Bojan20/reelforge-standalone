@@ -95,6 +95,10 @@ pub mod elastic_pro; // Ultimate time-stretching (STN + Phase Vocoder + Formant)
 pub mod pitch;
 pub mod time_stretch; // P12.1.4: Simple phase vocoder for animation timing
 pub mod timestretch;
+
+// Tempo State Transitions (Wwise-style interactive music)
+pub mod beat_grid; // Real-time beat/bar tracking + tempo ramps
+pub mod crossfade; // Equal-power/S-curve crossfade processor
 pub mod transient;
 pub mod wavelet; // Multi-resolution analysis (DWT, CWT, CQT) // ULTIMATIVNI Time Stretch Engine (NSGT + RTPGHI + STN + Formant)
 
@@ -171,6 +175,12 @@ pub use elastic_pro::{
 
 // Re-export Simple Time Stretch (P12.1.4: Animation timing)
 pub use time_stretch::{SimplePhaseVocoder, audio_duration_ms, calculate_stretch_factor};
+
+// Re-export Beat Grid Tracker (Tempo State Transitions)
+pub use beat_grid::{BeatGridTracker, BeatPosition, SyncMode, TempoRampType};
+
+// Re-export Crossfade Processor (Tempo State Transitions)
+pub use crossfade::{CrossfadeProcessor, CrossfadeState, FadeCurve};
 
 // Re-export LUFS and True Peak metering (ITU-R BS.1770-4 / EBU R128)
 pub use metering::{

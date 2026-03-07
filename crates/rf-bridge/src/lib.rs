@@ -76,6 +76,7 @@ pub mod sidechain_ffi; // ✅ P0.5: Sidechain routing
 pub mod slot_lab_ffi;
 pub mod sss_ffi;
 pub mod stage_ffi;
+pub mod tempo_state_ffi; // Wwise-style tempo state transitions for SlotLab
 pub mod time_stretch_ffi; // P12.1.4: Simple time-stretch for animation timing
 pub mod timestretch;
 mod transport;
