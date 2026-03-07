@@ -26,7 +26,7 @@
 - SCATTER_COLLECT → SCATTER_WIN rename (all files)
 
 ### QA Audit Results (P0-P3)
-- **P0:** Audio thread allocs/locks in playback.rs (architectural — future refactor)
+- **P0 FIXED:** Audio thread blocking locks — 3× bus_states.read() → try_read() with fallbacks in process()
 - **P1 FIXED:** Win tier hardcoding eliminated
 - **P1 VERIFIED:** HardwareKeyboard.instance — all 100+ usages are in valid contexts (Listener/keyboard handlers)
 - **P2 FIXED:** OutputBus.index (already clean), MixerProvider old methods (setVolume→setChannelVolume, setPan→setChannelPan)
