@@ -9822,7 +9822,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// Config tab in right panel — scene transitions + win tier configuration
   /// CONFIG tab: which section is expanded (null = all collapsed)
   /// Uses ValueNotifier so it works inside _StableTabSwitcher cached widgets
-  final ValueNotifier<int?> _configExpandedSection = ValueNotifier<int?>(0);
+  final ValueNotifier<int?> _configExpandedSection = ValueNotifier<int?>(null);
 
   Widget _buildRightConfigContent() {
     return Consumer<SlotLabProjectProvider>(

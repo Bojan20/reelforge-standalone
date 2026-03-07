@@ -599,9 +599,8 @@ class DawLowerZoneController extends ChangeNotifier {
     if (_state.splitEnabled || _state.panelCount > 1) {
       _state = _state.copyWith(splitEnabled: false, panelCount: 1);
     }
-    // Always start on BROWSE tab — EDIT tab panels can render blank on cold start
-    // before track/DSP state is initialized. User navigates to EDIT explicitly.
-    if (_state.superTab == DawSuperTab.edit) {
+    // Always start on first tab (BROWSE) — fresh state on each launch
+    if (_state.superTab != DawSuperTab.browse) {
       _state = _state.copyWith(superTab: DawSuperTab.browse);
     }
     notifyListeners();

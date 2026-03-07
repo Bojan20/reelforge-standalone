@@ -338,6 +338,10 @@ class SlotLabLowerZoneController extends ChangeNotifier {
   /// Returns true if state was loaded from storage, false if using defaults
   Future<bool> loadFromStorage() async {
     _state = await LowerZonePersistenceService.instance.loadSlotLabState();
+    // Always start on first tab (STAGES) — fresh state on each launch
+    if (_state.superTab != SlotLabSuperTab.stages) {
+      _state = _state.copyWith(superTab: SlotLabSuperTab.stages);
+    }
     notifyListeners();
     // If height is still default, it means no persisted state was found
     return _state.height != kLowerZoneDefaultHeight;
