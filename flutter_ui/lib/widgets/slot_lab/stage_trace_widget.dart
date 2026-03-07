@@ -5,12 +5,15 @@
 /// - Audio clip regions with waveforms per stage
 /// - Time ruler at the top
 /// - Playhead following current stage
-/// - Drag & drop audio assignment
+/// - Zoom in/out (G/H keys, scroll wheel)
 /// - Color-coded by stage group
+/// - Real-time updates during spin playback
 library;
 
 import 'dart:typed_data';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../services/event_registry.dart';
 import '../../src/rust/native_ffi.dart';
@@ -147,25 +150,34 @@ class StageTraceWidget extends StatefulWidget {
 
 class _StageTraceWidgetState extends State<StageTraceWidget>
     with SingleTickerProviderStateMixin {
-  List<SlotLabStageEvent> _stages = [];
-  int _currentStageIndex = -1;
-  bool _isPlaying = false;
-
   // Waveform cache per stage type
   final Map<String, Float32List?> _waveformCache = {};
 
   // Scroll controller for timeline
   final ScrollController _verticalScroll = ScrollController();
-  final ScrollController _horizontalScroll = ScrollController();
 
   // Playhead animation
   late AnimationController _playheadPulse;
+
+  // Zoom state
+  double _zoomLevel = 1.0;
+  double _panOffset = 0.0; // 0..1 scroll position
+  static const double _minZoom = 1.0;
+  static const double _maxZoom = 8.0;
+  static const double _zoomStep = 0.5;
+
+  // Focus for keyboard
+  final FocusNode _focusNode = FocusNode();
+
+  // Track header width
+  static const double _headerWidth = 100.0;
+  static const double _rowHeight = 36.0;
 
   // Group definitions
   static const Map<String, String> _stageToGroup = {
     'ui_spin_press': 'Spin',
     'reel_spinning': 'Spin',
-    'reel_stop': 'Spin', // prefix match
+    'reel_stop': 'Spin',
     'spin_end': 'Spin',
     'anticipation_on': 'Anticipation',
     'anticipation_off': 'Anticipation',
@@ -235,8 +247,8 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
       vsync: this,
       duration: const Duration(milliseconds: 800),
     )..repeat(reverse: true);
-    // Load initial data
-    _onProviderUpdate();
+    // Preload waveforms for existing stages
+    _preloadWaveforms(widget.provider.lastStages);
   }
 
   @override
@@ -253,20 +265,20 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
     widget.provider.removeListener(_onProviderUpdate);
     _playheadPulse.dispose();
     _verticalScroll.dispose();
-    _horizontalScroll.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
   void _onProviderUpdate() {
     if (!mounted) return;
-    final newStages = widget.provider.lastStages;
-    setState(() {
-      _stages = newStages;
-      _isPlaying = widget.provider.isPlayingStages;
-      _currentStageIndex = widget.provider.currentStageIndex;
-    });
-    // Preload waveforms for new stages
-    for (final stage in newStages) {
+    // Preload waveforms for any new stages
+    _preloadWaveforms(widget.provider.lastStages);
+    // Rebuild — provider data is read directly in build via ListenableBuilder
+    setState(() {});
+  }
+
+  void _preloadWaveforms(List<SlotLabStageEvent> stages) {
+    for (final stage in stages) {
       if (!_waveformCache.containsKey(stage.stageType)) {
         _loadWaveform(stage.stageType);
       }
@@ -295,9 +307,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
 
   String _getGroupForStage(String stageType) {
     final lower = stageType.toLowerCase();
-    // Exact match first
     if (_stageToGroup.containsKey(lower)) return _stageToGroup[lower]!;
-    // Prefix match
     for (final entry in _stageToGroup.entries) {
       if (lower.startsWith(entry.key)) return entry.value;
     }
@@ -319,23 +329,111 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
     return '${(ms / 1000).toStringAsFixed(2)}s';
   }
 
+  void _zoomIn() {
+    setState(() {
+      _zoomLevel = (_zoomLevel + _zoomStep).clamp(_minZoom, _maxZoom);
+    });
+  }
+
+  void _zoomOut() {
+    setState(() {
+      _zoomLevel = (_zoomLevel - _zoomStep).clamp(_minZoom, _maxZoom);
+      // Reset pan if we're back to 1x
+      if (_zoomLevel <= 1.0) _panOffset = 0.0;
+    });
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+
+    // G = zoom in, H = zoom out
+    if (event.logicalKey == LogicalKeyboardKey.keyG) {
+      _zoomIn();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.keyH) {
+      _zoomOut();
+      return KeyEventResult.handled;
+    }
+
+    // +/- also zoom
+    if (event.logicalKey == LogicalKeyboardKey.equal ||
+        event.logicalKey == LogicalKeyboardKey.numpadAdd) {
+      _zoomIn();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.minus ||
+        event.logicalKey == LogicalKeyboardKey.numpadSubtract) {
+      _zoomOut();
+      return KeyEventResult.handled;
+    }
+
+    // Left/Right to pan when zoomed
+    if (_zoomLevel > 1.0) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+        setState(() => _panOffset = (_panOffset - 0.05).clamp(0.0, 1.0 - 1.0 / _zoomLevel));
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+        setState(() => _panOffset = (_panOffset + 0.05).clamp(0.0, 1.0 - 1.0 / _zoomLevel));
+        return KeyEventResult.handled;
+      }
+    }
+
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0E0E14),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFF2A2A32)),
-      ),
-      child: Column(
-        children: [
-          _buildHeader(),
-          Expanded(
-            child: _stages.isEmpty ? _buildEmptyState() : _buildTimeline(),
+    // Read data directly from provider every build — always fresh
+    final stages = widget.provider.lastStages;
+    final currentStageIndex = widget.provider.currentStageIndex;
+    final isPlaying = widget.provider.isPlayingStages;
+
+    return Focus(
+      focusNode: _focusNode,
+      onKeyEvent: _handleKeyEvent,
+      child: Listener(
+        onPointerSignal: (event) {
+          if (event is PointerScrollEvent) {
+            // Ctrl+scroll or shift+scroll = zoom
+            if (HardwareKeyboard.instance.isControlPressed ||
+                HardwareKeyboard.instance.isMetaPressed) {
+              if (event.scrollDelta.dy < 0) _zoomIn();
+              if (event.scrollDelta.dy > 0) _zoomOut();
+            } else if (_zoomLevel > 1.0) {
+              // Normal scroll = pan when zoomed
+              setState(() {
+                _panOffset = (_panOffset + event.scrollDelta.dy * 0.001)
+                    .clamp(0.0, 1.0 - 1.0 / _zoomLevel);
+              });
+            }
+          }
+        },
+        child: GestureDetector(
+          onTap: () => _focusNode.requestFocus(),
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF0E0E14),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: const Color(0xFF2A2A32)),
+            ),
+            child: Column(
+              children: [
+                _buildHeader(stages, currentStageIndex, isPlaying),
+                Expanded(
+                  child: stages.isEmpty
+                      ? _buildEmptyState()
+                      : _buildTimeline(stages, currentStageIndex, isPlaying),
+                ),
+                if (widget.showMiniProgress && stages.isNotEmpty)
+                  _buildProgressBar(stages, currentStageIndex, isPlaying),
+              ],
+            ),
           ),
-          if (widget.showMiniProgress && _stages.isNotEmpty)
-            _buildProgressBar(),
-        ],
+        ),
       ),
     );
   }
@@ -344,7 +442,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
   // HEADER
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildHeader() {
+  Widget _buildHeader(List<SlotLabStageEvent> stages, int currentIdx, bool isPlaying) {
     return Container(
       height: 28,
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -356,22 +454,22 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
       child: Row(
         children: [
           Icon(
-            _isPlaying ? Icons.play_arrow : Icons.timeline,
+            isPlaying ? Icons.play_arrow : Icons.timeline,
             size: 12,
-            color: _isPlaying ? FluxForgeTheme.accentGreen : const Color(0xFF808088),
+            color: isPlaying ? FluxForgeTheme.accentGreen : const Color(0xFF808088),
           ),
           const SizedBox(width: 4),
           Text(
             'STAGE TRACE',
             style: TextStyle(
-              color: _isPlaying ? FluxForgeTheme.accentGreen : const Color(0xFFD0D0D8),
+              color: isPlaying ? FluxForgeTheme.accentGreen : const Color(0xFFD0D0D8),
               fontSize: 10,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.5,
             ),
           ),
           const SizedBox(width: 8),
-          if (_stages.isNotEmpty) ...[
+          if (stages.isNotEmpty) ...[
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
               decoration: BoxDecoration(
@@ -379,22 +477,22 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Text(
-                '${_stages.length} stages',
+                '${stages.length} stages',
                 style: const TextStyle(color: Color(0xFF4A9EFF), fontSize: 8, fontWeight: FontWeight.w600),
               ),
             ),
             const SizedBox(width: 6),
-            if (_currentStageIndex >= 0 && _currentStageIndex < _stages.length)
+            if (currentIdx >= 0 && currentIdx < stages.length)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                 decoration: BoxDecoration(
-                  color: StageConfig.instance.getColor(_stages[_currentStageIndex].stageType).withValues(alpha: 0.2),
+                  color: StageConfig.instance.getColor(stages[currentIdx].stageType).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(3),
                 ),
                 child: Text(
-                  _stages[_currentStageIndex].stageType.toUpperCase().replaceAll('_', ' '),
+                  stages[currentIdx].stageType.toUpperCase().replaceAll('_', ' '),
                   style: TextStyle(
-                    color: StageConfig.instance.getColor(_stages[_currentStageIndex].stageType),
+                    color: StageConfig.instance.getColor(stages[currentIdx].stageType),
                     fontSize: 8,
                     fontWeight: FontWeight.w700,
                   ),
@@ -402,24 +500,53 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
               ),
           ],
           const Spacer(),
-          if (_stages.isNotEmpty) ...[
-            // Total duration
-            Text(
-              _formatTime(_stages.last.timestampMs - _stages.first.timestampMs),
-              style: const TextStyle(color: Color(0xFF606068), fontSize: 8, fontFamily: 'monospace'),
+          // Zoom indicator
+          if (_zoomLevel > 1.0) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.accentCyan.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text(
+                '${_zoomLevel.toStringAsFixed(1)}x',
+                style: TextStyle(
+                  color: FluxForgeTheme.accentCyan,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'monospace',
+                ),
+              ),
             ),
-            const SizedBox(width: 8),
-            // Clear
-            GestureDetector(
-              onTap: () => setState(() {
-                _stages = [];
-                _currentStageIndex = -1;
-                _waveformCache.clear();
-              }),
-              child: const Icon(Icons.clear_all, size: 14, color: Color(0xFF606068)),
+            const SizedBox(width: 4),
+          ],
+          // Zoom buttons
+          _zoomButton(Icons.remove, _zoomOut, _zoomLevel > _minZoom),
+          const SizedBox(width: 2),
+          _zoomButton(Icons.add, _zoomIn, _zoomLevel < _maxZoom),
+          const SizedBox(width: 6),
+          if (stages.isNotEmpty) ...[
+            Text(
+              _formatTime(stages.last.timestampMs - stages.first.timestampMs),
+              style: const TextStyle(color: Color(0xFF606068), fontSize: 8, fontFamily: 'monospace'),
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _zoomButton(IconData icon, VoidCallback onTap, bool enabled) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        width: 16,
+        height: 16,
+        decoration: BoxDecoration(
+          color: enabled ? const Color(0xFF2A2A32) : Colors.transparent,
+          borderRadius: BorderRadius.circular(3),
+        ),
+        child: Icon(icon, size: 10, color: enabled ? const Color(0xFF808088) : const Color(0xFF303038)),
       ),
     );
   }
@@ -444,8 +571,29 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
             'Spin the slot to record a stage trace',
             style: TextStyle(color: Color(0xFF404048), fontSize: 9),
           ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _keyHint('G'), const Text(' zoom in  ', style: TextStyle(color: Color(0xFF404048), fontSize: 8)),
+              _keyHint('H'), const Text(' zoom out  ', style: TextStyle(color: Color(0xFF404048), fontSize: 8)),
+              _keyHint('Cmd'), const Text('+scroll zoom', style: TextStyle(color: Color(0xFF404048), fontSize: 8)),
+            ],
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _keyHint(String key) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2A32),
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(color: const Color(0xFF3A3A42)),
+      ),
+      child: Text(key, style: const TextStyle(color: Color(0xFF808088), fontSize: 7, fontWeight: FontWeight.w600)),
     );
   }
 
@@ -453,18 +601,18 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
   // DAW-STYLE TIMELINE
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildTimeline() {
-    if (_stages.isEmpty) return const SizedBox.shrink();
+  Widget _buildTimeline(List<SlotLabStageEvent> stages, int currentIdx, bool isPlaying) {
+    if (stages.isEmpty) return const SizedBox.shrink();
 
-    final startMs = _stages.first.timestampMs;
-    final endMs = _stages.last.timestampMs;
+    final startMs = stages.first.timestampMs;
+    final endMs = stages.last.timestampMs;
     final totalDuration = endMs - startMs;
-    if (totalDuration <= 0) return _buildSingleStageView();
+    if (totalDuration <= 0) return _buildSingleStageView(stages.first);
 
     // Group stages by category
     final grouped = <String, List<_StageEntry>>{};
-    for (int i = 0; i < _stages.length; i++) {
-      final stage = _stages[i];
+    for (int i = 0; i < stages.length; i++) {
+      final stage = stages[i];
       final group = _getGroupForStage(stage.stageType);
       grouped.putIfAbsent(group, () => []).add(_StageEntry(
         index: i,
@@ -473,17 +621,15 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
       ));
     }
 
-    // Calculate clip durations — each stage lasts until the next stage in its group
+    // Calculate clip durations
     for (final entries in grouped.values) {
       for (int i = 0; i < entries.length; i++) {
         if (i + 1 < entries.length) {
           entries[i].durationNorm = entries[i + 1].startNorm - entries[i].startNorm;
         } else {
-          // Last in group — give it a small visible duration
           entries[i].durationNorm = (1.0 - entries[i].startNorm).clamp(0.02, 0.15);
         }
-        // Minimum visible width
-        if (entries[i].durationNorm < 0.01) entries[i].durationNorm = 0.01;
+        if (entries[i].durationNorm < 0.008) entries[i].durationNorm = 0.008;
       }
     }
 
@@ -491,17 +637,15 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
     final sortedGroups = grouped.entries.toList()
       ..sort((a, b) => a.value.first.event.timestampMs.compareTo(b.value.first.event.timestampMs));
 
-    const headerWidth = 100.0;
-    const rowHeight = 36.0;
-
     return LayoutBuilder(
       builder: (context, constraints) {
-        final timelineWidth = constraints.maxWidth - headerWidth;
+        final timelineWidth = constraints.maxWidth - _headerWidth;
+        final zoomedWidth = timelineWidth * _zoomLevel;
 
         return Column(
           children: [
             // Time ruler
-            _buildTimeRuler(headerWidth, timelineWidth, totalDuration),
+            _buildTimeRuler(timelineWidth, totalDuration),
             // Stage rows
             Expanded(
               child: ListView.builder(
@@ -510,80 +654,8 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
                 itemCount: sortedGroups.length,
                 itemBuilder: (context, groupIndex) {
                   final entry = sortedGroups[groupIndex];
-                  final group = entry.key;
-                  final stages = entry.value;
-                  final color = _getGroupColor(group);
-                  final icon = _getGroupIcon(group);
-
-                  return SizedBox(
-                    height: rowHeight,
-                    child: Row(
-                      children: [
-                        // Track header
-                        Container(
-                          width: headerWidth,
-                          height: rowHeight,
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.06),
-                            border: Border(
-                              bottom: BorderSide(color: const Color(0xFF2A2A32).withValues(alpha: 0.5)),
-                              right: const BorderSide(color: Color(0xFF2A2A32)),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(icon, size: 10, color: color.withValues(alpha: 0.7)),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  group.toUpperCase(),
-                                  style: TextStyle(
-                                    color: color,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.3,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              Text(
-                                '${stages.length}',
-                                style: TextStyle(
-                                  color: color.withValues(alpha: 0.4),
-                                  fontSize: 7,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Timeline region
-                        Expanded(
-                          child: Container(
-                            height: rowHeight,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0E0E14),
-                              border: Border(
-                                bottom: BorderSide(color: const Color(0xFF2A2A32).withValues(alpha: 0.5)),
-                              ),
-                            ),
-                            child: Stack(
-                              clipBehavior: Clip.hardEdge,
-                              children: [
-                                // Playhead
-                                if (_currentStageIndex >= 0 && _currentStageIndex < _stages.length)
-                                  _buildPlayhead(timelineWidth, startMs, totalDuration),
-                                // Stage clips
-                                ...stages.map((stageEntry) => _buildStageClip(
-                                  stageEntry, color, timelineWidth, totalDuration, startMs,
-                                )),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                  return _buildGroupRow(
+                    entry.key, entry.value, currentIdx, timelineWidth, zoomedWidth, totalDuration, startMs,
                   );
                 },
               ),
@@ -594,8 +666,89 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
     );
   }
 
-  Widget _buildSingleStageView() {
-    final stage = _stages.first;
+  Widget _buildGroupRow(
+    String group,
+    List<_StageEntry> stages,
+    int currentIdx,
+    double timelineWidth,
+    double zoomedWidth,
+    double totalDuration,
+    double startMs,
+  ) {
+    final color = _getGroupColor(group);
+    final icon = _getGroupIcon(group);
+
+    return SizedBox(
+      height: _rowHeight,
+      child: Row(
+        children: [
+          // Track header
+          Container(
+            width: _headerWidth,
+            height: _rowHeight,
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.06),
+              border: Border(
+                bottom: BorderSide(color: const Color(0xFF2A2A32).withValues(alpha: 0.5)),
+                right: const BorderSide(color: Color(0xFF2A2A32)),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, size: 10, color: color.withValues(alpha: 0.7)),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    group.toUpperCase(),
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text(
+                  '${stages.length}',
+                  style: TextStyle(color: color.withValues(alpha: 0.4), fontSize: 7, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+          // Timeline region with clips
+          Expanded(
+            child: Container(
+              height: _rowHeight,
+              decoration: BoxDecoration(
+                color: const Color(0xFF0E0E14),
+                border: Border(
+                  bottom: BorderSide(color: const Color(0xFF2A2A32).withValues(alpha: 0.5)),
+                ),
+              ),
+              child: ClipRect(
+                child: Stack(
+                  clipBehavior: Clip.hardEdge,
+                  children: [
+                    // Playhead
+                    if (currentIdx >= 0 && currentIdx < widget.provider.lastStages.length)
+                      _buildPlayhead(timelineWidth, startMs, totalDuration, currentIdx),
+                    // Stage clips
+                    ...stages.map((stageEntry) => _buildStageClip(
+                      stageEntry, color, timelineWidth, zoomedWidth, totalDuration, startMs, currentIdx,
+                    )),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSingleStageView(SlotLabStageEvent stage) {
     final color = StageConfig.instance.getColor(stage.stageType);
     final audioPath = _getAudioForStage(stage.stageType);
     final fileName = audioPath?.split('/').last ?? 'No audio';
@@ -612,23 +765,14 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 8, height: 8,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
+            Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
             const SizedBox(width: 8),
             Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  stage.stageType.toUpperCase(),
-                  style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700),
-                ),
-                Text(
-                  fileName,
-                  style: TextStyle(color: color.withValues(alpha: 0.5), fontSize: 9),
-                ),
+                Text(stage.stageType.toUpperCase(), style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700)),
+                Text(fileName, style: TextStyle(color: color.withValues(alpha: 0.5), fontSize: 9)),
               ],
             ),
           ],
@@ -641,10 +785,11 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
   // TIME RULER
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildTimeRuler(double headerWidth, double timelineWidth, double totalDuration) {
-    // Calculate tick interval
-    final tickCount = (timelineWidth / 60).floor().clamp(3, 20);
-    final tickInterval = totalDuration / tickCount;
+  Widget _buildTimeRuler(double timelineWidth, double totalDuration) {
+    final tickCount = (timelineWidth * _zoomLevel / 60).floor().clamp(3, 30);
+    // Visible portion based on zoom/pan
+    final visibleDuration = totalDuration / _zoomLevel;
+    final visibleStart = _panOffset * totalDuration;
 
     return Container(
       height: 18,
@@ -655,26 +800,20 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
       child: Row(
         children: [
           SizedBox(
-            width: headerWidth,
+            width: _headerWidth,
             child: const Padding(
               padding: EdgeInsets.only(left: 6),
-              child: Text('TIME', style: TextStyle(
-                color: Color(0xFF404048), fontSize: 7, fontWeight: FontWeight.w600,
-              )),
+              child: Text('TIME', style: TextStyle(color: Color(0xFF404048), fontSize: 7, fontWeight: FontWeight.w600)),
             ),
           ),
           Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return CustomPaint(
-                  size: Size(constraints.maxWidth, 18),
-                  painter: _TimeRulerPainter(
-                    totalDuration: totalDuration,
-                    tickCount: tickCount,
-                    tickInterval: tickInterval,
-                  ),
-                );
-              },
+            child: CustomPaint(
+              size: Size(timelineWidth, 18),
+              painter: _TimeRulerPainter(
+                totalDuration: visibleDuration,
+                startOffset: visibleStart,
+                tickCount: tickCount,
+              ),
             ),
           ),
         ],
@@ -690,13 +829,24 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
     _StageEntry entry,
     Color color,
     double timelineWidth,
+    double zoomedWidth,
     double totalDuration,
     double startMs,
+    int currentIdx,
   ) {
-    final left = entry.startNorm * timelineWidth;
-    final width = (entry.durationNorm * timelineWidth).clamp(4.0, timelineWidth);
-    final isActive = entry.index == _currentStageIndex;
-    final isPast = entry.index < _currentStageIndex;
+    // Apply zoom + pan
+    final zoomedStart = (entry.startNorm - _panOffset) * _zoomLevel;
+    final zoomedDuration = entry.durationNorm * _zoomLevel;
+
+    // Skip if outside visible area
+    if (zoomedStart + zoomedDuration < -0.05 || zoomedStart > 1.05) {
+      return const SizedBox.shrink();
+    }
+
+    final left = zoomedStart * timelineWidth;
+    final width = (zoomedDuration * timelineWidth).clamp(4.0, timelineWidth * 2);
+    final isActive = entry.index == currentIdx;
+    final isPast = entry.index < currentIdx;
     final audioPath = _getAudioForStage(entry.event.stageType);
     final hasAudio = audioPath != null;
     final waveform = _waveformCache[entry.event.stageType];
@@ -706,16 +856,14 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
       left: left,
       top: 2,
       child: GestureDetector(
-        onTap: () {
-          widget.provider.triggerStageManually(entry.index);
-        },
+        onTap: () => widget.provider.triggerStageManually(entry.index),
         child: Tooltip(
           message: '${entry.event.stageType.toUpperCase()}\n'
               '${_formatTime(entry.event.timestampMs - startMs)}'
               '${hasAudio ? '\n$fileName' : '\nNo audio assigned'}',
           waitDuration: const Duration(milliseconds: 400),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
+            duration: const Duration(milliseconds: 100),
             width: width,
             height: 32,
             decoration: BoxDecoration(
@@ -756,23 +904,16 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
                   // No audio indicator
                   if (!hasAudio)
                     Center(
-                      child: Icon(
-                        Icons.volume_off,
-                        size: 10,
-                        color: color.withValues(alpha: 0.3),
-                      ),
+                      child: Icon(Icons.volume_off, size: 10, color: color.withValues(alpha: 0.3)),
                     ),
                   // Stage label
                   if (width > 30)
                     Positioned(
-                      left: 3,
-                      top: 1,
+                      left: 3, top: 1,
                       child: Text(
                         entry.event.stageType.replaceAll('_', ' ').toUpperCase(),
                         style: TextStyle(
-                          color: isActive
-                              ? Colors.white
-                              : color.withValues(alpha: isPast ? 0.5 : 0.7),
+                          color: isActive ? Colors.white : color.withValues(alpha: isPast ? 0.5 : 0.7),
                           fontSize: 6,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.2,
@@ -783,29 +924,21 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
                   // Audio file label
                   if (hasAudio && width > 40)
                     Positioned(
-                      left: 3,
-                      bottom: 1,
-                      right: 3,
+                      left: 3, bottom: 1, right: 3,
                       child: Text(
                         fileName ?? '',
-                        style: TextStyle(
-                          color: color.withValues(alpha: 0.35),
-                          fontSize: 6,
-                          fontFamily: 'monospace',
-                        ),
+                        style: TextStyle(color: color.withValues(alpha: 0.35), fontSize: 6, fontFamily: 'monospace'),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   // Active pulse dot
                   if (isActive)
                     Positioned(
-                      right: 3,
-                      top: 3,
+                      right: 3, top: 3,
                       child: AnimatedBuilder(
                         animation: _playheadPulse,
                         builder: (context, child) => Container(
-                          width: 5,
-                          height: 5,
+                          width: 5, height: 5,
                           decoration: BoxDecoration(
                             color: color.withValues(alpha: 0.5 + 0.5 * _playheadPulse.value),
                             shape: BoxShape.circle,
@@ -826,13 +959,17 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
   // PLAYHEAD
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildPlayhead(double timelineWidth, double startMs, double totalDuration) {
-    if (_currentStageIndex < 0 || _currentStageIndex >= _stages.length) {
-      return const SizedBox.shrink();
-    }
-    final currentMs = _stages[_currentStageIndex].timestampMs;
+  Widget _buildPlayhead(double timelineWidth, double startMs, double totalDuration, int currentIdx) {
+    final stages = widget.provider.lastStages;
+    if (currentIdx < 0 || currentIdx >= stages.length) return const SizedBox.shrink();
+
+    final currentMs = stages[currentIdx].timestampMs;
     final position = (currentMs - startMs) / totalDuration;
-    final x = position * timelineWidth;
+    final zoomedPos = (position - _panOffset) * _zoomLevel;
+
+    if (zoomedPos < -0.01 || zoomedPos > 1.01) return const SizedBox.shrink();
+
+    final x = zoomedPos * timelineWidth;
 
     return Positioned(
       left: x - 0.5,
@@ -849,7 +986,7 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
   // PROGRESS BAR
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildProgressBar() {
+  Widget _buildProgressBar(List<SlotLabStageEvent> stages, int currentIdx, bool isPlaying) {
     return Container(
       height: 20,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -860,35 +997,29 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
       ),
       child: Row(
         children: [
-          // Status dot
           Container(
             width: 5, height: 5,
             decoration: BoxDecoration(
-              color: _isPlaying ? FluxForgeTheme.accentGreen : const Color(0xFF404048),
+              color: isPlaying ? FluxForgeTheme.accentGreen : const Color(0xFF404048),
               shape: BoxShape.circle,
             ),
           ),
           const SizedBox(width: 6),
-          // Stage segments
           Expanded(
             child: Row(
-              children: _stages.asMap().entries.map((entry) {
+              children: stages.asMap().entries.map((entry) {
                 final index = entry.key;
                 final stage = entry.value;
                 final color = StageConfig.instance.getColor(stage.stageType);
-                final isActive = index == _currentStageIndex;
-                final isPast = index < _currentStageIndex;
+                final isActive = index == currentIdx;
+                final isPast = index < currentIdx;
 
                 return Expanded(
                   child: Container(
                     height: 3,
                     margin: const EdgeInsets.symmetric(horizontal: 0.5),
                     decoration: BoxDecoration(
-                      color: isActive
-                          ? color
-                          : isPast
-                              ? color.withValues(alpha: 0.5)
-                              : color.withValues(alpha: 0.15),
+                      color: isActive ? color : isPast ? color.withValues(alpha: 0.5) : color.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(1.5),
                     ),
                   ),
@@ -897,16 +1028,14 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
             ),
           ),
           const SizedBox(width: 6),
-          // Current stage label
-          if (_currentStageIndex >= 0 && _currentStageIndex < _stages.length)
+          if (currentIdx >= 0 && currentIdx < stages.length)
             SizedBox(
               width: 80,
               child: Text(
-                _stages[_currentStageIndex].stageType.replaceAll('_', ' ').toUpperCase(),
+                stages[currentIdx].stageType.replaceAll('_', ' ').toUpperCase(),
                 style: TextStyle(
-                  color: StageConfig.instance.getColor(_stages[_currentStageIndex].stageType),
-                  fontSize: 7,
-                  fontWeight: FontWeight.w700,
+                  color: StageConfig.instance.getColor(stages[currentIdx].stageType),
+                  fontSize: 7, fontWeight: FontWeight.w700,
                 ),
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.right,
@@ -925,8 +1054,8 @@ class _StageTraceWidgetState extends State<StageTraceWidget>
 class _StageEntry {
   final int index;
   final SlotLabStageEvent event;
-  final double startNorm; // 0..1 normalized position
-  double durationNorm;    // 0..1 normalized duration
+  final double startNorm;
+  double durationNorm;
 
   _StageEntry({
     required this.index,
@@ -942,13 +1071,13 @@ class _StageEntry {
 
 class _TimeRulerPainter extends CustomPainter {
   final double totalDuration;
+  final double startOffset;
   final int tickCount;
-  final double tickInterval;
 
   _TimeRulerPainter({
     required this.totalDuration,
+    required this.startOffset,
     required this.tickCount,
-    required this.tickInterval,
   });
 
   @override
@@ -962,27 +1091,28 @@ class _TimeRulerPainter extends CustomPainter {
       textAlign: TextAlign.left,
     );
 
+    final tickInterval = totalDuration / tickCount;
     for (int i = 0; i <= tickCount; i++) {
       final x = (i / tickCount) * size.width;
-      final ms = i * tickInterval;
+      final ms = startOffset + i * tickInterval;
 
-      // Tick mark
       canvas.drawLine(Offset(x, size.height - 4), Offset(x, size.height), paint);
 
-      // Label
       final label = ms < 1000 ? '${ms.toInt()}ms' : '${(ms / 1000).toStringAsFixed(1)}s';
       textPainter.text = TextSpan(
         text: label,
         style: const TextStyle(color: Color(0xFF404048), fontSize: 7, fontFamily: 'monospace'),
       );
       textPainter.layout();
-      textPainter.paint(canvas, Offset(x + 2, 1));
+      if (x + textPainter.width < size.width) {
+        textPainter.paint(canvas, Offset(x + 2, 1));
+      }
     }
   }
 
   @override
-  bool shouldRepaint(_TimeRulerPainter oldDelegate) =>
-      totalDuration != oldDelegate.totalDuration || tickCount != oldDelegate.tickCount;
+  bool shouldRepaint(_TimeRulerPainter old) =>
+      totalDuration != old.totalDuration || startOffset != old.startOffset || tickCount != old.tickCount;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1017,20 +1147,16 @@ class _ClipWaveformPainter extends CustomPainter {
     final path = Path();
     path.moveTo(0, midY);
 
-    // Top half
     for (double x = 0; x < size.width; x += 1) {
       final sampleIndex = (x * samplesPerPixel).toInt().clamp(0, waveform.length - 1);
       final sample = waveform[sampleIndex].abs();
-      final y = midY - (sample * midY * 0.9);
-      path.lineTo(x, y);
+      path.lineTo(x, midY - (sample * midY * 0.9));
     }
 
-    // Bottom half (mirror)
     for (double x = size.width - 1; x >= 0; x -= 1) {
       final sampleIndex = (x * samplesPerPixel).toInt().clamp(0, waveform.length - 1);
       final sample = waveform[sampleIndex].abs();
-      final y = midY + (sample * midY * 0.9);
-      path.lineTo(x, y);
+      path.lineTo(x, midY + (sample * midY * 0.9));
     }
 
     path.close();
@@ -1065,9 +1191,7 @@ class StageProgressBar extends StatelessWidget {
         final currentIndex = provider.currentStageIndex;
         final isPlaying = provider.isPlayingStages;
 
-        if (stages.isEmpty) {
-          return SizedBox(height: height);
-        }
+        if (stages.isEmpty) return SizedBox(height: height);
 
         return Container(
           height: height,
@@ -1096,11 +1220,7 @@ class StageProgressBar extends StatelessWidget {
                         height: 4,
                         margin: const EdgeInsets.symmetric(horizontal: 0.5),
                         decoration: BoxDecoration(
-                          color: isActive
-                              ? color
-                              : isPast
-                                  ? color.withValues(alpha: 0.6)
-                                  : color.withValues(alpha: 0.2),
+                          color: isActive ? color : isPast ? color.withValues(alpha: 0.6) : color.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
