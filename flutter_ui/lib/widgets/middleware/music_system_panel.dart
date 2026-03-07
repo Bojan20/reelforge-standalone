@@ -82,7 +82,7 @@ class _MusicSystemPanelState extends State<MusicSystemPanel>
           'Music System',
           style: TextStyle(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 16,
+            fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
         ),

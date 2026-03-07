@@ -257,7 +257,7 @@ class _ContainerCrossfadePreviewPanelState extends State<ContainerCrossfadePrevi
           'Crossfade Preview',
           style: TextStyle(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 16,
+            fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
         ),

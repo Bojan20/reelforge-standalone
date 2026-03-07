@@ -249,7 +249,7 @@ class _RtpcMacroEditorPanelState extends State<RtpcMacroEditorPanel>
               macro.name,
               style: TextStyle(
                 color: FluxForgeTheme.textPrimary,
-                fontSize: 16,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
             ),

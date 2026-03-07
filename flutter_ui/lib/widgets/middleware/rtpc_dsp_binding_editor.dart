@@ -258,7 +258,7 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
                 'Create DSP Binding',
                 style: TextStyle(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 15,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -411,7 +411,7 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
                   binding.label ?? 'DSP Binding',
                   style: TextStyle(
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 15,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
                   overflow: TextOverflow.ellipsis,

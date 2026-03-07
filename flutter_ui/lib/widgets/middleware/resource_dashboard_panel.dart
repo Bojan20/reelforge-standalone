@@ -368,7 +368,7 @@ class _ResourceDashboardPanelState extends State<ResourceDashboardPanel> {
                 '${stats.activeVoices}',
                 style: const TextStyle(
                   color: FluxForgeTheme.textPrimary,
-                  fontSize: 24,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
               ),

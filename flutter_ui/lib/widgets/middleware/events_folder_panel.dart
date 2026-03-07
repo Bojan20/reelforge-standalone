@@ -1420,7 +1420,7 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
             children: [
               Icon(Icons.add_circle, color: FluxforgeColors.accent, size: 20),
               SizedBox(width: 10),
-              Text('Create Event', style: TextStyle(fontSize: 15, color: Colors.white)),
+              Text('Create Event', style: TextStyle(fontSize: 12, color: Colors.white)),
             ],
           ),
           content: SizedBox(
@@ -2137,7 +2137,7 @@ class _AddLayerDialogState extends State<_AddLayerDialog> {
           Expanded(
             child: Text(
               'Add Layer to "${widget.event.name}"',
-              style: const TextStyle(fontSize: 16, color: Colors.white),
+              style: const TextStyle(fontSize: 12, color: Colors.white),
               overflow: TextOverflow.ellipsis,
             ),
           ),

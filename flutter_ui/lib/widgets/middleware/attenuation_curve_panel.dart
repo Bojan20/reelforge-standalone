@@ -74,7 +74,7 @@ class _AttenuationCurvePanelState extends State<AttenuationCurvePanel> {
           'Attenuation Curves',
           style: TextStyle(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 16,
+            fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
         ),

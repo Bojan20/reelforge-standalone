@@ -454,7 +454,7 @@ class _VoicePoolStatsPanelState extends State<VoicePoolStatsPanel> {
             value,
             style: TextStyle(
               color: color,
-              fontSize: 16,
+              fontSize: 12,
               fontWeight: FontWeight.bold,
               fontFamily: 'monospace',
             ),

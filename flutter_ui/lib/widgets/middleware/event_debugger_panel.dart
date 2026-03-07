@@ -900,7 +900,7 @@ class _EventDebuggerPanelState extends State<EventDebuggerPanel>
           Text(
             value,
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
               color: color,
             ),

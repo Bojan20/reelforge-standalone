@@ -586,7 +586,7 @@ class _MusicSegmentLoopingPanelState extends State<MusicSegmentLoopingPanel>
                                 '$_targetLoopCount',
                                 style: TextStyle(
                                   color: FluxForgeTheme.textPrimary,
-                                  fontSize: 16,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),

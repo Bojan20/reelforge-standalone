@@ -4974,7 +4974,7 @@ class _ImportEventsDialogState extends State<_ImportEventsDialog> {
                   const Text(
                     'Import Events',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: FluxForgeTheme.textPrimary,
                     ),

@@ -694,7 +694,7 @@ class _RtpcDebuggerPanelState extends State<RtpcDebuggerPanel> {
                     _formatValue(value, rtpc),
                     style: TextStyle(
                       color: _getValueColor(normalized),
-                      fontSize: 24,
+                      fontSize: 12,
                       fontWeight: FontWeight.w700,
                       fontFamily: 'monospace',
                     ),

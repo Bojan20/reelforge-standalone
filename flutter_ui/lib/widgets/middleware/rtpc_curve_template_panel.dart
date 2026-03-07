@@ -275,7 +275,7 @@ class RtpcCurveTemplatePanel extends StatefulWidget {
                     'Curve Templates',
                     style: TextStyle(
                       color: FluxForgeTheme.textPrimary,
-                      fontSize: 16,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -484,7 +484,7 @@ class _RtpcCurveTemplatePanelState extends State<RtpcCurveTemplatePanel> {
             template.name,
             style: TextStyle(
               color: FluxForgeTheme.textPrimary,
-              fontSize: 16,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
           ),
