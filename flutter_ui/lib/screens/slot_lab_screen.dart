@@ -110,6 +110,7 @@ import '../widgets/slot_lab/symbol_art_panel.dart';
 import '../widgets/slot_lab/transition_config_panel.dart';
 import '../widgets/slot_lab/win_tier_config_panel.dart';
 import '../widgets/common/command_palette.dart';
+import '../services/lower_zone_persistence_service.dart';
 import '../services/diagnostics/diagnostics_service.dart';
 import '../services/diagnostics/stage_contract_validator.dart';
 import '../services/diagnostics/rust_dart_sync_checker.dart';
@@ -440,6 +441,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // Manual override (user can toggle panels regardless of breakpoint)
   bool _leftPanelManuallyHidden = false;
   bool _rightPanelManuallyHidden = false;
+
+  // Drag-resizable panel widths (null = use responsive default)
+  double? _leftPanelCustomWidth;
+  double? _rightPanelCustomWidth;
+  static const double _panelMinWidth = 200.0;
+  static const double _panelMaxWidth = 500.0;
+  static const double _resizeHandleWidth = 6.0;
 
   // Left panel multi-mode tab system
   _LeftPanelTab _leftPanelTab = _LeftPanelTab.audio;
@@ -1350,6 +1358,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     _initializeTracks();
     _loadAudioPool();
     _restorePersistedState();
+    _restorePanelLayout();
     _initWaveformCache();
     _initDiagnostics();
     DiagnosticsService.instance.addListener(_onDiagnosticsChanged);
@@ -3018,12 +3027,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     // Force hide both if extremely narrow
                     final forceHideBoth = availableWidth < _breakpointHideBoth;
 
-                    // Responsive panel widths — scale with window, clamped to min/max
+                    // Responsive panel widths — custom (drag) or auto-scaled
                     final baseLeftWidth = _leftPanelTab == _LeftPanelTab.aurexis
                         ? SlotLabDimens.leftPanelWideWidth
                         : SlotLabDimens.leftPanelWidth;
-                    final scaledLeft = (availableWidth * 0.18).clamp(baseLeftWidth, baseLeftWidth + 60.0);
-                    final scaledRight = (availableWidth * 0.22).clamp(SlotLabDimens.rightPanelWidth, SlotLabDimens.rightPanelWidth + 80.0);
+                    final scaledLeft = _leftPanelCustomWidth ??
+                        (availableWidth * 0.18).clamp(baseLeftWidth, baseLeftWidth + 60.0);
+                    final scaledRight = _rightPanelCustomWidth ??
+                        (availableWidth * 0.22).clamp(SlotLabDimens.rightPanelWidth, SlotLabDimens.rightPanelWidth + 80.0);
                     final leftWidth = (showLeftPanel && !forceHideBoth) ? scaledLeft : 0.0;
                     final rightWidth = (showRightPanel && !forceHideBoth) ? scaledRight : 0.0;
                     final centerWidth = availableWidth - leftWidth - rightWidth;
@@ -3041,6 +3052,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                             width: leftWidth,
                             child: _buildLeftPanelV2(),
                           ),
+
+                        // LEFT RESIZE HANDLE
+                        if (actualShowLeft)
+                          _buildResizeHandle(isLeft: true),
 
                         // CENTER: Premium Slot Preview (with drag-drop from Audio Browser)
                         Expanded(
@@ -3125,10 +3140,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                           ),
                         ),
 
+                        // RIGHT RESIZE HANDLE
+                        if (actualShowRight)
+                          _buildResizeHandle(isLeft: false),
+
                         // RIGHT: Multi-tab Inspector Panel — conditional visibility
                         if (actualShowRight)
                           SizedBox(
-                            width: SlotLabDimens.rightPanelWidth,
+                            width: rightWidth,
                             child: _buildRightPanelV2(),
                           ),
                       ],
@@ -8999,11 +9018,110 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // P2-12: RESPONSIVE PANEL TOGGLE METHODS
   // ═══════════════════════════════════════════════════════════════════════════
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DRAG-RESIZE HANDLES
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildResizeHandle({required bool isLeft}) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeColumn,
+      child: GestureDetector(
+        onHorizontalDragUpdate: (details) {
+          setState(() {
+            if (isLeft) {
+              final current = _leftPanelCustomWidth ??
+                  (_leftPanelTab == _LeftPanelTab.aurexis
+                      ? SlotLabDimens.leftPanelWideWidth
+                      : SlotLabDimens.leftPanelWidth);
+              _leftPanelCustomWidth = (current + details.delta.dx).clamp(_panelMinWidth, _panelMaxWidth);
+            } else {
+              final current = _rightPanelCustomWidth ?? SlotLabDimens.rightPanelWidth;
+              _rightPanelCustomWidth = (current - details.delta.dx).clamp(_panelMinWidth, _panelMaxWidth);
+            }
+          });
+        },
+        onHorizontalDragEnd: (_) => _savePanelLayout(),
+        onDoubleTap: () {
+          // Double-tap reset to default
+          setState(() {
+            if (isLeft) {
+              _leftPanelCustomWidth = null;
+            } else {
+              _rightPanelCustomWidth = null;
+            }
+          });
+          _savePanelLayout();
+        },
+        child: Container(
+          width: _resizeHandleWidth,
+          color: Colors.transparent,
+          child: Center(
+            child: Container(
+              width: 2,
+              height: 32,
+              decoration: BoxDecoration(
+                color: const Color(0xFF3A3A44),
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PANEL LAYOUT PERSISTENCE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  void _savePanelLayout() {
+    LowerZonePersistenceService.instance.saveSlotLabPanelLayout({
+      'leftWidth': _leftPanelCustomWidth,
+      'rightWidth': _rightPanelCustomWidth,
+      'leftHidden': _leftPanelManuallyHidden,
+      'rightHidden': _rightPanelManuallyHidden,
+      'leftTab': _leftPanelTab.index,
+      'rightTab': _rightPanelTab.index,
+    });
+  }
+
+  Future<void> _restorePanelLayout() async {
+    final layout = await LowerZonePersistenceService.instance.loadSlotLabPanelLayout();
+    if (layout == null || !mounted) return;
+    setState(() {
+      if (layout['leftWidth'] is num) {
+        _leftPanelCustomWidth = (layout['leftWidth'] as num).toDouble();
+      }
+      if (layout['rightWidth'] is num) {
+        _rightPanelCustomWidth = (layout['rightWidth'] as num).toDouble();
+      }
+      if (layout['leftHidden'] is bool) {
+        _leftPanelManuallyHidden = layout['leftHidden'] as bool;
+      }
+      if (layout['rightHidden'] is bool) {
+        _rightPanelManuallyHidden = layout['rightHidden'] as bool;
+      }
+      if (layout['leftTab'] is int) {
+        final idx = layout['leftTab'] as int;
+        if (idx >= 0 && idx < _LeftPanelTab.values.length) {
+          _leftPanelTab = _LeftPanelTab.values[idx];
+        }
+      }
+      if (layout['rightTab'] is int) {
+        final idx = layout['rightTab'] as int;
+        if (idx >= 0 && idx < _RightPanelTab.values.length) {
+          _rightPanelTab = _RightPanelTab.values[idx];
+        }
+      }
+    });
+  }
+
   /// Toggle left panel visibility (manual override)
   void _toggleLeftPanel() {
     setState(() {
       _leftPanelManuallyHidden = !_leftPanelManuallyHidden;
     });
+    _savePanelLayout();
   }
 
   /// Toggle right panel visibility (manual override)
@@ -9011,6 +9129,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     setState(() {
       _rightPanelManuallyHidden = !_rightPanelManuallyHidden;
     });
+    _savePanelLayout();
   }
 
   /// Check if left panel is currently visible (considering both auto and manual)
@@ -9052,17 +9171,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           _buildLeftPanelTabBar(),
           // Content with animated transitions
           Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 150),
-              child: KeyedSubtree(
-                key: ValueKey(_leftPanelTab),
-                child: switch (_leftPanelTab) {
-                  _LeftPanelTab.audio => _buildUltimateAudioPanelContent(),
-                  _LeftPanelTab.events => _buildEventsLeftPanel(),
-                  _LeftPanelTab.aurexis => const AurexisPanel(),
-                },
-              ),
-            ),
+            child: switch (_leftPanelTab) {
+              _LeftPanelTab.audio => _buildUltimateAudioPanelContent(),
+              _LeftPanelTab.events => _buildEventsLeftPanel(),
+              _LeftPanelTab.aurexis => const AurexisPanel(),
+            },
           ),
         ],
       ),
@@ -9089,7 +9202,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           final isActive = _leftPanelTab == tabs[i];
           return Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _leftPanelTab = tabs[i]),
+              onTap: () { setState(() => _leftPanelTab = tabs[i]); _savePanelLayout(); },
               child: Container(
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
@@ -9256,17 +9369,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           _buildRightPanelTabBar(),
           // Content with animated transitions
           Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 150),
-              child: KeyedSubtree(
-                key: ValueKey(_rightPanelTab),
-                child: switch (_rightPanelTab) {
-                  _RightPanelTab.inspector => _buildUnifiedInspector(),
-                  _RightPanelTab.config => _buildRightConfigContent(),
-                  _RightPanelTab.pool => _buildAudioBrowser(),
-                },
-              ),
-            ),
+            child: switch (_rightPanelTab) {
+              _RightPanelTab.inspector => _buildUnifiedInspector(),
+              _RightPanelTab.config => _buildRightConfigContent(),
+              _RightPanelTab.pool => _buildAudioBrowser(),
+            },
           ),
         ],
       ),
@@ -9481,7 +9588,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           final isActive = _rightPanelTab == tabs[i];
           return Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _rightPanelTab = tabs[i]),
+              onTap: () { setState(() => _rightPanelTab = tabs[i]); _savePanelLayout(); },
               child: Container(
                 alignment: Alignment.center,
                 decoration: BoxDecoration(

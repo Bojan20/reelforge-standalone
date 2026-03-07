@@ -99,6 +99,34 @@ class LowerZonePersistenceService {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════════
+  // SLOTLAB PANEL LAYOUT STATE
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  static const String _slotLabPanelKey = 'slotlab_panel_layout';
+
+  /// Save SlotLab panel layout state (widths, collapse, active tabs)
+  Future<bool> saveSlotLabPanelLayout(Map<String, dynamic> state) async {
+    try {
+      final prefs = await _getPrefs();
+      return await prefs.setString(_slotLabPanelKey, jsonEncode(state));
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Load SlotLab panel layout state
+  Future<Map<String, dynamic>?> loadSlotLabPanelLayout() async {
+    try {
+      final prefs = await _getPrefs();
+      final json = prefs.getString(_slotLabPanelKey);
+      if (json == null) return null;
+      return jsonDecode(json) as Map<String, dynamic>;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════════
   // BATCH OPERATIONS
   // ═══════════════════════════════════════════════════════════════════════════════
 

@@ -114,6 +114,10 @@ class LowerZoneContextBar extends StatelessWidget {
   /// Quick Switcher callback (⌘K). When set, replaces search field with Quick Switcher button.
   final VoidCallback? onQuickSwitcher;
 
+  /// Sub-tab labels per super-tab for rich hover preview.
+  /// Index matches super-tab index. Each entry is a list of sub-tab names.
+  final List<List<String>>? superTabSubLabels;
+
   const LowerZoneContextBar({
     super.key,
     required this.superTabLabels,
@@ -148,6 +152,7 @@ class LowerZoneContextBar extends StatelessWidget {
     this.subTabGroupBreaks,
     this.breadcrumbCategory,
     this.onQuickSwitcher,
+    this.superTabSubLabels,
   });
 
   @override
@@ -166,7 +171,7 @@ class LowerZoneContextBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Super-tabs row (32px when collapsed)
+          // Super-tabs row with minimap strip on top (32px total)
           _buildSuperTabs(),
           // Sub-tabs row (28px) — only when expanded
           if (isExpanded) Expanded(child: _buildSubTabs()),
@@ -178,8 +183,13 @@ class LowerZoneContextBar extends StatelessWidget {
   Widget _buildSuperTabs() {
     // P2-13: Overflow defensive — SingleChildScrollView horizontal scroll
     // P0 FIX: Height 32px (no border in context bar anymore - parent handles borders)
-    return Container(
-      height: 32,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Minimap strip — colored segments for each super-tab (3px)
+        if (superTabColors != null) _buildMinimap(),
+        Container(
+      height: superTabColors != null ? 29 : 32,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(
         children: [
@@ -246,6 +256,8 @@ class LowerZoneContextBar extends StatelessWidget {
           ),
         ],
       ),
+    ),
+      ],
     );
   }
 
@@ -362,11 +374,24 @@ class LowerZoneContextBar extends StatelessWidget {
       ),
     );
 
-    // Wrap with Tooltip if available (P1.4)
-    if (tooltipText != null) {
+    // Rich tooltip: description + sub-tab list preview
+    final subLabels = superTabSubLabels != null && index < superTabSubLabels!.length
+        ? superTabSubLabels![index]
+        : null;
+    String? richTooltip;
+    if (tooltipText != null || subLabels != null) {
+      final parts = <String>[];
+      if (tooltipText != null) parts.add(tooltipText);
+      if (subLabels != null && subLabels.isNotEmpty) {
+        parts.add(subLabels.join(' · '));
+      }
+      richTooltip = parts.join('\n───\n');
+    }
+
+    if (richTooltip != null) {
       return Tooltip(
-        message: tooltipText,
-        waitDuration: const Duration(milliseconds: 500),
+        message: richTooltip,
+        waitDuration: const Duration(milliseconds: 400),
         child: tabWidget,
       );
     }
@@ -515,6 +540,26 @@ class LowerZoneContextBar extends StatelessWidget {
             }),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMinimap() {
+    return SizedBox(
+      height: 3,
+      child: Row(
+        children: List.generate(superTabLabels.length, (i) {
+          final isActive = i == selectedSuperTab;
+          final color = _tabColor(i);
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => onSuperTabSelected(i),
+              child: Container(
+                color: isActive ? color : color.withValues(alpha: 0.15),
+              ),
+            ),
+          );
+        }),
       ),
     );
   }

@@ -127,6 +127,13 @@ class SlotLabLowerZoneWidget extends StatefulWidget {
 }
 
 class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
+  /// Pre-computed sub-tab labels for each super-tab (for rich hover preview)
+  static final _allSuperTabSubLabels = SlotLabSuperTab.values.map((st) {
+    // Create a temporary state to get sub-tab labels for this super-tab
+    final tempState = SlotLabLowerZoneState(superTab: st);
+    return tempState.subTabLabels;
+  }).toList();
+
   String _selectedOutcome = 'Random';
 
   // P1.1: Selected values now sync with SlotLabProvider
@@ -323,6 +330,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                               subTabTooltips: widget.controller.subTabTooltips,
                               breadcrumbCategory: widget.controller.superTab.category,
                               onQuickSwitcher: widget.onQuickSwitcher,
+                              superTabSubLabels: _allSuperTabSubLabels,
                             );
                           },
                         ),
