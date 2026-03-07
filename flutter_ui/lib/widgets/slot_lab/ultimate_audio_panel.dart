@@ -182,7 +182,8 @@ class UltimateAudioPanel extends StatefulWidget {
   final void Function(int reels, int rows)? onSlotMachineCreated;
 
   /// Called after auto-bind completes to sync assignments to EventRegistry
-  final VoidCallback? onAutoBindComplete;
+  /// Passes the folder path so parent can sync files into audio pool
+  final void Function(String folderPath)? onAutoBindComplete;
 
   const UltimateAudioPanel({
     super.key,
@@ -666,8 +667,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       return;
     }
 
-    // Sync to EventRegistry so audio actually plays
-    widget.onAutoBindComplete?.call();
+    // Sync to EventRegistry so audio actually plays + sync files to pool
+    widget.onAutoBindComplete?.call(path);
 
     // Refresh UI
     setState(() {});

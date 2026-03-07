@@ -2677,6 +2677,55 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     } catch (e) { /* ignored */ }
   }
 
+  /// Sync all audio files from auto-bind folder into POOL (right panel).
+  /// Same pattern as _importAudioFolder — deduplicates, creates pool entries,
+  /// syncs to AudioAssetManager.
+  void _syncAutoBindFolderToPool(String folderPath) {
+    try {
+      final dir = Directory(folderPath);
+      if (!dir.existsSync()) return;
+
+      final audioExtensions = ['.wav', '.mp3', '.ogg', '.flac', '.aiff', '.aif', '.m4a', '.wma'];
+      final entities = dir.listSync(recursive: true);
+
+      final audioFiles = <File>[];
+      for (final entity in entities) {
+        if (entity is File) {
+          final ext = entity.path.toLowerCase().split('.').last;
+          if (audioExtensions.contains('.$ext')) {
+            audioFiles.add(entity);
+          }
+        }
+      }
+
+      audioFiles.sort((a, b) {
+        final nameA = a.path.split('/').last.toLowerCase();
+        final nameB = b.path.split('/').last.toLowerCase();
+        return nameA.compareTo(nameB);
+      });
+
+      final newEntries = <Map<String, dynamic>>[];
+      for (final file in audioFiles) {
+        if (_audioPool.any((a) => a['path'] == file.path)) continue;
+        final name = file.path.split('/').last;
+        newEntries.add(_createAudioPoolEntry(file.path, name));
+      }
+
+      if (newEntries.isEmpty) return;
+
+      setState(() {
+        _audioPool.addAll(newEntries);
+      });
+
+      AudioAssetManager.instance.importFilesInstant(
+        newEntries.map((e) => e['path'] as String).toList(),
+        folder: 'SlotLab Auto-Bind',
+      );
+
+      Future.microtask(() => _persistState());
+    } catch (_) { /* ignored */ }
+  }
+
   /// Auto-bind imported audio files to STAGES via fuzzy filename matching.
   ///
   /// Uses StageGroupService to match filenames → stage names, then feeds
@@ -10018,11 +10067,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             if (triggerLayer.autoBindingsEnabled) triggerLayer.generateAutoBindings();
             if (mounted) showToast('Imported $count audio mappings', icon: Icons.file_download);
           },
-          onAutoBindComplete: () {
+          onAutoBindComplete: (folderPath) {
             // Sync assignments → composite events + EventRegistry (async, non-blocking)
             _syncAssignmentsAsync();
             // Next time preview opens, show splash screen
             setState(() => _showSplashOnPreview = true);
+            // Sync all audio files from folder into POOL
+            _syncAutoBindFolderToPool(folderPath);
           },
         );
       },
