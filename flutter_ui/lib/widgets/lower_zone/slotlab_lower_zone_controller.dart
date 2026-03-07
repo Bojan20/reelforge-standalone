@@ -49,7 +49,7 @@ class SlotLabLowerZoneController extends ChangeNotifier {
       ? _state.height + kContextBarHeight + kActionStripHeight + kResizeHandleHeight + kSpinControlBarHeight
       : kResizeHandleHeight + kContextBarCollapsedHeight;
 
-  Color get accentColor => LowerZoneColors.slotLabAccent;
+  Color get accentColor => _state.superTab.color;
 
   /// Sub-tab group break indices for current super-tab.
   /// Inserts visual separators between logical groups of sub-tabs.

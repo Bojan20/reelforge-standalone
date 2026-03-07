@@ -346,7 +346,7 @@ class SlotLabScreen extends StatefulWidget {
 enum _LeftPanelTab { audio, events, aurexis }
 
 /// Right panel tab modes for context-aware inspector
-enum _RightPanelTab { events, inspector, config, pool }
+enum _RightPanelTab { inspector, config, pool }
 
 class _SlotLabScreenState extends State<SlotLabScreen>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin, InlineToastMixin {
@@ -446,7 +446,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   bool get _leftPanelAurexisMode => _leftPanelTab == _LeftPanelTab.aurexis;
 
   // Right panel multi-mode tab system
-  _RightPanelTab _rightPanelTab = _RightPanelTab.events;
+  _RightPanelTab _rightPanelTab = _RightPanelTab.inspector;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ULTIMATE AUDIO PANEL STATE — now persisted in SlotLabProjectProvider
@@ -3017,9 +3017,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     // Force hide both if extremely narrow
                     final forceHideBoth = availableWidth < _breakpointHideBoth;
 
-                    // Calculate center width to ensure minimum
-                    final leftWidth = (showLeftPanel && !forceHideBoth) ? (_leftPanelTab == _LeftPanelTab.aurexis ? SlotLabDimens.leftPanelWideWidth : SlotLabDimens.leftPanelWidth) : 0.0;
-                    final rightWidth = (showRightPanel && !forceHideBoth) ? SlotLabDimens.rightPanelWidth : 0.0;
+                    // Responsive panel widths — scale with window, clamped to min/max
+                    final baseLeftWidth = _leftPanelTab == _LeftPanelTab.aurexis
+                        ? SlotLabDimens.leftPanelWideWidth
+                        : SlotLabDimens.leftPanelWidth;
+                    final scaledLeft = (availableWidth * 0.18).clamp(baseLeftWidth, baseLeftWidth + 60.0);
+                    final scaledRight = (availableWidth * 0.22).clamp(SlotLabDimens.rightPanelWidth, SlotLabDimens.rightPanelWidth + 80.0);
+                    final leftWidth = (showLeftPanel && !forceHideBoth) ? scaledLeft : 0.0;
+                    final rightWidth = (showRightPanel && !forceHideBoth) ? scaledRight : 0.0;
                     final centerWidth = availableWidth - leftWidth - rightWidth;
 
                     // If center would be too small, hide side panels
@@ -9058,7 +9063,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         }
 
         return ListView(
-          padding: const EdgeInsets.all(4),
+          padding: EdgeInsets.all(SlotLabSpacing.xs),
           children: grouped.entries.expand((entry) {
             return [
               // Category header
@@ -9150,8 +9155,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           // Content
           Expanded(
             child: switch (_rightPanelTab) {
-              _RightPanelTab.events => _buildRightEventsContent(),
-              _RightPanelTab.inspector => _buildRightInspectorContent(),
+              _RightPanelTab.inspector => _buildUnifiedInspector(),
               _RightPanelTab.config => _buildRightConfigContent(),
               _RightPanelTab.pool => _buildAudioBrowser(),
             },
@@ -9174,7 +9178,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             children: [
               // Header
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: EdgeInsets.symmetric(horizontal: SlotLabSpacing.md, vertical: SlotLabSpacing.sm),
                 color: diag.isMonitoring
                     ? const Color(0xFF66BB6A).withOpacity(0.15)
                     : Colors.white.withOpacity(0.05),
@@ -9351,8 +9355,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   Widget _buildRightPanelTabBar() {
     const tabs = _RightPanelTab.values;
-    const labels = ['DETAIL', 'INSPECT', 'CONFIG', 'POOL'];
-    const icons = [Icons.event_note, Icons.info_outline, Icons.tune, Icons.library_music];
+    const labels = ['INSPECTOR', 'CONFIG', 'POOL'];
+    const icons = [Icons.manage_search, Icons.tune, Icons.library_music];
 
     return Container(
       height: SlotLabDimens.panelTabBarHeight,
@@ -9419,7 +9423,30 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     );
   }
 
-  /// Events tab in right panel — event list with audio drag source
+  /// Unified Inspector — event browser (top) + selected event properties (bottom)
+  Widget _buildUnifiedInspector() {
+    return Column(
+      children: [
+        // Event list (top half — browsing + drag source)
+        Expanded(
+          flex: 3,
+          child: _buildRightEventsContent(),
+        ),
+        // Divider
+        Container(
+          height: 1,
+          color: const Color(0xFF2A2A32),
+        ),
+        // Inspector detail (bottom half — properties of selected event)
+        Expanded(
+          flex: 4,
+          child: _buildRightInspectorContent(),
+        ),
+      ],
+    );
+  }
+
+  /// Events section in unified inspector — event list with audio drag source
   Widget _buildRightEventsContent() {
     return EventsPanelWidget(
       selectedEventId: _selectedEventId,
@@ -9470,11 +9497,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           );
         }
         return ListView(
-          padding: const EdgeInsets.all(8),
+          padding: SlotLabSpacing.panelPadding,
           children: [
             // Event name header
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: SlotLabSpacing.panelPadding,
               decoration: BoxDecoration(
                 color: FluxForgeTheme.accentCyan.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(4),

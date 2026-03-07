@@ -17,6 +17,9 @@ class LowerZoneContextBar extends StatelessWidget {
   /// Super-tab icons
   final List<IconData> superTabIcons;
 
+  /// Per-tab accent colors. If null, uses single accentColor for all.
+  final List<Color>? superTabColors;
+
   /// Keyboard shortcut hints for super-tabs (e.g., ['⌘⇧T', '⌘⇧E', ...])
   /// If null, shows index number (1, 2, 3...)
   final List<String>? superTabShortcuts;
@@ -108,6 +111,7 @@ class LowerZoneContextBar extends StatelessWidget {
     super.key,
     required this.superTabLabels,
     required this.superTabIcons,
+    this.superTabColors,
     this.superTabShortcuts,
     this.superTabTooltips,
     required this.selectedSuperTab,
@@ -256,8 +260,18 @@ class LowerZoneContextBar extends StatelessWidget {
     );
   }
 
+  /// Resolve accent color for a given super-tab index.
+  /// Uses per-tab color if available, falls back to global accentColor.
+  Color _tabColor(int index) {
+    if (superTabColors != null && index < superTabColors!.length) {
+      return superTabColors![index];
+    }
+    return accentColor;
+  }
+
   Widget _buildSuperTab(int index) {
     final isSelected = index == selectedSuperTab;
+    final color = _tabColor(index);
 
     // Get tooltip if available
     final tooltipText = superTabTooltips != null && index < superTabTooltips!.length
@@ -269,10 +283,10 @@ class LowerZoneContextBar extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? accentColor.withValues(alpha: 0.15) : Colors.transparent,
+          color: isSelected ? color.withValues(alpha: 0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isSelected ? accentColor.withValues(alpha: 0.5) : Colors.transparent,
+            color: isSelected ? color.withValues(alpha: 0.5) : Colors.transparent,
           ),
         ),
         child: Row(
@@ -281,7 +295,7 @@ class LowerZoneContextBar extends StatelessWidget {
             Icon(
               superTabIcons[index],
               size: 12,
-              color: isSelected ? accentColor : LowerZoneColors.textTertiary,
+              color: isSelected ? color : LowerZoneColors.textTertiary,
             ),
             const SizedBox(width: 4),
             Text(
@@ -289,7 +303,7 @@ class LowerZoneContextBar extends StatelessWidget {
               style: TextStyle(
                 fontSize: LowerZoneTypography.sizeLabel,
                 fontWeight: FontWeight.bold,
-                color: isSelected ? accentColor : LowerZoneColors.textTertiary,
+                color: isSelected ? color : LowerZoneColors.textTertiary,
               ),
             ),
             const SizedBox(width: 4),
@@ -298,7 +312,7 @@ class LowerZoneContextBar extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? accentColor.withValues(alpha: 0.2)
+                    ? color.withValues(alpha: 0.2)
                     : LowerZoneColors.bgMid,
                 borderRadius: BorderRadius.circular(2),
               ),
@@ -310,7 +324,7 @@ class LowerZoneContextBar extends StatelessWidget {
                   fontSize: LowerZoneTypography.sizeTiny,
                   fontFamily: 'monospace',
                   color: isSelected
-                      ? accentColor.withValues(alpha: 0.8)
+                      ? color.withValues(alpha: 0.8)
                       : LowerZoneColors.textMuted,
                 ),
               ),

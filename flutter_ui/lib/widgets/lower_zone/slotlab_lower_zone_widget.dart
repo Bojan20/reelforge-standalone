@@ -300,6 +300,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                             return LowerZoneContextBar(
                               superTabLabels: SlotLabSuperTab.values.map((t) => t.label).toList(),
                               superTabIcons: SlotLabSuperTab.values.map((t) => t.icon).toList(),
+                              superTabColors: SlotLabSuperTab.values.map((t) => t.color).toList(),
                               selectedSuperTab: widget.controller.superTab.index,
                               subTabLabels: widget.controller.subTabLabels,
                               selectedSubTab: widget.controller.currentSubTabIndex,

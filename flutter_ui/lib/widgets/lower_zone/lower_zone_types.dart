@@ -17,8 +17,9 @@ const double kLowerZoneMinHeight = 150.0;
 /// Maximum height of the lower zone content area
 const double kLowerZoneMaxHeight = 600.0;
 
-/// Default height of the lower zone content area (maximum by default)
-const double kLowerZoneDefaultHeight = 500.0;
+/// Default height of the lower zone content area
+/// 350px gives slot preview enough room on 14" MacBook while keeping lower zone usable
+const double kLowerZoneDefaultHeight = 350.0;
 
 /// Height of the context bar when expanded (super-tabs + sub-tabs)
 const double kContextBarHeight = 60.0;
@@ -675,7 +676,39 @@ extension SlotLabSuperTabX on SlotLabSuperTab {
     SlotLabSuperTab.bake => Icons.local_fire_department,
   };
   String get shortcut => '${index + 1}';
-  Color get color => LowerZoneColors.slotLabAccent;
+
+  /// Category-based accent colors for visual hierarchy:
+  /// STAGES (standalone) = cyan, AUDIO (events/mix/dsp/music) = green,
+  /// DESIGN (rtpc/containers) = purple, DEBUG (logic/intel/monitor) = amber,
+  /// PRODUCTION (bake) = orange
+  Color get color => switch (this) {
+    SlotLabSuperTab.stages     => const Color(0xFF40C8FF), // Cyan — game flow
+    SlotLabSuperTab.events     => const Color(0xFF50FF98), // Green — audio
+    SlotLabSuperTab.mix        => const Color(0xFF50FF98),
+    SlotLabSuperTab.dsp        => const Color(0xFF50FF98),
+    SlotLabSuperTab.music      => const Color(0xFF50FF98),
+    SlotLabSuperTab.rtpc       => const Color(0xFFB080FF), // Purple — design
+    SlotLabSuperTab.containers => const Color(0xFFB080FF),
+    SlotLabSuperTab.logic      => const Color(0xFFFFD054), // Amber — debug/intel
+    SlotLabSuperTab.intel      => const Color(0xFFFFD054),
+    SlotLabSuperTab.monitor    => const Color(0xFFFFD054),
+    SlotLabSuperTab.bake       => const Color(0xFFFF9850), // Orange — production
+  };
+
+  /// Category label for group identification
+  String get category => switch (this) {
+    SlotLabSuperTab.stages     => 'FLOW',
+    SlotLabSuperTab.events     => 'AUDIO',
+    SlotLabSuperTab.mix        => 'AUDIO',
+    SlotLabSuperTab.dsp        => 'AUDIO',
+    SlotLabSuperTab.music      => 'AUDIO',
+    SlotLabSuperTab.rtpc       => 'DESIGN',
+    SlotLabSuperTab.containers => 'DESIGN',
+    SlotLabSuperTab.logic      => 'DEBUG',
+    SlotLabSuperTab.intel      => 'DEBUG',
+    SlotLabSuperTab.monitor    => 'DEBUG',
+    SlotLabSuperTab.bake       => 'EXPORT',
+  };
 }
 
 // --- SlotLab Sub-tabs ---
