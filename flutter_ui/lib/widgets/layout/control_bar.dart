@@ -420,13 +420,12 @@ class _ControlBarState extends State<ControlBar> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Zone Toggles
-                      if (!isVeryCompact)
-                        _ZoneToggles(
-                          onToggleLeft: widget.onToggleLeftZone,
-                          onToggleLower: widget.onToggleLowerZone,
-                          onToggleRight: widget.onToggleRightZone,
-                        ),
+                      // Zone Toggles (always visible — 26px each, essential)
+                      _ZoneToggles(
+                        onToggleLeft: widget.onToggleLeftZone,
+                        onToggleLower: widget.onToggleLowerZone,
+                        onToggleRight: widget.onToggleRightZone,
+                      ),
 
                       // PDC Indicator (always show - 0ms when no plugins)
                       if (!isVeryCompact)

@@ -542,40 +542,22 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     );
   }
 
-  /// Build a draggable divider at a specific index
+  /// Build a draggable divider at a specific index with hover/drag feedback
   Widget _buildSplitDividerIndexed({
     required bool isHorizontal,
     required int dividerIndex,
     required BoxConstraints constraints,
   }) {
-    return GestureDetector(
-      onPanUpdate: (details) {
+    return _SplitDivider(
+      isHorizontal: isHorizontal,
+      onDrag: (delta) {
         final totalSize = isHorizontal ? constraints.maxWidth : constraints.maxHeight;
-        final delta = isHorizontal ? details.delta.dx : details.delta.dy;
         final currentRatios = widget.controller.splitRatios;
         if (dividerIndex < currentRatios.length) {
           final newRatio = currentRatios[dividerIndex] + (delta / totalSize);
           widget.controller.setSplitRatioAtIndex(dividerIndex, newRatio);
         }
       },
-      child: MouseRegion(
-        cursor: isHorizontal ? SystemMouseCursors.resizeColumn : SystemMouseCursors.resizeRow,
-        child: Container(
-          width: isHorizontal ? kSplitDividerWidth : null,
-          height: isHorizontal ? null : kSplitDividerWidth,
-          color: LowerZoneColors.bgMid,
-          child: Center(
-            child: Container(
-              width: isHorizontal ? 2 : 24,
-              height: isHorizontal ? 24 : 2,
-              decoration: BoxDecoration(
-                color: LowerZoneColors.border,
-                borderRadius: BorderRadius.circular(1),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -684,41 +666,57 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
             ),
           ),
           const SizedBox(width: 8),
-          // Sub-tabs
+          // Sub-tabs with scroll fade hint
           Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: List.generate(subTabLabels.length, (index) {
-                  final isSelected = index == subTabIndex;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: InkWell(
-                      onTap: () => onSubTabChanged(index),
-                      borderRadius: BorderRadius.circular(3),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: isSelected ? LowerZoneColors.dawAccent.withValues(alpha: 0.2) : Colors.transparent,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: Text(
-                          subTabLabels[index],
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: isSelected ? LowerZoneColors.dawAccent : LowerZoneColors.textTertiary,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ),
-            ),
+            child: _buildScrollFadeSubTabs(subTabLabels, subTabIndex, onSubTabChanged),
           ),
         ],
       ),
+    );
+  }
+
+  /// Sub-tabs with right-edge fade hint when scrollable (>6 tabs)
+  Widget _buildScrollFadeSubTabs(List<String> labels, int selectedIndex, void Function(int) onChanged) {
+    final content = SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: List.generate(labels.length, (index) {
+          final isSelected = index == selectedIndex;
+          return Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: InkWell(
+              onTap: () => onChanged(index),
+              borderRadius: BorderRadius.circular(3),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isSelected ? LowerZoneColors.dawAccent.withValues(alpha: 0.2) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: Text(
+                  labels[index],
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: isSelected ? LowerZoneColors.dawAccent : LowerZoneColors.textTertiary,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+    if (labels.length <= 6) return content;
+    return ShaderMask(
+      shaderCallback: (Rect bounds) {
+        return const LinearGradient(
+          colors: [Colors.white, Colors.white, Colors.white, Colors.transparent],
+          stops: [0.0, 0.85, 0.92, 1.0],
+        ).createShader(bounds);
+      },
+      blendMode: BlendMode.dstIn,
+      child: content,
     );
   }
 
@@ -2978,6 +2976,55 @@ class _TrackPresetSaveDialogState extends State<_TrackPresetSaveDialog> {
           child: const Text('Save'),
         ),
       ],
+    );
+  }
+}
+
+/// Split divider with hover and drag visual feedback
+class _SplitDivider extends StatefulWidget {
+  final bool isHorizontal;
+  final void Function(double delta) onDrag;
+
+  const _SplitDivider({required this.isHorizontal, required this.onDrag});
+
+  @override
+  State<_SplitDivider> createState() => _SplitDividerState();
+}
+
+class _SplitDividerState extends State<_SplitDivider> {
+  bool _isHovered = false;
+  bool _isDragging = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = _isHovered || _isDragging;
+    return GestureDetector(
+      onPanStart: (_) => setState(() => _isDragging = true),
+      onPanUpdate: (details) {
+        widget.onDrag(widget.isHorizontal ? details.delta.dx : details.delta.dy);
+      },
+      onPanEnd: (_) => setState(() => _isDragging = false),
+      onPanCancel: () => setState(() => _isDragging = false),
+      child: MouseRegion(
+        cursor: widget.isHorizontal ? SystemMouseCursors.resizeColumn : SystemMouseCursors.resizeRow,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: Container(
+          width: widget.isHorizontal ? kSplitDividerWidth : null,
+          height: widget.isHorizontal ? null : kSplitDividerWidth,
+          color: isActive ? LowerZoneColors.dawAccent.withValues(alpha: 0.1) : LowerZoneColors.bgMid,
+          child: Center(
+            child: Container(
+              width: widget.isHorizontal ? 2 : 24,
+              height: widget.isHorizontal ? 24 : 2,
+              decoration: BoxDecoration(
+                color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.border,
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

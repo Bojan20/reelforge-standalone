@@ -79,12 +79,14 @@ class MixerTopBar extends StatelessWidget {
           'N',
           mode == StripWidthMode.narrow,
           () => controller.setStripWidth(StripWidthMode.narrow),
+          tooltip: 'Narrow strips',
         ),
         const SizedBox(width: 2),
         _buildToggleChip(
           'R',
           mode == StripWidthMode.regular,
           () => controller.setStripWidth(StripWidthMode.regular),
+          tooltip: 'Regular strips',
         ),
       ],
     );
@@ -102,6 +104,7 @@ class MixerTopBar extends StatelessWidget {
           isVisible,
           () => controller.toggleSection(section),
           color: _sectionColor(section),
+          tooltip: '${isVisible ? "Hide" : "Show"} ${section.name}',
         ),
       );
     }).toList();
@@ -304,6 +307,23 @@ class MixerTopBar extends StatelessWidget {
             minWidth: 24,
             minHeight: 24,
           ),
+          suffixIcon: controller.filterQuery.isNotEmpty
+              ? GestureDetector(
+                  onTap: () => controller.setFilterQuery(''),
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(
+                      Icons.close,
+                      size: 12,
+                      color: Colors.white.withOpacity(0.4),
+                    ),
+                  ),
+                )
+              : null,
+          suffixIconConstraints: const BoxConstraints(
+            minWidth: 20,
+            minHeight: 20,
+          ),
           filled: true,
           fillColor: Colors.white.withOpacity(0.04),
           contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
@@ -369,9 +389,9 @@ class MixerTopBar extends StatelessWidget {
     );
   }
 
-  Widget _buildToggleChip(String label, bool active, VoidCallback onTap, {Color? color}) {
+  Widget _buildToggleChip(String label, bool active, VoidCallback onTap, {Color? color, String? tooltip}) {
     final activeColor = color ?? const Color(0xFF4A9EFF);
-    return GestureDetector(
+    Widget chip = GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
@@ -396,6 +416,10 @@ class MixerTopBar extends StatelessWidget {
         ),
       ),
     );
+    if (tooltip != null) {
+      chip = Tooltip(message: tooltip, child: chip);
+    }
+    return chip;
   }
 
   Widget _buildSeparator() {
