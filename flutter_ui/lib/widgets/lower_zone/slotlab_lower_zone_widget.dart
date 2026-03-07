@@ -70,6 +70,7 @@ import '../slot_lab/lower_zone/bake/macro_monitor.dart';
 import '../slot_lab/lower_zone/bake/macro_report_viewer.dart';
 import '../slot_lab/lower_zone/bake/macro_config_editor.dart';
 import '../slot_lab/lower_zone/bake/macro_history.dart';
+import '../../services/diagnostics/diagnostics_service.dart';
 import '../../providers/slot_lab/slotlab_export_provider.dart';
 import '../../providers/slot_lab/slotlab_notification_provider.dart';
 
@@ -292,17 +293,27 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: LowerZoneContextBar(
-                          superTabLabels: SlotLabSuperTab.values.map((t) => t.label).toList(),
-                          superTabIcons: SlotLabSuperTab.values.map((t) => t.icon).toList(),
-                          selectedSuperTab: widget.controller.superTab.index,
-                          subTabLabels: widget.controller.subTabLabels,
-                          selectedSubTab: widget.controller.currentSubTabIndex,
-                          accentColor: widget.controller.accentColor,
-                          isExpanded: widget.controller.isExpanded,
-                          onSuperTabSelected: widget.controller.setSuperTabIndex,
-                          onSubTabSelected: widget.controller.setSubTabIndex,
-                          onToggle: widget.controller.toggle,
+                        child: ListenableBuilder(
+                          listenable: DiagnosticsService.instance,
+                          builder: (context, _) {
+                            final findingsCount = DiagnosticsService.instance.liveFindings.length;
+                            return LowerZoneContextBar(
+                              superTabLabels: SlotLabSuperTab.values.map((t) => t.label).toList(),
+                              superTabIcons: SlotLabSuperTab.values.map((t) => t.icon).toList(),
+                              selectedSuperTab: widget.controller.superTab.index,
+                              subTabLabels: widget.controller.subTabLabels,
+                              selectedSubTab: widget.controller.currentSubTabIndex,
+                              accentColor: widget.controller.accentColor,
+                              isExpanded: widget.controller.isExpanded,
+                              onSuperTabSelected: widget.controller.setSuperTabIndex,
+                              onSubTabSelected: widget.controller.setSubTabIndex,
+                              onToggle: widget.controller.toggle,
+                              // Visual group separators: STAGES | EVENTS+MIX+DSP | RTPC+CONTAINERS+MUSIC | LOGIC+INTEL+MONITOR | BAKE
+                              superTabGroupBreaks: const [0, 3, 6, 9],
+                              // Diagnostics findings badge on MONITOR tab (index 9)
+                              superTabBadges: findingsCount > 0 ? {SlotLabSuperTab.monitor.index: findingsCount} : null,
+                            );
+                          },
                         ),
                       ),
                       // P0.3: Keyboard shortcuts help button (adapts to context bar height)

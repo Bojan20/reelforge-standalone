@@ -343,10 +343,10 @@ class SlotLabScreen extends StatefulWidget {
 }
 
 /// Left panel tab modes for multi-mode switching
-enum _LeftPanelTab { audio, events, stages, aurexis }
+enum _LeftPanelTab { audio, events, aurexis }
 
 /// Right panel tab modes for context-aware inspector
-enum _RightPanelTab { events, inspector, config, diagnostics, pool }
+enum _RightPanelTab { events, inspector, config, pool }
 
 class _SlotLabScreenState extends State<SlotLabScreen>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin, InlineToastMixin {
@@ -3690,21 +3690,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     children: [
                       _buildCurrentStageIndicator(),
                     ],
-                  ),
-                ),
-
-                // ── DIAG STATUS ──
-                Container(
-                  margin: const EdgeInsets.only(right: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  color: const Color(0xFFFF0000),
-                  child: Text(
-                    'DIAG: $_diagFindingsCount',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
                   ),
                 ),
 
@@ -8972,7 +8957,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             child: switch (_leftPanelTab) {
               _LeftPanelTab.audio => _buildUltimateAudioPanelContent(),
               _LeftPanelTab.events => _buildEventsLeftPanel(),
-              _LeftPanelTab.stages => _buildStagesLeftPanel(),
               _LeftPanelTab.aurexis => const AurexisPanel(),
             },
           ),
@@ -8983,8 +8967,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   Widget _buildLeftPanelTabBar() {
     const tabs = _LeftPanelTab.values;
-    const labels = ['AUDIO', 'EVENTS', 'STAGES', 'AUREXIS'];
-    const icons = [Icons.audiotrack, Icons.event_note, Icons.layers, Icons.auto_awesome];
+    const labels = ['AUDIO', 'BROWSE', 'AUREXIS'];
+    const icons = [Icons.audiotrack, Icons.event_note, Icons.auto_awesome];
 
     return Container(
       height: SlotLabDimens.panelTabBarHeight,
@@ -9079,14 +9063,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             return [
               // Category header
               Padding(
-                padding: const EdgeInsets.only(top: 4, bottom: 2, left: 4),
+                padding: EdgeInsets.only(top: SlotLabSpacing.xs, bottom: SlotLabSpacing.xxs, left: SlotLabSpacing.xs),
                 child: Text(
                   entry.key.toUpperCase(),
-                  style: TextStyle(
+                  style: SlotLabTypo.categoryLabel.copyWith(
                     color: FluxForgeTheme.accentCyan.withValues(alpha: 0.7),
-                    fontSize: 8,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.0,
                   ),
                 ),
               ),
@@ -9149,71 +9130,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     );
   }
 
-  /// STAGES tab in left panel — stage flow overview with config
-  Widget _buildStagesLeftPanel() {
-    final stageConfig = StageConfigurationService.instance;
-    final stages = stageConfig.allStageNames;
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(4),
-      itemCount: stages.length,
-      itemBuilder: (context, index) {
-        final stage = stages[index];
-        final bus = stageConfig.getBus(stage).name;
-        final priority = stageConfig.getPriority(stage);
-        return Container(
-          margin: const EdgeInsets.only(bottom: 2),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFF161620),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: FluxForgeTheme.accentGreen.withValues(alpha: 0.6),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  stage.replaceAll('_', ' '),
-                  style: const TextStyle(
-                    color: Color(0xFFB0B0B8),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Text(
-                bus,
-                style: TextStyle(
-                  color: FluxForgeTheme.accentCyan.withValues(alpha: 0.6),
-                  fontSize: 8,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'P$priority',
-                style: TextStyle(
-                  color: const Color(0xFFFFAA00).withValues(alpha: 0.6),
-                  fontSize: 8,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   // ═══════════════════════════════════════════════════════════════════════════
   // RIGHT PANEL V2 — Multi-tab (Events / Inspector / Config)
   // ═══════════════════════════════════════════════════════════════════════════
@@ -9237,7 +9153,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               _RightPanelTab.events => _buildRightEventsContent(),
               _RightPanelTab.inspector => _buildRightInspectorContent(),
               _RightPanelTab.config => _buildRightConfigContent(),
-              _RightPanelTab.diagnostics => _buildDiagnosticsContent(),
               _RightPanelTab.pool => _buildAudioBrowser(),
             },
           ),
@@ -9436,8 +9351,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   Widget _buildRightPanelTabBar() {
     const tabs = _RightPanelTab.values;
-    const labels = ['EVENTS', 'INSPECT', 'CONFIG', 'DIAG', 'POOL'];
-    const icons = [Icons.event_note, Icons.info_outline, Icons.tune, Icons.health_and_safety, Icons.library_music];
+    const labels = ['DETAIL', 'INSPECT', 'CONFIG', 'POOL'];
+    const icons = [Icons.event_note, Icons.info_outline, Icons.tune, Icons.library_music];
 
     return Container(
       height: SlotLabDimens.panelTabBarHeight,

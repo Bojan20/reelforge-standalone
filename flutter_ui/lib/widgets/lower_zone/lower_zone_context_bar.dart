@@ -92,6 +92,14 @@ class LowerZoneContextBar extends StatelessWidget {
   /// Callback to set panel count
   final ValueChanged<int>? onPanelCountChanged;
 
+  /// Super-tab group separators — indices after which a visual divider is inserted.
+  /// Example: [0, 3, 6, 9] puts dividers after tabs 0, 3, 6, 9.
+  final List<int>? superTabGroupBreaks;
+
+  /// Optional badge counts per super-tab (e.g., diagnostics findings count).
+  /// Map of tab index → badge count. Only shown when count > 0.
+  final Map<int, int>? superTabBadges;
+
   const LowerZoneContextBar({
     super.key,
     required this.superTabLabels,
@@ -120,6 +128,8 @@ class LowerZoneContextBar extends StatelessWidget {
     this.onSwapPanes,
     this.panelCount,
     this.onPanelCountChanged,
+    this.superTabGroupBreaks,
+    this.superTabBadges,
   });
 
   @override
@@ -169,11 +179,26 @@ class LowerZoneContextBar extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  // Super-tabs
+                  // Super-tabs with optional group separators
                   ...List.generate(superTabLabels.length, (index) {
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 4),
-                      child: _buildSuperTab(index),
+                    final needsSeparator = superTabGroupBreaks != null &&
+                        superTabGroupBreaks!.contains(index) &&
+                        index < superTabLabels.length - 1;
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: _buildSuperTab(index),
+                        ),
+                        if (needsSeparator)
+                          Container(
+                            width: 1,
+                            height: 16,
+                            margin: const EdgeInsets.only(right: 6),
+                            color: LowerZoneColors.border,
+                          ),
+                      ],
                     );
                   }),
                   const SizedBox(width: 16), // Spacer replacement
@@ -282,6 +307,25 @@ class LowerZoneContextBar extends StatelessWidget {
                 ),
               ),
             ),
+            // Badge count (e.g., diagnostics findings)
+            if (superTabBadges != null && (superTabBadges![index] ?? 0) > 0) ...[
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF5252),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '${superTabBadges![index]}',
+                  style: const TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
