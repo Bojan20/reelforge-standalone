@@ -34,6 +34,7 @@ import '../../models/slot_audio_events.dart' show SlotCompositeEvent, SlotEventL
 import '../../models/timeline_models.dart' show parseWaveformFromJson;
 import '../../models/middleware_models.dart' show ActionType, CrossfadeCurve, CrossfadeCurveExtension;
 import '../../services/audio_playback_service.dart';
+import '../../services/event_registry.dart';
 import '../../services/waveform_cache_service.dart';
 import '../slot_lab/stage_trace_widget.dart';
 import '../slot_lab/event_log_panel.dart';
@@ -997,13 +998,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       SlotLabStagesSubTab.trace => _buildTracePanel(),
       SlotLabStagesSubTab.timeline => _buildTimelinePanel(),
       SlotLabStagesSubTab.timing => _buildProfilerPanel(),
-      SlotLabStagesSubTab.layerTimeline => _buildEmptyState(
-        icon: Icons.layers,
-        title: 'Layer Timeline',
-        subtitle: 'Start a spin to see layer-by-layer audio playback timeline',
-        actionLabel: 'Spin',
-        onAction: widget.onSpin,
-      ),
+      SlotLabStagesSubTab.layerTimeline => _buildLayerPlaybackPanel(),
     };
   }
 
@@ -1186,17 +1181,9 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       SlotLabDspSubTab.attenuation => const AttenuationCurvePanel(),
       SlotLabDspSubTab.signatures => const AudioSignaturesPanel(),
       SlotLabDspSubTab.dspProfiler => const DspProfilerPanel(),
-      SlotLabDspSubTab.layerDsp => _buildEmptyState(
-        icon: Icons.tune,
-        title: 'Layer DSP',
-        subtitle: 'Select an event layer in the Inspector to edit its DSP chain',
-      ),
+      SlotLabDspSubTab.layerDsp => _buildLayerDspPanel(),
       SlotLabDspSubTab.presetMorph => const PresetMorphEditorPanel(),
-      SlotLabDspSubTab.spatial => _buildEmptyState(
-        icon: Icons.surround_sound,
-        title: 'Spatial Audio',
-        subtitle: 'Select an event layer in the Inspector to design spatial positioning',
-      ),
+      SlotLabDspSubTab.spatial => _buildSpatialPanel(),
     };
   }
 
@@ -3542,6 +3529,249 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LAYER PLAYBACK PANEL — Live per-layer audio status (STAGES > Layers)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildLayerPlaybackPanel() {
+    return Selector<MiddlewareProvider, List<SlotCompositeEvent>>(
+      selector: (_, mw) => mw.compositeEvents,
+      shouldRebuild: (prev, next) => prev.length != next.length || !identical(prev, next),
+      builder: (context, events, _) {
+        final registry = EventRegistry.instance;
+        final allLayers = <({String eventName, String audioFile, int busId, bool isPlaying, bool isLooping})>[];
+        for (final event in events) {
+          final playing = registry.isEventPlaying(event.id);
+          for (final layer in event.layers) {
+            if (layer.audioPath.isEmpty) continue;
+            allLayers.add((
+              eventName: event.name,
+              audioFile: layer.audioPath.split('/').last,
+              busId: layer.busId ?? 2,
+              isPlaying: playing,
+              isLooping: layer.loop,
+            ));
+          }
+        }
+        if (allLayers.isEmpty) {
+          return _buildEmptyState(icon: Icons.layers, title: 'No audio layers',
+            subtitle: 'Assign audio to stages to see layer playback');
+        }
+        const busNames = ['Master', 'Music', 'SFX', 'Voice', 'Ambience', 'Aux'];
+        const busColors = [Colors.white54, Color(0xFF50FF98), Color(0xFF40C8FF), Color(0xFFFFD054), Color(0xFFB080FF), Color(0xFFFF9850)];
+        return Column(children: [
+          Container(
+            height: 28, padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(color: LowerZoneColors.bgSurface,
+              border: Border(bottom: BorderSide(color: LowerZoneColors.border))),
+            child: Row(children: [
+              Icon(Icons.layers, size: 13, color: LowerZoneColors.slotLabAccent),
+              const SizedBox(width: 6),
+              Text('LAYER PLAYBACK', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
+                color: Colors.white.withValues(alpha: 0.7), letterSpacing: 0.5)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(3)),
+                child: Text('${allLayers.where((l) => l.isPlaying).length}/${allLayers.length} active',
+                  style: TextStyle(fontSize: 9, color: LowerZoneColors.slotLabAccent)),
+              ),
+            ]),
+          ),
+          Expanded(child: ListView.builder(
+            padding: const EdgeInsets.all(4), itemCount: allLayers.length,
+            itemBuilder: (ctx, i) {
+              final layer = allLayers[i];
+              final busColor = layer.busId < busColors.length ? busColors[layer.busId] : Colors.white38;
+              final busName = layer.busId < busNames.length ? busNames[layer.busId] : 'Bus ${layer.busId}';
+              return Container(
+                height: 32, margin: const EdgeInsets.only(bottom: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: layer.isPlaying ? busColor.withValues(alpha: 0.08) : LowerZoneColors.bgDeepest,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: layer.isPlaying ? busColor.withValues(alpha: 0.3) : LowerZoneColors.border)),
+                child: Row(children: [
+                  Container(width: 6, height: 6, decoration: BoxDecoration(
+                    shape: BoxShape.circle, color: layer.isPlaying ? const Color(0xFF50FF98) : Colors.white12)),
+                  const SizedBox(width: 8),
+                  SizedBox(width: 90, child: Text(layer.eventName,
+                    style: const TextStyle(fontSize: 9, color: LowerZoneColors.textSecondary), overflow: TextOverflow.ellipsis)),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text(layer.audioFile,
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500,
+                      color: layer.isPlaying ? Colors.white : LowerZoneColors.textSecondary), overflow: TextOverflow.ellipsis)),
+                  if (layer.isLooping)
+                    Container(margin: const EdgeInsets.only(right: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(color: const Color(0xFFB080FF).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(3)),
+                      child: const Text('LOOP', style: TextStyle(fontSize: 7, color: Color(0xFFB080FF), fontWeight: FontWeight.bold))),
+                  Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(color: busColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(3)),
+                    child: Text(busName, style: TextStyle(fontSize: 8, color: busColor, fontWeight: FontWeight.w600))),
+                ]),
+              );
+            },
+          )),
+        ]);
+      },
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // LAYER DSP PANEL — Per-event DSP chain overview (DSP > Layer DSP)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildLayerDspPanel() {
+    return Selector<MiddlewareProvider, List<SlotCompositeEvent>>(
+      selector: (_, mw) => mw.compositeEvents,
+      shouldRebuild: (prev, next) => prev.length != next.length || !identical(prev, next),
+      builder: (context, events, _) {
+        final dspProvider = DspChainProvider.instance;
+        final audioEvents = events.where((e) => e.layers.any((l) => l.audioPath.isNotEmpty)).toList();
+        if (audioEvents.isEmpty) {
+          return _buildEmptyState(icon: Icons.tune, title: 'No audio events',
+            subtitle: 'Assign audio to stages to configure per-layer DSP');
+        }
+        return Column(children: [
+          Container(
+            height: 28, padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(color: LowerZoneColors.bgSurface,
+              border: Border(bottom: BorderSide(color: LowerZoneColors.border))),
+            child: Row(children: [
+              Icon(Icons.tune, size: 13, color: LowerZoneColors.slotLabAccent),
+              const SizedBox(width: 6),
+              Text('LAYER DSP', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
+                color: Colors.white.withValues(alpha: 0.7), letterSpacing: 0.5)),
+              const Spacer(),
+              Text('${audioEvents.length} events', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+            ]),
+          ),
+          Expanded(child: ListView.builder(
+            padding: const EdgeInsets.all(4), itemCount: audioEvents.length,
+            itemBuilder: (ctx, i) {
+              final event = audioEvents[i];
+              final chain = dspProvider.getChain(i);
+              final activeNodes = chain.nodes.where((n) => !n.bypass).length;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 4),
+                decoration: BoxDecoration(color: LowerZoneColors.bgDeepest,
+                  borderRadius: BorderRadius.circular(6), border: Border.all(color: LowerZoneColors.border)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    decoration: BoxDecoration(color: LowerZoneColors.bgMid,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(5))),
+                    child: Row(children: [
+                      Text(event.name, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white)),
+                      const Spacer(),
+                      if (activeNodes > 0)
+                        Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(color: LowerZoneColors.slotLabAccent.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(3)),
+                          child: Text('$activeNodes FX', style: TextStyle(fontSize: 8,
+                            color: LowerZoneColors.slotLabAccent, fontWeight: FontWeight.bold)))
+                      else
+                        Text('No FX', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+                    ]),
+                  ),
+                  Padding(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    child: chain.nodes.isEmpty
+                      ? Text('IN \u2192 OUT (bypass)', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted))
+                      : SingleChildScrollView(scrollDirection: Axis.horizontal, child: Row(children: [
+                          Text('IN', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted, fontWeight: FontWeight.bold)),
+                          ...chain.nodes.expand((node) => [
+                            Container(width: 12, height: 1, margin: const EdgeInsets.symmetric(horizontal: 2), color: LowerZoneColors.border),
+                            Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: node.bypass ? Colors.transparent : LowerZoneColors.slotLabAccent.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(3),
+                                border: Border.all(color: node.bypass ? LowerZoneColors.border : LowerZoneColors.slotLabAccent.withValues(alpha: 0.4))),
+                              child: Text(node.type.shortName, style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold,
+                                color: node.bypass ? LowerZoneColors.textMuted : LowerZoneColors.slotLabAccent))),
+                          ]),
+                          Container(width: 12, height: 1, margin: const EdgeInsets.symmetric(horizontal: 2), color: LowerZoneColors.border),
+                          Text('OUT', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted, fontWeight: FontWeight.bold)),
+                        ])),
+                  ),
+                ]),
+              );
+            },
+          )),
+        ]);
+      },
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SPATIAL AUDIO PANEL — 2D positioning overview (DSP > Spatial)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildSpatialPanel() {
+    return Selector<MiddlewareProvider, List<SlotCompositeEvent>>(
+      selector: (_, mw) => mw.compositeEvents,
+      shouldRebuild: (prev, next) => prev.length != next.length || !identical(prev, next),
+      builder: (context, events, _) {
+        final audioEvents = events.where((e) => e.layers.any((l) => l.audioPath.isNotEmpty)).toList();
+        const busNames = ['Master', 'Music', 'SFX', 'Voice', 'Ambience', 'Aux'];
+        if (audioEvents.isEmpty) {
+          return _buildEmptyState(icon: Icons.surround_sound, title: 'No audio events',
+            subtitle: 'Assign audio to stages to view spatial positioning');
+        }
+        return Column(children: [
+          Container(
+            height: 28, padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(color: LowerZoneColors.bgSurface,
+              border: Border(bottom: BorderSide(color: LowerZoneColors.border))),
+            child: Row(children: [
+              Icon(Icons.surround_sound, size: 13, color: LowerZoneColors.slotLabAccent),
+              const SizedBox(width: 6),
+              Text('SPATIAL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
+                color: Colors.white.withValues(alpha: 0.7), letterSpacing: 0.5)),
+              const Spacer(),
+              Text('${audioEvents.length} events', style: TextStyle(fontSize: 9, color: LowerZoneColors.textMuted)),
+            ]),
+          ),
+          Expanded(child: Row(children: [
+            Expanded(flex: 3, child: Container(
+              margin: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: LowerZoneColors.bgDeepest,
+                borderRadius: BorderRadius.circular(8), border: Border.all(color: LowerZoneColors.border)),
+              child: CustomPaint(painter: _SpatialFieldPainter(events: audioEvents), child: const SizedBox.expand()),
+            )),
+            Expanded(flex: 2, child: ListView.builder(
+              padding: const EdgeInsets.all(4), itemCount: audioEvents.length,
+              itemBuilder: (ctx, i) {
+                final event = audioEvents[i];
+                final mainLayer = event.layers.where((l) => l.audioPath.isNotEmpty).firstOrNull;
+                final pan = mainLayer?.pan ?? 0.0;
+                final busId = mainLayer?.busId ?? 2;
+                final busName = busId < busNames.length ? busNames[busId] : 'Bus $busId';
+                return Container(height: 36, margin: const EdgeInsets.only(bottom: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(color: LowerZoneColors.bgDeepest,
+                    borderRadius: BorderRadius.circular(4), border: Border.all(color: LowerZoneColors.border)),
+                  child: Row(children: [
+                    Container(width: 8, height: 8, decoration: BoxDecoration(
+                      shape: BoxShape.circle, color: LowerZoneColors.slotLabAccent)),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(event.name, style: const TextStyle(fontSize: 9, color: Colors.white),
+                      overflow: TextOverflow.ellipsis)),
+                    Text('${pan >= 0 ? '+' : ''}${(pan * 100).round()}',
+                      style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+                    const SizedBox(width: 6),
+                    Text(busName, style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+                  ]),
+                );
+              },
+            )),
+          ])),
+        ]);
+      },
+    );
+  }
+
   /// Compact Stems Panel — Connected to MixerDSPProvider buses
   Widget _buildCompactStemsPanel() {
     // P0.4 FIX: Read from MixerDSPProvider and use interactive checkboxes
@@ -4984,4 +5214,56 @@ class _TlGridPainter extends CustomPainter {
   @override
   bool shouldRepaint(_TlGridPainter oldDelegate) =>
       oldDelegate.pixelsPerSecond != pixelsPerSecond;
+}
+
+/// 2D spatial field painter — shows event positions based on pan value
+class _SpatialFieldPainter extends CustomPainter {
+  final List<SlotCompositeEvent> events;
+  _SpatialFieldPainter({required this.events});
+
+  static const _busColors = [
+    Color(0x88FFFFFF), Color(0xFF50FF98), Color(0xFF40C8FF),
+    Color(0xFFFFD054), Color(0xFFB080FF), Color(0xFFFF9850),
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final radius = (size.width < size.height ? size.width : size.height) / 2 - 16;
+
+    final ringPaint = Paint()..color = Colors.white.withValues(alpha: 0.06)..style = PaintingStyle.stroke..strokeWidth = 1;
+    for (int i = 1; i <= 3; i++) {
+      canvas.drawCircle(Offset(cx, cy), radius * i / 3, ringPaint);
+    }
+    final crossPaint = Paint()..color = Colors.white.withValues(alpha: 0.04)..strokeWidth = 1;
+    canvas.drawLine(Offset(cx, cy - radius), Offset(cx, cy + radius), crossPaint);
+    canvas.drawLine(Offset(cx - radius, cy), Offset(cx + radius, cy), crossPaint);
+    canvas.drawCircle(Offset(cx, cy), 4, Paint()..color = Colors.white.withValues(alpha: 0.3));
+
+    for (int i = 0; i < events.length; i++) {
+      final mainLayer = events[i].layers.where((l) => l.audioPath.isNotEmpty).firstOrNull;
+      if (mainLayer == null) continue;
+      final busId = mainLayer.busId ?? 2;
+      final color = busId < _busColors.length ? _busColors[busId] : Colors.white54;
+      final x = cx + mainLayer.pan * radius * 0.85;
+      final y = cy - radius * 0.3 + (i % 5) * radius * 0.15;
+      canvas.drawCircle(Offset(x, y), 10, Paint()..color = color.withValues(alpha: 0.15)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8));
+      canvas.drawCircle(Offset(x, y), 5, Paint()..color = color);
+      final tp = TextPainter(
+        text: TextSpan(text: events[i].name.length > 12 ? '${events[i].name.substring(0, 10)}..' : events[i].name,
+          style: TextStyle(fontSize: 8, color: color.withValues(alpha: 0.8))),
+        textDirection: TextDirection.ltr)..layout();
+      tp.paint(canvas, Offset(x - tp.width / 2, y + 8));
+    }
+    final lp = TextPainter(text: TextSpan(text: 'L', style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.2), fontWeight: FontWeight.bold)),
+      textDirection: TextDirection.ltr)..layout();
+    lp.paint(canvas, Offset(4, cy - lp.height / 2));
+    final rp = TextPainter(text: TextSpan(text: 'R', style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.2), fontWeight: FontWeight.bold)),
+      textDirection: TextDirection.ltr)..layout();
+    rp.paint(canvas, Offset(size.width - rp.width - 4, cy - rp.height / 2));
+  }
+
+  @override
+  bool shouldRepaint(_SpatialFieldPainter old) => old.events.length != events.length;
 }
