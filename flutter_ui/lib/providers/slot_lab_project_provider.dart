@@ -1346,6 +1346,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
       bigWins: _winConfiguration.bigWins.copyWith(tiers: currentTiers),
     );
     _winConfigFromGdd = false;
+    _syncWinTierStages();
     _markDirty();
   }
 
@@ -1355,6 +1356,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
       bigWins: _winConfiguration.bigWins.copyWith(threshold: threshold),
     );
     _winConfigFromGdd = false;
+    _syncWinTierStages();
     _markDirty();
   }
 

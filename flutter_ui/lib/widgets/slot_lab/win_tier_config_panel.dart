@@ -31,9 +31,33 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
   bool _showBigWin = false;
   bool _showPresets = false;
 
+  // Inline editing state
+  String? _editingField; // e.g. "regular_1_from", "big_2_dur"
+  late TextEditingController _inlineController;
+  late FocusNode _inlineFocus;
+
   SlotWinConfiguration get _config => widget.projectProvider.winConfiguration;
   RegularWinTierConfig get _regular => _config.regularWins;
   BigWinConfig get _bigWin => _config.bigWins;
+
+  @override
+  void initState() {
+    super.initState();
+    _inlineController = TextEditingController();
+    _inlineFocus = FocusNode();
+    _inlineFocus.addListener(() {
+      if (!_inlineFocus.hasFocus && _editingField != null) {
+        _commitInlineEdit();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _inlineController.dispose();
+    _inlineFocus.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,9 +79,16 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                 'REGULAR WIN TIERS',
                 icon: Icons.emoji_events_outlined,
                 color: const Color(0xFF66BB6A),
-                trailing: Text(
-                  '${_regular.tiers.length} tiers',
-                  style: const TextStyle(color: Color(0xFF606068), fontSize: 9),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${_regular.tiers.length} tiers',
+                      style: const TextStyle(color: Color(0xFF606068), fontSize: 9),
+                    ),
+                    const SizedBox(width: 6),
+                    _addTierButton(),
+                  ],
                 ),
               ),
               const SizedBox(height: 4),
@@ -311,12 +342,69 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // ADD TIER BUTTON
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _addTierButton() {
+    return GestureDetector(
+      onTap: _addNewRegularTier,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+        decoration: BoxDecoration(
+          color: const Color(0xFF66BB6A).withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: const Color(0xFF66BB6A).withValues(alpha: 0.3)),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.add, size: 10, color: Color(0xFF66BB6A)),
+            SizedBox(width: 2),
+            Text('ADD', style: TextStyle(
+              color: Color(0xFF66BB6A), fontSize: 7, fontWeight: FontWeight.w600,
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _addNewRegularTier() {
+    // Find next available tier ID (1-based, skip -1 and 0)
+    final existingIds = _regular.tiers.map((t) => t.tierId).toSet();
+    int nextId = 1;
+    while (existingIds.contains(nextId)) {
+      nextId++;
+    }
+
+    // Find the last tier's toMultiplier as new tier's fromMultiplier
+    final sortedTiers = List<WinTierDefinition>.from(_regular.tiers)
+      ..sort((a, b) => a.tierId.compareTo(b.tierId));
+    final lastPositive = sortedTiers.where((t) => t.tierId > 0).lastOrNull;
+    final from = lastPositive?.toMultiplier ?? 1.0;
+
+    final newTier = WinTierDefinition(
+      tierId: nextId,
+      fromMultiplier: from,
+      toMultiplier: from + 5.0,
+      displayLabel: 'WIN $nextId',
+      rollupDurationMs: 1500,
+      rollupTickRate: 15,
+      particleBurstCount: nextId * 5,
+    );
+
+    widget.projectProvider.addRegularWinTier(newTier);
+    setState(() {});
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // REGULAR WIN TIER ROW
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildRegularTierRow(WinTierDefinition tier) {
     final tierName = tier.stageName;
     final color = _tierColor(tier.tierId);
+    final canRemove = tier.tierId > 0; // Can't remove WIN_LOW or WIN_EQUAL
 
     return Container(
       margin: const EdgeInsets.only(bottom: 3),
@@ -329,7 +417,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Row 1: Tier name + label
+          // Row 1: Tier name + label + remove button
           Row(
             children: [
               Container(
@@ -351,20 +439,39 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
               ),
               const SizedBox(width: 6),
               Expanded(
-                child: _editableField(
+                child: _inlineTextField(
+                  fieldId: 'regular_${tier.tierId}_label',
                   value: tier.displayLabel.isEmpty ? '(no label)' : tier.displayLabel,
-                  hint: 'Label',
                   onSubmit: (val) => _updateRegularTier(tier, displayLabel: val),
                   dim: tier.displayLabel.isEmpty,
+                  isText: true,
                 ),
               ),
+              if (canRemove) ...[
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: () {
+                    widget.projectProvider.removeRegularWinTier(tier.tierId);
+                    setState(() {});
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF6060).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: const Icon(Icons.close, size: 10, color: Color(0xFFFF6060)),
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 4),
-          // Row 2: Multiplier range
+          // Row 2: Multiplier range + rollup + tick
           Row(
             children: [
-              _numericField(
+              _inlineNumericField(
+                fieldId: 'regular_${tier.tierId}_from',
                 label: 'FROM',
                 value: tier.fromMultiplier,
                 suffix: 'x',
@@ -374,7 +481,8 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
               const SizedBox(width: 4),
               const Text('→', style: TextStyle(color: Color(0xFF404048), fontSize: 10)),
               const SizedBox(width: 4),
-              _numericField(
+              _inlineNumericField(
+                fieldId: 'regular_${tier.tierId}_to',
                 label: 'TO',
                 value: tier.toMultiplier,
                 suffix: 'x',
@@ -382,7 +490,8 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                 width: 50,
               ),
               const Spacer(),
-              _numericField(
+              _inlineNumericField(
+                fieldId: 'regular_${tier.tierId}_rollup',
                 label: 'ROLLUP',
                 value: tier.rollupDurationMs.toDouble(),
                 suffix: 'ms',
@@ -391,7 +500,8 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                 isInt: true,
               ),
               const SizedBox(width: 4),
-              _numericField(
+              _inlineNumericField(
+                fieldId: 'regular_${tier.tierId}_tick',
                 label: 'TICK',
                 value: tier.rollupTickRate.toDouble(),
                 suffix: '/s',
@@ -401,6 +511,17 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
               ),
             ],
           ),
+          // Row 3: Particles slider (only for tiers > 0)
+          if (tier.tierId > 0) ...[
+            const SizedBox(height: 4),
+            _intensitySlider(
+              'PARTICLES',
+              tier.particleBurstCount.toDouble(),
+              0, 50, color,
+              (val) => _updateRegularTier(tier, particleBurstCount: val.toInt()),
+              isInt: true,
+            ),
+          ],
         ],
       ),
     );
@@ -432,7 +553,8 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
             ),
           ),
           const Spacer(),
-          _numericField(
+          _inlineNumericField(
+            fieldId: 'big_threshold',
             label: '',
             value: _bigWin.threshold,
             suffix: 'x bet',
@@ -463,7 +585,8 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
       ),
       child: Row(
         children: [
-          _numericField(
+          _inlineNumericField(
+            fieldId: 'big_intro',
             label: 'INTRO',
             value: _bigWin.introDurationMs.toDouble(),
             suffix: 'ms',
@@ -472,7 +595,8 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
             isInt: true,
           ),
           const SizedBox(width: 6),
-          _numericField(
+          _inlineNumericField(
+            fieldId: 'big_end',
             label: 'END',
             value: _bigWin.endDurationMs.toDouble(),
             suffix: 'ms',
@@ -481,7 +605,8 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
             isInt: true,
           ),
           const SizedBox(width: 6),
-          _numericField(
+          _inlineNumericField(
+            fieldId: 'big_fade',
             label: 'FADE',
             value: _bigWin.fadeOutDurationMs.toDouble(),
             suffix: 'ms',
@@ -527,10 +652,11 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
               ),
               const SizedBox(width: 6),
               Expanded(
-                child: _editableField(
+                child: _inlineTextField(
+                  fieldId: 'big_${tier.tierId}_label',
                   value: tier.displayLabel,
-                  hint: 'Label',
                   onSubmit: (val) => _updateBigWinTier(tier, displayLabel: val),
+                  isText: true,
                 ),
               ),
             ],
@@ -539,7 +665,8 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
           // Row 2: Multiplier range + duration
           Row(
             children: [
-              _numericField(
+              _inlineNumericField(
+                fieldId: 'big_${tier.tierId}_from',
                 label: 'FROM',
                 value: tier.fromMultiplier,
                 suffix: 'x',
@@ -549,7 +676,8 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
               const SizedBox(width: 4),
               const Text('→', style: TextStyle(color: Color(0xFF404048), fontSize: 10)),
               const SizedBox(width: 4),
-              _numericField(
+              _inlineNumericField(
+                fieldId: 'big_${tier.tierId}_to',
                 label: 'TO',
                 value: tier.toMultiplier == double.infinity ? -1 : tier.toMultiplier,
                 suffix: tier.toMultiplier == double.infinity ? '∞' : 'x',
@@ -560,7 +688,8 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                 width: 50,
               ),
               const Spacer(),
-              _numericField(
+              _inlineNumericField(
+                fieldId: 'big_${tier.tierId}_dur',
                 label: 'DUR',
                 value: tier.durationMs.toDouble(),
                 suffix: 'ms',
@@ -706,30 +835,75 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SHARED FIELD WIDGETS
+  // INLINE EDITING FIELDS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _editableField({
+  /// Inline text field — single tap to start editing, Enter/blur to commit
+  Widget _inlineTextField({
+    required String fieldId,
     required String value,
-    required String hint,
     required ValueChanged<String> onSubmit,
     bool dim = false,
+    bool isText = false,
   }) {
-    return GestureDetector(
-      onDoubleTap: () => _showTextEditDialog(value, hint, onSubmit),
-      child: Text(
-        value,
-        style: TextStyle(
-          color: dim ? const Color(0xFF404048) : const Color(0xFF808088),
-          fontSize: 9,
-          fontStyle: dim ? FontStyle.italic : FontStyle.normal,
+    final isEditing = _editingField == fieldId;
+
+    if (isEditing) {
+      return SizedBox(
+        height: 16,
+        child: TextField(
+          controller: _inlineController,
+          focusNode: _inlineFocus,
+          style: const TextStyle(
+            color: Color(0xFFD0D0D8),
+            fontSize: 9,
+            fontFamily: 'monospace',
+          ),
+          decoration: const InputDecoration(
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            border: OutlineInputBorder(
+              borderSide: BorderSide(color: Color(0xFF4488FF)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Color(0xFF4488FF)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Color(0xFF4488FF), width: 1.5),
+            ),
+          ),
+          onSubmitted: (val) {
+            onSubmit(val);
+            setState(() => _editingField = null);
+          },
         ),
-        overflow: TextOverflow.ellipsis,
+      );
+    }
+
+    return GestureDetector(
+      onTap: () => _startInlineEdit(fieldId, value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(2),
+          border: Border.all(color: Colors.transparent),
+        ),
+        child: Text(
+          value,
+          style: TextStyle(
+            color: dim ? const Color(0xFF404048) : const Color(0xFF808088),
+            fontSize: 9,
+            fontStyle: dim ? FontStyle.italic : FontStyle.normal,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
       ),
     );
   }
 
-  Widget _numericField({
+  /// Inline numeric field — single tap to start editing
+  Widget _inlineNumericField({
+    required String fieldId,
     required String label,
     required double value,
     required String suffix,
@@ -738,14 +912,68 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
     bool isInt = false,
     Color accentColor = const Color(0xFF808088),
   }) {
+    final isEditing = _editingField == fieldId;
     final displayValue = isInt
         ? value.toInt().toString()
         : (value == value.roundToDouble()
             ? value.toStringAsFixed(0)
             : value.toStringAsFixed(3).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), ''));
 
+    if (isEditing) {
+      return SizedBox(
+        width: width,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (label.isNotEmpty)
+              Text(label, style: const TextStyle(
+                color: Color(0xFF404048), fontSize: 7, fontWeight: FontWeight.w600,
+              )),
+            SizedBox(
+              height: 18,
+              child: TextField(
+                controller: _inlineController,
+                focusNode: _inlineFocus,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.\-]'))],
+                style: TextStyle(
+                  color: accentColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'monospace',
+                ),
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  border: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF4488FF)),
+                  ),
+                  enabledBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF4488FF)),
+                  ),
+                  focusedBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFF4488FF), width: 1.5),
+                  ),
+                  suffixText: suffix,
+                  suffixStyle: TextStyle(
+                    color: accentColor.withValues(alpha: 0.5),
+                    fontSize: 7,
+                  ),
+                ),
+                onSubmitted: (val) {
+                  final parsed = double.tryParse(val);
+                  if (parsed != null) onSubmit(parsed);
+                  setState(() => _editingField = null);
+                },
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return GestureDetector(
-      onDoubleTap: () => _showNumericEditDialog(value, label, suffix, onSubmit),
+      onTap: () => _startInlineEdit(fieldId, displayValue),
       child: SizedBox(
         width: width,
         child: Column(
@@ -760,32 +988,64 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  displayValue,
-                  style: TextStyle(
-                    color: accentColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'monospace',
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(2),
+                color: accentColor.withValues(alpha: 0.05),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    displayValue,
+                    style: TextStyle(
+                      color: accentColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: 'monospace',
+                    ),
                   ),
-                ),
-                const SizedBox(width: 1),
-                Text(
-                  suffix,
-                  style: TextStyle(
-                    color: accentColor.withValues(alpha: 0.5),
-                    fontSize: 7,
+                  const SizedBox(width: 1),
+                  Text(
+                    suffix,
+                    style: TextStyle(
+                      color: accentColor.withValues(alpha: 0.5),
+                      fontSize: 7,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  void _startInlineEdit(String fieldId, String currentValue) {
+    // Commit any previous edit first
+    if (_editingField != null) {
+      _commitInlineEdit();
+    }
+    setState(() {
+      _editingField = fieldId;
+      _inlineController.text = currentValue;
+    });
+    // Focus after frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _inlineFocus.requestFocus();
+        _inlineController.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: _inlineController.text.length,
+        );
+      }
+    });
+  }
+
+  void _commitInlineEdit() {
+    setState(() => _editingField = null);
   }
 
   Widget _intensitySlider(
@@ -794,8 +1054,9 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
     double min,
     double max,
     Color color,
-    ValueChanged<double> onChanged,
-  ) {
+    ValueChanged<double> onChanged, {
+    bool isInt = false,
+  }) {
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -812,7 +1073,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
               ),
               const Spacer(),
               Text(
-                value.toStringAsFixed(1),
+                isInt ? value.toInt().toString() : value.toStringAsFixed(1),
                 style: TextStyle(
                   color: color.withValues(alpha: 0.7),
                   fontSize: 8,
@@ -837,7 +1098,8 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                 min: min,
                 max: max,
                 onChanged: (v) {
-                  onChanged(double.parse(v.toStringAsFixed(1)));
+                  final rounded = isInt ? v.roundToDouble() : double.parse(v.toStringAsFixed(1));
+                  onChanged(rounded);
                   setState(() {});
                 },
               ),
@@ -858,6 +1120,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
     double? toMultiplier,
     int? rollupDurationMs,
     int? rollupTickRate,
+    int? particleBurstCount,
   }) {
     final updated = tier.copyWith(
       displayLabel: displayLabel,
@@ -865,6 +1128,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
       toMultiplier: toMultiplier,
       rollupDurationMs: rollupDurationMs,
       rollupTickRate: rollupTickRate,
+      particleBurstCount: particleBurstCount,
     );
     widget.projectProvider.updateRegularWinTier(tier.tierId, updated);
     setState(() {});
@@ -900,103 +1164,6 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
     );
     widget.projectProvider.setWinConfiguration(_config.copyWith(bigWins: updated));
     setState(() {});
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // DIALOGS
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  void _showTextEditDialog(String currentValue, String hint, ValueChanged<String> onSubmit) {
-    final controller = TextEditingController(text: currentValue);
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A24),
-        title: Text(hint, style: const TextStyle(color: Color(0xFFD0D0D8), fontSize: 13)),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: const TextStyle(color: Color(0xFFD0D0D8), fontSize: 12),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(color: Color(0xFF404048)),
-            enabledBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: Color(0xFF2A2A32)),
-            ),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: FluxForgeTheme.accentCyan),
-            ),
-          ),
-          onSubmitted: (val) {
-            onSubmit(val);
-            Navigator.of(ctx).pop();
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF808088))),
-          ),
-          TextButton(
-            onPressed: () {
-              onSubmit(controller.text);
-              Navigator.of(ctx).pop();
-            },
-            child: Text('OK', style: TextStyle(color: FluxForgeTheme.accentCyan)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showNumericEditDialog(double currentValue, String label, String suffix, ValueChanged<double> onSubmit) {
-    final controller = TextEditingController(text: currentValue.toString());
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A24),
-        title: Text(
-          '$label ($suffix)',
-          style: const TextStyle(color: Color(0xFFD0D0D8), fontSize: 13),
-        ),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.\-]'))],
-          style: const TextStyle(color: Color(0xFFD0D0D8), fontSize: 12, fontFamily: 'monospace'),
-          decoration: InputDecoration(
-            hintText: 'Enter value',
-            hintStyle: const TextStyle(color: Color(0xFF404048)),
-            enabledBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: Color(0xFF2A2A32)),
-            ),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: FluxForgeTheme.accentCyan),
-            ),
-          ),
-          onSubmitted: (val) {
-            final parsed = double.tryParse(val);
-            if (parsed != null) onSubmit(parsed);
-            Navigator.of(ctx).pop();
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF808088))),
-          ),
-          TextButton(
-            onPressed: () {
-              final parsed = double.tryParse(controller.text);
-              if (parsed != null) onSubmit(parsed);
-              Navigator.of(ctx).pop();
-            },
-            child: Text('OK', style: TextStyle(color: FluxForgeTheme.accentCyan)),
-          ),
-        ],
-      ),
-    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
