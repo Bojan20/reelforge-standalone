@@ -5636,17 +5636,24 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               }
             },
           ),
-          // DAW Lower Zone panel zoom — fullscreen overlay
+          // DAW Lower Zone panel zoom — fullscreen overlay with fade-in
           if (_dawLowerZoneFullscreen && _editorMode == EditorMode.daw)
             Positioned.fill(
-              child: Focus(
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 200),
+                builder: (context, opacity, child) => Opacity(opacity: opacity, child: child),
+                child: Focus(
                 autofocus: true,
                 onKeyEvent: (_, event) {
                   if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
                     setState(() => _dawLowerZoneFullscreen = false);
                     return KeyEventResult.handled;
                   }
-                  return KeyEventResult.ignored;
+                  // Forward tab/split shortcuts to controller
+                  final result = _dawLowerZoneController.handleKeyEvent(event);
+                  if (result == KeyEventResult.handled) return result;
+                  return _dawLowerZoneController.handleKeyEventWithModifiers(event);
                 },
                 child: Scaffold(
                 backgroundColor: const Color(0xFF0A0A0E),
@@ -5661,16 +5668,19 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                         children: [
                           Icon(Icons.fullscreen, size: 14, color: _dawLowerZoneController.accentColor),
                           const SizedBox(width: 6),
-                          Text(
-                            'FOCUS: ${_dawLowerZoneController.superTab.label} › ${_dawLowerZoneController.subTabLabels.length > _dawLowerZoneController.currentSubTabIndex ? _dawLowerZoneController.subTabLabels[_dawLowerZoneController.currentSubTabIndex] : ""}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: _dawLowerZoneController.accentColor,
-                              letterSpacing: 0.5,
+                          Flexible(
+                            child: Text(
+                              'FOCUS: ${_dawLowerZoneController.superTab.label} › ${_dawLowerZoneController.subTabLabels.length > _dawLowerZoneController.currentSubTabIndex ? _dawLowerZoneController.subTabLabels[_dawLowerZoneController.currentSubTabIndex] : ""}',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: _dawLowerZoneController.accentColor,
+                                letterSpacing: 0.5,
+                              ),
                             ),
                           ),
-                          const Spacer(),
+                          const SizedBox(width: 8),
                           GestureDetector(
                             onTap: () => setState(() => _dawLowerZoneFullscreen = false),
                             child: Container(
@@ -5698,6 +5708,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     ),
                   ],
                 ),
+              ),
               ),
               ),
             ),

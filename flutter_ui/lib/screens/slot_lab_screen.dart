@@ -3215,10 +3215,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           },
           ),
 
-          // Panel zoom overlay — fullscreen focus on lower zone
+          // Panel zoom overlay — fullscreen focus on lower zone with fade-in
           if (_zoomedPanel == 'lower')
             Positioned.fill(
-              child: Container(
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 200),
+                builder: (context, opacity, child) => Opacity(opacity: opacity, child: child),
+                child: Container(
                 color: const Color(0xFF0A0A0E),
                 child: Column(
                   children: [
@@ -3231,16 +3235,19 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                         children: [
                           Icon(Icons.fullscreen, size: 14, color: _lowerZoneController.superTab.color),
                           const SizedBox(width: 6),
-                          Text(
-                            'FOCUS: ${_lowerZoneController.superTab.label} › ${_lowerZoneController.subTabLabels.length > _lowerZoneController.currentSubTabIndex ? _lowerZoneController.subTabLabels[_lowerZoneController.currentSubTabIndex] : ""}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: _lowerZoneController.superTab.color,
-                              letterSpacing: 0.5,
+                          Flexible(
+                            child: Text(
+                              'FOCUS: ${_lowerZoneController.superTab.label} › ${_lowerZoneController.subTabLabels.length > _lowerZoneController.currentSubTabIndex ? _lowerZoneController.subTabLabels[_lowerZoneController.currentSubTabIndex] : ""}',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: _lowerZoneController.superTab.color,
+                                letterSpacing: 0.5,
+                              ),
                             ),
                           ),
-                          const Spacer(),
+                          const SizedBox(width: 8),
                           GestureDetector(
                             onTap: () => setState(() => _zoomedPanel = null),
                             child: Container(
@@ -3282,6 +3289,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     ),
                   ],
                 ),
+              ),
               ),
             ),
 

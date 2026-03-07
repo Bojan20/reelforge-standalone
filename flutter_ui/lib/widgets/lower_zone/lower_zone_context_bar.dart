@@ -262,20 +262,25 @@ class LowerZoneContextBar extends StatelessWidget {
   }
 
   Widget _buildToggleButton() {
-    return GestureDetector(
-      onTap: onToggle,
-      child: Container(
-        width: 24,
-        height: 24,
-        decoration: BoxDecoration(
-          color: LowerZoneColors.bgMid,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: LowerZoneColors.border),
-        ),
-        child: Icon(
-          isExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
-          size: 16,
-          color: LowerZoneColors.textSecondary,
+    return Tooltip(
+      message: isExpanded
+          ? 'Collapse Lower Zone (`)\nFullscreen: Cmd+Shift+F'
+          : 'Expand Lower Zone (`)',
+      child: GestureDetector(
+        onTap: onToggle,
+        child: Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: LowerZoneColors.bgMid,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: LowerZoneColors.border),
+          ),
+          child: Icon(
+            isExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
+            size: 16,
+            color: LowerZoneColors.textSecondary,
+          ),
         ),
       ),
     );
