@@ -238,7 +238,7 @@ class _SlotAudioPanelState extends State<SlotAudioPanel>
                     'SLOT AUDIO',
                     style: TextStyle(
                       color: SlotAudioColors.goldLight,
-                      fontSize: 18,
+                      fontSize: 13,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 2,
                     ),
@@ -383,7 +383,7 @@ class _SlotAudioPanelState extends State<SlotAudioPanel>
                       children: [
                         Text(
                           category.emoji,
-                          style: const TextStyle(fontSize: 16),
+                          style: const TextStyle(fontSize: 12),
                         ),
                         const SizedBox(width: 4),
                         Icon(
@@ -747,7 +747,7 @@ class _StageEventsCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Text('🔗', style: TextStyle(fontSize: 18)),
+                const Text('🔗', style: TextStyle(fontSize: 13)),
                 const SizedBox(width: 8),
                 Text(
                   'STAGE EVENTS',
@@ -888,7 +888,7 @@ class _QuickActionsCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Text(emoji, style: const TextStyle(fontSize: 18)),
+                Text(emoji, style: const TextStyle(fontSize: 13)),
                 const SizedBox(width: 8),
                 Text(
                   title,
@@ -1056,7 +1056,7 @@ class _FeatureCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Text(emoji, style: const TextStyle(fontSize: 18)),
+                Text(emoji, style: const TextStyle(fontSize: 13)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(

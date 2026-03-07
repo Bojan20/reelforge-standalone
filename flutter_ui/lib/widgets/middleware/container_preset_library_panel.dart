@@ -423,7 +423,7 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
           'Container Preset Library',
           style: TextStyle(
             color: FluxForgeTheme.textPrimary,
-            fontSize: 16,
+            fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
         ),

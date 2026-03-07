@@ -242,7 +242,7 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
                   morph.name,
                   style: TextStyle(
                     color: FluxForgeTheme.textPrimary,
-                    fontSize: 16,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -345,7 +345,7 @@ class _PresetMorphEditorPanelState extends State<PresetMorphEditorPanel> {
               '${(morph.position * 100).toStringAsFixed(0)}%',
               style: TextStyle(
                 color: FluxForgeTheme.accentPurple,
-                fontSize: 18,
+                fontSize: 13,
                 fontWeight: FontWeight.bold,
                 fontFamily: 'monospace',
               ),
