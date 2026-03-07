@@ -25,6 +25,7 @@ class AlePanel extends StatefulWidget {
 class _AlePanelState extends State<AlePanel>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final FocusNode _keyboardFocusNode = FocusNode();
   bool _showSignalMonitor = true;
 
   @override
@@ -48,6 +49,7 @@ class _AlePanelState extends State<AlePanel>
 
   @override
   void dispose() {
+    _keyboardFocusNode.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -217,7 +219,7 @@ class _AlePanelState extends State<AlePanel>
     return Consumer<AleProvider>(
       builder: (context, ale, child) {
         return KeyboardListener(
-          focusNode: FocusNode()..requestFocus(),
+          focusNode: _keyboardFocusNode..requestFocus(),
           onKeyEvent: (event) => _handleKeyEvent(event, ale),
           child: Container(
             color: const Color(0xFF0a0a0c),

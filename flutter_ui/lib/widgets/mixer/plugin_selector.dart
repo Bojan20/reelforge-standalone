@@ -53,6 +53,7 @@ class PluginSelectorDialog extends StatefulWidget {
 class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode();
+  final _keyboardFocusNode = FocusNode();
 
   PluginCategory? _selectedCategory;
   String _searchQuery = '';
@@ -86,6 +87,7 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
   void dispose() {
     _searchController.dispose();
     _searchFocus.dispose();
+    _keyboardFocusNode.dispose();
     super.dispose();
   }
 
@@ -116,7 +118,7 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
     final slotType = widget.isPreFader ? 'Pre-Fader' : 'Post-Fader';
 
     return KeyboardListener(
-      focusNode: FocusNode(),
+      focusNode: _keyboardFocusNode,
       onKeyEvent: _handleKeyEvent,
       child: Dialog(
         backgroundColor: Colors.transparent,

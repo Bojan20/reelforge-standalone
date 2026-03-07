@@ -1007,6 +1007,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     } catch (_) {
       // Provider may not be available during dispose
     }
+    // Dispose ScrollController
+    _middlewareTimelineScrollController.dispose();
     // Dispose Middleware ↔ DAW Sync Controller
     _mwTimelineSyncController.dispose();
     // Dispose Mixer View Controller

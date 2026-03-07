@@ -443,11 +443,13 @@ class KeyboardShortcutsOverlay extends StatefulWidget {
 
 class _KeyboardShortcutsOverlayState extends State<KeyboardShortcutsOverlay> {
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _keyboardFocusNode = FocusNode();
   String _searchQuery = '';
   ShortcutCategory? _selectedCategory;
 
   @override
   void dispose() {
+    _keyboardFocusNode.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -484,7 +486,7 @@ class _KeyboardShortcutsOverlayState extends State<KeyboardShortcutsOverlay> {
   @override
   Widget build(BuildContext context) {
     return KeyboardListener(
-      focusNode: FocusNode()..requestFocus(),
+      focusNode: _keyboardFocusNode..requestFocus(),
       onKeyEvent: (event) {
         if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
           widget.onClose();

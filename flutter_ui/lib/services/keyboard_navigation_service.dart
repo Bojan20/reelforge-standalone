@@ -638,7 +638,7 @@ class _FocusIndicatorState extends State<FocusIndicator> {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Wrapper widget that enables keyboard navigation for its subtree
-class KeyboardNavigationWrapper extends StatelessWidget {
+class KeyboardNavigationWrapper extends StatefulWidget {
   final Widget child;
 
   /// Whether to handle key events
@@ -651,15 +651,28 @@ class KeyboardNavigationWrapper extends StatelessWidget {
   });
 
   @override
+  State<KeyboardNavigationWrapper> createState() => _KeyboardNavigationWrapperState();
+}
+
+class _KeyboardNavigationWrapperState extends State<KeyboardNavigationWrapper> {
+  final FocusNode _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (!enabled) return child;
+    if (!widget.enabled) return widget.child;
 
     return KeyboardListener(
-      focusNode: FocusNode(),
+      focusNode: _focusNode,
       onKeyEvent: (event) {
         KeyboardNavigationService.instance.handleKeyEvent(event);
       },
-      child: child,
+      child: widget.child,
     );
   }
 }
