@@ -509,13 +509,8 @@ class AudioAssetManager extends ChangeNotifier {
           }
         }
 
-        // Fallback duration if still 0
-        if (duration <= 0.0) {
-          final fallbackDuration = _ffi!.getAudioFileDuration(path);
-          if (fallbackDuration > 0) {
-            duration = fallbackDuration;
-          }
-        }
+        // No fallback: getAudioFileDuration decodes entire file → OOM on batch.
+        // Duration 0 is acceptable; audio plays without exact duration.
       }
 
       // Update asset with metadata (NO waveform here — that's separate)

@@ -3618,29 +3618,38 @@ class MiddlewareProvider extends ChangeNotifier {
   }
 
   /// Add existing composite event (for sync from external sources)
-  void addCompositeEvent(SlotCompositeEvent event, {bool select = true}) {
-    _compositeEventSystemProvider.addCompositeEvent(event, select: select);
-    _markChanged(changeCompositeEvents);
+  void addCompositeEvent(SlotCompositeEvent event, {bool select = true, bool skipUndo = false, bool skipNotify = false}) {
+    _compositeEventSystemProvider.addCompositeEvent(event, select: select, skipUndo: skipUndo, skipNotify: skipNotify);
+    if (!skipNotify) _markChanged(changeCompositeEvents);
 
     // Dispatch onCreate hook
-    HookDispatcher.instance.dispatch(HookContext.onCreate(
-      entityType: EntityType.event,
-      entityId: event.id,
-      data: {'name': event.name, 'category': event.category},
-    ));
+    if (!skipNotify) {
+      HookDispatcher.instance.dispatch(HookContext.onCreate(
+        entityType: EntityType.event,
+        entityId: event.id,
+        data: {'name': event.name, 'category': event.category},
+      ));
+    }
   }
 
   /// Update composite event
-  void updateCompositeEvent(SlotCompositeEvent event) {
-    _compositeEventSystemProvider.updateCompositeEvent(event);
-    _markChanged(changeCompositeEvents);
+  void updateCompositeEvent(SlotCompositeEvent event, {bool skipUndo = false, bool skipNotify = false}) {
+    _compositeEventSystemProvider.updateCompositeEvent(event, skipUndo: skipUndo, skipNotify: skipNotify);
+    if (!skipNotify) _markChanged(changeCompositeEvents);
 
     // Dispatch onUpdate hook
-    HookDispatcher.instance.dispatch(HookContext.onUpdate(
-      entityType: EntityType.event,
-      entityId: event.id,
-      data: {'name': event.name},
-    ));
+    if (!skipNotify) {
+      HookDispatcher.instance.dispatch(HookContext.onUpdate(
+        entityType: EntityType.event,
+        entityId: event.id,
+        data: {'name': event.name},
+      ));
+    }
+  }
+
+  /// Notify listeners after a batch of composite event changes (skipNotify batch flush)
+  void notifyCompositeEventsChanged() {
+    _markChanged(changeCompositeEvents);
   }
 
   /// Rename composite event

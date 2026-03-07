@@ -147,7 +147,6 @@ import '../widgets/slot_lab/feature_builder_panel.dart';
 import '../widgets/slot_lab/gad_panel.dart';
 import '../widgets/slot_lab/sss_panel.dart';
 import '../models/template_models.dart' show BuiltTemplate, FeatureModuleType;
-
 // =============================================================================
 // SLOT LAB TRACK ID ISOLATION
 // =============================================================================
@@ -346,7 +345,7 @@ class SlotLabScreen extends StatefulWidget {
 enum _LeftPanelTab { audio, events, stages, aurexis }
 
 /// Right panel tab modes for context-aware inspector
-enum _RightPanelTab { events, inspector, config, diagnostics }
+enum _RightPanelTab { events, inspector, config, diagnostics, pool }
 
 class _SlotLabScreenState extends State<SlotLabScreen>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin, InlineToastMixin {
@@ -461,19 +460,19 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   /// P3-19: Handle Quick Assign — reuses existing audio assignment logic
   void _handleQuickAssign(String audioPath, String stage, SlotLabProjectProvider projectProvider) {
-
     // Update provider (persisted state)
     projectProvider.setAudioAssignment(stage, audioPath);
 
     // SINGLE SOURCE: Add to AudioAssetManager pool
     AudioAssetManager.instance.importFilesInstant([audioPath], folder: 'SlotLab Import');
 
-    // INSTANT: Re-sync ALL audio assignments to EventRegistry
-    // This ensures GAME_START and all other assignments are registered
-    _syncAudioAssignmentsToRegistry();
-
-    // CRITICAL: Also create/update composite event for timeline visibility
+    // Create/update composite event for THIS stage only (no full sync!)
     _ensureCompositeEventForStage(stage, audioPath);
+
+    // Register in EventRegistry
+    final mw = context.read<MiddlewareProvider>();
+    final ce = mw.compositeEvents.where((e) => e.id == 'audio_$stage').firstOrNull;
+    if (ce != null) _syncEventToRegistry(ce);
 
     // When base music changes, refresh BIG_WIN_START/END composite events
     // so their FadeVoice/StopVoice layers target the correct audio path
@@ -499,10 +498,20 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// CENTRAL BRIDGE: Ensure a composite event exists in MiddlewareProvider for a stage+audio assignment.
   /// Called from: Quick Assign, onAudioAssign, mount sync — ALL paths converge here.
   /// Creates new event or updates existing one. Auto-detects duration via FFI.
-  void _ensureCompositeEventForStage(String stage, String audioPath) {
+  void _ensureCompositeEventForStage(String stage, String audioPath, {bool skipUndo = false, bool skipNotify = false}) {
 
     final middleware = context.read<MiddlewareProvider>();
     final eventId = 'audio_$stage';
+
+    // Skip stages that are already layers in another composite event (e.g., MUSIC_BASE_L1/L2/L3 in GAME_START)
+    // These are managed by _createBaseGameMusicComposite and should NOT get separate events.
+    const _compositeLayerStages = {'MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5'};
+    if (_compositeLayerStages.contains(stage)) {
+      // Only skip if the GAME_START composite already exists with this audio
+      final gameStart = middleware.compositeEvents.where((e) =>
+          e.triggerStages.contains('GAME_START') && e.layers.any((l) => l.audioPath == audioPath)).firstOrNull;
+      if (gameStart != null) return;
+    }
 
     // Check if already exists — by ID or by trigger stage (prevent duplicates)
     var existing = middleware.compositeEvents.where((e) => e.id == eventId).firstOrNull;
@@ -528,12 +537,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final effectiveTargetBus = isBigWinTransition ? 1 : busId;
     final effectiveLoop = stage == 'BIG_WIN_START' ? true : shouldLoop;
 
-    // Auto-detect duration via FFI
-    double? durationSec;
-    try {
-      final dur = NativeFFI.instance.getAudioFileDuration(audioPath);
-      if (dur > 0) durationSec = dur;
-    } catch (_) {}
+    // Duration not needed — audio plays without it.
+    // getAudioFileDuration decodes entire file into memory (OOM on batch).
+    const double? durationSec = null;
 
     // Build layers — ALL implicit actions shown as visible action tracks
     final baseLayers = <SlotEventLayer>[];
@@ -745,7 +751,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         looping: effectiveLoop,
         crossfadeMs: crossfadeMs,
         modifiedAt: DateTime.now(),
-      ));
+      ), skipUndo: skipUndo, skipNotify: skipNotify);
     } else {
       // Create new composite event
       final category = _getCategoryForStage(stage);
@@ -767,7 +773,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         crossfadeMs: crossfadeMs,
         createdAt: now,
         modifiedAt: now,
-      ), select: false);
+      ), select: false, skipUndo: skipUndo, skipNotify: skipNotify);
     }
 
   }
@@ -1383,11 +1389,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Auto-start monitoring so diagnostics work without manual activation
     diagnostics.startMonitoring();
 
-    // Auto QA: multi-grid comprehensive QA — casino-grade testing
-    Future.delayed(const Duration(seconds: 3), () {
-      if (!mounted) return;
-      _runComprehensiveQA(diagnostics);
-    });
+    // QA available on-demand via DIAG panel button (no auto-run on startup)
   }
 
   int _diagFindingsCount = 0;
@@ -1467,25 +1469,83 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     if (assignments.isEmpty) return;
 
-    // First pass: create/update all composite events
+    // Batch pass: create/update all composite events (skip undo + notify per event)
     for (final entry in assignments.entries) {
-      _ensureCompositeEventForStage(entry.key, entry.value);
+      _ensureCompositeEventForStage(entry.key, entry.value, skipUndo: true, skipNotify: true);
     }
 
     // Cross-refresh BIG_WIN_START/END (need base music paths for FadeVoice/StopVoice)
     final bwsPath = assignments['BIG_WIN_START'];
     if (bwsPath != null && bwsPath.isNotEmpty) {
-      _ensureCompositeEventForStage('BIG_WIN_START', bwsPath);
+      _ensureCompositeEventForStage('BIG_WIN_START', bwsPath, skipUndo: true, skipNotify: true);
     }
     final bwePath = assignments['BIG_WIN_END'];
     if (bwePath != null && bwePath.isNotEmpty) {
-      _ensureCompositeEventForStage('BIG_WIN_END', bwePath);
+      _ensureCompositeEventForStage('BIG_WIN_END', bwePath, skipUndo: true, skipNotify: true);
     }
 
-    // Explicit sync to EventRegistry (listener may not be attached yet during init)
-    for (final event in middleware.compositeEvents) {
-      _syncEventToRegistry(event);
+    // Single notify after batch
+    middleware.notifyCompositeEventsChanged();
+  }
+
+  /// Async version: creates MISSING composite events in batches to avoid UI freeze.
+  /// Only processes assignments that don't already have a composite event.
+  Future<void> _syncAssignmentsAsync() async {
+    final projectProvider = context.read<SlotLabProjectProvider>();
+    final middleware = context.read<MiddlewareProvider>();
+    final assignments = projectProvider.audioAssignments;
+    if (assignments.isEmpty) return;
+
+    // Find assignments that are MISSING composite events
+    final existingIds = <String>{};
+    final existingStages = <String>{};
+    for (final ce in middleware.compositeEvents) {
+      existingIds.add(ce.id);
+      for (final s in ce.triggerStages) {
+        existingStages.add(s.toUpperCase());
+      }
     }
+
+    final missing = <MapEntry<String, String>>[];
+    for (final entry in assignments.entries) {
+      final eventId = 'audio_${entry.key}';
+      if (!existingIds.contains(eventId) && !existingStages.contains(entry.key.toUpperCase())) {
+        missing.add(entry);
+      }
+    }
+
+    if (missing.isEmpty) {
+      // All events exist — just register in EventRegistry
+      for (final event in middleware.compositeEvents) {
+        _syncEventToRegistry(event);
+      }
+      return;
+    }
+
+    // Process missing events in async batches
+    const batchSize = 5;
+    for (int i = 0; i < missing.length; i += batchSize) {
+      if (!mounted) return;
+      final end = (i + batchSize).clamp(0, missing.length);
+      for (int j = i; j < end; j++) {
+        _ensureCompositeEventForStage(missing[j].key, missing[j].value, skipUndo: true, skipNotify: true);
+      }
+      await Future.delayed(Duration.zero);
+    }
+
+    if (!mounted) return;
+
+    // BIG_WIN cross-refresh
+    final bwsPath = assignments['BIG_WIN_START'];
+    if (bwsPath != null && bwsPath.isNotEmpty) {
+      _ensureCompositeEventForStage('BIG_WIN_START', bwsPath, skipUndo: true, skipNotify: true);
+    }
+    final bwePath = assignments['BIG_WIN_END'];
+    if (bwePath != null && bwePath.isNotEmpty) {
+      _ensureCompositeEventForStage('BIG_WIN_END', bwePath, skipUndo: true, skipNotify: true);
+    }
+
+    middleware.notifyCompositeEventsChanged();
   }
 
   /// Shared SPACE key logic — called from both Focus handler and global handler.
@@ -1666,7 +1726,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Rebuild region layers to match updated events from MiddlewareProvider
     for (final event in _compositeEvents) {
       _rebuildRegionForEvent(event);
-      // Only sync to EventRegistry if not playing (prevents audio cutoff)
       if (!skipRegistrySync) {
         _syncEventToRegistry(event);
       } else {
@@ -1674,16 +1733,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       }
     }
 
-    // CRITICAL FIX: Sync to TRACK_MANAGER for playback (removes orphaned clips)
-    // Without this, deleted layers continue playing on timeline playback
+    // Sync to TRACK_MANAGER for playback (removes orphaned clips)
     _syncLayersToTrackManager();
 
-    // Only rebuild UI if composite event structure actually changed
-    final fingerprint = _computeMiddlewareFingerprint();
-    if (fingerprint != _lastMiddlewareFingerprint) {
-      _lastMiddlewareFingerprint = fingerprint;
-      setState(() {});
-    }
+    setState(() {});
   }
 
   /// Compute a lightweight fingerprint of composite events for dirty-checking.
@@ -2336,27 +2389,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         }
 
       // ═══════════════════════════════════════════════════════════════════════
-      // CRITICAL: ALL EVENT SYNC HAPPENS HERE (synchronous, no delay!)
+      // MOUNT SYNC: Register existing composite events in EventRegistry (fast)
       // ═══════════════════════════════════════════════════════════════════════
-
-      // Sync existing events from MiddlewareProvider to EventRegistry
       final middleware = Provider.of<MiddlewareProvider>(context, listen: false);
-      final compositeEvents = middleware.compositeEvents;
-      if (compositeEvents.isNotEmpty) {
-        _syncAllEventsToRegistry();
+      for (final event in middleware.compositeEvents) {
+        _syncEventToRegistry(event);
       }
-
-      // Sync persisted audio assignments from SlotLabProjectProvider
-      _syncPersistedAudioAssignments();
 
       // Re-register symbol audio on screen mount
       _syncSymbolAudioToRegistry();
-
-      // Re-register UltimateAudioPanel audio on mount
-      _syncAudioAssignmentsToRegistry();
-
-      // Reverse sync: composite events → audioAssignments (fills panel slots)
-      _syncCompositeEventsToAudioAssignments();
 
       // Initialize reel symbols (fallback or empty for engine)
       _reelSymbols = List.from(_fallbackReelSymbols);
@@ -2376,50 +2417,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// Start background audio preloading without blocking UI
   /// This runs AFTER the UI is rendered, providing instant section switching
   void _startBackgroundAudioPreload() {
-    if (_compositeEvents.isEmpty) {
-      return;
-    }
-
-    final pathCount = eventRegistry.preloadedPathCount;
-    if (pathCount == 0) {
-      return;
-    }
-
-    // Set loading state (UI shows small indicator)
-    setState(() {
-      _isPreloadingAudio = true;
-      _preloadedCount = 0;
-      _preloadTotalCount = pathCount;
-    });
-
-
-    // Run preload in async isolate-friendly way (microtask queue)
-    // This allows UI to render first, then preload runs
-    Future.microtask(() async {
-      if (!mounted) return;
-
-      try {
-        // Execute preload (this still runs on main isolate but AFTER UI render)
-        final result = eventRegistry.preloadAllAudioFiles();
-
-        if (!mounted) return;
-
-        final loaded = result['loaded'] as int? ?? 0;
-        final total = result['total'] as int? ?? 0;
-        final duration = result['duration_ms'] as int? ?? 0;
-
-        setState(() {
-          _isPreloadingAudio = false;
-          _preloadedCount = loaded;
-          _preloadTotalCount = total;
-        });
-
-      } catch (e) {
-        if (mounted) {
-          setState(() => _isPreloadingAudio = false);
-        }
-      }
-    });
+    // No-op: audio decoded on-demand by Rust AudioPool on first play.
+    // Eager preload decoded ALL files on main isolate → OOM + UI freeze.
   }
 
   void _onSlotLabUpdate() {
@@ -2588,18 +2587,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       // 🔄 BACKGROUND: Persist state without blocking UI
       Future.microtask(() => _persistState());
 
-      // 🔄 BACKGROUND: Load metadata for duration display
-      _loadMetadataInBackground(newEntries.map((e) => e['path'] as String).toList());
-
-      // 🔗 AUTO-BIND: Match imported files to behavior nodes by filename
-      _autoBindAfterImport(newEntries);
+      // No auto-bind — user drags files manually from pool to events
 
     } catch (e) { /* ignored */ }
   }
 
   /// Import entire folder of audio files (native picker - faster)
   ///
-  /// **INSTANT IMPORT** — Files appear immediately, metadata loads in background
+  /// **INSTANT IMPORT** — Files appear in pool immediately. No auto-bind.
   Future<void> _importAudioFolder() async {
     try {
       final result = await NativeFilePicker.pickDirectory(title: 'Select Audio Folder');
@@ -2609,7 +2604,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       final dir = Directory(result);
       final audioExtensions = ['.wav', '.mp3', '.ogg', '.flac', '.aiff', '.aif', '.m4a', '.wma'];
 
-      // Collect all audio files (sync listSync is faster for local dirs)
       final List<FileSystemEntity> entities;
       try {
         entities = dir.listSync(recursive: true);
@@ -2627,14 +2621,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         }
       }
 
-      // Sort alphabetically
       audioFiles.sort((a, b) {
         final nameA = a.path.split('/').last.toLowerCase();
         final nameB = b.path.split('/').last.toLowerCase();
         return nameA.compareTo(nameB);
       });
 
-      // ⚡ INSTANT: Batch add - collect entries
       final newEntries = <Map<String, dynamic>>[];
       for (final file in audioFiles) {
         if (_audioPool.any((a) => a['path'] == file.path)) continue;
@@ -2644,25 +2636,16 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
       if (newEntries.isEmpty) return;
 
-      // ⚡ INSTANT: Add to pool immediately
       setState(() {
         _audioPool.addAll(newEntries);
       });
 
-      // SINGLE SOURCE: Sync to AudioAssetManager for events panel pool view
       AudioAssetManager.instance.importFilesInstant(
         newEntries.map((e) => e['path'] as String).toList(),
         folder: 'SlotLab Import',
       );
 
-      // 🔄 BACKGROUND: Persist state without blocking UI
       Future.microtask(() => _persistState());
-
-      // 🔄 BACKGROUND: Load metadata for duration display
-      _loadMetadataInBackground(newEntries.map((e) => e['path'] as String).toList());
-
-      // 🔗 AUTO-BIND: Match imported files to behavior nodes by filename
-      _autoBindAfterImport(newEntries);
 
     } catch (e) { /* ignored */ }
   }
@@ -2721,7 +2704,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       _ensureCompositeEventForStage('BIG_WIN_END', bwePath);
     }
 
-    // Explicit sync ALL composite events to EventRegistry
+    // Sync ALL composite events to EventRegistry
     final middleware = context.read<MiddlewareProvider>();
     for (final event in middleware.compositeEvents) {
       _syncEventToRegistry(event);
@@ -2776,38 +2759,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// Called after instant add — updates pool entries with real metadata
   /// P0 PERFORMANCE: Batched setState to avoid 100+ individual rebuilds
   void _loadMetadataInBackground(List<String> paths) {
-    // P0 FIX: Load ALL metadata first, then do ONE setState
-    Future(() async {
-      final updates = <String, double>{};
-
-      for (final path in paths) {
-        try {
-          final ffi = NativeFFI.instance;
-          final duration = ffi.getAudioFileDuration(path);
-          if (duration > 0) {
-            updates[path] = duration;
-          }
-        } catch (_) {
-          // Skip on error
-        }
-      }
-
-      // P0 FIX: ONE setState for ALL updates (was doing 1 per file!)
-      if (mounted && updates.isNotEmpty) {
-        setState(() {
-          for (final entry in updates.entries) {
-            final index = _audioPool.indexWhere((a) => a['path'] == entry.key);
-            if (index >= 0) {
-              _audioPool[index] = {
-                ..._audioPool[index],
-                'duration': entry.value,
-              };
-            }
-          }
-        });
-      }
-
-    });
+    // No-op: getAudioFileDuration decodes entire file on main isolate → OOM.
+    // Duration metadata is non-critical, audio plays without it.
   }
 
   /// Load metadata for a single pool file (legacy - use batched version for multiple)
@@ -7313,7 +7266,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       _selectedEventId = event.id;
     });
 
-    // Register in Event Registry
+    // Register in EventRegistry
     _syncEventToRegistry(event);
 
     // Persist state
@@ -9339,6 +9292,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               _RightPanelTab.inspector => _buildRightInspectorContent(),
               _RightPanelTab.config => _buildRightConfigContent(),
               _RightPanelTab.diagnostics => _buildDiagnosticsContent(),
+              _RightPanelTab.pool => _buildAudioBrowser(),
             },
           ),
         ],
@@ -9536,8 +9490,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   Widget _buildRightPanelTabBar() {
     const tabs = _RightPanelTab.values;
-    const labels = ['EVENTS', 'INSPECT', 'CONFIG', 'DIAG'];
-    const icons = [Icons.event_note, Icons.info_outline, Icons.tune, Icons.health_and_safety];
+    const labels = ['EVENTS', 'INSPECT', 'CONFIG', 'DIAG', 'POOL'];
+    const icons = [Icons.event_note, Icons.info_outline, Icons.tune, Icons.health_and_safety, Icons.library_music];
 
     return Container(
       height: 28,
@@ -9902,8 +9856,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             if (mounted) showToast('Imported $count audio mappings', icon: Icons.file_download);
           },
           onAutoBindComplete: () {
-            // Sync all auto-bind assignments to EventRegistry + composite events
-            _syncAudioAssignmentsToRegistry();
+            // Sync assignments → composite events + EventRegistry (async, non-blocking)
+            _syncAssignmentsAsync();
             // Next time preview opens, show splash screen
             setState(() => _showSplashOnPreview = true);
           },
@@ -11329,7 +11283,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       _selectedEventId = newEvent.id;
     });
 
-    // Registruj u centralni Event Registry (use newEvent directly, not _findEventById)
+    // Register in EventRegistry
     _syncEventToRegistry(newEvent);
 
     // Persist state (including audio pool) after creating event
@@ -11339,7 +11293,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// Sinhronizuj composite event sa centralnim Event Registry
   /// CRITICAL: Registers event under ALL triggerStages, not just the first one
   /// This allows one event to be triggered by multiple stages (e.g., SPIN_START and REEL_STOP)
-  void _syncEventToRegistry(SlotCompositeEvent? event) {
+  void _syncEventToRegistry(SlotCompositeEvent? event, {bool skipNotify = false}) {
     if (event == null) return;
 
     // Get all trigger stages (or derive from category if empty)
@@ -11372,28 +11326,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     )).toList();
 
     // Register event under EACH trigger stage
-    // Each registration uses a unique ID to avoid conflicts
-    //
-    // CRITICAL: Skip stages that have a direct UltimateAudioPanel assignment.
-    // Audio assignments from onAudioAssign are the source of truth for playback.
-    // Composite events are for timeline/event folder display only.
-    final projectProvider = Provider.of<SlotLabProjectProvider>(context, listen: false);
-    final audioAssignments = projectProvider.audioAssignments;
-
     for (int i = 0; i < stages.length; i++) {
       final stage = stages[i];
-
-      // Composite events with multiple layers (FadeOut, Stop, Play, etc.) are the
-      // single source of truth — they ALWAYS take priority over simple audio assignments.
-      // Only skip for single-layer events where UltimateAudioPanel assignment should win.
-      final hasMultiLayerActions = event.layers.length > 1 ||
-          event.layers.any((l) => l.actionType != 'Play');
-      if (!hasMultiLayerActions &&
-          (audioAssignments.containsKey(stage) ||
-           eventRegistry.hasEventWithId('audio_$stage'))) {
-        continue;
-      }
-
       final eventId = i == 0 ? event.id : '${event.id}_stage_$i';
 
       // Use composite event's targetBusId (set in middleware), fallback to first layer
@@ -11410,7 +11344,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         targetBusId: targetBus,
       );
 
-      eventRegistry.registerEvent(audioEvent);
+      eventRegistry.registerEvent(audioEvent, skipNotify: skipNotify);
     }
 
   }
@@ -11430,11 +11364,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   void _syncAllEventsToRegistry() {
     for (final event in _compositeEvents) {
       _syncEventToRegistry(event);
-      // NOTE: _syncEventToMiddleware removed - MiddlewareProvider is the source of truth
     }
-
-    // Audio preload moved to _startBackgroundAudioPreload() for instant UI
-    // Old synchronous preload was blocking UI for 1-3 seconds
   }
 
   /// ═══════════════════════════════════════════════════════════════════════════
@@ -11491,37 +11421,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// re-registers all audio assignments on screen mount.
   /// ═══════════════════════════════════════════════════════════════════════════
   void _syncAudioAssignmentsToRegistry() {
-    try {
-      final projectProvider = Provider.of<SlotLabProjectProvider>(context, listen: false);
-      final audioAssignments = projectProvider.audioAssignments;
-
-      if (audioAssignments.isEmpty) {
-        return;
-      }
-
-
-      final middleware = context.read<MiddlewareProvider>();
-
-      // First pass: create/update all composite events (SSoT)
-      for (final entry in audioAssignments.entries) {
-        _ensureCompositeEventForStage(entry.key, entry.value);
-      }
-
-      // Cross-refresh: BIG_WIN_START/END need base music paths for FadeVoice/StopVoice
-      final bwsPath = audioAssignments['BIG_WIN_START'];
-      if (bwsPath != null && bwsPath.isNotEmpty) {
-        _ensureCompositeEventForStage('BIG_WIN_START', bwsPath);
-      }
-      final bwePath = audioAssignments['BIG_WIN_END'];
-      if (bwePath != null && bwePath.isNotEmpty) {
-        _ensureCompositeEventForStage('BIG_WIN_END', bwePath);
-      }
-
-      // Register all composite events to EventRegistry
-      for (final event in middleware.compositeEvents) {
-        _syncEventToRegistry(event);
-      }
-    } catch (e) { /* ignored */ }
+    // Delegates to _syncPersistedAudioAssignments which does the same work.
+    // Avoids running the full _ensureCompositeEventForStage loop twice on mount.
+    _syncPersistedAudioAssignments();
   }
 
   /// Reverse sync: populate audioAssignments from composite events.

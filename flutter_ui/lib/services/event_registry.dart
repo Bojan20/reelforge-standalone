@@ -572,6 +572,9 @@ class EventRegistry extends ChangeNotifier {
     _startCleanupTimer();
   }
 
+  /// Public notify after batch registrations with skipNotify: true
+  void flushBatchNotify() => notifyListeners();
+
   // ═══════════════════════════════════════════════════════════════════════════
   // P0.8: PRE-TRIGGER CONFIGURATION
   // Fire anticipation audio earlier to compensate for latency
@@ -1354,7 +1357,7 @@ class EventRegistry extends ChangeNotifier {
   /// Registruj event za stage
   /// CRITICAL: This REPLACES any existing event with same ID or stage
   /// Stops any playing instances ONLY if the event data has changed
-  void registerEvent(AudioEvent event) {
+  void registerEvent(AudioEvent event, {bool skipNotify = false}) {
     final existingEvent = _events[event.id];
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1399,9 +1402,9 @@ class EventRegistry extends ChangeNotifier {
     // When user creates REEL_STOP (generic), auto-create REEL_STOP_0..4
     // Each per-reel event has the same audio but different stereo panning
     // ═══════════════════════════════════════════════════════════════════════════
-    _autoExpandToPerIndexEvents(event);
+    _autoExpandToPerIndexEvents(event, skipNotify: skipNotify);
 
-    notifyListeners();
+    if (!skipNotify) notifyListeners();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1437,7 +1440,7 @@ class EventRegistry extends ChangeNotifier {
 
   /// Auto-expand generic stages to per-index events with stereo panning
   /// e.g., REEL_STOP → REEL_STOP_0, REEL_STOP_1, ..., REEL_STOP_4
-  void _autoExpandToPerIndexEvents(AudioEvent event) {
+  void _autoExpandToPerIndexEvents(AudioEvent event, {bool skipNotify = false}) {
     final stage = event.stage.toUpperCase();
 
     // Patterns that should auto-expand with stereo panning

@@ -345,31 +345,33 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   }
 
   /// Add existing composite event (for sync from external sources)
-  void addCompositeEvent(SlotCompositeEvent event, {bool select = true}) {
-    _pushUndoState();
+  void addCompositeEvent(SlotCompositeEvent event, {bool select = true, bool skipUndo = false, bool skipNotify = false}) {
+    if (!skipUndo) _pushUndoState();
     _compositeEvents[event.id] = event;
-    _syncCompositeToMiddleware(event);
+    _syncCompositeToMiddleware(event, skipNotify: skipNotify);
     if (select) {
       _selectedCompositeEventId = event.id;
     }
-    _enforceCompositeEventsLimit();
+    if (!skipNotify) _enforceCompositeEventsLimit();
 
     // Record history
-    _recordHistory(
-      eventId: event.id,
-      eventName: event.name,
-      changeType: CompositeEventChangeType.created,
-      description: 'Created event "${event.name}"',
-      details: '${event.layers.length} layer(s), ${event.triggerStages.length} stage(s)',
-    );
+    if (!skipNotify) {
+      _recordHistory(
+        eventId: event.id,
+        eventName: event.name,
+        changeType: CompositeEventChangeType.created,
+        description: 'Created event "${event.name}"',
+        details: '${event.layers.length} layer(s), ${event.triggerStages.length} stage(s)',
+      );
+    }
 
-    notifyListeners();
+    if (!skipNotify) notifyListeners();
   }
 
   /// Update composite event
-  void updateCompositeEvent(SlotCompositeEvent event) {
+  void updateCompositeEvent(SlotCompositeEvent event, {bool skipUndo = false, bool skipNotify = false}) {
     final oldEvent = _compositeEvents[event.id];
-    _pushUndoState();
+    if (!skipUndo) _pushUndoState();
     // P2.5 SECURITY: Sanitize name and category for XSS prevention
     final sanitizedEvent = event.copyWith(
       name: _sanitizeName(event.name),
@@ -377,29 +379,26 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       modifiedAt: DateTime.now(),
     );
     _compositeEvents[event.id] = sanitizedEvent;
-    _syncCompositeToMiddleware(sanitizedEvent);
+    _syncCompositeToMiddleware(sanitizedEvent, skipNotify: skipNotify);
 
-    // CRITICAL: Sync layer parameter changes to EventRegistry cached events
-    // so the next trigger uses updated values (pan, volume, bus, etc.)
-    if (oldEvent != null) {
+    // Sync layer parameter changes to EventRegistry cached events
+    // Skip during batch operations — full sync happens after batch
+    if (!skipNotify && oldEvent != null) {
       final registry = EventRegistry.instance;
       for (final layer in sanitizedEvent.layers) {
         final oldLayer = oldEvent.layers.cast<SlotEventLayer?>().firstWhere(
           (l) => l?.id == layer.id, orElse: () => null,
         );
         if (oldLayer == null) continue;
-        // Check if any playback parameter changed
         if (oldLayer.pan != layer.pan || oldLayer.volume != layer.volume ||
             oldLayer.offsetMs != layer.offsetMs || oldLayer.busId != layer.busId ||
             oldLayer.fadeInMs != layer.fadeInMs || oldLayer.fadeOutMs != layer.fadeOutMs) {
-          // Update active voices in real-time
           if (oldLayer.pan != layer.pan) {
             registry.updateActiveLayerPan(layer.id, layer.pan);
           }
           if (oldLayer.volume != layer.volume) {
             registry.updateActiveLayerVolume(layer.id, layer.volume);
           }
-          // Update cached AudioEvent for next trigger
           final cachedEventIds = registry.findEventIdsForLayer(layer.id);
           for (final cachedId in cachedEventIds) {
             registry.updateCachedEventLayer(
@@ -422,24 +421,26 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       }
     }
 
-    // Record history with change details
-    String details = '';
-    if (oldEvent != null) {
-      final changes = <String>[];
-      if (oldEvent.name != sanitizedEvent.name) changes.add('name');
-      if (oldEvent.layers.length != sanitizedEvent.layers.length) changes.add('layers');
-      if (oldEvent.triggerStages.length != sanitizedEvent.triggerStages.length) changes.add('stages');
-      details = changes.isNotEmpty ? 'Changed: ${changes.join(", ")}' : 'Properties updated';
+    // Record history
+    if (!skipNotify) {
+      String details = '';
+      if (oldEvent != null) {
+        final changes = <String>[];
+        if (oldEvent.name != sanitizedEvent.name) changes.add('name');
+        if (oldEvent.layers.length != sanitizedEvent.layers.length) changes.add('layers');
+        if (oldEvent.triggerStages.length != sanitizedEvent.triggerStages.length) changes.add('stages');
+        details = changes.isNotEmpty ? 'Changed: ${changes.join(", ")}' : 'Properties updated';
+      }
+      _recordHistory(
+        eventId: sanitizedEvent.id,
+        eventName: sanitizedEvent.name,
+        changeType: CompositeEventChangeType.updated,
+        description: 'Modified "${sanitizedEvent.name}"',
+        details: details,
+      );
     }
-    _recordHistory(
-      eventId: sanitizedEvent.id,
-      eventName: sanitizedEvent.name,
-      changeType: CompositeEventChangeType.updated,
-      description: 'Modified "${sanitizedEvent.name}"',
-      details: details,
-    );
 
-    notifyListeners();
+    if (!skipNotify) notifyListeners();
   }
 
   /// Rename composite event
@@ -1249,7 +1250,7 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   }
 
   /// Sync SlotCompositeEvent to MiddlewareEvent (real-time)
-  void _syncCompositeToMiddleware(SlotCompositeEvent composite) {
+  void _syncCompositeToMiddleware(SlotCompositeEvent composite, {bool skipNotify = false}) {
     final middlewareId = _compositeToMiddlewareId(composite.id);
 
     final actions = <MiddlewareAction>[];
@@ -1287,66 +1288,9 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       loop: composite.looping,
     );
 
-    _eventSystemProvider.importEvent(middlewareEvent);
+    _eventSystemProvider.importEvent(middlewareEvent, skipNotify: skipNotify);
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // SYNC TO EVENT REGISTRY — Ensure composite triggerStages are playable
-    // EventRegistry is the SOLE audio dispatch path (StageAudioMapper disabled).
-    // Without this sync, composites with triggerStages would be silent.
-    // ═══════════════════════════════════════════════════════════════════════════
-    _syncCompositeToEventRegistry(composite);
-
-    _notifyCompositeChange(composite.id, CompositeEventChangeType.updated);
-  }
-
-  /// Sync composite event layers to EventRegistry for each triggerStage
-  void _syncCompositeToEventRegistry(SlotCompositeEvent composite) {
-    final registry = EventRegistry.instance;
-
-    for (final stageName in composite.triggerStages) {
-      final normalized = stageName.toUpperCase().trim();
-      if (normalized.isEmpty) continue;
-
-      // Convert SlotEventLayers to AudioLayers for EventRegistry
-      final audioLayers = <AudioLayer>[];
-      for (int i = 0; i < composite.layers.length; i++) {
-        final layer = composite.layers[i];
-        // Skip muted layers (solo handled at playback time)
-        if (layer.muted) continue;
-        audioLayers.add(AudioLayer(
-          id: '${composite.id}_layer_$i',
-          audioPath: layer.audioPath,
-          name: layer.name,
-          volume: layer.volume * composite.masterVolume,
-          pan: layer.pan,
-          delay: layer.offsetMs,
-          busId: layer.busId ?? 0,
-          fadeInMs: layer.fadeInMs,
-          fadeOutMs: layer.fadeOutMs,
-          trimStartMs: layer.trimStartMs,
-          trimEndMs: layer.trimEndMs,
-          actionType: layer.actionType,
-          loop: layer.loop || composite.looping,
-          targetAudioPath: layer.targetAudioPath,
-        ));
-      }
-
-      final audioEvent = AudioEvent(
-        id: 'composite_${composite.id}_$normalized',
-        name: composite.name,
-        stage: normalized,
-        layers: audioLayers,
-        loop: composite.looping,
-        priority: 0,
-        overlap: !composite.looping,
-        crossfadeMs: composite.looping ? 500 : 0,
-        targetBusId: composite.layers.isNotEmpty
-            ? (composite.layers.first.busId ?? 0)
-            : 0,
-      );
-
-      registry.registerEvent(audioEvent);
-    }
+    if (!skipNotify) _notifyCompositeChange(composite.id, CompositeEventChangeType.updated);
   }
 
   /// Remove MiddlewareEvent when composite is deleted

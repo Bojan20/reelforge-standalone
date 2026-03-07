@@ -52,6 +52,16 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 
 **UVEK** `~/Library/Developer/Xcode/DerivedData/` (HOME), **NIKADA** `/Library/Developer/`
 
+## SlotLab — EventRegistry registracija (KRITIČNO)
+
+- **JEDAN put registracije** — samo `_syncEventToRegistry()` u `slot_lab_screen.dart`
+- **NIKADA** dodavati drugu registraciju u `composite_event_system_provider.dart` ili bilo gde drugde
+- `_stageToEvent` mapa u EventRegistry ima JEDAN event po stage-u — dva sistema sa razlicitim ID formatima se medjusobno brisu i izazivaju:
+  - Kocenje (N × brisanje + registracija + notifyListeners kaskada)
+  - Nema zvuka (trka oko `_stageToEvent` — poslednji pisac "pobedi")
+- ID format: `event.id` (npr. `audio_REEL_STOP`), **NIKADA** `composite_${id}_${STAGE}`
+- `_syncCompositeToMiddleware` sinhronizuje sa MiddlewareEvent sistemom, **NE** sa EventRegistry
+
 ## SlotLab — zabrana hardkodiranja
 
 - NE hardkodirati win tier labele, boje, ikone, rollup trajanja, thresholds

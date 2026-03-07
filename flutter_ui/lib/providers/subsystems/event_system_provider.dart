@@ -327,7 +327,7 @@ class EventSystemProvider extends ChangeNotifier {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /// Import event (for profile loading, preserves existing ID mappings)
-  void importEvent(MiddlewareEvent event) {
+  void importEvent(MiddlewareEvent event, {bool skipNotify = false}) {
     _events[event.id] = event;
 
     // Get existing or create new numeric ID
@@ -338,7 +338,7 @@ class EventSystemProvider extends ChangeNotifier {
     }
 
     _syncEventToEngine(event, numericId);
-    notifyListeners();
+    if (!skipNotify) notifyListeners();
   }
 
   /// Export events to JSON
