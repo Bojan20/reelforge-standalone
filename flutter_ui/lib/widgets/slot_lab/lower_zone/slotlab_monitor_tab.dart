@@ -4,7 +4,8 @@
 /// AIL, Debug, Export
 
 import 'package:flutter/material.dart';
-import '../../../services/event_registry.dart';
+import 'package:get_it/get_it.dart';
+import '../../../providers/subsystems/event_profiler_provider.dart';
 import '../../lower_zone/lower_zone_types.dart';
 import '../../middleware/event_profiler_panel.dart';
 import '../../middleware/event_profiler_advanced.dart';
@@ -45,25 +46,30 @@ class SlotLabMonitorTabContent extends StatelessWidget {
   }
 }
 
-/// Wraps EventProfilerAdvanced with real data from EventRegistry
+/// Wraps EventProfilerAdvanced with real data from EventProfilerProvider
 class _ProfilerAdvancedWrapper extends StatelessWidget {
   const _ProfilerAdvancedWrapper();
 
   @override
   Widget build(BuildContext context) {
-    final registry = EventRegistry.instance;
+    final profiler = GetIt.instance<EventProfilerProvider>();
     return ListenableBuilder(
-      listenable: registry,
+      listenable: profiler,
       builder: (context, _) {
-        final events = registry.allEvents;
-        final entries = events.map((e) {
-          final layerCount = e.layers.length;
-          final durationUs = (e.duration * 1000000).round();
+        final events = profiler.getRecentEvents(count: 500);
+        // Group by description and aggregate
+        final grouped = <String, List<int>>{};
+        for (final e in events) {
+          grouped.putIfAbsent(e.description, () => []).add(e.latencyUs);
+        }
+        final entries = grouped.entries.map((g) {
+          final latencies = g.value;
+          final total = latencies.fold<int>(0, (s, v) => s + v);
           return ProfilerEntry(
-            eventId: e.id,
-            latencyUs: durationUs,
-            callCount: layerCount,
-            avgLatencyUs: layerCount > 0 ? durationUs / layerCount : 0,
+            eventId: g.key,
+            latencyUs: latencies.last,
+            callCount: latencies.length,
+            avgLatencyUs: latencies.isNotEmpty ? total / latencies.length : 0,
           );
         }).toList();
         return EventProfilerAdvanced(entries: entries);
