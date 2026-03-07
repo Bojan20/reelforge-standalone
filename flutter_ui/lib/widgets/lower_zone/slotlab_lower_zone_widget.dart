@@ -879,7 +879,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       SlotLabStagesSubTab.timeline => _buildTimelinePanel(),
       SlotLabStagesSubTab.symbols => _buildSymbolsPanel(),
       SlotLabStagesSubTab.timing => _buildProfilerPanel(),
-      SlotLabStagesSubTab.layerTimeline => const Center(child: Text('Layer timeline requires active playback', style: TextStyle(color: Color(0xFF606068), fontSize: 11))),
+      SlotLabStagesSubTab.layerTimeline => const Center(child: Text('Layer timeline requires active playback', style: TextStyle(color: LowerZoneColors.textTertiary, fontSize: 11))),
     };
   }
 
@@ -1063,9 +1063,9 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       SlotLabDspSubTab.attenuation => const AttenuationCurvePanel(),
       SlotLabDspSubTab.signatures => const AudioSignaturesPanel(),
       SlotLabDspSubTab.dspProfiler => const DspProfilerPanel(),
-      SlotLabDspSubTab.layerDsp => const Center(child: Text('Select a layer to edit DSP chain', style: TextStyle(color: Color(0xFF606068), fontSize: 11))),
+      SlotLabDspSubTab.layerDsp => const Center(child: Text('Select a layer to edit DSP chain', style: TextStyle(color: LowerZoneColors.textTertiary, fontSize: 11))),
       SlotLabDspSubTab.presetMorph => const PresetMorphEditorPanel(),
-      SlotLabDspSubTab.spatial => const Center(child: Text('Select a layer to design spatial audio', style: TextStyle(color: Color(0xFF606068), fontSize: 11))),
+      SlotLabDspSubTab.spatial => const Center(child: Text('Select a layer to design spatial audio', style: TextStyle(color: LowerZoneColors.textTertiary, fontSize: 11))),
     };
   }
 
@@ -1152,7 +1152,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               return const Center(
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Color(0xFF40FF90),
+                  color: LowerZoneColors.success,
                 ),
               );
             }
@@ -1250,12 +1250,12 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                   SnackBar(
                     content: Row(
                       children: [
-                        Icon(Icons.check_circle, color: Color(0xFF40FF90)),
+                        Icon(Icons.check_circle, color: LowerZoneColors.success),
                         SizedBox(width: 8),
                         Text('Git repository initialized'),
                       ],
                     ),
-                    backgroundColor: const Color(0xFF1A1A20),
+                    backgroundColor: LowerZoneColors.bgMid,
                     duration: const Duration(seconds: 2),
                   ),
                 );
@@ -1264,8 +1264,8 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             icon: const Icon(Icons.add, size: 16),
             label: const Text('Initialize Repository'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF40FF90).withValues(alpha: 0.2),
-              foregroundColor: const Color(0xFF40FF90),
+              backgroundColor: LowerZoneColors.success.withValues(alpha: 0.2),
+              foregroundColor: LowerZoneColors.success,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
           ),
@@ -1400,7 +1400,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
             // Timeline area: fixed labels (left) + unified scroll (right)
             Expanded(
               child: Container(
-                color: const Color(0xFF0D0D12),
+                color: LowerZoneColors.bgDeepest,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1619,7 +1619,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(event.name,
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: LowerZoneColors.textPrimary),
                       overflow: TextOverflow.ellipsis),
                     if (event.triggerStages.isNotEmpty)
                       Text(event.triggerStages.first,
@@ -1700,12 +1700,12 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
               children: [
                 // Mute
                 _buildTlTrackBtn('M',
-                  l.muted ? const Color(0xFFFF4060) : Colors.white24,
+                  l.muted ? LowerZoneColors.error : Colors.white24,
                   () => mw.updateEventLayer(event.id, l.copyWith(muted: !l.muted))),
                 const SizedBox(width: 4),
                 // Solo
                 _buildTlTrackBtn('S',
-                  l.solo ? const Color(0xFFFF9040) : Colors.white24,
+                  l.solo ? LowerZoneColors.middlewareAccent : Colors.white24,
                   () => mw.updateEventLayer(event.id, l.copyWith(solo: !l.solo))),
                 const SizedBox(width: 4),
                 // Preview
@@ -1718,7 +1718,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                         AudioPlaybackService.instance.previewFile(
                           l.audioPath, volume: l.volume, source: PlaybackSource.browser);
                       },
-                      child: const Icon(Icons.play_arrow, size: 12, color: Color(0xFF40FF90)),
+                      child: const Icon(Icons.play_arrow, size: 12, color: LowerZoneColors.success),
                     ),
                   ),
                 const Spacer(),

@@ -1186,7 +1186,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       id: mixerProvider.master.id,
       name: 'Master',
       type: ultimate.ChannelType.master,
-      color: const Color(0xFFFF9040),
+      color: LowerZoneColors.middlewareAccent,
       volume: mixerProvider.master.volume,
       peakL: mixerProvider.master.peakL,
       peakR: mixerProvider.master.peakR,
@@ -1199,9 +1199,9 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1A20),
-            border: Border(
-              bottom: BorderSide(color: const Color(0xFF242430), width: 1),
+            color: LowerZoneColors.bgMid,
+            border: const Border(
+              bottom: BorderSide(color: LowerZoneColors.bgSurface, width: 1),
             ),
           ),
           child: Row(
@@ -1211,7 +1211,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
                 style: TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF909090),
+                  color: LowerZoneColors.textMuted,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -1603,7 +1603,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
         _buildBusMenuItem(
           value: 'group',
           icon: Icons.link,
-          color: const Color(0xFF40FF90),
+          color: LowerZoneColors.success,
           label: 'Group',
           description: 'Link faders, pans, mutes together',
         ),
@@ -1651,7 +1651,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(label, style: const TextStyle(
-                  color: Colors.white,
+                  color: LowerZoneColors.textPrimary,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 )),
@@ -1765,10 +1765,10 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
-                  backgroundColor: const Color(0xFF1a1a20),
+                  backgroundColor: LowerZoneColors.bgMid,
                   title: const Text(
                     'Import Files to DAW',
-                    style: TextStyle(color: Colors.white, fontSize: 14),
+                    style: TextStyle(color: LowerZoneColors.textPrimary, fontSize: 14),
                   ),
                   content: SizedBox(
                     width: 360,
@@ -2946,7 +2946,7 @@ class _TrackPresetSaveDialogState extends State<_TrackPresetSaveDialog> {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                        color: isSelected ? Colors.white : LowerZoneColors.textSecondary,
+                        color: isSelected ? LowerZoneColors.textPrimary : LowerZoneColors.textSecondary,
                       ),
                     ),
                   ),
@@ -2973,7 +2973,7 @@ class _TrackPresetSaveDialogState extends State<_TrackPresetSaveDialog> {
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: LowerZoneColors.dawAccent,
-            foregroundColor: Colors.white,
+            foregroundColor: LowerZoneColors.textPrimary,
           ),
           child: const Text('Save'),
         ),
