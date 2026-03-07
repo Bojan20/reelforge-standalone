@@ -82,6 +82,12 @@ mixin InlineToastMixin<T extends StatefulWidget> on State<T>, TickerProviderStat
     _toastAnim.dispose();
   }
 
+  @override
+  void dispose() {
+    disposeToast();
+    super.dispose();
+  }
+
   /// Build the toast widget — place this in your header Row.
   Widget buildToastWidget() {
     if (_toastData == null) return const SizedBox.shrink();

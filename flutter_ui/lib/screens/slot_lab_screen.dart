@@ -2847,7 +2847,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     _dragCurrentOffsetNotifier.dispose();  // Dispose drag notifier
     _draggingLayerIdNotifier.dispose();    // Dispose drag ID notifier
     _disposeLayerPlayers(); // Dispose audio players
-    disposeToast(); // InlineToastMixin cleanup
     // Only remove listener if it was added (after restore)
     if (_lowerZoneRestoreComplete) {
       _lowerZoneController.removeListener(_onLowerZoneChanged);
