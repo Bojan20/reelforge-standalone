@@ -109,6 +109,7 @@ import '../widgets/slot_lab/scenario_editor.dart';
 import '../widgets/slot_lab/symbol_art_panel.dart';
 import '../widgets/slot_lab/transition_config_panel.dart';
 import '../widgets/slot_lab/win_tier_config_panel.dart';
+import '../widgets/common/command_palette.dart';
 import '../services/diagnostics/diagnostics_service.dart';
 import '../services/diagnostics/stage_contract_validator.dart';
 import '../services/diagnostics/rust_dart_sync_checker.dart';
@@ -123,7 +124,7 @@ import '../widgets/slot_lab/gdd_import_panel.dart';
 import '../services/gdd_import_service.dart'; // GddSymbol, SymbolTier
 import '../widgets/lower_zone/slotlab_lower_zone_controller.dart';
 import '../widgets/lower_zone/slotlab_lower_zone_widget.dart';
-import '../widgets/lower_zone/lower_zone_types.dart' show SlotLabSuperTab;
+import '../widgets/lower_zone/lower_zone_types.dart';
 import '../widgets/slot_lab/lower_zone/command_builder_panel.dart';
 import '../widgets/slot_lab/lower_zone/event_list_panel.dart';
 import '../widgets/slot_lab/lower_zone/bus_meters_panel.dart';
@@ -3151,6 +3152,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 onStop: () => _slotLabProvider.stopStagePlayback(),
                 // P14: Delegate timeline rendering to slot_lab_screen
                 onBuildTimelineContent: _buildTimelineContent,
+                onQuickSwitcher: _openQuickSwitcher,
               ),
             ],
           );
@@ -3230,6 +3232,71 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // QUICK SWITCHER (Cmd+K)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  void _openQuickSwitcher() {
+    final commands = <Command>[];
+    // Generate commands for all 11 super-tabs × their sub-tabs
+    for (final superTab in SlotLabSuperTab.values) {
+      final subLabels = <String>[];
+      final subTooltips = <String>[];
+      switch (superTab) {
+        case SlotLabSuperTab.stages:
+          subLabels.addAll(SlotLabStagesSubTab.values.map((e) => e.label));
+          subTooltips.addAll(SlotLabStagesSubTab.values.map((e) => e.tooltip));
+        case SlotLabSuperTab.events:
+          subLabels.addAll(SlotLabEventsSubTab.values.map((e) => e.label));
+          subTooltips.addAll(SlotLabEventsSubTab.values.map((e) => e.tooltip));
+        case SlotLabSuperTab.mix:
+          subLabels.addAll(SlotLabMixSubTab.values.map((e) => e.label));
+          subTooltips.addAll(SlotLabMixSubTab.values.map((e) => e.tooltip));
+        case SlotLabSuperTab.dsp:
+          subLabels.addAll(SlotLabDspSubTab.values.map((e) => e.label));
+          subTooltips.addAll(SlotLabDspSubTab.values.map((e) => e.tooltip));
+        case SlotLabSuperTab.rtpc:
+          subLabels.addAll(SlotLabRtpcSubTab.values.map((e) => e.label));
+          subTooltips.addAll(SlotLabRtpcSubTab.values.map((e) => e.tooltip));
+        case SlotLabSuperTab.containers:
+          subLabels.addAll(SlotLabContainersSubTab.values.map((e) => e.label));
+          subTooltips.addAll(SlotLabContainersSubTab.values.map((e) => e.tooltip));
+        case SlotLabSuperTab.music:
+          subLabels.addAll(SlotLabMusicSubTab.values.map((e) => e.label));
+          subTooltips.addAll(SlotLabMusicSubTab.values.map((e) => e.tooltip));
+        case SlotLabSuperTab.bake:
+          subLabels.addAll(SlotLabBakeSubTab.values.map((e) => e.label));
+          subTooltips.addAll(SlotLabBakeSubTab.values.map((e) => e.tooltip));
+        case SlotLabSuperTab.logic:
+          subLabels.addAll(SlotLabLogicSubTab.values.map((e) => e.label));
+          subTooltips.addAll(SlotLabLogicSubTab.values.map((e) => e.tooltip));
+        case SlotLabSuperTab.intel:
+          subLabels.addAll(SlotLabIntelSubTab.values.map((e) => e.label));
+          subTooltips.addAll(SlotLabIntelSubTab.values.map((e) => e.tooltip));
+        case SlotLabSuperTab.monitor:
+          subLabels.addAll(SlotLabMonitorSubTab.values.map((e) => e.label));
+          subTooltips.addAll(SlotLabMonitorSubTab.values.map((e) => e.tooltip));
+      }
+      for (var i = 0; i < subLabels.length; i++) {
+        final subIdx = i;
+        commands.add(Command(
+          label: '${superTab.label} › ${subLabels[i]}',
+          description: subTooltips[i],
+          icon: superTab.icon,
+          onExecute: () {
+            _lowerZoneController.setSuperTab(superTab);
+            _lowerZoneController.setSubTabIndex(subIdx);
+            if (!_lowerZoneController.isExpanded) {
+              _lowerZoneController.toggle();
+            }
+          },
+          keywords: [superTab.label.toLowerCase(), subLabels[i].toLowerCase(), superTab.category.toLowerCase()],
+        ));
+      }
+    }
+    CommandPalette.show(context, commands);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // KEYBOARD SHORTCUTS
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -3260,6 +3327,24 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         return KeyEventResult.handled;
       }
       return KeyEventResult.ignored;
+    }
+
+    // Cmd+K = Quick Switcher — navigate to any sub-tab
+    if (key == LogicalKeyboardKey.keyK &&
+        (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed)) {
+      _openQuickSwitcher();
+      return KeyEventResult.handled;
+    }
+
+    // Cmd+\ = Toggle left panel, Cmd+Shift+\ = Toggle right panel
+    if (key == LogicalKeyboardKey.backslash &&
+        (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed)) {
+      if (HardwareKeyboard.instance.isShiftPressed) {
+        _toggleRightPanel();
+      } else {
+        _toggleLeftPanel();
+      }
+      return KeyEventResult.handled;
     }
 
     // Escape = Stop all playback (stages and timeline)
@@ -3520,42 +3605,50 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         HardwareKeyboard.instance.isShiftPressed;
 
     if (isCtrlShift) {
-      // V6 Keyboard shortcuts for Lower Zone tabs (now using super-tabs: 1-5)
-      // STAGES=1, EVENTS=2, MIX=3, DSP=4, BAKE=5
-
-      // Ctrl+Shift+1 = STAGES tab
-      if (key == LogicalKeyboardKey.digit1) {
-        _lowerZoneController.setSuperTab(SlotLabSuperTab.stages);
-        return KeyEventResult.handled;
-      }
-
-      // Ctrl+Shift+2 = EVENTS tab
-      if (key == LogicalKeyboardKey.digit2) {
-        _lowerZoneController.setSuperTab(SlotLabSuperTab.events);
-        return KeyEventResult.handled;
-      }
-
-      // Ctrl+Shift+3 = MIX tab
-      if (key == LogicalKeyboardKey.digit3) {
-        _lowerZoneController.setSuperTab(SlotLabSuperTab.mix);
-        return KeyEventResult.handled;
-      }
-
-      // Ctrl+Shift+4 = DSP tab
-      if (key == LogicalKeyboardKey.digit4) {
-        _lowerZoneController.setSuperTab(SlotLabSuperTab.dsp);
-        return KeyEventResult.handled;
-      }
-
-      // Ctrl+Shift+5 = BAKE tab
-      if (key == LogicalKeyboardKey.digit5) {
-        _lowerZoneController.setSuperTab(SlotLabSuperTab.bake);
+      // Ctrl+Shift+1-9,0,- = All 11 super-tabs
+      // STAGES=1, EVENTS=2, MIX=3, DSP=4, RTPC=5, CONTAINERS=6,
+      // MUSIC=7, LOGIC=8, INTEL=9, MONITOR=0, BAKE=-
+      final superTabKeys = {
+        LogicalKeyboardKey.digit1: SlotLabSuperTab.stages,
+        LogicalKeyboardKey.digit2: SlotLabSuperTab.events,
+        LogicalKeyboardKey.digit3: SlotLabSuperTab.mix,
+        LogicalKeyboardKey.digit4: SlotLabSuperTab.dsp,
+        LogicalKeyboardKey.digit5: SlotLabSuperTab.rtpc,
+        LogicalKeyboardKey.digit6: SlotLabSuperTab.containers,
+        LogicalKeyboardKey.digit7: SlotLabSuperTab.music,
+        LogicalKeyboardKey.digit8: SlotLabSuperTab.logic,
+        LogicalKeyboardKey.digit9: SlotLabSuperTab.intel,
+        LogicalKeyboardKey.digit0: SlotLabSuperTab.monitor,
+        LogicalKeyboardKey.minus: SlotLabSuperTab.bake,
+      };
+      final superTab = superTabKeys[key];
+      if (superTab != null) {
+        _lowerZoneController.setSuperTab(superTab);
+        if (!_lowerZoneController.isExpanded) _lowerZoneController.toggle();
         return KeyEventResult.handled;
       }
 
       // Ctrl+Shift+C = Command Builder (opens dialog)
       if (key == LogicalKeyboardKey.keyC) {
         _showCommandBuilderDialog();
+        return KeyEventResult.handled;
+      }
+    }
+
+    // Alt+Q,W,E,R,T,Y,U,I,O,P,A,S = Sub-tab navigation (up to 12 sub-tabs)
+    if (HardwareKeyboard.instance.isAltPressed &&
+        !HardwareKeyboard.instance.isMetaPressed &&
+        !HardwareKeyboard.instance.isControlPressed &&
+        _lowerZoneController.isExpanded) {
+      final subTabKeys = [
+        LogicalKeyboardKey.keyQ, LogicalKeyboardKey.keyW, LogicalKeyboardKey.keyE,
+        LogicalKeyboardKey.keyR, LogicalKeyboardKey.keyT, LogicalKeyboardKey.keyY,
+        LogicalKeyboardKey.keyU, LogicalKeyboardKey.keyI, LogicalKeyboardKey.keyO,
+        LogicalKeyboardKey.keyP, LogicalKeyboardKey.keyA, LogicalKeyboardKey.keyS,
+      ];
+      final subIdx = subTabKeys.indexOf(key);
+      if (subIdx >= 0 && subIdx < _lowerZoneController.subTabLabels.length) {
+        _lowerZoneController.setSubTabIndex(subIdx);
         return KeyEventResult.handled;
       }
     }
@@ -8957,13 +9050,19 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         children: [
           // Tab bar
           _buildLeftPanelTabBar(),
-          // Content
+          // Content with animated transitions
           Expanded(
-            child: switch (_leftPanelTab) {
-              _LeftPanelTab.audio => _buildUltimateAudioPanelContent(),
-              _LeftPanelTab.events => _buildEventsLeftPanel(),
-              _LeftPanelTab.aurexis => const AurexisPanel(),
-            },
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 150),
+              child: KeyedSubtree(
+                key: ValueKey(_leftPanelTab),
+                child: switch (_leftPanelTab) {
+                  _LeftPanelTab.audio => _buildUltimateAudioPanelContent(),
+                  _LeftPanelTab.events => _buildEventsLeftPanel(),
+                  _LeftPanelTab.aurexis => const AurexisPanel(),
+                },
+              ),
+            ),
           ),
         ],
       ),
@@ -8975,7 +9074,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     const labels = ['AUDIO', 'BROWSE', 'AUREXIS'];
     const icons = [Icons.audiotrack, Icons.event_note, Icons.auto_awesome];
 
-    return Container(
+    return GestureDetector(
+      onDoubleTap: _toggleLeftPanel,
+      child: Container(
       height: SlotLabDimens.panelTabBarHeight,
       decoration: const BoxDecoration(
         color: Color(0xFF111116),
@@ -9037,6 +9138,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           );
         }),
       ),
+    ),
     );
   }
 
@@ -9152,13 +9254,19 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         children: [
           // Tab bar
           _buildRightPanelTabBar(),
-          // Content
+          // Content with animated transitions
           Expanded(
-            child: switch (_rightPanelTab) {
-              _RightPanelTab.inspector => _buildUnifiedInspector(),
-              _RightPanelTab.config => _buildRightConfigContent(),
-              _RightPanelTab.pool => _buildAudioBrowser(),
-            },
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 150),
+              child: KeyedSubtree(
+                key: ValueKey(_rightPanelTab),
+                child: switch (_rightPanelTab) {
+                  _RightPanelTab.inspector => _buildUnifiedInspector(),
+                  _RightPanelTab.config => _buildRightConfigContent(),
+                  _RightPanelTab.pool => _buildAudioBrowser(),
+                },
+              ),
+            ),
           ),
         ],
       ),
@@ -9358,7 +9466,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     const labels = ['INSPECTOR', 'CONFIG', 'POOL'];
     const icons = [Icons.manage_search, Icons.tune, Icons.library_music];
 
-    return Container(
+    return GestureDetector(
+      onDoubleTap: _toggleRightPanel,
+      child: Container(
       height: SlotLabDimens.panelTabBarHeight,
       decoration: const BoxDecoration(
         color: Color(0xFF111116),
@@ -9420,6 +9530,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           );
         }),
       ),
+    ),
     );
   }
 

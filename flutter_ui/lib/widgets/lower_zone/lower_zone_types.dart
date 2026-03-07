@@ -709,6 +709,20 @@ extension SlotLabSuperTabX on SlotLabSuperTab {
     SlotLabSuperTab.monitor    => 'DEBUG',
     SlotLabSuperTab.bake       => 'EXPORT',
   };
+
+  String get tooltip => switch (this) {
+    SlotLabSuperTab.stages     => 'Game states & stage flow — trace, timeline, symbols',
+    SlotLabSuperTab.events     => 'Audio events — folders, layers, pool, templates',
+    SlotLabSuperTab.mix        => 'Mix routing — buses, sends, pan, metering',
+    SlotLabSuperTab.dsp        => 'DSP effects — EQ, comp, reverb, gate, spatial',
+    SlotLabSuperTab.rtpc       => 'Real-time parameters — curves, macros, bindings',
+    SlotLabSuperTab.containers => 'Sound containers — blend, random, sequence, crossfade',
+    SlotLabSuperTab.music      => 'Interactive music — segments, stingers, transitions',
+    SlotLabSuperTab.logic      => 'Game logic — behaviors, triggers, state machines',
+    SlotLabSuperTab.intel      => 'Analysis & QA — build reports, flow, diagnostics',
+    SlotLabSuperTab.monitor    => 'Live monitoring — voice, spectral, profiling',
+    SlotLabSuperTab.bake       => 'Export & delivery — stems, packages, versioning',
+  };
 }
 
 // --- SlotLab Sub-tabs ---
@@ -734,56 +748,171 @@ enum SlotLabMonitorSubTab { timeline, energy, voice, spectral, fatigue, ail, deb
 extension SlotLabStagesSubTabX on SlotLabStagesSubTab {
   String get label => ['Trace', 'Timeline', 'Symbols', 'Timing', 'Layers'][index];
   String get shortcut => ['Q', 'W', 'E', 'R', 'T'][index];
+  String get tooltip => [
+    'Stage event trace — chronological log of triggered stages',
+    'Timeline — visual event-layer timeline with waveforms',
+    'Symbols — compact symbol grid overview',
+    'Timing — stage timing profiler and latency analysis',
+    'Layers — per-layer timeline with crossfades',
+  ][index];
 }
 
 extension SlotLabEventsSubTabX on SlotLabEventsSubTab {
   String get label => ['Folder', 'Editor', 'Layers', 'Pool', 'Auto', 'Templates', 'Dep Graph'][index];
   String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U'][index];
+  String get tooltip => [
+    'Event folder — hierarchical event browser',
+    'Composite editor — multi-layer event builder',
+    'Event layers — layer list with properties',
+    'Voice pool — active voice allocation and limits',
+    'Automation — parameter automation curves',
+    'Event templates — reusable event presets',
+    'Dependency graph — event/stage relationship map',
+  ][index];
 }
 
 extension SlotLabMixSubTabX on SlotLabMixSubTab {
   String get label => ['Buses', 'Sends', 'Pan', 'Meter', 'Hierarchy', 'Ducking'][index];
   String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y'][index];
+  String get tooltip => [
+    'Bus mixer — per-bus faders, mute/solo',
+    'Aux sends — effect send/return routing matrix',
+    'Pan — stereo/surround panning controls',
+    'Meters — real-time per-bus level meters',
+    'Bus hierarchy — parent/child bus routing',
+    'Ducking — inter-bus volume ducking matrix',
+  ][index];
 }
 
 extension SlotLabDspSubTabX on SlotLabDspSubTab {
   String get label => ['Chain', 'FF-Q', 'FF-C', 'FF-R', 'FF-G', 'FF-L', 'Atten', 'Sigs', 'DSP Prof', 'Layer DSP', 'Morph', 'Spatial'][index];
   String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'S'][index];
+  String get tooltip => [
+    'DSP chain — insert effect order and routing',
+    'FabFilter EQ — parametric equalizer',
+    'FabFilter Compressor — dynamics processing',
+    'FabFilter Reverb — convolution/algorithmic reverb',
+    'FabFilter Gate — noise gate / expander',
+    'FabFilter Limiter — brick-wall limiter',
+    'Attenuation — distance/priority attenuation curves',
+    'Audio signatures — frequency fingerprint analysis',
+    'DSP profiler — per-effect CPU usage monitoring',
+    'Layer DSP — per-layer effect processing',
+    'Preset morph — interpolate between DSP presets',
+    'Spatial audio — 3D positioning and HRTF',
+  ][index];
 }
 
 extension SlotLabBakeSubTabX on SlotLabBakeSubTab {
   String get label => ['Export', 'Stems', 'Variations', 'Package', 'Git', 'Analytics', 'Docs', 'Macro', 'Monitor', 'Reports', 'Config', 'History'][index];
   String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'S'][index];
+  String get tooltip => [
+    'Batch export — render all events to audio files',
+    'Stems — export individual layers as stems',
+    'Variations — generate randomized audio variants',
+    'Package — bundle project for deployment',
+    'Git — version control for audio configs',
+    'Analytics — project statistics dashboard',
+    'Documentation — auto-generated project docs',
+    'Macro — batch automation scripts',
+    'Macro monitor — live macro execution status',
+    'Macro reports — execution results and logs',
+    'Macro config — automation settings',
+    'Macro history — past execution timeline',
+  ][index];
 }
 
 extension SlotLabLogicSubTabX on SlotLabLogicSubTab {
   String get label => ['Behavior', 'Triggers', 'Gate', 'Priority', 'Orch', 'Emotion', 'Context', 'Sim', 'Pri Preset', 'State Machine', 'State Hist'][index];
   String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A'][index];
+  String get tooltip => [
+    'Behavior tree — game audio behavior logic',
+    'Triggers — stage trigger conditions and rules',
+    'State gate — conditional playback gates',
+    'Priority — voice priority assignment',
+    'Orchestration — multi-event coordination rules',
+    'Emotional arc — excitement/tension curve design',
+    'Context — game state context awareness',
+    'Simulation — logic simulation sandbox',
+    'Priority presets — saved priority configurations',
+    'State machine — FSM state editor',
+    'State history — state transition log',
+  ][index];
 }
 
 extension SlotLabIntelSubTabX on SlotLabIntelSubTab {
   String get label => ['Build', 'Flow', 'SimView', 'Diag', 'Templates', 'Export', 'Coverage', 'Inspector'][index];
   String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I'][index];
+  String get tooltip => [
+    'Build — compile and validate event configurations',
+    'Flow — event/stage flow visualization',
+    'Simulation — spin outcome simulation view',
+    'Diagnostics — system health checks',
+    'Templates — event template gallery',
+    'Export — configuration export tools',
+    'Coverage — stage audio coverage map',
+    'Inspector — live event object inspector',
+  ][index];
 }
 
 extension SlotLabMonitorSubTabX on SlotLabMonitorSubTab {
   String get label => ['Timeline', 'Energy', 'Voice', 'Spectral', 'Fatigue', 'AIL', 'Debug', 'Export', 'Profiler', 'Prof Adv', 'Evt Debug', 'Resources', 'Voice Stats'][index];
   String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'S', 'D'][index];
+  String get tooltip => [
+    'Event timeline — real-time event activity log',
+    'Energy — emotional energy arc monitor',
+    'Voice — active voice count per priority',
+    'Spectral — frequency spectrum heatmap',
+    'Fatigue — CPU/memory stability metrics',
+    'AIL — adaptive audio intelligence learning',
+    'Debug — raw debug output and FFI trace',
+    'Export — monitoring data export',
+    'Profiler — real-time performance metrics',
+    'Advanced profiler — detailed CPU/latency breakdown',
+    'Event debugger — event trigger/stop tracing',
+    'Resources — audio asset memory usage',
+    'Voice stats — voice pool statistics',
+  ][index];
 }
 
 extension SlotLabRtpcSubTabX on SlotLabRtpcSubTab {
   String get label => ['Curves', 'Macros', 'DSP Bind', 'Debugger'][index];
   String get shortcut => ['Q', 'W', 'E', 'R'][index];
+  String get tooltip => [
+    'RTPC curves — real-time parameter control curves',
+    'Macros — RTPC macro definitions',
+    'DSP binding — bind RTPC to DSP parameters',
+    'RTPC debugger — live parameter value inspector',
+  ][index];
 }
 
 extension SlotLabContainersSubTabX on SlotLabContainersSubTab {
   String get label => ['Blend', 'Random', 'Sequence', 'A/B', 'Crossfade', 'Groups', 'Presets', 'Metrics', 'Timeline', 'Wizard'][index];
   String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'][index];
+  String get tooltip => [
+    'Blend container — mix multiple audio sources',
+    'Random container — weighted random selection',
+    'Sequence container — ordered playback chain',
+    'A/B compare — side-by-side audio comparison',
+    'Crossfade — smooth transition between sources',
+    'Groups — logical audio grouping',
+    'Presets — saved container configurations',
+    'Metrics — container usage statistics',
+    'Timeline — container playback timeline',
+    'Wizard — guided container setup',
+  ][index];
 }
 
 extension SlotLabMusicSubTabX on SlotLabMusicSubTab {
   String get label => ['Segments', 'Stingers', 'Transitions', 'Looping', 'Beat Grid'][index];
   String get shortcut => ['Q', 'W', 'E', 'R', 'T'][index];
+  String get tooltip => [
+    'Music segments — interactive music section editor',
+    'Stingers — one-shot musical transitions',
+    'Transitions — segment-to-segment transition rules',
+    'Looping — seamless loop point editor',
+    'Beat grid — tempo/beat alignment grid',
+  ][index];
 }
 
 /// Complete SlotLab Lower Zone state
@@ -873,6 +1002,20 @@ class SlotLabLowerZoneState {
     SlotLabSuperTab.logic => SlotLabLogicSubTab.values.map((e) => e.label).toList(),
     SlotLabSuperTab.intel => SlotLabIntelSubTab.values.map((e) => e.label).toList(),
     SlotLabSuperTab.monitor => SlotLabMonitorSubTab.values.map((e) => e.label).toList(),
+  };
+
+  List<String> get subTabTooltips => switch (superTab) {
+    SlotLabSuperTab.stages => SlotLabStagesSubTab.values.map((e) => e.tooltip).toList(),
+    SlotLabSuperTab.events => SlotLabEventsSubTab.values.map((e) => e.tooltip).toList(),
+    SlotLabSuperTab.mix => SlotLabMixSubTab.values.map((e) => e.tooltip).toList(),
+    SlotLabSuperTab.dsp => SlotLabDspSubTab.values.map((e) => e.tooltip).toList(),
+    SlotLabSuperTab.rtpc => SlotLabRtpcSubTab.values.map((e) => e.tooltip).toList(),
+    SlotLabSuperTab.containers => SlotLabContainersSubTab.values.map((e) => e.tooltip).toList(),
+    SlotLabSuperTab.music => SlotLabMusicSubTab.values.map((e) => e.tooltip).toList(),
+    SlotLabSuperTab.bake => SlotLabBakeSubTab.values.map((e) => e.tooltip).toList(),
+    SlotLabSuperTab.logic => SlotLabLogicSubTab.values.map((e) => e.tooltip).toList(),
+    SlotLabSuperTab.intel => SlotLabIntelSubTab.values.map((e) => e.tooltip).toList(),
+    SlotLabSuperTab.monitor => SlotLabMonitorSubTab.values.map((e) => e.tooltip).toList(),
   };
 
   SlotLabLowerZoneState copyWith({

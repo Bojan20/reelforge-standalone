@@ -107,6 +107,13 @@ class LowerZoneContextBar extends StatelessWidget {
   /// Used to visually group sub-tabs (e.g., DSP: Processing | Advanced | Debug).
   final List<int>? subTabGroupBreaks;
 
+  /// Breadcrumb category label (e.g., "AUDIO", "DESIGN", "DEBUG").
+  /// When set, shows "CATEGORY > SUPER-TAB" prefix before sub-tabs.
+  final String? breadcrumbCategory;
+
+  /// Quick Switcher callback (⌘K). When set, replaces search field with Quick Switcher button.
+  final VoidCallback? onQuickSwitcher;
+
   const LowerZoneContextBar({
     super.key,
     required this.superTabLabels,
@@ -139,6 +146,8 @@ class LowerZoneContextBar extends StatelessWidget {
     this.superTabGroupBreaks,
     this.superTabBadges,
     this.subTabGroupBreaks,
+    this.breadcrumbCategory,
+    this.onQuickSwitcher,
   });
 
   @override
@@ -366,27 +375,49 @@ class LowerZoneContextBar extends StatelessWidget {
   }
 
   Widget _buildSearchField() {
-    return Container(
-      width: 150,
-      height: 22,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: LowerZoneColors.bgMid,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: LowerZoneColors.border),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.search, size: 12, color: LowerZoneColors.textMuted),
-          const SizedBox(width: 4),
-          Text(
-            'Search...',
-            style: TextStyle(
-              fontSize: LowerZoneTypography.sizeBadge,
-              color: LowerZoneColors.textMuted,
+    return GestureDetector(
+      onTap: onQuickSwitcher,
+      child: Container(
+        height: 22,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: LowerZoneColors.bgMid,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: LowerZoneColors.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.search, size: 12, color: LowerZoneColors.textMuted),
+            const SizedBox(width: 4),
+            Text(
+              onQuickSwitcher != null ? 'Quick Switch' : 'Search...',
+              style: TextStyle(
+                fontSize: LowerZoneTypography.sizeBadge,
+                color: LowerZoneColors.textMuted,
+              ),
             ),
-          ),
-        ],
+            if (onQuickSwitcher != null) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: LowerZoneColors.bgDeep,
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(color: LowerZoneColors.border),
+                ),
+                child: const Text(
+                  '⌘K',
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: LowerZoneColors.textTertiary,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -452,7 +483,12 @@ class LowerZoneContextBar extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            const SizedBox(width: 32), // Align with super-tabs (toggle button space)
+            // Breadcrumb: CATEGORY > SUPER-TAB or alignment spacer
+            if (breadcrumbCategory != null) ...[
+              _buildBreadcrumb(),
+              const SizedBox(width: 8),
+            ] else
+              const SizedBox(width: 32), // Align with super-tabs (toggle button space)
             ...List.generate(subTabLabels.length, (index) {
               final needsSeparator = subTabGroupBreaks != null &&
                   subTabGroupBreaks!.contains(index) &&
@@ -480,6 +516,61 @@ class LowerZoneContextBar extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildBreadcrumb() {
+    final superLabel = selectedSuperTab < superTabLabels.length
+        ? superTabLabels[selectedSuperTab]
+        : '';
+    final subLabel = selectedSubTab < subTabLabels.length
+        ? subTabLabels[selectedSubTab]
+        : '';
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          breadcrumbCategory!,
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.0,
+            color: accentColor.withValues(alpha: 0.5),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Icon(Icons.chevron_right, size: 10, color: LowerZoneColors.textSecondary.withValues(alpha: 0.4)),
+        ),
+        Text(
+          superLabel,
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+            color: accentColor.withValues(alpha: 0.7),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Icon(Icons.chevron_right, size: 10, color: LowerZoneColors.textSecondary.withValues(alpha: 0.4)),
+        ),
+        Text(
+          subLabel,
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.3,
+            color: accentColor.withValues(alpha: 0.9),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Container(
+          width: 1,
+          height: 14,
+          color: LowerZoneColors.border,
+        ),
+      ],
     );
   }
 

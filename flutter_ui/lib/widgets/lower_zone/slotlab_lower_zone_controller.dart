@@ -41,6 +41,7 @@ class SlotLabLowerZoneController extends ChangeNotifier {
   double get height => _state.height;
   int get currentSubTabIndex => _state.currentSubTabIndex;
   List<String> get subTabLabels => _state.subTabLabels;
+  List<String> get subTabTooltips => _state.subTabTooltips;
 
   /// Total height including all fixed-height elements
   /// When expanded: content + context bar (60px) + action strip + resize handle + spin control bar

@@ -104,6 +104,9 @@ class SlotLabLowerZoneWidget extends StatefulWidget {
   /// P14: Timeline controller from parent (maintains state)
   final dynamic timelineController;
 
+  /// Quick Switcher callback (⌘K)
+  final VoidCallback? onQuickSwitcher;
+
   const SlotLabLowerZoneWidget({
     super.key,
     required this.controller,
@@ -116,6 +119,7 @@ class SlotLabLowerZoneWidget extends StatefulWidget {
     this.onStop,
     this.onBuildTimelineContent,
     this.timelineController,
+    this.onQuickSwitcher,
   });
 
   @override
@@ -301,6 +305,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                               superTabLabels: SlotLabSuperTab.values.map((t) => t.label).toList(),
                               superTabIcons: SlotLabSuperTab.values.map((t) => t.icon).toList(),
                               superTabColors: SlotLabSuperTab.values.map((t) => t.color).toList(),
+                              superTabTooltips: SlotLabSuperTab.values.map((t) => t.tooltip).toList(),
                               selectedSuperTab: widget.controller.superTab.index,
                               subTabLabels: widget.controller.subTabLabels,
                               selectedSubTab: widget.controller.currentSubTabIndex,
@@ -315,6 +320,9 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
                               superTabBadges: findingsCount > 0 ? {SlotLabSuperTab.monitor.index: findingsCount} : null,
                               // Sub-tab group separators per super-tab
                               subTabGroupBreaks: widget.controller.subTabGroupBreaks,
+                              subTabTooltips: widget.controller.subTabTooltips,
+                              breadcrumbCategory: widget.controller.superTab.category,
+                              onQuickSwitcher: widget.onQuickSwitcher,
                             );
                           },
                         ),
