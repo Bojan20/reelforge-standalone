@@ -280,7 +280,25 @@ extension DawSuperTabX on DawSuperTab {
   String get label => ['BROWSE', 'EDIT', 'MIX', 'PROCESS', 'DELIVER'][index];
   IconData get icon => [Icons.folder_open, Icons.content_cut, Icons.tune, Icons.equalizer, Icons.upload][index];
   String get shortcut => '${index + 1}';
-  Color get color => LowerZoneColors.dawAccent;
+
+  /// Category-based accent colors for DAW:
+  /// BROWSE = blue, EDIT = cyan, MIX = green, PROCESS = orange, DELIVER = purple
+  Color get color => switch (this) {
+    DawSuperTab.browse  => const Color(0xFF4A9EFF), // Blue — file browsing
+    DawSuperTab.edit    => const Color(0xFF40C8FF), // Cyan — editing
+    DawSuperTab.mix     => const Color(0xFF50FF98), // Green — mixing
+    DawSuperTab.process => const Color(0xFFFF9850), // Orange — processing
+    DawSuperTab.deliver => const Color(0xFFB080FF), // Purple — delivery
+  };
+
+  String get category => switch (this) {
+    DawSuperTab.browse  => 'FILES',
+    DawSuperTab.edit    => 'EDIT',
+    DawSuperTab.mix     => 'MIX',
+    DawSuperTab.process => 'DSP',
+    DawSuperTab.deliver => 'EXPORT',
+  };
+
   String get tooltip => [
     'Browse audio files, presets, and plugins',
     'Edit timeline, MIDI, fades, and grid settings',

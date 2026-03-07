@@ -160,6 +160,9 @@ class DawLowerZoneWidget extends StatefulWidget {
   /// All timeline clips for Loop Editor (filtered by track inside panel)
   final List<TimelineClip> allClips;
 
+  /// Quick Switcher callback (⌘K) — opens command palette for DAW sub-tabs
+  final VoidCallback? onQuickSwitcher;
+
   const DawLowerZoneWidget({
     super.key,
     required this.controller,
@@ -188,6 +191,7 @@ class DawLowerZoneWidget extends StatefulWidget {
     this.onClipFadeInChanged,
     this.onClipFadeOutChanged,
     this.allClips = const [],
+    this.onQuickSwitcher,
   });
 
   @override
@@ -195,6 +199,15 @@ class DawLowerZoneWidget extends StatefulWidget {
 }
 
 class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
+  /// All sub-tab labels per super-tab (for minimap rich hover preview)
+  static final _allDawSuperTabSubLabels = [
+    DawBrowseSubTab.values.map((t) => t.label).toList(),
+    DawEditSubTab.values.map((t) => t.label).toList(),
+    DawMixSubTab.values.map((t) => t.label).toList(),
+    DawProcessSubTab.values.map((t) => t.label).toList(),
+    DawDeliverSubTab.values.map((t) => t.label).toList(),
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -248,6 +261,10 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
             superTabLabels: DawSuperTab.values.map((t) => t.label).toList(),
             superTabIcons: DawSuperTab.values.map((t) => t.icon).toList(),
             superTabTooltips: DawSuperTab.values.map((t) => t.tooltip).toList(),
+            superTabColors: DawSuperTab.values.map((t) => t.color).toList(),
+            superTabSubLabels: _allDawSuperTabSubLabels,
+            breadcrumbCategory: widget.controller.superTab.category,
+            onQuickSwitcher: widget.onQuickSwitcher,
             selectedSuperTab: widget.controller.superTab.index,
             subTabLabels: widget.controller.subTabLabels,
             subTabTooltips: _getCurrentSubTabTooltips(),

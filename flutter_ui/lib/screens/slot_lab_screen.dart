@@ -449,6 +449,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   static const double _panelMaxWidth = 500.0;
   static const double _resizeHandleWidth = 6.0;
 
+  // Panel zoom — fullscreen overlay for focused panel work
+  // null = no zoom, 'left'/'right'/'center'/'lower' = zoomed panel
+  String? _zoomedPanel;
+
   // Left panel multi-mode tab system
   _LeftPanelTab _leftPanelTab = _LeftPanelTab.audio;
   // Legacy compat alias
@@ -3173,10 +3177,82 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 onBuildTimelineContent: _buildTimelineContent,
                 onQuickSwitcher: _openQuickSwitcher,
               ),
+
+              // Status bar — DAW-grade info strip
+              _buildStatusBar(),
             ],
           );
           },
           ),
+
+          // Panel zoom overlay — fullscreen focus on lower zone
+          if (_zoomedPanel == 'lower')
+            Positioned.fill(
+              child: Container(
+                color: const Color(0xFF0A0A0E),
+                child: Column(
+                  children: [
+                    // Zoom header with exit button
+                    Container(
+                      height: 28,
+                      color: const Color(0xFF111116),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          Icon(Icons.fullscreen, size: 14, color: _lowerZoneController.superTab.color),
+                          const SizedBox(width: 6),
+                          Text(
+                            'FOCUS: ${_lowerZoneController.superTab.label} › ${_lowerZoneController.subTabLabels.length > _lowerZoneController.currentSubTabIndex ? _lowerZoneController.subTabLabels[_lowerZoneController.currentSubTabIndex] : ""}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: _lowerZoneController.superTab.color,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const Spacer(),
+                          GestureDetector(
+                            onTap: () => setState(() => _zoomedPanel = null),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2A2A32),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('ESC', style: TextStyle(fontSize: 9, color: Color(0xFF808088), fontFamily: 'monospace')),
+                                  SizedBox(width: 4),
+                                  Icon(Icons.fullscreen_exit, size: 12, color: Color(0xFF808088)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Lower zone content at full height
+                    Expanded(
+                      child: SlotLabLowerZoneWidget(
+                        controller: _lowerZoneController,
+                        slotLabProvider: _slotLabProvider,
+                        onSpin: () {
+                          if (!GetIt.instance<FeatureComposerProvider>().isConfigured) return;
+                          _slotLabProvider.spin();
+                        },
+                        onForceOutcome: (outcome) => _slotLabProvider.spinForced(_parseOutcome(outcome)),
+                        onPause: () => _slotLabProvider.stopStagePlayback(),
+                        onResume: () {},
+                        onStop: () => _slotLabProvider.stopStagePlayback(),
+                        onBuildTimelineContent: _buildTimelineContent,
+                        onQuickSwitcher: _openQuickSwitcher,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
           // Drag overlay (supports multiple files)
           if (_draggingAudioPaths != null && _draggingAudioPaths!.isNotEmpty && _dragPosition != null)
@@ -3249,6 +3325,134 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       ),
     );
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STATUS BAR
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildStatusBar() {
+    final eventCount = _hasSlotLabProvider ? _compositeEvents.length : 0;
+    final spinCount = _hasSlotLabProvider ? _slotLabProvider.spinCount : 0;
+    final isPlayingStages = _hasSlotLabProvider && _slotLabProvider.isPlayingStages;
+    final trackCount = _tracks.length;
+    final regionCount = _tracks.fold<int>(0, (sum, t) => sum + t.regions.length);
+
+    // Transport status
+    final transportIcon = isPlayingStages
+        ? Icons.play_arrow
+        : _isPlaying
+            ? Icons.play_arrow
+            : Icons.stop;
+    final transportColor = (isPlayingStages || _isPlaying)
+        ? const Color(0xFF50FF98)
+        : const Color(0xFF606068);
+    final transportLabel = isPlayingStages
+        ? 'STAGE PLAY'
+        : _isPlaying
+            ? 'PLAYING'
+            : 'STOPPED';
+
+    // Active lower zone context
+    final superTab = _lowerZoneController.superTab;
+    final subLabels = _lowerZoneController.subTabLabels;
+    final subIdx = _lowerZoneController.currentSubTabIndex;
+    final activeSubLabel = subIdx < subLabels.length ? subLabels[subIdx] : '';
+
+    return Container(
+      height: 22,
+      decoration: const BoxDecoration(
+        color: Color(0xFF0A0A0E),
+        border: Border(
+          top: BorderSide(color: Color(0xFF1E1E24)),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: [
+          // Transport status
+          Icon(transportIcon, size: 10, color: transportColor),
+          const SizedBox(width: 4),
+          Text(transportLabel, style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: transportColor, letterSpacing: 0.5)),
+          _statusDivider(),
+
+          // Spin count
+          const Icon(Icons.refresh, size: 10, color: Color(0xFF606068)),
+          const SizedBox(width: 3),
+          Text('$spinCount spins', style: _statusStyle()),
+          _statusDivider(),
+
+          // Event count
+          const Icon(Icons.music_note, size: 10, color: Color(0xFF606068)),
+          const SizedBox(width: 3),
+          Text('$eventCount events', style: _statusStyle()),
+          _statusDivider(),
+
+          // Tracks / regions
+          const Icon(Icons.layers, size: 10, color: Color(0xFF606068)),
+          const SizedBox(width: 3),
+          Text('$trackCount trk · $regionCount reg', style: _statusStyle()),
+
+          _statusDivider(),
+
+          // Undo/Redo indicator
+          ListenableBuilder(
+            listenable: UiUndoManager.instance,
+            builder: (context, _) {
+              final canUndo = UiUndoManager.instance.canUndo;
+              final canRedo = UiUndoManager.instance.canRedo;
+              final desc = UiUndoManager.instance.undoDescription;
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.undo, size: 10, color: canUndo ? const Color(0xFF50FF98) : const Color(0xFF404048)),
+                  const SizedBox(width: 2),
+                  Icon(Icons.redo, size: 10, color: canRedo ? const Color(0xFF50FF98) : const Color(0xFF404048)),
+                  if (desc != null) ...[
+                    const SizedBox(width: 4),
+                    Text(desc.length > 20 ? '${desc.substring(0, 20)}…' : desc, style: _statusStyle()),
+                  ],
+                ],
+              );
+            },
+          ),
+
+          const Spacer(),
+
+          // Active lower zone tab indicator
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: superTab.color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text(
+              '${superTab.label} › $activeSubLabel',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                color: superTab.color.withValues(alpha: 0.7),
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // Keyboard shortcut hint
+          Text('⌘K Quick Switch', style: TextStyle(fontSize: 9, color: const Color(0xFF404048))),
+        ],
+      ),
+    );
+  }
+
+  Widget _statusDivider() => Container(
+    width: 1, height: 10,
+    margin: const EdgeInsets.symmetric(horizontal: 8),
+    color: const Color(0xFF2A2A32),
+  );
+
+  TextStyle _statusStyle() => const TextStyle(
+    fontSize: 9, color: Color(0xFF707078), letterSpacing: 0.3,
+  );
 
   // ═══════════════════════════════════════════════════════════════════════════
   // QUICK SWITCHER (Cmd+K)
@@ -3366,8 +3570,22 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       return KeyEventResult.handled;
     }
 
-    // Escape = Stop all playback (stages and timeline)
+    // Cmd+Shift+F = Toggle panel zoom (fullscreen focus on lower zone)
+    if (key == LogicalKeyboardKey.keyF &&
+        (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed) &&
+        HardwareKeyboard.instance.isShiftPressed) {
+      setState(() {
+        _zoomedPanel = _zoomedPanel == null ? 'lower' : null;
+      });
+      return KeyEventResult.handled;
+    }
+
+    // Escape = Exit panel zoom first, then stop playback
     if (key == LogicalKeyboardKey.escape) {
+      if (_zoomedPanel != null) {
+        setState(() => _zoomedPanel = null);
+        return KeyEventResult.handled;
+      }
       var handled = false;
       // P0.3: Stop stage playback if active
       if (_hasSlotLabProvider && (_slotLabProvider.isPlayingStages || _slotLabProvider.isPaused)) {
@@ -9060,7 +9278,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               width: 2,
               height: 32,
               decoration: BoxDecoration(
-                color: const Color(0xFF3A3A44),
+                color: _lowerZoneController.isExpanded
+                    ? _lowerZoneController.superTab.color.withValues(alpha: 0.2)
+                    : const Color(0xFF3A3A44),
                 borderRadius: BorderRadius.circular(1),
               ),
             ),
@@ -9157,12 +9377,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildLeftPanelV2() {
+    final accentColor = _lowerZoneController.isExpanded
+        ? _lowerZoneController.superTab.color.withValues(alpha: 0.15)
+        : const Color(0xFF2A2A32);
     return Container(
       clipBehavior: Clip.hardEdge,
-      decoration: const BoxDecoration(
-        color: Color(0xFF0E0E12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E0E12),
         border: Border(
-          right: BorderSide(color: Color(0xFF2A2A32), width: 1),
+          right: BorderSide(color: accentColor, width: 1),
         ),
       ),
       child: Column(
@@ -9355,12 +9578,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildRightPanelV2() {
+    final accentColor = _lowerZoneController.isExpanded
+        ? _lowerZoneController.superTab.color.withValues(alpha: 0.15)
+        : const Color(0xFF2A2A32);
     return Container(
       clipBehavior: Clip.hardEdge,
-      decoration: const BoxDecoration(
-        color: Color(0xFF0E0E12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E0E12),
         border: Border(
-          left: BorderSide(color: Color(0xFF2A2A32), width: 1),
+          left: BorderSide(color: accentColor, width: 1),
         ),
       ),
       child: Column(

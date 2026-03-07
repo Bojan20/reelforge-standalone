@@ -175,6 +175,7 @@ import '../widgets/lower_zone/daw_lower_zone_widget.dart';
 import '../widgets/lower_zone/daw/edit/timeline_overview_panel.dart' show TimelineOverviewTrack, TimelineOverviewClip;
 import '../widgets/lower_zone/daw_lower_zone_controller.dart';
 import '../widgets/lower_zone/lower_zone_types.dart';
+import '../widgets/common/command_palette.dart';
 import '../controllers/mixer/mixer_view_controller.dart';
 import '../controllers/mixer/spill_controller.dart';
 import '../models/mixer_view_models.dart';
@@ -5999,12 +6000,44 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             ffi.clickSetTempo(newTempo);
             ffi.projectSetTempo(newTempo);
           },
+          onQuickSwitcher: () => _openDawQuickSwitcher(),
         );
       case EditorMode.slot:
         // Slot mode uses fullscreen SlotLabScreen, not MainLayout
         // Return null to use default tabs (shouldn't reach here)
         return null;
     }
+  }
+
+  /// DAW Quick Switcher — opens CommandPalette with all DAW sub-tabs
+  void _openDawQuickSwitcher() {
+    final allSubTabs = <({DawSuperTab superTab, int subIdx, String label, String tooltip, IconData icon})>[];
+    for (final st in DawSuperTab.values) {
+      final labels = switch (st) {
+        DawSuperTab.browse => DawBrowseSubTab.values.map((t) => (label: t.label, tooltip: t.tooltip, icon: t.icon)),
+        DawSuperTab.edit => DawEditSubTab.values.map((t) => (label: t.label, tooltip: t.tooltip, icon: t.icon)),
+        DawSuperTab.mix => DawMixSubTab.values.map((t) => (label: t.label, tooltip: t.tooltip, icon: t.icon)),
+        DawSuperTab.process => DawProcessSubTab.values.map((t) => (label: t.label, tooltip: t.tooltip, icon: t.icon)),
+        DawSuperTab.deliver => DawDeliverSubTab.values.map((t) => (label: t.label, tooltip: t.tooltip, icon: t.icon)),
+      };
+      for (final (idx, t) in labels.indexed) {
+        allSubTabs.add((superTab: st, subIdx: idx, label: t.label, tooltip: t.tooltip, icon: t.icon));
+      }
+    }
+    final commands = allSubTabs.map((t) => Command(
+      label: '${t.superTab.category} > ${t.label}',
+      description: t.tooltip,
+      icon: t.icon,
+      onExecute: () {
+        _dawLowerZoneController.setSuperTabIndex(t.superTab.index);
+        _dawLowerZoneController.setSubTabIndex(t.subIdx);
+        if (!_dawLowerZoneController.isExpanded) {
+          _dawLowerZoneController.toggle();
+        }
+      },
+      keywords: [t.superTab.label, t.superTab.category, t.label],
+    )).toList();
+    CommandPalette.show(context, commands);
   }
 
   /// Lower tabs with live metering — watches EngineProvider so meters
