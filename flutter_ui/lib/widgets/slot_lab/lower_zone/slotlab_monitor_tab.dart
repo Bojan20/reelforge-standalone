@@ -4,6 +4,7 @@
 /// AIL, Debug, Export
 
 import 'package:flutter/material.dart';
+import '../../../services/event_registry.dart';
 import '../../lower_zone/lower_zone_types.dart';
 import '../../middleware/event_profiler_panel.dart';
 import '../../middleware/event_profiler_advanced.dart';
@@ -36,10 +37,37 @@ class SlotLabMonitorTabContent extends StatelessWidget {
       SlotLabMonitorSubTab.debug => const DebugMonitorZone(),
       SlotLabMonitorSubTab.export => const ExportZone(),
       SlotLabMonitorSubTab.profiler => const EventProfilerPanel(),
-      SlotLabMonitorSubTab.profilerAdv => const EventProfilerAdvanced(entries: []),
+      SlotLabMonitorSubTab.profilerAdv => const _ProfilerAdvancedWrapper(),
       SlotLabMonitorSubTab.evtDebug => const EventDebuggerPanel(),
       SlotLabMonitorSubTab.resource => const ResourceDashboardPanel(),
       SlotLabMonitorSubTab.voiceStats => const VoicePoolStatsPanel(),
     };
+  }
+}
+
+/// Wraps EventProfilerAdvanced with real data from EventRegistry
+class _ProfilerAdvancedWrapper extends StatelessWidget {
+  const _ProfilerAdvancedWrapper();
+
+  @override
+  Widget build(BuildContext context) {
+    final registry = EventRegistry.instance;
+    return ListenableBuilder(
+      listenable: registry,
+      builder: (context, _) {
+        final events = registry.allEvents;
+        final entries = events.map((e) {
+          final layerCount = e.layers.length;
+          final durationUs = (e.duration * 1000000).round();
+          return ProfilerEntry(
+            eventId: e.id,
+            latencyUs: durationUs,
+            callCount: layerCount,
+            avgLatencyUs: layerCount > 0 ? durationUs / layerCount : 0,
+          );
+        }).toList();
+        return EventProfilerAdvanced(entries: entries);
+      },
+    );
   }
 }

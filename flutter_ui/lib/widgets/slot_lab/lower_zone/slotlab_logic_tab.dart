@@ -3,6 +3,7 @@
 /// Behavior, Triggers, Gate, Priority, Orchestration,
 /// Emotional, Context, Simulation
 
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../../providers/slot_lab/behavior_tree_provider.dart';
@@ -42,7 +43,7 @@ class SlotLabLogicTabContent extends StatelessWidget {
       SlotLabLogicSubTab.context => const _ContextPanel(),
       SlotLabLogicSubTab.simulation => const _SimulationPanel(),
       SlotLabLogicSubTab.priorityPreset => const PriorityTierPresetPanel(),
-      SlotLabLogicSubTab.stateMachine => const StateMachineGraphWidget(nodes: [], edges: []),
+      SlotLabLogicSubTab.stateMachine => const _StateMachinePanel(),
       SlotLabLogicSubTab.stateHistory => const StateTransitionHistoryPanel(),
     };
   }
@@ -1317,6 +1318,84 @@ Widget _toggleChip(String label, bool value, ValueChanged<bool> onChanged) {
       child: Text(label, style: TextStyle(color: value ? const Color(0xFF40FF90) : Colors.white38, fontSize: 9, fontWeight: FontWeight.w600)),
     ),
   );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STATE MACHINE — Visual graph from TransitionSystemProvider
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _StateMachinePanel extends StatelessWidget {
+  const _StateMachinePanel();
+
+  @override
+  Widget build(BuildContext context) {
+    final transition = GetIt.instance<TransitionSystemProvider>();
+    final gate = GetIt.instance<StateGateProvider>();
+
+    return ListenableBuilder(
+      listenable: Listenable.merge([transition, gate]),
+      builder: (context, _) {
+        final states = GameplaySubstate.values;
+        final currentState = gate.currentSubstate;
+        final rules = transition.allRules;
+
+        // Layout states in a circle
+        const radius = 120.0;
+        const center = Offset(180, 150);
+        final nodes = <StateMachineNode>[];
+        for (int i = 0; i < states.length; i++) {
+          final angle = (i / states.length) * 2 * math.pi - math.pi / 2;
+          nodes.add(StateMachineNode(
+            id: states[i].name,
+            label: states[i].displayName,
+            position: Offset(
+              center.dx + radius * math.cos(angle),
+              center.dy + radius * math.sin(angle),
+            ),
+            isCurrent: states[i] == currentState,
+          ));
+        }
+
+        final edges = rules.map((r) => StateMachineEdge(
+          from: r.fromState.name,
+          to: r.toState.name,
+          condition: r.type.displayName,
+        )).toList();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                children: [
+                  const Text('STATE MACHINE', style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  const SizedBox(width: 8),
+                  Text('${nodes.length} states — ${edges.length} transitions', style: const TextStyle(color: Colors.white30, fontSize: 10)),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4A9EFF).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(currentState.displayName, style: const TextStyle(color: Color(0xFF4A9EFF), fontSize: 10, fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: StateMachineGraphWidget(
+                nodes: nodes,
+                edges: edges,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
 }
 
 Widget _emptyState(String message) {
