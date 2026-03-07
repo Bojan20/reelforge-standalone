@@ -9572,7 +9572,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               ...entry.value.map((evt) {
                 final isSelected = selected?.id == evt.id;
                 return GestureDetector(
-                  onTap: () => mw.selectCompositeEvent(evt.id),
+                  onTap: () {
+                    mw.selectCompositeEvent(evt.id);
+                    setState(() {
+                      _selectedEventId = evt.id;
+                      _rightPanelTab = _RightPanelTab.inspector;
+                    });
+                  },
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 1),
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
@@ -13500,9 +13506,11 @@ class _StableTabSwitcherState<T extends Enum> extends State<_StableTabSwitcher<T
       builder: (context, tab, _) => Stack(
         children: [
           for (int i = 0; i < _cachedChildren.length; i++)
-            Offstage(
-              offstage: i != tab.index,
-              child: _cachedChildren[i],
+            Positioned.fill(
+              child: Offstage(
+                offstage: i != tab.index,
+                child: _cachedChildren[i],
+              ),
             ),
         ],
       ),
