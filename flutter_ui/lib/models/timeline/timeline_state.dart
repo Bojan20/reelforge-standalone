@@ -7,6 +7,7 @@
 // - Grid settings
 // - Markers and automation
 
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'audio_region.dart';
 import 'automation_lane.dart';
@@ -192,12 +193,8 @@ class TimelineState {
   });
 
   /// Get track by ID
-  TimelineTrack? getTrack(String trackId) {
-    for (final t in tracks) {
-      if (t.id == trackId) return t;
-    }
-    return null;
-  }
+  TimelineTrack? getTrack(String trackId) =>
+      tracks.firstWhereOrNull((t) => t.id == trackId);
 
   /// Add track
   TimelineState addTrack(TimelineTrack track) {
