@@ -5516,7 +5516,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
                 child: Image.file(
                   File(symbol.imagePath!),
                   fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => Center(
+                  errorBuilder: (_, _, _) => Center(
                     child: Text(symbol.name, style: TextStyle(
                       fontSize: fontSize * 0.5, fontWeight: FontWeight.bold, color: Colors.white,
                     )),

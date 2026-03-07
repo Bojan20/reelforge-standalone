@@ -248,7 +248,7 @@ class SymbolArtPanel extends StatelessWidget {
             ? Image.file(
                 File(symbol.artworkPath!),
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Center(
+                errorBuilder: (_, _, _) => Center(
                   child: Text(symbol.emoji,
                       style: const TextStyle(fontSize: 16)),
                 ),

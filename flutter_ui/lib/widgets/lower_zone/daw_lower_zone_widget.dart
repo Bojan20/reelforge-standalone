@@ -1861,8 +1861,8 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           // Reset mixer to defaults
           final mixer = context.read<MixerProvider>();
           for (final channel in mixer.channels) {
-            mixer.setVolume(channel.id, 1.0);  // Unity gain
-            mixer.setPan(channel.id, 0.0);     // Center
+            mixer.setChannelVolume(channel.id, 1.0);  // Unity gain
+            mixer.setChannelPan(channel.id, 0.0);     // Center
             mixer.setMuted(channel.id, false);
             mixer.setSoloed(channel.id, false);
           }
