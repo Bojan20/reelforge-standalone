@@ -2603,20 +2603,24 @@ class EngineApi {
       final masterRmsLDb = linearToDb(rmsL);
       final masterRmsRDb = linearToDb(rmsR);
 
-      // Generate bus meters (for now, use master for all buses with audio)
+      // Read real per-bus peak levels from Rust engine (SHARED_METERS)
       final busMeters = List.generate(
         _project.busCount,
         (i) {
-          final activity = _activeBuses[i] ?? 0.0;
-          if (activity > 0) {
-            // Scale master meters by bus activity
+          final (busPeakL, busPeakR) = _ffi.getBusPeak(i);
+          if (busPeakL > 0.000001 || busPeakR > 0.000001) {
+            final bpLDb = linearToDb(busPeakL);
+            final bpRDb = linearToDb(busPeakR);
+            // Approximate RMS as 70% of peak (Rust only stores peak per bus)
+            final bRmsLDb = linearToDb(busPeakL * 0.7);
+            final bRmsRDb = linearToDb(busPeakR * 0.7);
             return BusMeteringState(
-              peakL: masterPeakLDb * activity,
-              peakR: masterPeakRDb * activity,
-              rmsL: masterRmsLDb * activity,
-              rmsR: masterRmsRDb * activity,
-              heldPeakL: masterPeakLDb * activity,
-              heldPeakR: masterPeakRDb * activity,
+              peakL: bpLDb,
+              peakR: bpRDb,
+              rmsL: bRmsLDb,
+              rmsR: bRmsRDb,
+              heldPeakL: bpLDb,
+              heldPeakR: bpRDb,
             );
           } else {
             return BusMeteringState.empty();

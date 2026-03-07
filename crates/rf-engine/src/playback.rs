@@ -1567,6 +1567,12 @@ pub struct TrackMeter {
     pub rms_r: f64,
     /// Stereo correlation (-1.0 out of phase, 0.0 uncorrelated, 1.0 mono)
     pub correlation: f64,
+    /// LUFS momentary (400ms window, LUFS units)
+    pub lufs_momentary: f64,
+    /// LUFS short-term (3s window, LUFS units)
+    pub lufs_short: f64,
+    /// LUFS integrated (full program, LUFS units)
+    pub lufs_integrated: f64,
 }
 
 impl TrackMeter {
@@ -1578,6 +1584,9 @@ impl TrackMeter {
             rms_l: 0.0,
             rms_r: 0.0,
             correlation: 1.0, // Mono when silent
+            lufs_momentary: -70.0,
+            lufs_short: -70.0,
+            lufs_integrated: -70.0,
         }
     }
 
@@ -1684,6 +1693,8 @@ pub struct PlaybackEngine {
     insert_param_rx: parking_lot::Mutex<rtrb::Consumer<InsertParamChange>>,
     /// Per-track stereo meters (track_id -> TrackMeter with L/R peaks, RMS, correlation)
     track_meters: RwLock<HashMap<u64, TrackMeter>>,
+    /// Per-track LUFS meters (separate from TrackMeter to keep LufsMeter state)
+    track_lufs_meters: RwLock<HashMap<u64, LufsMeter>>,
     /// Master spectrum analyzer (FFT)
     spectrum_analyzer: RwLock<FftAnalyzer>,
     /// Spectrum data cache (256 bins, log-scaled 20Hz-20kHz)
@@ -1850,6 +1861,7 @@ impl PlaybackEngine {
             insert_param_tx: parking_lot::Mutex::new(insert_param_tx),
             insert_param_rx: parking_lot::Mutex::new(insert_param_rx),
             track_meters: RwLock::new(HashMap::new()),
+            track_lufs_meters: RwLock::new(HashMap::new()),
             // 8192-point FFT for better bass frequency resolution
             // At 48kHz: bin width = 48000/8192 = 5.86Hz (vs 23.4Hz with 2048)
             // This gives ~3-4 bins in 20-40Hz range instead of ~1 bin
@@ -3105,6 +3117,15 @@ impl PlaybackEngine {
             .get(&track_id)
             .map(|m| m.correlation)
             .unwrap_or(1.0)
+    }
+
+    /// Get track LUFS (momentary, short-term, integrated) by track ID
+    pub fn get_track_lufs(&self, track_id: u64) -> (f64, f64, f64) {
+        self.track_meters
+            .read()
+            .get(&track_id)
+            .map(|m| (m.lufs_momentary, m.lufs_short, m.lufs_integrated))
+            .unwrap_or((-70.0, -70.0, -70.0))
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -4718,6 +4739,14 @@ impl PlaybackEngine {
                 crate::ffi::SHARED_METERS.update_channel_peak(bus_idx, bl, br);
             }
 
+            // --- Per-track meter decay ---
+            // Decay all track meters so channel strips don't freeze on stop
+            if let Some(mut meters) = self.track_meters.try_write() {
+                for meter in meters.values_mut() {
+                    meter.decay(decay);
+                }
+            }
+
             // --- Correlation/balance decay toward defaults ---
             let prev_corr = f64::from_bits(self.correlation.load(Ordering::Relaxed));
             let smoothed_corr = prev_corr * decay + 1.0 * (1.0 - decay); // Decay toward 1.0 (mono)
@@ -5252,10 +5281,21 @@ impl PlaybackEngine {
             }
 
             // Calculate per-track stereo metering (post-fader, post-insert)
-            // Includes: peak L/R, RMS L/R, correlation
+            // Includes: peak L/R, RMS L/R, correlation + LUFS
             if let Some(mut meters) = self.track_meters.try_write() {
                 let meter = meters.entry(track.id.0).or_insert_with(TrackMeter::empty);
                 meter.update(&track_l[..frames], &track_r[..frames], decay);
+
+                // Per-track LUFS metering
+                if let Some(mut lufs_meters) = self.track_lufs_meters.try_write() {
+                    let lufs = lufs_meters.entry(track.id.0).or_insert_with(|| {
+                        LufsMeter::new(self.sample_rate() as f64)
+                    });
+                    lufs.process_block(&track_l[..frames], &track_r[..frames]);
+                    meter.lufs_momentary = lufs.momentary_loudness();
+                    meter.lufs_short = lufs.shortterm_loudness();
+                    meter.lufs_integrated = lufs.integrated_loudness();
+                }
             }
 
             // === SIP (Solo In Place) ===
@@ -5514,25 +5554,50 @@ impl PlaybackEngine {
             .store(smoothed_bal.to_bits(), Ordering::Relaxed);
 
         // LUFS metering (ITU-R BS.1770-4)
-        // Use try_write to avoid blocking audio thread if UI is reading
-        if let Some(mut lufs) = self.lufs_meter.try_write() {
+        {
+            let mut lufs = self.lufs_meter.write();
             lufs.process_block(output_l, output_r);
-            self.lufs_momentary
-                .store(lufs.momentary_loudness().to_bits(), Ordering::Relaxed);
-            self.lufs_short
-                .store(lufs.shortterm_loudness().to_bits(), Ordering::Relaxed);
-            self.lufs_integrated
-                .store(lufs.integrated_loudness().to_bits(), Ordering::Relaxed);
+            let m = lufs.momentary_loudness();
+            let s = lufs.shortterm_loudness();
+            let i = lufs.integrated_loudness();
+            self.lufs_momentary.store(m.to_bits(), Ordering::Relaxed);
+            self.lufs_short.store(s.to_bits(), Ordering::Relaxed);
+            self.lufs_integrated.store(i.to_bits(), Ordering::Relaxed);
         }
 
         // True Peak metering (4x oversampled per ITU-R BS.1770-4)
-        if let Some(mut tp) = self.true_peak_meter.try_write() {
+        {
+            let mut tp = self.true_peak_meter.write();
             tp.process_block(output_l, output_r);
-            // Store dBTP values directly
             let dbtp_l: f64 = tp.peak_dbtp_l();
             let dbtp_r: f64 = tp.peak_dbtp_r();
             self.true_peak_l.store(dbtp_l.to_bits(), Ordering::Relaxed);
             self.true_peak_r.store(dbtp_r.to_bits(), Ordering::Relaxed);
+        }
+
+        // ═══ FORWARD ALL METERS TO SHARED MEMORY (Dart reads this) ═══
+        // Peak/RMS already forwarded via update_channel_peak(0, ...) above.
+        // Forward LUFS, True Peak, stereo analysis so Dart LUFS meter works.
+        {
+            let lufs_m = f64::from_bits(self.lufs_momentary.load(Ordering::Relaxed));
+            let lufs_s = f64::from_bits(self.lufs_short.load(Ordering::Relaxed));
+            let lufs_i = f64::from_bits(self.lufs_integrated.load(Ordering::Relaxed));
+            crate::ffi::SHARED_METERS.update_lufs(lufs_s, lufs_i, lufs_m);
+
+            let tp_l = f64::from_bits(self.true_peak_l.load(Ordering::Relaxed));
+            let tp_r = f64::from_bits(self.true_peak_r.load(Ordering::Relaxed));
+            let tp_max = tp_l.max(tp_r);
+            crate::ffi::SHARED_METERS.update_true_peak(tp_l, tp_r, tp_max);
+
+            let corr = f64::from_bits(self.correlation.load(Ordering::Relaxed));
+            let bal = f64::from_bits(self.balance.load(Ordering::Relaxed));
+            crate::ffi::SHARED_METERS.correlation.store(corr.to_bits(), Ordering::Relaxed);
+            crate::ffi::SHARED_METERS.balance.store(bal.to_bits(), Ordering::Relaxed);
+
+            // Master peak/RMS (redundant with update_channel_peak but fills master-specific fields)
+            crate::ffi::SHARED_METERS.update_master(peak_l, peak_r, rms_l, rms_r);
+
+            crate::ffi::SHARED_METERS.increment_sequence();
         }
 
         // Spectrum analyzer (FFT)

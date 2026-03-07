@@ -81,6 +81,9 @@ class MixerChannel {
   double rmsL;
   double rmsR;
   bool clipping;
+  // LUFS metering (master channel only)
+  double lufsShort;
+  double lufsIntegrated;
 
   // Track reference (for audio tracks)
   int? trackIndex;    // Engine track index
@@ -119,6 +122,8 @@ class MixerChannel {
     this.rmsL = 0.0,
     this.rmsR = 0.0,
     this.clipping = false,
+    this.lufsShort = -70.0,
+    this.lufsIntegrated = -70.0,
     this.trackIndex,
     this.soloSafe = false,
     this.comments = '',
@@ -166,6 +171,8 @@ class MixerChannel {
     double? rmsL,
     double? rmsR,
     bool? clipping,
+    double? lufsShort,
+    double? lufsIntegrated,
     int? trackIndex,
   }) {
     return MixerChannel(
@@ -195,6 +202,8 @@ class MixerChannel {
       rmsL: rmsL ?? this.rmsL,
       rmsR: rmsR ?? this.rmsR,
       clipping: clipping ?? this.clipping,
+      lufsShort: lufsShort ?? this.lufsShort,
+      lufsIntegrated: lufsIntegrated ?? this.lufsIntegrated,
       trackIndex: trackIndex ?? this.trackIndex,
     );
   }
@@ -731,26 +740,43 @@ class MixerProvider extends ChangeNotifier {
     // When transport stops, Rust continues to decay meters toward zero.
     // Cutting off updates here caused meters to freeze at non-zero values.
 
-    // Update master meters (from master peak/rms)
+    // Update master meters (from master peak/rms + LUFS)
     _master = _master.copyWith(
       peakL: _dbToLinear(metering.masterPeakL),
       peakR: _dbToLinear(metering.masterPeakR),
       rmsL: _dbToLinear(metering.masterRmsL),
       rmsR: _dbToLinear(metering.masterRmsR),
       clipping: metering.masterPeakL > -0.1 || metering.masterPeakR > -0.1,
+      lufsShort: metering.masterLufsS,
+      lufsIntegrated: metering.masterLufsI,
     );
 
-    // Update channel meters (direct from track metering)
-    // In Cubase-style: each track has its own meter before master
+    // Update channel meters from per-track engine metering (direct FFI)
+    // Each track has its own meter in the Rust engine (peak L/R, RMS, correlation)
+    final ffi = NativeFFI.instance;
     for (final channel in _channels.values) {
-      if (channel.trackIndex != null && channel.trackIndex! < metering.buses.length) {
-        final trackMeter = metering.buses[channel.trackIndex!];
-        _channels[channel.id] = channel.copyWith(
-          peakL: _dbToLinear(trackMeter.peakL),
-          peakR: _dbToLinear(trackMeter.peakR),
-          rmsL: _dbToLinear(trackMeter.rmsL),
-          rmsR: _dbToLinear(trackMeter.rmsR),
-        );
+      if (channel.trackIndex != null) {
+        final (peakL, peakR) = ffi.getTrackPeakStereo(channel.trackIndex!);
+        final (_, lufsS, lufsI) = ffi.getTrackLufs(channel.trackIndex!);
+        if (peakL > 0.000001 || peakR > 0.000001) {
+          _channels[channel.id] = channel.copyWith(
+            peakL: peakL,
+            peakR: peakR,
+            rmsL: peakL * 0.7, // Approximate RMS
+            rmsR: peakR * 0.7,
+            lufsShort: lufsS,
+            lufsIntegrated: lufsI,
+          );
+        } else {
+          _channels[channel.id] = channel.copyWith(
+            peakL: 0.0,
+            peakR: 0.0,
+            rmsL: 0.0,
+            rmsR: 0.0,
+            lufsShort: lufsS,
+            lufsIntegrated: lufsI,
+          );
+        }
       }
     }
 
@@ -763,6 +789,10 @@ class MixerProvider extends ChangeNotifier {
       double busPeakR = 0.0;
       double busRmsL = 0.0;
       double busRmsR = 0.0;
+      // LUFS aggregation: energy sum in linear domain
+      double lufsShortPower = 0.0;
+      double lufsIntPower = 0.0;
+      int lufsCount = 0;
 
       final routed = _busRoutingCache[bus.id];
       if (routed != null) {
@@ -774,6 +804,14 @@ class MixerProvider extends ChangeNotifier {
           // RMS: sum of squares then sqrt (energy sum)
           busRmsL += channel.rmsL * channel.rmsL;
           busRmsR += channel.rmsR * channel.rmsR;
+          // LUFS: sum linear power (10^(LUFS/10))
+          if (channel.lufsShort > -69.0) {
+            lufsShortPower += pow(10.0, channel.lufsShort / 10.0);
+            lufsCount++;
+          }
+          if (channel.lufsIntegrated > -69.0) {
+            lufsIntPower += pow(10.0, channel.lufsIntegrated / 10.0);
+          }
         }
       }
 
@@ -783,11 +821,17 @@ class MixerProvider extends ChangeNotifier {
       busRmsL = pow(busRmsL, 0.5).toDouble();
       busRmsR = pow(busRmsR, 0.5).toDouble();
 
+      // LUFS: convert power sum back to LUFS (10*log10)
+      final busLufsS = lufsCount > 0 ? 10.0 * log(lufsShortPower) / ln10 : -70.0;
+      final busLufsI = lufsCount > 0 ? 10.0 * log(lufsIntPower) / ln10 : -70.0;
+
       _buses[bus.id] = bus.copyWith(
         peakL: busPeakL.clamp(0.0, 2.0),
         peakR: busPeakR.clamp(0.0, 2.0),
         rmsL: busRmsL.clamp(0.0, 2.0),
         rmsR: busRmsR.clamp(0.0, 2.0),
+        lufsShort: busLufsS,
+        lufsIntegrated: busLufsI,
       );
     }
 

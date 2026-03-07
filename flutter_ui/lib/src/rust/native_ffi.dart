@@ -281,6 +281,8 @@ typedef EngineGetTrackRmsStereoDart = bool Function(int trackId, Pointer<Double>
 
 typedef EngineGetTrackCorrelationNative = Double Function(Uint64 trackId);
 typedef EngineGetTrackCorrelationDart = double Function(int trackId);
+typedef EngineGetTrackLufsNative = Bool Function(Uint64 trackId, Pointer<Double> outMomentary, Pointer<Double> outShort, Pointer<Double> outIntegrated);
+typedef EngineGetTrackLufsDart = bool Function(int trackId, Pointer<Double> outMomentary, Pointer<Double> outShort, Pointer<Double> outIntegrated);
 
 typedef EngineGetTrackMeterNative = Bool Function(Uint64 trackId, Pointer<Double> outPeakL, Pointer<Double> outPeakR, Pointer<Double> outRmsL, Pointer<Double> outRmsR, Pointer<Double> outCorrelation);
 typedef EngineGetTrackMeterDart = bool Function(int trackId, Pointer<Double> outPeakL, Pointer<Double> outPeakR, Pointer<Double> outRmsL, Pointer<Double> outRmsR, Pointer<Double> outCorrelation);
@@ -2287,6 +2289,7 @@ class NativeFFI {
   late final EngineGetTrackPeakStereoDart _getTrackPeakStereo;
   late final EngineGetTrackRmsStereoDart _getTrackRmsStereo;
   late final EngineGetTrackCorrelationDart _getTrackCorrelation;
+  late final EngineGetTrackLufsDart _getTrackLufs;
   late final EngineGetTrackMeterDart _getTrackMeter;
   late final EngineGetAllTrackPeaksDart _getAllTrackPeaks;
   late final EngineGetAllTrackMetersDart _getAllTrackMeters;
@@ -3019,6 +3022,7 @@ class NativeFFI {
     _getTrackPeakStereo = _lib.lookupFunction<EngineGetTrackPeakStereoNative, EngineGetTrackPeakStereoDart>('engine_get_track_peak_stereo');
     _getTrackRmsStereo = _lib.lookupFunction<EngineGetTrackRmsStereoNative, EngineGetTrackRmsStereoDart>('engine_get_track_rms_stereo');
     _getTrackCorrelation = _lib.lookupFunction<EngineGetTrackCorrelationNative, EngineGetTrackCorrelationDart>('engine_get_track_correlation');
+    _getTrackLufs = _lib.lookupFunction<EngineGetTrackLufsNative, EngineGetTrackLufsDart>('engine_get_track_lufs');
     _getTrackMeter = _lib.lookupFunction<EngineGetTrackMeterNative, EngineGetTrackMeterDart>('engine_get_track_meter');
     _getAllTrackPeaks = _lib.lookupFunction<EngineGetAllTrackPeaksNative, EngineGetAllTrackPeaksDart>('engine_get_all_track_peaks');
     _getAllTrackMeters = _lib.lookupFunction<EngineGetAllTrackMetersNative, EngineGetAllTrackMetersDart>('engine_get_all_track_meters');
@@ -4022,6 +4026,22 @@ class NativeFFI {
   double getTrackCorrelation(int trackId) {
     if (!_loaded) return 1.0;
     return _getTrackCorrelation(trackId);
+  }
+
+  /// Get track LUFS (momentary, short-term, integrated) by track ID
+  (double, double, double) getTrackLufs(int trackId) {
+    if (!_loaded) return (-70.0, -70.0, -70.0);
+    final momentaryPtr = calloc<Double>();
+    final shortPtr = calloc<Double>();
+    final integratedPtr = calloc<Double>();
+    try {
+      _getTrackLufs(trackId, momentaryPtr, shortPtr, integratedPtr);
+      return (momentaryPtr.value, shortPtr.value, integratedPtr.value);
+    } finally {
+      calloc.free(momentaryPtr);
+      calloc.free(shortPtr);
+      calloc.free(integratedPtr);
+    }
   }
 
   /// Get full track meter data (peakL, peakR, rmsL, rmsR, correlation)

@@ -149,7 +149,7 @@ class UltimateMixerChannel {
   final double rmsL;
   final double rmsR;
   final double correlation;
-  // LUFS metering (master only)
+  // LUFS metering (all channels)
   final double lufsShort;
   final double lufsIntegrated;
   // PDC (Plugin Delay Compensation) — numeric track index for FFI calls
@@ -1014,6 +1014,8 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                 _buildWidthControl(),
                 // ── 12. Fader + Meter (Expanded) ──
                 Expanded(child: _buildFaderMeter()),
+                // ── 12b. LUFS badge ──
+                _buildLufsBadge(),
                 // ── 13. M/S/R buttons ──
                 _buildButtons(),
                 // ── 15. Track Name ──
@@ -1687,6 +1689,53 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
         peakReader: widget.peakReader,
       ),
     );
+  }
+
+  Widget _buildLufsBadge() {
+    final ch = widget.channel;
+    final lufsS = ch.lufsShort;
+    final lufsI = ch.lufsIntegrated;
+    final hasMeasurement = lufsS > -69.0 || lufsI > -69.0;
+
+    return Container(
+      height: 22,
+      margin: const EdgeInsets.symmetric(horizontal: 3),
+      padding: const EdgeInsets.symmetric(vertical: 1),
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.bgDeepest.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(2),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            hasMeasurement ? 'S:${lufsS.toStringAsFixed(1)}' : 'S: -∞',
+            style: TextStyle(
+              color: _lufsColor(lufsS),
+              fontSize: 8,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'monospace',
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            hasMeasurement ? 'I:${lufsI.toStringAsFixed(1)}' : 'I: -∞',
+            style: TextStyle(
+              color: _lufsColor(lufsI).withOpacity(0.7),
+              fontSize: 7,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Color _lufsColor(double lufs) {
+    if (lufs > -14.0) return const Color(0xFFFF4060); // Too loud
+    if (lufs > -23.0) return const Color(0xFF40FF90); // OK
+    if (lufs > -69.0) return const Color(0xFF40C8FF); // Quiet
+    return const Color(0xFF404040); // Silence
   }
 
   Widget _buildButtons() {

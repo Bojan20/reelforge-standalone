@@ -56,6 +56,8 @@ class MixerPanel extends StatelessWidget {
         peakR: ch.peakR,
         rmsL: ch.rmsL,
         rmsR: ch.rmsR,
+        lufsShort: ch.lufsShort,
+        lufsIntegrated: ch.lufsIntegrated,
       );
     }).toList();
 
@@ -75,6 +77,8 @@ class MixerPanel extends StatelessWidget {
         peakR: bus.peakR,
         rmsL: bus.rmsL,
         rmsR: bus.rmsR,
+        lufsShort: bus.lufsShort,
+        lufsIntegrated: bus.lufsIntegrated,
       );
     }).toList();
 
@@ -114,6 +118,8 @@ class MixerPanel extends StatelessWidget {
       volume: mixerProvider.master.volume,
       peakL: mixerProvider.master.peakL,
       peakR: mixerProvider.master.peakR,
+      lufsShort: mixerProvider.master.lufsShort,
+      lufsIntegrated: mixerProvider.master.lufsIntegrated,
     );
 
     // Mixer with LUFS meter header

@@ -1168,6 +1168,26 @@ pub extern "C" fn engine_get_track_rms_stereo(
     true
 }
 
+/// Get track LUFS (momentary, short-term, integrated) by track ID
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_get_track_lufs(
+    track_id: u64,
+    out_momentary: *mut f64,
+    out_short: *mut f64,
+    out_integrated: *mut f64,
+) -> bool {
+    if out_momentary.is_null() || out_short.is_null() || out_integrated.is_null() {
+        return false;
+    }
+    let (m, s, i) = PLAYBACK_ENGINE.get_track_lufs(track_id);
+    unsafe {
+        *out_momentary = m;
+        *out_short = s;
+        *out_integrated = i;
+    }
+    true
+}
+
 /// Get track correlation by track ID (-1.0 to 1.0)
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_track_correlation(track_id: u64) -> f64 {
@@ -2923,9 +2943,11 @@ pub extern "C" fn engine_get_bus_solo(bus_idx: i32) -> i32 {
 
 /// Get peak meters (fills left and right peak values)
 /// Returns linear amplitude (0.0 to 1.0+)
+/// Reads from SHARED_METERS (single source of truth for all metering)
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_peak_meters(out_left: *mut f64, out_right: *mut f64) {
-    let (peak_l, peak_r) = PLAYBACK_ENGINE.get_peaks();
+    let peak_l = SharedMeterBuffer::read_f64(&SHARED_METERS.master_peak_l);
+    let peak_r = SharedMeterBuffer::read_f64(&SHARED_METERS.master_peak_r);
     if !out_left.is_null() {
         unsafe {
             *out_left = peak_l;
@@ -2940,9 +2962,11 @@ pub extern "C" fn engine_get_peak_meters(out_left: *mut f64, out_right: *mut f64
 
 /// Get RMS meters
 /// Returns linear amplitude (0.0 to 1.0+)
+/// Reads from SHARED_METERS (single source of truth for all metering)
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_rms_meters(out_left: *mut f64, out_right: *mut f64) {
-    let (rms_l, rms_r) = PLAYBACK_ENGINE.get_rms();
+    let rms_l = SharedMeterBuffer::read_f64(&SHARED_METERS.master_rms_l);
+    let rms_r = SharedMeterBuffer::read_f64(&SHARED_METERS.master_rms_r);
     if !out_left.is_null() {
         unsafe {
             *out_left = rms_l;
@@ -2957,13 +2981,16 @@ pub extern "C" fn engine_get_rms_meters(out_left: *mut f64, out_right: *mut f64)
 
 /// Get LUFS meters (momentary, short-term, integrated)
 /// Returns values in LUFS per ITU-R BS.1770-4 (typically -70 to 0)
+/// Reads from SHARED_METERS (single source of truth for all metering)
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_lufs_meters(
     out_momentary: *mut f64,
     out_short: *mut f64,
     out_integrated: *mut f64,
 ) {
-    let (momentary, short, integrated) = PLAYBACK_ENGINE.get_lufs();
+    let momentary = SharedMeterBuffer::read_f64(&SHARED_METERS.lufs_momentary);
+    let short = SharedMeterBuffer::read_f64(&SHARED_METERS.lufs_short);
+    let integrated = SharedMeterBuffer::read_f64(&SHARED_METERS.lufs_integrated);
 
     if !out_momentary.is_null() {
         unsafe {
@@ -2984,9 +3011,11 @@ pub extern "C" fn engine_get_lufs_meters(
 
 /// Get true peak meters (left, right)
 /// Returns values in dBTP per ITU-R BS.1770-4 (4x oversampled)
+/// Reads from SHARED_METERS (single source of truth for all metering)
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_get_true_peak_meters(out_left: *mut f64, out_right: *mut f64) {
-    let (db_l, db_r) = PLAYBACK_ENGINE.get_true_peak();
+    let db_l = SharedMeterBuffer::read_f64(&SHARED_METERS.true_peak_l);
+    let db_r = SharedMeterBuffer::read_f64(&SHARED_METERS.true_peak_r);
 
     if !out_left.is_null() {
         unsafe {
@@ -3001,15 +3030,17 @@ pub extern "C" fn engine_get_true_peak_meters(out_left: *mut f64, out_right: *mu
 }
 
 /// Get master stereo correlation (-1.0 = out of phase, 0.0 = uncorrelated, 1.0 = mono)
+/// Reads from SHARED_METERS (single source of truth for all metering)
 #[unsafe(no_mangle)]
 pub extern "C" fn metering_get_master_correlation() -> f32 {
-    PLAYBACK_ENGINE.get_correlation() as f32
+    SharedMeterBuffer::read_f64(&SHARED_METERS.correlation) as f32
 }
 
 /// Get master stereo balance (-1.0 = full left, 0.0 = center, 1.0 = full right)
+/// Reads from SHARED_METERS (single source of truth for all metering)
 #[unsafe(no_mangle)]
 pub extern "C" fn metering_get_master_balance() -> f32 {
-    PLAYBACK_ENGINE.get_balance() as f32
+    SharedMeterBuffer::read_f64(&SHARED_METERS.balance) as f32
 }
 
 /// Get master dynamic range (peak - RMS in dB)
@@ -21893,7 +21924,7 @@ impl SharedMeterBuffer {
     /// Read f64 from atomic
     /// Uses Relaxed ordering — caller must read sequence with Acquire first.
     #[inline(always)]
-    fn read_f64(atomic: &AtomicU64) -> f64 {
+    pub fn read_f64(atomic: &AtomicU64) -> f64 {
         f64::from_bits(atomic.load(Ordering::Relaxed))
     }
 

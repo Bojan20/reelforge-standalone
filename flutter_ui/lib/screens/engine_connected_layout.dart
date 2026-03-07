@@ -5217,7 +5217,13 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                    HardwareKeyboard.instance.isControlPressed) &&
                   HardwareKeyboard.instance.isShiftPressed &&
                   _editorMode == EditorMode.daw) {
-                setState(() => _dawLowerZoneFullscreen = !_dawLowerZoneFullscreen);
+                setState(() {
+                  _dawLowerZoneFullscreen = !_dawLowerZoneFullscreen;
+                  // Ensure lower zone is expanded when entering fullscreen
+                  if (_dawLowerZoneFullscreen && !_dawLowerZoneController.isExpanded) {
+                    _dawLowerZoneController.toggle();
+                  }
+                });
                 return KeyEventResult.handled;
               }
               // ESC = Exit DAW lower zone fullscreen
@@ -5633,9 +5639,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           // DAW Lower Zone panel zoom — fullscreen overlay
           if (_dawLowerZoneFullscreen && _editorMode == EditorMode.daw)
             Positioned.fill(
-              child: Container(
-                color: const Color(0xFF0A0A0E),
-                child: Column(
+              child: Focus(
+                autofocus: true,
+                onKeyEvent: (_, event) {
+                  if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+                    setState(() => _dawLowerZoneFullscreen = false);
+                    return KeyEventResult.handled;
+                  }
+                  return KeyEventResult.ignored;
+                },
+                child: Scaffold(
+                backgroundColor: const Color(0xFF0A0A0E),
+                body: Column(
                   children: [
                     // Zoom header with exit button
                     Container(
@@ -5683,6 +5698,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                     ),
                   ],
                 ),
+              ),
               ),
             ),
           // Floating EQ windows - optimized

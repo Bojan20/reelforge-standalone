@@ -289,7 +289,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
       children: [
         // Main content (fills entire height)
         Container(
-          color: LowerZoneColors.bgDeep,
+          decoration: const BoxDecoration(color: LowerZoneColors.bgDeep),
           clipBehavior: Clip.hardEdge,
           child: Column(
             mainAxisSize: widget.isFullScreen ? MainAxisSize.max : MainAxisSize.min,

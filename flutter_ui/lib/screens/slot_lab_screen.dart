@@ -453,13 +453,18 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // null = no zoom, 'left'/'right'/'center'/'lower' = zoomed panel
   String? _zoomedPanel;
 
-  // Left panel multi-mode tab system
-  _LeftPanelTab _leftPanelTab = _LeftPanelTab.audio;
+  // Left panel multi-mode tab system — ValueNotifier for isolated rebuilds
+  final ValueNotifier<_LeftPanelTab> _leftPanelTabNotifier = ValueNotifier(_LeftPanelTab.audio);
+  _LeftPanelTab get _leftPanelTab => _leftPanelTabNotifier.value;
+  set _leftPanelTab(_LeftPanelTab v) => _leftPanelTabNotifier.value = v;
   // Legacy compat alias
   bool get _leftPanelAurexisMode => _leftPanelTab == _LeftPanelTab.aurexis;
 
-  // Right panel multi-mode tab system
-  _RightPanelTab _rightPanelTab = _RightPanelTab.inspector;
+  // Right panel multi-mode tab system — ValueNotifier for isolated rebuilds
+  final ValueNotifier<_RightPanelTab> _rightPanelTabNotifier = ValueNotifier(_RightPanelTab.inspector);
+  _RightPanelTab get _rightPanelTab => _rightPanelTabNotifier.value;
+  set _rightPanelTab(_RightPanelTab v) => _rightPanelTabNotifier.value = v;
+
 
   // ═══════════════════════════════════════════════════════════════════════════
   // ULTIMATE AUDIO PANEL STATE — now persisted in SlotLabProjectProvider
@@ -1359,6 +1364,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // P14: Initialize Ultimate Timeline controller
     _ultimateTimelineController = ultimate.TimelineController();
 
+    // Rebuild layout only when switching to/from Aurexis (changes panel width)
+    _leftPanelTabNotifier.addListener(_onLeftPanelTabChanged);
+
     _initializeTracks();
     _loadAudioPool();
     _restorePersistedState();
@@ -1751,7 +1759,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Sync to TRACK_MANAGER for playback (removes orphaned clips)
     _syncLayersToTrackManager();
 
-    setState(() {});
+    // Sync action counts (was in build() via context.watch — moved here to avoid full rebuild)
+    _checkMiddlewareChangesAndSync(_middlewareRef!);
+
+    // P0 PERFORMANCE: Only rebuild if middleware state actually changed
+    final fp = _computeMiddlewareFingerprint();
+    if (fp != _lastMiddlewareFingerprint) {
+      _lastMiddlewareFingerprint = fp;
+      setState(() {});
+    }
   }
 
   /// Compute a lightweight fingerprint of composite events for dirty-checking.
@@ -2855,12 +2871,16 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     _spinTimer?.cancel();
     _playbackTimer?.cancel();
     _previewTimer?.cancel();
+    _savePanelLayoutTimer?.cancel();
     _focusNode.dispose();
     _headersScrollController.dispose();
     _timelineScrollController.dispose();
     _horizontalScrollController.dispose();
     _dragCurrentOffsetNotifier.dispose();  // Dispose drag notifier
     _draggingLayerIdNotifier.dispose();    // Dispose drag ID notifier
+    _leftPanelTabNotifier.removeListener(_onLeftPanelTabChanged);
+    _leftPanelTabNotifier.dispose();
+    _rightPanelTabNotifier.dispose();
     _disposeLayerPlayers(); // Dispose audio players
     // Only remove listener if it was added (after restore)
     if (_lowerZoneRestoreComplete) {
@@ -2952,9 +2972,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       );
     }
 
-    // Watch MiddlewareProvider for changes to sync timeline
-    final middleware = context.watch<MiddlewareProvider>();
-    _checkMiddlewareChangesAndSync(middleware);
+    // P0 PERFORMANCE: Removed context.watch<MiddlewareProvider>() — it caused
+    // full rebuild on every notification, killing tab switch performance.
+    // Sync is handled by _onMiddlewareChanged listener instead.
 
     // Fullscreen preview mode - immersive slot testing
     if (_isPreviewMode) {
@@ -3052,9 +3072,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                       children: [
                         // LEFT: Multi-tab Panel (Audio / Events / Stages / AUREXIS)
                         if (actualShowLeft)
-                          SizedBox(
-                            width: leftWidth,
-                            child: _buildLeftPanelV2(),
+                          RepaintBoundary(
+                            child: SizedBox(
+                              width: leftWidth,
+                              child: _buildLeftPanelV2(),
+                            ),
                           ),
 
                         // LEFT RESIZE HANDLE
@@ -3150,9 +3172,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
                         // RIGHT: Multi-tab Inspector Panel — conditional visibility
                         if (actualShowRight)
-                          SizedBox(
-                            width: rightWidth,
-                            child: _buildRightPanelV2(),
+                          RepaintBoundary(
+                            child: SizedBox(
+                              width: rightWidth,
+                              child: _buildRightPanelV2(),
+                            ),
                           ),
                       ],
                     );
@@ -3577,6 +3601,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         HardwareKeyboard.instance.isShiftPressed) {
       setState(() {
         _zoomedPanel = _zoomedPanel == null ? 'lower' : null;
+        // Ensure lower zone is expanded when entering fullscreen
+        if (_zoomedPanel == 'lower' && !_lowerZoneController.isExpanded) {
+          _lowerZoneController.toggle();
+        }
       });
       return KeyEventResult.handled;
     }
@@ -9298,14 +9326,18 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // PANEL LAYOUT PERSISTENCE
   // ═══════════════════════════════════════════════════════════════════════════
 
+  Timer? _savePanelLayoutTimer;
   void _savePanelLayout() {
-    LowerZonePersistenceService.instance.saveSlotLabPanelLayout({
-      'leftWidth': _leftPanelCustomWidth,
-      'rightWidth': _rightPanelCustomWidth,
-      'leftHidden': _leftPanelManuallyHidden,
-      'rightHidden': _rightPanelManuallyHidden,
-      'leftTab': _leftPanelTab.index,
-      'rightTab': _rightPanelTab.index,
+    _savePanelLayoutTimer?.cancel();
+    _savePanelLayoutTimer = Timer(const Duration(milliseconds: 500), () {
+      LowerZonePersistenceService.instance.saveSlotLabPanelLayout({
+        'leftWidth': _leftPanelCustomWidth,
+        'rightWidth': _rightPanelCustomWidth,
+        'leftHidden': _leftPanelManuallyHidden,
+        'rightHidden': _rightPanelManuallyHidden,
+        'leftTab': _leftPanelTab.index,
+        'rightTab': _rightPanelTab.index,
+      });
     });
   }
 
@@ -9338,6 +9370,16 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         }
       }
     });
+  }
+
+  /// Rebuild layout when Aurexis mode changes (affects panel width)
+  bool _wasAurexis = false;
+  void _onLeftPanelTabChanged() {
+    final isAurexis = _leftPanelTab == _LeftPanelTab.aurexis;
+    if (isAurexis != _wasAurexis) {
+      _wasAurexis = isAurexis;
+      setState(() {});
+    }
   }
 
   /// Toggle left panel visibility (manual override)
@@ -9394,18 +9436,28 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       ),
       child: Column(
         children: [
-          // Tab bar
-          _buildLeftPanelTabBar(),
-          // Content with animated transitions
+          ValueListenableBuilder<_LeftPanelTab>(
+            valueListenable: _leftPanelTabNotifier,
+            builder: (context, _, child) => _buildLeftPanelTabBar(),
+          ),
           Expanded(
-            child: switch (_leftPanelTab) {
-              _LeftPanelTab.audio => _buildUltimateAudioPanelContent(),
-              _LeftPanelTab.events => _buildEventsLeftPanel(),
-              _LeftPanelTab.aurexis => const AurexisPanel(),
-            },
+            child: _buildLeftPanelBody(),
           ),
         ],
       ),
+    );
+  }
+
+  /// P0 PERFORMANCE: _StableTabSwitcher caches children in its own State —
+  /// parent setState does NOT rebuild panel contents. Only Offstage toggles.
+  Widget _buildLeftPanelBody() {
+    return _StableTabSwitcher<_LeftPanelTab>(
+      tabNotifier: _leftPanelTabNotifier,
+      builders: [
+        (ctx) => _buildUltimateAudioPanelContent(),
+        (ctx) => _buildEventsLeftPanel(),
+        (ctx) => const AurexisPanel(),
+      ],
     );
   }
 
@@ -9414,9 +9466,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     const labels = ['AUDIO', 'BROWSE', 'AUREXIS'];
     const icons = [Icons.audiotrack, Icons.event_note, Icons.auto_awesome];
 
-    return GestureDetector(
-      onDoubleTap: _toggleLeftPanel,
-      child: Container(
+    return Container(
       height: SlotLabDimens.panelTabBarHeight,
       decoration: const BoxDecoration(
         color: Color(0xFF111116),
@@ -9428,8 +9478,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         children: List.generate(tabs.length, (i) {
           final isActive = _leftPanelTab == tabs[i];
           return Expanded(
-            child: GestureDetector(
-              onTap: () { setState(() => _leftPanelTab = tabs[i]); _savePanelLayout(); },
+            child: _InstantTapDetector(
+              onTap: () { _leftPanelTab = tabs[i]; _savePanelLayout(); },
+              onDoubleTap: _toggleLeftPanel,
               child: Container(
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
@@ -9478,7 +9529,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           );
         }),
       ),
-    ),
     );
   }
 
@@ -9595,15 +9645,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       ),
       child: Column(
         children: [
-          // Tab bar
-          _buildRightPanelTabBar(),
-          // Content with animated transitions
+          ValueListenableBuilder<_RightPanelTab>(
+            valueListenable: _rightPanelTabNotifier,
+            builder: (context, _, child) => _buildRightPanelTabBar(),
+          ),
           Expanded(
-            child: switch (_rightPanelTab) {
-              _RightPanelTab.inspector => _buildUnifiedInspector(),
-              _RightPanelTab.config => _buildRightConfigContent(),
-              _RightPanelTab.pool => _buildAudioBrowser(),
-            },
+            child: _buildRightPanelBody(),
           ),
         ],
       ),
@@ -9798,14 +9845,24 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     );
   }
 
+  /// P0 PERFORMANCE: Same as left panel — _StableTabSwitcher caches children.
+  Widget _buildRightPanelBody() {
+    return _StableTabSwitcher<_RightPanelTab>(
+      tabNotifier: _rightPanelTabNotifier,
+      builders: [
+        (ctx) => _buildUnifiedInspector(),
+        (ctx) => _buildRightConfigContent(),
+        (ctx) => _buildAudioBrowser(),
+      ],
+    );
+  }
+
   Widget _buildRightPanelTabBar() {
     const tabs = _RightPanelTab.values;
     const labels = ['INSPECTOR', 'CONFIG', 'POOL'];
     const icons = [Icons.manage_search, Icons.tune, Icons.library_music];
 
-    return GestureDetector(
-      onDoubleTap: _toggleRightPanel,
-      child: Container(
+    return Container(
       height: SlotLabDimens.panelTabBarHeight,
       decoration: const BoxDecoration(
         color: Color(0xFF111116),
@@ -9817,8 +9874,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         children: List.generate(tabs.length, (i) {
           final isActive = _rightPanelTab == tabs[i];
           return Expanded(
-            child: GestureDetector(
-              onTap: () { setState(() => _rightPanelTab = tabs[i]); _savePanelLayout(); },
+            child: _InstantTapDetector(
+              onTap: () { _rightPanelTab = tabs[i]; _savePanelLayout(); },
+              onDoubleTap: _toggleRightPanel,
               child: Container(
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
@@ -9867,7 +9925,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           );
         }),
       ),
-    ),
     );
   }
 
@@ -13403,4 +13460,94 @@ class _SlotLabPlayheadPainter extends CustomPainter {
   @override
   bool shouldRepaint(_SlotLabPlayheadPainter oldDelegate) =>
       isDragging != oldDelegate.isDragging;
+}
+
+/// P0 PERFORMANCE: Stable tab switcher that caches children across parent rebuilds.
+/// Children are built ONCE via builders in initState, then only Offstage toggles.
+/// This prevents 148+ setState calls in parent from re-executing expensive build methods.
+class _StableTabSwitcher<T extends Enum> extends StatefulWidget {
+  final ValueNotifier<T> tabNotifier;
+  final List<WidgetBuilder> builders;
+
+  const _StableTabSwitcher({
+    required this.tabNotifier,
+    required this.builders,
+  });
+
+  @override
+  State<_StableTabSwitcher<T>> createState() => _StableTabSwitcherState<T>();
+}
+
+class _StableTabSwitcherState<T extends Enum> extends State<_StableTabSwitcher<T>> {
+  List<Widget> _cachedChildren = const [];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_cachedChildren.isEmpty) {
+      _cachedChildren = List.generate(
+        widget.builders.length,
+        (i) => widget.builders[i](context),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_cachedChildren.isEmpty) return const SizedBox.shrink();
+    return ValueListenableBuilder<T>(
+      valueListenable: widget.tabNotifier,
+      builder: (context, tab, _) => Stack(
+        children: [
+          for (int i = 0; i < _cachedChildren.length; i++)
+            Offstage(
+              offstage: i != tab.index,
+              child: _cachedChildren[i],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Instant tap detector — fires onTap on pointer UP without waiting for
+/// gesture arena double-tap disambiguation (~300ms delay).
+/// Double-tap is detected manually via timer.
+class _InstantTapDetector extends StatefulWidget {
+  final VoidCallback onTap;
+  final VoidCallback? onDoubleTap;
+  final Widget child;
+
+  const _InstantTapDetector({
+    required this.onTap,
+    this.onDoubleTap,
+    required this.child,
+  });
+
+  @override
+  State<_InstantTapDetector> createState() => _InstantTapDetectorState();
+}
+
+class _InstantTapDetectorState extends State<_InstantTapDetector> {
+  DateTime? _lastTapTime;
+  static const _doubleTapWindow = Duration(milliseconds: 300);
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerUp: (_) {
+        final now = DateTime.now();
+        if (_lastTapTime != null &&
+            now.difference(_lastTapTime!) < _doubleTapWindow) {
+          _lastTapTime = null;
+          widget.onDoubleTap?.call();
+        } else {
+          _lastTapTime = now;
+          widget.onTap();
+        }
+      },
+      child: widget.child,
+    );
+  }
 }
