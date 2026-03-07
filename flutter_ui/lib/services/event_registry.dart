@@ -2821,15 +2821,15 @@ class EventRegistry extends ChangeNotifier {
 
     // P-RTE-3: Depth limit check
     if (currentDepth >= _maxRecursionDepth) {
-      debugPrint('[P-RTE] Max recursion depth ($currentDepth) reached. '
-          'Chain: ${chain.join(" → ")} → $targetEventId (BLOCKED)');
+      assert(() { debugPrint('[P-RTE] Max recursion depth ($currentDepth) reached. '
+          'Chain: ${chain.join(" → ")} → $targetEventId (BLOCKED)'); return true; }());
       return;
     }
 
     // P-RTE-4: Cycle detection — check if target already in chain
     if (chain.contains(targetEventId)) {
-      debugPrint('[P-RTE] Cycle detected! '
-          'Chain: ${chain.join(" → ")} → $targetEventId (BLOCKED)');
+      assert(() { debugPrint('[P-RTE] Cycle detected! '
+          'Chain: ${chain.join(" → ")} → $targetEventId (BLOCKED)'); return true; }());
       return;
     }
 
@@ -2862,15 +2862,15 @@ class EventRegistry extends ChangeNotifier {
 
     // P-RTE-3: Depth limit check
     if (currentDepth >= _maxRecursionDepth) {
-      debugPrint('[P-RTE] Max recursion depth ($currentDepth) reached. '
-          'Chain: ${chain.join(" → ")} → $targetEventId (BLOCKED)');
+      assert(() { debugPrint('[P-RTE] Max recursion depth ($currentDepth) reached. '
+          'Chain: ${chain.join(" → ")} → $targetEventId (BLOCKED)'); return true; }());
       return;
     }
 
     // P-RTE-4: Cycle detection
     if (chain.contains(targetEventId)) {
-      debugPrint('[P-RTE] Cycle detected! '
-          'Chain: ${chain.join(" → ")} → $targetEventId (BLOCKED)');
+      assert(() { debugPrint('[P-RTE] Cycle detected! '
+          'Chain: ${chain.join(" → ")} → $targetEventId (BLOCKED)'); return true; }());
       return;
     }
 

@@ -945,9 +945,9 @@ class RtpcSystemProvider extends ChangeNotifier {
     );
 
     if (result != 0) {
-      debugPrint('[RTPC] DSP param failed: track=${binding.trackId} '
+      assert(() { debugPrint('[RTPC] DSP param failed: track=${binding.trackId} '
           'slot=${binding.slotIndex} param=${binding.paramIndex} '
-          'value=$value result=$result');
+          'value=$value result=$result'); return true; }());
     }
   }
 

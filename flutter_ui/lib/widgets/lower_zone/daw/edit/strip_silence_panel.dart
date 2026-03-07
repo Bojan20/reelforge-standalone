@@ -610,7 +610,7 @@ class _StripSilencePanelState extends State<StripSilencePanel> {
       // Resolve track index → clip ID (IMPORTED_AUDIO is keyed by ClipId, not track index)
       final clipId = ffi.getFirstClipId(widget.selectedTrackId!);
       if (clipId == 0) {
-        debugPrint('[StripSilence] No clip found for track ${widget.selectedTrackId}');
+        assert(() { debugPrint('[StripSilence] No clip found for track ${widget.selectedTrackId}'); return true; }());
         setState(() => _isAnalyzing = false);
         return;
       }
@@ -639,7 +639,7 @@ class _StripSilencePanelState extends State<StripSilencePanel> {
         );
       }
     } catch (e) {
-      debugPrint('[StripSilence] FFI detection failed: $e');
+      assert(() { debugPrint('[StripSilence] FFI detection failed: $e'); return true; }());
     }
 
     // If FFI returned nothing (no clip loaded, or no silence found), the list stays empty.

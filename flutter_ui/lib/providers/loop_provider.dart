@@ -99,7 +99,7 @@ class LoopProvider extends ChangeNotifier {
     // Validate first
     final errors = NativeFFI.instance.loopValidateAsset(asset);
     if (errors != null) {
-      debugPrint('[LoopProvider] Asset validation failed: $errors');
+      assert(() { debugPrint('[LoopProvider] Asset validation failed: $errors'); return true; }());
       return false;
     }
 

@@ -28,9 +28,10 @@
 ### QA Audit Results (P0-P3)
 - **P0:** Audio thread allocs/locks in playback.rs (architectural — future refactor)
 - **P1 FIXED:** Win tier hardcoding eliminated
-- **P2:** OutputBus.index (session_template_service), MixerProvider old methods (daw_lower_zone_widget)
-- **P2:** 136 print() in engine_api.dart (korisnik nema konzolu)
-- **P1:** HardwareKeyboard.instance (5 instances in 3 files) — pending
+- **P1 VERIFIED:** HardwareKeyboard.instance — all 100+ usages are in valid contexts (Listener/keyboard handlers)
+- **P2 FIXED:** OutputBus.index (already clean), MixerProvider old methods (setVolume→setChannelVolume, setPan→setChannelPan)
+- **P2 VERIFIED:** engine_api.dart print() — already clean (0 instances)
+- **P2 FIXED:** unnecessary_underscores lint in slot_preview_widget, symbol_art_panel
 
 | System | Tasks | Status |
 |--------|-------|--------|

@@ -428,7 +428,7 @@ class _BeatDetectivePanelState extends State<BeatDetectivePanel> {
       // Resolve track index → clip ID (IMPORTED_AUDIO is keyed by ClipId, not track index)
       final clipId = ffi.getFirstClipId(widget.selectedTrackId!);
       if (clipId == 0) {
-        debugPrint('[BeatDetective] No clip found for track ${widget.selectedTrackId}');
+        assert(() { debugPrint('[BeatDetective] No clip found for track ${widget.selectedTrackId}'); return true; }());
         setState(() => _isAnalyzing = false);
         return;
       }
@@ -451,7 +451,7 @@ class _BeatDetectivePanelState extends State<BeatDetectivePanel> {
             .toList();
       });
     } catch (e) {
-      debugPrint('[BeatDetective] FFI detection failed: $e');
+      assert(() { debugPrint('[BeatDetective] FFI detection failed: $e'); return true; }());
       // Clear stale results on failure
       setState(() => _detectedTransients = []);
     }
