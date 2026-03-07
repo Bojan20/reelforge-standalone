@@ -421,7 +421,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   // Composite events — MiddlewareProvider is the SINGLE SOURCE OF TRUTH
   // SlotLab only keeps UI state (expanded, selected)
-  final Map<String, bool> _eventExpandedState = {};
+  final ValueNotifier<Map<String, bool>> _eventExpandedNotifier = ValueNotifier<Map<String, bool>>({});
   String? _selectedEventId;
 
   // DEBUG: Track last drag status for visual feedback
@@ -1135,11 +1135,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   List<SlotCompositeEvent> get _middlewareEvents => _compositeEvents;
 
   /// Check if event is expanded (UI-only state)
-  bool _isEventExpanded(String eventId) => _eventExpandedState[eventId] ?? false;
+  bool _isEventExpanded(String eventId) => _eventExpandedNotifier.value[eventId] ?? false;
 
-  /// Set event expanded state
+  /// Set event expanded state — uses ValueNotifier, does NOT trigger full setState
   void _setEventExpanded(String eventId, bool expanded) {
-    setState(() => _eventExpandedState[eventId] = expanded);
+    final map = Map<String, bool>.from(_eventExpandedNotifier.value);
+    map[eventId] = expanded;
+    _eventExpandedNotifier.value = map;
   }
 
   /// Get stage for event (first trigger stage, or derive from category/name)
@@ -1920,7 +1922,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         for (final eventData in provider.persistedCompositeEvents) {
           final eventId = eventData['id'] as String;
           final isExpanded = eventData['isExpanded'] as bool? ?? false;
-          _eventExpandedState[eventId] = isExpanded;
+          final map = Map<String, bool>.from(_eventExpandedNotifier.value);
+          map[eventId] = isExpanded;
+          _eventExpandedNotifier.value = map;
         }
         // Re-sync to event registry (events from MiddlewareProvider)
         _syncAllEventsToRegistry();
@@ -2927,6 +2931,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     _leftPanelTabNotifier.dispose();
     _rightPanelTabNotifier.dispose();
     _configExpandedSection.dispose();
+    _eventExpandedNotifier.dispose();
     _disposeLayerPlayers(); // Dispose audio players
     // Only remove listener if it was added (after restore)
     if (_lowerZoneRestoreComplete) {
@@ -10299,10 +10304,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         builder: (context, candidateData, rejectedData) {
           final isHovering = candidateData.isNotEmpty;
           return GestureDetector(
-            onTap: () => setState(() {
+            onTap: () {
               _selectedEventId = event.id;
-              _eventExpandedState[event.id] = !_isEventExpanded(event.id);
-            }),
+              _setEventExpanded(event.id, !_isEventExpanded(event.id));
+            },
             child: Container(
               margin: const EdgeInsets.only(bottom: 6),
               decoration: BoxDecoration(
@@ -10326,105 +10331,111 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   }
 
   Widget _buildCompositeEventContent(SlotCompositeEvent event, bool isSelected) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          child: Row(
-            children: [
-              Icon(
-                _isEventExpanded(event.id) ? Icons.expand_more : Icons.chevron_right,
-                size: 16,
-                color: Colors.white54,
+    return ValueListenableBuilder<Map<String, bool>>(
+      valueListenable: _eventExpandedNotifier,
+      builder: (context, expandedMap, _) {
+        final isExpanded = expandedMap[event.id] ?? false;
+        return Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                children: [
+                  Icon(
+                    isExpanded ? Icons.expand_more : Icons.chevron_right,
+                    size: 16,
+                    color: Colors.white54,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          event.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          'Stage: ${_getEventStage(event)} • Drag audio here',
+                          style: const TextStyle(color: Colors.white38, fontSize: 9),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    '${event.layers.length} layers',
+                    style: const TextStyle(color: Colors.white38, fontSize: 9),
+                  ),
+                  const SizedBox(width: 8),
+                  // Rename event button
+                  InkWell(
+                    onTap: () => _showRenameEventDialog(event),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4A9EFF).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(Icons.edit_outlined, size: 14, color: Color(0xFF4A9EFF)),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // Delete event button
+                  InkWell(
+                    onTap: () => _deleteCompositeEvent(event),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF4060).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(Icons.delete_outline, size: 14, color: Color(0xFFFF4060)),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 6),
-              Expanded(
+            ),
+            if (isExpanded)
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.2),
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(5)),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      event.name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      'Stage: ${_getEventStage(event)} • Drag audio here',
-                      style: const TextStyle(color: Colors.white38, fontSize: 9),
-                    ),
+                    // Container selector row
+                    _buildContainerSelector(event),
+                    const SizedBox(height: 8),
+                    // Layers (if not using container)
+                    if (!event.usesContainer)
+                      event.layers.isEmpty
+                          ? const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text(
+                                  'Drop audio files here',
+                                  style: TextStyle(color: Colors.white38, fontSize: 10),
+                                ),
+                              ),
+                            )
+                          : Column(
+                              children: event.layers.map((layer) => _buildLayerItem(event, layer)).toList(),
+                            )
+                    else
+                      // Show container info when using container
+                      _buildContainerInfo(event),
                   ],
                 ),
               ),
-              Text(
-                '${event.layers.length} layers',
-                style: const TextStyle(color: Colors.white38, fontSize: 9),
-              ),
-              const SizedBox(width: 8),
-              // Rename event button
-              InkWell(
-                onTap: () => _showRenameEventDialog(event),
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4A9EFF).withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Icon(Icons.edit_outlined, size: 14, color: Color(0xFF4A9EFF)),
-                ),
-              ),
-              const SizedBox(width: 4),
-              // Delete event button
-              InkWell(
-                onTap: () => _deleteCompositeEvent(event),
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF4060).withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Icon(Icons.delete_outline, size: 14, color: Color(0xFFFF4060)),
-                ),
-              ),
-            ],
-          ),
-        ),
-        if (_isEventExpanded(event.id))
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.2),
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(5)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Container selector row
-                _buildContainerSelector(event),
-                const SizedBox(height: 8),
-                // Layers (if not using container)
-                if (!event.usesContainer)
-                  event.layers.isEmpty
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(8.0),
-                            child: Text(
-                              'Drop audio files here',
-                              style: TextStyle(color: Colors.white38, fontSize: 10),
-                            ),
-                          ),
-                        )
-                      : Column(
-                          children: event.layers.map((layer) => _buildLayerItem(event, layer)).toList(),
-                        )
-                else
-                  // Show container info when using container
-                  _buildContainerInfo(event),
-              ],
-            ),
-          ),
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -10750,9 +10761,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // _onMiddlewareChanged listener will automatically rebuild region
     _addLayerToMiddlewareEvent(event.id, audioPath, audioInfo['name'] as String);
 
-    setState(() {
-      _eventExpandedState[event.id] = true;
-    });
+    _setEventExpanded(event.id, true);
 
     _persistState();
   }
