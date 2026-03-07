@@ -5327,40 +5327,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     return region.start + layer.offset;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // DEPRECATED: Legacy layer triggering methods (no longer used)
-  // PLAYBACK_ENGINE now handles clip playback automatically via TRACK_MANAGER
-  // These remain for reference but are not called in unified playback mode
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  /// @deprecated Use _syncLayersToTrackManager() + _trackBridge.play() instead
-  void _triggerLayersAtPosition(double position) {
-    // DEPRECATED: PLAYBACK_ENGINE handles this automatically
-  }
-
-  /// @deprecated Use _syncLayersToTrackManager() + _trackBridge.play() instead
-  void _checkAndTriggerLayers(double prevPos, double currentPos) {
-    // DEPRECATED: PLAYBACK_ENGINE handles this automatically
-  }
-
-  /// @deprecated Use _syncLayersToTrackManager() + _trackBridge.play() instead
-  /// Was used for individual layer playback via PREVIEW_ENGINE
-  Future<void> _playLayerAudio(_RegionLayer layer, double offsetSeconds) async {
-    // DEPRECATED: PLAYBACK_ENGINE handles clip playback automatically
-  }
-
-  /// Stop all currently playing layer audio
-  /// NOTE: With unified PLAYBACK_ENGINE, this is now handled by _trackBridge.stop()
-  Future<void> _stopAllLayerAudio() async {
-    // Legacy cleanup - clear tracking state
-    _activeLayerIds.clear();
-    // UNIFIED PLAYBACK: Stop via PLAYBACK_ENGINE
-    _trackBridge.stop();
-  }
-
   /// Dispose all audio players (cleanup)
   void _disposeLayerPlayers() {
-    _stopAllLayerAudio();
+    _activeLayerIds.clear();
+    _trackBridge.stop();
   }
 
   Widget _buildStatusChip(String label, String value, Color color) {
@@ -8319,44 +8289,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         ],
       ),
     );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // LEGACY DRAG METHODS (kept for backward compatibility, prefer controller)
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  /// @deprecated Use TimelineDragController.endLayerDrag() instead
-  void _clearLayerDrag() {
-    // Now handled by controller - this is kept for any legacy code paths
-    if (_dragController != null) {
-      _dragController!.cancelLayerDrag();
-      return;
-    }
-
-    // Legacy fallback (should not be reached)
-    setState(() {
-      _draggingLayer = null;
-      _draggingLayerRegion = null;
-      _draggingLayerEventId = null;
-      _layerDragStartOffset = null;
-      _layerDragDelta = null;
-    });
-  }
-
-  /// @deprecated Use TimelineDragController.endLayerDrag() instead
-  /// Sync layer offset from timeline drag to MiddlewareProvider
-  void _syncLayerOffsetToProvider(_RegionLayer layer, _AudioRegion region) {
-    // Now handled by controller - this is kept for any legacy code paths
-    final event = _compositeEvents.where((e) => e.name == region.name).firstOrNull;
-    if (event == null) return;
-
-    final eventLayer = layer.eventLayerId != null
-        ? event.layers.where((l) => l.id == layer.eventLayerId).firstOrNull
-        : event.layers.where((l) => l.audioPath == layer.audioPath).firstOrNull;
-    if (eventLayer == null) return;
-
-    final totalOffsetMs = (region.start + layer.offset) * 1000.0;
-    _middleware.setLayerOffset(event.id, eventLayer.id, totalOffsetMs);
   }
 
   /// Build a single layer row with waveform and name

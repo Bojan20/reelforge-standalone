@@ -2403,9 +2403,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     return _lineWinsForPresentation[_currentPresentingLineIndex];
   }
 
-  /// @deprecated Use `widget.provider.getVisualTierForWin()` instead.
-  ///
-  /// This hardcoded method is kept for backward compatibility.
   // ═══════════════════════════════════════════════════════════════════════════
   // P5 WIN TIER SYSTEM — Dynamic, configurable win tiers
   // ═══════════════════════════════════════════════════════════════════════════
@@ -2451,19 +2448,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     return defaultConfig.getWinTierResult(totalWin, bet);
   }
 
-  /// Legacy big win label mapping (fallback only)
-  /// Uses simple tier identifiers - NO hardcoded labels
-  @Deprecated('Use WinTierConfig system instead')
-  String _legacyBigWinLabel(int tierId) {
-    return switch (tierId) {
-      1 => 'BIG WIN TIER 1',
-      2 => 'BIG WIN TIER 2',
-      3 => 'BIG WIN TIER 3',
-      4 => 'BIG WIN TIER 4',
-      5 => 'BIG WIN TIER 5',
-      _ => 'BIG WIN',
-    };
-  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // P5 TIER LABEL SYSTEM — Fully Configurable Labels from SlotLabProjectProvider
@@ -2645,24 +2629,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   int? _getBigWinTierId(double totalWin) {
     final tierResult = _getP5WinTierResult(totalWin);
     return tierResult?.bigWinMaxTier;
-  }
-
-  /// Legacy compatibility: Get win tier string ('BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', etc.)
-  /// Used for existing visual tier logic - maps P5 to generic format
-  @Deprecated('Use _getWinTierDisplayLabel() for P5 system')
-  String _getWinTier(double totalWin) {
-    final tierResult = _getP5WinTierResult(totalWin);
-    if (tierResult == null || !tierResult.isBigWin) return '';
-
-    // Map P5 big win tier ID to generic string — NO HARDCODED labels
-    return switch (tierResult.bigWinMaxTier) {
-      1 => 'BIG_WIN_TIER_1',
-      2 => 'BIG_WIN_TIER_2',
-      3 => 'BIG_WIN_TIER_3',
-      4 => 'BIG_WIN_TIER_4',
-      5 => 'BIG_WIN_TIER_5',
-      _ => 'BIG_WIN_TIER_1',
-    };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

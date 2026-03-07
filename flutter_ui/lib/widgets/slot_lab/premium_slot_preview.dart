@@ -6066,18 +6066,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     return defaultConfig.getWinTierResult(totalWin, bet);
   }
 
-  /// Legacy big win label mapping (fallback only)
-  /// Uses simple tier identifiers - NO hardcoded labels like "MEGA WIN!" etc.
-  String _legacyBigWinLabel(int tierId) {
-    return switch (tierId) {
-      1 => 'BIG WIN TIER 1',
-      2 => 'BIG WIN TIER 2',
-      3 => 'BIG WIN TIER 3',
-      4 => 'BIG WIN TIER 4',
-      5 => 'BIG WIN TIER 5',
-      _ => 'BIG WIN',
-    };
-  }
+
 
   /// P5: Get win tier string from winRatio (multiplier) directly
   /// This is the CORRECT method - uses ratio without bet calculation errors
