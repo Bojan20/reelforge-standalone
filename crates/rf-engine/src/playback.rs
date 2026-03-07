@@ -4509,30 +4509,31 @@ impl PlaybackEngine {
             // CRITICAL: Respect bus mute/solo/volume state — same as transport path.
             // Without this, SFX/Music mute buttons have no effect on SlotLab/Middleware
             // one-shot voices because they bypass the transport processing path.
-            let bus_states = self.bus_states.read();
-            let any_solo = self.any_solo.load(Ordering::Relaxed);
-            for (bus_idx, (bus_l, bus_r)) in bus_buffers.buffers.iter().enumerate() {
-                let state = &bus_states[bus_idx];
-                // Skip muted buses, or non-soloed buses when solo is active
-                if state.muted || (any_solo && !state.soloed) {
-                    crate::ffi::SHARED_METERS.update_channel_peak(bus_idx, 0.0, 0.0);
-                    continue;
-                }
+            // try_read: non-blocking — skip bus processing if UI holds write lock
+            if let Some(bus_states) = self.bus_states.try_read() {
+                let any_solo = self.any_solo.load(Ordering::Relaxed);
+                for (bus_idx, (bus_l, bus_r)) in bus_buffers.buffers.iter().enumerate() {
+                    let state = &bus_states[bus_idx];
+                    // Skip muted buses, or non-soloed buses when solo is active
+                    if state.muted || (any_solo && !state.soloed) {
+                        crate::ffi::SHARED_METERS.update_channel_peak(bus_idx, 0.0, 0.0);
+                        continue;
+                    }
 
-                let volume = state.volume;
-                let mut bp_l: f64 = 0.0;
-                let mut bp_r: f64 = 0.0;
-                for i in 0..frames {
-                    let l = bus_l[i] * volume;
-                    let r = bus_r[i] * volume;
-                    output_l[i] += l;
-                    output_r[i] += r;
-                    bp_l = bp_l.max(l.abs());
-                    bp_r = bp_r.max(r.abs());
+                    let volume = state.volume;
+                    let mut bp_l: f64 = 0.0;
+                    let mut bp_r: f64 = 0.0;
+                    for i in 0..frames {
+                        let l = bus_l[i] * volume;
+                        let r = bus_r[i] * volume;
+                        output_l[i] += l;
+                        output_r[i] += r;
+                        bp_l = bp_l.max(l.abs());
+                        bp_r = bp_r.max(r.abs());
+                    }
+                    crate::ffi::SHARED_METERS.update_channel_peak(bus_idx, bp_l, bp_r);
                 }
-                crate::ffi::SHARED_METERS.update_channel_peak(bus_idx, bp_l, bp_r);
             }
-            drop(bus_states);
         }
 
         // === LOCK-FREE PARAM CONSUMPTION ===
@@ -4585,7 +4586,8 @@ impl PlaybackEngine {
 
                         // Process bus insert chains with silence (bus-level reverb tails)
                         if let Some(mut bus_inserts) = self.bus_inserts.try_write() {
-                            let bus_states = self.bus_states.read();
+                            // try_read: non-blocking on audio thread
+                            if let Some(bus_states) = self.bus_states.try_read() {
                             for bus_idx in 0..6 {
                                 if bus_states[bus_idx].muted {
                                     continue;
@@ -4610,6 +4612,7 @@ impl PlaybackEngine {
                                     output_r[i] += sr[i];
                                 }
                             }
+                            } // if let Some(bus_states)
                         }
                     });
                 });
@@ -5276,7 +5279,14 @@ impl PlaybackEngine {
         // Bus IDs: 0=Master routing, 1=Music, 2=Sfx, 3=Voice, 4=Amb, 5=Aux
         // Each bus gets its own pre/post-fader InsertChain processing.
 
-        let bus_states = self.bus_states.read();
+        // try_read: non-blocking on audio thread
+        // Fallback: use default state (unmuted, volume 1.0) if lock contended
+        let default_states: [BusState; 6] = std::array::from_fn(|_| BusState::default());
+        let bus_states_guard = self.bus_states.try_read();
+        let bus_states: &[BusState; 6] = match &bus_states_guard {
+            Some(guard) => guard,
+            None => &default_states,
+        };
         let any_solo = self.any_solo.load(Ordering::Relaxed);
 
         // Process each bus's InsertChain before summing to master
