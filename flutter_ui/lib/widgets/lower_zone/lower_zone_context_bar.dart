@@ -304,10 +304,12 @@ class LowerZoneContextBar extends StatelessWidget {
         ? superTabTooltips![index]
         : null;
 
+    // Compact padding when many tabs (>8)
+    final compactMode = superTabLabels.length > 8;
     final tabWidget = GestureDetector(
       onTap: () => onSuperTabSelected(index),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        padding: EdgeInsets.symmetric(horizontal: compactMode ? 6 : 10, vertical: 4),
         decoration: BoxDecoration(
           color: isSelected ? color.withValues(alpha: 0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
@@ -332,29 +334,27 @@ class LowerZoneContextBar extends StatelessWidget {
                 color: isSelected ? color : LowerZoneColors.textTertiary,
               ),
             ),
-            const SizedBox(width: 4),
-            // Show keyboard shortcut hint
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? color.withValues(alpha: 0.2)
-                    : LowerZoneColors.bgMid,
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: Text(
-                superTabShortcuts != null && index < superTabShortcuts!.length
-                    ? superTabShortcuts![index]
-                    : '${index + 1}',
-                style: TextStyle(
-                  fontSize: LowerZoneTypography.sizeTiny,
-                  fontFamily: 'monospace',
-                  color: isSelected
-                      ? color.withValues(alpha: 0.8)
-                      : LowerZoneColors.textMuted,
+            // Show keyboard shortcut hint only for selected tab (compact mode)
+            if (isSelected) ...[
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: Text(
+                  superTabShortcuts != null && index < superTabShortcuts!.length
+                      ? superTabShortcuts![index]
+                      : '${index + 1}',
+                  style: TextStyle(
+                    fontSize: LowerZoneTypography.sizeTiny,
+                    fontFamily: 'monospace',
+                    color: color.withValues(alpha: 0.8),
+                  ),
                 ),
               ),
-            ),
+            ],
             // Badge count (e.g., diagnostics findings)
             if (superTabBadges != null && (superTabBadges![index] ?? 0) > 0) ...[
               const SizedBox(width: 4),
@@ -591,9 +591,6 @@ class LowerZoneContextBar extends StatelessWidget {
     final superLabel = selectedSuperTab < superTabLabels.length
         ? superTabLabels[selectedSuperTab]
         : '';
-    final subLabel = selectedSubTab < subTabLabels.length
-        ? subTabLabels[selectedSubTab]
-        : '';
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -619,19 +616,6 @@ class LowerZoneContextBar extends StatelessWidget {
             color: accentColor.withValues(alpha: 0.7),
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Icon(Icons.chevron_right, size: 10, color: LowerZoneColors.textSecondary.withValues(alpha: 0.4)),
-        ),
-        Text(
-          subLabel,
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.3,
-            color: accentColor.withValues(alpha: 0.9),
-          ),
-        ),
         const SizedBox(width: 4),
         Container(
           width: 1,
@@ -655,10 +639,12 @@ class LowerZoneContextBar extends StatelessWidget {
         ? subTabTooltips![index]
         : null;
 
+    // Compact padding when many sub-tabs
+    final compactSubs = subTabLabels.length > 6;
     final tabWidget = GestureDetector(
       onTap: () => onSubTabSelected(index),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        padding: EdgeInsets.symmetric(horizontal: compactSubs ? 5 : 8, vertical: 3),
         decoration: BoxDecoration(
           color: isSelected ? accentColor.withValues(alpha: 0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(3),
@@ -680,7 +666,8 @@ class LowerZoneContextBar extends StatelessWidget {
                 color: isSelected ? accentColor : LowerZoneColors.textSecondary,
               ),
             ),
-            if (shortcut.isNotEmpty) ...[
+            // Show shortcut badge: always when ≤6 sub-tabs, only for selected when >6
+            if (shortcut.isNotEmpty && (subTabLabels.length <= 6 || isSelected)) ...[
               const SizedBox(width: 4),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
