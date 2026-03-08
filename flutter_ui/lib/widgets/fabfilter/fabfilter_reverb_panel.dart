@@ -1224,6 +1224,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       display: display,
       color: color,
       size: 32,
+      adaptive: true,
       onChanged: onChanged,
     ));
   }

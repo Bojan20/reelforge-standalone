@@ -1331,6 +1331,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
       display: display,
       color: color,
       size: 40,
+      adaptive: true,
       onChanged: onChanged,
     ));
   }

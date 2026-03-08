@@ -512,7 +512,7 @@ class _FabFilterImagerPanelState extends State<FabFilterImagerPanel>
           ),
           const SizedBox(width: 12),
           // Width knob (0.0=mono → 1.0=stereo → 2.0=wide)
-          FabFilterKnob(
+          Expanded(child: FabFilterKnob(
             value: _linNorm(_width, 0.0, 2.0),
             label: 'WIDTH',
             display: _width <= 0.01
@@ -523,13 +523,14 @@ class _FabFilterImagerPanelState extends State<FabFilterImagerPanel>
             color: _enableWidth ? FabFilterColors.cyan : FabFilterColors.textTertiary,
             size: 56,
             defaultValue: 0.5, // 1.0 = stereo = 50% knob
+            adaptive: true,
             onChanged: (norm) {
                   if (!_enableWidth) return;
                   final v = _linDenorm(norm, 0.0, 2.0);
                   setState(() => _width = v);
                   _setParam(_P.width, v);
                 },
-          ),
+          )),
         ],
       ),
     );
@@ -570,7 +571,7 @@ class _FabFilterImagerPanelState extends State<FabFilterImagerPanel>
         ),
         const SizedBox(width: 6),
         // Pan knob
-        FabFilterKnob(
+        Expanded(child: FabFilterKnob(
           value: _linNorm(_pan, -1.0, 1.0),
           label: 'PAN',
           display: _pan.abs() < 0.01
@@ -581,14 +582,15 @@ class _FabFilterImagerPanelState extends State<FabFilterImagerPanel>
           color: _enablePanner ? FabFilterColors.cyan : FabFilterColors.textTertiary,
           size: 38,
           defaultValue: 0.5, // 0.0 pan = center = 50% knob
+          adaptive: true,
           onChanged: (norm) {
                 if (!_enablePanner) return;
                 final v = _linDenorm(norm, -1.0, 1.0);
                 setState(() => _pan = v);
                 _setParam(_P.pan, v);
               },
-        ),
-        const SizedBox(width: 12),
+        )),
+        const SizedBox(width: 8),
         // Pan Law selector
         Expanded(
           child: _buildPanLawSelector(),
@@ -648,7 +650,7 @@ class _FabFilterImagerPanelState extends State<FabFilterImagerPanel>
           },
         ),
         const SizedBox(width: 6),
-        FabFilterKnob(
+        Expanded(child: FabFilterKnob(
           value: _linNorm(_balance, -1.0, 1.0),
           label: 'BAL',
           display: _balance.abs() < 0.01
@@ -659,14 +661,15 @@ class _FabFilterImagerPanelState extends State<FabFilterImagerPanel>
           color: _enableBalance ? FabFilterColors.cyan : FabFilterColors.textTertiary,
           size: 38,
           defaultValue: 0.5,
+          adaptive: true,
           onChanged: (norm) {
                 if (!_enableBalance) return;
                 final v = _linDenorm(norm, -1.0, 1.0);
                 setState(() => _balance = v);
                 _setParam(_P.balance, v);
               },
-        ),
-        const SizedBox(width: 12),
+        )),
+        const SizedBox(width: 8),
         // M/S Gain
         FabTinyButton(
           label: 'MS',
@@ -678,35 +681,37 @@ class _FabFilterImagerPanelState extends State<FabFilterImagerPanel>
           },
         ),
         const SizedBox(width: 6),
-        FabFilterKnob(
+        Expanded(child: FabFilterKnob(
           value: _linNorm(_midGainDb, -24.0, 24.0),
           label: 'MID',
           display: '${_midGainDb >= 0 ? '+' : ''}${_midGainDb.toStringAsFixed(1)}',
           color: _enableMs ? FabFilterColors.purple : FabFilterColors.textTertiary,
           size: 38,
           defaultValue: 0.5, // 0dB
+          adaptive: true,
           onChanged: (norm) {
                 if (!_enableMs) return;
                 final v = _linDenorm(norm, -24.0, 24.0);
                 setState(() => _midGainDb = v);
                 _setParam(_P.midGainDb, v);
               },
-        ),
+        )),
         const SizedBox(width: 4),
-        FabFilterKnob(
+        Expanded(child: FabFilterKnob(
           value: _linNorm(_sideGainDb, -24.0, 24.0),
           label: 'SIDE',
           display: '${_sideGainDb >= 0 ? '+' : ''}${_sideGainDb.toStringAsFixed(1)}',
           color: _enableMs ? FabFilterColors.purple : FabFilterColors.textTertiary,
           size: 38,
           defaultValue: 0.5,
+          adaptive: true,
           onChanged: (norm) {
                 if (!_enableMs) return;
                 final v = _linDenorm(norm, -24.0, 24.0);
                 setState(() => _sideGainDb = v);
                 _setParam(_P.sideGainDb, v);
               },
-        ),
+        )),
       ],
     );
   }
@@ -724,20 +729,21 @@ class _FabFilterImagerPanelState extends State<FabFilterImagerPanel>
           },
         ),
         const SizedBox(width: 6),
-        FabFilterKnob(
+        Expanded(child: FabFilterKnob(
           value: _linNorm(_rotationDeg, 0.0, 360.0),
           label: 'ROTATE',
           display: '${_rotationDeg.toStringAsFixed(0)}°',
           color: _enableRotation ? FabFilterColors.orange : FabFilterColors.textTertiary,
           size: 38,
           defaultValue: 0.0,
+          adaptive: true,
           onChanged: (norm) {
                 if (!_enableRotation) return;
                 final v = _linDenorm(norm, 0.0, 360.0);
                 setState(() => _rotationDeg = v);
                 _setParam(_P.rotationDeg, v);
               },
-        ),
+        )),
         const Spacer(),
         // Width readout
         Container(

@@ -724,7 +724,7 @@ class _FabFilterGatePanelState extends State<FabFilterGatePanel>
     required Color color,
     required ValueChanged<double> onChanged,
   }) {
-    return Expanded(child: FabFilterKnob(value: value.clamp(0.0, 1.0), label: label, display: display, color: color, size: 40, onChanged: onChanged));
+    return Expanded(child: FabFilterKnob(value: value.clamp(0.0, 1.0), label: label, display: display, color: color, size: 40, adaptive: true, onChanged: onChanged));
   }
 
   // ─── Options Panel ──────────────────────────────────────────────────────

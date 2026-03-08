@@ -893,7 +893,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
             _setParam(_P.delayL, v);
           }
         }),
-        Expanded(child: FabFilterKnob(
+        Expanded(child: FabFilterKnob(adaptive: true,
           value: _feedback / 100.0,
           label: 'FDBK',
           display: _fmtPct(_feedback),
@@ -905,7 +905,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
             _setParam(_P.feedback, v * 100.0);
           },
         )),
-        Expanded(child: FabFilterKnob(
+        Expanded(child: FabFilterKnob(adaptive: true,
           value: _mix / 100.0,
           label: 'MIX',
           display: _fmtPct(_mix),
@@ -930,6 +930,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
       color: FabFilterColors.cyan,
       size: 44,
       defaultValue: _logNorm(375, 1, 5000),
+      adaptive: true,
       onChanged: (v) => onMs(_logDenorm(v, 1, 5000)),
     ));
   }
@@ -939,7 +940,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
   Widget _buildSecondaryRow() {
     return Row(
       children: [
-        Expanded(child: FabFilterKnob(
+        Expanded(child: FabFilterKnob(adaptive: true,
           value: _pingPong / 100.0,
           label: 'P-PONG',
           display: _fmtPct(_pingPong),
@@ -951,7 +952,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
             _setParam(_P.pingPong, v * 100.0);
           },
         )),
-        Expanded(child: FabFilterKnob(
+        Expanded(child: FabFilterKnob(adaptive: true,
           value: _width / 200.0,
           label: 'WIDTH',
           display: '${_width.toStringAsFixed(0)}%',
@@ -963,7 +964,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
             _setParam(_P.width, v * 200.0);
           },
         )),
-        Expanded(child: FabFilterKnob(
+        Expanded(child: FabFilterKnob(adaptive: true,
           value: _ducking / 100.0,
           label: 'DUCK',
           display: _fmtPct(_ducking),
@@ -1010,7 +1011,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                 setState(() => _hpFilter = v);
                 _setParam(_P.hpFilter, v);
               })),
-              Expanded(child: FabFilterKnob(
+              Expanded(child: FabFilterKnob(adaptive: true,
                 value: ((_hpQ - 0.5) / 9.5).clamp(0.0, 1.0),
                 label: 'HP Q',
                 display: _hpQ.toStringAsFixed(1),
@@ -1026,7 +1027,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                 setState(() => _lpFilter = v);
                 _setParam(_P.lpFilter, v);
               })),
-              Expanded(child: FabFilterKnob(
+              Expanded(child: FabFilterKnob(adaptive: true,
                 value: ((_lpQ - 0.5) / 9.5).clamp(0.0, 1.0),
                 label: 'LP Q',
                 display: _lpQ.toStringAsFixed(1),
@@ -1044,7 +1045,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
           // Parametric mid band
           Row(
             children: [
-              Expanded(child: FabFilterKnob(
+              Expanded(child: FabFilterKnob(adaptive: true,
                 value: _logNorm(_midFreq.clamp(80, 16000), 80, 16000),
                 label: 'MID',
                 display: _fmtHz(_midFreq),
@@ -1056,7 +1057,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                   _setParam(_P.midFreq, _midFreq);
                 },
               )),
-              Expanded(child: FabFilterKnob(
+              Expanded(child: FabFilterKnob(adaptive: true,
                 value: ((_midQ - 0.5) / 9.5).clamp(0.0, 1.0),
                 label: 'MID Q',
                 display: _midQ.toStringAsFixed(1),
@@ -1068,7 +1069,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                   _setParam(_P.midQ, _midQ);
                 },
               )),
-              Expanded(child: FabFilterKnob(
+              Expanded(child: FabFilterKnob(adaptive: true,
                 value: ((_midGain + 18.0) / 36.0).clamp(0.0, 1.0),
                 label: 'MID dB',
                 display: '${_midGain >= 0 ? "+" : ""}${_midGain.toStringAsFixed(1)}',
@@ -1086,7 +1087,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
           const FabSectionLabel('DRIVE & CHARACTER'),
           Row(
             children: [
-              Expanded(child: FabFilterKnob(
+              Expanded(child: FabFilterKnob(adaptive: true,
                 value: _drive / 100.0,
                 label: 'DRIVE',
                 display: _fmtPct(_drive),
@@ -1099,7 +1100,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                 },
               )),
               Expanded(child: _buildDriveModePicker()),
-              Expanded(child: FabFilterKnob(
+              Expanded(child: FabFilterKnob(adaptive: true,
                 value: ((_tilt + 6.0) / 12.0).clamp(0.0, 1.0),
                 label: 'TILT',
                 display: '${_tilt >= 0 ? "+" : ""}${_tilt.toStringAsFixed(1)}',
@@ -1151,7 +1152,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
           const FabSectionLabel('FILTER LFO'),
           Row(
             children: [
-              Expanded(child: FabFilterKnob(
+              Expanded(child: FabFilterKnob(adaptive: true,
                 value: _filterLfoRate / 20.0,
                 label: 'FLT RATE',
                 display: '${_filterLfoRate.toStringAsFixed(2)}Hz',
@@ -1163,7 +1164,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                   _setParam(_P.filterLfoRate, _filterLfoRate);
                 },
               )),
-              Expanded(child: FabFilterKnob(
+              Expanded(child: FabFilterKnob(adaptive: true,
                 value: _filterLfoDepth / 100.0,
                 label: 'FLT DPTH',
                 display: _fmtPct(_filterLfoDepth),
@@ -1227,7 +1228,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
           const FabSectionLabel('ENVELOPE'),
           Row(
             children: [
-              Expanded(child: FabFilterKnob(
+              Expanded(child: FabFilterKnob(adaptive: true,
                 value: _envSensitivity / 100.0,
                 label: 'SENS',
                 display: _fmtPct(_envSensitivity),
@@ -1239,7 +1240,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                   _setParam(_P.envSensitivity, _envSensitivity);
                 },
               )),
-              Expanded(child: FabFilterKnob(
+              Expanded(child: FabFilterKnob(adaptive: true,
                 value: _envAttack / 100.0,
                 label: 'ATK',
                 display: '${_envAttack.toStringAsFixed(1)}ms',
@@ -1251,7 +1252,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                   _setParam(_P.envAttack, _envAttack);
                 },
               )),
-              Expanded(child: FabFilterKnob(
+              Expanded(child: FabFilterKnob(adaptive: true,
                 value: _envRelease / 1000.0,
                 label: 'REL',
                 display: '${_envRelease.toStringAsFixed(0)}ms',
@@ -1269,7 +1270,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
           const FabSectionLabel('PITCH & ROUTING'),
           Row(
             children: [
-              Expanded(child: FabFilterKnob(
+              Expanded(child: FabFilterKnob(adaptive: true,
                 value: ((_pitchShift + 12.0) / 24.0).clamp(0.0, 1.0),
                 label: 'PITCH',
                 display: '${_pitchShift >= 0 ? "+" : ""}${_pitchShift.toStringAsFixed(1)}st',
@@ -1289,7 +1290,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
           const FabSectionLabel('TEMPO SYNC'),
           Row(
             children: [
-              Expanded(child: FabFilterKnob(
+              Expanded(child: FabFilterKnob(adaptive: true,
                 value: ((_bpm - 20.0) / 280.0).clamp(0.0, 1.0),
                 label: 'BPM',
                 display: _bpm.toStringAsFixed(1),
@@ -1301,7 +1302,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                   _setParam(_P.bpm, _bpm);
                 },
               )),
-              Expanded(child: FabFilterKnob(
+              Expanded(child: FabFilterKnob(adaptive: true,
                 value: _swing / 100.0,
                 label: 'SWING',
                 display: _fmtPct(_swing),
@@ -1334,7 +1335,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
           Row(
             children: [
               Expanded(child: _buildVintageModePicker()),
-              Expanded(child: FabFilterKnob(
+              Expanded(child: FabFilterKnob(adaptive: true,
                 value: _vintageAmount / 100.0,
                 label: 'AMOUNT',
                 display: _fmtPct(_vintageAmount),
@@ -1355,7 +1356,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
           const SizedBox(height: 4),
           Row(
             children: [
-              Expanded(child: FabFilterKnob(
+              Expanded(child: FabFilterKnob(adaptive: true,
                 value: _crossFeedback / 100.0,
                 label: 'X-FEED',
                 display: _fmtPct(_crossFeedback),
@@ -1367,7 +1368,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                   _setParam(_P.crossFeedback, _crossFeedback);
                 },
               )),
-              Expanded(child: FabFilterKnob(
+              Expanded(child: FabFilterKnob(adaptive: true,
                 value: (_haasDelay / 30.0).clamp(0.0, 1.0),
                 label: 'HAAS',
                 display: '${_haasDelay.toStringAsFixed(1)}ms',
@@ -1379,7 +1380,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                   _setParam(_P.haasDelay, _haasDelay);
                 },
               )),
-              Expanded(child: FabFilterKnob(
+              Expanded(child: FabFilterKnob(adaptive: true,
                 value: _diffusion / 100.0,
                 label: 'DIFFUSE',
                 display: _fmtPct(_diffusion),
@@ -1431,7 +1432,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
             const SizedBox(height: 4),
             Row(
               children: [
-                Expanded(child: FabFilterKnob(
+                Expanded(child: FabFilterKnob(adaptive: true,
                   value: (_stutterRate / 500.0).clamp(0.0, 1.0),
                   label: 'STTR RATE',
                   display: '${_stutterRate.toStringAsFixed(0)}ms',
@@ -1497,7 +1498,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                 accentColor: FabFilterColors.yellow,
               )),
               Expanded(child: _buildMidiTriggerPicker()),
-              Expanded(child: FabFilterKnob(
+              Expanded(child: FabFilterKnob(adaptive: true,
                 value: _smoothing / 100.0,
                 label: 'SMOOTH',
                 display: _fmtPct(_smoothing),
@@ -1664,7 +1665,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
         // Rate + Depth knobs
         Row(
           children: [
-            Expanded(child: FabFilterKnob(
+            Expanded(child: FabFilterKnob(adaptive: true,
               value: rate / 20.0,
               label: 'RATE',
               display: sync ? _syncDivNames[syncDiv.clamp(0, 15)] : '${rate.toStringAsFixed(2)}Hz',
@@ -1673,7 +1674,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
               defaultValue: 0.05,
               onChanged: (v) => onRateChanged(v * 20.0),
             )),
-            Expanded(child: FabFilterKnob(
+            Expanded(child: FabFilterKnob(adaptive: true,
               value: depth / 100.0,
               label: 'DEPTH',
               display: _fmtPct(depth),
@@ -1954,6 +1955,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
       display: _fmtHz(hz),
       color: FabFilterColors.orange,
       size: 36,
+      adaptive: true,
       defaultValue: label == 'HP' ? _logNorm(80, 20, 20000) : _logNorm(12000, 20, 20000),
       onChanged: (v) => onHz(_logDenorm(v, 20, 20000)),
     );

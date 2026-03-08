@@ -1005,7 +1005,6 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
   Widget _buildKnobRow(SaturationBandState band) {
     final color = _bandColor;
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         // DRIVE
         _buildKnob(
@@ -1084,15 +1083,16 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
     required double defaultValue,
     required ValueChanged<double> onChanged,
   }) {
-    return FabFilterKnob(
+    return Expanded(child: FabFilterKnob(
       value: value,
       label: label,
       display: display,
       color: color,
       size: 48,
       defaultValue: defaultValue,
+      adaptive: true,
       onChanged: onChanged,
-    );
+    ));
   }
 
   Widget _buildBandPeakMeter() {

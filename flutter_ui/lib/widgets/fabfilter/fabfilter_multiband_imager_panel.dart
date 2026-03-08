@@ -676,7 +676,6 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
 
   Widget _buildKnobGrid(MbImagerBandState band, Color color) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         // WIDTH
         _buildKnob(
@@ -755,21 +754,19 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
     required Color color,
     required double defaultValue,
     required ValueChanged<double> onChanged,
+    bool expanded = true,
   }) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        FabFilterKnob(
-          value: value,
-          label: label,
-          display: display,
-          color: color,
-          size: 48,
-          defaultValue: defaultValue,
-          onChanged: onChanged,
-        ),
-      ],
+    final knob = FabFilterKnob(
+      value: value,
+      label: label,
+      display: display,
+      color: color,
+      size: 48,
+      defaultValue: defaultValue,
+      adaptive: true,
+      onChanged: onChanged,
     );
+    return expanded ? Expanded(child: knob) : knob;
   }
 
   // ─── GLOBAL SIDEBAR ───────────────────────────────────────────────
@@ -787,6 +784,7 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
           value: _linNorm(_inputGain, -24.0, 24.0),
           color: FabFilterColors.cyan,
           defaultValue: 0.5,
+          expanded: false,
           onChanged: (v) {
             final db = _linDenorm(v, -24.0, 24.0);
             setState(() => _inputGain = db);
@@ -801,6 +799,7 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
           value: _linNorm(_outputGain, -24.0, 24.0),
           color: FabFilterColors.green,
           defaultValue: 0.5,
+          expanded: false,
           onChanged: (v) {
             final db = _linDenorm(v, -24.0, 24.0);
             setState(() => _outputGain = db);
@@ -815,6 +814,7 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
           value: (_globalMix / 100.0).clamp(0.0, 1.0),
           color: FabFilterColors.blue,
           defaultValue: 1.0,
+          expanded: false,
           onChanged: (v) {
             final pct = v * 100.0;
             setState(() => _globalMix = pct);
@@ -979,6 +979,7 @@ class _FabFilterMultibandImagerPanelState extends State<FabFilterMultibandImager
             value: _stereoizeAmount,
             color: FabFilterColors.pink,
             defaultValue: 0.5,
+            expanded: false,
             onChanged: (v) {
               setState(() => _stereoizeAmount = v);
               _setParam(_P.stereoizeAmount, v);

@@ -352,19 +352,22 @@ class _FabFilterHaasPanelState extends State<FabFilterHaasPanel>
   // ─── DELAY VISUALIZATION ─────────────────────────────────────────────
 
   Widget _buildDelayVisualization() {
-    return SizedBox(
-      height: 80,
-      child: CustomPaint(
-        painter: _HaasVisualizationPainter(
-          delayMs: _delayMs,
-          channelRight: _channelRight,
-          mix: _mix,
-          phaseInvert: _phaseInvert,
-          feedback: _feedback,
-          accent: FabFilterColors.green,
-        ),
-        size: const Size(double.infinity, 80),
-      ),
+    return Expanded(
+      flex: 2,
+      child: LayoutBuilder(builder: (context, constraints) {
+        final h = constraints.maxHeight;
+        return CustomPaint(
+          painter: _HaasVisualizationPainter(
+            delayMs: _delayMs,
+            channelRight: _channelRight,
+            mix: _mix,
+            phaseInvert: _phaseInvert,
+            feedback: _feedback,
+            accent: FabFilterColors.green,
+          ),
+          size: Size(double.infinity, h),
+        );
+      }),
     );
   }
 
@@ -372,12 +375,11 @@ class _FabFilterHaasPanelState extends State<FabFilterHaasPanel>
 
   Widget _buildMainKnobs() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           // Delay time (0.1–30ms, log scale)
-          FabFilterKnob(
+          Expanded(child: FabFilterKnob(
             value: _logNorm(_delayMs, 0.1, 30.0),
             label: 'DELAY',
             display: _delayMs < 1.0
@@ -386,41 +388,44 @@ class _FabFilterHaasPanelState extends State<FabFilterHaasPanel>
             color: FabFilterColors.green,
             size: 52,
             defaultValue: _logNorm(8.0, 0.1, 30.0),
+            adaptive: true,
             onChanged: (norm) {
               final v = _logDenorm(norm, 0.1, 30.0);
               setState(() => _delayMs = v);
               _setParam(_P.delayMs, v);
             },
-          ),
+          )),
 
           // Mix (0–100%)
-          FabFilterKnob(
+          Expanded(child: FabFilterKnob(
             value: _mix,
             label: 'MIX',
             display: '${(_mix * 100).round()}%',
             color: FabFilterColors.green,
             size: 52,
             defaultValue: 1.0,
+            adaptive: true,
             onChanged: (v) {
               setState(() => _mix = v);
               _setParam(_P.mix, v);
             },
-          ),
+          )),
 
           // Feedback (0–70%)
-          FabFilterKnob(
+          Expanded(child: FabFilterKnob(
             value: _linNorm(_feedback, 0.0, 0.7),
             label: 'FEEDBACK',
             display: '${(_feedback * 100).round()}%',
             color: FabFilterColors.green,
             size: 52,
             defaultValue: 0.0,
+            adaptive: true,
             onChanged: (norm) {
               final v = _linDenorm(norm, 0.0, 0.7);
               setState(() => _feedback = v);
               _setParam(_P.feedback, v);
             },
-          ),
+          )),
         ],
       ),
     );

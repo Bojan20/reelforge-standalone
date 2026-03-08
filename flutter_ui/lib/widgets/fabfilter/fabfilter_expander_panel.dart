@@ -547,7 +547,6 @@ class _FabFilterExpanderPanelState extends State<FabFilterExpanderPanel>
 
   Widget _buildCompactControls() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         _buildSmallKnob(
           value: ((_threshold + 80) / 80).clamp(0.0, 1.0),
@@ -610,7 +609,10 @@ class _FabFilterExpanderPanelState extends State<FabFilterExpanderPanel>
     required Color color,
     required ValueChanged<double> onChanged,
   }) {
-    return FabFilterKnob(value: value.clamp(0.0, 1.0), label: label, display: display, color: color, size: 48, onChanged: onChanged);
+    return Expanded(child: FabFilterKnob(
+      value: value.clamp(0.0, 1.0), label: label, display: display,
+      color: color, size: 48, adaptive: true, onChanged: onChanged,
+    ));
   }
 
   // ─── Options Panel ──────────────────────────────────────────────────────

@@ -27,7 +27,7 @@ class FabFilterKnob extends StatefulWidget {
   /// Accent color for the knob
   final Color color;
 
-  /// Size of the knob
+  /// Nominal size of the knob (used when adaptive=false, or as maxSize hint)
   final double size;
 
   /// Callback when value changes
@@ -49,6 +49,14 @@ class FabFilterKnob extends StatefulWidget {
   /// Optional trackpad pan-zoom scroll override for macOS two-finger gestures.
   final void Function(double dy)? onTrackpadScroll;
 
+  /// When true, knob auto-scales to fit parent constraints using LayoutBuilder.
+  /// The knob sizes itself between [minSize] and [size] based on available width,
+  /// scaling label/display font proportionally.
+  final bool adaptive;
+
+  /// Minimum knob diameter when adaptive. Below this the knob is unreadable.
+  final double minSize;
+
   const FabFilterKnob({
     super.key,
     required this.value,
@@ -62,6 +70,8 @@ class FabFilterKnob extends StatefulWidget {
     this.modulation,
     this.onScroll,
     this.onTrackpadScroll,
+    this.adaptive = false,
+    this.minSize = 28,
   });
 
   @override
@@ -230,6 +240,22 @@ class _FabFilterKnobState extends State<FabFilterKnob>
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.adaptive) {
+      return _buildInteractive(_buildContent(widget.size));
+    }
+    // Adaptive mode: LayoutBuilder scales knob between minSize..size
+    return LayoutBuilder(builder: (context, constraints) {
+      // Available width minus padding for label text overhang
+      final availW = constraints.maxWidth.isFinite
+          ? constraints.maxWidth - 4  // small margin for label overflow
+          : widget.size + 24;
+      // Scale knob size to fit: knob + 24px label padding must fit in availW
+      final fittedSize = (availW - 16).clamp(widget.minSize, widget.size);
+      return _buildInteractive(_buildContent(fittedSize));
+    });
+  }
+
+  Widget _buildInteractive(Widget child) {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovering = true),
       onExit: (_) => setState(() => _isHovering = false),
@@ -243,26 +269,33 @@ class _FabFilterKnobState extends State<FabFilterKnob>
           onVerticalDragUpdate: _handleDragUpdate,
           onVerticalDragEnd: _handleDragEnd,
           onDoubleTap: _handleDoubleTap,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: widget.size + 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildKnob(),
-                if (widget.label.isNotEmpty || widget.display.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  if (widget.label.isNotEmpty) _buildLabel(),
-                  if (widget.display.isNotEmpty) _buildDisplay(),
-                ],
-              ],
-            ),
-          ),
+          child: child,
         ),
       ),
     );
   }
 
-  Widget _buildKnob() {
+  Widget _buildContent(double knobSize) {
+    // Scale factor relative to nominal size for font scaling
+    final scale = (knobSize / widget.size).clamp(0.5, 1.0);
+    final spacing = (3 * scale).clamp(1.0, 3.0);
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: knobSize + 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildKnobCircle(knobSize),
+          if (widget.label.isNotEmpty || widget.display.isNotEmpty) ...[
+            SizedBox(height: spacing),
+            if (widget.label.isNotEmpty) _buildLabel(scale),
+            if (widget.display.isNotEmpty) _buildDisplay(scale),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKnobCircle(double knobSize) {
     // NOTE: Do NOT wrap CustomPaint in AnimatedBuilder — AnimatedBuilder
     // only re-invokes its builder when the animation ticks, which means
     // widget.value changes from parent setState() would be INVISIBLE
@@ -270,8 +303,8 @@ class _FabFilterKnobState extends State<FabFilterKnob>
     final glowAlpha = _glowAnimation.value;
     return Container(
       key: _knobKey,
-      width: widget.size,
-      height: widget.size,
+      width: knobSize,
+      height: knobSize,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         boxShadow: [
@@ -295,10 +328,12 @@ class _FabFilterKnobState extends State<FabFilterKnob>
     );
   }
 
-  Widget _buildLabel() {
+  Widget _buildLabel([double scale = 1.0]) {
+    final fontSize = (9.0 * scale).clamp(6.0, 9.0);
     return Text(
       widget.label,
       style: FabFilterText.paramLabel.copyWith(
+        fontSize: fontSize,
         color: widget.enabled
             ? FabFilterColors.textTertiary
             : FabFilterColors.textDisabled,
@@ -308,12 +343,13 @@ class _FabFilterKnobState extends State<FabFilterKnob>
     );
   }
 
-  Widget _buildDisplay() {
+  Widget _buildDisplay([double scale = 1.0]) {
+    final fontSize = (11.0 * scale).clamp(7.0, 11.0);
     return Text(
       widget.display,
       style: FabFilterText.paramValue(
         widget.enabled ? widget.color : FabFilterColors.textDisabled,
-      ),
+      ).copyWith(fontSize: fontSize),
       overflow: TextOverflow.ellipsis,
       maxLines: 1,
     );

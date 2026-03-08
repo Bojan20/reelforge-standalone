@@ -852,6 +852,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                     display: '',
                     color: FabFilterColors.blue,
                     size: 24,
+                    adaptive: true,
                     defaultValue: 0.5,
                     onChanged: (v) {
                       setState(() => _outputGain = v * 48 - 24);
@@ -1494,6 +1495,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
       onTrackpadScroll: onTrackpadScroll,
       color: c,
       size: 36,
+      adaptive: true,
       label: label,
       display: display,
     ));

@@ -314,36 +314,37 @@ class _FabFilterDeEsserPanelState extends State<FabFilterDeEsserPanel>
         const SizedBox(height: 8),
         Expanded(
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               // FREQUENCY knob (logarithmic)
-              FabFilterKnob(
+              Expanded(child: FabFilterKnob(
                 value: _logNorm(_frequency, 500, 20000),
                 label: 'FREQ',
                 display: _freqStr(_frequency),
                 color: FabFilterColors.pink,
                 size: 56,
                 defaultValue: _logNorm(6000, 500, 20000),
+                adaptive: true,
                 onChanged: (v) {
                   final freq = _logDenorm(v, 500, 20000);
                   setState(() => _frequency = freq);
                   _setParam(_P.frequency, freq);
                 },
-              ),
+              )),
               // BANDWIDTH knob (logarithmic)
-              FabFilterKnob(
+              Expanded(child: FabFilterKnob(
                 value: _logNorm(_bandwidth, 0.25, 4.0),
                 label: 'BW',
                 display: '${_bandwidth.toStringAsFixed(2)} oct',
                 color: FabFilterColors.cyan,
                 size: 56,
                 defaultValue: _logNorm(1.5, 0.25, 4.0),
+                adaptive: true,
                 onChanged: (v) {
                   final bw = _logDenorm(v, 0.25, 4.0);
                   setState(() => _bandwidth = bw);
                   _setParam(_P.bandwidth, bw);
                 },
-              ),
+              )),
             ],
           ),
         ),
@@ -358,36 +359,37 @@ class _FabFilterDeEsserPanelState extends State<FabFilterDeEsserPanel>
         const SizedBox(height: 8),
         Expanded(
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               // THRESHOLD knob
-              FabFilterKnob(
+              Expanded(child: FabFilterKnob(
                 value: ((_threshold + 60.0) / 60.0).clamp(0.0, 1.0),
                 label: 'THRESH',
                 display: _dbStr(_threshold),
                 color: FabFilterColors.orange,
                 size: 56,
                 defaultValue: ((-20.0 + 60.0) / 60.0),
+                adaptive: true,
                 onChanged: (v) {
                   final db = v * 60.0 - 60.0;
                   setState(() => _threshold = db);
                   _setParam(_P.threshold, db);
                 },
-              ),
+              )),
               // RANGE knob
-              FabFilterKnob(
+              Expanded(child: FabFilterKnob(
                 value: (_range / 40.0).clamp(0.0, 1.0),
                 label: 'RANGE',
                 display: _dbStr(_range),
                 color: FabFilterColors.yellow,
                 size: 56,
                 defaultValue: 12.0 / 40.0,
+                adaptive: true,
                 onChanged: (v) {
                   final db = v * 40.0;
                   setState(() => _range = db);
                   _setParam(_P.range, db);
                 },
-              ),
+              )),
             ],
           ),
         ),
