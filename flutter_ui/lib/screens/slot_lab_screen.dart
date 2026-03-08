@@ -3188,6 +3188,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     _rightPanelTabNotifier.dispose();
     _configExpandedSection.dispose();
     _eventExpandedNotifier.dispose();
+    // Clear ConfigUndoManager callbacks to release captured provider references
+    try { GetIt.instance<ConfigUndoManager>().clearCallbacks(); } catch (_) {}
     _disposeLayerPlayers(); // Dispose audio players
     // Only remove listener if it was added (after restore)
     if (_lowerZoneRestoreComplete) {
@@ -11844,7 +11846,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           ),
         ],
       ),
-    );
+    ).then((_) => controller.dispose());
   }
 
   /// Rename event in MiddlewareProvider and re-sync to EventRegistry
@@ -11961,7 +11963,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           ],
         ),
       ),
-    );
+    ).then((_) => controller.dispose());
   }
 
   void _finishCreateEvent(String name, String stage) {

@@ -860,8 +860,8 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
               ),
             ),
             child: stages.isEmpty
-                ? TextField(
-                    controller: TextEditingController(text: value ?? ''),
+                ? TextFormField(
+                    initialValue: value ?? '',
                     style: TextStyle(color: color, fontSize: 9),
                     decoration: InputDecoration(
                       border: InputBorder.none,
@@ -870,7 +870,7 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
                       hintText: 'stage name...',
                       hintStyle: TextStyle(color: color.withOpacity(0.2), fontSize: 9),
                     ),
-                    onSubmitted: (val) {
+                    onFieldSubmitted: (val) {
                       final stage = val.trim().toUpperCase();
                       onChanged(stage.isEmpty ? '' : stage);
                     },

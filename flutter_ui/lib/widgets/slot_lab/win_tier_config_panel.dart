@@ -1091,8 +1091,8 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                 borderRadius: BorderRadius.circular(3),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               ),
-              child: TextField(
-                controller: TextEditingController(text: value.toStringAsFixed(2)),
+              child: TextFormField(
+                initialValue: value.toStringAsFixed(2),
                 style: const TextStyle(color: Color(0xFFD0D0D8), fontSize: 10),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
@@ -1100,7 +1100,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                   isDense: true,
                   contentPadding: EdgeInsets.symmetric(vertical: 4),
                 ),
-                onSubmitted: (val) {
+                onFieldSubmitted: (val) {
                   final parsed = double.tryParse(val);
                   if (parsed != null && parsed >= 0) onChanged(parsed);
                 },
@@ -1634,7 +1634,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
 
   void _importConfig() {
     final controller = TextEditingController();
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A24),
@@ -1694,7 +1694,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
           ),
         ],
       ),
-    );
+    ).then((_) => controller.dispose());
   }
 
   void _resetConfig() {

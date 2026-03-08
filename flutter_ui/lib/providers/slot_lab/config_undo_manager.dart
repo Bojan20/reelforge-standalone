@@ -182,6 +182,13 @@ class ConfigUndoManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Clear capture/restore callbacks to release provider references.
+  /// Called from SlotLab dispose() to prevent closure memory leaks.
+  void clearCallbacks() {
+    onCaptureState = null;
+    onRestoreState = null;
+  }
+
   /// Handle Cmd+Z / Cmd+Shift+Z. Returns true if handled.
   bool handleUndoKey(bool isShiftPressed) {
     if (isShiftPressed && canRedo) {
