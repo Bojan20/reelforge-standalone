@@ -15,6 +15,7 @@
 | **EQ ULTIMATE — Pro-Q 4 tier upgrade** | **TODO (0/52)** |
 | **DELAY ULTIMATE — Timeless 3 tier upgrade** | **TODO (0/55)** |
 | **COMPRESSOR ULTIMATE — Pro-C 2 tier upgrade** | **TODO (0/48)** |
+| **LIMITER ULTIMATE — Pro-L 2 tier upgrade** | **TODO (0/42)** |
 
 Analyzer: 0 errors, 0 warnings
 
@@ -143,7 +144,7 @@ Cilj: Pro-R 2 nivo vizualizacije + novi parametri u UI.
 
 **Prioritet implementacije:** F1 → F2 → F3 → F6 → F4 → F7 → F5 → F9 → F8
 
-**Grand Total: 47 (Reverb) + 52 (EQ) + 55 (Delay) + 48 (Compressor) = 202 taskova**
+**Grand Total: 47 (Reverb) + 52 (EQ) + 55 (Delay) + 48 (Compressor) + 42 (Limiter) = 244 taskova**
 
 ---
 
@@ -547,6 +548,95 @@ Cilj: Kompletan Pro-C 2 workflow.
 | **TOTAL** | | **48** | |
 
 **Prioritet implementacije:** C1 → C2 → C3 → C4 → C6 → C5 → C7 → C8 → C9 → C10
+
+---
+
+## LIMITER ULTIMATE — Pro-L 2 Tier Brickwall Limiter
+
+**Goal:** Podići TruePeakLimiter na nivo FabFilter Pro-L 2 kvaliteta zvuka i vizuala.
+**Scope:** Rust DSP (rf-dsp/src/dynamics.rs), FFI (rf-engine/dsp_wrappers.rs), Flutter UI (fabfilter_limiter_panel.dart)
+**Referenca:** FabFilter Pro-L 2, Sonnox Oxford Limiter, DMG Limitless, Waves L2
+**Postojeća baza:** 8 stilova, dual-stage gain, 8x oversampling, LUFS, A/B, scrolling waveform — solidno
+
+### FAZA L1 — ISP Detection & True Peak Precision [0/5] ★★★★★ KRITIČNO
+- [ ] L1.1: Implementirati pravi Inter-Sample Peak (ISP) detektor — 4-point sinc interpolacija između sampla za detekciju ISP pikova koji oversampling propušta
+- [ ] L1.2: Zamena polyphase halfband filtera sa linear-phase FIR za oversampling — eliminacija phase distortion na visokim frekvencijama
+- [ ] L1.3: ISP-safe ceiling garancija — post-limiter ISP provera sa korekcijom (Pro-L 2 garantuje 0 ISP iznad ceilinga)
+- [ ] L1.4: True peak metering po ITU-R BS.1770-4 standardu — 4x oversampled peak detekcija sa preciznim koeficijentima
+- [ ] L1.5: ISP indikator u UI — crveni marker kad ISP prekorači ceiling, sa brojačem ISP event-ova
+
+### FAZA L2 — Loudness Metering & Target [0/5] ★★★★★ KRITIČNO
+- [ ] L2.1: Loudness target mode — korisnik zadaje ciljani LUFS (npr. -14 za streaming), auto-gain prilagođava input trim u realnom vremenu
+- [ ] L2.2: Loudness histogram — distribucija LUFS vrednosti tokom vremena (bar chart, 0.5 LU rezolucija)
+- [ ] L2.3: Scrolling LUFS timeline graf — momentary/short-term/integrated na istom grafu sa vremenom, zoom 5s-60s
+- [ ] L2.4: PLR (Peak-to-Loudness Ratio) metar — PLR = true peak - integrated LUFS, indikator dinamičkog opsega
+- [ ] L2.5: Loudness range (LRA) metar — po EBU R128, prikazuje dinamički opseg materijala
+
+### FAZA L3 — Gain Reduction Vizualizacija [0/5] ★★★★☆
+- [ ] L3.1: Zoomable/scrollable waveform display — pinch-to-zoom na vremenskoj osi, drag za scroll, 1s-30s vidljivo
+- [ ] L3.2: GR histogram (vertikalni) — distribucija gain redukcije tokom sesije, reset dugme
+- [ ] L3.3: Dual-layer GR prikaz — "fill" sloj (poluprovidan) + "edge" linija (svetla), odvojeno L/R ili linked
+- [ ] L3.4: Delta/audition mode — solo samo GR signal (razlika input-output), za proveru šta limiter "jede"
+- [ ] L3.5: Pre/post waveform overlay — preklapanje ulaznog i izlaznog signala za vizuelno poređenje
+
+### FAZA L4 — Advanced Release & Style Intelligence [0/4] ★★★★☆
+- [ ] L4.1: Program-dependent release v2 — multi-band envelope tracking (LF/MF/HF) za nezavisno release vreme po opsegu, sprečava bass pumping
+- [ ] L4.2: Transient preservation mode — oslabiti limiter na detektovanim tranzijenima (kick/snare), očuvati punch
+- [ ] L4.3: Adaptive attack — automatski prilagođava attack na osnovu crest faktora (kratki za percusije, duži za sustain)
+- [ ] L4.4: Style fine-tuning — per-style sub-parametri (attack mod, release mod, character) za micro-podešavanje unutar stila
+
+### FAZA L5 — Output Stage & Clipper [0/4] ★★★☆☆
+- [ ] L5.1: Output clipper — hard/soft clip opcija pre dithera (Pro-L 2 nema ali DMG Limitless ima), za 1-2dB ekstra loudness
+- [ ] L5.2: DC offset removal filter — 5Hz HPF posle limitera, sprečava DC akumulaciju od asimetričnog clippinga
+- [ ] L5.3: Auto-blanking — automatski mute izlaz kad nema signala duže od 2s (sprečava dither šum u tišini)
+- [ ] L5.4: Noise shaping za dither — weighted noise shaping (F-weighted) umesto flat TPDF, perceptualno manje čujno
+
+### FAZA L6 — Unity Gain & A/B Monitoring [0/4] ★★★☆☆
+- [ ] L6.1: Unity gain listen — kompenzuje loudness razliku za fer A/B poređenje (output = input level, samo limiting artifacts)
+- [ ] L6.2: Reference track import — učitaj referentni audio za LUFS/spectrum poređenje
+- [ ] L6.3: A/B/C/D slots — proširiti sa 2 na 4 snapshot slota, morph slider između A i B
+- [ ] L6.4: Bypass sa gain match — bypass koji kompenzuje loudness razliku, ne samo on/off
+
+### FAZA L7 — Surround & Channel Configs [0/3] ★★☆☆☆
+- [ ] L7.1: Quad/5.1 podrška — multi-channel TruePeakLimiter sa per-channel i linked gain reduction
+- [ ] L7.2: LFE handling — odvojen limiter za LFE kanal sa drugačijim parametrima (sporiji attack, viši threshold)
+- [ ] L7.3: Channel grouping UI — vizuelni routing koji kanali su linked, koji nezavisni
+
+### FAZA L8 — Preset & Workflow [0/4] ★★☆☆☆
+- [ ] L8.1: Preset browser — kategorije (Mastering/Streaming/Broadcast/Vinyl/CD), sa preview i opisi
+- [ ] L8.2: Platform presets — Spotify (-14 LUFS), Apple Music (-16 LUFS), YouTube (-13 LUFS), CD (-9 LUFS) sa auto-ceiling
+- [ ] L8.3: Undo/redo stack — 50-step parametar historija sa Ctrl+Z/Y
+- [ ] L8.4: Session stats export — LUFS/PLR/ISP count/GR stats kao tekst ili JSON za mastering log
+
+### FAZA L9 — Metering Polish [0/4] ★★☆☆☆
+- [ ] L9.1: Peak hold sa konfigurisanim decay — 0.5s/1s/2s/infinite hold za peak indikatore
+- [ ] L9.2: Clip counter — brojač koliko puta je signal prešao ceiling (sa reset dugmetom)
+- [ ] L9.3: Crest factor metar — real-time peak/RMS odnos, indikator koliko je signal "peaked"
+- [ ] L9.4: Stereo correlation metar — phase correlation (-1 do +1) za proveru stereo kompatibilnosti
+
+### FAZA L10 — FFI & Integration [0/4] ★★☆☆☆
+- [ ] L10.1: Latency compensation reporting — precizno prijavi latenciju host-u za PDC (Plugin Delay Compensation)
+- [ ] L10.2: Sidechain input — eksterni sidechain za ducking/pumping efekte
+- [ ] L10.3: Oversampling quality selector — "eco" (minimum phase) vs "high" (linear phase) vs "ultra" (steep linear phase)
+- [ ] L10.4: CPU metering — prikaz DSP opterećenja po oversampling modu, pomoć korisniku da izabere optimalni mode
+
+### Rezime faza
+
+| Faza | Opis | Taskova | Težina |
+|------|------|---------|--------|
+| L1 | ISP detection & true peak precision | 5 | ★★★★★ |
+| L2 | Loudness metering & target | 5 | ★★★★★ |
+| L3 | GR vizualizacija | 5 | ★★★★☆ |
+| L4 | Advanced release & style intelligence | 4 | ★★★★☆ |
+| L5 | Output stage & clipper | 4 | ★★★☆☆ |
+| L6 | Unity gain & A/B monitoring | 4 | ★★★☆☆ |
+| L7 | Surround & channel configs | 3 | ★★☆☆☆ |
+| L8 | Preset & workflow | 4 | ★★☆☆☆ |
+| L9 | Metering polish | 4 | ★★☆☆☆ |
+| L10 | FFI & integration | 4 | ★★☆☆☆ |
+| **TOTAL** | | **42** | |
+
+**Prioritet implementacije:** L1 → L2 → L3 → L4 → L5 → L6 → L9 → L8 → L10 → L7
 
 ---
 
