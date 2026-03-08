@@ -2405,6 +2405,34 @@ impl SpectrumAnalyzer {
         }
     }
 
+    /// Create with custom FFT size (8192, 16384, 32768)
+    pub fn new_with_fft_size(sample_rate: f64, fft_size: usize) -> Self {
+        let fft_size = fft_size.max(1024);
+        let mut planner = RealFftPlanner::<f64>::new();
+        let fft_forward = planner.plan_fft_forward(fft_size);
+        let num_bins = fft_size / 2 + 1;
+        let window: Vec<f64> = (0..fft_size)
+            .map(|i| {
+                let t = i as f64 / (fft_size - 1) as f64;
+                0.35875 - 0.48829 * (2.0 * PI * t).cos() + 0.14128 * (4.0 * PI * t).cos()
+                    - 0.01168 * (6.0 * PI * t).cos()
+            })
+            .collect();
+        Self {
+            fft_forward,
+            input_buffer: vec![0.0; fft_size],
+            window,
+            spectrum: vec![Complex::new(0.0, 0.0); num_bins],
+            magnitude_db: vec![-120.0; num_bins],
+            peak_hold_db: vec![-120.0; num_bins],
+            buffer_pos: 0,
+            smoothing: 0.8,
+            peak_decay: 0.995,
+            fft_size,
+            sample_rate,
+        }
+    }
+
     /// Feed samples to analyzer
     pub fn process(&mut self, samples: &[f64]) {
         for &sample in samples {
@@ -2878,6 +2906,8 @@ pub struct ProEq {
     pub equal_loudness_enabled: bool,
     /// Global oversampling mode (applies to all bands without per-band override)
     pub global_oversample: OversampleMode,
+    /// Solo band index (-1 = no solo, 0..63 = solo that band)
+    pub solo_band: i32,
 }
 
 /// Serializable band state for A/B
@@ -2932,6 +2962,7 @@ impl ProEq {
             },
             equal_loudness_enabled: false,
             global_oversample: OversampleMode::Off,
+            solo_band: -1,
         }
     }
 
@@ -3079,6 +3110,11 @@ impl ProEq {
         }
     }
 
+    /// Get pre-EQ spectrum data (always returns pre-EQ regardless of analyzer_mode)
+    pub fn get_pre_spectrum_data(&self) -> Vec<f32> {
+        self.analyzer_pre.get_spectrum_data(256)
+    }
+
     /// Store current state as A
     pub fn store_state_a(&mut self) {
         self.state_a = Some(self.capture_state());
@@ -3179,11 +3215,12 @@ impl ProEq {
         for (l, r) in left.iter_mut().zip(right.iter_mut()) {
             let (mut out_l, mut out_r) = (*l, *r);
 
-            // Process through all enabled bands
-            for band in &mut self.bands {
-                if band.enabled {
-                    (out_l, out_r) = band.process(out_l, out_r);
-                }
+            // Process through enabled bands (solo_band >= 0 means only that band)
+            let solo = self.solo_band;
+            for (idx, band) in self.bands.iter_mut().enumerate() {
+                if !band.enabled { continue; }
+                if solo >= 0 && idx as i32 != solo { continue; }
+                (out_l, out_r) = band.process(out_l, out_r);
             }
 
             // Apply equal loudness compensation if enabled
@@ -3259,6 +3296,18 @@ impl ProEq {
         for band in &mut self.bands {
             band.set_oversampling(mode);
         }
+    }
+
+    /// Set spectrum analyzer FFT size (8192, 16384, 32768)
+    pub fn set_analyzer_fft_size(&mut self, fft_size: usize) {
+        let valid_size = match fft_size {
+            s if s >= 32768 => 32768,
+            s if s >= 16384 => 16384,
+            _ => 8192,
+        };
+        self.analyzer_pre = SpectrumAnalyzer::new_with_fft_size(self.sample_rate, valid_size);
+        self.analyzer_post = SpectrumAnalyzer::new_with_fft_size(self.sample_rate, valid_size);
+        self.analyzer_sidechain = SpectrumAnalyzer::new_with_fft_size(self.sample_rate, valid_size);
     }
 
     /// Enable MZT mode on a specific band

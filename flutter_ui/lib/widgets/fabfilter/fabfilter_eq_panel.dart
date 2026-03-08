@@ -316,6 +316,9 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
   // Interaction
   bool _isDragging = false;
   bool _dragSoloActive = false;   // Alt+drag solo listen (E3.2)
+  // E8.1: Spring animation — smoothed node positions
+  final Map<int, Offset> _springPos = {};  // band index → current display position
+  static const _springStiffness = 0.35;    // 0-1, higher = snappier
   Offset? _previewPos;
   Offset? _doubleTapPos;
   late final FocusNode _displayFocusNode; // E3.8: keyboard shortcuts
@@ -331,6 +334,22 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
   bool _matchMode = false;           // E6: EQ Match mode
   bool _bassMono = false;            // E9.2: Bass mono toggle
   double _bassMonoFreq = 120.0;     // E9.2: Bass mono crossover frequency
+  int _msSpectrumMode = 0;          // E2.6: 0=L/R, 1=Mid, 2=Side
+  int _fftSizeMode = 0;            // E2.2: 0=8K, 1=16K, 2=32K
+  static const _fftSizes = [8192, 16384, 32768];
+  static const _fftLabels = ['8K', '16K', '32K'];
+  // E8.3: Waterfall/sonogram
+  bool _waterfallMode = false;
+  final List<List<double>> _waterfallBuffer = [];
+  static const _waterfallMaxFrames = 128;
+  // E9.3: Room correction wizard
+  bool _roomCorrectionActive = false;
+  int _roomCorrectionStep = 0;  // 0=idle, 1=capturing, 2=analyzed, 3=corrected
+  int _roomTargetCurve = 1;     // 0=Flat, 1=Harman, 2=B&K, 3=BBC, 4=X-Curve
+  List<({double freq, double q, double mag, int type_})> _roomModes = [];
+  Timer? _roomCaptureTimer;
+  double _roomCaptureProgress = 0.0;
+  int _roomCorrectionBands = 0;
   List<double>? _matchReference;     // E6.1: captured reference spectrum
   List<double>? _matchSource;        // E6.2: captured source spectrum
   double _matchAmount = 0.5;         // E6.4: match intensity 0-100%
@@ -504,6 +523,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     _displayFocusNode.dispose();
     _meterController.dispose();
     _spectrumTimer?.cancel();
+    _roomCaptureTimer?.cancel();
     super.dispose();
   }
 
@@ -558,6 +578,15 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
       if (_spectrumFrozen) return; // E2.4: don't update when frozen
       final raw = _ffi.getMasterSpectrum();
       if (raw.isEmpty) return;
+      // E2.1: Fetch pre-EQ spectrum overlay
+      if (_showPreSpectrum) {
+        final preRaw = _ffi.proEqGetPreSpectrum(widget.trackId);
+        if (preRaw != null && preRaw.isNotEmpty) {
+          _preSpectrum = List<double>.generate(preRaw.length, (i) {
+            return (preRaw[i].clamp(0.0, 1.0) * 80 - 80).toDouble();
+          });
+        }
+      }
       // Check if there's actual signal — if all bins are near-silent, clear spectrum
       final db = List<double>.generate(raw.length, (i) {
         double val = raw[i].clamp(0.0, 1.0) * 80 - 80;
@@ -592,6 +621,13 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
           } else {
             _peakHold[i] -= 0.3; // slow decay
           }
+        }
+      }
+      // E8.3: Feed waterfall buffer
+      if (_waterfallMode) {
+        _waterfallBuffer.add(List<double>.from(out));
+        if (_waterfallBuffer.length > _waterfallMaxFrames) {
+          _waterfallBuffer.removeAt(0);
         }
       }
       bool diff = prev.length != out.length;
@@ -635,6 +671,8 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
         SizedBox(height: 16, child: CustomPaint(painter: _PianoStripPainter())),
         // E6: Match mode panel
         if (_matchMode) _buildMatchPanel(),
+        // E9.3: Room correction wizard panel
+        if (_roomCorrectionActive) _buildRoomCorrectionPanel(),
         _buildBandChips(),
         if (_selectedBandIndex != null && _selectedBandIndex! < _bands.length)
           _buildBandEditor(),
@@ -706,7 +744,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
         ),
         const Spacer(),
         // E6: EQ Match mode toggle
-        FabTinyButton(label: 'MATCH', active: _matchMode,
+        FabTinyButton(label: 'MTH', active: _matchMode,
           onTap: () => setState(() => _matchMode = !_matchMode),
           color: FabFilterColors.green),
         const SizedBox(width: 2),
@@ -734,6 +772,29 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
           onTap: () => setState(() => _analyzerOn = !_analyzerOn),
           color: FabFilterColors.cyan),
         const SizedBox(width: 2),
+        // E2.2: FFT resolution toggle
+        FabTinyButton(label: _fftLabels[_fftSizeMode], active: _fftSizeMode > 0,
+          onTap: () {
+            setState(() => _fftSizeMode = (_fftSizeMode + 1) % 3);
+            _ffi.proEqSetFftSize(widget.trackId, _fftSizes[_fftSizeMode]);
+          },
+          color: FabFilterColors.cyan),
+        const SizedBox(width: 2),
+        // E2.1: Pre/Post spectrum overlay
+        FabTinyButton(label: 'PRE', active: _showPreSpectrum,
+          onTap: () {
+            setState(() => _showPreSpectrum = !_showPreSpectrum);
+            _ffi.proEqSetAnalyzerMode(widget.trackId,
+                _showPreSpectrum ? ProEqAnalyzerMode.preEq : ProEqAnalyzerMode.postEq);
+          },
+          color: FabFilterColors.green),
+        const SizedBox(width: 2),
+        // E2.6: Mid/Side spectrum
+        FabTinyButton(label: _msSpectrumMode == 0 ? 'L/R' : (_msSpectrumMode == 1 ? 'MID' : 'SIDE'),
+          active: _msSpectrumMode != 0,
+          onTap: () => setState(() => _msSpectrumMode = (_msSpectrumMode + 1) % 3),
+          color: FabFilterColors.purple),
+        const SizedBox(width: 2),
         // E2.4: Freeze spectrum
         FabTinyButton(label: 'FRZ', active: _spectrumFrozen,
           onTap: () => setState(() {
@@ -743,6 +804,14 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
             }
           }),
           color: FabFilterColors.pink),
+        const SizedBox(width: 2),
+        // E8.3: Waterfall/sonogram mode
+        FabTinyButton(label: 'WF', active: _waterfallMode,
+          onTap: () => setState(() {
+            _waterfallMode = !_waterfallMode;
+            if (!_waterfallMode) _waterfallBuffer.clear();
+          }),
+          color: FabFilterColors.purple),
         const SizedBox(width: 2),
         // E2.5: Tilt compensation
         FabTinyButton(
@@ -833,7 +902,10 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
         FabTinyButton(
           label: const ['OS:Off', 'OS:2x', 'OS:4x', 'OS:8x'][_oversampleMode],
           active: _oversampleMode != 0,
-          onTap: () => setState(() => _oversampleMode = (_oversampleMode + 1) % 4),
+          onTap: () {
+            setState(() => _oversampleMode = (_oversampleMode + 1) % 4);
+            _ffi.proEqSetOversampling(widget.trackId, _oversampleMode);
+          },
           color: FabFilterColors.cyan),
         const SizedBox(width: 2),
         // E7.4: Auto-listen mode
@@ -846,6 +918,44 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
           onTap: () => setState(() => _freqColorMode = !_freqColorMode),
           color: FabFilterColors.pink),
         const SizedBox(width: 2),
+        // E9.2: Bass mono toggle (tap=toggle, right-click=cycle freq)
+        GestureDetector(
+          onTap: () {
+            setState(() => _bassMono = !_bassMono);
+            _ffi.bassMonoSetEnabled(widget.trackId, _bassMono);
+            if (_bassMono) _ffi.bassMonoSetFreq(widget.trackId, _bassMonoFreq);
+          },
+          onSecondaryTap: () {
+            const freqs = [60.0, 80.0, 100.0, 120.0, 150.0, 200.0];
+            final idx = freqs.indexOf(_bassMonoFreq);
+            setState(() => _bassMonoFreq = freqs[(idx + 1) % freqs.length]);
+            if (_bassMono) _ffi.bassMonoSetFreq(widget.trackId, _bassMonoFreq);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+            decoration: BoxDecoration(
+              color: _bassMono ? FabFilterColors.green.withValues(alpha: 0.2) : FabFilterColors.bgMid,
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(color: _bassMono ? FabFilterColors.green : FabFilterColors.border),
+            ),
+            child: Text(_bassMono ? 'BM:${_bassMonoFreq.round()}' : 'BM',
+              style: TextStyle(
+                color: _bassMono ? FabFilterColors.green : FabFilterColors.textTertiary,
+                fontSize: 7, fontWeight: FontWeight.bold)),
+          ),
+        ),
+        const SizedBox(width: 2),
+        // E9.3: Room correction wizard
+        FabTinyButton(label: 'RM', active: _roomCorrectionActive,
+          onTap: () => setState(() {
+            _roomCorrectionActive = !_roomCorrectionActive;
+            if (!_roomCorrectionActive) {
+              _roomCaptureTimer?.cancel();
+              _roomCorrectionStep = 0;
+            }
+          }),
+          color: FabFilterColors.green),
+        const SizedBox(width: 4),
         // E8.4: Full-screen mode
         GestureDetector(
           onTap: () => _showFullscreen(context),
@@ -975,6 +1085,9 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                     phaseCurve: _showPhase ? _phaseCurve : null,
                     showGroupDelay: _showGroupDelay,
                     freqColorMode: _freqColorMode,
+                    preSpectrum: _showPreSpectrum ? _preSpectrum : const [],
+                    waterfallBuffer: _waterfallMode ? _waterfallBuffer : const [],
+                    soloBandIdx: _bands.any((b) => b.solo) ? _bands.firstWhere((b) => b.solo).index : -1,
                   ),
                   size: box.biggest,
                 ),
@@ -1059,9 +1172,16 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
           return KeyEventResult.handled;
         }
       case LogicalKeyboardKey.keyS:
-        // Toggle solo on selected band
+        // Toggle solo on selected band (exclusive — only one solo at a time)
         if (idx != null && idx < _bands.length) {
-          setState(() => _bands[idx].solo = !_bands[idx].solo);
+          setState(() {
+            if (_bands[idx].solo) {
+              _bands[idx].solo = false;
+            } else {
+              for (final other in _bands) { other.solo = false; }
+              _bands[idx].solo = true;
+            }
+          });
           _ffi.insertSetParam(widget.trackId, _slotIndex, _P.soloBandIndex,
             _bands[idx].solo ? _bands[idx].index.toDouble() : -1.0);
           return KeyEventResult.handled;
@@ -1549,7 +1669,14 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
         final b = _bands[bi];
         switch (val) {
           case 'solo':
-            setState(() => b.solo = !b.solo);
+            setState(() {
+              if (b.solo) {
+                b.solo = false;
+              } else {
+                for (final other in _bands) { other.solo = false; }
+                b.solo = true;
+              }
+            });
             _ffi.insertSetParam(widget.trackId, _slotIndex, _P.soloBandIndex,
               b.solo ? b.index.toDouble() : -1.0);
           case 'bypass':
@@ -1603,6 +1730,11 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                 nb.gain = _copiedBand!['gain'] as double;
                 nb.q = _copiedBand!['q'] as double;
                 nb.slope = EqSlope.values[(_copiedBand!['slope'] as int).clamp(0, EqSlope.values.length - 1)];
+                nb.dynamicEnabled = _copiedBand!['dynamicEnabled'] as bool;
+                nb.dynamicThreshold = _copiedBand!['dynamicThreshold'] as double;
+                nb.dynamicRatio = _copiedBand!['dynamicRatio'] as double;
+                nb.dynamicAttack = _copiedBand!['dynamicAttack'] as double;
+                nb.dynamicRelease = _copiedBand!['dynamicRelease'] as double;
                 _syncBand(_bands.length - 1);
               }
             }
@@ -1639,19 +1771,17 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     final b = _bands[_selectedBandIndex!];
     // E3.3: Shift+drag = fine adjust (10× precision)
     final fine = HardwareKeyboard.instance.isShiftPressed;
-    final scale = fine ? 0.1 : 1.0;
     final rawFreq = _xToFreq(pos.dx, size.width);
     final rawGain = _yToGain(pos.dy, size.height);
     setState(() {
       if (fine) {
-        // Fine mode: apply scaled delta from current position
-        final targetFreq = rawFreq;
-        final targetGain = rawGain;
-        b.freq = (b.freq + (targetFreq - b.freq) * scale).clamp(10.0, 30000.0);
-        b.gain = (b.gain + (targetGain - b.gain) * scale).clamp(-30.0, 30.0);
+        // Fine mode: 10× precision
+        b.freq = (b.freq + (rawFreq - b.freq) * 0.1).clamp(10.0, 30000.0);
+        b.gain = (b.gain + (rawGain - b.gain) * 0.1).clamp(-30.0, 30.0);
       } else {
-        b.freq = rawFreq.clamp(10.0, 30000.0);
-        b.gain = rawGain.clamp(-30.0, 30.0);
+        // E8.1: Spring physics — smooth exponential interpolation instead of instant snap
+        b.freq = (b.freq + (rawFreq - b.freq) * _springStiffness).clamp(10.0, 30000.0);
+        b.gain = (b.gain + (rawGain - b.gain) * _springStiffness).clamp(-30.0, 30.0);
       }
     });
     _syncBand(_selectedBandIndex!);
@@ -2112,7 +2242,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
           autofocus: true,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
+          TextButton(onPressed: () { ctrl.dispose(); Navigator.of(ctx).pop(); }, child: const Text('Cancel')),
           TextButton(
             onPressed: () {
               if (ctrl.text.trim().isNotEmpty) {
@@ -2123,6 +2253,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                   snapshot: _captureSnapshot(),
                 ));
               }
+              ctrl.dispose();
               Navigator.of(ctx).pop();
             },
             child: const Text('Save'),
@@ -2259,6 +2390,248 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
   }
 
   // E8.4: Full-screen EQ display
+  // ═══════════════════════════════════════════════════════════════════════════
+  // E9.3: ROOM CORRECTION WIZARD
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  void _startRoomCapture() {
+    _ffi.roomCorrectionStartMeasurement(widget.trackId);
+    setState(() { _roomCorrectionStep = 1; _roomCaptureProgress = 0.0; });
+    // Capture for 5 seconds — feed spectrum data as measurement proxy
+    _roomCaptureTimer = Timer.periodic(const Duration(milliseconds: 100), (t) {
+      if (!mounted) { t.cancel(); return; }
+      setState(() => _roomCaptureProgress = (t.tick / 50).clamp(0.0, 1.0));
+      if (t.tick >= 50) {
+        t.cancel();
+        _analyzeRoom();
+      }
+    });
+  }
+
+  void _analyzeRoom() {
+    final modeCount = _ffi.roomCorrectionAnalyze(widget.trackId);
+    if (modeCount < 0) return; // analysis failed
+    _roomModes.clear();
+    for (int i = 0; i < modeCount; i++) {
+      final mode = _ffi.roomCorrectionGetMode(widget.trackId, i);
+      if (mode != null) _roomModes.add(mode);
+    }
+    setState(() => _roomCorrectionStep = 2);
+  }
+
+  void _generateRoomCorrection() {
+    final bandCount = _ffi.roomCorrectionGenerate(widget.trackId, _roomTargetCurve);
+    setState(() {
+      _roomCorrectionBands = bandCount;
+      _roomCorrectionStep = 3;
+    });
+  }
+
+  void _applyRoomCorrection() {
+    _pushUndo();
+    // Get correction curve and create EQ bands to compensate
+    final curve = _ffi.roomCorrectionGetCurve(widget.trackId);
+    if (curve == null || curve.isEmpty) return;
+    // Sample correction at up to 10 frequency bands and create bell bands
+    final numBands = curve.length < 10 ? curve.length : 10;
+    final bandSize = curve.length ~/ numBands;
+    if (bandSize < 1) return;
+    for (int i = 0; i < numBands; i++) {
+      double sum = 0;
+      final end = (i * bandSize + bandSize).clamp(0, curve.length);
+      for (int j = i * bandSize; j < end; j++) {
+        sum += curve[j];
+      }
+      final avgDb = sum / bandSize;
+      if (avgDb.abs() < 0.5) continue; // skip negligible correction
+      final gain = avgDb.clamp(-12.0, 12.0);
+      final freq = 20.0 * math.pow(20000.0 / 20.0, (i + 0.5) / numBands);
+      _addBand(freq, EqFilterShape.bell);
+      if (_bands.isNotEmpty) {
+        _bands.last.gain = gain;
+        _bands.last.q = 2.0; // moderate Q for room correction
+        _syncBand(_bands.length - 1);
+      }
+    }
+    _recalcCurves();
+    setState(() => _roomCorrectionActive = false);
+  }
+
+  Widget _buildRoomCorrectionPanel() {
+    final modeTypeNames = ['Axial', 'Tangential', 'Oblique'];
+    final targetNames = ['Flat', 'Harman', 'B&K', 'BBC', 'X-Curve'];
+
+    return Container(
+      margin: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xDD0D0D18),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: FabFilterColors.green.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(children: [
+            const Icon(Icons.spatial_audio_off, size: 14, color: FabFilterColors.green),
+            const SizedBox(width: 6),
+            Text('ROOM CORRECTION', style: TextStyle(
+              color: FabFilterColors.green, fontSize: 10,
+              fontWeight: FontWeight.bold, letterSpacing: 1)),
+            const Spacer(),
+            GestureDetector(
+              onTap: () => setState(() => _roomCorrectionActive = false),
+              child: const Icon(Icons.close, size: 14, color: FabFilterColors.textTertiary)),
+          ]),
+          const SizedBox(height: 8),
+
+          // Step 1: Capture
+          if (_roomCorrectionStep == 0) ...[
+            Text('Reproduce testni signal ili pink noise u prostoriji.',
+              style: TextStyle(color: FabFilterColors.textSecondary, fontSize: 9)),
+            const SizedBox(height: 6),
+            GestureDetector(
+              onTap: _startRoomCapture,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: FabFilterColors.green.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: FabFilterColors.green)),
+                child: Text('▶ CAPTURE (5s)', style: TextStyle(
+                  color: FabFilterColors.green, fontSize: 9, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+
+          // Step 1b: Capturing...
+          if (_roomCorrectionStep == 1) ...[
+            Row(children: [
+              Expanded(child: LinearProgressIndicator(
+                value: _roomCaptureProgress,
+                backgroundColor: const Color(0x22FFFFFF),
+                valueColor: const AlwaysStoppedAnimation(FabFilterColors.green),
+              )),
+              const SizedBox(width: 8),
+              Text('${(_roomCaptureProgress * 100).round()}%',
+                style: TextStyle(color: FabFilterColors.green, fontSize: 9)),
+            ]),
+          ],
+
+          // Step 2: Analyzed — show room modes
+          if (_roomCorrectionStep == 2) ...[
+            Text('Detektovano ${_roomModes.length} sobnih modova:',
+              style: TextStyle(color: FabFilterColors.textSecondary, fontSize: 9)),
+            const SizedBox(height: 4),
+            if (_roomModes.isNotEmpty)
+              SizedBox(
+                height: 60,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _roomModes.length,
+                  itemBuilder: (_, i) {
+                    final m = _roomModes[i];
+                    return Container(
+                      width: 70, margin: const EdgeInsets.only(right: 4),
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: const Color(0x18FFFFFF),
+                        borderRadius: BorderRadius.circular(4)),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('${m.freq.round()} Hz', style: TextStyle(
+                            color: FabFilterColors.green, fontSize: 9, fontWeight: FontWeight.bold)),
+                          Text('${m.mag > 0 ? '+' : ''}${m.mag.toStringAsFixed(1)} dB',
+                            style: TextStyle(
+                              color: m.mag > 0 ? FabFilterColors.orange : FabFilterColors.cyan,
+                              fontSize: 8)),
+                          Text('Q:${m.q.toStringAsFixed(1)} ${modeTypeNames[m.type_.clamp(0, 2)]}',
+                            style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 7)),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            const SizedBox(height: 6),
+            // Target curve picker
+            Row(children: [
+              Text('Target: ', style: TextStyle(color: FabFilterColors.textTertiary, fontSize: 8)),
+              ...List.generate(5, (i) => Padding(
+                padding: const EdgeInsets.only(right: 3),
+                child: GestureDetector(
+                  onTap: () => setState(() => _roomTargetCurve = i),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _roomTargetCurve == i
+                          ? FabFilterColors.green.withValues(alpha: 0.3) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(3),
+                      border: Border.all(color: _roomTargetCurve == i
+                          ? FabFilterColors.green : FabFilterColors.border)),
+                    child: Text(targetNames[i], style: TextStyle(
+                      color: _roomTargetCurve == i ? FabFilterColors.green : FabFilterColors.textTertiary,
+                      fontSize: 7, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              )),
+            ]),
+            const SizedBox(height: 6),
+            GestureDetector(
+              onTap: _generateRoomCorrection,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: FabFilterColors.green.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: FabFilterColors.green)),
+                child: Text('GENERATE CORRECTION', style: TextStyle(
+                  color: FabFilterColors.green, fontSize: 9, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+
+          // Step 3: Correction generated — apply
+          if (_roomCorrectionStep == 3) ...[
+            Text('Generisano $_roomCorrectionBands korekcijskih bandova.',
+              style: TextStyle(color: FabFilterColors.green, fontSize: 9)),
+            const SizedBox(height: 6),
+            Row(children: [
+              GestureDetector(
+                onTap: _applyRoomCorrection,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: FabFilterColors.green.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: FabFilterColors.green)),
+                  child: Text('APPLY TO EQ', style: TextStyle(
+                    color: FabFilterColors.green, fontSize: 9, fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => setState(() => _roomCorrectionStep = 0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: FabFilterColors.border)),
+                  child: Text('RETRY', style: TextStyle(
+                    color: FabFilterColors.textTertiary, fontSize: 9, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ]),
+          ],
+        ],
+      ),
+    );
+  }
+
   void _showFullscreen(BuildContext ctx) {
     showDialog(
       context: ctx,
@@ -2477,6 +2850,12 @@ class _EqDisplayPainter extends CustomPainter {
   final bool showGroupDelay;
   /// E8.2: Color by frequency
   final bool freqColorMode;
+  /// E2.1: Pre-EQ spectrum overlay
+  final List<double> preSpectrum;
+  /// E8.3: Waterfall/sonogram buffer
+  final List<List<double>> waterfallBuffer;
+  /// E7.2: Solo band index for spectrum coloring (-1 = none)
+  final int soloBandIdx;
 
   _EqDisplayPainter({
     required this.bands,
@@ -2495,6 +2874,9 @@ class _EqDisplayPainter extends CustomPainter {
     this.phaseCurve,
     this.showGroupDelay = false,
     this.freqColorMode = false,
+    this.preSpectrum = const [],
+    this.waterfallBuffer = const [],
+    this.soloBandIdx = -1,
   });
 
   @override
@@ -2509,6 +2891,7 @@ class _EqDisplayPainter extends CustomPainter {
 
     _drawGrid(canvas, size);
     if (analyzerOn && spectrum.isNotEmpty) _drawSpectrum(canvas, size);
+    if (waterfallBuffer.isNotEmpty) _drawWaterfall(canvas, size);
     _drawEqCurve(canvas, size);
     if (phaseCurve != null) _drawPhaseCurve(canvas, size);
     if (showGroupDelay && phaseCurve != null) _drawGroupDelay(canvas, size);
@@ -2582,6 +2965,7 @@ class _EqDisplayPainter extends CustomPainter {
   }
 
   void _drawSpectrum(Canvas canvas, Size size) {
+    if (spectrum.length < 2) return;
     // Frequency-proportional smoothing
     final smoothed = List<double>.from(spectrum);
     for (int pass = 0; pass < 2; pass++) {
@@ -2618,27 +3002,39 @@ class _EqDisplayPainter extends CustomPainter {
       );
     }
 
+    // E7.2: Solo band spectrum coloring — yellow when solo active
+    final isSolo = soloBandIdx >= 0;
+    final specFillColors = isSolo
+        ? [const Color(0x40FFD700), const Color(0x18FFD700), const Color(0x05FFD700)]
+        : [const Color(0x404A9EFF), const Color(0x184A9EFF), const Color(0x054A9EFF)];
+    final specLineColor = isSolo ? const Color(0x88FFD700) : const Color(0x884A9EFF);
+
     // Spectrum fill gradient
     final fill = Path()..addPath(curve, Offset.zero)
       ..lineTo(size.width, size.height)..lineTo(0, size.height)..close();
     canvas.drawPath(fill, Paint()..shader = ui.Gradient.linear(
       Offset(0, 0), Offset(0, size.height),
-      [
-        const Color(0x404A9EFF),
-        const Color(0x184A9EFF),
-        const Color(0x054A9EFF),
-      ],
+      specFillColors,
       [0.0, 0.5, 1.0],
     ));
 
     // Spectrum line
     canvas.drawPath(curve, Paint()
-      ..color = const Color(0x884A9EFF)
-      ..strokeWidth = 1.2
+      ..color = specLineColor
+      ..strokeWidth = isSolo ? 1.6 : 1.2
       ..style = PaintingStyle.stroke);
 
+    // E7.2: Solo label when active
+    if (isSolo) {
+      final tp = TextPainter(
+        text: TextSpan(text: 'SOLO SPECTRUM', style: TextStyle(
+          color: const Color(0xCCFFD700), fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1)),
+        textDirection: TextDirection.ltr)..layout();
+      tp.paint(canvas, Offset(size.width - tp.width - 8, 6));
+    }
+
     // Peak hold thin line
-    if (peakHold.isNotEmpty && peakHold.length == smoothed.length) {
+    if (peakHold.length > 1 && peakHold.length == smoothed.length) {
       final peakPath = Path();
       for (int i = 0; i < peakHold.length; i++) {
         final x = (i / (peakHold.length - 1)) * size.width;
@@ -2652,7 +3048,7 @@ class _EqDisplayPainter extends CustomPainter {
     }
 
     // E2.4: Frozen spectrum overlay (white dashed)
-    if (frozenSpectrum.isNotEmpty) {
+    if (frozenSpectrum.length > 1) {
       final frozenPath = Path();
       for (int i = 0; i < frozenSpectrum.length; i++) {
         final x = (i / (frozenSpectrum.length - 1)) * size.width;
@@ -2664,6 +3060,63 @@ class _EqDisplayPainter extends CustomPainter {
         ..strokeWidth = 1.0
         ..style = PaintingStyle.stroke);
     }
+
+    // E2.1: Pre-EQ spectrum overlay (green dashed)
+    if (preSpectrum.length > 1) {
+      final prePath = Path();
+      for (int i = 0; i < preSpectrum.length; i++) {
+        final x = (i / (preSpectrum.length - 1)) * size.width;
+        final y = size.height - ((preSpectrum[i].clamp(-80.0, 0.0) + 80) / 80) * size.height;
+        i == 0 ? prePath.moveTo(x, y) : prePath.lineTo(x, y);
+      }
+      canvas.drawPath(prePath, Paint()
+        ..color = const Color(0x6640CC80)
+        ..strokeWidth = 1.0
+        ..style = PaintingStyle.stroke);
+    }
+  }
+
+  /// E8.3: Spectrum waterfall/sonogram — 2D spectrogram (time × freq × amplitude as color)
+  void _drawWaterfall(Canvas canvas, Size size) {
+    if (waterfallBuffer.isEmpty) return;
+    final numFrames = waterfallBuffer.length;
+    // Render in bottom 40% of display as a semi-transparent overlay
+    final wfHeight = size.height * 0.4;
+    final wfTop = size.height - wfHeight;
+    final rowH = wfHeight / numFrames;
+
+    for (int row = 0; row < numFrames; row++) {
+      final frame = waterfallBuffer[row];
+      if (frame.isEmpty) continue;
+      final y = wfTop + row * rowH;
+
+      if (frame.length < 2) continue;
+      for (int col = 0; col < frame.length; col++) {
+        final x = (col / (frame.length - 1)) * size.width;
+        final nextX = ((col + 1) / (frame.length - 1)) * size.width;
+        // Map dB (-80..0) to intensity (0..1)
+        final intensity = ((frame[col] + 80) / 80).clamp(0.0, 1.0);
+        if (intensity < 0.02) continue; // skip silent bins for performance
+
+        // HSV heatmap: blue(240°) → cyan(180°) → green(120°) → yellow(60°) → red(0°)
+        final hue = (1.0 - intensity) * 240.0;
+        final color = HSVColor.fromAHSV(
+          intensity * 0.6, // alpha fades with intensity
+          hue, 0.9, 0.5 + intensity * 0.5,
+        ).toColor();
+
+        canvas.drawRect(
+          Rect.fromLTRB(x, y, nextX + 0.5, y + rowH + 0.5),
+          Paint()..color = color,
+        );
+      }
+    }
+
+    // Border line between waterfall and main display
+    canvas.drawLine(
+      Offset(0, wfTop), Offset(size.width, wfTop),
+      Paint()..color = const Color(0x44FFFFFF)..strokeWidth = 0.5,
+    );
   }
 
   void _drawEqCurve(Canvas canvas, Size size) {
@@ -2681,7 +3134,8 @@ class _EqDisplayPainter extends CustomPainter {
         final mid = (lo + hi) ~/ 2;
         if (curveFrequencies[mid] <= freq) { lo = mid; } else { hi = mid; }
       }
-      final t = (freq - curveFrequencies[lo]) / (curveFrequencies[hi] - curveFrequencies[lo]);
+      final denom = curveFrequencies[hi] - curveFrequencies[lo];
+      final t = denom > 0 ? (freq - curveFrequencies[lo]) / denom : 0.0;
       return curve[lo] + (curve[hi] - curve[lo]) * t;
     }
 
@@ -3031,5 +3485,15 @@ class _EqDisplayPainter extends CustomPainter {
     bands != old.bands || selectedIdx != old.selectedIdx || hoverIdx != old.hoverIdx ||
     spectrum != old.spectrum || peakHold != old.peakHold || analyzerOn != old.analyzerOn ||
     previewPos != old.previewPos || isDragging != old.isDragging ||
-    !identical(compositeCurve, old.compositeCurve);
+    !identical(compositeCurve, old.compositeCurve) ||
+    !identical(bandCurves, old.bandCurves) ||
+    !identical(curveFrequencies, old.curveFrequencies) ||
+    gainScale != old.gainScale ||
+    frozenSpectrum != old.frozenSpectrum ||
+    phaseCurve != old.phaseCurve ||
+    showGroupDelay != old.showGroupDelay ||
+    freqColorMode != old.freqColorMode ||
+    preSpectrum != old.preSpectrum ||
+    waterfallBuffer != old.waterfallBuffer ||
+    soloBandIdx != old.soloBandIdx;
 }
