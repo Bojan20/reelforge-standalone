@@ -13,6 +13,7 @@
 | Config Undo/Redo + Visual Transition Editor | Done |
 | **REVERB ULTIMATE — Valhalla-tier upgrade** | **TODO (0/47)** |
 | **EQ ULTIMATE — Pro-Q 4 tier upgrade** | **TODO (0/52)** |
+| **DELAY ULTIMATE — Timeless 3 tier upgrade** | **TODO (0/55)** |
 
 Analyzer: 0 errors, 0 warnings
 
@@ -141,7 +142,7 @@ Cilj: Pro-R 2 nivo vizualizacije + novi parametri u UI.
 
 **Prioritet implementacije:** F1 → F2 → F3 → F6 → F4 → F7 → F5 → F9 → F8
 
-**Grand Total: 47 (Reverb) + 52 (EQ) = 99 taskova**
+**Grand Total: 47 (Reverb) + 52 (EQ) + 55 (Delay) = 154 taskova**
 
 ---
 
@@ -276,6 +277,144 @@ Cilj: Wire-uj sve postojeće DSP module u UI.
 | **TOTAL** | | **52** | |
 
 **Prioritet implementacije:** E1 → E3 → E2 → E9 → E5 → E4 → E7 → E6 → E8
+
+---
+
+## DELAY ULTIMATE — Timeless 3 Tier Creative Delay
+
+**Goal:** Podići FF-DLY na nivo FabFilter Timeless 3 kvaliteta zvuka, kreativnosti i UX-a.
+**Scope:** Rust DSP (rf-dsp/src/delay.rs), FFI (rf-engine/dsp_wrappers.rs), Flutter UI (fabfilter_delay_panel.dart)
+**Referenca:** FabFilter Timeless 3, Valhalla Delay, Soundtoys EchoBoy, u-he Colour Copy
+**Trenutno stanje:** PingPongDelay sa 14 parametara, HP/LP feedback filter, basic LFO mod, ducking, freeze — funkcionalan ali basic.
+
+### FAZA D1 — Feedback Filter Upgrade (Multi-Band + Saturation) [0/6]
+
+Trenutno: 2-band HP/LP biquad u feedback-u. Nema parametric, nema saturation, nema filter modulation.
+Cilj: Timeless 3 ima multi-band filter + drive/saturation + filter modulation u feedback petlji.
+
+- [ ] **D1.1** Feedback filter upgrade: HP + parametric mid (freq, Q, gain) + LP — 3-band u feedback petlji
+- [ ] **D1.2** Filter resonance (Q) za HP i LP: 0.5-10.0 (trenutno fiksni Q, nema kontrole)
+- [ ] **D1.3** Feedback drive/saturation: pre-filter tanh soft-clip (0-100%), tube/tape/transistor modes
+- [ ] **D1.4** Filter LFO modulation: moduliraj filter freq sa LFO (sine/tri/saw/square/random, 0.01-20Hz)
+- [ ] **D1.5** Feedback EQ tilt: globalni spektralni nagib feedback-a (-6dB/oct do +6dB/oct) — darkening/brightening po repeatu
+- [ ] **D1.6** Per-tap filter: nezavisni HP/LP po tapu u multi-tap modu
+
+### FAZA D2 — Modulation Engine (LFO + Envelope) [0/7]
+
+Trenutno: sinusni LFO na delay time. Nema waveshape, nema envelope follower, nema multi-target.
+Cilj: Timeless 3 level modulation — multiple LFO shapes, envelope follower, multi-target routing.
+
+- [ ] **D2.1** LFO waveshape: sine, triangle, saw up, saw down, square, sample&hold, random smooth (7 shapes)
+- [ ] **D2.2** LFO tempo sync: sync na BPM (1/1 do 1/64, dotted, triplet) pored free Hz
+- [ ] **D2.3** Drugi LFO (LFO 2): nezavisan rate/shape/sync, rutabilan na bilo koji parametar
+- [ ] **D2.4** Envelope follower: prati input signal → moduliraj feedback, filter, pan, delay time
+- [ ] **D2.5** Modulation matrix: LFO1→target, LFO2→target, ENV→target sa amount knobovima (min 6 rutinga)
+- [ ] **D2.6** LFO retrigger opcija: restart LFO na svaki input transient (za ritmičke efekte)
+- [ ] **D2.7** Pitch shift u modulaciji: ±12 semitones detune na delay time (granular pitch effect)
+
+### FAZA D3 — Tempo Sync & Rhythm Engine [0/6]
+
+Trenutno: tempo sync flag postoji ali NIJE implementiran u wrapperu (UI handles conversion ručno).
+Cilj: Pravi tempo sync sa subdivision picker, swing, dotted/triplet, tap tempo.
+
+- [ ] **D3.1** Pravi tempo sync u DSP: primi BPM → auto-računa delay time za note values
+- [ ] **D3.2** Note value picker: 1/1, 1/2, 1/4, 1/8, 1/16, 1/32, 1/64 + dotted + triplet varijante (21 opcija)
+- [ ] **D3.3** Swing control: 0-100% swing na sinhronizovane delaye (pomera svaki drugi repeat)
+- [ ] **D3.4** Tap tempo: korisnik tapuje tempo dugmetom → auto-setuje delay time
+- [ ] **D3.5** Host BPM sync: automatski prati DAW tempo promene u realnom vremenu
+- [ ] **D3.6** Independent L/R note values: L=1/4 dotted, R=1/8 triplet — polyrhythmic delays
+
+### FAZA D4 — Multi-Tap Engine Pro [0/7]
+
+Trenutno: do 8 tapova sa delay/level/pan. Feedback samo sa poslednjeg tapa.
+Cilj: Timeless 3 nivo — do 16 tapova, per-tap feedback, diffusion, pattern presets.
+
+- [ ] **D4.1** Tap count: 8 → 16 maksimum
+- [ ] **D4.2** Per-tap feedback: svaki tap ima nezavisan feedback amount (ne samo poslednji)
+- [ ] **D4.3** Per-tap pitch shift: ±12 semitones po tapu (chromatic delay patterns)
+- [ ] **D4.4** Tap pattern presets: Rhythmic, Cascade, Ping-Pong Spread, Fibonacci, Golden Ratio, Random
+- [ ] **D4.5** Diffusion per-tap: allpass smearing na svakom tapu (0-100%) — reverb-like washing
+- [ ] **D4.6** Tap drag editor: drag tapove na timeline vizualizaciji (delay time × level × pan)
+- [ ] **D4.7** Tap pattern randomize: dugme koje generiše random tap pattern (sa seed kontrolom)
+
+### FAZA D5 — Stereo & Spatial Processing [0/5]
+
+Trenutno: basic ping-pong + width (M/S). Nema haas, nema spatial modes, nema cross-feedback routing.
+Cilj: Napredno stereo procesiranje sa multiple routing topologijama.
+
+- [ ] **D5.1** Stereo routing modes: Stereo (nezavisni L/R), Ping-Pong, Cross-Feed, Dual Mono, Mid-Side
+- [ ] **D5.2** Cross-feedback amount: L feedback → R input i obrnuto (0-100%) — spiralni stereo efekt
+- [ ] **D5.3** Pan modulation: LFO na pan poziciju wet signala (auto-pan u delay repovima)
+- [ ] **D5.4** Haas delay: 0-30ms micro-delay na jednom kanalu za stereo widening bez feedback-a
+- [ ] **D5.5** Spatial diffusion: allpass network na output-u (0-100%) — razmazuje repove u prostor
+
+### FAZA D6 — Freeze & Glitch Engine [0/5]
+
+Trenutno: basic freeze (kopira buffer, ponavlja). Nema granular, nema stutter, nema reverse.
+Cilj: Kreativni freeze sa granular, reverse, stutter, i glitch opcijama.
+
+- [ ] **D6.1** Granular freeze: zamrznut signal deli na grain-ove (10-200ms) sa overlap, pitch, spray
+- [ ] **D6.2** Reverse delay: reprodukuj delay buffer unazad (classic reverse echo)
+- [ ] **D6.3** Stutter/Glitch mode: retriger poslednji fragment na ritam (1/4, 1/8, 1/16) sa decay
+- [ ] **D6.4** Freeze fade-in/out: smooth crossfade (10-500ms) umesto hard switch
+- [ ] **D6.5** Infinite feedback mode: feedback=100% sa soft limiter u petlji (bezbedno beskonačno ponavljanje)
+
+### FAZA D7 — Analog Character / Vintage Modes [0/5]
+
+Trenutno: čist digitalni delay. Nema wow/flutter, nema tape saturation, nema noise.
+Cilj: Emulacija vintage delay hardvera — tape, bucket brigade (BBD), oil can.
+
+- [ ] **D7.1** Tape mode: wow (0.5-3Hz) + flutter (3-15Hz) modulacija + tape saturation (2nd harmonic)
+- [ ] **D7.2** BBD mode: clock noise, aliasing na kratkim delay times, LP degradation po repeatu
+- [ ] **D7.3** Oil Can mode: spring-based delay emulacija sa nelinearnom delay response
+- [ ] **D7.4** Lo-Fi mode: bit crush (4-16 bit) + sample rate reduction (1kHz-48kHz) u feedback petlji
+- [ ] **D7.5** Noise/Hiss generator: adjustable analog noise floor (-80dB do -40dB) za vintage karakter
+
+### FAZA D8 — Flutter UI Upgrade [0/8]
+
+Trenutno: FabFilter panel sa 14 knobova + basic tap visualizer. Nema waveform, nema tap editor, nema mod routing.
+Cilj: Timeless 3 nivo vizualizacije i interakcije.
+
+- [ ] **D8.1** Tap timeline editor: drag tapove na XY (time × level), prikaz pan sa bojom, per-tap enable/solo
+- [ ] **D8.2** Feedback waveform display: real-time prikaz delay buffer sadržaja (osciloskop stil)
+- [ ] **D8.3** Filter frequency response curve: prikaz HP/Mid/LP filtera u feedback-u
+- [ ] **D8.4** Modulation routing panel: vizualni patcher (LFO1/LFO2/ENV → parametri sa amount sliderima)
+- [ ] **D8.5** LFO waveform display: prikaz trenutne LFO faze i shape-a
+- [ ] **D8.6** Tempo sync note grid: vizualni picker sa notama na mreži (kao Timeless 3 note selector)
+- [ ] **D8.7** Vintage mode selector: Tape/BBD/OilCan/LoFi/Clean — sa vizualnim indikatorom stila
+- [ ] **D8.8** Freeze visualization: prikaz zamrznutog buffera sa grain pozicijama (ako granular)
+
+### FAZA D9 — FFI + DelayWrapper Update [0/3]
+
+- [ ] **D9.1** Proširiti DelayWrapper: 14 → ~35 parametara (filter mid, drive, LFO2, envelope, swing, vintage mode, per-tap controls)
+- [ ] **D9.2** FFI setteri za sve nove parametre u native_ffi.dart
+- [ ] **D9.3** Preset sistem: 25+ factory preseta (Clean Digital, Tape Echo, BBD Chorus, Dub Delay, Slapback, Dotted 8th, Shimmer Delay, Reverse Wash, Glitch Stutter, Ping-Pong Wide, Polyrhythm, Lo-Fi Ambient, Oil Can Spring, Granular Freeze, Ducking Vocal...)
+
+### FAZA D10 — Sidechain & Advanced [0/3]
+
+- [ ] **D10.1** External sidechain za ducking: duck delay prema drugom kanalu (npr. vokal duckuje delay)
+- [ ] **D10.2** MIDI trigger: MIDI note → trigger freeze/stutter/reverse u realnom vremenu
+- [ ] **D10.3** Delay time smoothing: interpolacija kad se menja delay time (pitch glide vs. crossfade mode)
+
+---
+
+### Delay Rezime faza
+
+| Faza | Opis | Taskova | Impact |
+|------|------|---------|--------|
+| D1 | Feedback filter + saturation | 6 | ★★★★★ (najveći zvučni skok) |
+| D2 | Modulation engine (LFO shapes, ENV) | 7 | ★★★★★ |
+| D3 | Tempo sync & rhythm | 6 | ★★★★☆ |
+| D4 | Multi-tap engine pro | 7 | ★★★★☆ |
+| D5 | Stereo & spatial | 5 | ★★★☆☆ |
+| D6 | Freeze & glitch | 5 | ★★★★☆ (kreativnost) |
+| D7 | Vintage modes (tape/BBD/lo-fi) | 5 | ★★★★☆ (karakter) |
+| D8 | UI vizualizacija | 8 | ★★★☆☆ |
+| D9 | FFI + preseti | 3 | ★★☆☆☆ |
+| D10 | Sidechain & advanced | 3 | ★★☆☆☆ |
+| **TOTAL** | | **55** | |
+
+**Prioritet implementacije:** D1 → D2 → D3 → D7 → D4 → D6 → D5 → D9 → D8 → D10
 
 ---
 
