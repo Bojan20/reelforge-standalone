@@ -519,20 +519,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// CENTRAL BRIDGE: Ensure a composite event exists in MiddlewareProvider for a stage+audio assignment.
   /// Called from: Quick Assign, onAudioAssign, mount sync — ALL paths converge here.
   /// Creates new event or updates existing one. Auto-detects duration via FFI.
-  void _ensureCompositeEventForStage(String stage, String audioPath, {bool skipUndo = false, bool skipNotify = false}) {
+  void _ensureCompositeEventForStage(String stage, String audioPath, {String? label, bool skipUndo = false, bool skipNotify = false}) {
 
     final middleware = context.read<MiddlewareProvider>();
     final eventId = 'audio_$stage';
 
-    // Skip stages that are already layers in another composite event (e.g., MUSIC_BASE_L1/L2/L3 in GAME_START)
-    // These are managed by _createBaseGameMusicComposite and should NOT get separate events.
-    const _compositeLayerStages = {'MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5'};
-    if (_compositeLayerStages.contains(stage)) {
-      // Only skip if the GAME_START composite already exists with this audio
-      final gameStart = middleware.compositeEvents.where((e) =>
-          e.triggerStages.contains('GAME_START') && e.layers.any((l) => l.audioPath == audioPath)).firstOrNull;
-      if (gameStart != null) return;
-    }
+    // MUSIC_BASE_L1-L5 are independent dynamic music layers (not sub-layers of GAME_START).
+    // GAME_START = one-shot event after splash screen.
+    // MUSIC_BASE_L1-L5 = runtime-switchable base game music intensity levels.
+    // Each gets its own composite event.
 
     // Check if already exists — by ID or by trigger stage (prevent duplicates)
     var existing = middleware.compositeEvents.where((e) => e.id == eventId).firstOrNull;
@@ -765,7 +760,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       }
       mergedLayers.addAll(manualLayers);
 
+      final resolvedName = label ?? StageConfigurationService.instance.getDisplayLabel(stage);
       middleware.updateCompositeEvent(existing.copyWith(
+        name: resolvedName,
         layers: mergedLayers,
         overlap: shouldOverlap,
         targetBusId: effectiveTargetBus,
@@ -781,9 +778,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
       middleware.addCompositeEvent(SlotCompositeEvent(
         id: eventId,
-        name: stage.replaceAll('_', ' ').split(' ').map((w) =>
-          w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}' : w
-        ).join(' '),
+        name: label ?? StageConfigurationService.instance.getDisplayLabel(stage),
         category: category,
         color: color,
         layers: baseLayers,
@@ -10181,9 +10176,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               setState(() => _quickAssignSelectedSlot = stage);
             }
           },
-          onAudioAssign: (stage, audioPath) {
+          onAudioAssign: (stage, audioPath, [label]) {
             projectProvider.setAudioAssignment(stage, audioPath);
-            _ensureCompositeEventForStage(stage, audioPath);
+            _ensureCompositeEventForStage(stage, audioPath, label: label);
             final mw = context.read<MiddlewareProvider>();
             final ce = mw.compositeEvents.where((e) => e.id == 'audio_$stage').firstOrNull;
             if (ce != null) _syncEventToRegistry(ce);

@@ -78,6 +78,7 @@ extension StageCategoryExtension on StageCategory {
 /// Complete stage definition with all configuration
 class StageDefinition {
   final String name;
+  final String? displayLabel;  // Human-friendly label (synced with ASSIGN tab)
   final StageCategory category;
   final int priority;         // 0-100
   final SpatialBus bus;
@@ -89,6 +90,7 @@ class StageDefinition {
 
   const StageDefinition({
     required this.name,
+    this.displayLabel,
     required this.category,
     this.priority = 50,
     this.bus = SpatialBus.sfx,
@@ -101,6 +103,7 @@ class StageDefinition {
 
   StageDefinition copyWith({
     String? name,
+    String? displayLabel,
     StageCategory? category,
     int? priority,
     SpatialBus? bus,
@@ -112,6 +115,7 @@ class StageDefinition {
   }) {
     return StageDefinition(
       name: name ?? this.name,
+      displayLabel: displayLabel ?? this.displayLabel,
       category: category ?? this.category,
       priority: priority ?? this.priority,
       bus: bus ?? this.bus,
@@ -125,6 +129,7 @@ class StageDefinition {
 
   Map<String, dynamic> toJson() => {
     'name': name,
+    if (displayLabel != null) 'displayLabel': displayLabel,
     'category': category.name,
     'priority': priority,
     'bus': bus.name,
@@ -138,6 +143,7 @@ class StageDefinition {
   factory StageDefinition.fromJson(Map<String, dynamic> json) {
     return StageDefinition(
       name: json['name'] as String,
+      displayLabel: json['displayLabel'] as String?,
       category: StageCategory.values.firstWhere(
         (c) => c.name == json['category'],
         orElse: () => StageCategory.custom,
@@ -197,6 +203,452 @@ class StageConfigurationService extends ChangeNotifier {
     final normalized = name.toUpperCase().trim();
     return _stages[normalized] ?? _customStages[normalized];
   }
+
+  /// Get display label for stage — single source of truth for event names.
+  /// Used by _ensureCompositeEventForStage to name composite events consistently
+  /// with ASSIGN tab labels. Falls back to Title Case conversion if no label defined.
+  String getDisplayLabel(String stage) {
+    final upper = stage.toUpperCase();
+    // 1. Check centralized label map (matches ASSIGN tab _SlotConfig labels)
+    final label = _stageDisplayLabels[upper];
+    if (label != null) return label;
+    // 2. Check definition displayLabel
+    final def = getStage(stage);
+    if (def?.displayLabel != null) return def!.displayLabel!;
+    // 3. Dynamic per-reel labels
+    final reelMatch = RegExp(r'^REEL_STOP_(\d+)$').firstMatch(upper);
+    if (reelMatch != null) return 'Reel ${int.parse(reelMatch.group(1)!) + 1} Stop';
+    final nearMissReel = RegExp(r'^NEAR_MISS_REEL_(\d+)$').firstMatch(upper);
+    if (nearMissReel != null) return 'Near Miss R${int.parse(nearMissReel.group(1)!) + 1}';
+    final anticR = RegExp(r'^ANTICIPATION_TENSION_R(\d+)$').firstMatch(upper);
+    if (anticR != null) return 'Reel ${anticR.group(1)} Tension';
+    final anticRL = RegExp(r'^ANTICIPATION_TENSION_R(\d+)_L(\d+)$').firstMatch(upper);
+    if (anticRL != null) return 'R${anticRL.group(1)} Level ${anticRL.group(2)}';
+    final scatterLand = RegExp(r'^SCATTER_LAND_(\d+)$').firstMatch(upper);
+    if (scatterLand != null) return 'Scatter #${scatterLand.group(1)}';
+    final cascadeStep = RegExp(r'^CASCADE_STEP_(\d+)$').firstMatch(upper);
+    if (cascadeStep != null) return 'Cascade ${cascadeStep.group(1)}';
+    if (upper == 'CASCADE_STEP_6PLUS') return 'Cascade 6+';
+    final fsScatterR = RegExp(r'^FS_SCATTER_LAND_R(\d+)$').firstMatch(upper);
+    if (fsScatterR != null) return 'FS Scatter R${fsScatterR.group(1)}';
+    final fsRetrigger = RegExp(r'^FS_RETRIGGER_(\d+)$').firstMatch(upper);
+    if (fsRetrigger != null) return '+${fsRetrigger.group(1)} Free Spins';
+    final multiX = RegExp(r'^MULTIPLIER_X(\d+)$').firstMatch(upper);
+    if (multiX != null) return 'Multi x${multiX.group(1)}';
+    // 4. Music context dynamic labels (MUSIC_BASE_L1 → Base Game L1)
+    final musicLayer = RegExp(r'^MUSIC_(\w+)_L(\d+)$').firstMatch(upper);
+    if (musicLayer != null) {
+      final ctx = musicLayer.group(1)!.split('_').map((w) =>
+        w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}' : w
+      ).join(' ');
+      return '$ctx L${musicLayer.group(2)}';
+    }
+    final musicIntro = RegExp(r'^MUSIC_(\w+)_INTRO$').firstMatch(upper);
+    if (musicIntro != null) {
+      final ctx = musicIntro.group(1)!.split('_').map((w) =>
+        w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}' : w
+      ).join(' ');
+      return '$ctx Intro';
+    }
+    final musicOutro = RegExp(r'^MUSIC_(\w+)_OUTRO$').firstMatch(upper);
+    if (musicOutro != null) {
+      final ctx = musicOutro.group(1)!.split('_').map((w) =>
+        w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}' : w
+      ).join(' ');
+      return '$ctx Outro';
+    }
+    // 5. Fallback: Title Case from stage name (UI_SPIN_PRESS → Ui Spin Press)
+    return stage.replaceAll('_', ' ').split(' ').map((w) =>
+      w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}' : w
+    ).join(' ');
+  }
+
+  /// Centralized stage → display label map (SSoT for ASSIGN tab + composite event names)
+  static const _stageDisplayLabels = <String, String>{
+    // ── PHASE 1: CORE LOOP ──
+    // Idle/Attract
+    'ATTRACT_LOOP': 'Attract Loop',
+    'ATTRACT_EXIT': 'Attract Exit',
+    'IDLE_LOOP': 'Idle Loop',
+    'IDLE_TO_ACTIVE': 'Idle → Active',
+    'GAME_READY': 'Game Ready',
+    'GAME_START': 'Base Game Start',
+    // Spin Controls
+    'UI_SPIN_PRESS': 'Spin Press',
+    'SPIN_CANCEL': 'Spin Cancel',
+    'UI_STOP_PRESS': 'Stop Press',
+    'QUICK_STOP': 'Quick Stop',
+    'SLAM_STOP': 'Slam Stop',
+    'SLAM_STOP_IMPACT': 'Slam Impact',
+    'UI_AUTOPLAY_START': 'AutoSpin On',
+    'UI_AUTOPLAY_STOP': 'AutoSpin Off',
+    'UI_TURBO_ON': 'Turbo On',
+    'UI_TURBO_OFF': 'Turbo Off',
+    // Reel Animation
+    'REEL_SPIN_LOOP': 'Spin Loop',
+    'SPIN_ACCELERATION': 'Spin Accel',
+    'SPIN_DECELERATION': 'Spin Decel',
+    'TURBO_SPIN_LOOP': 'Turbo Loop',
+    'REEL_SLOW_STOP': 'Slow Stop',
+    'REEL_SHAKE': 'Reel Shake',
+    'REEL_WIGGLE': 'Reel Wiggle',
+    // Reel Stops
+    'REEL_STOP': 'Generic Stop',
+    // Anticipation
+    'ANTICIPATION_TENSION': 'Anticipation (Global)',
+    'ANTICIPATION_MISS': 'Anticipation Miss',
+    // Spin End / Near Miss
+    'SPIN_END': 'Spin End',
+    'NO_WIN': 'No Win',
+    'NEAR_MISS': 'Near Miss (Generic)',
+    'NEAR_MISS_SCATTER': 'Near Miss Scatter',
+    'NEAR_MISS_BONUS': 'Near Miss Bonus',
+    'NEAR_MISS_JACKPOT': 'Near Miss JP',
+    'NEAR_MISS_WILD': 'Near Miss Wild',
+    'NEAR_MISS_FEATURE': 'Near Miss Feature',
+
+    // ── PHASE 2: WINS ──
+    // Win Evaluation
+    'WIN_EVAL': 'Win Evaluate',
+    'WIN_DETECTED': 'Win Detected',
+    'WIN_CALCULATE': 'Win Calculate',
+    // Paylines
+    'PAYLINE_HIGHLIGHT': 'Payline Highlight',
+    'WIN_LINE_SHOW': 'Line Show',
+    'WIN_LINE_HIDE': 'Line Hide',
+    'WIN_SYMBOL_HIGHLIGHT': 'Symbol Highlight (Generic)',
+    'WIN_LINE_CYCLE': 'Line Cycle',
+    // Per-Symbol Win Highlights
+    'WIN_SYMBOL_HIGHLIGHT_HP': 'HP (All) Win',
+    'WIN_SYMBOL_HIGHLIGHT_HP1': 'HP1 Win',
+    'WIN_SYMBOL_HIGHLIGHT_HP2': 'HP2 Win',
+    'WIN_SYMBOL_HIGHLIGHT_HP3': 'HP3 Win',
+    'WIN_SYMBOL_HIGHLIGHT_HP4': 'HP4 Win',
+    'WIN_SYMBOL_HIGHLIGHT_MP': 'MP (All) Win',
+    'WIN_SYMBOL_HIGHLIGHT_MP1': 'MP1 Win',
+    'WIN_SYMBOL_HIGHLIGHT_MP2': 'MP2 Win',
+    'WIN_SYMBOL_HIGHLIGHT_MP3': 'MP3 Win',
+    'WIN_SYMBOL_HIGHLIGHT_MP4': 'MP4 Win',
+    'WIN_SYMBOL_HIGHLIGHT_MP5': 'MP5 Win',
+    'WIN_SYMBOL_HIGHLIGHT_LP': 'LP (All) Win',
+    'WIN_SYMBOL_HIGHLIGHT_LP1': 'LP1 Win',
+    'WIN_SYMBOL_HIGHLIGHT_LP2': 'LP2 Win',
+    'WIN_SYMBOL_HIGHLIGHT_LP3': 'LP3 Win',
+    'WIN_SYMBOL_HIGHLIGHT_LP4': 'LP4 Win',
+    'WIN_SYMBOL_HIGHLIGHT_LP5': 'LP5 Win',
+    'WIN_SYMBOL_HIGHLIGHT_LP6': 'LP6 Win',
+    'WIN_SYMBOL_HIGHLIGHT_WILD': 'Wild Win',
+    'WIN_SYMBOL_HIGHLIGHT_SCATTER': 'Scatter Win',
+    'WIN_SYMBOL_HIGHLIGHT_BONUS': 'Bonus Win',
+    // Win Tiers (static defaults — P5 dynamic tiers use WinTierConfig labels)
+    'WIN_PRESENT_LOW': 'Low Win (< bet)',
+    'WIN_PRESENT_EQUAL': 'Equal Win (= bet)',
+    'WIN_PRESENT_1': 'Win Tier 1 (>1x, ≤2x)',
+    'WIN_PRESENT_2': 'Win Tier 2 (>2x, ≤4x)',
+    'WIN_PRESENT_3': 'Win Tier 3 (>4x, ≤8x)',
+    'WIN_PRESENT_4': 'Win Tier 4 (>8x, ≤13x)',
+    'WIN_PRESENT_5': 'Win Tier 5 (>13x)',
+    'BIG_WIN_TRIGGER': 'Big Win Trigger (≥20x)',
+    'BIG_WIN_TIER_1': 'Big Win Tier 1 (20x-50x)',
+    'BIG_WIN_TIER_2': 'Big Win Tier 2 (50x-100x)',
+    'BIG_WIN_TIER_3': 'Big Win Tier 3 (100x-250x)',
+    'BIG_WIN_TIER_4': 'Big Win Tier 4 (250x-500x)',
+    'BIG_WIN_TIER_5': 'Big Win Tier 5 (500x+)',
+    // Big Win Stages
+    'BIG_WIN_START': 'Big Win Intro',
+    'BIG_WIN_END': 'Big Win End',
+    'BIG_WIN_TICK_START': 'Big Win Tick Start',
+    'BIG_WIN_TICK_END': 'Big Win Tick End',
+    'COIN_SHOWER_START': 'Coin Shower Start',
+    'COIN_SHOWER_END': 'Coin Shower End',
+    // Rollup
+    'ROLLUP_START': 'Rollup Start',
+    'ROLLUP_TICK': 'Rollup Tick',
+    'ROLLUP_TICK_FAST': 'Rollup Fast',
+    'ROLLUP_TICK_SLOW': 'Rollup Slow',
+    'ROLLUP_ACCELERATION': 'Rollup Accel',
+    'ROLLUP_DECELERATION': 'Rollup Decel',
+    'ROLLUP_END': 'Rollup End',
+    'ROLLUP_SKIP': 'Rollup Skip',
+    // Win Celebration
+    'COIN_BURST': 'Coin Burst',
+    'COIN_DROP': 'Coin Drop',
+    'COIN_SHOWER': 'Coin Shower',
+    'COIN_RAIN': 'Coin Rain',
+    'SCREEN_SHAKE': 'Screen Shake',
+    'LIGHT_FLASH': 'Light Flash',
+    'CONFETTI_BURST': 'Confetti Burst',
+    'FIREWORKS_LAUNCH': 'Fireworks Launch',
+    'FIREWORKS_EXPLODE': 'Fireworks Explode',
+    'WIN_FANFARE': 'Win Fanfare',
+    // Voice Overs
+    'VO_WIN_1': 'VO Win Tier 1',
+    'VO_WIN_2': 'VO Win Tier 2',
+    'VO_WIN_3': 'VO Win Tier 3',
+    'VO_WIN_4': 'VO Win Tier 4',
+    'VO_WIN_5': 'VO Win Tier 5',
+    'VO_BIG_WIN': 'VO Big Win',
+    'VO_CONGRATULATIONS': 'VO Congrats',
+    'VO_INCREDIBLE': 'VO Incredible',
+    'VO_SENSATIONAL': 'VO Sensational',
+
+    // ── CASCADE / TUMBLE ──
+    'CASCADE_START': 'Cascade Start',
+    'CASCADE_STEP': 'Cascade Step',
+    'CASCADE_POP': 'Cascade Pop',
+    'CASCADE_END': 'Cascade End',
+    'CASCADE_SYMBOL_POP': 'Symbol Pop',
+    'CASCADE_SYMBOL_DROP': 'Symbol Drop',
+    'CASCADE_SYMBOL_LAND': 'Symbol Land',
+    'CASCADE_CHAIN_START': 'Chain Start',
+    'CASCADE_CHAIN_CONTINUE': 'Chain Continue',
+    'CASCADE_CHAIN_END': 'Chain End',
+    'CASCADE_ANTICIPATION': 'Cascade Antic',
+    'CASCADE_MEGA': 'Cascade Mega',
+    'TUMBLE_DROP': 'Tumble Drop',
+    'TUMBLE_IMPACT': 'Tumble Impact',
+    'AVALANCHE_TRIGGER': 'Avalanche Trigger',
+    'REACTION_WIN': 'Reaction Win',
+    'GRAVITY_SHIFT': 'Gravity Shift',
+    'REPLACEMENT_FALL': 'Replacement Fall',
+    'CLUSTER_FORM': 'Cluster Form',
+    'CLUSTER_EXPLODE': 'Cluster Explode',
+    'CLUSTER_WIN': 'Cluster Win',
+
+    // ── MULTIPLIERS ──
+    'MULTIPLIER_INCREASE': 'Multi Increase',
+    'MULTIPLIER_APPLY': 'Multi Apply',
+    'MULTIPLIER_MAX': 'Multi Max',
+    'MULTIPLIER_RESET': 'Multi Reset',
+    'PROGRESSIVE_MULTIPLIER': 'Prog Multi',
+    'GLOBAL_MULTIPLIER': 'Global Multi',
+    'MULTIPLIER_TRAIL': 'Trail Multi',
+    'MULTIPLIER_STACK': 'Stack Multi',
+    'RANDOM_MULTIPLIER': 'Random Multi',
+    'MULTIPLIER_WILD': 'Wild Multi',
+    'MULTIPLIER_REEL': 'Reel Multi',
+    'MULTIPLIER_SYMBOL': 'Symbol Multi',
+    'MULTIPLIER_LAND': 'Multi Land',
+    // Modifiers
+    'MODIFIER_TRIGGER': 'Modifier Trigger',
+    'RANDOM_FEATURE': 'Random Feature',
+    'RANDOM_WILD': 'Random Wild',
+    'RANDOM_NUDGE': 'Random Nudge',
+    'RANDOM_RESPIN': 'Random Respin',
+    'RANDOM_UPGRADE': 'Random Upgrade',
+    'LIGHTNING_STRIKE': 'Lightning Strike',
+    'MAGIC_TOUCH': 'Magic Touch',
+
+    // ── PHASE 3: FEATURES ──
+    // Free Spins
+    'FS_HOLD_INTRO': 'Hold Intro',
+    'FS_HOLD_OUTRO': 'Hold Outro',
+    'FS_START': 'FS Start',
+    'FS_SPIN_START': 'Spin Start',
+    'FS_SPIN_END': 'Spin End',
+    'FS_WIN': 'FS Win',
+    'FS_STICKY_WILD': 'Sticky Wild',
+    'FS_EXPANDING_WILD': 'Expand Wild',
+    'FS_MULTIPLIER_UP': 'Multi Up',
+    'FS_SCATTER_LAND': 'FS Scatter',
+    'FS_RETRIGGER': 'Retrigger',
+    'FS_END': 'FS End',
+    'SCATTER_WIN': 'Scatter Win',
+    // Bonus Games
+    'BONUS_TRIGGER': 'Bonus Trigger',
+    'BONUS_ENTER': 'Bonus Enter',
+    'BONUS_STEP': 'Bonus Step',
+    'BONUS_EXIT': 'Bonus Exit',
+    'BONUS_MUSIC': 'Bonus Music',
+    'BONUS_SUMMARY': 'Bonus Summary',
+    'BONUS_TOTAL': 'Bonus Total',
+    'VO_BONUS': 'VO Bonus',
+    // Pick
+    'PICK_REVEAL': 'Pick Reveal',
+    'PICK_GOOD': 'Pick Good',
+    'PICK_BAD': 'Pick Bad',
+    'PICK_BONUS': 'Pick Bonus',
+    'PICK_MULTIPLIER': 'Pick Multi',
+    'PICK_UPGRADE': 'Pick Upgrade',
+    'PICK_COLLECT': 'Pick Collect',
+    'PICK_HOVER': 'Pick Hover',
+    'PICK_CHEST_OPEN': 'Chest Open',
+    'PICK_ALL_REVEALED': 'All Revealed',
+    'PICK_MEGA_PRIZE': 'Mega Prize',
+    // Wheel
+    'WHEEL_START': 'Wheel Start',
+    'WHEEL_SPIN': 'Wheel Spin',
+    'WHEEL_TICK': 'Wheel Tick',
+    'WHEEL_POINTER_TICK': 'Pointer Tick',
+    'WHEEL_SLOW': 'Wheel Slow',
+    'WHEEL_ACCELERATION': 'Wheel Accel',
+    'WHEEL_LAND': 'Wheel Land',
+    'WHEEL_ANTICIPATION': 'Wheel Antic',
+    'WHEEL_NEAR_MISS': 'Wheel Near Miss',
+    'WHEEL_CELEBRATION': 'Wheel Celebrate',
+    'WHEEL_PRIZE': 'Wheel Prize',
+    'WHEEL_BONUS': 'Wheel Bonus',
+    'WHEEL_MULTIPLIER': 'Wheel Multi',
+    'WHEEL_JACKPOT_LAND': 'Wheel JP Land',
+    // Wild Features
+    'WILD_EXPAND_START': 'Wild Expand Start',
+    'WILD_EXPAND_STEP': 'Wild Expand Step',
+    'WILD_EXPAND_END': 'Wild Expand End',
+    'WILD_STICK': 'Wild Stick',
+    'WILD_WALK_LEFT': 'Wild Walk L',
+    'WILD_WALK_RIGHT': 'Wild Walk R',
+    'WILD_TRANSFORM': 'Wild Transform',
+    'WILD_MULTIPLY': 'Wild Multiply',
+    'WILD_SPREAD': 'Wild Spread',
+    'WILD_NUDGE': 'Wild Nudge',
+    'WILD_STACK': 'Wild Stack',
+    'WILD_COLOSSAL': 'Colossal Wild',
+    'WILD_REEL': 'Wild Reel',
+    'WILD_UPGRADE': 'Wild Upgrade',
+    'WILD_COLLECT': 'Wild Collect',
+    // Mystery/Collector
+    'MYSTERY_LAND': 'Mystery Land',
+    'MYSTERY_REVEAL': 'Mystery Reveal',
+    'MYSTERY_TRANSFORM': 'Mystery Transform',
+    'COLLECTOR_LAND': 'Collector Land',
+    'COLLECTOR_COLLECT': 'Collector Collect',
+    'COLLECTOR_ACTIVATE': 'Collector Activate',
+    'COIN_LAND': 'Coin Land',
+    'COIN_VALUE_REVEAL': 'Coin Value Reveal',
+    'COIN_COLLECT': 'Coin Collect',
+    // Nudge/Respin
+    'REEL_NUDGE': 'Reel Nudge',
+    'NUDGE_UP': 'Nudge Up',
+    'NUDGE_DOWN': 'Nudge Down',
+    'NUDGE_TRIGGER': 'Nudge Trigger',
+    'NUDGE_COMPLETE': 'Nudge Complete',
+    'RESPIN_TRIGGER': 'Respin Trigger',
+    'RESPIN_START': 'Respin Start',
+    'RESPIN_SPIN': 'Respin Spin',
+    'RESPIN_STOP': 'Respin Stop',
+    'RESPIN_END': 'Respin End',
+    'RESPIN_RETRIGGER': 'Respin Retrigger',
+
+    // ── PHASE 4: JACKPOTS ──
+    'JACKPOT_TRIGGER': 'JP Trigger',
+    'JACKPOT_ELIGIBLE': 'JP Eligible',
+    'JACKPOT_PROGRESS': 'JP Progress',
+    'JACKPOT_BUILDUP': 'JP Buildup',
+    'JACKPOT_ANIMATION_START': 'JP Anim Start',
+    'JACKPOT_METER_FILL': 'JP Meter Fill',
+    'JACKPOT_REVEAL': 'JP Reveal',
+    'JACKPOT_WHEEL_SPIN': 'JP Wheel Spin',
+    'JACKPOT_WHEEL_TICK': 'JP Wheel Tick',
+    'JACKPOT_WHEEL_LAND': 'JP Wheel Land',
+    'JACKPOT_MINI': 'JP Mini',
+    'JACKPOT_MINOR': 'JP Minor',
+    'JACKPOT_MAJOR': 'JP Major',
+    'JACKPOT_GRAND': 'JP Grand',
+    'JACKPOT_MEGA': 'JP Mega',
+    'JACKPOT_ULTRA': 'JP Ultra',
+    'JACKPOT_PRESENT': 'JP Present',
+    'JACKPOT_AWARD': 'JP Award',
+    'JACKPOT_ROLLUP': 'JP Rollup',
+    'JACKPOT_BELLS': 'JP Bells',
+    'JACKPOT_SIRENS': 'JP Sirens',
+    'JACKPOT_CELEBRATION': 'JP Celebration',
+    'JACKPOT_MACHINE_WIN': 'JP Machine Win',
+    'JACKPOT_COLLECT': 'JP Collect',
+    'JACKPOT_END': 'JP End',
+    'PROGRESSIVE_INCREMENT': 'Prog Increment',
+    'PROGRESSIVE_FLASH': 'Prog Flash',
+    'PROGRESSIVE_HIT': 'Prog Hit',
+    'JACKPOT_TICKER_INCREMENT': 'JP Ticker',
+    'MUST_HIT_BY_WARNING': 'Must Hit Warning',
+    'MUST_HIT_BY_IMMINENT': 'Must Hit Imminent',
+    'HOT_DROP_WARNING': 'Hot Drop Warning',
+    'HOT_DROP_HIT': 'Hot Drop Hit',
+    'HOT_DROP_NEAR': 'Hot Drop Near',
+    'LINK_WIN': 'Link Win',
+    'NETWORK_JACKPOT': 'Network JP',
+    'LOCAL_JACKPOT': 'Local JP',
+
+    // ── PHASE 5: GAMBLE ──
+    'GAMBLE_ENTER': 'Gamble Enter',
+    'GAMBLE_OFFER': 'Gamble Offer',
+    'GAMBLE_CARD_FLIP': 'Card Flip',
+    'GAMBLE_COLOR_PICK': 'Color Pick',
+    'GAMBLE_SUIT_PICK': 'Suit Pick',
+    'GAMBLE_LADDER_STEP': 'Ladder Step',
+    'GAMBLE_WIN': 'Gamble Win',
+    'GAMBLE_LOSE': 'Gamble Lose',
+    'GAMBLE_DOUBLE': 'Gamble Double',
+    'GAMBLE_HALF': 'Gamble Half',
+    'GAMBLE_LADDER_FALL': 'Ladder Fall',
+    'GAMBLE_COLLECT': 'Gamble Collect',
+    'GAMBLE_EXIT': 'Gamble Exit',
+    'GAMBLE_LIMIT': 'Gamble Limit',
+    'GAMBLE_TIMEOUT': 'Gamble Timeout',
+
+    // ── PHASE 6: MUSIC ──
+    'MUSIC_TENSION_LOW': 'Tension Low',
+    'MUSIC_TENSION_MED': 'Tension Med',
+    'MUSIC_TENSION_HIGH': 'Tension High',
+    'MUSIC_TENSION_MAX': 'Tension Max',
+    'MUSIC_BUILDUP': 'Music Buildup',
+
+    // ── PHASE 7: UI & SYSTEM ──
+    'UI_BUTTON_PRESS': 'Button Press',
+    'UI_BUTTON_HOVER': 'Button Hover',
+    'UI_SPIN_HOVER': 'Spin Hover',
+    'UI_SPIN_RELEASE': 'Spin Release',
+    'UI_BET_UP': 'Bet Up',
+    'UI_BET_DOWN': 'Bet Down',
+    'UI_BET_MAX': 'Bet Max',
+    'UI_BET_MIN': 'Bet Min',
+    'UI_MENU_OPEN': 'Menu Open',
+    'UI_MENU_CLOSE': 'Menu Close',
+    'UI_MENU_HOVER': 'Menu Hover',
+    'UI_MENU_SELECT': 'Menu Select',
+    'UI_TAB_SWITCH': 'Tab Switch',
+    'UI_PAGE_FLIP': 'Page Flip',
+    'UI_SCROLL': 'Scroll',
+    'UI_PAYTABLE_OPEN': 'Paytable Open',
+    'UI_PAYTABLE_CLOSE': 'Paytable Close',
+    'UI_RULES_OPEN': 'Rules Open',
+    'UI_HELP_OPEN': 'Help Open',
+    'UI_INFO_PRESS': 'Info Press',
+    'UI_SETTINGS_OPEN': 'Settings Open',
+    'UI_SETTINGS_CLOSE': 'Settings Close',
+    'UI_NOTIFICATION': 'Notification',
+    'UI_ALERT': 'Alert',
+    'UI_ERROR': 'Error',
+    'UI_WARNING': 'Warning',
+    'UI_POPUP_OPEN': 'Popup Open',
+    'UI_POPUP_CLOSE': 'Popup Close',
+    'UI_TOOLTIP_SHOW': 'Tooltip Show',
+    'UI_TOOLTIP_HIDE': 'Tooltip Hide',
+    'UI_CHECKBOX_ON': 'Checkbox On',
+    'UI_CHECKBOX_OFF': 'Checkbox Off',
+    'UI_SLIDER_DRAG': 'Slider Drag',
+    'UI_SLIDER_RELEASE': 'Slider Release',
+    'UI_SOUND_ON': 'Sound On',
+    'UI_SOUND_OFF': 'Sound Off',
+    'UI_VOLUME_CHANGE': 'Volume Change',
+    'UI_FULLSCREEN_ENTER': 'Fullscreen Enter',
+    'UI_FULLSCREEN_EXIT': 'Fullscreen Exit',
+
+    // ── HOLD & WIN ──
+    'HOLD_TRIGGER': 'Hold Trigger',
+    'HOLD_START': 'Hold Start',
+    'HOLD_SPIN': 'Hold Spin',
+    'HOLD_LAND': 'Hold Land',
+    'HOLD_UPGRADE': 'Hold Upgrade',
+    'HOLD_COLLECT': 'Hold Collect',
+    'HOLD_END': 'Hold End',
+    'HOLD_GRAND': 'Hold Grand',
+    'HOLD_RESPINS_RESET': 'Respins Reset',
+
+    // ── MEGAWAYS ──
+    'MEGAWAYS_REVEAL': 'Megaways Reveal',
+    'MEGAWAYS_EXPAND': 'Megaways Expand',
+    'MEGAWAYS_ROWS_CHANGE': 'Rows Change',
+  };
 
   /// Get priority for stage (0-100)
   int getPriority(String stage) {

@@ -52,6 +52,7 @@ import '../../models/slot_lab_models.dart';
 import '../../models/win_tier_config.dart'; // P5 Win Tier System
 import '../../providers/middleware_provider.dart'; // SL-INT-P1.1
 import '../../services/stage_group_service.dart';
+import '../../services/stage_configuration_service.dart';
 import '../../services/audio_playback_service.dart';
 import '../../services/waveform_thumbnail_cache.dart'; // SL-LP-P1.1
 import '../../services/variant_manager.dart'; // SL-LP-P1.4
@@ -93,8 +94,8 @@ enum SlotPriority {
   final Color color;
 }
 
-/// Audio assignment callback with stage and path
-typedef OnAudioAssign = void Function(String stage, String audioPath);
+/// Audio assignment callback with stage, path, and optional display label
+typedef OnAudioAssign = void Function(String stage, String audioPath, [String? label]);
 
 /// Callback for batch auto-distribution results
 typedef OnBatchDistribute = void Function(List<StageMatch> matched, List<UnmatchedFile> unmatched);
@@ -2627,7 +2628,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             path = details.data as String;
           }
           if (path != null) {
-            widget.onAudioAssign?.call(slot.stage, path);
+            widget.onAudioAssign?.call(slot.stage, path, slot.label);
           }
         },
         builder: (context, candidateData, rejectedData) {
@@ -3283,9 +3284,22 @@ class _GroupConfig {
 
 class _SlotConfig {
   final String stage;
-  final String label;
+  final String _explicitLabel;
 
-  const _SlotConfig({required this.stage, required this.label});
+  /// Label getter — centralized StageConfigurationService as SSoT.
+  /// For stages with explicit labels in the service, uses service label.
+  /// Falls back to explicit label provided at construction (dynamic stages like symbols).
+  String get label {
+    final serviceLabel = StageConfigurationService.instance.getDisplayLabel(stage);
+    // If service returned Title Case fallback (no explicit entry), prefer explicit label
+    final titleCaseFallback = stage.replaceAll('_', ' ').split(' ').map((w) =>
+      w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}' : w
+    ).join(' ');
+    if (serviceLabel == titleCaseFallback) return _explicitLabel;
+    return serviceLabel;
+  }
+
+  const _SlotConfig({required this.stage, required String label}) : _explicitLabel = label;
 
   /// V9: Resolve bus routing from stage name pattern
   SlotBus get bus => _resolveSlotBus(stage);
@@ -3461,7 +3475,7 @@ class _BaseGameLoopSection extends _SectionConfig {
           _SlotConfig(stage: 'IDLE_LOOP', label: 'Idle Loop'),
           _SlotConfig(stage: 'IDLE_TO_ACTIVE', label: 'Idle → Active'),
           _SlotConfig(stage: 'GAME_READY', label: 'Game Ready'),
-          _SlotConfig(stage: 'GAME_START', label: 'Game Start'),
+          _SlotConfig(stage: 'GAME_START', label: 'Base Game Start'),
         ],
       ),
       const _GroupConfig(

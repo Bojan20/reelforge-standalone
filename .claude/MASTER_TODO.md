@@ -41,3 +41,29 @@ L1 ISP indicator+counter, L2 LUFS timeline+loudness targets (8 platforms)+GR his
 
 ### Saturator Ultimate (Saturn 2 tier) — 46/46
 S1 type indicators+formula info, S4 LFO+envelope follower UI, S5 crossover band display+mini waveform+solo, S6 Bezier transfer curve+signal dot+harmonic spectrum+pre/post spectrum (6 waveshapers), S7 auto-gain+transient shaper, S9 band copy/paste+undo/redo+randomize+19 presets, S10 oversampling+CPU display.
+
+---
+
+## Planned: SlotLab CUSTOM Events Tab
+
+**Status:** Placeholder (tab renamed BROWSE → CUSTOM, sadržaj zastareo)
+
+**Šta treba da radi:**
+- Custom event kreiranje van predefinisanog stage sistema (ASSIGN tab)
+- Korisnik definiše potpuno nove evente: custom ime, custom triggerStages, layere, looping, maxInstances
+- Use case: game-specifični zvučni efekti koji ne spadaju ni u jednu od 7 faza (npr. branded bonus mehanika, story-driven audio, custom mini-game zvukovi)
+- Drag & drop audio iz POOL-a (desni panel) na custom event layere
+- CRUD: kreiranje, editovanje, brisanje custom evenata
+- Custom eventi se registruju u MiddlewareProvider i EventRegistry isto kao ASSIGN eventi
+- ID format: `custom_<user_defined_name>` (razlikuje se od `audio_<STAGE>` formata)
+
+**Razlika ASSIGN vs CUSTOM:**
+- ASSIGN = predefinisani slotovi (500+ stage-ova po industriji), 1 audio po slotu, automatski kreira composite event
+- CUSTOM = korisnik sam kreira evente od nule, višeslojni (multi-layer), potpuna kontrola nad svim parametrima
+
+**Implementacija:**
+1. Novi UI: lista custom evenata + "New Event" dugme + inline editor
+2. Custom event model (ime, kategorija, triggerStages[], layers[], looping, maxInstances, bus routing)
+3. Persitencija u SlotLabProjectProvider (kao audioAssignments)
+4. EventRegistry + MiddlewareProvider sinhronizacija
+5. Brisanje BROWSE tab legacy koda (_buildEventsLeftPanel → zamena novim sistemom)
