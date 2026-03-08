@@ -604,83 +604,353 @@ impl VelvetNoiseGenerator {
     }
 }
 
-/// Early Reflection Engine — 8 taps with prime-distributed delays
+// ========================================================================
+// Early Reflection Engine — 24 taps (R2.1-R2.6)
+// ========================================================================
+//
+// Upgraded from 8 to 24 taps with:
+// - Per-style ER patterns (Room/Hall/Plate/Chamber/Spring)
+// - Stereo decorrelation via L/R offset delays
+// - ER→Late crossfade zone (50ms smooth transition)
+// - Independent ER Level and Late Level controls
+
+/// Maximum number of ER taps
+const ER_MAX_TAPS: usize = 24;
+
+/// Single ER tap with stereo decorrelation
+#[derive(Debug, Clone)]
+struct ERTapStereo {
+    delay_l: usize,  // Left channel delay (samples)
+    delay_r: usize,  // Right channel delay (offset for stereo decorrelation)
+    gain: f64,
+    pan: f64,         // -1.0 = hard left, 0.0 = center, 1.0 = hard right
+    lpf_coeff: f64,
+    lpf_state_l: f64,
+    lpf_state_r: f64,
+}
+
+/// Per-style ER pattern definition
+#[derive(Debug, Clone)]
+struct ERPattern {
+    /// Tap delays in ms (left channel)
+    delays_ms: [f64; ER_MAX_TAPS],
+    /// Stereo offset in ms (right channel = delay_l + offset)
+    stereo_offsets_ms: [f64; ER_MAX_TAPS],
+    /// Tap gains (amplitude)
+    gains: [f64; ER_MAX_TAPS],
+    /// Per-tap pan position (-1 to +1)
+    pans: [f64; ER_MAX_TAPS],
+    /// Number of active taps for this pattern
+    active_count: usize,
+}
+
+/// Generate Room ER pattern: short, dense (3-80ms, 24 taps)
+fn er_pattern_room() -> ERPattern {
+    ERPattern {
+        delays_ms: [
+            3.0, 5.0, 7.0, 9.0, 11.0, 13.0, 17.0, 19.0,
+            23.0, 27.0, 29.0, 31.0, 37.0, 41.0, 43.0, 47.0,
+            53.0, 57.0, 59.0, 61.0, 67.0, 71.0, 73.0, 79.0,
+        ],
+        stereo_offsets_ms: [
+            0.3, -0.2, 0.5, -0.4, 0.7, -0.3, 0.6, -0.5,
+            0.8, -0.6, 0.4, -0.7, 0.9, -0.8, 0.5, -0.4,
+            1.0, -0.9, 0.7, -0.6, 1.1, -1.0, 0.8, -0.7,
+        ],
+        gains: [
+            0.90, 0.87, 0.84, 0.81, 0.78, 0.75, 0.72, 0.69,
+            0.66, 0.63, 0.60, 0.57, 0.54, 0.51, 0.48, 0.45,
+            0.42, 0.39, 0.36, 0.33, 0.30, 0.27, 0.24, 0.21,
+        ],
+        pans: [
+            -0.3, 0.4, -0.2, 0.5, -0.6, 0.3, -0.4, 0.6,
+            -0.5, 0.7, -0.3, 0.4, -0.7, 0.5, -0.2, 0.6,
+            -0.4, 0.3, -0.6, 0.5, -0.3, 0.7, -0.5, 0.4,
+        ],
+        active_count: 24,
+    }
+}
+
+/// Generate Hall ER pattern: wide, sparse (5-150ms, 18 taps)
+fn er_pattern_hall() -> ERPattern {
+    ERPattern {
+        delays_ms: [
+            5.0, 11.0, 19.0, 29.0, 37.0, 47.0, 59.0, 71.0,
+            83.0, 89.0, 97.0, 103.0, 113.0, 121.0, 127.0, 137.0,
+            143.0, 149.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ],
+        stereo_offsets_ms: [
+            0.5, -0.7, 1.0, -1.2, 1.5, -0.8, 1.3, -1.6,
+            1.8, -1.1, 2.0, -1.4, 1.7, -2.1, 2.3, -1.9,
+            2.5, -2.2, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ],
+        gains: [
+            0.88, 0.82, 0.76, 0.70, 0.65, 0.60, 0.55, 0.50,
+            0.46, 0.42, 0.38, 0.35, 0.32, 0.29, 0.26, 0.23,
+            0.20, 0.18, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ],
+        pans: [
+            -0.5, 0.6, -0.7, 0.8, -0.4, 0.5, -0.8, 0.7,
+            -0.6, 0.9, -0.3, 0.4, -0.9, 0.6, -0.5, 0.8,
+            -0.7, 0.9, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ],
+        active_count: 18,
+    }
+}
+
+/// Generate Plate ER pattern: ultra-dense, no gaps (3-60ms, 24 taps)
+fn er_pattern_plate() -> ERPattern {
+    ERPattern {
+        delays_ms: [
+            3.0, 4.0, 5.5, 7.0, 8.5, 10.0, 11.5, 13.0,
+            15.0, 17.0, 19.0, 21.0, 23.5, 26.0, 28.5, 31.0,
+            34.0, 37.0, 40.0, 43.5, 47.0, 51.0, 55.0, 59.0,
+        ],
+        stereo_offsets_ms: [
+            0.1, -0.15, 0.2, -0.1, 0.25, -0.2, 0.15, -0.25,
+            0.3, -0.15, 0.2, -0.3, 0.25, -0.1, 0.35, -0.2,
+            0.3, -0.25, 0.15, -0.35, 0.2, -0.3, 0.25, -0.15,
+        ],
+        gains: [
+            0.92, 0.90, 0.88, 0.86, 0.84, 0.82, 0.80, 0.78,
+            0.75, 0.72, 0.69, 0.66, 0.63, 0.60, 0.57, 0.54,
+            0.51, 0.48, 0.45, 0.42, 0.39, 0.36, 0.33, 0.30,
+        ],
+        pans: [
+            -0.1, 0.15, -0.2, 0.1, -0.15, 0.2, -0.1, 0.15,
+            -0.2, 0.1, -0.15, 0.2, -0.1, 0.15, -0.2, 0.1,
+            -0.15, 0.2, -0.1, 0.15, -0.2, 0.1, -0.15, 0.2,
+        ],
+        active_count: 24,
+    }
+}
+
+/// Generate Chamber ER pattern: mid-range focus (5-100ms, 20 taps)
+fn er_pattern_chamber() -> ERPattern {
+    ERPattern {
+        delays_ms: [
+            5.0, 8.0, 11.0, 14.0, 17.0, 21.0, 25.0, 29.0,
+            34.0, 39.0, 44.0, 49.0, 55.0, 61.0, 67.0, 73.0,
+            80.0, 87.0, 94.0, 100.0, 0.0, 0.0, 0.0, 0.0,
+        ],
+        stereo_offsets_ms: [
+            0.4, -0.3, 0.6, -0.5, 0.8, -0.4, 0.7, -0.6,
+            0.9, -0.7, 1.0, -0.8, 1.1, -0.9, 0.5, -1.0,
+            1.2, -0.6, 0.8, -1.1, 0.0, 0.0, 0.0, 0.0,
+        ],
+        gains: [
+            0.86, 0.82, 0.78, 0.74, 0.70, 0.66, 0.62, 0.58,
+            0.54, 0.50, 0.46, 0.42, 0.39, 0.36, 0.33, 0.30,
+            0.27, 0.24, 0.21, 0.18, 0.0, 0.0, 0.0, 0.0,
+        ],
+        pans: [
+            -0.4, 0.3, -0.5, 0.4, -0.3, 0.5, -0.6, 0.4,
+            -0.5, 0.6, -0.4, 0.3, -0.7, 0.5, -0.3, 0.6,
+            -0.5, 0.4, -0.6, 0.3, 0.0, 0.0, 0.0, 0.0,
+        ],
+        active_count: 20,
+    }
+}
+
+/// Generate Spring ER pattern: bounce pattern with nonlinear spacing (3-90ms, 16 taps)
+fn er_pattern_spring() -> ERPattern {
+    // Spring reverb: exponentially-spaced taps emulating coil bounces
+    // Early taps very close together, then increasingly spread
+    ERPattern {
+        delays_ms: [
+            3.0, 4.5, 6.5, 9.0, 12.0, 16.0, 21.0, 27.0,
+            34.0, 42.0, 51.0, 61.0, 72.0, 80.0, 86.0, 90.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ],
+        stereo_offsets_ms: [
+            0.2, -0.3, 0.4, -0.2, 0.5, -0.4, 0.3, -0.6,
+            0.7, -0.5, 0.8, -0.7, 0.6, -0.8, 0.9, -0.5,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ],
+        gains: [
+            0.95, 0.88, 0.80, 0.72, 0.65, 0.58, 0.52, 0.46,
+            0.40, 0.35, 0.30, 0.26, 0.22, 0.19, 0.16, 0.14,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ],
+        pans: [
+            0.0, 0.1, -0.1, 0.2, -0.2, 0.3, -0.3, 0.4,
+            -0.4, 0.5, -0.5, 0.3, -0.3, 0.2, -0.2, 0.1,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ],
+        active_count: 16,
+    }
+}
+
+/// Get ER pattern for a given reverb style
+fn er_pattern_for_style(style: &ReverbType) -> ERPattern {
+    match style {
+        ReverbType::Room => er_pattern_room(),
+        ReverbType::Hall => er_pattern_hall(),
+        ReverbType::Plate => er_pattern_plate(),
+        ReverbType::Chamber => er_pattern_chamber(),
+        ReverbType::Spring => er_pattern_spring(),
+    }
+}
+
+/// Early Reflection Engine — 24 stereo-decorrelated taps with per-style patterns
 #[derive(Debug, Clone)]
 struct EarlyReflectionEngine {
-    taps: [ERTap; 8],
+    taps: [ERTapStereo; ER_MAX_TAPS],
+    active_count: usize,
     buffer_l: Vec<f64>,
     buffer_r: Vec<f64>,
     write_pos: usize,
     max_delay: usize,
+    /// Current ER pattern base (for space scaling)
+    base_delays_l_ms: [f64; ER_MAX_TAPS],
+    base_delays_r_ms: [f64; ER_MAX_TAPS],
+    /// ER→Late crossfade: samples in 50ms window at tail end
+    crossfade_start_sample: usize,
+    crossfade_end_sample: usize,
 }
-
-/// ER tap delays in ms (prime-distributed)
-const ER_TAP_MS: [f64; 8] = [7.0, 11.0, 17.0, 23.0, 31.0, 41.0, 53.0, 67.0];
-/// ER tap gains (decreasing, fixed seed for determinism)
-const ER_TAP_GAINS: [f64; 8] = [0.85, 0.78, 0.72, 0.65, 0.58, 0.50, 0.42, 0.35];
 
 impl EarlyReflectionEngine {
     fn new(sample_rate: f64) -> Self {
-        let max_delay_samples = (0.1 * sample_rate) as usize; // 100ms max
-        let taps = std::array::from_fn(|i| {
-            let delay_samples = (ER_TAP_MS[i] * 0.001 * sample_rate) as usize;
-            ERTap {
-                delay_samples: delay_samples.min(max_delay_samples - 1),
-                gain: ER_TAP_GAINS[i],
-                lpf_coeff: 0.3, // Will be modulated by distance
-                lpf_state_l: 0.0,
-                lpf_state_r: 0.0,
-            }
-        });
+        let max_delay_samples = (0.2 * sample_rate) as usize; // 200ms max (for 150ms + stereo offset headroom)
+        let pattern = er_pattern_room(); // Default pattern
 
-        Self {
-            taps,
+        let mut engine = Self {
+            taps: std::array::from_fn(|_| ERTapStereo {
+                delay_l: 0, delay_r: 0, gain: 0.0, pan: 0.0,
+                lpf_coeff: 0.3, lpf_state_l: 0.0, lpf_state_r: 0.0,
+            }),
+            active_count: 0,
             buffer_l: vec![0.0; max_delay_samples],
             buffer_r: vec![0.0; max_delay_samples],
             write_pos: 0,
             max_delay: max_delay_samples,
+            base_delays_l_ms: [0.0; ER_MAX_TAPS],
+            base_delays_r_ms: [0.0; ER_MAX_TAPS],
+            crossfade_start_sample: 0,
+            crossfade_end_sample: 0,
+        };
+        engine.apply_pattern(&pattern, sample_rate);
+        engine
+    }
+
+    /// Apply a per-style ER pattern
+    fn apply_pattern(&mut self, pattern: &ERPattern, sample_rate: f64) {
+        self.active_count = pattern.active_count;
+        let max = self.max_delay - 1;
+
+        // Calculate crossfade zone: last 50ms of ER tail
+        let mut max_delay_ms = 0.0f64;
+        for i in 0..pattern.active_count {
+            let d = pattern.delays_ms[i] + pattern.stereo_offsets_ms[i].abs();
+            if d > max_delay_ms { max_delay_ms = d; }
+        }
+        let crossfade_ms = 50.0f64.min(max_delay_ms * 0.4); // 50ms or 40% of max ER, whichever is shorter
+        self.crossfade_start_sample = (((max_delay_ms - crossfade_ms) * 0.001 * sample_rate) as usize).min(max);
+        self.crossfade_end_sample = ((max_delay_ms * 0.001 * sample_rate) as usize).min(max);
+
+        for i in 0..ER_MAX_TAPS {
+            if i < pattern.active_count {
+                let delay_l_ms = pattern.delays_ms[i];
+                let delay_r_ms = pattern.delays_ms[i] + pattern.stereo_offsets_ms[i];
+
+                self.base_delays_l_ms[i] = delay_l_ms;
+                self.base_delays_r_ms[i] = delay_r_ms.max(1.0); // Ensure positive delay
+
+                let dl = (delay_l_ms * 0.001 * sample_rate) as usize;
+                let dr = (delay_r_ms.max(1.0) * 0.001 * sample_rate) as usize;
+
+                self.taps[i] = ERTapStereo {
+                    delay_l: dl.min(max),
+                    delay_r: dr.min(max),
+                    gain: pattern.gains[i],
+                    pan: pattern.pans[i],
+                    lpf_coeff: 0.3,
+                    lpf_state_l: 0.0,
+                    lpf_state_r: 0.0,
+                };
+            } else {
+                self.taps[i].gain = 0.0;
+                self.taps[i].delay_l = 0;
+                self.taps[i].delay_r = 0;
+            }
         }
     }
 
+    /// Switch to a new style pattern
+    fn set_style(&mut self, style: &ReverbType, sample_rate: f64) {
+        let pattern = er_pattern_for_style(style);
+        self.apply_pattern(&pattern, sample_rate);
+    }
+
     fn update_distance(&mut self, distance: f64) {
-        // Distance controls LP filtering on ER taps
-        // Close = bright ER, Far = dark ER
-        let lpf = 0.1 + distance * 0.7; // 0.1 (bright) → 0.8 (dark)
-        for tap in &mut self.taps {
-            tap.lpf_coeff = lpf;
+        let lpf = 0.1 + distance * 0.7;
+        for i in 0..self.active_count {
+            self.taps[i].lpf_coeff = lpf;
         }
     }
 
     fn update_space_scale(&mut self, scale: f64, sample_rate: f64) {
         let max = self.max_delay - 1;
-        for (i, tap) in self.taps.iter_mut().enumerate() {
-            tap.delay_samples = ((ER_TAP_MS[i] * 0.001 * sample_rate * scale) as usize).min(max);
+        for i in 0..self.active_count {
+            self.taps[i].delay_l = ((self.base_delays_l_ms[i] * 0.001 * sample_rate * scale) as usize).min(max);
+            self.taps[i].delay_r = ((self.base_delays_r_ms[i] * 0.001 * sample_rate * scale) as usize).min(max);
+        }
+        // Update crossfade zone
+        if self.crossfade_end_sample > 0 {
+            self.crossfade_start_sample = ((self.crossfade_start_sample as f64 * scale) as usize).min(max);
+            self.crossfade_end_sample = ((self.crossfade_end_sample as f64 * scale) as usize).min(max);
         }
     }
 
+    /// Process stereo input through ER engine
+    /// Returns (er_l, er_r) with stereo-decorrelated reflections
     #[inline(always)]
     fn process(&mut self, left: f64, right: f64, distance: f64) -> (f64, f64) {
-        // Write input
         self.buffer_l[self.write_pos] = left;
         self.buffer_r[self.write_pos] = right;
 
         let mut out_l = 0.0;
         let mut out_r = 0.0;
-
-        // Distance gain: close=1.0, far=attenuated
         let distance_gain = 1.0 - distance * 0.8;
 
-        for tap in &mut self.taps {
-            let read_pos = (self.write_pos + self.max_delay - tap.delay_samples) % self.max_delay;
-            let raw_l = self.buffer_l[read_pos];
-            let raw_r = self.buffer_r[read_pos];
+        for i in 0..self.active_count {
+            let tap = &mut self.taps[i];
+
+            // Read from separate L/R delay positions (stereo decorrelation)
+            let read_l = (self.write_pos + self.max_delay - tap.delay_l) % self.max_delay;
+            let read_r = (self.write_pos + self.max_delay - tap.delay_r) % self.max_delay;
+            let raw_l = self.buffer_l[read_l];
+            let raw_r = self.buffer_r[read_r];
 
             // One-pole LP for distance darkening
-            tap.lpf_state_l += (raw_l - tap.lpf_state_l) * (1.0 - tap.lpf_coeff);
-            tap.lpf_state_r += (raw_r - tap.lpf_state_r) * (1.0 - tap.lpf_coeff);
+            let lpf_factor = 1.0 - tap.lpf_coeff;
+            tap.lpf_state_l += (raw_l - tap.lpf_state_l) * lpf_factor;
+            tap.lpf_state_r += (raw_r - tap.lpf_state_r) * lpf_factor;
 
-            out_l += tap.lpf_state_l * tap.gain;
-            out_r += tap.lpf_state_r * tap.gain;
+            // Apply pan: -1=left, 0=center, +1=right (equal-power)
+            let pan_angle = (tap.pan + 1.0) * 0.25 * std::f64::consts::PI; // 0 to π/2
+            let pan_l = pan_angle.cos();
+            let pan_r = pan_angle.sin();
+
+            // ER→Late crossfade: taps near the end fade out for smooth transition
+            let fade = if self.crossfade_end_sample > self.crossfade_start_sample {
+                let tap_delay = tap.delay_l.max(tap.delay_r);
+                if tap_delay >= self.crossfade_end_sample {
+                    0.0
+                } else if tap_delay > self.crossfade_start_sample {
+                    let range = (self.crossfade_end_sample - self.crossfade_start_sample) as f64;
+                    let pos = (tap_delay - self.crossfade_start_sample) as f64;
+                    1.0 - (pos / range) // Linear fade
+                } else {
+                    1.0
+                }
+            } else {
+                1.0
+            };
+
+            let g = tap.gain * fade;
+            out_l += tap.lpf_state_l * g * pan_l;
+            out_r += tap.lpf_state_r * g * pan_r;
         }
 
         self.write_pos = (self.write_pos + 1) % self.max_delay;
@@ -1188,6 +1458,8 @@ pub struct AlgorithmicReverb {
     freeze_param: bool,   // 14: Freeze (bool)
     spin: f64,            // 15: Spin (0.0-1.0) — fast modulation rate/depth
     wander: f64,          // 16: Wander (0.0-1.0) — slow drift rate/depth
+    er_level: f64,        // 17: ER Level (0.0-1.0) — early reflections gain
+    late_level: f64,      // 18: Late Level (0.0-1.0) — FDN tail gain
 
     // PreDelay circular buffer
     predelay_buffer_l: Vec<Sample>,
@@ -1225,6 +1497,8 @@ impl AlgorithmicReverb {
             freeze_param: false,
             spin: 0.5,    // Default spin (maps to ~3 Hz)
             wander: 0.5,  // Default wander (maps to ~0.2 Hz)
+            er_level: 1.0,   // Full ER (0=off, 1=full)
+            late_level: 1.0, // Full late (0=off, 1=full)
 
             predelay_buffer_l: vec![0.0; max_predelay.max(1)],
             predelay_buffer_r: vec![0.0; max_predelay.max(1)],
@@ -1326,7 +1600,8 @@ impl AlgorithmicReverb {
 
     pub fn set_style(&mut self, style: ReverbType) {
         self.style = style;
-        // Style applies scaling factors ONLY — does NOT override Space/Brightness
+        // Style applies per-style ER pattern + scaling factors
+        self.er_engine.set_style(&style, self.sample_rate);
         self.recalc_internals();
     }
 
@@ -1386,6 +1661,16 @@ impl AlgorithmicReverb {
         self.recalc_internals();
     }
 
+    /// ER Level: early reflections gain (0.0-1.0)
+    pub fn set_er_level(&mut self, level: f64) {
+        self.er_level = level.clamp(0.0, 1.0);
+    }
+
+    /// Late Level: FDN reverb tail gain (0.0-1.0)
+    pub fn set_late_level(&mut self, level: f64) {
+        self.late_level = level.clamp(0.0, 1.0);
+    }
+
     // ====================================================================
     // Getters
     // ====================================================================
@@ -1440,6 +1725,12 @@ impl AlgorithmicReverb {
     }
     pub fn wander(&self) -> f64 {
         self.wander
+    }
+    pub fn er_level(&self) -> f64 {
+        self.er_level
+    }
+    pub fn late_level(&self) -> f64 {
+        self.late_level
     }
 
     // ====================================================================
@@ -1511,8 +1802,10 @@ impl StereoProcessor for AlgorithmicReverb {
 
         self.predelay_pos = (self.predelay_pos + 1) % buf_len;
 
-        // 2. Early Reflections (distance-controlled)
-        let (er_l, er_r) = self.er_engine.process(delayed_l, delayed_r, self.distance);
+        // 2. Early Reflections (distance-controlled, stereo-decorrelated)
+        let (er_raw_l, er_raw_r) = self.er_engine.process(delayed_l, delayed_r, self.distance);
+        let er_l = er_raw_l * self.er_level;
+        let er_r = er_raw_r * self.er_level;
 
         // Mix ER with pre-delayed signal for diffusion input
         let er_mix_l = delayed_l * 0.3 + er_l * 0.7;
@@ -1521,7 +1814,7 @@ impl StereoProcessor for AlgorithmicReverb {
         // 3. Diffusion Stage (6 serial allpass)
         let (diff_l, diff_r) = self.diffusion.process(er_mix_l, er_mix_r);
 
-        // 4. FDN Core 8×8 (Hadamard, modulated, multi-band decay)
+        // 4. FDN Core 8×8 (Hadamard, velvet noise modulated, multi-band decay)
         // In freeze mode, bypass all band-decay shaping to maintain energy
         let (fdn_low_mult, fdn_high_mult, fdn_thickness) = if self.freeze_param {
             (1.0, 1.0, 0.0)
@@ -1534,9 +1827,13 @@ impl StereoProcessor for AlgorithmicReverb {
             )
         };
 
-        let (fdn_l, fdn_r) =
+        let (fdn_raw_l, fdn_raw_r) =
             self.fdn
                 .process(diff_l, diff_r, fdn_low_mult, fdn_high_mult, fdn_thickness);
+
+        // Apply late level to FDN output
+        let fdn_l = fdn_raw_l * self.late_level;
+        let fdn_r = fdn_raw_r * self.late_level;
 
         // 5. M/S Width (0.0=mono, 1.0=natural, 2.0=ultra-wide)
         let (wide_l, wide_r) = self.apply_width(fdn_l, fdn_r);
@@ -1581,7 +1878,12 @@ impl ProcessorConfig for AlgorithmicReverb {
             self.thickness = old.thickness;
             self.ducking = old.ducking;
             self.freeze_param = old.freeze_param;
+            self.spin = old.spin;
+            self.wander = old.wander;
+            self.er_level = old.er_level;
+            self.late_level = old.late_level;
             self.set_predelay(old.predelay_ms);
+            self.set_style(old.style); // Restore per-style ER pattern
             self.recalc_internals();
         }
     }
@@ -1651,8 +1953,8 @@ mod tests {
     fn test_fdn_parameter_sweep() {
         let mut reverb = AlgorithmicReverb::new(48000.0);
 
-        // Test all 17 params at 3 values each
-        let params_and_ranges: [(usize, f64, f64, f64); 17] = [
+        // Test all 19 params at 3 values each
+        let params_and_ranges: [(usize, f64, f64, f64); 19] = [
             (0, 0.0, 0.5, 1.0),     // Space
             (1, 0.0, 0.5, 1.0),     // Brightness
             (2, 0.0, 1.0, 2.0),     // Width
@@ -1670,6 +1972,8 @@ mod tests {
             (14, 0.0, 0.0, 1.0),    // Freeze
             (15, 0.0, 0.5, 1.0),    // Spin
             (16, 0.0, 0.5, 1.0),    // Wander
+            (17, 0.0, 0.5, 1.0),    // ER Level
+            (18, 0.0, 0.5, 1.0),    // Late Level
         ];
 
         for (idx, lo, mid, hi) in params_and_ranges {
@@ -1698,6 +2002,8 @@ mod tests {
                     14 => reverb.set_freeze(val > 0.5),
                     15 => reverb.set_spin(val),
                     16 => reverb.set_wander(val),
+                    17 => reverb.set_er_level(val),
+                    18 => reverb.set_late_level(val),
                     _ => {}
                 }
 

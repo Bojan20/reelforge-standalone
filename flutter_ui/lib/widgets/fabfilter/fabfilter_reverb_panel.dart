@@ -1,6 +1,6 @@
 /// FF-R Reverb Panel — Pro-R 2 Ultimate
 ///
-/// Mastering-grade reverb interface with 17 parameters:
+/// Mastering-grade reverb interface with 19 parameters:
 /// - Space, Brightness, Width, Mix, PreDelay, Style
 /// - Diffusion, Distance, Decay, Low/High Decay Mult
 /// - Character, Thickness, Ducking, Freeze
@@ -59,6 +59,8 @@ class _P {
   static const freeze = 14;
   static const spin = 15;
   static const wander = 16;
+  static const erLevel = 17;
+  static const lateLevel = 18;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -73,6 +75,7 @@ class ReverbSnapshot implements DspParameterSnapshot {
   final double character, thickness, ducking;
   final bool freeze;
   final double spin, wander;
+  final double erLevel, lateLevel;
 
   const ReverbSnapshot({
     required this.space, required this.brightness, required this.width,
@@ -81,6 +84,7 @@ class ReverbSnapshot implements DspParameterSnapshot {
     required this.lowDecayMult, required this.highDecayMult,
     required this.character, required this.thickness, required this.ducking,
     required this.freeze, required this.spin, required this.wander,
+    required this.erLevel, required this.lateLevel,
   });
 
   @override
@@ -91,6 +95,7 @@ class ReverbSnapshot implements DspParameterSnapshot {
     highDecayMult: highDecayMult, character: character,
     thickness: thickness, ducking: ducking, freeze: freeze,
     spin: spin, wander: wander,
+    erLevel: erLevel, lateLevel: lateLevel,
   );
 
   @override
@@ -100,7 +105,8 @@ class ReverbSnapshot implements DspParameterSnapshot {
         width == other.width && mix == other.mix &&
         predelay == other.predelay && style == other.style &&
         decay == other.decay && freeze == other.freeze &&
-        spin == other.spin && wander == other.wander;
+        spin == other.spin && wander == other.wander &&
+        erLevel == other.erLevel && lateLevel == other.lateLevel;
   }
 }
 
@@ -127,7 +133,7 @@ class FabFilterReverbPanel extends FabFilterPanelBase {
 class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     with FabFilterPanelMixin, TickerProviderStateMixin {
   // ─────────────────────────────────────────────────────────────────────────
-  // STATE — All 17 parameters
+  // STATE — All 19 parameters
   // ─────────────────────────────────────────────────────────────────────────
 
   // Primary controls
@@ -156,6 +162,8 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
   // Velvet noise modulation (Phase 1)
   double _spin = 0.5;    // 0.0-1.0 (maps to 1-5 Hz fast modulation)
   double _wander = 0.5;  // 0.0-1.0 (maps to 0.05-0.5 Hz slow drift)
+  double _erLevel = 1.0;    // 0.0-1.0 (ER gain)
+  double _lateLevel = 1.0;  // 0.0-1.0 (FDN tail gain)
 
   // Metering
   double _wetLevel = 0.0;
@@ -250,6 +258,8 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       _freeze = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.freeze) > 0.5;
       _spin = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.spin);
       _wander = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.wander);
+      _erLevel = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.erLevel);
+      _lateLevel = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.lateLevel);
       if (_freeze) _freezeController.forward();
     });
   }
@@ -292,6 +302,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     lowDecayMult: _lowDecay, highDecayMult: _highDecay,
     character: _character, thickness: _thickness, ducking: _ducking,
     freeze: _freeze, spin: _spin, wander: _wander,
+    erLevel: _erLevel, lateLevel: _lateLevel,
   );
 
   void _restore(ReverbSnapshot s) {
@@ -304,6 +315,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       _character = s.character; _thickness = s.thickness;
       _ducking = s.ducking; _freeze = s.freeze;
       _spin = s.spin; _wander = s.wander;
+      _erLevel = s.erLevel; _lateLevel = s.lateLevel;
     });
     if (_freeze) { _freezeController.forward(); } else { _freezeController.reverse(); }
     _applyAll();
@@ -328,6 +340,8 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     _setParam(_P.freeze, _freeze ? 1.0 : 0.0);
     _setParam(_P.spin, _spin);
     _setParam(_P.wander, _wander);
+    _setParam(_P.erLevel, _erLevel);
+    _setParam(_P.lateLevel, _lateLevel);
   }
 
   @override
@@ -1014,6 +1028,24 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
                       onChanged: (v) {
                         setState(() => _highDecay = 0.1 + v * 0.9);
                         _setParam(_P.highDecay, _highDecay);
+                      },
+                    ),
+                    _knob(
+                      value: _erLevel, label: 'ER',
+                      display: '${(_erLevel * 100).toStringAsFixed(0)}%',
+                      color: FabFilterProcessorColors.reverbAccent,
+                      onChanged: (v) {
+                        setState(() => _erLevel = v);
+                        _setParam(_P.erLevel, v);
+                      },
+                    ),
+                    _knob(
+                      value: _lateLevel, label: 'LATE',
+                      display: '${(_lateLevel * 100).toStringAsFixed(0)}%',
+                      color: FabFilterProcessorColors.reverbDecay,
+                      onChanged: (v) {
+                        setState(() => _lateLevel = v);
+                        _setParam(_P.lateLevel, v);
                       },
                     ),
                   ],

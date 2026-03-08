@@ -2920,7 +2920,7 @@ impl InsertProcessor for ReverbWrapper {
     }
 
     fn num_params(&self) -> usize {
-        17
+        19
     }
 
     fn set_param(&mut self, param_index: usize, value: f64) {
@@ -2952,6 +2952,8 @@ impl InsertProcessor for ReverbWrapper {
             14 => self.reverb.set_freeze(value > 0.5),
             15 => self.reverb.set_spin(value),
             16 => self.reverb.set_wander(value),
+            17 => self.reverb.set_er_level(value),
+            18 => self.reverb.set_late_level(value),
             _ => {}
         }
     }
@@ -2987,6 +2989,8 @@ impl InsertProcessor for ReverbWrapper {
             }
             15 => self.reverb.spin(),
             16 => self.reverb.wander(),
+            17 => self.reverb.er_level(),
+            18 => self.reverb.late_level(),
             _ => 0.0,
         }
     }
@@ -3010,6 +3014,8 @@ impl InsertProcessor for ReverbWrapper {
             14 => "Freeze",
             15 => "Spin",
             16 => "Wander",
+            17 => "ER Level",
+            18 => "Late Level",
             _ => "Unknown",
         }
     }
@@ -4709,7 +4715,7 @@ mod tests {
     #[test]
     fn test_reverb_wrapper_num_params() {
         let proc = create_processor_extended("reverb", 48000.0).unwrap();
-        assert_eq!(proc.num_params(), 17);
+        assert_eq!(proc.num_params(), 19);
     }
 
     #[test]
@@ -4732,7 +4738,9 @@ mod tests {
         assert_eq!(proc.param_name(14), "Freeze");
         assert_eq!(proc.param_name(15), "Spin");
         assert_eq!(proc.param_name(16), "Wander");
-        assert_eq!(proc.param_name(17), "Unknown");
+        assert_eq!(proc.param_name(17), "ER Level");
+        assert_eq!(proc.param_name(18), "Late Level");
+        assert_eq!(proc.param_name(19), "Unknown");
     }
 
     #[test]
@@ -4757,6 +4765,8 @@ mod tests {
             (13, 0.4),  // ducking
             (15, 0.7),  // spin
             (16, 0.3),  // wander
+            (17, 0.8),  // er_level
+            (18, 0.6),  // late_level
         ];
         for (idx, val) in &test_values {
             proc.set_param(*idx, *val);
