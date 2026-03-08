@@ -6444,16 +6444,50 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   }
 
   void _triggerFreeSpinsSequence(StageProvider provider, int count) {
+    // Full spin cycle with scatter symbols landing on reels 1, 2, 3
+    // Triggers SCATTER_LAND_1..3, anticipation, SCATTER_WIN → FS intro
     double ts = 0.0;
 
+    // Get scatter symbol ID from stage provider (default 12)
+    int scatterSym = 12;
+    try {
+      final sp = context.read<SlotLabProvider>();
+      scatterSym = sp.stageProvider.scatterSymbolId;
+    } catch (_) {}
+
+    // Non-scatter filler symbols (low pay: 1-5)
+    const filler = [1, 3, 5];
+
     final events = [
+      // 1. Spin starts — reels begin spinning
       StageEvent(stage: const SpinStart(), timestampMs: ts),
-      StageEvent(stage: const ReelStop(reelIndex: 0, symbols: []), timestampMs: ts += 200),
-      StageEvent(stage: const ReelStop(reelIndex: 1, symbols: []), timestampMs: ts += 200),
-      StageEvent(stage: const ReelStop(reelIndex: 2, symbols: []), timestampMs: ts += 200),
-      StageEvent(stage: const ReelStop(reelIndex: 3, symbols: []), timestampMs: ts += 200),
-      StageEvent(stage: const ReelStop(reelIndex: 4, symbols: []), timestampMs: ts += 200),
-      StageEvent(stage: FeatureEnter(featureType: FeatureType.freeSpins, totalSteps: count), timestampMs: ts += 100),
+
+      // 2. Reel 0 stops — no scatter (normal symbols)
+      StageEvent(stage: ReelStop(reelIndex: 0, symbols: filler), timestampMs: ts += 600),
+
+      // 3. Reel 1 stops — SCATTER lands (scatter count = 1)
+      StageEvent(stage: ReelStop(reelIndex: 1, symbols: [scatterSym, 2, 4]), timestampMs: ts += 500),
+
+      // 4. Reel 2 stops — SCATTER lands (scatter count = 2 → anticipation builds)
+      StageEvent(stage: ReelStop(reelIndex: 2, symbols: [3, scatterSym, 1]), timestampMs: ts += 500),
+
+      // 5. Anticipation ON — tension on reel 3 (will 3rd scatter land?)
+      StageEvent(stage: const AnticipationOn(reelIndex: 3, reason: 'scatter'), timestampMs: ts += 100),
+
+      // 6. Reel 3 stops — SCATTER lands! (scatter count = 3 → free spins triggered!)
+      StageEvent(stage: ReelStop(reelIndex: 3, symbols: [scatterSym, 5, 2]), timestampMs: ts += 800),
+
+      // 7. Anticipation OFF
+      StageEvent(stage: const AnticipationOff(reelIndex: 3), timestampMs: ts += 50),
+
+      // 8. Reel 4 stops — normal (no scatter)
+      StageEvent(stage: ReelStop(reelIndex: 4, symbols: filler), timestampMs: ts += 400),
+
+      // 9. SCATTER_WIN pause — let celebration play
+      // (slot_stage_provider auto-fires SCATTER_LAND_N on each reel stop)
+
+      // 10. Feature Enter — transition to Free Spins after full spin cycle
+      StageEvent(stage: FeatureEnter(featureType: FeatureType.freeSpins, totalSteps: count), timestampMs: ts += 1200),
     ];
 
     _playStageSequence(provider, events);
@@ -9724,8 +9758,18 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               ),
               const Spacer(),
               GestureDetector(
-                onTap: () {
-                  mw.addLayerToEvent(event.id, audioPath: '', name: 'New Layer');
+                onTap: () async {
+                  // Open native file picker to select audio file
+                  final paths = await NativeFilePicker.pickAudioFiles();
+                  if (paths.isEmpty || !mounted) return;
+                  for (final path in paths) {
+                    final name = path.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), '');
+                    mw.addLayerToEvent(event.id, audioPath: path, name: name);
+                    // Also add to AudioAssetManager pool
+                    if (!AudioAssetManager.instance.contains(path)) {
+                      AudioAssetManager.instance.importFileInstant(path, folder: 'SlotLab Import');
+                    }
+                  }
                   setState(() {});
                 },
                 child: Container(

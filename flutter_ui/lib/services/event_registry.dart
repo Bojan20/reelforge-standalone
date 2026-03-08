@@ -644,6 +644,9 @@ class EventRegistry extends ChangeNotifier {
   static const int _maxPlayingInstances = 256;
   final List<_PlayingInstance> _playingInstances = [];
 
+  /// True when any audio is currently playing (used to defer registry sync)
+  bool get hasPlayingInstances => _playingInstances.isNotEmpty;
+
   // Preloaded paths (for tracking)
   final Set<String> _preloadedPaths = {};
 
@@ -1368,13 +1371,14 @@ class EventRegistry extends ChangeNotifier {
     if (existingEvent != null) {
       // Check if event data has changed (layers, duration, etc.)
       final hasChanged = !_eventsAreEquivalent(existingEvent, event);
-      if (hasChanged) {
-        // Event data changed - stop all playing instances SYNCHRONOUSLY
-        _stopEventSync(event.id);
-      } else {
+      if (!hasChanged) {
         // Event data is identical - skip update, keep playing
-        return; // Don't re-register if identical
+        return;
       }
+      // Event data changed — update registration WITHOUT stopping active voices.
+      // Active voices continue playing with previous data; new data takes effect
+      // on next trigger. This prevents background music cutoff when editing
+      // any event in the CUSTOM tab.
     }
 
     // Also check if another event has this stage (shouldn't happen but defensive)
