@@ -3802,6 +3802,7 @@ pub struct DelayWrapper {
     sidechain_enabled: bool,
     sidechain_buf_l: Vec<f64>,
     sidechain_buf_r: Vec<f64>,
+    sidechain_buf_len: usize,
     // D10.2: MIDI trigger state
     midi_trigger_pending: bool,
     // Pre-allocated dry signal buffers (audio thread — zero allocations)
@@ -3899,8 +3900,9 @@ impl DelayWrapper {
             freeze_buf_r: vec![0.0; freeze_len],
             freeze_write_pos: 0,
             sidechain_enabled: false,
-            sidechain_buf_l: Vec::new(),
-            sidechain_buf_r: Vec::new(),
+            sidechain_buf_l: vec![0.0; 4096],
+            sidechain_buf_r: vec![0.0; 4096],
+            sidechain_buf_len: 0,
             midi_trigger_pending: false,
             dry_buf_l: vec![0.0; 4096],
             dry_buf_r: vec![0.0; 4096],
@@ -3909,16 +3911,20 @@ impl DelayWrapper {
 
     /// D10.1: Feed external sidechain signal for ducking.
     /// Call this BEFORE process_stereo each block.
+    /// Uses pre-allocated buffers — zero heap allocation on audio thread.
     pub fn feed_sidechain(&mut self, left: &[f64], right: &[f64]) {
-        self.sidechain_buf_l.clear();
-        self.sidechain_buf_l.extend_from_slice(left);
-        self.sidechain_buf_r.clear();
-        self.sidechain_buf_r.extend_from_slice(right);
+        let len = left.len().min(right.len()).min(self.sidechain_buf_l.len());
+        self.sidechain_buf_l[..len].copy_from_slice(&left[..len]);
+        self.sidechain_buf_r[..len].copy_from_slice(&right[..len]);
+        self.sidechain_buf_len = len;
     }
 
     /// D10.1: Enable/disable external sidechain
     pub fn set_sidechain_enabled(&mut self, enabled: bool) {
         self.sidechain_enabled = enabled;
+        if !enabled {
+            self.sidechain_buf_len = 0;
+        }
     }
 
     /// D10.2: MIDI trigger — activate freeze/stutter/reverse based on mode param
@@ -4192,11 +4198,8 @@ impl InsertProcessor for DelayWrapper {
         // Process through ping-pong delay (sample-by-sample for stereo width)
         let width = self.params[9] / 100.0;
 
-        // Save dry signal (pre-allocated buffers — zero alloc on audio thread)
-        if self.dry_buf_l.len() < len {
-            self.dry_buf_l.resize(len, 0.0);
-            self.dry_buf_r.resize(len, 0.0);
-        }
+        // Save dry signal (pre-allocated to 4096 — zero alloc on audio thread)
+        debug_assert!(self.dry_buf_l.len() >= len, "dry_buf capacity insufficient");
         self.dry_buf_l[..len].copy_from_slice(&left[..len]);
         self.dry_buf_r[..len].copy_from_slice(&right[..len]);
 
@@ -4236,7 +4239,7 @@ impl InsertProcessor for DelayWrapper {
         // Apply ducking (D10.1: use sidechain signal if available, else self-duck)
         if ducking_amount > 0.01 {
             for i in 0..len {
-                let input_level = if self.sidechain_enabled && i < self.sidechain_buf_l.len() {
+                let input_level = if self.sidechain_enabled && i < self.sidechain_buf_len {
                     (self.sidechain_buf_l[i].abs() + self.sidechain_buf_r[i].abs()) * 0.5
                 } else {
                     (self.dry_buf_l[i].abs() + self.dry_buf_r[i].abs()) * 0.5
@@ -4735,6 +4738,7 @@ impl InsertProcessor for DelayWrapper {
                 let on = value > 0.5;
                 self.params[54] = if on { 1.0 } else { 0.0 };
                 self.sidechain_enabled = on;
+                if !on { self.sidechain_buf_len = 0; }
             }
             55 => {
                 // MIDI Trigger Mode (0=off, 1=freeze, 2=stutter, 3=reverse)

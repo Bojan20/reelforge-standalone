@@ -431,6 +431,7 @@ pub struct PingPongDelay {
     infinite_fb: bool,              // D6.5 — feedback=100% + soft limiter
     freeze_fade_samples: usize,     // D6.4 — crossfade length for freeze
     freeze_fade_pos: usize,         // current position in fade
+    reverse_counter: usize,         // D6.2 — dedicated reverse playback counter
 
     // D5 Stereo & Spatial
     stereo_routing: StereoRouting,
@@ -1012,6 +1013,7 @@ impl PingPongDelay {
             infinite_fb: false,
             freeze_fade_samples: (0.05 * sample_rate) as usize, // 50ms default
             freeze_fade_pos: 0,
+            reverse_counter: 0,
             // D5 Stereo
             stereo_routing: StereoRouting::PingPong,
             cross_feedback: 0.0,
@@ -1212,6 +1214,9 @@ impl PingPongDelay {
     /// Enable reverse delay (D6.2)
     pub fn set_reverse(&mut self, enabled: bool) {
         self.reverse_enabled = enabled;
+        if enabled {
+            self.reverse_counter = 0;
+        }
     }
 
     /// Enable stutter mode (D6.3)
@@ -1430,6 +1435,7 @@ impl Processor for PingPongDelay {
         self.swing_counter = 0;
         self.stutter_pos = 0;
         self.freeze_fade_pos = 0;
+        self.reverse_counter = 0;
         // D5 diffusion
         for ap in &mut self.diffusion_ap { ap.reset(); }
         // D7 vintage
@@ -1456,18 +1462,18 @@ impl StereoProcessor for PingPongDelay {
         let delay_r = self.smooth_delay_r;
 
         // D6.2: Reverse — read backwards through delay buffer (grain-based)
-        // Uses freeze_fade_pos as reverse playback counter
+        // Uses dedicated reverse_counter (separate from freeze_fade_pos)
         let (delayed_l, delayed_r) = if self.reverse_enabled {
             let delay_l_int = delay_l as usize;
             let delay_r_int = delay_r as usize;
             let dl = delay_l_int.max(1);
             let dr = delay_r_int.max(1);
             // Reverse counter: counts 0..delay, reads from newest to oldest
-            let rev_phase = self.freeze_fade_pos % dl;
+            let rev_phase = self.reverse_counter % dl;
             // Read from (write_pos - 1 - rev_phase) = newest first, going older
             let rev_read_l = (self.write_pos + self.max_delay_samples - 1 - rev_phase) % self.max_delay_samples;
-            let rev_read_r = (self.write_pos + self.max_delay_samples - 1 - (self.freeze_fade_pos % dr)) % self.max_delay_samples;
-            self.freeze_fade_pos = self.freeze_fade_pos.wrapping_add(1);
+            let rev_read_r = (self.write_pos + self.max_delay_samples - 1 - (self.reverse_counter % dr)) % self.max_delay_samples;
+            self.reverse_counter = self.reverse_counter.wrapping_add(1);
             (self.buffer_l[rev_read_l], self.buffer_r[rev_read_r])
         } else if self.stutter_enabled && self.stutter_samples > 0 {
             // D6.3: Stutter — loop a short fragment
@@ -1556,13 +1562,17 @@ impl StereoProcessor for PingPongDelay {
                 // Process in M/S domain: boost side for wider stereo image
                 let mid = (vint_l + vint_r) * 0.5;
                 let side = (vint_l - vint_r) * 0.5;
-                // Cross-feedback amount controls mid/side balance:
-                // 0% = mid only (mono), 50% = normal, 100% = side only (wide)
-                let side_boost = 1.0 + self.cross_feedback * 2.0; // 1.0 → 3.0
-                let mid_cut = 1.0 - self.cross_feedback * 0.5;    // 1.0 → 0.5
-                let ms_mid = mid * mid_cut;
-                let ms_side = side * side_boost;
-                (ms_mid + ms_side, ms_mid - ms_side)
+                // Cross-feedback controls mid/side balance (energy-preserving):
+                // 0% = mid only (mono), 50% = balanced, 100% = side only (wide)
+                let cf = self.cross_feedback; // 0.0 → 1.0
+                let mid_gain = 1.0 - cf;     // 1.0 → 0.0
+                let side_gain = cf;           // 0.0 → 1.0
+                let ms_mid = mid * mid_gain;
+                let ms_side = side * side_gain;
+                // Normalize: max possible gain is 1.0 (at extremes or midpoint)
+                let out_l = ms_mid + ms_side;
+                let out_r = ms_mid - ms_side;
+                (out_l, out_r)
             }
         };
 
