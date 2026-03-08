@@ -172,8 +172,9 @@ class MixerPanel extends StatelessWidget {
                 mixerProvider.setChannelVolumeWithUndo(id, volume);
               }
             },
-            onPanChange: (id, pan) => mixerProvider.setChannelPanWithUndo(id, pan),
-            onPanRightChange: (id, pan) => mixerProvider.setChannelPanRightWithUndo(id, pan),
+            onPanChange: (id, pan) => mixerProvider.setChannelPan(id, pan),
+            onPanChangeEnd: (id, pan) => mixerProvider.setChannelPanWithUndo(id, pan),
+            onPanRightChange: (id, pan) => mixerProvider.setChannelPanRight(id, pan),
             onMuteToggle: (id) {
               if (mixerProvider.vcas.any((v) => v.id == id)) {
                 mixerProvider.toggleVcaMute(id);
