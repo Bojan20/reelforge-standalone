@@ -2077,9 +2077,6 @@ class SlotLabProjectProvider extends ChangeNotifier {
     StageConfigurationService.instance.syncSymbolStages(_symbols);
   }
 
-  /// Debug: print current state
-  void debugPrintState() {
-  }
 }
 
 // =============================================================================

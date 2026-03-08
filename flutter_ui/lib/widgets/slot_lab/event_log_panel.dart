@@ -160,14 +160,17 @@ class _EventLogPanelState extends State<EventLogPanel> {
     // NOTE: SlotLabProvider listener removed — stages are logged via EventRegistry
     // NOTE: MiddlewareProvider listener removed — TODO: implement middleware event logging
     eventRegistry.addListener(_onEventRegistryUpdate);
-    _searchController.addListener(() {
-      setState(() => _searchQuery = _searchController.text.toLowerCase());
-    });
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    setState(() => _searchQuery = _searchController.text.toLowerCase());
   }
 
   @override
   void dispose() {
     eventRegistry.removeListener(_onEventRegistryUpdate);
+    _searchController.removeListener(_onSearchChanged);
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();

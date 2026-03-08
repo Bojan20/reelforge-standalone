@@ -1009,58 +1009,6 @@ class MixerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Set channel volume (0.0 - 2.0, where 1.0 = 0dB, 2.0 = +6dB)
-  void setVolume(String id, double volume) {
-    final channel = _channels[id] ?? _buses[id];
-    if (channel == null) return;
-
-    channel.volume = volume.clamp(0.0, 2.0);
-
-    // Send to engine if track channel
-    // Rust engine_set_track_volume expects LINEAR value (0.0-2.0), NOT dB!
-    if (channel.trackIndex != null) {
-      NativeFFI.instance.setTrackVolume(channel.trackIndex!, channel.volume);
-    }
-
-    notifyListeners();
-  }
-
-  /// Toggle channel mute
-  void toggleMute(String id) {
-    final channel = _channels[id] ?? _buses[id];
-    if (channel == null) return;
-
-    channel.muted = !channel.muted;
-
-    // Send to engine if track channel
-    if (channel.trackIndex != null) {
-      NativeFFI.instance.setTrackMute(channel.trackIndex!, channel.muted);
-    }
-
-    notifyListeners();
-  }
-
-  /// Toggle channel solo
-  void toggleSolo(String id) {
-    final channel = _channels[id] ?? _buses[id];
-    if (channel == null) return;
-
-    channel.soloed = !channel.soloed;
-
-    if (channel.soloed) {
-      _soloedChannels.add(id);
-    } else {
-      _soloedChannels.remove(id);
-    }
-
-    // Send to engine if track channel
-    if (channel.trackIndex != null) {
-      NativeFFI.instance.setTrackSolo(channel.trackIndex!, channel.soloed);
-    }
-
-    notifyListeners();
-  }
-
   /// Toggle channel phase invert (polarity flip)
   void togglePhaseInvert(String id) {
     final channel = _channels[id] ?? _buses[id];

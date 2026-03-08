@@ -33,6 +33,10 @@ class LiveEngineService {
   final _messageController = StreamController<EngineMessage>.broadcast();
   final _errorController = StreamController<String>.broadcast();
 
+  // --- Subscriptions ---
+  StreamSubscription? _wsSubscription;
+  StreamSubscription? _tcpSubscription;
+
   // --- Reconnection ---
   Timer? _reconnectTimer;
   int _reconnectAttempts = 0;
@@ -106,7 +110,7 @@ class LiveEngineService {
       );
 
       // Listen to messages
-      _wsChannel!.stream.listen(
+      _wsSubscription = _wsChannel!.stream.listen(
         _onWebSocketMessage,
         onError: _onWebSocketError,
         onDone: _onWebSocketDone,
@@ -131,7 +135,7 @@ class LiveEngineService {
       );
 
       // Listen to data
-      _tcpSocket!.listen(
+      _tcpSubscription = _tcpSocket!.listen(
         _onTcpData,
         onError: _onTcpError,
         onDone: _onTcpDone,
@@ -154,9 +158,13 @@ class LiveEngineService {
     _reconnectTimer?.cancel();
 
     try {
+      await _wsSubscription?.cancel();
+      _wsSubscription = null;
       await _wsChannel?.sink.close();
       _wsChannel = null;
 
+      await _tcpSubscription?.cancel();
+      _tcpSubscription = null;
       _tcpSocket?.destroy();
       _tcpSocket = null;
     } catch (e) { /* ignored */ }
@@ -414,7 +422,9 @@ class LiveEngineService {
   /// Dispose resources
   void dispose() {
     _reconnectTimer?.cancel();
+    _wsSubscription?.cancel();
     _wsChannel?.sink.close();
+    _tcpSubscription?.cancel();
     _tcpSocket?.destroy();
     _stateController.close();
     _eventController.close();

@@ -231,6 +231,10 @@ class MixerPanel extends StatelessWidget {
             onGainChange: (channelId, gain) {
               mixerProvider.setInputGain(channelId, gain);
             },
+            // === STEREO WIDTH ===
+            onWidthChange: (channelId, width) {
+              mixerProvider.setStereoWidth(channelId, width);
+            },
             // === STRUCTURE ===
             onAddBus: () {
               mixerProvider.createBus(name: 'Bus ${mixerProvider.buses.length + 1}');

@@ -1011,6 +1011,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     } catch (_) {
       // Provider may not be available during dispose
     }
+    // Cancel resize throttle timer
+    _resizeThrottleTimer?.cancel();
     // Dispose ScrollController
     _middlewareTimelineScrollController.dispose();
     // Dispose Middleware ↔ DAW Sync Controller

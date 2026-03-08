@@ -423,6 +423,7 @@ class CollaborationService extends ChangeNotifier {
   CollabSession? _currentSession;
   Collaborator? _localUser;
   WebSocketChannel? _channel;
+  StreamSubscription? _channelSubscription;
   Timer? _pingTimer;
   Timer? _reconnectTimer;
   int _reconnectAttempts = 0;
@@ -632,7 +633,7 @@ class CollaborationService extends ChangeNotifier {
       _channel = WebSocketChannel.connect(uri);
 
       // Listen for messages
-      _channel!.stream.listen(
+      _channelSubscription = _channel!.stream.listen(
         _handleMessage,
         onError: _handleError,
         onDone: _handleDisconnect,
@@ -652,6 +653,8 @@ class CollaborationService extends ChangeNotifier {
     _stopPingTimer();
     _stopReconnectTimer();
 
+    await _channelSubscription?.cancel();
+    _channelSubscription = null;
     await _channel?.sink.close();
     _channel = null;
   }

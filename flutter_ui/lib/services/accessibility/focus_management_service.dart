@@ -82,6 +82,7 @@ class FocusManagementService extends ChangeNotifier {
 
   // State
   final Map<String, FocusNodeInfo> _registeredNodes = {};
+  final Map<String, VoidCallback> _nodeListeners = {};
   final List<String> _focusHistory = [];
   final List<FocusScopeId> _scopeStack = [];
   String? _currentFocusId;
@@ -121,7 +122,9 @@ class FocusManagementService extends ChangeNotifier {
     );
 
     // Listen for focus changes
-    node.addListener(() => _onFocusChanged(id, node));
+    void listener() => _onFocusChanged(id, node);
+    _nodeListeners[id] = listener;
+    node.addListener(listener);
 
   }
 
@@ -129,6 +132,10 @@ class FocusManagementService extends ChangeNotifier {
   void unregisterNode(String id) {
     final info = _registeredNodes.remove(id);
     if (info != null) {
+      final listener = _nodeListeners.remove(id);
+      if (listener != null) {
+        info.node.removeListener(listener);
+      }
       _focusHistory.remove(id);
     }
   }
