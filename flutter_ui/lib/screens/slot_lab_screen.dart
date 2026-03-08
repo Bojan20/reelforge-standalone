@@ -60,6 +60,7 @@ import 'package:get_it/get_it.dart';
 import '../providers/slot_lab/slot_lab_coordinator.dart';
 import '../providers/slot_lab/error_prevention_provider.dart';
 import '../providers/slot_lab/slotlab_notification_provider.dart';
+import '../providers/slot_lab/config_undo_manager.dart';
 import '../providers/slot_lab/slotlab_undo_provider.dart';
 import '../providers/slot_lab/trigger_layer_provider.dart';
 import '../providers/slot_lab/behavior_tree_provider.dart';
@@ -71,9 +72,11 @@ import '../providers/slot_lab/game_flow_integration.dart';
 import '../providers/slot_lab/game_flow_provider.dart';
 import '../providers/ale_provider.dart';
 import '../services/stage_audio_mapper.dart';
+import '../models/game_flow_models.dart';
 import '../models/stage_models.dart';
 import '../models/middleware_models.dart';
 import '../models/slot_audio_events.dart';
+import '../models/win_tier_config.dart';
 import '../theme/fluxforge_theme.dart';
 import '../theme/slotlab_layout.dart';
 import '../widgets/common/inline_toast.dart';
@@ -1398,6 +1401,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
         _middlewareRef!.addListener(_onMiddlewareChanged);
         _focusNode.requestFocus();
+
+        // Wire ConfigUndoManager callbacks
+        _initConfigUndoManager();
       }
     });
   }
@@ -1427,6 +1433,57 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         _diagFindingsCount = newCount;
       });
     }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CONFIG UNDO MANAGER — Wire capture/restore callbacks
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  void _initConfigUndoManager() {
+    final undo = GetIt.instance<ConfigUndoManager>();
+    final project = Provider.of<SlotLabProjectProvider>(context, listen: false);
+    final flow = Provider.of<GameFlowProvider>(context, listen: false);
+
+    undo.onCaptureState = () {
+      // Capture full CONFIG state as JSON snapshot
+      final winJson = project.winConfiguration.toJson();
+      final transConfigs = <String, Map<String, dynamic>>{};
+      for (final entry in flow.transitionConfigs.entries) {
+        transConfigs[entry.key] = entry.value.toJson();
+      }
+      final defaultTrans = flow.defaultTransitionConfig.toJson();
+      final artwork = <String, String?>{};
+      for (final s in project.symbols) {
+        artwork[s.id] = s.artworkPath;
+      }
+      return ConfigSnapshot(
+        winConfigJson: winJson,
+        transitionConfigsJson: transConfigs,
+        defaultTransitionJson: defaultTrans,
+        symbolArtwork: artwork,
+      );
+    };
+
+    undo.onRestoreState = (snapshot) {
+      // Restore win config
+      final winConfig = SlotWinConfiguration.fromJson(snapshot.winConfigJson);
+      project.setWinConfiguration(winConfig);
+
+      // Restore transition configs
+      final restoredConfigs = <String, SceneTransitionConfig>{};
+      for (final entry in snapshot.transitionConfigsJson.entries) {
+        restoredConfigs[entry.key] = SceneTransitionConfig.fromJson(entry.value);
+      }
+      flow.configureTransitions(
+        configs: restoredConfigs,
+        defaultConfig: SceneTransitionConfig.fromJson(snapshot.defaultTransitionJson),
+      );
+
+      // Restore symbol artwork
+      for (final entry in snapshot.symbolArtwork.entries) {
+        project.updateSymbolArtwork(entry.key, entry.value);
+      }
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1644,6 +1701,16 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     if (_ultimateTimelineController != null) {
       if (_handleUltimateTimelineShortcut(event)) {
         return true;
+      }
+    }
+
+    // Cmd+Z / Cmd+Shift+Z → CONFIG undo/redo (when CONFIG tab active)
+    if (event.logicalKey == LogicalKeyboardKey.keyZ &&
+        (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed)) {
+      if (_rightPanelTab == _RightPanelTab.config) {
+        final handled = GetIt.instance<ConfigUndoManager>()
+            .handleUndoKey(HardwareKeyboard.instance.isShiftPressed);
+        if (handled) return true;
       }
     }
 
@@ -9884,6 +9951,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       builder: (context, expanded, _) {
         return Column(
           children: [
+            _buildConfigUndoToolbar(),
             _buildConfigAccordionHeader(0, 'SYMBOLS', Icons.casino, expanded),
             if (expanded == 0)
               const Expanded(child: SymbolArtPanel()),
@@ -9940,6 +10008,94 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConfigUndoToolbar() {
+    final undo = GetIt.instance<ConfigUndoManager>();
+    return ListenableBuilder(
+      listenable: undo,
+      builder: (context, _) {
+        if (!undo.canUndo && !undo.canRedo) return const SizedBox.shrink();
+        return Container(
+          height: 24,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          decoration: const BoxDecoration(
+            color: Color(0xFF0E0E14),
+            border: Border(bottom: BorderSide(color: Color(0xFF2A2A38), width: 0.5)),
+          ),
+          child: Row(
+            children: [
+              // Undo button
+              _configUndoButton(
+                icon: Icons.undo,
+                tooltip: undo.undoDescription != null
+                    ? 'Undo: ${undo.undoDescription}'
+                    : 'Nothing to undo',
+                enabled: undo.canUndo,
+                onTap: undo.undo,
+              ),
+              const SizedBox(width: 2),
+              // Redo button
+              _configUndoButton(
+                icon: Icons.redo,
+                tooltip: undo.redoDescription != null
+                    ? 'Redo: ${undo.redoDescription}'
+                    : 'Nothing to redo',
+                enabled: undo.canRedo,
+                onTap: undo.redo,
+              ),
+              const SizedBox(width: 6),
+              // Stack count
+              Text(
+                '${undo.undoCount}',
+                style: const TextStyle(
+                  color: Color(0xFF505060),
+                  fontSize: 9,
+                ),
+              ),
+              const Spacer(),
+              // Clear button
+              if (undo.canUndo || undo.canRedo)
+                GestureDetector(
+                  onTap: undo.clear,
+                  child: const Tooltip(
+                    message: 'Clear undo history',
+                    child: Icon(Icons.clear_all, size: 14, color: Color(0xFF505060)),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _configUndoButton({
+    required IconData icon,
+    required String tooltip,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: enabled ? onTap : null,
+        child: Container(
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: enabled
+                ? FluxForgeTheme.accentCyan.withValues(alpha: 0.1)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(2),
+          ),
+          child: Icon(
+            icon,
+            size: 14,
+            color: enabled ? FluxForgeTheme.accentCyan : const Color(0xFF303038),
+          ),
         ),
       ),
     );

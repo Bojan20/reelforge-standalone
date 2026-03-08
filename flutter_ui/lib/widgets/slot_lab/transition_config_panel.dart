@@ -12,11 +12,14 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/game_flow_models.dart';
+import '../../providers/slot_lab/config_undo_manager.dart';
 import '../../providers/slot_lab/game_flow_provider.dart';
 import '../../services/event_registry.dart';
+import 'transition_timeline_editor.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SCENE TRANSITION PAIRS — All configurable transition pairs
@@ -132,6 +135,18 @@ class TransitionConfigPanel extends StatefulWidget {
 class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
   bool _showDefaults = false;
 
+  ConfigUndoManager get _undo => GetIt.instance<ConfigUndoManager>();
+
+  void _withUndo(String description, VoidCallback mutation) {
+    final before = _undo.captureBeforeState();
+    mutation();
+    _undo.recordAfter(
+      beforeState: before,
+      category: ConfigUndoCategory.transition,
+      description: description,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<GameFlowProvider>(
@@ -194,7 +209,10 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
           // Enable/disable toggle
           GestureDetector(
             onTap: () {
-              flow.configureTransitions(enabled: !flow.transitionsEnabled);
+              _withUndo(
+                flow.transitionsEnabled ? 'Disable transitions' : 'Enable transitions',
+                () => flow.configureTransitions(enabled: !flow.transitionsEnabled),
+              );
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -273,7 +291,9 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
           _buildConfigEditor(
             config: config,
             onChanged: (updated) {
-              flow.defaultTransitionConfig = updated;
+              _withUndo('Update default transition', () {
+                flow.defaultTransitionConfig = updated;
+              });
             },
             color: const Color(0xFF808090),
           ),
@@ -351,10 +371,11 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
               if (hasOverride)
                 GestureDetector(
                   onTap: () {
-                    // Remove override → fall back to defaults
-                    flow.configureTransitions(
-                      configs: Map.from(flow.transitionConfigs)..remove(pair.key),
-                    );
+                    _withUndo('Reset ${pair.shortLabel} to defaults', () {
+                      flow.configureTransitions(
+                        configs: Map.from(flow.transitionConfigs)..remove(pair.key),
+                      );
+                    });
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
@@ -375,7 +396,9 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
           _buildConfigEditor(
             config: config,
             onChanged: (updated) {
-              flow.setTransitionConfig(pair.key, updated);
+              _withUndo('Update ${pair.shortLabel}', () {
+                flow.setTransitionConfig(pair.key, updated);
+              });
             },
             color: pair.color,
           ),
@@ -454,7 +477,66 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
           ],
         ),
         const SizedBox(height: 4),
-        // Row 3: Audio stage
+        // Row 3: Layer visibility toggles
+        Row(
+          children: [
+            _buildToggle(
+              label: 'BURST',
+              value: config.showBurst,
+              color: color,
+              onChanged: (v) => onChanged(config.copyWith(showBurst: v)),
+            ),
+            const SizedBox(width: 4),
+            _buildToggle(
+              label: 'GLOW',
+              value: config.showGlow,
+              color: color,
+              onChanged: (v) => onChanged(config.copyWith(showGlow: v)),
+            ),
+            const SizedBox(width: 4),
+            _buildToggle(
+              label: 'SHIMMER',
+              value: config.showShimmer,
+              color: color,
+              onChanged: (v) => onChanged(config.copyWith(showShimmer: v)),
+            ),
+            const Spacer(),
+            // Burst ray count
+            if (config.showBurst) ...[
+              const Text(
+                'RAYS',
+                style: TextStyle(color: Color(0xFF505060), fontSize: 7, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(width: 3),
+              SizedBox(
+                width: 28,
+                height: 16,
+                child: _buildCompactIntField(
+                  value: config.burstRayCount,
+                  color: color,
+                  onChanged: (v) => onChanged(config.copyWith(burstRayCount: v)),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 4),
+        // Row 4: Intensity sliders
+        Row(
+          children: [
+            if (config.showBurst)
+              _buildIntensityBar('B', config.burstIntensity, color, (v) =>
+                onChanged(config.copyWith(burstIntensity: v))),
+            if (config.showGlow)
+              _buildIntensityBar('G', config.glowIntensity, color, (v) =>
+                onChanged(config.copyWith(glowIntensity: v))),
+            if (config.showShimmer)
+              _buildIntensityBar('S', config.shimmerIntensity, color, (v) =>
+                onChanged(config.copyWith(shimmerIntensity: v))),
+          ],
+        ),
+        const SizedBox(height: 4),
+        // Row 5: Audio stage
         _buildAudioStageField(
           value: config.audioStage,
           color: color,
@@ -462,7 +544,77 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
             onChanged(config.copyWith(audioStage: stage));
           },
         ),
+        const SizedBox(height: 6),
+        // Row 6: Visual timeline editor
+        TransitionTimelineEditor(
+          config: config,
+          onChanged: onChanged,
+          totalDurationMs: config.durationMs.toDouble().clamp(1000, 30000),
+        ),
       ],
+    );
+  }
+
+  Widget _buildIntensityBar(String label, double value, Color color, ValueChanged<double> onChanged) {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.only(right: 4),
+        child: Row(
+          children: [
+            Text(
+              label,
+              style: TextStyle(color: color.withOpacity(0.5), fontSize: 7, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(width: 2),
+            Expanded(
+              child: SizedBox(
+                height: 14,
+                child: SliderTheme(
+                  data: SliderThemeData(
+                    trackHeight: 3,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                    activeTrackColor: color.withOpacity(0.4),
+                    inactiveTrackColor: const Color(0xFF1A1A24),
+                    thumbColor: color,
+                    overlayShape: SliderComponentShape.noOverlay,
+                  ),
+                  child: Slider(
+                    value: value.clamp(0.0, 1.0),
+                    onChanged: onChanged,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactIntField({
+    required int value,
+    required Color color,
+    required ValueChanged<int> onChanged,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        // Cycle through common ray counts
+        final counts = [8, 12, 16, 20, 24, 32];
+        final idx = counts.indexOf(value);
+        onChanged(counts[(idx + 1) % counts.length]);
+      },
+      child: Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A24),
+          borderRadius: BorderRadius.circular(2),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Text(
+          '$value',
+          style: TextStyle(color: color.withOpacity(0.7), fontSize: 8),
+        ),
+      ),
     );
   }
 

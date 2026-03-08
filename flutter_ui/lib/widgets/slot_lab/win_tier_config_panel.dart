@@ -14,7 +14,9 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get_it/get_it.dart';
 import '../../models/win_tier_config.dart';
+import '../../providers/slot_lab/config_undo_manager.dart';
 import '../../providers/slot_lab_project_provider.dart';
 import '../../theme/fluxforge_theme.dart';
 
@@ -43,10 +45,19 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
   RegularWinTierConfig get _regular => _config.regularWins;
   BigWinConfig get _bigWin => _config.bigWins;
 
+  ConfigUndoManager get _undo => GetIt.instance<ConfigUndoManager>();
+
   /// Manual refresh notifier — bumped after local edits to trigger rebuild
   /// without listening to the mega-provider's every notifyListeners.
   final ValueNotifier<int> _revision = ValueNotifier(0);
   void _bumpRevision() => _revision.value++;
+
+  /// Wrap a mutation with undo capture
+  void _withUndo(ConfigUndoCategory category, String description, VoidCallback mutation) {
+    final before = _undo.captureBeforeState();
+    mutation();
+    _undo.recordAfter(beforeState: before, category: category, description: description);
+  }
 
   @override
   void initState() {
@@ -326,7 +337,9 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
               final isActive = _regular.name == e.value.regularWins.name;
               return GestureDetector(
                 onTap: () {
-                  widget.projectProvider.applyWinTierPreset(e.value);
+                  _withUndo(ConfigUndoCategory.winConfig, 'Apply preset: ${e.key}', () {
+                    widget.projectProvider.applyWinTierPreset(e.value);
+                  });
                   _bumpRevision();
                 },
                 child: Container(
@@ -413,7 +426,9 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
       particleBurstCount: nextId * 5,
     );
 
-    widget.projectProvider.addRegularWinTier(newTier);
+    _withUndo(ConfigUndoCategory.winTier, 'Add tier WIN $nextId', () {
+      widget.projectProvider.addRegularWinTier(newTier);
+    });
     _bumpRevision();
   }
 
@@ -634,7 +649,9 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
             value: _bigWin.threshold,
             suffix: 'x bet',
             onSubmit: (val) {
-              widget.projectProvider.setBigWinThreshold(val);
+              _withUndo(ConfigUndoCategory.bigWinTier, 'Set big win threshold: ${val}x', () {
+                widget.projectProvider.setBigWinThreshold(val);
+              });
               _bumpRevision();
             },
             width: 70,
@@ -1455,6 +1472,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
     int? particleBurstCount,
     bool syncStages = true,
   }) {
+    final before = _undo.captureBeforeState();
     final updated = tier.copyWith(
       displayLabel: displayLabel,
       fromMultiplier: fromMultiplier,
@@ -1504,6 +1522,11 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
       }
     }
 
+    _undo.recordAfter(
+      beforeState: before,
+      category: ConfigUndoCategory.winTier,
+      description: 'Update ${tier.displayLabel}',
+    );
     _bumpRevision();
   }
 
@@ -1517,6 +1540,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
     double? audioIntensity,
     bool syncStages = true,
   }) {
+    final before = _undo.captureBeforeState();
     final updated = tier.copyWith(
       displayLabel: displayLabel,
       fromMultiplier: fromMultiplier,
@@ -1568,16 +1592,27 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
       }
     }
 
+    _undo.recordAfter(
+      beforeState: before,
+      category: ConfigUndoCategory.bigWinTier,
+      description: 'Update ${tier.displayLabel}',
+    );
     _bumpRevision();
   }
 
   void _updateBigWinTiming({int? introDurationMs, int? endDurationMs, int? fadeOutDurationMs}) {
+    final before = _undo.captureBeforeState();
     final updated = _bigWin.copyWith(
       introDurationMs: introDurationMs,
       endDurationMs: endDurationMs,
       fadeOutDurationMs: fadeOutDurationMs,
     );
     widget.projectProvider.setWinConfiguration(_config.copyWith(bigWins: updated));
+    _undo.recordAfter(
+      beforeState: before,
+      category: ConfigUndoCategory.bigWinTier,
+      description: 'Update big win timing',
+    );
     _bumpRevision();
   }
 
@@ -1635,9 +1670,17 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
           ),
           TextButton(
             onPressed: () {
+              final before = _undo.captureBeforeState();
               final success = widget.projectProvider.importWinConfigurationJson(controller.text);
               Navigator.of(ctx).pop();
-              if (success) _bumpRevision();
+              if (success) {
+                _undo.recordAfter(
+                  beforeState: before,
+                  category: ConfigUndoCategory.winConfig,
+                  description: 'Import win config JSON',
+                );
+                _bumpRevision();
+              }
               if (!success) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -1674,7 +1717,9 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
           ),
           TextButton(
             onPressed: () {
-              widget.projectProvider.resetWinConfiguration();
+              _withUndo(ConfigUndoCategory.winConfig, 'Reset win config to defaults', () {
+                widget.projectProvider.resetWinConfiguration();
+              });
               _bumpRevision();
               Navigator.of(ctx).pop();
             },

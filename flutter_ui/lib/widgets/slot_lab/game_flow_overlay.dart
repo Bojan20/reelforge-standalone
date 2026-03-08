@@ -18,6 +18,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/game_flow_models.dart';
 import '../../providers/slot_lab/game_flow_provider.dart';
+import '../../services/event_registry.dart';
 import '../../theme/fluxforge_theme.dart';
 import 'bonus_game_widgets.dart';
 
@@ -1278,19 +1279,31 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
   int _scaled(int baseMs) => (_dScale * baseMs).round();
 
   TransitionStyle get _style => widget.transition.config.style;
+  SceneTransitionConfig get _cfg => widget.transition.config;
+
+  /// Per-phase duration: uses override if set, otherwise scales from base
+  int _phaseDuration(int? overrideMs, int baseMs) {
+    return overrideMs ?? _scaled(baseMs);
+  }
+
+  /// Per-phase stagger delay: uses override if set, otherwise scales from base
+  int _staggerDelay(int? overrideMs, int baseMs) {
+    return overrideMs ?? _scaled(baseMs);
+  }
 
   @override
   void initState() {
     super.initState();
 
     final s = _dScale;
+    final cfg = _cfg;
 
     // ═══════════════════════════════════════════════════════════════════
     // PHASE 1: Background blackout
     // ═══════════════════════════════════════════════════════════════════
     _fadeController = AnimationController(
       vsync: this,
-      duration: Duration(milliseconds: _scaled(350)),
+      duration: Duration(milliseconds: _phaseDuration(cfg.fadePhaseMs, 350)),
     );
     _fadeAnim = CurvedAnimation(parent: _fadeController, curve: Curves.easeOut);
 
@@ -1299,9 +1312,9 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
     // ═══════════════════════════════════════════════════════════════════
     _burstController = AnimationController(
       vsync: this,
-      duration: Duration(milliseconds: _scaled(750)),
+      duration: Duration(milliseconds: _phaseDuration(cfg.burstPhaseMs, 750)),
     );
-    _burstExpand = Tween<double>(begin: 0.0, end: 1.0).animate(
+    _burstExpand = Tween<double>(begin: 0.0, end: cfg.burstIntensity).animate(
       CurvedAnimation(parent: _burstController, curve: Curves.easeOutCubic),
     );
     _burstRotation = Tween<double>(begin: 0.0, end: 0.15).animate(
@@ -1313,7 +1326,7 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
     // ═══════════════════════════════════════════════════════════════════
     _plaqueController = AnimationController(
       vsync: this,
-      duration: Duration(milliseconds: _scaled(700)),
+      duration: Duration(milliseconds: _phaseDuration(cfg.plaquePhaseMs, 700)),
     );
     _setupPlaqueAnimations();
 
@@ -1322,9 +1335,11 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
     // ═══════════════════════════════════════════════════════════════════
     _glowPulseController = AnimationController(
       vsync: this,
-      duration: Duration(milliseconds: (1600 * s).round().clamp(800, 4000)),
+      duration: Duration(
+        milliseconds: cfg.glowPhaseMs ?? (1600 * s).round().clamp(800, 4000),
+      ),
     );
-    _glowPulse = Tween<double>(begin: 0.7, end: 1.0).animate(
+    _glowPulse = Tween<double>(begin: 0.7 * cfg.glowIntensity, end: cfg.glowIntensity).animate(
       CurvedAnimation(parent: _glowPulseController, curve: Curves.easeInOut),
     );
 
@@ -1333,7 +1348,9 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
     // ═══════════════════════════════════════════════════════════════════
     _shimmerController = AnimationController(
       vsync: this,
-      duration: Duration(milliseconds: (2000 * s).round().clamp(1000, 5000)),
+      duration: Duration(
+        milliseconds: cfg.shimmerPhaseMs ?? (2000 * s).round().clamp(1000, 5000),
+      ),
     );
     _shimmerPosition = Tween<double>(begin: -1.0, end: 2.0).animate(
       CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut),
@@ -1351,24 +1368,42 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
     );
 
     // ═══════════════════════════════════════════════════════════════════
-    // STAGGERED LAUNCH SEQUENCE (scaled to duration)
+    // STAGGERED LAUNCH SEQUENCE — per-phase delay overrides
     // ═══════════════════════════════════════════════════════════════════
     _fadeController.forward();
-    Future.delayed(Duration(milliseconds: _scaled(150)), () {
-      if (mounted) _burstController.forward();
+
+    if (cfg.showBurst) {
+      Future.delayed(Duration(milliseconds: _staggerDelay(cfg.burstDelayMs, 150)), () {
+        if (mounted) {
+          _burstController.forward();
+          _firePhaseAudio(cfg.burstAudioStage);
+        }
+      });
+    }
+
+    Future.delayed(Duration(milliseconds: _staggerDelay(cfg.plaqueDelayMs, 250)), () {
+      if (mounted && cfg.showPlaque) {
+        _plaqueController.forward();
+        _firePhaseAudio(cfg.plaqueAudioStage);
+      }
     });
-    Future.delayed(Duration(milliseconds: _scaled(250)), () {
-      if (mounted) _plaqueController.forward();
-    });
-    Future.delayed(Duration(milliseconds: _scaled(800)), () {
+
+    Future.delayed(Duration(milliseconds: _staggerDelay(cfg.glowDelayMs, 800)), () {
       if (mounted) {
-        _glowPulseController.repeat(reverse: true);
+        if (cfg.showGlow) _glowPulseController.repeat(reverse: true);
         _hintBlinkController.repeat(reverse: true);
       }
     });
-    Future.delayed(Duration(milliseconds: _scaled(1200)), () {
-      if (mounted) _shimmerController.repeat();
+
+    Future.delayed(Duration(milliseconds: _staggerDelay(cfg.shimmerDelayMs, 1200)), () {
+      if (mounted && cfg.showShimmer) _shimmerController.repeat();
     });
+  }
+
+  /// Fire per-phase audio stage if configured
+  void _firePhaseAudio(String? audioStage) {
+    if (audioStage == null || audioStage.isEmpty) return;
+    EventRegistry.instance.triggerStage(audioStage);
   }
 
   /// Setup plaque entrance animations based on TransitionStyle
@@ -1542,7 +1577,7 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
                       ),
 
                     // LAYER 2: Burst rays (radiating behind plaque)
-                    if (_burstExpand.value > 0.01)
+                    if (_cfg.showBurst && _burstExpand.value > 0.01)
                       CustomPaint(
                         size: Size(
                           constraints.maxWidth * 0.9,
@@ -1554,35 +1589,38 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
                           pulseValue: _glowPulse.value,
                           primaryColor: _accentColor,
                           secondaryColor: _secondaryColor,
-                          rayCount: _isExit ? 20 : 16,
+                          rayCount: _cfg.burstRayCount > 0
+                              ? _cfg.burstRayCount
+                              : (_isExit ? 20 : 16),
                           isExit: _isExit,
                         ),
                       ),
 
                     // LAYER 3: Outer glow halo (pulsing)
-                    Container(
-                      width: 400,
-                      height: 200,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(30),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _accentColor.withOpacity(
-                              0.3 * _glowPulse.value * _plaqueOpacity.value,
+                    if (_cfg.showGlow)
+                      Container(
+                        width: 400,
+                        height: 200,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _accentColor.withOpacity(
+                                0.3 * _glowPulse.value * _plaqueOpacity.value,
+                              ),
+                              blurRadius: 80 * _glowPulse.value,
+                              spreadRadius: 20,
                             ),
-                            blurRadius: 80 * _glowPulse.value,
-                            spreadRadius: 20,
-                          ),
-                          BoxShadow(
-                            color: _secondaryColor.withOpacity(
-                              0.15 * _glowPulse.value * _plaqueOpacity.value,
+                            BoxShadow(
+                              color: _secondaryColor.withOpacity(
+                                0.15 * _glowPulse.value * _plaqueOpacity.value,
+                              ),
+                              blurRadius: 120 * _glowPulse.value,
+                              spreadRadius: 40,
                             ),
-                            blurRadius: 120 * _glowPulse.value,
-                            spreadRadius: 40,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
 
                     // LAYER 4: Main plaque with style-dependent entrance
                     Opacity(
@@ -1743,7 +1781,7 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
         ),
 
         // Shimmer sweep (diagonal highlight moving across)
-        if (_shimmerPosition.value > -0.5 && _shimmerPosition.value < 1.5)
+        if (_cfg.showShimmer && _shimmerPosition.value > -0.5 && _shimmerPosition.value < 1.5)
           Positioned.fill(
             child: IgnorePointer(
               child: ClipRRect(
@@ -1754,7 +1792,7 @@ class _SceneTransitionOverlayState extends State<_SceneTransitionOverlay>
                     end: Alignment(-0.5 + _shimmerPosition.value * 2, 0.3),
                     colors: [
                       Colors.transparent,
-                      Colors.white.withOpacity(0.08),
+                      Colors.white.withOpacity(0.08 * _cfg.shimmerIntensity),
                       Colors.transparent,
                     ],
                   ).createShader(bounds),

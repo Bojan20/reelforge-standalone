@@ -642,6 +642,40 @@ class SceneTransitionConfig {
   /// Audio stage to fire when transition starts
   final String? audioStage;
 
+  // ═══════════════════════════════════════════════════════════════
+  // Per-phase timing overrides (null = scaled from durationMs)
+  // ═══════════════════════════════════════════════════════════════
+  final int? fadePhaseMs;
+  final int? burstPhaseMs;
+  final int? plaquePhaseMs;
+  final int? glowPhaseMs;
+  final int? shimmerPhaseMs;
+
+  // ═══════════════════════════════════════════════════════════════
+  // Per-phase stagger delays (null = scaled from durationMs)
+  // ═══════════════════════════════════════════════════════════════
+  final int? burstDelayMs;
+  final int? plaqueDelayMs;
+  final int? glowDelayMs;
+  final int? shimmerDelayMs;
+
+  // ═══════════════════════════════════════════════════════════════
+  // Layer visibility & intensity
+  // ═══════════════════════════════════════════════════════════════
+  final bool showBurst;
+  final bool showGlow;
+  final bool showShimmer;
+  final double burstIntensity;
+  final double glowIntensity;
+  final double shimmerIntensity;
+  final int burstRayCount;
+
+  // ═══════════════════════════════════════════════════════════════
+  // Audio layers — stages to fire at specific phase starts
+  // ═══════════════════════════════════════════════════════════════
+  final String? burstAudioStage;
+  final String? plaqueAudioStage;
+
   const SceneTransitionConfig({
     this.durationMs = 3000,
     this.dismissMode = TransitionDismissMode.timedOrClick,
@@ -650,6 +684,28 @@ class SceneTransitionConfig {
     this.plaqueText,
     this.showWinOnExit = true,
     this.audioStage,
+    // Per-phase timing
+    this.fadePhaseMs,
+    this.burstPhaseMs,
+    this.plaquePhaseMs,
+    this.glowPhaseMs,
+    this.shimmerPhaseMs,
+    // Per-phase stagger delays
+    this.burstDelayMs,
+    this.plaqueDelayMs,
+    this.glowDelayMs,
+    this.shimmerDelayMs,
+    // Layer visibility
+    this.showBurst = true,
+    this.showGlow = true,
+    this.showShimmer = true,
+    this.burstIntensity = 1.0,
+    this.glowIntensity = 1.0,
+    this.shimmerIntensity = 1.0,
+    this.burstRayCount = 16,
+    // Audio layers
+    this.burstAudioStage,
+    this.plaqueAudioStage,
   });
 
   SceneTransitionConfig copyWith({
@@ -660,6 +716,24 @@ class SceneTransitionConfig {
     String? plaqueText,
     bool? showWinOnExit,
     String? audioStage,
+    int? fadePhaseMs,
+    int? burstPhaseMs,
+    int? plaquePhaseMs,
+    int? glowPhaseMs,
+    int? shimmerPhaseMs,
+    int? burstDelayMs,
+    int? plaqueDelayMs,
+    int? glowDelayMs,
+    int? shimmerDelayMs,
+    bool? showBurst,
+    bool? showGlow,
+    bool? showShimmer,
+    double? burstIntensity,
+    double? glowIntensity,
+    double? shimmerIntensity,
+    int? burstRayCount,
+    String? burstAudioStage,
+    String? plaqueAudioStage,
   }) {
     return SceneTransitionConfig(
       durationMs: durationMs ?? this.durationMs,
@@ -669,6 +743,88 @@ class SceneTransitionConfig {
       plaqueText: plaqueText ?? this.plaqueText,
       showWinOnExit: showWinOnExit ?? this.showWinOnExit,
       audioStage: audioStage ?? this.audioStage,
+      fadePhaseMs: fadePhaseMs ?? this.fadePhaseMs,
+      burstPhaseMs: burstPhaseMs ?? this.burstPhaseMs,
+      plaquePhaseMs: plaquePhaseMs ?? this.plaquePhaseMs,
+      glowPhaseMs: glowPhaseMs ?? this.glowPhaseMs,
+      shimmerPhaseMs: shimmerPhaseMs ?? this.shimmerPhaseMs,
+      burstDelayMs: burstDelayMs ?? this.burstDelayMs,
+      plaqueDelayMs: plaqueDelayMs ?? this.plaqueDelayMs,
+      glowDelayMs: glowDelayMs ?? this.glowDelayMs,
+      shimmerDelayMs: shimmerDelayMs ?? this.shimmerDelayMs,
+      showBurst: showBurst ?? this.showBurst,
+      showGlow: showGlow ?? this.showGlow,
+      showShimmer: showShimmer ?? this.showShimmer,
+      burstIntensity: burstIntensity ?? this.burstIntensity,
+      glowIntensity: glowIntensity ?? this.glowIntensity,
+      shimmerIntensity: shimmerIntensity ?? this.shimmerIntensity,
+      burstRayCount: burstRayCount ?? this.burstRayCount,
+      burstAudioStage: burstAudioStage ?? this.burstAudioStage,
+      plaqueAudioStage: plaqueAudioStage ?? this.plaqueAudioStage,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'durationMs': durationMs,
+    'dismissMode': dismissMode.name,
+    'style': style.name,
+    'showPlaque': showPlaque,
+    if (plaqueText != null) 'plaqueText': plaqueText,
+    'showWinOnExit': showWinOnExit,
+    if (audioStage != null && audioStage!.isNotEmpty) 'audioStage': audioStage,
+    if (fadePhaseMs != null) 'fadePhaseMs': fadePhaseMs,
+    if (burstPhaseMs != null) 'burstPhaseMs': burstPhaseMs,
+    if (plaquePhaseMs != null) 'plaquePhaseMs': plaquePhaseMs,
+    if (glowPhaseMs != null) 'glowPhaseMs': glowPhaseMs,
+    if (shimmerPhaseMs != null) 'shimmerPhaseMs': shimmerPhaseMs,
+    if (burstDelayMs != null) 'burstDelayMs': burstDelayMs,
+    if (plaqueDelayMs != null) 'plaqueDelayMs': plaqueDelayMs,
+    if (glowDelayMs != null) 'glowDelayMs': glowDelayMs,
+    if (shimmerDelayMs != null) 'shimmerDelayMs': shimmerDelayMs,
+    'showBurst': showBurst,
+    'showGlow': showGlow,
+    'showShimmer': showShimmer,
+    'burstIntensity': burstIntensity,
+    'glowIntensity': glowIntensity,
+    'shimmerIntensity': shimmerIntensity,
+    'burstRayCount': burstRayCount,
+    if (burstAudioStage != null) 'burstAudioStage': burstAudioStage,
+    if (plaqueAudioStage != null) 'plaqueAudioStage': plaqueAudioStage,
+  };
+
+  factory SceneTransitionConfig.fromJson(Map<String, dynamic> json) {
+    return SceneTransitionConfig(
+      durationMs: json['durationMs'] as int? ?? 3000,
+      dismissMode: TransitionDismissMode.values.firstWhere(
+        (e) => e.name == json['dismissMode'],
+        orElse: () => TransitionDismissMode.timedOrClick,
+      ),
+      style: TransitionStyle.values.firstWhere(
+        (e) => e.name == json['style'],
+        orElse: () => TransitionStyle.fade,
+      ),
+      showPlaque: json['showPlaque'] as bool? ?? true,
+      plaqueText: json['plaqueText'] as String?,
+      showWinOnExit: json['showWinOnExit'] as bool? ?? true,
+      audioStage: json['audioStage'] as String?,
+      fadePhaseMs: json['fadePhaseMs'] as int?,
+      burstPhaseMs: json['burstPhaseMs'] as int?,
+      plaquePhaseMs: json['plaquePhaseMs'] as int?,
+      glowPhaseMs: json['glowPhaseMs'] as int?,
+      shimmerPhaseMs: json['shimmerPhaseMs'] as int?,
+      burstDelayMs: json['burstDelayMs'] as int?,
+      plaqueDelayMs: json['plaqueDelayMs'] as int?,
+      glowDelayMs: json['glowDelayMs'] as int?,
+      shimmerDelayMs: json['shimmerDelayMs'] as int?,
+      showBurst: json['showBurst'] as bool? ?? true,
+      showGlow: json['showGlow'] as bool? ?? true,
+      showShimmer: json['showShimmer'] as bool? ?? true,
+      burstIntensity: (json['burstIntensity'] as num?)?.toDouble() ?? 1.0,
+      glowIntensity: (json['glowIntensity'] as num?)?.toDouble() ?? 1.0,
+      shimmerIntensity: (json['shimmerIntensity'] as num?)?.toDouble() ?? 1.0,
+      burstRayCount: json['burstRayCount'] as int? ?? 16,
+      burstAudioStage: json['burstAudioStage'] as String?,
+      plaqueAudioStage: json['plaqueAudioStage'] as String?,
     );
   }
 }

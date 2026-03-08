@@ -88,6 +88,7 @@ import '../providers/slot_lab/drc_provider.dart';
 import '../providers/slot_lab/sam_provider.dart';
 import '../providers/slot_lab/simulation_engine_provider.dart';
 import '../providers/slot_lab/error_prevention_provider.dart';
+import '../providers/slot_lab/config_undo_manager.dart';
 import '../providers/slot_lab/slotlab_undo_provider.dart';
 import '../providers/slot_lab/slotlab_notification_provider.dart';
 import '../providers/slot_lab/behavior_coverage_provider.dart';
@@ -424,6 +425,13 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<SlotLabUndoProvider>(
       () => SlotLabUndoProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.9.16b: Config Undo Manager (CONFIG tab undo/redo)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<ConfigUndoManager>(
+      () => ConfigUndoManager(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
