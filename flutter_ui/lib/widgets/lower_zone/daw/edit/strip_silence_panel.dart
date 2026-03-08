@@ -210,32 +210,37 @@ class _StripSilencePanelState extends State<StripSilencePanel> {
 
   Widget _buildKnobRow() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         // Threshold Knob (72px)
-        FabFilterKnob(
-          value: _thresholdKnobValue,
-          label: 'THRESHOLD',
-          display: '${_thresholdDb.toStringAsFixed(1)} dB',
-          color: FabFilterColors.cyan,
-          size: 72,
-          defaultValue: (_thresholdDb == -40.0) ? _thresholdKnobValue : ((-40.0 + 96.0) / 96.0),
-          onChanged: _setThresholdFromKnob,
+        Expanded(
+          child: FabFilterKnob(
+            value: _thresholdKnobValue,
+            label: 'THRESHOLD',
+            display: '${_thresholdDb.toStringAsFixed(1)} dB',
+            color: FabFilterColors.cyan,
+            size: 72,
+            adaptive: true,
+            defaultValue: (_thresholdDb == -40.0) ? _thresholdKnobValue : ((-40.0 + 96.0) / 96.0),
+            onChanged: _setThresholdFromKnob,
+          ),
         ),
-        const SizedBox(width: 24),
+        const SizedBox(width: 16),
         // Min Duration Knob (56px)
-        FabFilterKnob(
-          value: _durationKnobValue,
-          label: 'MIN DUR',
-          display: _minDurationMs >= 1000
-              ? '${(_minDurationMs / 1000).toStringAsFixed(1)}s'
-              : '${_minDurationMs.toStringAsFixed(0)}ms',
-          color: FabFilterColors.cyan,
-          size: 56,
-          defaultValue: (math.log(100.0 / 10.0) / math.log(500.0)).clamp(0.0, 1.0),
-          onChanged: _setDurationFromKnob,
+        Expanded(
+          child: FabFilterKnob(
+            value: _durationKnobValue,
+            label: 'MIN DUR',
+            display: _minDurationMs >= 1000
+                ? '${(_minDurationMs / 1000).toStringAsFixed(1)}s'
+                : '${_minDurationMs.toStringAsFixed(0)}ms',
+            color: FabFilterColors.cyan,
+            size: 56,
+            adaptive: true,
+            defaultValue: (math.log(100.0 / 10.0) / math.log(500.0)).clamp(0.0, 1.0),
+            onChanged: _setDurationFromKnob,
+          ),
         ),
-        const SizedBox(width: 24),
+        const SizedBox(width: 16),
         // Preview toggle
         Column(
           mainAxisSize: MainAxisSize.min,

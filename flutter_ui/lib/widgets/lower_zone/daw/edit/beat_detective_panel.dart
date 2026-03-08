@@ -153,14 +153,17 @@ class _BeatDetectivePanelState extends State<BeatDetectivePanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Sensitivity knob
-          FabFilterKnob(
-            value: _sensitivity,
-            label: 'SENS',
-            display: '${(_sensitivity * 100).toInt()}%',
-            color: FabFilterColors.yellow,
-            size: 56,
-            defaultValue: 0.5,
-            onChanged: (v) => setState(() => _sensitivity = v),
+          Expanded(
+            child: FabFilterKnob(
+              value: _sensitivity,
+              label: 'SENS',
+              display: '${(_sensitivity * 100).toInt()}%',
+              color: FabFilterColors.yellow,
+              size: 56,
+              adaptive: true,
+              defaultValue: 0.5,
+              onChanged: (v) => setState(() => _sensitivity = v),
+            ),
           ),
           const SizedBox(width: 12),
           // Right column: Algorithm + BPM + Show toggle

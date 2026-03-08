@@ -146,35 +146,41 @@ class _SmartTempoPanelState extends State<SmartTempoPanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Min BPM knob
-          FabFilterKnob(
-            value: (_minBpm - 30) / 170, // normalize 30-200 to 0-1
-            label: 'MIN',
-            display: '${_minBpm.toInt()}',
-            color: FabFilterColors.cyan,
-            size: 56,
-            defaultValue: (60 - 30) / 170,
-            onChanged: (v) {
-              final bpm = (30 + v * 170).roundToDouble();
-              if (bpm < _maxBpm - 10) {
-                setState(() => _minBpm = bpm);
-              }
-            },
+          Expanded(
+            child: FabFilterKnob(
+              value: (_minBpm - 30) / 170, // normalize 30-200 to 0-1
+              label: 'MIN',
+              display: '${_minBpm.toInt()}',
+              color: FabFilterColors.cyan,
+              size: 56,
+              adaptive: true,
+              defaultValue: (60 - 30) / 170,
+              onChanged: (v) {
+                final bpm = (30 + v * 170).roundToDouble();
+                if (bpm < _maxBpm - 10) {
+                  setState(() => _minBpm = bpm);
+                }
+              },
+            ),
           ),
           const SizedBox(width: 8),
           // Max BPM knob
-          FabFilterKnob(
-            value: (_maxBpm - 30) / 270, // normalize 30-300 to 0-1
-            label: 'MAX',
-            display: '${_maxBpm.toInt()}',
-            color: FabFilterColors.cyan,
-            size: 56,
-            defaultValue: (200 - 30) / 270,
-            onChanged: (v) {
-              final bpm = (30 + v * 270).roundToDouble();
-              if (bpm > _minBpm + 10) {
-                setState(() => _maxBpm = bpm);
-              }
-            },
+          Expanded(
+            child: FabFilterKnob(
+              value: (_maxBpm - 30) / 270, // normalize 30-300 to 0-1
+              label: 'MAX',
+              display: '${_maxBpm.toInt()}',
+              color: FabFilterColors.cyan,
+              size: 56,
+              adaptive: true,
+              defaultValue: (200 - 30) / 270,
+              onChanged: (v) {
+                final bpm = (30 + v * 270).roundToDouble();
+                if (bpm > _minBpm + 10) {
+                  setState(() => _maxBpm = bpm);
+                }
+              },
+            ),
           ),
           const SizedBox(width: 12),
           // Mode selector + detect button
