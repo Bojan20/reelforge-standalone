@@ -6006,6 +6006,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         // START BIG WIN when big win detected (20x+)
         // Composite event handles everything: FadeVoice base music → StopVoice → Play big win
         if (_isBigWinTier(_currentWinTier)) {
+          eventRegistry.triggerStage('BIG_WIN_TRIGGER');
           eventRegistry.triggerStage('BIG_WIN_START');
         }
 

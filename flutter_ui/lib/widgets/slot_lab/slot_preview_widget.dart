@@ -3242,10 +3242,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // STEP 1: BIG_WIN_START (0.5s) — Entry fanfare
+    // STEP 1: BIG_WIN_TRIGGER (alert sfx) → BIG_WIN_START (entry fanfare)
     // Composite event: overlap=false → fades out base game music on music bus,
     // then plays intro sfx + big win music (all layers defined in event)
     // ═══════════════════════════════════════════════════════════════════════════
+    eventRegistry.triggerStage('BIG_WIN_TRIGGER');
     eventRegistry.triggerStage('BIG_WIN_START');
 
     // Show plaque immediately with first tier

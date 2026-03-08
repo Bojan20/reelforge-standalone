@@ -210,6 +210,9 @@ class SlotStageProvider extends ChangeNotifier {
   int _bonusSymbolId = 11;
   List<int> _tipBAllowedReels = [0, 2, 4];
 
+  // ─── Scatter Land Tracking ─────────────────────────────────────────────────
+  final Set<int> _scatterReelsThisSpin = {};
+
   // ─── Skip Presentation State ─────────────────────────────────────────────
   VoidCallback? _pendingSkipCallback;
   bool _skipRequested = false;
@@ -696,6 +699,7 @@ class SlotStageProvider extends ChangeNotifier {
     // Handle UI_SPIN_PRESS
     if (stageType == 'UI_SPIN_PRESS') {
       _isReelsSpinning = true;
+      _scatterReelsThisSpin.clear();
 
       if (eventRegistry.hasEventForStage('REEL_SPIN_LOOP')) {
         eventRegistry.triggerStage('REEL_SPIN_LOOP', context: context);
@@ -743,6 +747,28 @@ class SlotStageProvider extends ChangeNotifier {
         eventRegistry.stopEvent('REEL_SPIN');
         if (eventRegistry.hasEventForStage('SPIN_END')) {
           eventRegistry.triggerStage('SPIN_END', context: context);
+        }
+      }
+
+      // SCATTER_LAND — detect scatter symbols on stopped reel
+      final symbols = stage.rawStage['symbols'];
+      if (reelIdx != null && symbols is List) {
+        final hasScatter = symbols.any((id) => id is int && id == _scatterSymbolId);
+        if (hasScatter) {
+          _scatterReelsThisSpin.add(reelIdx);
+          final scatterCount = _scatterReelsThisSpin.length;
+          eventRegistry.triggerStage('SCATTER_LAND', context: {
+            ...context,
+            'reel_index': reelIdx,
+            'scatter_count': scatterCount,
+          });
+          if (scatterCount >= 2) {
+            eventRegistry.triggerStage('SCATTER_LAND_$scatterCount', context: {
+              ...context,
+              'reel_index': reelIdx,
+              'scatter_count': scatterCount,
+            });
+          }
         }
       }
     }

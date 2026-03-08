@@ -186,10 +186,16 @@ String generateEventName(String stage) {
     // Symbol Events
     'SYMBOL_LAND': 'onSymbolLand',
     'WILD_LAND': 'onWildLand',
+    'WILD_EXPAND': 'onWildExpand',
+    'WILD_STACK': 'onWildStack',
     'SCATTER_LAND': 'onScatterLand',
 
     // Anticipation
     'ANTICIPATION_TENSION': 'onAnticipationStart',
+    'ANTICIPATION_TENSION_R1': 'onAnticipationR1',
+    'ANTICIPATION_TENSION_R2': 'onAnticipationR2',
+    'ANTICIPATION_TENSION_R3': 'onAnticipationR3',
+    'ANTICIPATION_TENSION_R4': 'onAnticipationR4',
     'ANTICIPATION_MISS': 'onAnticipationMiss',
 
     // Win Events — unified WIN_PRESENT_1..5 system
@@ -387,29 +393,38 @@ String generateEventName(String stage) {
     'BONUS_TRIGGER': 'onBonusTrigger',
     'BONUS_ENTER': 'onBonusEnter',
     'BONUS_STEP': 'onBonusStep',
+    'BONUS_PICK': 'onBonusPick',
+    'BONUS_REVEAL': 'onBonusReveal',
     'BONUS_EXIT': 'onBonusExit',
     'BONUS_MUSIC': 'onMusicBonus',
 
-    // Cascade
+    // Cascade / Tumble
     'CASCADE_START': 'onCascadeStart',
     'CASCADE_STEP': 'onCascadeStep',
     'CASCADE_POP': 'onCascadePop',
     'CASCADE_END': 'onCascadeEnd',
+    'TUMBLE_DROP': 'onTumbleDrop',
+    'TUMBLE_LAND': 'onTumbleLand',
 
     // Hold & Win
     'HOLD_TRIGGER': 'onHoldTrigger',
     'HOLD_START': 'onHoldStart',
     'HOLD_SPIN': 'onHoldSpin',
     'HOLD_LOCK': 'onHoldLock',
+    'HOLD_LAND': 'onHoldLand',
     'HOLD_END': 'onHoldEnd',
     'HOLD_MUSIC': 'onMusicHold',
 
     // Multiplier
     'MULTIPLIER_INCREASE': 'onMultiplierIncrease',
     'MULTIPLIER_APPLY': 'onMultiplierApply',
+    'MULT_INCREASE': 'onMultiplierIncrease',
+    'MULT_APPLY': 'onMultiplierApply',
+    'MULT_RESET': 'onMultiplierReset',
 
     // Feature
     'FEATURE_ENTER': 'onFeatureEnter',
+    'FEATURE_STEP': 'onFeatureStep',
     'FEATURE_EXIT': 'onFeatureExit',
 
     // Attract
@@ -740,6 +755,18 @@ class StageGroupService {
     // ═══════════════════════════════════════════════════════════════════
     'spins_susp': 'ANTICIPATION_TENSION',
     'suspense': 'ANTICIPATION_TENSION',
+    'anticipation_r1': 'ANTICIPATION_TENSION_R1',
+    'sfx_antici_r1': 'ANTICIPATION_TENSION_R1',
+    'anticipation_reel_1': 'ANTICIPATION_TENSION_R1',
+    'anticipation_r2': 'ANTICIPATION_TENSION_R2',
+    'sfx_antici_r2': 'ANTICIPATION_TENSION_R2',
+    'anticipation_reel_2': 'ANTICIPATION_TENSION_R2',
+    'anticipation_r3': 'ANTICIPATION_TENSION_R3',
+    'sfx_antici_r3': 'ANTICIPATION_TENSION_R3',
+    'anticipation_reel_3': 'ANTICIPATION_TENSION_R3',
+    'anticipation_r4': 'ANTICIPATION_TENSION_R4',
+    'sfx_antici_r4': 'ANTICIPATION_TENSION_R4',
+    'anticipation_reel_4': 'ANTICIPATION_TENSION_R4',
 
     // ═══════════════════════════════════════════════════════════════════
     // WIN — all legacy and modern naming → unified WIN_PRESENT_1..5
@@ -878,6 +905,12 @@ class StageGroupService {
     'sfx_symbol_land': 'SYMBOL_LAND',
     'wild_land': 'WILD_LAND',
     'sfx_wild_land': 'WILD_LAND',
+    'wild_expand': 'WILD_EXPAND',
+    'sfx_wild_expand': 'WILD_EXPAND',
+    'expanding_wild': 'WILD_EXPAND',
+    'wild_stack': 'WILD_STACK',
+    'sfx_wild_stack': 'WILD_STACK',
+    'stacked_wild': 'WILD_STACK',
     'scatter_land': 'SCATTER_LAND',
     'sfx_scatter_land': 'SCATTER_LAND',
     'scatter_land_1': 'SCATTER_LAND_1',
@@ -921,6 +954,8 @@ class StageGroupService {
     'sfx_coin_drop': 'COIN_DROP',
     'coin_shower': 'COIN_SHOWER_START',
     'sfx_coin_shower': 'COIN_SHOWER_START',
+    'coin_shower_end': 'COIN_SHOWER_END',
+    'sfx_coin_shower_end': 'COIN_SHOWER_END',
     'coin_rain': 'COIN_RAIN',
     'sfx_coin_rain': 'COIN_RAIN',
     'coin_land': 'COIN_LAND',
@@ -941,8 +976,11 @@ class StageGroupService {
     'sfx_bw_coins': 'COIN_SHOWER_START',
     'big_win_tick': 'BIG_WIN_TICK_START',
     'sfx_bw_tick': 'BIG_WIN_TICK_START',
+    'big_win_tick_end': 'BIG_WIN_TICK_END',
+    'sfx_bw_tick_end': 'BIG_WIN_TICK_END',
     'big_win_trigger': 'BIG_WIN_TRIGGER',
     'sfx_bw_trigger': 'BIG_WIN_TRIGGER',
+    'bw_alert': 'BIG_WIN_TRIGGER',
 
     // Big Win tier stages
     'bw_tier_1': 'BIG_WIN_TIER_1',
@@ -961,6 +999,17 @@ class StageGroupService {
     'sfx_bw_tier_4': 'BIG_WIN_TIER_4',
     'sfx_bw_tier_5': 'BIG_WIN_TIER_5',
 
+    // Multiplier
+    'mult_increase': 'MULTIPLIER_INCREASE',
+    'multiplier_increase': 'MULTIPLIER_INCREASE',
+    'sfx_mult_increase': 'MULTIPLIER_INCREASE',
+    'mult_apply': 'MULTIPLIER_APPLY',
+    'multiplier_apply': 'MULTIPLIER_APPLY',
+    'sfx_mult_apply': 'MULTIPLIER_APPLY',
+    'mult_reset': 'MULT_RESET',
+    'multiplier_reset': 'MULT_RESET',
+    'sfx_mult_reset': 'MULT_RESET',
+
     // Scatter win
     'scatter_win': 'SCATTER_WIN',
     'sfx_scatter_win': 'SCATTER_WIN',
@@ -972,6 +1021,10 @@ class StageGroupService {
     'sfx_bonus_enter': 'BONUS_ENTER',
     'bonus_step': 'BONUS_STEP',
     'sfx_bonus_step': 'BONUS_STEP',
+    'bonus_pick': 'BONUS_PICK',
+    'sfx_bonus_pick': 'BONUS_PICK',
+    'bonus_reveal': 'BONUS_REVEAL',
+    'sfx_bonus_reveal': 'BONUS_REVEAL',
     'bonus_exit': 'BONUS_EXIT',
     'sfx_bonus_exit': 'BONUS_EXIT',
 
@@ -982,6 +1035,21 @@ class StageGroupService {
     'sfx_gamble_lose': 'GAMBLE_LOSE',
     'gamble_collect': 'GAMBLE_COLLECT',
     'sfx_gamble_collect': 'GAMBLE_COLLECT',
+
+    // Tumble
+    'tumble_drop': 'TUMBLE_DROP',
+    'sfx_tumble_drop': 'TUMBLE_DROP',
+    'tumble_land': 'TUMBLE_LAND',
+    'sfx_tumble_land': 'TUMBLE_LAND',
+
+    // Hold & Respin
+    'hold_land': 'HOLD_LAND',
+    'sfx_hold_land': 'HOLD_LAND',
+    'respin_land': 'HOLD_LAND',
+
+    // Feature
+    'feature_step': 'FEATURE_STEP',
+    'sfx_feature_step': 'FEATURE_STEP',
 
     // Jackpot
     'jackpot_award': 'JACKPOT_AWARD',
@@ -1219,6 +1287,68 @@ class StageGroupService {
         suffixes: ['_land', '_appear'],
         priority: 79,
       ),
+
+      // Wild mechanic variants
+      _StageDefinition(
+        stage: 'WILD_EXPAND',
+        keywords: ['wild', 'expand', 'expanding', 'grow'],
+        requiredKeywords: ['wild'],
+        suffixes: ['_expand', '_expanding'],
+        priority: 77,
+      ),
+      _StageDefinition(
+        stage: 'WILD_STACK',
+        keywords: ['wild', 'stack', 'stacking', 'stacked'],
+        requiredKeywords: ['wild'],
+        suffixes: ['_stack', '_stacking'],
+        priority: 76,
+      ),
+
+      // Anticipation reel-specific variants
+      _StageDefinition(
+        stage: 'ANTICIPATION_TENSION_R1',
+        keywords: ['anticipation', 'antici', 'tension', 'r1', 'reel1', '1'],
+        requiredKeywords: ['anticipation|antici|tension'],
+        suffixes: ['_r1', '_reel1'],
+        priority: 74,
+      ),
+      _StageDefinition(
+        stage: 'ANTICIPATION_TENSION_R2',
+        keywords: ['anticipation', 'antici', 'tension', 'r2', 'reel2', '2'],
+        requiredKeywords: ['anticipation|antici|tension'],
+        suffixes: ['_r2', '_reel2'],
+        priority: 74,
+      ),
+      _StageDefinition(
+        stage: 'ANTICIPATION_TENSION_R3',
+        keywords: ['anticipation', 'antici', 'tension', 'r3', 'reel3', '3'],
+        requiredKeywords: ['anticipation|antici|tension'],
+        suffixes: ['_r3', '_reel3'],
+        priority: 74,
+      ),
+      _StageDefinition(
+        stage: 'ANTICIPATION_TENSION_R4',
+        keywords: ['anticipation', 'antici', 'tension', 'r4', 'reel4', '4'],
+        requiredKeywords: ['anticipation|antici|tension'],
+        suffixes: ['_r4', '_reel4'],
+        priority: 74,
+      ),
+
+      // Tumble/cascade variants (alternative naming for CASCADE_*)
+      _StageDefinition(
+        stage: 'TUMBLE_DROP',
+        keywords: ['tumble', 'drop', 'fall'],
+        requiredKeywords: ['tumble'],
+        suffixes: ['_drop', '_fall'],
+        priority: 73,
+      ),
+      _StageDefinition(
+        stage: 'TUMBLE_LAND',
+        keywords: ['tumble', 'land', 'settle'],
+        requiredKeywords: ['tumble'],
+        suffixes: ['_land', '_settle'],
+        priority: 73,
+      ),
     ],
 
     // ═══════════════════════════════════════════════════════════════════
@@ -1439,6 +1569,76 @@ class StageGroupService {
         suffixes: ['_drop', '_fall'],
         priority: 73,
       ),
+
+      // Big Win Trigger — initial detection sfx (before BIG_WIN_START)
+      _StageDefinition(
+        stage: 'BIG_WIN_TRIGGER',
+        keywords: ['big', 'win', 'trigger', 'alert', 'detect'],
+        requiredKeywords: ['big|bw'],
+        suffixes: ['_trigger', '_alert', '_detect'],
+        excludeKeywords: ['intro', 'start', 'end', 'outro', 'tick', 'tier', 'music', 'mus'],
+        priority: 93,
+      ),
+
+      // Big Win Tier SFX — per-tier escalation sounds
+      _StageDefinition(
+        stage: 'BIG_WIN_TIER_1',
+        keywords: ['big', 'win', 'tier', 'bw', '1'],
+        requiredKeywords: ['tier|bw_tier'],
+        suffixes: ['_tier_1', '_t1'],
+        excludeKeywords: ['intro', 'start', 'end', 'outro', 'tick', 'music', 'mus'],
+        priority: 91,
+      ),
+      _StageDefinition(
+        stage: 'BIG_WIN_TIER_2',
+        keywords: ['big', 'win', 'tier', 'bw', '2', 'mega'],
+        requiredKeywords: ['tier|bw_tier'],
+        suffixes: ['_tier_2', '_t2'],
+        excludeKeywords: ['intro', 'start', 'end', 'outro', 'tick', 'music', 'mus'],
+        priority: 91,
+      ),
+      _StageDefinition(
+        stage: 'BIG_WIN_TIER_3',
+        keywords: ['big', 'win', 'tier', 'bw', '3', 'epic'],
+        requiredKeywords: ['tier|bw_tier'],
+        suffixes: ['_tier_3', '_t3'],
+        excludeKeywords: ['intro', 'start', 'end', 'outro', 'tick', 'music', 'mus'],
+        priority: 91,
+      ),
+      _StageDefinition(
+        stage: 'BIG_WIN_TIER_4',
+        keywords: ['big', 'win', 'tier', 'bw', '4', 'ultra'],
+        requiredKeywords: ['tier|bw_tier'],
+        suffixes: ['_tier_4', '_t4'],
+        excludeKeywords: ['intro', 'start', 'end', 'outro', 'tick', 'music', 'mus'],
+        priority: 91,
+      ),
+      _StageDefinition(
+        stage: 'BIG_WIN_TIER_5',
+        keywords: ['big', 'win', 'tier', 'bw', '5', 'supreme'],
+        requiredKeywords: ['tier|bw_tier'],
+        suffixes: ['_tier_5', '_t5'],
+        excludeKeywords: ['intro', 'start', 'end', 'outro', 'tick', 'music', 'mus'],
+        priority: 91,
+      ),
+
+      // Coin shower end
+      _StageDefinition(
+        stage: 'COIN_SHOWER_END',
+        keywords: ['coin', 'shower', 'end', 'stop'],
+        requiredKeywords: ['coin'],
+        suffixes: ['_shower_end', '_coins_end'],
+        priority: 78,
+      ),
+
+      // Big Win tick end
+      _StageDefinition(
+        stage: 'BIG_WIN_TICK_END',
+        keywords: ['big', 'win', 'tick', 'end', 'stop'],
+        requiredKeywords: ['tick'],
+        suffixes: ['_tick_end', '_tick_stop'],
+        priority: 88,
+      ),
     ],
 
     // ═══════════════════════════════════════════════════════════════════
@@ -1608,6 +1808,20 @@ class StageGroupService {
         priority: 82,
       ),
       _StageDefinition(
+        stage: 'BONUS_PICK',
+        keywords: ['bonus', 'pick', 'choose', 'select'],
+        requiredKeywords: ['bonus'],
+        suffixes: ['_pick', '_choose', '_select'],
+        priority: 83,
+      ),
+      _StageDefinition(
+        stage: 'BONUS_REVEAL',
+        keywords: ['bonus', 'reveal', 'show', 'uncover'],
+        requiredKeywords: ['bonus'],
+        suffixes: ['_reveal', '_uncover'],
+        priority: 83,
+      ),
+      _StageDefinition(
         stage: 'BONUS_EXIT',
         keywords: ['bonus', 'exit', 'end', 'complete', 'finish'],
         suffixes: ['_exit', '_end', '_complete'],
@@ -1710,6 +1924,13 @@ class StageGroupService {
         priority: 85,
       ),
       _StageDefinition(
+        stage: 'HOLD_LAND',
+        keywords: ['hold', 'respin', 'land', 'result'],
+        requiredKeywords: ['hold|respin'],
+        suffixes: ['_land', '_result'],
+        priority: 84,
+      ),
+      _StageDefinition(
         stage: 'HOLD_END',
         keywords: ['hold', 'respin', 'end', 'exit', 'complete'],
         suffixes: ['_end', '_exit'],
@@ -1773,6 +1994,13 @@ class StageGroupService {
         suffixes: ['_apply', '_activate'],
         priority: 86,
       ),
+      _StageDefinition(
+        stage: 'MULT_RESET',
+        keywords: ['multiplier', 'mult', 'multi', 'reset', 'clear'],
+        requiredKeywords: ['multiplier|mult|multi'],
+        suffixes: ['_reset', '_clear'],
+        priority: 85,
+      ),
 
       // Gamble
       _StageDefinition(
@@ -1806,6 +2034,13 @@ class StageGroupService {
         keywords: ['feature', 'special', 'enter', 'start'],
         suffixes: ['_enter', '_start'],
         priority: 75,
+      ),
+      _StageDefinition(
+        stage: 'FEATURE_STEP',
+        keywords: ['feature', 'special', 'step', 'progress'],
+        requiredKeywords: ['feature|special'],
+        suffixes: ['_step', '_progress'],
+        priority: 73,
       ),
       _StageDefinition(
         stage: 'FEATURE_EXIT',
