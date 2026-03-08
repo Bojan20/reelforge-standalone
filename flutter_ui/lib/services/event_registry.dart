@@ -980,7 +980,7 @@ class EventRegistry extends ChangeNotifier {
     const stepMs = 16;
     final steps = (fadeMs / stepMs).ceil().clamp(1, 1000);
     int currentStep = 0;
-    Timer.periodic(Duration(milliseconds: stepMs), (timer) {
+    final fadeTimer = Timer.periodic(Duration(milliseconds: stepMs), (timer) {
       currentStep++;
       final t = (currentStep / steps).clamp(0.0, 1.0);
       final vol = t * t; // ease-in curve
@@ -988,8 +988,10 @@ class EventRegistry extends ChangeNotifier {
       if (currentStep >= steps) {
         AudioPlaybackService.instance.updateEventVolume(voiceKey, 1.0);
         timer.cancel();
+        _pendingTimers.remove(timer);
       }
     });
+    _pendingTimers.add(fadeTimer);
   }
 
   /// Track a voice for non-overlapping bus playback

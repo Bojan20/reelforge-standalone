@@ -353,8 +353,10 @@ class SessionPersistenceProvider extends ChangeNotifier {
     _startAutoSave();
   }
 
+  Timer? _autoSaveTimer;
+
   void _startAutoSave() {
-    Timer.periodic(Duration(milliseconds: autoSaveInterval), (_) {
+    _autoSaveTimer = Timer.periodic(Duration(milliseconds: autoSaveInterval), (_) {
       if (_pendingState != null) {
         saveNow(_pendingState!);
       }
@@ -428,6 +430,7 @@ class SessionPersistenceProvider extends ChangeNotifier {
   @override
   void dispose() {
     _saveTimer?.cancel();
+    _autoSaveTimer?.cancel();
     super.dispose();
   }
 }

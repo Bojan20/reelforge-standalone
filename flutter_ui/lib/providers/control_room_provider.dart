@@ -522,4 +522,9 @@ class ControlRoomProvider extends ChangeNotifier {
     updateMetering();
   }
 
+  @override
+  void dispose() {
+    _pinkNoiseTimer?.cancel();
+    super.dispose();
+  }
 }

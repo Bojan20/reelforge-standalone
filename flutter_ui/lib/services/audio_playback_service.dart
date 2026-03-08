@@ -64,6 +64,7 @@ class AudioPlaybackService extends ChangeNotifier {
   PlaybackSource? _activeSource;
   final List<VoiceInfo> _activeVoices = [];
   final Map<String, List<int>> _eventVoices = {}; // eventId → [voiceIds]
+  final List<Timer> _fadeTimers = [];
 
   bool _isPlaying = false;
 
@@ -563,7 +564,7 @@ class AudioPlaybackService extends ChangeNotifier {
     // Read current volume — assume 0 if just started silent
     double currentVol = 0.0;
     int step = 0;
-    Timer.periodic(Duration(milliseconds: stepMs), (timer) {
+    final timer = Timer.periodic(Duration(milliseconds: stepMs), (timer) {
       step++;
       final t = (step / steps).clamp(0.0, 1.0);
       final vol = currentVol + (targetVolume - currentVol) * t;
@@ -571,8 +572,10 @@ class AudioPlaybackService extends ChangeNotifier {
       if (step >= steps) {
         _ffi.setVoiceVolume(voiceId, targetVolume);
         timer.cancel();
+        _fadeTimers.remove(timer);
       }
     });
+    _fadeTimers.add(timer);
   }
 
   /// Set volume on a specific voice directly
@@ -1027,6 +1030,10 @@ class AudioPlaybackService extends ChangeNotifier {
   /// Dispose service
   @override
   void dispose() {
+    for (final timer in _fadeTimers) {
+      timer.cancel();
+    }
+    _fadeTimers.clear();
     cancelAllPreTriggers();
     stopAll();
     super.dispose();

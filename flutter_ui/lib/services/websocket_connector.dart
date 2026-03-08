@@ -228,6 +228,7 @@ class WebSocketConnector {
   final WebSocketConfig config;
 
   WebSocket? _socket;
+  StreamSubscription? _socketSubscription;
   WebSocketConnectionState _state = WebSocketConnectionState.disconnected;
   int _reconnectAttempts = 0;
   Timer? _heartbeatTimer;
@@ -278,7 +279,7 @@ class WebSocketConnector {
         headers: headers,
       ).timeout(Duration(milliseconds: config.connectionTimeoutMs));
 
-      _socket!.listen(
+      _socketSubscription = _socket!.listen(
         _onMessage,
         onError: _onError,
         onDone: _onDone,
@@ -313,6 +314,8 @@ class WebSocketConnector {
     _pingTimer?.cancel();
 
     if (_socket != null) {
+      await _socketSubscription?.cancel();
+      _socketSubscription = null;
       await _socket!.close(WebSocketStatus.normalClosure, 'Client disconnect');
       _socket = null;
     }

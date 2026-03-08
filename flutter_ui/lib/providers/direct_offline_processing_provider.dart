@@ -805,6 +805,15 @@ class DirectOfflineProcessingProvider extends ChangeNotifier {
   static List<OfflineProcess> getProcessesByCategory(DopCategory category) {
     return availableProcesses.where((p) => p.category == category).toList();
   }
+
+  @override
+  void dispose() {
+    onApply = null;
+    onRevert = null;
+    onAuditionStart = null;
+    onAuditionStop = null;
+    super.dispose();
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

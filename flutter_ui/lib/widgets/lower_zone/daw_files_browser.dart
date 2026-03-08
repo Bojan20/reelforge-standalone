@@ -90,6 +90,7 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
   @override
   void dispose() {
     AudioAssetManager.instance.removeListener(_onAssetManagerChanged);
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _folderScrollController.dispose();
     _fileScrollController.dispose();

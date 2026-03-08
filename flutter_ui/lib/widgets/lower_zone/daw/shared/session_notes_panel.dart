@@ -69,6 +69,7 @@ class _SessionNotesPanelState extends State<SessionNotesPanel> {
   @override
   void dispose() {
     _autoSaveTimer?.cancel();
+    _controller.removeListener(_onTextChanged);
     _controller.dispose();
     _focusNode.dispose();
     _rawKeyFocusNode.dispose();

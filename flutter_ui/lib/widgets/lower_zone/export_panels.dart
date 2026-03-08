@@ -1148,8 +1148,8 @@ class _DawStemsPanelState extends State<DawStemsPanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('File Prefix', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
-          TextField(
-            controller: TextEditingController(text: _filePrefix),
+          TextFormField(
+            initialValue: _filePrefix,
             style: const TextStyle(fontSize: 10, color: LowerZoneColors.textPrimary),
             decoration: const InputDecoration(
               border: InputBorder.none,
@@ -3446,8 +3446,8 @@ class _SlotLabAudioPackExportPanelState extends State<SlotLabAudioPackExportPane
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Pack Name', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
-          TextField(
-            controller: TextEditingController(text: _packName),
+          TextFormField(
+            initialValue: _packName,
             style: TextStyle(fontSize: 10, color: widget.accentColor),
             decoration: const InputDecoration(
               border: InputBorder.none,
