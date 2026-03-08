@@ -4003,6 +4003,7 @@ impl PlaybackEngine {
                 let mut guard_l = buf_l.borrow_mut();
                 let mut guard_r = buf_r.borrow_mut();
 
+                debug_assert!(frames <= 8192, "Audio block size {} exceeds pre-allocated buffer (8192)", frames);
                 if guard_l.len() < frames {
                     guard_l.resize(frames, 0.0);
                     guard_r.resize(frames, 0.0);
@@ -4469,8 +4470,8 @@ impl PlaybackEngine {
 
         // Route hardware input through input buses (lock-free, zero-allocation)
         if let Some(mut input_buf) = self.input_buffer.try_write() {
-            // Resize only if needed (rare)
             let required_size = frames * 2;
+            debug_assert!(required_size <= 16384, "Input buffer size {} exceeds pre-allocated (16384)", required_size);
             if input_buf.len() < required_size {
                 input_buf.resize(required_size, 0.0);
             }
@@ -4585,6 +4586,7 @@ impl PlaybackEngine {
                     SCRATCH_BUFFER_R.with(|buf_r| {
                         let mut sl = buf_l.borrow_mut();
                         let mut sr = buf_r.borrow_mut();
+                        debug_assert!(frames <= 8192, "Audio block size {} exceeds pre-allocated buffer (8192)", frames);
                         if sl.len() < frames {
                             sl.resize(frames, 0.0);
                         }
@@ -4860,6 +4862,7 @@ impl PlaybackEngine {
                 let mut guard_r = buf_r.borrow_mut();
 
                 // Ensure buffers are large enough
+                debug_assert!(frames <= 8192, "Audio block size {} exceeds pre-allocated buffer (8192)", frames);
                 if guard_l.len() < frames {
                     guard_l.resize(frames, 0.0);
                     guard_r.resize(frames, 0.0);
@@ -5605,6 +5608,7 @@ impl PlaybackEngine {
         if let Some(mut analyzer) = self.spectrum_analyzer.try_write() {
             if let Some(mut mono_buffer) = self.spectrum_mono_buffer.try_write() {
                 // Ensure buffer is large enough
+                debug_assert!(frames <= 8192, "Audio block size {} exceeds pre-allocated buffer (8192)", frames);
                 if mono_buffer.len() < frames {
                     mono_buffer.resize(frames, 0.0);
                 }
@@ -5851,6 +5855,7 @@ impl PlaybackEngine {
                 let mut guard_l = buf_l.borrow_mut();
                 let mut guard_r = buf_r.borrow_mut();
 
+                debug_assert!(frames <= 8192, "Audio block size {} exceeds pre-allocated buffer (8192)", frames);
                 if guard_l.len() < frames {
                     guard_l.resize(frames, 0.0);
                     guard_r.resize(frames, 0.0);

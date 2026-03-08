@@ -718,6 +718,7 @@ impl PlaybackEngine {
                     &config.into(),
                     move |data: &mut [f32], _| {
                         let frames = data.len() / channels;
+                        debug_assert!(frames <= 8192, "Audio block size {} exceeds pre-allocated buffer (8192)", frames);
 
                         // Ensure buffers are large enough
                         if engine_output_l.len() < frames {
@@ -791,6 +792,7 @@ impl PlaybackEngine {
                     &config.into(),
                     move |data: &mut [i16], _| {
                         let frames = data.len() / channels;
+                        debug_assert!(frames <= 8192, "Audio block size {} exceeds pre-allocated buffer (8192)", frames);
 
                         // Reuse pre-allocated buffer, grow only if needed (rare — only on buffer size change)
                         if float_data.len() < data.len() {
@@ -1464,6 +1466,7 @@ impl PlaybackEngine {
                         }
 
                         let frames = data.len() / channels;
+                        debug_assert!(frames <= 8192, "Audio block size {} exceeds pre-allocated buffer (8192)", frames);
                         if engine_output_l.len() < frames {
                             engine_output_l.resize(frames, 0.0);
                             engine_output_r.resize(frames, 0.0);
@@ -1798,6 +1801,7 @@ impl PlaybackEngine {
                         rf_audio::set_realtime_priority();
                     }
                     let frames = data.len() / channels;
+                    debug_assert!(frames <= 8192, "Audio block size {} exceeds pre-allocated buffer (8192)", frames);
                     if engine_output_l.len() < frames {
                         engine_output_l.resize(frames, 0.0);
                         engine_output_r.resize(frames, 0.0);
