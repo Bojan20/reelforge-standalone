@@ -575,6 +575,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   late Animation<double> _nearMissShake;
 
   // Cascade animations
+  late AnimationController _scatterPulseController;
+  late Animation<double> _scatterPulse;
   late AnimationController _cascadePopController;
   late Animation<double> _cascadePopAnimation;
 
@@ -608,6 +610,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   bool _isNearMiss = false;
   Set<int> _anticipationReels = {}; // Reels currently showing anticipation
   Set<String> _nearMissPositions = {}; // Positions that "just missed"
+  Set<String> _scatterHighlightPositions = {}; // Scatter positions highlighted before FS plaque
+  bool _isScatterHighlight = false; // Scatter highlight animation active
   final Map<int, Timer> _anticipationTimers = {}; // Per-reel anticipation timers
   final Map<int, double> _anticipationProgress = {}; // Per-reel progress (0.0 → 1.0)
   final Map<int, int> _anticipationTensionLevel = {}; // Per-reel tension level (1-4)
@@ -905,6 +909,16 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       CurvedAnimation(parent: _nearMissController, curve: Curves.elasticOut),
     );
 
+    // Scatter highlight pulse — golden glow on scatter symbols before FS plaque
+    _scatterPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    )..repeat(reverse: true);
+    _scatterPulse = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: _scatterPulseController, curve: Curves.easeInOut),
+    );
+    _scatterPulseController.stop(); // Only runs when scatter highlight active
+
     // Cascade pop animation (symbols exploding/popping)
     _cascadePopController = AnimationController(
       vsync: this,
@@ -1056,6 +1070,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _particleController.dispose();
     _anticipationController.dispose();
     _nearMissController.dispose();
+    _scatterPulseController.dispose();
     _cascadePopController.dispose();
     _lineGrowController.dispose(); // P1.2: Win line grow animation
 
@@ -2212,13 +2227,13 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // ═══════════════════════════════════════════════════════════════════════════
     if (!result.isWin) {
       if (result.featureTriggered) {
-        // Scatter win: trigger audio, brief scatter highlight, then game flow
-        _ensureAudioRegistered('SCATTER_WIN');
-        eventRegistry.triggerStage('SCATTER_WIN');
+        // Scatter win: highlight scatter positions → SCATTER_WIN audio → delay → plaque
+        _startScatterHighlight();
 
-        // Allow scatter win sound + visual to play before FS plaketa appears
-        Future.delayed(const Duration(milliseconds: 1200), () {
+        // Flow: scatter highlight plays for 2.5s, then flush triggers FS plaque
+        Future.delayed(const Duration(milliseconds: 2500), () {
           if (!mounted) return;
+          _stopScatterHighlight();
           widget.provider.flushGameFlowResult();
         });
       } else {
@@ -3443,6 +3458,39 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
     // CRITICAL: After anticipation ends, check if all reels stopped → trigger win flow
     _checkWinFlowAfterAnticipation();
+  }
+
+  /// Start scatter symbol highlight animation + SCATTER_WIN audio before FS plaque
+  void _startScatterHighlight() {
+    // Find all scatter positions on the current grid
+    final positions = <String>{};
+    for (int r = 0; r < _displayGrid.length; r++) {
+      for (int row = 0; row < _displayGrid[r].length; row++) {
+        if (SlotSymbol.isScatterSymbol(_displayGrid[r][row])) {
+          positions.add('$r,$row');
+        }
+      }
+    }
+    if (positions.isEmpty) return;
+
+    setState(() {
+      _scatterHighlightPositions = positions;
+      _isScatterHighlight = true;
+    });
+    _scatterPulseController.repeat(reverse: true);
+
+    // SCATTER_WIN audio fires together with visual highlight
+    _ensureAudioRegistered('SCATTER_WIN');
+    EventRegistry.instance.triggerStage('SCATTER_WIN');
+  }
+
+  /// Stop scatter highlight animation
+  void _stopScatterHighlight() {
+    _scatterPulseController.stop();
+    setState(() {
+      _isScatterHighlight = false;
+      _scatterHighlightPositions = {};
+    });
   }
 
   /// Check if win flow should start after anticipation finishes
@@ -5071,6 +5119,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     final isAnticipationReel = _anticipationReels.contains(reelIndex);
     final isNearMissPosition = _nearMissPositions.contains(posKey);
     final isCascadePopPosition = _cascadePopPositions.contains(posKey);
+    final isScatterHighlight = _isScatterHighlight && _scatterHighlightPositions.contains(posKey);
 
     // Determine if reel is visually spinning
     final isReelSpinning = reelState.phase != ReelPhase.idle &&
@@ -5086,6 +5135,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         _anticipationPulse,
         _nearMissShake,
         _cascadePopAnimation,
+        _scatterPulse,
       ]),
       builder: (context, child) {
         // Calculate bounce offset for winning symbols
@@ -5123,6 +5173,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         if (isWinningPosition) {
           borderColor = _getWinGlowColor().withOpacity(_winPulseAnimation.value.clamp(0.0, 1.0));
           borderWidth = 2.5;
+        } else if (isScatterHighlight) {
+          borderColor = const Color(0xFF40FF90).withOpacity(_scatterPulse.value.clamp(0.0, 1.0));
+          borderWidth = 3.0;
         } else if (isNearMissPosition && _isNearMiss) {
           borderColor = const Color(0xFFFF4060).withOpacity(0.8);
           borderWidth = 2.5;
@@ -5151,6 +5204,14 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
               color: const Color(0xFFFF4060).withOpacity(0.5),
               blurRadius: 16,
               spreadRadius: 3,
+            ),
+          ];
+        } else if (isScatterHighlight) {
+          shadows = [
+            BoxShadow(
+              color: const Color(0xFF40FF90).withOpacity((_scatterPulse.value * 0.6).clamp(0.0, 1.0)),
+              blurRadius: 18,
+              spreadRadius: 4,
             ),
           ];
         } else if (isAnticipationReel && _isAnticipation && isReelSpinning) {

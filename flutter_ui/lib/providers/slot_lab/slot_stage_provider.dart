@@ -537,6 +537,15 @@ class SlotStageProvider extends ChangeNotifier {
     if (!gameFlow.isInTransition) return; // No active transition — skip
 
     _transitionPaused = true;
+
+    // CRITICAL: Stop reel spin loop audio and visual state immediately.
+    // Reels must NOT spin (visually or audibly) behind the transition plaque.
+    if (_isReelsSpinning) {
+      _isReelsSpinning = false;
+      eventRegistry.stopAllSpinLoops();
+      notifyListeners();
+    }
+
     pauseStages();
 
     // Listen for transition end → auto-resume
