@@ -76,6 +76,7 @@ import '../models/game_flow_models.dart';
 import '../models/stage_models.dart';
 import '../models/middleware_models.dart';
 import '../models/slot_audio_events.dart';
+import '../models/auto_event_builder_models.dart' show AudioAsset;
 import '../models/win_tier_config.dart';
 import '../theme/fluxforge_theme.dart';
 import '../theme/slotlab_layout.dart';
@@ -1238,7 +1239,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   // Fullscreen preview mode
   bool _isPreviewMode = false;
-  bool _showSplashOnPreview = true; // Splash on entry, auto-bind, GENERATE, and refresh
+  bool _showSplashOnPreview = false; // Splash after CREATE, auto-bind complete, or manual reload
 
   // Audio browser
   String _browserSearchQuery = '';
@@ -2906,8 +2907,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       );
     }
 
-    // Refresh UI
-    if (mounted) setState(() {});
+    // Reload slot machine with splash after auto-bind completes
+    if (mounted) setState(() => _showSplashOnPreview = true);
   }
 
   /// Create audio pool entry (no setState - for batch operations)
@@ -3143,6 +3144,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         isFullscreen: true, // Fullscreen mode — handles SPACE key internally
         showSplash: _showSplashOnPreview,
         onSplashComplete: () => setState(() => _showSplashOnPreview = false),
+        onReload: _reloadSlotMachine,
         // P5: Pass project provider for dynamic win tier configuration
         projectProvider: context.read<SlotLabProjectProvider>(),
       );
@@ -9422,7 +9424,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     );
   }
 
-  /// EVENTS tab in left panel — compact event list (single-column for narrow panel)
+  /// CUSTOM tab in left panel — placeholder for future custom event creation.
+  /// Custom events are user-defined events outside the predefined stage system.
+  /// CUSTOM tab — Audio Event Editor (BROWSE-style flat list with inline layer editing)
   Widget _buildEventsLeftPanel() {
     return Consumer<MiddlewareProvider>(
       builder: (context, mw, _) {
@@ -9431,9 +9435,21 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
         if (events.isEmpty) {
           return Center(
-            child: Text(
-              'No events defined',
-              style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 10),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.library_music_outlined, size: 28, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.3)),
+                const SizedBox(height: 8),
+                Text(
+                  'No audio events yet',
+                  style: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5), fontSize: 10),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Assign audio in the ASSIGN tab first',
+                  style: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.3), fontSize: 9),
+                ),
+              ],
             ),
           );
         }
@@ -9464,10 +9480,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 return [
                   GestureDetector(
                     onTap: () {
-                      mw.selectCompositeEvent(evt.id);
-                      setState(() {
-                        _selectedEventId = evt.id;
-                      });
+                      mw.selectCompositeEvent(isSelected ? null : evt.id);
+                      setState(() {});
                     },
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 1),
@@ -9517,7 +9531,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   ),
                   // Inline editor when selected
                   if (isSelected)
-                    _buildInlineEventEditor(evt, mw),
+                    _buildCustomTabInlineEditor(evt, mw),
                 ];
               }),
             ];
@@ -9527,8 +9541,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     );
   }
 
-  /// Inline event editor — expands below selected event in BROWSE tab
-  Widget _buildInlineEventEditor(SlotCompositeEvent event, MiddlewareProvider mw) {
+  /// Inline editor for CUSTOM tab — layer management, properties, drag&drop
+  Widget _buildCustomTabInlineEditor(SlotCompositeEvent event, MiddlewareProvider mw) {
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.all(6),
@@ -9543,11 +9557,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Properties row
-          _browseEditorRow('Category', event.category),
-          _browseEditorRow('Stages', event.triggerStages.join(', ')),
-          _browseEditorRow('Instances', '${event.maxInstances}'),
-          _browseEditorRow('Looping', event.looping ? 'Yes' : 'No'),
+          // Properties
+          _customEditorRow('Category', event.category),
+          _customEditorRow('Stages', event.triggerStages.join(', ')),
+          _customEditorRow('Instances', '${event.maxInstances}'),
+          _customEditorRow('Looping', event.looping ? 'Yes' : 'No'),
           const SizedBox(height: 4),
           // Layers header with add button
           Row(
@@ -9558,7 +9572,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               ),
               const Spacer(),
               GestureDetector(
-                onTap: () => _addLayerToEvent(event, ''),
+                onTap: () {
+                  mw.addLayerToEvent(event.id, audioPath: '', name: 'New Layer');
+                  setState(() {});
+                },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                   decoration: BoxDecoration(
@@ -9579,15 +9596,41 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             ],
           ),
           const SizedBox(height: 3),
-          // Layer list
+          // Layer list with drag&drop
           ...event.layers.asMap().entries.map((entry) {
             final layer = entry.value;
             final fileName = layer.audioPath.isNotEmpty
                 ? layer.audioPath.split('/').last
                 : layer.actionType;
-            return DragTarget<String>(
+            return DragTarget<Object>(
+              onWillAcceptWithDetails: (details) =>
+                  details.data is AudioAsset || details.data is String,
               onAcceptWithDetails: (details) {
-                _addLayerToMiddlewareEvent(event.id, details.data, details.data.split('/').last);
+                String? path;
+                if (details.data is AudioAsset) {
+                  path = (details.data as AudioAsset).path;
+                } else if (details.data is String) {
+                  path = details.data as String;
+                }
+                if (path != null) {
+                  // Update existing layer with new audio
+                  final updatedLayer = SlotEventLayer(
+                    id: layer.id,
+                    name: path.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
+                    audioPath: path,
+                    actionType: layer.actionType,
+                    volume: layer.volume,
+                    pan: layer.pan,
+                    busId: layer.busId,
+                    loop: layer.loop,
+                    fadeInMs: layer.fadeInMs,
+                    fadeOutMs: layer.fadeOutMs,
+                    offsetMs: layer.offsetMs,
+                    durationSeconds: layer.durationSeconds,
+                  );
+                  mw.updateEventLayer(event.id, updatedLayer);
+                  setState(() {});
+                }
               },
               builder: (context, candidateData, rejectedData) {
                 final isDragOver = candidateData.isNotEmpty;
@@ -9618,7 +9661,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                         ),
                       ),
                       GestureDetector(
-                        onTap: () => _removeLayerFromMiddlewareEvent(event.id, layer.id),
+                        onTap: () {
+                          mw.removeLayerFromEvent(event.id, layer.id);
+                          setState(() {});
+                        },
                         child: const Icon(Icons.close, size: 10, color: Color(0xFF606068)),
                       ),
                     ],
@@ -9627,11 +9673,25 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               },
             );
           }),
-          // Drop zone for new layers
+          // Drop zone for new layers when empty
           if (event.layers.isEmpty)
-            DragTarget<String>(
+            DragTarget<Object>(
+              onWillAcceptWithDetails: (details) =>
+                  details.data is AudioAsset || details.data is String,
               onAcceptWithDetails: (details) {
-                _addLayerToMiddlewareEvent(event.id, details.data, details.data.split('/').last);
+                String? path;
+                if (details.data is AudioAsset) {
+                  path = (details.data as AudioAsset).path;
+                } else if (details.data is String) {
+                  path = details.data as String;
+                }
+                if (path != null) {
+                  mw.addLayerToEvent(event.id,
+                    audioPath: path,
+                    name: path.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
+                  );
+                  setState(() {});
+                }
               },
               builder: (context, candidateData, rejectedData) {
                 final isDragOver = candidateData.isNotEmpty;
@@ -9665,7 +9725,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     );
   }
 
-  Widget _browseEditorRow(String label, String value) {
+  Widget _customEditorRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 1),
       child: Row(
@@ -10282,10 +10342,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           onAutoBindComplete: (folderPath) {
             // Sync assignments → composite events + EventRegistry (async, non-blocking)
             _syncAssignmentsAsync();
-            // Next time preview opens, show splash screen
-            setState(() => _showSplashOnPreview = true);
             // Sync all audio files from folder into POOL
             _syncAutoBindFolderToPool(folderPath);
+          },
+          onAutoBindDialogDismissed: () {
+            // User pressed OK on auto-bind dialog — trigger splash reload
+            if (mounted) setState(() => _showSplashOnPreview = true);
           },
         );
       },
@@ -10305,6 +10367,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         isFullscreen: false, // Embedded mode — SPACE handled by global handler
         showSplash: _showSplashOnPreview,
         onSplashComplete: () => setState(() => _showSplashOnPreview = false),
+        onReload: _reloadSlotMachine,
         // P5: Pass project provider for dynamic win tier configuration
         projectProvider: context.read<SlotLabProjectProvider>(),
       ),

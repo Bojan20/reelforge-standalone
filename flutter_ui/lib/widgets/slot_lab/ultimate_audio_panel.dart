@@ -47,6 +47,7 @@
 import 'dart:io'; // V11: Folder import
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // SL-LP-P1.3
+import 'package:provider/provider.dart';
 import '../../models/auto_event_builder_models.dart' show AudioAsset;
 import '../../models/slot_lab_models.dart';
 import '../../models/win_tier_config.dart'; // P5 Win Tier System
@@ -54,8 +55,8 @@ import '../../providers/middleware_provider.dart'; // SL-INT-P1.1
 import '../../services/stage_group_service.dart';
 import '../../services/stage_configuration_service.dart';
 import '../../services/audio_playback_service.dart';
-import '../../services/waveform_thumbnail_cache.dart'; // SL-LP-P1.1
 import '../../services/variant_manager.dart'; // SL-LP-P1.4
+import '../../services/waveform_thumbnail_cache.dart'; // SL-LP-P1.1
 import 'package:get_it/get_it.dart'; // V11: Feature Composer + Pacing
 import '../../providers/slot_lab/feature_composer_provider.dart'; // V11
 import '../../providers/slot_lab/pacing_engine_provider.dart'; // V11
@@ -186,6 +187,9 @@ class UltimateAudioPanel extends StatefulWidget {
   /// Passes the folder path so parent can sync files into audio pool
   final void Function(String folderPath)? onAutoBindComplete;
 
+  /// Called after user dismisses the auto-bind result dialog (presses OK)
+  final VoidCallback? onAutoBindDialogDismissed;
+
   const UltimateAudioPanel({
     super.key,
     this.audioAssignments = const {},
@@ -214,6 +218,7 @@ class UltimateAudioPanel extends StatefulWidget {
     this.onBulkImport,
     this.onSlotMachineCreated,
     this.onAutoBindComplete,
+    this.onAutoBindDialogDismissed,
   });
 
   @override
@@ -242,6 +247,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
 
   // V11: Top-level mode switch (STAGES vs PACING)
   int _panelMode = 0; // 0=Stages, 1=Pacing
+
+  // Inline event detail expand — shows composite event layers below slot
 
   // Keyboard navigation state (SL-LP-P1.3)
   final FocusNode _panelFocusNode = FocusNode();
@@ -674,9 +681,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     // Refresh UI
     setState(() {});
 
-    // Show result dialog
+    // Show result dialog — await so we can trigger reload after OK
     final totalFiles = bindings.length + unmapped.length;
-    showDialog(
+    await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A22),
@@ -757,6 +764,11 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         ],
       ),
     );
+
+    // Dialog dismissed — trigger splash reload
+    if (mounted) {
+      widget.onAutoBindDialogDismissed?.call();
+    }
   }
 
   // V11: Bulk Import Dialog
@@ -2618,17 +2630,23 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               details.data is String;
         },
         onAcceptWithDetails: (details) {
-          String? path;
-          if (details.data is AudioAsset) {
-            path = (details.data as AudioAsset).path;
-          } else if (details.data is List<AudioAsset>) {
+          // Multi-drop support: accept single or multiple audio files
+          if (details.data is List<AudioAsset>) {
             final list = details.data as List<AudioAsset>;
-            if (list.isNotEmpty) path = list.first.path;
-          } else if (details.data is String) {
-            path = details.data as String;
-          }
-          if (path != null) {
-            widget.onAudioAssign?.call(slot.stage, path, slot.label);
+            // First file = primary assign, rest = additional layers
+            for (final asset in list) {
+              widget.onAudioAssign?.call(slot.stage, asset.path, slot.label);
+            }
+          } else {
+            String? path;
+            if (details.data is AudioAsset) {
+              path = (details.data as AudioAsset).path;
+            } else if (details.data is String) {
+              path = details.data as String;
+            }
+            if (path != null) {
+              widget.onAudioAssign?.call(slot.stage, path, slot.label);
+            }
           }
         },
         builder: (context, candidateData, rejectedData) {
@@ -2738,6 +2756,29 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       color: const Color(0xFF50FF98).withOpacity(0.5),
                     ),
                   ),
+                // Layer count badge
+                if (hasAudio)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 2),
+                    child: Builder(
+                      builder: (_) {
+                        final mw = Provider.of<MiddlewareProvider>(context, listen: false);
+                        final eid = 'audio_\${slot.stage}';
+                        final evt = mw.compositeEvents.where((e) => e.id == eid).firstOrNull ??
+                            mw.compositeEvents.where((e) => e.triggerStages.any((s) => s.toUpperCase() == slot.stage.toUpperCase())).firstOrNull;
+                        final lc = evt?.layers.length ?? 0;
+                        if (lc <= 1) return const SizedBox.shrink();
+                        return Text(
+                          '\${lc}L',
+                          style: TextStyle(
+                            fontSize: 7,
+                            color: const Color(0xFF808088).withValues(alpha: 0.5),
+                            fontFamily: 'monospace',
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 // Play button — visible on hover or when playing
                 if (hasAudio && (isSlotHovered || _playingStage == slot.stage))
                   GestureDetector(
@@ -2826,20 +2867,13 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     return total;
   }
 
+
   /// Get completion percentage for section (SL-LP-P0.2)
   int _getSectionPercentage(_SectionConfig section) {
     final total = _getTotalSlotsInSection(section);
     if (total == 0) return 0;
     final assigned = _countAssignedInSection(section);
     return ((assigned / total) * 100).toInt();
-  }
-
-  /// Get color for completion percentage (SL-LP-P0.2)
-  Color _getPercentageColor(int percentage) {
-    if (percentage == 100) return FluxForgeTheme.accentGreen;
-    if (percentage >= 75) return FluxForgeTheme.accentBlue;
-    if (percentage >= 50) return FluxForgeTheme.accentOrange;
-    return FluxForgeTheme.accentRed;
   }
 
   /// Check if a slot matches the current search/filter criteria

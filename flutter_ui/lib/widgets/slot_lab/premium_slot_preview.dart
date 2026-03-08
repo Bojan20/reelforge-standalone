@@ -554,6 +554,9 @@ class _HeaderZone extends StatelessWidget {
   final bool showDebugToolbar;
   final VoidCallback onDebugToggle;
 
+  // Reload slot machine (browser-style refresh)
+  final VoidCallback? onReload;
+
   const _HeaderZone({
     required this.balance,
     required this.isMusicOn,
@@ -568,6 +571,7 @@ class _HeaderZone extends StatelessWidget {
     required this.onThemeChanged,
     this.showDebugToolbar = false,
     required this.onDebugToggle,
+    this.onReload,
   });
 
   @override
@@ -641,6 +645,14 @@ class _HeaderZone extends StatelessWidget {
             tooltip: 'Settings',
             onTap: onSettingsTap,
           ),
+          if (onReload != null) ...[
+            const SizedBox(width: 8),
+            _HeaderIconButton(
+              icon: Icons.refresh,
+              tooltip: 'Reload',
+              onTap: onReload!,
+            ),
+          ],
         ],
       ),
     );
@@ -4751,6 +4763,9 @@ class PremiumSlotPreview extends StatefulWidget {
   /// Called when splash completes and user clicks CONTINUE
   final VoidCallback? onSplashComplete;
 
+  /// Called when user clicks Reload button in header
+  final VoidCallback? onReload;
+
   const PremiumSlotPreview({
     super.key,
     required this.onExit,
@@ -4760,6 +4775,7 @@ class PremiumSlotPreview extends StatefulWidget {
     this.projectProvider,
     this.showSplash = false,
     this.onSplashComplete,
+    this.onReload,
   });
 
   @override
@@ -4972,6 +4988,11 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   @override
   void didUpdateWidget(PremiumSlotPreview oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    // Splash toggled from parent
+    if (!oldWidget.showSplash && widget.showSplash) {
+      setState(() => _showSplashScreen = true);
+    }
 
     // Grid dimensions changed — reset reel state arrays
     if (oldWidget.reels != widget.reels || oldWidget.rows != widget.rows) {
@@ -6494,6 +6515,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   onThemeChanged: _setThemeA,
                   showDebugToolbar: _showDebugToolbar,
                   onDebugToggle: _toggleDebugToolbar,
+                  onReload: widget.onReload,
                 ),
 
                 // P6: Debug Toolbar — REMOVED (disabled per user request)
