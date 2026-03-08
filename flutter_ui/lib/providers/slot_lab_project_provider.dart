@@ -36,6 +36,11 @@ class SlotLabProjectProvider extends ChangeNotifier {
   bool _isDirty = false;
   String? _projectPath;
 
+  /// Signal: auto-bind folder ready for pool sync + splash reload.
+  /// Static ValueNotifier — completely independent from ChangeNotifier cascade.
+  /// UltimateAudioPanel sets it on OK press, SlotLabScreen listens and consumes.
+  static final autoBindReadySignal = ValueNotifier<String?>(null);
+
   // Symbols
   List<SymbolDefinition> _symbols = List.from(defaultSymbols);
   List<SymbolAudioAssignment> _symbolAudio = [];

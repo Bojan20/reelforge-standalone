@@ -63,6 +63,7 @@ import '../../providers/slot_lab/pacing_engine_provider.dart'; // V11
 import '../../services/audio_mapping_import_service.dart'; // V11: Bulk Import
 import '../../services/native_file_picker.dart'; // V11: Native folder picker
 import '../../providers/slot_lab_project_provider.dart'; // Auto-Bind
+import '../../screens/slot_lab_screen.dart'; // Static triggerAutoBindReload
 import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -111,6 +112,9 @@ class UltimateAudioPanel extends StatefulWidget {
 
   /// Called when single audio is dropped on a slot
   final OnAudioAssign? onAudioAssign;
+
+  /// Called to add an additional layer to an existing event (multi-drop)
+  final void Function(String stage, String audioPath)? onAudioLayerAdd;
 
   /// Called when audio is cleared from a slot
   final Function(String stage)? onAudioClear;
@@ -194,6 +198,7 @@ class UltimateAudioPanel extends StatefulWidget {
     super.key,
     this.audioAssignments = const {},
     this.onAudioAssign,
+    this.onAudioLayerAdd,
     this.onAudioClear,
     this.onBatchDistribute,
     this.onClearSection,
@@ -675,15 +680,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       return;
     }
 
-    // Sync to EventRegistry so audio actually plays + sync files to pool
-    widget.onAutoBindComplete?.call(path);
-
-    // Refresh UI
-    setState(() {});
-
-    // Show result dialog — await so we can trigger reload after OK
+    // Show result dialog — pool sync + splash triggered via provider signal when OK pressed
     final totalFiles = bindings.length + unmapped.length;
-    await showDialog(
+    showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A22),
@@ -758,17 +757,16 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              // Direct static call — no callbacks, no providers, no signals
+              SlotLabScreen.triggerAutoBindReload(path);
+            },
             child: const Text('OK', style: TextStyle(color: Color(0xFF66BB6A))),
           ),
         ],
       ),
     );
-
-    // Dialog dismissed — trigger splash reload
-    if (mounted) {
-      widget.onAutoBindDialogDismissed?.call();
-    }
   }
 
   // V11: Bulk Import Dialog
@@ -2630,12 +2628,16 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               details.data is String;
         },
         onAcceptWithDetails: (details) {
-          // Multi-drop support: accept single or multiple audio files
+          // Multi-drop support: first file = primary assign, rest = additional layers
           if (details.data is List<AudioAsset>) {
             final list = details.data as List<AudioAsset>;
-            // First file = primary assign, rest = additional layers
-            for (final asset in list) {
-              widget.onAudioAssign?.call(slot.stage, asset.path, slot.label);
+            if (list.isNotEmpty) {
+              // First file: primary audio assignment (creates composite event)
+              widget.onAudioAssign?.call(slot.stage, list.first.path, slot.label);
+              // Remaining files: add as extra layers to the composite event
+              for (int i = 1; i < list.length; i++) {
+                widget.onAudioLayerAdd?.call(slot.stage, list[i].path);
+              }
             }
           } else {
             String? path;
@@ -2763,13 +2765,13 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                     child: Builder(
                       builder: (_) {
                         final mw = Provider.of<MiddlewareProvider>(context, listen: false);
-                        final eid = 'audio_\${slot.stage}';
+                        final eid = 'audio_${slot.stage}';
                         final evt = mw.compositeEvents.where((e) => e.id == eid).firstOrNull ??
                             mw.compositeEvents.where((e) => e.triggerStages.any((s) => s.toUpperCase() == slot.stage.toUpperCase())).firstOrNull;
                         final lc = evt?.layers.length ?? 0;
                         if (lc <= 1) return const SizedBox.shrink();
                         return Text(
-                          '\${lc}L',
+                          '${lc}L',
                           style: TextStyle(
                             fontSize: 7,
                             color: const Color(0xFF808088).withValues(alpha: 0.5),

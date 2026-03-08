@@ -343,6 +343,11 @@ class SlotLabScreen extends StatefulWidget {
     this.audioPool,
   });
 
+  /// Public entry point for auto-bind reload from child widgets
+  static void triggerAutoBindReload(String folderPath) {
+    _SlotLabScreenState.triggerAutoBindReload(folderPath);
+  }
+
   @override
   State<SlotLabScreen> createState() => _SlotLabScreenState();
 }
@@ -355,6 +360,9 @@ enum _RightPanelTab { config, pool }
 
 class _SlotLabScreenState extends State<SlotLabScreen>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin, InlineToastMixin {
+
+  /// Static ref so UltimateAudioPanel can trigger reload directly
+  static _SlotLabScreenState? _activeInstance;
 
   @override
   bool get wantKeepAlive => true;
@@ -369,6 +377,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // Cached middleware reference — avoids Provider.of(context) in dispose()
   // which crashes with "deactivated widget's ancestor" during unmount
   MiddlewareProvider? _middlewareRef;
+  SlotLabProjectProvider? _projectProviderRef;
 
   // P14: Ultimate Timeline controller (new professional timeline)
   ultimate.TimelineController? _ultimateTimelineController;
@@ -1356,6 +1365,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   @override
   void initState() {
     super.initState();
+    _activeInstance = this;
 
     // Initialize Lower Zone Controller for unified bottom panel with super-tabs
     // NOTE: Listener is added AFTER restore completes to prevent overwriting persisted state
@@ -1384,6 +1394,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // Listen to MiddlewareProvider for bidirectional sync
     // When layers are added in Middleware center panel, Slot Lab updates automatically
+    // Listen for auto-bind signal via static ValueNotifier (independent from ChangeNotifier)
+    SlotLabProjectProvider.autoBindReadySignal.addListener(_onAutoBindReadySignal);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         // Clean false-positive audio assignments from previous sessions
@@ -1420,6 +1433,25 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   }
 
   int _diagFindingsCount = 0;
+
+  void _onAutoBindReadySignal() {
+    if (!mounted) return;
+    final folder = SlotLabProjectProvider.autoBindReadySignal.value;
+    if (folder == null) return;
+    SlotLabProjectProvider.autoBindReadySignal.value = null;
+    _syncAssignmentsAsync();
+    _syncAutoBindFolderToPool(folder);
+    if (mounted) setState(() => _showSplashOnPreview = true);
+  }
+
+  /// Called directly from UltimateAudioPanel OK button via static ref
+  static void triggerAutoBindReload(String folderPath) {
+    final instance = _activeInstance;
+    if (instance == null || !instance.mounted) return;
+    instance._syncAssignmentsAsync();
+    instance._syncAutoBindFolderToPool(folderPath);
+    instance.setState(() => instance._showSplashOnPreview = true);
+  }
 
   void _onDiagnosticsChanged() {
     if (!mounted) return;
@@ -2993,6 +3025,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   @override
   void dispose() {
+    _activeInstance = null;
+
     // Remove AudioAssetManager listener
     AudioAssetManager.instance.removeListener(_onAudioAssetManagerChanged);
 
@@ -3013,6 +3047,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Remove middleware listener (bidirectional sync)
     // Use cached reference — Provider.of(context) is unsafe during dispose()
     _middlewareRef?.removeListener(_onMiddlewareChanged);
+    SlotLabProjectProvider.autoBindReadySignal.removeListener(_onAutoBindReadySignal);
 
     // Dispose drag controller
     _dragController?.removeListener(_onDragControllerChanged);
@@ -10258,6 +10293,17 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               showToast('Assigned "$fileName" → ${stage.replaceAll("_", " ")}', icon: Icons.audiotrack);
             }
           },
+          onAudioLayerAdd: (stage, audioPath) {
+            // Multi-drop: add audio as additional layer to existing composite event
+            final mw = context.read<MiddlewareProvider>();
+            final eventId = 'audio_$stage';
+            final event = mw.compositeEvents.where((e) => e.id == eventId).firstOrNull;
+            if (event != null) {
+              final name = audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), '');
+              mw.addLayerToEvent(eventId, audioPath: audioPath, name: name);
+              AudioAssetManager.instance.importFilesInstant([audioPath], folder: 'SlotLab Import');
+            }
+          },
           onAudioClear: (stage) {
             projectProvider.removeAudioAssignment(stage);
             eventRegistry.unregisterEvent('audio_$stage');
@@ -10339,16 +10385,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             if (triggerLayer.autoBindingsEnabled) triggerLayer.generateAutoBindings();
             if (mounted) showToast('Imported $count audio mappings', icon: Icons.file_download);
           },
-          onAutoBindComplete: (folderPath) {
-            // Sync assignments → composite events + EventRegistry (async, non-blocking)
-            _syncAssignmentsAsync();
-            // Sync all audio files from folder into POOL
-            _syncAutoBindFolderToPool(folderPath);
-          },
-          onAutoBindDialogDismissed: () {
-            // User pressed OK on auto-bind dialog — trigger splash reload
-            if (mounted) setState(() => _showSplashOnPreview = true);
-          },
+          // onAutoBindComplete/onAutoBindDialogDismissed: handled via provider signal
         );
       },
     );
@@ -12237,17 +12274,33 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         });
       },
       // P0 FIX: REMOVED onDragUpdate — was causing 60fps setState rebuilds!
-      child: Container(
+      child: GestureDetector(
+        onTap: () {
+          // Quick Assign: click audio → assign to selected slot
+          if (_quickAssignMode && _quickAssignSelectedSlot != null) {
+            final pp = context.read<SlotLabProjectProvider>();
+            _handleQuickAssign(path, _quickAssignSelectedSlot!, pp);
+            setState(() => _quickAssignSelectedSlot = null);
+            return;
+          }
+        },
+        child: Container(
         height: 36, // Fixed height
         padding: const EdgeInsets.symmetric(horizontal: 8),
         margin: const EdgeInsets.only(bottom: 2),
         decoration: BoxDecoration(
           color: isPlaying
               ? FluxForgeTheme.accentGreen.withOpacity(0.1)
-              : Colors.white.withOpacity(0.03),
+              : _quickAssignMode && _quickAssignSelectedSlot != null
+                  ? FluxForgeTheme.accentBlue.withOpacity(0.05)
+                  : Colors.white.withOpacity(0.03),
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: isPlaying ? FluxForgeTheme.accentGreen : Colors.transparent,
+            color: isPlaying
+                ? FluxForgeTheme.accentGreen
+                : _quickAssignMode && _quickAssignSelectedSlot != null
+                    ? FluxForgeTheme.accentBlue.withOpacity(0.2)
+                    : Colors.transparent,
           ),
         ),
         child: Row(
@@ -12311,8 +12364,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           ],
         ),
       ),
+      ),
     );
   }
+
 
   // Legacy method kept for compatibility (will be removed in future)
   Widget _buildAudioBrowserItem(Map<String, dynamic> audio) {
@@ -13535,31 +13590,24 @@ class _StableTabSwitcher<T extends Enum> extends StatefulWidget {
 }
 
 class _StableTabSwitcherState<T extends Enum> extends State<_StableTabSwitcher<T>> {
-  List<Widget> _cachedChildren = const [];
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_cachedChildren.isEmpty) {
-      _cachedChildren = List.generate(
-        widget.builders.length,
-        (i) => widget.builders[i](context),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_cachedChildren.isEmpty) return const SizedBox.shrink();
+    // Build all tabs fresh each time parent rebuilds (setState),
+    // but use Offstage to keep inactive tabs alive in the widget tree
+    // so their State is preserved across tab switches.
+    final children = List.generate(
+      widget.builders.length,
+      (i) => widget.builders[i](context),
+    );
     return ValueListenableBuilder<T>(
       valueListenable: widget.tabNotifier,
       builder: (context, tab, _) => Stack(
         children: [
-          for (int i = 0; i < _cachedChildren.length; i++)
+          for (int i = 0; i < children.length; i++)
             Positioned.fill(
               child: Offstage(
                 offstage: i != tab.index,
-                child: _cachedChildren[i],
+                child: children[i],
               ),
             ),
         ],
