@@ -196,6 +196,7 @@ class _WinCelebrationDesignerState extends State<WinCelebrationDesigner>
 
   @override
   void dispose() {
+    _playbackController.removeListener(_onPlaybackTick);
     _playbackController.dispose();
     super.dispose();
   }

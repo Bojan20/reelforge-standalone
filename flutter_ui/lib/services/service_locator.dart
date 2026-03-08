@@ -106,6 +106,8 @@ import '../providers/slot_lab/game_flow_provider.dart';
 import '../providers/fluxmacro_provider.dart';
 import '../providers/slot_lab/stage_flow_provider.dart';
 import '../providers/video_provider.dart';
+import '../providers/middleware_provider.dart';
+import '../providers/slot_lab/slot_lab_coordinator.dart';
 import 'video_export_service.dart';
 import 'video_playback_service.dart';
 
@@ -234,6 +236,20 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<SlotLabProjectProvider>(
       () => SlotLabProjectProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.5.0: MiddlewareProvider (States, Switches, RTPC, Ducking)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<MiddlewareProvider>(
+      () => MiddlewareProvider(NativeFFI.instance),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 5.5.0b: SlotLabCoordinator (Slot Lab main coordinator)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<SlotLabCoordinator>(
+      () => SlotLabCoordinator(),
     );
 
     // ═══════════════════════════════════════════════════════════════════════════

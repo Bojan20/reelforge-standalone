@@ -297,7 +297,9 @@ class FluxForgeApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ControlRoomProvider()),
 
         // Middleware (States, Switches, RTPC, Ducking, Containers, Music System)
-        ChangeNotifierProvider(create: (_) => MiddlewareProvider(NativeFFI.instance)),
+        ChangeNotifierProvider<MiddlewareProvider>.value(
+          value: sl<MiddlewareProvider>(),
+        ),
 
         // Stage Ingest System (Legacy — uses Dart models)
         ChangeNotifierProvider(create: (_) => StageProvider()),
@@ -305,8 +307,10 @@ class FluxForgeApp extends StatelessWidget {
         // Stage Ingest System (New — FFI-based with rf-stage/rf-ingest/rf-connector)
         ChangeNotifierProvider(create: (_) => StageIngestProvider(NativeFFI.instance)),
 
-        // Slot Lab (Synthetic Slot Engine)
-        ChangeNotifierProvider(create: (_) => SlotLabProvider()),
+        // Slot Lab (Synthetic Slot Engine) — MUST use GetIt singleton, not new instance
+        ChangeNotifierProvider<SlotLabProvider>.value(
+          value: sl<SlotLabCoordinator>(),
+        ),
 
         // Game Flow FSM (L3 Modular Slot Machine State Machine)
         ChangeNotifierProvider.value(value: sl<GameFlowProvider>()),
@@ -316,8 +320,10 @@ class FluxForgeApp extends StatelessWidget {
           value: GetIt.instance<SlotLabProjectProvider>(),
         ),
 
-        // Adaptive Layer Engine (ALE)
-        ChangeNotifierProvider(create: (_) => AleProvider()),
+        // Adaptive Layer Engine (ALE) — MUST use GetIt singleton, not new instance
+        ChangeNotifierProvider<AleProvider>.value(
+          value: sl<AleProvider>(),
+        ),
 
         // Unified Audio Asset Manager (SINGLE SOURCE OF TRUTH)
         ChangeNotifierProvider.value(value: AudioAssetManager.instance),
