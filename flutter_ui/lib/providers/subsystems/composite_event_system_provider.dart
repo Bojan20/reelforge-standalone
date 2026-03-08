@@ -1301,31 +1301,11 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     if (!skipNotify) _notifyCompositeChange(composite.id, CompositeEventChangeType.updated);
   }
 
-  /// Remove MiddlewareEvent when composite is deleted
-  /// Unregister specific stages from EventRegistry for a composite event.
-  void _unregisterCompositeStages(String compositeId, List<String> stages) {
-    final registry = EventRegistry.instance;
-    for (final stageName in stages) {
-      final normalized = stageName.toUpperCase().trim();
-      if (normalized.isEmpty) continue;
-      registry.unregisterEvent('composite_${compositeId}_$normalized');
-    }
-  }
-
   void _removeMiddlewareEventForComposite(String compositeId) {
     final middlewareId = _compositeToMiddlewareId(compositeId);
     _eventSystemProvider.deleteEvent(middlewareId);
-
-    // Also remove from EventRegistry
-    final composite = _compositeEvents[compositeId];
-    if (composite != null) {
-      final registry = EventRegistry.instance;
-      for (final stageName in composite.triggerStages) {
-        final normalized = stageName.toUpperCase().trim();
-        registry.unregisterEvent('composite_${compositeId}_$normalized');
-      }
-    }
-
+    // EventRegistry unregistration is handled by slot_lab_screen.dart
+    // (single registration point per CLAUDE.md rules)
     _notifyCompositeChange(compositeId, CompositeEventChangeType.deleted);
   }
 
@@ -1626,8 +1606,7 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     final event = _compositeEvents[eventId];
     if (event == null) return;
     _pushUndoState();
-    // Unregister old stages from EventRegistry before overwriting
-    _unregisterCompositeStages(eventId, event.triggerStages);
+    // EventRegistry re-sync handled by _onMiddlewareChanged in slot_lab_screen.dart
     final updated = event.copyWith(
       triggerStages: stages,
       modifiedAt: DateTime.now(),
@@ -1658,8 +1637,7 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     if (event == null) return;
     if (!event.triggerStages.contains(stageType)) return;
     _pushUndoState();
-    // Unregister removed stage from EventRegistry
-    _unregisterCompositeStages(eventId, [stageType]);
+    // EventRegistry re-sync handled by _onMiddlewareChanged in slot_lab_screen.dart
     final updated = event.copyWith(
       triggerStages: event.triggerStages.where((s) => s != stageType).toList(),
       modifiedAt: DateTime.now(),
