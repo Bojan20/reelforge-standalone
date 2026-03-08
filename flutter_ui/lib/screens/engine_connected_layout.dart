@@ -5205,10 +5205,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 final editable = primaryFocus.context!.findAncestorWidgetOfExactType<EditableText>();
                 if (editable != null) return KeyEventResult.ignored;
               }
-              // Handle SPACE for middleware preview at this level
+              // Handle SPACE for middleware preview — only when lower zone hidden
+              // (when lower zone visible, slot_lab_screen handles Space for spin)
               if (event is KeyDownEvent &&
                   event.logicalKey == LogicalKeyboardKey.space &&
-                  _editorMode == EditorMode.slot) {
+                  _editorMode == EditorMode.slot &&
+                  !_lowerVisible) {
                 _previewEvent();
                 return KeyEventResult.handled;
               }
