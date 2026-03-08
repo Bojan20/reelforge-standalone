@@ -4192,9 +4192,13 @@ impl InsertProcessor for DelayWrapper {
         // Process through ping-pong delay (sample-by-sample for stereo width)
         let width = self.params[9] / 100.0;
 
-        // Save dry for ducking
-        let dry_l: Vec<f64> = left[..len].to_vec();
-        let dry_r: Vec<f64> = right[..len].to_vec();
+        // Save dry signal (pre-allocated buffers — zero alloc on audio thread)
+        if self.dry_buf_l.len() < len {
+            self.dry_buf_l.resize(len, 0.0);
+            self.dry_buf_r.resize(len, 0.0);
+        }
+        self.dry_buf_l[..len].copy_from_slice(&left[..len]);
+        self.dry_buf_r[..len].copy_from_slice(&right[..len]);
 
         if self.frozen {
             // Freeze mode: loop frozen buffer
@@ -4204,8 +4208,8 @@ impl InsertProcessor for DelayWrapper {
                 self.freeze_write_pos = (self.freeze_write_pos + 1) % self.freeze_buf_l.len();
 
                 let mix = self.params[3] / 100.0;
-                left[i] = dry_l[i] * (1.0 - mix) + fl * mix;
-                right[i] = dry_r[i] * (1.0 - mix) + fr * mix;
+                left[i] = self.dry_buf_l[i] * (1.0 - mix) + fl * mix;
+                right[i] = self.dry_buf_r[i] * (1.0 - mix) + fr * mix;
             }
         } else {
             // Normal delay processing
@@ -4214,8 +4218,8 @@ impl InsertProcessor for DelayWrapper {
             // Apply stereo width + mod pan to wet signal
             if (width - 1.0).abs() > 0.01 || mod_pan.abs() > 0.001 {
                 for i in 0..len {
-                    let wet_l = left[i] - dry_l[i] * (1.0 - self.params[3] / 100.0);
-                    let wet_r = right[i] - dry_r[i] * (1.0 - self.params[3] / 100.0);
+                    let wet_l = left[i] - self.dry_buf_l[i] * (1.0 - self.params[3] / 100.0);
+                    let wet_r = right[i] - self.dry_buf_r[i] * (1.0 - self.params[3] / 100.0);
                     let mid = (wet_l + wet_r) * 0.5;
                     let side = (wet_l - wet_r) * 0.5 * width;
                     // Mod pan: shift stereo balance (-1 = full left, +1 = full right)
@@ -4223,8 +4227,8 @@ impl InsertProcessor for DelayWrapper {
                     let pan_r = (1.0 + mod_pan).clamp(0.0, 2.0) * 0.5;
                     let new_wet_l = (mid + side) * pan_l * 2.0;
                     let new_wet_r = (mid - side) * pan_r * 2.0;
-                    left[i] = dry_l[i] * (1.0 - self.params[3] / 100.0) + new_wet_l;
-                    right[i] = dry_r[i] * (1.0 - self.params[3] / 100.0) + new_wet_r;
+                    left[i] = self.dry_buf_l[i] * (1.0 - self.params[3] / 100.0) + new_wet_l;
+                    right[i] = self.dry_buf_r[i] * (1.0 - self.params[3] / 100.0) + new_wet_r;
                 }
             }
         }
@@ -4235,7 +4239,7 @@ impl InsertProcessor for DelayWrapper {
                 let input_level = if self.sidechain_enabled && i < self.sidechain_buf_l.len() {
                     (self.sidechain_buf_l[i].abs() + self.sidechain_buf_r[i].abs()) * 0.5
                 } else {
-                    (dry_l[i].abs() + dry_r[i].abs()) * 0.5
+                    (self.dry_buf_l[i].abs() + self.dry_buf_r[i].abs()) * 0.5
                 };
                 let att_coef = if input_level > self.ducking_env {
                     0.05
@@ -4247,10 +4251,21 @@ impl InsertProcessor for DelayWrapper {
                 let duck_gain = 1.0 - self.ducking_env.min(1.0) * ducking_amount;
                 let mix = self.params[3] / 100.0;
                 // Only duck the wet portion
-                let wet_l = left[i] - dry_l[i] * (1.0 - mix);
-                let wet_r = right[i] - dry_r[i] * (1.0 - mix);
-                left[i] = dry_l[i] * (1.0 - mix) + wet_l * duck_gain;
-                right[i] = dry_r[i] * (1.0 - mix) + wet_r * duck_gain;
+                let wet_l = left[i] - self.dry_buf_l[i] * (1.0 - mix);
+                let wet_r = right[i] - self.dry_buf_r[i] * (1.0 - mix);
+                left[i] = self.dry_buf_l[i] * (1.0 - mix) + wet_l * duck_gain;
+                right[i] = self.dry_buf_r[i] * (1.0 - mix) + wet_r * duck_gain;
+            }
+        }
+
+        // Continuously fill freeze buffer with processed output (for future freeze activation)
+        if !self.frozen {
+            let flen = self.freeze_buf_l.len();
+            for i in 0..len {
+                let pos = self.freeze_write_pos % flen;
+                self.freeze_buf_l[pos] = left[i];
+                self.freeze_buf_r[pos] = right[i];
+                self.freeze_write_pos = (self.freeze_write_pos + 1) % flen;
             }
         }
 
@@ -4343,6 +4358,9 @@ impl InsertProcessor for DelayWrapper {
         delay.set_reverse(self.params[50] > 0.5);
         delay.set_stutter(self.params[51] > 0.5, self.params[52]);
         delay.set_infinite_feedback(self.params[53] > 0.5);
+        // D10.3: Restore delay smoothing
+        let smooth_coeff = self.params[56] / 100.0 * 0.9999;
+        delay.set_delay_smoothing(smooth_coeff);
         self.delay = delay;
         self.rebuild_mod_routes();
         let freeze_len = (5.0 * sample_rate) as usize;
@@ -4443,14 +4461,12 @@ impl InsertProcessor for DelayWrapper {
                 }
             }
             12 => {
-                // Freeze
+                // Freeze — freeze buffer is continuously filled during normal processing
                 let freeze = value > 0.5;
                 self.params[12] = if freeze { 1.0 } else { 0.0 };
                 if freeze && !self.frozen {
-                    // Capture current delay buffer into freeze buffer
-                    // (simplified — in production we'd copy the delay line)
+                    // Start reading from current write position (freeze buffer already has audio)
                     self.frozen = true;
-                    self.freeze_write_pos = 0;
                 } else if !freeze {
                     self.frozen = false;
                 }

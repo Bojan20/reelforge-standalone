@@ -183,15 +183,39 @@ class DelaySnapshot implements DspParameterSnapshot {
     if (other is! DelaySnapshot) return false;
     return delayL == other.delayL && delayR == other.delayR &&
         feedback == other.feedback && mix == other.mix &&
-        pingPong == other.pingPong && link == other.link &&
+        pingPong == other.pingPong && hpFilter == other.hpFilter &&
+        lpFilter == other.lpFilter && modRate == other.modRate &&
+        modDepth == other.modDepth && width == other.width &&
+        ducking == other.ducking && link == other.link &&
         freeze == other.freeze && tempoSync == other.tempoSync &&
         hpQ == other.hpQ && lpQ == other.lpQ &&
-        midFreq == other.midFreq && midGain == other.midGain &&
-        drive == other.drive && tilt == other.tilt &&
+        midFreq == other.midFreq && midQ == other.midQ &&
+        midGain == other.midGain && drive == other.drive &&
+        driveMode == other.driveMode && tilt == other.tilt &&
+        filterLfoRate == other.filterLfoRate &&
+        filterLfoDepth == other.filterLfoDepth &&
         lfo1Rate == other.lfo1Rate && lfo1Depth == other.lfo1Depth &&
-        lfo1Shape == other.lfo1Shape && lfo2Rate == other.lfo2Rate &&
-        lfo2Depth == other.lfo2Depth && pitchShift == other.pitchShift &&
-        modRouting == other.modRouting;
+        lfo1Shape == other.lfo1Shape && lfo1Sync == other.lfo1Sync &&
+        lfo1SyncDiv == other.lfo1SyncDiv &&
+        lfo1Retrigger == other.lfo1Retrigger &&
+        lfo2Rate == other.lfo2Rate && lfo2Depth == other.lfo2Depth &&
+        lfo2Shape == other.lfo2Shape && lfo2Sync == other.lfo2Sync &&
+        lfo2SyncDiv == other.lfo2SyncDiv &&
+        envSensitivity == other.envSensitivity &&
+        envAttack == other.envAttack && envRelease == other.envRelease &&
+        pitchShift == other.pitchShift && modRouting == other.modRouting &&
+        bpm == other.bpm && noteValueL == other.noteValueL &&
+        noteValueR == other.noteValueR && swing == other.swing &&
+        vintageMode == other.vintageMode &&
+        vintageAmount == other.vintageAmount &&
+        stereoRouting == other.stereoRouting &&
+        crossFeedback == other.crossFeedback &&
+        haasDelay == other.haasDelay && diffusion == other.diffusion &&
+        reverse == other.reverse && stutter == other.stutter &&
+        stutterRate == other.stutterRate && infiniteFB == other.infiniteFB &&
+        sidechainEnabled == other.sidechainEnabled &&
+        midiTriggerMode == other.midiTriggerMode &&
+        smoothing == other.smoothing;
   }
 }
 
@@ -2442,11 +2466,11 @@ class _DelayPreset {
 }
 
 DelaySnapshot _makePreset({
-  double delayL = 500, double delayR = 500, double feedback = 0.5,
-  double mix = 0.5, double pingPong = 0.0,
+  double delayL = 500, double delayR = 500, double feedback = 50,
+  double mix = 50, double pingPong = 0,
   double hpFilter = 80, double lpFilter = 8000,
   double modRate = 0.5, double modDepth = 10,
-  double width = 1.0, double ducking = 0,
+  double width = 100, double ducking = 0,
   bool link = true, bool freeze = false, bool tempoSync = false,
   double hpQ = 0.707, double lpQ = 0.707,
   double midFreq = 1000, double midQ = 1.0, double midGain = 0,
@@ -2458,7 +2482,7 @@ DelaySnapshot _makePreset({
   bool lfo2Sync = false, int lfo2SyncDiv = 7,
   double envSensitivity = 50, double envAttack = 5, double envRelease = 50,
   double pitchShift = 0, int modRouting = 0,
-  double bpm = 120, int noteValueL = 7, int noteValueR = 7,
+  double bpm = 120, int noteValueL = 9, int noteValueR = 9,
   double swing = 0, int vintageMode = 0, double vintageAmount = 50,
   int stereoRouting = 1, double crossFeedback = 0,
   double haasDelay = 0, double diffusion = 0,
@@ -2489,136 +2513,136 @@ DelaySnapshot _makePreset({
 final List<_DelayPreset> _factoryPresets = [
   // ─── CLEAN / DIGITAL ────────────────────────────
   _DelayPreset('Clean Digital', 'Clean', _makePreset(
-    delayL: 500, feedback: 0.4, mix: 0.35, stereoRouting: 0,
+    delayL: 500, feedback: 40, mix: 35, stereoRouting: 0,
   )),
   _DelayPreset('Slapback', 'Clean', _makePreset(
-    delayL: 80, feedback: 0.1, mix: 0.5, stereoRouting: 0,
+    delayL: 80, feedback: 10, mix: 50, stereoRouting: 0,
   )),
   _DelayPreset('Dotted 8th', 'Clean', _makePreset(
-    tempoSync: true, noteValueL: 14, feedback: 0.35, mix: 0.4,
+    tempoSync: true, noteValueL: 14, feedback: 35, mix: 40,
   )),
   _DelayPreset('Ping-Pong Wide', 'Clean', _makePreset(
-    delayL: 375, feedback: 0.45, mix: 0.4, stereoRouting: 1, width: 1.0,
+    delayL: 375, feedback: 45, mix: 40, stereoRouting: 1, width: 150,
   )),
   _DelayPreset('Dual Mono', 'Clean', _makePreset(
-    delayL: 250, delayR: 375, feedback: 0.4, mix: 0.35,
+    delayL: 250, delayR: 375, feedback: 40, mix: 35,
     link: false, stereoRouting: 3,
   )),
 
   // ─── TAPE / ANALOG ──────────────────────────────
   _DelayPreset('Tape Echo', 'Tape', _makePreset(
-    delayL: 400, feedback: 0.55, mix: 0.4, vintageMode: 1, vintageAmount: 70,
+    delayL: 400, feedback: 55, mix: 40, vintageMode: 1, vintageAmount: 70,
     hpFilter: 150, lpFilter: 5000, drive: 15, tilt: -1.5,
   )),
   _DelayPreset('Warm Tape', 'Tape', _makePreset(
-    delayL: 340, feedback: 0.5, mix: 0.45, vintageMode: 1, vintageAmount: 55,
+    delayL: 340, feedback: 50, mix: 45, vintageMode: 1, vintageAmount: 55,
     lpFilter: 4000, modRate: 0.8, modDepth: 8,
   )),
   _DelayPreset('Tape Wobble', 'Tape', _makePreset(
-    delayL: 450, feedback: 0.5, mix: 0.4, vintageMode: 1, vintageAmount: 85,
+    delayL: 450, feedback: 50, mix: 40, vintageMode: 1, vintageAmount: 85,
     lpFilter: 3500, modRate: 2.5, modDepth: 25,
   )),
   _DelayPreset('Oil Can Spring', 'Tape', _makePreset(
-    delayL: 200, feedback: 0.45, mix: 0.4, vintageMode: 3, vintageAmount: 75,
+    delayL: 200, feedback: 45, mix: 40, vintageMode: 3, vintageAmount: 75,
     lpFilter: 4500, diffusion: 30, modRate: 1.2, modDepth: 15,
   )),
 
   // ─── BBD / ANALOG ───────────────────────────────
   _DelayPreset('BBD Chorus', 'BBD', _makePreset(
-    delayL: 15, feedback: 0.2, mix: 0.5, vintageMode: 2, vintageAmount: 60,
+    delayL: 15, feedback: 20, mix: 50, vintageMode: 2, vintageAmount: 60,
     modRate: 1.5, modDepth: 40, stereoRouting: 0,
   )),
   _DelayPreset('BBD Flanger', 'BBD', _makePreset(
-    delayL: 5, feedback: 0.7, mix: 0.5, vintageMode: 2, vintageAmount: 50,
+    delayL: 5, feedback: 70, mix: 50, vintageMode: 2, vintageAmount: 50,
     modRate: 0.3, modDepth: 80, stereoRouting: 0,
   )),
   _DelayPreset('BBD Echo', 'BBD', _makePreset(
-    delayL: 300, feedback: 0.5, mix: 0.4, vintageMode: 2, vintageAmount: 65,
+    delayL: 300, feedback: 50, mix: 40, vintageMode: 2, vintageAmount: 65,
     lpFilter: 4000, hpFilter: 120,
   )),
 
   // ─── LO-FI ──────────────────────────────────────
   _DelayPreset('Lo-Fi Ambient', 'Lo-Fi', _makePreset(
-    delayL: 600, feedback: 0.6, mix: 0.5, vintageMode: 4, vintageAmount: 70,
+    delayL: 600, feedback: 60, mix: 50, vintageMode: 4, vintageAmount: 70,
     lpFilter: 3000, diffusion: 40, stereoRouting: 1,
   )),
   _DelayPreset('Broken Radio', 'Lo-Fi', _makePreset(
-    delayL: 350, feedback: 0.45, mix: 0.4, vintageMode: 4, vintageAmount: 90,
+    delayL: 350, feedback: 45, mix: 40, vintageMode: 4, vintageAmount: 90,
     hpFilter: 300, lpFilter: 2500, drive: 30,
   )),
 
   // ─── DUB / REGGAE ───────────────────────────────
   _DelayPreset('Dub Delay', 'Dub', _makePreset(
-    delayL: 375, feedback: 0.65, mix: 0.5, hpFilter: 200, lpFilter: 3000,
+    delayL: 375, feedback: 65, mix: 50, hpFilter: 200, lpFilter: 3000,
     drive: 20, driveMode: 0, vintageMode: 1, vintageAmount: 40,
     filterLfoRate: 0.5, filterLfoDepth: 30,
   )),
   _DelayPreset('Dub Siren', 'Dub', _makePreset(
-    delayL: 250, feedback: 0.7, mix: 0.55, hpFilter: 250, lpFilter: 2500,
+    delayL: 250, feedback: 70, mix: 55, hpFilter: 250, lpFilter: 2500,
     drive: 35, vintageMode: 1, vintageAmount: 50,
     lfo1Rate: 3.0, lfo1Depth: 40, lfo1Shape: 0, modRouting: 1,
   )),
 
   // ─── CREATIVE / SPATIAL ─────────────────────────
   _DelayPreset('Shimmer Delay', 'Creative', _makePreset(
-    delayL: 700, feedback: 0.55, mix: 0.45, pitchShift: 12.0,
+    delayL: 700, feedback: 55, mix: 45, pitchShift: 12.0,
     lpFilter: 6000, diffusion: 50, stereoRouting: 1,
   )),
   _DelayPreset('Octave Down', 'Creative', _makePreset(
-    delayL: 500, feedback: 0.5, mix: 0.4, pitchShift: -12.0,
+    delayL: 500, feedback: 50, mix: 40, pitchShift: -12.0,
     hpFilter: 100, lpFilter: 5000,
   )),
   _DelayPreset('Fifth Up', 'Creative', _makePreset(
-    delayL: 400, feedback: 0.45, mix: 0.4, pitchShift: 7.0,
+    delayL: 400, feedback: 45, mix: 40, pitchShift: 7.0,
     lpFilter: 7000, diffusion: 25,
   )),
   _DelayPreset('Cross-Feed Wash', 'Creative', _makePreset(
-    delayL: 450, delayR: 600, feedback: 0.5, mix: 0.45, link: false,
+    delayL: 450, delayR: 600, feedback: 50, mix: 45, link: false,
     stereoRouting: 2, crossFeedback: 40, diffusion: 35,
   )),
   _DelayPreset('Mid/Side Space', 'Creative', _makePreset(
-    delayL: 300, feedback: 0.4, mix: 0.4, stereoRouting: 4,
+    delayL: 300, feedback: 40, mix: 40, stereoRouting: 4,
     haasDelay: 12, diffusion: 20,
   )),
   _DelayPreset('Haas Widener', 'Creative', _makePreset(
-    delayL: 250, feedback: 0.3, mix: 0.35, haasDelay: 18,
-    stereoRouting: 0, width: 1.0,
+    delayL: 250, feedback: 30, mix: 35, haasDelay: 18,
+    stereoRouting: 0, width: 150,
   )),
 
   // ─── GLITCH / EXPERIMENTAL ──────────────────────
   _DelayPreset('Reverse Wash', 'Glitch', _makePreset(
-    delayL: 500, feedback: 0.5, mix: 0.5, reverse: true,
+    delayL: 500, feedback: 50, mix: 50, reverse: true,
     lpFilter: 5000, diffusion: 40,
   )),
   _DelayPreset('Glitch Stutter', 'Glitch', _makePreset(
-    delayL: 300, feedback: 0.4, mix: 0.5, stutter: true, stutterRate: 80,
+    delayL: 300, feedback: 40, mix: 50, stutter: true, stutterRate: 80,
   )),
   _DelayPreset('Infinite Hold', 'Glitch', _makePreset(
-    delayL: 500, feedback: 0.5, mix: 0.5, infiniteFB: true, freeze: true,
+    delayL: 500, feedback: 50, mix: 50, infiniteFB: true, freeze: true,
     lpFilter: 6000,
   )),
   _DelayPreset('Granular Freeze', 'Glitch', _makePreset(
-    delayL: 800, feedback: 0.6, mix: 0.55, freeze: true,
+    delayL: 800, feedback: 60, mix: 55, freeze: true,
     diffusion: 60, lpFilter: 5000, modRate: 0.3, modDepth: 15,
   )),
 
   // ─── VOCALS ─────────────────────────────────────
   _DelayPreset('Ducking Vocal', 'Vocal', _makePreset(
-    delayL: 375, feedback: 0.35, mix: 0.4, ducking: 60,
+    delayL: 375, feedback: 35, mix: 40, ducking: 60,
     hpFilter: 200, lpFilter: 6000, stereoRouting: 1,
   )),
   _DelayPreset('Vocal Thickener', 'Vocal', _makePreset(
-    delayL: 30, feedback: 0.15, mix: 0.35, stereoRouting: 0,
+    delayL: 30, feedback: 15, mix: 35, stereoRouting: 0,
     haasDelay: 8, lpFilter: 7000,
   )),
 
   // ─── POLYRHYTHMIC ───────────────────────────────
   _DelayPreset('Polyrhythm', 'Rhythm', _makePreset(
     tempoSync: true, noteValueL: 7, noteValueR: 4, link: false,
-    feedback: 0.4, mix: 0.4, stereoRouting: 1, swing: 30,
+    feedback: 40, mix: 40, stereoRouting: 1, swing: 30,
   )),
   _DelayPreset('Triplet Bounce', 'Rhythm', _makePreset(
-    tempoSync: true, noteValueL: 4, feedback: 0.45, mix: 0.4,
+    tempoSync: true, noteValueL: 4, feedback: 45, mix: 40,
     stereoRouting: 1, swing: 0,
   )),
 ];
