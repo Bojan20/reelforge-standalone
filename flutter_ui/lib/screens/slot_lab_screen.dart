@@ -2682,10 +2682,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         folder: 'SlotLab Import',
       );
 
+      // Auto-bind imported files to stages via fuzzy matching
+      _autoBindAfterImport(newEntries);
+
       // 🔄 BACKGROUND: Persist state without blocking UI
       Future.microtask(() => _persistState());
-
-      // No auto-bind — user drags files manually from pool to events
 
     } catch (e) { /* ignored */ }
   }
@@ -2742,6 +2743,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         newEntries.map((e) => e['path'] as String).toList(),
         folder: 'SlotLab Import',
       );
+
+      // Auto-bind imported files to stages via fuzzy matching
+      _autoBindAfterImport(newEntries);
 
       Future.microtask(() => _persistState());
 
@@ -3955,6 +3959,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // F11 = Toggle fullscreen preview mode
     if (key == LogicalKeyboardKey.f11) {
       setState(() => _isPreviewMode = true);
+      return KeyEventResult.handled;
+    }
+
+    // Cmd/Ctrl+I = Import Audio Folder (with auto-bind)
+    if (key == LogicalKeyboardKey.keyI &&
+        (HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed) &&
+        !HardwareKeyboard.instance.isShiftPressed) {
+      _importAudioFolder();
       return KeyEventResult.handled;
     }
 
