@@ -14,6 +14,7 @@
 | **REVERB ULTIMATE — Valhalla-tier upgrade** | **TODO (0/47)** |
 | **EQ ULTIMATE — Pro-Q 4 tier upgrade** | **TODO (0/52)** |
 | **DELAY ULTIMATE — Timeless 3 tier upgrade** | **TODO (0/55)** |
+| **COMPRESSOR ULTIMATE — Pro-C 2 tier upgrade** | **TODO (0/48)** |
 
 Analyzer: 0 errors, 0 warnings
 
@@ -142,7 +143,7 @@ Cilj: Pro-R 2 nivo vizualizacije + novi parametri u UI.
 
 **Prioritet implementacije:** F1 → F2 → F3 → F6 → F4 → F7 → F5 → F9 → F8
 
-**Grand Total: 47 (Reverb) + 52 (EQ) + 55 (Delay) = 154 taskova**
+**Grand Total: 47 (Reverb) + 52 (EQ) + 55 (Delay) + 48 (Compressor) = 202 taskova**
 
 ---
 
@@ -415,6 +416,137 @@ Cilj: Timeless 3 nivo vizualizacije i interakcije.
 | **TOTAL** | | **55** | |
 
 **Prioritet implementacije:** D1 → D2 → D3 → D7 → D4 → D6 → D5 → D9 → D8 → D10
+
+---
+
+## COMPRESSOR ULTIMATE — Pro-C 2 Tier Dynamics
+
+**Goal:** Podići FF-C na nivo FabFilter Pro-C 2 kvaliteta vizualizacije, preciznosti i workflow-a.
+**Scope:** Rust DSP (rf-dsp/src/dynamics.rs), FFI (rf-engine/dsp_wrappers.rs), Flutter UI (fabfilter_compressor_panel.dart)
+**Referenca:** FabFilter Pro-C 2, Waves SSL G-Master, UAD 1176/LA-2A, TDR Kotelnikov, Weiss Compressor/Limiter
+**Trenutno stanje:** VCA/Opto/FET topologije, soft knee, sidechain EQ (HP/LP/Mid), lookahead, character (Tube/Diode/Bright), auto-threshold/makeup, Peak/RMS/Hybrid, adaptive release, 14 stilova, parallel compression, M/S — VEOMA solidna baza, ali UI vizualizacija i neki DSP detalji zaostaju.
+
+### FAZA C1 — Transfer Curve & GR Vizualizacija (KRITIČNO) [0/6]
+
+Trenutno: GR history waveform postoji, ali transfer kriva (input vs output dB) je STATIČNA/BASIC.
+Pro-C 2 ima real-time animated transfer curve sa knee, ratio overlay, i real-time dot praćenje.
+
+- [ ] **C1.1** Real-time transfer curve: animated input→output dB plot sa tačnom soft-knee krivom (parabolic)
+- [ ] **C1.2** Real-time dot na transfer krivoj: pokazuje trenutnu poziciju signala (input level → GR tačka)
+- [ ] **C1.3** GR history waveform upgrade: scrolling waveform sa gradient fill + peak hold line + RMS overlay
+- [ ] **C1.4** Ratio vizualizacija na krivoj: prikaži slope linije iznad threshold-a (1:1 do ∞:1)
+- [ ] **C1.5** Knee region highlight: vizualni prikaz knee zone na transfer krivoj (shaded area)
+- [ ] **C1.6** Range limit vizualizacija: horizontalna linija na transfer krivoj koja pokazuje max GR
+
+### FAZA C2 — Sidechain Spectrum & Audition [0/5]
+
+Trenutno: SC HP/LP/Mid freq kontrole postoje, ali NEMA spektar sidechain signala, nema vizualni feedback.
+Pro-C 2 prikazuje sidechain spectrum i audition u real-time.
+
+- [ ] **C2.1** Sidechain spectrum analyzer: real-time FFT prikaz filtriranog sidechain signala
+- [ ] **C2.2** SC filter frequency response overlay: prikaži HP/LP/Mid krive na spektru
+- [ ] **C2.3** SC audition toggle u UI: čuj sidechain signal izolovan (monitor filter output)
+- [ ] **C2.4** External sidechain routing: primi signal sa drugog kanala kao key input (cross-track ducking)
+- [ ] **C2.5** SC EQ nodes: drag HP/LP/Mid čvorove direktno na spektru (kao EQ panel)
+
+### FAZA C3 — Compressor Styles Upgrade [0/5]
+
+Trenutno: 14 stilova, ali svi koriste VCA/Opto/FET sa različitim parametrima. Nema true program-dependent.
+Pro-C 2 ima dublje razlike između stilova.
+
+- [ ] **C3.1** Program-dependent release: release automatski skraćuje na transijentu, produžuje na sustained (Opto mod)
+- [ ] **C3.2** VariMu emulacija: true variable-mu topologija (ratio se menja sa input levelom, nije fiksni)
+- [ ] **C3.3** 1176 "All-buttons" mode: svi ratio dugmadi pritisnuti → ultra-agresivna kompresija sa distortion
+- [ ] **C3.4** LA-2A emulacija: T4 optičke ćelije sa sporim response + dual-stage gain reduction
+- [ ] **C3.5** SSL Bus Comp emulacija: VCA topology sa auto-release curve i specifičan punch karakter
+
+### FAZA C4 — Metering Upgrade [0/6]
+
+Trenutno: input/output peak + GR bar. Nema LUFS, nema crest factor, nema dynamic range meter.
+Pro-C 2 ima comprehensive metering.
+
+- [ ] **C4.1** LUFS metering: Integrated, Short-term (3s), Momentary (400ms) — ITU-R BS.1770-4
+- [ ] **C4.2** Crest factor meter: peak-to-RMS ratio u dB (mera dinamičkog opsega)
+- [ ] **C4.3** Dynamic range meter: loudness range (LRA) prema EBU R128
+- [ ] **C4.4** Stereo correlation meter: L/R fazna korelacija (-1 do +1)
+- [ ] **C4.5** GR meter sa segmentiranim LED prikazom: -1, -2, -3, -6, -10, -20 dB segmenti (Pro-C 2 style)
+- [ ] **C4.6** Peak hold na svim metrima: decay 2s, resetabilan klikom
+
+### FAZA C5 — Look-Ahead Vizualizacija & Transient Shaping [0/4]
+
+Trenutno: lookahead radi u DSP (1024 sample buffer), ali UI ne prikazuje pre-analysis.
+Cilj: Prikaži look-ahead prozor i dodaj transient shaping.
+
+- [ ] **C5.1** Look-ahead visual: prikaži delay window na GR history waveform-u (koliko unapred gleda)
+- [ ] **C5.2** Transient sustain control: podesi koliko kompresija utiče na attack vs sustain deo signala
+- [ ] **C5.3** Transient detection display: prikaži detektovane transijenete na waveform-u (vertikalne linije)
+- [ ] **C5.4** Look-ahead ms slider u UI: 0-20ms sa real-time latency indicator
+
+### FAZA C6 — Multiband Compressor UI [0/5]
+
+Trenutno: multiband kompresija postoji u rf-master (4-band LR4 crossover), ali NEMA UI za nju.
+Cilj: Pro-MB stil multiband compressor sa vizuelnim crossover prikazom.
+
+- [ ] **C6.1** Multiband mode toggle: switch single-band ↔ multiband u compressor panelu
+- [ ] **C6.2** Crossover frekvencije drag: vizualni prikaz 4 banda sa drag-abilnim crossover pointima
+- [ ] **C6.3** Per-band kompresija kontrole: threshold/ratio/attack/release per band sa mini transfer krive
+- [ ] **C6.4** Per-band solo/bypass: solo ili bypass individualni band
+- [ ] **C6.5** Band spectrum overlay: prikaz spektra sa obojanim bandovima i GR po bandu
+
+### FAZA C7 — Parallel & M/S Processing Upgrade [0/4]
+
+Trenutno: Mix (dry/wet) postoji za parallel, M/S flag postoji. Ali nema vizualizaciju niti naprednu kontrolu.
+Cilj: Pro-C 2 nivo parallel i M/S workflow-a.
+
+- [ ] **C7.1** Parallel mix curve: vizualizuj dry/wet blend na transfer krivoj (dual linije: compressed + parallel)
+- [ ] **C7.2** M/S GR independent metering: odvojeni GR metri za Mid i Side signal
+- [ ] **C7.3** M/S balance control: pomeri threshold nezavisno za Mid vs Side (side kompresija jača za tighter stereo)
+- [ ] **C7.4** NY compression shortcut: "NY" dugme setuje mix na ~40-60% sa quick-recall
+
+### FAZA C8 — Workflow & UX [0/7]
+
+Trenutno: A/B postoji, ali nema undo, nema preseti, nema keyboard shortcuts.
+Cilj: Kompletan Pro-C 2 workflow.
+
+- [ ] **C8.1** Undo/Redo: Cmd+Z sa snapshot stackom (svi parametri)
+- [ ] **C8.2** Preset browser: kategorisani factory preseti (Vocal, Drums, Bass, Mix Bus, Master, Sidechain, Parallel, Surgical)
+- [ ] **C8.3** Preset save/load: custom user presets (JSON)
+- [ ] **C8.4** Keyboard shortcuts: Space=bypass, A/B toggle, scroll=threshold fine adjust
+- [ ] **C8.5** Quick-learn: click parametar + move MIDI kontroler za MIDI mapping
+- [ ] **C8.6** Gain match: auto-adjust output gain da match-uje input loudness (fer A/B comparison)
+- [ ] **C8.7** GR reset dugme: resetuje peak hold i GR historiju jednim klikom
+
+### FAZA C9 — FFI & Wiring [0/3]
+
+- [ ] **C9.1** Proširiti CompressorWrapper: 25 → ~35 parametara (multiband crossovers, per-band controls, transient shape, LUFS target)
+- [ ] **C9.2** FFI setteri za multiband i nove parametre
+- [ ] **C9.3** Wire multiband DSP (rf-master/dynamics.rs) u insert chain kao alternativni compressor mode
+
+### FAZA C10 — Limiter & Gate Panel Polish [0/3]
+
+- [ ] **C10.1** Limiter: true peak waveform display sa ceiling line i GR peaks (Pro-L 2 style)
+- [ ] **C10.2** Gate: gate state visualization (open/closed/hysteresis zone) na waveform displayu
+- [ ] **C10.3** Expander: expansion curve na transfer krivoj sa real-time signal dot
+
+---
+
+### Compressor Rezime faza
+
+| Faza | Opis | Taskova | Impact |
+|------|------|---------|--------|
+| C1 | Transfer curve & GR vizualizacija | 6 | ★★★★★ (KRITIČNO — Pro-C 2 identitet) |
+| C2 | Sidechain spectrum & audition | 5 | ★★★★☆ |
+| C3 | Style upgrade (VariMu, 1176, LA-2A, SSL) | 5 | ★★★★☆ (zvučni karakter) |
+| C4 | Metering (LUFS, crest, correlation) | 6 | ★★★★☆ |
+| C5 | Look-ahead visual & transient | 4 | ★★★☆☆ |
+| C6 | Multiband compressor UI | 5 | ★★★★☆ |
+| C7 | Parallel & M/S upgrade | 4 | ★★★☆☆ |
+| C8 | Workflow (undo, preseti, shortcuts) | 7 | ★★★☆☆ |
+| C9 | FFI & wiring | 3 | ★★☆☆☆ |
+| C10 | Limiter & Gate polish | 3 | ★★☆☆☆ |
+| **TOTAL** | | **48** | |
+
+**Prioritet implementacije:** C1 → C2 → C3 → C4 → C6 → C5 → C7 → C8 → C9 → C10
 
 ---
 
