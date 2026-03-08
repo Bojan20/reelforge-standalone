@@ -42,6 +42,13 @@ class FabFilterKnob extends StatefulWidget {
   /// Optional modulation amount (-1.0 to 1.0)
   final double? modulation;
 
+  /// Optional scroll override — if set, scroll calls this instead of changing value.
+  /// Used by EQ panel to change Q when scrolling on freq/gain knobs.
+  final void Function(PointerScrollEvent)? onScroll;
+
+  /// Optional trackpad pan-zoom scroll override for macOS two-finger gestures.
+  final void Function(double dy)? onTrackpadScroll;
+
   const FabFilterKnob({
     super.key,
     required this.value,
@@ -53,6 +60,8 @@ class FabFilterKnob extends StatefulWidget {
     this.defaultValue = 0.5,
     this.enabled = true,
     this.modulation,
+    this.onScroll,
+    this.onTrackpadScroll,
   });
 
   @override
@@ -189,9 +198,31 @@ class _FabFilterKnobState extends State<FabFilterKnob>
   void _handleScroll(PointerScrollEvent event) {
     if (!widget.enabled) return;
 
+    // If parent provides scroll override (e.g., EQ freq knob → Q change), use it
+    if (widget.onScroll != null) {
+      widget.onScroll!(event);
+      return;
+    }
+
+    _applyScrollDelta(event.scrollDelta.dy);
+  }
+
+  /// Handle macOS trackpad two-finger pan gesture
+  void _handleTrackpadPan(PointerPanZoomUpdateEvent event) {
+    if (!widget.enabled) return;
+
+    if (widget.onTrackpadScroll != null) {
+      widget.onTrackpadScroll!(event.panDelta.dy);
+      return;
+    }
+
+    _applyScrollDelta(event.panDelta.dy);
+  }
+
+  void _applyScrollDelta(double dy) {
     final isFine = HardwareKeyboard.instance.isShiftPressed;
     final step = isFine ? 0.005 : 0.02;
-    final delta = event.scrollDelta.dy > 0 ? -step : step;
+    final delta = dy > 0 ? -step : step;
     final newValue = (widget.value + delta).clamp(0.0, 1.0);
 
     widget.onChanged(newValue);
@@ -206,6 +237,7 @@ class _FabFilterKnobState extends State<FabFilterKnob>
         onPointerSignal: (event) {
           if (event is PointerScrollEvent) _handleScroll(event);
         },
+        onPointerPanZoomUpdate: (event) => _handleTrackpadPan(event),
         child: GestureDetector(
           onVerticalDragStart: _handleDragStart,
           onVerticalDragUpdate: _handleDragUpdate,

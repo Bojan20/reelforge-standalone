@@ -675,7 +675,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
         if (_roomCorrectionActive) _buildRoomCorrectionPanel(),
         _buildBandChips(),
         if (_selectedBandIndex != null && _selectedBandIndex! < _bands.length)
-          _buildBandEditor(),
+          Flexible(child: _buildBandEditor()),
       ]),
     ));
   }
@@ -686,8 +686,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
 
   Widget _buildTopBar() {
     return Container(
-      height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(children: [
         // M/S placement chips
         ...EqPlacement.values.map((p) => Padding(
@@ -742,225 +741,214 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
             ),
           ),
         ),
-        const Spacer(),
-        // E6: EQ Match mode toggle
-        FabTinyButton(label: 'MTH', active: _matchMode,
-          onTap: () => setState(() => _matchMode = !_matchMode),
-          color: FabFilterColors.green),
-        const SizedBox(width: 2),
-        // E5.5: Preset browser button
-        FabTinyButton(label: 'PRE', active: false,
-          onTap: _showPresetBrowser,
-          color: FabFilterColors.purple),
-        const SizedBox(width: 2),
-        // E5.7: Export/Import via clipboard
-        FabTinyButton(label: 'EXP', active: false,
-          onTap: _exportEqToClipboard,
-          color: FabFilterColors.textTertiary),
-        const SizedBox(width: 2),
-        // E7.5: Gain scale toggle
-        FabTinyButton(
-          label: '±${_gainScale.toInt()}',
-          active: _gainScale != 30.0,
-          onTap: () => setState(() {
-            _gainScale = _gainScale == 30.0 ? 12.0 : (_gainScale == 12.0 ? 24.0 : 30.0);
-          }),
-          color: FabFilterColors.yellow),
         const SizedBox(width: 4),
-        // Analyzer toggle
-        FabTinyButton(label: 'ANA', active: _analyzerOn,
-          onTap: () => setState(() => _analyzerOn = !_analyzerOn),
-          color: FabFilterColors.cyan),
-        const SizedBox(width: 2),
-        // E2.2: FFT resolution toggle
-        FabTinyButton(label: _fftLabels[_fftSizeMode], active: _fftSizeMode > 0,
-          onTap: () {
-            setState(() => _fftSizeMode = (_fftSizeMode + 1) % 3);
-            _ffi.proEqSetFftSize(widget.trackId, _fftSizes[_fftSizeMode]);
-          },
-          color: FabFilterColors.cyan),
-        const SizedBox(width: 2),
-        // E2.1: Pre/Post spectrum overlay
-        FabTinyButton(label: 'PRE', active: _showPreSpectrum,
-          onTap: () {
-            setState(() => _showPreSpectrum = !_showPreSpectrum);
-            _ffi.proEqSetAnalyzerMode(widget.trackId,
-                _showPreSpectrum ? ProEqAnalyzerMode.preEq : ProEqAnalyzerMode.postEq);
-          },
-          color: FabFilterColors.green),
-        const SizedBox(width: 2),
-        // E2.6: Mid/Side spectrum
-        FabTinyButton(label: _msSpectrumMode == 0 ? 'L/R' : (_msSpectrumMode == 1 ? 'MID' : 'SIDE'),
-          active: _msSpectrumMode != 0,
-          onTap: () => setState(() => _msSpectrumMode = (_msSpectrumMode + 1) % 3),
-          color: FabFilterColors.purple),
-        const SizedBox(width: 2),
-        // E2.4: Freeze spectrum
-        FabTinyButton(label: 'FRZ', active: _spectrumFrozen,
-          onTap: () => setState(() {
-            _spectrumFrozen = !_spectrumFrozen;
-            if (_spectrumFrozen) {
-              _frozenSpectrum = List<double>.from(_spectrum);
-            }
-          }),
-          color: FabFilterColors.pink),
-        const SizedBox(width: 2),
-        // E8.3: Waterfall/sonogram mode
-        FabTinyButton(label: 'WF', active: _waterfallMode,
-          onTap: () => setState(() {
-            _waterfallMode = !_waterfallMode;
-            if (!_waterfallMode) _waterfallBuffer.clear();
-          }),
-          color: FabFilterColors.purple),
-        const SizedBox(width: 2),
-        // E2.5: Tilt compensation
-        FabTinyButton(
-          label: _spectrumTilt == 0 ? 'TILT' : '${_spectrumTilt.toStringAsFixed(1)}',
-          active: _spectrumTilt != 0,
-          onTap: () => setState(() {
-            _spectrumTilt = _spectrumTilt == 0 ? -3.0 : (_spectrumTilt == -3.0 ? -4.5 : 0.0);
-          }),
-          color: FabFilterColors.orange),
-        const SizedBox(width: 2),
-        // E4.1: Phase response toggle
-        FabTinyButton(label: 'PH', active: _showPhase,
-          onTap: () { setState(() => _showPhase = !_showPhase); _recalcCurves(); },
-          color: FabFilterColors.orange),
-        const SizedBox(width: 2),
-        // E4.2: Group delay toggle
-        FabTinyButton(label: 'GD', active: _showGroupDelay,
-          onTap: () => setState(() => _showGroupDelay = !_showGroupDelay),
-          color: FabFilterColors.green),
-        const SizedBox(width: 4),
-        // Auto-gain
-        FabTinyButton(label: 'AG', active: _autoGain,
-          onTap: () {
-            setState(() => _autoGain = !_autoGain);
-            if (_slotIndex >= 0) {
-              _ffi.insertSetParam(widget.trackId, _slotIndex, _P.autoGainIndex, _autoGain ? 1.0 : 0.0);
-            }
-            widget.onSettingsChanged?.call();
-          },
-          color: FabFilterColors.green),
-        const SizedBox(width: 8),
-        // I/O level meters (compact vertical bars)
-        _buildCompactIOMeter(),
-        const SizedBox(width: 8),
-        // Output gain knob
-        SizedBox(
-          width: 52,
-          height: 30,
-          child: Row(children: [
-            Expanded(child: FabFilterKnob(
-              value: ((_outputGain + 24) / 48).clamp(0.0, 1.0),
-              label: '',
-              display: '',
-              color: FabFilterColors.blue,
-              size: 24,
-              defaultValue: 0.5,
-              onChanged: (v) {
-                setState(() => _outputGain = v * 48 - 24);
+        // All toolbar buttons in an Expanded Wrap — flows to second line when needed
+        Expanded(child: Wrap(
+          spacing: 2,
+          runSpacing: 2,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            // E6: EQ Match mode toggle
+            FabTinyButton(label: 'MTH', active: _matchMode,
+              onTap: () => setState(() => _matchMode = !_matchMode),
+              color: FabFilterColors.green),
+            // E5.5: Preset browser button
+            FabTinyButton(label: 'PRE', active: false,
+              onTap: _showPresetBrowser,
+              color: FabFilterColors.purple),
+            // E5.7: Export/Import via clipboard
+            FabTinyButton(label: 'EXP', active: false,
+              onTap: _exportEqToClipboard,
+              color: FabFilterColors.textTertiary),
+            // E7.5: Gain scale toggle
+            FabTinyButton(
+              label: '±${_gainScale.toInt()}',
+              active: _gainScale != 30.0,
+              onTap: () => setState(() {
+                _gainScale = _gainScale == 30.0 ? 12.0 : (_gainScale == 12.0 ? 24.0 : 30.0);
+              }),
+              color: FabFilterColors.yellow),
+            const SizedBox(width: 2),
+            // Analyzer toggle
+            FabTinyButton(label: 'ANA', active: _analyzerOn,
+              onTap: () => setState(() => _analyzerOn = !_analyzerOn),
+              color: FabFilterColors.cyan),
+            // E2.2: FFT resolution toggle
+            FabTinyButton(label: _fftLabels[_fftSizeMode], active: _fftSizeMode > 0,
+              onTap: () {
+                setState(() => _fftSizeMode = (_fftSizeMode + 1) % 3);
+                _ffi.proEqSetFftSize(widget.trackId, _fftSizes[_fftSizeMode]);
+              },
+              color: FabFilterColors.cyan),
+            // E2.1: Pre/Post spectrum overlay
+            FabTinyButton(label: 'PRE', active: _showPreSpectrum,
+              onTap: () {
+                setState(() => _showPreSpectrum = !_showPreSpectrum);
+                _ffi.proEqSetAnalyzerMode(widget.trackId,
+                    _showPreSpectrum ? ProEqAnalyzerMode.preEq : ProEqAnalyzerMode.postEq);
+              },
+              color: FabFilterColors.green),
+            // E2.6: Mid/Side spectrum
+            FabTinyButton(label: _msSpectrumMode == 0 ? 'L/R' : (_msSpectrumMode == 1 ? 'MID' : 'SIDE'),
+              active: _msSpectrumMode != 0,
+              onTap: () => setState(() => _msSpectrumMode = (_msSpectrumMode + 1) % 3),
+              color: FabFilterColors.purple),
+            // E2.4: Freeze spectrum
+            FabTinyButton(label: 'FRZ', active: _spectrumFrozen,
+              onTap: () => setState(() {
+                _spectrumFrozen = !_spectrumFrozen;
+                if (_spectrumFrozen) {
+                  _frozenSpectrum = List<double>.from(_spectrum);
+                }
+              }),
+              color: FabFilterColors.pink),
+            // E8.3: Waterfall/sonogram mode
+            FabTinyButton(label: 'WF', active: _waterfallMode,
+              onTap: () => setState(() {
+                _waterfallMode = !_waterfallMode;
+                if (!_waterfallMode) _waterfallBuffer.clear();
+              }),
+              color: FabFilterColors.purple),
+            // E2.5: Tilt compensation
+            FabTinyButton(
+              label: _spectrumTilt == 0 ? 'TILT' : '${_spectrumTilt.toStringAsFixed(1)}',
+              active: _spectrumTilt != 0,
+              onTap: () => setState(() {
+                _spectrumTilt = _spectrumTilt == 0 ? -3.0 : (_spectrumTilt == -3.0 ? -4.5 : 0.0);
+              }),
+              color: FabFilterColors.orange),
+            // E4.1: Phase response toggle
+            FabTinyButton(label: 'PH', active: _showPhase,
+              onTap: () { setState(() => _showPhase = !_showPhase); _recalcCurves(); },
+              color: FabFilterColors.orange),
+            // E4.2: Group delay toggle
+            FabTinyButton(label: 'GD', active: _showGroupDelay,
+              onTap: () => setState(() => _showGroupDelay = !_showGroupDelay),
+              color: FabFilterColors.green),
+            // Auto-gain
+            FabTinyButton(label: 'AG', active: _autoGain,
+              onTap: () {
+                setState(() => _autoGain = !_autoGain);
                 if (_slotIndex >= 0) {
-                  _ffi.insertSetParam(widget.trackId, _slotIndex, _P.outputGainIndex, _outputGain);
+                  _ffi.insertSetParam(widget.trackId, _slotIndex, _P.autoGainIndex, _autoGain ? 1.0 : 0.0);
                 }
                 widget.onSettingsChanged?.call();
               },
-            )),
-          ]),
-        ),
-        SizedBox(
-          width: 48,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text('OUT', style: TextStyle(
-                color: FabFilterColors.textTertiary, fontSize: 7,
-                fontWeight: FontWeight.bold, letterSpacing: 1,
-              ), overflow: TextOverflow.ellipsis),
-              Text(
-                '${_outputGain >= 0 ? '+' : ''}${_outputGain.toStringAsFixed(1)} dB',
-                style: FabFilterText.paramValue(FabFilterColors.blue),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 4),
-        // E4.3: Phase mode picker
-        FabTinyButton(
-          label: const ['ZL', 'NAT', 'LIN'][_phaseMode],
-          active: _phaseMode != 0,
-          onTap: () {
-            final next = (_phaseMode + 1) % 3;
-            setState(() => _phaseMode = next);
-            _ffi.proEqSetPhaseMode(widget.trackId, next);
-          },
-          color: FabFilterColors.orange),
-        const SizedBox(width: 2),
-        // E7.1: Oversampling picker
-        FabTinyButton(
-          label: const ['OS:Off', 'OS:2x', 'OS:4x', 'OS:8x'][_oversampleMode],
-          active: _oversampleMode != 0,
-          onTap: () {
-            setState(() => _oversampleMode = (_oversampleMode + 1) % 4);
-            _ffi.proEqSetOversampling(widget.trackId, _oversampleMode);
-          },
-          color: FabFilterColors.cyan),
-        const SizedBox(width: 2),
-        // E7.4: Auto-listen mode
-        FabTinyButton(label: 'AL', active: _autoListen,
-          onTap: () => setState(() => _autoListen = !_autoListen),
-          color: FabFilterColors.yellow),
-        const SizedBox(width: 2),
-        // E8.2: Color mode toggle
-        FabTinyButton(label: _freqColorMode ? 'CLR' : 'SHP', active: _freqColorMode,
-          onTap: () => setState(() => _freqColorMode = !_freqColorMode),
-          color: FabFilterColors.pink),
-        const SizedBox(width: 2),
-        // E9.2: Bass mono toggle (tap=toggle, right-click=cycle freq)
-        GestureDetector(
-          onTap: () {
-            setState(() => _bassMono = !_bassMono);
-            _ffi.bassMonoSetEnabled(widget.trackId, _bassMono);
-            if (_bassMono) _ffi.bassMonoSetFreq(widget.trackId, _bassMonoFreq);
-          },
-          onSecondaryTap: () {
-            const freqs = [60.0, 80.0, 100.0, 120.0, 150.0, 200.0];
-            final idx = freqs.indexOf(_bassMonoFreq);
-            setState(() => _bassMonoFreq = freqs[(idx + 1) % freqs.length]);
-            if (_bassMono) _ffi.bassMonoSetFreq(widget.trackId, _bassMonoFreq);
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
-            decoration: BoxDecoration(
-              color: _bassMono ? FabFilterColors.green.withValues(alpha: 0.2) : FabFilterColors.bgMid,
-              borderRadius: BorderRadius.circular(3),
-              border: Border.all(color: _bassMono ? FabFilterColors.green : FabFilterColors.border),
+              color: FabFilterColors.green),
+            const SizedBox(width: 4),
+            // I/O level meters (compact vertical bars)
+            _buildCompactIOMeter(),
+            const SizedBox(width: 4),
+            // Output gain knob + label
+            SizedBox(
+              width: 100,
+              height: 30,
+              child: Row(children: [
+                SizedBox(
+                  width: 52,
+                  child: FabFilterKnob(
+                    value: ((_outputGain + 24) / 48).clamp(0.0, 1.0),
+                    label: '',
+                    display: '',
+                    color: FabFilterColors.blue,
+                    size: 24,
+                    defaultValue: 0.5,
+                    onChanged: (v) {
+                      setState(() => _outputGain = v * 48 - 24);
+                      if (_slotIndex >= 0) {
+                        _ffi.insertSetParam(widget.trackId, _slotIndex, _P.outputGainIndex, _outputGain);
+                      }
+                      widget.onSettingsChanged?.call();
+                    },
+                  ),
+                ),
+                Expanded(child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('OUT', style: TextStyle(
+                      color: FabFilterColors.textTertiary, fontSize: 7,
+                      fontWeight: FontWeight.bold, letterSpacing: 1,
+                    ), overflow: TextOverflow.ellipsis),
+                    Text(
+                      '${_outputGain >= 0 ? '+' : ''}${_outputGain.toStringAsFixed(1)} dB',
+                      style: FabFilterText.paramValue(FabFilterColors.blue),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                )),
+              ]),
             ),
-            child: Text(_bassMono ? 'BM:${_bassMonoFreq.round()}' : 'BM',
-              style: TextStyle(
-                color: _bassMono ? FabFilterColors.green : FabFilterColors.textTertiary,
-                fontSize: 7, fontWeight: FontWeight.bold)),
-          ),
-        ),
-        const SizedBox(width: 2),
-        // E9.3: Room correction wizard
-        FabTinyButton(label: 'RM', active: _roomCorrectionActive,
-          onTap: () => setState(() {
-            _roomCorrectionActive = !_roomCorrectionActive;
-            if (!_roomCorrectionActive) {
-              _roomCaptureTimer?.cancel();
-              _roomCorrectionStep = 0;
-            }
-          }),
-          color: FabFilterColors.green),
-        const SizedBox(width: 4),
-        // E8.4: Full-screen mode
-        GestureDetector(
-          onTap: () => _showFullscreen(context),
-          child: const Icon(Icons.fullscreen, size: 16, color: FabFilterColors.textTertiary),
-        ),
+            // E4.3: Phase mode picker
+            FabTinyButton(
+              label: const ['ZL', 'NAT', 'LIN'][_phaseMode],
+              active: _phaseMode != 0,
+              onTap: () {
+                final next = (_phaseMode + 1) % 3;
+                setState(() => _phaseMode = next);
+                _ffi.proEqSetPhaseMode(widget.trackId, next);
+              },
+              color: FabFilterColors.orange),
+            // E7.1: Oversampling picker
+            FabTinyButton(
+              label: const ['OS:Off', 'OS:2x', 'OS:4x', 'OS:8x'][_oversampleMode],
+              active: _oversampleMode != 0,
+              onTap: () {
+                setState(() => _oversampleMode = (_oversampleMode + 1) % 4);
+                _ffi.proEqSetOversampling(widget.trackId, _oversampleMode);
+              },
+              color: FabFilterColors.cyan),
+            // E7.4: Auto-listen mode
+            FabTinyButton(label: 'AL', active: _autoListen,
+              onTap: () => setState(() => _autoListen = !_autoListen),
+              color: FabFilterColors.yellow),
+            // E8.2: Color mode toggle
+            FabTinyButton(label: _freqColorMode ? 'CLR' : 'SHP', active: _freqColorMode,
+              onTap: () => setState(() => _freqColorMode = !_freqColorMode),
+              color: FabFilterColors.pink),
+            // E9.2: Bass mono toggle (tap=toggle, right-click=cycle freq)
+            GestureDetector(
+              onTap: () {
+                setState(() => _bassMono = !_bassMono);
+                _ffi.bassMonoSetEnabled(widget.trackId, _bassMono);
+                if (_bassMono) _ffi.bassMonoSetFreq(widget.trackId, _bassMonoFreq);
+              },
+              onSecondaryTap: () {
+                const freqs = [60.0, 80.0, 100.0, 120.0, 150.0, 200.0];
+                final idx = freqs.indexOf(_bassMonoFreq);
+                setState(() => _bassMonoFreq = freqs[(idx + 1) % freqs.length]);
+                if (_bassMono) _ffi.bassMonoSetFreq(widget.trackId, _bassMonoFreq);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _bassMono ? FabFilterColors.green.withValues(alpha: 0.2) : FabFilterColors.bgMid,
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(color: _bassMono ? FabFilterColors.green : FabFilterColors.border),
+                ),
+                child: Text(_bassMono ? 'BM:${_bassMonoFreq.round()}' : 'BM',
+                  style: TextStyle(
+                    color: _bassMono ? FabFilterColors.green : FabFilterColors.textTertiary,
+                    fontSize: 7, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            // E9.3: Room correction wizard
+            FabTinyButton(label: 'RM', active: _roomCorrectionActive,
+              onTap: () => setState(() {
+                _roomCorrectionActive = !_roomCorrectionActive;
+                if (!_roomCorrectionActive) {
+                  _roomCaptureTimer?.cancel();
+                  _roomCorrectionStep = 0;
+                }
+              }),
+              color: FabFilterColors.green),
+            // E8.4: Full-screen mode
+            GestureDetector(
+              onTap: () => _showFullscreen(context),
+              child: const Icon(Icons.fullscreen, size: 16, color: FabFilterColors.textTertiary),
+            ),
+          ],
+        )),
       ]),
     );
   }
@@ -1056,6 +1044,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
           onExit: (_) => setState(() { _hoverBandIndex = null; _previewPos = null; }),
           child: Listener(
             onPointerSignal: (e) { if (e is PointerScrollEvent) _onScroll(e, box.biggest); },
+            onPointerPanZoomUpdate: (e) => _onTrackpadScroll(e.panDelta.dy, box.biggest),
             child: GestureDetector(
               onTapDown: (d) => _onTapSelect(d.localPosition, box.biggest),
               onDoubleTapDown: (d) => _doubleTapPos = d.localPosition,
@@ -1376,13 +1365,15 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
             _editorKnob('FREQ', _freqToNorm(b.freq), _fmtFreq(b.freq), c, (v) {
               setState(() => b.freq = _normToFreq(v));
               _syncBand(_selectedBandIndex!);
-            }),
+            }, onScroll: (e) => _onScroll(e, const Size(1, 1)),
+               onTrackpadScroll: (dy) => _onTrackpadScroll(dy, const Size(1, 1))),
             _editorKnob('GAIN', ((b.gain + 30) / 60).clamp(0.0, 1.0),
               '${b.gain >= 0 ? '+' : ''}${b.gain.toStringAsFixed(1)}',
               b.gain >= 0 ? FabFilterColors.orange : FabFilterColors.cyan, (v) {
               setState(() => b.gain = v * 60 - 30);
               _syncBand(_selectedBandIndex!);
-            }),
+            }, onScroll: (e) => _onScroll(e, const Size(1, 1)),
+               onTrackpadScroll: (dy) => _onTrackpadScroll(dy, const Size(1, 1))),
             _editorKnob('Q', (math.log(b.q / 0.1) / math.log(30 / 0.1)).clamp(0.0, 1.0),
               b.q.toStringAsFixed(2), c, (v) {
               setState(() => b.q = (0.1 * math.pow(30 / 0.1, v)).toDouble());
@@ -1495,10 +1486,12 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     );
   }
 
-  Widget _editorKnob(String label, double norm, String display, Color c, ValueChanged<double> onChanged) {
+  Widget _editorKnob(String label, double norm, String display, Color c, ValueChanged<double> onChanged, {void Function(PointerScrollEvent)? onScroll, void Function(double dy)? onTrackpadScroll}) {
     return Expanded(child: FabFilterKnob(
       value: norm.clamp(0.0, 1.0),
       onChanged: onChanged,
+      onScroll: onScroll,
+      onTrackpadScroll: onTrackpadScroll,
       color: c,
       size: 36,
       label: label,
@@ -1524,6 +1517,12 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
   }
 
   void _onScroll(PointerScrollEvent e, Size size) {
+    _onTrackpadScroll(e.scrollDelta.dy, size);
+  }
+
+  /// Unified scroll handler for both mouse wheel (PointerScrollEvent) and
+  /// macOS trackpad two-finger gesture (PointerPanZoomUpdateEvent).
+  void _onTrackpadScroll(double scrollDy, Size size) {
     final idx = _selectedBandIndex ?? _hoverBandIndex;
     if (idx == null || idx >= _bands.length) return;
     final b = _bands[idx];
@@ -1535,7 +1534,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     if (isSlopeFilter) {
       final slopes = EqSlope.values;
       final curIdx = slopes.indexOf(b.slope);
-      final newIdx = e.scrollDelta.dy > 0
+      final newIdx = scrollDy > 0
           ? (curIdx - 1).clamp(0, slopes.length - 1)
           : (curIdx + 1).clamp(0, slopes.length - 1);
       if (newIdx != curIdx) {
@@ -1546,7 +1545,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     }
 
     final fine = HardwareKeyboard.instance.isShiftPressed;
-    final delta = (e.scrollDelta.dy > 0 ? -0.2 : 0.2) * (fine ? 0.1 : 1.0);
+    final delta = (scrollDy > 0 ? -0.2 : 0.2) * (fine ? 0.1 : 1.0);
     setState(() => b.q = (b.q + delta).clamp(0.1, 30.0));
     _syncBand(idx); // _recalcCurves() called inside _syncBand
   }

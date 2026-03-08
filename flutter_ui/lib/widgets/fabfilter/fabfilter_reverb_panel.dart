@@ -1144,7 +1144,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
 
   Widget _buildPrimaryKnobs() {
     return SizedBox(
-      height: 80,
+      height: 68,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
@@ -1224,7 +1224,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       label: label,
       display: display,
       color: color,
-      size: 44,
+      size: 36,
       onChanged: onChanged,
     );
   }
@@ -1240,12 +1240,10 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           flex: 3,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
             children: [
               FabSectionLabel('CHARACTER'),
               const SizedBox(height: 4),
-              SizedBox(
-                height: 72,
+              Expanded(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -1315,12 +1313,10 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           flex: 3,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
             children: [
               FabSectionLabel('DYNAMICS'),
-              const SizedBox(height: 4),
-              SizedBox(
-                height: 72,
+              const SizedBox(height: 2),
+              Expanded(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -1390,11 +1386,10 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
                   ],
                 ),
               ),
-              const SizedBox(height: 6),
-              FabSectionLabel('OUTPUT'),
               const SizedBox(height: 4),
-              SizedBox(
-                height: 72,
+              FabSectionLabel('OUTPUT'),
+              const SizedBox(height: 2),
+              Expanded(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [

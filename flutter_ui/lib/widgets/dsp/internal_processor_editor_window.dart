@@ -267,9 +267,8 @@ class _InternalProcessorEditorWindowState
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOutCubic,
           width: size.width,
-          constraints: BoxConstraints(
-            maxHeight: _isCollapsed ? 36 : size.height,
-          ),
+          height: _isCollapsed ? 36 : size.height,
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             border: Border.all(
               color: hasPremium
@@ -279,15 +278,11 @@ class _InternalProcessorEditorWindowState
             ),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(7),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildTitleBar(),
-                if (!_isCollapsed) Flexible(child: _buildContent()),
-              ],
-            ),
+          child: Column(
+            children: [
+              _buildTitleBar(),
+              if (!_isCollapsed) Expanded(child: _buildContent()),
+            ],
           ),
         ),
       ),

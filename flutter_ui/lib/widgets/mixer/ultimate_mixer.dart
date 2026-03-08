@@ -2197,8 +2197,10 @@ class _PanKnobState extends State<_PanKnob> {
   double get _displayValue => _isDragging ? _localValue : widget.value;
 
   void _handleDragStart(DragStartDetails details) {
-    _localValue = widget.value;
-    setState(() => _isDragging = true);
+    setState(() {
+      _isDragging = true;
+      _localValue = widget.value;
+    });
   }
 
   void _handleDragUpdate(DragUpdateDetails details) {
@@ -2347,12 +2349,6 @@ class _StereoPanKnobState extends State<_StereoPanKnob> {
   double _localValue = 0;
   bool _isDragging = false;
 
-  // Double-tap detection via raw pointer events
-  DateTime? _lastPointerDown;
-  Offset? _lastPointerPosition;
-  static const _doubleTapTimeout = Duration(milliseconds: 300);
-  static const _doubleTapSlop = 18.0; // Max distance between taps
-
   /// Format pan Pro Tools style: <100 for hard left, C for center, 100> for hard right
   String _formatPan(double v) {
     final percent = (v.abs() * 100).round();
@@ -2362,24 +2358,24 @@ class _StereoPanKnobState extends State<_StereoPanKnob> {
 
   double get _displayValue => _isDragging ? _localValue : widget.value;
 
-  void _handlePointerDown(PointerDownEvent event) {
-    final now = DateTime.now();
-    final pos = event.localPosition;
+  void _handleDragStart(DragStartDetails details) {
+    setState(() {
+      _isDragging = true;
+      _localValue = widget.value;
+    });
+  }
 
-    // Check if this is a double-tap
-    if (_lastPointerDown != null &&
-        _lastPointerPosition != null &&
-        now.difference(_lastPointerDown!) < _doubleTapTimeout &&
-        (pos - _lastPointerPosition!).distance < _doubleTapSlop) {
-      // Double-tap detected! Reset to default value
-      widget.onChanged?.call(widget.defaultValue);
-      _lastPointerDown = null;
-      _lastPointerPosition = null;
-    } else {
-      // First tap - record time and position
-      _lastPointerDown = now;
-      _lastPointerPosition = pos;
-    }
+  void _handleDragUpdate(DragUpdateDetails details) {
+    if (widget.onChanged == null) return;
+    final delta = -details.delta.dy * 0.007;
+    _localValue = (_localValue + delta).clamp(-1.0, 1.0);
+    setState(() {});
+    widget.onChanged!(_localValue);
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    setState(() => _isDragging = false);
+    widget.onChangeEnd?.call(_localValue);
   }
 
   @override
@@ -2399,27 +2395,12 @@ class _StereoPanKnobState extends State<_StereoPanKnob> {
           ),
         ),
         const SizedBox(height: 3),
-        // Listener for raw pointer events (double-tap) + GestureDetector for drag
-        // Vertical drag: up = right (+1), down = left (-1) - Pro Tools style
-        Listener(
-          onPointerDown: _handlePointerDown,
-          child: GestureDetector(
-            onVerticalDragStart: (details) {
-              _localValue = widget.value;
-              setState(() => _isDragging = true);
-            },
-            onVerticalDragEnd: (_) {
-              setState(() => _isDragging = false);
-              widget.onChangeEnd?.call(_localValue);
-            },
-            onVerticalDragUpdate: (details) {
-              if (widget.onChanged == null) return;
-              final delta = -details.delta.dy * 0.007;
-              _localValue = (_localValue + delta).clamp(-1.0, 1.0);
-              setState(() {});
-              widget.onChanged!(_localValue);
-            },
-            child: Container(
+        GestureDetector(
+          onVerticalDragStart: _handleDragStart,
+          onVerticalDragUpdate: _handleDragUpdate,
+          onVerticalDragEnd: _handleDragEnd,
+          onDoubleTap: () => widget.onChanged?.call(widget.defaultValue),
+          child: Container(
             width: widget.size,
             height: widget.size,
             decoration: BoxDecoration(
@@ -2471,7 +2452,6 @@ class _StereoPanKnobState extends State<_StereoPanKnob> {
             ),
           ),
         ),
-        ), // Close Listener
         const SizedBox(height: 3),
         // Value - Pro DAW standard: 9px for pan values
         Text(

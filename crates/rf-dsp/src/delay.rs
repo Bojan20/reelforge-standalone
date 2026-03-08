@@ -369,6 +369,13 @@ pub struct PingPongDelay {
     feedback: f64,
     dry_wet: f64,
     ping_pong: f64, // 0.0 = normal stereo, 1.0 = full ping-pong
+    // Parameter smoothing (D10.3 extended: all audible params need smoothing)
+    smooth_feedback: f64,
+    smooth_dry_wet: f64,
+    smooth_ping_pong: f64,
+    smooth_drive: f64,
+    smooth_diffusion: f64,
+    smooth_cross_feedback: f64,
 
     // Tempo sync (D3)
     tempo_sync: bool,
@@ -964,6 +971,12 @@ impl PingPongDelay {
             feedback: 0.5,
             dry_wet: 0.5,
             ping_pong: 1.0,
+            smooth_feedback: 0.5,
+            smooth_dry_wet: 0.5,
+            smooth_ping_pong: 1.0,
+            smooth_drive: 0.0,
+            smooth_diffusion: 0.0,
+            smooth_cross_feedback: 0.0,
             // D3 Tempo Sync
             tempo_sync: false,
             bpm: 120.0,
@@ -1446,17 +1459,35 @@ impl Processor for PingPongDelay {
         self.env_follower.reset();
         self.pitch_shifter_l.reset();
         self.pitch_shifter_r.reset();
+        // Snap smooth params to current values (avoid artifacts on reset)
+        self.smooth_feedback = self.feedback;
+        self.smooth_dry_wet = self.dry_wet;
+        self.smooth_ping_pong = self.ping_pong;
+        self.smooth_drive = self.drive_amount;
+        self.smooth_diffusion = self.diffusion_amount;
+        self.smooth_cross_feedback = self.cross_feedback;
     }
 }
 
 impl StereoProcessor for PingPongDelay {
     fn process_sample(&mut self, left: Sample, right: Sample) -> (Sample, Sample) {
-        // D10.3: Smooth delay time — exponential approach to target
+        // D10.3: Smooth ALL audible parameters — exponential approach to target
         let target_l = self.delay_samples as f64;
         let target_r = if self.lr_linked { target_l } else { self.delay_samples_r as f64 };
         let coeff = self.delay_smoothing;
-        self.smooth_delay_l = coeff * self.smooth_delay_l + (1.0 - coeff) * target_l;
-        self.smooth_delay_r = coeff * self.smooth_delay_r + (1.0 - coeff) * target_r;
+        let one_minus = 1.0 - coeff;
+        self.smooth_delay_l = coeff * self.smooth_delay_l + one_minus * target_l;
+        self.smooth_delay_r = coeff * self.smooth_delay_r + one_minus * target_r;
+        // Smooth feedback, dry/wet, ping-pong, drive, diffusion, cross-feedback
+        // Use lighter smoothing (0.9995 ≈ ~5ms at 48kHz) — fast enough for knob turns
+        const PARAM_SMOOTH: f64 = 0.9995;
+        const PARAM_ONE_MINUS: f64 = 1.0 - PARAM_SMOOTH;
+        self.smooth_feedback = PARAM_SMOOTH * self.smooth_feedback + PARAM_ONE_MINUS * self.feedback;
+        self.smooth_dry_wet = PARAM_SMOOTH * self.smooth_dry_wet + PARAM_ONE_MINUS * self.dry_wet;
+        self.smooth_ping_pong = PARAM_SMOOTH * self.smooth_ping_pong + PARAM_ONE_MINUS * self.ping_pong;
+        self.smooth_drive = PARAM_SMOOTH * self.smooth_drive + PARAM_ONE_MINUS * self.drive_amount;
+        self.smooth_diffusion = PARAM_SMOOTH * self.smooth_diffusion + PARAM_ONE_MINUS * self.diffusion_amount;
+        self.smooth_cross_feedback = PARAM_SMOOTH * self.smooth_cross_feedback + PARAM_ONE_MINUS * self.cross_feedback;
 
         let delay_l = self.smooth_delay_l;
         let delay_r = self.smooth_delay_r;
@@ -1493,8 +1524,8 @@ impl StereoProcessor for PingPongDelay {
         // === Feedback processing chain: Drive → HP → Mid → LP → Tilt ===
 
         // 1. Drive/saturation (pre-filter for warmer character)
-        let driven_l = Self::apply_drive(delayed_l, self.drive_amount, self.drive_mode);
-        let driven_r = Self::apply_drive(delayed_r, self.drive_amount, self.drive_mode);
+        let driven_l = Self::apply_drive(delayed_l, self.smooth_drive, self.drive_mode);
+        let driven_r = Self::apply_drive(delayed_r, self.smooth_drive, self.drive_mode);
 
         // 2. Highpass filter
         let hp_l = self.highpass_l.process_sample(driven_l);
@@ -1543,13 +1574,13 @@ impl StereoProcessor for PingPongDelay {
             }
             StereoRouting::PingPong => {
                 // Classic ping-pong
-                let pp = self.ping_pong;
+                let pp = self.smooth_ping_pong;
                 (vint_l * (1.0 - pp) + vint_r * pp,
                  vint_r * (1.0 - pp) + vint_l * pp)
             }
             StereoRouting::CrossFeed => {
                 // Cross-feedback: L↔R bleed (D5.2)
-                let cf = self.cross_feedback;
+                let cf = self.smooth_cross_feedback;
                 (vint_l * (1.0 - cf) + vint_r * cf,
                  vint_r * (1.0 - cf) + vint_l * cf)
             }
@@ -1564,7 +1595,7 @@ impl StereoProcessor for PingPongDelay {
                 let side = (vint_l - vint_r) * 0.5;
                 // Cross-feedback controls mid/side balance (energy-preserving):
                 // 0% = mid only (mono), 50% = balanced, 100% = side only (wide)
-                let cf = self.cross_feedback; // 0.0 → 1.0
+                let cf = self.smooth_cross_feedback; // 0.0 → 1.0
                 let mid_gain = 1.0 - cf;     // 1.0 → 0.0
                 let side_gain = cf;           // 0.0 → 1.0
                 let ms_mid = mid * mid_gain;
@@ -1577,7 +1608,7 @@ impl StereoProcessor for PingPongDelay {
         };
 
         // Write to buffers (D6.5: infinite feedback with soft limiter)
-        let eff_fb = if self.infinite_fb { 1.0 } else { self.feedback };
+        let eff_fb = if self.infinite_fb { 1.0 } else { self.smooth_feedback };
         let write_l = left + fb_l * eff_fb;
         let write_r = right + fb_r * eff_fb;
         // Soft limiter for infinite mode to prevent clipping
@@ -1598,8 +1629,8 @@ impl StereoProcessor for PingPongDelay {
 
 
         // Spatial diffusion on output (D5.5)
-        let (diff_l, diff_r) = if self.diffusion_amount > 0.01 {
-            let d = self.diffusion_amount;
+        let (diff_l, diff_r) = if self.smooth_diffusion > 0.01 {
+            let d = self.smooth_diffusion;
             let tmp_l = self.diffusion_ap[1].process_sample(wet_l);
             let dl = self.diffusion_ap[0].process_sample(tmp_l);
             let tmp_r = self.diffusion_ap[3].process_sample(wet_r);
@@ -1609,8 +1640,8 @@ impl StereoProcessor for PingPongDelay {
             (wet_l, wet_r)
         };
 
-        let out_l = left * (1.0 - self.dry_wet) + diff_l * self.dry_wet;
-        let out_r = right * (1.0 - self.dry_wet) + diff_r * self.dry_wet;
+        let out_l = left * (1.0 - self.smooth_dry_wet) + diff_l * self.smooth_dry_wet;
+        let out_r = right * (1.0 - self.smooth_dry_wet) + diff_r * self.smooth_dry_wet;
 
         (out_l, out_r)
     }
