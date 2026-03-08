@@ -1745,12 +1745,16 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // STOP only when reels are actually spinning
     if (_slotLabProvider.isReelsSpinning) {
       _slotLabProvider.stopStagePlayback();
+      // Kill anticipation audio on stop (embedded mode)
+      EventRegistry.instance.stopEventsByPrefix('ANTICIPATION');
       return true;
     }
 
     // SKIP win presentation — do NOT start a new spin!
     if (_slotLabProvider.isWinPresentationActive) {
       _slotLabProvider.requestSkipPresentation(() {});
+      // Kill anticipation audio on skip (embedded mode)
+      EventRegistry.instance.stopEventsByPrefix('ANTICIPATION');
       return true;
     }
 
@@ -2063,6 +2067,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           _audioPool = List.from(provider.persistedAudioPool);
           _ensurePoolTags();
         });
+        // Push restored pool into AudioAssetManager (SSoT for POOL browser)
+        _pushPoolToAssetManager();
       }
 
       // Restore composite events UI state (expanded) - events themselves come from MiddlewareProvider
@@ -2580,6 +2586,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
       // Initialize reel symbols (fallback or empty for engine)
       _reelSymbols = List.from(_fallbackReelSymbols);
+
+      // ⚡ INSTANT POOL: Seed AudioAssetManager from persisted audio assignments
+      // (project file restored before SlotLab screen mounts).
+      _seedAudioAssetManagerFromAssignments();
+
       setState(() {});
 
       // Start background audio preload (does NOT block UI!)
@@ -2598,6 +2609,23 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   void _startBackgroundAudioPreload() {
     // No-op: audio decoded on-demand by Rust AudioPool on first play.
     // Eager preload decoded ALL files on main isolate → OOM + UI freeze.
+  }
+
+  /// ⚡ INSTANT: Ensure all persisted audio assignments exist in AudioAssetManager
+  /// (single source of truth). Project file is restored before this screen mounts,
+  /// so audioAssignments map has all stage → audioPath entries.
+  void _seedAudioAssetManagerFromAssignments() {
+    try {
+      final projectProvider = context.read<SlotLabProjectProvider>();
+      final assignments = projectProvider.audioAssignments;
+      final paths = assignments.values.where((p) => p.isNotEmpty).toList();
+      if (paths.isEmpty) return;
+      // Batch-import all paths that AudioAssetManager doesn't know about yet
+      final newPaths = paths.where((p) => !AudioAssetManager.instance.contains(p)).toList();
+      if (newPaths.isNotEmpty) {
+        AudioAssetManager.instance.importFilesInstant(newPaths, folder: 'SlotLab Import');
+      }
+    } catch (_) { /* SlotLabProjectProvider not available yet — skip */ }
   }
 
   void _onSlotLabUpdate() {
@@ -2727,6 +2755,26 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // Always sync from AudioAssetManager (single source of truth)
     _syncPoolFromAssetManager();
+
+    // ⚡ Reverse sync: push _audioPool entries into AudioAssetManager
+    // so POOL browser (which reads from AudioAssetManager) shows them instantly.
+    _pushPoolToAssetManager();
+  }
+
+  /// Push local _audioPool entries into AudioAssetManager so the POOL browser
+  /// (which reads AudioAssetManager as SSoT) shows all sounds immediately.
+  void _pushPoolToAssetManager() {
+    final manager = AudioAssetManager.instance;
+    final newPaths = <String>[];
+    for (final a in _audioPool) {
+      final path = a['path'] as String? ?? '';
+      if (path.isNotEmpty && !manager.contains(path)) {
+        newPaths.add(path);
+      }
+    }
+    if (newPaths.isNotEmpty) {
+      manager.importFilesInstant(newPaths, folder: 'SlotLab Import');
+    }
   }
 
   /// Import audio files via native file picker (faster than file_picker plugin)
@@ -2766,8 +2814,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         folder: 'SlotLab Import',
       );
 
-      // Auto-bind imported files to stages via fuzzy matching
-      _autoBindAfterImport(newEntries);
+      // NO auto-bind here — POOL tab is just a browser.
+      // Auto-bind only happens via left panel ASSIGN tab.
 
       // 🔄 BACKGROUND: Persist state without blocking UI
       Future.microtask(() => _persistState());
@@ -2828,8 +2876,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         folder: 'SlotLab Import',
       );
 
-      // Auto-bind imported files to stages via fuzzy matching
-      _autoBindAfterImport(newEntries);
+      // NO auto-bind here — POOL tab is just a browser.
+      // Auto-bind only happens via left panel ASSIGN tab.
 
       Future.microtask(() => _persistState());
 
@@ -12137,18 +12185,47 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   }
 
   Widget _buildAudioBrowser() {
+    // ⚡ SINGLE SOURCE OF TRUTH: Read directly from AudioAssetManager
+    // This is the same pool that DAW section uses — instant, always in sync.
+    return ListenableBuilder(
+      listenable: AudioAssetManager.instance,
+      builder: (context, _) => _buildAudioBrowserContent(),
+    );
+  }
+
+  Widget _buildAudioBrowserContent() {
+    final manager = AudioAssetManager.instance;
+    final allAssets = manager.assets;
+
     // Dynamic folder tabs from AudioAssetManager (unified source)
-    final managerFolders = AudioAssetManager.instance.folderNames;
+    final managerFolders = manager.folderNames;
     final folders = ['All', ...managerFolders];
     // Reset folder selection if removed
     if (!folders.contains(_selectedBrowserFolder)) {
       _selectedBrowserFolder = 'All';
     }
 
+    // Convert to Map<String, dynamic> for compatibility with existing item builders
+    // Uses cached list to avoid re-converting every frame
+    final allPoolMaps = allAssets.map((a) {
+      final lName = a.name.toLowerCase();
+      final lPath = a.path.toLowerCase();
+      return <String, dynamic>{
+        'path': a.path,
+        'name': a.name,
+        'duration': a.duration,
+        'folder': a.folder,
+        'tag': _classifyAudioTag(lName, lPath),
+        'sampleRate': a.sampleRate,
+        'channels': a.channels,
+      };
+    }).toList()
+      ..sort((a, b) => (a['name'] as String).toLowerCase().compareTo((b['name'] as String).toLowerCase()));
+
     // Step 1: Filter by folder
     final folderFiltered = _selectedBrowserFolder == 'All'
-        ? _audioPool
-        : _audioPool.where((a) => a['folder'] == _selectedBrowserFolder).toList();
+        ? allPoolMaps
+        : allPoolMaps.where((a) => a['folder'] == _selectedBrowserFolder).toList();
 
     // Step 2: Filter by tag
     final tagFiltered = _selectedPoolTag == 'ALL'
@@ -12168,6 +12245,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       final t = (a['tag'] ?? 'SFX') as String;
       tagCounts[t] = (tagCounts[t] ?? 0) + 1;
     }
+    final totalCount = allPoolMaps.length;
 
     return Column(
       children: [
@@ -12223,7 +12301,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               ),
               const Spacer(),
               Text(
-                '${searchFiltered.length}/${_audioPool.length}',
+                '${searchFiltered.length}/$totalCount',
                 style: const TextStyle(color: Colors.white38, fontSize: 10),
               ),
             ],

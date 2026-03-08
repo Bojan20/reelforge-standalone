@@ -765,18 +765,30 @@ class SlotStageProvider extends ChangeNotifier {
         if (hasScatter) {
           _scatterReelsThisSpin.add(reelIdx);
           final scatterCount = _scatterReelsThisSpin.length;
+          // Generic SCATTER_LAND fires on every scatter hit
           eventRegistry.triggerStage('SCATTER_LAND', context: {
             ...context,
             'reel_index': reelIdx,
             'scatter_count': scatterCount,
           });
-          if (scatterCount >= 2) {
+          // Numbered SCATTER_LAND_N fires for each scatter (1st, 2nd, 3rd...)
+          if (eventRegistry.hasEventForStage('SCATTER_LAND_$scatterCount')) {
             eventRegistry.triggerStage('SCATTER_LAND_$scatterCount', context: {
               ...context,
               'reel_index': reelIdx,
               'scatter_count': scatterCount,
             });
           }
+        }
+
+        // WILD_LAND — detect wild symbols on stopped reel
+        const wildSymbolId = 10;
+        final hasWild = symbols.any((id) => id is int && id == wildSymbolId);
+        if (hasWild && eventRegistry.hasEventForStage('WILD_LAND')) {
+          eventRegistry.triggerStage('WILD_LAND', context: {
+            ...context,
+            'reel_index': reelIdx,
+          });
         }
       }
     }

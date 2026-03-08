@@ -619,10 +619,15 @@ class SlotLabProjectProvider extends ChangeNotifier {
   }
 
   /// Create GAME_START composite event with synchronized base game music layers.
-  /// L1 plays at full volume, L2/L3 start at volume 0 for crossfade readiness.
+  /// L1 plays at full volume, L2-L5 start at volume 0 for crossfade readiness.
+  /// Also sets GAME_START audio assignment so ASSIGN tab shows the binding.
   void _createBaseGameMusicComposite(Map<String, String> bindings) {
     final l1Path = bindings['MUSIC_BASE_L1'];
-    if (l1Path == null) return; // No base music, skip
+    if (l1Path == null) {
+      // No L1 — remove GAME_START assignment if it existed
+      _audioAssignments.remove('GAME_START');
+      return;
+    }
 
     final sl = GetIt.instance;
     if (!sl.isRegistered<CompositeEventSystemProvider>()) return;
@@ -647,7 +652,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
         id: 'game_start_l${i + 1}',
         name: 'Base L${i + 1}',
         audioPath: path,
-        volume: i == 0 ? 1.0 : 0.0, // L1 = full, L2/L3 = silent
+        volume: i == 0 ? 1.0 : 0.0, // L1 = full, L2-L5 = silent
         loop: true,
         busId: SlotBusIds.music,
         actionType: 'Play',
@@ -656,9 +661,12 @@ class SlotLabProjectProvider extends ChangeNotifier {
 
     if (layers.isEmpty) return;
 
+    // Set GAME_START audio assignment so ASSIGN tab shows the binding
+    _audioAssignments['GAME_START'] = l1Path;
+
     final now = DateTime.now();
     final event = SlotCompositeEvent(
-      id: 'event_game_start_music_${now.millisecondsSinceEpoch}',
+      id: 'audio_GAME_START', // Stable ID for layer count badge lookup
       name: 'Base Game Music',
       category: 'music',
       color: const Color(0xFF4CAF50),
@@ -734,11 +742,12 @@ class SlotLabProjectProvider extends ChangeNotifier {
     if (base == 'mus_bw_end') return 'BIG_WIN_END';
 
     // ─── SCATTER / FREE SPINS ───
-    if (base == 'scatter_land_1of5') return 'SCATTER_LAND_1';
-    if (base == 'scatter_land_2of5') return 'SCATTER_LAND_2';
-    if (base == 'scatter_land_3of5') return 'SCATTER_LAND_3';
-    if (base == 'scatter_land_4of5') return 'SCATTER_LAND_4';
-    if (base == 'scatter_land_5of5') return 'SCATTER_LAND_5';
+    if (base == 'scatter_land' || base == 'sfx_scatter_land') return 'SCATTER_LAND';
+    if (base == 'scatter_land_1of5' || base == 'scatter_land_1' || base == 'sfx_scatter_1' || base == 'scatter_1') return 'SCATTER_LAND_1';
+    if (base == 'scatter_land_2of5' || base == 'scatter_land_2' || base == 'sfx_scatter_2' || base == 'scatter_2') return 'SCATTER_LAND_2';
+    if (base == 'scatter_land_3of5' || base == 'scatter_land_3' || base == 'sfx_scatter_3' || base == 'scatter_3') return 'SCATTER_LAND_3';
+    if (base == 'scatter_land_4of5' || base == 'scatter_land_4' || base == 'sfx_scatter_4' || base == 'scatter_4') return 'SCATTER_LAND_4';
+    if (base == 'scatter_land_5of5' || base == 'scatter_land_5' || base == 'sfx_scatter_5' || base == 'scatter_5') return 'SCATTER_LAND_5';
     if (base == 'scatter_win') return 'SCATTER_WIN';
     if (base == 'panels_appear') return 'FS_HOLD_INTRO';
     if (base == 'trn_fs_intro') return 'CONTEXT_BASE_TO_FS';

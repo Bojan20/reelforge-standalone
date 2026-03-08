@@ -642,6 +642,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     // Setup native menu handler (macOS menu bar)
     _setupNativeMenuHandler();
 
+    // Listen to AudioAssetManager for bidirectional DAW ↔ SlotLab pool sync
+    AudioAssetManager.instance.addListener(_onAudioAssetManagerChanged);
+
     // Register meters and setup shortcuts
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final meters = context.read<MeterProvider>();
@@ -985,6 +988,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   @override
   void dispose() {
+    // Remove AudioAssetManager listener
+    AudioAssetManager.instance.removeListener(_onAudioAssetManagerChanged);
     // Remove StageProvider listener
     try {
       final stageProvider = context.read<StageProvider>();
@@ -3933,6 +3938,43 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         channels: 2,
         format: ext,
         waveform: null,  // Placeholder — loaded on-demand
+        importedAt: DateTime.now(),
+        defaultBus: timeline.OutputBus.master,
+      ));
+    }
+
+    if (newFiles.isNotEmpty) {
+      setState(() {
+        _audioPool.addAll(newFiles);
+      });
+      // Sync to AudioAssetManager (single source of truth for SlotLab POOL)
+      AudioAssetManager.instance.importFilesInstant(
+        newFiles.map((f) => f.path).toList(),
+        folder: 'Audio Pool',
+      );
+    }
+  }
+
+  /// Sync AudioAssetManager → DAW _audioPool when assets change externally
+  /// (e.g., SlotLab imports audio → appears in DAW pool automatically)
+  void _onAudioAssetManagerChanged() {
+    if (!mounted) return;
+    final manager = AudioAssetManager.instance;
+    final existingPaths = _audioPool.map((f) => f.path).toSet();
+    final newFiles = <timeline.PoolAudioFile>[];
+
+    for (final asset in manager.assets) {
+      if (existingPaths.contains(asset.path)) continue;
+      final ext = asset.path.split('.').last.toLowerCase();
+      newFiles.add(timeline.PoolAudioFile(
+        id: 'pool-${DateTime.now().millisecondsSinceEpoch}-${newFiles.length}-${asset.path.hashCode}',
+        path: asset.path,
+        name: asset.name,
+        duration: asset.duration,
+        sampleRate: asset.sampleRate,
+        channels: asset.channels,
+        format: ext,
+        waveform: null,
         importedAt: DateTime.now(),
         defaultBus: timeline.OutputBus.master,
       ));

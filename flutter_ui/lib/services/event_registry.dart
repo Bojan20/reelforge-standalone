@@ -3473,6 +3473,24 @@ class EventRegistry extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Stop all playing instances whose event ID or stage starts with the given prefix.
+  /// Brute-force cleanup for category-level stops (e.g., all ANTICIPATION events).
+  void stopEventsByPrefix(String prefix) {
+    final upper = prefix.toUpperCase();
+    final toRemove = <_PlayingInstance>[];
+    for (final instance in _playingInstances) {
+      if (instance.eventId.toUpperCase().startsWith(upper) ||
+          instance.eventId.toUpperCase().contains(upper)) {
+        instance.stop();
+        toRemove.add(instance);
+      }
+    }
+    if (toRemove.isNotEmpty) {
+      _playingInstances.removeWhere((i) => toRemove.contains(i));
+      notifyListeners();
+    }
+  }
+
   /// FadeOut all voices of an event, then remove from playing instances
   void fadeOutEvent(String eventIdOrStage, {int fadeMs = 400}) {
     final eventByStage = _stageToEvent[eventIdOrStage];
