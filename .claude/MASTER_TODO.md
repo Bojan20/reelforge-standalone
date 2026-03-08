@@ -16,6 +16,7 @@
 | **DELAY ULTIMATE — Timeless 3 tier upgrade** | **TODO (0/55)** |
 | **COMPRESSOR ULTIMATE — Pro-C 2 tier upgrade** | **TODO (0/48)** |
 | **LIMITER ULTIMATE — Pro-L 2 tier upgrade** | **TODO (0/42)** |
+| **SATURATOR ULTIMATE — Saturn 2 tier upgrade** | **TODO (0/46)** |
 
 Analyzer: 0 errors, 0 warnings
 
@@ -144,7 +145,7 @@ Cilj: Pro-R 2 nivo vizualizacije + novi parametri u UI.
 
 **Prioritet implementacije:** F1 → F2 → F3 → F6 → F4 → F7 → F5 → F9 → F8
 
-**Grand Total: 47 (Reverb) + 52 (EQ) + 55 (Delay) + 48 (Compressor) + 42 (Limiter) = 244 taskova**
+**Grand Total: 47 (Reverb) + 52 (EQ) + 55 (Delay) + 48 (Compressor) + 42 (Limiter) + 46 (Saturator) = 290 taskova**
 
 ---
 
@@ -637,6 +638,99 @@ Cilj: Kompletan Pro-C 2 workflow.
 | **TOTAL** | | **42** | |
 
 **Prioritet implementacije:** L1 → L2 → L3 → L4 → L5 → L6 → L9 → L8 → L10 → L7
+
+---
+
+## SATURATOR ULTIMATE — Saturn 2 Tier Multiband Saturation
+
+**Goal:** Podići Saturator na nivo FabFilter Saturn 2 kvaliteta zvuka, stilova i vizuala.
+**Scope:** Rust DSP (rf-dsp/src/saturation.rs), FFI (rf-engine/dsp_wrappers.rs), Flutter UI (fabfilter_saturation_panel.dart)
+**Referenca:** FabFilter Saturn 2, Soundtoys Decapitator, Softube Harmonics, Plugin Alliance bx_saturator
+**Postojeća baza:** 6 tipova, multiband (2-6), oversampling 16x, dynamics, transfer curve, A/B — solidno
+
+### FAZA S1 — Saturation Style Expansion [0/6] ★★★★★ KRITIČNO
+- [ ] S1.1: Warm Tube stil — asimetrični 2nd/3rd harmonik sa blagim kompresi­jem, manje drive nego Tube, za subtle warmth na master busu
+- [ ] S1.2: Transformer stil — željezo-jezgra saturacija sa histerezom, karakteristično LF zasićenje i HF rolloff, Neve 1073 karakter
+- [ ] S1.3: Rectifier stil — polutalasno ispravljanje (half-wave rectifier) sa varijabilnim bias-om, gitarski amp karakter
+- [ ] S1.4: Guitar Amp stilovi (Clean/Crunch/Lead) — kaskadni gain stage-ovi sa tone stack (Bass/Mid/Treble biquad mreža), speaker cab IR convolution opcija
+- [ ] S1.5: Lo-Fi stil — kombinacija bit crush + sample rate reduction + wow/flutter modulacija + vinyl noise, sve u jednom stilu
+- [ ] S1.6: Destroy stil — agresivni foldback + ring modulation + bit crush combo, za extreme sound design
+
+### FAZA S2 — Tape Modeling Upgrade [0/5] ★★★★★ KRITIČNO
+- [ ] S2.1: Pravi Jiles-Atherton histerezis model — full differential equation (`dM/dH`), ne aproksimacija, za autentičnu tape saturaciju
+- [ ] S2.2: Tape speed varijacije (7.5/15/30 ips) — svaka brzina ima drugačiju frekventnu karakteristiku (HF rolloff, LF bump, harmonic content)
+- [ ] S2.3: Tape compression (head bump) — LF rezonanca na 60-100Hz zavisno od brzine, modeluje fiziku glave
+- [ ] S2.4: Wow & Flutter — dual LFO modulacija pitch-a (wow 0.5-3Hz, flutter 5-15Hz), sa depth i rate kontrolama
+- [ ] S2.5: Tape hiss generator — filtered pink noise sa frekvencijom zavisnom od speed-a, subtle za autentičnost, sa amount kontrolom
+
+### FAZA S3 — Tube Modeling Upgrade [0/5] ★★★★☆
+- [ ] S3.1: Triode model (12AX7/12AT7) — plate characteristic krivulja sa grid bias, plate voltage, i mu parametrima
+- [ ] S3.2: Pentode model (EL34/6L6) — screen grid interakcija, crossover distortion pri niskom bias-u
+- [ ] S3.3: Tube sag (power supply) — dinamički voltage sag pod opterećenjem, kompresija sa sporim recovery-jem (50-200ms)
+- [ ] S3.4: Tube aging — modeluje starenje cevi (gubitak emisije), menja harmonijski profil (više 3rd, manje 2nd)
+- [ ] S3.5: Multi-stage gain (preamp + power amp) — kaskadni tube stage-ovi sa inter-stage EQ, svaki stage sa nezavisnim drive-om
+
+### FAZA S4 — Modulation System [0/5] ★★★★☆
+- [ ] S4.1: LFO modulator — 6 oblika (sine/tri/saw/square/S&H/noise), sync na tempo, rate 0.01-50Hz, za bilo koji parametar
+- [ ] S4.2: Envelope follower modulator — attack/release/depth kontrole, može modulisati drive/tone/mix/output
+- [ ] S4.3: Modulation matrix UI — drag-and-drop rutiranje mod source → destination, sa depth slider po vezi
+- [ ] S4.4: MIDI velocity → drive mapping — veći velocity = više drive-a, za ekspresivno sviranje
+- [ ] S4.5: Sidechain modulation — eksterni audio signal kao modulator za drive (ducking saturation, pumping efekti)
+
+### FAZA S5 — Crossover & Band Display [0/5] ★★★★☆
+- [ ] S5.1: Interaktivni band display — CustomPaint sa draggable crossover tačkama, real-time per-band spectrum overlay
+- [ ] S5.2: Linear phase crossover opcija — FIR crossover kao alternativa LR24, za mastering gde phase je kritičan
+- [ ] S5.3: Per-band waveform prikaz — mini osciloskop po bandu (pre/post saturacija), za vizuelnu kontrolu distorzije
+- [ ] S5.4: Crossover slope selector — 6/12/24/48 dB/oct po crossover tački, ne samo globalni izbor
+- [ ] S5.5: Band solo-in-place sa listen mode — solo reproducira samo taj band BEZ crossover artefakata (bandpass filter)
+
+### FAZA S6 — Transfer Curve Enhancement [0/4] ★★★☆☆
+- [ ] S6.1: Interaktivna transfer krivulja — korisnik može crtati custom waveshaper krivulju sa Bezier tačkama (drag kontrole)
+- [ ] S6.2: Real-time signal na krivulji — animirani dot koji prati signal po transfer krivulji, pokazuje koliko ulazi u saturaciju
+- [ ] S6.3: Harmonic spectrum sa real DSP podataka — FFT iz Rust-a umesto hardkodiranih tabela, pravi harmonijski prikaz trenutnog zvuka
+- [ ] S6.4: Pre/post spectrum overlay — dual spectrum analyzer (sivi=input, obojeni=output) za vizuelno poređenje pre/posle saturacije
+
+### FAZA S7 — Advanced Processing [0/4] ★★★☆☆
+- [ ] S7.1: Parallel processing (dry/wet blend po bandu) — nezavisan mix po bandu PLUS globalni mix, za NY-style parallel saturation
+- [ ] S7.2: Auto-gain compensation — automatski kompenzuje loudness nakon saturacije, fer A/B poređenje
+- [ ] S7.3: Transient shaper integracija — per-band transient attack/sustain pre saturatora, kontroliše šta ulazi u distorziju
+- [ ] S7.4: Feedback saturation — deo output-a vraća na input sa delay-om (1-50 sampla), za self-oscillation i reso efekte
+
+### FAZA S8 — Convolution & IR [0/4] ★★★☆☆
+- [ ] S8.1: Cabinet IR loader — učitaj .wav IR fajl za guitar/bass cab simulaciju, zero-latency partitioned convolution
+- [ ] S8.2: Built-in cab IR biblioteka — 5-10 ugrađenih IR-ova (4x12 Marshall, 2x12 Fender, 1x12 Vox, DI box, vintage combo)
+- [ ] S8.3: Pre/post cab positioning — IR pre ili posle saturatora (pre=mic'd amp karakter, post=cab coloring)
+- [ ] S8.4: IR mix blend — dry/cab blend sa phase invert opcijom
+
+### FAZA S9 — Preset & Workflow [0/4] ★★☆☆☆
+- [ ] S9.1: Preset browser sa kategorijama — Subtle/Warm/Aggressive/Creative/Guitar/Bass/Drums/Master, preview sa opisi
+- [ ] S9.2: Per-band preset — sačuvaj/učitaj podešavanje jednog banda, copy/paste između bandova
+- [ ] S9.3: Undo/redo stack — 50-step parametar historija sa Ctrl+Z/Y
+- [ ] S9.4: Randomize — "inspire me" dugme koje randomizuje stilove i drive vrednosti po bandu (kontrolisan chaos)
+
+### FAZA S10 — FFI & Performance [0/4] ★★☆☆☆
+- [ ] S10.1: SIMD waveshaping — AVX2/SSE4 vektorizovani waveshaper (4 sampla odjednom), značajno ubrzanje za oversampled processing
+- [ ] S10.2: Per-band CPU metering — prikaz DSP load po bandu, pomoć korisniku da optimizuje oversampling
+- [ ] S10.3: Adaptive oversampling — automatski smanjuje OS faktor kad CPU > 80%, vraća kad se oslobodi
+- [ ] S10.4: Zero-latency mode — bypass oversampling za monitoring, full OS samo za renderovanje
+
+### Rezime faza
+
+| Faza | Opis | Taskova | Težina |
+|------|------|---------|--------|
+| S1 | Saturation style expansion | 6 | ★★★★★ |
+| S2 | Tape modeling upgrade | 5 | ★★★★★ |
+| S3 | Tube modeling upgrade | 5 | ★★★★☆ |
+| S4 | Modulation system | 5 | ★★★★☆ |
+| S5 | Crossover & band display | 5 | ★★★★☆ |
+| S6 | Transfer curve enhancement | 4 | ★★★☆☆ |
+| S7 | Advanced processing | 4 | ★★★☆☆ |
+| S8 | Convolution & IR | 4 | ★★★☆☆ |
+| S9 | Preset & workflow | 4 | ★★☆☆☆ |
+| S10 | FFI & performance | 4 | ★★☆☆☆ |
+| **TOTAL** | | **46** | |
+
+**Prioritet implementacije:** S1 → S2 → S3 → S5 → S4 → S6 → S7 → S8 → S9 → S10
 
 ---
 
