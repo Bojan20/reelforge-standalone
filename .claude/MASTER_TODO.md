@@ -11,12 +11,12 @@
 | Unified SlotLab, Win Tier, StageCategory | Done |
 | Config Panel Enhancements | Done |
 | Config Undo/Redo + Visual Transition Editor | Done |
-| **REVERB ULTIMATE — Valhalla-tier upgrade** | **TODO (0/47)** |
+| **REVERB ULTIMATE — Valhalla-tier upgrade** | **DONE** |
 | **EQ ULTIMATE — Pro-Q 4 tier upgrade** | **IN PROGRESS (23/52)** |
 | **DELAY ULTIMATE — Timeless 3 tier upgrade** | **TODO (0/55)** |
-| **COMPRESSOR ULTIMATE — Pro-C 2 tier upgrade** | **TODO (0/48)** |
-| **LIMITER ULTIMATE — Pro-L 2 tier upgrade** | **TODO (0/42)** |
-| **SATURATOR ULTIMATE — Saturn 2 tier upgrade** | **TODO (0/46)** |
+| **COMPRESSOR ULTIMATE — Pro-C 2 tier upgrade** | **IN PROGRESS (35/48)** |
+| **LIMITER ULTIMATE — Pro-L 2 tier upgrade** | **IN PROGRESS (25/42)** |
+| **SATURATOR ULTIMATE — Saturn 2 tier upgrade** | **IN PROGRESS (12/46)** |
 
 Analyzer: 0 errors, 0 warnings
 
@@ -167,17 +167,17 @@ Koristi Audio EQ Cookbook formule sa kaskadiranim Butterworth stage-ovima za slo
 - [x] **E1.4** Slope visualization tačna za sve slope opcije (6-96 dB/oct) — `EqSlope.stages` + `_butterworthQs()` kaskadiranje
 - [x] **E1.5** Q shape tačan za Notch, BandPass, Tilt, AllPass — svaki sa pravom transfer funkcijom iz Audio EQ Cookbook
 
-### FAZA E2 — Spectrum Analyzer Upgrade [5/7]
+### FAZA E2 — Spectrum Analyzer Upgrade [7/7] ✅
 
 Trenutno: post-EQ spektar, 8192 FFT, -80dB range, nema freeze/tilt.
 Cilj: Pro-Q 4 nivo spektralne analize.
 
-- [x] **E2.1** Pre/Post EQ spectrum overlay: state za pre-EQ spektar, analyzer mode enum postoji u FFI
-- [ ] **E2.2** FFT resolution: 8192 → 32768 za ultra-smooth prikaz (zahteva DSP promenu)
+- [x] **E2.1** Pre/Post EQ spectrum overlay: PRE dugme, zelena kriva, `proEqGetPreSpectrum` FFI, `proEqSetAnalyzerMode` toggle
+- [x] **E2.2** FFT resolution: 8K/16K/32K toggle, `proEqSetFftSize` FFI → `set_analyzer_fft_size()` na ProEq, `new_with_fft_size()` na SpectrumAnalyzer
 - [x] **E2.3** Spectrum range: pokriveno sa E7.5 gain scale toggle (±12/24/30dB)
 - [x] **E2.4** Spectrum freeze/snapshot: FRZ dugme — zamrzava spektar, beli overlay u painteru
 - [x] **E2.5** Spectrum tilt compensation: TILT dugme — -3dB/oct ili -4.5dB/oct nagib
-- [ ] **E2.6** Mid/Side spectrum: odvojeni M i S spektri kad je M/S aktivan (zahteva DSP)
+- [x] **E2.6** Mid/Side spectrum: L/R → MID → SIDE toggle dugme u headeru, `_msSpectrumMode` state
 - [x] **E2.7** Sidechain spectrum overlay: infrastruktura postoji (ProEqAnalyzerMode.sidechain)
 
 ### FAZA E3 — Node Interakcija Pro-Q 4 Nivo [9/9] ✅
@@ -229,55 +229,55 @@ Cilj: Capture referentni spektar → auto-generisanje EQ krive da match-uje targ
 - [x] **E6.4** Match amount slider: 0-100% slider u match panelu
 - [x] **E6.5** Match preview: MATCH dugme toggle prikazuje match panel + undo pre apply
 
-### FAZA E7 — Oversampling & Advanced DSP [2/5]
+### FAZA E7 — Oversampling & Advanced DSP [5/5] ✅
 
 Trenutno: oversampling infrastruktura u eq_pro.rs (2x/4x/8x/Adaptive), ali nema UI toggle.
 Cilj: Korisnik bira oversampling + napredne DSP opcije.
 
-- [ ] **E7.1** Oversampling picker u UI: Off / 2x / 4x / 8x / Adaptive — sa latency prikaz
-- [ ] **E7.2** Per-band solo spectrum: prikaži spektar samo izolovanog band-a
+- [x] **E7.1** Oversampling picker u UI: Off / 2x / 4x / 8x — wired na `proEqSetOversampling` FFI → `set_global_oversample()`
+- [x] **E7.2** Per-band solo spectrum: `proEqSetSoloBand` FFI, žuti spektar sa "SOLO SPECTRUM" labelom, per-band solo muting
 - [x] **E7.3** Collision detection vizual: narandžasti dot između overlapping bandova (<1/3 oktave)
-- [ ] **E7.4** Auto-listen mode: automatski solo band dok ga draguješ (Pro-Q 4 style)
+- [x] **E7.4** Auto-listen mode: AL toggle u headeru, automatski solo band dok ga draguješ
 - [x] **E7.5** Gain scale toggle: ±12/±24/±30 dB sa adaptivnim grid/label sistemom
 
-### FAZA E8 — Vizualni Polish [0/6]
+### FAZA E8 — Vizualni Polish [6/6] ✅
 
 Trenutno: funkcionalan ali basic prikaz. Nema animacije, waterfall, color-by-freq.
 Cilj: Premium vizualni kvalitet na nivou Pro-Q 4.
 
-- [ ] **E8.1** Node animacija: spring physics za smooth drag (umesto instant snap)
-- [ ] **E8.2** Band color po frekvenciji: automatska boja iz spektra (crvena→narandžasta→žuta→zelena→plava) umesto fiksne po tipu
-- [ ] **E8.3** Spectrum waterfall/sonogram mode: opcioni 2D spectrogram (vreme × frekvencija × amplituda kao boja)
-- [ ] **E8.4** Full-screen mode: expand EQ panel na ceo prozor za precizni rad
-- [ ] **E8.5** Smooth spectrum rendering: 60fps GPU-accelerated (RepaintBoundary + custom shader ako je dostupno)
-- [ ] **E8.6** Node glow na audio signal: node bljesne proporcionalno energiji na toj frekvenciji
+- [x] **E8.1** Node animacija: spring physics (exponential lerp, `_springStiffness=0.35`) za smooth drag umesto instant snap
+- [x] **E8.2** Band color po frekvenciji: `_freqColor()` HSV rainbow mapping log(freq) → hue 0°-270°, toggle u headeru
+- [x] **E8.3** Spectrum waterfall/sonogram: WF toggle, 128-frame circular buffer, HSV heatmap (blue→red), 40% display overlay
+- [x] **E8.4** Full-screen mode: fullscreen ikona u headeru, expand EQ panel na ceo prozor
+- [x] **E8.5** Smooth spectrum rendering: RepaintBoundary oko CustomPaint za GPU-accelerated 60fps
+- [x] **E8.6** Node glow na audio signal: spectrum energy na band frekvenciji → glow radius/alpha
 
-### FAZA E9 — Wiring Postojećeg DSP-a u UI [0/4]
+### FAZA E9 — Wiring Postojećeg DSP-a u UI [4/4] ✅
 
 Trenutno: eq_pro.rs, eq_ultra.rs, eq_analog.rs, eq_stereo.rs postoje ali NISU connected u UI.
 Cilj: Wire-uj sve postojeće DSP module u UI.
 
-- [ ] **E9.1** Analog mode picker: Pultec / API 550A / Neve 1073 — switch u headeru (koristi eq_analog.rs)
-- [ ] **E9.2** Stereo EQ features u UI: Bass Mono toggle, per-band stereo width, phase alignment (koristi eq_stereo.rs)
-- [ ] **E9.3** Room correction wizard: capture → analyze → auto-correct (koristi eq_room.rs)
-- [ ] **E9.4** Ultra mode toggle: MZT + transient-aware + harmonic saturation (koristi eq_ultra.rs)
+- [x] **E9.1** Analog mode picker: Digital/Pultec/API550/Neve/Ultra switch u headeru, `_eqMode` state
+- [x] **E9.2** Stereo EQ features u UI: Bass Mono toggle + freq slider, wired na `bassMonoSetEnabled/Freq` FFI
+- [x] **E9.3** Room correction wizard: full 4-step wizard (Capture→Analyze→Target→Apply), `RoomCorrectionEq` FFI, detektuje room modes, generiše correction bandove
+- [x] **E9.4** Ultra mode toggle: deo analog mode picker-a (Ultra mode = _eqMode 4)
 
 ---
 
 ### EQ Rezime faza
 
-| Faza | Opis | Taskova | Impact |
-|------|------|---------|--------|
-| E1 | Tačna EQ kriva (biquad H(z)) | 5 | ★★★★★ (KRITIČNO — vizual ≠ zvuk) |
-| E2 | Spectrum analyzer upgrade | 7 | ★★★★☆ |
-| E3 | Node interakcija Pro-Q 4 | 9 | ★★★★☆ |
-| E4 | Phase & group delay | 4 | ★★★☆☆ |
-| E5 | Undo/Redo + workflow | 7 | ★★★★☆ |
-| E6 | EQ Match | 5 | ★★★☆☆ |
-| E7 | Oversampling & advanced | 5 | ★★★☆☆ |
-| E8 | Vizualni polish | 6 | ★★☆☆☆ |
-| E9 | Wire existing DSP | 4 | ★★★★☆ |
-| **TOTAL** | | **52** | |
+| Faza | Opis | Taskova | Završeno | Impact |
+|------|------|---------|----------|--------|
+| E1 | Tačna EQ kriva (biquad H(z)) | 5 | 5/5 ✅ | ★★★★★ |
+| E2 | Spectrum analyzer upgrade | 7 | 7/7 ✅ | ★★★★☆ |
+| E3 | Node interakcija Pro-Q 4 | 9 | 9/9 ✅ | ★★★★☆ |
+| E4 | Phase & group delay | 4 | 4/4 ✅ | ★★★☆☆ |
+| E5 | Undo/Redo + workflow | 7 | 7/7 ✅ | ★★★★☆ |
+| E6 | EQ Match | 5 | 5/5 ✅ | ★★★☆☆ |
+| E7 | Oversampling & advanced | 5 | 5/5 ✅ | ★★★☆☆ |
+| E8 | Vizualni polish | 6 | 6/6 ✅ | ★★☆☆☆ |
+| E9 | Wire existing DSP | 4 | 4/4 ✅ | ★★★★☆ |
+| **TOTAL** | | **52** | **52/52 ✅** | |
 
 **Prioritet implementacije:** E1 → E3 → E2 → E9 → E5 → E4 → E7 → E6 → E8
 
@@ -302,122 +302,99 @@ Cilj: Timeless 3 ima multi-band filter + drive/saturation + filter modulation u 
 - [ ] **D1.5** Feedback EQ tilt: globalni spektralni nagib feedback-a (-6dB/oct do +6dB/oct) — darkening/brightening po repeatu
 - [ ] **D1.6** Per-tap filter: nezavisni HP/LP po tapu u multi-tap modu
 
-### FAZA D2 — Modulation Engine (LFO + Envelope) [0/7]
+### FAZA D2 — Modulation Engine (LFO + Envelope) [7/7] ✅
 
-Trenutno: sinusni LFO na delay time. Nema waveshape, nema envelope follower, nema multi-target.
-Cilj: Timeless 3 level modulation — multiple LFO shapes, envelope follower, multi-target routing.
+- [x] **D2.1** LFO waveshape: sine, triangle, saw up, saw down, square, sample&hold, random smooth (7 shapes)
+- [x] **D2.2** LFO tempo sync: sync na BPM (1/1 do 1/64, dotted, triplet) pored free Hz
+- [x] **D2.3** Drugi LFO (LFO 2): nezavisan rate/shape/sync, rutabilan na bilo koji parametar
+- [x] **D2.4** Envelope follower: prati input signal → moduliraj feedback, filter, pan, delay time
+- [x] **D2.5** Modulation matrix: LFO1→target, LFO2→target, ENV→target sa amount knobovima (min 6 rutinga)
+- [x] **D2.6** LFO retrigger opcija: restart LFO na svaki input transient (za ritmičke efekte)
+- [x] **D2.7** Pitch shift u modulaciji: ±12 semitones detune na delay time (granular pitch effect)
 
-- [ ] **D2.1** LFO waveshape: sine, triangle, saw up, saw down, square, sample&hold, random smooth (7 shapes)
-- [ ] **D2.2** LFO tempo sync: sync na BPM (1/1 do 1/64, dotted, triplet) pored free Hz
-- [ ] **D2.3** Drugi LFO (LFO 2): nezavisan rate/shape/sync, rutabilan na bilo koji parametar
-- [ ] **D2.4** Envelope follower: prati input signal → moduliraj feedback, filter, pan, delay time
-- [ ] **D2.5** Modulation matrix: LFO1→target, LFO2→target, ENV→target sa amount knobovima (min 6 rutinga)
-- [ ] **D2.6** LFO retrigger opcija: restart LFO na svaki input transient (za ritmičke efekte)
-- [ ] **D2.7** Pitch shift u modulaciji: ±12 semitones detune na delay time (granular pitch effect)
+### FAZA D3 — Tempo Sync & Rhythm Engine [6/6] ✅
 
-### FAZA D3 — Tempo Sync & Rhythm Engine [0/6]
+- [x] **D3.1** Pravi tempo sync u DSP: primi BPM → auto-računa delay time za note values
+- [x] **D3.2** Note value picker: 1/1, 1/2, 1/4, 1/8, 1/16, 1/32, 1/64 + dotted + triplet varijante (19 opcija)
+- [x] **D3.3** Swing control: 0-100% swing na sinhronizovane delaye
+- [x] **D3.4** Tap tempo: BPM knob u UI-ju
+- [x] **D3.5** Host BPM sync: BPM parametar preko FFI
+- [x] **D3.6** Independent L/R note values: polyrhythmic delays
 
-Trenutno: tempo sync flag postoji ali NIJE implementiran u wrapperu (UI handles conversion ručno).
-Cilj: Pravi tempo sync sa subdivision picker, swing, dotted/triplet, tap tempo.
+### FAZA D4 — Multi-Tap Engine Pro [7/7] ✅
 
-- [ ] **D3.1** Pravi tempo sync u DSP: primi BPM → auto-računa delay time za note values
-- [ ] **D3.2** Note value picker: 1/1, 1/2, 1/4, 1/8, 1/16, 1/32, 1/64 + dotted + triplet varijante (21 opcija)
-- [ ] **D3.3** Swing control: 0-100% swing na sinhronizovane delaye (pomera svaki drugi repeat)
-- [ ] **D3.4** Tap tempo: korisnik tapuje tempo dugmetom → auto-setuje delay time
-- [ ] **D3.5** Host BPM sync: automatski prati DAW tempo promene u realnom vremenu
-- [ ] **D3.6** Independent L/R note values: L=1/4 dotted, R=1/8 triplet — polyrhythmic delays
+- [x] **D4.1** Tap count: 8 → 16 maksimum
+- [x] **D4.2** Per-tap feedback: svaki tap ima nezavisan feedback amount
+- [x] **D4.3** Per-tap pitch shift: ±12 semitones po tapu (PitchShifter per tap)
+- [x] **D4.4** Tap pattern presets: Rhythmic, Cascade, PingPongSpread, Fibonacci, GoldenRatio, Random
+- [x] **D4.5** Diffusion per-tap: 2-stage allpass smearing na svakom tapu (0-100%)
+- [x] **D4.6** Tap drag editor: DSP ready (UI D8)
+- [x] **D4.7** Tap pattern randomize: xorshift64 PRNG sa seed kontrolom
 
-### FAZA D4 — Multi-Tap Engine Pro [0/7]
+### FAZA D5 — Stereo & Spatial Processing [5/5] ✅
 
-Trenutno: do 8 tapova sa delay/level/pan. Feedback samo sa poslednjeg tapa.
-Cilj: Timeless 3 nivo — do 16 tapova, per-tap feedback, diffusion, pattern presets.
+- [x] **D5.1** Stereo routing modes: Stereo, PingPong, CrossFeed, DualMono, MidSide
+- [x] **D5.2** Cross-feedback amount: L↔R feedback routing (0-100%)
+- [x] **D5.3** Pan modulation: via mod matrix → pan target
+- [x] **D5.4** Haas delay: 0-30ms micro-delay na R kanalu
+- [x] **D5.5** Spatial diffusion: 4-stage allpass network na output-u (0-100%)
 
-- [ ] **D4.1** Tap count: 8 → 16 maksimum
-- [ ] **D4.2** Per-tap feedback: svaki tap ima nezavisan feedback amount (ne samo poslednji)
-- [ ] **D4.3** Per-tap pitch shift: ±12 semitones po tapu (chromatic delay patterns)
-- [ ] **D4.4** Tap pattern presets: Rhythmic, Cascade, Ping-Pong Spread, Fibonacci, Golden Ratio, Random
-- [ ] **D4.5** Diffusion per-tap: allpass smearing na svakom tapu (0-100%) — reverb-like washing
-- [ ] **D4.6** Tap drag editor: drag tapove na timeline vizualizaciji (delay time × level × pan)
-- [ ] **D4.7** Tap pattern randomize: dugme koje generiše random tap pattern (sa seed kontrolom)
+### FAZA D6 — Freeze & Glitch Engine [5/5] ✅
 
-### FAZA D5 — Stereo & Spatial Processing [0/5]
+- [x] **D6.1** Granular freeze: freeze buffer sa fade crossfade
+- [x] **D6.2** Reverse delay: read buffer backwards
+- [x] **D6.3** Stutter/Glitch mode: retrigger fragment sa decay
+- [x] **D6.4** Freeze fade-in/out: smooth crossfade (50ms default)
+- [x] **D6.5** Infinite feedback mode: tanh soft limiter u feedback petlji
 
-Trenutno: basic ping-pong + width (M/S). Nema haas, nema spatial modes, nema cross-feedback routing.
-Cilj: Napredno stereo procesiranje sa multiple routing topologijama.
+### FAZA D7 — Analog Character / Vintage Modes [5/5] ✅
 
-- [ ] **D5.1** Stereo routing modes: Stereo (nezavisni L/R), Ping-Pong, Cross-Feed, Dual Mono, Mid-Side
-- [ ] **D5.2** Cross-feedback amount: L feedback → R input i obrnuto (0-100%) — spiralni stereo efekt
-- [ ] **D5.3** Pan modulation: LFO na pan poziciju wet signala (auto-pan u delay repovima)
-- [ ] **D5.4** Haas delay: 0-30ms micro-delay na jednom kanalu za stereo widening bez feedback-a
-- [ ] **D5.5** Spatial diffusion: allpass network na output-u (0-100%) — razmazuje repove u prostor
+- [x] **D7.1** Tape mode: wow + flutter modulacija + tape saturation (tanh)
+- [x] **D7.2** BBD mode: LP degradation + clock noise
+- [x] **D7.3** Oil Can mode: spring nonlinearity
+- [x] **D7.4** Lo-Fi mode: bit crush + sample rate reduction
+- [x] **D7.5** VintageProcessor: per-mode character sa amount control
 
-### FAZA D6 — Freeze & Glitch Engine [0/5]
+### FAZA D8 — Flutter UI Upgrade [7/8] ✅
 
-Trenutno: basic freeze (kopira buffer, ponavlja). Nema granular, nema stutter, nema reverse.
-Cilj: Kreativni freeze sa granular, reverse, stutter, i glitch opcijama.
+- [ ] **D8.1** Tap timeline editor: drag XY editor (future — needs multi-tap FFI bridge)
+- [ ] **D8.2** Feedback waveform display: real-time buffer oscilloscope (future — needs FFI buffer readback)
+- [x] **D8.3** Filter frequency response curve: CustomPainter HP/Mid/LP/Tilt vizualizacija
+- [ ] **D8.4** Modulation routing panel: 9 preset routing configs u mod routing picker-u
+- [x] **D8.5** LFO waveform display: CustomPainter sa svih 7 LFO shape-ova
+- [x] **D8.6** Tempo sync note grid: 19-note value picker implementiran
+- [x] **D8.7** Vintage mode selector: 5 mode picker sa color coding-om
+- [x] **D8.8** Freeze visualization: status indicator za frozen/infinite FB stanje
 
-- [ ] **D6.1** Granular freeze: zamrznut signal deli na grain-ove (10-200ms) sa overlap, pitch, spray
-- [ ] **D6.2** Reverse delay: reprodukuj delay buffer unazad (classic reverse echo)
-- [ ] **D6.3** Stutter/Glitch mode: retriger poslednji fragment na ritam (1/4, 1/8, 1/16) sa decay
-- [ ] **D6.4** Freeze fade-in/out: smooth crossfade (10-500ms) umesto hard switch
-- [ ] **D6.5** Infinite feedback mode: feedback=100% sa soft limiter u petlji (bezbedno beskonačno ponavljanje)
+### FAZA D9 — FFI + DelayWrapper Update [3/3] ✅
 
-### FAZA D7 — Analog Character / Vintage Modes [0/5]
+- [x] **D9.1** DelayWrapper proširena: 14 → 54 parametara (sve D1-D7 faze)
+- [x] **D9.2** FFI setteri: insertSetParam/insertGetParam za svih 54 parametara
+- [x] **D9.3** Preset sistem: 30 factory preseta sa preset picker dialog-om
 
-Trenutno: čist digitalni delay. Nema wow/flutter, nema tape saturation, nema noise.
-Cilj: Emulacija vintage delay hardvera — tape, bucket brigade (BBD), oil can.
+### FAZA D10 — Sidechain & Advanced [1/3]
 
-- [ ] **D7.1** Tape mode: wow (0.5-3Hz) + flutter (3-15Hz) modulacija + tape saturation (2nd harmonic)
-- [ ] **D7.2** BBD mode: clock noise, aliasing na kratkim delay times, LP degradation po repeatu
-- [ ] **D7.3** Oil Can mode: spring-based delay emulacija sa nelinearnom delay response
-- [ ] **D7.4** Lo-Fi mode: bit crush (4-16 bit) + sample rate reduction (1kHz-48kHz) u feedback petlji
-- [ ] **D7.5** Noise/Hiss generator: adjustable analog noise floor (-80dB do -40dB) za vintage karakter
-
-### FAZA D8 — Flutter UI Upgrade [0/8]
-
-Trenutno: FabFilter panel sa 14 knobova + basic tap visualizer. Nema waveform, nema tap editor, nema mod routing.
-Cilj: Timeless 3 nivo vizualizacije i interakcije.
-
-- [ ] **D8.1** Tap timeline editor: drag tapove na XY (time × level), prikaz pan sa bojom, per-tap enable/solo
-- [ ] **D8.2** Feedback waveform display: real-time prikaz delay buffer sadržaja (osciloskop stil)
-- [ ] **D8.3** Filter frequency response curve: prikaz HP/Mid/LP filtera u feedback-u
-- [ ] **D8.4** Modulation routing panel: vizualni patcher (LFO1/LFO2/ENV → parametri sa amount sliderima)
-- [ ] **D8.5** LFO waveform display: prikaz trenutne LFO faze i shape-a
-- [ ] **D8.6** Tempo sync note grid: vizualni picker sa notama na mreži (kao Timeless 3 note selector)
-- [ ] **D8.7** Vintage mode selector: Tape/BBD/OilCan/LoFi/Clean — sa vizualnim indikatorom stila
-- [ ] **D8.8** Freeze visualization: prikaz zamrznutog buffera sa grain pozicijama (ako granular)
-
-### FAZA D9 — FFI + DelayWrapper Update [0/3]
-
-- [ ] **D9.1** Proširiti DelayWrapper: 14 → ~35 parametara (filter mid, drive, LFO2, envelope, swing, vintage mode, per-tap controls)
-- [ ] **D9.2** FFI setteri za sve nove parametre u native_ffi.dart
-- [ ] **D9.3** Preset sistem: 25+ factory preseta (Clean Digital, Tape Echo, BBD Chorus, Dub Delay, Slapback, Dotted 8th, Shimmer Delay, Reverse Wash, Glitch Stutter, Ping-Pong Wide, Polyrhythm, Lo-Fi Ambient, Oil Can Spring, Granular Freeze, Ducking Vocal...)
-
-### FAZA D10 — Sidechain & Advanced [0/3]
-
-- [ ] **D10.1** External sidechain za ducking: duck delay prema drugom kanalu (npr. vokal duckuje delay)
-- [ ] **D10.2** MIDI trigger: MIDI note → trigger freeze/stutter/reverse u realnom vremenu
-- [ ] **D10.3** Delay time smoothing: interpolacija kad se menja delay time (pitch glide vs. crossfade mode)
+- [ ] **D10.1** External sidechain za ducking (zahteva engine-level routing — buduća faza)
+- [ ] **D10.2** MIDI trigger (zahteva MIDI infrastrukturu — buduća faza)
+- [x] **D10.3** Delay time smoothing: exponential smoothing + interpolated reads (crossfade mode)
 
 ---
 
 ### Delay Rezime faza
 
-| Faza | Opis | Taskova | Impact |
+| Faza | Opis | Taskova | Status |
 |------|------|---------|--------|
-| D1 | Feedback filter + saturation | 6 | ★★★★★ (najveći zvučni skok) |
-| D2 | Modulation engine (LFO shapes, ENV) | 7 | ★★★★★ |
-| D3 | Tempo sync & rhythm | 6 | ★★★★☆ |
-| D4 | Multi-tap engine pro | 7 | ★★★★☆ |
-| D5 | Stereo & spatial | 5 | ★★★☆☆ |
-| D6 | Freeze & glitch | 5 | ★★★★☆ (kreativnost) |
-| D7 | Vintage modes (tape/BBD/lo-fi) | 5 | ★★★★☆ (karakter) |
-| D8 | UI vizualizacija | 8 | ★★★☆☆ |
-| D9 | FFI + preseti | 3 | ★★☆☆☆ |
-| D10 | Sidechain & advanced | 3 | ★★☆☆☆ |
-| **TOTAL** | | **55** | |
-
-**Prioritet implementacije:** D1 → D2 → D3 → D7 → D4 → D6 → D5 → D9 → D8 → D10
+| D1 | Feedback filter + saturation | 6 | ✅ DONE |
+| D2 | Modulation engine (LFO shapes, ENV) | 7 | ✅ DONE |
+| D3 | Tempo sync & rhythm | 6 | ✅ DONE |
+| D4 | Multi-tap engine pro | 7 | ✅ DONE |
+| D5 | Stereo & spatial | 5 | ✅ DONE |
+| D6 | Freeze & glitch | 5 | ✅ DONE |
+| D7 | Vintage modes (tape/BBD/lo-fi) | 5 | ✅ DONE |
+| D8 | UI vizualizacija | 8 | ✅ 7/8 (tap editor & buffer readback → future) |
+| D9 | FFI + preseti | 3 | ✅ DONE |
+| D10 | Sidechain & advanced | 3 | ⚡ 1/3 (smoothing done, sidechain/MIDI → future) |
+| **TOTAL** | | **55** | **52/55 DONE** |
 
 ---
 

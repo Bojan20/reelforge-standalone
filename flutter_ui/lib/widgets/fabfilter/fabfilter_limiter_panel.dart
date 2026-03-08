@@ -8,6 +8,10 @@
 /// - Multiple meter scales (K-12, K-14, K-20)
 /// - A/B comparison with full state snapshots
 /// - Real-time I/O + GR metering at 60fps
+/// - Loudness target mode with LUFS timeline
+/// - GR histogram, dual-layer GR display
+/// - Factory presets (Mastering, Streaming, Broadcast)
+/// - Peak hold, clip counter, crest factor, PLR, stereo correlation
 
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -50,6 +54,124 @@ enum MeterScale {
   final int offset;
   const MeterScale(this.label, this.offset);
 }
+
+/// Loudness target presets for streaming/broadcast
+enum LimiterLoudnessTarget {
+  off('Off', null),
+  spotify('Spotify', -14.0),
+  appleMusic('Apple', -16.0),
+  youtube('YouTube', -13.0),
+  tidalAmazon('Tidal', -14.0),
+  broadcast('EBU R128', -23.0),
+  cd('CD', -9.0),
+  custom('Custom', -14.0);
+
+  final String label;
+  final double? lufs;
+  const LimiterLoudnessTarget(this.label, this.lufs);
+}
+
+/// Display mode for the waveform area
+enum LimiterDisplayMode {
+  waveform,
+  lufsTimeline,
+  grHistogram,
+}
+
+/// Factory preset for limiter
+class _LimPreset {
+  final String name;
+  final String category;
+  final double inputTrim;
+  final double threshold;
+  final double ceiling;
+  final double release;
+  final double attack;
+  final double lookahead;
+  final int styleIndex;
+  final int oversampling;
+
+  const _LimPreset({
+    required this.name,
+    required this.category,
+    this.inputTrim = 0.0,
+    this.threshold = 0.0,
+    this.ceiling = -0.3,
+    this.release = 100.0,
+    this.attack = 0.1,
+    this.lookahead = 5.0,
+    this.styleIndex = 7,
+    this.oversampling = 1,
+  });
+}
+
+const _kLimPresets = <_LimPreset>[
+  // ── Mastering ──
+  _LimPreset(name: 'Transparent Master', category: 'Mastering',
+    inputTrim: 0, threshold: -2, ceiling: -0.3, release: 100,
+    attack: 0.5, lookahead: 5, styleIndex: 0, oversampling: 2),
+  _LimPreset(name: 'Loud Master', category: 'Mastering',
+    inputTrim: 3, threshold: -6, ceiling: -0.1, release: 50,
+    attack: 0.1, lookahead: 3, styleIndex: 3, oversampling: 2),
+  _LimPreset(name: 'Punchy Master', category: 'Mastering',
+    inputTrim: 2, threshold: -4, ceiling: -0.3, release: 80,
+    attack: 0.3, lookahead: 4, styleIndex: 1, oversampling: 2),
+  _LimPreset(name: 'Safe Master', category: 'Mastering',
+    inputTrim: 0, threshold: -1, ceiling: -1.0, release: 200,
+    attack: 1.0, lookahead: 8, styleIndex: 5, oversampling: 3),
+  // ── Streaming ──
+  _LimPreset(name: 'Spotify -14 LUFS', category: 'Streaming',
+    inputTrim: 0, threshold: -3, ceiling: -1.0, release: 100,
+    attack: 0.3, lookahead: 5, styleIndex: 0, oversampling: 2),
+  _LimPreset(name: 'Apple Music -16 LUFS', category: 'Streaming',
+    inputTrim: -2, threshold: -2, ceiling: -1.0, release: 120,
+    attack: 0.5, lookahead: 5, styleIndex: 0, oversampling: 2),
+  _LimPreset(name: 'YouTube -13 LUFS', category: 'Streaming',
+    inputTrim: 1, threshold: -4, ceiling: -1.0, release: 80,
+    attack: 0.3, lookahead: 4, styleIndex: 2, oversampling: 2),
+  _LimPreset(name: 'SoundCloud', category: 'Streaming',
+    inputTrim: 2, threshold: -5, ceiling: -0.5, release: 60,
+    attack: 0.2, lookahead: 3, styleIndex: 1, oversampling: 1),
+  // ── Broadcast ──
+  _LimPreset(name: 'EBU R128 -23 LUFS', category: 'Broadcast',
+    inputTrim: -6, threshold: -1, ceiling: -1.0, release: 200,
+    attack: 1.0, lookahead: 8, styleIndex: 5, oversampling: 2),
+  _LimPreset(name: 'ATSC A/85 -24 LUFS', category: 'Broadcast',
+    inputTrim: -7, threshold: -1, ceiling: -2.0, release: 250,
+    attack: 1.0, lookahead: 8, styleIndex: 5, oversampling: 2),
+  // ── Genres ──
+  _LimPreset(name: 'EDM Brickwall', category: 'Genres',
+    inputTrim: 6, threshold: -8, ceiling: -0.1, release: 30,
+    attack: 0.05, lookahead: 2, styleIndex: 3, oversampling: 2),
+  _LimPreset(name: 'Hip-Hop Punch', category: 'Genres',
+    inputTrim: 4, threshold: -6, ceiling: -0.3, release: 50,
+    attack: 0.1, lookahead: 3, styleIndex: 1, oversampling: 2),
+  _LimPreset(name: 'Rock Bus', category: 'Genres',
+    inputTrim: 2, threshold: -4, ceiling: -0.5, release: 80,
+    attack: 0.3, lookahead: 4, styleIndex: 4, oversampling: 1),
+  _LimPreset(name: 'Jazz Gentle', category: 'Genres',
+    inputTrim: 0, threshold: -1, ceiling: -1.0, release: 300,
+    attack: 2.0, lookahead: 10, styleIndex: 0, oversampling: 2),
+  _LimPreset(name: 'Classical Dynamic', category: 'Genres',
+    inputTrim: 0, threshold: -0.5, ceiling: -1.0, release: 400,
+    attack: 3.0, lookahead: 12, styleIndex: 5, oversampling: 3),
+  // ── Creative ──
+  _LimPreset(name: 'Slam It', category: 'Creative',
+    inputTrim: 10, threshold: -12, ceiling: -0.1, release: 20,
+    attack: 0.02, lookahead: 1, styleIndex: 3, oversampling: 1),
+  _LimPreset(name: 'Dynamic Squeeze', category: 'Creative',
+    inputTrim: 5, threshold: -8, ceiling: -0.3, release: 60,
+    attack: 0.1, lookahead: 3, styleIndex: 2, oversampling: 1),
+  _LimPreset(name: 'Modern Pop', category: 'Creative',
+    inputTrim: 3, threshold: -5, ceiling: -0.3, release: 70,
+    attack: 0.2, lookahead: 4, styleIndex: 6, oversampling: 2),
+  _LimPreset(name: 'Vinyl Warm', category: 'Creative',
+    inputTrim: 1, threshold: -3, ceiling: -0.5, release: 150,
+    attack: 0.5, lookahead: 6, styleIndex: 7, oversampling: 2),
+  _LimPreset(name: 'Bus Glue', category: 'Creative',
+    inputTrim: 0, threshold: -2, ceiling: -0.3, release: 100,
+    attack: 0.3, lookahead: 5, styleIndex: 4, oversampling: 1),
+];
 
 /// Level sample for scrolling display
 class LimiterLevelSample {
@@ -181,6 +303,35 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
   double _lufsIntegrated = -24.0;
   double _lufsShortTerm = -24.0;
   double _lufsMomentary = -24.0;
+
+  // ─── LOUDNESS TARGET (L2) ─────────────────────────────────────────────
+  LimiterLoudnessTarget _loudnessTarget = LimiterLoudnessTarget.off;
+  double _customTargetLufs = -14.0;
+  double _plr = 0.0; // Peak-to-Loudness Ratio
+
+  // ─── LUFS TIMELINE (L2) ───────────────────────────────────────────────
+  final List<(double mom, double st, double integ)> _lufsHistory = [];
+  static const int _maxLufsHistory = 300;
+
+  // ─── GR HISTOGRAM (L3) ────────────────────────────────────────────────
+  final List<int> _grHistogram = List.filled(24, 0); // 0-24 dB in 1dB bins
+  int _grHistogramTotal = 0;
+
+  // ─── ADVANCED METERING (L9) ───────────────────────────────────────────
+  double _crestFactor = 0.0;
+  int _clipCount = 0;
+  double _peakHoldL = -60.0;
+  double _peakHoldR = -60.0;
+  int _peakHoldTimer = 0;
+  static const int _peakHoldFrames = 120; // 2s at 60fps
+  double _stereoCorrelation = 1.0;
+  // RMS accumulators for crest factor
+  double _rmsAccumL = 0.0;
+  double _rmsAccumR = 0.0;
+  int _rmsCount = 0;
+
+  // ─── DISPLAY MODE ─────────────────────────────────────────────────────
+  LimiterDisplayMode _displayMode = LimiterDisplayMode.waveform;
 
   // ─── DISPLAY HISTORY ─────────────────────────────────────────────────
   final List<LimiterLevelSample> _levelHistory = [];
@@ -356,11 +507,73 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
       }
 
       final outTpMax = math.max(_outputTpL, _outputTpR);
-      _truePeakClipping = outTpMax > _output + 0.1;
+      final inPeakMax = math.max(_inputPeakL, _inputPeakR);
+
+      // ── Clip counter (L9) ──
+      if (outTpMax > _output + 0.1) {
+        if (!_truePeakClipping) _clipCount++;
+        _truePeakClipping = true;
+      } else {
+        _truePeakClipping = false;
+      }
+
+      // ── Peak hold with decay (L9) ──
+      if (_inputPeakL > _peakHoldL) {
+        _peakHoldL = _inputPeakL;
+        _peakHoldTimer = _peakHoldFrames;
+      }
+      if (_inputPeakR > _peakHoldR) {
+        _peakHoldR = _inputPeakR;
+        _peakHoldTimer = _peakHoldFrames;
+      }
+      if (_peakHoldTimer > 0) {
+        _peakHoldTimer--;
+      } else {
+        _peakHoldL = _peakHoldL * 0.95 + _inputPeakL * 0.05;
+        _peakHoldR = _peakHoldR * 0.95 + _inputPeakR * 0.05;
+      }
+
+      // ── RMS + Crest factor (L9) ──
+      final inLinL = math.pow(10, _inputPeakL / 20);
+      final inLinR = math.pow(10, _inputPeakR / 20);
+      _rmsAccumL += inLinL * inLinL;
+      _rmsAccumR += inLinR * inLinR;
+      _rmsCount++;
+      if (_rmsCount >= 10) {
+        final rmsLinL = math.sqrt(_rmsAccumL / _rmsCount);
+        final rmsLinR = math.sqrt(_rmsAccumR / _rmsCount);
+        final rmsDb = 20 * math.log(math.max(rmsLinL, rmsLinR).clamp(1e-10, 10)) / math.ln10;
+        _crestFactor = inPeakMax - rmsDb;
+        _rmsAccumL = 0; _rmsAccumR = 0; _rmsCount = 0;
+      }
+
+      // ── Stereo correlation (L9) ──
+      // Simple L/R correlation: 1.0 = mono, 0 = uncorrelated, -1 = out of phase
+      if (inLinL > 1e-8 && inLinR > 1e-8) {
+        final prod = inLinL * inLinR;
+        final energy = (inLinL * inLinL + inLinR * inLinR) * 0.5;
+        final corr = energy > 1e-16 ? prod / energy : 1.0;
+        _stereoCorrelation = _stereoCorrelation * 0.9 + corr.clamp(-1.0, 1.0) * 0.1;
+      }
+
+      // ── PLR (L2) ──
+      _plr = outTpMax - _lufsIntegrated;
+
+      // ── GR histogram (L3) ──
+      final grDisplay = math.max(_grLeft, _grRight);
+      final grBin = grDisplay.abs().floor().clamp(0, 23);
+      if (grDisplay.abs() > 0.1) {
+        _grHistogram[grBin]++;
+        _grHistogramTotal++;
+      }
+
+      // ── LUFS timeline (L2) ──
+      _lufsHistory.add((_lufsMomentary, _lufsShortTerm, _lufsIntegrated));
+      while (_lufsHistory.length > _maxLufsHistory) {
+        _lufsHistory.removeAt(0);
+      }
 
       // Build scrolling history
-      final grDisplay = math.max(_grLeft, _grRight);
-      final inPeakMax = math.max(_inputPeakL, _inputPeakR);
       _levelHistory.add(LimiterLevelSample(
         inputPeak: inPeakMax,
         outputPeak: outTpMax,
@@ -435,15 +648,30 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
       clipBehavior: Clip.hardEdge,
       child: Stack(
         children: [
-          // Glass scrolling waveform painter
+          // Main display painter (mode-dependent)
           Positioned.fill(
             child: CustomPaint(
-              painter: _LimiterDisplayPainter(
-                history: _levelHistory,
-                ceiling: _output,
-                threshold: _threshold,
-                meterScale: _meterScale,
-              ),
+              painter: _displayMode == LimiterDisplayMode.lufsTimeline
+                  ? _LufsTimelinePainter(
+                      lufsHistory: _lufsHistory,
+                      target: _loudnessTarget != LimiterLoudnessTarget.off
+                          ? (_loudnessTarget == LimiterLoudnessTarget.custom
+                              ? _customTargetLufs
+                              : _loudnessTarget.lufs)
+                          : null,
+                    )
+                  : _displayMode == LimiterDisplayMode.grHistogram
+                      ? _GrHistogramPainter(
+                          histogram: _grHistogram,
+                          total: _grHistogramTotal,
+                        )
+                      : _LimiterDisplayPainter(
+                          history: _levelHistory,
+                          ceiling: _output,
+                          threshold: _threshold,
+                          meterScale: _meterScale,
+                          grPeakHold: _grMaxHold,
+                        ),
             ),
           ),
           // LUFS overlay (top-left)
@@ -451,25 +679,47 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
             left: 6, top: 4,
             child: _buildLufsOverlay(),
           ),
-          // True peak indicator (top-right)
+          // True peak indicator + clip count (top-right)
           Positioned(
             right: 6, top: 4,
             child: _buildTruePeakBadge(),
           ),
-          // GR value (bottom-right)
+          // Advanced metering (bottom-right): GR + PLR + Crest
           Positioned(
             right: 6, bottom: 4,
-            child: _buildGrBadge(),
+            child: _buildAdvancedBadge(),
           ),
-          // Meter scale (bottom-left)
+          // Scale + display mode + stereo corr (bottom-left)
           Positioned(
             left: 6, bottom: 4,
-            child: _buildScaleSelector(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildDisplayModeSelector(),
+                const SizedBox(height: 2),
+                _buildScaleSelector(),
+              ],
+            ),
           ),
-          // Style badge (top-center)
+          // Style badge + loudness target (top-center)
           Positioned(
             left: 0, right: 0, top: 4,
-            child: Center(child: _buildStyleBadge()),
+            child: Center(child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildStyleBadge(),
+                if (_loudnessTarget != LimiterLoudnessTarget.off) ...[
+                  const SizedBox(width: 4),
+                  _buildTargetBadge(),
+                ],
+              ],
+            )),
+          ),
+          // Stereo correlation indicator (left side, mid)
+          Positioned(
+            left: 6, top: 42,
+            child: _buildStereoCorrelation(),
           ),
         ],
       ),
@@ -538,7 +788,9 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     final tpColor = _truePeakClipping
         ? FabFilterColors.red
         : (outTpMax > _output - 0.5 ? FabFilterColors.orange : FabFilterColors.green);
-    return Container(
+    return GestureDetector(
+      onDoubleTap: () => setState(() => _clipCount = 0),
+      child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
         color: const Color(0xDD0A0A10),
@@ -568,12 +820,17 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
             style: TextStyle(color: tpColor, fontSize: 9, fontWeight: FontWeight.bold,
                 fontFeatures: const [FontFeature.tabularFigures()]),
           ),
+          if (_clipCount > 0) ...[
+            const SizedBox(width: 4),
+            Text('×$_clipCount',
+              style: TextStyle(color: FabFilterColors.red, fontSize: 8, fontWeight: FontWeight.bold)),
+          ],
         ],
       ),
-    );
+    ));
   }
 
-  Widget _buildGrBadge() {
+  Widget _buildAdvancedBadge() {
     final grMax = math.max(_grLeft, _grRight);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
@@ -582,20 +839,123 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
         borderRadius: BorderRadius.circular(4),
         border: Border.all(color: FabFilterProcessorColors.limGainReduction.withValues(alpha: 0.3)),
       ),
-      child: RichText(text: TextSpan(
-        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold,
-          fontFeatures: [FontFeature.tabularFigures()]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          TextSpan(
-            text: 'GR -${grMax.toStringAsFixed(1)}',
-            style: TextStyle(color: FabFilterProcessorColors.limGainReduction),
-          ),
-          TextSpan(
-            text: '  pk -${_grMaxHold.toStringAsFixed(1)}',
-            style: TextStyle(color: FabFilterColors.textTertiary),
-          ),
+          // GR + peak hold
+          RichText(text: TextSpan(
+            style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold,
+              fontFeatures: [FontFeature.tabularFigures()]),
+            children: [
+              TextSpan(text: 'GR ', style: TextStyle(color: FabFilterColors.textTertiary)),
+              TextSpan(text: '-${grMax.toStringAsFixed(1)}',
+                style: TextStyle(color: FabFilterProcessorColors.limGainReduction)),
+              TextSpan(text: '  pk -${_grMaxHold.toStringAsFixed(1)}',
+                style: TextStyle(color: FabFilterColors.textTertiary)),
+            ],
+          )),
+          // PLR + Crest factor
+          RichText(text: TextSpan(
+            style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold,
+              fontFeatures: [FontFeature.tabularFigures()]),
+            children: [
+              TextSpan(text: 'PLR ', style: TextStyle(color: FabFilterColors.textTertiary)),
+              TextSpan(text: _plr.toStringAsFixed(1),
+                style: TextStyle(color: FabFilterColors.cyan)),
+              TextSpan(text: '  CF ', style: TextStyle(color: FabFilterColors.textTertiary)),
+              TextSpan(text: _crestFactor.toStringAsFixed(1),
+                style: TextStyle(color: FabFilterColors.orange)),
+            ],
+          )),
         ],
-      )),
+      ),
+    );
+  }
+
+  Widget _buildTargetBadge() {
+    final target = _loudnessTarget == LimiterLoudnessTarget.custom
+        ? _customTargetLufs
+        : _loudnessTarget.lufs;
+    final diff = _lufsIntegrated - (target ?? 0);
+    final diffColor = diff.abs() < 1 ? FabFilterColors.green
+        : diff.abs() < 2 ? FabFilterColors.orange
+        : FabFilterColors.red;
+    return GestureDetector(
+      onTap: _cycleLimiterLoudnessTarget,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+        decoration: BoxDecoration(
+          color: diffColor.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: diffColor.withValues(alpha: 0.4)),
+        ),
+        child: Text(
+          '${_loudnessTarget.label} ${target?.toStringAsFixed(0) ?? ""} (${diff >= 0 ? '+' : ''}${diff.toStringAsFixed(1)})',
+          style: TextStyle(color: diffColor, fontSize: 7, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  void _cycleLimiterLoudnessTarget() {
+    setState(() {
+      final idx = LimiterLoudnessTarget.values.indexOf(_loudnessTarget);
+      _loudnessTarget = LimiterLoudnessTarget.values[(idx + 1) % LimiterLoudnessTarget.values.length];
+    });
+  }
+
+  Widget _buildDisplayModeSelector() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: LimiterDisplayMode.values.map((m) {
+        final active = _displayMode == m;
+        final label = switch (m) {
+          LimiterDisplayMode.waveform => 'WAV',
+          LimiterDisplayMode.lufsTimeline => 'LUFS',
+          LimiterDisplayMode.grHistogram => 'HIST',
+        };
+        return GestureDetector(
+          onTap: () => setState(() => _displayMode = m),
+          child: Container(
+            margin: const EdgeInsets.only(right: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+            decoration: BoxDecoration(
+              color: active ? FabFilterProcessorColors.limAccent.withValues(alpha: 0.25) : Colors.transparent,
+              borderRadius: BorderRadius.circular(2),
+              border: active ? Border.all(color: FabFilterProcessorColors.limAccent.withValues(alpha: 0.4)) : null,
+            ),
+            child: Text(label, style: TextStyle(
+              color: active ? FabFilterProcessorColors.limAccent : FabFilterColors.textTertiary,
+              fontSize: 7, fontWeight: active ? FontWeight.bold : FontWeight.normal,
+            )),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildStereoCorrelation() {
+    final corrColor = _stereoCorrelation > 0.5 ? FabFilterColors.green
+        : _stereoCorrelation > 0 ? FabFilterColors.orange
+        : FabFilterColors.red;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+      decoration: BoxDecoration(
+        color: const Color(0xDD0A0A10),
+        borderRadius: BorderRadius.circular(3),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(width: 4, height: 4,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: corrColor)),
+          const SizedBox(width: 2),
+          Text('r ${_stereoCorrelation.toStringAsFixed(2)}',
+            style: TextStyle(color: corrColor, fontSize: 7, fontWeight: FontWeight.bold,
+              fontFeatures: const [FontFeature.tabularFigures()])),
+        ],
+      ),
     );
   }
 
@@ -986,9 +1346,157 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
             _setParam(_P.ditherBits, v.toDouble());
           }),
         ],
-        const Flexible(child: SizedBox(height: 8)),
+        const SizedBox(height: 4),
+        // Loudness target
+        _buildLimiterLoudnessTargetSelector(),
+        const Flexible(child: SizedBox(height: 4)),
+        // Preset button
+        _buildPresetButton(),
+        const SizedBox(height: 4),
+        // GR histogram reset
+        if (_grHistogramTotal > 0)
+          GestureDetector(
+            onTap: () => setState(() {
+              _grHistogram.fillRange(0, 24, 0);
+              _grHistogramTotal = 0;
+            }),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: FabFilterColors.bgSurface,
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(color: FabFilterColors.borderMedium),
+              ),
+              child: Text('RST', style: TextStyle(
+                color: FabFilterColors.textTertiary, fontSize: 8, fontWeight: FontWeight.bold)),
+            ),
+          ),
       ],
     );
+  }
+
+  Widget _buildLimiterLoudnessTargetSelector() {
+    return PopupMenuButton<LimiterLoudnessTarget>(
+      onSelected: (v) => setState(() => _loudnessTarget = v),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 80),
+      itemBuilder: (_) => LimiterLoudnessTarget.values.map((t) => PopupMenuItem(
+        value: t,
+        height: 28,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_loudnessTarget == t)
+              Icon(Icons.check, size: 12, color: FabFilterProcessorColors.limAccent)
+            else
+              const SizedBox(width: 12),
+            const SizedBox(width: 4),
+            Text(t.label, style: const TextStyle(fontSize: 11)),
+            if (t.lufs != null) ...[
+              const SizedBox(width: 4),
+              Text('${t.lufs!.toStringAsFixed(0)}', style: TextStyle(
+                fontSize: 10, color: FabFilterColors.textTertiary)),
+            ],
+          ],
+        ),
+      )).toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: _loudnessTarget != LimiterLoudnessTarget.off
+              ? FabFilterProcessorColors.limLufs.withValues(alpha: 0.15)
+              : FabFilterColors.bgSurface,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: _loudnessTarget != LimiterLoudnessTarget.off
+              ? FabFilterProcessorColors.limLufs.withValues(alpha: 0.4)
+              : FabFilterColors.borderMedium),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.track_changes, size: 10,
+              color: _loudnessTarget != LimiterLoudnessTarget.off
+                  ? FabFilterProcessorColors.limLufs
+                  : FabFilterColors.textTertiary),
+            const SizedBox(width: 3),
+            Text(
+              _loudnessTarget != LimiterLoudnessTarget.off ? _loudnessTarget.label : 'TARGET',
+              style: TextStyle(
+                color: _loudnessTarget != LimiterLoudnessTarget.off
+                    ? FabFilterProcessorColors.limLufs
+                    : FabFilterColors.textTertiary,
+                fontSize: 8, fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPresetButton() {
+    // Group presets by category
+    final categories = <String, List<_LimPreset>>{};
+    for (final p in _kLimPresets) {
+      categories.putIfAbsent(p.category, () => []).add(p);
+    }
+
+    return PopupMenuButton<_LimPreset>(
+      onSelected: _loadPreset,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 120),
+      itemBuilder: (_) {
+        final items = <PopupMenuEntry<_LimPreset>>[];
+        for (final entry in categories.entries) {
+          items.add(PopupMenuItem<_LimPreset>(
+            enabled: false,
+            height: 22,
+            child: Text(entry.key.toUpperCase(),
+              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold,
+                color: FabFilterProcessorColors.limAccent.withValues(alpha: 0.6))),
+          ));
+          for (final p in entry.value) {
+            items.add(PopupMenuItem(
+              value: p,
+              height: 28,
+              child: Text(p.name, style: const TextStyle(fontSize: 11)),
+            ));
+          }
+        }
+        return items;
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: FabFilterColors.bgSurface,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: FabFilterColors.borderMedium),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.library_music, size: 10, color: FabFilterColors.textTertiary),
+            const SizedBox(width: 3),
+            Text('PRESET', style: TextStyle(
+              color: FabFilterColors.textTertiary, fontSize: 8, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _loadPreset(_LimPreset p) {
+    setState(() {
+      _inputTrim = p.inputTrim;
+      _threshold = p.threshold;
+      _output = p.ceiling;
+      _release = p.release;
+      _attack = p.attack;
+      _lookahead = p.lookahead;
+      _style = LimitingStyle.values[p.styleIndex.clamp(0, 7)];
+      _oversampling = p.oversampling.clamp(0, 3);
+    });
+    _applyAll();
   }
 }
 
@@ -1070,12 +1578,14 @@ class _LimiterDisplayPainter extends CustomPainter {
   final double ceiling;
   final double threshold;
   final MeterScale meterScale;
+  final double grPeakHold;
 
   _LimiterDisplayPainter({
     required this.history,
     required this.ceiling,
     required this.threshold,
     required this.meterScale,
+    this.grPeakHold = 0,
   });
 
   @override
@@ -1284,6 +1794,18 @@ class _LimiterDisplayPainter extends CustomPainter {
         );
       }
     }
+
+    // ── GR peak hold dashed line (yellow) ──
+    if (grPeakHold > 0.1) {
+      final grPeakH = (grPeakHold / 24).clamp(0.0, 1.0) * size.height * 0.4;
+      _drawDashedLine(
+        canvas,
+        Offset(0, grPeakH), Offset(size.width, grPeakH),
+        Paint()
+          ..color = const Color(0xCCFFDD44)
+          ..strokeWidth = 0.8,
+      );
+    }
   }
 
   static const int _maxSamples = 200;
@@ -1307,4 +1829,216 @@ class _LimiterDisplayPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _LimiterDisplayPainter oldDelegate) => true;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LUFS TIMELINE PAINTER — Scrolling LUFS graph (L2)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _LufsTimelinePainter extends CustomPainter {
+  final List<(double mom, double st, double integ)> lufsHistory;
+  final double? target;
+
+  _LufsTimelinePainter({required this.lufsHistory, this.target});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Glass background
+    canvas.drawRect(Offset.zero & size, Paint()
+      ..shader = ui.Gradient.linear(Offset.zero, Offset(0, size.height),
+        [const Color(0xFF0D0D12), const Color(0xFF08080C)]));
+
+    // Range: -48 to 0 LUFS
+    const minLufs = -48.0;
+    const maxLufs = 0.0;
+    const range = maxLufs - minLufs;
+
+    // Grid lines every 6 LU
+    final gridPaint = Paint()..color = const Color(0xFF1A1A22)..strokeWidth = 0.5;
+    for (var lu = -48; lu <= 0; lu += 6) {
+      final y = size.height * (1 - (lu - minLufs) / range);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    // dB labels
+    final labelStyle = ui.TextStyle(color: const Color(0xFF444455), fontSize: 8);
+    for (final lu in [-6, -14, -23, -36]) {
+      final y = size.height * (1 - (lu - minLufs) / range);
+      final pb = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: TextAlign.right))
+        ..pushStyle(labelStyle)
+        ..addText('$lu');
+      final p = pb.build()..layout(const ui.ParagraphConstraints(width: 24));
+      canvas.drawParagraph(p, Offset(size.width - 26, y - 6));
+    }
+
+    // Target line
+    if (target != null) {
+      final targetY = size.height * (1 - (target! - minLufs) / range);
+      // Glow
+      canvas.drawLine(Offset(0, targetY), Offset(size.width, targetY),
+        Paint()
+          ..color = FabFilterProcessorColors.limLufs.withValues(alpha: 0.15)
+          ..strokeWidth = 4
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+      // ±1 LU zone
+      final zoneTop = size.height * (1 - (target! + 1 - minLufs) / range);
+      final zoneBot = size.height * (1 - (target! - 1 - minLufs) / range);
+      canvas.drawRect(Rect.fromLTRB(0, zoneTop, size.width, zoneBot),
+        Paint()..color = FabFilterProcessorColors.limLufs.withValues(alpha: 0.06));
+      // Core line
+      canvas.drawLine(Offset(0, targetY), Offset(size.width, targetY),
+        Paint()..color = FabFilterProcessorColors.limLufs.withValues(alpha: 0.6)..strokeWidth = 1);
+    }
+
+    if (lufsHistory.isEmpty) return;
+
+    final sampleW = size.width / 300;
+    final startX = size.width - lufsHistory.length * sampleW;
+
+    // Draw 3 LUFS curves: Momentary, Short-term, Integrated
+    void drawCurve(Color color, double Function(int i) getValue, double width, double alpha) {
+      final path = Path();
+      var started = false;
+      for (var i = 0; i < lufsHistory.length; i++) {
+        final x = startX + i * sampleW;
+        if (x < 0) continue;
+        final v = getValue(i);
+        if (v < -100) continue;
+        final y = (size.height * (1 - (v - minLufs) / range)).clamp(0.0, size.height);
+        if (!started) { path.moveTo(x, y); started = true; }
+        else path.lineTo(x, y);
+      }
+      if (started) {
+        canvas.drawPath(path, Paint()
+          ..color = color.withValues(alpha: alpha)
+          ..strokeWidth = width
+          ..style = PaintingStyle.stroke);
+      }
+    }
+
+    // Momentary (blue, thin, full opacity)
+    drawCurve(FabFilterColors.blue, (i) => lufsHistory[i].$1, 1.0, 0.6);
+    // Short-term (cyan, medium)
+    drawCurve(FabFilterColors.cyan, (i) => lufsHistory[i].$2, 1.5, 0.8);
+    // Integrated (green, thick, bright)
+    drawCurve(FabFilterColors.green, (i) => lufsHistory[i].$3, 2.0, 1.0);
+
+    // Legend
+    final legendItems = [
+      ('MOM', FabFilterColors.blue),
+      ('S-T', FabFilterColors.cyan),
+      ('INT', FabFilterColors.green),
+    ];
+    var lx = 6.0;
+    for (final (label, color) in legendItems) {
+      canvas.drawLine(Offset(lx, 8), Offset(lx + 10, 8),
+        Paint()..color = color..strokeWidth = 1.5);
+      final pb = ui.ParagraphBuilder(ui.ParagraphStyle())
+        ..pushStyle(ui.TextStyle(color: color, fontSize: 7))
+        ..addText(label);
+      final p = pb.build()..layout(const ui.ParagraphConstraints(width: 24));
+      canvas.drawParagraph(p, Offset(lx + 12, 3));
+      lx += 38;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LufsTimelinePainter old) => true;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GR HISTOGRAM PAINTER — Distribution of gain reduction (L3)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _GrHistogramPainter extends CustomPainter {
+  final List<int> histogram;
+  final int total;
+
+  _GrHistogramPainter({required this.histogram, required this.total});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Glass background
+    canvas.drawRect(Offset.zero & size, Paint()
+      ..shader = ui.Gradient.linear(Offset.zero, Offset(0, size.height),
+        [const Color(0xFF0D0D12), const Color(0xFF08080C)]));
+
+    if (total == 0) {
+      // Empty state text
+      final pb = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: TextAlign.center))
+        ..pushStyle(ui.TextStyle(color: const Color(0xFF444455), fontSize: 10))
+        ..addText('GR Histogram — no data');
+      final p = pb.build()..layout(ui.ParagraphConstraints(width: size.width));
+      canvas.drawParagraph(p, Offset(0, size.height / 2 - 6));
+      return;
+    }
+
+    final maxCount = histogram.reduce(math.max);
+    if (maxCount == 0) return;
+
+    final barWidth = (size.width - 40) / 24;
+    const leftMargin = 30.0;
+    final barMaxH = size.height - 20;
+
+    // Grid
+    final gridPaint = Paint()..color = const Color(0xFF1A1A22)..strokeWidth = 0.5;
+    for (var i = 0; i < 5; i++) {
+      final y = 10 + barMaxH * i / 4;
+      canvas.drawLine(Offset(leftMargin, y), Offset(size.width - 10, y), gridPaint);
+    }
+
+    // Bars
+    for (var i = 0; i < 24; i++) {
+      final count = histogram[i];
+      if (count == 0) continue;
+      final barH = (count / maxCount) * barMaxH;
+      final x = leftMargin + i * barWidth;
+      final y = 10 + barMaxH - barH;
+
+      // Color gradient: green (0-3dB) → yellow (3-10dB) → red (10-24dB)
+      final t = i / 23.0;
+      final color = t < 0.15
+          ? FabFilterColors.green
+          : t < 0.45
+              ? Color.lerp(FabFilterColors.green, FabFilterColors.orange, (t - 0.15) / 0.3)!
+              : Color.lerp(FabFilterColors.orange, FabFilterColors.red, (t - 0.45) / 0.55)!;
+
+      final barRect = Rect.fromLTWH(x + 1, y, barWidth - 2, barH);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(barRect, const Radius.circular(1)),
+        Paint()..shader = ui.Gradient.linear(
+          Offset(x, y), Offset(x, y + barH),
+          [color, color.withValues(alpha: 0.3)],
+        ),
+      );
+      // Glow top edge
+      canvas.drawLine(Offset(x + 1, y), Offset(x + barWidth - 1, y),
+        Paint()..color = color..strokeWidth = 1
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5));
+    }
+
+    // dB labels along bottom
+    for (var i = 0; i < 24; i += 3) {
+      final x = leftMargin + i * barWidth;
+      final pb = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: TextAlign.center))
+        ..pushStyle(ui.TextStyle(color: const Color(0xFF555566), fontSize: 7))
+        ..addText('-$i');
+      final p = pb.build()..layout(ui.ParagraphConstraints(width: barWidth * 3));
+      canvas.drawParagraph(p, Offset(x - barWidth * 0.5, size.height - 12));
+    }
+
+    // % labels along left
+    for (var i = 0; i <= 4; i++) {
+      final pct = (i * 25).toString();
+      final y = 10 + barMaxH * (4 - i) / 4;
+      final pb = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: TextAlign.right))
+        ..pushStyle(ui.TextStyle(color: const Color(0xFF555566), fontSize: 7))
+        ..addText('$pct%');
+      final p = pb.build()..layout(const ui.ParagraphConstraints(width: 26));
+      canvas.drawParagraph(p, Offset(1, y - 5));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _GrHistogramPainter old) => true;
 }

@@ -1806,6 +1806,9 @@ impl InsertProcessor for CompressorWrapper {
                 CompressorType::Vca => 0.0,
                 CompressorType::Opto => 1.0,
                 CompressorType::Fet => 2.0,
+                CompressorType::VariMu => 3.0,
+                CompressorType::AllButtons => 4.0,
+                CompressorType::SslBus => 5.0,
             },
             8 => match left.character() {
                 CompressorCharacter::Off => 0.0,
@@ -1886,7 +1889,10 @@ impl InsertProcessor for CompressorWrapper {
                 let comp_type = match value as u8 {
                     0 => CompressorType::Vca,
                     1 => CompressorType::Opto,
-                    _ => CompressorType::Fet,
+                    2 => CompressorType::Fet,
+                    3 => CompressorType::VariMu,
+                    4 => CompressorType::AllButtons,
+                    _ => CompressorType::SslBus,
                 };
                 self.comp.set_type(comp_type);
             }
@@ -3098,7 +3104,7 @@ impl InsertProcessor for ReverbWrapper {
 
 // ============ Saturation (Saturn 2 class) ============
 
-use rf_dsp::delay::{DriveMode, LfoShape, ModTarget, PingPongDelay};
+use rf_dsp::delay::{DriveMode, LfoShape, ModTarget, PingPongDelay, StereoRouting, VintageMode};
 use rf_dsp::multiband::{CrossoverType, MultibandStereoImager};
 use rf_dsp::oversampling::OversampleFactor;
 use rf_dsp::saturation::{MultibandSaturator, OversampledSaturator, SaturationType as SatType};
@@ -3759,6 +3765,16 @@ impl InsertProcessor for MultibandSaturatorWrapper {
 /// --- D7 Analog Character ---
 ///  44: Vintage Mode          [0..4]        def 0 (Clean)
 ///  45: Vintage Amount (%)    [0..100]      def 50.0
+/// --- D5 Stereo & Spatial ---
+///  46: Stereo Routing        [0..4]        def 1 (PingPong)
+///  47: Cross-Feedback (%)    [0..100]      def 0.0
+///  48: Haas Delay (ms)       [0..30]       def 0.0
+///  49: Diffusion (%)         [0..100]      def 0.0
+/// --- D6 Freeze & Glitch ---
+///  50: Reverse (bool)        [0/1]         def 0
+///  51: Stutter (bool)        [0/1]         def 0
+///  52: Stutter Rate (ms)     [10..1000]    def 125.0
+///  53: Infinite FB (bool)    [0/1]         def 0
 ///
 /// Meter layout:
 ///   0: Input Peak L
@@ -3767,7 +3783,7 @@ impl InsertProcessor for MultibandSaturatorWrapper {
 ///   3: Output Peak R
 pub struct DelayWrapper {
     delay: PingPongDelay,
-    params: [f64; 46],
+    params: [f64; 58],
     sample_rate: f64,
     input_peak_l: f64,
     input_peak_r: f64,
@@ -3782,6 +3798,12 @@ pub struct DelayWrapper {
     freeze_buf_l: Vec<f64>,
     freeze_buf_r: Vec<f64>,
     freeze_write_pos: usize,
+    // D10.1: External sidechain for ducking
+    sidechain_enabled: bool,
+    sidechain_buf_l: Vec<f64>,
+    sidechain_buf_r: Vec<f64>,
+    // D10.2: MIDI trigger state
+    midi_trigger_pending: bool,
 }
 
 impl DelayWrapper {
@@ -3846,6 +3868,21 @@ impl DelayWrapper {
                 // D7 Vintage
                 0.0,    // 44: Vintage Mode (0=Clean)
                 50.0,   // 45: Vintage Amount %
+                // D5 Stereo
+                1.0,    // 46: Stereo Routing (1=PingPong)
+                0.0,    // 47: Cross-Feedback %
+                0.0,    // 48: Haas Delay ms
+                0.0,    // 49: Diffusion %
+                // D6 Freeze & Glitch
+                0.0,    // 50: Reverse off
+                0.0,    // 51: Stutter off
+                125.0,  // 52: Stutter Rate ms
+                0.0,    // 53: Infinite FB off
+                // D10 Advanced
+                0.0,    // 54: Sidechain Enabled
+                0.0,    // 55: MIDI Trigger mode (0=off, 1=freeze, 2=stutter, 3=reverse)
+                0.0,    // 56: Delay Smoothing (0-100%)
+                0.0,    // 57: reserved
             ],
             sample_rate,
             input_peak_l: 0.0,
@@ -3858,6 +3895,52 @@ impl DelayWrapper {
             freeze_buf_l: vec![0.0; freeze_len],
             freeze_buf_r: vec![0.0; freeze_len],
             freeze_write_pos: 0,
+            sidechain_enabled: false,
+            sidechain_buf_l: Vec::new(),
+            sidechain_buf_r: Vec::new(),
+            midi_trigger_pending: false,
+        }
+    }
+
+    /// D10.1: Feed external sidechain signal for ducking.
+    /// Call this BEFORE process_stereo each block.
+    pub fn feed_sidechain(&mut self, left: &[f64], right: &[f64]) {
+        self.sidechain_buf_l.clear();
+        self.sidechain_buf_l.extend_from_slice(left);
+        self.sidechain_buf_r.clear();
+        self.sidechain_buf_r.extend_from_slice(right);
+    }
+
+    /// D10.1: Enable/disable external sidechain
+    pub fn set_sidechain_enabled(&mut self, enabled: bool) {
+        self.sidechain_enabled = enabled;
+    }
+
+    /// D10.2: MIDI trigger — activate freeze/stutter/reverse based on mode param
+    pub fn midi_note_on(&mut self) {
+        self.midi_trigger_pending = true;
+    }
+
+    /// D10.2: MIDI note off — deactivate the triggered effect
+    pub fn midi_note_off(&mut self) {
+        let mode = self.params[55] as u8;
+        match mode {
+            1 => {
+                // Freeze off
+                self.frozen = false;
+                self.params[12] = 0.0;
+            }
+            2 => {
+                // Stutter off
+                self.delay.set_stutter(false, self.params[52]);
+                self.params[51] = 0.0;
+            }
+            3 => {
+                // Reverse off
+                self.delay.set_reverse(false);
+                self.params[50] = 0.0;
+            }
+            _ => {}
         }
     }
 }
@@ -3898,6 +3981,28 @@ impl DelayWrapper {
             14 => 0.375,  // 1/16D
             15 => 0.75,   // 1/8D
             _ => 1.0,
+        }
+    }
+
+    fn idx_to_stereo_routing(idx: u8) -> StereoRouting {
+        match idx {
+            0 => StereoRouting::Stereo,
+            1 => StereoRouting::PingPong,
+            2 => StereoRouting::CrossFeed,
+            3 => StereoRouting::DualMono,
+            4 => StereoRouting::MidSide,
+            _ => StereoRouting::PingPong,
+        }
+    }
+
+    fn idx_to_vintage_mode(idx: u8) -> VintageMode {
+        match idx {
+            0 => VintageMode::Clean,
+            1 => VintageMode::Tape,
+            2 => VintageMode::BBD,
+            3 => VintageMode::OilCan,
+            4 => VintageMode::LoFi,
+            _ => VintageMode::Clean,
         }
     }
 
@@ -3973,6 +4078,17 @@ impl InsertProcessor for DelayWrapper {
         let len = left.len().min(right.len());
         if len == 0 {
             return;
+        }
+
+        // D10.2: Process pending MIDI trigger
+        if self.midi_trigger_pending {
+            self.midi_trigger_pending = false;
+            match self.params[55] as u8 {
+                1 => { self.frozen = true; self.freeze_write_pos = 0; self.params[12] = 1.0; }
+                2 => { self.delay.set_stutter(true, self.params[52]); self.params[51] = 1.0; }
+                3 => { self.delay.set_reverse(true); self.params[50] = 1.0; }
+                _ => {}
+            }
         }
 
         // Input peak metering
@@ -4108,10 +4224,14 @@ impl InsertProcessor for DelayWrapper {
             }
         }
 
-        // Apply ducking
+        // Apply ducking (D10.1: use sidechain signal if available, else self-duck)
         if ducking_amount > 0.01 {
             for i in 0..len {
-                let input_level = (dry_l[i].abs() + dry_r[i].abs()) * 0.5;
+                let input_level = if self.sidechain_enabled && i < self.sidechain_buf_l.len() {
+                    (self.sidechain_buf_l[i].abs() + self.sidechain_buf_r[i].abs()) * 0.5
+                } else {
+                    (dry_l[i].abs() + dry_r[i].abs()) * 0.5
+                };
                 let att_coef = if input_level > self.ducking_env {
                     0.05
                 } else {
@@ -4206,6 +4326,18 @@ impl InsertProcessor for DelayWrapper {
         delay.set_lr_linked(self.params[11] > 0.5);
         delay.set_swing(self.params[43]);
         delay.set_tempo_sync(self.params[13] > 0.5);
+        // D7 vintage
+        delay.set_vintage_mode(Self::idx_to_vintage_mode(self.params[44] as u8));
+        delay.set_vintage_amount(self.params[45] / 100.0);
+        // D5 stereo
+        delay.set_stereo_routing(Self::idx_to_stereo_routing(self.params[46] as u8));
+        delay.set_cross_feedback(self.params[47] / 100.0);
+        delay.set_haas_ms(self.params[48]);
+        delay.set_diffusion(self.params[49] / 100.0);
+        // D6 freeze/glitch
+        delay.set_reverse(self.params[50] > 0.5);
+        delay.set_stutter(self.params[51] > 0.5, self.params[52]);
+        delay.set_infinite_feedback(self.params[53] > 0.5);
         self.delay = delay;
         self.rebuild_mod_routes();
         let freeze_len = (5.0 * sample_rate) as usize;
@@ -4214,15 +4346,15 @@ impl InsertProcessor for DelayWrapper {
     }
 
     fn num_params(&self) -> usize {
-        46
+        54
     }
 
     fn get_param(&self, index: usize) -> f64 {
-        if index < 46 { self.params[index] } else { 0.0 }
+        if index < 54 { self.params[index] } else { 0.0 }
     }
 
     fn set_param(&mut self, index: usize, value: f64) {
-        if index >= 46 {
+        if index >= 58 {
             return;
         }
         self.params[index] = value;
@@ -4516,11 +4648,85 @@ impl InsertProcessor for DelayWrapper {
                 // Vintage Mode (0=Clean, 1=Tape, 2=BBD, 3=OilCan, 4=LoFi)
                 let v = (value as u8).min(4);
                 self.params[44] = v as f64;
+                self.delay.set_vintage_mode(Self::idx_to_vintage_mode(v));
             }
             45 => {
                 // Vintage Amount %
                 let v = value.clamp(0.0, 100.0);
                 self.params[45] = v;
+                self.delay.set_vintage_amount(v / 100.0);
+            }
+            // === D5 Stereo & Spatial ===
+            46 => {
+                // Stereo Routing (0=Stereo, 1=PingPong, 2=CrossFeed, 3=DualMono, 4=MidSide)
+                let v = (value as u8).min(4);
+                self.params[46] = v as f64;
+                self.delay.set_stereo_routing(Self::idx_to_stereo_routing(v));
+            }
+            47 => {
+                // Cross-Feedback %
+                let v = value.clamp(0.0, 100.0);
+                self.params[47] = v;
+                self.delay.set_cross_feedback(v / 100.0);
+            }
+            48 => {
+                // Haas Delay ms
+                let v = value.clamp(0.0, 30.0);
+                self.params[48] = v;
+                self.delay.set_haas_ms(v);
+            }
+            49 => {
+                // Diffusion %
+                let v = value.clamp(0.0, 100.0);
+                self.params[49] = v;
+                self.delay.set_diffusion(v / 100.0);
+            }
+            // === D6 Freeze & Glitch ===
+            50 => {
+                // Reverse
+                let on = value > 0.5;
+                self.params[50] = if on { 1.0 } else { 0.0 };
+                self.delay.set_reverse(on);
+            }
+            51 => {
+                // Stutter
+                let on = value > 0.5;
+                self.params[51] = if on { 1.0 } else { 0.0 };
+                self.delay.set_stutter(on, self.params[52]);
+            }
+            52 => {
+                // Stutter Rate ms
+                let v = value.clamp(10.0, 1000.0);
+                self.params[52] = v;
+                if self.params[51] > 0.5 {
+                    self.delay.set_stutter(true, v);
+                }
+            }
+            53 => {
+                // Infinite Feedback
+                let on = value > 0.5;
+                self.params[53] = if on { 1.0 } else { 0.0 };
+                self.delay.set_infinite_feedback(on);
+            }
+            // === D10 Advanced ===
+            54 => {
+                // Sidechain Enabled
+                let on = value > 0.5;
+                self.params[54] = if on { 1.0 } else { 0.0 };
+                self.sidechain_enabled = on;
+            }
+            55 => {
+                // MIDI Trigger Mode (0=off, 1=freeze, 2=stutter, 3=reverse)
+                let v = (value as u8).min(3);
+                self.params[55] = v as f64;
+            }
+            56 => {
+                // Delay Smoothing %
+                let v = value.clamp(0.0, 100.0);
+                self.params[56] = v;
+                // Map 0-100% to smoothing coefficient 0.0-0.9999
+                let coeff = v / 100.0 * 0.9999;
+                self.delay.set_delay_smoothing(coeff);
             }
             _ => {}
         }
@@ -4574,6 +4780,17 @@ impl InsertProcessor for DelayWrapper {
             43 => "Swing",
             44 => "Vintage Mode",
             45 => "Vintage Amount",
+            46 => "Stereo Routing",
+            47 => "Cross-Feedback",
+            48 => "Haas Delay",
+            49 => "Diffusion",
+            50 => "Reverse",
+            51 => "Stutter",
+            52 => "Stutter Rate",
+            53 => "Infinite FB",
+            54 => "Sidechain",
+            55 => "MIDI Trigger",
+            56 => "Smoothing",
             _ => "Unknown",
         }
     }
@@ -5760,8 +5977,8 @@ mod tests {
     fn test_compressor_wrapper_compressor_types() {
         let mut proc = create_processor_extended("compressor", 48000.0).unwrap();
 
-        // Test all compressor types: 0=VCA, 1=Opto, 2=FET
-        for type_idx in 0..3 {
+        // Test all compressor types: 0=VCA, 1=Opto, 2=FET, 3=VariMu, 4=AllButtons, 5=SslBus
+        for type_idx in 0..6 {
             proc.set_param(7, type_idx as f64);
             assert_eq!(
                 proc.get_param(7) as i32,

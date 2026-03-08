@@ -10073,6 +10073,38 @@ extension ProEqAPI on NativeFFI {
       Int32 Function(Uint32, Pointer<Double>, Pointer<Double>, Uint32),
       int Function(int, Pointer<Double>, Pointer<Double>, int)>('pro_eq_process');
 
+  // New EQ FFI lookups — oversampling, solo band, pre-spectrum, bass mono, room correction, FFT size
+  static final _proEqSetFftSize = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Uint32), int Function(int, int)>('pro_eq_set_fft_size');
+  static final _proEqSetOversampling = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Int32), int Function(int, int)>('pro_eq_set_oversampling');
+  static final _proEqSetSoloBand = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Int32), int Function(int, int)>('pro_eq_set_solo_band');
+  static final _proEqGetPreSpectrum = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Pointer<Float>, Uint32),
+      int Function(int, Pointer<Float>, int)>('pro_eq_get_pre_spectrum');
+  static final _bassMonoSetEnabled = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Int32), int Function(int, int)>('bass_mono_set_enabled');
+  static final _bassMonoSetFreq = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double), int Function(int, double)>('bass_mono_set_freq');
+  static final _roomCorrectionStartMeasurement = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Double), int Function(int, double)>('room_correction_start_measurement');
+  static final _roomCorrectionAnalyze = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32), int Function(int)>('room_correction_analyze');
+  static final _roomCorrectionGetModeCount = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32), int Function(int)>('room_correction_get_mode_count');
+  static final _roomCorrectionGetMode = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Uint32, Pointer<Double>, Pointer<Double>, Pointer<Double>, Pointer<Int32>),
+      int Function(int, int, Pointer<Double>, Pointer<Double>, Pointer<Double>, Pointer<Int32>)>('room_correction_get_mode');
+  static final _roomCorrectionGenerate = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Int32), int Function(int, int)>('room_correction_generate');
+  static final _roomCorrectionGetCurve = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Pointer<Double>, Uint32),
+      int Function(int, Pointer<Double>, int)>('room_correction_get_curve');
+  static final _roomCorrectionGetResponse = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Pointer<Double>, Uint32),
+      int Function(int, Pointer<Double>, int)>('room_correction_get_response');
+
   // ============================================================
   // PUBLIC API
   // ============================================================
@@ -10277,6 +10309,99 @@ extension ProEqAPI on NativeFFI {
     } finally {
       calloc.free(leftPtr);
       calloc.free(rightPtr);
+    }
+  }
+
+  // ── New EQ public methods ──
+
+  /// Set spectrum FFT size (8192, 16384, 32768)
+  bool proEqSetFftSize(int trackId, int fftSize) =>
+      _proEqSetFftSize(trackId, fftSize) == 1;
+
+  /// Set global oversampling mode (0=Off, 1=2x, 2=4x, 3=8x)
+  bool proEqSetOversampling(int trackId, int mode) =>
+      _proEqSetOversampling(trackId, mode.clamp(0, 3)) == 1;
+
+  /// Set solo band index (-1 = no solo)
+  bool proEqSetSoloBand(int trackId, int bandIndex) =>
+      _proEqSetSoloBand(trackId, bandIndex) == 1;
+
+  /// Get pre-EQ spectrum data (256 float values)
+  Float32List? proEqGetPreSpectrum(int trackId) {
+    final outData = calloc<Float>(256);
+    try {
+      final count = _proEqGetPreSpectrum(trackId, outData, 256);
+      if (count <= 0) return null;
+      return Float32List.fromList(outData.asTypedList(count));
+    } finally {
+      calloc.free(outData);
+    }
+  }
+
+  /// Enable/disable bass mono
+  bool bassMonoSetEnabled(int trackId, bool enabled) =>
+      _bassMonoSetEnabled(trackId, enabled ? 1 : 0) == 1;
+
+  /// Set bass mono crossover frequency (20-500 Hz)
+  bool bassMonoSetFreq(int trackId, double freq) =>
+      _bassMonoSetFreq(trackId, freq.clamp(20.0, 500.0)) == 1;
+
+  /// Start room measurement
+  bool roomCorrectionStartMeasurement(int trackId, {double sampleRate = 48000.0}) =>
+      _roomCorrectionStartMeasurement(trackId, sampleRate) == 1;
+
+  /// Analyze room measurement
+  int roomCorrectionAnalyze(int trackId) =>
+      _roomCorrectionAnalyze(trackId);
+
+  /// Get room mode count
+  int roomCorrectionGetModeCount(int trackId) =>
+      _roomCorrectionGetModeCount(trackId);
+
+  /// Get room mode info
+  ({double freq, double q, double mag, int type_})? roomCorrectionGetMode(int trackId, int modeIndex) {
+    final outFreq = calloc<Double>(1);
+    final outQ = calloc<Double>(1);
+    final outMag = calloc<Double>(1);
+    final outType = calloc<Int32>(1);
+    try {
+      if (_roomCorrectionGetMode(trackId, modeIndex, outFreq, outQ, outMag, outType) == 1) {
+        return (freq: outFreq.value, q: outQ.value, mag: outMag.value, type_: outType.value);
+      }
+      return null;
+    } finally {
+      calloc.free(outFreq);
+      calloc.free(outQ);
+      calloc.free(outMag);
+      calloc.free(outType);
+    }
+  }
+
+  /// Generate correction EQ (target: 0=Flat, 1=Harman, 2=B&K, 3=BBC, 4=XCurve)
+  int roomCorrectionGenerate(int trackId, int targetCurve) =>
+      _roomCorrectionGenerate(trackId, targetCurve);
+
+  /// Get correction curve (256 dB values)
+  Float64List? roomCorrectionGetCurve(int trackId, {int numPoints = 256}) {
+    final outData = calloc<Double>(numPoints);
+    try {
+      final count = _roomCorrectionGetCurve(trackId, outData, numPoints);
+      if (count <= 0) return null;
+      return Float64List.fromList(List.generate(count, (i) => outData[i]));
+    } finally {
+      calloc.free(outData);
+    }
+  }
+
+  /// Get room response curve (256 dB values)
+  Float64List? roomCorrectionGetResponse(int trackId, {int numPoints = 256}) {
+    final outData = calloc<Double>(numPoints);
+    try {
+      final count = _roomCorrectionGetResponse(trackId, outData, numPoints);
+      if (count <= 0) return null;
+      return Float64List.fromList(List.generate(count, (i) => outData[i]));
+    } finally {
+      calloc.free(outData);
     }
   }
 }

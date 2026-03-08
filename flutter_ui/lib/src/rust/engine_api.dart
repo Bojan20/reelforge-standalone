@@ -2086,6 +2086,151 @@ class EngineApi {
     return true;
   }
 
+  // ── New EQ methods ──
+
+  /// Set spectrum FFT size (8192, 16384, 32768)
+  bool proEqSetFftSize(String trackId, int fftSize) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqSetFftSize(nativeTrackId, fftSize);
+      }
+    }
+    return true;
+  }
+
+  /// Set global oversampling mode (0=Off, 1=2x, 2=4x, 3=8x)
+  bool proEqSetOversampling(String trackId, int mode) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqSetOversampling(nativeTrackId, mode);
+      }
+    }
+    return true;
+  }
+
+  /// Set solo band index (-1 = no solo)
+  bool proEqSetSoloBand(String trackId, int bandIndex) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqSetSoloBand(nativeTrackId, bandIndex);
+      }
+    }
+    return true;
+  }
+
+  /// Get pre-EQ spectrum data
+  Float32List? proEqGetPreSpectrum(String trackId) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.proEqGetPreSpectrum(nativeTrackId);
+      }
+    }
+    return null;
+  }
+
+  /// Enable/disable bass mono
+  bool bassMonoSetEnabled(String trackId, bool enabled) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.bassMonoSetEnabled(nativeTrackId, enabled);
+      }
+    }
+    return true;
+  }
+
+  /// Set bass mono crossover frequency
+  bool bassMonoSetFreq(String trackId, double freq) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.bassMonoSetFreq(nativeTrackId, freq);
+      }
+    }
+    return true;
+  }
+
+  /// Start room measurement
+  bool roomCorrectionStartMeasurement(String trackId, {double sampleRate = 48000.0}) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.roomCorrectionStartMeasurement(nativeTrackId, sampleRate: sampleRate);
+      }
+    }
+    return true;
+  }
+
+  /// Analyze room measurement
+  int roomCorrectionAnalyze(String trackId) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.roomCorrectionAnalyze(nativeTrackId);
+      }
+    }
+    return 0;
+  }
+
+  /// Get room mode count
+  int roomCorrectionGetModeCount(String trackId) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.roomCorrectionGetModeCount(nativeTrackId);
+      }
+    }
+    return 0;
+  }
+
+  /// Get room mode info
+  ({double freq, double q, double mag, int type_})? roomCorrectionGetMode(String trackId, int modeIndex) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.roomCorrectionGetMode(nativeTrackId, modeIndex);
+      }
+    }
+    return null;
+  }
+
+  /// Generate correction EQ
+  int roomCorrectionGenerate(String trackId, int targetCurve) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.roomCorrectionGenerate(nativeTrackId, targetCurve);
+      }
+    }
+    return 0;
+  }
+
+  /// Get correction curve
+  Float64List? roomCorrectionGetCurve(String trackId, {int numPoints = 256}) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.roomCorrectionGetCurve(nativeTrackId, numPoints: numPoints);
+      }
+    }
+    return null;
+  }
+
+  /// Get room response curve
+  Float64List? roomCorrectionGetResponse(String trackId, {int numPoints = 256}) {
+    if (!_useMock) {
+      final nativeTrackId = _trackIdToNative(trackId);
+      if (nativeTrackId != null) {
+        return _ffi.roomCorrectionGetResponse(nativeTrackId, numPoints: numPoints);
+      }
+    }
+    return null;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // PDC (PLUGIN DELAY COMPENSATION)
   // ═══════════════════════════════════════════════════════════════════════════

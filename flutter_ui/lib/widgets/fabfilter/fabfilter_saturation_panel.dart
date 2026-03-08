@@ -68,6 +68,117 @@ const _satTypeColors = [
 /// Crossover type names
 const _crossoverLabels = ['BW12', 'LR24', 'LR48'];
 
+/// Factory preset for saturator
+class _SatPreset {
+  final String name;
+  final String category;
+  final double inputGain;
+  final double outputGain;
+  final double globalMix;
+  final int numBands;
+  final int crossoverType;
+  final List<double> crossovers;
+  final List<(double drive, int type, double tone, double mix)> bands;
+
+  const _SatPreset({
+    required this.name,
+    required this.category,
+    this.inputGain = 0,
+    this.outputGain = 0,
+    this.globalMix = 100,
+    this.numBands = 2,
+    this.crossoverType = 1,
+    this.crossovers = const [800, 4000, 8000, 12000, 16000],
+    this.bands = const [],
+  });
+}
+
+const _kSatPresets = <_SatPreset>[
+  // ── Subtle ──
+  _SatPreset(name: 'Warm Tape', category: 'Subtle',
+    inputGain: 0, outputGain: 0, globalMix: 60, numBands: 2, crossoverType: 1,
+    crossovers: [800, 4000, 8000, 12000, 16000],
+    bands: [(6, 0, 20, 80), (-2, 0, -10, 50)]),
+  _SatPreset(name: 'Tube Glow', category: 'Subtle',
+    inputGain: 0, outputGain: -1, globalMix: 50, numBands: 2,
+    crossovers: [1000, 4000, 8000, 12000, 16000],
+    bands: [(4, 1, 0, 70), (2, 1, 10, 40)]),
+  _SatPreset(name: 'Console Drive', category: 'Subtle',
+    inputGain: 0, outputGain: -2, globalMix: 40, numBands: 3,
+    crossovers: [250, 3000, 8000, 12000, 16000],
+    bands: [(3, 2, -5, 50), (5, 2, 0, 60), (2, 2, 10, 40)]),
+  // ── Warm ──
+  _SatPreset(name: 'Analog Warmth', category: 'Warm',
+    inputGain: 2, outputGain: -2, globalMix: 70, numBands: 2,
+    crossovers: [600, 4000, 8000, 12000, 16000],
+    bands: [(8, 0, 15, 80), (4, 1, -5, 60)]),
+  _SatPreset(name: 'Vintage Tape', category: 'Warm',
+    inputGain: 3, outputGain: -3, globalMix: 80, numBands: 3,
+    crossovers: [200, 4000, 8000, 12000, 16000],
+    bands: [(10, 0, 30, 90), (6, 0, 0, 70), (3, 0, -20, 50)]),
+  _SatPreset(name: 'Neve Preamp', category: 'Warm',
+    inputGain: 2, outputGain: -1, globalMix: 60, numBands: 2,
+    crossovers: [1200, 4000, 8000, 12000, 16000],
+    bands: [(7, 2, 10, 75), (3, 2, 5, 50)]),
+  // ── Aggressive ──
+  _SatPreset(name: 'Crunch', category: 'Aggressive',
+    inputGain: 6, outputGain: -4, globalMix: 80, numBands: 3,
+    crossovers: [300, 3000, 8000, 12000, 16000],
+    bands: [(12, 4, 0, 90), (18, 4, 10, 80), (8, 3, -10, 60)]),
+  _SatPreset(name: 'Fuzz Box', category: 'Aggressive',
+    inputGain: 8, outputGain: -6, globalMix: 100, numBands: 2,
+    crossovers: [500, 4000, 8000, 12000, 16000],
+    bands: [(24, 5, -20, 100), (20, 5, 0, 80)]),
+  _SatPreset(name: 'Distortion', category: 'Aggressive',
+    inputGain: 10, outputGain: -8, globalMix: 90, numBands: 2,
+    crossovers: [400, 4000, 8000, 12000, 16000],
+    bands: [(30, 4, 10, 100), (22, 4, -10, 80)]),
+  // ── Creative ──
+  _SatPreset(name: 'Lo-Fi Vinyl', category: 'Creative',
+    inputGain: 0, outputGain: 0, globalMix: 50, numBands: 3,
+    crossovers: [200, 6000, 8000, 12000, 16000],
+    bands: [(8, 0, 30, 60), (4, 3, 0, 40), (2, 3, -40, 30)]),
+  _SatPreset(name: 'Bitcrusher', category: 'Creative',
+    inputGain: 4, outputGain: -3, globalMix: 70, numBands: 2,
+    crossovers: [1000, 4000, 8000, 12000, 16000],
+    bands: [(20, 5, 0, 80), (16, 5, 20, 60)]),
+  _SatPreset(name: 'Parallel Warmth', category: 'Creative',
+    inputGain: 0, outputGain: 0, globalMix: 30, numBands: 4,
+    crossovers: [150, 800, 5000, 12000, 16000],
+    bands: [(12, 0, 20, 100), (8, 1, 5, 80), (6, 2, 0, 60), (3, 3, -10, 40)]),
+  // ── Drums ──
+  _SatPreset(name: 'Drum Punch', category: 'Drums',
+    inputGain: 3, outputGain: -2, globalMix: 70, numBands: 3,
+    crossovers: [250, 5000, 8000, 12000, 16000],
+    bands: [(10, 4, 0, 80), (6, 2, 10, 60), (4, 3, -5, 50)]),
+  _SatPreset(name: 'Kick Thump', category: 'Drums',
+    inputGain: 4, outputGain: -3, globalMix: 80, numBands: 2,
+    crossovers: [300, 4000, 8000, 12000, 16000],
+    bands: [(14, 0, 30, 90), (2, 3, -20, 30)]),
+  // ── Bass ──
+  _SatPreset(name: 'Bass Growl', category: 'Bass',
+    inputGain: 5, outputGain: -4, globalMix: 70, numBands: 3,
+    crossovers: [150, 2000, 8000, 12000, 16000],
+    bands: [(4, 0, 20, 60), (16, 4, 10, 90), (3, 3, -10, 40)]),
+  _SatPreset(name: 'Sub Warmth', category: 'Bass',
+    inputGain: 2, outputGain: -1, globalMix: 50, numBands: 2,
+    crossovers: [200, 4000, 8000, 12000, 16000],
+    bands: [(6, 1, 30, 70), (8, 2, 0, 60)]),
+  // ── Master ──
+  _SatPreset(name: 'Bus Glue', category: 'Master',
+    inputGain: 0, outputGain: -1, globalMix: 30, numBands: 3,
+    crossovers: [300, 4000, 8000, 12000, 16000],
+    bands: [(3, 0, 10, 50), (2, 1, 0, 40), (1, 3, -5, 30)]),
+  _SatPreset(name: 'Master Tape', category: 'Master',
+    inputGain: 0, outputGain: -2, globalMix: 40, numBands: 2,
+    crossovers: [600, 4000, 8000, 12000, 16000],
+    bands: [(5, 0, 15, 60), (3, 0, -10, 40)]),
+  _SatPreset(name: 'Loud & Proud', category: 'Master',
+    inputGain: 4, outputGain: -3, globalMix: 60, numBands: 3,
+    crossovers: [200, 5000, 8000, 12000, 16000],
+    bands: [(8, 0, 20, 80), (6, 4, 5, 70), (4, 3, -15, 50)]),
+];
+
 // ═══════════════════════════════════════════════════════════════════════════
 // A/B SNAPSHOT
 // ═══════════════════════════════════════════════════════════════════════════
@@ -115,6 +226,16 @@ class SaturationBandState {
   SaturationBandState copy() => SaturationBandState(
     drive: drive, type: type, tone: tone, mix: mix,
     output: output, dynamics: dynamics, solo: solo, mute: mute, bypass: bypass,
+  );
+
+  SaturationBandState copyWith({
+    double? drive, int? type, double? tone, double? mix,
+    double? output, double? dynamics, bool? solo, bool? mute, bool? bypass,
+  }) => SaturationBandState(
+    drive: drive ?? this.drive, type: type ?? this.type,
+    tone: tone ?? this.tone, mix: mix ?? this.mix,
+    output: output ?? this.output, dynamics: dynamics ?? this.dynamics,
+    solo: solo ?? this.solo, mute: mute ?? this.mute, bypass: bypass ?? this.bypass,
   );
 }
 
@@ -462,6 +583,30 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
         children: [
           // I/O meters (left)
           _buildMeterColumn(),
+          const SizedBox(width: 8),
+          // Transfer curve (mini)
+          SizedBox(
+            width: 60,
+            child: Column(
+              children: [
+                const FabSectionLabel('CURVE'),
+                const SizedBox(height: 2),
+                Expanded(
+                  child: Container(
+                    decoration: FabFilterDecorations.display(),
+                    clipBehavior: Clip.hardEdge,
+                    child: CustomPaint(
+                      painter: SatTransferCurvePainter(
+                        satType: band.type,
+                        drive: band.drive,
+                        color: _satTypeColors[band.type],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           const SizedBox(width: 8),
           // Per-band controls (center)
           Expanded(child: _buildBandControls(band)),
@@ -891,8 +1036,188 @@ class _FabFilterSaturationPanelState extends State<FabFilterSaturationPanel>
           Text('${_satTypeLabels[_bands[_selectedBand].type]} | B${_selectedBand + 1}/${_numBands}',
             style: FabFilterText.paramLabel.copyWith(fontSize: 8, color: _bandColor),
             overflow: TextOverflow.ellipsis),
+          const SizedBox(width: 8),
+          _buildPresetButton(),
         ],
       ),
     );
   }
+
+  Widget _buildPresetButton() {
+    final categories = <String, List<_SatPreset>>{};
+    for (final p in _kSatPresets) {
+      categories.putIfAbsent(p.category, () => []).add(p);
+    }
+    return PopupMenuButton<_SatPreset>(
+      onSelected: _loadPreset,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 120),
+      itemBuilder: (_) {
+        final items = <PopupMenuEntry<_SatPreset>>[];
+        for (final entry in categories.entries) {
+          items.add(PopupMenuItem<_SatPreset>(
+            enabled: false, height: 22,
+            child: Text(entry.key.toUpperCase(),
+              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold,
+                color: FabFilterColors.orange.withValues(alpha: 0.6))),
+          ));
+          for (final p in entry.value) {
+            items.add(PopupMenuItem(value: p, height: 28,
+              child: Text(p.name, style: const TextStyle(fontSize: 11))));
+          }
+        }
+        return items;
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        decoration: BoxDecoration(
+          color: FabFilterColors.bgSurface,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: FabFilterColors.borderMedium),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.library_music, size: 9, color: FabFilterColors.textTertiary),
+            const SizedBox(width: 2),
+            Text('PRESET', style: TextStyle(
+              color: FabFilterColors.textTertiary, fontSize: 7, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _loadPreset(_SatPreset p) {
+    setState(() {
+      _inputGain = p.inputGain;
+      _outputGain = p.outputGain;
+      _globalMix = p.globalMix;
+      _numBands = p.numBands;
+      _crossoverType = p.crossoverType;
+      for (var i = 0; i < 5; i++) {
+        _crossovers[i] = p.crossovers[i];
+      }
+      for (var b = 0; b < p.bands.length && b < 6; b++) {
+        final (drive, type, tone, mix) = p.bands[b];
+        _bands[b] = _bands[b].copyWith(
+          drive: drive, type: type, tone: tone, mix: mix,
+        );
+      }
+    });
+    _applyAll();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TRANSFER CURVE PAINTER — Shows waveshaper shape per type (S6)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class SatTransferCurvePainter extends CustomPainter {
+  final int satType; // 0-5
+  final double drive; // dB
+  final Color color;
+
+  SatTransferCurvePainter({
+    required this.satType,
+    required this.drive,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Glass background
+    canvas.drawRect(Offset.zero & size, Paint()
+      ..color = const Color(0xFF0D0D12));
+
+    // Grid: ±1 range
+    final gridPaint = Paint()..color = const Color(0xFF1A1A22)..strokeWidth = 0.5;
+    canvas.drawLine(Offset(0, size.height / 2), Offset(size.width, size.height / 2), gridPaint);
+    canvas.drawLine(Offset(size.width / 2, 0), Offset(size.width / 2, size.height), gridPaint);
+    // Diagonal (1:1 line)
+    canvas.drawLine(Offset(0, size.height), Offset(size.width, 0),
+      Paint()..color = const Color(0xFF222230)..strokeWidth = 0.5);
+
+    final driveLinear = math.pow(10, drive / 20).toDouble();
+    final path = Path();
+    const steps = 100;
+
+    for (var i = 0; i <= steps; i++) {
+      final input = (i / steps) * 2.0 - 1.0; // -1 to +1
+      final driven = input * driveLinear;
+      final output = _waveshape(driven, satType);
+      final x = (i / steps) * size.width;
+      final y = size.height * (1 - (output + 1) / 2);
+      final yc = y.clamp(0.0, size.height);
+      if (i == 0) path.moveTo(x, yc); else path.lineTo(x, yc);
+    }
+
+    // Fill under curve
+    final fillPath = Path.from(path);
+    fillPath.lineTo(size.width, size.height);
+    fillPath.lineTo(0, size.height);
+    fillPath.close();
+    canvas.drawPath(fillPath, Paint()
+      ..color = color.withValues(alpha: 0.08));
+
+    // Curve stroke
+    canvas.drawPath(path, Paint()
+      ..color = color.withValues(alpha: 0.8)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke);
+  }
+
+  double _waveshape(double x, int type) {
+    return switch (type) {
+      0 => _tape(x),
+      1 => _tube(x),
+      2 => _transistor(x),
+      3 => _softClip(x),
+      4 => _hardClip(x),
+      5 => _foldback(x),
+      _ => x.clamp(-1.0, 1.0),
+    };
+  }
+
+  double _tape(double x) {
+    // Tape: asymmetric tanh with 2nd harmonic
+    final s = x.sign;
+    final a = x.abs();
+    return s * (a / (1 + 0.3 * a)).clamp(-1.0, 1.0) + 0.05 * x * x.abs().clamp(0, 1);
+  }
+
+  double _tube(double x) {
+    // Tube: warm asymmetric, even harmonics
+    if (x >= 0) {
+      return (1 - math.exp(-x)).clamp(-1.0, 1.0);
+    } else {
+      return (-0.8 * (1 - math.exp(x))).clamp(-1.0, 1.0);
+    }
+  }
+
+  double _transistor(double x) {
+    // Transistor: symmetric cubic soft
+    return (1.5 * x - 0.5 * x * x * x).clamp(-1.0, 1.0);
+  }
+
+  double _softClip(double x) {
+    // Soft clip: tanh
+    return (x / (1 + x.abs())).clamp(-1.0, 1.0);
+  }
+
+  double _hardClip(double x) => x.clamp(-1.0, 1.0);
+
+  double _foldback(double x) {
+    // Foldback distortion
+    var y = x;
+    while (y > 1 || y < -1) {
+      if (y > 1) y = 2 - y;
+      if (y < -1) y = -2 - y;
+    }
+    return y;
+  }
+
+  @override
+  bool shouldRepaint(covariant SatTransferCurvePainter old) =>
+      old.satType != satType || old.drive != drive || old.color != color;
 }

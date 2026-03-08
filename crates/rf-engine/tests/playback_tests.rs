@@ -957,6 +957,9 @@ fn test_track_meter_decay() {
         rms_l: 0.5,
         rms_r: 0.4,
         correlation: 0.9,
+        lufs_momentary: -14.0,
+        lufs_short: -14.0,
+        lufs_integrated: -14.0,
     };
 
     meter.decay(0.5);

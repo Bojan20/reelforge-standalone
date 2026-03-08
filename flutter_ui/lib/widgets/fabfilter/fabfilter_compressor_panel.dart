@@ -1,12 +1,13 @@
 /// FF-C Compressor Panel — Pro-C 2 Ultimate
 ///
 /// Professional dynamics processor:
-/// - Glass transfer curve with animated knee region
-/// - Scrolling GR history with gradient waveforms
-/// - 14 compression styles with smooth switching
+/// - Glass transfer curve with animated knee region, ratio slope, range limit
+/// - Scrolling GR history with gradient waveforms, peak hold, RMS overlay
+/// - 16 compression styles (VCA/Opto/FET/VariMu/1176/SSL) with smooth switching
 /// - Character saturation (Tube / Diode / Bright)
-/// - Sidechain EQ with HP/LP/Mid controls
-/// - Real-time I/O + GR metering at 60fps
+/// - Sidechain EQ with HP/LP/Mid controls + filter response overlay
+/// - Real-time I/O + segmented GR metering + crest factor at 60fps
+/// - 20 factory presets across 8 categories
 
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -65,18 +66,23 @@ enum CompressionStyle {
   smooth('Smooth', Icons.blur_on),
   upward('Up', Icons.arrow_upward),
   ttm('TTM', Icons.bolt),
-  variMu('Vari', Icons.radio),
-  elOp('El-Op', Icons.wb_incandescent);
+  variMu('Vari-µ', Icons.radio),
+  elOp('El-Op', Icons.wb_incandescent),
+  allButtons('1176', Icons.grid_view),
+  sslBus('SSL', Icons.dashboard);
 
   final String label;
   final IconData icon;
   const CompressionStyle(this.label, this.icon);
 
-  /// Map to insert chain type (0=VCA, 1=Opto, 2=FET)
+  /// Map to insert chain type (0=VCA, 1=Opto, 2=FET, 3=VariMu, 4=AllButtons, 5=SSL)
   int get engineType => switch (this) {
     clean || classic || mastering || bus || versatile || upward => 0,
-    opto || vocal || smooth || variMu || elOp => 1,
+    opto || vocal || smooth || elOp => 1,
     punch || pumping || ttm => 2,
+    variMu => 3,
+    allButtons => 4,
+    sslBus => 5,
   };
 }
 
@@ -98,8 +104,91 @@ class _GrSample {
   final double input;
   final double output;
   final double gr;
-  const _GrSample(this.input, this.output, this.gr);
+  final double rmsLevel; // RMS level for overlay
+  const _GrSample(this.input, this.output, this.gr, [this.rmsLevel = -60.0]);
 }
+
+/// Compressor factory preset (C8.2)
+class _CompPreset {
+  final String name;
+  final String category;
+  final CompressionStyle style;
+  final double threshold, ratio, knee, attack, release, mix, output;
+  final CharacterMode character;
+  final double drive;
+  final int detection; // 0=Peak, 1=RMS, 2=Hybrid
+  final bool adaptiveRelease;
+
+  const _CompPreset(this.name, this.category, this.style, {
+    this.threshold = -18.0, this.ratio = 4.0, this.knee = 6.0,
+    this.attack = 10.0, this.release = 100.0, this.mix = 100.0,
+    this.output = 0.0, this.character = CharacterMode.off, this.drive = 0.0,
+    this.detection = 0, this.adaptiveRelease = false,
+  });
+}
+
+const _kCompPresets = <_CompPreset>[
+  // ── Vocal ──
+  _CompPreset('Vocal Gentle', 'Vocal', CompressionStyle.opto,
+    threshold: -22, ratio: 2.5, knee: 12, attack: 15, release: 150,
+    detection: 2, adaptiveRelease: true),
+  _CompPreset('Vocal Upfront', 'Vocal', CompressionStyle.vocal,
+    threshold: -18, ratio: 4, knee: 6, attack: 5, release: 80,
+    character: CharacterMode.tube, drive: 4),
+  _CompPreset('Vocal De-Ess', 'Vocal', CompressionStyle.clean,
+    threshold: -24, ratio: 6, knee: 3, attack: 0.5, release: 40),
+  // ── Drums ──
+  _CompPreset('Drum Bus Glue', 'Drums', CompressionStyle.sslBus,
+    threshold: -16, ratio: 4, knee: 6, attack: 30, release: 300,
+    detection: 2),
+  _CompPreset('Snare Punch', 'Drums', CompressionStyle.punch,
+    threshold: -20, ratio: 6, knee: 3, attack: 0.1, release: 50),
+  _CompPreset('Kick Control', 'Drums', CompressionStyle.allButtons,
+    threshold: -14, ratio: 8, knee: 0, attack: 0.5, release: 60),
+  _CompPreset('Room Crush', 'Drums', CompressionStyle.allButtons,
+    threshold: -30, ratio: 20, knee: 0, attack: 0.02, release: 30,
+    mix: 40, character: CharacterMode.tube, drive: 8),
+  // ── Bass ──
+  _CompPreset('Bass Smooth', 'Bass', CompressionStyle.opto,
+    threshold: -20, ratio: 3, knee: 12, attack: 20, release: 200),
+  _CompPreset('Bass Tight', 'Bass', CompressionStyle.punch,
+    threshold: -16, ratio: 5, knee: 3, attack: 2, release: 80),
+  // ── Mix Bus ──
+  _CompPreset('Mix Bus SSL', 'Mix Bus', CompressionStyle.sslBus,
+    threshold: -12, ratio: 2, knee: 6, attack: 30, release: 300,
+    detection: 2, adaptiveRelease: true),
+  _CompPreset('Mix Bus Gentle', 'Mix Bus', CompressionStyle.clean,
+    threshold: -16, ratio: 1.5, knee: 18, attack: 30, release: 400,
+    detection: 1),
+  _CompPreset('Mix Bus NY', 'Mix Bus', CompressionStyle.classic,
+    threshold: -25, ratio: 8, knee: 3, attack: 5, release: 100,
+    mix: 35, character: CharacterMode.tube, drive: 4),
+  // ── Master ──
+  _CompPreset('Master Transparent', 'Master', CompressionStyle.mastering,
+    threshold: -10, ratio: 1.5, knee: 12, attack: 30, release: 400,
+    detection: 1, adaptiveRelease: true),
+  _CompPreset('Master Warm', 'Master', CompressionStyle.variMu,
+    threshold: -14, ratio: 2, knee: 12, attack: 20, release: 300,
+    character: CharacterMode.tube, drive: 3),
+  // ── Creative ──
+  _CompPreset('Parallel Crush', 'Creative', CompressionStyle.allButtons,
+    threshold: -30, ratio: 20, knee: 0, attack: 0.1, release: 40,
+    mix: 30, character: CharacterMode.diode, drive: 12),
+  _CompPreset('Pumping', 'Creative', CompressionStyle.pumping,
+    threshold: -20, ratio: 8, knee: 0, attack: 0.5, release: 200),
+  _CompPreset('Tube Warmth', 'Creative', CompressionStyle.variMu,
+    threshold: -18, ratio: 3, knee: 12, attack: 15, release: 200,
+    character: CharacterMode.tube, drive: 6),
+  // ── Sidechain ──
+  _CompPreset('SC Ducking', 'Sidechain', CompressionStyle.clean,
+    threshold: -20, ratio: 8, knee: 3, attack: 1, release: 100),
+  // ── Surgical ──
+  _CompPreset('Surgical Peak', 'Surgical', CompressionStyle.clean,
+    threshold: -6, ratio: 10, knee: 0, attack: 0.02, release: 20),
+  _CompPreset('Tame Transients', 'Surgical', CompressionStyle.versatile,
+    threshold: -12, ratio: 3, knee: 6, attack: 0.1, release: 60,
+    detection: 0),
+];
 
 /// Snapshot for A/B comparison
 class CompressorSnapshot implements DspParameterSnapshot {
@@ -203,6 +292,13 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
   double _outputLevel = -60.0;
   double _grCurrent = 0.0;
   double _grPeakHold = 0.0;
+  int _grPeakHoldTimer = 0;
+  double _rmsLevel = -60.0;
+  double _rmsAccum = 0.0;
+  int _rmsCount = 0;
+  static const _rmsWindow = 10; // ~160ms at 60fps
+  double _crestFactor = 0.0; // peak-to-RMS ratio in dB
+  double _lufsApprox = -60.0; // approximated LUFS (RMS-based)
   final List<_GrSample> _grHistory = [];
   static const _maxHistory = 200;
 
@@ -363,6 +459,24 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
     _setParam(_P.knee, _knee);
   }
 
+  void _loadPreset(_CompPreset p) {
+    setState(() {
+      _threshold = p.threshold;
+      _ratio = p.ratio;
+      _knee = p.knee;
+      _attack = p.attack;
+      _release = p.release;
+      _mix = p.mix;
+      _output = p.output;
+      _style = p.style;
+      _character = p.character;
+      _drive = p.drive;
+      _detection = p.detection;
+      _adaptiveRelease = p.adaptiveRelease;
+    });
+    _applyAll();
+  }
+
   @override
   void storeStateA() { _snapshotA = _snap(); super.storeStateA(); }
   @override
@@ -400,9 +514,34 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
         assert(() { debugPrint('Compressor peak meter error: $e'); return true; }());
       }
 
-      if (_grCurrent.abs() > _grPeakHold.abs()) _grPeakHold = _grCurrent;
+      // Peak hold with 2s decay (120 frames at 60fps)
+      if (_grCurrent.abs() > _grPeakHold.abs()) {
+        _grPeakHold = _grCurrent;
+        _grPeakHoldTimer = 120;
+      } else if (_grPeakHoldTimer > 0) {
+        _grPeakHoldTimer--;
+      } else {
+        _grPeakHold = _grPeakHold * 0.95; // smooth decay
+      }
 
-      _grHistory.add(_GrSample(_inputLevel, _outputLevel, _grCurrent));
+      // RMS accumulation
+      final lin = _inputLevel > -60 ? math.pow(10, _inputLevel / 20) : 0.0;
+      _rmsAccum += lin * lin;
+      _rmsCount++;
+      if (_rmsCount >= _rmsWindow) {
+        final rmsLin = math.sqrt(_rmsAccum / _rmsCount);
+        _rmsLevel = rmsLin > 1e-10 ? 20.0 * math.log(rmsLin) / math.ln10 : -60.0;
+        _rmsAccum = 0.0;
+        _rmsCount = 0;
+
+        // Crest factor: peak - RMS (in dB)
+        _crestFactor = (_inputLevel - _rmsLevel).clamp(0.0, 30.0);
+
+        // LUFS approximation: RMS with K-weighting offset (~+0.7 dB for broadband)
+        _lufsApprox = _rmsLevel + 0.7;
+      }
+
+      _grHistory.add(_GrSample(_inputLevel, _outputLevel, _grCurrent, _rmsLevel));
       while (_grHistory.length > _maxHistory) _grHistory.removeAt(0);
     });
   }
@@ -481,6 +620,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                       knee: _knee,
                       currentInput: _inputLevel,
                       grAmount: _grCurrent,
+                      range: _range,
                     ),
                   ),
                 ),
@@ -535,9 +675,24 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                     painter: _GrHistoryPainter(
                       history: _grHistory,
                       threshold: _threshold,
+                      grPeakHold: _grPeakHold,
+                      range: _range,
+                      lookaheadMs: _lookahead,
                     ),
                   ),
                 ),
+                // SC filter response overlay
+                if (_scEnabled)
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _ScFilterResponsePainter(
+                        hpFreq: _scHpf,
+                        lpFreq: _scLpf,
+                        midFreq: _scMidFreq,
+                        midGain: _scMidGain,
+                      ),
+                    ),
+                  ),
                 // GR readout (bottom-right)
                 Positioned(
                   right: 4, bottom: 3,
@@ -721,15 +876,58 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
 
   Widget _buildMeters() {
     return SizedBox(
-      width: 44,
-      child: Row(
+      width: 52,
+      child: Column(
         children: [
-          _buildVerticalMeter('IN', _inputLevel, FabFilterColors.textSecondary),
-          const SizedBox(width: 2),
-          _buildVerticalMeter('OUT', _outputLevel, FabFilterColors.blue),
-          const SizedBox(width: 2),
-          _buildVerticalMeter('GR', _grCurrent,
-            FabFilterProcessorColors.compGainReduction, fromTop: true),
+          // Main meters row
+          Expanded(
+            child: Row(
+              children: [
+                _buildVerticalMeter('IN', _inputLevel, FabFilterColors.textSecondary),
+                const SizedBox(width: 2),
+                _buildVerticalMeter('OUT', _outputLevel, FabFilterColors.blue),
+                const SizedBox(width: 2),
+                _buildSegmentedGrMeter(),
+              ],
+            ),
+          ),
+          const SizedBox(height: 2),
+          // Crest + LUFS readout
+          Text(
+            'CF ${_crestFactor.toStringAsFixed(0)}',
+            style: TextStyle(
+              color: FabFilterColors.yellow.withValues(alpha: 0.7),
+              fontSize: 6, fontWeight: FontWeight.bold,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Segmented GR LED meter — Pro-C 2 style (C4.5)
+  Widget _buildSegmentedGrMeter() {
+    return Expanded(
+      child: Column(
+        children: [
+          Expanded(
+            child: Container(
+              width: 14,
+              decoration: BoxDecoration(
+                color: FabFilterColors.bgVoid,
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: CustomPaint(
+                painter: _SegmentedGrPainter(
+                  grDb: _grCurrent,
+                  peakHold: _grPeakHold,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text('GR', style: FabFilterText.paramLabel.copyWith(fontSize: 7)),
         ],
       ),
     );
@@ -854,6 +1052,14 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
               // Detection mode
               ..._detectionButtons(),
               const SizedBox(width: 6),
+              // NY compression shortcut (C7.4)
+              _toggle('NY', _mix > 20 && _mix < 80, FabFilterColors.orange, () {
+                setState(() {
+                  _mix = _mix > 20 && _mix < 80 ? 100.0 : 45.0;
+                });
+                _setParam(_P.mix, _mix / 100.0);
+              }),
+              const SizedBox(width: 2),
               _toggle('M/S', _midSide, FabFilterColors.purple, () {
                 setState(() => _midSide = !_midSide);
                 _setParam(_P.midSide, _midSide ? 1 : 0);
@@ -1015,7 +1221,67 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
               _setParam(_P.hostBpm, _hostBpm);
             }),
         ],
+        const Flexible(child: SizedBox(height: 4)),
+        // Preset browser (C8.2)
+        _buildPresetButton(),
       ],
+    );
+  }
+
+  Widget _buildPresetButton() {
+    // Group presets by category
+    final categories = <String, List<_CompPreset>>{};
+    for (final p in _kCompPresets) {
+      categories.putIfAbsent(p.category, () => []).add(p);
+    }
+
+    return PopupMenuButton<_CompPreset>(
+      onSelected: _loadPreset,
+      tooltip: 'Factory Presets',
+      offset: const Offset(0, 20),
+      color: const Color(0xFF1A1A22),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Container(
+        height: 20,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: widget.accentColor.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: widget.accentColor.withValues(alpha: 0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.library_music, size: 10, color: widget.accentColor),
+            const SizedBox(width: 3),
+            Text('PRE', style: TextStyle(
+              color: widget.accentColor, fontSize: 8, fontWeight: FontWeight.bold,
+            )),
+          ],
+        ),
+      ),
+      itemBuilder: (_) {
+        final items = <PopupMenuEntry<_CompPreset>>[];
+        for (final cat in categories.entries) {
+          // Category header
+          items.add(PopupMenuItem<_CompPreset>(
+            enabled: false, height: 20,
+            child: Text(cat.key.toUpperCase(), style: TextStyle(
+              color: widget.accentColor.withValues(alpha: 0.6),
+              fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1,
+            )),
+          ));
+          for (final p in cat.value) {
+            items.add(PopupMenuItem<_CompPreset>(
+              value: p, height: 28,
+              child: Text(p.name, style: const TextStyle(
+                color: Colors.white, fontSize: 11,
+              )),
+            ));
+          }
+        }
+        return items;
+      },
     );
   }
 }
@@ -1096,8 +1362,17 @@ class _VerticalMeterPainter extends CustomPainter {
 class _GrHistoryPainter extends CustomPainter {
   final List<_GrSample> history;
   final double threshold;
+  final double grPeakHold;
+  final double range;
+  final double lookaheadMs;
 
-  _GrHistoryPainter({required this.history, required this.threshold});
+  _GrHistoryPainter({
+    required this.history,
+    required this.threshold,
+    this.grPeakHold = 0.0,
+    this.range = -60.0,
+    this.lookaheadMs = 0.0,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1224,6 +1499,80 @@ class _GrHistoryPainter extends CustomPainter {
       ..color = FabFilterProcessorColors.compGainReduction
       ..strokeWidth = 0.8
       ..style = PaintingStyle.stroke);
+
+    // ── GR Peak Hold line (dashed yellow) ──
+    if (grPeakHold.abs() > 0.1) {
+      final phY = size.height * (grPeakHold.abs() / 40).clamp(0.0, 1.0);
+      final phPaint = Paint()
+        ..color = FabFilterColors.yellow.withValues(alpha: 0.6)
+        ..strokeWidth = 1;
+      // Draw dashed line
+      const dashLen = 4.0, gapLen = 3.0;
+      var dx = 0.0;
+      while (dx < size.width) {
+        final end = (dx + dashLen).clamp(0.0, size.width);
+        canvas.drawLine(Offset(dx, phY), Offset(end, phY), phPaint);
+        dx += dashLen + gapLen;
+      }
+    }
+
+    // ── Range limit line (if range > -60) ──
+    if (range > -59.0) {
+      final rangeGr = range.abs();
+      final rlY = size.height * (rangeGr / 40).clamp(0.0, 1.0);
+      canvas.drawLine(Offset(0, rlY), Offset(size.width, rlY), Paint()
+        ..color = FabFilterColors.red.withValues(alpha: 0.4)
+        ..strokeWidth = 1);
+      // Label
+      final builder = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: TextAlign.left))
+        ..pushStyle(ui.TextStyle(color: FabFilterColors.red.withValues(alpha: 0.5), fontSize: 6))
+        ..addText('RNG ${range.toStringAsFixed(0)}');
+      final para = builder.build()..layout(const ui.ParagraphConstraints(width: 40));
+      canvas.drawParagraph(para, Offset(2, rlY + 1));
+    }
+
+    // ── Look-ahead window indicator (C5.1) ──
+    if (lookaheadMs > 0.1) {
+      // lookahead = how many samples ahead the compressor "sees"
+      // At 60fps, 200 samples ≈ 3.3s, so 20ms ≈ ~1.2 samples in history
+      // Show as a cyan band at the right edge
+      final laWidth = (lookaheadMs / 20.0 * 15.0).clamp(3.0, 15.0);
+      final laRect = Rect.fromLTRB(
+        size.width - laWidth, 0, size.width, size.height,
+      );
+      canvas.drawRect(laRect, Paint()
+        ..color = FabFilterColors.cyan.withValues(alpha: 0.08));
+      canvas.drawLine(
+        Offset(size.width - laWidth, 0),
+        Offset(size.width - laWidth, size.height),
+        Paint()
+          ..color = FabFilterColors.cyan.withValues(alpha: 0.3)
+          ..strokeWidth = 0.8,
+      );
+      // "LA" label
+      final laBuilder = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: TextAlign.left))
+        ..pushStyle(ui.TextStyle(color: FabFilterColors.cyan.withValues(alpha: 0.5), fontSize: 6))
+        ..addText('LA');
+      final laPara = laBuilder.build()..layout(const ui.ParagraphConstraints(width: 15));
+      canvas.drawParagraph(laPara, Offset(size.width - laWidth + 1, size.height - 10));
+    }
+
+    // ── RMS overlay (thin green line) ──
+    final rmsLine = Path();
+    bool rmsStarted = false;
+    for (var i = 0; i < history.length; i++) {
+      final x = startX + i * sw;
+      final h = size.height * ((history[i].rmsLevel + 60) / 60).clamp(0.0, 1.0);
+      final y = size.height - h;
+      if (!rmsStarted) { rmsLine.moveTo(x, y); rmsStarted = true; }
+      else { rmsLine.lineTo(x, y); }
+    }
+    if (rmsStarted) {
+      canvas.drawPath(rmsLine, Paint()
+        ..color = FabFilterColors.green.withValues(alpha: 0.4)
+        ..strokeWidth = 1
+        ..style = PaintingStyle.stroke);
+    }
   }
 
   @override
@@ -1235,12 +1584,13 @@ class _GrHistoryPainter extends CustomPainter {
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _KneeCurvePainter extends CustomPainter {
-  final double threshold, ratio, knee, currentInput, grAmount;
+  final double threshold, ratio, knee, currentInput, grAmount, range;
 
   _KneeCurvePainter({
     required this.threshold, required this.ratio,
     required this.knee, required this.currentInput,
     this.grAmount = 0.0,
+    this.range = -60.0,
   });
 
   @override
@@ -1363,6 +1713,74 @@ class _KneeCurvePainter extends CustomPainter {
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke);
 
+    // ── Ratio slope line (above threshold) ──
+    // Shows the slope of compression: 1:ratio
+    if (ratio > 1.01) {
+      final slopeStartDb = threshold + (knee / 2);
+      final slopeStartX = size.width * ((slopeStartDb - minDb) / dbRange);
+      final slopeStartOutDb = _transferFunction(slopeStartDb);
+      final slopeStartY = size.height * (1 - (slopeStartOutDb - minDb) / dbRange);
+
+      // Extend slope line to edge of display
+      final slopeEndDb = maxDb;
+      final slopeEndX = size.width * ((slopeEndDb - minDb) / dbRange);
+      final slopeEndOutDb = _transferFunction(slopeEndDb);
+      final slopeEndY = size.height * (1 - (slopeEndOutDb - minDb) / dbRange);
+
+      // Dashed slope indicator
+      final slopePaint = Paint()
+        ..color = FabFilterProcessorColors.compAccent.withValues(alpha: 0.2)
+        ..strokeWidth = 0.8;
+      const dash = 3.0, gap = 2.0;
+      final dx = slopeEndX - slopeStartX;
+      final dy = slopeEndY - slopeStartY;
+      final len = math.sqrt(dx * dx + dy * dy);
+      if (len > 1) {
+        final ux = dx / len, uy = dy / len;
+        var d = 0.0;
+        while (d < len) {
+          final end = math.min(d + dash, len);
+          canvas.drawLine(
+            Offset(slopeStartX + ux * d, slopeStartY + uy * d),
+            Offset(slopeStartX + ux * end, slopeStartY + uy * end),
+            slopePaint,
+          );
+          d += dash + gap;
+        }
+      }
+
+      // Ratio label near slope
+      final ratioLabel = '1:${ratio.toStringAsFixed(ratio >= 10 ? 0 : 1)}';
+      final rBuilder = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: TextAlign.left))
+        ..pushStyle(ui.TextStyle(
+          color: FabFilterProcessorColors.compAccent.withValues(alpha: 0.4),
+          fontSize: 7,
+        ))
+        ..addText(ratioLabel);
+      final rPara = rBuilder.build()..layout(const ui.ParagraphConstraints(width: 30));
+      final midX = (slopeStartX + slopeEndX) / 2;
+      final midY = (slopeStartY + slopeEndY) / 2;
+      canvas.drawParagraph(rPara, Offset(midX + 4, midY - 4));
+    }
+
+    // ── Range limit line (horizontal) ──
+    if (range > -59.0) {
+      // Range limits max GR — show as horizontal line on output axis
+      // At any input, output can't go below input + range (range is negative)
+      final rangeOutDb = threshold + range; // approximate output floor
+      if (rangeOutDb > minDb) {
+        final rlY = size.height * (1 - (rangeOutDb - minDb) / dbRange);
+        canvas.drawLine(Offset(0, rlY), Offset(size.width, rlY), Paint()
+          ..color = FabFilterColors.red.withValues(alpha: 0.3)
+          ..strokeWidth = 1);
+        // Glow
+        canvas.drawLine(Offset(0, rlY), Offset(size.width, rlY), Paint()
+          ..color = FabFilterColors.red.withValues(alpha: 0.1)
+          ..strokeWidth = 3
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
+      }
+    }
+
     // ── Threshold marker ──
     final thX = size.width * ((threshold - minDb) / dbRange);
     // Dashed-style: subtle vertical line
@@ -1429,15 +1847,29 @@ class _KneeCurvePainter extends CustomPainter {
     final kneeStart = threshold - halfKnee;
     final kneeEnd = threshold + halfKnee;
 
+    double outDb;
     if (inDb < kneeStart) {
-      return inDb;
+      outDb = inDb;
     } else if (inDb > kneeEnd) {
-      return threshold + (inDb - threshold) / ratio;
+      outDb = threshold + (inDb - threshold) / ratio;
+    } else if (knee > 1e-6) {
+      // Quadratic knee interpolation (Pro-C 2 style)
+      final x = inDb - kneeStart;
+      final slope = 1.0 - 1.0 / ratio;
+      outDb = inDb - (slope * x * x) / (2.0 * knee);
     } else {
-      final kp = (inDb - kneeStart) / knee;
-      final ca = 1 + (1 / ratio - 1) * kp * kp;
-      return kneeStart + (inDb - kneeStart) * (1 + ca) / 2;
+      // Hard knee (knee ≈ 0): sharp transition at threshold
+      outDb = threshold + (inDb - threshold) / ratio;
     }
+
+    // Apply range limit (max GR clamp)
+    if (range > -59.0) {
+      final gr = inDb - outDb;
+      if (gr > range.abs()) {
+        outDb = inDb - range.abs();
+      }
+    }
+    return outDb;
   }
 
   void _drawText(Canvas canvas, String text, Offset pos, ui.TextStyle style) {
@@ -1452,5 +1884,149 @@ class _KneeCurvePainter extends CustomPainter {
   bool shouldRepaint(covariant _KneeCurvePainter old) =>
       old.threshold != threshold || old.ratio != ratio ||
       old.knee != knee || old.currentInput != currentInput ||
-      old.grAmount != grAmount;
+      old.grAmount != grAmount || old.range != range;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SC FILTER RESPONSE PAINTER — sidechain HP/LP/Mid frequency curve overlay
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _ScFilterResponsePainter extends CustomPainter {
+  final double hpFreq, lpFreq, midFreq, midGain;
+
+  _ScFilterResponsePainter({
+    required this.hpFreq, required this.lpFreq,
+    required this.midFreq, required this.midGain,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const minF = 20.0, maxF = 20000.0;
+    final logMin = math.log(minF), logMax = math.log(maxF);
+    final logRange = logMax - logMin;
+
+    // Compute composite SC filter response across frequency
+    const nPoints = 128;
+    final path = Path();
+    for (var i = 0; i < nPoints; i++) {
+      final t = i / (nPoints - 1);
+      final freq = math.exp(logMin + t * logRange);
+      final x = t * size.width;
+
+      // HP response (2nd order, 12dB/oct)
+      final hpRatio = freq / hpFreq;
+      final hpMag = hpRatio * hpRatio / math.sqrt(1 + hpRatio * hpRatio * hpRatio * hpRatio);
+      final hpDb = 20 * math.log(hpMag.clamp(1e-6, 10.0)) / math.ln10;
+
+      // LP response (2nd order, 12dB/oct)
+      final lpRatio = freq / lpFreq;
+      final lpMag = 1.0 / math.sqrt(1 + lpRatio * lpRatio * lpRatio * lpRatio);
+      final lpDb = 20 * math.log(lpMag.clamp(1e-6, 10.0)) / math.ln10;
+
+      // Mid peaking EQ response (approximate bell)
+      double midDb = 0.0;
+      if (midGain.abs() > 0.1) {
+        final relFreq = math.log(freq / midFreq);
+        final q = 1.0; // Q=1 as in DSP
+        final bandwidth = 1.0 / q;
+        final bellShape = math.exp(-0.5 * (relFreq / bandwidth) * (relFreq / bandwidth));
+        midDb = midGain * bellShape;
+      }
+
+      final totalDb = (hpDb + lpDb + midDb).clamp(-24.0, 12.0);
+      // Map dB to Y: center = 0dB at mid-height, ±24dB range
+      final y = size.height * (0.5 - totalDb / 48.0);
+
+      i == 0 ? path.moveTo(x, y) : path.lineTo(x, y);
+    }
+
+    // Glow
+    canvas.drawPath(path, Paint()
+      ..color = FabFilterColors.purple.withValues(alpha: 0.2)
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
+
+    // Core line
+    canvas.drawPath(path, Paint()
+      ..color = FabFilterColors.purple.withValues(alpha: 0.6)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke);
+
+    // SC label
+    final builder = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: TextAlign.left))
+      ..pushStyle(ui.TextStyle(
+        color: FabFilterColors.purple.withValues(alpha: 0.6),
+        fontSize: 7, fontWeight: ui.FontWeight.bold,
+      ))
+      ..addText('SC');
+    final para = builder.build()..layout(const ui.ParagraphConstraints(width: 20));
+    canvas.drawParagraph(para, Offset(size.width - 16, 2));
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScFilterResponsePainter old) =>
+      old.hpFreq != hpFreq || old.lpFreq != lpFreq ||
+      old.midFreq != midFreq || old.midGain != midGain;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SEGMENTED GR METER — Pro-C 2 style LED segments
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _SegmentedGrPainter extends CustomPainter {
+  final double grDb;
+  final double peakHold;
+
+  _SegmentedGrPainter({required this.grDb, this.peakHold = 0.0});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Segments: -1, -2, -3, -6, -10, -20 dB
+    const segments = [-1.0, -2.0, -3.0, -6.0, -10.0, -20.0];
+    final segH = size.height / segments.length;
+    final gap = 1.0;
+
+    for (var i = 0; i < segments.length; i++) {
+      final segDb = segments[i];
+      final y = i * segH + gap / 2;
+      final h = segH - gap;
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(1, y, size.width - 2, h),
+        const Radius.circular(1),
+      );
+
+      final active = grDb <= segDb;
+      final peakActive = peakHold <= segDb;
+
+      if (active) {
+        // Color by severity: green → yellow → orange → red
+        final severity = i / (segments.length - 1);
+        final color = Color.lerp(
+          FabFilterColors.green,
+          FabFilterProcessorColors.compGainReduction,
+          severity,
+        )!;
+        canvas.drawRRect(rect, Paint()..color = color);
+        // Glow
+        canvas.drawRRect(rect, Paint()
+          ..color = color.withValues(alpha: 0.4)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
+      } else if (peakActive) {
+        // Peak hold: dim outline
+        canvas.drawRRect(rect, Paint()
+          ..color = FabFilterColors.yellow.withValues(alpha: 0.3)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.5);
+      } else {
+        // Inactive segment
+        canvas.drawRRect(rect, Paint()
+          ..color = const Color(0xFF1A1A22));
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SegmentedGrPainter old) =>
+      old.grDb != grDb || old.peakHold != peakHold;
 }

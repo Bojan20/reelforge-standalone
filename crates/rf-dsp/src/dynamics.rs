@@ -432,6 +432,12 @@ pub enum CompressorType {
     Opto,
     /// FET compression - aggressive, punchy, adds harmonics
     Fet,
+    /// Variable-mu tube compression - ratio changes with input level
+    VariMu,
+    /// 1176 all-buttons mode - ultra-aggressive with distortion
+    AllButtons,
+    /// SSL bus compressor - VCA with auto-release and punch
+    SslBus,
 }
 
 /// Character saturation mode (Pro-C 2 style)
@@ -1298,6 +1304,158 @@ impl Compressor {
             saturated
         }
     }
+
+    /// VariMu compression — variable-mu tube topology (C3.2)
+    /// Ratio dynamically increases with input level (not fixed)
+    /// Inspired by Fairchild 670 / Manley Vari-Mu
+    #[inline]
+    fn process_varimu(&mut self, input: Sample) -> Sample {
+        let detection = self.get_detection_signal(input);
+        let filtered_detection = self.filter_sidechain(detection);
+        let envelope = self.detect_level(filtered_detection);
+
+        if envelope < 1e-10 {
+            return input;
+        }
+
+        let env_db = linear_to_db_fast(envelope);
+        self.update_auto_threshold(env_db);
+
+        let threshold = self.effective_threshold();
+        let over = (env_db - threshold).max(0.0);
+
+        // VariMu: ratio increases with input level (1.5:1 at threshold → 10:1 at +20dB over)
+        // The deeper into compression, the harder it pushes back
+        let dynamic_ratio = 1.5 + (over / 5.0).min(8.5);
+        let gr_db = over * (1.0 - 1.0 / dynamic_ratio);
+
+        let gr_db = self.apply_range(gr_db);
+
+        // Program-dependent release: heavier GR = slower release (tube capacitor behavior)
+        let release_mult = 1.0 + (gr_db / 10.0).min(3.0);
+        let base_release = if self.adaptive_release {
+            self.adaptive_release_ms()
+        } else {
+            self.release_ms
+        };
+        let release_coeff = (-1.0 / ((base_release * release_mult) * 0.001 * self.sample_rate)).exp();
+        let attack_coeff = (-1.0 / (self.attack_ms * 0.001 * self.sample_rate)).exp();
+
+        // Smooth the GR envelope (tubes are inherently sluggish)
+        let target_gr = gr_db;
+        let coeff = if target_gr > self.gain_reduction { attack_coeff } else { release_coeff };
+        self.gain_reduction = target_gr + coeff * (self.gain_reduction - target_gr);
+
+        let gain = db_to_linear_fast(-self.gain_reduction);
+
+        // Subtle 2nd harmonic warmth (tube coloration inherent to VariMu)
+        let out = input * gain;
+        let warmth = (self.gain_reduction / 20.0).min(0.15);
+        if warmth > 0.001 {
+            out + warmth * out * out.abs() * 0.5
+        } else {
+            out
+        }
+    }
+
+    /// 1176 All-Buttons mode (C3.3)
+    /// All ratio buttons pressed simultaneously = ultra-aggressive compression
+    /// Characteristic distortion and fast attack
+    #[inline]
+    fn process_all_buttons(&mut self, input: Sample) -> Sample {
+        let detection = self.get_detection_signal(input);
+        let filtered_detection = self.filter_sidechain(detection);
+        let envelope = self.detect_level(filtered_detection);
+
+        if envelope < 1e-10 {
+            return input;
+        }
+
+        let env_db = linear_to_db_fast(envelope);
+        self.update_auto_threshold(env_db);
+
+        let threshold = self.effective_threshold();
+
+        // All-buttons: effectively infinite ratio with soft limiting behavior
+        // The 1176 circuit goes into a unique nonlinear compression mode
+        let over = (env_db - threshold).max(0.0);
+
+        // Near-limiter ratio (~20:1) but with nonlinear curve
+        let gr_db = over * 0.95; // 20:1 equivalent
+
+        let gr_db = self.apply_range(gr_db);
+
+        // Ultra-fast attack (sub-millisecond, hardcoded)
+        let attack_coeff = (-1.0 / (0.02 * 0.001 * self.sample_rate)).exp();
+        let release_coeff = (-1.0 / (self.release_ms * 0.001 * self.sample_rate)).exp();
+
+        let coeff = if gr_db > self.gain_reduction { attack_coeff } else { release_coeff };
+        self.gain_reduction = gr_db + coeff * (self.gain_reduction - gr_db);
+
+        let gain = db_to_linear_fast(-self.gain_reduction);
+        let compressed = input * gain;
+
+        // All-buttons distortion: characteristic FET saturation + crossover distortion
+        let dist_amount = (self.gain_reduction / 10.0).min(0.5);
+        if dist_amount > 0.01 {
+            let drive = 1.0 + dist_amount * 3.0;
+            (compressed * drive).tanh() / drive.tanh()
+        } else {
+            compressed
+        }
+    }
+
+    /// SSL Bus Compressor emulation (C3.5)
+    /// VCA topology with auto-release curve and specific punch character
+    /// Inspired by SSL G-Master Buss Compressor
+    #[inline]
+    fn process_ssl_bus(&mut self, input: Sample) -> Sample {
+        let detection = self.get_detection_signal(input);
+        let filtered_detection = self.filter_sidechain(detection);
+        let envelope = self.detect_level(filtered_detection);
+
+        if envelope < 1e-10 {
+            return input;
+        }
+
+        let env_db = linear_to_db_fast(envelope);
+        self.update_auto_threshold(env_db);
+
+        let threshold = self.effective_threshold();
+        let half_knee = self.knee_db / 2.0;
+        let knee_start = threshold - half_knee;
+        let knee_end = threshold + half_knee;
+
+        let gr_db = if env_db < knee_start {
+            0.0
+        } else if env_db > knee_end {
+            (env_db - threshold) * (1.0 - 1.0 / self.ratio)
+        } else {
+            let x = env_db - knee_start;
+            let slope = 1.0 - 1.0 / self.ratio;
+            (slope * x * x) / (2.0 * self.knee_db.max(0.001))
+        };
+
+        let gr_db = self.apply_range(gr_db);
+
+        // SSL auto-release: dual time constant
+        // Fast release for transients, slow release for sustained material
+        let fast_release = 50.0_f64; // 50ms fast
+        let slow_release = self.release_ms.max(200.0); // user release as slow
+        let fast_coeff = (-1.0 / (fast_release * 0.001 * self.sample_rate)).exp();
+        let slow_coeff = (-1.0 / (slow_release * 0.001 * self.sample_rate)).exp();
+
+        // Blend: more GR = more slow release dominance (anti-pumping)
+        let sustained = (gr_db / 15.0).min(1.0);
+        let release_coeff = fast_coeff * (1.0 - sustained) + slow_coeff * sustained;
+
+        let attack_coeff = (-1.0 / (self.attack_ms * 0.001 * self.sample_rate)).exp();
+        let coeff = if gr_db > self.gain_reduction { attack_coeff } else { release_coeff };
+        self.gain_reduction = gr_db + coeff * (self.gain_reduction - gr_db);
+
+        let gain = db_to_linear_fast(-self.gain_reduction);
+        input * gain
+    }
 }
 
 impl Processor for Compressor {
@@ -1355,6 +1513,9 @@ impl MonoProcessor for Compressor {
             CompressorType::Vca => self.process_vca(delayed),
             CompressorType::Opto => self.process_opto(delayed),
             CompressorType::Fet => self.process_fet(delayed),
+            CompressorType::VariMu => self.process_varimu(delayed),
+            CompressorType::AllButtons => self.process_all_buttons(delayed),
+            CompressorType::SslBus => self.process_ssl_bus(delayed),
         };
 
         // Apply character saturation (Tube/Diode/Bright)
@@ -3468,6 +3629,9 @@ mod tests {
             CompressorType::Vca,
             CompressorType::Opto,
             CompressorType::Fet,
+            CompressorType::VariMu,
+            CompressorType::AllButtons,
+            CompressorType::SslBus,
         ] {
             let mut comp = Compressor::new(sample_rate);
             comp.set_type(comp_type);

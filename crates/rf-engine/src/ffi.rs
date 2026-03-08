@@ -11242,6 +11242,269 @@ pub extern "C" fn pro_eq_reset(track_id: u32) -> i32 {
     }
 }
 
+/// Set global oversampling mode for all bands
+/// mode: 0=Off, 1=2x, 2=4x, 3=8x
+#[unsafe(no_mangle)]
+pub extern "C" fn pro_eq_set_oversampling(track_id: u32, mode: i32) -> i32 {
+    let mut eqs = PRO_EQS.write();
+    if let Some(eq) = eqs.get_mut(&track_id) {
+        let os_mode = match mode {
+            0 => rf_dsp::eq_pro::OversampleMode::Off,
+            1 => rf_dsp::eq_pro::OversampleMode::X2,
+            2 => rf_dsp::eq_pro::OversampleMode::X4,
+            3 => rf_dsp::eq_pro::OversampleMode::X8,
+            _ => return 0,
+        };
+        eq.set_global_oversample(os_mode);
+        1
+    } else {
+        0
+    }
+}
+
+/// Set solo band index (-1 = no solo, 0..63 = solo that band)
+#[unsafe(no_mangle)]
+pub extern "C" fn pro_eq_set_solo_band(track_id: u32, band_index: i32) -> i32 {
+    let mut eqs = PRO_EQS.write();
+    if let Some(eq) = eqs.get_mut(&track_id) {
+        eq.solo_band = band_index;
+        // Solo the band in the actual processing: mute all except solo band
+        if band_index >= 0 {
+            let solo_idx = band_index as usize;
+            for i in 0..rf_dsp::PRO_EQ_MAX_BANDS {
+                if let Some(band) = eq.band_mut(i) {
+                    band.solo = i == solo_idx;
+                }
+            }
+        } else {
+            // Unsolo all
+            for i in 0..rf_dsp::PRO_EQ_MAX_BANDS {
+                if let Some(band) = eq.band_mut(i) {
+                    band.solo = false;
+                }
+            }
+        }
+        1
+    } else {
+        0
+    }
+}
+
+/// Set spectrum analyzer FFT size (8192, 16384, 32768)
+#[unsafe(no_mangle)]
+pub extern "C" fn pro_eq_set_fft_size(track_id: u32, fft_size: u32) -> i32 {
+    let mut eqs = PRO_EQS.write();
+    if let Some(eq) = eqs.get_mut(&track_id) {
+        eq.set_analyzer_fft_size(fft_size as usize);
+        1
+    } else {
+        0
+    }
+}
+
+/// Get pre-EQ spectrum data (256 float values)
+#[unsafe(no_mangle)]
+pub extern "C" fn pro_eq_get_pre_spectrum(track_id: u32, out_data: *mut f32, out_len: u32) -> i32 {
+    if out_data.is_null() || out_len < 256 {
+        return 0;
+    }
+
+    let eqs = PRO_EQS.read();
+    if let Some(eq) = eqs.get(&track_id) {
+        let spectrum = eq.get_pre_spectrum_data();
+        let len = spectrum.len().min(out_len as usize);
+        unsafe {
+            std::ptr::copy_nonoverlapping(spectrum.as_ptr(), out_data, len);
+        }
+        len as i32
+    } else {
+        0
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BASS MONO FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+lazy_static::lazy_static! {
+    static ref BASS_MONOS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::eq_stereo::BassMono>> =
+        parking_lot::RwLock::new(std::collections::HashMap::new());
+}
+
+/// Create or update bass mono for track
+#[unsafe(no_mangle)]
+pub extern "C" fn bass_mono_set_enabled(track_id: u32, enabled: i32) -> i32 {
+    let mut bms = BASS_MONOS.write();
+    if enabled != 0 {
+        bms.entry(track_id).or_insert_with(|| rf_dsp::eq_stereo::BassMono::new(48000.0));
+    } else {
+        bms.remove(&track_id);
+    }
+    1
+}
+
+/// Set bass mono crossover frequency
+#[unsafe(no_mangle)]
+pub extern "C" fn bass_mono_set_freq(track_id: u32, freq: f64) -> i32 {
+    let mut bms = BASS_MONOS.write();
+    if let Some(bm) = bms.get_mut(&track_id) {
+        bm.crossover_freq = freq.clamp(20.0, 500.0);
+        bm.update_coefficients();
+        1
+    } else {
+        0
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROOM CORRECTION FFI
+// ═══════════════════════════════════════════════════════════════════════════
+
+lazy_static::lazy_static! {
+    static ref ROOM_CORRECTIONS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::eq_room::RoomCorrectionEq>> =
+        parking_lot::RwLock::new(std::collections::HashMap::new());
+}
+
+/// Start room measurement (creates RoomCorrectionEq which owns a RoomMeasurement)
+#[unsafe(no_mangle)]
+pub extern "C" fn room_correction_start_measurement(track_id: u32, sample_rate: f64) -> i32 {
+    let correction = rf_dsp::eq_room::RoomCorrectionEq::new(sample_rate);
+    ROOM_CORRECTIONS.write().insert(track_id, correction);
+    1
+}
+
+/// Feed audio samples to room measurement
+#[unsafe(no_mangle)]
+pub extern "C" fn room_correction_feed_samples(track_id: u32, data: *const f64, len: u32) -> i32 {
+    if data.is_null() || len == 0 {
+        return 0;
+    }
+    let samples = unsafe { std::slice::from_raw_parts(data, len as usize) };
+    let mut corrections = ROOM_CORRECTIONS.write();
+    if let Some(c) = corrections.get_mut(&track_id) {
+        c.measurement.feed(samples);
+        1
+    } else {
+        0
+    }
+}
+
+/// Analyze room measurement and detect modes
+#[unsafe(no_mangle)]
+pub extern "C" fn room_correction_analyze(track_id: u32) -> i32 {
+    let mut corrections = ROOM_CORRECTIONS.write();
+    if let Some(c) = corrections.get_mut(&track_id) {
+        c.measurement.detect_modes();
+        c.measurement.room_modes.len() as i32
+    } else {
+        0
+    }
+}
+
+/// Get room mode count
+#[unsafe(no_mangle)]
+pub extern "C" fn room_correction_get_mode_count(track_id: u32) -> i32 {
+    let corrections = ROOM_CORRECTIONS.read();
+    if let Some(c) = corrections.get(&track_id) {
+        c.measurement.room_modes.len() as i32
+    } else {
+        0
+    }
+}
+
+/// Get room mode info: freq, Q, magnitude, type
+#[unsafe(no_mangle)]
+pub extern "C" fn room_correction_get_mode(
+    track_id: u32,
+    mode_index: u32,
+    out_freq: *mut f64,
+    out_q: *mut f64,
+    out_mag: *mut f64,
+    out_type: *mut i32,
+) -> i32 {
+    if out_freq.is_null() || out_q.is_null() || out_mag.is_null() || out_type.is_null() {
+        return 0;
+    }
+    let corrections = ROOM_CORRECTIONS.read();
+    if let Some(c) = corrections.get(&track_id) {
+        if let Some(mode) = c.measurement.room_modes.get(mode_index as usize) {
+            unsafe {
+                *out_freq = mode.frequency;
+                *out_q = mode.q;
+                *out_mag = mode.magnitude_db;
+                *out_type = match mode.mode_type {
+                    rf_dsp::eq_room::RoomModeType::Axial => 0,
+                    rf_dsp::eq_room::RoomModeType::Tangential => 1,
+                    rf_dsp::eq_room::RoomModeType::Oblique => 2,
+                };
+            }
+            1
+        } else {
+            0
+        }
+    } else {
+        0
+    }
+}
+
+/// Generate correction EQ from measurement
+#[unsafe(no_mangle)]
+pub extern "C" fn room_correction_generate(track_id: u32, target_curve: i32) -> i32 {
+    let mut corrections = ROOM_CORRECTIONS.write();
+    if let Some(c) = corrections.get_mut(&track_id) {
+        c.target = match target_curve {
+            0 => rf_dsp::eq_room::TargetCurve::Flat,
+            1 => rf_dsp::eq_room::TargetCurve::Harman,
+            2 => rf_dsp::eq_room::TargetCurve::BAndK,
+            3 => rf_dsp::eq_room::TargetCurve::BBC,
+            4 => rf_dsp::eq_room::TargetCurve::XCurve,
+            _ => rf_dsp::eq_room::TargetCurve::Flat,
+        };
+        c.generate_correction();
+        c.num_bands() as i32
+    } else {
+        0
+    }
+}
+
+/// Get correction curve (256 points, dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn room_correction_get_curve(track_id: u32, out_data: *mut f64, out_len: u32) -> i32 {
+    if out_data.is_null() || out_len == 0 {
+        return 0;
+    }
+    let corrections = ROOM_CORRECTIONS.read();
+    if let Some(c) = corrections.get(&track_id) {
+        let curve = c.get_correction_curve(out_len as usize);
+        let len = curve.len().min(out_len as usize);
+        unsafe {
+            std::ptr::copy_nonoverlapping(curve.as_ptr(), out_data, len);
+        }
+        len as i32
+    } else {
+        0
+    }
+}
+
+/// Get room response curve (256 points, dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn room_correction_get_response(track_id: u32, out_data: *mut f64, out_len: u32) -> i32 {
+    if out_data.is_null() || out_len == 0 {
+        return 0;
+    }
+    let corrections = ROOM_CORRECTIONS.read();
+    if let Some(c) = corrections.get(&track_id) {
+        let response = c.measurement.get_response_db();
+        let len = response.len().min(out_len as usize);
+        unsafe {
+            std::ptr::copy_nonoverlapping(response.as_ptr(), out_data, len);
+        }
+        len as i32
+    } else {
+        0
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ANALOG EQ FFI - Pultec, API 550, Neve 1073
 // ═══════════════════════════════════════════════════════════════════════════
@@ -12601,8 +12864,6 @@ pub extern "C" fn wavelet_cqt_destroy(track_id: u32) -> i32 {
 
 lazy_static::lazy_static! {
     static ref STEREO_EQS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::eq_stereo::StereoEq>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-    static ref BASS_MONOS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::eq_stereo::BassMono>> =
         parking_lot::RwLock::new(std::collections::HashMap::new());
 }
 
