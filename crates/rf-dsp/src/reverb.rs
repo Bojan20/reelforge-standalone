@@ -1357,15 +1357,120 @@ impl FeedbackAllpass {
     }
 }
 
-/// Single FDN delay line with multi-band decay + DC blocker + feedback allpass (R6.3)
+/// TDF-II biquad filter state for crossover (R4.4)
+/// Two cascaded sections = Linkwitz-Riley 12dB/oct (4th order)
+#[derive(Debug, Clone, Copy)]
+struct LR4State {
+    // First biquad section
+    s1_z1: f64,
+    s1_z2: f64,
+    // Second biquad section (cascade)
+    s2_z1: f64,
+    s2_z2: f64,
+}
+
+impl Default for LR4State {
+    fn default() -> Self {
+        Self { s1_z1: 0.0, s1_z2: 0.0, s2_z1: 0.0, s2_z2: 0.0 }
+    }
+}
+
+impl LR4State {
+    fn reset(&mut self) {
+        *self = Self::default();
+    }
+}
+
+/// Biquad coefficients (normalized: a0=1.0)
+#[derive(Debug, Clone, Copy)]
+struct BiquadCoeffs {
+    b0: f64, b1: f64, b2: f64,
+    a1: f64, a2: f64,
+}
+
+impl BiquadCoeffs {
+    /// Butterworth lowpass (2nd order) — cascade two for LR4
+    fn butterworth_lp(freq: f64, sample_rate: f64) -> Self {
+        let w0 = 2.0 * std::f64::consts::PI * freq / sample_rate;
+        let cos_w0 = w0.cos();
+        let sin_w0 = w0.sin();
+        let alpha = sin_w0 / (2.0 * std::f64::consts::FRAC_1_SQRT_2); // Q = 1/√2 for Butterworth
+        let a0 = 1.0 + alpha;
+        let b0 = ((1.0 - cos_w0) / 2.0) / a0;
+        let b1 = (1.0 - cos_w0) / a0;
+        let b2 = b0;
+        let a1 = (-2.0 * cos_w0) / a0;
+        let a2 = (1.0 - alpha) / a0;
+        Self { b0, b1, b2, a1, a2 }
+    }
+
+    /// Butterworth highpass (2nd order) — cascade two for LR4
+    fn butterworth_hp(freq: f64, sample_rate: f64) -> Self {
+        let w0 = 2.0 * std::f64::consts::PI * freq / sample_rate;
+        let cos_w0 = w0.cos();
+        let sin_w0 = w0.sin();
+        let alpha = sin_w0 / (2.0 * std::f64::consts::FRAC_1_SQRT_2);
+        let a0 = 1.0 + alpha;
+        let b0 = ((1.0 + cos_w0) / 2.0) / a0;
+        let b1 = (-(1.0 + cos_w0)) / a0;
+        let b2 = b0;
+        let a1 = (-2.0 * cos_w0) / a0;
+        let a2 = (1.0 - alpha) / a0;
+        Self { b0, b1, b2, a1, a2 }
+    }
+
+    /// Process one sample through TDF-II biquad section
+    #[inline(always)]
+    fn process_tdf2(self, input: f64, z1: &mut f64, z2: &mut f64) -> f64 {
+        let output = self.b0 * input + *z1;
+        *z1 = self.b1 * input - self.a1 * output + *z2;
+        *z2 = self.b2 * input - self.a2 * output;
+        output
+    }
+}
+
+/// 4-band crossover filter state per FDN delay line (R4.1/R4.4)
+/// 3 Linkwitz-Riley crossover points → 4 bands: Low, LowMid, HighMid, High
+#[derive(Debug, Clone)]
+struct CrossoverState {
+    // Crossover 1 (Low/LowMid split): LP + HP pair
+    xo1_lp: LR4State,
+    xo1_hp: LR4State,
+    // Crossover 2 (LowMid/HighMid split): LP + HP on HP1 output
+    xo2_lp: LR4State,
+    xo2_hp: LR4State,
+    // Crossover 3 (HighMid/High split): LP + HP on HP2 output
+    xo3_lp: LR4State,
+    xo3_hp: LR4State,
+}
+
+impl CrossoverState {
+    fn new() -> Self {
+        Self {
+            xo1_lp: LR4State::default(),
+            xo1_hp: LR4State::default(),
+            xo2_lp: LR4State::default(),
+            xo2_hp: LR4State::default(),
+            xo3_lp: LR4State::default(),
+            xo3_hp: LR4State::default(),
+        }
+    }
+
+    fn reset(&mut self) {
+        self.xo1_lp.reset(); self.xo1_hp.reset();
+        self.xo2_lp.reset(); self.xo2_hp.reset();
+        self.xo3_lp.reset(); self.xo3_hp.reset();
+    }
+}
+
+/// Single FDN delay line with 4-band decay + DC blocker + feedback allpass (R4/R6)
 #[derive(Debug, Clone)]
 struct FDNDelayLine {
     buffer: Vec<f64>,
     write_pos: usize,
     base_delay: usize,
-    // One-pole LP/HP for multi-band decay
-    lp_state: f64,
-    hp_state: f64,
+    // 4-band crossover state (R4.1/R4.4 — replaces old one-pole LP/HP)
+    crossover: CrossoverState,
     // DC blocker to prevent sub-bass buildup (rumble prevention)
     dc_prev_in: f64,
     dc_prev_out: f64,
@@ -1383,8 +1488,7 @@ impl FDNDelayLine {
             buffer: vec![0.0; buf_size],
             write_pos: 0,
             base_delay,
-            lp_state: 0.0,
-            hp_state: 0.0,
+            crossover: CrossoverState::new(),
             dc_prev_in: 0.0,
             dc_prev_out: 0.0,
             feedback_allpass: FeedbackAllpass::new(allpass_delay, 0.15),
@@ -1435,40 +1539,71 @@ impl FDNDelayLine {
         self.write_pos = (self.write_pos + 1) % self.buffer.len();
     }
 
-    /// Apply multi-band decay shaping inside feedback path
+    /// Apply 4-band decay shaping inside feedback path (R4.1-R4.4)
+    /// Linkwitz-Riley 12dB/oct crossover → 4 bands with independent decay multipliers
     #[inline(always)]
-    fn apply_decay_shaping(
+    fn apply_decay_shaping_4band(
         &mut self,
         sample: f64,
         base_feedback: f64,
         low_mult: f64,
+        lowmid_mult: f64,
+        highmid_mult: f64,
         high_mult: f64,
-        lp_coeff: f64,
-        hp_coeff: f64,
+        xo1_lp_coeffs: &BiquadCoeffs,
+        xo1_hp_coeffs: &BiquadCoeffs,
+        xo2_lp_coeffs: &BiquadCoeffs,
+        xo2_hp_coeffs: &BiquadCoeffs,
+        xo3_lp_coeffs: &BiquadCoeffs,
+        xo3_hp_coeffs: &BiquadCoeffs,
         freeze: bool,
     ) -> f64 {
-        // Band split using one-pole filters
-        // LP: extract low frequencies
-        self.lp_state += (sample - self.lp_state) * lp_coeff;
-        let low = self.lp_state;
+        // Crossover 1: split into low_band and rest
+        let low_band = {
+            let s = &mut self.crossover.xo1_lp;
+            let after_s1 = xo1_lp_coeffs.process_tdf2(sample, &mut s.s1_z1, &mut s.s1_z2);
+            xo1_lp_coeffs.process_tdf2(after_s1, &mut s.s2_z1, &mut s.s2_z2)
+        };
+        let rest1 = {
+            let s = &mut self.crossover.xo1_hp;
+            let after_s1 = xo1_hp_coeffs.process_tdf2(sample, &mut s.s1_z1, &mut s.s1_z2);
+            xo1_hp_coeffs.process_tdf2(after_s1, &mut s.s2_z1, &mut s.s2_z2)
+        };
 
-        // HP: extract high frequencies
-        self.hp_state += (sample - self.hp_state) * hp_coeff;
-        let high = sample - self.hp_state;
+        // Crossover 2: split rest1 into lowmid and rest2
+        let lowmid_band = {
+            let s = &mut self.crossover.xo2_lp;
+            let after_s1 = xo2_lp_coeffs.process_tdf2(rest1, &mut s.s1_z1, &mut s.s1_z2);
+            xo2_lp_coeffs.process_tdf2(after_s1, &mut s.s2_z1, &mut s.s2_z2)
+        };
+        let rest2 = {
+            let s = &mut self.crossover.xo2_hp;
+            let after_s1 = xo2_hp_coeffs.process_tdf2(rest1, &mut s.s1_z1, &mut s.s1_z2);
+            xo2_hp_coeffs.process_tdf2(after_s1, &mut s.s2_z1, &mut s.s2_z2)
+        };
 
-        // Mid = everything else
-        let mid = sample - low - high;
+        // Crossover 3: split rest2 into highmid and high
+        let highmid_band = {
+            let s = &mut self.crossover.xo3_lp;
+            let after_s1 = xo3_lp_coeffs.process_tdf2(rest2, &mut s.s1_z1, &mut s.s1_z2);
+            xo3_lp_coeffs.process_tdf2(after_s1, &mut s.s2_z1, &mut s.s2_z2)
+        };
+        let high_band = {
+            let s = &mut self.crossover.xo3_hp;
+            let after_s1 = xo3_hp_coeffs.process_tdf2(rest2, &mut s.s1_z1, &mut s.s1_z2);
+            xo3_hp_coeffs.process_tdf2(after_s1, &mut s.s2_z1, &mut s.s2_z2)
+        };
 
         // Apply per-band decay scaling
-        let shaped =
-            low * base_feedback * low_mult + mid * base_feedback + high * base_feedback * high_mult;
+        let shaped = low_band * base_feedback * low_mult
+            + lowmid_band * base_feedback * lowmid_mult
+            + highmid_band * base_feedback * highmid_mult
+            + high_band * base_feedback * high_mult;
 
-        // DC blocker (first-order high-pass @ ~5 Hz) — prevents sub-bass rumble buildup
-        // Bypassed in freeze mode to maintain energy
+        // DC blocker — bypassed in freeze mode
         if freeze {
             return shaped;
         }
-        // y[n] = x[n] - x[n-1] + R * y[n-1], R = 0.9995 (~5 Hz @ 48kHz)
         let dc_out = shaped - self.dc_prev_in + 0.9995 * self.dc_prev_out;
         self.dc_prev_in = shaped;
         self.dc_prev_out = dc_out;
@@ -1479,8 +1614,7 @@ impl FDNDelayLine {
     fn reset(&mut self) {
         self.buffer.fill(0.0);
         self.write_pos = 0;
-        self.lp_state = 0.0;
-        self.hp_state = 0.0;
+        self.crossover.reset();
         self.dc_prev_in = 0.0;
         self.dc_prev_out = 0.0;
         self.feedback_allpass.reset();
@@ -1548,9 +1682,13 @@ struct FDNCore {
     /// Combined modulation depth scale (0.0-0.01)
     mod_depth: f64,
     freeze: bool,
-    // Crossover coefficients for multi-band decay
-    lp_coeff: f64, // ~250 Hz
-    hp_coeff: f64, // ~4000 Hz
+    // 4-band Linkwitz-Riley crossover coefficients (R4.4)
+    xo1_lp: BiquadCoeffs, // Crossover 1 LP (Low/LowMid split)
+    xo1_hp: BiquadCoeffs, // Crossover 1 HP
+    xo2_lp: BiquadCoeffs, // Crossover 2 LP (LowMid/HighMid split)
+    xo2_hp: BiquadCoeffs, // Crossover 2 HP
+    xo3_lp: BiquadCoeffs, // Crossover 3 LP (HighMid/High split)
+    xo3_hp: BiquadCoeffs, // Crossover 3 HP
     // Chorus mode (R6.6): detuned read on lines 0 and 4 (or 0 and 2 for size=4)
     chorus_enabled: bool,
     chorus_depth_samples: f64, // Depth in samples (derived from ±cents)
@@ -1674,11 +1812,16 @@ impl FDNCore {
             MixingMatrix::Householder => build_householder_matrix(n),
         };
 
-        // Crossover filter coefficients
-        let lp_coeff = 1.0 - (-2.0 * std::f64::consts::PI * 250.0 / sample_rate).exp();
-        let hp_coeff = 1.0 - (-2.0 * std::f64::consts::PI * 4000.0 / sample_rate).exp();
+        // 4-band Linkwitz-Riley crossover coefficients (R4.4)
+        // Default crossover frequencies: 250 Hz, 2000 Hz, 8000 Hz
+        let xo1_lp = BiquadCoeffs::butterworth_lp(250.0, sample_rate);
+        let xo1_hp = BiquadCoeffs::butterworth_hp(250.0, sample_rate);
+        let xo2_lp = BiquadCoeffs::butterworth_lp(2000.0, sample_rate);
+        let xo2_hp = BiquadCoeffs::butterworth_hp(2000.0, sample_rate);
+        let xo3_lp = BiquadCoeffs::butterworth_lp(8000.0, sample_rate);
+        let xo3_hp = BiquadCoeffs::butterworth_hp(8000.0, sample_rate);
 
-        // Chorus LFO: ~1.5 Hz default, ±5 cents = ±0.29% pitch shift
+        // Chorus LFO: ~1.5 Hz default
         let chorus_increment = 2.0 * std::f64::consts::PI * 1.5 / sample_rate;
 
         Self {
@@ -1693,8 +1836,9 @@ impl FDNCore {
             wander_depth: 0.4,
             mod_depth: 0.002,
             freeze: false,
-            lp_coeff,
-            hp_coeff,
+            xo1_lp, xo1_hp,
+            xo2_lp, xo2_hp,
+            xo3_lp, xo3_hp,
             chorus_enabled: false,
             chorus_depth_samples: 0.0,
             chorus_phase: 0.0,
@@ -1732,6 +1876,19 @@ impl FDNCore {
             MixingMatrix::Hadamard => build_hadamard_matrix(self.active_size),
             MixingMatrix::Householder => build_householder_matrix(self.active_size),
         };
+    }
+
+    /// Update crossover frequencies (R4.2)
+    fn update_crossover_freqs(&mut self, freq1: f64, freq2: f64, freq3: f64, sample_rate: f64) {
+        let f1 = freq1.clamp(20.0, freq2 - 10.0);
+        let f2 = freq2.clamp(f1 + 10.0, freq3 - 10.0);
+        let f3 = freq3.clamp(f2 + 10.0, sample_rate * 0.45);
+        self.xo1_lp = BiquadCoeffs::butterworth_lp(f1, sample_rate);
+        self.xo1_hp = BiquadCoeffs::butterworth_hp(f1, sample_rate);
+        self.xo2_lp = BiquadCoeffs::butterworth_lp(f2, sample_rate);
+        self.xo2_hp = BiquadCoeffs::butterworth_hp(f2, sample_rate);
+        self.xo3_lp = BiquadCoeffs::butterworth_lp(f3, sample_rate);
+        self.xo3_hp = BiquadCoeffs::butterworth_hp(f3, sample_rate);
     }
 
     /// Adaptive feedback ceiling (R6.5)
@@ -1808,6 +1965,8 @@ impl FDNCore {
         left: f64,
         right: f64,
         low_mult: f64,
+        lowmid_mult: f64,
+        highmid_mult: f64,
         high_mult: f64,
         thickness: f64,
     ) -> (f64, f64) {
@@ -1882,13 +2041,16 @@ impl FDNCore {
             } else {
                 self.feedback_gains[i]
             };
-            let shaped = self.delay_lines[i].apply_decay_shaping(
+            let shaped = self.delay_lines[i].apply_decay_shaping_4band(
                 mixed[i],
                 fb,
                 low_mult * low_boost,
+                lowmid_mult,
+                highmid_mult,
                 high_mult,
-                self.lp_coeff,
-                self.hp_coeff,
+                &self.xo1_lp, &self.xo1_hp,
+                &self.xo2_lp, &self.xo2_hp,
+                &self.xo3_lp, &self.xo3_hp,
                 self.freeze,
             );
 
@@ -1990,7 +2152,7 @@ impl SelfDucker {
 /// Signal flow:
 ///   Input → PreDelay → EarlyReflections → Diffusion → FDN (4/8/16) → M/S Width → Dry/Wet Mix → Output
 ///
-/// 19 automatable parameters (indices 0-18)
+/// 24 automatable parameters (indices 0-23)
 #[derive(Debug, Clone)]
 pub struct AlgorithmicReverb {
     style: ReverbType,
@@ -2001,26 +2163,31 @@ pub struct AlgorithmicReverb {
     fdn: FDNCore,
     ducker: SelfDucker,
 
-    // Parameters (19 total)
+    // Parameters (24 total)
     space: f64,       // 0: Space (0.0-1.0)
     brightness: f64,  // 1: Brightness (0.0-1.0)
     width: f64,       // 2: Width (0.0-2.0)
     mix: f64,         // 3: Mix (0.0-1.0)
     predelay_ms: f64, // 4: PreDelay (0-500ms)
     // style is param 5
-    diffusion_param: f64, // 6: Diffusion (0.0-1.0)
-    distance: f64,        // 7: Distance (0.0-1.0)
-    decay: f64,           // 8: Decay (0.0-1.0)
-    low_decay_mult: f64,  // 9: Low Decay Mult (0.5-2.0)
-    high_decay_mult: f64, // 10: High Decay Mult (0.5-2.0)
-    character: f64,       // 11: Character (0.0-1.0)
-    thickness: f64,       // 12: Thickness (0.0-1.0)
-    ducking: f64,         // 13: Ducking (0.0-1.0)
-    freeze_param: bool,   // 14: Freeze (bool)
-    spin: f64,            // 15: Spin (0.0-1.0)
-    wander: f64,          // 16: Wander (0.0-1.0)
-    er_level: f64,        // 17: ER Level (0.0-1.0)
-    late_level: f64,      // 18: Late Level (0.0-1.0)
+    diffusion_param: f64,  // 6: Diffusion (0.0-1.0)
+    distance: f64,         // 7: Distance (0.0-1.0)
+    decay: f64,            // 8: Decay (0.0-1.0)
+    low_decay_mult: f64,   // 9: Low Decay Mult (0.5-2.0)
+    high_decay_mult: f64,  // 10: High Decay Mult (0.5-2.0)
+    character: f64,        // 11: Character (0.0-1.0)
+    thickness: f64,        // 12: Thickness (0.0-1.0)
+    ducking: f64,          // 13: Ducking (0.0-1.0)
+    freeze_param: bool,    // 14: Freeze (bool)
+    spin: f64,             // 15: Spin (0.0-1.0)
+    wander: f64,           // 16: Wander (0.0-1.0)
+    er_level: f64,         // 17: ER Level (0.0-1.0)
+    late_level: f64,       // 18: Late Level (0.0-1.0)
+    xo_freq_1: f64,        // 19: Crossover 1 freq Hz (20-2000, default 250)
+    xo_freq_2: f64,        // 20: Crossover 2 freq Hz (200-10000, default 2000)
+    xo_freq_3: f64,        // 21: Crossover 3 freq Hz (2000-20000, default 8000)
+    lowmid_decay_mult: f64, // 22: LowMid Decay Mult (0.5-2.0)
+    highmid_decay_mult: f64, // 23: HighMid Decay Mult (0.5-2.0)
 
     // PreDelay circular buffer
     predelay_buffer_l: Vec<Sample>,
@@ -2058,8 +2225,13 @@ impl AlgorithmicReverb {
             freeze_param: false,
             spin: 0.5,    // Default spin (maps to ~3 Hz)
             wander: 0.5,  // Default wander (maps to ~0.2 Hz)
-            er_level: 1.0,   // Full ER (0=off, 1=full)
-            late_level: 1.0, // Full late (0=off, 1=full)
+            er_level: 1.0,
+            late_level: 1.0,
+            xo_freq_1: 250.0,
+            xo_freq_2: 2000.0,
+            xo_freq_3: 8000.0,
+            lowmid_decay_mult: 1.0,
+            highmid_decay_mult: 1.0,
 
             predelay_buffer_l: vec![0.0; max_predelay.max(1)],
             predelay_buffer_r: vec![0.0; max_predelay.max(1)],
@@ -2090,6 +2262,11 @@ impl AlgorithmicReverb {
 
         // Decay
         self.fdn.update_decay(self.decay);
+
+        // 4-band crossover frequencies (R4.2)
+        self.fdn.update_crossover_freqs(
+            self.xo_freq_1, self.xo_freq_2, self.xo_freq_3, self.sample_rate,
+        );
 
         // Distance affects ER
         self.er_engine.update_distance(self.distance);
@@ -2254,6 +2431,34 @@ impl AlgorithmicReverb {
         self.late_level = level.clamp(0.0, 1.0);
     }
 
+    /// Crossover 1 frequency Hz (Low/LowMid split, 20-2000)
+    pub fn set_xo_freq_1(&mut self, freq: f64) {
+        self.xo_freq_1 = freq.clamp(20.0, 2000.0);
+        self.recalc_internals();
+    }
+
+    /// Crossover 2 frequency Hz (LowMid/HighMid split, 200-10000)
+    pub fn set_xo_freq_2(&mut self, freq: f64) {
+        self.xo_freq_2 = freq.clamp(200.0, 10000.0);
+        self.recalc_internals();
+    }
+
+    /// Crossover 3 frequency Hz (HighMid/High split, 2000-20000)
+    pub fn set_xo_freq_3(&mut self, freq: f64) {
+        self.xo_freq_3 = freq.clamp(2000.0, 20000.0);
+        self.recalc_internals();
+    }
+
+    /// LowMid decay multiplier (0.5-2.0)
+    pub fn set_lowmid_decay_mult(&mut self, mult: f64) {
+        self.lowmid_decay_mult = mult.clamp(0.5, 2.0);
+    }
+
+    /// HighMid decay multiplier (0.5-2.0)
+    pub fn set_highmid_decay_mult(&mut self, mult: f64) {
+        self.highmid_decay_mult = mult.clamp(0.5, 2.0);
+    }
+
     // ====================================================================
     // Getters
     // ====================================================================
@@ -2314,6 +2519,21 @@ impl AlgorithmicReverb {
     }
     pub fn late_level(&self) -> f64 {
         self.late_level
+    }
+    pub fn xo_freq_1(&self) -> f64 {
+        self.xo_freq_1
+    }
+    pub fn xo_freq_2(&self) -> f64 {
+        self.xo_freq_2
+    }
+    pub fn xo_freq_3(&self) -> f64 {
+        self.xo_freq_3
+    }
+    pub fn lowmid_decay_mult(&self) -> f64 {
+        self.lowmid_decay_mult
+    }
+    pub fn highmid_decay_mult(&self) -> f64 {
+        self.highmid_decay_mult
     }
 
     // ====================================================================
@@ -2397,22 +2617,26 @@ impl StereoProcessor for AlgorithmicReverb {
         // 3. Diffusion Stage (6 serial allpass)
         let (diff_l, diff_r) = self.diffusion.process(er_mix_l, er_mix_r);
 
-        // 4. FDN Core (configurable size, Hadamard/Householder matrix, velvet noise, allpass feedback)
+        // 4. FDN Core (configurable size, 4-band decay, allpass feedback)
         // In freeze mode, bypass all band-decay shaping to maintain energy
-        let (fdn_low_mult, fdn_high_mult, fdn_thickness) = if self.freeze_param {
-            (1.0, 1.0, 0.0)
+        let (fdn_low, fdn_lowmid, fdn_highmid, fdn_high, fdn_thickness) = if self.freeze_param {
+            (1.0, 1.0, 1.0, 1.0, 0.0)
         } else {
             let brightness_hf = 0.3 + self.brightness * 0.7;
             (
                 self.low_decay_mult,
+                self.lowmid_decay_mult,
+                self.highmid_decay_mult * brightness_hf,
                 self.high_decay_mult * brightness_hf,
                 self.thickness,
             )
         };
 
-        let (fdn_raw_l, fdn_raw_r) =
-            self.fdn
-                .process(diff_l, diff_r, fdn_low_mult, fdn_high_mult, fdn_thickness);
+        let (fdn_raw_l, fdn_raw_r) = self.fdn.process(
+            diff_l, diff_r,
+            fdn_low, fdn_lowmid, fdn_highmid, fdn_high,
+            fdn_thickness,
+        );
 
         // Apply late level to FDN output
         let fdn_l = fdn_raw_l * self.late_level;
@@ -2465,6 +2689,11 @@ impl ProcessorConfig for AlgorithmicReverb {
             self.wander = old.wander;
             self.er_level = old.er_level;
             self.late_level = old.late_level;
+            self.xo_freq_1 = old.xo_freq_1;
+            self.xo_freq_2 = old.xo_freq_2;
+            self.xo_freq_3 = old.xo_freq_3;
+            self.lowmid_decay_mult = old.lowmid_decay_mult;
+            self.highmid_decay_mult = old.highmid_decay_mult;
             self.set_predelay(old.predelay_ms);
             self.set_style(old.style); // Restore per-style ER pattern
             self.recalc_internals();
@@ -2536,27 +2765,32 @@ mod tests {
     fn test_fdn_parameter_sweep() {
         let mut reverb = AlgorithmicReverb::new(48000.0);
 
-        // Test all 19 params at 3 values each
-        let params_and_ranges: [(usize, f64, f64, f64); 19] = [
-            (0, 0.0, 0.5, 1.0),     // Space
-            (1, 0.0, 0.5, 1.0),     // Brightness
-            (2, 0.0, 1.0, 2.0),     // Width
-            (3, 0.0, 0.5, 1.0),     // Mix
-            (4, 0.0, 100.0, 500.0), // PreDelay
-            (5, 0.0, 2.0, 4.0),     // Style
-            (6, 0.0, 0.5, 1.0),     // Diffusion
-            (7, 0.0, 0.5, 1.0),     // Distance
-            (8, 0.0, 0.5, 1.0),     // Decay
-            (9, 0.5, 1.0, 2.0),     // LowDecayMult
-            (10, 0.5, 1.0, 2.0),    // HighDecayMult
-            (11, 0.0, 0.5, 1.0),    // Character
-            (12, 0.0, 0.5, 1.0),    // Thickness
-            (13, 0.0, 0.5, 1.0),    // Ducking
-            (14, 0.0, 0.0, 1.0),    // Freeze
-            (15, 0.0, 0.5, 1.0),    // Spin
-            (16, 0.0, 0.5, 1.0),    // Wander
-            (17, 0.0, 0.5, 1.0),    // ER Level
-            (18, 0.0, 0.5, 1.0),    // Late Level
+        // Test all 24 params at 3 values each
+        let params_and_ranges: [(usize, f64, f64, f64); 24] = [
+            (0, 0.0, 0.5, 1.0),         // Space
+            (1, 0.0, 0.5, 1.0),         // Brightness
+            (2, 0.0, 1.0, 2.0),         // Width
+            (3, 0.0, 0.5, 1.0),         // Mix
+            (4, 0.0, 100.0, 500.0),     // PreDelay
+            (5, 0.0, 2.0, 4.0),         // Style
+            (6, 0.0, 0.5, 1.0),         // Diffusion
+            (7, 0.0, 0.5, 1.0),         // Distance
+            (8, 0.0, 0.5, 1.0),         // Decay
+            (9, 0.5, 1.0, 2.0),         // LowDecayMult
+            (10, 0.5, 1.0, 2.0),        // HighDecayMult
+            (11, 0.0, 0.5, 1.0),        // Character
+            (12, 0.0, 0.5, 1.0),        // Thickness
+            (13, 0.0, 0.5, 1.0),        // Ducking
+            (14, 0.0, 0.0, 1.0),        // Freeze
+            (15, 0.0, 0.5, 1.0),        // Spin
+            (16, 0.0, 0.5, 1.0),        // Wander
+            (17, 0.0, 0.5, 1.0),        // ER Level
+            (18, 0.0, 0.5, 1.0),        // Late Level
+            (19, 80.0, 250.0, 800.0),   // XO Freq 1
+            (20, 500.0, 2000.0, 6000.0), // XO Freq 2
+            (21, 3000.0, 8000.0, 16000.0), // XO Freq 3
+            (22, 0.5, 1.0, 2.0),        // LowMid Decay Mult
+            (23, 0.5, 1.0, 2.0),        // HighMid Decay Mult
         ];
 
         for (idx, lo, mid, hi) in params_and_ranges {
@@ -2587,6 +2821,11 @@ mod tests {
                     16 => reverb.set_wander(val),
                     17 => reverb.set_er_level(val),
                     18 => reverb.set_late_level(val),
+                    19 => reverb.set_xo_freq_1(val),
+                    20 => reverb.set_xo_freq_2(val),
+                    21 => reverb.set_xo_freq_3(val),
+                    22 => reverb.set_lowmid_decay_mult(val),
+                    23 => reverb.set_highmid_decay_mult(val),
                     _ => {}
                 }
 

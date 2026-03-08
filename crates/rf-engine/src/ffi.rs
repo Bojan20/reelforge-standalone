@@ -9358,6 +9358,11 @@ pub extern "C" fn algorithmic_reverb_set_param(track_id: u32, param_index: u32, 
             16 => reverb.set_wander(value),
             17 => reverb.set_er_level(value),
             18 => reverb.set_late_level(value),
+            19 => reverb.set_xo_freq_1(value),
+            20 => reverb.set_xo_freq_2(value),
+            21 => reverb.set_xo_freq_3(value),
+            22 => reverb.set_lowmid_decay_mult(value),
+            23 => reverb.set_highmid_decay_mult(value),
             _ => {}
         }
         1
@@ -9366,7 +9371,7 @@ pub extern "C" fn algorithmic_reverb_set_param(track_id: u32, param_index: u32, 
     }
 }
 
-/// Get reverb parameter by index (0-18)
+/// Get reverb parameter by index (0-23)
 #[unsafe(no_mangle)]
 pub extern "C" fn algorithmic_reverb_get_param(track_id: u32, param_index: u32) -> f64 {
     use rf_dsp::reverb::ReverbType;
@@ -9404,6 +9409,11 @@ pub extern "C" fn algorithmic_reverb_get_param(track_id: u32, param_index: u32) 
             16 => reverb.wander(),
             17 => reverb.er_level(),
             18 => reverb.late_level(),
+            19 => reverb.xo_freq_1(),
+            20 => reverb.xo_freq_2(),
+            21 => reverb.xo_freq_3(),
+            22 => reverb.lowmid_decay_mult(),
+            23 => reverb.highmid_decay_mult(),
             _ => 0.0,
         }
     } else {

@@ -61,6 +61,11 @@ class _P {
   static const wander = 16;
   static const erLevel = 17;
   static const lateLevel = 18;
+  static const xoFreq1 = 19;
+  static const xoFreq2 = 20;
+  static const xoFreq3 = 21;
+  static const lowmidDecay = 22;
+  static const highmidDecay = 23;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -76,6 +81,8 @@ class ReverbSnapshot implements DspParameterSnapshot {
   final bool freeze;
   final double spin, wander;
   final double erLevel, lateLevel;
+  final double xoFreq1, xoFreq2, xoFreq3;
+  final double lowmidDecayMult, highmidDecayMult;
 
   const ReverbSnapshot({
     required this.space, required this.brightness, required this.width,
@@ -85,6 +92,8 @@ class ReverbSnapshot implements DspParameterSnapshot {
     required this.character, required this.thickness, required this.ducking,
     required this.freeze, required this.spin, required this.wander,
     required this.erLevel, required this.lateLevel,
+    required this.xoFreq1, required this.xoFreq2, required this.xoFreq3,
+    required this.lowmidDecayMult, required this.highmidDecayMult,
   });
 
   @override
@@ -96,6 +105,8 @@ class ReverbSnapshot implements DspParameterSnapshot {
     thickness: thickness, ducking: ducking, freeze: freeze,
     spin: spin, wander: wander,
     erLevel: erLevel, lateLevel: lateLevel,
+    xoFreq1: xoFreq1, xoFreq2: xoFreq2, xoFreq3: xoFreq3,
+    lowmidDecayMult: lowmidDecayMult, highmidDecayMult: highmidDecayMult,
   );
 
   @override
@@ -106,7 +117,11 @@ class ReverbSnapshot implements DspParameterSnapshot {
         predelay == other.predelay && style == other.style &&
         decay == other.decay && freeze == other.freeze &&
         spin == other.spin && wander == other.wander &&
-        erLevel == other.erLevel && lateLevel == other.lateLevel;
+        erLevel == other.erLevel && lateLevel == other.lateLevel &&
+        xoFreq1 == other.xoFreq1 && xoFreq2 == other.xoFreq2 &&
+        xoFreq3 == other.xoFreq3 &&
+        lowmidDecayMult == other.lowmidDecayMult &&
+        highmidDecayMult == other.highmidDecayMult;
   }
 }
 
@@ -164,6 +179,13 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
   double _wander = 0.5;  // 0.0-1.0 (maps to 0.05-0.5 Hz slow drift)
   double _erLevel = 1.0;    // 0.0-1.0 (ER gain)
   double _lateLevel = 1.0;  // 0.0-1.0 (FDN tail gain)
+
+  // 4-band crossover (Phase 4)
+  double _xoFreq1 = 250.0;   // Crossover 1 Hz (Low/LowMid)
+  double _xoFreq2 = 2000.0;  // Crossover 2 Hz (LowMid/HighMid)
+  double _xoFreq3 = 8000.0;  // Crossover 3 Hz (HighMid/High)
+  double _lowmidDecay = 1.0;  // 0.5-2.0
+  double _highmidDecay = 1.0; // 0.5-2.0
 
   // Metering
   double _wetLevel = 0.0;
@@ -260,6 +282,11 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       _wander = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.wander);
       _erLevel = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.erLevel);
       _lateLevel = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.lateLevel);
+      _xoFreq1 = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.xoFreq1);
+      _xoFreq2 = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.xoFreq2);
+      _xoFreq3 = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.xoFreq3);
+      _lowmidDecay = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.lowmidDecay);
+      _highmidDecay = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.highmidDecay);
       if (_freeze) _freezeController.forward();
     });
   }
@@ -303,6 +330,8 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     character: _character, thickness: _thickness, ducking: _ducking,
     freeze: _freeze, spin: _spin, wander: _wander,
     erLevel: _erLevel, lateLevel: _lateLevel,
+    xoFreq1: _xoFreq1, xoFreq2: _xoFreq2, xoFreq3: _xoFreq3,
+    lowmidDecayMult: _lowmidDecay, highmidDecayMult: _highmidDecay,
   );
 
   void _restore(ReverbSnapshot s) {
@@ -316,6 +345,8 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       _ducking = s.ducking; _freeze = s.freeze;
       _spin = s.spin; _wander = s.wander;
       _erLevel = s.erLevel; _lateLevel = s.lateLevel;
+      _xoFreq1 = s.xoFreq1; _xoFreq2 = s.xoFreq2; _xoFreq3 = s.xoFreq3;
+      _lowmidDecay = s.lowmidDecayMult; _highmidDecay = s.highmidDecayMult;
     });
     if (_freeze) { _freezeController.forward(); } else { _freezeController.reverse(); }
     _applyAll();
@@ -342,6 +373,11 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     _setParam(_P.wander, _wander);
     _setParam(_P.erLevel, _erLevel);
     _setParam(_P.lateLevel, _lateLevel);
+    _setParam(_P.xoFreq1, _xoFreq1);
+    _setParam(_P.xoFreq2, _xoFreq2);
+    _setParam(_P.xoFreq3, _xoFreq3);
+    _setParam(_P.lowmidDecay, _lowmidDecay);
+    _setParam(_P.highmidDecay, _highmidDecay);
   }
 
   @override
@@ -1019,6 +1055,24 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
                       onChanged: (v) {
                         setState(() => _lowDecay = 0.5 + v * 1.5);
                         _setParam(_P.lowDecay, _lowDecay);
+                      },
+                    ),
+                    _knob(
+                      value: (_lowmidDecay - 0.5) / 1.5, label: 'LM ×',
+                      display: '${_lowmidDecay.toStringAsFixed(2)}×',
+                      color: FabFilterColors.orange,
+                      onChanged: (v) {
+                        setState(() => _lowmidDecay = 0.5 + v * 1.5);
+                        _setParam(_P.lowmidDecay, _lowmidDecay);
+                      },
+                    ),
+                    _knob(
+                      value: (_highmidDecay - 0.5) / 1.5, label: 'HM ×',
+                      display: '${_highmidDecay.toStringAsFixed(2)}×',
+                      color: FabFilterColors.cyan,
+                      onChanged: (v) {
+                        setState(() => _highmidDecay = 0.5 + v * 1.5);
+                        _setParam(_P.highmidDecay, _highmidDecay);
                       },
                     ),
                     _knob(

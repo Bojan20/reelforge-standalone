@@ -2920,7 +2920,7 @@ impl InsertProcessor for ReverbWrapper {
     }
 
     fn num_params(&self) -> usize {
-        19
+        24
     }
 
     fn set_param(&mut self, param_index: usize, value: f64) {
@@ -2954,6 +2954,11 @@ impl InsertProcessor for ReverbWrapper {
             16 => self.reverb.set_wander(value),
             17 => self.reverb.set_er_level(value),
             18 => self.reverb.set_late_level(value),
+            19 => self.reverb.set_xo_freq_1(value),
+            20 => self.reverb.set_xo_freq_2(value),
+            21 => self.reverb.set_xo_freq_3(value),
+            22 => self.reverb.set_lowmid_decay_mult(value),
+            23 => self.reverb.set_highmid_decay_mult(value),
             _ => {}
         }
     }
@@ -2991,6 +2996,11 @@ impl InsertProcessor for ReverbWrapper {
             16 => self.reverb.wander(),
             17 => self.reverb.er_level(),
             18 => self.reverb.late_level(),
+            19 => self.reverb.xo_freq_1(),
+            20 => self.reverb.xo_freq_2(),
+            21 => self.reverb.xo_freq_3(),
+            22 => self.reverb.lowmid_decay_mult(),
+            23 => self.reverb.highmid_decay_mult(),
             _ => 0.0,
         }
     }
@@ -3016,6 +3026,11 @@ impl InsertProcessor for ReverbWrapper {
             16 => "Wander",
             17 => "ER Level",
             18 => "Late Level",
+            19 => "XO Freq 1",
+            20 => "XO Freq 2",
+            21 => "XO Freq 3",
+            22 => "LowMid Decay",
+            23 => "HighMid Decay",
             _ => "Unknown",
         }
     }
@@ -4715,7 +4730,7 @@ mod tests {
     #[test]
     fn test_reverb_wrapper_num_params() {
         let proc = create_processor_extended("reverb", 48000.0).unwrap();
-        assert_eq!(proc.num_params(), 19);
+        assert_eq!(proc.num_params(), 24);
     }
 
     #[test]
@@ -4740,7 +4755,12 @@ mod tests {
         assert_eq!(proc.param_name(16), "Wander");
         assert_eq!(proc.param_name(17), "ER Level");
         assert_eq!(proc.param_name(18), "Late Level");
-        assert_eq!(proc.param_name(19), "Unknown");
+        assert_eq!(proc.param_name(19), "XO Freq 1");
+        assert_eq!(proc.param_name(20), "XO Freq 2");
+        assert_eq!(proc.param_name(21), "XO Freq 3");
+        assert_eq!(proc.param_name(22), "LowMid Decay");
+        assert_eq!(proc.param_name(23), "HighMid Decay");
+        assert_eq!(proc.param_name(24), "Unknown");
     }
 
     #[test]
@@ -4767,6 +4787,11 @@ mod tests {
             (16, 0.3),  // wander
             (17, 0.8),  // er_level
             (18, 0.6),  // late_level
+            (19, 300.0), // xo_freq_1
+            (20, 3000.0), // xo_freq_2
+            (21, 10000.0), // xo_freq_3
+            (22, 1.5),  // lowmid_decay_mult
+            (23, 0.7),  // highmid_decay_mult
         ];
         for (idx, val) in &test_values {
             proc.set_param(*idx, *val);
