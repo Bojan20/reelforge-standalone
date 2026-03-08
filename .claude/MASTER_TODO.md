@@ -12,11 +12,11 @@
 | Config Panel Enhancements | Done |
 | Config Undo/Redo + Visual Transition Editor | Done |
 | **REVERB ULTIMATE — Valhalla-tier upgrade** | **DONE** |
-| **EQ ULTIMATE — Pro-Q 4 tier upgrade** | **IN PROGRESS (23/52)** |
-| **DELAY ULTIMATE — Timeless 3 tier upgrade** | **TODO (0/55)** |
-| **COMPRESSOR ULTIMATE — Pro-C 2 tier upgrade** | **IN PROGRESS (35/48)** |
-| **LIMITER ULTIMATE — Pro-L 2 tier upgrade** | **IN PROGRESS (25/42)** |
-| **SATURATOR ULTIMATE — Saturn 2 tier upgrade** | **IN PROGRESS (12/46)** |
+| **EQ ULTIMATE — Pro-Q 4 tier upgrade** | **DONE (52/52)** |
+| **DELAY ULTIMATE — Timeless 3 tier upgrade** | **DONE (55/55)** |
+| **COMPRESSOR ULTIMATE — Pro-C 2 tier upgrade** | **DONE (48/48)** |
+| **LIMITER ULTIMATE — Pro-L 2 tier upgrade** | **DONE (42/42)** |
+| **SATURATOR ULTIMATE — Saturn 2 tier upgrade** | **DONE (46/46)** |
 
 Analyzer: 0 errors, 0 warnings
 
