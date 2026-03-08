@@ -5203,12 +5203,16 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     if (_isPlayingBigWinEnd) {
       _isPlayingBigWinEnd = false;
 
-      // Stop BIG_WIN_END audio
+      // Stop BIG_WIN_END audio only — NOT base game music
       eventRegistry.stopEvent('BIG_WIN_END');
-      eventRegistry.stopAllMusicVoices(fadeMs: 200);
+      eventRegistry.stopEvent('BIG_WIN_START');
+      eventRegistry.stopEvent('MUSIC_BIG_WIN');
 
       // Trigger collect and restore base game
       eventRegistry.triggerStage('WIN_COLLECT');
+
+      // Re-trigger base game music if it was playing before win
+      _restoreBaseGameMusic(eventRegistry);
 
       // Collect win IMMEDIATELY
       _stopBigWinProtection();
@@ -5235,8 +5239,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // Kill any lingering anticipation audio
     _stopAnticipationAudio();
 
-    // Stop ALL music (big win music fades out)
-    eventRegistry.stopAllMusicVoices(fadeMs: 300);
+    // Stop win-specific music (NOT base game music)
+    _stopWinMusic(eventRegistry);
 
     // Stop all win-related sfx events
     eventRegistry.stopEvent('COIN_SHOWER_START');
@@ -5256,8 +5260,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // Trigger END stages
     eventRegistry.triggerStage('ROLLUP_END');
 
-    if (_currentWinTier.isNotEmpty) {
-      // Big Win: trigger BIG_WIN_END and enter Phase 2 (wait for second skip)
+    if (_isBigWinTier(_currentWinTier)) {
+      // Big Win ONLY: trigger BIG_WIN_END and enter Phase 2 (wait for second skip)
       eventRegistry.triggerStage('BIG_WIN_END');
       eventRegistry.triggerStage('WIN_PRESENT_END');
       _stopBigWinProtection();
@@ -5273,6 +5277,10 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
     // Regular win (no big win tier): collect immediately
     eventRegistry.triggerStage('WIN_COLLECT');
+
+    // Re-trigger base game music after regular win skip
+    _restoreBaseGameMusic(eventRegistry);
+
     _stopBigWinProtection();
     setState(() {
       _balance += _pendingWinAmount;
@@ -5282,6 +5290,28 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _currentWinTier = '';
     });
     provider.setWinPresentationActive(false);
+  }
+
+  /// Stop only win-related music events, preserving base game music
+  void _stopWinMusic(EventRegistry eventRegistry) {
+    eventRegistry.stopEvent('BIG_WIN_START');
+    eventRegistry.stopEvent('BIG_WIN_END');
+    eventRegistry.stopEvent('BIG_WIN_TRIGGER');
+    eventRegistry.stopEvent('MUSIC_BIG_WIN');
+    eventRegistry.stopEvent('MUSIC_JACKPOT');
+    eventRegistry.stopEvent('MUSIC_GAMBLE');
+    for (int i = 1; i <= 5; i++) {
+      eventRegistry.stopEvent('BIG_WIN_MUSIC_$i');
+    }
+  }
+
+  /// Re-trigger base game music (GAME_START composite) if it was active
+  void _restoreBaseGameMusic(EventRegistry eventRegistry) {
+    if (eventRegistry.hasEventForStage('GAME_START')) {
+      eventRegistry.triggerStage('GAME_START');
+    } else if (eventRegistry.hasEventForStage('MUSIC_BASE_L1')) {
+      eventRegistry.triggerStage('MUSIC_BASE_L1');
+    }
   }
 
   // === HANDLERS ===

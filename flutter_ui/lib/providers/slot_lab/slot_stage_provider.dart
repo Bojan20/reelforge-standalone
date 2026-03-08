@@ -717,15 +717,14 @@ class SlotStageProvider extends ChangeNotifier {
       }
 
       if (!_baseMusicStarted) {
-        // Trigger ALL registered MUSIC_BASE layers (L1..L5)
-        for (final layer in const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
-          if (eventRegistry.hasEventForStage(layer)) {
-            eventRegistry.triggerStage(layer, context: context);
-            _baseMusicStarted = true;
-          }
-        }
+        // Prefer GAME_START composite (has volume control: L1=1.0, L2+=0.0)
+        // Only fall back to individual MUSIC_BASE_L1 if no composite exists
         if (eventRegistry.hasEventForStage('GAME_START')) {
           eventRegistry.triggerStage('GAME_START', context: context);
+          _baseMusicStarted = true;
+        } else if (eventRegistry.hasEventForStage('MUSIC_BASE_L1')) {
+          // Fallback: only trigger L1 (base music layer 1)
+          eventRegistry.triggerStage('MUSIC_BASE_L1', context: context);
           _baseMusicStarted = true;
         }
       }

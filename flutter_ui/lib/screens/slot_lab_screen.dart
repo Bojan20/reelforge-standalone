@@ -1253,6 +1253,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // Audio browser
   String _browserSearchQuery = '';
   String _selectedBrowserFolder = 'All';
+  String _selectedPoolTag = 'ALL'; // ALL, MUSIC, SFX, VO, UI, AMB
 
 
   // Audio preview state
@@ -1479,11 +1480,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     bool changed = false;
     for (final asset in allAssets) {
       if (!existingPaths.contains(asset.path)) {
+        final lowerName = asset.name.toLowerCase();
+        final lowerPath = asset.path.toLowerCase();
         _audioPool.add({
           'name': asset.name,
           'path': asset.path,
           'duration': asset.duration,
           'folder': asset.folder,
+          'tag': _classifyAudioTag(lowerName, lowerPath),
         });
         changed = true;
       }
@@ -1491,6 +1495,20 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     if (changed && mounted) {
       setState(() {});
+    }
+  }
+
+  /// Ensure all pool entries have a 'tag' field (retroactive for pre-tag data)
+  void _ensurePoolTags() {
+    for (int i = 0; i < _audioPool.length; i++) {
+      if (_audioPool[i]['tag'] == null) {
+        final name = (_audioPool[i]['name'] as String? ?? '').toLowerCase();
+        final path = (_audioPool[i]['path'] as String? ?? '').toLowerCase();
+        _audioPool[i] = {
+          ..._audioPool[i],
+          'tag': _classifyAudioTag(name, path),
+        };
+      }
     }
   }
 
@@ -2039,10 +2057,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       _lowerZoneRestoreComplete = true;
       _lowerZoneController.addListener(_onLowerZoneChanged);
 
-      // Restore audio pool
+      // Restore audio pool (with retroactive tag classification for pre-tag entries)
       if (provider.persistedAudioPool.isNotEmpty) {
         setState(() {
           _audioPool = List.from(provider.persistedAudioPool);
+          _ensurePoolTags();
         });
       }
 
@@ -2668,6 +2687,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             'name': name,
             'duration': (item['duration'] as num?)?.toDouble() ?? 1.0,
             'folder': folder,
+            'tag': _classifyAudioTag(lowerName, lowerPath),
             'sampleRate': item['sampleRate'] ?? item['sample_rate'] ?? 48000,
             'channels': item['channels'] ?? 2,
           };
@@ -2689,11 +2709,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               else if (path.contains('voice') || path.contains('vo')) folder = 'Voice';
               else if (path.contains('ui')) folder = 'UI';
 
+              final lName = (item['name'] as String? ?? path.split('/').last).toLowerCase();
               return {
                 'path': path,
                 'name': item['name'] ?? path.split('/').last,
                 'duration': (item['duration'] as num?)?.toDouble() ?? 1.0,
                 'folder': folder,
+                'tag': _classifyAudioTag(lName, path.toLowerCase()),
                 'sampleRate': item['sample_rate'] ?? 48000,
                 'channels': item['channels'] ?? 2,
               };
@@ -2959,12 +2981,59 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       folder = 'UI';
     }
 
+    // Classify audio tag for POOL filtering
+    final tag = _classifyAudioTag(lowerName, lowerPath);
+
     return {
       'name': name.replaceAll(RegExp(r'\.(wav|mp3|ogg|flac|aiff|aif|m4a|wma)$', caseSensitive: false), ''),
       'path': path,
       'duration': 2.0, // Default, actual duration determined when played
       'folder': folder,
+      'tag': tag,
     };
+  }
+
+  /// Classify audio file into tag category based on filename and path patterns
+  static String _classifyAudioTag(String lowerName, String lowerPath) {
+    // ── MUSIC: loops, background music, layers ──
+    if (lowerName.contains('mus_') || lowerName.contains('music') ||
+        lowerName.startsWith('bgm') || lowerName.contains('_bgm') ||
+        lowerPath.contains('/music/') || lowerPath.contains('/mus/') ||
+        lowerName.contains('_loop') && (lowerName.contains('mus') || lowerPath.contains('music')) ||
+        lowerName.contains('mus_bg') || lowerName.contains('mus_fs') ||
+        lowerName.contains('mus_bw') || lowerName.contains('mus_hw') ||
+        lowerName.contains('mus_bonus') || lowerName.contains('mus_gamble') ||
+        lowerName.contains('mus_jackpot')) {
+      return 'MUSIC';
+    }
+
+    // ── VO: voiceover, narrator, announcer ──
+    if (lowerName.startsWith('vo_') || lowerName.contains('_vo_') ||
+        lowerName.contains('voice') || lowerName.contains('narrator') ||
+        lowerName.contains('announce') || lowerName.contains('speech') ||
+        lowerPath.contains('/vo/') || lowerPath.contains('/voice/') ||
+        lowerPath.contains('/voiceover/')) {
+      return 'VO';
+    }
+
+    // ── UI: interface sounds ──
+    if (lowerName.startsWith('ui_') || lowerName.contains('_ui_') ||
+        lowerName.contains('button') || lowerName.contains('click') ||
+        lowerName.contains('menu') || lowerName.contains('hover') ||
+        lowerName.contains('toggle') || lowerName.contains('popup') ||
+        lowerPath.contains('/ui/')) {
+      return 'UI';
+    }
+
+    // ── AMB: ambience, atmosphere ──
+    if (lowerName.contains('amb') || lowerName.contains('ambience') ||
+        lowerName.contains('atmosphere') || lowerName.contains('room_tone') ||
+        lowerPath.contains('/amb/') || lowerPath.contains('/ambience/')) {
+      return 'AMB';
+    }
+
+    // Default: SFX (game sounds, reels, wins, symbols, wilds, scatters)
+    return 'SFX';
   }
 
   /// Load metadata in background (duration, sampleRate, channels)
@@ -12075,15 +12144,30 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     if (!folders.contains(_selectedBrowserFolder)) {
       _selectedBrowserFolder = 'All';
     }
-    final filteredAudio = _selectedBrowserFolder == 'All'
+
+    // Step 1: Filter by folder
+    final folderFiltered = _selectedBrowserFolder == 'All'
         ? _audioPool
         : _audioPool.where((a) => a['folder'] == _selectedBrowserFolder).toList();
 
+    // Step 2: Filter by tag
+    final tagFiltered = _selectedPoolTag == 'ALL'
+        ? folderFiltered
+        : folderFiltered.where((a) => (a['tag'] ?? 'SFX') == _selectedPoolTag).toList();
+
+    // Step 3: Filter by search
     final searchFiltered = _browserSearchQuery.isEmpty
-        ? filteredAudio
-        : filteredAudio.where((a) =>
+        ? tagFiltered
+        : tagFiltered.where((a) =>
             (a['name'] as String).toLowerCase().contains(_browserSearchQuery.toLowerCase())
           ).toList();
+
+    // Count per tag for badge display
+    final tagCounts = <String, int>{};
+    for (final a in folderFiltered) {
+      final t = (a['tag'] ?? 'SFX') as String;
+      tagCounts[t] = (tagCounts[t] ?? 0) + 1;
+    }
 
     return Column(
       children: [
@@ -12139,7 +12223,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               ),
               const Spacer(),
               Text(
-                '${_audioPool.length} files',
+                '${searchFiltered.length}/${_audioPool.length}',
                 style: const TextStyle(color: Colors.white38, fontSize: 10),
               ),
             ],
@@ -12172,6 +12256,76 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
             ),
             onChanged: (value) => setState(() => _browserSearchQuery = value),
+          ),
+        ),
+        // ═══ Tag filter row: ALL / MUSIC / SFX / VO / UI / AMB ═══
+        Container(
+          height: 30,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: const Color(0xFF16161E),
+            border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.04))),
+          ),
+          child: Row(
+            children: [
+              for (final tagDef in const [
+                ('ALL', 'ALL', Color(0xFF9E9E9E), Icons.library_music),
+                ('MUSIC', 'MUSIC', Color(0xFF4CAF50), Icons.music_note),
+                ('SFX', 'SFX', Color(0xFFFF9800), Icons.surround_sound),
+                ('VO', 'VO', Color(0xFF2196F3), Icons.record_voice_over),
+                ('UI', 'UI', Color(0xFF9C27B0), Icons.touch_app),
+                ('AMB', 'AMB', Color(0xFF00BCD4), Icons.waves),
+              ])
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: InkWell(
+                    onTap: () => setState(() => _selectedPoolTag = tagDef.$1),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _selectedPoolTag == tagDef.$1
+                            ? tagDef.$3.withOpacity(0.2)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(
+                          color: _selectedPoolTag == tagDef.$1
+                              ? tagDef.$3.withOpacity(0.6)
+                              : Colors.white.withOpacity(0.08),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(tagDef.$4, size: 10, color: _selectedPoolTag == tagDef.$1 ? tagDef.$3 : Colors.white30),
+                          const SizedBox(width: 3),
+                          Text(
+                            tagDef.$2,
+                            style: TextStyle(
+                              color: _selectedPoolTag == tagDef.$1 ? tagDef.$3 : Colors.white38,
+                              fontSize: 9,
+                              fontWeight: _selectedPoolTag == tagDef.$1 ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                          ),
+                          if (tagDef.$1 != 'ALL' && (tagCounts[tagDef.$1] ?? 0) > 0) ...[
+                            const SizedBox(width: 3),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 0),
+                              decoration: BoxDecoration(
+                                color: tagDef.$3.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '${tagCounts[tagDef.$1]}',
+                                style: TextStyle(color: tagDef.$3.withOpacity(0.7), fontSize: 8),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
         // Folder tabs
@@ -12237,10 +12391,20 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// - NO WaveformThumbnail (too slow for large lists)
   /// - Fixed height for O(1) layout
   /// ═══════════════════════════════════════════════════════════════════════════
+  static const _tagColors = {
+    'MUSIC': Color(0xFF4CAF50),
+    'SFX': Color(0xFFFF9800),
+    'VO': Color(0xFF2196F3),
+    'UI': Color(0xFF9C27B0),
+    'AMB': Color(0xFF00BCD4),
+  };
+
   Widget _buildAudioBrowserItemFast(Map<String, dynamic> audio) {
     final path = audio['path'] as String;
     final name = audio['name'] as String;
     final duration = audio['duration'] as double? ?? 0.0;
+    final tag = (audio['tag'] ?? 'SFX') as String;
+    final tagColor = _tagColors[tag] ?? const Color(0xFFFF9800);
     final isPlaying = _previewingAudioPath == path && _isPreviewPlaying;
 
     return Draggable<String>(
@@ -12358,6 +12522,20 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   style: const TextStyle(fontSize: 8, color: Colors.white38, fontFamily: 'monospace'),
                 ),
               ),
+            // Tag badge
+            Container(
+              margin: const EdgeInsets.only(left: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: tagColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(2),
+                border: Border.all(color: tagColor.withOpacity(0.3), width: 0.5),
+              ),
+              child: Text(
+                tag,
+                style: TextStyle(fontSize: 7, color: tagColor.withOpacity(0.8), fontWeight: FontWeight.w600),
+              ),
+            ),
             const SizedBox(width: 4),
             // Drag handle
             const Icon(Icons.drag_indicator, size: 12, color: Colors.white24),

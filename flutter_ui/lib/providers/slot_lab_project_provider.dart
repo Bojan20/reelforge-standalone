@@ -316,6 +316,11 @@ class SlotLabProjectProvider extends ChangeNotifier {
     }
     _audioAssignments[stage] = audioPath;
     _markDirty();
+
+    // Auto-create/update GAME_START composite when any base music layer is assigned
+    if (stage.startsWith('MUSIC_BASE_L')) {
+      _createBaseGameMusicComposite(_audioAssignments);
+    }
   }
 
   /// Remove audio assignment for a stage (with undo support)
@@ -334,6 +339,11 @@ class SlotLabProjectProvider extends ChangeNotifier {
     }
     _audioAssignments.remove(stage);
     _markDirty();
+
+    // Rebuild GAME_START composite when a base music layer is removed
+    if (stage.startsWith('MUSIC_BASE_L')) {
+      _createBaseGameMusicComposite(_audioAssignments);
+    }
   }
 
   /// Bulk assign audio to similar stages (P3 Recommendation #1)
@@ -627,8 +637,9 @@ class SlotLabProjectProvider extends ChangeNotifier {
     }
 
     // Build layers — all loop, all on music bus, sync-started
+    // L1 at full volume, L2-L5 silent (crossfade-ready)
     final layers = <SlotEventLayer>[];
-    final musicStages = ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3'];
+    final musicStages = ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5'];
     for (int i = 0; i < musicStages.length; i++) {
       final path = bindings[musicStages[i]];
       if (path == null) continue;
@@ -735,6 +746,20 @@ class SlotLabProjectProvider extends ChangeNotifier {
     if (base == 'trn_return_to_base') return 'CONTEXT_FS_TO_BASE';
     if (base == 'mus_fs') return 'MUSIC_FS_L1';
     if (base == 'mus_fs_end') return 'MUSIC_FS_OUTRO';
+
+    // ─── WILD ───
+    if (base == 'wild_land' || base == 'wildland') return 'WILD_LAND';
+    if (base == 'wild_expand' || base == 'wild_expand_start') return 'WILD_EXPAND_START';
+    if (base == 'wild_expand_step') return 'WILD_EXPAND_STEP';
+    if (base == 'wild_expand_end') return 'WILD_EXPAND_END';
+    if (base == 'wild_stick' || base == 'wild_sticky') return 'WILD_STICK';
+    if (base == 'wild_walk_left' || base == 'wild_walk_l') return 'WILD_WALK_LEFT';
+    if (base == 'wild_walk_right' || base == 'wild_walk_r') return 'WILD_WALK_RIGHT';
+    if (base == 'wild_transform') return 'WILD_TRANSFORM';
+    if (base == 'wild_multiply' || base == 'wild_multiplier') return 'WILD_MULTIPLY';
+    if (base == 'wild_nudge') return 'WILD_NUDGE';
+    if (base == 'wild_stack') return 'WILD_STACK';
+    if (base == 'wild_upgrade') return 'WILD_UPGRADE';
 
     // ─── UI ───
     if (base == 'ui_spin_button') return 'UI_SPIN_PRESS';
