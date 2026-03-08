@@ -894,6 +894,38 @@ class GameFlowProvider extends ChangeNotifier {
     }
   }
 
+  /// Show a test/preview transition without changing game state
+  void showTestTransition({
+    GameFlowState from = GameFlowState.baseGame,
+    GameFlowState to = GameFlowState.freeSpins,
+    bool isExit = false,
+    SceneTransitionConfig? configOverride,
+  }) {
+    final config = configOverride ?? _getTransitionConfig(from, to);
+    _activeTransition = ActiveTransition(
+      phase: isExit ? TransitionPhase.exiting : TransitionPhase.entering,
+      fromState: from,
+      toState: to,
+      config: config,
+      totalWin: isExit ? 1234.56 : 0,
+      startedAt: DateTime.now(),
+      featureData: {'scatterCount': 3, 'isTestPreview': true},
+    );
+
+    if (config.audioStage != null && config.audioStage!.isNotEmpty) {
+      _fireAudioStage(config.audioStage!);
+    }
+
+    _pendingTransitionComplete = null;
+    notifyListeners();
+
+    // Always auto-dismiss test transitions
+    _transitionDismissTimer?.cancel();
+    _transitionDismissTimer = Timer(Duration(milliseconds: config.durationMs), () {
+      if (_activeTransition != null) dismissTransition();
+    });
+  }
+
   /// Dismiss the active transition (click-to-continue or early dismiss)
   void dismissTransition() {
     if (_activeTransition == null) return;

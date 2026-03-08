@@ -44,6 +44,9 @@ class SymbolArtPanel extends StatelessWidget {
             // Header
             _buildHeader(context, projectProvider, symbols),
             const Divider(height: 1, color: Color(0xFF2A2A38)),
+            // Mini-reel preview
+            _buildMiniReelPreview(symbols),
+            const Divider(height: 1, color: Color(0xFF2A2A38)),
             // Symbol list
             Expanded(
               child: ListView.builder(
@@ -355,6 +358,98 @@ class SymbolArtPanel extends StatelessWidget {
   }
 
   /// Sync artworkPath from SymbolDefinition → SlotSymbol.imagePath
+  /// Mini-reel preview — 5x3 grid showing all symbols with artwork
+  Widget _buildMiniReelPreview(List<SymbolDefinition> symbols) {
+    // Build a 5x3 grid using available symbols (cycle if fewer than 15)
+    if (symbols.isEmpty) return const SizedBox.shrink();
+
+    const cols = 5;
+    const rows = 3;
+    const cellSize = 36.0;
+
+    return Container(
+      padding: const EdgeInsets.all(6),
+      color: const Color(0xFF0E0E18),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.grid_view, color: Color(0xFF606068), size: 10),
+              const SizedBox(width: 4),
+              const Text(
+                'REEL PREVIEW',
+                style: TextStyle(
+                  color: Color(0xFF606068),
+                  fontSize: 8,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          SizedBox(
+            height: cellSize * rows + (rows - 1) * 2,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(cols, (col) {
+                return Padding(
+                  padding: EdgeInsets.only(left: col > 0 ? 2 : 0),
+                  child: Column(
+                    children: List.generate(rows, (row) {
+                      final idx = (col * rows + row) % symbols.length;
+                      final sym = symbols[idx];
+                      return Padding(
+                        padding: EdgeInsets.only(top: row > 0 ? 2 : 0),
+                        child: _buildMiniSymbolCell(sym, cellSize),
+                      );
+                    }),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMiniSymbolCell(SymbolDefinition sym, double size) {
+    final hasArt = sym.artworkPath != null && sym.artworkPath!.isNotEmpty;
+    final color = _colorForType(sym.type);
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A28),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: hasArt ? color.withOpacity(0.3) : Colors.white.withOpacity(0.06),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: hasArt
+          ? Image.file(
+              File(sym.artworkPath!),
+              fit: BoxFit.cover,
+              errorBuilder: (_, e, st) => Center(
+                child: Text(
+                  sym.name.length > 2 ? sym.name.substring(0, 2) : sym.name,
+                  style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w700),
+                ),
+              ),
+            )
+          : Center(
+              child: Text(
+                sym.name.length > 2 ? sym.name.substring(0, 2) : sym.name,
+                style: TextStyle(color: color.withOpacity(0.5), fontSize: 9, fontWeight: FontWeight.w700),
+              ),
+            ),
+    );
+  }
+
   void _syncArtworkToSlotSymbols(SlotLabProjectProvider provider) {
     final effective = SlotSymbol.effectiveSymbols;
     final updated = <int, SlotSymbol>{};

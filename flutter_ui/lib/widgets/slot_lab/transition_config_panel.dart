@@ -16,6 +16,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/game_flow_models.dart';
 import '../../providers/slot_lab/game_flow_provider.dart';
+import '../../services/event_registry.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SCENE TRANSITION PAIRS — All configurable transition pairs
@@ -37,6 +38,17 @@ class _TransitionPair {
     required this.icon,
     this.isEntry = true,
   });
+
+  /// Parse GameFlowState from key parts
+  static GameFlowState _parseState(String name) {
+    return GameFlowState.values.firstWhere(
+      (s) => s.name == name,
+      orElse: () => GameFlowState.baseGame,
+    );
+  }
+
+  GameFlowState get fromState => _parseState(key.split('_to_').first);
+  GameFlowState get toState => _parseState(key.split('_to_').last);
 }
 
 const _transitionPairs = [
@@ -308,6 +320,34 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
                 ),
               ),
               const Spacer(),
+              // TEST preview button
+              GestureDetector(
+                onTap: () {
+                  flow.showTestTransition(
+                    from: pair.fromState,
+                    to: pair.toState,
+                    isExit: !pair.isEntry,
+                    configOverride: config,
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: pair.color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(2),
+                    border: Border.all(color: pair.color.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    'TEST',
+                    style: TextStyle(
+                      color: pair.color,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
               if (hasOverride)
                 GestureDetector(
                   onTap: () {
@@ -578,6 +618,9 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
     required Color color,
     required ValueChanged<String?> onChanged,
   }) {
+    final stages = EventRegistry.instance.registeredStages.toList()..sort();
+    final hasValue = value != null && value.isNotEmpty;
+
     return Row(
       children: [
         Icon(Icons.volume_up, color: color.withOpacity(0.5), size: 10),
@@ -593,38 +636,60 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
         const SizedBox(width: 4),
         Expanded(
           child: Container(
-            height: 20,
+            height: 22,
             padding: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
               color: Colors.black.withOpacity(0.3),
               borderRadius: BorderRadius.circular(3),
               border: Border.all(
-                color: value != null && value.isNotEmpty
-                    ? color.withOpacity(0.3)
-                    : Colors.white.withOpacity(0.06),
+                color: hasValue ? color.withOpacity(0.3) : Colors.white.withOpacity(0.06),
               ),
             ),
-            child: TextField(
-              controller: TextEditingController(text: value ?? ''),
-              style: TextStyle(color: color, fontSize: 9),
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 4),
-                hintText: 'stage name...',
-                hintStyle: TextStyle(
-                  color: color.withOpacity(0.2),
-                  fontSize: 9,
-                ),
-              ),
-              onSubmitted: (val) {
-                final stage = val.trim().toUpperCase();
-                onChanged(stage.isEmpty ? '' : stage);
-              },
-            ),
+            child: stages.isEmpty
+                ? TextField(
+                    controller: TextEditingController(text: value ?? ''),
+                    style: TextStyle(color: color, fontSize: 9),
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                      hintText: 'stage name...',
+                      hintStyle: TextStyle(color: color.withOpacity(0.2), fontSize: 9),
+                    ),
+                    onSubmitted: (val) {
+                      final stage = val.trim().toUpperCase();
+                      onChanged(stage.isEmpty ? '' : stage);
+                    },
+                  )
+                : DropdownButton<String>(
+                    value: hasValue && stages.contains(value) ? value : null,
+                    hint: Text(
+                      hasValue ? value : 'select stage...',
+                      style: TextStyle(
+                        color: hasValue ? color : color.withOpacity(0.2),
+                        fontSize: 9,
+                      ),
+                    ),
+                    isExpanded: true,
+                    isDense: true,
+                    underline: const SizedBox.shrink(),
+                    dropdownColor: const Color(0xFF1E1E2E),
+                    style: TextStyle(color: color, fontSize: 9),
+                    icon: Icon(Icons.arrow_drop_down, color: color.withOpacity(0.5), size: 14),
+                    menuMaxHeight: 300,
+                    items: stages.map((s) {
+                      return DropdownMenuItem(
+                        value: s,
+                        child: Text(s, style: TextStyle(color: color, fontSize: 9)),
+                      );
+                    }).toList(),
+                    onChanged: (v) {
+                      if (v != null) onChanged(v);
+                    },
+                  ),
           ),
         ),
-        if (value != null && value.isNotEmpty) ...[
+        if (hasValue) ...[
           const SizedBox(width: 2),
           GestureDetector(
             onTap: () => onChanged(''),

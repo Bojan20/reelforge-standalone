@@ -31,6 +31,8 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
   final ValueNotifier<bool> _showRegular = ValueNotifier(false);
   final ValueNotifier<bool> _showBigWin = ValueNotifier(false);
   final ValueNotifier<bool> _showPresets = ValueNotifier(false);
+  final ValueNotifier<double> _simBet = ValueNotifier(1.0);
+  final ValueNotifier<double> _simWin = ValueNotifier(5.0);
   final ValueNotifier<String?> _editingField = ValueNotifier(null);
 
   // Inline editing state
@@ -59,6 +61,8 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
     _inlineFocus.dispose();
     _showRegular.dispose();
     _showBigWin.dispose();
+    _simBet.dispose();
+    _simWin.dispose();
     _showPresets.dispose();
     _editingField.dispose();
     _revision.dispose();
@@ -72,7 +76,7 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
         _buildHeader(),
         Expanded(
           child: ListenableBuilder(
-            listenable: Listenable.merge([_revision, _showRegular, _showBigWin, _showPresets, _editingField]),
+            listenable: Listenable.merge([_revision, _showRegular, _showBigWin, _showPresets, _editingField, _simBet, _simWin]),
             builder: (context, _) {
               return ListView(
                 padding: const EdgeInsets.all(6),
@@ -145,6 +149,8 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
                   ],
                   const SizedBox(height: 12),
                   _buildValidationSection(),
+                  const SizedBox(height: 8),
+                  _buildSimulatorSection(),
                 ],
               );
             },
@@ -415,26 +421,91 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
   // REGULAR WIN TIER ROW
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /// Check if a regular tier has validation issues
+  String? _regularTierError(WinTierDefinition tier) {
+    if (tier.fromMultiplier >= tier.toMultiplier) {
+      return 'FROM >= TO';
+    }
+    final sorted = List<WinTierDefinition>.from(_regular.tiers)
+      ..sort((a, b) => a.fromMultiplier.compareTo(b.fromMultiplier));
+    final idx = sorted.indexWhere((t) => t.tierId == tier.tierId);
+    if (idx > 0) {
+      final prev = sorted[idx - 1];
+      if ((prev.toMultiplier - tier.fromMultiplier).abs() > 0.001) {
+        return 'GAP with ${prev.stageName}';
+      }
+    }
+    if (idx < sorted.length - 1) {
+      final next = sorted[idx + 1];
+      if ((tier.toMultiplier - next.fromMultiplier).abs() > 0.001) {
+        return 'GAP with ${next.stageName}';
+      }
+    }
+    return null;
+  }
+
+  /// Check if a big win tier has validation issues
+  String? _bigWinTierError(BigWinTierDefinition tier) {
+    if (tier.toMultiplier != double.infinity && tier.fromMultiplier >= tier.toMultiplier) {
+      return 'FROM >= TO';
+    }
+    final sorted = List<BigWinTierDefinition>.from(_bigWin.tiers)
+      ..sort((a, b) => a.fromMultiplier.compareTo(b.fromMultiplier));
+    final idx = sorted.indexWhere((t) => t.tierId == tier.tierId);
+    if (idx == 0 && (tier.fromMultiplier - _bigWin.threshold).abs() > 0.001) {
+      return 'Must start at ${_bigWin.threshold}x';
+    }
+    if (idx > 0) {
+      final prev = sorted[idx - 1];
+      if (prev.toMultiplier != double.infinity &&
+          (prev.toMultiplier - tier.fromMultiplier).abs() > 0.001) {
+        return 'GAP with TIER ${prev.tierId}';
+      }
+    }
+    if (idx < sorted.length - 1) {
+      final next = sorted[idx + 1];
+      if (tier.toMultiplier != double.infinity &&
+          (tier.toMultiplier - next.fromMultiplier).abs() > 0.001) {
+        return 'GAP with TIER ${next.tierId}';
+      }
+    }
+    return null;
+  }
+
   Widget _buildRegularTierRow(WinTierDefinition tier) {
     final tierName = tier.stageName;
     final color = _tierColor(tier.tierId);
+    final error = _regularTierError(tier);
+    final hasError = error != null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 3),
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: const Color(0xFF161620),
+        color: hasError ? const Color(0xFF1A0A0A) : const Color(0xFF161620),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: hasError
+              ? const Color(0xFFFF4040).withValues(alpha: 0.5)
+              : color.withValues(alpha: 0.2),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              Container(width: 6, height: 6, decoration: BoxDecoration(
+                color: hasError ? const Color(0xFFFF4040) : color, shape: BoxShape.circle)),
               const SizedBox(width: 4),
               Text(tierName, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w700)),
+              if (hasError) ...[
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: error,
+                  child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFFF6060), size: 10),
+                ),
+              ],
               const SizedBox(width: 6),
               Expanded(
                 child: _inlineTextField(
@@ -629,14 +700,20 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
 
   Widget _buildBigWinTierRow(BigWinTierDefinition tier) {
     final color = _bigWinTierColor(tier.tierId);
+    final error = _bigWinTierError(tier);
+    final hasError = error != null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 3),
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: const Color(0xFF161620),
+        color: hasError ? const Color(0xFF1A0A0A) : const Color(0xFF161620),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: hasError
+              ? const Color(0xFFFF4040).withValues(alpha: 0.5)
+              : color.withValues(alpha: 0.2),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -647,13 +724,23 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
               Container(
                 width: 6,
                 height: 6,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                  color: hasError ? const Color(0xFFFF4040) : color,
+                  shape: BoxShape.circle,
+                ),
               ),
               const SizedBox(width: 4),
               Text(
                 'TIER ${tier.tierId}',
                 style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w700),
               ),
+              if (hasError) ...[
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: error,
+                  child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFFF6060), size: 10),
+                ),
+              ],
               const SizedBox(width: 6),
               Expanded(
                 child: _inlineTextField(
@@ -800,6 +887,208 @@ class _WinTierConfigPanelState extends State<WinTierConfigPanel> {
             tier.displayLabel,
             style: const TextStyle(color: Color(0xFF606068), fontSize: 8),
             overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SIMULATOR — Test which tier matches a given bet/win amount
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildSimulatorSection() {
+    final bet = _simBet.value;
+    final win = _simWin.value;
+    final multiplier = bet > 0 ? win / bet : 0.0;
+
+    // Find matching regular tier
+    final regularMatch = _regular.tiers.cast<WinTierDefinition?>().firstWhere(
+      (t) => t!.matches(win, bet),
+      orElse: () => null,
+    );
+
+    // Find matching big win tier
+    final bigWinMatch = _bigWin.tiers.cast<BigWinTierDefinition?>().firstWhere(
+      (t) => t!.matches(win, bet),
+      orElse: () => null,
+    );
+
+    final isBigWin = multiplier >= _bigWin.threshold;
+
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF12121C),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0xFF4A9EFF).withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.science, color: Color(0xFF4A9EFF), size: 11),
+              SizedBox(width: 4),
+              Text(
+                'WIN TIER SIMULATOR',
+                style: TextStyle(
+                  color: Color(0xFF4A9EFF),
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // BET + WIN input row
+          Row(
+            children: [
+              _simField('BET', bet, (v) => _simBet.value = v),
+              const SizedBox(width: 8),
+              _simField('WIN', win, (v) => _simWin.value = v),
+              const SizedBox(width: 8),
+              // Multiplier display
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isBigWin
+                      ? const Color(0xFFFFAA00).withValues(alpha: 0.12)
+                      : const Color(0xFF4A9EFF).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: Text(
+                  '${multiplier.toStringAsFixed(1)}x',
+                  style: TextStyle(
+                    color: isBigWin ? const Color(0xFFFFAA00) : const Color(0xFF4A9EFF),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // Result
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (regularMatch != null) ...[
+                  Row(
+                    children: [
+                      Container(
+                        width: 6, height: 6,
+                        decoration: BoxDecoration(
+                          color: _tierColor(regularMatch.tierId),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        regularMatch.stageName,
+                        style: TextStyle(
+                          color: _tierColor(regularMatch.tierId),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (regularMatch.displayLabel.isNotEmpty) ...[
+                        const SizedBox(width: 4),
+                        Text(
+                          regularMatch.displayLabel,
+                          style: const TextStyle(color: Color(0xFF808088), fontSize: 9),
+                        ),
+                      ],
+                    ],
+                  ),
+                ] else
+                  const Text(
+                    'No regular tier match',
+                    style: TextStyle(color: Color(0xFF606068), fontSize: 9),
+                  ),
+                if (isBigWin && bigWinMatch != null) ...[
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Container(
+                        width: 6, height: 6,
+                        decoration: BoxDecoration(
+                          color: _bigWinTierColor(bigWinMatch.tierId),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'BIG WIN TIER ${bigWinMatch.tierId}',
+                        style: TextStyle(
+                          color: _bigWinTierColor(bigWinMatch.tierId),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (bigWinMatch.displayLabel.isNotEmpty) ...[
+                        const SizedBox(width: 4),
+                        Text(
+                          bigWinMatch.displayLabel,
+                          style: const TextStyle(color: Color(0xFF808088), fontSize: 9),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _simField(String label, double value, ValueChanged<double> onChanged) {
+    return Expanded(
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF606068),
+              fontSize: 8,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Container(
+              height: 22,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+              child: TextField(
+                controller: TextEditingController(text: value.toStringAsFixed(2)),
+                style: const TextStyle(color: Color(0xFFD0D0D8), fontSize: 10),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(vertical: 4),
+                ),
+                onSubmitted: (val) {
+                  final parsed = double.tryParse(val);
+                  if (parsed != null && parsed >= 0) onChanged(parsed);
+                },
+              ),
+            ),
           ),
         ],
       ),
