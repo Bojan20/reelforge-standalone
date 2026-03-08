@@ -1807,6 +1807,12 @@ pub struct PlaybackEngine {
     master_delay_write_pos: AtomicUsize,
     /// Cached sample rate for delay calculations
     master_delay_sample_rate: AtomicU64,
+
+    // === STATEFUL CLIP FX PROCESSING ===
+    /// Per-clip DSP processor bank with full rf-dsp integration.
+    /// Contains stateful EQ, compressor, gate, saturation processors per clip.
+    /// RwLock: UI thread writes (sync_clip), audio thread reads (process_sample).
+    pub(crate) clip_fx_bank: RwLock<crate::clip_fx_processor::ClipFxProcessorBank>,
 }
 
 impl PlaybackEngine {
@@ -1920,6 +1926,11 @@ impl PlaybackEngine {
             master_delay_buf_r: RwLock::new(vec![0.0_f64; 8192]),
             master_delay_write_pos: AtomicUsize::new(0),
             master_delay_sample_rate: AtomicU64::new((sample_rate as f64).to_bits()),
+
+            // Stateful clip FX processors
+            clip_fx_bank: RwLock::new(
+                crate::clip_fx_processor::ClipFxProcessorBank::new(sample_rate as f64),
+            ),
         }
     }
 
@@ -3306,6 +3317,10 @@ impl PlaybackEngine {
             .store(tail_dur, Ordering::Relaxed);
         self.position.set_state(PlaybackState::Stopped);
         self.position.set_samples(0);
+        // Reset clip FX processor state (envelope followers, filter z-states)
+        if let Some(mut bank) = self.clip_fx_bank.try_write() {
+            bank.reset_all();
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -3377,10 +3392,18 @@ impl PlaybackEngine {
 
     pub fn seek(&self, seconds: f64) {
         self.position.set_seconds(seconds.max(0.0));
+        // Reset clip FX state on seek to avoid stale envelope/filter artifacts
+        if let Some(mut bank) = self.clip_fx_bank.try_write() {
+            bank.reset_all();
+        }
     }
 
     pub fn seek_samples(&self, samples: u64) {
         self.position.set_samples(samples);
+        // Reset clip FX state on seek to avoid stale envelope/filter artifacts
+        if let Some(mut bank) = self.clip_fx_bank.try_write() {
+            bank.reset_all();
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -6576,10 +6599,18 @@ impl PlaybackEngine {
             };
 
             // Apply clip FX chain (before track processing)
+            // Uses stateful per-clip DSP processors (EQ, compressor, gate, etc.)
             if clip.has_fx() {
-                let (fx_l, fx_r) = self.process_clip_fx(&clip.fx_chain, sample_l, sample_r);
-                sample_l = fx_l;
-                sample_r = fx_r;
+                if let Some(mut fx_bank) = self.clip_fx_bank.try_write() {
+                    let (fx_l, fx_r) = fx_bank.process_sample(
+                        clip.id.0,
+                        &clip.fx_chain,
+                        sample_l,
+                        sample_r,
+                    );
+                    sample_l = fx_l;
+                    sample_r = fx_r;
+                }
             }
 
             // Calculate fade envelope
@@ -6629,157 +6660,6 @@ impl PlaybackEngine {
             let final_gain = gain * fade * loop_xf_gain;
             output_l[i] += sample_l * final_gain;
             output_r[i] += sample_r * final_gain;
-        }
-    }
-
-    /// Process clip FX chain on audio samples
-    /// Returns processed samples with FX applied
-    ///
-    /// This is a simplified version for built-in FX types.
-    /// For full processing, use the dsp_wrappers module.
-    #[inline]
-    fn process_clip_fx(&self, fx_chain: &ClipFxChain, sample_l: f64, sample_r: f64) -> (f64, f64) {
-        // Skip if chain is bypassed or empty
-        if fx_chain.bypass || fx_chain.is_empty() {
-            return (sample_l, sample_r);
-        }
-
-        // Apply input gain
-        let input_gain = fx_chain.input_gain_linear();
-        let mut l = sample_l * input_gain;
-        let mut r = sample_r * input_gain;
-
-        // Process each active slot
-        for slot in fx_chain.active_slots() {
-            let (processed_l, processed_r) = self.process_fx_slot(slot, l, r);
-
-            // Apply wet/dry mix
-            let wet = slot.wet_dry;
-            let dry = 1.0 - wet;
-            l = l * dry + processed_l * wet;
-            r = r * dry + processed_r * wet;
-
-            // Apply slot output gain
-            let slot_gain = slot.output_gain_linear();
-            l *= slot_gain;
-            r *= slot_gain;
-        }
-
-        // Apply output gain
-        let output_gain = fx_chain.output_gain_linear();
-        (l * output_gain, r * output_gain)
-    }
-
-    /// Process a single FX slot
-    /// Implements basic built-in FX processing
-    #[inline]
-    fn process_fx_slot(&self, slot: &ClipFxSlot, sample_l: f64, sample_r: f64) -> (f64, f64) {
-        match &slot.fx_type {
-            ClipFxType::Gain { db, pan } => {
-                // Simple gain and pan
-                let gain = if *db <= -96.0 {
-                    0.0
-                } else {
-                    10.0_f64.powf(*db / 20.0)
-                };
-
-                let pan_val = pan.clamp(-1.0, 1.0);
-                // Constant power pan: pan -1 = full left, 0 = center, 1 = full right
-                let pan_angle = (pan_val + 1.0) * std::f64::consts::FRAC_PI_4;
-                let pan_l = pan_angle.cos();
-                let pan_r = pan_angle.sin();
-
-                (sample_l * gain * pan_l, sample_r * gain * pan_r)
-            }
-
-            ClipFxType::Saturation { drive, mix: _ } => {
-                // Simple soft clipping saturation
-                let drive_amount = 1.0 + drive * 10.0;
-                let l = (sample_l * drive_amount).tanh() / drive_amount.tanh();
-                let r = (sample_r * drive_amount).tanh() / drive_amount.tanh();
-                (l, r)
-            }
-
-            ClipFxType::Compressor {
-                ratio,
-                threshold_db,
-                attack_ms: _,
-                release_ms: _,
-            } => {
-                // Simplified static compression (no envelope follower for now)
-                // Full implementation would use stateful processor
-                let threshold = 10.0_f64.powf(*threshold_db / 20.0);
-                let ratio_inv = 1.0 / ratio;
-
-                let compress = |sample: f64| -> f64 {
-                    let abs_sample = sample.abs();
-                    if abs_sample > threshold {
-                        let over = abs_sample - threshold;
-                        let compressed_over = over * ratio_inv;
-                        (threshold + compressed_over) * sample.signum()
-                    } else {
-                        sample
-                    }
-                };
-
-                (compress(sample_l), compress(sample_r))
-            }
-
-            ClipFxType::Limiter { ceiling_db } => {
-                // Simple hard limiter
-                let ceiling = 10.0_f64.powf(*ceiling_db / 20.0);
-                let l = sample_l.clamp(-ceiling, ceiling);
-                let r = sample_r.clamp(-ceiling, ceiling);
-                (l, r)
-            }
-
-            ClipFxType::Gate {
-                threshold_db,
-                attack_ms: _,
-                release_ms: _,
-            } => {
-                // Simplified static gate (no envelope follower)
-                let threshold = 10.0_f64.powf(*threshold_db / 20.0);
-                let level = (sample_l.abs() + sample_r.abs()) / 2.0;
-
-                if level < threshold {
-                    (0.0, 0.0)
-                } else {
-                    (sample_l, sample_r)
-                }
-            }
-
-            ClipFxType::PitchShift {
-                semitones: _,
-                cents: _,
-            } => {
-                // Pitch shifting requires stateful buffer - pass through for now
-                // Full implementation in dsp_wrappers
-                (sample_l, sample_r)
-            }
-
-            ClipFxType::TimeStretch { ratio: _ } => {
-                // Time stretch is typically offline - pass through
-                (sample_l, sample_r)
-            }
-
-            // EQ types - require full DSP processor instances
-            ClipFxType::ProEq { .. }
-            | ClipFxType::UltraEq
-            | ClipFxType::Pultec
-            | ClipFxType::Api550
-            | ClipFxType::Neve1073
-            | ClipFxType::MorphEq
-            | ClipFxType::RoomCorrection => {
-                // These require stateful biquad filters
-                // Full implementation should use dsp_wrappers
-                (sample_l, sample_r)
-            }
-
-            ClipFxType::External { .. } => {
-                // External plugins require VST/AU/CLAP hosting
-                (sample_l, sample_r)
-            }
         }
     }
 

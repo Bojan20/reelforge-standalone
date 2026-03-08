@@ -104,6 +104,9 @@ pub mod containers;
 // Audio Preview Engine (dedicated one-shot playback for Slot Lab, audio browser, etc.)
 pub mod preview;
 
+// Stateful Clip FX Processor (per-clip DSP chains with full rf-dsp integration)
+pub mod clip_fx_processor;
+
 // Re-exports: Core
 pub use bus::*;
 pub use graph::*;

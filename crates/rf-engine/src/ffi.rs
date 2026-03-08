@@ -3141,16 +3141,21 @@ fn fx_type_from_int(value: u8) -> ClipFxType {
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fx_add(clip_id: u64, fx_type: u8) -> u64 {
     let fx = fx_type_from_int(fx_type);
-    TRACK_MANAGER
+    let result = TRACK_MANAGER
         .add_clip_fx(ClipId(clip_id), fx)
         .map(|id| id.0)
-        .unwrap_or(0)
+        .unwrap_or(0);
+    if result != 0 {
+        sync_clip_fx_processors(clip_id);
+    }
+    result
 }
 
 /// Remove FX slot from clip
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fx_remove(clip_id: u64, slot_id: u64) -> i32 {
     if TRACK_MANAGER.remove_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id)) {
+        sync_clip_fx_processors(clip_id);
         1
     } else {
         0
@@ -3161,6 +3166,7 @@ pub extern "C" fn clip_fx_remove(clip_id: u64, slot_id: u64) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fx_move(clip_id: u64, slot_id: u64, new_index: u64) -> i32 {
     if TRACK_MANAGER.move_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), new_index as usize) {
+        sync_clip_fx_processors(clip_id);
         1
     } else {
         0
@@ -3171,6 +3177,7 @@ pub extern "C" fn clip_fx_move(clip_id: u64, slot_id: u64, new_index: u64) -> i3
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fx_set_bypass(clip_id: u64, slot_id: u64, bypass: i32) -> i32 {
     if TRACK_MANAGER.set_clip_fx_bypass(ClipId(clip_id), ClipFxSlotId(slot_id), bypass != 0) {
+        // No sync needed — bypass read directly from ClipFxSlot, click-free fade in processor
         1
     } else {
         0
@@ -3181,6 +3188,7 @@ pub extern "C" fn clip_fx_set_bypass(clip_id: u64, slot_id: u64, bypass: i32) ->
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fx_set_chain_bypass(clip_id: u64, bypass: i32) -> i32 {
     if TRACK_MANAGER.set_clip_fx_chain_bypass(ClipId(clip_id), bypass != 0) {
+        // No sync needed — chain bypass read directly in process_sample
         1
     } else {
         0
@@ -3193,6 +3201,7 @@ pub extern "C" fn clip_fx_set_wet_dry(clip_id: u64, slot_id: u64, wet_dry: f64) 
     if TRACK_MANAGER.update_clip_fx(ClipId(clip_id), ClipFxSlotId(slot_id), |slot| {
         slot.wet_dry = wet_dry.clamp(0.0, 1.0);
     }) {
+        // No sync needed — wet_dry read directly from ClipFxSlot in process_sample
         1
     } else {
         0
@@ -3203,6 +3212,7 @@ pub extern "C" fn clip_fx_set_wet_dry(clip_id: u64, slot_id: u64, wet_dry: f64) 
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fx_set_input_gain(clip_id: u64, gain_db: f64) -> i32 {
     if TRACK_MANAGER.set_clip_fx_input_gain(ClipId(clip_id), gain_db) {
+        // No sync needed — input_gain read directly from ClipFxChain in process_sample
         1
     } else {
         0
@@ -3213,6 +3223,7 @@ pub extern "C" fn clip_fx_set_input_gain(clip_id: u64, gain_db: f64) -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fx_set_output_gain(clip_id: u64, gain_db: f64) -> i32 {
     if TRACK_MANAGER.set_clip_fx_output_gain(ClipId(clip_id), gain_db) {
+        // No sync needed — output_gain read directly from ClipFxChain in process_sample
         1
     } else {
         0
@@ -3228,6 +3239,7 @@ pub extern "C" fn clip_fx_set_gain_params(clip_id: u64, slot_id: u64, db: f64, p
             pan: pan.clamp(-1.0, 1.0),
         };
     }) {
+        // No sync needed — Gain params read directly from fx_type in process_sample
         1
     } else {
         0
@@ -3252,6 +3264,7 @@ pub extern "C" fn clip_fx_set_compressor_params(
             release_ms: release_ms.clamp(1.0, 5000.0),
         };
     }) {
+        // No sync needed — Compressor params read from fx_type every sample in process_sample
         1
     } else {
         0
@@ -3266,6 +3279,7 @@ pub extern "C" fn clip_fx_set_limiter_params(clip_id: u64, slot_id: u64, ceiling
             ceiling_db: ceiling_db.clamp(-30.0, 0.0),
         };
     }) {
+        // No sync needed — Limiter ceiling read from fx_type in process_sample
         1
     } else {
         0
@@ -3288,6 +3302,7 @@ pub extern "C" fn clip_fx_set_gate_params(
             release_ms: release_ms.clamp(1.0, 2000.0),
         };
     }) {
+        // No sync needed — Gate params read from fx_type every sample in process_sample
         1
     } else {
         0
@@ -3308,6 +3323,7 @@ pub extern "C" fn clip_fx_set_saturation_params(
             mix: mix.clamp(0.0, 1.0),
         };
     }) {
+        // No sync needed — Saturation drive read from fx_type in process_sample
         1
     } else {
         0
@@ -3318,6 +3334,7 @@ pub extern "C" fn clip_fx_set_saturation_params(
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fx_copy(source_clip_id: u64, target_clip_id: u64) -> i32 {
     if TRACK_MANAGER.copy_clip_fx(ClipId(source_clip_id), ClipId(target_clip_id)) {
+        sync_clip_fx_processors(target_clip_id);
         1
     } else {
         0
@@ -3328,9 +3345,24 @@ pub extern "C" fn clip_fx_copy(source_clip_id: u64, target_clip_id: u64) -> i32 
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fx_clear(clip_id: u64) -> i32 {
     if TRACK_MANAGER.clear_clip_fx(ClipId(clip_id)) {
+        // Sync processor bank: remove all processors for this clip
+        if let Some(mut bank) = PLAYBACK_ENGINE.clip_fx_bank.try_write() {
+            bank.remove_clip(clip_id);
+        }
         1
     } else {
         0
+    }
+}
+
+/// Synchronize clip FX processor bank after structural changes (add/remove/move).
+/// Called from FFI functions that modify clip FX chain structure.
+/// NOT called from audio thread — may allocate new processor instances.
+fn sync_clip_fx_processors(clip_id: u64) {
+    if let Some(clip) = TRACK_MANAGER.clips.get(&ClipId(clip_id)) {
+        if let Some(mut bank) = PLAYBACK_ENGINE.clip_fx_bank.try_write() {
+            bank.sync_clip(clip_id, &clip.fx_chain);
+        }
     }
 }
 
