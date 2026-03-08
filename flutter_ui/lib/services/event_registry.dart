@@ -664,6 +664,7 @@ class EventRegistry extends ChangeNotifier {
   static const Duration _instanceMaxAge = Duration(seconds: 10);
   static const Duration _cleanupInterval = Duration(seconds: 5);
   Timer? _cleanupTimer;
+  final List<Timer> _pendingTimers = [];
   int _cleanedInstances = 0;
   int get cleanedInstances => _cleanedInstances;
 
@@ -1780,6 +1781,10 @@ class EventRegistry extends ChangeNotifier {
   /// Clear all events and stage mappings
   /// Used when unwiring a template
   void clearAllEvents() {
+    // Cancel all pending voice tracking/cleanup timers
+    for (final t in _pendingTimers) { t.cancel(); }
+    _pendingTimers.clear();
+
     // Stop all playing sounds first
     for (final eventId in _events.keys.toList()) {
       _stopEventSync(eventId);
@@ -2444,24 +2449,26 @@ class EventRegistry extends ChangeNotifier {
 
     // Track for non-overlapping bus playback (new system)
     if (!event.overlap) {
-      Timer(const Duration(milliseconds: 50), () {
+      final t = Timer(const Duration(milliseconds: 50), () {
         if (voiceIds.isNotEmpty) {
           for (final voiceId in voiceIds) {
             _trackBusVoice(event.targetBusId, voiceId, event.id, event.crossfadeMs, audioPath: primaryAudioPath);
           }
         }
       });
+      _pendingTimers.add(t);
     }
     // Track for legacy stage-group crossfade (P1.10)
     else if (_shouldCrossfade(event.stage)) {
       // Wait a bit for async voice creation, then track them
-      Timer(const Duration(milliseconds: 50), () {
+      final t = Timer(const Duration(milliseconds: 50), () {
         final group = _getCrossfadeGroup(event.stage);
         if (group != null && voiceIds.isNotEmpty) {
           final fadeMs = _getCrossfadeDuration(event.stage);
           _crossfadeGroupVoices[group] = voiceIds.map((id) => (voiceId: id, fadeOutMs: fadeMs)).toList();
         }
       });
+      _pendingTimers.add(t);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -2475,11 +2482,12 @@ class EventRegistry extends ChangeNotifier {
           ? ((event.duration * 1000) + 500).toInt()
           : 3000;
 
-      Timer(Duration(milliseconds: cleanupDelayMs), () {
+      final t = Timer(Duration(milliseconds: cleanupDelayMs), () {
         if (_playingInstances.contains(instance)) {
           _playingInstances.remove(instance);
         }
       });
+      _pendingTimers.add(t);
     }
 
     // P1.3: Add to recent items for quick access
@@ -2825,15 +2833,11 @@ class EventRegistry extends ChangeNotifier {
 
     // P-RTE-3: Depth limit check
     if (currentDepth >= _maxRecursionDepth) {
-      assert(() { debugPrint('[P-RTE] Max recursion depth ($currentDepth) reached. '
-          'Chain: ${chain.join(" → ")} → $targetEventId (BLOCKED)'); return true; }());
       return;
     }
 
     // P-RTE-4: Cycle detection — check if target already in chain
     if (chain.contains(targetEventId)) {
-      assert(() { debugPrint('[P-RTE] Cycle detected! '
-          'Chain: ${chain.join(" → ")} → $targetEventId (BLOCKED)'); return true; }());
       return;
     }
 
@@ -2866,15 +2870,11 @@ class EventRegistry extends ChangeNotifier {
 
     // P-RTE-3: Depth limit check
     if (currentDepth >= _maxRecursionDepth) {
-      assert(() { debugPrint('[P-RTE] Max recursion depth ($currentDepth) reached. '
-          'Chain: ${chain.join(" → ")} → $targetEventId (BLOCKED)'); return true; }());
       return;
     }
 
     // P-RTE-4: Cycle detection
     if (chain.contains(targetEventId)) {
-      assert(() { debugPrint('[P-RTE] Cycle detected! '
-          'Chain: ${chain.join(" → ")} → $targetEventId (BLOCKED)'); return true; }());
       return;
     }
 
@@ -3483,8 +3483,7 @@ class EventRegistry extends ChangeNotifier {
     final upper = prefix.toUpperCase();
     final toRemove = <_PlayingInstance>[];
     for (final instance in _playingInstances) {
-      if (instance.eventId.toUpperCase().startsWith(upper) ||
-          instance.eventId.toUpperCase().contains(upper)) {
+      if (instance.eventId.toUpperCase().startsWith(upper)) {
         instance.stop();
         toRemove.add(instance);
       }
@@ -3903,6 +3902,8 @@ class EventRegistry extends ChangeNotifier {
   @override
   void dispose() {
     _cleanupTimer?.cancel(); // P1.3: Stop cleanup timer
+    for (final t in _pendingTimers) { t.cancel(); }
+    _pendingTimers.clear();
     stopAll();
     _preloadedPaths.clear();
     _spatialEngine.dispose();

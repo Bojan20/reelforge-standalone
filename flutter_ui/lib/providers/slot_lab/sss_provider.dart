@@ -259,7 +259,7 @@ class SssProvider extends ChangeNotifier {
         final list = jsonDecode(json) as List<dynamic>;
         _projects = list.map((e) => SssProjectInfo.fromJson(e as Map<String, dynamic>)).toList();
       } catch (e) {
-        assert(() { debugPrint('[SSS] Failed to parse projects JSON: $e'); return true; }());
+        // Parse error — silently ignore malformed JSON
       }
     }
 
@@ -348,7 +348,7 @@ class SssProvider extends ChangeNotifier {
             .map((s) => RegressionScenarioResult.fromJson(s as Map<String, dynamic>))
             .toList();
       } catch (e) {
-        assert(() { debugPrint('[SSS] Failed to parse regression results: $e'); return true; }());
+        // Parse error — silently ignore malformed JSON
       }
     }
 
@@ -405,7 +405,7 @@ class SssProvider extends ChangeNotifier {
           }
         }
       } catch (e) {
-        assert(() { debugPrint('[SSS] Failed to parse burn test metrics: $e'); return true; }());
+        // Parse error — silently ignore malformed JSON
       }
     }
 

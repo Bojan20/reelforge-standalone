@@ -516,6 +516,8 @@ class StageFlowProvider extends ChangeNotifier {
   void dispose() {
     _executor?.cancel();
     _recorder.clear();
+    onTriggerStage = null;
+    onFlowComplete = null;
     super.dispose();
   }
 }

@@ -282,7 +282,7 @@ class GadProvider extends ChangeNotifier {
           );
         }).toList();
       } catch (e) {
-        assert(() { debugPrint('[GAD] Failed to parse test steps: $e'); return true; }());
+        // Parse error — silently ignore malformed JSON
       }
     }
 
@@ -324,7 +324,7 @@ class GadProvider extends ChangeNotifier {
             .map((t) => GadTrackData.fromJson(t as Map<String, dynamic>))
             .toList();
       } catch (e) {
-        assert(() { debugPrint('[GAD] Failed to parse track data: $e'); return true; }());
+        // Parse error — silently ignore malformed JSON
       }
     }
     notifyListeners();
