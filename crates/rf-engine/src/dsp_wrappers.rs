@@ -3804,6 +3804,9 @@ pub struct DelayWrapper {
     sidechain_buf_r: Vec<f64>,
     // D10.2: MIDI trigger state
     midi_trigger_pending: bool,
+    // Pre-allocated dry signal buffers (audio thread — zero allocations)
+    dry_buf_l: Vec<f64>,
+    dry_buf_r: Vec<f64>,
 }
 
 impl DelayWrapper {
@@ -3899,6 +3902,8 @@ impl DelayWrapper {
             sidechain_buf_l: Vec::new(),
             sidechain_buf_r: Vec::new(),
             midi_trigger_pending: false,
+            dry_buf_l: vec![0.0; 4096],
+            dry_buf_r: vec![0.0; 4096],
         }
     }
 
