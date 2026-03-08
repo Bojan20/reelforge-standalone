@@ -42,12 +42,16 @@ enum _TimelineTrack {
 class TransitionTimelineEditor extends StatefulWidget {
   final SceneTransitionConfig config;
   final ValueChanged<SceneTransitionConfig> onChanged;
+  final VoidCallback? onDragStart;
+  final VoidCallback? onDragEnd;
   final double totalDurationMs;
 
   const TransitionTimelineEditor({
     super.key,
     required this.config,
     required this.onChanged,
+    this.onDragStart,
+    this.onDragEnd,
     this.totalDurationMs = 5000,
   });
 
@@ -184,16 +188,19 @@ class _TransitionTimelineEditorState extends State<TransitionTimelineEditor> {
       _activeDrag = _DragTarget(track, _DragPart.start);
       _dragStartX = event.localPosition.dx;
       _dragStartValue = delay;
+      widget.onDragStart?.call();
       setState(() {});
     } else if ((localX - endPx).abs() < _handleWidth) {
       _activeDrag = _DragTarget(track, _DragPart.end);
       _dragStartX = event.localPosition.dx;
       _dragStartValue = duration;
+      widget.onDragStart?.call();
       setState(() {});
     } else if (localX > delayPx && localX < endPx) {
       _activeDrag = _DragTarget(track, _DragPart.bar);
       _dragStartX = event.localPosition.dx;
       _dragStartValue = delay;
+      widget.onDragStart?.call();
       setState(() {});
     }
   }
@@ -229,6 +236,7 @@ class _TransitionTimelineEditorState extends State<TransitionTimelineEditor> {
   void _onPointerUp() {
     if (_activeDrag != null) {
       _activeDrag = null;
+      widget.onDragEnd?.call();
       setState(() {});
     }
   }

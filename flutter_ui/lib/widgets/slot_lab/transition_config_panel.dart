@@ -137,7 +137,16 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
 
   ConfigUndoManager get _undo => GetIt.instance<ConfigUndoManager>();
 
+  /// Timeline drag batching: capture snapshot on drag start, record on drag end
+  ConfigSnapshot? _timelineDragBefore;
+  bool _isTimelineDragging = false;
+
   void _withUndo(String description, VoidCallback mutation) {
+    // During timeline drag, skip individual undo records — batched via onDragEnd
+    if (_isTimelineDragging) {
+      mutation();
+      return;
+    }
     final before = _undo.captureBeforeState();
     mutation();
     _undo.recordAfter(
@@ -536,19 +545,71 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
           ],
         ),
         const SizedBox(height: 4),
-        // Row 5: Audio stage
+        // Row 5: Audio stage (global)
         _buildAudioStageField(
           value: config.audioStage,
           color: color,
+          label: 'AUDIO',
           onChanged: (stage) {
             onChanged(config.copyWith(audioStage: stage));
           },
         ),
+        // Row 5a: Per-phase audio stages (burst + plaque)
+        if (config.showBurst || config.showPlaque) ...[
+          const SizedBox(height: 3),
+          Row(
+            children: [
+              if (config.showBurst)
+                Expanded(
+                  child: _buildAudioStageField(
+                    value: config.burstAudioStage ?? '',
+                    color: const Color(0xFFFF6D00),
+                    label: 'BURST',
+                    onChanged: (stage) {
+                      onChanged(config.copyWith(
+                        burstAudioStage: (stage == null || stage.isEmpty) ? null : stage,
+                      ));
+                    },
+                  ),
+                ),
+              if (config.showBurst && config.showPlaque)
+                const SizedBox(width: 4),
+              if (config.showPlaque)
+                Expanded(
+                  child: _buildAudioStageField(
+                    value: config.plaqueAudioStage ?? '',
+                    color: const Color(0xFFE040FB),
+                    label: 'PLAQUE',
+                    onChanged: (stage) {
+                      onChanged(config.copyWith(
+                        plaqueAudioStage: (stage == null || stage.isEmpty) ? null : stage,
+                      ));
+                    },
+                  ),
+                ),
+            ],
+          ),
+        ],
         const SizedBox(height: 6),
         // Row 6: Visual timeline editor
         TransitionTimelineEditor(
           config: config,
           onChanged: onChanged,
+          onDragStart: () {
+            _timelineDragBefore = _undo.captureBeforeState();
+            _isTimelineDragging = true;
+          },
+          onDragEnd: () {
+            _isTimelineDragging = false;
+            if (_timelineDragBefore != null) {
+              _undo.recordAfter(
+                beforeState: _timelineDragBefore!,
+                category: ConfigUndoCategory.transition,
+                description: 'Adjust timeline',
+              );
+              _timelineDragBefore = null;
+            }
+          },
           totalDurationMs: config.durationMs.toDouble().clamp(1000, 30000),
         ),
       ],
@@ -769,6 +830,7 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
     required String? value,
     required Color color,
     required ValueChanged<String?> onChanged,
+    String label = 'AUDIO',
   }) {
     final stages = EventRegistry.instance.registeredStages.toList()..sort();
     final hasValue = value != null && value.isNotEmpty;
@@ -778,7 +840,7 @@ class _TransitionConfigPanelState extends State<TransitionConfigPanel> {
         Icon(Icons.volume_up, color: color.withOpacity(0.5), size: 10),
         const SizedBox(width: 4),
         Text(
-          'AUDIO',
+          label,
           style: TextStyle(
             color: color.withOpacity(0.5),
             fontSize: 8,

@@ -12,8 +12,10 @@ library;
 
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import 'package:provider/provider.dart';
 
+import '../../providers/slot_lab/config_undo_manager.dart';
 import '../../providers/slot_lab_project_provider.dart';
 import '../../models/slot_lab_models.dart';
 import '../../services/native_file_picker.dart';
@@ -268,6 +270,18 @@ class SymbolArtPanel extends StatelessWidget {
   // ACTIONS
   // ═══════════════════════════════════════════════════════════════════════════
 
+  ConfigUndoManager get _undo => GetIt.instance<ConfigUndoManager>();
+
+  void _withUndo(String description, VoidCallback mutation) {
+    final before = _undo.captureBeforeState();
+    mutation();
+    _undo.recordAfter(
+      beforeState: before,
+      category: ConfigUndoCategory.symbolArtwork,
+      description: description,
+    );
+  }
+
   Future<void> _pickArtwork(BuildContext context,
       SlotLabProjectProvider provider, SymbolDefinition symbol) async {
     final files = await NativeFilePicker.pickFiles(
@@ -276,7 +290,9 @@ class SymbolArtPanel extends StatelessWidget {
       allowMultiple: false,
     );
     if (files.isEmpty) return;
-    provider.updateSymbolArtwork(symbol.id, files.first);
+    _withUndo('Assign artwork: ${symbol.name}', () {
+      provider.updateSymbolArtwork(symbol.id, files.first);
+    });
     _syncArtworkToSlotSymbols(provider);
   }
 
@@ -335,7 +351,9 @@ class SymbolArtPanel extends StatelessWidget {
     }
 
     if (assignments.isNotEmpty) {
-      provider.updateSymbolArtworkBatch(assignments);
+      _withUndo('Bulk import ${assignments.length} artworks', () {
+        provider.updateSymbolArtworkBatch(assignments);
+      });
     }
 
     _syncArtworkToSlotSymbols(provider);
@@ -343,17 +361,21 @@ class SymbolArtPanel extends StatelessWidget {
 
   void _clearArtwork(
       SlotLabProjectProvider provider, SymbolDefinition symbol) {
-    provider.updateSymbolArtwork(symbol.id, null);
+    _withUndo('Clear artwork: ${symbol.name}', () {
+      provider.updateSymbolArtwork(symbol.id, null);
+    });
     _syncArtworkToSlotSymbols(provider);
   }
 
   void _clearAllArtwork(
       BuildContext context, SlotLabProjectProvider provider) {
-    for (final symbol in provider.symbols) {
-      if (symbol.artworkPath != null && symbol.artworkPath!.isNotEmpty) {
-        provider.updateSymbolArtwork(symbol.id, null);
+    _withUndo('Clear all artwork', () {
+      for (final symbol in provider.symbols) {
+        if (symbol.artworkPath != null && symbol.artworkPath!.isNotEmpty) {
+          provider.updateSymbolArtwork(symbol.id, null);
+        }
       }
-    }
+    });
     _syncArtworkToSlotSymbols(provider);
   }
 
