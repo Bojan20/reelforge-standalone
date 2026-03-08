@@ -9354,6 +9354,8 @@ pub extern "C" fn algorithmic_reverb_set_param(track_id: u32, param_index: u32, 
             12 => reverb.set_thickness(value),
             13 => reverb.set_ducking(value),
             14 => reverb.set_freeze(value > 0.5),
+            15 => reverb.set_spin(value),
+            16 => reverb.set_wander(value),
             _ => {}
         }
         1
@@ -9362,7 +9364,7 @@ pub extern "C" fn algorithmic_reverb_set_param(track_id: u32, param_index: u32, 
     }
 }
 
-/// Get reverb parameter by index (0-14)
+/// Get reverb parameter by index (0-16)
 #[unsafe(no_mangle)]
 pub extern "C" fn algorithmic_reverb_get_param(track_id: u32, param_index: u32) -> f64 {
     use rf_dsp::reverb::ReverbType;
@@ -9396,6 +9398,8 @@ pub extern "C" fn algorithmic_reverb_get_param(track_id: u32, param_index: u32) 
                     0.0
                 }
             }
+            15 => reverb.spin(),
+            16 => reverb.wander(),
             _ => 0.0,
         }
     } else {

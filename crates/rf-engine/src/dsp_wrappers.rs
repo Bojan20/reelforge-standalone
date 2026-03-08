@@ -2920,7 +2920,7 @@ impl InsertProcessor for ReverbWrapper {
     }
 
     fn num_params(&self) -> usize {
-        15
+        17
     }
 
     fn set_param(&mut self, param_index: usize, value: f64) {
@@ -2950,6 +2950,8 @@ impl InsertProcessor for ReverbWrapper {
             12 => self.reverb.set_thickness(value),
             13 => self.reverb.set_ducking(value),
             14 => self.reverb.set_freeze(value > 0.5),
+            15 => self.reverb.set_spin(value),
+            16 => self.reverb.set_wander(value),
             _ => {}
         }
     }
@@ -2983,6 +2985,8 @@ impl InsertProcessor for ReverbWrapper {
                     0.0
                 }
             }
+            15 => self.reverb.spin(),
+            16 => self.reverb.wander(),
             _ => 0.0,
         }
     }
@@ -3004,6 +3008,8 @@ impl InsertProcessor for ReverbWrapper {
             12 => "Thickness",
             13 => "Ducking",
             14 => "Freeze",
+            15 => "Spin",
+            16 => "Wander",
             _ => "Unknown",
         }
     }
@@ -4703,7 +4709,7 @@ mod tests {
     #[test]
     fn test_reverb_wrapper_num_params() {
         let proc = create_processor_extended("reverb", 48000.0).unwrap();
-        assert_eq!(proc.num_params(), 15);
+        assert_eq!(proc.num_params(), 17);
     }
 
     #[test]
@@ -4724,7 +4730,9 @@ mod tests {
         assert_eq!(proc.param_name(12), "Thickness");
         assert_eq!(proc.param_name(13), "Ducking");
         assert_eq!(proc.param_name(14), "Freeze");
-        assert_eq!(proc.param_name(15), "Unknown");
+        assert_eq!(proc.param_name(15), "Spin");
+        assert_eq!(proc.param_name(16), "Wander");
+        assert_eq!(proc.param_name(17), "Unknown");
     }
 
     #[test]
@@ -4747,6 +4755,8 @@ mod tests {
             (11, 0.6),  // character
             (12, 0.8),  // thickness
             (13, 0.4),  // ducking
+            (15, 0.7),  // spin
+            (16, 0.3),  // wander
         ];
         for (idx, val) in &test_values {
             proc.set_param(*idx, *val);

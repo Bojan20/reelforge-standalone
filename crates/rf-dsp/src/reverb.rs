@@ -462,6 +462,148 @@ struct ERTap {
     lpf_state_r: f64,
 }
 
+// ========================================================================
+// Velvet Noise Modulation (Valhalla-style)
+// ========================================================================
+//
+// Replaces periodic sinusoidal LFO with sparse random impulse train.
+// Sean Costello (Valhalla DSP) trademark technique:
+// - Random impulses at configurable density (200-2000 impulses/sec)
+// - Each impulse is +1 or -1 (random polarity)
+// - Low-pass filtered to smooth modulation signal
+// - Eliminates periodic chorus artifacts, creates organic spatial movement
+//
+// Two modulation rates per generator:
+// - Spin: fast modulation (1-5 Hz effective rate after LP filtering)
+// - Wander: slow drift (0.05-0.5 Hz) for long-term movement
+
+/// Velvet noise generator — sparse random impulse train for delay modulation
+///
+/// Uses a simple LCG (linear congruential generator) for deterministic,
+/// allocation-free random number generation on the audio thread.
+#[derive(Debug, Clone)]
+struct VelvetNoiseGenerator {
+    /// LCG state (deterministic PRNG, zero allocation)
+    rng_state: u64,
+    /// Samples until next impulse
+    samples_until_impulse: u32,
+    /// Current density in impulses/sec
+    density: f64,
+    /// Sample rate for interval calculation
+    sample_rate: f64,
+    /// Spin LP filter state (fast modulation, 1-5 Hz cutoff)
+    spin_lpf_state: f64,
+    /// Spin LP filter coefficient
+    spin_lpf_coeff: f64,
+    /// Wander LP filter state (slow drift, 0.05-0.5 Hz cutoff)
+    wander_lpf_state: f64,
+    /// Wander LP filter coefficient
+    wander_lpf_coeff: f64,
+}
+
+impl VelvetNoiseGenerator {
+    fn new(sample_rate: f64, seed: u64) -> Self {
+        let density = 800.0; // Default density: 800 impulses/sec
+        let spin_hz = 2.5; // Default spin rate
+        let wander_hz = 0.15; // Default wander rate
+
+        let mut vng = Self {
+            rng_state: seed.wrapping_mul(6364136223846793005).wrapping_add(1),
+            samples_until_impulse: 0,
+            density,
+            sample_rate,
+            spin_lpf_state: 0.0,
+            spin_lpf_coeff: Self::calc_lpf_coeff(spin_hz, sample_rate),
+            wander_lpf_state: 0.0,
+            wander_lpf_coeff: Self::calc_lpf_coeff(wander_hz, sample_rate),
+        };
+        // Initialize first impulse interval
+        vng.samples_until_impulse = vng.next_interval();
+        vng
+    }
+
+    /// Calculate one-pole LP filter coefficient for given cutoff frequency
+    #[inline(always)]
+    fn calc_lpf_coeff(freq_hz: f64, sample_rate: f64) -> f64 {
+        1.0 - (-2.0 * std::f64::consts::PI * freq_hz / sample_rate).exp()
+    }
+
+    /// Update spin rate (fast modulation, 1-5 Hz)
+    fn set_spin_rate(&mut self, hz: f64) {
+        let hz = hz.clamp(1.0, 5.0);
+        self.spin_lpf_coeff = Self::calc_lpf_coeff(hz, self.sample_rate);
+    }
+
+    /// Update wander rate (slow drift, 0.05-0.5 Hz)
+    fn set_wander_rate(&mut self, hz: f64) {
+        let hz = hz.clamp(0.05, 0.5);
+        self.wander_lpf_coeff = Self::calc_lpf_coeff(hz, self.sample_rate);
+    }
+
+    /// Update impulse density (200-2000 impulses/sec)
+    fn set_density(&mut self, density: f64) {
+        self.density = density.clamp(200.0, 2000.0);
+    }
+
+    /// LCG random: returns pseudo-random u64 (Knuth LCG constants)
+    #[inline(always)]
+    fn next_random(&mut self) -> u64 {
+        self.rng_state = self.rng_state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        self.rng_state
+    }
+
+    /// Calculate samples until next impulse based on density
+    /// Adds ±30% jitter to prevent periodicity
+    #[inline(always)]
+    fn next_interval(&mut self) -> u32 {
+        let mean_interval = self.sample_rate / self.density;
+        // Jitter: ±30% of mean interval using PRNG
+        let r = self.next_random();
+        let jitter = (r as f64 / u64::MAX as f64) * 0.6 - 0.3; // -0.3 to +0.3
+        let interval = mean_interval * (1.0 + jitter);
+        (interval as u32).max(1)
+    }
+
+    /// Generate one sample of velvet noise and return (spin_mod, wander_mod)
+    ///
+    /// Both outputs are smooth, LP-filtered modulation signals in range ~[-1, +1].
+    /// Spin = fast movement (chorus-like), Wander = slow drift (spatial).
+    #[inline(always)]
+    fn process(&mut self) -> (f64, f64) {
+        // Generate raw velvet noise impulse
+        let impulse = if self.samples_until_impulse == 0 {
+            // Time for an impulse — random polarity (+1 or -1)
+            let r = self.next_random();
+            let polarity = if r & 1 == 0 { 1.0 } else { -1.0 };
+            // Schedule next impulse
+            self.samples_until_impulse = self.next_interval();
+            polarity
+        } else {
+            self.samples_until_impulse -= 1;
+            0.0
+        };
+
+        // LP filter the impulse train at two different rates
+        // Spin: fast LP → gives modulation in the 1-5 Hz range
+        self.spin_lpf_state += (impulse - self.spin_lpf_state) * self.spin_lpf_coeff;
+
+        // Wander: slow LP → gives drift in the 0.05-0.5 Hz range
+        self.wander_lpf_state += (impulse - self.wander_lpf_state) * self.wander_lpf_coeff;
+
+        (self.spin_lpf_state, self.wander_lpf_state)
+    }
+
+    fn reset(&mut self, seed: u64) {
+        self.rng_state = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+        self.samples_until_impulse = 0;
+        self.spin_lpf_state = 0.0;
+        self.wander_lpf_state = 0.0;
+        self.samples_until_impulse = self.next_interval();
+    }
+}
+
 /// Early Reflection Engine — 8 taps with prime-distributed delays
 #[derive(Debug, Clone)]
 struct EarlyReflectionEngine {
@@ -640,8 +782,8 @@ struct FDNDelayLine {
 
 impl FDNDelayLine {
     fn new(base_delay: usize) -> Self {
-        // Allocate extra for modulation headroom
-        let buf_size = base_delay + 64;
+        // Allocate extra for modulation headroom + cubic interpolation (needs 4 points)
+        let buf_size = base_delay + 68;
         Self {
             buffer: vec![0.0; buf_size],
             write_pos: 0,
@@ -653,6 +795,11 @@ impl FDNDelayLine {
         }
     }
 
+    /// Read from delay line with cubic Hermite interpolation
+    ///
+    /// 4-point cubic (Hermite spline) eliminates zipper noise artifacts
+    /// that linear interpolation produces during delay modulation.
+    /// Uses points: y[-1], y[0], y[1], y[2] around the fractional position.
     #[inline(always)]
     fn read_modulated(&self, mod_offset: f64) -> f64 {
         let total_delay = self.base_delay as f64 + mod_offset;
@@ -660,11 +807,29 @@ impl FDNDelayLine {
         let frac = total_delay - delay_int as f64;
 
         let buf_len = self.buffer.len();
-        let pos0 = (self.write_pos + buf_len - delay_int) % buf_len;
-        let pos1 = (pos0 + buf_len - 1) % buf_len;
+        // 4 sample positions for cubic interpolation
+        let pos0 = (self.write_pos + buf_len - delay_int) % buf_len;      // y[0]
+        let pos1 = (pos0 + buf_len - 1) % buf_len;                         // y[1] (older)
+        let pos_m1 = (pos0 + 1) % buf_len;                                 // y[-1] (newer)
+        let pos2 = (pos1 + buf_len - 1) % buf_len;                         // y[2] (oldest)
 
-        // Linear interpolation for fractional delay
-        self.buffer[pos0] * (1.0 - frac) + self.buffer[pos1] * frac
+        let ym1 = self.buffer[pos_m1];
+        let y0 = self.buffer[pos0];
+        let y1 = self.buffer[pos1];
+        let y2 = self.buffer[pos2];
+
+        // Hermite cubic interpolation (4-point, 3rd-order)
+        // c0 = y0
+        // c1 = 0.5 * (y1 - ym1)
+        // c2 = ym1 - 2.5*y0 + 2*y1 - 0.5*y2
+        // c3 = 0.5*(y2 - ym1) + 1.5*(y0 - y1)
+        // result = ((c3*frac + c2)*frac + c1)*frac + c0
+        let c0 = y0;
+        let c1 = 0.5 * (y1 - ym1);
+        let c2 = ym1 - 2.5 * y0 + 2.0 * y1 - 0.5 * y2;
+        let c3 = 0.5 * (y2 - ym1) + 1.5 * (y0 - y1);
+
+        ((c3 * frac + c2) * frac + c1) * frac + c0
     }
 
     #[inline(always)]
@@ -725,12 +890,21 @@ impl FDNDelayLine {
 }
 
 /// FDN Core — 8×8 Feedback Delay Network with Hadamard mixing matrix
+///
+/// Modulation: 8 independent velvet noise generators (Valhalla-style)
+/// replacing the original single-frequency sinusoidal LFO.
+/// Each delay line gets its own random modulation source for decorrelation.
 #[derive(Debug, Clone)]
 struct FDNCore {
     delay_lines: [FDNDelayLine; 8],
     feedback_gains: [f64; 8],
-    lfo_phases: [f64; 8],
-    lfo_increment: f64,
+    /// 8 independent velvet noise generators (one per delay line)
+    velvet_gens: [VelvetNoiseGenerator; 8],
+    /// Spin depth (fast modulation amplitude), 0.0-1.0
+    spin_depth: f64,
+    /// Wander depth (slow drift amplitude), 0.0-1.0
+    wander_depth: f64,
+    /// Combined modulation depth scale (0.0-0.01)
     mod_depth: f64,
     freeze: bool,
     // Crossover coefficients for multi-band decay
@@ -768,11 +942,21 @@ impl FDNCore {
 
         let feedback_gains = [0.92; 8]; // Default decay
 
-        // 8 LFO phases evenly distributed
-        let lfo_phases = std::array::from_fn(|i| i as f64 * std::f64::consts::FRAC_PI_4);
-
-        // LFO increment for ~0.3 Hz modulation (deterministic, prevents metallic ringing)
-        let lfo_increment = 2.0 * std::f64::consts::PI * 0.3 / sample_rate;
+        // 8 independent velvet noise generators with unique prime seeds
+        // Each generator has decorrelated random sequence for spatial richness
+        const SEEDS: [u64; 8] = [
+            0x9E3779B97F4A7C15, // Golden ratio derived
+            0x6C62272E07BB0142, // Fibonacci hash
+            0xBF58476D1CE4E5B9, // Splitmix64 constants
+            0x94D049BB133111EB,
+            0xD6E8FEB86659FD93,
+            0xA0761D6478BD642F,
+            0xE7037ED1A0B428DB,
+            0x8A5CD789635D2DFF,
+        ];
+        let velvet_gens = std::array::from_fn(|i| {
+            VelvetNoiseGenerator::new(sample_rate, SEEDS[i])
+        });
 
         // Crossover filter coefficients
         // LP @ ~250 Hz: coeff = 1 - e^(-2π × f / sr)
@@ -783,9 +967,10 @@ impl FDNCore {
         Self {
             delay_lines,
             feedback_gains,
-            lfo_phases,
-            lfo_increment,
-            mod_depth: 0.002, // 0.2% modulation depth
+            velvet_gens,
+            spin_depth: 0.6,    // Default spin depth
+            wander_depth: 0.4,  // Default wander depth
+            mod_depth: 0.002,   // 0.2% modulation depth (will be expanded in R1.5)
             freeze: false,
             lp_coeff,
             hp_coeff,
@@ -805,8 +990,8 @@ impl FDNCore {
         let sr_scale = sample_rate / 48000.0;
         for (i, dl) in self.delay_lines.iter_mut().enumerate() {
             dl.base_delay = ((FDN_BASE_DELAYS[i] as f64) * sr_scale * scale) as usize;
-            // Ensure buffer is large enough
-            let needed = dl.base_delay + 64;
+            // Ensure buffer is large enough (68 = modulation headroom + cubic interp)
+            let needed = dl.base_delay + 68;
             if dl.buffer.len() < needed {
                 dl.buffer.resize(needed, 0.0);
             }
@@ -823,11 +1008,15 @@ impl FDNCore {
         high_mult: f64,
         thickness: f64,
     ) -> (f64, f64) {
-        // Read from all 8 delay lines (with LFO modulation)
+        // Read from all 8 delay lines (with velvet noise modulation)
+        // Each line has its own independent random modulation source
         let mut outputs = [0.0f64; 8];
         for i in 0..8 {
+            let (spin, wander) = self.velvet_gens[i].process();
+            // Combine spin (fast) and wander (slow) with independent depths
+            let mod_signal = spin * self.spin_depth + wander * self.wander_depth;
             let mod_offset =
-                self.lfo_phases[i].sin() * self.mod_depth * self.delay_lines[i].base_delay as f64;
+                mod_signal * self.mod_depth * self.delay_lines[i].base_delay as f64;
             outputs[i] = self.delay_lines[i].read_modulated(mod_offset);
         }
 
@@ -892,14 +1081,6 @@ impl FDNCore {
             self.delay_lines[i].write(with_thickness + inputs[i]);
         }
 
-        // Advance LFO phases (deterministic, fixed increment)
-        for phase in &mut self.lfo_phases {
-            *phase += self.lfo_increment;
-            if *phase > 2.0 * std::f64::consts::PI {
-                *phase -= 2.0 * std::f64::consts::PI;
-            }
-        }
-
         // Sum outputs to stereo (lines 0-3 → left, 4-7 → right)
         // Asymmetric gains to preserve stereo information
         let out_l = outputs[0] * 0.30 + outputs[1] * 0.27 + outputs[2] * 0.23 + outputs[3] * 0.20;
@@ -912,9 +1093,15 @@ impl FDNCore {
         for dl in &mut self.delay_lines {
             dl.reset();
         }
-        // Reset LFO to deterministic initial phases
-        for (i, phase) in self.lfo_phases.iter_mut().enumerate() {
-            *phase = i as f64 * std::f64::consts::FRAC_PI_4;
+        // Reset velvet noise generators to deterministic initial seeds
+        const SEEDS: [u64; 8] = [
+            0x9E3779B97F4A7C15, 0x6C62272E07BB0142,
+            0xBF58476D1CE4E5B9, 0x94D049BB133111EB,
+            0xD6E8FEB86659FD93, 0xA0761D6478BD642F,
+            0xE7037ED1A0B428DB, 0x8A5CD789635D2DFF,
+        ];
+        for (i, vg) in self.velvet_gens.iter_mut().enumerate() {
+            vg.reset(SEEDS[i]);
         }
     }
 }
@@ -983,7 +1170,7 @@ pub struct AlgorithmicReverb {
     fdn: FDNCore,
     ducker: SelfDucker,
 
-    // Parameters (15 total)
+    // Parameters (17 total — 15 original + spin + wander)
     space: f64,       // 0: Space (0.0-1.0) — replaces room_size
     brightness: f64,  // 1: Brightness (0.0-1.0) — inverted damping
     width: f64,       // 2: Width (0.0-2.0) — M/S processing
@@ -995,10 +1182,12 @@ pub struct AlgorithmicReverb {
     decay: f64,           // 8: Decay (0.0-1.0)
     low_decay_mult: f64,  // 9: Low Decay Mult (0.5-2.0)
     high_decay_mult: f64, // 10: High Decay Mult (0.5-2.0)
-    character: f64,       // 11: Character (0.0-1.0)
+    character: f64,       // 11: Character (0.0-1.0) — overall mod depth
     thickness: f64,       // 12: Thickness (0.0-1.0)
     ducking: f64,         // 13: Ducking (0.0-1.0)
     freeze_param: bool,   // 14: Freeze (bool)
+    spin: f64,            // 15: Spin (0.0-1.0) — fast modulation rate/depth
+    wander: f64,          // 16: Wander (0.0-1.0) — slow drift rate/depth
 
     // PreDelay circular buffer
     predelay_buffer_l: Vec<Sample>,
@@ -1034,6 +1223,8 @@ impl AlgorithmicReverb {
             thickness: 0.0,
             ducking: 0.0,
             freeze_param: false,
+            spin: 0.5,    // Default spin (maps to ~3 Hz)
+            wander: 0.5,  // Default wander (maps to ~0.2 Hz)
 
             predelay_buffer_l: vec![0.0; max_predelay.max(1)],
             predelay_buffer_r: vec![0.0; max_predelay.max(1)],
@@ -1073,9 +1264,26 @@ impl AlgorithmicReverb {
         self.diffusion
             .update_diffusion(effective_diffusion.clamp(0.0, 1.0));
 
-        // Character affects mod depth (chorus) — subtle range to avoid metallic artifacts
-        let effective_mod = 0.0001 + self.character * 0.003; // 0.0001-0.0031 (was 0.0005-0.0105)
+        // Character affects mod depth — expanded range for velvet noise (R1.5)
+        // 0.0 → 0.0001 (nearly off), 1.0 → 0.01 (10× previous max)
+        let effective_mod = 0.0001 + self.character * 0.0099; // 0.0001-0.01
         self.fdn.mod_depth = effective_mod * scaling.modulation;
+
+        // Spin: fast modulation rate (1-5 Hz) + depth contribution
+        // spin 0.0 → 1.0 Hz, 1.0 → 5.0 Hz
+        let spin_hz = 1.0 + self.spin * 4.0;
+        self.fdn.spin_depth = self.spin;
+        for vg in &mut self.fdn.velvet_gens {
+            vg.set_spin_rate(spin_hz);
+        }
+
+        // Wander: slow drift rate (0.05-0.5 Hz) + depth contribution
+        // wander 0.0 → 0.05 Hz, 1.0 → 0.5 Hz
+        let wander_hz = 0.05 + self.wander * 0.45;
+        self.fdn.wander_depth = self.wander;
+        for vg in &mut self.fdn.velvet_gens {
+            vg.set_wander_rate(wander_hz);
+        }
 
         // Ducking amount
         self.ducker.amount = self.ducking;
@@ -1164,6 +1372,20 @@ impl AlgorithmicReverb {
         self.fdn.freeze = freeze;
     }
 
+    /// Spin: fast modulation rate/depth (0.0-1.0)
+    /// 0.0 = minimal fast modulation, 1.0 = maximum chorus-like movement
+    pub fn set_spin(&mut self, spin: f64) {
+        self.spin = spin.clamp(0.0, 1.0);
+        self.recalc_internals();
+    }
+
+    /// Wander: slow drift rate/depth (0.0-1.0)
+    /// 0.0 = static, 1.0 = maximum slow spatial drift
+    pub fn set_wander(&mut self, wander: f64) {
+        self.wander = wander.clamp(0.0, 1.0);
+        self.recalc_internals();
+    }
+
     // ====================================================================
     // Getters
     // ====================================================================
@@ -1212,6 +1434,12 @@ impl AlgorithmicReverb {
     }
     pub fn freeze(&self) -> bool {
         self.freeze_param
+    }
+    pub fn spin(&self) -> f64 {
+        self.spin
+    }
+    pub fn wander(&self) -> f64 {
+        self.wander
     }
 
     // ====================================================================
@@ -1423,8 +1651,8 @@ mod tests {
     fn test_fdn_parameter_sweep() {
         let mut reverb = AlgorithmicReverb::new(48000.0);
 
-        // Test all 15 params at 3 values each
-        let params_and_ranges: [(usize, f64, f64, f64); 15] = [
+        // Test all 17 params at 3 values each
+        let params_and_ranges: [(usize, f64, f64, f64); 17] = [
             (0, 0.0, 0.5, 1.0),     // Space
             (1, 0.0, 0.5, 1.0),     // Brightness
             (2, 0.0, 1.0, 2.0),     // Width
@@ -1440,6 +1668,8 @@ mod tests {
             (12, 0.0, 0.5, 1.0),    // Thickness
             (13, 0.0, 0.5, 1.0),    // Ducking
             (14, 0.0, 0.0, 1.0),    // Freeze
+            (15, 0.0, 0.5, 1.0),    // Spin
+            (16, 0.0, 0.5, 1.0),    // Wander
         ];
 
         for (idx, lo, mid, hi) in params_and_ranges {
@@ -1466,6 +1696,8 @@ mod tests {
                     12 => reverb.set_thickness(val),
                     13 => reverb.set_ducking(val),
                     14 => reverb.set_freeze(val > 0.5),
+                    15 => reverb.set_spin(val),
+                    16 => reverb.set_wander(val),
                     _ => {}
                 }
 

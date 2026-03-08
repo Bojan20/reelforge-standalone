@@ -1,6 +1,6 @@
 /// FF-R Reverb Panel — Pro-R 2 Ultimate
 ///
-/// Mastering-grade reverb interface with 15 parameters:
+/// Mastering-grade reverb interface with 17 parameters:
 /// - Space, Brightness, Width, Mix, PreDelay, Style
 /// - Diffusion, Distance, Decay, Low/High Decay Mult
 /// - Character, Thickness, Ducking, Freeze
@@ -57,6 +57,8 @@ class _P {
   static const thickness = 12;
   static const ducking = 13;
   static const freeze = 14;
+  static const spin = 15;
+  static const wander = 16;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -70,6 +72,7 @@ class ReverbSnapshot implements DspParameterSnapshot {
   final double lowDecayMult, highDecayMult;
   final double character, thickness, ducking;
   final bool freeze;
+  final double spin, wander;
 
   const ReverbSnapshot({
     required this.space, required this.brightness, required this.width,
@@ -77,7 +80,7 @@ class ReverbSnapshot implements DspParameterSnapshot {
     required this.diffusion, required this.distance, required this.decay,
     required this.lowDecayMult, required this.highDecayMult,
     required this.character, required this.thickness, required this.ducking,
-    required this.freeze,
+    required this.freeze, required this.spin, required this.wander,
   });
 
   @override
@@ -87,6 +90,7 @@ class ReverbSnapshot implements DspParameterSnapshot {
     distance: distance, decay: decay, lowDecayMult: lowDecayMult,
     highDecayMult: highDecayMult, character: character,
     thickness: thickness, ducking: ducking, freeze: freeze,
+    spin: spin, wander: wander,
   );
 
   @override
@@ -95,7 +99,8 @@ class ReverbSnapshot implements DspParameterSnapshot {
     return space == other.space && brightness == other.brightness &&
         width == other.width && mix == other.mix &&
         predelay == other.predelay && style == other.style &&
-        decay == other.decay && freeze == other.freeze;
+        decay == other.decay && freeze == other.freeze &&
+        spin == other.spin && wander == other.wander;
   }
 }
 
@@ -122,7 +127,7 @@ class FabFilterReverbPanel extends FabFilterPanelBase {
 class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     with FabFilterPanelMixin, TickerProviderStateMixin {
   // ─────────────────────────────────────────────────────────────────────────
-  // STATE — All 15 parameters
+  // STATE — All 17 parameters
   // ─────────────────────────────────────────────────────────────────────────
 
   // Primary controls
@@ -147,6 +152,10 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
   // Special
   double _ducking = 0.0;
   bool _freeze = false;
+
+  // Velvet noise modulation (Phase 1)
+  double _spin = 0.5;    // 0.0-1.0 (maps to 1-5 Hz fast modulation)
+  double _wander = 0.5;  // 0.0-1.0 (maps to 0.05-0.5 Hz slow drift)
 
   // Metering
   double _wetLevel = 0.0;
@@ -239,6 +248,8 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       _thickness = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.thickness);
       _ducking = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.ducking);
       _freeze = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.freeze) > 0.5;
+      _spin = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.spin);
+      _wander = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.wander);
       if (_freeze) _freezeController.forward();
     });
   }
@@ -280,7 +291,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     diffusion: _diffusion, distance: _distance, decay: _decay,
     lowDecayMult: _lowDecay, highDecayMult: _highDecay,
     character: _character, thickness: _thickness, ducking: _ducking,
-    freeze: _freeze,
+    freeze: _freeze, spin: _spin, wander: _wander,
   );
 
   void _restore(ReverbSnapshot s) {
@@ -292,6 +303,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       _lowDecay = s.lowDecayMult; _highDecay = s.highDecayMult;
       _character = s.character; _thickness = s.thickness;
       _ducking = s.ducking; _freeze = s.freeze;
+      _spin = s.spin; _wander = s.wander;
     });
     if (_freeze) { _freezeController.forward(); } else { _freezeController.reverse(); }
     _applyAll();
@@ -314,6 +326,8 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     _setParam(_P.thickness, _thickness);
     _setParam(_P.ducking, _ducking);
     _setParam(_P.freeze, _freeze ? 1.0 : 0.0);
+    _setParam(_P.spin, _spin);
+    _setParam(_P.wander, _wander);
   }
 
   @override
@@ -934,6 +948,24 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
                       onChanged: (v) {
                         setState(() => _thickness = v);
                         _setParam(_P.thickness, v);
+                      },
+                    ),
+                    _knob(
+                      value: _spin, label: 'SPIN',
+                      display: '${(1.0 + _spin * 4.0).toStringAsFixed(1)} Hz',
+                      color: FabFilterColors.cyan,
+                      onChanged: (v) {
+                        setState(() => _spin = v);
+                        _setParam(_P.spin, v);
+                      },
+                    ),
+                    _knob(
+                      value: _wander, label: 'WNDR',
+                      display: '${(0.05 + _wander * 0.45).toStringAsFixed(2)} Hz',
+                      color: FabFilterProcessorColors.reverbPredelay,
+                      onChanged: (v) {
+                        setState(() => _wander = v);
+                        _setParam(_P.wander, v);
                       },
                     ),
                   ],
