@@ -11,7 +11,7 @@
 | Unified SlotLab, Win Tier, StageCategory | Done |
 | Config Panel Enhancements | Done |
 | Config Undo/Redo + Visual Transition Editor | Done |
-| **REVERB ULTIMATE** (47 taskova) | **DONE** (F2-F9 complete, F1 Velvet Noise TODO) |
+| **REVERB ULTIMATE** (52/52) | **DONE** |
 | **EQ ULTIMATE** (52/52) | **DONE** |
 | **DELAY ULTIMATE** (55/55) | **DONE** |
 | **COMPRESSOR ULTIMATE** (48/48) | **DONE** |
@@ -22,20 +22,10 @@ Analyzer: 0 errors, 0 warnings
 
 ---
 
-## Reverb — Remaining TODO (F1 only)
-
-F1 — Velvet Noise Modulacija (5 taskova, highest impact):
-- [ ] R1.1: Velvet noise generator (sparse random impulse train, density 200-2000/sec)
-- [ ] R1.2: Per-delay-line nezavisni velvet noise (8 generatora, random seed)
-- [ ] R1.3: Kubna interpolacija u FDNDelayLine::read_modulated() (zameni linearnu)
-- [ ] R1.4: Spin + Wander razdvojeni parametri (Spin 1-5Hz, Wander 0.05-0.5Hz)
-- [ ] R1.5: Modulation depth range proširen: 0.0-0.01 (10× od trenutnog)
-
-All other Reverb phases (F2-F9) completed: ER density, diffusion, 4-band decay, output EQ, FDN upgrade, new styles (shimmer, ambient, gated), UI visualization, FFI+presets.
-
----
-
 ## Completed Systems Reference
+
+### Reverb Ultimate (ValhallaVintageVerb tier) — 52/52
+F1 velvet noise modulation (16 generators, Hermite cubic interp, spin+wander split, 0.0001-0.01 depth range), F2 ER density (24 taps, 5 styles), F3 diffusion network, F4 4-band Linkwitz-Riley crossover decay, F5 output EQ, F6 FDN core (4/8/16 size, Hadamard/Householder, chorus, jitter), F7 styles (shimmer/ambient/gated/nonlinear/vintage), F8 UI visualization, F9 FFI+presets.
 
 ### EQ Ultimate (Pro-Q 4 tier) — 52/52
 E1 biquad H(z) curves, E2 spectrum analyzer (pre/post/freeze/tilt/M-S), E3 Pro-Q 4 interaction (Q ring, alt+drag solo, context menu, shortcuts), E4 phase+group delay, E5 undo/presets/export, E6 EQ match, E7 oversampling+auto-listen, E8 visual polish (waterfall, node glow, spring physics), E9 analog modes+room correction.
