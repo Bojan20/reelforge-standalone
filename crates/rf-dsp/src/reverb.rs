@@ -369,6 +369,16 @@ pub enum ReverbType {
     Plate,
     Chamber,
     Spring,
+    /// R7.1: Ultra-long diffusion, minimal ER, max modulation
+    Ambient,
+    /// R7.2: Pitch-shifted feedback (+12st octave up) for ethereal shimmer
+    Shimmer,
+    /// R7.3: Waveshaping in feedback for lo-fi character
+    Nonlinear,
+    /// R7.4: Lexicon 224/480 emulation — specific delay ratios, subtle modulation
+    Vintage,
+    /// R7.5: Envelope-gated tail — 80s drum reverb
+    Gated,
 }
 
 /// Style scaling factors — NE override, samo multiplicative scaling
@@ -411,6 +421,36 @@ impl ReverbType {
                 er: 0.5,
                 diffusion: 0.6,
                 modulation: 1.2,
+            },
+            ReverbType::Ambient => StyleScaling {
+                space: 1.8,       // Ultra-wide space
+                er: 0.15,         // Minimal ER (wash-like)
+                diffusion: 1.0,   // Max diffusion
+                modulation: 1.5,  // Cranked modulation
+            },
+            ReverbType::Shimmer => StyleScaling {
+                space: 1.4,
+                er: 0.4,
+                diffusion: 0.9,
+                modulation: 0.7,
+            },
+            ReverbType::Nonlinear => StyleScaling {
+                space: 0.6,
+                er: 0.7,
+                diffusion: 0.5,   // Lower diffusion for grit
+                modulation: 0.4,
+            },
+            ReverbType::Vintage => StyleScaling {
+                space: 1.0,
+                er: 0.8,
+                diffusion: 0.7,
+                modulation: 0.3,  // Subtle, period-correct modulation
+            },
+            ReverbType::Gated => StyleScaling {
+                space: 0.5,
+                er: 1.0,          // Strong ER for punch
+                diffusion: 0.4,   // Low diffusion for clarity
+                modulation: 0.2,  // Minimal modulation
             },
         }
     }
@@ -946,6 +986,66 @@ fn er_pattern_for_style(style: &ReverbType) -> ERPattern {
         ReverbType::Plate => er_pattern_plate(),
         ReverbType::Chamber => er_pattern_chamber(),
         ReverbType::Spring => er_pattern_spring(),
+        // New styles (R7): reuse base patterns with modifications
+        ReverbType::Ambient => er_pattern_ambient(),
+        ReverbType::Shimmer => er_pattern_hall(),   // Shimmer uses hall ER
+        ReverbType::Nonlinear => er_pattern_room(), // Nonlinear uses room ER
+        ReverbType::Vintage => er_pattern_vintage(),
+        ReverbType::Gated => er_pattern_room(),     // Gated uses room ER with strong level
+    }
+}
+
+/// Ambient ER: sparse, very long delays, minimal density (R7.1)
+fn er_pattern_ambient() -> ERPattern {
+    ERPattern {
+        delays_ms: [
+            15.0, 30.0, 50.0, 75.0, 105.0, 140.0,
+            180.0, 220.0, 270.0, 320.0, 380.0, 450.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ],
+        stereo_offsets_ms: [
+            1.5, 2.0, 2.5, 3.0, 3.5, 4.0,
+            4.5, 5.0, 5.5, 6.0, 6.5, 7.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ],
+        gains: [
+            0.30, 0.28, 0.25, 0.22, 0.18, 0.15,
+            0.12, 0.10, 0.08, 0.06, 0.05, 0.04,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ],
+        pans: [
+            0.3, 0.7, 0.4, 0.6, 0.2, 0.8,
+            0.35, 0.65, 0.45, 0.55, 0.25, 0.75,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ],
+        active_count: 12,
+    }
+}
+
+/// Vintage ER: Lexicon 224-inspired, specific golden-ratio delays (R7.4)
+fn er_pattern_vintage() -> ERPattern {
+    ERPattern {
+        delays_ms: [
+            3.7, 7.1, 11.3, 16.7, 22.9, 30.1, 38.3, 47.9,
+            58.7, 70.9, 84.3, 98.7, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ],
+        stereo_offsets_ms: [
+            0.7, 0.9, 1.1, 1.3, 1.5, 1.7, 1.9, 2.1,
+            2.3, 2.5, 2.7, 2.9, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ],
+        gains: [
+            0.40, 0.36, 0.32, 0.28, 0.24, 0.20, 0.17, 0.14,
+            0.11, 0.09, 0.07, 0.05, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ],
+        pans: [
+            0.4, 0.6, 0.35, 0.65, 0.45, 0.55, 0.3, 0.7,
+            0.4, 0.6, 0.35, 0.65, 0.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ],
+        active_count: 12,
     }
 }
 
@@ -1207,6 +1307,11 @@ impl DiffusionStage {
             ReverbType::Plate => DiffusionTopology::Lattice,
             ReverbType::Chamber => DiffusionTopology::Nested,
             ReverbType::Spring => DiffusionTopology::Serial,
+            ReverbType::Ambient => DiffusionTopology::Nested,   // Dense, washy
+            ReverbType::Shimmer => DiffusionTopology::Lattice,  // Ultra-dense for shimmer
+            ReverbType::Nonlinear => DiffusionTopology::Serial,  // Simple for lo-fi
+            ReverbType::Vintage => DiffusionTopology::Nested,   // Lexicon-style
+            ReverbType::Gated => DiffusionTopology::Serial,     // Clean, punchy
         };
         // Re-apply diffusion with new topology
         self.update_diffusion(self.diffusion_amount);
@@ -1417,6 +1522,66 @@ impl BiquadCoeffs {
         let a1 = (-2.0 * cos_w0) / a0;
         let a2 = (1.0 - alpha) / a0;
         Self { b0, b1, b2, a1, a2 }
+    }
+
+    /// Bypass (unity gain, no filtering)
+    fn bypass() -> Self {
+        Self { b0: 1.0, b1: 0.0, b2: 0.0, a1: 0.0, a2: 0.0 }
+    }
+
+    /// Low shelf filter: gain_db at freq, smooth transition above
+    fn low_shelf(freq: f64, gain_db: f64, sample_rate: f64) -> Self {
+        let a = 10.0_f64.powf(gain_db / 40.0);
+        let w0 = 2.0 * std::f64::consts::PI * freq / sample_rate;
+        let cos_w0 = w0.cos();
+        let sin_w0 = w0.sin();
+        let alpha = sin_w0 / 2.0 * ((a + 1.0 / a) * (1.0 / 0.707 - 1.0) + 2.0).sqrt();
+        let two_sqrt_a_alpha = 2.0 * a.sqrt() * alpha;
+
+        let a0 = (a + 1.0) + (a - 1.0) * cos_w0 + two_sqrt_a_alpha;
+        Self {
+            b0: (a * ((a + 1.0) - (a - 1.0) * cos_w0 + two_sqrt_a_alpha)) / a0,
+            b1: (2.0 * a * ((a - 1.0) - (a + 1.0) * cos_w0)) / a0,
+            b2: (a * ((a + 1.0) - (a - 1.0) * cos_w0 - two_sqrt_a_alpha)) / a0,
+            a1: (-2.0 * ((a - 1.0) + (a + 1.0) * cos_w0)) / a0,
+            a2: ((a + 1.0) + (a - 1.0) * cos_w0 - two_sqrt_a_alpha) / a0,
+        }
+    }
+
+    /// High shelf filter: gain_db at freq, smooth transition below
+    fn high_shelf(freq: f64, gain_db: f64, sample_rate: f64) -> Self {
+        let a = 10.0_f64.powf(gain_db / 40.0);
+        let w0 = 2.0 * std::f64::consts::PI * freq / sample_rate;
+        let cos_w0 = w0.cos();
+        let sin_w0 = w0.sin();
+        let alpha = sin_w0 / 2.0 * ((a + 1.0 / a) * (1.0 / 0.707 - 1.0) + 2.0).sqrt();
+        let two_sqrt_a_alpha = 2.0 * a.sqrt() * alpha;
+
+        let a0 = (a + 1.0) - (a - 1.0) * cos_w0 + two_sqrt_a_alpha;
+        Self {
+            b0: (a * ((a + 1.0) + (a - 1.0) * cos_w0 + two_sqrt_a_alpha)) / a0,
+            b1: (-2.0 * a * ((a - 1.0) + (a + 1.0) * cos_w0)) / a0,
+            b2: (a * ((a + 1.0) + (a - 1.0) * cos_w0 - two_sqrt_a_alpha)) / a0,
+            a1: (2.0 * ((a - 1.0) - (a + 1.0) * cos_w0)) / a0,
+            a2: ((a + 1.0) - (a - 1.0) * cos_w0 - two_sqrt_a_alpha) / a0,
+        }
+    }
+
+    /// Parametric EQ (peaking): gain_db at freq with Q
+    fn peaking_eq(freq: f64, gain_db: f64, q: f64, sample_rate: f64) -> Self {
+        let a = 10.0_f64.powf(gain_db / 40.0);
+        let w0 = 2.0 * std::f64::consts::PI * freq / sample_rate;
+        let cos_w0 = w0.cos();
+        let alpha = w0.sin() / (2.0 * q);
+
+        let a0 = 1.0 + alpha / a;
+        Self {
+            b0: (1.0 + alpha * a) / a0,
+            b1: (-2.0 * cos_w0) / a0,
+            b2: (1.0 - alpha * a) / a0,
+            a1: (-2.0 * cos_w0) / a0,
+            a2: (1.0 - alpha / a) / a0,
+        }
     }
 
     /// Process one sample through TDF-II biquad section
@@ -1652,6 +1817,86 @@ impl FdnSize {
     }
 }
 
+/// Shimmer pitch shifter — two overlapping grains for glitch-free octave up (R7.2)
+///
+/// Uses a circular buffer with two read pointers (grains) that advance at 2x speed
+/// for octave-up shifting. Hann-windowed crossfade eliminates grain boundary clicks.
+/// Buffer size is fixed 2048 samples (~42ms @ 48kHz) — zero dynamic allocations.
+const SHIMMER_BUF_SIZE: usize = 2048;
+
+#[derive(Debug, Clone)]
+struct ShimmerShifter {
+    buffer: Vec<f64>,
+    write_pos: usize,
+    /// Two grain read positions (fractional)
+    grain_pos: [f64; 2],
+    /// Pitch ratio (2.0 = octave up)
+    ratio: f64,
+}
+
+impl ShimmerShifter {
+    fn new() -> Self {
+        Self {
+            buffer: vec![0.0; SHIMMER_BUF_SIZE],
+            write_pos: 0,
+            grain_pos: [0.0, SHIMMER_BUF_SIZE as f64 / 2.0],
+            ratio: 2.0, // octave up
+        }
+    }
+
+    fn reset(&mut self) {
+        self.buffer.fill(0.0);
+        self.write_pos = 0;
+        self.grain_pos = [0.0, SHIMMER_BUF_SIZE as f64 / 2.0];
+    }
+
+    /// Process one sample: write input, read pitch-shifted output
+    #[inline(always)]
+    fn process(&mut self, input: f64) -> f64 {
+        // Write input
+        self.buffer[self.write_pos] = input;
+        self.write_pos = (self.write_pos + 1) % SHIMMER_BUF_SIZE;
+
+        let buf_len = SHIMMER_BUF_SIZE as f64;
+        let mut output = 0.0;
+
+        // Two grains with Hann crossfade
+        for g in 0..2 {
+            let pos = self.grain_pos[g];
+            let int_pos = pos as usize % SHIMMER_BUF_SIZE;
+            let frac = pos - pos.floor();
+
+            // Linear interpolation
+            let s0 = self.buffer[int_pos];
+            let s1 = self.buffer[(int_pos + 1) % SHIMMER_BUF_SIZE];
+            let sample = s0 + (s1 - s0) * frac;
+
+            // Hann window based on grain's distance from its starting position
+            // Each grain covers half the buffer; they overlap in the middle
+            let grain_phase = ((self.grain_pos[g] - self.grain_pos[1 - g]).rem_euclid(buf_len)) / buf_len;
+            let window = 0.5 * (1.0 - (grain_phase * 2.0 * std::f64::consts::PI).cos());
+
+            output += sample * window;
+
+            // Advance grain at pitch ratio speed
+            self.grain_pos[g] = (self.grain_pos[g] + self.ratio).rem_euclid(buf_len);
+        }
+
+        output
+    }
+}
+
+/// Feedback processing mode (R7.2-R7.3)
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum FeedbackMode {
+    /// Normal feedback (default for most styles)
+    Normal,
+    /// Shimmer: pitch-shift +12 semitones (octave up) in 2 feedback lines (R7.2)
+    Shimmer,
+    /// Nonlinear: waveshaping distortion in feedback path (R7.3)
+    Nonlinear,
+}
+
 /// FDN Core — configurable Feedback Delay Network (R6.1-R6.6)
 ///
 /// Features:
@@ -1696,6 +1941,12 @@ struct FDNCore {
     chorus_increment: f64,     // Phase increment per sample
     // Jitter parameters (R6.4)
     jitter_amount: f64, // 0.0-1.0 (maps to ±2-5 samples)
+    // Feedback mode (R7.2-R7.3)
+    feedback_mode: FeedbackMode,
+    // Nonlinear drive amount (R7.3)
+    nonlinear_drive: f64,
+    // Shimmer pitch shifters — one per applicable line (R7.2)
+    shimmer_shifters: Vec<ShimmerShifter>,
 }
 
 /// FDN delay lengths (prime-distributed, samples @ 48kHz)
@@ -1844,6 +2095,9 @@ impl FDNCore {
             chorus_phase: 0.0,
             chorus_increment,
             jitter_amount: 0.0,
+            feedback_mode: FeedbackMode::Normal,
+            nonlinear_drive: 0.0,
+            shimmer_shifters: (0..n).map(|_| ShimmerShifter::new()).collect(),
         }
     }
 
@@ -2057,12 +2311,24 @@ impl FDNCore {
             // Allpass in feedback path (R6.3) — adds density to tail
             let with_allpass = self.delay_lines[i].feedback_allpass.process(shaped);
 
+            // Feedback mode processing (R7.2/R7.3): pitch shift or waveshaping
+            let with_mode = match self.feedback_mode {
+                FeedbackMode::Shimmer => {
+                    self.shimmer_shifters[i].process(with_allpass)
+                }
+                FeedbackMode::Nonlinear => {
+                    let drive = 1.5 + self.nonlinear_drive * 4.0;
+                    (with_allpass * drive).tanh() / drive.tanh()
+                }
+                FeedbackMode::Normal => with_allpass,
+            };
+
             // Thickness saturation
             let with_thickness = if saturation > 0.001 {
                 let drive = 1.0 + saturation * 2.0;
-                (with_allpass * drive).tanh() / drive.tanh()
+                (with_mode * drive).tanh() / drive.tanh()
             } else {
-                with_allpass
+                with_mode
             };
 
             self.delay_lines[i].write(with_thickness + inputs[i]);
@@ -2089,11 +2355,85 @@ impl FDNCore {
         for dl in &mut self.delay_lines {
             dl.reset();
         }
+        for ss in &mut self.shimmer_shifters {
+            ss.reset();
+        }
         let n = self.active_size;
         for i in 0..n {
             self.velvet_gens[i].reset(VN_SEEDS[i]);
         }
         self.chorus_phase = 0.0;
+    }
+}
+
+/// Reverb gate — envelope-controlled gate on reverb tail (R7.5)
+/// Classic 80s gated reverb: hard cut after hold time
+#[derive(Debug, Clone)]
+struct ReverbGate {
+    envelope: f64,
+    hold_counter: usize,
+    hold_samples: usize,   // Hold time in samples
+    release_coeff: f64,     // Release envelope coefficient
+    active: bool,
+    gate_open: bool,
+}
+
+impl ReverbGate {
+    fn new(sample_rate: f64) -> Self {
+        Self {
+            envelope: 0.0,
+            hold_counter: 0,
+            hold_samples: (sample_rate * 0.3) as usize, // 300ms default hold
+            release_coeff: 1.0 - (-2.0 * std::f64::consts::PI / (0.020 * sample_rate)).exp(), // 20ms release
+            active: false,
+            gate_open: false,
+        }
+    }
+
+    fn set_hold_time(&mut self, seconds: f64, sample_rate: f64) {
+        self.hold_samples = (sample_rate * seconds.clamp(0.05, 2.0)) as usize;
+    }
+
+    fn set_release_time(&mut self, seconds: f64, sample_rate: f64) {
+        self.release_coeff = 1.0 - (-2.0 * std::f64::consts::PI / (seconds * sample_rate)).exp();
+    }
+
+    /// Process: open gate on transient, close after hold+release
+    #[inline(always)]
+    fn process(&mut self, dry_level: f64, wet_l: &mut f64, wet_r: &mut f64) {
+        if !self.active {
+            return;
+        }
+        // Detect transient in dry signal
+        let abs_dry = dry_level.abs();
+        if abs_dry > 0.05 {
+            self.gate_open = true;
+            self.hold_counter = self.hold_samples;
+            self.envelope = 1.0;
+        }
+
+        if self.gate_open {
+            if self.hold_counter > 0 {
+                self.hold_counter -= 1;
+                // Gate fully open during hold
+            } else {
+                // Release phase
+                self.envelope += (0.0 - self.envelope) * self.release_coeff;
+                if self.envelope < 0.001 {
+                    self.envelope = 0.0;
+                    self.gate_open = false;
+                }
+            }
+        }
+
+        *wet_l *= self.envelope;
+        *wet_r *= self.envelope;
+    }
+
+    fn reset(&mut self) {
+        self.envelope = 0.0;
+        self.hold_counter = 0;
+        self.gate_open = false;
     }
 }
 
@@ -2162,6 +2502,7 @@ pub struct AlgorithmicReverb {
     diffusion: DiffusionStage,
     fdn: FDNCore,
     ducker: SelfDucker,
+    gate: ReverbGate,
 
     // Parameters (24 total)
     space: f64,       // 0: Space (0.0-1.0)
@@ -2189,6 +2530,40 @@ pub struct AlgorithmicReverb {
     lowmid_decay_mult: f64, // 22: LowMid Decay Mult (0.5-2.0)
     highmid_decay_mult: f64, // 23: HighMid Decay Mult (0.5-2.0)
 
+    // F5: Output EQ — 2 shelves + 1 parametric mid
+    out_eq_low_shelf_gain: f64,   // 24: Low shelf gain dB (-12 to +12)
+    out_eq_low_shelf_freq: f64,   // 25: Low shelf freq Hz (80-500)
+    out_eq_high_shelf_gain: f64,  // 26: High shelf gain dB (-12 to +12)
+    out_eq_high_shelf_freq: f64,  // 27: High shelf freq Hz (2000-16000)
+    out_eq_mid_gain: f64,         // 28: Mid gain dB (-12 to +12)
+    out_eq_mid_freq: f64,         // 29: Mid freq Hz (200-8000)
+    out_eq_mid_q: f64,            // 30: Mid Q (0.5-5.0)
+    out_eq_enabled: bool,         // any non-zero gain enables
+    out_eq_low_coeffs: BiquadCoeffs,
+    out_eq_high_coeffs: BiquadCoeffs,
+    out_eq_mid_coeffs: BiquadCoeffs,
+    out_eq_low_z1_l: f64, out_eq_low_z2_l: f64,
+    out_eq_low_z1_r: f64, out_eq_low_z2_r: f64,
+    out_eq_high_z1_l: f64, out_eq_high_z2_l: f64,
+    out_eq_high_z1_r: f64, out_eq_high_z2_r: f64,
+    out_eq_mid_z1_l: f64, out_eq_mid_z2_l: f64,
+    out_eq_mid_z1_r: f64, out_eq_mid_z2_r: f64,
+
+    // F5: Soft limiter
+    soft_limiter_enabled: bool,   // 31: On/Off
+
+    // F5: Pre-delay BPM sync
+    predelay_bpm_sync: bool,      // 32: BPM sync On/Off
+    predelay_bpm: f64,            // 33: BPM (60-200)
+    predelay_note_div: u8,        // 34: Note division (0-7)
+
+    // F5: Pre-delay feedback
+    predelay_feedback: f64,       // 35: Feedback (0.0-0.5)
+
+    // F8: Advanced FDN controls
+    fdn_size_param: u8,           // 36: FDN Size (0=Small/4, 1=Medium/8, 2=Large/16)
+    matrix_type_param: u8,        // 37: Matrix Type (0=Hadamard, 1=Householder)
+
     // PreDelay circular buffer
     predelay_buffer_l: Vec<Sample>,
     predelay_buffer_r: Vec<Sample>,
@@ -2208,6 +2583,7 @@ impl AlgorithmicReverb {
             diffusion: DiffusionStage::new(sample_rate),
             fdn: FDNCore::new(sample_rate),
             ducker: SelfDucker::new(sample_rate),
+            gate: ReverbGate::new(sample_rate),
 
             space: 0.5,
             brightness: 0.6,
@@ -2232,6 +2608,38 @@ impl AlgorithmicReverb {
             xo_freq_3: 8000.0,
             lowmid_decay_mult: 1.0,
             highmid_decay_mult: 1.0,
+
+            // F5: Output EQ (defaults: flat)
+            out_eq_low_shelf_gain: 0.0,
+            out_eq_low_shelf_freq: 200.0,
+            out_eq_high_shelf_gain: 0.0,
+            out_eq_high_shelf_freq: 8000.0,
+            out_eq_mid_gain: 0.0,
+            out_eq_mid_freq: 1000.0,
+            out_eq_mid_q: 1.0,
+            out_eq_enabled: false,
+            out_eq_low_coeffs: BiquadCoeffs::bypass(),
+            out_eq_high_coeffs: BiquadCoeffs::bypass(),
+            out_eq_mid_coeffs: BiquadCoeffs::bypass(),
+            out_eq_low_z1_l: 0.0, out_eq_low_z2_l: 0.0,
+            out_eq_low_z1_r: 0.0, out_eq_low_z2_r: 0.0,
+            out_eq_high_z1_l: 0.0, out_eq_high_z2_l: 0.0,
+            out_eq_high_z1_r: 0.0, out_eq_high_z2_r: 0.0,
+            out_eq_mid_z1_l: 0.0, out_eq_mid_z2_l: 0.0,
+            out_eq_mid_z1_r: 0.0, out_eq_mid_z2_r: 0.0,
+
+            // F5: Soft limiter (default: off)
+            soft_limiter_enabled: false,
+
+            // F5: Pre-delay BPM sync (default: off)
+            predelay_bpm_sync: false,
+            predelay_bpm: 120.0,
+            predelay_note_div: 2, // 1/4 note
+            predelay_feedback: 0.0,
+
+            // F8: Advanced FDN
+            fdn_size_param: 1,  // Medium (8×8)
+            matrix_type_param: 0, // Hadamard
 
             predelay_buffer_l: vec![0.0; max_predelay.max(1)],
             predelay_buffer_r: vec![0.0; max_predelay.max(1)],
@@ -2309,15 +2717,20 @@ impl AlgorithmicReverb {
         self.fdn.jitter_amount = self.character * 0.5; // 0-50% of max jitter
         self.fdn.update_jitter();
 
-        // Chorus mode (R6.6): activates at high character values (>0.5)
-        // Shimmer-lite: ±5 cents pitch shift on 2 lines at 1.5 Hz
-        let chorus_active = self.character > 0.5;
-        let chorus_cents = if chorus_active {
-            (self.character - 0.5) * 10.0 // 0-5 cents
+        // Chorus / Shimmer mode
+        if self.style == ReverbType::Shimmer {
+            // Shimmer (R7.2): always-on, ±1200 cents (octave up), slow LFO
+            self.fdn.set_chorus(true, 1200.0, 0.3, self.sample_rate);
         } else {
-            0.0
-        };
-        self.fdn.set_chorus(chorus_active, chorus_cents, 1.5, self.sample_rate);
+            // Normal chorus mode (R6.6): activates at high character values (>0.5)
+            let chorus_active = self.character > 0.5;
+            let chorus_cents = if chorus_active {
+                (self.character - 0.5) * 10.0 // 0-5 cents
+            } else {
+                0.0
+            };
+            self.fdn.set_chorus(chorus_active, chorus_cents, 1.5, self.sample_rate);
+        }
 
         // Ducking amount
         self.ducker.amount = self.ducking;
@@ -2362,6 +2775,20 @@ impl AlgorithmicReverb {
         // Style applies per-style ER pattern + diffusion topology + scaling factors
         self.er_engine.set_style(&style, self.sample_rate);
         self.diffusion.set_topology_for_style(&style);
+        // Set per-style feedback mode (R7)
+        self.fdn.feedback_mode = match style {
+            ReverbType::Shimmer => FeedbackMode::Shimmer,
+            ReverbType::Nonlinear => FeedbackMode::Nonlinear,
+            _ => FeedbackMode::Normal,
+        };
+        self.fdn.nonlinear_drive = match style {
+            ReverbType::Nonlinear => 0.5,
+            _ => 0.0,
+        };
+        // Gated reverb (R7.5)
+        self.gate.active = style == ReverbType::Gated;
+        self.gate.set_hold_time(0.3, self.sample_rate); // 300ms hold
+        self.gate.set_release_time(0.02, self.sample_rate); // 20ms release (sharp cut)
         self.recalc_internals();
     }
 
@@ -2536,6 +2963,148 @@ impl AlgorithmicReverb {
         self.highmid_decay_mult
     }
 
+    // F5: Output EQ getters/setters
+    pub fn out_eq_low_shelf_gain(&self) -> f64 { self.out_eq_low_shelf_gain }
+    pub fn out_eq_low_shelf_freq(&self) -> f64 { self.out_eq_low_shelf_freq }
+    pub fn out_eq_high_shelf_gain(&self) -> f64 { self.out_eq_high_shelf_gain }
+    pub fn out_eq_high_shelf_freq(&self) -> f64 { self.out_eq_high_shelf_freq }
+    pub fn out_eq_mid_gain(&self) -> f64 { self.out_eq_mid_gain }
+    pub fn out_eq_mid_freq(&self) -> f64 { self.out_eq_mid_freq }
+    pub fn out_eq_mid_q(&self) -> f64 { self.out_eq_mid_q }
+    pub fn soft_limiter_enabled(&self) -> bool { self.soft_limiter_enabled }
+    pub fn predelay_bpm_sync(&self) -> bool { self.predelay_bpm_sync }
+    pub fn predelay_bpm(&self) -> f64 { self.predelay_bpm }
+    pub fn predelay_note_div(&self) -> u8 { self.predelay_note_div }
+    pub fn predelay_feedback(&self) -> f64 { self.predelay_feedback }
+
+    pub fn set_out_eq_low_shelf_gain(&mut self, gain_db: f64) {
+        self.out_eq_low_shelf_gain = gain_db.clamp(-12.0, 12.0);
+        self.update_output_eq();
+    }
+    pub fn set_out_eq_low_shelf_freq(&mut self, freq: f64) {
+        self.out_eq_low_shelf_freq = freq.clamp(80.0, 500.0);
+        self.update_output_eq();
+    }
+    pub fn set_out_eq_high_shelf_gain(&mut self, gain_db: f64) {
+        self.out_eq_high_shelf_gain = gain_db.clamp(-12.0, 12.0);
+        self.update_output_eq();
+    }
+    pub fn set_out_eq_high_shelf_freq(&mut self, freq: f64) {
+        self.out_eq_high_shelf_freq = freq.clamp(2000.0, 16000.0);
+        self.update_output_eq();
+    }
+    pub fn set_out_eq_mid_gain(&mut self, gain_db: f64) {
+        self.out_eq_mid_gain = gain_db.clamp(-12.0, 12.0);
+        self.update_output_eq();
+    }
+    pub fn set_out_eq_mid_freq(&mut self, freq: f64) {
+        self.out_eq_mid_freq = freq.clamp(200.0, 8000.0);
+        self.update_output_eq();
+    }
+    pub fn set_out_eq_mid_q(&mut self, q: f64) {
+        self.out_eq_mid_q = q.clamp(0.5, 5.0);
+        self.update_output_eq();
+    }
+    pub fn set_soft_limiter_enabled(&mut self, enabled: bool) {
+        self.soft_limiter_enabled = enabled;
+    }
+    pub fn set_predelay_bpm_sync(&mut self, enabled: bool) {
+        self.predelay_bpm_sync = enabled;
+        if enabled {
+            self.sync_predelay_to_bpm();
+        }
+    }
+    pub fn set_predelay_bpm(&mut self, bpm: f64) {
+        self.predelay_bpm = bpm.clamp(60.0, 200.0);
+        if self.predelay_bpm_sync {
+            self.sync_predelay_to_bpm();
+        }
+    }
+    pub fn set_predelay_note_div(&mut self, div: u8) {
+        self.predelay_note_div = div.min(7);
+        if self.predelay_bpm_sync {
+            self.sync_predelay_to_bpm();
+        }
+    }
+    pub fn set_predelay_feedback(&mut self, feedback: f64) {
+        self.predelay_feedback = feedback.clamp(0.0, 0.5);
+    }
+
+    // F8: Advanced FDN
+    pub fn fdn_size_param(&self) -> u8 { self.fdn_size_param }
+    pub fn matrix_type_param(&self) -> u8 { self.matrix_type_param }
+    pub fn set_fdn_size_param(&mut self, size: u8) {
+        let size = size.min(2);
+        if size != self.fdn_size_param {
+            self.fdn_size_param = size;
+            let fdn_size = match size {
+                0 => FdnSize::Small,
+                1 => FdnSize::Medium,
+                _ => FdnSize::Large,
+            };
+            self.fdn.set_size(fdn_size, self.sample_rate);
+        }
+    }
+    pub fn set_matrix_type_param(&mut self, mt: u8) {
+        let mt = mt.min(1);
+        if mt != self.matrix_type_param {
+            self.matrix_type_param = mt;
+            let matrix = match mt {
+                0 => MixingMatrix::Hadamard,
+                _ => MixingMatrix::Householder,
+            };
+            self.fdn.set_matrix_type(matrix);
+        }
+    }
+
+    /// Update output EQ coefficients
+    fn update_output_eq(&mut self) {
+        let has_eq = self.out_eq_low_shelf_gain.abs() > 0.01
+            || self.out_eq_high_shelf_gain.abs() > 0.01
+            || self.out_eq_mid_gain.abs() > 0.01;
+        self.out_eq_enabled = has_eq;
+        if has_eq {
+            self.out_eq_low_coeffs = if self.out_eq_low_shelf_gain.abs() > 0.01 {
+                BiquadCoeffs::low_shelf(self.out_eq_low_shelf_freq, self.out_eq_low_shelf_gain, self.sample_rate)
+            } else {
+                BiquadCoeffs::bypass()
+            };
+            self.out_eq_high_coeffs = if self.out_eq_high_shelf_gain.abs() > 0.01 {
+                BiquadCoeffs::high_shelf(self.out_eq_high_shelf_freq, self.out_eq_high_shelf_gain, self.sample_rate)
+            } else {
+                BiquadCoeffs::bypass()
+            };
+            self.out_eq_mid_coeffs = if self.out_eq_mid_gain.abs() > 0.01 {
+                BiquadCoeffs::peaking_eq(self.out_eq_mid_freq, self.out_eq_mid_gain, self.out_eq_mid_q, self.sample_rate)
+            } else {
+                BiquadCoeffs::bypass()
+            };
+        }
+    }
+
+    /// Sync pre-delay time to BPM + note division
+    fn sync_predelay_to_bpm(&mut self) {
+        let beat_ms = 60000.0 / self.predelay_bpm;
+        let note_ms = match self.predelay_note_div {
+            0 => beat_ms * 4.0,       // 1/1
+            1 => beat_ms * 2.0,       // 1/2
+            2 => beat_ms,             // 1/4
+            3 => beat_ms * 0.5,       // 1/8
+            4 => beat_ms * 0.25,      // 1/16
+            5 => beat_ms * 1.5,       // dotted 1/4
+            6 => beat_ms * 0.75,      // dotted 1/8
+            7 => beat_ms * 2.0 / 3.0, // triplet 1/4
+            _ => beat_ms,
+        };
+        let clamped = note_ms.clamp(0.0, 500.0);
+        self.predelay_ms = clamped;
+        self.predelay_samples = ((clamped / 1000.0) * self.sample_rate) as usize;
+        let buf_len = self.predelay_buffer_l.len();
+        if self.predelay_samples >= buf_len {
+            self.predelay_samples = buf_len - 1;
+        }
+    }
+
     // ====================================================================
     // Backward-compatible aliases (for existing wrapper code)
     // ====================================================================
@@ -2584,6 +3153,13 @@ impl Processor for AlgorithmicReverb {
         self.predelay_buffer_l.fill(0.0);
         self.predelay_buffer_r.fill(0.0);
         self.predelay_pos = 0;
+        // Reset output EQ states
+        self.out_eq_low_z1_l = 0.0; self.out_eq_low_z2_l = 0.0;
+        self.out_eq_low_z1_r = 0.0; self.out_eq_low_z2_r = 0.0;
+        self.out_eq_high_z1_l = 0.0; self.out_eq_high_z2_l = 0.0;
+        self.out_eq_high_z1_r = 0.0; self.out_eq_high_z2_r = 0.0;
+        self.out_eq_mid_z1_l = 0.0; self.out_eq_mid_z2_l = 0.0;
+        self.out_eq_mid_z1_r = 0.0; self.out_eq_mid_z2_r = 0.0;
     }
 
     fn latency(&self) -> usize {
@@ -2593,12 +3169,21 @@ impl Processor for AlgorithmicReverb {
 
 impl StereoProcessor for AlgorithmicReverb {
     fn process_sample(&mut self, left: Sample, right: Sample) -> (Sample, Sample) {
-        // 1. PreDelay (0-500ms circular buffer)
+        // 1. PreDelay (0-500ms circular buffer) with optional feedback (R5.5)
         // WRITE FIRST so zero-delay reads the current sample
         let buf_len = self.predelay_buffer_l.len();
-        self.predelay_buffer_l[self.predelay_pos] = left;
-        self.predelay_buffer_r[self.predelay_pos] = right;
+        let fb = self.predelay_feedback;
 
+        // Read previous delayed output for feedback (before overwriting)
+        let fb_read_pos = (self.predelay_pos + buf_len - self.predelay_samples) % buf_len;
+        let fb_l = self.predelay_buffer_l[fb_read_pos] * fb;
+        let fb_r = self.predelay_buffer_r[fb_read_pos] * fb;
+
+        // Write input + feedback
+        self.predelay_buffer_l[self.predelay_pos] = left + fb_l;
+        self.predelay_buffer_r[self.predelay_pos] = right + fb_r;
+
+        // Read delayed signal (after write, so zero-delay = current sample)
         let predelay_read_pos = (self.predelay_pos + buf_len - self.predelay_samples) % buf_len;
         let delayed_l = self.predelay_buffer_l[predelay_read_pos];
         let delayed_r = self.predelay_buffer_r[predelay_read_pos];
@@ -2651,6 +3236,32 @@ impl StereoProcessor for AlgorithmicReverb {
         let dry_mono = (left.abs() + right.abs()) * 0.5;
         self.ducker.process(dry_mono, &mut wet_l, &mut wet_r);
 
+        // 6b. Gated reverb (R7.5): envelope gate on wet signal
+        self.gate.process(dry_mono, &mut wet_l, &mut wet_r);
+
+        // 6c. Output EQ (R5.1/R5.2): 2-band shelf + parametric mid
+        if self.out_eq_enabled {
+            wet_l = self.out_eq_low_coeffs.process_tdf2(
+                wet_l, &mut self.out_eq_low_z1_l, &mut self.out_eq_low_z2_l);
+            wet_r = self.out_eq_low_coeffs.process_tdf2(
+                wet_r, &mut self.out_eq_low_z1_r, &mut self.out_eq_low_z2_r);
+            wet_l = self.out_eq_high_coeffs.process_tdf2(
+                wet_l, &mut self.out_eq_high_z1_l, &mut self.out_eq_high_z2_l);
+            wet_r = self.out_eq_high_coeffs.process_tdf2(
+                wet_r, &mut self.out_eq_high_z1_r, &mut self.out_eq_high_z2_r);
+            wet_l = self.out_eq_mid_coeffs.process_tdf2(
+                wet_l, &mut self.out_eq_mid_z1_l, &mut self.out_eq_mid_z2_l);
+            wet_r = self.out_eq_mid_coeffs.process_tdf2(
+                wet_r, &mut self.out_eq_mid_z1_r, &mut self.out_eq_mid_z2_r);
+        }
+
+        // 6d. Soft limiter (R5.3): tanh at -1dBFS threshold
+        if self.soft_limiter_enabled {
+            let threshold = 0.891; // -1 dBFS ≈ 10^(-1/20)
+            wet_l = threshold * (wet_l / threshold).tanh();
+            wet_r = threshold * (wet_r / threshold).tanh();
+        }
+
         // 7. Equal-power crossfade (FabFilter Pro-R style)
         let mix_angle = self.mix * std::f64::consts::FRAC_PI_2;
         let dry_gain = mix_angle.cos();
@@ -2694,8 +3305,24 @@ impl ProcessorConfig for AlgorithmicReverb {
             self.xo_freq_3 = old.xo_freq_3;
             self.lowmid_decay_mult = old.lowmid_decay_mult;
             self.highmid_decay_mult = old.highmid_decay_mult;
+            // F5 params
+            self.out_eq_low_shelf_gain = old.out_eq_low_shelf_gain;
+            self.out_eq_low_shelf_freq = old.out_eq_low_shelf_freq;
+            self.out_eq_high_shelf_gain = old.out_eq_high_shelf_gain;
+            self.out_eq_high_shelf_freq = old.out_eq_high_shelf_freq;
+            self.out_eq_mid_gain = old.out_eq_mid_gain;
+            self.out_eq_mid_freq = old.out_eq_mid_freq;
+            self.out_eq_mid_q = old.out_eq_mid_q;
+            self.soft_limiter_enabled = old.soft_limiter_enabled;
+            self.predelay_bpm_sync = old.predelay_bpm_sync;
+            self.predelay_bpm = old.predelay_bpm;
+            self.predelay_note_div = old.predelay_note_div;
+            self.predelay_feedback = old.predelay_feedback;
+            self.fdn_size_param = old.fdn_size_param;
+            self.matrix_type_param = old.matrix_type_param;
             self.set_predelay(old.predelay_ms);
             self.set_style(old.style); // Restore per-style ER pattern
+            self.update_output_eq();
             self.recalc_internals();
         }
     }

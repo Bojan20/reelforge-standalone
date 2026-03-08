@@ -14,6 +14,7 @@ import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../services/dsp_frequency_calculator.dart';
 import '../../theme/fluxforge_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -90,83 +91,40 @@ class EqBand {
     );
   }
 
-  /// Calculate magnitude response at given frequency
+  /// Map FilterType to DspFrequencyCalculator filter type string.
+  static String _filterTypeToString(FilterType t) => switch (t) {
+    FilterType.bell => 'bell',
+    FilterType.lowShelf => 'lowshelf',
+    FilterType.highShelf => 'highshelf',
+    FilterType.lowCut => 'highpass',
+    FilterType.highCut => 'lowpass',
+    FilterType.notch => 'notch',
+    FilterType.bandpass => 'bandpass',
+    FilterType.tilt => 'tilt',
+    FilterType.allpass => 'allpass',
+  };
+
+  /// Calculate magnitude response at given frequency using true biquad H(z).
   double magnitudeAt(double freq) {
     if (!enabled) return 0;
-
-    switch (type) {
-      case FilterType.bell:
-        return _bellResponse(freq);
-      case FilterType.lowShelf:
-        return _shelfResponse(freq, isLow: true);
-      case FilterType.highShelf:
-        return _shelfResponse(freq, isLow: false);
-      case FilterType.lowCut:
-        return _cutResponse(freq, isLow: true);
-      case FilterType.highCut:
-        return _cutResponse(freq, isLow: false);
-      case FilterType.notch:
-        return _notchResponse(freq);
-      case FilterType.bandpass:
-        return _bandpassResponse(freq);
-      case FilterType.tilt:
-        return _tiltResponse(freq);
-      case FilterType.allpass:
-        return 0; // Phase only, no magnitude change
-    }
+    return DspFrequencyCalculator.evaluateFilterMagnitudeDb(
+      filterType: _filterTypeToString(type),
+      frequency: freq,
+      centerFreq: frequency,
+      gain: gain,
+      q: q,
+      slopeDb: _slopeToDb(slope),
+    );
   }
 
-  double _bellResponse(double freq) {
-    final ratio = math.log(freq / frequency) / math.ln2;
-    return gain * math.exp(-0.5 * math.pow(ratio * q, 2));
-  }
+  static double _slopeToDb(FilterSlope s) => switch (s) {
+    FilterSlope.slope6 => 6.0,
+    FilterSlope.slope12 => 12.0,
+    FilterSlope.slope18 => 18.0,
+    FilterSlope.slope24 => 24.0,
+    FilterSlope.slope48 => 48.0,
+  };
 
-  double _shelfResponse(double freq, {required bool isLow}) {
-    final ratio = freq / frequency;
-    final factor = isLow ? 1 / ratio : ratio;
-    final transition = 1 / (1 + math.pow(factor, 2));
-    return isLow ? gain * (1 - transition) : gain * transition;
-  }
-
-  double _cutResponse(double freq, {required bool isLow}) {
-    final ratio = freq / frequency;
-    final order = _slopeToOrder(slope);
-    final factor = isLow ? ratio : 1 / ratio;
-    if (factor < 1) {
-      return -order * 6 * math.log(1 / factor) / math.ln2;
-    }
-    return 0;
-  }
-
-  double _notchResponse(double freq) {
-    final ratio = math.log(freq / frequency) / math.ln2;
-    final depth = -24.0;  // Fixed notch depth
-    return depth * math.exp(-math.pow(ratio * q * 2, 2));
-  }
-
-  double _bandpassResponse(double freq) {
-    final ratio = math.log(freq / frequency) / math.ln2;
-    final width = 1 / q;
-    if (ratio.abs() < width) {
-      return gain * (1 - (ratio / width).abs());
-    }
-    return gain - 6 * (ratio.abs() - width);
-  }
-
-  double _tiltResponse(double freq) {
-    final ratio = math.log(freq / 1000) / math.ln2;  // Tilt around 1kHz
-    return gain * ratio * 0.5;
-  }
-
-  int _slopeToOrder(FilterSlope slope) {
-    switch (slope) {
-      case FilterSlope.slope6: return 1;
-      case FilterSlope.slope12: return 2;
-      case FilterSlope.slope18: return 3;
-      case FilterSlope.slope24: return 4;
-      case FilterSlope.slope48: return 8;
-    }
-  }
 }
 
 /// Spectrum data for analyzer

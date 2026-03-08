@@ -9133,7 +9133,7 @@ pub extern "C" fn algorithmic_reverb_remove(track_id: u32) -> i32 {
     1
 }
 
-/// Set reverb style (0=Room, 1=Hall, 2=Plate, 3=Chamber, 4=Spring)
+/// Set reverb style (0=Room, 1=Hall, 2=Plate, 3=Chamber, 4=Spring, 5=Ambient, 6=Shimmer, 7=Nonlinear, 8=Vintage, 9=Gated)
 #[unsafe(no_mangle)]
 pub extern "C" fn algorithmic_reverb_set_type(track_id: u32, reverb_type: u32) -> i32 {
     use rf_dsp::reverb::ReverbType;
@@ -9145,6 +9145,11 @@ pub extern "C" fn algorithmic_reverb_set_type(track_id: u32, reverb_type: u32) -
             2 => ReverbType::Plate,
             3 => ReverbType::Chamber,
             4 => ReverbType::Spring,
+            5 => ReverbType::Ambient,
+            6 => ReverbType::Shimmer,
+            7 => ReverbType::Nonlinear,
+            8 => ReverbType::Vintage,
+            9 => ReverbType::Gated,
             _ => ReverbType::Room,
         };
         reverb.set_style(rt);
@@ -9322,7 +9327,7 @@ pub extern "C" fn algorithmic_reverb_set_freeze(track_id: u32, freeze: i32) -> i
     }
 }
 
-/// Set reverb parameter by index (0-14, matches InsertProcessor param indices)
+/// Set reverb parameter by index (0-37, matches InsertProcessor param indices)
 #[unsafe(no_mangle)]
 pub extern "C" fn algorithmic_reverb_set_param(track_id: u32, param_index: u32, value: f64) -> i32 {
     use rf_dsp::reverb::ReverbType;
@@ -9341,6 +9346,11 @@ pub extern "C" fn algorithmic_reverb_set_param(track_id: u32, param_index: u32, 
                     2 => ReverbType::Plate,
                     3 => ReverbType::Chamber,
                     4 => ReverbType::Spring,
+                    5 => ReverbType::Ambient,
+                    6 => ReverbType::Shimmer,
+                    7 => ReverbType::Nonlinear,
+                    8 => ReverbType::Vintage,
+                    9 => ReverbType::Gated,
                     _ => ReverbType::Room,
                 };
                 reverb.set_style(rt);
@@ -9363,6 +9373,21 @@ pub extern "C" fn algorithmic_reverb_set_param(track_id: u32, param_index: u32, 
             21 => reverb.set_xo_freq_3(value),
             22 => reverb.set_lowmid_decay_mult(value),
             23 => reverb.set_highmid_decay_mult(value),
+            // F5: Output Processing
+            24 => reverb.set_out_eq_low_shelf_gain(value),
+            25 => reverb.set_out_eq_low_shelf_freq(value),
+            26 => reverb.set_out_eq_high_shelf_gain(value),
+            27 => reverb.set_out_eq_high_shelf_freq(value),
+            28 => reverb.set_out_eq_mid_gain(value),
+            29 => reverb.set_out_eq_mid_freq(value),
+            30 => reverb.set_out_eq_mid_q(value),
+            31 => reverb.set_soft_limiter_enabled(value > 0.5),
+            32 => reverb.set_predelay_bpm_sync(value > 0.5),
+            33 => reverb.set_predelay_bpm(value),
+            34 => reverb.set_predelay_note_div(value as u8),
+            35 => reverb.set_predelay_feedback(value),
+            36 => reverb.set_fdn_size_param(value as u8),
+            37 => reverb.set_matrix_type_param(value as u8),
             _ => {}
         }
         1
@@ -9371,7 +9396,7 @@ pub extern "C" fn algorithmic_reverb_set_param(track_id: u32, param_index: u32, 
     }
 }
 
-/// Get reverb parameter by index (0-23)
+/// Get reverb parameter by index (0-35)
 #[unsafe(no_mangle)]
 pub extern "C" fn algorithmic_reverb_get_param(track_id: u32, param_index: u32) -> f64 {
     use rf_dsp::reverb::ReverbType;
@@ -9389,6 +9414,11 @@ pub extern "C" fn algorithmic_reverb_get_param(track_id: u32, param_index: u32) 
                 ReverbType::Plate => 2.0,
                 ReverbType::Chamber => 3.0,
                 ReverbType::Spring => 4.0,
+                ReverbType::Ambient => 5.0,
+                ReverbType::Shimmer => 6.0,
+                ReverbType::Nonlinear => 7.0,
+                ReverbType::Vintage => 8.0,
+                ReverbType::Gated => 9.0,
             },
             6 => reverb.diffusion(),
             7 => reverb.distance(),
@@ -9414,6 +9444,21 @@ pub extern "C" fn algorithmic_reverb_get_param(track_id: u32, param_index: u32) 
             21 => reverb.xo_freq_3(),
             22 => reverb.lowmid_decay_mult(),
             23 => reverb.highmid_decay_mult(),
+            // F5: Output Processing
+            24 => reverb.out_eq_low_shelf_gain(),
+            25 => reverb.out_eq_low_shelf_freq(),
+            26 => reverb.out_eq_high_shelf_gain(),
+            27 => reverb.out_eq_high_shelf_freq(),
+            28 => reverb.out_eq_mid_gain(),
+            29 => reverb.out_eq_mid_freq(),
+            30 => reverb.out_eq_mid_q(),
+            31 => if reverb.soft_limiter_enabled() { 1.0 } else { 0.0 },
+            32 => if reverb.predelay_bpm_sync() { 1.0 } else { 0.0 },
+            33 => reverb.predelay_bpm(),
+            34 => reverb.predelay_note_div() as f64,
+            35 => reverb.predelay_feedback(),
+            36 => reverb.fdn_size_param() as f64,
+            37 => reverb.matrix_type_param() as f64,
             _ => 0.0,
         }
     } else {

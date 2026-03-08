@@ -38,6 +38,34 @@ class _P {
   static const link = 11;
   static const freeze = 12;
   static const tempoSync = 13;
+  // D1 — Feedback Filter Upgrade params
+  static const hpQ = 14;
+  static const lpQ = 15;
+  static const midFreq = 16;
+  static const midQ = 17;
+  static const midGain = 18;
+  static const drive = 19;
+  static const driveMode = 20;
+  static const tilt = 21;
+  static const filterLfoRate = 22;
+  static const filterLfoDepth = 23;
+  // D2 — Modulation Engine params
+  static const lfo1Rate = 24;
+  static const lfo1Depth = 25;
+  static const lfo1Shape = 26;
+  static const lfo1Sync = 27;
+  static const lfo1SyncDiv = 28;
+  static const lfo1Retrigger = 29;
+  static const lfo2Rate = 30;
+  static const lfo2Depth = 31;
+  static const lfo2Shape = 32;
+  static const lfo2Sync = 33;
+  static const lfo2SyncDiv = 34;
+  static const envSensitivity = 35;
+  static const envAttack = 36;
+  static const envRelease = 37;
+  static const pitchShift = 38;
+  static const modRouting = 39;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -49,6 +77,18 @@ class DelaySnapshot implements DspParameterSnapshot {
   final double hpFilter, lpFilter, modRate, modDepth;
   final double width, ducking;
   final bool link, freeze, tempoSync;
+  // D1 — Feedback Filter Upgrade
+  final double hpQ, lpQ, midFreq, midQ, midGain;
+  final double drive, tilt, filterLfoRate, filterLfoDepth;
+  final int driveMode;
+  // D2 — Modulation Engine
+  final double lfo1Rate, lfo1Depth, lfo2Rate, lfo2Depth;
+  final int lfo1Shape, lfo2Shape;
+  final bool lfo1Sync, lfo2Sync, lfo1Retrigger;
+  final int lfo1SyncDiv, lfo2SyncDiv;
+  final double envSensitivity, envAttack, envRelease;
+  final double pitchShift;
+  final int modRouting;
 
   const DelaySnapshot({
     required this.delayL, required this.delayR, required this.feedback,
@@ -56,6 +96,16 @@ class DelaySnapshot implements DspParameterSnapshot {
     required this.lpFilter, required this.modRate, required this.modDepth,
     required this.width, required this.ducking, required this.link,
     required this.freeze, required this.tempoSync,
+    required this.hpQ, required this.lpQ, required this.midFreq,
+    required this.midQ, required this.midGain, required this.drive,
+    required this.driveMode, required this.tilt,
+    required this.filterLfoRate, required this.filterLfoDepth,
+    required this.lfo1Rate, required this.lfo1Depth, required this.lfo1Shape,
+    required this.lfo1Sync, required this.lfo1SyncDiv, required this.lfo1Retrigger,
+    required this.lfo2Rate, required this.lfo2Depth, required this.lfo2Shape,
+    required this.lfo2Sync, required this.lfo2SyncDiv,
+    required this.envSensitivity, required this.envAttack, required this.envRelease,
+    required this.pitchShift, required this.modRouting,
   });
 
   @override
@@ -64,6 +114,15 @@ class DelaySnapshot implements DspParameterSnapshot {
     pingPong: pingPong, hpFilter: hpFilter, lpFilter: lpFilter,
     modRate: modRate, modDepth: modDepth, width: width, ducking: ducking,
     link: link, freeze: freeze, tempoSync: tempoSync,
+    hpQ: hpQ, lpQ: lpQ, midFreq: midFreq, midQ: midQ, midGain: midGain,
+    drive: drive, driveMode: driveMode, tilt: tilt,
+    filterLfoRate: filterLfoRate, filterLfoDepth: filterLfoDepth,
+    lfo1Rate: lfo1Rate, lfo1Depth: lfo1Depth, lfo1Shape: lfo1Shape,
+    lfo1Sync: lfo1Sync, lfo1SyncDiv: lfo1SyncDiv, lfo1Retrigger: lfo1Retrigger,
+    lfo2Rate: lfo2Rate, lfo2Depth: lfo2Depth, lfo2Shape: lfo2Shape,
+    lfo2Sync: lfo2Sync, lfo2SyncDiv: lfo2SyncDiv,
+    envSensitivity: envSensitivity, envAttack: envAttack, envRelease: envRelease,
+    pitchShift: pitchShift, modRouting: modRouting,
   );
 
   @override
@@ -72,7 +131,14 @@ class DelaySnapshot implements DspParameterSnapshot {
     return delayL == other.delayL && delayR == other.delayR &&
         feedback == other.feedback && mix == other.mix &&
         pingPong == other.pingPong && link == other.link &&
-        freeze == other.freeze && tempoSync == other.tempoSync;
+        freeze == other.freeze && tempoSync == other.tempoSync &&
+        hpQ == other.hpQ && lpQ == other.lpQ &&
+        midFreq == other.midFreq && midGain == other.midGain &&
+        drive == other.drive && tilt == other.tilt &&
+        lfo1Rate == other.lfo1Rate && lfo1Depth == other.lfo1Depth &&
+        lfo1Shape == other.lfo1Shape && lfo2Rate == other.lfo2Rate &&
+        lfo2Depth == other.lfo2Depth && pitchShift == other.pitchShift &&
+        modRouting == other.modRouting;
   }
 }
 
@@ -114,6 +180,36 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
   bool _link = true;
   bool _freeze = false;
   bool _tempoSync = false;
+
+  // D1 — Feedback Filter Upgrade
+  double _hpQ = 0.707;
+  double _lpQ = 0.707;
+  double _midFreq = 1000.0;
+  double _midQ = 1.0;
+  double _midGain = 0.0;
+  double _drive = 0.0;
+  int _driveMode = 0; // 0=Tube, 1=Tape, 2=Transistor
+  double _tilt = 0.0;
+  double _filterLfoRate = 0.0;
+  double _filterLfoDepth = 0.0;
+
+  // D2 — Modulation Engine
+  double _lfo1Rate = 1.0;
+  double _lfo1Depth = 0.0;
+  int _lfo1Shape = 0;
+  bool _lfo1Sync = false;
+  int _lfo1SyncDiv = 7; // 1/4
+  bool _lfo1Retrigger = false;
+  double _lfo2Rate = 1.0;
+  double _lfo2Depth = 0.0;
+  int _lfo2Shape = 0;
+  bool _lfo2Sync = false;
+  int _lfo2SyncDiv = 7; // 1/4
+  double _envSensitivity = 50.0;
+  double _envAttack = 5.0;
+  double _envRelease = 50.0;
+  double _pitchShift = 0.0;
+  int _modRouting = 0;
 
   // ─── METERING ────────────────────────────────────────────────────────
   double _inPeakL = 0.0;
@@ -199,6 +295,34 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
       _link = _ffi.insertGetParam(t, s, _P.link) > 0.5;
       _freeze = _ffi.insertGetParam(t, s, _P.freeze) > 0.5;
       _tempoSync = _ffi.insertGetParam(t, s, _P.tempoSync) > 0.5;
+      // D1 params
+      _hpQ = _ffi.insertGetParam(t, s, _P.hpQ);
+      _lpQ = _ffi.insertGetParam(t, s, _P.lpQ);
+      _midFreq = _ffi.insertGetParam(t, s, _P.midFreq);
+      _midQ = _ffi.insertGetParam(t, s, _P.midQ);
+      _midGain = _ffi.insertGetParam(t, s, _P.midGain);
+      _drive = _ffi.insertGetParam(t, s, _P.drive);
+      _driveMode = _ffi.insertGetParam(t, s, _P.driveMode).round();
+      _tilt = _ffi.insertGetParam(t, s, _P.tilt);
+      _filterLfoRate = _ffi.insertGetParam(t, s, _P.filterLfoRate);
+      _filterLfoDepth = _ffi.insertGetParam(t, s, _P.filterLfoDepth);
+      // D2 params
+      _lfo1Rate = _ffi.insertGetParam(t, s, _P.lfo1Rate);
+      _lfo1Depth = _ffi.insertGetParam(t, s, _P.lfo1Depth);
+      _lfo1Shape = _ffi.insertGetParam(t, s, _P.lfo1Shape).round();
+      _lfo1Sync = _ffi.insertGetParam(t, s, _P.lfo1Sync) > 0.5;
+      _lfo1SyncDiv = _ffi.insertGetParam(t, s, _P.lfo1SyncDiv).round();
+      _lfo1Retrigger = _ffi.insertGetParam(t, s, _P.lfo1Retrigger) > 0.5;
+      _lfo2Rate = _ffi.insertGetParam(t, s, _P.lfo2Rate);
+      _lfo2Depth = _ffi.insertGetParam(t, s, _P.lfo2Depth);
+      _lfo2Shape = _ffi.insertGetParam(t, s, _P.lfo2Shape).round();
+      _lfo2Sync = _ffi.insertGetParam(t, s, _P.lfo2Sync) > 0.5;
+      _lfo2SyncDiv = _ffi.insertGetParam(t, s, _P.lfo2SyncDiv).round();
+      _envSensitivity = _ffi.insertGetParam(t, s, _P.envSensitivity);
+      _envAttack = _ffi.insertGetParam(t, s, _P.envAttack);
+      _envRelease = _ffi.insertGetParam(t, s, _P.envRelease);
+      _pitchShift = _ffi.insertGetParam(t, s, _P.pitchShift);
+      _modRouting = _ffi.insertGetParam(t, s, _P.modRouting).round();
     });
   }
 
@@ -215,6 +339,15 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
     pingPong: _pingPong, hpFilter: _hpFilter, lpFilter: _lpFilter,
     modRate: _modRate, modDepth: _modDepth, width: _width,
     ducking: _ducking, link: _link, freeze: _freeze, tempoSync: _tempoSync,
+    hpQ: _hpQ, lpQ: _lpQ, midFreq: _midFreq, midQ: _midQ,
+    midGain: _midGain, drive: _drive, driveMode: _driveMode, tilt: _tilt,
+    filterLfoRate: _filterLfoRate, filterLfoDepth: _filterLfoDepth,
+    lfo1Rate: _lfo1Rate, lfo1Depth: _lfo1Depth, lfo1Shape: _lfo1Shape,
+    lfo1Sync: _lfo1Sync, lfo1SyncDiv: _lfo1SyncDiv, lfo1Retrigger: _lfo1Retrigger,
+    lfo2Rate: _lfo2Rate, lfo2Depth: _lfo2Depth, lfo2Shape: _lfo2Shape,
+    lfo2Sync: _lfo2Sync, lfo2SyncDiv: _lfo2SyncDiv,
+    envSensitivity: _envSensitivity, envAttack: _envAttack, envRelease: _envRelease,
+    pitchShift: _pitchShift, modRouting: _modRouting,
   );
 
   void _restore(DelaySnapshot s) {
@@ -224,6 +357,17 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
       _lpFilter = s.lpFilter; _modRate = s.modRate; _modDepth = s.modDepth;
       _width = s.width; _ducking = s.ducking; _link = s.link;
       _freeze = s.freeze; _tempoSync = s.tempoSync;
+      _hpQ = s.hpQ; _lpQ = s.lpQ; _midFreq = s.midFreq; _midQ = s.midQ;
+      _midGain = s.midGain; _drive = s.drive; _driveMode = s.driveMode;
+      _tilt = s.tilt; _filterLfoRate = s.filterLfoRate;
+      _filterLfoDepth = s.filterLfoDepth;
+      // D2
+      _lfo1Rate = s.lfo1Rate; _lfo1Depth = s.lfo1Depth; _lfo1Shape = s.lfo1Shape;
+      _lfo1Sync = s.lfo1Sync; _lfo1SyncDiv = s.lfo1SyncDiv; _lfo1Retrigger = s.lfo1Retrigger;
+      _lfo2Rate = s.lfo2Rate; _lfo2Depth = s.lfo2Depth; _lfo2Shape = s.lfo2Shape;
+      _lfo2Sync = s.lfo2Sync; _lfo2SyncDiv = s.lfo2SyncDiv;
+      _envSensitivity = s.envSensitivity; _envAttack = s.envAttack; _envRelease = s.envRelease;
+      _pitchShift = s.pitchShift; _modRouting = s.modRouting;
     });
     _applyAll();
   }
@@ -244,6 +388,33 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
     _setParam(_P.link, _link ? 1.0 : 0.0);
     _setParam(_P.freeze, _freeze ? 1.0 : 0.0);
     _setParam(_P.tempoSync, _tempoSync ? 1.0 : 0.0);
+    _setParam(_P.hpQ, _hpQ);
+    _setParam(_P.lpQ, _lpQ);
+    _setParam(_P.midFreq, _midFreq);
+    _setParam(_P.midQ, _midQ);
+    _setParam(_P.midGain, _midGain);
+    _setParam(_P.drive, _drive);
+    _setParam(_P.driveMode, _driveMode.toDouble());
+    _setParam(_P.tilt, _tilt);
+    _setParam(_P.filterLfoRate, _filterLfoRate);
+    _setParam(_P.filterLfoDepth, _filterLfoDepth);
+    // D2
+    _setParam(_P.lfo1Rate, _lfo1Rate);
+    _setParam(_P.lfo1Depth, _lfo1Depth);
+    _setParam(_P.lfo1Shape, _lfo1Shape.toDouble());
+    _setParam(_P.lfo1Sync, _lfo1Sync ? 1.0 : 0.0);
+    _setParam(_P.lfo1SyncDiv, _lfo1SyncDiv.toDouble());
+    _setParam(_P.lfo1Retrigger, _lfo1Retrigger ? 1.0 : 0.0);
+    _setParam(_P.lfo2Rate, _lfo2Rate);
+    _setParam(_P.lfo2Depth, _lfo2Depth);
+    _setParam(_P.lfo2Shape, _lfo2Shape.toDouble());
+    _setParam(_P.lfo2Sync, _lfo2Sync ? 1.0 : 0.0);
+    _setParam(_P.lfo2SyncDiv, _lfo2SyncDiv.toDouble());
+    _setParam(_P.envSensitivity, _envSensitivity);
+    _setParam(_P.envAttack, _envAttack);
+    _setParam(_P.envRelease, _envRelease);
+    _setParam(_P.pitchShift, _pitchShift);
+    _setParam(_P.modRouting, _modRouting.toDouble());
   }
 
   @override
@@ -563,17 +734,114 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const FabSectionLabel('FILTER'),
+          const FabSectionLabel('FEEDBACK FILTER'),
           Row(
             children: [
               Expanded(child: _buildFilterKnob('HP', _hpFilter, (v) {
                 setState(() => _hpFilter = v);
                 _setParam(_P.hpFilter, v);
               })),
+              Expanded(child: FabFilterKnob(
+                value: ((_hpQ - 0.5) / 9.5).clamp(0.0, 1.0),
+                label: 'HP Q',
+                display: _hpQ.toStringAsFixed(1),
+                color: FabFilterColors.orange,
+                size: 32,
+                defaultValue: (0.707 - 0.5) / 9.5,
+                onChanged: (v) {
+                  setState(() => _hpQ = 0.5 + v * 9.5);
+                  _setParam(_P.hpQ, _hpQ);
+                },
+              )),
               Expanded(child: _buildFilterKnob('LP', _lpFilter, (v) {
                 setState(() => _lpFilter = v);
                 _setParam(_P.lpFilter, v);
               })),
+              Expanded(child: FabFilterKnob(
+                value: ((_lpQ - 0.5) / 9.5).clamp(0.0, 1.0),
+                label: 'LP Q',
+                display: _lpQ.toStringAsFixed(1),
+                color: FabFilterColors.orange,
+                size: 32,
+                defaultValue: (0.707 - 0.5) / 9.5,
+                onChanged: (v) {
+                  setState(() => _lpQ = 0.5 + v * 9.5);
+                  _setParam(_P.lpQ, _lpQ);
+                },
+              )),
+            ],
+          ),
+          const SizedBox(height: 4),
+          // Parametric mid band
+          Row(
+            children: [
+              Expanded(child: FabFilterKnob(
+                value: _logNorm(_midFreq.clamp(80, 16000), 80, 16000),
+                label: 'MID',
+                display: _fmtHz(_midFreq),
+                color: FabFilterColors.yellow,
+                size: 32,
+                defaultValue: _logNorm(1000, 80, 16000),
+                onChanged: (v) {
+                  setState(() => _midFreq = _logDenorm(v, 80, 16000));
+                  _setParam(_P.midFreq, _midFreq);
+                },
+              )),
+              Expanded(child: FabFilterKnob(
+                value: ((_midQ - 0.5) / 9.5).clamp(0.0, 1.0),
+                label: 'MID Q',
+                display: _midQ.toStringAsFixed(1),
+                color: FabFilterColors.yellow,
+                size: 32,
+                defaultValue: (1.0 - 0.5) / 9.5,
+                onChanged: (v) {
+                  setState(() => _midQ = 0.5 + v * 9.5);
+                  _setParam(_P.midQ, _midQ);
+                },
+              )),
+              Expanded(child: FabFilterKnob(
+                value: ((_midGain + 18.0) / 36.0).clamp(0.0, 1.0),
+                label: 'MID dB',
+                display: '${_midGain >= 0 ? "+" : ""}${_midGain.toStringAsFixed(1)}',
+                color: FabFilterColors.yellow,
+                size: 32,
+                defaultValue: 0.5,
+                onChanged: (v) {
+                  setState(() => _midGain = v * 36.0 - 18.0);
+                  _setParam(_P.midGain, _midGain);
+                },
+              )),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const FabSectionLabel('DRIVE & CHARACTER'),
+          Row(
+            children: [
+              Expanded(child: FabFilterKnob(
+                value: _drive / 100.0,
+                label: 'DRIVE',
+                display: _fmtPct(_drive),
+                color: FabFilterColors.red,
+                size: 36,
+                defaultValue: 0.0,
+                onChanged: (v) {
+                  setState(() => _drive = v * 100.0);
+                  _setParam(_P.drive, _drive);
+                },
+              )),
+              Expanded(child: _buildDriveModePicker()),
+              Expanded(child: FabFilterKnob(
+                value: ((_tilt + 6.0) / 12.0).clamp(0.0, 1.0),
+                label: 'TILT',
+                display: '${_tilt >= 0 ? "+" : ""}${_tilt.toStringAsFixed(1)}',
+                color: FabFilterColors.purple,
+                size: 36,
+                defaultValue: 0.5,
+                onChanged: (v) {
+                  setState(() => _tilt = v * 12.0 - 6.0);
+                  _setParam(_P.tilt, _tilt);
+                },
+              )),
             ],
           ),
           const SizedBox(height: 6),
@@ -610,8 +878,370 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
               ),
             ],
           ),
+          const SizedBox(height: 4),
+          const FabSectionLabel('FILTER LFO'),
+          Row(
+            children: [
+              Expanded(child: FabFilterKnob(
+                value: _filterLfoRate / 20.0,
+                label: 'FLT RATE',
+                display: '${_filterLfoRate.toStringAsFixed(2)}Hz',
+                color: FabFilterColors.cyan,
+                size: 32,
+                defaultValue: 0.0,
+                onChanged: (v) {
+                  setState(() => _filterLfoRate = v * 20.0);
+                  _setParam(_P.filterLfoRate, _filterLfoRate);
+                },
+              )),
+              Expanded(child: FabFilterKnob(
+                value: _filterLfoDepth / 100.0,
+                label: 'FLT DPTH',
+                display: _fmtPct(_filterLfoDepth),
+                color: FabFilterColors.cyan,
+                size: 32,
+                defaultValue: 0.0,
+                onChanged: (v) {
+                  setState(() => _filterLfoDepth = v * 100.0);
+                  _setParam(_P.filterLfoDepth, _filterLfoDepth);
+                },
+              )),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // ─── D2 MODULATION ENGINE ───────────────────────────────
+          const FabSectionLabel('LFO 1'),
+          _buildLfoSection(
+            rate: _lfo1Rate,
+            depth: _lfo1Depth,
+            shape: _lfo1Shape,
+            sync: _lfo1Sync,
+            syncDiv: _lfo1SyncDiv,
+            retrigger: _lfo1Retrigger,
+            onRateChanged: (v) { setState(() => _lfo1Rate = v); _setParam(_P.lfo1Rate, v); },
+            onDepthChanged: (v) { setState(() => _lfo1Depth = v); _setParam(_P.lfo1Depth, v); },
+            onShapeChanged: (v) { setState(() => _lfo1Shape = v); _setParam(_P.lfo1Shape, v.toDouble()); },
+            onSyncChanged: (v) { setState(() => _lfo1Sync = v); _setParam(_P.lfo1Sync, v ? 1.0 : 0.0); },
+            onSyncDivChanged: (v) { setState(() => _lfo1SyncDiv = v); _setParam(_P.lfo1SyncDiv, v.toDouble()); },
+            onRetriggerChanged: (v) { setState(() => _lfo1Retrigger = v); _setParam(_P.lfo1Retrigger, v ? 1.0 : 0.0); },
+          ),
+          const SizedBox(height: 6),
+          const FabSectionLabel('LFO 2'),
+          _buildLfoSection(
+            rate: _lfo2Rate,
+            depth: _lfo2Depth,
+            shape: _lfo2Shape,
+            sync: _lfo2Sync,
+            syncDiv: _lfo2SyncDiv,
+            retrigger: null,
+            onRateChanged: (v) { setState(() => _lfo2Rate = v); _setParam(_P.lfo2Rate, v); },
+            onDepthChanged: (v) { setState(() => _lfo2Depth = v); _setParam(_P.lfo2Depth, v); },
+            onShapeChanged: (v) { setState(() => _lfo2Shape = v); _setParam(_P.lfo2Shape, v.toDouble()); },
+            onSyncChanged: (v) { setState(() => _lfo2Sync = v); _setParam(_P.lfo2Sync, v ? 1.0 : 0.0); },
+            onSyncDivChanged: (v) { setState(() => _lfo2SyncDiv = v); _setParam(_P.lfo2SyncDiv, v.toDouble()); },
+            onRetriggerChanged: null,
+          ),
+          const SizedBox(height: 6),
+          const FabSectionLabel('ENVELOPE'),
+          Row(
+            children: [
+              Expanded(child: FabFilterKnob(
+                value: _envSensitivity / 100.0,
+                label: 'SENS',
+                display: _fmtPct(_envSensitivity),
+                color: FabFilterColors.orange,
+                size: 32,
+                defaultValue: 0.5,
+                onChanged: (v) {
+                  setState(() => _envSensitivity = v * 100.0);
+                  _setParam(_P.envSensitivity, _envSensitivity);
+                },
+              )),
+              Expanded(child: FabFilterKnob(
+                value: _envAttack / 100.0,
+                label: 'ATK',
+                display: '${_envAttack.toStringAsFixed(1)}ms',
+                color: FabFilterColors.orange,
+                size: 32,
+                defaultValue: 0.05,
+                onChanged: (v) {
+                  setState(() => _envAttack = v * 100.0);
+                  _setParam(_P.envAttack, _envAttack);
+                },
+              )),
+              Expanded(child: FabFilterKnob(
+                value: _envRelease / 1000.0,
+                label: 'REL',
+                display: '${_envRelease.toStringAsFixed(0)}ms',
+                color: FabFilterColors.orange,
+                size: 32,
+                defaultValue: 0.05,
+                onChanged: (v) {
+                  setState(() => _envRelease = v * 1000.0);
+                  _setParam(_P.envRelease, _envRelease);
+                },
+              )),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const FabSectionLabel('PITCH & ROUTING'),
+          Row(
+            children: [
+              Expanded(child: FabFilterKnob(
+                value: ((_pitchShift + 12.0) / 24.0).clamp(0.0, 1.0),
+                label: 'PITCH',
+                display: '${_pitchShift >= 0 ? "+" : ""}${_pitchShift.toStringAsFixed(1)}st',
+                color: FabFilterColors.purple,
+                size: 36,
+                defaultValue: 0.5,
+                onChanged: (v) {
+                  setState(() => _pitchShift = v * 24.0 - 12.0);
+                  _setParam(_P.pitchShift, _pitchShift);
+                },
+              )),
+              Expanded(child: _buildModRoutingPicker()),
+            ],
+          ),
         ],
       ),
+    );
+  }
+
+  // ─── LFO SECTION BUILDER ────────────────────────────────────────────
+
+  static const _lfoShapeNames = ['SIN', 'TRI', 'SAW↑', 'SAW↓', 'SQR', 'S&H', 'RND'];
+  static const _syncDivNames = [
+    '1/64', '1/32', '1/16T', '1/16', '1/8T', '1/8', '1/4T', '1/4',
+    '1/2T', '1/2', '1/1T', '1/1', '2/1', '4/1', '1/16D', '1/8D',
+  ];
+
+  Widget _buildLfoSection({
+    required double rate,
+    required double depth,
+    required int shape,
+    required bool sync,
+    required int syncDiv,
+    required bool? retrigger,
+    required ValueChanged<double> onRateChanged,
+    required ValueChanged<double> onDepthChanged,
+    required ValueChanged<int> onShapeChanged,
+    required ValueChanged<bool> onSyncChanged,
+    required ValueChanged<int> onSyncDivChanged,
+    required ValueChanged<bool>? onRetriggerChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Shape picker row
+        Row(
+          children: List.generate(7, (i) => Expanded(
+            child: GestureDetector(
+              onTap: () => onShapeChanged(i),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 1),
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                decoration: BoxDecoration(
+                  color: i == shape
+                      ? FabFilterColors.green.withOpacity(0.7)
+                      : Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: Text(
+                  _lfoShapeNames[i],
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 7,
+                    fontWeight: i == shape ? FontWeight.bold : FontWeight.normal,
+                    color: i == shape ? Colors.white : Colors.white54,
+                  ),
+                ),
+              ),
+            ),
+          )),
+        ),
+        const SizedBox(height: 4),
+        // Rate + Depth knobs
+        Row(
+          children: [
+            Expanded(child: FabFilterKnob(
+              value: rate / 20.0,
+              label: 'RATE',
+              display: sync ? _syncDivNames[syncDiv.clamp(0, 15)] : '${rate.toStringAsFixed(2)}Hz',
+              color: FabFilterColors.green,
+              size: 32,
+              defaultValue: 0.05,
+              onChanged: (v) => onRateChanged(v * 20.0),
+            )),
+            Expanded(child: FabFilterKnob(
+              value: depth / 100.0,
+              label: 'DEPTH',
+              display: _fmtPct(depth),
+              color: FabFilterColors.green,
+              size: 32,
+              defaultValue: 0.0,
+              onChanged: (v) => onDepthChanged(v * 100.0),
+            )),
+            // Sync toggle
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: () => onSyncChanged(!sync),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: sync ? FabFilterColors.green.withOpacity(0.7) : Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text('SYNC', style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: sync ? FontWeight.bold : FontWeight.normal,
+                      color: sync ? Colors.white : Colors.white54,
+                    )),
+                  ),
+                ),
+                if (retrigger != null) ...[
+                  const SizedBox(height: 3),
+                  GestureDetector(
+                    onTap: () => onRetriggerChanged?.call(!retrigger),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: retrigger ? FabFilterColors.red.withOpacity(0.7) : Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text('RETRIG', style: TextStyle(
+                        fontSize: 7,
+                        fontWeight: retrigger ? FontWeight.bold : FontWeight.normal,
+                        color: retrigger ? Colors.white : Colors.white54,
+                      )),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+        // Sync division picker (only when sync is on)
+        if (sync) ...[
+          const SizedBox(height: 4),
+          SizedBox(
+            height: 22,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: 16,
+              itemBuilder: (_, i) => GestureDetector(
+                onTap: () => onSyncDivChanged(i),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 1),
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: i == syncDiv
+                        ? FabFilterColors.green.withOpacity(0.7)
+                        : Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: Text(
+                    _syncDivNames[i],
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: i == syncDiv ? FontWeight.bold : FontWeight.normal,
+                      color: i == syncDiv ? Colors.white : Colors.white54,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // ─── MOD ROUTING PRESET PICKER ──────────────────────────────────────
+
+  static const _routingNames = [
+    'OFF', 'L1→TIME', 'L1→FLT', 'L1→PAN', 'L1+L2', 'ENV→FB', 'ENV→FLT', 'L1→DRV', 'L1→PITCH',
+  ];
+
+  Widget _buildModRoutingPicker() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('MOD ROUTE', style: FabFilterText.paramLabel.copyWith(fontSize: 7)),
+        const SizedBox(height: 2),
+        Wrap(
+          spacing: 2,
+          runSpacing: 2,
+          children: List.generate(_routingNames.length, (i) => GestureDetector(
+            onTap: () {
+              setState(() => _modRouting = i);
+              _setParam(_P.modRouting, i.toDouble());
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: i == _modRouting
+                    ? FabFilterColors.purple.withOpacity(0.7)
+                    : Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text(
+                _routingNames[i],
+                style: TextStyle(
+                  fontSize: 7,
+                  fontWeight: i == _modRouting ? FontWeight.bold : FontWeight.normal,
+                  color: i == _modRouting ? Colors.white : Colors.white54,
+                ),
+              ),
+            ),
+          )),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDriveModePicker() {
+    const modes = ['TUBE', 'TAPE', 'TRNS'];
+    const colors = [FabFilterColors.orange, FabFilterColors.yellow, FabFilterColors.red];
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('MODE', style: FabFilterText.paramLabel.copyWith(fontSize: 7)),
+        const SizedBox(height: 2),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (i) => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 1),
+            child: GestureDetector(
+              onTap: () {
+                setState(() => _driveMode = i);
+                _setParam(_P.driveMode, i.toDouble());
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _driveMode == i
+                    ? colors[i].withValues(alpha: 0.3)
+                    : FabFilterColors.bgVoid,
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(
+                    color: _driveMode == i
+                      ? colors[i].withValues(alpha: 0.6)
+                      : FabFilterColors.borderSubtle,
+                    width: 0.5,
+                  ),
+                ),
+                child: Text(modes[i], style: TextStyle(
+                  fontSize: 7,
+                  fontWeight: FontWeight.w600,
+                  color: _driveMode == i ? colors[i] : FabFilterColors.textTertiary,
+                )),
+              ),
+            ),
+          )),
+        ),
+      ],
     );
   }
 

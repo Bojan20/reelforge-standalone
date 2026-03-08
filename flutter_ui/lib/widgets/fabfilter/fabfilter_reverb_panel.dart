@@ -30,7 +30,12 @@ enum ReverbSpace {
   hall('Hall', Icons.church),
   plate('Plate', Icons.rectangle_outlined),
   chamber('Chamber', Icons.sensors),
-  spring('Spring', Icons.cable);
+  spring('Spring', Icons.cable),
+  ambient('Ambient', Icons.cloud),
+  shimmer('Shimmer', Icons.auto_awesome),
+  nonlinear('Nonlinear', Icons.show_chart),
+  vintage('Vintage', Icons.radio),
+  gated('Gated', Icons.door_front_door);
 
   final String label;
   final IconData icon;
@@ -66,6 +71,22 @@ class _P {
   static const xoFreq3 = 21;
   static const lowmidDecay = 22;
   static const highmidDecay = 23;
+  // F5: Output Processing
+  static const outEqLoGain = 24;
+  static const outEqLoFreq = 25;
+  static const outEqHiGain = 26;
+  static const outEqHiFreq = 27;
+  static const outEqMidGain = 28;
+  static const outEqMidFreq = 29;
+  static const outEqMidQ = 30;
+  static const softLimiter = 31;
+  static const bpmSync = 32;
+  static const bpm = 33;
+  static const noteDiv = 34;
+  static const pdFeedback = 35;
+  // F8: Advanced FDN
+  static const fdnSize = 36;
+  static const matrixType = 37;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -83,6 +104,15 @@ class ReverbSnapshot implements DspParameterSnapshot {
   final double erLevel, lateLevel;
   final double xoFreq1, xoFreq2, xoFreq3;
   final double lowmidDecayMult, highmidDecayMult;
+  // F5: Output Processing
+  final double outEqLoGain, outEqLoFreq, outEqHiGain, outEqHiFreq;
+  final double outEqMidGain, outEqMidFreq, outEqMidQ;
+  final bool softLimiter, bpmSync;
+  final double bpm, pdFeedback;
+  final int noteDiv;
+  // F8: Advanced FDN
+  final int fdnSize;    // 0=Small/4, 1=Medium/8, 2=Large/16
+  final int matrixType; // 0=Hadamard, 1=Householder
 
   const ReverbSnapshot({
     required this.space, required this.brightness, required this.width,
@@ -94,6 +124,13 @@ class ReverbSnapshot implements DspParameterSnapshot {
     required this.erLevel, required this.lateLevel,
     required this.xoFreq1, required this.xoFreq2, required this.xoFreq3,
     required this.lowmidDecayMult, required this.highmidDecayMult,
+    required this.outEqLoGain, required this.outEqLoFreq,
+    required this.outEqHiGain, required this.outEqHiFreq,
+    required this.outEqMidGain, required this.outEqMidFreq,
+    required this.outEqMidQ,
+    required this.softLimiter, required this.bpmSync,
+    required this.bpm, required this.noteDiv, required this.pdFeedback,
+    this.fdnSize = 1, this.matrixType = 0,
   });
 
   @override
@@ -107,6 +144,13 @@ class ReverbSnapshot implements DspParameterSnapshot {
     erLevel: erLevel, lateLevel: lateLevel,
     xoFreq1: xoFreq1, xoFreq2: xoFreq2, xoFreq3: xoFreq3,
     lowmidDecayMult: lowmidDecayMult, highmidDecayMult: highmidDecayMult,
+    outEqLoGain: outEqLoGain, outEqLoFreq: outEqLoFreq,
+    outEqHiGain: outEqHiGain, outEqHiFreq: outEqHiFreq,
+    outEqMidGain: outEqMidGain, outEqMidFreq: outEqMidFreq,
+    outEqMidQ: outEqMidQ,
+    softLimiter: softLimiter, bpmSync: bpmSync,
+    bpm: bpm, noteDiv: noteDiv, pdFeedback: pdFeedback,
+    fdnSize: fdnSize, matrixType: matrixType,
   );
 
   @override
@@ -121,9 +165,100 @@ class ReverbSnapshot implements DspParameterSnapshot {
         xoFreq1 == other.xoFreq1 && xoFreq2 == other.xoFreq2 &&
         xoFreq3 == other.xoFreq3 &&
         lowmidDecayMult == other.lowmidDecayMult &&
-        highmidDecayMult == other.highmidDecayMult;
+        highmidDecayMult == other.highmidDecayMult &&
+        outEqLoGain == other.outEqLoGain && outEqLoFreq == other.outEqLoFreq &&
+        outEqHiGain == other.outEqHiGain && outEqHiFreq == other.outEqHiFreq &&
+        outEqMidGain == other.outEqMidGain && outEqMidFreq == other.outEqMidFreq &&
+        outEqMidQ == other.outEqMidQ &&
+        softLimiter == other.softLimiter && bpmSync == other.bpmSync &&
+        bpm == other.bpm && noteDiv == other.noteDiv &&
+        pdFeedback == other.pdFeedback &&
+        fdnSize == other.fdnSize && matrixType == other.matrixType;
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FACTORY PRESETS (R9.3)
+// ═══════════════════════════════════════════════════════════════════════════
+
+class ReverbPreset {
+  final String name;
+  final String category;
+  final ReverbSnapshot snapshot;
+  const ReverbPreset(this.name, this.category, this.snapshot);
+}
+
+ReverbSnapshot _p({
+  double space = 0.5, double brightness = 0.6, double width = 1.0,
+  double mix = 0.33, double predelay = 0.0, int style = 0,
+  double diffusion = 0.0, double distance = 0.0, double decay = 0.5,
+  double lowDecay = 1.0, double highDecay = 1.0,
+  double character = 0.0, double thickness = 0.0, double ducking = 0.0,
+  bool freeze = false, double spin = 0.5, double wander = 0.5,
+  double erLevel = 1.0, double lateLevel = 1.0,
+  double xoFreq1 = 250.0, double xoFreq2 = 2000.0, double xoFreq3 = 8000.0,
+  double lowmidDecay = 1.0, double highmidDecay = 1.0,
+  double outEqLoGain = 0.0, double outEqLoFreq = 200.0,
+  double outEqHiGain = 0.0, double outEqHiFreq = 8000.0,
+  double outEqMidGain = 0.0, double outEqMidFreq = 1000.0, double outEqMidQ = 1.0,
+  bool softLimiter = false, bool bpmSync = false,
+  double bpm = 120.0, int noteDiv = 2, double pdFeedback = 0.0,
+}) => ReverbSnapshot(
+  space: space, brightness: brightness, width: width, mix: mix,
+  predelay: predelay, style: style, diffusion: diffusion,
+  distance: distance, decay: decay,
+  lowDecayMult: lowDecay, highDecayMult: highDecay,
+  character: character, thickness: thickness, ducking: ducking,
+  freeze: freeze, spin: spin, wander: wander,
+  erLevel: erLevel, lateLevel: lateLevel,
+  xoFreq1: xoFreq1, xoFreq2: xoFreq2, xoFreq3: xoFreq3,
+  lowmidDecayMult: lowmidDecay, highmidDecayMult: highmidDecay,
+  outEqLoGain: outEqLoGain, outEqLoFreq: outEqLoFreq,
+  outEqHiGain: outEqHiGain, outEqHiFreq: outEqHiFreq,
+  outEqMidGain: outEqMidGain, outEqMidFreq: outEqMidFreq,
+  outEqMidQ: outEqMidQ,
+  softLimiter: softLimiter, bpmSync: bpmSync,
+  bpm: bpm, noteDiv: noteDiv, pdFeedback: pdFeedback,
+);
+
+final List<ReverbPreset> kReverbPresets = [
+  // === ROOMS ===
+  ReverbPreset('Small Room', 'Rooms', _p(style: 0, space: 0.2, decay: 0.2, brightness: 0.7, mix: 0.25, diffusion: 0.3, erLevel: 1.0, lateLevel: 0.6)),
+  ReverbPreset('Medium Room', 'Rooms', _p(style: 0, space: 0.4, decay: 0.35, brightness: 0.6, mix: 0.3, diffusion: 0.5, erLevel: 0.9, lateLevel: 0.8)),
+  ReverbPreset('Large Room', 'Rooms', _p(style: 0, space: 0.65, decay: 0.45, brightness: 0.55, mix: 0.3, diffusion: 0.6, erLevel: 0.8, lateLevel: 0.9)),
+  ReverbPreset('Drum Room', 'Rooms', _p(style: 0, space: 0.3, decay: 0.2, brightness: 0.8, mix: 0.2, diffusion: 0.2, erLevel: 1.0, lateLevel: 0.5, thickness: 0.3)),
+  // === HALLS ===
+  ReverbPreset('Concert Hall', 'Halls', _p(style: 1, space: 0.7, decay: 0.65, brightness: 0.5, mix: 0.3, diffusion: 0.7, width: 1.3, erLevel: 0.7, lateLevel: 1.0)),
+  ReverbPreset('Large Hall', 'Halls', _p(style: 1, space: 0.85, decay: 0.75, brightness: 0.45, mix: 0.35, diffusion: 0.8, width: 1.5, erLevel: 0.6, lateLevel: 1.0)),
+  ReverbPreset('Cathedral', 'Halls', _p(style: 1, space: 1.0, decay: 0.9, brightness: 0.35, mix: 0.4, diffusion: 0.9, width: 1.8, lowDecay: 1.3, highDecay: 0.6)),
+  // === PLATES ===
+  ReverbPreset('Vocal Plate', 'Plates', _p(style: 2, space: 0.5, decay: 0.45, brightness: 0.7, mix: 0.25, diffusion: 0.8, width: 1.2, outEqMidGain: 2.0, outEqMidFreq: 3000.0)),
+  ReverbPreset('Bright Plate', 'Plates', _p(style: 2, space: 0.6, decay: 0.5, brightness: 0.85, mix: 0.3, diffusion: 0.85, width: 1.4, highDecay: 0.8)),
+  ReverbPreset('Dark Plate', 'Plates', _p(style: 2, space: 0.55, decay: 0.55, brightness: 0.3, mix: 0.3, diffusion: 0.7, outEqHiGain: -4.0)),
+  // === CHAMBERS ===
+  ReverbPreset('Studio Chamber', 'Chambers', _p(style: 3, space: 0.35, decay: 0.3, brightness: 0.6, mix: 0.2, diffusion: 0.4, erLevel: 1.0)),
+  ReverbPreset('Echo Chamber', 'Chambers', _p(style: 3, space: 0.5, decay: 0.4, brightness: 0.65, mix: 0.3, predelay: 40.0, pdFeedback: 0.2)),
+  // === SPRINGS ===
+  ReverbPreset('Spring Classic', 'Springs', _p(style: 4, space: 0.3, decay: 0.3, brightness: 0.6, mix: 0.25, character: 0.6, thickness: 0.4)),
+  ReverbPreset('Spring Drip', 'Springs', _p(style: 4, space: 0.25, decay: 0.25, brightness: 0.7, mix: 0.3, character: 0.8, thickness: 0.6)),
+  // === AMBIENT ===
+  ReverbPreset('Ambient Wash', 'Ambient', _p(style: 5, space: 0.8, decay: 0.8, brightness: 0.4, mix: 0.45, diffusion: 0.9, width: 1.8, lowDecay: 1.2, highDecay: 0.5)),
+  ReverbPreset('Ambient Pad', 'Ambient', _p(style: 5, space: 0.9, decay: 0.85, brightness: 0.35, mix: 0.5, diffusion: 0.95, width: 2.0, spin: 0.7, wander: 0.7)),
+  // === SHIMMER ===
+  ReverbPreset('Shimmer Pad', 'Shimmer', _p(style: 6, space: 0.75, decay: 0.7, brightness: 0.6, mix: 0.4, diffusion: 0.85, width: 1.6, character: 0.7)),
+  ReverbPreset('Shimmer Bright', 'Shimmer', _p(style: 6, space: 0.8, decay: 0.75, brightness: 0.8, mix: 0.35, diffusion: 0.9, highDecay: 0.9, character: 0.8)),
+  // === NONLINEAR ===
+  ReverbPreset('Nonlinear Drums', 'Nonlinear', _p(style: 7, space: 0.4, decay: 0.3, brightness: 0.7, mix: 0.3, character: 0.6, thickness: 0.5)),
+  // === VINTAGE ===
+  ReverbPreset('Vintage Lexicon', 'Vintage', _p(style: 8, space: 0.5, decay: 0.5, brightness: 0.5, mix: 0.3, diffusion: 0.6, width: 1.0, character: 0.4)),
+  ReverbPreset('Lo-Fi Verb', 'Vintage', _p(style: 8, space: 0.4, decay: 0.4, brightness: 0.3, mix: 0.25, outEqHiGain: -6.0, outEqLoGain: -2.0)),
+  // === GATED ===
+  ReverbPreset('80s Gated', 'Gated', _p(style: 9, space: 0.5, decay: 0.5, brightness: 0.7, mix: 0.4, thickness: 0.6)),
+  ReverbPreset('Gated Snare', 'Gated', _p(style: 9, space: 0.35, decay: 0.35, brightness: 0.8, mix: 0.35, erLevel: 1.0, lateLevel: 0.8)),
+  // === SPECIAL ===
+  ReverbPreset('Vocal Doubler', 'Special', _p(style: 0, space: 0.15, decay: 0.1, brightness: 0.7, mix: 0.15, predelay: 20.0, diffusion: 0.2, erLevel: 1.0, lateLevel: 0.3)),
+  ReverbPreset('Infinite Freeze', 'Special', _p(style: 1, space: 0.7, decay: 1.0, brightness: 0.5, mix: 0.5, freeze: true, width: 1.5, diffusion: 0.8)),
+];
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MAIN PANEL WIDGET
@@ -186,6 +321,22 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
   double _xoFreq3 = 8000.0;  // Crossover 3 Hz (HighMid/High)
   double _lowmidDecay = 1.0;  // 0.5-2.0
   double _highmidDecay = 1.0; // 0.5-2.0
+  // F5: Output Processing
+  double _outEqLoGain = 0.0;   // -12 to +12 dB
+  double _outEqLoFreq = 200.0; // 80-500 Hz
+  double _outEqHiGain = 0.0;   // -12 to +12 dB
+  double _outEqHiFreq = 8000.0; // 2000-16000 Hz
+  double _outEqMidGain = 0.0;  // -12 to +12 dB
+  double _outEqMidFreq = 1000.0; // 200-8000 Hz
+  double _outEqMidQ = 1.0;     // 0.5-5.0
+  bool _softLimiter = false;
+  bool _bpmSync = false;
+  double _bpm = 120.0;         // 60-200
+  int _noteDiv = 2;            // 0-7
+  double _pdFeedback = 0.0;    // 0.0-0.5
+  // F8: Advanced FDN
+  int _fdnSize = 1;     // 0=Small, 1=Medium, 2=Large
+  int _matrixType = 0;  // 0=Hadamard, 1=Householder
 
   // Metering
   double _wetLevel = 0.0;
@@ -287,6 +438,21 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       _xoFreq3 = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.xoFreq3);
       _lowmidDecay = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.lowmidDecay);
       _highmidDecay = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.highmidDecay);
+      // F5: Output Processing
+      _outEqLoGain = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.outEqLoGain);
+      _outEqLoFreq = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.outEqLoFreq);
+      _outEqHiGain = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.outEqHiGain);
+      _outEqHiFreq = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.outEqHiFreq);
+      _outEqMidGain = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.outEqMidGain);
+      _outEqMidFreq = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.outEqMidFreq);
+      _outEqMidQ = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.outEqMidQ);
+      _softLimiter = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.softLimiter) > 0.5;
+      _bpmSync = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.bpmSync) > 0.5;
+      _bpm = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.bpm);
+      _noteDiv = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.noteDiv).round();
+      _pdFeedback = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.pdFeedback);
+      _fdnSize = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.fdnSize).round();
+      _matrixType = _ffi.insertGetParam(widget.trackId, _slotIndex, _P.matrixType).round();
       if (_freeze) _freezeController.forward();
     });
   }
@@ -298,6 +464,11 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       2 => ReverbSpace.plate,
       3 => ReverbSpace.chamber,
       4 => ReverbSpace.spring,
+      5 => ReverbSpace.ambient,
+      6 => ReverbSpace.shimmer,
+      7 => ReverbSpace.nonlinear,
+      8 => ReverbSpace.vintage,
+      9 => ReverbSpace.gated,
       _ => ReverbSpace.room,
     };
   }
@@ -309,6 +480,11 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       ReverbSpace.plate => 2,
       ReverbSpace.chamber => 3,
       ReverbSpace.spring => 4,
+      ReverbSpace.ambient => 5,
+      ReverbSpace.shimmer => 6,
+      ReverbSpace.nonlinear => 7,
+      ReverbSpace.vintage => 8,
+      ReverbSpace.gated => 9,
     };
   }
 
@@ -332,6 +508,13 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     erLevel: _erLevel, lateLevel: _lateLevel,
     xoFreq1: _xoFreq1, xoFreq2: _xoFreq2, xoFreq3: _xoFreq3,
     lowmidDecayMult: _lowmidDecay, highmidDecayMult: _highmidDecay,
+    outEqLoGain: _outEqLoGain, outEqLoFreq: _outEqLoFreq,
+    outEqHiGain: _outEqHiGain, outEqHiFreq: _outEqHiFreq,
+    outEqMidGain: _outEqMidGain, outEqMidFreq: _outEqMidFreq,
+    outEqMidQ: _outEqMidQ,
+    softLimiter: _softLimiter, bpmSync: _bpmSync,
+    bpm: _bpm, noteDiv: _noteDiv, pdFeedback: _pdFeedback,
+    fdnSize: _fdnSize, matrixType: _matrixType,
   );
 
   void _restore(ReverbSnapshot s) {
@@ -347,8 +530,41 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
       _erLevel = s.erLevel; _lateLevel = s.lateLevel;
       _xoFreq1 = s.xoFreq1; _xoFreq2 = s.xoFreq2; _xoFreq3 = s.xoFreq3;
       _lowmidDecay = s.lowmidDecayMult; _highmidDecay = s.highmidDecayMult;
+      _outEqLoGain = s.outEqLoGain; _outEqLoFreq = s.outEqLoFreq;
+      _outEqHiGain = s.outEqHiGain; _outEqHiFreq = s.outEqHiFreq;
+      _outEqMidGain = s.outEqMidGain; _outEqMidFreq = s.outEqMidFreq;
+      _outEqMidQ = s.outEqMidQ;
+      _softLimiter = s.softLimiter; _bpmSync = s.bpmSync;
+      _bpm = s.bpm; _noteDiv = s.noteDiv; _pdFeedback = s.pdFeedback;
+      _fdnSize = s.fdnSize; _matrixType = s.matrixType;
     });
     if (_freeze) { _freezeController.forward(); } else { _freezeController.reverse(); }
+    _applyAll();
+  }
+
+  void _loadPreset(int index) {
+    if (index < 0 || index >= kReverbPresets.length) return;
+    final s = kReverbPresets[index].snapshot;
+    setState(() {
+      _space = s.space; _brightness = s.brightness; _width = s.width;
+      _mix = s.mix; _predelay = s.predelay;
+      _spaceType = _typeIndexToSpace(s.style);
+      _diffusion = s.diffusion; _distance = s.distance; _decay = s.decay;
+      _lowDecay = s.lowDecayMult; _highDecay = s.highDecayMult;
+      _character = s.character; _thickness = s.thickness;
+      _ducking = s.ducking; _freeze = s.freeze;
+      _spin = s.spin; _wander = s.wander;
+      _erLevel = s.erLevel; _lateLevel = s.lateLevel;
+      _xoFreq1 = s.xoFreq1; _xoFreq2 = s.xoFreq2; _xoFreq3 = s.xoFreq3;
+      _lowmidDecay = s.lowmidDecayMult; _highmidDecay = s.highmidDecayMult;
+      _outEqLoGain = s.outEqLoGain; _outEqLoFreq = s.outEqLoFreq;
+      _outEqHiGain = s.outEqHiGain; _outEqHiFreq = s.outEqHiFreq;
+      _outEqMidGain = s.outEqMidGain; _outEqMidFreq = s.outEqMidFreq;
+      _outEqMidQ = s.outEqMidQ;
+      _softLimiter = s.softLimiter; _bpmSync = s.bpmSync;
+      _bpm = s.bpm; _noteDiv = s.noteDiv; _pdFeedback = s.pdFeedback;
+      _fdnSize = s.fdnSize; _matrixType = s.matrixType;
+    });
     _applyAll();
   }
 
@@ -378,6 +594,21 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     _setParam(_P.xoFreq3, _xoFreq3);
     _setParam(_P.lowmidDecay, _lowmidDecay);
     _setParam(_P.highmidDecay, _highmidDecay);
+    // F5: Output Processing
+    _setParam(_P.outEqLoGain, _outEqLoGain);
+    _setParam(_P.outEqLoFreq, _outEqLoFreq);
+    _setParam(_P.outEqHiGain, _outEqHiGain);
+    _setParam(_P.outEqHiFreq, _outEqHiFreq);
+    _setParam(_P.outEqMidGain, _outEqMidGain);
+    _setParam(_P.outEqMidFreq, _outEqMidFreq);
+    _setParam(_P.outEqMidQ, _outEqMidQ);
+    _setParam(_P.softLimiter, _softLimiter ? 1.0 : 0.0);
+    _setParam(_P.bpmSync, _bpmSync ? 1.0 : 0.0);
+    _setParam(_P.bpm, _bpm);
+    _setParam(_P.noteDiv, _noteDiv.toDouble());
+    _setParam(_P.pdFeedback, _pdFeedback);
+    _setParam(_P.fdnSize, _fdnSize.toDouble());
+    _setParam(_P.matrixType, _matrixType.toDouble());
   }
 
   @override
@@ -503,6 +734,58 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
                 color: FabFilterColors.purple,
                 fontSize: 8, fontWeight: FontWeight.bold,
               ), overflow: TextOverflow.ellipsis),
+            ),
+            const SizedBox(width: 4),
+            // Preset selector
+            PopupMenuButton<int>(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              tooltip: 'Presets',
+              position: PopupMenuPosition.under,
+              color: FabFilterColors.bgSurface,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: FabFilterColors.bgVoid,
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(color: FabFilterColors.borderSubtle, width: 0.5),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.library_music, size: 9, color: FabFilterColors.textSecondary),
+                    const SizedBox(width: 2),
+                    Text('PRESET', style: TextStyle(
+                      fontSize: 7, fontWeight: FontWeight.bold,
+                      color: FabFilterColors.textSecondary,
+                    )),
+                  ],
+                ),
+              ),
+              itemBuilder: (_) {
+                final items = <PopupMenuEntry<int>>[];
+                String? lastCategory;
+                for (int i = 0; i < kReverbPresets.length; i++) {
+                  final p = kReverbPresets[i];
+                  if (p.category != lastCategory) {
+                    if (lastCategory != null) items.add(const PopupMenuDivider(height: 4));
+                    items.add(PopupMenuItem<int>(
+                      enabled: false, height: 20,
+                      child: Text(p.category.toUpperCase(), style: TextStyle(
+                        fontSize: 9, fontWeight: FontWeight.bold,
+                        color: FabFilterColors.textMuted,
+                      )),
+                    ));
+                    lastCategory = p.category;
+                  }
+                  items.add(PopupMenuItem<int>(
+                    value: i, height: 24,
+                    child: Text(p.name, style: const TextStyle(fontSize: 11)),
+                  ));
+                }
+                return items;
+              },
+              onSelected: (idx) => _loadPreset(idx),
             ),
             const SizedBox(width: 6),
             // Decay readout
@@ -708,6 +991,8 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
                 space: _space,
                 brightness: _brightness,
                 lowDecayMult: _lowDecay,
+                lowmidDecayMult: _lowmidDecay,
+                highmidDecayMult: _highmidDecay,
                 highDecayMult: _highDecay,
                 animatedDecay: _animatedDecay,
                 freeze: _freeze,
@@ -1105,6 +1390,153 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
                   ],
                 ),
               ),
+              const SizedBox(height: 6),
+              FabSectionLabel('OUTPUT'),
+              const SizedBox(height: 4),
+              SizedBox(
+                height: 72,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _knob(
+                      value: (_outEqLoGain + 12.0) / 24.0, label: 'LO EQ',
+                      display: '${_outEqLoGain.toStringAsFixed(1)}dB',
+                      color: FabFilterColors.orange,
+                      onChanged: (v) {
+                        setState(() => _outEqLoGain = v * 24.0 - 12.0);
+                        _setParam(_P.outEqLoGain, _outEqLoGain);
+                      },
+                    ),
+                    _knob(
+                      value: (_outEqMidGain + 12.0) / 24.0, label: 'MID EQ',
+                      display: '${_outEqMidGain.toStringAsFixed(1)}dB',
+                      color: FabFilterColors.green,
+                      onChanged: (v) {
+                        setState(() => _outEqMidGain = v * 24.0 - 12.0);
+                        _setParam(_P.outEqMidGain, _outEqMidGain);
+                      },
+                    ),
+                    _knob(
+                      value: (_outEqHiGain + 12.0) / 24.0, label: 'HI EQ',
+                      display: '${_outEqHiGain.toStringAsFixed(1)}dB',
+                      color: FabFilterColors.cyan,
+                      onChanged: (v) {
+                        setState(() => _outEqHiGain = v * 24.0 - 12.0);
+                        _setParam(_P.outEqHiGain, _outEqHiGain);
+                      },
+                    ),
+                    _knob(
+                      value: _pdFeedback / 0.5, label: 'PD FB',
+                      display: '${(_pdFeedback * 100).toStringAsFixed(0)}%',
+                      color: FabFilterProcessorColors.reverbAccent,
+                      onChanged: (v) {
+                        setState(() => _pdFeedback = v * 0.5);
+                        _setParam(_P.pdFeedback, _pdFeedback);
+                      },
+                    ),
+                    // Soft Limiter toggle
+                    GestureDetector(
+                      onTap: () {
+                        setState(() => _softLimiter = !_softLimiter);
+                        _setParam(_P.softLimiter, _softLimiter ? 1.0 : 0.0);
+                      },
+                      child: Container(
+                        width: 36, height: 24,
+                        decoration: BoxDecoration(
+                          color: _softLimiter ? FabFilterColors.blue : FabFilterColors.bgVoid,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: FabFilterColors.borderSubtle),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text('LIM', style: TextStyle(
+                          fontSize: 9, fontWeight: FontWeight.w600,
+                          color: _softLimiter ? Colors.white : FabFilterColors.textMuted,
+                        )),
+                      ),
+                    ),
+                    // BPM Sync toggle (R8.6)
+                    GestureDetector(
+                      onTap: () {
+                        setState(() => _bpmSync = !_bpmSync);
+                        _setParam(_P.bpmSync, _bpmSync ? 1.0 : 0.0);
+                      },
+                      child: Container(
+                        width: 36, height: 24,
+                        decoration: BoxDecoration(
+                          color: _bpmSync ? FabFilterColors.purple : FabFilterColors.bgVoid,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: FabFilterColors.borderSubtle),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text('SYNC', style: TextStyle(
+                          fontSize: 8, fontWeight: FontWeight.w600,
+                          color: _bpmSync ? Colors.white : FabFilterColors.textMuted,
+                        )),
+                      ),
+                    ),
+                    // Note division picker (R8.6)
+                    if (_bpmSync) GestureDetector(
+                      onTap: () {
+                        setState(() => _noteDiv = (_noteDiv + 1) % 8);
+                        _setParam(_P.noteDiv, _noteDiv.toDouble());
+                      },
+                      child: Container(
+                        width: 32, height: 24,
+                        decoration: BoxDecoration(
+                          color: FabFilterColors.bgVoid,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: FabFilterColors.purple.withValues(alpha: 0.3)),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          const ['1/1', '1/2', '1/4', '1/8', '1/16', '1/4.', '1/8.', '1/4T'][_noteDiv.clamp(0, 7)],
+                          style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600, color: FabFilterColors.purple),
+                        ),
+                      ),
+                    ),
+                    // FDN Size picker (R8.7)
+                    GestureDetector(
+                      onTap: () {
+                        setState(() => _fdnSize = (_fdnSize + 1) % 3);
+                        _setParam(_P.fdnSize, _fdnSize.toDouble());
+                      },
+                      child: Container(
+                        width: 32, height: 24,
+                        decoration: BoxDecoration(
+                          color: FabFilterColors.bgVoid,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: FabFilterColors.borderSubtle),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          const ['4×4', '8×8', '16'][_fdnSize.clamp(0, 2)],
+                          style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600, color: FabFilterColors.textSecondary),
+                        ),
+                      ),
+                    ),
+                    // Matrix type picker (R8.7)
+                    GestureDetector(
+                      onTap: () {
+                        setState(() => _matrixType = (_matrixType + 1) % 2);
+                        _setParam(_P.matrixType, _matrixType.toDouble());
+                      },
+                      child: Container(
+                        width: 36, height: 24,
+                        decoration: BoxDecoration(
+                          color: FabFilterColors.bgVoid,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: FabFilterColors.borderSubtle),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          _matrixType == 0 ? 'HAD' : 'HOU',
+                          style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600, color: FabFilterColors.textSecondary),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -1207,6 +1639,8 @@ class _ReverbDisplayPainter extends CustomPainter {
   final double space;
   final double brightness;
   final double lowDecayMult;
+  final double lowmidDecayMult;
+  final double highmidDecayMult;
   final double highDecayMult;
   final double animatedDecay;
   final bool freeze;
@@ -1225,6 +1659,8 @@ class _ReverbDisplayPainter extends CustomPainter {
     required this.space,
     required this.brightness,
     required this.lowDecayMult,
+    required this.lowmidDecayMult,
+    required this.highmidDecayMult,
     required this.highDecayMult,
     required this.animatedDecay,
     required this.freeze,
@@ -1446,6 +1882,48 @@ class _ReverbDisplayPainter extends CustomPainter {
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
       canvas.drawPath(hiPath, Paint()
         ..color = FabFilterColors.cyan.withValues(alpha: 0.6)
+        ..strokeWidth = 1
+        ..style = PaintingStyle.stroke);
+    }
+
+    // ─── LowMid decay band (R8.1) ─────────────────────────────────────
+    if ((lowmidDecayMult - 1.0).abs() > 0.05) {
+      final lmPath = Path();
+      bool lmFirst = true;
+      for (var x = predelayX; x <= s.width; x += 2) {
+        final t = ((x - predelayX) / s.width) * maxTime;
+        final amp = freeze ? 0.75 : math.exp(-t / (decayTime * 0.3 * (1 + space) * lowmidDecayMult));
+        final y = s.height * (1 - amp * 0.9);
+        if (lmFirst) { lmPath.moveTo(x, y); lmFirst = false; } else { lmPath.lineTo(x, y); }
+      }
+      canvas.drawPath(lmPath, Paint()
+        ..color = FabFilterColors.yellow.withValues(alpha: 0.12)
+        ..strokeWidth = 3
+        ..style = PaintingStyle.stroke
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
+      canvas.drawPath(lmPath, Paint()
+        ..color = FabFilterColors.yellow.withValues(alpha: 0.5)
+        ..strokeWidth = 1
+        ..style = PaintingStyle.stroke);
+    }
+
+    // ─── HighMid decay band (R8.1) ──────────────────────────────────
+    if ((highmidDecayMult - 1.0).abs() > 0.05) {
+      final hmPath = Path();
+      bool hmFirst = true;
+      for (var x = predelayX; x <= s.width; x += 2) {
+        final t = ((x - predelayX) / s.width) * maxTime;
+        final amp = freeze ? 0.7 : math.exp(-t / (decayTime * 0.3 * (1 + space) * highmidDecayMult));
+        final y = s.height * (1 - amp * 0.9);
+        if (hmFirst) { hmPath.moveTo(x, y); hmFirst = false; } else { hmPath.lineTo(x, y); }
+      }
+      canvas.drawPath(hmPath, Paint()
+        ..color = FabFilterColors.green.withValues(alpha: 0.12)
+        ..strokeWidth = 3
+        ..style = PaintingStyle.stroke
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
+      canvas.drawPath(hmPath, Paint()
+        ..color = FabFilterColors.green.withValues(alpha: 0.5)
         ..strokeWidth = 1
         ..style = PaintingStyle.stroke);
     }

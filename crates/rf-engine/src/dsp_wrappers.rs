@@ -2864,7 +2864,7 @@ use rf_dsp::reverb::{AlgorithmicReverb, ReverbType};
 ///   2: Width        (0.0-2.0) — M/S stereo width
 ///   3: Mix          (0.0-1.0) — dry/wet equal-power crossfade
 ///   4: PreDelay     (0-500 ms)
-///   5: Style        (0=Room, 1=Hall, 2=Plate, 3=Chamber, 4=Spring)
+///   5: Style        (0=Room, 1=Hall, 2=Plate, 3=Chamber, 4=Spring, 5=Ambient, 6=Shimmer, 7=Nonlinear, 8=Vintage, 9=Gated)
 ///   6: Diffusion    (0.0-1.0) — allpass density
 ///   7: Distance     (0.0-1.0) — ER attenuation
 ///   8: Decay        (0.0-1.0) — FDN feedback tail length
@@ -2920,7 +2920,7 @@ impl InsertProcessor for ReverbWrapper {
     }
 
     fn num_params(&self) -> usize {
-        24
+        38
     }
 
     fn set_param(&mut self, param_index: usize, value: f64) {
@@ -2937,6 +2937,11 @@ impl InsertProcessor for ReverbWrapper {
                     2 => ReverbType::Plate,
                     3 => ReverbType::Chamber,
                     4 => ReverbType::Spring,
+                    5 => ReverbType::Ambient,
+                    6 => ReverbType::Shimmer,
+                    7 => ReverbType::Nonlinear,
+                    8 => ReverbType::Vintage,
+                    9 => ReverbType::Gated,
                     _ => ReverbType::Room,
                 };
                 self.reverb.set_style(rt);
@@ -2959,6 +2964,21 @@ impl InsertProcessor for ReverbWrapper {
             21 => self.reverb.set_xo_freq_3(value),
             22 => self.reverb.set_lowmid_decay_mult(value),
             23 => self.reverb.set_highmid_decay_mult(value),
+            // F5: Output Processing params
+            24 => self.reverb.set_out_eq_low_shelf_gain(value),
+            25 => self.reverb.set_out_eq_low_shelf_freq(value),
+            26 => self.reverb.set_out_eq_high_shelf_gain(value),
+            27 => self.reverb.set_out_eq_high_shelf_freq(value),
+            28 => self.reverb.set_out_eq_mid_gain(value),
+            29 => self.reverb.set_out_eq_mid_freq(value),
+            30 => self.reverb.set_out_eq_mid_q(value),
+            31 => self.reverb.set_soft_limiter_enabled(value > 0.5),
+            32 => self.reverb.set_predelay_bpm_sync(value > 0.5),
+            33 => self.reverb.set_predelay_bpm(value),
+            34 => self.reverb.set_predelay_note_div(value as u8),
+            35 => self.reverb.set_predelay_feedback(value),
+            36 => self.reverb.set_fdn_size_param(value as u8),
+            37 => self.reverb.set_matrix_type_param(value as u8),
             _ => {}
         }
     }
@@ -2976,6 +2996,11 @@ impl InsertProcessor for ReverbWrapper {
                 ReverbType::Plate => 2.0,
                 ReverbType::Chamber => 3.0,
                 ReverbType::Spring => 4.0,
+                ReverbType::Ambient => 5.0,
+                ReverbType::Shimmer => 6.0,
+                ReverbType::Nonlinear => 7.0,
+                ReverbType::Vintage => 8.0,
+                ReverbType::Gated => 9.0,
             },
             6 => self.reverb.diffusion(),
             7 => self.reverb.distance(),
@@ -3001,6 +3026,21 @@ impl InsertProcessor for ReverbWrapper {
             21 => self.reverb.xo_freq_3(),
             22 => self.reverb.lowmid_decay_mult(),
             23 => self.reverb.highmid_decay_mult(),
+            // F5: Output Processing
+            24 => self.reverb.out_eq_low_shelf_gain(),
+            25 => self.reverb.out_eq_low_shelf_freq(),
+            26 => self.reverb.out_eq_high_shelf_gain(),
+            27 => self.reverb.out_eq_high_shelf_freq(),
+            28 => self.reverb.out_eq_mid_gain(),
+            29 => self.reverb.out_eq_mid_freq(),
+            30 => self.reverb.out_eq_mid_q(),
+            31 => if self.reverb.soft_limiter_enabled() { 1.0 } else { 0.0 },
+            32 => if self.reverb.predelay_bpm_sync() { 1.0 } else { 0.0 },
+            33 => self.reverb.predelay_bpm(),
+            34 => self.reverb.predelay_note_div() as f64,
+            35 => self.reverb.predelay_feedback(),
+            36 => self.reverb.fdn_size_param() as f64,
+            37 => self.reverb.matrix_type_param() as f64,
             _ => 0.0,
         }
     }
@@ -3031,6 +3071,20 @@ impl InsertProcessor for ReverbWrapper {
             21 => "XO Freq 3",
             22 => "LowMid Decay",
             23 => "HighMid Decay",
+            24 => "Out EQ Lo Gain",
+            25 => "Out EQ Lo Freq",
+            26 => "Out EQ Hi Gain",
+            27 => "Out EQ Hi Freq",
+            28 => "Out EQ Mid Gain",
+            29 => "Out EQ Mid Freq",
+            30 => "Out EQ Mid Q",
+            31 => "Soft Limiter",
+            32 => "BPM Sync",
+            33 => "BPM",
+            34 => "Note Div",
+            35 => "PD Feedback",
+            36 => "FDN Size",
+            37 => "Matrix Type",
             _ => "Unknown",
         }
     }
@@ -3044,7 +3098,7 @@ impl InsertProcessor for ReverbWrapper {
 
 // ============ Saturation (Saturn 2 class) ============
 
-use rf_dsp::delay::PingPongDelay;
+use rf_dsp::delay::{DriveMode, LfoShape, ModTarget, PingPongDelay};
 use rf_dsp::multiband::{CrossoverType, MultibandStereoImager};
 use rf_dsp::oversampling::OversampleFactor;
 use rf_dsp::saturation::{MultibandSaturator, OversampledSaturator, SaturationType as SatType};
@@ -3653,7 +3707,7 @@ impl InsertProcessor for MultibandSaturatorWrapper {
 
 // ============ Delay (Timeless 3 class) ============
 
-/// Professional delay wrapper for insert chain (Timeless 3 class — 14 params, 4 meters)
+/// Professional delay wrapper for insert chain (Timeless 3 class — 46 params, 4 meters)
 ///
 /// Parameter layout:
 ///   0: Delay Time L (ms)    [1..5000]     def 500.0
@@ -3670,6 +3724,41 @@ impl InsertProcessor for MultibandSaturatorWrapper {
 ///  11: Link L/R (bool)      [0/1]         def 1
 ///  12: Freeze (bool)        [0/1]         def 0
 ///  13: Tempo Sync (bool)    [0/1]         def 0
+///  14: HP Q                 [0.5..10]     def 0.707
+///  15: LP Q                 [0.5..10]     def 0.707
+///  16: Mid Freq (Hz)        [80..16000]   def 1000.0
+///  17: Mid Q                [0.5..10]     def 1.0
+///  18: Mid Gain (dB)        [-18..+18]    def 0.0
+///  19: Drive (%)            [0..100]      def 0.0
+///  20: Drive Mode           [0=Tube,1=Tape,2=Transistor] def 0
+///  21: Tilt (dB/oct)        [-6..+6]      def 0.0
+///  22: Filter LFO Rate (Hz) [0..20]       def 0.0
+///  23: Filter LFO Depth (%) [0..100]      def 0.0
+/// --- D2 Modulation Engine ---
+///  24: LFO1 Rate (Hz)       [0.01..20]    def 1.0
+///  25: LFO1 Depth (%)       [0..100]      def 0.0
+///  26: LFO1 Shape           [0..6]        def 0 (Sine)
+///  27: LFO1 Sync (bool)     [0/1]         def 0
+///  28: LFO1 Sync Div        [0..15]       def 4 (1/4)
+///  29: LFO1 Retrigger       [0/1]         def 0
+///  30: LFO2 Rate (Hz)       [0.01..20]    def 1.0
+///  31: LFO2 Depth (%)       [0..100]      def 0.0
+///  32: LFO2 Shape           [0..6]        def 0 (Sine)
+///  33: LFO2 Sync (bool)     [0/1]         def 0
+///  34: LFO2 Sync Div        [0..15]       def 4 (1/4)
+///  35: ENV Sensitivity (%)   [0..100]      def 50.0
+///  36: ENV Attack (ms)       [0.1..100]    def 5.0
+///  37: ENV Release (ms)      [1..1000]     def 50.0
+///  38: Pitch Shift (st)      [-12..+12]    def 0.0
+///  39: Mod Target Config     [packed]      def 0.0
+/// --- D3 Tempo Sync & Rhythm ---
+///  40: BPM                   [20..999]     def 120.0
+///  41: Note Value L          [0..18]       def 9 (1/4)
+///  42: Note Value R          [0..18]       def 9 (1/4)
+///  43: Swing (%)             [0..100]      def 0.0
+/// --- D7 Analog Character ---
+///  44: Vintage Mode          [0..4]        def 0 (Clean)
+///  45: Vintage Amount (%)    [0..100]      def 50.0
 ///
 /// Meter layout:
 ///   0: Input Peak L
@@ -3678,7 +3767,7 @@ impl InsertProcessor for MultibandSaturatorWrapper {
 ///   3: Output Peak R
 pub struct DelayWrapper {
     delay: PingPongDelay,
-    params: [f64; 14],
+    params: [f64; 46],
     sample_rate: f64,
     input_peak_l: f64,
     input_peak_r: f64,
@@ -3686,7 +3775,7 @@ pub struct DelayWrapper {
     output_peak_r: f64,
     // Ducking state
     ducking_env: f64,
-    // Modulation LFO
+    // Modulation LFO (legacy — params 7/8, simple sine mod of delay time)
     mod_phase: f64,
     // Freeze buffer
     frozen: bool,
@@ -3722,6 +3811,41 @@ impl DelayWrapper {
                 1.0,    // 11: Link L/R on
                 0.0,    // 12: Freeze off
                 0.0,    // 13: Tempo Sync off
+                0.707,  // 14: HP Q
+                0.707,  // 15: LP Q
+                1000.0, // 16: Mid Freq Hz
+                1.0,    // 17: Mid Q
+                0.0,    // 18: Mid Gain dB
+                0.0,    // 19: Drive %
+                0.0,    // 20: Drive Mode (0=Tube)
+                0.0,    // 21: Tilt dB/oct
+                0.0,    // 22: Filter LFO Rate Hz
+                0.0,    // 23: Filter LFO Depth %
+                // D2 Modulation Engine
+                1.0,    // 24: LFO1 Rate Hz
+                0.0,    // 25: LFO1 Depth %
+                0.0,    // 26: LFO1 Shape (0=Sine)
+                0.0,    // 27: LFO1 Sync off
+                4.0,    // 28: LFO1 Sync Div (1/4)
+                0.0,    // 29: LFO1 Retrigger off
+                1.0,    // 30: LFO2 Rate Hz
+                0.0,    // 31: LFO2 Depth %
+                0.0,    // 32: LFO2 Shape (0=Sine)
+                0.0,    // 33: LFO2 Sync off
+                4.0,    // 34: LFO2 Sync Div (1/4)
+                50.0,   // 35: ENV Sensitivity %
+                5.0,    // 36: ENV Attack ms
+                50.0,   // 37: ENV Release ms
+                0.0,    // 38: Pitch Shift st
+                0.0,    // 39: Mod Target Config (packed)
+                // D3 Tempo Sync
+                120.0,  // 40: BPM
+                9.0,    // 41: Note Value L (1/4)
+                9.0,    // 42: Note Value R (1/4)
+                0.0,    // 43: Swing %
+                // D7 Vintage
+                0.0,    // 44: Vintage Mode (0=Clean)
+                50.0,   // 45: Vintage Amount %
             ],
             sample_rate,
             input_peak_l: 0.0,
@@ -3734,6 +3858,108 @@ impl DelayWrapper {
             freeze_buf_l: vec![0.0; freeze_len],
             freeze_buf_r: vec![0.0; freeze_len],
             freeze_write_pos: 0,
+        }
+    }
+}
+
+impl DelayWrapper {
+    fn idx_to_lfo_shape(idx: u8) -> LfoShape {
+        match idx {
+            0 => LfoShape::Sine,
+            1 => LfoShape::Triangle,
+            2 => LfoShape::SawUp,
+            3 => LfoShape::SawDown,
+            4 => LfoShape::Square,
+            5 => LfoShape::SampleAndHold,
+            6 => LfoShape::RandomSmooth,
+            _ => LfoShape::Sine,
+        }
+    }
+
+    /// Map sync division index to note value multiplier
+    /// 0=1/64, 1=1/32, 2=1/16T, 3=1/16, 4=1/8T, 5=1/8, 6=1/4T, 7=1/4,
+    /// 8=1/2T, 9=1/2, 10=1/1T, 11=1/1, 12=2/1, 13=4/1, 14=1/16D, 15=1/8D
+    fn idx_to_sync_div(idx: u8) -> f64 {
+        match idx {
+            0 => 0.0625,  // 1/64
+            1 => 0.125,   // 1/32
+            2 => 0.1667,  // 1/16T
+            3 => 0.25,    // 1/16
+            4 => 0.333,   // 1/8T
+            5 => 0.5,     // 1/8
+            6 => 0.667,   // 1/4T
+            7 => 1.0,     // 1/4 (quarter)
+            8 => 1.333,   // 1/2T
+            9 => 2.0,     // 1/2
+            10 => 2.667,  // 1/1T
+            11 => 4.0,    // 1/1 (whole)
+            12 => 8.0,    // 2 bars
+            13 => 16.0,   // 4 bars
+            14 => 0.375,  // 1/16D
+            15 => 0.75,   // 1/8D
+            _ => 1.0,
+        }
+    }
+
+    #[allow(dead_code)] // Will be used for custom mod routing from UI
+    fn idx_to_mod_target(idx: u8) -> ModTarget {
+        match idx {
+            0 => ModTarget::DelayTime,
+            1 => ModTarget::Feedback,
+            2 => ModTarget::FilterHp,
+            3 => ModTarget::FilterLp,
+            4 => ModTarget::Pan,
+            5 => ModTarget::Drive,
+            6 => ModTarget::PitchShift,
+            _ => ModTarget::DelayTime,
+        }
+    }
+
+    /// Rebuild modulation routes from packed param 39
+    /// Packed format: each 4 bits = target index (0-6), groups of 3 for LFO1/LFO2/ENV
+    /// Simplified: param 39 value selects preset routing
+    fn rebuild_mod_routes(&mut self) {
+        let matrix = self.delay.mod_matrix_mut();
+        matrix.clear();
+        let preset = self.params[39] as u8;
+        match preset {
+            0 => {} // No routing
+            1 => {
+                // LFO1 → Delay Time (classic chorus/vibrato)
+                matrix.add_lfo1_route(ModTarget::DelayTime, 1.0);
+            }
+            2 => {
+                // LFO1 → Filter HP + LP (filter sweep)
+                matrix.add_lfo1_route(ModTarget::FilterHp, 1.0);
+                matrix.add_lfo1_route(ModTarget::FilterLp, -1.0);
+            }
+            3 => {
+                // LFO1 → Pan (auto-pan)
+                matrix.add_lfo1_route(ModTarget::Pan, 1.0);
+            }
+            4 => {
+                // LFO1 → Time, LFO2 → Filter (dual modulation)
+                matrix.add_lfo1_route(ModTarget::DelayTime, 1.0);
+                matrix.add_lfo2_route(ModTarget::FilterHp, 1.0);
+                matrix.add_lfo2_route(ModTarget::FilterLp, -1.0);
+            }
+            5 => {
+                // ENV → Feedback (ducking-style)
+                matrix.add_env_route(ModTarget::Feedback, -1.0);
+            }
+            6 => {
+                // ENV → Filter LP (envelope filter)
+                matrix.add_env_route(ModTarget::FilterLp, 1.0);
+            }
+            7 => {
+                // LFO1 → Drive (tremolo-like saturation)
+                matrix.add_lfo1_route(ModTarget::Drive, 1.0);
+            }
+            8 => {
+                // LFO1 → Pitch (vibrato in feedback)
+                matrix.add_lfo1_route(ModTarget::PitchShift, 1.0);
+            }
+            _ => {}
         }
     }
 }
@@ -3762,14 +3988,13 @@ impl InsertProcessor for DelayWrapper {
         // Ducking: reduce wet signal when input is loud
         let ducking_amount = self.params[10] / 100.0;
 
-        // Modulation: modulate delay time subtly
+        // Legacy modulation: simple sine mod of delay time (params 7/8)
         let mod_rate = self.params[7];
         let mod_depth_pct = self.params[8] / 100.0;
 
         if mod_rate > 0.001 && mod_depth_pct > 0.001 {
-            // Apply modulation to delay time
             let base_delay = self.params[0];
-            let mod_amount = base_delay * mod_depth_pct * 0.1; // up to 10% modulation
+            let mod_amount = base_delay * mod_depth_pct * 0.1;
             let mod_val = (self.mod_phase * std::f64::consts::TAU).sin();
             let modulated = base_delay + mod_val * mod_amount;
             self.delay.set_delay_ms(modulated.max(1.0));
@@ -3778,6 +4003,70 @@ impl InsertProcessor for DelayWrapper {
                 self.mod_phase -= 1.0;
             }
         }
+
+        // Legacy filter LFO (params 22/23)
+        let filter_lfo_val = self.delay.advance_filter_lfo(len);
+        if filter_lfo_val.abs() > 0.001 {
+            let base_hp = self.params[5];
+            let hp_mod = base_hp * (2.0_f64).powf(filter_lfo_val * 2.0);
+            self.delay.set_hp_freq(hp_mod.clamp(20.0, 2000.0));
+            let base_lp = self.params[6];
+            let lp_mod = base_lp * (2.0_f64).powf(-filter_lfo_val * 2.0);
+            self.delay.set_lp_freq(lp_mod.clamp(200.0, 20000.0));
+        }
+
+        // D2 Modulation Engine — compute and apply mod matrix
+        let mod_out = self.delay.compute_modulation(&left[..len], &right[..len], len);
+
+        // Apply modulation to delay time (additive to base/legacy mod)
+        if mod_out.delay_time.abs() > 0.001 {
+            let base = self.params[0];
+            let mod_ms = base * mod_out.delay_time * 0.5; // ±50% of base
+            let current = if mod_rate > 0.001 && mod_depth_pct > 0.001 {
+                // Legacy mod already set delay — read back
+                base + mod_ms
+            } else {
+                base + mod_ms
+            };
+            self.delay.set_delay_ms(current.clamp(1.0, 5000.0));
+        }
+
+        // Apply modulation to feedback
+        if mod_out.feedback.abs() > 0.001 {
+            let base_fb = self.params[2] / 100.0;
+            let mod_fb = (base_fb + mod_out.feedback * 0.5).clamp(0.0, 0.99);
+            self.delay.set_feedback(mod_fb);
+        }
+
+        // Apply modulation to filter freqs (additive to legacy filter LFO)
+        if mod_out.filter_hp.abs() > 0.001 {
+            let base_hp = self.params[5];
+            let hp_mod = base_hp * (2.0_f64).powf(mod_out.filter_hp * 2.0);
+            self.delay.set_hp_freq(hp_mod.clamp(20.0, 2000.0));
+        }
+        if mod_out.filter_lp.abs() > 0.001 {
+            let base_lp = self.params[6];
+            let lp_mod = base_lp * (2.0_f64).powf(mod_out.filter_lp * 2.0);
+            self.delay.set_lp_freq(lp_mod.clamp(200.0, 20000.0));
+        }
+
+        // Apply modulation to drive
+        if mod_out.drive.abs() > 0.001 {
+            let base_drive = self.params[19] / 100.0;
+            let mod_drive = (base_drive + mod_out.drive * 0.5).clamp(0.0, 1.0);
+            self.delay.set_drive(mod_drive);
+        }
+
+        // Apply modulation to pitch shift
+        if mod_out.pitch_shift.abs() > 0.001 {
+            let base_st = self.params[38];
+            let mod_st = (base_st + mod_out.pitch_shift * 12.0).clamp(-12.0, 12.0);
+            self.delay.pitch_shifter_l_mut().set_semitones(mod_st);
+            self.delay.pitch_shifter_r_mut().set_semitones(mod_st);
+        }
+
+        // Mod pan stored for stereo width stage
+        let mod_pan = mod_out.pan;
 
         // Process through ping-pong delay (sample-by-sample for stereo width)
         let width = self.params[9] / 100.0;
@@ -3801,15 +4090,18 @@ impl InsertProcessor for DelayWrapper {
             // Normal delay processing
             self.delay.process_block(left, right);
 
-            // Apply stereo width to wet signal
-            if (width - 1.0).abs() > 0.01 {
+            // Apply stereo width + mod pan to wet signal
+            if (width - 1.0).abs() > 0.01 || mod_pan.abs() > 0.001 {
                 for i in 0..len {
                     let wet_l = left[i] - dry_l[i] * (1.0 - self.params[3] / 100.0);
                     let wet_r = right[i] - dry_r[i] * (1.0 - self.params[3] / 100.0);
                     let mid = (wet_l + wet_r) * 0.5;
                     let side = (wet_l - wet_r) * 0.5 * width;
-                    let new_wet_l = mid + side;
-                    let new_wet_r = mid - side;
+                    // Mod pan: shift stereo balance (-1 = full left, +1 = full right)
+                    let pan_l = (1.0 - mod_pan).clamp(0.0, 2.0) * 0.5;
+                    let pan_r = (1.0 + mod_pan).clamp(0.0, 2.0) * 0.5;
+                    let new_wet_l = (mid + side) * pan_l * 2.0;
+                    let new_wet_r = (mid - side) * pan_r * 2.0;
                     left[i] = dry_l[i] * (1.0 - self.params[3] / 100.0) + new_wet_l;
                     right[i] = dry_r[i] * (1.0 - self.params[3] / 100.0) + new_wet_r;
                 }
@@ -3876,22 +4168,61 @@ impl InsertProcessor for DelayWrapper {
         delay.set_ping_pong(self.params[4] / 100.0);
         delay.set_hp_freq(self.params[5]);
         delay.set_lp_freq(self.params[6]);
+        delay.set_hp_q(self.params[14]);
+        delay.set_lp_q(self.params[15]);
+        delay.set_mid_freq(self.params[16]);
+        delay.set_mid_q(self.params[17]);
+        delay.set_mid_gain(self.params[18]);
+        delay.set_drive(self.params[19] / 100.0);
+        delay.set_drive_mode(match self.params[20] as u8 {
+            1 => DriveMode::Tape,
+            2 => DriveMode::Transistor,
+            _ => DriveMode::Tube,
+        });
+        delay.set_tilt(self.params[21]);
+        delay.set_filter_lfo_rate(self.params[22]);
+        delay.set_filter_lfo_depth(self.params[23] / 100.0);
+        // D2 modulation
+        delay.lfo1_mut().set_rate(self.params[24]);
+        delay.lfo1_mut().set_depth(self.params[25] / 100.0);
+        delay.lfo1_mut().set_shape(Self::idx_to_lfo_shape(self.params[26] as u8));
+        delay.lfo1_mut().set_sync(self.params[27] > 0.5);
+        delay.lfo1_mut().set_sync_division(Self::idx_to_sync_div(self.params[28] as u8));
+        delay.lfo1_mut().set_retrigger(self.params[29] > 0.5);
+        delay.lfo2_mut().set_rate(self.params[30]);
+        delay.lfo2_mut().set_depth(self.params[31] / 100.0);
+        delay.lfo2_mut().set_shape(Self::idx_to_lfo_shape(self.params[32] as u8));
+        delay.lfo2_mut().set_sync(self.params[33] > 0.5);
+        delay.lfo2_mut().set_sync_division(Self::idx_to_sync_div(self.params[34] as u8));
+        delay.env_follower_mut().set_sensitivity(self.params[35] / 100.0);
+        delay.env_follower_mut().set_attack_ms(self.params[36]);
+        delay.env_follower_mut().set_release_ms(self.params[37]);
+        delay.pitch_shifter_l_mut().set_semitones(self.params[38]);
+        delay.pitch_shifter_r_mut().set_semitones(self.params[38]);
+        // D3 tempo sync
+        delay.set_bpm(self.params[40]);
+        delay.set_note_value_l(self.params[41] as u8);
+        delay.set_note_value_r(self.params[42] as u8);
+        delay.set_lr_linked(self.params[11] > 0.5);
+        delay.set_swing(self.params[43]);
+        delay.set_tempo_sync(self.params[13] > 0.5);
         self.delay = delay;
+        self.rebuild_mod_routes();
         let freeze_len = (5.0 * sample_rate) as usize;
         self.freeze_buf_l = vec![0.0; freeze_len];
         self.freeze_buf_r = vec![0.0; freeze_len];
     }
 
     fn num_params(&self) -> usize {
-        14
+        46
     }
 
     fn get_param(&self, index: usize) -> f64 {
-        if index < 14 { self.params[index] } else { 0.0 }
+        if index < 46 { self.params[index] } else { 0.0 }
     }
 
     fn set_param(&mut self, index: usize, value: f64) {
-        if index >= 14 {
+        if index >= 46 {
             return;
         }
         self.params[index] = value;
@@ -3907,10 +4238,13 @@ impl InsertProcessor for DelayWrapper {
                 }
             }
             1 => {
-                // Delay Time R (ms)
+                // Delay Time R (ms) — D3.6 independent R time
                 let v = value.clamp(1.0, 5000.0);
                 self.params[1] = v;
-                // Only applies when not linked (PingPongDelay uses single delay time)
+                if self.params[11] < 0.5 {
+                    // Only set R delay when not linked
+                    self.delay.set_delay_ms_r(v);
+                }
             }
             2 => {
                 // Feedback %
@@ -3963,8 +4297,13 @@ impl InsertProcessor for DelayWrapper {
                 self.params[10] = v;
             }
             11 => {
-                // Link L/R
-                self.params[11] = if value > 0.5 { 1.0 } else { 0.0 };
+                // Link L/R (D3.6)
+                let linked = value > 0.5;
+                self.params[11] = if linked { 1.0 } else { 0.0 };
+                self.delay.set_lr_linked(linked);
+                if linked {
+                    self.params[1] = self.params[0];
+                }
             }
             12 => {
                 // Freeze
@@ -3980,8 +4319,208 @@ impl InsertProcessor for DelayWrapper {
                 }
             }
             13 => {
-                // Tempo Sync
-                self.params[13] = if value > 0.5 { 1.0 } else { 0.0 };
+                // Tempo Sync (D3.1)
+                let on = value > 0.5;
+                self.params[13] = if on { 1.0 } else { 0.0 };
+                self.delay.set_tempo_sync(on);
+            }
+            14 => {
+                // HP Q
+                let v = value.clamp(0.5, 10.0);
+                self.params[14] = v;
+                self.delay.set_hp_q(v);
+            }
+            15 => {
+                // LP Q
+                let v = value.clamp(0.5, 10.0);
+                self.params[15] = v;
+                self.delay.set_lp_q(v);
+            }
+            16 => {
+                // Mid Freq Hz
+                let v = value.clamp(80.0, 16000.0);
+                self.params[16] = v;
+                self.delay.set_mid_freq(v);
+            }
+            17 => {
+                // Mid Q
+                let v = value.clamp(0.5, 10.0);
+                self.params[17] = v;
+                self.delay.set_mid_q(v);
+            }
+            18 => {
+                // Mid Gain dB
+                let v = value.clamp(-18.0, 18.0);
+                self.params[18] = v;
+                self.delay.set_mid_gain(v);
+            }
+            19 => {
+                // Drive %
+                let v = value.clamp(0.0, 100.0);
+                self.params[19] = v;
+                self.delay.set_drive(v / 100.0);
+            }
+            20 => {
+                // Drive Mode (0=Tube, 1=Tape, 2=Transistor)
+                let mode_idx = (value as u8).min(2);
+                self.params[20] = mode_idx as f64;
+                self.delay.set_drive_mode(match mode_idx {
+                    1 => DriveMode::Tape,
+                    2 => DriveMode::Transistor,
+                    _ => DriveMode::Tube,
+                });
+            }
+            21 => {
+                // Tilt dB/oct
+                let v = value.clamp(-6.0, 6.0);
+                self.params[21] = v;
+                self.delay.set_tilt(v);
+            }
+            22 => {
+                // Filter LFO Rate Hz
+                let v = value.clamp(0.0, 20.0);
+                self.params[22] = v;
+                self.delay.set_filter_lfo_rate(v);
+            }
+            23 => {
+                // Filter LFO Depth %
+                let v = value.clamp(0.0, 100.0);
+                self.params[23] = v;
+                self.delay.set_filter_lfo_depth(v / 100.0);
+            }
+            // === D2 Modulation Engine ===
+            24 => {
+                // LFO1 Rate Hz
+                let v = value.clamp(0.01, 20.0);
+                self.params[24] = v;
+                self.delay.lfo1_mut().set_rate(v);
+            }
+            25 => {
+                // LFO1 Depth %
+                let v = value.clamp(0.0, 100.0);
+                self.params[25] = v;
+                self.delay.lfo1_mut().set_depth(v / 100.0);
+            }
+            26 => {
+                // LFO1 Shape (0=Sine..6=RandomSmooth)
+                let idx = (value as u8).min(6);
+                self.params[26] = idx as f64;
+                self.delay.lfo1_mut().set_shape(Self::idx_to_lfo_shape(idx));
+            }
+            27 => {
+                // LFO1 Sync
+                let on = value > 0.5;
+                self.params[27] = if on { 1.0 } else { 0.0 };
+                self.delay.lfo1_mut().set_sync(on);
+            }
+            28 => {
+                // LFO1 Sync Division (mapped index)
+                let v = value.clamp(0.0, 15.0);
+                self.params[28] = v;
+                self.delay.lfo1_mut().set_sync_division(Self::idx_to_sync_div(v as u8));
+            }
+            29 => {
+                // LFO1 Retrigger
+                let on = value > 0.5;
+                self.params[29] = if on { 1.0 } else { 0.0 };
+                self.delay.lfo1_mut().set_retrigger(on);
+            }
+            30 => {
+                // LFO2 Rate Hz
+                let v = value.clamp(0.01, 20.0);
+                self.params[30] = v;
+                self.delay.lfo2_mut().set_rate(v);
+            }
+            31 => {
+                // LFO2 Depth %
+                let v = value.clamp(0.0, 100.0);
+                self.params[31] = v;
+                self.delay.lfo2_mut().set_depth(v / 100.0);
+            }
+            32 => {
+                // LFO2 Shape
+                let idx = (value as u8).min(6);
+                self.params[32] = idx as f64;
+                self.delay.lfo2_mut().set_shape(Self::idx_to_lfo_shape(idx));
+            }
+            33 => {
+                // LFO2 Sync
+                let on = value > 0.5;
+                self.params[33] = if on { 1.0 } else { 0.0 };
+                self.delay.lfo2_mut().set_sync(on);
+            }
+            34 => {
+                // LFO2 Sync Division
+                let v = value.clamp(0.0, 15.0);
+                self.params[34] = v;
+                self.delay.lfo2_mut().set_sync_division(Self::idx_to_sync_div(v as u8));
+            }
+            35 => {
+                // ENV Sensitivity %
+                let v = value.clamp(0.0, 100.0);
+                self.params[35] = v;
+                self.delay.env_follower_mut().set_sensitivity(v / 100.0);
+            }
+            36 => {
+                // ENV Attack ms
+                let v = value.clamp(0.1, 100.0);
+                self.params[36] = v;
+                self.delay.env_follower_mut().set_attack_ms(v);
+            }
+            37 => {
+                // ENV Release ms
+                let v = value.clamp(1.0, 1000.0);
+                self.params[37] = v;
+                self.delay.env_follower_mut().set_release_ms(v);
+            }
+            38 => {
+                // Pitch Shift semitones
+                let v = value.clamp(-12.0, 12.0);
+                self.params[38] = v;
+                self.delay.pitch_shifter_l_mut().set_semitones(v);
+                self.delay.pitch_shifter_r_mut().set_semitones(v);
+            }
+            39 => {
+                // Mod Target Config — packed: selects default LFO1→DelayTime route
+                // Value encodes route config (for now: 0=off, 1=LFO1→Time, 2=LFO1→Filter, etc.)
+                self.params[39] = value;
+                self.rebuild_mod_routes();
+            }
+            // === D3 Tempo Sync & Rhythm ===
+            40 => {
+                // BPM
+                let v = value.clamp(20.0, 999.0);
+                self.params[40] = v;
+                self.delay.set_bpm(v);
+            }
+            41 => {
+                // Note Value L (0-18)
+                let v = (value as u8).min(18);
+                self.params[41] = v as f64;
+                self.delay.set_note_value_l(v);
+            }
+            42 => {
+                // Note Value R (0-18)
+                let v = (value as u8).min(18);
+                self.params[42] = v as f64;
+                self.delay.set_note_value_r(v);
+            }
+            43 => {
+                // Swing %
+                let v = value.clamp(0.0, 100.0);
+                self.params[43] = v;
+                self.delay.set_swing(v);
+            }
+            // === D7 Vintage ===
+            44 => {
+                // Vintage Mode (0=Clean, 1=Tape, 2=BBD, 3=OilCan, 4=LoFi)
+                let v = (value as u8).min(4);
+                self.params[44] = v as f64;
+            }
+            45 => {
+                // Vintage Amount %
+                let v = value.clamp(0.0, 100.0);
+                self.params[45] = v;
             }
             _ => {}
         }
@@ -4003,6 +4542,38 @@ impl InsertProcessor for DelayWrapper {
             11 => "Link L/R",
             12 => "Freeze",
             13 => "Tempo Sync",
+            14 => "HP Q",
+            15 => "LP Q",
+            16 => "Mid Freq",
+            17 => "Mid Q",
+            18 => "Mid Gain",
+            19 => "Drive",
+            20 => "Drive Mode",
+            21 => "Tilt",
+            22 => "Filter LFO Rate",
+            23 => "Filter LFO Depth",
+            24 => "LFO1 Rate",
+            25 => "LFO1 Depth",
+            26 => "LFO1 Shape",
+            27 => "LFO1 Sync",
+            28 => "LFO1 Sync Div",
+            29 => "LFO1 Retrigger",
+            30 => "LFO2 Rate",
+            31 => "LFO2 Depth",
+            32 => "LFO2 Shape",
+            33 => "LFO2 Sync",
+            34 => "LFO2 Sync Div",
+            35 => "ENV Sensitivity",
+            36 => "ENV Attack",
+            37 => "ENV Release",
+            38 => "Pitch Shift",
+            39 => "Mod Routing",
+            40 => "BPM",
+            41 => "Note Value L",
+            42 => "Note Value R",
+            43 => "Swing",
+            44 => "Vintage Mode",
+            45 => "Vintage Amount",
             _ => "Unknown",
         }
     }
@@ -4730,7 +5301,7 @@ mod tests {
     #[test]
     fn test_reverb_wrapper_num_params() {
         let proc = create_processor_extended("reverb", 48000.0).unwrap();
-        assert_eq!(proc.num_params(), 24);
+        assert_eq!(proc.num_params(), 38);
     }
 
     #[test]
@@ -4760,7 +5331,21 @@ mod tests {
         assert_eq!(proc.param_name(21), "XO Freq 3");
         assert_eq!(proc.param_name(22), "LowMid Decay");
         assert_eq!(proc.param_name(23), "HighMid Decay");
-        assert_eq!(proc.param_name(24), "Unknown");
+        assert_eq!(proc.param_name(24), "Out EQ Lo Gain");
+        assert_eq!(proc.param_name(25), "Out EQ Lo Freq");
+        assert_eq!(proc.param_name(26), "Out EQ Hi Gain");
+        assert_eq!(proc.param_name(27), "Out EQ Hi Freq");
+        assert_eq!(proc.param_name(28), "Out EQ Mid Gain");
+        assert_eq!(proc.param_name(29), "Out EQ Mid Freq");
+        assert_eq!(proc.param_name(30), "Out EQ Mid Q");
+        assert_eq!(proc.param_name(31), "Soft Limiter");
+        assert_eq!(proc.param_name(32), "BPM Sync");
+        assert_eq!(proc.param_name(33), "BPM");
+        assert_eq!(proc.param_name(34), "Note Div");
+        assert_eq!(proc.param_name(35), "PD Feedback");
+        assert_eq!(proc.param_name(36), "FDN Size");
+        assert_eq!(proc.param_name(37), "Matrix Type");
+        assert_eq!(proc.param_name(38), "Unknown");
     }
 
     #[test]
@@ -4792,6 +5377,17 @@ mod tests {
             (21, 10000.0), // xo_freq_3
             (22, 1.5),  // lowmid_decay_mult
             (23, 0.7),  // highmid_decay_mult
+            // F5: Output Processing
+            (24, -3.0),  // out_eq_low_shelf_gain
+            (25, 200.0), // out_eq_low_shelf_freq
+            (26, 2.0),   // out_eq_high_shelf_gain
+            (27, 8000.0),// out_eq_high_shelf_freq
+            (28, -1.5),  // out_eq_mid_gain
+            (29, 1000.0),// out_eq_mid_freq
+            (30, 2.0),   // out_eq_mid_q
+            (33, 140.0), // bpm
+            (34, 3.0),   // note_div
+            (35, 0.3),   // predelay_feedback
         ];
         for (idx, val) in &test_values {
             proc.set_param(*idx, *val);
@@ -4954,8 +5550,8 @@ mod tests {
     #[test]
     fn test_reverb_wrapper_style_param() {
         let mut proc = create_processor_extended("reverb", 48000.0).unwrap();
-        // Style param 5: 0=Room, 1=Hall, 2=Plate, 3=Chamber, 4=Spring
-        for style in 0..5 {
+        // Style param 5: 0=Room..9=Gated
+        for style in 0..10 {
             proc.set_param(5, style as f64);
             let got = proc.get_param(5);
             assert!(

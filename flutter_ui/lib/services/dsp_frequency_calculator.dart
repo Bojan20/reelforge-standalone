@@ -423,6 +423,39 @@ class DspFrequencyCalculator {
     );
   }
 
+  /// Evaluate a single filter's magnitude response in dB at a given frequency.
+  ///
+  /// This is the public API for accurate biquad magnitude calculation.
+  /// Filter types: 'bell', 'lowshelf', 'highshelf', 'highpass' (lowCut),
+  /// 'lowpass' (highCut), 'notch', 'bandpass', 'allpass', 'tilt'.
+  ///
+  /// For multi-stage slopes (e.g. 24 dB/oct lowcut), call this multiple times
+  /// with appropriate Butterworth Q values and sum the dB results.
+  static double evaluateFilterMagnitudeDb({
+    required String filterType,
+    required double frequency,
+    required double centerFreq,
+    required double gain,
+    required double q,
+    double slopeDb = 12.0,
+    double sampleRate = defaultSampleRate,
+  }) {
+    final coeffs = _calculateBiquadCoefficients(
+      filterType: filterType,
+      frequency: centerFreq,
+      gain: gain,
+      q: q,
+      slope: slopeDb,
+      sampleRate: sampleRate,
+    );
+    final mag = _evaluateBiquadMagnitude(
+      coeffs: coeffs,
+      frequency: frequency,
+      sampleRate: sampleRate,
+    );
+    return 20.0 * math.log(mag.clamp(_epsilon, double.infinity)) / math.ln10;
+  }
+
   // ===========================================================================
   // COMPRESSOR TRANSFER CURVE CALCULATION
   // ===========================================================================

@@ -20,6 +20,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import '../fabfilter/fabfilter_theme.dart';
 import '../../providers/dsp_chain_provider.dart';
+import '../../services/dsp_frequency_calculator.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DATA MODELS
@@ -725,46 +726,27 @@ class _ProcessorGraphPainter extends CustomPainter {
     );
   }
 
+  /// Map FilterShape to DspFrequencyCalculator filter type string.
+  static String _filterShapeToType(FilterShape shape) => switch (shape) {
+    FilterShape.bell => 'bell',
+    FilterShape.lowShelf => 'lowshelf',
+    FilterShape.highShelf => 'highshelf',
+    FilterShape.lowCut => 'highpass',
+    FilterShape.highCut => 'lowpass',
+    FilterShape.notch => 'notch',
+    FilterShape.bandPass => 'bandpass',
+    FilterShape.tiltShelf => 'tilt',
+    FilterShape.allPass => 'allpass',
+  };
+
   double _calculateBandResponse(double freq, GraphEqBand band) {
-    final ratio = freq / band.frequency;
-    final logRatio = math.log(ratio) / math.ln2;
-
-    switch (band.shape) {
-      case FilterShape.bell:
-        return band.gain * math.exp(-math.pow(logRatio * band.q, 2));
-
-      case FilterShape.lowShelf:
-        return band.gain * (1 - 1 / (1 + math.exp(-logRatio * 4)));
-
-      case FilterShape.highShelf:
-        return band.gain * (1 / (1 + math.exp(-logRatio * 4)));
-
-      case FilterShape.lowCut:
-        if (ratio < 1) {
-          final slope = band.q.clamp(0.5, 4.0) * 6; // 6-24 dB/oct
-          return -slope * (1 - ratio);
-        }
-        return 0;
-
-      case FilterShape.highCut:
-        if (ratio > 1) {
-          final slope = band.q.clamp(0.5, 4.0) * 6;
-          return -slope * (ratio - 1);
-        }
-        return 0;
-
-      case FilterShape.notch:
-        return -math.min(30.0, 30 * math.exp(-math.pow(logRatio * band.q * 2, 2)));
-
-      case FilterShape.bandPass:
-        return math.exp(-math.pow(logRatio * band.q, 2)) * 12 - 6;
-
-      case FilterShape.tiltShelf:
-        return band.gain * logRatio.clamp(-2.0, 2.0) / 2;
-
-      case FilterShape.allPass:
-        return 0; // Allpass has flat magnitude response
-    }
+    return DspFrequencyCalculator.evaluateFilterMagnitudeDb(
+      filterType: _filterShapeToType(band.shape),
+      frequency: freq,
+      centerFreq: band.frequency,
+      gain: band.gain,
+      q: band.q,
+    );
   }
 
   double _calculateCompressorOutput(double inputDb, GraphDynamicsSettings settings) {

@@ -17,8 +17,10 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
+import 'dart:typed_data';
 import '../../src/rust/native_ffi.dart';
 import '../../providers/dsp_chain_provider.dart';
+import '../../services/dsp_frequency_calculator.dart';
 import 'fabfilter_theme.dart';
 import 'fabfilter_panel_base.dart';
 import 'fabfilter_widgets.dart';
@@ -58,7 +60,24 @@ enum EqPlacement {
   final Color color;
 }
 
-enum EqSlope { db6, db12, db18, db24, db36, db48, db72, db96, brickwall }
+enum EqSlope {
+  db6(6, '6'),
+  db12(12, '12'),
+  db18(18, '18'),
+  db24(24, '24'),
+  db36(36, '36'),
+  db48(48, '48'),
+  db72(72, '72'),
+  db96(96, '96'),
+  brickwall(96, 'BW');
+
+  const EqSlope(this.dbPerOct, this.label);
+  final int dbPerOct;
+  final String label;
+
+  /// Number of cascaded biquad stages needed (each stage = 12 dB/oct for Butterworth)
+  int get stages => (dbPerOct / 12).ceil().clamp(1, 8);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // EQ BAND MODEL
@@ -70,6 +89,7 @@ class EqBand {
   double gain;
   double q;
   EqFilterShape shape;
+  EqSlope slope;
   EqPlacement placement;
   bool enabled;
   bool solo;
@@ -86,6 +106,7 @@ class EqBand {
     this.gain = 0.0,
     this.q = 1.0,
     this.shape = EqFilterShape.bell,
+    this.slope = EqSlope.db12,
     this.placement = EqPlacement.stereo,
     this.enabled = true,
     this.solo = false,
@@ -130,6 +151,98 @@ class EqSnapshot implements DspParameterSnapshot {
     return true;
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// EQ PRESETS (E5.5/E5.6)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class EqPreset {
+  final String name;
+  final String category;
+  final EqSnapshot snapshot;
+  final bool isFactory;
+
+  const EqPreset({
+    required this.name,
+    required this.category,
+    required this.snapshot,
+    this.isFactory = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'name': name, 'category': category,
+    'bandData': snapshot.bandData, 'outputGain': snapshot.outputGain,
+    'autoGain': snapshot.autoGain, 'globalPlacementIdx': snapshot.globalPlacementIdx,
+  };
+
+  factory EqPreset.fromJson(Map<String, dynamic> json) => EqPreset(
+    name: json['name'] as String,
+    category: json['category'] as String? ?? 'Custom',
+    snapshot: EqSnapshot(
+      bandData: (json['bandData'] as List).cast<Map<String, dynamic>>(),
+      outputGain: (json['outputGain'] as num?)?.toDouble() ?? 0.0,
+      autoGain: json['autoGain'] as bool? ?? false,
+      globalPlacementIdx: json['globalPlacementIdx'] as int? ?? 0,
+    ),
+  );
+}
+
+/// Factory EQ presets — common starting points
+final List<EqPreset> _factoryEqPresets = [
+  // Vocal
+  EqPreset(name: 'Vocal Presence', category: 'Vocal', isFactory: true, snapshot: EqSnapshot(
+    bandData: [
+      {'index': 0, 'freq': 80.0, 'gain': 0.0, 'q': 0.7, 'shape': EqFilterShape.lowCut.index, 'slope': EqSlope.db24.index, 'placement': 0, 'enabled': true, 'solo': false, 'dynamicEnabled': false, 'dynamicThreshold': -20.0, 'dynamicRatio': 2.0, 'dynamicAttack': 10.0, 'dynamicRelease': 100.0},
+      {'index': 1, 'freq': 250.0, 'gain': -2.5, 'q': 1.5, 'shape': EqFilterShape.bell.index, 'slope': EqSlope.db12.index, 'placement': 0, 'enabled': true, 'solo': false, 'dynamicEnabled': false, 'dynamicThreshold': -20.0, 'dynamicRatio': 2.0, 'dynamicAttack': 10.0, 'dynamicRelease': 100.0},
+      {'index': 2, 'freq': 3500.0, 'gain': 3.0, 'q': 1.2, 'shape': EqFilterShape.bell.index, 'slope': EqSlope.db12.index, 'placement': 0, 'enabled': true, 'solo': false, 'dynamicEnabled': false, 'dynamicThreshold': -20.0, 'dynamicRatio': 2.0, 'dynamicAttack': 10.0, 'dynamicRelease': 100.0},
+      {'index': 3, 'freq': 12000.0, 'gain': 2.0, 'q': 0.7, 'shape': EqFilterShape.highShelf.index, 'slope': EqSlope.db12.index, 'placement': 0, 'enabled': true, 'solo': false, 'dynamicEnabled': false, 'dynamicThreshold': -20.0, 'dynamicRatio': 2.0, 'dynamicAttack': 10.0, 'dynamicRelease': 100.0},
+    ],
+    outputGain: 0.0, autoGain: false, globalPlacementIdx: 0,
+  )),
+  // Guitar
+  EqPreset(name: 'Guitar Body', category: 'Guitar', isFactory: true, snapshot: EqSnapshot(
+    bandData: [
+      {'index': 0, 'freq': 100.0, 'gain': -3.0, 'q': 1.0, 'shape': EqFilterShape.lowShelf.index, 'slope': EqSlope.db12.index, 'placement': 0, 'enabled': true, 'solo': false, 'dynamicEnabled': false, 'dynamicThreshold': -20.0, 'dynamicRatio': 2.0, 'dynamicAttack': 10.0, 'dynamicRelease': 100.0},
+      {'index': 1, 'freq': 800.0, 'gain': -2.0, 'q': 2.0, 'shape': EqFilterShape.bell.index, 'slope': EqSlope.db12.index, 'placement': 0, 'enabled': true, 'solo': false, 'dynamicEnabled': false, 'dynamicThreshold': -20.0, 'dynamicRatio': 2.0, 'dynamicAttack': 10.0, 'dynamicRelease': 100.0},
+      {'index': 2, 'freq': 5000.0, 'gain': 2.5, 'q': 1.0, 'shape': EqFilterShape.bell.index, 'slope': EqSlope.db12.index, 'placement': 0, 'enabled': true, 'solo': false, 'dynamicEnabled': false, 'dynamicThreshold': -20.0, 'dynamicRatio': 2.0, 'dynamicAttack': 10.0, 'dynamicRelease': 100.0},
+    ],
+    outputGain: 0.0, autoGain: false, globalPlacementIdx: 0,
+  )),
+  // Drums
+  EqPreset(name: 'Kick Punch', category: 'Drums', isFactory: true, snapshot: EqSnapshot(
+    bandData: [
+      {'index': 0, 'freq': 60.0, 'gain': 3.0, 'q': 1.5, 'shape': EqFilterShape.bell.index, 'slope': EqSlope.db12.index, 'placement': 0, 'enabled': true, 'solo': false, 'dynamicEnabled': false, 'dynamicThreshold': -20.0, 'dynamicRatio': 2.0, 'dynamicAttack': 10.0, 'dynamicRelease': 100.0},
+      {'index': 1, 'freq': 350.0, 'gain': -4.0, 'q': 2.0, 'shape': EqFilterShape.bell.index, 'slope': EqSlope.db12.index, 'placement': 0, 'enabled': true, 'solo': false, 'dynamicEnabled': false, 'dynamicThreshold': -20.0, 'dynamicRatio': 2.0, 'dynamicAttack': 10.0, 'dynamicRelease': 100.0},
+      {'index': 2, 'freq': 3000.0, 'gain': 2.0, 'q': 1.5, 'shape': EqFilterShape.bell.index, 'slope': EqSlope.db12.index, 'placement': 0, 'enabled': true, 'solo': false, 'dynamicEnabled': false, 'dynamicThreshold': -20.0, 'dynamicRatio': 2.0, 'dynamicAttack': 10.0, 'dynamicRelease': 100.0},
+    ],
+    outputGain: 0.0, autoGain: false, globalPlacementIdx: 0,
+  )),
+  // Master
+  EqPreset(name: 'Gentle Master', category: 'Master', isFactory: true, snapshot: EqSnapshot(
+    bandData: [
+      {'index': 0, 'freq': 30.0, 'gain': 0.0, 'q': 0.7, 'shape': EqFilterShape.lowCut.index, 'slope': EqSlope.db12.index, 'placement': 0, 'enabled': true, 'solo': false, 'dynamicEnabled': false, 'dynamicThreshold': -20.0, 'dynamicRatio': 2.0, 'dynamicAttack': 10.0, 'dynamicRelease': 100.0},
+      {'index': 1, 'freq': 200.0, 'gain': -1.0, 'q': 0.8, 'shape': EqFilterShape.bell.index, 'slope': EqSlope.db12.index, 'placement': 0, 'enabled': true, 'solo': false, 'dynamicEnabled': false, 'dynamicThreshold': -20.0, 'dynamicRatio': 2.0, 'dynamicAttack': 10.0, 'dynamicRelease': 100.0},
+      {'index': 2, 'freq': 3000.0, 'gain': 1.0, 'q': 0.5, 'shape': EqFilterShape.bell.index, 'slope': EqSlope.db12.index, 'placement': 0, 'enabled': true, 'solo': false, 'dynamicEnabled': false, 'dynamicThreshold': -20.0, 'dynamicRatio': 2.0, 'dynamicAttack': 10.0, 'dynamicRelease': 100.0},
+      {'index': 3, 'freq': 10000.0, 'gain': 1.5, 'q': 0.7, 'shape': EqFilterShape.highShelf.index, 'slope': EqSlope.db12.index, 'placement': 0, 'enabled': true, 'solo': false, 'dynamicEnabled': false, 'dynamicThreshold': -20.0, 'dynamicRatio': 2.0, 'dynamicAttack': 10.0, 'dynamicRelease': 100.0},
+    ],
+    outputGain: 0.0, autoGain: false, globalPlacementIdx: 0,
+  )),
+  // Surgical
+  EqPreset(name: 'De-Mud', category: 'Surgical', isFactory: true, snapshot: EqSnapshot(
+    bandData: [
+      {'index': 0, 'freq': 300.0, 'gain': -3.0, 'q': 2.0, 'shape': EqFilterShape.bell.index, 'slope': EqSlope.db12.index, 'placement': 0, 'enabled': true, 'solo': false, 'dynamicEnabled': false, 'dynamicThreshold': -20.0, 'dynamicRatio': 2.0, 'dynamicAttack': 10.0, 'dynamicRelease': 100.0},
+      {'index': 1, 'freq': 500.0, 'gain': -2.0, 'q': 2.5, 'shape': EqFilterShape.bell.index, 'slope': EqSlope.db12.index, 'placement': 0, 'enabled': true, 'solo': false, 'dynamicEnabled': false, 'dynamicThreshold': -20.0, 'dynamicRatio': 2.0, 'dynamicAttack': 10.0, 'dynamicRelease': 100.0},
+    ],
+    outputGain: 0.0, autoGain: false, globalPlacementIdx: 0,
+  )),
+  EqPreset(name: 'De-Harsh', category: 'Surgical', isFactory: true, snapshot: EqSnapshot(
+    bandData: [
+      {'index': 0, 'freq': 2500.0, 'gain': -2.5, 'q': 3.0, 'shape': EqFilterShape.bell.index, 'slope': EqSlope.db12.index, 'placement': 0, 'enabled': true, 'solo': false, 'dynamicEnabled': false, 'dynamicThreshold': -20.0, 'dynamicRatio': 2.0, 'dynamicAttack': 10.0, 'dynamicRelease': 100.0},
+      {'index': 1, 'freq': 5000.0, 'gain': -2.0, 'q': 2.0, 'shape': EqFilterShape.bell.index, 'slope': EqSlope.db12.index, 'placement': 0, 'enabled': true, 'solo': false, 'dynamicEnabled': false, 'dynamicThreshold': -20.0, 'dynamicRatio': 2.0, 'dynamicAttack': 10.0, 'dynamicRelease': 100.0},
+    ],
+    outputGain: 0.0, autoGain: false, globalPlacementIdx: 0,
+  )),
+];
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PARAM INDICES — ProEqWrapper convention: band * 12 + param
@@ -194,11 +307,43 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
   List<double> _spectrum = [];
   List<double> _peakHold = [];
   Timer? _spectrumTimer;
+  bool _spectrumFrozen = false;       // E2.4: freeze snapshot
+  List<double> _frozenSpectrum = [];   // E2.4: frozen snapshot data
+  double _spectrumTilt = 0.0;         // E2.5: tilt compensation dB/oct (0, -3, -4.5)
+  bool _showPreSpectrum = false;      // E2.1: show pre-EQ overlay
+  List<double> _preSpectrum = [];     // E2.1: pre-EQ spectrum data
 
   // Interaction
   bool _isDragging = false;
+  bool _dragSoloActive = false;   // Alt+drag solo listen (E3.2)
   Offset? _previewPos;
   Offset? _doubleTapPos;
+  late final FocusNode _displayFocusNode; // E3.8: keyboard shortcuts
+  double _gainScale = 30.0; // E7.5: ±30dB default, options: 12, 24, 30
+  bool _showPhase = false;            // E4.1: phase response curve
+  bool _showGroupDelay = false;       // E4.2: group delay
+  Float64List _phaseCurve = Float64List(512); // E4.1: phase in degrees
+  int _phaseMode = 0;                // E4.3: 0=ZeroLatency, 1=Natural, 2=Linear
+  int _oversampleMode = 0;           // E7.1: 0=Off, 1=2x, 2=4x, 3=8x
+  bool _autoListen = false;          // E7.4: auto-solo band while dragging
+  bool _freqColorMode = false;       // E8.2: color by frequency instead of shape
+  int _eqMode = 0;                   // E9.1/E9.4: 0=Digital, 1=Pultec, 2=API550, 3=Neve1073, 4=Ultra
+  bool _matchMode = false;           // E6: EQ Match mode
+  bool _bassMono = false;            // E9.2: Bass mono toggle
+  double _bassMonoFreq = 120.0;     // E9.2: Bass mono crossover frequency
+  List<double>? _matchReference;     // E6.1: captured reference spectrum
+  List<double>? _matchSource;        // E6.2: captured source spectrum
+  double _matchAmount = 0.5;         // E6.4: match intensity 0-100%
+
+  // Cached biquad frequency response curves (E1: accurate H(z) evaluation)
+  static const int _curveResolution = 512;
+  static final Float64List _curveFrequencies = DspFrequencyCalculator.generateLogFrequencies(
+    numPoints: _curveResolution,
+  );
+  /// Per-band magnitude curves in dB, indexed by list position (not band.index)
+  List<Float64List> _bandCurves = [];
+  /// Composite (summed) magnitude curve in dB
+  Float64List _compositeCurve = Float64List(_curveResolution);
 
   // Metering (~30fps via AnimationController)
   double _inPeakL = 0.0;
@@ -211,6 +356,14 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
   EqSnapshot? _snapshotA;
   EqSnapshot? _snapshotB;
 
+  // E5.1: Undo/Redo stack
+  final List<EqSnapshot> _undoStack = [];
+  final List<EqSnapshot> _redoStack = [];
+  static const _maxUndoDepth = 50;
+
+  // E5.2: Copy/paste band
+  static Map<String, dynamic>? _copiedBand;
+
   // ═══════════════════════════════════════════════════════════════════════════
   // A/B COMPARISON — mixin overrides
   // ═══════════════════════════════════════════════════════════════════════════
@@ -219,7 +372,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     return EqSnapshot(
       bandData: _bands.map((b) => <String, dynamic>{
         'index': b.index, 'freq': b.freq, 'gain': b.gain, 'q': b.q,
-        'shape': b.shape.index, 'placement': b.placement.index,
+        'shape': b.shape.index, 'slope': b.slope.index, 'placement': b.placement.index,
         'enabled': b.enabled, 'solo': b.solo,
         'dynamicEnabled': b.dynamicEnabled,
         'dynamicThreshold': b.dynamicThreshold,
@@ -243,6 +396,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
           gain: d['gain'] as double,
           q: d['q'] as double,
           shape: EqFilterShape.values[(d['shape'] as int).clamp(0, EqFilterShape.values.length - 1)],
+          slope: EqSlope.values[((d['slope'] as int?) ?? 1).clamp(0, EqSlope.values.length - 1)],
           placement: EqPlacement.values[(d['placement'] as int).clamp(0, EqPlacement.values.length - 1)],
           enabled: d['enabled'] as bool,
           solo: d['solo'] as bool,
@@ -270,6 +424,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     }
     _ffi.insertSetParam(widget.trackId, _slotIndex, _P.outputGainIndex, _outputGain);
     _ffi.insertSetParam(widget.trackId, _slotIndex, _P.autoGainIndex, _autoGain ? 1.0 : 0.0);
+    _recalcCurves();
   }
 
   @override
@@ -284,6 +439,29 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
   void copyAToB() { _snapshotB = _snapshotA?.copy() as EqSnapshot?; super.copyAToB(); }
   @override
   void copyBToA() { _snapshotA = _snapshotB?.copy() as EqSnapshot?; super.copyBToA(); }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // E5.1: UNDO/REDO
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Push current state to undo stack (call BEFORE making changes)
+  void _pushUndo() {
+    _undoStack.add(_captureSnapshot());
+    if (_undoStack.length > _maxUndoDepth) _undoStack.removeAt(0);
+    _redoStack.clear();
+  }
+
+  void _undo() {
+    if (_undoStack.isEmpty) return;
+    _redoStack.add(_captureSnapshot());
+    _restoreSnapshot(_undoStack.removeLast());
+  }
+
+  void _redo() {
+    if (_redoStack.isEmpty) return;
+    _undoStack.add(_captureSnapshot());
+    _restoreSnapshot(_redoStack.removeLast());
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // METERING — ~30fps I/O peak levels
@@ -311,6 +489,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
   @override
   void initState() {
     super.initState();
+    _displayFocusNode = FocusNode(debugLabel: 'eq-display');
     _initProcessor();
     initBypassFromProvider();
     _meterController = AnimationController(
@@ -322,6 +501,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
 
   @override
   void dispose() {
+    _displayFocusNode.dispose();
     _meterController.dispose();
     _spectrumTimer?.cancel();
     super.dispose();
@@ -375,10 +555,20 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
   void _startSpectrum() {
     _spectrumTimer = Timer.periodic(const Duration(milliseconds: 33), (_) {
       if (!mounted || !_initialized || !_analyzerOn) return;
+      if (_spectrumFrozen) return; // E2.4: don't update when frozen
       final raw = _ffi.getMasterSpectrum();
       if (raw.isEmpty) return;
       // Check if there's actual signal — if all bins are near-silent, clear spectrum
-      final db = List<double>.generate(raw.length, (i) => raw[i].clamp(0.0, 1.0) * 80 - 80);
+      final db = List<double>.generate(raw.length, (i) {
+        double val = raw[i].clamp(0.0, 1.0) * 80 - 80;
+        // E2.5: Apply tilt compensation
+        if (_spectrumTilt != 0 && raw.length > 1) {
+          // Approximate octave position: bin 0 = ~20Hz, last bin = ~20kHz ≈ 10 octaves
+          final octave = (i / (raw.length - 1)) * 10.0;
+          val -= _spectrumTilt * octave; // negative tilt boosts high freq display
+        }
+        return val;
+      });
       final hasSignal = db.any((v) => v > -72.0);
       if (!hasSignal) {
         if (_spectrum.isNotEmpty) {
@@ -431,8 +621,20 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
       child: Column(children: [
         buildCompactHeader(),
         _buildTopBar(),
+        // E4.4: Linear phase latency indicator
+        if (_phaseMode == 2) Container(
+          height: 14,
+          color: const Color(0xFF1A1420),
+          alignment: Alignment.center,
+          child: Text(
+            'Linear Phase — Latency: ${(8192 / (widget.sampleRate > 0 ? widget.sampleRate : 48000) * 1000).toStringAsFixed(1)} ms',
+            style: const TextStyle(color: Color(0xFFFF8C40), fontSize: 8, fontWeight: FontWeight.bold),
+          ),
+        ),
         Expanded(child: _buildDisplay()),
         SizedBox(height: 16, child: CustomPaint(painter: _PianoStripPainter())),
+        // E6: Match mode panel
+        if (_matchMode) _buildMatchPanel(),
         _buildBandChips(),
         if (_selectedBandIndex != null && _selectedBandIndex! < _bands.length)
           _buildBandEditor(),
@@ -479,11 +681,87 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
             ),
           ),
         )),
+        const SizedBox(width: 4),
+        // E9.1/E9.4: EQ mode picker
+        GestureDetector(
+          onTap: () => setState(() => _eqMode = (_eqMode + 1) % 5),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            decoration: BoxDecoration(
+              color: _eqMode != 0 ? FabFilterColors.orange.withValues(alpha: 0.15) : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: _eqMode != 0 ? FabFilterColors.orange : FabFilterColors.borderSubtle,
+                width: 0.5,
+              ),
+            ),
+            child: Text(
+              const ['Digital', 'Pultec', 'API 550', 'Neve', 'Ultra'][_eqMode],
+              style: TextStyle(
+                color: _eqMode != 0 ? FabFilterColors.orange : FabFilterColors.textTertiary,
+                fontSize: 8, fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
         const Spacer(),
+        // E6: EQ Match mode toggle
+        FabTinyButton(label: 'MATCH', active: _matchMode,
+          onTap: () => setState(() => _matchMode = !_matchMode),
+          color: FabFilterColors.green),
+        const SizedBox(width: 2),
+        // E5.5: Preset browser button
+        FabTinyButton(label: 'PRE', active: false,
+          onTap: _showPresetBrowser,
+          color: FabFilterColors.purple),
+        const SizedBox(width: 2),
+        // E5.7: Export/Import via clipboard
+        FabTinyButton(label: 'EXP', active: false,
+          onTap: _exportEqToClipboard,
+          color: FabFilterColors.textTertiary),
+        const SizedBox(width: 2),
+        // E7.5: Gain scale toggle
+        FabTinyButton(
+          label: '±${_gainScale.toInt()}',
+          active: _gainScale != 30.0,
+          onTap: () => setState(() {
+            _gainScale = _gainScale == 30.0 ? 12.0 : (_gainScale == 12.0 ? 24.0 : 30.0);
+          }),
+          color: FabFilterColors.yellow),
+        const SizedBox(width: 4),
         // Analyzer toggle
         FabTinyButton(label: 'ANA', active: _analyzerOn,
           onTap: () => setState(() => _analyzerOn = !_analyzerOn),
           color: FabFilterColors.cyan),
+        const SizedBox(width: 2),
+        // E2.4: Freeze spectrum
+        FabTinyButton(label: 'FRZ', active: _spectrumFrozen,
+          onTap: () => setState(() {
+            _spectrumFrozen = !_spectrumFrozen;
+            if (_spectrumFrozen) {
+              _frozenSpectrum = List<double>.from(_spectrum);
+            }
+          }),
+          color: FabFilterColors.pink),
+        const SizedBox(width: 2),
+        // E2.5: Tilt compensation
+        FabTinyButton(
+          label: _spectrumTilt == 0 ? 'TILT' : '${_spectrumTilt.toStringAsFixed(1)}',
+          active: _spectrumTilt != 0,
+          onTap: () => setState(() {
+            _spectrumTilt = _spectrumTilt == 0 ? -3.0 : (_spectrumTilt == -3.0 ? -4.5 : 0.0);
+          }),
+          color: FabFilterColors.orange),
+        const SizedBox(width: 2),
+        // E4.1: Phase response toggle
+        FabTinyButton(label: 'PH', active: _showPhase,
+          onTap: () { setState(() => _showPhase = !_showPhase); _recalcCurves(); },
+          color: FabFilterColors.orange),
+        const SizedBox(width: 2),
+        // E4.2: Group delay toggle
+        FabTinyButton(label: 'GD', active: _showGroupDelay,
+          onTap: () => setState(() => _showGroupDelay = !_showGroupDelay),
+          color: FabFilterColors.green),
         const SizedBox(width: 4),
         // Auto-gain
         FabTinyButton(label: 'AG', active: _autoGain,
@@ -538,6 +816,40 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
               ),
             ],
           ),
+        ),
+        const SizedBox(width: 4),
+        // E4.3: Phase mode picker
+        FabTinyButton(
+          label: const ['ZL', 'NAT', 'LIN'][_phaseMode],
+          active: _phaseMode != 0,
+          onTap: () {
+            final next = (_phaseMode + 1) % 3;
+            setState(() => _phaseMode = next);
+            _ffi.proEqSetPhaseMode(widget.trackId, next);
+          },
+          color: FabFilterColors.orange),
+        const SizedBox(width: 2),
+        // E7.1: Oversampling picker
+        FabTinyButton(
+          label: const ['OS:Off', 'OS:2x', 'OS:4x', 'OS:8x'][_oversampleMode],
+          active: _oversampleMode != 0,
+          onTap: () => setState(() => _oversampleMode = (_oversampleMode + 1) % 4),
+          color: FabFilterColors.cyan),
+        const SizedBox(width: 2),
+        // E7.4: Auto-listen mode
+        FabTinyButton(label: 'AL', active: _autoListen,
+          onTap: () => setState(() => _autoListen = !_autoListen),
+          color: FabFilterColors.yellow),
+        const SizedBox(width: 2),
+        // E8.2: Color mode toggle
+        FabTinyButton(label: _freqColorMode ? 'CLR' : 'SHP', active: _freqColorMode,
+          onTap: () => setState(() => _freqColorMode = !_freqColorMode),
+          color: FabFilterColors.pink),
+        const SizedBox(width: 2),
+        // E8.4: Full-screen mode
+        GestureDetector(
+          onTap: () => _showFullscreen(context),
+          child: const Icon(Icons.fullscreen, size: 16, color: FabFilterColors.textTertiary),
         ),
       ]),
     );
@@ -626,7 +938,10 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
       margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: FabFilterDecorations.display(),
       child: LayoutBuilder(builder: (ctx, box) {
-        return MouseRegion(
+        return Focus(
+          focusNode: _displayFocusNode,
+          onKeyEvent: (_, event) => _handleKeyEvent(event, box.biggest),
+          child: MouseRegion(
           onHover: (e) => _onHover(e.localPosition, box.biggest),
           onExit: (_) => setState(() { _hoverBandIndex = null; _previewPos = null; }),
           child: Listener(
@@ -635,9 +950,11 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
               onTapDown: (d) => _onTapSelect(d.localPosition, box.biggest),
               onDoubleTapDown: (d) => _doubleTapPos = d.localPosition,
               onDoubleTap: () { if (_doubleTapPos != null) _onDoubleTap(_doubleTapPos!, box.biggest); },
+              onSecondaryTapDown: (d) => _onRightClick(d.localPosition, d.globalPosition, box.biggest),
               onPanStart: (d) => _onDragStart(d.localPosition, box.biggest),
               onPanUpdate: (d) => _onDragUpdate(d.localPosition, box.biggest),
-              onPanEnd: (_) => setState(() => _isDragging = false),
+              onPanEnd: (_) => _onDragEnd(box.biggest),
+              child: RepaintBoundary( // E8.5: isolate repaint for smooth 60fps
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(5),
                 child: CustomPaint(
@@ -650,15 +967,129 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
                     analyzerOn: _analyzerOn,
                     previewPos: _previewPos,
                     isDragging: _isDragging,
+                    bandCurves: _bandCurves,
+                    compositeCurve: _compositeCurve,
+                    curveFrequencies: _curveFrequencies,
+                    gainScale: _gainScale,
+                    frozenSpectrum: _frozenSpectrum,
+                    phaseCurve: _showPhase ? _phaseCurve : null,
+                    showGroupDelay: _showGroupDelay,
+                    freqColorMode: _freqColorMode,
                   ),
                   size: box.biggest,
                 ),
               ),
-            ),
+            )),
           ),
-        );
+        ));
       }),
     );
+  }
+
+  // E3.8: Keyboard shortcut handler
+  KeyEventResult _handleKeyEvent(KeyEvent event, Size size) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    // Guard: don't handle if an EditableText ancestor has focus
+    if (_displayFocusNode.context != null) {
+      final scope = FocusScope.of(_displayFocusNode.context!);
+      if (scope.focusedChild != _displayFocusNode) return KeyEventResult.ignored;
+    }
+    final idx = _selectedBandIndex;
+    final isMeta = HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isControlPressed;
+    final isShift = HardwareKeyboard.instance.isShiftPressed;
+
+    // E5.1: Cmd+Z = Undo, Cmd+Shift+Z = Redo
+    if (isMeta && event.logicalKey == LogicalKeyboardKey.keyZ) {
+      if (isShift) { _redo(); } else { _undo(); }
+      return KeyEventResult.handled;
+    }
+    // E5.2: Cmd+C = copy band, Cmd+V = paste band
+    if (isMeta && event.logicalKey == LogicalKeyboardKey.keyC) {
+      if (idx != null && idx < _bands.length) {
+        final b = _bands[idx];
+        _copiedBand = {
+          'freq': b.freq, 'gain': b.gain, 'q': b.q,
+          'shape': b.shape.index, 'slope': b.slope.index,
+          'placement': b.placement.index,
+          'dynamicEnabled': b.dynamicEnabled,
+          'dynamicThreshold': b.dynamicThreshold,
+          'dynamicRatio': b.dynamicRatio,
+          'dynamicAttack': b.dynamicAttack,
+          'dynamicRelease': b.dynamicRelease,
+        };
+      }
+      return KeyEventResult.handled;
+    }
+    if (isMeta && event.logicalKey == LogicalKeyboardKey.keyV) {
+      if (_copiedBand != null) {
+        _pushUndo();
+        _addBand((_copiedBand!['freq'] as double), EqFilterShape.values[(_copiedBand!['shape'] as int).clamp(0, EqFilterShape.values.length - 1)]);
+        // Apply copied params to newest band
+        if (_bands.isNotEmpty) {
+          final nb = _bands.last;
+          nb.gain = _copiedBand!['gain'] as double;
+          nb.q = _copiedBand!['q'] as double;
+          nb.slope = EqSlope.values[(_copiedBand!['slope'] as int).clamp(0, EqSlope.values.length - 1)];
+          nb.dynamicEnabled = _copiedBand!['dynamicEnabled'] as bool;
+          nb.dynamicThreshold = _copiedBand!['dynamicThreshold'] as double;
+          nb.dynamicRatio = _copiedBand!['dynamicRatio'] as double;
+          nb.dynamicAttack = _copiedBand!['dynamicAttack'] as double;
+          nb.dynamicRelease = _copiedBand!['dynamicRelease'] as double;
+          _syncBand(_bands.length - 1);
+        }
+      }
+      return KeyEventResult.handled;
+    }
+
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.delete || LogicalKeyboardKey.backspace:
+        // Delete selected band
+        if (idx != null && idx < _bands.length) {
+          _removeBand(idx);
+          return KeyEventResult.handled;
+        }
+      case LogicalKeyboardKey.space:
+        // Toggle enable/disable selected band
+        if (idx != null && idx < _bands.length) {
+          _pushUndo();
+          setState(() => _bands[idx].enabled = !_bands[idx].enabled);
+          _setP(_bands[idx].index, _P.enabled, _bands[idx].enabled ? 1.0 : 0.0);
+          _recalcCurves();
+          return KeyEventResult.handled;
+        }
+      case LogicalKeyboardKey.keyS:
+        // Toggle solo on selected band
+        if (idx != null && idx < _bands.length) {
+          setState(() => _bands[idx].solo = !_bands[idx].solo);
+          _ffi.insertSetParam(widget.trackId, _slotIndex, _P.soloBandIndex,
+            _bands[idx].solo ? _bands[idx].index.toDouble() : -1.0);
+          return KeyEventResult.handled;
+        }
+      case LogicalKeyboardKey.keyD:
+        // Toggle dynamic EQ on selected band
+        if (idx != null && idx < _bands.length) {
+          _pushUndo();
+          setState(() => _bands[idx].dynamicEnabled = !_bands[idx].dynamicEnabled);
+          _syncBand(idx);
+          return KeyEventResult.handled;
+        }
+      case LogicalKeyboardKey.keyI:
+        // E5.3: Invert selected band gain (boost↔cut)
+        if (idx != null && idx < _bands.length) {
+          _pushUndo();
+          setState(() => _bands[idx].gain = -_bands[idx].gain);
+          _syncBand(idx);
+          return KeyEventResult.handled;
+        }
+      case LogicalKeyboardKey.escape:
+        // Deselect
+        setState(() => _selectedBandIndex = null);
+        return KeyEventResult.handled;
+      default:
+        break;
+    }
+    return KeyEventResult.ignored;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -975,18 +1406,51 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
   void _onScroll(PointerScrollEvent e, Size size) {
     final idx = _selectedBandIndex ?? _hoverBandIndex;
     if (idx == null || idx >= _bands.length) return;
+    final b = _bands[idx];
+
+    // E3.7: For cut/shelf filters, scroll changes slope instead of Q
+    final isSlopeFilter = b.shape == EqFilterShape.lowCut ||
+        b.shape == EqFilterShape.highCut ||
+        b.shape == EqFilterShape.brickwall;
+    if (isSlopeFilter) {
+      final slopes = EqSlope.values;
+      final curIdx = slopes.indexOf(b.slope);
+      final newIdx = e.scrollDelta.dy > 0
+          ? (curIdx - 1).clamp(0, slopes.length - 1)
+          : (curIdx + 1).clamp(0, slopes.length - 1);
+      if (newIdx != curIdx) {
+        setState(() => b.slope = slopes[newIdx]);
+        _syncBand(idx);
+      }
+      return;
+    }
+
     final fine = HardwareKeyboard.instance.isShiftPressed;
     final delta = (e.scrollDelta.dy > 0 ? -0.2 : 0.2) * (fine ? 0.1 : 1.0);
-    setState(() => _bands[idx].q = (_bands[idx].q + delta).clamp(0.1, 30.0));
-    _syncBand(idx);
+    setState(() => b.q = (b.q + delta).clamp(0.1, 30.0));
+    _syncBand(idx); // _recalcCurves() called inside _syncBand
   }
 
   void _onTapSelect(Offset pos, Size size) {
+    _displayFocusNode.requestFocus(); // E3.8: Focus display for keyboard shortcuts
+    final isCtrl = HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed; // Cmd on macOS (E3.4)
     for (int i = 0; i < _bands.length; i++) {
       if (!_bands[i].enabled) continue;
       final bx = _freqToX(_bands[i].freq, size.width);
       final by = _gainToY(_bands[i].gain, size.height);
       if ((Offset(bx, by) - pos).distance < 15) {
+        if (isCtrl) {
+          // E3.4: Ctrl/Cmd+click = reset band to default (gain=0, Q=1)
+          _pushUndo(); // E5.1
+          setState(() {
+            _bands[i].gain = 0.0;
+            _bands[i].q = 1.0;
+            _selectedBandIndex = i;
+          });
+          _syncBand(i);
+          return;
+        }
         setState(() => _selectedBandIndex = i);
         return;
       }
@@ -1001,13 +1465,155 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
       final bx = _freqToX(_bands[i].freq, size.width);
       final by = _gainToY(_bands[i].gain, size.height);
       if ((Offset(bx, by) - pos).distance < 15) {
+        _pushUndo(); // E5.1
         setState(() => _bands[i].enabled = !_bands[i].enabled);
         _setP(_bands[i].index, _P.enabled, _bands[i].enabled ? 1.0 : 0.0);
+        _recalcCurves();
         return;
       }
     }
     // Double-click on empty space — add new band at position
     _addBand(_xToFreq(pos.dx, size.width), EqFilterShape.bell);
+  }
+
+  // E3.5: Right-click context menu
+  void _onRightClick(Offset localPos, Offset globalPos, Size size) {
+    // Find band under cursor
+    int? bandIdx;
+    for (int i = 0; i < _bands.length; i++) {
+      if (!_bands[i].enabled) continue;
+      final bx = _freqToX(_bands[i].freq, size.width);
+      final by = _gainToY(_bands[i].gain, size.height);
+      if ((Offset(bx, by) - localPos).distance < 15) {
+        bandIdx = i;
+        break;
+      }
+    }
+
+    final items = <PopupMenuEntry<String>>[];
+    if (bandIdx != null) {
+      final b = _bands[bandIdx];
+      items.addAll([
+        PopupMenuItem(value: 'solo', child: Text(b.solo ? 'Unsolo' : 'Solo')),
+        PopupMenuItem(value: 'bypass', child: Text(b.enabled ? 'Bypass Band' : 'Enable Band')),
+        const PopupMenuDivider(),
+        const PopupMenuItem(value: 'invert', child: Text('Invert Gain')),
+        const PopupMenuItem(value: 'copy', child: Text('Copy Band')),
+        const PopupMenuItem(value: 'reset', child: Text('Reset to Default')),
+        const PopupMenuItem(value: 'delete', child: Text('Delete Band')),
+        const PopupMenuDivider(),
+        // Filter shape submenu
+        ...EqFilterShape.values.where((s) => s != EqFilterShape.brickwall).map(
+          (s) => PopupMenuItem(
+            value: 'shape_${s.index}',
+            child: Row(children: [
+              Icon(s.icon, size: 14, color: b.shape == s ? FabFilterColors.blue : null),
+              const SizedBox(width: 6),
+              Text(s.label, style: TextStyle(
+                fontWeight: b.shape == s ? FontWeight.bold : FontWeight.normal,
+              )),
+            ]),
+          ),
+        ),
+      ]);
+    } else {
+      items.addAll([
+        const PopupMenuItem(value: 'add_bell', child: Text('Add Bell')),
+        const PopupMenuItem(value: 'add_lowshelf', child: Text('Add Low Shelf')),
+        const PopupMenuItem(value: 'add_highshelf', child: Text('Add High Shelf')),
+        const PopupMenuItem(value: 'add_lowcut', child: Text('Add Low Cut')),
+        const PopupMenuItem(value: 'add_highcut', child: Text('Add High Cut')),
+        if (_copiedBand != null) ...[
+          const PopupMenuDivider(),
+          const PopupMenuItem(value: 'paste', child: Text('Paste Band')),
+        ],
+        const PopupMenuDivider(),
+        const PopupMenuItem(value: 'bypass_bells', child: Text('Bypass All Bells')),
+        const PopupMenuItem(value: 'bypass_cuts', child: Text('Bypass All Cuts')),
+        const PopupMenuItem(value: 'bypass_shelves', child: Text('Bypass All Shelves')),
+        const PopupMenuItem(value: 'enable_all', child: Text('Enable All Bands')),
+        const PopupMenuDivider(),
+        const PopupMenuItem(value: 'reset_all', child: Text('Reset All')),
+      ]);
+    }
+
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(globalPos.dx, globalPos.dy, globalPos.dx, globalPos.dy),
+      items: items,
+      color: const Color(0xFF1A1A22),
+    ).then((val) {
+      if (val == null) return;
+      if (bandIdx != null) {
+        final bi = bandIdx;
+        final b = _bands[bi];
+        switch (val) {
+          case 'solo':
+            setState(() => b.solo = !b.solo);
+            _ffi.insertSetParam(widget.trackId, _slotIndex, _P.soloBandIndex,
+              b.solo ? b.index.toDouble() : -1.0);
+          case 'bypass':
+            setState(() => b.enabled = !b.enabled);
+            _setP(b.index, _P.enabled, b.enabled ? 1.0 : 0.0);
+            _recalcCurves();
+          case 'invert':
+            _pushUndo();
+            setState(() => b.gain = -b.gain);
+            _syncBand(bi);
+          case 'copy':
+            _copiedBand = {
+              'freq': b.freq, 'gain': b.gain, 'q': b.q,
+              'shape': b.shape.index, 'slope': b.slope.index,
+              'placement': b.placement.index,
+              'dynamicEnabled': b.dynamicEnabled,
+              'dynamicThreshold': b.dynamicThreshold,
+              'dynamicRatio': b.dynamicRatio,
+              'dynamicAttack': b.dynamicAttack,
+              'dynamicRelease': b.dynamicRelease,
+            };
+          case 'reset':
+            _pushUndo();
+            setState(() { b.gain = 0.0; b.q = 1.0; });
+            _syncBand(bi);
+          case 'delete':
+            _removeBand(bi);
+          default:
+            if (val.startsWith('shape_')) {
+              final si = int.tryParse(val.substring(6));
+              if (si != null && si < EqFilterShape.values.length) {
+                setState(() => b.shape = EqFilterShape.values[si]);
+                _syncBand(bi);
+              }
+            }
+        }
+      } else {
+        switch (val) {
+          case 'add_bell': _addBand(_xToFreq(localPos.dx, size.width), EqFilterShape.bell);
+          case 'add_lowshelf': _addBand(_xToFreq(localPos.dx, size.width), EqFilterShape.lowShelf);
+          case 'add_highshelf': _addBand(_xToFreq(localPos.dx, size.width), EqFilterShape.highShelf);
+          case 'add_lowcut': _addBand(_xToFreq(localPos.dx, size.width), EqFilterShape.lowCut);
+          case 'add_highcut': _addBand(_xToFreq(localPos.dx, size.width), EqFilterShape.highCut);
+          case 'paste':
+            if (_copiedBand != null) {
+              final freq = _xToFreq(localPos.dx, size.width);
+              _pushUndo();
+              _addBand(freq, EqFilterShape.values[(_copiedBand!['shape'] as int).clamp(0, EqFilterShape.values.length - 1)]);
+              if (_bands.isNotEmpty) {
+                final nb = _bands.last;
+                nb.gain = _copiedBand!['gain'] as double;
+                nb.q = _copiedBand!['q'] as double;
+                nb.slope = EqSlope.values[(_copiedBand!['slope'] as int).clamp(0, EqSlope.values.length - 1)];
+                _syncBand(_bands.length - 1);
+              }
+            }
+          case 'bypass_bells': _bypassByShape({EqFilterShape.bell});
+          case 'bypass_cuts': _bypassByShape({EqFilterShape.lowCut, EqFilterShape.highCut, EqFilterShape.brickwall});
+          case 'bypass_shelves': _bypassByShape({EqFilterShape.lowShelf, EqFilterShape.highShelf, EqFilterShape.tiltShelf});
+          case 'enable_all': _enableAllBands();
+          case 'reset_all': _resetEq();
+        }
+      }
+    });
   }
 
   void _onDragStart(Offset pos, Size size) {
@@ -1016,7 +1622,13 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
       final bx = _freqToX(_bands[i].freq, size.width);
       final by = _gainToY(_bands[i].gain, size.height);
       if ((Offset(bx, by) - pos).distance < 15) {
+        _pushUndo(); // E5.1: snapshot before drag
         setState(() { _selectedBandIndex = i; _isDragging = true; });
+        // E3.2 + E7.4: Alt+drag or auto-listen = solo listen
+        if ((HardwareKeyboard.instance.isAltPressed || _autoListen) && _slotIndex >= 0) {
+          _dragSoloActive = true;
+          _ffi.insertSetParam(widget.trackId, _slotIndex, _P.soloBandIndex, _bands[i].index.toDouble());
+        }
         return;
       }
     }
@@ -1025,11 +1637,46 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
   void _onDragUpdate(Offset pos, Size size) {
     if (!_isDragging || _selectedBandIndex == null) return;
     final b = _bands[_selectedBandIndex!];
+    // E3.3: Shift+drag = fine adjust (10× precision)
+    final fine = HardwareKeyboard.instance.isShiftPressed;
+    final scale = fine ? 0.1 : 1.0;
+    final rawFreq = _xToFreq(pos.dx, size.width);
+    final rawGain = _yToGain(pos.dy, size.height);
     setState(() {
-      b.freq = _xToFreq(pos.dx, size.width).clamp(10.0, 30000.0);
-      b.gain = _yToGain(pos.dy, size.height).clamp(-30.0, 30.0);
+      if (fine) {
+        // Fine mode: apply scaled delta from current position
+        final targetFreq = rawFreq;
+        final targetGain = rawGain;
+        b.freq = (b.freq + (targetFreq - b.freq) * scale).clamp(10.0, 30000.0);
+        b.gain = (b.gain + (targetGain - b.gain) * scale).clamp(-30.0, 30.0);
+      } else {
+        b.freq = rawFreq.clamp(10.0, 30000.0);
+        b.gain = rawGain.clamp(-30.0, 30.0);
+      }
     });
     _syncBand(_selectedBandIndex!);
+  }
+
+  void _onDragEnd(Size size) {
+    // E3.2: Disengage solo listen on drag end
+    if (_dragSoloActive && _slotIndex >= 0) {
+      _dragSoloActive = false;
+      _ffi.insertSetParam(widget.trackId, _slotIndex, _P.soloBandIndex, -1.0);
+    }
+    // E3.9: Drag off-screen = delete band
+    // (checked via last drag position — if band is near edge, user dragged it out)
+    if (_isDragging && _selectedBandIndex != null) {
+      final b = _bands[_selectedBandIndex!];
+      final bx = _freqToX(b.freq, size.width);
+      final by = _gainToY(b.gain, size.height);
+      // Delete if dragged past top/bottom edge (within 4px of boundary)
+      if (by <= 4 || by >= size.height - 4) {
+        _removeBand(_selectedBandIndex!);
+        setState(() => _isDragging = false);
+        return;
+      }
+    }
+    setState(() => _isDragging = false);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1038,6 +1685,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
 
   void _addBand(double freq, EqFilterShape shape) {
     if (_bands.length >= 64 || _slotIndex < 0) return;
+    _pushUndo(); // E5.1
     // Find first free (disabled) band index in engine — don't assume sequential
     int idx = _bands.length;
     final usedIndices = _bands.map((b) => b.index).toSet();
@@ -1054,7 +1702,305 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     _setP(idx, _P.placement, _globalPlacement.index.toDouble());
     // Enable LAST so coefficients are computed with correct params
     _setP(idx, _P.enabled, 1.0);
+    _recalcCurves();
     widget.onSettingsChanged?.call();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ACCURATE BIQUAD CURVE CALCULATION (E1)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Map EqFilterShape to DspFrequencyCalculator filter type string.
+  static String _shapeToFilterType(EqFilterShape shape) {
+    return switch (shape) {
+      EqFilterShape.bell => 'bell',
+      EqFilterShape.lowShelf => 'lowshelf',
+      EqFilterShape.highShelf => 'highshelf',
+      EqFilterShape.lowCut => 'highpass',
+      EqFilterShape.highCut => 'lowpass',
+      EqFilterShape.notch => 'notch',
+      EqFilterShape.bandPass => 'bandpass',
+      EqFilterShape.tiltShelf => 'tilt',
+      EqFilterShape.allPass => 'allpass',
+      EqFilterShape.brickwall => 'highpass',
+    };
+  }
+
+  /// Recalculate all cached frequency response curves using true biquad H(z).
+  void _recalcCurves() {
+    final sr = widget.sampleRate;
+    final n = _curveResolution;
+    final freqs = _curveFrequencies;
+
+    // Rebuild per-band curves
+    _bandCurves = List<Float64List>.generate(_bands.length, (bi) {
+      final b = _bands[bi];
+      final curve = Float64List(n);
+      if (!b.enabled) return curve; // all zeros (0 dB)
+
+      final filterType = _shapeToFilterType(b.shape);
+      final isCut = b.shape == EqFilterShape.lowCut ||
+                    b.shape == EqFilterShape.highCut ||
+                    b.shape == EqFilterShape.brickwall;
+
+      // Number of cascaded biquad stages for cut/shelf slopes
+      final stages = isCut ? b.slope.stages : 1;
+
+      // Calculate Butterworth Q values for cascaded stages
+      final stageQs = _butterworthQs(stages, isCut ? null : b.q);
+
+      for (int i = 0; i < n; i++) {
+        double magDb = 0.0;
+        for (int s = 0; s < stages; s++) {
+          magDb += _biquadMagnitudeDb(
+            filterType: filterType,
+            freq: freqs[i],
+            fc: b.freq,
+            gain: b.gain,
+            q: stageQs[s],
+            sampleRate: sr,
+            slopeDb: b.slope.dbPerOct.toDouble(),
+          );
+        }
+        curve[i] = magDb;
+      }
+      return curve;
+    });
+
+    // Composite = sum of all band curves in dB
+    final comp = Float64List(n);
+    for (final bc in _bandCurves) {
+      for (int i = 0; i < n; i++) {
+        comp[i] += bc[i];
+      }
+    }
+    _compositeCurve = comp;
+
+    // E4.1: Phase response (sum of all band phases in radians → degrees)
+    if (_showPhase) {
+      final phase = Float64List(n);
+      for (int bi = 0; bi < _bands.length; bi++) {
+        final b = _bands[bi];
+        if (!b.enabled) continue;
+        final filterType = _shapeToFilterType(b.shape);
+        final isCut = b.shape == EqFilterShape.lowCut || b.shape == EqFilterShape.highCut || b.shape == EqFilterShape.brickwall;
+        final stages = isCut ? b.slope.stages : 1;
+        final stageQs = _butterworthQs(stages, isCut ? null : b.q);
+        for (int i = 0; i < n; i++) {
+          for (int s = 0; s < stages; s++) {
+            phase[i] += _biquadPhaseRad(
+              filterType: filterType, freq: freqs[i], fc: b.freq,
+              gain: b.gain, q: stageQs[s], sampleRate: sr, slopeDb: b.slope.dbPerOct.toDouble(),
+            );
+          }
+        }
+      }
+      // Convert radians to degrees
+      for (int i = 0; i < n; i++) {
+        phase[i] = phase[i] * 180.0 / math.pi;
+      }
+      _phaseCurve = phase;
+    }
+  }
+
+  /// Butterworth Q values for cascaded biquad stages.
+  /// For N stages (each 2nd-order = 12dB/oct), total = N×12 dB/oct.
+  /// Q_k = 1 / (2 * sin(π * (2k-1) / (2*N))) for k = 1..N
+  static List<double> _butterworthQs(int stages, [double? overrideQ]) {
+    if (stages == 1) return [overrideQ ?? 0.7071067811865476];
+    final qs = <double>[];
+    for (int k = 1; k <= stages; k++) {
+      qs.add(1.0 / (2.0 * math.sin(math.pi * (2 * k - 1) / (2 * stages))));
+    }
+    return qs;
+  }
+
+  /// Evaluate a single biquad stage magnitude in dB at frequency [freq].
+  /// Uses Audio EQ Cookbook formulas — matches DspFrequencyCalculator exactly.
+  static double _biquadMagnitudeDb({
+    required String filterType,
+    required double freq,
+    required double fc,
+    required double gain,
+    required double q,
+    required double sampleRate,
+    required double slopeDb,
+  }) {
+    final w0 = 2.0 * math.pi * fc / sampleRate;
+    final cosW0 = math.cos(w0);
+    final sinW0 = math.sin(w0);
+    final A = math.pow(10.0, gain / 40.0).toDouble();
+
+    double alpha;
+    if (filterType == 'lowshelf' || filterType == 'highshelf') {
+      final S = slopeDb / 12.0;
+      alpha = sinW0 / 2.0 * math.sqrt((A + 1.0 / A) * (1.0 / S - 1.0) + 2.0);
+    } else {
+      alpha = sinW0 / (2.0 * q);
+    }
+
+    double b0, b1, b2, a0, a1, a2;
+    switch (filterType) {
+      case 'bell':
+      case 'peaking':
+        b0 = 1.0 + alpha * A;
+        b1 = -2.0 * cosW0;
+        b2 = 1.0 - alpha * A;
+        a0 = 1.0 + alpha / A;
+        a1 = -2.0 * cosW0;
+        a2 = 1.0 - alpha / A;
+      case 'lowshelf':
+        final sqa = math.sqrt(A) * alpha;
+        b0 = A * ((A + 1) - (A - 1) * cosW0 + 2 * sqa);
+        b1 = 2 * A * ((A - 1) - (A + 1) * cosW0);
+        b2 = A * ((A + 1) - (A - 1) * cosW0 - 2 * sqa);
+        a0 = (A + 1) + (A - 1) * cosW0 + 2 * sqa;
+        a1 = -2 * ((A - 1) + (A + 1) * cosW0);
+        a2 = (A + 1) + (A - 1) * cosW0 - 2 * sqa;
+      case 'highshelf':
+        final sqa = math.sqrt(A) * alpha;
+        b0 = A * ((A + 1) + (A - 1) * cosW0 + 2 * sqa);
+        b1 = -2 * A * ((A - 1) + (A + 1) * cosW0);
+        b2 = A * ((A + 1) + (A - 1) * cosW0 - 2 * sqa);
+        a0 = (A + 1) - (A - 1) * cosW0 + 2 * sqa;
+        a1 = 2 * ((A - 1) - (A + 1) * cosW0);
+        a2 = (A + 1) - (A - 1) * cosW0 - 2 * sqa;
+      case 'highpass': // lowCut
+        b0 = (1 + cosW0) / 2;
+        b1 = -(1 + cosW0);
+        b2 = (1 + cosW0) / 2;
+        a0 = 1 + alpha;
+        a1 = -2 * cosW0;
+        a2 = 1 - alpha;
+      case 'lowpass': // highCut
+        b0 = (1 - cosW0) / 2;
+        b1 = 1 - cosW0;
+        b2 = (1 - cosW0) / 2;
+        a0 = 1 + alpha;
+        a1 = -2 * cosW0;
+        a2 = 1 - alpha;
+      case 'notch':
+        b0 = 1;
+        b1 = -2 * cosW0;
+        b2 = 1;
+        a0 = 1 + alpha;
+        a1 = -2 * cosW0;
+        a2 = 1 - alpha;
+      case 'bandpass':
+        b0 = alpha;
+        b1 = 0;
+        b2 = -alpha;
+        a0 = 1 + alpha;
+        a1 = -2 * cosW0;
+        a2 = 1 - alpha;
+      case 'allpass':
+        b0 = 1 - alpha;
+        b1 = -2 * cosW0;
+        b2 = 1 + alpha;
+        a0 = 1 + alpha;
+        a1 = -2 * cosW0;
+        a2 = 1 - alpha;
+      case 'tilt':
+        final sqa = math.sqrt(A) * alpha;
+        b0 = A * ((A + 1) + (A - 1) * cosW0 + 2 * sqa);
+        b1 = -2 * A * ((A - 1) + (A + 1) * cosW0);
+        b2 = A * ((A + 1) + (A - 1) * cosW0 - 2 * sqa);
+        a0 = (A + 1) - (A - 1) * cosW0 + 2 * sqa;
+        a1 = 2 * ((A - 1) - (A + 1) * cosW0);
+        a2 = (A + 1) - (A - 1) * cosW0 - 2 * sqa;
+      default:
+        return 0.0;
+    }
+
+    // Normalize
+    b0 /= a0; b1 /= a0; b2 /= a0; a1 /= a0; a2 /= a0;
+
+    // Evaluate |H(e^jω)| at freq
+    final w = 2.0 * math.pi * freq / sampleRate;
+    final cw = math.cos(w);
+    final sw = math.sin(w);
+    final c2w = math.cos(2 * w);
+    final s2w = math.sin(2 * w);
+
+    final nr = b0 + b1 * cw + b2 * c2w;
+    final ni = -b1 * sw - b2 * s2w;
+    final dr = 1.0 + a1 * cw + a2 * c2w;
+    final di = -a1 * sw - a2 * s2w;
+
+    final numMag = math.sqrt(nr * nr + ni * ni);
+    final denMag = math.sqrt(dr * dr + di * di);
+    final mag = denMag > 1e-10 ? numMag / denMag : numMag;
+    return 20.0 * math.log(mag.clamp(1e-10, double.infinity)) / math.ln10;
+  }
+
+  /// E4.1: Evaluate biquad phase in radians at [freq].
+  /// Uses same coefficient calculation as _biquadMagnitudeDb.
+  static double _biquadPhaseRad({
+    required String filterType,
+    required double freq,
+    required double fc,
+    required double gain,
+    required double q,
+    required double sampleRate,
+    required double slopeDb,
+  }) {
+    final w0 = 2.0 * math.pi * fc / sampleRate;
+    final cosW0 = math.cos(w0);
+    final sinW0 = math.sin(w0);
+    final A = math.pow(10.0, gain / 40.0).toDouble();
+
+    double alpha;
+    if (filterType == 'lowshelf' || filterType == 'highshelf') {
+      final S = slopeDb / 12.0;
+      alpha = sinW0 / 2.0 * math.sqrt((A + 1.0 / A) * (1.0 / S - 1.0) + 2.0);
+    } else {
+      alpha = sinW0 / (2.0 * q);
+    }
+
+    double b0, b1, b2, a0, a1, a2;
+    switch (filterType) {
+      case 'bell' || 'peaking':
+        b0 = 1.0 + alpha * A; b1 = -2.0 * cosW0; b2 = 1.0 - alpha * A;
+        a0 = 1.0 + alpha / A; a1 = -2.0 * cosW0; a2 = 1.0 - alpha / A;
+      case 'lowshelf':
+        final sqa = math.sqrt(A) * alpha;
+        b0 = A * ((A+1) - (A-1)*cosW0 + 2*sqa); b1 = 2*A*((A-1) - (A+1)*cosW0); b2 = A*((A+1) - (A-1)*cosW0 - 2*sqa);
+        a0 = (A+1) + (A-1)*cosW0 + 2*sqa; a1 = -2*((A-1) + (A+1)*cosW0); a2 = (A+1) + (A-1)*cosW0 - 2*sqa;
+      case 'highshelf':
+        final sqa = math.sqrt(A) * alpha;
+        b0 = A*((A+1) + (A-1)*cosW0 + 2*sqa); b1 = -2*A*((A-1) + (A+1)*cosW0); b2 = A*((A+1) + (A-1)*cosW0 - 2*sqa);
+        a0 = (A+1) - (A-1)*cosW0 + 2*sqa; a1 = 2*((A-1) - (A+1)*cosW0); a2 = (A+1) - (A-1)*cosW0 - 2*sqa;
+      case 'highpass':
+        b0 = (1+cosW0)/2; b1 = -(1+cosW0); b2 = (1+cosW0)/2;
+        a0 = 1+alpha; a1 = -2*cosW0; a2 = 1-alpha;
+      case 'lowpass':
+        b0 = (1-cosW0)/2; b1 = 1-cosW0; b2 = (1-cosW0)/2;
+        a0 = 1+alpha; a1 = -2*cosW0; a2 = 1-alpha;
+      case 'notch':
+        b0 = 1; b1 = -2*cosW0; b2 = 1;
+        a0 = 1+alpha; a1 = -2*cosW0; a2 = 1-alpha;
+      case 'bandpass':
+        b0 = alpha; b1 = 0; b2 = -alpha;
+        a0 = 1+alpha; a1 = -2*cosW0; a2 = 1-alpha;
+      case 'allpass':
+        b0 = 1-alpha; b1 = -2*cosW0; b2 = 1+alpha;
+        a0 = 1+alpha; a1 = -2*cosW0; a2 = 1-alpha;
+      default:
+        return 0.0;
+    }
+    b0 /= a0; b1 /= a0; b2 /= a0; a1 /= a0; a2 /= a0;
+
+    final w = 2.0 * math.pi * freq / sampleRate;
+    final cw = math.cos(w);
+    final sw = math.sin(w);
+    final c2w = math.cos(2 * w);
+    final s2w = math.sin(2 * w);
+    final nr = b0 + b1 * cw + b2 * c2w;
+    final ni = -b1 * sw - b2 * s2w;
+    final dr = 1.0 + a1 * cw + a2 * c2w;
+    final di = -a1 * sw - a2 * s2w;
+    // Phase = arg(H) = atan2(numImag, numReal) - atan2(denImag, denReal)
+    return math.atan2(ni, nr) - math.atan2(di, dr);
   }
 
   void _syncBand(int i) {
@@ -1071,21 +2017,308 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     _setP(b.index, _P.dynRatio, b.dynamicRatio);
     _setP(b.index, _P.dynAttack, b.dynamicAttack);
     _setP(b.index, _P.dynRelease, b.dynamicRelease);
+    _recalcCurves();
     widget.onSettingsChanged?.call();
   }
 
   void _removeBand(int i) {
     if (_slotIndex < 0 || i >= _bands.length) return;
+    _pushUndo(); // E5.1
     _setP(_bands[i].index, _P.enabled, 0.0);
     setState(() {
       _bands.removeAt(i);
       _selectedBandIndex = _bands.isEmpty ? null : i.clamp(0, _bands.length - 1);
     });
+    _recalcCurves();
     widget.onSettingsChanged?.call();
+  }
+
+  // E5.5/E5.6: Preset browser
+  void _showPresetBrowser() {
+    final categories = <String>{};
+    for (final p in _factoryEqPresets) {
+      categories.add(p.category);
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF121218),
+        child: SizedBox(
+          width: 320,
+          height: 400,
+          child: Column(children: [
+            // Header
+            Container(
+              height: 36,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: Color(0xFF2A2A38))),
+              ),
+              child: Row(children: [
+                const Text('EQ Presets', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                // Save current as preset
+                GestureDetector(
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    _savePresetDialog();
+                  },
+                  child: const Text('Save Current', style: TextStyle(color: FabFilterColors.blue, fontSize: 10)),
+                ),
+              ]),
+            ),
+            // Preset list
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(4),
+                children: categories.expand((cat) => [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 2),
+                    child: Text(cat, style: const TextStyle(color: Colors.white38, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  ),
+                  ..._factoryEqPresets.where((p) => p.category == cat).map((p) =>
+                    ListTile(
+                      dense: true,
+                      visualDensity: VisualDensity.compact,
+                      title: Text(p.name, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                      onTap: () {
+                        Navigator.of(ctx).pop();
+                        _pushUndo();
+                        _restoreSnapshot(p.snapshot);
+                      },
+                    ),
+                  ),
+                ]).toList(),
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  void _savePresetDialog() {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A22),
+        title: const Text('Save EQ Preset', style: TextStyle(color: Colors.white70, fontSize: 14)),
+        content: TextField(
+          controller: ctrl,
+          style: const TextStyle(color: Colors.white, fontSize: 12),
+          decoration: const InputDecoration(hintText: 'Preset name', hintStyle: TextStyle(color: Colors.white24)),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              if (ctrl.text.trim().isNotEmpty) {
+                // Save to factory list (in-memory for now — E5.7 will add JSON persistence)
+                _factoryEqPresets.add(EqPreset(
+                  name: ctrl.text.trim(),
+                  category: 'Custom',
+                  snapshot: _captureSnapshot(),
+                ));
+              }
+              Navigator.of(ctx).pop();
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // E5.7: Export EQ config to clipboard as JSON
+  void _exportEqToClipboard() {
+    final preset = EqPreset(
+      name: 'Exported EQ',
+      category: 'Export',
+      snapshot: _captureSnapshot(),
+    );
+    final json = preset.toJson();
+    // Simple JSON encoding (avoid import dart:convert just for this)
+    final sb = StringBuffer('{"name":"${json['name']}","category":"${json['category']}",');
+    sb.write('"outputGain":${json['outputGain']},"autoGain":${json['autoGain']},');
+    sb.write('"globalPlacementIdx":${json['globalPlacementIdx']},"bandData":[');
+    final bands = json['bandData'] as List;
+    for (int i = 0; i < bands.length; i++) {
+      if (i > 0) sb.write(',');
+      final b = bands[i] as Map<String, dynamic>;
+      sb.write('{');
+      final entries = b.entries.toList();
+      for (int j = 0; j < entries.length; j++) {
+        if (j > 0) sb.write(',');
+        final v = entries[j].value;
+        if (v is String) {
+          sb.write('"${entries[j].key}":"$v"');
+        } else {
+          sb.write('"${entries[j].key}":$v');
+        }
+      }
+      sb.write('}');
+    }
+    sb.write(']}');
+    Clipboard.setData(ClipboardData(text: sb.toString()));
+    // Brief visual feedback
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('EQ config copied to clipboard'),
+        duration: Duration(seconds: 1),
+        backgroundColor: Color(0xFF1A1A22),
+      ),
+    );
+  }
+
+  // E6: EQ Match panel
+  Widget _buildMatchPanel() {
+    return Container(
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Color(0xFF1A1A22))),
+        color: Color(0xFF0D0D14),
+      ),
+      child: Row(children: [
+        // E6.1: Capture reference
+        FabTinyButton(
+          label: _matchReference != null ? 'REF ✓' : 'Capture Ref',
+          active: _matchReference != null,
+          onTap: () => setState(() => _matchReference = List<double>.from(_spectrum)),
+          color: FabFilterColors.green),
+        const SizedBox(width: 4),
+        // E6.2: Capture source
+        FabTinyButton(
+          label: _matchSource != null ? 'SRC ✓' : 'Capture Src',
+          active: _matchSource != null,
+          onTap: () => setState(() => _matchSource = List<double>.from(_spectrum)),
+          color: FabFilterColors.cyan),
+        const SizedBox(width: 8),
+        // E6.4: Match amount slider
+        Expanded(
+          child: SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 2,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+              activeTrackColor: FabFilterColors.green,
+              inactiveTrackColor: FabFilterColors.borderSubtle,
+              thumbColor: FabFilterColors.green,
+            ),
+            child: Slider(
+              value: _matchAmount,
+              onChanged: (v) => setState(() => _matchAmount = v),
+            ),
+          ),
+        ),
+        Text('${(_matchAmount * 100).toInt()}%',
+          style: const TextStyle(color: FabFilterColors.green, fontSize: 9, fontWeight: FontWeight.bold)),
+        const SizedBox(width: 8),
+        // E6.3: Apply match
+        FabTinyButton(
+          label: 'Apply',
+          active: false,
+          onTap: _matchReference != null && _matchSource != null ? _applyMatch : () {},
+          color: FabFilterColors.blue),
+      ]),
+    );
+  }
+
+  // E6.3: Apply match — auto-generate bands from spectral difference
+  void _applyMatch() {
+    if (_matchReference == null || _matchSource == null) return;
+    _pushUndo();
+    final ref = _matchReference!;
+    final src = _matchSource!;
+    final len = math.min(ref.length, src.length);
+    if (len < 4) return;
+
+    // Calculate difference in 8 bands
+    const numBands = 8;
+    final bandSize = len ~/ numBands;
+    for (int i = 0; i < numBands; i++) {
+      double sumDiff = 0;
+      for (int j = i * bandSize; j < (i + 1) * bandSize && j < len; j++) {
+        sumDiff += ref[j] - src[j];
+      }
+      final avgDiff = sumDiff / bandSize;
+      final gain = (avgDiff * _matchAmount).clamp(-12.0, 12.0);
+      if (gain.abs() < 0.5) continue; // skip near-zero bands
+
+      // Map band index to frequency
+      final freq = 20.0 * math.pow(20000.0 / 20.0, (i + 0.5) / numBands);
+      _addBand(freq, EqFilterShape.bell);
+      if (_bands.isNotEmpty) {
+        _bands.last.gain = gain;
+        _bands.last.q = 1.0;
+        _syncBand(_bands.length - 1);
+      }
+    }
+  }
+
+  // E8.4: Full-screen EQ display
+  void _showFullscreen(BuildContext ctx) {
+    showDialog(
+      context: ctx,
+      barrierColor: Colors.black87,
+      builder: (_) => Dialog.fullscreen(
+        backgroundColor: const Color(0xFF08080C),
+        child: Stack(children: [
+          FabFilterEqPanel(
+            trackId: widget.trackId,
+            slotIndex: widget.slotIndex,
+            sampleRate: widget.sampleRate,
+            onSettingsChanged: widget.onSettingsChanged,
+          ),
+          Positioned(
+            top: 8, right: 8,
+            child: GestureDetector(
+              onTap: () => Navigator.of(ctx).pop(),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: const Color(0x44FFFFFF),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Icon(Icons.fullscreen_exit, size: 18, color: Colors.white70),
+              ),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  // E5.4: Bypass bands by shape type
+  void _bypassByShape(Set<EqFilterShape> shapes) {
+    _pushUndo();
+    setState(() {
+      for (final b in _bands) {
+        if (shapes.contains(b.shape)) {
+          b.enabled = false;
+          _setP(b.index, _P.enabled, 0.0);
+        }
+      }
+    });
+    _recalcCurves();
+  }
+
+  void _enableAllBands() {
+    _pushUndo();
+    setState(() {
+      for (final b in _bands) {
+        b.enabled = true;
+        _setP(b.index, _P.enabled, 1.0);
+      }
+    });
+    _recalcCurves();
   }
 
   void _resetEq() {
     if (_slotIndex < 0) return;
+    _pushUndo(); // E5.1
     for (int i = 0; i < 64; i++) {
       _setP(i, _P.enabled, 0.0);
       _setP(i, _P.gain, 0.0);
@@ -1095,6 +2328,7 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
       _selectedBandIndex = null;
       _outputGain = 0.0;
     });
+    _recalcCurves();
     _ffi.insertSetParam(widget.trackId, _slotIndex, _P.outputGainIndex, 0.0);
     widget.onSettingsChanged?.call();
   }
@@ -1116,8 +2350,8 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     const lo = 1.0, hi = 4.477;
     return math.pow(10, lo + (x / w) * (hi - lo)).toDouble();
   }
-  static double _gainToY(double g, double h) => h / 2 - (g / 30) * (h / 2);
-  static double _yToGain(double y, double h) => ((h / 2 - y) / (h / 2)) * 30;
+  double _gainToY(double g, double h) => h / 2 - (g / _gainScale) * (h / 2);
+  double _yToGain(double y, double h) => ((h / 2 - y) / (h / 2)) * _gainScale;
 
   double _freqToNorm(double f) => (math.log(f.clamp(10, 30000) / 10) / math.log(30000 / 10)).clamp(0.0, 1.0);
   double _normToFreq(double n) => (10 * math.pow(30000 / 10, n)).toDouble();
@@ -1136,6 +2370,14 @@ class _FabFilterEqPanelState extends State<FabFilterEqPanel>
     EqFilterShape.tiltShelf => FabFilterColors.cyan,
     EqFilterShape.allPass => FabFilterColors.textTertiary,
   };
+
+  /// E8.2: Frequency-based color (spectral rainbow: red→orange→yellow→green→cyan→blue→purple)
+  static Color _freqColor(double freq) {
+    // Map 20Hz-20kHz log scale to 0.0-1.0
+    final t = ((math.log(freq.clamp(20, 20000)) / math.ln10 - 1.301) / (4.301 - 1.301)).clamp(0.0, 1.0);
+    // HSV hue: 0° (red, low freq) → 270° (purple, high freq)
+    return HSVColor.fromAHSV(1.0, t * 270.0, 0.8, 0.9).toColor();
+  }
 
   static EqFilterShape _intToShape(int v) => v >= 0 && v < EqFilterShape.values.length
       ? EqFilterShape.values[v] : EqFilterShape.bell;
@@ -1219,6 +2461,22 @@ class _EqDisplayPainter extends CustomPainter {
   final bool analyzerOn;
   final Offset? previewPos;
   final bool isDragging;
+  /// Pre-calculated per-band magnitude curves (dB), 512 points each.
+  final List<Float64List> bandCurves;
+  /// Pre-calculated composite magnitude curve (dB), 512 points.
+  final Float64List compositeCurve;
+  /// Log-spaced frequency array corresponding to curve points.
+  final Float64List curveFrequencies;
+  /// Gain display scale in dB (E7.5)
+  final double gainScale;
+  /// E2.4: Frozen spectrum snapshot
+  final List<double> frozenSpectrum;
+  /// E4.1: Phase curve in degrees
+  final Float64List? phaseCurve;
+  /// E4.2: Show group delay
+  final bool showGroupDelay;
+  /// E8.2: Color by frequency
+  final bool freqColorMode;
 
   _EqDisplayPainter({
     required this.bands,
@@ -1229,6 +2487,14 @@ class _EqDisplayPainter extends CustomPainter {
     required this.analyzerOn,
     required this.previewPos,
     required this.isDragging,
+    required this.bandCurves,
+    required this.compositeCurve,
+    required this.curveFrequencies,
+    this.gainScale = 30.0,
+    this.frozenSpectrum = const [],
+    this.phaseCurve,
+    this.showGroupDelay = false,
+    this.freqColorMode = false,
   });
 
   @override
@@ -1244,6 +2510,8 @@ class _EqDisplayPainter extends CustomPainter {
     _drawGrid(canvas, size);
     if (analyzerOn && spectrum.isNotEmpty) _drawSpectrum(canvas, size);
     _drawEqCurve(canvas, size);
+    if (phaseCurve != null) _drawPhaseCurve(canvas, size);
+    if (showGroupDelay && phaseCurve != null) _drawGroupDelay(canvas, size);
     if (previewPos != null && !isDragging) _drawPreview(canvas, previewPos!);
     _drawNodes(canvas, size);
     _drawFreqAxis(canvas, size);
@@ -1265,15 +2533,18 @@ class _EqDisplayPainter extends CustomPainter {
     canvas.drawLine(Offset(0, cy), Offset(size.width, cy),
       Paint()..color = const Color(0xFF2A2A38)..strokeWidth = 1);
 
-    // dB grid lines + labels
+    // dB grid lines + labels — adapt to gain scale
     final tp = TextPainter(textDirection: TextDirection.ltr);
-    for (final db in [-24.0, -18.0, -12.0, -6.0, 6.0, 12.0, 18.0, 24.0]) {
-      final y = cy - (db / 30) * cy;
+    final gridStep = gainScale <= 12 ? 3.0 : 6.0;
+    for (double db = -gainScale + gridStep; db < gainScale; db += gridStep) {
+      if (db == 0) continue;
+      final y = cy - (db / gainScale) * cy;
       canvas.drawLine(Offset(0, y), Offset(size.width, y), thinP);
     }
     // dB labels on left edge
-    for (final db in [-24, -12, 0, 12, 24]) {
-      final y = cy - (db / 30) * cy;
+    final labelStep = gainScale <= 12 ? 6 : 12;
+    for (int db = -(gainScale.toInt()); db <= gainScale.toInt(); db += labelStep) {
+      final y = cy - (db / gainScale) * cy;
       tp.text = TextSpan(
         text: '${db > 0 ? '+' : ''}$db',
         style: TextStyle(
@@ -1379,20 +2650,47 @@ class _EqDisplayPainter extends CustomPainter {
         ..strokeWidth = 0.7
         ..style = PaintingStyle.stroke);
     }
+
+    // E2.4: Frozen spectrum overlay (white dashed)
+    if (frozenSpectrum.isNotEmpty) {
+      final frozenPath = Path();
+      for (int i = 0; i < frozenSpectrum.length; i++) {
+        final x = (i / (frozenSpectrum.length - 1)) * size.width;
+        final y = size.height - ((frozenSpectrum[i].clamp(-80.0, 0.0) + 80) / 80) * size.height;
+        i == 0 ? frozenPath.moveTo(x, y) : frozenPath.lineTo(x, y);
+      }
+      canvas.drawPath(frozenPath, Paint()
+        ..color = const Color(0x66FFFFFF)
+        ..strokeWidth = 1.0
+        ..style = PaintingStyle.stroke);
+    }
   }
 
   void _drawEqCurve(Canvas canvas, Size size) {
-    if (bands.isEmpty) return;
-    final path = Path();
+    if (bands.isEmpty && compositeCurve.every((v) => v == 0)) return;
     final cy = size.height / 2;
+    final n = compositeCurve.length;
+
+    // Helper: interpolate dB from cached curve at pixel x position
+    double _interpolateDb(Float64List curve, double freq) {
+      // Binary search in curveFrequencies
+      int lo = 0, hi = n - 1;
+      if (freq <= curveFrequencies[0]) return curve[0];
+      if (freq >= curveFrequencies[n - 1]) return curve[n - 1];
+      while (hi - lo > 1) {
+        final mid = (lo + hi) ~/ 2;
+        if (curveFrequencies[mid] <= freq) { lo = mid; } else { hi = mid; }
+      }
+      final t = (freq - curveFrequencies[lo]) / (curveFrequencies[hi] - curveFrequencies[lo]);
+      return curve[lo] + (curve[hi] - curve[lo]) * t;
+    }
+
+    // Draw composite curve from cached data
+    final path = Path();
     for (int px = 0; px <= size.width.toInt(); px++) {
       final f = _xf(px.toDouble(), size.width);
-      double db = 0;
-      for (final b in bands) {
-        if (!b.enabled) continue;
-        db += _bandResponse(f, b);
-      }
-      final y = (cy - (db / 30) * cy).clamp(0.0, size.height);
+      final db = _interpolateDb(compositeCurve, f);
+      final y = (cy - (db / gainScale) * cy).clamp(0.0, size.height);
       px == 0 ? path.moveTo(px.toDouble(), y) : path.lineTo(px.toDouble(), y);
     }
 
@@ -1415,15 +2713,16 @@ class _EqDisplayPainter extends CustomPainter {
       final isSel = bi == selectedIdx;
       final isHov = bi == hoverIdx;
       if (!isSel && !isHov) continue;
+      if (bi >= bandCurves.length) continue;
       final bPath = Path();
       for (int px = 0; px <= size.width.toInt(); px += 2) {
         final f = _xf(px.toDouble(), size.width);
-        final bdb = _bandResponse(f, b);
-        final y = (cy - (bdb / 30) * cy).clamp(0.0, size.height);
+        final bdb = _interpolateDb(bandCurves[bi], f);
+        final y = (cy - (bdb / gainScale) * cy).clamp(0.0, size.height);
         px == 0 ? bPath.moveTo(px.toDouble(), y) : bPath.lineTo(px.toDouble(), y);
       }
       final bFill = Path.from(bPath)..lineTo(size.width, cy)..lineTo(0, cy)..close();
-      final bc = _shapeColor(b.shape);
+      final bc = freqColorMode ? _FabFilterEqPanelState._freqColor(b.freq) : _shapeColor(b.shape);
       canvas.drawPath(bFill, Paint()..color = bc.withValues(alpha: isSel ? 0.12 : 0.06));
       canvas.drawPath(bPath, Paint()
         ..color = bc.withValues(alpha: isSel ? 0.5 : 0.3)
@@ -1437,6 +2736,81 @@ class _EqDisplayPainter extends CustomPainter {
       ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round);
+  }
+
+  // E4.1: Phase response curve (orange, ±180°)
+  void _drawPhaseCurve(Canvas canvas, Size size) {
+    final pc = phaseCurve;
+    if (pc == null || pc.isEmpty) return;
+    final cy = size.height / 2;
+    final n = pc.length;
+
+    final path = Path();
+    for (int px = 0; px <= size.width.toInt(); px += 2) {
+      final f = _xf(px.toDouble(), size.width);
+      // Interpolate phase from cached curve
+      int lo = 0, hi = n - 1;
+      if (f <= curveFrequencies[0]) { lo = 0; hi = 0; }
+      else if (f >= curveFrequencies[n - 1]) { lo = n - 1; hi = n - 1; }
+      else {
+        while (hi - lo > 1) {
+          final mid = (lo + hi) ~/ 2;
+          if (curveFrequencies[mid] <= f) { lo = mid; } else { hi = mid; }
+        }
+      }
+      final t = hi == lo ? 0.0 : (f - curveFrequencies[lo]) / (curveFrequencies[hi] - curveFrequencies[lo]);
+      final deg = pc[lo] + (pc[hi] - pc[lo]) * t;
+      // Map ±180° to display height
+      final y = (cy - (deg / 180.0) * cy).clamp(0.0, size.height);
+      px == 0 ? path.moveTo(px.toDouble(), y) : path.lineTo(px.toDouble(), y);
+    }
+    canvas.drawPath(path, Paint()
+      ..color = const Color(0xAAFF8C40)
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke);
+
+    // Phase axis labels (right side)
+    final tp = TextPainter(textDirection: TextDirection.ltr);
+    for (final deg in [-180, -90, 0, 90, 180]) {
+      final y = cy - (deg / 180.0) * cy;
+      tp.text = TextSpan(
+        text: '${deg}°',
+        style: const TextStyle(color: Color(0x66FF8C40), fontSize: 7),
+      );
+      tp.layout();
+      tp.paint(canvas, Offset(size.width - tp.width - 3, y - tp.height / 2));
+    }
+  }
+
+  // E4.2: Group delay (green, derived from phase)
+  void _drawGroupDelay(Canvas canvas, Size size) {
+    final pc = phaseCurve;
+    if (pc == null || pc.length < 3) return;
+    final cy = size.height / 2;
+    final n = pc.length;
+
+    // Group delay = -dφ/dω, approximate via finite differences
+    // Convert degrees back to radians for derivative, then to ms
+    final path = Path();
+    double maxGd = 0.01;
+    final gdValues = <double>[];
+    for (int i = 1; i < n - 1; i++) {
+      final dPhase = (pc[i + 1] - pc[i - 1]) * math.pi / 180.0; // radians
+      final dOmega = 2.0 * math.pi * (curveFrequencies[i + 1] - curveFrequencies[i - 1]);
+      final gd = dOmega > 0 ? -dPhase / dOmega * 1000.0 : 0.0; // ms
+      gdValues.add(gd);
+      if (gd.abs() > maxGd) maxGd = gd.abs();
+    }
+    // Normalize to display height
+    for (int i = 0; i < gdValues.length; i++) {
+      final px = _fx(curveFrequencies[i + 1], size.width);
+      final y = (cy - (gdValues[i] / maxGd) * cy * 0.8).clamp(0.0, size.height);
+      i == 0 ? path.moveTo(px, y) : path.lineTo(px, y);
+    }
+    canvas.drawPath(path, Paint()
+      ..color = const Color(0xAA40CC80)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke);
   }
 
   void _drawPreview(Canvas canvas, Offset pos) {
@@ -1458,11 +2832,58 @@ class _EqDisplayPainter extends CustomPainter {
       final b = bands[i];
       if (!b.enabled) continue;
       final x = _fx(b.freq, size.width);
-      final y = (cy - (b.gain / 30) * cy).clamp(6.0, size.height - 6);
-      final c = _shapeColor(b.shape);
+      final y = (cy - (b.gain / gainScale) * cy).clamp(6.0, size.height - 6);
+      final c = freqColorMode ? _FabFilterEqPanelState._freqColor(b.freq) : _shapeColor(b.shape);
       final sel = i == selectedIdx;
       final hov = i == hoverIdx;
       final r = sel ? 8.0 : (hov ? 7.0 : 5.0);
+
+      // ─── Q ring visualization (Pro-Q style bandwidth indicator) ─────
+      if (sel || hov) {
+        // Bandwidth edges: f_low = f / k, f_high = f * k, where k = 2^(1/(2*Q))
+        final q = b.q.clamp(0.05, 50.0);
+        final k = math.pow(2, 1 / (2 * q));
+        final fLow = b.freq / k;
+        final fHigh = b.freq * k;
+        final xLow = _fx(fLow, size.width);
+        final xHigh = _fx(fHigh, size.width);
+        final qWidth = (xHigh - xLow).abs();
+
+        // Only draw Q ring for shapes that have meaningful Q
+        final hasQ = b.shape == EqFilterShape.bell ||
+            b.shape == EqFilterShape.notch ||
+            b.shape == EqFilterShape.bandPass ||
+            b.shape == EqFilterShape.allPass;
+        if (hasQ && qWidth > 4) {
+          // Elliptical Q ring — horizontal radius = bandwidth, vertical = proportional
+          final rx = qWidth / 2;
+          final ry = (rx * 0.6).clamp(12.0, size.height * 0.4);
+          final ringRect = Rect.fromCenter(
+            center: Offset(x, y),
+            width: rx * 2,
+            height: ry * 2,
+          );
+          // Fill
+          canvas.drawOval(ringRect, Paint()
+            ..color = c.withValues(alpha: sel ? 0.08 : 0.04));
+          // Stroke
+          canvas.drawOval(ringRect, Paint()
+            ..color = c.withValues(alpha: sel ? 0.35 : 0.2)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = sel ? 1.2 : 0.8);
+        }
+      }
+
+      // E8.6: Audio-reactive glow — node glows proportional to energy at band frequency
+      if (analyzerOn && spectrum.isNotEmpty) {
+        final binIdx = ((math.log(b.freq.clamp(20, 20000)) / math.ln10 - 1.301) / (4.301 - 1.301) * (spectrum.length - 1)).round().clamp(0, spectrum.length - 1);
+        final energy = ((spectrum[binIdx] + 80) / 80).clamp(0.0, 1.0); // 0=silent, 1=full
+        if (energy > 0.1) {
+          canvas.drawCircle(Offset(x, y), r + 8 + energy * 6, Paint()
+            ..color = c.withValues(alpha: energy * 0.25)
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, 3 + energy * 4));
+        }
+      }
 
       // Outer glow
       if (sel || hov) {
@@ -1494,6 +2915,38 @@ class _EqDisplayPainter extends CustomPainter {
       // Highlight dot
       canvas.drawCircle(Offset(x - r * 0.25, y - r * 0.25), r * 0.25,
         Paint()..color = Colors.white.withValues(alpha: 0.4));
+
+      // E3.6: Band number label on node
+      if (r >= 7.0) {
+        // Show band number on selected/hovered nodes
+        tp.text = TextSpan(
+          text: '${i + 1}',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 7,
+            fontWeight: FontWeight.bold,
+          ),
+        );
+        tp.layout();
+        tp.paint(canvas, Offset(x - tp.width / 2, y - tp.height / 2));
+      }
+
+      // E3.7: Slope label for cut filters (on selected/hovered)
+      if ((sel || hov) && (b.shape == EqFilterShape.lowCut ||
+          b.shape == EqFilterShape.highCut || b.shape == EqFilterShape.brickwall)) {
+        final slopeLbl = b.slope.label;
+        tp.text = TextSpan(
+          text: '$slopeLbl dB',
+          style: TextStyle(
+            color: c.withValues(alpha: 0.7),
+            fontSize: 7,
+            fontWeight: FontWeight.bold,
+          ),
+        );
+        tp.layout();
+        final sx = b.shape == EqFilterShape.lowCut ? x + r + 4 : x - r - tp.width - 4;
+        tp.paint(canvas, Offset(sx, y + r + 2));
+      }
 
       // Dynamic EQ indicator
       if (b.dynamicEnabled) {
@@ -1534,6 +2987,30 @@ class _EqDisplayPainter extends CustomPainter {
         tp.paint(canvas, Offset(tx, ty));
       }
     }
+
+    // E7.3: Collision detection — orange dot between overlapping bands
+    final enabledBands = <int>[];
+    for (int i = 0; i < bands.length; i++) {
+      if (bands[i].enabled) enabledBands.add(i);
+    }
+    for (int a = 0; a < enabledBands.length; a++) {
+      for (int b = a + 1; b < enabledBands.length; b++) {
+        final ba = bands[enabledBands[a]], bb = bands[enabledBands[b]];
+        // Check if within 1/3 octave of each other
+        final ratio = ba.freq > bb.freq ? ba.freq / bb.freq : bb.freq / ba.freq;
+        if (ratio < 1.26) { // ~1/3 octave
+          final mx = _fx((ba.freq + bb.freq) / 2, size.width);
+          final ya = cy - (ba.gain / gainScale) * cy;
+          final yb = cy - (bb.gain / gainScale) * cy;
+          final my = (ya + yb) / 2;
+          canvas.drawCircle(Offset(mx, my), 3.5, Paint()
+            ..color = const Color(0xCCFF8C00)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
+          canvas.drawCircle(Offset(mx, my), 2, Paint()
+            ..color = const Color(0xFFFF8C00));
+        }
+      }
+    }
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -1547,27 +3024,12 @@ class _EqDisplayPainter extends CustomPainter {
     return math.pow(10, lo + (x / w) * (hi - lo)).toDouble();
   }
 
-  static double _bandResponse(double freq, EqBand band) {
-    final ratio = freq / band.freq;
-    final lr = math.log(ratio) / math.ln2;
-    return switch (band.shape) {
-      EqFilterShape.bell => band.gain * math.exp(-math.pow(lr * band.q, 2)),
-      EqFilterShape.lowShelf => band.gain * (1 - 1 / (1 + math.exp(-lr * 4))),
-      EqFilterShape.highShelf => band.gain * (1 / (1 + math.exp(-lr * 4))),
-      EqFilterShape.lowCut => ratio < 1 ? -30 * (1 - ratio) : 0,
-      EqFilterShape.highCut => ratio > 1 ? -30 * (ratio - 1) : 0,
-      EqFilterShape.notch => -30.0 * math.exp(-math.pow(lr * band.q * 2, 2)),
-      EqFilterShape.bandPass => math.exp(-math.pow(lr * band.q, 2)) * 12 - 6,
-      EqFilterShape.tiltShelf => band.gain * lr.clamp(-2.0, 2.0) / 2,
-      EqFilterShape.allPass || EqFilterShape.brickwall => 0,
-    };
-  }
-
   static Color _shapeColor(EqFilterShape s) => _FabFilterEqPanelState._shapeColor(s);
 
   @override
   bool shouldRepaint(covariant _EqDisplayPainter old) =>
     bands != old.bands || selectedIdx != old.selectedIdx || hoverIdx != old.hoverIdx ||
     spectrum != old.spectrum || peakHold != old.peakHold || analyzerOn != old.analyzerOn ||
-    previewPos != old.previewPos || isDragging != old.isDragging;
+    previewPos != old.previewPos || isDragging != old.isDragging ||
+    !identical(compositeCurve, old.compositeCurve);
 }
