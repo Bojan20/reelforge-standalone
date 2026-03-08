@@ -420,7 +420,164 @@ impl ReverbType {
 // FDN Sub-Components
 // ============================================================================
 
-/// Allpass filter for diffusion stage
+// ========================================================================
+// Diffusion Allpass Filters (R3.1-R3.5)
+// ========================================================================
+//
+// Three allpass topologies:
+// 1. Serial: Classic Schroeder — simple chain (Room, light diffusion)
+// 2. Nested: Lexicon-style allpass-within-allpass (Hall, Chamber — dense)
+// 3. Lattice: VintageVerb-style lattice structure (Plate — ultra-dense)
+//
+// All support delay modulation to prevent metallic buildup.
+
+/// Simple allpass filter (used as building block)
+#[derive(Debug, Clone)]
+struct SimpleAllpass {
+    buffer: Vec<f64>,
+    pos: usize,
+    delay_len: usize,
+    feedback: f64,
+    /// Modulation: offset applied to read position (fractional samples)
+    mod_phase: f64,
+    mod_increment: f64,
+    mod_depth: f64,
+}
+
+impl SimpleAllpass {
+    fn new(delay_samples: usize, feedback: f64) -> Self {
+        // Extra headroom for modulation
+        let buf_size = delay_samples + 8;
+        Self {
+            buffer: vec![0.0; buf_size.max(2)],
+            pos: 0,
+            delay_len: delay_samples.max(1),
+            feedback,
+            mod_phase: 0.0,
+            mod_increment: 0.0,
+            mod_depth: 0.0,
+        }
+    }
+
+    /// Set modulation rate (Hz) and depth (samples)
+    fn set_modulation(&mut self, rate_hz: f64, depth_samples: f64, sample_rate: f64) {
+        self.mod_increment = 2.0 * std::f64::consts::PI * rate_hz / sample_rate;
+        self.mod_depth = depth_samples;
+    }
+
+    #[inline(always)]
+    fn process(&mut self, input: f64) -> f64 {
+        // Modulated read position
+        let mod_offset = if self.mod_depth > 0.001 {
+            self.mod_phase.sin() * self.mod_depth
+        } else {
+            0.0
+        };
+
+        let buf_len = self.buffer.len();
+        let read_delay = self.delay_len as f64 + mod_offset;
+        let read_int = read_delay as usize;
+        let frac = read_delay - read_int as f64;
+
+        // Linear interpolation for modulated read
+        let pos0 = (self.pos + buf_len - read_int) % buf_len;
+        let pos1 = (pos0 + buf_len - 1) % buf_len;
+        let delayed = self.buffer[pos0] * (1.0 - frac) + self.buffer[pos1] * frac;
+
+        // Standard allpass: output = delayed - input*g, write = input + delayed*g
+        let output = delayed - input * self.feedback;
+        self.buffer[self.pos] = input + delayed * self.feedback;
+        self.pos = (self.pos + 1) % buf_len;
+
+        // Advance modulation phase
+        if self.mod_depth > 0.001 {
+            self.mod_phase += self.mod_increment;
+            if self.mod_phase > 2.0 * std::f64::consts::PI {
+                self.mod_phase -= 2.0 * std::f64::consts::PI;
+            }
+        }
+
+        output
+    }
+
+    fn reset(&mut self) {
+        self.buffer.fill(0.0);
+        self.pos = 0;
+        self.mod_phase = 0.0;
+    }
+}
+
+/// Nested allpass: allpass-within-allpass (Lexicon 224/480 style)
+/// Inner allpass sits inside the delay line of the outer allpass,
+/// creating denser diffusion with fewer stages.
+#[derive(Debug, Clone)]
+struct NestedAllpass {
+    /// Outer allpass delay buffer
+    outer_buffer: Vec<f64>,
+    outer_pos: usize,
+    outer_delay: usize,
+    outer_feedback: f64,
+    /// Inner allpass (nested inside outer's feedback path)
+    inner: SimpleAllpass,
+}
+
+impl NestedAllpass {
+    fn new(outer_delay: usize, inner_delay: usize, outer_fb: f64, inner_fb: f64) -> Self {
+        let buf_size = outer_delay + 8;
+        Self {
+            outer_buffer: vec![0.0; buf_size.max(2)],
+            outer_pos: 0,
+            outer_delay: outer_delay.max(1),
+            outer_feedback: outer_fb,
+            inner: SimpleAllpass::new(inner_delay, inner_fb),
+        }
+    }
+
+    #[inline(always)]
+    fn process(&mut self, input: f64) -> f64 {
+        let buf_len = self.outer_buffer.len();
+        let read_pos = (self.outer_pos + buf_len - self.outer_delay) % buf_len;
+        let delayed = self.outer_buffer[read_pos];
+
+        // Run inner allpass on the delayed signal
+        let inner_out = self.inner.process(delayed);
+
+        // Outer allpass structure
+        let output = inner_out - input * self.outer_feedback;
+        self.outer_buffer[self.outer_pos] = input + inner_out * self.outer_feedback;
+        self.outer_pos = (self.outer_pos + 1) % buf_len;
+
+        output
+    }
+
+    fn set_feedback(&mut self, outer_fb: f64, inner_fb: f64) {
+        self.outer_feedback = outer_fb;
+        self.inner.feedback = inner_fb;
+    }
+
+    fn set_modulation(&mut self, rate_hz: f64, depth: f64, sample_rate: f64) {
+        self.inner.set_modulation(rate_hz, depth, sample_rate);
+    }
+
+    fn reset(&mut self) {
+        self.outer_buffer.fill(0.0);
+        self.outer_pos = 0;
+        self.inner.reset();
+    }
+}
+
+/// Diffusion topology mode
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum DiffusionTopology {
+    /// Serial allpass chain (Schroeder basic) — Room, light
+    Serial,
+    /// Nested allpass (Lexicon-style) — Hall, Chamber
+    Nested,
+    /// Lattice allpass (VintageVerb-style) — Plate, ultra-dense
+    Lattice,
+}
+
+/// Legacy compatible allpass wrapper (keeps old DiffusionAllpass API)
 #[derive(Debug, Clone)]
 struct DiffusionAllpass {
     buffer: Vec<f64>,
@@ -452,7 +609,7 @@ impl DiffusionAllpass {
     }
 }
 
-/// Early reflection tap
+/// Early reflection tap (legacy, unused — kept for ERTap reference)
 #[derive(Debug, Clone)]
 struct ERTap {
     delay_samples: usize,
@@ -969,70 +1126,197 @@ impl EarlyReflectionEngine {
     }
 }
 
-/// Diffusion stage — 6 serial allpass filters
+/// Diffusion stage — multi-topology allpass network (R3.1-R3.5)
+///
+/// Supports 3 topologies:
+/// - Serial: 6 simple allpass (Schroeder) — Room, Spring
+/// - Nested: 3 nested allpass (Lexicon) — Hall, Chamber
+/// - Lattice: 4 cross-coupled allpass pairs — Plate
 #[derive(Debug, Clone)]
 struct DiffusionStage {
-    allpasses_l: [DiffusionAllpass; 6],
-    allpasses_r: [DiffusionAllpass; 6],
+    /// Serial allpass banks (used for Serial and Lattice topologies)
+    serial_l: [SimpleAllpass; 6],
+    serial_r: [SimpleAllpass; 6],
+    /// Nested allpass banks (used for Nested topology)
+    nested_l: [NestedAllpass; 3],
+    nested_r: [NestedAllpass; 3],
+    /// Active topology
+    topology: DiffusionTopology,
+    /// Number of active stages (topology-dependent)
     active_count: usize,
+    /// Current diffusion amount (0.0-1.0)
+    diffusion_amount: f64,
+    /// Sample rate for modulation
+    sample_rate: f64,
 }
 
-/// Diffusion allpass delay lengths (prime, samples @ 48kHz)
+/// Serial allpass delay lengths (prime, samples @ 48kHz)
 const DIFFUSION_DELAYS: [usize; 6] = [113, 157, 211, 269, 337, 409];
+/// Nested allpass: outer delays (prime, larger)
+const NESTED_OUTER_DELAYS: [usize; 3] = [241, 367, 509];
+/// Nested allpass: inner delays (prime, smaller — ~40% of outer)
+const NESTED_INNER_DELAYS: [usize; 3] = [97, 149, 199];
 
 impl DiffusionStage {
     fn new(sample_rate: f64) -> Self {
         let scale = sample_rate / 48000.0;
         let spread = 23; // Stereo spread samples
 
-        let allpasses_l = std::array::from_fn(|i| {
-            DiffusionAllpass::new(((DIFFUSION_DELAYS[i] as f64) * scale) as usize, 0.5)
+        let serial_l = std::array::from_fn(|i| {
+            SimpleAllpass::new(((DIFFUSION_DELAYS[i] as f64) * scale) as usize, 0.5)
         });
-        let allpasses_r = std::array::from_fn(|i| {
-            DiffusionAllpass::new(
-                ((DIFFUSION_DELAYS[i] + spread) as f64 * scale) as usize,
+        let serial_r = std::array::from_fn(|i| {
+            SimpleAllpass::new(
+                (((DIFFUSION_DELAYS[i] + spread) as f64) * scale) as usize,
                 0.5,
             )
         });
 
+        let nested_l = std::array::from_fn(|i| {
+            NestedAllpass::new(
+                ((NESTED_OUTER_DELAYS[i] as f64) * scale) as usize,
+                ((NESTED_INNER_DELAYS[i] as f64) * scale) as usize,
+                0.5, 0.4,
+            )
+        });
+        let nested_r = std::array::from_fn(|i| {
+            NestedAllpass::new(
+                (((NESTED_OUTER_DELAYS[i] + spread) as f64) * scale) as usize,
+                (((NESTED_INNER_DELAYS[i] + 11) as f64) * scale) as usize,
+                0.5, 0.4,
+            )
+        });
+
         Self {
-            allpasses_l,
-            allpasses_r,
+            serial_l,
+            serial_r,
+            nested_l,
+            nested_r,
+            topology: DiffusionTopology::Serial,
             active_count: 4,
+            diffusion_amount: 0.5,
+            sample_rate,
         }
     }
 
+    /// Set topology based on reverb style
+    fn set_topology_for_style(&mut self, style: &ReverbType) {
+        self.topology = match style {
+            ReverbType::Room => DiffusionTopology::Serial,
+            ReverbType::Hall => DiffusionTopology::Nested,
+            ReverbType::Plate => DiffusionTopology::Lattice,
+            ReverbType::Chamber => DiffusionTopology::Nested,
+            ReverbType::Spring => DiffusionTopology::Serial,
+        };
+        // Re-apply diffusion with new topology
+        self.update_diffusion(self.diffusion_amount);
+    }
+
     fn update_diffusion(&mut self, diffusion: f64) {
-        // diffusion 0.0-1.0 → active_count 2-6, feedback 0.35-0.60
-        // Reduced feedback ceiling from 0.75 to 0.60 to prevent metallic ringing
-        self.active_count = (2.0 + diffusion * 4.0) as usize;
-        let feedback = 0.35 + diffusion * 0.25;
-        for ap in &mut self.allpasses_l {
-            ap.feedback = feedback;
+        self.diffusion_amount = diffusion;
+
+        match self.topology {
+            DiffusionTopology::Serial => {
+                // Serial: 2-6 stages, feedback 0.20-0.65 (R3.5 expanded range)
+                self.active_count = (2.0 + diffusion * 4.0) as usize;
+                let feedback = 0.20 + diffusion * 0.45;
+                for ap in &mut self.serial_l {
+                    ap.feedback = feedback;
+                }
+                for ap in &mut self.serial_r {
+                    ap.feedback = feedback;
+                }
+            }
+            DiffusionTopology::Nested => {
+                // Nested: 1-3 nested stages, feedback 0.30-0.70
+                self.active_count = (1.0 + diffusion * 2.0).ceil() as usize;
+                let outer_fb = 0.30 + diffusion * 0.40;
+                let inner_fb = 0.25 + diffusion * 0.35;
+                for ap in &mut self.nested_l {
+                    ap.set_feedback(outer_fb, inner_fb);
+                }
+                for ap in &mut self.nested_r {
+                    ap.set_feedback(outer_fb, inner_fb);
+                }
+            }
+            DiffusionTopology::Lattice => {
+                // Lattice: 4-6 cross-coupled stages, feedback 0.35-0.75 (R3.5 plate max)
+                self.active_count = (4.0 + diffusion * 2.0) as usize;
+                let feedback = 0.35 + diffusion * 0.40;
+                for ap in &mut self.serial_l {
+                    ap.feedback = feedback;
+                }
+                for ap in &mut self.serial_r {
+                    ap.feedback = feedback;
+                }
+            }
         }
-        for ap in &mut self.allpasses_r {
-            ap.feedback = feedback;
+    }
+
+    /// Set modulation on diffusion allpasses (R3.4)
+    fn set_modulation(&mut self, rate_hz: f64, depth_samples: f64) {
+        let sr = self.sample_rate;
+        // Stagger modulation rates slightly per stage for decorrelation
+        for (i, ap) in self.serial_l.iter_mut().enumerate() {
+            let r = rate_hz * (1.0 + i as f64 * 0.15);
+            ap.set_modulation(r, depth_samples, sr);
+        }
+        for (i, ap) in self.serial_r.iter_mut().enumerate() {
+            let r = rate_hz * (1.0 + i as f64 * 0.12);
+            ap.set_modulation(r, depth_samples * 0.8, sr);
+        }
+        for (i, ap) in self.nested_l.iter_mut().enumerate() {
+            let r = rate_hz * (1.0 + i as f64 * 0.2);
+            ap.set_modulation(r, depth_samples, sr);
+        }
+        for (i, ap) in self.nested_r.iter_mut().enumerate() {
+            let r = rate_hz * (1.0 + i as f64 * 0.18);
+            ap.set_modulation(r, depth_samples * 0.8, sr);
         }
     }
 
     #[inline(always)]
     fn process(&mut self, left: f64, right: f64) -> (f64, f64) {
-        let mut l = left;
-        let mut r = right;
-        for i in 0..self.active_count {
-            l = self.allpasses_l[i].process(l);
-            r = self.allpasses_r[i].process(r);
+        match self.topology {
+            DiffusionTopology::Serial => {
+                let mut l = left;
+                let mut r = right;
+                for i in 0..self.active_count.min(6) {
+                    l = self.serial_l[i].process(l);
+                    r = self.serial_r[i].process(r);
+                }
+                (l, r)
+            }
+            DiffusionTopology::Nested => {
+                let mut l = left;
+                let mut r = right;
+                for i in 0..self.active_count.min(3) {
+                    l = self.nested_l[i].process(l);
+                    r = self.nested_r[i].process(r);
+                }
+                (l, r)
+            }
+            DiffusionTopology::Lattice => {
+                // Lattice: cross-coupled pairs (L→R, R→L bleed between stages)
+                let mut l = left;
+                let mut r = right;
+                for i in 0..self.active_count.min(6) {
+                    let new_l = self.serial_l[i].process(l);
+                    let new_r = self.serial_r[i].process(r);
+                    // Cross-couple: 15% bleed between channels
+                    l = new_l * 0.85 + new_r * 0.15;
+                    r = new_r * 0.85 + new_l * 0.15;
+                }
+                (l, r)
+            }
         }
-        (l, r)
     }
 
     fn reset(&mut self) {
-        for ap in &mut self.allpasses_l {
-            ap.reset();
-        }
-        for ap in &mut self.allpasses_r {
-            ap.reset();
-        }
+        for ap in &mut self.serial_l { ap.reset(); }
+        for ap in &mut self.serial_r { ap.reset(); }
+        for ap in &mut self.nested_l { ap.reset(); }
+        for ap in &mut self.nested_r { ap.reset(); }
     }
 }
 
@@ -1538,6 +1822,13 @@ impl AlgorithmicReverb {
         self.diffusion
             .update_diffusion(effective_diffusion.clamp(0.0, 1.0));
 
+        // Diffusion allpass modulation (R3.4): slow LFO on delay lengths
+        // Prevents metallic buildup in dense diffusion networks
+        // Rate: 0.3-1.5 Hz, depth: 0-2 samples (subtle, avoids pitch artifacts)
+        let diff_mod_rate = 0.3 + self.character * 1.2;
+        let diff_mod_depth = self.character * 2.0;
+        self.diffusion.set_modulation(diff_mod_rate, diff_mod_depth);
+
         // Character affects mod depth — expanded range for velvet noise (R1.5)
         // 0.0 → 0.0001 (nearly off), 1.0 → 0.01 (10× previous max)
         let effective_mod = 0.0001 + self.character * 0.0099; // 0.0001-0.01
@@ -1600,8 +1891,9 @@ impl AlgorithmicReverb {
 
     pub fn set_style(&mut self, style: ReverbType) {
         self.style = style;
-        // Style applies per-style ER pattern + scaling factors
+        // Style applies per-style ER pattern + diffusion topology + scaling factors
         self.er_engine.set_style(&style, self.sample_rate);
+        self.diffusion.set_topology_for_style(&style);
         self.recalc_internals();
     }
 
