@@ -693,8 +693,9 @@ impl PlaybackEngine {
         let decay = 0.9995_f32.powf(config.sample_rate().0 as f32 / 60.0);
         let channels = config.channels() as usize;
 
-        // Pre-allocated buffers for engine mode
-        let buffer_size = 1024;
+        // Pre-allocated buffers for engine mode (8192 = max realistic block size,
+        // eliminates Vec::resize() heap allocation on audio thread)
+        let buffer_size = 8192;
         let mut engine_output_l = vec![0.0f64; buffer_size];
         let mut engine_output_r = vec![0.0f64; buffer_size];
 
@@ -1443,7 +1444,7 @@ impl PlaybackEngine {
 
         let decay = 0.9995_f32.powf(config.sample_rate().0 as f32 / 60.0);
         let channels = config.channels() as usize;
-        let buffer_size = 1024;
+        let buffer_size = 8192; // Max realistic block size — no resize on audio thread
         let mut engine_output_l = vec![0.0f64; buffer_size];
         let mut engine_output_r = vec![0.0f64; buffer_size];
         let mut dsp_storage = DspStorage::new(sample_rate);
@@ -1782,7 +1783,7 @@ impl PlaybackEngine {
 
         let decay = 0.9995_f32.powf(config.sample_rate().0 as f32 / 60.0);
         let channels = config.channels() as usize;
-        let buffer_len = 1024;
+        let buffer_len = 8192; // Max realistic block size — no resize on audio thread
         let mut engine_output_l = vec![0.0f64; buffer_len];
         let mut engine_output_r = vec![0.0f64; buffer_len];
         let mut dsp_storage = DspStorage::new(actual_sample_rate);
