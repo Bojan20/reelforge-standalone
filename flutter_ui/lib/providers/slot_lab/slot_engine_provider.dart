@@ -428,9 +428,6 @@ class SlotEngineProvider extends ChangeNotifier {
       _updateFreeSpinsState();
       _updateStats();
 
-      final win = _lastResult?.totalWin ?? 0;
-      final isWin = _lastResult?.isWin ?? false;
-
       // Notify coordinator to trigger stage playback
       if (_lastResult != null) {
         onSpinComplete?.call(_lastResult!, _lastStages);
@@ -483,9 +480,6 @@ class SlotEngineProvider extends ChangeNotifier {
       _updateFreeSpinsState();
       _updateStats();
 
-      final win = _lastResult?.totalWin ?? 0;
-      final isWin = _lastResult?.isWin ?? false;
-
       if (_lastResult != null) {
         onSpinComplete?.call(_lastResult!, _lastStages);
       }
@@ -528,10 +522,6 @@ class SlotEngineProvider extends ChangeNotifier {
       _cachedStagesSpinId = _lastResult?.spinId;
       _updateFreeSpinsState();
       _updateStats();
-
-      final win = _lastResult?.totalWin ?? 0;
-      final isWin = _lastResult?.isWin ?? false;
-      final tierName = _lastResult?.winTierName ?? 'unknown';
 
       if (_lastResult != null) {
         onSpinComplete?.call(_lastResult!, _lastStages);
@@ -611,7 +601,7 @@ class SlotEngineProvider extends ChangeNotifier {
       _engineV2Initialized = false;
     }
 
-    final modelJson = model.toString();
+    final modelJson = jsonEncode(model);
     final success = _ffi.slotLabV2InitWithModelJson(modelJson);
     if (success) {
       _engineV2Initialized = true;
@@ -734,6 +724,8 @@ class SlotEngineProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    onSpinComplete = null;
+    onGridDimensionsChanged = null;
     shutdownEngineV2();
     shutdown();
     super.dispose();

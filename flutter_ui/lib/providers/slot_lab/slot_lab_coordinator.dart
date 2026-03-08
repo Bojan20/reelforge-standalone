@@ -83,8 +83,8 @@ class SlotLabCoordinator extends ChangeNotifier {
     try {
       final gameFlow = sl<GameFlowProvider>();
       gameFlow.onSpinComplete(result);
-    } catch (e) {
-      assert(() { debugPrint('GameFlow onSpinComplete error: $e'); return true; }());
+    } catch (_) {
+      // Silently ignore — GameFlowProvider may not be registered
     }
   }
 
@@ -366,8 +366,8 @@ class SlotLabCoordinator extends ChangeNotifier {
       final gameFlow = sl<GameFlowProvider>();
       if (gameFlow.isInTransition) return Future.value(null);
       gameFlow.onSpinStart();
-    } catch (e) {
-      assert(() { debugPrint('GameFlow onSpinStart error: $e'); return true; }());
+    } catch (_) {
+      // Silently ignore — GameFlowProvider may not be registered
     }
     return engineProvider.spin();
   }
@@ -577,6 +577,10 @@ class SlotLabCoordinator extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+
+    // Clear callbacks to release closure references
+    onAnticipationStart = null;
+    onAnticipationEnd = null;
 
     engineProvider.removeListener(_onSubProviderChanged);
     stageProvider.removeListener(_onSubProviderChanged);
