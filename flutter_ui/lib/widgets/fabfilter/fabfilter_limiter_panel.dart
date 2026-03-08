@@ -797,9 +797,9 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
       child: Column(
         children: [
           _buildLimiterHeader(),
-          // Scrolling waveform display
-          SizedBox(
-            height: 110,
+          // Scrolling waveform display — flex scales with panel size
+          Expanded(
+            flex: 2,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: _buildDisplay(),
@@ -807,6 +807,7 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
           ),
           // Controls
           Expanded(
+            flex: 3,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Column(
@@ -1732,7 +1733,6 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
 
   Widget _buildKnobs() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         _knob(
@@ -1825,14 +1825,14 @@ class _FabFilterLimiterPanelState extends State<FabFilterLimiterPanel>
     required Color color,
     required ValueChanged<double> onChanged,
   }) {
-    return FabFilterKnob(
+    return Expanded(child: FabFilterKnob(
       value: value.clamp(0.0, 1.0),
       label: label,
       display: display,
       color: color,
-      size: 48,
+      size: 40,
       onChanged: onChanged,
-    );
+    ));
   }
 
   // ─── OPTIONS ──────────────────────────────────────────────────────────

@@ -1145,10 +1145,16 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
         color: bus.color,
         volume: bus.volume,
         pan: bus.pan,
+        panRight: bus.panRight,
+        isStereo: bus.isStereo,
         muted: bus.muted,
         soloed: bus.soloed,
         peakL: bus.peakL,
         peakR: bus.peakR,
+        rmsL: bus.rmsL,
+        rmsR: bus.rmsR,
+        lufsShort: bus.lufsShort,
+        lufsIntegrated: bus.lufsIntegrated,
       );
     }).toList();
 
@@ -1240,8 +1246,9 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
           mixerProvider.setChannelVolumeWithUndo(id, volume);
         }
       },
-      onPanChange: (id, pan) => mixerProvider.setChannelPanWithUndo(id, pan),
-      onPanRightChange: (id, pan) => mixerProvider.setChannelPanRightWithUndo(id, pan),
+      onPanChange: (id, pan) => mixerProvider.setChannelPan(id, pan),
+      onPanChangeEnd: (id, pan) => mixerProvider.setChannelPanWithUndo(id, pan),
+      onPanRightChange: (id, pan) => mixerProvider.setChannelPanRight(id, pan),
       onMuteToggle: (id) {
         if (mixerProvider.vcas.any((v) => v.id == id)) {
           mixerProvider.toggleVcaMute(id);

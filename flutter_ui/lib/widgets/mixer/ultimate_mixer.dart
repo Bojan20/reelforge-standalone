@@ -28,7 +28,7 @@ import 'send_slot_widget.dart';
 
 const int kMaxSends = 10;
 const int kMaxInserts = 10;
-const double kStripWidthCompact = 56.0;   // Pro Tools Narrow mode
+const double kStripWidthCompact = 64.0;   // Pro Tools Narrow mode
 const double kStripWidthExpanded = 90.0;  // Pro Tools Regular mode
 const double kMasterStripWidth = 120.0;
 
@@ -1697,6 +1697,41 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
     final lufsI = ch.lufsIntegrated;
     final hasMeasurement = lufsS > -69.0 || lufsI > -69.0;
 
+    // Compact: stack vertically to fit in narrow strip
+    if (widget.compact) {
+      return Container(
+        height: 22,
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        padding: const EdgeInsets.symmetric(vertical: 1),
+        decoration: BoxDecoration(
+          color: FluxForgeTheme.bgDeepest.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(2),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              hasMeasurement ? 'S ${lufsS.toStringAsFixed(1)}' : 'S  -∞',
+              style: TextStyle(
+                color: _lufsColor(lufsS),
+                fontSize: 7,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'monospace',
+              ),
+            ),
+            Text(
+              hasMeasurement ? 'I ${lufsI.toStringAsFixed(1)}' : 'I  -∞',
+              style: TextStyle(
+                color: _lufsColor(lufsI).withOpacity(0.7),
+                fontSize: 7,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       height: 22,
       margin: const EdgeInsets.symmetric(horizontal: 3),
@@ -2219,6 +2254,7 @@ class _PanKnobState extends State<_PanKnob> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onVerticalDragStart: _handleDragStart,
       onVerticalDragUpdate: _handleDragUpdate,
       onVerticalDragEnd: _handleDragEnd,
@@ -2396,6 +2432,7 @@ class _StereoPanKnobState extends State<_StereoPanKnob> {
         ),
         const SizedBox(height: 3),
         GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onVerticalDragStart: _handleDragStart,
           onVerticalDragUpdate: _handleDragUpdate,
           onVerticalDragEnd: _handleDragEnd,

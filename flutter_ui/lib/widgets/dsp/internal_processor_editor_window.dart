@@ -246,15 +246,26 @@ class _InternalProcessorEditorWindowState
 
   @override
   Widget build(BuildContext context) {
-    final size = _windowSize;
+    final screenSize = MediaQuery.of(context).size;
+    final nominalSize = _windowSize;
+    // Clamp window size to screen bounds (leave 40px margin for title bar access)
+    final size = Size(
+      nominalSize.width.clamp(300, screenSize.width - 40),
+      nominalSize.height.clamp(200, screenSize.height - 60),
+    );
+    // Clamp position so window stays on screen
+    final clampedPos = Offset(
+      _position.dx.clamp(0, (screenSize.width - size.width).clamp(0, double.infinity)),
+      _position.dy.clamp(0, (screenSize.height - 36).clamp(0, double.infinity)),
+    );
     final hasPremium = _hasPremiumPanel(widget.node.type);
     final isVintage = widget.node.type == DspNodeType.pultec ||
         widget.node.type == DspNodeType.api550 ||
         widget.node.type == DspNodeType.neve1073;
 
     return Positioned(
-      left: _position.dx,
-      top: _position.dy,
+      left: clampedPos.dx,
+      top: clampedPos.dy,
       child: Material(
         elevation: 24,
         borderRadius: BorderRadius.circular(8),

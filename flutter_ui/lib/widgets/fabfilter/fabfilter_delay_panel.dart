@@ -657,9 +657,9 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
       child: Column(
         children: [
           _buildHeader(),
-          // Delay tap visualization
-          SizedBox(
-            height: 100,
+          // Delay tap visualization — flex scales with panel size
+          Expanded(
+            flex: 2,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: _buildVisualization(),
@@ -667,6 +667,7 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
           ),
           // Controls
           Expanded(
+            flex: 3,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Column(
@@ -676,21 +677,23 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
                   _buildSecondaryRow(),
                   const SizedBox(height: 4),
                   // D8.1: Tap timeline visualization
-                  Container(
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Colors.black26,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: CustomPaint(
-                      size: const Size(double.infinity, 36),
-                      painter: _TapTimelinePainter(
-                        delayL: _delayL,
-                        delayR: _delayR,
-                        feedback: _feedback,
-                        linked: _link,
-                        stereoRouting: _stereoRouting,
-                        freeze: _freeze,
+                  SizedBox(
+                    height: 28,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black26,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: CustomPaint(
+                        size: const Size(double.infinity, 28),
+                        painter: _TapTimelinePainter(
+                          delayL: _delayL,
+                          delayR: _delayR,
+                          feedback: _feedback,
+                          linked: _link,
+                          stereoRouting: _stereoRouting,
+                          freeze: _freeze,
+                        ),
                       ),
                     ),
                   ),
@@ -873,7 +876,6 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
 
   Widget _buildMainKnobRow() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         _buildDelayKnob('DELAY L', _delayL, (v) {
           setState(() {
@@ -891,89 +893,88 @@ class _FabFilterDelayPanelState extends State<FabFilterDelayPanel>
             _setParam(_P.delayL, v);
           }
         }),
-        FabFilterKnob(
+        Expanded(child: FabFilterKnob(
           value: _feedback / 100.0,
           label: 'FDBK',
           display: _fmtPct(_feedback),
           color: FabFilterColors.orange,
-          size: 48,
+          size: 44,
           defaultValue: 0.4,
           onChanged: (v) {
             setState(() => _feedback = v * 100.0);
             _setParam(_P.feedback, v * 100.0);
           },
-        ),
-        FabFilterKnob(
+        )),
+        Expanded(child: FabFilterKnob(
           value: _mix / 100.0,
           label: 'MIX',
           display: _fmtPct(_mix),
           color: FabFilterColors.cyan,
-          size: 48,
+          size: 44,
           defaultValue: 0.3,
           onChanged: (v) {
             setState(() => _mix = v * 100.0);
             _setParam(_P.mix, v * 100.0);
           },
-        ),
+        )),
       ],
     );
   }
 
   Widget _buildDelayKnob(String label, double ms, ValueChanged<double> onMs) {
     final norm = _logNorm(ms.clamp(1, 5000), 1, 5000);
-    return FabFilterKnob(
+    return Expanded(child: FabFilterKnob(
       value: norm,
       label: label,
       display: _fmtMs(ms),
       color: FabFilterColors.cyan,
-      size: 48,
+      size: 44,
       defaultValue: _logNorm(375, 1, 5000),
       onChanged: (v) => onMs(_logDenorm(v, 1, 5000)),
-    );
+    ));
   }
 
   // ─── SECONDARY ROW ──────────────────────────────────────────────────
 
   Widget _buildSecondaryRow() {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        FabFilterKnob(
+        Expanded(child: FabFilterKnob(
           value: _pingPong / 100.0,
           label: 'P-PONG',
           display: _fmtPct(_pingPong),
           color: FabFilterColors.purple,
-          size: 40,
+          size: 36,
           defaultValue: 0.0,
           onChanged: (v) {
             setState(() => _pingPong = v * 100.0);
             _setParam(_P.pingPong, v * 100.0);
           },
-        ),
-        FabFilterKnob(
+        )),
+        Expanded(child: FabFilterKnob(
           value: _width / 200.0,
           label: 'WIDTH',
           display: '${_width.toStringAsFixed(0)}%',
           color: FabFilterColors.blue,
-          size: 40,
+          size: 36,
           defaultValue: 0.5,
           onChanged: (v) {
             setState(() => _width = v * 200.0);
             _setParam(_P.width, v * 200.0);
           },
-        ),
-        FabFilterKnob(
+        )),
+        Expanded(child: FabFilterKnob(
           value: _ducking / 100.0,
           label: 'DUCK',
           display: _fmtPct(_ducking),
           color: FabFilterColors.yellow,
-          size: 40,
+          size: 36,
           defaultValue: 0.0,
           onChanged: (v) {
             setState(() => _ducking = v * 100.0);
             _setParam(_P.ducking, v * 100.0);
           },
-        ),
+        )),
       ],
     );
   }

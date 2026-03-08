@@ -1146,7 +1146,6 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     return SizedBox(
       height: 68,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           _knob(
             value: _space, label: 'SPACE',
@@ -1219,14 +1218,14 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
     required Color color,
     required ValueChanged<double> onChanged,
   }) {
-    return FabFilterKnob(
+    return Expanded(child: FabFilterKnob(
       value: value.clamp(0.0, 1.0),
       label: label,
       display: display,
       color: color,
-      size: 36,
+      size: 32,
       onChanged: onChanged,
-    );
+    ));
   }
 
   // ─── Character + Tonal Decay Section ──────────────────────────────────
@@ -1245,7 +1244,6 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
               const SizedBox(height: 4),
               Expanded(
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _knob(
                       value: _diffusion, label: 'DIFF',
@@ -1308,7 +1306,7 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           ),
         ),
         const SizedBox(width: 8),
-        // RIGHT: Ducking + Tonal Decay
+        // RIGHT: Ducking + Tonal Decay + Output
         Expanded(
           flex: 3,
           child: Column(
@@ -1318,7 +1316,6 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
               const SizedBox(height: 2),
               Expanded(
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _knob(
                       value: _ducking, label: 'DUCK',
@@ -1389,9 +1386,9 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
               const SizedBox(height: 4),
               FabSectionLabel('OUTPUT'),
               const SizedBox(height: 2),
+              // Output EQ knobs row
               Expanded(
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _knob(
                       value: (_outEqLoGain + 12.0) / 24.0, label: 'LO EQ',
@@ -1429,105 +1426,54 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
                         _setParam(_P.pdFeedback, _pdFeedback);
                       },
                     ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 2),
+              // Output toggles row — separate from knobs to prevent overflow
+              SizedBox(
+                height: 24,
+                child: Row(
+                  children: [
                     // Soft Limiter toggle
-                    GestureDetector(
-                      onTap: () {
-                        setState(() => _softLimiter = !_softLimiter);
-                        _setParam(_P.softLimiter, _softLimiter ? 1.0 : 0.0);
-                      },
-                      child: Container(
-                        width: 36, height: 24,
-                        decoration: BoxDecoration(
-                          color: _softLimiter ? FabFilterColors.blue : FabFilterColors.bgVoid,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: FabFilterColors.borderSubtle),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text('LIM', style: TextStyle(
-                          fontSize: 9, fontWeight: FontWeight.w600,
-                          color: _softLimiter ? Colors.white : FabFilterColors.textMuted,
-                        )),
-                      ),
-                    ),
+                    _outputToggle('LIM', _softLimiter, FabFilterColors.blue, () {
+                      setState(() => _softLimiter = !_softLimiter);
+                      _setParam(_P.softLimiter, _softLimiter ? 1.0 : 0.0);
+                    }),
+                    const SizedBox(width: 4),
                     // BPM Sync toggle (R8.6)
-                    GestureDetector(
-                      onTap: () {
-                        setState(() => _bpmSync = !_bpmSync);
-                        _setParam(_P.bpmSync, _bpmSync ? 1.0 : 0.0);
-                      },
-                      child: Container(
-                        width: 36, height: 24,
-                        decoration: BoxDecoration(
-                          color: _bpmSync ? FabFilterColors.purple : FabFilterColors.bgVoid,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: FabFilterColors.borderSubtle),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text('SYNC', style: TextStyle(
-                          fontSize: 8, fontWeight: FontWeight.w600,
-                          color: _bpmSync ? Colors.white : FabFilterColors.textMuted,
-                        )),
+                    _outputToggle('SYNC', _bpmSync, FabFilterColors.purple, () {
+                      setState(() => _bpmSync = !_bpmSync);
+                      _setParam(_P.bpmSync, _bpmSync ? 1.0 : 0.0);
+                    }),
+                    if (_bpmSync) ...[
+                      const SizedBox(width: 4),
+                      // Note division picker (R8.6)
+                      _outputToggle(
+                        const ['1/1', '1/2', '1/4', '1/8', '1/16', '1/4.', '1/8.', '1/4T'][_noteDiv.clamp(0, 7)],
+                        true, FabFilterColors.purple, () {
+                          setState(() => _noteDiv = (_noteDiv + 1) % 8);
+                          _setParam(_P.noteDiv, _noteDiv.toDouble());
+                        },
                       ),
-                    ),
-                    // Note division picker (R8.6)
-                    if (_bpmSync) GestureDetector(
-                      onTap: () {
-                        setState(() => _noteDiv = (_noteDiv + 1) % 8);
-                        _setParam(_P.noteDiv, _noteDiv.toDouble());
-                      },
-                      child: Container(
-                        width: 32, height: 24,
-                        decoration: BoxDecoration(
-                          color: FabFilterColors.bgVoid,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: FabFilterColors.purple.withValues(alpha: 0.3)),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          const ['1/1', '1/2', '1/4', '1/8', '1/16', '1/4.', '1/8.', '1/4T'][_noteDiv.clamp(0, 7)],
-                          style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600, color: FabFilterColors.purple),
-                        ),
-                      ),
-                    ),
+                    ],
+                    const Spacer(),
                     // FDN Size picker (R8.7)
-                    GestureDetector(
-                      onTap: () {
+                    _outputToggle(
+                      const ['4×4', '8×8', '16'][_fdnSize.clamp(0, 2)],
+                      false, FabFilterColors.textSecondary, () {
                         setState(() => _fdnSize = (_fdnSize + 1) % 3);
                         _setParam(_P.fdnSize, _fdnSize.toDouble());
                       },
-                      child: Container(
-                        width: 32, height: 24,
-                        decoration: BoxDecoration(
-                          color: FabFilterColors.bgVoid,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: FabFilterColors.borderSubtle),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          const ['4×4', '8×8', '16'][_fdnSize.clamp(0, 2)],
-                          style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600, color: FabFilterColors.textSecondary),
-                        ),
-                      ),
                     ),
+                    const SizedBox(width: 4),
                     // Matrix type picker (R8.7)
-                    GestureDetector(
-                      onTap: () {
+                    _outputToggle(
+                      _matrixType == 0 ? 'HAD' : 'HOU',
+                      false, FabFilterColors.textSecondary, () {
                         setState(() => _matrixType = (_matrixType + 1) % 2);
                         _setParam(_P.matrixType, _matrixType.toDouble());
                       },
-                      child: Container(
-                        width: 36, height: 24,
-                        decoration: BoxDecoration(
-                          color: FabFilterColors.bgVoid,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: FabFilterColors.borderSubtle),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          _matrixType == 0 ? 'HAD' : 'HOU',
-                          style: TextStyle(fontSize: 8, fontWeight: FontWeight.w600, color: FabFilterColors.textSecondary),
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -1536,6 +1482,26 @@ class _FabFilterReverbPanelState extends State<FabFilterReverbPanel>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _outputToggle(String label, bool active, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        height: 22,
+        decoration: BoxDecoration(
+          color: active ? color.withValues(alpha: 0.2) : FabFilterColors.bgVoid,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: active ? color.withValues(alpha: 0.5) : FabFilterColors.borderSubtle),
+        ),
+        alignment: Alignment.center,
+        child: Text(label, style: TextStyle(
+          fontSize: 8, fontWeight: FontWeight.w600,
+          color: active ? color : FabFilterColors.textMuted,
+        )),
+      ),
     );
   }
 

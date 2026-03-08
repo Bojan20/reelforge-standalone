@@ -659,9 +659,9 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
           child: Column(
             children: [
               buildCompactHeader(),
-              // Display: transfer curve + GR history
-              SizedBox(
-                height: 110,
+              // Display: transfer curve + GR history — flex scales with panel size
+              Expanded(
+                flex: 2,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   child: _buildDisplay(),
@@ -669,6 +669,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
               ),
               // Controls
               Expanded(
+                flex: 3,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Column(
@@ -1204,7 +1205,6 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
         // Row 1: Main knobs
         Expanded(
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _knob('THRESH', (_threshold + 60) / 60,
                 '${_threshold.toStringAsFixed(0)} dB',
@@ -1325,14 +1325,14 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
 
   Widget _knob(String label, double value, String display, Color color,
       ValueChanged<double> onChanged) {
-    return FabFilterKnob(
+    return Expanded(child: FabFilterKnob(
       value: value.clamp(0.0, 1.0),
       label: label,
       display: display,
       color: color,
-      size: 48,
+      size: 40,
       onChanged: onChanged,
-    );
+    ));
   }
 
   Widget _miniParam(String label, double value, String display, Color color,

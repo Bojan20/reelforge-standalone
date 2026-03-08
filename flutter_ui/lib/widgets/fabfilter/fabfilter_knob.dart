@@ -243,16 +243,19 @@ class _FabFilterKnobState extends State<FabFilterKnob>
           onVerticalDragUpdate: _handleDragUpdate,
           onVerticalDragEnd: _handleDragEnd,
           onDoubleTap: _handleDoubleTap,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildKnob(),
-              if (widget.label.isNotEmpty || widget.display.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                if (widget.label.isNotEmpty) _buildLabel(),
-                if (widget.display.isNotEmpty) _buildDisplay(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: widget.size + 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildKnob(),
+                if (widget.label.isNotEmpty || widget.display.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  if (widget.label.isNotEmpty) _buildLabel(),
+                  if (widget.display.isNotEmpty) _buildDisplay(),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -300,6 +303,8 @@ class _FabFilterKnobState extends State<FabFilterKnob>
             ? FabFilterColors.textTertiary
             : FabFilterColors.textDisabled,
       ),
+      overflow: TextOverflow.ellipsis,
+      maxLines: 1,
     );
   }
 
@@ -309,6 +314,8 @@ class _FabFilterKnobState extends State<FabFilterKnob>
       style: FabFilterText.paramValue(
         widget.enabled ? widget.color : FabFilterColors.textDisabled,
       ),
+      overflow: TextOverflow.ellipsis,
+      maxLines: 1,
     );
   }
 }
