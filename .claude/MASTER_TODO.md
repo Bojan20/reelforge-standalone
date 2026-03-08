@@ -2,97 +2,28 @@
 
 **Updated:** 2026-03-08
 
-## Status: ALL COMPLETE — 208/208 + P-USL + P5-CLEAN + P5-CONSOLIDATION + P5-WINTIER-UI + CONFIG-ENHANCEMENTS
+## Status: ALL COMPLETE — 208/208 tasks + all P-systems
 
-## Recent: Config Panel Enhancements (2026-03-08)
-
-### Win Tier Config Panel — Fixes & Features
-- **FIX:** App freeze on WIN TIERS expand — `Expanded` in unbounded `ListView` context
-- **FIX:** Provider listener rebuild storm — replaced with `_revision` ValueNotifier
-- **RangeSlider** for regular tiers (0-25x, 0.1 step) and big win tiers (0-100x)
-- **Tier chaining** — drag one tier, all others push up/down (no gaps/overlaps)
-- **RangeValues guard** — `start <= end` assertion crash prevented
-- **Accordion** — separate expand/collapse for REGULAR and BIG WIN sections
-- **Per-tier validation highlights** — red border + warning icon for FROM>=TO and gaps
-- **Win tier simulator** — BET/WIN input → real-time tier matching display
-
-### Scene Transitions — Full Config Wiring
-- **durationMs** — all animation durations scale proportionally from config
-- **TransitionStyle** — 5 styles: fade, slideUp, slideDown, zoom, swoosh
-- **audioStage** — UI field added, wired to EventRegistry via _fireAudioStage
-- **TEST button** — preview any transition without starting a feature
-- **Audio stage picker** — dropdown with registered EventRegistry stages
-
-### Symbol Art Panel
-- **Mini-reel preview** — 5x3 grid showing all symbols with artwork
-- **Batch import** — updateSymbolArtworkBatch for bulk folder import
-
-### Previous: P5 Win Tier Config UI + QA Fixes
-
-### Win Tier Config Panel (CONFIG tab, right panel)
-- **New file:** `widgets/slot_lab/win_tier_config_panel.dart`
-- Regular win tier editor: multiplier ranges, labels, rollup durations, tick rates
-- Big win tier editor: thresholds, labels, intensities (visual/particle/audio), celebration durations
-- Preset selector: Standard, High Volatility, Jackpot Focus, Mobile
-- JSON import/export, Reset, Validation display
-- `SlotWinConfiguration.getWinTierResult()` method added to model
-
-### Hardcoded Threshold Elimination
-- COIN_SHOWER_START: `>= 20` → `isBigWin` (from P5 config)
-- Legacy fallbacks: replaced with `SlotWinConfiguration.defaultConfig().getWinTierResult()`
-- `_getWinTierFromRatio()`: replaced hardcoded thresholds with P5 config lookup
-- Zero hardcoded win tier values remain in widget code
-
-### FS Flow Fix (deferred game flow evaluation)
-- `flushGameFlowResult()` at 6 correct exit points in slot_preview_widget
-- SCATTER_WIN audio + 1.2s delay before FS plaketa
-- SCATTER_COLLECT → SCATTER_WIN rename (all files)
-
-### QA Audit Results (P0-P3)
-- **P0 FIXED:** Audio thread blocking locks — 3× bus_states.read() → try_read() with fallbacks in process()
-- **P1 FIXED:** Win tier hardcoding eliminated
-- **P1 VERIFIED:** HardwareKeyboard.instance — all 100+ usages are in valid contexts (Listener/keyboard handlers)
-- **P2 FIXED:** OutputBus.index (already clean), MixerProvider old methods (setVolume→setChannelVolume, setPan→setChannelPan)
-- **P2 VERIFIED:** engine_api.dart print() — already clean (0 instances)
-- **P2 FIXED:** unnecessary_underscores lint in slot_preview_widget, symbol_art_panel
-- **P2 FIXED:** 9 bare debugPrint() wrapped in assert() for release builds
-- **P2 FIXED:** 4 inline FocusNode() in build() → field+dispose (memory leaks)
-- **P2 FIXED:** Missing ScrollController.dispose() in engine_connected_layout
-- **P2 VERIFIED:** All 58 TextEditingController fields properly disposed
-- **P2 VERIFIED:** All 28 ScrollController fields properly disposed (1 fixed)
-
-| System | Tasks | Status |
-|--------|-------|--------|
-| AUREXIS | 88/88 | Done |
-| SlotLab Middleware Providers | 19/19 | Done |
-| Core Systems (P-SRC..P-SSS) | 129/129 | Done |
-| P-FMC FluxMacro (6 phases) | 53/53 | Done |
-| P-ICF Intensity Crossfade | 8/8 | Done |
-| P-RTE Recursive Trigger | 5/5 | Done |
-| P-CTR Conflict Resolution | 5/5 | Done |
-| P-PPL Publish Pipeline | 8/8 | Done |
-| P-USL Unified SlotLab | Done | Done |
-| P5 Win Tier Naming | Done | Done |
-| P5 Stage Event Cleanup | Done | Done |
-| P5 StageCategory Consolidation | Done | Done |
+| System | Status |
+|--------|--------|
+| AUREXIS (88), Middleware (19), Core (129) | Done |
+| FluxMacro (53), ICF (8), RTE (5), CTR (5), PPL (8) | Done |
+| Unified SlotLab, Win Tier, StageCategory | Done |
+| Config Panel Enhancements | Done |
 
 Analyzer: 0 errors, 0 warnings
 
----
+## Recent: Config Panel Enhancements (2026-03-08)
 
-## Completed: StageCategory Consolidation
+### Win Tier Config Panel
+- FIX: freeze (`Expanded` in unbounded context), rebuild storm (`_revision` pattern)
+- RangeSlider for regular (0-25x) and big win (0-100x) tiers, 0.1 step
+- Tier chaining, RangeValues guard, accordion, per-tier validation highlights
+- Win tier simulator (BET/WIN input → real-time tier match)
 
-### What was done:
-1. **Unified StageCategory enum** — `stage_config.dart` now imports+re-exports `StageCategory` from `stage_configuration_service.dart` (11 values: spin, win, feature, cascade, jackpot, hold, gamble, ui, music, symbol, custom)
-2. **Legacy category mapping** — Removed 5 legacy categories: anticipation→spin, rollup→win, bigwin→win, bonus→feature, system→ui
-3. **Migrated all 6 consumer files** — audio_suggestion_service, stage_color_picker, stage_occurrence_stats, stage_trace_widget, stage_analytics_panel, stage_trace_comparator
-4. **Renamed stage_models.dart StageCategory → StageDomainCategory** — Domain-level enum (10 values: spinLifecycle, anticipation, winLifecycle, etc.) now has distinct name, no confusion with UI-level StageCategory
-5. **Updated tests** — stage_trace_widget_test.dart, event_registry_slotlab_test.dart
+### Scene Transitions
+- durationMs scaling, 5 TransitionStyles, audioStage wired to EventRegistry
+- TEST preview button, audio stage picker dropdown
 
-### Two StageCategory enums — final state
-| File | Enum Name | Values | Usage |
-|------|-----------|--------|-------|
-| `models/stage_models.dart` | `StageDomainCategory` | 10 (spinLifecycle, anticipation, winLifecycle...) | Sealed Stage hierarchy |
-| `services/stage_configuration_service.dart` | `StageCategory` | 11 (spin, win, feature, cascade, jackpot, hold, gamble, ui, music, symbol, custom) | SSoT for UI — re-exported via stage_config.dart |
-
-`config/stage_config.dart` remains as visual layer (per-stage colors, icons, high contrast mode) but no longer has its own enum.
+### Symbol Art Panel
+- Mini-reel 5x3 preview, batch import
