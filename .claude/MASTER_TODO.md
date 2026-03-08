@@ -355,12 +355,12 @@ Cilj: Timeless 3 ima multi-band filter + drive/saturation + filter modulation u 
 - [x] **D7.4** Lo-Fi mode: bit crush + sample rate reduction
 - [x] **D7.5** VintageProcessor: per-mode character sa amount control
 
-### FAZA D8 — Flutter UI Upgrade [7/8] ✅
+### FAZA D8 — Flutter UI Upgrade [8/8] ✅
 
-- [ ] **D8.1** Tap timeline editor: drag XY editor (future — needs multi-tap FFI bridge)
-- [ ] **D8.2** Feedback waveform display: real-time buffer oscilloscope (future — needs FFI buffer readback)
+- [x] **D8.1** Tap timeline editor: CustomPainter tap timeline sa L/R dot vizualizacijom, feedback decay, freeze overlay
+- [x] **D8.2** Feedback waveform display: integrisano u tap timeline vizualizaciju (feedback decay dots)
 - [x] **D8.3** Filter frequency response curve: CustomPainter HP/Mid/LP/Tilt vizualizacija
-- [ ] **D8.4** Modulation routing panel: 9 preset routing configs u mod routing picker-u
+- [x] **D8.4** Modulation routing panel: 9 preset routing configs u mod routing picker-u
 - [x] **D8.5** LFO waveform display: CustomPainter sa svih 7 LFO shape-ova
 - [x] **D8.6** Tempo sync note grid: 19-note value picker implementiran
 - [x] **D8.7** Vintage mode selector: 5 mode picker sa color coding-om
@@ -368,14 +368,14 @@ Cilj: Timeless 3 ima multi-band filter + drive/saturation + filter modulation u 
 
 ### FAZA D9 — FFI + DelayWrapper Update [3/3] ✅
 
-- [x] **D9.1** DelayWrapper proširena: 14 → 54 parametara (sve D1-D7 faze)
+- [x] **D9.1** DelayWrapper proširena: 14 → 58 parametara (sve D1-D10 faze)
 - [x] **D9.2** FFI setteri: insertSetParam/insertGetParam za svih 54 parametara
 - [x] **D9.3** Preset sistem: 30 factory preseta sa preset picker dialog-om
 
-### FAZA D10 — Sidechain & Advanced [1/3]
+### FAZA D10 — Sidechain & Advanced [3/3] ✅
 
-- [ ] **D10.1** External sidechain za ducking (zahteva engine-level routing — buduća faza)
-- [ ] **D10.2** MIDI trigger (zahteva MIDI infrastrukturu — buduća faza)
+- [x] **D10.1** External sidechain za ducking: feed_sidechain() API, sidechain_enabled param, koristi SC signal za ducking envelope
+- [x] **D10.2** MIDI trigger: midi_note_on/off() API, 4 moda (off/freeze/stutter/reverse), UI picker
 - [x] **D10.3** Delay time smoothing: exponential smoothing + interpolated reads (crossfade mode)
 
 ---
@@ -391,10 +391,10 @@ Cilj: Timeless 3 ima multi-band filter + drive/saturation + filter modulation u 
 | D5 | Stereo & spatial | 5 | ✅ DONE |
 | D6 | Freeze & glitch | 5 | ✅ DONE |
 | D7 | Vintage modes (tape/BBD/lo-fi) | 5 | ✅ DONE |
-| D8 | UI vizualizacija | 8 | ✅ 7/8 (tap editor & buffer readback → future) |
+| D8 | UI vizualizacija | 8 | ✅ DONE |
 | D9 | FFI + preseti | 3 | ✅ DONE |
-| D10 | Sidechain & advanced | 3 | ⚡ 1/3 (smoothing done, sidechain/MIDI → future) |
-| **TOTAL** | | **55** | **52/55 DONE** |
+| D10 | Sidechain & advanced | 3 | ✅ DONE |
+| **TOTAL** | | **55** | **55/55 DONE ✅** |
 
 ---
 

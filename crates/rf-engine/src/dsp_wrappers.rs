@@ -4346,18 +4346,18 @@ impl InsertProcessor for DelayWrapper {
     }
 
     fn num_params(&self) -> usize {
-        54
+        58
     }
 
     fn get_param(&self, index: usize) -> f64 {
-        if index < 54 { self.params[index] } else { 0.0 }
+        if index < 58 { self.params[index] } else { 0.0 }
     }
 
     fn set_param(&mut self, index: usize, value: f64) {
         if index >= 58 {
             return;
         }
-        self.params[index] = value;
+        // Note: each match arm writes the clamped value to self.params[index]
         match index {
             0 => {
                 // Delay Time L (ms)
@@ -4727,6 +4727,10 @@ impl InsertProcessor for DelayWrapper {
                 // Map 0-100% to smoothing coefficient 0.0-0.9999
                 let coeff = v / 100.0 * 0.9999;
                 self.delay.set_delay_smoothing(coeff);
+            }
+            57 => {
+                // Reserved
+                self.params[57] = value;
             }
             _ => {}
         }

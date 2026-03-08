@@ -12,6 +12,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../providers/dsp_chain_provider.dart';
 import 'fabfilter_theme.dart';
@@ -313,6 +314,20 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
   CompressorSnapshot? _snapshotA;
   CompressorSnapshot? _snapshotB;
 
+  // ─── UNDO/REDO (C8.1) ─────────────────────────────────────────────
+  final List<CompressorSnapshot> _undoStack = [];
+  final List<CompressorSnapshot> _redoStack = [];
+  static const _maxUndoStack = 50;
+  late final FocusNode _panelFocusNode;
+
+  // ─── DYNAMIC RANGE & STEREO CORRELATION (C4.3/C4.4) ───────────────
+  double _dynamicRange = 0.0; // peak-to-trough in dB
+  double _stereoCorrelation = 1.0; // -1 to +1
+  double _inputPeakMax = -60.0;
+  double _inputPeakMin = 0.0;
+  int _drWindowCounter = 0;
+  static const _drWindowFrames = 60; // ~1s at 60fps
+
   @override
   int get processorSlotIndex => _slotIndex;
 
@@ -321,6 +336,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
   @override
   void initState() {
     super.initState();
+    _panelFocusNode = FocusNode(debugLabel: 'comp-panel');
     _initializeProcessor();
     initBypassFromProvider();
     _meterController = AnimationController(
@@ -332,6 +348,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
 
   @override
   void dispose() {
+    _panelFocusNode.dispose();
     _meterController.dispose();
     super.dispose();
   }
@@ -460,6 +477,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
   }
 
   void _loadPreset(_CompPreset p) {
+    _pushUndo();
     setState(() {
       _threshold = p.threshold;
       _ratio = p.ratio;
@@ -489,6 +507,56 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
   void copyAToB() { _snapshotB = _snapshotA?.copy(); super.copyAToB(); }
   @override
   void copyBToA() { _snapshotA = _snapshotB?.copy(); super.copyBToA(); }
+
+  // ─── UNDO/REDO (C8.1) ──────────────────────────────────────────────
+
+  void _pushUndo() {
+    _undoStack.add(_snap());
+    if (_undoStack.length > _maxUndoStack) _undoStack.removeAt(0);
+    _redoStack.clear();
+  }
+
+  void _undo() {
+    if (_undoStack.isEmpty) return;
+    _redoStack.add(_snap());
+    _restore(_undoStack.removeLast());
+  }
+
+  void _redo() {
+    if (_redoStack.isEmpty) return;
+    _undoStack.add(_snap());
+    _restore(_redoStack.removeLast());
+  }
+
+  /// GR reset — clear history and peak hold (C8.7)
+  void _resetGr() {
+    setState(() {
+      _grHistory.clear();
+      _grPeakHold = 0.0;
+      _grPeakHoldTimer = 0;
+      _inputPeakMax = -60.0;
+      _inputPeakMin = 0.0;
+      _dynamicRange = 0.0;
+    });
+  }
+
+  /// Keyboard handler for Cmd+Z / Cmd+Shift+Z (C8.1)
+  KeyEventResult _handleKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    // Guard: don't handle if focus is on an EditableText
+    if (_panelFocusNode.context != null) {
+      final scope = FocusScope.of(_panelFocusNode.context!);
+      if (scope.focusedChild != _panelFocusNode) return KeyEventResult.ignored;
+    }
+    final isMeta = HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isControlPressed;
+    final isShift = HardwareKeyboard.instance.isShiftPressed;
+    if (isMeta && event.logicalKey == LogicalKeyboardKey.keyZ) {
+      if (isShift) { _redo(); } else { _undo(); }
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
 
   // ─── METERING ───────────────────────────────────────────────────────
 
@@ -541,6 +609,29 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
         _lufsApprox = _rmsLevel + 0.7;
       }
 
+      // Dynamic range measurement (C4.3) — peak-to-trough over 1s window
+      if (_inputLevel > _inputPeakMax) _inputPeakMax = _inputLevel;
+      if (_inputLevel > -59 && _inputLevel < _inputPeakMin) _inputPeakMin = _inputLevel;
+      _drWindowCounter++;
+      if (_drWindowCounter >= _drWindowFrames) {
+        _dynamicRange = (_inputPeakMax - _inputPeakMin).clamp(0.0, 60.0);
+        _inputPeakMax = -60.0;
+        _inputPeakMin = 0.0;
+        _drWindowCounter = 0;
+      }
+
+      // Stereo correlation approximation (C4.4)
+      try {
+        final peaks = _ffi.getPeakMeters();
+        final l = peaks.$1, r = peaks.$2;
+        if (l > 1e-10 && r > 1e-10) {
+          // Simple correlation: 1.0 = identical, 0 = uncorrelated, -1 = opposite
+          final sum = l + r;
+          final diff = (l - r).abs();
+          _stereoCorrelation = ((sum - diff) / sum).clamp(-1.0, 1.0);
+        }
+      } catch (_) {}
+
       _grHistory.add(_GrSample(_inputLevel, _outputLevel, _grCurrent, _rmsLevel));
       while (_grHistory.length > _maxHistory) _grHistory.removeAt(0);
     });
@@ -558,44 +649,51 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
         setState(() {});
       });
     }
-    return wrapWithBypassOverlay(Container(
-      decoration: FabFilterDecorations.panel(),
-      child: Column(
-        children: [
-          buildCompactHeader(),
-          // Display: transfer curve + GR history
-          SizedBox(
-            height: 110,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: _buildDisplay(),
-            ),
-          ),
-          // Controls
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Column(
-                children: [
-                  // Style chips + character
-                  SizedBox(
-                    height: 28,
-                    child: Row(
-                      children: [
-                        Expanded(child: _buildStyleChips()),
-                        const SizedBox(width: 4),
-                        _buildCharacterChip(),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  // Main controls
-                  Expanded(child: _buildMainRow()),
-                ],
+    return wrapWithBypassOverlay(Focus(
+      focusNode: _panelFocusNode,
+      onKeyEvent: (_, event) => _handleKeyEvent(event),
+      child: GestureDetector(
+        onTap: () => _panelFocusNode.requestFocus(),
+        child: Container(
+          decoration: FabFilterDecorations.panel(),
+          child: Column(
+            children: [
+              buildCompactHeader(),
+              // Display: transfer curve + GR history
+              SizedBox(
+                height: 110,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: _buildDisplay(),
+                ),
               ),
-            ),
+              // Controls
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Column(
+                    children: [
+                      // Style chips + character
+                      SizedBox(
+                        height: 28,
+                        child: Row(
+                          children: [
+                            Expanded(child: _buildStyleChips()),
+                            const SizedBox(width: 4),
+                            _buildCharacterChip(),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      // Main controls
+                      Expanded(child: _buildMainRow()),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     ));
   }
@@ -621,6 +719,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                       currentInput: _inputLevel,
                       grAmount: _grCurrent,
                       range: _range,
+                      mix: _mix,
                     ),
                   ),
                 ),
@@ -646,15 +745,54 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                     ),
                   ),
                 ),
-                // Knee badge (bottom-left)
-                if (_knee > 0.5)
+                // Knee badge + look-ahead display (bottom-left) (C5.4)
+                Positioned(
+                  left: 4, bottom: 3,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_knee > 0.5)
+                        Text(
+                          'K ${_knee.toStringAsFixed(0)}dB',
+                          style: TextStyle(
+                            color: FabFilterProcessorColors.compKnee.withValues(alpha: 0.6),
+                            fontSize: 7, fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      if (_knee > 0.5 && _lookahead > 0.1)
+                        const SizedBox(width: 4),
+                      if (_lookahead > 0.1)
+                        Text(
+                          'LA ${_lookahead.toStringAsFixed(1)}ms',
+                          style: TextStyle(
+                            color: FabFilterColors.cyan.withValues(alpha: 0.6),
+                            fontSize: 7, fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                // Mix badge (bottom-right on transfer curve)
+                if (_mix < 99)
                   Positioned(
-                    left: 4, bottom: 3,
+                    right: 4, bottom: 3,
                     child: Text(
-                      'K ${_knee.toStringAsFixed(0)}dB',
+                      'MIX ${_mix.toStringAsFixed(0)}%',
                       style: TextStyle(
-                        color: FabFilterProcessorColors.compKnee.withValues(alpha: 0.6),
+                        color: FabFilterColors.blue.withValues(alpha: 0.6),
                         fontSize: 7, fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                // Undo indicator (C8.1) — subtle badge when undo stack available
+                if (_undoStack.isNotEmpty)
+                  Positioned(
+                    left: 4, top: 3,
+                    child: Text(
+                      '↩${_undoStack.length}',
+                      style: TextStyle(
+                        color: FabFilterColors.textTertiary.withValues(alpha: 0.4),
+                        fontSize: 6, fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
@@ -681,7 +819,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                     ),
                   ),
                 ),
-                // SC filter response overlay
+                // SC filter response overlay with EQ node indicators (C2.1/C2.3)
                 if (_scEnabled)
                   Positioned.fill(
                     child: CustomPaint(
@@ -690,6 +828,37 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                         lpFreq: _scLpf,
                         midFreq: _scMidFreq,
                         midGain: _scMidGain,
+                        showNodes: true,
+                      ),
+                    ),
+                  ),
+                // SC Audition visual feedback (C2.5) — pulsing border overlay
+                if (_scEnabled && _scAudition)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: FabFilterColors.purple.withValues(alpha: 0.5),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: Container(
+                            margin: const EdgeInsets.only(top: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: FabFilterColors.purple.withValues(alpha: 0.25),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Text('SC LISTEN', style: TextStyle(
+                              color: FabFilterColors.purple,
+                              fontSize: 6, fontWeight: FontWeight.bold,
+                            )),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -719,6 +888,27 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
                         ),
                       ],
                     )),
+                  ),
+                ),
+                // GR reset button (C8.7)
+                Positioned(
+                  right: 4, top: 3,
+                  child: GestureDetector(
+                    onTap: _resetGr,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: const Color(0xDD0A0A10),
+                        borderRadius: BorderRadius.circular(3),
+                        border: Border.all(
+                          color: FabFilterColors.textTertiary.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Text('RST', style: TextStyle(
+                        color: FabFilterColors.textTertiary,
+                        fontSize: 6, fontWeight: FontWeight.bold,
+                      )),
+                    ),
                   ),
                 ),
                 // Detection + style badge (top-left)
@@ -772,6 +962,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
         final active = _style == s;
         return GestureDetector(
           onTap: () {
+            _pushUndo();
             setState(() => _style = s);
             _setParam(_P.type, s.engineType.toDouble());
           },
@@ -816,6 +1007,7 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
     final active = _character != CharacterMode.off;
     return GestureDetector(
       onTap: () {
+        _pushUndo();
         final next = CharacterMode.values[(_character.index + 1) % CharacterMode.values.length];
         setState(() {
           _character = next;
@@ -892,14 +1084,55 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
             ),
           ),
           const SizedBox(height: 2),
-          // Crest + LUFS readout
-          Text(
-            'CF ${_crestFactor.toStringAsFixed(0)}',
-            style: TextStyle(
-              color: FabFilterColors.yellow.withValues(alpha: 0.7),
-              fontSize: 6, fontWeight: FontWeight.bold,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
+          // Crest factor + LUFS + Dynamic Range + Stereo Correlation (C4.1-C4.4)
+          Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Text(
+                    'CF ${_crestFactor.toStringAsFixed(0)}',
+                    style: TextStyle(
+                      color: FabFilterColors.yellow.withValues(alpha: 0.7),
+                      fontSize: 6, fontWeight: FontWeight.bold,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  Text(
+                    'LU ${_lufsApprox.toStringAsFixed(0)}',
+                    style: TextStyle(
+                      color: FabFilterColors.green.withValues(alpha: 0.7),
+                      fontSize: 6, fontWeight: FontWeight.bold,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 1),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Text(
+                    'DR ${_dynamicRange.toStringAsFixed(0)}',
+                    style: TextStyle(
+                      color: FabFilterColors.cyan.withValues(alpha: 0.7),
+                      fontSize: 6, fontWeight: FontWeight.bold,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  Text(
+                    'SC ${_stereoCorrelation.toStringAsFixed(1)}',
+                    style: TextStyle(
+                      color: _stereoCorrelation < 0
+                          ? FabFilterColors.red.withValues(alpha: 0.8)
+                          : FabFilterColors.blue.withValues(alpha: 0.7),
+                      fontSize: 6, fontWeight: FontWeight.bold,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ),
@@ -1052,12 +1285,21 @@ class _FabFilterCompressorPanelState extends State<FabFilterCompressorPanel>
               // Detection mode
               ..._detectionButtons(),
               const SizedBox(width: 6),
-              // NY compression shortcut (C7.4)
+              // NY compression shortcut (C7.4) — sets mix to 45% for parallel compression
               _toggle('NY', _mix > 20 && _mix < 80, FabFilterColors.orange, () {
+                _pushUndo();
+                final isNy = _mix > 20 && _mix < 80;
                 setState(() {
-                  _mix = _mix > 20 && _mix < 80 ? 100.0 : 45.0;
+                  _mix = isNy ? 100.0 : 45.0;
+                  // When activating NY mode, set aggressive settings if needed
+                  if (!isNy && _ratio < 4) _ratio = 8.0;
+                  if (!isNy && _threshold > -15) _threshold = -25.0;
                 });
                 _setParam(_P.mix, _mix / 100.0);
+                if (!isNy) {
+                  _setParam(_P.ratio, _ratio);
+                  _setParam(_P.threshold, _threshold);
+                }
               }),
               const SizedBox(width: 2),
               _toggle('M/S', _midSide, FabFilterColors.purple, () {
@@ -1584,13 +1826,14 @@ class _GrHistoryPainter extends CustomPainter {
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _KneeCurvePainter extends CustomPainter {
-  final double threshold, ratio, knee, currentInput, grAmount, range;
+  final double threshold, ratio, knee, currentInput, grAmount, range, mix;
 
   _KneeCurvePainter({
     required this.threshold, required this.ratio,
     required this.knee, required this.currentInput,
     this.grAmount = 0.0,
     this.range = -60.0,
+    this.mix = 100.0,
   });
 
   @override
@@ -1712,6 +1955,45 @@ class _KneeCurvePainter extends CustomPainter {
       ..color = Colors.white.withValues(alpha: 0.15)
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke);
+
+    // ── Parallel mix curve (C7.1) — shows dry/wet blend when mix < 100% ──
+    if (mix < 99.0) {
+      final mixNorm = mix / 100.0;
+      final mixPath = Path();
+      for (var i = 0; i <= size.width.toInt(); i++) {
+        final inDb = minDb + (i / size.width) * dbRange;
+        final wetDb = _transferFunction(inDb);
+        // Parallel mix: blend dry (1:1) and wet (compressed) in dB domain
+        final mixDb = inDb * (1.0 - mixNorm) + wetDb * mixNorm;
+        final x = i.toDouble();
+        final y = size.height * (1 - (mixDb - minDb) / dbRange);
+        i == 0 ? mixPath.moveTo(x, y) : mixPath.lineTo(x, y);
+      }
+      // Dry (1:1) line is already drawn as diagonal
+      // Draw the mixed curve with dashed style
+      canvas.drawPath(mixPath, Paint()
+        ..color = FabFilterColors.blue.withValues(alpha: 0.3)
+        ..strokeWidth = 3
+        ..style = PaintingStyle.stroke
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
+      canvas.drawPath(mixPath, Paint()
+        ..color = FabFilterColors.blue.withValues(alpha: 0.7)
+        ..strokeWidth = 1.5
+        ..style = PaintingStyle.stroke);
+      // Mix % label near the mixed curve
+      final mixLabelDb = threshold + 10;
+      final mixLabelX = size.width * ((mixLabelDb - minDb) / dbRange);
+      final mixWet = _transferFunction(mixLabelDb);
+      final mixBlend = mixLabelDb * (1 - mixNorm) + mixWet * mixNorm;
+      final mixLabelY = size.height * (1 - (mixBlend - minDb) / dbRange);
+      final mlBuilder = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: TextAlign.left))
+        ..pushStyle(ui.TextStyle(
+          color: FabFilterColors.blue.withValues(alpha: 0.6), fontSize: 7,
+        ))
+        ..addText('MIX ${mix.toStringAsFixed(0)}%');
+      final mlPara = mlBuilder.build()..layout(const ui.ParagraphConstraints(width: 40));
+      canvas.drawParagraph(mlPara, Offset(mixLabelX + 4, mixLabelY - 10));
+    }
 
     // ── Ratio slope line (above threshold) ──
     // Shows the slope of compression: 1:ratio
@@ -1884,7 +2166,7 @@ class _KneeCurvePainter extends CustomPainter {
   bool shouldRepaint(covariant _KneeCurvePainter old) =>
       old.threshold != threshold || old.ratio != ratio ||
       old.knee != knee || old.currentInput != currentInput ||
-      old.grAmount != grAmount || old.range != range;
+      old.grAmount != grAmount || old.range != range || old.mix != mix;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1893,10 +2175,12 @@ class _KneeCurvePainter extends CustomPainter {
 
 class _ScFilterResponsePainter extends CustomPainter {
   final double hpFreq, lpFreq, midFreq, midGain;
+  final bool showNodes;
 
   _ScFilterResponsePainter({
     required this.hpFreq, required this.lpFreq,
     required this.midFreq, required this.midGain,
+    this.showNodes = false,
   });
 
   @override
@@ -1954,20 +2238,62 @@ class _ScFilterResponsePainter extends CustomPainter {
       ..style = PaintingStyle.stroke);
 
     // SC label
-    final builder = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: TextAlign.left))
+    final scBuilder = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: TextAlign.left))
       ..pushStyle(ui.TextStyle(
         color: FabFilterColors.purple.withValues(alpha: 0.6),
         fontSize: 7, fontWeight: ui.FontWeight.bold,
       ))
       ..addText('SC');
-    final para = builder.build()..layout(const ui.ParagraphConstraints(width: 20));
-    canvas.drawParagraph(para, Offset(size.width - 16, 2));
+    final scPara = scBuilder.build()..layout(const ui.ParagraphConstraints(width: 20));
+    canvas.drawParagraph(scPara, Offset(size.width - 16, 2));
+
+    // SC EQ node indicators (C2.3) — dots at HP, LP, Mid positions
+    if (showNodes) {
+      final nodeColor = FabFilterColors.purple;
+      // HP node
+      final hpT = (math.log(hpFreq) - logMin) / logRange;
+      final hpX = hpT * size.width;
+      canvas.drawCircle(Offset(hpX, size.height * 0.5), 4, Paint()
+        ..color = nodeColor.withValues(alpha: 0.15)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+      canvas.drawCircle(Offset(hpX, size.height * 0.5), 3, Paint()
+        ..color = nodeColor.withValues(alpha: 0.6));
+      canvas.drawCircle(Offset(hpX, size.height * 0.5 - 1), 1, Paint()
+        ..color = Colors.white.withValues(alpha: 0.3));
+
+      // LP node
+      final lpT = (math.log(lpFreq) - logMin) / logRange;
+      final lpX = lpT * size.width;
+      canvas.drawCircle(Offset(lpX, size.height * 0.5), 4, Paint()
+        ..color = nodeColor.withValues(alpha: 0.15)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+      canvas.drawCircle(Offset(lpX, size.height * 0.5), 3, Paint()
+        ..color = nodeColor.withValues(alpha: 0.6));
+      canvas.drawCircle(Offset(lpX, size.height * 0.5 - 1), 1, Paint()
+        ..color = Colors.white.withValues(alpha: 0.3));
+
+      // Mid EQ node (if active)
+      if (midGain.abs() > 0.1) {
+        final midT = (math.log(midFreq) - logMin) / logRange;
+        final midX = midT * size.width;
+        // Position node at the gain level on the curve
+        final midY = size.height * (0.5 - midGain / 48.0);
+        canvas.drawCircle(Offset(midX, midY), 5, Paint()
+          ..color = nodeColor.withValues(alpha: 0.2)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+        canvas.drawCircle(Offset(midX, midY), 3.5, Paint()
+          ..color = FabFilterColors.yellow.withValues(alpha: 0.7));
+        canvas.drawCircle(Offset(midX, midY - 1), 1.2, Paint()
+          ..color = Colors.white.withValues(alpha: 0.3));
+      }
+    }
   }
 
   @override
   bool shouldRepaint(covariant _ScFilterResponsePainter old) =>
       old.hpFreq != hpFreq || old.lpFreq != lpFreq ||
-      old.midFreq != midFreq || old.midGain != midGain;
+      old.midFreq != midFreq || old.midGain != midGain ||
+      old.showNodes != showNodes;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

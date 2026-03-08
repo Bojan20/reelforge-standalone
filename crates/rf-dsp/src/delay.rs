@@ -190,6 +190,169 @@ impl NoteValue {
     }
 }
 
+/// Vintage delay character mode (D7)
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum VintageMode {
+    Clean,     // No coloring
+    Tape,      // Wow + flutter + saturation
+    BBD,       // Bucket brigade: clock noise, LP degradation
+    OilCan,    // Spring-based: nonlinear response
+    LoFi,      // Bit crush + sample rate reduction
+}
+
+/// Analog character processor for feedback path (D7)
+#[derive(Debug, Clone)]
+pub struct VintageProcessor {
+    mode: VintageMode,
+    amount: f64,        // 0.0 - 1.0
+    // Tape wow/flutter
+    wow_phase: f64,     // 0.5-3Hz
+    flutter_phase: f64, // 3-15Hz
+    // BBD state
+    bbd_lp: BiquadTDF2,
+    bbd_lp_r: BiquadTDF2,
+    bbd_noise_phase: f64,
+    // LoFi state
+    lofi_hold_l: f64,
+    lofi_hold_r: f64,
+    lofi_counter: u32,
+    sample_rate: f64,
+}
+
+impl VintageProcessor {
+    pub fn new(sample_rate: f64) -> Self {
+        let mut bbd_lp = BiquadTDF2::new(sample_rate);
+        bbd_lp.set_lowpass(8000.0, 0.707);
+        let mut bbd_lp_r = BiquadTDF2::new(sample_rate);
+        bbd_lp_r.set_lowpass(8000.0, 0.707);
+        Self {
+            mode: VintageMode::Clean,
+            amount: 0.5,
+            wow_phase: 0.0,
+            flutter_phase: 0.0,
+            bbd_lp,
+            bbd_lp_r,
+            bbd_noise_phase: 0.0,
+            lofi_hold_l: 0.0,
+            lofi_hold_r: 0.0,
+            lofi_counter: 0,
+            sample_rate,
+        }
+    }
+
+    pub fn set_mode(&mut self, mode: VintageMode) {
+        self.mode = mode;
+    }
+
+    pub fn set_amount(&mut self, amount: f64) {
+        self.amount = amount.clamp(0.0, 1.0);
+    }
+
+    /// Process stereo sample through vintage character
+    #[inline]
+    pub fn process(&mut self, l: f64, r: f64) -> (f64, f64) {
+        if self.mode == VintageMode::Clean || self.amount < 0.001 {
+            return (l, r);
+        }
+        let amt = self.amount;
+        match self.mode {
+            VintageMode::Clean => (l, r),
+            VintageMode::Tape => {
+                // Wow: slow pitch modulation (1.5Hz)
+                let wow = (self.wow_phase * std::f64::consts::TAU).sin() * 0.002 * amt;
+                self.wow_phase += 1.5 / self.sample_rate;
+                if self.wow_phase >= 1.0 { self.wow_phase -= 1.0; }
+                // Flutter: fast pitch modulation (8Hz)
+                let flutter = (self.flutter_phase * std::f64::consts::TAU).sin() * 0.001 * amt;
+                self.flutter_phase += 8.0 / self.sample_rate;
+                if self.flutter_phase >= 1.0 { self.flutter_phase -= 1.0; }
+                // Tape saturation: tanh with 2nd harmonic emphasis
+                let sat = |x: f64| -> f64 {
+                    let gained = x * (1.0 + amt * 2.0);
+                    let clean = x;
+                    let saturated = gained.tanh() + (gained * 2.0).sin() * 0.05 * amt;
+                    clean * (1.0 - amt) + saturated * amt
+                };
+                let mod_factor = 1.0 + wow + flutter;
+                (sat(l) * mod_factor, sat(r) * mod_factor)
+            }
+            VintageMode::BBD => {
+                // LP degradation per repeat (amount controls cutoff)
+                let cutoff = 20000.0 - amt * 16000.0; // 20kHz → 4kHz
+                self.bbd_lp.set_lowpass(cutoff.max(500.0), 0.707);
+                self.bbd_lp_r.set_lowpass(cutoff.max(500.0), 0.707);
+                let filt_l = self.bbd_lp.process_sample(l);
+                let filt_r = self.bbd_lp_r.process_sample(r);
+                // Clock noise
+                self.bbd_noise_phase += 1.0;
+                let noise = ((self.bbd_noise_phase * 7919.0).sin() * 43758.5453).fract() * 2.0 - 1.0;
+                let noise_amt = noise * 0.005 * amt;
+                (filt_l + noise_amt, filt_r + noise_amt)
+            }
+            VintageMode::OilCan => {
+                // Nonlinear spring-like response
+                let spring = |x: f64| -> f64 {
+                    let soft = x.tanh();
+                    // Add slight resonance via cubic nonlinearity
+                    soft + soft * soft * soft * 0.1 * amt
+                };
+                // Slow modulation (spring wobble)
+                let wobble = (self.wow_phase * std::f64::consts::TAU).sin() * 0.003 * amt;
+                self.wow_phase += 0.8 / self.sample_rate;
+                if self.wow_phase >= 1.0 { self.wow_phase -= 1.0; }
+                (spring(l) * (1.0 + wobble), spring(r) * (1.0 - wobble))
+            }
+            VintageMode::LoFi => {
+                // Bit crush: reduce to 4-16 bits based on amount
+                let bits = 16.0 - amt * 12.0; // 16 → 4 bits
+                let levels = (2.0_f64).powf(bits);
+                let crush = |x: f64| -> f64 {
+                    (x * levels).round() / levels
+                };
+                // Sample rate reduction: downsample by factor
+                let sr_factor = (1.0 + amt * 15.0) as u32; // 1× → 16×
+                self.lofi_counter += 1;
+                if self.lofi_counter >= sr_factor {
+                    self.lofi_counter = 0;
+                    self.lofi_hold_l = crush(l);
+                    self.lofi_hold_r = crush(r);
+                }
+                let clean_l = l;
+                let clean_r = r;
+                (clean_l * (1.0 - amt) + self.lofi_hold_l * amt,
+                 clean_r * (1.0 - amt) + self.lofi_hold_r * amt)
+            }
+        }
+    }
+
+    pub fn reset(&mut self) {
+        self.wow_phase = 0.0;
+        self.flutter_phase = 0.0;
+        self.bbd_lp.reset();
+        self.bbd_lp_r.reset();
+        self.bbd_noise_phase = 0.0;
+        self.lofi_hold_l = 0.0;
+        self.lofi_hold_r = 0.0;
+        self.lofi_counter = 0;
+    }
+
+    pub fn set_sample_rate(&mut self, sr: f64) {
+        self.sample_rate = sr;
+        self.bbd_lp.set_sample_rate(sr);
+        self.bbd_lp_r.set_sample_rate(sr);
+    }
+}
+
+/// Stereo routing topology (D5.1)
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum StereoRouting {
+    Stereo,     // Independent L/R
+    PingPong,   // Classic ping-pong (existing behavior)
+    CrossFeed,  // L feedback → R and vice versa
+    DualMono,   // Same signal to both channels
+    MidSide,    // Process in M/S domain
+}
+
 /// Stereo ping-pong delay
 #[derive(Debug, Clone)]
 pub struct PingPongDelay {
@@ -199,6 +362,10 @@ pub struct PingPongDelay {
     delay_samples: usize,       // L delay (or shared when linked)
     delay_samples_r: usize,     // R delay (independent, D3.6)
     max_delay_samples: usize,
+    // D10.3: Delay time smoothing (fractional for interpolated reads)
+    smooth_delay_l: f64,         // current smoothed delay in samples (fractional)
+    smooth_delay_r: f64,
+    delay_smoothing: f64,        // smoothing coefficient (0=instant, 0.9999=very slow)
     feedback: f64,
     dry_wet: f64,
     ping_pong: f64, // 0.0 = normal stereo, 1.0 = full ping-pong
@@ -254,6 +421,26 @@ pub struct PingPongDelay {
     mod_matrix: ModulationMatrix,
     pitch_shifter_l: PitchShifter,
     pitch_shifter_r: PitchShifter,
+
+    // D6 Freeze & Glitch
+    reverse_enabled: bool,          // D6.2 — read buffer backwards
+    stutter_enabled: bool,          // D6.3 — retrigger fragment
+    stutter_samples: usize,         // fragment length for stutter
+    stutter_pos: usize,             // current stutter read position
+    stutter_decay: f64,             // 0.0-1.0 per-repeat decay
+    infinite_fb: bool,              // D6.5 — feedback=100% + soft limiter
+    freeze_fade_samples: usize,     // D6.4 — crossfade length for freeze
+    freeze_fade_pos: usize,         // current position in fade
+
+    // D5 Stereo & Spatial
+    stereo_routing: StereoRouting,
+    cross_feedback: f64,         // 0.0-1.0 cross-feedback amount (D5.2)
+    haas_samples: usize,         // 0-30ms micro-delay for widening (D5.4)
+    diffusion_amount: f64,       // 0.0-1.0 allpass output smearing (D5.5)
+    diffusion_ap: [BiquadTDF2; 4], // 4 allpass stages for diffusion
+
+    // D7 Vintage character
+    vintage: VintageProcessor,
 
     sample_rate: f64,
 }
@@ -415,7 +602,7 @@ impl DelayLfo {
             // New S&H value on cycle boundary
             self.sh_counter = self.sh_counter.wrapping_add(1);
             let hash = self.sh_counter.wrapping_mul(2654435761) & 0xFFFF;
-            let new_val = (hash as f64 / 32768.0) * 2.0 - 1.0;
+            let new_val = hash as f64 / 65535.0 * 2.0 - 1.0;
             self.sh_value = new_val;
             self.sh_prev = self.sh_target;
             self.sh_target = new_val;
@@ -459,7 +646,7 @@ impl DelayLfo {
             self.phase -= 1.0;
             self.sh_counter = self.sh_counter.wrapping_add(1);
             let hash = self.sh_counter.wrapping_mul(2654435761) & 0xFFFF;
-            let new_val = (hash as f64 / 32768.0) * 2.0 - 1.0;
+            let new_val = hash as f64 / 65535.0 * 2.0 - 1.0;
             self.sh_value = new_val;
             self.sh_prev = self.sh_target;
             self.sh_target = new_val;
@@ -770,6 +957,9 @@ impl PingPongDelay {
             delay_samples: default_delay,
             delay_samples_r: default_delay,
             max_delay_samples,
+            smooth_delay_l: default_delay as f64,
+            smooth_delay_r: default_delay as f64,
+            delay_smoothing: 0.999, // ~10ms smoothing at 48kHz
             feedback: 0.5,
             dry_wet: 0.5,
             ping_pong: 1.0,
@@ -813,6 +1003,25 @@ impl PingPongDelay {
             mod_matrix: ModulationMatrix::new(),
             pitch_shifter_l: PitchShifter::new(sample_rate),
             pitch_shifter_r: PitchShifter::new(sample_rate),
+            // D6 Freeze & Glitch
+            reverse_enabled: false,
+            stutter_enabled: false,
+            stutter_samples: 0,
+            stutter_pos: 0,
+            stutter_decay: 0.95,
+            infinite_fb: false,
+            freeze_fade_samples: (0.05 * sample_rate) as usize, // 50ms default
+            freeze_fade_pos: 0,
+            // D5 Stereo
+            stereo_routing: StereoRouting::PingPong,
+            cross_feedback: 0.0,
+            haas_samples: 0,
+            diffusion_amount: 0.0,
+            diffusion_ap: [
+                BiquadTDF2::new(sample_rate), BiquadTDF2::new(sample_rate),
+                BiquadTDF2::new(sample_rate), BiquadTDF2::new(sample_rate),
+            ],
+            vintage: VintageProcessor::new(sample_rate),
             sample_rate,
         };
 
@@ -998,6 +1207,68 @@ impl PingPongDelay {
         }
     }
 
+    // === D6 Freeze & Glitch ===
+
+    /// Enable reverse delay (D6.2)
+    pub fn set_reverse(&mut self, enabled: bool) {
+        self.reverse_enabled = enabled;
+    }
+
+    /// Enable stutter mode (D6.3)
+    pub fn set_stutter(&mut self, enabled: bool, note_div_ms: f64) {
+        self.stutter_enabled = enabled;
+        self.stutter_samples = ((note_div_ms * 0.001 * self.sample_rate) as usize)
+            .max(1).min(self.max_delay_samples - 1);
+        self.stutter_pos = 0;
+    }
+
+    pub fn set_stutter_decay(&mut self, decay: f64) {
+        self.stutter_decay = decay.clamp(0.0, 1.0);
+    }
+
+    /// Enable infinite feedback mode (D6.5)
+    pub fn set_infinite_feedback(&mut self, enabled: bool) {
+        self.infinite_fb = enabled;
+    }
+
+    /// Set freeze fade time in ms (D6.4)
+    pub fn set_freeze_fade_ms(&mut self, ms: f64) {
+        self.freeze_fade_samples = ((ms.clamp(1.0, 500.0)) * 0.001 * self.sample_rate) as usize;
+    }
+
+    // === D5 Stereo & Spatial ===
+
+    pub fn set_stereo_routing(&mut self, routing: StereoRouting) {
+        self.stereo_routing = routing;
+        // When switching to PingPong, set classic behavior
+        if routing == StereoRouting::PingPong {
+            self.ping_pong = 1.0;
+        }
+    }
+
+    pub fn set_cross_feedback(&mut self, amount: f64) {
+        self.cross_feedback = amount.clamp(0.0, 1.0);
+    }
+
+    /// Set Haas delay in ms (0-30ms) (D5.4)
+    pub fn set_haas_ms(&mut self, ms: f64) {
+        self.haas_samples = ((ms.clamp(0.0, 30.0)) * 0.001 * self.sample_rate) as usize;
+    }
+
+    pub fn set_diffusion(&mut self, amount: f64) {
+        self.diffusion_amount = amount.clamp(0.0, 1.0);
+    }
+
+    // === D7 Vintage Character ===
+
+    pub fn set_vintage_mode(&mut self, mode: VintageMode) {
+        self.vintage.set_mode(mode);
+    }
+
+    pub fn set_vintage_amount(&mut self, amount: f64) {
+        self.vintage.set_amount(amount);
+    }
+
     // === D2 Modulation Engine public API ===
 
     /// Access LFO1 (D2.1 + D2.2)
@@ -1021,6 +1292,22 @@ impl PingPongDelay {
         if self.lfo2.retrigger_enabled {
             self.lfo2.retrigger();
         }
+    }
+
+    /// D10.3: Set delay time smoothing (0.0 = instant, 0.9999 = very slow glide)
+    pub fn set_delay_smoothing(&mut self, amount: f64) {
+        self.delay_smoothing = amount.clamp(0.0, 0.9999);
+    }
+
+    /// D10.3: Read from buffer with linear interpolation (fractional sample position)
+    #[inline]
+    fn read_interpolated(buffer: &[f64], pos: f64, len: usize) -> f64 {
+        let pos_mod = pos.rem_euclid(len as f64);
+        let idx = pos_mod as usize;
+        let frac = pos_mod - idx as f64;
+        let s0 = buffer[idx % len];
+        let s1 = buffer[(idx + 1) % len];
+        s0 + (s1 - s0) * frac
     }
 
     /// Process modulation for a block: computes LFO/ENV values and returns ModOutput
@@ -1105,14 +1392,14 @@ impl PingPongDelay {
                 // Sample & hold — changes once per cycle
                 let cycle = (self.filter_lfo_phase * 1000.0) as u64;
                 let hash = cycle.wrapping_mul(2654435761) & 0xFFFF;
-                (hash as f64 / 32768.0) * 2.0 - 1.0
+                hash as f64 / 65535.0 * 2.0 - 1.0
             }
             LfoShape::SawDown => 1.0 - self.filter_lfo_phase * 2.0,
             LfoShape::RandomSmooth => {
                 // For filter LFO, treat like S&H (simplified)
                 let cycle = (self.filter_lfo_phase * 1000.0) as u64;
                 let hash = cycle.wrapping_mul(2654435761) & 0xFFFF;
-                (hash as f64 / 32768.0) * 2.0 - 1.0
+                hash as f64 / 65535.0 * 2.0 - 1.0
             }
         };
         // Advance phase
@@ -1141,6 +1428,12 @@ impl Processor for PingPongDelay {
         self.tilt_hp_r.reset();
         self.filter_lfo_phase = 0.0;
         self.swing_counter = 0;
+        self.stutter_pos = 0;
+        self.freeze_fade_pos = 0;
+        // D5 diffusion
+        for ap in &mut self.diffusion_ap { ap.reset(); }
+        // D7 vintage
+        self.vintage.reset();
         // D2 modulation
         self.lfo1.reset();
         self.lfo2.reset();
@@ -1152,17 +1445,44 @@ impl Processor for PingPongDelay {
 
 impl StereoProcessor for PingPongDelay {
     fn process_sample(&mut self, left: Sample, right: Sample) -> (Sample, Sample) {
-        // Independent L/R delay times (D3.6)
-        let delay_l = self.delay_samples;
-        let delay_r = if self.lr_linked { self.delay_samples } else { self.delay_samples_r };
+        // D10.3: Smooth delay time — exponential approach to target
+        let target_l = self.delay_samples as f64;
+        let target_r = if self.lr_linked { target_l } else { self.delay_samples_r as f64 };
+        let coeff = self.delay_smoothing;
+        self.smooth_delay_l = coeff * self.smooth_delay_l + (1.0 - coeff) * target_l;
+        self.smooth_delay_r = coeff * self.smooth_delay_r + (1.0 - coeff) * target_r;
 
-        let read_pos_l =
-            (self.write_pos + self.max_delay_samples - delay_l) % self.max_delay_samples;
-        let read_pos_r =
-            (self.write_pos + self.max_delay_samples - delay_r) % self.max_delay_samples;
+        let delay_l = self.smooth_delay_l;
+        let delay_r = self.smooth_delay_r;
 
-        let delayed_l = self.buffer_l[read_pos_l];
-        let delayed_r = self.buffer_r[read_pos_r];
+        // D6.2: Reverse — read backwards through delay buffer (grain-based)
+        // Uses freeze_fade_pos as reverse playback counter
+        let (delayed_l, delayed_r) = if self.reverse_enabled {
+            let delay_l_int = delay_l as usize;
+            let delay_r_int = delay_r as usize;
+            let dl = delay_l_int.max(1);
+            let dr = delay_r_int.max(1);
+            // Reverse counter: counts 0..delay, reads from newest to oldest
+            let rev_phase = self.freeze_fade_pos % dl;
+            // Read from (write_pos - 1 - rev_phase) = newest first, going older
+            let rev_read_l = (self.write_pos + self.max_delay_samples - 1 - rev_phase) % self.max_delay_samples;
+            let rev_read_r = (self.write_pos + self.max_delay_samples - 1 - (self.freeze_fade_pos % dr)) % self.max_delay_samples;
+            self.freeze_fade_pos = self.freeze_fade_pos.wrapping_add(1);
+            (self.buffer_l[rev_read_l], self.buffer_r[rev_read_r])
+        } else if self.stutter_enabled && self.stutter_samples > 0 {
+            // D6.3: Stutter — loop a short fragment
+            let base_l = (self.write_pos as f64 + self.max_delay_samples as f64 - delay_l).rem_euclid(self.max_delay_samples as f64) as usize;
+            let s_pos = (base_l + self.stutter_pos) % self.max_delay_samples;
+            self.stutter_pos = (self.stutter_pos + 1) % self.stutter_samples;
+            (self.buffer_l[s_pos] * self.stutter_decay.powi((self.stutter_pos as f64 / self.stutter_samples as f64 * 4.0) as i32),
+             self.buffer_r[s_pos] * self.stutter_decay.powi((self.stutter_pos as f64 / self.stutter_samples as f64 * 4.0) as i32))
+        } else {
+            // D10.3: Interpolated read for smooth delay changes
+            let read_pos_l = self.write_pos as f64 + self.max_delay_samples as f64 - delay_l;
+            let read_pos_r = self.write_pos as f64 + self.max_delay_samples as f64 - delay_r;
+            (Self::read_interpolated(&self.buffer_l, read_pos_l, self.max_delay_samples),
+             Self::read_interpolated(&self.buffer_r, read_pos_r, self.max_delay_samples))
+        };
 
         // === Feedback processing chain: Drive → HP → Mid → LP → Tilt ===
 
@@ -1206,18 +1526,81 @@ impl StereoProcessor for PingPongDelay {
         let shifted_l = self.pitch_shifter_l.process(tilted_l);
         let shifted_r = self.pitch_shifter_r.process(tilted_r);
 
-        // Ping-pong crossfeed
-        let fb_l = shifted_l * (1.0 - self.ping_pong) + shifted_r * self.ping_pong;
-        let fb_r = shifted_r * (1.0 - self.ping_pong) + shifted_l * self.ping_pong;
+        // 7. Vintage character (D7)
+        let (vint_l, vint_r) = self.vintage.process(shifted_l, shifted_r);
 
-        // Write to buffers
-        self.buffer_l[self.write_pos] = left + fb_l * self.feedback;
-        self.buffer_r[self.write_pos] = right + fb_r * self.feedback;
+        // Stereo routing (D5.1)
+        let (fb_l, fb_r) = match self.stereo_routing {
+            StereoRouting::Stereo => {
+                // Independent L/R — no crossfeed
+                (vint_l, vint_r)
+            }
+            StereoRouting::PingPong => {
+                // Classic ping-pong
+                let pp = self.ping_pong;
+                (vint_l * (1.0 - pp) + vint_r * pp,
+                 vint_r * (1.0 - pp) + vint_l * pp)
+            }
+            StereoRouting::CrossFeed => {
+                // Cross-feedback: L↔R bleed (D5.2)
+                let cf = self.cross_feedback;
+                (vint_l * (1.0 - cf) + vint_r * cf,
+                 vint_r * (1.0 - cf) + vint_l * cf)
+            }
+            StereoRouting::DualMono => {
+                // Mono sum to both channels
+                let mono = (vint_l + vint_r) * 0.5;
+                (mono, mono)
+            }
+            StereoRouting::MidSide => {
+                // Process in M/S domain: boost side for wider stereo image
+                let mid = (vint_l + vint_r) * 0.5;
+                let side = (vint_l - vint_r) * 0.5;
+                // Cross-feedback amount controls mid/side balance:
+                // 0% = mid only (mono), 50% = normal, 100% = side only (wide)
+                let side_boost = 1.0 + self.cross_feedback * 2.0; // 1.0 → 3.0
+                let mid_cut = 1.0 - self.cross_feedback * 0.5;    // 1.0 → 0.5
+                let ms_mid = mid * mid_cut;
+                let ms_side = side * side_boost;
+                (ms_mid + ms_side, ms_mid - ms_side)
+            }
+        };
+
+        // Write to buffers (D6.5: infinite feedback with soft limiter)
+        let eff_fb = if self.infinite_fb { 1.0 } else { self.feedback };
+        let write_l = left + fb_l * eff_fb;
+        let write_r = right + fb_r * eff_fb;
+        // Soft limiter for infinite mode to prevent clipping
+        self.buffer_l[self.write_pos] = if self.infinite_fb { write_l.tanh() } else { write_l };
+        self.buffer_r[self.write_pos] = if self.infinite_fb { write_r.tanh() } else { write_r };
         self.write_pos = (self.write_pos + 1) % self.max_delay_samples;
 
-        // Mix
-        let out_l = left * (1.0 - self.dry_wet) + delayed_l * self.dry_wet;
-        let out_r = right * (1.0 - self.dry_wet) + delayed_r * self.dry_wet;
+        // Output with Haas delay on R channel (D5.4)
+        // Note: write_pos was already incremented above, so subtract 1 to compensate
+        let wet_l = delayed_l;
+        let wet_r = if self.haas_samples > 0 && self.haas_samples < self.max_delay_samples {
+            let haas_read = (self.write_pos as f64 - 1.0) + self.max_delay_samples as f64
+                - delay_r - self.haas_samples as f64;
+            Self::read_interpolated(&self.buffer_r, haas_read, self.max_delay_samples)
+        } else {
+            delayed_r
+        };
+
+
+        // Spatial diffusion on output (D5.5)
+        let (diff_l, diff_r) = if self.diffusion_amount > 0.01 {
+            let d = self.diffusion_amount;
+            let tmp_l = self.diffusion_ap[1].process_sample(wet_l);
+            let dl = self.diffusion_ap[0].process_sample(tmp_l);
+            let tmp_r = self.diffusion_ap[3].process_sample(wet_r);
+            let dr = self.diffusion_ap[2].process_sample(tmp_r);
+            (wet_l * (1.0 - d) + dl * d, wet_r * (1.0 - d) + dr * d)
+        } else {
+            (wet_l, wet_r)
+        };
+
+        let out_l = left * (1.0 - self.dry_wet) + diff_l * self.dry_wet;
+        let out_r = right * (1.0 - self.dry_wet) + diff_r * self.dry_wet;
 
         (out_l, out_r)
     }
@@ -1253,6 +1636,8 @@ impl ProcessorConfig for PingPongDelay {
         self.env_follower.set_sample_rate(sample_rate);
         self.pitch_shifter_l.set_sample_rate(sample_rate);
         self.pitch_shifter_r.set_sample_rate(sample_rate);
+        for ap in &mut self.diffusion_ap { ap.set_sample_rate(sample_rate); }
+        self.vintage.set_sample_rate(sample_rate);
     }
 }
 
@@ -1301,39 +1686,87 @@ impl TapFilter {
     }
 }
 
-/// Multi-tap delay
+/// Per-tap configuration for MultiTapDelay
+#[derive(Debug, Clone)]
+pub struct TapConfig {
+    pub delay_samples: usize,
+    pub level: f64,
+    pub pan: f64,
+    pub feedback: f64,         // D4.2: per-tap feedback (0..1)
+    pub pitch_semitones: f64,  // D4.3: per-tap pitch shift (-12..+12)
+    pub diffusion: f64,        // D4.5: per-tap diffusion amount (0..1)
+    pub active: bool,
+}
+
+/// Tap pattern preset (D4.4)
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TapPattern {
+    Rhythmic,
+    Cascade,
+    PingPongSpread,
+    Fibonacci,
+    GoldenRatio,
+    Random,
+}
+
+/// Multi-tap delay — D4 Pro upgrade: 16 taps, per-tap FB/pitch/diffusion, pattern presets
 #[derive(Debug, Clone)]
 pub struct MultiTapDelay {
     buffer: Vec<Sample>,
     write_pos: usize,
     max_delay_samples: usize,
 
-    // Tap settings: (delay_samples, level, pan)
-    taps: Vec<(usize, f64, f64)>,
-    // Per-tap filters (D1.6)
+    // D4.1: up to 16 taps
+    taps: Vec<TapConfig>,
     tap_filters: Vec<TapFilter>,
+    // D4.3: per-tap pitch shifters
+    tap_pitch: Vec<PitchShifter>,
+    // D4.5: per-tap diffusion (2-stage allpass per tap)
+    tap_diffusion_ap: Vec<[[f64; 2]; 2]>, // [tap_idx][stage][z1,z2] — simplified 2-stage
+    num_active_taps: usize,
 
-    feedback: f64,
+    feedback: f64,   // global feedback (legacy compat)
     dry_wet: f64,
 
     sample_rate: f64,
+    max_delay_ms: f64,
+    rng_state: u64,  // D4.7: simple xorshift for randomize
 }
+
+const MAX_TAPS: usize = 16;
 
 impl MultiTapDelay {
     pub fn new(sample_rate: f64, max_delay_ms: f64, num_taps: usize) -> Self {
         let max_delay_samples = (max_delay_ms * 0.001 * sample_rate) as usize;
+        let n = num_taps.min(MAX_TAPS);
 
-        // Default taps evenly spaced
-        let taps: Vec<_> = (0..num_taps)
-            .map(|i| {
-                let delay = (i + 1) * max_delay_samples / (num_taps + 1);
-                let level = 1.0 / (i + 1) as f64; // Decreasing level
-                let pan = if i % 2 == 0 { -0.3 } else { 0.3 }; // Alternating pan
-                (delay, level, pan)
-            })
-            .collect();
+        let mut taps = Vec::with_capacity(MAX_TAPS);
+        let mut tap_filters = Vec::with_capacity(MAX_TAPS);
+        let mut tap_pitch = Vec::with_capacity(MAX_TAPS);
+        let mut tap_diffusion_ap = Vec::with_capacity(MAX_TAPS);
 
-        let tap_filters = (0..num_taps).map(|_| TapFilter::new(sample_rate)).collect();
+        for i in 0..MAX_TAPS {
+            let delay = if i < n {
+                (i + 1) * max_delay_samples / (n + 1)
+            } else {
+                0
+            };
+            let level = if i < n { 1.0 / (i + 1) as f64 } else { 0.0 };
+            let pan = if i % 2 == 0 { -0.3 } else { 0.3 };
+
+            taps.push(TapConfig {
+                delay_samples: delay,
+                level,
+                pan,
+                feedback: 0.0,
+                pitch_semitones: 0.0,
+                diffusion: 0.0,
+                active: i < n,
+            });
+            tap_filters.push(TapFilter::new(sample_rate));
+            tap_pitch.push(PitchShifter::new(sample_rate));
+            tap_diffusion_ap.push([[0.0; 2]; 2]);
+        }
 
         Self {
             buffer: vec![0.0; max_delay_samples],
@@ -1341,20 +1774,47 @@ impl MultiTapDelay {
             max_delay_samples,
             taps,
             tap_filters,
+            tap_pitch,
+            tap_diffusion_ap,
+            num_active_taps: n,
             feedback: 0.3,
             dry_wet: 0.5,
             sample_rate,
+            max_delay_ms,
+            rng_state: 0xDEAD_BEEF_CAFE_1234,
         }
     }
 
     pub fn set_tap(&mut self, index: usize, delay_ms: f64, level: f64, pan: f64) {
-        if index < self.taps.len() {
+        if let Some(t) = self.taps.get_mut(index) {
             let delay_samples = (delay_ms * 0.001 * self.sample_rate) as usize;
-            self.taps[index] = (
-                delay_samples.min(self.max_delay_samples - 1),
-                level.clamp(0.0, 1.0),
-                pan.clamp(-1.0, 1.0),
-            );
+            t.delay_samples = delay_samples.min(self.max_delay_samples.saturating_sub(1));
+            t.level = level.clamp(0.0, 1.0);
+            t.pan = pan.clamp(-1.0, 1.0);
+        }
+    }
+
+    /// D4.2: Set per-tap feedback amount
+    pub fn set_tap_feedback(&mut self, index: usize, feedback: f64) {
+        if let Some(t) = self.taps.get_mut(index) {
+            t.feedback = feedback.clamp(0.0, 0.99);
+        }
+    }
+
+    /// D4.3: Set per-tap pitch shift in semitones
+    pub fn set_tap_pitch(&mut self, index: usize, semitones: f64) {
+        if let Some(t) = self.taps.get_mut(index) {
+            t.pitch_semitones = semitones.clamp(-12.0, 12.0);
+        }
+        if let Some(ps) = self.tap_pitch.get_mut(index) {
+            ps.set_semitones(semitones);
+        }
+    }
+
+    /// D4.5: Set per-tap diffusion amount (0-100%)
+    pub fn set_tap_diffusion(&mut self, index: usize, amount: f64) {
+        if let Some(t) = self.taps.get_mut(index) {
+            t.diffusion = amount.clamp(0.0, 1.0);
         }
     }
 
@@ -1372,6 +1832,23 @@ impl MultiTapDelay {
         }
     }
 
+    /// Set tap active/inactive
+    pub fn set_tap_active(&mut self, index: usize, active: bool) {
+        if let Some(t) = self.taps.get_mut(index) {
+            t.active = active;
+        }
+        self.num_active_taps = self.taps.iter().filter(|t| t.active).count();
+    }
+
+    /// Set number of active taps (enables first N taps)
+    pub fn set_num_taps(&mut self, n: usize) {
+        let n = n.min(MAX_TAPS);
+        for (i, t) in self.taps.iter_mut().enumerate() {
+            t.active = i < n;
+        }
+        self.num_active_taps = n;
+    }
+
     pub fn set_feedback(&mut self, feedback: f64) {
         self.feedback = feedback.clamp(0.0, 0.99);
     }
@@ -1379,6 +1856,111 @@ impl MultiTapDelay {
     pub fn set_dry_wet(&mut self, mix: f64) {
         self.dry_wet = mix.clamp(0.0, 1.0);
     }
+
+    /// D4.4: Apply a tap pattern preset
+    pub fn apply_pattern(&mut self, pattern: TapPattern, num_taps: usize, base_delay_ms: f64) {
+        let n = num_taps.min(MAX_TAPS);
+        self.set_num_taps(n);
+
+        match pattern {
+            TapPattern::Rhythmic => {
+                // Standard rhythmic: 1/8, 1/4, dotted 1/4, 1/2, etc.
+                let multipliers = [0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1.0,
+                                   1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 3.5, 4.0];
+                for i in 0..n {
+                    let delay_ms = base_delay_ms * multipliers[i];
+                    let level = 1.0 - (i as f64 / n as f64) * 0.6;
+                    let pan = if i % 2 == 0 { -0.4 } else { 0.4 };
+                    self.set_tap(i, delay_ms, level, pan);
+                }
+            }
+            TapPattern::Cascade => {
+                // Cascading: exponentially increasing delays, decreasing levels
+                for i in 0..n {
+                    let delay_ms = base_delay_ms * (1.5_f64).powi(i as i32);
+                    let level = (0.85_f64).powi(i as i32);
+                    let pan = (i as f64 / n as f64 * 2.0 - 1.0) * 0.7; // L→R spread
+                    self.set_tap(i, delay_ms, level, pan);
+                }
+            }
+            TapPattern::PingPongSpread => {
+                // Evenly spaced, alternating hard L/R
+                for i in 0..n {
+                    let delay_ms = base_delay_ms * (i + 1) as f64 / n as f64;
+                    let level = 1.0 - (i as f64 / n as f64) * 0.5;
+                    let pan = if i % 2 == 0 { -0.9 } else { 0.9 };
+                    self.set_tap(i, delay_ms, level, pan);
+                }
+            }
+            TapPattern::Fibonacci => {
+                // Fibonacci sequence ratios
+                let mut a: f64 = 1.0;
+                let mut b: f64 = 1.0;
+                let mut fib_vals = Vec::with_capacity(n);
+                for _ in 0..n {
+                    fib_vals.push(a);
+                    let tmp = a + b;
+                    a = b;
+                    b = tmp;
+                }
+                let max_fib = fib_vals.last().copied().unwrap_or(1.0);
+                for i in 0..n {
+                    let delay_ms = base_delay_ms * fib_vals[i] / max_fib;
+                    let level = 1.0 - (i as f64 / n as f64) * 0.7;
+                    let pan = ((i as f64 * 2.399) % 2.0 - 1.0) * 0.6; // golden scatter
+                    self.set_tap(i, delay_ms, level, pan);
+                }
+            }
+            TapPattern::GoldenRatio => {
+                // Golden ratio spacing
+                let phi = 1.618_033_988_749_895;
+                for i in 0..n {
+                    let ratio = ((i + 1) as f64 * phi) % 1.0;
+                    let delay_ms = base_delay_ms * (ratio * 0.9 + 0.1); // 10%-100% range
+                    let level = 0.9 - (i as f64 / n as f64) * 0.5;
+                    let pan = (ratio * 2.0 - 1.0) * 0.8;
+                    self.set_tap(i, delay_ms, level, pan);
+                }
+            }
+            TapPattern::Random => {
+                // D4.7: Randomized pattern using internal rng
+                for i in 0..n {
+                    let r1 = self.next_rng_f64();
+                    let r2 = self.next_rng_f64();
+                    let r3 = self.next_rng_f64();
+                    let delay_ms = base_delay_ms * (r1 * 0.9 + 0.1);
+                    let level = 0.3 + r2 * 0.7;
+                    let pan = r3 * 2.0 - 1.0;
+                    self.set_tap(i, delay_ms, level, pan);
+                }
+            }
+        }
+    }
+
+    /// D4.7: Randomize current tap pattern with new seed
+    pub fn randomize(&mut self, seed: u64) {
+        self.rng_state = seed | 1; // ensure non-zero
+        let n = self.num_active_taps;
+        let base = self.max_delay_ms;
+        self.apply_pattern(TapPattern::Random, n, base);
+    }
+
+    /// Simple xorshift64 PRNG (no allocation, deterministic)
+    #[inline]
+    fn next_rng(&mut self) -> u64 {
+        let mut x = self.rng_state;
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        self.rng_state = x;
+        x
+    }
+
+    #[inline]
+    fn next_rng_f64(&mut self) -> f64 {
+        (self.next_rng() & 0x000F_FFFF_FFFF_FFFFu64) as f64 / 0x0010_0000_0000_0000u64 as f64
+    }
+
 }
 
 impl Processor for MultiTapDelay {
@@ -1388,6 +1970,12 @@ impl Processor for MultiTapDelay {
         for f in &mut self.tap_filters {
             f.reset();
         }
+        for ps in &mut self.tap_pitch {
+            ps.reset();
+        }
+        for ap in &mut self.tap_diffusion_ap {
+            *ap = [[0.0; 2]; 2];
+        }
     }
 }
 
@@ -1395,38 +1983,76 @@ impl StereoProcessor for MultiTapDelay {
     fn process_sample(&mut self, left: Sample, right: Sample) -> (Sample, Sample) {
         let input = (left + right) * 0.5;
 
-        // Read all taps and sum
+        // Sum per-tap feedback contributions
+        let mut fb_sum = 0.0;
+        for tap in self.taps.iter() {
+            if !tap.active || tap.feedback < 0.001 { continue; }
+            let read_pos = (self.write_pos + self.max_delay_samples - tap.delay_samples)
+                % self.max_delay_samples;
+            fb_sum += self.buffer[read_pos] * tap.feedback;
+        }
+        // Global feedback from last active tap (legacy compat)
+        if self.feedback > 0.001 {
+            let last_delay = self.taps.iter().rev()
+                .find(|t| t.active)
+                .map(|t| t.delay_samples)
+                .unwrap_or(0);
+            let last_pos = (self.write_pos + self.max_delay_samples - last_delay)
+                % self.max_delay_samples;
+            fb_sum += self.buffer[last_pos] * self.feedback;
+        }
+
+        // Write to buffer
+        self.buffer[self.write_pos] = input + fb_sum.clamp(-4.0, 4.0);
+        self.write_pos = (self.write_pos + 1) % self.max_delay_samples;
+
+        // Read all active taps and sum
         let mut wet_l = 0.0;
         let mut wet_r = 0.0;
 
-        for (i, &(delay_samples, level, pan)) in self.taps.iter().enumerate() {
-            let read_pos =
-                (self.write_pos + self.max_delay_samples - delay_samples) % self.max_delay_samples;
+        for i in 0..MAX_TAPS {
+            // Copy tap config to locals to avoid borrow conflicts
+            let active = self.taps[i].active;
+            if !active { continue; }
+            let delay_samples = self.taps[i].delay_samples;
+            let level = self.taps[i].level;
+            let pan = self.taps[i].pan;
+            let diffusion_amt = self.taps[i].diffusion;
+
+            let read_pos = (self.write_pos + self.max_delay_samples - delay_samples)
+                % self.max_delay_samples;
             let raw = self.buffer[read_pos];
 
-            // Per-tap filter (D1.6)
-            let filtered = if let Some(f) = self.tap_filters.get_mut(i) {
-                f.process(raw)
+            // Per-tap filter
+            let filtered = self.tap_filters[i].process(raw);
+
+            // D4.3: Per-tap pitch shift
+            let pitched = self.tap_pitch[i].process(filtered);
+
+            // D4.5: Per-tap diffusion (inline to avoid &mut self borrow)
+            let diffused = if diffusion_amt < 0.001 {
+                pitched
             } else {
-                raw
+                let coeff = diffusion_amt * 0.7;
+                let mut x = pitched;
+                // Stage 0
+                let y0 = -coeff * x + self.tap_diffusion_ap[i][0][0];
+                self.tap_diffusion_ap[i][0][0] = x + coeff * y0;
+                x = y0;
+                // Stage 1
+                let y1 = -coeff * x + self.tap_diffusion_ap[i][1][0];
+                self.tap_diffusion_ap[i][1][0] = x + coeff * y1;
+                x = y1;
+                pitched + (x - pitched) * diffusion_amt
             };
-            let delayed = filtered * level;
+
+            let delayed = diffused * level;
 
             // Pan law (constant power)
             let pan_angle = (pan + 1.0) * 0.5 * PI * 0.5;
             wet_l += delayed * pan_angle.cos();
             wet_r += delayed * pan_angle.sin();
         }
-
-        // Feedback from last tap
-        let last_tap_delay = self.taps.last().map(|t| t.0).unwrap_or(0);
-        let last_read_pos =
-            (self.write_pos + self.max_delay_samples - last_tap_delay) % self.max_delay_samples;
-        let fb = self.buffer[last_read_pos] * self.feedback;
-
-        // Write to buffer
-        self.buffer[self.write_pos] = input + fb;
-        self.write_pos = (self.write_pos + 1) % self.max_delay_samples;
 
         // Mix
         let out_l = left * (1.0 - self.dry_wet) + wet_l * self.dry_wet;
@@ -1443,17 +2069,20 @@ impl ProcessorConfig for MultiTapDelay {
         self.max_delay_samples = (self.max_delay_samples as f64 * ratio) as usize;
         self.buffer = vec![0.0; self.max_delay_samples];
 
-        // Scale tap delays
         for tap in &mut self.taps {
-            tap.0 = (tap.0 as f64 * ratio) as usize;
+            tap.delay_samples = (tap.delay_samples as f64 * ratio) as usize;
         }
 
-        // Update tap filter sample rates
         for f in &mut self.tap_filters {
             f.hp.set_sample_rate(sample_rate);
             f.lp.set_sample_rate(sample_rate);
             f.set_hp(f.hp_freq);
             f.set_lp(f.lp_freq);
+        }
+
+        for ps in &mut self.tap_pitch {
+            // Re-create pitch shifter with new sample rate
+            *ps = PitchShifter::new(sample_rate);
         }
     }
 }
