@@ -1,10 +1,33 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-03-07
+**Updated:** 2026-03-08
 
-## Status: ALL COMPLETE — 208/208 + P-USL + P5-CLEAN + P5-CONSOLIDATION + P5-WINTIER-UI
+## Status: ALL COMPLETE — 208/208 + P-USL + P5-CLEAN + P5-CONSOLIDATION + P5-WINTIER-UI + CONFIG-ENHANCEMENTS
 
-## Recent: P5 Win Tier Config UI + QA Fixes
+## Recent: Config Panel Enhancements (2026-03-08)
+
+### Win Tier Config Panel — Fixes & Features
+- **FIX:** App freeze on WIN TIERS expand — `Expanded` in unbounded `ListView` context
+- **FIX:** Provider listener rebuild storm — replaced with `_revision` ValueNotifier
+- **RangeSlider** for regular tiers (0-25x, 0.1 step) and big win tiers (0-100x)
+- **Tier chaining** — drag one tier, all others push up/down (no gaps/overlaps)
+- **RangeValues guard** — `start <= end` assertion crash prevented
+- **Accordion** — separate expand/collapse for REGULAR and BIG WIN sections
+- **Per-tier validation highlights** — red border + warning icon for FROM>=TO and gaps
+- **Win tier simulator** — BET/WIN input → real-time tier matching display
+
+### Scene Transitions — Full Config Wiring
+- **durationMs** — all animation durations scale proportionally from config
+- **TransitionStyle** — 5 styles: fade, slideUp, slideDown, zoom, swoosh
+- **audioStage** — UI field added, wired to EventRegistry via _fireAudioStage
+- **TEST button** — preview any transition without starting a feature
+- **Audio stage picker** — dropdown with registered EventRegistry stages
+
+### Symbol Art Panel
+- **Mini-reel preview** — 5x3 grid showing all symbols with artwork
+- **Batch import** — updateSymbolArtworkBatch for bulk folder import
+
+### Previous: P5 Win Tier Config UI + QA Fixes
 
 ### Win Tier Config Panel (CONFIG tab, right panel)
 - **New file:** `widgets/slot_lab/win_tier_config_panel.dart`
