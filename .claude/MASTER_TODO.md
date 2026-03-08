@@ -12,6 +12,7 @@
 | Config Panel Enhancements | Done |
 | Config Undo/Redo + Visual Transition Editor | Done |
 | **REVERB ULTIMATE — Valhalla-tier upgrade** | **TODO (0/47)** |
+| **EQ ULTIMATE — Pro-Q 4 tier upgrade** | **TODO (0/52)** |
 
 Analyzer: 0 errors, 0 warnings
 
@@ -139,6 +140,142 @@ Cilj: Pro-R 2 nivo vizualizacije + novi parametri u UI.
 | **TOTAL** | | **47** | |
 
 **Prioritet implementacije:** F1 → F2 → F3 → F6 → F4 → F7 → F5 → F9 → F8
+
+**Grand Total: 47 (Reverb) + 52 (EQ) = 99 taskova**
+
+---
+
+## EQ ULTIMATE — Pro-Q 4 Tier Parametric EQ
+
+**Goal:** Podići FF-Q 64 na nivo FabFilter Pro-Q 4 kvaliteta zvuka i UX-a.
+**Scope:** Rust DSP (rf-dsp/src/eq*.rs, biquad.rs), FFI (rf-engine), Flutter UI (fabfilter_eq_panel.dart)
+**Referenca:** FabFilter Pro-Q 4, Kirchhoff-EQ, TDR SlickEQ, DMG EQuilibrium
+**Trenutno stanje:** 64 banda, 10 filter tipova, MZT filteri, SIMD, Dynamic EQ, M/S, A/B — solidna baza.
+
+### FAZA E1 — Tačna EQ Kriva u UI (KRITIČNO) [0/5]
+
+Trenutno: `_bandResponse()` u painteru koristi Gaussian aproksimaciju `exp(-pow(lr*q, 2))`.
+Problem: Kriva na ekranu NE odgovara onome što DSP radi. Pro-Q 4 prikazuje TAČAN biquad response.
+
+- [ ] **E1.1** Zameni `_bandResponse()` sa pravom biquad H(z) evaluacijom — koristiti `DspFrequencyCalculator.calculateBiquadMagnitude()` koji već postoji
+- [ ] **E1.2** Cache-irati frequency response per-band (512 tačaka) — recalc samo kad se band promeni
+- [ ] **E1.3** Composite curve = suma svih band response-ova u dB domenu (ne Gaussian)
+- [ ] **E1.4** Slope visualization tačna za sve slope opcije (6-96 dB/oct) — cascaded biquad stages
+- [ ] **E1.5** Q shape tačan za Notch, BandPass, Tilt, AllPass — svaki sa pravom transfer funkcijom
+
+### FAZA E2 — Spectrum Analyzer Upgrade [0/7]
+
+Trenutno: post-EQ spektar, 8192 FFT, -80dB range, nema freeze/tilt.
+Cilj: Pro-Q 4 nivo spektralne analize.
+
+- [ ] **E2.1** Pre/Post EQ spectrum overlay: pre=siva transparentna, post=accent boja
+- [ ] **E2.2** FFT resolution: 8192 → 32768 za ultra-smooth prikaz (sa decimation za performanse)
+- [ ] **E2.3** Spectrum range: -120dB do +6dB sa zoomable vertikalnim opsegom (scroll za zoom)
+- [ ] **E2.4** Spectrum freeze/snapshot: dugme za zamrzavanje trenutnog spektra (overlay ostaje)
+- [ ] **E2.5** Spectrum tilt compensation: -3dB/oct ili -4.5dB/oct nagib za flat vizualizaciju pink noise
+- [ ] **E2.6** Mid/Side spectrum: odvojeni M i S spektri kad je M/S aktivan (zelena/ljubičasta)
+- [ ] **E2.7** Sidechain spectrum overlay: prikaži eksterni sidechain signal spektar (Dynamic EQ referenca)
+
+### FAZA E3 — Node Interakcija Pro-Q 4 Nivo [0/9]
+
+Trenutno: click-to-add, drag freq/gain, scroll-Q. Nema fine mode, solo listen, shortcuts.
+Cilj: Potpuno Pro-Q 4 interakcijski model.
+
+- [ ] **E3.1** Q ring vizualizacija: polu-transparentan prsten oko node-a koji prikazuje Q širinu (širi Q = širi ring)
+- [ ] **E3.2** Alt+drag = solo listen: audition samo taj bend u realnom vremenu (mute ostale)
+- [ ] **E3.3** Shift+drag = fine adjust: 10× precizniji pokret za freq i gain (ne samo Q scroll)
+- [ ] **E3.4** Ctrl+click = reset band to default: freq ostaje, gain→0, Q→1
+- [ ] **E3.5** Right-click context menu: Copy Band, Paste Band, Invert Gain, Delete, Solo, M/S toggle
+- [ ] **E3.6** Band number labels: broj na svakom node-u (1, 2, 3...) za identifikaciju
+- [ ] **E3.7** Slope handles: spoljne drag tačke za low/high cut slope (drag gore/dole menja slope)
+- [ ] **E3.8** Keyboard shortcuts: Delete=remove band, Space=toggle enable, S=solo, D=dynamic toggle
+- [ ] **E3.9** Drag band off-screen = delete: prevuci node van granica displeja za brisanje
+
+### FAZA E4 — Phase & Group Delay Display [0/4]
+
+Trenutno: phase response postoji u frequency_response_overlay ali NIJE u EQ panelu.
+Cilj: Integrisani phase i group delay prikaz u EQ displayu.
+
+- [ ] **E4.1** Phase response curve toggle: narandžasta kriva u EQ displayu (±180°)
+- [ ] **E4.2** Group delay display: ms skala, prikaži group delay po frekvenciji
+- [ ] **E4.3** Phase mode picker u UI: Natural Phase / Linear Phase / Zero Latency (FFI `pro_eq_set_phase_mode` već postoji)
+- [ ] **E4.4** Linear phase latency indicator: prikaži latency u ms kad je linear phase aktivan
+
+### FAZA E5 — Undo/Redo + Workflow [0/7]
+
+Trenutno: nema undo, nema preset browser, nema copy/paste.
+Cilj: Potpun workflow kao Pro-Q 4.
+
+- [ ] **E5.1** EQ Undo/Redo: Cmd+Z / Cmd+Shift+Z sa snapshot stackom (band config + output gain)
+- [ ] **E5.2** Band copy/paste: Cmd+C kopira selektovani band, Cmd+V paste-uje na novu poziciju
+- [ ] **E5.3** Band invert: flip gain (boost↔cut) jednim klikom
+- [ ] **E5.4** Global bypass per shape: "bypass all bells", "bypass all cuts" — brzi A/B po tipu
+- [ ] **E5.5** Preset browser: kategorisani factory preseti (Vocal, Guitar, Drums, Master, Surgical, Creative)
+- [ ] **E5.6** Preset save/load: korisnik čuva custom presete (JSON serialization svih bandova)
+- [ ] **E5.7** Import/Export EQ curve: deli EQ podešavanja između instanci
+
+### FAZA E6 — EQ Match (Spectrum Matching) [0/5]
+
+Trenutno: infrastruktura u eq_pro.rs (MATCH_FFT_SIZE=16384), ali nema UI.
+Cilj: Capture referentni spektar → auto-generisanje EQ krive da match-uje target.
+
+- [ ] **E6.1** EQ Match UI: "Capture Reference" dugme — snima 3-5s spektra ciljnog signala
+- [ ] **E6.2** EQ Match UI: "Capture Source" dugme — snima spektar trenutnog signala
+- [ ] **E6.3** Match algorithm: razlika source-reference → auto-kreira bandove za izravnavanje
+- [ ] **E6.4** Match amount slider: 0-100% koliko agresivno da match-uje (smooth transition)
+- [ ] **E6.5** Match preview: prikaži target curve overlay pre apply-ovanja
+
+### FAZA E7 — Oversampling & Advanced DSP [0/5]
+
+Trenutno: oversampling infrastruktura u eq_pro.rs (2x/4x/8x/Adaptive), ali nema UI toggle.
+Cilj: Korisnik bira oversampling + napredne DSP opcije.
+
+- [ ] **E7.1** Oversampling picker u UI: Off / 2x / 4x / 8x / Adaptive — sa latency prikaz
+- [ ] **E7.2** Per-band solo spectrum: prikaži spektar samo izolovanog band-a
+- [ ] **E7.3** Collision detection vizual: highlight overlapping bandova (narandžasti dot na preseku)
+- [ ] **E7.4** Auto-listen mode: automatski solo band dok ga draguješ (Pro-Q 4 style)
+- [ ] **E7.5** Gain scale toggle: ±12dB / ±24dB / ±30dB za prikaz displeja (zoom in za mastering)
+
+### FAZA E8 — Vizualni Polish [0/6]
+
+Trenutno: funkcionalan ali basic prikaz. Nema animacije, waterfall, color-by-freq.
+Cilj: Premium vizualni kvalitet na nivou Pro-Q 4.
+
+- [ ] **E8.1** Node animacija: spring physics za smooth drag (umesto instant snap)
+- [ ] **E8.2** Band color po frekvenciji: automatska boja iz spektra (crvena→narandžasta→žuta→zelena→plava) umesto fiksne po tipu
+- [ ] **E8.3** Spectrum waterfall/sonogram mode: opcioni 2D spectrogram (vreme × frekvencija × amplituda kao boja)
+- [ ] **E8.4** Full-screen mode: expand EQ panel na ceo prozor za precizni rad
+- [ ] **E8.5** Smooth spectrum rendering: 60fps GPU-accelerated (RepaintBoundary + custom shader ako je dostupno)
+- [ ] **E8.6** Node glow na audio signal: node bljesne proporcionalno energiji na toj frekvenciji
+
+### FAZA E9 — Wiring Postojećeg DSP-a u UI [0/4]
+
+Trenutno: eq_pro.rs, eq_ultra.rs, eq_analog.rs, eq_stereo.rs postoje ali NISU connected u UI.
+Cilj: Wire-uj sve postojeće DSP module u UI.
+
+- [ ] **E9.1** Analog mode picker: Pultec / API 550A / Neve 1073 — switch u headeru (koristi eq_analog.rs)
+- [ ] **E9.2** Stereo EQ features u UI: Bass Mono toggle, per-band stereo width, phase alignment (koristi eq_stereo.rs)
+- [ ] **E9.3** Room correction wizard: capture → analyze → auto-correct (koristi eq_room.rs)
+- [ ] **E9.4** Ultra mode toggle: MZT + transient-aware + harmonic saturation (koristi eq_ultra.rs)
+
+---
+
+### EQ Rezime faza
+
+| Faza | Opis | Taskova | Impact |
+|------|------|---------|--------|
+| E1 | Tačna EQ kriva (biquad H(z)) | 5 | ★★★★★ (KRITIČNO — vizual ≠ zvuk) |
+| E2 | Spectrum analyzer upgrade | 7 | ★★★★☆ |
+| E3 | Node interakcija Pro-Q 4 | 9 | ★★★★☆ |
+| E4 | Phase & group delay | 4 | ★★★☆☆ |
+| E5 | Undo/Redo + workflow | 7 | ★★★★☆ |
+| E6 | EQ Match | 5 | ★★★☆☆ |
+| E7 | Oversampling & advanced | 5 | ★★★☆☆ |
+| E8 | Vizualni polish | 6 | ★★☆☆☆ |
+| E9 | Wire existing DSP | 4 | ★★★★☆ |
+| **TOTAL** | | **52** | |
+
+**Prioritet implementacije:** E1 → E3 → E2 → E9 → E5 → E4 → E7 → E6 → E8
 
 ---
 
