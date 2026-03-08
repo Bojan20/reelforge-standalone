@@ -1243,10 +1243,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   // Fullscreen preview mode
   bool _isPreviewMode = false;
-  bool _showSplashOnPreview = false; // Splash only after auto-bind or GENERATE
-
-  // Entry splash — shown every time user enters SlotLab (like a real slot game)
-  bool _showEntrySplash = true;
+  bool _showSplashOnPreview = true; // Splash on entry, auto-bind, GENERATE, and refresh
 
   // Audio browser
   String _browserSearchQuery = '';
@@ -1668,8 +1665,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   bool _handleSpaceKey() {
     if (!mounted) return false;
 
-    // Entry splash active — block all interaction until CONTINUE
-    if (_showEntrySplash) return true;
+    // Splash loading active — block all interaction until CONTINUE
+    if (_showSplashOnPreview) return true;
 
     // No interaction without a built slot machine
     if (GetIt.instance.isRegistered<FeatureComposerProvider>() &&
@@ -3138,22 +3135,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // full rebuild on every notification, killing tab switch performance.
     // Sync is handled by _onMiddlewareChanged listener instead.
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    // ENTRY SPLASH — Casino-style intro screen, blocks everything until CONTINUE
-    // ═══════════════════════════════════════════════════════════════════════════
-    if (_showEntrySplash) {
-      return _SlotLabEntrySplash(
-        onContinue: () {
-          setState(() => _showEntrySplash = false);
-          // Trigger GAME_START → starts base game music via composite event
-          final eventRegistry = EventRegistry.instance;
-          if (eventRegistry.hasEventForStage('GAME_START')) {
-            eventRegistry.triggerStage('GAME_START');
-          }
-        },
-      );
-    }
-
     // Fullscreen preview mode - immersive slot testing
     if (_isPreviewMode) {
       return PremiumSlotPreview(
@@ -3295,6 +3276,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                                             _buildCenterToolBtn(Icons.upload_file, 'Import GDD', const Color(0xFFFFAA00), _showGddImportWizard),
                                             const SizedBox(width: 6),
                                             _buildCenterToolBtn(Icons.settings, 'Settings', const Color(0xFF9370DB), _showSettingsDialog),
+                                            const SizedBox(width: 6),
+                                            _buildCenterToolBtn(Icons.refresh, 'Reload', const Color(0xFFFFD700), _reloadSlotMachine),
                                             const Spacer(),
                                           ],
                                         ),
@@ -5500,6 +5483,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           'glow': [const Color(0xFF666666)],
         };
     }
+  }
+
+  /// Reload slot machine — triggers splash loading screen (like browser refresh)
+  void _reloadSlotMachine() {
+    setState(() => _showSplashOnPreview = true);
   }
 
   void _showSettingsDialog() {
@@ -9366,7 +9354,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   Widget _buildLeftPanelTabBar() {
     const tabs = _LeftPanelTab.values;
-    const labels = ['ASSIGN', 'BROWSE', 'AUREXIS'];
+    const labels = ['ASSIGN', 'CUSTOM', 'AUREXIS'];
     const icons = [Icons.audiotrack, Icons.event_note, Icons.auto_awesome];
 
     return Container(
@@ -10242,6 +10230,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               _loadMetadataInBackground(newEntries.map((e) => e['path'] as String).toList());
             }
             await BatchDistributionDialog.show(context, matched: matched, unmatched: unmatched);
+            // Reload slot machine after auto-bind confirmation
+            if (mounted) setState(() => _showSplashOnPreview = true);
           },
           canUndo: projectProvider.canUndoAudioAssignment,
           canRedo: projectProvider.canRedoAudioAssignment,
@@ -13562,237 +13552,3 @@ class _InstantTapDetectorState extends State<_InstantTapDetector> {
   }
 }
 
-// =============================================================================
-// ENTRY SPLASH — Casino-style loading screen (shown on every SlotLab entry)
-// =============================================================================
-
-class _SlotLabEntrySplash extends StatefulWidget {
-  final VoidCallback onContinue;
-
-  const _SlotLabEntrySplash({required this.onContinue});
-
-  @override
-  State<_SlotLabEntrySplash> createState() => _SlotLabEntrySplashState();
-}
-
-class _SlotLabEntrySplashState extends State<_SlotLabEntrySplash>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _progressController;
-  int _currentPhase = 0;
-  bool _loadingComplete = false;
-
-  static const _phases = [
-    (label: 'Initializing audio engine...', weight: 0.12),
-    (label: 'Loading sound pool...', weight: 0.25),
-    (label: 'Preparing reel strips...', weight: 0.15),
-    (label: 'Building paytable...', weight: 0.10),
-    (label: 'Configuring win evaluation...', weight: 0.10),
-    (label: 'Loading symbol animations...', weight: 0.10),
-    (label: 'Setting up event system...', weight: 0.08),
-    (label: 'Calibrating RTP model...', weight: 0.05),
-    (label: 'Ready!', weight: 0.05),
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _progressController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3500),
-    );
-    _progressController.addListener(_updatePhase);
-    _progressController.addStatusListener((status) {
-      if (status == AnimationStatus.completed && mounted) {
-        setState(() => _loadingComplete = true);
-      }
-    });
-    // Start loading after a brief delay (feels natural)
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) _progressController.forward();
-    });
-  }
-
-  void _updatePhase() {
-    final progress = _progressController.value;
-    double accumulated = 0;
-    for (int i = 0; i < _phases.length; i++) {
-      accumulated += _phases[i].weight;
-      if (progress <= accumulated) {
-        if (_currentPhase != i && mounted) {
-          setState(() => _currentPhase = i);
-        }
-        break;
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _progressController.removeListener(_updatePhase);
-    _progressController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF050508),
-      body: Center(
-        child: SizedBox(
-          width: 420,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Logo
-              ShaderMask(
-                shaderCallback: (bounds) => const LinearGradient(
-                  colors: [Color(0xFFFFD700), Color(0xFFFFA500), Color(0xFFFFD700)],
-                ).createShader(bounds),
-                child: const Text(
-                  'FLUXFORGE',
-                  style: TextStyle(
-                    fontSize: 42,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 10,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'S L O T   L A B',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w300,
-                  letterSpacing: 8,
-                  color: Color(0xFF888888),
-                ),
-              ),
-              const SizedBox(height: 56),
-
-              // Progress bar
-              AnimatedBuilder(
-                animation: _progressController,
-                builder: (context, _) {
-                  final progress = _progressController.value;
-                  final percent = (progress * 100).round();
-                  return Column(
-                    children: [
-                      // Phase label
-                      SizedBox(
-                        height: 20,
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 200),
-                          child: Text(
-                            _phases[_currentPhase].label,
-                            key: ValueKey(_currentPhase),
-                            style: const TextStyle(
-                              color: Color(0xFFAAAAAA),
-                              fontSize: 11,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Progress bar track
-                      Container(
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A1A22),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(3),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: FractionallySizedBox(
-                              widthFactor: progress,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      const Color(0xFFFFD700).withValues(alpha: 0.8),
-                                      const Color(0xFFFFA500),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(3),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFFFFD700).withValues(alpha: 0.4),
-                                      blurRadius: 8,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Percentage
-                      Text(
-                        '$percent%',
-                        style: TextStyle(
-                          color: _loadingComplete
-                              ? const Color(0xFFFFD700)
-                              : const Color(0xFF666666),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-
-              const SizedBox(height: 36),
-
-              // CONTINUE button (appears when loading complete)
-              AnimatedOpacity(
-                opacity: _loadingComplete ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 400),
-                child: AnimatedScale(
-                  scale: _loadingComplete ? 1.0 : 0.8,
-                  duration: const Duration(milliseconds: 400),
-                  curve: Curves.easeOutBack,
-                  child: GestureDetector(
-                    onTap: _loadingComplete ? widget.onContinue : null,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 52, vertical: 16),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
-                        ),
-                        borderRadius: BorderRadius.circular(30),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFFD700).withValues(alpha: 0.3),
-                            blurRadius: 16,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const Text(
-                        'CONTINUE',
-                        style: TextStyle(
-                          color: Color(0xFF1A1000),
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 4,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
