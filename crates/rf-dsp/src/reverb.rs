@@ -1320,7 +1320,44 @@ impl DiffusionStage {
     }
 }
 
-/// Single FDN delay line with multi-band decay + DC blocker
+/// Small allpass for embedding inside FDN feedback path (R6.3)
+/// Prime-length delay for maximum density without comb artifacts
+#[derive(Debug, Clone)]
+struct FeedbackAllpass {
+    buffer: Vec<f64>,
+    write_pos: usize,
+    delay: usize,
+    coeff: f64,
+}
+
+impl FeedbackAllpass {
+    fn new(delay: usize, coeff: f64) -> Self {
+        Self {
+            buffer: vec![0.0; delay.max(1)],
+            write_pos: 0,
+            delay,
+            coeff,
+        }
+    }
+
+    #[inline(always)]
+    fn process(&mut self, input: f64) -> f64 {
+        let buf_len = self.buffer.len();
+        let read_pos = (self.write_pos + buf_len - self.delay) % buf_len;
+        let delayed = self.buffer[read_pos];
+        let output = delayed - self.coeff * input;
+        self.buffer[self.write_pos] = input + self.coeff * delayed;
+        self.write_pos = (self.write_pos + 1) % buf_len;
+        output
+    }
+
+    fn reset(&mut self) {
+        self.buffer.fill(0.0);
+        self.write_pos = 0;
+    }
+}
+
+/// Single FDN delay line with multi-band decay + DC blocker + feedback allpass (R6.3)
 #[derive(Debug, Clone)]
 struct FDNDelayLine {
     buffer: Vec<f64>,
@@ -1332,10 +1369,14 @@ struct FDNDelayLine {
     // DC blocker to prevent sub-bass buildup (rumble prevention)
     dc_prev_in: f64,
     dc_prev_out: f64,
+    // Allpass embedded in feedback path for denser tails (R6.3)
+    feedback_allpass: FeedbackAllpass,
+    // Delay line jitter offset in samples (R6.4)
+    jitter_offset: f64,
 }
 
 impl FDNDelayLine {
-    fn new(base_delay: usize) -> Self {
+    fn new(base_delay: usize, allpass_delay: usize) -> Self {
         // Allocate extra for modulation headroom + cubic interpolation (needs 4 points)
         let buf_size = base_delay + 68;
         Self {
@@ -1346,6 +1387,8 @@ impl FDNDelayLine {
             hp_state: 0.0,
             dc_prev_in: 0.0,
             dc_prev_out: 0.0,
+            feedback_allpass: FeedbackAllpass::new(allpass_delay, 0.15),
+            jitter_offset: 0.0,
         }
     }
 
@@ -1440,20 +1483,64 @@ impl FDNDelayLine {
         self.hp_state = 0.0;
         self.dc_prev_in = 0.0;
         self.dc_prev_out = 0.0;
+        self.feedback_allpass.reset();
+        self.jitter_offset = 0.0;
     }
 }
 
-/// FDN Core — 8×8 Feedback Delay Network with Hadamard mixing matrix
+/// Mixing matrix type for FDN (R6.1)
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum MixingMatrix {
+    /// Hadamard — optimal for power-of-2 sizes, maximally diffusing
+    Hadamard,
+    /// Householder — H = I - (2/n)*ones(n,n), good energy distribution for any size
+    Householder,
+}
+
+/// FDN size configuration (R6.2)
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum FdnSize {
+    /// 4 delay lines — CPU-light, less dense
+    Small,
+    /// 8 delay lines — default, good balance
+    Medium,
+    /// 16 delay lines — luxury dense tail
+    Large,
+}
+
+impl FdnSize {
+    fn count(self) -> usize {
+        match self {
+            FdnSize::Small => 4,
+            FdnSize::Medium => 8,
+            FdnSize::Large => 16,
+        }
+    }
+}
+
+/// FDN Core — configurable Feedback Delay Network (R6.1-R6.6)
 ///
-/// Modulation: 8 independent velvet noise generators (Valhalla-style)
-/// replacing the original single-frequency sinusoidal LFO.
-/// Each delay line gets its own random modulation source for decorrelation.
+/// Features:
+/// - Configurable size: 4×4, 8×8, or 16×16 (R6.2)
+/// - Selectable mixing matrix: Hadamard or Householder (R6.1)
+/// - Velvet noise modulation per delay line (Valhalla-style)
+/// - Allpass embedded in each feedback path for denser tails (R6.3)
+/// - Delay line jitter for comb-filter coloration prevention (R6.4)
+/// - Adaptive feedback ceiling based on decay (R6.5)
+/// - Chorus mode: detuned pitch-shift on 2 lines (R6.6)
 #[derive(Debug, Clone)]
 struct FDNCore {
-    delay_lines: [FDNDelayLine; 8],
-    feedback_gains: [f64; 8],
-    /// 8 independent velvet noise generators (one per delay line)
-    velvet_gens: [VelvetNoiseGenerator; 8],
+    delay_lines: Vec<FDNDelayLine>,
+    feedback_gains: Vec<f64>,
+    velvet_gens: Vec<VelvetNoiseGenerator>,
+    /// Active number of delay lines (4, 8, or 16)
+    active_size: usize,
+    /// Current FDN size configuration
+    fdn_size: FdnSize,
+    /// Current mixing matrix type
+    matrix_type: MixingMatrix,
+    /// Pre-computed mixing matrix (max 16×16)
+    mix_matrix: Vec<f64>, // Flat row-major [active_size × active_size]
     /// Spin depth (fast modulation amplitude), 0.0-1.0
     spin_depth: f64,
     /// Wander depth (slow drift amplitude), 0.0-1.0
@@ -1464,10 +1551,28 @@ struct FDNCore {
     // Crossover coefficients for multi-band decay
     lp_coeff: f64, // ~250 Hz
     hp_coeff: f64, // ~4000 Hz
+    // Chorus mode (R6.6): detuned read on lines 0 and 4 (or 0 and 2 for size=4)
+    chorus_enabled: bool,
+    chorus_depth_samples: f64, // Depth in samples (derived from ±cents)
+    chorus_phase: f64,         // LFO phase 0-2π
+    chorus_increment: f64,     // Phase increment per sample
+    // Jitter parameters (R6.4)
+    jitter_amount: f64, // 0.0-1.0 (maps to ±2-5 samples)
 }
 
 /// FDN delay lengths (prime-distributed, samples @ 48kHz)
-const FDN_BASE_DELAYS: [usize; 8] = [1087, 1283, 1481, 1669, 1877, 2083, 2293, 2503];
+/// 16 primes covering the range for small/medium/large FDN
+const FDN_BASE_DELAYS: [usize; 16] = [
+    1087, 1283, 1481, 1669, 1877, 2083, 2293, 2503, // original 8
+    1151, 1361, 1567, 1741, 1973, 2161, 2381, 2593, // additional 8 for 16×16
+];
+
+/// Prime delays for feedback allpass per line (R6.3)
+/// Small primes for dense but short allpass — avoids comb coloration
+const FEEDBACK_AP_DELAYS: [usize; 16] = [
+    37, 41, 43, 47, 53, 59, 61, 67, // lines 0-7
+    71, 73, 79, 83, 89, 97, 101, 103, // lines 8-15
+];
 
 /// Hadamard 8×8 matrix (normalized by 1/√8 ≈ 0.3536)
 /// H₈ = H₂ ⊗ H₂ ⊗ H₂ (Kronecker product)
@@ -1486,55 +1591,160 @@ const HADAMARD_8: [[f64; 8]; 8] = {
     ]
 };
 
+/// Build a Householder mixing matrix (R6.1)
+/// H = I - (2/n) * ones(n,n) — unitary, maximally diffusing
+/// All diagonal elements = 1 - 2/n, all off-diagonal = -2/n
+fn build_householder_matrix(n: usize) -> Vec<f64> {
+    let scale = 2.0 / n as f64;
+    let norm = 1.0 / (n as f64).sqrt();
+    let mut mat = vec![0.0; n * n];
+    for i in 0..n {
+        for j in 0..n {
+            let val = if i == j { 1.0 - scale } else { -scale };
+            mat[i * n + j] = val * norm;
+        }
+    }
+    mat
+}
+
+/// Build a Hadamard mixing matrix for sizes 4, 8, or 16
+fn build_hadamard_matrix(n: usize) -> Vec<f64> {
+    let norm = 1.0 / (n as f64).sqrt();
+    let mut mat = vec![0.0; n * n];
+    // Recursive Sylvester construction: H_1 = [1]
+    // H_2n = [[H_n, H_n], [H_n, -H_n]]
+    // Start with H_1 and build up
+    mat[0] = 1.0;
+    let mut size = 1;
+    while size < n {
+        // Copy current quadrant to 3 copies
+        for i in 0..size {
+            for j in 0..size {
+                let val = mat[i * n + j];
+                mat[i * n + (j + size)] = val;           // top-right
+                mat[(i + size) * n + j] = val;           // bottom-left
+                mat[(i + size) * n + (j + size)] = -val; // bottom-right (negated)
+            }
+        }
+        size *= 2;
+    }
+    // Normalize
+    for v in mat.iter_mut() {
+        *v *= norm;
+    }
+    mat
+}
+
+/// Velvet noise seeds — 16 unique prime-derived values for decorrelation
+const VN_SEEDS: [u64; 16] = [
+    0x9E3779B97F4A7C15, 0x6C62272E07BB0142,
+    0xBF58476D1CE4E5B9, 0x94D049BB133111EB,
+    0xD6E8FEB86659FD93, 0xA0761D6478BD642F,
+    0xE7037ED1A0B428DB, 0x8A5CD789635D2DFF,
+    0x517CC1B727220A95, 0x2545F4914F6CDD1D,
+    0xC5B2D5E261A15E47, 0x3F84D5B5B5470917,
+    0x9E6495A3AB0DDE63, 0x6E7783B9CD8C5E8B,
+    0xAB5BE9F37263B1E3, 0x7C29335B8D8CAF5F,
+];
+
 impl FDNCore {
     fn new(sample_rate: f64) -> Self {
+        Self::with_config(sample_rate, FdnSize::Medium, MixingMatrix::Hadamard)
+    }
+
+    fn with_config(sample_rate: f64, size: FdnSize, matrix: MixingMatrix) -> Self {
+        let n = size.count();
         let scale = sample_rate / 48000.0;
 
-        let delay_lines = std::array::from_fn(|i| {
-            FDNDelayLine::new(((FDN_BASE_DELAYS[i] as f64) * scale) as usize)
-        });
+        let delay_lines: Vec<FDNDelayLine> = (0..n)
+            .map(|i| {
+                let base = ((FDN_BASE_DELAYS[i] as f64) * scale) as usize;
+                FDNDelayLine::new(base, FEEDBACK_AP_DELAYS[i])
+            })
+            .collect();
 
-        let feedback_gains = [0.92; 8]; // Default decay
+        let feedback_gains = vec![0.92; n];
 
-        // 8 independent velvet noise generators with unique prime seeds
-        // Each generator has decorrelated random sequence for spatial richness
-        const SEEDS: [u64; 8] = [
-            0x9E3779B97F4A7C15, // Golden ratio derived
-            0x6C62272E07BB0142, // Fibonacci hash
-            0xBF58476D1CE4E5B9, // Splitmix64 constants
-            0x94D049BB133111EB,
-            0xD6E8FEB86659FD93,
-            0xA0761D6478BD642F,
-            0xE7037ED1A0B428DB,
-            0x8A5CD789635D2DFF,
-        ];
-        let velvet_gens = std::array::from_fn(|i| {
-            VelvetNoiseGenerator::new(sample_rate, SEEDS[i])
-        });
+        let velvet_gens: Vec<VelvetNoiseGenerator> = (0..n)
+            .map(|i| VelvetNoiseGenerator::new(sample_rate, VN_SEEDS[i]))
+            .collect();
+
+        let mix_matrix = match matrix {
+            MixingMatrix::Hadamard => build_hadamard_matrix(n),
+            MixingMatrix::Householder => build_householder_matrix(n),
+        };
 
         // Crossover filter coefficients
-        // LP @ ~250 Hz: coeff = 1 - e^(-2π × f / sr)
         let lp_coeff = 1.0 - (-2.0 * std::f64::consts::PI * 250.0 / sample_rate).exp();
-        // HP @ ~4000 Hz
         let hp_coeff = 1.0 - (-2.0 * std::f64::consts::PI * 4000.0 / sample_rate).exp();
+
+        // Chorus LFO: ~1.5 Hz default, ±5 cents = ±0.29% pitch shift
+        let chorus_increment = 2.0 * std::f64::consts::PI * 1.5 / sample_rate;
 
         Self {
             delay_lines,
             feedback_gains,
             velvet_gens,
-            spin_depth: 0.6,    // Default spin depth
-            wander_depth: 0.4,  // Default wander depth
-            mod_depth: 0.002,   // 0.2% modulation depth (will be expanded in R1.5)
+            active_size: n,
+            fdn_size: size,
+            matrix_type: matrix,
+            mix_matrix,
+            spin_depth: 0.6,
+            wander_depth: 0.4,
+            mod_depth: 0.002,
             freeze: false,
             lp_coeff,
             hp_coeff,
+            chorus_enabled: false,
+            chorus_depth_samples: 0.0,
+            chorus_phase: 0.0,
+            chorus_increment,
+            jitter_amount: 0.0,
         }
     }
 
+    fn set_size(&mut self, size: FdnSize, sample_rate: f64) {
+        if size == self.fdn_size {
+            return;
+        }
+        let old_matrix = self.matrix_type;
+        let old_spin = self.spin_depth;
+        let old_wander = self.wander_depth;
+        let old_mod = self.mod_depth;
+        let old_chorus = self.chorus_enabled;
+        let old_chorus_depth = self.chorus_depth_samples;
+        let old_jitter = self.jitter_amount;
+        *self = Self::with_config(sample_rate, size, old_matrix);
+        self.spin_depth = old_spin;
+        self.wander_depth = old_wander;
+        self.mod_depth = old_mod;
+        self.chorus_enabled = old_chorus;
+        self.chorus_depth_samples = old_chorus_depth;
+        self.jitter_amount = old_jitter;
+    }
+
+    fn set_matrix_type(&mut self, matrix: MixingMatrix) {
+        if matrix == self.matrix_type {
+            return;
+        }
+        self.matrix_type = matrix;
+        self.mix_matrix = match matrix {
+            MixingMatrix::Hadamard => build_hadamard_matrix(self.active_size),
+            MixingMatrix::Householder => build_householder_matrix(self.active_size),
+        };
+    }
+
+    /// Adaptive feedback ceiling (R6.5)
+    /// decay 0-0.5 → ceiling 0.91, decay 0.5-1.0 → ceiling ramps to 0.94
+    /// Conservative ceilings to compensate for feedback allpass + chorus energy (R6.3/R6.6)
     fn update_decay(&mut self, decay: f64) {
-        // decay 0.0-1.0 → feedback gain 0.40-0.94
-        // Reduced ceiling from 0.965 to 0.94 for cleaner tails without runaway energy
-        let gain = 0.40 + decay * 0.54;
+        let ceiling = if decay <= 0.5 {
+            0.91
+        } else {
+            // Linear ramp: 0.5→0.91, 1.0→0.94
+            0.91 + (decay - 0.5) * 0.06
+        };
+        let gain = 0.40 + decay * (ceiling - 0.40);
         for g in &mut self.feedback_gains {
             *g = gain;
         }
@@ -1542,14 +1752,53 @@ impl FDNCore {
 
     fn update_space_scale(&mut self, scale: f64, sample_rate: f64) {
         let sr_scale = sample_rate / 48000.0;
-        for (i, dl) in self.delay_lines.iter_mut().enumerate() {
+        let n = self.active_size;
+        for i in 0..n {
+            let dl = &mut self.delay_lines[i];
             dl.base_delay = ((FDN_BASE_DELAYS[i] as f64) * sr_scale * scale) as usize;
-            // Ensure buffer is large enough (68 = modulation headroom + cubic interp)
             let needed = dl.base_delay + 68;
             if dl.buffer.len() < needed {
                 dl.buffer.resize(needed, 0.0);
             }
         }
+    }
+
+    /// Update jitter offsets using velvet noise RNG state (R6.4)
+    fn update_jitter(&mut self) {
+        if self.jitter_amount <= 0.001 {
+            for dl in &mut self.delay_lines {
+                dl.jitter_offset = 0.0;
+            }
+            return;
+        }
+        // Use each velvet gen's current state to derive a jitter offset
+        // ±2-5 samples based on jitter_amount
+        let max_jitter = 2.0 + self.jitter_amount * 3.0; // 2-5 samples
+        for i in 0..self.active_size {
+            // Derive from velvet gen RNG state (deterministic, no extra allocation)
+            let hash = self.velvet_gens[i].rng_state;
+            // Map to -1.0..1.0
+            let norm = (hash as i64 as f64) / (i64::MAX as f64);
+            self.delay_lines[i].jitter_offset = norm * max_jitter;
+        }
+    }
+
+    /// Set chorus parameters (R6.6)
+    fn set_chorus(&mut self, enabled: bool, cents: f64, rate_hz: f64, sample_rate: f64) {
+        self.chorus_enabled = enabled;
+        // cents → pitch ratio → delay modulation in samples
+        // ±N cents = 2^(N/1200) - 1 ≈ N * 0.000578
+        // At base delay D, depth_samples ≈ D * (2^(cents/1200) - 1)
+        // Use average base delay for calculation
+        let avg_delay = if self.active_size > 0 {
+            self.delay_lines.iter().take(self.active_size)
+                .map(|dl| dl.base_delay as f64)
+                .sum::<f64>() / self.active_size as f64
+        } else {
+            1500.0
+        };
+        self.chorus_depth_samples = avg_delay * (2.0_f64.powf(cents / 1200.0) - 1.0);
+        self.chorus_increment = 2.0 * std::f64::consts::PI * rate_hz / sample_rate;
     }
 
     /// Process stereo input through FDN, returns stereo output
@@ -1562,52 +1811,72 @@ impl FDNCore {
         high_mult: f64,
         thickness: f64,
     ) -> (f64, f64) {
-        // Read from all 8 delay lines (with velvet noise modulation)
-        // Each line has its own independent random modulation source
-        let mut outputs = [0.0f64; 8];
-        for i in 0..8 {
+        let n = self.active_size;
+        let half = n / 2;
+
+        // Read from all delay lines (with velvet noise modulation + jitter)
+        let mut outputs = [0.0f64; 16];
+        for i in 0..n {
             let (spin, wander) = self.velvet_gens[i].process();
-            // Combine spin (fast) and wander (slow) with independent depths
             let mod_signal = spin * self.spin_depth + wander * self.wander_depth;
-            let mod_offset =
+            let mut mod_offset =
                 mod_signal * self.mod_depth * self.delay_lines[i].base_delay as f64;
+
+            // Add jitter offset (R6.4)
+            mod_offset += self.delay_lines[i].jitter_offset;
+
+            // Chorus mode (R6.6): add pitch-shift LFO on lines 0 and half
+            if self.chorus_enabled && (i == 0 || i == half) {
+                let chorus_mod = if i == 0 {
+                    self.chorus_phase.sin() * self.chorus_depth_samples
+                } else {
+                    // Opposite phase for stereo width
+                    (-self.chorus_phase).sin() * self.chorus_depth_samples
+                };
+                mod_offset += chorus_mod;
+            }
+
             outputs[i] = self.delay_lines[i].read_modulated(mod_offset);
         }
 
-        // Hadamard matrix mixing
-        let mut mixed = [0.0f64; 8];
-        for i in 0..8 {
+        // Advance chorus LFO
+        if self.chorus_enabled {
+            self.chorus_phase += self.chorus_increment;
+            if self.chorus_phase > 2.0 * std::f64::consts::PI {
+                self.chorus_phase -= 2.0 * std::f64::consts::PI;
+            }
+        }
+
+        // Matrix mixing (Hadamard or Householder)
+        let mut mixed = [0.0f64; 16];
+        for i in 0..n {
             let mut sum = 0.0;
-            for j in 0..8 {
-                sum += HADAMARD_8[i][j] * outputs[j];
+            let row_offset = i * n;
+            for j in 0..n {
+                sum += self.mix_matrix[row_offset + j] * outputs[j];
             }
             mixed[i] = sum;
         }
 
         // In freeze mode, reject new input
         let input_scale = if self.freeze { 0.0 } else { 1.0 };
+        let input_gain = 0.35 * input_scale;
 
-        // Feed input signal into FDN — distribute stereo ASYMMETRICALLY
-        // Lines 0-3 lean LEFT, lines 4-7 lean RIGHT — with cross-feed offsets
-        let input_gain = 0.35 * input_scale; // FDN input gain (0.35 for audible reverb)
-        let inputs = [
-            left * input_gain,
-            (left * 0.8 + right * 0.2) * input_gain,
-            (left * 0.6 + right * 0.4) * input_gain,
-            (left * 0.35 + right * 0.65) * input_gain,
-            right * input_gain,
-            (right * 0.8 + left * 0.2) * input_gain,
-            (right * 0.6 + left * 0.4) * input_gain,
-            (right * 0.35 + left * 0.65) * input_gain,
-        ];
+        // Distribute stereo input across all lines
+        // First half leans LEFT, second half leans RIGHT
+        let mut inputs = [0.0f64; 16];
+        for i in 0..n {
+            let t = i as f64 / (n - 1).max(1) as f64; // 0.0 → 1.0 across lines
+            let l_weight = 1.0 - t * 0.65; // 1.0 → 0.35
+            let r_weight = 0.35 + t * 0.65; // 0.35 → 1.0
+            inputs[i] = (left * l_weight + right * r_weight) * input_gain;
+        }
 
-        // Thickness: low_boost for warm bass, saturation for density
-        // Reduced from 0.5/0.15 to prevent LF buildup and runaway energy in feedback
-        let low_boost = 1.0 + thickness * 0.2; // Max 1.2× bass (was 1.5×)
-        let saturation = thickness * 0.06; // Gentler soft-clip (was 0.15)
+        // Thickness controls
+        let low_boost = 1.0 + thickness * 0.2;
+        let saturation = thickness * 0.06;
 
-        for i in 0..8 {
-            // In freeze mode, override feedback to near-unity for infinite sustain
+        for i in 0..n {
             let fb = if self.freeze {
                 0.99999
             } else {
@@ -1623,22 +1892,33 @@ impl FDNCore {
                 self.freeze,
             );
 
-            // Thickness saturation: tanh-style soft-clip for density
-            // Drive reduced to max 1.12 (was 1.45) to prevent energy buildup in feedback
+            // Allpass in feedback path (R6.3) — adds density to tail
+            let with_allpass = self.delay_lines[i].feedback_allpass.process(shaped);
+
+            // Thickness saturation
             let with_thickness = if saturation > 0.001 {
                 let drive = 1.0 + saturation * 2.0;
-                (shaped * drive).tanh() / drive.tanh()
+                (with_allpass * drive).tanh() / drive.tanh()
             } else {
-                shaped
+                with_allpass
             };
 
             self.delay_lines[i].write(with_thickness + inputs[i]);
         }
 
-        // Sum outputs to stereo (lines 0-3 → left, 4-7 → right)
-        // Asymmetric gains to preserve stereo information
-        let out_l = outputs[0] * 0.30 + outputs[1] * 0.27 + outputs[2] * 0.23 + outputs[3] * 0.20;
-        let out_r = outputs[4] * 0.30 + outputs[5] * 0.27 + outputs[6] * 0.23 + outputs[7] * 0.20;
+        // Sum outputs to stereo — first half → left, second half → right
+        // Asymmetric gains preserving stereo image
+        let mut out_l = 0.0;
+        let mut out_r = 0.0;
+        for i in 0..half {
+            // Decreasing weight: first line strongest
+            let w = 0.30 - (i as f64) * (0.10 / (half - 1).max(1) as f64);
+            out_l += outputs[i] * w;
+        }
+        for i in half..n {
+            let w = 0.30 - ((i - half) as f64) * (0.10 / (half - 1).max(1) as f64);
+            out_r += outputs[i] * w;
+        }
 
         (out_l, out_r)
     }
@@ -1647,16 +1927,11 @@ impl FDNCore {
         for dl in &mut self.delay_lines {
             dl.reset();
         }
-        // Reset velvet noise generators to deterministic initial seeds
-        const SEEDS: [u64; 8] = [
-            0x9E3779B97F4A7C15, 0x6C62272E07BB0142,
-            0xBF58476D1CE4E5B9, 0x94D049BB133111EB,
-            0xD6E8FEB86659FD93, 0xA0761D6478BD642F,
-            0xE7037ED1A0B428DB, 0x8A5CD789635D2DFF,
-        ];
-        for (i, vg) in self.velvet_gens.iter_mut().enumerate() {
-            vg.reset(SEEDS[i]);
+        let n = self.active_size;
+        for i in 0..n {
+            self.velvet_gens[i].reset(VN_SEEDS[i]);
         }
+        self.chorus_phase = 0.0;
     }
 }
 
@@ -1707,13 +1982,15 @@ impl SelfDucker {
 }
 
 // ============================================================================
-// Main AlgorithmicReverb — FDN 8×8 (2026 Upgrade)
+// Main AlgorithmicReverb — Configurable FDN (2026 Ultimate Upgrade)
 // ============================================================================
 
-/// Algorithmic stereo reverb — FDN 8×8 with Hadamard feedback matrix
+/// Algorithmic stereo reverb — configurable FDN with selectable matrix (R6.1-R6.6)
 ///
 /// Signal flow:
-///   Input → PreDelay → EarlyReflections → Diffusion → FDN 8×8 → M/S Width → Dry/Wet Mix → Output
+///   Input → PreDelay → EarlyReflections → Diffusion → FDN (4/8/16) → M/S Width → Dry/Wet Mix → Output
+///
+/// 19 automatable parameters (indices 0-18)
 #[derive(Debug, Clone)]
 pub struct AlgorithmicReverb {
     style: ReverbType,
@@ -1724,11 +2001,11 @@ pub struct AlgorithmicReverb {
     fdn: FDNCore,
     ducker: SelfDucker,
 
-    // Parameters (17 total — 15 original + spin + wander)
-    space: f64,       // 0: Space (0.0-1.0) — replaces room_size
-    brightness: f64,  // 1: Brightness (0.0-1.0) — inverted damping
-    width: f64,       // 2: Width (0.0-2.0) — M/S processing
-    mix: f64,         // 3: Mix (0.0-1.0) — dry/wet
+    // Parameters (19 total)
+    space: f64,       // 0: Space (0.0-1.0)
+    brightness: f64,  // 1: Brightness (0.0-1.0)
+    width: f64,       // 2: Width (0.0-2.0)
+    mix: f64,         // 3: Mix (0.0-1.0)
     predelay_ms: f64, // 4: PreDelay (0-500ms)
     // style is param 5
     diffusion_param: f64, // 6: Diffusion (0.0-1.0)
@@ -1736,14 +2013,14 @@ pub struct AlgorithmicReverb {
     decay: f64,           // 8: Decay (0.0-1.0)
     low_decay_mult: f64,  // 9: Low Decay Mult (0.5-2.0)
     high_decay_mult: f64, // 10: High Decay Mult (0.5-2.0)
-    character: f64,       // 11: Character (0.0-1.0) — overall mod depth
+    character: f64,       // 11: Character (0.0-1.0)
     thickness: f64,       // 12: Thickness (0.0-1.0)
     ducking: f64,         // 13: Ducking (0.0-1.0)
     freeze_param: bool,   // 14: Freeze (bool)
-    spin: f64,            // 15: Spin (0.0-1.0) — fast modulation rate/depth
-    wander: f64,          // 16: Wander (0.0-1.0) — slow drift rate/depth
-    er_level: f64,        // 17: ER Level (0.0-1.0) — early reflections gain
-    late_level: f64,      // 18: Late Level (0.0-1.0) — FDN tail gain
+    spin: f64,            // 15: Spin (0.0-1.0)
+    wander: f64,          // 16: Wander (0.0-1.0)
+    er_level: f64,        // 17: ER Level (0.0-1.0)
+    late_level: f64,      // 18: Late Level (0.0-1.0)
 
     // PreDelay circular buffer
     predelay_buffer_l: Vec<Sample>,
@@ -1850,6 +2127,21 @@ impl AlgorithmicReverb {
             vg.set_wander_rate(wander_hz);
         }
 
+        // Delay line jitter (R6.4): character drives jitter amount
+        // Subtle randomization prevents comb-filter coloration
+        self.fdn.jitter_amount = self.character * 0.5; // 0-50% of max jitter
+        self.fdn.update_jitter();
+
+        // Chorus mode (R6.6): activates at high character values (>0.5)
+        // Shimmer-lite: ±5 cents pitch shift on 2 lines at 1.5 Hz
+        let chorus_active = self.character > 0.5;
+        let chorus_cents = if chorus_active {
+            (self.character - 0.5) * 10.0 // 0-5 cents
+        } else {
+            0.0
+        };
+        self.fdn.set_chorus(chorus_active, chorus_cents, 1.5, self.sample_rate);
+
         // Ducking amount
         self.ducker.amount = self.ducking;
 
@@ -1857,7 +2149,6 @@ impl AlgorithmicReverb {
         self.fdn.freeze = self.freeze_param;
 
         // Store computed brightness for process()
-        // (brightness_hf is used as additional HF decay multiplier)
         let _ = brightness_hf; // Used in process() via self.brightness
     }
 
@@ -2106,7 +2397,7 @@ impl StereoProcessor for AlgorithmicReverb {
         // 3. Diffusion Stage (6 serial allpass)
         let (diff_l, diff_r) = self.diffusion.process(er_mix_l, er_mix_r);
 
-        // 4. FDN Core 8×8 (Hadamard, velvet noise modulated, multi-band decay)
+        // 4. FDN Core (configurable size, Hadamard/Householder matrix, velvet noise, allpass feedback)
         // In freeze mode, bypass all band-decay shaping to maintain energy
         let (fdn_low_mult, fdn_high_mult, fdn_thickness) = if self.freeze_param {
             (1.0, 1.0, 0.0)
