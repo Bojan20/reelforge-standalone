@@ -286,6 +286,10 @@ fn sync_tracks_from_project(e: &mut EngineBridge) {
                 loop_end_samples: 0,
                 iteration_gain: 1.0,
                 fx_chain: rf_engine::track_manager::ClipFxChain::new(),
+                pitch_envelope: None,
+                playrate_envelope: None,
+                volume_envelope: None,
+                pan_envelope: None,
             };
 
             track_manager.add_clip(clip);

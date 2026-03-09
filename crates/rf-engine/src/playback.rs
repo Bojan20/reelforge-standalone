@@ -6466,12 +6466,13 @@ impl PlaybackEngine {
         let source_sample_rate = audio.sample_rate as f64;
         let rate_ratio = source_sample_rate / sample_rate;
 
-        // Apply time stretch: effective_playback_rate > 1.0 means faster playback
-        // (reads source samples at higher rate = shorter clip on timeline)
-        let playback_rate = clip.effective_playback_rate();
+        // Per-item envelopes: if any envelope is active, we evaluate per-sample.
+        // Otherwise use static values for performance.
+        let has_envelopes = clip.has_active_envelope();
 
-        // Only apply clip gain here - track volume/pan is applied later in process()
-        let gain = clip.gain;
+        // Static fallback (when no envelopes): calculate once
+        let static_playback_rate = clip.effective_playback_rate();
+        let static_gain = clip.gain;
 
         // Fade parameters
         let fade_in_samples = (clip.fade_in * sample_rate) as i64;
@@ -6488,6 +6489,26 @@ impl PlaybackEngine {
             (0, 0, false)
         };
 
+        // Pre-calculate source offset for the loop
+        let source_offset_samples_f64 = clip.source_offset * source_sample_rate;
+
+        // For envelope mode: compute integrated source position at block start,
+        // then accumulate incrementally per-sample. This avoids O(N*P) per-sample integration.
+        let has_pitch_or_rate_env = has_envelopes
+            && (clip
+                .pitch_envelope
+                .as_ref()
+                .is_some_and(|e| e.is_active())
+                || clip
+                    .playrate_envelope
+                    .as_ref()
+                    .is_some_and(|e| e.is_active()));
+
+        // Accumulated source position for incremental envelope mode
+        let mut env_source_pos: f64 = 0.0;
+        let mut env_initialized = false;
+        let mut env_prev_clip_offset: i64 = -1;
+
         for i in 0..frames {
             let playback_sample = start_sample as i64 + i as i64;
             let clip_relative_sample = playback_sample - clip_start_sample;
@@ -6499,18 +6520,38 @@ impl PlaybackEngine {
                 continue;
             }
 
-            // Calculate source position (with offset, rate conversion, AND time stretch)
-            // playback_rate: stretch_ratio * pitch_rate — higher = faster source traversal
-            let source_offset_samples = (clip.source_offset * source_sample_rate) as i64;
-            let mut source_pos_f64 = clip_relative_sample as f64 * rate_ratio * playback_rate
-                + source_offset_samples as f64;
+            // Calculate source position
+            let mut source_pos_f64 = if has_pitch_or_rate_env {
+                let clip_offset = clip_relative_sample as u64;
+
+                if !env_initialized || clip_relative_sample != env_prev_clip_offset + 1 {
+                    // First sample or discontinuity (seek): compute full integral
+                    env_source_pos = clip.source_position_at(
+                        clip_offset,
+                        rate_ratio,
+                        source_offset_samples_f64,
+                    );
+                    env_initialized = true;
+                } else {
+                    // Incremental: advance by current rate (trapezoidal with prev sample)
+                    let current_rate = clip.playback_rate_at(clip_offset);
+                    let prev_rate = clip.playback_rate_at(clip_offset.saturating_sub(1));
+                    env_source_pos += (prev_rate + current_rate) * 0.5 * rate_ratio;
+                }
+                env_prev_clip_offset = clip_relative_sample;
+                env_source_pos
+            } else {
+                // Static mode: direct calculation (zero overhead, original behavior)
+                clip_relative_sample as f64 * rate_ratio * static_playback_rate
+                    + source_offset_samples_f64
+            };
 
             // Loop wrapping: wrap source position within source bounds
             let mut loop_xf_gain = 1.0_f64;
             if clip.loop_enabled {
                 let loop_length = clip.source_duration * source_sample_rate;
                 if loop_length > 0.0 {
-                    let offset_in_source = source_pos_f64 - source_offset_samples as f64;
+                    let offset_in_source = source_pos_f64 - source_offset_samples_f64;
                     if offset_in_source >= loop_length {
                         // Check loop count (0 = infinite)
                         if clip.loop_count > 0 {
@@ -6520,7 +6561,12 @@ impl PlaybackEngine {
                             }
                         }
                         let wrapped = offset_in_source % loop_length;
-                        source_pos_f64 = source_offset_samples as f64 + wrapped;
+                        source_pos_f64 = source_offset_samples_f64 + wrapped;
+
+                        // Sync envelope accumulator after loop wrap to prevent drift
+                        if has_pitch_or_rate_env {
+                            env_source_pos = source_pos_f64;
+                        }
 
                         // Crossfade at loop boundary (equal-power)
                         if clip.loop_crossfade > 0.0 {
@@ -6625,8 +6671,30 @@ impl PlaybackEngine {
                 }
             }
 
-            // Apply gain, fade, and loop crossfade (pan is applied later in process())
-            let final_gain = gain * fade * loop_xf_gain;
+            // Apply gain (with optional volume envelope), fade, and loop crossfade
+            let effective_gain = if has_envelopes {
+                let clip_offset = (playback_sample - clip_start_sample) as u64;
+                clip.gain_at(clip_offset)
+            } else {
+                static_gain
+            };
+            let final_gain = effective_gain * fade * loop_xf_gain;
+
+            // Apply optional pan envelope
+            if has_envelopes {
+                let clip_offset = (playback_sample - clip_start_sample) as u64;
+                let pan = clip.pan_at(clip_offset);
+                if pan.abs() > 1e-6 {
+                    // Constant-power pan law
+                    let pan_norm = (pan + 1.0) * 0.5; // 0.0 (left) to 1.0 (right)
+                    let l_gain = (1.0 - pan_norm).sqrt();
+                    let r_gain = pan_norm.sqrt();
+                    output_l[i] += sample_l * final_gain * l_gain;
+                    output_r[i] += sample_r * final_gain * r_gain;
+                    continue;
+                }
+            }
+
             output_l[i] += sample_l * final_gain;
             output_r[i] += sample_r * final_gain;
         }

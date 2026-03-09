@@ -3666,6 +3666,224 @@ pub extern "C" fn render_matrix_get_results_json() -> *mut std::ffi::c_char {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CLIP ENVELOPE FFI (Per-item Pitch, Playrate, Volume, Pan envelopes)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Helper: enable and get mutable envelope on a clip
+fn enable_clip_envelope(
+    clip: &mut crate::track_manager::Clip,
+    env_type: u8,
+) -> &mut crate::track_manager::ClipEnvelope {
+    match env_type {
+        0 => clip.enable_pitch_envelope(),
+        1 => clip.enable_playrate_envelope(),
+        2 => clip.enable_volume_envelope(),
+        3 => clip.enable_pan_envelope(),
+        _ => clip.enable_pitch_envelope(),
+    }
+}
+
+/// Enable a clip envelope (creates if needed).
+/// env_type: 0=pitch, 1=playrate, 2=volume, 3=pan
+/// Returns 0 on success, -1 on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_envelope_enable(clip_id: u64, env_type: u8) -> i32 {
+    if let Some(mut clip) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
+        let _ = enable_clip_envelope(&mut clip, env_type);
+        return 0;
+    }
+    -1
+}
+
+/// Disable (remove) a clip envelope.
+/// Returns 0 on success, -1 on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_envelope_disable(clip_id: u64, env_type: u8) -> i32 {
+    if let Some(mut clip) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
+        match env_type {
+            0 => clip.pitch_envelope = None,
+            1 => clip.playrate_envelope = None,
+            2 => clip.volume_envelope = None,
+            3 => clip.pan_envelope = None,
+            _ => {}
+        }
+        return 0;
+    }
+    -1
+}
+
+/// Add a point to a clip envelope.
+/// env_type: 0=pitch, 1=playrate, 2=volume, 3=pan
+/// offset_samples: position relative to clip start
+/// value: native units (semitones for pitch, multiplier for rate, gain for volume, -1..1 for pan)
+/// curve: 0=Linear, 1=Bezier, 2=Exponential, 3=Logarithmic, 4=Step, 5=SCurve
+/// Returns 0 on success, -1 on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_envelope_add_point(
+    clip_id: u64,
+    env_type: u8,
+    offset_samples: u64,
+    value: f64,
+    curve: u8,
+) -> i32 {
+    let curve_type = match curve {
+        0 => crate::track_manager::ClipEnvelopeCurve::Linear,
+        1 => crate::track_manager::ClipEnvelopeCurve::Bezier,
+        2 => crate::track_manager::ClipEnvelopeCurve::Exponential,
+        3 => crate::track_manager::ClipEnvelopeCurve::Logarithmic,
+        4 => crate::track_manager::ClipEnvelopeCurve::Step,
+        5 => crate::track_manager::ClipEnvelopeCurve::SCurve,
+        _ => crate::track_manager::ClipEnvelopeCurve::Linear,
+    };
+
+    if let Some(mut clip) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
+        let env = enable_clip_envelope(&mut clip, env_type);
+        let point = crate::track_manager::ClipEnvelopePoint::new(offset_samples, value)
+            .with_curve(curve_type);
+        env.add_point(point);
+        return 0;
+    }
+    -1
+}
+
+/// Remove a point from a clip envelope at the given offset (within tolerance).
+/// Returns 0 on success (point removed), -1 on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_envelope_remove_point(
+    clip_id: u64,
+    env_type: u8,
+    offset_samples: u64,
+    tolerance: u64,
+) -> i32 {
+    if let Some(mut clip) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
+        let env = match env_type {
+            0 => clip.pitch_envelope.as_mut(),
+            1 => clip.playrate_envelope.as_mut(),
+            2 => clip.volume_envelope.as_mut(),
+            3 => clip.pan_envelope.as_mut(),
+            _ => None,
+        };
+        if let Some(envelope) = env {
+            if envelope.remove_point_at(offset_samples, tolerance) {
+                return 0;
+            }
+        }
+    }
+    -1
+}
+
+/// Clear all points from a clip envelope.
+/// Returns 0 on success, -1 on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_envelope_clear(clip_id: u64, env_type: u8) -> i32 {
+    if let Some(mut clip) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
+        let env = match env_type {
+            0 => clip.pitch_envelope.as_mut(),
+            1 => clip.playrate_envelope.as_mut(),
+            2 => clip.volume_envelope.as_mut(),
+            3 => clip.pan_envelope.as_mut(),
+            _ => None,
+        };
+        if let Some(envelope) = env {
+            envelope.clear();
+            return 0;
+        }
+    }
+    -1
+}
+
+/// Get the number of points in a clip envelope.
+/// Returns point count, or -1 on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_envelope_point_count(clip_id: u64, env_type: u8) -> i32 {
+    if let Some(clip) = TRACK_MANAGER.clips.get(&ClipId(clip_id)) {
+        let count = match env_type {
+            0 => clip.pitch_envelope.as_ref().map(|e| e.points.len()),
+            1 => clip.playrate_envelope.as_ref().map(|e| e.points.len()),
+            2 => clip.volume_envelope.as_ref().map(|e| e.points.len()),
+            3 => clip.pan_envelope.as_ref().map(|e| e.points.len()),
+            _ => None,
+        };
+        return count.unwrap_or(0) as i32;
+    }
+    -1
+}
+
+/// Get envelope value at a clip-relative position (interpolated).
+/// Returns the value in native units, or default if no envelope.
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_envelope_value_at(clip_id: u64, env_type: u8, offset_samples: u64) -> f64 {
+    if let Some(clip) = TRACK_MANAGER.clips.get(&ClipId(clip_id)) {
+        return match env_type {
+            0 => clip.pitch_at(offset_samples),
+            1 => clip.playback_rate_at(offset_samples),
+            2 => clip.gain_at(offset_samples),
+            3 => clip.pan_at(offset_samples),
+            _ => 0.0,
+        };
+    }
+    0.0
+}
+
+/// Get all points of a clip envelope as JSON.
+/// Returns null if envelope doesn't exist. Caller must free with render_region_free_string().
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_envelope_get_points_json(
+    clip_id: u64,
+    env_type: u8,
+) -> *mut std::ffi::c_char {
+    if let Some(clip) = TRACK_MANAGER.clips.get(&ClipId(clip_id)) {
+        let env = match env_type {
+            0 => clip.pitch_envelope.as_ref(),
+            1 => clip.playrate_envelope.as_ref(),
+            2 => clip.volume_envelope.as_ref(),
+            3 => clip.pan_envelope.as_ref(),
+            _ => None,
+        };
+        if let Some(envelope) = env {
+            if let Ok(json) = serde_json::to_string(&envelope.points) {
+                if let Ok(c) = std::ffi::CString::new(json) {
+                    return c.into_raw();
+                }
+            }
+        }
+    }
+    std::ptr::null_mut()
+}
+
+/// Set all points of a clip envelope from JSON array.
+/// Returns 0 on success, -1 on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_envelope_set_points_json(
+    clip_id: u64,
+    env_type: u8,
+    json: *const std::ffi::c_char,
+) -> i32 {
+    let json_str = unsafe {
+        if json.is_null() {
+            return -1;
+        }
+        match std::ffi::CStr::from_ptr(json).to_str() {
+            Ok(s) => s,
+            Err(_) => return -1,
+        }
+    };
+
+    let points: Vec<crate::track_manager::ClipEnvelopePoint> =
+        match serde_json::from_str(json_str) {
+            Ok(p) => p,
+            Err(_) => return -1,
+        };
+
+    if let Some(mut clip) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
+        let env = enable_clip_envelope(&mut clip, env_type);
+        env.points = points;
+        return 0;
+    }
+    -1
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // CLICK TRACK / METRONOME FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -14656,6 +14874,10 @@ pub extern "C" fn render_selection_to_new_clip(
         loop_end_samples: 0,
         iteration_gain: 1.0,
         fx_chain: ClipFxChain::new(),
+        pitch_envelope: None,
+        playrate_envelope: None,
+        volume_envelope: None,
+        pan_envelope: None,
     };
 
     // Add clip to track manager

@@ -753,6 +753,259 @@ impl ClipFxChain {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CLIP ENVELOPE — Per-item automation (Reaper take envelopes)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Curve type for clip envelope interpolation
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
+pub enum ClipEnvelopeCurve {
+    /// Linear interpolation
+    #[default]
+    Linear,
+    /// Bezier curve (smooth)
+    Bezier,
+    /// Exponential
+    Exponential,
+    /// Logarithmic
+    Logarithmic,
+    /// Step (hold until next point)
+    Step,
+    /// S-Curve (smooth sigmoid)
+    SCurve,
+}
+
+/// Single point in a clip envelope.
+/// Positions are RELATIVE to clip start (in samples) — envelope moves with the clip.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClipEnvelopePoint {
+    /// Position in samples relative to clip start (NOT absolute timeline)
+    pub offset_samples: u64,
+    /// Value in parameter-native units:
+    ///   - Pitch envelope: semitones (-24.0 to +24.0, 0.0 = no shift)
+    ///   - Playrate envelope: rate multiplier (0.1 to 4.0, 1.0 = normal)
+    ///   - Volume envelope: linear gain (0.0 to 2.0, 1.0 = unity)
+    ///   - Pan envelope: pan position (-1.0 to 1.0, 0.0 = center)
+    pub value: f64,
+    /// Curve type to next point
+    pub curve: ClipEnvelopeCurve,
+    /// Bezier control points (relative, 0-1 in both axes)
+    pub bezier_cp1: Option<(f64, f64)>,
+    pub bezier_cp2: Option<(f64, f64)>,
+}
+
+impl ClipEnvelopePoint {
+    pub fn new(offset_samples: u64, value: f64) -> Self {
+        Self {
+            offset_samples,
+            value,
+            curve: ClipEnvelopeCurve::Linear,
+            bezier_cp1: None,
+            bezier_cp2: None,
+        }
+    }
+
+    pub fn with_curve(mut self, curve: ClipEnvelopeCurve) -> Self {
+        self.curve = curve;
+        self
+    }
+}
+
+/// Per-clip envelope that moves with the clip on the timeline.
+/// Used for pitch, playrate, volume, and pan automation at item level.
+///
+/// ## Key Differences from Track Automation:
+/// - **Relative positions:** Points use clip-relative offsets, not absolute timeline positions
+/// - **Moves with clip:** Drag clip → envelope moves with it
+/// - **Multiplicative with track:** Clip volume envelope × track volume automation
+/// - **Additive for pitch:** Clip pitch envelope + base pitch_shift + track pitch automation
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ClipEnvelope {
+    /// Sorted points (by offset_samples)
+    pub points: Vec<ClipEnvelopePoint>,
+    /// Is this envelope enabled
+    pub enabled: bool,
+    /// Default value when no points (in native units)
+    pub default_value: f64,
+}
+
+impl ClipEnvelope {
+    pub fn new(default_value: f64) -> Self {
+        Self {
+            points: Vec::new(),
+            enabled: true,
+            default_value,
+        }
+    }
+
+    /// Pitch envelope: default 0.0 semitones
+    pub fn pitch() -> Self {
+        Self::new(0.0)
+    }
+
+    /// Playrate envelope: default 1.0 (normal speed)
+    pub fn playrate() -> Self {
+        Self::new(1.0)
+    }
+
+    /// Volume envelope: default 1.0 (unity gain)
+    pub fn volume() -> Self {
+        Self::new(1.0)
+    }
+
+    /// Pan envelope: default 0.0 (center)
+    pub fn pan() -> Self {
+        Self::new(0.0)
+    }
+
+    /// Add a point, maintaining sorted order by offset_samples.
+    /// If a point already exists at the same offset, it is replaced.
+    pub fn add_point(&mut self, point: ClipEnvelopePoint) {
+        match self
+            .points
+            .binary_search_by_key(&point.offset_samples, |p| p.offset_samples)
+        {
+            Ok(idx) => self.points[idx] = point,   // Replace existing
+            Err(idx) => self.points.insert(idx, point), // Insert new
+        }
+    }
+
+    /// Remove point at offset (within tolerance)
+    pub fn remove_point_at(&mut self, offset_samples: u64, tolerance: u64) -> bool {
+        if let Some(idx) = self.points.iter().position(|p| {
+            (p.offset_samples as i64 - offset_samples as i64).unsigned_abs() <= tolerance
+        }) {
+            self.points.remove(idx);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Clear all points
+    pub fn clear(&mut self) {
+        self.points.clear();
+    }
+
+    /// Is envelope active (enabled and has points)
+    #[inline]
+    pub fn is_active(&self) -> bool {
+        self.enabled && !self.points.is_empty()
+    }
+
+    /// Get value at clip-relative sample offset (interpolated).
+    /// Returns native-unit value (semitones for pitch, multiplier for rate, etc.)
+    pub fn value_at(&self, offset_samples: u64) -> f64 {
+        if self.points.is_empty() {
+            return self.default_value;
+        }
+
+        // Before first point
+        if offset_samples <= self.points[0].offset_samples {
+            return self.points[0].value;
+        }
+
+        // After last point
+        let last = self.points.last().expect("checked non-empty");
+        if offset_samples >= last.offset_samples {
+            return last.value;
+        }
+
+        // Binary search for surrounding points
+        let idx = self
+            .points
+            .binary_search_by_key(&offset_samples, |p| p.offset_samples)
+            .unwrap_or_else(|i| i);
+
+        if idx == 0 {
+            return self.points[0].value;
+        }
+
+        let p1 = &self.points[idx - 1];
+        let p2 = &self.points[idx];
+
+        // Interpolation factor 0.0 - 1.0
+        let t = (offset_samples - p1.offset_samples) as f64
+            / (p2.offset_samples - p1.offset_samples) as f64;
+
+        self.interpolate(p1, p2, t)
+    }
+
+    /// Compute the integral ∫₀^offset_samples value_at(t) dt
+    /// Used for source position calculation with time-varying playback rate.
+    /// For a rate envelope, this gives the total "source samples traversed" from clip start.
+    ///
+    /// For linear segments: ∫[a,b] (v1 + (v2-v1)*(t-a)/(b-a)) dt = (b-a) * (v1+v2)/2
+    /// This is exact for Linear curves and a good approximation for others.
+    pub fn integrated_value_to(&self, offset_samples: u64) -> f64 {
+        if self.points.is_empty() {
+            return self.default_value * offset_samples as f64;
+        }
+
+        let mut integral = 0.0;
+        let mut prev_offset: u64 = 0;
+        let mut prev_value = self.points[0].value; // Value before first point = first point value
+
+        for point in &self.points {
+            if point.offset_samples >= offset_samples {
+                // Partial segment: from prev to offset_samples
+                let seg_len = offset_samples.saturating_sub(prev_offset) as f64;
+                let end_value = self.value_at(offset_samples);
+                integral += seg_len * (prev_value + end_value) * 0.5;
+                return integral;
+            }
+
+            // Full segment: from prev_offset to point.offset_samples
+            let seg_len = point.offset_samples.saturating_sub(prev_offset) as f64;
+            integral += seg_len * (prev_value + point.value) * 0.5;
+
+            prev_offset = point.offset_samples;
+            prev_value = point.value;
+        }
+
+        // After last point: constant value * remaining samples
+        let remaining = offset_samples.saturating_sub(prev_offset) as f64;
+        integral += remaining * prev_value;
+
+        integral
+    }
+
+    /// Interpolate between two points using the curve of p1
+    fn interpolate(&self, p1: &ClipEnvelopePoint, p2: &ClipEnvelopePoint, t: f64) -> f64 {
+        match p1.curve {
+            ClipEnvelopeCurve::Linear => p1.value + (p2.value - p1.value) * t,
+            ClipEnvelopeCurve::Step => p1.value,
+            ClipEnvelopeCurve::Exponential => {
+                p1.value + (p2.value - p1.value) * (t * t)
+            }
+            ClipEnvelopeCurve::Logarithmic => {
+                p1.value + (p2.value - p1.value) * t.sqrt()
+            }
+            ClipEnvelopeCurve::SCurve => {
+                let s = t * t * (3.0 - 2.0 * t); // Hermite smoothstep
+                p1.value + (p2.value - p1.value) * s
+            }
+            ClipEnvelopeCurve::Bezier => {
+                let cp1 = p1.bezier_cp1.unwrap_or((0.33, 0.0));
+                let cp2 = p1.bezier_cp2.unwrap_or((0.66, 0.0));
+
+                let y0 = p1.value;
+                let y3 = p2.value;
+                let y1 = y0 + cp1.1 * (y3 - y0);
+                let y2 = y0 + cp2.1 * (y3 - y0);
+
+                let t2 = t * t;
+                let t3 = t2 * t;
+                let mt = 1.0 - t;
+                let mt2 = mt * mt;
+                let mt3 = mt2 * mt;
+
+                mt3 * y0 + 3.0 * mt2 * t * y1 + 3.0 * mt * t2 * y2 + t3 * y3
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // CLIP
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -828,6 +1081,25 @@ pub struct Clip {
     // Clip-based FX chain (non-destructive, per-clip processing)
     #[serde(default)]
     pub fx_chain: ClipFxChain,
+
+    // Per-item envelopes (Reaper take envelopes)
+    // Positions are RELATIVE to clip start — envelope moves with the clip
+
+    /// Pitch envelope: value in semitones (-24 to +24), additive with base pitch_shift
+    #[serde(default)]
+    pub pitch_envelope: Option<ClipEnvelope>,
+
+    /// Playrate envelope: value as rate multiplier (0.1 to 4.0), multiplied with base stretch_ratio
+    #[serde(default)]
+    pub playrate_envelope: Option<ClipEnvelope>,
+
+    /// Volume envelope: value as linear gain (0.0 to 2.0), multiplied with base gain
+    #[serde(default)]
+    pub volume_envelope: Option<ClipEnvelope>,
+
+    /// Pan envelope: value as pan position (-1.0 to 1.0), additive
+    #[serde(default)]
+    pub pan_envelope: Option<ClipEnvelope>,
 }
 
 fn default_stretch_ratio() -> f64 {
@@ -872,6 +1144,10 @@ impl Clip {
             loop_end_samples: 0,
             iteration_gain: 1.0,
             fx_chain: ClipFxChain::new(),
+            pitch_envelope: None,
+            playrate_envelope: None,
+            volume_envelope: None,
+            pan_envelope: None,
         }
     }
 
@@ -925,6 +1201,217 @@ impl Clip {
     /// Check if this clip overlaps with another time range
     pub fn overlaps(&self, start: f64, end: f64) -> bool {
         self.start_time < end && self.end_time() > start
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Per-item envelope methods
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Enable pitch envelope (creates if needed)
+    pub fn enable_pitch_envelope(&mut self) -> &mut ClipEnvelope {
+        self.pitch_envelope.get_or_insert_with(ClipEnvelope::pitch)
+    }
+
+    /// Enable playrate envelope (creates if needed)
+    pub fn enable_playrate_envelope(&mut self) -> &mut ClipEnvelope {
+        self.playrate_envelope
+            .get_or_insert_with(ClipEnvelope::playrate)
+    }
+
+    /// Enable volume envelope (creates if needed)
+    pub fn enable_volume_envelope(&mut self) -> &mut ClipEnvelope {
+        self.volume_envelope
+            .get_or_insert_with(ClipEnvelope::volume)
+    }
+
+    /// Enable pan envelope (creates if needed)
+    pub fn enable_pan_envelope(&mut self) -> &mut ClipEnvelope {
+        self.pan_envelope.get_or_insert_with(ClipEnvelope::pan)
+    }
+
+    /// Check if any per-item envelope is active
+    #[inline]
+    pub fn has_active_envelope(&self) -> bool {
+        self.pitch_envelope
+            .as_ref()
+            .is_some_and(|e| e.is_active())
+            || self
+                .playrate_envelope
+                .as_ref()
+                .is_some_and(|e| e.is_active())
+            || self
+                .volume_envelope
+                .as_ref()
+                .is_some_and(|e| e.is_active())
+            || self.pan_envelope.as_ref().is_some_and(|e| e.is_active())
+    }
+
+    /// Get effective pitch at clip-relative sample offset.
+    /// Combines base pitch_shift + pitch envelope value (additive).
+    #[inline]
+    pub fn pitch_at(&self, clip_offset_samples: u64) -> f64 {
+        let envelope_offset = self
+            .pitch_envelope
+            .as_ref()
+            .filter(|e| e.is_active())
+            .map(|e| e.value_at(clip_offset_samples))
+            .unwrap_or(0.0);
+        (self.pitch_shift + envelope_offset).clamp(-24.0, 24.0)
+    }
+
+    /// Get effective playback rate at clip-relative sample offset.
+    /// Combines stretch_ratio × playrate envelope × pitch_at() rate factor.
+    #[inline]
+    pub fn playback_rate_at(&self, clip_offset_samples: u64) -> f64 {
+        let rate_env = self
+            .playrate_envelope
+            .as_ref()
+            .filter(|e| e.is_active())
+            .map(|e| e.value_at(clip_offset_samples))
+            .unwrap_or(1.0);
+
+        let pitch = self.pitch_at(clip_offset_samples);
+        let pitch_rate = 2.0_f64.powf(pitch / 12.0);
+
+        self.stretch_ratio * rate_env * pitch_rate
+    }
+
+    /// Get effective gain at clip-relative sample offset.
+    /// Combines base gain × volume envelope (multiplicative).
+    #[inline]
+    pub fn gain_at(&self, clip_offset_samples: u64) -> f64 {
+        let vol_env = self
+            .volume_envelope
+            .as_ref()
+            .filter(|e| e.is_active())
+            .map(|e| e.value_at(clip_offset_samples))
+            .unwrap_or(1.0);
+        self.gain * vol_env
+    }
+
+    /// Get pan offset at clip-relative sample offset.
+    /// Returns pan envelope value or 0.0 (center).
+    #[inline]
+    pub fn pan_at(&self, clip_offset_samples: u64) -> f64 {
+        self.pan_envelope
+            .as_ref()
+            .filter(|e| e.is_active())
+            .map(|e| e.value_at(clip_offset_samples))
+            .unwrap_or(0.0)
+    }
+
+    /// Compute source position at clip-relative sample offset using integrated rate.
+    /// This correctly handles time-varying playback rate (pitch + playrate envelopes)
+    /// by integrating the rate over time: source_pos = ∫₀^offset rate(t) dt
+    ///
+    /// For static rate (no envelopes): returns offset * effective_playback_rate
+    /// For envelope mode: uses trapezoidal integration of the combined rate curve
+    pub fn source_position_at(
+        &self,
+        clip_offset_samples: u64,
+        rate_ratio: f64,
+        source_offset_samples: f64,
+    ) -> f64 {
+        if !self.has_active_envelope()
+            || (self.pitch_envelope.is_none() && self.playrate_envelope.is_none())
+        {
+            // No pitch/rate envelopes: use static calculation (original behavior)
+            return clip_offset_samples as f64 * rate_ratio * self.effective_playback_rate()
+                + source_offset_samples;
+        }
+
+        // Has pitch or rate envelope: integrate the combined rate over time.
+        // We iterate both envelope point arrays in sorted order (they're already sorted),
+        // evaluating the trapezoidal integral between each pair of time boundaries.
+        // ZERO ALLOCATIONS — only stack variables, no Vec/HashMap.
+
+        // Collect boundary offsets from both envelopes by merging sorted point arrays.
+        // We process boundaries in ascending order without allocating.
+        let pitch_pts = self
+            .pitch_envelope
+            .as_ref()
+            .filter(|e| e.is_active())
+            .map(|e| e.points.as_slice())
+            .unwrap_or(&[]);
+        let rate_pts = self
+            .playrate_envelope
+            .as_ref()
+            .filter(|e| e.is_active())
+            .map(|e| e.points.as_slice())
+            .unwrap_or(&[]);
+
+        let mut integral = 0.0;
+        let mut prev_t: u64 = 0;
+        let mut prev_rate = self.playback_rate_at(0);
+
+        // Merge-iterate both sorted point arrays
+        let mut pi = 0usize;
+        let mut ri = 0usize;
+
+        loop {
+            // Find next boundary from either envelope
+            let next_pitch = if pi < pitch_pts.len() {
+                Some(pitch_pts[pi].offset_samples)
+            } else {
+                None
+            };
+            let next_rate = if ri < rate_pts.len() {
+                Some(rate_pts[ri].offset_samples)
+            } else {
+                None
+            };
+
+            let next_t = match (next_pitch, next_rate) {
+                (Some(p), Some(r)) => {
+                    let t = p.min(r);
+                    if t >= clip_offset_samples {
+                        break;
+                    }
+                    if p <= r {
+                        pi += 1;
+                    }
+                    if r <= p {
+                        ri += 1;
+                    }
+                    t
+                }
+                (Some(p), None) => {
+                    if p >= clip_offset_samples {
+                        break;
+                    }
+                    pi += 1;
+                    p
+                }
+                (None, Some(r)) => {
+                    if r >= clip_offset_samples {
+                        break;
+                    }
+                    ri += 1;
+                    r
+                }
+                (None, None) => break,
+            };
+
+            if next_t <= prev_t {
+                continue; // Skip duplicates
+            }
+
+            let seg_len = (next_t - prev_t) as f64;
+            let next_rate_val = self.playback_rate_at(next_t);
+            integral += (prev_rate + next_rate_val) * 0.5 * seg_len;
+
+            prev_t = next_t;
+            prev_rate = next_rate_val;
+        }
+
+        // Final segment: from last boundary to clip_offset_samples
+        if clip_offset_samples > prev_t {
+            let seg_len = (clip_offset_samples - prev_t) as f64;
+            let end_rate = self.playback_rate_at(clip_offset_samples);
+            integral += (prev_rate + end_rate) * 0.5 * seg_len;
+        }
+
+        integral * rate_ratio + source_offset_samples
     }
 }
 
@@ -3099,5 +3586,218 @@ mod tests {
             ..slot
         };
         assert_eq!(slot_muted.output_gain_linear(), 0.0);
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // Clip Envelope Tests
+    // ═════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_clip_envelope_default_value() {
+        let env = ClipEnvelope::pitch();
+        assert_eq!(env.value_at(0), 0.0);
+        assert_eq!(env.value_at(48000), 0.0);
+        assert!(!env.is_active());
+    }
+
+    #[test]
+    fn test_clip_envelope_single_point() {
+        let mut env = ClipEnvelope::pitch();
+        env.add_point(ClipEnvelopePoint::new(24000, 5.0));
+        assert!(env.is_active());
+
+        // Before point: returns first point value
+        assert_eq!(env.value_at(0), 5.0);
+        // At point
+        assert_eq!(env.value_at(24000), 5.0);
+        // After point: returns last point value
+        assert_eq!(env.value_at(48000), 5.0);
+    }
+
+    #[test]
+    fn test_clip_envelope_linear_interpolation() {
+        let mut env = ClipEnvelope::pitch();
+        env.add_point(ClipEnvelopePoint::new(0, 0.0));
+        env.add_point(ClipEnvelopePoint::new(48000, 12.0)); // 0 to +12 semitones over 1 sec
+
+        // Midpoint: 6 semitones
+        let val = env.value_at(24000);
+        assert!((val - 6.0).abs() < 0.01, "Expected ~6.0, got {}", val);
+
+        // Quarter: 3 semitones
+        let val = env.value_at(12000);
+        assert!((val - 3.0).abs() < 0.01, "Expected ~3.0, got {}", val);
+    }
+
+    #[test]
+    fn test_clip_envelope_step_curve() {
+        let mut env = ClipEnvelope::pitch();
+        env.add_point(
+            ClipEnvelopePoint::new(0, 0.0).with_curve(ClipEnvelopeCurve::Step),
+        );
+        env.add_point(ClipEnvelopePoint::new(48000, 12.0));
+
+        // Step holds the value until next point
+        assert_eq!(env.value_at(24000), 0.0);
+        assert_eq!(env.value_at(47999), 0.0);
+        assert_eq!(env.value_at(48000), 12.0);
+    }
+
+    #[test]
+    fn test_clip_envelope_sorted_insertion() {
+        let mut env = ClipEnvelope::pitch();
+        env.add_point(ClipEnvelopePoint::new(48000, 12.0));
+        env.add_point(ClipEnvelopePoint::new(0, 0.0));
+        env.add_point(ClipEnvelopePoint::new(24000, 6.0));
+
+        // Should be sorted by offset
+        assert_eq!(env.points[0].offset_samples, 0);
+        assert_eq!(env.points[1].offset_samples, 24000);
+        assert_eq!(env.points[2].offset_samples, 48000);
+    }
+
+    #[test]
+    fn test_clip_envelope_replace_at_same_offset() {
+        let mut env = ClipEnvelope::pitch();
+        env.add_point(ClipEnvelopePoint::new(24000, 5.0));
+        env.add_point(ClipEnvelopePoint::new(24000, 10.0));
+
+        // Should replace, not duplicate
+        assert_eq!(env.points.len(), 1);
+        assert_eq!(env.points[0].value, 10.0);
+    }
+
+    #[test]
+    fn test_clip_envelope_playrate() {
+        let mut env = ClipEnvelope::playrate();
+        assert_eq!(env.default_value, 1.0);
+
+        env.add_point(ClipEnvelopePoint::new(0, 1.0));
+        env.add_point(ClipEnvelopePoint::new(48000, 2.0)); // Ramp from 1x to 2x
+
+        let val = env.value_at(24000);
+        assert!((val - 1.5).abs() < 0.01, "Expected ~1.5, got {}", val);
+    }
+
+    #[test]
+    fn test_clip_pitch_at_with_envelope() {
+        let mut clip = Clip::new(TrackId(1), "test", "test.wav", 0.0, 1.0);
+        clip.set_pitch_shift(2.0); // Base: +2 semitones
+
+        // No envelope: returns base
+        assert_eq!(clip.pitch_at(0), 2.0);
+
+        // With envelope adding +3 semitones at midpoint
+        let env = clip.enable_pitch_envelope();
+        env.add_point(ClipEnvelopePoint::new(0, 0.0));
+        env.add_point(ClipEnvelopePoint::new(48000, 6.0));
+
+        // At midpoint: base 2.0 + envelope 3.0 = 5.0
+        let val = clip.pitch_at(24000);
+        assert!((val - 5.0).abs() < 0.01, "Expected ~5.0, got {}", val);
+    }
+
+    #[test]
+    fn test_clip_playback_rate_at_with_envelope() {
+        let mut clip = Clip::new(TrackId(1), "test", "test.wav", 0.0, 1.0);
+        clip.set_stretch_ratio(1.0);
+        clip.set_pitch_shift(0.0);
+
+        // With playrate envelope: ramp from 1x to 2x
+        let env = clip.enable_playrate_envelope();
+        env.add_point(ClipEnvelopePoint::new(0, 1.0));
+        env.add_point(ClipEnvelopePoint::new(48000, 2.0));
+
+        let rate = clip.playback_rate_at(24000);
+        // stretch(1.0) * playrate_env(1.5) * 2^(0/12) = 1.5
+        assert!(
+            (rate - 1.5).abs() < 0.01,
+            "Expected ~1.5, got {}",
+            rate
+        );
+    }
+
+    #[test]
+    fn test_clip_source_position_with_envelope() {
+        let mut clip = Clip::new(TrackId(1), "test", "test.wav", 0.0, 1.0);
+        clip.set_pitch_shift(0.0);
+        clip.set_stretch_ratio(1.0);
+
+        // No envelope: source_pos = offset * rate_ratio * 1.0
+        let pos = clip.source_position_at(48000, 1.0, 0.0);
+        assert!((pos - 48000.0).abs() < 1.0, "Expected ~48000, got {}", pos);
+
+        // With playrate envelope 2x constant: should traverse twice as fast
+        let env = clip.enable_playrate_envelope();
+        env.add_point(ClipEnvelopePoint::new(0, 2.0));
+
+        let pos = clip.source_position_at(48000, 1.0, 0.0);
+        assert!(
+            (pos - 96000.0).abs() < 1.0,
+            "Expected ~96000, got {}",
+            pos
+        );
+    }
+
+    #[test]
+    fn test_clip_integrated_value() {
+        let mut env = ClipEnvelope::playrate();
+        // Constant rate 2.0 for 48000 samples: integral = 2.0 * 48000 = 96000
+        env.add_point(ClipEnvelopePoint::new(0, 2.0));
+
+        let integral = env.integrated_value_to(48000);
+        assert!(
+            (integral - 96000.0).abs() < 1.0,
+            "Expected ~96000, got {}",
+            integral
+        );
+
+        // Linear ramp 1.0 to 3.0 over 48000: integral = (1+3)/2 * 48000 = 96000
+        let mut env2 = ClipEnvelope::playrate();
+        env2.add_point(ClipEnvelopePoint::new(0, 1.0));
+        env2.add_point(ClipEnvelopePoint::new(48000, 3.0));
+
+        let integral2 = env2.integrated_value_to(48000);
+        assert!(
+            (integral2 - 96000.0).abs() < 1.0,
+            "Expected ~96000, got {}",
+            integral2
+        );
+    }
+
+    #[test]
+    fn test_clip_envelope_remove_point() {
+        let mut env = ClipEnvelope::pitch();
+        env.add_point(ClipEnvelopePoint::new(0, 0.0));
+        env.add_point(ClipEnvelopePoint::new(24000, 6.0));
+        env.add_point(ClipEnvelopePoint::new(48000, 12.0));
+
+        assert_eq!(env.points.len(), 3);
+        assert!(env.remove_point_at(24000, 100));
+        assert_eq!(env.points.len(), 2);
+
+        // Middle point removed: interpolation between 0 and 48000
+        let val = env.value_at(24000);
+        assert!((val - 6.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_clip_has_active_envelope() {
+        let mut clip = Clip::new(TrackId(1), "test", "test.wav", 0.0, 1.0);
+        assert!(!clip.has_active_envelope());
+
+        // Create envelope but no points → not active
+        clip.enable_pitch_envelope();
+        assert!(!clip.has_active_envelope());
+
+        // Add a point → active
+        clip.pitch_envelope.as_mut().unwrap().add_point(
+            ClipEnvelopePoint::new(0, 5.0),
+        );
+        assert!(clip.has_active_envelope());
+
+        // Disable → not active
+        clip.pitch_envelope.as_mut().unwrap().enabled = false;
+        assert!(!clip.has_active_envelope());
     }
 }

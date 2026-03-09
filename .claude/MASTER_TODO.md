@@ -1,6 +1,6 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-03-08
+**Updated:** 2026-03-09
 
 ## Status Summary
 
@@ -19,6 +19,87 @@
 | **SATURATOR ULTIMATE** (46/46) | **DONE** |
 
 Analyzer: 0 errors, 0 warnings
+
+---
+
+## Reaper DAW Feature Parity — Implementation Tracker
+
+> Referenca: `REAPER_FEATURES_ANALYSIS.md` (30 feature-a, 5 faza)
+> Cilj: Učiniti FluxForge konkurentnim sa Reaper-om za sound design i audio tehničare
+
+### Faza 1: Sound Design Foundation (P0 — CRITICAL) ✅ DONE
+
+| # | Feature | Status | Grana/Commit | Detalji |
+|---|---------|--------|--------------|---------|
+| 1 | **Item-Level FX** | ✅ DONE | `feature/item-level-fx-stateful-processing` | Per-clip stateful DSP (ClipFxProcessorBank), 6 tipova FX, bypass fade, wet/dry, I/O gain. `clip_fx_processor.rs` ~700 linija |
+| 2 | **Region Render Matrix** | ✅ DONE | `main` (2a000f91) | Batch export engine, rayon parallel, cooperative cancel, wildcard naming. `render_matrix.rs` ~947 linija, 19 FFI fn, 8 testova |
+| 3 | **Wildcard Tokens za render** | ✅ DONE | Deo #2 | $region, $preset, $date, $tag, $index + prefix/suffix + subdirs |
+
+### Faza 2: Creative Tools (P1 — HIGH)
+
+| # | Feature | Status | Opis | Složenost |
+|---|---------|--------|------|-----------|
+| 4 | **Per-item Pitch Envelope** | ✅ DONE | ClipEnvelope sa relativnim pozicijama (premešta se sa clipom). ±24 semitona, 6 curve types (Linear/Bezier/Exp/Log/Step/SCurve). Trapezoidal integration za source poziciju. 12 unit testova, 10 FFI fn. | Visoka |
+| 5 | **Per-item Playrate Envelope** | ✅ DONE | ClipEnvelope playrate (0.1x–4.0x). Multiplicative sa stretch_ratio. Varispeed mode (pitch follows rate). Incremental per-block akumulacija, full integral samo na seek. Zero-alloc audio thread. | Visoka |
+| 6 | **Automation Items (pooled)** | ❌ TODO | Kontejnerizovana automatizacija: LFO shapes, looping, copy/paste, stretch, stacking (aditivno sabiranje), pooling (edit jednu → sve se menjaju). Potpuno jedinstveno za Reaper. | Vrlo visoka |
+| 7 | **Pin Connector** | ❌ TODO | 64-ch interni routing per-plugin. Matrix UI: redovi=ulazni kanali, kolone=plugin kanali. Mid/side, multi-mono, surround per-channel processing. Arhitekturna promena u FX chain procesingu. | Vrlo visoka |
+| 8 | **Parallel FX (inline)** | ❌ TODO | Desni klik na FX → "Run in parallel". Signal split → paralelni plugin-i → sum. Wet/dry per-plugin. Bez dodatnih trakova/sends. | Srednja |
+| 9 | **FX Containers** | ❌ TODO | Plugin koji sadrži plugin-e. Interni routing (serial/parallel/custom via pin connector). Do 16 makro kontrola sa parameter mapping. Nestable (kontejner u kontejneru). Imamo `fx_container.rs` osnovu. | Visoka |
+| 10 | **Per-item Automation** | ❌ TODO | Take envelopes: Volume, Pan, Mute, Pitch, Playrate + per-take FX param envelopes. Automatizacija se premešta SA clipom. Nezavisna od track-level automatizacije (multiplikativno). | Visoka |
+
+### Faza 3: Workflow Acceleration (P2 — MEDIUM)
+
+| # | Feature | Status | Opis | Složenost |
+|---|---------|--------|------|-----------|
+| 11 | **Razor Edits** | ❌ TODO | Alt+desni klik drag marquee selekcija. Nezavisna media/envelope selekcija. Multi-track. Akcije: cut/copy/delete/move/stretch/split/reverse. Potpuno jedinstveno za Reaper. | Visoka |
+| 12 | **Mix Snapshots** | ❌ TODO | Save/recall stanja miksa. 10 kategorija (Volume, Pan, Mute/Solo, FX Chain, Sends, Phase, Selection, Visibility, Names, Clip Gain). Selective recall. SWS feature. | Srednja |
+| 13 | **Metadata Browser + Search** | ❌ TODO | BWF/iXML/ID3 metadata čitanje/editovanje u audio browser-u. Boolean search (AND/OR/NOT). Batch metadata editing. Custom columns. | Srednja |
+| 14 | **Screensets** | ❌ TODO | 10 slotova za kompletno UI stanje (pozicije prozora, veličine, zoom, scroll, dock stanje). Instant prebacivanje jednim tasterom. Per-project. | Srednja |
+| 15 | **Project Tabs** | ❌ TODO | Više projekata u tabovima. Copy/paste itema između tabova. Drag-and-drop transfer. Per-tab undo history. | Visoka |
+| 16 | **Sub-Projects** | ❌ TODO | .rpp fajl kao media item na timeline-u. Dupli klik → otvori u novom tabu. Auto-render proxy audio. Nestable. | Vrlo visoka |
+| 17 | **Command Palette / Console** | ❌ TODO | Fuzzy search za sve akcije (3000+). Instant izvršavanje. History. Ctrl+P / `?` shortcut. Relativno laka implementacija, visok impakt. | Niska |
+| 18 | **Auto-Color Rules** | ❌ TODO | Regex pattern → boja/ikona. Automatski pri kreiranju traka ili batch na postojeće. Import/export pravila. | Niska |
+| 19 | **Dynamic Split Workflow** | ❌ TODO | Automatsko sečenje po transijentima/gate threshold/tišini. Opcija: dodaj stretch markere umesto rezova. Preview pre primene. "Send items to sampler" workflow. | Srednja |
+| 20 | **UCS Naming System** | ❌ TODO | Universal Category System: `CATsub_VENdor_Project_Descriptor_####`. Auto-generisanje iz regiona/trakova. Industrijski standard za game audio. | Niska |
+
+### Faza 4: Game Audio Pipeline (P2-P3)
+
+| # | Feature | Status | Opis | Složenost |
+|---|---------|--------|------|-----------|
+| 21 | **Stem Manager** | ❌ TODO | Save/recall solo/mute konfiguracija. Batch render svih stem konfiguracija. Render queue. Multi-format (WAV+OGG istovremeno). | Srednja |
+| 22 | **Loudness Report** | ❌ TODO | HTML interaktivni izveštaj: Integrated LUFS, Short-term graf, True Peak, LRA, clipping detection. Dry run (analiza bez renderovanja). | Srednja |
+| 23 | **Wwise Direct Integration** | ❌ TODO | ReaWwise-style: kreiranje object hierarchy u Wwise-u iz FluxForge-a. Wildcard recipe za Object Path. | Visoka |
+| 24 | **FMOD Direct Integration** | ❌ TODO | API-based transfer asseta. Shared folder monitoring. | Srednja |
+
+### Faza 5: Power User Features (P3-P4)
+
+| # | Feature | Status | Opis | Složenost |
+|---|---------|--------|------|-----------|
+| 25 | **Cycle Actions** | ❌ TODO | Svaki poziv izvršava sledeći korak u ciklusu. Kondicionalni (if/then). Proširenje FluxMacro. | Niska |
+| 26 | **Region Playlist** | ❌ TODO | Non-linearni playback. Definiši redosled regiona nezavisno od timeline pozicije. Loop per-region. Smooth seek. | Srednja |
+| 27 | **Marker Actions** | ❌ TODO | Akcije vezane za timeline pozicije. Trigger kad play cursor pređe marker. `!` + action ID u imenu markera. | Niska |
+| 28 | **Granular Synthesis** | ❌ TODO | ReaGranular-style: 4 grain-a, min/max size, per-grain pan/level, random varijacije, freeze mode. `rf-dsp` ima koncept ali nije expozovan. | Srednja |
+| 29 | **ReaStream (Network Audio)** | ❌ TODO | Host-to-host streaming audio/MIDI na LAN-u. UDP broadcast. Multi-channel. | Visoka |
+| 30 | **JSFX-style DSP Scripting** | ❌ TODO | User-scriptable audio efekti sa sample-level processing. Instant kompilacija. Custom GUI. FluxMacro je workflow automation, ovo je DSP scripting. | Vrlo visoka |
+| 31 | **Video Processor FX** | ❌ TODO | Built-in video processor: text overlay, audio-reaktivni vizuali, FFT frequency display. `rf-video` crate postoji. | Srednja |
+| 32 | **Host-level Wet/Dry per-FX** | ⚠️ PARTIAL | Naši Ultimate procesori imaju mix knob. Host-level wet/dry za SVE plugin-e (čak i bez ugrađenog mix knoba). | Niska |
+| 33 | **Package Manager** | ❌ TODO | Marketplace za skripte, efekte, teme. Auto-update. Custom repositories. | Visoka |
+| 34 | **Extension SDK** | ⚠️ PARTIAL | `rf-plugin` crate postoji. Otvoreni SDK za third-party development. | Visoka |
+
+### Postojeći sistemi koji treba proveriti/proširiti
+
+| Feature | FluxForge status | Šta fali |
+|---------|-----------------|----------|
+| Sidechain routing | ✅ u Compressor Ultimate | Drag-and-drop sidechain iz routing matrice |
+| FX Chains Save/Load | ✅ Insert chains | Save/load chain presets (.rfxchain ekvivalent) |
+| Comping lanes | ⚠️ Postoji | Per-take FX, per-take envelopes, per-take pitch/playrate |
+| Stretch markers | ⚠️ Warp handles | Per-segment pitch kontrola |
+| Clip properties | ⚠️ Postoji | Snap offset, channel mode selection, notes polje |
+| Glue items | ⚠️ Bounce | Reversible un-glue |
+| Nudge system | ⚠️ Delimično | Konfigurabilan nudge amount (samples/ms/frames/beats) |
+| Media browser | ⚠️ Audio pool | Preview routing, tempo matching, favorites, history |
+| Feedback loops | ⚠️ Routing postoji | Provera da li dozvoljava feedback routing |
+| Spectral editor | ✅ Postoji | Spectral peaks hybrid view, per-item spectral editing |
 
 ---
 

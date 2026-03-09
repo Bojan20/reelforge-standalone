@@ -164,6 +164,10 @@ pub use fx_container::{
 // Re-exports: Phase 4 - Timeline
 pub use track_manager::{
     Clip,
+    // Clip Envelopes (Per-item automation)
+    ClipEnvelope,
+    ClipEnvelopeCurve,
+    ClipEnvelopePoint,
     // Clip FX
     ClipFxChain,
     ClipFxSlot,
