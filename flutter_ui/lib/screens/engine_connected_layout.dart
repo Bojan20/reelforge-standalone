@@ -6390,6 +6390,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 // Granular synth freeze toggle — service handles internally
               case 'networkStreamControl':
                 // Network audio stream connect/disconnect — service handles internally
+              case 'dspScriptCompile':
+                // DSP script compilation — service handles internally
+              case 'dspScriptToggle':
+                // DSP script toggle processing — service handles internally
             }
           },
           // P0.2: Grid/Snap Settings

@@ -360,6 +360,11 @@ class _MainLayoutState extends State<MainLayout>
         controller.setEditSubTab(DawEditSubTab.networkAudio);
         controller.expand();
       },
+      onShowDspScript: () {
+        final controller = DawLowerZoneController.instance;
+        controller.setEditSubTab(DawEditSubTab.dspScript);
+        controller.expand();
+      },
     );
     CommandPalette.showUltimate(context);
   }

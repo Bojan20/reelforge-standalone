@@ -297,6 +297,7 @@ class CommandRegistry {
     VoidCallback? onShowMarkerActions,
     VoidCallback? onShowGranularSynth,
     VoidCallback? onShowNetworkAudio,
+    VoidCallback? onShowDspScript,
     VoidCallback? onShowMacroControls,
     VoidCallback? onShowClipGainEnvelope,
   }) {
@@ -1259,6 +1260,15 @@ class CommandRegistry {
         icon: Icons.wifi,
         keywords: ['network', 'audio', 'stream', 'reastream', 'udp', 'lan', 'midi'],
         onExecute: onShowNetworkAudio,
+      ),
+      PaletteCommand(
+        id: 'tools.dsp_script',
+        label: 'DSP Scripting',
+        description: 'JSFX-style sample-level audio effect scripting',
+        category: PaletteCategory.tools,
+        icon: Icons.code,
+        keywords: ['dsp', 'script', 'jsfx', 'code', 'effect', 'sample', 'processing'],
+        onExecute: onShowDspScript,
       ),
 
       // ─── ADVANCED PANELS ──────────────────────────────────────────────────
