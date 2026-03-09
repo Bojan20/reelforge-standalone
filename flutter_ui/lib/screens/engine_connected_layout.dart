@@ -1479,6 +1479,89 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     }
   }
 
+  void _handleUcsRename(Map<String, dynamic>? params) {
+    if (params == null) return;
+    final trackId = params['trackId'] as int?;
+    final newName = params['newName'] as String?;
+    if (trackId == null || newName == null || newName.isEmpty) return;
+
+    final trackIdStr = trackId.toString();
+    final oldName = _tracks.where((t) => t.id == trackIdStr).firstOrNull?.name ?? '';
+
+    // Rename in engine
+    final ffi = NativeFFI.instance;
+    ffi.setTrackName(trackId, newName);
+
+    // Update UI state
+    _updateTrackById(trackIdStr, (t) => t.copyWith(name: newName));
+
+    // Undo support
+    UiUndoManager.instance.record(GenericUndoAction(
+      description: 'UCS Rename: $newName',
+      onExecute: () {
+        ffi.setTrackName(trackId, newName);
+        _updateTrackById(trackIdStr, (t) => t.copyWith(name: newName));
+      },
+      onUndo: () {
+        ffi.setTrackName(trackId, oldName);
+        _updateTrackById(trackIdStr, (t) => t.copyWith(name: oldName));
+      },
+    ));
+
+    _showSnackBar('Renamed → $newName');
+  }
+
+  void _handleStemRecall(Map<String, dynamic>? params) {
+    if (params == null) return;
+    final trackStates = params['trackStates'] as Map<String, dynamic>?;
+    if (trackStates == null) return;
+
+    final mixerProvider = context.read<MixerProvider>();
+
+    // Save current state for undo
+    final oldStates = <String, ({bool muted, bool soloed})>{};
+    for (final ch in mixerProvider.channels) {
+      oldStates[ch.id] = (muted: ch.muted, soloed: ch.soloed);
+    }
+
+    // Apply stem config
+    for (final entry in trackStates.entries) {
+      final state = entry.value as Map<String, dynamic>;
+      final muted = state['muted'] as bool? ?? false;
+      final soloed = state['soloed'] as bool? ?? false;
+      mixerProvider.setMuted(entry.key, muted);
+      mixerProvider.setSoloed(entry.key, soloed);
+    }
+
+    // Undo support
+    UiUndoManager.instance.record(GenericUndoAction(
+      description: 'Stem Recall',
+      onExecute: () {
+        for (final entry in trackStates.entries) {
+          final state = entry.value as Map<String, dynamic>;
+          mixerProvider.setMuted(entry.key, state['muted'] as bool? ?? false);
+          mixerProvider.setSoloed(entry.key, state['soloed'] as bool? ?? false);
+        }
+      },
+      onUndo: () {
+        for (final entry in oldStates.entries) {
+          mixerProvider.setMuted(entry.key, entry.value.muted);
+          mixerProvider.setSoloed(entry.key, entry.value.soloed);
+        }
+      },
+    ));
+
+    _showSnackBar('Stem config applied');
+  }
+
+  void _handleStemBatchRender(Map<String, dynamic>? params) {
+    if (params == null) return;
+    // Queue info for UI feedback — actual render orchestrated by StemManagerService
+    final queue = params['queue'] as List<dynamic>?;
+    if (queue == null || queue.isEmpty) return;
+    _showSnackBar('Batch render started: ${queue.length} jobs');
+  }
+
   /// Create a video track
   void _createVideoTrack(String name, Color color) {
     // Video tracks don't create engine audio tracks — they are display-only
@@ -6246,6 +6329,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 _showExportDialog();
               case 'dynamicSplit':
                 _handleDynamicSplit(params);
+              case 'ucsRename':
+                _handleUcsRename(params);
+              case 'stemRecall':
+                _handleStemRecall(params);
+              case 'stemBatchRender':
+                _handleStemBatchRender(params);
             }
           },
           // P0.2: Grid/Snap Settings

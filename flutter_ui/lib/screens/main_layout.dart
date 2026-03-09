@@ -316,9 +316,18 @@ class _MainLayoutState extends State<MainLayout>
       onCommandPalette: () {}, // Already open
       onShowAutoColorRules: () => AutoColorRulesPanel.showAsDialog(context),
       onShowDynamicSplit: () {
-        // Open lower zone EDIT > Dynamic Split tab
         final controller = DawLowerZoneController.instance;
         controller.setEditSubTab(DawEditSubTab.dynamicSplit);
+        controller.expand();
+      },
+      onShowUcsNaming: () {
+        final controller = DawLowerZoneController.instance;
+        controller.setEditSubTab(DawEditSubTab.ucsNaming);
+        controller.expand();
+      },
+      onShowStemManager: () {
+        final controller = DawLowerZoneController.instance;
+        controller.setDeliverSubTab(DawDeliverSubTab.stemManager);
         controller.expand();
       },
     );

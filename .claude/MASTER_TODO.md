@@ -22,17 +22,15 @@ Analyzer: 0 errors, 0 warnings
 | # | Feature | Status | Opis | Složenost |
 |---|---------|--------|------|-----------|
 | 18 | **Auto-Color Rules** | ✅ DONE | Regex pattern → boja/ikona. Automatski pri kreiranju traka ili batch na postojeće. Import/export pravila. | Niska |
-| 19 | **Dynamic Split Workflow** | ❌ TODO | Automatsko sečenje po transijentima/gate threshold/tišini. Opcija: dodaj stretch markere umesto rezova. Preview pre primene. "Send items to sampler" workflow. | Srednja |
-| 20 | **UCS Naming System** | ❌ TODO | Universal Category System: `CATsub_VENdor_Project_Descriptor_####`. Auto-generisanje iz regiona/trakova. Industrijski standard za game audio. | Niska |
+| 19 | **Dynamic Split Workflow** | ✅ DONE | Automatsko sečenje po transijentima/gate threshold/tišini. Opcija: dodaj stretch markere umesto rezova. Preview pre primene. "Send items to sampler" workflow. | Srednja |
+| 20 | **UCS Naming System** | ✅ DONE | Universal Category System: `CATsub_VENdor_Project_Descriptor_####`. Auto-generisanje iz regiona/trakova. Industrijski standard za game audio. | Niska |
 
 ### Faza 4: Game Audio Pipeline (P2-P3)
 
 | # | Feature | Status | Opis | Složenost |
 |---|---------|--------|------|-----------|
-| 21 | **Stem Manager** | ❌ TODO | Save/recall solo/mute konfiguracija. Batch render svih stem konfiguracija. Render queue. Multi-format (WAV+OGG istovremeno). | Srednja |
+| 21 | **Stem Manager** | ✅ DONE | Save/recall solo/mute konfiguracija. Batch render svih stem konfiguracija. Render queue. Multi-format (WAV+OGG istovremeno). | Srednja |
 | 22 | **Loudness Report** | ❌ TODO | HTML interaktivni izveštaj: Integrated LUFS, Short-term graf, True Peak, LRA, clipping detection. Dry run (analiza bez renderovanja). | Srednja |
-| 23 | **Wwise Direct Integration** | ❌ TODO | ReaWwise-style: kreiranje object hierarchy u Wwise-u iz FluxForge-a. Wildcard recipe za Object Path. | Visoka |
-| 24 | **FMOD Direct Integration** | ❌ TODO | API-based transfer asseta. Shared folder monitoring. | Srednja |
 
 ### Faza 5: Power User Features (P3-P4)
 

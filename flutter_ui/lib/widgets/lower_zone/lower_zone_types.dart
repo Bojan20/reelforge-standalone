@@ -114,7 +114,7 @@ class PaneTabState {
       case DawSuperTab.process:
         processSubTab = DawProcessSubTab.values[index.clamp(0, DawProcessSubTab.values.length - 1)];
       case DawSuperTab.deliver:
-        deliverSubTab = DawDeliverSubTab.values[index.clamp(0, 3)];
+        deliverSubTab = DawDeliverSubTab.values[index.clamp(0, DawDeliverSubTab.values.length - 1)];
     }
   }
 
@@ -148,9 +148,9 @@ class PaneTabState {
     superTab: DawSuperTab.values[(json['superTab'] as int? ?? 0).clamp(0, DawSuperTab.values.length - 1)],
     browseSubTab: DawBrowseSubTab.values[(json['browseSubTab'] as int? ?? 0).clamp(0, 3)],
     editSubTab: DawEditSubTab.values[(json['editSubTab'] as int? ?? 0).clamp(0, DawEditSubTab.values.length - 1)],
-    mixSubTab: DawMixSubTab.values[(json['mixSubTab'] as int? ?? 0).clamp(0, 3)],
+    mixSubTab: DawMixSubTab.values[(json['mixSubTab'] as int? ?? 0).clamp(0, DawMixSubTab.values.length - 1)],
     processSubTab: DawProcessSubTab.values[(json['processSubTab'] as int? ?? 0).clamp(0, DawProcessSubTab.values.length - 1)],
-    deliverSubTab: DawDeliverSubTab.values[(json['deliverSubTab'] as int? ?? 0).clamp(0, 3)],
+    deliverSubTab: DawDeliverSubTab.values[(json['deliverSubTab'] as int? ?? 0).clamp(0, DawDeliverSubTab.values.length - 1)],
   );
 
   /// Default tab states for each pane index (different tabs for usefulness)
@@ -311,10 +311,10 @@ extension DawSuperTabX on DawSuperTab {
 // --- DAW Sub-tabs ---
 
 enum DawBrowseSubTab { files, presets, plugins, history }
-enum DawEditSubTab { timeline, pianoRoll, fades, grid, punch, comping, warp, elastic, beatDetect, tempoDetect, stripSilence, dynamicSplit, loopEditor, video }
+enum DawEditSubTab { timeline, pianoRoll, fades, grid, punch, comping, warp, elastic, beatDetect, tempoDetect, stripSilence, dynamicSplit, ucsNaming, loopEditor, video }
 enum DawMixSubTab { mixer, sends, pan, automation }
 enum DawProcessSubTab { eq, comp, limiter, reverb, gate, delay, saturation, deEsser, fxChain, sidechain }
-enum DawDeliverSubTab { export, stems, bounce, archive }
+enum DawDeliverSubTab { export, stems, stemManager, bounce, archive }
 
 extension DawBrowseSubTabX on DawBrowseSubTab {
   String get label => ['Files', 'Presets', 'Plugins', 'History'][index];
@@ -329,9 +329,9 @@ extension DawBrowseSubTabX on DawBrowseSubTab {
 }
 
 extension DawEditSubTabX on DawEditSubTab {
-  String get label => ['Timeline', 'Piano Roll', 'Fades', 'Grid', 'Punch', 'Comping', 'Warp', 'Elastic', 'Beat Det.', 'Tempo Det.', 'Strip Sil.', 'Dyn Split', 'Loop Ed.', 'Video'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'A', 'P', 'D', 'S', 'V'][index];
-  IconData get icon => [Icons.view_timeline, Icons.piano, Icons.gradient, Icons.grid_on, Icons.fiber_manual_record, Icons.layers, Icons.timer, Icons.waves, Icons.music_note, Icons.speed, Icons.content_cut, Icons.call_split, Icons.loop, Icons.videocam][index];
+  String get label => ['Timeline', 'Piano Roll', 'Fades', 'Grid', 'Punch', 'Comping', 'Warp', 'Elastic', 'Beat Det.', 'Tempo Det.', 'Strip Sil.', 'Dyn Split', 'UCS', 'Loop Ed.', 'Video'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'A', 'P', 'D', 'N', 'S', 'V'][index];
+  IconData get icon => [Icons.view_timeline, Icons.piano, Icons.gradient, Icons.grid_on, Icons.fiber_manual_record, Icons.layers, Icons.timer, Icons.waves, Icons.music_note, Icons.speed, Icons.content_cut, Icons.call_split, Icons.label, Icons.loop, Icons.videocam][index];
   String get tooltip => [
     'Track arrangement view with clip positions and routing',
     'MIDI editor with 128 notes, velocity, and CC automation',
@@ -345,6 +345,7 @@ extension DawEditSubTabX on DawEditSubTab {
     'SmartTempo auto-detect BPM from audio with confidence scoring',
     'Automatic silence detection and removal with threshold control',
     'Dynamic Split — transient/gate/silence detection with preview and batch split',
+    'UCS Naming — Universal Category System for game audio asset naming',
     'Wwise-grade advanced loop system with regions, cues, and per-iteration gain',
     'Video timeline with playback, preview, and A/V sync controls',
   ][index];
@@ -381,12 +382,13 @@ extension DawProcessSubTabX on DawProcessSubTab {
 }
 
 extension DawDeliverSubTabX on DawDeliverSubTab {
-  String get label => ['Export', 'Stems', 'Bounce', 'Archive'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R'][index];
-  IconData get icon => [Icons.upload_file, Icons.layers, Icons.album, Icons.archive][index];
+  String get label => ['Export', 'Stems', 'Stem Mgr', 'Bounce', 'Archive'][index];
+  String get shortcut => ['Q', 'W', 'M', 'E', 'R'][index];
+  IconData get icon => [Icons.upload_file, Icons.layers, Icons.library_music, Icons.album, Icons.archive][index];
   String get tooltip => [
     'Quick export with last settings (WAV/FLAC/MP3, LUFS normalize)',
     'Export individual tracks/buses as stems (batch export)',
+    'Stem Manager — save/recall solo/mute configs, batch render with multi-format',
     'Master bounce with format/sample rate/normalize options',
     'ZIP project with audio/presets/plugins (optional compression)',
   ][index];
@@ -483,7 +485,7 @@ class DawLowerZoneState {
       case DawSuperTab.process:
         processSubTab = DawProcessSubTab.values[index.clamp(0, DawProcessSubTab.values.length - 1)];
       case DawSuperTab.deliver:
-        deliverSubTab = DawDeliverSubTab.values[index.clamp(0, 3)];
+        deliverSubTab = DawDeliverSubTab.values[index.clamp(0, DawDeliverSubTab.values.length - 1)];
     }
   }
 
@@ -521,7 +523,7 @@ class DawLowerZoneState {
       case DawSuperTab.process:
         secondPaneProcessSubTab = DawProcessSubTab.values[index.clamp(0, DawProcessSubTab.values.length - 1)];
       case DawSuperTab.deliver:
-        secondPaneDeliverSubTab = DawDeliverSubTab.values[index.clamp(0, 3)];
+        secondPaneDeliverSubTab = DawDeliverSubTab.values[index.clamp(0, DawDeliverSubTab.values.length - 1)];
     }
   }
 
@@ -629,7 +631,7 @@ class DawLowerZoneState {
       editSubTab: DawEditSubTab.values[(json['editSubTab'] as int? ?? 0).clamp(0, DawEditSubTab.values.length - 1)],
       mixSubTab: DawMixSubTab.values[json['mixSubTab'] as int? ?? 0],
       processSubTab: DawProcessSubTab.values[(json['processSubTab'] as int? ?? 0).clamp(0, DawProcessSubTab.values.length - 1)],
-      deliverSubTab: DawDeliverSubTab.values[json['deliverSubTab'] as int? ?? 0],
+      deliverSubTab: DawDeliverSubTab.values[(json['deliverSubTab'] as int? ?? 0).clamp(0, DawDeliverSubTab.values.length - 1)],
       isExpanded: json['isExpanded'] as bool? ?? true,
       height: (json['height'] as num?)?.toDouble() ?? kLowerZoneMaxHeight,
       // Split view
@@ -646,7 +648,7 @@ class DawLowerZoneState {
       secondPaneEditSubTab: DawEditSubTab.values[(json['secondPaneEditSubTab'] as int? ?? 0).clamp(0, DawEditSubTab.values.length - 1)],
       secondPaneMixSubTab: DawMixSubTab.values[json['secondPaneMixSubTab'] as int? ?? 0],
       secondPaneProcessSubTab: DawProcessSubTab.values[(json['secondPaneProcessSubTab'] as int? ?? 0).clamp(0, DawProcessSubTab.values.length - 1)],
-      secondPaneDeliverSubTab: DawDeliverSubTab.values[json['secondPaneDeliverSubTab'] as int? ?? 0],
+      secondPaneDeliverSubTab: DawDeliverSubTab.values[(json['secondPaneDeliverSubTab'] as int? ?? 0).clamp(0, DawDeliverSubTab.values.length - 1)],
     );
   }
 }

@@ -289,6 +289,8 @@ class CommandRegistry {
     VoidCallback? onShowTrackVersions,
     VoidCallback? onShowAutoColorRules,
     VoidCallback? onShowDynamicSplit,
+    VoidCallback? onShowUcsNaming,
+    VoidCallback? onShowStemManager,
     VoidCallback? onShowMacroControls,
     VoidCallback? onShowClipGainEnvelope,
   }) {
@@ -1179,6 +1181,24 @@ class CommandRegistry {
         icon: Icons.call_split,
         keywords: ['dynamic', 'split', 'transient', 'gate', 'silence', 'detect', 'cut'],
         onExecute: onShowDynamicSplit,
+      ),
+      PaletteCommand(
+        id: 'tools.ucs_naming',
+        label: 'UCS Naming',
+        description: 'Universal Category System naming for game audio assets',
+        category: PaletteCategory.tools,
+        icon: Icons.label,
+        keywords: ['ucs', 'naming', 'category', 'rename', 'universal', 'game', 'audio', 'asset'],
+        onExecute: onShowUcsNaming,
+      ),
+      PaletteCommand(
+        id: 'tools.stem_manager',
+        label: 'Stem Manager',
+        description: 'Save/recall solo/mute configs for stem rendering',
+        category: PaletteCategory.tools,
+        icon: Icons.library_music,
+        keywords: ['stem', 'manager', 'solo', 'mute', 'render', 'batch', 'export', 'config'],
+        onExecute: onShowStemManager,
       ),
 
       // ─── ADVANCED PANELS ──────────────────────────────────────────────────

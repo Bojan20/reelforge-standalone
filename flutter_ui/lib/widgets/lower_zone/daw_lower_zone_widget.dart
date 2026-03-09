@@ -53,6 +53,7 @@ import 'daw/edit/beat_detective_panel.dart';
 import 'daw/edit/smart_tempo_panel.dart';
 import 'daw/edit/strip_silence_panel.dart';
 import 'daw/edit/dynamic_split_panel.dart';
+import 'daw/edit/ucs_naming_panel.dart';
 import '../panels/loop_editor_panel.dart';
 import 'daw/edit/video_panel.dart';
 // ✅ P0.1: Extracted MIX panels
@@ -73,6 +74,7 @@ import 'daw/process/deesser_panel.dart'; // ✅ FF-E DeEsser
 // ✅ P0.1: Extracted DELIVER panels
 import 'daw/deliver/export_panel.dart';
 import 'daw/deliver/stems_panel.dart';
+import 'daw/deliver/stem_manager_panel.dart';
 import 'daw/deliver/bounce_panel.dart';
 import 'daw/deliver/archive_panel.dart';
 // Gate and Reverb are accessible via FX Chain panel
@@ -767,6 +769,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.tempoDetect => _buildSmartTempoPanel(),
       DawEditSubTab.stripSilence => _buildStripSilencePanel(),
       DawEditSubTab.dynamicSplit => _buildDynamicSplitPanel(),
+      DawEditSubTab.ucsNaming => _buildUcsNamingPanel(),
       DawEditSubTab.loopEditor => _buildLoopEditorPanel(),
       DawEditSubTab.video => _buildVideoPanel(),
     };
@@ -797,9 +800,10 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   }
 
   Widget _getDeliverContentForIndex(int index) {
-    return switch (DawDeliverSubTab.values[index.clamp(0, 3)]) {
+    return switch (DawDeliverSubTab.values[index.clamp(0, DawDeliverSubTab.values.length - 1)]) {
       DawDeliverSubTab.export => _buildExportPanel(),
       DawDeliverSubTab.stems => _buildStemsPanel(),
+      DawDeliverSubTab.stemManager => _buildStemManagerPanel(),
       DawDeliverSubTab.bounce => _buildBouncePanel(),
       DawDeliverSubTab.archive => _buildArchivePanel(),
     };
@@ -1002,6 +1006,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.tempoDetect => _buildSmartTempoPanel(),
       DawEditSubTab.stripSilence => _buildStripSilencePanel(),
       DawEditSubTab.dynamicSplit => _buildDynamicSplitPanel(),
+      DawEditSubTab.ucsNaming => _buildUcsNamingPanel(),
       DawEditSubTab.loopEditor => _buildLoopEditorPanel(),
       DawEditSubTab.video => _buildVideoPanel(),
     };
@@ -1079,6 +1084,12 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   Widget _buildDynamicSplitPanel() => DynamicSplitPanel(
     selectedTrackId: widget.selectedTrackId,
     tempo: widget.tempo,
+    onAction: widget.onDspAction,
+  );
+
+  Widget _buildUcsNamingPanel() => UcsNamingPanel(
+    selectedTrackId: widget.selectedTrackId,
+    selectedTrackName: widget.selectedTrackName,
     onAction: widget.onDspAction,
   );
 
@@ -1395,6 +1406,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
     return switch (subTab) {
       DawDeliverSubTab.export => _buildExportPanel(),
       DawDeliverSubTab.stems => _buildStemsPanel(),
+      DawDeliverSubTab.stemManager => _buildStemManagerPanel(),
       DawDeliverSubTab.bounce => _buildBouncePanel(),
       DawDeliverSubTab.archive => _buildArchivePanel(),
     };
@@ -1406,6 +1418,11 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
 
   /// P2.1: Functional stems panel with track/bus selection
   Widget _buildStemsPanel() => const StemsPanel();
+
+  /// Stem Manager — save/recall solo/mute configs, batch render
+  Widget _buildStemManagerPanel() => StemManagerPanel(
+    onAction: widget.onDspAction,
+  );
 
   /// P2.1: Functional realtime bounce with progress
   Widget _buildBouncePanel() => const BouncePanel();

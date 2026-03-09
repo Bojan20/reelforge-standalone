@@ -573,13 +573,16 @@ class SlotLabProjectProvider extends ChangeNotifier {
     final mappedPaths = <String>{};
 
     for (final file in files) {
-      final name = file.uri.pathSegments.last.split('.').first.toLowerCase();
+      final name = file.uri.pathSegments.last.split('.').first.toLowerCase()
+          .replaceAll(RegExp(r'[\s\-]+'), '_'); // Normalize spaces/dashes to underscores
       // Strip numeric prefix (e.g., "004_" or "043_" or "048_")
       final stripped = name.replaceFirst(RegExp(r'^\d+_'), '');
       // Strip trailing variant number (e.g., "_2" or "_1")
       final base = stripped.replaceFirst(RegExp(r'_\d+$'), '');
 
-      final stage = _resolveStageFromFilename(base, stripped);
+      // Try stripped first (preserves trailing number for numbered variants like scatter_land_1)
+      final stage = _resolveStageFromFilename(stripped, stripped) ??
+                     _resolveStageFromFilename(base, stripped);
       if (stage != null) {
         mappedPaths.add(file.path);
         // For variant stages (e.g., REEL_SPIN_LOOP with 3 variants),
