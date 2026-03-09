@@ -350,6 +350,11 @@ class _MainLayoutState extends State<MainLayout>
         controller.setEditSubTab(DawEditSubTab.markerActions);
         controller.expand();
       },
+      onShowGranularSynth: () {
+        final controller = DawLowerZoneController.instance;
+        controller.setEditSubTab(DawEditSubTab.granularSynth);
+        controller.expand();
+      },
     );
     CommandPalette.showUltimate(context);
   }

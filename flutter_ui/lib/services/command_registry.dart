@@ -295,6 +295,7 @@ class CommandRegistry {
     VoidCallback? onShowCycleActions,
     VoidCallback? onShowRegionPlaylist,
     VoidCallback? onShowMarkerActions,
+    VoidCallback? onShowGranularSynth,
     VoidCallback? onShowMacroControls,
     VoidCallback? onShowClipGainEnvelope,
   }) {
@@ -1239,6 +1240,15 @@ class CommandRegistry {
         icon: Icons.bolt,
         keywords: ['marker', 'actions', 'trigger', 'playhead', 'crossing', 'timeline'],
         onExecute: onShowMarkerActions,
+      ),
+      PaletteCommand(
+        id: 'tools.granular_synth',
+        label: 'Granular Synthesis',
+        description: 'ReaGranular-style 4-voice grain engine with freeze mode',
+        category: PaletteCategory.tools,
+        icon: Icons.grain,
+        keywords: ['granular', 'synthesis', 'grain', 'freeze', 'texture', 'ambient'],
+        onExecute: onShowGranularSynth,
       ),
 
       // ─── ADVANCED PANELS ──────────────────────────────────────────────────

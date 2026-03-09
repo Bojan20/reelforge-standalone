@@ -57,6 +57,7 @@ import 'daw/edit/ucs_naming_panel.dart';
 import 'daw/edit/cycle_actions_panel.dart';
 import 'daw/edit/region_playlist_panel.dart';
 import 'daw/edit/marker_actions_panel.dart';
+import 'daw/edit/granular_synth_panel.dart';
 import '../panels/loop_editor_panel.dart';
 import 'daw/edit/video_panel.dart';
 // ✅ P0.1: Extracted MIX panels
@@ -779,6 +780,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.cycleActions => _buildCycleActionsPanel(),
       DawEditSubTab.regionPlaylist => _buildRegionPlaylistPanel(),
       DawEditSubTab.markerActions => _buildMarkerActionsPanel(),
+      DawEditSubTab.granularSynth => _buildGranularSynthPanel(),
     };
   }
 
@@ -1020,6 +1022,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.cycleActions => _buildCycleActionsPanel(),
       DawEditSubTab.regionPlaylist => _buildRegionPlaylistPanel(),
       DawEditSubTab.markerActions => _buildMarkerActionsPanel(),
+      DawEditSubTab.granularSynth => _buildGranularSynthPanel(),
     };
   }
 
@@ -1124,6 +1127,10 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
 
   /// Marker Actions — timeline position-triggered actions (#27)
   Widget _buildMarkerActionsPanel() => MarkerActionsPanel(
+    onAction: widget.onDspAction,
+  );
+
+  Widget _buildGranularSynthPanel() => GranularSynthPanel(
     onAction: widget.onDspAction,
   );
 

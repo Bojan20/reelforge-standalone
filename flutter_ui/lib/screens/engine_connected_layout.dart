@@ -6384,6 +6384,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 // Region playlist playback — service handles internally
               case 'markerActionTriggered':
                 // Marker action triggered — service handles internally
+              case 'granularParamChanged':
+                // Granular synth parameter change — service handles internally
+              case 'granularFreeze':
+                // Granular synth freeze toggle — service handles internally
             }
           },
           // P0.2: Grid/Snap Settings
