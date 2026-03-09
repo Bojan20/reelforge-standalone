@@ -1048,9 +1048,37 @@ class FeatureComposerProvider extends ChangeNotifier {
     return null;
   }
 
-  /// Check if a stage ID is currently active (visible in composed set)
+  /// Check if a stage ID is currently active.
+  /// Returns false ONLY if the stage belongs to a DISABLED mechanic.
+  /// Unknown/custom/core stages always return true.
+  /// Handles dynamic IDs like CASCADE_STEP_1, ANTICIPATION_TENSION_R2_L3
+  /// by matching base prefix from _mechanicStages.
   bool isStageActive(String stageId) {
-    return composedStages.any((s) => s.id == stageId);
+    // Block-based stages: anticipation, transitions, collector
+    if (stageId.startsWith('ANTICIPATION_TENSION_R') ||
+        stageId == 'ANTICIPATION_MISS') {
+      return isBlockEnabled('anticipation');
+    }
+    if (stageId.startsWith('TRANSITION_')) {
+      return isBlockEnabled('transitions');
+    }
+    if (stageId.startsWith('COLLECTOR_')) {
+      return isBlockEnabled('collector');
+    }
+
+    // Check if stage belongs to any mechanic (exact OR prefix match)
+    for (final mechanic in SlotMechanic.values) {
+      final stages = _mechanicStages[mechanic];
+      if (stages == null) continue;
+      for (final s in stages) {
+        // Exact match or dynamic variant (e.g. CASCADE_STEP matches CASCADE_STEP_1)
+        if (s.id == stageId || stageId.startsWith('${s.id}_')) {
+          return _enabledMechanics[mechanic] ?? false;
+        }
+      }
+    }
+    // Not a mechanic stage → always active (core, music, UI, custom)
+    return true;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

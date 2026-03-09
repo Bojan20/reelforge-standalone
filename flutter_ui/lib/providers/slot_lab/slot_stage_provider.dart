@@ -19,6 +19,7 @@ import '../../services/event_registry.dart';
 import '../../services/unified_playback_controller.dart';
 import '../../services/diagnostics/diagnostics_service.dart';
 import '../ale_provider.dart';
+import 'feature_composer_provider.dart';
 import 'game_flow_provider.dart';
 import 'slot_lab_coordinator.dart';
 
@@ -696,6 +697,9 @@ class SlotStageProvider extends ChangeNotifier {
     // decisions (gain, pan, stereo width) into context for _playLayer() to use
     _dispatchMiddlewareHooks(stageType, reelIndex, context);
 
+    // Skip stages for disabled features — if mechanic is off, don't play audio
+    if (!_isStageEnabled(effectiveStage)) return;
+
     // Trigger through EventRegistry (context now contains middleware decisions)
     if (eventRegistry.hasEventForStage(effectiveStage)) {
       eventRegistry.triggerStage(effectiveStage, context: context);
@@ -971,6 +975,19 @@ class SlotStageProvider extends ChangeNotifier {
     }
 
     return false;
+  }
+
+  /// Check if a stage is enabled based on FeatureComposer mechanic state.
+  /// Core stages (spin, reels, wins, music, UI) are always enabled.
+  /// Feature-specific stages are only enabled if their mechanic is active.
+  bool _isStageEnabled(String stageId) {
+    try {
+      final composer = GetIt.instance<FeatureComposerProvider>();
+      if (!composer.isConfigured) return true; // No config = allow all
+      return composer.isStageActive(stageId);
+    } catch (_) {
+      return true; // Fallback: allow if composer not registered
+    }
   }
 
   void _handleRollupTracking(String stageType, SlotLabStageEvent stage, Map<String, dynamic> context) {
