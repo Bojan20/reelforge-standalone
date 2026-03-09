@@ -14,6 +14,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'timeline_models.dart';
+import 'timeline/automation_lane.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // RECORDING LANE
@@ -171,6 +172,18 @@ class Take {
   /// Locked (prevent edits)
   final bool locked;
 
+  /// Per-take FX chain (non-destructive processing per take)
+  final ClipFxChain fxChain;
+
+  /// Per-take pitch shift in semitones (-24 to +24)
+  final double pitchSemitones;
+
+  /// Per-take playback rate (0.25x to 4.0x, 1.0 = original speed)
+  final double playRate;
+
+  /// Per-take automation envelopes (volume, pan, etc.)
+  final List<AutomationLane> envelopes;
+
   const Take({
     required this.id,
     required this.laneId,
@@ -192,6 +205,10 @@ class Take {
     this.fadeOut = 0,
     this.muted = false,
     this.locked = false,
+    this.fxChain = const ClipFxChain(),
+    this.pitchSemitones = 0,
+    this.playRate = 1.0,
+    this.envelopes = const [],
   });
 
   double get endTime => startTime + duration;
@@ -251,6 +268,10 @@ class Take {
     double? fadeOut,
     bool? muted,
     bool? locked,
+    ClipFxChain? fxChain,
+    double? pitchSemitones,
+    double? playRate,
+    List<AutomationLane>? envelopes,
   }) {
     return Take(
       id: id ?? this.id,
@@ -273,6 +294,10 @@ class Take {
       fadeOut: fadeOut ?? this.fadeOut,
       muted: muted ?? this.muted,
       locked: locked ?? this.locked,
+      fxChain: fxChain ?? this.fxChain,
+      pitchSemitones: pitchSemitones ?? this.pitchSemitones,
+      playRate: playRate ?? this.playRate,
+      envelopes: envelopes ?? this.envelopes,
     );
   }
 
@@ -292,8 +317,17 @@ class Take {
       fadeOut: fadeOut,
       gain: gain,
       muted: muted,
+      fxChain: fxChain,
+      stretchRatio: playRate,
     );
   }
+
+  /// Whether this take has any per-take processing active
+  bool get hasProcessing =>
+      fxChain.hasActiveProcessing ||
+      pitchSemitones != 0 ||
+      playRate != 1.0 ||
+      envelopes.isNotEmpty;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

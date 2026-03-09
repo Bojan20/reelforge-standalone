@@ -116,25 +116,35 @@ class WarpMarkerData {
   /// User label
   String? label;
 
+  /// Per-segment pitch shift in semitones (-24 to +24)
+  /// Applied to the region AFTER this marker (until next marker)
+  double pitchSemitones;
+
   WarpMarkerData({
     required this.originalTime,
     required this.warpedTime,
     this.locked = false,
     this.label,
+    this.pitchSemitones = 0,
   });
 
   double get stretchFactor => warpedTime / originalTime;
+
+  /// Whether this marker has pitch adjustment
+  bool get hasPitch => pitchSemitones != 0;
 
   WarpMarkerData copyWith({
     double? warpedTime,
     bool? locked,
     String? label,
+    double? pitchSemitones,
   }) {
     return WarpMarkerData(
       originalTime: originalTime,
       warpedTime: warpedTime ?? this.warpedTime,
       locked: locked ?? this.locked,
       label: label ?? this.label,
+      pitchSemitones: pitchSemitones ?? this.pitchSemitones,
     );
   }
 }
@@ -171,16 +181,21 @@ class StretchRegionData {
   /// End time (warped)
   final double endWarped;
 
+  /// Per-segment pitch shift in semitones (from the start marker)
+  final double pitchSemitones;
+
   const StretchRegionData({
     required this.startOriginal,
     required this.endOriginal,
     required this.startWarped,
     required this.endWarped,
+    this.pitchSemitones = 0,
   });
 
   double get ratio => (endWarped - startWarped) / (endOriginal - startOriginal);
   bool get isCompressed => ratio < 0.99;
   bool get isExpanded => ratio > 1.01;
+  bool get hasPitch => pitchSemitones != 0;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -219,6 +234,9 @@ class TimeStretchEditor extends StatefulWidget {
   /// Called when warp marker is deleted
   final ValueChanged<int>? onMarkerDeleted;
 
+  /// Called when warp marker pitch is changed
+  final void Function(int index, double pitchSemitones)? onMarkerPitchChanged;
+
   /// Called when overall stretch ratio changes
   final ValueChanged<double>? onStretchRatioChanged;
 
@@ -252,6 +270,7 @@ class TimeStretchEditor extends StatefulWidget {
     this.onMarkerAdded,
     this.onMarkerMoved,
     this.onMarkerDeleted,
+    this.onMarkerPitchChanged,
     this.onStretchRatioChanged,
     this.onEditModeChanged,
     this.onAnalyzeBpm,
@@ -468,6 +487,8 @@ class _TimeStretchEditorState extends State<TimeStretchEditor>
             onToggleLock: () {
               // Toggle lock state
             },
+            onPitchChanged: (semitones) =>
+                widget.onMarkerPitchChanged?.call(i, semitones),
           ),
         ),
       );
@@ -805,6 +826,7 @@ class _WarpMarkerWidget extends StatelessWidget {
   final VoidCallback onDragEnd;
   final VoidCallback? onDelete;
   final VoidCallback? onToggleLock;
+  final ValueChanged<double>? onPitchChanged;
 
   const _WarpMarkerWidget({
     required this.marker,
@@ -819,6 +841,7 @@ class _WarpMarkerWidget extends StatelessWidget {
     required this.onDragEnd,
     this.onDelete,
     this.onToggleLock,
+    this.onPitchChanged,
   });
 
   @override
@@ -880,6 +903,26 @@ class _WarpMarkerWidget extends StatelessWidget {
                   color: Colors.white,
                 ),
               ),
+            // Pitch indicator badge
+            if (marker.hasPitch)
+              Positioned(
+                top: 14,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF845EF7).withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: Text(
+                    '${marker.pitchSemitones > 0 ? "+" : ""}${marker.pitchSemitones.toStringAsFixed(0)}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 7,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -909,6 +952,40 @@ class _WarpMarkerWidget extends StatelessWidget {
             ],
           ),
         ),
+        const PopupMenuDivider(),
+        // Pitch presets
+        PopupMenuItem(
+          enabled: false,
+          height: 24,
+          child: Text('Segment Pitch',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold,
+                  color: const Color(0xFF845EF7))),
+        ),
+        for (final st in [-12, -7, -5, -2, -1, 0, 1, 2, 5, 7, 12])
+          PopupMenuItem(
+            value: 'pitch_$st',
+            height: 28,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  child: marker.pitchSemitones.round() == st
+                      ? const Icon(Icons.check, size: 14, color: Color(0xFF845EF7))
+                      : null,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  st == 0 ? '0 (original)' : '${st > 0 ? "+" : ""}$st st',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: marker.pitchSemitones.round() == st
+                        ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        const PopupMenuDivider(),
         PopupMenuItem(
           value: 'delete',
           child: Row(
@@ -921,10 +998,14 @@ class _WarpMarkerWidget extends StatelessWidget {
         ),
       ],
     ).then((value) {
+      if (value == null) return;
       if (value == 'lock') {
         onToggleLock?.call();
       } else if (value == 'delete') {
         onDelete?.call();
+      } else if (value.startsWith('pitch_')) {
+        final semitones = double.tryParse(value.replaceFirst('pitch_', ''));
+        if (semitones != null) onPitchChanged?.call(semitones);
       }
     });
   }
@@ -948,7 +1029,7 @@ class _StretchRegionsPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     for (final region in regions) {
-      if ((region.ratio - 1.0).abs() < 0.01) continue;
+      if ((region.ratio - 1.0).abs() < 0.01 && !region.hasPitch) continue;
 
       final startX = region.startWarped * zoom;
       final endX = region.endWarped * zoom;
@@ -956,12 +1037,19 @@ class _StretchRegionsPainter extends CustomPainter {
 
       if (width < 1 || startX > size.width || endX < 0) continue;
 
-      // Color based on stretch/compress
-      final color = region.isCompressed
-          ? FluxForgeTheme.accentCyan
-          : FluxForgeTheme.accentOrange;
+      // Color based on stretch/compress or pitch
+      final Color color;
+      if (region.hasPitch && (region.ratio - 1.0).abs() < 0.01) {
+        color = const Color(0xFF845EF7); // Purple for pitch-only
+      } else if (region.isCompressed) {
+        color = FluxForgeTheme.accentCyan;
+      } else {
+        color = FluxForgeTheme.accentOrange;
+      }
 
-      final intensity = (region.ratio - 1.0).abs().clamp(0.0, 1.0);
+      final intensity = region.hasPitch
+          ? 0.15 + (region.pitchSemitones.abs() / 24.0) * 0.15
+          : (region.ratio - 1.0).abs().clamp(0.0, 1.0);
 
       final paint = Paint()
         ..color = color.withOpacity(0.1 + intensity * 0.2)
@@ -972,37 +1060,92 @@ class _StretchRegionsPainter extends CustomPainter {
         paint,
       );
 
-      // Draw ratio label for significant regions
-      if (width > 30) {
-        final text = '${(region.ratio * 100).toStringAsFixed(0)}%';
-        final textPainter = TextPainter(
+      _drawLabels(canvas, size, region, startX, width, color);
+    }
+  }
+
+  void _drawLabels(Canvas canvas, Size size, StretchRegionData region,
+      double startX, double width, Color color) {
+    // Draw ratio label for significant regions
+    if (width > 30 && (region.ratio - 1.0).abs() >= 0.01) {
+      final text = '${(region.ratio * 100).toStringAsFixed(0)}%';
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: TextStyle(
+            color: color,
+            fontSize: 9,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'JetBrains Mono',
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+
+      final textX = startX + (width - textPainter.width) / 2;
+      final textY = (size.height - textPainter.height) / 2;
+
+      // Background
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(textX - 3, textY - 1, textPainter.width + 6, textPainter.height + 2),
+          const Radius.circular(2),
+        ),
+        Paint()..color = FluxForgeTheme.bgDeepest.withOpacity(0.8),
+      );
+
+      textPainter.paint(canvas, Offset(textX, textY));
+
+      // Draw pitch label below ratio for segments with pitch
+      if (region.hasPitch) {
+        final pitchText = '${region.pitchSemitones > 0 ? "+" : ""}${region.pitchSemitones.toStringAsFixed(0)}st';
+        final pitchPainter = TextPainter(
           text: TextSpan(
-            text: text,
-            style: TextStyle(
-              color: color,
-              fontSize: 9,
+            text: pitchText,
+            style: const TextStyle(
+              color: Color(0xFF845EF7),
+              fontSize: 8,
               fontWeight: FontWeight.bold,
               fontFamily: 'JetBrains Mono',
             ),
           ),
           textDirection: TextDirection.ltr,
         );
-        textPainter.layout();
+        pitchPainter.layout();
 
-        final textX = startX + (width - textPainter.width) / 2;
-        final textY = (size.height - textPainter.height) / 2;
+        final pitchX = startX + (width - pitchPainter.width) / 2;
+        final pitchY = textY + textPainter.height + 3;
 
-        // Background
         canvas.drawRRect(
           RRect.fromRectAndRadius(
-            Rect.fromLTWH(textX - 3, textY - 1, textPainter.width + 6, textPainter.height + 2),
+            Rect.fromLTWH(pitchX - 2, pitchY - 1, pitchPainter.width + 4, pitchPainter.height + 2),
             const Radius.circular(2),
           ),
-          Paint()..color = FluxForgeTheme.bgDeepest.withOpacity(0.8),
+          Paint()..color = const Color(0xFF845EF7).withOpacity(0.15),
         );
 
-        textPainter.paint(canvas, Offset(textX, textY));
+        pitchPainter.paint(canvas, Offset(pitchX, pitchY));
       }
+    } else if (region.hasPitch && width > 20) {
+      // Show only pitch label for narrow regions with pitch
+      final pitchText = '${region.pitchSemitones > 0 ? "+" : ""}${region.pitchSemitones.toStringAsFixed(0)}';
+      final pitchPainter = TextPainter(
+        text: TextSpan(
+          text: pitchText,
+          style: const TextStyle(
+            color: Color(0xFF845EF7),
+            fontSize: 8,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'JetBrains Mono',
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      pitchPainter.layout();
+      final pitchX = startX + (width - pitchPainter.width) / 2;
+      final pitchY = (size.height - pitchPainter.height) / 2;
+      pitchPainter.paint(canvas, Offset(pitchX, pitchY));
     }
   }
 

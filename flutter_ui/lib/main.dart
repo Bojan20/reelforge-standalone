@@ -61,6 +61,7 @@ import 'providers/soundbank_provider.dart';
 import 'providers/feature_builder_provider.dart';
 import 'services/audio_asset_manager.dart';
 import 'services/event_registry.dart';
+import 'providers/custom_event_provider.dart';
 import 'providers/video_provider.dart';
 import 'services/video_export_service.dart';
 import 'services/video_playback_service.dart';
@@ -337,6 +338,11 @@ class FluxForgeApp extends StatelessWidget {
         // Feature Builder Provider (P13) — MUST use GetIt singleton, not new instance
         ChangeNotifierProvider<FeatureBuilderProvider>.value(
           value: GetIt.instance<FeatureBuilderProvider>(),
+        ),
+
+        // Custom Event Provider (SlotLab CUSTOM tab) — GetIt singleton
+        ChangeNotifierProvider<CustomEventProvider>.value(
+          value: sl<CustomEventProvider>(),
         ),
 
         // Video System — GetIt singletons

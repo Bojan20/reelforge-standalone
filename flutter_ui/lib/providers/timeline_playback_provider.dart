@@ -12,6 +12,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import '../src/rust/engine_api.dart' as api;
 import '../services/unified_playback_controller.dart';
+import '../models/timeline_models.dart' show ClipChannelMode;
 
 // ============ Types ============
 
@@ -37,6 +38,12 @@ class TimelineClipData {
   final double trackVolume;
   /// Track pan (-1 to 1)
   final double trackPan;
+  /// Snap offset for clip alignment
+  final double snapOffset;
+  /// Channel processing mode
+  final ClipChannelMode channelMode;
+  /// User notes for this clip
+  final String notes;
 
   const TimelineClipData({
     required this.id,
@@ -52,6 +59,9 @@ class TimelineClipData {
     this.trackSoloed = false,
     this.trackVolume = 1,
     this.trackPan = 0,
+    this.snapOffset = 0,
+    this.channelMode = ClipChannelMode.normal,
+    this.notes = '',
   });
 
   double get endTime => startTime + duration;

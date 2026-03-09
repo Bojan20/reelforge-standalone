@@ -17,6 +17,22 @@ import '../widgets/timeline/automation_lane.dart';
 import 'middleware_models.dart' show FadeCurve;
 import 'comping_models.dart';
 
+/// Channel mode for clip playback
+enum ClipChannelMode {
+  /// Normal — play source channels as-is (mono→mono, stereo→stereo)
+  normal,
+  /// Mono sum — sum all channels to mono
+  monoSum,
+  /// Left only — play only the left channel
+  leftOnly,
+  /// Right only — play only the right channel
+  rightOnly,
+  /// Mid/Side — decode as mid/side (M = L+R, S = L-R)
+  midSide,
+  /// Swap L/R — reverse left and right channels
+  swapLR,
+}
+
 /// Clip on a timeline track
 class TimelineClip {
   final String id;
@@ -75,6 +91,13 @@ class TimelineClip {
   final double loopRandomStart;
   /// Whether clip audio is reversed
   final bool reversed;
+  /// Snap offset in seconds — defines the point within the clip that snaps to grid
+  /// (0.0 = clip start, >0 = offset into clip, used for downbeat alignment)
+  final double snapOffset;
+  /// Channel mode for playback (how source channels are rendered)
+  final ClipChannelMode channelMode;
+  /// User notes/annotations for this clip
+  final String notes;
 
   const TimelineClip({
     required this.id,
@@ -108,6 +131,9 @@ class TimelineClip {
     this.iterationGain = 1.0,
     this.loopRandomStart = 0.0,
     this.reversed = false,
+    this.snapOffset = 0,
+    this.channelMode = ClipChannelMode.normal,
+    this.notes = '',
   });
 
   /// Check if clip has active FX processing
@@ -147,6 +173,9 @@ class TimelineClip {
     double? iterationGain,
     double? loopRandomStart,
     bool? reversed,
+    double? snapOffset,
+    ClipChannelMode? channelMode,
+    String? notes,
   }) {
     return TimelineClip(
       id: id ?? this.id,
@@ -180,6 +209,9 @@ class TimelineClip {
       iterationGain: iterationGain ?? this.iterationGain,
       loopRandomStart: loopRandomStart ?? this.loopRandomStart,
       reversed: reversed ?? this.reversed,
+      snapOffset: snapOffset ?? this.snapOffset,
+      channelMode: channelMode ?? this.channelMode,
+      notes: notes ?? this.notes,
     );
   }
 }
@@ -917,6 +949,164 @@ class LoopRegion {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// NUDGE CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Unit type for nudge operations
+enum NudgeUnit {
+  /// Beat-based (fraction of beat at current tempo)
+  beats,
+  /// Milliseconds (absolute time)
+  milliseconds,
+  /// Samples (at project sample rate)
+  samples,
+  /// SMPTE frames (at project frame rate)
+  frames,
+  /// Seconds (absolute time)
+  seconds,
+}
+
+/// Frame rate for SMPTE nudge
+enum NudgeFrameRate {
+  fps24(24),
+  fps25(25),
+  fps2997(29.97),
+  fps30(30);
+
+  final double rate;
+  const NudgeFrameRate(this.rate);
+}
+
+/// Configurable nudge amount with unit selection
+class NudgeConfig {
+  /// Primary nudge amount (used with Alt+Arrow)
+  final double amount;
+
+  /// Unit for nudge amount
+  final NudgeUnit unit;
+
+  /// Fine nudge amount (used with Alt+Shift+Arrow)
+  final double fineAmount;
+
+  /// Unit for fine nudge (same as primary by default)
+  final NudgeUnit fineUnit;
+
+  /// Frame rate when using NudgeUnit.frames
+  final NudgeFrameRate frameRate;
+
+  /// Sample rate for NudgeUnit.samples
+  final int sampleRate;
+
+  const NudgeConfig({
+    this.amount = 0.25,
+    this.unit = NudgeUnit.beats,
+    this.fineAmount = 1.0,
+    this.fineUnit = NudgeUnit.milliseconds,
+    this.frameRate = NudgeFrameRate.fps24,
+    this.sampleRate = 48000,
+  });
+
+  /// Convert nudge amount to seconds at given tempo
+  double toSeconds(double tempo) {
+    return _unitToSeconds(amount, unit, tempo);
+  }
+
+  /// Convert fine nudge amount to seconds at given tempo
+  double fineToSeconds(double tempo) {
+    return _unitToSeconds(fineAmount, fineUnit, tempo);
+  }
+
+  double _unitToSeconds(double value, NudgeUnit u, double tempo) {
+    return switch (u) {
+      NudgeUnit.beats => value * (60.0 / tempo),
+      NudgeUnit.milliseconds => value / 1000.0,
+      NudgeUnit.samples => value / sampleRate,
+      NudgeUnit.frames => value / frameRate.rate,
+      NudgeUnit.seconds => value,
+    };
+  }
+
+  /// Display string for current nudge amount
+  String get displayAmount => _formatAmount(amount, unit);
+
+  /// Display string for fine nudge amount
+  String get displayFineAmount => _formatAmount(fineAmount, fineUnit);
+
+  String _formatAmount(double value, NudgeUnit u) {
+    return switch (u) {
+      NudgeUnit.beats => '${value == value.roundToDouble() ? value.toInt() : value} beat${value == 1 ? "" : "s"}',
+      NudgeUnit.milliseconds => '${value.toStringAsFixed(value == value.roundToDouble() ? 0 : 1)} ms',
+      NudgeUnit.samples => '${value.toInt()} smp',
+      NudgeUnit.frames => '${value.toInt()} fr',
+      NudgeUnit.seconds => '${value.toStringAsFixed(3)} s',
+    };
+  }
+
+  /// Unit display name
+  static String unitName(NudgeUnit u) {
+    return switch (u) {
+      NudgeUnit.beats => 'Beats',
+      NudgeUnit.milliseconds => 'ms',
+      NudgeUnit.samples => 'Samples',
+      NudgeUnit.frames => 'Frames',
+      NudgeUnit.seconds => 'Seconds',
+    };
+  }
+
+  /// Common presets for beats
+  static const List<double> beatPresets = [
+    0.0625,  // 1/64
+    0.125,   // 1/32
+    0.25,    // 1/16
+    0.5,     // 1/8
+    1.0,     // 1/4
+    2.0,     // 1/2
+    4.0,     // 1 bar
+  ];
+
+  /// Common presets for milliseconds
+  static const List<double> msPresets = [1, 5, 10, 25, 50, 100, 250, 500];
+
+  NudgeConfig copyWith({
+    double? amount,
+    NudgeUnit? unit,
+    double? fineAmount,
+    NudgeUnit? fineUnit,
+    NudgeFrameRate? frameRate,
+    int? sampleRate,
+  }) {
+    return NudgeConfig(
+      amount: amount ?? this.amount,
+      unit: unit ?? this.unit,
+      fineAmount: fineAmount ?? this.fineAmount,
+      fineUnit: fineUnit ?? this.fineUnit,
+      frameRate: frameRate ?? this.frameRate,
+      sampleRate: sampleRate ?? this.sampleRate,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'amount': amount,
+    'unit': unit.index,
+    'fineAmount': fineAmount,
+    'fineUnit': fineUnit.index,
+    'frameRate': frameRate.index,
+    'sampleRate': sampleRate,
+  };
+
+  factory NudgeConfig.fromJson(Map<String, dynamic> json) {
+    return NudgeConfig(
+      amount: (json['amount'] as num?)?.toDouble() ?? 0.25,
+      unit: NudgeUnit.values[json['unit'] as int? ?? 0],
+      fineAmount: (json['fineAmount'] as num?)?.toDouble() ?? 1.0,
+      fineUnit: NudgeUnit.values[json['fineUnit'] as int? ?? 1],
+      frameRate: NudgeFrameRate.values[json['frameRate'] as int? ?? 0],
+      sampleRate: json['sampleRate'] as int? ?? 48000,
+    );
+  }
+}
+
 // ============ Snap Utilities ============
 
 /// Authoritative grid interval calculation — used by BOTH grid rendering
@@ -1286,3 +1476,143 @@ const List<Color> kEventColors = [
   Color(0xFFFFD040), // Yellow
   Color(0xFF9040FF), // Purple
 ];
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GLUE / UNGLUE — Reversible Clip Merge
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Record of a glue operation — stores original clips for reversible un-glue
+class GlueRecord {
+  /// ID of the glued (merged) clip
+  final String gluedClipId;
+
+  /// Track ID where the glue happened
+  final String trackId;
+
+  /// Original clips that were merged (preserved for un-glue)
+  final List<TimelineClip> originalClips;
+
+  /// Timestamp of glue operation
+  final DateTime gluedAt;
+
+  const GlueRecord({
+    required this.gluedClipId,
+    required this.trackId,
+    required this.originalClips,
+    required this.gluedAt,
+  });
+
+  /// Number of clips that were glued together
+  int get clipCount => originalClips.length;
+
+  /// Total duration of the glued result
+  double get totalDuration {
+    if (originalClips.isEmpty) return 0;
+    final start = originalClips.map((c) => c.startTime).reduce((a, b) => a < b ? a : b);
+    final end = originalClips.map((c) => c.endTime).reduce((a, b) => a > b ? a : b);
+    return end - start;
+  }
+}
+
+/// Manages glue history for reversible un-glue operations
+class GlueHistory {
+  final List<GlueRecord> _records = [];
+
+  /// Get all glue records
+  List<GlueRecord> get records => List.unmodifiable(_records);
+
+  /// Add a glue operation record
+  void addRecord(GlueRecord record) {
+    _records.add(record);
+    // Limit history to 100 records
+    while (_records.length > 100) {
+      _records.removeAt(0);
+    }
+  }
+
+  /// Find record for a specific glued clip (for un-glue)
+  GlueRecord? findByGluedClip(String gluedClipId) {
+    for (final record in _records) {
+      if (record.gluedClipId == gluedClipId) return record;
+    }
+    return null;
+  }
+
+  /// Remove record after successful un-glue
+  void removeRecord(String gluedClipId) {
+    _records.removeWhere((r) => r.gluedClipId == gluedClipId);
+  }
+
+  /// Check if a clip can be un-glued
+  bool canUnglue(String clipId) => findByGluedClip(clipId) != null;
+
+  /// Clear all history
+  void clear() => _records.clear();
+
+  /// JSON serialization
+  Map<String, dynamic> toJson() => {
+    'records': _records.map((r) => {
+      'gluedClipId': r.gluedClipId,
+      'trackId': r.trackId,
+      'gluedAt': r.gluedAt.millisecondsSinceEpoch,
+      'clipCount': r.clipCount,
+      // Original clips stored as minimal data needed for restoration
+      'originalClips': r.originalClips.map((c) => {
+        'id': c.id,
+        'trackId': c.trackId,
+        'name': c.name,
+        'startTime': c.startTime,
+        'duration': c.duration,
+        'sourceOffset': c.sourceOffset,
+        'gain': c.gain,
+        'fadeIn': c.fadeIn,
+        'fadeOut': c.fadeOut,
+        'muted': c.muted,
+        'locked': c.locked,
+        'sourceFile': c.sourceFile,
+        'sourceDuration': c.sourceDuration,
+        'snapOffset': c.snapOffset,
+        'channelMode': c.channelMode.index,
+        'notes': c.notes,
+      }).toList(),
+    }).toList(),
+  };
+
+  void loadFromJson(Map<String, dynamic> json) {
+    _records.clear();
+    final records = json['records'] as List?;
+    if (records == null) return;
+
+    for (final r in records) {
+      final map = r as Map<String, dynamic>;
+      final clips = (map['originalClips'] as List).map((c) {
+        final cm = c as Map<String, dynamic>;
+        return TimelineClip(
+          id: cm['id'] as String,
+          trackId: cm['trackId'] as String,
+          name: cm['name'] as String,
+          startTime: (cm['startTime'] as num).toDouble(),
+          duration: (cm['duration'] as num).toDouble(),
+          sourceOffset: (cm['sourceOffset'] as num?)?.toDouble() ?? 0,
+          gain: (cm['gain'] as num?)?.toDouble() ?? 1.0,
+          fadeIn: (cm['fadeIn'] as num?)?.toDouble() ?? 0,
+          fadeOut: (cm['fadeOut'] as num?)?.toDouble() ?? 0,
+          muted: cm['muted'] as bool? ?? false,
+          locked: cm['locked'] as bool? ?? false,
+          sourceFile: cm['sourceFile'] as String?,
+          sourceDuration: (cm['sourceDuration'] as num?)?.toDouble(),
+          snapOffset: (cm['snapOffset'] as num?)?.toDouble() ?? 0,
+          channelMode: ClipChannelMode.values[cm['channelMode'] as int? ?? 0],
+          notes: cm['notes'] as String? ?? '',
+        );
+      }).toList();
+
+      _records.add(GlueRecord(
+        gluedClipId: map['gluedClipId'] as String,
+        trackId: map['trackId'] as String,
+        originalClips: clips,
+        gluedAt: DateTime.fromMillisecondsSinceEpoch(map['gluedAt'] as int),
+      ));
+    }
+  }
+}

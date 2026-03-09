@@ -134,6 +134,7 @@ import '../widgets/lower_zone/lower_zone_types.dart';
 import '../widgets/slot_lab/lower_zone/command_builder_panel.dart';
 import '../widgets/slot_lab/lower_zone/event_list_panel.dart';
 import '../widgets/slot_lab/lower_zone/bus_meters_panel.dart';
+import '../providers/custom_event_provider.dart';
 import '../widgets/spatial/auto_spatial_panel.dart';
 import '../providers/stage_ingest_provider.dart';
 import '../widgets/stage_ingest/stage_ingest_panel.dart';
@@ -9617,12 +9618,17 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// Custom events are user-defined events outside the predefined stage system.
   /// CUSTOM tab — Audio Event Editor (BROWSE-style flat list with inline layer editing)
   Widget _buildEventsLeftPanel() {
-    return Consumer<MiddlewareProvider>(
-      builder: (context, mw, _) {
-        final events = mw.compositeEvents;
+    return Consumer2<MiddlewareProvider, CustomEventProvider>(
+      builder: (context, mw, customProv, _) {
+        final compositeEvents = mw.compositeEvents;
         final selected = mw.selectedCompositeEvent;
+        final customEvents = customProv.events;
+        final selectedCustomId = customProv.selectedEventId;
 
-        if (events.isEmpty) {
+        final hasComposite = compositeEvents.isNotEmpty;
+        final hasCustom = customEvents.isNotEmpty;
+
+        if (!hasComposite && !hasCustom) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -9635,98 +9641,573 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Assign audio in the ASSIGN tab first',
+                  'Assign audio in ASSIGN tab or create custom events',
                   style: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.3), fontSize: 9),
                 ),
+                const SizedBox(height: 12),
+                _buildCreateCustomEventButton(customProv),
               ],
             ),
           );
         }
 
-        // Group by category
-        final grouped = <String, List<SlotCompositeEvent>>{};
-        for (final e in events) {
-          grouped.putIfAbsent(e.category, () => []).add(e);
-        }
-
         return ListView(
           padding: EdgeInsets.all(SlotLabSpacing.xs),
-          children: grouped.entries.expand((entry) {
-            return [
-              // Category header
+          children: [
+            // ── Composite Events (from ASSIGN tab / MiddlewareProvider) ──
+            if (hasComposite) ...[
               Padding(
-                padding: EdgeInsets.only(top: SlotLabSpacing.xs, bottom: SlotLabSpacing.xxs, left: SlotLabSpacing.xs),
+                padding: EdgeInsets.only(bottom: SlotLabSpacing.xxs, left: SlotLabSpacing.xs),
                 child: Text(
-                  entry.key.toUpperCase(),
+                  'STAGE EVENTS',
                   style: SlotLabTypo.categoryLabel.copyWith(
-                    color: FluxForgeTheme.accentCyan.withValues(alpha: 0.7),
+                    color: FluxForgeTheme.accentCyan.withValues(alpha: 0.5),
+                    letterSpacing: 1.2,
                   ),
                 ),
               ),
-              // Events in category
-              ...entry.value.expand((evt) {
-                final isSelected = selected?.id == evt.id;
-                return [
-                  GestureDetector(
-                    onTap: () {
-                      mw.selectCompositeEvent(isSelected ? null : evt.id);
-                      setState(() {});
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 1),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? FluxForgeTheme.accentGreen.withValues(alpha: 0.15)
-                            : const Color(0xFF161620),
-                        borderRadius: BorderRadius.circular(3),
-                        border: isSelected
-                            ? Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.4))
-                            : null,
+              ..._buildCompositeEventsList(compositeEvents, selected, mw),
+            ],
+            // ── Custom Events (user-created, outside stage system) ──
+            Padding(
+              padding: EdgeInsets.only(
+                top: hasComposite ? SlotLabSpacing.sm : 0,
+                bottom: SlotLabSpacing.xxs,
+                left: SlotLabSpacing.xs,
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    'CUSTOM EVENTS',
+                    style: SlotLabTypo.categoryLabel.copyWith(
+                      color: const Color(0xFF9040FF).withValues(alpha: 0.7),
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const Spacer(),
+                  _buildCreateCustomEventButton(customProv),
+                ],
+              ),
+            ),
+            if (hasCustom)
+              ..._buildCustomEventsList(customEvents, selectedCustomId, customProv),
+            if (!hasCustom)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Center(
+                  child: Text(
+                    'No custom events yet',
+                    style: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.3), fontSize: 9),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Create custom event button
+  Widget _buildCreateCustomEventButton(CustomEventProvider customProv) {
+    return GestureDetector(
+      onTap: () => _showCreateCustomEventDialog(customProv),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: const Color(0xFF9040FF).withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: const Color(0xFF9040FF).withValues(alpha: 0.3)),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.add, size: 10, color: Color(0xFF9040FF)),
+            SizedBox(width: 2),
+            Text('New', style: TextStyle(color: Color(0xFF9040FF), fontSize: 8)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Dialog to create a new custom event
+  void _showCreateCustomEventDialog(CustomEventProvider customProv) {
+    final nameController = TextEditingController();
+    final categoryController = TextEditingController(text: 'General');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A24),
+        title: const Text('Create Custom Event', style: TextStyle(color: Color(0xFFE0E0E8), fontSize: 14)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              autofocus: true,
+              style: const TextStyle(color: Color(0xFFE0E0E8), fontSize: 12),
+              decoration: const InputDecoration(
+                hintText: 'Event name',
+                hintStyle: TextStyle(color: Color(0xFF606068), fontSize: 12),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2A2A32))),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF9040FF))),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: categoryController,
+              style: const TextStyle(color: Color(0xFFB0B0B8), fontSize: 11),
+              decoration: const InputDecoration(
+                hintText: 'Category',
+                hintStyle: TextStyle(color: Color(0xFF606068), fontSize: 11),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2A2A32))),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF9040FF))),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF808088), fontSize: 11)),
+          ),
+          TextButton(
+            onPressed: () {
+              final name = nameController.text.trim();
+              if (name.isEmpty) return;
+              customProv.createEvent(
+                name: name,
+                category: categoryController.text.trim().isEmpty ? 'General' : categoryController.text.trim(),
+              );
+              Navigator.pop(ctx);
+              setState(() {});
+            },
+            child: const Text('Create', style: TextStyle(color: Color(0xFF9040FF), fontSize: 11)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Build composite events list (from MiddlewareProvider / ASSIGN tab)
+  List<Widget> _buildCompositeEventsList(
+    List<SlotCompositeEvent> events,
+    SlotCompositeEvent? selected,
+    MiddlewareProvider mw,
+  ) {
+    final grouped = <String, List<SlotCompositeEvent>>{};
+    for (final e in events) {
+      grouped.putIfAbsent(e.category, () => []).add(e);
+    }
+
+    return grouped.entries.expand((entry) {
+      return [
+        Padding(
+          padding: EdgeInsets.only(top: SlotLabSpacing.xs, bottom: SlotLabSpacing.xxs, left: SlotLabSpacing.xs),
+          child: Text(
+            entry.key.toUpperCase(),
+            style: SlotLabTypo.categoryLabel.copyWith(
+              color: FluxForgeTheme.accentCyan.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+        ...entry.value.expand((evt) {
+          final isSelected = selected?.id == evt.id;
+          return [
+            GestureDetector(
+              onTap: () {
+                mw.selectCompositeEvent(isSelected ? null : evt.id);
+                setState(() {});
+              },
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? FluxForgeTheme.accentGreen.withValues(alpha: 0.15)
+                      : const Color(0xFF161620),
+                  borderRadius: BorderRadius.circular(3),
+                  border: isSelected
+                      ? Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.4))
+                      : null,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isSelected ? Icons.expand_more : Icons.chevron_right,
+                      size: 12,
+                      color: isSelected
+                          ? FluxForgeTheme.accentGreen
+                          : const Color(0xFF606068),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        evt.name,
+                        style: TextStyle(
+                          color: isSelected
+                              ? const Color(0xFFE0E0E8)
+                              : const Color(0xFFB0B0B8),
+                          fontSize: 10,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            isSelected ? Icons.expand_more : Icons.chevron_right,
-                            size: 12,
-                            color: isSelected
-                                ? FluxForgeTheme.accentGreen
-                                : const Color(0xFF606068),
+                    ),
+                    Text(
+                      '${evt.layers.length}L',
+                      style: TextStyle(
+                        color: const Color(0xFF808088).withValues(alpha: 0.6),
+                        fontSize: 8,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (isSelected)
+              _buildCustomTabInlineEditor(evt, mw),
+          ];
+        }),
+      ];
+    }).toList();
+  }
+
+  /// Build custom events list (from CustomEventProvider)
+  List<Widget> _buildCustomEventsList(
+    List<CustomEvent> events,
+    String? selectedId,
+    CustomEventProvider customProv,
+  ) {
+    final grouped = customProv.eventsByCategory;
+
+    return grouped.entries.expand((entry) {
+      return [
+        Padding(
+          padding: EdgeInsets.only(top: SlotLabSpacing.xs, bottom: SlotLabSpacing.xxs, left: SlotLabSpacing.xs),
+          child: Text(
+            entry.key.toUpperCase(),
+            style: SlotLabTypo.categoryLabel.copyWith(
+              color: const Color(0xFF9040FF).withValues(alpha: 0.6),
+            ),
+          ),
+        ),
+        ...entry.value.expand((evt) {
+          final isSelected = selectedId == evt.id;
+          return [
+            GestureDetector(
+              onTap: () {
+                customProv.selectEvent(isSelected ? null : evt.id);
+                setState(() {});
+              },
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? const Color(0xFF9040FF).withValues(alpha: 0.15)
+                      : const Color(0xFF161620),
+                  borderRadius: BorderRadius.circular(3),
+                  border: isSelected
+                      ? Border.all(color: const Color(0xFF9040FF).withValues(alpha: 0.4))
+                      : null,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isSelected ? Icons.expand_more : Icons.chevron_right,
+                      size: 12,
+                      color: isSelected
+                          ? const Color(0xFF9040FF)
+                          : const Color(0xFF606068),
+                    ),
+                    const SizedBox(width: 4),
+                    Container(
+                      width: 6, height: 6,
+                      decoration: BoxDecoration(
+                        color: evt.color.withValues(alpha: evt.enabled ? 1.0 : 0.3),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        evt.name,
+                        style: TextStyle(
+                          color: isSelected
+                              ? const Color(0xFFE0E0E8)
+                              : evt.enabled ? const Color(0xFFB0B0B8) : const Color(0xFF606068),
+                          fontSize: 10,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (evt.triggerMode != CustomTriggerMode.manual)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: Icon(
+                          _customTriggerIcon(evt.triggerMode),
+                          size: 8,
+                          color: const Color(0xFF808088).withValues(alpha: 0.5),
+                        ),
+                      ),
+                    Text(
+                      '${evt.layers.length}L',
+                      style: TextStyle(
+                        color: const Color(0xFF808088).withValues(alpha: 0.6),
+                        fontSize: 8,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (isSelected)
+              _buildCustomEventInlineEditor(evt, customProv),
+          ];
+        }),
+      ];
+    }).toList();
+  }
+
+  IconData _customTriggerIcon(CustomTriggerMode mode) {
+    switch (mode) {
+      case CustomTriggerMode.manual: return Icons.touch_app;
+      case CustomTriggerMode.marker: return Icons.flag;
+      case CustomTriggerMode.position: return Icons.schedule;
+      case CustomTriggerMode.midi: return Icons.piano;
+      case CustomTriggerMode.osc: return Icons.wifi;
+    }
+  }
+
+  /// Inline editor for custom events — CRUD, layers, properties, drag&drop
+  Widget _buildCustomEventInlineEditor(CustomEvent event, CustomEventProvider customProv) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF121218),
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(4),
+          bottomRight: Radius.circular(4),
+        ),
+        border: Border.all(color: const Color(0xFF9040FF).withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Properties
+          _customEditorRow('Category', event.category),
+          _customEditorRow('Trigger', event.triggerMode.name.toUpperCase()),
+          _customEditorRow('Probability', '${(event.probability * 100).toInt()}%'),
+          if (event.cooldownSeconds > 0)
+            _customEditorRow('Cooldown', '${event.cooldownSeconds}s'),
+          const SizedBox(height: 4),
+          // Action buttons
+          Row(
+            children: [
+              // Enable/Disable toggle
+              GestureDetector(
+                onTap: () {
+                  customProv.toggleEventEnabled(event.id);
+                  setState(() {});
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: event.enabled
+                        ? FluxForgeTheme.accentGreen.withValues(alpha: 0.15)
+                        : const Color(0xFF2A2A32),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: Text(
+                    event.enabled ? 'ON' : 'OFF',
+                    style: TextStyle(
+                      color: event.enabled ? FluxForgeTheme.accentGreen : const Color(0xFF606068),
+                      fontSize: 8, fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const Spacer(),
+              // Delete button
+              GestureDetector(
+                onTap: () {
+                  customProv.deleteEvent(event.id);
+                  setState(() {});
+                },
+                child: const Icon(Icons.delete_outline, size: 12, color: Color(0xFF804040)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          // Layers header with add button
+          Row(
+            children: [
+              const Text(
+                'LAYERS',
+                style: TextStyle(color: Color(0xFF808088), fontSize: 8, fontWeight: FontWeight.w600, letterSpacing: 1),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () async {
+                  final paths = await NativeFilePicker.pickAudioFiles();
+                  if (paths.isEmpty || !mounted) return;
+                  for (final path in paths) {
+                    final name = path.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), '');
+                    customProv.addLayer(event.id, path, name: name);
+                    if (!AudioAssetManager.instance.contains(path)) {
+                      AudioAssetManager.instance.importFileInstant(path, folder: 'Custom Events');
+                    }
+                  }
+                  setState(() {});
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF9040FF).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(color: const Color(0xFF9040FF).withValues(alpha: 0.3)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add, size: 10, color: Color(0xFF9040FF)),
+                      SizedBox(width: 2),
+                      Text('Add', style: TextStyle(color: Color(0xFF9040FF), fontSize: 8)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          // Layer list with drag&drop
+          ...event.layers.asMap().entries.map((entry) {
+            final layer = entry.value;
+            return DragTarget<Object>(
+              onWillAcceptWithDetails: (details) =>
+                  details.data is AudioAsset || details.data is String,
+              onAcceptWithDetails: (details) {
+                String? path;
+                if (details.data is AudioAsset) {
+                  path = (details.data as AudioAsset).path;
+                } else if (details.data is String) {
+                  path = details.data as String;
+                }
+                if (path != null) {
+                  final p = path;
+                  customProv.updateLayer(event.id, layer.id,
+                      (l) => l.copyWith(audioPath: p, name: p.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), '')));
+                  setState(() {});
+                }
+              },
+              builder: (context, candidateData, rejectedData) {
+                final isDragOver = candidateData.isNotEmpty;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isDragOver
+                        ? const Color(0xFF9040FF).withValues(alpha: 0.15)
+                        : const Color(0xFF161620),
+                    borderRadius: BorderRadius.circular(3),
+                    border: isDragOver
+                        ? Border.all(color: const Color(0xFF9040FF).withValues(alpha: 0.4))
+                        : null,
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        '${entry.key + 1}',
+                        style: const TextStyle(color: Color(0xFF606068), fontSize: 8, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          layer.displayName,
+                          style: TextStyle(
+                            color: layer.muted ? const Color(0xFF606068) : const Color(0xFFB0B0B8),
+                            fontSize: 9,
                           ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              evt.name,
-                              style: TextStyle(
-                                color: isSelected
-                                    ? const Color(0xFFE0E0E8)
-                                    : const Color(0xFFB0B0B8),
-                                fontSize: 10,
-                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Text(
-                            '${evt.layers.length}L',
-                            style: TextStyle(
-                              color: const Color(0xFF808088).withValues(alpha: 0.6),
-                              fontSize: 8,
-                            ),
-                          ),
-                        ],
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      // Mute toggle
+                      GestureDetector(
+                        onTap: () {
+                          customProv.toggleLayerMute(event.id, layer.id);
+                          setState(() {});
+                        },
+                        child: Icon(
+                          layer.muted ? Icons.volume_off : Icons.volume_up,
+                          size: 10,
+                          color: layer.muted ? const Color(0xFFFF6060) : const Color(0xFF606068),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () {
+                          customProv.removeLayer(event.id, layer.id);
+                          setState(() {});
+                        },
+                        child: const Icon(Icons.close, size: 10, color: Color(0xFF606068)),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          }),
+          // Drop zone for new layers when empty
+          if (event.layers.isEmpty)
+            DragTarget<Object>(
+              onWillAcceptWithDetails: (details) =>
+                  details.data is AudioAsset || details.data is String,
+              onAcceptWithDetails: (details) {
+                String? path;
+                if (details.data is AudioAsset) {
+                  path = (details.data as AudioAsset).path;
+                } else if (details.data is String) {
+                  path = details.data as String;
+                }
+                if (path != null) {
+                  customProv.addLayer(event.id, path,
+                    name: path.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
+                  );
+                  setState(() {});
+                }
+              },
+              builder: (context, candidateData, rejectedData) {
+                final isDragOver = candidateData.isNotEmpty;
+                return Container(
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: isDragOver
+                        ? const Color(0xFF9040FF).withValues(alpha: 0.1)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(
+                      color: isDragOver
+                          ? const Color(0xFF9040FF).withValues(alpha: 0.4)
+                          : const Color(0xFF2A2A32),
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      isDragOver ? 'Drop audio here' : 'Drag audio from POOL →',
+                      style: TextStyle(
+                        color: isDragOver ? const Color(0xFF9040FF) : const Color(0xFF404048),
+                        fontSize: 8,
                       ),
                     ),
                   ),
-                  // Inline editor when selected
-                  if (isSelected)
-                    _buildCustomTabInlineEditor(evt, mw),
-                ];
-              }),
-            ];
-          }).toList(),
-        );
-      },
+                );
+              },
+            ),
+        ],
+      ),
     );
   }
 

@@ -12,6 +12,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../models/comping_models.dart';
+import '../models/timeline_models.dart';
+import '../models/timeline/automation_lane.dart';
 import '../src/rust/native_ffi.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -444,6 +446,150 @@ class CompingProvider extends ChangeNotifier {
   /// Lock/unlock take
   void setTakeLocked(String trackId, String takeId, bool locked) {
     _updateTake(trackId, takeId, (t) => t.copyWith(locked: locked));
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PER-TAKE PITCH & PLAYRATE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set per-take pitch shift (-24 to +24 semitones)
+  void setTakePitch(String trackId, String takeId, double semitones) {
+    _updateTake(trackId, takeId,
+        (t) => t.copyWith(pitchSemitones: semitones.clamp(-24.0, 24.0)));
+  }
+
+  /// Set per-take playback rate (0.25x to 4.0x)
+  void setTakePlayRate(String trackId, String takeId, double rate) {
+    _updateTake(trackId, takeId,
+        (t) => t.copyWith(playRate: rate.clamp(0.25, 4.0)));
+  }
+
+  /// Reset take pitch and playrate to defaults
+  void resetTakePitchAndRate(String trackId, String takeId) {
+    _updateTake(trackId, takeId,
+        (t) => t.copyWith(pitchSemitones: 0, playRate: 1.0));
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PER-TAKE FX CHAIN
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Set entire FX chain for take
+  void setTakeFxChain(String trackId, String takeId, ClipFxChain chain) {
+    _updateTake(trackId, takeId, (t) => t.copyWith(fxChain: chain));
+  }
+
+  /// Add FX slot to take chain
+  void addTakeFxSlot(String trackId, String takeId, ClipFxType fxType) {
+    _updateTake(trackId, takeId, (t) {
+      final slot = ClipFxSlot.create(fxType);
+      return t.copyWith(fxChain: t.fxChain.addSlot(slot));
+    });
+  }
+
+  /// Remove FX slot from take chain
+  void removeTakeFxSlot(String trackId, String takeId, String slotId) {
+    _updateTake(trackId, takeId,
+        (t) => t.copyWith(fxChain: t.fxChain.removeSlot(slotId)));
+  }
+
+  /// Toggle bypass on take FX slot
+  void toggleTakeFxSlotBypass(
+      String trackId, String takeId, String slotId) {
+    _updateTake(trackId, takeId, (t) {
+      final slots = t.fxChain.slots.map((s) {
+        if (s.id == slotId) return s.copyWith(bypass: !s.bypass);
+        return s;
+      }).toList();
+      return t.copyWith(fxChain: t.fxChain.copyWith(slots: slots));
+    });
+  }
+
+  /// Toggle bypass on entire take FX chain
+  void toggleTakeFxChainBypass(String trackId, String takeId) {
+    _updateTake(trackId, takeId,
+        (t) => t.copyWith(fxChain: t.fxChain.copyWith(bypass: !t.fxChain.bypass)));
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PER-TAKE ENVELOPES
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Add automation envelope to take
+  void addTakeEnvelope(String trackId, String takeId,
+      AutomationParameterType paramType) {
+    _updateTake(trackId, takeId, (t) {
+      // Don't add duplicate parameter types
+      if (t.envelopes.any((e) => e.type == paramType)) return t;
+      final envelope = AutomationLane(
+        id: 'env-${DateTime.now().millisecondsSinceEpoch}',
+        parameterId: paramType.name,
+        type: paramType,
+      );
+      return t.copyWith(envelopes: [...t.envelopes, envelope]);
+    });
+  }
+
+  /// Remove automation envelope from take
+  void removeTakeEnvelope(String trackId, String takeId, String envelopeId) {
+    _updateTake(trackId, takeId, (t) {
+      return t.copyWith(
+          envelopes: t.envelopes.where((e) => e.id != envelopeId).toList());
+    });
+  }
+
+  /// Add automation point to take envelope
+  void addTakeEnvelopePoint(String trackId, String takeId,
+      String envelopeId, AutomationPoint point) {
+    _updateTake(trackId, takeId, (t) {
+      final envelopes = t.envelopes.map((e) {
+        if (e.id == envelopeId) return e.addPoint(point);
+        return e;
+      }).toList();
+      return t.copyWith(envelopes: envelopes);
+    });
+  }
+
+  /// Remove automation point from take envelope
+  void removeTakeEnvelopePoint(String trackId, String takeId,
+      String envelopeId, String pointId) {
+    _updateTake(trackId, takeId, (t) {
+      final envelopes = t.envelopes.map((e) {
+        if (e.id == envelopeId) return e.removePoint(pointId);
+        return e;
+      }).toList();
+      return t.copyWith(envelopes: envelopes);
+    });
+  }
+
+  /// Update automation point in take envelope
+  void updateTakeEnvelopePoint(String trackId, String takeId,
+      String envelopeId, String pointId,
+      {double? time, double? value, CurveType? interpolation}) {
+    _updateTake(trackId, takeId, (t) {
+      final envelopes = t.envelopes.map((e) {
+        if (e.id == envelopeId) {
+          return e.updatePoint(pointId,
+              time: time, value: value, interpolation: interpolation);
+        }
+        return e;
+      }).toList();
+      return t.copyWith(envelopes: envelopes);
+    });
+  }
+
+  /// Toggle envelope visibility
+  void toggleTakeEnvelopeVisible(
+      String trackId, String takeId, String envelopeId) {
+    _updateTake(trackId, takeId, (t) {
+      final envelopes = t.envelopes.map((e) {
+        if (e.id == envelopeId) {
+          return e.copyWith(isVisible: !e.isVisible);
+        }
+        return e;
+      }).toList();
+      return t.copyWith(envelopes: envelopes);
+    });
   }
 
   void _updateTake(String trackId, String takeId, Take Function(Take) updater) {
@@ -950,10 +1096,42 @@ class CompingProvider extends ChangeNotifier {
       'fadeOut': take.fadeOut,
       'muted': take.muted,
       'locked': take.locked,
+      'pitchSemitones': take.pitchSemitones,
+      'playRate': take.playRate,
+      'fxChainBypass': take.fxChain.bypass,
+      'fxSlots': take.fxChain.slots.map((s) => {
+        'id': s.id,
+        'type': s.type.index,
+        'name': s.name,
+        'bypass': s.bypass,
+        'wetDry': s.wetDry,
+        'outputGainDb': s.outputGainDb,
+        'order': s.order,
+      }).toList(),
+      'envelopes': take.envelopes.map((e) => e.toJson()).toList(),
     };
   }
 
   Take _takeFromJson(Map<String, dynamic> json) {
+    // Restore FX chain
+    final fxSlots = (json['fxSlots'] as List?)?.map((s) {
+      final map = s as Map<String, dynamic>;
+      return ClipFxSlot(
+        id: map['id'] ?? 'fx-${DateTime.now().millisecondsSinceEpoch}',
+        type: ClipFxType.values[map['type'] ?? 0],
+        name: map['name'] ?? '',
+        bypass: map['bypass'] ?? false,
+        wetDry: (map['wetDry'] ?? 1.0).toDouble(),
+        outputGainDb: (map['outputGainDb'] ?? 0.0).toDouble(),
+        order: map['order'] ?? 0,
+      );
+    }).toList() ?? [];
+
+    // Restore envelopes
+    final envelopes = (json['envelopes'] as List?)?.map((e) {
+      return AutomationLane.fromJson(e as Map<String, dynamic>);
+    }).toList() ?? [];
+
     return Take(
       id: json['id'],
       laneId: json['laneId'],
@@ -974,6 +1152,13 @@ class CompingProvider extends ChangeNotifier {
       fadeOut: (json['fadeOut'] ?? 0.0).toDouble(),
       muted: json['muted'] ?? false,
       locked: json['locked'] ?? false,
+      pitchSemitones: (json['pitchSemitones'] ?? 0.0).toDouble(),
+      playRate: (json['playRate'] ?? 1.0).toDouble(),
+      fxChain: ClipFxChain(
+        slots: fxSlots,
+        bypass: json['fxChainBypass'] ?? false,
+      ),
+      envelopes: envelopes,
     );
   }
 

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import '../../../../providers/comping_provider.dart';
 import '../../../../models/comping_models.dart';
+import '../../../../models/timeline_models.dart';
+import '../../../../models/timeline/automation_lane.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
 import '../../../fabfilter/fabfilter_widgets.dart';
 
@@ -358,57 +360,486 @@ class _CompingPanelState extends State<CompingPanel> {
   Widget _buildTakeRow(Take take, Color laneColor) {
     final isSelected = _selectedTakeId == take.id;
 
-    return GestureDetector(
-      onTap: () => setState(() => _selectedTakeId = isSelected ? null : take.id),
-      child: Container(
-        height: 22,
-        margin: const EdgeInsets.only(bottom: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? FabFilterColors.cyan.withValues(alpha: 0.08)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(3),
-        ),
-        child: Row(
-          children: [
-            // Rating buttons row
-            _buildRatingButton(take, TakeRating.best, '\u2605', FabFilterColors.yellow),
-            _buildRatingButton(take, TakeRating.good, '\u2713', FabFilterColors.green),
-            _buildRatingButton(take, TakeRating.okay, '\u25CB', FabFilterColors.orange),
-            _buildRatingButton(take, TakeRating.bad, '\u2717', FabFilterColors.red),
-            _buildRatingButton(take, TakeRating.none, '\u2014', FabFilterColors.textDisabled),
-            const SizedBox(width: 6),
-            // Take name
-            Expanded(
-              child: Text(take.displayName,
-                style: FabFilterText.paramLabel.copyWith(
-                  color: take.muted ? FabFilterColors.textDisabled : FabFilterColors.textSecondary,
-                  fontSize: 9,
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: () => setState(() => _selectedTakeId = isSelected ? null : take.id),
+          child: Container(
+            height: 22,
+            margin: const EdgeInsets.only(bottom: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? FabFilterColors.cyan.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Row(
+              children: [
+                // Rating buttons row
+                _buildRatingButton(take, TakeRating.best, '\u2605', FabFilterColors.yellow),
+                _buildRatingButton(take, TakeRating.good, '\u2713', FabFilterColors.green),
+                _buildRatingButton(take, TakeRating.okay, '\u25CB', FabFilterColors.orange),
+                _buildRatingButton(take, TakeRating.bad, '\u2717', FabFilterColors.red),
+                _buildRatingButton(take, TakeRating.none, '\u2014', FabFilterColors.textDisabled),
+                const SizedBox(width: 6),
+                // Processing indicator
+                if (take.hasProcessing)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Icon(Icons.auto_fix_high, size: 9,
+                        color: FabFilterColors.purple),
+                  ),
+                // Take name
+                Expanded(
+                  child: Text(take.displayName,
+                    style: FabFilterText.paramLabel.copyWith(
+                      color: take.muted ? FabFilterColors.textDisabled : FabFilterColors.textSecondary,
+                      fontSize: 9,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                overflow: TextOverflow.ellipsis,
-              ),
+                // Pitch indicator
+                if (take.pitchSemitones != 0)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 3),
+                    child: Text(
+                      '${take.pitchSemitones > 0 ? "+" : ""}${take.pitchSemitones.toStringAsFixed(1)}st',
+                      style: FabFilterText.paramLabel.copyWith(
+                        color: FabFilterColors.purple, fontSize: 7,
+                      ),
+                    ),
+                  ),
+                // Rate indicator
+                if (take.playRate != 1.0)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 3),
+                    child: Text(
+                      '${take.playRate.toStringAsFixed(2)}x',
+                      style: FabFilterText.paramLabel.copyWith(
+                        color: FabFilterColors.orange, fontSize: 7,
+                      ),
+                    ),
+                  ),
+                // Gain display
+                Text('${(take.gain * 100).toInt()}%',
+                  style: FabFilterText.paramLabel.copyWith(
+                    color: FabFilterColors.textDisabled, fontSize: 7,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                // Mute toggle
+                GestureDetector(
+                  onTap: () => _provider.toggleTakeMute(_trackId, take.id),
+                  child: Icon(
+                    take.muted ? Icons.visibility_off : Icons.visibility,
+                    size: 11,
+                    color: take.muted ? FabFilterColors.red : FabFilterColors.textDisabled,
+                  ),
+                ),
+              ],
             ),
-            // Gain display
-            Text('${(take.gain * 100).toInt()}%',
-              style: FabFilterText.paramLabel.copyWith(
-                color: FabFilterColors.textDisabled, fontSize: 7,
-              ),
-            ),
-            const SizedBox(width: 4),
-            // Mute toggle
-            GestureDetector(
-              onTap: () => _provider.toggleTakeMute(_trackId, take.id),
-              child: Icon(
-                take.muted ? Icons.visibility_off : Icons.visibility,
-                size: 11,
-                color: take.muted ? FabFilterColors.red : FabFilterColors.textDisabled,
-              ),
-            ),
-          ],
+          ),
         ),
+        // Expanded take detail panel
+        if (isSelected) _buildTakeDetail(take, laneColor),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TAKE DETAIL — FX, PITCH/RATE, ENVELOPES
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildTakeDetail(Take take, Color laneColor) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4, left: 4),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: FabFilterColors.bgDeep.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: FabFilterColors.borderSubtle),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ─── PITCH & PLAYRATE ─────────────────────────────────
+          _buildSectionLabel('PITCH / RATE'),
+          const SizedBox(height: 3),
+          Row(
+            children: [
+              // Pitch semitones
+              Expanded(
+                child: _buildMiniSlider(
+                  label: 'Pitch',
+                  value: take.pitchSemitones,
+                  min: -24, max: 24,
+                  suffix: 'st',
+                  color: FabFilterColors.purple,
+                  onChanged: (v) => _provider.setTakePitch(_trackId, take.id, v),
+                ),
+              ),
+              const SizedBox(width: 6),
+              // Play rate
+              Expanded(
+                child: _buildMiniSlider(
+                  label: 'Rate',
+                  value: take.playRate,
+                  min: 0.25, max: 4.0,
+                  suffix: 'x',
+                  color: FabFilterColors.orange,
+                  onChanged: (v) => _provider.setTakePlayRate(_trackId, take.id, v),
+                ),
+              ),
+              const SizedBox(width: 4),
+              // Reset button
+              GestureDetector(
+                onTap: () => _provider.resetTakePitchAndRate(_trackId, take.id),
+                child: Container(
+                  width: 18, height: 18,
+                  decoration: BoxDecoration(
+                    color: FabFilterColors.bgMid,
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(color: FabFilterColors.borderSubtle),
+                  ),
+                  child: Icon(Icons.refresh, size: 10, color: FabFilterColors.textDisabled),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+
+          // ─── FX CHAIN ─────────────────────────────────────────
+          Row(
+            children: [
+              _buildSectionLabel('FX CHAIN'),
+              const Spacer(),
+              // Bypass toggle
+              if (take.fxChain.isNotEmpty)
+                GestureDetector(
+                  onTap: () => _provider.toggleTakeFxChainBypass(_trackId, take.id),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: take.fxChain.bypass
+                          ? FabFilterColors.red.withValues(alpha: 0.15)
+                          : FabFilterColors.green.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    child: Text(
+                      take.fxChain.bypass ? 'BYP' : 'ON',
+                      style: FabFilterText.paramLabel.copyWith(
+                        color: take.fxChain.bypass ? FabFilterColors.red : FabFilterColors.green,
+                        fontSize: 7, fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 4),
+              // Add FX
+              _buildAddFxButton(take),
+            ],
+          ),
+          const SizedBox(height: 3),
+          if (take.fxChain.isNotEmpty)
+            ...take.fxChain.slots.map((slot) => _buildFxSlotRow(take, slot))
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Text('No FX — tap + to add',
+                style: FabFilterText.paramLabel.copyWith(
+                  color: FabFilterColors.textDisabled, fontSize: 8,
+                ),
+              ),
+            ),
+          const SizedBox(height: 6),
+
+          // ─── ENVELOPES ────────────────────────────────────────
+          Row(
+            children: [
+              _buildSectionLabel('ENVELOPES'),
+              const Spacer(),
+              _buildAddEnvelopeButton(take),
+            ],
+          ),
+          const SizedBox(height: 3),
+          if (take.envelopes.isNotEmpty)
+            ...take.envelopes.map((env) => _buildEnvelopeRow(take, env))
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Text('No envelopes — tap + to add',
+                style: FabFilterText.paramLabel.copyWith(
+                  color: FabFilterColors.textDisabled, fontSize: 8,
+                ),
+              ),
+            ),
+        ],
       ),
     );
+  }
+
+  Widget _buildSectionLabel(String text) {
+    return Text(text, style: FabFilterText.paramLabel.copyWith(
+      color: FabFilterColors.cyan, fontSize: 7,
+      fontWeight: FontWeight.bold, letterSpacing: 0.8,
+    ));
+  }
+
+  Widget _buildMiniSlider({
+    required String label,
+    required double value,
+    required double min,
+    required double max,
+    required String suffix,
+    required Color color,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 28,
+          child: Text(label, style: FabFilterText.paramLabel.copyWith(
+            color: FabFilterColors.textTertiary, fontSize: 7,
+          )),
+        ),
+        Expanded(
+          child: SizedBox(
+            height: 14,
+            child: SliderTheme(
+              data: SliderThemeData(
+                trackHeight: 2,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                activeTrackColor: color,
+                inactiveTrackColor: color.withValues(alpha: 0.2),
+                thumbColor: color,
+                overlayShape: SliderComponentShape.noOverlay,
+              ),
+              child: Slider(
+                value: value.clamp(min, max),
+                min: min, max: max,
+                onChanged: onChanged,
+              ),
+            ),
+          ),
+        ),
+        SizedBox(
+          width: 38,
+          child: Text(
+            '${value.toStringAsFixed(value == value.roundToDouble() ? 0 : 1)}$suffix',
+            style: FabFilterText.paramLabel.copyWith(
+              color: color, fontSize: 7,
+            ),
+            textAlign: TextAlign.right,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAddFxButton(Take take) {
+    return PopupMenuButton<ClipFxType>(
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+      position: PopupMenuPosition.under,
+      tooltip: 'Add FX',
+      onSelected: (type) => _provider.addTakeFxSlot(_trackId, take.id, type),
+      itemBuilder: (context) => [
+        for (final type in [
+          ClipFxType.gain, ClipFxType.compressor, ClipFxType.limiter,
+          ClipFxType.gate, ClipFxType.saturation, ClipFxType.pitchShift,
+          ClipFxType.timeStretch,
+        ])
+          PopupMenuItem(
+            value: type,
+            height: 28,
+            child: Row(
+              children: [
+                Icon(clipFxTypeIcon(type), size: 12, color: clipFxTypeColor(type)),
+                const SizedBox(width: 6),
+                Text(clipFxTypeName(type), style: const TextStyle(fontSize: 11)),
+              ],
+            ),
+          ),
+      ],
+      child: Container(
+        width: 18, height: 18,
+        decoration: BoxDecoration(
+          color: FabFilterColors.bgMid,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: FabFilterColors.borderSubtle),
+        ),
+        child: Icon(Icons.add, size: 10, color: FabFilterColors.textSecondary),
+      ),
+    );
+  }
+
+  Widget _buildFxSlotRow(Take take, ClipFxSlot slot) {
+    final color = clipFxTypeColor(slot.type);
+    return Container(
+      height: 20,
+      margin: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: slot.bypass
+            ? FabFilterColors.bgSurface.withValues(alpha: 0.3)
+            : color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(
+          color: slot.bypass ? FabFilterColors.borderSubtle : color.withValues(alpha: 0.3),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(clipFxTypeIcon(slot.type), size: 10, color: slot.bypass ? FabFilterColors.textDisabled : color),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(slot.displayName, style: FabFilterText.paramLabel.copyWith(
+              color: slot.bypass ? FabFilterColors.textDisabled : FabFilterColors.textSecondary,
+              fontSize: 8,
+            ), overflow: TextOverflow.ellipsis),
+          ),
+          // Wet/dry
+          Text('${(slot.wetDry * 100).toInt()}%', style: FabFilterText.paramLabel.copyWith(
+            color: FabFilterColors.textDisabled, fontSize: 7,
+          )),
+          const SizedBox(width: 4),
+          // Bypass toggle
+          GestureDetector(
+            onTap: () => _provider.toggleTakeFxSlotBypass(_trackId, take.id, slot.id),
+            child: Icon(
+              slot.bypass ? Icons.power_settings_new : Icons.power_settings_new,
+              size: 10,
+              color: slot.bypass ? FabFilterColors.red : FabFilterColors.green,
+            ),
+          ),
+          const SizedBox(width: 3),
+          // Remove
+          GestureDetector(
+            onTap: () => _provider.removeTakeFxSlot(_trackId, take.id, slot.id),
+            child: Icon(Icons.close, size: 9, color: FabFilterColors.textDisabled),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddEnvelopeButton(Take take) {
+    final existingTypes = take.envelopes.map((e) => e.type).toSet();
+    final availableTypes = AutomationParameterType.values
+        .where((t) => !existingTypes.contains(t))
+        .toList();
+
+    return PopupMenuButton<AutomationParameterType>(
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+      position: PopupMenuPosition.under,
+      tooltip: 'Add Envelope',
+      enabled: availableTypes.isNotEmpty,
+      onSelected: (type) => _provider.addTakeEnvelope(_trackId, take.id, type),
+      itemBuilder: (context) => [
+        for (final type in availableTypes)
+          PopupMenuItem(
+            value: type,
+            height: 28,
+            child: Row(
+              children: [
+                Icon(_envelopeIcon(type), size: 12, color: _envelopeColor(type)),
+                const SizedBox(width: 6),
+                Text(_envelopeLabel(type), style: const TextStyle(fontSize: 11)),
+              ],
+            ),
+          ),
+      ],
+      child: Container(
+        width: 18, height: 18,
+        decoration: BoxDecoration(
+          color: FabFilterColors.bgMid,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: availableTypes.isEmpty
+              ? FabFilterColors.borderSubtle.withValues(alpha: 0.3)
+              : FabFilterColors.borderSubtle),
+        ),
+        child: Icon(Icons.add, size: 10,
+            color: availableTypes.isEmpty
+                ? FabFilterColors.textDisabled.withValues(alpha: 0.3)
+                : FabFilterColors.textSecondary),
+      ),
+    );
+  }
+
+  Widget _buildEnvelopeRow(Take take, AutomationLane env) {
+    final color = _envelopeColor(env.type);
+    return Container(
+      height: 20,
+      margin: const EdgeInsets.only(bottom: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 0.5),
+      ),
+      child: Row(
+        children: [
+          Icon(_envelopeIcon(env.type), size: 10, color: color),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(_envelopeLabel(env.type), style: FabFilterText.paramLabel.copyWith(
+              color: FabFilterColors.textSecondary, fontSize: 8,
+            )),
+          ),
+          // Point count
+          Text('${env.points.length} pts', style: FabFilterText.paramLabel.copyWith(
+            color: FabFilterColors.textDisabled, fontSize: 7,
+          )),
+          const SizedBox(width: 4),
+          // Visibility toggle
+          GestureDetector(
+            onTap: () => _provider.toggleTakeEnvelopeVisible(_trackId, take.id, env.id),
+            child: Icon(
+              env.isVisible ? Icons.visibility : Icons.visibility_off,
+              size: 10,
+              color: env.isVisible ? color : FabFilterColors.textDisabled,
+            ),
+          ),
+          const SizedBox(width: 3),
+          // Remove
+          GestureDetector(
+            onTap: () => _provider.removeTakeEnvelope(_trackId, take.id, env.id),
+            child: Icon(Icons.close, size: 9, color: FabFilterColors.textDisabled),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _envelopeIcon(AutomationParameterType type) {
+    return switch (type) {
+      AutomationParameterType.volume => Icons.volume_up,
+      AutomationParameterType.pan => Icons.swap_horiz,
+      AutomationParameterType.rtpc => Icons.tune,
+      AutomationParameterType.trigger => Icons.bolt,
+    };
+  }
+
+  Color _envelopeColor(AutomationParameterType type) {
+    return switch (type) {
+      AutomationParameterType.volume => const Color(0xFFFF9040),
+      AutomationParameterType.pan => const Color(0xFF40C8FF),
+      AutomationParameterType.rtpc => const Color(0xFF9370DB),
+      AutomationParameterType.trigger => const Color(0xFF40FF90),
+    };
+  }
+
+  String _envelopeLabel(AutomationParameterType type) {
+    return switch (type) {
+      AutomationParameterType.volume => 'Volume',
+      AutomationParameterType.pan => 'Pan',
+      AutomationParameterType.rtpc => 'RTPC',
+      AutomationParameterType.trigger => 'Trigger',
+    };
   }
 
   Widget _buildRatingButton(Take take, TakeRating rating, String symbol, Color color) {

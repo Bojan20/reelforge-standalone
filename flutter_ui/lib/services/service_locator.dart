@@ -110,6 +110,7 @@ import '../providers/middleware_provider.dart';
 import '../providers/slot_lab/slot_lab_coordinator.dart';
 import 'video_export_service.dart';
 import 'video_playback_service.dart';
+import '../providers/custom_event_provider.dart';
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -599,6 +600,13 @@ class ServiceLocator {
     );
     sl.registerLazySingleton<VideoPlaybackService>(
       () => VideoPlaybackService(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 8.1: Custom Event Provider (SlotLab CUSTOM tab)
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<CustomEventProvider>(
+      () => CustomEventProvider(),
     );
 
     // Initialize plugin alternatives registry

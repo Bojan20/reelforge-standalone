@@ -13,6 +13,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import '../../../../models/timeline_models.dart' show NudgeConfig, NudgeUnit;
 import '../../lower_zone_types.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -28,12 +29,16 @@ class GridSettingsPanel extends StatefulWidget {
   final bool tripletGrid;
   final double snapValue; // In beats (0.0625 = 1/64, 1.0 = 1/4, 4.0 = Bar)
 
+  // Nudge config
+  final NudgeConfig nudgeConfig;
+
   // Callbacks to parent
   final ValueChanged<double>? onTempoChanged;
   final void Function(int numerator, int denominator)? onTimeSignatureChanged;
   final ValueChanged<bool>? onSnapEnabledChanged;
   final ValueChanged<bool>? onTripletGridChanged;
   final ValueChanged<double>? onSnapValueChanged;
+  final ValueChanged<NudgeConfig>? onNudgeConfigChanged;
 
   const GridSettingsPanel({
     super.key,
@@ -43,11 +48,13 @@ class GridSettingsPanel extends StatefulWidget {
     this.snapEnabled = true,
     this.tripletGrid = false,
     this.snapValue = 1.0, // 1/4 note default
+    this.nudgeConfig = const NudgeConfig(),
     this.onTempoChanged,
     this.onTimeSignatureChanged,
     this.onSnapEnabledChanged,
     this.onTripletGridChanged,
     this.onSnapValueChanged,
+    this.onNudgeConfigChanged,
   });
 
   @override
@@ -183,6 +190,11 @@ class _GridSettingsPanelState extends State<GridSettingsPanel>
                         const SizedBox(height: 12),
                         // Visual indicator of current snap
                         _buildSnapIndicator(),
+                        const SizedBox(height: 16),
+                        // Nudge Configuration
+                        _buildSubSectionHeader('NUDGE'),
+                        const SizedBox(height: 8),
+                        _buildNudgeConfig(),
                       ],
                     ),
                   ),
@@ -608,6 +620,163 @@ class _GridSettingsPanelState extends State<GridSettingsPanel>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildNudgeConfig() {
+    final config = widget.nudgeConfig;
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: LowerZoneColors.bgDeepest,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: LowerZoneColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Primary nudge
+          Row(
+            children: [
+              const Icon(Icons.keyboard_tab, size: 12, color: LowerZoneColors.dawAccent),
+              const SizedBox(width: 4),
+              const Text('Alt+Arrow', style: TextStyle(fontSize: 9,
+                  color: LowerZoneColors.textSecondary, fontWeight: FontWeight.bold)),
+              const Spacer(),
+              Text(config.displayAmount, style: const TextStyle(fontSize: 10,
+                  color: LowerZoneColors.textPrimary, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // Unit selector
+          Row(
+            children: [
+              const Text('Unit:', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+              const SizedBox(width: 4),
+              ...NudgeUnit.values.map((u) => _buildNudgeUnitChip(u, config.unit, false)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          // Amount presets
+          _buildNudgePresets(config.unit, config.amount, false),
+          const SizedBox(height: 10),
+          const Divider(color: LowerZoneColors.border, height: 1),
+          const SizedBox(height: 8),
+          // Fine nudge
+          Row(
+            children: [
+              const Icon(Icons.keyboard_tab, size: 12, color: Color(0xFF40C8FF)),
+              const SizedBox(width: 4),
+              const Text('Alt+Shift+Arrow', style: TextStyle(fontSize: 9,
+                  color: LowerZoneColors.textSecondary, fontWeight: FontWeight.bold)),
+              const Spacer(),
+              Text(config.displayFineAmount, style: const TextStyle(fontSize: 10,
+                  color: LowerZoneColors.textPrimary, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Text('Unit:', style: TextStyle(fontSize: 8, color: LowerZoneColors.textMuted)),
+              const SizedBox(width: 4),
+              ...NudgeUnit.values.map((u) => _buildNudgeUnitChip(u, config.fineUnit, true)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          _buildNudgePresets(config.fineUnit, config.fineAmount, true),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNudgeUnitChip(NudgeUnit unit, NudgeUnit selected, bool isFine) {
+    final isActive = unit == selected;
+    return Padding(
+      padding: const EdgeInsets.only(right: 3),
+      child: GestureDetector(
+        onTap: () {
+          final config = widget.nudgeConfig;
+          widget.onNudgeConfigChanged?.call(
+            isFine ? config.copyWith(fineUnit: unit) : config.copyWith(unit: unit),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          decoration: BoxDecoration(
+            color: isActive
+                ? LowerZoneColors.dawAccent.withValues(alpha: 0.2)
+                : LowerZoneColors.bgSurface,
+            borderRadius: BorderRadius.circular(3),
+            border: Border.all(
+              color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.border,
+            ),
+          ),
+          child: Text(
+            NudgeConfig.unitName(unit),
+            style: TextStyle(
+              fontSize: 7,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNudgePresets(NudgeUnit unit, double currentAmount, bool isFine) {
+    final presets = switch (unit) {
+      NudgeUnit.beats => NudgeConfig.beatPresets,
+      NudgeUnit.milliseconds => NudgeConfig.msPresets,
+      NudgeUnit.samples => const [1.0, 10.0, 100.0, 256.0, 512.0, 1024.0],
+      NudgeUnit.frames => const [1.0, 2.0, 5.0, 10.0, 15.0, 30.0],
+      NudgeUnit.seconds => const [0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0],
+    };
+
+    final labels = switch (unit) {
+      NudgeUnit.beats => const ['1/64', '1/32', '1/16', '1/8', '1/4', '1/2', 'Bar'],
+      NudgeUnit.milliseconds => const ['1', '5', '10', '25', '50', '100', '250', '500'],
+      NudgeUnit.samples => const ['1', '10', '100', '256', '512', '1k'],
+      NudgeUnit.frames => const ['1', '2', '5', '10', '15', '30'],
+      NudgeUnit.seconds => const ['1ms', '10ms', '50ms', '100ms', '250ms', '500ms', '1s'],
+    };
+
+    return Wrap(
+      spacing: 3,
+      runSpacing: 3,
+      children: List.generate(presets.length, (i) {
+        final value = presets[i];
+        final isActive = (currentAmount - value).abs() < 0.001;
+        return GestureDetector(
+          onTap: () {
+            final config = widget.nudgeConfig;
+            widget.onNudgeConfigChanged?.call(
+              isFine ? config.copyWith(fineAmount: value) : config.copyWith(amount: value),
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? LowerZoneColors.dawAccent.withValues(alpha: 0.25)
+                  : LowerZoneColors.bgSurface,
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(
+                color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.border,
+                width: isActive ? 1.5 : 0.5,
+              ),
+            ),
+            child: Text(
+              labels[i],
+              style: TextStyle(
+                fontSize: 8,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textSecondary,
+              ),
+            ),
+          ),
+        );
+      }),
     );
   }
 
