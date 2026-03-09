@@ -296,6 +296,7 @@ class CommandRegistry {
     VoidCallback? onShowRegionPlaylist,
     VoidCallback? onShowMarkerActions,
     VoidCallback? onShowGranularSynth,
+    VoidCallback? onShowNetworkAudio,
     VoidCallback? onShowMacroControls,
     VoidCallback? onShowClipGainEnvelope,
   }) {
@@ -1249,6 +1250,15 @@ class CommandRegistry {
         icon: Icons.grain,
         keywords: ['granular', 'synthesis', 'grain', 'freeze', 'texture', 'ambient'],
         onExecute: onShowGranularSynth,
+      ),
+      PaletteCommand(
+        id: 'tools.network_audio',
+        label: 'Network Audio',
+        description: 'ReaStream-style host-to-host audio/MIDI streaming on LAN',
+        category: PaletteCategory.tools,
+        icon: Icons.wifi,
+        keywords: ['network', 'audio', 'stream', 'reastream', 'udp', 'lan', 'midi'],
+        onExecute: onShowNetworkAudio,
       ),
 
       // ─── ADVANCED PANELS ──────────────────────────────────────────────────

@@ -58,6 +58,7 @@ import 'daw/edit/cycle_actions_panel.dart';
 import 'daw/edit/region_playlist_panel.dart';
 import 'daw/edit/marker_actions_panel.dart';
 import 'daw/edit/granular_synth_panel.dart';
+import 'daw/edit/network_audio_panel.dart';
 import '../panels/loop_editor_panel.dart';
 import 'daw/edit/video_panel.dart';
 // ✅ P0.1: Extracted MIX panels
@@ -781,6 +782,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.regionPlaylist => _buildRegionPlaylistPanel(),
       DawEditSubTab.markerActions => _buildMarkerActionsPanel(),
       DawEditSubTab.granularSynth => _buildGranularSynthPanel(),
+      DawEditSubTab.networkAudio => _buildNetworkAudioPanel(),
     };
   }
 
@@ -1023,6 +1025,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.regionPlaylist => _buildRegionPlaylistPanel(),
       DawEditSubTab.markerActions => _buildMarkerActionsPanel(),
       DawEditSubTab.granularSynth => _buildGranularSynthPanel(),
+      DawEditSubTab.networkAudio => _buildNetworkAudioPanel(),
     };
   }
 
@@ -1131,6 +1134,10 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   );
 
   Widget _buildGranularSynthPanel() => GranularSynthPanel(
+    onAction: widget.onDspAction,
+  );
+
+  Widget _buildNetworkAudioPanel() => NetworkAudioPanel(
     onAction: widget.onDspAction,
   );
 

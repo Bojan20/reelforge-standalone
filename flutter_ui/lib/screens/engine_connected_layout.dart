@@ -6388,6 +6388,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 // Granular synth parameter change — service handles internally
               case 'granularFreeze':
                 // Granular synth freeze toggle — service handles internally
+              case 'networkStreamControl':
+                // Network audio stream connect/disconnect — service handles internally
             }
           },
           // P0.2: Grid/Snap Settings

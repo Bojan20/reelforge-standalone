@@ -355,6 +355,11 @@ class _MainLayoutState extends State<MainLayout>
         controller.setEditSubTab(DawEditSubTab.granularSynth);
         controller.expand();
       },
+      onShowNetworkAudio: () {
+        final controller = DawLowerZoneController.instance;
+        controller.setEditSubTab(DawEditSubTab.networkAudio);
+        controller.expand();
+      },
     );
     CommandPalette.showUltimate(context);
   }
