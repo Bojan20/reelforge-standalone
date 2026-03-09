@@ -116,8 +116,9 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   // P2.5 SECURITY: Name/Category sanitization for XSS prevention
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Sanitize a string for safe display (XSS prevention)
-  /// Removes HTML-like tags and dangerous characters
+  /// Sanitize a string for safe display.
+  /// Flutter Text widget does NOT render HTML, so no entity encoding needed.
+  /// Strips tags, control chars, and reverses any legacy HTML entity encoding.
   String _sanitizeName(String input) {
     if (input.isEmpty) return input;
 
@@ -125,16 +126,18 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     const maxLength = 128;
     var sanitized = input.length > maxLength ? input.substring(0, maxLength) : input;
 
-    // Remove HTML tags
-    sanitized = sanitized.replaceAll(RegExp(r'<[^>]*>'), '');
-
-    // Escape HTML entities
+    // Reverse legacy HTML entity encoding (from previous versions)
     sanitized = sanitized
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#39;');
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'")
+        .replaceAll('&#x27;', "'");
+
+    // Remove HTML tags and angle brackets
+    sanitized = sanitized.replaceAll(RegExp(r'<[^>]*>'), '');
+    sanitized = sanitized.replaceAll('<', '').replaceAll('>', '');
 
     // Remove control characters
     sanitized = sanitized.replaceAll(RegExp(r'[\x00-\x1F\x7F]'), '');
@@ -1476,7 +1479,12 @@ class CompositeEventSystemProvider extends ChangeNotifier {
         final event = SlotCompositeEvent.fromJson(eventJson);
         // Additional validation: check layers have valid audio paths
         final validatedEvent = _validateEventLayers(event);
-        validEvents.add(validatedEvent);
+        // Clean up legacy HTML entity encoding in names/categories
+        final cleanedEvent = validatedEvent.copyWith(
+          name: _sanitizeName(validatedEvent.name),
+          category: _sanitizeName(validatedEvent.category),
+        );
+        validEvents.add(cleanedEvent);
       } catch (e) {
         skippedCount++;
       }

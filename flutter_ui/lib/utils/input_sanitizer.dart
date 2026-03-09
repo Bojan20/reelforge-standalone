@@ -341,13 +341,13 @@ class InputSanitizer {
     return false;
   }
 
-  /// Escape string for safe display in UI (prevents rendering issues)
+  /// Sanitize string for safe display in Flutter UI
+  /// Flutter Text widget does NOT render HTML, so no entity encoding needed.
+  /// Just strip tags and angle brackets.
   static String escapeForDisplay(String input) {
     return input
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#x27;');
+        .replaceAll(RegExp(r'<[^>]*>'), '')
+        .replaceAll('<', '')
+        .replaceAll('>', '');
   }
 }
