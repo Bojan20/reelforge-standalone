@@ -23713,34 +23713,30 @@ pub extern "C" fn fx_container_load_path_processor(
 
         let path_id = crate::fx_container::PathId(path_index as u8);
 
-        // Access the insert chain and find the FxContainerProcessor
-        let mut chains = PLAYBACK_ENGINE.insert_chains_write();
-        let chain = if track_id == 0 {
-            // Master bus — need separate access
-            drop(chains);
+        if track_id == 0 {
+            // Master bus
             let mut master = PLAYBACK_ENGINE.master_insert_chain().write();
             if let Some(slot) = master.slot_mut(slot_index) {
-                // Downcast to FxContainerProcessor — we need to check the name
-                if slot.name().starts_with("Parallel") || slot.name().contains("Container") {
-                    // Access inner processor via set_processor_param trick won't work.
-                    // We need direct access to the processor.
-                    // Unfortunately, InsertSlot doesn't expose processor_mut.
-                    // TODO: Add processor_mut to InsertSlot for container access
-                    log::warn!("FX Container path loading on master bus not yet supported via FFI");
-                    return 0;
+                if let Some(container_proc) = slot.processor_as_container_mut() {
+                    return if container_proc.container_mut().add_fx_to_path(path_id, processor) {
+                        1
+                    } else {
+                        0
+                    };
                 }
             }
             return 0;
-        } else {
-            match chains.get_mut(&(track_id as u64)) {
-                Some(c) => c,
-                None => return 0,
-            }
+        }
+
+        let mut chains = PLAYBACK_ENGINE.insert_chains_write();
+        let chain = match chains.get_mut(&(track_id as u64)) {
+            Some(c) => c,
+            None => return 0,
         };
 
         if let Some(slot) = chain.slot_mut(slot_index) {
-            if let Some(ref mut _processor) = slot.processor_as_container_mut() {
-                return if _processor.container_mut().add_fx_to_path(path_id, processor) {
+            if let Some(container_proc) = slot.processor_as_container_mut() {
+                return if container_proc.container_mut().add_fx_to_path(path_id, processor) {
                     1
                 } else {
                     0
@@ -23773,13 +23769,13 @@ pub extern "C" fn fx_container_set_path_prop(
 
         let path_id = crate::fx_container::PathId(path_index as u8);
 
-        let mut chains = PLAYBACK_ENGINE.insert_chains_write();
-        let chain = match chains.get_mut(&(track_id as u64)) {
-            Some(c) => c,
-            None => return 0,
-        };
-
-        if let Some(slot) = chain.slot_mut(slot_index) {
+        // Helper closure to set path property on any chain's slot
+        fn set_path_prop_on_slot(
+            slot: &mut crate::insert_chain::InsertSlot,
+            path_id: crate::fx_container::PathId,
+            property: u32,
+            value: f64,
+        ) -> i32 {
             if let Some(container_proc) = slot.processor_as_container_mut() {
                 let container = container_proc.container_mut();
                 if let Some(path) = container.get_path_mut(path_id) {
@@ -23794,6 +23790,25 @@ pub extern "C" fn fx_container_set_path_prop(
                     return 1;
                 }
             }
+            0
+        }
+
+        if track_id == 0 {
+            let mut master = PLAYBACK_ENGINE.master_insert_chain().write();
+            if let Some(slot) = master.slot_mut(slot_index) {
+                return set_path_prop_on_slot(slot, path_id, property, value);
+            }
+            return 0;
+        }
+
+        let mut chains = PLAYBACK_ENGINE.insert_chains_write();
+        let chain = match chains.get_mut(&(track_id as u64)) {
+            Some(c) => c,
+            None => return 0,
+        };
+
+        if let Some(slot) = chain.slot_mut(slot_index) {
+            return set_path_prop_on_slot(slot, path_id, property, value);
         }
         0
     })
@@ -23812,6 +23827,22 @@ pub extern "C" fn fx_container_set_global_wet(
             None => return 0,
         };
 
+        fn set_wet_on_slot(slot: &mut crate::insert_chain::InsertSlot, wet: f64) -> i32 {
+            if let Some(container_proc) = slot.processor_as_container_mut() {
+                container_proc.container_mut().set_global_wet(wet);
+                return 1;
+            }
+            0
+        }
+
+        if track_id == 0 {
+            let mut master = PLAYBACK_ENGINE.master_insert_chain().write();
+            if let Some(slot) = master.slot_mut(slot_index) {
+                return set_wet_on_slot(slot, wet);
+            }
+            return 0;
+        }
+
         let mut chains = PLAYBACK_ENGINE.insert_chains_write();
         let chain = match chains.get_mut(&(track_id as u64)) {
             Some(c) => c,
@@ -23819,10 +23850,7 @@ pub extern "C" fn fx_container_set_global_wet(
         };
 
         if let Some(slot) = chain.slot_mut(slot_index) {
-            if let Some(container_proc) = slot.processor_as_container_mut() {
-                container_proc.container_mut().set_global_wet(wet);
-                return 1;
-            }
+            return set_wet_on_slot(slot, wet);
         }
         0
     })
@@ -23849,6 +23877,25 @@ pub extern "C" fn fx_container_set_blend_mode(
             _ => return 0,
         };
 
+        fn set_blend_on_slot(
+            slot: &mut crate::insert_chain::InsertSlot,
+            blend_mode: crate::fx_container::BlendMode,
+        ) -> i32 {
+            if let Some(container_proc) = slot.processor_as_container_mut() {
+                container_proc.container_mut().set_blend_mode(blend_mode);
+                return 1;
+            }
+            0
+        }
+
+        if track_id == 0 {
+            let mut master = PLAYBACK_ENGINE.master_insert_chain().write();
+            if let Some(slot) = master.slot_mut(slot_index) {
+                return set_blend_on_slot(slot, blend_mode);
+            }
+            return 0;
+        }
+
         let mut chains = PLAYBACK_ENGINE.insert_chains_write();
         let chain = match chains.get_mut(&(track_id as u64)) {
             Some(c) => c,
@@ -23856,10 +23903,7 @@ pub extern "C" fn fx_container_set_blend_mode(
         };
 
         if let Some(slot) = chain.slot_mut(slot_index) {
-            if let Some(container_proc) = slot.processor_as_container_mut() {
-                container_proc.container_mut().set_blend_mode(blend_mode);
-                return 1;
-            }
+            return set_blend_on_slot(slot, blend_mode);
         }
         0
     })
@@ -23879,6 +23923,26 @@ pub extern "C" fn fx_container_set_macro(
             None => return 0,
         };
 
+        fn set_macro_on_slot(
+            slot: &mut crate::insert_chain::InsertSlot,
+            macro_index: u8,
+            value: f64,
+        ) -> i32 {
+            if let Some(container_proc) = slot.processor_as_container_mut() {
+                container_proc.container_mut().set_macro(macro_index, value);
+                return 1;
+            }
+            0
+        }
+
+        if track_id == 0 {
+            let mut master = PLAYBACK_ENGINE.master_insert_chain().write();
+            if let Some(slot) = master.slot_mut(slot_index) {
+                return set_macro_on_slot(slot, macro_index as u8, value);
+            }
+            return 0;
+        }
+
         let mut chains = PLAYBACK_ENGINE.insert_chains_write();
         let chain = match chains.get_mut(&(track_id as u64)) {
             Some(c) => c,
@@ -23886,10 +23950,7 @@ pub extern "C" fn fx_container_set_macro(
         };
 
         if let Some(slot) = chain.slot_mut(slot_index) {
-            if let Some(container_proc) = slot.processor_as_container_mut() {
-                container_proc.container_mut().set_macro(macro_index as u8, value);
-                return 1;
-            }
+            return set_macro_on_slot(slot, macro_index as u8, value);
         }
         0
     })
