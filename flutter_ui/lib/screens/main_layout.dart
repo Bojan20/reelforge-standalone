@@ -370,6 +370,11 @@ class _MainLayoutState extends State<MainLayout>
         controller.setEditSubTab(DawEditSubTab.videoProcessor);
         controller.expand();
       },
+      onShowPackageManager: () {
+        final controller = DawLowerZoneController.instance;
+        controller.setEditSubTab(DawEditSubTab.packageManager);
+        controller.expand();
+      },
     );
     CommandPalette.showUltimate(context);
   }

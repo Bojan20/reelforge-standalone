@@ -6408,6 +6408,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 // DSP script toggle processing — service handles internally
               case 'videoProcessorChanged':
                 // Video processor effect changed — service handles internally
+              case 'packageManagerChanged':
+                // Package manager action — service handles internally
             }
           },
           // P0.2: Grid/Snap Settings

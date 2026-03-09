@@ -299,6 +299,7 @@ class CommandRegistry {
     VoidCallback? onShowNetworkAudio,
     VoidCallback? onShowDspScript,
     VoidCallback? onShowVideoProcessor,
+    VoidCallback? onShowPackageManager,
     VoidCallback? onShowMacroControls,
     VoidCallback? onShowClipGainEnvelope,
   }) {
@@ -1279,6 +1280,15 @@ class CommandRegistry {
         icon: Icons.movie_filter,
         keywords: ['video', 'processor', 'text', 'overlay', 'fft', 'reactive', 'color', 'correction'],
         onExecute: onShowVideoProcessor,
+      ),
+      PaletteCommand(
+        id: 'tools.package_manager',
+        label: 'Package Manager',
+        description: 'Marketplace for scripts, effects, themes with auto-update and custom repositories',
+        category: PaletteCategory.tools,
+        icon: Icons.inventory_2,
+        keywords: ['package', 'manager', 'marketplace', 'install', 'update', 'theme', 'script', 'extension'],
+        onExecute: onShowPackageManager,
       ),
 
       // ─── ADVANCED PANELS ──────────────────────────────────────────────────

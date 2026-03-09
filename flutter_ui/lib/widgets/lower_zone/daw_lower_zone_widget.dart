@@ -61,6 +61,7 @@ import 'daw/edit/granular_synth_panel.dart';
 import 'daw/edit/network_audio_panel.dart';
 import 'daw/edit/dsp_script_panel.dart';
 import 'daw/edit/video_processor_panel.dart';
+import 'daw/edit/package_manager_panel.dart';
 import '../panels/loop_editor_panel.dart';
 import 'daw/edit/video_panel.dart';
 // ✅ P0.1: Extracted MIX panels
@@ -787,6 +788,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.networkAudio => _buildNetworkAudioPanel(),
       DawEditSubTab.dspScript => _buildDspScriptPanel(),
       DawEditSubTab.videoProcessor => _buildVideoProcessorPanel(),
+      DawEditSubTab.packageManager => _buildPackageManagerPanel(),
     };
   }
 
@@ -1032,6 +1034,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.networkAudio => _buildNetworkAudioPanel(),
       DawEditSubTab.dspScript => _buildDspScriptPanel(),
       DawEditSubTab.videoProcessor => _buildVideoProcessorPanel(),
+      DawEditSubTab.packageManager => _buildPackageManagerPanel(),
     };
   }
 
@@ -1152,6 +1155,10 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   );
 
   Widget _buildVideoProcessorPanel() => VideoProcessorPanel(
+    onAction: widget.onDspAction,
+  );
+
+  Widget _buildPackageManagerPanel() => PackageManagerPanel(
     onAction: widget.onDspAction,
   );
 
