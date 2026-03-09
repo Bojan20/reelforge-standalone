@@ -6410,6 +6410,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 // Video processor effect changed — service handles internally
               case 'packageManagerChanged':
                 // Package manager action — service handles internally
+              case 'extensionSdkChanged':
+                // Extension SDK action — service handles internally
             }
           },
           // P0.2: Grid/Snap Settings

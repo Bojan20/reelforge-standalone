@@ -300,6 +300,7 @@ class CommandRegistry {
     VoidCallback? onShowDspScript,
     VoidCallback? onShowVideoProcessor,
     VoidCallback? onShowPackageManager,
+    VoidCallback? onShowExtensionSdk,
     VoidCallback? onShowMacroControls,
     VoidCallback? onShowClipGainEnvelope,
   }) {
@@ -1289,6 +1290,15 @@ class CommandRegistry {
         icon: Icons.inventory_2,
         keywords: ['package', 'manager', 'marketplace', 'install', 'update', 'theme', 'script', 'extension'],
         onExecute: onShowPackageManager,
+      ),
+      PaletteCommand(
+        id: 'tools.extension_sdk',
+        label: 'Extension SDK',
+        description: 'Open SDK for third-party plugin development with templates and documentation',
+        category: PaletteCategory.tools,
+        icon: Icons.extension,
+        keywords: ['extension', 'sdk', 'plugin', 'development', 'api', 'template', 'rust', 'lua'],
+        onExecute: onShowExtensionSdk,
       ),
 
       // ─── ADVANCED PANELS ──────────────────────────────────────────────────
