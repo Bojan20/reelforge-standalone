@@ -9786,7 +9786,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           ),
         ],
       ),
-    );
+    ).then((_) {
+      nameController.dispose();
+      categoryController.dispose();
+    });
   }
 
   /// Build composite events list (from MiddlewareProvider / ASSIGN tab)

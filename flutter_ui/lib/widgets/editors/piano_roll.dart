@@ -549,8 +549,8 @@ class _PianoRollState extends State<PianoRoll> {
     return Positioned(
       left: x,
       top: y,
-      child: GestureDetector(
-        onTap: () => _selectNote(note.id),
+      child: Listener(
+        onPointerDown: (event) => _selectNote(note.id, isShift: HardwareKeyboard.instance.isShiftPressed),
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
           child: Container(
@@ -748,9 +748,9 @@ class _PianoRollState extends State<PianoRoll> {
     });
   }
 
-  void _selectNote(String id) {
+  void _selectNote(String id, {bool isShift = false}) {
     final newSelection = Set<String>.from(widget.selectedIds);
-    if (HardwareKeyboard.instance.isShiftPressed) {
+    if (isShift) {
       // Add to selection
       if (newSelection.contains(id)) {
         newSelection.remove(id);

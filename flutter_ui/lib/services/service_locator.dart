@@ -111,6 +111,7 @@ import '../providers/slot_lab/slot_lab_coordinator.dart';
 import 'video_export_service.dart';
 import 'video_playback_service.dart';
 import '../providers/custom_event_provider.dart';
+import 'extension_sdk_service.dart';
 
 /// Global service locator instance
 final GetIt sl = GetIt.instance;
@@ -607,6 +608,13 @@ class ServiceLocator {
     // ═══════════════════════════════════════════════════════════════════════════
     sl.registerLazySingleton<CustomEventProvider>(
       () => CustomEventProvider(),
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LAYER 8.2: Extension SDK Service
+    // ═══════════════════════════════════════════════════════════════════════════
+    sl.registerLazySingleton<ExtensionSdkService>(
+      () => ExtensionSdkService.instance,
     );
 
     // Initialize plugin alternatives registry

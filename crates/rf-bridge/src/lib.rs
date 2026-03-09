@@ -400,3 +400,9 @@ pub use fluxmacro_ffi::*;
 
 // Re-export Advanced Loop System FFI (Wwise-grade)
 pub use loop_ffi::*;
+
+// Re-export Control Room FFI
+pub use rf_engine::ffi_control_room::*;
+
+// Re-export Routing FFI
+pub use rf_engine::ffi_routing::*;
