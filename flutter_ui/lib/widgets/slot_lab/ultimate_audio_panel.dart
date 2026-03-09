@@ -3647,6 +3647,7 @@ class _SymbolsSection extends _SectionConfig {
         title: 'Wild Variations',
         icon: '🃏',
         slots: [
+          _SlotConfig(stage: 'WILD_LAND', label: 'Wild Land'),
           _SlotConfig(stage: 'WILD_EXPAND_START', label: 'Wild Expand Start'),
           _SlotConfig(stage: 'WILD_EXPAND_STEP', label: 'Wild Expand Step'),
           _SlotConfig(stage: 'WILD_EXPAND_END', label: 'Wild Expand End'),
@@ -3682,6 +3683,7 @@ class _SymbolsSection extends _SectionConfig {
           _SlotConfig(stage: 'COIN_LAND', label: 'Coin Land'),
           _SlotConfig(stage: 'COIN_VALUE_REVEAL', label: 'Coin Value Reveal'),
           _SlotConfig(stage: 'COIN_COLLECT', label: 'Coin Collect'),
+          _SlotConfig(stage: 'SCATTER_LAND', label: 'Scatter Land'),
           _SlotConfig(stage: 'SCATTER_LAND_1', label: 'Scatter #1'),
           _SlotConfig(stage: 'SCATTER_LAND_2', label: 'Scatter #2'),
           _SlotConfig(stage: 'SCATTER_LAND_3', label: 'Scatter #3'),
@@ -4704,15 +4706,7 @@ class _MusicSection extends _SectionConfig {
             _SlotConfig(stage: 'MUSIC_HOLD_L5', label: 'Layer 5'),
           ],
         ),
-        _GroupConfig(
-          id: 'bigwin',
-          title: 'Big Win',
-          icon: '🏆',
-          slots: [
-            _SlotConfig(stage: 'BIG_WIN_START', label: 'Intro'),
-            _SlotConfig(stage: 'BIG_WIN_END', label: 'End'),
-          ],
-        ),
+        // BIG_WIN_START/END are in WIN PRESENTATION section
         _GroupConfig(
           id: 'jackpot',
           title: 'Jackpot',
@@ -4846,7 +4840,7 @@ class _UISystemSection extends _SectionConfig {
       slots: [
         _SlotConfig(stage: 'UI_BUTTON_PRESS', label: 'Button Press'),
         _SlotConfig(stage: 'UI_BUTTON_HOVER', label: 'Button Hover'),
-        _SlotConfig(stage: 'UI_SPIN_PRESS', label: 'Spin Press'),
+        // UI_SPIN_PRESS is in BASE GAME LOOP > Spin Controls
         _SlotConfig(stage: 'UI_SPIN_HOVER', label: 'Spin Hover'),
         _SlotConfig(stage: 'UI_SPIN_RELEASE', label: 'Spin Release'),
         _SlotConfig(stage: 'UI_BET_UP', label: 'Bet Up'),
@@ -4952,9 +4946,7 @@ class _NudgeRespinSection extends _SectionConfig {
       icon: '🔄',
       slots: [
         _SlotConfig(stage: 'RESPIN_TRIGGER', label: 'Respin Trigger'),
-        _SlotConfig(stage: 'RESPIN_START', label: 'Respin Start'),
-        _SlotConfig(stage: 'RESPIN_SPIN', label: 'Respin Spin'),
-        _SlotConfig(stage: 'RESPIN_STOP', label: 'Respin Stop'),
+        // RESPIN_START/SPIN/STOP are in HOLD & WIN section
         _SlotConfig(stage: 'RESPIN_END', label: 'Respin End'),
         _SlotConfig(stage: 'RESPIN_RETRIGGER', label: 'Respin Retrigger'),
       ],
@@ -4983,7 +4975,6 @@ class _WildFeaturesSection extends _SectionConfig {
       icon: '📐',
       slots: [
         _SlotConfig(stage: 'WILD_EXPAND', label: 'Wild Expand'),
-        _SlotConfig(stage: 'WILD_EXPAND_START', label: 'Expand Start'),
         _SlotConfig(stage: 'WILD_EXPAND_FILL', label: 'Expand Fill'),
         _SlotConfig(stage: 'WILD_EXPAND_COMPLETE', label: 'Expand Complete'),
         _SlotConfig(stage: 'WILD_COLUMN_FILL', label: 'Column Fill'),
@@ -5006,9 +4997,7 @@ class _WildFeaturesSection extends _SectionConfig {
       title: 'General Wild',
       icon: '🌟',
       slots: [
-        _SlotConfig(stage: 'WILD_LAND', label: 'Wild Land'),
-        _SlotConfig(stage: 'WILD_TRANSFORM', label: 'Wild Transform'),
-        _SlotConfig(stage: 'WILD_MULTIPLY', label: 'Wild Multiply'),
+        // WILD_LAND is in SYMBOLS > Wild Variations
         _SlotConfig(stage: 'WILD_WALKING', label: 'Walking Wild'),
         _SlotConfig(stage: 'WILD_RANDOM', label: 'Random Wild'),
         _SlotConfig(stage: 'WILD_STACKED', label: 'Stacked Wild'),
@@ -5116,15 +5105,7 @@ class _AnticipationSection extends _SectionConfig {
 
   @override
   List<_GroupConfig> get groups => const [
-    _GroupConfig(
-      id: 'anticipation',
-      title: 'Anticipation',
-      icon: '🔢',
-      slots: [
-        _SlotConfig(stage: 'ANTICIPATION_TENSION', label: 'Tension (Global)'),
-        _SlotConfig(stage: 'ANTICIPATION_MISS', label: 'Anticipation Miss'),
-      ],
-    ),
+    // ANTICIPATION_TENSION + ANTICIPATION_MISS are in BASE GAME LOOP section
     _GroupConfig(
       id: 'tension_per_reel',
       title: 'Tension Per-Reel',
@@ -5153,14 +5134,7 @@ class _AnticipationSection extends _SectionConfig {
         _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L4', label: 'R5 Level 4'),
       ],
     ),
-    _GroupConfig(
-      id: 'near_miss',
-      title: 'Near Miss',
-      icon: '🎯',
-      slots: [
-        _SlotConfig(stage: 'NEAR_MISS', label: 'Near Miss'),
-      ],
-    ),
+    // NEAR_MISS is in BASE GAME LOOP section
   ];
 }
 
