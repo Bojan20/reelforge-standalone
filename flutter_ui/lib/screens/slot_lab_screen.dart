@@ -9680,31 +9680,64 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             // ── Composite Events (from ASSIGN tab / MiddlewareProvider) ──
             if (hasComposite) ...[
               Padding(
-                padding: EdgeInsets.only(bottom: SlotLabSpacing.xxs, left: SlotLabSpacing.xs),
-                child: Text(
-                  'STAGE EVENTS',
-                  style: SlotLabTypo.categoryLabel.copyWith(
-                    color: FluxForgeTheme.accentCyan.withValues(alpha: 0.5),
-                    letterSpacing: 1.2,
-                  ),
+                padding: const EdgeInsets.only(top: 4, bottom: 6, left: 8, right: 8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 3, height: 10,
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.accentCyan.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(1.5),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'STAGE EVENTS',
+                      style: TextStyle(
+                        color: FluxForgeTheme.accentCyan.withValues(alpha: 0.7),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${compositeEvents.length}',
+                      style: TextStyle(
+                        color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
+                        fontSize: 9,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               ..._buildCompositeEventsList(compositeEvents, selected, mw),
             ],
             // ── Custom Events (user-created, outside stage system) ──
-            Padding(
-              padding: EdgeInsets.only(
-                top: hasComposite ? SlotLabSpacing.sm : 0,
-                bottom: SlotLabSpacing.xxs,
-                left: SlotLabSpacing.xs,
+            if (hasComposite)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Divider(height: 1, color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.5)),
               ),
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 6, left: 8, right: 8),
               child: Row(
                 children: [
+                  Container(
+                    width: 3, height: 10,
+                    decoration: BoxDecoration(
+                      color: FluxForgeTheme.accentPurple.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(1.5),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
                   Text(
                     'CUSTOM EVENTS',
-                    style: SlotLabTypo.categoryLabel.copyWith(
-                      color: const Color(0xFF9040FF).withValues(alpha: 0.7),
-                      letterSpacing: 1.2,
+                    style: TextStyle(
+                      color: FluxForgeTheme.accentPurple.withValues(alpha: 0.7),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.0,
                     ),
                   ),
                   const Spacer(),
@@ -9716,17 +9749,17 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               ..._buildCustomEventsList(customEvents, selectedCustomId, customProv),
             if (!hasCustom)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Center(
                   child: Text(
                     'No custom events yet',
-                    style: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.3), fontSize: 9),
+                    style: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.4), fontSize: 10),
                   ),
                 ),
               ),
           ];
         return ListView.builder(
-          padding: EdgeInsets.all(SlotLabSpacing.xs),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
           itemCount: items.length,
           itemBuilder: (ctx, i) => items[i],
         );
@@ -9739,18 +9772,18 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     return GestureDetector(
       onTap: () => _showCreateCustomEventDialog(customProv),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: const Color(0xFF9040FF).withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: const Color(0xFF9040FF).withValues(alpha: 0.3)),
+          color: FluxForgeTheme.accentPurple.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: FluxForgeTheme.accentPurple.withValues(alpha: 0.25)),
         ),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.add, size: 10, color: Color(0xFF9040FF)),
-            SizedBox(width: 2),
-            Text('New', style: TextStyle(color: Color(0xFF9040FF), fontSize: 8)),
+            Icon(Icons.add_rounded, size: 12, color: FluxForgeTheme.accentPurple.withValues(alpha: 0.8)),
+            const SizedBox(width: 3),
+            Text('New', style: TextStyle(color: FluxForgeTheme.accentPurple.withValues(alpha: 0.8), fontSize: 9, fontWeight: FontWeight.w500)),
           ],
         ),
       ),
@@ -9833,11 +9866,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     return grouped.entries.expand((entry) {
       return [
         Padding(
-          padding: EdgeInsets.only(top: SlotLabSpacing.xs, bottom: SlotLabSpacing.xxs, left: SlotLabSpacing.xs),
+          padding: const EdgeInsets.only(top: 8, bottom: 4, left: 10),
           child: Text(
             entry.key.toUpperCase(),
-            style: SlotLabTypo.categoryLabel.copyWith(
-              color: FluxForgeTheme.accentCyan.withValues(alpha: 0.7),
+            style: TextStyle(
+              color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6),
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.8,
             ),
           ),
         ),
@@ -9850,45 +9886,53 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 setState(() {});
               },
               child: Container(
-                margin: const EdgeInsets.only(bottom: 1),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                margin: const EdgeInsets.only(bottom: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? FluxForgeTheme.accentGreen.withValues(alpha: 0.15)
-                      : const Color(0xFF161620),
-                  borderRadius: BorderRadius.circular(3),
+                      ? FluxForgeTheme.accentGreen.withValues(alpha: 0.12)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(4),
                   border: isSelected
-                      ? Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.4))
+                      ? Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.35))
                       : null,
                 ),
                 child: Row(
                   children: [
                     Icon(
-                      isSelected ? Icons.expand_more : Icons.chevron_right,
-                      size: 12,
+                      isSelected ? Icons.expand_more_rounded : Icons.chevron_right_rounded,
+                      size: 14,
                       color: isSelected
                           ? FluxForgeTheme.accentGreen
-                          : const Color(0xFF606068),
+                          : FluxForgeTheme.textTertiary,
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         evt.name,
                         style: TextStyle(
                           color: isSelected
-                              ? const Color(0xFFE0E0E8)
-                              : const Color(0xFFB0B0B8),
-                          fontSize: 10,
+                              ? FluxForgeTheme.textPrimary
+                              : FluxForgeTheme.textSecondary,
+                          fontSize: 11,
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Text(
-                      '${evt.layers.length}L',
-                      style: TextStyle(
-                        color: const Color(0xFF808088).withValues(alpha: 0.6),
-                        fontSize: 8,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.bgSurface.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        '${evt.layers.length}',
+                        style: TextStyle(
+                          color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],
@@ -9914,11 +9958,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     return grouped.entries.expand((entry) {
       return [
         Padding(
-          padding: EdgeInsets.only(top: SlotLabSpacing.xs, bottom: SlotLabSpacing.xxs, left: SlotLabSpacing.xs),
+          padding: const EdgeInsets.only(top: 8, bottom: 4, left: 10),
           child: Text(
             entry.key.toUpperCase(),
-            style: SlotLabTypo.categoryLabel.copyWith(
-              color: const Color(0xFF9040FF).withValues(alpha: 0.6),
+            style: TextStyle(
+              color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6),
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.8,
             ),
           ),
         ),
@@ -9931,43 +9978,47 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 setState(() {});
               },
               child: Container(
-                margin: const EdgeInsets.only(bottom: 1),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                margin: const EdgeInsets.only(bottom: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? const Color(0xFF9040FF).withValues(alpha: 0.15)
-                      : const Color(0xFF161620),
-                  borderRadius: BorderRadius.circular(3),
+                      ? FluxForgeTheme.accentPurple.withValues(alpha: 0.12)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(4),
                   border: isSelected
-                      ? Border.all(color: const Color(0xFF9040FF).withValues(alpha: 0.4))
+                      ? Border.all(color: FluxForgeTheme.accentPurple.withValues(alpha: 0.35))
                       : null,
                 ),
                 child: Row(
                   children: [
                     Icon(
-                      isSelected ? Icons.expand_more : Icons.chevron_right,
-                      size: 12,
+                      isSelected ? Icons.expand_more_rounded : Icons.chevron_right_rounded,
+                      size: 14,
                       color: isSelected
-                          ? const Color(0xFF9040FF)
-                          : const Color(0xFF606068),
+                          ? FluxForgeTheme.accentPurple
+                          : FluxForgeTheme.textTertiary,
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 6),
                     Container(
-                      width: 6, height: 6,
+                      width: 7, height: 7,
                       decoration: BoxDecoration(
-                        color: evt.color.withValues(alpha: evt.enabled ? 1.0 : 0.3),
+                        color: evt.color.withValues(alpha: evt.enabled ? 0.9 : 0.25),
                         shape: BoxShape.circle,
+                        border: Border.all(
+                          color: evt.color.withValues(alpha: evt.enabled ? 0.4 : 0.1),
+                          width: 1,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         evt.name,
                         style: TextStyle(
                           color: isSelected
-                              ? const Color(0xFFE0E0E8)
-                              : evt.enabled ? const Color(0xFFB0B0B8) : const Color(0xFF606068),
-                          fontSize: 10,
+                              ? FluxForgeTheme.textPrimary
+                              : evt.enabled ? FluxForgeTheme.textSecondary : FluxForgeTheme.textTertiary,
+                          fontSize: 11,
                           fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -9975,18 +10026,26 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     ),
                     if (evt.triggerMode != CustomTriggerMode.manual)
                       Padding(
-                        padding: const EdgeInsets.only(right: 4),
+                        padding: const EdgeInsets.only(right: 5),
                         child: Icon(
                           _customTriggerIcon(evt.triggerMode),
-                          size: 8,
-                          color: const Color(0xFF808088).withValues(alpha: 0.5),
+                          size: 10,
+                          color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
                         ),
                       ),
-                    Text(
-                      '${evt.layers.length}L',
-                      style: TextStyle(
-                        color: const Color(0xFF808088).withValues(alpha: 0.6),
-                        fontSize: 8,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.bgSurface.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        '${evt.layers.length}',
+                        style: TextStyle(
+                          color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],
@@ -10015,14 +10074,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   Widget _buildCustomEventInlineEditor(CustomEvent event, CustomEventProvider customProv) {
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.all(6),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: const Color(0xFF121218),
+        color: FluxForgeTheme.bgDeep,
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(4),
           bottomRight: Radius.circular(4),
         ),
-        border: Border.all(color: const Color(0xFF9040FF).withValues(alpha: 0.2)),
+        border: Border.all(color: FluxForgeTheme.accentPurple.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -10033,7 +10092,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           _customEditorRow('Probability', '${(event.probability * 100).toInt()}%'),
           if (event.cooldownSeconds > 0)
             _customEditorRow('Cooldown', '${event.cooldownSeconds}s'),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           // Action buttons
           Row(
             children: [
@@ -10044,18 +10103,23 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   setState(() {});
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: event.enabled
-                        ? FluxForgeTheme.accentGreen.withValues(alpha: 0.15)
-                        : const Color(0xFF2A2A32),
+                        ? FluxForgeTheme.accentGreen.withValues(alpha: 0.12)
+                        : FluxForgeTheme.bgSurface,
                     borderRadius: BorderRadius.circular(3),
+                    border: Border.all(
+                      color: event.enabled
+                          ? FluxForgeTheme.accentGreen.withValues(alpha: 0.3)
+                          : FluxForgeTheme.borderSubtle,
+                    ),
                   ),
                   child: Text(
                     event.enabled ? 'ON' : 'OFF',
                     style: TextStyle(
-                      color: event.enabled ? FluxForgeTheme.accentGreen : const Color(0xFF606068),
-                      fontSize: 8, fontWeight: FontWeight.w600,
+                      color: event.enabled ? FluxForgeTheme.accentGreen : FluxForgeTheme.textTertiary,
+                      fontSize: 9, fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -10067,17 +10131,17 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   customProv.deleteEvent(event.id);
                   setState(() {});
                 },
-                child: const Icon(Icons.delete_outline, size: 12, color: Color(0xFF804040)),
+                child: Icon(Icons.delete_outline, size: 14, color: FluxForgeTheme.accentRed.withValues(alpha: 0.5)),
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           // Layers header with add button
           Row(
             children: [
-              const Text(
+              Text(
                 'LAYERS',
-                style: TextStyle(color: Color(0xFF808088), fontSize: 8, fontWeight: FontWeight.w600, letterSpacing: 1),
+                style: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7), fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 0.8),
               ),
               const Spacer(),
               GestureDetector(
@@ -10094,25 +10158,25 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   setState(() {});
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF9040FF).withValues(alpha: 0.15),
+                    color: FluxForgeTheme.accentPurple.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(3),
-                    border: Border.all(color: const Color(0xFF9040FF).withValues(alpha: 0.3)),
+                    border: Border.all(color: FluxForgeTheme.accentPurple.withValues(alpha: 0.25)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.add, size: 10, color: Color(0xFF9040FF)),
-                      SizedBox(width: 2),
-                      Text('Add', style: TextStyle(color: Color(0xFF9040FF), fontSize: 8)),
+                      Icon(Icons.add_rounded, size: 11, color: FluxForgeTheme.accentPurple.withValues(alpha: 0.7)),
+                      const SizedBox(width: 3),
+                      Text('Add', style: TextStyle(color: FluxForgeTheme.accentPurple.withValues(alpha: 0.7), fontSize: 9)),
                     ],
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 4),
           // Layer list with drag&drop
           ...event.layers.asMap().entries.map((entry) {
             final layer = entry.value;
@@ -10136,30 +10200,30 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               builder: (context, candidateData, rejectedData) {
                 final isDragOver = candidateData.isNotEmpty;
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 2),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  margin: const EdgeInsets.only(bottom: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: isDragOver
-                        ? const Color(0xFF9040FF).withValues(alpha: 0.15)
-                        : const Color(0xFF161620),
+                        ? FluxForgeTheme.accentPurple.withValues(alpha: 0.12)
+                        : FluxForgeTheme.bgMid,
                     borderRadius: BorderRadius.circular(3),
                     border: isDragOver
-                        ? Border.all(color: const Color(0xFF9040FF).withValues(alpha: 0.4))
-                        : null,
+                        ? Border.all(color: FluxForgeTheme.accentPurple.withValues(alpha: 0.35))
+                        : Border.all(color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
                       Text(
                         '${entry.key + 1}',
-                        style: const TextStyle(color: Color(0xFF606068), fontSize: 8, fontWeight: FontWeight.w600),
+                        style: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6), fontSize: 9, fontWeight: FontWeight.w600),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           layer.displayName,
                           style: TextStyle(
-                            color: layer.muted ? const Color(0xFF606068) : const Color(0xFFB0B0B8),
-                            fontSize: 9,
+                            color: layer.muted ? FluxForgeTheme.textTertiary : FluxForgeTheme.textSecondary,
+                            fontSize: 10,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -10171,18 +10235,18 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                           setState(() {});
                         },
                         child: Icon(
-                          layer.muted ? Icons.volume_off : Icons.volume_up,
-                          size: 10,
-                          color: layer.muted ? const Color(0xFFFF6060) : const Color(0xFF606068),
+                          layer.muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                          size: 12,
+                          color: layer.muted ? FluxForgeTheme.accentRed.withValues(alpha: 0.6) : FluxForgeTheme.textTertiary,
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 6),
                       GestureDetector(
                         onTap: () {
                           customProv.removeLayer(event.id, layer.id);
                           setState(() {});
                         },
-                        child: const Icon(Icons.close, size: 10, color: Color(0xFF606068)),
+                        child: Icon(Icons.close_rounded, size: 12, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5)),
                       ),
                     ],
                   ),
@@ -10212,24 +10276,24 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               builder: (context, candidateData, rejectedData) {
                 final isDragOver = candidateData.isNotEmpty;
                 return Container(
-                  height: 28,
+                  height: 32,
                   decoration: BoxDecoration(
                     color: isDragOver
-                        ? const Color(0xFF9040FF).withValues(alpha: 0.1)
+                        ? FluxForgeTheme.accentPurple.withValues(alpha: 0.08)
                         : Colors.transparent,
-                    borderRadius: BorderRadius.circular(3),
+                    borderRadius: BorderRadius.circular(4),
                     border: Border.all(
                       color: isDragOver
-                          ? const Color(0xFF9040FF).withValues(alpha: 0.4)
-                          : const Color(0xFF2A2A32),
+                          ? FluxForgeTheme.accentPurple.withValues(alpha: 0.35)
+                          : FluxForgeTheme.borderSubtle.withValues(alpha: 0.4),
                     ),
                   ),
                   child: Center(
                     child: Text(
                       isDragOver ? 'Drop audio here' : 'Drag audio from POOL →',
                       style: TextStyle(
-                        color: isDragOver ? const Color(0xFF9040FF) : const Color(0xFF404048),
-                        fontSize: 8,
+                        color: isDragOver ? FluxForgeTheme.accentPurple : FluxForgeTheme.textDisabled,
+                        fontSize: 9,
                       ),
                     ),
                   ),
@@ -10245,14 +10309,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   Widget _buildCustomTabInlineEditor(SlotCompositeEvent event, MiddlewareProvider mw) {
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.all(6),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: const Color(0xFF121218),
+        color: FluxForgeTheme.bgDeep,
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(4),
           bottomRight: Radius.circular(4),
         ),
-        border: Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.2)),
+        border: Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -10262,13 +10326,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           _customEditorRow('Stages', event.triggerStages.join(', ')),
           _customEditorRow('Instances', '${event.maxInstances}'),
           _customEditorRow('Looping', event.looping ? 'Yes' : 'No'),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           // Layers header with add button
           Row(
             children: [
-              const Text(
+              Text(
                 'LAYERS',
-                style: TextStyle(color: Color(0xFF808088), fontSize: 8, fontWeight: FontWeight.w600, letterSpacing: 1),
+                style: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7), fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 0.8),
               ),
               const Spacer(),
               GestureDetector(
@@ -10287,25 +10351,25 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   setState(() {});
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: FluxForgeTheme.accentGreen.withValues(alpha: 0.15),
+                    color: FluxForgeTheme.accentGreen.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(3),
-                    border: Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.3)),
+                    border: Border.all(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.25)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.add, size: 10, color: FluxForgeTheme.accentGreen),
-                      SizedBox(width: 2),
-                      Text('Add', style: TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 8)),
+                      Icon(Icons.add_rounded, size: 11, color: FluxForgeTheme.accentGreen.withValues(alpha: 0.7)),
+                      const SizedBox(width: 3),
+                      Text('Add', style: TextStyle(color: FluxForgeTheme.accentGreen.withValues(alpha: 0.7), fontSize: 9)),
                     ],
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 4),
           // Layer list with drag&drop
           ...event.layers.asMap().entries.map((entry) {
             final layer = entry.value;
@@ -10323,7 +10387,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   path = details.data as String;
                 }
                 if (path != null) {
-                  // Update existing layer with new audio
                   final updatedLayer = SlotEventLayer(
                     id: layer.id,
                     name: path.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
@@ -10345,28 +10408,28 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               builder: (context, candidateData, rejectedData) {
                 final isDragOver = candidateData.isNotEmpty;
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 2),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  margin: const EdgeInsets.only(bottom: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: isDragOver
-                        ? FluxForgeTheme.accentBlue.withValues(alpha: 0.15)
-                        : const Color(0xFF161620),
+                        ? FluxForgeTheme.accentBlue.withValues(alpha: 0.12)
+                        : FluxForgeTheme.bgMid,
                     borderRadius: BorderRadius.circular(3),
                     border: isDragOver
-                        ? Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.4))
-                        : null,
+                        ? Border.all(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.35))
+                        : Border.all(color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
                       Text(
                         '${entry.key + 1}',
-                        style: const TextStyle(color: Color(0xFF606068), fontSize: 8, fontWeight: FontWeight.w600),
+                        style: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6), fontSize: 9, fontWeight: FontWeight.w600),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           fileName,
-                          style: const TextStyle(color: Color(0xFFB0B0B8), fontSize: 9),
+                          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -10375,7 +10438,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                           mw.removeLayerFromEvent(event.id, layer.id);
                           setState(() {});
                         },
-                        child: const Icon(Icons.close, size: 10, color: Color(0xFF606068)),
+                        child: Icon(Icons.close_rounded, size: 12, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5)),
                       ),
                     ],
                   ),
@@ -10406,24 +10469,24 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               builder: (context, candidateData, rejectedData) {
                 final isDragOver = candidateData.isNotEmpty;
                 return Container(
-                  height: 28,
+                  height: 32,
                   decoration: BoxDecoration(
                     color: isDragOver
-                        ? FluxForgeTheme.accentBlue.withValues(alpha: 0.1)
+                        ? FluxForgeTheme.accentBlue.withValues(alpha: 0.08)
                         : Colors.transparent,
-                    borderRadius: BorderRadius.circular(3),
+                    borderRadius: BorderRadius.circular(4),
                     border: Border.all(
                       color: isDragOver
-                          ? FluxForgeTheme.accentBlue.withValues(alpha: 0.4)
-                          : const Color(0xFF2A2A32),
+                          ? FluxForgeTheme.accentBlue.withValues(alpha: 0.35)
+                          : FluxForgeTheme.borderSubtle.withValues(alpha: 0.4),
                     ),
                   ),
                   child: Center(
                     child: Text(
                       isDragOver ? 'Drop audio here' : 'Drag audio from POOL →',
                       style: TextStyle(
-                        color: isDragOver ? FluxForgeTheme.accentBlue : const Color(0xFF404048),
-                        fontSize: 8,
+                        color: isDragOver ? FluxForgeTheme.accentBlue : FluxForgeTheme.textDisabled,
+                        fontSize: 9,
                       ),
                     ),
                   ),
@@ -10437,17 +10500,17 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   Widget _customEditorRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 1),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
           SizedBox(
-            width: 56,
-            child: Text(label, style: const TextStyle(color: Color(0xFF606068), fontSize: 8)),
+            width: 62,
+            child: Text(label, style: TextStyle(color: FluxForgeTheme.textTertiary.withValues(alpha: 0.7), fontSize: 9)),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(color: Color(0xFFB0B0B8), fontSize: 9, fontWeight: FontWeight.w500),
+              style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 10, fontWeight: FontWeight.w500),
               overflow: TextOverflow.ellipsis,
             ),
           ),
