@@ -314,7 +314,7 @@ enum DawBrowseSubTab { files, presets, plugins, history }
 enum DawEditSubTab { timeline, pianoRoll, fades, grid, punch, comping, warp, elastic, beatDetect, tempoDetect, stripSilence, dynamicSplit, ucsNaming, loopEditor, video }
 enum DawMixSubTab { mixer, sends, pan, automation }
 enum DawProcessSubTab { eq, comp, limiter, reverb, gate, delay, saturation, deEsser, fxChain, sidechain }
-enum DawDeliverSubTab { export, stems, stemManager, bounce, archive }
+enum DawDeliverSubTab { export, stems, stemManager, loudnessReport, bounce, archive }
 
 extension DawBrowseSubTabX on DawBrowseSubTab {
   String get label => ['Files', 'Presets', 'Plugins', 'History'][index];
@@ -382,13 +382,14 @@ extension DawProcessSubTabX on DawProcessSubTab {
 }
 
 extension DawDeliverSubTabX on DawDeliverSubTab {
-  String get label => ['Export', 'Stems', 'Stem Mgr', 'Bounce', 'Archive'][index];
-  String get shortcut => ['Q', 'W', 'M', 'E', 'R'][index];
-  IconData get icon => [Icons.upload_file, Icons.layers, Icons.library_music, Icons.album, Icons.archive][index];
+  String get label => ['Export', 'Stems', 'Stem Mgr', 'Loudness', 'Bounce', 'Archive'][index];
+  String get shortcut => ['Q', 'W', 'M', 'L', 'E', 'R'][index];
+  IconData get icon => [Icons.upload_file, Icons.layers, Icons.library_music, Icons.assessment, Icons.album, Icons.archive][index];
   String get tooltip => [
     'Quick export with last settings (WAV/FLAC/MP3, LUFS normalize)',
     'Export individual tracks/buses as stems (batch export)',
     'Stem Manager — save/recall solo/mute configs, batch render with multi-format',
+    'Loudness Report — LUFS analysis, True Peak, LRA, clipping detection, HTML export',
     'Master bounce with format/sample rate/normalize options',
     'ZIP project with audio/presets/plugins (optional compression)',
   ][index];

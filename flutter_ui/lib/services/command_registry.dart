@@ -291,6 +291,7 @@ class CommandRegistry {
     VoidCallback? onShowDynamicSplit,
     VoidCallback? onShowUcsNaming,
     VoidCallback? onShowStemManager,
+    VoidCallback? onShowLoudnessReport,
     VoidCallback? onShowMacroControls,
     VoidCallback? onShowClipGainEnvelope,
   }) {
@@ -1199,6 +1200,15 @@ class CommandRegistry {
         icon: Icons.library_music,
         keywords: ['stem', 'manager', 'solo', 'mute', 'render', 'batch', 'export', 'config'],
         onExecute: onShowStemManager,
+      ),
+      PaletteCommand(
+        id: 'tools.loudness_report',
+        label: 'Loudness Report',
+        description: 'LUFS analysis, True Peak, LRA, clipping detection, HTML report',
+        category: PaletteCategory.tools,
+        icon: Icons.assessment,
+        keywords: ['loudness', 'report', 'lufs', 'peak', 'lra', 'clipping', 'analysis', 'html'],
+        onExecute: onShowLoudnessReport,
       ),
 
       // ─── ADVANCED PANELS ──────────────────────────────────────────────────

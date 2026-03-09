@@ -330,6 +330,11 @@ class _MainLayoutState extends State<MainLayout>
         controller.setDeliverSubTab(DawDeliverSubTab.stemManager);
         controller.expand();
       },
+      onShowLoudnessReport: () {
+        final controller = DawLowerZoneController.instance;
+        controller.setDeliverSubTab(DawDeliverSubTab.loudnessReport);
+        controller.expand();
+      },
     );
     CommandPalette.showUltimate(context);
   }

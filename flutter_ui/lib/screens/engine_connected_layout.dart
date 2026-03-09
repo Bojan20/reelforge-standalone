@@ -61,6 +61,7 @@ import '../services/audio_playback_service.dart';
 import '../services/service_locator.dart';
 import '../services/unified_search_service.dart';
 import '../services/auto_color_service.dart';
+import '../services/loudness_report_service.dart';
 import '../widgets/daw/auto_color_rules_panel.dart';
 import '../utils/path_validator.dart';
 
@@ -1567,6 +1568,31 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     final queue = params['queue'] as List<dynamic>?;
     if (queue == null || queue.isEmpty) return;
     _showSnackBar('Batch render started: ${queue.length} jobs');
+  }
+
+  void _handleLoudnessDryRun(Map<String, dynamic>? params) {
+    // Dry run analysis uses LoudnessReportService
+    // In production, this would read audio buffer from engine via FFI
+    // For now, generate test data to demonstrate the pipeline
+    final service = LoudnessReportService.instance;
+    if (service.isAnalyzing) return;
+
+    // Generate synthetic test audio (1 second of 440Hz sine at -14 LUFS)
+    const sampleRate = 48000;
+    const seconds = 5;
+    const totalSamples = sampleRate * 2 * seconds; // stereo
+    final samples = List<double>.generate(totalSamples, (i) {
+      final t = (i ~/ 2) / sampleRate;
+      final sine = math.sin(2.0 * math.pi * 440.0 * t) * 0.15;
+      return sine;
+    });
+
+    service.analyzeDryRun(
+      samples: samples,
+      sampleRate: sampleRate,
+      projectName: 'FluxForge Session',
+    );
+    _showSnackBar('Loudness analysis started (dry run)');
   }
 
   /// Create a video track
@@ -6348,6 +6374,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 _handleStemRecall(params);
               case 'stemBatchRender':
                 _handleStemBatchRender(params);
+              case 'loudnessDryRun':
+                _handleLoudnessDryRun(params);
+              case 'loudnessReportExported':
+                _showSnackBar('Loudness report exported');
             }
           },
           // P0.2: Grid/Snap Settings

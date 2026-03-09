@@ -75,6 +75,7 @@ import 'daw/process/deesser_panel.dart'; // ✅ FF-E DeEsser
 import 'daw/deliver/export_panel.dart';
 import 'daw/deliver/stems_panel.dart';
 import 'daw/deliver/stem_manager_panel.dart';
+import 'daw/deliver/loudness_report_panel.dart';
 import 'daw/deliver/bounce_panel.dart';
 import 'daw/deliver/archive_panel.dart';
 // Gate and Reverb are accessible via FX Chain panel
@@ -804,6 +805,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawDeliverSubTab.export => _buildExportPanel(),
       DawDeliverSubTab.stems => _buildStemsPanel(),
       DawDeliverSubTab.stemManager => _buildStemManagerPanel(),
+      DawDeliverSubTab.loudnessReport => _buildLoudnessReportPanel(),
       DawDeliverSubTab.bounce => _buildBouncePanel(),
       DawDeliverSubTab.archive => _buildArchivePanel(),
     };
@@ -1407,6 +1409,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawDeliverSubTab.export => _buildExportPanel(),
       DawDeliverSubTab.stems => _buildStemsPanel(),
       DawDeliverSubTab.stemManager => _buildStemManagerPanel(),
+      DawDeliverSubTab.loudnessReport => _buildLoudnessReportPanel(),
       DawDeliverSubTab.bounce => _buildBouncePanel(),
       DawDeliverSubTab.archive => _buildArchivePanel(),
     };
@@ -1421,6 +1424,11 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
 
   /// Stem Manager — save/recall solo/mute configs, batch render
   Widget _buildStemManagerPanel() => StemManagerPanel(
+    onAction: widget.onDspAction,
+  );
+
+  /// Loudness Report — dry run analysis + HTML report
+  Widget _buildLoudnessReportPanel() => LoudnessReportPanel(
     onAction: widget.onDspAction,
   );
 

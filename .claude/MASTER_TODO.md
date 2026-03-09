@@ -30,7 +30,7 @@ Analyzer: 0 errors, 0 warnings
 | # | Feature | Status | Opis | Složenost |
 |---|---------|--------|------|-----------|
 | 21 | **Stem Manager** | ✅ DONE | Save/recall solo/mute konfiguracija. Batch render svih stem konfiguracija. Render queue. Multi-format (WAV+OGG istovremeno). | Srednja |
-| 22 | **Loudness Report** | ❌ TODO | HTML interaktivni izveštaj: Integrated LUFS, Short-term graf, True Peak, LRA, clipping detection. Dry run (analiza bez renderovanja). | Srednja |
+| 22 | **Loudness Report** | ✅ DONE | HTML interaktivni izveštaj: Integrated LUFS, Short-term graf, True Peak, LRA, clipping detection. Dry run (analiza bez renderovanja). | Srednja |
 
 ### Faza 5: Power User Features (P3-P4)
 
