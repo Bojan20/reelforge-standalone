@@ -3007,7 +3007,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                         return Text(
                           '${lc}L',
                           style: TextStyle(
-                            fontSize: 8,
+                            fontSize: 9,
                             color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
                             fontFamily: 'monospace',
                           ),
