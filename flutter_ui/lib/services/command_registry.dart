@@ -294,6 +294,7 @@ class CommandRegistry {
     VoidCallback? onShowLoudnessReport,
     VoidCallback? onShowCycleActions,
     VoidCallback? onShowRegionPlaylist,
+    VoidCallback? onShowMarkerActions,
     VoidCallback? onShowMacroControls,
     VoidCallback? onShowClipGainEnvelope,
   }) {
@@ -1229,6 +1230,15 @@ class CommandRegistry {
         icon: Icons.playlist_play,
         keywords: ['region', 'playlist', 'non-linear', 'playback', 'order', 'sequence'],
         onExecute: onShowRegionPlaylist,
+      ),
+      PaletteCommand(
+        id: 'tools.marker_actions',
+        label: 'Marker Actions',
+        description: 'Trigger actions when playhead crosses markers (!actionId in name)',
+        category: PaletteCategory.tools,
+        icon: Icons.bolt,
+        keywords: ['marker', 'actions', 'trigger', 'playhead', 'crossing', 'timeline'],
+        onExecute: onShowMarkerActions,
       ),
 
       // ─── ADVANCED PANELS ──────────────────────────────────────────────────

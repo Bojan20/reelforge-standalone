@@ -6382,6 +6382,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 // Cycle action executed — service handles internally
               case 'regionPlaylistPlay':
                 // Region playlist playback — service handles internally
+              case 'markerActionTriggered':
+                // Marker action triggered — service handles internally
             }
           },
           // P0.2: Grid/Snap Settings
