@@ -287,6 +287,7 @@ class CommandRegistry {
     VoidCallback? onShowGrooveQuantize,
     VoidCallback? onShowAudioAlignment,
     VoidCallback? onShowTrackVersions,
+    VoidCallback? onShowAutoColorRules,
     VoidCallback? onShowMacroControls,
     VoidCallback? onShowClipGainEnvelope,
   }) {
@@ -1158,6 +1159,16 @@ class CommandRegistry {
         icon: Icons.build,
         keywords: ['build', 'compile', 'make'],
         onExecute: onBuildProject,
+      ),
+
+      PaletteCommand(
+        id: 'tools.auto_color_rules',
+        label: 'Auto-Color Rules',
+        description: 'Manage track auto-color rules (regex → color/icon)',
+        category: PaletteCategory.tools,
+        icon: Icons.palette,
+        keywords: ['auto', 'color', 'rules', 'regex', 'pattern', 'track', 'palette'],
+        onExecute: onShowAutoColorRules,
       ),
 
       // ─── ADVANCED PANELS ──────────────────────────────────────────────────

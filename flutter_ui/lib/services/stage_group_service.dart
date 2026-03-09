@@ -165,7 +165,7 @@ class _StageDefinition {
 /// - WIN_BIG → onWinBig
 String generateEventName(String stage) {
   // Special cases with custom naming
-  const customNames = {
+  final customNames = {
     // UI Events
     'UI_SPIN_PRESS': 'onUiSpin',
     'SPIN_END': 'onUiSpinEnd',
@@ -190,12 +190,10 @@ String generateEventName(String stage) {
     'WILD_STACK': 'onWildStack',
     'SCATTER_LAND': 'onScatterLand',
 
-    // Anticipation
+    // Anticipation (R0-R7 — any reel can have anticipation)
     'ANTICIPATION_TENSION': 'onAnticipationStart',
-    'ANTICIPATION_TENSION_R1': 'onAnticipationR1',
-    'ANTICIPATION_TENSION_R2': 'onAnticipationR2',
-    'ANTICIPATION_TENSION_R3': 'onAnticipationR3',
-    'ANTICIPATION_TENSION_R4': 'onAnticipationR4',
+    for (int r = 0; r < 8; r++)
+      'ANTICIPATION_TENSION_R$r': 'onAnticipationR$r',
     'ANTICIPATION_MISS': 'onAnticipationMiss',
 
     // Win Events — unified WIN_PRESENT_1..5 system
@@ -581,7 +579,7 @@ class StageGroupService {
   /// Uses original filename (lowercased, without extension/prefix number).
   /// If ANY alias key is found as substring in the filename → instant match.
   /// SORTED by specificity — longest aliases first to avoid partial matches.
-  static const Map<String, String> _aliasMap = {
+  static final Map<String, String> _aliasMap = {
     // ═══════════════════════════════════════════════════════════════════
     // BASE GAME MUSIC — all layer naming conventions
     // ═══════════════════════════════════════════════════════════════════
@@ -755,18 +753,12 @@ class StageGroupService {
     // ═══════════════════════════════════════════════════════════════════
     'spins_susp': 'ANTICIPATION_TENSION',
     'suspense': 'ANTICIPATION_TENSION',
-    'anticipation_r1': 'ANTICIPATION_TENSION_R1',
-    'sfx_antici_r1': 'ANTICIPATION_TENSION_R1',
-    'anticipation_reel_1': 'ANTICIPATION_TENSION_R1',
-    'anticipation_r2': 'ANTICIPATION_TENSION_R2',
-    'sfx_antici_r2': 'ANTICIPATION_TENSION_R2',
-    'anticipation_reel_2': 'ANTICIPATION_TENSION_R2',
-    'anticipation_r3': 'ANTICIPATION_TENSION_R3',
-    'sfx_antici_r3': 'ANTICIPATION_TENSION_R3',
-    'anticipation_reel_3': 'ANTICIPATION_TENSION_R3',
-    'anticipation_r4': 'ANTICIPATION_TENSION_R4',
-    'sfx_antici_r4': 'ANTICIPATION_TENSION_R4',
-    'anticipation_reel_4': 'ANTICIPATION_TENSION_R4',
+    // Per-reel anticipation aliases (R0-R7)
+    for (int r = 0; r < 8; r++) ...{
+      'anticipation_r$r': 'ANTICIPATION_TENSION_R$r',
+      'sfx_antici_r$r': 'ANTICIPATION_TENSION_R$r',
+      'anticipation_reel_$r': 'ANTICIPATION_TENSION_R$r',
+    },
 
     // ═══════════════════════════════════════════════════════════════════
     // WIN — all legacy and modern naming → unified WIN_PRESENT_1..5
@@ -1093,7 +1085,7 @@ class StageGroupService {
   ///
   /// Priority: More specific patterns beat less specific ones.
   /// Exclusion: Based on conflicting intent, not individual keywords.
-  static const Map<StageGroup, List<_StageDefinition>> _stageDefinitions = {
+  static final Map<StageGroup, List<_StageDefinition>> _stageDefinitions = {
     // ═══════════════════════════════════════════════════════════════════
     // GROUP 1: SPINS & REELS
     // ═══════════════════════════════════════════════════════════════════
@@ -1304,35 +1296,15 @@ class StageGroupService {
         priority: 76,
       ),
 
-      // Anticipation reel-specific variants
-      _StageDefinition(
-        stage: 'ANTICIPATION_TENSION_R1',
-        keywords: ['anticipation', 'antici', 'tension', 'r1', 'reel1', '1'],
-        requiredKeywords: ['anticipation|antici|tension'],
-        suffixes: ['_r1', '_reel1'],
-        priority: 74,
-      ),
-      _StageDefinition(
-        stage: 'ANTICIPATION_TENSION_R2',
-        keywords: ['anticipation', 'antici', 'tension', 'r2', 'reel2', '2'],
-        requiredKeywords: ['anticipation|antici|tension'],
-        suffixes: ['_r2', '_reel2'],
-        priority: 74,
-      ),
-      _StageDefinition(
-        stage: 'ANTICIPATION_TENSION_R3',
-        keywords: ['anticipation', 'antici', 'tension', 'r3', 'reel3', '3'],
-        requiredKeywords: ['anticipation|antici|tension'],
-        suffixes: ['_r3', '_reel3'],
-        priority: 74,
-      ),
-      _StageDefinition(
-        stage: 'ANTICIPATION_TENSION_R4',
-        keywords: ['anticipation', 'antici', 'tension', 'r4', 'reel4', '4'],
-        requiredKeywords: ['anticipation|antici|tension'],
-        suffixes: ['_r4', '_reel4'],
-        priority: 74,
-      ),
+      // Anticipation reel-specific variants (R0-R7)
+      for (int r = 0; r < 8; r++)
+        _StageDefinition(
+          stage: 'ANTICIPATION_TENSION_R$r',
+          keywords: ['anticipation', 'antici', 'tension', 'r$r', 'reel$r', '$r'],
+          requiredKeywords: ['anticipation|antici|tension'],
+          suffixes: ['_r$r', '_reel$r'],
+          priority: 74,
+        ),
 
       // Tumble/cascade variants (alternative naming for CASCADE_*)
       _StageDefinition(

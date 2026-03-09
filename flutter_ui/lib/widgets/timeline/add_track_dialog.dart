@@ -32,6 +32,8 @@ class AddTrackResult {
   final Color color;
   final TrackTemplate? template;
   final bool armForRecording;
+  /// True if user explicitly picked a color (false = default/unchanged)
+  final bool colorExplicit;
 
   const AddTrackResult({
     required this.trackType,
@@ -42,6 +44,7 @@ class AddTrackResult {
     this.color = const Color(0xFF5B9BD5),
     this.template,
     this.armForRecording = false,
+    this.colorExplicit = false,
   });
 }
 
@@ -182,6 +185,7 @@ class _AddTrackDialogState extends State<AddTrackDialog> {
   int _channels = 2; // 1=mono, 2=stereo
   OutputBus _outputBus = OutputBus.master;
   Color _selectedColor = _trackColors[0];
+  bool _colorExplicit = false;
   TrackTemplate? _selectedTemplate;
   bool _armForRecording = false;
   bool _templateExpanded = false;
@@ -242,6 +246,7 @@ class _AddTrackDialogState extends State<AddTrackDialog> {
       color: _selectedColor,
       template: _selectedTemplate,
       armForRecording: _armForRecording,
+      colorExplicit: _colorExplicit,
     ));
   }
 
@@ -597,7 +602,7 @@ class _AddTrackDialogState extends State<AddTrackDialog> {
           return Padding(
             padding: const EdgeInsets.only(right: 4),
             child: GestureDetector(
-              onTap: () => setState(() => _selectedColor = color),
+              onTap: () => setState(() { _selectedColor = color; _colorExplicit = true; }),
               child: Container(
                 width: isSelected ? 26 : 22,
                 height: isSelected ? 26 : 22,
@@ -715,6 +720,7 @@ class _AddTrackDialogState extends State<AddTrackDialog> {
           // Apply template color
           if (template != null) {
             _selectedColor = Color(template.colorValue);
+            _colorExplicit = true;
           }
         });
       },

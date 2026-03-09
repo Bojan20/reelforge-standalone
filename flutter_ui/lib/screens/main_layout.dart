@@ -25,6 +25,7 @@ import '../widgets/layout/project_tree.dart' show ProjectTreeNode, TreeItemType;
 import '../widgets/common/keyboard_shortcuts_overlay.dart';
 import '../widgets/common/command_palette.dart';
 import '../services/command_registry.dart';
+import '../widgets/daw/auto_color_rules_panel.dart';
 import '../providers/smart_tool_provider.dart';
 
 class MainLayout extends StatefulWidget {
@@ -311,6 +312,7 @@ class _MainLayoutState extends State<MainLayout>
       onStop: () => widget.onStop?.call(),
       onRecord: () => widget.onRecord?.call(),
       onCommandPalette: () {}, // Already open
+      onShowAutoColorRules: () => AutoColorRulesPanel.showAsDialog(context),
     );
     CommandPalette.showUltimate(context);
   }

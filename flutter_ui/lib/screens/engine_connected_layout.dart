@@ -60,6 +60,8 @@ import '../services/native_file_picker.dart';
 import '../services/audio_playback_service.dart';
 import '../services/service_locator.dart';
 import '../services/unified_search_service.dart';
+import '../services/auto_color_service.dart';
+import '../widgets/daw/auto_color_rules_panel.dart';
 import '../utils/path_validator.dart';
 
 import '../providers/dsp_chain_provider.dart';
@@ -1304,21 +1306,65 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   /// Create a track based on dialog result
   void _createTrackFromResult(AddTrackResult result, String name) {
-    switch (result.trackType) {
+    // Auto-color: if user didn't explicitly pick a color, apply matching rule
+    var effectiveResult = result;
+    if (!result.colorExplicit) {
+      final autoResult = AutoColorService.instance.match(name);
+      if (autoResult.hasMatch) {
+        effectiveResult = AddTrackResult(
+          trackType: result.trackType,
+          name: result.name,
+          count: result.count,
+          channels: result.channels,
+          outputBus: result.outputBus,
+          color: autoResult.color,
+          template: result.template,
+          armForRecording: result.armForRecording,
+          colorExplicit: true,
+        );
+      }
+    }
+    switch (effectiveResult.trackType) {
       case timeline.TrackType.audio:
       case timeline.TrackType.instrument:
-        _createAudioOrInstrumentTrack(result, name);
+        _createAudioOrInstrumentTrack(effectiveResult, name);
       case timeline.TrackType.folder:
-        _createFolderTrack(name, result.color);
+        _createFolderTrack(name, effectiveResult.color);
       case timeline.TrackType.bus:
-        _createBusTrack(name, result.color);
+        _createBusTrack(name, effectiveResult.color);
       case timeline.TrackType.aux:
-        _createAuxTrack(name, result.color);
+        _createAuxTrack(name, effectiveResult.color);
       case timeline.TrackType.video:
-        _createVideoTrack(name, result.color);
+        _createVideoTrack(name, effectiveResult.color);
       default:
-        _createAudioOrInstrumentTrack(result, name);
+        _createAudioOrInstrumentTrack(effectiveResult, name);
     }
+  }
+
+  /// Batch apply auto-color rules to all existing tracks
+  void _batchApplyAutoColor() {
+    final svc = AutoColorService.instance;
+    final mixerProvider = context.read<MixerProvider>();
+    int changed = 0;
+    for (int i = 0; i < _tracks.length; i++) {
+      final track = _tracks[i];
+      final result = svc.match(track.name);
+      if (result.hasMatch && result.color != track.color) {
+        _tracks[i] = track.copyWith(color: result.color);
+        // Sync to mixer channel
+        mixerProvider.setChannelColor(track.id, result.color);
+        changed++;
+      }
+    }
+    if (changed > 0) setState(() {});
+  }
+
+  /// Open auto-color rules panel
+  void _openAutoColorRules() {
+    AutoColorRulesPanel.showAsDialog(
+      context,
+      onBatchApply: _batchApplyAutoColor,
+    );
   }
 
   /// Create a video track

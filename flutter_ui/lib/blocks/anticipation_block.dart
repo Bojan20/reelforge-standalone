@@ -92,6 +92,9 @@ class AnticipationBlock extends FeatureBlockBase {
   @override
   int get stagePriority => 25; // After core, before features
 
+  /// Maximum reel count supported (GridBlock allows 3-8).
+  static const int maxReelCount = 8;
+
   @override
   List<BlockOption> createOptions() => [
         // ========== Pattern Selection ==========
@@ -155,6 +158,36 @@ class AnticipationBlock extends FeatureBlockBase {
           order: 3,
         ),
 
+        // ========== Reel Count (from Grid) ==========
+        BlockOptionFactory.count(
+          id: 'reelCount',
+          name: 'Reel Count',
+          description: 'Number of reels in the grid (must match Grid block)',
+          min: 3,
+          max: maxReelCount,
+          defaultValue: 5,
+          group: 'Grid',
+          order: 4,
+        ),
+
+        // ========== Anticipation Reels (multi-select) ==========
+        BlockOptionFactory.multiSelect(
+          id: 'anticipationReels',
+          name: 'Anticipation Reels',
+          description: 'Which reels can have anticipation (depends on game logic)',
+          choices: [
+            for (int r = 0; r < maxReelCount; r++)
+              OptionChoice(
+                value: r,
+                label: 'Reel ${r + 1}',
+                description: 'Reel index $r',
+              ),
+          ],
+          defaultValue: const [2, 3, 4], // Default: reels 3-5 for 5×3
+          group: 'Grid',
+          order: 5,
+        ),
+
         // ========== Tension Escalation Toggle ==========
         BlockOptionFactory.toggle(
           id: 'tensionEscalationEnabled',
@@ -162,7 +195,7 @@ class AnticipationBlock extends FeatureBlockBase {
           description: 'Enable per-reel tension level escalation (L1-L4)',
           defaultValue: true,
           group: 'Tension',
-          order: 4,
+          order: 10,
         ),
 
         // ========== Tension Levels Count ==========
@@ -174,7 +207,7 @@ class AnticipationBlock extends FeatureBlockBase {
           max: 4,
           defaultValue: 4,
           group: 'Tension',
-          order: 5,
+          order: 11,
           visibleWhen: {'tensionEscalationEnabled': true},
         ),
 
@@ -185,7 +218,7 @@ class AnticipationBlock extends FeatureBlockBase {
           description: 'How much to slow down anticipating reels (% of normal speed)',
           defaultValue: 30.0, // 30% of normal speed
           group: 'Tension',
-          order: 6,
+          order: 12,
         ),
 
         // ========== Visual Effect ==========
@@ -217,7 +250,7 @@ class AnticipationBlock extends FeatureBlockBase {
           ],
           defaultValue: 'glow',
           group: 'Visual',
-          order: 7,
+          order: 20,
         ),
 
         // ========== Audio Profile ==========
@@ -244,7 +277,7 @@ class AnticipationBlock extends FeatureBlockBase {
           ],
           defaultValue: 'moderate',
           group: 'Audio',
-          order: 8,
+          order: 30,
         ),
 
         // ========== Per-Reel Audio ==========
@@ -254,7 +287,7 @@ class AnticipationBlock extends FeatureBlockBase {
           description: 'Generate separate audio stages for each reel',
           defaultValue: true,
           group: 'Audio',
-          order: 9,
+          order: 31,
         ),
 
         // ========== Audio Pitch Escalation ==========
@@ -264,7 +297,7 @@ class AnticipationBlock extends FeatureBlockBase {
           description: 'Increase pitch with each tension level',
           defaultValue: true,
           group: 'Audio',
-          order: 10,
+          order: 32,
           visibleWhen: {'tensionEscalationEnabled': true},
         ),
 
@@ -275,7 +308,7 @@ class AnticipationBlock extends FeatureBlockBase {
           description: 'Increase volume with each tension level',
           defaultValue: true,
           group: 'Audio',
-          order: 11,
+          order: 33,
           visibleWhen: {'tensionEscalationEnabled': true},
         ),
       ];
@@ -313,6 +346,7 @@ class AnticipationBlock extends FeatureBlockBase {
         getOptionValue<bool>('tensionEscalationEnabled') ?? true;
     final tensionLevels = getOptionValue<int>('tensionLevels') ?? 4;
     final hasPerReelAudio = getOptionValue<bool>('perReelAudio') ?? true;
+    final reels = anticipationReelIndices;
 
     // ========== Core Anticipation Stages ==========
     stages.add(const GeneratedStage(
@@ -335,13 +369,14 @@ class AnticipationBlock extends FeatureBlockBase {
     ));
 
     // ========== Per-Reel Tension Stages ==========
+    // Generated for each reel selected in anticipationReels config.
+    // Any reel (R0-R7) can have anticipation depending on grid and game logic.
     if (hasPerReelAudio) {
-      // Reels 1-4 (reel 0 never has anticipation per industry standard)
-      for (int reel = 1; reel <= 4; reel++) {
+      for (final reel in reels) {
         // Generic per-reel stage (fallback)
         stages.add(GeneratedStage(
           name: 'ANTICIPATION_TENSION_R$reel',
-          description: 'Anticipation tension for reel $reel',
+          description: 'Anticipation tension for reel ${reel + 1}',
           bus: 'sfx',
           priority: 77,
           looping: true,
@@ -349,12 +384,16 @@ class AnticipationBlock extends FeatureBlockBase {
           category: 'Anticipation',
         ));
 
-        // Per-reel tension level stages
+        // Per-reel tension level stages (L1-L4)
+        // Tension level depends on ORDER of anticipation reel, not absolute index.
+        // E.g., if reels [2,3,4] have anticipation: R2=L1, R3=L2, R4=L3.
+        // But we register ALL levels for each reel since the runtime
+        // decides the actual tension level based on trigger positions.
         if (hasTensionEscalation) {
           for (int level = 1; level <= tensionLevels; level++) {
             stages.add(GeneratedStage(
               name: 'ANTICIPATION_TENSION_R${reel}_L$level',
-              description: 'Anticipation reel $reel, tension level $level',
+              description: 'Reel ${reel + 1}, tension level $level',
               bus: 'sfx',
               priority: 76 + level, // Higher level = higher priority
               looping: true,
@@ -368,10 +407,11 @@ class AnticipationBlock extends FeatureBlockBase {
 
     // ========== Near Miss Stages (Type B) ==========
     if (pattern == 'tip_b') {
-      for (int reel = 0; reel <= 4; reel++) {
+      final reelCount = getOptionValue<int>('reelCount') ?? 5;
+      for (int reel = 0; reel < reelCount; reel++) {
         stages.add(GeneratedStage(
           name: 'NEAR_MISS_REEL_$reel',
-          description: 'Near miss detected on reel $reel',
+          description: 'Near miss detected on reel ${reel + 1}',
           bus: 'sfx',
           priority: 72,
           sourceBlockId: id,
@@ -412,15 +452,14 @@ class AnticipationBlock extends FeatureBlockBase {
   }
 
   @override
-  List<String> get pooledStages => const [
-        // Tension stages are looping, not pooled
-        // Near miss stages may fire rapidly
-        'NEAR_MISS_REEL_0',
-        'NEAR_MISS_REEL_1',
-        'NEAR_MISS_REEL_2',
-        'NEAR_MISS_REEL_3',
-        'NEAR_MISS_REEL_4',
-      ];
+  List<String> get pooledStages {
+    // Tension stages are looping, not pooled.
+    // Near miss stages may fire rapidly — pool them.
+    final reelCount = getOptionValue<int>('reelCount') ?? 5;
+    return [
+      for (int r = 0; r < reelCount; r++) 'NEAR_MISS_REEL_$r',
+    ];
+  }
 
   @override
   String getBusForStage(String stageName) => 'sfx';
@@ -498,6 +537,24 @@ class AnticipationBlock extends FeatureBlockBase {
   int get minSymbolsToTrigger =>
       getOptionValue<int>('minSymbolsToTrigger') ?? 2;
 
+  /// Get reel count (from grid configuration).
+  int get reelCount => getOptionValue<int>('reelCount') ?? 5;
+
+  /// Get the list of reel indices that can have anticipation.
+  /// These are the reels the user selected in the Anticipation Reels multi-select.
+  /// Sorted ascending and filtered to be within reelCount range.
+  List<int> get anticipationReelIndices {
+    final raw = getOptionValue<List>('anticipationReels');
+    if (raw == null || raw.isEmpty) return const [2, 3, 4]; // Default
+    final count = reelCount;
+    final reels = raw
+        .map((v) => v is int ? v : (v is num ? v.toInt() : int.tryParse('$v') ?? -1))
+        .where((r) => r >= 0 && r < count)
+        .toList()
+      ..sort();
+    return reels;
+  }
+
   /// Whether tension escalation is enabled.
   bool get hasTensionEscalation =>
       getOptionValue<bool>('tensionEscalationEnabled') ?? true;
@@ -563,9 +620,10 @@ class AnticipationBlock extends FeatureBlockBase {
   }
 
   /// Get all generated stage names for a specific reel.
+  /// [reelIndex] is the 0-based reel index (R0-R7).
   List<String> getStagesForReel(int reelIndex) {
     final stages = <String>[];
-    if (reelIndex < 1 || reelIndex > 4) return stages;
+    if (!anticipationReelIndices.contains(reelIndex)) return stages;
 
     stages.add('ANTICIPATION_TENSION_R$reelIndex');
     if (hasTensionEscalation) {

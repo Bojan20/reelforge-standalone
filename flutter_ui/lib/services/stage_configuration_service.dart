@@ -221,9 +221,9 @@ class StageConfigurationService extends ChangeNotifier {
     final nearMissReel = RegExp(r'^NEAR_MISS_REEL_(\d+)$').firstMatch(upper);
     if (nearMissReel != null) return 'Near Miss R${int.parse(nearMissReel.group(1)!) + 1}';
     final anticR = RegExp(r'^ANTICIPATION_TENSION_R(\d+)$').firstMatch(upper);
-    if (anticR != null) return 'Reel ${anticR.group(1)} Tension';
+    if (anticR != null) return 'Reel ${int.parse(anticR.group(1)!) + 1} Tension';
     final anticRL = RegExp(r'^ANTICIPATION_TENSION_R(\d+)_L(\d+)$').firstMatch(upper);
-    if (anticRL != null) return 'R${anticRL.group(1)} Level ${anticRL.group(2)}';
+    if (anticRL != null) return 'Reel ${int.parse(anticRL.group(1)!) + 1} Level ${anticRL.group(2)}';
     final scatterLand = RegExp(r'^SCATTER_LAND_(\d+)$').firstMatch(upper);
     if (scatterLand != null) return 'Scatter #${scatterLand.group(1)}';
     final cascadeStep = RegExp(r'^CASCADE_STEP_(\d+)$').firstMatch(upper);
@@ -1443,42 +1443,34 @@ class StageConfigurationService extends ChangeNotifier {
     //
     // 3 layers of specificity:
     //   1. ANTICIPATION_TENSION — single sound for all anticipation
-    //   2. ANTICIPATION_TENSION_R1..R4 — different sound per reel
+    //   2. ANTICIPATION_TENSION_R0..R7 — different sound per reel
     //   3. ANTICIPATION_TENSION_R*_L* — per-reel + tension level
     // Fallback: R2_L3 → R2 → TENSION
+    //
+    // Any reel (R0-R7) can have anticipation depending on grid config
+    // and game logic. Max 8 reels supported (GridBlock allows 3-8).
     //
     // ANTICIPATION_MISS — fires when anticipation resolves without trigger
     // ─────────────────────────────────────────────────────────────────────────
     _register('ANTICIPATION_TENSION', StageCategory.symbol, 66, SpatialBus.sfx, 'ANTICIPATION');
     _register('ANTICIPATION_MISS', StageCategory.symbol, 50, SpatialBus.sfx, 'DEFAULT');
 
-    // Per-reel tension (R1=reel 2, R4=reel 5; reel 1 can't trigger anticipation)
-    _register('ANTICIPATION_TENSION_R1', StageCategory.symbol, 67, SpatialBus.sfx, 'ANTICIPATION');
-    _register('ANTICIPATION_TENSION_R2', StageCategory.symbol, 68, SpatialBus.sfx, 'ANTICIPATION');
-    _register('ANTICIPATION_TENSION_R3', StageCategory.symbol, 69, SpatialBus.sfx, 'ANTICIPATION');
-    _register('ANTICIPATION_TENSION_R4', StageCategory.symbol, 70, SpatialBus.sfx, 'ANTICIPATION');
-
-    // Full specificity: per-reel + tension level (L1=low, L2=medium, L3=high, L4=max)
-    _register('ANTICIPATION_TENSION_R1_L1', StageCategory.symbol, 67, SpatialBus.sfx, 'ANTICIPATION');
-    _register('ANTICIPATION_TENSION_R2_L1', StageCategory.symbol, 68, SpatialBus.sfx, 'ANTICIPATION');
-    _register('ANTICIPATION_TENSION_R2_L2', StageCategory.symbol, 69, SpatialBus.sfx, 'ANTICIPATION');
-    _register('ANTICIPATION_TENSION_R3_L1', StageCategory.symbol, 69, SpatialBus.sfx, 'ANTICIPATION');
-    _register('ANTICIPATION_TENSION_R3_L2', StageCategory.symbol, 70, SpatialBus.sfx, 'ANTICIPATION');
-    _register('ANTICIPATION_TENSION_R3_L3', StageCategory.symbol, 71, SpatialBus.sfx, 'ANTICIPATION');
-    _register('ANTICIPATION_TENSION_R4_L1', StageCategory.symbol, 70, SpatialBus.sfx, 'ANTICIPATION');
-    _register('ANTICIPATION_TENSION_R4_L2', StageCategory.symbol, 71, SpatialBus.sfx, 'ANTICIPATION');
-    _register('ANTICIPATION_TENSION_R4_L3', StageCategory.symbol, 72, SpatialBus.sfx, 'ANTICIPATION');
-    _register('ANTICIPATION_TENSION_R4_L4', StageCategory.symbol, 75, SpatialBus.sfx, 'ANTICIPATION');
+    // Per-reel tension R0-R7 (any reel can have anticipation)
+    for (int r = 0; r < 8; r++) {
+      _register('ANTICIPATION_TENSION_R$r', StageCategory.symbol, 67 + r, SpatialBus.sfx, 'ANTICIPATION');
+      // Per-reel + tension level (L1-L4)
+      for (int l = 1; l <= 4; l++) {
+        _register('ANTICIPATION_TENSION_R${r}_L$l', StageCategory.symbol, 67 + r + l, SpatialBus.sfx, 'ANTICIPATION');
+      }
+    }
 
     _register('NEAR_MISS', StageCategory.symbol, 55, SpatialBus.sfx, 'NEAR_MISS');
 
     // P3.3: Per-reel near-miss stages (different sounds for each reel that "missed")
     // Later reels have higher priority (more dramatic)
-    _register('NEAR_MISS_REEL_0', StageCategory.symbol, 50, SpatialBus.sfx, 'NEAR_MISS');
-    _register('NEAR_MISS_REEL_1', StageCategory.symbol, 52, SpatialBus.sfx, 'NEAR_MISS');
-    _register('NEAR_MISS_REEL_2', StageCategory.symbol, 54, SpatialBus.sfx, 'NEAR_MISS');
-    _register('NEAR_MISS_REEL_3', StageCategory.symbol, 56, SpatialBus.sfx, 'NEAR_MISS');
-    _register('NEAR_MISS_REEL_4', StageCategory.symbol, 58, SpatialBus.sfx, 'NEAR_MISS');
+    for (int r = 0; r < 8; r++) {
+      _register('NEAR_MISS_REEL_$r', StageCategory.symbol, 50 + r * 2, SpatialBus.sfx, 'NEAR_MISS');
+    }
 
     // Near-miss type-specific stages
     _register('NEAR_MISS_SCATTER', StageCategory.symbol, 60, SpatialBus.sfx, 'NEAR_MISS');

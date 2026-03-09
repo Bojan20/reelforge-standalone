@@ -2273,7 +2273,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         color: const Color(0xFFFF5252),
         priority: SlotPriority.p1,
         description: 'Tension build, near-miss, heartbeat',
-        sections: [_AnticipationSection(widget: widget)],
+        sections: [_AnticipationSection(widget: widget, reelCount: composer.config?.reelCount ?? 3)],
       ));
     }
 
@@ -3473,17 +3473,17 @@ class _BaseGameLoopSection extends _SectionConfig {
         _SlotConfig(stage: 'REEL_STOP_$i', label: 'Reel ${i + 1} Stop'),
     ];
 
-    // Anticipation: basic always, per-reel filtered
+    // Anticipation: basic always, per-reel for all reels in grid.
+    // Any reel (R0-R7) can have anticipation depending on game logic config.
+    // All L1-L4 levels registered per reel — runtime decides actual tension.
     final anticSlots = <_SlotConfig>[
       const _SlotConfig(stage: 'ANTICIPATION_TENSION', label: 'Anticipation (Global)'),
       const _SlotConfig(stage: 'ANTICIPATION_MISS', label: 'Anticipation Miss'),
-      // Per-reel tension (R index is reel-1, anticipation starts from reel 2)
-      for (int r = 1; r < rc; r++)
+      for (int r = 0; r < rc; r++)
         _SlotConfig(stage: 'ANTICIPATION_TENSION_R$r', label: 'Reel ${r + 1} Tension'),
-      // Per-reel + level
-      for (int r = 1; r < rc; r++)
-        for (int l = 1; l <= r; l++)
-          _SlotConfig(stage: 'ANTICIPATION_TENSION_R${r}_L$l', label: 'R${r + 1} Level $l'),
+      for (int r = 0; r < rc; r++)
+        for (int l = 1; l <= 4; l++)
+          _SlotConfig(stage: 'ANTICIPATION_TENSION_R${r}_L$l', label: 'Reel ${r + 1} Level $l'),
     ];
 
     // Near-miss: generic + per-reel filtered
@@ -5096,7 +5096,8 @@ class _TransitionsSection extends _SectionConfig {
 
 class _AnticipationSection extends _SectionConfig {
   final UltimateAudioPanel widget;
-  _AnticipationSection({required this.widget});
+  final int reelCount;
+  _AnticipationSection({required this.widget, required this.reelCount});
 
   @override String get id => 'anticipation';
   @override String get title => 'ANTICIPATION';
@@ -5104,38 +5105,34 @@ class _AnticipationSection extends _SectionConfig {
   @override Color get color => const Color(0xFFFF5252);
 
   @override
-  List<_GroupConfig> get groups => const [
-    // ANTICIPATION_TENSION + ANTICIPATION_MISS are in BASE GAME LOOP section
-    _GroupConfig(
-      id: 'tension_per_reel',
-      title: 'Tension Per-Reel',
-      icon: '📈',
-      slots: [
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R1', label: 'Tension Reel 2'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R2', label: 'Tension Reel 3'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3', label: 'Tension Reel 4'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4', label: 'Tension Reel 5'),
-      ],
-    ),
-    _GroupConfig(
-      id: 'tension_levels',
-      title: 'Tension Levels',
-      icon: '🎚️',
-      slots: [
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R1_L1', label: 'R2 Level 1'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R2_L1', label: 'R3 Level 1'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R2_L2', label: 'R3 Level 2'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3_L1', label: 'R4 Level 1'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3_L2', label: 'R4 Level 2'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R3_L3', label: 'R4 Level 3'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L1', label: 'R5 Level 1'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L2', label: 'R5 Level 2'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L3', label: 'R5 Level 3'),
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R4_L4', label: 'R5 Level 4'),
-      ],
-    ),
-    // NEAR_MISS is in BASE GAME LOOP section
-  ];
+  List<_GroupConfig> get groups {
+    // Dynamic: generate per-reel and per-level slots based on grid reel count.
+    // Any reel (R0-R7) can have anticipation depending on game config.
+    final rc = reelCount;
+    return [
+      // ANTICIPATION_TENSION + ANTICIPATION_MISS are in BASE GAME LOOP section
+      _GroupConfig(
+        id: 'tension_per_reel',
+        title: 'Tension Per-Reel',
+        icon: '📈',
+        slots: [
+          for (int r = 0; r < rc; r++)
+            _SlotConfig(stage: 'ANTICIPATION_TENSION_R$r', label: 'Tension Reel ${r + 1}'),
+        ],
+      ),
+      _GroupConfig(
+        id: 'tension_levels',
+        title: 'Tension Levels',
+        icon: '🎚️',
+        slots: [
+          for (int r = 0; r < rc; r++)
+            for (int l = 1; l <= 4; l++)
+              _SlotConfig(stage: 'ANTICIPATION_TENSION_R${r}_L$l', label: 'Reel ${r + 1} Level $l'),
+        ],
+      ),
+      // NEAR_MISS is in BASE GAME LOOP section
+    ];
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

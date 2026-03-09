@@ -988,7 +988,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // ═══════════════════════════════════════════════════════════════════════════
   // ALL AVAILABLE STAGES — Complete list for dropdown
   // ═══════════════════════════════════════════════════════════════════════════
-  static const List<String> _allStageOptions = [
+  static final List<String> _allStageOptions = [
     // ─── SPIN CYCLE (most common) ───
     'REEL_SPIN',
     'REEL_STOP',
@@ -1033,10 +1033,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     'ROLLUP_SKIP',
     // ─── ANTICIPATION ───
     'ANTICIPATION_TENSION',
-    'ANTICIPATION_TENSION_R1',
-    'ANTICIPATION_TENSION_R2',
-    'ANTICIPATION_TENSION_R3',
-    'ANTICIPATION_TENSION_R4',
+    for (int r = 0; r < 8; r++) 'ANTICIPATION_TENSION_R$r',
     'ANTICIPATION_MISS',
     // ─── FEATURES ───
     'FEATURE_ENTER',

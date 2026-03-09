@@ -852,7 +852,7 @@ class AudioMappingImportService {
     'SCATTER_WIN',
     // Anticipation tension system
     'ANTICIPATION_TENSION', 'ANTICIPATION_MISS',
-    'ANTICIPATION_TENSION_R1', 'ANTICIPATION_TENSION_R2', 'ANTICIPATION_TENSION_R3', 'ANTICIPATION_TENSION_R4',
+    for (int r = 0; r < 8; r++) 'ANTICIPATION_TENSION_R$r',
     'NEAR_MISS', 'NO_WIN',
     // Wins — unified WIN_PRESENT system
     'WIN_PRESENT_LOW', 'WIN_PRESENT_EQUAL', 'WIN_PRESENT_END',

@@ -2016,6 +2016,20 @@ class MixerProvider extends ChangeNotifier {
   // CHANNEL CONTROLS
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /// Set channel color (for auto-color rules, batch apply, etc.)
+  void setChannelColor(String id, Color color) {
+    if (_channels.containsKey(id)) {
+      _channels[id] = _channels[id]!.copyWith(color: color);
+      notifyListeners();
+    } else if (_buses.containsKey(id)) {
+      _buses[id] = _buses[id]!.copyWith(color: color);
+      notifyListeners();
+    } else if (_auxes.containsKey(id)) {
+      _auxes[id] = _auxes[id]!.copyWith(color: color);
+      notifyListeners();
+    }
+  }
+
   void setChannelVolume(String id, double volume, {bool propagateGroup = true}) {
     final channel = _channels[id] ?? _buses[id] ?? _auxes[id];
     if (channel == null) return;
