@@ -270,9 +270,18 @@ class GranularSynthService extends ChangeNotifier {
 
   /// Set random variations
   void setVariation({double? size, double? pan, double? pitch}) {
-    if (size != null) _current.sizeVariation = size.clamp(0, 1);
-    if (pan != null) _current.panVariation = pan.clamp(0, 1);
-    if (pitch != null) _current.pitchVariation = pitch.clamp(0, 1);
+    if (size != null) {
+      _current.sizeVariation = size.clamp(0, 1);
+      onParamChanged?.call('sizeVariation', _current.sizeVariation);
+    }
+    if (pan != null) {
+      _current.panVariation = pan.clamp(0, 1);
+      onParamChanged?.call('panVariation', _current.panVariation);
+    }
+    if (pitch != null) {
+      _current.pitchVariation = pitch.clamp(0, 1);
+      onParamChanged?.call('pitchVariation', _current.pitchVariation);
+    }
     notifyListeners();
   }
 
@@ -318,6 +327,7 @@ class GranularSynthService extends ChangeNotifier {
   void toggleVoice(int index) {
     if (index < 0 || index >= _current.voices.length) return;
     _current.voices[index].active = !_current.voices[index].active;
+    onParamChanged?.call('voiceActive_$index', _current.voices[index].active ? 1 : 0);
     notifyListeners();
   }
 
@@ -325,6 +335,7 @@ class GranularSynthService extends ChangeNotifier {
   void setVoiceLevel(int index, double level) {
     if (index < 0 || index >= _current.voices.length) return;
     _current.voices[index].level = level.clamp(0, 1);
+    onParamChanged?.call('voiceLevel_$index', _current.voices[index].level);
     notifyListeners();
   }
 
@@ -332,6 +343,7 @@ class GranularSynthService extends ChangeNotifier {
   void setVoicePan(int index, double pan) {
     if (index < 0 || index >= _current.voices.length) return;
     _current.voices[index].pan = pan.clamp(-1, 1);
+    onParamChanged?.call('voicePan_$index', _current.voices[index].pan);
     notifyListeners();
   }
 
@@ -339,6 +351,7 @@ class GranularSynthService extends ChangeNotifier {
   void setVoicePitch(int index, double semitones) {
     if (index < 0 || index >= _current.voices.length) return;
     _current.voices[index].pitchOffset = semitones.clamp(-24, 24);
+    onParamChanged?.call('voicePitch_$index', _current.voices[index].pitchOffset);
     notifyListeners();
   }
 
@@ -346,6 +359,7 @@ class GranularSynthService extends ChangeNotifier {
   void setVoiceDelay(int index, double delayMs) {
     if (index < 0 || index >= _current.voices.length) return;
     _current.voices[index].delayMs = delayMs.clamp(0, 500);
+    onParamChanged?.call('voiceDelay_$index', _current.voices[index].delayMs);
     notifyListeners();
   }
 

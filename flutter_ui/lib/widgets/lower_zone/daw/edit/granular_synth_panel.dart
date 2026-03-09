@@ -606,10 +606,19 @@ class _GrainVisualizationPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _GrainVisualizationPainter oldDelegate) {
-    return sourcePosition != oldDelegate.sourcePosition ||
+    if (sourcePosition != oldDelegate.sourcePosition ||
         positionJitter != oldDelegate.positionJitter ||
         grainSizeMin != oldDelegate.grainSizeMin ||
         grainSizeMax != oldDelegate.grainSizeMax ||
-        frozen != oldDelegate.frozen;
+        frozen != oldDelegate.frozen) {
+      return true;
+    }
+    for (int i = 0; i < voices.length; i++) {
+      if (voices[i].active != oldDelegate.voices[i].active ||
+          voices[i].level != oldDelegate.voices[i].level) {
+        return true;
+      }
+    }
+    return false;
   }
 }
