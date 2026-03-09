@@ -22,6 +22,7 @@ import '../ale_provider.dart';
 import 'feature_composer_provider.dart';
 import 'game_flow_provider.dart';
 import 'slot_lab_coordinator.dart';
+import '../slot_lab_project_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // P3.1: STAGE EVENT POOL — Reduce allocation during spin sequences
@@ -700,6 +701,9 @@ class SlotStageProvider extends ChangeNotifier {
     // Skip stages for disabled features — if mechanic is off, don't play audio
     if (!_isStageEnabled(effectiveStage)) return;
 
+    // Skip stages without audio assignment — only play what user explicitly assigned
+    if (!_hasAudioAssignment(effectiveStage) && !_hasAudioAssignment(stageType)) return;
+
     // Trigger through EventRegistry (context now contains middleware decisions)
     if (eventRegistry.hasEventForStage(effectiveStage)) {
       eventRegistry.triggerStage(effectiveStage, context: context);
@@ -714,19 +718,19 @@ class SlotStageProvider extends ChangeNotifier {
       _isReelsSpinning = true;
       _scatterReelsThisSpin.clear();
 
-      if (eventRegistry.hasEventForStage('REEL_SPIN_LOOP')) {
+      if (_hasAudioAssignment('REEL_SPIN_LOOP') && eventRegistry.hasEventForStage('REEL_SPIN_LOOP')) {
         eventRegistry.triggerStage('REEL_SPIN_LOOP', context: context);
-      } else if (eventRegistry.hasEventForStage('REEL_SPIN')) {
+      } else if (_hasAudioAssignment('REEL_SPIN') && eventRegistry.hasEventForStage('REEL_SPIN')) {
         eventRegistry.triggerStage('REEL_SPIN', context: context);
       }
 
       if (!_baseMusicStarted) {
         // Prefer GAME_START composite (has volume control: L1=1.0, L2+=0.0)
         // Only fall back to individual MUSIC_BASE_L1 if no composite exists
-        if (eventRegistry.hasEventForStage('GAME_START')) {
+        if (_hasAudioAssignment('GAME_START') && eventRegistry.hasEventForStage('GAME_START')) {
           eventRegistry.triggerStage('GAME_START', context: context);
           _baseMusicStarted = true;
-        } else if (eventRegistry.hasEventForStage('MUSIC_BASE_L1')) {
+        } else if (_hasAudioAssignment('MUSIC_BASE_L1') && eventRegistry.hasEventForStage('MUSIC_BASE_L1')) {
           // Fallback: only trigger L1 (base music layer 1)
           eventRegistry.triggerStage('MUSIC_BASE_L1', context: context);
           _baseMusicStarted = true;
@@ -757,7 +761,7 @@ class SlotStageProvider extends ChangeNotifier {
       if (shouldStopReelSpin) {
         eventRegistry.stopEvent('REEL_SPIN_LOOP');
         eventRegistry.stopEvent('REEL_SPIN');
-        if (eventRegistry.hasEventForStage('SPIN_END')) {
+        if (_hasAudioAssignment('SPIN_END') && eventRegistry.hasEventForStage('SPIN_END')) {
           eventRegistry.triggerStage('SPIN_END', context: context);
         }
       }
@@ -770,14 +774,17 @@ class SlotStageProvider extends ChangeNotifier {
           _scatterReelsThisSpin.add(reelIdx);
           final scatterCount = _scatterReelsThisSpin.length;
           // Generic SCATTER_LAND fires on every scatter hit
-          eventRegistry.triggerStage('SCATTER_LAND', context: {
-            ...context,
-            'reel_index': reelIdx,
-            'scatter_count': scatterCount,
-          });
+          if (_hasAudioAssignment('SCATTER_LAND')) {
+            eventRegistry.triggerStage('SCATTER_LAND', context: {
+              ...context,
+              'reel_index': reelIdx,
+              'scatter_count': scatterCount,
+            });
+          }
           // Numbered SCATTER_LAND_N fires for each scatter (1st, 2nd, 3rd...)
-          if (eventRegistry.hasEventForStage('SCATTER_LAND_$scatterCount')) {
-            eventRegistry.triggerStage('SCATTER_LAND_$scatterCount', context: {
+          final numberedStage = 'SCATTER_LAND_$scatterCount';
+          if (_hasAudioAssignment(numberedStage) && eventRegistry.hasEventForStage(numberedStage)) {
+            eventRegistry.triggerStage(numberedStage, context: {
               ...context,
               'reel_index': reelIdx,
               'scatter_count': scatterCount,
@@ -788,7 +795,7 @@ class SlotStageProvider extends ChangeNotifier {
         // WILD_LAND — detect wild symbols on stopped reel
         const wildSymbolId = 10;
         final hasWild = symbols.any((id) => id is int && id == wildSymbolId);
-        if (hasWild && eventRegistry.hasEventForStage('WILD_LAND')) {
+        if (hasWild && _hasAudioAssignment('WILD_LAND') && eventRegistry.hasEventForStage('WILD_LAND')) {
           eventRegistry.triggerStage('WILD_LAND', context: {
             ...context,
             'reel_index': reelIdx,
@@ -987,6 +994,17 @@ class SlotStageProvider extends ChangeNotifier {
       return composer.isStageActive(stageId);
     } catch (_) {
       return true; // Fallback: allow if composer not registered
+    }
+  }
+
+  /// Check if stage has an explicit audio assignment in the project.
+  /// Only stages with assigned audio files should trigger playback.
+  bool _hasAudioAssignment(String stageId) {
+    try {
+      final project = GetIt.instance<SlotLabProjectProvider>();
+      return project.hasAudioAssignment(stageId);
+    } catch (_) {
+      return false; // No project provider = no audio
     }
   }
 

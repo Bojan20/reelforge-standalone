@@ -1055,7 +1055,8 @@ class StageGroupService {
   /// (start/end of string, or adjacent to separators like _ - space).
   /// This prevents partial matches like "mus_rs" matching inside "mus_rs_end".
   String? _checkAlias(String audioPath) {
-    final fileName = _extractFileName(audioPath).toLowerCase();
+    final fileName = _extractFileName(audioPath).toLowerCase()
+        .replaceAll(RegExp(r'[\s\-]+'), '_'); // Normalize spaces/dashes to underscores
     // Try longest alias first to avoid partial matches
     final sortedAliases = _aliasMap.keys.toList()
       ..sort((a, b) => b.length.compareTo(a.length));

@@ -163,6 +163,7 @@ import '../widgets/middleware/intensity_crossfade_wizard.dart';
 import '../widgets/publish/publish_pipeline_panel.dart';
 import '../widgets/ale/ale_panel.dart';
 import '../services/unified_playback_controller.dart';
+import '../services/slotlab_track_bridge.dart';
 import '../providers/timeline_playback_provider.dart';
 // P3 Future Services and Widgets
 import '../services/cloud_sync_service.dart';
@@ -574,6 +575,12 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
     // Set initial editor mode (from widget parameter or default to DAW)
     _editorMode = widget.initialEditorMode ?? EditorMode.daw;
+
+    // Mute SlotLab bridge track when starting in DAW mode — prevents
+    // SlotLab timeline clips from playing during DAW transport playback
+    if (_editorMode != EditorMode.slot) {
+      SlotLabTrackBridge.instance.muteTrack();
+    }
 
     // Set default tab based on initial mode
     _activeLowerTab = getDefaultTabForMode(_editorMode);
@@ -2769,6 +2776,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       // Reset base music flag — silenceNonDawVoices kills audio but
       // EventRegistry still thinks it's playing, so next spin must re-trigger
       slotLabProvider.resetBaseMusicFlag();
+      // Mute SlotLab bridge track so its clips don't play during DAW playback
+      SlotLabTrackBridge.instance.muteTrack();
     } else if (fromMode == EditorMode.daw) {
       // DAW → stop timeline transport
       if (playbackProvider.isPlaying) {
@@ -2798,12 +2807,16 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
     // ─── RESUME the ENTERING section ─────────────────────────────────────────
 
-    if (toMode == EditorMode.slot && _slotLabPausedByModeSwitch) {
-      // Returning to SlotLab — resume paused stage flow
-      _slotLabPausedByModeSwitch = false;
-      // Acquire SlotLab section (sets active_section → Rust un-silences SlotLab voices)
-      if (controller.acquireSection(PlaybackSection.slotLab)) {
-        slotLabProvider.resumeStages();
+    if (toMode == EditorMode.slot) {
+      // Unmute SlotLab bridge track for SlotLab timeline playback
+      SlotLabTrackBridge.instance.unmuteTrack();
+      if (_slotLabPausedByModeSwitch) {
+        // Returning to SlotLab — resume paused stage flow
+        _slotLabPausedByModeSwitch = false;
+        // Acquire SlotLab section (sets active_section → Rust un-silences SlotLab voices)
+        if (controller.acquireSection(PlaybackSection.slotLab)) {
+          slotLabProvider.resumeStages();
+        }
       }
     }
   }

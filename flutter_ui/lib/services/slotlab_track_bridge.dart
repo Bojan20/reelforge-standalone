@@ -150,6 +150,20 @@ class SlotLabTrackBridge {
   /// Get current position in seconds
   double get currentPosition => _ffi.getPosition();
 
+  /// Mute the SlotLab track in engine — prevents clips from playing during DAW playback
+  void muteTrack() {
+    if (_slotLabTrackId != null) {
+      _ffi.setTrackMute(_slotLabTrackId!, true);
+    }
+  }
+
+  /// Unmute the SlotLab track in engine — re-enables clip playback for SlotLab timeline
+  void unmuteTrack() {
+    if (_slotLabTrackId != null) {
+      _ffi.setTrackMute(_slotLabTrackId!, false);
+    }
+  }
+
   /// Dispose bridge (cleanup)
   void dispose() {
     clearAllClips();
