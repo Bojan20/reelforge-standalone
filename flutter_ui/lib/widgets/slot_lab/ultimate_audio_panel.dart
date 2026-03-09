@@ -274,15 +274,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     // Initialize local state from external or defaults
     // V9: Phase IDs + Section IDs for two-level expand state
     // V10: Smart defaults — only P0 phases expanded, rest collapsed
-    _localExpandedSections = Set.from(widget.expandedSections ?? {
-      'core_loop',          // Phase 1: Core Loop — P0 critical
-      'base_game_loop',     // Section: most used
-    });
-    // V10: Only expand core groups by default — user adds more via tabs
-    _localExpandedGroups = Set.from(widget.expandedGroups ?? {
-      'base_game_loop_spin_controls', 'base_game_loop_reel_stops',
-      'base_game_loop_anticipation',
-    });
+    _localExpandedSections = Set.from(widget.expandedSections ?? <String>{});
+    _localExpandedGroups = Set.from(widget.expandedGroups ?? <String>{});
   }
 
   @override
@@ -411,13 +404,13 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildHeader(),
-                // V11: Mode switch — STAGES vs PACING
-                _buildModeSwitch(),
                 if (_panelMode == 0) ...[
                   // STAGES mode — audio assignment
                   Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: TextField(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    child: SizedBox(
+                      height: 26,
+                      child: TextField(
                       controller: _searchController,
                       focusNode: _searchFocusNode,
                       style: const TextStyle(fontSize: 11, color: Colors.white70),
@@ -450,6 +443,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                         setState(() => _searchQuery = value.toLowerCase());
                       },
                     ),
+                  ),
                   ),
                   // V10: Phase tab bar — navigate between phases
                   _buildPhaseTabBar(),
@@ -500,6 +494,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             () => _showResetConfirmDialog(context),
           ),
           const Spacer(),
+          // Mode toggle — compact inline
+          _buildInlineModeToggle(),
+          const SizedBox(width: 4),
           // Stats
           Text(
             '$assignedCount/$totalSlots',
@@ -1312,55 +1309,47 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   // V11: Mode Switch — STAGES vs PACING
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Widget _buildModeSwitch() {
-    const labels = ['STAGES', 'PACING'];
-    const icons = [Icons.audiotrack, Icons.functions];
+  /// Compact inline mode toggle — sits in header, saves 24px vertical
+  Widget _buildInlineModeToggle() {
     return Container(
-      height: 24,
-      decoration: const BoxDecoration(
-        color: Color(0xFF101014),
-        border: Border(bottom: BorderSide(color: Color(0xFF222228))),
+      height: 18,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(3),
       ),
       child: Row(
-        children: List.generate(2, (i) {
-          final active = _panelMode == i;
-          return Expanded(
-            child: _HoverBuilder(
-              builder: (hovered) => GestureDetector(
-                onTap: () => setState(() => _panelMode = i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 120),
-                  decoration: BoxDecoration(
-                    color: hovered && !active ? Colors.white.withOpacity(0.02) : Colors.transparent,
-                    border: Border(
-                      bottom: BorderSide(
-                        color: active ? const Color(0xFF808088) : Colors.transparent,
-                        width: 1.5,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (int i = 0; i < 2; i++)
+            GestureDetector(
+              onTap: () => setState(() => _panelMode = i),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                decoration: BoxDecoration(
+                  color: _panelMode == i ? Colors.white.withValues(alpha: 0.08) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      i == 0 ? Icons.audiotrack : Icons.functions,
+                      size: 9,
+                      color: _panelMode == i ? const Color(0xFFB0B0B8) : const Color(0xFF505058),
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      i == 0 ? 'STG' : 'PCG',
+                      style: TextStyle(
+                        fontSize: 7, fontWeight: FontWeight.w600,
+                        color: _panelMode == i ? const Color(0xFFB0B0B8) : const Color(0xFF505058),
                       ),
                     ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(icons[i], size: 10,
-                        color: active
-                            ? const Color(0xFFB0B0B8)
-                            : hovered ? const Color(0xFF606068) : const Color(0xFF404048)),
-                      const SizedBox(width: 4),
-                      Text(labels[i], style: TextStyle(
-                        fontSize: 9, fontWeight: FontWeight.w600,
-                        color: active
-                            ? const Color(0xFFB0B0B8)
-                            : hovered ? const Color(0xFF606068) : const Color(0xFF404048),
-                        letterSpacing: 0.8,
-                      )),
-                    ],
-                  ),
+                  ],
                 ),
               ),
             ),
-          );
-        }),
+        ],
       ),
     );
   }
@@ -1455,37 +1444,35 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 ],
               ),
 
-              // ── Game Config Controls ──
+              // ── Game Config ──
               if (composer.config != null) ...[
-                const SizedBox(height: 6),
+                const SizedBox(height: 3),
                 Divider(height: 1, color: Colors.white.withValues(alpha: 0.06)),
-                const SizedBox(height: 6),
-                Text(
-                  'GAME CONFIG',
-                  style: TextStyle(
-                    fontSize: 8, fontWeight: FontWeight.w600,
-                    color: Colors.white.withValues(alpha: 0.35),
-                    letterSpacing: 0.8,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                _buildConfigRow(
-                  'WIN TIERS',
-                  composer.config!.winTierCount,
-                  1, 5,
-                  (v) { composer.setWinTierCount(v); _invalidatePhaseCache(); },
-                  const Color(0xFFFFD700),
-                ),
-                const SizedBox(height: 6),
-                _buildAnticipationReelPicker(composer),
                 const SizedBox(height: 4),
-                _buildConfigRow(
-                  'TENSION LEVELS',
-                  composer.config!.anticipationLevels,
-                  1, 4,
-                  (v) { composer.setAnticipationLevels(v); _invalidatePhaseCache(); },
-                  const Color(0xFFFF5252),
+                // Win Tiers + Anticipation Levels — same row
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildConfigRow(
+                        'WINS',
+                        composer.config!.winTierCount, 1, 5,
+                        (v) { composer.setWinTierCount(v); _invalidatePhaseCache(); },
+                        const Color(0xFFFFD700),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildConfigRow(
+                        'TENSION',
+                        composer.config!.anticipationLevels, 1, 4,
+                        (v) { composer.setAnticipationLevels(v); _invalidatePhaseCache(); },
+                        const Color(0xFFFF5252),
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 3),
+                _buildAnticipationReelPicker(composer),
               ],
             ],
           ),
@@ -2291,66 +2278,86 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   // V10: Phase Tab Bar — Navigate between phases
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Phase tab labels with icons
-  static const _phaseTabLabels = [
-    'ALL', 'CORE', 'WINS', 'FEAT', 'JACK', 'GAMB', 'MUSIC', 'UI',
-  ];
-  // Matching desaturated phase colors for tab tinting (index 0 = ALL = neutral)
-  static const _phaseTabColors = [
-    Color(0xFF808088), // ALL — neutral
-    Color(0xFF4A9EFF), // CORE — blue
-    Color(0xFFFFD740), // WINS — amber
-    Color(0xFF40C4FF), // FEAT — cyan
-    Color(0xFFFF6E40), // JACK — orange
-    Color(0xFFAB47BC), // GAMB — purple
-    Color(0xFF9370DB), // MUSIC — medium purple
-    Color(0xFF78909C), // UI — blue-gray
-  ];
-
   Widget _buildPhaseTabBar() {
+    // Dynamic: build tabs from actual visible phases
+    final phases = _buildPhases();
+    final tabCount = phases.length + 1; // +1 for ALL tab
+    // Clamp active tab if phases changed
+    if (_activePhaseTab >= tabCount) _activePhaseTab = 0;
+
     return Container(
       height: 22,
       decoration: const BoxDecoration(
         color: Color(0xFF101014),
         border: Border(bottom: BorderSide(color: Color(0xFF222228))),
       ),
-      child: Row(
-        children: List.generate(_phaseTabLabels.length, (i) {
-          final isActive = _activePhaseTab == i;
-          final tabColor = _phaseTabColors[i];
-          final tabTint = Color.lerp(tabColor, const Color(0xFF808088), 0.55)!;
-          return Expanded(
-            child: _HoverBuilder(
-              builder: (hovered) => GestureDetector(
-                onTap: () => setState(() => _activePhaseTab = i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 120),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: isActive
-                        ? tabColor.withOpacity(0.06)
-                        : hovered ? tabColor.withOpacity(0.03) : Colors.transparent,
-                    border: Border(
-                      bottom: BorderSide(
-                        color: isActive ? tabTint : Colors.transparent,
-                        width: 1.5,
-                      ),
-                    ),
-                  ),
-                  child: Text(_phaseTabLabels[i], style: TextStyle(
-                    fontSize: 8, fontWeight: FontWeight.w600,
-                    color: isActive
-                        ? tabTint
-                        : hovered ? const Color(0xFF707078) : const Color(0xFF505058),
-                    letterSpacing: 0.3,
-                  )),
-                ),
-              ),
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.zero,
+        children: [
+          // ALL tab
+          _buildPhaseTab(0, 'ALL', const Color(0xFF808088)),
+          // Dynamic phase tabs
+          for (int i = 0; i < phases.length; i++)
+            _buildPhaseTab(
+              i + 1,
+              _phaseShortLabel(phases[i].title),
+              phases[i].color,
             ),
-          );
-        }),
+        ],
       ),
     );
+  }
+
+  Widget _buildPhaseTab(int index, String label, Color color) {
+    final isActive = _activePhaseTab == index;
+    final tabTint = Color.lerp(color, const Color(0xFF808088), 0.55)!;
+    return _HoverBuilder(
+      builder: (hovered) => GestureDetector(
+        onTap: () => setState(() => _activePhaseTab = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: isActive
+                ? color.withOpacity(0.06)
+                : hovered ? color.withOpacity(0.03) : Colors.transparent,
+            border: Border(
+              bottom: BorderSide(
+                color: isActive ? tabTint : Colors.transparent,
+                width: 1.5,
+              ),
+            ),
+          ),
+          child: Text(label, style: TextStyle(
+            fontSize: 8, fontWeight: FontWeight.w600,
+            color: isActive
+                ? tabTint
+                : hovered ? const Color(0xFF707078) : const Color(0xFF505058),
+            letterSpacing: 0.3,
+          )),
+        ),
+      ),
+    );
+  }
+
+  /// Shorten phase title for tab label (max ~5 chars)
+  String _phaseShortLabel(String title) {
+    const map = {
+      'CORE LOOP': 'CORE',
+      'WINS': 'WINS',
+      'FEATURES': 'FEAT',
+      'JACKPOTS': 'JACK',
+      'GAMBLE': 'GAMB',
+      'ANTICIPATION': 'ANTIC',
+      'COLLECTOR': 'COLL',
+      'MEGAWAYS': 'MEGA',
+      'TRANSITIONS': 'TRANS',
+      'MUSIC & AMBIENCE': 'MUSIC',
+      'UI & SYSTEM': 'UI',
+    };
+    return map[title] ?? title.substring(0, title.length.clamp(0, 5));
   }
 
   /// Lazy phase list — uses ListView.builder to avoid building all phases/sections/slots
