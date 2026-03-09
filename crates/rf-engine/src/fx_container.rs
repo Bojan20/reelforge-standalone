@@ -552,6 +552,92 @@ impl ContainerManager {
     }
 }
 
+// =============================================================================
+// FX CONTAINER AS INSERT PROCESSOR
+// =============================================================================
+
+/// Wraps FxContainer as an InsertProcessor so it can be loaded into an InsertSlot.
+/// This enables inline parallel FX processing within the insert chain.
+pub struct FxContainerProcessor {
+    container: FxContainer,
+}
+
+impl FxContainerProcessor {
+    /// Create a new FxContainerProcessor
+    pub fn new(container: FxContainer) -> Self {
+        Self { container }
+    }
+
+    /// Get reference to the inner container
+    pub fn container(&self) -> &FxContainer {
+        &self.container
+    }
+
+    /// Get mutable reference to the inner container
+    pub fn container_mut(&mut self) -> &mut FxContainer {
+        &mut self.container
+    }
+}
+
+impl InsertProcessor for FxContainerProcessor {
+    fn name(&self) -> &str {
+        &self.container.name
+    }
+
+    fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
+        self.container.process(left, right);
+    }
+
+    fn latency(&self) -> rf_dsp::delay_compensation::LatencySamples {
+        self.container.latency()
+    }
+
+    fn reset(&mut self) {
+        self.container.reset();
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: f64) {
+        self.container.set_sample_rate(sample_rate);
+    }
+
+    fn num_params(&self) -> usize {
+        // Expose macros as parameters
+        MAX_MACROS
+    }
+
+    fn get_param(&self, index: usize) -> f64 {
+        if index < MAX_MACROS {
+            self.container.macros[index].value
+        } else {
+            0.0
+        }
+    }
+
+    fn set_param(&mut self, index: usize, value: f64) {
+        self.container.set_macro(index as u8, value);
+    }
+
+    fn param_name(&self, index: usize) -> &str {
+        if index < MAX_MACROS {
+            &self.container.macros[index].name
+        } else {
+            ""
+        }
+    }
+
+    fn slot_mix_param(&self) -> Option<usize> {
+        None // Container handles its own wet/dry via global_wet
+    }
+
+    fn is_fx_container(&self) -> bool {
+        true
+    }
+
+    fn as_fx_container_mut(&mut self) -> Option<&mut FxContainerProcessor> {
+        Some(self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

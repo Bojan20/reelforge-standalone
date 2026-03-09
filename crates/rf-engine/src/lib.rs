@@ -158,8 +158,8 @@ pub use anticipatory::{
 };
 
 pub use fx_container::{
-    BlendMode, ContainerPath, FxContainer, MAX_MACROS, MAX_PARALLEL_PATHS, MacroMapping,
-    MacroParameter, MappingCurve, PathId,
+    BlendMode, ContainerPath, FxContainer, FxContainerProcessor, MAX_MACROS, MAX_PARALLEL_PATHS,
+    MacroMapping, MacroParameter, MappingCurve, PathId,
 };
 
 pub use pin_connector::{

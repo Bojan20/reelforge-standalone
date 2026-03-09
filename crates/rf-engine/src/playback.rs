@@ -2437,6 +2437,13 @@ impl PlaybackEngine {
         None
     }
 
+    /// Get write access to insert chains (for FFI container operations)
+    pub fn insert_chains_write(
+        &self,
+    ) -> parking_lot::RwLockWriteGuard<'_, std::collections::HashMap<u64, InsertChain>> {
+        self.insert_chains.write()
+    }
+
     /// Get master insert chain
     pub fn master_insert_chain(&self) -> &RwLock<InsertChain> {
         &self.master_insert

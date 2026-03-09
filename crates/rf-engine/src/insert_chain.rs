@@ -443,6 +443,17 @@ impl InsertSlot {
             .unwrap_or(0.0)
     }
 
+    // ═══ FxContainer Access (P8) ═══
+
+    /// Try to get the processor as an FxContainerProcessor (for inline parallel FX)
+    pub fn processor_as_container_mut(&mut self) -> Option<&mut crate::fx_container::FxContainerProcessor> {
+        if let Some(ref mut processor) = self.processor {
+            processor.as_fx_container_mut()
+        } else {
+            None
+        }
+    }
+
     // ═══ Pin Connector Methods (P7) ═══
 
     /// Enable pin connector with given host and plugin channel counts
@@ -558,6 +569,16 @@ pub trait InsertProcessor: Send + Sync {
     /// wet/dry mixing for processors that have an internal dry/wet crossfade
     /// (e.g., reverb, delay). The processor outputs 100% wet; InsertSlot handles blending.
     fn slot_mix_param(&self) -> Option<usize> {
+        None
+    }
+
+    /// Returns true if this processor is an FxContainerProcessor (for inline parallel FX)
+    fn is_fx_container(&self) -> bool {
+        false
+    }
+
+    /// Downcast to FxContainerProcessor. Override in FxContainerProcessor only.
+    fn as_fx_container_mut(&mut self) -> Option<&mut crate::fx_container::FxContainerProcessor> {
         None
     }
 }

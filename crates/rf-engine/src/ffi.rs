@@ -23611,3 +23611,286 @@ pub extern "C" fn pin_connector_get_config_json(
         }
     })
 }
+
+// =============================================================================
+// P8: FX CONTAINER (PARALLEL FX) FFI
+// =============================================================================
+
+/// Load FX Container as an inline parallel processor into an insert slot.
+/// Creates a container with the given number of parallel paths.
+/// Each path gets its own insert chain for loading processors.
+///
+/// track_id: 0 = master bus, >0 = audio track
+/// slot_index: 0-7 insert slot
+/// num_paths: number of parallel paths (1-8)
+/// blend_mode: 0=Sum, 1=Average, 2=Maximum, 3=Minimum
+/// Returns 1 on success
+#[unsafe(no_mangle)]
+pub extern "C" fn fx_container_load(
+    track_id: u32,
+    slot_index: u32,
+    num_paths: u32,
+    blend_mode: u32,
+    container_name: *const c_char,
+) -> i32 {
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+
+        let name = match unsafe { cstr_to_string(container_name) } {
+            Some(n) => n,
+            None => "Parallel FX".to_string(),
+        };
+
+        let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
+        let block_size = 1024; // Default, will be resized on first process
+
+        let mode = match blend_mode {
+            0 => crate::fx_container::BlendMode::Sum,
+            1 => crate::fx_container::BlendMode::Average,
+            2 => crate::fx_container::BlendMode::Maximum,
+            3 => crate::fx_container::BlendMode::Minimum,
+            _ => crate::fx_container::BlendMode::Sum,
+        };
+
+        let mut container = crate::fx_container::FxContainer::new(
+            crate::fx_container::ContainerId::new(0),
+            name,
+            sample_rate,
+            block_size,
+        );
+        container.set_blend_mode(mode);
+
+        let paths = (num_paths as usize).clamp(1, 8);
+        for i in 0..paths {
+            container.add_path(format!("Path {}", i + 1));
+        }
+
+        let processor = Box::new(crate::fx_container::FxContainerProcessor::new(container));
+
+        let success = if track_id == 0 {
+            PLAYBACK_ENGINE.load_master_insert(slot_index, processor)
+        } else {
+            PLAYBACK_ENGINE.load_track_insert(track_id as u64, slot_index, processor)
+        };
+
+        if success { 1 } else { 0 }
+    })
+}
+
+/// Load a processor into a specific path of an FX Container.
+///
+/// track_id/slot_index: identifies the insert slot containing the FX Container
+/// path_index: which parallel path (0-7)
+/// processor_name: name of the processor to create
+/// Returns 1 on success
+#[unsafe(no_mangle)]
+pub extern "C" fn fx_container_load_path_processor(
+    track_id: u32,
+    slot_index: u32,
+    path_index: u32,
+    processor_name: *const c_char,
+) -> i32 {
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+
+        let name = match unsafe { cstr_to_string(processor_name) } {
+            Some(n) => n,
+            None => return 0,
+        };
+
+        let sample_rate = PLAYBACK_ENGINE.sample_rate() as f64;
+
+        let processor = match crate::dsp_wrappers::create_processor_extended(&name, sample_rate) {
+            Some(p) => p,
+            None => return 0,
+        };
+
+        let path_id = crate::fx_container::PathId(path_index as u8);
+
+        // Access the insert chain and find the FxContainerProcessor
+        let mut chains = PLAYBACK_ENGINE.insert_chains_write();
+        let chain = if track_id == 0 {
+            // Master bus — need separate access
+            drop(chains);
+            let mut master = PLAYBACK_ENGINE.master_insert_chain().write();
+            if let Some(slot) = master.slot_mut(slot_index) {
+                // Downcast to FxContainerProcessor — we need to check the name
+                if slot.name().starts_with("Parallel") || slot.name().contains("Container") {
+                    // Access inner processor via set_processor_param trick won't work.
+                    // We need direct access to the processor.
+                    // Unfortunately, InsertSlot doesn't expose processor_mut.
+                    // TODO: Add processor_mut to InsertSlot for container access
+                    log::warn!("FX Container path loading on master bus not yet supported via FFI");
+                    return 0;
+                }
+            }
+            return 0;
+        } else {
+            match chains.get_mut(&(track_id as u64)) {
+                Some(c) => c,
+                None => return 0,
+            }
+        };
+
+        if let Some(slot) = chain.slot_mut(slot_index) {
+            if let Some(ref mut _processor) = slot.processor_as_container_mut() {
+                return if _processor.container_mut().add_fx_to_path(path_id, processor) {
+                    1
+                } else {
+                    0
+                };
+            }
+        }
+
+        0
+    })
+}
+
+/// Set FX Container path properties
+/// track_id/slot_index: identifies insert slot with FX Container
+/// path_index: which path (0-7)
+/// property: 0=wet, 1=gain, 2=pan, 3=mute, 4=solo
+/// value: property value
+#[unsafe(no_mangle)]
+pub extern "C" fn fx_container_set_path_prop(
+    track_id: u32,
+    slot_index: u32,
+    path_index: u32,
+    property: u32,
+    value: f64,
+) -> i32 {
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+
+        let path_id = crate::fx_container::PathId(path_index as u8);
+
+        let mut chains = PLAYBACK_ENGINE.insert_chains_write();
+        let chain = match chains.get_mut(&(track_id as u64)) {
+            Some(c) => c,
+            None => return 0,
+        };
+
+        if let Some(slot) = chain.slot_mut(slot_index) {
+            if let Some(container_proc) = slot.processor_as_container_mut() {
+                let container = container_proc.container_mut();
+                if let Some(path) = container.get_path_mut(path_id) {
+                    match property {
+                        0 => path.wet = value.clamp(0.0, 1.0),
+                        1 => path.gain = value.clamp(0.0, 4.0),
+                        2 => path.pan = value.clamp(-1.0, 1.0),
+                        3 => path.muted = value > 0.5,
+                        4 => path.soloed = value > 0.5,
+                        _ => return 0,
+                    }
+                    return 1;
+                }
+            }
+        }
+        0
+    })
+}
+
+/// Set FX Container global wet/dry
+#[unsafe(no_mangle)]
+pub extern "C" fn fx_container_set_global_wet(
+    track_id: u32,
+    slot_index: u32,
+    wet: f64,
+) -> i32 {
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+
+        let mut chains = PLAYBACK_ENGINE.insert_chains_write();
+        let chain = match chains.get_mut(&(track_id as u64)) {
+            Some(c) => c,
+            None => return 0,
+        };
+
+        if let Some(slot) = chain.slot_mut(slot_index) {
+            if let Some(container_proc) = slot.processor_as_container_mut() {
+                container_proc.container_mut().set_global_wet(wet);
+                return 1;
+            }
+        }
+        0
+    })
+}
+
+/// Set FX Container blend mode (0=Sum, 1=Average, 2=Maximum, 3=Minimum)
+#[unsafe(no_mangle)]
+pub extern "C" fn fx_container_set_blend_mode(
+    track_id: u32,
+    slot_index: u32,
+    mode: u32,
+) -> i32 {
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+
+        let blend_mode = match mode {
+            0 => crate::fx_container::BlendMode::Sum,
+            1 => crate::fx_container::BlendMode::Average,
+            2 => crate::fx_container::BlendMode::Maximum,
+            3 => crate::fx_container::BlendMode::Minimum,
+            _ => return 0,
+        };
+
+        let mut chains = PLAYBACK_ENGINE.insert_chains_write();
+        let chain = match chains.get_mut(&(track_id as u64)) {
+            Some(c) => c,
+            None => return 0,
+        };
+
+        if let Some(slot) = chain.slot_mut(slot_index) {
+            if let Some(container_proc) = slot.processor_as_container_mut() {
+                container_proc.container_mut().set_blend_mode(blend_mode);
+                return 1;
+            }
+        }
+        0
+    })
+}
+
+/// Set FX Container macro parameter (controls mapped FX params)
+#[unsafe(no_mangle)]
+pub extern "C" fn fx_container_set_macro(
+    track_id: u32,
+    slot_index: u32,
+    macro_index: u32,
+    value: f64,
+) -> i32 {
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+
+        let mut chains = PLAYBACK_ENGINE.insert_chains_write();
+        let chain = match chains.get_mut(&(track_id as u64)) {
+            Some(c) => c,
+            None => return 0,
+        };
+
+        if let Some(slot) = chain.slot_mut(slot_index) {
+            if let Some(container_proc) = slot.processor_as_container_mut() {
+                container_proc.container_mut().set_macro(macro_index as u8, value);
+                return 1;
+            }
+        }
+        0
+    })
+}
