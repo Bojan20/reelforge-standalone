@@ -410,7 +410,7 @@ class _InternalProcessorEditorWindowState
                 } else {
                   // Node not in DspChainProvider — add it so future reads see bypass
                   DspChainProvider.instance.addNodeUiOnly(widget.trackId, widget.node.type, atSlot: widget.slotIndex);
-                  DspChainProvider.instance.setNodeBypassUiOnly(widget.trackId, widget.node.type, _isBypassed);
+                  DspChainProvider.instance.setNodeBypassUiOnly(widget.trackId, widget.slotIndex, _isBypassed);
                 }
               },
             ),

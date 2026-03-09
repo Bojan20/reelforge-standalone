@@ -224,10 +224,9 @@ mixin FabFilterPanelMixin<T extends FabFilterPanelBase> on State<T> {
 
   /// Update DspChainProvider UI state without triggering another FFI call
   void _syncBypassUiState(bool bypassed) {
-    final nodeType = widget.nodeType;
-    if (nodeType == null) return;
+    if (widget.slotIndex < 0) return;
     DspChainProvider.instance.setNodeBypassUiOnly(
-        widget.trackId, nodeType, bypassed);
+        widget.trackId, widget.slotIndex, bypassed);
   }
 
   /// Sync bypass state with DspChainProvider (fallback path)

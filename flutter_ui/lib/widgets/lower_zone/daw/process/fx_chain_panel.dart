@@ -2,6 +2,7 @@
 /// Updated: 2026-01-29 - Added per-processor CPU meters (P3.2)
 library;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../../lower_zone_types.dart';
 import '../../../../providers/dsp_chain_provider.dart';
@@ -155,7 +156,7 @@ class FxChainPanel extends StatelessWidget {
       builder: (context, candidateData, rejectedData) {
         final isHovering = candidateData.isNotEmpty;
         return Container(
-          width: 150, height: 85,
+          width: 150, height: 105,
           margin: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
             color: isHovering ? LowerZoneColors.dawAccent.withValues(alpha: 0.1) : Colors.transparent,
@@ -193,6 +194,8 @@ class FxChainPanel extends StatelessWidget {
 
   Widget _buildProcessorCard(DspNode node, {bool isDragging = false, bool isDropTarget = false, int? trackId, int? slotIndex, BuildContext? context}) {
     final isActive = !node.bypass;
+    final wetPct = (node.wetDry * 100).toInt();
+    final isFullWet = node.wetDry >= 1.0;
     return GestureDetector(
       onTap: trackId != null ? () => _navigateToProcessor(node.type) : null,
       onDoubleTap: (trackId != null && slotIndex != null && context != null) ? () {
@@ -204,7 +207,7 @@ class FxChainPanel extends StatelessWidget {
         );
       } : null,
       child: Container(
-        width: 100, height: 85, // Increased height to accommodate CPU meter
+        width: 100, height: 105,
         decoration: BoxDecoration(
           color: isDropTarget ? LowerZoneColors.dawAccent.withValues(alpha: 0.2)
             : isActive ? LowerZoneColors.dawAccent.withValues(alpha: 0.15) : LowerZoneColors.bgSurface,
@@ -219,13 +222,60 @@ class FxChainPanel extends StatelessWidget {
             Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(_nodeTypeIcon(node.type), size: 18, color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted),
+                const SizedBox(height: 14),
+                Icon(_nodeTypeIcon(node.type), size: 16, color: isActive ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted),
                 const SizedBox(height: 2),
                 Text(node.type.shortName, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
                   color: isActive ? LowerZoneColors.textPrimary : LowerZoneColors.textMuted)),
-                if (node.wetDry < 1.0)
-                  Text('${(node.wetDry * 100).toInt()}%', style: const TextStyle(fontSize: 8, color: LowerZoneColors.textTertiary)),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
+                // Wet/Dry slider (host-level, #32)
+                if (trackId != null) Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Listener(
+                    onPointerDown: (event) {
+                      // Right-click resets to 100%
+                      if (event.buttons == 2) {
+                        DspChainProvider.instance.setNodeWetDry(trackId, node.id, 1.0);
+                      }
+                    },
+                    onPointerSignal: (event) {
+                      // Scroll wheel for fine wet/dry adjustment (1% steps)
+                      if (event is PointerScrollEvent) {
+                        final delta = event.scrollDelta.dy > 0 ? -0.01 : 0.01;
+                        // Read fresh value from provider to avoid stale closure
+                        final current = DspChainProvider.instance.getChain(trackId)
+                            .nodes.where((n) => n.id == node.id).firstOrNull?.wetDry ?? node.wetDry;
+                        DspChainProvider.instance.setNodeWetDry(trackId, node.id, current + delta);
+                      }
+                    },
+                    child: Column(
+                      children: [
+                        Text('W/D $wetPct%', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w500,
+                          color: isFullWet ? LowerZoneColors.textTertiary : LowerZoneColors.dawAccent)),
+                        SizedBox(
+                          height: 14,
+                          child: SliderTheme(
+                            data: SliderThemeData(
+                              trackHeight: 3,
+                              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                              overlayShape: const RoundSliderOverlayShape(overlayRadius: 8),
+                              activeTrackColor: LowerZoneColors.dawAccent,
+                              inactiveTrackColor: LowerZoneColors.bgDeepest,
+                              thumbColor: LowerZoneColors.dawAccent,
+                              overlayColor: LowerZoneColors.dawAccent.withValues(alpha: 0.15),
+                            ),
+                            child: Slider(
+                              value: node.wetDry,
+                              onChanged: (v) => DspChainProvider.instance.setNodeWetDry(trackId, node.id, v),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ) else
+                  Text(isFullWet ? '' : '$wetPct%', style: const TextStyle(fontSize: 8, color: LowerZoneColors.textTertiary)),
+                const SizedBox(height: 2),
                 // CPU meter (P3.2)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -339,7 +389,7 @@ class FxChainPanel extends StatelessWidget {
 
   Widget _buildChainNode(String label, IconData icon, {bool isEndpoint = false}) {
     return Container(
-      width: 80, height: 85,
+      width: 80, height: 105,
       decoration: BoxDecoration(
         color: isEndpoint ? LowerZoneColors.bgDeepest : LowerZoneColors.bgMid,
         borderRadius: BorderRadius.circular(8),

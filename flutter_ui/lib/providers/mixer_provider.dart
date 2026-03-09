@@ -2786,6 +2786,30 @@ class MixerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Update insert wet/dry mix — UI state only, no FFI call.
+  /// Used for cross-sync from DspChainProvider (which already called FFI).
+  void updateInsertWetDryUiOnly(String channelId, int slotIndex, double wetDry) {
+    final isMaster = channelId == 'master';
+    final channel = isMaster ? _master : (_channels[channelId] ?? _buses[channelId] ?? _auxes[channelId]);
+    if (channel == null) return;
+    if (slotIndex < 0 || slotIndex >= channel.inserts.length) return;
+
+    final clampedMix = wetDry.clamp(0.0, 1.0);
+    final inserts = List<InsertSlot>.from(channel.inserts);
+    inserts[slotIndex] = inserts[slotIndex].copyWith(wetDry: clampedMix);
+    final updated = channel.copyWith(inserts: inserts);
+    if (isMaster) {
+      _master = updated;
+    } else if (_channels.containsKey(channelId)) {
+      _channels[channelId] = updated;
+    } else if (_buses.containsKey(channelId)) {
+      _buses[channelId] = updated;
+    } else if (_auxes.containsKey(channelId)) {
+      _auxes[channelId] = updated;
+    }
+    notifyListeners();
+  }
+
   /// Remove insert (replace with empty slot) — UI state only.
   /// FFI unload is handled by the caller (engine_connected_layout.dart).
   void removeInsert(String channelId, int slotIndex) {

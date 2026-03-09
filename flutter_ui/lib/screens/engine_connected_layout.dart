@@ -606,6 +606,19 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     _mixerViewController.addListener(_onMixerViewChanged);
     _mixerViewController.loadFromStorage();
 
+    // Wire DspChainProvider → MixerProvider wet/dry cross-sync (#32)
+    DspChainProvider.instance.onWetDrySyncToMixer = (trackId, slotIndex, wetDry) {
+      if (!mounted) return;
+      final channelId = 'ch_$trackId';
+      try {
+        final mixer = context.read<MixerProvider>();
+        final channel = mixer.getChannel(channelId);
+        if (channel != null && slotIndex < channel.inserts.length) {
+          mixer.updateInsertWetDryUiOnly(channelId, slotIndex, wetDry);
+        }
+      } catch (_) {}
+    };
+
     // Initialize empty timeline (no demo data)
     _initEmptyTimeline();
 
@@ -984,6 +997,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     } catch (_) {
       // Provider may not be available during dispose
     }
+    // Remove DspChainProvider cross-sync callback
+    DspChainProvider.instance.onWetDrySyncToMixer = null;
     // Cancel resize throttle timer
     _resizeThrottleTimer?.cancel();
     // Dispose ScrollController
@@ -5784,17 +5799,14 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 });
               }
               // Sync DspChainProvider so floating editor windows reflect bypass state
-              final dspChain = DspChainProvider.instance.getChain(trackId);
-              if (slotIndex < dspChain.nodes.length) {
-                final node = dspChain.nodes[slotIndex];
-                if (node.bypass != bypassed) {
-                  DspChainProvider.instance.setNodeBypassUiOnly(trackId, node.type, bypassed);
-                }
-              }
+              DspChainProvider.instance.setNodeBypassUiOnly(trackId, slotIndex, bypassed);
             },
             onChannelInsertWetDryChange: (channelId, slotIndex, wetDry) {
               // Commit final value — FFI + UI state + notifyListeners
               context.read<MixerProvider>().updateInsertWetDry(channelId, slotIndex, wetDry);
+              // Reverse sync to DspChainProvider (UI only, FFI already done)
+              final trackId = int.tryParse(channelId.replaceAll(RegExp(r'[a-z_]+'), '')) ?? 0;
+              DspChainProvider.instance.setNodeWetDryUiOnly(trackId, slotIndex, wetDry);
             },
             onChannelInsertWetDryRealtime: (channelId, slotIndex, wetDry) {
               // Real-time during drag — FFI only, no UI rebuild

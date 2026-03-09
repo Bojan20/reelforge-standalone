@@ -541,17 +541,29 @@ class DspChainProvider extends ChangeNotifier {
 
   /// Set node bypass UI state only (no FFI call).
   /// Used when bypass was already sent via direct FFI.
-  void setNodeBypassUiOnly(int trackId, DspNodeType nodeType, bool bypassed) {
+  void setNodeBypassUiOnly(int trackId, int slotIndex, bool bypassed) {
     final chain = _chains[trackId];
     if (chain == null) return;
-    final nodeIndex = chain.nodes.indexWhere((n) => n.type == nodeType);
-    if (nodeIndex == -1) return;
-    final node = chain.nodes[nodeIndex];
+    if (slotIndex < 0 || slotIndex >= chain.nodes.length) return;
+    final node = chain.nodes[slotIndex];
     if (node.bypass == bypassed) return;
-    final newNodes = chain.nodes.map((n) {
-      if (n.type == nodeType) return n.copyWith(bypass: bypassed);
-      return n;
-    }).toList();
+    final newNodes = List<DspNode>.from(chain.nodes);
+    newNodes[slotIndex] = node.copyWith(bypass: bypassed);
+    _chains[trackId] = chain.copyWith(nodes: newNodes);
+    notifyListeners();
+  }
+
+  /// Set node wet/dry UI state only (no FFI call).
+  /// Used for cross-sync from MixerProvider (which already called FFI).
+  void setNodeWetDryUiOnly(int trackId, int slotIndex, double wetDry) {
+    final chain = _chains[trackId];
+    if (chain == null) return;
+    if (slotIndex < 0 || slotIndex >= chain.nodes.length) return;
+    final clampedMix = wetDry.clamp(0.0, 1.0);
+    final node = chain.nodes[slotIndex];
+    if (node.wetDry == clampedMix) return;
+    final newNodes = List<DspNode>.from(chain.nodes);
+    newNodes[slotIndex] = node.copyWith(wetDry: clampedMix);
     _chains[trackId] = chain.copyWith(nodes: newNodes);
     notifyListeners();
   }
@@ -584,6 +596,10 @@ class DspChainProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Callback for cross-syncing wet/dry to MixerProvider inserts.
+  /// Set by engine_connected_layout to keep both views in sync.
+  void Function(int trackId, int slotIndex, double wetDry)? onWetDrySyncToMixer;
+
   /// Set node wet/dry mix
   /// FFI SYNC: Calls insertSetMix() to set wet/dry mix in Rust engine
   void setNodeWetDry(int trackId, String nodeId, double wetDry) {
@@ -604,6 +620,10 @@ class DspChainProvider extends ChangeNotifier {
       return n;
     }).toList();
     _chains[trackId] = chain.copyWith(nodes: newNodes);
+
+    // 3. Cross-sync to MixerProvider inserts
+    onWetDrySyncToMixer?.call(trackId, nodeIndex, clampedMix);
+
     notifyListeners();
   }
 
@@ -664,9 +684,11 @@ class DspChainProvider extends ChangeNotifier {
     newNodes[indexA] = newNodes[indexB].copyWith(order: indexA);
     newNodes[indexB] = temp.copyWith(order: indexB);
 
-    // FFI SYNC: Unload and reload in swapped order
-    _ffi.insertUnloadSlot(trackId, indexA);
-    _ffi.insertUnloadSlot(trackId, indexB);
+    // FFI SYNC: Unload in reverse order (higher index first) to avoid index shift
+    final higherIdx = indexA > indexB ? indexA : indexB;
+    final lowerIdx = indexA < indexB ? indexA : indexB;
+    _ffi.insertUnloadSlot(trackId, higherIdx);
+    _ffi.insertUnloadSlot(trackId, lowerIdx);
 
     final nodeA = newNodes[indexA];
     final nodeB = newNodes[indexB];
@@ -964,9 +986,11 @@ class DspChainProvider extends ChangeNotifier {
     }
 
     // 2. Create new node IDs for pasted nodes
+    final baseTs = DateTime.now().microsecondsSinceEpoch;
+    int pasteIdx = 0;
     final newNodes = _clipboard!.nodes.map((n) {
       return DspNode(
-        id: 'dsp-${DateTime.now().millisecondsSinceEpoch}-${n.type.name}',
+        id: 'dsp-${baseTs + pasteIdx++}-${n.type.name}',
         type: n.type,
         name: n.name,
         bypass: n.bypass,

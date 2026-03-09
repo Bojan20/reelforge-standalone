@@ -43,7 +43,7 @@ Analyzer: 0 errors, 0 warnings
 | 29 | **ReaStream (Network Audio)** | ✅ DONE | Host-to-host streaming audio/MIDI na LAN-u. UDP broadcast. Multi-channel. | Visoka |
 | 30 | **JSFX-style DSP Scripting** | ✅ DONE | User-scriptable audio efekti sa sample-level processing. Instant kompilacija. Custom GUI. | Vrlo visoka |
 | 31 | **Video Processor FX** | ✅ DONE | Built-in video processor: text overlay, audio-reaktivni vizuali, FFT frequency display. | Srednja |
-| 32 | **Host-level Wet/Dry per-FX** | ⚠️ PARTIAL | Host-level wet/dry za SVE plugin-e (čak i bez ugrađenog mix knoba). | Niska |
+| 32 | **Host-level Wet/Dry per-FX** | ✅ DONE | Host-level wet/dry za SVE plugin-e (čak i bez ugrađenog mix knoba). | Niska |
 | 33 | **Package Manager** | ❌ TODO | Marketplace za skripte, efekte, teme. Auto-update. Custom repositories. | Visoka |
 | 34 | **Extension SDK** | ⚠️ PARTIAL | `rf-plugin` crate postoji. Otvoreni SDK za third-party development. | Visoka |
 
