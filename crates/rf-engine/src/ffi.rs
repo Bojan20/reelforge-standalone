@@ -4883,6 +4883,407 @@ pub extern "C" fn automation_release_plugin(track_id: u64, slot: u32, param_inde
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// AUTOMATION ITEMS FFI (Reaper-style pooled containerized automation)
+// ═══════════════════════════════════════════════════════════════════════════
+
+lazy_static::lazy_static! {
+    static ref AUTO_ITEM_MANAGER: crate::automation::AutomationItemManager =
+        crate::automation::AutomationItemManager::new(48000.0);
+}
+
+/// Add an LFO automation item to a lane.
+/// Returns item ID, or 0 on error.
+/// lfo_shape: 0=Sine, 1=Triangle, 2=Square, 3=SawUp, 4=SawDown, 5=Random, 6=S&H
+#[unsafe(no_mangle)]
+pub extern "C" fn auto_item_add_lfo(
+    track_id: u64,
+    param_name: *const std::ffi::c_char,
+    start_samples: u64,
+    length_samples: u64,
+    lfo_shape: u8,
+    frequency: f64,
+) -> u64 {
+    let param_str = unsafe {
+        if param_name.is_null() { return 0; }
+        match std::ffi::CStr::from_ptr(param_name).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    let shape = match lfo_shape {
+        0 => crate::automation::LfoShape::Sine,
+        1 => crate::automation::LfoShape::Triangle,
+        2 => crate::automation::LfoShape::Square,
+        3 => crate::automation::LfoShape::SawUp,
+        4 => crate::automation::LfoShape::SawDown,
+        5 => crate::automation::LfoShape::Random,
+        6 => crate::automation::LfoShape::SampleAndHold,
+        _ => crate::automation::LfoShape::Sine,
+    };
+
+    let param_id = crate::automation::ParamId {
+        target_id: track_id,
+        target_type: crate::automation::TargetType::Track,
+        param_name: param_str.to_string(),
+        slot: None,
+    };
+
+    let item = crate::automation::AutomationItem::new_lfo(start_samples, length_samples, shape, frequency);
+    let id = AUTO_ITEM_MANAGER.add_item(&param_id, item);
+    id.0
+}
+
+/// Add a custom (user-drawn) automation item to a lane.
+/// Returns item ID, or 0 on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn auto_item_add_custom(
+    track_id: u64,
+    param_name: *const std::ffi::c_char,
+    start_samples: u64,
+    length_samples: u64,
+) -> u64 {
+    let param_str = unsafe {
+        if param_name.is_null() { return 0; }
+        match std::ffi::CStr::from_ptr(param_name).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    let param_id = crate::automation::ParamId {
+        target_id: track_id,
+        target_type: crate::automation::TargetType::Track,
+        param_name: param_str.to_string(),
+        slot: None,
+    };
+
+    let item = crate::automation::AutomationItem::new_custom(start_samples, length_samples);
+    let id = AUTO_ITEM_MANAGER.add_item(&param_id, item);
+    id.0
+}
+
+/// Remove an automation item. Returns 0 on success, -1 on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn auto_item_remove(
+    track_id: u64,
+    param_name: *const std::ffi::c_char,
+    item_id: u64,
+) -> i32 {
+    let param_str = unsafe {
+        if param_name.is_null() { return -1; }
+        match std::ffi::CStr::from_ptr(param_name).to_str() {
+            Ok(s) => s,
+            Err(_) => return -1,
+        }
+    };
+
+    let param_id = crate::automation::ParamId {
+        target_id: track_id,
+        target_type: crate::automation::TargetType::Track,
+        param_name: param_str.to_string(),
+        slot: None,
+    };
+
+    if AUTO_ITEM_MANAGER.remove_item(&param_id, crate::automation::AutomationItemId(item_id)) {
+        0
+    } else {
+        -1
+    }
+}
+
+/// Duplicate an automation item. Returns new item ID, or 0 on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn auto_item_duplicate(
+    track_id: u64,
+    param_name: *const std::ffi::c_char,
+    item_id: u64,
+    new_start: u64,
+) -> u64 {
+    let param_str = unsafe {
+        if param_name.is_null() { return 0; }
+        match std::ffi::CStr::from_ptr(param_name).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    let param_id = crate::automation::ParamId {
+        target_id: track_id,
+        target_type: crate::automation::TargetType::Track,
+        param_name: param_str.to_string(),
+        slot: None,
+    };
+
+    AUTO_ITEM_MANAGER
+        .duplicate_item(
+            &param_id,
+            crate::automation::AutomationItemId(item_id),
+            Some(new_start),
+        )
+        .map(|id| id.0)
+        .unwrap_or(0)
+}
+
+/// Move an automation item to a new start position.
+#[unsafe(no_mangle)]
+pub extern "C" fn auto_item_move(
+    track_id: u64,
+    param_name: *const std::ffi::c_char,
+    item_id: u64,
+    new_start: u64,
+) {
+    let param_str = unsafe {
+        if param_name.is_null() { return; }
+        match std::ffi::CStr::from_ptr(param_name).to_str() {
+            Ok(s) => s,
+            Err(_) => return,
+        }
+    };
+
+    let param_id = crate::automation::ParamId {
+        target_id: track_id,
+        target_type: crate::automation::TargetType::Track,
+        param_name: param_str.to_string(),
+        slot: None,
+    };
+
+    AUTO_ITEM_MANAGER.move_item(&param_id, crate::automation::AutomationItemId(item_id), new_start);
+}
+
+/// Resize an automation item.
+#[unsafe(no_mangle)]
+pub extern "C" fn auto_item_resize(
+    track_id: u64,
+    param_name: *const std::ffi::c_char,
+    item_id: u64,
+    new_length: u64,
+) {
+    let param_str = unsafe {
+        if param_name.is_null() { return; }
+        match std::ffi::CStr::from_ptr(param_name).to_str() {
+            Ok(s) => s,
+            Err(_) => return,
+        }
+    };
+
+    let param_id = crate::automation::ParamId {
+        target_id: track_id,
+        target_type: crate::automation::TargetType::Track,
+        param_name: param_str.to_string(),
+        slot: None,
+    };
+
+    AUTO_ITEM_MANAGER.resize_item(&param_id, crate::automation::AutomationItemId(item_id), new_length);
+}
+
+/// Set automation item properties.
+/// Returns 0 on success, -1 on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn auto_item_set_props(
+    track_id: u64,
+    param_name: *const std::ffi::c_char,
+    item_id: u64,
+    baseline: f64,
+    amplitude: f64,
+    looping: i32,
+    loop_count: u32,
+    rate: f64,
+    muted: i32,
+) -> i32 {
+    let param_str = unsafe {
+        if param_name.is_null() { return -1; }
+        match std::ffi::CStr::from_ptr(param_name).to_str() {
+            Ok(s) => s,
+            Err(_) => return -1,
+        }
+    };
+
+    let param_id = crate::automation::ParamId {
+        target_id: track_id,
+        target_type: crate::automation::TargetType::Track,
+        param_name: param_str.to_string(),
+        slot: None,
+    };
+
+    AUTO_ITEM_MANAGER
+        .with_item(&param_id, crate::automation::AutomationItemId(item_id), |item| {
+            item.baseline = baseline.clamp(0.0, 1.0);
+            item.amplitude = amplitude.clamp(0.0, 1.0);
+            item.looping = looping != 0;
+            item.loop_count = loop_count;
+            item.rate = rate.clamp(0.01, 100.0);
+            item.muted = muted != 0;
+        })
+        .map(|_| 0)
+        .unwrap_or(-1)
+}
+
+/// Pool an automation item (create shared pool for edit-one-update-all).
+/// Returns pool ID, or 0 on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn auto_item_pool(
+    track_id: u64,
+    param_name: *const std::ffi::c_char,
+    item_id: u64,
+) -> u64 {
+    let param_str = unsafe {
+        if param_name.is_null() { return 0; }
+        match std::ffi::CStr::from_ptr(param_name).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    let param_id = crate::automation::ParamId {
+        target_id: track_id,
+        target_type: crate::automation::TargetType::Track,
+        param_name: param_str.to_string(),
+        slot: None,
+    };
+
+    AUTO_ITEM_MANAGER
+        .pool_item(&param_id, crate::automation::AutomationItemId(item_id))
+        .map(|id| id.0)
+        .unwrap_or(0)
+}
+
+/// Unpool an automation item (detach from shared pool).
+#[unsafe(no_mangle)]
+pub extern "C" fn auto_item_unpool(
+    track_id: u64,
+    param_name: *const std::ffi::c_char,
+    item_id: u64,
+) {
+    let param_str = unsafe {
+        if param_name.is_null() { return; }
+        match std::ffi::CStr::from_ptr(param_name).to_str() {
+            Ok(s) => s,
+            Err(_) => return,
+        }
+    };
+
+    let param_id = crate::automation::ParamId {
+        target_id: track_id,
+        target_type: crate::automation::TargetType::Track,
+        param_name: param_str.to_string(),
+        slot: None,
+    };
+
+    AUTO_ITEM_MANAGER.unpool_item(&param_id, crate::automation::AutomationItemId(item_id));
+}
+
+/// Get combined automation item offset at a sample position.
+/// This is the stacked offset from all active items on the lane.
+#[unsafe(no_mangle)]
+pub extern "C" fn auto_item_value_at(
+    track_id: u64,
+    param_name: *const std::ffi::c_char,
+    sample: u64,
+) -> f64 {
+    let param_str = unsafe {
+        if param_name.is_null() { return 0.0; }
+        match std::ffi::CStr::from_ptr(param_name).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0.0,
+        }
+    };
+
+    let param_id = crate::automation::ParamId {
+        target_id: track_id,
+        target_type: crate::automation::TargetType::Track,
+        param_name: param_str.to_string(),
+        slot: None,
+    };
+
+    AUTO_ITEM_MANAGER.combined_offset_at(&param_id, sample)
+}
+
+/// Get all automation items on a lane as JSON.
+/// Returns null if no items. Caller must free with render_region_free_string().
+#[unsafe(no_mangle)]
+pub extern "C" fn auto_item_get_lane_json(
+    track_id: u64,
+    param_name: *const std::ffi::c_char,
+) -> *mut std::ffi::c_char {
+    let param_str = unsafe {
+        if param_name.is_null() { return std::ptr::null_mut(); }
+        match std::ffi::CStr::from_ptr(param_name).to_str() {
+            Ok(s) => s,
+            Err(_) => return std::ptr::null_mut(),
+        }
+    };
+
+    let param_id = crate::automation::ParamId {
+        target_id: track_id,
+        target_type: crate::automation::TargetType::Track,
+        param_name: param_str.to_string(),
+        slot: None,
+    };
+
+    let items = AUTO_ITEM_MANAGER.get_lane_items(&param_id);
+    if items.is_empty() {
+        return std::ptr::null_mut();
+    }
+
+    match serde_json::to_string(&items) {
+        Ok(json) => match std::ffi::CString::new(json) {
+            Ok(c) => c.into_raw(),
+            Err(_) => std::ptr::null_mut(),
+        },
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+/// Get item count on a lane
+#[unsafe(no_mangle)]
+pub extern "C" fn auto_item_count(
+    track_id: u64,
+    param_name: *const std::ffi::c_char,
+) -> i32 {
+    let param_str = unsafe {
+        if param_name.is_null() { return 0; }
+        match std::ffi::CStr::from_ptr(param_name).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    let param_id = crate::automation::ParamId {
+        target_id: track_id,
+        target_type: crate::automation::TargetType::Track,
+        param_name: param_str.to_string(),
+        slot: None,
+    };
+
+    AUTO_ITEM_MANAGER.get_lane_items(&param_id).len() as i32
+}
+
+/// Clear all automation items on a lane
+#[unsafe(no_mangle)]
+pub extern "C" fn auto_item_clear_lane(
+    track_id: u64,
+    param_name: *const std::ffi::c_char,
+) {
+    let param_str = unsafe {
+        if param_name.is_null() { return; }
+        match std::ffi::CStr::from_ptr(param_name).to_str() {
+            Ok(s) => s,
+            Err(_) => return,
+        }
+    };
+
+    let param_id = crate::automation::ParamId {
+        target_id: track_id,
+        target_type: crate::automation::TargetType::Track,
+        param_name: param_str.to_string(),
+        slot: None,
+    };
+
+    AUTO_ITEM_MANAGER.clear_lane(&param_id);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // INSERT EFFECTS FFI
 // ═══════════════════════════════════════════════════════════════════════════
 // NOTE: Insert chain FFI functions are defined in rf-bridge/src/api.rs

@@ -220,6 +220,9 @@ pub use dsp_wrappers::{
 pub use automation::{
     AutomationBlock, AutomationChange, AutomationEngine, AutomationLane, AutomationMode,
     AutomationPoint, CurveType, ParamChange, ParamId, TargetType,
+    // Automation Items (Reaper-style pooled containerized automation)
+    AutomationItem, AutomationItemId, AutomationItemManager, AutomationItemShape,
+    AutomationPool, AutomationPoolId, LfoShape,
 };
 
 // Re-exports: Phase 9 - Control Room
