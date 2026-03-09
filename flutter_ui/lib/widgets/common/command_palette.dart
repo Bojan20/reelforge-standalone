@@ -16,74 +16,6 @@ import '../../services/command_registry.dart';
 import '../../services/fuzzy_search.dart';
 import '../../theme/fluxforge_theme.dart';
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// LEGACY TYPES — backward compatibility for existing callers
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/// Single command definition (legacy — prefer PaletteCommand)
-class Command {
-  final String label;
-  final String? description;
-  final IconData? icon;
-  final VoidCallback onExecute;
-  final List<String> keywords;
-  final String? shortcut;
-
-  const Command({
-    required this.label,
-    this.description,
-    this.icon,
-    required this.onExecute,
-    this.keywords = const [],
-    this.shortcut,
-  });
-}
-
-/// Pre-built FluxForge DAW commands (legacy — prefer CommandRegistry)
-class FluxForgeCommands {
-  static List<Command> forDaw({
-    required VoidCallback onNewProject,
-    required VoidCallback onOpenProject,
-    required VoidCallback onSaveProject,
-    required VoidCallback onExport,
-    required VoidCallback onUndo,
-    required VoidCallback onRedo,
-    required VoidCallback onToggleMixer,
-    required VoidCallback onToggleTimeline,
-    required VoidCallback onAddTrack,
-    required VoidCallback onDeleteTrack,
-    required VoidCallback onToggleMetronome,
-    required VoidCallback onToggleSnap,
-    required VoidCallback onZoomIn,
-    required VoidCallback onZoomOut,
-    required VoidCallback onGoToStart,
-    required VoidCallback onGoToEnd,
-  }) {
-    return [
-      Command(label: 'New Project', description: 'Create a new empty project', icon: Icons.add_box, onExecute: onNewProject, keywords: ['new', 'create', 'project', 'file'], shortcut: '⌘N'),
-      Command(label: 'Open Project', description: 'Open an existing project', icon: Icons.folder_open, onExecute: onOpenProject, keywords: ['open', 'load', 'project', 'file'], shortcut: '⌘O'),
-      Command(label: 'Save Project', description: 'Save current project', icon: Icons.save, onExecute: onSaveProject, keywords: ['save', 'project', 'file'], shortcut: '⌘S'),
-      Command(label: 'Export Audio', description: 'Export project to audio file', icon: Icons.file_download, onExecute: onExport, keywords: ['export', 'bounce', 'render', 'wav', 'mp3'], shortcut: '⌘⇧E'),
-      Command(label: 'Undo', description: 'Undo last action', icon: Icons.undo, onExecute: onUndo, keywords: ['undo', 'back', 'revert'], shortcut: '⌘Z'),
-      Command(label: 'Redo', description: 'Redo last undone action', icon: Icons.redo, onExecute: onRedo, keywords: ['redo', 'forward'], shortcut: '⌘⇧Z'),
-      Command(label: 'Toggle Mixer', description: 'Show/hide mixer panel', icon: Icons.tune, onExecute: onToggleMixer, keywords: ['mixer', 'fader', 'console', 'view'], shortcut: 'M'),
-      Command(label: 'Toggle Timeline', description: 'Show/hide timeline panel', icon: Icons.view_timeline, onExecute: onToggleTimeline, keywords: ['timeline', 'arrangement', 'view'], shortcut: 'T'),
-      Command(label: 'Add Audio Track', description: 'Create new audio track', icon: Icons.add, onExecute: onAddTrack, keywords: ['add', 'new', 'track', 'audio', 'create'], shortcut: '⌘⇧T'),
-      Command(label: 'Delete Track', description: 'Delete selected track', icon: Icons.delete, onExecute: onDeleteTrack, keywords: ['delete', 'remove', 'track'], shortcut: '⌫'),
-      Command(label: 'Toggle Metronome', description: 'Turn metronome on/off', icon: Icons.timer, onExecute: onToggleMetronome, keywords: ['metronome', 'click', 'tempo'], shortcut: 'C'),
-      Command(label: 'Toggle Snap', description: 'Turn grid snap on/off', icon: Icons.grid_on, onExecute: onToggleSnap, keywords: ['snap', 'grid', 'quantize'], shortcut: 'G'),
-      Command(label: 'Zoom In', description: 'Zoom in on timeline', icon: Icons.zoom_in, onExecute: onZoomIn, keywords: ['zoom', 'in', 'magnify'], shortcut: '⌘+'),
-      Command(label: 'Zoom Out', description: 'Zoom out on timeline', icon: Icons.zoom_out, onExecute: onZoomOut, keywords: ['zoom', 'out', 'shrink'], shortcut: '⌘-'),
-      Command(label: 'Go to Start', description: 'Jump to project start', icon: Icons.first_page, onExecute: onGoToStart, keywords: ['start', 'beginning', 'home'], shortcut: 'Home'),
-      Command(label: 'Go to End', description: 'Jump to project end', icon: Icons.last_page, onExecute: onGoToEnd, keywords: ['end', 'finish'], shortcut: 'End'),
-    ];
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// COMMAND PALETTE ULTIMATE
-// ═══════════════════════════════════════════════════════════════════════════════
-
 /// Display item in the command list (either a command or a section header)
 class _DisplayItem {
   final PaletteCommand? command;
@@ -98,21 +30,9 @@ class _DisplayItem {
 }
 
 class CommandPalette extends StatefulWidget {
-  /// Legacy: direct command list
-  final List<Command>? commands;
+  const CommandPalette({super.key});
 
-  const CommandPalette({super.key, this.commands});
-
-  /// Legacy show method — wraps old Command list
-  static Future<void> show(BuildContext context, List<Command> commands) {
-    return showDialog(
-      context: context,
-      barrierColor: Colors.black54,
-      builder: (_) => CommandPalette(commands: commands),
-    );
-  }
-
-  /// Ultimate show method — uses CommandRegistry
+  /// Show the command palette using CommandRegistry
   static Future<void> showUltimate(BuildContext context) {
     return showDialog(
       context: context,
@@ -138,23 +58,7 @@ class _CommandPaletteState extends State<CommandPalette>
   int _selectedIndex = 0;
   PaletteCategory? _activeCategory;
 
-  /// All palette commands (from registry or converted from legacy)
-  List<PaletteCommand> get _allCommands {
-    if (widget.commands != null) {
-      // Legacy mode — convert Command to PaletteCommand
-      return widget.commands!.map((c) => PaletteCommand(
-        id: 'legacy.${c.label.toLowerCase().replaceAll(' ', '_')}',
-        label: c.label,
-        description: c.description,
-        category: PaletteCategory.tools,
-        icon: c.icon,
-        shortcut: c.shortcut,
-        keywords: c.keywords,
-        onExecute: c.onExecute,
-      )).toList();
-    }
-    return CommandRegistry.instance.commands;
-  }
+  List<PaletteCommand> get _allCommands => CommandRegistry.instance.commands;
 
   @override
   void initState() {

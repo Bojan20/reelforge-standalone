@@ -79,7 +79,7 @@ FuzzyMatch fuzzyMatch(String query, String target) {
 
   // Forward pass: find best matching positions using greedy with scoring
   final bestIndices = <int>[];
-  int bestScore = -1;
+  final bestScoreRef = [-1]; // Mutable ref so recursive calls can prune
 
   // Try recursive matching with limited depth for quality
   _fuzzyMatchRecursive(
@@ -92,20 +92,13 @@ FuzzyMatch fuzzyMatch(String query, String target) {
     [],
     0,
     bestIndices,
-    bestScore,
-    (indices, score) {
-      if (score > bestScore) {
-        bestScore = score;
-        bestIndices.clear();
-        bestIndices.addAll(indices);
-      }
-    },
+    bestScoreRef,
     0,
   );
 
   if (bestIndices.isEmpty) return FuzzyMatch.noMatch;
 
-  return FuzzyMatch(score: bestScore, matchedIndices: bestIndices);
+  return FuzzyMatch(score: bestScoreRef[0], matchedIndices: bestIndices);
 }
 
 void _fuzzyMatchRecursive(
@@ -118,8 +111,7 @@ void _fuzzyMatchRecursive(
   List<int> currentIndices,
   int currentScore,
   List<int> bestIndices,
-  int bestScore,
-  void Function(List<int> indices, int score) onBetter,
+  List<int> bestScoreRef, // Mutable [bestScore] so branches can prune
   int depth,
 ) {
   // Limit recursion depth for performance
@@ -139,7 +131,11 @@ void _fuzzyMatchRecursive(
           .clamp(_Score.maxUnmatchedLeading, 0);
     }
 
-    onBetter(currentIndices, score);
+    if (score > bestScoreRef[0]) {
+      bestScoreRef[0] = score;
+      bestIndices.clear();
+      bestIndices.addAll(currentIndices);
+    }
     return;
   }
 
@@ -202,8 +198,7 @@ void _fuzzyMatchRecursive(
       currentIndices,
       currentScore + matchScore,
       bestIndices,
-      bestScore,
-      onBetter,
+      bestScoreRef,
       depth + 1,
     );
     currentIndices.removeLast();

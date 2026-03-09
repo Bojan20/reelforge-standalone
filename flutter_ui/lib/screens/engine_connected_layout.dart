@@ -6146,7 +6146,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         allSubTabs.add((superTab: st, subIdx: idx, label: t.label, tooltip: t.tooltip, icon: t.icon));
       }
     }
-    // Register tab navigation commands into CommandRegistry
+    // Clear stale context commands and register fresh
+    CommandRegistry.instance.clearByPrefix('daw.tab.');
+    CommandRegistry.instance.clearByPrefix('slotlab.tab.');
     for (final t in allSubTabs) {
       CommandRegistry.instance.register(PaletteCommand(
         id: 'daw.tab.${t.superTab.name}.${t.subIdx}',

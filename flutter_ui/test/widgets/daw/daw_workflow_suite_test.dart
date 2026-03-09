@@ -14,7 +14,6 @@ import 'package:flutter/material.dart';
 import 'package:fluxforge_ui/widgets/daw/marker_system.dart';
 import 'package:fluxforge_ui/widgets/daw/clip_gain_envelope.dart';
 import 'package:fluxforge_ui/widgets/mixer/track_icon_picker.dart';
-import 'package:fluxforge_ui/services/quick_commands_service.dart';
 import 'package:fluxforge_ui/services/session_template_service.dart';
 import 'package:fluxforge_ui/models/workspace_window_layout.dart';
 
@@ -201,67 +200,6 @@ void main() {
       // Some icons appear in multiple categories, so unique count may differ
       final uniqueIcons = allIcons.toSet();
       expect(uniqueIcons.length, 50);
-    });
-  });
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // P2-DAW-9: QUICK COMMANDS SERVICE TESTS
-  // ═══════════════════════════════════════════════════════════════════════════
-  group('QuickCommandsService', () {
-    test('getDawCommands returns commands with callbacks', () {
-      var undoCalled = false;
-      var saveCalled = false;
-
-      final commands = QuickCommandsService.getDawCommands(
-        onUndo: () => undoCalled = true,
-        onSaveProject: () => saveCalled = true,
-      );
-
-      // Should have multiple commands
-      expect(commands.length, greaterThanOrEqualTo(2));
-
-      // Find and execute undo command
-      final undoCmd = commands.where((c) => c.label == 'Undo').first;
-      undoCmd.onExecute();
-      expect(undoCalled, true);
-
-      // Find and execute save command
-      final saveCmd = commands.where((c) => c.label == 'Save Project').first;
-      saveCmd.onExecute();
-      expect(saveCalled, true);
-    });
-
-    test('DawCommand has category', () {
-      final commands = QuickCommandsService.getDawCommands(
-        onUndo: () {},
-        onZoomIn: () {},
-        onAddAudioTrack: () {},
-      );
-
-      // Check that commands have expected categories
-      final undoCmd = commands.whereType<DawCommand>().where((c) => c.label == 'Undo').first;
-      expect(undoCmd.category, CommandCategory.edit);
-
-      final zoomCmd = commands.whereType<DawCommand>().where((c) => c.label == 'Zoom In').first;
-      expect(zoomCmd.category, CommandCategory.view);
-
-      final trackCmd = commands.whereType<DawCommand>().where((c) => c.label == 'Add Audio Track').first;
-      expect(trackCmd.category, CommandCategory.track);
-    });
-
-    test('getByCategory filters correctly', () {
-      final commands = QuickCommandsService.getDawCommands(
-        onUndo: () {},
-        onRedo: () {},
-        onZoomIn: () {},
-        onZoomOut: () {},
-      );
-
-      final editCommands = QuickCommandsService.getByCategory(commands, CommandCategory.edit);
-      final viewCommands = QuickCommandsService.getByCategory(commands, CommandCategory.view);
-
-      expect(editCommands.length, 2); // Undo + Redo
-      expect(viewCommands.length, 2); // Zoom In + Zoom Out
     });
   });
 

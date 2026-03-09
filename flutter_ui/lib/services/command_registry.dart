@@ -162,6 +162,11 @@ class CommandRegistry {
         .toList();
   }
 
+  /// Remove all commands whose ID starts with [prefix]
+  void clearByPrefix(String prefix) {
+    _commands.removeWhere((id, _) => id.startsWith(prefix));
+  }
+
   /// Clear all commands (for testing or re-registration)
   void clear() {
     _commands.clear();
@@ -245,6 +250,7 @@ class CommandRegistry {
     VoidCallback? onGoToRightLocator,
     VoidCallback? onNudgeLeft,
     VoidCallback? onNudgeRight,
+    VoidCallback? onToggleSnap,
     VoidCallback? onSetLoopFromSelection,
     // Mix
     VoidCallback? onSoloSelected,
@@ -864,7 +870,7 @@ class CommandRegistry {
         icon: Icons.grid_on,
         shortcut: 'N',
         keywords: ['snap', 'grid', 'quantize', 'magnetic'],
-        onExecute: () {}, // Placeholder — already handled via shortcut
+        onExecute: onToggleSnap,
       ),
 
       // ─── NAVIGATE ─────────────────────────────────────────────────────────

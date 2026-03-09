@@ -3813,7 +3813,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // ═══════════════════════════════════════════════════════════════════════════
 
   void _openQuickSwitcher() {
-    // Register SlotLab tab navigation commands into CommandRegistry
+    // Clear stale context commands and register fresh
+    CommandRegistry.instance.clearByPrefix('slotlab.tab.');
+    CommandRegistry.instance.clearByPrefix('daw.tab.');
     for (final superTab in SlotLabSuperTab.values) {
       final subLabels = <String>[];
       final subTooltips = <String>[];
