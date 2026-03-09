@@ -298,6 +298,7 @@ class CommandRegistry {
     VoidCallback? onShowGranularSynth,
     VoidCallback? onShowNetworkAudio,
     VoidCallback? onShowDspScript,
+    VoidCallback? onShowVideoProcessor,
     VoidCallback? onShowMacroControls,
     VoidCallback? onShowClipGainEnvelope,
   }) {
@@ -1269,6 +1270,15 @@ class CommandRegistry {
         icon: Icons.code,
         keywords: ['dsp', 'script', 'jsfx', 'code', 'effect', 'sample', 'processing'],
         onExecute: onShowDspScript,
+      ),
+      PaletteCommand(
+        id: 'tools.video_processor',
+        label: 'Video Processor',
+        description: 'Built-in video FX: text overlay, audio-reactive visuals, FFT spectrum, color correction',
+        category: PaletteCategory.tools,
+        icon: Icons.movie_filter,
+        keywords: ['video', 'processor', 'text', 'overlay', 'fft', 'reactive', 'color', 'correction'],
+        onExecute: onShowVideoProcessor,
       ),
 
       // ─── ADVANCED PANELS ──────────────────────────────────────────────────
