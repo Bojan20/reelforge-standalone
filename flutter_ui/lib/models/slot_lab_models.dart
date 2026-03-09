@@ -145,43 +145,43 @@ class SymbolDefinition {
   Color get displayColor => customColor ?? type.defaultColor;
 
   /// Audio stage name for this symbol + context
-  /// FIX 2026-01-25: Use correct stage ID getters for each context
-  /// - land → SYMBOL_LAND_HP1
-  /// - win → WIN_SYMBOL_HIGHLIGHT_HP1 (matches slot_preview_widget.dart triggers)
-  /// - expand → SYMBOL_EXPAND_HP1
-  /// - lock → SYMBOL_LOCK_HP1
-  /// - transform → SYMBOL_TRANSFORM_HP1
+  /// Naming convention: {SYMBOL}_{ACTION}
+  /// - land → HP1_LAND
+  /// - win → HP1_WIN
+  /// - expand → HP1_EXPAND
+  /// - lock → HP1_LOCK
+  /// - transform → HP1_TRANSFORM
   String stageName(String context) {
     switch (context.toLowerCase()) {
       case 'land':
-        return stageIdLand;  // SYMBOL_LAND_HP1
+        return stageIdLand;  // HP1_LAND
       case 'win':
-        return stageIdWin;   // WIN_SYMBOL_HIGHLIGHT_HP1 (CRITICAL: matches trigger)
+        return stageIdWin;   // HP1_WIN
       case 'expand':
-        return stageIdExpand;  // SYMBOL_EXPAND_HP1
+        return stageIdExpand;  // HP1_EXPAND
       case 'lock':
-        return stageIdLock;    // SYMBOL_LOCK_HP1
+        return stageIdLock;    // HP1_LOCK
       case 'transform':
-        return stageIdTransform;  // SYMBOL_TRANSFORM_HP1
+        return stageIdTransform;  // HP1_TRANSFORM
       default:
-        return 'SYMBOL_${context.toUpperCase()}_${id.toUpperCase()}';  // Fallback
+        return '${id.toUpperCase()}_${context.toUpperCase()}';  // Fallback
     }
   }
 
   /// Stage ID for symbol landing
-  String get stageIdLand => 'SYMBOL_LAND_${id.toUpperCase()}';
+  String get stageIdLand => '${id.toUpperCase()}_LAND';
 
   /// Stage ID for symbol win highlight
-  String get stageIdWin => 'WIN_SYMBOL_HIGHLIGHT_${id.toUpperCase()}';
+  String get stageIdWin => '${id.toUpperCase()}_WIN';
 
   /// Stage ID for symbol expansion
-  String get stageIdExpand => 'SYMBOL_EXPAND_${id.toUpperCase()}';
+  String get stageIdExpand => '${id.toUpperCase()}_EXPAND';
 
   /// Stage ID for symbol locking (Hold & Win)
-  String get stageIdLock => 'SYMBOL_LOCK_${id.toUpperCase()}';
+  String get stageIdLock => '${id.toUpperCase()}_LOCK';
 
   /// Stage ID for symbol transformation
-  String get stageIdTransform => 'SYMBOL_TRANSFORM_${id.toUpperCase()}';
+  String get stageIdTransform => '${id.toUpperCase()}_TRANSFORM';
 
   /// Get all stage IDs this symbol can generate
   List<String> get allStageIds {
@@ -189,7 +189,7 @@ class SymbolDefinition {
     for (final ctx in contexts) {
       stages.add(stageName(ctx));
     }
-    // Always include WIN_SYMBOL_HIGHLIGHT variant
+    // Always include WIN variant
     if (!stages.contains(stageIdWin)) {
       stages.add(stageIdWin);
     }
@@ -667,23 +667,21 @@ class SymbolAudioAssignment {
     this.pan = 0.0,
   });
 
-  /// FIX 2026-01-25: Use correct stage format per context type
-  /// - win → WIN_SYMBOL_HIGHLIGHT_HP1 (matches slot_preview_widget.dart triggers)
-  /// - others → SYMBOL_{CONTEXT}_{SYMBOL}
+  /// Stage name: {SYMBOL}_{ACTION} format
   String get stageName {
     switch (context.toLowerCase()) {
       case 'win':
-        return 'WIN_SYMBOL_HIGHLIGHT_${symbolId.toUpperCase()}';
+        return '${symbolId.toUpperCase()}_WIN';
       case 'land':
-        return 'SYMBOL_LAND_${symbolId.toUpperCase()}';
+        return '${symbolId.toUpperCase()}_LAND';
       case 'expand':
-        return 'SYMBOL_EXPAND_${symbolId.toUpperCase()}';
+        return '${symbolId.toUpperCase()}_EXPAND';
       case 'lock':
-        return 'SYMBOL_LOCK_${symbolId.toUpperCase()}';
+        return '${symbolId.toUpperCase()}_LOCK';
       case 'transform':
-        return 'SYMBOL_TRANSFORM_${symbolId.toUpperCase()}';
+        return '${symbolId.toUpperCase()}_TRANSFORM';
       default:
-        return 'SYMBOL_${context.toUpperCase()}_${symbolId.toUpperCase()}';
+        return '${symbolId.toUpperCase()}_${context.toUpperCase()}';
     }
   }
 

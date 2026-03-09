@@ -5247,7 +5247,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     eventRegistry.stopEvent('BIG_WIN_START');
     eventRegistry.stopEvent('ROLLUP');
     eventRegistry.stopEvent('ROLLUP_TICK');
-    eventRegistry.stopEvent('WIN_SYMBOL_HIGHLIGHT');
+    eventRegistry.stopEvent('SYMBOL_WIN');
     eventRegistry.stopEvent('WIN_LINE_SHOW');
     eventRegistry.stopEvent('WIN_PRESENT');
 

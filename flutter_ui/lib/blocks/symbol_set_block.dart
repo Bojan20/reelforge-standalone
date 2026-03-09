@@ -360,7 +360,7 @@ class SymbolSetBlock extends FeatureBlockBase {
       // High pay symbols
       for (int i = 0; i < highPayCount; i++) {
         stages.add(GeneratedStage(
-          name: 'SYMBOL_LAND_HP${i + 1}',
+          name: 'HP${i + 1}_LAND',
           description: 'High pay symbol ${i + 1} lands',
           bus: 'sfx',
           priority: 55,
@@ -372,7 +372,7 @@ class SymbolSetBlock extends FeatureBlockBase {
       // Premium symbols
       for (int i = 0; i < premiumCount; i++) {
         stages.add(GeneratedStage(
-          name: 'SYMBOL_LAND_PREMIUM${i + 1}',
+          name: 'PREMIUM${i + 1}_LAND',
           description: 'Premium symbol ${i + 1} lands',
           bus: 'sfx',
           priority: 58,
@@ -387,7 +387,7 @@ class SymbolSetBlock extends FeatureBlockBase {
       // Medium pay symbols
       for (int i = 0; i < mediumPayCount; i++) {
         stages.add(GeneratedStage(
-          name: 'SYMBOL_LAND_MP${i + 1}',
+          name: 'MP${i + 1}_LAND',
           description: 'Medium pay symbol ${i + 1} lands',
           bus: 'sfx',
           priority: 50,
@@ -399,7 +399,7 @@ class SymbolSetBlock extends FeatureBlockBase {
       // Low pay symbols
       for (int i = 0; i < lowPayCount; i++) {
         stages.add(GeneratedStage(
-          name: 'SYMBOL_LAND_LP${i + 1}',
+          name: 'LP${i + 1}_LAND',
           description: 'Low pay symbol ${i + 1} lands',
           bus: 'sfx',
           priority: 45,
@@ -424,7 +424,7 @@ class SymbolSetBlock extends FeatureBlockBase {
     // ========== Win Symbol Highlight ==========
     if (hasHighlight) {
       stages.add(const GeneratedStage(
-        name: 'WIN_SYMBOL_HIGHLIGHT',
+        name: 'SYMBOL_WIN',
         description: 'Winning symbol highlight animation',
         bus: 'sfx',
         priority: 60,
@@ -436,7 +436,7 @@ class SymbolSetBlock extends FeatureBlockBase {
       // Per-symbol highlight stages for special symbols
       if (hasWild) {
         stages.add(const GeneratedStage(
-          name: 'WIN_SYMBOL_HIGHLIGHT_WILD',
+          name: 'WILD_WIN',
           description: 'Wild symbol win highlight',
           bus: 'sfx',
           priority: 62,
@@ -454,12 +454,12 @@ class SymbolSetBlock extends FeatureBlockBase {
   List<String> get pooledStages {
     final pools = <String>[
       'SYMBOL_LAND',
-      'WIN_SYMBOL_HIGHLIGHT',
+      'SYMBOL_WIN',
     ];
 
     if (hasWild) {
       pools.add('WILD_LAND');
-      pools.add('WIN_SYMBOL_HIGHLIGHT_WILD');
+      pools.add('WILD_WIN');
     }
     if (hasScatter) pools.add('SCATTER_LAND');
     if (hasBonus) pools.add('BONUS_LAND');
@@ -481,7 +481,7 @@ class SymbolSetBlock extends FeatureBlockBase {
     if (stageName.contains('COIN')) return 68;
     if (stageName.contains('MYSTERY')) return 67;
     if (stageName.contains('COLLECTOR')) return 65;
-    if (stageName.contains('WIN_SYMBOL')) return 60;
+    if (stageName.endsWith('_WIN')) return 60;
     if (stageName.contains('PREMIUM')) return 58;
     if (stageName.contains('HP')) return 55;
     if (stageName.contains('MP')) return 50;

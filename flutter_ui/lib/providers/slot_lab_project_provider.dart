@@ -707,22 +707,22 @@ class SlotLabProjectProvider extends ChangeNotifier {
     if (base == 'spins_susp_long') return 'ANTICIPATION_TENSION_R4';
 
     // ─── SYMBOLS — High Pay ───
-    if (base == 'hp_sym_1' || full.startsWith('hp_sym_1')) return 'WIN_SYMBOL_HIGHLIGHT_HP1';
-    if (base == 'hp_sym_2' || full.startsWith('hp_sym_2')) return 'WIN_SYMBOL_HIGHLIGHT_HP2';
-    if (base == 'hp_sym_3' || full.startsWith('hp_sym_3')) return 'WIN_SYMBOL_HIGHLIGHT_HP3';
-    if (base == 'hp_sym_4' || full.startsWith('hp_sym_4')) return 'WIN_SYMBOL_HIGHLIGHT_HP4';
+    if (base == 'hp_sym_1' || full.startsWith('hp_sym_1')) return 'HP1_WIN';
+    if (base == 'hp_sym_2' || full.startsWith('hp_sym_2')) return 'HP2_WIN';
+    if (base == 'hp_sym_3' || full.startsWith('hp_sym_3')) return 'HP3_WIN';
+    if (base == 'hp_sym_4' || full.startsWith('hp_sym_4')) return 'HP4_WIN';
 
     // ─── SYMBOLS — Medium Pay ───
-    if (base == 'mp1' || full.startsWith('mp1')) return 'WIN_SYMBOL_HIGHLIGHT_MP1';
-    if (base == 'mp2' || full.startsWith('mp2')) return 'WIN_SYMBOL_HIGHLIGHT_MP2';
-    if (base == 'mp3' || full.startsWith('mp3')) return 'WIN_SYMBOL_HIGHLIGHT_MP3';
-    if (base == 'mp4' || full.startsWith('mp4')) return 'WIN_SYMBOL_HIGHLIGHT_MP4';
-    if (base == 'mp5' || full.startsWith('mp5')) return 'WIN_SYMBOL_HIGHLIGHT_MP5';
+    if (base == 'mp1' || full.startsWith('mp1')) return 'MP1_WIN';
+    if (base == 'mp2' || full.startsWith('mp2')) return 'MP2_WIN';
+    if (base == 'mp3' || full.startsWith('mp3')) return 'MP3_WIN';
+    if (base == 'mp4' || full.startsWith('mp4')) return 'MP4_WIN';
+    if (base == 'mp5' || full.startsWith('mp5')) return 'MP5_WIN';
 
     // ─── SYMBOLS — Low Pay ───
-    if (base == 'lp_sym_1of3' || full.startsWith('lp_sym_1of3')) return 'WIN_SYMBOL_HIGHLIGHT_LP1';
-    if (base == 'lp_sym_2of3' || full.startsWith('lp_sym_2of3')) return 'WIN_SYMBOL_HIGHLIGHT_LP2';
-    if (base == 'lp_sym_3of3' || full.startsWith('lp_sym_3of3')) return 'WIN_SYMBOL_HIGHLIGHT_LP3';
+    if (base == 'lp_sym_1of3' || full.startsWith('lp_sym_1of3')) return 'LP1_WIN';
+    if (base == 'lp_sym_2of3' || full.startsWith('lp_sym_2of3')) return 'LP2_WIN';
+    if (base == 'lp_sym_3of3' || full.startsWith('lp_sym_3of3')) return 'LP3_WIN';
 
     // ─── WIN HIGHLIGHTS ───
     if (base == 'reel_highlight') return 'PAYLINE_HIGHLIGHT';
@@ -751,7 +751,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
     if (base == 'scatter_land_3of5' || base == 'scatter_land_3' || base == 'sfx_scatter_3' || base == 'scatter_3') return 'SCATTER_LAND_3';
     if (base == 'scatter_land_4of5' || base == 'scatter_land_4' || base == 'sfx_scatter_4' || base == 'scatter_4') return 'SCATTER_LAND_4';
     if (base == 'scatter_land_5of5' || base == 'scatter_land_5' || base == 'sfx_scatter_5' || base == 'scatter_5') return 'SCATTER_LAND_5';
-    if (base == 'scatter_win') return 'SCATTER_WIN';
+    if (base == 'scatter_win' || base == 'sfx_scatter_win') return 'SCATTER_WIN';
     if (base == 'panels_appear') return 'FS_HOLD_INTRO';
     if (base == 'trn_fs_intro') return 'CONTEXT_BASE_TO_FS';
     if (base == 'trn_fs_outro_panel') return 'FS_END';
@@ -761,6 +761,11 @@ class SlotLabProjectProvider extends ChangeNotifier {
 
     // ─── WILD ───
     if (base == 'wild_land' || base == 'wildland') return 'WILD_LAND';
+    if (base == 'wild_land_1' || base == 'sfx_wild_1' || base == 'wild_1') return 'WILD_LAND_1';
+    if (base == 'wild_land_2' || base == 'sfx_wild_2' || base == 'wild_2') return 'WILD_LAND_2';
+    if (base == 'wild_land_3' || base == 'sfx_wild_3' || base == 'wild_3') return 'WILD_LAND_3';
+    if (base == 'wild_land_4' || base == 'sfx_wild_4' || base == 'wild_4') return 'WILD_LAND_4';
+    if (base == 'wild_land_5' || base == 'sfx_wild_5' || base == 'wild_5') return 'WILD_LAND_5';
     if (base == 'wild_expand' || base == 'wild_expand_start') return 'WILD_EXPAND_START';
     if (base == 'wild_expand_step') return 'WILD_EXPAND_STEP';
     if (base == 'wild_expand_end') return 'WILD_EXPAND_END';
@@ -772,6 +777,11 @@ class SlotLabProjectProvider extends ChangeNotifier {
     if (base == 'wild_nudge') return 'WILD_NUDGE';
     if (base == 'wild_stack') return 'WILD_STACK';
     if (base == 'wild_upgrade') return 'WILD_UPGRADE';
+    if (base == 'wild_win' || base == 'sfx_wild_win') return 'WILD_WIN';
+
+    // ─── BONUS ───
+    if (base == 'bonus_land' || base == 'sfx_bonus_land') return 'BONUS_LAND';
+    if (base == 'bonus_win' || base == 'sfx_bonus_win') return 'BONUS_WIN';
 
     // ─── UI ───
     if (base == 'ui_spin_button') return 'UI_SPIN_PRESS';

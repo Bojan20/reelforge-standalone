@@ -588,7 +588,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   List<List<int>> _targetGrid = [];
   bool _isSpinning = false;
   bool _spinFinalized = false; // Prevents re-trigger after finalize
-  bool _symbolHighlightPreTriggered = false; // P0.2: Prevents double-trigger of WIN_SYMBOL_HIGHLIGHT
+  bool _symbolHighlightPreTriggered = false; // P0.2: Prevents double-trigger of SYMBOL_WIN
   String? _lastProcessedSpinId; // Track which spin result we've processed
   int _spinStartTimeMs = 0; // Timestamp when spin started (for Event Log ordering)
   Set<int> _winningReels = {};
@@ -596,7 +596,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
   // ═══════════════════════════════════════════════════════════════════════════
   // V14: PER-SYMBOL WIN HIGHLIGHT — Symbol-specific audio triggers
-  // When HP1 is part of winning line → trigger WIN_SYMBOL_HIGHLIGHT_HP1
+  // When HP1 is part of winning line → trigger HP1_WIN
   // Each symbol type gets its own highlight stage for audio design flexibility
   // ═══════════════════════════════════════════════════════════════════════════
   Map<String, Set<String>> _winningPositionsBySymbol = {}; // symbolName → {"reel,row", ...}
@@ -1284,13 +1284,13 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
         switch (symbolId) {
           case 11: // WILD
-            symbolLandStage = 'SYMBOL_LAND_WILD';
+            symbolLandStage = 'WILD_LAND';
             break;
           case 12: // SCATTER
-            symbolLandStage = 'SYMBOL_LAND_SCATTER';
+            symbolLandStage = 'SCATTER_LAND';
             break;
           case 13: // BONUS
-            symbolLandStage = 'SYMBOL_LAND_BONUS';
+            symbolLandStage = 'BONUS_LAND';
             break;
         }
 
@@ -1338,10 +1338,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // P0.2: PRE-TRIGGER WIN_SYMBOL_HIGHLIGHT ON LAST REEL
+    // P0.2: PRE-TRIGGER SYMBOL_WIN ON LAST REEL
     // Industry standard: Eliminate 50-100ms silence gap between reel stop and win reveal
     // Trigger symbol highlight IMMEDIATELY on last reel stop if there's a win
-    // This creates seamless audio: REEL_STOP → WIN_SYMBOL_HIGHLIGHT (no gap)
+    // This creates seamless audio: REEL_STOP → SYMBOL_WIN (no gap)
     // ═══════════════════════════════════════════════════════════════════════════
     if (reelIndex == widget.reels - 1 && !_symbolHighlightPreTriggered) {
       final result = widget.provider.lastResult;
@@ -1356,7 +1356,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         // Track WILD symbols in winning positions
         // NOTE: WILD gets win priority because it SUBSTITUTES for other symbols
         // SCATTER and BONUS do NOT get win priority - they trigger features (free spins, bonus)
-        // Their audio plays on LAND (SYMBOL_LAND_SCATTER/BONUS), not on WIN
+        // Their audio plays on LAND (SCATTER_LAND/BONUS_LAND), not on WIN
         bool hasWildInWin = false;
         final Set<String> wildPositions = {};
 
@@ -1390,22 +1390,24 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           }
         }
 
-        // WILD PRIORITY: Add WILD to winning symbols if present in any win
+        // WILD PRIORITY: When WILD is in any win, it takes audio priority
+        // Only WILD_WIN triggers — other per-symbol wins are suppressed
         if (hasWildInWin) {
+          _winningSymbolNames.clear();
           _winningSymbolNames.add('WILD');
           _winningPositionsBySymbol['WILD'] = wildPositions;
         }
 
         // Trigger symbol-specific highlights (V14)
-        _ensureAudioRegistered('WIN_SYMBOL_HIGHLIGHT');
+        _ensureAudioRegistered('SYMBOL_WIN');
         for (final symbolName in _winningSymbolNames) {
-          final stage = 'WIN_SYMBOL_HIGHLIGHT_$symbolName';
+          final stage = '${symbolName}_WIN';
           _ensureAudioRegistered(stage);
           eventRegistry.triggerStage(stage);
         }
 
         // Generic highlight for backwards compatibility
-        eventRegistry.triggerStage('WIN_SYMBOL_HIGHLIGHT');
+        eventRegistry.triggerStage('SYMBOL_WIN');
         _startSymbolPulseAnimation();
 
         _symbolHighlightPreTriggered = true;
@@ -2003,7 +2005,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         widget.provider.setWinPresentationActive(true);
 
         // V14: Collect winning positions AND group by symbol name
-        // This enables symbol-specific audio triggers: WIN_SYMBOL_HIGHLIGHT_HP1, etc.
+        // This enables symbol-specific audio triggers: HP1_WIN, etc.
         //
         // WILD PRIORITY RULE: When WILD substitutes for another symbol in a win,
         // WILD gets audio priority. Check actual grid symbols, not just lineWin.symbolName.
@@ -2013,7 +2015,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         // Track WILD symbols in winning positions
         // NOTE: Only WILD gets win priority because it SUBSTITUTES for other symbols
         // SCATTER and BONUS do NOT get win priority - they trigger features (free spins, bonus)
-        // Their audio plays on LAND (SYMBOL_LAND_SCATTER/BONUS), not on WIN
+        // Their audio plays on LAND (SCATTER_LAND/BONUS_LAND), not on WIN
         bool hasWildInWin = false;
         final Set<String> wildPositions = {};
 
@@ -2052,9 +2054,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
           }
         }
 
-        // WILD PRIORITY: Add WILD to winning symbols if present in any win
-        // This ensures WIN_SYMBOL_HIGHLIGHT_WILD triggers when WILD substitutes
+        // WILD PRIORITY: When WILD is in any win, it takes audio priority
+        // Only WILD_WIN triggers — other per-symbol wins are suppressed
         if (hasWildInWin) {
+          _winningSymbolNames.clear();
           _winningSymbolNames.add('WILD');
           _winningPositionsBySymbol['WILD'] = wildPositions;
         }
@@ -2101,20 +2104,20 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         // Svaki simbol tip ima svoj highlight stage za fleksibilan audio dizajn
         // ═══════════════════════════════════════════════════════════════════════
 
-        // V14: Trigger symbol-specific highlight stages (HP1 → WIN_SYMBOL_HIGHLIGHT_HP1)
+        // V14: Trigger symbol-specific highlight stages (HP1 → HP1_WIN)
         // P0.2: Guard with pre-trigger flag - may have been triggered on last reel stop
         if (!_symbolHighlightPreTriggered) {
 
           // Ensure all symbol highlight audio is registered before triggering
-          _ensureAudioRegistered('WIN_SYMBOL_HIGHLIGHT');
+          _ensureAudioRegistered('SYMBOL_WIN');
           for (final symbolName in _winningSymbolNames) {
-            final stage = 'WIN_SYMBOL_HIGHLIGHT_$symbolName';
+            final stage = '${symbolName}_WIN';
             _ensureAudioRegistered(stage);
             eventRegistry.triggerStage(stage);
           }
 
           // Also trigger generic stage for backwards compatibility
-          eventRegistry.triggerStage('WIN_SYMBOL_HIGHLIGHT');
+          eventRegistry.triggerStage('SYMBOL_WIN');
 
           _startSymbolPulseAnimation();
         }
@@ -2370,7 +2373,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     eventRegistry.stopEvent('BIG_WIN_START');
     eventRegistry.stopEvent('ROLLUP');
     eventRegistry.stopEvent('ROLLUP_TICK');
-    eventRegistry.stopEvent('WIN_SYMBOL_HIGHLIGHT');
+    eventRegistry.stopEvent('SYMBOL_WIN');
     eventRegistry.stopEvent('WIN_LINE_SHOW');
     eventRegistry.stopEvent('WIN_PRESENT');
     for (int i = 1; i <= 5; i++) {
@@ -2525,12 +2528,29 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       'win_amount': lineWin.winAmount,
     });
 
-    // 2. Per-symbol win sound: WIN_SYMBOL_HIGHLIGHT_HP1, _LP3, etc.
-    //    Fallback chain: _HP1 → _HP → WIN_SYMBOL_HIGHLIGHT (generic)
-    final symbolName = lineWin.symbolName.toUpperCase();
+    // 2. Per-symbol win sound: HP1_WIN, LP3_WIN, etc.
+    //    Fallback chain: HP1_WIN → HP_WIN → SYMBOL_WIN (generic)
+    //    WILD PRIORITY: If WILD is in this win line, trigger WILD_WIN instead
+    String symbolName = lineWin.symbolName.toUpperCase();
     if (symbolName.isNotEmpty) {
-      _ensureAudioRegistered('WIN_SYMBOL_HIGHLIGHT_$symbolName');
-      eventRegistry.triggerStage('WIN_SYMBOL_HIGHLIGHT_$symbolName', context: {
+      // Check if any position in this win line has a WILD symbol (id=11)
+      bool hasWild = false;
+      for (final pos in lineWin.positions) {
+        if (pos.length >= 2) {
+          final reelIdx = pos[0];
+          final rowIdx = pos[1];
+          if (reelIdx < _targetGrid.length && rowIdx < _targetGrid[reelIdx].length) {
+            if (_targetGrid[reelIdx][rowIdx] == 11) {
+              hasWild = true;
+              break;
+            }
+          }
+        }
+      }
+      if (hasWild) symbolName = 'WILD';
+
+      _ensureAudioRegistered('${symbolName}_WIN');
+      eventRegistry.triggerStage('${symbolName}_WIN', context: {
         'line_index': lineWin.lineIndex,
         'match_count': lineWin.matchCount,
         'win_amount': lineWin.winAmount,
@@ -2899,7 +2919,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
     // V14: Group positions by symbol name, then sort within each group
     // This creates a visual effect where all HP1 symbols pop together,
-    // matching the WIN_SYMBOL_HIGHLIGHT_HP1 audio trigger
+    // matching the HP1_WIN audio trigger
     final sortedSymbolNames = _winningSymbolNames.toList()..sort();
 
     int globalIndex = 0;

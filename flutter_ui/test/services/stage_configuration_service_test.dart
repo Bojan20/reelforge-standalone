@@ -278,9 +278,9 @@ void main() {
       );
       service.registerSymbolStages(symbol);
 
-      expect(service.isSymbolGenerated('SYMBOL_LAND_TEST_WILD'), true);
-      expect(service.isSymbolGenerated('WIN_SYMBOL_HIGHLIGHT_TEST_WILD'), true);
-      expect(service.isSymbolGenerated('SYMBOL_EXPAND_TEST_WILD'), true);
+      expect(service.isSymbolGenerated('TEST_WILD_LAND'), true);
+      expect(service.isSymbolGenerated('TEST_WILD_WIN'), true);
+      expect(service.isSymbolGenerated('TEST_WILD_EXPAND'), true);
     });
 
     test('removeSymbolStages removes all stages for symbol', () {
@@ -294,9 +294,9 @@ void main() {
       service.registerSymbolStages(symbol);
       service.removeSymbolStages('test_remove');
 
-      expect(service.isSymbolGenerated('SYMBOL_LAND_TEST_REMOVE'), false);
+      expect(service.isSymbolGenerated('TEST_REMOVE_LAND'), false);
       expect(
-          service.isSymbolGenerated('WIN_SYMBOL_HIGHLIGHT_TEST_REMOVE'), false);
+          service.isSymbolGenerated('TEST_REMOVE_WIN'), false);
     });
 
     test('syncSymbolStages replaces all symbol stages', () {
@@ -316,8 +316,8 @@ void main() {
       ];
       service.syncSymbolStages(symbols);
 
-      expect(service.isSymbolGenerated('SYMBOL_LAND_SYNC_A'), true);
-      expect(service.isSymbolGenerated('SYMBOL_LAND_SYNC_B'), true);
+      expect(service.isSymbolGenerated('SYNC_A_LAND'), true);
+      expect(service.isSymbolGenerated('SYNC_B_LAND'), true);
     });
   });
 

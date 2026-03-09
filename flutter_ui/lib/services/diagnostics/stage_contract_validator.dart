@@ -104,9 +104,8 @@ class StageContractValidator extends DiagnosticChecker {
       'SCATTER_LAND_4',
       'SCATTER_LAND_5',
       'SCATTER_WIN',
-      'SYMBOL_LAND_WILD',
-      'SYMBOL_LAND_SCATTER',
-      'SYMBOL_LAND_BONUS',
+      'WILD_LAND',
+      'BONUS_LAND',
       'GAME_START',
       'MUSIC_BASE_L1',
       'MUSIC_BASE_L2',
@@ -115,7 +114,7 @@ class StageContractValidator extends DiagnosticChecker {
       'MUSIC_BASE_L5',
       'COIN_SHOWER_START',
       'COIN_SHOWER_END',
-      'WIN_SYMBOL_HIGHLIGHT',
+      'SYMBOL_WIN',
       'ANTICIPATION_TENSION',  // Legacy tension stage (non-LAYER variant)
     };
 

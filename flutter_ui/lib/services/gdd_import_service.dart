@@ -1843,10 +1843,10 @@ class GddImportService {
   /// Generate per-symbol audio stage events (P0 WF-01)
   ///
   /// For each symbol in GDD, generates:
-  /// - SYMBOL_LAND_{SYMBOL_ID}
-  /// - WIN_SYMBOL_HIGHLIGHT_{SYMBOL_ID}
-  /// - SYMBOL_EXPAND_{SYMBOL_ID} (if Wild)
-  /// - SYMBOL_LOCK_{SYMBOL_ID} (if Hold & Win)
+  /// - {SYMBOL_ID}_LAND
+  /// - {SYMBOL_ID}_WIN
+  /// - {SYMBOL_ID}_EXPAND (if Wild)
+  /// - {SYMBOL_ID}_LOCK (if Hold & Win)
   ///
   /// Returns list of stage names to register in StageConfigurationService
   List<String> generateSymbolStages(List<GddSymbol> symbols) {
@@ -1856,8 +1856,8 @@ class GddImportService {
       final symbolId = symbol.id.toUpperCase();
 
       // Core stages (all symbols)
-      stages.add('SYMBOL_LAND_$symbolId');
-      stages.add('WIN_SYMBOL_HIGHLIGHT_$symbolId');
+      stages.add('${symbolId}_LAND');
+      stages.add('${symbolId}_WIN');
 
       // Wild-specific stages
       if (symbol.isWild) {

@@ -125,7 +125,7 @@ void main() {
         'ROLLUP_TICK',
         'CASCADE_STEP',
         'WIN_LINE_SHOW',
-        'WIN_SYMBOL_HIGHLIGHT',
+        'SYMBOL_WIN',
       };
 
       // All pooled stages should be in the set

@@ -66,7 +66,7 @@ class TemplateBuilderService {
     return stages;
   }
 
-  /// Generate per-symbol stages (SYMBOL_LAND_WILD, WIN_SYMBOL_HIGHLIGHT_HP1, etc.)
+  /// Generate per-symbol stages (WILD_LAND, HP1_WIN, etc.)
   List<TemplateStageDefinition> generatePerSymbolStages(SlotTemplate source) {
     final stages = <TemplateStageDefinition>[];
 
@@ -75,7 +75,7 @@ class TemplateBuilderService {
 
       // SYMBOL_LAND
       stages.add(TemplateStageDefinition(
-        id: 'SYMBOL_LAND_$symbolId',
+        id: '${symbolId}_LAND',
         name: '${symbol.id} Land',
         category: TemplateStageCategory.symbol,
         priority: 40,
@@ -84,9 +84,9 @@ class TemplateBuilderService {
         description: '${symbol.id} land sound',
       ));
 
-      // WIN_SYMBOL_HIGHLIGHT
+      // SYMBOL_WIN
       stages.add(TemplateStageDefinition(
-        id: 'WIN_SYMBOL_HIGHLIGHT_$symbolId',
+        id: '${symbolId}_WIN',
         name: '${symbol.id} Win Highlight',
         category: TemplateStageCategory.win,
         priority: 55,

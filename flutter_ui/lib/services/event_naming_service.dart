@@ -108,7 +108,6 @@ class EventNamingService {
     if (normalized == 'WIN_END') return 'onWinEnd';
     if (normalized == 'WIN_LINE_SHOW') return 'onWinLineShow';
     if (normalized == 'WIN_LINE_HIDE') return 'onWinLineHide';
-    if (normalized == 'WIN_SYMBOL_HIGHLIGHT') return 'onWinSymbolHighlight';
     if (normalized.startsWith('WIN_TIER_')) {
       final tier = normalized.replaceFirst('WIN_TIER_', '');
       return 'onWinTier$tier';
@@ -281,15 +280,32 @@ class EventNamingService {
     // NEAR MISS
     if (normalized == 'NEAR_MISS') return 'onNearMiss';
 
-    // SYMBOL stages
+    // SYMBOL stages — generic tier names
     if (normalized == 'SYMBOL_LAND_LOW') return 'onSymbolLandLow';
     if (normalized == 'SYMBOL_LAND_MID') return 'onSymbolLandMid';
     if (normalized == 'SYMBOL_LAND_HIGH') return 'onSymbolLandHigh';
-    if (normalized.startsWith('SYMBOL_LAND_')) {
-      final symbol = _toCamelCase(normalized.replaceFirst('SYMBOL_LAND_', ''));
-      return 'onSymbol${symbol}Land';
-    }
     if (normalized == 'SYMBOL_LAND') return 'onSymbolLand';
+    if (normalized == 'SYMBOL_WIN') return 'onSymbolWin';
+    // Dynamic {SYMBOL}_LAND pattern (e.g. HP1_LAND → onHp1Land)
+    const genericLandNames = {
+      'SYMBOL_LAND_LOW',
+      'SYMBOL_LAND_MID',
+      'SYMBOL_LAND_HIGH',
+      'SYMBOL_LAND',
+    };
+    if (normalized.endsWith('_LAND') &&
+        !genericLandNames.contains(normalized)) {
+      final symbol = _toCamelCase(normalized.replaceAll('_LAND', ''));
+      return 'on${symbol}Land';
+    }
+    // Dynamic {SYMBOL}_WIN pattern (e.g. HP1_WIN → onHp1Win)
+    if (normalized.endsWith('_WIN') &&
+        normalized != 'SYMBOL_WIN' &&
+        !normalized.startsWith('WIN_') &&
+        !normalized.startsWith('BIGWIN_')) {
+      final symbol = _toCamelCase(normalized.replaceAll('_WIN', ''));
+      return 'on${symbol}Win';
+    }
     if (normalized.startsWith('WILD_')) {
       final suffix = _toCamelCase(normalized.replaceFirst('WILD_', ''));
       return 'onSymbolWild$suffix';

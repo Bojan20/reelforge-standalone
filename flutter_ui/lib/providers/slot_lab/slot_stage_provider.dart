@@ -974,12 +974,15 @@ class SlotStageProvider extends ChangeNotifier {
 
     if (exactMatches.contains(stageType)) return true;
 
-    const prefixes = ['WIN_SYMBOL_HIGHLIGHT', 'WIN_PRESENT', 'WIN_TIER'];
+    const prefixes = ['WIN_PRESENT', 'WIN_TIER'];
     for (final prefix in prefixes) {
       if (stageType == prefix || stageType.startsWith('${prefix}_')) {
         return true;
       }
     }
+
+    // {SYMBOL}_WIN naming convention
+    if (stageType.endsWith('_WIN')) return true;
 
     return false;
   }

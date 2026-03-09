@@ -24,9 +24,11 @@ class EventFlowMonitor extends DiagnosticMonitor
   /// Shared exclusion list for both double-trigger and rapid-fire detection
   static const _perReelPrefixes = [
     'REEL_SPINNING_START_', 'REEL_SPINNING_', 'REEL_STOP_',
-    'WIN_SYMBOL_HIGHLIGHT', 'SCATTER_LAND', 'SYMBOL_LAND',
+    'SCATTER_LAND', 'SYMBOL_LAND',
     'ANTICIPATION_TENSION',
   ];
+  /// Suffixes for per-symbol stages ({SYMBOL}_WIN naming convention)
+  static const _perSymbolSuffixes = ['_WIN'];
   static const _perReelExact = {
     'REEL_SPINNING_START', 'REEL_SPINNING', 'REEL_SPINNING_STOP',
     'REEL_STOP', 'REEL_SPIN_LOOP', 'IDLE_LOOP', 'ROLLUP_TICK',
@@ -70,7 +72,8 @@ class EventFlowMonitor extends DiagnosticMonitor
     // ── Double trigger detection ──
     // Skip per-reel and per-symbol stages (fire multiple times per spin, not real doubles)
     final isPerReelStage = _perReelExact.contains(upper) ||
-        _perReelPrefixes.any((p) => upper.startsWith(p));
+        _perReelPrefixes.any((p) => upper.startsWith(p)) ||
+        _perSymbolSuffixes.any((s) => upper.endsWith(s));
     if (!isPerReelStage) {
       final lastTime = _lastTriggerTime[upper];
       if (lastTime != null) {

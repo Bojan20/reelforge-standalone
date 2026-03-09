@@ -1016,7 +1016,7 @@ class SlotAudioAutomationService {
       category: FlowCategory.win,
       stages: [
         FlowTemplateStage(stage: 'WIN_LINE_SHOW', bus: 'sfx', expectedAssetType: AssetCategory.win),
-        FlowTemplateStage(stage: 'WIN_SYMBOL_HIGHLIGHT', bus: 'sfx', expectedAssetType: AssetCategory.symbol, isOptional: true),
+        FlowTemplateStage(stage: 'SYMBOL_WIN', bus: 'sfx', expectedAssetType: AssetCategory.symbol, isOptional: true),
         FlowTemplateStage(stage: 'ROLLUP_START', bus: 'sfx', expectedAssetType: AssetCategory.win),
         FlowTemplateStage(stage: 'ROLLUP_TICK', bus: 'sfx', expectedAssetType: AssetCategory.win),
         FlowTemplateStage(stage: 'ROLLUP_END', bus: 'sfx', expectedAssetType: AssetCategory.win),

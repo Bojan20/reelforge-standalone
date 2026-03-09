@@ -131,43 +131,43 @@ void main() {
     // Stage name generation — CRITICAL for audio dispatch
     group('stage names', () {
       test('stageIdLand generates correct format', () {
-        expect(testSymbol.stageIdLand, 'SYMBOL_LAND_HP1');
+        expect(testSymbol.stageIdLand, 'HP1_LAND');
       });
 
-      test('stageIdWin generates WIN_SYMBOL_HIGHLIGHT format', () {
+      test('stageIdWin generates SYMBOL_WIN format', () {
         // CRITICAL: Must match slot_preview_widget.dart trigger pattern
-        expect(testSymbol.stageIdWin, 'WIN_SYMBOL_HIGHLIGHT_HP1');
+        expect(testSymbol.stageIdWin, 'HP1_WIN');
       });
 
       test('stageIdExpand generates correct format', () {
-        expect(testSymbol.stageIdExpand, 'SYMBOL_EXPAND_HP1');
+        expect(testSymbol.stageIdExpand, 'HP1_EXPAND');
       });
 
       test('stageIdLock generates correct format', () {
-        expect(testSymbol.stageIdLock, 'SYMBOL_LOCK_HP1');
+        expect(testSymbol.stageIdLock, 'HP1_LOCK');
       });
 
       test('stageIdTransform generates correct format', () {
-        expect(testSymbol.stageIdTransform, 'SYMBOL_TRANSFORM_HP1');
+        expect(testSymbol.stageIdTransform, 'HP1_TRANSFORM');
       });
 
       test('stageName dispatches to correct getter per context', () {
-        expect(testSymbol.stageName('land'), 'SYMBOL_LAND_HP1');
-        expect(testSymbol.stageName('win'), 'WIN_SYMBOL_HIGHLIGHT_HP1');
-        expect(testSymbol.stageName('expand'), 'SYMBOL_EXPAND_HP1');
-        expect(testSymbol.stageName('lock'), 'SYMBOL_LOCK_HP1');
-        expect(testSymbol.stageName('transform'), 'SYMBOL_TRANSFORM_HP1');
+        expect(testSymbol.stageName('land'), 'HP1_LAND');
+        expect(testSymbol.stageName('win'), 'HP1_WIN');
+        expect(testSymbol.stageName('expand'), 'HP1_EXPAND');
+        expect(testSymbol.stageName('lock'), 'HP1_LOCK');
+        expect(testSymbol.stageName('transform'), 'HP1_TRANSFORM');
       });
 
       test('stageName fallback for unknown context', () {
-        expect(testSymbol.stageName('custom_ctx'), 'SYMBOL_CUSTOM_CTX_HP1');
+        expect(testSymbol.stageName('custom_ctx'), 'HP1_CUSTOM_CTX');
       });
 
-      test('allStageIds includes all contexts plus win highlight', () {
+      test('allStageIds includes all contexts plus win', () {
         final stages = testSymbol.allStageIds;
-        expect(stages, contains('SYMBOL_LAND_HP1'));
-        expect(stages, contains('WIN_SYMBOL_HIGHLIGHT_HP1'));
-        expect(stages, contains('SYMBOL_EXPAND_HP1'));
+        expect(stages, contains('HP1_LAND'));
+        expect(stages, contains('HP1_WIN'));
+        expect(stages, contains('HP1_EXPAND'));
       });
 
       test('allStageIds always includes win even if not in contexts', () {
@@ -179,7 +179,7 @@ void main() {
           contexts: ['land'],
         );
         final stages = symbolNoWin.allStageIds;
-        expect(stages, contains('WIN_SYMBOL_HIGHLIGHT_LP1'));
+        expect(stages, contains('LP1_WIN'));
       });
 
       test('lowercase symbol id is uppercased in stages', () {
@@ -189,8 +189,8 @@ void main() {
           emoji: '🃏',
           type: SymbolType.wild,
         );
-        expect(symbol.stageIdLand, 'SYMBOL_LAND_WILD');
-        expect(symbol.stageIdWin, 'WIN_SYMBOL_HIGHLIGHT_WILD');
+        expect(symbol.stageIdLand, 'WILD_LAND');
+        expect(symbol.stageIdWin, 'WILD_WIN');
       });
     });
 
@@ -321,8 +321,8 @@ void main() {
 
     // Stage name generation — CRITICAL for event registry matching
     group('stageName', () {
-      test('win context generates WIN_SYMBOL_HIGHLIGHT format', () {
-        expect(assignment.stageName, 'WIN_SYMBOL_HIGHLIGHT_HP1');
+      test('win context generates SYMBOL_WIN format', () {
+        expect(assignment.stageName, 'HP1_WIN');
       });
 
       test('land context generates SYMBOL_LAND format', () {
@@ -331,7 +331,7 @@ void main() {
           context: 'land',
           audioPath: '/x.wav',
         );
-        expect(a.stageName, 'SYMBOL_LAND_WILD');
+        expect(a.stageName, 'WILD_LAND');
       });
 
       test('expand context generates SYMBOL_EXPAND format', () {
@@ -340,34 +340,34 @@ void main() {
           context: 'expand',
           audioPath: '/x.wav',
         );
-        expect(a.stageName, 'SYMBOL_EXPAND_SCATTER');
+        expect(a.stageName, 'SCATTER_EXPAND');
       });
 
-      test('lock context generates SYMBOL_LOCK format', () {
+      test('lock context generates {SYMBOL}_LOCK format', () {
         const a = SymbolAudioAssignment(
           symbolId: 'coin',
           context: 'lock',
           audioPath: '/x.wav',
         );
-        expect(a.stageName, 'SYMBOL_LOCK_COIN');
+        expect(a.stageName, 'COIN_LOCK');
       });
 
-      test('transform context generates SYMBOL_TRANSFORM format', () {
+      test('transform context generates {SYMBOL}_TRANSFORM format', () {
         const a = SymbolAudioAssignment(
           symbolId: 'mystery',
           context: 'transform',
           audioPath: '/x.wav',
         );
-        expect(a.stageName, 'SYMBOL_TRANSFORM_MYSTERY');
+        expect(a.stageName, 'MYSTERY_TRANSFORM');
       });
 
-      test('unknown context uses fallback format', () {
+      test('collect context uses {SYMBOL}_COLLECT format', () {
         const a = SymbolAudioAssignment(
           symbolId: 'hp1',
           context: 'collect',
           audioPath: '/x.wav',
         );
-        expect(a.stageName, 'SYMBOL_COLLECT_HP1');
+        expect(a.stageName, 'HP1_COLLECT');
       });
 
       test('symbol id is uppercased', () {
@@ -376,7 +376,7 @@ void main() {
           context: 'land',
           audioPath: '/x.wav',
         );
-        expect(a.stageName, 'SYMBOL_LAND_MYSYMBOL');
+        expect(a.stageName, 'MYSYMBOL_LAND');
       });
     });
 
@@ -534,11 +534,11 @@ void main() {
 
       final stageIds = getAllSymbolStageIds(symbols);
 
-      expect(stageIds, contains('SYMBOL_LAND_WILD'));
-      expect(stageIds, contains('WIN_SYMBOL_HIGHLIGHT_WILD'));
-      expect(stageIds, contains('SYMBOL_EXPAND_WILD'));
-      expect(stageIds, contains('SYMBOL_LAND_SCATTER'));
-      expect(stageIds, contains('WIN_SYMBOL_HIGHLIGHT_SCATTER'));
+      expect(stageIds, contains('WILD_LAND'));
+      expect(stageIds, contains('WILD_WIN'));
+      expect(stageIds, contains('WILD_EXPAND'));
+      expect(stageIds, contains('SCATTER_LAND'));
+      expect(stageIds, contains('SCATTER_WIN'));
     });
   });
 

@@ -1690,7 +1690,7 @@ void main() {
         'CASCADE_STEP',
         'ROLLUP_TICK',
         'WIN_LINE_SHOW',
-        'WIN_SYMBOL_HIGHLIGHT',
+        'SYMBOL_WIN',
         'UI_BUTTON_PRESS',
         'SYMBOL_LAND',
       ];
@@ -1762,21 +1762,15 @@ void main() {
       expect(fallbackablePatterns, contains('ROLLUP_TICK'));
     });
 
-    test('symbol prefix fallback pattern: PREFIX_SYMBOL → PREFIX', () {
-      // Pattern: starts with known prefix + underscore + suffix
-      const symbolPrefixFallbacks = {
-        'WIN_SYMBOL_HIGHLIGHT',
-        'SYMBOL_WIN',
-        'SYMBOL_TRIGGER',
-        'SYMBOL_EXPAND',
-        'SYMBOL_TRANSFORM',
-      };
+    test('symbol suffix fallback pattern: SYMBOL_ACTION → generic', () {
+      // Pattern: {SYMBOL}_{ACTION} — suffix-based matching
+      const symbolActionSuffixes = {'_WIN', '_LAND', '_EXPAND', '_TRANSFORM', '_TRIGGER'};
 
-      for (final prefix in symbolPrefixFallbacks) {
-        // Stage like WIN_SYMBOL_HIGHLIGHT_HP1 should start with prefix_
-        final exampleStage = '${prefix}_HP1';
-        expect(exampleStage.startsWith('${prefix}_'), true);
-        expect(exampleStage.length > prefix.length + 1, true);
+      for (final suffix in symbolActionSuffixes) {
+        // Stage like HP1_WIN should end with suffix
+        final exampleStage = 'HP1$suffix';
+        expect(exampleStage.endsWith(suffix), true);
+        expect(exampleStage.length > suffix.length, true);
       }
     });
 

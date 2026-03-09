@@ -3631,10 +3631,10 @@ SlotPriority _resolveSlotPriority(String stage) {
       s == 'WIN_PRESENT' || s == 'ROLLUP_START' || s == 'ROLLUP_TICK' ||
       s == 'ROLLUP_END' || s.startsWith('WIN_LINE_') ||
       s == 'PAYLINE_HIGHLIGHT' ||
-      s == 'WIN_SYMBOL_HIGHLIGHT' || s.startsWith('WIN_SYMBOL_HIGHLIGHT_') ||
+      s == 'SYMBOL_WIN' || s.endsWith('_WIN') ||
       s == 'EVALUATE_WINS' ||
       s.startsWith('ANTICIPATION_') ||
-      s.startsWith('SYMBOL_LAND')) {
+      s.startsWith('SYMBOL_LAND') || s.endsWith('_LAND')) {
     return SlotPriority.p0;
   }
 
@@ -3819,8 +3819,8 @@ class _SymbolsSection extends _SectionConfig {
         title: 'Special Symbols',
         icon: '✨',
         slots: special.expand((s) => [
-          _SlotConfig(stage: 'SYMBOL_LAND_${s.id.toUpperCase()}', label: '${s.name} Land'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_${s.id.toUpperCase()}', label: '${s.name} Win'),
+          _SlotConfig(stage: '${s.id.toUpperCase()}_LAND', label: '${s.name} Land'),
+          _SlotConfig(stage: '${s.id.toUpperCase()}_WIN', label: '${s.name} Win'),
         ]).toList(),
       ),
       _GroupConfig(
@@ -3828,8 +3828,8 @@ class _SymbolsSection extends _SectionConfig {
         title: 'High Pay',
         icon: '💎',
         slots: highPay.expand((s) => [
-          _SlotConfig(stage: 'SYMBOL_LAND_${s.id.toUpperCase()}', label: '${s.name} Land'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_${s.id.toUpperCase()}', label: '${s.name} Win'),
+          _SlotConfig(stage: '${s.id.toUpperCase()}_LAND', label: '${s.name} Land'),
+          _SlotConfig(stage: '${s.id.toUpperCase()}_WIN', label: '${s.name} Win'),
         ]).toList(),
       ),
       // ═══════════════════════════════════════════════════════════════════════
@@ -3840,16 +3840,16 @@ class _SymbolsSection extends _SectionConfig {
         title: 'Medium Pay',
         icon: '♦️',
         slots: [
-          _SlotConfig(stage: 'SYMBOL_LAND_MEDIUMPAY_1', label: 'Medium 1 Land'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_MEDIUMPAY_1', label: 'Medium 1 Win'),
-          _SlotConfig(stage: 'SYMBOL_LAND_MEDIUMPAY_2', label: 'Medium 2 Land'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_MEDIUMPAY_2', label: 'Medium 2 Win'),
-          _SlotConfig(stage: 'SYMBOL_LAND_MEDIUMPAY_3', label: 'Medium 3 Land'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_MEDIUMPAY_3', label: 'Medium 3 Win'),
-          _SlotConfig(stage: 'SYMBOL_LAND_MEDIUMPAY_4', label: 'Medium 4 Land'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_MEDIUMPAY_4', label: 'Medium 4 Win'),
-          _SlotConfig(stage: 'SYMBOL_LAND_MEDIUMPAY_5', label: 'Medium 5 Land'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_MEDIUMPAY_5', label: 'Medium 5 Win'),
+          _SlotConfig(stage: 'MP1_LAND', label: 'Medium 1 Land'),
+          _SlotConfig(stage: 'MP1_WIN', label: 'Medium 1 Win'),
+          _SlotConfig(stage: 'MP2_LAND', label: 'Medium 2 Land'),
+          _SlotConfig(stage: 'MP2_WIN', label: 'Medium 2 Win'),
+          _SlotConfig(stage: 'MP3_LAND', label: 'Medium 3 Land'),
+          _SlotConfig(stage: 'MP3_WIN', label: 'Medium 3 Win'),
+          _SlotConfig(stage: 'MP4_LAND', label: 'Medium 4 Land'),
+          _SlotConfig(stage: 'MP4_WIN', label: 'Medium 4 Win'),
+          _SlotConfig(stage: 'MP5_LAND', label: 'Medium 5 Land'),
+          _SlotConfig(stage: 'MP5_WIN', label: 'Medium 5 Win'),
         ],
       ),
       // ═══════════════════════════════════════════════════════════════════════
@@ -3860,16 +3860,16 @@ class _SymbolsSection extends _SectionConfig {
         title: 'Low Pay',
         icon: '♠️',
         slots: [
-          _SlotConfig(stage: 'SYMBOL_LAND_LOWPAY_1', label: 'Low 1 Land'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LOWPAY_1', label: 'Low 1 Win'),
-          _SlotConfig(stage: 'SYMBOL_LAND_LOWPAY_2', label: 'Low 2 Land'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LOWPAY_2', label: 'Low 2 Win'),
-          _SlotConfig(stage: 'SYMBOL_LAND_LOWPAY_3', label: 'Low 3 Land'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LOWPAY_3', label: 'Low 3 Win'),
-          _SlotConfig(stage: 'SYMBOL_LAND_LOWPAY_4', label: 'Low 4 Land'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LOWPAY_4', label: 'Low 4 Win'),
-          _SlotConfig(stage: 'SYMBOL_LAND_LOWPAY_5', label: 'Low 5 Land'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LOWPAY_5', label: 'Low 5 Win'),
+          _SlotConfig(stage: 'LP1_LAND', label: 'Low 1 Land'),
+          _SlotConfig(stage: 'LP1_WIN', label: 'Low 1 Win'),
+          _SlotConfig(stage: 'LP2_LAND', label: 'Low 2 Land'),
+          _SlotConfig(stage: 'LP2_WIN', label: 'Low 2 Win'),
+          _SlotConfig(stage: 'LP3_LAND', label: 'Low 3 Land'),
+          _SlotConfig(stage: 'LP3_WIN', label: 'Low 3 Win'),
+          _SlotConfig(stage: 'LP4_LAND', label: 'Low 4 Land'),
+          _SlotConfig(stage: 'LP4_WIN', label: 'Low 4 Win'),
+          _SlotConfig(stage: 'LP5_LAND', label: 'Low 5 Land'),
+          _SlotConfig(stage: 'LP5_WIN', label: 'Low 5 Win'),
         ],
       ),
       // ═══════════════════════════════════════════════════════════════════════
@@ -4059,7 +4059,7 @@ class _WinPresentationSection extends _SectionConfig {
           _SlotConfig(stage: 'PAYLINE_HIGHLIGHT', label: 'Payline Highlight'),
           _SlotConfig(stage: 'WIN_LINE_SHOW', label: 'Line Show'),
           _SlotConfig(stage: 'WIN_LINE_HIDE', label: 'Line Hide'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT', label: 'Symbol Highlight (Generic)'),
+          _SlotConfig(stage: 'SYMBOL_WIN', label: 'Symbol Win (Generic)'),
           _SlotConfig(stage: 'WIN_LINE_CYCLE', label: 'Line Cycle'),
         ],
       ),
@@ -4069,27 +4069,27 @@ class _WinPresentationSection extends _SectionConfig {
         title: 'Per-Symbol Win ⚡',
         icon: '💎',
         slots: [
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_HP', label: 'HP (All) Win'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_HP1', label: 'HP1 Win'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_HP2', label: 'HP2 Win'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_HP3', label: 'HP3 Win'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_HP4', label: 'HP4 Win'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_MP', label: 'MP (All) Win'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_MP1', label: 'MP1 Win'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_MP2', label: 'MP2 Win'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_MP3', label: 'MP3 Win'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_MP4', label: 'MP4 Win'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_MP5', label: 'MP5 Win'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LP', label: 'LP (All) Win'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LP1', label: 'LP1 Win'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LP2', label: 'LP2 Win'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LP3', label: 'LP3 Win'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LP4', label: 'LP4 Win'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LP5', label: 'LP5 Win'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_LP6', label: 'LP6 Win'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_WILD', label: 'Wild Win'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_SCATTER', label: 'Scatter Win'),
-          _SlotConfig(stage: 'WIN_SYMBOL_HIGHLIGHT_BONUS', label: 'Bonus Win'),
+          _SlotConfig(stage: 'HP_WIN', label: 'HP (All) Win'),
+          _SlotConfig(stage: 'HP1_WIN', label: 'HP1 Win'),
+          _SlotConfig(stage: 'HP2_WIN', label: 'HP2 Win'),
+          _SlotConfig(stage: 'HP3_WIN', label: 'HP3 Win'),
+          _SlotConfig(stage: 'HP4_WIN', label: 'HP4 Win'),
+          _SlotConfig(stage: 'MP_WIN', label: 'MP (All) Win'),
+          _SlotConfig(stage: 'MP1_WIN', label: 'MP1 Win'),
+          _SlotConfig(stage: 'MP2_WIN', label: 'MP2 Win'),
+          _SlotConfig(stage: 'MP3_WIN', label: 'MP3 Win'),
+          _SlotConfig(stage: 'MP4_WIN', label: 'MP4 Win'),
+          _SlotConfig(stage: 'MP5_WIN', label: 'MP5 Win'),
+          _SlotConfig(stage: 'LP_WIN', label: 'LP (All) Win'),
+          _SlotConfig(stage: 'LP1_WIN', label: 'LP1 Win'),
+          _SlotConfig(stage: 'LP2_WIN', label: 'LP2 Win'),
+          _SlotConfig(stage: 'LP3_WIN', label: 'LP3 Win'),
+          _SlotConfig(stage: 'LP4_WIN', label: 'LP4 Win'),
+          _SlotConfig(stage: 'LP5_WIN', label: 'LP5 Win'),
+          _SlotConfig(stage: 'LP6_WIN', label: 'LP6 Win'),
+          _SlotConfig(stage: 'WILD_WIN', label: 'Wild Win'),
+          _SlotConfig(stage: 'SCATTER_WIN', label: 'Scatter Win'),
+          _SlotConfig(stage: 'BONUS_WIN', label: 'Bonus Win'),
         ],
       ),
       // ─── WIN TIERS (P5 DYNAMIC) ───

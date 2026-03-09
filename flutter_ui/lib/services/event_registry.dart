@@ -535,7 +535,7 @@ const _pooledEventStages = {
   'WIN_LINE_SHOW',
   'WIN_LINE_FLASH',
   'WIN_LINE_TRACE',
-  'WIN_SYMBOL_HIGHLIGHT',
+  'SYMBOL_WIN',
   'WIN_CLUSTER_HIGHLIGHT',
   // UI clicks (instant response needed)
   'UI_BUTTON_PRESS',
@@ -1891,37 +1891,35 @@ class EventRegistry extends ChangeNotifier {
 
     // ═══════════════════════════════════════════════════════════════════════════
     // V14: Symbol-specific stage fallback — MULTI-LEVEL
-    // WIN_SYMBOL_HIGHLIGHT_HP1 → WIN_SYMBOL_HIGHLIGHT_HP → WIN_SYMBOL_HIGHLIGHT
-    // WIN_SYMBOL_HIGHLIGHT_WILD → WIN_SYMBOL_HIGHLIGHT (no intermediate)
+    // {SYMBOL}_{ACTION} naming convention:
+    // HP1_WIN → HP_WIN → SYMBOL_WIN
+    // WILD_WIN → SYMBOL_WIN (no intermediate)
+    // HP1_EXPAND → HP_EXPAND (no generic expand fallback)
     //
     // Pattern for numbered symbols:
-    //   PREFIX_TYPE+NUMBER → PREFIX_TYPE → PREFIX (e.g., HP1 → HP → generic)
+    //   {LETTERS}{DIGITS}_{ACTION} → {LETTERS}_{ACTION} → SYMBOL_{ACTION}
     // Pattern for named symbols:
-    //   PREFIX_NAME → PREFIX (e.g., WILD → generic)
+    //   {NAME}_{ACTION} → SYMBOL_{ACTION}
     // ═══════════════════════════════════════════════════════════════════════════
-    const symbolPrefixFallbacks = {
-      'WIN_SYMBOL_HIGHLIGHT',
-      'SYMBOL_WIN',
-      'SYMBOL_TRIGGER',
-      'SYMBOL_EXPAND',
-      'SYMBOL_TRANSFORM',
-    };
+    const symbolActionSuffixes = {'_WIN', '_LAND', '_EXPAND', '_TRANSFORM', '_TRIGGER'};
 
-    for (final prefix in symbolPrefixFallbacks) {
-      if (stage.startsWith('${prefix}_') && stage.length > prefix.length + 1) {
-        final suffix = stage.substring(prefix.length + 1); // e.g., "HP1", "LP3", "WILD"
+    for (final suffix in symbolActionSuffixes) {
+      if (stage.endsWith(suffix) && stage.length > suffix.length) {
+        final symbolPart = stage.substring(0, stage.length - suffix.length);
 
-        // Check if suffix is a numbered symbol type (HP1, HP2, LP1, LP2, etc.)
-        // Pattern: letters followed by one or more digits at the end
-        final numberedMatch = RegExp(r'^([A-Z]+)(\d+)$').firstMatch(suffix);
+        // Skip if already a generic fallback (SYMBOL_WIN, SYMBOL_LAND, etc.)
+        if (symbolPart == 'SYMBOL') continue;
+
+        // Check if symbol is a numbered type (HP1, LP3, MP2, etc.)
+        final numberedMatch = RegExp(r'^([A-Z]+)(\d+)$').firstMatch(symbolPart);
         if (numberedMatch != null) {
-          // Return the category fallback (e.g., WIN_SYMBOL_HIGHLIGHT_HP)
+          // Return the category fallback (e.g., HP_WIN)
           final category = numberedMatch.group(1); // "HP", "LP", "MP"
-          return '${prefix}_$category';
+          return '$category$suffix';
         }
 
-        // For non-numbered symbols (WILD, SCATTER, BONUS), return generic prefix
-        return prefix;
+        // For non-numbered symbols (WILD, SCATTER, BONUS), return generic
+        return 'SYMBOL$suffix';
       }
     }
 
@@ -2106,7 +2104,7 @@ class EventRegistry extends ChangeNotifier {
 
     // ═══════════════════════════════════════════════════════════════════════════
     // MULTI-LEVEL FALLBACK: If specific stage not found, try cascading fallbacks
-    // e.g., WIN_SYMBOL_HIGHLIGHT_HP1 → WIN_SYMBOL_HIGHLIGHT_HP → WIN_SYMBOL_HIGHLIGHT
+    // e.g., HP1_WIN → HP_WIN → SYMBOL_WIN
     // e.g., REEL_STOP_0 → REEL_STOP
     // ═══════════════════════════════════════════════════════════════════════════
     if (event == null) {

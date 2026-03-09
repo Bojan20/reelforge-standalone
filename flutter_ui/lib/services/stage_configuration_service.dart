@@ -233,6 +233,12 @@ class StageConfigurationService extends ChangeNotifier {
     if (fsScatterR != null) return 'FS Scatter R${fsScatterR.group(1)}';
     final fsRetrigger = RegExp(r'^FS_RETRIGGER_(\d+)$').firstMatch(upper);
     if (fsRetrigger != null) return '+${fsRetrigger.group(1)} Free Spins';
+    // Per-symbol LAND with reel count: WILD_LAND_3 → "Wild Land #3"
+    final symbolLandN = RegExp(r'^(\w+)_LAND_(\d+)$').firstMatch(upper);
+    if (symbolLandN != null) {
+      final sym = symbolLandN.group(1)!;
+      return '${sym[0]}${sym.substring(1).toLowerCase()} Land #${symbolLandN.group(2)}';
+    }
     final multiX = RegExp(r'^MULTIPLIER_X(\d+)$').firstMatch(upper);
     if (multiX != null) return 'Multi x${multiX.group(1)}';
     // 4. Music context dynamic labels (MUSIC_BASE_L1 → Base Game L1)
@@ -316,30 +322,30 @@ class StageConfigurationService extends ChangeNotifier {
     'PAYLINE_HIGHLIGHT': 'Payline Highlight',
     'WIN_LINE_SHOW': 'Line Show',
     'WIN_LINE_HIDE': 'Line Hide',
-    'WIN_SYMBOL_HIGHLIGHT': 'Symbol Highlight (Generic)',
+    'SYMBOL_WIN': 'Symbol Win (Generic)',
     'WIN_LINE_CYCLE': 'Line Cycle',
     // Per-Symbol Win Highlights
-    'WIN_SYMBOL_HIGHLIGHT_HP': 'HP (All) Win',
-    'WIN_SYMBOL_HIGHLIGHT_HP1': 'HP1 Win',
-    'WIN_SYMBOL_HIGHLIGHT_HP2': 'HP2 Win',
-    'WIN_SYMBOL_HIGHLIGHT_HP3': 'HP3 Win',
-    'WIN_SYMBOL_HIGHLIGHT_HP4': 'HP4 Win',
-    'WIN_SYMBOL_HIGHLIGHT_MP': 'MP (All) Win',
-    'WIN_SYMBOL_HIGHLIGHT_MP1': 'MP1 Win',
-    'WIN_SYMBOL_HIGHLIGHT_MP2': 'MP2 Win',
-    'WIN_SYMBOL_HIGHLIGHT_MP3': 'MP3 Win',
-    'WIN_SYMBOL_HIGHLIGHT_MP4': 'MP4 Win',
-    'WIN_SYMBOL_HIGHLIGHT_MP5': 'MP5 Win',
-    'WIN_SYMBOL_HIGHLIGHT_LP': 'LP (All) Win',
-    'WIN_SYMBOL_HIGHLIGHT_LP1': 'LP1 Win',
-    'WIN_SYMBOL_HIGHLIGHT_LP2': 'LP2 Win',
-    'WIN_SYMBOL_HIGHLIGHT_LP3': 'LP3 Win',
-    'WIN_SYMBOL_HIGHLIGHT_LP4': 'LP4 Win',
-    'WIN_SYMBOL_HIGHLIGHT_LP5': 'LP5 Win',
-    'WIN_SYMBOL_HIGHLIGHT_LP6': 'LP6 Win',
-    'WIN_SYMBOL_HIGHLIGHT_WILD': 'Wild Win',
-    'WIN_SYMBOL_HIGHLIGHT_SCATTER': 'Scatter Win',
-    'WIN_SYMBOL_HIGHLIGHT_BONUS': 'Bonus Win',
+    'HP_WIN': 'HP (All) Win',
+    'HP1_WIN': 'HP1 Win',
+    'HP2_WIN': 'HP2 Win',
+    'HP3_WIN': 'HP3 Win',
+    'HP4_WIN': 'HP4 Win',
+    'MP_WIN': 'MP (All) Win',
+    'MP1_WIN': 'MP1 Win',
+    'MP2_WIN': 'MP2 Win',
+    'MP3_WIN': 'MP3 Win',
+    'MP4_WIN': 'MP4 Win',
+    'MP5_WIN': 'MP5 Win',
+    'LP_WIN': 'LP (All) Win',
+    'LP1_WIN': 'LP1 Win',
+    'LP2_WIN': 'LP2 Win',
+    'LP3_WIN': 'LP3 Win',
+    'LP4_WIN': 'LP4 Win',
+    'LP5_WIN': 'LP5 Win',
+    'LP6_WIN': 'LP6 Win',
+    'WILD_WIN': 'Wild Win',
+    'SCATTER_WIN': 'Scatter Win',
+    'BONUS_WIN': 'Bonus Win',
     // Win Tiers (static defaults — P5 dynamic tiers use WinTierConfig labels)
     'WIN_PRESENT_LOW': 'Low Win (< bet)',
     'WIN_PRESENT_EQUAL': 'Equal Win (= bet)',
@@ -453,7 +459,6 @@ class StageConfigurationService extends ChangeNotifier {
     'FS_SCATTER_LAND': 'FS Scatter',
     'FS_RETRIGGER': 'Retrigger',
     'FS_END': 'FS End',
-    'SCATTER_WIN': 'Scatter Win',
     // Bonus Games
     'BONUS_TRIGGER': 'Bonus Trigger',
     'BONUS_ENTER': 'Bonus Enter',
@@ -903,15 +908,15 @@ class StageConfigurationService extends ChangeNotifier {
   /// Register all stages for a symbol based on its contexts
   ///
   /// Generates stages like:
-  /// - SYMBOL_LAND_{ID} — Symbol landing on reel
-  /// - WIN_SYMBOL_HIGHLIGHT_{ID} — Symbol highlighted during win
-  /// - SYMBOL_EXPAND_{ID} — Wild/symbol expansion
-  /// - SYMBOL_LOCK_{ID} — Symbol locking (Hold & Win)
-  /// - SYMBOL_TRANSFORM_{ID} — Symbol transformation
-  /// - SYMBOL_COLLECT_{ID} — Coin/gem collection
-  /// - SYMBOL_STACK_{ID} — Symbol stacking
-  /// - SYMBOL_TRIGGER_{ID} — Feature trigger
-  /// - ANTICIPATION_{ID} — Anticipation before feature
+  /// - {ID}_LAND — Symbol landing on reel
+  /// - {ID}_WIN — Symbol highlighted during win
+  /// - {ID}_EXPAND — Wild/symbol expansion
+  /// - {ID}_LOCK — Symbol locking (Hold & Win)
+  /// - {ID}_TRANSFORM — Symbol transformation
+  /// - {ID}_COLLECT — Coin/gem collection
+  /// - {ID}_STACK — Symbol stacking
+  /// - {ID}_TRIGGER — Feature trigger
+  /// - {ID}_ANTICIPATION — Anticipation before feature
   void registerSymbolStages(SymbolDefinition symbol) {
     final id = symbol.id.toUpperCase();
     final priority = _getPriorityForSymbolType(symbol.type);
@@ -948,7 +953,8 @@ class StageConfigurationService extends ChangeNotifier {
     final toRemove = <String>[];
 
     for (final stageName in _symbolGeneratedStages) {
-      if (stageName.endsWith('_$id')) {
+      // {SYMBOL}_{ACTION} convention: stages START with symbolId
+      if (stageName.startsWith('${id}_')) {
         toRemove.add(stageName);
       }
     }
@@ -983,7 +989,7 @@ class StageConfigurationService extends ChangeNotifier {
   /// Get all stage names generated from a specific symbol
   List<String> getSymbolStageNames(String symbolId) {
     final id = symbolId.toUpperCase();
-    return _symbolGeneratedStages.where((s) => s.endsWith('_$id')).toList();
+    return _symbolGeneratedStages.where((s) => s.startsWith('${id}_')).toList();
   }
 
   /// Get all symbol-generated stage names
@@ -1007,23 +1013,23 @@ class StageConfigurationService extends ChangeNotifier {
   String _getStageNameForContext(String symbolId, SymbolAudioContext context) {
     switch (context) {
       case SymbolAudioContext.land:
-        return 'SYMBOL_LAND_$symbolId';
+        return '${symbolId}_LAND';
       case SymbolAudioContext.win:
-        return 'WIN_SYMBOL_HIGHLIGHT_$symbolId';
+        return '${symbolId}_WIN';
       case SymbolAudioContext.expand:
-        return 'SYMBOL_EXPAND_$symbolId';
+        return '${symbolId}_EXPAND';
       case SymbolAudioContext.lock:
-        return 'SYMBOL_LOCK_$symbolId';
+        return '${symbolId}_LOCK';
       case SymbolAudioContext.transform:
-        return 'SYMBOL_TRANSFORM_$symbolId';
+        return '${symbolId}_TRANSFORM';
       case SymbolAudioContext.collect:
-        return 'SYMBOL_COLLECT_$symbolId';
+        return '${symbolId}_COLLECT';
       case SymbolAudioContext.stack:
-        return 'SYMBOL_STACK_$symbolId';
+        return '${symbolId}_STACK';
       case SymbolAudioContext.trigger:
-        return 'SYMBOL_TRIGGER_$symbolId';
+        return '${symbolId}_TRIGGER';
       case SymbolAudioContext.anticipation:
-        return 'ANTICIPATION_$symbolId';
+        return '${symbolId}_ANTICIPATION';
     }
   }
 
@@ -1094,9 +1100,9 @@ class StageConfigurationService extends ChangeNotifier {
   String _getSpatialIntentForContext(SymbolAudioContext context, String symbolId) {
     switch (context) {
       case SymbolAudioContext.land:
-        return 'SYMBOL_LAND_$symbolId';
+        return '${symbolId}_LAND';
       case SymbolAudioContext.win:
-        return 'WIN_SYMBOL_HIGHLIGHT';
+        return 'SYMBOL_WIN';
       case SymbolAudioContext.expand:
         return 'WILD_EXPAND';
       case SymbolAudioContext.lock:
@@ -1223,7 +1229,7 @@ class StageConfigurationService extends ChangeNotifier {
     _register('WIN_LINE_SHOW', StageCategory.win, 30, SpatialBus.sfx, 'DEFAULT', isPooled: true);
     _register('WIN_LINE_HIDE', StageCategory.win, 20, SpatialBus.sfx, 'DEFAULT');
     _register('WIN_LINE_CYCLE', StageCategory.win, 25, SpatialBus.sfx, 'DEFAULT');
-    _register('WIN_SYMBOL_HIGHLIGHT', StageCategory.win, 30, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('SYMBOL_WIN', StageCategory.win, 30, SpatialBus.sfx, 'DEFAULT', isPooled: true);
     _register('WIN_DETECTED', StageCategory.win, 55, SpatialBus.sfx, 'DEFAULT');
     _register('WIN_CALCULATE', StageCategory.win, 55, SpatialBus.sfx, 'DEFAULT');
     _register('WIN_PRESENT_END', StageCategory.win, 45, SpatialBus.sfx, 'DEFAULT');
@@ -1233,35 +1239,35 @@ class StageConfigurationService extends ChangeNotifier {
     _register('WIN_COLLECT', StageCategory.win, 50, SpatialBus.sfx, 'DEFAULT');
     _register('WIN_FANFARE', StageCategory.win, 70, SpatialBus.sfx, 'DEFAULT');
 
-    // Special Symbol Win Highlights — Triggered when symbols are in winning combination
-    // Full hierarchy: WIN_SYMBOL_HIGHLIGHT_HP1 → WIN_SYMBOL_HIGHLIGHT_HP → WIN_SYMBOL_HIGHLIGHT
-    _register('WIN_SYMBOL_HIGHLIGHT_WILD', StageCategory.win, 65, SpatialBus.sfx, 'WIN_BIG');
-    _register('WIN_SYMBOL_HIGHLIGHT_SCATTER', StageCategory.win, 70, SpatialBus.sfx, 'FREE_SPIN_TRIGGER');
-    _register('WIN_SYMBOL_HIGHLIGHT_BONUS', StageCategory.win, 70, SpatialBus.sfx, 'FEATURE_ENTER');
+    // Special Symbol Wins — Triggered when symbols are in winning combination
+    // Full hierarchy: HP1_WIN → HP_WIN → SYMBOL_WIN
+    _register('WILD_WIN', StageCategory.win, 65, SpatialBus.sfx, 'WIN_BIG');
+    _register('SCATTER_WIN', StageCategory.win, 70, SpatialBus.sfx, 'FREE_SPIN_TRIGGER');
+    _register('BONUS_WIN', StageCategory.win, 70, SpatialBus.sfx, 'FEATURE_ENTER');
 
-    // Per-symbol win highlights — High Pay symbols
-    _register('WIN_SYMBOL_HIGHLIGHT_HP', StageCategory.win, 45, SpatialBus.sfx, 'DEFAULT', isPooled: true);
-    _register('WIN_SYMBOL_HIGHLIGHT_HP1', StageCategory.win, 50, SpatialBus.sfx, 'DEFAULT', isPooled: true);
-    _register('WIN_SYMBOL_HIGHLIGHT_HP2', StageCategory.win, 48, SpatialBus.sfx, 'DEFAULT', isPooled: true);
-    _register('WIN_SYMBOL_HIGHLIGHT_HP3', StageCategory.win, 46, SpatialBus.sfx, 'DEFAULT', isPooled: true);
-    _register('WIN_SYMBOL_HIGHLIGHT_HP4', StageCategory.win, 44, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    // Per-symbol wins — High Pay symbols
+    _register('HP_WIN', StageCategory.win, 45, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('HP1_WIN', StageCategory.win, 50, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('HP2_WIN', StageCategory.win, 48, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('HP3_WIN', StageCategory.win, 46, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('HP4_WIN', StageCategory.win, 44, SpatialBus.sfx, 'DEFAULT', isPooled: true);
 
-    // Per-symbol win highlights — Medium Pay symbols
-    _register('WIN_SYMBOL_HIGHLIGHT_MP', StageCategory.win, 40, SpatialBus.sfx, 'DEFAULT', isPooled: true);
-    _register('WIN_SYMBOL_HIGHLIGHT_MP1', StageCategory.win, 43, SpatialBus.sfx, 'DEFAULT', isPooled: true);
-    _register('WIN_SYMBOL_HIGHLIGHT_MP2', StageCategory.win, 42, SpatialBus.sfx, 'DEFAULT', isPooled: true);
-    _register('WIN_SYMBOL_HIGHLIGHT_MP3', StageCategory.win, 41, SpatialBus.sfx, 'DEFAULT', isPooled: true);
-    _register('WIN_SYMBOL_HIGHLIGHT_MP4', StageCategory.win, 40, SpatialBus.sfx, 'DEFAULT', isPooled: true);
-    _register('WIN_SYMBOL_HIGHLIGHT_MP5', StageCategory.win, 39, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    // Per-symbol wins — Medium Pay symbols
+    _register('MP_WIN', StageCategory.win, 40, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('MP1_WIN', StageCategory.win, 43, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('MP2_WIN', StageCategory.win, 42, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('MP3_WIN', StageCategory.win, 41, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('MP4_WIN', StageCategory.win, 40, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('MP5_WIN', StageCategory.win, 39, SpatialBus.sfx, 'DEFAULT', isPooled: true);
 
-    // Per-symbol win highlights — Low Pay symbols
-    _register('WIN_SYMBOL_HIGHLIGHT_LP', StageCategory.win, 35, SpatialBus.sfx, 'DEFAULT', isPooled: true);
-    _register('WIN_SYMBOL_HIGHLIGHT_LP1', StageCategory.win, 38, SpatialBus.sfx, 'DEFAULT', isPooled: true);
-    _register('WIN_SYMBOL_HIGHLIGHT_LP2', StageCategory.win, 37, SpatialBus.sfx, 'DEFAULT', isPooled: true);
-    _register('WIN_SYMBOL_HIGHLIGHT_LP3', StageCategory.win, 36, SpatialBus.sfx, 'DEFAULT', isPooled: true);
-    _register('WIN_SYMBOL_HIGHLIGHT_LP4', StageCategory.win, 35, SpatialBus.sfx, 'DEFAULT', isPooled: true);
-    _register('WIN_SYMBOL_HIGHLIGHT_LP5', StageCategory.win, 34, SpatialBus.sfx, 'DEFAULT', isPooled: true);
-    _register('WIN_SYMBOL_HIGHLIGHT_LP6', StageCategory.win, 33, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    // Per-symbol wins — Low Pay symbols
+    _register('LP_WIN', StageCategory.win, 35, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('LP1_WIN', StageCategory.win, 38, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('LP2_WIN', StageCategory.win, 37, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('LP3_WIN', StageCategory.win, 36, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('LP4_WIN', StageCategory.win, 35, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('LP5_WIN', StageCategory.win, 34, SpatialBus.sfx, 'DEFAULT', isPooled: true);
+    _register('LP6_WIN', StageCategory.win, 33, SpatialBus.sfx, 'DEFAULT', isPooled: true);
 
     // Payline highlight — Triggered when win line is shown during presentation
     _register('PAYLINE_HIGHLIGHT', StageCategory.win, 28, SpatialBus.sfx, 'DEFAULT', isPooled: true);
@@ -1416,14 +1422,13 @@ class StageConfigurationService extends ChangeNotifier {
     _register('SYMBOL_LAND_MID', StageCategory.symbol, 30, SpatialBus.reels, 'DEFAULT', isPooled: true);
     _register('SYMBOL_LAND_HIGH', StageCategory.symbol, 35, SpatialBus.reels, 'DEFAULT', isPooled: true);
 
-    // Special Symbol Lands — Connected to slot_preview_widget.dart _triggerReelStopAudio()
-    // These fire when WILD (id=11), SCATTER (id=12), BONUS (id=13) land on reels
-    _register('SYMBOL_LAND_WILD', StageCategory.symbol, 60, SpatialBus.sfx, 'DEFAULT');
-    _register('SYMBOL_LAND_SCATTER', StageCategory.symbol, 55, SpatialBus.sfx, 'DEFAULT');
-    _register('SYMBOL_LAND_BONUS', StageCategory.symbol, 55, SpatialBus.sfx, 'DEFAULT');
-
     // Wild
     _register('WILD_LAND', StageCategory.symbol, 60, SpatialBus.sfx, 'DEFAULT');
+    _register('WILD_LAND_1', StageCategory.symbol, 60, SpatialBus.sfx, 'DEFAULT');
+    _register('WILD_LAND_2', StageCategory.symbol, 65, SpatialBus.sfx, 'DEFAULT');
+    _register('WILD_LAND_3', StageCategory.symbol, 70, SpatialBus.sfx, 'DEFAULT');
+    _register('WILD_LAND_4', StageCategory.symbol, 75, SpatialBus.sfx, 'DEFAULT');
+    _register('WILD_LAND_5', StageCategory.symbol, 80, SpatialBus.sfx, 'DEFAULT');
     _register('WILD_EXPAND', StageCategory.symbol, 65, SpatialBus.sfx, 'DEFAULT');
     _register('WILD_STICKY', StageCategory.symbol, 60, SpatialBus.sfx, 'DEFAULT');
     _register('WILD_WALKING', StageCategory.symbol, 55, SpatialBus.sfx, 'DEFAULT');
@@ -1437,6 +1442,9 @@ class StageConfigurationService extends ChangeNotifier {
     _register('SCATTER_LAND_4', StageCategory.symbol, 80, SpatialBus.sfx, 'FREE_SPIN_TRIGGER');
     _register('SCATTER_LAND_5', StageCategory.symbol, 85, SpatialBus.sfx, 'FREE_SPIN_TRIGGER');
     _register('SCATTER_WIN', StageCategory.symbol, 70, SpatialBus.sfx, 'DEFAULT');
+
+    // Bonus
+    _register('BONUS_LAND', StageCategory.symbol, 55, SpatialBus.sfx, 'DEFAULT');
 
     // ─────────────────────────────────────────────────────────────────────────
     // ANTICIPATION SYSTEM
@@ -1689,7 +1697,7 @@ class StageConfigurationService extends ChangeNotifier {
   }
 
   SpatialBus _getBusByPrefix(String stage) {
-    if (stage.startsWith('REEL_') || stage.startsWith('SYMBOL_LAND')) return SpatialBus.reels;
+    if (stage.startsWith('REEL_') || stage == 'SYMBOL_LAND' || stage.startsWith('SYMBOL_LAND_')) return SpatialBus.reels;
     if (stage.startsWith('MUSIC_') || stage.startsWith('HOLD_MUSIC') ||
         stage.startsWith('WHEEL_MUSIC') || stage.startsWith('PICK_MUSIC')) return SpatialBus.music;
     if (stage.startsWith('UI_') || stage.startsWith('SYSTEM_')) return SpatialBus.ui;
@@ -1837,7 +1845,7 @@ class StageConfigurationService extends ChangeNotifier {
     'REEL_STOP', 'REEL_STOP_0', 'REEL_STOP_1', 'REEL_STOP_2', 'REEL_STOP_3', 'REEL_STOP_4',
     'CASCADE_STEP', 'CASCADE_SYMBOL_POP', 'TUMBLE_DROP', 'TUMBLE_LAND',
     'ROLLUP_TICK', 'ROLLUP_TICK_FAST', 'ROLLUP_TICK_SLOW',
-    'WIN_LINE_SHOW', 'WIN_SYMBOL_HIGHLIGHT',
+    'WIN_LINE_SHOW', 'SYMBOL_WIN',
     'UI_BUTTON_PRESS', 'UI_BUTTON_HOVER', 'UI_BET_UP', 'UI_BET_DOWN', 'UI_TAB_SWITCH',
     'SYMBOL_LAND', 'SYMBOL_LAND_LOW', 'SYMBOL_LAND_MID', 'SYMBOL_LAND_HIGH',
     'WHEEL_TICK', 'TRAIL_MOVE_STEP', 'HOLD_RESPIN_STOP',

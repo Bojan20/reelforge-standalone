@@ -176,17 +176,17 @@ const List<ComposedStage> _engineCoreStages = [
     hooks: ['onSymbolLand'], suggestedBus: 'reels', priority: 'P0',
   ),
   ComposedStage(
-    id: 'SYMBOL_LAND_WILD', displayName: 'Wild Symbol Land',
+    id: 'WILD_LAND', displayName: 'Wild Land',
     layer: StageLayer.engineCore, locked: true, sortOrder: 9,
     hooks: ['onSymbolLand'], suggestedBus: 'sfx', priority: 'P0',
   ),
   ComposedStage(
-    id: 'SYMBOL_LAND_SCATTER', displayName: 'Scatter Symbol Land',
+    id: 'SCATTER_LAND', displayName: 'Scatter Land',
     layer: StageLayer.engineCore, locked: true, sortOrder: 10,
     hooks: ['onSymbolLand'], suggestedBus: 'sfx', priority: 'P0',
   ),
   ComposedStage(
-    id: 'SYMBOL_LAND_BONUS', displayName: 'Bonus Symbol Land',
+    id: 'BONUS_LAND', displayName: 'Bonus Land',
     layer: StageLayer.engineCore, locked: true, sortOrder: 11,
     hooks: ['onSymbolLand'], suggestedBus: 'sfx', priority: 'P0',
   ),
@@ -220,7 +220,7 @@ const List<ComposedStage> _engineCoreStages = [
 
   // ═══ Win Presentation ═══
   ComposedStage(
-    id: 'WIN_SYMBOL_HIGHLIGHT', displayName: 'Win Symbol Highlight',
+    id: 'SYMBOL_WIN', displayName: 'Symbol Win',
     layer: StageLayer.engineCore, locked: true, sortOrder: 25,
     hooks: ['onWinPresent'], suggestedBus: 'sfx', priority: 'P0',
   ),

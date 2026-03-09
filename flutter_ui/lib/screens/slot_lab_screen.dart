@@ -1013,7 +1013,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     'WIN_PRESENT_END',
     'WIN_FANFARE',
     'WIN_LINE_CYCLE',
-    'WIN_SYMBOL_HIGHLIGHT',
+    'SYMBOL_WIN',
     // ─── BIG WIN ───
     'BIG_WIN_TRIGGER',
     'BIG_WIN_START',

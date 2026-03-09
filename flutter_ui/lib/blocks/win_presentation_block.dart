@@ -475,7 +475,7 @@ class WinPresentationBlock extends FeatureBlockBase {
     // === SYMBOL HIGHLIGHT STAGES ===
     if (highlightSymbols) {
       stages.add(GeneratedStage(
-        name: 'WIN_SYMBOL_HIGHLIGHT',
+        name: 'SYMBOL_WIN',
         description: 'Generic symbol highlight',
         bus: 'sfx',
         priority: 50,
@@ -496,7 +496,7 @@ class WinPresentationBlock extends FeatureBlockBase {
         'SCATTER'
       ]) {
         stages.add(GeneratedStage(
-          name: 'WIN_SYMBOL_HIGHLIGHT_$symbolType',
+          name: '${symbolType}_WIN',
           description: 'Highlight $symbolType symbol',
           bus: 'sfx',
           priority: 50,
@@ -713,7 +713,7 @@ class WinPresentationBlock extends FeatureBlockBase {
 
   @override
   List<String> get pooledStages => [
-        'WIN_SYMBOL_HIGHLIGHT',
+        'SYMBOL_WIN',
         'WIN_LINE_SHOW',
         'WIN_LINE_HIDE',
         'ROLLUP_TICK',

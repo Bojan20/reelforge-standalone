@@ -51,18 +51,25 @@ enum SymbolType {
 
 /// Audio context for symbol sounds
 enum SymbolAudioContext {
-  land('land', 'SYMBOL_LAND'),
-  win('win', 'WIN_SYMBOL_HIGHLIGHT'),
-  expand('expand', 'SYMBOL_EXPAND'),
-  lock('lock', 'SYMBOL_LOCK'),
-  transform('transform', 'SYMBOL_TRANSFORM'),
-  collect('collect', 'SYMBOL_COLLECT');
+  land('land', 'LAND', true),
+  win('win', 'WIN', true),
+  expand('expand', 'EXPAND', true),
+  lock('lock', 'LOCK', true),
+  transform('transform', 'TRANSFORM', true),
+  collect('collect', 'COLLECT', true);
 
-  const SymbolAudioContext(this.id, this.stagePrefix);
+  const SymbolAudioContext(this.id, this.stageTag, this.symbolFirst);
   final String id;
-  final String stagePrefix;
+  final String stageTag;
+  /// When true, generates {SYMBOL}_{TAG} (e.g. HP1_WIN).
+  /// When false, generates {TAG}_{SYMBOL} (legacy, unused).
+  final bool symbolFirst;
 
-  String stageForSymbol(String symbolId) => '${stagePrefix}_$symbolId';
+  /// Legacy accessor for code that references stagePrefix directly.
+  String get stagePrefix => stageTag;
+
+  String stageForSymbol(String symbolId) =>
+      symbolFirst ? '${symbolId}_$stageTag' : '${stageTag}_$symbolId';
 }
 
 /// Feature module types

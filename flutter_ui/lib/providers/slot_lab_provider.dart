@@ -1633,7 +1633,7 @@ class SlotLabProvider extends ChangeNotifier {
     // ═══════════════════════════════════════════════════════════════════════════
     // V12: WIN PRESENTATION VISUAL-SYNC — Skip ALL win/presentation stages
     // These stages are handled by slot_preview_widget.dart's 3-phase win presentation:
-    // - Phase 1: WIN_SYMBOL_HIGHLIGHT_* (symbol glow/bounce, includes symbol-specific)
+    // - Phase 1: *_WIN (symbol glow/bounce, includes symbol-specific)
     // - Phase 2: WIN_PRESENT_* + ROLLUP_* (plaque + counter, tier-specific)
     // - Phase 3: WIN_LINE_SHOW (win line cycling)
     // - Big Win: BIG_WIN_*, WIN_TIER_*
@@ -1654,9 +1654,13 @@ class SlotLabProvider extends ChangeNotifier {
 
     // Pattern prefixes — widget triggers dynamic versions of these
     const winPresentationPrefixes = [
-      'WIN_SYMBOL_HIGHLIGHT',  // WIN_SYMBOL_HIGHLIGHT, WIN_SYMBOL_HIGHLIGHT_HP1, etc.
       'WIN_PRESENT',           // WIN_PRESENT_SMALL, WIN_PRESENT_BIG, etc.
       'WIN_TIER',              // WIN_TIER_BIG, WIN_TIER_MEGA, etc.
+    ];
+
+    // Pattern suffixes — {SYMBOL}_WIN naming convention
+    const winPresentationSuffixes = [
+      '_WIN',  // HP1_WIN, LP1_WIN, WILD_WIN, SCATTER_WIN, etc.
     ];
 
     // Check exact matches
@@ -1664,9 +1668,21 @@ class SlotLabProvider extends ChangeNotifier {
       return;
     }
 
+    // Check SYMBOL_WIN (generic) exact match
+    if (stageType == 'SYMBOL_WIN') {
+      return;
+    }
+
     // Check pattern prefixes
     for (final prefix in winPresentationPrefixes) {
       if (stageType == prefix || stageType.startsWith('${prefix}_')) {
+        return;
+      }
+    }
+
+    // Check pattern suffixes ({SYMBOL}_WIN)
+    for (final suffix in winPresentationSuffixes) {
+      if (stageType.endsWith(suffix)) {
         return;
       }
     }

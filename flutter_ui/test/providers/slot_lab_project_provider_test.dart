@@ -408,9 +408,9 @@ void main() {
     test('allSymbolStageIds returns stages for all symbols', () {
       final stages = provider.allSymbolStageIds;
       expect(stages, isNotEmpty);
-      // Should contain at least SYMBOL_LAND_* and WIN_SYMBOL_HIGHLIGHT_*
-      expect(stages.any((s) => s.startsWith('SYMBOL_LAND_')), true);
-      expect(stages.any((s) => s.startsWith('WIN_SYMBOL_HIGHLIGHT_')), true);
+      // Should contain at least *_LAND and *_WIN stages
+      expect(stages.any((s) => s.endsWith('_LAND')), true);
+      expect(stages.any((s) => s.endsWith('_WIN')), true);
     });
   });
 
