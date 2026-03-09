@@ -12246,9 +12246,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // Dynamic folder tabs from AudioAssetManager (unified source)
     final managerFolders = manager.folderNames;
-    final folders = ['All', ...managerFolders];
+    final folders = managerFolders; // No 'All' tab — tag ALL resets both filters
     // Reset folder selection if removed
-    if (!folders.contains(_selectedBrowserFolder)) {
+    if (_selectedBrowserFolder != 'All' && !folders.contains(_selectedBrowserFolder)) {
       _selectedBrowserFolder = 'All';
     }
 
@@ -12404,7 +12404,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 Padding(
                   padding: const EdgeInsets.only(right: 4),
                   child: InkWell(
-                    onTap: () => setState(() => _selectedPoolTag = tagDef.$1),
+                    onTap: () => setState(() {
+                      _selectedPoolTag = tagDef.$1;
+                      if (tagDef.$1 == 'ALL') _selectedBrowserFolder = 'All';
+                    }),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
@@ -12453,7 +12456,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             ],
           ),
         ),
-        // Folder tabs
+        // Folder tabs (only shown when named folders exist)
+        if (folders.isNotEmpty)
         Container(
           height: 28,
           padding: const EdgeInsets.symmetric(horizontal: 8),

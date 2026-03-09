@@ -264,6 +264,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   List<_PhaseConfig>? _cachedPhases;
   int _cachedComposerHash = 0;
 
+  void _invalidatePhaseCache() {
+    setState(() => _cachedPhases = null);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -380,6 +384,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             composer.isConfigured,
             ...composer.enabledMechanics,
             composer.config?.paylineType,
+            composer.config?.winTierCount ?? 5,
+            composer.config?.reelCount ?? 3,
+            composer.config?.anticipationLevels ?? 4,
+            composer.config?.anticipationReels?.length ?? -1,
             composer.config?.enabledBlockIds.length ?? 0,
             ...?(composer.config?.enabledBlockIds),
           ]);
@@ -642,6 +650,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     _wizardWinTiers = 5;
     _wizardPaylineType = PaylineType.lines;
     _wizardMechanics.clear();
+    _wizardAnticipationReels = null;
+    _wizardAnticipationLevels = 4;
 
     // 5. Reset local UI state
     setState(() {
@@ -1444,10 +1454,145 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                     ),
                 ],
               ),
+
+              // ── Game Config Controls ──
+              if (composer.config != null) ...[
+                const SizedBox(height: 6),
+                Divider(height: 1, color: Colors.white.withValues(alpha: 0.06)),
+                const SizedBox(height: 6),
+                Text(
+                  'GAME CONFIG',
+                  style: TextStyle(
+                    fontSize: 8, fontWeight: FontWeight.w600,
+                    color: Colors.white.withValues(alpha: 0.35),
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                _buildConfigRow(
+                  'WIN TIERS',
+                  composer.config!.winTierCount,
+                  1, 5,
+                  (v) { composer.setWinTierCount(v); _invalidatePhaseCache(); },
+                  const Color(0xFFFFD700),
+                ),
+                const SizedBox(height: 6),
+                _buildAnticipationReelPicker(composer),
+                const SizedBox(height: 4),
+                _buildConfigRow(
+                  'TENSION LEVELS',
+                  composer.config!.anticipationLevels,
+                  1, 4,
+                  (v) { composer.setAnticipationLevels(v); _invalidatePhaseCache(); },
+                  const Color(0xFFFF5252),
+                ),
+              ],
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildConfigRow(String label, int value, int min, int max, ValueChanged<int> onChanged, Color color) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 8, fontWeight: FontWeight.w600,
+            color: color.withValues(alpha: 0.6),
+            letterSpacing: 0.5,
+          ),
+        ),
+        const Spacer(),
+        GestureDetector(
+          onTap: value > min ? () => onChanged(value - 1) : null,
+          child: Container(
+            width: 18, height: 18,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: value > min ? Colors.white.withValues(alpha: 0.06) : Colors.transparent,
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text('−', style: TextStyle(fontSize: 11, color: value > min ? color : const Color(0xFF303038))),
+          ),
+        ),
+        Container(
+          width: 24, height: 18,
+          alignment: Alignment.center,
+          child: Text(
+            '$value',
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color, fontFamily: 'monospace'),
+          ),
+        ),
+        GestureDetector(
+          onTap: value < max ? () => onChanged(value + 1) : null,
+          child: Container(
+            width: 18, height: 18,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: value < max ? Colors.white.withValues(alpha: 0.06) : Colors.transparent,
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text('+', style: TextStyle(fontSize: 11, color: value < max ? color : const Color(0xFF303038))),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAnticipationReelPicker(FeatureComposerProvider composer) {
+    final config = composer.config!;
+    final rc = config.reelCount;
+    final activeReels = config.effectiveAnticipationReels;
+    return Row(
+      children: [
+        Text(
+          'ANTICIPATION REELS',
+          style: TextStyle(
+            fontSize: 8, fontWeight: FontWeight.w600,
+            color: const Color(0xFFFF5252).withValues(alpha: 0.6),
+            letterSpacing: 0.5,
+          ),
+        ),
+        const Spacer(),
+        for (int r = 0; r < rc; r++)
+          Padding(
+            padding: const EdgeInsets.only(left: 2),
+            child: GestureDetector(
+              onTap: () {
+                composer.toggleAnticipationReel(r);
+                _invalidatePhaseCache();
+              },
+              child: Container(
+                width: 20, height: 18,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: activeReels.contains(r)
+                      ? const Color(0xFFFF5252).withValues(alpha: 0.15)
+                      : Colors.white.withValues(alpha: 0.02),
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(
+                    color: activeReels.contains(r)
+                        ? const Color(0xFFFF5252).withValues(alpha: 0.5)
+                        : const Color(0xFF1E1E24),
+                  ),
+                ),
+                child: Text(
+                  'R${r + 1}',
+                  style: TextStyle(
+                    fontSize: 7,
+                    fontWeight: activeReels.contains(r) ? FontWeight.w700 : FontWeight.w400,
+                    color: activeReels.contains(r)
+                        ? const Color(0xFFFF5252)
+                        : const Color(0xFF404048),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -1677,6 +1822,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   int _wizardWinTiers = 5;
   PaylineType _wizardPaylineType = PaylineType.lines;
   final Map<SlotMechanic, bool> _wizardMechanics = {};
+  Set<int>? _wizardAnticipationReels; // null = default (last 2 reels)
+  int _wizardAnticipationLevels = 4;
 
   Widget _buildSetupWizard(FeatureComposerProvider composer) {
     return Column(
@@ -1834,6 +1981,17 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   }).toList(),
                 ),
 
+                // Anticipation config
+                const SizedBox(height: 12),
+                _wizardLabel('ANTICIPATION REELS'),
+                const SizedBox(height: 4),
+                _buildWizardAnticipationReels(),
+                const SizedBox(height: 8),
+                _wizardStepper(
+                  'Tension Levels', _wizardAnticipationLevels, 1, 4,
+                  (v) => setState(() => _wizardAnticipationLevels = v),
+                ),
+
                 // Quick presets
                 const SizedBox(height: 8),
                 Row(
@@ -1842,6 +2000,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       _wizardReels = 5; _wizardRows = 3;
                       _wizardPaylineType = PaylineType.lines;
                       _wizardMechanics.clear();
+                      _wizardAnticipationReels = null;
+                      _wizardAnticipationLevels = 4;
                     })),
                     const SizedBox(width: 6),
                     _wizardPreset('Cascading', () => setState(() {
@@ -1850,6 +2010,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       _wizardMechanics.clear();
                       _wizardMechanics[SlotMechanic.cascading] = true;
                       _wizardMechanics[SlotMechanic.multiplierTrail] = true;
+                      _wizardAnticipationReels = null;
+                      _wizardAnticipationLevels = 4;
                     })),
                     const SizedBox(width: 6),
                     _wizardPreset('Full Feature', () => setState(() {
@@ -1859,6 +2021,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       for (final m in SlotMechanic.values) {
                         _wizardMechanics[m] = true;
                       }
+                      _wizardAnticipationReels = null;
+                      _wizardAnticipationLevels = 4;
                     })),
                   ],
                 ),
@@ -1874,6 +2038,12 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 GestureDetector(
                   onTap: () {
                     final name = _wizardName.trim().isEmpty ? 'Untitled Slot' : _wizardName.trim();
+                    // Auto-enable anticipation block if reels are configured
+                    final effectiveReels = _wizardAnticipationReels ??
+                        {_wizardReels - 2, _wizardReels - 1}.where((r) => r >= 0).toSet();
+                    final blockIds = <String>[
+                      if (effectiveReels.isNotEmpty) 'anticipation',
+                    ];
                     final config = SlotMachineConfig(
                       name: name,
                       reelCount: _wizardReels,
@@ -1882,6 +2052,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       paylineType: _wizardPaylineType,
                       winTierCount: _wizardWinTiers,
                       mechanics: Map.from(_wizardMechanics),
+                      anticipationReels: _wizardAnticipationReels,
+                      anticipationLevels: _wizardAnticipationLevels,
+                      enabledBlockIds: blockIds,
                     );
                     composer.applyConfig(config);
                     // Notify parent to sync grid dimensions to engine + UI
@@ -1974,6 +2147,54 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         ),
         child: Text(label, style: const TextStyle(fontSize: 8, color: Colors.white38)),
       ),
+    );
+  }
+
+  Widget _buildWizardAnticipationReels() {
+    final rc = _wizardReels;
+    final active = _wizardAnticipationReels ??
+        {rc - 2, rc - 1}.where((r) => r >= 0).toSet();
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        for (int r = 0; r < rc; r++)
+          GestureDetector(
+            onTap: () => setState(() {
+              final current = Set<int>.from(active);
+              if (current.contains(r)) {
+                current.remove(r);
+              } else {
+                current.add(r);
+              }
+              _wizardAnticipationReels = current;
+            }),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: active.contains(r)
+                    ? const Color(0xFFFF5252).withValues(alpha: 0.15)
+                    : Colors.white.withValues(alpha: 0.02),
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(
+                  color: active.contains(r)
+                      ? const Color(0xFFFF5252).withValues(alpha: 0.5)
+                      : const Color(0xFF222228),
+                ),
+              ),
+              child: Text(
+                'R${r + 1}',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: active.contains(r) ? FontWeight.w700 : FontWeight.w400,
+                  color: active.contains(r)
+                      ? const Color(0xFFFF5252)
+                      : const Color(0xFF505058),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -2263,8 +2484,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       ));
     }
 
-    // ANTICIPATION — only if anticipation block enabled
-    final hasAnticipation = composer.isBlockEnabled('anticipation');
+    // ANTICIPATION — shown if block enabled OR any reels configured
+    final hasAnticipation = composer.isBlockEnabled('anticipation') ||
+        (composer.config?.effectiveAnticipationReels.isNotEmpty ?? false);
     if (hasAnticipation) {
       phases.add(_PhaseConfig(
         id: 'anticipation',
@@ -2273,7 +2495,12 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         color: const Color(0xFFFF5252),
         priority: SlotPriority.p1,
         description: 'Tension build, near-miss, heartbeat',
-        sections: [_AnticipationSection(widget: widget, reelCount: composer.config?.reelCount ?? 3)],
+        sections: [_AnticipationSection(
+          widget: widget,
+          reelCount: composer.config?.reelCount ?? 3,
+          activeReels: composer.config?.effectiveAnticipationReels ?? {1, 2},
+          levelCount: composer.config?.anticipationLevels ?? 4,
+        )],
       ));
     }
 
@@ -5097,7 +5324,14 @@ class _TransitionsSection extends _SectionConfig {
 class _AnticipationSection extends _SectionConfig {
   final UltimateAudioPanel widget;
   final int reelCount;
-  _AnticipationSection({required this.widget, required this.reelCount});
+  final Set<int> activeReels;
+  final int levelCount;
+  _AnticipationSection({
+    required this.widget,
+    required this.reelCount,
+    required this.activeReels,
+    this.levelCount = 4,
+  });
 
   @override String get id => 'anticipation';
   @override String get title => 'ANTICIPATION';
@@ -5106,9 +5340,9 @@ class _AnticipationSection extends _SectionConfig {
 
   @override
   List<_GroupConfig> get groups {
-    // Dynamic: generate per-reel and per-level slots based on grid reel count.
-    // Any reel (R0-R7) can have anticipation depending on game config.
-    final rc = reelCount;
+    // Only generate slots for reels that have anticipation enabled
+    final sortedReels = activeReels.toList()..sort();
+    if (sortedReels.isEmpty) return [];
     return [
       // ANTICIPATION_TENSION + ANTICIPATION_MISS are in BASE GAME LOOP section
       _GroupConfig(
@@ -5116,7 +5350,7 @@ class _AnticipationSection extends _SectionConfig {
         title: 'Tension Per-Reel',
         icon: '📈',
         slots: [
-          for (int r = 0; r < rc; r++)
+          for (final r in sortedReels)
             _SlotConfig(stage: 'ANTICIPATION_TENSION_R$r', label: 'Tension Reel ${r + 1}'),
         ],
       ),
@@ -5125,8 +5359,8 @@ class _AnticipationSection extends _SectionConfig {
         title: 'Tension Levels',
         icon: '🎚️',
         slots: [
-          for (int r = 0; r < rc; r++)
-            for (int l = 1; l <= 4; l++)
+          for (final r in sortedReels)
+            for (int l = 1; l <= levelCount; l++)
               _SlotConfig(stage: 'ANTICIPATION_TENSION_R${r}_L$l', label: 'Reel ${r + 1} Level $l'),
         ],
       ),

@@ -21,7 +21,7 @@ Analyzer: 0 errors, 0 warnings
 
 | # | Feature | Status | Opis | Složenost |
 |---|---------|--------|------|-----------|
-| 18 | **Auto-Color Rules** | ❌ TODO | Regex pattern → boja/ikona. Automatski pri kreiranju traka ili batch na postojeće. Import/export pravila. | Niska |
+| 18 | **Auto-Color Rules** | ✅ DONE | Regex pattern → boja/ikona. Automatski pri kreiranju traka ili batch na postojeće. Import/export pravila. | Niska |
 | 19 | **Dynamic Split Workflow** | ❌ TODO | Automatsko sečenje po transijentima/gate threshold/tišini. Opcija: dodaj stretch markere umesto rezova. Preview pre primene. "Send items to sampler" workflow. | Srednja |
 | 20 | **UCS Naming System** | ❌ TODO | Universal Category System: `CATsub_VENdor_Project_Descriptor_####`. Auto-generisanje iz regiona/trakova. Industrijski standard za game audio. | Niska |
 

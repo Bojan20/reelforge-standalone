@@ -52,6 +52,7 @@ import 'daw/edit/elastic_audio_panel.dart';
 import 'daw/edit/beat_detective_panel.dart';
 import 'daw/edit/smart_tempo_panel.dart';
 import 'daw/edit/strip_silence_panel.dart';
+import 'daw/edit/dynamic_split_panel.dart';
 import '../panels/loop_editor_panel.dart';
 import 'daw/edit/video_panel.dart';
 // ✅ P0.1: Extracted MIX panels
@@ -765,6 +766,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.beatDetect => _buildBeatDetectivePanel(),
       DawEditSubTab.tempoDetect => _buildSmartTempoPanel(),
       DawEditSubTab.stripSilence => _buildStripSilencePanel(),
+      DawEditSubTab.dynamicSplit => _buildDynamicSplitPanel(),
       DawEditSubTab.loopEditor => _buildLoopEditorPanel(),
       DawEditSubTab.video => _buildVideoPanel(),
     };
@@ -999,6 +1001,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.beatDetect => _buildBeatDetectivePanel(),
       DawEditSubTab.tempoDetect => _buildSmartTempoPanel(),
       DawEditSubTab.stripSilence => _buildStripSilencePanel(),
+      DawEditSubTab.dynamicSplit => _buildDynamicSplitPanel(),
       DawEditSubTab.loopEditor => _buildLoopEditorPanel(),
       DawEditSubTab.video => _buildVideoPanel(),
     };
@@ -1070,6 +1073,12 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
 
   Widget _buildStripSilencePanel() => StripSilencePanel(
     selectedTrackId: widget.selectedTrackId,
+    onAction: widget.onDspAction,
+  );
+
+  Widget _buildDynamicSplitPanel() => DynamicSplitPanel(
+    selectedTrackId: widget.selectedTrackId,
+    tempo: widget.tempo,
     onAction: widget.onDspAction,
   );
 

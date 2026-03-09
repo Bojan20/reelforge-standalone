@@ -587,6 +587,12 @@ class SlotMachineConfig {
   /// Enabled block IDs from Feature Builder (includes non-mechanic blocks like transitions, anticipation)
   final List<String> enabledBlockIds;
 
+  /// Which reels have anticipation enabled (0-indexed). null = last 2 reels default.
+  final Set<int>? anticipationReels;
+
+  /// Number of tension levels per reel (1-4). null = 4 default.
+  final int anticipationLevels;
+
   const SlotMachineConfig({
     required this.name,
     this.reelCount = 3,
@@ -597,7 +603,13 @@ class SlotMachineConfig {
     this.mechanics = const {},
     this.volatilityProfile = 'medium',
     this.enabledBlockIds = const [],
+    this.anticipationReels,
+    this.anticipationLevels = 4,
   });
+
+  /// Effective anticipation reels — defaults to last 2 reels if not configured
+  Set<int> get effectiveAnticipationReels =>
+      anticipationReels ?? {reelCount - 2, reelCount - 1}.where((r) => r >= 0).toSet();
 
   SlotMachineConfig copyWith({
     String? name,
@@ -609,6 +621,8 @@ class SlotMachineConfig {
     Map<SlotMechanic, bool>? mechanics,
     String? volatilityProfile,
     List<String>? enabledBlockIds,
+    Set<int>? anticipationReels,
+    int? anticipationLevels,
   }) => SlotMachineConfig(
     name: name ?? this.name,
     reelCount: reelCount ?? this.reelCount,
@@ -619,6 +633,8 @@ class SlotMachineConfig {
     mechanics: mechanics ?? this.mechanics,
     volatilityProfile: volatilityProfile ?? this.volatilityProfile,
     enabledBlockIds: enabledBlockIds ?? this.enabledBlockIds,
+    anticipationReels: anticipationReels ?? this.anticipationReels,
+    anticipationLevels: anticipationLevels ?? this.anticipationLevels,
   );
 
   Map<String, dynamic> toJson() => {
@@ -633,6 +649,8 @@ class SlotMachineConfig {
     },
     'volatilityProfile': volatilityProfile,
     'enabledBlockIds': enabledBlockIds,
+    if (anticipationReels != null) 'anticipationReels': anticipationReels!.toList(),
+    'anticipationLevels': anticipationLevels,
   };
 
   factory SlotMachineConfig.fromJson(Map<String, dynamic> json) {
@@ -657,6 +675,9 @@ class SlotMachineConfig {
       volatilityProfile: json['volatilityProfile'] as String? ?? 'medium',
       enabledBlockIds: (json['enabledBlockIds'] as List<dynamic>?)
           ?.cast<String>() ?? const [],
+      anticipationReels: (json['anticipationReels'] as List<dynamic>?)
+          ?.cast<int>().toSet(),
+      anticipationLevels: json['anticipationLevels'] as int? ?? 4,
     );
   }
 }
@@ -869,6 +890,62 @@ class FeatureComposerProvider extends ChangeNotifier {
   // ═══════════════════════════════════════════════════════════════════════════
   // SLOT MACHINE CONFIG
   // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Update win tier count in config
+  void setWinTierCount(int count) {
+    if (_config == null) return;
+    _config = _config!.copyWith(winTierCount: count.clamp(1, 5));
+    notifyListeners();
+  }
+
+  /// Enable or disable a feature block by ID
+  void setBlockEnabled(String blockId, bool enabled) {
+    if (_config == null) return;
+    final blocks = List<String>.from(_config!.enabledBlockIds);
+    if (enabled && !blocks.contains(blockId)) {
+      blocks.add(blockId);
+    } else if (!enabled) {
+      blocks.remove(blockId);
+    }
+    _config = _config!.copyWith(enabledBlockIds: blocks);
+    notifyListeners();
+  }
+
+  /// Toggle anticipation on a specific reel (0-indexed).
+  /// Auto-enables anticipation block when a reel is activated.
+  void toggleAnticipationReel(int reel) {
+    if (_config == null) return;
+    final current = Set<int>.from(_config!.effectiveAnticipationReels);
+    if (current.contains(reel)) {
+      current.remove(reel);
+    } else {
+      current.add(reel);
+    }
+    // Auto-enable anticipation block when reels are active
+    final blocks = List<String>.from(_config!.enabledBlockIds);
+    if (current.isNotEmpty && !blocks.contains('anticipation')) {
+      blocks.add('anticipation');
+    } else if (current.isEmpty && blocks.contains('anticipation')) {
+      blocks.remove('anticipation');
+    }
+    _config = _config!.copyWith(anticipationReels: current, enabledBlockIds: blocks);
+    notifyListeners();
+  }
+
+  /// Set number of anticipation tension levels (1-4).
+  /// Auto-enables anticipation block.
+  void setAnticipationLevels(int levels) {
+    if (_config == null) return;
+    final blocks = List<String>.from(_config!.enabledBlockIds);
+    if (!blocks.contains('anticipation')) {
+      blocks.add('anticipation');
+    }
+    _config = _config!.copyWith(
+      anticipationLevels: levels.clamp(1, 4),
+      enabledBlockIds: blocks,
+    );
+    notifyListeners();
+  }
 
   /// Apply a full slot machine config (from wizard or project load)
   void applyConfig(SlotMachineConfig config) {

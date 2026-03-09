@@ -1082,7 +1082,7 @@ class AudioMappingImportService {
         // Find first candidate that exists in composed stages
         for (final candidate in candidates) {
           // Indexed stage expansion: "REEL_STOP_*" with NofM → "REEL_STOP_0", "REEL_STOP_1"...
-          // Some stages are 0-based (REEL_STOP_0), others 1-based (ANTICIPATION_TENSION_R1)
+          // All per-reel stages are 0-based (REEL_STOP_0, ANTICIPATION_TENSION_R0, etc.)
           if (candidate.endsWith('_*') && nofm != null) {
             final base = candidate.substring(0, candidate.length - 1); // "REEL_STOP_"
             final indexed0 = '$base${nofm.$1}'; // 0-based

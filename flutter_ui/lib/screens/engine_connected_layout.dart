@@ -1367,6 +1367,118 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     );
   }
 
+  /// Handle Dynamic Split action from lower zone panel
+  void _handleDynamicSplit(Map<String, dynamic>? params) {
+    if (params == null) return;
+    final action = params['action'] as String? ?? 'split';
+    final splitPointsRaw = params['splitPoints'] as List<dynamic>? ?? [];
+    final fadeInMs = params['fadeInMs'] as double? ?? 2.0;
+    final fadeOutMs = params['fadeOutMs'] as double? ?? 10.0;
+
+    if (action == 'split' && splitPointsRaw.isNotEmpty) {
+      // Find selected clip
+      final selectedClip = _clips.cast<timeline.TimelineClip?>().firstWhere(
+        (c) => c?.selected == true,
+        orElse: () => null,
+      );
+      if (selectedClip == null) {
+        _showSnackBar('No clip selected');
+        return;
+      }
+
+      // Convert relative split times (from clip start) to absolute timeline times
+      // Service returns times relative to clip start (0 = clip beginning)
+      final clipStart = selectedClip.startTime;
+      final clipEnd = selectedClip.endTime;
+      final splitTimes = splitPointsRaw
+          .map((p) => clipStart + ((p as Map<String, dynamic>)['time'] as double))
+          .where((t) => t > clipStart && t < clipEnd)
+          .toList()
+        ..sort((a, b) => b.compareTo(a)); // Reverse order — split from end
+
+      if (splitTimes.isEmpty) {
+        _showSnackBar('No valid split points within clip');
+        return;
+      }
+
+      final originalClip = selectedClip;
+      var currentClip = selectedClip;
+      final newClips = <timeline.TimelineClip>[];
+      int splitCount = 0;
+
+      for (final splitTime in splitTimes) {
+        if (splitTime <= currentClip.startTime || splitTime >= currentClip.endTime) continue;
+
+        final newClipId = engine.splitClip(clipId: currentClip.id, atTime: splitTime);
+        if (newClipId == null) continue;
+
+        final leftDuration = splitTime - currentClip.startTime;
+        final rightDuration = currentClip.endTime - splitTime;
+        final rightOffset = currentClip.sourceOffset + leftDuration;
+
+        // Right part (after split point)
+        final rightClip = currentClip.copyWith(
+          id: newClipId,
+          name: '${originalClip.name} (${splitCount + 2})',
+          startTime: splitTime,
+          duration: rightDuration,
+          sourceOffset: rightOffset,
+          fadeIn: fadeInMs / 1000.0,
+          fadeOut: currentClip.fadeOut > 0 ? currentClip.fadeOut : fadeOutMs / 1000.0,
+          selected: false,
+        );
+        newClips.add(rightClip);
+
+        // Update current clip to be the left part
+        currentClip = currentClip.copyWith(
+          duration: leftDuration,
+          fadeOut: fadeOutMs / 1000.0,
+          fadeIn: currentClip.fadeIn > 0 ? currentClip.fadeIn : fadeInMs / 1000.0,
+          selected: false,
+        );
+        splitCount++;
+      }
+
+      if (splitCount > 0) {
+        // Update state: remove original, add all parts
+        setState(() {
+          _clips = _clips.where((c) => c.id != originalClip.id).toList();
+          _clips.add(currentClip); // Left-most part
+          _clips.addAll(newClips);
+        });
+
+        // Register undo
+        UiUndoManager.instance.record(GenericUndoAction(
+          description: 'Dynamic Split "${originalClip.name}" → ${splitCount + 1} clips',
+          onExecute: () {
+            setState(() {
+              _clips = _clips.where((c) => c.id != originalClip.id).toList();
+              _clips.add(currentClip);
+              _clips.addAll(newClips);
+            });
+          },
+          onUndo: () {
+            final allNewIds = newClips.map((c) => c.id).toSet()..add(currentClip.id);
+            setState(() {
+              _clips = _clips.where((c) => !allNewIds.contains(c.id)).toList();
+              _clips.add(originalClip);
+            });
+          },
+        ));
+
+        _showSnackBar('Dynamic Split: ${splitCount + 1} clips created');
+      }
+    } else if (action == 'regions') {
+      // Create region markers at split points via FFI
+      final ffi = NativeFFI.instance;
+      for (final p in splitPointsRaw) {
+        final time = (p as Map<String, dynamic>)['time'] as double;
+        ffi.addMarker('Split', time, 0xFFFF9040);
+      }
+      _showSnackBar('Created ${splitPointsRaw.length} region markers');
+    }
+  }
+
   /// Create a video track
   void _createVideoTrack(String name, Color color) {
     // Video tracks don't create engine audio tracks — they are display-only
@@ -6132,6 +6244,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
               case 'showExportDialog':
                 // Open full export dialog
                 _showExportDialog();
+              case 'dynamicSplit':
+                _handleDynamicSplit(params);
             }
           },
           // P0.2: Grid/Snap Settings

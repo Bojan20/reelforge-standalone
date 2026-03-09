@@ -442,18 +442,18 @@ class TemplateBuilderService {
     final stages = <TemplateStageDefinition>[];
     final reelCount = source.reelCount;
 
-    // Per-reel anticipation with tension levels
-    // Start from reel 1 (NOT reel 0 - anticipation never on first reel)
-    for (int reel = 1; reel < reelCount; reel++) {
+    // Per-reel anticipation with tension levels.
+    // Any reel (R0-R7) can have anticipation depending on game config.
+    for (int reel = 0; reel < reelCount; reel++) {
       for (int level = 1; level <= 4; level++) {
         stages.add(TemplateStageDefinition(
           id: 'ANTICIPATION_TENSION_R${reel}_L$level',
-          name: 'Anticipation R$reel L$level',
+          name: 'Reel ${reel + 1} Level $level',
           category: TemplateStageCategory.feature,
           priority: 68 + level,
           isPooled: false,
           isLooping: true,
-          description: 'Reel $reel anticipation level $level',
+          description: 'Reel ${reel + 1} anticipation level $level',
         ));
       }
     }

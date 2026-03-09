@@ -288,6 +288,7 @@ class CommandRegistry {
     VoidCallback? onShowAudioAlignment,
     VoidCallback? onShowTrackVersions,
     VoidCallback? onShowAutoColorRules,
+    VoidCallback? onShowDynamicSplit,
     VoidCallback? onShowMacroControls,
     VoidCallback? onShowClipGainEnvelope,
   }) {
@@ -1169,6 +1170,15 @@ class CommandRegistry {
         icon: Icons.palette,
         keywords: ['auto', 'color', 'rules', 'regex', 'pattern', 'track', 'palette'],
         onExecute: onShowAutoColorRules,
+      ),
+      PaletteCommand(
+        id: 'tools.dynamic_split',
+        label: 'Dynamic Split',
+        description: 'Split clips by transients, gate threshold, or silence detection',
+        category: PaletteCategory.tools,
+        icon: Icons.call_split,
+        keywords: ['dynamic', 'split', 'transient', 'gate', 'silence', 'detect', 'cut'],
+        onExecute: onShowDynamicSplit,
       ),
 
       // ─── ADVANCED PANELS ──────────────────────────────────────────────────
