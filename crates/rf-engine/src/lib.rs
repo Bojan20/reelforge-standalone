@@ -38,6 +38,7 @@ mod sidechain;
 // Phase 3: Advanced features
 mod anticipatory;
 mod fx_container;
+pub mod pin_connector;
 
 // Advanced Looping System (Wwise-grade + superior)
 pub mod loop_asset;
@@ -159,6 +160,10 @@ pub use anticipatory::{
 pub use fx_container::{
     BlendMode, ContainerPath, FxContainer, MAX_MACROS, MAX_PARALLEL_PATHS, MacroMapping,
     MacroParameter, MappingCurve, PathId,
+};
+
+pub use pin_connector::{
+    PinConnector, PinConnectorConfig, PinMapping, PinRoutingMode, MAX_PIN_CHANNELS,
 };
 
 // Re-exports: Phase 4 - Timeline

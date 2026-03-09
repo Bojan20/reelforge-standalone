@@ -2289,6 +2289,154 @@ impl PlaybackEngine {
         1.0 // Default to full wet
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // P7: PIN CONNECTOR
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Enable pin connector on a track insert slot
+    pub fn enable_track_pin_connector(
+        &self,
+        track_id: u64,
+        slot_index: usize,
+        host_channels: u8,
+        plugin_channels: u8,
+    ) -> bool {
+        let mut chains = self.insert_chains.write();
+        if let Some(chain) = chains.get_mut(&track_id) {
+            if let Some(slot) = chain.slot_mut(slot_index) {
+                slot.enable_pin_connector(host_channels, plugin_channels);
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Disable pin connector on a track insert slot
+    pub fn disable_track_pin_connector(&self, track_id: u64, slot_index: usize) -> bool {
+        let mut chains = self.insert_chains.write();
+        if let Some(chain) = chains.get_mut(&track_id) {
+            if let Some(slot) = chain.slot_mut(slot_index) {
+                slot.disable_pin_connector();
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Set pin connector routing mode
+    pub fn set_track_pin_mode(
+        &self,
+        track_id: u64,
+        slot_index: usize,
+        mode: u32,
+    ) -> bool {
+        use crate::pin_connector::PinRoutingMode;
+        let routing_mode = match mode {
+            0 => PinRoutingMode::Normal,
+            1 => PinRoutingMode::MultiMono,
+            2 => PinRoutingMode::MidSide,
+            3 => PinRoutingMode::SurroundPerChannel,
+            4 => PinRoutingMode::CustomMatrix,
+            _ => return false,
+        };
+
+        let mut chains = self.insert_chains.write();
+        if let Some(chain) = chains.get_mut(&track_id) {
+            if let Some(slot) = chain.slot_mut(slot_index) {
+                if let Some(pc) = slot.pin_connector_mut() {
+                    pc.set_mode(routing_mode);
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Set pin connector input mapping gain
+    pub fn set_track_pin_input_gain(
+        &self,
+        track_id: u64,
+        slot_index: usize,
+        src_ch: u8,
+        dst_ch: u8,
+        gain: f64,
+    ) -> bool {
+        let mut chains = self.insert_chains.write();
+        if let Some(chain) = chains.get_mut(&track_id) {
+            if let Some(slot) = chain.slot_mut(slot_index) {
+                if let Some(pc) = slot.pin_connector_mut() {
+                    pc.set_input_gain(src_ch, dst_ch, gain);
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Set pin connector output mapping gain
+    pub fn set_track_pin_output_gain(
+        &self,
+        track_id: u64,
+        slot_index: usize,
+        src_ch: u8,
+        dst_ch: u8,
+        gain: f64,
+    ) -> bool {
+        let mut chains = self.insert_chains.write();
+        if let Some(chain) = chains.get_mut(&track_id) {
+            if let Some(slot) = chain.slot_mut(slot_index) {
+                if let Some(pc) = slot.pin_connector_mut() {
+                    pc.set_output_gain(src_ch, dst_ch, gain);
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Get pin connector configuration as JSON
+    pub fn get_track_pin_config_json(&self, track_id: u64, slot_index: usize) -> Option<String> {
+        let chains = self.insert_chains.read();
+        if let Some(chain) = chains.get(&track_id) {
+            if let Some(slot) = chain.slot(slot_index) {
+                if let Some(pc) = slot.pin_connector() {
+                    let mode = match pc.mode() {
+                        crate::pin_connector::PinRoutingMode::Normal => "normal",
+                        crate::pin_connector::PinRoutingMode::MultiMono => "multi_mono",
+                        crate::pin_connector::PinRoutingMode::MidSide => "mid_side",
+                        crate::pin_connector::PinRoutingMode::SurroundPerChannel => "surround_per_channel",
+                        crate::pin_connector::PinRoutingMode::CustomMatrix => "custom_matrix",
+                    };
+
+                    let input_maps: Vec<String> = pc.input_mappings().iter().map(|m| {
+                        format!(
+                            r#"{{"src":{},"dst":{},"gain":{:.6}}}"#,
+                            m.src_channel, m.dst_channel, m.gain
+                        )
+                    }).collect();
+
+                    let output_maps: Vec<String> = pc.output_mappings().iter().map(|m| {
+                        format!(
+                            r#"{{"src":{},"dst":{},"gain":{:.6}}}"#,
+                            m.src_channel, m.dst_channel, m.gain
+                        )
+                    }).collect();
+
+                    return Some(format!(
+                        r#"{{"mode":"{}","host_channels":{},"plugin_channels":{},"enabled":{},"input_map":[{}],"output_map":[{}]}}"#,
+                        mode,
+                        pc.host_channels(),
+                        pc.plugin_channels(),
+                        pc.is_enabled(),
+                        input_maps.join(","),
+                        output_maps.join(","),
+                    ));
+                }
+            }
+        }
+        None
+    }
+
     /// Get master insert chain
     pub fn master_insert_chain(&self) -> &RwLock<InsertChain> {
         &self.master_insert

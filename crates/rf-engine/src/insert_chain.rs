@@ -12,6 +12,8 @@ use rf_core::Sample;
 use rf_dsp::delay_compensation::LatencySamples;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
+use crate::pin_connector::PinConnector;
+
 // =============================================================================
 // P10.0.1: PER-PROCESSOR METERING
 // =============================================================================
@@ -176,6 +178,10 @@ pub struct InsertSlot {
     // ═══ P10.0.1: Per-Processor Metering ═══
     /// Real-time metering data (input/output levels, GR, load)
     metering: ProcessorMetering,
+    // ═══ P7: Pin Connector (per-plugin channel routing) ═══
+    /// Optional pin connector for multi-channel routing
+    /// When None, standard stereo pass-through is used (zero overhead)
+    pin_connector: Option<PinConnector>,
 }
 
 impl InsertSlot {
@@ -209,6 +215,8 @@ impl InsertSlot {
             sample_rate: DEFAULT_SAMPLE_RATE,
             // P10.0.1: Metering
             metering: ProcessorMetering::new(),
+            // P7: Pin Connector (None = standard stereo, zero overhead)
+            pin_connector: None,
         }
     }
 
@@ -305,8 +313,24 @@ impl InsertSlot {
             self.dry_buffer_l[..len].copy_from_slice(&left[..len]);
             self.dry_buffer_r[..len].copy_from_slice(&right[..len]);
 
-            // Process wet signal
-            processor.process_stereo(&mut left[..len], &mut right[..len]);
+            // Process wet signal — with or without Pin Connector
+            if let Some(ref mut pc) = self.pin_connector {
+                if pc.is_enabled() {
+                    // Pin Connector path: route through matrix
+                    pc.prepare_for_processing(&left[..len], &right[..len], len);
+                    let (pc_left, pc_right) = pc.plugin_output_stereo_mut(len);
+                    processor.process_stereo(pc_left, pc_right);
+                    // Route plugin output back to host via output matrix
+                    // First clear host buffers since route_output will accumulate
+                    left[..len].fill(0.0);
+                    right[..len].fill(0.0);
+                    pc.route_output_stereo(&mut left[..len], &mut right[..len], len);
+                } else {
+                    processor.process_stereo(&mut left[..len], &mut right[..len]);
+                }
+            } else {
+                processor.process_stereo(&mut left[..len], &mut right[..len]);
+            }
 
             // Sanitize processor output — prevent NaN/Inf from propagating
             // through bus buffers. If any sample is non-finite, replace with
@@ -417,6 +441,36 @@ impl InsertSlot {
             .as_ref()
             .map(|p| p.get_param(index))
             .unwrap_or(0.0)
+    }
+
+    // ═══ Pin Connector Methods (P7) ═══
+
+    /// Enable pin connector with given host and plugin channel counts
+    /// Minimum 2 channels for both host and plugin (stereo processing requirement)
+    pub fn enable_pin_connector(&mut self, host_channels: u8, plugin_channels: u8) {
+        let h = host_channels.max(2);
+        let p = plugin_channels.max(2);
+        self.pin_connector = Some(PinConnector::new(h, p));
+    }
+
+    /// Disable pin connector (revert to standard stereo)
+    pub fn disable_pin_connector(&mut self) {
+        self.pin_connector = None;
+    }
+
+    /// Get pin connector reference
+    pub fn pin_connector(&self) -> Option<&PinConnector> {
+        self.pin_connector.as_ref()
+    }
+
+    /// Get mutable pin connector reference
+    pub fn pin_connector_mut(&mut self) -> Option<&mut PinConnector> {
+        self.pin_connector.as_mut()
+    }
+
+    /// Check if pin connector is active
+    pub fn has_pin_connector(&self) -> bool {
+        self.pin_connector.is_some()
     }
 
     // ═══ Sidechain Methods (P0.5) ═══

@@ -23469,3 +23469,145 @@ pub extern "C" fn metering_get_field_offset(field_id: u32) -> u64 {
         _ => u64::MAX, // Invalid field
     }
 }
+
+// =============================================================================
+// P7: PIN CONNECTOR FFI
+// =============================================================================
+
+/// Enable pin connector on a track insert slot
+/// mode: 0=Normal, 1=MultiMono, 2=MidSide, 3=SurroundPerChannel, 4=CustomMatrix
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn pin_connector_enable(
+    track_id: u32,
+    slot_index: u32,
+    host_channels: u32,
+    plugin_channels: u32,
+) -> i32 {
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+        let h_ch = (host_channels as u8).min(64);
+        let p_ch = (plugin_channels as u8).min(64);
+
+        if PLAYBACK_ENGINE.enable_track_pin_connector(track_id as u64, slot_index, h_ch, p_ch) {
+            1
+        } else {
+            0
+        }
+    })
+}
+
+/// Disable pin connector on a track insert slot
+#[unsafe(no_mangle)]
+pub extern "C" fn pin_connector_disable(track_id: u32, slot_index: u32) -> i32 {
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+        if PLAYBACK_ENGINE.disable_track_pin_connector(track_id as u64, slot_index) {
+            1
+        } else {
+            0
+        }
+    })
+}
+
+/// Set pin connector routing mode
+/// mode: 0=Normal, 1=MultiMono, 2=MidSide, 3=SurroundPerChannel, 4=CustomMatrix
+#[unsafe(no_mangle)]
+pub extern "C" fn pin_connector_set_mode(track_id: u32, slot_index: u32, mode: u32) -> i32 {
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+        if PLAYBACK_ENGINE.set_track_pin_mode(track_id as u64, slot_index, mode) {
+            1
+        } else {
+            0
+        }
+    })
+}
+
+/// Set pin connector input routing gain (host channel → plugin channel)
+#[unsafe(no_mangle)]
+pub extern "C" fn pin_connector_set_input_gain(
+    track_id: u32,
+    slot_index: u32,
+    src_channel: u32,
+    dst_channel: u32,
+    gain: f64,
+) -> i32 {
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+        if PLAYBACK_ENGINE.set_track_pin_input_gain(
+            track_id as u64,
+            slot_index,
+            src_channel as u8,
+            dst_channel as u8,
+            gain,
+        ) {
+            1
+        } else {
+            0
+        }
+    })
+}
+
+/// Set pin connector output routing gain (plugin channel → host channel)
+#[unsafe(no_mangle)]
+pub extern "C" fn pin_connector_set_output_gain(
+    track_id: u32,
+    slot_index: u32,
+    src_channel: u32,
+    dst_channel: u32,
+    gain: f64,
+) -> i32 {
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+        if PLAYBACK_ENGINE.set_track_pin_output_gain(
+            track_id as u64,
+            slot_index,
+            src_channel as u8,
+            dst_channel as u8,
+            gain,
+        ) {
+            1
+        } else {
+            0
+        }
+    })
+}
+
+/// Get pin connector configuration as JSON
+/// Returns JSON string or null if no pin connector
+#[unsafe(no_mangle)]
+pub extern "C" fn pin_connector_get_config_json(
+    track_id: u32,
+    slot_index: u32,
+) -> *mut c_char {
+    ffi_panic_guard!(std::ptr::null_mut(), {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return std::ptr::null_mut(),
+        };
+
+        match PLAYBACK_ENGINE.get_track_pin_config_json(track_id as u64, slot_index) {
+            Some(json) => match std::ffi::CString::new(json) {
+                Ok(c) => c.into_raw(),
+                Err(_) => std::ptr::null_mut(),
+            },
+            None => std::ptr::null_mut(),
+        }
+    })
+}
