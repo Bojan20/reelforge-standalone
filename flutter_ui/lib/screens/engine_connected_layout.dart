@@ -417,11 +417,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   // Control Room state (now managed by ControlRoomProvider)
 
-  /// Build mode-aware project tree (matches React LayoutDemo.tsx 1:1)
-  ///
-  /// MIDDLEWARE SYNC: `compositeEvents` must be passed from build() where
-  /// `context.watch[MiddlewareProvider]()` is called. This ensures UI rebuilds
-  /// when layers are added/modified. Do NOT call context.watch inside this method.
+  /// Build mode-aware project tree.
+  /// Events are shown via EventFolderPanel (drag-drop), not in this tree.
   List<ProjectTreeNode> _buildProjectTree() {
     final List<ProjectTreeNode> tree = [];
 
