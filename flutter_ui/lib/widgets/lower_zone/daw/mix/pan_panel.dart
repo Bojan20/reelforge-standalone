@@ -38,10 +38,12 @@ class _PanPanelState extends State<PanPanel> {
 
   @override
   Widget build(BuildContext context) {
-    // Try to get MixerProvider
+    // Select only channels list from MixerProvider (avoid full rebuild on unrelated changes)
     MixerProvider? mixerProvider;
     try {
-      mixerProvider = context.watch<MixerProvider>();
+      // We need the provider reference for callbacks, but only rebuild on channel data changes
+      context.select<MixerProvider, int>((m) => m.channels.length + m.buses.length);
+      mixerProvider = context.read<MixerProvider>();
     } catch (_) {
       // Provider not available
     }

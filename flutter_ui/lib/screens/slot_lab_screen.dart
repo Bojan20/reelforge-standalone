@@ -1254,6 +1254,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   String _selectedBrowserFolder = 'All';
   String _selectedPoolTag = 'ALL'; // ALL, MUSIC, SFX, VO, UI, AMB
 
+  // Audio browser cache — avoid re-sorting/filtering on every rebuild
+  int _cachedBrowserAssetCount = -1;
+  String _cachedBrowserFolder = '';
+  String _cachedBrowserTag = '';
+  String _cachedBrowserSearch = '';
+  List<Map<String, dynamic>> _cachedAllPoolMaps = const [];
+  List<Map<String, dynamic>> _cachedSearchFiltered = const [];
+  Map<String, int> _cachedTagCounts = const {};
+
 
   // Audio preview state
   String? _previewingAudioPath;
@@ -9667,9 +9676,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           );
         }
 
-        return ListView(
-          padding: EdgeInsets.all(SlotLabSpacing.xs),
-          children: [
+        final items = <Widget>[
             // ── Composite Events (from ASSIGN tab / MiddlewareProvider) ──
             if (hasComposite) ...[
               Padding(
@@ -9717,7 +9724,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   ),
                 ),
               ),
-          ],
+          ];
+        return ListView.builder(
+          padding: EdgeInsets.all(SlotLabSpacing.xs),
+          itemCount: items.length,
+          itemBuilder: (ctx, i) => items[i],
         );
       },
     );
@@ -12752,46 +12763,69 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       _selectedBrowserFolder = 'All';
     }
 
-    // Convert to Map<String, dynamic> for compatibility with existing item builders
-    // Uses cached list to avoid re-converting every frame
-    final allPoolMaps = allAssets.map((a) {
-      final lName = a.name.toLowerCase();
-      final lPath = a.path.toLowerCase();
-      return <String, dynamic>{
-        'path': a.path,
-        'name': a.name,
-        'duration': a.duration,
-        'folder': a.folder,
-        'tag': _classifyAudioTag(lName, lPath),
-        'sampleRate': a.sampleRate,
-        'channels': a.channels,
-      };
-    }).toList()
-      ..sort((a, b) => (a['name'] as String).toLowerCase().compareTo((b['name'] as String).toLowerCase()));
+    // P0 PERFORMANCE: Cache sort/filter — only recompute when inputs change
+    final assetCount = allAssets.length;
+    final needsFullRebuild = assetCount != _cachedBrowserAssetCount;
+    final needsFilterRebuild = needsFullRebuild
+        || _selectedBrowserFolder != _cachedBrowserFolder
+        || _selectedPoolTag != _cachedBrowserTag
+        || _browserSearchQuery != _cachedBrowserSearch;
 
-    // Step 1: Filter by folder
-    final folderFiltered = _selectedBrowserFolder == 'All'
-        ? allPoolMaps
-        : allPoolMaps.where((a) => a['folder'] == _selectedBrowserFolder).toList();
-
-    // Step 2: Filter by tag
-    final tagFiltered = _selectedPoolTag == 'ALL'
-        ? folderFiltered
-        : folderFiltered.where((a) => (a['tag'] ?? 'SFX') == _selectedPoolTag).toList();
-
-    // Step 3: Filter by search
-    final searchFiltered = _browserSearchQuery.isEmpty
-        ? tagFiltered
-        : tagFiltered.where((a) =>
-            (a['name'] as String).toLowerCase().contains(_browserSearchQuery.toLowerCase())
-          ).toList();
-
-    // Count per tag for badge display
-    final tagCounts = <String, int>{};
-    for (final a in folderFiltered) {
-      final t = (a['tag'] ?? 'SFX') as String;
-      tagCounts[t] = (tagCounts[t] ?? 0) + 1;
+    if (needsFullRebuild) {
+      // Re-map and re-sort only when asset list changes
+      _cachedAllPoolMaps = allAssets.map((a) {
+        final lName = a.name.toLowerCase();
+        final lPath = a.path.toLowerCase();
+        return <String, dynamic>{
+          'path': a.path,
+          'name': a.name,
+          'duration': a.duration,
+          'folder': a.folder,
+          'tag': _classifyAudioTag(lName, lPath),
+          'sampleRate': a.sampleRate,
+          'channels': a.channels,
+        };
+      }).toList()
+        ..sort((a, b) => (a['name'] as String).toLowerCase().compareTo((b['name'] as String).toLowerCase()));
+      _cachedBrowserAssetCount = assetCount;
     }
+
+    if (needsFilterRebuild) {
+      final allPoolMaps = _cachedAllPoolMaps;
+
+      // Step 1: Filter by folder
+      final folderFiltered = _selectedBrowserFolder == 'All'
+          ? allPoolMaps
+          : allPoolMaps.where((a) => a['folder'] == _selectedBrowserFolder).toList();
+
+      // Step 2: Filter by tag
+      final tagFiltered = _selectedPoolTag == 'ALL'
+          ? folderFiltered
+          : folderFiltered.where((a) => (a['tag'] ?? 'SFX') == _selectedPoolTag).toList();
+
+      // Step 3: Filter by search
+      _cachedSearchFiltered = _browserSearchQuery.isEmpty
+          ? tagFiltered
+          : tagFiltered.where((a) =>
+              (a['name'] as String).toLowerCase().contains(_browserSearchQuery.toLowerCase())
+            ).toList();
+
+      // Count per tag for badge display
+      final counts = <String, int>{};
+      for (final a in folderFiltered) {
+        final t = (a['tag'] ?? 'SFX') as String;
+        counts[t] = (counts[t] ?? 0) + 1;
+      }
+      _cachedTagCounts = counts;
+
+      _cachedBrowserFolder = _selectedBrowserFolder;
+      _cachedBrowserTag = _selectedPoolTag;
+      _cachedBrowserSearch = _browserSearchQuery;
+    }
+
+    final allPoolMaps = _cachedAllPoolMaps;
+    final searchFiltered = _cachedSearchFiltered;
+    final tagCounts = _cachedTagCounts;
     final totalCount = allPoolMaps.length;
 
     return Column(
@@ -12961,9 +12995,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         Container(
           height: 28,
           padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: ListView(
+          child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            children: folders.map((folder) {
+            itemCount: folders.length,
+            itemBuilder: (ctx, i) {
+              final folder = folders[i];
               final isSelected = _selectedBrowserFolder == folder;
               return Padding(
                 padding: const EdgeInsets.only(right: 6),
@@ -12992,7 +13028,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   ),
                 ),
               );
-            }).toList(),
+            },
           ),
         ),
         // Audio list — P0 PERFORMANCE: Fixed height + no per-frame setState

@@ -12,8 +12,11 @@
 /// - Self-contained MetadataBrowserService singleton
 library;
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../../src/rust/native_ffi.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
 import '../../../fabfilter/fabfilter_widgets.dart';
 
@@ -68,21 +71,48 @@ class MetadataBrowserService extends ChangeNotifier {
   List<MetadataEntry> _entries = [];
   bool _loading = false;
   String? _error;
+  bool _usingFfi = false;
+  String _rawMetadataJson = ''; // cached for FFI search
 
   String get filePath => _filePath;
   List<MetadataEntry> get entries => List.unmodifiable(_entries);
   bool get loading => _loading;
   String? get error => _error;
   bool get hasData => _entries.isNotEmpty;
+  /// Whether the current data came from real FFI (true) or simulated fallback (false)
+  bool get usingFfi => _usingFfi;
 
-  /// Parse metadata from file path (simulated — actual binary parsing needs FFI)
+  /// Parse metadata from file path — tries Rust FFI first, falls back to simulated
   void loadFile(String path) {
     _filePath = path;
     _loading = true;
     _error = null;
+    _usingFfi = false;
+    _rawMetadataJson = '';
     notifyListeners();
 
-    // Simulate parsing based on file extension
+    // Try FFI first
+    try {
+      final ffi = NativeFFI.instance;
+      if (ffi.isLoaded) {
+        final json = ffi.metadataRead(path);
+        if (json.isNotEmpty) {
+          final parsed = _parseMetadataFromJson(json);
+          if (parsed.isNotEmpty) {
+            _entries = parsed;
+            _rawMetadataJson = json;
+            _usingFfi = true;
+            _loading = false;
+            notifyListeners();
+            return;
+          }
+        }
+      }
+    } catch (_) {
+      // FFI failed — fall through to simulated
+    }
+
+    // Fallback: simulated metadata
     final ext = path.split('.').last.toLowerCase();
     _entries = _generateSimulatedMetadata(path, ext);
     _loading = false;
@@ -98,6 +128,8 @@ class MetadataBrowserService extends ChangeNotifier {
     _filePath = '';
     _entries = [];
     _error = null;
+    _usingFfi = false;
+    _rawMetadataJson = '';
     notifyListeners();
   }
 
@@ -119,7 +151,22 @@ class MetadataBrowserService extends ChangeNotifier {
 
     if (query.isEmpty) return filtered;
 
-    // Parse boolean query
+    // Try FFI search if we have raw metadata JSON
+    if (_usingFfi && _rawMetadataJson.isNotEmpty) {
+      try {
+        final ffi = NativeFFI.instance;
+        if (ffi.isLoaded) {
+          final matches = ffi.metadataSearch(_rawMetadataJson, query);
+          if (!matches) return [];
+          // FFI says it matches — apply standard filter only
+          return filtered;
+        }
+      } catch (_) {
+        // FFI search failed — fall through to local search
+      }
+    }
+
+    // Local search fallback (for simulated data or FFI search failure)
     final terms = query.split(RegExp(r'\s+'));
     final orGroups = query.split('|').map((g) => g.trim()).toList();
 
@@ -147,6 +194,169 @@ class MetadataBrowserService extends ChangeNotifier {
     return entry.key.toLowerCase().contains(term) ||
         entry.value.toLowerCase().contains(term) ||
         entry.standardLabel.toLowerCase().contains(term);
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // FFI JSON → MetadataEntry parsing
+  // ═════════════════════════════════════════════════════════════════════════
+
+  /// Parse AudioMetadata JSON from Rust FFI into MetadataEntry list
+  List<MetadataEntry> _parseMetadataFromJson(String jsonStr) {
+    final entries = <MetadataEntry>[];
+    try {
+      final Map<String, dynamic> meta = json.decode(jsonStr);
+
+      // ── BWF fields ──
+      _addIfPresent(entries, 'Description', meta['description'], MetadataStandard.bwf);
+      _addIfPresent(entries, 'Originator', meta['originator'], MetadataStandard.bwf);
+      _addIfPresent(entries, 'OriginatorReference', meta['originator_reference'], MetadataStandard.bwf);
+      _addIfPresent(entries, 'OriginationDate', meta['origination_date'], MetadataStandard.bwf);
+      _addIfPresent(entries, 'OriginationTime', meta['origination_time'], MetadataStandard.bwf);
+      _addIfPresent(entries, 'TimeReference', meta['time_reference'], MetadataStandard.bwf);
+      _addIfPresent(entries, 'BWF Version', meta['bwf_version'], MetadataStandard.bwf);
+      _addIfPresent(entries, 'UMID', meta['umid'], MetadataStandard.bwf);
+      if (meta['loudness_value'] != null) {
+        entries.add(MetadataEntry(
+          key: 'LoudnessValue',
+          value: '${(meta['loudness_value'] as num) / 100.0} LUFS',
+          standard: MetadataStandard.bwf,
+        ));
+      }
+      if (meta['loudness_range'] != null) {
+        entries.add(MetadataEntry(
+          key: 'LoudnessRange',
+          value: '${(meta['loudness_range'] as num) / 100.0} LU',
+          standard: MetadataStandard.bwf,
+        ));
+      }
+      if (meta['max_true_peak'] != null) {
+        entries.add(MetadataEntry(
+          key: 'MaxTruePeakLevel',
+          value: '${(meta['max_true_peak'] as num) / 100.0} dBTP',
+          standard: MetadataStandard.bwf,
+        ));
+      }
+      if (meta['max_momentary_loudness'] != null) {
+        entries.add(MetadataEntry(
+          key: 'MaxMomentaryLoudness',
+          value: '${(meta['max_momentary_loudness'] as num) / 100.0} LUFS',
+          standard: MetadataStandard.bwf,
+        ));
+      }
+      if (meta['max_short_term_loudness'] != null) {
+        entries.add(MetadataEntry(
+          key: 'MaxShortTermLoudness',
+          value: '${(meta['max_short_term_loudness'] as num) / 100.0} LUFS',
+          standard: MetadataStandard.bwf,
+        ));
+      }
+
+      // ── iXML fields ──
+      _addIfPresent(entries, 'IXML:PROJECT', meta['project'], MetadataStandard.ixml);
+      _addIfPresent(entries, 'IXML:SCENE', meta['scene'], MetadataStandard.ixml);
+      _addIfPresent(entries, 'IXML:TAKE', meta['take'], MetadataStandard.ixml);
+      _addIfPresent(entries, 'IXML:TAPE', meta['tape'], MetadataStandard.ixml);
+      if (meta['circled'] != null) {
+        entries.add(MetadataEntry(
+          key: 'IXML:CIRCLED',
+          value: meta['circled'] == true ? 'TRUE' : 'FALSE',
+          standard: MetadataStandard.ixml,
+        ));
+      }
+      _addIfPresent(entries, 'IXML:NOTE', meta['note'], MetadataStandard.ixml);
+      if (meta['ixml_track_names'] != null) {
+        final tracks = meta['ixml_track_names'] as List;
+        for (var i = 0; i < tracks.length; i++) {
+          entries.add(MetadataEntry(
+            key: 'IXML:TRACK_${i + 1}',
+            value: tracks[i].toString(),
+            standard: MetadataStandard.ixml,
+          ));
+        }
+      }
+
+      // ── ID3 / Common Tag fields ──
+      _addIfPresent(entries, 'TIT2', meta['title'], MetadataStandard.id3v2);
+      _addIfPresent(entries, 'TPE1', meta['artist'], MetadataStandard.id3v2);
+      _addIfPresent(entries, 'TALB', meta['album'], MetadataStandard.id3v2);
+      _addIfPresent(entries, 'TCON', meta['genre'], MetadataStandard.id3v2);
+      _addIfPresent(entries, 'TDRC', meta['year'], MetadataStandard.id3v2);
+      _addIfPresent(entries, 'TRCK', meta['track_number'], MetadataStandard.id3v2);
+      _addIfPresent(entries, 'COMM', meta['comment'], MetadataStandard.id3v2);
+      if (meta['bpm'] != null) {
+        entries.add(MetadataEntry(
+          key: 'TBPM',
+          value: '${meta['bpm']}',
+          standard: MetadataStandard.id3v2,
+        ));
+      }
+      _addIfPresent(entries, 'TKEY', meta['key'], MetadataStandard.id3v2);
+      _addIfPresent(entries, 'TCOP', meta['copyright'], MetadataStandard.id3v2);
+      _addIfPresent(entries, 'TSSE', meta['encoder'], MetadataStandard.id3v2);
+
+      // ── RIFF INFO fields ──
+      _addIfPresent(entries, 'INAM', meta['riff_name'], MetadataStandard.riff);
+      _addIfPresent(entries, 'IART', meta['riff_artist'], MetadataStandard.riff);
+      _addIfPresent(entries, 'ICMT', meta['riff_comment'], MetadataStandard.riff);
+      _addIfPresent(entries, 'IGNR', meta['riff_genre'], MetadataStandard.riff);
+      _addIfPresent(entries, 'ICRD', meta['riff_creation_date'], MetadataStandard.riff);
+      _addIfPresent(entries, 'ISFT', meta['riff_software'], MetadataStandard.riff);
+      _addIfPresent(entries, 'ICOP', meta['riff_copyright'], MetadataStandard.riff);
+      _addIfPresent(entries, 'IKEY', meta['riff_keywords'], MetadataStandard.riff);
+
+      // ── Custom tags ──
+      if (meta['custom_tags'] != null && meta['custom_tags'] is Map) {
+        final custom = meta['custom_tags'] as Map<String, dynamic>;
+        for (final entry in custom.entries) {
+          entries.add(MetadataEntry(
+            key: entry.key,
+            value: entry.value.toString(),
+            standard: _inferStandardFromSources(meta),
+          ));
+        }
+      }
+
+      // ── Determine Vorbis/FLAC from sources ──
+      // Some fields (title, artist, etc.) are shared between ID3, Vorbis, FLAC.
+      // Re-tag entries based on detected sources if no ID3 source but Vorbis/FLAC present.
+      final sources = meta['sources'] as List?;
+      if (sources != null) {
+        final hasId3 = sources.contains('Id3v2');
+        final hasVorbis = sources.contains('VorbisComment');
+        final hasFlac = sources.contains('FlacMetadata');
+
+        if (!hasId3 && (hasVorbis || hasFlac)) {
+          final targetStd = hasFlac ? MetadataStandard.flac : MetadataStandard.vorbis;
+          // Re-tag common tag entries from ID3 to actual source
+          final retagged = entries.map((e) {
+            if (e.standard == MetadataStandard.id3v2) {
+              return MetadataEntry(key: e.key, value: e.value, standard: targetStd);
+            }
+            return e;
+          }).toList();
+          entries.clear();
+          entries.addAll(retagged);
+        }
+      }
+    } catch (_) {
+      return [];
+    }
+    return entries;
+  }
+
+  void _addIfPresent(List<MetadataEntry> entries, String key, dynamic value, MetadataStandard std) {
+    if (value != null) {
+      entries.add(MetadataEntry(key: key, value: value.toString(), standard: std));
+    }
+  }
+
+  MetadataStandard _inferStandardFromSources(Map<String, dynamic> meta) {
+    final sources = meta['sources'] as List?;
+    if (sources == null || sources.isEmpty) return MetadataStandard.riff;
+    if (sources.contains('VorbisComment')) return MetadataStandard.vorbis;
+    if (sources.contains('FlacMetadata')) return MetadataStandard.flac;
+    if (sources.contains('Id3v2')) return MetadataStandard.id3v2;
+    return MetadataStandard.riff;
   }
 
   /// Generate simulated metadata for demonstration

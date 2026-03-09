@@ -422,6 +422,31 @@ typedef EngineFreeStringDart = void Function(Pointer<Utf8> ptr);
 typedef EngineClearAllNative = Void Function();
 typedef EngineClearAllDart = void Function();
 
+// Screensets (Reaper-style UI State Slots)
+typedef ScreensetSaveNative = Int32 Function(Int32 slot, Pointer<Utf8> name, Pointer<Utf8> stateJson);
+typedef ScreensetSaveDart = int Function(int slot, Pointer<Utf8> name, Pointer<Utf8> stateJson);
+
+typedef ScreensetLoadNative = Pointer<Utf8> Function(Int32 slot);
+typedef ScreensetLoadDart = Pointer<Utf8> Function(int slot);
+
+typedef ScreensetClearNative = Int32 Function(Int32 slot);
+typedef ScreensetClearDart = int Function(int slot);
+
+typedef ScreensetRenameNative = Int32 Function(Int32 slot, Pointer<Utf8> name);
+typedef ScreensetRenameDart = int Function(int slot, Pointer<Utf8> name);
+
+typedef ScreensetListJsonNative = Pointer<Utf8> Function();
+typedef ScreensetListJsonDart = Pointer<Utf8> Function();
+
+typedef ScreensetClearAllNative = Int32 Function();
+typedef ScreensetClearAllDart = int Function();
+
+typedef ScreensetExportJsonNative = Pointer<Utf8> Function();
+typedef ScreensetExportJsonDart = Pointer<Utf8> Function();
+
+typedef ScreensetImportJsonNative = Int32 Function(Pointer<Utf8> json);
+typedef ScreensetImportJsonDart = int Function(Pointer<Utf8> json);
+
 // Snap
 typedef EngineSnapToGridNative = Double Function(Double time, Double gridSize);
 typedef EngineSnapToGridDart = double Function(double time, double gridSize);
@@ -2971,6 +2996,16 @@ class NativeFFI {
   late final OfflineGetAudioSampleRateDart _offlineGetAudioSampleRate;
   late final OfflineGetAudioChannelsDart _offlineGetAudioChannels;
 
+  // Screensets
+  late final ScreensetSaveDart _screensetSave;
+  late final ScreensetLoadDart _screensetLoad;
+  late final ScreensetClearDart _screensetClear;
+  late final ScreensetRenameDart _screensetRename;
+  late final ScreensetListJsonDart _screensetListJson;
+  late final ScreensetClearAllDart _screensetClearAll;
+  late final ScreensetExportJsonDart _screensetExportJson;
+  late final ScreensetImportJsonDart _screensetImportJson;
+
   NativeFFI._();
 
   /// Try to load the native library
@@ -3695,6 +3730,16 @@ class NativeFFI {
     _offlineGetAudioDuration = _lib.lookupFunction<OfflineGetAudioDurationNative, OfflineGetAudioDurationDart>('offline_get_audio_duration');
     _offlineGetAudioSampleRate = _lib.lookupFunction<OfflineGetAudioSampleRateNative, OfflineGetAudioSampleRateDart>('offline_get_audio_sample_rate');
     _offlineGetAudioChannels = _lib.lookupFunction<OfflineGetAudioChannelsNative, OfflineGetAudioChannelsDart>('offline_get_audio_channels');
+
+    // Screensets
+    _screensetSave = _lib.lookupFunction<ScreensetSaveNative, ScreensetSaveDart>('screenset_save');
+    _screensetLoad = _lib.lookupFunction<ScreensetLoadNative, ScreensetLoadDart>('screenset_load');
+    _screensetClear = _lib.lookupFunction<ScreensetClearNative, ScreensetClearDart>('screenset_clear');
+    _screensetRename = _lib.lookupFunction<ScreensetRenameNative, ScreensetRenameDart>('screenset_rename');
+    _screensetListJson = _lib.lookupFunction<ScreensetListJsonNative, ScreensetListJsonDart>('screenset_list_json');
+    _screensetClearAll = _lib.lookupFunction<ScreensetClearAllNative, ScreensetClearAllDart>('screenset_clear_all');
+    _screensetExportJson = _lib.lookupFunction<ScreensetExportJsonNative, ScreensetExportJsonDart>('screenset_export_json');
+    _screensetImportJson = _lib.lookupFunction<ScreensetImportJsonNative, ScreensetImportJsonDart>('screenset_import_json');
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -26527,6 +26572,131 @@ extension TimeStretchFFI on NativeFFI {
       return fn() == 1;
     } catch (e) {
       return false;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SCREENSETS — Reaper-style UI State Slots (1-0)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Save a screenset to a slot (0-9). Returns true on success.
+  bool screensetSave(int slot, String name, String stateJson) {
+    if (!_loaded) return false;
+    return withNativeStrings2(name, stateJson, (namePtr, jsonPtr) {
+      return _screensetSave(slot, namePtr, jsonPtr) == 1;
+    });
+  }
+
+  /// Load a screenset from a slot (0-9).
+  /// Returns JSON: {"slot":N,"name":"...","state_json":"...","saved_at":...}
+  /// or null if slot is empty.
+  String? screensetLoad(int slot) {
+    if (!_loaded) return null;
+    final ptr = _screensetLoad(slot);
+    if (ptr == nullptr) return null;
+    final json = ptr.toDartString();
+    _freeString(ptr);
+    return json;
+  }
+
+  /// Clear a screenset slot. Returns true on success.
+  bool screensetClear(int slot) {
+    if (!_loaded) return false;
+    return _screensetClear(slot) == 1;
+  }
+
+  /// Rename a screenset slot. Returns true on success.
+  bool screensetRename(int slot, String name) {
+    if (!_loaded) return false;
+    return withNativeString(name, (namePtr) {
+      return _screensetRename(slot, namePtr) == 1;
+    });
+  }
+
+  /// Get list of all occupied screenset slots as JSON array.
+  String? screensetListJson() {
+    if (!_loaded) return null;
+    final ptr = _screensetListJson();
+    if (ptr == nullptr) return null;
+    final json = ptr.toDartString();
+    _freeString(ptr);
+    return json;
+  }
+
+  /// Clear all screensets. Returns true on success.
+  bool screensetClearAllSlots() {
+    if (!_loaded) return false;
+    return _screensetClearAll() == 1;
+  }
+
+  /// Export all screensets to JSON (for project save).
+  String? screensetExportJson() {
+    if (!_loaded) return null;
+    final ptr = _screensetExportJson();
+    if (ptr == nullptr) return null;
+    final json = ptr.toDartString();
+    _freeString(ptr);
+    return json;
+  }
+
+  /// Import screensets from JSON (for project load). Returns true on success.
+  bool screensetImportJson(String json) {
+    if (!_loaded) return false;
+    return withNativeString(json, (jsonPtr) {
+      return _screensetImportJson(jsonPtr) == 1;
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// METADATA BROWSER EXTENSION
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Metadata read/search API for audio files (BWF, iXML, ID3v2, RIFF, Vorbis, FLAC)
+extension MetadataBrowserAPI on NativeFFI {
+  static final _metadataRead = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Pointer<Utf8>),
+      Pointer<Utf8> Function(Pointer<Utf8>)>('metadata_read');
+
+  static final _metadataSearch = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Utf8>, Pointer<Utf8>),
+      int Function(Pointer<Utf8>, Pointer<Utf8>)>('metadata_search');
+
+  static final _freeRustStringMeta = _loadNativeLibrary().lookupFunction<
+      Void Function(Pointer<Utf8>),
+      void Function(Pointer<Utf8>)>('free_rust_string');
+
+  /// Read all metadata from an audio file.
+  /// Returns JSON string with AudioMetadata fields, or empty string on error.
+  String metadataRead(String path) {
+    final pathPtr = path.toNativeUtf8();
+    try {
+      final ptr = _metadataRead(pathPtr);
+      if (ptr == nullptr || ptr.address == 0) return '';
+      final json = ptr.toDartString();
+      _freeRustStringMeta(ptr);
+      return json;
+    } catch (e) {
+      return '';
+    } finally {
+      malloc.free(pathPtr);
+    }
+  }
+
+  /// Search metadata using Boolean query (AND/OR/NOT, field:value).
+  /// Returns true if metadata matches query, false if not.
+  /// Returns false on error.
+  bool metadataSearch(String metadataJson, String query) {
+    final metaPtr = metadataJson.toNativeUtf8();
+    final queryPtr = query.toNativeUtf8();
+    try {
+      final result = _metadataSearch(metaPtr, queryPtr);
+      return result == 1;
+    } catch (e) {
+      return false;
+    } finally {
+      malloc.free(metaPtr);
+      malloc.free(queryPtr);
     }
   }
 }

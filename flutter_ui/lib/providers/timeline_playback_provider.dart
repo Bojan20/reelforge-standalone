@@ -152,9 +152,10 @@ class TimelinePlaybackProvider extends ChangeNotifier {
   double _scrubStartTime = 0;
   double _scrubStartPosition = 0;
 
-  // UI notify throttling - 8ms = 120fps for ultra-smooth playhead movement
+  // UI notify throttling - 66ms = 15fps for position updates during playback
+  // Discrete state changes (play/stop/record) still notify immediately
   DateTime _lastNotifyTime = DateTime.now();
-  static const Duration _notifyThrottleDuration = Duration(milliseconds: 8);
+  static const Duration _notifyThrottleDuration = Duration(milliseconds: 66);
 
   // Callbacks
   void Function(double time)? onTimeUpdate;

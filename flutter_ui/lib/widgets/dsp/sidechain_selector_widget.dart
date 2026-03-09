@@ -36,7 +36,10 @@ class _SidechainSelectorWidgetState extends State<SidechainSelectorWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final mixer = context.watch<MixerProvider>();
+    // Only rebuild when channel list changes (for dropdown items)
+    final channels = context.select<MixerProvider, List<MixerChannel>>(
+      (m) => m.channels,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,7 +65,7 @@ class _SidechainSelectorWidgetState extends State<SidechainSelectorWidget> {
               value: -1,
               child: Text('Internal (no external sidechain)'),
             ),
-            ...mixer.channels.map((ch) {
+            ...channels.map((ch) {
               final trackId = int.tryParse(ch.id.replaceAll('ch_', '')) ?? 0;
               return DropdownMenuItem(
                 value: trackId,

@@ -31,9 +31,13 @@ class MixerPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // UltimateMixer requires MixerProvider
+    // Select channel/bus/aux/vca counts + master volume to limit rebuilds
     final MixerProvider mixerProvider;
     try {
-      mixerProvider = context.watch<MixerProvider>();
+      context.select<MixerProvider, (int, int, int, int, double)>(
+        (m) => (m.channels.length, m.buses.length, m.auxes.length, m.vcas.length, m.master.volume),
+      );
+      mixerProvider = context.read<MixerProvider>();
     } catch (_) {
       return _buildNoProviderPanel();
     }

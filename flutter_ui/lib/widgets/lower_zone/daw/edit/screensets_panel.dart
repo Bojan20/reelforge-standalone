@@ -7,11 +7,15 @@
 /// - Save/recall current UI layout state
 /// - Rename slots, clear slots
 /// - Self-contained ScreensetsService singleton
+/// - Persistent Rust FFI storage with in-memory fallback
 library;
+
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import '../../../fabfilter/fabfilter_theme.dart';
 import '../../../fabfilter/fabfilter_widgets.dart';
+import '../../../../src/rust/native_ffi.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MODEL
@@ -55,6 +59,7 @@ class ScreensetsService extends ChangeNotifier {
     for (int i = 1; i <= 10; i++) {
       _slots[i] = Screenset(id: i);
     }
+    _syncFromEngine();
   }
 
   static final ScreensetsService instance = ScreensetsService._();
@@ -62,15 +67,63 @@ class ScreensetsService extends ChangeNotifier {
   final Map<int, Screenset> _slots = {};
   int _activeSlot = 1;
 
+  NativeFFI? get _ffi {
+    final ffi = NativeFFI.instance;
+    return ffi.isLoaded ? ffi : null;
+  }
+
   int get activeSlot => _activeSlot;
   List<Screenset> get slots => List.generate(10, (i) => _slots[i + 1]!);
 
   Screenset? getSlot(int id) => _slots[id];
 
+  /// Load all screenset slots from Rust engine into local state.
+  void _syncFromEngine() {
+    final ffi = _ffi;
+    if (ffi == null) return;
+
+    for (int i = 1; i <= 10; i++) {
+      // Rust uses 0-based slots, Dart uses 1-based
+      final json = ffi.screensetLoad(i - 1);
+      if (json != null) {
+        try {
+          final data = jsonDecode(json) as Map<String, dynamic>;
+          final stateJson = data['state_json'] as String? ?? '{}';
+          final savedAtSecs = data['saved_at'] as num? ?? 0;
+          Map<String, dynamic> layoutState = {};
+          try {
+            layoutState = jsonDecode(stateJson) as Map<String, dynamic>;
+          } catch (_) {}
+          _slots[i] = Screenset(
+            id: i,
+            name: data['name'] as String? ?? 'Screenset $i',
+            layoutState: layoutState,
+            savedAt: savedAtSecs > 0
+                ? DateTime.fromMillisecondsSinceEpoch(
+                    (savedAtSecs * 1000).toInt())
+                : null,
+          );
+        } catch (_) {
+          // FFI returned invalid data — keep empty slot
+        }
+      }
+    }
+  }
+
   void saveSlot(int id, Map<String, dynamic> layoutState) {
+    final name = _slots[id]?.name ?? 'Screenset $id';
+
+    // Persist to Rust engine (0-based slot index)
+    final ffi = _ffi;
+    if (ffi != null) {
+      final stateJson = jsonEncode(layoutState);
+      ffi.screensetSave(id - 1, name, stateJson);
+    }
+
+    // Update local state
     _slots[id] = Screenset(
       id: id,
-      name: _slots[id]?.name ?? 'Screenset $id',
+      name: name,
       layoutState: Map.of(layoutState),
       savedAt: DateTime.now(),
     );
@@ -79,6 +132,25 @@ class ScreensetsService extends ChangeNotifier {
   }
 
   Map<String, dynamic>? recallSlot(int id) {
+    // Try loading from engine first for freshest data
+    final ffi = _ffi;
+    if (ffi != null) {
+      final json = ffi.screensetLoad(id - 1);
+      if (json != null) {
+        try {
+          final data = jsonDecode(json) as Map<String, dynamic>;
+          final stateJson = data['state_json'] as String? ?? '{}';
+          final layoutState = jsonDecode(stateJson) as Map<String, dynamic>;
+          _activeSlot = id;
+          notifyListeners();
+          return layoutState;
+        } catch (_) {
+          // Fall through to local state
+        }
+      }
+    }
+
+    // Fallback to local state
     final slot = _slots[id];
     if (slot == null || slot.isEmpty) return null;
     _activeSlot = id;
@@ -89,16 +161,26 @@ class ScreensetsService extends ChangeNotifier {
   void renameSlot(int id, String name) {
     final slot = _slots[id];
     if (slot == null) return;
+
+    // Persist to Rust engine
+    _ffi?.screensetRename(id - 1, name);
+
     _slots[id] = slot.copyWith(name: name);
     notifyListeners();
   }
 
   void clearSlot(int id) {
+    // Persist to Rust engine
+    _ffi?.screensetClear(id - 1);
+
     _slots[id] = Screenset(id: id);
     notifyListeners();
   }
 
   void clearAll() {
+    // Persist to Rust engine
+    _ffi?.screensetClearAllSlots();
+
     for (int i = 1; i <= 10; i++) {
       _slots[i] = Screenset(id: i);
     }

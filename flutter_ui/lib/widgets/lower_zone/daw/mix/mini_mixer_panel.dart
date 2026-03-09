@@ -72,7 +72,12 @@ class _MiniMixerPanelState extends State<MiniMixerPanel> {
   Widget build(BuildContext context) {
     final MixerProvider mixerProvider;
     try {
-      mixerProvider = context.watch<MixerProvider>();
+      // Select only the data we display: channel/bus counts + master volume
+      // Avoids rebuild on unrelated MixerProvider changes (e.g. aux, VCA, inserts)
+      context.select<MixerProvider, (int, int, double)>(
+        (m) => (m.channels.length, m.buses.length, m.master.volume),
+      );
+      mixerProvider = context.read<MixerProvider>();
     } catch (_) {
       return _buildNoProviderPanel();
     }
