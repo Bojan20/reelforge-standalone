@@ -23,7 +23,7 @@ use rf_file::{AudioData, AudioFormat, BitDepth, write_flac, write_mp3};
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Export format
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum ExportFormat {
     /// 16-bit PCM WAV
     Wav16,

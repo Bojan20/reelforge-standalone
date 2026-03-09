@@ -43,6 +43,10 @@ pub struct ClipFxSlotId(pub u64);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TakeId(pub u64);
 
+/// Unique render region identifier
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct RenderRegionId(pub u64);
+
 /// Unique comp lane identifier
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CompLaneId(pub u64);
@@ -1282,6 +1286,94 @@ impl PunchRegion {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// RENDER REGIONS (Named timeline regions for batch export)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Named region on the timeline for batch rendering / Region Render Matrix.
+///
+/// Sound designers use named regions to mark individual sounds on the timeline
+/// (e.g. "footstep_wood_01", "explosion_large_03", "UI_hover_click") and then
+/// batch-render them all in one operation with configurable format settings.
+///
+/// ## Reaper Equivalent
+/// Region Manager + Region Render Matrix — the killer feature for sound design.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RenderRegion {
+    /// Unique region identifier
+    pub id: RenderRegionId,
+    /// Display name (used as export filename base)
+    pub name: String,
+    /// Start time on timeline (seconds)
+    pub start: f64,
+    /// End time on timeline (seconds)
+    pub end: f64,
+    /// Color for UI display (ARGB u32)
+    pub color: u32,
+    /// Include in batch render (can be toggled off per-region)
+    pub enabled: bool,
+    /// Include FX tail after region end
+    pub include_tail: bool,
+    /// Tail duration in seconds (reverb/delay decay)
+    pub tail_seconds: f64,
+    /// Per-region normalize override (None = use matrix default)
+    pub normalize: Option<bool>,
+    /// Per-region normalize target in dBFS (None = use matrix default)
+    pub normalize_target: Option<f64>,
+    /// Tags for filtering/grouping (e.g. ["footsteps", "wood", "indoor"])
+    pub tags: Vec<String>,
+    /// Sort/display order
+    pub order: u32,
+    /// Notes / description
+    pub notes: String,
+}
+
+impl RenderRegion {
+    /// Create a new render region
+    pub fn new(name: &str, start: f64, end: f64) -> Self {
+        Self {
+            id: RenderRegionId(next_id()),
+            name: name.to_string(),
+            start,
+            end,
+            color: 0xFF4CAF50, // Green default
+            enabled: true,
+            include_tail: true,
+            tail_seconds: 0.5,
+            normalize: None,
+            normalize_target: None,
+            tags: Vec::new(),
+            order: 0,
+            notes: String::new(),
+        }
+    }
+
+    /// Duration in seconds
+    pub fn duration(&self) -> f64 {
+        self.end - self.start
+    }
+
+    /// Total render duration including tail
+    pub fn render_duration(&self) -> f64 {
+        let base = self.duration();
+        if self.include_tail {
+            base + self.tail_seconds
+        } else {
+            base
+        }
+    }
+
+    /// Check if a time falls within this region
+    pub fn contains_time(&self, time: f64) -> bool {
+        time >= self.start && time <= self.end
+    }
+
+    /// Check if this region overlaps with another time range
+    pub fn overlaps(&self, start: f64, end: f64) -> bool {
+        self.start < end && self.end > start
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // TRACK MANAGER
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1313,6 +1405,8 @@ pub struct TrackManager {
     pub templates: RwLock<HashMap<String, TrackTemplate>>,
     /// Solo active flag - true if any track is soloed (Cubase-style solo behavior)
     pub solo_active: AtomicBool,
+    /// Named render regions for Region Render Matrix (batch export)
+    pub render_regions: RwLock<Vec<RenderRegion>>,
 }
 
 impl TrackManager {
@@ -1343,6 +1437,7 @@ impl TrackManager {
             comp_regions: RwLock::new(HashMap::new()),
             templates: RwLock::new(templates),
             solo_active: AtomicBool::new(false),
+            render_regions: RwLock::new(Vec::new()),
         }
     }
 
@@ -1411,6 +1506,117 @@ impl TrackManager {
     /// Check if time is within punch region
     pub fn is_punch_active(&self, time: f64) -> bool {
         self.punch_region.read().is_punch_active(time)
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // RENDER REGION OPERATIONS (Region Render Matrix)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Add a new render region. Returns the region ID.
+    pub fn add_render_region(&self, name: &str, start: f64, end: f64) -> RenderRegionId {
+        let mut regions = self.render_regions.write();
+        let mut region = RenderRegion::new(name, start, end);
+        region.order = regions.len() as u32;
+        let id = region.id;
+        regions.push(region);
+        id
+    }
+
+    /// Remove a render region by ID. Returns true if found.
+    pub fn remove_render_region(&self, id: RenderRegionId) -> bool {
+        let mut regions = self.render_regions.write();
+        if let Some(idx) = regions.iter().position(|r| r.id == id) {
+            regions.remove(idx);
+            // Re-order remaining
+            for (i, r) in regions.iter_mut().enumerate() {
+                r.order = i as u32;
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Update a render region. Applies closure to the region if found.
+    pub fn update_render_region<F: FnOnce(&mut RenderRegion)>(
+        &self,
+        id: RenderRegionId,
+        updater: F,
+    ) -> bool {
+        let mut regions = self.render_regions.write();
+        if let Some(region) = regions.iter_mut().find(|r| r.id == id) {
+            updater(region);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Get a clone of a render region by ID
+    pub fn get_render_region(&self, id: RenderRegionId) -> Option<RenderRegion> {
+        let regions = self.render_regions.read();
+        regions.iter().find(|r| r.id == id).cloned()
+    }
+
+    /// Get all render regions sorted by order
+    pub fn get_render_regions(&self) -> Vec<RenderRegion> {
+        let regions = self.render_regions.read();
+        let mut result: Vec<RenderRegion> = regions.clone();
+        result.sort_by_key(|r| r.order);
+        result
+    }
+
+    /// Get only enabled render regions sorted by start time
+    pub fn get_enabled_render_regions(&self) -> Vec<RenderRegion> {
+        let regions = self.render_regions.read();
+        let mut result: Vec<RenderRegion> = regions.iter().filter(|r| r.enabled).cloned().collect();
+        result.sort_by(|a, b| a.start.partial_cmp(&b.start).unwrap_or(std::cmp::Ordering::Equal));
+        result
+    }
+
+    /// Get render regions by tag
+    pub fn get_render_regions_by_tag(&self, tag: &str) -> Vec<RenderRegion> {
+        let regions = self.render_regions.read();
+        regions
+            .iter()
+            .filter(|r| r.tags.iter().any(|t| t == tag))
+            .cloned()
+            .collect()
+    }
+
+    /// Get count of render regions
+    pub fn render_region_count(&self) -> usize {
+        self.render_regions.read().len()
+    }
+
+    /// Clear all render regions
+    pub fn clear_render_regions(&self) {
+        self.render_regions.write().clear();
+    }
+
+    /// Create render regions from existing clips (auto-detect from timeline)
+    /// Each clip becomes a render region with the clip name
+    pub fn create_regions_from_clips(&self) -> Vec<RenderRegionId> {
+        let mut ids = Vec::new();
+        let regions_to_add: Vec<(String, f64, f64)> = self
+            .clips
+            .iter()
+            .map(|entry| {
+                let clip = entry.value();
+                let name = if clip.name.is_empty() {
+                    format!("clip_{}", clip.id.0)
+                } else {
+                    clip.name.clone()
+                };
+                (name, clip.start_time, clip.start_time + clip.duration)
+            })
+            .collect();
+
+        for (name, start, end) in regions_to_add {
+            let id = self.add_render_region(&name, start, end);
+            ids.push(id);
+        }
+        ids
     }
 
     // ═══════════════════════════════════════════════════════════════════════

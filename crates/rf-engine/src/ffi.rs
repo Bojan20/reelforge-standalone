@@ -142,6 +142,11 @@ lazy_static::lazy_static! {
         Arc::clone(&PLAYBACK_ENGINE),
         Arc::clone(&TRACK_MANAGER),
     );
+    /// Render Matrix (Region Render Matrix — batch export)
+    static ref RENDER_MATRIX: crate::render_matrix::RenderMatrix = crate::render_matrix::RenderMatrix::new(
+        Arc::clone(&PLAYBACK_ENGINE),
+        Arc::clone(&TRACK_MANAGER),
+    );
     /// Last error for FFI error propagation
     static ref LAST_ERROR: RwLock<Option<AppError>> = RwLock::new(None);
     /// Edit mode context
@@ -3331,6 +3336,332 @@ pub extern "C" fn clip_fx_clear(clip_id: u64) -> i32 {
         1
     } else {
         0
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDER REGION FFI (Named regions for batch export)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Add a named render region. Returns region ID (0 on failure).
+#[unsafe(no_mangle)]
+pub extern "C" fn render_region_add(
+    name: *const std::ffi::c_char,
+    start: f64,
+    end: f64,
+) -> u64 {
+    let name_str = unsafe {
+        if name.is_null() {
+            return 0;
+        }
+        match std::ffi::CStr::from_ptr(name).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    if start >= end || start < 0.0 {
+        return 0;
+    }
+
+    TRACK_MANAGER.add_render_region(name_str, start, end).0
+}
+
+/// Remove a render region by ID. Returns 1 on success, 0 if not found.
+#[unsafe(no_mangle)]
+pub extern "C" fn render_region_remove(region_id: u64) -> i32 {
+    if TRACK_MANAGER.remove_render_region(crate::track_manager::RenderRegionId(region_id)) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Set render region name
+#[unsafe(no_mangle)]
+pub extern "C" fn render_region_set_name(region_id: u64, name: *const std::ffi::c_char) -> i32 {
+    let name_str = unsafe {
+        if name.is_null() {
+            return 0;
+        }
+        match std::ffi::CStr::from_ptr(name).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    if TRACK_MANAGER.update_render_region(
+        crate::track_manager::RenderRegionId(region_id),
+        |r| r.name = name_str.to_string(),
+    ) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Set render region time range
+#[unsafe(no_mangle)]
+pub extern "C" fn render_region_set_range(region_id: u64, start: f64, end: f64) -> i32 {
+    if start >= end || start < 0.0 {
+        return 0;
+    }
+    if TRACK_MANAGER.update_render_region(
+        crate::track_manager::RenderRegionId(region_id),
+        |r| {
+            r.start = start;
+            r.end = end;
+        },
+    ) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Set render region enabled state
+#[unsafe(no_mangle)]
+pub extern "C" fn render_region_set_enabled(region_id: u64, enabled: i32) -> i32 {
+    if TRACK_MANAGER.update_render_region(
+        crate::track_manager::RenderRegionId(region_id),
+        |r| r.enabled = enabled != 0,
+    ) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Set render region color (ARGB u32)
+#[unsafe(no_mangle)]
+pub extern "C" fn render_region_set_color(region_id: u64, color: u32) -> i32 {
+    if TRACK_MANAGER.update_render_region(
+        crate::track_manager::RenderRegionId(region_id),
+        |r| r.color = color,
+    ) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Set render region tail settings
+#[unsafe(no_mangle)]
+pub extern "C" fn render_region_set_tail(
+    region_id: u64,
+    include_tail: i32,
+    tail_seconds: f64,
+) -> i32 {
+    if TRACK_MANAGER.update_render_region(
+        crate::track_manager::RenderRegionId(region_id),
+        |r| {
+            r.include_tail = include_tail != 0;
+            r.tail_seconds = tail_seconds.max(0.0);
+        },
+    ) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Add a tag to a render region
+#[unsafe(no_mangle)]
+pub extern "C" fn render_region_add_tag(region_id: u64, tag: *const std::ffi::c_char) -> i32 {
+    let tag_str = unsafe {
+        if tag.is_null() {
+            return 0;
+        }
+        match std::ffi::CStr::from_ptr(tag).to_str() {
+            Ok(s) => s,
+            Err(_) => return 0,
+        }
+    };
+
+    if TRACK_MANAGER.update_render_region(
+        crate::track_manager::RenderRegionId(region_id),
+        |r| {
+            if !r.tags.iter().any(|t| t == tag_str) {
+                r.tags.push(tag_str.to_string());
+            }
+        },
+    ) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Get number of render regions
+#[unsafe(no_mangle)]
+pub extern "C" fn render_region_count() -> u64 {
+    TRACK_MANAGER.render_region_count() as u64
+}
+
+/// Clear all render regions
+#[unsafe(no_mangle)]
+pub extern "C" fn render_region_clear_all() {
+    TRACK_MANAGER.clear_render_regions();
+}
+
+/// Auto-create render regions from existing clips. Returns count of created regions.
+#[unsafe(no_mangle)]
+pub extern "C" fn render_region_create_from_clips() -> u64 {
+    TRACK_MANAGER.create_regions_from_clips().len() as u64
+}
+
+/// Get render region data as JSON string (for Flutter UI)
+/// Caller must free the returned string with render_region_free_string()
+#[unsafe(no_mangle)]
+pub extern "C" fn render_region_get_all_json() -> *mut std::ffi::c_char {
+    let regions = TRACK_MANAGER.get_render_regions();
+    match serde_json::to_string(&regions) {
+        Ok(json) => {
+            match std::ffi::CString::new(json) {
+                Ok(c_string) => c_string.into_raw(),
+                Err(_) => std::ptr::null_mut(),
+            }
+        }
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+/// Free a string allocated by render_region_get_all_json
+#[unsafe(no_mangle)]
+pub extern "C" fn render_region_free_string(ptr: *mut std::ffi::c_char) {
+    if !ptr.is_null() {
+        unsafe {
+            drop(std::ffi::CString::from_raw(ptr));
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RENDER MATRIX FFI (Batch export)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Start batch render with default WAV 24-bit preset.
+/// output_dir: directory path for output files
+/// Returns: number of jobs queued, or -1 on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn render_matrix_start(
+    output_dir: *const std::ffi::c_char,
+    format: u8,
+    sample_rate: u32,
+    normalize: i32,
+    parallel: i32,
+) -> i32 {
+    let dir_str = unsafe {
+        if output_dir.is_null() {
+            return -1;
+        }
+        match std::ffi::CStr::from_ptr(output_dir).to_str() {
+            Ok(s) => s,
+            Err(_) => return -1,
+        }
+    };
+
+    let export_format = crate::export::ExportFormat::from_code(format as u32);
+
+    let mut preset = crate::render_matrix::RenderPreset::new(
+        1,
+        &format!("{:?}", export_format),
+        export_format,
+    );
+    preset.sample_rate = sample_rate;
+    preset.normalize = normalize != 0;
+
+    let config = crate::render_matrix::RenderMatrixConfig {
+        output_dir: std::path::PathBuf::from(dir_str),
+        presets: vec![preset],
+        naming: crate::render_matrix::NamingConfig::default(),
+        block_size: 1024,
+        parallel: parallel != 0,
+        max_threads: 0,
+    };
+
+    match RENDER_MATRIX.render_batch(config) {
+        Ok(jobs) => jobs.len() as i32,
+        Err(_) => -1,
+    }
+}
+
+/// Start batch render with multiple format presets (JSON config).
+/// config_json: JSON string with RenderMatrixConfig
+/// Returns: number of jobs completed, or -1 on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn render_matrix_start_json(config_json: *const std::ffi::c_char) -> i32 {
+    let json_str = unsafe {
+        if config_json.is_null() {
+            return -1;
+        }
+        match std::ffi::CStr::from_ptr(config_json).to_str() {
+            Ok(s) => s,
+            Err(_) => return -1,
+        }
+    };
+
+    // Parse config from JSON
+    let config: crate::render_matrix::RenderMatrixConfig = match serde_json::from_str(json_str) {
+        Ok(c) => c,
+        Err(_) => return -1,
+    };
+
+    match RENDER_MATRIX.render_batch(config) {
+        Ok(jobs) => jobs.iter().filter(|j| j.status == crate::render_matrix::RenderJobStatus::Complete).count() as i32,
+        Err(_) => -1,
+    }
+}
+
+/// Get batch render progress (0.0 - 100.0)
+#[unsafe(no_mangle)]
+pub extern "C" fn render_matrix_get_progress() -> f32 {
+    RENDER_MATRIX.progress()
+}
+
+/// Check if batch render is in progress
+#[unsafe(no_mangle)]
+pub extern "C" fn render_matrix_is_rendering() -> i32 {
+    if RENDER_MATRIX.is_rendering() { 1 } else { 0 }
+}
+
+/// Cancel the current batch render
+#[unsafe(no_mangle)]
+pub extern "C" fn render_matrix_cancel() {
+    RENDER_MATRIX.cancel();
+}
+
+/// Get last batch results as JSON string
+/// Caller must free with render_region_free_string()
+#[unsafe(no_mangle)]
+pub extern "C" fn render_matrix_get_results_json() -> *mut std::ffi::c_char {
+    let results = RENDER_MATRIX.last_results();
+    // Serialize just the status info (not full region/preset data for performance)
+    let summary: Vec<(String, String, String, u8)> = results
+        .iter()
+        .map(|j| {
+            let status = match j.status {
+                crate::render_matrix::RenderJobStatus::Pending => 0,
+                crate::render_matrix::RenderJobStatus::Rendering => 1,
+                crate::render_matrix::RenderJobStatus::Complete => 2,
+                crate::render_matrix::RenderJobStatus::Skipped => 3,
+                crate::render_matrix::RenderJobStatus::Failed => 4,
+            };
+            (
+                j.region.name.clone(),
+                j.preset.name.clone(),
+                j.output_path.to_string_lossy().to_string(),
+                status,
+            )
+        })
+        .collect();
+
+    match serde_json::to_string(&summary) {
+        Ok(json) => match std::ffi::CString::new(json) {
+            Ok(c) => c.into_raw(),
+            Err(_) => std::ptr::null_mut(),
+        },
+        Err(_) => std::ptr::null_mut(),
     }
 }
 

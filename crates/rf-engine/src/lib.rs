@@ -83,6 +83,9 @@ pub mod input_bus;
 // Phase 12: Audio Export
 pub mod export;
 
+// Phase 12b: Region Render Matrix (Batch Export)
+pub mod render_matrix;
+
 // Phase 13: Disk Streaming System
 pub mod streaming;
 
@@ -176,6 +179,8 @@ pub use track_manager::{
     Marker,
     MarkerId,
     OutputBus,
+    RenderRegion,
+    RenderRegionId,
     Track,
     TrackId,
     TrackManager,
@@ -226,6 +231,12 @@ pub use input_bus::{InputBus, InputBusConfig, InputBusId, InputBusManager, Monit
 
 // Re-exports: Phase 12 - Audio Export
 pub use export::{ExportConfig, ExportEngine, ExportError, ExportFormat};
+
+// Re-exports: Phase 12b - Render Matrix
+pub use render_matrix::{
+    BatchProgress, NamingConfig, RenderJob, RenderJobStatus, RenderMatrix, RenderMatrixConfig,
+    RenderPreset,
+};
 
 // Re-exports: Phase 13 - Disk Streaming
 pub use streaming::{
