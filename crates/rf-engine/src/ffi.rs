@@ -164,6 +164,9 @@ lazy_static::lazy_static! {
     /// Asset registry for middleware audio (sound bank storage)
     static ref ASSET_REGISTRY: Arc<crate::middleware_integration::AssetRegistry> =
         Arc::new(crate::middleware_integration::AssetRegistry::new());
+    /// Project Tab Manager (multi-project tabs)
+    static ref PROJECT_TAB_MANAGER: crate::track_manager::ProjectTabManager =
+        crate::track_manager::ProjectTabManager::new();
 }
 
 /// Get the event manager handle (thread-safe, for UI commands)
@@ -24585,4 +24588,130 @@ pub extern "C" fn screenset_import_json(json: *const c_char) -> i32 {
         .to_string_lossy()
         .to_string();
     if TRACK_MANAGER.screensets_from_json(&json) { 1 } else { 0 }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PROJECT TABS — Multi-Project Tab System
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Create a new empty project tab and make it active.
+/// Saves current tab's state before switching.
+/// Returns the new tab ID (>0), or 0 on failure.
+#[unsafe(no_mangle)]
+pub extern "C" fn project_tab_new(name: *const c_char) -> u64 {
+    let name = if name.is_null() {
+        "Untitled".to_string()
+    } else {
+        unsafe { std::ffi::CStr::from_ptr(name) }
+            .to_string_lossy()
+            .to_string()
+    };
+    PROJECT_TAB_MANAGER.new_tab(&name, &TRACK_MANAGER)
+}
+
+/// Switch to a different project tab.
+/// Saves current tab's state, restores target tab's state.
+/// Returns 1 on success, 0 if tab not found or already active.
+#[unsafe(no_mangle)]
+pub extern "C" fn project_tab_switch(tab_id: u64) -> i32 {
+    if PROJECT_TAB_MANAGER.switch_tab(tab_id, &TRACK_MANAGER) { 1 } else { 0 }
+}
+
+/// Close a project tab. If active, switches to nearest neighbor.
+/// Returns the new active tab ID, or 0 if no tabs remain.
+#[unsafe(no_mangle)]
+pub extern "C" fn project_tab_close(tab_id: u64) -> u64 {
+    PROJECT_TAB_MANAGER.close_tab(tab_id, &TRACK_MANAGER).unwrap_or(0)
+}
+
+/// Duplicate the current active tab (deep copy of all state).
+/// Returns the new tab ID, or 0 if no active tab.
+#[unsafe(no_mangle)]
+pub extern "C" fn project_tab_duplicate(name: *const c_char) -> u64 {
+    let name = if name.is_null() {
+        "Copy".to_string()
+    } else {
+        unsafe { std::ffi::CStr::from_ptr(name) }
+            .to_string_lossy()
+            .to_string()
+    };
+    PROJECT_TAB_MANAGER.duplicate_tab(&name, &TRACK_MANAGER).unwrap_or(0)
+}
+
+/// Rename a project tab. Returns 1 on success, 0 if tab not found.
+#[unsafe(no_mangle)]
+pub extern "C" fn project_tab_rename(tab_id: u64, name: *const c_char) -> i32 {
+    if name.is_null() {
+        return 0;
+    }
+    let name = unsafe { std::ffi::CStr::from_ptr(name) }
+        .to_string_lossy()
+        .to_string();
+    if PROJECT_TAB_MANAGER.rename_tab(tab_id, &name) { 1 } else { 0 }
+}
+
+/// Set a tab's file path. Pass null to clear. Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "C" fn project_tab_set_file_path(tab_id: u64, path: *const c_char) -> i32 {
+    let path_opt = if path.is_null() {
+        None
+    } else {
+        let s = unsafe { std::ffi::CStr::from_ptr(path) }
+            .to_string_lossy()
+            .to_string();
+        if s.is_empty() { None } else { Some(s) }
+    };
+    if PROJECT_TAB_MANAGER.set_tab_file_path(tab_id, path_opt) { 1 } else { 0 }
+}
+
+/// Mark a tab as dirty (1) or clean (0). Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "C" fn project_tab_set_dirty(tab_id: u64, dirty: i32) -> i32 {
+    if PROJECT_TAB_MANAGER.set_tab_dirty(tab_id, dirty != 0) { 1 } else { 0 }
+}
+
+/// Get the active tab ID. Returns 0 if no tabs.
+#[unsafe(no_mangle)]
+pub extern "C" fn project_tab_get_active() -> u64 {
+    PROJECT_TAB_MANAGER.active_tab_id().unwrap_or(0)
+}
+
+/// Get tab count.
+#[unsafe(no_mangle)]
+pub extern "C" fn project_tab_count() -> i32 {
+    PROJECT_TAB_MANAGER.tab_count() as i32
+}
+
+/// Move a tab to a new position (for drag reorder). Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "C" fn project_tab_move(tab_id: u64, new_index: i32) -> i32 {
+    if new_index < 0 {
+        return 0;
+    }
+    if PROJECT_TAB_MANAGER.move_tab(tab_id, new_index as usize) { 1 } else { 0 }
+}
+
+/// Get list of all tabs as JSON.
+/// Format: [{"id":1,"name":"Project A","file_path":null,"is_dirty":false,"is_active":true}, ...]
+/// Caller must free with engine_free_string.
+#[unsafe(no_mangle)]
+pub extern "C" fn project_tab_list_json() -> *mut c_char {
+    let list = PROJECT_TAB_MANAGER.list_tabs();
+    let entries: Vec<serde_json::Value> = list
+        .iter()
+        .map(|(id, name, file_path, is_dirty, is_active)| {
+            serde_json::json!({
+                "id": *id,
+                "name": name,
+                "file_path": file_path,
+                "is_dirty": *is_dirty,
+                "is_active": *is_active
+            })
+        })
+        .collect();
+    let json = serde_json::to_string(&entries).unwrap_or_else(|_| "[]".to_string());
+    match std::ffi::CString::new(json) {
+        Ok(c) => c.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
 }

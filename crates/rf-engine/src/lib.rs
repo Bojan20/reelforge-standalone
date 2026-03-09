@@ -198,6 +198,13 @@ pub use track_manager::{
     // Screensets (Reaper-style UI state slots)
     Screenset,
     MAX_SCREENSETS,
+    // Project Tabs (multi-project tab system)
+    ProjectTab,
+    ProjectTabId,
+    ProjectTabManager,
+    ProjectTabState,
+    CrossTabClipboard,
+    MAX_PROJECT_TABS,
     // Razor Edits (Reaper-style per-track time selection)
     RazorArea,
     RazorAreaId,

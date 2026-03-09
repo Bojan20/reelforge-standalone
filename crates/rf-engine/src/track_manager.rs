@@ -4271,6 +4271,442 @@ impl TrackManager {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PROJECT TABS — Multi-Project Tab System
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Maximum number of simultaneous project tabs
+pub const MAX_PROJECT_TABS: usize = 16;
+
+/// Unique project tab identifier
+pub type ProjectTabId = u64;
+
+/// Serializable snapshot of all TrackManager state.
+/// Used for tab switching — captures everything needed to fully restore a project.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectTabState {
+    pub tracks: Vec<(TrackId, Track)>,
+    pub clips: Vec<(ClipId, Clip)>,
+    pub crossfades: Vec<(CrossfadeId, Crossfade)>,
+    pub markers: Vec<Marker>,
+    pub loop_region: LoopRegion,
+    pub cycle_region: CycleRegion,
+    pub punch_region: PunchRegion,
+    pub track_order: Vec<TrackId>,
+    pub comp_lanes: HashMap<CompLaneId, CompLane>,
+    pub takes: HashMap<TakeId, Take>,
+    pub comp_regions: HashMap<TrackId, Vec<CompRegion>>,
+    pub templates: HashMap<String, TrackTemplate>,
+    pub solo_active: bool,
+    pub render_regions: Vec<RenderRegion>,
+    pub razor_areas: Vec<RazorArea>,
+    pub mix_snapshots: Vec<MixSnapshot>,
+    pub screensets: [Option<Screenset>; MAX_SCREENSETS],
+}
+
+/// A project tab — metadata + serialized state
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectTab {
+    /// Unique tab ID
+    pub id: ProjectTabId,
+    /// Display name (project name or "Untitled")
+    pub name: String,
+    /// File path on disk (None = never saved)
+    pub file_path: Option<String>,
+    /// Whether this tab has unsaved changes
+    pub is_dirty: bool,
+    /// Creation timestamp
+    pub created_at: f64,
+    /// Last switched-to timestamp
+    pub last_active_at: f64,
+    /// Serialized project state (populated when tab is inactive)
+    state: Option<ProjectTabState>,
+}
+
+/// Cross-tab clipboard entry for copy/paste between projects
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrossTabClipboard {
+    /// Copied tracks (with their clips inline)
+    pub tracks: Vec<Track>,
+    /// Copied clips (standalone, for cross-tab paste)
+    pub clips: Vec<Clip>,
+    /// Source tab ID
+    pub source_tab: ProjectTabId,
+    /// Timestamp
+    pub copied_at: f64,
+}
+
+/// Internal state for ProjectTabManager — single lock eliminates deadlock risk
+struct ProjectTabInner {
+    tabs: Vec<ProjectTab>,
+    active_tab: Option<ProjectTabId>,
+}
+
+/// Project Tab Manager — manages multiple project tabs with swap-in/swap-out.
+/// Uses a single RwLock for tabs+active_tab to prevent lock ordering deadlocks.
+pub struct ProjectTabManager {
+    inner: RwLock<ProjectTabInner>,
+    /// Next tab ID counter (atomic, lock-free)
+    next_id: std::sync::atomic::AtomicU64,
+    /// Cross-tab clipboard (separate lock — independent data)
+    clipboard: RwLock<Option<CrossTabClipboard>>,
+}
+
+impl ProjectTabManager {
+    pub fn new() -> Self {
+        Self {
+            inner: RwLock::new(ProjectTabInner {
+                tabs: Vec::new(),
+                active_tab: None,
+            }),
+            next_id: std::sync::atomic::AtomicU64::new(1),
+            clipboard: RwLock::new(None),
+        }
+    }
+
+    fn now() -> f64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs_f64())
+            .unwrap_or(0.0)
+    }
+
+    fn next_tab_id(&self) -> ProjectTabId {
+        self.next_id.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Create a new empty tab and make it active.
+    /// Saves current tab's state before switching.
+    /// Returns tab ID (>0) on success, 0 if MAX_PROJECT_TABS reached.
+    pub fn new_tab(&self, name: &str, tm: &TrackManager) -> ProjectTabId {
+        let mut inner = self.inner.write();
+
+        if inner.tabs.len() >= MAX_PROJECT_TABS {
+            return 0;
+        }
+
+        let id = self.next_tab_id();
+        let now = Self::now();
+
+        // Save current active tab state
+        if let Some(active_id) = inner.active_tab {
+            let state = tm.snapshot_state();
+            if let Some(tab) = inner.tabs.iter_mut().find(|t| t.id == active_id) {
+                tab.state = Some(state);
+            }
+        }
+
+        // Clear TrackManager for new empty project
+        tm.clear_all();
+
+        let tab = ProjectTab {
+            id,
+            name: name.to_string(),
+            file_path: None,
+            is_dirty: false,
+            created_at: now,
+            last_active_at: now,
+            state: None, // active tab — state lives in TRACK_MANAGER
+        };
+
+        inner.tabs.push(tab);
+        inner.active_tab = Some(id);
+        id
+    }
+
+    /// Duplicate current tab (deep copy of all state).
+    /// Returns 0 if no active tab or MAX_PROJECT_TABS reached.
+    pub fn duplicate_tab(&self, name: &str, tm: &TrackManager) -> Option<ProjectTabId> {
+        let mut inner = self.inner.write();
+
+        if inner.active_tab.is_none() || inner.tabs.len() >= MAX_PROJECT_TABS {
+            return None;
+        }
+
+        let id = self.next_tab_id();
+        let now = Self::now();
+
+        // Snapshot current state (don't clear — we keep active tab as-is)
+        let state = tm.snapshot_state();
+
+        let tab = ProjectTab {
+            id,
+            name: name.to_string(),
+            file_path: None,
+            is_dirty: true,
+            created_at: now,
+            last_active_at: now,
+            state: Some(state),
+        };
+
+        inner.tabs.push(tab);
+        // Don't switch — stay on current tab
+        Some(id)
+    }
+
+    /// Switch to a different tab. Saves current state, restores target state.
+    /// Returns false if tab not found or already active.
+    pub fn switch_tab(&self, target_id: ProjectTabId, tm: &TrackManager) -> bool {
+        let mut inner = self.inner.write();
+
+        if inner.active_tab == Some(target_id) {
+            return false; // already active
+        }
+
+        // Verify target exists
+        let target_idx = match inner.tabs.iter().position(|t| t.id == target_id) {
+            Some(i) => i,
+            None => return false,
+        };
+
+        // Save current active tab's state
+        if let Some(active_id) = inner.active_tab {
+            let state = tm.snapshot_state();
+            if let Some(active_tab) = inner.tabs.iter_mut().find(|t| t.id == active_id) {
+                active_tab.state = Some(state);
+            }
+        }
+
+        // Restore target tab's state
+        let target_state = inner.tabs[target_idx].state.take();
+        if let Some(state) = target_state {
+            tm.restore_state(state);
+        } else {
+            tm.clear_all();
+        }
+
+        inner.tabs[target_idx].last_active_at = Self::now();
+        inner.active_tab = Some(target_id);
+        true
+    }
+
+    /// Close a tab. If it's the active tab, switch to nearest neighbor.
+    /// Returns the ID of the new active tab, or None if no tabs remain.
+    pub fn close_tab(&self, tab_id: ProjectTabId, tm: &TrackManager) -> Option<ProjectTabId> {
+        let mut inner = self.inner.write();
+
+        let idx = inner.tabs.iter().position(|t| t.id == tab_id)?;
+        let is_active = inner.active_tab == Some(tab_id);
+
+        inner.tabs.remove(idx);
+
+        if !is_active {
+            return inner.active_tab;
+        }
+
+        // Closing active tab — switch to neighbor
+        if inner.tabs.is_empty() {
+            inner.active_tab = None;
+            tm.clear_all();
+            return None;
+        }
+
+        let new_idx = if idx < inner.tabs.len() { idx } else { inner.tabs.len() - 1 };
+        let new_id = inner.tabs[new_idx].id;
+
+        // Restore neighbor's state
+        let state = inner.tabs[new_idx].state.take();
+        if let Some(state) = state {
+            tm.restore_state(state);
+        } else {
+            tm.clear_all();
+        }
+        inner.tabs[new_idx].last_active_at = Self::now();
+        inner.active_tab = Some(new_id);
+        Some(new_id)
+    }
+
+    /// Rename a tab
+    pub fn rename_tab(&self, tab_id: ProjectTabId, name: &str) -> bool {
+        let mut inner = self.inner.write();
+        if let Some(tab) = inner.tabs.iter_mut().find(|t| t.id == tab_id) {
+            tab.name = name.to_string();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Set a tab's file path
+    pub fn set_tab_file_path(&self, tab_id: ProjectTabId, path: Option<String>) -> bool {
+        let mut inner = self.inner.write();
+        if let Some(tab) = inner.tabs.iter_mut().find(|t| t.id == tab_id) {
+            tab.file_path = path;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Mark tab as dirty/clean
+    pub fn set_tab_dirty(&self, tab_id: ProjectTabId, dirty: bool) -> bool {
+        let mut inner = self.inner.write();
+        if let Some(tab) = inner.tabs.iter_mut().find(|t| t.id == tab_id) {
+            tab.is_dirty = dirty;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Get the active tab ID
+    pub fn active_tab_id(&self) -> Option<ProjectTabId> {
+        self.inner.read().active_tab
+    }
+
+    /// Get list of all tabs: (id, name, file_path, is_dirty, is_active)
+    pub fn list_tabs(&self) -> Vec<(ProjectTabId, String, Option<String>, bool, bool)> {
+        let inner = self.inner.read();
+        inner.tabs
+            .iter()
+            .map(|t| {
+                (
+                    t.id,
+                    t.name.clone(),
+                    t.file_path.clone(),
+                    t.is_dirty,
+                    inner.active_tab == Some(t.id),
+                )
+            })
+            .collect()
+    }
+
+    /// Get tab count
+    pub fn tab_count(&self) -> usize {
+        self.inner.read().tabs.len()
+    }
+
+    /// Move tab to a new position (reorder)
+    pub fn move_tab(&self, tab_id: ProjectTabId, new_index: usize) -> bool {
+        let mut inner = self.inner.write();
+        let old_idx = match inner.tabs.iter().position(|t| t.id == tab_id) {
+            Some(i) => i,
+            None => return false,
+        };
+        let new_idx = new_index.min(inner.tabs.len().saturating_sub(1));
+        if old_idx == new_idx {
+            return true;
+        }
+        let tab = inner.tabs.remove(old_idx);
+        inner.tabs.insert(new_idx, tab);
+        true
+    }
+
+    /// Copy tracks+clips to cross-tab clipboard
+    pub fn copy_to_clipboard(&self, tracks: Vec<Track>, clips: Vec<Clip>) {
+        let active = self.active_tab_id().unwrap_or(0);
+        *self.clipboard.write() = Some(CrossTabClipboard {
+            tracks,
+            clips,
+            source_tab: active,
+            copied_at: Self::now(),
+        });
+    }
+
+    /// Get cross-tab clipboard contents (clone)
+    pub fn get_clipboard(&self) -> Option<CrossTabClipboard> {
+        self.clipboard.read().clone()
+    }
+
+    /// Clear cross-tab clipboard
+    pub fn clear_clipboard(&self) {
+        *self.clipboard.write() = None;
+    }
+}
+
+impl TrackManager {
+    /// Capture a complete snapshot of all state (for tab switching)
+    pub fn snapshot_state(&self) -> ProjectTabState {
+        ProjectTabState {
+            tracks: self.tracks.iter().map(|r| (*r.key(), r.value().clone())).collect(),
+            clips: self.clips.iter().map(|r| (*r.key(), r.value().clone())).collect(),
+            crossfades: self.crossfades.iter().map(|r| (*r.key(), r.value().clone())).collect(),
+            markers: self.markers.read().clone(),
+            loop_region: *self.loop_region.read(),
+            cycle_region: *self.cycle_region.read(),
+            punch_region: *self.punch_region.read(),
+            track_order: self.track_order.read().clone(),
+            comp_lanes: self.comp_lanes.read().clone(),
+            takes: self.takes.read().clone(),
+            comp_regions: self.comp_regions.read().clone(),
+            templates: self.templates.read().clone(),
+            solo_active: self.solo_active.load(std::sync::atomic::Ordering::Relaxed),
+            render_regions: self.render_regions.read().clone(),
+            razor_areas: self.razor_areas.read().clone(),
+            mix_snapshots: self.mix_snapshots.read().clone(),
+            screensets: self.screensets.read().clone(),
+        }
+    }
+
+    /// Restore state from a snapshot (for tab switching).
+    /// Completely replaces all current state.
+    pub fn restore_state(&self, state: ProjectTabState) {
+        // Clear current state
+        self.tracks.clear();
+        self.clips.clear();
+        self.crossfades.clear();
+
+        // Restore DashMaps
+        for (id, track) in state.tracks {
+            self.tracks.insert(id, track);
+        }
+        for (id, clip) in state.clips {
+            self.clips.insert(id, clip);
+        }
+        for (id, xfade) in state.crossfades {
+            self.crossfades.insert(id, xfade);
+        }
+
+        // Restore RwLock fields
+        *self.markers.write() = state.markers;
+        *self.loop_region.write() = state.loop_region;
+        *self.cycle_region.write() = state.cycle_region;
+        *self.punch_region.write() = state.punch_region;
+        *self.track_order.write() = state.track_order;
+        *self.comp_lanes.write() = state.comp_lanes;
+        *self.takes.write() = state.takes;
+        *self.comp_regions.write() = state.comp_regions;
+        *self.templates.write() = state.templates;
+        self.solo_active.store(state.solo_active, std::sync::atomic::Ordering::Relaxed);
+        *self.render_regions.write() = state.render_regions;
+        *self.razor_areas.write() = state.razor_areas;
+        *self.mix_snapshots.write() = state.mix_snapshots;
+        *self.screensets.write() = state.screensets;
+    }
+
+    /// Clear all state (for new project / tab close)
+    pub fn clear_all(&self) {
+        self.tracks.clear();
+        self.clips.clear();
+        self.crossfades.clear();
+        *self.markers.write() = Vec::new();
+        *self.loop_region.write() = LoopRegion::default();
+        *self.cycle_region.write() = CycleRegion::default();
+        *self.punch_region.write() = PunchRegion::default();
+        *self.track_order.write() = Vec::new();
+        *self.comp_lanes.write() = HashMap::new();
+        *self.takes.write() = HashMap::new();
+        *self.comp_regions.write() = HashMap::new();
+        // Keep default templates
+        let mut templates = HashMap::new();
+        let defaults = [
+            TrackTemplate::default_audio(),
+            TrackTemplate::default_vocal(),
+            TrackTemplate::default_drums(),
+            TrackTemplate::default_bass(),
+        ];
+        for tpl in defaults {
+            templates.insert(tpl.id.clone(), tpl);
+        }
+        *self.templates.write() = templates;
+        self.solo_active.store(false, std::sync::atomic::Ordering::Relaxed);
+        *self.render_regions.write() = Vec::new();
+        *self.razor_areas.write() = Vec::new();
+        *self.mix_snapshots.write() = Vec::new();
+        *self.screensets.write() = Default::default();
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // TESTS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -5787,5 +6223,266 @@ mod tests {
 
         // Rename empty slot fails
         assert!(!tm.rename_screenset(0, "Nothing"));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PROJECT TAB TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_project_tab_new_and_list() {
+        let tm = TrackManager::new();
+        let ptm = ProjectTabManager::new();
+
+        let _id1 = ptm.new_tab("Project A", &tm);
+        let id2 = ptm.new_tab("Project B", &tm);
+
+        assert_eq!(ptm.tab_count(), 2);
+        assert_eq!(ptm.active_tab_id(), Some(id2));
+
+        let list = ptm.list_tabs();
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0].1, "Project A");
+        assert!(!list[0].4); // not active
+        assert_eq!(list[1].1, "Project B");
+        assert!(list[1].4); // active
+    }
+
+    #[test]
+    fn test_project_tab_switch_preserves_state() {
+        let tm = TrackManager::new();
+        let ptm = ProjectTabManager::new();
+
+        // Tab 1: create a track
+        let id1 = ptm.new_tab("Tab 1", &tm);
+        let tid = tm.create_track("Guitar", 0xFF0000, OutputBus::default());
+        assert_eq!(tm.tracks.len(), 1);
+
+        // Tab 2: create different track
+        let id2 = ptm.new_tab("Tab 2", &tm);
+        assert_eq!(tm.tracks.len(), 0); // fresh tab
+        tm.create_track("Drums", 0x00FF00, OutputBus::default());
+        tm.create_track("Bass", 0x0000FF, OutputBus::default());
+        assert_eq!(tm.tracks.len(), 2);
+
+        // Switch back to Tab 1
+        assert!(ptm.switch_tab(id1, &tm));
+        assert_eq!(tm.tracks.len(), 1);
+        assert!(tm.get_track(tid).is_some());
+        assert_eq!(tm.get_track(tid).unwrap().name, "Guitar");
+
+        // Switch back to Tab 2
+        assert!(ptm.switch_tab(id2, &tm));
+        assert_eq!(tm.tracks.len(), 2);
+    }
+
+    #[test]
+    fn test_project_tab_close_active() {
+        let tm = TrackManager::new();
+        let ptm = ProjectTabManager::new();
+
+        let id1 = ptm.new_tab("A", &tm);
+        tm.create_track("Track1", 0, OutputBus::default());
+
+        let id2 = ptm.new_tab("B", &tm);
+        tm.create_track("Track2", 0, OutputBus::default());
+
+        // Close active tab B → should switch to A
+        let result = ptm.close_tab(id2, &tm);
+        assert_eq!(result, Some(id1));
+        assert_eq!(ptm.active_tab_id(), Some(id1));
+        assert_eq!(ptm.tab_count(), 1);
+        // Tab A's state should be restored
+        assert_eq!(tm.tracks.len(), 1);
+    }
+
+    #[test]
+    fn test_project_tab_close_last() {
+        let tm = TrackManager::new();
+        let ptm = ProjectTabManager::new();
+
+        let id1 = ptm.new_tab("Only", &tm);
+        tm.create_track("X", 0, OutputBus::default());
+
+        let result = ptm.close_tab(id1, &tm);
+        assert!(result.is_none());
+        assert!(ptm.active_tab_id().is_none());
+        assert_eq!(ptm.tab_count(), 0);
+        assert_eq!(tm.tracks.len(), 0); // cleared
+    }
+
+    #[test]
+    fn test_project_tab_duplicate() {
+        let tm = TrackManager::new();
+        let ptm = ProjectTabManager::new();
+
+        let id1 = ptm.new_tab("Original", &tm);
+        tm.create_track("Synth", 0xABCDEF, OutputBus::default());
+        tm.create_track("Pad", 0x123456, OutputBus::default());
+
+        let id2 = ptm.duplicate_tab("Copy", &tm).unwrap();
+        assert_ne!(id1, id2);
+        assert_eq!(ptm.tab_count(), 2);
+
+        // Active tab is still the original
+        assert_eq!(ptm.active_tab_id(), Some(id1));
+        assert_eq!(tm.tracks.len(), 2); // original state intact
+
+        // Switch to copy and verify it has same content
+        ptm.switch_tab(id2, &tm);
+        assert_eq!(tm.tracks.len(), 2);
+    }
+
+    #[test]
+    fn test_project_tab_rename_and_file_path() {
+        let tm = TrackManager::new();
+        let ptm = ProjectTabManager::new();
+
+        let id = ptm.new_tab("Draft", &tm);
+        assert!(ptm.rename_tab(id, "Final Mix"));
+        assert!(ptm.set_tab_file_path(id, Some("/path/to/project.rfproj".to_string())));
+
+        let list = ptm.list_tabs();
+        assert_eq!(list[0].1, "Final Mix");
+        assert_eq!(list[0].2, Some("/path/to/project.rfproj".to_string()));
+    }
+
+    #[test]
+    fn test_project_tab_move() {
+        let tm = TrackManager::new();
+        let ptm = ProjectTabManager::new();
+
+        let id1 = ptm.new_tab("A", &tm);
+        let id2 = ptm.new_tab("B", &tm);
+        let id3 = ptm.new_tab("C", &tm);
+
+        // Move C to position 0
+        assert!(ptm.move_tab(id3, 0));
+        let list = ptm.list_tabs();
+        assert_eq!(list[0].0, id3);
+        assert_eq!(list[1].0, id1);
+        assert_eq!(list[2].0, id2);
+    }
+
+    #[test]
+    fn test_project_tab_dirty_flag() {
+        let tm = TrackManager::new();
+        let ptm = ProjectTabManager::new();
+
+        let id = ptm.new_tab("Test", &tm);
+        assert!(!ptm.list_tabs()[0].3); // not dirty
+
+        ptm.set_tab_dirty(id, true);
+        assert!(ptm.list_tabs()[0].3); // dirty
+
+        ptm.set_tab_dirty(id, false);
+        assert!(!ptm.list_tabs()[0].3); // clean again
+    }
+
+    #[test]
+    fn test_project_tab_cross_clipboard() {
+        let tm = TrackManager::new();
+        let ptm = ProjectTabManager::new();
+
+        ptm.new_tab("Source", &tm);
+        let mut track = Track::new("Copied Track", 0xFFFFFF, OutputBus::default());
+        track.id = TrackId(999);
+
+        ptm.copy_to_clipboard(vec![track.clone()], vec![]);
+
+        let cb = ptm.get_clipboard().unwrap();
+        assert_eq!(cb.tracks.len(), 1);
+        assert_eq!(cb.tracks[0].name, "Copied Track");
+
+        ptm.clear_clipboard();
+        assert!(ptm.get_clipboard().is_none());
+    }
+
+    #[test]
+    fn test_project_tab_snapshot_roundtrip() {
+        let tm = TrackManager::new();
+
+        // Create some state
+        tm.create_track("A", 0xFF0000, OutputBus::default());
+        tm.create_track("B", 0x00FF00, OutputBus::default());
+        tm.add_marker(10.0, "Chorus", 0xFFFFFF);
+        tm.save_screenset(0, "Mix", r#"{"z":1}"#);
+
+        // Snapshot
+        let state = tm.snapshot_state();
+        assert_eq!(state.tracks.len(), 2);
+        assert_eq!(state.markers.len(), 1);
+
+        // Clear and verify empty
+        tm.clear_all();
+        assert_eq!(tm.tracks.len(), 0);
+        assert_eq!(tm.markers.read().len(), 0);
+
+        // Restore and verify
+        tm.restore_state(state);
+        assert_eq!(tm.tracks.len(), 2);
+        assert_eq!(tm.markers.read().len(), 1);
+        assert!(tm.load_screenset(0).is_some());
+    }
+
+    #[test]
+    fn test_project_tab_switch_same_tab() {
+        let tm = TrackManager::new();
+        let ptm = ProjectTabManager::new();
+        let id = ptm.new_tab("Only", &tm);
+
+        // Switch to already-active tab returns false
+        assert!(!ptm.switch_tab(id, &tm));
+    }
+
+    #[test]
+    fn test_project_tab_max_tabs() {
+        let tm = TrackManager::new();
+        let ptm = ProjectTabManager::new();
+
+        for i in 0..MAX_PROJECT_TABS {
+            let id = ptm.new_tab(&format!("Tab {}", i), &tm);
+            assert_ne!(id, 0, "Tab {} should succeed", i);
+        }
+        assert_eq!(ptm.tab_count(), MAX_PROJECT_TABS);
+
+        // One more should fail (return 0)
+        let overflow_id = ptm.new_tab("Overflow", &tm);
+        assert_eq!(overflow_id, 0);
+        assert_eq!(ptm.tab_count(), MAX_PROJECT_TABS); // still 16
+    }
+
+    #[test]
+    fn test_project_tab_close_inactive() {
+        let tm = TrackManager::new();
+        let ptm = ProjectTabManager::new();
+
+        let id1 = ptm.new_tab("A", &tm);
+        tm.create_track("TrackA", 0xFF0000, OutputBus::default());
+
+        let id2 = ptm.new_tab("B", &tm);
+        tm.create_track("TrackB", 0x00FF00, OutputBus::default());
+        assert_eq!(tm.tracks.len(), 1); // only TrackB (B is active, A was saved)
+
+        // Close inactive tab A — should NOT affect current state
+        let result = ptm.close_tab(id1, &tm);
+        assert_eq!(result, Some(id2)); // B still active
+        assert_eq!(ptm.tab_count(), 1);
+        assert_eq!(tm.tracks.len(), 1); // TrackB still here
+    }
+
+    #[test]
+    fn test_project_tab_duplicate_max_limit() {
+        let tm = TrackManager::new();
+        let ptm = ProjectTabManager::new();
+
+        // Fill to max
+        for i in 0..MAX_PROJECT_TABS {
+            ptm.new_tab(&format!("Tab {}", i), &tm);
+        }
+
+        // Duplicate should fail at max
+        let result = ptm.duplicate_tab("Copy", &tm);
+        assert!(result.is_none());
     }
 }

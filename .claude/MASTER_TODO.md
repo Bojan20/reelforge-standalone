@@ -55,7 +55,7 @@ Analyzer: 0 errors, 0 warnings
 | 12 | **Mix Snapshots** | ✅ DONE | 10 kategorija, selective capture/recall sa category+track filter, solo clear on recall, atomic update, JSON serialization. 8 FFI, 12 testova. | Srednja |
 | 13 | **Metadata Browser + Search** | ✅ DONE | BWF/iXML/ID3v2/RIFF INFO/Vorbis Comment/FLAC metadata parsing. Boolean search (AND/OR/NOT, field:value, "phrases", groups). Batch editing. 3 FFI, 12 testova. | Srednja |
 | 14 | **Screensets** | ✅ DONE | 10 slotova za kompletno UI stanje (pozicije prozora, veličine, zoom, scroll, dock stanje). Instant prebacivanje jednim tasterom. Per-project. Rust: Screenset model, TrackManager 8 metoda, JSON serialization, 6 testova. FFI: 8 funkcija. | Srednja |
-| 15 | **Project Tabs** | ❌ TODO | Više projekata u tabovima. Copy/paste itema između tabova. Drag-and-drop transfer. Per-tab undo history. | Visoka |
+| 15 | **Project Tabs** | ✅ DONE | Multi-project tab system. ProjectTabManager sa swap-in/swap-out (snapshot/restore TrackManager state). New/switch/close/duplicate/rename/move/dirty. Cross-tab clipboard. 12 FFI, 12 testova. | Visoka |
 | 16 | **Sub-Projects** | ❌ TODO | .rpp fajl kao media item na timeline-u. Dupli klik → otvori u novom tabu. Auto-render proxy audio. Nestable. | Vrlo visoka |
 | 17 | **Command Palette / Console** | ❌ TODO | Fuzzy search za sve akcije (3000+). Instant izvršavanje. History. Ctrl+P / `?` shortcut. Relativno laka implementacija, visok impakt. | Niska |
 | 18 | **Auto-Color Rules** | ❌ TODO | Regex pattern → boja/ikona. Automatski pri kreiranju traka ili batch na postojeće. Import/export pravila. | Niska |
