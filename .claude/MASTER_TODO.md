@@ -31,13 +31,13 @@
 | 3 | Automation Items — pooled containerized automation |
 | 4 | Pin Connector — per-plugin channel routing matrix |
 | 5 | Parallel FX — inline FxContainer + FFI |
-| 6 | Razor Edits — merged-range processing |
-| 7 | Mix Snapshots — selective capture/recall |
-| 8 | Metadata Browser — BWF/iXML/ID3v2/RIFF parsing + search |
-| 9 | Screensets — 10 UI state slots |
-| 10 | Project Tabs — multi-project tab system |
-| 11 | Sub-Projects — nested .rfproj on timeline |
-| 12 | Command Palette — fuzzy search, 85+ commands, 9 categories |
+| 6 | Razor Edits — Alt+drag range selection, UI panel + wiring |
+| 7 | Mix Snapshots — selective capture/recall, UI panel + wiring |
+| 8 | Metadata Browser — BWF/iXML/ID3v2/RIFF parsing + search, UI panel + wiring |
+| 9 | Screensets — 10 UI state slots, UI panel + wiring |
+| 10 | Project Tabs — multi-project tab system, UI panel + wiring |
+| 11 | Sub-Projects — nested .rfproj on timeline, UI panel + wiring |
+| 12 | Command Palette — fuzzy search, 96+ commands, 9 categories, daw.tab.* navigation |
 | 13 | Dynamic Split — transient/gate/silence detection |
 | 14 | Auto-Color Rules — regex pattern → color/icon |
 | 18 | Auto-Color Rules (expanded) |

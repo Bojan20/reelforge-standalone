@@ -380,6 +380,61 @@ class _MainLayoutState extends State<MainLayout>
         controller.setEditSubTab(DawEditSubTab.extensionSdk);
         controller.expand();
       },
+      onShowRazorEdit: () {
+        final controller = DawLowerZoneController.instance;
+        controller.setEditSubTab(DawEditSubTab.razorEdit);
+        controller.expand();
+      },
+      onShowMixSnapshots: () {
+        final controller = DawLowerZoneController.instance;
+        controller.setEditSubTab(DawEditSubTab.mixSnapshots);
+        controller.expand();
+      },
+      onShowMetadataBrowser: () {
+        final controller = DawLowerZoneController.instance;
+        controller.setEditSubTab(DawEditSubTab.metadataBrowser);
+        controller.expand();
+      },
+      onShowScreensets: () {
+        final controller = DawLowerZoneController.instance;
+        controller.setEditSubTab(DawEditSubTab.screensets);
+        controller.expand();
+      },
+      onShowProjectTabs: () {
+        final controller = DawLowerZoneController.instance;
+        controller.setEditSubTab(DawEditSubTab.projectTabs);
+        controller.expand();
+      },
+      onShowSubProjects: () {
+        final controller = DawLowerZoneController.instance;
+        controller.setEditSubTab(DawEditSubTab.subProjects);
+        controller.expand();
+      },
+      onDawTabBrowse: () {
+        final controller = DawLowerZoneController.instance;
+        controller.setSuperTab(DawSuperTab.browse);
+        controller.expand();
+      },
+      onDawTabEdit: () {
+        final controller = DawLowerZoneController.instance;
+        controller.setSuperTab(DawSuperTab.edit);
+        controller.expand();
+      },
+      onDawTabMix: () {
+        final controller = DawLowerZoneController.instance;
+        controller.setSuperTab(DawSuperTab.mix);
+        controller.expand();
+      },
+      onDawTabProcess: () {
+        final controller = DawLowerZoneController.instance;
+        controller.setSuperTab(DawSuperTab.process);
+        controller.expand();
+      },
+      onDawTabDeliver: () {
+        final controller = DawLowerZoneController.instance;
+        controller.setSuperTab(DawSuperTab.deliver);
+        controller.expand();
+      },
     );
     CommandPalette.showUltimate(context);
   }

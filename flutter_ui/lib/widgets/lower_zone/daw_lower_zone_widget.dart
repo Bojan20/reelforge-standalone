@@ -63,6 +63,12 @@ import 'daw/edit/dsp_script_panel.dart';
 import 'daw/edit/video_processor_panel.dart';
 import 'daw/edit/package_manager_panel.dart';
 import 'daw/edit/extension_sdk_panel.dart';
+import 'daw/edit/razor_edit_panel.dart';
+import 'daw/edit/mix_snapshots_panel.dart';
+import 'daw/edit/metadata_browser_panel.dart';
+import 'daw/edit/screensets_panel.dart';
+import 'daw/edit/project_tabs_panel.dart';
+import 'daw/edit/sub_projects_panel.dart';
 import '../panels/loop_editor_panel.dart';
 import 'daw/edit/video_panel.dart';
 // ✅ P0.1: Extracted MIX panels
@@ -791,6 +797,12 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.videoProcessor => _buildVideoProcessorPanel(),
       DawEditSubTab.packageManager => _buildPackageManagerPanel(),
       DawEditSubTab.extensionSdk => _buildExtensionSdkPanel(),
+      DawEditSubTab.razorEdit => _buildRazorEditPanel(),
+      DawEditSubTab.mixSnapshots => _buildMixSnapshotsPanel(),
+      DawEditSubTab.metadataBrowser => _buildMetadataBrowserPanel(),
+      DawEditSubTab.screensets => _buildScreensetsPanel(),
+      DawEditSubTab.projectTabs => _buildProjectTabsPanel(),
+      DawEditSubTab.subProjects => _buildSubProjectsPanel(),
     };
   }
 
@@ -1038,6 +1050,12 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.videoProcessor => _buildVideoProcessorPanel(),
       DawEditSubTab.packageManager => _buildPackageManagerPanel(),
       DawEditSubTab.extensionSdk => _buildExtensionSdkPanel(),
+      DawEditSubTab.razorEdit => _buildRazorEditPanel(),
+      DawEditSubTab.mixSnapshots => _buildMixSnapshotsPanel(),
+      DawEditSubTab.metadataBrowser => _buildMetadataBrowserPanel(),
+      DawEditSubTab.screensets => _buildScreensetsPanel(),
+      DawEditSubTab.projectTabs => _buildProjectTabsPanel(),
+      DawEditSubTab.subProjects => _buildSubProjectsPanel(),
     };
   }
 
@@ -1166,6 +1184,30 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   );
 
   Widget _buildExtensionSdkPanel() => ExtensionSdkPanel(
+    onAction: widget.onDspAction,
+  );
+
+  Widget _buildRazorEditPanel() => RazorEditPanel(
+    onAction: widget.onDspAction,
+  );
+
+  Widget _buildMixSnapshotsPanel() => MixSnapshotsPanel(
+    onAction: widget.onDspAction,
+  );
+
+  Widget _buildMetadataBrowserPanel() => MetadataBrowserPanel(
+    onAction: widget.onDspAction,
+  );
+
+  Widget _buildScreensetsPanel() => ScreensetsPanel(
+    onAction: widget.onDspAction,
+  );
+
+  Widget _buildProjectTabsPanel() => ProjectTabsPanel(
+    onAction: widget.onDspAction,
+  );
+
+  Widget _buildSubProjectsPanel() => SubProjectsPanel(
     onAction: widget.onDspAction,
   );
 

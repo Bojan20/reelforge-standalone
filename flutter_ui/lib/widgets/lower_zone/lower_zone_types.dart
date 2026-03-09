@@ -311,7 +311,7 @@ extension DawSuperTabX on DawSuperTab {
 // --- DAW Sub-tabs ---
 
 enum DawBrowseSubTab { files, presets, plugins, history }
-enum DawEditSubTab { timeline, pianoRoll, fades, grid, punch, comping, warp, elastic, beatDetect, tempoDetect, stripSilence, dynamicSplit, ucsNaming, loopEditor, video, cycleActions, regionPlaylist, markerActions, granularSynth, networkAudio, dspScript, videoProcessor, packageManager, extensionSdk }
+enum DawEditSubTab { timeline, pianoRoll, fades, grid, punch, comping, warp, elastic, beatDetect, tempoDetect, stripSilence, dynamicSplit, ucsNaming, loopEditor, video, cycleActions, regionPlaylist, markerActions, granularSynth, networkAudio, dspScript, videoProcessor, packageManager, extensionSdk, razorEdit, mixSnapshots, metadataBrowser, screensets, projectTabs, subProjects }
 enum DawMixSubTab { mixer, sends, pan, automation }
 enum DawProcessSubTab { eq, comp, limiter, reverb, gate, delay, saturation, deEsser, fxChain, sidechain }
 enum DawDeliverSubTab { export, stems, stemManager, loudnessReport, bounce, archive }
@@ -329,9 +329,9 @@ extension DawBrowseSubTabX on DawBrowseSubTab {
 }
 
 extension DawEditSubTabX on DawEditSubTab {
-  String get label => ['Timeline', 'Piano Roll', 'Fades', 'Grid', 'Punch', 'Comping', 'Warp', 'Elastic', 'Beat Det.', 'Tempo Det.', 'Strip Sil.', 'Dyn Split', 'UCS', 'Loop Ed.', 'Video', 'Cycles', 'Region PL', 'Markers', 'Granular', 'Network', 'DSP', 'Video FX', 'Packages', 'Ext SDK'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'A', 'P', 'D', 'N', 'S', 'V', 'C', 'L', 'M', 'G', 'F', 'B', 'H', 'J', 'K'][index];
-  IconData get icon => [Icons.view_timeline, Icons.piano, Icons.gradient, Icons.grid_on, Icons.fiber_manual_record, Icons.layers, Icons.timer, Icons.waves, Icons.music_note, Icons.speed, Icons.content_cut, Icons.call_split, Icons.label, Icons.loop, Icons.videocam, Icons.replay, Icons.playlist_play, Icons.bolt, Icons.grain, Icons.wifi, Icons.code, Icons.movie_filter, Icons.inventory_2, Icons.extension][index];
+  String get label => ['Timeline', 'Piano Roll', 'Fades', 'Grid', 'Punch', 'Comping', 'Warp', 'Elastic', 'Beat Det.', 'Tempo Det.', 'Strip Sil.', 'Dyn Split', 'UCS', 'Loop Ed.', 'Video', 'Cycles', 'Region PL', 'Markers', 'Granular', 'Network', 'DSP', 'Video FX', 'Packages', 'Ext SDK', 'Razor', 'Snapshots', 'Metadata', 'Screensets', 'Proj Tabs', 'Sub-Proj'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'A', 'P', 'D', 'N', 'S', 'V', 'C', 'L', 'M', 'G', 'F', 'B', 'H', 'J', 'K', 'X', 'Z', '1', '2', '3', '4'][index];
+  IconData get icon => [Icons.view_timeline, Icons.piano, Icons.gradient, Icons.grid_on, Icons.fiber_manual_record, Icons.layers, Icons.timer, Icons.waves, Icons.music_note, Icons.speed, Icons.content_cut, Icons.call_split, Icons.label, Icons.loop, Icons.videocam, Icons.replay, Icons.playlist_play, Icons.bolt, Icons.grain, Icons.wifi, Icons.code, Icons.movie_filter, Icons.inventory_2, Icons.extension, Icons.carpenter, Icons.camera, Icons.info_outline, Icons.window, Icons.tab, Icons.account_tree][index];
   String get tooltip => [
     'Track arrangement view with clip positions and routing',
     'MIDI editor with 128 notes, velocity, and CC automation',
@@ -357,6 +357,12 @@ extension DawEditSubTabX on DawEditSubTab {
     'Video Processor — text overlay, audio-reactive visuals, FFT spectrum, color correction',
     'Package Manager — marketplace for scripts, effects, themes with auto-update',
     'Extension SDK — open SDK for third-party plugin development with templates and docs',
+    'Razor Edits — Alt+drag multi-track range selection with merged processing',
+    'Mix Snapshots — save/recall mixer state with selective capture (volume, pan, mute, sends)',
+    'Metadata Browser — BWF/iXML/ID3v2/RIFF metadata parsing with boolean search',
+    'Screensets — 10 numbered UI state slots with save/recall (keys 1-0)',
+    'Project Tabs — multi-project tab system with swap-in/swap-out state',
+    'Sub-Projects — nested .rfproj references on timeline with proxy render',
   ][index];
 }
 
