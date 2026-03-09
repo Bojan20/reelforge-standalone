@@ -195,6 +195,9 @@ pub use track_manager::{
     TrackSnapshotData,
     SnapshotClipGain,
     SnapshotSends,
+    // Screensets (Reaper-style UI state slots)
+    Screenset,
+    MAX_SCREENSETS,
     // Razor Edits (Reaper-style per-track time selection)
     RazorArea,
     RazorAreaId,

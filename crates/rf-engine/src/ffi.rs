@@ -24462,3 +24462,127 @@ pub extern "C" fn metadata_batch_edit(
         Err(_) => std::ptr::null_mut(),
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SCREENSETS — Reaper-style UI State Slots (1-0)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Save a screenset to a slot (0-9).
+/// `state_json` is opaque JSON from the Dart UI layer.
+/// Returns 1 on success, 0 on failure.
+#[unsafe(no_mangle)]
+pub extern "C" fn screenset_save(slot: i32, name: *const c_char, state_json: *const c_char) -> i32 {
+    if slot < 0 || slot > 9 || state_json.is_null() {
+        return 0;
+    }
+    let name = if name.is_null() {
+        format!("Screenset {}", slot + 1)
+    } else {
+        unsafe { std::ffi::CStr::from_ptr(name) }
+            .to_string_lossy()
+            .to_string()
+    };
+    let json = unsafe { std::ffi::CStr::from_ptr(state_json) }
+        .to_string_lossy()
+        .to_string();
+
+    if TRACK_MANAGER.save_screenset(slot as u8, &name, &json) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Load a screenset from a slot (0-9).
+/// Returns full Screenset as JSON: {"slot":N,"name":"...","state_json":"...","saved_at":...}
+/// or null if slot is empty. Caller must free with engine_free_string.
+#[unsafe(no_mangle)]
+pub extern "C" fn screenset_load(slot: i32) -> *mut c_char {
+    if slot < 0 || slot > 9 {
+        return std::ptr::null_mut();
+    }
+    match TRACK_MANAGER.load_screenset(slot as u8) {
+        Some(s) => {
+            let json = serde_json::to_string(&s).unwrap_or_default();
+            match std::ffi::CString::new(json) {
+                Ok(c) => c.into_raw(),
+                Err(_) => std::ptr::null_mut(),
+            }
+        }
+        None => std::ptr::null_mut(),
+    }
+}
+
+/// Clear a screenset slot. Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "C" fn screenset_clear(slot: i32) -> i32 {
+    if slot < 0 || slot > 9 {
+        return 0;
+    }
+    if TRACK_MANAGER.clear_screenset(slot as u8) { 1 } else { 0 }
+}
+
+/// Rename a screenset slot. Returns 1 on success, 0 if empty/invalid.
+#[unsafe(no_mangle)]
+pub extern "C" fn screenset_rename(slot: i32, name: *const c_char) -> i32 {
+    if slot < 0 || slot > 9 || name.is_null() {
+        return 0;
+    }
+    let name = unsafe { std::ffi::CStr::from_ptr(name) }
+        .to_string_lossy()
+        .to_string();
+    if TRACK_MANAGER.rename_screenset(slot as u8, &name) { 1 } else { 0 }
+}
+
+/// Get list of all occupied screenset slots as JSON.
+/// Format: [{"slot":0,"name":"Mixing","saved_at":1234567890.0}, ...]
+/// Caller must free with engine_free_string.
+#[unsafe(no_mangle)]
+pub extern "C" fn screenset_list_json() -> *mut c_char {
+    let list = TRACK_MANAGER.get_screenset_list();
+    let entries: Vec<serde_json::Value> = list
+        .iter()
+        .map(|(slot, name, saved_at)| {
+            serde_json::json!({
+                "slot": *slot,
+                "name": name,
+                "saved_at": *saved_at
+            })
+        })
+        .collect();
+    let json = serde_json::to_string(&entries).unwrap_or_else(|_| "[]".to_string());
+    match std::ffi::CString::new(json) {
+        Ok(c) => c.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+/// Clear all screensets.
+#[unsafe(no_mangle)]
+pub extern "C" fn screenset_clear_all() -> i32 {
+    TRACK_MANAGER.clear_all_screensets();
+    1
+}
+
+/// Serialize all screensets to JSON for project save.
+/// Caller must free with engine_free_string.
+#[unsafe(no_mangle)]
+pub extern "C" fn screenset_export_json() -> *mut c_char {
+    let json = TRACK_MANAGER.screensets_to_json();
+    match std::ffi::CString::new(json) {
+        Ok(c) => c.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+/// Load screensets from JSON (project load). Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "C" fn screenset_import_json(json: *const c_char) -> i32 {
+    if json.is_null() {
+        return 0;
+    }
+    let json = unsafe { std::ffi::CStr::from_ptr(json) }
+        .to_string_lossy()
+        .to_string();
+    if TRACK_MANAGER.screensets_from_json(&json) { 1 } else { 0 }
+}

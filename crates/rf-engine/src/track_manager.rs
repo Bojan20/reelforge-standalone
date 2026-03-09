@@ -55,6 +55,28 @@ pub struct RazorAreaId(pub u64);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct MixSnapshotId(pub u64);
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SCREENSETS (Reaper-style UI State Slots)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Maximum number of screenset slots (keyboard 1-0)
+pub const MAX_SCREENSETS: usize = 10;
+
+/// A screenset slot — stores complete UI state as opaque JSON.
+/// UI state includes: panel visibility/sizes, lower zone state, mixer view,
+/// timeline zoom/scroll, track heights, dock state, editor mode.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Screenset {
+    /// Slot index (0-9, maps to keyboard 1-0)
+    pub slot: u8,
+    /// User-defined name (e.g. "Mixing", "Editing", "Recording")
+    pub name: String,
+    /// Opaque JSON blob — complete UI state captured by Dart
+    pub state_json: String,
+    /// Timestamp when this screenset was saved
+    pub saved_at: f64,
+}
+
 /// Unique comp lane identifier
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CompLaneId(pub u64);
@@ -2173,6 +2195,8 @@ pub struct TrackManager {
     pub razor_areas: RwLock<Vec<RazorArea>>,
     /// Mix snapshots — save/recall mix states (SWS-style)
     pub mix_snapshots: RwLock<Vec<MixSnapshot>>,
+    /// Screensets — 10 UI state slots (Reaper-style, keyboard 1-0)
+    pub screensets: RwLock<[Option<Screenset>; MAX_SCREENSETS]>,
 }
 
 impl TrackManager {
@@ -2206,6 +2230,7 @@ impl TrackManager {
             render_regions: RwLock::new(Vec::new()),
             razor_areas: RwLock::new(Vec::new()),
             mix_snapshots: RwLock::new(Vec::new()),
+            screensets: RwLock::new(Default::default()),
         }
     }
 
@@ -4146,6 +4171,105 @@ impl TrackManager {
     }
 }
 
+impl TrackManager {
+    // ═══════════════════════════════════════════════════════════════════════
+    // SCREENSET OPERATIONS (Reaper-style UI State Slots)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Save a screenset to a slot (0-9).
+    /// `state_json` is an opaque JSON blob from the Dart UI layer.
+    pub fn save_screenset(&self, slot: u8, name: &str, state_json: &str) -> bool {
+        if slot as usize >= MAX_SCREENSETS {
+            return false;
+        }
+        // Reject null bytes — they break CString in FFI layer
+        if state_json.contains('\0') || name.contains('\0') {
+            return false;
+        }
+        let screenset = Screenset {
+            slot,
+            name: name.to_string(),
+            state_json: state_json.to_string(),
+            saved_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs_f64())
+                .unwrap_or(0.0),
+        };
+        self.screensets.write()[slot as usize] = Some(screenset);
+        true
+    }
+
+    /// Load a screenset from a slot. Returns the state JSON, or None if empty.
+    pub fn load_screenset(&self, slot: u8) -> Option<Screenset> {
+        if slot as usize >= MAX_SCREENSETS {
+            return None;
+        }
+        self.screensets.read()[slot as usize].clone()
+    }
+
+    /// Clear a screenset slot.
+    pub fn clear_screenset(&self, slot: u8) -> bool {
+        if slot as usize >= MAX_SCREENSETS {
+            return false;
+        }
+        self.screensets.write()[slot as usize] = None;
+        true
+    }
+
+    /// Rename a screenset slot.
+    pub fn rename_screenset(&self, slot: u8, name: &str) -> bool {
+        if slot as usize >= MAX_SCREENSETS {
+            return false;
+        }
+        let mut sets = self.screensets.write();
+        if let Some(ref mut s) = sets[slot as usize] {
+            s.name = name.to_string();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Get summary of all screenset slots: [(slot, name, saved_at)] for occupied slots.
+    pub fn get_screenset_list(&self) -> Vec<(u8, String, f64)> {
+        self.screensets
+            .read()
+            .iter()
+            .filter_map(|s| s.as_ref().map(|s| (s.slot, s.name.clone(), s.saved_at)))
+            .collect()
+    }
+
+    /// Clear all screensets.
+    pub fn clear_all_screensets(&self) {
+        *self.screensets.write() = Default::default();
+    }
+
+    /// Serialize all screensets to JSON (for project save).
+    pub fn screensets_to_json(&self) -> String {
+        let sets = self.screensets.read();
+        let occupied: Vec<&Screenset> = sets.iter().filter_map(|s| s.as_ref()).collect();
+        serde_json::to_string(&occupied).unwrap_or_else(|_| "[]".to_string())
+    }
+
+    /// Load screensets from JSON (for project load). Replaces current.
+    pub fn screensets_from_json(&self, json: &str) -> bool {
+        match serde_json::from_str::<Vec<Screenset>>(json) {
+            Ok(loaded) => {
+                let mut sets = self.screensets.write();
+                *sets = Default::default();
+                for s in loaded {
+                    let slot = s.slot as usize;
+                    if slot < MAX_SCREENSETS {
+                        sets[slot] = Some(s);
+                    }
+                }
+                true
+            }
+            Err(_) => false,
+        }
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // TESTS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -5543,5 +5667,125 @@ mod tests {
         tm.update_track(tid, |t| t.volume = 0.0);
         tm.recall_mix_snapshot(sid, &[], &[]);
         assert!((tm.get_track(tid).unwrap().volume - 0.8).abs() < 0.001);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SCREENSET TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_screenset_save_load() {
+        let tm = TrackManager::new();
+        let json = r#"{"panels":{"left":true},"zoom":100}"#;
+        assert!(tm.save_screenset(0, "Mixing", json));
+
+        let loaded = tm.load_screenset(0).unwrap();
+        assert_eq!(loaded.slot, 0);
+        assert_eq!(loaded.name, "Mixing");
+        assert_eq!(loaded.state_json, json);
+        assert!(loaded.saved_at > 0.0);
+    }
+
+    #[test]
+    fn test_screenset_all_slots() {
+        let tm = TrackManager::new();
+        for i in 0..10u8 {
+            assert!(tm.save_screenset(i, &format!("Slot {}", i), "{}"));
+        }
+        // Slot 10 is out of bounds
+        assert!(!tm.save_screenset(10, "Invalid", "{}"));
+
+        let list = tm.get_screenset_list();
+        assert_eq!(list.len(), 10);
+    }
+
+    #[test]
+    fn test_screenset_clear() {
+        let tm = TrackManager::new();
+        tm.save_screenset(3, "Edit", "{}");
+        assert!(tm.load_screenset(3).is_some());
+
+        assert!(tm.clear_screenset(3));
+        assert!(tm.load_screenset(3).is_none());
+    }
+
+    #[test]
+    fn test_screenset_rename() {
+        let tm = TrackManager::new();
+        tm.save_screenset(5, "Old", "{}");
+        assert!(tm.rename_screenset(5, "New Name"));
+        assert_eq!(tm.load_screenset(5).unwrap().name, "New Name");
+
+        // Rename empty slot fails
+        assert!(!tm.rename_screenset(7, "Nope"));
+    }
+
+    #[test]
+    fn test_screenset_json_roundtrip() {
+        let tm = TrackManager::new();
+        tm.save_screenset(0, "Mix", r#"{"zoom":50}"#);
+        tm.save_screenset(4, "Edit", r#"{"zoom":200}"#);
+
+        let json = tm.screensets_to_json();
+
+        let tm2 = TrackManager::new();
+        assert!(tm2.screensets_from_json(&json));
+        assert_eq!(tm2.load_screenset(0).unwrap().name, "Mix");
+        assert_eq!(tm2.load_screenset(4).unwrap().state_json, r#"{"zoom":200}"#);
+        assert!(tm2.load_screenset(1).is_none()); // Empty slot
+    }
+
+    #[test]
+    fn test_screenset_overwrite() {
+        let tm = TrackManager::new();
+        tm.save_screenset(2, "V1", r#"{"v":1}"#);
+        tm.save_screenset(2, "V2", r#"{"v":2}"#);
+        let s = tm.load_screenset(2).unwrap();
+        assert_eq!(s.name, "V2");
+        assert_eq!(s.state_json, r#"{"v":2}"#);
+    }
+
+    #[test]
+    fn test_screenset_clear_all() {
+        let tm = TrackManager::new();
+        tm.save_screenset(0, "A", "{}");
+        tm.save_screenset(5, "B", "{}");
+        tm.save_screenset(9, "C", "{}");
+        assert_eq!(tm.get_screenset_list().len(), 3);
+
+        tm.clear_all_screensets();
+        assert_eq!(tm.get_screenset_list().len(), 0);
+        for i in 0..10u8 {
+            assert!(tm.load_screenset(i).is_none());
+        }
+    }
+
+    #[test]
+    fn test_screenset_edge_cases() {
+        let tm = TrackManager::new();
+
+        // Out of bounds
+        assert!(!tm.save_screenset(10, "Bad", "{}"));
+        assert!(!tm.save_screenset(255, "Bad", "{}"));
+        assert!(tm.load_screenset(10).is_none());
+        assert!(!tm.clear_screenset(10));
+        assert!(!tm.rename_screenset(10, "X"));
+
+        // Null byte rejection
+        assert!(!tm.save_screenset(0, "Name\0Bad", "{}"));
+        assert!(!tm.save_screenset(0, "OK", "{\"a\":\"\0\"}"));
+
+        // Empty JSON from_json
+        assert!(!tm.screensets_from_json(""));
+        assert!(tm.screensets_from_json("[]")); // valid, clears all
+        assert!(!tm.screensets_from_json("not json"));
+
+        // from_json with out-of-range slot is silently skipped
+        let bad_slot_json = r#"[{"slot":99,"name":"X","state_json":"{}","saved_at":0.0}]"#;
+        assert!(tm.screensets_from_json(bad_slot_json));
+        assert_eq!(tm.get_screenset_list().len(), 0); // slot 99 skipped
+
+        // Rename empty slot fails
+        assert!(!tm.rename_screenset(0, "Nothing"));
     }
 }
