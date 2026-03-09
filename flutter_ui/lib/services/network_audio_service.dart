@@ -79,7 +79,7 @@ class NetworkPeer {
     id: json['id'] as String? ?? '',
     hostname: json['hostname'] as String? ?? '',
     ipAddress: json['ipAddress'] as String? ?? '',
-    port: json['port'] as int? ?? 58710,
+    port: (json['port'] as int? ?? 58710).clamp(1024, 65535),
     lastSeen: DateTime.tryParse(json['lastSeen'] as String? ?? '') ?? DateTime.now(),
     availableStreams: (json['availableStreams'] as List<dynamic>?)
         ?.map((e) => e as String).toList() ?? [],
@@ -170,9 +170,9 @@ class NetworkStream {
       orElse: () => StreamDataType.audio,
     ),
     targetIp: json['targetIp'] as String? ?? '255.255.255.255',
-    port: json['port'] as int? ?? 58710,
+    port: (json['port'] as int? ?? 58710).clamp(1024, 65535),
     broadcast: json['broadcast'] as bool? ?? true,
-    channelCount: json['channelCount'] as int? ?? 2,
+    channelCount: (json['channelCount'] as int? ?? 2).clamp(1, 64),
     sampleRate: json['sampleRate'] as int? ?? 48000,
     bufferSize: json['bufferSize'] as int? ?? 512,
     enabled: json['enabled'] as bool? ?? false,
@@ -427,7 +427,7 @@ class NetworkAudioService extends ChangeNotifier {
     final name = streamName ?? '${peer.hostname}:${peer.port}';
     final stream = createReceiveStream(name);
     stream.targetIp = peer.ipAddress;
-    stream.port = peer.port;
+    stream.port = peer.port.clamp(1024, 65535);
     stream.broadcast = false;
     connectStream(stream.id);
   }
