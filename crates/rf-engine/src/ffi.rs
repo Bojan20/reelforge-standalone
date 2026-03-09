@@ -24361,3 +24361,104 @@ pub extern "C" fn mix_snapshot_load_json(json: *const c_char) -> i32 {
         0
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// METADATA BROWSER — BWF/iXML/ID3/RIFF INFO + Boolean Search
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Read all metadata from an audio file.
+/// Returns JSON string with all found metadata, or null on error.
+/// Caller must free with engine_free_string.
+#[unsafe(no_mangle)]
+pub extern "C" fn metadata_read(file_path: *const c_char) -> *mut c_char {
+    if file_path.is_null() {
+        return std::ptr::null_mut();
+    }
+    let path = unsafe { std::ffi::CStr::from_ptr(file_path) }
+        .to_string_lossy()
+        .to_string();
+
+    match rf_file::metadata::read_metadata(&path) {
+        Ok(meta) => match serde_json::to_string(&meta) {
+            Ok(json) => match std::ffi::CString::new(json) {
+                Ok(c) => c.into_raw(),
+                Err(_) => std::ptr::null_mut(),
+            },
+            Err(_) => std::ptr::null_mut(),
+        },
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+/// Search metadata using Boolean query (AND/OR/NOT, field:value, "quoted phrases").
+/// `metadata_json` — JSON string of AudioMetadata
+/// `query` — search query string (e.g. "foley AND scene:12 NOT rain")
+/// Returns: 1 if matches, 0 if not, -1 on error.
+#[unsafe(no_mangle)]
+pub extern "C" fn metadata_search(
+    metadata_json: *const c_char,
+    query: *const c_char,
+) -> i32 {
+    if metadata_json.is_null() || query.is_null() {
+        return -1;
+    }
+    let json = unsafe { std::ffi::CStr::from_ptr(metadata_json) }
+        .to_string_lossy()
+        .to_string();
+    let query = unsafe { std::ffi::CStr::from_ptr(query) }
+        .to_string_lossy()
+        .to_string();
+
+    let meta: rf_file::AudioMetadata = match serde_json::from_str(&json) {
+        Ok(m) => m,
+        Err(_) => return -1,
+    };
+
+    let tokens = rf_file::metadata::parse_search_query(&query);
+    if rf_file::metadata::evaluate_search(&tokens, &meta) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Apply batch metadata edits to a metadata JSON string.
+/// `metadata_json` — current metadata as JSON
+/// `edits_json` — array of edits: [{"field":"Title","value":"New Title"}, ...]
+/// Returns: modified metadata as JSON string, or null on error.
+/// Caller must free with engine_free_string.
+#[unsafe(no_mangle)]
+pub extern "C" fn metadata_batch_edit(
+    metadata_json: *const c_char,
+    edits_json: *const c_char,
+) -> *mut c_char {
+    if metadata_json.is_null() || edits_json.is_null() {
+        return std::ptr::null_mut();
+    }
+    let meta_str = unsafe { std::ffi::CStr::from_ptr(metadata_json) }
+        .to_string_lossy()
+        .to_string();
+    let edits_str = unsafe { std::ffi::CStr::from_ptr(edits_json) }
+        .to_string_lossy()
+        .to_string();
+
+    let mut meta: rf_file::AudioMetadata = match serde_json::from_str(&meta_str) {
+        Ok(m) => m,
+        Err(_) => return std::ptr::null_mut(),
+    };
+
+    let edits: Vec<rf_file::MetadataEdit> = match serde_json::from_str(&edits_str) {
+        Ok(e) => e,
+        Err(_) => return std::ptr::null_mut(),
+    };
+
+    rf_file::metadata::apply_batch_edits(&mut meta, &edits);
+
+    match serde_json::to_string(&meta) {
+        Ok(json) => match std::ffi::CString::new(json) {
+            Ok(c) => c.into_raw(),
+            Err(_) => std::ptr::null_mut(),
+        },
+        Err(_) => std::ptr::null_mut(),
+    }
+}

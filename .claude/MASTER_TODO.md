@@ -52,8 +52,8 @@ Analyzer: 0 errors, 0 warnings
 | # | Feature | Status | Opis | Složenost |
 |---|---------|--------|------|-----------|
 | 11 | **Razor Edits** | ✅ DONE | RazorArea model + RazorContent filter (Media/Envelope/Both). 10 operacija sa merged-range processing (no double-processing). 14 FFI, 16 testova. | Visoka |
-| 12 | **Mix Snapshots** | ❌ TODO | Save/recall stanja miksa. 10 kategorija (Volume, Pan, Mute/Solo, FX Chain, Sends, Phase, Selection, Visibility, Names, Clip Gain). Selective recall. SWS feature. | Srednja |
-| 13 | **Metadata Browser + Search** | ❌ TODO | BWF/iXML/ID3 metadata čitanje/editovanje u audio browser-u. Boolean search (AND/OR/NOT). Batch metadata editing. Custom columns. | Srednja |
+| 12 | **Mix Snapshots** | ✅ DONE | 10 kategorija, selective capture/recall sa category+track filter, solo clear on recall, atomic update, JSON serialization. 8 FFI, 12 testova. | Srednja |
+| 13 | **Metadata Browser + Search** | ✅ DONE | BWF/iXML/ID3v2/RIFF INFO/Vorbis Comment/FLAC metadata parsing. Boolean search (AND/OR/NOT, field:value, "phrases", groups). Batch editing. 3 FFI, 12 testova. | Srednja |
 | 14 | **Screensets** | ❌ TODO | 10 slotova za kompletno UI stanje (pozicije prozora, veličine, zoom, scroll, dock stanje). Instant prebacivanje jednim tasterom. Per-project. | Srednja |
 | 15 | **Project Tabs** | ❌ TODO | Više projekata u tabovima. Copy/paste itema između tabova. Drag-and-drop transfer. Per-tab undo history. | Visoka |
 | 16 | **Sub-Projects** | ❌ TODO | .rpp fajl kao media item na timeline-u. Dupli klik → otvori u novom tabu. Auto-render proxy audio. Nestable. | Vrlo visoka |

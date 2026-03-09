@@ -17,11 +17,13 @@
 mod audio_file;
 mod bounce;
 mod error;
+pub mod metadata;
 mod project;
 pub mod recording;
 
 pub use audio_file::*;
 pub use bounce::*;
 pub use error::*;
+pub use metadata::*;
 pub use project::*;
 pub use recording::*;
