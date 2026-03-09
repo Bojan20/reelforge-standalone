@@ -54,6 +54,7 @@ import 'daw/edit/smart_tempo_panel.dart';
 import 'daw/edit/strip_silence_panel.dart';
 import 'daw/edit/dynamic_split_panel.dart';
 import 'daw/edit/ucs_naming_panel.dart';
+import 'daw/edit/cycle_actions_panel.dart';
 import '../panels/loop_editor_panel.dart';
 import 'daw/edit/video_panel.dart';
 // ✅ P0.1: Extracted MIX panels
@@ -773,6 +774,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.ucsNaming => _buildUcsNamingPanel(),
       DawEditSubTab.loopEditor => _buildLoopEditorPanel(),
       DawEditSubTab.video => _buildVideoPanel(),
+      DawEditSubTab.cycleActions => _buildCycleActionsPanel(),
     };
   }
 
@@ -1011,6 +1013,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.ucsNaming => _buildUcsNamingPanel(),
       DawEditSubTab.loopEditor => _buildLoopEditorPanel(),
       DawEditSubTab.video => _buildVideoPanel(),
+      DawEditSubTab.cycleActions => _buildCycleActionsPanel(),
     };
   }
 
@@ -1102,6 +1105,11 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
   );
 
   Widget _buildVideoPanel() => const VideoLowerZonePanel();
+
+  /// Cycle Actions — sequential action cycling (#25)
+  Widget _buildCycleActionsPanel() => CycleActionsPanel(
+    onAction: widget.onDspAction,
+  );
 
   /// Compact Timeline Overview
   // ✅ P0.1: Timeline Overview extracted to daw/edit/timeline_overview_panel.dart

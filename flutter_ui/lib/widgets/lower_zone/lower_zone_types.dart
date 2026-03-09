@@ -311,7 +311,7 @@ extension DawSuperTabX on DawSuperTab {
 // --- DAW Sub-tabs ---
 
 enum DawBrowseSubTab { files, presets, plugins, history }
-enum DawEditSubTab { timeline, pianoRoll, fades, grid, punch, comping, warp, elastic, beatDetect, tempoDetect, stripSilence, dynamicSplit, ucsNaming, loopEditor, video }
+enum DawEditSubTab { timeline, pianoRoll, fades, grid, punch, comping, warp, elastic, beatDetect, tempoDetect, stripSilence, dynamicSplit, ucsNaming, loopEditor, video, cycleActions }
 enum DawMixSubTab { mixer, sends, pan, automation }
 enum DawProcessSubTab { eq, comp, limiter, reverb, gate, delay, saturation, deEsser, fxChain, sidechain }
 enum DawDeliverSubTab { export, stems, stemManager, loudnessReport, bounce, archive }
@@ -329,9 +329,9 @@ extension DawBrowseSubTabX on DawBrowseSubTab {
 }
 
 extension DawEditSubTabX on DawEditSubTab {
-  String get label => ['Timeline', 'Piano Roll', 'Fades', 'Grid', 'Punch', 'Comping', 'Warp', 'Elastic', 'Beat Det.', 'Tempo Det.', 'Strip Sil.', 'Dyn Split', 'UCS', 'Loop Ed.', 'Video'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'A', 'P', 'D', 'N', 'S', 'V'][index];
-  IconData get icon => [Icons.view_timeline, Icons.piano, Icons.gradient, Icons.grid_on, Icons.fiber_manual_record, Icons.layers, Icons.timer, Icons.waves, Icons.music_note, Icons.speed, Icons.content_cut, Icons.call_split, Icons.label, Icons.loop, Icons.videocam][index];
+  String get label => ['Timeline', 'Piano Roll', 'Fades', 'Grid', 'Punch', 'Comping', 'Warp', 'Elastic', 'Beat Det.', 'Tempo Det.', 'Strip Sil.', 'Dyn Split', 'UCS', 'Loop Ed.', 'Video', 'Cycles'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'A', 'P', 'D', 'N', 'S', 'V', 'C'][index];
+  IconData get icon => [Icons.view_timeline, Icons.piano, Icons.gradient, Icons.grid_on, Icons.fiber_manual_record, Icons.layers, Icons.timer, Icons.waves, Icons.music_note, Icons.speed, Icons.content_cut, Icons.call_split, Icons.label, Icons.loop, Icons.videocam, Icons.replay][index];
   String get tooltip => [
     'Track arrangement view with clip positions and routing',
     'MIDI editor with 128 notes, velocity, and CC automation',
@@ -348,6 +348,7 @@ extension DawEditSubTabX on DawEditSubTab {
     'UCS Naming — Universal Category System for game audio asset naming',
     'Wwise-grade advanced loop system with regions, cues, and per-iteration gain',
     'Video timeline with playback, preview, and A/V sync controls',
+    'Cycle Actions — sequential action cycling with conditionals',
   ][index];
 }
 

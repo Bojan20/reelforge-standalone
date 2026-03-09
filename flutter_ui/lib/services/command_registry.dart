@@ -292,6 +292,7 @@ class CommandRegistry {
     VoidCallback? onShowUcsNaming,
     VoidCallback? onShowStemManager,
     VoidCallback? onShowLoudnessReport,
+    VoidCallback? onShowCycleActions,
     VoidCallback? onShowMacroControls,
     VoidCallback? onShowClipGainEnvelope,
   }) {
@@ -1209,6 +1210,15 @@ class CommandRegistry {
         icon: Icons.assessment,
         keywords: ['loudness', 'report', 'lufs', 'peak', 'lra', 'clipping', 'analysis', 'html'],
         onExecute: onShowLoudnessReport,
+      ),
+      PaletteCommand(
+        id: 'tools.cycle_actions',
+        label: 'Cycle Actions',
+        description: 'Sequential action cycling — each invocation executes the next step',
+        category: PaletteCategory.tools,
+        icon: Icons.replay,
+        keywords: ['cycle', 'actions', 'sequential', 'step', 'macro', 'repeat'],
+        onExecute: onShowCycleActions,
       ),
 
       // ─── ADVANCED PANELS ──────────────────────────────────────────────────
