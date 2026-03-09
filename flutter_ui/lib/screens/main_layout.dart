@@ -24,6 +24,7 @@ import '../providers/mixer_provider.dart';
 import '../widgets/layout/project_tree.dart' show ProjectTreeNode, TreeItemType;
 import '../widgets/common/keyboard_shortcuts_overlay.dart';
 import '../widgets/common/command_palette.dart';
+import '../services/command_registry.dart';
 import '../providers/smart_tool_provider.dart';
 
 class MainLayout extends StatefulWidget {
@@ -285,26 +286,33 @@ class _MainLayoutState extends State<MainLayout>
   }
 
   void _showCommandPalette() {
-    // P1.2: Command Palette with Cmd+K
-    final commands = FluxForgeCommands.forDaw(
+    // Register DAW commands into CommandRegistry with current callbacks
+    CommandRegistry.instance.registerDawCommands(
       onNewProject: () => widget.menuCallbacks?.onNewProject?.call(),
       onOpenProject: () => widget.menuCallbacks?.onOpenProject?.call(),
       onSaveProject: () => widget.onSave?.call(),
-      onExport: () => widget.menuCallbacks?.onExportAudio?.call(),
+      onExportAudio: () => widget.menuCallbacks?.onExportAudio?.call(),
       onUndo: () => widget.menuCallbacks?.onUndo?.call(),
       onRedo: () => widget.menuCallbacks?.onRedo?.call(),
       onToggleMixer: _toggleLower,
-      onToggleTimeline: () {}, // Timeline always visible in DAW
+      onToggleTimeline: () {},
+      onToggleLeftPanel: _toggleLeft,
+      onToggleRightPanel: _toggleRight,
+      onToggleLowerPanel: _toggleLower,
       onAddTrack: () => widget.menuCallbacks?.onAddTrack?.call(),
       onDeleteTrack: () => widget.menuCallbacks?.onDeleteTrack?.call(),
+      onRemoveTrack: () => widget.menuCallbacks?.onDeleteTrack?.call(),
       onToggleMetronome: () => widget.onMetronomeToggle?.call(),
-      onToggleSnap: () => widget.onSnapToggle?.call(),
       onZoomIn: () => widget.menuCallbacks?.onZoomIn?.call(),
       onZoomOut: () => widget.menuCallbacks?.onZoomOut?.call(),
       onGoToStart: () => widget.onRewind?.call(),
       onGoToEnd: () => widget.onForward?.call(),
+      onPlay: () => widget.onPlay?.call(),
+      onStop: () => widget.onStop?.call(),
+      onRecord: () => widget.onRecord?.call(),
+      onCommandPalette: () {}, // Already open
     );
-    CommandPalette.show(context, commands);
+    CommandPalette.showUltimate(context);
   }
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {

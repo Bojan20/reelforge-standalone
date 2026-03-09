@@ -114,6 +114,7 @@ import '../widgets/slot_lab/symbol_art_panel.dart';
 import '../widgets/slot_lab/transition_config_panel.dart';
 import '../widgets/slot_lab/win_tier_config_panel.dart';
 import '../widgets/common/command_palette.dart';
+import '../services/command_registry.dart';
 import '../services/lower_zone_persistence_service.dart';
 import '../services/diagnostics/diagnostics_service.dart';
 import '../services/diagnostics/stage_contract_validator.dart';
@@ -3812,8 +3813,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // ═══════════════════════════════════════════════════════════════════════════
 
   void _openQuickSwitcher() {
-    final commands = <Command>[];
-    // Generate commands for all 11 super-tabs × their sub-tabs
+    // Register SlotLab tab navigation commands into CommandRegistry
     for (final superTab in SlotLabSuperTab.values) {
       final subLabels = <String>[];
       final subTooltips = <String>[];
@@ -3854,10 +3854,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       }
       for (var i = 0; i < subLabels.length; i++) {
         final subIdx = i;
-        commands.add(Command(
+        CommandRegistry.instance.register(PaletteCommand(
+          id: 'slotlab.tab.${superTab.name}.$subIdx',
           label: '${superTab.label} › ${subLabels[i]}',
           description: subTooltips[i],
+          category: PaletteCategory.navigate,
           icon: superTab.icon,
+          keywords: [superTab.label.toLowerCase(), subLabels[i].toLowerCase(), superTab.category.toLowerCase()],
           onExecute: () {
             _lowerZoneController.setSuperTab(superTab);
             _lowerZoneController.setSubTabIndex(subIdx);
@@ -3865,11 +3868,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               _lowerZoneController.toggle();
             }
           },
-          keywords: [superTab.label.toLowerCase(), subLabels[i].toLowerCase(), superTab.category.toLowerCase()],
         ));
       }
     }
-    CommandPalette.show(context, commands);
+    CommandPalette.showUltimate(context);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

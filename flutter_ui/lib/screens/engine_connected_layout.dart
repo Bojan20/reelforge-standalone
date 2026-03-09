@@ -11,9 +11,9 @@
 //
 // DATA FLOW:
 // ┌─────────────────────────────────────────────────────────────────────────────┐
-// │  LEFT PANEL (Events Folder)                                                  │
-// │  └─ _buildProjectTree(compositeEvents) → displays event list with layer count│
-// │     └─ On select → _selectedCompositeEventId = event.id                      │
+// │  LEFT PANEL (EventFolderPanel + ProjectTree)                                   │
+// │  └─ EventFolderPanel → draggable event folders (drag to timeline)             │
+// │  └─ _buildProjectTree() → Audio Pool, Tracks, MixConsole, Markers             │
 // ├─────────────────────────────────────────────────────────────────────────────┤
 // │  CENTER PANEL (Actions Table)                                                │
 // │  └─ _buildLayersAsActionsTable() → displays SlotCompositeEvent.layers        │
@@ -28,7 +28,7 @@
 // └─────────────────────────────────────────────────────────────────────────────┘
 //
 // KEY FUNCTIONS:
-// - _buildProjectTree()         → Left panel event tree (accepts compositeEvents param)
+// - _buildProjectTree()         → Left panel project tree (Audio Pool, Tracks, etc.)
 // - _buildLayersAsActionsTable()→ Center panel layers with Actions UI appearance
 // - _updateLayer()              → Updates layer via provider, triggers rebuild
 // - _duplicateLayer()           → Duplicates layer via provider
@@ -80,7 +80,7 @@ import '../models/layout_models.dart';
 import '../models/editor_mode_config.dart';
 import '../models/middleware_models.dart';
 import '../models/event_folder_models.dart' show EventFolder;
-import '../models/slot_audio_events.dart' show SlotCompositeEvent, SlotEventLayer, sortEventsHierarchically, sortCategoriesHierarchically;
+import '../models/slot_audio_events.dart' show SlotCompositeEvent, SlotEventLayer, sortEventsHierarchically;
 import '../widgets/common/audio_waveform_picker_dialog.dart';
 import '../models/timeline_models.dart' as timeline;
 import '../theme/fluxforge_theme.dart';
@@ -176,6 +176,7 @@ import '../widgets/lower_zone/daw/edit/timeline_overview_panel.dart' show Timeli
 import '../widgets/lower_zone/daw_lower_zone_controller.dart';
 import '../widgets/lower_zone/lower_zone_types.dart';
 import '../widgets/common/command_palette.dart';
+import '../services/command_registry.dart';
 import '../controllers/mixer/mixer_view_controller.dart';
 import '../controllers/mixer/spill_controller.dart';
 import '../models/mixer_view_models.dart';
@@ -421,7 +422,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   /// MIDDLEWARE SYNC: `compositeEvents` must be passed from build() where
   /// `context.watch[MiddlewareProvider]()` is called. This ensures UI rebuilds
   /// when layers are added/modified. Do NOT call context.watch inside this method.
-  List<ProjectTreeNode> _buildProjectTree(List<SlotCompositeEvent> compositeEvents) {
+  List<ProjectTreeNode> _buildProjectTree() {
     final List<ProjectTreeNode> tree = [];
 
     if (_editorMode == EditorMode.daw) {
@@ -540,41 +541,6 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                   data: file,
                 ))
             .toList(),
-      ));
-    }
-
-    // ========== EVENTS FOLDER — shared across DAW & Middleware ==========
-    // Composite events from SlotLab appear here in both modes.
-    // Drag & drop onto timeline to place; single-click only selects.
-    if (compositeEvents.isNotEmpty) {
-      final sortedEvents = sortEventsHierarchically(compositeEvents);
-      final categoryGroups = <String, List<SlotCompositeEvent>>{};
-      for (final event in sortedEvents) {
-        final cat = event.category.isEmpty ? 'general' : event.category;
-        categoryGroups.putIfAbsent(cat, () => []).add(event);
-      }
-      final orderedCats = sortCategoriesHierarchically(categoryGroups.keys);
-      tree.add(ProjectTreeNode(
-        id: 'events',
-        type: TreeItemType.folder,
-        label: 'Events',
-        count: compositeEvents.length,
-        children: orderedCats.expand((cat) {
-          final catEvents = categoryGroups[cat]!;
-          return [
-            ProjectTreeNode(
-              id: 'evt-cat-$cat',
-              type: TreeItemType.folder,
-              label: '${cat[0].toUpperCase()}${cat.substring(1)}',
-              count: catEvents.length,
-              children: catEvents.map((event) => ProjectTreeNode(
-                id: 'evt-${event.id}',
-                type: TreeItemType.event,
-                label: '${event.name} (${event.layers.length})',
-              )).toList(),
-            ),
-          ];
-        }).toList(),
       ));
     }
 
@@ -2318,7 +2284,10 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     if (batch == null) return;
 
     _handleMwSyncBatch(batch);
-    // Mute newly added event's engine tracks if another event is selected
+    // Auto-select this event so only IT plays (mute all other placed events)
+    setState(() {
+      _currentEventId = folder.eventId;
+    });
     _syncEngineTrackMutesForEventFilter();
     _showSnackBar('Added ${folder.name} (${folder.layers.length} layers)');
   }
@@ -5358,7 +5327,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             editorMode: _editorMode,
 
             // Left zone - mode-aware tree (pass compositeEvents for proper Provider listening)
-            projectTree: _buildProjectTree(middlewareProvider.compositeEvents),
+            projectTree: _buildProjectTree(),
             activeLeftTab: _activeLeftTab,
             onLeftTabChange: (tab) => setState(() => _activeLeftTab = tab),
             onProjectSelect: _handlePoolItemClick,
@@ -6180,20 +6149,25 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         allSubTabs.add((superTab: st, subIdx: idx, label: t.label, tooltip: t.tooltip, icon: t.icon));
       }
     }
-    final commands = allSubTabs.map((t) => Command(
-      label: '${t.superTab.category} > ${t.label}',
-      description: t.tooltip,
-      icon: t.icon,
-      onExecute: () {
-        _dawLowerZoneController.setSuperTabIndex(t.superTab.index);
-        _dawLowerZoneController.setSubTabIndex(t.subIdx);
-        if (!_dawLowerZoneController.isExpanded) {
-          _dawLowerZoneController.toggle();
-        }
-      },
-      keywords: [t.superTab.label, t.superTab.category, t.label],
-    )).toList();
-    CommandPalette.show(context, commands);
+    // Register tab navigation commands into CommandRegistry
+    for (final t in allSubTabs) {
+      CommandRegistry.instance.register(PaletteCommand(
+        id: 'daw.tab.${t.superTab.name}.${t.subIdx}',
+        label: '${t.superTab.category} > ${t.label}',
+        description: t.tooltip,
+        category: PaletteCategory.navigate,
+        icon: t.icon,
+        keywords: [t.superTab.label, t.superTab.category, t.label],
+        onExecute: () {
+          _dawLowerZoneController.setSuperTabIndex(t.superTab.index);
+          _dawLowerZoneController.setSubTabIndex(t.subIdx);
+          if (!_dawLowerZoneController.isExpanded) {
+            _dawLowerZoneController.toggle();
+          }
+        },
+      ));
+    }
+    CommandPalette.showUltimate(context);
   }
 
   /// Lower tabs with live metering — watches EngineProvider so meters
