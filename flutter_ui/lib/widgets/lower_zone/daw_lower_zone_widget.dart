@@ -55,6 +55,7 @@ import 'daw/edit/strip_silence_panel.dart';
 import 'daw/edit/dynamic_split_panel.dart';
 import 'daw/edit/ucs_naming_panel.dart';
 import 'daw/edit/cycle_actions_panel.dart';
+import 'daw/edit/region_playlist_panel.dart';
 import '../panels/loop_editor_panel.dart';
 import 'daw/edit/video_panel.dart';
 // ✅ P0.1: Extracted MIX panels
@@ -775,6 +776,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.loopEditor => _buildLoopEditorPanel(),
       DawEditSubTab.video => _buildVideoPanel(),
       DawEditSubTab.cycleActions => _buildCycleActionsPanel(),
+      DawEditSubTab.regionPlaylist => _buildRegionPlaylistPanel(),
     };
   }
 
@@ -1014,6 +1016,7 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
       DawEditSubTab.loopEditor => _buildLoopEditorPanel(),
       DawEditSubTab.video => _buildVideoPanel(),
       DawEditSubTab.cycleActions => _buildCycleActionsPanel(),
+      DawEditSubTab.regionPlaylist => _buildRegionPlaylistPanel(),
     };
   }
 
@@ -1108,6 +1111,11 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
 
   /// Cycle Actions — sequential action cycling (#25)
   Widget _buildCycleActionsPanel() => CycleActionsPanel(
+    onAction: widget.onDspAction,
+  );
+
+  /// Region Playlist — non-linear playback (#26)
+  Widget _buildRegionPlaylistPanel() => RegionPlaylistPanel(
     onAction: widget.onDspAction,
   );
 

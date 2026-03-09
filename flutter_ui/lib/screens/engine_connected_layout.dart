@@ -6380,6 +6380,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                 _showSnackBar('Loudness report exported');
               case 'cycleExecute':
                 // Cycle action executed — service handles internally
+              case 'regionPlaylistPlay':
+                // Region playlist playback — service handles internally
             }
           },
           // P0.2: Grid/Snap Settings

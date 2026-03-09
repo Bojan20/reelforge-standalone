@@ -293,6 +293,7 @@ class CommandRegistry {
     VoidCallback? onShowStemManager,
     VoidCallback? onShowLoudnessReport,
     VoidCallback? onShowCycleActions,
+    VoidCallback? onShowRegionPlaylist,
     VoidCallback? onShowMacroControls,
     VoidCallback? onShowClipGainEnvelope,
   }) {
@@ -1219,6 +1220,15 @@ class CommandRegistry {
         icon: Icons.replay,
         keywords: ['cycle', 'actions', 'sequential', 'step', 'macro', 'repeat'],
         onExecute: onShowCycleActions,
+      ),
+      PaletteCommand(
+        id: 'tools.region_playlist',
+        label: 'Region Playlist',
+        description: 'Non-linear playback — define region order independently of timeline',
+        category: PaletteCategory.tools,
+        icon: Icons.playlist_play,
+        keywords: ['region', 'playlist', 'non-linear', 'playback', 'order', 'sequence'],
+        onExecute: onShowRegionPlaylist,
       ),
 
       // ─── ADVANCED PANELS ──────────────────────────────────────────────────

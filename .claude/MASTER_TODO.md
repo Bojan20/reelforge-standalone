@@ -37,7 +37,7 @@ Analyzer: 0 errors, 0 warnings
 | # | Feature | Status | Opis | Složenost |
 |---|---------|--------|------|-----------|
 | 25 | **Cycle Actions** | ✅ DONE | Svaki poziv izvršava sledeći korak u ciklusu. Kondicionalni (if/then). Proširenje FluxMacro. | Niska |
-| 26 | **Region Playlist** | ❌ TODO | Non-linearni playback. Definiši redosled regiona nezavisno od timeline pozicije. Loop per-region. Smooth seek. | Srednja |
+| 26 | **Region Playlist** | ✅ DONE | Non-linearni playback. Definiši redosled regiona nezavisno od timeline pozicije. Loop per-region. Smooth seek. | Srednja |
 | 27 | **Marker Actions** | ❌ TODO | Akcije vezane za timeline pozicije. Trigger kad play cursor pređe marker. `!` + action ID u imenu markera. | Niska |
 | 28 | **Granular Synthesis** | ❌ TODO | ReaGranular-style: 4 grain-a, min/max size, per-grain pan/level, random varijacije, freeze mode. | Srednja |
 | 29 | **ReaStream (Network Audio)** | ❌ TODO | Host-to-host streaming audio/MIDI na LAN-u. UDP broadcast. Multi-channel. | Visoka |
