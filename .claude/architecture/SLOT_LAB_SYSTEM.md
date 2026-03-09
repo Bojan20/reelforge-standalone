@@ -1,2007 +1,361 @@
-# FluxForge Slot Lab — Complete System Documentation
+# FluxForge Slot Lab — System Documentation
 
 > Synthetic Slot Engine za audio dizajn i testiranje slot igara.
 
-**Related Documentation:**
-- [SLOTLAB_DROP_ZONE_SPEC.md](./SLOTLAB_DROP_ZONE_SPEC.md) — Drag-drop audio na mockup elemente
-- [SLOTLAB_AUTO_EVENT_BUILDER_FINAL.md](./SLOTLAB_AUTO_EVENT_BUILDER_FINAL.md) — Auto Event Builder specifikacija
+**Related:**
 - [EVENT_SYNC_SYSTEM.md](./EVENT_SYNC_SYSTEM.md) — Bidirekciona sinhronizacija eventa
-- [GDD_IMPORT_SYSTEM.md](./GDD_IMPORT_SYSTEM.md) — GDD import + fullscreen preview
-- [SLOT_PREVIEW_MODE.md](./SLOT_PREVIEW_MODE.md) — Premium fullscreen preview mode
-- [ANTICIPATION_SYSTEM.md](./ANTICIPATION_SYSTEM.md) — Industry-standard anticipation sa per-reel tension levels
 
 ---
 
 ## Overview
 
-Slot Lab je fullscreen audio sandbox za slot game audio dizajn. Kombinuje:
+Slot Lab je fullscreen audio sandbox za slot game audio dizajn:
 - **Synthetic Slot Engine** (rf-slot-lab) — Generisanje slot spinova, wins, stages
 - **Stage-Based Audio Triggering** — Automatski audio eventi na osnovu stage-ova
 - **Wwise/FMOD-Style Middleware** — Bus routing, RTPC, State/Switch
 - **Premium UI/UX** — Casino-grade vizuali, animacije, real-time feedback
-- **GDD Import** — Import Game Design Document i automatsko otvaranje fullscreen preview-a
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        FLUTTER UI (Slot Lab Screen)                         │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐│
-│  │ StageTrace  │  │ SlotPreview │  │ EventLog    │  │ ForcedOutcomePanel ││
-│  │ Widget      │  │ Widget      │  │ Panel       │  │                     ││
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └──────────┬──────────┘│
-│         │                │                │                     │           │
-│         └────────────────┴────────────────┴─────────────────────┤           │
-│                                                                 │           │
-│  ┌──────────────────────────────────────────────────────────────▼─────────┐│
-│  │                     SlotLabProvider (ChangeNotifier)                    ││
-│  │  - spin() / spinForced()                                                ││
-│  │  - lastResult: SlotLabSpinResult                                        ││
-│  │  - lastStages: List<SlotLabStageEvent>                                  ││
-│  │  - isPlayingStages / currentStageIndex                                  ││
-│  │  - _playStagesSequentially() → triggers MiddlewareProvider              ││
-│  └─────────────────────────────────────────────────────────────────────────┘│
-│                                      │                                       │
-└──────────────────────────────────────┼───────────────────────────────────────┘
-                                       │ FFI
-                                       ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        RUST (rf-bridge/slot_lab_ffi.rs)                      │
-│  - slot_lab_init() / slot_lab_shutdown()                                     │
-│  - slot_lab_spin() / slot_lab_spin_forced(outcome)                           │
-│  - slot_lab_get_spin_result_json() → SlotLabSpinResult                       │
-│  - slot_lab_get_stages_json() → List<SlotLabStageEvent>                      │
-│  - Global state: SLOT_ENGINE, LAST_RESULT, LAST_STAGES                       │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                       │
-                                       ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         RUST (rf-slot-lab crate)                             │
-│  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────────────────┐ │
-│  │ engine.rs  │  │ symbols.rs │  │ paytable.rs│  │ timing.rs              │ │
-│  │ - spin()   │  │ - SymbolSet│  │ - evaluate │  │ - TimingProfile        │ │
-│  │ - forced   │  │ - ReelStrip│  │ - LineWin  │  │ - generate_timestamps  │ │
-│  └────────────┘  └────────────┘  └────────────┘  └────────────────────────┘ │
-│  ┌────────────┐  ┌────────────┐  ┌────────────────────────────────────────┐ │
-│  │ config.rs  │  │ spin.rs    │  │ stages.rs                              │ │
-│  │ - GridSpec │  │ - SpinResult│ │ - StageEvent enum                      │ │
-│  │ - Volatility│ │ - SpinInput│  │ - generate_stages()                    │ │
-│  └────────────┘  └────────────┘  └────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────┘
+Flutter UI (Slot Lab Screen)
+    │
+    ▼
+SlotLabCoordinator (ChangeNotifier)
+  - spin() / spinForced()
+  - lastResult, lastStages
+  - _playStagesSequentially() → triggers EventRegistry
+    │
+    │ FFI
+    ▼
+Rust (rf-bridge/slot_lab_ffi.rs)
+  - slot_lab_init/shutdown/spin/spin_forced
+  - slot_lab_get_spin_result_json / get_stages_json
+    │
+    ▼
+Rust (rf-slot-lab crate)
+  - engine.rs, symbols.rs, paytable.rs, timing.rs, spin.rs, stages.rs, config.rs
 ```
 
 ---
 
 ## Rust Crate: rf-slot-lab
 
-### Location
-```
-crates/rf-slot-lab/
-├── Cargo.toml
-└── src/
-    ├── lib.rs           # Public exports
-    ├── engine.rs        # SyntheticSlotEngine — main logic
-    ├── config.rs        # GridSpec, VolatilityProfile
-    ├── symbols.rs       # SymbolSet, ReelStrip, Symbol
-    ├── paytable.rs      # Paytable, Payline, LineWin
-    ├── timing.rs        # TimingProfile, timestamp generation
-    ├── spin.rs          # SpinResult, SpinInput
-    └── stages.rs        # StageEvent enum, stage generation
-```
+**Location:** `crates/rf-slot-lab/src/`
 
 ### Key Types
 
-```rust
-/// Synthetic Slot Engine
-pub struct SyntheticSlotEngine {
-    config: SlotConfig,
-    symbols: SymbolSet,
-    paytable: Paytable,
-    timing: TimingProfile,
-    rng: StdRng,
-    stats: SessionStats,
-}
-
-/// Spin result with all data
-pub struct SpinResult {
-    pub spin_id: String,
-    pub grid: Vec<Vec<u8>>,           // [reel][row] symbol IDs
-    pub bet: f64,
-    pub total_win: f64,
-    pub win_ratio: f64,
-    pub line_wins: Vec<LineWin>,
-    pub big_win_tier: Option<WinTier>,
-    pub feature_triggered: Option<FeatureType>,
-    pub near_miss: bool,
-    pub cascades: Vec<CascadeStep>,
-    pub free_spin_info: Option<FreeSpinInfo>,
-    pub multiplier: f64,
-}
-
-/// Stage event for audio triggering
-pub struct StageEvent {
-    pub stage_type: StageType,
-    pub timestamp_ms: f64,
-    pub payload: HashMap<String, serde_json::Value>,
-}
-
-/// Stage types
-pub enum StageType {
-    SpinStart,
-    ReelSpinning { reel_index: u8 },
-    ReelStop { reel_index: u8, symbols: Vec<u8> },
-    AnticipationOn { reel_index: u8, reason: Option<String> },
-    AnticipationOff { reel_index: u8 },
-    // NEW: Per-reel tension layer for industry-standard anticipation
-    AnticipationTensionLayer {
-        reel_index: u8,
-        tension_level: u8,      // 1-4 (L1=Gold, L2=Orange, L3=RedOrange, L4=Red)
-        reason: Option<String>, // "scatter", "bonus", "wild", "jackpot", "near_miss"
-        progress: f32,          // 0.0-1.0 progress through anticipation
-    },
-    EvaluateWins,
-    WinPresent { amount: f64, line_count: u8 },
-    WinLineShow { line_index: u8, symbol_count: u8 },
-    RollupStart { amount: f64 },
-    RollupTick { current: f64, target: f64 },
-    RollupEnd { amount: f64 },
-    BigWinTier { tier: WinTier },
-    FeatureEnter { feature: FeatureType },
-    FeatureStep { step: u8 },
-    FeatureExit,
-    CascadeStart,
-    CascadeStep { step: u8 },
-    CascadeEnd { total_steps: u8 },
-    JackpotTrigger { tier: JackpotTier },
-    JackpotPresent { amount: f64 },
-    SpinEnd,
-}
-
-/// Forced outcome for testing
-pub enum ForcedOutcome {
-    Lose,
-    SmallWin,
-    MediumWin,
-    BigWin,
-    MegaWin,
-    EpicWin,
-    UltraWin,
-    FreeSpins,
-    JackpotMini,
-    JackpotMinor,
-    JackpotMajor,
-    JackpotGrand,
-    NearMiss,
-    Cascade,
-}
-```
+- **SyntheticSlotEngine** — config, symbols, paytable, timing, rng, stats
+- **SpinResult** — spin_id, grid, bet, total_win, win_ratio, line_wins, big_win_tier, feature_triggered, near_miss, cascades, free_spin_info, multiplier
+- **StageEvent** — stage_type, timestamp_ms, payload
+- **StageType** — SpinStart, ReelSpinning, ReelStop, AnticipationOn/Off, AnticipationTensionLayer, EvaluateWins, WinPresent, WinLineShow, RollupStart/Tick/End, BigWinTier, FeatureEnter/Step/Exit, CascadeStart/Step/End, JackpotTrigger/Present, SpinEnd
+- **ForcedOutcome** — Lose, SmallWin, MediumWin, BigWin, MegaWin, EpicWin, UltraWin, FreeSpins, JackpotMini/Minor/Major/Grand, NearMiss, Cascade
 
 ### Volatility Profiles
 
-```rust
-pub struct VolatilityProfile {
-    pub name: String,
-    pub rtp: f64,                    // 0.92 - 0.97
-    pub hit_rate: f64,               // 0.20 - 0.40
-    pub big_win_threshold: f64,      // 10x bet
-    pub mega_win_threshold: f64,     // 25x bet
-    pub epic_win_threshold: f64,     // 50x bet
-    pub max_win_cap: f64,            // 5000x - 25000x
-    pub near_miss_frequency: f64,    // 0.05 - 0.15
-    pub feature_frequency: f64,      // 0.01 - 0.05
-}
-
-// Presets
-VolatilityProfile::low()     // RTP 96%, Hit 35%, Max 5000x
-VolatilityProfile::medium()  // RTP 95%, Hit 28%, Max 10000x
-VolatilityProfile::high()    // RTP 94%, Hit 22%, Max 25000x
-VolatilityProfile::studio()  // RTP 100%, Hit 50%, Max 1000x (testing)
-```
+| Preset | RTP | Hit Rate | Max Win |
+|--------|-----|----------|---------|
+| low | 96% | 35% | 5000x |
+| medium | 95% | 28% | 10000x |
+| high | 94% | 22% | 25000x |
+| studio | 100% | 50% | 1000x (testing) |
 
 ### Timing Profiles
 
-```rust
-pub struct TimingProfile {
-    pub name: String,
-    pub spin_start_delay_ms: u32,
-    pub reel_spin_duration_ms: u32,
-    pub reel_stop_interval_ms: u32,
-    pub anticipation_duration_ms: u32,
-    pub win_present_delay_ms: u32,
-    pub rollup_speed_per_100_ms: f64,
-    pub feature_enter_delay_ms: u32,
-    pub anticipation: AnticipationConfig,  // NEW: Per-reel anticipation settings
-}
-
-// Presets
-TimingProfile::normal()  // Standard casino timing
-TimingProfile::turbo()   // 2x speed
-TimingProfile::mobile()  // Shorter animations
-TimingProfile::studio()  // Minimal delays for audio testing
-```
+Presets: `normal()`, `turbo()`, `mobile()`, `studio()`
 
 ### Anticipation Config
 
-Industry-standard anticipation konfiguracija (vidi [ANTICIPATION_SYSTEM.md](./ANTICIPATION_SYSTEM.md)):
+Per-reel anticipation sa tension level escalation (L1-L4).
 
-```rust
-pub struct AnticipationConfig {
-    pub min_scatters_to_trigger: u8,      // Default: 2
-    pub duration_per_reel_ms: u32,        // Default: 1500ms
-    pub base_intensity: f32,              // Default: 0.7
-    pub escalation_factor: f32,           // Default: 0.15
-    pub tension_layer_count: u8,          // Default: 4 (L1-L4)
-    pub speed_multiplier: f32,            // Default: 0.3
-    pub audio_pre_trigger_ms: u32,        // Default: 50ms
-    pub enable_color_progression: bool,   // Default: true
-    pub enable_particles: bool,           // Default: true
-    pub enable_vignette: bool,            // Default: true
-}
-
-// Presets
-AnticipationConfig::default()       // Standard settings
-AnticipationConfig::high_tension()  // More dramatic anticipation
-```
-
-**Tension Level Colors:**
-| Level | Color | Hex | Volume | Pitch |
-|-------|-------|-----|--------|-------|
-| L1 | Gold | #FFD700 | 0.6x | +1st |
-| L2 | Orange | #FFA500 | 0.7x | +2st |
-| L3 | Red-Orange | #FF6347 | 0.8x | +3st |
-| L4 | Red | #FF4500 | 0.9x | +4st |
+| Level | Color | Volume | Pitch |
+|-------|-------|--------|-------|
+| L1 | Gold #FFD700 | 0.6x | +1st |
+| L2 | Orange #FFA500 | 0.7x | +2st |
+| L3 | Red-Orange #FF6347 | 0.8x | +3st |
+| L4 | Red #FF4500 | 0.9x | +4st |
 
 ---
 
 ## FFI Bridge: slot_lab_ffi.rs
 
-### Location
-```
-crates/rf-bridge/src/slot_lab_ffi.rs
-```
+**Location:** `crates/rf-bridge/src/slot_lab_ffi.rs`
 
 ### Global State
 
-```rust
-static INITIALIZED: AtomicBool = AtomicBool::new(false);
-static SPIN_COUNT: AtomicU64 = AtomicU64::new(0);
-
-static SLOT_ENGINE: Lazy<RwLock<Option<SyntheticSlotEngine>>> =
-    Lazy::new(|| RwLock::new(None));
-
-static LAST_RESULT: Lazy<RwLock<Option<SpinResult>>> =
-    Lazy::new(|| RwLock::new(None));
-
-static LAST_STAGES: Lazy<RwLock<Vec<StageEvent>>> =
-    Lazy::new(|| RwLock::new(Vec::new()));
-```
+- `SLOT_ENGINE: Lazy<RwLock<Option<SyntheticSlotEngine>>>`
+- `LAST_RESULT: Lazy<RwLock<Option<SpinResult>>>`
+- `LAST_STAGES: Lazy<RwLock<Vec<StageEvent>>>`
 
 ### Exported Functions
 
-```rust
-// Lifecycle
-pub extern "C" fn slot_lab_init() -> i32
-pub extern "C" fn slot_lab_init_audio_test() -> i32  // Studio profile
-pub extern "C" fn slot_lab_shutdown()
-pub extern "C" fn slot_lab_is_initialized() -> i32
+| Category | Functions |
+|----------|-----------|
+| Lifecycle | `slot_lab_init()`, `slot_lab_init_audio_test()`, `slot_lab_shutdown()`, `slot_lab_is_initialized()` |
+| Spin | `slot_lab_spin()`, `slot_lab_spin_forced(outcome: i32)` |
+| Results | `slot_lab_get_spin_result_json()`, `slot_lab_get_stages_json()`, `slot_lab_get_stats_json()` |
+| Accessors | `slot_lab_last_spin_is_win()`, `_total_win()`, `_win_ratio()`, `_cascade_count()` |
+| Config | `slot_lab_set_bet()`, `slot_lab_set_volatility()`, `slot_lab_set_timing_profile()` |
+| Memory | `slot_lab_free_string()` |
 
-// Spin
-pub extern "C" fn slot_lab_spin() -> i32
-pub extern "C" fn slot_lab_spin_forced(outcome: i32) -> i32
+### Outcome Mapping (i32)
 
-// Results
-pub extern "C" fn slot_lab_get_spin_result_json() -> *mut c_char
-pub extern "C" fn slot_lab_get_stages_json() -> *mut c_char
-pub extern "C" fn slot_lab_get_stats_json() -> *mut c_char
-
-// Accessors
-pub extern "C" fn slot_lab_last_spin_is_win() -> i32
-pub extern "C" fn slot_lab_last_spin_total_win() -> f64
-pub extern "C" fn slot_lab_last_spin_win_ratio() -> f64
-pub extern "C" fn slot_lab_last_spin_cascade_count() -> i32
-
-// Configuration
-pub extern "C" fn slot_lab_set_bet(amount: f64)
-pub extern "C" fn slot_lab_set_volatility(level: i32)
-pub extern "C" fn slot_lab_set_timing_profile(profile: i32)
-
-// Memory
-pub extern "C" fn slot_lab_free_string(ptr: *mut c_char)
-```
-
-### Outcome Mapping (i32 → ForcedOutcome)
-
-```
-0  → Lose
-1  → SmallWin
-2  → MediumWin
-3  → BigWin
-4  → MegaWin
-5  → EpicWin
-6  → UltraWin
-7  → FreeSpins
-8  → JackpotMini
-9  → JackpotMinor
-10 → JackpotMajor
-11 → JackpotGrand
-12 → NearMiss
-13 → Cascade
-```
+0=Lose, 1=SmallWin, 2=MediumWin, 3=BigWin, 4=MegaWin, 5=EpicWin, 6=UltraWin, 7=FreeSpins, 8-11=Jackpot(Mini/Minor/Major/Grand), 12=NearMiss, 13=Cascade
 
 ---
 
-## Flutter: SlotLabProvider
+## Flutter: Provider Hierarchy
 
-### Location
-```
-flutter_ui/lib/providers/slot_lab_provider.dart
-```
+**IMPORTANT:** `SlotLabProvider` u `providers/slot_lab_provider.dart` je MRTAV KOD. `typedef SlotLabProvider = SlotLabCoordinator;` u `slot_lab_coordinator.dart`.
+
+P12.1.7 decomposition:
+- `SlotEngineProvider` — `spin()` (line 391)
+- `SlotStageProvider` — `_triggerStage()` (line 590)
+- `SlotAudioProvider` — audio integration
 
 ### Key State
 
-```dart
-class SlotLabProvider extends ChangeNotifier {
-  // Engine state
-  bool _initialized = false;
-  bool _isSpinning = false;
-
-  // Last spin data
-  SlotLabSpinResult? _lastResult;
-  List<SlotLabStageEvent> _lastStages = [];
-
-  // Stage playback
-  int _currentStageIndex = 0;
-  bool _isPlayingStages = false;
-  Timer? _stagePlaybackTimer;
-
-  // Configuration
-  double _betAmount = 1.0;
-  bool _autoTriggerAudio = true;
-
-  // Connected providers
-  MiddlewareProvider? _middleware;
-  StageAudioMapper? _audioMapper;
-
-  // Stats
-  SlotLabStats? _stats;
-}
-```
-
-### Public API
-
-```dart
-// Lifecycle
-bool initialize({bool audioTestMode = false})
-void shutdown()
-
-// Spinning
-Future<SlotLabSpinResult?> spin()
-Future<SlotLabSpinResult?> spinForced(ForcedOutcome outcome)
-
-// Configuration
-void setBetAmount(double amount)
-void setVolatility(int level)  // 0-3
-void setTimingProfile(int profile)  // 0-3
-
-// Connection
-void connectMiddleware(MiddlewareProvider middleware)
-void connectAudioMapper(StageAudioMapper mapper)
-
-// Manual control
-void triggerStageManually(int stageIndex)
-void stopStagePlayback()
-
-// Getters
-SlotLabSpinResult? get lastResult
-List<SlotLabStageEvent> get lastStages
-bool get isPlayingStages
-int get currentStageIndex
-List<List<int>>? get currentGrid
-bool get lastSpinWasWin
-double get lastWinAmount
-SlotLabWinTier? get lastBigWinTier
-SlotLabStats? get stats
-```
+- Engine: `_initialized`, `_isSpinning`
+- Spin data: `_lastResult`, `_lastStages`
+- Stage playback: `_currentStageIndex`, `_isPlayingStages`
+- Config: `_betAmount`, `_autoTriggerAudio`
+- Connected: `MiddlewareProvider`, `StageAudioMapper`
 
 ### Stage Playback Flow
 
 ```
-spin() called
-    ↓
-FFI: slot_lab_spin()
-    ↓
-_lastResult = slotLabGetSpinResult()
-_lastStages = slotLabGetStages()
-    ↓
-if (_autoTriggerAudio):
-    _playStagesSequentially()
-        ↓
-    for each stage:
-        _triggerStage(stage)
-            ↓
-        // Read reel_index from rawStage (NOT payload!)
-        reelIndex = stage.rawStage['reel_index']
-        effectiveStage = 'REEL_STOP_$reelIndex'  // e.g. REEL_STOP_0
-            ↓
-        eventRegistry.triggerStage(effectiveStage)
-            ↓
-        wait for (nextStage.timestamp - currentStage.timestamp)
+spin() → FFI slot_lab_spin() → parse result/stages
+  → if autoTriggerAudio: _playStagesSequentially()
+    → for each stage: _triggerStage(stage)
+      → reelIndex from stage.rawStage['reel_index']
+      → effectiveStage = 'REEL_STOP_$reelIndex'
+      → eventRegistry.triggerStage(effectiveStage)
+      → wait (nextStage.timestamp - currentStage.timestamp)
 ```
 
 ---
 
-## Flutter: Data Models
+## Data Models
 
-### Location
-```
-flutter_ui/lib/src/rust/native_ffi.dart (lines 13860-14300)
-```
-
-### SlotLabSpinResult
-
-```dart
-class SlotLabSpinResult {
-  final String spinId;
-  final List<List<int>> grid;        // [reel][row] symbol IDs
-  final double bet;
-  final double totalWin;
-  final double winRatio;
-  final List<LineWin> lineWins;
-  final SlotLabWinTier? bigWinTier;
-  final bool featureTriggered;
-  final bool nearMiss;
-  final bool isFreeSpins;
-  final int? freeSpinIndex;
-  final double multiplier;
-  final int cascadeCount;
-
-  bool get isWin => totalWin > 0;
-}
-```
+**Location:** `flutter_ui/lib/src/rust/native_ffi.dart`
 
 ### SlotLabStageEvent
 
 ```dart
 class SlotLabStageEvent {
-  final String stageType;            // 'spin_start', 'reel_stop', etc.
+  final String stageType;
   final double timestampMs;
-  final Map<String, dynamic> payload;  // win_amount, bet_amount, etc.
-  final Map<String, dynamic> rawStage; // reel_index, symbols, reason, etc.
+  final Map<String, dynamic> payload;   // General context (win amounts, bet)
+  final Map<String, dynamic> rawStage;  // Stage-specific fields from Rust
 }
-
-// CRITICAL: Stage-specific data is in rawStage, NOT payload!
-// - reel_index → stage.rawStage['reel_index']
-// - symbols    → stage.rawStage['symbols']
-// - reason     → stage.rawStage['reason']
-//
-// payload contains general context (win amounts, bet, etc.)
-// rawStage contains stage-type-specific fields from Rust rf-stage
-```
-
-### LineWin
-
-```dart
-class LineWin {
-  final int lineIndex;
-  final int symbolId;
-  final String symbolName;
-  final int matchCount;
-  final double winAmount;
-  final List<List<int>> positions;   // [[reel, row], ...]
-}
-```
-
-### ForcedOutcome Enum
-
-```dart
-enum ForcedOutcome {
-  lose(0),
-  smallWin(1),
-  mediumWin(2),
-  bigWin(3),
-  megaWin(4),
-  epicWin(5),
-  ultraWin(6),
-  freeSpins(7),
-  jackpotMini(8),
-  jackpotMinor(9),
-  jackpotMajor(10),
-  jackpotGrand(11),
-  nearMiss(12),
-  cascade(13);
-}
+// CRITICAL: Stage data is in rawStage, NOT payload!
+// reel_index, symbols, reason → stage.rawStage[...]
 ```
 
 ---
 
-## UI Widgets
-
-### Location
-```
-flutter_ui/lib/widgets/slot_lab/
-├── stage_trace_widget.dart
-├── slot_preview_widget.dart
-├── event_log_panel.dart
-├── audio_hover_preview.dart
-├── forced_outcome_panel.dart
-├── rtpc_editor_panel.dart
-├── bus_hierarchy_panel.dart
-├── profiler_panel.dart
-├── volatility_dial.dart
-├── scenario_controls.dart
-├── resources_panel.dart
-└── aux_sends_panel.dart
-```
-
-### StageTraceWidget
-
-Animirana vizualizacija stage eventa tokom spin playback-a.
-
-```dart
-class StageTraceWidget extends StatefulWidget {
-  final SlotLabProvider provider;
-  final double height;
-  final bool showMiniProgress;
-}
-```
-
-**Features:**
-- Horizontalna timeline sa stage markerima
-- Animirana playhead pozicija
-- Color-coded stage zone
-- Pulse efekti na aktivnim stages
-- Klik na marker za manuelni trigger
-
-**Stage Colors:**
-```dart
-'spin_start': Color(0xFF4A9EFF),     // Blue
-'reel_stop': Color(0xFF8B5CF6),       // Purple
-'anticipation_on': Color(0xFFFF9040), // Orange
-'win_present': Color(0xFF40FF90),     // Green
-'rollup_start': Color(0xFFFFD700),    // Gold
-'bigwin_tier': Color(0xFFFF4080),     // Pink
-'feature_enter': Color(0xFF40C8FF),   // Cyan
-'jackpot_trigger': Color(0xFFFFD700), // Gold
-```
-
-### SlotPreviewWidget
-
-Premium slot machine preview sa animacijama.
-
-```dart
-class SlotPreviewWidget extends StatefulWidget {
-  final SlotLabProvider provider;
-  final int reels;
-  final int rows;
-  final double reelWidth;
-  final double symbolHeight;
-  final bool showPaylines;
-  final bool showWinAmount;
-}
-```
-
-**Features:**
-- Grafički simboli sa gradient ikonama
-- Animated reel spinning sa blur efektom
-- Win line presentation sa `_WinLinePainter` (2026-01-24):
-  - Connecting lines through winning positions
-  - Glow + main line + white core + position dots
-  - Pulse animation, color based on win tier
-- Anticipation shake efekti
-- Animated win amount countup
-- STOP functionality (SPACE key or button click stops reels immediately)
-
-**Symbol Definitions (Dynamic Registry V9):**
-
-```dart
-class SlotSymbol {
-  // Dynamic symbols from GDD — takes priority when set
-  static Map<int, SlotSymbol> _dynamicSymbols = {};
-
-  // Set from GDD import
-  static void setDynamicSymbols(Map<int, SlotSymbol> symbols);
-  static void clearDynamicSymbols();
-
-  // Get effective symbols (dynamic if set, otherwise defaults)
-  static Map<int, SlotSymbol> get effectiveSymbols =>
-      _dynamicSymbols.isNotEmpty ? _dynamicSymbols : _defaultSymbols;
-
-  // Default symbols (fallback)
-  static const Map<int, SlotSymbol> _defaultSymbols = {
-    1: HP1 (7️⃣, pink gradient),
-    2: HP2 (▬, green gradient),
-    3: HP3 (🔔, yellow gradient),
-    4: HP4 (🍒, orange gradient),
-    5: LP1 (🍋, lime gradient),
-    6: LP2 (🍊, orange gradient),
-    7: LP3 (🍇, purple gradient),
-    8: LP4 (🍏, green gradient),
-    9: LP5 (🍓, red gradient),
-    10: LP6 (🫐, blue gradient),
-    11: WILD (★, gold gradient, isSpecial),
-    12: SCATTER (◆, magenta gradient, isSpecial),
-    13: BONUS (♦, cyan gradient, isSpecial),
-  };
-}
-
-// GDD Import populates dynamic symbols:
-// slot_lab_screen.dart:_populateSlotSymbolsFromGdd()
-// - Converts GddSymbol → SlotSymbol
-// - 70+ theme-based emoji mappings
-// - Tier-based color gradients
-```
-
-### SlotMiniPreview
-
-Kompaktni preview za header (100px).
-
-```dart
-class SlotMiniPreview extends StatelessWidget {
-  final SlotLabProvider provider;
-  final double size;
-}
-```
-
-### EventLogPanel
-
-Real-time log svih triggered audio eventa.
-
-```dart
-class EventLogPanel extends StatefulWidget {
-  final SlotLabProvider slotLabProvider;
-  final MiddlewareProvider middlewareProvider;
-  final double height;
-  final int maxEntries;  // Default 500
-}
-```
-
-**Features:**
-- Timestamped entries (HH:MM:SS.mmm)
-- Color-coded tipovi (Stage, Middleware, RTPC, State, Audio, Error)
-- Filter po event tipu
-- Search funkcionalnost
-- Auto-scroll sa pause opcijom
-- Export to clipboard
-
-**Event Types:**
-```dart
-enum EventLogType {
-  stage,      // Blue
-  middleware, // Orange
-  rtpc,       // Green
-  state,      // Purple
-  audio,      // Cyan
-  error,      // Red
-}
-```
-
-### ForcedOutcomePanel
-
-Prominentni test buttons za forced outcomes.
-
-```dart
-class ForcedOutcomePanel extends StatefulWidget {
-  final SlotLabProvider provider;
-  final double height;
-  final bool showHistory;
-  final bool compact;
-}
-```
-
-**Features:**
-- Vizualni outcome selectors sa gradient ikonama
-- 10 outcome tipova: LOSE, SMALL, BIG, MEGA, EPIC, FREE SPINS, JACKPOT, NEAR MISS, CASCADE, ULTRA
-- One-click testing
-- Keyboard shortcuts (1-0)
-- History prikaz sa win amounts
-
-**Keyboard Shortcuts:**
-```
-1 → Lose
-2 → Small Win
-3 → Big Win
-4 → Mega Win
-5 → Epic Win
-6 → Free Spins
-7 → Jackpot (Grand)
-8 → Near Miss
-9 → Cascade
-0 → Ultra Win
-```
-
-### QuickOutcomeBar
-
-Kompaktna horizontalna verzija za brzi pristup.
-
-```dart
-class QuickOutcomeBar extends StatelessWidget {
-  final SlotLabProvider provider;
-  final double height;
-}
-```
-
-### AudioBrowserItem / AudioBrowserPanel
-
-Audio browser sa hover preview.
-
-```dart
-class AudioBrowserItem extends StatefulWidget {
-  final AudioFileInfo audioInfo;
-  final bool isSelected;
-  final bool isPlaying;
-  // ...callbacks
-}
-
-class AudioBrowserPanel extends StatefulWidget {
-  final List<AudioFileInfo> audioFiles;
-  // ...callbacks
-}
-```
-
-**Features:**
-- Mini waveform display
-- Play on hover (500ms delay)
-- Quick play/stop controls
-- Duration i format info
-- Drag-to-timeline support
-- Search i format filter
-
----
-
-## Stage → Audio Event Mapping
-
-### Stage to Middleware Event IDs
-
-```dart
-// In SlotLabProvider._mapStageToEventId()
-'spin_start'      → 'slot_spin_start'
-'reel_spinning'   → 'slot_reel_spin'
-'reel_stop'       → 'slot_reel_stop'
-'anticipation_on' → 'slot_anticipation'
-'win_present'     → 'slot_win_present'
-'win_line_show'   → 'slot_win_line'
-'rollup_start'    → 'slot_rollup_start'
-'rollup_tick'     → 'slot_rollup_tick'
-'rollup_end'      → 'slot_rollup_end'
-'bigwin_tier'     → 'slot_bigwin_{tier}'
-'feature_enter'   → 'slot_feature_enter'
-'feature_step'    → 'slot_feature_step'
-'feature_exit'    → 'slot_feature_exit'
-'cascade_start'   → 'slot_cascade_start'
-'cascade_step'    → 'slot_cascade_step'
-'cascade_end'     → 'slot_cascade_end'
-'jackpot_trigger' → 'slot_jackpot_trigger'
-'jackpot_present' → 'slot_jackpot_present'
-'spin_end'        → 'slot_spin_end'
-```
-
-### Context Data Passed to Middleware
-
-```dart
-Map<String, dynamic> _buildStageContext(SlotLabStageEvent stage) {
-  return {
-    'stage_type': stage.stageType,
-    'timestamp_ms': stage.timestampMs,
-    'win_amount': _lastResult?.totalWin,
-    'win_ratio': _lastResult?.winRatio,
-    'is_win': _lastResult?.isWin,
-    'bet_amount': _betAmount,
-    ...stage.payload,
-  };
-}
-```
-
----
-
-## Integration Points
-
-### Slot Lab Screen Integration
-
-```dart
-// In slot_lab_screen.dart
-
-// Header - Mini preview
-SlotMiniPreview(provider: _slotLabProvider, size: 100)
-
-// Center - Stage progress bar above slot
-StageProgressBar(provider: _slotLabProvider, height: 28)
-
-// Bottom Panel - Timeline tab
-StageTraceWidget(provider: _slotLabProvider, height: 100)
-ForcedOutcomePanel(provider: _slotLabProvider)
-
-// Bottom Panel - Event Log tab
-EventLogPanel(
-  slotLabProvider: _slotLabProvider,
-  middlewareProvider: middleware,
-)
-```
-
-### Provider Registration
-
-```dart
-// In main.dart
-MultiProvider(
-  providers: [
-    ChangeNotifierProvider(create: (_) => SlotLabProvider()),
-    ChangeNotifierProvider(create: (_) => MiddlewareProvider()),
-    // ...
-  ],
-)
-```
-
----
-
-## Testing
-
-### Rust Tests
-
-```bash
-cargo test -p rf-slot-lab
-# 20 tests:
-# - engine::tests::test_basic_spin
-# - engine::tests::test_forced_win
-# - engine::tests::test_forced_loss
-# - engine::tests::test_stage_generation
-# - engine::tests::test_volatility_slider
-# - engine::tests::test_free_spins_trigger
-# - engine::tests::test_session_stats
-# - paytable::tests::test_paytable_evaluate
-# - paytable::tests::test_payline_straight
-# - symbols::tests::test_standard_symbol_set
-# - symbols::tests::test_reel_strip_wrap
-# - symbols::tests::test_symbol_pay
-# - timing::tests::test_timing_profiles
-# - timing::tests::test_timestamp_generator
-# - timing::tests::test_rollup_duration
-# - config::tests::test_grid_spec
-# - config::tests::test_volatility_interpolate
-# - spin::tests::test_spin_result_stages
-# - spin::tests::test_forced_outcome
-```
-
-### FFI Tests
-
-```bash
-cargo test -p rf-bridge slot_lab
-# 2 tests:
-# - test_slot_lab_lifecycle
-# - test_forced_outcomes
-```
-
-### Flutter Analyze
-
-```bash
-cd flutter_ui && flutter analyze
-# Expected: 0 errors, 2 info (unrelated to slot lab)
-```
-
----
-
-## Usage Example
-
-### Basic Spin Flow
-
-```dart
-// 1. Initialize
-final provider = context.read<SlotLabProvider>();
-provider.initialize(audioTestMode: true);
-
-// 2. Connect middleware for audio
-provider.connectMiddleware(context.read<MiddlewareProvider>());
-
-// 3. Spin
-await provider.spin();
-
-// 4. Access results
-final result = provider.lastResult;
-print('Win: ${result?.totalWin}');
-print('Stages: ${provider.lastStages.length}');
-
-// 5. Stages play automatically with audio triggers
-// Or manually:
-provider.triggerStageManually(0);
-```
-
-### Forced Outcome Testing
-
-```dart
-// Test specific outcomes
-await provider.spinForced(ForcedOutcome.bigWin);
-await provider.spinForced(ForcedOutcome.freeSpins);
-await provider.spinForced(ForcedOutcome.jackpotGrand);
-await provider.spinForced(ForcedOutcome.nearMiss);
-```
-
----
-
-## Implemented Audio Features (P0/P1) — January 2026
-
-### P0.3: Per-Voice Pan in FFI ✅
-
-Omogućava spatial panning za svaki audio voice.
-
-**Promene:**
-- `crates/rf-engine/src/playback.rs`: `OneShotVoice` ima `pan: f32` field, equal-power panning u `fill_buffer()`
-- `crates/rf-engine/src/ffi.rs`: `engine_playback_play_to_bus()` prima pan parametar
-- `flutter_ui/lib/src/rust/native_ffi.dart`: FFI binding ažuriran
-- `flutter_ui/lib/services/audio_playback_service.dart`: `playFileToBus()` ima pan
-- `flutter_ui/lib/services/audio_pool.dart`: `acquire()` ima pan, `lastPan` tracking
-
-**Equal-Power Formula:**
-```rust
-let pan_norm = (pan + 1.0) * 0.5; // -1..+1 → 0..1
-let pan_l = (1.0 - pan_norm) * PI * 0.5).cos();
-let pan_r = (pan_norm * PI * 0.5).sin();
-```
-
----
-
-### P0.5: Dynamic Rollup Speed ✅
-
-RTPC-kontrolisana brzina rollup-a.
-
-**Promene:**
-- `flutter_ui/lib/services/rtpc_modulation_service.dart`: `getRollupSpeedMultiplier()`
-- `flutter_ui/lib/providers/slot_lab_provider.dart`: `_scheduleNextStage()` primenjuje multiplier
-
-**Formula:**
-```dart
-// RTPC ID 106 = Rollup_Speed (0.0-1.0)
-// 0.0 → 0.25x (slow), 0.5 → 1.0x (normal), 1.0 → 4.0x (fast)
-return 0.25 * pow(16.0, normalizedRtpc);
-```
-
----
-
-### P0.6: Anticipation Pre-Trigger ✅
-
-Audio anticipation počinje pre vizuala za bolju sinhronizaciju.
-
-**Promene:**
-- `flutter_ui/lib/providers/slot_lab_provider.dart`:
-  - `_anticipationPreTriggerMs` config (default 50ms)
-  - `_audioPreTriggerTimer` za odvojeni audio trigger
-  - Lookahead u `_scheduleNextStage()` za `ANTICIPATION_TENSION`
-  - `_triggerAudioOnly()` metoda
-
-**Flow:**
-```
-Visual Timeline:    |-------- ANTICIPATION_TENSION --------|
-Audio Timeline: |-- PRE-TRIGGER (50ms earlier) --|
-```
-
----
-
-### Industry-Standard Anticipation System ✅ (2026-01-30)
-
-Per-reel anticipation sa tension level escalation — identično IGT, Pragmatic Play, NetEnt standardima.
-
-**Kompletna dokumentacija:** [ANTICIPATION_SYSTEM.md](./ANTICIPATION_SYSTEM.md)
-
-**Ključne komponente:**
-
-| Layer | File | Description |
-|-------|------|-------------|
-| Rust Engine | `rf-slot-lab/src/spin.rs` | AnticipationInfo, per-reel detection |
-| Rust Stage | `rf-stage/src/stage.rs` | AnticipationTensionLayer variant |
-| FFI Bridge | `rf-bridge/src/stage_ffi.rs` | stage_create_anticipation_tension_layer() |
-| Dart Provider | `slot_lab_provider.dart` | Stage handling, callback invocation |
-| Event Registry | `event_registry.dart` | Fallback chain resolution |
-| Stage Config | `stage_configuration_service.dart` | 26 anticipation stage registrations |
-| UI Widget | `slot_preview_widget.dart` | Per-reel glow overlay, badges |
-| GPU Shader | `shaders/anticipation_glow.frag` | Pulsing glow effect |
-
-**Trigger Logic:**
-```dart
-// 2+ scattera → anticipacija na SVIM preostalim reelovima
-if (_scatterReels.length >= _scattersNeededForAnticipation) {
-  final remainingReels = reels.where((r) => !stopped.contains(r) && !scatter.contains(r));
-  for (final reel in remainingReels) {
-    _startReelAnticipation(reel);
-  }
-}
-```
-
-**Stage Format:**
-```
-ANTICIPATION_TENSION_R{reel}_L{level}
-├── R1_L1, R1_L2, R1_L3, R1_L4
-├── R2_L1, R2_L2, R2_L3, R2_L4
-├── R3_L1, R3_L2, R3_L3, R3_L4
-└── R4_L1, R4_L2, R4_L3, R4_L4
-```
-
-**Fallback Chain:**
-```
-ANTICIPATION_TENSION_R2_L3 → ANTICIPATION_TENSION_R2 → ANTICIPATION_TENSION → ANTICIPATION_TENSION
-```
-
-**Audio Context Enrichment:**
-| Tension | Volume | Pitch | Color |
-|---------|--------|-------|-------|
-| L1 | 0.6x | +1st | Gold #FFD700 |
-| L2 | 0.7x | +2st | Orange #FFA500 |
-| L3 | 0.8x | +3st | Red-Orange #FF6347 |
-| L4 | 0.9x | +4st | Red #FF4500 |
-
-**Industry Score: 9/9** — Full parity with IGT, Play'n GO, Pragmatic Play, NetEnt, Big Time Gaming
-
----
-
-### P0.7: Big Win Layered Audio ✅
-
-Multi-layer audio struktura za Big Win celebracije.
-
-**Promene:**
-- `flutter_ui/lib/services/event_registry.dart`:
-  - `createBigWinTemplate()` — kreira layered event
-  - `registerDefaultBigWinEvents()` — registruje 5 tier-ova
-  - `updateBigWinEvent()` — ažurira audio putanje
-  - `_stageToIntent()` — mapira BIGWIN_TIER na intente
-
-**Layer Structure:**
-```
-Layer 1: Impact Hit (immediate, bus 2/SFX)
-Layer 2: Coin Shower (100-150ms delay, bus 2/SFX)
-Layer 3: Music Swell (0ms, bus 1/Music)
-Layer 4: Voice Over (300-700ms delay, bus 3/Voice)
-```
-
-**Tier Timing:**
-| Tier  | Coin Delay | VO Delay | Priority |
-|-------|------------|----------|----------|
-| nice  | 100ms      | 300ms    | 40       |
-| super | 150ms      | 400ms    | 40       |
-| mega  | 100ms      | 500ms    | 60       |
-| epic  | 100ms      | 600ms    | 80       |
-| ultra | 100ms      | 700ms    | 100      |
-
----
-
-### P1.1: Symbol-Specific Audio ✅
-
-Različiti zvuci za specijalne simbole (Wild, Scatter, Seven).
-
-**Promene:**
-- `flutter_ui/lib/providers/slot_lab_provider.dart`:
-  - `_containsWild()`, `_containsScatter()`, `_containsSeven()`
-  - `_triggerStage()` dodaje symbol suffix: `REEL_STOP_0_WILD`, `REEL_STOP_0_SCATTER`
-
-**Priority:**
-```
-WILD > SCATTER > SEVEN > generic
-```
-
-**Stage Naming:**
-```
-REEL_STOP_0_WILD     // Reel 0 ima Wild
-REEL_STOP_2_SCATTER  // Reel 2 ima Scatter
-REEL_STOP_4_SEVEN    // Reel 4 ima Seven
-REEL_STOP_0          // Generic (fallback)
-```
-
----
-
-### P1.2: Near Miss Audio Escalation ✅
-
-Intenzitet anticipation zvuka raste sa blizinom dobitka.
-
-**Promene:**
-- `flutter_ui/lib/providers/slot_lab_provider.dart`:
-  - `_calculateAnticipationEscalation()` — vraća stage i volumeMultiplier
-  - `_triggerStage()` primenjuje escalation za `ANTICIPATION_TENSION`
-  - Context sadrži `volumeMultiplier`
-
-**Intensity Formula:**
-```dart
-// Faktori:
-// - intensity (0.0-1.0) iz payload-a
-// - reelFactor = (triggerReel + 1) / totalReels
-// - missingFactor = 1.0 za 1 missing, 0.75 za 2, 0.5 za 3+
-combinedIntensity = intensity * reelFactor * missingFactor;
-
-// Stages po intenzitetu:
-// > 0.8 → ANTICIPATION_CRITICAL (vol 1.0)
-// > 0.5 → ANTICIPATION_HIGH (vol 0.9)
-// else  → ANTICIPATION_TENSION (vol 0.7-0.85)
-```
-
-**EventRegistry podrška:**
-```dart
-// U _playLayer():
-if (context.containsKey('volumeMultiplier')) {
-  volume *= context['volumeMultiplier'];
-}
-```
-
----
-
-### P1.3: Win Line Audio Panning ✅
-
-Audio pan na osnovu pozicije dobitne linije.
-
-**Promene:**
-- `flutter_ui/lib/providers/slot_lab_provider.dart`:
-  - `_calculateWinLinePan()` — računa pan iz LineWin.positions
-  - `_triggerStage()` dodaje `pan` u context za `WIN_LINE_SHOW`
-- `flutter_ui/lib/services/event_registry.dart`:
-  - `_playLayer()` koristi `context['pan']` ako postoji
-
-**Pan Formula:**
-```dart
-// Prosečna X pozicija dobitnih simbola
-avgX = sum(positions.map(p => p[0])) / positions.length;
-
-// Map na pan: col 0 → -1.0, col (reels-1) → +1.0
-normalizedX = avgX / (totalReels - 1);
-pan = (normalizedX * 2.0) - 1.0;
-```
-
-**Example:**
-```
-5-reel slot:
-Column 0    → pan -1.0 (full left)
-Column 2    → pan  0.0 (center)
-Column 4    → pan +1.0 (full right)
-Columns 1,2 → pan -0.25 (left-center)
-```
-
----
-
-### Big Win Celebration System (2026-01-25) ✅
-
-Dedicirani audio sistem za Big Win celebracije (≥20x bet).
-
-**Komponente:**
-| Stage | Bus | Priority | Loop | Opis |
-|-------|-----|----------|------|------|
-| `COIN_SHOWER_START` | SFX (2) | 75 | Ne | Coin shower start SFX |
-| `COIN_SHOWER_END` | SFX (2) | 75 | Ne | Coin shower end SFX |
-| `BIG_WIN_TICK_START` | SFX (2) | 80 | Ne | Big win rollup tick start |
-| `BIG_WIN_TICK_END` | SFX (2) | 80 | Ne | Big win rollup tick end |
-
-**Trigger Logic (`slot_preview_widget.dart`):**
-```dart
-// Triggered when win ratio >= 20x bet
-final bet = widget.provider.betAmount;
-final winRatio = bet > 0 ? result.totalWin / bet : 0.0;
-if (winRatio >= 20) {
-  eventRegistry.triggerStage('COIN_SHOWER_START');
-  eventRegistry.triggerStage('BIG_WIN_TICK_START');
-}
-```
-
-**Auto-Stop (`slot_lab_provider.dart`):**
-```dart
-void setWinPresentationActive(bool active) {
-  if (!active) {
-    eventRegistry.triggerStage('COIN_SHOWER_END');
-    eventRegistry.triggerStage('BIG_WIN_TICK_END');
-  }
-}
-```
-
-**Stage Configuration (`stage_configuration_service.dart`):**
-```dart
-_register('COIN_SHOWER_START', StageCategory.win, 75, SpatialBus.sfx, 'WIN_EPIC');
-_register('COIN_SHOWER_END', StageCategory.win, 75, SpatialBus.sfx, 'WIN_EPIC');
-_register('BIG_WIN_TICK_START', StageCategory.win, 80, SpatialBus.sfx, 'WIN_EPIC');
-_register('BIG_WIN_TICK_END', StageCategory.win, 80, SpatialBus.sfx, 'WIN_EPIC');
-```
-
-**UltimateAudioPanel V8 Integration:**
-
-Panel je organizovan po **Game Flow** principu u 12 sekcija:
-
-| # | Sekcija | Tier | Slots |
-|---|---------|------|-------|
-| 1 | Base Game Loop | Primary | 41 |
-| 2 | Symbols & Lands | Primary | 46 |
-| 3 | Win Presentation | Primary | 41 |
-| 4 | Cascading Mechanics | Secondary | 24 |
-| 5 | Multipliers | Secondary | 18 |
-| 6 | Free Spins | Feature | 24 |
-| 7 | Bonus Games | Feature | 32 |
-| 8 | Hold & Win | Feature | 24 |
-| 9 | Jackpots | Premium 🏆 | 26 |
-| 10 | Gamble | Optional | 16 |
-| 11 | Music & Ambience | Background | 27 |
-| 12 | UI & System | Utility | 22 |
-
-**Special Markers:** ⚡ = Voice Pooled, 🏆 = Premium/Validated
-
-**Dokumentacija:** `.claude/architecture/ULTIMATE_AUDIO_PANEL_V8_SPEC.md`
-
----
-
-### P0.20: Per-Reel Spin Loop System (2026-01-25) ✅
-
-Fina kontrola per-reel spin loop-ova sa individualnim fade-out-om.
-
-**Stage Patterns:**
-| Pattern | Svrha |
-|---------|-------|
-| `REEL_SPINNING_START_0..4` | Start spin loop za specifični reel |
-| `REEL_SPINNING_STOP_0..4` | Early fade-out PRE vizualnog zaustavljanja |
-| `REEL_SPINNING_0..4` | Legacy per-reel spin (backwards compat) |
-| `REEL_SPINNING` | Generički deljeni loop |
-
-**Implementacija (`event_registry.dart`):**
-```dart
-// Per-reel spin loop tracking
-final Map<int, int> _reelSpinLoopVoices = {};  // reelIndex → voiceId
-
-// Auto-detect REEL_SPINNING_START_X
-final reelSpinStartMatch = RegExp(r'^REEL_SPINNING_START_(\d+)$').firstMatch(upperStage);
-if (reelSpinStartMatch != null) {
-  enhancedContext['is_reel_spin_loop'] = true;
-  enhancedContext['reel_index'] = reelIndex;
-}
-
-// Early fade-out on REEL_SPINNING_STOP_X
-void _fadeOutReelSpinLoop(int reelIndex) {
-  final voiceId = _reelSpinLoopVoices.remove(reelIndex);
-  if (voiceId != null) {
-    AudioPlaybackService.instance.fadeOutVoice(voiceId, fadeMs: 50);
-  }
-}
-```
-
-**Timeline (5-reel):**
-```
-Time:     0ms    200ms   400ms   600ms   800ms   1000ms
-Reel 0: [START] ~~~~~~~ [STOP] fade
-Reel 1:         [START] ~~~~~~~ [STOP] fade
-Reel 2:                 [START] ~~~~~~~ [STOP] fade
-Reel 3:                         [START] ~~~~~~~ [STOP] fade
-Reel 4:                                 [START] ~~~~~~~ [STOP] fade
-```
-
----
-
-### P0.21: CASCADE_STEP Pitch/Volume Escalation (2026-01-25) ✅
-
-Auto-escalation za cascade korake — rastuća tenzija.
-
-**Escalation Table:**
-| Step | Stage | Pitch | Volume |
-|------|-------|-------|--------|
-| 0 | CASCADE_STEP_0 | 1.00x | 90% |
-| 1 | CASCADE_STEP_1 | 1.05x | 94% |
-| 2 | CASCADE_STEP_2 | 1.10x | 98% |
-| 3 | CASCADE_STEP_3 | 1.15x | 102% |
-| 4 | CASCADE_STEP_4 | 1.20x | 106% |
-| 5+ | CASCADE_STEP_5+ | 1.25x+ | 110%+ |
-
-**Formula (`event_registry.dart`):**
-```dart
-if (normalizedStage.startsWith('CASCADE_STEP')) {
-  final cascadeMatch = RegExp(r'CASCADE_STEP_?(\d+)?').firstMatch(normalizedStage);
-  if (cascadeMatch != null) {
-    final stepIndex = int.tryParse(cascadeMatch.group(1) ?? '0') ?? 0;
-    final cascadePitch = 1.0 + (stepIndex * 0.05);  // +5% per step
-    final cascadeVolume = 0.9 + (stepIndex * 0.04); // +4% per step
-    context['cascade_pitch'] = cascadePitch;
-    context['cascade_volume'] = cascadeVolume.clamp(0.0, 1.5);
-  }
-}
-```
-
----
-
-### P1.5: Jackpot Audio Sequence (2026-01-25) ✅
-
-Proširena 6-fazna jackpot sekvenca za dramatičan presentation.
-
-**Stages:**
-| # | Stage | Duration | Opis |
-|---|-------|----------|------|
-| 1 | JACKPOT_TRIGGER | 500ms | Alert tone |
-| 2 | JACKPOT_BUILDUP | 2000ms | Rising tension |
-| 3 | JACKPOT_REVEAL | 1000ms | Tier reveal (MINI/MINOR/MAJOR/GRAND) |
-| 4 | JACKPOT_PRESENT | 5000ms | Main fanfare + amount display |
-| 5 | JACKPOT_CELEBRATION | Loop | Looping celebration until collect |
-| 6 | JACKPOT_END | 500ms | Fade out, return to game |
-
-**Rust Implementation (`crates/rf-slot-lab/src/features/jackpot.rs`):**
-```rust
-fn generate_stages(&self, timing: &mut TimestampGenerator) -> Vec<StageEvent> {
-    // 1. JACKPOT_TRIGGER (500ms)
-    events.push(StageEvent::new(Stage::JackpotTrigger { tier }, timing.advance(500.0)));
-    // 2. JACKPOT_BUILDUP (2000ms)
-    events.push(StageEvent::new(Stage::JackpotBuildup { tier }, timing.advance(2000.0)));
-    // 3. JACKPOT_REVEAL (1000ms)
-    events.push(StageEvent::new(Stage::JackpotReveal { tier, amount }, timing.advance(1000.0)));
-    // 4. JACKPOT_PRESENT (5000ms)
-    events.push(StageEvent::new(Stage::JackpotPresent { tier, amount }, timing.advance(5000.0)));
-    // 5. JACKPOT_CELEBRATION (loop)
-    events.push(StageEvent::new(Stage::JackpotCelebration { tier, amount }, timing.advance(500.0)));
-    // 6. JACKPOT_END
-    events.push(StageEvent::new(Stage::JackpotEnd, timing.advance(1000.0)));
-}
-```
-
-**Tier-Specific Variations:**
-Audio designer može kreirati tier-specific varijante:
-- `JACKPOT_REVEAL_MINI`, `JACKPOT_REVEAL_MINOR`, `JACKPOT_REVEAL_MAJOR`, `JACKPOT_REVEAL_GRAND`
-- `JACKPOT_PRESENT_GRAND` (extended 10s fanfare)
-
-EventRegistry koristi fallback: `JACKPOT_REVEAL_GRAND` → `JACKPOT_REVEAL` ako varijanta ne postoji.
-
----
-
-## Adaptive Layer Engine (ALE) Integration
-
-ALE je data-driven, context-aware, metric-reactive music system koji radi sa Slot Lab-om za dinamičko audio layering.
-
-### Arhitektura
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              SLOT LAB                                        │
-│  ┌────────────────┐     ┌────────────────┐     ┌────────────────────────┐  │
-│  │ SlotLabProvider │────►│ Signal Updates │────►│ ALE Engine             │  │
-│  │ - spin()        │     │ - winTier       │     │ - evaluate_rules()     │  │
-│  │ - spinForced()  │     │ - winXbet       │     │ - update_transitions() │  │
-│  └────────────────┘     │ - momentum      │     │ - get_layer_volumes()  │  │
-│                          └────────────────┘     └──────────┬─────────────┘  │
-│                                                             │                │
-│                          ┌────────────────────────────────▼───────────────┐ │
-│                          │              Layer Volumes (0.0-1.0)            │ │
-│                          │  L1: 1.0  │  L2: 0.7  │  L3: 0.3  │  L4: 0.0   │ │
-│                          └────────────────────────────────────────────────┘ │
-│                                                             │                │
-│                          ┌────────────────────────────────▼───────────────┐ │
-│                          │           Audio Mixer (per-layer faders)        │ │
-│                          └────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Signal Mapping
-
-| Slot Lab Event | ALE Signal | Value Range |
-|----------------|------------|-------------|
-| Spin result | `winTier` | 0-5 (NONE→ULTRA) |
-| Win amount / bet | `winXbet` | 0.0+ |
-| Consecutive wins | `consecutiveWins` | 0-255 |
-| Consecutive losses | `consecutiveLosses` | 0-255 |
-| Free spins progress | `featureProgress` | 0.0-1.0 |
-| Cascade depth | `cascadeDepth` | 0-255 |
-| Near miss detection | `nearMissIntensity` | 0.0-1.0 |
-
-### Context Mapping
-
-| Slot Lab State | ALE Context |
-|----------------|-------------|
-| Base game | `BASE` |
-| Free spins | `FREESPINS` |
-| Hold & Win | `HOLDWIN` |
-| Pick bonus | `PICKEM` |
-| Wheel feature | `WHEEL` |
-| Cascade mode | `CASCADE` |
-| Jackpot game | `JACKPOT` |
-
-### Integration Code
-
-```dart
-// In SlotLabProvider after spin result:
-void _updateAleSignals(SlotLabSpinResult result) {
-  final ale = AleProvider.instance;
-
-  ale.updateSignal('winTier', result.winTier.toDouble());
-  ale.updateSignal('winXbet', result.winRatio);
-  ale.updateSignal('cascadeDepth', result.cascadeCount.toDouble());
-
-  if (result.isNearMiss) {
-    ale.updateSignal('nearMissIntensity', result.nearMissIntensity);
-  }
-}
-
-// Context transitions
-void _handleFeatureStart(String featureType) {
-  final contextId = switch (featureType) {
-    'FREE_SPINS' => 'FREESPINS',
-    'HOLD_WIN' => 'HOLDWIN',
-    'PICK_BONUS' => 'PICKEM',
-    _ => 'BASE',
-  };
-  AleProvider.instance.enterContext(contextId);
-}
-```
-
-### ALE Rust Crate
-
-**Location:** `crates/rf-ale/` (~4500 LOC)
-
-| Module | Purpose |
-|--------|---------|
-| `signals.rs` | Signal definitions, normalization (linear/sigmoid/asymptotic) |
-| `context.rs` | Context definitions, layers, entry/exit policies |
-| `rules.rs` | Condition/action system, compound conditions |
-| `stability.rs` | 7 stability mechanisms (cooldown, hold, hysteresis, etc.) |
-| `transitions.rs` | Sync modes, fade curves, crossfade overlap |
-| `engine.rs` | Main orchestration, lock-free RT communication |
-| `profile.rs` | JSON profile load/save with versioning |
-
-### FFI Bridge
-
-**Location:** `crates/rf-bridge/src/ale_ffi.rs` (~780 LOC)
-
-```rust
-// Initialization
-ale_init() -> i32
-ale_shutdown()
-
-// Profile management
-ale_load_profile(json: *const c_char) -> i32
-ale_export_profile() -> *mut c_char
-
-// Context control
-ale_enter_context(id: *const c_char, transition: *const c_char) -> i32
-ale_exit_context(transition: *const c_char) -> i32
-
-// Signal updates (from Slot Lab)
-ale_update_signal(id: *const c_char, value: f64)
-ale_get_signal_normalized(id: *const c_char) -> f64
-
-// Level control
-ale_set_level(level: i32) -> i32
-ale_step_up() -> i32
-ale_step_down() -> i32
-
-// Engine state
-ale_get_state() -> *mut c_char
-ale_get_layer_volumes() -> *mut c_char
-ale_tick()
-```
-
-### Dart Provider
-
-**Location:** `flutter_ui/lib/providers/ale_provider.dart` (~745 LOC)
-
-```dart
-class AleProvider extends ChangeNotifier {
-  bool initialize();
-  void shutdown();
-
-  bool loadProfile(String json);
-  String? exportProfile();
-
-  bool enterContext(String contextId, {String? transitionId});
-  bool exitContext({String? transitionId});
-
-  void updateSignal(String signalId, double value);
-  void updateSignals(Map<String, double> signals);
-
-  bool setLevel(int level);
-  bool stepUp();
-  bool stepDown();
-
-  void tick(); // Call from audio callback or timer
-
-  // Getters
-  AleEngineState get state;
-  List<double> get layerVolumes;
-  AleContext? get activeContext;
-}
-```
-
-### Documentation
-
-Full ALE specification: `.claude/architecture/ADAPTIVE_LAYER_ENGINE.md` (~2350 LOC)
-
----
-
-## P0/P1 Status (2026-01-21)
-
-| # | Feature | Status |
-|---|---------|--------|
-| P0.1 | Audio latency compensation | ✅ DONE |
-| P0.2 | Seamless REEL_SPIN loop | ✅ DONE |
-| P0.3 | Per-voice pan in FFI | ✅ DONE |
-| P0.4 | Dynamic cascade timing | ✅ DONE |
-| P0.5 | Dynamic rollup speed (RTPC) | ✅ DONE |
-| P0.6 | Anticipation pre-trigger | ✅ DONE |
-| P0.7 | Big win layered audio | ✅ DONE |
-| P1.1 | Symbol-specific audio | ✅ DONE |
-| P1.2 | Near miss audio escalation | ✅ DONE |
-| P1.3 | Win line audio panning | ✅ DONE |
-| ALE | Adaptive Layer Engine | ✅ DONE |
-
----
-
-## Future Enhancements
-
-- [ ] ALE UI widgets (context editor, rule editor, signal monitor)
-- [ ] Audio waveform preview in browser
-- [ ] Drag audio to timeline regions
-- [ ] Custom timing profile editor
-- [ ] Volatility curve visualization
-- [ ] Session statistics graphs
-- [ ] Export spin log to CSV
-- [ ] A/B audio comparison mode
-- [ ] RTPC curve live preview
-- [ ] State machine visualizer
-- [ ] WebSocket live connection to game engines
-
----
-
-## Premium Fullscreen Preview Mode (2026-01-21, v2)
-
-Premium slot preview sa svim industry-standard elementima:
-
-### Widget Files
-| File | Description |
-|------|-------------|
-| `lib/widgets/slot_lab/premium_slot_preview.dart` | Full premium slot UI (~3600 LOC) |
-| `lib/widgets/slot_lab/slot_preview_widget.dart` | Reusable slot grid |
-
-### UI Zones
-- **A. Header Zone** (48px): Menu, logo, balance (animated), VIP badge, audio toggles, settings, exit
-- **B. Jackpot Zone** (horizontal): 4-tier progressive tickers + contribution display
-  - **Realistic growth**: Jackpots grow based on bet amount (0.1%-0.5% per spin)
-  - **Jackpot wins**: Triggered on big wins with probability (1%-15% based on tier)
-- **C. Main Game Zone** (80% width, 85% height): MAXIMIZED reels with gold border, glossy overlay
-- **D. Win Presenter**: Rollup animation, tier badges, coin particles, collect/gamble
-- **E. Feature Indicators**: Free spins, bonus meter, multiplier, cascade counter
-- **F. Control Bar** (compact): Lines/Coin/Bet selectors, Max Bet, Auto-spin (shows counter), Turbo, Spin (88px)
-- **G. Info Panels**: Paytable, rules, history, session stats (left side)
-- **H. Audio/Visual**: Volume slider, music/sfx toggles, quality selector, animations toggle
-
-### Keyboard Shortcuts
-| Key | Action |
-|-----|--------|
-| `SPACE` | Spin / Stop (if spinning) |
-| `ESC` | Exit / Close panel |
-| `M` | Music toggle |
-| `S` | Stats panel |
-| `T` | Turbo mode |
-| `A` | Auto-spin |
-| `1-7` | Forced outcomes (debug) |
-
-### SPACE Key Handler Architecture (2026-01-26)
-
-**Problem:** Dva nezavisna SPACE handlera procesirali isti event, uzrokujući "stop pa instant spin" bug.
-
-**Arhitektura:**
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    EMBEDDED MODE (isFullscreen=false)               │
-│  ┌─────────────────────┐                                            │
-│  │ slot_lab_screen.dart│                                            │
-│  │ _globalKeyHandler() │ ← HardwareKeyboard.instance.addHandler()   │
-│  │ HANDLES SPACE       │                                            │
-│  └──────────┬──────────┘                                            │
-│             │                                                        │
-│  ┌──────────▼──────────┐                                            │
-│  │premium_slot_preview │                                            │
-│  │ _handleKeyEvent()   │                                            │
-│  │ IGNORES SPACE       │ ← returns KeyEventResult.ignored           │
-│  └─────────────────────┘                                            │
-└─────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────┐
-│                    FULLSCREEN MODE (isFullscreen=true)              │
-│  ┌─────────────────────┐                                            │
-│  │ slot_lab_screen.dart│                                            │
-│  │ _globalKeyHandler() │                                            │
-│  │ SKIPS SPACE         │ ← returns false (not handled)              │
-│  └─────────────────────┘                                            │
-│                                                                      │
-│  ┌─────────────────────┐                                            │
-│  │premium_slot_preview │                                            │
-│  │ _handleKeyEvent()   │ ← Focus(onKeyEvent: ...)                   │
-│  │ HANDLES SPACE       │                                            │
-│  └─────────────────────┘                                            │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-**Key Files:**
-- `slot_lab_screen.dart:923` — Global handler, skips when `_isPreviewMode`
-- `premium_slot_preview.dart:5712` — Focus handler, skips when `!widget.isFullscreen`
-
-**PremiumSlotPreview Constructor:**
-```dart
-const PremiumSlotPreview({
-  required this.onExit,
-  this.reels = 5,
-  this.rows = 3,
-  this.isFullscreen = false,  // Default: embedded mode
-});
-```
-
-**Instantiation:**
-```dart
-// Fullscreen mode (F11)
-PremiumSlotPreview(isFullscreen: true, ...)
-
-// Embedded mode (central panel)
-PremiumSlotPreview(isFullscreen: false, ...)
-```
-
-### Visual Features (2026-01-24)
-
-**Win Line Presentation:**
-- Win lines are drawn as connecting lines through winning symbol positions
-- `_WinLinePainter` CustomPainter renders:
-  - Outer glow with blur effect
-  - Main colored line (color based on win tier)
-  - White highlight core
-  - Glowing dots at each symbol position
-- Lines cycle through each winning line with pulse animation
-
-**STOP Button:**
-- Spin button shows "STOP" (red) when reels are spinning
-- Click or press SPACE to immediately stop all reels
-- Triggers `provider.stopStagePlayback()` and `_reelAnimController.stopImmediately()`
-
-**Gamble Feature:**
-- Gamble button and overlay are **disabled** for basic mockup
-- Code preserved for future re-enabling (condition: `if (false && _showGambleScreen)`)
-- To re-enable: change `showGamble: false` to dynamic condition in `_WinPresenter`
-
-**Audio-Visual Sync Fix (P0.1):**
-- **Problem:** REEL_STOP audio played 180ms after visual reel landing
-- **Root Cause:** `ProfessionalReelAnimationController.onReelStop` fired when phase became `stopped` (after bounce), not at visual landing
-- **Fix:** Changed `tick()` to fire `onReelStop` when phase enters `bouncing` (the visual landing moment)
-- **Timing:** Audio now plays at exact landing time (1000ms, 1370ms, 1740ms, 2110ms, 2480ms for 5-reel slot)
-- **Files:** `professional_reel_animation.dart:tick()`, Analysis: `.claude/analysis/AUDIO_VISUAL_SYNC_ANALYSIS_2026_01_24.md`
-
-### Entry Point
-```dart
-// slot_lab_screen.dart — Fullscreen mode (F11)
-if (_isPreviewMode) {
-  return PremiumSlotPreview(
-    onExit: () => setState(() => _isPreviewMode = false),
-    reels: _reelCount,
-    rows: _rowCount,
-    isFullscreen: true,  // Handles SPACE internally
-  );
-}
-
-// slot_lab_screen.dart — Embedded mode (central panel)
-PremiumSlotPreview(
-  onExit: () {},
-  reels: _reelCount,
-  rows: _rowCount,
-  isFullscreen: false,  // Global handler handles SPACE
-)
-```
-
-Full documentation: [SLOT_PREVIEW_MODE.md](.claude/architecture/SLOT_PREVIEW_MODE.md)
-
----
-
-## Troubleshooting: SlotLab Audio Not Playing
-
-### Problem: Spin ne proizvodi zvuk
-
-**Simptomi:**
-- Stage-vi se prikazuju u Event Log (npr. SPIN_START, REEL_STOP)
-- Ali nema audio output-a
-
-### Root Causes i Rešenja
-
-#### 1. EventRegistry je prazan pri mount-u
-
-**Uzrok:** `_syncAllEventsToRegistry()` se nije pozivao pri prvom otvaranju SlotLab-a
-
-**Fix (2026-01-21):** `slot_lab_screen.dart` initState sada eksplicitno sinhronizuje:
-```dart
-WidgetsBinding.instance.addPostFrameCallback((_) {
-  if (mounted && _compositeEvents.isNotEmpty) {
-    _syncAllEventsToRegistry();
-    debugPrint('[SlotLab] Initial sync: ${_compositeEvents.length} events → EventRegistry');
-  }
-});
-```
-
-#### 2. Case-sensitivity mismatch
-
-**Uzrok:** Stage names nisu konsistentni (uppercase vs lowercase)
-
-**Fix (2026-01-21):** `event_registry.dart` triggerStage() radi case-insensitive lookup:
-```dart
-final normalizedStage = stage.toUpperCase().trim();
-// Tries: exact → normalized → full scan
-```
-
-#### 3. Nema kreiranih AudioEvent-a
-
-**Simptom:** Event Log pokazuje `⚠️ SPIN_START (no audio)`
-
-**Rešenje:** Kreiraj eventi u SlotLab UI:
-1. Events Folder panel → "+" button
-2. Ime: "Spin Start", Stage: "SPIN_START"
-3. Drag & drop .wav fajl na event
-4. Event je automatski registrovan
-
-#### 4. FFI not loaded
-
-**Simptom:** `FAILED: FFI not loaded` u Event Log
-
-**Rešenje:** Full rebuild:
-```bash
-cargo build --release
-cp target/release/*.dylib flutter_ui/macos/Frameworks/
-# + xcodebuild + copy to App Bundle (see CLAUDE.md)
-```
-
-### Event Log Format (2026-01-21)
-
-Kompaktan format — jedan red po triggeru:
-
-```
-12:34:56.789  🎵 Spin Sound → SPIN_START [spin.wav]
-              voice=5, bus=2, section=slotLab
-
-12:34:57.123  ⚠️ REEL_STOP_3 (no audio)
-              Create event for this stage to hear audio
-```
-
-### Debug Verification
-
-```
-✅ [SlotLab] Initial sync: 5 events → EventRegistry
-✅ [SlotLab] ✅ Registered "Spin" under 1 stage(s): SPIN_START
-✅ [EventRegistry] Triggering: Spin (1 layers)
-✅ [EventRegistry] ✅ Playing: spin.wav (voice 5, source: slotlab, bus: 2)
-
-❌ [EventRegistry] ❌ No event for stage: "SPIN_START"
-❌ [EventRegistry] 📋 Registered stages (0):
-```
-
----
-
-## Double-Spin Prevention (2026-01-24)
-
-### Problem
-
-Klik na Spin dugme trigeruje DVA spina uzastopno jer:
-- `_finalizeSpin()` postavi `_isSpinning = false`
-- Ali provider's `isPlayingStages` je još `true` (procesira WIN, ROLLUP, itd.)
-- `stages` lista još sadrži `spin_start`
-- `_onProviderUpdate()` ponovo prolazi uslov → `_startSpin()` se zove dvaput
-
-### Solution
-
-Dva guard flaga u `slot_preview_widget.dart`:
-
-```dart
-bool _spinFinalized = false;      // Sprečava re-trigger nakon finalize
-String? _lastProcessedSpinId;     // Prati koji spin je već procesiran
-
-void _onProviderUpdate() {
-  // Guards:
-  // 1. Ne pokreći ako je spin već finalizovan
-  // 2. Ne pokreći ako je isti spinId kao prethodni
-  if (isPlaying && stages.isNotEmpty && !_isSpinning && !_spinFinalized) {
-    final spinId = result?.spinId;
-    if (hasSpinStart && spinId != null && spinId != _lastProcessedSpinId) {
-      _lastProcessedSpinId = spinId;
-      _startSpin(result);
-    }
-  }
-
-  // Reset finalized flag kad provider završi
-  if (!isPlaying && _spinFinalized) {
-    _spinFinalized = false;
-  }
-}
-
-void _finalizeSpin(SlotLabSpinResult result) {
-  setState(() {
-    _isSpinning = false;
-    _spinFinalized = true;  // KRITIČNO: Sprečava re-trigger
-  });
-}
-```
-
----
-
-## SPACE Key Stop-Not-Working Fix (2026-01-26)
-
-### Problem
-
-SPACE key za STOP ne radi u embedded modu — reelovi nastavljaju da se vrte ili odmah startuju novi spin.
-
-### Root Cause
-
-Dva nezavisna keyboard handlera procesirali isti SPACE event:
-
-1. **Global handler** (`slot_lab_screen.dart:_globalKeyHandler`) — preko `HardwareKeyboard.instance.addHandler()`
-2. **Focus handler** (`premium_slot_preview.dart:_handleKeyEvent`) — preko `Focus(onKeyEvent: ...)`
-
-Oba handlera imala nezavisne debounce timer-e. Kada je SPACE pritisnut za STOP:
-- Global handler pozove `stopStagePlayback()` → `isReelsSpinning = false`
-- Focus handler vidi `isReelsSpinning = false` → odmah pozove `spin()`
-- Rezultat: STOP pa instant SPIN — izgleda kao da SPACE ne radi
-
-### Solution (2026-01-26)
-
-Dodao `isFullscreen` parametar u `PremiumSlotPreview`:
-
-```dart
-// premium_slot_preview.dart
-class PremiumSlotPreview extends StatefulWidget {
-  final bool isFullscreen;  // Default: false
-
-  // In _handleKeyEvent:
-  case LogicalKeyboardKey.space:
-    if (!widget.isFullscreen) {
-      return KeyEventResult.ignored;  // Let global handler handle it
-    }
-    // ... rest of SPACE handling
-}
-```
-
-**Dual-mode behavior:**
-- **Embedded mode** (`isFullscreen=false`): Global handler u `slot_lab_screen.dart` handluje SPACE
-- **Fullscreen mode** (`isFullscreen=true`): Focus handler u `premium_slot_preview.dart` handluje SPACE
-
-### Verification
-
-Debug log bi trebao pokazati:
-```
-# Embedded mode:
-[SlotLab] 🌍 GLOBAL Space key handler (editMode=false, isReelsSpinning=true)
-[SlotLab] → SPACE: Stopping (isReelsSpinning=true)
-[PremiumSlotPreview] ⏭️ SPACE ignored (embedded mode — global handler will handle)
-
-# Fullscreen mode:
-[SlotLab] 🌍 GLOBAL Space — SKIPPED (Fullscreen PremiumSlotPreview handles it)
-[PremiumSlotPreview] 🎰 SPACE pressed — isReelsSpinning=true
-```
-
----
-
-## Complete Stage Flow (2026-01-24)
-
-### Stage Sequence
-
-Generisan u `crates/rf-slot-lab/src/spin.rs`:
+## Stage System Rules
+
+### Stage → Audio Event Mapping
+
+| Stage Type | Middleware Event ID |
+|------------|-------------------|
+| spin_start | slot_spin_start |
+| reel_stop | slot_reel_stop |
+| anticipation_on | slot_anticipation |
+| win_present | slot_win_present |
+| rollup_start/tick/end | slot_rollup_start/tick/end |
+| bigwin_tier | slot_bigwin_{tier} |
+| feature_enter/step/exit | slot_feature_enter/step/exit |
+| cascade_start/step/end | slot_cascade_start/step/end |
+| jackpot_trigger/present | slot_jackpot_trigger/present |
+| spin_end | slot_spin_end |
+
+### Complete Stage Sequence
 
 ```
 SPIN_START
-    ↓
-REEL_SPINNING × N (za svaki reel)
-    ↓
-[ANTICIPATION_TENSION] (opciono, na poslednja 1-2 reel-a)
-    ↓
-REEL_STOP_0 → REEL_STOP_1 → ... → REEL_STOP_N
-    ↓
-[ANTICIPATION_MISS] (ako je bio uključen)
-    ↓
-EVALUATE_WINS
-    ↓
-[WIN_PRESENT] (ako ima win)
-    ↓
-[WIN_LINE_SHOW × N] (za svaku win liniju, max 3)
-    ↓
-[BIG_WIN_TIER] (ako win_ratio >= threshold)
-    ↓
-[ROLLUP_START → ROLLUP_TICK × N → ROLLUP_END]
-    ↓
-[CASCADE_STAGES] (ako ima cascade)
-    ↓
-[FEATURE_STAGES] (ako je trigerovan feature)
-    ↓
-SPIN_END
+  → REEL_SPINNING × N
+  → [ANTICIPATION_TENSION] (opciono)
+  → REEL_STOP_0 → REEL_STOP_1 → ... → REEL_STOP_N
+  → [ANTICIPATION_MISS]
+  → EVALUATE_WINS
+  → [WIN_PRESENT] (ako ima win)
+  → [WIN_LINE_SHOW × N] (max 3)
+  → [BIG_WIN_TIER]
+  → [ROLLUP_START → ROLLUP_TICK × N → ROLLUP_END]
+  → [CASCADE_STAGES]
+  → [FEATURE_STAGES]
+  → SPIN_END
 ```
 
-### Visual-Sync Mode
+### Visual-Sync Mode (default)
 
-Kada je `useVisualSyncForReelStop = true` (default):
+Kada `useVisualSyncForReelStop = true`:
 - REEL_STOP stage-ovi se **NE triggeruju** iz provider timing-a
-- Umesto toga, triggeruju se iz **animacionog callback-a**
-- Svaki reel ima svoj callback kada završi animaciju
-
-```dart
-// slot_lab_provider.dart
-if (_useVisualSyncForReelStop && stage.stageType == 'reel_stop') {
-  debugPrint('[SlotLabProvider] Skipping REEL_STOP (visual-sync mode)');
-  return;  // Audio se triggeruje iz animacije
-}
-```
+- Triggeruju se iz **animacionog callback-a** (bouncing phase = visual landing moment)
 
 ### Reel Animation Phases
 
-| Faza | Trajanje | Opis |
-|------|----------|------|
-| `idle` | — | Mirovanje |
-| `accelerating` | ~200ms | Ubrzavanje |
-| `spinning` | varijabilno | Puna brzina |
-| `decelerating` | ~300ms | Usporavanje |
-| `bouncing` | ~150ms | Bounce na zaustavljanje |
-| `stopped` | — | Završen |
+idle → accelerating (~200ms) → spinning (var) → decelerating (~300ms) → bouncing (~150ms) → stopped
 
-### Win Tier Thresholds (Industry Standard — 2026-01-24)
+Audio fires at `bouncing` phase (visual landing moment), NOT at `stopped`.
 
-**VAŽNO:** BIG WIN je **PRVI major tier** po industry standardu (Zynga, NetEnt, Pragmatic Play).
-"NICE WIN" nije industry standard — umesto toga koristimo "SUPER WIN" kao drugi tier.
+---
+
+## Win Tier System
+
+### Thresholds (Industry Standard)
 
 | Tier | Win Ratio | Plaque Label | Audio Stage |
 |------|-----------|--------------|-------------|
 | SMALL | < 5x | "WIN!" | WIN_PRESENT_SMALL |
-| **BIG** | **5x - 15x** | **"BIG WIN!"** | WIN_PRESENT_BIG |
+| BIG | 5x - 15x | "BIG WIN!" | WIN_PRESENT_BIG |
 | SUPER | 15x - 30x | "SUPER WIN!" | WIN_PRESENT_SUPER |
 | MEGA | 30x - 60x | "MEGA WIN!" | WIN_PRESENT_MEGA |
 | EPIC | 60x - 100x | "EPIC WIN!" | WIN_PRESENT_EPIC |
 | ULTRA | 100x+ | "ULTRA WIN!" | WIN_PRESENT_ULTRA |
 
-**Industry Research Sources:**
-- Wizard of Oz Slots (Zynga): BIG WIN (8-15x) → MEGA WIN (15-25x) → EPIC WIN → Rainbow Win
-- Know Your Slots: 10x threshold for BIG WIN typical, 25x for high volatility
+### 3-Phase Win Presentation
 
-### Industry-Standard 3-Phase Win Presentation (2026-01-24)
+**Phase 1: Symbol Highlight (1050ms)** — 3x350ms pulse cycles, WIN_SYMBOL_HIGHLIGHT stages
 
-Implementirano prema NetEnt, Pragmatic Play, Big Time Gaming standardima:
+**Phase 2: Win Plaque + Rollup** — Tier-based duration (SMALL=1500ms, BIG=2500ms, SUPER=4000ms, MEGA=7000ms, EPIC=12000ms, ULTRA=20000ms)
 
-**Phase 1: Symbol Highlight (1050ms)**
+**Phase 3: Win Line Presentation** — Starts AFTER Phase 2 ends, plaque hides, 1500ms per line
+
+**Skip:** Allowed after tier-specific delay. On skip: stop all win audio, trigger END stages (ROLLUP_END, COIN_SHOWER_END, BIG_WIN_TICK_END, BIG_WIN_END, WIN_PRESENT_END, WIN_COLLECT), fade out plaque.
+
+---
+
+## Audio Features (Implemented)
+
+### Symbol-Specific Audio (P1.1)
+
+Priority: WILD > SCATTER > SEVEN > generic
+Stage naming: `REEL_STOP_0_WILD`, `REEL_STOP_2_SCATTER`, `REEL_STOP_0` (fallback)
+
+### Per-Reel Spin Loops (P0.20)
+
+| Pattern | Purpose |
+|---------|---------|
+| `REEL_SPINNING_START_0..4` | Start spin loop per reel |
+| `REEL_SPINNING_STOP_0..4` | Early fade-out PRE visual stop |
+
+### Anticipation System
+
+Stage format: `ANTICIPATION_TENSION_R{reel}_L{level}`
+Fallback chain: `R2_L3 → R2 → ANTICIPATION_TENSION`
+Trigger: 2+ scatters → anticipation on all remaining reels
+
+### Near Miss Escalation (P1.2)
+
+Intensity = intensity × reelFactor × missingFactor
+- > 0.8 → ANTICIPATION_CRITICAL (vol 1.0)
+- > 0.5 → ANTICIPATION_HIGH (vol 0.9)
+- else → ANTICIPATION_TENSION (vol 0.7-0.85)
+
+### Win Line Panning (P1.3)
+
+Pan = average X position mapped to -1.0..+1.0
+
+### Big Win Layered Audio (P0.7)
+
+4 layers: Impact Hit (bus SFX, 0ms) → Coin Shower (SFX, 100-150ms) → Music Swell (Music, 0ms) → Voice Over (Voice, 300-700ms)
+
+### CASCADE_STEP Escalation (P0.21)
+
++5% pitch per step, +4% volume per step (starting at 90%)
+
+### Jackpot Sequence (P1.5)
+
+6 phases: TRIGGER (500ms) → BUILDUP (2000ms) → REVEAL (1000ms) → PRESENT (5000ms) → CELEBRATION (loop) → END
+
+### Big Win Celebration (≥20x bet)
+
+Stages: COIN_SHOWER_START/END, BIG_WIN_TICK_START/END
+
+---
+
+## Adaptive Layer Engine (ALE) Integration
+
+ALE = data-driven, context-aware, metric-reactive music system.
+
+### Signal Mapping
+
+| Slot Lab Event | ALE Signal | Range |
+|----------------|------------|-------|
+| Spin result | winTier | 0-5 |
+| Win/bet ratio | winXbet | 0.0+ |
+| Consecutive wins/losses | consecutiveWins/Losses | 0-255 |
+| Free spins progress | featureProgress | 0.0-1.0 |
+| Cascade depth | cascadeDepth | 0-255 |
+| Near miss | nearMissIntensity | 0.0-1.0 |
+
+### Context Mapping
+
+BASE, FREESPINS, HOLDWIN, PICKEM, WHEEL, CASCADE, JACKPOT
+
+**Full ALE spec:** `.claude/architecture/ADAPTIVE_LAYER_ENGINE.md`
+
+---
+
+## UI Widgets
+
+**Location:** `flutter_ui/lib/widgets/slot_lab/`
+
+| Widget | Purpose |
+|--------|---------|
+| StageTraceWidget | Animated timeline sa stage markers, playhead, color-coded zones |
+| SlotPreviewWidget | Premium slot machine preview, reel animations, win lines |
+| PremiumSlotPreview | Full premium slot UI (~3600 LOC), fullscreen + embedded mode |
+| EventLogPanel | Real-time log, timestamped, color-coded, filterable |
+| ForcedOutcomePanel | Test buttons for forced outcomes (keyboard 1-0) |
+| AudioBrowserPanel | Audio browser sa hover preview, waveform, drag-to-timeline |
+
+### Stage Colors
+
+spin_start=Blue, reel_stop=Purple, anticipation_on=Orange, win_present=Green, rollup_start=Gold, bigwin_tier=Pink, feature_enter=Cyan, jackpot_trigger=Gold
+
+### SPACE Key Architecture
+
+- **Embedded mode** (`isFullscreen=false`): Global handler in `slot_lab_screen.dart` handles SPACE
+- **Fullscreen mode** (`isFullscreen=true`): Focus handler in `premium_slot_preview.dart` handles SPACE
+
+Only ONE handler processes SPACE to prevent double-spin bug.
+
+---
+
+## Double-Spin Prevention
+
+Two guard flags in `slot_preview_widget.dart`:
+- `_spinFinalized` — blocks re-trigger after finalize
+- `_lastProcessedSpinId` — tracks already-processed spinId
+
+---
+
+## Troubleshooting: Audio Not Playing
+
+1. **EventRegistry empty at mount** — `_syncAllEventsToRegistry()` in initState postFrameCallback
+2. **Case mismatch** — `triggerStage()` does `toUpperCase().trim()` normalization
+3. **No AudioEvents created** — Create events in SlotLab UI, drag .wav files
+4. **FFI not loaded** — Full rebuild: `cargo build --release` + copy dylibs + xcodebuild
+
+---
+
+## Testing
+
+```bash
+cargo test -p rf-slot-lab     # 20 tests (engine, paytable, symbols, timing, config, spin)
+cargo test -p rf-bridge slot_lab  # 2 tests (lifecycle, forced outcomes)
+cd flutter_ui && flutter analyze  # Must be 0 errors
 ```
-Duration: 3 × 350ms pulse cycles
-Audio: WIN_SYMBOL_HIGHLIGHT_{symbolName} for each winning symbol type (V14)
-       + WIN_SYMBOL_HIGHLIGHT (generic, backwards compat)
-Visual: Winning symbols glow/bounce with scale 1.0→1.15→1.0
-        Symbol name label appears in bottom-right corner (V14)
-        Popups grouped by symbol type (first all HP1, then HP2, etc.)
-```
 
-**Phase 2: Win Plaque + Counter Rollup (tier-based)**
-```
-SMALL:  1500ms rollup, 15 ticks/sec
-BIG:    2500ms rollup, 12 ticks/sec (first major tier)
-SUPER:  4000ms rollup, 10 ticks/sec (ducks music)
-MEGA:   7000ms rollup, 8 ticks/sec (ducks music)
-EPIC:  12000ms rollup, 6 ticks/sec (ducks music)
-ULTRA: 20000ms rollup, 4 ticks/sec (ducks music)
+---
 
-Audio: WIN_PRESENT_[TIER] → ROLLUP_START → ROLLUP_TICK × N → ROLLUP_END
-```
-
-**Phase 3: Win Line Presentation (cycling) — STRICT SEQUENTIAL**
-```
-ALL TIERS: Starts AFTER Phase 2 ends (no overlapping!)
-           Plaketa se sakriva kada Phase 3 počne
-           Prikazuje: SAMO vizuelne linije
-           NE prikazuje: Info o simbolima ("3x Grapes = $50")
-
-Audio: WIN_LINE_SHOW per line (1500ms display per line)
-```
-
-**Skip Functionality (Updated 2026-02-14):**
-```
-Skip allowed after tier-specific delay:
-SMALL: 500ms, BIG: 1000ms, SUPER: 2000ms
-MEGA: 3000ms, EPIC: 5000ms, ULTRA: 8000ms
-
-On SKIP press:
-1. Stop ALL win audio (COIN_SHOWER_START, BIG_WIN_TICK_START, ROLLUP_TICK, WIN_PRESENT_*, etc.)
-2. Trigger END stages: ROLLUP_END, COIN_SHOWER_END, BIG_WIN_TICK_END, BIG_WIN_END, WIN_PRESENT_END, WIN_COLLECT
-3. Fade out win plaque (300ms)
-4. Reset all presentation state
-5. Guard against stale .then() callbacks via _winTier.isEmpty check
-```
-
-**Skip Guards (P1.6, 2026-02-14):**
-- `_startWinLinePresentation()` — blocks stale `.then()` callbacks after skip
-- Regular win `.then()` callback — checks `skipRequested` and `_winTier.isEmpty`
-- Big win `.then()` callback — checks `_winTier.isEmpty`
-
-**END Stage Parity (P1.7, 2026-02-14):**
-- Embedded mode (`_executeSkipFadeOut`) now matches fullscreen mode (`_handleSkipWinPresentation`)
-- Both trigger `ROLLUP_END`, `COIN_SHOWER_END`, `BIG_WIN_TICK_END`, `BIG_WIN_END`, `WIN_PRESENT_END`, `WIN_COLLECT`
-
-**Implementation Files:**
-- `slot_preview_widget.dart` — `_executeSkipFadeOut()`, WinPresentationTiming class
-- `premium_slot_preview.dart` — `_handleSkipWinPresentation()` (fullscreen reference)
-- `stage_configuration_service.dart` — WIN_PRESENT_[TIER] stage definitions
-- Full spec: `.claude/analysis/WIN_PRESENTATION_INDUSTRY_STANDARD_2026_01_24.md`
-
-### Timing Profiles
+## Timing Profiles
 
 | Profile | Reel Stop | Anticipation | Rollup |
 |---------|-----------|--------------|--------|
@@ -2009,17 +363,3 @@ On SKIP press:
 | Turbo | 200ms | 400ms | 2.0x |
 | Mobile | 350ms | 600ms | 1.2x |
 | Studio | 370ms | 500ms | 0.8x |
-
----
-
-## Related Documentation
-
-- [PREMIUM_SLOT_PREVIEW.md](.claude/architecture/PREMIUM_SLOT_PREVIEW.md) — Visual-sync implementation details
-- [SLOT_PREVIEW_MODE.md](.claude/architecture/SLOT_PREVIEW_MODE.md) — Premium fullscreen preview UI
-- [SLOT_LAB_AUDIO_FEATURES.md](.claude/architecture/SLOT_LAB_AUDIO_FEATURES.md) — P0/P1 audio features (per-reel spin loops, cascade escalation, jackpot sequence)
-- [UNIFIED_PLAYBACK_SYSTEM.md](.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md) — Section-based playback, engine-level source filtering
-- [EVENT_SYNC_SYSTEM.md](.claude/architecture/EVENT_SYNC_SYSTEM.md) — Bidirectional event sync, per-reel spin loops, cascade escalation
-- [ADAPTIVE_LAYER_ENGINE.md](.claude/architecture/ADAPTIVE_LAYER_ENGINE.md) — Full ALE specification
-- [STAGE_INGEST_SYSTEM.md](.claude/architecture/STAGE_INGEST_SYSTEM.md) — Universal stage language
-- [ENGINE_INTEGRATION_SYSTEM.md](.claude/architecture/ENGINE_INTEGRATION_SYSTEM.md) — Game engine integration
-- [fluxforge-studio.md](.claude/project/fluxforge-studio.md) — Full project spec

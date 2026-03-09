@@ -2,293 +2,87 @@
 
 ## Overview
 
-Real-time bidirectional synchronization of composite events between all three sections: SlotLab, Middleware, and DAW.
+Real-time bidirectional synchronization of composite events between SlotLab, Middleware, and DAW.
 
 **Single Source of Truth:** `MiddlewareProvider.compositeEvents`
 
----
-
-## Architecture Diagram
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         EVENT SYNC ARCHITECTURE                              │
-│                                                                              │
-│                    MiddlewareProvider.compositeEvents                        │
-│                         (Single Source of Truth)                             │
-│                                  │                                           │
-│          ┌───────────────────────┼───────────────────────┐                  │
-│          │                       │                       │                  │
-│          ▼                       ▼                       ▼                  │
-│   ┌─────────────┐        ┌─────────────┐        ┌─────────────┐            │
-│   │   SLOT LAB  │        │  MIDDLEWARE │        │     DAW     │            │
-│   ├─────────────┤        ├─────────────┤        ├─────────────┤            │
-│   │ Consumer<>  │        │ Consumer<>  │        │context.watch│            │
-│   │ Right Panel │        │Center Panel │        │ Left Panel  │            │
-│   │ + Timeline  │        │LayersTable  │        │Events Folder│            │
-│   └─────────────┘        └─────────────┘        └─────────────┘            │
-│          │                       │                       │                  │
-│          └───────────────────────┼───────────────────────┘                  │
-│                                  │                                           │
-│                    notifyListeners() triggers rebuild                        │
-└─────────────────────────────────────────────────────────────────────────────┘
+MiddlewareProvider.compositeEvents (SSoT)
+        │
+   ┌────┼────┐
+   ▼    ▼    ▼
+SlotLab  Middleware  DAW
+addListener Consumer  context.watch
 ```
 
----
+All three sections read from `MiddlewareProvider`. Changes flow through `notifyListeners()`.
 
 ## Data Flow
 
-### Adding a Layer in SlotLab
+### Adding a Layer
 
 ```
-1. User drops audio on event in right panel
-   ↓
-2. _addLayerToEvent(event, audioPath)
-   ↓
-3. _addLayerToMiddlewareEvent(eventId, audioPath, name)
-   ↓
-4. _middleware.addLayerToEvent(eventId, ...)
-   ↓
-5. MiddlewareProvider:
-   - _compositeEvents[eventId] = updated
-   - _syncCompositeToMiddleware(updated)
-   - notifyListeners()
-   ↓
-6. PARALLEL UPDATES:
-   ├─ SlotLab: _onMiddlewareChanged()
-   │   → _rebuildRegionForEvent(event)
-   │   → _syncEventToRegistry(event)
-   │   → setState()
-   │
-   ├─ Middleware: Consumer rebuilds
-   │   → _buildLayersAsActionsTable(selectedComposite)
-   │
-   └─ DAW: context.watch triggers
-       → _buildProjectTree(compositeEvents)
-       → Shows updated layer count
+User drops audio → _addLayerToMiddlewareEvent(eventId, audioPath, name)
+  → _middleware.addLayerToEvent(eventId, ...)
+  → MiddlewareProvider updates + notifyListeners()
+  → PARALLEL: SlotLab (_onMiddlewareChanged), Middleware (Consumer), DAW (context.watch)
 ```
 
 ### Key Sync Points
 
 | Action | SlotLab | Middleware | DAW |
 |--------|---------|------------|-----|
-| Add layer | _onMiddlewareChanged → rebuild region | Consumer → layers table | watch → left panel tree |
-| Remove layer | _onMiddlewareChanged → rebuild region | Consumer → layers table | watch → left panel tree |
-| Create event | setState + _syncEventToRegistry | Consumer → event list | watch → Events folder |
-| Delete event | MiddlewareProvider removes | Consumer → event list | watch → Events folder |
+| Add/Remove layer | _onMiddlewareChanged → rebuild region | Consumer → layers table | watch → left panel tree |
+| Create/Delete event | setState + _syncEventToRegistry | Consumer → event list | watch → Events folder |
+
+## Provider Integration Patterns
+
+| Method | Use Case | Rebuilds |
+|--------|----------|----------|
+| `Consumer<T>` | Widget subtree needs provider data | Only Consumer's builder |
+| `context.watch<T>()` | Whole widget needs to rebuild | Entire widget |
+| `addListener()` | Need callback for side effects | Manual via setState() |
+
+**SlotLab** uses `addListener` because it needs side effects (`_rebuildRegionForEvent`, `_syncEventToRegistry`).
+**Middleware/DAW** use `Consumer`/`watch` for pure UI rebuilds.
+
+## Files Involved
+
+| File | Role |
+|------|------|
+| `lib/providers/middleware_provider.dart` | Single source of truth for compositeEvents |
+| `lib/screens/slot_lab_screen.dart` | Right panel + timeline, listens to provider |
+| `lib/screens/engine_connected_layout.dart` | Left panel (DAW) + center panel (Middleware) |
+| `lib/services/event_registry.dart` | Stage→Event mapping for audio triggers |
 
 ---
 
-## Provider Integration
+## EventRegistry Sync
 
-### SlotLab Screen
+EventRegistry is a singleton mapping stages to audio events for stage-based triggers during spins.
 
-```dart
-// Getter for compositeEvents - reads from provider
-List<SlotCompositeEvent> get _compositeEvents => _middleware.compositeEvents;
+**CRITICAL:** Only `_syncEventToRegistry()` in `slot_lab_screen.dart` registers events. NEVER add registration elsewhere.
 
-// Listener registered in initState
-_middleware.addListener(_onMiddlewareChanged);
+### Registration Rules
 
-// Callback syncs EventRegistry and rebuilds regions
-void _onMiddlewareChanged() {
-  if (mounted) {
-    for (final event in _compositeEvents) {
-      _rebuildRegionForEvent(event);
-      _syncEventToRegistry(event);  // For stage-based audio triggers
-    }
-    setState(() {});
-  }
-}
-```
+- Events registered under ALL `triggerStages`, not just the first
+- ID format: `event.id` for first stage, `${event.id}_stage_$i` for subsequent
+- Case-insensitive lookup via `.toUpperCase()`
+- Sync happens AFTER provider notifies (in `_onMiddlewareChanged`), never directly after mutation
 
-### Middleware Center Panel (engine_connected_layout.dart)
+### _syncEventToRegistry Signature
 
 ```dart
-Widget _buildMiddlewareCenterContent() {
-  return Consumer<MiddlewareProvider>(
-    builder: (context, middleware, _) {
-      final selectedCompositeId = middleware.selectedCompositeEventId;
-      final compositeEvents = middleware.compositeEvents;
-
-      final selectedComposite = selectedCompositeId != null
-          ? compositeEvents.where((e) => e.id == selectedCompositeId).firstOrNull
-          : null;
-
-      // ... build layers table with selectedComposite.layers
-    },
-  );
-}
+void _syncEventToRegistry(SlotCompositeEvent? event)
+// Converts SlotEventLayer → AudioLayer, registers under each triggerStage
 ```
 
-### DAW Left Panel
-
-```dart
-@override
-Widget build(BuildContext context) {
-  // Watch triggers rebuild on any change
-  final middlewareProvider = context.watch<MiddlewareProvider>();
-
-  // Pass compositeEvents to tree builder
-  projectTree: _buildProjectTree(middlewareProvider.compositeEvents),
-}
-
-List<ProjectTreeNode> _buildProjectTree(List<SlotCompositeEvent> compositeEvents) {
-  // Events folder shows layer count from compositeEvents
-  children: compositeEvents.map((event) => ProjectTreeNode(
-    label: '${event.name} (${event.layers.length})',
-  )).toList(),
-}
-```
-
----
-
-## Critical Implementation Details
-
-### Timing Issue Fix (2026-01-21)
-
-**Problem:** When adding layers, `_syncEventToRegistry` was called immediately after `_middleware.addLayerToEvent`, but the provider hadn't notified listeners yet. This caused stale data to be synced.
-
-**Solution:** Remove direct sync calls from mutation methods. Let `_onMiddlewareChanged` listener handle sync AFTER provider notifies.
-
-```dart
-// BEFORE (broken)
-void _addLayerToMiddlewareEvent(String eventId, String audioPath, String name) {
-  _middleware.addLayerToEvent(eventId, audioPath: audioPath, name: name);
-  _syncEventToRegistry(_findEventById(eventId));  // ❌ Stale data!
-}
-
-// AFTER (fixed)
-void _addLayerToMiddlewareEvent(String eventId, String audioPath, String name) {
-  _middleware.addLayerToEvent(eventId, audioPath: audioPath, name: name);
-  // ✅ _onMiddlewareChanged will sync with fresh data after notifyListeners()
-}
-```
-
-### EventRegistry Sync
-
-EventRegistry is a separate singleton that maps stages to audio events. It must be kept in sync for stage-based audio triggers during slot spins.
-
-**CRITICAL (2026-01-21):** Events are now registered under ALL `triggerStages`, not just the first one. This allows one composite event to be triggered by multiple stages.
-
-```dart
-void _syncEventToRegistry(SlotCompositeEvent? event) {
-  if (event == null) return;
-
-  // Get ALL trigger stages (or derive from category if empty)
-  final stages = event.triggerStages.isNotEmpty
-      ? event.triggerStages
-      : [_getEventStage(event)];
-
-  // Convert SlotEventLayer → AudioLayer with extended parameters
-  final layers = event.layers.map((l) => AudioLayer(
-    id: l.id,
-    audioPath: l.audioPath,
-    name: l.name,
-    volume: l.volume,
-    pan: l.pan,
-    delay: l.offsetMs,
-    busId: l.busId ?? 2,
-    // Extended playback parameters (2026-01-26)
-    fadeInMs: l.fadeInMs,
-    fadeOutMs: l.fadeOutMs,
-    trimStartMs: l.trimStartMs,
-    trimEndMs: l.trimEndMs,
-  )).toList();
-
-  // Register under EACH trigger stage with unique ID
-  for (int i = 0; i < stages.length; i++) {
-    final stage = stages[i];
-    final eventId = i == 0 ? event.id : '${event.id}_stage_$i';
-
-    final audioEvent = AudioEvent(
-      id: eventId,
-      name: event.name,
-      stage: stage,
-      layers: layers,
-    );
-    eventRegistry.registerEvent(audioEvent);
-  }
-}
-```
-
-### AudioLayer Extended Model (2026-01-26)
-
-The `AudioLayer` class in `event_registry.dart` supports extended playback parameters for fade and trim:
-
-```dart
-class AudioLayer {
-  final String id;
-  final String audioPath;
-  final String name;
-  final double volume;      // 0.0 - 1.0+
-  final double pan;         // -1.0 (L) to +1.0 (R)
-  final double delay;       // Delay before playback (ms)
-  final double offset;      // Playback start offset (ms)
-  final int busId;          // Audio bus ID (0=Master, 1=SFX, 2=Music, etc.)
-
-  // Extended playback parameters (engine-level fade/trim)
-  final double fadeInMs;    // Fade-in duration (0 = instant)
-  final double fadeOutMs;   // Fade-out duration (0 = instant)
-  final double trimStartMs; // Trim start point (0 = beginning)
-  final double trimEndMs;   // Trim end point (0 = full length)
-}
-```
-
-**FFI Flow for Extended Parameters:**
-
-```
-1. SlotEventLayer (UI model with fadeIn/fadeOut/trim fields)
-   ↓
-2. AudioLayer (EventRegistry model)
-   ↓
-3. _playLayer() checks hasFadeTrim
-   ↓
-4a. If hasFadeTrim: AudioPlaybackService.playFileToBusEx(path, volume, pan, busId, source,
-                                                        fadeInMs, fadeOutMs, trimStartMs, trimEndMs)
-   ↓
-4b. Else: AudioPlaybackService.playFileToBus(path, volume, pan, busId, source)
-   ↓
-5. NativeFFI.playbackPlayToBusEx() → C FFI
-   ↓
-6. Rust engine_playback_play_to_bus_ex() → OneShotVoice with fade_in/fade_out/trim_start/trim_end
-```
-
-**Conditional Extended Playback:**
-
-```dart
-// In _playLayer()
-final hasFadeTrim = layer.fadeInMs > 0 ||
-    layer.fadeOutMs > 0 ||
-    layer.trimStartMs > 0 ||
-    layer.trimEndMs > 0;
-
-if (hasFadeTrim) {
-  voiceId = AudioPlaybackService.instance.playFileToBusEx(
-    layer.audioPath,
-    volume: volume.clamp(0.0, 1.0),
-    pan: pan.clamp(-1.0, 1.0),
-    busId: layer.busId,
-    source: source,
-    fadeInMs: layer.fadeInMs,
-    fadeOutMs: layer.fadeOutMs,
-    trimStartMs: layer.trimStartMs,
-    trimEndMs: layer.trimEndMs,
-  );
-} else {
-  // Standard playback for layers without fade/trim
-  voiceId = AudioPlaybackService.instance.playFileToBus(...);
-}
-```
-
-When deleting events, ALL stage variants must be unregistered:
+### Deletion — Unregister All Stage Variants
 
 ```dart
 void _deleteMiddlewareEvent(String eventId) {
-  final event = _findEventById(eventId);
-  final stageCount = event?.triggerStages.length ?? 1;
-
-  // Unregister base event + all stage variants
   eventRegistry.unregisterEvent(eventId);
   for (int i = 1; i < stageCount; i++) {
     eventRegistry.unregisterEvent('${eventId}_stage_$i');
@@ -299,2293 +93,279 @@ void _deleteMiddlewareEvent(String eventId) {
 
 ---
 
-## Files Involved
+## AudioLayer Model
 
-| File | Role |
-|------|------|
-| `lib/providers/middleware_provider.dart` | Single source of truth for compositeEvents |
-| `lib/screens/slot_lab_screen.dart` | Right panel + timeline, listens to provider |
-| `lib/screens/engine_connected_layout.dart` | Left panel (DAW) + center panel (Middleware) |
-| `lib/services/event_registry.dart` | Stage→Event mapping for audio triggers |
-| `lib/services/event_sync_service.dart` | Legacy bidirectional sync (partially deprecated) |
+```dart
+class AudioLayer {
+  final String id, audioPath, name;
+  final double volume, pan, delay, offset;
+  final int busId;
+  final double fadeInMs, fadeOutMs, trimStartMs, trimEndMs;
+}
+```
+
+**FFI paths:**
+- If `hasFadeTrim`: `AudioPlaybackService.playFileToBusEx()` → `engine_playback_play_to_bus_ex()`
+- Else: `AudioPlaybackService.playFileToBus()` (standard)
 
 ---
 
-## Consumer vs context.watch vs addListener
+## Event Equivalence (Audio Cutoff Prevention)
 
-| Method | Use Case | Rebuilds |
-|--------|----------|----------|
-| `Consumer<T>` | Widget subtree needs provider data | Only Consumer's builder |
-| `context.watch<T>()` | Whole widget needs to rebuild | Entire widget |
-| `addListener()` | Need callback for side effects | Manual via setState() |
-
-### SlotLab uses addListener because:
-- Needs to call `_rebuildRegionForEvent()` (side effect)
-- Needs to call `_syncEventToRegistry()` (side effect)
-- These aren't just UI rebuilds
-
-### Middleware/DAW use Consumer/watch because:
-- Just need UI to reflect current data
-- No additional side effects needed
+`registerEvent()` compares new event with existing via `_eventsAreEquivalent()`. If identical, skips re-registration to prevent audio cutoff during unrelated UI updates. If changed, stops existing instances and updates.
 
 ---
 
-## Debugging
+## Fallback Stage Resolution
 
-### Check if events are syncing:
+When a specific stage (e.g., `REEL_STOP_0`) has no event, EventRegistry falls back to generic (`REEL_STOP`).
 
-```dart
-// In MiddlewareProvider
-debugPrint('[Middleware] addLayerToEvent: "${updated.name}" now has ${updated.layers.length} layers');
+**Priority:** Exact match → Case-insensitive → Generic fallback
 
-// In SlotLab
-debugPrint('[SlotLab] Synced ${_compositeEvents.length} events from MiddlewareProvider');
+**Numeric suffix patterns:** `REEL_STOP`, `CASCADE_STEP`, `WIN_LINE_SHOW/HIDE`, `SYMBOL_LAND`, `ROLLUP_TICK`, `WHEEL_TICK`, `TRAIL_MOVE_STEP`
 
-// In engine_connected_layout build()
-debugPrint('[DAW] Building tree with ${compositeEvents.length} events');
-```
-
-### Common issues:
-
-1. **Layer not appearing:** Check if `notifyListeners()` is called in provider
-2. **Stale data:** Ensure sync happens AFTER provider update, not before
-3. **UI not updating:** Verify Consumer/watch is used correctly
-4. **EventRegistry out of sync:** Check `_syncEventToRegistry` is called
-5. **Stage not triggering audio:** Ensure event is registered under correct stage name (case-insensitive match via `.toUpperCase()`)
-6. **Multiple stages not working:** Verify all stages are registered (check debug log for "Registered X under N stages")
+**Symbol-specific patterns (prefix matching):** `WIN_SYMBOL_HIGHLIGHT`, `SYMBOL_WIN`, `SYMBOL_TRIGGER`, `SYMBOL_EXPAND`, `SYMBOL_TRANSFORM`
 
 ---
 
-## CRITICAL FIX: SlotLab Audio Not Playing (2026-01-21)
+## Visual-Sync Callback Pattern
 
-### Problem
+Audio stages trigger EXACTLY when visual events occur, via callbacks from `EmbeddedSlotMockup`:
 
-When pressing Spin in SlotLab, no audio was heard even though stages were being triggered.
-
-### Root Causes
-
-1. **EventRegistry was empty on SlotLab mount**
-   - `_syncAllEventsToRegistry()` was only called from `_restorePersistedState()`
-   - If no persisted state existed, EventRegistry stayed empty
-   - Stages triggered but found no matching events
-
-2. **Case-sensitivity mismatch**
-   - SlotLabProvider sent stages as uppercase: `"SPIN_START"`
-   - EventRegistry lookup was case-sensitive
-   - Minor case differences caused silent failures
-
-### Solutions Implemented
-
-#### Fix 1: Initial Sync on Mount (slot_lab_screen.dart)
-
-```dart
-// In initState postFrameCallback:
-WidgetsBinding.instance.addPostFrameCallback((_) {
-  if (mounted) {
-    _middleware.addListener(_onMiddlewareChanged);
-
-    // CRITICAL FIX: Sync existing events from MiddlewareProvider to EventRegistry
-    // This ensures audio works immediately when SlotLab is opened
-    if (_compositeEvents.isNotEmpty) {
-      _syncAllEventsToRegistry();
-      debugPrint('[SlotLab] Initial sync: ${_compositeEvents.length} events → EventRegistry');
-    }
-  }
-});
-```
-
-#### Fix 2: Case-Insensitive Lookup (event_registry.dart)
-
-```dart
-Future<void> triggerStage(String stage, {Map<String, dynamic>? context}) async {
-  final normalizedStage = stage.toUpperCase().trim();
-
-  // Try exact match first, then normalized
-  var event = _stageToEvent[stage];
-  event ??= _stageToEvent[normalizedStage];
-
-  // If still not found, try case-insensitive search through all keys
-  if (event == null) {
-    for (final key in _stageToEvent.keys) {
-      if (key.toUpperCase() == normalizedStage) {
-        event = _stageToEvent[key];
-        break;
-      }
-    }
-  }
-
-  if (event == null) {
-    // Detailed logging for debugging
-    final registeredStages = _stageToEvent.keys.take(10).join(', ');
-    debugPrint('[EventRegistry] ❌ No event for stage: "$stage"');
-    debugPrint('[EventRegistry] 📋 Registered stages: $registeredStages');
-    return;
-  }
-  await triggerEvent(event.id, context: context);
-}
-```
-
-### Verification Checklist
-
-When SlotLab audio doesn't play:
-
-1. **Check EventRegistry has events:**
-   ```
-   Debug log should show:
-   [SlotLab] Initial sync: X events → EventRegistry
-   [SlotLab] ✅ Registered "Event Name" under N stage(s): STAGE1, STAGE2
-   ```
-
-2. **Check stage lookup succeeds:**
-   ```
-   Debug log should show:
-   [EventRegistry] Triggering: Event Name (N layers)
-   [EventRegistry] ✅ Playing: layer.wav (voice X, source: slotlab, bus: Y)
-
-   NOT:
-   [EventRegistry] ❌ No event for stage: "SPIN_START"
-   ```
-
-3. **Check FFI is loaded:**
-   ```
-   If you see "FAILED: FFI not loaded":
-   → Rebuild Rust: cargo build --release
-   → Copy dylibs to Frameworks AND App Bundle (see CLAUDE.md)
-   ```
-
-4. **Check playback section is acquired:**
-   ```
-   [UnifiedPlayback] Section acquired: slotLab
-   ```
-
-### Event Log Panel Improvements (2026-01-21)
-
-Compact single-line format per trigger:
-
-**With audio:**
-```
-12:34:56.789  🎵 Spin Sound → SPIN_START [spin.wav, whoosh.wav]
-              voice=5, bus=2, section=slotLab
-```
-
-**Without audio (helps identify missing events):**
-```
-12:34:56.789  ⚠️ REEL_STOP_3 (no audio)
-              Create event for this stage to hear audio
-```
-
----
-
-## CRITICAL FIX: Deleted Layers Still Playing on Playback (2026-01-21)
-
-### Problem
-
-When deleting a layer or entire event in SlotLab, the audio continued playing during timeline playback (but not during Spin).
-
-### Root Cause
-
-SlotLab uses TWO audio systems:
-1. **Spin** → `EventRegistry.triggerStage()` → was syncing correctly
-2. **Playback** → `SlotLabTrackBridge` + FFI TRACK_MANAGER → **was NOT syncing**
-
-`_syncLayersToTrackManager()` only **added** clips but never **removed** orphaned clips that no longer existed in `_tracks`.
-
-### Solution
-
-1. **Added orphan detection in `_syncLayersToTrackManager()`:**
-   ```dart
-   // Step 1: Collect all current layer IDs from _tracks
-   final currentLayerIds = <String>{};
-   for (final track in _tracks) {
-     for (final region in track.regions) {
-       for (final layer in region.layers) {
-         currentLayerIds.add(layer.id);
-       }
-     }
-   }
-
-   // Step 2: Find and remove orphaned clips
-   final registeredIds = _trackBridge.registeredLayerIds;
-   final orphanedIds = registeredIds.difference(currentLayerIds);
-   for (final orphanId in orphanedIds) {
-     _trackBridge.removeLayerClip(orphanId);
-   }
-   ```
-
-2. **Added `registeredLayerIds` getter to `SlotLabTrackBridge`:**
-   ```dart
-   Set<String> get registeredLayerIds => _layerToClipId.keys.toSet();
-   ```
-
-3. **Added sync call in `_onMiddlewareChanged()`:**
-   - Now calls `_syncLayersToTrackManager()` after rebuilding regions
-
-4. **Added immediate sync in `_deleteCompositeEvent()`:**
-   - Calls `_syncLayersToTrackManager()` right after deleting region
-
-### Files Changed
-
-- `flutter_ui/lib/services/slotlab_track_bridge.dart` — Added `registeredLayerIds` getter
-- `flutter_ui/lib/screens/slot_lab_screen.dart`:
-  - `_syncLayersToTrackManager()` — Added orphan detection/removal
-  - `_onMiddlewareChanged()` — Added TrackManager sync
-  - `_deleteCompositeEvent()` — Added immediate sync
-
----
-
-## SLOTLAB TIMELINE LAYER DRAG (2026-01-21) ✅
-
-### Problem: Layer Jumps to Start on Second Drag
-
-**Simptomi:**
-- Prvi drag radi normalno
-- Drugi drag — layer skače na početak timeline-a
-
-**Root Cause:**
-Kompleksna relativna kalkulacija offseta:
-- `layer.offset` = pozicija relativno na `region.start`
-- `region.start` se dinamički menja (prati najraniji layer)
-- Između drag-ova, `region.start` bi se promenio
-- `freshRelativeOffset` bi se pogrešno izračunao
-
-### Rešenje: Apsolutno Pozicioniranje
-
-Controller sada koristi **apsolutnu poziciju** umesto relativne:
-
-```dart
-// BEFORE (broken)
-void startLayerDrag({
-  required double startOffsetSeconds,      // Relative to region
-  required double regionStartSeconds,      // For absolute calculation
-}) {
-  _layerDragStartOffset = startOffsetSeconds;
-  _regionStartSeconds = regionStartSeconds;
-}
-
-double getLayerCurrentPosition() {
-  return _layerDragStartOffset + _layerDragDelta;
-}
-
-void endLayerDrag() {
-  final newAbsolute = (_regionStartSeconds + _layerDragStartOffset + _layerDragDelta) * 1000;
-  provider.setLayerOffset(eventId, layerId, newAbsolute);
-}
-
-// AFTER (fixed)
-void startLayerDrag({
-  required double absoluteOffsetSeconds,   // Direct from provider.offsetMs / 1000
-}) {
-  _absoluteStartSeconds = absoluteOffsetSeconds;
-}
-
-double getAbsolutePosition() {
-  return (_absoluteStartSeconds + _layerDragDelta).clamp(0.0, infinity);
-}
-
-void endLayerDrag() {
-  final newAbsolute = getAbsolutePosition() * 1000;
-  provider.setLayerOffset(eventId, layerId, newAbsolute);
-}
-```
-
-### Drag Start (slot_lab_screen.dart)
-
-```dart
-onHorizontalDragStart: (details) {
-  // Get FRESH ABSOLUTE offset from provider
-  final freshLayer = freshEvent?.layers.where((l) => l.id == layerId).firstOrNull;
-  final freshAbsoluteOffsetSeconds = (freshLayer?.offsetMs ?? 0.0) / 1000.0;
-
-  // Start drag with ABSOLUTE position - no relative calculations
-  dragController.startLayerDrag(
-    layerEventId: layerId,
-    parentEventId: parentEventId,
-    regionId: region.id,
-    absoluteOffsetSeconds: freshAbsoluteOffsetSeconds,
-    regionDuration: region.duration,
-    layerDuration: realDuration,
-  );
-}
-```
-
-### Visual Position During Drag
-
-```dart
-double currentOffsetSeconds;
-if (isDragging) {
-  // Controller tracks absolute position
-  currentOffsetSeconds = dragController.getAbsolutePosition() - region.start;
-} else {
-  // Read from provider, convert to relative for display
-  final providerOffsetMs = eventLayer?.offsetMs ?? 0.0;
-  currentOffsetSeconds = (providerOffsetMs / 1000.0) - region.start;
-}
-final offsetPixels = (currentOffsetSeconds * pixelsPerSecond).clamp(0.0, infinity);
-```
-
-### Commits
-
-| Commit | Opis |
-|--------|------|
-| `e1820b0c` | Event log deduplication + captured values pattern |
-| `97d8723f` | Absolute positioning za layer drag |
-
----
-
-## DEPRECATED: QuickSheet Double Calls (2026-01-23) — OBSOLETE
-
-> **Note (2026-01-30):** This section documents a historical bug that is now obsolete.
-> The QuickSheet component has been **REMOVED** and replaced with direct event creation.
-
-### Historical Context
-
-QuickSheet was a popup that appeared when dropping audio on slot elements. It allowed users to configure event properties before committing. This caused issues with double calls to `createDraft()` and `commitDraft()`.
-
-### New Implementation (2026-01-30)
-
-QuickSheet has been completely removed. DropTargetWrapper now creates events directly:
-
-```dart
-// drop_target_wrapper.dart - NEW SIMPLIFIED FLOW:
-void _handleDrop(AudioAsset asset, Offset position) {
-  final provider = context.read<MiddlewareProvider>();
-  final stage = _targetIdToStage(target.targetId);
-
-  final event = SlotCompositeEvent(
-    id: 'evt_${DateTime.now().millisecondsSinceEpoch}',
-    name: EventNamingService.instance.generateEventName(target.targetId, stage),
-    triggerStages: [stage],
-    layers: [
-      SlotEventLayer(
-        id: 'layer_${DateTime.now().millisecondsSinceEpoch}',
-        audioPath: asset.path,
-        volume: 1.0,
-        pan: _calculatePan(target.targetId),
-        busId: _stageToBusId(stage),
-      ),
-    ],
-  );
-
-  provider.addCompositeEvent(event);  // Direct creation!
-  widget.onEventCreated?.call(event);
-}
-```
-
-### Complete Flow (Current)
-
-```
-1. User drops audio on slot element (Edit mode)
-   ↓
-2. DropTargetWrapper._handleDrop() called
-   ↓
-3. SlotCompositeEvent created directly
-   ↓
-4. MiddlewareProvider.addCompositeEvent(event)
-   ↓
-5. MiddlewareProvider.notifyListeners()
-   ↓
-6. _onMiddlewareChanged() listener fires
-   - EventRegistry.registerEvent(audioEvent)
-   ↓
-7. User presses Spin
-   ↓
-8. EventRegistry.triggerStage("SPIN_START")
-   ↓
-9. 🔊 Audio plays!
-```
-
-### Files Changed (2026-01-30)
-
-| File | Change |
-|------|--------|
-| `quick_sheet.dart` | **DELETED** |
-| `drop_target_wrapper.dart` | Rewritten to use MiddlewareProvider directly |
-
-### Key Improvement
-
-- **No more double calls** — single event creation path
-- **No popup delay** — instant event creation on drop
-- **Simpler code** — ~600 LOC removed
-
-### Documentation
-
-See: `.claude/docs/AUTOEVENTBUILDER_REMOVAL_2026_01_30.md`
-
----
-
-## VISUAL-SYNC CALLBACKS (2026-01-23) ✅
-
-### Problem: Audio-Visual Desync
-
-**Simptomi:**
-- REEL_STOP stages fired at inconsistent times compared to visual reel stops
-- Audio felt "late" or "early" relative to visual animation
-- Different timing paths: SlotLabProvider vs EmbeddedSlotMockup animations
-
-**Root Cause:**
-EmbeddedSlotMockup had its own internal animation timing (`_scheduleReelStops()`) that was completely independent from SlotLabProvider's stage triggering system. Audio stages were triggered based on spin result data, not actual visual events.
-
-### Solution: Visual-Sync Callback Pattern
-
-Added callback hooks directly in visual animation widget that fire **exactly** when visual events occur:
-
-```dart
-// EmbeddedSlotMockup callbacks
-class EmbeddedSlotMockup extends StatefulWidget {
-  // VISUAL-SYNC CALLBACKS
-  final VoidCallback? onSpinStart;
-  final void Function(int reelIndex)? onReelStop;
-  final VoidCallback? onAnticipation;
-  final VoidCallback? onReveal;
-  final void Function(WinType winType, double amount)? onWinStart;
-  final VoidCallback? onWinEnd;
-  // ...
-}
-```
-
-### Implementation Details
-
-**EmbeddedSlotMockup._scheduleReelStops():**
-```dart
-void _scheduleReelStops() {
-  final baseDelay = _turbo ? 100 : 250;
-
-  for (int i = 0; i < widget.reels; i++) {
-    Future.delayed(Duration(milliseconds: baseDelay * (i + 1)), () {
-      if (!mounted) return;
-      setState(() {
-        _reelStopped[i] = true;  // Visual update
-      });
-
-      // VISUAL-SYNC: Trigger REEL_STOP_i stage IMMEDIATELY when visual stops
-      widget.onReelStop?.call(i);
-
-      // Check for anticipation on second-to-last reel
-      if (i == widget.reels - 2) {
-        if (_rng.nextDouble() < 0.2) {
-          setState(() => _gameState = GameState.anticipation);
-          widget.onAnticipation?.call();
-        }
-      }
-    });
-  }
-}
-```
-
-**SlotLabScreen helper methods:**
-```dart
-// VISUAL-SYNC helper - triggers stage directly to EventRegistry
-void _triggerVisualStage(String stage, {Map<String, dynamic>? context}) {
-  eventRegistry.triggerStage(stage, context: context);
-  debugPrint('[SlotLab] VISUAL-SYNC: $stage ${context ?? ''}');
-}
-
-// Win stage helper - determines win tier and triggers appropriate stages
-void _triggerWinStage(WinType winType, double amount) {
-  final winStage = switch (winType) {
-    WinType.noWin => null,
-    WinType.smallWin => 'WIN_SMALL',
-    WinType.mediumWin => 'WIN_MEDIUM',
-    WinType.bigWin => 'WIN_BIG',
-    WinType.megaWin => 'WIN_MEGA',
-    WinType.epicWin => 'WIN_EPIC',
-  };
-
-  if (winStage != null) {
-    final multiplier = _bet > 0 ? amount / _bet : 0.0;
-    eventRegistry.triggerStage(winStage, context: {
-      'win_amount': amount,
-      'win_multiplier': multiplier,
-      'win_type': winType.name,
-    });
-    eventRegistry.triggerStage('ROLLUP_START', context: {
-      'win_amount': amount,
-      'win_multiplier': multiplier,
-    });
-  }
-}
-```
-
-**Widget connection:**
 ```dart
 EmbeddedSlotMockup(
-  provider: _slotLabProvider,
-  reels: _reelCount,
-  rows: _rowCount,
-  onSpin: _handleSpin,
-  onForcedSpin: (outcome) => _handleEngineSpin(forcedOutcome: outcome),
-  // VISUAL-SYNC callbacks:
   onSpinStart: () => _triggerVisualStage('SPIN_START'),
-  onReelStop: (reelIdx) => _triggerVisualStage('REEL_STOP_$reelIdx', context: {'reel_index': reelIdx}),
+  onReelStop: (idx) => _triggerVisualStage('REEL_STOP_$idx', context: {'reel_index': idx}),
   onAnticipation: () => _triggerVisualStage('ANTICIPATION_TENSION'),
   onReveal: () => _triggerVisualStage('SPIN_END'),
   onWinStart: (winType, amount) => _triggerWinStage(winType, amount),
   onWinEnd: () => _triggerVisualStage('WIN_END'),
-),
-```
-
-### Callback Flow
-
-```
-1. User presses Spin
-   ↓
-2. EmbeddedSlotMockup._spin() called
-   ↓
-3. setState: _gameState = GameState.spinning
-   ↓
-4. widget.onSpinStart?.call()  →  EventRegistry.triggerStage('SPIN_START')
-   ↓
-5. _scheduleReelStops() schedules Future.delayed for each reel
-   ↓
-6. [After 250ms] First reel stops visually
-   ↓
-7. widget.onReelStop?.call(0)  →  EventRegistry.triggerStage('REEL_STOP_0')
-   ↓
-8. [After 500ms] Second reel stops visually
-   ↓
-9. widget.onReelStop?.call(1)  →  EventRegistry.triggerStage('REEL_STOP_1')
-   ↓
-... (continues for all reels)
-   ↓
-N. All reels stopped → Win evaluation
-   ↓
-N+1. widget.onWinStart?.call(winType, amount)  →  EventRegistry.triggerStage('WIN_BIG')
-```
-
-### Key Benefits
-
-| Benefit | Description |
-|---------|-------------|
-| **Perfect Sync** | Audio triggers exactly when visual event happens |
-| **Decoupled** | Visual widget doesn't know about audio system |
-| **Testable** | Can test visual animations without audio |
-| **Flexible** | Can add more callbacks as needed |
-| **Context Data** | Callbacks can pass relevant context (reel index, win amount) |
-
-### Files Changed
-
-| File | Change |
-|------|--------|
-| `flutter_ui/lib/widgets/slot_lab/embedded_slot_mockup.dart` | Added 6 callback parameters, call sites in animation methods |
-| `flutter_ui/lib/screens/slot_lab_screen.dart` | Added `_triggerVisualStage()`, `_triggerWinStage()`, connected callbacks |
-
----
-
-## QUICKSHEET DROPDOWN FALLBACK (2026-01-23) ✅
-
-### Problem: Dropdown Assertion Error
-
-**Error:**
-```
-flutter/src/material/dropdown.dart: failed assertion: line 1011 pos 10
-items == null || items.isEmpty
-```
-
-**Root Cause:**
-When dragging audio onto slot elements, `availableTriggers` list could be empty, causing DropdownButton to fail.
-
-### Solution: Fallback Constants
-
-```dart
-// quick_sheet.dart
-class _QuickSheetContentState extends State<_QuickSheetContent> {
-  // Fallback values for empty lists
-  static const _fallbackTriggers = ['press', 'release', 'hover'];
-  static const _fallbackPresetId = 'ui_click_secondary';
-
-  @override
-  void initState() {
-    super.initState();
-    final triggers = _getAvailableTriggers();
-    _selectedTrigger = triggers.contains(widget.draft.trigger)
-        ? widget.draft.trigger
-        : triggers.first;
-
-    final presets = widget.provider.presets;
-    _selectedPreset = presets.any((p) => p.presetId == widget.draft.presetId)
-        ? widget.draft.presetId
-        : (presets.isNotEmpty ? presets.first.presetId : _fallbackPresetId);
-  }
-
-  List<String> _getAvailableTriggers() {
-    final triggers = widget.draft.availableTriggers;
-    return triggers.isNotEmpty ? triggers : _fallbackTriggers;
-  }
-}
-```
-
-### Dropdown Build Safety
-
-```dart
-Widget _buildPresetDropdown() {
-  final presets = widget.provider.presets;
-  if (presets.isEmpty) {
-    return Text('No presets available', style: TextStyle(color: Colors.grey));
-  }
-  return DropdownButton<String>(
-    value: _selectedPreset,
-    items: presets.map((p) => DropdownMenuItem(...)).toList(),
-    onChanged: (val) => setState(() => _selectedPreset = val!),
-  );
-}
+)
 ```
 
 ---
 
-## AUDIO PREVIEW ON COMMIT (2026-01-23) ✅
+## Event Creation Flow (Current)
 
-### Problem: Sounds Feel "Cut Off"
+QuickSheet has been removed. `DropTargetWrapper` creates events directly via `MiddlewareProvider.addCompositeEvent()`.
 
-When dropping audio on slot elements, sounds felt truncated because hover preview stopped when drag started.
-
-### Solution: Play Confirmation Preview
-
-Added audio preview playback when event is successfully committed:
-
-```dart
-// drop_target_wrapper.dart
-onCommit: () {
-  final event = provider.commitDraft();
-  if (event != null) {
-    _triggerPulse();
-
-    // Play brief audio preview as confirmation feedback
-    AudioPlaybackService.instance.previewFile(
-      asset.path,
-      volume: 0.7,
-      source: PlaybackSource.browser, // Use browser for instant playback
-    );
-
-    widget.onEventCreated?.call(event);
-  }
-},
 ```
-
-**Why PlaybackSource.browser?**
-- Browser source bypasses section filtering
-- Plays instantly regardless of active section
-- Perfect for UI feedback sounds
-
----
-
-## CRITICAL FIX: Audio Cutoff Prevention (2026-01-24) ✅
-
-### Problem
-
-When `_onMiddlewareChanged()` fired, all events were re-registered to EventRegistry. This caused currently-playing audio to stop abruptly, even if the event data hadn't changed.
-
-**Symptom:** Audio "cuts off" mid-playback during unrelated UI updates.
-
-### Solution: Event Equivalence Check
-
-Added `_eventsAreEquivalent()` function in EventRegistry that compares two AudioEvents:
-
-```dart
-/// Check if two AudioEvents are equivalent (same layers, same audio data)
-/// Used to avoid stopping playback when re-registering identical events
-bool _eventsAreEquivalent(AudioEvent a, AudioEvent b) {
-  // Compare basic fields
-  if (a.name != b.name || a.stage != b.stage || a.duration != b.duration ||
-      a.loop != b.loop || a.priority != b.priority ||
-      a.containerType != b.containerType || a.containerId != b.containerId) {
-    return false;
-  }
-
-  // Compare layers count
-  if (a.layers.length != b.layers.length) {
-    return false;
-  }
-
-  // Compare each layer (order-dependent)
-  for (int i = 0; i < a.layers.length; i++) {
-    final layerA = a.layers[i];
-    final layerB = b.layers[i];
-    if (layerA.id != layerB.id ||
-        layerA.audioPath != layerB.audioPath ||
-        layerA.volume != layerB.volume ||
-        layerA.pan != layerB.pan ||
-        layerA.delay != layerB.delay ||
-        layerA.offset != layerB.offset ||
-        layerA.busId != layerB.busId) {
-      return false;
-    }
-  }
-
-  return true;
-}
-```
-
-### registerEvent() Now Checks Equivalence
-
-```dart
-void registerEvent(AudioEvent event) {
-  final existingEvent = _events[event.id];
-
-  if (existingEvent != null) {
-    // Check if event data has changed (layers, duration, etc.)
-    final hasChanged = !_eventsAreEquivalent(existingEvent, event);
-    if (hasChanged) {
-      // Event data changed - stop all playing instances SYNCHRONOUSLY
-      _stopEventSync(event.id);
-      debugPrint('[EventRegistry] Event changed - stopping existing instances: ${event.name}');
-    } else {
-      // Event data is identical - skip update, keep playing
-      debugPrint('[EventRegistry] Event unchanged - skipping re-registration: ${event.name}');
-      return; // Don't re-register if identical
-    }
-  }
-
-  // ... continue with registration
-}
-```
-
-### Benefits
-
-| Scenario | Before Fix | After Fix |
-|----------|------------|-----------|
-| UI update triggers sync | Audio stops | Audio continues |
-| Same event re-registered | Stops & restarts | No interruption |
-| Event actually changed | N/A | Properly stops & updates |
-| Layer added/removed | N/A | Properly stops & updates |
-
----
-
-## CRITICAL FIX: Auto-Acquire SlotLab Section (2026-01-24) ✅
-
-### Problem
-
-When triggering events via EventRegistry without an active playback section, audio wouldn't play because `UnifiedPlaybackController.activeSection` was null.
-
-### Solution: Auto-Acquire in _playLayer()
-
-```dart
-// Determine correct PlaybackSource from active section in UnifiedPlaybackController
-// CRITICAL FIX: If no section is active, auto-acquire SlotLab section first
-var activeSection = UnifiedPlaybackController.instance.activeSection;
-if (activeSection == null) {
-  // Auto-acquire SlotLab section (EventRegistry defaults to SlotLab)
-  UnifiedPlaybackController.instance.acquireSection(PlaybackSection.slotLab);
-  // Also ensure audio stream is running
-  UnifiedPlaybackController.instance.ensureStreamRunning();
-  activeSection = PlaybackSection.slotLab;
-  debugPrint('[EventRegistry] Auto-acquired SlotLab section for playback');
-}
-```
-
-### Why SlotLab?
-
-EventRegistry is primarily used by SlotLab for stage-triggered audio. When no section is explicitly acquired (e.g., first spin after app launch), defaulting to SlotLab ensures audio plays immediately.
-
----
-
-## Event Naming Convention (2026-01-24) ✅
-
-### generateEventName() Function
-
-Located in `flutter_ui/lib/services/stage_group_service.dart`, this function converts stage names to human-readable event names:
-
-```dart
-String generateEventName(String stage) {
-  const customNames = {
-    'SPIN_START': 'onUiSpin',
-    'REEL_STOP_0': 'onReelLand1',
-    'REEL_STOP_1': 'onReelLand2',
-    // ... 60+ mappings
-  };
-
-  if (customNames.containsKey(stage)) {
-    return customNames[stage]!;
-  }
-
-  // Fallback: STAGE_NAME → onStageName
-  final parts = stage.split('_');
-  final camelCase = parts.map((p) => p.toLowerCase().capitalize()).join('');
-  return 'on$camelCase';
-}
-```
-
-### Key Mappings
-
-| Stage | Event Name |
-|-------|------------|
-| `SPIN_START` | `onUiSpin` |
-| `SPIN_END` | `onUiSpinEnd` |
-| `REEL_STOP_0` | `onReelLand1` |
-| `REEL_STOP_1` | `onReelLand2` |
-| `REEL_STOP_2` | `onReelLand3` |
-| `REEL_STOP_3` | `onReelLand4` |
-| `REEL_STOP_4` | `onReelLand5` |
-| `REEL_SPIN` | `onReelSpin` |
-| `WILD_LAND` | `onWildLand` |
-| `SCATTER_LAND` | `onScatterLand` |
-| `WIN_BIG` | `onWinBig` |
-| `WIN_MEGA` | `onWinMega` |
-| `JACKPOT_TRIGGER` | `onJackpotTrigger` |
-| `FREESPIN_START` | `onFreeSpinStart` |
-| `CASCADE_STEP` | `onCascadeStep` |
-| `HOLD_LOCK` | `onHoldLock` |
-
-**Note:** REEL_STOP uses 1-indexed event names (`onReelLand1-5`) while stages use 0-indexed (`REEL_STOP_0-4`).
-
-### Debug Matching Utility
-
-For diagnosing why audio files don't match expected stages:
-
-```dart
-// In code or debug console:
-StageGroupService.instance.debugTestMatch('reel_stop_1.wav');
-
-// Output:
-// ═══════════════════════════════════════════════════════════════
-// [DEBUG] Testing match for: "reel_stop_1.wav"
-// [DEBUG] Normalized: "reel stop 1"
-// ───────────────────────────────────────────────────────────────
-// ✅ REEL_STOP_1: 85% — reel, stop, 1
-// ❌ REEL_STOP_0: 0% — EXCLUDED:1 (wrong number)
-// ───────────────────────────────────────────────────────────────
-// [RESULT] MATCHED: REEL_STOP_1 (85%)
-// [RESULT] Event name: onReelLand2
-// ═══════════════════════════════════════════════════════════════
+Drop audio on slot element → DropTargetWrapper._handleDrop()
+  → SlotCompositeEvent created directly → provider.addCompositeEvent(event)
+  → notifyListeners() → _onMiddlewareChanged() → EventRegistry.registerEvent()
+  → User spins → EventRegistry.triggerStage() → Audio plays
 ```
 
 ---
 
-## Batch Import / Group Matching Fix (2026-01-24) ✅
+## Auto-Acquire SlotLab Section
 
-### Problem
-
-When batch importing audio files to a group (e.g., "Spins & Reels"), REEL_STOP files weren't being matched correctly.
-
-**User Report:** "REEL_STOP ne radi kada prevučem audio fajlove u grupu"
-
-**Root Causes:**
-1. REEL_STOP_0 through REEL_STOP_4 had `requiredKeywords: ['reel']` — files without "reel" in name couldn't match
-2. `specificNumber` used 0-indexed values, but users often name files 1-indexed (`stop_1.wav` for first reel)
-3. Generic REEL_STOP excluded only 0-4, not 5 (which would be 1-indexed fifth reel)
-
-### Solution
-
-**1. Removed `requiredKeywords: ['reel']` from REEL_STOP_0-4:**
-```dart
-_StageDefinition(
-  stage: 'REEL_STOP_0',
-  keywords: ['stop', 'land', 'first', '1st', 'reel', 'reels'],
-  requiredKeywords: [], // Removed 'reel' requirement for flexible matching
-  suffixes: ['_0', '_1', '_first'], // Both 0 and 1 index for first reel
-  requiresNumber: true,
-  specificNumber: 0, // 0-indexed internally
-  priority: 87,
-),
-```
-
-**2. Added dual-index number matching (0-indexed AND 1-indexed):**
-```dart
-if (def.specificNumber != null) {
-  // Support both 0-indexed and 1-indexed naming conventions:
-  // - specificNumber=0 matches files with 0 (0-indexed) OR 1 (1-indexed first)
-  // - specificNumber=1 matches files with 1 (0-indexed) OR 2 (1-indexed second)
-  final zeroIndexed = def.specificNumber!;
-  final oneIndexed = def.specificNumber! + 1;
-
-  final hasZeroIndexed = numbers.contains(zeroIndexed);
-  final hasOneIndexed = numbers.contains(oneIndexed);
-
-  if (!hasZeroIndexed && !hasOneIndexed) {
-    return (0.0, ['MISSING_NUMBER:$zeroIndexed or $oneIndexed']);
-  }
-
-  if (hasZeroIndexed) {
-    matchedKeywords.add('number:$zeroIndexed (0-idx)');
-    score += 0.35; // Exact 0-indexed match adds 35%
-  } else {
-    matchedKeywords.add('number:$oneIndexed (1-idx)');
-    score += 0.3; // 1-indexed match adds 30%
-  }
-}
-```
-
-**3. Made generic REEL_STOP smarter about detecting reel numbers:**
-```dart
-} else if (def.stage == 'REEL_STOP') {
-  // REEL_STOP (generic) should NOT match if there's a number 0-5
-  final numbers = RegExp(r'\d+').allMatches(normalizedName).toList();
-  for (final m in numbers) {
-    final num = int.tryParse(m.group(0) ?? '') ?? -1;
-    if (num >= 0 && num <= 5) {
-      // Check if this looks like a reel index (appears near stop/land keywords)
-      final beforeMatch = normalizedName.substring(0, m.start);
-      if (beforeMatch.endsWith('stop') ||
-          beforeMatch.endsWith('land') ||
-          beforeMatch.endsWith('reel') ||
-          beforeMatch.endsWith('reelstop') ||
-          beforeMatch.endsWith('reelland')) {
-        return (0.0, ['HAS_SPECIFIC_REEL_NUMBER:$num']);
-      }
-    }
-  }
-}
-```
-
-### Supported File Naming Conventions
-
-| File Name | Matches Stage | Notes |
-|-----------|---------------|-------|
-| `reel_stop_0.wav` | REEL_STOP_0 | 0-indexed |
-| `reel_stop_1.wav` | REEL_STOP_0 or REEL_STOP_1 | Prefers 0-indexed |
-| `stop_1.wav` | REEL_STOP_0 | 1-indexed first reel |
-| `land_2.wav` | REEL_STOP_1 | 1-indexed second reel |
-| `reel_land_5.wav` | REEL_STOP_4 | 1-indexed fifth reel |
-| `spin_stop.wav` | REEL_STOP | Generic (no specific reel) |
-| `reel_stop_v2.wav` | REEL_STOP | "v2" is version, not reel index |
-
-### Testing Batch Import
-
-```dart
-// Test individual file matching:
-StageGroupService.instance.debugTestMatch('stop_1.wav');
-
-// Test batch import to group:
-final result = StageGroupService.instance.matchFilesToGroup(
-  group: StageGroup.spinsAndReels,
-  audioPaths: [
-    '/audio/stop_1.wav',
-    '/audio/stop_2.wav',
-    '/audio/stop_3.wav',
-    '/audio/stop_4.wav',
-    '/audio/stop_5.wav',
-  ],
-);
-
-print('Matched: ${result.matchedCount}/${result.totalFiles}');
-for (final match in result.matched) {
-  print('${match.audioFileName} → ${match.stage} (${match.eventName})');
-}
-```
-
-**Expected Output:**
-```
-Matched: 5/5
-stop_1.wav → REEL_STOP_0 (onReelLand1)
-stop_2.wav → REEL_STOP_1 (onReelLand2)
-stop_3.wav → REEL_STOP_2 (onReelLand3)
-stop_4.wav → REEL_STOP_3 (onReelLand4)
-stop_5.wav → REEL_STOP_4 (onReelLand5)
-```
-
-### Files Changed
-
-| File | Change |
-|------|--------|
-| `flutter_ui/lib/services/stage_group_service.dart` | REEL_STOP_0-4: removed `requiredKeywords`, added 1-indexed suffixes, added dual-index number matching |
+If no playback section is active when `_playLayer()` is called, EventRegistry auto-acquires `PlaybackSection.slotLab` and ensures audio stream is running.
 
 ---
 
-## Fallback Stage Resolution (2026-01-24) ✅
+## Stage Name Mapping
 
-### Problem
+### Critical Mappings
 
-If user has only ONE generic sound (e.g., `REEL_STOP`) but the system triggers specific stages (`REEL_STOP_0`, `REEL_STOP_1`, etc.), no audio plays.
+| targetId | Stage | Triggered By |
+|----------|-------|-------------|
+| `ui.spin` | `SPIN_START` | SlotLabProvider |
+| symbol WIN context | `WIN_SYMBOL_HIGHLIGHT_*` | SlotPreviewWidget |
+| per-reel | `REEL_STOP_0..4` | ProfessionalReelAnimation |
 
-**User Request:** "Ako imam jedan zvuk za reel stop, da se on poziva automatski za svaki reel stop"
+### Symbol Stage Format
 
-### Solution: Automatic Fallback in triggerStage()
-
-Added `_getFallbackStage()` helper that maps specific stages to generic fallback:
-
-```dart
-/// Get fallback stage for specific stage
-/// e.g., REEL_STOP_0 → REEL_STOP, CASCADE_STEP_3 → CASCADE_STEP
-String? _getFallbackStage(String stage) {
-  final match = RegExp(r'^(.+)_(\d+)$').firstMatch(stage);
-  if (match != null) {
-    final baseName = match.group(1)!;
-    const fallbackablePatterns = {
-      'REEL_STOP',
-      'CASCADE_STEP',
-      'WIN_LINE_SHOW',
-      'WIN_LINE_HIDE',
-      'SYMBOL_LAND',
-      'ROLLUP_TICK',
-      'WHEEL_TICK',
-      'TRAIL_MOVE_STEP',
-    };
-    if (fallbackablePatterns.contains(baseName)) {
-      return baseName;
-    }
-  }
-  return null;
-}
-```
-
-### Fallback Flow
-
-```
-1. triggerStage('REEL_STOP_0') called
-   ↓
-2. Look for REEL_STOP_0 event → NOT FOUND
-   ↓
-3. _getFallbackStage('REEL_STOP_0') → 'REEL_STOP'
-   ↓
-4. Look for REEL_STOP event → FOUND!
-   ↓
-5. Play REEL_STOP event
-   ↓
-6. Log: "[EventRegistry] 🔄 Using fallback: REEL_STOP_0 → REEL_STOP"
-```
-
-### Supported Fallback Patterns
-
-**Numeric Suffix Patterns:**
-
-| Specific Stage | Fallback To |
-|----------------|-------------|
-| `REEL_STOP_0..4` | `REEL_STOP` |
-| `CASCADE_STEP_N` | `CASCADE_STEP` |
-| `WIN_LINE_SHOW_N` | `WIN_LINE_SHOW` |
-| `WIN_LINE_HIDE_N` | `WIN_LINE_HIDE` |
-| `SYMBOL_LAND_N` | `SYMBOL_LAND` |
-| `ROLLUP_TICK_N` | `ROLLUP_TICK` |
-| `WHEEL_TICK_N` | `WHEEL_TICK` |
-| `TRAIL_MOVE_STEP_N` | `TRAIL_MOVE_STEP` |
-
-**V14 Symbol-Specific Patterns (2026-01-25):**
-
-| Specific Stage | Fallback To | Use Case |
-|----------------|-------------|----------|
-| `WIN_SYMBOL_HIGHLIGHT_HP1` | `WIN_SYMBOL_HIGHLIGHT` | High pay symbol 1 highlight |
-| `WIN_SYMBOL_HIGHLIGHT_WILD` | `WIN_SYMBOL_HIGHLIGHT` | Wild symbol highlight |
-| `WIN_SYMBOL_HIGHLIGHT_SCATTER` | `WIN_SYMBOL_HIGHLIGHT` | Scatter highlight |
-| `SYMBOL_WIN_HP2` | `SYMBOL_WIN` | Symbol win sound |
-| `SYMBOL_TRIGGER_BONUS` | `SYMBOL_TRIGGER` | Bonus symbol trigger |
-| `SYMBOL_EXPAND_WILD` | `SYMBOL_EXPAND` | Wild expansion |
-| `SYMBOL_TRANSFORM_SCATTER` | `SYMBOL_TRANSFORM` | Symbol transformation |
-
-**Implementation:**
-
-```dart
-// V14: Symbol-specific stage fallback
-// WIN_SYMBOL_HIGHLIGHT_HP1 → WIN_SYMBOL_HIGHLIGHT
-// WIN_SYMBOL_HIGHLIGHT_WILD → WIN_SYMBOL_HIGHLIGHT
-// Pattern: PREFIX_SYMBOLNAME → PREFIX (for symbol-specific stages)
-const symbolPrefixFallbacks = {
-  'WIN_SYMBOL_HIGHLIGHT',
-  'SYMBOL_WIN',
-  'SYMBOL_TRIGGER',
-  'SYMBOL_EXPAND',
-  'SYMBOL_TRANSFORM',
-};
-
-for (final prefix in symbolPrefixFallbacks) {
-  if (stage.startsWith('${prefix}_') && stage.length > prefix.length + 1) {
-    return prefix;
-  }
-}
-```
-
-**Note:** Symbol-specific fallback uses PREFIX matching (not regex `_\d+`), because symbol names like `HP1`, `WILD`, `SCATTER` contain letters, not just digits.
-
-### Priority Order
-
-1. **Exact match** — `REEL_STOP_0` event if exists
-2. **Case-insensitive** — `reel_stop_0` → `REEL_STOP_0`
-3. **Generic fallback** — `REEL_STOP` if `REEL_STOP_0` not found
-
-### Example Usage
-
-**Scenario:** User has one reel stop sound for all reels.
-
-1. Create event with stage `REEL_STOP` (generic)
-2. When spin happens, system triggers `REEL_STOP_0`, `REEL_STOP_1`, etc.
-3. Each trigger falls back to `REEL_STOP` event
-4. Same sound plays for all reels
-
-**Scenario:** User wants different sounds per reel.
-
-1. Create 5 events: `REEL_STOP_0`, `REEL_STOP_1`, `REEL_STOP_2`, `REEL_STOP_3`, `REEL_STOP_4`
-2. Each reel trigger plays its specific sound
-3. No fallback needed
-
-### Files Changed
-
-| File | Change |
-|------|--------|
-| `flutter_ui/lib/services/event_registry.dart` | Added `_getFallbackStage()` helper, fallback lookup in `triggerStage()` |
+`SymbolDefinition.stageName(context)` uses context-specific prefixes:
+- `'win'` → `WIN_SYMBOL_HIGHLIGHT_HP1`
+- `'land'` → `SYMBOL_LAND_HP1`
+- `'expand'` → `SYMBOL_EXPAND_HP1`
 
 ---
 
-## Double-Spin Prevention (2026-01-24)
+## Symbol Audio Re-Registration on Mount
 
-### Problem
+Symbol audio events are registered DIRECTLY to EventRegistry (not via MiddlewareProvider). On screen remount, `_syncSymbolAudioToRegistry()` iterates `SlotLabProjectProvider.symbolAudio` and re-registers all symbol events.
 
-SlotPreviewWidget bi ponekad trigerovao dva spina uzastopno.
-
-**Root Cause:** U `_onProviderUpdate()`, nakon `_finalizeSpin()`:
-- `_isSpinning` postaje `false`
-- Ali `isPlayingStages` je još `true` (procesira WIN_PRESENT, ROLLUP, itd.)
-- `stages` lista još sadrži `spin_start`
-- Uslov prolazi ponovo → `_startSpin()` se zove dvaput
-
-### Solution
-
-Dva guard flaga u `slot_preview_widget.dart`:
-
-| Flag | Purpose |
-|------|---------|
-| `_spinFinalized` | Sprečava re-trigger nakon finalize dok provider ne završi |
-| `_lastProcessedSpinId` | Prati koji spinId je već procesiran |
-
-```dart
-void _onProviderUpdate() {
-  if (isPlaying && stages.isNotEmpty && !_isSpinning && !_spinFinalized) {
-    final spinId = result?.spinId;
-    if (hasSpinStart && spinId != null && spinId != _lastProcessedSpinId) {
-      _lastProcessedSpinId = spinId;
-      _startSpin(result);
-    }
-  }
-
-  // Reset finalized flag kad provider završi
-  if (!isPlaying && _spinFinalized) {
-    _spinFinalized = false;
-  }
-}
-
-void _finalizeSpin(SlotLabSpinResult result) {
-  setState(() {
-    _isSpinning = false;
-    _spinFinalized = true;  // KRITIČNO
-  });
-}
-```
-
-### Debug Log Patterns
-
-```
-✅ [SlotPreview] 🆕 New spin detected: abc123 (last: null)
-✅ [SlotPreview] 🎰 SPIN STARTED (visual only, audio via provider)
-✅ [SlotPreview] ✅ FINALIZE SPIN — setting spinFinalized=true
-✅ [SlotPreview] 🔄 Reset finalized flag — ready for next spin
-
-❌ [SlotPreview] 🆕 New spin detected: abc123 (last: abc123)  ← BLOCKED (same ID)
-```
-
-### Files Changed
-
-| File | Change |
-|------|--------|
-| `slot_preview_widget.dart` | Added `_spinFinalized`, `_lastProcessedSpinId` guards |
+Called from `_initializeSlotEngine()`, runs regardless of engine init success.
 
 ---
 
-## CRITICAL FIX: Stage Name Mapping (2026-01-25) ✅
+## Pending Edit Protection Pattern
 
-### Problem #1: SPIN Button Audio Not Playing
+Prevents slider race condition in Middleware Inspector where provider→local sync overwrites local slider changes during debounce.
 
-**User Report:** "ne cuje se zvuk kada prevucem na spin i kada posle trigerujem"
+**Pattern:**
+1. Set `_pendingEditEventId` when local slider change starts
+2. Skip provider→local sync for that event in `_syncEventsFromProviderList()`
+3. Clear flag after debounced local→provider sync completes
 
-**Root Cause:**
-- `_targetIdToStage('ui.spin')` returned `'UI_SPIN_PRESS'`
-- But `SlotLabProvider` triggers `'SPIN_START'`
-- Stage mismatch = event registered under wrong stage!
-
-**Fix:** Changed mapping in `slot_lab_screen.dart:_targetIdToStage()`:
-
-```dart
-// BEFORE (broken):
-if (targetId == 'ui.spin') return 'UI_SPIN_PRESS';
-
-// AFTER (fixed):
-if (targetId == 'ui.spin') return 'SPIN_START';  // Match SlotLabProvider trigger
-if (targetId == 'ui.spin.press') return 'UI_SPIN_PRESS';  // Optional button click
-```
-
-### Problem #2: WIN_SYMBOL_HIGHLIGHT Audio Not Playing
-
-**User Report:** "niti ponaosob kada ubacujem za simbole win HP1"
-
-**Root Cause:**
-In `slot_lab_models.dart`, the `stageName()` method generated wrong format:
-- Generated: `'SYMBOL_WIN_HP1'`
-- Expected: `'WIN_SYMBOL_HIGHLIGHT_HP1'`
-
-The widget `slot_preview_widget.dart:1173` triggers `'WIN_SYMBOL_HIGHLIGHT_$symbolName'`, but the event was registered under the wrong stage name.
-
-**Fix:** Updated `SymbolDefinition.stageName()` to use correct stage ID getters:
-
-```dart
-// BEFORE (broken):
-String stageName(String context) {
-  return 'SYMBOL_${context.toUpperCase()}_${id.toUpperCase()}';
-}
-
-// AFTER (fixed):
-String stageName(String context) {
-  switch (context.toLowerCase()) {
-    case 'land':
-      return stageIdLand;  // SYMBOL_LAND_HP1
-    case 'win':
-      return stageIdWin;   // WIN_SYMBOL_HIGHLIGHT_HP1 ← CRITICAL FIX
-    case 'expand':
-      return stageIdExpand;  // SYMBOL_EXPAND_HP1
-    case 'lock':
-      return stageIdLock;    // SYMBOL_LOCK_HP1
-    case 'transform':
-      return stageIdTransform;  // SYMBOL_TRANSFORM_HP1
-    default:
-      return 'SYMBOL_${context.toUpperCase()}_${id.toUpperCase()}';
-  }
-}
-```
-
-**Also fixed:** `SymbolAudioAssignment.stageName` getter (line 651):
-
-```dart
-// BEFORE (broken):
-String get stageName => 'SYMBOL_${context.toUpperCase()}_${symbolId.toUpperCase()}';
-
-// AFTER (fixed):
-String get stageName {
-  switch (context.toLowerCase()) {
-    case 'win':
-      return 'WIN_SYMBOL_HIGHLIGHT_${symbolId.toUpperCase()}';
-    case 'land':
-      return 'SYMBOL_LAND_${symbolId.toUpperCase()}';
-    case 'expand':
-      return 'SYMBOL_EXPAND_${symbolId.toUpperCase()}';
-    case 'lock':
-      return 'SYMBOL_LOCK_${symbolId.toUpperCase()}';
-    case 'transform':
-      return 'SYMBOL_TRANSFORM_${symbolId.toUpperCase()}';
-    default:
-      return 'SYMBOL_${context.toUpperCase()}_${symbolId.toUpperCase()}';
-  }
-}
-```
-
-### Stage Trigger Sources
-
-| Stage | Triggered By | Location |
-|-------|--------------|----------|
-| `SPIN_START` | SlotLabProvider | `slot_lab_provider.dart:1260` |
-| `WIN_SYMBOL_HIGHLIGHT_*` | SlotPreviewWidget | `slot_preview_widget.dart:1173` |
-| `REEL_STOP_0..4` | ProfessionalReelAnimation | `professional_reel_animation.dart:tick()` |
-| `WIN_PRESENT_*` | SlotPreviewWidget | `slot_preview_widget.dart:_startWinPresentation()` |
-| `COIN_SHOWER_START` | SlotPreviewWidget | `slot_preview_widget.dart` (win ratio ≥ 20x) |
-| `COIN_SHOWER_END` | SlotPreviewWidget | `slot_preview_widget.dart` (win ratio ≥ 20x) |
-| `BIG_WIN_TICK_START` | SlotPreviewWidget | `slot_preview_widget.dart` (win ratio ≥ 20x) |
-| `BIG_WIN_TICK_END` | SlotPreviewWidget | `slot_preview_widget.dart` (win ratio ≥ 20x) |
-
-### Big Win Celebration System (2026-01-25) ✅
-
-Dedicirani audio sistem za Big Win celebracije.
-
-**Trigger Threshold:** Win ratio ≥ 20x bet
-
-**Stages:**
-| Stage | Bus | Priority | Loop | Opis |
-|-------|-----|----------|------|------|
-| `COIN_SHOWER_START` | SFX (2) | 75 | Ne | Coin shower start SFX |
-| `COIN_SHOWER_END` | SFX (2) | 75 | Ne | Coin shower end SFX |
-| `BIG_WIN_TICK_START` | SFX (2) | 80 | Ne | Big win rollup tick start |
-| `BIG_WIN_TICK_END` | SFX (2) | 80 | Ne | Big win rollup tick end |
-
-**Auto-Stop:** `COIN_SHOWER_END` i `BIG_WIN_TICK_END` automatski se triggeruju kada se završi win prezentacija (`setWinPresentationActive(false)`).
-
-### Verification Checklist
-
-1. ✅ Drop audio on SPIN button → Event created with stage `SPIN_START`
-2. ✅ Click Spin → `SPIN_START` audio plays
-3. ✅ Drop audio on symbol WIN context → Event created with stage `WIN_SYMBOL_HIGHLIGHT_HP1`
-4. ✅ Win occurs → `WIN_SYMBOL_HIGHLIGHT_HP1` audio plays
-
-### Files Changed
-
-| File | Change |
-|------|--------|
-| `flutter_ui/lib/screens/slot_lab_screen.dart` | `_targetIdToStage('ui.spin')` → `'SPIN_START'` |
-| `flutter_ui/lib/models/slot_lab_models.dart` | `SymbolDefinition.stageName()` uses correct stage ID getters |
-| `flutter_ui/lib/models/slot_lab_models.dart` | `SymbolAudioAssignment.stageName` uses correct format per context |
+Applies to: Pan, Gain, Delay, Fade Time sliders.
 
 ---
 
-## CRITICAL FIX: Symbol Audio Re-Registration on Mount (2026-01-25) ✅
+## Middleware FFI Extended Chain
 
-### Problem: Symbol Win Audio Not Playing After Screen Remount
+Two separate FFI paths for extended audio parameters:
 
-**User Report:** "pa ne radi sve sto prevucem za symbol winove" (symbol wins still don't work)
+| Section | FFI Function | Via |
+|---------|-------------|-----|
+| SlotLab (EventRegistry) | `playFileToBusEx()` | AudioLayer |
+| Middleware (Inspector) | `middlewareAddActionEx()` | MiddlewareAction |
 
-**Root Cause:**
-- Symbol audio events are registered DIRECTLY to EventRegistry (not via MiddlewareProvider)
-- When user navigates away from SlotLab and back, screen remounts
-- EventRegistry is NOT cleared, BUT symbol events were only registered on DROP
-- If user dropped audio in previous session, those events are NOT re-registered
-- Result: Symbol audio events are LOST after screen remount
-
-**Flow Before Fix:**
-```
-1. Drop audio on HP1 WIN → onSymbolAudioDrop() → eventRegistry.registerEvent()
-2. Navigate to DAW → SlotLab screen disposes
-3. Return to SlotLab → SlotLab screen mounts fresh
-4. symbolAudio is in SlotLabProjectProvider (persisted) ✅
-5. But EventRegistry has NO symbol events! ❌
-6. Win with HP1 → triggerStage('WIN_SYMBOL_HIGHLIGHT_HP1') → No audio!
-```
-
-**Flow After Fix:**
-```
-1. Drop audio on HP1 WIN → onSymbolAudioDrop() → eventRegistry.registerEvent()
-2. Navigate to DAW → SlotLab screen disposes
-3. Return to SlotLab → SlotLab screen mounts fresh
-4. _initializeSlotEngine() runs
-5. _syncSymbolAudioToRegistry() iterates SlotLabProjectProvider.symbolAudio ✅
-6. All symbol audio events re-registered to EventRegistry ✅
-7. Win with HP1 → triggerStage('WIN_SYMBOL_HIGHLIGHT_HP1') → Audio plays! ✅
-```
-
-### Fix Implementation
-
-**New Method:** `_syncSymbolAudioToRegistry()` in `slot_lab_screen.dart:10404-10459`
-
-```dart
-void _syncSymbolAudioToRegistry() {
-  try {
-    final projectProvider = Provider.of<SlotLabProjectProvider>(context, listen: false);
-    final symbolAudio = projectProvider.symbolAudio;
-
-    if (symbolAudio.isEmpty) return;
-
-    for (final assignment in symbolAudio) {
-      final symbol = projectProvider.symbols.firstWhere(
-        (s) => s.id == assignment.symbolId,
-        orElse: () => defaultSymbols.first,
-      );
-
-      final stageName = assignment.stageName; // Uses correct format per context
-
-      eventRegistry.registerEvent(AudioEvent(
-        id: 'symbol_${assignment.symbolId}_${assignment.context}',
-        name: '${symbol.name} ${assignment.context}',
-        stage: stageName,
-        layers: [
-          AudioLayer(
-            id: 'layer_${assignment.symbolId}_${assignment.context}',
-            audioPath: assignment.audioPath,
-            volume: assignment.volume,
-            pan: assignment.pan,
-            busId: 1, // SFX bus
-          ),
-        ],
-      ));
-    }
-  } catch (e) {
-    debugPrint('[SlotLab] Error syncing symbol audio: $e');
-  }
-}
-```
-
-**Call Site:** `_initializeSlotEngine()` at line 1547-1553
-
-```dart
-// After engine init (whether success or fail):
-_syncSymbolAudioToRegistry();
-```
-
-### Key Design Decisions
-
-1. **Runs regardless of engine init success** — Audio playback works independently of synthetic slot engine
-2. **Uses SlotLabProjectProvider.symbolAudio** — This is persisted, survives screen remounts
-3. **Uses SymbolAudioAssignment.stageName getter** — Ensures correct stage format per context type
-4. **Wrapped in try-catch** — Prevents crash if provider not available
-
-### Files Changed
-
-| File | Change |
-|------|--------|
-| `flutter_ui/lib/screens/slot_lab_screen.dart:10404-10459` | Added `_syncSymbolAudioToRegistry()` method |
-| `flutter_ui/lib/screens/slot_lab_screen.dart:1547-1553` | Call `_syncSymbolAudioToRegistry()` in `_initializeSlotEngine()` |
-
-### Verification Checklist
-
-1. ✅ Drop audio on symbol WIN context in SymbolStripWidget
-2. ✅ Navigate to DAW section
-3. ✅ Return to SlotLab section
-4. ✅ Spin and get win with that symbol
-5. ✅ Audio plays correctly
+`middleware_add_action_ex()` accepts: gain, pan, fade_in_ms, fade_out_ms, trim_start_ms, trim_end_ms.
 
 ---
 
-## CRITICAL FIX: Middleware Inspector Panel Slider Race Condition (2026-01-25) ✅
-
-### Problem
-
-Pan (and other) slider changes in the Middleware Inspector panel were being silently reverted during drag operations.
-
-**User Report:** "panovanje u middleware sekciji ne radi u inspectoru desnom panelu"
-
-**Symptom:** User drags pan slider to -0.5, releases, and value snaps back to previous value (e.g., 0.0).
-
-### Root Cause
-
-Race condition between debounced provider sync and widget rebuild cycle:
-
-```
-Timeline:
-0ms    User drags slider to -0.5
-       → _updateActionDebounced() called
-       → setState() updates local _events[id].pan = -0.5
-       → Timer scheduled: sync to provider in 50ms
-
-10ms   Widget rebuilds (due to setState)
-       → Selector<MiddlewareProvider> triggers
-       → _syncEventsFromProviderList() called
-       → Provider still has OLD value (pan = 0.0)
-       → Local _events[id].pan OVERWRITTEN to 0.0 ❌
-
-50ms   Timer fires
-       → _syncEventToProvider() called
-       → But local value is already 0.0 (overwritten!)
-       → Provider receives 0.0 instead of -0.5 ❌
-```
-
-**The key insight:** `_syncEventsFromProviderList()` compares local and provider events. If different, it overwrites local with provider values. But during debounce, provider has OLD values while local has NEW values from slider.
-
-### Solution
-
-Added `_pendingEditEventId` tracking flag to skip provider→local sync for events with pending local edits:
-
-**Field added (line ~104):**
-```dart
-// Debounce timer for slider updates (P0.2 performance fix)
-Timer? _sliderDebounceTimer;
-
-// Track which event has pending local edits to prevent provider overwrite during debounce
-// BUG FIX: Without this, provider sync would overwrite local slider changes before debounce completes
-String? _pendingEditEventId;
-```
-
-**Updated `_updateActionDebounced()` (lines ~3857-3893):**
-```dart
-void _updateActionDebounced(
-  MiddlewareEvent event,
-  MiddlewareAction action, {
-  double? gain,
-  double? pan,
-  double? delay,
-  double? fadeTime,
-}) {
-  // Mark this event as having pending edits to prevent provider overwrite
-  _pendingEditEventId = event.id;
-
-  // Update local state immediately for responsive UI
-  final newAction = action.copyWith(
-    gain: gain,
-    pan: pan,
-    delay: delay,
-    fadeTime: fadeTime,
-  );
-
-  final newActions = event.actions.map((a) {
-    return a.id == action.id ? newAction : a;
-  }).toList();
-
-  setState(() {
-    _events[event.id] = event.copyWith(actions: newActions);
-  });
-
-  // Debounce the provider sync
-  _sliderDebounceTimer?.cancel();
-  _sliderDebounceTimer = Timer(const Duration(milliseconds: 50), () {
-    _syncEventToProvider(_events[event.id]!);
-    // Clear pending edit flag after sync completes
-    _pendingEditEventId = null;
-  });
-}
-```
-
-**Updated `_syncEventsFromProviderList()` (lines ~163-212):**
-```dart
-void _syncEventsFromProviderList(List<MiddlewareEvent> providerEvents) {
-  for (final event in providerEvents) {
-    if (!_events.containsKey(event.id)) {
-      // New event from provider
-      _events[event.id] = event;
-      // ... category folder setup ...
-    } else {
-      // BUG FIX: Skip updating events with pending local edits (e.g., during slider drag)
-      // This prevents provider from overwriting local slider changes during debounce period
-      if (event.id == _pendingEditEventId) {
-        continue;  // ← KEY FIX: Skip this event entirely
-      }
-      // ... rest of update logic for non-pending events ...
-    }
-  }
-}
-```
-
-### Fixed Timeline
-
-```
-Timeline (AFTER FIX):
-0ms    User drags slider to -0.5
-       → _updateActionDebounced() called
-       → _pendingEditEventId = event.id  ← NEW
-       → setState() updates local _events[id].pan = -0.5
-       → Timer scheduled: sync to provider in 50ms
-
-10ms   Widget rebuilds (due to setState)
-       → Selector<MiddlewareProvider> triggers
-       → _syncEventsFromProviderList() called
-       → event.id == _pendingEditEventId → SKIP ✅
-       → Local _events[id].pan preserved = -0.5 ✅
-
-50ms   Timer fires
-       → _syncEventToProvider() called
-       → Local value is still -0.5 ✅
-       → Provider receives -0.5 ✅
-       → _pendingEditEventId = null  ← CLEARED
-```
-
-### Affected Parameters
-
-This fix applies to ALL debounced slider parameters in the inspector:
-
-| Parameter | Slider Location |
-|-----------|-----------------|
-| Pan | Action inspector → Pan slider |
-| Gain | Action inspector → Gain slider |
-| Delay | Action inspector → Delay slider |
-| Fade Time | Action inspector → Fade Time slider |
-
-### Files Changed
-
-| File | Change |
-|------|--------|
-| `flutter_ui/lib/widgets/middleware/event_editor_panel.dart:~104` | Added `_pendingEditEventId` field |
-| `flutter_ui/lib/widgets/middleware/event_editor_panel.dart:~3857-3893` | Set/clear flag in `_updateActionDebounced()` |
-| `flutter_ui/lib/widgets/middleware/event_editor_panel.dart:~163-212` | Skip pending events in `_syncEventsFromProviderList()` |
-
-### Key Design Principle
-
-**Pending Edit Protection Pattern:**
-
-When using debounced updates with bidirectional provider sync:
-
-1. **Mark** event as "pending edit" when local change starts
-2. **Skip** provider→local sync for pending events
-3. **Clear** flag only AFTER local→provider sync completes
-
-This ensures local edits survive the debounce period without being overwritten by stale provider data.
-
----
-
-## CRITICAL FIX: Middleware FFI Extended Chain (2026-01-26) ✅
-
-### Problem
-
-MiddlewareAction extended parameters (fadeInMs, fadeOutMs, trimStartMs, trimEndMs, pan, gain) existed in the UI model (`event_editor_panel.dart` sliders) but were NOT connected to the Rust FFI chain.
-
-**User Report:** "ne rade fadeIn, fadeOut, trimStart, trimEnd parametri u middleware inspektoru"
-
-**Symptom:** Sliders in Middleware inspector could be adjusted, but changes had no effect on actual audio playback.
-
-### Root Cause
-
-The original `middleware_add_action` FFI function only accepted basic parameters:
-- action_type, asset_id, bus_id, scope, priority
-- fade_curve, fade_time_ms, delay_ms
-
-**Missing parameters:** gain, pan, fade_in_ms, fade_out_ms, trim_start_ms, trim_end_ms
-
-### Solution: Full-Stack FFI Implementation
-
-**1. Rust MiddlewareAction struct** (`crates/rf-event/src/action.rs`):
-
-```rust
-pub struct MiddlewareAction {
-    // ... existing fields ...
-
-    // === Extended playback parameters (2026-01-26) ===
-    /// Stereo pan position (-1.0 = left, 0.0 = center, +1.0 = right)
-    pub pan: f32,
-    /// Fade-in duration in seconds (for Play actions)
-    pub fade_in_secs: f32,
-    /// Fade-out duration in seconds (for Stop actions)
-    pub fade_out_secs: f32,
-    /// Non-destructive trim start position in seconds
-    pub trim_start_secs: f32,
-    /// Non-destructive trim end position in seconds (0.0 = full duration)
-    pub trim_end_secs: f32,
-}
-```
-
-**2. New FFI function** (`crates/rf-bridge/src/middleware_ffi.rs`):
-
-```rust
-#[unsafe(no_mangle)]
-pub extern "C" fn middleware_add_action_ex(
-    event_id: u32,
-    action_type: u32,
-    asset_id: u32,
-    bus_id: u32,
-    scope: u32,
-    priority: u32,
-    fade_curve: u32,
-    fade_time_ms: u32,
-    delay_ms: u32,
-    // Extended parameters
-    gain: f32,
-    pan: f32,
-    fade_in_ms: u32,
-    fade_out_ms: u32,
-    trim_start_ms: u32,
-    trim_end_ms: u32,
-) -> i32 { ... }
-```
-
-**3. Dart FFI bindings** (`flutter_ui/lib/src/rust/native_ffi.dart`):
-
-```dart
-bool middlewareAddActionEx(
-  int eventId,
-  MiddlewareActionType actionType, {
-  int assetId = 0,
-  int busId = 0,
-  MiddlewareActionScope scope = MiddlewareActionScope.global,
-  MiddlewareActionPriority priority = MiddlewareActionPriority.normal,
-  MiddlewareFadeCurve fadeCurve = MiddlewareFadeCurve.linear,
-  int fadeTimeMs = 0,
-  int delayMs = 0,
-  double gain = 1.0,
-  double pan = 0.0,
-  int fadeInMs = 0,
-  int fadeOutMs = 0,
-  int trimStartMs = 0,
-  int trimEndMs = 0,
-}) { ... }
-```
-
-**4. Provider integration** (`flutter_ui/lib/providers/subsystems/event_system_provider.dart`):
-
-```dart
-void _addActionToEngine(int eventId, MiddlewareAction action) {
-  _ffi.middlewareAddActionEx(
-    eventId,
-    _mapActionType(action.type),
-    assetId: _getOrCreateAssetId(action.assetId),
-    busId: busNameToId[action.bus] ?? 0,
-    scope: _mapActionScope(action.scope),
-    priority: _mapActionPriority(action.priority),
-    fadeCurve: _mapFadeCurve(action.fadeCurve),
-    fadeTimeMs: (action.fadeTime * 1000).round(),
-    delayMs: (action.delay * 1000).round(),
-    // Extended playback parameters (2026-01-26)
-    gain: action.gain,
-    pan: action.pan,
-    fadeInMs: action.fadeInMs.round(),
-    fadeOutMs: action.fadeOutMs.round(),
-    trimStartMs: action.trimStartMs.round(),
-    trimEndMs: action.trimEndMs.round(),
-  );
-}
-```
-
-### Complete FFI Chain
-
-```
-UI (event_editor_panel.dart sliders)
-  → MiddlewareAction model (fadeInMs, fadeOutMs, trimStartMs, trimEndMs, pan, gain)
-    → EventSystemProvider._addActionToEngine()
-      → NativeFFI.middlewareAddActionEx()
-        → C FFI: middleware_add_action_ex()
-          → Rust MiddlewareAction struct (with all extended fields)
-```
-
-### Two Separate Audio Paths
-
-**Important:** SlotLab and Middleware use DIFFERENT FFI paths:
-
-| Section | FFI Function | Extended Params |
-|---------|-------------|-----------------|
-| SlotLab (EventRegistry) | `playFileToBusEx()` | ✅ Via AudioLayer |
-| Middleware (Inspector) | `middlewareAddActionEx()` | ✅ Via MiddlewareAction |
-
-### Files Changed
-
-| File | Change |
-|------|--------|
-| `crates/rf-event/src/action.rs` | Added 5 extended fields to MiddlewareAction struct |
-| `crates/rf-bridge/src/middleware_ffi.rs` | Added `middleware_add_action_ex()` FFI function |
-| `crates/rf-engine/src/ffi.rs` | Updated MiddlewareAction init with extended fields |
-| `flutter_ui/lib/src/rust/native_ffi.dart` | Added Dart FFI binding `middlewareAddActionEx()` |
-| `flutter_ui/lib/providers/subsystems/event_system_provider.dart` | Updated `_addActionToEngine()` to use extended FFI |
-
-### Verification
-
-1. ✅ Open Middleware section
-2. ✅ Create event with actions
-3. ✅ Adjust fade in/out, trim, pan, gain sliders
-4. ✅ Play event
-5. ✅ Audio respects all parameters
-
----
-
-## Per-Reel Spin Loop System (2026-01-25) ✅
-
-### Problem
-
-Generic REEL_SPIN_LOOP covered all reels. When reel 0 stops, you can't fade out just reel 0's loop — all loops stop together.
-
-### Solution: Per-Reel Stage Pattern
-
-EventRegistry now auto-detects per-reel spin loop stages:
+## Per-Reel Spin Loop System
 
 | Stage Pattern | Purpose |
 |---------------|---------|
 | `REEL_SPINNING_START_0..4` | Start spin loop for specific reel |
 | `REEL_SPINNING_STOP_0..4` | Early fade-out BEFORE visual reel stop |
-| `REEL_SPINNING_0..4` | Legacy per-reel spin (backwards compat) |
-| `REEL_SPINNING` / `REEL_SPIN_LOOP` | Generic shared loop |
+| `REEL_SPINNING` / `REEL_SPIN_LOOP` | Generic shared loop (backwards compat) |
 
-### Implementation (`event_registry.dart`)
-
-```dart
-// P0.1: Auto-detect REEL_SPINNING_START_X stages
-final reelSpinStartMatch = RegExp(r'^REEL_SPINNING_START_(\d+)$').firstMatch(upperStage);
-if (reelSpinStartMatch != null) {
-  final reelIndex = int.tryParse(reelSpinStartMatch.group(1) ?? '');
-  if (reelIndex != null) {
-    enhancedContext['is_reel_spin_loop'] = true;
-    enhancedContext['reel_index'] = reelIndex;
-  }
-}
-
-// P0.1: Auto-detect REEL_SPINNING_STOP_X stages (early fade-out)
-final reelSpinStopMatch = RegExp(r'^REEL_SPINNING_STOP_(\d+)$').firstMatch(upperStage);
-if (reelSpinStopMatch != null) {
-  final reelIndex = int.tryParse(reelSpinStopMatch.group(1) ?? '');
-  if (reelIndex != null) {
-    _fadeOutReelSpinLoop(reelIndex);
-    // Don't return - still process for potential audio event
-  }
-}
-```
-
-### Audio Flow (Per-Reel)
-
-```
-SPIN_START
-    ↓
-REEL_SPINNING_START_0 → Start spin loop voice 0 (reel_index=0)
-REEL_SPINNING_START_1 → Start spin loop voice 1 (reel_index=1)
-... (all 5 reels)
-    ↓
-[Reel 0 about to stop]
-REEL_SPINNING_STOP_0 → Fade out spin loop voice 0 (50ms)
-    ↓
-REEL_STOP_0 → Reel stop sound (audio-visual sync)
-    ↓
-[Repeat for each reel]
-```
-
-### Key Benefits
-
-| Benefit | Description |
-|---------|-------------|
-| **Individual Control** | Each reel's spin loop fades independently |
-| **Early Fade-out** | REEL_SPINNING_STOP fires BEFORE visual stop for smooth overlap |
-| **Audio-Visual Overlap** | Spin loop fades while stop sound plays |
-| **Backwards Compatible** | Generic REEL_SPINNING still works for single shared loop |
-
-### Files Changed
-
-| File | Change |
-|------|--------|
-| `event_registry.dart` | Added `REEL_SPINNING_START_X`, `REEL_SPINNING_STOP_X` detection |
-| `event_registry.dart` | Added `_fadeOutReelSpinLoop()` for per-reel fade |
+Flow: `REEL_SPINNING_START_N` → spinning → `REEL_SPINNING_STOP_N` (fade 50ms) → `REEL_STOP_N` (stop sound).
 
 ---
 
-## CASCADE_STEP Pitch/Volume Escalation (2026-01-25) ✅
+## CASCADE_STEP Escalation
 
-### Problem
-
-Cascade audio sounded monotonous. Each step was identical.
-
-### Solution: Auto-Escalation in triggerStage()
-
-EventRegistry auto-applies pitch and volume escalation based on cascade step index:
-
-```dart
-// P1.4: CASCADE_STEP pitch/volume escalation
-if (normalizedStage.startsWith('CASCADE_STEP')) {
-  final cascadeMatch = RegExp(r'CASCADE_STEP_?(\d+)?').firstMatch(normalizedStage);
-  if (cascadeMatch != null) {
-    final stepIndex = int.tryParse(cascadeMatch.group(1) ?? '0') ?? 0;
-    // Pitch rises 5% per step: step 0 = 1.0, step 5 = 1.25
-    final cascadePitch = 1.0 + (stepIndex * 0.05);
-    // Volume escalates: 0.9 → 1.1
-    final cascadeVolume = 0.9 + (stepIndex * 0.04);
-    context['cascade_pitch'] = cascadePitch;
-    context['cascade_volume'] = cascadeVolume.clamp(0.0, 1.5);
-  }
-}
-```
-
-### Escalation Table
+Auto-applies pitch/volume escalation per step index:
 
 | Step | Pitch | Volume |
 |------|-------|--------|
 | 0 | 1.00x | 0.90x |
-| 1 | 1.05x | 0.94x |
-| 2 | 1.10x | 0.98x |
 | 3 | 1.15x | 1.02x |
-| 4 | 1.20x | 1.06x |
 | 5 | 1.25x | 1.10x |
 
----
-
-## Anticipation Tension Stage Handling (2026-01-30) ✅
-
-**Reference:** `.claude/architecture/ANTICIPATION_SYSTEM.md` — Kompletna dokumentacija
-
-### Stage Naming Convention
-
-Per-reel anticipation koristi specifičan naming pattern sa fallback chain-om:
-
-```
-Format: ANTICIPATION_TENSION_R{reelIndex}_L{tensionLevel}
-
-Where:
-- reelIndex: 0-4 (0-indexed, matches reel array)
-- tensionLevel: 1-4 (based on scatter count - 1)
-
-Examples:
-- ANTICIPATION_TENSION_R2_L1 → Reel 3, Level 1 (2 scatters)
-- ANTICIPATION_TENSION_R3_L2 → Reel 4, Level 2 (3 scatters)
-- ANTICIPATION_TENSION_R4_L4 → Reel 5, Level 4 (5 scatters)
-```
-
-### Fallback Resolution
-
-EventRegistry automatski traži fallback ako specifični stage ne postoji:
-
-```dart
-// event_registry.dart
-String? _resolveAnticipationStage(String stage) {
-  // Try exact match first
-  if (_hasEventForStage(stage)) return stage;
-
-  // ANTICIPATION_TENSION_R2_L3 → ANTICIPATION_TENSION_R2
-  if (stage.contains('_L')) {
-    final withoutLevel = stage.replaceFirst(RegExp(r'_L\d+$'), '');
-    if (_hasEventForStage(withoutLevel)) return withoutLevel;
-  }
-
-  // ANTICIPATION_TENSION_R2 → ANTICIPATION_TENSION_L3
-  if (stage.contains('_R')) {
-    final levelMatch = RegExp(r'_L(\d+)').firstMatch(stage);
-    if (levelMatch != null) {
-      final levelOnly = 'ANTICIPATION_TENSION_L${levelMatch.group(1)}';
-      if (_hasEventForStage(levelOnly)) return levelOnly;
-    }
-  }
-
-  // Fallback to generic ANTICIPATION_TENSION
-  if (_hasEventForStage('ANTICIPATION_TENSION')) return 'ANTICIPATION_TENSION';
-
-  return null;  // No audio for this stage
-}
-```
-
-### Tension Level Audio Parameters
-
-| Level | Trigger | Volume Mult | Pitch Offset | Color |
-|-------|---------|-------------|--------------|-------|
-| L1 | 2 scatters | 0.6x | +1 semitone | Gold (#FFD700) |
-| L2 | 3 scatters | 0.7x | +2 semitones | Orange (#FFA500) |
-| L3 | 4 scatters | 0.8x | +3 semitones | Red-Orange (#FF6347) |
-| L4 | 5 scatters | 0.9x | +4 semitones | Red (#FF4500) |
-
-### SlotLabProvider Integration
-
-```dart
-// slot_lab_provider.dart - Anticipation trigger on scatter land
-void _checkAnticipation(int reelIndex, List<Symbol> visibleSymbols) {
-  final scatterCount = _countScattersOnReels(0, reelIndex);
-  if (scatterCount >= 2 && reelIndex >= 2) {  // Need 2+ scatters, reel 3+
-    final tensionLevel = (scatterCount - 1).clamp(1, 4);
-    final stage = 'ANTICIPATION_TENSION_R${reelIndex}_L$tensionLevel';
-
-    _triggerStageWithContext(stage, {
-      'reelIndex': reelIndex,
-      'tensionLevel': tensionLevel,
-      'scatterCount': scatterCount,
-      'volumeMultiplier': 0.5 + (tensionLevel * 0.1),
-      'pitchSemitones': tensionLevel,
-    });
-  }
-}
-```
-
-### Key Files
-
-| File | Line | Purpose |
-|------|------|---------|
-| `slot_lab_provider.dart` | ~920 | `_checkAnticipation()` trigger |
-| `event_registry.dart` | ~485 | `_resolveAnticipationStage()` fallback |
-| `crates/rf-slot-lab/src/anticipation.rs` | — | Rust anticipation logic |
-| `crates/rf-stage/src/lib.rs` | — | `AnticipationTension` stage variant |
+Formula: pitch = 1.0 + (step * 0.05), volume = (0.9 + step * 0.04).clamp(0, 1.5)
 
 ---
 
-## Layer Drag System Fix (2026-01-26)
+## Anticipation Tension System
 
-### Problem: Horizontal Layer Drag Not Working
+**Stage format:** `ANTICIPATION_TENSION_R{reelIndex}_L{tensionLevel}`
 
-**Symptoms:**
-- Dragging a layer left/right on the timeline didn't move it
-- Layer would "snap back" to original position
-- Offset changes weren't visible in Middleware parameter strip
+**Fallback chain:** Exact → Without level (`_R2`) → Level only (`_L3`) → Generic (`ANTICIPATION_TENSION`)
 
-**Root Cause Analysis:**
+| Level | Trigger | Volume | Pitch |
+|-------|---------|--------|-------|
+| L1 | 2 scatters | 0.6x | +1 semitone |
+| L2 | 3 scatters | 0.7x | +2 semitones |
+| L3 | 4 scatters | 0.8x | +3 semitones |
+| L4 | 5 scatters | 0.9x | +4 semitones |
 
-1. `DraggableLayerWidget` has its own isolated drag state (`_isDragging`, `_currentOffsetMs`)
-2. When drag started, it set `_isDragging = true` **internally only**
-3. `TimelineDragController` was NOT notified → `isDraggingLayer(id)` returned `false`
-4. On any rebuild (triggered by provider changes), `_buildAudioRegionVisual()` checked:
-   ```dart
-   final anyLayerDragging = event.layers.any((l) =>
-       _dragController?.isDraggingLayer(l.id) ?? false);  // Always FALSE!
-
-   if (_draggingRegion != region && !anyLayerDragging) {
-     region.start = regionStartFromProvider;  // ← REGION.START UPDATED DURING DRAG!
-   }
-   ```
-5. Updating `region.start` during drag changed the coordinate system, causing `_offsetPixels` calculation to produce wrong values
-6. Result: Layer visually "jumped" or appeared stationary
-
-### Solution
-
-Added `onDragStart` callback to `DraggableLayerWidget` that notifies `TimelineDragController` when drag begins.
-
-**File Changes:**
-
-| File | Change |
-|------|--------|
-| `draggable_layer_widget.dart` | Added `LayerDragStartCallback` typedef and `onDragStart` parameter |
-| `slot_lab_screen.dart` | Wired `onDragStart` to call `_dragController.startLayerDrag()` |
-
-**DraggableLayerWidget (lines 15-19, 35, 53, 317-319):**
-
-```dart
-/// Callback when layer drag starts
-typedef LayerDragStartCallback = void Function(String layerId, String eventId, double startOffsetMs);
-
-class DraggableLayerWidget extends StatefulWidget {
-  // ...
-  final LayerDragStartCallback? onDragStart;
-  // ...
-}
-
-void _onPanStart(DragStartDetails details) {
-  // ... existing code ...
-
-  // CRITICAL: Notify parent that drag started (so _dragController knows)
-  widget.onDragStart?.call(widget.layerId, widget.eventId, freshOffsetMs);
-}
-```
-
-**slot_lab_screen.dart (lines 6320-6332, 6343):**
-
-```dart
-return DraggableLayerWidget(
-  // ...
-  onDragStart: (lid, eid, startOffsetMs) {
-    // CRITICAL: Notify drag controller so region.start doesn't update during drag
-    _dragController?.startLayerDrag(
-      layerEventId: lid,
-      parentEventId: eid,
-      regionId: region.id,
-      absoluteOffsetSeconds: startOffsetMs / 1000.0,
-      regionDuration: region.duration,
-      layerDuration: realDuration,
-    );
-    // Auto-select event so Middleware parameter strip shows the offset
-    _middleware.selectCompositeEvent(eid);
-  },
-  // ...
-  onDragEnd: (lid, eid, finalOffsetMs) {
-    _middleware.setLayerOffset(eid, lid, finalOffsetMs);
-    _dragController?.endLayerDrag();  // NEW: End drag in controller
-  },
-);
-```
-
-### Auto-Select Event for Middleware Visibility
-
-**Bonus Fix:** When drag starts, the event is now auto-selected via `_middleware.selectCompositeEvent(eid)`.
-
-This means the Middleware Lower Zone parameter strip (offset slider, pan, volume, etc.) immediately shows the layer's parameters and updates in real-time during drag.
-
-**Before:** User had to manually select the event in Middleware to see offset changes.
-**After:** Starting a drag auto-selects the event, making offset visible immediately.
-
-### Drag State Flow (Fixed)
-
-```
-1. User starts drag on layer
-   ↓
-2. DraggableLayerWidget._onPanStart()
-   ├── Sets _isDragging = true (local state)
-   ├── Captures start values (_dragStartOffsetMs, _capturedRegionStart)
-   └── Calls widget.onDragStart(lid, eid, startOffsetMs)  ← NEW
-       ↓
-3. slot_lab_screen.dart onDragStart callback
-   ├── _dragController.startLayerDrag(...)  ← Controller now knows!
-   └── _middleware.selectCompositeEvent(eid)  ← Event auto-selected
-       ↓
-4. On provider changes during drag:
-   _buildAudioRegionVisual() checks:
-   isDraggingLayer(l.id) == TRUE  ← Controller returns true
-   → region.start NOT updated  ← Coordinate system stable
-       ↓
-5. User drags layer horizontally
-   ├── _onPanUpdate calculates new _currentOffsetMs
-   ├── _offsetPixels uses stable _capturedRegionStart
-   └── Layer moves smoothly on screen
-       ↓
-6. User ends drag
-   ├── DraggableLayerWidget._onPanEnd()
-   │   └── Calls widget.onDragEnd(lid, eid, finalOffsetMs)
-   └── slot_lab_screen.dart onDragEnd callback
-       ├── _middleware.setLayerOffset(eid, lid, finalOffsetMs)
-       └── _dragController.endLayerDrag()
-```
+Reference: `.claude/architecture/ANTICIPATION_SYSTEM.md`
 
 ---
 
-## Auto Fade-Out System for _END Stages (2026-02-01)
+## Auto Fade-Out for _END Stages
 
-**Filozofija:** Svaki stage koji se završava sa `_END` automatski fade-out-uje sve aktivne zvukove iz istoimenog stage prefiksa.
+Any stage ending with `_END` (except `SPIN_END`) auto-fades all active sounds from the same prefix.
 
-### Implementation
-
-**Lokacija:** `event_registry.dart:1898-1925` (trigger detection), `662-697` (fade-out logic)
-
-**Logika:**
 ```dart
+// e.g., BIG_WIN_END fades all BIG_WIN_* voices (100ms fade)
 if (normalizedStage.endsWith('_END') && normalizedStage != 'SPIN_END') {
   final basePrefix = normalizedStage.substring(0, normalizedStage.length - 4);
   _autoFadeOutMatchingStages(basePrefix, fadeMs: 100);
 }
 ```
 
-### Covered _END Stages (40 of 41)
-
-| _END Stage | Fade-Out Targets | Example |
-|------------|------------------|---------|
-| `BIG_WIN_END` | `BIG_WIN_*` | BIG_WIN_TICK_START, BIG_WIN_TICK_END |
-| `COIN_SHOWER_END` | `COIN_SHOWER_*` | COIN_SHOWER_START |
-| `FREESPIN_END` | `FREESPIN_*` | FREESPIN_MUSIC, FREESPIN_LOOP |
-| `FS_END` | `FS_*` | FS_MUSIC, FS_LOOP |
-| `CASCADE_END` | `CASCADE_*` | CASCADE_STEP, CASCADE_LOOP |
-| `BONUS_END` | `BONUS_*` | BONUS_MUSIC, BONUS_LOOP |
-| `JACKPOT_END` | `JACKPOT_*` | JACKPOT_BUILDUP, JACKPOT_CELEBRATION |
-| `GAMBLE_END` | `GAMBLE_*` | GAMBLE_MUSIC, GAMBLE_SUSPENSE |
-| `HOLD_END` | `HOLD_*` | HOLD_MUSIC, HOLD_RESPIN |
-| `ROLLUP_END` | `ROLLUP_*` | ROLLUP_TICK |
-| ... | ... | 31 additional _END stages |
-
-**EXCEPTION:** `SPIN_END` does NOT auto fade-out (manual event design by user)
-
-### Fade-Out Logic
-
-```dart
-void _autoFadeOutMatchingStages(String stagePrefix, {int fadeMs = 100}) {
-  for (final instance in _playingInstances) {
-    final event = _events[instance.eventId];
-    final eventStage = event.stage.toUpperCase();
-
-    // Match prefix AND exclude _END suffix (prevent self fade-out)
-    if (eventStage.startsWith(stagePrefix) && !eventStage.endsWith('_END')) {
-      for (final voiceId in instance.voiceIds) {
-        AudioPlaybackService.instance.fadeOutVoice(voiceId, fadeMs: fadeMs);
-      }
-    }
-  }
-}
-```
-
-**Duration:** 100ms (smooth transition, industry standard)
+Covers 40 of 41 `_END` stages (FREESPIN_END, CASCADE_END, BONUS_END, JACKPOT_END, etc.).
 
 ---
 
-## Win Presentation Skip — END Stage System (2026-02-14) ✅
+## Win Presentation Skip
 
-When user presses SKIP during win presentation, both embedded and fullscreen modes now trigger proper END stages.
+On SKIP during win presentation:
+1. STOP all active win audio (COIN_SHOWER, BIG_WIN_TICK, ROLLUP, WIN_SYMBOL_HIGHLIGHT, etc.)
+2. TRIGGER END stages (ROLLUP_END, COIN_SHOWER_END, BIG_WIN_END, WIN_COLLECT, etc.)
+3. FADE OUT win plaque (300ms)
+4. RESET presentation state
 
-### Skip Audio Cleanup Sequence
-
-```
-1. STOP all active win audio:
-   - COIN_SHOWER_START, BIG_WIN_TICK_START
-   - ROLLUP, ROLLUP_TICK
-   - WIN_SYMBOL_HIGHLIGHT, WIN_LINE_SHOW, WIN_PRESENT
-   - WIN_PRESENT_BIG/SUPER/MEGA/EPIC/ULTRA
-   - BIG_WIN_TIER_BIG/SUPER/MEGA/EPIC/ULTRA
-
-2. TRIGGER END stages:
-   - ROLLUP_END (always)
-   - COIN_SHOWER_END (if coin shower was active)
-   - BIG_WIN_TICK_END (if big win tick was active)
-   - BIG_WIN_END (if win tier was active)
-   - WIN_PRESENT_END (if win tier was active)
-   - WIN_COLLECT (always)
-
-3. FADE OUT win plaque (300ms reverse animation)
-
-4. RESET all presentation state
-```
-
-### Implementation Parity
-
-| Mode | File | Method | END Stages |
-|------|------|--------|------------|
-| Fullscreen | `premium_slot_preview.dart` | `_handleSkipWinPresentation()` | ✅ Complete |
-| Embedded | `slot_preview_widget.dart` | `_executeSkipFadeOut()` | ✅ Complete (2026-02-14) |
-
-### Win Line Animation Guard
-
-After skip completes, `_winTier` is set to `''`. Three guard points prevent stale `.then()` callbacks from starting win line animations:
-
-1. `_startWinLinePresentation()` entry — returns early if `_spinFinalized && _winTier.isEmpty`
-2. Regular win rollup callback — checks `skipRequested || _winTier.isEmpty`
-3. Big win `_finishTierProgression()` callback — checks `_winTier.isEmpty`
+Guard: `_winTier` set to `''` after skip. Three guard points prevent stale `.then()` callbacks.
 
 ---
 
-## CRITICAL FIX: UltimateAudioPanel → Timeline Bridge (2026-02-14)
+## Centralized Bridge: _ensureCompositeEventForStage
 
-### Problem
-
-SlotLab Lower Zone Timeline showed "No events yet" despite audio being assigned via UltimateAudioPanel.
-
-### Root Cause
-
-Three SEPARATE data stores were not fully bridged:
-
-| System | Store | Used By |
-|--------|-------|---------|
-| `SlotLabProjectProvider._audioAssignments` | `Map<String, String>` | UltimateAudioPanel persistence |
-| `MiddlewareProvider.compositeEvents` | `List<SlotCompositeEvent>` | Timeline reads + Events Folder |
-| `EventRegistry` | `Map<String, AudioEvent>` | Runtime stage→audio playback |
-
-Three code paths for audio assignment, each with different bridging:
-
-| Path | Before Fix | Bridge to MiddlewareProvider |
-|------|------------|------------------------------|
-| **Quick Assign** (`_handleQuickAssign`) | ❌ Only projectProvider + EventRegistry | Missing |
-| **Drag-drop** (`onAudioAssign` callback) | ⚠️ Created event BUT without `durationSeconds` | 0px timeline bars |
-| **Mount sync** (`_syncPersistedAudioAssignments`) | ❌ Only EventRegistry registration | Missing |
-
-### Solution: Centralized Bridge Method
-
-New method `_ensureCompositeEventForStage(stage, audioPath)` in `slot_lab_screen.dart`:
+All audio assignment paths (Quick Assign, Drag-drop, Mount sync) converge on one method:
 
 ```dart
-/// CENTRAL BRIDGE: Ensure a composite event exists in MiddlewareProvider
-/// for a stage+audio assignment. Called from ALL assignment paths.
-void _ensureCompositeEventForStage(String stage, String audioPath) {
-  final middleware = context.read<MiddlewareProvider>();
-  final eventId = 'audio_$stage';
-
-  // Auto-detect duration via FFI
-  double? durationSec;
-  try {
-    final dur = NativeFFI.instance.getAudioFileDuration(audioPath);
-    if (dur > 0) durationSec = dur;
-  } catch (_) {}
-
-  final existing = middleware.compositeEvents.where((e) => e.id == eventId).firstOrNull;
-
-  if (existing != null) {
-    // Update existing — replace first layer or update matching layer
-    final updatedLayers = /* update logic with durationSeconds */;
-    middleware.updateCompositeEvent(existing.copyWith(layers: updatedLayers));
-  } else {
-    // Create new composite event with proper layer duration
-    middleware.addCompositeEvent(SlotCompositeEvent(
-      id: eventId,
-      layers: [
-        SlotEventLayer(
-          id: 'layer_$stage',
-          audioPath: audioPath,
-          durationSeconds: durationSec,  // CRITICAL for timeline bar width
-          // ... bus, pan, volume from stage config
-        ),
-      ],
-      triggerStages: [stage],
-      // ... other fields
-    ), select: false);
-  }
-}
+void _ensureCompositeEventForStage(String stage, String audioPath)
+// 1. projectProvider.setAudioAssignment() (persist)
+// 2. EventRegistry.registerEvent() (runtime audio)
+// 3. MiddlewareProvider.addCompositeEvent() (SSoT) — with durationSeconds from FFI
 ```
 
-### Integration Points
+`durationSeconds` auto-detected via `NativeFFI.instance.getAudioFileDuration()`. Null duration = 0px timeline bars.
 
-All three paths now converge on the centralized bridge:
+---
 
-```
-Quick Assign:    _handleQuickAssign() → _ensureCompositeEventForStage()
-Drag-Drop:       onAudioAssign callback → _ensureCompositeEventForStage()
-Mount Sync:      _syncPersistedAudioAssignments() → _ensureCompositeEventForStage()
-```
+## Double-Spin Prevention
 
-### Data Flow (After Fix)
+Two guard flags in `slot_preview_widget.dart`:
 
-```
-Audio Assignment (any path)
-    ↓
-_ensureCompositeEventForStage(stage, audioPath)
-    ↓
-┌───────────────────────────────────────────────────┐
-│ 1. projectProvider.setAudioAssignment() (persist) │
-│ 2. EventRegistry.registerEvent() (runtime audio)  │
-│ 3. MiddlewareProvider.addCompositeEvent() (SSoT)  │ ← NEW
-│    └─ with durationSeconds from FFI               │ ← NEW
-└───────────────────────────────────────────────────┘
-    ↓
-notifyListeners()
-    ↓
-┌─────────────────┬──────────────────┬─────────────────┐
-│ Timeline Widget │ Events Folder    │ Middleware Panel │
-│ Shows bars with │ Shows event list │ Shows in tree    │
-│ proper duration │ with layer count │                  │
-└─────────────────┴──────────────────┴─────────────────┘
-```
-
-### Key Detail: durationSeconds
-
-`SlotEventLayer.durationSeconds` is nullable `double?`. If null, `totalDurationMs` returns 0, making timeline bars invisible (0px wide).
-
-The centralized bridge auto-detects duration via `NativeFFI.instance.getAudioFileDuration(audioPath)` — returns seconds as `double`. This ensures all timeline bars have proper width.
-
-### Files Modified
-
-| File | Changes |
+| Flag | Purpose |
 |------|---------|
-| `slot_lab_screen.dart` | Added `_ensureCompositeEventForStage()` (~80 LOC), modified 3 callers |
-| `slotlab_lower_zone_widget.dart` | Fixed dispose (removed stale `_tlRulerHorizontalScroll.dispose()`) |
+| `_spinFinalized` | Prevents re-trigger after finalize until provider finishes |
+| `_lastProcessedSpinId` | Tracks which spinId was already processed |
+
+---
+
+## Layer Drag Fix: Absolute Positioning
+
+Layer drag uses ABSOLUTE position (not relative to region). Controller tracks `_absoluteStartSeconds` directly from `provider.offsetMs / 1000`.
+
+`DraggableLayerWidget.onDragStart` notifies `TimelineDragController` so `isDraggingLayer()` returns true, preventing `region.start` updates during drag (which would break the coordinate system).
+
+---
+
+## Event Naming Convention
+
+`generateEventName(stage)` in `stage_group_service.dart`: 60+ custom mappings (e.g., `SPIN_START` → `onUiSpin`, `REEL_STOP_0` → `onReelLand1`).
+
+Note: REEL_STOP uses 1-indexed event names (`onReelLand1-5`) while stages use 0-indexed (`REEL_STOP_0-4`).
+
+---
+
+## Batch Import — Dual-Index Number Matching
+
+`StageGroupService` supports both 0-indexed and 1-indexed file names:
+- `stop_1.wav` → REEL_STOP_0 (1-indexed first reel)
+- `reel_stop_0.wav` → REEL_STOP_0 (0-indexed)
+
+Generic REEL_STOP excludes files with reel numbers 0-5 near stop/land keywords.
+
+---
+
+## Stage Trigger Sources
+
+| Stage | Source | File |
+|-------|--------|------|
+| `SPIN_START` | SlotLabProvider | slot_lab_provider.dart |
+| `WIN_SYMBOL_HIGHLIGHT_*` | SlotPreviewWidget | slot_preview_widget.dart |
+| `REEL_STOP_0..4` | ProfessionalReelAnimation | professional_reel_animation.dart |
+| `WIN_PRESENT_*` | SlotPreviewWidget | slot_preview_widget.dart |
+| `COIN_SHOWER_START/END` | SlotPreviewWidget | (win ratio >= 20x) |
+| `BIG_WIN_TICK_START/END` | SlotPreviewWidget | (win ratio >= 20x) |
+
+---
+
+## Debugging Checklist
+
+1. **EventRegistry empty?** Check for `[SlotLab] Initial sync: X events` in log
+2. **Stage lookup fails?** Check for `No event for stage` — case mismatch or missing event
+3. **FFI not loaded?** Rebuild Rust + copy dylibs to Frameworks AND App Bundle
+4. **Playback section?** Check for `Section acquired: slotLab`
+5. **Audio cutoff?** Event equivalence check should show `skipping re-registration`
+6. **Slider snap-back?** Pending edit protection not working — check `_pendingEditEventId`
 
 ---
 
 ## Related Documentation
 
+- `.claude/architecture/SLOT_LAB_SYSTEM.md` — SlotLab architecture
+- `.claude/architecture/ANTICIPATION_SYSTEM.md` — Per-reel anticipation
 - `.claude/architecture/UNIFIED_PLAYBACK_SYSTEM.md` — Playback section management
-- `.claude/architecture/SLOT_LAB_SYSTEM.md` — SlotLab architecture (includes stage flow, double-spin fix)
-- `.claude/architecture/PREMIUM_SLOT_PREVIEW.md` — Visual-sync timing implementation
-- `.claude/domains/slot-audio-events-master.md` — Full stage catalog (~600+ events)
-- `.claude/architecture/SLOT_LAB_AUDIO_FEATURES.md` — P0/P1 audio feature details
-- `.claude/architecture/ANTICIPATION_SYSTEM.md` — **Industry-standard anticipation** (per-reel tension L1-L4)
-- `.claude/analysis/BASE_GAME_FLOW_ANALYSIS_2026_01_30.md` — 7-phase stage flow analysis
-- `.claude/project/fluxforge-studio.md` — Full project spec
