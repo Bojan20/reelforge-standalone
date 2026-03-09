@@ -205,6 +205,11 @@ pub use track_manager::{
     ProjectTabState,
     CrossTabClipboard,
     MAX_PROJECT_TABS,
+    // Sub-Projects (nested project references)
+    SubProject,
+    SubProjectId,
+    ProxyStatus,
+    MAX_SUBPROJECT_DEPTH,
     // Razor Edits (Reaper-style per-track time selection)
     RazorArea,
     RazorAreaId,

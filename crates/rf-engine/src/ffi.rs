@@ -15283,6 +15283,7 @@ pub extern "C" fn render_selection_to_new_clip(
         playrate_envelope: None,
         volume_envelope: None,
         pan_envelope: None,
+        sub_project: None,
     };
 
     // Add clip to track manager
@@ -24714,4 +24715,140 @@ pub extern "C" fn project_tab_list_json() -> *mut c_char {
         Ok(c) => c.into_raw(),
         Err(_) => std::ptr::null_mut(),
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SUB-PROJECTS — Nested Project References
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Insert a sub-project as a clip on a track.
+/// Returns JSON: {"clip_id":N,"sub_project_id":M}, or null on failure.
+/// `depth` is the nesting level (0 for top-level insert).
+/// Caller must free with engine_free_string.
+#[unsafe(no_mangle)]
+pub extern "C" fn sub_project_insert(
+    track_id: u64,
+    project_path: *const c_char,
+    start_time: f64,
+    depth: u32,
+) -> *mut c_char {
+    if project_path.is_null() {
+        return std::ptr::null_mut();
+    }
+    let path = unsafe { std::ffi::CStr::from_ptr(project_path) }
+        .to_string_lossy()
+        .to_string();
+
+    match TRACK_MANAGER.insert_sub_project(TrackId(track_id), &path, start_time, depth) {
+        Some((clip_id, sub_id)) => {
+            let json = serde_json::json!({
+                "clip_id": clip_id.0,
+                "sub_project_id": sub_id.0
+            });
+            match std::ffi::CString::new(json.to_string()) {
+                Ok(c) => c.into_raw(),
+                Err(_) => std::ptr::null_mut(),
+            }
+        }
+        None => std::ptr::null_mut(),
+    }
+}
+
+/// Set proxy render result for a sub-project after render completes.
+/// Returns 1 on success, 0 if sub-project not found.
+#[unsafe(no_mangle)]
+pub extern "C" fn sub_project_set_proxy(
+    sub_id: u64,
+    proxy_path: *const c_char,
+    duration: f64,
+    sample_rate: u32,
+    channels: u32,
+    content_hash: *const c_char,
+) -> i32 {
+    if proxy_path.is_null() || content_hash.is_null() {
+        return 0;
+    }
+    let path = unsafe { std::ffi::CStr::from_ptr(proxy_path) }
+        .to_string_lossy()
+        .to_string();
+    let hash = unsafe { std::ffi::CStr::from_ptr(content_hash) }
+        .to_string_lossy()
+        .to_string();
+
+    if TRACK_MANAGER.set_sub_project_proxy(
+        crate::track_manager::SubProjectId(sub_id),
+        &path, duration, sample_rate, channels, &hash,
+    ) { 1 } else { 0 }
+}
+
+/// Mark a sub-project as stale (needs re-render). Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "C" fn sub_project_mark_stale(sub_id: u64) -> i32 {
+    if TRACK_MANAGER.mark_sub_project_stale(crate::track_manager::SubProjectId(sub_id)) { 1 } else { 0 }
+}
+
+/// Remove a sub-project and its associated clip. Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "C" fn sub_project_remove(sub_id: u64) -> i32 {
+    if TRACK_MANAGER.remove_sub_project(crate::track_manager::SubProjectId(sub_id)) { 1 } else { 0 }
+}
+
+/// Get all sub-projects as JSON array.
+/// Caller must free with engine_free_string.
+#[unsafe(no_mangle)]
+pub extern "C" fn sub_project_list_json() -> *mut c_char {
+    let subs = TRACK_MANAGER.get_sub_projects();
+    let json = serde_json::to_string(&subs).unwrap_or_else(|_| "[]".to_string());
+    match std::ffi::CString::new(json) {
+        Ok(c) => c.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+/// Get stale sub-projects (needing re-render) as JSON.
+/// Caller must free with engine_free_string.
+#[unsafe(no_mangle)]
+pub extern "C" fn sub_project_stale_json() -> *mut c_char {
+    let stale = TRACK_MANAGER.get_stale_sub_projects();
+    let json = serde_json::to_string(&stale).unwrap_or_else(|_| "[]".to_string());
+    match std::ffi::CString::new(json) {
+        Ok(c) => c.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+/// Check if inserting a project would create a circular reference.
+/// Returns 1 if cycle detected (do NOT insert), 0 if safe.
+#[unsafe(no_mangle)]
+pub extern "C" fn sub_project_would_cycle(project_path: *const c_char) -> i32 {
+    if project_path.is_null() {
+        return 1;
+    }
+    let path = unsafe { std::ffi::CStr::from_ptr(project_path) }
+        .to_string_lossy()
+        .to_string();
+    if TRACK_MANAGER.would_create_cycle(&path) { 1 } else { 0 }
+}
+
+/// Export sub-projects registry to JSON (project save).
+/// Caller must free with engine_free_string.
+#[unsafe(no_mangle)]
+pub extern "C" fn sub_project_export_json() -> *mut c_char {
+    let json = TRACK_MANAGER.sub_projects_to_json();
+    match std::ffi::CString::new(json) {
+        Ok(c) => c.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+/// Import sub-projects from JSON (project load). Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "C" fn sub_project_import_json(json: *const c_char) -> i32 {
+    if json.is_null() {
+        return 0;
+    }
+    let json = unsafe { std::ffi::CStr::from_ptr(json) }
+        .to_string_lossy()
+        .to_string();
+    if TRACK_MANAGER.sub_projects_from_json(&json) { 1 } else { 0 }
 }

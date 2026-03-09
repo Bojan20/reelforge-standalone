@@ -290,6 +290,7 @@ fn sync_tracks_from_project(e: &mut EngineBridge) {
                 playrate_envelope: None,
                 volume_envelope: None,
                 pan_envelope: None,
+                sub_project: None,
             };
 
             track_manager.add_clip(clip);

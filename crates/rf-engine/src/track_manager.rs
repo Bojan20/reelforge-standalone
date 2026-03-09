@@ -77,6 +77,96 @@ pub struct Screenset {
     pub saved_at: f64,
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SUB-PROJECTS (Nested project references on timeline)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Unique sub-project identifier
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct SubProjectId(pub u64);
+
+/// Maximum nesting depth for sub-projects (prevent infinite recursion)
+pub const MAX_SUBPROJECT_DEPTH: u32 = 8;
+
+/// Sub-project reference — a nested .rfproj file placed on the timeline as a clip.
+/// The sub-project is rendered to a proxy audio file for real-time playback.
+/// Double-click opens it in a new project tab for editing.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubProject {
+    /// Unique identifier
+    pub id: SubProjectId,
+    /// Path to the .rfproj file (relative to parent project, or absolute)
+    pub project_path: String,
+    /// Path to the rendered proxy audio file (WAV, auto-generated)
+    pub proxy_path: Option<String>,
+    /// Proxy render status
+    pub proxy_status: ProxyStatus,
+    /// Nesting depth (0 = top-level, 1 = child of top-level, etc.)
+    pub depth: u32,
+    /// Sample rate used for proxy render
+    pub proxy_sample_rate: u32,
+    /// Channel count of proxy render
+    pub proxy_channels: u32,
+    /// Duration of the rendered proxy (seconds)
+    pub proxy_duration: f64,
+    /// Hash of the sub-project file — used to detect changes needing re-render
+    pub content_hash: Option<String>,
+    /// Whether proxy needs re-rendering (sub-project modified since last render)
+    pub needs_rerender: bool,
+    /// Parent sub-project ID (None = direct child of main project)
+    pub parent_id: Option<SubProjectId>,
+    /// Display name (derived from file name or user-set)
+    pub name: String,
+    /// Timestamp of last proxy render
+    pub last_rendered_at: f64,
+}
+
+/// Proxy render status
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ProxyStatus {
+    /// No proxy rendered yet
+    None,
+    /// Proxy is currently being rendered
+    Rendering,
+    /// Proxy is up-to-date and ready for playback
+    Ready,
+    /// Proxy exists but is outdated (sub-project changed)
+    Stale,
+    /// Proxy render failed
+    Error,
+}
+
+impl SubProject {
+    pub fn new(project_path: &str, depth: u32) -> Self {
+        let name = std::path::Path::new(project_path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("Sub-Project")
+            .to_string();
+
+        Self {
+            id: SubProjectId(next_id()),
+            project_path: project_path.to_string(),
+            proxy_path: None,
+            proxy_status: ProxyStatus::None,
+            depth,
+            proxy_sample_rate: 48000,
+            proxy_channels: 2,
+            proxy_duration: 0.0,
+            content_hash: None,
+            needs_rerender: true,
+            parent_id: None,
+            name,
+            last_rendered_at: 0.0,
+        }
+    }
+
+    /// Check if this sub-project can nest another (depth limit check)
+    pub fn can_nest(&self) -> bool {
+        self.depth + 1 < MAX_SUBPROJECT_DEPTH
+    }
+}
+
 /// Unique comp lane identifier
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CompLaneId(pub u64);
@@ -1130,6 +1220,12 @@ pub struct Clip {
     /// Pan envelope: value as pan position (-1.0 to 1.0), additive
     #[serde(default)]
     pub pan_envelope: Option<ClipEnvelope>,
+
+    /// Sub-project reference — if set, this clip is a nested project
+    /// that renders proxy audio for timeline playback.
+    /// source_file points to proxy WAV, sub_project holds the project metadata.
+    #[serde(default)]
+    pub sub_project: Option<SubProject>,
 }
 
 fn default_stretch_ratio() -> f64 {
@@ -1178,7 +1274,14 @@ impl Clip {
             playrate_envelope: None,
             volume_envelope: None,
             pan_envelope: None,
+            sub_project: None,
         }
+    }
+
+    /// Check if this clip is a sub-project reference
+    #[inline]
+    pub fn is_sub_project(&self) -> bool {
+        self.sub_project.is_some()
     }
 
     /// Check if clip has any FX processing
@@ -2197,6 +2300,8 @@ pub struct TrackManager {
     pub mix_snapshots: RwLock<Vec<MixSnapshot>>,
     /// Screensets — 10 UI state slots (Reaper-style, keyboard 1-0)
     pub screensets: RwLock<[Option<Screenset>; MAX_SCREENSETS]>,
+    /// Sub-projects registry — all nested project references
+    pub sub_projects: DashMap<SubProjectId, SubProject>,
 }
 
 impl TrackManager {
@@ -2231,6 +2336,7 @@ impl TrackManager {
             razor_areas: RwLock::new(Vec::new()),
             mix_snapshots: RwLock::new(Vec::new()),
             screensets: RwLock::new(Default::default()),
+            sub_projects: DashMap::new(),
         }
     }
 
@@ -4173,6 +4279,256 @@ impl TrackManager {
 
 impl TrackManager {
     // ═══════════════════════════════════════════════════════════════════════
+    // SUB-PROJECT OPERATIONS (Nested project references on timeline)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Normalize a project path for cycle detection.
+    /// Strips trailing slashes, resolves . and .., lowercases on case-insensitive FS.
+    fn normalize_project_path(path: &str) -> String {
+        // Use std::path for basic normalization (resolve . and ..)
+        let p = std::path::Path::new(path);
+        // Try to canonicalize (resolves symlinks + absolute), fallback to cleaned path
+        match std::fs::canonicalize(p) {
+            Ok(canon) => canon.to_string_lossy().to_string(),
+            Err(_) => {
+                // Manual cleanup: remove trailing slashes, normalize separators
+                let cleaned = path.trim_end_matches('/').trim_end_matches('\\');
+                if cleaned.is_empty() { path.to_string() } else { cleaned.to_string() }
+            }
+        }
+    }
+
+    /// Insert a sub-project as a clip on the timeline.
+    /// Creates both the SubProject registry entry and a Clip referencing it.
+    /// Returns (ClipId, SubProjectId) on success, None if depth exceeded or cycle detected.
+    pub fn insert_sub_project(
+        &self,
+        track_id: TrackId,
+        project_path: &str,
+        start_time: f64,
+        depth: u32,
+    ) -> Option<(ClipId, SubProjectId)> {
+        // Depth check
+        if depth >= MAX_SUBPROJECT_DEPTH {
+            return None;
+        }
+
+        // Cycle check — prevent inserting same project twice
+        if self.would_create_cycle(project_path) {
+            return None;
+        }
+
+        // Verify track exists
+        if !self.tracks.contains_key(&track_id) {
+            return None;
+        }
+
+        let mut sub = SubProject::new(project_path, depth);
+        let sub_id = sub.id;
+
+        // Create clip with sub-project reference
+        // source_file will be set to proxy_path once rendered
+        let mut clip = Clip::new(
+            track_id,
+            &sub.name,
+            "", // no source file yet — proxy not rendered
+            start_time,
+            0.0, // duration unknown until proxy rendered
+        );
+        let clip_id = clip.id;
+
+        // Default proxy path: <project_dir>/.proxies/<sub_name>_<id>.wav
+        let proxy_dir = std::path::Path::new(project_path)
+            .parent()
+            .unwrap_or(std::path::Path::new("."));
+        let proxy_path = proxy_dir
+            .join(".proxies")
+            .join(format!("{}_{}.wav", sub.name, sub_id.0))
+            .to_string_lossy()
+            .to_string();
+        sub.proxy_path = Some(proxy_path);
+
+        clip.sub_project = Some(sub.clone());
+
+        self.sub_projects.insert(sub_id, sub);
+        self.clips.insert(clip_id, clip);
+
+        Some((clip_id, sub_id))
+    }
+
+    /// Update proxy render status for a sub-project
+    pub fn set_sub_project_proxy_status(
+        &self,
+        sub_id: SubProjectId,
+        status: ProxyStatus,
+    ) -> bool {
+        // Update registry first, then drop lock before touching clips
+        let needs_rerender = status != ProxyStatus::Ready;
+        {
+            if let Some(mut entry) = self.sub_projects.get_mut(&sub_id) {
+                entry.proxy_status = status;
+                entry.needs_rerender = needs_rerender;
+            } else {
+                return false;
+            }
+        }
+        // Now update ALL clips referencing this sub-project (no break — handles copy-pasted clips)
+        for mut clip_ref in self.clips.iter_mut() {
+            if let Some(ref mut sp) = clip_ref.sub_project {
+                if sp.id == sub_id {
+                    sp.proxy_status = status;
+                    sp.needs_rerender = needs_rerender;
+                }
+            }
+        }
+        true
+    }
+
+    /// Set proxy audio path and duration after render completes
+    pub fn set_sub_project_proxy(
+        &self,
+        sub_id: SubProjectId,
+        proxy_path: &str,
+        duration: f64,
+        sample_rate: u32,
+        channels: u32,
+        content_hash: &str,
+    ) -> bool {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs_f64())
+            .unwrap_or(0.0);
+
+        // Update registry first, then drop lock before touching clips
+        {
+            if let Some(mut entry) = self.sub_projects.get_mut(&sub_id) {
+                entry.proxy_path = Some(proxy_path.to_string());
+                entry.proxy_duration = duration;
+                entry.proxy_sample_rate = sample_rate;
+                entry.proxy_channels = channels;
+                entry.proxy_status = ProxyStatus::Ready;
+                entry.needs_rerender = false;
+                entry.content_hash = Some(content_hash.to_string());
+                entry.last_rendered_at = now;
+            } else {
+                return false;
+            }
+        }
+        // Now update ALL clips referencing this sub-project (no break)
+        for mut clip_ref in self.clips.iter_mut() {
+            if let Some(ref mut sp) = clip_ref.sub_project {
+                if sp.id == sub_id {
+                    sp.proxy_path = Some(proxy_path.to_string());
+                    sp.proxy_duration = duration;
+                    sp.proxy_sample_rate = sample_rate;
+                    sp.proxy_channels = channels;
+                    sp.proxy_status = ProxyStatus::Ready;
+                    sp.needs_rerender = false;
+                    sp.content_hash = Some(content_hash.to_string());
+                    sp.last_rendered_at = now;
+
+                    // Update clip source to point to proxy
+                    clip_ref.source_file = proxy_path.to_string();
+                    clip_ref.source_duration = duration;
+                    if clip_ref.duration == 0.0 {
+                        clip_ref.duration = duration;
+                    }
+                }
+            }
+        }
+        true
+    }
+
+    /// Mark a sub-project as needing re-render (content changed)
+    pub fn mark_sub_project_stale(&self, sub_id: SubProjectId) -> bool {
+        // Update registry first, then drop lock before touching clips
+        {
+            if let Some(mut entry) = self.sub_projects.get_mut(&sub_id) {
+                entry.proxy_status = ProxyStatus::Stale;
+                entry.needs_rerender = true;
+            } else {
+                return false;
+            }
+        }
+        // Update ALL clips (no break)
+        for mut clip_ref in self.clips.iter_mut() {
+            if let Some(ref mut sp) = clip_ref.sub_project {
+                if sp.id == sub_id {
+                    sp.proxy_status = ProxyStatus::Stale;
+                    sp.needs_rerender = true;
+                }
+            }
+        }
+        true
+    }
+
+    /// Remove a sub-project. Also removes the associated clip.
+    pub fn remove_sub_project(&self, sub_id: SubProjectId) -> bool {
+        if self.sub_projects.remove(&sub_id).is_none() {
+            return false;
+        }
+
+        // Find and remove associated clip
+        let clip_id = self.clips.iter()
+            .find(|r| r.sub_project.as_ref().map(|sp| sp.id) == Some(sub_id))
+            .map(|r| *r.key());
+
+        if let Some(cid) = clip_id {
+            self.clips.remove(&cid);
+        }
+        true
+    }
+
+    /// Get all sub-projects
+    pub fn get_sub_projects(&self) -> Vec<SubProject> {
+        self.sub_projects.iter().map(|r| r.value().clone()).collect()
+    }
+
+    /// Get sub-project by ID
+    pub fn get_sub_project(&self, id: SubProjectId) -> Option<SubProject> {
+        self.sub_projects.get(&id).map(|r| r.clone())
+    }
+
+    /// Get sub-projects that need re-rendering
+    pub fn get_stale_sub_projects(&self) -> Vec<SubProject> {
+        self.sub_projects
+            .iter()
+            .filter(|r| r.needs_rerender)
+            .map(|r| r.value().clone())
+            .collect()
+    }
+
+    /// Check if a project file would create a circular reference
+    /// (i.e., if current project is already a child of the given path).
+    /// Uses path normalization to catch relative/absolute/symlink duplicates.
+    pub fn would_create_cycle(&self, project_path: &str) -> bool {
+        let normalized = Self::normalize_project_path(project_path);
+        self.sub_projects.iter().any(|r| {
+            Self::normalize_project_path(&r.project_path) == normalized
+        })
+    }
+
+    /// Serialize all sub-projects to JSON (for project save)
+    pub fn sub_projects_to_json(&self) -> String {
+        let subs: Vec<SubProject> = self.sub_projects.iter().map(|r| r.value().clone()).collect();
+        serde_json::to_string(&subs).unwrap_or_else(|_| "[]".to_string())
+    }
+
+    /// Load sub-projects from JSON (for project load). Replaces current.
+    pub fn sub_projects_from_json(&self, json: &str) -> bool {
+        match serde_json::from_str::<Vec<SubProject>>(json) {
+            Ok(loaded) => {
+                self.sub_projects.clear();
+                for sp in loaded {
+                    self.sub_projects.insert(sp.id, sp);
+                }
+                true
+            }
+            Err(_) => false,
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SCREENSET OPERATIONS (Reaper-style UI State Slots)
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -4301,6 +4657,7 @@ pub struct ProjectTabState {
     pub razor_areas: Vec<RazorArea>,
     pub mix_snapshots: Vec<MixSnapshot>,
     pub screensets: [Option<Screenset>; MAX_SCREENSETS],
+    pub sub_projects: Vec<(SubProjectId, SubProject)>,
 }
 
 /// A project tab — metadata + serialized state
@@ -4634,6 +4991,7 @@ impl TrackManager {
             razor_areas: self.razor_areas.read().clone(),
             mix_snapshots: self.mix_snapshots.read().clone(),
             screensets: self.screensets.read().clone(),
+            sub_projects: self.sub_projects.iter().map(|r| (*r.key(), r.value().clone())).collect(),
         }
     }
 
@@ -4671,6 +5029,10 @@ impl TrackManager {
         *self.razor_areas.write() = state.razor_areas;
         *self.mix_snapshots.write() = state.mix_snapshots;
         *self.screensets.write() = state.screensets;
+        self.sub_projects.clear();
+        for (id, sp) in state.sub_projects {
+            self.sub_projects.insert(id, sp);
+        }
     }
 
     /// Clear all state (for new project / tab close)
@@ -4703,6 +5065,7 @@ impl TrackManager {
         *self.razor_areas.write() = Vec::new();
         *self.mix_snapshots.write() = Vec::new();
         *self.screensets.write() = Default::default();
+        self.sub_projects.clear();
     }
 }
 
@@ -6484,5 +6847,231 @@ mod tests {
         // Duplicate should fail at max
         let result = ptm.duplicate_tab("Copy", &tm);
         assert!(result.is_none());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SUB-PROJECT TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_sub_project_insert_and_get() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Audio", 0, OutputBus::default());
+
+        let (clip_id, sub_id) = tm.insert_sub_project(tid, "/path/to/sub.rfproj", 5.0, 0).unwrap();
+
+        // Verify sub-project registry
+        let sp = tm.get_sub_project(sub_id).unwrap();
+        assert_eq!(sp.project_path, "/path/to/sub.rfproj");
+        assert_eq!(sp.name, "sub");
+        assert_eq!(sp.depth, 0);
+        assert_eq!(sp.proxy_status, ProxyStatus::None);
+        assert!(sp.needs_rerender);
+
+        // Verify clip has sub-project reference
+        let clip = tm.clips.get(&clip_id).unwrap();
+        assert!(clip.is_sub_project());
+        assert_eq!(clip.sub_project.as_ref().unwrap().id, sub_id);
+        assert_eq!(clip.start_time, 5.0);
+    }
+
+    #[test]
+    fn test_sub_project_depth_limit() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Audio", 0, OutputBus::default());
+
+        // At max depth should fail
+        assert!(tm.insert_sub_project(tid, "/a.rfproj", 0.0, MAX_SUBPROJECT_DEPTH).is_none());
+        // One below max should succeed
+        assert!(tm.insert_sub_project(tid, "/a.rfproj", 0.0, MAX_SUBPROJECT_DEPTH - 1).is_some());
+    }
+
+    #[test]
+    fn test_sub_project_invalid_track() {
+        let tm = TrackManager::new();
+        // Non-existent track
+        assert!(tm.insert_sub_project(TrackId(99999), "/a.rfproj", 0.0, 0).is_none());
+    }
+
+    #[test]
+    fn test_sub_project_set_proxy() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Audio", 0, OutputBus::default());
+        let (clip_id, sub_id) = tm.insert_sub_project(tid, "/sub.rfproj", 0.0, 0).unwrap();
+
+        assert!(tm.set_sub_project_proxy(
+            sub_id, "/proxies/sub.wav", 10.5, 48000, 2, "abc123"
+        ));
+
+        // Check registry
+        let sp = tm.get_sub_project(sub_id).unwrap();
+        assert_eq!(sp.proxy_status, ProxyStatus::Ready);
+        assert!(!sp.needs_rerender);
+        assert_eq!(sp.proxy_duration, 10.5);
+        assert_eq!(sp.content_hash, Some("abc123".to_string()));
+
+        // Check clip updated
+        let clip = tm.clips.get(&clip_id).unwrap();
+        assert_eq!(clip.source_file, "/proxies/sub.wav");
+        assert_eq!(clip.duration, 10.5);
+    }
+
+    #[test]
+    fn test_sub_project_mark_stale() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Audio", 0, OutputBus::default());
+        let (_clip_id, sub_id) = tm.insert_sub_project(tid, "/sub.rfproj", 0.0, 0).unwrap();
+
+        tm.set_sub_project_proxy(sub_id, "/p.wav", 5.0, 48000, 2, "hash1");
+        assert_eq!(tm.get_sub_project(sub_id).unwrap().proxy_status, ProxyStatus::Ready);
+
+        assert!(tm.mark_sub_project_stale(sub_id));
+        let sp = tm.get_sub_project(sub_id).unwrap();
+        assert_eq!(sp.proxy_status, ProxyStatus::Stale);
+        assert!(sp.needs_rerender);
+    }
+
+    #[test]
+    fn test_sub_project_stale_list() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Audio", 0, OutputBus::default());
+        let (_, id1) = tm.insert_sub_project(tid, "/a.rfproj", 0.0, 0).unwrap();
+        let (_, id2) = tm.insert_sub_project(tid, "/b.rfproj", 5.0, 0).unwrap();
+
+        // Both should be stale (needs_rerender = true by default)
+        assert_eq!(tm.get_stale_sub_projects().len(), 2);
+
+        // Mark one as ready
+        tm.set_sub_project_proxy(id1, "/p1.wav", 3.0, 48000, 2, "h1");
+        assert_eq!(tm.get_stale_sub_projects().len(), 1);
+        assert_eq!(tm.get_stale_sub_projects()[0].id, id2);
+    }
+
+    #[test]
+    fn test_sub_project_remove() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Audio", 0, OutputBus::default());
+        let (clip_id, sub_id) = tm.insert_sub_project(tid, "/sub.rfproj", 0.0, 0).unwrap();
+
+        assert!(tm.remove_sub_project(sub_id));
+        assert!(tm.get_sub_project(sub_id).is_none());
+        assert!(tm.clips.get(&clip_id).is_none()); // clip also removed
+
+        // Remove non-existent
+        assert!(!tm.remove_sub_project(SubProjectId(99999)));
+    }
+
+    #[test]
+    fn test_sub_project_cycle_detection() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Audio", 0, OutputBus::default());
+
+        assert!(!tm.would_create_cycle("/new.rfproj"));
+
+        tm.insert_sub_project(tid, "/existing.rfproj", 0.0, 0);
+        assert!(tm.would_create_cycle("/existing.rfproj")); // cycle!
+        assert!(!tm.would_create_cycle("/different.rfproj")); // ok
+    }
+
+    #[test]
+    fn test_sub_project_json_roundtrip() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Audio", 0, OutputBus::default());
+        tm.insert_sub_project(tid, "/a.rfproj", 0.0, 0);
+        tm.insert_sub_project(tid, "/b.rfproj", 5.0, 1);
+
+        let json = tm.sub_projects_to_json();
+
+        let tm2 = TrackManager::new();
+        assert!(tm2.sub_projects_from_json(&json));
+        assert_eq!(tm2.sub_projects.len(), 2);
+    }
+
+    #[test]
+    fn test_sub_project_can_nest() {
+        let sp = SubProject::new("/test.rfproj", 0);
+        assert!(sp.can_nest()); // depth 0 + 1 < 8
+
+        let sp_deep = SubProject::new("/test.rfproj", MAX_SUBPROJECT_DEPTH - 1);
+        assert!(!sp_deep.can_nest()); // depth 7 + 1 = 8, not < 8
+    }
+
+    #[test]
+    fn test_sub_project_proxy_status() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Audio", 0, OutputBus::default());
+        let (clip_id, sub_id) = tm.insert_sub_project(tid, "/sub.rfproj", 0.0, 0).unwrap();
+
+        // Set to Rendering
+        assert!(tm.set_sub_project_proxy_status(sub_id, ProxyStatus::Rendering));
+        assert_eq!(tm.get_sub_project(sub_id).unwrap().proxy_status, ProxyStatus::Rendering);
+        {
+            let clip = tm.clips.get(&clip_id).unwrap();
+            assert_eq!(clip.sub_project.as_ref().unwrap().proxy_status, ProxyStatus::Rendering);
+        } // drop clip guard before next call
+
+        // Set to Error
+        assert!(tm.set_sub_project_proxy_status(sub_id, ProxyStatus::Error));
+        assert_eq!(tm.get_sub_project(sub_id).unwrap().proxy_status, ProxyStatus::Error);
+        assert!(tm.get_sub_project(sub_id).unwrap().needs_rerender);
+
+        // Set to Ready
+        assert!(tm.set_sub_project_proxy_status(sub_id, ProxyStatus::Ready));
+        assert!(!tm.get_sub_project(sub_id).unwrap().needs_rerender);
+
+        // Non-existent
+        assert!(!tm.set_sub_project_proxy_status(SubProjectId(99999), ProxyStatus::Ready));
+    }
+
+    #[test]
+    fn test_sub_project_json_edge_cases() {
+        let tm = TrackManager::new();
+
+        // Invalid JSON
+        assert!(!tm.sub_projects_from_json("not json"));
+        assert!(!tm.sub_projects_from_json("{invalid}"));
+
+        // Empty array is valid — clears
+        assert!(tm.sub_projects_from_json("[]"));
+        assert_eq!(tm.sub_projects.len(), 0);
+
+        // Empty string
+        assert!(!tm.sub_projects_from_json(""));
+    }
+
+    #[test]
+    fn test_sub_project_cycle_blocks_insert() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Audio", 0, OutputBus::default());
+
+        // First insert works
+        assert!(tm.insert_sub_project(tid, "/my/project.rfproj", 0.0, 0).is_some());
+
+        // Same path again is blocked by cycle detection
+        assert!(tm.insert_sub_project(tid, "/my/project.rfproj", 5.0, 0).is_none());
+    }
+
+    #[test]
+    fn test_sub_project_multi_clip_update() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Audio", 0, OutputBus::default());
+        let (clip_id1, sub_id) = tm.insert_sub_project(tid, "/sub.rfproj", 0.0, 0).unwrap();
+
+        // Simulate copy-paste: create another clip referencing same sub-project
+        let mut clip2 = Clip::new(tid, "sub copy", "", 10.0, 0.0);
+        let sp = tm.get_sub_project(sub_id).unwrap();
+        clip2.sub_project = Some(sp);
+        let clip_id2 = clip2.id;
+        tm.clips.insert(clip_id2, clip2);
+
+        // Set proxy — both clips should be updated
+        tm.set_sub_project_proxy(sub_id, "/proxy.wav", 5.0, 48000, 2, "hash");
+
+        let c1 = tm.clips.get(&clip_id1).unwrap();
+        let c2 = tm.clips.get(&clip_id2).unwrap();
+        assert_eq!(c1.source_file, "/proxy.wav");
+        assert_eq!(c2.source_file, "/proxy.wav");
+        assert_eq!(c1.sub_project.as_ref().unwrap().proxy_status, ProxyStatus::Ready);
+        assert_eq!(c2.sub_project.as_ref().unwrap().proxy_status, ProxyStatus::Ready);
     }
 }
