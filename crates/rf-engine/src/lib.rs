@@ -188,6 +188,13 @@ pub use track_manager::{
     Marker,
     MarkerId,
     OutputBus,
+    // Mix Snapshots (SWS-style save/recall mix states)
+    MixSnapshot,
+    MixSnapshotId,
+    SnapshotCategory,
+    TrackSnapshotData,
+    SnapshotClipGain,
+    SnapshotSends,
     // Razor Edits (Reaper-style per-track time selection)
     RazorArea,
     RazorAreaId,

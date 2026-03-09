@@ -51,7 +51,7 @@ Analyzer: 0 errors, 0 warnings
 
 | # | Feature | Status | Opis | Složenost |
 |---|---------|--------|------|-----------|
-| 11 | **Razor Edits** | ❌ TODO | Alt+desni klik drag marquee selekcija. Nezavisna media/envelope selekcija. Multi-track. Akcije: cut/copy/delete/move/stretch/split/reverse. Potpuno jedinstveno za Reaper. | Visoka |
+| 11 | **Razor Edits** | ✅ DONE | RazorArea model + RazorContent filter (Media/Envelope/Both). 10 operacija sa merged-range processing (no double-processing). 14 FFI, 16 testova. | Visoka |
 | 12 | **Mix Snapshots** | ❌ TODO | Save/recall stanja miksa. 10 kategorija (Volume, Pan, Mute/Solo, FX Chain, Sends, Phase, Selection, Visibility, Names, Clip Gain). Selective recall. SWS feature. | Srednja |
 | 13 | **Metadata Browser + Search** | ❌ TODO | BWF/iXML/ID3 metadata čitanje/editovanje u audio browser-u. Boolean search (AND/OR/NOT). Batch metadata editing. Custom columns. | Srednja |
 | 14 | **Screensets** | ❌ TODO | 10 slotova za kompletno UI stanje (pozicije prozora, veličine, zoom, scroll, dock stanje). Instant prebacivanje jednim tasterom. Per-project. | Srednja |

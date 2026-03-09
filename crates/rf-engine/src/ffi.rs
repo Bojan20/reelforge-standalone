@@ -21,8 +21,8 @@ use crate::audio_import::{AudioImporter, ImportedAudio};
 use crate::freeze::OfflineRenderer;
 use crate::playback::PlaybackEngine;
 use crate::track_manager::{
-    Clip, ClipId, CrossfadeCurve, CrossfadeId, MarkerId, OutputBus, RazorAreaId, RazorContent,
-    TrackId, TrackManager,
+    Clip, ClipId, CrossfadeCurve, CrossfadeId, MarkerId, MixSnapshotId, OutputBus, RazorAreaId,
+    RazorContent, SnapshotCategory, TrackId, TrackManager,
 };
 use crate::waveform::{NUM_LOD_LEVELS, SAMPLES_PER_PEAK, StereoWaveformPeaks, WaveformCache};
 use rf_core::{AppError, ErrorAction, ErrorCategory};
@@ -24191,5 +24191,173 @@ fn razor_clipboard_to_json(
     match std::ffi::CString::new(json) {
         Ok(c) => c.into_raw(),
         Err(_) => std::ptr::null_mut(),
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MIX SNAPSHOTS — SWS-style Save/Recall Mix States
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Capture a mix snapshot.
+/// `name` — snapshot name (C string)
+/// `description` — description (C string)
+/// `categories` — pointer to array of u32 category values (0-9), or null for all
+/// `categories_count` — number of categories (0 = capture all)
+/// `track_ids` — pointer to array of track IDs to filter, or null for all
+/// `track_count` — number of track IDs (0 = all tracks)
+/// Returns: snapshot ID (u64)
+#[unsafe(no_mangle)]
+pub extern "C" fn mix_snapshot_capture(
+    name: *const c_char,
+    description: *const c_char,
+    categories: *const u32,
+    categories_count: i32,
+    track_ids: *const u64,
+    track_count: i32,
+) -> u64 {
+    let name = if name.is_null() {
+        "Untitled".to_string()
+    } else {
+        unsafe { std::ffi::CStr::from_ptr(name) }
+            .to_string_lossy()
+            .to_string()
+    };
+
+    let desc = if description.is_null() {
+        String::new()
+    } else {
+        unsafe { std::ffi::CStr::from_ptr(description) }
+            .to_string_lossy()
+            .to_string()
+    };
+
+    let cats: Vec<SnapshotCategory> = if categories.is_null() || categories_count <= 0 {
+        Vec::new()
+    } else {
+        (0..categories_count as usize)
+            .filter_map(|i| {
+                let v = unsafe { *categories.add(i) };
+                SnapshotCategory::from_u32(v)
+            })
+            .collect()
+    };
+
+    let tracks: Vec<TrackId> = if track_ids.is_null() || track_count <= 0 {
+        Vec::new()
+    } else {
+        (0..track_count as usize)
+            .map(|i| TrackId(unsafe { *track_ids.add(i) }))
+            .collect()
+    };
+
+    let id = TRACK_MANAGER.capture_mix_snapshot(&name, &desc, &cats, &tracks);
+    id.0
+}
+
+/// Recall (apply) a mix snapshot.
+/// `snapshot_id` — ID of snapshot to recall
+/// `categories` — pointer to category overrides (null = all captured)
+/// `categories_count` — number of category overrides (0 = all)
+/// `track_ids` — pointer to track filter overrides (null = all)
+/// `track_count` — number of track filter overrides (0 = all)
+/// Returns: number of tracks affected
+#[unsafe(no_mangle)]
+pub extern "C" fn mix_snapshot_recall(
+    snapshot_id: u64,
+    categories: *const u32,
+    categories_count: i32,
+    track_ids: *const u64,
+    track_count: i32,
+) -> i32 {
+    let cats: Vec<SnapshotCategory> = if categories.is_null() || categories_count <= 0 {
+        Vec::new()
+    } else {
+        (0..categories_count as usize)
+            .filter_map(|i| {
+                let v = unsafe { *categories.add(i) };
+                SnapshotCategory::from_u32(v)
+            })
+            .collect()
+    };
+
+    let tracks: Vec<TrackId> = if track_ids.is_null() || track_count <= 0 {
+        Vec::new()
+    } else {
+        (0..track_count as usize)
+            .map(|i| TrackId(unsafe { *track_ids.add(i) }))
+            .collect()
+    };
+
+    TRACK_MANAGER.recall_mix_snapshot(MixSnapshotId(snapshot_id), &cats, &tracks) as i32
+}
+
+/// Delete a mix snapshot. Returns 1 on success, 0 if not found.
+#[unsafe(no_mangle)]
+pub extern "C" fn mix_snapshot_delete(snapshot_id: u64) -> i32 {
+    if TRACK_MANAGER.delete_mix_snapshot(MixSnapshotId(snapshot_id)) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Rename a mix snapshot. Returns 1 on success, 0 if not found.
+#[unsafe(no_mangle)]
+pub extern "C" fn mix_snapshot_rename(snapshot_id: u64, name: *const c_char) -> i32 {
+    if name.is_null() {
+        return 0;
+    }
+    let name = unsafe { std::ffi::CStr::from_ptr(name) }
+        .to_string_lossy()
+        .to_string();
+    if TRACK_MANAGER.rename_mix_snapshot(MixSnapshotId(snapshot_id), &name) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Update (overwrite) a snapshot with current state. Returns 1 on success.
+#[unsafe(no_mangle)]
+pub extern "C" fn mix_snapshot_update(snapshot_id: u64) -> i32 {
+    if TRACK_MANAGER.update_mix_snapshot(MixSnapshotId(snapshot_id)) {
+        1
+    } else {
+        0
+    }
+}
+
+/// Clear all mix snapshots.
+#[unsafe(no_mangle)]
+pub extern "C" fn mix_snapshot_clear_all() -> i32 {
+    TRACK_MANAGER.clear_mix_snapshots();
+    1
+}
+
+/// Get all mix snapshots as JSON string.
+/// Returns: JSON string (caller must free with engine_free_string).
+#[unsafe(no_mangle)]
+pub extern "C" fn mix_snapshot_get_all_json() -> *mut c_char {
+    let json = TRACK_MANAGER.mix_snapshots_to_json();
+    match std::ffi::CString::new(json) {
+        Ok(c) => c.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+/// Load mix snapshots from JSON string (replaces current).
+/// Returns 1 on success, 0 on parse error.
+#[unsafe(no_mangle)]
+pub extern "C" fn mix_snapshot_load_json(json: *const c_char) -> i32 {
+    if json.is_null() {
+        return 0;
+    }
+    let json = unsafe { std::ffi::CStr::from_ptr(json) }
+        .to_string_lossy()
+        .to_string();
+    if TRACK_MANAGER.mix_snapshots_from_json(&json) {
+        1
+    } else {
+        0
     }
 }

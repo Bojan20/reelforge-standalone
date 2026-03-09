@@ -51,6 +51,10 @@ pub struct RenderRegionId(pub u64);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RazorAreaId(pub u64);
 
+/// Unique mix snapshot identifier
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct MixSnapshotId(pub u64);
+
 /// Unique comp lane identifier
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CompLaneId(pub u64);
@@ -2014,6 +2018,128 @@ impl RazorArea {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Central manager for all tracks, clips, crossfades, and markers
+// ═══════════════════════════════════════════════════════════════════════════
+// MIX SNAPSHOTS (SWS-style Save/Recall Mix States)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Categories of mix state that can be selectively captured/recalled.
+/// Mirrors Reaper SWS Mix Snapshots: 10 independent categories.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[repr(u32)]
+pub enum SnapshotCategory {
+    Volume = 0,
+    Pan = 1,
+    MuteSolo = 2,
+    FxChain = 3, // Reserved — FX chain state lives in Dart/FxContainer, not Track struct
+    Sends = 4,
+    Phase = 5,
+    OutputBus = 6,
+    ChannelConfig = 7,
+    TrackName = 8,
+    ClipGain = 9,
+}
+
+impl SnapshotCategory {
+    pub fn all() -> &'static [SnapshotCategory] {
+        &[
+            Self::Volume,
+            Self::Pan,
+            Self::MuteSolo,
+            Self::FxChain,
+            Self::Sends,
+            Self::Phase,
+            Self::OutputBus,
+            Self::ChannelConfig,
+            Self::TrackName,
+            Self::ClipGain,
+        ]
+    }
+
+    pub fn from_u32(v: u32) -> Option<Self> {
+        match v {
+            0 => Some(Self::Volume),
+            1 => Some(Self::Pan),
+            2 => Some(Self::MuteSolo),
+            3 => Some(Self::FxChain),
+            4 => Some(Self::Sends),
+            5 => Some(Self::Phase),
+            6 => Some(Self::OutputBus),
+            7 => Some(Self::ChannelConfig),
+            8 => Some(Self::TrackName),
+            9 => Some(Self::ClipGain),
+            _ => None,
+        }
+    }
+
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Volume => "Volume",
+            Self::Pan => "Pan",
+            Self::MuteSolo => "Mute/Solo",
+            Self::FxChain => "FX Chain",
+            Self::Sends => "Sends",
+            Self::Phase => "Phase",
+            Self::OutputBus => "Output Bus",
+            Self::ChannelConfig => "Channel Config",
+            Self::TrackName => "Track Name",
+            Self::ClipGain => "Clip Gain",
+        }
+    }
+}
+
+/// Snapshot of a single track's send slots
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SnapshotSends {
+    pub sends: [TrackSendSlot; MAX_TRACK_SENDS],
+}
+
+/// Snapshot of a single clip's gain state
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SnapshotClipGain {
+    pub clip_id: ClipId,
+    pub gain: f64,
+    pub muted: bool,
+}
+
+/// Per-track snapshot data — only populated categories are Some
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrackSnapshotData {
+    pub track_id: TrackId,
+    pub volume: Option<f64>,
+    pub pan: Option<(f64, f64)>,      // (pan_left, pan_right)
+    pub muted: Option<bool>,
+    pub soloed: Option<bool>,
+    pub phase_inverted: Option<bool>,
+    pub output_bus: Option<OutputBus>,
+    pub channels: Option<u32>,
+    pub name: Option<String>,
+    pub sends: Option<SnapshotSends>,
+}
+
+/// Complete mix snapshot — captures state of all tracks at a point in time
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MixSnapshot {
+    pub id: MixSnapshotId,
+    pub name: String,
+    pub description: String,
+    /// Which categories were captured in this snapshot
+    pub categories: Vec<SnapshotCategory>,
+    /// Per-track data
+    pub tracks: Vec<TrackSnapshotData>,
+    /// Clip gain data (separate — clips aren't 1:1 with tracks)
+    pub clip_gains: Vec<SnapshotClipGain>,
+    /// Timestamp (seconds since epoch)
+    pub created_at: f64,
+    /// Optional: only snapshot specific track IDs (empty = all tracks)
+    pub track_filter: Vec<TrackId>,
+}
+
+impl MixSnapshot {
+    pub fn has_category(&self, cat: SnapshotCategory) -> bool {
+        self.categories.contains(&cat)
+    }
+}
+
 pub struct TrackManager {
     /// All tracks - DashMap for lock-free concurrent access (audio thread safe)
     pub tracks: DashMap<TrackId, Track>,
@@ -2045,6 +2171,8 @@ pub struct TrackManager {
     pub render_regions: RwLock<Vec<RenderRegion>>,
     /// Razor edit areas — per-track time-range selections (Reaper-style)
     pub razor_areas: RwLock<Vec<RazorArea>>,
+    /// Mix snapshots — save/recall mix states (SWS-style)
+    pub mix_snapshots: RwLock<Vec<MixSnapshot>>,
 }
 
 impl TrackManager {
@@ -2077,6 +2205,7 @@ impl TrackManager {
             solo_active: AtomicBool::new(false),
             render_regions: RwLock::new(Vec::new()),
             razor_areas: RwLock::new(Vec::new()),
+            mix_snapshots: RwLock::new(Vec::new()),
         }
     }
 
@@ -3594,6 +3723,429 @@ impl Default for TrackManager {
     }
 }
 
+impl TrackManager {
+    // ═══════════════════════════════════════════════════════════════════════
+    // MIX SNAPSHOT OPERATIONS (SWS-style Save/Recall Mix States)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Capture current mix state as a snapshot.
+    /// `categories` — which aspects to capture (empty = all).
+    /// `track_filter` — specific tracks only (empty = all tracks).
+    pub fn capture_mix_snapshot(
+        &self,
+        name: &str,
+        description: &str,
+        categories: &[SnapshotCategory],
+        track_filter: &[TrackId],
+    ) -> MixSnapshotId {
+        let cats = if categories.is_empty() {
+            SnapshotCategory::all().to_vec()
+        } else {
+            categories.to_vec()
+        };
+
+        let has = |c: SnapshotCategory| cats.contains(&c);
+
+        // Gather track data
+        let tracks_to_capture: Vec<Track> = if track_filter.is_empty() {
+            self.tracks.iter().map(|r| r.value().clone()).collect()
+        } else {
+            track_filter
+                .iter()
+                .filter_map(|tid| self.tracks.get(tid).map(|r| r.value().clone()))
+                .collect()
+        };
+
+        let track_snapshots: Vec<TrackSnapshotData> = tracks_to_capture
+            .iter()
+            .map(|t| TrackSnapshotData {
+                track_id: t.id,
+                volume: if has(SnapshotCategory::Volume) {
+                    Some(t.volume)
+                } else {
+                    None
+                },
+                pan: if has(SnapshotCategory::Pan) {
+                    Some((t.pan, t.pan_right))
+                } else {
+                    None
+                },
+                muted: if has(SnapshotCategory::MuteSolo) {
+                    Some(t.muted)
+                } else {
+                    None
+                },
+                soloed: if has(SnapshotCategory::MuteSolo) {
+                    Some(t.soloed)
+                } else {
+                    None
+                },
+                phase_inverted: if has(SnapshotCategory::Phase) {
+                    Some(t.phase_inverted)
+                } else {
+                    None
+                },
+                output_bus: if has(SnapshotCategory::OutputBus) {
+                    Some(t.output_bus)
+                } else {
+                    None
+                },
+                channels: if has(SnapshotCategory::ChannelConfig) {
+                    Some(t.channels)
+                } else {
+                    None
+                },
+                name: if has(SnapshotCategory::TrackName) {
+                    Some(t.name.clone())
+                } else {
+                    None
+                },
+                sends: if has(SnapshotCategory::Sends) {
+                    Some(SnapshotSends {
+                        sends: t.sends.clone(),
+                    })
+                } else {
+                    None
+                },
+            })
+            .collect();
+
+        // Gather clip gains
+        let clip_gains: Vec<SnapshotClipGain> = if has(SnapshotCategory::ClipGain) {
+            let track_ids: std::collections::HashSet<TrackId> = if track_filter.is_empty() {
+                self.tracks.iter().map(|r| *r.key()).collect()
+            } else {
+                track_filter.iter().copied().collect()
+            };
+
+            self.clips
+                .iter()
+                .filter(|r| track_ids.contains(&r.value().track_id))
+                .map(|r| {
+                    let c = r.value();
+                    SnapshotClipGain {
+                        clip_id: c.id,
+                        gain: c.gain,
+                        muted: c.muted,
+                    }
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+
+        let id = MixSnapshotId(next_id());
+        let snapshot = MixSnapshot {
+            id,
+            name: name.to_string(),
+            description: description.to_string(),
+            categories: cats,
+            tracks: track_snapshots,
+            clip_gains,
+            created_at: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs_f64())
+                .unwrap_or(0.0),
+            track_filter: track_filter.to_vec(),
+        };
+
+        self.mix_snapshots.write().push(snapshot);
+        id
+    }
+
+    /// Recall (apply) a mix snapshot.
+    /// `categories_override` — if non-empty, only recall these categories
+    /// (even if the snapshot has more). Empty = recall all captured categories.
+    /// `track_filter_override` — if non-empty, only apply to these tracks.
+    /// Returns number of tracks affected, or 0 if snapshot not found.
+    pub fn recall_mix_snapshot(
+        &self,
+        snapshot_id: MixSnapshotId,
+        categories_override: &[SnapshotCategory],
+        track_filter_override: &[TrackId],
+    ) -> usize {
+        let snapshots = self.mix_snapshots.read();
+        let snapshot = match snapshots.iter().find(|s| s.id == snapshot_id) {
+            Some(s) => s.clone(),
+            None => return 0,
+        };
+        drop(snapshots);
+
+        let cats = if categories_override.is_empty() {
+            &snapshot.categories
+        } else {
+            categories_override
+        };
+        let has = |c: SnapshotCategory| cats.contains(&c);
+
+        let track_filter_set: std::collections::HashSet<TrackId> = if !track_filter_override.is_empty() {
+            track_filter_override.iter().copied().collect()
+        } else {
+            std::collections::HashSet::new()
+        };
+
+        let mut affected = 0usize;
+
+        // If recalling MuteSolo, clear solo on all tracks in scope first
+        // to prevent stale solos from persisting
+        if has(SnapshotCategory::MuteSolo) {
+            let snapshot_track_ids: std::collections::HashSet<TrackId> =
+                snapshot.tracks.iter().map(|t| t.track_id).collect();
+            for entry in self.tracks.iter() {
+                let tid = *entry.key();
+                // Only clear if this track is in recall scope
+                if !track_filter_set.is_empty() && !track_filter_set.contains(&tid) {
+                    continue;
+                }
+                // Only clear if this track was in the snapshot (we'll set it to correct value below)
+                if snapshot_track_ids.contains(&tid) {
+                    continue;
+                }
+                // Track NOT in snapshot but in scope — clear its solo
+                if entry.value().soloed {
+                    self.set_track_solo(tid, false);
+                }
+            }
+        }
+
+        for tdata in &snapshot.tracks {
+            // Skip if track filter override is active and this track isn't in it
+            if !track_filter_set.is_empty() && !track_filter_set.contains(&tdata.track_id) {
+                continue;
+            }
+
+            // Check track still exists
+            if !self.tracks.contains_key(&tdata.track_id) {
+                continue;
+            }
+
+            let mut changed = false;
+
+            if has(SnapshotCategory::Volume) {
+                if let Some(vol) = tdata.volume {
+                    self.update_track(tdata.track_id, |t| t.volume = vol);
+                    changed = true;
+                }
+            }
+
+            if has(SnapshotCategory::Pan) {
+                if let Some((pan_l, pan_r)) = tdata.pan {
+                    self.update_track(tdata.track_id, |t| {
+                        t.pan = pan_l;
+                        t.pan_right = pan_r;
+                    });
+                    changed = true;
+                }
+            }
+
+            if has(SnapshotCategory::MuteSolo) {
+                if let Some(muted) = tdata.muted {
+                    self.update_track(tdata.track_id, |t| t.muted = muted);
+                    changed = true;
+                }
+                if let Some(soloed) = tdata.soloed {
+                    self.set_track_solo(tdata.track_id, soloed);
+                    changed = true;
+                }
+            }
+
+            if has(SnapshotCategory::Phase) {
+                if let Some(phase) = tdata.phase_inverted {
+                    self.update_track(tdata.track_id, |t| t.phase_inverted = phase);
+                    changed = true;
+                }
+            }
+
+            if has(SnapshotCategory::OutputBus) {
+                if let Some(bus) = tdata.output_bus {
+                    self.update_track(tdata.track_id, |t| t.output_bus = bus);
+                    changed = true;
+                }
+            }
+
+            if has(SnapshotCategory::ChannelConfig) {
+                if let Some(ch) = tdata.channels {
+                    self.update_track(tdata.track_id, |t| t.channels = ch);
+                    changed = true;
+                }
+            }
+
+            if has(SnapshotCategory::TrackName) {
+                if let Some(ref name) = tdata.name {
+                    self.update_track(tdata.track_id, |t| t.name = name.clone());
+                    changed = true;
+                }
+            }
+
+            if has(SnapshotCategory::Sends) {
+                if let Some(ref sends_data) = tdata.sends {
+                    self.update_track(tdata.track_id, |t| {
+                        t.sends = sends_data.sends.clone();
+                    });
+                    changed = true;
+                }
+            }
+
+            if changed {
+                affected += 1;
+            }
+        }
+
+        // Recall clip gains
+        if has(SnapshotCategory::ClipGain) {
+            for cg in &snapshot.clip_gains {
+                // Apply only if clip still exists and matches track filter
+                if let Some(clip) = self.get_clip(cg.clip_id) {
+                    if !track_filter_set.is_empty()
+                        && !track_filter_set.contains(&clip.track_id)
+                    {
+                        continue;
+                    }
+                    self.update_clip(cg.clip_id, |c| {
+                        c.gain = cg.gain;
+                        c.muted = cg.muted;
+                    });
+                }
+            }
+        }
+
+        affected
+    }
+
+    /// Get all mix snapshots
+    pub fn get_mix_snapshots(&self) -> Vec<MixSnapshot> {
+        self.mix_snapshots.read().clone()
+    }
+
+    /// Get a single snapshot by ID
+    pub fn get_mix_snapshot(&self, id: MixSnapshotId) -> Option<MixSnapshot> {
+        self.mix_snapshots.read().iter().find(|s| s.id == id).cloned()
+    }
+
+    /// Delete a mix snapshot
+    pub fn delete_mix_snapshot(&self, id: MixSnapshotId) -> bool {
+        let mut snapshots = self.mix_snapshots.write();
+        let before = snapshots.len();
+        snapshots.retain(|s| s.id != id);
+        snapshots.len() < before
+    }
+
+    /// Clear all mix snapshots
+    pub fn clear_mix_snapshots(&self) {
+        self.mix_snapshots.write().clear();
+    }
+
+    /// Rename a mix snapshot
+    pub fn rename_mix_snapshot(&self, id: MixSnapshotId, name: &str) -> bool {
+        let mut snapshots = self.mix_snapshots.write();
+        if let Some(s) = snapshots.iter_mut().find(|s| s.id == id) {
+            s.name = name.to_string();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Update (overwrite) a snapshot with current state, preserving ID and name.
+    /// Recaptures using same categories and track filter as original.
+    pub fn update_mix_snapshot(&self, id: MixSnapshotId) -> bool {
+        // Read existing snapshot settings (categories, track_filter, name, description)
+        let existing = {
+            let snapshots = self.mix_snapshots.read();
+            snapshots.iter().find(|s| s.id == id).cloned()
+        };
+
+        let existing = match existing {
+            Some(e) => e,
+            None => return false,
+        };
+
+        // Build fresh snapshot data inline (don't use capture_mix_snapshot to avoid
+        // appending to vec and then having to remove — atomic replace instead)
+        let cats = &existing.categories;
+        let has = |c: SnapshotCategory| cats.contains(&c);
+
+        let tracks_to_capture: Vec<Track> = if existing.track_filter.is_empty() {
+            self.tracks.iter().map(|r| r.value().clone()).collect()
+        } else {
+            existing
+                .track_filter
+                .iter()
+                .filter_map(|tid| self.tracks.get(tid).map(|r| r.value().clone()))
+                .collect()
+        };
+
+        let track_snapshots: Vec<TrackSnapshotData> = tracks_to_capture
+            .iter()
+            .map(|t| TrackSnapshotData {
+                track_id: t.id,
+                volume: if has(SnapshotCategory::Volume) { Some(t.volume) } else { None },
+                pan: if has(SnapshotCategory::Pan) { Some((t.pan, t.pan_right)) } else { None },
+                muted: if has(SnapshotCategory::MuteSolo) { Some(t.muted) } else { None },
+                soloed: if has(SnapshotCategory::MuteSolo) { Some(t.soloed) } else { None },
+                phase_inverted: if has(SnapshotCategory::Phase) { Some(t.phase_inverted) } else { None },
+                output_bus: if has(SnapshotCategory::OutputBus) { Some(t.output_bus) } else { None },
+                channels: if has(SnapshotCategory::ChannelConfig) { Some(t.channels) } else { None },
+                name: if has(SnapshotCategory::TrackName) { Some(t.name.clone()) } else { None },
+                sends: if has(SnapshotCategory::Sends) {
+                    Some(SnapshotSends { sends: t.sends.clone() })
+                } else {
+                    None
+                },
+            })
+            .collect();
+
+        let clip_gains: Vec<SnapshotClipGain> = if has(SnapshotCategory::ClipGain) {
+            let track_ids: std::collections::HashSet<TrackId> = if existing.track_filter.is_empty() {
+                self.tracks.iter().map(|r| *r.key()).collect()
+            } else {
+                existing.track_filter.iter().copied().collect()
+            };
+            self.clips
+                .iter()
+                .filter(|r| track_ids.contains(&r.value().track_id))
+                .map(|r| {
+                    let c = r.value();
+                    SnapshotClipGain { clip_id: c.id, gain: c.gain, muted: c.muted }
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+
+        // Atomic replace in-place
+        let mut snapshots = self.mix_snapshots.write();
+        if let Some(s) = snapshots.iter_mut().find(|s| s.id == id) {
+            s.tracks = track_snapshots;
+            s.clip_gains = clip_gains;
+            s.created_at = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs_f64())
+                .unwrap_or(0.0);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Serialize all snapshots to JSON
+    pub fn mix_snapshots_to_json(&self) -> String {
+        let snapshots = self.mix_snapshots.read();
+        serde_json::to_string(&*snapshots).unwrap_or_else(|_| "[]".to_string())
+    }
+
+    /// Load snapshots from JSON (replaces current)
+    pub fn mix_snapshots_from_json(&self, json: &str) -> bool {
+        match serde_json::from_str::<Vec<MixSnapshot>>(json) {
+            Ok(loaded) => {
+                *self.mix_snapshots.write() = loaded;
+                true
+            }
+            Err(_) => false,
+        }
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // TESTS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -4706,5 +5258,290 @@ mod tests {
         let areas = tm.get_razor_areas();
         assert_eq!(areas.len(), 1);
         assert!((areas[0].duration() - 8.0).abs() < 0.01); // 4.0 * 2.0
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // MIX SNAPSHOT TESTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_snapshot_capture_all() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Vocals", 0xFF0000FF, OutputBus::Master);
+        tm.update_track(tid, |t| {
+            t.volume = 0.75;
+            t.pan = -0.5;
+            t.muted = true;
+        });
+
+        let sid = tm.capture_mix_snapshot("Before mix", "Initial state", &[], &[]);
+        let snapshots = tm.get_mix_snapshots();
+        assert_eq!(snapshots.len(), 1);
+        assert_eq!(snapshots[0].name, "Before mix");
+        assert_eq!(snapshots[0].categories.len(), 10); // All categories
+        assert_eq!(snapshots[0].tracks.len(), 1);
+        assert_eq!(snapshots[0].tracks[0].volume, Some(0.75));
+        assert_eq!(snapshots[0].tracks[0].pan, Some((-0.5, 1.0))); // pan_right=1.0 default stereo
+        assert_eq!(snapshots[0].tracks[0].muted, Some(true));
+
+        // Now change and recall
+        tm.update_track(tid, |t| {
+            t.volume = 1.0;
+            t.pan = 0.0;
+            t.muted = false;
+        });
+        let affected = tm.recall_mix_snapshot(sid, &[], &[]);
+        assert_eq!(affected, 1);
+
+        let track = tm.get_track(tid).unwrap();
+        assert!((track.volume - 0.75).abs() < 0.001);
+        assert!((track.pan - (-0.5)).abs() < 0.001);
+        assert!(track.muted);
+    }
+
+    #[test]
+    fn test_snapshot_selective_recall() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Guitar", 0xFF00FF00, OutputBus::Master);
+        tm.update_track(tid, |t| {
+            t.volume = 0.5;
+            t.pan = 0.7;
+            t.muted = true;
+        });
+
+        let sid = tm.capture_mix_snapshot("Full", "", &[], &[]);
+
+        // Change everything
+        tm.update_track(tid, |t| {
+            t.volume = 1.0;
+            t.pan = 0.0;
+            t.muted = false;
+        });
+
+        // Recall ONLY volume
+        tm.recall_mix_snapshot(sid, &[SnapshotCategory::Volume], &[]);
+        let track = tm.get_track(tid).unwrap();
+        assert!((track.volume - 0.5).abs() < 0.001); // Restored
+        assert!((track.pan - 0.0).abs() < 0.001); // NOT restored
+        assert!(!track.muted); // NOT restored
+    }
+
+    #[test]
+    fn test_snapshot_track_filter() {
+        let tm = TrackManager::new();
+        let t1 = tm.create_track("Track 1", 0xFFFFFFFF, OutputBus::Master);
+        let t2 = tm.create_track("Track 2", 0xFFFFFFFF, OutputBus::Master);
+        tm.update_track(t1, |t| t.volume = 0.3);
+        tm.update_track(t2, |t| t.volume = 0.7);
+
+        // Capture only Track 1
+        let sid = tm.capture_mix_snapshot("T1 only", "", &[], &[t1]);
+        let snap = tm.get_mix_snapshot(sid).unwrap();
+        assert_eq!(snap.tracks.len(), 1);
+        assert_eq!(snap.tracks[0].track_id, t1);
+
+        // Change both
+        tm.update_track(t1, |t| t.volume = 1.0);
+        tm.update_track(t2, |t| t.volume = 1.0);
+
+        // Recall — only T1 affected
+        tm.recall_mix_snapshot(sid, &[], &[]);
+        assert!((tm.get_track(t1).unwrap().volume - 0.3).abs() < 0.001);
+        assert!((tm.get_track(t2).unwrap().volume - 1.0).abs() < 0.001); // Unchanged
+    }
+
+    #[test]
+    fn test_snapshot_clip_gain() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Audio", 0xFFFFFFFF, OutputBus::Master);
+        let cid = tm.create_clip(tid, "vocal", "vocal.wav", 0.0, 5.0, 5.0);
+        tm.update_clip(cid, |c| c.gain = 0.6);
+
+        let sid = tm.capture_mix_snapshot("With gain", "", &[SnapshotCategory::ClipGain], &[]);
+
+        // Change clip gain
+        tm.update_clip(cid, |c| c.gain = 1.0);
+
+        // Recall
+        tm.recall_mix_snapshot(sid, &[], &[]);
+        let clip = tm.get_clip(cid).unwrap();
+        assert!((clip.gain - 0.6).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_snapshot_sends() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("FX Track", 0xFFFFFFFF, OutputBus::Master);
+        tm.update_track(tid, |t| {
+            t.sends[0].level = 0.8;
+            t.sends[0].pre_fader = true;
+            t.sends[0].destination = Some(OutputBus::Aux);
+            t.sends[1].level = 0.4;
+        });
+
+        let sid = tm.capture_mix_snapshot("Send setup", "", &[SnapshotCategory::Sends], &[]);
+
+        // Clear sends
+        tm.update_track(tid, |t| {
+            t.sends = Default::default();
+        });
+
+        // Recall
+        tm.recall_mix_snapshot(sid, &[], &[]);
+        let track = tm.get_track(tid).unwrap();
+        assert!((track.sends[0].level - 0.8).abs() < 0.001);
+        assert!(track.sends[0].pre_fader);
+        assert_eq!(track.sends[0].destination, Some(OutputBus::Aux));
+        assert!((track.sends[1].level - 0.4).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_snapshot_crud() {
+        let tm = TrackManager::new();
+        let _tid = tm.create_track("T", 0xFFFFFFFF, OutputBus::Master);
+
+        let s1 = tm.capture_mix_snapshot("A", "", &[], &[]);
+        let s2 = tm.capture_mix_snapshot("B", "", &[], &[]);
+        assert_eq!(tm.get_mix_snapshots().len(), 2);
+
+        // Rename
+        assert!(tm.rename_mix_snapshot(s1, "A Renamed"));
+        assert_eq!(tm.get_mix_snapshot(s1).unwrap().name, "A Renamed");
+
+        // Delete
+        assert!(tm.delete_mix_snapshot(s2));
+        assert_eq!(tm.get_mix_snapshots().len(), 1);
+
+        // Clear
+        tm.clear_mix_snapshots();
+        assert_eq!(tm.get_mix_snapshots().len(), 0);
+    }
+
+    #[test]
+    fn test_snapshot_update() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("T", 0xFFFFFFFF, OutputBus::Master);
+        tm.update_track(tid, |t| t.volume = 0.5);
+
+        let sid = tm.capture_mix_snapshot("Snap", "", &[SnapshotCategory::Volume], &[]);
+
+        // Change volume, then update snapshot
+        tm.update_track(tid, |t| t.volume = 0.9);
+        assert!(tm.update_mix_snapshot(sid));
+
+        // Recall should give 0.9 (updated), not 0.5 (original)
+        tm.update_track(tid, |t| t.volume = 0.0);
+        tm.recall_mix_snapshot(sid, &[], &[]);
+        assert!((tm.get_track(tid).unwrap().volume - 0.9).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_snapshot_json_roundtrip() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("JSON Test", 0xFF112233, OutputBus::Music);
+        tm.update_track(tid, |t| {
+            t.volume = 0.42;
+            t.pan = -0.3;
+            t.phase_inverted = true;
+        });
+
+        tm.capture_mix_snapshot("Export", "For JSON", &[], &[]);
+        let json = tm.mix_snapshots_to_json();
+
+        // Load into fresh manager
+        let tm2 = TrackManager::new();
+        assert!(tm2.mix_snapshots_from_json(&json));
+        let loaded = tm2.get_mix_snapshots();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].name, "Export");
+        assert_eq!(loaded[0].tracks[0].volume, Some(0.42));
+        assert_eq!(loaded[0].tracks[0].phase_inverted, Some(true));
+    }
+
+    #[test]
+    fn test_snapshot_multi_track_selective() {
+        let tm = TrackManager::new();
+        let t1 = tm.create_track("Vox", 0xFFFFFFFF, OutputBus::Master);
+        let t2 = tm.create_track("Guitar", 0xFFFFFFFF, OutputBus::Music);
+        let t3 = tm.create_track("Bass", 0xFFFFFFFF, OutputBus::Sfx);
+
+        tm.update_track(t1, |t| { t.volume = 0.1; t.pan = -1.0; });
+        tm.update_track(t2, |t| { t.volume = 0.2; t.pan = 0.5; });
+        tm.update_track(t3, |t| { t.volume = 0.3; t.pan = 1.0; });
+
+        // Capture all
+        let sid = tm.capture_mix_snapshot("Full", "", &[], &[]);
+
+        // Change all
+        tm.update_track(t1, |t| { t.volume = 1.0; t.pan = 0.0; });
+        tm.update_track(t2, |t| { t.volume = 1.0; t.pan = 0.0; });
+        tm.update_track(t3, |t| { t.volume = 1.0; t.pan = 0.0; });
+
+        // Recall volume only, only for T1 and T3
+        tm.recall_mix_snapshot(sid, &[SnapshotCategory::Volume], &[t1, t3]);
+
+        assert!((tm.get_track(t1).unwrap().volume - 0.1).abs() < 0.001);
+        assert!((tm.get_track(t1).unwrap().pan - 0.0).abs() < 0.001); // Pan NOT recalled
+        assert!((tm.get_track(t2).unwrap().volume - 1.0).abs() < 0.001); // T2 NOT affected
+        assert!((tm.get_track(t3).unwrap().volume - 0.3).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_snapshot_solo_clear_on_recall() {
+        let tm = TrackManager::new();
+        let t1 = tm.create_track("Vox", 0xFFFFFFFF, OutputBus::Master);
+        let t2 = tm.create_track("Guitar", 0xFFFFFFFF, OutputBus::Master);
+        let t3 = tm.create_track("Keys", 0xFFFFFFFF, OutputBus::Master);
+
+        // Snapshot: only T1 soloed
+        tm.set_track_solo(t1, true);
+        let sid = tm.capture_mix_snapshot("Solo", "", &[SnapshotCategory::MuteSolo], &[]);
+        tm.set_track_solo(t1, false);
+
+        // Now solo T3 (which wasn't in snapshot)
+        tm.set_track_solo(t3, true);
+        assert!(tm.get_track(t3).unwrap().soloed);
+
+        // Recall — T1 should be soloed, T3 should be CLEARED
+        tm.recall_mix_snapshot(sid, &[], &[]);
+        assert!(tm.get_track(t1).unwrap().soloed);
+        assert!(!tm.get_track(t2).unwrap().soloed);
+        assert!(!tm.get_track(t3).unwrap().soloed); // Cleared by recall
+    }
+
+    #[test]
+    fn test_snapshot_nonexistent_track_recall() {
+        let tm = TrackManager::new();
+        let t1 = tm.create_track("T1", 0xFFFFFFFF, OutputBus::Master);
+        tm.update_track(t1, |t| t.volume = 0.5);
+
+        let sid = tm.capture_mix_snapshot("Snap", "", &[], &[]);
+
+        // Delete the track
+        tm.delete_track(t1);
+
+        // Recall should not crash, 0 tracks affected
+        let affected = tm.recall_mix_snapshot(sid, &[], &[]);
+        assert_eq!(affected, 0);
+    }
+
+    #[test]
+    fn test_snapshot_update_atomic() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("T", 0xFFFFFFFF, OutputBus::Master);
+        tm.update_track(tid, |t| t.volume = 0.3);
+
+        let sid = tm.capture_mix_snapshot("V1", "", &[SnapshotCategory::Volume], &[]);
+        assert_eq!(tm.get_mix_snapshots().len(), 1);
+
+        // Update should NOT create extra snapshots
+        tm.update_track(tid, |t| t.volume = 0.8);
+        assert!(tm.update_mix_snapshot(sid));
+        assert_eq!(tm.get_mix_snapshots().len(), 1); // Still 1, not 2
+
+        // Recall gives updated value
+        tm.update_track(tid, |t| t.volume = 0.0);
+        tm.recall_mix_snapshot(sid, &[], &[]);
+        assert!((tm.get_track(tid).unwrap().volume - 0.8).abs() < 0.001);
     }
 }
