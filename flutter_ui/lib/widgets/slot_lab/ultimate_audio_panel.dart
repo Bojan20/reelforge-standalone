@@ -399,7 +399,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
 
           return Container(
             clipBehavior: Clip.hardEdge,
-            decoration: const BoxDecoration(color: Color(0xFF0C0C10)),
+            decoration: const BoxDecoration(color: FluxForgeTheme.bgDeepest),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -407,29 +407,29 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 if (_panelMode == 0) ...[
                   // STAGES mode — audio assignment
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     child: SizedBox(
-                      height: 26,
+                      height: 30,
                       child: TextField(
                       controller: _searchController,
                       focusNode: _searchFocusNode,
-                      style: const TextStyle(fontSize: 11, color: Colors.white70),
+                      style: const TextStyle(fontSize: 12, color: FluxForgeTheme.textSecondary),
                       decoration: InputDecoration(
                         isDense: true,
                         filled: true,
-                        fillColor: const Color(0xFF16161C),
+                        fillColor: FluxForgeTheme.bgDeep,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(5),
                           borderSide: BorderSide.none,
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                         hintText: 'Search slots...',
-                        hintStyle: const TextStyle(color: Colors.white24, fontSize: 10),
-                        prefixIcon: const Icon(Icons.search, size: 14, color: Colors.white24),
-                        prefixIconConstraints: const BoxConstraints(minWidth: 28),
+                        hintStyle: const TextStyle(color: FluxForgeTheme.textDisabled, fontSize: 11),
+                        prefixIcon: const Icon(Icons.search, size: 15, color: FluxForgeTheme.textDisabled),
+                        prefixIconConstraints: const BoxConstraints(minWidth: 32),
                         suffixIcon: _searchQuery.isNotEmpty
                             ? IconButton(
-                                icon: const Icon(Icons.clear, size: 14, color: Colors.white38),
+                                icon: const Icon(Icons.clear, size: 15, color: FluxForgeTheme.textDisabled),
                                 onPressed: () => setState(() {
                                   _searchQuery = '';
                                   _searchController.clear();
@@ -469,13 +469,13 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     final totalSlots = stats.$1;
     final assignedCount = totalSlots - stats.$2;
     return Container(
-      height: 30,
-      padding: const EdgeInsets.symmetric(horizontal: 6),
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       clipBehavior: Clip.hardEdge,
       decoration: const BoxDecoration(
-        color: Color(0xFF141418),
+        color: FluxForgeTheme.bgMid,
         border: Border(
-          bottom: BorderSide(color: Color(0xFF2A2A32)),
+          bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
       child: Row(
@@ -483,14 +483,14 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           // Auto-Bind — scan folder and auto-map by filename
           _labeledActionBtn(
             Icons.auto_fix_high, 'Auto-Bind',
-            const Color(0xFF66BB6A),
+            FluxForgeTheme.accentGreen,
             () => _showAutoBindDialog(context),
           ),
-          const SizedBox(width: 2),
+          const SizedBox(width: 3),
           // Reset — labeled with color
           _labeledActionBtn(
             Icons.restart_alt, 'Reset',
-            const Color(0xFFEF5350),
+            FluxForgeTheme.accentRed,
             () => _showResetConfirmDialog(context),
           ),
           const Spacer(),
@@ -501,8 +501,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           Text(
             '$assignedCount/$totalSlots',
             style: const TextStyle(
-              fontSize: 8, fontWeight: FontWeight.w500,
-              color: Color(0xFF606068), fontFamily: 'monospace',
+              fontSize: 10, fontWeight: FontWeight.w500,
+              color: FluxForgeTheme.textTertiary, fontFamily: 'monospace',
             ),
           ),
           // Quick Assign toggle
@@ -514,20 +514,20 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               child: GestureDetector(
                 onTap: () => widget.onQuickAssignSlotSelected?.call('__TOGGLE__'),
                 child: Container(
-                  margin: const EdgeInsets.only(left: 3),
-                  padding: const EdgeInsets.all(2),
+                  margin: const EdgeInsets.only(left: 4),
+                  padding: const EdgeInsets.all(3),
                   decoration: BoxDecoration(
                     color: widget.quickAssignMode
-                        ? const Color(0xFFFFAA00).withValues(alpha: 0.2)
+                        ? FluxForgeTheme.accentOrange.withValues(alpha: 0.2)
                         : Colors.transparent,
-                    borderRadius: BorderRadius.circular(3),
+                    borderRadius: BorderRadius.circular(4),
                   ),
                   child: Icon(
                     widget.quickAssignMode ? Icons.touch_app : Icons.touch_app_outlined,
-                    size: 12,
+                    size: 14,
                     color: widget.quickAssignMode
-                        ? const Color(0xFFFFAA00)
-                        : const Color(0xFF808088),
+                        ? FluxForgeTheme.accentOrange
+                        : FluxForgeTheme.textTertiary,
                   ),
                 ),
               ),
@@ -548,19 +548,19 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 20,
-        padding: const EdgeInsets.symmetric(horizontal: 3),
+        height: 22,
+        padding: const EdgeInsets.symmetric(horizontal: 5),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: color.withOpacity(0.4), width: 1),
+          color: color.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: color.withOpacity(0.35), width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 10, color: color),
-            const SizedBox(width: 2),
-            Text(label, style: TextStyle(color: color, fontSize: 8, fontWeight: FontWeight.w600)),
+            Icon(icon, size: 12, color: color),
+            const SizedBox(width: 3),
+            Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -574,11 +574,11 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          width: 22,
-          height: 22,
+          width: 26,
+          height: 26,
           margin: const EdgeInsets.symmetric(horizontal: 1),
-          child: Icon(icon, size: 13,
-            color: onTap != null ? const Color(0xFF808088) : const Color(0xFF404048)),
+          child: Icon(icon, size: 15,
+            color: onTap != null ? FluxForgeTheme.textTertiary : FluxForgeTheme.textDisabled),
         ),
       ),
     );
@@ -592,23 +592,23 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A22),
+        backgroundColor: FluxForgeTheme.bgMid,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: const Row(
           children: [
-            Icon(Icons.warning_amber, color: Color(0xFFFF4444), size: 20),
+            Icon(Icons.warning_amber, color: FluxForgeTheme.accentRed, size: 20),
             SizedBox(width: 8),
-            Text('Reset Slot Machine', style: TextStyle(color: Colors.white, fontSize: 14)),
+            Text('Reset Slot Machine', style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14)),
           ],
         ),
         content: const Text(
           'This will delete the current slot machine configuration, all audio assignments, and all events.\n\nYou will start from scratch with the setup wizard.',
-          style: TextStyle(color: Colors.white60, fontSize: 12),
+          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            child: const Text('Cancel', style: TextStyle(color: FluxForgeTheme.textTertiary)),
           ),
           TextButton(
             onPressed: () {
@@ -616,10 +616,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               _performFullReset();
             },
             style: TextButton.styleFrom(
-              backgroundColor: const Color(0xFFFF4444).withValues(alpha: 0.2),
+              backgroundColor: FluxForgeTheme.accentRed.withValues(alpha: 0.2),
             ),
             child: const Text('RESET', style: TextStyle(
-              color: Color(0xFFFF4444), fontWeight: FontWeight.w700,
+              color: FluxForgeTheme.accentRed, fontWeight: FontWeight.w700,
             )),
           ),
         ],
@@ -1312,10 +1312,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   /// Compact inline mode toggle — sits in header, saves 24px vertical
   Widget _buildInlineModeToggle() {
     return Container(
-      height: 18,
+      height: 22,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(3),
+        color: FluxForgeTheme.bgDeep,
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1324,25 +1324,25 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             GestureDetector(
               onTap: () => setState(() => _panelMode = i),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
                 decoration: BoxDecoration(
-                  color: _panelMode == i ? Colors.white.withValues(alpha: 0.08) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(3),
+                  color: _panelMode == i ? FluxForgeTheme.bgSurface : Colors.transparent,
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       i == 0 ? Icons.audiotrack : Icons.functions,
-                      size: 9,
-                      color: _panelMode == i ? const Color(0xFFB0B0B8) : const Color(0xFF505058),
+                      size: 11,
+                      color: _panelMode == i ? FluxForgeTheme.textSecondary : FluxForgeTheme.textDisabled,
                     ),
-                    const SizedBox(width: 2),
+                    const SizedBox(width: 3),
                     Text(
                       i == 0 ? 'STG' : 'PCG',
                       style: TextStyle(
-                        fontSize: 7, fontWeight: FontWeight.w600,
-                        color: _panelMode == i ? const Color(0xFFB0B0B8) : const Color(0xFF505058),
+                        fontSize: 9, fontWeight: FontWeight.w600,
+                        color: _panelMode == i ? FluxForgeTheme.textSecondary : FluxForgeTheme.textDisabled,
                       ),
                     ),
                   ],
@@ -1366,10 +1366,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         final enabled = composer.enabledMechanics;
         final featureCount = composer.featureStageCount;
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
           decoration: const BoxDecoration(
-            color: Color(0xFF0E0E12),
-            border: Border(bottom: BorderSide(color: Color(0xFF1E1E24))),
+            color: FluxForgeTheme.bgDeep,
+            border: Border(bottom: BorderSide(color: FluxForgeTheme.bgSurface)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1379,8 +1379,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   Text(
                     'MECHANICS',
                     style: TextStyle(
-                      fontSize: 8, fontWeight: FontWeight.w600,
-                      color: Colors.white.withValues(alpha: 0.35),
+                      fontSize: 10, fontWeight: FontWeight.w600,
+                      color: FluxForgeTheme.textTertiary.withValues(alpha: 0.6),
                       letterSpacing: 0.8,
                     ),
                   ),
@@ -1388,7 +1388,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   if (featureCount > 0)
                     Text(
                       '+$featureCount',
-                      style: const TextStyle(fontSize: 8, color: Color(0xFF505058), fontFamily: 'monospace'),
+                      style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textDisabled, fontFamily: 'monospace'),
                     ),
                 ],
               ),
@@ -1401,22 +1401,22 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   return GestureDetector(
                     onTap: () => composer.toggleMechanic(mechanic),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
                         color: isOn
-                            ? Colors.white.withValues(alpha: 0.07)
-                            : Colors.white.withValues(alpha: 0.02),
-                        borderRadius: BorderRadius.circular(3),
+                            ? FluxForgeTheme.bgSurface
+                            : FluxForgeTheme.bgDeep,
+                        borderRadius: BorderRadius.circular(4),
                         border: Border.all(
-                          color: isOn ? const Color(0xFF404048) : const Color(0xFF1E1E24),
+                          color: isOn ? FluxForgeTheme.borderSubtle : FluxForgeTheme.bgSurface,
                         ),
                       ),
                       child: Text(
                         mechanic.displayName,
                         style: TextStyle(
-                          fontSize: 8,
+                          fontSize: 10,
                           fontWeight: isOn ? FontWeight.w600 : FontWeight.w400,
-                          color: isOn ? const Color(0xFFB0B0B8) : const Color(0xFF404048),
+                          color: isOn ? FluxForgeTheme.textSecondary : FluxForgeTheme.textDisabled,
                         ),
                       ),
                     ),
@@ -1438,7 +1438,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       onTap: () => composer.disableAll(),
                       child: const Text(
                         'Clear',
-                        style: TextStyle(fontSize: 8, color: Colors.white30),
+                        style: TextStyle(fontSize: 10, color: FluxForgeTheme.textDisabled),
                       ),
                     ),
                 ],
@@ -1447,7 +1447,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               // ── Game Config ──
               if (composer.config != null) ...[
                 const SizedBox(height: 3),
-                Divider(height: 1, color: Colors.white.withValues(alpha: 0.06)),
+                const Divider(height: 1, color: FluxForgeTheme.bgSurface),
                 const SizedBox(height: 4),
                 // Win Tiers + Anticipation Levels — same row
                 Row(
@@ -1457,7 +1457,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                         'WINS',
                         composer.config!.winTierCount, 1, 5,
                         (v) { composer.setWinTierCount(v); _invalidatePhaseCache(); },
-                        const Color(0xFFFFD700),
+                        FluxForgeTheme.accentYellow,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1466,7 +1466,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                         'TENSION',
                         composer.config!.anticipationLevels, 1, 4,
                         (v) { composer.setAnticipationLevels(v); _invalidatePhaseCache(); },
-                        const Color(0xFFFF5252),
+                        FluxForgeTheme.accentRed,
                       ),
                     ),
                   ],
@@ -1487,7 +1487,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         Text(
           label,
           style: TextStyle(
-            fontSize: 8, fontWeight: FontWeight.w600,
+            fontSize: 10, fontWeight: FontWeight.w600,
             color: color.withValues(alpha: 0.6),
             letterSpacing: 0.5,
           ),
@@ -1499,10 +1499,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             width: 18, height: 18,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: value > min ? Colors.white.withValues(alpha: 0.06) : Colors.transparent,
+              color: value > min ? FluxForgeTheme.bgSurface : Colors.transparent,
               borderRadius: BorderRadius.circular(3),
             ),
-            child: Text('−', style: TextStyle(fontSize: 11, color: value > min ? color : const Color(0xFF303038))),
+            child: Text('−', style: TextStyle(fontSize: 11, color: value > min ? color : FluxForgeTheme.textDisabled)),
           ),
         ),
         Container(
@@ -1519,10 +1519,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             width: 18, height: 18,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: value < max ? Colors.white.withValues(alpha: 0.06) : Colors.transparent,
+              color: value < max ? FluxForgeTheme.bgSurface : Colors.transparent,
               borderRadius: BorderRadius.circular(3),
             ),
-            child: Text('+', style: TextStyle(fontSize: 11, color: value < max ? color : const Color(0xFF303038))),
+            child: Text('+', style: TextStyle(fontSize: 11, color: value < max ? color : FluxForgeTheme.textDisabled)),
           ),
         ),
       ],
@@ -1538,8 +1538,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         Text(
           'ANTICIPATION REELS',
           style: TextStyle(
-            fontSize: 8, fontWeight: FontWeight.w600,
-            color: const Color(0xFFFF5252).withValues(alpha: 0.6),
+            fontSize: 9, fontWeight: FontWeight.w600,
+            color: FluxForgeTheme.accentRed.withValues(alpha: 0.6),
             letterSpacing: 0.5,
           ),
         ),
@@ -1557,23 +1557,23 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: activeReels.contains(r)
-                      ? const Color(0xFFFF5252).withValues(alpha: 0.15)
-                      : Colors.white.withValues(alpha: 0.02),
+                      ? FluxForgeTheme.accentRed.withValues(alpha: 0.15)
+                      : FluxForgeTheme.bgDeep,
                   borderRadius: BorderRadius.circular(3),
                   border: Border.all(
                     color: activeReels.contains(r)
-                        ? const Color(0xFFFF5252).withValues(alpha: 0.5)
-                        : const Color(0xFF1E1E24),
+                        ? FluxForgeTheme.accentRed.withValues(alpha: 0.5)
+                        : FluxForgeTheme.bgSurface,
                   ),
                 ),
                 child: Text(
                   'R${r + 1}',
                   style: TextStyle(
-                    fontSize: 7,
+                    fontSize: 9,
                     fontWeight: activeReels.contains(r) ? FontWeight.w700 : FontWeight.w400,
                     color: activeReels.contains(r)
-                        ? const Color(0xFFFF5252)
-                        : const Color(0xFF404048),
+                        ? FluxForgeTheme.accentRed
+                        : FluxForgeTheme.textDisabled,
                   ),
                 ),
               ),
@@ -1587,17 +1587,17 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(3),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          color: FluxForgeTheme.bgDeep,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: FluxForgeTheme.bgSurface),
         ),
         child: Text(
           label,
           style: const TextStyle(
-            fontSize: 7,
-            color: Colors.white38,
+            fontSize: 9,
+            color: FluxForgeTheme.textDisabled,
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -2286,17 +2286,17 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     if (_activePhaseTab >= tabCount) _activePhaseTab = 0;
 
     return Container(
-      height: 22,
+      height: 26,
       decoration: const BoxDecoration(
-        color: Color(0xFF101014),
-        border: Border(bottom: BorderSide(color: Color(0xFF222228))),
+        color: FluxForgeTheme.bgDeep,
+        border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle)),
       ),
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.zero,
         children: [
           // ALL tab
-          _buildPhaseTab(0, 'ALL', const Color(0xFF808088)),
+          _buildPhaseTab(0, 'ALL', FluxForgeTheme.textTertiary),
           // Dynamic phase tabs
           for (int i = 0; i < phases.length; i++)
             _buildPhaseTab(
@@ -2311,14 +2311,14 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
 
   Widget _buildPhaseTab(int index, String label, Color color) {
     final isActive = _activePhaseTab == index;
-    final tabTint = Color.lerp(color, const Color(0xFF808088), 0.55)!;
+    final tabTint = Color.lerp(color, FluxForgeTheme.textTertiary, 0.55)!;
     return _HoverBuilder(
       builder: (hovered) => GestureDetector(
         onTap: () => setState(() => _activePhaseTab = index),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 120),
           alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
           decoration: BoxDecoration(
             color: isActive
                 ? color.withOpacity(0.06)
@@ -2326,15 +2326,15 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             border: Border(
               bottom: BorderSide(
                 color: isActive ? tabTint : Colors.transparent,
-                width: 1.5,
+                width: 2,
               ),
             ),
           ),
           child: Text(label, style: TextStyle(
-            fontSize: 8, fontWeight: FontWeight.w600,
+            fontSize: 10, fontWeight: FontWeight.w600,
             color: isActive
                 ? tabTint
-                : hovered ? const Color(0xFF707078) : const Color(0xFF505058),
+                : hovered ? FluxForgeTheme.textTertiary : FluxForgeTheme.textDisabled,
             letterSpacing: 0.3,
           )),
         ),
@@ -2602,7 +2602,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     final isComplete = percentage == 100;
 
     // Apple-style: desaturated tint of phase color for subtle identity
-    final tintColor = Color.lerp(phase.color, const Color(0xFF808088), 0.55)!;
+    final tintColor = Color.lerp(phase.color, FluxForgeTheme.textTertiary, 0.55)!;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2624,29 +2624,29 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 120),
-              height: 28,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              height: 32,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
                 color: isHovered
                     ? phase.color.withOpacity(0.06)
-                    : const Color(0xFF141418),
+                    : FluxForgeTheme.bgMid,
                 border: Border(
                   bottom: BorderSide(color: phase.color.withOpacity(0.08)),
-                  left: BorderSide(color: tintColor.withOpacity(0.7), width: 2),
+                  left: BorderSide(color: tintColor.withOpacity(0.7), width: 3),
                 ),
               ),
               child: Row(
                 children: [
                   Icon(
                     isExpanded ? Icons.expand_more : Icons.chevron_right,
-                    size: 14, color: tintColor.withOpacity(0.6),
+                    size: 16, color: tintColor.withOpacity(0.6),
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 6),
                   Flexible(
                     child: Text(
                       phase.title,
                       style: TextStyle(
-                        fontSize: 10, fontWeight: FontWeight.w600,
+                        fontSize: 11, fontWeight: FontWeight.w600,
                         color: tintColor, letterSpacing: 0.5,
                       ),
                       overflow: TextOverflow.ellipsis, maxLines: 1,
@@ -2656,7 +2656,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   Text(
                     '$assignedSlots/$totalSlots',
                     style: TextStyle(
-                      fontSize: 9, fontWeight: FontWeight.w500,
+                      fontSize: 10, fontWeight: FontWeight.w500,
                       color: tintColor.withOpacity(0.45), fontFamily: 'monospace',
                     ),
                   ),
@@ -2686,7 +2686,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       return const SizedBox.shrink();
     }
     final isExpanded = _isFiltering || _expandedSections.contains(config.id);
-    final sectionTint = Color.lerp(config.color, const Color(0xFF808088), 0.6)!;
+    final sectionTint = Color.lerp(config.color, FluxForgeTheme.textTertiary, 0.6)!;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2708,23 +2708,23 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 120),
-              height: 24,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+              height: 28,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               color: isHovered
                   ? config.color.withOpacity(0.04)
-                  : const Color(0xFF121216),
+                  : FluxForgeTheme.bgDeep,
               child: Row(
                 children: [
                   Icon(
                     isExpanded ? Icons.expand_more : Icons.chevron_right,
-                    size: 12, color: sectionTint.withOpacity(0.5),
+                    size: 14, color: sectionTint.withOpacity(0.5),
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 5),
                   Flexible(
                     child: Text(
                       config.title,
                       style: TextStyle(
-                        fontSize: 9, fontWeight: FontWeight.w600,
+                        fontSize: 10, fontWeight: FontWeight.w600,
                         color: sectionTint.withOpacity(0.8), letterSpacing: 0.3,
                       ),
                       overflow: TextOverflow.ellipsis, maxLines: 1,
@@ -2737,10 +2737,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       return Text(
                         '$percentage%',
                         style: TextStyle(
-                          fontSize: 8, fontWeight: FontWeight.w500,
+                          fontSize: 9, fontWeight: FontWeight.w500,
                           color: percentage == 100
                               ? sectionTint.withOpacity(0.6)
-                              : const Color(0xFF404048),
+                              : FluxForgeTheme.textDisabled,
                           fontFamily: 'monospace',
                         ),
                       );
@@ -2754,7 +2754,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         // Section content
         if (isExpanded)
           Container(
-            color: const Color(0xFF0C0C10),
+            color: FluxForgeTheme.bgDeepest,
             child: Column(
               children: config.groups.map((group) => _buildGroup(group, config)).toList(),
             ),
@@ -2797,7 +2797,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         // Individual slots — sized box constrains height for lazy rendering
         if (isExpanded)
           Padding(
-            padding: const EdgeInsets.only(left: 16, right: 8, bottom: 8),
+            padding: const EdgeInsets.only(left: 18, right: 8, bottom: 10),
             child: Column(
               children: [
                 for (final slot in group.slots)
@@ -2837,10 +2837,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       }
     }
 
-    final slotTint = Color.lerp(accentColor, const Color(0xFF808088), 0.6)!;
+    final slotTint = Color.lerp(accentColor, FluxForgeTheme.textTertiary, 0.6)!;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 3),
+      padding: const EdgeInsets.only(bottom: 4),
       child: _HoverBuilder(
         builder: (isSlotHovered) => GestureDetector(
         // M2-8: Quick Assign Mode - click to select/unselect slot
@@ -2893,51 +2893,51 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
 
           return AnimatedContainer(
             duration: const Duration(milliseconds: 120),
-            height: 24,
+            height: 28,
             clipBehavior: Clip.hardEdge,
             decoration: BoxDecoration(
               color: isQuickAssignSelected
-                  ? Colors.white.withOpacity(0.06)
+                  ? FluxForgeTheme.bgElevated
                   : isHovering
-                      ? Colors.white.withOpacity(0.04)
+                      ? FluxForgeTheme.bgSurface
                       : isSlotHovered
                           ? accentColor.withOpacity(0.03)
-                          : const Color(0xFF111114),
-              borderRadius: BorderRadius.circular(3),
+                          : FluxForgeTheme.bgDeep,
+              borderRadius: BorderRadius.circular(4),
               border: Border.all(
                 color: isQuickAssignSelected
-                    ? const Color(0xFF606068)
+                    ? FluxForgeTheme.textTertiary
                     : isHovering
-                        ? const Color(0xFF404048)
+                        ? FluxForgeTheme.textDisabled
                         : isSlotHovered
                             ? slotTint.withOpacity(0.3)
                             : hasAudio
-                                ? const Color(0xFF2A2A32)
-                                : const Color(0xFF1E1E24),
+                                ? FluxForgeTheme.borderSubtle
+                                : FluxForgeTheme.bgSurface,
               ),
             ),
             child: Row(
               children: [
                 // Stage label — fixed width
                 Container(
-                  width: 72,
-                  height: 24,
+                  width: 80,
+                  height: 28,
                   alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.only(left: 6),
+                  padding: const EdgeInsets.only(left: 8),
                   child: Text(
                     slot.label,
                     style: TextStyle(
-                      fontSize: 9, fontWeight: FontWeight.w500,
+                      fontSize: 10, fontWeight: FontWeight.w500,
                       color: isSlotHovered
                           ? slotTint
-                          : hasAudio ? const Color(0xFF909098) : const Color(0xFF505058),
+                          : hasAudio ? FluxForgeTheme.textSecondary : FluxForgeTheme.textDisabled,
                     ),
                     overflow: TextOverflow.ellipsis, maxLines: 1,
                   ),
                 ),
                 // Separator
-                Container(width: 1, height: 14, color: const Color(0xFF1E1E24)),
-                const SizedBox(width: 4),
+                Container(width: 1, height: 16, color: FluxForgeTheme.bgSurface),
+                const SizedBox(width: 6),
                 // Audio content or hint
                 Expanded(
                   child: hasAudio
@@ -2945,16 +2945,16 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                           children: [
                             WaveformThumbnail(
                               filePath: audioPath,
-                              width: 48, height: 16,
-                              color: const Color(0xFF505058),
-                              backgroundColor: Colors.black.withOpacity(0.2),
+                              width: 52, height: 18,
+                              color: FluxForgeTheme.textDisabled,
+                              backgroundColor: FluxForgeTheme.bgVoid,
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 6),
                             Expanded(
                               child: Text(
                                 fileName!,
                                 style: const TextStyle(
-                                  fontSize: 9, color: Color(0xFF808088),
+                                  fontSize: 10, color: FluxForgeTheme.textTertiary,
                                 ),
                                 overflow: TextOverflow.ellipsis, maxLines: 1,
                               ),
@@ -2964,21 +2964,21 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       : Text(
                           isQuickAssignSelected ? '← assign' : '—',
                           style: TextStyle(
-                            fontSize: 9,
+                            fontSize: 10,
                             color: isQuickAssignSelected
-                                ? const Color(0xFF808088)
-                                : const Color(0xFF2A2A32),
+                                ? FluxForgeTheme.textTertiary
+                                : FluxForgeTheme.borderSubtle,
                           ),
                         ),
                 ),
                 // Variant count — minimal
                 if (hasVariants && !isQuickAssignSelected)
                   Padding(
-                    padding: const EdgeInsets.only(right: 4),
+                    padding: const EdgeInsets.only(right: 5),
                     child: Text(
                       'x$variantCount',
                       style: const TextStyle(
-                        fontSize: 8, color: Color(0xFF505058), fontFamily: 'monospace',
+                        fontSize: 9, color: FluxForgeTheme.textDisabled, fontFamily: 'monospace',
                       ),
                     ),
                   ),
@@ -2986,16 +2986,16 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 // Status dot — minimal
                 if (hasAudio)
                   Container(
-                    width: 5, height: 5, margin: const EdgeInsets.only(right: 4),
+                    width: 6, height: 6, margin: const EdgeInsets.only(right: 5),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF50FF98).withOpacity(0.5),
+                      color: FluxForgeTheme.accentGreen.withOpacity(0.5),
                     ),
                   ),
                 // Layer count badge
                 if (hasAudio)
                   Padding(
-                    padding: const EdgeInsets.only(right: 2),
+                    padding: const EdgeInsets.only(right: 3),
                     child: Builder(
                       builder: (_) {
                         final mw = Provider.of<MiddlewareProvider>(context, listen: false);
@@ -3007,8 +3007,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                         return Text(
                           '${lc}L',
                           style: TextStyle(
-                            fontSize: 7,
-                            color: const Color(0xFF808088).withValues(alpha: 0.5),
+                            fontSize: 8,
+                            color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
                             fontFamily: 'monospace',
                           ),
                         );
@@ -3021,10 +3021,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                     onTap: () => _togglePreview(slot.stage, audioPath),
                     child: Icon(
                       _playingStage == slot.stage ? Icons.stop : Icons.play_arrow,
-                      size: 12,
+                      size: 14,
                       color: _playingStage == slot.stage
-                          ? const Color(0xFFB0B0B8)
-                          : const Color(0xFF606068),
+                          ? FluxForgeTheme.textSecondary
+                          : FluxForgeTheme.textDisabled,
                     ),
                   ),
                 // Clear button — visible on hover only
@@ -3032,8 +3032,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   GestureDetector(
                     onTap: () => widget.onAudioClear?.call(slot.stage),
                     child: const Padding(
-                      padding: EdgeInsets.only(left: 2, right: 2),
-                      child: Icon(Icons.close, size: 10, color: Color(0xFF606068)),
+                      padding: EdgeInsets.only(left: 3, right: 3),
+                      child: Icon(Icons.close, size: 12, color: FluxForgeTheme.textDisabled),
                     ),
                   ),
               ],
@@ -3217,18 +3217,18 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A22),
+        backgroundColor: FluxForgeTheme.bgMid,
         title: Row(
           children: [
             Icon(
               matched.isNotEmpty ? Icons.check_circle : Icons.warning,
-              color: matched.isNotEmpty ? Colors.green : Colors.orange,
+              color: matched.isNotEmpty ? FluxForgeTheme.accentGreen : FluxForgeTheme.accentOrange,
               size: 20,
             ),
             const SizedBox(width: 8),
             Text(
               'Auto-Distribution Result',
-              style: const TextStyle(color: Colors.white, fontSize: 14),
+              style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
             ),
           ],
         ),
@@ -3242,14 +3242,14 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: FluxForgeTheme.bgSurface,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Row(
                   children: [
-                    _buildStatBadge('Matched', matched.length, Colors.green),
+                    _buildStatBadge('Matched', matched.length, FluxForgeTheme.accentGreen),
                     const SizedBox(width: 12),
-                    _buildStatBadge('Unmatched', unmatched.length, Colors.orange),
+                    _buildStatBadge('Unmatched', unmatched.length, FluxForgeTheme.accentOrange),
                   ],
                 ),
               ),
@@ -3258,19 +3258,19 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               if (matched.isNotEmpty) ...[
                 const Text(
                   'MATCHED FILES:',
-                  style: TextStyle(fontSize: 10, color: Colors.white38, letterSpacing: 1),
+                  style: TextStyle(fontSize: 10, color: FluxForgeTheme.textDisabled, letterSpacing: 1),
                 ),
                 const SizedBox(height: 4),
                 ...matched.take(8).map((m) => Padding(
                   padding: const EdgeInsets.only(bottom: 2),
                   child: Row(
                     children: [
-                      const Icon(Icons.check, size: 12, color: Colors.green),
+                      const Icon(Icons.check, size: 12, color: FluxForgeTheme.accentGreen),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           m.audioFileName,
-                          style: const TextStyle(fontSize: 10, color: Colors.white70),
+                          style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -3284,7 +3284,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 if (matched.length > 8)
                   Text(
                     '... and ${matched.length - 8} more',
-                    style: const TextStyle(fontSize: 10, color: Colors.white38),
+                    style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textDisabled),
                   ),
               ],
               // Unmatched files
@@ -3292,26 +3292,26 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 const SizedBox(height: 8),
                 const Text(
                   'UNMATCHED FILES:',
-                  style: TextStyle(fontSize: 10, color: Colors.white38, letterSpacing: 1),
+                  style: TextStyle(fontSize: 10, color: FluxForgeTheme.textDisabled, letterSpacing: 1),
                 ),
                 const SizedBox(height: 4),
                 ...unmatched.take(5).map((u) => Padding(
                   padding: const EdgeInsets.only(bottom: 2),
                   child: Row(
                     children: [
-                      const Icon(Icons.help_outline, size: 12, color: Colors.orange),
+                      const Icon(Icons.help_outline, size: 12, color: FluxForgeTheme.accentOrange),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           u.audioFileName,
-                          style: const TextStyle(fontSize: 10, color: Colors.white54),
+                          style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (u.topSuggestion != null)
                         Text(
                           '? ${u.topSuggestion!.stage}',
-                          style: const TextStyle(fontSize: 10, color: Colors.orange),
+                          style: const TextStyle(fontSize: 10, color: FluxForgeTheme.accentOrange),
                         ),
                     ],
                   ),
@@ -3319,7 +3319,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 if (unmatched.length > 5)
                   Text(
                     '... and ${unmatched.length - 5} more',
-                    style: const TextStyle(fontSize: 10, color: Colors.white38),
+                    style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textDisabled),
                   ),
               ],
             ],
@@ -3328,7 +3328,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('OK', style: TextStyle(color: Colors.white70)),
+            child: const Text('OK', style: TextStyle(color: FluxForgeTheme.textSecondary)),
           ),
         ],
       ),
@@ -3355,7 +3355,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         const SizedBox(width: 4),
         Text(
           label,
-          style: const TextStyle(fontSize: 10, color: Colors.white54),
+          style: const TextStyle(fontSize: 10, color: FluxForgeTheme.textTertiary),
         ),
       ],
     );
@@ -3452,7 +3452,7 @@ class _GroupDropZoneState extends State<_GroupDropZone> {
       },
       builder: (context, candidateData, rejectedData) {
         final sectionColor = widget.section.color;
-        final groupTint = Color.lerp(sectionColor, const Color(0xFF808088), 0.65)!;
+        final groupTint = Color.lerp(sectionColor, FluxForgeTheme.textTertiary, 0.65)!;
 
         return MouseRegion(
           onEnter: (_) => setState(() => _isMouseHover = true),
@@ -3461,47 +3461,47 @@ class _GroupDropZoneState extends State<_GroupDropZone> {
             onTap: widget.onToggle,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 120),
-              height: 22,
-              margin: const EdgeInsets.only(left: 6, right: 6, top: 2),
-              padding: const EdgeInsets.symmetric(horizontal: 6),
+              height: 26,
+              margin: const EdgeInsets.only(left: 8, right: 8, top: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
                 color: _isHovering
-                    ? Colors.white.withOpacity(0.08)
+                    ? FluxForgeTheme.bgElevated
                     : _isMouseHover
                         ? sectionColor.withOpacity(0.03)
                         : Colors.transparent,
-                borderRadius: BorderRadius.circular(3),
+                borderRadius: BorderRadius.circular(4),
                 border: _isHovering
-                    ? Border.all(color: const Color(0xFF505058))
+                    ? Border.all(color: FluxForgeTheme.textDisabled)
                     : null,
               ),
               child: Row(
                 children: [
                   Icon(
                     widget.isExpanded ? Icons.expand_more : Icons.chevron_right,
-                    size: 12,
-                    color: _isMouseHover ? groupTint : const Color(0xFF505058),
+                    size: 14,
+                    color: _isMouseHover ? groupTint : FluxForgeTheme.textDisabled,
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 5),
                   Expanded(
                     child: Text(
                       widget.group.title,
                       style: TextStyle(
-                        fontSize: 9, fontWeight: FontWeight.w500,
-                        color: _isMouseHover ? groupTint : const Color(0xFF808088),
+                        fontSize: 10, fontWeight: FontWeight.w500,
+                        color: _isMouseHover ? groupTint : FluxForgeTheme.textTertiary,
                       ),
                     ),
                   ),
                   if (_isHovering)
                     const Text('DROP', style: TextStyle(
-                      fontSize: 7, fontWeight: FontWeight.w600,
-                      color: Color(0xFF808088), letterSpacing: 0.5,
+                      fontSize: 9, fontWeight: FontWeight.w600,
+                      color: FluxForgeTheme.textTertiary, letterSpacing: 0.5,
                     ))
                   else if (widget.assignedCount > 0)
                     Text(
                       '${widget.assignedCount}/${widget.group.slots.length}',
                       style: const TextStyle(
-                        fontSize: 8, color: Color(0xFF404048), fontFamily: 'monospace',
+                        fontSize: 9, color: FluxForgeTheme.textDisabled, fontFamily: 'monospace',
                       ),
                     ),
                 ],
