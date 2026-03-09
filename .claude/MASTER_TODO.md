@@ -42,10 +42,10 @@ Analyzer: 0 errors, 0 warnings
 | 4 | **Per-item Pitch Envelope** | ✅ DONE | ClipEnvelope sa relativnim pozicijama (premešta se sa clipom). ±24 semitona, 6 curve types (Linear/Bezier/Exp/Log/Step/SCurve). Trapezoidal integration za source poziciju. 12 unit testova, 10 FFI fn. | Visoka |
 | 5 | **Per-item Playrate Envelope** | ✅ DONE | ClipEnvelope playrate (0.1x–4.0x). Multiplicative sa stretch_ratio. Varispeed mode (pitch follows rate). Incremental per-block akumulacija, full integral samo na seek. Zero-alloc audio thread. | Visoka |
 | 6 | **Automation Items (pooled)** | ✅ DONE | AutomationItem+AutomationItemManager+AutomationPool. 7 LFO shapes (Sine/Triangle/Square/SawUp/SawDown/Random/S&H), custom points, looping, stacking (additive), pooling (edit-one-update-all), stretch, baseline/amplitude. 13 FFI fn, 11 testova. `automation.rs` ~700 novih linija | Vrlo visoka |
-| 7 | **Pin Connector** | ❌ TODO | 64-ch interni routing per-plugin. Matrix UI: redovi=ulazni kanali, kolone=plugin kanali. Mid/side, multi-mono, surround per-channel processing. Arhitekturna promena u FX chain procesingu. | Vrlo visoka |
-| 8 | **Parallel FX (inline)** | ❌ TODO | Desni klik na FX → "Run in parallel". Signal split → paralelni plugin-i → sum. Wet/dry per-plugin. Bez dodatnih trakova/sends. | Srednja |
-| 9 | **FX Containers** | ❌ TODO | Plugin koji sadrži plugin-e. Interni routing (serial/parallel/custom via pin connector). Do 16 makro kontrola sa parameter mapping. Nestable (kontejner u kontejneru). Imamo `fx_container.rs` osnovu. | Visoka |
-| 10 | **Per-item Automation** | ❌ TODO | Take envelopes: Volume, Pan, Mute, Pitch, Playrate + per-take FX param envelopes. Automatizacija se premešta SA clipom. Nezavisna od track-level automatizacije (multiplikativno). | Visoka |
+| 7 | **Pin Connector** | ✅ DONE | `pin_connector.rs` ~760 linija. 64-ch routing matrix, 5 režima (Normal/MultiMono/MidSide/Surround/Custom), gain matrix, M/S encode/decode, zero-alloc audio thread. Integrisano u InsertSlot. 6 FFI fn, 11 testova. | Vrlo visoka |
+| 8 | **Parallel FX (inline)** | ✅ DONE | `FxContainerProcessor` wrapper: FxContainer implementira InsertProcessor, loaduje se u InsertSlot. 7 FFI fn (container lifecycle, path management, blend modes, macros). InsertProcessor trait proširen sa is_fx_container/as_fx_container_mut. | Srednja |
+| 9 | **FX Containers** | ✅ DONE | Pokriveno sa P8 — FxContainer (8 parallel paths, 16 macros, 4 blend modes) + FxContainerProcessor wrapper. Nestanje inherentno (InsertChain u path-u može sadržati FxContainerProcessor). | Visoka |
+| 10 | **Per-item Automation** | ✅ DONE | Pokriveno sa P4/P5 — ClipEnvelope sistem (pitch, playrate, volume, pan) sa relativnim pozicijama. Premešta se sa clipom. Nezavisno od track automatizacije (multiplikativno u playback.rs). | Visoka |
 
 ### Faza 3: Workflow Acceleration (P2 — MEDIUM)
 
