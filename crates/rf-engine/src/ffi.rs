@@ -21,7 +21,8 @@ use crate::audio_import::{AudioImporter, ImportedAudio};
 use crate::freeze::OfflineRenderer;
 use crate::playback::PlaybackEngine;
 use crate::track_manager::{
-    Clip, ClipId, CrossfadeCurve, CrossfadeId, MarkerId, OutputBus, TrackId, TrackManager,
+    Clip, ClipId, CrossfadeCurve, CrossfadeId, MarkerId, OutputBus, RazorAreaId, RazorContent,
+    TrackId, TrackManager,
 };
 use crate::waveform::{NUM_LOD_LEVELS, SAMPLES_PER_PEAK, StereoWaveformPeaks, WaveformCache};
 use rf_core::{AppError, ErrorAction, ErrorCategory};
@@ -13464,7 +13465,7 @@ pub extern "C" fn elastic_pro_set_ratio(track_id: u32, ratio: f64) -> i32 {
     if let Some(elastic) = elastics.get_mut(&track_id) {
         elastic.set_stretch_ratio(ratio);
         // Bridge to TrackManager clips — this makes the audio callback use the new ratio
-        let tid = crate::track_manager::TrackId(track_id as u64);
+        let tid = TrackId(track_id as u64);
         for mut clip_entry in TRACK_MANAGER.clips.iter_mut() {
             if clip_entry.track_id == tid {
                 clip_entry.set_stretch_ratio(ratio);
@@ -13483,7 +13484,7 @@ pub extern "C" fn elastic_pro_set_pitch(track_id: u32, semitones: f64) -> i32 {
     if let Some(elastic) = elastics.get_mut(&track_id) {
         elastic.set_pitch_shift(semitones);
         // Bridge to TrackManager clips — this makes the audio callback use the new pitch
-        let tid = crate::track_manager::TrackId(track_id as u64);
+        let tid = TrackId(track_id as u64);
         for mut clip_entry in TRACK_MANAGER.clips.iter_mut() {
             if clip_entry.track_id == tid {
                 clip_entry.set_pitch_shift(semitones);
@@ -13601,7 +13602,7 @@ pub extern "C" fn elastic_pro_reset(track_id: u32) -> i32 {
     if let Some(elastic) = elastics.get_mut(&track_id) {
         elastic.reset();
         // Reset stretch params on all clips for this track
-        let tid = crate::track_manager::TrackId(track_id as u64);
+        let tid = TrackId(track_id as u64);
         for mut clip_entry in TRACK_MANAGER.clips.iter_mut() {
             if clip_entry.track_id == tid {
                 clip_entry.set_stretch_ratio(1.0);
@@ -23954,4 +23955,241 @@ pub extern "C" fn fx_container_set_macro(
         }
         0
     })
+}
+
+// =============================================================================
+// P11: RAZOR EDITS (Reaper-style Per-Track Time Selection)
+// =============================================================================
+
+/// Add a razor edit area on a track.
+/// Returns the area ID (>0) on success, 0 on failure.
+/// content: 0=Media, 1=Envelope, 2=Both
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_add_area(
+    track_id: u64,
+    start: f64,
+    end: f64,
+    content: u32,
+) -> u64 {
+    ffi_panic_guard!(0, {
+        let razor_content = match content {
+            0 => RazorContent::Media,
+            1 => RazorContent::Envelope,
+            _ => RazorContent::Both,
+        };
+
+        let id = TRACK_MANAGER
+            .add_razor_area_with_content(
+                TrackId(track_id),
+                start,
+                end,
+                razor_content,
+            );
+        id.0
+    })
+}
+
+/// Update razor area bounds (during drag).
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_update_area(area_id: u64, start: f64, end: f64) -> i32 {
+    ffi_panic_guard!(0, {
+        TRACK_MANAGER
+            .update_razor_area(RazorAreaId(area_id), start, end);
+        1
+    })
+}
+
+/// Remove a specific razor area.
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_remove_area(area_id: u64) -> i32 {
+    ffi_panic_guard!(0, {
+        TRACK_MANAGER
+            .remove_razor_area(RazorAreaId(area_id));
+        1
+    })
+}
+
+/// Clear all razor edit areas.
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_clear_all() -> i32 {
+    ffi_panic_guard!(0, {
+        TRACK_MANAGER.clear_razor_areas();
+        1
+    })
+}
+
+/// Clear razor areas for a specific track.
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_clear_track(track_id: u64) -> i32 {
+    ffi_panic_guard!(0, {
+        TRACK_MANAGER
+            .clear_track_razor_areas(TrackId(track_id));
+        1
+    })
+}
+
+/// Check if any razor areas exist. Returns 1 if yes, 0 if no.
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_has_areas() -> i32 {
+    ffi_panic_guard!(0, {
+        if TRACK_MANAGER.has_razor_areas() {
+            1
+        } else {
+            0
+        }
+    })
+}
+
+/// Get all razor areas as JSON string.
+/// Returns null pointer if no areas.
+/// Caller must free with `free_string`.
+///
+/// JSON format: [{"id":N,"track_id":N,"start":F,"end":F,"content":"media"|"envelope"|"both"}, ...]
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_get_areas_json() -> *mut c_char {
+    ffi_panic_guard!(std::ptr::null_mut(), {
+        let areas = TRACK_MANAGER.get_razor_areas();
+        if areas.is_empty() {
+            return std::ptr::null_mut();
+        }
+
+        let entries: Vec<String> = areas
+            .iter()
+            .map(|a| {
+                let content_str = match a.content {
+                    RazorContent::Media => "media",
+                    RazorContent::Envelope => "envelope",
+                    RazorContent::Both => "both",
+                };
+                format!(
+                    r#"{{"id":{},"track_id":{},"start":{:.6},"end":{:.6},"content":"{}"}}"#,
+                    a.id.0, a.track_id.0, a.start, a.end, content_str
+                )
+            })
+            .collect();
+
+        let json = format!("[{}]", entries.join(","));
+        match std::ffi::CString::new(json) {
+            Ok(c) => c.into_raw(),
+            Err(_) => std::ptr::null_mut(),
+        }
+    })
+}
+
+/// Delete content within all razor areas (clips are trimmed/removed).
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_delete() -> i32 {
+    ffi_panic_guard!(0, {
+        TRACK_MANAGER.razor_delete();
+        1
+    })
+}
+
+/// Split clips at all razor area boundaries.
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_split() -> i32 {
+    ffi_panic_guard!(0, {
+        TRACK_MANAGER.razor_split();
+        1
+    })
+}
+
+/// Cut content within razor areas (copy + delete).
+/// Returns JSON array of clipboard items, or null on failure.
+/// Caller must free with `free_string`.
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_cut() -> *mut c_char {
+    ffi_panic_guard!(std::ptr::null_mut(), {
+        let clipboard = TRACK_MANAGER.razor_cut();
+        razor_clipboard_to_json(&clipboard)
+    })
+}
+
+/// Copy content within razor areas.
+/// Returns JSON array of clipboard items, or null on failure.
+/// Caller must free with `free_string`.
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_copy() -> *mut c_char {
+    ffi_panic_guard!(std::ptr::null_mut(), {
+        let clipboard = TRACK_MANAGER.razor_copy();
+        razor_clipboard_to_json(&clipboard)
+    })
+}
+
+/// Move razor content by time delta, optionally to a different track.
+/// target_track_id: 0 = keep on same tracks, >0 = move all to this track.
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_move(delta_time: f64, target_track_id: u64) -> i32 {
+    ffi_panic_guard!(0, {
+        let track = if target_track_id > 0 {
+            Some(TrackId(target_track_id))
+        } else {
+            None
+        };
+        TRACK_MANAGER.razor_move(delta_time, track);
+        1
+    })
+}
+
+/// Reverse audio within all razor areas.
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_reverse() -> i32 {
+    ffi_panic_guard!(0, {
+        TRACK_MANAGER.razor_reverse();
+        1
+    })
+}
+
+/// Stretch content within razor areas by a ratio.
+/// ratio > 1.0 = longer (slower), < 1.0 = shorter (faster).
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_stretch(ratio: f64) -> i32 {
+    ffi_panic_guard!(0, {
+        TRACK_MANAGER.razor_stretch(ratio);
+        1
+    })
+}
+
+/// Duplicate razor content (copy + paste after).
+/// Returns number of new clips created.
+#[unsafe(no_mangle)]
+pub extern "C" fn razor_duplicate() -> i32 {
+    ffi_panic_guard!(0, {
+        let new_ids = TRACK_MANAGER.razor_duplicate();
+        new_ids.len() as i32
+    })
+}
+
+/// Helper: convert razor clipboard to JSON c_char pointer
+fn razor_clipboard_to_json(
+    clipboard: &[(f64, crate::track_manager::TrackId, crate::track_manager::Clip)],
+) -> *mut c_char {
+    if clipboard.is_empty() {
+        return std::ptr::null_mut();
+    }
+
+    let entries: Vec<String> = clipboard
+        .iter()
+        .map(|(rel_time, track_id, clip)| {
+            format!(
+                r#"{{"rel_time":{:.6},"track_id":{},"clip_id":{},"name":"{}","source":"{}","start":{:.6},"duration":{:.6},"source_offset":{:.6},"gain":{:.4},"reversed":{}}}"#,
+                rel_time,
+                track_id.0,
+                clip.id.0,
+                clip.name.replace('\\', "\\\\").replace('"', "\\\""),
+                clip.source_file.replace('\\', "\\\\").replace('"', "\\\""),
+                clip.start_time,
+                clip.duration,
+                clip.source_offset,
+                clip.gain,
+                clip.reversed,
+            )
+        })
+        .collect();
+
+    let json = format!("[{}]", entries.join(","));
+    match std::ffi::CString::new(json) {
+        Ok(c) => c.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
 }

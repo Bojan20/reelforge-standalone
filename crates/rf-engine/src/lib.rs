@@ -188,6 +188,10 @@ pub use track_manager::{
     Marker,
     MarkerId,
     OutputBus,
+    // Razor Edits (Reaper-style per-track time selection)
+    RazorArea,
+    RazorAreaId,
+    RazorContent,
     RenderRegion,
     RenderRegionId,
     Track,

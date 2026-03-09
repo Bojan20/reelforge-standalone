@@ -47,6 +47,10 @@ pub struct TakeId(pub u64);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RenderRegionId(pub u64);
 
+/// Unique razor edit area identifier
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct RazorAreaId(pub u64);
+
 /// Unique comp lane identifier
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CompLaneId(pub u64);
@@ -1861,6 +1865,151 @@ impl RenderRegion {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// RAZOR EDITS (Reaper-style Time-Area Selection)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// What content a razor edit area selects
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RazorContent {
+    /// Select media items (clips) within the time range
+    Media,
+    /// Select automation envelope points within the time range
+    Envelope,
+    /// Select both media and envelope data
+    Both,
+}
+
+impl Default for RazorContent {
+    fn default() -> Self {
+        Self::Both
+    }
+}
+
+/// A single razor edit area — a time range on a specific track.
+///
+/// Razor edits are independent per-track time selections that can span
+/// partial clips. Multiple razor areas can exist simultaneously on
+/// different tracks (and even multiple per track). Operations like
+/// cut/copy/delete/move/stretch act on all active razor areas at once.
+///
+/// This is fundamentally different from clip selection (which selects
+/// entire clips) — razor edits select *time ranges* and can slice
+/// through clips at arbitrary positions.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RazorArea {
+    /// Unique ID for this razor area
+    pub id: RazorAreaId,
+    /// Track this area belongs to
+    pub track_id: TrackId,
+    /// Start time in seconds (inclusive)
+    pub start: f64,
+    /// End time in seconds (exclusive)
+    pub end: f64,
+    /// What content this area selects
+    pub content: RazorContent,
+}
+
+impl RazorArea {
+    /// Create a new razor area
+    pub fn new(track_id: TrackId, start: f64, end: f64) -> Self {
+        let (s, e) = if start <= end {
+            (start.max(0.0), end.max(0.0))
+        } else {
+            (end.max(0.0), start.max(0.0))
+        };
+        Self {
+            id: RazorAreaId(next_id()),
+            track_id,
+            start: s,
+            end: e,
+            content: RazorContent::default(),
+        }
+    }
+
+    /// Create with specific content type
+    pub fn with_content(track_id: TrackId, start: f64, end: f64, content: RazorContent) -> Self {
+        let mut area = Self::new(track_id, start, end);
+        area.content = content;
+        area
+    }
+
+    /// Duration of this area
+    pub fn duration(&self) -> f64 {
+        self.end - self.start
+    }
+
+    /// Check if this area is empty (zero or negative duration)
+    pub fn is_empty(&self) -> bool {
+        self.end <= self.start + 0.0001 // ~4 samples at 48kHz tolerance
+    }
+
+    /// Check if a time point falls within this area
+    pub fn contains_time(&self, time: f64) -> bool {
+        time >= self.start && time < self.end
+    }
+
+    /// Check if this area overlaps with a clip's time range
+    pub fn overlaps_clip(&self, clip_start: f64, clip_end: f64) -> bool {
+        self.start < clip_end && self.end > clip_start
+    }
+
+    /// Check if this area fully contains a clip
+    pub fn fully_contains_clip(&self, clip_start: f64, clip_end: f64) -> bool {
+        self.start <= clip_start && self.end >= clip_end
+    }
+
+    /// Get the intersection of this area with a clip's time range
+    /// Returns None if no overlap
+    pub fn clip_intersection(&self, clip_start: f64, clip_end: f64) -> Option<(f64, f64)> {
+        let inter_start = self.start.max(clip_start);
+        let inter_end = self.end.min(clip_end);
+        if inter_start < inter_end {
+            Some((inter_start, inter_end))
+        } else {
+            None
+        }
+    }
+
+    /// Set new time bounds (auto-sorts start/end)
+    pub fn set_bounds(&mut self, start: f64, end: f64) {
+        if start <= end {
+            self.start = start.max(0.0);
+            self.end = end.max(0.0);
+        } else {
+            self.start = end.max(0.0);
+            self.end = start.max(0.0);
+        }
+    }
+
+    /// Move this area by a time delta
+    pub fn offset_time(&mut self, delta: f64) {
+        let new_start = (self.start + delta).max(0.0);
+        let dur = self.duration();
+        self.start = new_start;
+        self.end = new_start + dur;
+    }
+
+    /// Stretch this area from one edge
+    pub fn stretch_from_left(&mut self, new_start: f64) {
+        self.start = new_start.max(0.0).min(self.end - 0.001);
+    }
+
+    pub fn stretch_from_right(&mut self, new_end: f64) {
+        self.end = new_end.max(self.start + 0.001);
+    }
+
+    /// Whether media items should be affected
+    pub fn affects_media(&self) -> bool {
+        matches!(self.content, RazorContent::Media | RazorContent::Both)
+    }
+
+    /// Whether envelope data should be affected
+    pub fn affects_envelope(&self) -> bool {
+        matches!(self.content, RazorContent::Envelope | RazorContent::Both)
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // TRACK MANAGER
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1894,6 +2043,8 @@ pub struct TrackManager {
     pub solo_active: AtomicBool,
     /// Named render regions for Region Render Matrix (batch export)
     pub render_regions: RwLock<Vec<RenderRegion>>,
+    /// Razor edit areas — per-track time-range selections (Reaper-style)
+    pub razor_areas: RwLock<Vec<RazorArea>>,
 }
 
 impl TrackManager {
@@ -1925,6 +2076,7 @@ impl TrackManager {
             templates: RwLock::new(templates),
             solo_active: AtomicBool::new(false),
             render_regions: RwLock::new(Vec::new()),
+            razor_areas: RwLock::new(Vec::new()),
         }
     }
 
@@ -2414,6 +2566,418 @@ impl TrackManager {
             .filter(|entry| entry.value().selected)
             .map(|entry| entry.value().clone())
             .collect()
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // RAZOR EDIT OPERATIONS (Reaper-style per-track time selection)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Add a razor edit area to a track.
+    /// Returns the ID of the new area.
+    pub fn add_razor_area(&self, track_id: TrackId, start: f64, end: f64) -> RazorAreaId {
+        let area = RazorArea::new(track_id, start, end);
+        let id = area.id;
+        self.razor_areas.write().push(area);
+        id
+    }
+
+    /// Add a razor area with specific content type
+    pub fn add_razor_area_with_content(
+        &self,
+        track_id: TrackId,
+        start: f64,
+        end: f64,
+        content: RazorContent,
+    ) -> RazorAreaId {
+        let area = RazorArea::with_content(track_id, start, end, content);
+        let id = area.id;
+        self.razor_areas.write().push(area);
+        id
+    }
+
+    /// Update razor area bounds (during drag)
+    pub fn update_razor_area(&self, area_id: RazorAreaId, start: f64, end: f64) {
+        let mut areas = self.razor_areas.write();
+        if let Some(area) = areas.iter_mut().find(|a| a.id == area_id) {
+            area.set_bounds(start, end);
+        }
+    }
+
+    /// Remove a specific razor area
+    pub fn remove_razor_area(&self, area_id: RazorAreaId) {
+        self.razor_areas.write().retain(|a| a.id != area_id);
+    }
+
+    /// Clear all razor edit areas
+    pub fn clear_razor_areas(&self) {
+        self.razor_areas.write().clear();
+    }
+
+    /// Clear razor areas for a specific track
+    pub fn clear_track_razor_areas(&self, track_id: TrackId) {
+        self.razor_areas.write().retain(|a| a.track_id != track_id);
+    }
+
+    /// Get all razor areas
+    pub fn get_razor_areas(&self) -> Vec<RazorArea> {
+        self.razor_areas.read().clone()
+    }
+
+    /// Get razor areas for a specific track
+    pub fn get_track_razor_areas(&self, track_id: TrackId) -> Vec<RazorArea> {
+        self.razor_areas
+            .read()
+            .iter()
+            .filter(|a| a.track_id == track_id)
+            .cloned()
+            .collect()
+    }
+
+    /// Check if any razor areas exist
+    pub fn has_razor_areas(&self) -> bool {
+        !self.razor_areas.read().is_empty()
+    }
+
+    /// Get clips affected by all razor areas (clips that overlap any razor area)
+    pub fn get_razor_affected_clips(&self) -> Vec<(RazorAreaId, ClipId, f64, f64)> {
+        let areas = self.razor_areas.read();
+        let mut result = Vec::new();
+
+        for area in areas.iter() {
+            if !area.affects_media() {
+                continue;
+            }
+            for entry in self.clips.iter() {
+                let clip = entry.value();
+                if clip.track_id != area.track_id {
+                    continue;
+                }
+                if let Some((inter_start, inter_end)) =
+                    area.clip_intersection(clip.start_time, clip.end_time())
+                {
+                    result.push((area.id, clip.id, inter_start, inter_end));
+                }
+            }
+        }
+        result
+    }
+
+    /// Merge overlapping razor areas per-track into non-overlapping time ranges.
+    /// Returns Vec<(TrackId, start, end)> sorted by track then time.
+    /// Only includes areas that affect media.
+    fn merged_razor_ranges(areas: &[RazorArea]) -> Vec<(TrackId, f64, f64)> {
+        // Group by track
+        let mut by_track: HashMap<TrackId, Vec<(f64, f64)>> = HashMap::new();
+        for area in areas {
+            if !area.affects_media() {
+                continue;
+            }
+            by_track
+                .entry(area.track_id)
+                .or_default()
+                .push((area.start, area.end));
+        }
+
+        let mut result = Vec::new();
+        for (track_id, mut ranges) in by_track {
+            // Sort by start time
+            ranges.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+
+            // Merge overlapping/adjacent ranges
+            let mut merged: Vec<(f64, f64)> = Vec::new();
+            for (s, e) in ranges {
+                if let Some(last) = merged.last_mut() {
+                    if s <= last.1 + 0.001 {
+                        // Overlapping or adjacent — extend
+                        last.1 = last.1.max(e);
+                        continue;
+                    }
+                }
+                merged.push((s, e));
+            }
+
+            for (s, e) in merged {
+                result.push((track_id, s, e));
+            }
+        }
+        result
+    }
+
+    /// Isolate clips within merged razor ranges by splitting at boundaries.
+    /// Returns Vec of clip IDs that are fully inside the razor ranges.
+    /// Each clip is split at most once per boundary — no double-processing.
+    fn isolate_razor_clips(&self, merged: &[(TrackId, f64, f64)]) -> Vec<ClipId> {
+        let mut isolated = Vec::new();
+
+        for &(track_id, range_start, range_end) in merged {
+            let track_clips = self.get_clips_for_track(track_id);
+            for clip in &track_clips {
+                let clip_end = clip.end_time();
+
+                // Skip clips that don't overlap this range
+                if clip.start_time >= range_end || clip_end <= range_start {
+                    continue;
+                }
+
+                if range_start <= clip.start_time && range_end >= clip_end {
+                    // Clip fully inside range — no split needed
+                    isolated.push(clip.id);
+                } else {
+                    // Partial overlap — split at boundaries
+                    let mut inner_id = clip.id;
+
+                    // Split at range start if inside clip
+                    if range_start > clip.start_time + 0.001 {
+                        if let Some((_left, right)) = self.split_clip(inner_id, range_start) {
+                            inner_id = right;
+                        }
+                    }
+
+                    // Split at range end if inside the current piece
+                    if let Some(c) = self.get_clip(inner_id) {
+                        if range_end < c.end_time() - 0.001 {
+                            if let Some((left, _right)) = self.split_clip(inner_id, range_end) {
+                                inner_id = left;
+                            }
+                        }
+                    }
+
+                    isolated.push(inner_id);
+                }
+            }
+        }
+
+        isolated
+    }
+
+    /// Move all razor areas horizontally by a time delta.
+    /// Also moves affected clip content.
+    pub fn razor_move(&self, delta_time: f64, delta_track: Option<TrackId>) {
+        let areas = self.razor_areas.read().clone();
+        if areas.is_empty() {
+            return;
+        }
+
+        // Phase 1: Merge overlapping areas, isolate clips
+        let merged = Self::merged_razor_ranges(&areas);
+        let clip_ids = self.isolate_razor_clips(&merged);
+
+        // Phase 2: Apply moves
+        for clip_id in &clip_ids {
+            if let Some(mut clip) = self.clips.get_mut(clip_id) {
+                clip.start_time = (clip.start_time + delta_time).max(0.0);
+                if let Some(tid) = delta_track {
+                    clip.track_id = tid;
+                }
+            }
+        }
+
+        // Phase 3: Move razor areas themselves
+        drop(areas);
+        let mut areas = self.razor_areas.write();
+        for area in areas.iter_mut() {
+            area.offset_time(delta_time);
+            if let Some(tid) = delta_track {
+                area.track_id = tid;
+            }
+        }
+    }
+
+    /// Delete content within all razor areas.
+    /// Clips fully inside are deleted. Clips partially inside are trimmed.
+    pub fn razor_delete(&self) {
+        let areas = self.razor_areas.read().clone();
+        if areas.is_empty() {
+            return;
+        }
+
+        let merged = Self::merged_razor_ranges(&areas);
+        let isolated = self.isolate_razor_clips(&merged);
+
+        // All isolated clips are fully within merged ranges — delete them
+        for clip_id in isolated {
+            self.delete_clip(clip_id);
+        }
+
+        // Clear razor areas after delete
+        self.clear_razor_areas();
+    }
+
+    /// Split clips at all razor area boundaries.
+    /// Does not delete or move anything — just creates split points.
+    pub fn razor_split(&self) {
+        let areas = self.razor_areas.read().clone();
+        if areas.is_empty() {
+            return;
+        }
+
+        let merged = Self::merged_razor_ranges(&areas);
+        // isolate_razor_clips already splits at all merged boundaries
+        let _ = self.isolate_razor_clips(&merged);
+
+        self.clear_razor_areas();
+    }
+
+    /// Copy clips within razor areas and return as a clipboard-ready collection.
+    /// Returns Vec of (relative_time_offset, track_id, clip_data) tuples.
+    /// The earliest razor start is time 0.
+    pub fn razor_copy(&self) -> Vec<(f64, TrackId, Clip)> {
+        let areas = self.razor_areas.read().clone();
+        if areas.is_empty() {
+            return Vec::new();
+        }
+
+        let merged = Self::merged_razor_ranges(&areas);
+        if merged.is_empty() {
+            return Vec::new();
+        }
+
+        let min_start = merged
+            .iter()
+            .map(|&(_, s, _)| s)
+            .fold(f64::MAX, f64::min);
+
+        let mut result = Vec::new();
+
+        for &(track_id, range_start, range_end) in &merged {
+            let track_clips = self.get_clips_for_track(track_id);
+            for clip in &track_clips {
+                let clip_end = clip.end_time();
+                // Compute intersection with merged range
+                let inter_start = range_start.max(clip.start_time);
+                let inter_end = range_end.min(clip_end);
+                if inter_end <= inter_start + 0.001 {
+                    continue;
+                }
+
+                let mut copy = clip.clone();
+                let trim_left = inter_start - clip.start_time;
+                copy.start_time = inter_start;
+                copy.duration = inter_end - inter_start;
+                copy.source_offset += trim_left;
+                copy.id = ClipId(next_id());
+                copy.name = format!("{} (razor)", clip.name);
+
+                let relative_time = inter_start - min_start;
+                result.push((relative_time, track_id, copy));
+            }
+        }
+
+        result
+    }
+
+    /// Cut clips within razor areas (copy + delete).
+    /// Returns clipboard data, then removes razor content.
+    pub fn razor_cut(&self) -> Vec<(f64, TrackId, Clip)> {
+        let copied = self.razor_copy();
+        self.razor_delete();
+        copied
+    }
+
+    /// Paste razor clipboard at a given time position on given tracks.
+    /// `paste_time` is where the first item begins.
+    /// `track_map` maps original track IDs to paste target track IDs.
+    /// If track_map is None, paste on same tracks.
+    pub fn razor_paste(
+        &self,
+        clipboard: &[(f64, TrackId, Clip)],
+        paste_time: f64,
+        track_map: Option<&HashMap<TrackId, TrackId>>,
+    ) -> Vec<ClipId> {
+        let mut new_ids = Vec::new();
+        for (rel_time, orig_track_id, clip_data) in clipboard {
+            let target_track = track_map
+                .and_then(|m| m.get(orig_track_id).copied())
+                .unwrap_or(*orig_track_id);
+
+            let mut new_clip = clip_data.clone();
+            new_clip.id = ClipId(next_id());
+            new_clip.track_id = target_track;
+            new_clip.start_time = paste_time + rel_time;
+            new_clip.selected = true;
+            new_ids.push(self.add_clip(new_clip));
+        }
+        new_ids
+    }
+
+    /// Reverse audio within all razor areas.
+    /// Uses merged ranges to avoid double-processing overlapping areas.
+    pub fn razor_reverse(&self) {
+        let areas = self.razor_areas.read().clone();
+        if areas.is_empty() {
+            return;
+        }
+
+        let merged = Self::merged_razor_ranges(&areas);
+        let isolated = self.isolate_razor_clips(&merged);
+
+        for clip_id in isolated {
+            self.update_clip(clip_id, |c| c.reversed = !c.reversed);
+        }
+    }
+
+    /// Stretch content within razor areas by a ratio.
+    /// `ratio` > 1.0 = longer (slower), < 1.0 = shorter (faster).
+    /// Uses merged ranges to avoid double-processing overlapping areas.
+    pub fn razor_stretch(&self, ratio: f64) {
+        let ratio = ratio.clamp(0.1, 10.0);
+        let areas = self.razor_areas.read().clone();
+        if areas.is_empty() {
+            return;
+        }
+
+        let merged = Self::merged_razor_ranges(&areas);
+        let isolated = self.isolate_razor_clips(&merged);
+
+        for clip_id in isolated {
+            if let Some(c) = self.get_clip(clip_id) {
+                let new_duration = c.duration * ratio;
+                self.update_clip(clip_id, |c| {
+                    c.stretch_ratio *= ratio;
+                    c.duration = new_duration;
+                });
+            }
+        }
+
+        // Stretch razor areas themselves
+        let mut areas = self.razor_areas.write();
+        for area in areas.iter_mut() {
+            let new_duration = area.duration() * ratio;
+            area.end = area.start + new_duration;
+        }
+    }
+
+    /// Duplicate razor content — copy and paste immediately after.
+    /// Returns IDs of new clips.
+    pub fn razor_duplicate(&self) -> Vec<ClipId> {
+        let areas = self.razor_areas.read().clone();
+        if areas.is_empty() {
+            return Vec::new();
+        }
+
+        let merged = Self::merged_razor_ranges(&areas);
+        let min_start = merged.iter().map(|&(_, s, _)| s).fold(f64::MAX, f64::min);
+        let max_end = merged.iter().map(|&(_, _, e)| e).fold(f64::MIN, f64::max);
+        let total_duration = max_end - min_start;
+
+        let copied = self.razor_copy();
+        let mut new_ids = Vec::new();
+
+        for (rel_time, _track_id, clip_data) in &copied {
+            let mut new_clip = clip_data.clone();
+            new_clip.id = ClipId(next_id());
+            new_clip.start_time = min_start + total_duration + rel_time;
+            new_clip.selected = true;
+            new_ids.push(self.add_clip(new_clip));
+        }
+
+        // Move razor areas to duplicated region
+        let mut areas = self.razor_areas.write();
+        for area in areas.iter_mut() {
+            area.offset_time(total_duration);
+        }
+
+        new_ids
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -3799,5 +4363,348 @@ mod tests {
         // Disable → not active
         clip.pitch_envelope.as_mut().unwrap().enabled = false;
         assert!(!clip.has_active_envelope());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // RAZOR EDIT TESTS
+    // ═══════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_razor_area_creation() {
+        let area = RazorArea::new(TrackId(1), 2.0, 5.0);
+        assert_eq!(area.track_id, TrackId(1));
+        assert_eq!(area.start, 2.0);
+        assert_eq!(area.end, 5.0);
+        assert_eq!(area.duration(), 3.0);
+        assert!(!area.is_empty());
+        assert!(area.contains_time(3.0));
+        assert!(!area.contains_time(1.0));
+        assert!(!area.contains_time(5.0)); // exclusive end
+    }
+
+    #[test]
+    fn test_razor_area_reversed_bounds() {
+        // End before start should auto-sort
+        let area = RazorArea::new(TrackId(1), 5.0, 2.0);
+        assert_eq!(area.start, 2.0);
+        assert_eq!(area.end, 5.0);
+    }
+
+    #[test]
+    fn test_razor_area_clip_intersection() {
+        let area = RazorArea::new(TrackId(1), 3.0, 7.0);
+
+        // Clip fully inside razor
+        assert_eq!(area.clip_intersection(4.0, 6.0), Some((4.0, 6.0)));
+        assert!(area.fully_contains_clip(4.0, 6.0));
+
+        // Clip partially overlapping left
+        assert_eq!(area.clip_intersection(1.0, 5.0), Some((3.0, 5.0)));
+        assert!(!area.fully_contains_clip(1.0, 5.0));
+
+        // Clip partially overlapping right
+        assert_eq!(area.clip_intersection(5.0, 9.0), Some((5.0, 7.0)));
+
+        // No overlap
+        assert_eq!(area.clip_intersection(0.0, 2.0), None);
+        assert_eq!(area.clip_intersection(8.0, 10.0), None);
+
+        // Clip spans entire razor
+        assert_eq!(area.clip_intersection(1.0, 10.0), Some((3.0, 7.0)));
+        assert!(!area.fully_contains_clip(1.0, 10.0));
+    }
+
+    #[test]
+    fn test_razor_manager_crud() {
+        let tm = TrackManager::new();
+        assert!(!tm.has_razor_areas());
+
+        // Add areas
+        let id1 = tm.add_razor_area(TrackId(1), 2.0, 5.0);
+        let id2 = tm.add_razor_area(TrackId(2), 3.0, 6.0);
+        assert!(tm.has_razor_areas());
+
+        let areas = tm.get_razor_areas();
+        assert_eq!(areas.len(), 2);
+
+        // Track-specific query
+        let t1_areas = tm.get_track_razor_areas(TrackId(1));
+        assert_eq!(t1_areas.len(), 1);
+        assert_eq!(t1_areas[0].start, 2.0);
+
+        // Update
+        tm.update_razor_area(id1, 1.0, 4.0);
+        let areas = tm.get_razor_areas();
+        let a1 = areas.iter().find(|a| a.id == id1).unwrap();
+        assert_eq!(a1.start, 1.0);
+        assert_eq!(a1.end, 4.0);
+
+        // Remove one
+        tm.remove_razor_area(id2);
+        assert_eq!(tm.get_razor_areas().len(), 1);
+
+        // Clear all
+        tm.clear_razor_areas();
+        assert!(!tm.has_razor_areas());
+    }
+
+    #[test]
+    fn test_razor_delete_full_clip() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Test", 0xFFFFFFFF, OutputBus::Master);
+
+        // Create clip at [2.0, 5.0]
+        tm.create_clip(tid, "clip", "clip.wav", 2.0, 3.0, 10.0);
+
+        // Razor covers entire clip
+        tm.add_razor_area(tid, 1.0, 6.0);
+        tm.razor_delete();
+
+        assert_eq!(tm.get_clips_for_track(tid).len(), 0);
+        assert!(!tm.has_razor_areas()); // Areas cleared after delete
+    }
+
+    #[test]
+    fn test_razor_delete_left_trim() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Test", 0xFFFFFFFF, OutputBus::Master);
+
+        // Clip at [2.0, 8.0] (duration 6.0)
+        tm.create_clip(tid, "clip", "clip.wav", 2.0, 6.0, 10.0);
+
+        // Razor covers left portion [1.0, 4.0]
+        tm.add_razor_area(tid, 1.0, 4.0);
+        tm.razor_delete();
+
+        let clips = tm.get_clips_for_track(tid);
+        assert_eq!(clips.len(), 1);
+        let clip = &clips[0];
+        assert!((clip.start_time - 4.0).abs() < 0.01);
+        assert!((clip.duration - 4.0).abs() < 0.01);
+        assert!((clip.source_offset - 2.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_razor_delete_right_trim() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Test", 0xFFFFFFFF, OutputBus::Master);
+
+        // Clip at [2.0, 8.0]
+        tm.create_clip(tid, "clip", "clip.wav", 2.0, 6.0, 10.0);
+
+        // Razor covers right portion [6.0, 10.0]
+        tm.add_razor_area(tid, 6.0, 10.0);
+        tm.razor_delete();
+
+        let clips = tm.get_clips_for_track(tid);
+        assert_eq!(clips.len(), 1);
+        let clip = &clips[0];
+        assert!((clip.start_time - 2.0).abs() < 0.01);
+        assert!((clip.duration - 4.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_razor_delete_middle_punch() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Test", 0xFFFFFFFF, OutputBus::Master);
+
+        // Clip at [1.0, 9.0] (duration 8.0)
+        tm.create_clip(tid, "clip", "clip.wav", 1.0, 8.0, 10.0);
+
+        // Razor punches hole in middle [3.0, 6.0]
+        tm.add_razor_area(tid, 3.0, 6.0);
+        tm.razor_delete();
+
+        let mut clips = tm.get_clips_for_track(tid);
+        clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap());
+        assert_eq!(clips.len(), 2);
+
+        // Left piece [1.0, 3.0]
+        assert!((clips[0].start_time - 1.0).abs() < 0.01);
+        assert!((clips[0].duration - 2.0).abs() < 0.01);
+
+        // Right piece [6.0, 9.0]
+        assert!((clips[1].start_time - 6.0).abs() < 0.01);
+        assert!((clips[1].duration - 3.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_razor_split() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Test", 0xFFFFFFFF, OutputBus::Master);
+
+        // Clip at [1.0, 9.0]
+        tm.create_clip(tid, "clip", "clip.wav", 1.0, 8.0, 10.0);
+
+        // Razor [3.0, 6.0] — splits at both boundaries
+        tm.add_razor_area(tid, 3.0, 6.0);
+        tm.razor_split();
+
+        let mut clips = tm.get_clips_for_track(tid);
+        clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap());
+        assert_eq!(clips.len(), 3);
+
+        // [1.0, 3.0], [3.0, 6.0], [6.0, 9.0]
+        assert!((clips[0].start_time - 1.0).abs() < 0.01);
+        assert!((clips[0].duration - 2.0).abs() < 0.01);
+        assert!((clips[1].start_time - 3.0).abs() < 0.01);
+        assert!((clips[1].duration - 3.0).abs() < 0.01);
+        assert!((clips[2].start_time - 6.0).abs() < 0.01);
+        assert!((clips[2].duration - 3.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_razor_copy() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Test", 0xFFFFFFFF, OutputBus::Master);
+
+        // Clip at [2.0, 8.0]
+        tm.create_clip(tid, "clip", "clip.wav", 2.0, 6.0, 10.0);
+
+        // Razor [4.0, 6.0] — partial copy
+        tm.add_razor_area(tid, 4.0, 6.0);
+        let clipboard = tm.razor_copy();
+
+        assert_eq!(clipboard.len(), 1);
+        let (rel_time, track_id, clip) = &clipboard[0];
+        assert_eq!(*rel_time, 0.0); // First item at relative 0
+        assert_eq!(*track_id, tid);
+        assert!((clip.duration - 2.0).abs() < 0.01);
+        assert!((clip.source_offset - 2.0).abs() < 0.01); // 4.0 - 2.0 start offset
+
+        // Original clip unchanged
+        let clips = tm.get_clips_for_track(tid);
+        assert_eq!(clips.len(), 1);
+        assert!((clips[0].duration - 6.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_razor_cut() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Test", 0xFFFFFFFF, OutputBus::Master);
+
+        // Clip at [2.0, 8.0]
+        tm.create_clip(tid, "clip", "clip.wav", 2.0, 6.0, 10.0);
+
+        // Razor entire clip
+        tm.add_razor_area(tid, 2.0, 8.0);
+        let clipboard = tm.razor_cut();
+
+        assert_eq!(clipboard.len(), 1);
+        assert_eq!(tm.get_clips_for_track(tid).len(), 0); // Deleted after cut
+    }
+
+    #[test]
+    fn test_razor_content_filter() {
+        let area_media = RazorArea::with_content(TrackId(1), 0.0, 5.0, RazorContent::Media);
+        assert!(area_media.affects_media());
+        assert!(!area_media.affects_envelope());
+
+        let area_env = RazorArea::with_content(TrackId(1), 0.0, 5.0, RazorContent::Envelope);
+        assert!(!area_env.affects_media());
+        assert!(area_env.affects_envelope());
+
+        let area_both = RazorArea::with_content(TrackId(1), 0.0, 5.0, RazorContent::Both);
+        assert!(area_both.affects_media());
+        assert!(area_both.affects_envelope());
+    }
+
+    #[test]
+    fn test_razor_multi_track() {
+        let tm = TrackManager::new();
+        let tid1 = tm.create_track("Track 1", 0xFFFF0000, OutputBus::Master);
+        let tid2 = tm.create_track("Track 2", 0xFF00FF00, OutputBus::Master);
+
+        tm.create_clip(tid1, "clip a", "a.wav", 1.0, 4.0, 10.0);
+        tm.create_clip(tid2, "clip b", "b.wav", 2.0, 3.0, 10.0);
+
+        // Razor areas on both tracks
+        tm.add_razor_area(tid1, 2.0, 4.0);
+        tm.add_razor_area(tid2, 3.0, 5.0);
+
+        tm.razor_delete();
+
+        // Track 1: clip [1.0, 5.0] with razor [2.0, 4.0] → [1.0, 2.0] and [4.0, 5.0]
+        let mut clips1 = tm.get_clips_for_track(tid1);
+        clips1.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap());
+        assert_eq!(clips1.len(), 2);
+        assert!((clips1[0].start_time - 1.0).abs() < 0.01);
+        assert!((clips1[0].duration - 1.0).abs() < 0.01);
+        assert!((clips1[1].start_time - 4.0).abs() < 0.01);
+        assert!((clips1[1].duration - 1.0).abs() < 0.01);
+
+        // Track 2: clip [2.0, 5.0] with razor [3.0, 5.0] → trimmed to [2.0, 3.0]
+        let clips2 = tm.get_clips_for_track(tid2);
+        assert_eq!(clips2.len(), 1);
+        assert!((clips2[0].duration - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_razor_duplicate() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Test", 0xFFFFFFFF, OutputBus::Master);
+
+        tm.create_clip(tid, "clip", "clip.wav", 2.0, 4.0, 10.0);
+
+        // Razor the whole clip [2.0, 6.0]
+        tm.add_razor_area(tid, 2.0, 6.0);
+        let new_ids = tm.razor_duplicate();
+
+        assert_eq!(new_ids.len(), 1);
+
+        let mut clips = tm.get_clips_for_track(tid);
+        clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap());
+        assert_eq!(clips.len(), 2);
+
+        // Original at [2.0, 6.0]
+        assert!((clips[0].start_time - 2.0).abs() < 0.01);
+        // Duplicate at [6.0, 10.0]
+        assert!((clips[1].start_time - 6.0).abs() < 0.01);
+        assert!((clips[1].duration - 4.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_razor_reverse() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Test", 0xFFFFFFFF, OutputBus::Master);
+
+        tm.create_clip(tid, "clip", "clip.wav", 1.0, 8.0, 10.0);
+
+        // Razor middle portion [3.0, 6.0]
+        tm.add_razor_area(tid, 3.0, 6.0);
+        tm.razor_reverse();
+
+        let mut clips = tm.get_clips_for_track(tid);
+        clips.sort_by(|a, b| a.start_time.partial_cmp(&b.start_time).unwrap());
+
+        // Should have 3 clips after split: [1,3] [3,6] [6,9]
+        assert_eq!(clips.len(), 3);
+
+        // Only middle is reversed
+        assert!(!clips[0].reversed);
+        assert!(clips[1].reversed);
+        assert!(!clips[2].reversed);
+    }
+
+    #[test]
+    fn test_razor_stretch() {
+        let tm = TrackManager::new();
+        let tid = tm.create_track("Test", 0xFFFFFFFF, OutputBus::Master);
+
+        tm.create_clip(tid, "clip", "clip.wav", 2.0, 4.0, 10.0);
+
+        // Razor entire clip, stretch 2x
+        tm.add_razor_area(tid, 2.0, 6.0);
+        tm.razor_stretch(2.0);
+
+        let clips = tm.get_clips_for_track(tid);
+        assert_eq!(clips.len(), 1);
+        assert!((clips[0].duration - 8.0).abs() < 0.01); // 4.0 * 2.0
+        assert!((clips[0].stretch_ratio - 2.0).abs() < 0.01);
+
+        // Razor areas also stretched
+        let areas = tm.get_razor_areas();
+        assert_eq!(areas.len(), 1);
+        assert!((areas[0].duration() - 8.0).abs() < 0.01); // 4.0 * 2.0
     }
 }
