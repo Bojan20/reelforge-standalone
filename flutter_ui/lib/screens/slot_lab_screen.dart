@@ -6885,10 +6885,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF1A1A22),
+          backgroundColor: FluxForgeTheme.bgSurface,
           title: const Text(
             'Add Stage Marker',
-            style: TextStyle(color: Colors.white, fontSize: 14),
+            style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
           ),
           content: SizedBox(
             width: 300,
@@ -6898,7 +6898,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               children: [
                 const Text(
                   'Quick presets:',
-                  style: TextStyle(color: Colors.white54, fontSize: 11),
+                  style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
                 ),
                 const SizedBox(height: 8),
                 Wrap(
@@ -6930,12 +6930,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 const SizedBox(height: 16),
                 TextField(
                   controller: nameController,
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
                   decoration: InputDecoration(
                     labelText: 'Marker Name',
-                    labelStyle: const TextStyle(color: Colors.white54, fontSize: 11),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                    labelStyle: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                    enabledBorder: const OutlineInputBorder(
+                      borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderSide: BorderSide(color: selectedColor),
@@ -6945,7 +6945,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 const SizedBox(height: 12),
                 Text(
                   'Position: ${_playheadPosition.toStringAsFixed(2)}s',
-                  style: const TextStyle(color: Colors.white54, fontSize: 11),
+                  style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
                 ),
               ],
             ),
@@ -6953,7 +6953,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+              child: const Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
             ),
             TextButton(
               onPressed: () {
@@ -7051,19 +7051,19 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A22),
+        backgroundColor: FluxForgeTheme.bgSurface,
         title: Text(
           'Delete "${marker.name}"?',
-          style: const TextStyle(color: Colors.white, fontSize: 14),
+          style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
         ),
         content: const Text(
           'This marker will be removed from the timeline.',
-          style: TextStyle(color: Colors.white54, fontSize: 12),
+          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            child: const Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -7107,10 +7107,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF1A1A22),
+          backgroundColor: FluxForgeTheme.bgSurface,
           title: const Text(
             'Add Context (Game Chapter)',
-            style: TextStyle(color: Colors.white, fontSize: 14),
+            style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
           ),
           content: SizedBox(
             width: 340,
@@ -7119,7 +7119,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Quick Presets
-                const Text('Quick Presets', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                const Text('Quick Presets', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 6,
@@ -7153,36 +7153,36 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 // Name field
                 TextField(
                   controller: nameController,
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                  decoration: InputDecoration(
+                  style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
+                  decoration: const InputDecoration(
                     labelText: 'Display Name',
-                    labelStyle: const TextStyle(color: Colors.white54, fontSize: 11),
+                    labelStyle: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
                     enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                      borderSide: BorderSide(color: FluxForgeTheme.borderSubtle),
                     ),
-                    focusedBorder: const OutlineInputBorder(
-                      borderSide: BorderSide(color: Color(0xFF4A9EFF)),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: FluxForgeTheme.accentBlue),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                 ),
                 const SizedBox(height: 12),
 
                 // Context Type dropdown
-                const Text('Context Type', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                const Text('Context Type', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.white.withOpacity(0.2)),
+                    border: Border.all(color: FluxForgeTheme.borderSubtle),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: DropdownButton<ContextType>(
                     value: selectedType,
                     isExpanded: true,
-                    dropdownColor: const Color(0xFF1A1A22),
+                    dropdownColor: FluxForgeTheme.bgSurface,
                     underline: const SizedBox(),
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                    style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
                     items: ContextType.values.map((type) => DropdownMenuItem(
                       value: type,
                       child: Text(_contextTypeName(type)),
@@ -7197,7 +7197,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 const SizedBox(height: 12),
 
                 // Icon picker
-                const Text('Icon', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                const Text('Icon', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 8,
@@ -7226,16 +7226,16 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 // Layer count
                 Row(
                   children: [
-                    const Text('Music Layers: ', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                    const Text('Music Layers: ', style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11)),
                     IconButton(
-                      icon: const Icon(Icons.remove, size: 16, color: Colors.white54),
+                      icon: const Icon(Icons.remove, size: 16, color: FluxForgeTheme.textSecondary),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                       onPressed: () => setDialogState(() => layerCount = (layerCount - 1).clamp(1, 8)),
                     ),
-                    Text('$layerCount', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                    Text('$layerCount', style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12)),
                     IconButton(
-                      icon: const Icon(Icons.add, size: 16, color: Colors.white54),
+                      icon: const Icon(Icons.add, size: 16, color: FluxForgeTheme.textSecondary),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                       onPressed: () => setDialogState(() => layerCount = (layerCount + 1).clamp(1, 8)),
@@ -7248,7 +7248,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+              child: const Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
             ),
             TextButton(
               onPressed: () {
@@ -7268,7 +7268,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 provider.addContext(contextDef);
                 Navigator.pop(ctx);
               },
-              child: const Text('Add', style: TextStyle(color: Color(0xFF4A9EFF))),
+              child: const Text('Add', style: TextStyle(color: FluxForgeTheme.accentBlue)),
             ),
           ],
         ),
@@ -7294,19 +7294,19 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A22),
+        backgroundColor: FluxForgeTheme.bgSurface,
         title: const Text(
           'Reset All Events?',
-          style: TextStyle(color: Colors.white, fontSize: 14),
+          style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14),
         ),
         content: Text(
           'This will remove $count event${count > 1 ? 's' : ''} created in this session. This action cannot be undone.',
-          style: const TextStyle(color: Colors.white70, fontSize: 12),
+          style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            child: const Text('Cancel', style: TextStyle(color: FluxForgeTheme.textSecondary)),
           ),
           TextButton(
             onPressed: () {
@@ -7321,7 +7321,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               }
               setState(() {});
             },
-            child: const Text('Reset All', style: TextStyle(color: Colors.red)),
+            child: const Text('Reset All', style: TextStyle(color: FluxForgeTheme.accentRed)),
           ),
         ],
       ),
@@ -8111,18 +8111,36 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // When expanded, don't handle region drag - let individual layers handle it
     if (isExpanded) {
-      return GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        // Only tap/double-tap for selection/collapse
-        onTap: () => _handleRegionTap(region, trackIndex),
-        onDoubleTap: () => setState(() => region.isExpanded = false),
-        onSecondaryTapDown: (details) => _showRegionContextMenu(details.globalPosition, region),
-        child: _buildAudioRegionVisual(region, track.color, track.isMuted, regionWidth, trackHeight),
+      return Listener(
+        onPointerDown: (event) {
+          if (event.buttons != kPrimaryButton) return;
+          final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
+                              HardwareKeyboard.instance.isControlPressed;
+          final isShift = HardwareKeyboard.instance.isShiftPressed;
+          _handleRegionTap(region, trackIndex, isCtrlOrCmd: isCtrlOrCmd, isShift: isShift);
+        },
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onDoubleTap: () => setState(() => region.isExpanded = false),
+          onSecondaryTapDown: (details) => _showRegionContextMenu(details.globalPosition, region),
+          child: _buildAudioRegionVisual(region, track.color, track.isMuted, regionWidth, trackHeight),
+        ),
       );
     }
 
     // When collapsed, drag the whole region (multi-select drag support)
-    return GestureDetector(
+    // Capture modifier state on pointer down (per CLAUDE.md: Listener.onPointerDown for modifiers)
+    bool capturedCtrl = false;
+    bool capturedShift = false;
+    return Listener(
+      onPointerDown: (event) {
+        if (event.buttons == kPrimaryButton) {
+          capturedCtrl = HardwareKeyboard.instance.isMetaPressed ||
+                         HardwareKeyboard.instance.isControlPressed;
+          capturedShift = HardwareKeyboard.instance.isShiftPressed;
+        }
+      },
+      child: GestureDetector(
       behavior: HitTestBehavior.opaque,
       onPanStart: (details) {
         // If dragging an unselected region, select only it first
@@ -8171,7 +8189,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       onPanEnd: (details) {
         _clearRegionDragWithUndo();
       },
-      onTap: () => _handleRegionTap(region, trackIndex),
+      onTap: () => _handleRegionTap(region, trackIndex, isCtrlOrCmd: capturedCtrl, isShift: capturedShift),
       // FIXED: Allow expand for ANY region with layers (1+), not just 2+
       // This enables individual layer drag even for single-layer events
       onDoubleTap: hasLayers
@@ -8179,16 +8197,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           : null,
       onSecondaryTapDown: (details) => _showRegionContextMenu(details.globalPosition, region),
       child: _buildAudioRegionVisual(region, track.color, track.isMuted, regionWidth, trackHeight),
+      ),
     );
   }
 
   /// Handle region tap with multi-select support (Cmd/Ctrl, Shift)
-  void _handleRegionTap(_AudioRegion region, int trackIndex) {
+  /// Modifier state must be passed from Listener.onPointerDown (per CLAUDE.md).
+  void _handleRegionTap(_AudioRegion region, int trackIndex, {required bool isCtrlOrCmd, required bool isShift}) {
     setState(() {
-      final isCtrlOrCmd = HardwareKeyboard.instance.isMetaPressed ||
-                          HardwareKeyboard.instance.isControlPressed;
-      final isShift = HardwareKeyboard.instance.isShiftPressed;
-
       if (isShift && _lastClickedRegion != null && _lastClickedTrackIndex != null) {
         // Shift+click: Select range
         _selectRegionRange(_lastClickedRegion!, _lastClickedTrackIndex!, region, trackIndex);
@@ -9737,31 +9753,31 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A24),
-        title: const Text('Create Custom Event', style: TextStyle(color: Color(0xFFE0E0E8), fontSize: 14)),
+        backgroundColor: FluxForgeTheme.bgSurface,
+        title: const Text('Create Custom Event', style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nameController,
               autofocus: true,
-              style: const TextStyle(color: Color(0xFFE0E0E8), fontSize: 12),
+              style: const TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 12),
               decoration: const InputDecoration(
                 hintText: 'Event name',
-                hintStyle: TextStyle(color: Color(0xFF606068), fontSize: 12),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2A2A32))),
-                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF9040FF))),
+                hintStyle: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 12),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: FluxForgeTheme.borderSubtle)),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: FluxForgeTheme.accentPurple)),
               ),
             ),
             const SizedBox(height: 8),
             TextField(
               controller: categoryController,
-              style: const TextStyle(color: Color(0xFFB0B0B8), fontSize: 11),
+              style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
               decoration: const InputDecoration(
                 hintText: 'Category',
-                hintStyle: TextStyle(color: Color(0xFF606068), fontSize: 11),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF2A2A32))),
-                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF9040FF))),
+                hintStyle: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: FluxForgeTheme.borderSubtle)),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: FluxForgeTheme.accentPurple)),
               ),
             ),
           ],
@@ -9769,7 +9785,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF808088), fontSize: 11)),
+            child: const Text('Cancel', style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11)),
           ),
           TextButton(
             onPressed: () {
@@ -9782,7 +9798,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               Navigator.pop(ctx);
               setState(() {});
             },
-            child: const Text('Create', style: TextStyle(color: Color(0xFF9040FF), fontSize: 11)),
+            child: const Text('Create', style: TextStyle(color: FluxForgeTheme.accentPurple, fontSize: 11)),
           ),
         ],
       ),

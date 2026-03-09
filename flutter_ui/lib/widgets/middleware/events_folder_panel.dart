@@ -7,6 +7,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:provider/provider.dart';
 import '../../models/slot_audio_events.dart';
 import '../../providers/middleware_provider.dart';
@@ -1076,8 +1077,10 @@ class _EventsFolderPanelState extends State<EventsFolderPanel> {
         ? layer.audioPath.split('/').last
         : 'No audio';
 
-    return GestureDetector(
-      onTap: () {
+    return Listener(
+      // Per CLAUDE.md: Use Listener.onPointerDown for modifier key detection
+      onPointerDown: (event) {
+        if (event.buttons != kPrimaryButton) return;
         final isMod = HardwareKeyboard.instance.isMetaPressed ||
             HardwareKeyboard.instance.isControlPressed;
         if (isMod) {

@@ -20,6 +20,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:provider/provider.dart';
 import '../../models/middleware_models.dart';
 import '../../providers/middleware_provider.dart';
@@ -2063,24 +2064,29 @@ class _EventEditorPanelState extends State<EventEditorPanel>
     return Container(
       key: key,
       margin: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            setState(() {
-              if (HardwareKeyboard.instance.isControlPressed ||
-                  HardwareKeyboard.instance.isMetaPressed) {
-                if (_selectedActionIds.contains(action.id)) {
-                  _selectedActionIds.remove(action.id);
-                } else {
-                  _selectedActionIds.add(action.id);
-                }
+      child: Listener(
+        // Per CLAUDE.md: Use Listener.onPointerDown for modifier key detection
+        onPointerDown: (event) {
+          if (event.buttons != kPrimaryButton) return;
+          final isCtrlOrCmd = HardwareKeyboard.instance.isControlPressed ||
+              HardwareKeyboard.instance.isMetaPressed;
+          setState(() {
+            if (isCtrlOrCmd) {
+              if (_selectedActionIds.contains(action.id)) {
+                _selectedActionIds.remove(action.id);
               } else {
-                _selectedActionIds.clear();
                 _selectedActionIds.add(action.id);
               }
-            });
-          },
+            } else {
+              _selectedActionIds.clear();
+              _selectedActionIds.add(action.id);
+            }
+          });
+        },
+        child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {},
           borderRadius: BorderRadius.circular(8),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
@@ -2194,6 +2200,7 @@ class _EventEditorPanelState extends State<EventEditorPanel>
             ),
           ),
         ),
+      ),
       ),
     );
   }

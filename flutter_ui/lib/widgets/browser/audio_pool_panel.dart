@@ -14,6 +14,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart' show kPrimaryButton;
 import '../../services/native_file_picker.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
@@ -1105,15 +1106,17 @@ class _AudioFileListItem extends StatelessWidget {
         onDragStarted: () {
           onDragStart(filesToDrag);
         },
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTapDown: (details) {
-            // PERFORMANCE: Check modifiers synchronously
+        child: Listener(
+          // Per CLAUDE.md: Use Listener.onPointerDown for modifier key detection
+          onPointerDown: (event) {
+            if (event.buttons != kPrimaryButton) return;
             final isCtrl = HardwareKeyboard.instance.isControlPressed ||
                 HardwareKeyboard.instance.isMetaPressed;
             final isShift = HardwareKeyboard.instance.isShiftPressed;
             onSelect(file, index, isCtrlPressed: isCtrl, isShiftPressed: isShift);
           },
+          child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onDoubleTap: () => onDoubleClick?.call(file),
           child: Container(
             height: 60,
@@ -1164,6 +1167,7 @@ class _AudioFileListItem extends StatelessWidget {
               ],
             ),
           ),
+        ),
         ),
       ),
     );
