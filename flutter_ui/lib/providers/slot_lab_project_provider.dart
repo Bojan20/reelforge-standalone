@@ -916,6 +916,41 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _markDirty();
   }
 
+  /// Atomic batch assign — ONE undo entry for entire batch.
+  /// Used by SFX Pipeline Wizard for single-click undo of all assignments.
+  void batchSetAudioAssignments(Map<String, String> stageToPath) {
+    if (stageToPath.isEmpty) return;
+
+    // Build bulk undo entries for each assignment
+    final entries = <_AudioAssignmentUndoEntry>[];
+    for (final entry in stageToPath.entries) {
+      entries.add(_AudioAssignmentUndoEntry(
+        type: _AudioUndoType.set,
+        stage: entry.key,
+        previousPath: _audioAssignments[entry.key],
+        newPath: entry.value,
+        description: 'Assign audio to ${entry.key}',
+      ));
+    }
+
+    // Record ONE batch undo entry containing all individual entries
+    _pushAudioUndo(_AudioAssignmentUndoEntry(
+      type: _AudioUndoType.set,
+      stage: 'batch(${stageToPath.length})',
+      previousPath: null,
+      newPath: null,
+      description: 'SFX Pipeline: assign ${stageToPath.length} files',
+      bulkEntries: entries,
+    ));
+
+    // Apply all assignments WITHOUT individual undo recording
+    for (final entry in stageToPath.entries) {
+      setAudioAssignment(entry.key, entry.value, recordUndo: false);
+    }
+
+    notifyListeners();
+  }
+
   // ==========================================================================
   // GDD IMPORT MANAGEMENT (V8)
   // ==========================================================================

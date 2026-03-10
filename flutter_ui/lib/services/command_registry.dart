@@ -309,6 +309,8 @@ class CommandRegistry {
     VoidCallback? onShowSubProjects,
     VoidCallback? onShowMacroControls,
     VoidCallback? onShowClipGainEnvelope,
+    // SFX Pipeline
+    VoidCallback? onShowSfxPipeline,
     // DAW Tab Navigation
     VoidCallback? onDawTabBrowse,
     VoidCallback? onDawTabEdit,
@@ -1203,6 +1205,15 @@ class CommandRegistry {
         icon: Icons.call_split,
         keywords: ['dynamic', 'split', 'transient', 'gate', 'silence', 'detect', 'cut'],
         onExecute: onShowDynamicSplit,
+      ),
+      PaletteCommand(
+        id: 'tools.sfx_pipeline',
+        label: 'SFX Pipeline Wizard',
+        description: 'Batch process SFX: trim, normalize, convert, name, assign',
+        category: PaletteCategory.tools,
+        icon: Icons.auto_fix_high,
+        keywords: ['sfx', 'pipeline', 'wizard', 'batch', 'trim', 'lufs', 'normalize', 'slot', 'audio'],
+        onExecute: onShowSfxPipeline,
       ),
       PaletteCommand(
         id: 'tools.ucs_naming',

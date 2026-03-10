@@ -58,6 +58,7 @@ import '../../services/audio_playback_service.dart';
 import '../../services/variant_manager.dart'; // SL-LP-P1.4
 import '../../services/waveform_thumbnail_cache.dart'; // SL-LP-P1.1
 import 'package:get_it/get_it.dart'; // V11: Feature Composer + Pacing
+import 'sfx_pipeline_wizard.dart'; // SFX Pipeline Wizard
 import '../../providers/slot_lab/feature_composer_provider.dart'; // V11
 import '../../providers/slot_lab/pacing_engine_provider.dart'; // V11
 import '../../services/audio_mapping_import_service.dart'; // V11: Bulk Import
@@ -492,6 +493,12 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             Icons.restart_alt, 'Reset',
             FluxForgeTheme.accentRed,
             () => _showResetConfirmDialog(context),
+          ),
+          const SizedBox(width: 3),
+          _labeledActionBtn(
+            Icons.auto_fix_high, 'SFX Pipeline',
+            FluxForgeTheme.accentCyan,
+            () => SfxPipelineWizard.show(context),
           ),
           const Spacer(),
           // Mode toggle — compact inline

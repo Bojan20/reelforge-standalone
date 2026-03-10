@@ -185,6 +185,62 @@ impl AudioBuffer {
         }
     }
 
+    /// Convert to mono using left channel only
+    pub fn to_mono_left(&self) -> AudioBuffer {
+        if self.channels == 1 {
+            return self.clone();
+        }
+        let frames = self.frames();
+        let mut mono = Vec::with_capacity(frames);
+        for frame in 0..frames {
+            mono.push(self.samples[frame * self.channels]);
+        }
+        AudioBuffer { samples: mono, channels: 1, sample_rate: self.sample_rate }
+    }
+
+    /// Convert to mono using right channel only
+    pub fn to_mono_right(&self) -> AudioBuffer {
+        if self.channels == 1 {
+            return self.clone();
+        }
+        let frames = self.frames();
+        let mut mono = Vec::with_capacity(frames);
+        for frame in 0..frames {
+            mono.push(self.samples[frame * self.channels + 1]);
+        }
+        AudioBuffer { samples: mono, channels: 1, sample_rate: self.sample_rate }
+    }
+
+    /// Convert to mono using mid signal: (L+R) (no division, louder)
+    pub fn to_mono_mid(&self) -> AudioBuffer {
+        if self.channels == 1 {
+            return self.clone();
+        }
+        let frames = self.frames();
+        let mut mono = Vec::with_capacity(frames);
+        for frame in 0..frames {
+            let l = self.samples[frame * self.channels];
+            let r = self.samples[frame * self.channels + 1];
+            mono.push(l + r);
+        }
+        AudioBuffer { samples: mono, channels: 1, sample_rate: self.sample_rate }
+    }
+
+    /// Convert to mono using side signal: (L-R)
+    pub fn to_mono_side(&self) -> AudioBuffer {
+        if self.channels == 1 {
+            return self.clone();
+        }
+        let frames = self.frames();
+        let mut mono = Vec::with_capacity(frames);
+        for frame in 0..frames {
+            let l = self.samples[frame * self.channels];
+            let r = self.samples[frame * self.channels + 1];
+            mono.push(l - r);
+        }
+        AudioBuffer { samples: mono, channels: 1, sample_rate: self.sample_rate }
+    }
+
     /// Convert mono to stereo
     pub fn to_stereo(&self) -> AudioBuffer {
         if self.channels == 2 {

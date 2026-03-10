@@ -185,6 +185,9 @@ class OfflineJobConfig {
   final int? fadeOutSamples;
   final OfflineOutputFormat format;
 
+  /// Mono downmix method — null means keep original channel layout
+  final String? monoDownmixMethod;
+
   const OfflineJobConfig({
     required this.inputPath,
     required this.outputPath,
@@ -194,6 +197,7 @@ class OfflineJobConfig {
     this.fadeInSamples,
     this.fadeOutSamples,
     this.format = OfflineOutputFormat.wav24,
+    this.monoDownmixMethod,
   });
 
   Map<String, dynamic> toJson() => {
@@ -207,6 +211,7 @@ class OfflineJobConfig {
         if (fadeInSamples != null) 'fade_in_samples': fadeInSamples,
         if (fadeOutSamples != null) 'fade_out_samples': fadeOutSamples,
         'format': format.value,
+        if (monoDownmixMethod != null) 'mono_downmix': monoDownmixMethod,
       };
 }
 

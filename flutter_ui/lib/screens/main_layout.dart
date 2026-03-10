@@ -26,6 +26,7 @@ import '../widgets/common/keyboard_shortcuts_overlay.dart';
 import '../widgets/common/command_palette.dart';
 import '../services/command_registry.dart';
 import '../widgets/daw/auto_color_rules_panel.dart';
+import '../widgets/slot_lab/sfx_pipeline_wizard.dart';
 import '../widgets/lower_zone/daw_lower_zone_controller.dart';
 import '../widgets/lower_zone/lower_zone_types.dart';
 import '../providers/smart_tool_provider.dart';
@@ -315,6 +316,7 @@ class _MainLayoutState extends State<MainLayout>
       onRecord: () => widget.onRecord?.call(),
       onCommandPalette: () {}, // Already open
       onShowAutoColorRules: () => AutoColorRulesPanel.showAsDialog(context),
+      onShowSfxPipeline: () => SfxPipelineWizard.show(context),
       onShowDynamicSplit: () {
         final controller = DawLowerZoneController.instance;
         controller.setEditSubTab(DawEditSubTab.dynamicSplit);
