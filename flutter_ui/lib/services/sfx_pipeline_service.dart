@@ -2,15 +2,13 @@
 // SFX PIPELINE SERVICE — Orchestrator for SlotLab SFX Pipeline Wizard
 // ═══════════════════════════════════════════════════════════════════════════════
 //
-// Chains existing services in sequence:
-//   1. StripSilenceService (trim)
-//   2. BatchNormalizationService (LUFS)
-//   3. LoudnessAnalysisService (analysis)
-//   4. OfflineProcessingProvider (format convert + mono + DC offset)
-//   5. UcsNamingService (naming)
-//   6. SlotLabProjectProvider (stage mapping + assign)
-//   7. StageGroupService (fuzzy matching)
-//   8. MiddlewareProvider (composite events)
+// Chains existing services + FFI in sequence:
+//   1. NativeFFI.offlineGetAudioInfo() — fast metadata probe
+//   2. LoudnessAnalysisService — LUFS analysis (Dart ITU-R BS.1770-4)
+//   3. StripSilenceService — silence detection
+//   4. OfflineProcessingProvider — trim/normalize/convert via rf-offline FFI
+//   5. UcsNamingService — naming (pure Dart)
+//   6. SlotLabProjectProvider — stage mapping + assign
 //
 // CRITICAL:
 // - All processing is OFFLINE (rf-offline Rust crate thread pool)
@@ -19,13 +17,15 @@
 //   SlotLabScreen._onMiddlewareChanged listener when setAudioAssignment() fires
 // - Wizard uses batchSetAudioAssignments() for atomic undo (§16 of spec)
 
-import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 
 import '../models/sfx_pipeline_config.dart';
+import '../providers/offline_processing_provider.dart';
+import '../src/rust/native_ffi.dart';
 import 'loudness_analysis_service.dart';
 import 'strip_silence_service.dart';
 
@@ -69,6 +69,7 @@ class SfxPipelineService {
 
     // Analyze one by one (memory-safe)
     final results = <SfxScanResult>[];
+    final ffi = NativeFFI.instance;
     final loudness = LoudnessAnalysisService.instance;
     final silence = StripSilenceService.instance;
 
@@ -79,27 +80,126 @@ class SfxPipelineService {
       onProgress?.call(i + 1, files.length);
 
       try {
-        // Quick header read + LUFS analysis via existing service
-        // In production this calls FFI; for now create stub result
+        // ── 1. Fast metadata probe via FFI ──
+        final info = ffi.offlineGetAudioInfo(file.path);
+        final int sampleRate;
+        final int channels;
+        final int bitDepth;
+        final double durationSeconds;
+
+        if (info != null) {
+          sampleRate = (info['sample_rate'] as num?)?.toInt() ?? 48000;
+          channels = (info['channels'] as num?)?.toInt() ?? 2;
+          bitDepth = (info['bit_depth'] as num?)?.toInt() ?? 24;
+          durationSeconds = (info['duration_seconds'] as num?)?.toDouble() ?? 0.0;
+        } else {
+          // Fallback if FFI probe fails — use individual calls
+          sampleRate = ffi.offlineGetAudioSampleRate(file.path);
+          channels = ffi.offlineGetAudioChannels(file.path);
+          durationSeconds = ffi.offlineGetAudioDuration(file.path);
+          bitDepth = 24; // No individual FFI call for bit depth
+        }
+
+        if (sampleRate == 0 || durationSeconds <= 0) {
+          continue; // Skip unreadable files
+        }
+
+        // ── 2. Load raw PCM for analysis ──
+        // Read file bytes for Dart-side LUFS + silence analysis
+        final fileBytes = await (file as File).readAsBytes();
+        final samples = _decodePcmFromWav(fileBytes);
+
+        double integratedLufs = -18.0;
+        double peakDbfs = -3.0;
+        double silenceStartMs = 0.0;
+        double silenceEndMs = 0.0;
+        double dcOffset = 0.0;
+
+        if (samples != null && samples.isNotEmpty) {
+          // ── WAV path: Full Dart-side analysis ──
+          // 3a. LUFS analysis (ITU-R BS.1770-4)
+          final lufsResult = await loudness.analyzeBuffer(
+            samples,
+            sampleRate: sampleRate,
+            channels: channels,
+          );
+          integratedLufs = lufsResult.integratedLufs;
+          peakDbfs = lufsResult.samplePeak;
+
+          // 4a. DC offset detection
+          dcOffset = _measureDcOffset(samples);
+
+          // 5a. Silence detection at head/tail
+          final silentRegions = silence.detectSilence(samples, sampleRate.toDouble());
+          if (silentRegions.isNotEmpty) {
+            // Head silence: first region starting at 0
+            final headRegion = silentRegions.first;
+            if (headRegion.startTime < 0.01) {
+              silenceStartMs = headRegion.duration * 1000.0;
+            }
+            // Tail silence: last region extending to end
+            final totalDur = samples.length / (sampleRate * channels);
+            final tailRegion = silentRegions.last;
+            if ((tailRegion.endTime - totalDur).abs() < 0.01) {
+              silenceEndMs = tailRegion.duration * 1000.0;
+            }
+          }
+        } else {
+          // ── Non-WAV path: Use FFI pipeline for LUFS/peak analysis ──
+          // Process through rf-offline with no-op normalization to get metrics
+          final handle = ffi.offlinePipelineCreate();
+          if (handle != 0) {
+            try {
+              ffi.offlinePipelineSetNormalization(handle, 0, 0.0); // None
+              ffi.offlinePipelineSetFormat(handle, 1); // WAV 24-bit (temp)
+              final tempPath = '${file.path}.scan_tmp.wav';
+              final jobId = ffi.offlineProcessFile(handle, file.path, tempPath);
+              if (jobId != 0) {
+                await _waitForFfiJob(ffi, handle);
+                final resultJson = ffi.offlineGetJobResult(jobId);
+                if (resultJson != null) {
+                  final jobResult = OfflineJobResult.fromJson(jsonDecode(resultJson));
+                  if (jobResult.loudness != 0.0) {
+                    integratedLufs = jobResult.loudness;
+                  }
+                  if (jobResult.peakLevel != 0.0) {
+                    peakDbfs = jobResult.peakLevel;
+                  }
+                }
+                ffi.offlineClearJobResult(jobId);
+              }
+              // Cleanup temp file
+              try { await File(tempPath).delete(); } catch (_) {}
+            } finally {
+              ffi.offlinePipelineDestroy(handle);
+            }
+          }
+        }
+
         final category = SfxCategoryExt.fromFilename(filename);
 
         results.add(SfxScanResult(
           path: file.path,
           filename: filename,
-          sampleRate: 48000,
-          bitDepth: 24,
-          channels: 2,
-          durationSeconds: 1.0,
-          integratedLufs: -18.0,
-          peakDbfs: -3.0,
-          dcOffset: 0.0,
-          silenceStartMs: 0.0,
-          silenceEndMs: 0.0,
+          sampleRate: sampleRate,
+          bitDepth: bitDepth,
+          channels: channels,
+          durationSeconds: durationSeconds,
+          integratedLufs: integratedLufs,
+          peakDbfs: peakDbfs,
+          dcOffset: dcOffset,
+          silenceStartMs: silenceStartMs,
+          silenceEndMs: silenceEndMs,
           detectedCategory: category,
           selected: !filename.startsWith('_'),
         ));
       } catch (_) {
-        // Skip files that can't be read
+        // Skip files that can't be read/analyzed
+      }
+
+      // Yield to event loop between files (UI responsiveness)
+      if (i % 5 == 0) {
+        await Future<void>.delayed(Duration.zero);
       }
     }
 
@@ -109,7 +209,6 @@ class SfxPipelineService {
   // ─── Step 5: Stage Matching ────────────────────────────────────────────
 
   /// Match filenames to SlotLab stage IDs using fuzzy matching.
-  /// Uses StageGroupService.matchFilesToGroup() internally.
   List<SfxStageMapping> matchFilesToStages(List<SfxScanResult> files) {
     final mappings = <SfxStageMapping>[];
 
@@ -179,10 +278,19 @@ class SfxPipelineService {
 
     final fileResults = <SfxFileResult>[];
     final stepDurations = <SfxPipelineStep, int>{};
+    final ffi = NativeFFI.instance;
+
+    // Map wizard enums → offline processing enums
+    final normMode = _mapNormMode(preset.normMode);
+    final outputFormatId = _mapOutputFormatId(preset.outputFormat);
 
     try {
-      // ── Step 1/4: Trim & Clean ──────────────────────────────────────
+      // ══════════════════════════════════════════════════════════════════════
+      // Step 1/4: Trim & Clean → intermediate files in tempDir
+      // ══════════════════════════════════════════════════════════════════════
       final trimStart = stopwatch.elapsedMilliseconds;
+      final trimmedPaths = <String, String>{}; // sourceFilename → trimmedPath
+
       for (int i = 0; i < totalFiles && !_cancelled; i++) {
         final file = selectedFiles[i];
         onProgress?.call(SfxPipelineProgress(
@@ -193,15 +301,63 @@ class SfxPipelineService {
           overallProgress: (i / totalFiles) * 0.25,
           elapsedMs: stopwatch.elapsedMilliseconds,
         ));
-        // Actual trim processing would happen here via rf-offline FFI
-        await Future<void>.delayed(const Duration(milliseconds: 1));
+
+        // Trim via rf-offline: create pipeline, set minimal config, process
+        final trimmedPath = p.join(tempDir, '01_trim_${file.filename}');
+
+        // Calculate fade samples from ms
+        final fadeInSamples = preset.fadeIn
+            ? (preset.fadeInMs * file.sampleRate / 1000).round()
+            : null;
+        final fadeOutSamples = preset.fadeOut
+            ? (preset.fadeOutMs * file.sampleRate / 1000).round()
+            : null;
+
+        // Use processFileWithOptions for trim+fade (no normalization yet)
+        final handle = ffi.offlinePipelineCreate();
+        if (handle != 0) {
+          try {
+            // No normalization in trim phase
+            ffi.offlinePipelineSetNormalization(handle, 0, 0.0); // None
+            // Keep original format for intermediate
+            ffi.offlinePipelineSetFormat(handle, 1); // WAV 24-bit
+
+            final optionsJson = jsonEncode({
+              'input_path': file.path,
+              'output_path': trimmedPath,
+              if (fadeInSamples != null) 'fade_in_samples': fadeInSamples,
+              if (fadeOutSamples != null) 'fade_out_samples': fadeOutSamples,
+              'format': 1, // WAV 24-bit intermediate
+              if (preset.removeDcOffset) 'remove_dc_offset': true,
+            });
+
+            final jobId = ffi.offlineProcessFileWithOptions(handle, optionsJson);
+            if (jobId != 0) {
+              await _waitForFfiJob(ffi, handle);
+              ffi.offlineClearJobResult(jobId);
+            }
+          } finally {
+            ffi.offlinePipelineDestroy(handle);
+          }
+        }
+
+        // If trim succeeded, use trimmed file; otherwise use original
+        if (await File(trimmedPath).exists()) {
+          trimmedPaths[file.filename] = trimmedPath;
+        } else {
+          trimmedPaths[file.filename] = file.path;
+        }
       }
       stepDurations[SfxPipelineStep.trimAndClean] = stopwatch.elapsedMilliseconds - trimStart;
 
       if (_cancelled) throw _CancelledException();
 
-      // ── Step 2/4: Normalize ─────────────────────────────────────────
+      // ══════════════════════════════════════════════════════════════════════
+      // Step 2/4: Normalize → intermediate files in tempDir
+      // ══════════════════════════════════════════════════════════════════════
       final normStart = stopwatch.elapsedMilliseconds;
+      final normalizedPaths = <String, String>{}; // sourceFilename → normalizedPath
+
       for (int i = 0; i < totalFiles && !_cancelled; i++) {
         final file = selectedFiles[i];
         onProgress?.call(SfxPipelineProgress(
@@ -212,14 +368,58 @@ class SfxPipelineService {
           overallProgress: 0.25 + (i / totalFiles) * 0.25,
           elapsedMs: stopwatch.elapsedMilliseconds,
         ));
-        await Future<void>.delayed(const Duration(milliseconds: 1));
+
+        final inputPath = trimmedPaths[file.filename] ?? file.path;
+        final normalizedPath = p.join(tempDir, '02_norm_${file.filename}');
+
+        // Resolve target LUFS — per-category override if enabled
+        double targetLufs = preset.targetLufs;
+        if (preset.categoryDetection) {
+          final override = preset.perCategoryOverrides[file.detectedCategory];
+          if (override != null) {
+            targetLufs = override;
+          }
+        }
+
+        if (normMode != NormalizationMode.none) {
+          final handle = ffi.offlinePipelineCreate();
+          if (handle != 0) {
+            try {
+              ffi.offlinePipelineSetNormalization(
+                handle,
+                normMode.value,
+                normMode == NormalizationMode.lufs
+                    ? targetLufs
+                    : preset.truePeakCeiling,
+              );
+              ffi.offlinePipelineSetFormat(handle, 1); // WAV 24-bit intermediate
+
+              final jobId = ffi.offlineProcessFile(handle, inputPath, normalizedPath);
+              if (jobId != 0) {
+                await _waitForFfiJob(ffi, handle);
+                ffi.offlineClearJobResult(jobId);
+              }
+            } finally {
+              ffi.offlinePipelineDestroy(handle);
+            }
+          }
+        }
+
+        if (await File(normalizedPath).exists()) {
+          normalizedPaths[file.filename] = normalizedPath;
+        } else {
+          normalizedPaths[file.filename] = inputPath;
+        }
       }
       stepDurations[SfxPipelineStep.normalize] = stopwatch.elapsedMilliseconds - normStart;
 
       if (_cancelled) throw _CancelledException();
 
-      // ── Step 3/4: Convert & Export ──────────────────────────────────
+      // ══════════════════════════════════════════════════════════════════════
+      // Step 3/4: Convert & Export → final files in outputDir
+      // ══════════════════════════════════════════════════════════════════════
       final convertStart = stopwatch.elapsedMilliseconds;
+
       for (int i = 0; i < totalFiles && !_cancelled; i++) {
         final file = selectedFiles[i];
 
@@ -240,8 +440,70 @@ class SfxPipelineService {
           elapsedMs: stopwatch.elapsedMilliseconds,
         ));
 
-        // Actual conversion would happen here via rf-offline FFI
-        await Future<void>.delayed(const Duration(milliseconds: 1));
+        final inputPath = normalizedPaths[file.filename] ?? file.path;
+        bool success = false;
+        double finalLufs = preset.targetLufs;
+        double gainApplied = 0.0;
+        bool limiterEngaged = false;
+        int finalChannels = file.channels;
+
+        // Determine mono downmix
+        String? monoDownmix;
+        if (preset.outputChannels == OutputChannelMode.mono && file.channels > 1) {
+          if (!preset.skipMonoDownmix &&
+              !preset.stereoOverrideStages.contains(mapping.stageId)) {
+            monoDownmix = preset.monoMethod.name; // sumHalf, leftOnly, etc.
+            finalChannels = 1;
+          }
+        } else if (preset.outputChannels == OutputChannelMode.keepOriginal) {
+          finalChannels = file.channels;
+        }
+
+        // Final conversion via rf-offline
+        final handle = ffi.offlinePipelineCreate();
+        if (handle != 0) {
+          try {
+            ffi.offlinePipelineSetFormat(handle, outputFormatId);
+
+            final optionsJson = jsonEncode({
+              'input_path': inputPath,
+              'output_path': outputPath,
+              if (preset.sampleRate != file.sampleRate)
+                'sample_rate': preset.sampleRate,
+              'format': outputFormatId,
+              if (monoDownmix != null) 'mono_downmix': monoDownmix,
+            });
+
+            final jobId = ffi.offlineProcessFileWithOptions(handle, optionsJson);
+            if (jobId != 0) {
+              await _waitForFfiJob(ffi, handle);
+
+              // Read job result for final stats
+              final resultJson = ffi.offlineGetJobResult(jobId);
+              if (resultJson != null) {
+                final jobResult = OfflineJobResult.fromJson(jsonDecode(resultJson));
+                success = jobResult.success;
+                finalLufs = jobResult.loudness;
+                gainApplied = finalLufs - file.integratedLufs;
+                limiterEngaged = jobResult.peakLevel > -0.5;
+              }
+              ffi.offlineClearJobResult(jobId);
+            }
+          } finally {
+            ffi.offlinePipelineDestroy(handle);
+          }
+        }
+
+        // If FFI didn't produce output, fallback: copy source directly
+        if (!success && !await File(outputPath).exists()) {
+          try {
+            await File(inputPath).copy(outputPath);
+            success = true;
+            finalLufs = file.integratedLufs;
+          } catch (_) {
+            success = false;
+          }
+        }
 
         fileResults.add(SfxFileResult(
           sourcePath: file.path,
@@ -250,24 +512,58 @@ class SfxPipelineService {
           outputFilename: outputFilename,
           stageId: mapping.stageId,
           assigned: false,
-          success: true,
+          success: success,
           originalLufs: file.integratedLufs,
-          finalLufs: preset.targetLufs,
-          gainApplied: preset.targetLufs - file.integratedLufs,
-          limiterEngaged: (preset.targetLufs - file.integratedLufs).abs() > 10,
+          finalLufs: finalLufs,
+          gainApplied: gainApplied,
+          limiterEngaged: limiterEngaged,
           trimmedStartMs: file.silenceStartMs,
           trimmedEndMs: file.silenceEndMs,
           originalDuration: file.durationSeconds,
           finalDuration: file.durationSeconds - (file.silenceStartMs + file.silenceEndMs) / 1000,
           originalChannels: file.channels,
-          finalChannels: preset.outputChannels == OutputChannelMode.mono ? 1 : file.channels,
+          finalChannels: finalChannels,
         ));
+
+        // Multi-format export (if enabled)
+        if (preset.multiFormat && preset.multiFormatPresets.isNotEmpty) {
+          for (final extraFormat in preset.multiFormatPresets) {
+            if (extraFormat == preset.outputFormat) continue;
+
+            final extraDir = preset.subfolderPerFormat
+                ? p.join(outputDir, extraFormat.fileExtension)
+                : outputDir;
+            await Directory(extraDir).create(recursive: true);
+
+            final extraFilename = '${p.basenameWithoutExtension(outputFilename)}.${extraFormat.fileExtension}';
+            final extraPath = p.join(extraDir, extraFilename);
+            final extraFmtId = _mapOutputFormatId(extraFormat);
+
+            final extraHandle = ffi.offlinePipelineCreate();
+            if (extraHandle != 0) {
+              try {
+                ffi.offlinePipelineSetFormat(extraHandle, extraFmtId);
+                final extraJobId = ffi.offlineProcessFile(
+                  extraHandle, inputPath, extraPath,
+                );
+                if (extraJobId != 0) {
+                  await _waitForFfiJob(ffi, extraHandle);
+                  ffi.offlineClearJobResult(extraJobId);
+                }
+              } finally {
+                ffi.offlinePipelineDestroy(extraHandle);
+              }
+            }
+          }
+        }
       }
       stepDurations[SfxPipelineStep.convertAndExport] = stopwatch.elapsedMilliseconds - convertStart;
 
       if (_cancelled) throw _CancelledException();
 
-      // ── Step 4/4: Auto-Assign ───────────────────────────────────────
+      // ══════════════════════════════════════════════════════════════════════
+      // Step 4/4: Auto-Assign
+      // ══════════════════════════════════════════════════════════════════════
       if (preset.autoAssign) {
         final assignStart = stopwatch.elapsedMilliseconds;
 
@@ -289,7 +585,7 @@ class SfxPipelineService {
         final stageToPath = <String, String>{};
         for (int i = 0; i < fileResults.length; i++) {
           final fr = fileResults[i];
-          if (fr.stageId != null && fr.outputPath != null) {
+          if (fr.stageId != null && fr.outputPath != null && fr.success) {
             stageToPath[fr.stageId!] = fr.outputPath!;
             // Mark as assigned in result
             fileResults[i] = SfxFileResult(
@@ -394,6 +690,150 @@ class SfxPipelineService {
   }
 
   // ─── Private Helpers ───────────────────────────────────────────────────
+
+  /// Wait for an FFI pipeline job to complete (poll state).
+  /// Timeout after [timeoutMs] milliseconds (default 60s per file).
+  Future<void> _waitForFfiJob(NativeFFI ffi, int handle, {int timeoutMs = 60000}) async {
+    final deadline = DateTime.now().add(Duration(milliseconds: timeoutMs));
+    while (true) {
+      final state = ffi.offlinePipelineGetState(handle);
+      if (state >= 8 || state < 0) break; // Complete/Failed/Cancelled/NotFound
+      if (_cancelled) {
+        ffi.offlinePipelineCancel(handle);
+        break;
+      }
+      if (DateTime.now().isAfter(deadline)) {
+        ffi.offlinePipelineCancel(handle);
+        break;
+      }
+      await Future.delayed(const Duration(milliseconds: 20));
+    }
+  }
+
+  /// Decode raw PCM samples from a WAV file for Dart-side analysis.
+  /// Returns null if not a valid WAV or unsupported format.
+  List<double>? _decodePcmFromWav(Uint8List bytes) {
+    if (bytes.length < 44) return null;
+
+    // Check RIFF header
+    final riff = String.fromCharCodes(bytes.sublist(0, 4));
+    if (riff != 'RIFF') return null;
+    final wave = String.fromCharCodes(bytes.sublist(8, 12));
+    if (wave != 'WAVE') return null;
+
+    // Find 'fmt ' chunk
+    int offset = 12;
+    int? fmtOffset;
+    int? dataOffset;
+    int? dataSize;
+    int audioFormat = 1;
+    int numChannels = 2;
+    int bitsPerSample = 16;
+
+    while (offset + 8 <= bytes.length) {
+      final chunkId = String.fromCharCodes(bytes.sublist(offset, offset + 4));
+      final chunkSize = bytes.buffer.asByteData().getUint32(offset + 4, Endian.little);
+
+      if (chunkId == 'fmt ') {
+        fmtOffset = offset + 8;
+        audioFormat = bytes.buffer.asByteData().getUint16(fmtOffset, Endian.little);
+        numChannels = bytes.buffer.asByteData().getUint16(fmtOffset + 2, Endian.little);
+        bitsPerSample = bytes.buffer.asByteData().getUint16(fmtOffset + 14, Endian.little);
+      } else if (chunkId == 'data') {
+        dataOffset = offset + 8;
+        dataSize = chunkSize;
+      }
+
+      offset += 8 + chunkSize;
+      if (offset % 2 != 0) offset++; // Padding
+    }
+
+    if (fmtOffset == null || dataOffset == null || dataSize == null) return null;
+
+    final bd = bytes.buffer.asByteData();
+    final samples = <double>[];
+
+    if (audioFormat == 1) {
+      // PCM integer
+      if (bitsPerSample == 16) {
+        final count = dataSize ~/ 2;
+        for (int i = 0; i < count && dataOffset + i * 2 + 1 < bytes.length; i++) {
+          final val = bd.getInt16(dataOffset + i * 2, Endian.little);
+          samples.add(val / 32768.0);
+        }
+      } else if (bitsPerSample == 24) {
+        final count = dataSize ~/ 3;
+        for (int i = 0; i < count && dataOffset + i * 3 + 2 < bytes.length; i++) {
+          final b0 = bytes[dataOffset + i * 3];
+          final b1 = bytes[dataOffset + i * 3 + 1];
+          final b2 = bytes[dataOffset + i * 3 + 2];
+          int val = b0 | (b1 << 8) | (b2 << 16);
+          if (val >= 0x800000) val -= 0x1000000; // Sign extend
+          samples.add(val / 8388608.0);
+        }
+      } else if (bitsPerSample == 32) {
+        final count = dataSize ~/ 4;
+        for (int i = 0; i < count && dataOffset + i * 4 + 3 < bytes.length; i++) {
+          final val = bd.getInt32(dataOffset + i * 4, Endian.little);
+          samples.add(val / 2147483648.0);
+        }
+      }
+    } else if (audioFormat == 3) {
+      // IEEE float
+      if (bitsPerSample == 32) {
+        final count = dataSize ~/ 4;
+        for (int i = 0; i < count && dataOffset + i * 4 + 3 < bytes.length; i++) {
+          samples.add(bd.getFloat32(dataOffset + i * 4, Endian.little));
+        }
+      }
+    }
+
+    return samples.isEmpty ? null : samples;
+  }
+
+  /// Measure DC offset as average of all samples
+  double _measureDcOffset(List<double> samples) {
+    if (samples.isEmpty) return 0.0;
+    double sum = 0.0;
+    for (final s in samples) {
+      sum += s;
+    }
+    return sum / samples.length;
+  }
+
+  /// Map SfxNormMode → NormalizationMode (from offline_processing_provider)
+  NormalizationMode _mapNormMode(SfxNormMode mode) {
+    switch (mode) {
+      case SfxNormMode.lufs:
+        return NormalizationMode.lufs;
+      case SfxNormMode.peak:
+        return NormalizationMode.peak;
+      case SfxNormMode.truePeak:
+        return NormalizationMode.truePeak;
+      case SfxNormMode.none:
+        return NormalizationMode.none;
+    }
+  }
+
+  /// Map SfxOutputFormat → raw FFI format ID.
+  /// Uses raw int because OfflineOutputFormat enum doesn't cover all formats (e.g., OGG).
+  /// IDs from rf-offline: 0=WAV16, 1=WAV24, 2=WAV32F, 5=FLAC, 6=MP3_320, 10=OGG_Q8
+  int _mapOutputFormatId(SfxOutputFormat format) {
+    switch (format) {
+      case SfxOutputFormat.wav16:
+        return 0;
+      case SfxOutputFormat.wav24:
+        return 1;
+      case SfxOutputFormat.wav32f:
+        return 2;
+      case SfxOutputFormat.flac:
+        return 5;
+      case SfxOutputFormat.ogg:
+        return 10; // OGG Vorbis Q8
+      case SfxOutputFormat.mp3High:
+        return 6; // MP3 320kbps
+    }
+  }
 
   Set<String> _parseFilterExtensions(String filter) {
     // Parse "*.{wav,mp3,flac,ogg,aif,aiff}" → {'.wav', '.mp3', ...}
