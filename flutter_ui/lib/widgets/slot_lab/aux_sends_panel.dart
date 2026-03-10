@@ -12,46 +12,12 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:provider/provider.dart';
 
+import '../../providers/mixer_dsp_provider.dart';
 import '../../services/shared_meter_reader.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../utils/audio_math.dart';
-
-/// Aux bus definition
-class _AuxBus {
-  final int id;
-  final String name;
-  final String effectType;
-  double returnLevel;
-  bool isMuted;
-  bool isSoloed;
-  final Color color;
-
-  _AuxBus({
-    required this.id,
-    required this.name,
-    required this.effectType,
-    this.returnLevel = 1.0,
-    this.isMuted = false,
-    this.isSoloed = false,
-    required this.color,
-  });
-}
-
-/// Track send level
-class _TrackSend {
-  final String trackId;
-  final String trackName;
-  final Map<int, double> sendLevels; // auxBusId -> level (0-1)
-  final Map<int, bool> prePost; // auxBusId -> isPreFader
-
-  _TrackSend({
-    required this.trackId,
-    required this.trackName,
-    required this.sendLevels,
-    required this.prePost,
-  });
-}
 
 /// DAW-style Aux Sends Panel
 class AuxSendsPanel extends StatefulWidget {
@@ -71,43 +37,6 @@ class _AuxSendsPanelState extends State<AuxSendsPanel>
   late Ticker _ticker;
   bool _meterInitialized = false;
   SharedMeterSnapshot _snapshot = SharedMeterSnapshot.empty;
-
-  // Aux buses
-  final List<_AuxBus> _auxBuses = [
-    _AuxBus(id: 100, name: 'Reverb A', effectType: 'Hall', color: FluxForgeTheme.accentBlue),
-    _AuxBus(id: 101, name: 'Reverb B', effectType: 'Plate', color: FluxForgeTheme.accentCyan),
-    _AuxBus(id: 102, name: 'Delay', effectType: 'Stereo', color: FluxForgeTheme.accentGreen),
-    _AuxBus(id: 103, name: 'Chorus', effectType: 'Ensemble', color: FluxForgeTheme.accentOrange),
-  ];
-
-  // Track sends
-  final List<_TrackSend> _trackSends = [
-    _TrackSend(
-      trackId: 'track_1', trackName: 'SFX Main',
-      sendLevels: {100: 0.3, 101: 0.0, 102: 0.2, 103: 0.0},
-      prePost: {100: false, 101: false, 102: false, 103: false},
-    ),
-    _TrackSend(
-      trackId: 'track_2', trackName: 'Music',
-      sendLevels: {100: 0.5, 101: 0.2, 102: 0.0, 103: 0.1},
-      prePost: {100: false, 101: false, 102: false, 103: false},
-    ),
-    _TrackSend(
-      trackId: 'track_3', trackName: 'Ambience',
-      sendLevels: {100: 0.4, 101: 0.3, 102: 0.1, 103: 0.0},
-      prePost: {100: false, 101: false, 102: false, 103: false},
-    ),
-    _TrackSend(
-      trackId: 'track_4', trackName: 'UI Sounds',
-      sendLevels: {100: 0.1, 101: 0.0, 102: 0.0, 103: 0.0},
-      prePost: {100: false, 101: false, 102: false, 103: false},
-    ),
-    _TrackSend(
-      trackId: 'track_5', trackName: 'Wins',
-      sendLevels: {100: 0.4, 101: 0.0, 102: 0.3, 103: 0.2},
-      prePost: {100: false, 101: false, 102: false, 103: false},
-    ),
-  ];
 
   int? _selectedAuxId;
 
@@ -138,19 +67,21 @@ class _AuxSendsPanelState extends State<AuxSendsPanel>
 
   /// Derive aux bus meter peak from master signal, scaled by return level.
   /// Returns 0 when not playing or muted — no fake signal.
-  double _getAuxPeakL(_AuxBus aux) {
+  double _getAuxPeakL(AuxBus aux) {
     if (!_meterInitialized || !_snapshot.isPlaying || aux.isMuted) return 0.0;
     return (_snapshot.masterPeakL * aux.returnLevel).clamp(0.0, 1.0);
   }
 
-  double _getAuxPeakR(_AuxBus aux) {
+  double _getAuxPeakR(AuxBus aux) {
     if (!_meterInitialized || !_snapshot.isPlaying || aux.isMuted) return 0.0;
     return (_snapshot.masterPeakR * aux.returnLevel).clamp(0.0, 1.0);
   }
 
   @override
   Widget build(BuildContext context) {
-    final hasSolo = _auxBuses.any((b) => b.isSoloed);
+    final provider = context.watch<MixerDSPProvider>();
+    final auxBuses = provider.auxBuses;
+    final hasSolo = auxBuses.any((b) => b.isSoloed);
 
     return Container(
       color: FluxForgeTheme.bgDeepest,
@@ -166,16 +97,16 @@ class _AuxSendsPanelState extends State<AuxSendsPanel>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(width: 4),
-                    for (final aux in _auxBuses)
+                    for (final aux in auxBuses)
                       _AuxReturnStrip(
                         key: ValueKey('aux_${aux.id}'),
                         aux: aux,
                         hasSoloActive: hasSolo,
                         isSelected: _selectedAuxId == aux.id,
                         onTap: () => setState(() => _selectedAuxId = aux.id),
-                        onVolumeChange: (v) => setState(() => aux.returnLevel = v),
-                        onMuteToggle: () => setState(() => aux.isMuted = !aux.isMuted),
-                        onSoloToggle: () => setState(() => aux.isSoloed = !aux.isSoloed),
+                        onVolumeChange: (v) => provider.setAuxReturnLevel(aux.id, v),
+                        onMuteToggle: () => provider.toggleAuxMute(aux.id),
+                        onSoloToggle: () => provider.toggleAuxSolo(aux.id),
                         peakL: _getAuxPeakL(aux),
                         peakR: _getAuxPeakR(aux),
                       ),
@@ -191,7 +122,7 @@ class _AuxSendsPanelState extends State<AuxSendsPanel>
           SizedBox(
             width: 200,
             child: _selectedAuxId != null
-                ? _buildSendLevelsPanel()
+                ? _buildSendLevelsPanel(provider)
                 : _buildEmptySelection(),
           ),
         ],
@@ -215,8 +146,12 @@ class _AuxSendsPanelState extends State<AuxSendsPanel>
     );
   }
 
-  Widget _buildSendLevelsPanel() {
-    final aux = _auxBuses.firstWhere((a) => a.id == _selectedAuxId);
+  Widget _buildSendLevelsPanel(MixerDSPProvider provider) {
+    final aux = provider.auxBuses.firstWhere(
+      (a) => a.id == _selectedAuxId,
+      orElse: () => provider.auxBuses.first,
+    );
+    final trackSends = provider.trackSends;
 
     return Column(
       children: [
@@ -256,9 +191,9 @@ class _AuxSendsPanelState extends State<AuxSendsPanel>
         // Per-track send faders
         Expanded(
           child: ListView.builder(
-            itemCount: _trackSends.length,
+            itemCount: trackSends.length,
             itemBuilder: (context, index) {
-              final track = _trackSends[index];
+              final track = trackSends[index];
               final level = track.sendLevels[aux.id] ?? 0.0;
               final isPre = track.prePost[aux.id] ?? false;
 
@@ -268,10 +203,10 @@ class _AuxSendsPanelState extends State<AuxSendsPanel>
                 isPreFader: isPre,
                 color: aux.color,
                 onLevelChange: (v) {
-                  setState(() => track.sendLevels[aux.id] = v);
+                  provider.setTrackSendLevel(track.trackId, aux.id, v);
                 },
                 onPrePostToggle: () {
-                  setState(() => track.prePost[aux.id] = !isPre);
+                  provider.toggleTrackSendPrePost(track.trackId, aux.id);
                 },
               );
             },
@@ -284,7 +219,7 @@ class _AuxSendsPanelState extends State<AuxSendsPanel>
 
 /// Single aux return channel strip — DAW mixer style
 class _AuxReturnStrip extends StatefulWidget {
-  final _AuxBus aux;
+  final AuxBus aux;
   final bool hasSoloActive;
   final bool isSelected;
   final VoidCallback onTap;

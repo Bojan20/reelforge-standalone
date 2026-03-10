@@ -13,9 +13,11 @@
 // - toggleSolo → engine_set_bus_solo
 
 import 'dart:math' as math;
+import 'dart:ui' show Color;
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import '../src/rust/native_ffi.dart';
+import '../theme/fluxforge_theme.dart';
 import '../utils/audio_math.dart';
 
 // ============ Types ============
@@ -88,6 +90,76 @@ class MixerBus {
       muted: muted ?? this.muted,
       solo: solo ?? this.solo,
       inserts: inserts ?? this.inserts,
+    );
+  }
+}
+
+// ============ Aux Send Types ============
+
+class AuxBus {
+  final int id;
+  final String name;
+  final String effectType;
+  final double returnLevel;
+  final bool isMuted;
+  final bool isSoloed;
+  final Color color;
+
+  const AuxBus({
+    required this.id,
+    required this.name,
+    required this.effectType,
+    this.returnLevel = 1.0,
+    this.isMuted = false,
+    this.isSoloed = false,
+    required this.color,
+  });
+
+  AuxBus copyWith({
+    int? id,
+    String? name,
+    String? effectType,
+    double? returnLevel,
+    bool? isMuted,
+    bool? isSoloed,
+    Color? color,
+  }) {
+    return AuxBus(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      effectType: effectType ?? this.effectType,
+      returnLevel: returnLevel ?? this.returnLevel,
+      isMuted: isMuted ?? this.isMuted,
+      isSoloed: isSoloed ?? this.isSoloed,
+      color: color ?? this.color,
+    );
+  }
+}
+
+class TrackSend {
+  final String trackId;
+  final String trackName;
+  final Map<int, double> sendLevels; // auxBusId -> level (0-1)
+  final Map<int, bool> prePost; // auxBusId -> isPreFader
+
+  const TrackSend({
+    required this.trackId,
+    required this.trackName,
+    this.sendLevels = const {},
+    this.prePost = const {},
+  });
+
+  TrackSend copyWith({
+    String? trackId,
+    String? trackName,
+    Map<int, double>? sendLevels,
+    Map<int, bool>? prePost,
+  }) {
+    return TrackSend(
+      trackId: trackId ?? this.trackId,
+      trackName: trackName ?? this.trackName,
+      sendLevels: sendLevels ?? this.sendLevels,
+      prePost: prePost ?? this.prePost,
     );
   }
 }
@@ -228,8 +300,37 @@ int _busIdToEngineIndex(String busId) {
 
 // ============ Provider ============
 
+// ============ Default Aux Buses ============
+
+const List<AuxBus> kDefaultAuxBuses = [
+  AuxBus(id: 100, name: 'Reverb A', effectType: 'Hall', color: FluxForgeTheme.accentBlue),
+  AuxBus(id: 101, name: 'Reverb B', effectType: 'Plate', color: FluxForgeTheme.accentCyan),
+  AuxBus(id: 102, name: 'Delay', effectType: 'Stereo', color: FluxForgeTheme.accentGreen),
+  AuxBus(id: 103, name: 'Chorus', effectType: 'Ensemble', color: FluxForgeTheme.accentOrange),
+];
+
+const List<TrackSend> kDefaultTrackSends = [
+  TrackSend(trackId: 'sfx', trackName: 'SFX Main',
+    sendLevels: {100: 0.3, 101: 0.0, 102: 0.2, 103: 0.0},
+    prePost: {100: false, 101: false, 102: false, 103: false}),
+  TrackSend(trackId: 'music', trackName: 'Music',
+    sendLevels: {100: 0.5, 101: 0.2, 102: 0.0, 103: 0.1},
+    prePost: {100: false, 101: false, 102: false, 103: false}),
+  TrackSend(trackId: 'ambience', trackName: 'Ambience',
+    sendLevels: {100: 0.4, 101: 0.3, 102: 0.1, 103: 0.0},
+    prePost: {100: false, 101: false, 102: false, 103: false}),
+  TrackSend(trackId: 'voice', trackName: 'Voice',
+    sendLevels: {100: 0.1, 101: 0.0, 102: 0.0, 103: 0.0},
+    prePost: {100: false, 101: false, 102: false, 103: false}),
+  TrackSend(trackId: 'ui', trackName: 'UI Sounds',
+    sendLevels: {100: 0.0, 101: 0.0, 102: 0.0, 103: 0.0},
+    prePost: {100: false, 101: false, 102: false, 103: false}),
+];
+
 class MixerDSPProvider extends ChangeNotifier {
   List<MixerBus> _buses = List.from(kDefaultBuses);
+  List<AuxBus> _auxBuses = List.from(kDefaultAuxBuses);
+  List<TrackSend> _trackSends = List.from(kDefaultTrackSends);
   bool _isConnected = false;
   String? _error;
 
@@ -239,12 +340,17 @@ class MixerDSPProvider extends ChangeNotifier {
   final NativeFFI _ffi = NativeFFI.instance;
 
   List<MixerBus> get buses => _buses;
+  List<AuxBus> get auxBuses => _auxBuses;
+  List<TrackSend> get trackSends => _trackSends;
   bool get isConnected => _isConnected;
   String? get error => _error;
   List<PluginInfo> get availablePlugins => kAvailablePlugins;
 
   MixerBus? getBus(String id) =>
       _buses.firstWhereOrNull((b) => b.id == id);
+
+  AuxBus? getAuxBus(int id) =>
+      _auxBuses.firstWhereOrNull((b) => b.id == id);
 
   /// Connect to audio backend and sync initial bus state to engine
   Future<void> connect() async {
@@ -668,9 +774,66 @@ class MixerDSPProvider extends ChangeNotifier {
     }
   }
 
+  // ============ Aux Send Methods ============
+
+  /// Set aux bus return level
+  void setAuxReturnLevel(int auxId, double level) {
+    _auxBuses = _auxBuses.map((aux) {
+      if (aux.id == auxId) return aux.copyWith(returnLevel: level.clamp(0.0, 1.0));
+      return aux;
+    }).toList();
+    notifyListeners();
+  }
+
+  /// Toggle aux bus mute
+  void toggleAuxMute(int auxId) {
+    _auxBuses = _auxBuses.map((aux) {
+      if (aux.id == auxId) return aux.copyWith(isMuted: !aux.isMuted);
+      return aux;
+    }).toList();
+    notifyListeners();
+  }
+
+  /// Toggle aux bus solo
+  void toggleAuxSolo(int auxId) {
+    _auxBuses = _auxBuses.map((aux) {
+      if (aux.id == auxId) return aux.copyWith(isSoloed: !aux.isSoloed);
+      return aux;
+    }).toList();
+    notifyListeners();
+  }
+
+  /// Set track send level for a specific aux bus
+  void setTrackSendLevel(String trackId, int auxId, double level) {
+    _trackSends = _trackSends.map((send) {
+      if (send.trackId == trackId) {
+        final newLevels = Map<int, double>.from(send.sendLevels);
+        newLevels[auxId] = level.clamp(0.0, 1.0);
+        return send.copyWith(sendLevels: newLevels);
+      }
+      return send;
+    }).toList();
+    notifyListeners();
+  }
+
+  /// Toggle pre/post fader for a track send
+  void toggleTrackSendPrePost(String trackId, int auxId) {
+    _trackSends = _trackSends.map((send) {
+      if (send.trackId == trackId) {
+        final newPrePost = Map<int, bool>.from(send.prePost);
+        newPrePost[auxId] = !(newPrePost[auxId] ?? false);
+        return send.copyWith(prePost: newPrePost);
+      }
+      return send;
+    }).toList();
+    notifyListeners();
+  }
+
   /// Reset to default buses
   void reset() {
     _buses = List.from(kDefaultBuses);
+    _auxBuses = List.from(kDefaultAuxBuses);
+    _trackSends = List.from(kDefaultTrackSends);
     notifyListeners();
   }
 }

@@ -14,6 +14,8 @@
 /// container_group_add_child().
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/middleware_provider.dart';
 import '../../theme/fluxforge_theme.dart';
 
 /// Evaluation mode for a container group.
@@ -157,69 +159,85 @@ class ContainerGroupsPanel extends StatefulWidget {
 }
 
 class _ContainerGroupsPanelState extends State<ContainerGroupsPanel> {
-  final List<_GroupNode> _rootGroups = [];
-  int _nextId = 100;
+  List<_GroupNode> _rootGroups = [];
+  int _nextId = 10000;
   int? _selectedGroupId;
+  bool _initialized = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _initMockData();
-  }
+  /// Build tree from MiddlewareProvider containers
+  void _syncFromProvider(MiddlewareProvider provider) {
+    final blends = provider.blendContainers;
+    final randoms = provider.randomContainers;
+    final sequences = provider.sequenceContainers;
 
-  void _initMockData() {
-    _rootGroups.addAll([
-      _GroupNode(
-        id: 1,
-        name: 'Base Game Audio',
+    // Only rebuild if not yet initialized or if counts changed
+    final totalCount = blends.length + randoms.length + sequences.length;
+    final currentCount = _countLeafNodes(_rootGroups);
+    if (_initialized && totalCount == currentCount) return;
+
+    _rootGroups = [];
+
+    // Group 1: Blend containers
+    if (blends.isNotEmpty) {
+      _rootGroups.add(_GroupNode(
+        id: _nextId++,
+        name: 'Blend Containers',
         type: _ContainerChildType.group,
         evalMode: GroupEvalMode.all,
-        children: [
-          _GroupNode(
-            id: 2,
-            name: 'Spin Variations',
-            type: _ContainerChildType.random,
-            priority: 1,
-          ),
-          _GroupNode(
-            id: 3,
-            name: 'Reel Stop Mix',
-            type: _ContainerChildType.blend,
-            priority: 2,
-          ),
-          _GroupNode(
-            id: 4,
-            name: 'Win Sequence',
-            type: _ContainerChildType.sequence,
-            priority: 3,
-          ),
-        ],
-      ),
-      _GroupNode(
-        id: 5,
-        name: 'Feature Sounds',
+        children: blends.map((b) => _GroupNode(
+          id: b.id,
+          name: b.name,
+          type: _ContainerChildType.blend,
+          priority: blends.indexOf(b),
+        )).toList(),
+      ));
+    }
+
+    // Group 2: Random containers
+    if (randoms.isNotEmpty) {
+      _rootGroups.add(_GroupNode(
+        id: _nextId++,
+        name: 'Random Containers',
+        type: _ContainerChildType.group,
+        evalMode: GroupEvalMode.random,
+        children: randoms.map((r) => _GroupNode(
+          id: r.id,
+          name: r.name,
+          type: _ContainerChildType.random,
+          priority: randoms.indexOf(r),
+        )).toList(),
+      ));
+    }
+
+    // Group 3: Sequence containers
+    if (sequences.isNotEmpty) {
+      _rootGroups.add(_GroupNode(
+        id: _nextId++,
+        name: 'Sequence Containers',
         type: _ContainerChildType.group,
         evalMode: GroupEvalMode.priority,
-        children: [
-          _GroupNode(
-            id: 6,
-            name: 'Free Spin Music',
-            type: _ContainerChildType.blend,
-            priority: 1,
-          ),
-          _GroupNode(
-            id: 7,
-            name: 'Bonus Pick',
-            type: _ContainerChildType.group,
-            evalMode: GroupEvalMode.firstMatch,
-            children: [
-              _GroupNode(id: 8, name: 'Pick SFX', type: _ContainerChildType.random, priority: 1),
-              _GroupNode(id: 9, name: 'Reveal Sequence', type: _ContainerChildType.sequence, priority: 2),
-            ],
-          ),
-        ],
-      ),
-    ]);
+        children: sequences.map((s) => _GroupNode(
+          id: s.id,
+          name: s.name,
+          type: _ContainerChildType.sequence,
+          priority: sequences.indexOf(s),
+        )).toList(),
+      ));
+    }
+
+    _initialized = true;
+  }
+
+  int _countLeafNodes(List<_GroupNode> nodes) {
+    int count = 0;
+    for (final n in nodes) {
+      if (n.children.isEmpty) {
+        count++;
+      } else {
+        count += _countLeafNodes(n.children);
+      }
+    }
+    return count;
   }
 
   void _addGroup() {
@@ -265,6 +283,9 @@ class _ContainerGroupsPanelState extends State<ContainerGroupsPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<MiddlewareProvider>();
+    _syncFromProvider(provider);
+
     return Container(
       color: FluxForgeTheme.bgDeep,
       child: Column(

@@ -477,6 +477,24 @@ class MiddlewareProvider extends ChangeNotifier {
   int? get nextMusicSegmentId => _musicSystemProvider.nextMusicSegmentId;
   int get musicBusId => _musicSystemProvider.musicBusId;
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EVENT LOG TRACKING — lightweight counters for EventLogPanel
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  int _rtpcUpdateCount = 0;
+  int _switchChangeCount = 0;
+  int _actionCount = 0;
+  ({int rtpcId, double value, int interpolationMs})? _lastRtpcUpdate;
+  ({int gameObjectId, int groupId, int switchId})? _lastSwitchChange;
+  String? _lastActionDescription;
+
+  int get rtpcUpdateCount => _rtpcUpdateCount;
+  int get switchChangeCount => _switchChangeCount;
+  int get actionCount => _actionCount;
+  ({int rtpcId, double value, int interpolationMs})? get lastRtpcUpdate => _lastRtpcUpdate;
+  ({int gameObjectId, int groupId, int switchId})? get lastSwitchChange => _lastSwitchChange;
+  String? get lastActionDescription => _lastActionDescription;
+
   // Advanced systems getters (subsystem providers)
   VoicePoolProvider get voicePoolProvider => _voicePoolProvider;
   BusHierarchyProvider get busHierarchyProvider => _busHierarchyProvider;
@@ -627,8 +645,11 @@ class MiddlewareProvider extends ChangeNotifier {
       _switchGroupsProvider.registerSwitchGroupFromPreset(name, switchNames);
 
   /// Set switch for a game object
-  void setSwitch(int gameObjectId, int groupId, int switchId) =>
-      _switchGroupsProvider.setSwitch(gameObjectId, groupId, switchId);
+  void setSwitch(int gameObjectId, int groupId, int switchId) {
+    _switchGroupsProvider.setSwitch(gameObjectId, groupId, switchId);
+    _lastSwitchChange = (gameObjectId: gameObjectId, groupId: groupId, switchId: switchId);
+    _switchChangeCount++;
+  }
 
   /// Set switch by name
   void setSwitchByName(int gameObjectId, int groupId, String switchName) =>
@@ -654,8 +675,11 @@ class MiddlewareProvider extends ChangeNotifier {
   void registerRtpc(RtpcDefinition rtpc) => _rtpcSystemProvider.registerRtpc(rtpc);
   void registerRtpcFromPreset(Map<String, dynamic> preset) =>
       _rtpcSystemProvider.registerRtpcFromPreset(preset);
-  void setRtpc(int rtpcId, double value, {int interpolationMs = 0}) =>
-      _rtpcSystemProvider.setRtpc(rtpcId, value, interpolationMs: interpolationMs);
+  void setRtpc(int rtpcId, double value, {int interpolationMs = 0}) {
+    _rtpcSystemProvider.setRtpc(rtpcId, value, interpolationMs: interpolationMs);
+    _lastRtpcUpdate = (rtpcId: rtpcId, value: value, interpolationMs: interpolationMs);
+    _rtpcUpdateCount++;
+  }
   void setRtpcOnObject(int gameObjectId, int rtpcId, double value, {int interpolationMs = 0}) =>
       _rtpcSystemProvider.setRtpcOnObject(gameObjectId, rtpcId, value, interpolationMs: interpolationMs);
   void resetRtpc(int rtpcId, {int interpolationMs = 100}) =>
@@ -1959,6 +1983,8 @@ class MiddlewareProvider extends ChangeNotifier {
 
     if (playingId > 0) {
       _playingInstances[playingId] = eventId;
+      _lastActionDescription = 'PostEvent: ${event.name}';
+      _actionCount++;
       _markChanged(changeCompositeEvents);
     }
 

@@ -154,12 +154,16 @@ class _EventLogPanelState extends State<EventLogPanel> {
   String _searchQuery = '';
   int _lastTriggerCount = 0; // Track EventRegistry trigger count
 
+  // Track middleware state for change detection
+  int _lastMiddlewareActionCount = 0;
+  int _lastRtpcChangeCount = 0;
+  int _lastSwitchChangeCount = 0;
+
   @override
   void initState() {
     super.initState();
-    // NOTE: SlotLabProvider listener removed — stages are logged via EventRegistry
-    // NOTE: MiddlewareProvider listener removed — TODO: implement middleware event logging
     eventRegistry.addListener(_onEventRegistryUpdate);
+    widget.middlewareProvider.addListener(_onMiddlewareUpdate);
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -170,10 +174,62 @@ class _EventLogPanelState extends State<EventLogPanel> {
   @override
   void dispose() {
     eventRegistry.removeListener(_onEventRegistryUpdate);
+    widget.middlewareProvider.removeListener(_onMiddlewareUpdate);
     _searchController.removeListener(_onSearchChanged);
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onMiddlewareUpdate() {
+    if (_isPaused || !mounted) return;
+
+    final mw = widget.middlewareProvider;
+
+    // Detect RTPC changes via provider's action count
+    final rtpcCount = mw.rtpcUpdateCount;
+    if (rtpcCount > _lastRtpcChangeCount) {
+      _lastRtpcChangeCount = rtpcCount;
+      final lastRtpc = mw.lastRtpcUpdate;
+      if (lastRtpc != null) {
+        _addEntry(EventLogEntry(
+          timestamp: DateTime.now(),
+          type: EventLogType.rtpc,
+          eventName: 'RTPC ${lastRtpc.rtpcId}',
+          details: 'value: ${lastRtpc.value.toStringAsFixed(2)}'
+              '${lastRtpc.interpolationMs > 0 ? ' (${lastRtpc.interpolationMs}ms)' : ''}',
+        ));
+      }
+    }
+
+    // Detect switch/state changes
+    final switchCount = mw.switchChangeCount;
+    if (switchCount > _lastSwitchChangeCount) {
+      _lastSwitchChangeCount = switchCount;
+      final lastSwitch = mw.lastSwitchChange;
+      if (lastSwitch != null) {
+        _addEntry(EventLogEntry(
+          timestamp: DateTime.now(),
+          type: EventLogType.state,
+          eventName: 'Switch ${lastSwitch.groupId}',
+          details: 'obj: ${lastSwitch.gameObjectId} → switch: ${lastSwitch.switchId}',
+        ));
+      }
+    }
+
+    // Detect postEvent calls
+    final actionCount = mw.actionCount;
+    if (actionCount > _lastMiddlewareActionCount) {
+      _lastMiddlewareActionCount = actionCount;
+      final lastAction = mw.lastActionDescription;
+      if (lastAction != null && lastAction.isNotEmpty) {
+        _addEntry(EventLogEntry(
+          timestamp: DateTime.now(),
+          type: EventLogType.middleware,
+          eventName: lastAction,
+        ));
+      }
+    }
   }
 
   void _onEventRegistryUpdate() {

@@ -54,7 +54,7 @@ import '../slot_lab/lower_zone/events/composite_editor_panel.dart';
 import 'package:get_it/get_it.dart';
 import '../middleware/event_templates_panel.dart';
 import '../middleware/event_dependency_graph_panel.dart';
-import '../middleware/bus_hierarchy_panel.dart';
+import '../slot_lab/bus_hierarchy_panel.dart';
 import '../middleware/ducking_matrix_panel.dart';
 import '../middleware/attenuation_curve_panel.dart';
 import '../middleware/audio_signatures_panel.dart';
@@ -3302,17 +3302,11 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
 
   /// Compact Pan Panel
   Widget _buildCompactPanPanel() {
-    // P0.3 FIX: Connect to MixerDSPProvider for real pan values
-    final mixerProvider = context.read<MixerDSPProvider>();
-    final buses = mixerProvider.buses;
-
-    // Map bus IDs to display names
-    final displayBuses = [
-      ('sfx', 'SFX'),
-      ('music', 'Music'),
-      ('voice', 'Voice'),
-      ('ambience', 'Ambient'),
-    ];
+    // Dynamic bus list from MixerDSPProvider — watch for reactive updates
+    final mixerProvider = context.watch<MixerDSPProvider>();
+    final displayBuses = mixerProvider.buses
+        .where((b) => b.id != 'master')
+        .toList();
 
     return Padding(
       padding: const EdgeInsets.all(8),
@@ -3325,13 +3319,8 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
           Flexible(
             fit: FlexFit.loose,
             child: Row(
-              children: displayBuses.map((entry) {
-                final (busId, displayName) = entry;
-                final bus = buses.firstWhere(
-                  (b) => b.id == busId,
-                  orElse: () => MixerBus(id: busId, name: displayName),
-                );
-                return _buildPanChannel(displayName, bus.pan, busId, mixerProvider);
+              children: displayBuses.map((bus) {
+                return _buildPanChannel(bus.name, bus.pan, bus.id, mixerProvider);
               }).toList(),
             ),
           ),
@@ -3839,18 +3828,55 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
     });
   }
 
-  /// P0.4: Export selected stems
-  void _exportStems() {
+  /// P0.4: Export selected stems via NativeFFI offline render
+  Future<void> _exportStems() async {
     if (_selectedStemBusIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Select at least one bus to export')),
       );
       return;
     }
-    // TODO: Implement actual stem export via offline rendering
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Exporting ${_selectedStemBusIds.length} stems...')),
+
+    // Pick output directory
+    final outputDir = await NativeFilePicker.pickDirectory(
+      title: 'Select Stem Export Folder',
     );
+    if (outputDir == null) return;
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Exporting ${_selectedStemBusIds.length} stems to $outputDir...')),
+    );
+
+    // Export via FFI: WAV format (0), 48kHz, full timeline, normalized, include buses
+    final ffi = NativeFFI.instance;
+    final result = ffi.exportStems(
+      outputDir,
+      0,      // format: WAV
+      48000,  // sample rate
+      0.0,    // start time (beginning)
+      -1.0,   // end time (-1 = full length)
+      true,   // normalize
+      true,   // include buses
+      'slotlab_', // prefix
+    );
+
+    if (!mounted) return;
+    if (result > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Exported $result stems to $outputDir'),
+          backgroundColor: const Color(0xFF2E7D32),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Stem export failed — check audio engine connection'),
+          backgroundColor: Color(0xFFC62828),
+        ),
+      );
+    }
   }
 
   Widget _buildStemItem(String name, bool isSelected, String busId, int busIndex) {
