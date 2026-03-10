@@ -179,6 +179,7 @@ class EventNamingService {
     if (normalized == 'FS_RETRIGGER_5') return 'onFsRetrigger5';
     if (normalized == 'FS_RETRIGGER_10') return 'onFsRetrigger10';
     if (normalized == 'FS_END') return 'onFsEnd';
+    if (normalized == 'FS_OUTRO_PLAQUE') return 'onFsOutroPlaque';
     if (normalized == 'FS_TRANSITION_IN') return 'onFsTransitionIn';
     if (normalized == 'FS_TRANSITION_OUT') return 'onFsTransitionOut';
     if (normalized.startsWith('FS_')) {

@@ -911,7 +911,7 @@ class AudioMappingImportService {
     'FS_SCATTER_LAND_R3', 'FS_SCATTER_LAND_R4', 'FS_SCATTER_LAND_R5',
     'FS_STICKY_WILD', 'FS_EXPANDING_WILD', 'FS_MULTIPLIER_UP',
     'FS_RETRIGGER', 'FS_RETRIGGER_3', 'FS_RETRIGGER_5', 'FS_RETRIGGER_10',
-    'FS_END',
+    'FS_END', 'FS_OUTRO_PLAQUE',
     // Bonus
     'BONUS_TRIGGER', 'BONUS_ENTER', 'BONUS_STEP', 'BONUS_EXIT', 'BONUS_MUSIC', 'BONUS_SUMMARY',
     'PICK_REVEAL', 'PICK_GOOD', 'PICK_BAD', 'PICK_BONUS', 'PICK_COLLECT',
@@ -1547,10 +1547,12 @@ class AudioMappingImportService {
     'freespins music loop': ['MUSIC_FS_L1'],
     'fs music': ['MUSIC_FS_L1'],
     'fs intro': ['MUSIC_FS_INTRO'],
-    'fs outro': ['MUSIC_FS_OUTRO'],
+    'fs outro': ['FS_END'],
+    'fs outro plaque': ['FS_OUTRO_PLAQUE'],
     'freespin music': ['MUSIC_FS_L1'],
     'freespin intro': ['MUSIC_FS_INTRO'],
-    'freespin outro': ['MUSIC_FS_OUTRO'],
+    'freespin outro': ['FS_END'],
+    'freespin outro plaque': ['FS_OUTRO_PLAQUE'],
     // ─── Win / Big Win ────────────────────────────────────────────────
     'win music': ['BIG_WIN_START'],
     'big win music': ['BIG_WIN_START'],

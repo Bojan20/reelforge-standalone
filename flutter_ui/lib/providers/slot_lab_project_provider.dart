@@ -599,6 +599,25 @@ class SlotLabProjectProvider extends ChangeNotifier {
         .map((f) => f.uri.pathSegments.last)
         .toList();
 
+    // ─── Numbered-beats-generic: if numbered variants exist, remove generic ───
+    // E.g., if REEL_STOP_0 + REEL_STOP_1 exist, remove REEL_STOP (generic)
+    // Same for SCATTER_LAND vs SCATTER_LAND_1, WILD_LAND vs WILD_LAND_1, etc.
+    const numberedGenericPairs = [
+      ('REEL_STOP', 'REEL_STOP_'),
+      ('SCATTER_LAND', 'SCATTER_LAND_'),
+      ('WILD_LAND', 'WILD_LAND_'),
+      ('WIN_LINE_SHOW', 'WIN_LINE_SHOW_'),
+      ('WIN_LINE_HIDE', 'WIN_LINE_HIDE_'),
+      ('CASCADE_STEP', 'CASCADE_STEP_'),
+      ('ROLLUP_TICK', 'ROLLUP_TICK_'),
+    ];
+    for (final (generic, numberedPrefix) in numberedGenericPairs) {
+      if (bindings.containsKey(generic) &&
+          bindings.keys.any((k) => k.startsWith(numberedPrefix))) {
+        bindings.remove(generic);
+      }
+    }
+
     // WIN_PRESENT_LOW and WIN_PRESENT_EQUAL share the same sound
     if (bindings.containsKey('WIN_PRESENT_LOW') && !bindings.containsKey('WIN_PRESENT_EQUAL')) {
       bindings['WIN_PRESENT_EQUAL'] = bindings['WIN_PRESENT_LOW']!;
@@ -695,11 +714,12 @@ class SlotLabProjectProvider extends ChangeNotifier {
   static String? _resolveStageFromFilename(String base, String full) {
     // ─── REELS ───
     if (base == 'spins_loop_1of3' || base == 'spins_loop_2of3' || base == 'spins_loop_3of3') return 'REEL_SPIN_LOOP';
-    if (base == 'spins_stop_1of5') return 'REEL_STOP_0';
-    if (base == 'spins_stop_2of5') return 'REEL_STOP_1';
-    if (base == 'spins_stop_3of5') return 'REEL_STOP_2';
-    if (base == 'spins_stop_4of5') return 'REEL_STOP_3';
-    if (base == 'spins_stop_5of5') return 'REEL_STOP_4';
+    if (base == 'spins_stop_1of5' || base == 'reel_stop_1' || base == 'reel_land_1') return 'REEL_STOP_0';
+    if (base == 'spins_stop_2of5' || base == 'reel_stop_2' || base == 'reel_land_2') return 'REEL_STOP_1';
+    if (base == 'spins_stop_3of5' || base == 'reel_stop_3' || base == 'reel_land_3') return 'REEL_STOP_2';
+    if (base == 'spins_stop_4of5' || base == 'reel_stop_4' || base == 'reel_land_4') return 'REEL_STOP_3';
+    if (base == 'spins_stop_5of5' || base == 'reel_stop_5' || base == 'reel_land_5') return 'REEL_STOP_4';
+    if (base == 'reel_stop' || base == 'reel_land' || base == 'reelstop') return 'REEL_STOP';
 
     // ─── ANTICIPATION (sequential per-reel: short→R2, med→R3, long→R4) ───
     if (base == 'spins_susp_short') return 'ANTICIPATION_TENSION_R2';
@@ -746,26 +766,26 @@ class SlotLabProjectProvider extends ChangeNotifier {
 
     // ─── SCATTER / FREE SPINS ───
     if (base == 'scatter_land' || base == 'sfx_scatter_land') return 'SCATTER_LAND';
-    if (base == 'scatter_land_1of5' || base == 'scatter_land_1' || base == 'sfx_scatter_1' || base == 'scatter_1') return 'SCATTER_LAND_1';
-    if (base == 'scatter_land_2of5' || base == 'scatter_land_2' || base == 'sfx_scatter_2' || base == 'scatter_2') return 'SCATTER_LAND_2';
-    if (base == 'scatter_land_3of5' || base == 'scatter_land_3' || base == 'sfx_scatter_3' || base == 'scatter_3') return 'SCATTER_LAND_3';
-    if (base == 'scatter_land_4of5' || base == 'scatter_land_4' || base == 'sfx_scatter_4' || base == 'scatter_4') return 'SCATTER_LAND_4';
-    if (base == 'scatter_land_5of5' || base == 'scatter_land_5' || base == 'sfx_scatter_5' || base == 'scatter_5') return 'SCATTER_LAND_5';
+    if (base == 'scatter_land_1of5' || base == 'scatter_land_1' || base == 'sfx_scatter_1' || base == 'scatter_1' || base == 'sfx_scatter_land_1' || base == 'sfx_scatter_land_1of5') return 'SCATTER_LAND_1';
+    if (base == 'scatter_land_2of5' || base == 'scatter_land_2' || base == 'sfx_scatter_2' || base == 'scatter_2' || base == 'sfx_scatter_land_2' || base == 'sfx_scatter_land_2of5') return 'SCATTER_LAND_2';
+    if (base == 'scatter_land_3of5' || base == 'scatter_land_3' || base == 'sfx_scatter_3' || base == 'scatter_3' || base == 'sfx_scatter_land_3' || base == 'sfx_scatter_land_3of5') return 'SCATTER_LAND_3';
+    if (base == 'scatter_land_4of5' || base == 'scatter_land_4' || base == 'sfx_scatter_4' || base == 'scatter_4' || base == 'sfx_scatter_land_4' || base == 'sfx_scatter_land_4of5') return 'SCATTER_LAND_4';
+    if (base == 'scatter_land_5of5' || base == 'scatter_land_5' || base == 'sfx_scatter_5' || base == 'scatter_5' || base == 'sfx_scatter_land_5' || base == 'sfx_scatter_land_5of5') return 'SCATTER_LAND_5';
     if (base == 'scatter_win' || base == 'sfx_scatter_win') return 'SCATTER_WIN';
     if (base == 'panels_appear') return 'FS_HOLD_INTRO';
     if (base == 'trn_fs_intro') return 'CONTEXT_BASE_TO_FS';
-    if (base == 'trn_fs_outro_panel') return 'FS_END';
+    if (base == 'trn_fs_outro_panel') return 'FS_OUTRO_PLAQUE';
     if (base == 'trn_return_to_base') return 'CONTEXT_FS_TO_BASE';
     if (base == 'mus_fs') return 'MUSIC_FS_L1';
-    if (base == 'mus_fs_end') return 'MUSIC_FS_OUTRO';
+    if (base == 'mus_fs_end' || base == 'mus_fs_outro') return 'FS_END';
 
     // ─── WILD ───
-    if (base == 'wild_land' || base == 'wildland') return 'WILD_LAND';
-    if (base == 'wild_land_1' || base == 'sfx_wild_1' || base == 'wild_1') return 'WILD_LAND_1';
-    if (base == 'wild_land_2' || base == 'sfx_wild_2' || base == 'wild_2') return 'WILD_LAND_2';
-    if (base == 'wild_land_3' || base == 'sfx_wild_3' || base == 'wild_3') return 'WILD_LAND_3';
-    if (base == 'wild_land_4' || base == 'sfx_wild_4' || base == 'wild_4') return 'WILD_LAND_4';
-    if (base == 'wild_land_5' || base == 'sfx_wild_5' || base == 'wild_5') return 'WILD_LAND_5';
+    if (base == 'wild_land' || base == 'wildland' || base == 'sfx_wild_land') return 'WILD_LAND';
+    if (base == 'wild_land_1' || base == 'sfx_wild_1' || base == 'wild_1' || base == 'sfx_wild_land_1') return 'WILD_LAND_1';
+    if (base == 'wild_land_2' || base == 'sfx_wild_2' || base == 'wild_2' || base == 'sfx_wild_land_2') return 'WILD_LAND_2';
+    if (base == 'wild_land_3' || base == 'sfx_wild_3' || base == 'wild_3' || base == 'sfx_wild_land_3') return 'WILD_LAND_3';
+    if (base == 'wild_land_4' || base == 'sfx_wild_4' || base == 'wild_4' || base == 'sfx_wild_land_4') return 'WILD_LAND_4';
+    if (base == 'wild_land_5' || base == 'sfx_wild_5' || base == 'wild_5' || base == 'sfx_wild_land_5') return 'WILD_LAND_5';
     if (base == 'wild_expand' || base == 'wild_expand_start') return 'WILD_EXPAND_START';
     if (base == 'wild_expand_step') return 'WILD_EXPAND_STEP';
     if (base == 'wild_expand_end') return 'WILD_EXPAND_END';

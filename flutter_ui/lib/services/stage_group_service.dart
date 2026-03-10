@@ -391,6 +391,7 @@ String generateEventName(String stage) {
     'FS_RETRIGGER_5': 'onFsRetrigger5',
     'FS_RETRIGGER_10': 'onFsRetrigger10',
     'FS_END': 'onFsEnd',
+    'FS_OUTRO_PLAQUE': 'onFsOutroPlaque',
 
     // Bonus
     'BONUS_TRIGGER': 'onBonusTrigger',
@@ -639,7 +640,10 @@ class StageGroupService {
     'mus_fs_start': 'MUSIC_FS_L1',
     'mus_fs_loop': 'MUSIC_FS_L1',
     'mus_fs_intro': 'MUSIC_FS_INTRO',
-    'mus_fs_outro': 'MUSIC_FS_OUTRO',
+    'mus_fs_outro': 'FS_END',
+    'mus_fs_end': 'FS_END',
+    'trn_fs_outro_panel': 'FS_OUTRO_PLAQUE',
+    'fs_outro_plaque': 'FS_OUTRO_PLAQUE',
     'mus_fs': 'MUSIC_FS_L1',
     'freespins_music': 'MUSIC_FS_L1',
     'free_spins_music': 'MUSIC_FS_L1',

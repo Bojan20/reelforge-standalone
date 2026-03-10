@@ -459,6 +459,7 @@ class StageConfigurationService extends ChangeNotifier {
     'FS_SCATTER_LAND': 'FS Scatter',
     'FS_RETRIGGER': 'Retrigger',
     'FS_END': 'FS End',
+    'FS_OUTRO_PLAQUE': 'FS Outro Plaque',
     // Bonus Games
     'BONUS_TRIGGER': 'Bonus Trigger',
     'BONUS_ENTER': 'Bonus Enter',
@@ -1294,7 +1295,8 @@ class StageConfigurationService extends ChangeNotifier {
     _register('FS_RETRIGGER_3', StageCategory.feature, 80, SpatialBus.sfx, 'FREE_SPIN_TRIGGER', ducksMusic: true);
     _register('FS_RETRIGGER_5', StageCategory.feature, 80, SpatialBus.sfx, 'FREE_SPIN_TRIGGER', ducksMusic: true);
     _register('FS_RETRIGGER_10', StageCategory.feature, 80, SpatialBus.sfx, 'FREE_SPIN_TRIGGER', ducksMusic: true);
-    _register('FS_END', StageCategory.feature, 70, SpatialBus.sfx, 'DEFAULT');
+    _register('FS_END', StageCategory.feature, 70, SpatialBus.music, 'DEFAULT');
+    _register('FS_OUTRO_PLAQUE', StageCategory.feature, 65, SpatialBus.sfx, 'DEFAULT');
 
     // Scene transitions (context switches between game phases)
     _register('CONTEXT_BASE_TO_FS', StageCategory.feature, 85, SpatialBus.music, 'FEATURE_ENTER', ducksMusic: true);

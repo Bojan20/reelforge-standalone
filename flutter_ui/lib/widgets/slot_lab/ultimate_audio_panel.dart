@@ -4428,6 +4428,7 @@ class _FreeSpinsSection extends _SectionConfig {
       icon: '🏁',
       slots: [
         _SlotConfig(stage: 'FS_END', label: 'FS End'),
+        _SlotConfig(stage: 'FS_OUTRO_PLAQUE', label: 'FS Outro Plaque'),
       ],
     ),
   ];
