@@ -44,6 +44,10 @@ class TimelineClipData {
   final ClipChannelMode channelMode;
   /// User notes for this clip
   final String notes;
+  /// Fade in duration in seconds
+  final double fadeIn;
+  /// Fade out duration in seconds
+  final double fadeOut;
 
   const TimelineClipData({
     required this.id,
@@ -62,6 +66,8 @@ class TimelineClipData {
     this.snapOffset = 0,
     this.channelMode = ClipChannelMode.normal,
     this.notes = '',
+    this.fadeIn = 0,
+    this.fadeOut = 0,
   });
 
   double get endTime => startTime + duration;

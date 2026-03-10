@@ -13,8 +13,10 @@ library;
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../lower_zone_types.dart';
 import '../../../../services/track_preset_service.dart';
+import '../../../../providers/mixer_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TRACK PRESETS PANEL
@@ -27,10 +29,14 @@ class TrackPresetsPanel extends StatefulWidget {
   /// Callback for search text changes
   final String? searchQuery;
 
+  /// Currently selected track ID for reading volume/pan
+  final String? selectedTrackId;
+
   const TrackPresetsPanel({
     super.key,
     this.onPresetAction,
     this.searchQuery,
+    this.selectedTrackId,
   });
 
   @override
@@ -372,6 +378,14 @@ class _TrackPresetsPanelState extends State<TrackPresetsPanel> {
   // ─── Actions ───────────────────────────────────────────────────────────────
 
   void _onSaveCurrentAsPreset() {
+    // Read volume/pan from selected track via MixerProvider
+    final mixer = context.read<MixerProvider>();
+    final trackId = widget.selectedTrackId;
+    final channel = trackId != null ? mixer.getChannel(trackId) : null;
+    final trackVolume = channel?.volume ?? 1.0;
+    final trackPan = channel?.pan ?? 0.0;
+    final trackOutputBus = channel?.outputBus ?? 'master';
+
     // Show save dialog
     showDialog(
       context: context,
@@ -381,9 +395,9 @@ class _TrackPresetsPanelState extends State<TrackPresetsPanel> {
             name: name,
             category: category,
             createdAt: DateTime.now(),
-            volume: 1.0, // TODO: Get from selected track
-            pan: 0.0,
-            outputBus: 'master',
+            volume: trackVolume,
+            pan: trackPan,
+            outputBus: trackOutputBus,
           );
           final success = await TrackPresetService.instance.savePreset(preset);
           if (success && mounted) {

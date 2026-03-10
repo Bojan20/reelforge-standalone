@@ -31,9 +31,12 @@ class _AutomationPanelState extends State<AutomationPanel> {
   final AutomationProvider _provider = sl<AutomationProvider>();
   String _automationParameter = 'Volume';
   int? _selectedPointIndex;
+  bool _snapToGrid = false;
+  int _gridSubdivision = 4; // snaps per beat (4=16th, 2=8th, 1=quarter)
+  double _zoomLevel = 1.0; // 0.5x to 4x
 
-  // Duration of visible timeline in samples (default 10 seconds at 48kHz)
-  int get _visibleDurationSamples => (_provider.sampleRate * 10).round();
+  // Duration of visible timeline in samples
+  int get _visibleDurationSamples => (_provider.sampleRate * 10 / _zoomLevel).round();
 
   @override
   void initState() {
@@ -106,6 +109,16 @@ class _AutomationPanelState extends State<AutomationPanel> {
 
   bool get _isEditable => _provider.mode != AutomationMode.read;
 
+  /// Snap time to nearest grid position if snap is enabled
+  int _snapTime(int timeSamples) {
+    if (!_snapToGrid) return timeSamples;
+    // Assume 120 BPM, calculate samples per grid unit
+    final samplesPerBeat = _provider.sampleRate ~/ 2; // 120 BPM = 2 beats/sec
+    final samplesPerGrid = samplesPerBeat ~/ _gridSubdivision;
+    if (samplesPerGrid <= 0) return timeSamples;
+    return ((timeSamples + samplesPerGrid ~/ 2) ~/ samplesPerGrid) * samplesPerGrid;
+  }
+
   @override
   Widget build(BuildContext context) {
     final trackId = widget.selectedTrackId;
@@ -159,10 +172,12 @@ class _AutomationPanelState extends State<AutomationPanel> {
               _buildAutomationModeChip('Read'),
               _buildAutomationModeChip('Write'),
               _buildAutomationModeChip('Touch'),
+              _buildAutomationModeChip('Latch'),
+              _buildAutomationModeChip('Trim'),
             ],
           ),
           const SizedBox(height: 8),
-          // Parameter selection row
+          // Parameter selection + tools row
           Row(
             children: [
               const Text(
@@ -217,6 +232,70 @@ class _AutomationPanelState extends State<AutomationPanel> {
                   'Clear',
                   style: TextStyle(fontSize: 10, color: LowerZoneColors.textMuted),
                 ),
+              ),
+              const SizedBox(width: 12),
+              // Snap toggle
+              GestureDetector(
+                onTap: () => setState(() => _snapToGrid = !_snapToGrid),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: _snapToGrid
+                        ? LowerZoneColors.dawAccent.withValues(alpha: 0.2)
+                        : LowerZoneColors.bgSurface,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: _snapToGrid ? LowerZoneColors.dawAccent : LowerZoneColors.border,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.grid_4x4, size: 10,
+                        color: _snapToGrid ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted),
+                      const SizedBox(width: 3),
+                      Text('SNAP', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold,
+                        color: _snapToGrid ? LowerZoneColors.dawAccent : LowerZoneColors.textMuted)),
+                    ],
+                  ),
+                ),
+              ),
+              if (_snapToGrid) ...[
+                const SizedBox(width: 4),
+                // Grid subdivision selector
+                PopupMenuButton<int>(
+                  initialValue: _gridSubdivision,
+                  onSelected: (v) => setState(() => _gridSubdivision = v),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: LowerZoneColors.bgSurface,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text('1/${_gridSubdivision * 4}',
+                      style: const TextStyle(fontSize: 8, color: LowerZoneColors.textSecondary)),
+                  ),
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 1, child: Text('1/4 (Quarter)')),
+                    PopupMenuItem(value: 2, child: Text('1/8 (Eighth)')),
+                    PopupMenuItem(value: 4, child: Text('1/16 (Sixteenth)')),
+                    PopupMenuItem(value: 8, child: Text('1/32 (Thirty-second)')),
+                  ],
+                ),
+              ],
+              const SizedBox(width: 8),
+              // Zoom controls
+              GestureDetector(
+                onTap: () => setState(() => _zoomLevel = (_zoomLevel / 1.5).clamp(0.25, 4.0)),
+                child: const Icon(Icons.zoom_out, size: 14, color: LowerZoneColors.textMuted),
+              ),
+              const SizedBox(width: 4),
+              Text('${(_zoomLevel * 100).toInt()}%',
+                style: const TextStyle(fontSize: 8, color: LowerZoneColors.textSecondary, fontFamily: 'monospace')),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: () => setState(() => _zoomLevel = (_zoomLevel * 1.5).clamp(0.25, 4.0)),
+                child: const Icon(Icons.zoom_in, size: 14, color: LowerZoneColors.textMuted),
               ),
               const Spacer(),
               // Point count
@@ -280,7 +359,8 @@ class _AutomationPanelState extends State<AutomationPanel> {
         return GestureDetector(
           onTapDown: (details) {
             if (_isEditable) {
-              final timeSamples = _xToTimeSamples(details.localPosition.dx, size.width);
+              final timeSamples = _snapTime(
+                _xToTimeSamples(details.localPosition.dx, size.width));
               final value = _yToValue(details.localPosition.dy, size.height);
               _provider.addPoint(trackId, _automationParameter, timeSamples, value);
             }
@@ -296,7 +376,8 @@ class _AutomationPanelState extends State<AutomationPanel> {
           },
           onPanUpdate: (details) {
             if (_selectedPointIndex != null && _isEditable && _selectedPointIndex! < points.length) {
-              final timeSamples = _xToTimeSamples(details.localPosition.dx, size.width);
+              final timeSamples = _snapTime(
+                _xToTimeSamples(details.localPosition.dx, size.width));
               final value = _yToValue(details.localPosition.dy, size.height);
               _provider.movePoint(
                 trackId,
@@ -339,6 +420,9 @@ class _AutomationPanelState extends State<AutomationPanel> {
                 points: offsets,
                 selectedIndex: _selectedPointIndex,
                 isEditable: _isEditable,
+                snapToGrid: _snapToGrid,
+                gridSubdivision: _gridSubdivision,
+                zoomLevel: _zoomLevel,
               ),
             ),
           ),
@@ -385,12 +469,18 @@ class AutomationCurvePainter extends CustomPainter {
   final List<Offset> points;
   final int? selectedIndex;
   final bool isEditable;
+  final bool snapToGrid;
+  final int gridSubdivision;
+  final double zoomLevel;
 
   const AutomationCurvePainter({
     required this.color,
     required this.points,
     this.selectedIndex,
     this.isEditable = true,
+    this.snapToGrid = false,
+    this.gridSubdivision = 4,
+    this.zoomLevel = 1.0,
   });
 
   @override
@@ -398,8 +488,16 @@ class AutomationCurvePainter extends CustomPainter {
     // Draw grid
     _drawGrid(canvas, size);
 
+    // Draw snap grid overlay
+    if (snapToGrid) {
+      _drawSnapGrid(canvas, size);
+    }
+
     // Draw value labels
     _drawValueLabels(canvas, size);
+
+    // Draw time labels
+    _drawTimeLabels(canvas, size);
 
     if (points.isEmpty) {
       // Draw placeholder text
@@ -527,10 +625,55 @@ class AutomationCurvePainter extends CustomPainter {
     }
   }
 
+  void _drawSnapGrid(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color.withValues(alpha: 0.08)
+      ..strokeWidth = 1;
+
+    // Draw vertical snap lines based on subdivision
+    // 10 seconds visible / zoom, at 120 BPM = 20 beats
+    final beatsVisible = 20.0 * zoomLevel;
+    final linesPerBeat = gridSubdivision;
+    final totalLines = (beatsVisible * linesPerBeat).ceil();
+    for (int i = 0; i <= totalLines; i++) {
+      final x = i / totalLines * size.width;
+      final isBeatLine = i % linesPerBeat == 0;
+      paint.color = isBeatLine
+          ? color.withValues(alpha: 0.15)
+          : color.withValues(alpha: 0.05);
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+  }
+
+  void _drawTimeLabels(Canvas canvas, Size size) {
+    // Draw time markers at bottom
+    final durationSec = 10.0 / zoomLevel;
+    final step = durationSec > 8 ? 2.0 : 1.0;
+    for (double t = 0; t <= durationSec; t += step) {
+      final x = t / durationSec * size.width;
+      final label = t >= 1 ? '${t.toStringAsFixed(0)}s' : '${(t * 1000).toInt()}ms';
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: label,
+          style: TextStyle(
+            color: LowerZoneColors.textMuted.withValues(alpha: 0.5),
+            fontSize: 8,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+      textPainter.paint(canvas, Offset(x + 2, size.height - textPainter.height - 2));
+    }
+  }
+
   @override
   bool shouldRepaint(covariant AutomationCurvePainter oldDelegate) {
     return points != oldDelegate.points ||
         selectedIndex != oldDelegate.selectedIndex ||
-        isEditable != oldDelegate.isEditable;
+        isEditable != oldDelegate.isEditable ||
+        snapToGrid != oldDelegate.snapToGrid ||
+        gridSubdivision != oldDelegate.gridSubdivision ||
+        zoomLevel != oldDelegate.zoomLevel;
   }
 }

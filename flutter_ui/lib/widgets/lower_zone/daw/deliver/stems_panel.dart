@@ -10,6 +10,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../providers/stem_routing_provider.dart';
 import '../../../../providers/mixer_provider.dart';
+import '../../../../src/rust/native_ffi.dart';
+import '../../../../services/native_file_picker.dart';
 import '../../../routing/stem_routing_matrix.dart';
 import '../../lower_zone_types.dart';
 
@@ -74,11 +76,12 @@ class _StematrixContentState extends State<_StematrixContent> {
     }
   }
 
-  void _handleExport() {
+  void _handleExport() async {
     final provider = context.read<StemRoutingProvider>();
     final config = provider.getExportConfiguration();
 
     if (config.isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('No stems configured. Assign tracks to stems first.'),
@@ -88,23 +91,43 @@ class _StematrixContentState extends State<_StematrixContent> {
       return;
     }
 
-    // TODO: Integrate with existing export service
-    // For now, show success message with configuration summary
-    final stemSummary = config.entries
-        .map((e) => '${e.key.label}: ${e.value.length} tracks')
-        .join(', ');
+    // Pick output directory
+    final outputDir = await NativeFilePicker.pickDirectory(
+      title: 'Select Stems Export Directory',
+    );
+    if (outputDir == null || !mounted) return;
 
+    // Show progress
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Ready to export: $stemSummary'),
+        content: Text('Exporting ${config.length} stem groups...'),
+        backgroundColor: LowerZoneColors.dawAccent,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    // Export each stem group via FFI
+    int totalExported = 0;
+    for (final entry in config.entries) {
+      final stemLabel = entry.key.label;
+      final result = NativeFFI.instance.exportStems(
+        outputDir,
+        0,     // WAV format
+        48000, // 48kHz
+        0.0,   // start from beginning
+        -1.0,  // -1 = entire project
+        true,  // normalize
+        true,  // include buses
+        stemLabel,
+      );
+      if (result > 0) totalExported += result;
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Exported $totalExported stems to $outputDir'),
         backgroundColor: LowerZoneColors.success,
-        action: SnackBarAction(
-          label: 'EXPORT',
-          textColor: Colors.black,
-          onPressed: () {
-            // TODO: Call actual export service
-          },
-        ),
       ),
     );
   }

@@ -15,13 +15,24 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../lower_zone_types.dart';
 import '../../../../providers/plugin_provider.dart';
+import '../../../../providers/dsp_chain_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PLUGINS SCANNER PANEL
 // ═══════════════════════════════════════════════════════════════════════════
 
 class PluginsScannerPanel extends StatelessWidget {
-  const PluginsScannerPanel({super.key});
+  /// Selected track ID for plugin insertion target
+  final int? selectedTrackId;
+
+  /// Callback when a plugin is inserted (pluginId, trackId)
+  final void Function(String pluginId, int trackId)? onPluginInserted;
+
+  const PluginsScannerPanel({
+    super.key,
+    this.selectedTrackId,
+    this.onPluginInserted,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -129,13 +140,13 @@ class PluginsScannerPanel extends StatelessWidget {
                 : ListView(
                     children: [
                       if (vst3Plugins.isNotEmpty)
-                        _buildPluginCategory('VST3', vst3Plugins, pluginProvider),
+                        _buildPluginCategory(context, 'VST3', vst3Plugins, pluginProvider),
                       if (auPlugins.isNotEmpty)
-                        _buildPluginCategory('AU', auPlugins, pluginProvider),
+                        _buildPluginCategory(context, 'AU', auPlugins, pluginProvider),
                       if (clapPlugins.isNotEmpty)
-                        _buildPluginCategory('CLAP', clapPlugins, pluginProvider),
+                        _buildPluginCategory(context, 'CLAP', clapPlugins, pluginProvider),
                       if (lv2Plugins.isNotEmpty)
-                        _buildPluginCategory('LV2', lv2Plugins, pluginProvider),
+                        _buildPluginCategory(context, 'LV2', lv2Plugins, pluginProvider),
                     ],
                   ),
           ),
@@ -301,7 +312,7 @@ class PluginsScannerPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildPluginCategory(String category, List<PluginInfo> plugins, PluginProvider provider) {
+  Widget _buildPluginCategory(BuildContext context, String category, List<PluginInfo> plugins, PluginProvider provider) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -340,18 +351,51 @@ class PluginsScannerPanel extends StatelessWidget {
             ),
           ),
           // Plugin items
-          ...plugins.map((p) => _buildPluginItem(p, provider)),
+          ...plugins.map((p) => _buildPluginItem(context, p, provider)),
         ],
       ),
     );
   }
 
-  Widget _buildPluginItem(PluginInfo plugin, PluginProvider provider) {
+  void _insertPlugin(BuildContext context, PluginInfo plugin) {
+    final trackId = selectedTrackId ?? 0;
+
+    // Map plugin category to DspNodeType for internal plugins
+    final nodeType = _pluginCategoryToNodeType(plugin);
+    if (nodeType != null) {
+      DspChainProvider.instance.addNode(trackId, nodeType);
+    }
+
+    onPluginInserted?.call(plugin.id, trackId);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Inserted ${plugin.name} on Track $trackId'),
+        backgroundColor: LowerZoneColors.dawAccent,
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
+  DspNodeType? _pluginCategoryToNodeType(PluginInfo plugin) {
+    // Map known plugin names/categories to internal DSP node types
+    final nameLower = plugin.name.toLowerCase();
+    if (nameLower.contains('eq') || nameLower.contains('equalizer')) return DspNodeType.eq;
+    if (nameLower.contains('compressor') || nameLower.contains('comp')) return DspNodeType.compressor;
+    if (nameLower.contains('limiter')) return DspNodeType.limiter;
+    if (nameLower.contains('gate') || nameLower.contains('expander')) return DspNodeType.gate;
+    if (nameLower.contains('reverb')) return DspNodeType.reverb;
+    if (nameLower.contains('delay')) return DspNodeType.delay;
+    if (nameLower.contains('saturat') || nameLower.contains('distort')) return DspNodeType.saturation;
+    if (nameLower.contains('de-ess') || nameLower.contains('deess')) return DspNodeType.deEsser;
+    return null; // External plugin — no internal DSP node
+  }
+
+  Widget _buildPluginItem(BuildContext context, PluginInfo plugin, PluginProvider provider) {
     return GestureDetector(
       onTap: () {
-        // Add to recent when clicked
         provider.addToRecent(plugin.id);
-        // TODO: Insert into track slot (needs callback)
+        _insertPlugin(context, plugin);
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),

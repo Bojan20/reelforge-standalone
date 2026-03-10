@@ -9,11 +9,12 @@
 /// Created: 2026-01-29
 library;
 
-import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import '../../../../theme/fluxforge_theme.dart';
+import '../../../../services/shared_meter_reader.dart';
 import '../../../spectrum/spectrum_analyzer.dart';
 
 /// History length presets (in seconds)
@@ -89,13 +90,10 @@ class _SpectrumWaterfallPanelState extends State<SpectrumWaterfallPanel>
   double _minDb = -90.0;
   double _maxDb = 6.0;
 
-  // Animation
-  late AnimationController _controller;
-  Timer? _demoTimer;
-
-  // Demo data (until FFI is connected)
-  Float64List? _spectrumData;
-  final math.Random _random = math.Random();
+  // SharedMeterReader — real FFI spectrum data
+  final SharedMeterReader _meterReader = SharedMeterReader.instance;
+  late Ticker _ticker;
+  bool _ffiConnected = false;
 
   // Waterfall history
   final List<Float64List> _history = [];
@@ -104,89 +102,79 @@ class _SpectrumWaterfallPanelState extends State<SpectrumWaterfallPanel>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 16),
-    )..addListener(_onTick);
-    _controller.repeat();
+    _ticker = createTicker(_onTick);
+    _initMeterReader();
+  }
 
-    // Demo mode: generate test data until FFI is connected
-    // TODO: Replace with real FFI data from PLAYBACK_ENGINE
-    _startDemoMode();
+  Future<void> _initMeterReader() async {
+    _ffiConnected = await _meterReader.initialize();
+    if (mounted) {
+      _ticker.start();
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
-    _demoTimer?.cancel();
+    _ticker.dispose();
     super.dispose();
   }
 
-  void _startDemoMode() {
-    // Generate initial spectrum with realistic shape
-    _spectrumData = Float64List(256);
-    _generateDemoSpectrum();
+  void _onTick(Duration _) {
+    if (_isPaused) return;
 
-    // Update demo data at ~30fps
-    _demoTimer = Timer.periodic(const Duration(milliseconds: 33), (_) {
-      if (!_isPaused) {
-        _generateDemoSpectrum();
-      }
-    });
-  }
+    if (_ffiConnected && _meterReader.hasChanged) {
+      final snapshot = _meterReader.readMeters();
+      final bands = snapshot.spectrumBands; // 32 bands from FFI
 
-  void _generateDemoSpectrum() {
-    if (_spectrumData == null) return;
-
-    final data = _spectrumData!;
-    final time = DateTime.now().millisecondsSinceEpoch / 1000.0;
-
-    for (int i = 0; i < data.length; i++) {
-      // Base level drops off at high frequencies
-      final freq = _binToFreq(i, data.length);
-      final rolloff = -12.0 * math.log(freq / 100 + 1) / math.ln10;
-
-      // Add some harmonic content
-      double level = rolloff;
-
-      // Bass bump
-      if (freq < 100) {
-        level += 6.0 * math.sin(time * 2);
-      }
-
-      // Mid presence
-      if (freq > 300 && freq < 3000) {
-        level += 3.0 * math.sin(time * 3 + i * 0.1);
-      }
-
-      // Add noise
-      level += (_random.nextDouble() - 0.5) * 6;
-
-      // Clamp to valid dB range
-      data[i] = level.clamp(_minDb, _maxDb);
+      // Interpolate 32 FFI bands → 256 display bins (cubic interpolation)
+      final displayData = _interpolateSpectrum(bands, 256);
+      _history.insert(0, displayData);
+    } else if (!_ffiConnected) {
+      // Fallback: silent spectrum when FFI not available
+      _history.insert(0, Float64List(256));
+    } else {
+      return; // No new data, skip frame
     }
 
-    setState(() {});
-  }
-
-  double _binToFreq(int bin, int binCount) {
-    final t = bin / (binCount - 1);
-    return _minFreq * math.pow(_maxFreq / _minFreq, t);
-  }
-
-  void _onTick() {
-    if (_isPaused || _spectrumData == null) return;
-
-    // Add current spectrum to history
-    _history.insert(0, Float64List.fromList(_spectrumData!));
-
-    // Limit history based on selected duration
+    // Limit history
     final maxHistory = _historyLength.frames;
     while (_history.length > maxHistory) {
       _history.removeLast();
     }
 
     _historyVersion++;
+    if (mounted) setState(() {});
+  }
+
+  /// Interpolate 32 FFI bands → N display bins using cubic smoothing
+  Float64List _interpolateSpectrum(Float64List bands, int outputSize) {
+    final result = Float64List(outputSize);
+    final bandCount = bands.length;
+    if (bandCount == 0) return result;
+
+    for (int i = 0; i < outputSize; i++) {
+      // Map display bin to FFI band (log-frequency aligned)
+      final t = i / (outputSize - 1);
+      final bandPos = t * (bandCount - 1);
+      final idx = bandPos.floor().clamp(0, bandCount - 2);
+      final frac = bandPos - idx;
+
+      // Catmull-Rom interpolation for smooth curves
+      final p0 = bands[(idx - 1).clamp(0, bandCount - 1)];
+      final p1 = bands[idx];
+      final p2 = bands[(idx + 1).clamp(0, bandCount - 1)];
+      final p3 = bands[(idx + 2).clamp(0, bandCount - 1)];
+
+      final f2 = frac * frac;
+      final f3 = f2 * frac;
+      result[i] = (0.5 * ((2 * p1) +
+          (-p0 + p2) * frac +
+          (2 * p0 - 5 * p1 + 4 * p2 - p3) * f2 +
+          (-p0 + 3 * p1 - 3 * p2 + p3) * f3))
+          .clamp(_minDb, _maxDb);
+    }
+    return result;
   }
 
   @override
@@ -491,16 +479,22 @@ class _SpectrumWaterfallPanelState extends State<SpectrumWaterfallPanel>
 
           const SizedBox(width: 8),
 
-          // Demo mode indicator
+          // FFI connection status
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
             decoration: BoxDecoration(
-              color: Colors.cyan.withAlpha(51),
+              color: _ffiConnected
+                  ? Colors.green.withAlpha(51)
+                  : Colors.orange.withAlpha(51),
               borderRadius: BorderRadius.circular(2),
             ),
-            child: const Text(
-              'DEMO',
-              style: TextStyle(color: Colors.cyan, fontSize: 8, fontWeight: FontWeight.bold),
+            child: Text(
+              _ffiConnected ? 'FFI' : 'OFFLINE',
+              style: TextStyle(
+                color: _ffiConnected ? Colors.green : Colors.orange,
+                fontSize: 8,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],

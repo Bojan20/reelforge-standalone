@@ -62,9 +62,9 @@ class ClipPropertiesPanel extends StatelessWidget {
       clipName: clip.name,
       startTime: clip.startTime,
       duration: clip.duration,
-      gain: clip.trackVolume, // Use track volume as clip gain
-      fadeIn: 0.0, // TODO: Add fadeIn to TimelineClipData
-      fadeOut: 0.0, // TODO: Add fadeOut to TimelineClipData
+      gain: clip.trackVolume,
+      fadeIn: clip.fadeIn,
+      fadeOut: clip.fadeOut,
       snapOffset: clip.snapOffset,
       channelMode: clip.channelMode,
       notes: clip.notes,
