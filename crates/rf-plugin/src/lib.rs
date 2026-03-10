@@ -59,6 +59,38 @@ pub mod clap;
 pub mod lv2;
 pub mod ultimate_scanner;
 
+/// Find the rf-plugin-host binary for out-of-process plugin GUI hosting.
+/// Searches: app bundle MacOS dir, Frameworks dir, cargo target/release.
+#[cfg(target_os = "macos")]
+pub fn find_plugin_host_binary() -> Option<std::path::PathBuf> {
+    let candidates = [
+        // Inside app bundle: .app/Contents/MacOS/rf-plugin-host
+        std::env::current_exe().ok().and_then(|p| {
+            p.parent().map(|d| d.join("rf-plugin-host"))
+        }),
+        // Inside app bundle: .app/Contents/Frameworks/rf-plugin-host
+        std::env::current_exe().ok().and_then(|p| {
+            p.parent()
+                .and_then(|d| d.parent())
+                .map(|d| d.join("Frameworks").join("rf-plugin-host"))
+        }),
+        // Development: cargo target/release
+        Some(std::path::PathBuf::from("target/release/rf-plugin-host")),
+    ];
+
+    for candidate in &candidates {
+        if let Some(path) = candidate {
+            if path.exists() {
+                eprintln!("[FluxForge] Found rf-plugin-host at {:?}", path);
+                return Some(path.clone());
+            }
+        }
+    }
+
+    eprintln!("[FluxForge] rf-plugin-host NOT FOUND in any location");
+    None
+}
+
 // Re-exports - Core
 pub use ara2::{
     AraAnalysisState, AraAudioModificationId, AraAudioSourceId, AraContentAnalysis,

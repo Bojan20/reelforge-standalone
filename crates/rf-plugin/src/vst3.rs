@@ -24,26 +24,155 @@ use crate::{
 /// Maximum parameter changes per audio block
 const MAX_PARAM_CHANGES: usize = 128;
 
+/// Register ObjC runtime subclasses for plugin GUI hosting.
+/// Called once — creates FFPluginWindow (NSWindow subclass) and
+/// FFPluginContainerView (NSView subclass with acceptsFirstMouse).
+/// Based on baseview (RustAudio) and JUCE patterns.
+#[cfg(target_os = "macos")]
+fn register_plugin_window_classes() {
+    use objc::declare::ClassDecl;
+    use objc::runtime::{Class, Object, Sel, BOOL};
+    use objc::{sel, sel_impl};
+
+    static REGISTERED: std::sync::Once = std::sync::Once::new();
+    REGISTERED.call_once(|| {
+        unsafe {
+            // --- FFPluginWindow: NSWindow that always accepts key/main ---
+            let ns_window = Class::get("NSWindow").unwrap();
+            let mut window_decl = ClassDecl::new("FFPluginWindow", ns_window).unwrap();
+
+            extern "C" fn can_become_key(_this: &Object, _sel: Sel) -> BOOL {
+                objc::runtime::YES
+            }
+            extern "C" fn can_become_main(_this: &Object, _sel: Sel) -> BOOL {
+                objc::runtime::YES
+            }
+
+            // Debug: log sendEvent + hitTest for mouseDown
+            extern "C" fn send_event(this: &Object, _sel: Sel, event: *mut Object) {
+                unsafe {
+                    let etype: u64 = objc::msg_send![event, type];
+                    if etype == 1 { // mouseDown
+                        let location: cocoa::foundation::NSPoint = objc::msg_send![event, locationInWindow];
+                        let content_view: *mut Object = objc::msg_send![this, contentView];
+                        let local: cocoa::foundation::NSPoint = objc::msg_send![content_view, convertPoint:location fromView:std::ptr::null_mut::<Object>()];
+                        let hit: *mut Object = objc::msg_send![content_view, hitTest: local];
+                        if !hit.is_null() {
+                            let cls: *mut Object = objc::msg_send![hit, class];
+                            let name: *mut Object = objc::msg_send![cls, className];
+                            let cstr: *const i8 = objc::msg_send![name, UTF8String];
+                            let n = std::ffi::CStr::from_ptr(cstr).to_str().unwrap_or("?");
+                            let super_cls: *mut Object = objc::msg_send![cls, superclass];
+                            let super_name: *mut Object = objc::msg_send![super_cls, className];
+                            let scstr: *const i8 = objc::msg_send![super_name, UTF8String];
+                            let sn = std::ffi::CStr::from_ptr(scstr).to_str().unwrap_or("?");
+                            eprintln!("[FFPluginWindow] mouseDown at ({:.0},{:.0}) hit={} super={}", local.x, local.y, n, sn);
+                            // Check view hierarchy depth
+                            let mut v: *mut Object = hit;
+                            let mut depth = 0;
+                            while !v.is_null() {
+                                let parent: *mut Object = objc::msg_send![v, superview];
+                                v = parent;
+                                depth += 1;
+                                if depth > 20 { break; }
+                            }
+                            eprintln!("[FFPluginWindow] view depth={}", depth);
+                        } else {
+                            eprintln!("[FFPluginWindow] mouseDown hitTest=nil at ({:.0},{:.0})", local.x, local.y);
+                        }
+                    }
+                    // Call super
+                    let superclass = objc::runtime::Class::get("NSWindow").unwrap();
+                    let send_event_sel = objc::sel!(sendEvent:);
+                    let imp: extern "C" fn(*mut Object, objc::runtime::Sel, *mut Object) =
+                        std::mem::transmute(superclass.instance_method(send_event_sel).unwrap().implementation());
+                    imp(this as *const _ as *mut _, send_event_sel, event);
+                }
+            }
+
+            window_decl.add_method(
+                sel!(canBecomeKeyWindow),
+                can_become_key as extern "C" fn(&Object, Sel) -> BOOL,
+            );
+            window_decl.add_method(
+                sel!(canBecomeMainWindow),
+                can_become_main as extern "C" fn(&Object, Sel) -> BOOL,
+            );
+            window_decl.add_method(
+                sel!(sendEvent:),
+                send_event as extern "C" fn(&Object, Sel, *mut Object),
+            );
+            window_decl.register();
+
+            // --- FFPluginContainerView: NSView with acceptsFirstMouse ---
+            // Without this, first click on non-key window just focuses it
+            // but does NOT deliver mouseDown to the plugin view.
+            let ns_view = Class::get("NSView").unwrap();
+            let mut view_decl = ClassDecl::new("FFPluginContainerView", ns_view).unwrap();
+
+            extern "C" fn accepts_first_mouse(_this: &Object, _sel: Sel, _event: *mut Object) -> BOOL {
+                objc::runtime::YES
+            }
+            extern "C" fn accepts_first_responder(_this: &Object, _sel: Sel) -> BOOL {
+                objc::runtime::YES
+            }
+            // NOTE: do NOT override isFlipped — use NSView default (origin bottom-left)
+            // Plugin views use unflipped coordinates
+
+            extern "C" fn container_mouse_down(this: &Object, _sel: Sel, event: *mut Object) {
+                unsafe {
+                    eprintln!("[FFContainer] mouseDown received! Forwarding to subviews");
+                    // Forward to subviews via hitTest
+                    let location: cocoa::foundation::NSPoint = objc::msg_send![event, locationInWindow];
+                    let local: cocoa::foundation::NSPoint = objc::msg_send![this, convertPoint:location fromView:cocoa::base::nil];
+                    eprintln!("[FFContainer] click at ({:.0}, {:.0})", local.x, local.y);
+                    let hit: cocoa::base::id = objc::msg_send![this, hitTest: local];
+                    if !hit.is_null() && hit as *const _ != this as *const _ {
+                        let class_name: cocoa::base::id = objc::msg_send![hit, className];
+                        let cstr: *const i8 = objc::msg_send![class_name, UTF8String];
+                        let name = std::ffi::CStr::from_ptr(cstr).to_str().unwrap_or("?");
+                        eprintln!("[FFContainer] hitTest found: {} — forwarding mouseDown", name);
+                        let _: () = objc::msg_send![hit, mouseDown: event];
+                    } else {
+                        eprintln!("[FFContainer] hitTest returned self or nil");
+                    }
+                }
+            }
+
+            view_decl.add_method(
+                sel!(acceptsFirstMouse:),
+                accepts_first_mouse as extern "C" fn(&Object, Sel, *mut Object) -> BOOL,
+            );
+            view_decl.add_method(
+                sel!(acceptsFirstResponder),
+                accepts_first_responder as extern "C" fn(&Object, Sel) -> BOOL,
+            );
+            // isFlipped NOT overridden — keep default NSView coords
+            view_decl.add_method(
+                sel!(mouseDown:),
+                container_mouse_down as extern "C" fn(&Object, Sel, *mut Object),
+            );
+            view_decl.register();
+        }
+    });
+}
+
 /// Create a standalone NSWindow hosting a plugin's NSView.
 ///
-/// Uses the `cocoa` crate for ABI-correct Objective-C message dispatch.
-/// Raw `objc_msgSend` + transmute crashes on ARM64 because NSRect struct
-/// arguments use different calling conventions for variadic vs non-variadic.
-/// The `msg_send!` macro handles this correctly.
-///
-/// This is the same approach used by JUCE, Reaper, baseview (RustAudio),
-/// and every professional DAW for hosting plugin GUIs.
+/// Minimal approach matching rack's show_window() but using cocoa crate
+/// for ABI-correct message dispatch. setContentView: gives plugin view
+/// full control over the window's responder chain.
 ///
 /// SAFETY: Must be called from the main thread. `view_ptr` must be a valid NSView*.
 #[cfg(target_os = "macos")]
 unsafe fn create_plugin_window(view_ptr: *mut c_void, width: f64, height: f64, title: &str) {
-    use cocoa::appkit::{
-        NSBackingStoreBuffered, NSView, NSWindow, NSWindowStyleMask,
-    };
+    use cocoa::appkit::NSBackingStoreBuffered;
     use cocoa::base::{id, nil, NO};
     use cocoa::foundation::{NSAutoreleasePool, NSPoint, NSRect, NSSize, NSString};
-    use objc::runtime::YES;
+    use objc::runtime::{Class, YES};
     use objc::{msg_send, sel, sel_impl};
+
+    register_plugin_window_classes();
 
     let _pool = NSAutoreleasePool::new(nil);
 
@@ -52,54 +181,62 @@ unsafe fn create_plugin_window(view_ptr: *mut c_void, width: f64, height: f64, t
         NSSize::new(width, height),
     );
 
-    let style = NSWindowStyleMask::NSTitledWindowMask
-        | NSWindowStyleMask::NSClosableWindowMask
-        | NSWindowStyleMask::NSMiniaturizableWindowMask
-        | NSWindowStyleMask::NSResizableWindowMask;
-
-    let window: id = NSWindow::alloc(nil).initWithContentRect_styleMask_backing_defer_(
-        rect,
-        style,
-        NSBackingStoreBuffered,
-        NO,
-    );
+    // FFPluginWindow: canBecomeKeyWindow/canBecomeMainWindow -> YES
+    let window_cls = Class::get("FFPluginWindow").unwrap();
+    let window: id = msg_send![window_cls, alloc];
+    let window: id = msg_send![window,
+        initWithContentRect: rect
+        styleMask: 15u64
+        backing: NSBackingStoreBuffered as u64
+        defer: NO
+    ];
 
     if window.is_null() {
-        eprintln!("[FluxForge] Failed to create NSWindow");
+        eprintln!("[FluxForge] Failed to create FFPluginWindow");
         return;
     }
 
-    // Prevent crash on close — we manage lifetime
-    let _: () = objc::msg_send![window, setReleasedWhenClosed: NO];
+    let _: () = msg_send![window, setReleasedWhenClosed: NO];
 
-    // Set title
     let ns_title = NSString::alloc(nil).init_str(title);
-    window.setTitle_(ns_title);
+    let _: () = msg_send![window, setTitle: ns_title];
 
-    // Enable layer backing on plugin view (CRITICAL for Metal/Flutter compat)
+    // CRITICAL: Set wantsLayer on content view but use canDrawSubviewsIntoLayer
+    // to avoid forcing separate CALayers on plugin subviews. This prevents
+    // _createLayer crash while keeping plugin's rendering pipeline intact.
+    let content_view: id = msg_send![window, contentView];
+    let _: () = msg_send![content_view, setWantsLayer: YES];
+    let _: () = msg_send![content_view, setCanDrawSubviewsIntoLayer: YES];
+
+    // Add plugin view as subview — do NOT set wantsLayer on plugin view
+    // Plugin manages its own rendering (Metal/OpenGL/CoreGraphics)
     let plugin_view = view_ptr as id;
-    let _: () = objc::msg_send![plugin_view, setWantsLayer: YES];
+    let view_rect = NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(width, height));
+    let _: () = msg_send![plugin_view, setFrame: view_rect];
+    let _: () = msg_send![plugin_view, setAutoresizingMask: 18u64];
+    let _: () = msg_send![content_view, setAutoresizesSubviews: YES];
+    let _: () = msg_send![content_view, addSubview: plugin_view];
 
-    // Use setContentView: (same as rack's show_window and all DAWs)
-    // This makes the plugin view the DIRECT content view, giving it full
-    // responder chain access for mouse/keyboard events.
-    let _: () = objc::msg_send![window, setContentView: plugin_view];
+    let _: () = msg_send![window, setAcceptsMouseMovedEvents: YES];
 
-    // Activate app and show window (same pattern as rack's show_window)
-    let nsapp: id = objc::msg_send![objc::class!(NSApplication), sharedApplication];
-    let _: () = objc::msg_send![nsapp, activateIgnoringOtherApps: YES];
+    let nsapp: id = msg_send![Class::get("NSApplication").unwrap(), sharedApplication];
+    let _: () = msg_send![nsapp, activateIgnoringOtherApps: YES];
 
-    window.center();
-    window.makeKeyAndOrderFront_(nil);
+    let _: () = msg_send![window, center];
+    let _: () = msg_send![window, makeKeyAndOrderFront: nil];
+    let _: () = msg_send![window, makeFirstResponder: plugin_view];
+    let _: () = msg_send![window, setLevel: 3i64]; // NSFloatingWindowLevel
 
-    // Keep window floating above main app initially
-    let _: () = objc::msg_send![window, setLevel: 3i64]; // NSFloatingWindowLevel = 3
+    let _: () = msg_send![window, setReleasedWhenClosed: NO];
+    let _: () = msg_send![window, retain];
 
-    // Retain window to prevent ARC deallocation
-    let _: () = objc::msg_send![window, retain];
-
-    eprintln!("[FluxForge] NSWindow created {}x{} for '{}'", width as u32, height as u32, title);
+    eprintln!("[FluxForge] FFPluginWindow created {}x{} for '{}'", width as u32, height as u32, title);
 }
+
+/// Find the rf-plugin-host binary.
+/// Searches: same directory as current executable, Frameworks dir, cargo target dir.
+#[cfg(target_os = "macos")]
+// Uses crate::find_plugin_host_binary() from lib.rs
 
 /// Result type for rack plugin loading
 type RackLoadResult = (
@@ -259,60 +396,72 @@ impl<P: rack::PluginInstance + Send + 'static> RackPluginTrait for RackPluginWra
             );
         }
 
-        // SAFETY: We verified P == AudioUnitPlugin via TypeId check above.
-        // This is the standard Rust pattern for type-erased downcasting.
-        let au_plugin: &mut rack::au::AudioUnitPlugin =
-            unsafe { &mut *(&mut self.plugin as *mut P as *mut rack::au::AudioUnitPlugin) };
+        // Spawn out-of-process plugin GUI host.
+        // Flutter's Metal rendering pipeline conflicts with plugin GUI rendering
+        // in the same process (CALayer/_createLayer crash, or renders but controls
+        // are frozen). The rf-plugin-host binary runs in a clean process with its
+        // own NSApplication event loop — no Flutter interference.
+        let plugin_name = title.to_string();
+        eprintln!("[FluxForge] Spawning rf-plugin-host for '{}'", plugin_name);
 
-        // Share GUI handle with the callback via Arc<Mutex>
-        // The callback runs on the main thread (AppKit requirement) and stores
-        // the GUI handle. We must NOT block the current thread waiting for
-        // the callback — that causes a deadlock when called FROM main thread.
-        let gui_slot = self.gui.clone();
-        let title_owned = title.to_string();
+        // Find the helper binary next to the main app binary
+        let helper_path = crate::find_plugin_host_binary();
 
-        eprintln!("[FluxForge] create_gui: dispatching async for {}", title);
-        au_plugin.create_gui(move |result| {
-            match result {
-                Ok(gui) => {
-                    eprintln!("[FluxForge] create_gui callback: OK");
-                    // Get the native NSView from the GUI
-                    let view_ptr = gui.get_native_view();
-                    let size = gui.get_size().unwrap_or((800.0, 600.0));
-                    eprintln!("[FluxForge] GUI view: {:?}, size: {}x{}", view_ptr, size.0, size.1);
+        match helper_path {
+            Some(path) => {
+                use std::process::{Command, Stdio};
+                use std::io::Write as IoWrite;
 
-                    if let Some(view) = view_ptr {
-                        // Use our own NSWindow with cocoa crate for ABI-correct
-                        // struct passing on ARM64. rack's show_window() uses
-                        // setContentView: which works but may conflict with
-                        // Flutter's Metal pipeline. Our approach uses
-                        // setWantsLayer:YES which prevents CALayer crashes.
-                        unsafe {
-                            create_plugin_window(view, size.0 as f64, size.1 as f64, &title_owned);
-                        }
-                        eprintln!("[FluxForge] Plugin window created: {}x{} for {}", size.0, size.1, title_owned);
-                    } else {
-                        // No native view — use rack's show_window as fallback
-                        eprintln!("[FluxForge] No native view, using rack show_window");
-                        if let Err(e) = gui.show_window(Some(&title_owned)) {
-                            eprintln!("[FluxForge] show_window FAILED: {:?}", e);
-                            return Ok(());
+                let mut child = Command::new(&path)
+                    .stdin(Stdio::piped())
+                    .stdout(Stdio::piped())
+                    .stderr(Stdio::inherit()) // share stderr for debugging
+                    .spawn()
+                    .map_err(|e| format!("Failed to spawn rf-plugin-host: {}", e))?;
+
+                // Read "ready" response
+                if let Some(ref mut stdout) = child.stdout {
+                    use std::io::BufRead;
+                    let mut reader = std::io::BufReader::new(stdout);
+                    let mut line = String::new();
+                    if reader.read_line(&mut line).is_ok() {
+                        eprintln!("[FluxForge] plugin-host: {}", line.trim());
+                    }
+                }
+
+                // Send open command
+                if let Some(ref mut stdin) = child.stdin {
+                    let cmd = format!("{{\"cmd\":\"open\",\"plugin_name\":\"{}\"}}\n", plugin_name);
+                    let _ = stdin.write_all(cmd.as_bytes());
+                    let _ = stdin.flush();
+                }
+
+                // Store child process handle for cleanup
+                // Detach stdin so the process keeps running
+                let stdin_handle = child.stdin.take();
+                std::thread::spawn(move || {
+                    // Keep child alive, read stdout for responses
+                    if let Some(stdout) = child.stdout.take() {
+                        use std::io::BufRead;
+                        let reader = std::io::BufReader::new(stdout);
+                        for line in reader.lines() {
+                            if let Ok(line) = line {
+                                eprintln!("[FluxForge] plugin-host: {}", line);
+                            }
                         }
                     }
-                    *gui_slot.lock() = Some(gui);
-                    Ok(())
-                }
-                Err(e) => {
-                    eprintln!("[FluxForge] create_gui FAILED: {:?}", e);
-                    Ok(())
-                }
-            }
-        });
+                    let _ = child.wait();
+                    eprintln!("[FluxForge] plugin-host process ended");
+                    drop(stdin_handle); // drop stdin when done
+                });
 
-        // Return immediately with estimated size — the GUI will appear
-        // asynchronously when the main thread processes the callback.
-        // Dart side considers this "success" because the window will open.
-        Ok((800.0, 600.0))
+                eprintln!("[FluxForge] rf-plugin-host spawned for '{}'", plugin_name);
+                Ok((800.0, 600.0))
+            }
+            None => {
+                Err("rf-plugin-host binary not found".into())
+            }
+        }
     }
 
     #[cfg(target_os = "macos")]

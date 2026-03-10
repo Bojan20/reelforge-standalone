@@ -1,0 +1,20 @@
+[package]
+name = "rf-plugin-host"
+version = "0.1.0"
+edition = "2021"
+description = "Standalone plugin GUI host helper process"
+
+[[bin]]
+name = "rf-plugin-host"
+path = "src/main.rs"
+
+[dependencies]
+rack = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+cocoa = "0.26"
+objc = "0.2"
+block = "0.1"
+
+[build-dependencies]
+cc = "1"

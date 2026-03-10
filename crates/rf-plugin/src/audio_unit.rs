@@ -575,16 +575,71 @@ impl PluginInstance for AudioUnitInstance {
 
         #[cfg(target_os = "macos")]
         {
-            // AU native GUI requires CocoaUI view factory which is not yet implemented.
-            // Return Err so Dart side shows the generic parameter editor instead.
-            log::info!(
-                "AU plugin '{}' — native CocoaUI editor not implemented, \
-                 Dart will show generic parameter editor.",
-                self.info.name
-            );
-            return Err(PluginError::InitError(
-                "AU native editor not implemented — use generic parameter editor".into(),
-            ));
+            // Spawn rf-plugin-host as separate process for native GUI.
+            // Flutter's Metal pipeline conflicts with plugin GUI in same process.
+            let plugin_name = self.info.name.clone();
+            eprintln!("[FluxForge] AU open_editor: spawning rf-plugin-host for '{}'", plugin_name);
+
+            let helper_path = crate::find_plugin_host_binary();
+            match helper_path {
+                Some(path) => {
+                    use std::process::{Command, Stdio};
+                    use std::io::{BufRead, Write as IoWrite};
+
+                    let mut child = Command::new(&path)
+                        .stdin(Stdio::piped())
+                        .stdout(Stdio::piped())
+                        .stderr(Stdio::inherit())
+                        .spawn()
+                        .map_err(|e| PluginError::InitError(
+                            format!("Failed to spawn rf-plugin-host: {}", e)
+                        ))?;
+
+                    // Read "ready" response
+                    if let Some(ref mut stdout) = child.stdout {
+                        let mut reader = std::io::BufReader::new(stdout);
+                        let mut line = String::new();
+                        if reader.read_line(&mut line).is_ok() {
+                            eprintln!("[FluxForge] plugin-host ready: {}", line.trim());
+                        }
+                    }
+
+                    // Send open command
+                    if let Some(ref mut stdin) = child.stdin {
+                        let cmd = format!(
+                            "{{\"cmd\":\"open\",\"plugin_name\":\"{}\"}}\n",
+                            plugin_name
+                        );
+                        let _ = stdin.write_all(cmd.as_bytes());
+                        let _ = stdin.flush();
+                    }
+
+                    // Keep child alive in background thread
+                    let stdin_handle = child.stdin.take();
+                    std::thread::spawn(move || {
+                        if let Some(stdout) = child.stdout.take() {
+                            let reader = std::io::BufReader::new(stdout);
+                            for line in reader.lines() {
+                                if let Ok(line) = line {
+                                    eprintln!("[FluxForge] plugin-host: {}", line);
+                                }
+                            }
+                        }
+                        let _ = child.wait();
+                        eprintln!("[FluxForge] plugin-host process ended");
+                        drop(stdin_handle);
+                    });
+
+                    self.editor_open.store(true, Ordering::SeqCst);
+                    eprintln!("[FluxForge] rf-plugin-host spawned for '{}'", plugin_name);
+                    return Ok(());
+                }
+                None => {
+                    return Err(PluginError::InitError(
+                        "rf-plugin-host binary not found".into(),
+                    ));
+                }
+            }
         }
 
         #[cfg(not(target_os = "macos"))]

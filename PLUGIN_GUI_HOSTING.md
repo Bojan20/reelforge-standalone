@@ -1,74 +1,122 @@
-# Plugin GUI Hosting — Technical Reference
+# Plugin GUI Hosting — Technical Reference (DEFINITIVE)
 
-## How Professional DAWs Host Plugin GUIs on macOS
+## GOLDEN RULES — Verified from JUCE, Ardour, Pugl source code
 
-### The Universal Pattern (JUCE, Reaper, Cubase, Logic, Bitwig, Ardour)
+### Rule 1: `defer:YES` — OBAVEZNO
+JUCE koristi `defer:YES` pri kreiranju NSWindow-a. Ovo odlaže konekciju ka window serveru.
+Bez ovoga, AppKit ODMAH kreira layer tree čim se view doda — što izaziva `_createLayer` crash
+kod pluginova koji imaju custom `makeBackingLayer` (FabFilter, Apple AUDelay, itd).
 
-Every DAW follows the same fundamental approach:
+rack crate koristi `defer:NO` — i zato crash-uje.
 
-1. **Create NSWindow** via `initWithContentRect:styleMask:backing:defer:`
-2. **Get contentView** (NSView) from the window
-3. **Set `wantsLayer = YES`** on contentView (critical for Metal/CoreAnimation compat)
-4. **Add plugin's NSView as subview** of contentView
-5. For VST3: pass NSView to `IPlugView::attached(nsview, kPlatformTypeNSView)` — always NSView, never NSWindow
-6. For AU v2: get NSView from `kAudioUnitProperty_CocoaUI`
-7. For AU v3: get `AUViewController.view` (NSView)
+### Rule 2: NIKADA `wantsLayer:YES` na plugin view ili contentView
+- JUCE: NE postavlja `wantsLayer` na plugin view. Samo na SVOJ view, i to USLOVNO.
+- Ardour: NEMA `wantsLayer` nigde u AU GUI hosting kodu.
+- Pugl: NEMA `wantsLayer` osim za Vulkan/Metal renderere.
 
-### Why Raw `objc_msgSend` + `transmute` Crashes on ARM64
+`wantsLayer:YES` na parent-u forsira IMPLICIT layer-backing na subviews.
+Ovo lomi event handling kod pluginova koji ne očekuju layer-backed hijerarhiju.
+Kontrole se renderuju ali ne reaguju na klik.
 
-On Apple Silicon (AArch64), variadic and non-variadic functions use **different calling conventions**:
-- **Non-variadic**: arguments in registers (x0-x7 integers, v0-v7 floats)
-- **Variadic**: fixed args in registers, variadic args on **stack**
+### Rule 3: `addSubview:` — NE `setContentView:`
+- JUCE: koristi `addSubview:` za plugin view
+- Ardour: koristi `addSubview:` za plugin view
+- Pugl: koristi `addSubview:` za embedded views
 
-`objc_msgSend` is declared variadic but acts as a transparent trampoline. When you `transmute` it to a typed fn pointer, the Rust compiler generates caller code assuming non-variadic ABI, but the underlying trampoline may interpret the register state differently for struct arguments like NSRect (32 bytes = 4×f64).
+`setContentView:` zamenjuje ceo content view sa plugin view-om.
+Ovo može izazvati probleme sa responder chain-om i layer tree-om.
 
-The `msg_send!` macro from `objc` crate handles this correctly by generating properly-typed function pointer casts that match the actual method signature.
+### Rule 4: Redosled operacija
+1. `NSWindow alloc + initWithContentRect...defer:YES` — window bez server konekcije
+2. `setContentView:` sa PLAIN NSView kontejnerom (ne plugin view!)
+3. `addSubview:` — dodaj plugin view u kontejner
+4. `setFrame:` — postavi veličinu plugin view-a
+5. `setAutoresizingMask:` — NSViewWidthSizable | NSViewHeightSizable
+6. TEK SADA: `makeKeyAndOrderFront:` — ovo prvi put triggeruje layer tree
 
-### The Solution: `cocoa` Crate
+### Rule 5: Event loop
+- `CFRunLoopRunInMode` sa kratkim intervalima (0.05s) MOŽE da propusti evente
+- JUCE koristi `NSApp run` ili `NSRunLoop` sa timer-ima
+- Baseview ima poznate probleme sa prvim klikom na macOS (issue #129)
+- Za pouzdane mouse evente: koristiti `[NSApp run]` ili `NSTimer` na main run loop
 
-The `cocoa` crate (from Servo project) provides battle-tested Cocoa bindings:
-- `NSWindow::alloc(nil).initWithContentRect_styleMask_backing_defer_(...)`
-- NSRect, NSPoint, NSSize with correct `Encode` implementations
-- Used by: Servo, baseview (RustAudio), wgpu, winit, dozens of Rust audio projects
+## Zašto prethodni pristupi nisu radili
 
-### Critical Implementation Details
+| Pristup | Rezultat | Razlog |
+|---------|----------|--------|
+| rack `show_window()` | SIGSEGV (139) | `defer:NO` → instant `_createLayer` → crash u `makeBackingLayer` |
+| Custom window + `wantsLayer:YES` | Kontrole frozen | Implicit layer-backing lomi plugin event handling |
+| Swizzle `makeBackingLayer` → prazan CALayer | Prazan prozor | Plugin rendering pipeline očekuje svoj specifični layer tip |
+| `setContentView:pluginView` bez `wantsLayer` | Crash | Isti `_createLayer` problem |
 
-1. **`setWantsLayer: YES`** on both contentView AND plugin NSView — prevents CALayer/Metal conflicts with Flutter
-2. **`setReleasedWhenClosed: NO`** — prevents double-free when user closes window
-3. **`retain`** the NSWindow — prevents ARC deallocation; store `id` and `release` on close
-4. **NSRect layout**: `{origin: {x, y}, size: {w, h}}` (matches CGRect), NOT flat `{x, y, w, h}`
-5. **Autoresizing mask**: NSViewWidthSizable | NSViewHeightSizable = 2 | 16 = 18
-6. **Return window id** from create function for lifecycle management (close/release later)
-
-### Reference Code (cocoa crate)
+## ISPRAVNA implementacija
 
 ```rust
-use cocoa::appkit::{NSBackingStoreBuffered, NSView, NSWindow, NSWindowStyleMask};
-use cocoa::base::{id, nil, NO};
-use cocoa::foundation::{NSAutoreleasePool, NSPoint, NSRect, NSSize, NSString};
-use objc::runtime::YES;
+unsafe {
+    // 1. Window sa defer:YES — KRITIČNO
+    let rect = NSRect::new(NSPoint::new(200.0, 200.0), NSSize::new(width, height));
+    let style = NSWindowStyleMask::NSTitledWindowMask
+        | NSWindowStyleMask::NSClosableWindowMask
+        | NSWindowStyleMask::NSMiniaturizableWindowMask
+        | NSWindowStyleMask::NSResizableWindowMask;
 
-let rect = NSRect::new(NSPoint::new(200.0, 200.0), NSSize::new(width, height));
-let style = NSWindowStyleMask::NSTitledWindowMask
-    | NSWindowStyleMask::NSClosableWindowMask
-    | NSWindowStyleMask::NSMiniaturizableWindowMask
-    | NSWindowStyleMask::NSResizableWindowMask;
+    let window = NSWindow::alloc(nil)
+        .initWithContentRect_styleMask_backing_defer_(rect, style, NSBackingStoreBuffered, YES);
+        // ^^^^^ defer:YES — NE defer:NO
 
-let window = NSWindow::alloc(nil)
-    .initWithContentRect_styleMask_backing_defer_(rect, style, NSBackingStoreBuffered, NO);
+    window.setReleasedWhenClosed_(NO);
 
-let content_view = window.contentView();
-msg_send![content_view, setWantsLayer: YES];
-msg_send![plugin_view, setWantsLayer: YES];
-content_view.addSubview_(plugin_view);
-window.center();
-window.makeKeyAndOrderFront_(nil);
+    // 2. Plain kontejner view — BEZ wantsLayer
+    let container: id = NSView::alloc(nil).initWithFrame_(rect);
+    // NE: msg_send![container, setWantsLayer: YES];  ← ZABRANJENO
+
+    // 3. Postavi kontejner kao contentView
+    window.setContentView_(container);
+
+    // 4. Dodaj plugin view kao subview — BEZ wantsLayer
+    let bounds: NSRect = msg_send![container, bounds];
+    let _: () = msg_send![plugin_view, setFrame: bounds];
+    let _: () = msg_send![plugin_view, setAutoresizingMask: 18u64]; // width+height sizable
+    container.addSubview_(plugin_view);
+    // NE: msg_send![plugin_view, setWantsLayer: YES];  ← ZABRANJENO
+
+    // 5. TEK SADA prikaži window
+    window.setTitle_(NSString::alloc(nil).init_str(title));
+    window.center();
+    window.makeKeyAndOrderFront_(nil);
+}
 ```
 
-### Sources
+## Fallback ako i dalje crash-uje
 
-- [JUCE NSViewComponentPeer](https://github.com/juce-framework/JUCE) — `modules/juce_gui_basics/native/juce_NSViewComponentPeer_mac.mm`
-- [RustAudio/baseview macOS](https://github.com/RustAudio/baseview/blob/master/src/macos/window.rs)
-- [Steinberg IPlugView docs](https://steinbergmedia.github.io/vst3_doc/base/classSteinberg_1_1IPlugView.html)
-- [Mike Ash: objc_msgSend on ARM64](https://www.mikeash.com/pyblog/friday-qa-2017-06-30-dissecting-objc_msgsend-on-arm64.html)
-- [cocoa crate docs](https://docs.rs/cocoa/latest/cocoa/)
+Ako `defer:YES` + `addSubview:` i dalje crash-uje jer plugin poziva
+`makeBackingLayer` tokom `addSubview:`:
+
+**Option A: Layer-hosting kontejner**
+```rust
+// Kontejner sa SOPSTVENIM layer-om (layer-hosting, NE layer-backed)
+let ca_layer: id = msg_send![Class::get("CALayer").unwrap(), layer];
+let _: () = msg_send![container, setLayer: ca_layer];     // postavi layer PRVI
+let _: () = msg_send![container, setWantsLayer: YES];      // PA ONDA wantsLayer
+// Subviews layer-hosting view-a NE postaju automatski layer-backed
+container.addSubview_(plugin_view);
+```
+
+**Option B: NSApp run umesto CFRunLoop**
+```rust
+// Umesto while loop sa CFRunLoopRunInMode:
+let app: id = msg_send![Class::get("NSApplication").unwrap(), sharedApplication];
+let _: () = msg_send![app, run];  // blokira, procesira SVE evente
+```
+
+## ARM64 ABI napomena
+
+Na Apple Silicon, `objc_msgSend` sa `transmute` crash-uje za struct argumente (NSRect).
+Koristiti `cocoa` crate sa `msg_send!` makroom — uvek.
+
+## Izvori (verifikovani iz source koda)
+- JUCE `juce_NSViewComponentPeer_mac.mm`: `defer:YES`, conditional `wantsLayer`, `addSubview:`
+- Ardour `au_pluginui.mm`: `addSubview:`, NO `wantsLayer`, manual keyboard forwarding
+- Pugl `mac_gl.m` / `mac.m`: `addSubview:` for embedded, NO `wantsLayer` for non-Metal
+- Baseview issue #129: "initial click ignored on macOS" — poznati problem
+- rack `au_gui.mm`: `defer:NO` + `setContentView:` — uzrok crash-a
