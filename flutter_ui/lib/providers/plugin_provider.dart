@@ -204,12 +204,18 @@ class PluginProvider extends ChangeNotifier {
   bool get showFavoritesOnly => _showFavoritesOnly;
 
   /// Get filtered plugins based on current filters
+  /// Returns copies with up-to-date isFavorite status
   List<PluginInfo> get filteredPlugins {
-    var result = _plugins;
+    // Merge favorite status into plugin list
+    var result = _plugins.map((p) =>
+      _favorites.contains(p.id) != p.isFavorite
+          ? p.copyWith(isFavorite: _favorites.contains(p.id))
+          : p
+    ).toList();
 
     // Apply favorites filter
     if (_showFavoritesOnly) {
-      result = result.where((p) => _favorites.contains(p.id)).toList();
+      result = result.where((p) => p.isFavorite).toList();
     }
 
     // Apply format filter
@@ -301,7 +307,7 @@ class PluginProvider extends ChangeNotifier {
 
   PluginProvider({NativeFFI? ffi}) : _ffi = ffi ?? NativeFFI.instance;
 
-  /// Initialize provider
+  /// Initialize provider — auto-scans if no cached plugins
   Future<void> init() async {
     // Initialize Rust plugin host
     if (_ffi.isLoaded) {
@@ -311,6 +317,11 @@ class PluginProvider extends ChangeNotifier {
     // Load cached plugins first (fast startup)
     await _loadCachedPlugins();
     notifyListeners();
+
+    // Auto-scan if no plugins found (first launch or empty cache)
+    if (_plugins.isEmpty && _ffi.isLoaded) {
+      await scanPlugins();
+    }
   }
 
   /// Scan for all plugins

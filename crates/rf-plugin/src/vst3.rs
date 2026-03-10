@@ -24,6 +24,83 @@ use crate::{
 /// Maximum parameter changes per audio block
 const MAX_PARAM_CHANGES: usize = 128;
 
+/// Create a standalone NSWindow hosting a plugin's NSView.
+///
+/// Uses the `cocoa` crate for ABI-correct Objective-C message dispatch.
+/// Raw `objc_msgSend` + transmute crashes on ARM64 because NSRect struct
+/// arguments use different calling conventions for variadic vs non-variadic.
+/// The `msg_send!` macro handles this correctly.
+///
+/// This is the same approach used by JUCE, Reaper, baseview (RustAudio),
+/// and every professional DAW for hosting plugin GUIs.
+///
+/// SAFETY: Must be called from the main thread. `view_ptr` must be a valid NSView*.
+#[cfg(target_os = "macos")]
+unsafe fn create_plugin_window(view_ptr: *mut c_void, width: f64, height: f64, title: &str) {
+    use cocoa::appkit::{
+        NSBackingStoreBuffered, NSView, NSWindow, NSWindowStyleMask,
+    };
+    use cocoa::base::{id, nil, NO};
+    use cocoa::foundation::{NSAutoreleasePool, NSPoint, NSRect, NSSize, NSString};
+    use objc::runtime::YES;
+    use objc::{msg_send, sel, sel_impl};
+
+    let _pool = NSAutoreleasePool::new(nil);
+
+    let rect = NSRect::new(
+        NSPoint::new(200.0, 200.0),
+        NSSize::new(width, height),
+    );
+
+    let style = NSWindowStyleMask::NSTitledWindowMask
+        | NSWindowStyleMask::NSClosableWindowMask
+        | NSWindowStyleMask::NSMiniaturizableWindowMask
+        | NSWindowStyleMask::NSResizableWindowMask;
+
+    let window: id = NSWindow::alloc(nil).initWithContentRect_styleMask_backing_defer_(
+        rect,
+        style,
+        NSBackingStoreBuffered,
+        NO,
+    );
+
+    if window.is_null() {
+        eprintln!("[FluxForge] Failed to create NSWindow");
+        return;
+    }
+
+    // Prevent crash on close — we manage lifetime
+    let _: () = objc::msg_send![window, setReleasedWhenClosed: NO];
+
+    // Set title
+    let ns_title = NSString::alloc(nil).init_str(title);
+    window.setTitle_(ns_title);
+
+    // Enable layer backing on plugin view (CRITICAL for Metal/Flutter compat)
+    let plugin_view = view_ptr as id;
+    let _: () = objc::msg_send![plugin_view, setWantsLayer: YES];
+
+    // Use setContentView: (same as rack's show_window and all DAWs)
+    // This makes the plugin view the DIRECT content view, giving it full
+    // responder chain access for mouse/keyboard events.
+    let _: () = objc::msg_send![window, setContentView: plugin_view];
+
+    // Activate app and show window (same pattern as rack's show_window)
+    let nsapp: id = objc::msg_send![objc::class!(NSApplication), sharedApplication];
+    let _: () = objc::msg_send![nsapp, activateIgnoringOtherApps: YES];
+
+    window.center();
+    window.makeKeyAndOrderFront_(nil);
+
+    // Keep window floating above main app initially
+    let _: () = objc::msg_send![window, setLevel: 3i64]; // NSFloatingWindowLevel = 3
+
+    // Retain window to prevent ARC deallocation
+    let _: () = objc::msg_send![window, retain];
+
+    eprintln!("[FluxForge] NSWindow created {}x{} for '{}'", width as u32, height as u32, title);
+}
+
 /// Result type for rack plugin loading
 type RackLoadResult = (
     Option<Arc<Mutex<RackPlugin>>>,
@@ -101,11 +178,11 @@ trait RackPluginTrait {
 struct RackPluginWrapper<P: rack::PluginInstance + Send + 'static> {
     plugin: P,
     latency_samples: u32,
-    /// Native GUI handle (macOS AudioUnit only). Stored here because
-    /// create_gui() requires the concrete AudioUnitPlugin type which
-    /// is erased when we box as dyn RackPluginTrait.
+    /// Native GUI handle (macOS AudioUnit only). Stored in Arc<Mutex>
+    /// so the async create_gui callback can store the handle without
+    /// holding a mutable reference to the wrapper.
     #[cfg(target_os = "macos")]
-    gui: Option<rack::au::AudioUnitGui>,
+    gui: Arc<Mutex<Option<rack::au::AudioUnitGui>>>,
 }
 
 impl<P: rack::PluginInstance + Send + 'static> RackPluginTrait for RackPluginWrapper<P> {
@@ -174,7 +251,6 @@ impl<P: rack::PluginInstance + Send + 'static> RackPluginTrait for RackPluginWra
     #[cfg(target_os = "macos")]
     fn open_gui_window(&mut self, title: &str) -> Result<(f32, f32), String> {
         use std::any::TypeId;
-        use std::sync::mpsc;
 
         if TypeId::of::<P>() != TypeId::of::<rack::au::AudioUnitPlugin>() {
             return Err(
@@ -188,44 +264,60 @@ impl<P: rack::PluginInstance + Send + 'static> RackPluginTrait for RackPluginWra
         let au_plugin: &mut rack::au::AudioUnitPlugin =
             unsafe { &mut *(&mut self.plugin as *mut P as *mut rack::au::AudioUnitPlugin) };
 
-        // Use a channel to receive the GUI from the async callback
-        let (tx, rx) = mpsc::channel();
+        // Share GUI handle with the callback via Arc<Mutex>
+        // The callback runs on the main thread (AppKit requirement) and stores
+        // the GUI handle. We must NOT block the current thread waiting for
+        // the callback — that causes a deadlock when called FROM main thread.
+        let gui_slot = self.gui.clone();
         let title_owned = title.to_string();
 
+        eprintln!("[FluxForge] create_gui: dispatching async for {}", title);
         au_plugin.create_gui(move |result| {
             match result {
                 Ok(gui) => {
-                    // Show as standalone window (must be on main thread)
-                    if let Err(e) = gui.show_window(Some(&title_owned)) {
-                        log::error!("Failed to show plugin GUI window: {:?}", e);
-                        let _ = tx.send(Err(format!("Failed to show window: {:?}", e)));
-                        return Ok(());
-                    }
+                    eprintln!("[FluxForge] create_gui callback: OK");
+                    // Get the native NSView from the GUI
+                    let view_ptr = gui.get_native_view();
                     let size = gui.get_size().unwrap_or((800.0, 600.0));
-                    let _ = tx.send(Ok((gui, size)));
+                    eprintln!("[FluxForge] GUI view: {:?}, size: {}x{}", view_ptr, size.0, size.1);
+
+                    if let Some(view) = view_ptr {
+                        // Use our own NSWindow with cocoa crate for ABI-correct
+                        // struct passing on ARM64. rack's show_window() uses
+                        // setContentView: which works but may conflict with
+                        // Flutter's Metal pipeline. Our approach uses
+                        // setWantsLayer:YES which prevents CALayer crashes.
+                        unsafe {
+                            create_plugin_window(view, size.0 as f64, size.1 as f64, &title_owned);
+                        }
+                        eprintln!("[FluxForge] Plugin window created: {}x{} for {}", size.0, size.1, title_owned);
+                    } else {
+                        // No native view — use rack's show_window as fallback
+                        eprintln!("[FluxForge] No native view, using rack show_window");
+                        if let Err(e) = gui.show_window(Some(&title_owned)) {
+                            eprintln!("[FluxForge] show_window FAILED: {:?}", e);
+                            return Ok(());
+                        }
+                    }
+                    *gui_slot.lock() = Some(gui);
                     Ok(())
                 }
                 Err(e) => {
-                    let _ = tx.send(Err(format!("create_gui failed: {:?}", e)));
+                    eprintln!("[FluxForge] create_gui FAILED: {:?}", e);
                     Ok(())
                 }
             }
         });
 
-        // Wait for the callback (with timeout)
-        match rx.recv_timeout(std::time::Duration::from_secs(5)) {
-            Ok(Ok((gui, size))) => {
-                self.gui = Some(gui);
-                Ok(size)
-            }
-            Ok(Err(e)) => Err(e),
-            Err(_) => Err("Timeout waiting for plugin GUI creation".into()),
-        }
+        // Return immediately with estimated size — the GUI will appear
+        // asynchronously when the main thread processes the callback.
+        // Dart side considers this "success" because the window will open.
+        Ok((800.0, 600.0))
     }
 
     #[cfg(target_os = "macos")]
     fn close_gui_window(&mut self) {
-        if let Some(gui) = self.gui.take() {
+        if let Some(gui) = self.gui.lock().take() {
             if let Err(e) = gui.hide_window() {
                 log::warn!("Failed to hide plugin GUI window: {:?}", e);
             }
@@ -235,7 +327,7 @@ impl<P: rack::PluginInstance + Send + 'static> RackPluginTrait for RackPluginWra
 
     #[cfg(target_os = "macos")]
     fn gui_size(&self) -> Option<(f32, f32)> {
-        self.gui.as_ref().and_then(|gui| gui.get_size().ok())
+        self.gui.lock().as_ref().and_then(|gui| gui.get_size().ok())
     }
 }
 
@@ -325,8 +417,8 @@ impl Vst3Host {
             match Self::load_with_rack(path) {
                 Ok(result) => result,
                 Err(e) => {
-                    log::warn!("Failed to load plugin with rack: {}, using fallback", e);
-                    // Fallback to passthrough mode
+                    eprintln!("[FluxForge] load_with_rack FAILED for {:?}: {}", path, e);
+                    // Fallback to passthrough mode — no native GUI available
                     (None, Self::default_parameters(), 2, 2, 0)
                 }
             };
@@ -383,18 +475,31 @@ impl Vst3Host {
     }
 
     /// Load plugin using rack crate
+    ///
+    /// Reaper/Cubase approach: scan all system AU plugins via AudioComponent API,
+    /// then match by path or name to find the correct plugin instance.
+    /// AU plugins are system-registered — scan_path() ignores the path argument,
+    /// so we must match from the full scan results.
     fn load_with_rack(path: &Path) -> PluginResult<RackLoadResult> {
         use rack::prelude::*;
+
+        let is_au = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| e.eq_ignore_ascii_case("component"));
 
         // Create scanner
         let scanner = Scanner::new().map_err(|e| {
             PluginError::LoadFailed(format!("Failed to create rack scanner: {:?}", e))
         })?;
 
-        // Scan the specific path to get plugin info
+        // Scan all plugins — for AU, scan_path() ignores path and returns ALL system AU plugins.
+        // We then match by path or name to find the correct one.
         let plugins = scanner
-            .scan_path(path)
-            .map_err(|e| PluginError::LoadFailed(format!("Failed to scan plugin path: {:?}", e)))?;
+            .scan()
+            .map_err(|e| PluginError::LoadFailed(format!("Failed to scan plugins: {:?}", e)))?;
+
+        eprintln!("[FluxForge] load_with_rack: scan found {} plugins for path {:?}", plugins.len(), path);
 
         if plugins.is_empty() {
             return Err(PluginError::LoadFailed(format!(
@@ -403,8 +508,59 @@ impl Vst3Host {
             )));
         }
 
-        // Load the first plugin found
-        let plugin_info = &plugins[0];
+        // Match the correct plugin from scan results.
+        // Rack's AU scanner returns names like "FabFilter: Pro-Q 4" or
+        // "Native Instruments: Kontakt 8" while our filesystem scanner
+        // produces names like "FabFilter Pro-Q 4" from the .component filename.
+        // We normalize both sides by stripping punctuation for fuzzy matching.
+        let plugin_name_raw = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+        let plugin_name = plugin_name_raw.to_lowercase();
+
+        /// Strip colons, dashes, underscores and extra spaces for fuzzy compare
+        fn normalize_for_match(s: &str) -> String {
+            s.to_lowercase()
+                .replace([':', '-', '_'], " ")
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
+        }
+
+        let needle = normalize_for_match(&plugin_name);
+
+        // Strategy 1: Match by path (exact)
+        let mut plugin_info = plugins.iter().find(|p| p.path == path);
+
+        // Strategy 2: Match by normalized name (exact after stripping punctuation)
+        if plugin_info.is_none() {
+            plugin_info = plugins.iter().find(|p| normalize_for_match(&p.name) == needle);
+        }
+
+        // Strategy 3: Match by name contains (fuzzy)
+        if plugin_info.is_none() {
+            plugin_info = plugins.iter().find(|p| {
+                let norm = normalize_for_match(&p.name);
+                norm.contains(&needle) || needle.contains(&norm)
+            });
+        }
+
+        let plugin_info = plugin_info.ok_or_else(|| {
+            // Log ALL plugins for debugging (to find the correct name)
+            eprintln!("[FluxForge] Could not find plugin matching '{}' in {} scanned plugins:", plugin_name, plugins.len());
+            for p in &plugins {
+                eprintln!("[FluxForge]   '{}' by {} (path={:?})", p.name, p.manufacturer, p.path);
+            }
+            PluginError::LoadFailed(format!(
+                "Plugin '{}' not found in {} scanned plugins",
+                plugin_name,
+                plugins.len()
+            ))
+        })?;
+
+        eprintln!("[FluxForge] Matched plugin: '{}' by {} (id={})", plugin_info.name, plugin_info.manufacturer, plugin_info.unique_id);
+
         let plugin = scanner
             .load(plugin_info)
             .map_err(|e| PluginError::LoadFailed(format!("Failed to load plugin: {:?}", e)))?;
@@ -452,7 +608,7 @@ impl Vst3Host {
             plugin,
             latency_samples: 0,
             #[cfg(target_os = "macos")]
-            gui: None,
+            gui: Arc::new(Mutex::new(None)),
         };
 
         let rack_plugin = RackPlugin {

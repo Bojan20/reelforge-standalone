@@ -15986,13 +15986,20 @@ pub extern "C" fn plugin_scan_all() -> i32 {
     // PLUGIN_HOST has its own PluginScanner that must be populated.
     match PLUGIN_HOST.write().scan_plugins() {
         Ok(plugins) => {
-            log::info!(
-                "Plugin host scanner found {} plugins (standalone scanner: {})",
+            eprintln!(
+                "[FluxForge] plugin_scan_all: PLUGIN_HOST scanner found {} plugins (standalone scanner: {})",
                 plugins.len(),
                 count
             );
+            for p in plugins.iter().take(10) {
+                eprintln!("[FluxForge]   HOST plugin: '{}' type={:?}", p.id, p.plugin_type);
+            }
         }
         Err(e) => {
+            eprintln!(
+                "[FluxForge] plugin_scan_all: PLUGIN_HOST scan FAILED: {} — plugins will NOT be loadable!",
+                e
+            );
             log::error!(
                 "Plugin host scan failed: {} — plugins will NOT be loadable!",
                 e
@@ -16227,8 +16234,24 @@ pub extern "C" fn plugin_load(
         }
     };
 
+    eprintln!("[FluxForge] plugin_load called with id: '{}'", id_str);
+
+    // Debug: list available plugins in PLUGIN_HOST scanner
+    {
+        let host = PLUGIN_HOST.read();
+        let available = host.available_plugins();
+        eprintln!("[FluxForge] PLUGIN_HOST has {} plugins available", available.len());
+        for p in available.iter().take(10) {
+            eprintln!("[FluxForge]   available: '{}' (type={:?})", p.id, p.plugin_type);
+        }
+        if available.len() > 10 {
+            eprintln!("[FluxForge]   ... and {} more", available.len() - 10);
+        }
+    }
+
     match PLUGIN_HOST.write().load_plugin(id_str) {
         Ok(instance_id) => {
+            eprintln!("[FluxForge] plugin_load SUCCESS: instance_id='{}'", instance_id);
             if !out_instance_id.is_null() && max_len > 0 {
                 let bytes = instance_id.as_bytes();
                 let copy_len = bytes.len().min((max_len - 1) as usize);
@@ -16240,6 +16263,7 @@ pub extern "C" fn plugin_load(
             instance_id.len() as i32
         }
         Err(e) => {
+            eprintln!("[FluxForge] plugin_load FAILED for '{}': {:?}", id_str, e);
             log::error!("Failed to load plugin {}: {}", id_str, e);
             0
         }
@@ -16741,7 +16765,7 @@ pub extern "C" fn plugin_open_editor(
         }
     };
 
-    log::info!("Opening plugin editor for: {}", id_str);
+    eprintln!("[FluxForge] plugin_open_editor called for: '{}'", id_str);
 
     if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
         // Use provided parent_window, or null (macOS standalone window)
@@ -16754,11 +16778,11 @@ pub extern "C" fn plugin_open_editor(
         #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
         match instance.write().open_editor(effective_parent) {
             Ok(_) => {
-                log::info!("Plugin editor opened successfully: {}", id_str);
+                eprintln!("[FluxForge] plugin_open_editor SUCCESS: {}", id_str);
                 return 1;
             }
             Err(e) => {
-                log::error!("Failed to open plugin editor for {}: {}", id_str, e);
+                eprintln!("[FluxForge] plugin_open_editor FAILED for {}: {:?}", id_str, e);
                 return 0;
             }
         }

@@ -401,7 +401,7 @@ impl PluginHost {
             .find_plugin(plugin_id)
             .ok_or_else(|| PluginError::NotFound(plugin_id.to_string()))?;
 
-        let instance: Box<dyn PluginInstance> = match info.plugin_type {
+        let mut instance: Box<dyn PluginInstance> = match info.plugin_type {
             PluginType::Vst3 => {
                 let host = Vst3Host::load(&info.path)?;
                 Box::new(host)
@@ -436,6 +436,11 @@ impl PluginHost {
                 Box::new(host)
             }
         };
+
+        // Initialize plugin with default context before registering
+        // This is required for features like GUI (rack's create_gui needs is_initialized=true)
+        let context = self.context.read().clone();
+        instance.initialize(&context)?;
 
         let instance_id = format!("{}_{}", plugin_id, uuid_simple());
         self.instances
