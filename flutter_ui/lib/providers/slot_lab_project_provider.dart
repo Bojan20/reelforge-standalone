@@ -581,8 +581,13 @@ class SlotLabProjectProvider extends ChangeNotifier {
       final base = stripped.replaceFirst(RegExp(r'_\d+$'), '');
 
       // Try stripped first (preserves trailing number for numbered variants like scatter_land_1)
+      // Also try without sfx_ prefix (e.g., sfx_wild_land → wild_land)
+      final noSfx = stripped.startsWith('sfx_') ? stripped.substring(4) : stripped;
+      final noSfxBase = base.startsWith('sfx_') ? base.substring(4) : base;
       final stage = _resolveStageFromFilename(stripped, stripped) ??
-                     _resolveStageFromFilename(base, stripped);
+                     _resolveStageFromFilename(base, stripped) ??
+                     (noSfx != stripped ? _resolveStageFromFilename(noSfx, noSfx) : null) ??
+                     (noSfxBase != base ? _resolveStageFromFilename(noSfxBase, stripped) : null);
       if (stage != null) {
         mappedPaths.add(file.path);
         // For variant stages (e.g., REEL_SPIN_LOOP with 3 variants),
@@ -813,6 +818,19 @@ class SlotLabProjectProvider extends ChangeNotifier {
     if (base == 'mus_bg_lvl_1') return 'MUSIC_BASE_L1';
     if (base == 'mus_bg_lvl_2') return 'MUSIC_BASE_L2';
     if (base == 'mus_bg_lvl_3') return 'MUSIC_BASE_L3';
+
+    // ─── GENERIC FALLBACK: match known stage IDs directly ───
+    // If filename (after normalization) matches a registered stage, use it.
+    // E.g., wild_land.wav → WILD_LAND, scatter_win.wav → SCATTER_WIN
+    final upper = base.toUpperCase();
+    if (StageConfigurationService.instance.getStage(upper) != null) {
+      return upper;
+    }
+    // Also try with full (non-stripped) name
+    final upperFull = full.toUpperCase();
+    if (upperFull != upper && StageConfigurationService.instance.getStage(upperFull) != null) {
+      return upperFull;
+    }
 
     return null;
   }

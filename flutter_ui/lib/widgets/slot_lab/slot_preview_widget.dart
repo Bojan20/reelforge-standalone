@@ -1707,6 +1707,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _tierProgressionTimer?.cancel(); // Clean up tier progression
     _baseGameFadeTimer?.cancel(); // Clean up base game music fade
     _stopRollupTicks(); // Clean up rollup audio sequence
+    // Stop any looping audio (reel spin loop persists across reload otherwise)
+    EventRegistry.instance.stopAllSpinLoops();
     _disposeControllers();
     super.dispose();
   }

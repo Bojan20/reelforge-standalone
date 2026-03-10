@@ -1457,9 +1457,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   static void triggerAutoBindReload(String folderPath) {
     final instance = _activeInstance;
     if (instance == null || !instance.mounted) return;
-    instance._syncAssignmentsAsync();
-    instance._syncAutoBindFolderToPool(folderPath);
+    // Show splash FIRST (instant visual feedback), then sync in background
     instance.setState(() => instance._showSplashOnPreview = true);
+    Future.microtask(() {
+      instance._syncAssignmentsAsync();
+      instance._syncAutoBindFolderToPool(folderPath);
+    });
   }
 
   void _onDiagnosticsChanged() {
@@ -3183,7 +3186,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     _spinTimer?.cancel();
     _playbackTimer?.cancel();
-    _previewTimer?.cancel();
+    _afplayProcess?.kill();
+    _afplayProcess = null;
+    _duckFadeTimer?.cancel();
     _savePanelLayoutTimer?.cancel();
     _focusNode.dispose();
     _headersScrollController.dispose();
@@ -6152,61 +6157,100 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // AUDIO PREVIEW
   // ═══════════════════════════════════════════════════════════════════════════
 
-  Timer? _previewTimer;
-  int? _previewTrackId;
-  int? _previewClipId;
+  Process? _afplayProcess;
+  bool _previewDucked = false;
+  Timer? _duckFadeTimer;
+
+  void _duckForPreview() {
+    if (_previewDucked) return;
+    _previewDucked = true;
+    _duckFadeTimer?.cancel();
+    // Fade out over ~300ms (15 steps × 20ms)
+    const steps = 15;
+    const interval = Duration(milliseconds: 20);
+    int step = 0;
+    _duckFadeTimer = Timer.periodic(interval, (timer) {
+      step++;
+      final t = step / steps;
+      final vol = 1.0 - (t * 0.9); // 1.0 → 0.1
+      _ffi.setBusVolume(0, vol);
+      _ffi.setBusVolume(1, vol);
+      if (step >= steps) timer.cancel();
+    });
+  }
+
+  void _unduckAfterPreview() {
+    if (!_previewDucked) return;
+    _previewDucked = false;
+    _duckFadeTimer?.cancel();
+    // Fade in over ~400ms (20 steps × 20ms)
+    const steps = 20;
+    const interval = Duration(milliseconds: 20);
+    int step = 0;
+    _duckFadeTimer = Timer.periodic(interval, (timer) {
+      step++;
+      final t = step / steps;
+      final vol = 0.1 + (t * 0.9); // 0.1 → 1.0
+      _ffi.setBusVolume(0, vol);
+      _ffi.setBusVolume(1, vol);
+      if (step >= steps) timer.cancel();
+    });
+  }
 
   void _startAudioPreview(String path) {
-    // Stop any existing preview first
-    _stopAudioPreview();
+    // Kill previous process without unducking — stay ducked between previews
+    _afplayProcess?.kill();
+    _afplayProcess = null;
 
+    _duckForPreview();
     setState(() {
       _previewingAudioPath = path;
       _isPreviewPlaying = true;
     });
 
-    try {
-      // Find the audio info for duration
-      final audioInfo = _audioPool.firstWhere(
-        (a) => a['path'] == path,
-        orElse: () => {'path': path, 'name': path.split('/').last, 'duration': 1.0},
-      );
-      final duration = (audioInfo['duration'] as num?)?.toDouble() ?? 1.0;
+    // Use known duration to limit playback (avoids trailing silence from bad headers)
+    final asset = AudioAssetManager.instance.assets.where((a) => a.path == path).firstOrNull;
+    final args = <String>[path];
+    if (asset != null && asset.duration > 0) {
+      args.insertAll(0, ['--time', asset.duration.toStringAsFixed(3)]);
+    }
 
-      // Use AudioPlaybackService for preview (uses PreviewEngine - isolated)
-      final voiceId = AudioPlaybackService.instance.previewFile(
-        path,
-        source: PlaybackSource.browser,
-      );
-
-      if (voiceId < 0) {
-        _stopAudioPreview();
+    Process.start('/usr/bin/afplay', args).then((process) {
+      if (_previewingAudioPath != path) {
+        process.kill();
         return;
       }
-
-      // Auto-stop after duration
-      _previewTimer?.cancel();
-      _previewTimer = Timer(Duration(milliseconds: (duration * 1000).toInt() + 100), () {
-        if (mounted && _isPreviewPlaying) {
-          _stopAudioPreview();
+      _afplayProcess = process;
+      process.exitCode.then((_) {
+        if (_previewingAudioPath == path && mounted) {
+          _afplayProcess = null;
+          _unduckAfterPreview();
+          setState(() {
+            _previewingAudioPath = null;
+            _isPreviewPlaying = false;
+          });
         }
       });
-    } catch (e) {
-      _stopAudioPreview();
-    }
+    }).catchError((_) {
+      _unduckAfterPreview();
+      if (mounted) {
+        setState(() {
+          _previewingAudioPath = null;
+          _isPreviewPlaying = false;
+        });
+      }
+    });
   }
 
   void _stopAudioPreview() {
-    _previewTimer?.cancel();
-    _previewTimer = null;
+    _afplayProcess?.kill();
+    _afplayProcess = null;
+    _unduckAfterPreview();
 
     setState(() {
       _previewingAudioPath = null;
       _isPreviewPlaying = false;
     });
-
-    // Stop via AudioPlaybackService (browser source uses PreviewEngine)
-    AudioPlaybackService.instance.stopSource(PlaybackSource.browser);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

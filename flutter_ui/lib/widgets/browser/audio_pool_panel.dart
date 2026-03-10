@@ -592,11 +592,11 @@ class AudioPoolPanelState extends State<AudioPoolPanel> {
   }
 
   void _togglePreview(AudioFileInfo file) {
-    final clipId = int.tryParse(file.id) ?? 0;
     if (_isPlaying && _selectedFile?.id == file.id) {
       _ffi.audioPoolStopPreview();
       setState(() => _isPlaying = false);
     } else {
+      final clipId = int.tryParse(file.id) ?? 0;
       _ffi.audioPoolPlayPreview(clipId);
       setState(() {
         _selectedFile = file;
@@ -1184,6 +1184,7 @@ class _PlayButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
         width: 28,
