@@ -792,6 +792,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _initializeControllers();
     _initializeGrid();
     widget.provider.addListener(_onProviderUpdate);
+    widget.projectProvider?.addListener(_onWinConfigChanged);
 
     // P0.3: Connect anticipation callbacks for visual-audio sync
     // Wrapper needed for named parameter support (tensionLevel)
@@ -808,6 +809,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _disposeControllers();
       _initializeControllers();
       _initializeGrid();
+    }
+    // Re-register projectProvider listener if instance changed
+    if (oldWidget.projectProvider != widget.projectProvider) {
+      oldWidget.projectProvider?.removeListener(_onWinConfigChanged);
+      widget.projectProvider?.addListener(_onWinConfigChanged);
     }
     // Transition gate: freeze reel animations during scene transitions
     if (widget.isTransitionActive && !oldWidget.isTransitionActive) {
@@ -1700,6 +1706,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   @override
   void dispose() {
     widget.provider.removeListener(_onProviderUpdate);
+    widget.projectProvider?.removeListener(_onWinConfigChanged);
     // P0.3: Clean up anticipation callbacks
     widget.provider.onAnticipationStart = null;
     widget.provider.onAnticipationEnd = null;
@@ -1711,6 +1718,24 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     EventRegistry.instance.stopAllSpinLoops();
     _disposeControllers();
     super.dispose();
+  }
+
+  /// React to win tier config changes from the right panel.
+  /// Re-evaluates the current win tier when spin is finalized (not mid-spin).
+  /// Labels update instantly (read from provider on every frame via ticker).
+  /// Threshold changes re-classify the current win into the correct tier.
+  void _onWinConfigChanged() {
+    if (!mounted) return;
+    // Only re-evaluate if we have a finalized win showing (not mid-spin, not mid-progression)
+    if (!_spinFinalized || _isSpinning || _isInTierProgression || _targetWinAmount <= 0) return;
+
+    final newTier = _getP5WinTierStringId(_targetWinAmount);
+    if (newTier != _winTier) {
+      setState(() {
+        _winTier = newTier;
+        _currentDisplayTier = newTier;
+      });
+    }
   }
 
   void _onProviderUpdate() {

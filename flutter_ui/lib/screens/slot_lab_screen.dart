@@ -9687,8 +9687,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// Custom events are user-defined events outside the predefined stage system.
   /// CUSTOM tab — Audio Event Editor (BROWSE-style flat list with inline layer editing)
   Widget _buildEventsLeftPanel() {
-    return Consumer2<MiddlewareProvider, CustomEventProvider>(
-      builder: (context, mw, customProv, _) {
+    return Consumer3<MiddlewareProvider, CustomEventProvider, SlotLabProjectProvider>(
+      builder: (context, mw, customProv, projectProv, _) {
         final compositeEvents = mw.compositeEvents;
         final selected = mw.selectedCompositeEvent;
         final customEvents = customProv.events;
@@ -9755,7 +9755,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   ],
                 ),
               ),
-              ..._buildCompositeEventsList(compositeEvents, selected, mw),
+              ..._buildCompositeEventsList(compositeEvents, selected, mw, projectProv),
             ],
             // ── Custom Events (user-created, outside stage system) ──
             if (hasComposite)
@@ -9901,6 +9901,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     List<SlotCompositeEvent> events,
     SlotCompositeEvent? selected,
     MiddlewareProvider mw,
+    SlotLabProjectProvider projectProv,
   ) {
     final grouped = <String, List<SlotCompositeEvent>>{};
     for (final e in events) {
@@ -9923,6 +9924,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         ),
         ...entry.value.expand((evt) {
           final isSelected = selected?.id == evt.id;
+          // Resolve win tier displayLabel for win-related events
+          final tierLabel = _getWinTierLabelForEvent(evt, projectProv);
           return [
             GestureDetector(
               onTap: () {
@@ -9952,16 +9955,32 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     ),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: Text(
-                        evt.name,
-                        style: TextStyle(
-                          color: isSelected
-                              ? FluxForgeTheme.textPrimary
-                              : FluxForgeTheme.textSecondary,
-                          fontSize: 11,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            evt.name,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? FluxForgeTheme.textPrimary
+                                  : FluxForgeTheme.textSecondary,
+                              fontSize: 11,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (tierLabel != null)
+                            Text(
+                              tierLabel,
+                              style: TextStyle(
+                                color: FluxForgeTheme.accentGreen.withValues(alpha: 0.6),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
                       ),
                     ),
                     Container(
@@ -9989,6 +10008,52 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         }),
       ];
     }).toList();
+  }
+
+  /// Resolve win tier displayLabel for a composite event.
+  /// Returns the P5 tier label (e.g., "BIG WIN", "WIN 3") for win-related events,
+  /// or null for non-win events. Reads live from SlotLabProjectProvider.
+  String? _getWinTierLabelForEvent(SlotCompositeEvent evt, SlotLabProjectProvider projectProv) {
+    final stages = evt.triggerStages;
+    if (stages.isEmpty) return null;
+    final stage = stages.first.toUpperCase();
+
+    // Regular win tiers: WIN_LOW, WIN_EQUAL, WIN_1..WIN_6
+    if (stage.startsWith('WIN_')) {
+      final config = projectProv.winConfiguration.regularWins;
+      for (final tier in config.tiers) {
+        if (tier.stageName == stage || tier.presentStageName == stage) {
+          return tier.displayLabel;
+        }
+      }
+    }
+
+    // Big win tiers: BIG_WIN_TIER_1..BIG_WIN_TIER_5
+    final bigMatch = RegExp(r'^BIG_WIN_TIER_(\d)$').firstMatch(stage);
+    if (bigMatch != null) {
+      final tierId = int.parse(bigMatch.group(1)!);
+      final bigConfig = projectProv.winConfiguration.bigWins;
+      for (final tier in bigConfig.tiers) {
+        if (tier.tierId == tierId) {
+          return tier.displayLabel;
+        }
+      }
+    }
+
+    // Rollup stages: ROLLUP_START_1, ROLLUP_TICK_2, ROLLUP_END_3
+    final rollupMatch = RegExp(r'^ROLLUP_(?:START|TICK|END)_(\w+)$').firstMatch(stage);
+    if (rollupMatch != null) {
+      final tierIdStr = rollupMatch.group(1)!;
+      final config = projectProv.winConfiguration.regularWins;
+      for (final tier in config.tiers) {
+        final tierSuffix = tier.tierId == -1 ? 'LOW' : (tier.tierId == 0 ? 'EQUAL' : '${tier.tierId}');
+        if (tierSuffix == tierIdStr) {
+          return '${tier.displayLabel} (rollup)';
+        }
+      }
+    }
+
+    return null;
   }
 
   /// Build custom events list (from CustomEventProvider)
