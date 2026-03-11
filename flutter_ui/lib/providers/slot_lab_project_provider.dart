@@ -563,7 +563,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
     final dir = Directory(folderPath);
     if (!dir.existsSync()) return (bindings: {}, unmapped: []);
 
-    final files = dir.listSync()
+    final files = dir.listSync(recursive: true)
         .whereType<File>()
         .where((f) => _isAudioFile(f.path))
         .toList()
@@ -573,21 +573,34 @@ class SlotLabProjectProvider extends ChangeNotifier {
     final mappedPaths = <String>{};
 
     for (final file in files) {
-      final name = file.uri.pathSegments.last.split('.').first.toLowerCase()
-          .replaceAll(RegExp(r'[\s\-]+'), '_'); // Normalize spaces/dashes to underscores
+      final rawName = file.uri.pathSegments.last.split('.').first;
+      // CamelCase → snake_case (ReelStop → reel_stop, FSActive1Level2 → fs_active1_level2)
+      final snaked = rawName
+          .replaceAllMapped(RegExp(r'([a-z0-9])([A-Z])'), (m) => '${m[1]}_${m[2]}')
+          .replaceAllMapped(RegExp(r'([A-Z]+)([A-Z][a-z])'), (m) => '${m[1]}_${m[2]}');
+      final name = snaked.toLowerCase().replaceAll(RegExp(r'[\s\-]+'), '_');
       // Strip numeric prefix (e.g., "004_" or "043_" or "048_")
       final stripped = name.replaceFirst(RegExp(r'^\d+_'), '');
-      // Strip trailing variant number (e.g., "_2" or "_1")
-      final base = stripped.replaceFirst(RegExp(r'_\d+$'), '');
+      // Strip trailing variant number/letter (e.g., "_2", "_1", "_b", "_a")
+      final base = stripped.replaceFirst(RegExp(r'_[a-z0-9]$'), '');
+      // Strip "LevelN" / "LVN" suffix — many vendors use these for volume layers
+      final noLevel = base.replaceFirst(RegExp(r'_?(?:level|lv)\d+$'), '');
 
-      // Try stripped first (preserves trailing number for numbered variants like scatter_land_1)
-      // Also try without sfx_ prefix (e.g., sfx_wild_land → wild_land)
-      final noSfx = stripped.startsWith('sfx_') ? stripped.substring(4) : stripped;
-      final noSfxBase = base.startsWith('sfx_') ? base.substring(4) : base;
-      final stage = _resolveStageFromFilename(stripped, stripped) ??
-                     _resolveStageFromFilename(base, stripped) ??
-                     (noSfx != stripped ? _resolveStageFromFilename(noSfx, noSfx) : null) ??
-                     (noSfxBase != base ? _resolveStageFromFilename(noSfxBase, stripped) : null);
+      // Strip sfx_ prefix + numeric catalog number
+      final afterSfx = stripped.startsWith('sfx_') ? stripped.substring(4) : stripped;
+      final noSfx = afterSfx.replaceFirst(RegExp(r'^\d+_'), '');
+      final afterSfxBase = base.startsWith('sfx_') ? base.substring(4) : base;
+      final noSfxBase = afterSfxBase.replaceFirst(RegExp(r'^\d+_'), '');
+      final noSfxNoLevel = noLevel.startsWith('sfx_') ? noLevel.substring(4) : noLevel;
+      final noSfxNoLevelClean = noSfxNoLevel.replaceFirst(RegExp(r'^\d+_'), '');
+
+      // Try cleanest forms first (base without variant/level), then progressively less clean
+      final stage = _resolveStageFromFilename(noSfxNoLevelClean, noSfxNoLevelClean) ??
+                     _resolveStageFromFilename(noSfxBase, noSfxBase) ??
+                     _resolveStageFromFilename(noSfx, noSfx) ??
+                     (noLevel != noSfxNoLevelClean ? _resolveStageFromFilename(noLevel, noLevel) : null) ??
+                     (stripped != noSfx ? _resolveStageFromFilename(stripped, stripped) : null) ??
+                     (base != noSfxBase ? _resolveStageFromFilename(base, stripped) : null);
       if (stage != null) {
         mappedPaths.add(file.path);
         // For variant stages (e.g., REEL_SPIN_LOOP with 3 variants),
@@ -716,122 +729,219 @@ class SlotLabProjectProvider extends ChangeNotifier {
     return const {'wav', 'mp3', 'ogg', 'flac', 'aiff', 'aif'}.contains(ext);
   }
 
+  /// Data-driven stage resolver: alias expansion + NofM + fuzzy token matching.
+  /// New stages in StageConfigurationService auto-match without changes here.
   static String? _resolveStageFromFilename(String base, String full) {
-    // ─── REELS ───
-    if (base == 'spins_loop_1of3' || base == 'spins_loop_2of3' || base == 'spins_loop_3of3') return 'REEL_SPIN_LOOP';
-    if (base == 'spins_stop_1of5' || base == 'reel_stop_1' || base == 'reel_land_1') return 'REEL_STOP_0';
-    if (base == 'spins_stop_2of5' || base == 'reel_stop_2' || base == 'reel_land_2') return 'REEL_STOP_1';
-    if (base == 'spins_stop_3of5' || base == 'reel_stop_3' || base == 'reel_land_3') return 'REEL_STOP_2';
-    if (base == 'spins_stop_4of5' || base == 'reel_stop_4' || base == 'reel_land_4') return 'REEL_STOP_3';
-    if (base == 'spins_stop_5of5' || base == 'reel_stop_5' || base == 'reel_land_5') return 'REEL_STOP_4';
-    if (base == 'reel_stop' || base == 'reel_land' || base == 'reelstop') return 'REEL_STOP';
+    const aliases = <String, String>{
+      'spins_loop': 'reel_spin_loop', 'spins_stop': 'reel_stop',
+      'reel_land': 'reel_stop', 'reelstop': 'reel_stop',
+      'reelclick': 'reel_stop', 'spinning': 'reel_spin_loop',
+      'reel_clear': 'reel_stop',
+      'spins_susp_short': 'anticipation_tension_r2',
+      'spins_susp_med': 'anticipation_tension_r3',
+      'spins_susp_long': 'anticipation_tension_r4',
+      'susp_short': 'anticipation_tension_r2',
+      'susp_med': 'anticipation_tension_r3',
+      'susp_long': 'anticipation_tension_r4',
+      'reel_anticipation': 'anticipation_tension',
+      'anticipation_miss': 'anticipation_miss',
+      'anticipation': 'anticipation_tension',
+      'hp_sym': 'hp_win', 'lp_sym': 'lp_win',
+      'winlessthanequal': 'win_present_low',
+      'total_win': 'win_present_end',
+      'reel_highlight': 'payline_highlight',
+      'linewin': 'payline_highlight',
+      'coin_highlight': 'payline_highlight',
+      'bw_alert': 'big_win_trigger',
+      'coin_loop_end': 'big_win_tick_end',
+      'coin_loop': 'big_win_tick_start',
+      'coin_burst': 'big_win_tick_start',
+      'celebration_rollup': 'big_win_tick_start',
+      'mus_bg_lvl': 'music_base_l',
+      'mus_bw_end': 'big_win_end', 'mus_bw': 'big_win_start',
+      'mus_fs_end': 'fs_end', 'mus_fs_outro': 'fs_end',
+      'mus_fs': 'music_fs_l1',
+      'base_game_music': 'music_base_l1',
+      'trn_fs_intro': 'context_base_to_fs',
+      'trn_fs_outro_panel': 'fs_outro_plaque',
+      'trn_return_to_base': 'context_fs_to_base',
+      'trn_bonus_intro': 'context_base_to_bonus',
+      'trn_bonus_outro': 'context_bonus_to_base',
+      'ui_spin_button': 'ui_spin_press',
+      'ui_open': 'ui_menu_open', 'ui_close': 'ui_menu_close',
+      'ui_interact': 'ui_button_press',
+      'button_click': 'ui_button_press',
+      'button_high_tech_press': 'ui_button_press',
+      'play_button_press': 'ui_button_press',
+      'start_button': 'ui_spin_press',
+      'volume_button': 'ui_volume_change',
+      'change_risk_amount': 'ui_bet_up',
+      'panels_appear': 'fs_hold_intro',
+      'bell_retrigger': 'fs_retrigger',
+      'bell_loop': 'fs_spin_start',
+      'fs_active': 'fs_spin_start', 'fs_smart': 'fs_spin_start',
+      'fs_coin_smart': 'fs_win',
+      'bonus_intro_loop': 'bonus_enter',
+      'bonus_ending': 'bonus_exit',
+      'bonus_ending_short': 'bonus_exit',
+      'bonus_complete': 'bonus_exit',
+      'base_game_rollup': 'rollup_tick',
+      'base_rollup_loop': 'rollup_tick',
+      'rollup_terminator': 'rollup_end',
+      'rollup_term': 'rollup_end',
+      'rollup': 'rollup_tick',
+      'grand_jackpot': 'jackpot_grand',
+      'major_jackpot': 'jackpot_major',
+      'mini_jackpot': 'jackpot_mini',
+      'minor_jackpot': 'jackpot_minor',
+      'maxi_jackpot': 'jackpot_grand',
+      'mega_jackpot': 'jackpot_grand',
+      'jackpot_winner': 'jackpot_celebration',
+      'progressive_reveal': 'jackpot_reveal',
+      'wheel_enters': 'wheel_enter', 'wheel_exits': 'wheel_exit',
+      'double_up_loop': 'gamble_start',
+      'double_up_win': 'gamble_win',
+      'double_up_lose': 'gamble_lose',
+      'double_up_exit_take_win': 'gamble_collect',
+      'credits_fly_up': 'win_collect',
+      'credits_fly_down': 'win_collect',
+      'collect': 'win_collect',
+      'wild_win': 'wild_win',
+      'gem_land': 'symbol_land', 'icon_burst': 'symbol_win',
+      'level_up': 'fs_multiplier_up', 'spin_count': 'fs_spin_start',
+    };
 
-    // ─── ANTICIPATION (sequential per-reel: short→R2, med→R3, long→R4) ───
-    if (base == 'spins_susp_short') return 'ANTICIPATION_TENSION_R2';
-    if (base == 'spins_susp_med') return 'ANTICIPATION_TENSION_R3';
-    if (base == 'spins_susp_long') return 'ANTICIPATION_TENSION_R4';
-
-    // ─── SYMBOLS — High Pay ───
-    if (base == 'hp_sym_1' || full.startsWith('hp_sym_1')) return 'HP1_WIN';
-    if (base == 'hp_sym_2' || full.startsWith('hp_sym_2')) return 'HP2_WIN';
-    if (base == 'hp_sym_3' || full.startsWith('hp_sym_3')) return 'HP3_WIN';
-    if (base == 'hp_sym_4' || full.startsWith('hp_sym_4')) return 'HP4_WIN';
-
-    // ─── SYMBOLS — Medium Pay ───
-    if (base == 'mp1' || full.startsWith('mp1')) return 'MP1_WIN';
-    if (base == 'mp2' || full.startsWith('mp2')) return 'MP2_WIN';
-    if (base == 'mp3' || full.startsWith('mp3')) return 'MP3_WIN';
-    if (base == 'mp4' || full.startsWith('mp4')) return 'MP4_WIN';
-    if (base == 'mp5' || full.startsWith('mp5')) return 'MP5_WIN';
-
-    // ─── SYMBOLS — Low Pay ───
-    if (base == 'lp_sym_1of3' || full.startsWith('lp_sym_1of3')) return 'LP1_WIN';
-    if (base == 'lp_sym_2of3' || full.startsWith('lp_sym_2of3')) return 'LP2_WIN';
-    if (base == 'lp_sym_3of3' || full.startsWith('lp_sym_3of3')) return 'LP3_WIN';
-
-    // ─── WIN HIGHLIGHTS ───
-    if (base == 'reel_highlight') return 'PAYLINE_HIGHLIGHT';
-    // linewin = duplicate of reel_highlight, skip
-
-    // ─── WINS (bet multiplier tiers) ───
-    if (base == 'winlessthanequal') return 'WIN_PRESENT_LOW';
-    if (base == 'win_2x') return 'WIN_PRESENT_1';
-    if (base == 'win_3x') return 'WIN_PRESENT_2';
-    if (base == 'win_4x') return 'WIN_PRESENT_3';
-    if (base == 'win_5x') return 'WIN_PRESENT_4';
-    if (base == 'win_6x') return 'WIN_PRESENT_5';
-    // win_7x, win_8x = surplus, skip
-
-    // ─── BIG WIN ───
-    if (base == 'bw_alert') return 'BIG_WIN_TRIGGER';
-    if (base == 'coin_loop') return 'BIG_WIN_TICK_START';
-    if (base == 'coin_loop_end') return 'BIG_WIN_TICK_END';
-    if (base == 'mus_bw') return 'BIG_WIN_START';
-    if (base == 'mus_bw_end') return 'BIG_WIN_END';
-
-    // ─── SCATTER / FREE SPINS ───
-    if (base == 'scatter_land' || base == 'sfx_scatter_land') return 'SCATTER_LAND';
-    if (base == 'scatter_land_1of5' || base == 'scatter_land_1' || base == 'sfx_scatter_1' || base == 'scatter_1' || base == 'sfx_scatter_land_1' || base == 'sfx_scatter_land_1of5') return 'SCATTER_LAND_1';
-    if (base == 'scatter_land_2of5' || base == 'scatter_land_2' || base == 'sfx_scatter_2' || base == 'scatter_2' || base == 'sfx_scatter_land_2' || base == 'sfx_scatter_land_2of5') return 'SCATTER_LAND_2';
-    if (base == 'scatter_land_3of5' || base == 'scatter_land_3' || base == 'sfx_scatter_3' || base == 'scatter_3' || base == 'sfx_scatter_land_3' || base == 'sfx_scatter_land_3of5') return 'SCATTER_LAND_3';
-    if (base == 'scatter_land_4of5' || base == 'scatter_land_4' || base == 'sfx_scatter_4' || base == 'scatter_4' || base == 'sfx_scatter_land_4' || base == 'sfx_scatter_land_4of5') return 'SCATTER_LAND_4';
-    if (base == 'scatter_land_5of5' || base == 'scatter_land_5' || base == 'sfx_scatter_5' || base == 'scatter_5' || base == 'sfx_scatter_land_5' || base == 'sfx_scatter_land_5of5') return 'SCATTER_LAND_5';
-    if (base == 'scatter_win' || base == 'sfx_scatter_win') return 'SCATTER_WIN';
-    if (base == 'panels_appear') return 'FS_HOLD_INTRO';
-    if (base == 'trn_fs_intro') return 'CONTEXT_BASE_TO_FS';
-    if (base == 'trn_fs_outro_panel') return 'FS_OUTRO_PLAQUE';
-    if (base == 'trn_return_to_base') return 'CONTEXT_FS_TO_BASE';
-    if (base == 'mus_fs') return 'MUSIC_FS_L1';
-    if (base == 'mus_fs_end' || base == 'mus_fs_outro') return 'FS_END';
-
-    // ─── WILD ───
-    if (base == 'wild_land' || base == 'wildland' || base == 'sfx_wild_land') return 'WILD_LAND';
-    if (base == 'wild_land_1' || base == 'sfx_wild_1' || base == 'wild_1' || base == 'sfx_wild_land_1') return 'WILD_LAND_1';
-    if (base == 'wild_land_2' || base == 'sfx_wild_2' || base == 'wild_2' || base == 'sfx_wild_land_2') return 'WILD_LAND_2';
-    if (base == 'wild_land_3' || base == 'sfx_wild_3' || base == 'wild_3' || base == 'sfx_wild_land_3') return 'WILD_LAND_3';
-    if (base == 'wild_land_4' || base == 'sfx_wild_4' || base == 'wild_4' || base == 'sfx_wild_land_4') return 'WILD_LAND_4';
-    if (base == 'wild_land_5' || base == 'sfx_wild_5' || base == 'wild_5' || base == 'sfx_wild_land_5') return 'WILD_LAND_5';
-    if (base == 'wild_expand' || base == 'wild_expand_start') return 'WILD_EXPAND_START';
-    if (base == 'wild_expand_step') return 'WILD_EXPAND_STEP';
-    if (base == 'wild_expand_end') return 'WILD_EXPAND_END';
-    if (base == 'wild_stick' || base == 'wild_sticky') return 'WILD_STICK';
-    if (base == 'wild_walk_left' || base == 'wild_walk_l') return 'WILD_WALK_LEFT';
-    if (base == 'wild_walk_right' || base == 'wild_walk_r') return 'WILD_WALK_RIGHT';
-    if (base == 'wild_transform') return 'WILD_TRANSFORM';
-    if (base == 'wild_multiply' || base == 'wild_multiplier') return 'WILD_MULTIPLY';
-    if (base == 'wild_nudge') return 'WILD_NUDGE';
-    if (base == 'wild_stack') return 'WILD_STACK';
-    if (base == 'wild_upgrade') return 'WILD_UPGRADE';
-    if (base == 'wild_win' || base == 'sfx_wild_win') return 'WILD_WIN';
-
-    // ─── BONUS ───
-    if (base == 'bonus_land' || base == 'sfx_bonus_land') return 'BONUS_LAND';
-    if (base == 'bonus_win' || base == 'sfx_bonus_win') return 'BONUS_WIN';
-
-    // ─── UI ───
-    if (base == 'ui_spin_button') return 'UI_SPIN_PRESS';
-    if (base == 'ui_open') return 'UI_MENU_OPEN';
-    if (base == 'ui_close') return 'UI_MENU_CLOSE';
-    if (base == 'ui_interact_1of3' || base == 'ui_interact_2of3' || base == 'ui_interact_3of3') return 'UI_BUTTON_PRESS';
-
-    // ─── MUSIC (base game layers — all on GAME_START composite) ───
-    if (base == 'mus_bg_lvl_1') return 'MUSIC_BASE_L1';
-    if (base == 'mus_bg_lvl_2') return 'MUSIC_BASE_L2';
-    if (base == 'mus_bg_lvl_3') return 'MUSIC_BASE_L3';
-
-    // ─── GENERIC FALLBACK: match known stage IDs directly ───
-    // If filename (after normalization) matches a registered stage, use it.
-    // E.g., wild_land.wav → WILD_LAND, scatter_win.wav → SCATTER_WIN
-    final upper = base.toUpperCase();
-    if (StageConfigurationService.instance.getStage(upper) != null) {
-      return upper;
+    // Apply alias — longest prefix match, then try glued form (no underscores)
+    String expanded = base;
+    bool aliasMatched = false;
+    for (final entry in aliases.entries) {
+      if (base == entry.key || base.startsWith('${entry.key}_')) {
+        expanded = base.replaceFirst(entry.key, entry.value);
+        aliasMatched = true;
+        break;
+      }
     }
-    // Also try with full (non-stripped) name
+    if (!aliasMatched) {
+      final glued = base.replaceAll('_', '');
+      for (final entry in aliases.entries) {
+        final gluedKey = entry.key.replaceAll('_', '');
+        if (glued == gluedKey || glued.startsWith(gluedKey)) {
+          final remainder = glued.substring(gluedKey.length);
+          expanded = remainder.isEmpty ? entry.value : '${entry.value}_$remainder';
+          break;
+        }
+      }
+    }
+
+    // NofM pattern: "3of5" → index
+    String matchBase = expanded;
+    int? nOfMIndex;
+    final nofmMatch = RegExp(r'_?(\d+)of\d+').firstMatch(matchBase);
+    if (nofmMatch != null) {
+      nOfMIndex = int.tryParse(nofmMatch.group(1)!);
+      matchBase = matchBase.replaceFirst(nofmMatch.group(0)!, '')
+          .replaceAll(RegExp(r'_+'), '_').replaceAll(RegExp(r'^_|_$'), '');
+    }
+
+    // Multiplier: "win_Nx" → WIN_PRESENT_{N-1}
+    final multMatch = RegExp(r'^win_(\d+)x$').firstMatch(matchBase);
+    if (multMatch != null) {
+      final tier = int.tryParse(multMatch.group(1)!);
+      if (tier != null && tier >= 2) {
+        final stageId = 'WIN_PRESENT_${tier - 1}';
+        if (StageConfigurationService.instance.getStage(stageId) != null) return stageId;
+      }
+    }
+
+    // "2x" prefix → WIN_PRESENT_1
+    if (matchBase.startsWith('2x')) {
+      if (StageConfigurationService.instance.getStage('WIN_PRESENT_1') != null) {
+        return 'WIN_PRESENT_1';
+      }
+    }
+
+    // Symbol pay: "hp_win_N" / "mpN" / "lp_win_N" → HPN_WIN
+    final symMatch = RegExp(r'^(hp|mp|lp)_?(?:win_?)?(\d+)$').firstMatch(matchBase);
+    if (symMatch != null) {
+      final stageId = '${symMatch.group(1)!.toUpperCase()}${symMatch.group(2)!}_WIN';
+      if (StageConfigurationService.instance.getStage(stageId) != null) return stageId;
+    }
+
+    // Concatenated form: "music_base_l_1" → "MUSIC_BASE_L1"
+    final concatMatch = RegExp(r'^(.+)_(\d+)$').firstMatch(matchBase);
+    if (concatMatch != null) {
+      final glued = '${concatMatch.group(1)!.toUpperCase()}${concatMatch.group(2)!}';
+      if (StageConfigurationService.instance.getStage(glued) != null) return glued;
+    }
+
+    final directUpper = matchBase.toUpperCase();
+
+    // NofM indexed: auto-detect 0-based vs 1-based
+    if (nOfMIndex != null) {
+      final hasZeroBased = StageConfigurationService.instance.getStage('${directUpper}_0') != null;
+      if (hasZeroBased) {
+        final s = '${directUpper}_${nOfMIndex - 1}';
+        if (StageConfigurationService.instance.getStage(s) != null) return s;
+      } else {
+        final s = '${directUpper}_$nOfMIndex';
+        if (StageConfigurationService.instance.getStage(s) != null) return s;
+      }
+      final symNofM = RegExp(r'^(HP|MP|LP)_WIN$').firstMatch(directUpper);
+      if (symNofM != null) {
+        final s = '${symNofM.group(1)}${nOfMIndex}_WIN';
+        if (StageConfigurationService.instance.getStage(s) != null) return s;
+      }
+    }
+
+    // Trailing number index: "reelstop01" → REEL_STOP_0
+    final trailingNum = RegExp(r'^(.+?)_?(\d+)$').firstMatch(matchBase);
+    if (trailingNum != null) {
+      final stem = trailingNum.group(1)!.toUpperCase();
+      final idx = int.tryParse(trailingNum.group(2)!);
+      if (idx != null) {
+        final hasZeroBased = StageConfigurationService.instance.getStage('${stem}_0') != null;
+        if (hasZeroBased && idx >= 1) {
+          final s = '${stem}_${idx - 1}';
+          if (StageConfigurationService.instance.getStage(s) != null) return s;
+        }
+        final s = '${stem}_$idx';
+        if (StageConfigurationService.instance.getStage(s) != null) return s;
+      }
+    }
+
+    // Exact match
+    if (StageConfigurationService.instance.getStage(directUpper) != null) return directUpper;
+
+    // Token-based fuzzy match
+    final allStages = StageConfigurationService.instance.allStageNames;
+    final fileTokens = matchBase.split('_').where((t) => t.isNotEmpty).toList();
+    if (fileTokens.isEmpty) return null;
+    String? bestMatch;
+    double bestScore = 0.0;
+    for (final stageName in allStages) {
+      final stageTokens = stageName.toLowerCase().split('_').where((t) => t.isNotEmpty).toList();
+      if (stageTokens.isEmpty) continue;
+      int fileHits = 0;
+      for (final ft in fileTokens) { if (stageTokens.contains(ft)) fileHits++; }
+      if (fileHits == 0) continue;
+      int stageHits = 0;
+      for (final st in stageTokens) { if (fileTokens.contains(st)) stageHits++; }
+      final fc = fileHits / fileTokens.length;
+      final sc = stageHits / stageTokens.length;
+      if (fc < 0.5 || sc < 0.5) continue;
+      double score = fc * sc;
+      if (fileTokens.length == stageTokens.length && fileHits == fileTokens.length) score = 1.0;
+      if (score > bestScore) { bestScore = score; bestMatch = stageName; }
+    }
+    if (bestMatch != null && bestScore >= 0.5) return bestMatch;
+
+    // Final fallback
+    final upperBase = base.toUpperCase();
+    if (StageConfigurationService.instance.getStage(upperBase) != null) return upperBase;
     final upperFull = full.toUpperCase();
-    if (upperFull != upper && StageConfigurationService.instance.getStage(upperFull) != null) {
+    if (upperFull != upperBase && StageConfigurationService.instance.getStage(upperFull) != null) {
       return upperFull;
     }
-
     return null;
   }
 
