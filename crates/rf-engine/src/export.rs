@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
+use crate::audio_import::SampleRateConverter;
 use crate::freeze::OfflineRenderer;
 use crate::playback::PlaybackEngine;
 use crate::track_manager::TrackManager;
@@ -193,57 +194,95 @@ impl ExportEngine {
             render_duration
         };
 
-        // Use project sample rate if not specified
-        let sample_rate = if config.sample_rate == 0 {
-            48000 // Default project rate
+        // Engine sample rate (what process_offline renders at)
+        let engine_rate = self.playback_engine.sample_rate();
+
+        // Target sample rate for output file
+        let target_rate = if config.sample_rate == 0 {
+            engine_rate // Use project/engine rate
         } else {
             config.sample_rate
         };
 
-        let total_samples = (total_duration * sample_rate as f64) as usize;
+        // Always render at engine sample rate (correct audio processing)
+        let render_samples = (total_duration * engine_rate as f64) as usize;
 
-        // Allocate output buffers
-        let mut output_l = vec![0.0f64; total_samples];
-        let mut output_r = vec![0.0f64; total_samples];
+        // Allocate render buffers at engine sample rate
+        let mut render_l = vec![0.0f64; render_samples];
+        let mut render_r = vec![0.0f64; render_samples];
 
         // Reset progress
         self.progress.store(0.0_f64.to_bits(), Ordering::Relaxed);
 
-        // Render in blocks
-        let num_blocks = total_samples.div_ceil(config.block_size);
+        // Render in blocks at engine sample rate
+        let num_blocks = render_samples.div_ceil(config.block_size);
 
         for block_idx in 0..num_blocks {
             let block_start = block_idx * config.block_size;
-            let block_end = (block_start + config.block_size).min(total_samples);
+            let block_end = (block_start + config.block_size).min(render_samples);
 
-            // Calculate block time
+            // Calculate block time using engine sample rate
             let block_start_sample =
-                (config.start_time * sample_rate as f64) as usize + block_start;
+                (config.start_time * engine_rate as f64) as usize + block_start;
 
             // Get block buffers
-            let block_l = &mut output_l[block_start..block_end];
-            let block_r = &mut output_r[block_start..block_end];
+            let block_l = &mut render_l[block_start..block_end];
+            let block_r = &mut render_r[block_start..block_end];
 
             // Render block through playback engine
             self.playback_engine
                 .process_offline(block_start_sample, block_l, block_r);
 
-            // Update progress
-            let progress = (block_idx as f64 / num_blocks as f64) * 100.0;
+            // Update progress (rendering = 0-80%, SRC = 80-95%, writing = 95-100%)
+            let progress = (block_idx as f64 / num_blocks as f64) * 80.0;
             self.progress.store(progress.to_bits(), Ordering::Relaxed);
         }
 
-        // Normalize if requested
+        // Normalize if requested (before SRC to preserve precision)
         if config.normalize {
-            self.normalize_audio(&mut output_l, &mut output_r);
+            self.normalize_audio(&mut render_l, &mut render_r);
         }
+
+        // Sample rate conversion if target != engine rate
+        let (output_l, output_r, output_rate) = if target_rate != engine_rate {
+            self.progress.store(80.0_f64.to_bits(), Ordering::Relaxed);
+
+            // Convert f64 → f32 for SRC (SampleRateConverter works with f32)
+            let render_f32: Vec<f32> = render_l.iter().zip(render_r.iter())
+                .flat_map(|(&l, &r)| [l as f32, r as f32])
+                .collect();
+
+            let resampled = SampleRateConverter::convert_sinc(
+                &render_f32,
+                engine_rate,
+                target_rate,
+                2, // stereo
+            );
+
+            self.progress.store(90.0_f64.to_bits(), Ordering::Relaxed);
+
+            // Split back to L/R f64 channels
+            let out_frames = resampled.len() / 2;
+            let mut out_l = Vec::with_capacity(out_frames);
+            let mut out_r = Vec::with_capacity(out_frames);
+            for i in 0..out_frames {
+                out_l.push(resampled[i * 2] as f64);
+                out_r.push(resampled[i * 2 + 1] as f64);
+            }
+
+            (out_l, out_r, target_rate)
+        } else {
+            (render_l, render_r, engine_rate)
+        };
+
+        self.progress.store(95.0_f64.to_bits(), Ordering::Relaxed);
 
         // Write to file based on format
         self.write_output(
             &config.output_path,
             &output_l,
             &output_r,
-            sample_rate,
+            output_rate,
             config.format,
         )?;
 
@@ -433,12 +472,18 @@ impl ExportEngine {
             render_duration
         };
 
-        let sample_rate = if config.sample_rate == 0 {
-            48000
+        // Engine sample rate (what process_track_offline renders at)
+        let engine_rate = self.playback_engine.sample_rate();
+
+        // Target sample rate for output files
+        let target_rate = if config.sample_rate == 0 {
+            engine_rate
         } else {
             config.sample_rate
         };
-        let total_samples = (total_duration * sample_rate as f64) as usize;
+
+        // Render at engine sample rate
+        let render_samples = (total_duration * engine_rate as f64) as usize;
 
         // Export each track
         let extension = config.format.file_extension();
@@ -469,22 +514,22 @@ impl ExportEngine {
                 status: 1, // Rendering
             });
 
-            // Allocate output buffers
-            let mut output_l = vec![0.0f64; total_samples];
-            let mut output_r = vec![0.0f64; total_samples];
+            // Allocate render buffers at engine sample rate
+            let mut render_l = vec![0.0f64; render_samples];
+            let mut render_r = vec![0.0f64; render_samples];
 
-            // Render track in blocks
-            let num_blocks = total_samples.div_ceil(config.block_size);
+            // Render track in blocks at engine sample rate
+            let num_blocks = render_samples.div_ceil(config.block_size);
 
             for block_idx in 0..num_blocks {
                 let block_start = block_idx * config.block_size;
-                let block_end = (block_start + config.block_size).min(total_samples);
+                let block_end = (block_start + config.block_size).min(render_samples);
 
                 let block_start_sample =
-                    (config.start_time * sample_rate as f64) as usize + block_start;
+                    (config.start_time * engine_rate as f64) as usize + block_start;
 
-                let block_l = &mut output_l[block_start..block_end];
-                let block_r = &mut output_r[block_start..block_end];
+                let block_l = &mut render_l[block_start..block_end];
+                let block_r = &mut render_r[block_start..block_end];
 
                 // Render single track
                 self.playback_engine.process_track_offline(
@@ -495,17 +540,42 @@ impl ExportEngine {
                 );
             }
 
-            // Normalize if requested
+            // Normalize if requested (before SRC)
             if config.normalize {
-                self.normalize_audio(&mut output_l, &mut output_r);
+                self.normalize_audio(&mut render_l, &mut render_r);
             }
+
+            // Sample rate conversion if target != engine rate
+            let (final_l, final_r, final_rate) = if target_rate != engine_rate {
+                let render_f32: Vec<f32> = render_l.iter().zip(render_r.iter())
+                    .flat_map(|(&l, &r)| [l as f32, r as f32])
+                    .collect();
+
+                let resampled = SampleRateConverter::convert_sinc(
+                    &render_f32,
+                    engine_rate,
+                    target_rate,
+                    2,
+                );
+
+                let out_frames = resampled.len() / 2;
+                let mut out_l = Vec::with_capacity(out_frames);
+                let mut out_r = Vec::with_capacity(out_frames);
+                for i in 0..out_frames {
+                    out_l.push(resampled[i * 2] as f64);
+                    out_r.push(resampled[i * 2 + 1] as f64);
+                }
+                (out_l, out_r, target_rate)
+            } else {
+                (render_l, render_r, engine_rate)
+            };
 
             // Write to file
             let write_result = self.write_output(
                 &output_path,
-                &output_l,
-                &output_r,
-                sample_rate,
+                &final_l,
+                &final_r,
+                final_rate,
                 config.format,
             );
 

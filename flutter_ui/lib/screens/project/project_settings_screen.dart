@@ -7,6 +7,7 @@
 /// - Author and description
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../../widgets/project/schema_migration_panel.dart';
@@ -122,46 +123,56 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: FluxForgeTheme.bgDeep,
-      appBar: AppBar(
-        backgroundColor: FluxForgeTheme.bgMid,
-        title: const Text('Project Settings'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          Navigator.of(context).pop();
+        },
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          backgroundColor: FluxForgeTheme.bgDeep,
+          appBar: AppBar(
+            backgroundColor: FluxForgeTheme.bgMid,
+            title: const Text('Project Settings'),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            actions: [
+              if (_hasChanges)
+                TextButton.icon(
+                  onPressed: _saveChanges,
+                  icon: const Icon(Icons.save, size: 18),
+                  label: const Text('Save'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: FluxForgeTheme.accentGreen,
+                  ),
+                ),
+            ],
+          ),
+          body: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildMetadataSection(),
+                      const SizedBox(height: 32),
+                      _buildTempoSection(),
+                      const SizedBox(height: 32),
+                      _buildAudioSection(),
+                      const SizedBox(height: 32),
+                      _buildSchemaVersionSection(),
+                      const SizedBox(height: 32),
+                      _buildInfoSection(),
+                    ],
+                  ),
+                ),
         ),
-        actions: [
-          if (_hasChanges)
-            TextButton.icon(
-              onPressed: _saveChanges,
-              icon: const Icon(Icons.save, size: 18),
-              label: const Text('Save'),
-              style: TextButton.styleFrom(
-                foregroundColor: FluxForgeTheme.accentGreen,
-              ),
-            ),
-        ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildMetadataSection(),
-                  const SizedBox(height: 32),
-                  _buildTempoSection(),
-                  const SizedBox(height: 32),
-                  _buildAudioSection(),
-                  const SizedBox(height: 32),
-                  _buildSchemaVersionSection(),
-                  const SizedBox(height: 32),
-                  _buildInfoSection(),
-                ],
-              ),
-            ),
     );
   }
 

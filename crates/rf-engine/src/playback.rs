@@ -930,6 +930,9 @@ pub struct OneShotVoice {
     pitch_semitones: f32,
     /// Real-time mute (voice continues but produces silence)
     muted: bool,
+    /// Engine sample rate for sample rate conversion
+    /// Source SR != engine SR → rate_ratio applied in fill_buffer
+    engine_sample_rate: u32,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1041,6 +1044,8 @@ impl OneShotVoice {
             pitch_semitones: 0.0,
             // Real-time mute
             muted: false,
+            // Engine sample rate for SRC (set on activate)
+            engine_sample_rate: 48000,
         }
     }
 
@@ -1217,6 +1222,13 @@ impl OneShotVoice {
         let pan_l = pan_angle.cos();
         let pan_r = pan_angle.sin();
 
+        // Sample rate conversion ratio: source_sr / engine_sr
+        // e.g., 44100Hz file in 48000Hz engine → rate_ratio = 0.91875
+        // This ensures correct pitch and duration regardless of source sample rate
+        let source_sr = self.audio.sample_rate as f64;
+        let engine_sr = self.engine_sample_rate as f64;
+        let rate_ratio = source_sr / engine_sr;
+
         // P12.0.1: Calculate pitch shift ratio (semitones to frequency ratio)
         // pitch_ratio = 2^(semitones / 12)
         // Range: -24 to +24 semitones
@@ -1227,6 +1239,9 @@ impl OneShotVoice {
         } else {
             1.0 // No pitch shift
         };
+
+        // Combined playback rate: SRC * pitch shift
+        let combined_rate = rate_ratio * pitch_ratio;
 
         for frame in 0..frames_needed {
             // Handle fade-out (from stop command or explicit fade_out_one_shot)
@@ -1250,10 +1265,11 @@ impl OneShotVoice {
             }
 
             // Check if we need to start fade-out at end (auto fade-out near trim_end)
-            let current_pos = self.position + frame as u64;
+            // current_source_pos tracks actual position in source sample space
+            let current_source_pos = self.position + (frame as f64 * combined_rate) as u64;
             if self.fade_out_samples_at_end > 0 && self.fade_samples_remaining == 0 {
-                let samples_to_end = if effective_end > current_pos {
-                    effective_end - current_pos
+                let samples_to_end = if effective_end > current_source_pos {
+                    effective_end - current_source_pos
                 } else {
                     0
                 };
@@ -1264,9 +1280,9 @@ impl OneShotVoice {
                 }
             }
 
-            // P12.0.1: Apply pitch shift via resampling
-            // Calculate fractional sample index based on pitch ratio
-            let fractional_pos = self.position as f64 + (frame as f64 * pitch_ratio);
+            // Apply SRC + pitch shift via resampling
+            // Calculate fractional source sample index based on combined rate
+            let fractional_pos = self.position as f64 + (frame as f64 * combined_rate);
             // Compute source position with looping support
             let src_pos = if self.looping {
                 // Wrap fractional position for seamless looping
@@ -1283,7 +1299,7 @@ impl OneShotVoice {
             let src_frame = src_pos.floor() as usize;
 
             // For non-looping: check bounds (respect trim_end)
-            if !self.looping && (src_frame >= total_frames || current_pos >= effective_end) {
+            if !self.looping && (src_frame >= total_frames || current_source_pos >= effective_end) {
                 break;
             }
 
@@ -1343,8 +1359,8 @@ impl OneShotVoice {
             right[frame] += sample_r;
         }
 
-        // P12.0.1: Advance position accounting for pitch ratio
-        self.position += (frames_needed as f64 * pitch_ratio) as u64;
+        // Advance position accounting for SRC + pitch ratio
+        self.position += (frames_needed as f64 * combined_rate) as u64;
 
         // P0.2: For looping, wrap position for next call
         if self.looping && !self.loop_releasing {
@@ -4040,6 +4056,7 @@ impl PlaybackEngine {
                     // Note: If no slot available, command is silently dropped (audio thread cannot log)
                     if let Some(voice) = voices.iter_mut().find(|v| !v.active) {
                         voice.activate(id, audio, volume, pan, bus, source);
+                        voice.engine_sample_rate = self.sample_rate();
                     }
                     // Voice stealing would go here in future (oldest voice eviction)
                 }
@@ -4054,6 +4071,7 @@ impl PlaybackEngine {
                     // Seamless looping voice (REEL_SPIN etc.)
                     if let Some(voice) = voices.iter_mut().find(|v| !v.active) {
                         voice.activate_looping(id, audio, volume, pan, bus, source);
+                        voice.engine_sample_rate = self.sample_rate();
                     }
                     // Silent drop if no voice available (audio thread rule: no logging)
                 }
@@ -4083,6 +4101,7 @@ impl PlaybackEngine {
                             trim_start_ms,
                             trim_end_ms,
                         );
+                        voice.engine_sample_rate = self.sample_rate();
                     }
                     // Silent drop if no voice available (audio thread rule: no logging)
                 }
