@@ -741,8 +741,8 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
                   (v) => provider.updatePreset((p) => p.copyWith(monoMethod: v)),
                   labelOf: (v) => v.displayName,
                 )),
-                _paramRow('Skip if already mono', child: _toggle(preset.skipMonoDownmix, (v) =>
-                    provider.updatePreset((p) => p.copyWith(skipMonoDownmix: v)))),
+                // skipMonoDownmix removed — file.channels > 1 check already ensures
+                // mono files are never downmixed
               ],
             ],
           )),

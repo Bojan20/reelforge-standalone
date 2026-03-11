@@ -450,7 +450,6 @@ class SfxPipelinePreset {
   final int sampleRate;
   final OutputChannelMode outputChannels;
   final MonoDownmixMethod monoMethod;
-  final bool skipMonoDownmix;
   final Set<String> stereoOverrideStages;
   final bool multiFormat;
   final Set<SfxOutputFormat> multiFormatPresets;
@@ -517,7 +516,6 @@ class SfxPipelinePreset {
     this.sampleRate = 48000,
     this.outputChannels = OutputChannelMode.mono,
     this.monoMethod = MonoDownmixMethod.sumHalf,
-    this.skipMonoDownmix = true,
     this.stereoOverrideStages = const {},
     this.multiFormat = false,
     this.multiFormatPresets = const {SfxOutputFormat.wav24, SfxOutputFormat.ogg},
@@ -578,7 +576,6 @@ class SfxPipelinePreset {
     int? sampleRate,
     OutputChannelMode? outputChannels,
     MonoDownmixMethod? monoMethod,
-    bool? skipMonoDownmix,
     Set<String>? stereoOverrideStages,
     bool? multiFormat,
     Set<SfxOutputFormat>? multiFormatPresets,
@@ -819,12 +816,35 @@ T? _enumFromName<T extends Enum>(List<T> values, String? name) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class SfxBuiltInPresets {
+  /// Industry-standard per-category LUFS targets for iGaming SFX.
+  /// UI clicks must cut through; ambient/music stays underneath.
+  static const _slotCategoryLufs = <SfxCategory, double?>{
+    SfxCategory.uiClicks: -12.0,        // Short, precise — must be heard over everything
+    SfxCategory.reelMechanics: -16.0,    // Constant presence — must not fatigue
+    SfxCategory.winCelebrations: -14.0,  // Exciting but controlled
+    SfxCategory.ambientLoops: -23.0,     // Background bed — quiet foundation
+    SfxCategory.featureTriggers: -14.0,  // Key moments — must grab attention
+    SfxCategory.anticipation: -18.0,     // Gradual build-up — mid level
+  };
+
   static final slotGameStandard = SfxPipelinePreset(
     id: 'builtin_slot_standard',
     name: 'Slot Game Standard',
     createdAt: DateTime(2026, 1, 1),
     isBuiltIn: true,
+    perCategoryOverrides: _slotCategoryLufs,
+    categoryDetection: true,
   );
+
+  /// Mobile preset — 2 LUFS louder per category (small speakers need more headroom)
+  static const _mobileCategoryLufs = <SfxCategory, double?>{
+    SfxCategory.uiClicks: -10.0,
+    SfxCategory.reelMechanics: -14.0,
+    SfxCategory.winCelebrations: -12.0,
+    SfxCategory.ambientLoops: -21.0,
+    SfxCategory.featureTriggers: -12.0,
+    SfxCategory.anticipation: -16.0,
+  };
 
   static final slotGameMobile = SfxPipelinePreset(
     id: 'builtin_slot_mobile',
@@ -835,6 +855,8 @@ class SfxBuiltInPresets {
     outputFormat: SfxOutputFormat.ogg,
     multiFormat: true,
     multiFormatPresets: {SfxOutputFormat.ogg, SfxOutputFormat.wav24},
+    perCategoryOverrides: _mobileCategoryLufs,
+    categoryDetection: true,
   );
 
   static final wwiseReady = SfxPipelinePreset(

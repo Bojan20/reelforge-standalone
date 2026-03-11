@@ -29,12 +29,18 @@ import '../src/rust/native_ffi.dart';
 import 'loudness_analysis_service.dart';
 import 'strip_silence_service.dart';
 
+/// Cancellation token for a single pipeline execution.
+/// Each executePipeline() call gets its own token to avoid cross-session interference.
+class _CancelToken {
+  bool cancelled = false;
+}
+
 /// SFX Pipeline Service — orchestrates the 6-step pipeline
 class SfxPipelineService {
   SfxPipelineService._();
   static final instance = SfxPipelineService._();
 
-  bool _cancelled = false;
+  _CancelToken? _activeToken;
 
   // ─── Step 1: Scan ──────────────────────────────────────────────────────
 
@@ -126,8 +132,8 @@ class SfxPipelineService {
           integratedLufs = lufsResult.integratedLufs;
           peakDbfs = lufsResult.samplePeak;
 
-          // 4a. DC offset detection
-          dcOffset = _measureDcOffset(samples);
+          // 4a. DC offset detection (per-channel for stereo)
+          dcOffset = _measureDcOffset(samples, channels: channels);
 
           // 5a. Silence detection at head/tail
           final silentRegions = silence.detectSilence(samples, sampleRate.toDouble());
@@ -149,10 +155,10 @@ class SfxPipelineService {
           // Process through rf-offline with no-op normalization to get metrics
           final handle = ffi.offlinePipelineCreate();
           if (handle != 0) {
+            final tempPath = '${file.path}.scan_tmp.wav';
             try {
               ffi.offlinePipelineSetNormalization(handle, 0, 0.0); // None
               ffi.offlinePipelineSetFormat(handle, 1); // WAV 24-bit (temp)
-              final tempPath = '${file.path}.scan_tmp.wav';
               final jobId = ffi.offlineProcessFile(handle, file.path, tempPath);
               if (jobId != 0) {
                 await _waitForFfiJob(ffi, handle);
@@ -168,10 +174,10 @@ class SfxPipelineService {
                 }
                 ffi.offlineClearJobResult(jobId);
               }
-              // Cleanup temp file
-              try { await File(tempPath).delete(); } catch (_) {}
             } finally {
               ffi.offlinePipelineDestroy(handle);
+              // Always cleanup temp file (even if jobId was 0 or error occurred)
+              try { await File(tempPath).delete(); } catch (_) {}
             }
           }
         }
@@ -249,7 +255,8 @@ class SfxPipelineService {
     Future<void> Function()? waitForSpinComplete,
     void Function(Map<String, String> stageToPath)? batchAssign,
   }) async {
-    _cancelled = false;
+    final token = _CancelToken();
+    _activeToken = token;
     final stopwatch = Stopwatch()..start();
     final selectedFiles = files.where((f) => f.selected).toList();
     final totalFiles = selectedFiles.length;
@@ -291,7 +298,7 @@ class SfxPipelineService {
       final trimStart = stopwatch.elapsedMilliseconds;
       final trimmedPaths = <String, String>{}; // sourceFilename → trimmedPath
 
-      for (int i = 0; i < totalFiles && !_cancelled; i++) {
+      for (int i = 0; i < totalFiles && !token.cancelled; i++) {
         final file = selectedFiles[i];
         onProgress?.call(SfxPipelineProgress(
           currentStep: SfxPipelineStep.trimAndClean,
@@ -313,6 +320,29 @@ class SfxPipelineService {
             ? (preset.fadeOutMs * file.sampleRate / 1000).round()
             : null;
 
+        // Calculate trim range from silence detection (interleaved sample positions)
+        // Aligned to frame boundaries (multiple of channels) to avoid mid-frame cuts
+        final bool hasTrimStart = preset.trimStart && file.silenceStartMs > 0;
+        final bool hasTrimEnd = preset.trimEnd && file.silenceEndMs > 0;
+        int? trimStartSample;
+        int? trimEndSample;
+        if (hasTrimStart || hasTrimEnd) {
+          final ch = file.channels;
+          final totalSamples = (file.durationSeconds * file.sampleRate * ch).round();
+          if (hasTrimStart) {
+            final raw = (file.silenceStartMs / 1000.0 * file.sampleRate * ch).round();
+            trimStartSample = (raw ~/ ch) * ch; // align to frame boundary
+          } else {
+            trimStartSample = 0;
+          }
+          if (hasTrimEnd) {
+            final rawEnd = (file.silenceEndMs / 1000.0 * file.sampleRate * ch).round();
+            trimEndSample = ((totalSamples - rawEnd) ~/ ch) * ch; // align
+          } else {
+            trimEndSample = totalSamples;
+          }
+        }
+
         // Use processFileWithOptions for trim+fade (no normalization yet)
         final handle = ffi.offlinePipelineCreate();
         if (handle != 0) {
@@ -327,6 +357,8 @@ class SfxPipelineService {
               'output_path': trimmedPath,
               if (fadeInSamples != null) 'fade_in_samples': fadeInSamples,
               if (fadeOutSamples != null) 'fade_out_samples': fadeOutSamples,
+              if (trimStartSample != null) 'trim_start_sample': trimStartSample,
+              if (trimEndSample != null) 'trim_end_sample': trimEndSample,
               'format': 1, // WAV 24-bit intermediate
               if (preset.removeDcOffset) 'remove_dc_offset': true,
               if (preset.highPassEnabled) 'high_pass_freq': preset.highPassFreq,
@@ -335,7 +367,7 @@ class SfxPipelineService {
 
             final jobId = ffi.offlineProcessFileWithOptions(handle, optionsJson);
             if (jobId != 0) {
-              await _waitForFfiJob(ffi, handle);
+              await _waitForFfiJob(ffi, handle, token: token);
               ffi.offlineClearJobResult(jobId);
             }
           } finally {
@@ -352,7 +384,7 @@ class SfxPipelineService {
       }
       stepDurations[SfxPipelineStep.trimAndClean] = stopwatch.elapsedMilliseconds - trimStart;
 
-      if (_cancelled) throw _CancelledException();
+      if (token.cancelled) throw _CancelledException();
 
       // ══════════════════════════════════════════════════════════════════════
       // Step 2/4: Normalize → intermediate files in tempDir
@@ -360,7 +392,7 @@ class SfxPipelineService {
       final normStart = stopwatch.elapsedMilliseconds;
       final normalizedPaths = <String, String>{}; // sourceFilename → normalizedPath
 
-      for (int i = 0; i < totalFiles && !_cancelled; i++) {
+      for (int i = 0; i < totalFiles && !token.cancelled; i++) {
         final file = selectedFiles[i];
         onProgress?.call(SfxPipelineProgress(
           currentStep: SfxPipelineStep.normalize,
@@ -398,7 +430,7 @@ class SfxPipelineService {
 
               final jobId = ffi.offlineProcessFile(handle, inputPath, normalizedPath);
               if (jobId != 0) {
-                await _waitForFfiJob(ffi, handle);
+                await _waitForFfiJob(ffi, handle, token: token);
                 ffi.offlineClearJobResult(jobId);
               }
             } finally {
@@ -415,14 +447,14 @@ class SfxPipelineService {
       }
       stepDurations[SfxPipelineStep.normalize] = stopwatch.elapsedMilliseconds - normStart;
 
-      if (_cancelled) throw _CancelledException();
+      if (token.cancelled) throw _CancelledException();
 
       // ══════════════════════════════════════════════════════════════════════
       // Step 3/4: Convert & Export → final files in outputDir
       // ══════════════════════════════════════════════════════════════════════
       final convertStart = stopwatch.elapsedMilliseconds;
 
-      for (int i = 0; i < totalFiles && !_cancelled; i++) {
+      for (int i = 0; i < totalFiles && !token.cancelled; i++) {
         final file = selectedFiles[i];
 
         // Resolve output filename
@@ -452,8 +484,7 @@ class SfxPipelineService {
         // Determine mono downmix
         String? monoDownmix;
         if (preset.outputChannels == OutputChannelMode.mono && file.channels > 1) {
-          if (!preset.skipMonoDownmix &&
-              !preset.stereoOverrideStages.contains(mapping.stageId)) {
+          if (!preset.stereoOverrideStages.contains(mapping.stageId)) {
             monoDownmix = preset.monoMethod.name; // sumHalf, leftOnly, etc.
             finalChannels = 1;
           }
@@ -478,7 +509,7 @@ class SfxPipelineService {
 
             final jobId = ffi.offlineProcessFileWithOptions(handle, optionsJson);
             if (jobId != 0) {
-              await _waitForFfiJob(ffi, handle);
+              await _waitForFfiJob(ffi, handle, token: token);
 
               // Read job result for final stats
               final resultJson = ffi.offlineGetJobResult(jobId);
@@ -545,11 +576,12 @@ class SfxPipelineService {
             if (extraHandle != 0) {
               try {
                 ffi.offlinePipelineSetFormat(extraHandle, extraFmtId);
+                // Use primary output as input (already mono/SRC processed)
                 final extraJobId = ffi.offlineProcessFile(
-                  extraHandle, inputPath, extraPath,
+                  extraHandle, outputPath, extraPath,
                 );
                 if (extraJobId != 0) {
-                  await _waitForFfiJob(ffi, extraHandle);
+                  await _waitForFfiJob(ffi, extraHandle, token: token);
                   ffi.offlineClearJobResult(extraJobId);
                 }
               } finally {
@@ -561,7 +593,7 @@ class SfxPipelineService {
       }
       stepDurations[SfxPipelineStep.convertAndExport] = stopwatch.elapsedMilliseconds - convertStart;
 
-      if (_cancelled) throw _CancelledException();
+      if (token.cancelled) throw _CancelledException();
 
       // ══════════════════════════════════════════════════════════════════════
       // Step 4/4: Auto-Assign
@@ -688,25 +720,28 @@ class SfxPipelineService {
 
   /// Cancel the running pipeline
   void cancel() {
-    _cancelled = true;
+    _activeToken?.cancelled = true;
   }
 
   // ─── Private Helpers ───────────────────────────────────────────────────
 
   /// Wait for an FFI pipeline job to complete (poll state).
   /// Timeout after [timeoutMs] milliseconds (default 60s per file).
-  Future<void> _waitForFfiJob(NativeFFI ffi, int handle, {int timeoutMs = 60000}) async {
+  /// Returns true if completed successfully, false if cancelled/timed out.
+  Future<bool> _waitForFfiJob(NativeFFI ffi, int handle, {_CancelToken? token, int timeoutMs = 60000}) async {
     final deadline = DateTime.now().add(Duration(milliseconds: timeoutMs));
     while (true) {
       final state = ffi.offlinePipelineGetState(handle);
-      if (state >= 8 || state < 0) break; // Complete/Failed/Cancelled/NotFound
-      if (_cancelled) {
+      // 8=Complete, 9=Failed, 10=Cancelled, -1=NotFound
+      if (state == 8) return true;
+      if (state == 9 || state == 10 || state < 0) return false;
+      if (token != null && token.cancelled) {
         ffi.offlinePipelineCancel(handle);
-        break;
+        return false;
       }
       if (DateTime.now().isAfter(deadline)) {
         ffi.offlinePipelineCancel(handle);
-        break;
+        return false;
       }
       await Future.delayed(const Duration(milliseconds: 20));
     }
@@ -793,14 +828,33 @@ class SfxPipelineService {
     return samples.isEmpty ? null : samples;
   }
 
-  /// Measure DC offset as average of all samples
-  double _measureDcOffset(List<double> samples) {
+  /// Measure DC offset as max absolute per-channel average.
+  /// For stereo interleaved data, each channel is measured independently
+  /// so that L=+0.05 R=-0.05 correctly reports 0.05 (not 0.0).
+  double _measureDcOffset(List<double> samples, {int channels = 2}) {
     if (samples.isEmpty) return 0.0;
-    double sum = 0.0;
-    for (final s in samples) {
-      sum += s;
+    if (channels < 2) {
+      // Mono — simple average
+      double sum = 0.0;
+      for (final s in samples) sum += s;
+      return sum / samples.length;
     }
-    return sum / samples.length;
+    // Per-channel DC offset — return worst case
+    final chSums = List<double>.filled(channels, 0.0);
+    final chCounts = List<int>.filled(channels, 0);
+    for (int i = 0; i < samples.length; i++) {
+      final ch = i % channels;
+      chSums[ch] += samples[i];
+      chCounts[ch]++;
+    }
+    double worst = 0.0;
+    for (int c = 0; c < channels; c++) {
+      if (chCounts[c] > 0) {
+        final dc = (chSums[c] / chCounts[c]).abs();
+        if (dc > worst) worst = dc;
+      }
+    }
+    return worst;
   }
 
   /// Map SfxNormMode → NormalizationMode (from offline_processing_provider)
@@ -939,6 +993,10 @@ class SfxPipelineService {
       'win_present_3': 'WIN_PRESENT_3',
       'win_present_4': 'WIN_PRESENT_4',
       'win_present_5': 'WIN_PRESENT_5',
+      'win_present_6': 'WIN_PRESENT_6',
+      'win_present_7': 'WIN_PRESENT_7',
+      'win_present_8': 'WIN_PRESENT_8',
+      'win_present_equal': 'WIN_PRESENT_EQUAL',
       'payline_highlight': 'PAYLINE_HIGHLIGHT',
       'rollup_start': 'ROLLUP_START',
       'rollup_tick': 'ROLLUP_TICK',

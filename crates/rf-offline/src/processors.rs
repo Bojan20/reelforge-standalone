@@ -4,8 +4,11 @@ use serde::{Deserialize, Serialize};
 
 /// Trait for offline processors
 pub trait OfflineProcessor: Send + Sync {
-    /// Process a block of samples
+    /// Process a block of interleaved samples
     fn process(&mut self, samples: &mut [f64], sample_rate: u32);
+
+    /// Set number of interleaved channels (for multichannel-aware processors)
+    fn set_channels(&mut self, _channels: usize) {}
 
     /// Reset processor state
     fn reset(&mut self);
@@ -45,9 +48,17 @@ impl ProcessorChain {
         self
     }
 
-    /// Process samples through all processors
+    /// Process samples through all processors (mono-compatible)
     pub fn process(&mut self, samples: &mut [f64], sample_rate: u32) {
         for processor in &mut self.processors {
+            processor.process(samples, sample_rate);
+        }
+    }
+
+    /// Process interleaved multichannel samples — sets channel count on BiquadFilters
+    pub fn process_interleaved(&mut self, samples: &mut [f64], sample_rate: u32, channels: usize) {
+        for processor in &mut self.processors {
+            processor.set_channels(channels);
             processor.process(samples, sample_rate);
         }
     }
@@ -308,14 +319,17 @@ pub enum BiquadType {
 }
 
 /// Simple biquad filter for high-pass/low-pass (TDF-II)
+/// Supports multichannel interleaved audio with per-channel state.
 pub struct BiquadFilter {
     b0: f64,
     b1: f64,
     b2: f64,
     a1: f64,
     a2: f64,
-    z1: f64,
-    z2: f64,
+    /// Per-channel state (z1, z2). Grows on first process() call.
+    channel_state: Vec<(f64, f64)>,
+    /// Number of interleaved channels (set via set_channels or auto-detected)
+    channels: usize,
     // Lazy-init: recalculate coefficients on first process() call
     // with actual sample rate from the audio buffer.
     filter_type: BiquadType,
@@ -353,11 +367,19 @@ impl BiquadFilter {
         Self::new_uninit(BiquadType::LowPass, frequency, q)
     }
 
+    /// Set number of interleaved channels (call before processing)
+    pub fn set_channels(mut self, channels: usize) -> Self {
+        self.channels = channels;
+        self.channel_state = vec![(0.0, 0.0); channels];
+        self
+    }
+
     fn new_uninit(filter_type: BiquadType, frequency: f64, q: f64) -> Self {
         Self {
             b0: 1.0, b1: 0.0, b2: 0.0,
             a1: 0.0, a2: 0.0,
-            z1: 0.0, z2: 0.0,
+            channel_state: vec![(0.0, 0.0)], // default mono
+            channels: 1,
             filter_type,
             frequency,
             q,
@@ -394,27 +416,61 @@ impl BiquadFilter {
 }
 
 impl OfflineProcessor for BiquadFilter {
+    fn set_channels(&mut self, channels: usize) {
+        if channels != self.channels {
+            self.channels = channels.max(1);
+            self.channel_state.resize(self.channels, (0.0, 0.0));
+        }
+    }
+
     fn process(&mut self, samples: &mut [f64], sample_rate: u32) {
         // Lazy-init: recalculate coefficients if sample rate differs
         if self.initialized_sr != Some(sample_rate) {
             self.calc_coefficients(sample_rate);
             self.initialized_sr = Some(sample_rate);
-            self.z1 = 0.0;
-            self.z2 = 0.0;
+            for state in &mut self.channel_state {
+                *state = (0.0, 0.0);
+            }
         }
 
-        for sample in samples {
-            let input = *sample;
-            let output = self.b0 * input + self.z1;
-            self.z1 = self.b1 * input - self.a1 * output + self.z2;
-            self.z2 = self.b2 * input - self.a2 * output;
-            *sample = output;
+        let ch = self.channels;
+        if ch <= 1 {
+            // Mono: single state, process linearly
+            let (ref mut z1, ref mut z2) = self.channel_state[0];
+            for sample in samples {
+                let input = *sample;
+                let output = self.b0 * input + *z1;
+                *z1 = self.b1 * input - self.a1 * output + *z2;
+                *z2 = self.b2 * input - self.a2 * output;
+                *sample = output;
+            }
+        } else {
+            // Multichannel interleaved: per-channel state
+            // Ensure we have enough state slots
+            while self.channel_state.len() < ch {
+                self.channel_state.push((0.0, 0.0));
+            }
+            let b0 = self.b0;
+            let b1 = self.b1;
+            let b2 = self.b2;
+            let a1 = self.a1;
+            let a2 = self.a2;
+            for (i, sample) in samples.iter_mut().enumerate() {
+                let c = i % ch;
+                let (ref mut z1, ref mut z2) = self.channel_state[c];
+                let input = *sample;
+                let output = b0 * input + *z1;
+                *z1 = b1 * input - a1 * output + *z2;
+                *z2 = b2 * input - a2 * output;
+                *sample = output;
+            }
         }
     }
 
     fn reset(&mut self) {
-        self.z1 = 0.0;
-        self.z2 = 0.0;
+        for state in &mut self.channel_state {
+            *state = (0.0, 0.0);
+        }
         self.initialized_sr = None;
     }
 

@@ -107,9 +107,11 @@ pub extern "C" fn offline_pipeline_set_normalization(handle: u64, mode: i32, tar
             _ => None,
         };
 
+        let mut p = pipeline.write();
         if let Some(mode) = norm_mode {
-            let mut p = pipeline.write();
-            *p = OfflinePipeline::new(OfflineConfig::default()).with_normalization(mode);
+            p.set_normalization(mode);
+        } else {
+            p.clear_normalization();
         }
     }
 }
@@ -145,7 +147,7 @@ pub extern "C" fn offline_pipeline_set_format(handle: u64, format: i32) {
         };
 
         let mut p = pipeline.write();
-        *p = OfflinePipeline::new(OfflineConfig::default()).with_output_format(output_format);
+        p.set_output_format(output_format);
     }
 }
 
@@ -254,6 +256,10 @@ pub extern "C" fn offline_process_file_with_options(
         format: Option<i32>,
         high_pass_freq: Option<f64>,
         low_pass_freq: Option<f64>,
+        mono_downmix: Option<String>,
+        remove_dc_offset: Option<bool>,
+        trim_start_sample: Option<u64>,
+        trim_end_sample: Option<u64>,
     }
 
     let opts: ProcessOptions = match serde_json::from_str(options_str) {
@@ -292,18 +298,48 @@ pub extern "C" fn offline_process_file_with_options(
         builder = builder.normalize(norm);
     }
 
-    // Build processor chain for HP/LP filters (Butterworth Q=0.707, gentle 12dB/oct slope)
-    if opts.high_pass_freq.is_some() || opts.low_pass_freq.is_some() {
-        use rf_offline::{BiquadFilter, ProcessorChain};
+    // Trim range (silence removal)
+    match (opts.trim_start_sample, opts.trim_end_sample) {
+        (Some(start), Some(end)) => { builder = builder.range(start, end); }
+        (Some(start), None) => { builder = builder.range(start, u64::MAX); }
+        (None, Some(end)) => { builder = builder.range(0, end); }
+        _ => {}
+    }
+
+    // Mono downmix
+    if let Some(ref method) = opts.mono_downmix {
+        use rf_offline::MonoDownmix;
+        let dm = match method.as_str() {
+            "sumHalf" => MonoDownmix::SumHalf,
+            "leftOnly" => MonoDownmix::LeftOnly,
+            "rightOnly" => MonoDownmix::RightOnly,
+            "mid" => MonoDownmix::Mid,
+            "side" => MonoDownmix::Side,
+            _ => MonoDownmix::SumHalf,
+        };
+        builder = builder.mono_downmix(dm);
+    }
+
+    // Build processor chain: DC offset removal + HP/LP filters
+    let has_dc = opts.remove_dc_offset.unwrap_or(false);
+    let has_filters = opts.high_pass_freq.is_some() || opts.low_pass_freq.is_some();
+    let filter_chain = if has_dc || has_filters {
+        use rf_offline::{BiquadFilter, DcOffsetProcessor, ProcessorChain};
         let mut chain = ProcessorChain::new();
+        // DC offset removal first (before filters)
+        if has_dc {
+            chain = chain.add(DcOffsetProcessor::new());
+        }
         if let Some(hp_freq) = opts.high_pass_freq {
             chain = chain.add(BiquadFilter::highpass_deferred(hp_freq, 0.707));
         }
         if let Some(lp_freq) = opts.low_pass_freq {
             chain = chain.add(BiquadFilter::lowpass_deferred(lp_freq, 0.707));
         }
-        builder = builder.processors(chain);
-    }
+        Some(chain)
+    } else {
+        None
+    };
 
     let job = match builder.build() {
         Ok(j) => j,
@@ -317,7 +353,14 @@ pub extern "C" fn offline_process_file_with_options(
 
     if let Some(pipeline) = PIPELINES.get(&handle) {
         let mut p = pipeline.write();
-        match p.process_job(&job) {
+        // Set processors directly on pipeline (process_job uses self.processors)
+        if let Some(chain) = filter_chain {
+            p.set_processors(chain);
+        }
+        let result = p.process_job(&job);
+        // Reset processors after job to avoid leaking to next job on same pipeline
+        p.set_processors(rf_offline::ProcessorChain::new());
+        match result {
             Ok(result) => {
                 JOB_RESULTS.insert(job_id, result);
                 job_id

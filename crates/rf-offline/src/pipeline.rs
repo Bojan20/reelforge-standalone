@@ -21,7 +21,7 @@ use crate::decoder::AudioDecoder;
 use crate::encoder::create_encoder;
 use crate::error::OfflineResult;
 use crate::formats::OutputFormat;
-use crate::job::{JobResult, OfflineJob};
+use crate::job::{JobResult, MonoDownmix, OfflineJob};
 use crate::normalize::{LoudnessMeter, NormalizationMode};
 use crate::processors::ProcessorChain;
 
@@ -333,22 +333,42 @@ impl OfflinePipeline {
         }
     }
 
-    /// Set processor chain
+    /// Set processor chain (builder pattern)
     pub fn with_processors(mut self, processors: ProcessorChain) -> Self {
         self.processors = processors;
         self
     }
 
-    /// Set normalization mode
+    /// Set processor chain (mutable reference, for per-job use from FFI)
+    pub fn set_processors(&mut self, processors: ProcessorChain) {
+        self.processors = processors;
+    }
+
+    /// Set normalization mode (builder pattern)
     pub fn with_normalization(mut self, mode: NormalizationMode) -> Self {
         self.normalization = Some(mode);
         self
     }
 
-    /// Set output format
+    /// Set normalization mode (mutable reference, for FFI use)
+    pub fn set_normalization(&mut self, mode: NormalizationMode) {
+        self.normalization = Some(mode);
+    }
+
+    /// Clear normalization
+    pub fn clear_normalization(&mut self) {
+        self.normalization = None;
+    }
+
+    /// Set output format (builder pattern)
     pub fn with_output_format(mut self, format: OutputFormat) -> Self {
         self.output_format = format;
         self
+    }
+
+    /// Set output format (mutable reference, for FFI use)
+    pub fn set_output_format(&mut self, format: OutputFormat) {
+        self.output_format = format;
     }
 
     /// Cancel processing
@@ -439,6 +459,28 @@ impl OfflinePipeline {
             ));
         }
 
+        // Step 1b: Trim to range (silence removal)
+        if let Some((start_sample, end_sample)) = job.range {
+            let start = (start_sample as usize).min(buffer.samples.len());
+            let end = (end_sample as usize).min(buffer.samples.len());
+            if start < end {
+                buffer.samples = buffer.samples[start..end].to_vec();
+            }
+        }
+
+        // Step 1c: Mono downmix (before any processing)
+        if let Some(method) = &job.mono_downmix {
+            if buffer.channels > 1 {
+                buffer = match method {
+                    MonoDownmix::SumHalf => buffer.to_mono(),
+                    MonoDownmix::LeftOnly => buffer.to_mono_left(),
+                    MonoDownmix::RightOnly => buffer.to_mono_right(),
+                    MonoDownmix::Mid => buffer.to_mono_mid(),
+                    MonoDownmix::Side => buffer.to_mono_side(),
+                };
+            }
+        }
+
         self.total_samples
             .store(buffer.samples.len() as u64, Ordering::Relaxed);
 
@@ -458,6 +500,34 @@ impl OfflinePipeline {
                 job.id,
                 self.start_time.unwrap().elapsed(),
             ));
+        }
+
+        // Step 3b: Apply fades (frame-accurate, channel-aware)
+        let frames = buffer.frames();
+        let ch = buffer.channels;
+        if let Some(fade_in_frames) = job.fade_in {
+            let fade_in = fade_in_frames as usize;
+            if fade_in > 0 && fade_in <= frames {
+                for frame in 0..fade_in {
+                    let gain = frame as f64 / fade_in as f64;
+                    for c in 0..ch {
+                        buffer.samples[frame * ch + c] *= gain;
+                    }
+                }
+            }
+        }
+        if let Some(fade_out_frames) = job.fade_out {
+            let fade_out = fade_out_frames as usize;
+            if fade_out > 0 && fade_out <= frames {
+                let fade_start = frames - fade_out;
+                for frame in fade_start..frames {
+                    let pos = (frame - fade_start) as f64 / fade_out as f64;
+                    let gain = 1.0 - pos;
+                    for c in 0..ch {
+                        buffer.samples[frame * ch + c] *= gain;
+                    }
+                }
+            }
         }
 
         // Step 4: Normalize
@@ -488,6 +558,11 @@ impl OfflinePipeline {
         let peak_db = buffer.peak_db();
         let output_size = encoded.len() as u64;
 
+        // Measure integrated LUFS on final buffer
+        let mut meter = LoudnessMeter::new(buffer.sample_rate, buffer.channels);
+        meter.process(&buffer.samples);
+        let loudness = meter.get_info().integrated;
+
         Ok(JobResult::success(
             job.id,
             job.output_path.clone(),
@@ -495,7 +570,7 @@ impl OfflinePipeline {
             self.start_time.unwrap().elapsed(),
             peak_db,
             peak_db, // true_peak (same as peak for now)
-            -23.0,   // loudness placeholder (needs proper LUFS metering)
+            loudness,
         ))
     }
 
@@ -506,7 +581,13 @@ impl OfflinePipeline {
 
     /// Process buffer through DSP chain
     fn process_buffer(&mut self, buffer: &mut AudioBuffer) -> OfflineResult<()> {
-        let block_size = self.config.buffer_size;
+        // Align block size to channel count to avoid splitting frames mid-channel
+        let block_size = if buffer.channels > 1 {
+            (self.config.buffer_size / buffer.channels) * buffer.channels
+        } else {
+            self.config.buffer_size
+        };
+        let block_size = block_size.max(buffer.channels); // at least one frame
         let mut processed = 0;
 
         // Process in blocks
@@ -515,7 +596,7 @@ impl OfflinePipeline {
                 return Ok(());
             }
 
-            self.processors.process(chunk, buffer.sample_rate);
+            self.processors.process_interleaved(chunk, buffer.sample_rate, buffer.channels);
 
             processed += chunk.len();
             self.samples_processed

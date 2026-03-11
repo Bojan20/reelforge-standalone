@@ -13,6 +13,21 @@ use super::{NormalizationMode, OfflineError, OfflineResult, OutputFormat};
 /// Unique job identifier
 pub type JobId = u64;
 
+/// Mono downmix method for stereo → mono conversion
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MonoDownmix {
+    /// (L + R) / 2 — standard fold-down, phase-safe
+    SumHalf,
+    /// Left channel only
+    LeftOnly,
+    /// Right channel only
+    RightOnly,
+    /// L + R (no division, louder mid signal)
+    Mid,
+    /// L - R (side/difference signal)
+    Side,
+}
+
 /// Offline processing job
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OfflineJob {
@@ -49,6 +64,9 @@ pub struct OfflineJob {
 
     /// Fade out duration (samples)
     pub fade_out: Option<u64>,
+
+    /// Mono downmix (None = keep original channels)
+    pub mono_downmix: Option<MonoDownmix>,
 
     /// Tail handling (extra samples to capture reverb tails)
     pub tail_samples: u64,
@@ -111,6 +129,7 @@ pub struct JobBuilder {
     range: Option<(u64, u64)>,
     fade_in: Option<u64>,
     fade_out: Option<u64>,
+    mono_downmix: Option<MonoDownmix>,
     tail_samples: u64,
     priority: u8,
     metadata: JobMetadata,
@@ -195,6 +214,12 @@ impl JobBuilder {
         self
     }
 
+    /// Set mono downmix method
+    pub fn mono_downmix(mut self, method: MonoDownmix) -> Self {
+        self.mono_downmix = Some(method);
+        self
+    }
+
     /// Set display name
     pub fn name<S: Into<String>>(mut self, name: S) -> Self {
         self.metadata.name = name.into();
@@ -233,6 +258,7 @@ impl JobBuilder {
             range: self.range,
             fade_in: self.fade_in,
             fade_out: self.fade_out,
+            mono_downmix: self.mono_downmix,
             tail_samples: self.tail_samples,
             priority: self.priority,
             metadata,
