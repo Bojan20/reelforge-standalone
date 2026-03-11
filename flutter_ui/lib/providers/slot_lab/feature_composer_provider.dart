@@ -894,7 +894,7 @@ class FeatureComposerProvider extends ChangeNotifier {
   /// Update win tier count in config
   void setWinTierCount(int count) {
     if (_config == null) return;
-    _config = _config!.copyWith(winTierCount: count.clamp(1, 5));
+    _config = _config!.copyWith(winTierCount: count.clamp(1, 8));
     notifyListeners();
   }
 

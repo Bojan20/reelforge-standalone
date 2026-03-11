@@ -100,7 +100,10 @@ enum TemplateWinTier {
   tier2('WIN_2', 'WIN 2', 5.0),
   tier3('WIN_3', 'WIN 3', 15.0),
   tier4('WIN_4', 'WIN 4', 30.0),
-  tier5('WIN_5', 'WIN 5', 60.0);
+  tier5('WIN_5', 'WIN 5', 60.0),
+  tier6('WIN_6', 'WIN 6', 100.0),
+  tier7('WIN_7', 'WIN 7', 150.0),
+  tier8('WIN_8', 'WIN 8', 200.0);
 
   const TemplateWinTier(this.id, this.defaultLabel, this.defaultThreshold);
   final String id;

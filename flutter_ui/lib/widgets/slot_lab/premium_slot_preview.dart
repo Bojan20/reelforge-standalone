@@ -5252,7 +5252,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     eventRegistry.stopEvent('WIN_PRESENT');
 
     // Stop any tier-specific audio
-    for (int i = 1; i <= 5; i++) {
+    for (int i = 1; i <= 8; i++) {
       eventRegistry.stopEvent('WIN_PRESENT_$i');
       eventRegistry.stopEvent('BIG_WIN_TIER_$i');
     }
@@ -5300,7 +5300,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     eventRegistry.stopEvent('MUSIC_BIG_WIN');
     eventRegistry.stopEvent('MUSIC_JACKPOT');
     eventRegistry.stopEvent('MUSIC_GAMBLE');
-    for (int i = 1; i <= 5; i++) {
+    for (int i = 1; i <= 8; i++) {
       eventRegistry.stopEvent('BIG_WIN_MUSIC_$i');
     }
   }

@@ -208,6 +208,9 @@ class StageAutoRegistrar {
       TemplateWinTier.tier3 => 75,
       TemplateWinTier.tier4 => 80,
       TemplateWinTier.tier5 => 85,
+      TemplateWinTier.tier6 => 88,
+      TemplateWinTier.tier7 => 90,
+      TemplateWinTier.tier8 => 92,
     };
   }
 

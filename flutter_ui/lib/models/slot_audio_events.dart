@@ -283,7 +283,7 @@ class SlotAudioEventFactory {
 
   static List<MiddlewareEvent> createBigWinEvents() {
     return [
-      for (int i = 1; i <= 5; i++)
+      for (int i = 1; i <= 8; i++)
         MiddlewareEvent(
           id: 'slot_bigwin_tier_$i',
           name: 'BIG WIN TIER $i',

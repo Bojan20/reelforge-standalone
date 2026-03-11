@@ -325,15 +325,15 @@ class FFIBoundsChecker {
     return checkIndex(symbolId, maxSymbols);
   }
 
-  /// Validate tier index (0-6 for win tiers)
+  /// Validate tier index (0-9 for win tiers)
   static FFIBoundsResult checkTierIndex(int tierIndex) {
-    const maxTiers = 7; // WIN_LOW, WIN_EQUAL, WIN_1..5
+    const maxTiers = 10; // WIN_LOW, WIN_EQUAL, WIN_1..8
     return checkIndex(tierIndex, maxTiers);
   }
 
-  /// Validate big win tier index (0-4 for BIG_WIN_TIER_1..5)
+  /// Validate big win tier index (0-7 for BIG_WIN_TIER_1..8)
   static FFIBoundsResult checkBigWinTierIndex(int tierIndex) {
-    const maxBigWinTiers = 5;
+    const maxBigWinTiers = 8;
     return checkIndex(tierIndex, maxBigWinTiers);
   }
 

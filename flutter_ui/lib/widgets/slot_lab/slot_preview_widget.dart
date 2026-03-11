@@ -2403,7 +2403,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     eventRegistry.stopEvent('SYMBOL_WIN');
     eventRegistry.stopEvent('WIN_LINE_SHOW');
     eventRegistry.stopEvent('WIN_PRESENT');
-    for (int i = 1; i <= 5; i++) {
+    for (int i = 1; i <= 8; i++) {
       eventRegistry.stopEvent('WIN_PRESENT_$i');
       eventRegistry.stopEvent('BIG_WIN_TIER_$i');
     }

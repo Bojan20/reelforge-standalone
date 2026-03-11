@@ -341,15 +341,45 @@ class RegularWinTierConfig {
           rollupTickRate: 10,
           particleBurstCount: 18,
         ),
-        // WIN_5: >13x bet (default for regular wins) — 4 seconds rollup
+        // WIN_5: >13x, ≤16x bet — 4 seconds rollup
         const WinTierDefinition(
           tierId: 5,
           displayLabel: 'WIN 5',
           fromMultiplier: 13,
-          toMultiplier: 20, // up to BIG_WIN threshold
+          toMultiplier: 16,
           rollupDurationMs: 4000,  // 4 seconds
           rollupTickRate: 8,
           particleBurstCount: 25,
+        ),
+        // WIN_6: >16x, ≤18x bet — 4.5 seconds rollup
+        const WinTierDefinition(
+          tierId: 6,
+          displayLabel: 'WIN 6',
+          fromMultiplier: 16,
+          toMultiplier: 18,
+          rollupDurationMs: 4500,
+          rollupTickRate: 7,
+          particleBurstCount: 30,
+        ),
+        // WIN_7: >18x, ≤19x bet — 5 seconds rollup
+        const WinTierDefinition(
+          tierId: 7,
+          displayLabel: 'WIN 7',
+          fromMultiplier: 18,
+          toMultiplier: 19,
+          rollupDurationMs: 5000,
+          rollupTickRate: 6,
+          particleBurstCount: 35,
+        ),
+        // WIN_8: >19x bet — 5.5 seconds rollup (up to BIG_WIN threshold)
+        const WinTierDefinition(
+          tierId: 8,
+          displayLabel: 'WIN 8',
+          fromMultiplier: 19,
+          toMultiplier: 20, // up to BIG_WIN threshold
+          rollupDurationMs: 5500,
+          rollupTickRate: 5,
+          particleBurstCount: 40,
         ),
       ],
     );
@@ -671,17 +701,53 @@ class BigWinConfig {
           particleMultiplier: 2.5,
           audioIntensity: 1.3,
         ),
-        // Tier 5: 500x+
+        // Tier 5: 500x - 1000x
         BigWinTierDefinition(
           tierId: 5,
           fromMultiplier: 500,
-          toMultiplier: double.infinity,
+          toMultiplier: 1000,
           displayLabel: 'BIG WIN TIER 5',
           durationMs: 4000,
           rollupTickRate: 4,
           visualIntensity: 2.0,
           particleMultiplier: 3.0,
           audioIntensity: 1.5,
+        ),
+        // Tier 6: 1000x - 2000x
+        BigWinTierDefinition(
+          tierId: 6,
+          fromMultiplier: 1000,
+          toMultiplier: 2000,
+          displayLabel: 'BIG WIN TIER 6',
+          durationMs: 5000,
+          rollupTickRate: 3,
+          visualIntensity: 2.2,
+          particleMultiplier: 3.5,
+          audioIntensity: 1.6,
+        ),
+        // Tier 7: 2000x - 5000x
+        BigWinTierDefinition(
+          tierId: 7,
+          fromMultiplier: 2000,
+          toMultiplier: 5000,
+          displayLabel: 'BIG WIN TIER 7',
+          durationMs: 6000,
+          rollupTickRate: 2,
+          visualIntensity: 2.5,
+          particleMultiplier: 4.0,
+          audioIntensity: 1.7,
+        ),
+        // Tier 8: 5000x+
+        BigWinTierDefinition(
+          tierId: 8,
+          fromMultiplier: 5000,
+          toMultiplier: double.infinity,
+          displayLabel: 'BIG WIN TIER 8',
+          durationMs: 7000,
+          rollupTickRate: 1,
+          visualIntensity: 3.0,
+          particleMultiplier: 5.0,
+          audioIntensity: 2.0,
         ),
       ],
     );

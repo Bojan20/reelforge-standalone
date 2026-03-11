@@ -579,7 +579,7 @@ SlotWinConfiguration convertGddWinTiersToP5(GddMathModel math) {
         rollupTickRate: _calculateBigWinTickRate(bigTierId),
       ));
       bigTierId++;
-      if (bigTierId > 5) break; // Max 5 big win tiers
+      if (bigTierId > 8) break; // Max 8 big win tiers
     }
   }
 
@@ -588,7 +588,7 @@ SlotWinConfiguration convertGddWinTiersToP5(GddMathModel math) {
     bigWinTiers.addAll(_defaultBigWinTiersForVolatility(math.volatility, bigWinThreshold));
   }
 
-  // Ensure we have 5 big win tiers (fill gaps)
+  // Ensure we have 5 big win tiers minimum (fill gaps)
   while (bigWinTiers.length < 5) {
     final lastTier = bigWinTiers.lastOrNull;
     final nextTierId = (lastTier?.tierId ?? 0) + 1;
@@ -597,7 +597,7 @@ SlotWinConfiguration convertGddWinTiersToP5(GddMathModel math) {
     bigWinTiers.add(BigWinTierDefinition(
       tierId: nextTierId,
       fromMultiplier: fromMult,
-      toMultiplier: nextTierId == 5 ? double.infinity : fromMult * 2,
+      toMultiplier: nextTierId == 8 ? double.infinity : fromMult * 2,
       displayLabel: 'BIG WIN TIER ${nextTierId}',
       durationMs: _calculateBigWinDuration(nextTierId, math.volatility),
       rollupTickRate: _calculateBigWinTickRate(nextTierId),
