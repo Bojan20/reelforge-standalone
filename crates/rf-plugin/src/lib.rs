@@ -426,6 +426,11 @@ impl PluginHost {
         self.scanner.plugins().to_vec()
     }
 
+    /// Search plugins by name/vendor
+    pub fn search_plugins(&self, query: &str) -> Vec<PluginInfo> {
+        self.scanner.search(query).into_iter().cloned().collect()
+    }
+
     /// Load a plugin instance
     pub fn load_plugin(&self, plugin_id: &str) -> PluginResult<String> {
         let info = self
@@ -495,7 +500,7 @@ impl PluginHost {
             .find_plugin(plugin_id)
             .ok_or_else(|| PluginError::NotFound(plugin_id.to_string()))?;
 
-        let instance: Box<dyn PluginInstance> = match info.plugin_type {
+        let mut instance: Box<dyn PluginInstance> = match info.plugin_type {
             PluginType::Vst3 => {
                 let host = Vst3Host::load(&info.path)?;
                 Box::new(host)
@@ -529,6 +534,10 @@ impl PluginHost {
                 Box::new(host)
             }
         };
+
+        // Initialize plugin before returning (required for audio processing)
+        let context = self.context.read().clone();
+        instance.initialize(&context)?;
 
         Ok(instance)
     }

@@ -385,6 +385,7 @@ class PluginProvider extends ChangeNotifier {
 
     // Sync external plugins to PluginRegistry for insert slot selector
     _syncToPluginRegistry(plugins);
+    notifyListeners();
   }
 
   /// Sync scanned plugins to PluginRegistry (used by insert slot dropdown)

@@ -15958,53 +15958,53 @@ pub extern "C" fn control_room_set_sample_rate(sr: f64) -> i32 {
 // PHASE 5.1: PLUGIN SYSTEM FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-use rf_plugin::{PluginCategory, PluginHost, PluginScanner, PluginType};
+use rf_plugin::{PluginCategory, PluginHost, PluginType};
 
 /// Global plugin host instance
 static PLUGIN_HOST: std::sync::LazyLock<parking_lot::RwLock<PluginHost>> =
     std::sync::LazyLock::new(|| parking_lot::RwLock::new(PluginHost::new()));
 
-/// Global plugin scanner instance
-static PLUGIN_SCANNER: std::sync::LazyLock<parking_lot::RwLock<PluginScanner>> =
-    std::sync::LazyLock::new(|| parking_lot::RwLock::new(PluginScanner::new()));
-
 /// Scan for all plugins
 /// Returns number of plugins found
+///
+/// SINGLE SOURCE OF TRUTH: PLUGIN_HOST is the only scanner.
+/// All listing, loading, and insert chain operations use PLUGIN_HOST.
+/// GLOBAL_HOST (in rf-plugin) is also synced so rf_plugin::load_plugin() works.
 #[unsafe(no_mangle)]
 pub extern "C" fn plugin_scan_all() -> i32 {
-    // Scan with the standalone scanner (used for listing)
-    let count = match PLUGIN_SCANNER.write().scan_all() {
-        Ok(plugins) => plugins.len() as i32,
+    // Scan with PLUGIN_HOST — the single source of truth
+    let count = match PLUGIN_HOST.write().scan_plugins() {
+        Ok(plugins) => {
+            eprintln!(
+                "[FluxForge] plugin_scan_all: found {} plugins",
+                plugins.len()
+            );
+            for p in plugins.iter().take(10) {
+                eprintln!("[FluxForge]   plugin: '{}' type={:?}", p.id, p.plugin_type);
+            }
+            if plugins.len() > 10 {
+                eprintln!("[FluxForge]   ... and {} more", plugins.len() - 10);
+            }
+            plugins.len() as i32
+        }
         Err(e) => {
+            eprintln!("[FluxForge] plugin_scan_all FAILED: {}", e);
             log::error!("Plugin scan failed: {}", e);
             return -1;
         }
     };
 
-    // CRITICAL: Also scan with the plugin host's internal scanner
-    // so that plugin_load() can find scanned plugins.
-    // PLUGIN_HOST has its own PluginScanner that must be populated.
-    match PLUGIN_HOST.write().scan_plugins() {
+    // CRITICAL: Also sync to GLOBAL_HOST so rf_plugin::load_plugin() works
+    // (used by routing.rs insert chain)
+    match rf_plugin::GLOBAL_HOST.write().scan_plugins() {
         Ok(plugins) => {
             eprintln!(
-                "[FluxForge] plugin_scan_all: PLUGIN_HOST scanner found {} plugins (standalone scanner: {})",
-                plugins.len(),
-                count
+                "[FluxForge] GLOBAL_HOST synced: {} plugins",
+                plugins.len()
             );
-            for p in plugins.iter().take(10) {
-                eprintln!("[FluxForge]   HOST plugin: '{}' type={:?}", p.id, p.plugin_type);
-            }
         }
         Err(e) => {
-            eprintln!(
-                "[FluxForge] plugin_scan_all: PLUGIN_HOST scan FAILED: {} — plugins will NOT be loadable!",
-                e
-            );
-            log::error!(
-                "Plugin host scan failed: {} — plugins will NOT be loadable!",
-                e
-            );
-            return -1;
+            eprintln!("[FluxForge] GLOBAL_HOST scan failed: {} — insert chain may not work", e);
         }
     }
 
@@ -16014,7 +16014,7 @@ pub extern "C" fn plugin_scan_all() -> i32 {
 /// Get number of discovered plugins
 #[unsafe(no_mangle)]
 pub extern "C" fn plugin_get_count() -> u32 {
-    PLUGIN_SCANNER.read().plugins().len() as u32
+    PLUGIN_HOST.read().available_plugins().len() as u32
 }
 
 /// Get plugin info by index
@@ -16032,8 +16032,8 @@ pub extern "C" fn plugin_get_info_by_index(
     out_category: *mut u8,
     out_has_editor: *mut i32,
 ) -> i32 {
-    let scanner = PLUGIN_SCANNER.read();
-    let plugins = scanner.plugins();
+    let host = PLUGIN_HOST.read();
+    let plugins = host.available_plugins();
 
     if let Some(info) = plugins.get(index as usize) {
         // Copy ID
@@ -16113,7 +16113,7 @@ pub extern "C" fn plugin_get_by_type(
     out_indices: *mut u32,
     max_indices: u32,
 ) -> u32 {
-    let scanner = PLUGIN_SCANNER.read();
+    let host = PLUGIN_HOST.read();
 
     let target_type = match plugin_type {
         0 => PluginType::Vst3,
@@ -16124,7 +16124,7 @@ pub extern "C" fn plugin_get_by_type(
         _ => return 0,
     };
 
-    let plugins = scanner.plugins();
+    let plugins = host.available_plugins();
     let mut count = 0u32;
 
     for (i, info) in plugins.iter().enumerate() {
@@ -16148,7 +16148,7 @@ pub extern "C" fn plugin_get_by_category(
     out_indices: *mut u32,
     max_indices: u32,
 ) -> u32 {
-    let scanner = PLUGIN_SCANNER.read();
+    let host = PLUGIN_HOST.read();
 
     let target_category = match category {
         0 => PluginCategory::Effect,
@@ -16158,7 +16158,7 @@ pub extern "C" fn plugin_get_by_category(
         _ => PluginCategory::Unknown,
     };
 
-    let plugins = scanner.plugins();
+    let plugins = host.available_plugins();
     let mut count = 0u32;
 
     for (i, info) in plugins.iter().enumerate() {
@@ -16194,9 +16194,9 @@ pub extern "C" fn plugin_search(
         }
     };
 
-    let scanner = PLUGIN_SCANNER.read();
-    let results = scanner.search(query_str);
-    let plugins = scanner.plugins();
+    let host = PLUGIN_HOST.read();
+    let results = host.search_plugins(query_str);
+    let plugins = host.available_plugins();
 
     let mut count = 0u32;
     for result in results {
@@ -16881,8 +16881,8 @@ pub extern "C" fn plugin_resize_editor(instance_id: *const c_char, width: u32, h
 /// Returns JSON string: [{"id":"...", "name":"...", "vendor":"...", "type":0, "category":0, "hasEditor":true}, ...]
 #[unsafe(no_mangle)]
 pub extern "C" fn plugin_get_all_json() -> *mut c_char {
-    let scanner = PLUGIN_SCANNER.read();
-    let plugins = scanner.plugins();
+    let host = PLUGIN_HOST.read();
+    let plugins = host.available_plugins();
 
     let mut entries = Vec::with_capacity(plugins.len());
     for info in plugins {
@@ -16927,8 +16927,8 @@ pub extern "C" fn plugin_get_all_json() -> *mut c_char {
 /// Returns JSON string or "null" if not found
 #[unsafe(no_mangle)]
 pub extern "C" fn plugin_get_info_json(index: u32) -> *mut c_char {
-    let scanner = PLUGIN_SCANNER.read();
-    let plugins = scanner.plugins();
+    let host = PLUGIN_HOST.read();
+    let plugins = host.available_plugins();
 
     if let Some(info) = plugins.get(index as usize) {
         let plugin_type = match info.plugin_type {
@@ -17018,7 +17018,6 @@ pub extern "C" fn plugin_get_all_params_json(instance_id: *const c_char) -> *mut
 pub extern "C" fn plugin_host_init() -> i32 {
     // Force initialization of lazy statics
     drop(PLUGIN_HOST.read());
-    drop(PLUGIN_SCANNER.read());
     1
 }
 
