@@ -1753,18 +1753,18 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       }
     } catch (_) {}
 
-    // STOP only when reels are actually spinning
-    if (_slotLabProvider.isReelsSpinning) {
-      _slotLabProvider.stopStagePlayback();
-      // Kill anticipation audio on stop (embedded mode)
-      EventRegistry.instance.stopEventsByPrefix('ANTICIPATION');
-      return true;
-    }
-
     // SKIP win presentation — do NOT start a new spin!
     if (_slotLabProvider.isWinPresentationActive) {
       _slotLabProvider.requestSkipPresentation(() {});
       // Kill anticipation audio on skip (embedded mode)
+      EventRegistry.instance.stopEventsByPrefix('ANTICIPATION');
+      return true;
+    }
+
+    // STOP when stage playback is active (reels spinning or stages running)
+    if (_slotLabProvider.isPlayingStages || _slotLabProvider.isReelsSpinning) {
+      _slotLabProvider.stopStagePlayback();
+      // Kill anticipation audio on stop (embedded mode)
       EventRegistry.instance.stopEventsByPrefix('ANTICIPATION');
       return true;
     }

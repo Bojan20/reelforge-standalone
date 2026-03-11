@@ -6583,7 +6583,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                   paylinesCount: projectProvider.gridConfig?.paylines ?? 20, // default 20 paylines
                   // Spin controls — isSpinning disables bet controls during active spin/win
                   isSpinning: provider.isPlayingStages || isReelsActuallySpinning,
-                  showStopButton: isReelsActuallySpinning,
+                  showStopButton: provider.isPlayingStages || isReelsActuallySpinning,
                   isAutoSpin: _isAutoSpin,
                   autoSpinCount: _autoSpinRemaining,
                   isTurbo: _isTurbo,
