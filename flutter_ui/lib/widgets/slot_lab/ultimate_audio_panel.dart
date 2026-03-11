@@ -471,7 +471,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     final assignedCount = totalSlots - stats.$2;
     return Container(
       height: 34,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       clipBehavior: Clip.hardEdge,
       decoration: const BoxDecoration(
         color: FluxForgeTheme.bgMid,
@@ -479,72 +479,62 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           bottom: BorderSide(color: FluxForgeTheme.borderSubtle),
         ),
       ),
-      child: Row(
-        children: [
-          // Auto-Bind — scan folder and auto-map by filename
-          _compactActionBtn(
-            Icons.auto_fix_high, 'Auto-Bind',
-            FluxForgeTheme.accentGreen,
-            () => _showAutoBindDialog(context),
-          ),
-          const SizedBox(width: 2),
-          _compactActionBtn(
-            Icons.restart_alt, 'Reset',
-            FluxForgeTheme.accentRed,
-            () => _showResetConfirmDialog(context),
-          ),
-          const SizedBox(width: 2),
-          _compactActionBtn(
-            Icons.auto_fix_high, 'SFX Pipeline',
-            FluxForgeTheme.accentCyan,
-            () => SfxPipelineWizard.show(context),
-          ),
-          const Spacer(),
-          // Mode toggle — compact inline
-          _buildInlineModeToggle(),
-          const SizedBox(width: 3),
-          // Stats
-          Text(
-            '$assignedCount/$totalSlots',
-            style: const TextStyle(
-              fontSize: 9, fontWeight: FontWeight.w500,
-              color: FluxForgeTheme.textTertiary, fontFamily: 'monospace',
-            ),
-          ),
-          // Quick Assign toggle
-          if (widget.onQuickAssignSlotSelected != null)
-            Tooltip(
-              message: widget.quickAssignMode
-                  ? 'Quick Assign ON — click slots to assign'
-                  : 'Quick Assign',
-              child: GestureDetector(
-                onTap: () => widget.onQuickAssignSlotSelected?.call('__TOGGLE__'),
-                child: Container(
-                  margin: const EdgeInsets.only(left: 2),
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: widget.quickAssignMode
-                        ? FluxForgeTheme.accentOrange.withValues(alpha: 0.2)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: Icon(
-                    widget.quickAssignMode ? Icons.touch_app : Icons.touch_app_outlined,
-                    size: 13,
-                    color: widget.quickAssignMode
-                        ? FluxForgeTheme.accentOrange
-                        : FluxForgeTheme.textTertiary,
-                  ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 200;
+          return Row(
+            children: [
+              _compactActionBtn(
+                Icons.auto_fix_high, 'Auto-Bind',
+                FluxForgeTheme.accentGreen,
+                () => _showAutoBindDialog(context),
+              ),
+              const SizedBox(width: 2),
+              _compactActionBtn(
+                Icons.restart_alt, 'Reset',
+                FluxForgeTheme.accentRed,
+                () => _showResetConfirmDialog(context),
+              ),
+              const SizedBox(width: 2),
+              _compactActionBtn(
+                Icons.auto_fix_high, 'SFX Pipeline',
+                FluxForgeTheme.accentCyan,
+                () => SfxPipelineWizard.show(context),
+              ),
+              const Expanded(child: SizedBox.shrink()),
+              if (!isNarrow) ...[
+                _buildInlineModeToggle(),
+                const SizedBox(width: 2),
+              ],
+              Text(
+                '$assignedCount/$totalSlots',
+                style: const TextStyle(
+                  fontSize: 9, fontWeight: FontWeight.w500,
+                  color: FluxForgeTheme.textTertiary, fontFamily: 'monospace',
                 ),
               ),
-            ),
-          // Unassigned filter
-          _compactIconBtn(
-            _showUnassignedOnly ? Icons.filter_alt : Icons.filter_alt_outlined,
-            () => setState(() => _showUnassignedOnly = !_showUnassignedOnly),
-            _showUnassignedOnly ? 'Show all' : 'Show unassigned',
-          ),
-        ],
+              if (widget.onQuickAssignSlotSelected != null)
+                GestureDetector(
+                  onTap: () => widget.onQuickAssignSlotSelected?.call('__TOGGLE__'),
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 2),
+                    child: Icon(
+                      widget.quickAssignMode ? Icons.touch_app : Icons.touch_app_outlined,
+                      size: 13,
+                      color: widget.quickAssignMode
+                          ? FluxForgeTheme.accentOrange
+                          : FluxForgeTheme.textTertiary,
+                    ),
+                  ),
+                ),
+              _compactIconBtn(
+                _showUnassignedOnly ? Icons.filter_alt : Icons.filter_alt_outlined,
+                () => setState(() => _showUnassignedOnly = !_showUnassignedOnly),
+                _showUnassignedOnly ? 'Show all' : 'Show unassigned',
+              ),
+            ],
+          );
+        },
       ),
     );
   }
