@@ -2039,6 +2039,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                     onClipOpenAudioEditor: widget.onClipOpenAudioEditor,
                     onClipSplit: widget.onClipSplit,
                     onClipDelete: widget.onClipDelete,
+                    onClipDuplicate: widget.onClipDuplicate,
                     onClipMute: widget.onClipMute,
                     onClipReverse: widget.onClipReverse,
                     onClipLoopToggle: widget.onClipLoopToggle,
