@@ -329,6 +329,8 @@ class SfxPipelineService {
               if (fadeOutSamples != null) 'fade_out_samples': fadeOutSamples,
               'format': 1, // WAV 24-bit intermediate
               if (preset.removeDcOffset) 'remove_dc_offset': true,
+              if (preset.highPassEnabled) 'high_pass_freq': preset.highPassFreq,
+              if (preset.lowPassEnabled) 'low_pass_freq': preset.lowPassFreq,
             });
 
             final jobId = ffi.offlineProcessFileWithOptions(handle, optionsJson);

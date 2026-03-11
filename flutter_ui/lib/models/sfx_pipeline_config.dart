@@ -430,6 +430,12 @@ class SfxPipelinePreset {
   final double fadeOutMs;
   final SfxFadeCurve fadeCurve;
 
+  // Step 2b: Filters (HP/LP)
+  final bool highPassEnabled;
+  final double highPassFreq;
+  final bool lowPassEnabled;
+  final double lowPassFreq;
+
   // Step 3: Loudness
   final SfxNormMode normMode;
   final double targetLufs;
@@ -493,6 +499,11 @@ class SfxPipelinePreset {
     this.fadeOut = true,
     this.fadeOutMs = 10.0,
     this.fadeCurve = SfxFadeCurve.linear,
+    // Step 2b: Filters
+    this.highPassEnabled = true,
+    this.highPassFreq = 40.0,
+    this.lowPassEnabled = true,
+    this.lowPassFreq = 16000.0,
     // Step 3
     this.normMode = SfxNormMode.lufs,
     this.targetLufs = -18.0,
@@ -552,6 +563,10 @@ class SfxPipelinePreset {
     bool? fadeOut,
     double? fadeOutMs,
     SfxFadeCurve? fadeCurve,
+    bool? highPassEnabled,
+    double? highPassFreq,
+    bool? lowPassEnabled,
+    double? lowPassFreq,
     SfxNormMode? normMode,
     double? targetLufs,
     double? truePeakCeiling,
@@ -606,6 +621,10 @@ class SfxPipelinePreset {
       fadeOut: fadeOut ?? this.fadeOut,
       fadeOutMs: fadeOutMs ?? this.fadeOutMs,
       fadeCurve: fadeCurve ?? this.fadeCurve,
+      highPassEnabled: highPassEnabled ?? this.highPassEnabled,
+      highPassFreq: highPassFreq ?? this.highPassFreq,
+      lowPassEnabled: lowPassEnabled ?? this.lowPassEnabled,
+      lowPassFreq: lowPassFreq ?? this.lowPassFreq,
       normMode: normMode ?? this.normMode,
       targetLufs: targetLufs ?? this.targetLufs,
       truePeakCeiling: truePeakCeiling ?? this.truePeakCeiling,
@@ -663,6 +682,10 @@ class SfxPipelinePreset {
       'fadeOut': fadeOut,
       'fadeOutMs': fadeOutMs,
       'fadeCurve': fadeCurve.name,
+      'highPassEnabled': highPassEnabled,
+      'highPassFreq': highPassFreq,
+      'lowPassEnabled': lowPassEnabled,
+      'lowPassFreq': lowPassFreq,
       'normMode': normMode.name,
       'targetLufs': targetLufs,
       'truePeakCeiling': truePeakCeiling,
@@ -724,6 +747,10 @@ class SfxPipelinePreset {
       fadeOut: json['fadeOut'] as bool? ?? true,
       fadeOutMs: (json['fadeOutMs'] as num?)?.toDouble() ?? 10.0,
       fadeCurve: _enumFromName(SfxFadeCurve.values, json['fadeCurve'] as String?) ?? SfxFadeCurve.linear,
+      highPassEnabled: json['highPassEnabled'] as bool? ?? true,
+      highPassFreq: (json['highPassFreq'] as num?)?.toDouble() ?? 40.0,
+      lowPassEnabled: json['lowPassEnabled'] as bool? ?? true,
+      lowPassFreq: (json['lowPassFreq'] as num?)?.toDouble() ?? 16000.0,
       normMode: _enumFromName(SfxNormMode.values, json['normMode'] as String?) ?? SfxNormMode.lufs,
       targetLufs: (json['targetLufs'] as num?)?.toDouble() ?? -18.0,
       truePeakCeiling: (json['truePeakCeiling'] as num?)?.toDouble() ?? -1.0,

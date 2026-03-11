@@ -545,6 +545,38 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
                 ],
               )),
               const SizedBox(height: 8),
+              _stepPanel('FILTERS', child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _paramRow('High-Pass', child: Row(
+                    children: [
+                      _toggle(preset.highPassEnabled, (v) =>
+                          provider.updatePreset((p) => p.copyWith(highPassEnabled: v))),
+                      if (preset.highPassEnabled) ...[
+                        const SizedBox(width: 8),
+                        Expanded(child: _slider(
+                          preset.highPassFreq, 20, 200, 'Hz',
+                          (v) => provider.updatePreset((p) => p.copyWith(highPassFreq: v)),
+                        )),
+                      ],
+                    ],
+                  )),
+                  _paramRow('Low-Pass', child: Row(
+                    children: [
+                      _toggle(preset.lowPassEnabled, (v) =>
+                          provider.updatePreset((p) => p.copyWith(lowPassEnabled: v))),
+                      if (preset.lowPassEnabled) ...[
+                        const SizedBox(width: 8),
+                        Expanded(child: _slider(
+                          preset.lowPassFreq, 8000, 20000, 'Hz',
+                          (v) => provider.updatePreset((p) => p.copyWith(lowPassFreq: v)),
+                        )),
+                      ],
+                    ],
+                  )),
+                ],
+              )),
+              const SizedBox(height: 8),
               Expanded(child: _stepPanel('FADES', child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

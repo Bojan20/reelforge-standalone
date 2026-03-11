@@ -252,6 +252,8 @@ pub extern "C" fn offline_process_file_with_options(
         fade_in_samples: Option<u64>,
         fade_out_samples: Option<u64>,
         format: Option<i32>,
+        high_pass_freq: Option<f64>,
+        low_pass_freq: Option<f64>,
     }
 
     let opts: ProcessOptions = match serde_json::from_str(options_str) {
@@ -288,6 +290,19 @@ pub extern "C" fn offline_process_file_with_options(
             _ => NormalizationMode::NoClip,
         };
         builder = builder.normalize(norm);
+    }
+
+    // Build processor chain for HP/LP filters (Butterworth Q=0.707, gentle 12dB/oct slope)
+    if opts.high_pass_freq.is_some() || opts.low_pass_freq.is_some() {
+        use rf_offline::{BiquadFilter, ProcessorChain};
+        let mut chain = ProcessorChain::new();
+        if let Some(hp_freq) = opts.high_pass_freq {
+            chain = chain.add(BiquadFilter::highpass_deferred(hp_freq, 0.707));
+        }
+        if let Some(lp_freq) = opts.low_pass_freq {
+            chain = chain.add(BiquadFilter::lowpass_deferred(lp_freq, 0.707));
+        }
+        builder = builder.processors(chain);
     }
 
     let job = match builder.build() {

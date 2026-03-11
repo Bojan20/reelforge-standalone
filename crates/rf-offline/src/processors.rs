@@ -300,7 +300,14 @@ impl OfflineProcessor for FadeProcessor {
     }
 }
 
-/// Simple biquad filter for high-pass/low-pass
+/// Biquad filter type
+#[derive(Debug, Clone, Copy)]
+pub enum BiquadType {
+    HighPass,
+    LowPass,
+}
+
+/// Simple biquad filter for high-pass/low-pass (TDF-II)
 pub struct BiquadFilter {
     b0: f64,
     b1: f64,
@@ -309,62 +316,93 @@ pub struct BiquadFilter {
     a2: f64,
     z1: f64,
     z2: f64,
+    // Lazy-init: recalculate coefficients on first process() call
+    // with actual sample rate from the audio buffer.
+    filter_type: BiquadType,
+    frequency: f64,
+    q: f64,
+    initialized_sr: Option<u32>,
 }
 
 impl BiquadFilter {
-    /// Create high-pass filter
+    /// Create high-pass filter.
+    /// Coefficients are lazily recalculated with actual sample rate on first process() call.
     pub fn highpass(frequency: f64, sample_rate: u32, q: f64) -> Self {
-        let omega = 2.0 * std::f64::consts::PI * frequency / sample_rate as f64;
-        let sin_omega = omega.sin();
-        let cos_omega = omega.cos();
-        let alpha = sin_omega / (2.0 * q);
+        let mut f = Self::new_uninit(BiquadType::HighPass, frequency, q);
+        f.calc_coefficients(sample_rate);
+        f.initialized_sr = Some(sample_rate);
+        f
+    }
 
-        let b0 = (1.0 + cos_omega) / 2.0;
-        let b1 = -(1.0 + cos_omega);
-        let b2 = (1.0 + cos_omega) / 2.0;
-        let a0 = 1.0 + alpha;
-        let a1 = -2.0 * cos_omega;
-        let a2 = 1.0 - alpha;
+    /// Create low-pass filter.
+    /// Coefficients are lazily recalculated with actual sample rate on first process() call.
+    pub fn lowpass(frequency: f64, sample_rate: u32, q: f64) -> Self {
+        let mut f = Self::new_uninit(BiquadType::LowPass, frequency, q);
+        f.calc_coefficients(sample_rate);
+        f.initialized_sr = Some(sample_rate);
+        f
+    }
 
+    /// Create with deferred coefficient calculation (for FFI where sample rate is unknown).
+    pub fn highpass_deferred(frequency: f64, q: f64) -> Self {
+        Self::new_uninit(BiquadType::HighPass, frequency, q)
+    }
+
+    /// Create with deferred coefficient calculation (for FFI where sample rate is unknown).
+    pub fn lowpass_deferred(frequency: f64, q: f64) -> Self {
+        Self::new_uninit(BiquadType::LowPass, frequency, q)
+    }
+
+    fn new_uninit(filter_type: BiquadType, frequency: f64, q: f64) -> Self {
         Self {
-            b0: b0 / a0,
-            b1: b1 / a0,
-            b2: b2 / a0,
-            a1: a1 / a0,
-            a2: a2 / a0,
-            z1: 0.0,
-            z2: 0.0,
+            b0: 1.0, b1: 0.0, b2: 0.0,
+            a1: 0.0, a2: 0.0,
+            z1: 0.0, z2: 0.0,
+            filter_type,
+            frequency,
+            q,
+            initialized_sr: None,
         }
     }
 
-    /// Create low-pass filter
-    pub fn lowpass(frequency: f64, sample_rate: u32, q: f64) -> Self {
-        let omega = 2.0 * std::f64::consts::PI * frequency / sample_rate as f64;
+    fn calc_coefficients(&mut self, sample_rate: u32) {
+        let omega = 2.0 * std::f64::consts::PI * self.frequency / sample_rate as f64;
         let sin_omega = omega.sin();
         let cos_omega = omega.cos();
-        let alpha = sin_omega / (2.0 * q);
+        let alpha = sin_omega / (2.0 * self.q);
 
-        let b0 = (1.0 - cos_omega) / 2.0;
-        let b1 = 1.0 - cos_omega;
-        let b2 = (1.0 - cos_omega) / 2.0;
+        let (b0, b1, b2) = match self.filter_type {
+            BiquadType::HighPass => (
+                (1.0 + cos_omega) / 2.0,
+                -(1.0 + cos_omega),
+                (1.0 + cos_omega) / 2.0,
+            ),
+            BiquadType::LowPass => (
+                (1.0 - cos_omega) / 2.0,
+                1.0 - cos_omega,
+                (1.0 - cos_omega) / 2.0,
+            ),
+        };
+
         let a0 = 1.0 + alpha;
-        let a1 = -2.0 * cos_omega;
-        let a2 = 1.0 - alpha;
-
-        Self {
-            b0: b0 / a0,
-            b1: b1 / a0,
-            b2: b2 / a0,
-            a1: a1 / a0,
-            a2: a2 / a0,
-            z1: 0.0,
-            z2: 0.0,
-        }
+        self.b0 = b0 / a0;
+        self.b1 = b1 / a0;
+        self.b2 = b2 / a0;
+        self.a1 = (-2.0 * cos_omega) / a0;
+        self.a2 = (1.0 - alpha) / a0;
     }
 }
 
 impl OfflineProcessor for BiquadFilter {
-    fn process(&mut self, samples: &mut [f64], _sample_rate: u32) {
+    fn process(&mut self, samples: &mut [f64], sample_rate: u32) {
+        // Lazy-init: recalculate coefficients if sample rate differs
+        if self.initialized_sr != Some(sample_rate) {
+            self.calc_coefficients(sample_rate);
+            self.initialized_sr = Some(sample_rate);
+            self.z1 = 0.0;
+            self.z2 = 0.0;
+        }
+
         for sample in samples {
             let input = *sample;
             let output = self.b0 * input + self.z1;
@@ -377,6 +415,7 @@ impl OfflineProcessor for BiquadFilter {
     fn reset(&mut self) {
         self.z1 = 0.0;
         self.z2 = 0.0;
+        self.initialized_sr = None;
     }
 
     fn name(&self) -> &'static str {
