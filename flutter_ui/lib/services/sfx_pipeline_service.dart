@@ -606,19 +606,19 @@ class SfxPipelineService {
           await waitForSpinComplete();
         }
 
-        onProgress?.call(SfxPipelineProgress(
-          currentStep: SfxPipelineStep.autoAssign,
-          currentFileIndex: 0,
-          totalFiles: totalFiles,
-          currentFilename: 'Assigning to stages...',
-          overallProgress: 0.75,
-          elapsedMs: stopwatch.elapsedMilliseconds,
-        ));
-
-        // Build batch assignment map
+        // Build batch assignment map with incremental progress
         final stageToPath = <String, String>{};
         for (int i = 0; i < fileResults.length; i++) {
           final fr = fileResults[i];
+
+          onProgress?.call(SfxPipelineProgress(
+            currentStep: SfxPipelineStep.autoAssign,
+            currentFileIndex: i,
+            totalFiles: fileResults.length,
+            currentFilename: fr.sourceFilename,
+            overallProgress: 0.75 + (i / fileResults.length) * 0.25,
+            elapsedMs: stopwatch.elapsedMilliseconds,
+          ));
           if (fr.stageId != null && fr.outputPath != null && fr.success) {
             stageToPath[fr.stageId!] = fr.outputPath!;
             // Mark as assigned in result
@@ -1011,6 +1011,17 @@ class SfxPipelineService {
       'anticipation_tension_r2': 'ANTICIPATION_TENSION_R2',
       'anticipation_tension_r3': 'ANTICIPATION_TENSION_R3',
       'anticipation_tension_r4': 'ANTICIPATION_TENSION_R4',
+      // Modern iGaming stages
+      'wild_trigger': 'WILD_TRIGGER',
+      'feature_start': 'FEATURE_START',
+      'feature_end': 'FEATURE_END',
+      'multiplier_reveal': 'MULTIPLIER_REVEAL',
+      'respins_awarded': 'RESPINS_AWARDED',
+      'respin_start': 'RESPIN_START',
+      'respin_end': 'RESPIN_END',
+      'free_game_intro': 'FREE_GAME_INTRO',
+      'free_game_outro': 'FREE_GAME_OUTRO',
+      'rollup_end': 'ROLLUP_END',
     };
 
     // Exact match first

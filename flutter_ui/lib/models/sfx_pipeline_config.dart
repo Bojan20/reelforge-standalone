@@ -276,7 +276,7 @@ extension SfxCategoryExt on SfxCategory {
       case SfxCategory.featureTriggers:
         return ['fs_', 'scatter_', 'wild_', 'bonus_'];
       case SfxCategory.anticipation:
-        return ['anticipation_', 'tension_', 'near_'];
+        return ['anticipation_', 'tension_', 'near_miss_', 'near_win_'];
       case SfxCategory.unknown:
         return [];
     }
@@ -633,7 +633,6 @@ class SfxPipelinePreset {
       sampleRate: sampleRate ?? this.sampleRate,
       outputChannels: outputChannels ?? this.outputChannels,
       monoMethod: monoMethod ?? this.monoMethod,
-      skipMonoDownmix: skipMonoDownmix ?? this.skipMonoDownmix,
       stereoOverrideStages: stereoOverrideStages ?? this.stereoOverrideStages,
       multiFormat: multiFormat ?? this.multiFormat,
       multiFormatPresets: multiFormatPresets ?? this.multiFormatPresets,
@@ -696,7 +695,6 @@ class SfxPipelinePreset {
       'sampleRate': sampleRate,
       'outputChannels': outputChannels.name,
       'monoMethod': monoMethod.name,
-      'skipMonoDownmix': skipMonoDownmix,
       'stereoOverrideStages': stereoOverrideStages.toList(),
       'multiFormat': multiFormat,
       'multiFormatPresets': multiFormatPresets.map((e) => e.name).toList(),
@@ -759,7 +757,6 @@ class SfxPipelinePreset {
       sampleRate: json['sampleRate'] as int? ?? 48000,
       outputChannels: _enumFromName(OutputChannelMode.values, json['outputChannels'] as String?) ?? OutputChannelMode.mono,
       monoMethod: _enumFromName(MonoDownmixMethod.values, json['monoMethod'] as String?) ?? MonoDownmixMethod.sumHalf,
-      skipMonoDownmix: json['skipMonoDownmix'] as bool? ?? true,
       stereoOverrideStages: (json['stereoOverrideStages'] as List<dynamic>?)?.cast<String>().toSet() ?? {},
       multiFormat: json['multiFormat'] as bool? ?? false,
       multiFormatPresets: (json['multiFormatPresets'] as List<dynamic>?)
