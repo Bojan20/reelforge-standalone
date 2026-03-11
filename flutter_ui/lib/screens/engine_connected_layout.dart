@@ -1123,6 +1123,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         onTrackSelect: (trackId) {
           setState(() {
             _selectedTrackId = trackId;
+            _activeLeftTab = LeftZoneTab.channel;
           });
         },
       );
@@ -1666,6 +1667,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
     setState(() {
       _tracks = [..._tracks, newTrack];
+      // Auto-select new track and open Channel tab (same as drag-and-drop)
+      _selectedTrackId = trackId;
+      _activeLeftTab = LeftZoneTab.channel;
     });
 
     // Record undo — use mutable currentId to track engine ID across undo/redo
@@ -1696,6 +1700,40 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         });
       },
     ));
+  }
+
+  /// Create track for plugin browser (single-click / double-click insert)
+  int _createTrackForPlugin(String pluginName, bool isInstrument) {
+    final trackType = isInstrument
+        ? timeline.TrackType.instrument
+        : timeline.TrackType.audio;
+    final color = const Color(0xFF5B9BD5);
+
+    final trackIdStr = engine.createTrack(
+      name: pluginName,
+      color: color.value,
+      busId: 0, // master bus
+    );
+
+    final mixerProvider = context.read<MixerProvider>();
+    mixerProvider.createChannelFromTrack(trackIdStr, pluginName, color);
+
+    final newTrack = timeline.TimelineTrack(
+      id: trackIdStr,
+      name: pluginName,
+      color: color,
+      outputBus: timeline.OutputBus.master,
+      channels: 2,
+      trackType: trackType,
+    );
+
+    setState(() {
+      _tracks = [..._tracks, newTrack];
+      _selectedTrackId = trackIdStr;
+      _activeLeftTab = LeftZoneTab.channel;
+    });
+
+    return int.tryParse(trackIdStr) ?? 0;
   }
 
   /// Create a folder track (no engine track, no audio)
@@ -6454,6 +6492,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             ffi.projectSetTempo(newTempo);
           },
           onQuickSwitcher: () => _openDawQuickSwitcher(),
+          onCreateTrackWithPlugin: (pluginName, isInstrument) {
+            return _createTrackForPlugin(pluginName, isInstrument);
+          },
         );
   }
 

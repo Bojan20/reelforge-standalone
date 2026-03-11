@@ -515,6 +515,9 @@ pub struct Vst3Host {
     /// macOS AudioUnit GUI handle (kept alive while editor is open)
     #[cfg(target_os = "macos")]
     au_gui: Mutex<Option<rack::au::AudioUnitGui>>,
+    /// In-process AU GUI window pointer (NSWindow*) — no subprocess needed
+    #[cfg(target_os = "macos")]
+    au_window: Mutex<Option<usize>>,
 }
 
 // SAFETY: All fields are either Sync+Send or protected by atomics/mutexes
@@ -620,6 +623,8 @@ impl Vst3Host {
             output_buffers: Mutex::new(output_buffers),
             #[cfg(target_os = "macos")]
             au_gui: Mutex::new(None),
+            #[cfg(target_os = "macos")]
+            au_window: Mutex::new(None),
         })
     }
 
@@ -1115,7 +1120,12 @@ impl PluginInstance for Vst3Host {
     }
 
     fn has_editor(&self) -> bool {
-        self.module_loaded
+        // On macOS, AU hosting works independently of rack (in-process via au_host.m).
+        // So has_editor is true whenever the plugin bundle exists, even if rack failed to load it.
+        #[cfg(target_os = "macos")]
+        { return self.info.has_editor; }
+        #[cfg(not(target_os = "macos"))]
+        { self.module_loaded }
     }
 
     #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
@@ -1124,6 +1134,8 @@ impl PluginInstance for Vst3Host {
             return Ok(());
         }
 
+        // On macOS, AU hosting works without rack — skip module_loaded check
+        #[cfg(not(target_os = "macos"))]
         if !self.module_loaded {
             return Err(PluginError::InitError("Plugin module not loaded".into()));
         }
@@ -1157,14 +1169,21 @@ impl PluginInstance for Vst3Host {
             return Ok(());
         }
 
-        // Close native GUI window if open
         #[cfg(target_os = "macos")]
         {
-            if let Some(ref rp) = self.rack_plugin {
-                let mut lock = rp.lock();
-                lock.inner.close_gui_window();
+            // Close in-process AU GUI window
+            // Check both self.au_window and PENDING_WINDOW (async callback may have set it)
+            let window_ptr = self.au_window.lock().take()
+                .or_else(|| PENDING_WINDOW.lock().take());
+            if let Some(ptr) = window_ptr {
+                unsafe {
+                    use objc::{msg_send, sel, sel_impl};
+                    let window = ptr as cocoa::base::id;
+                    let _: () = msg_send![window, close];
+                    let _: () = msg_send![window, release];
+                }
             }
-            // Also clear the holder in case it was stored separately
+            unsafe { au_host_close(); }
             *self.au_gui.lock() = None;
         }
 
@@ -1205,56 +1224,188 @@ impl PluginInstance for Vst3Host {
 // PLATFORM-SPECIFIC EDITOR HOSTING
 // ═══════════════════════════════════════════════════════════════════════════
 
+// FFI to au_host.m — compiled in-process via build.rs (no subprocess needed)
+#[cfg(target_os = "macos")]
+unsafe extern "C" {
+    fn au_host_open_plugin(
+        component_type: u32,
+        component_subtype: u32,
+        component_manufacturer: u32,
+        user_data: *mut std::ffi::c_void,
+        callback: extern "C" fn(*mut std::ffi::c_void, cocoa::base::id, f64, f64),
+    );
+    fn au_host_close();
+    fn au_host_scan_plugins(
+        user_data: *mut std::ffi::c_void,
+        callback: extern "C" fn(
+            *mut std::ffi::c_void,
+            *const std::os::raw::c_char,
+            *const std::os::raw::c_char,
+            u32, u32, u32,
+        ),
+    );
+}
+
+/// Scanned AU plugin entry for in-process lookup
+#[cfg(target_os = "macos")]
+#[derive(Clone)]
+struct AuPluginEntry {
+    name: String,
+    comp_type: u32,
+    subtype: u32,
+    mfr_code: u32,
+}
+
+/// Global scanned AU plugins list (populated once on first open_editor call)
+#[cfg(target_os = "macos")]
+static AU_PLUGINS: Mutex<Vec<AuPluginEntry>> = Mutex::new(Vec::new());
+#[cfg(target_os = "macos")]
+static AU_SCANNED: std::sync::Once = std::sync::Once::new();
+
+/// Global window pointer set by GUI callback, read by open_editor_macos
+#[cfg(target_os = "macos")]
+static PENDING_WINDOW: Mutex<Option<usize>> = Mutex::new(None);
+
+/// Callback from au_host.m when plugin GUI view is ready
+#[cfg(target_os = "macos")]
+extern "C" fn au_gui_ready_callback(
+    _user_data: *mut std::ffi::c_void,
+    view: cocoa::base::id,
+    width: f64,
+    height: f64,
+) {
+    if view == cocoa::base::nil {
+        eprintln!("[FluxForge] AU plugin has no GUI view");
+        return;
+    }
+
+    let w = if width > 10.0 { width } else { 800.0 };
+    let h = if height > 10.0 { height } else { 600.0 };
+
+    // Create window using existing FFPluginWindow infrastructure (in-process)
+    unsafe {
+        use objc::{msg_send, sel, sel_impl};
+        create_plugin_window(view as *mut c_void, w, h, "Plugin");
+        // The window was retained in create_plugin_window, grab its pointer
+        // from the view's window property
+        let window: cocoa::base::id = msg_send![view, window];
+        if !window.is_null() {
+            *PENDING_WINDOW.lock() = Some(window as usize);
+        }
+    }
+    eprintln!("[FluxForge] AU GUI window created {}x{}", w as u32, h as u32);
+}
+
+/// Scan callback for building AU_PLUGINS list
+#[cfg(target_os = "macos")]
+extern "C" fn au_scan_callback(
+    _user_data: *mut std::ffi::c_void,
+    name: *const std::os::raw::c_char,
+    _manufacturer: *const std::os::raw::c_char,
+    comp_type: u32,
+    subtype: u32,
+    mfr_code: u32,
+) {
+    let name_str = unsafe { std::ffi::CStr::from_ptr(name) }
+        .to_string_lossy()
+        .to_string();
+    AU_PLUGINS.lock().push(AuPluginEntry {
+        name: name_str,
+        comp_type,
+        subtype,
+        mfr_code,
+    });
+}
+
 #[cfg(target_os = "macos")]
 impl Vst3Host {
     fn open_editor_macos(&mut self, _parent: *mut c_void) -> PluginResult<()> {
         log::info!("macOS plugin editor: opening GUI for {}", self.info.name);
 
-        // Use rack's AudioUnit GUI API (production-ready in rack 0.4.8).
-        // For AudioUnit plugins: create_gui() + show_window() opens a standalone window.
-        // For VST3 plugins on macOS: rack 0.4.8 does NOT support VST3 GUI, so we
-        // fall through to the generic parameter editor on the Dart side.
+        // In-process AU hosting — no subprocess, no Dock icon.
+        // Uses au_host.m compiled directly into FluxForge via build.rs.
+        // GUI window is a child of FluxForge's process, not a separate app.
 
-        if let Some(ref rp) = self.rack_plugin {
-            let mut lock = rp.lock();
+        let plugin_name = self.info.name.clone();
+        eprintln!(
+            "[FluxForge] open_editor_macos: in-process AU hosting for '{}'",
+            plugin_name
+        );
 
-            if lock.inner.supports_gui() {
-                match lock.inner.open_gui_window(&self.info.name) {
-                    Ok((w, h)) => {
-                        log::info!(
-                            "Plugin GUI window opened: {}x{} for {}",
-                            w,
-                            h,
-                            self.info.name
-                        );
-                        return Ok(());
-                    }
-                    Err(e) => {
-                        log::warn!(
-                            "Failed to open native GUI for {}: {}. Dart will show generic parameter editor.",
-                            self.info.name,
-                            e
-                        );
-                        return Err(PluginError::InitError(format!(
-                            "Native GUI failed for {}: {}",
-                            self.info.name, e
-                        )));
-                    }
-                }
-            } else {
-                log::info!(
-                    "Plugin {} does not support native GUI (VST3 GUI not available in rack 0.4). \
-                     Dart will show generic parameter editor.",
-                    self.info.name
+        // Scan AU plugins once (lazy init)
+        AU_SCANNED.call_once(|| {
+            unsafe {
+                au_host_scan_plugins(std::ptr::null_mut(), au_scan_callback);
+            }
+            let count = AU_PLUGINS.lock().len();
+            eprintln!("[FluxForge] AU scan: {} plugins found", count);
+        });
+
+        // Fuzzy match plugin name — handles vendor prefixes and spacing differences
+        // e.g. "DUNE3" must match "Synapse Audio: DUNE 3"
+        // e.g. "KrotosStudio" must match "Krotos: Krotos Studio"
+        let needle_spaced = plugin_name
+            .to_lowercase()
+            .replace([':', '-', '_'], " ")
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        // Also create a no-space version for matching "DUNE3" vs "DUNE 3"
+        let needle_nospace: String = needle_spaced.chars().filter(|c| !c.is_whitespace()).collect();
+
+        let plugins = AU_PLUGINS.lock();
+        let found = plugins.iter().find(|p| {
+            let norm_spaced = p.name
+                .to_lowercase()
+                .replace([':', '-', '_'], " ")
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ");
+            let norm_nospace: String = norm_spaced.chars().filter(|c| !c.is_whitespace()).collect();
+
+            // Exact match (with spaces normalized)
+            norm_spaced == needle_spaced
+            // Substring match (with spaces)
+            || norm_spaced.contains(&needle_spaced) || needle_spaced.contains(&norm_spaced)
+            // No-space match: "dune3" matches "synapseaudiodune3"
+            || norm_nospace.contains(&needle_nospace) || needle_nospace.contains(&norm_nospace)
+        }).cloned();
+        drop(plugins);
+
+        match found {
+            Some(entry) => {
+                eprintln!(
+                    "[FluxForge] Opening AU '{}' type={:08x} sub={:08x} mfr={:08x}",
+                    entry.name, entry.comp_type, entry.subtype, entry.mfr_code
                 );
-                return Err(PluginError::InitError(format!(
-                    "No native GUI for {} — use generic parameter editor",
-                    self.info.name
-                )));
+
+                // Clear pending window
+                *PENDING_WINDOW.lock() = None;
+
+                unsafe {
+                    au_host_open_plugin(
+                        entry.comp_type,
+                        entry.subtype,
+                        entry.mfr_code,
+                        std::ptr::null_mut(),
+                        au_gui_ready_callback,
+                    );
+                }
+
+                // Callback fires asynchronously on main thread — window will appear when ready.
+                // No polling needed: callback creates the window directly via create_plugin_window().
+                // PENDING_WINDOW is checked in close_editor to find the window handle.
+
+                Ok(())
+            }
+            None => {
+                eprintln!("[FluxForge] AU plugin not found: '{}'", plugin_name);
+                Err(PluginError::InitError(format!(
+                    "AU plugin not found: {}. VST3-only plugins without AU version cannot show GUI yet.",
+                    plugin_name
+                )))
             }
         }
-
-        Err(PluginError::InitError("No rack plugin loaded".into()))
     }
 
     /// Get the preferred editor size for this plugin

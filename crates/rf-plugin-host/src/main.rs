@@ -246,7 +246,7 @@ fn main() {
     unsafe {
         let nsapp = NSApp();
         nsapp.setActivationPolicy_(
-            cocoa::appkit::NSApplicationActivationPolicy::NSApplicationActivationPolicyRegular,
+            cocoa::appkit::NSApplicationActivationPolicy::NSApplicationActivationPolicyAccessory,
         );
     }
 

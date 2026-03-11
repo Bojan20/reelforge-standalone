@@ -363,12 +363,11 @@ class _EventsPanelWidgetState extends State<EventsPanelWidget> {
   }
 
   void _initDefaultDirectory() {
-    // Default to user's Music folder
+    // Use home dir — do NOT probe ~/Music with existsSync()
+    // as that triggers macOS TCC permission dialogs.
     final home = Platform.environment['HOME'] ?? '';
-    final musicDir = Directory('$home/Music');
-    if (musicDir.existsSync()) {
-      _currentDirectory = musicDir.path;
-      _loadAudioFiles(); // P0: Now async — won't block initial render
+    if (home.isNotEmpty) {
+      _currentDirectory = home;
     }
   }
 

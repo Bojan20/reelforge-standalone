@@ -182,6 +182,9 @@ class DawLowerZoneWidget extends StatefulWidget {
   /// Quick Switcher callback (⌘K) — opens command palette for DAW sub-tabs
   final VoidCallback? onQuickSwitcher;
 
+  /// Callback to create a track with plugin (pluginName, isInstrument) → trackId
+  final int Function(String pluginName, bool isInstrument)? onCreateTrackWithPlugin;
+
   /// When true, fills all available space instead of using fixed totalHeight
   final bool isFullScreen;
 
@@ -214,6 +217,7 @@ class DawLowerZoneWidget extends StatefulWidget {
     this.onClipFadeOutChanged,
     this.allClips = const [],
     this.onQuickSwitcher,
+    this.onCreateTrackWithPlugin,
     this.isFullScreen = false,
   });
 
@@ -875,7 +879,10 @@ class _DawLowerZoneWidgetState extends State<DawLowerZoneWidget> {
 
   /// ✅ P0.1: Extracted panels (replace inline builders with panel widgets)
   Widget _buildPresetsPanel() => TrackPresetsPanel(onPresetAction: widget.onDspAction);
-  Widget _buildPluginsPanel() => const PluginsScannerPanel();
+  Widget _buildPluginsPanel() => PluginsScannerPanel(
+    selectedTrackId: widget.selectedTrackId,
+    onCreateTrackWithPlugin: widget.onCreateTrackWithPlugin,
+  );
   Widget _buildHistoryPanel() => const HistoryPanel();
 
   /// Compact files browser

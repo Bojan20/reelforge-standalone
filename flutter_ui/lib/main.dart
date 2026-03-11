@@ -115,9 +115,11 @@ void main() async {
   // MUST be called before any file operations to prevent path traversal attacks
   final projectRoot = Directory.current.path;
   final homeDir = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '';
+  // Use ~/Library/Application Support — NOT TCC-protected (no permission dialogs).
+  // ~/Documents and ~/Music trigger macOS TCC prompts at startup.
+  // User-chosen paths (via NSOpenPanel) are added to sandbox dynamically.
   final additionalRoots = <String>[
-    if (homeDir.isNotEmpty) p.join(homeDir, 'Documents', 'FluxForge Projects'),
-    if (homeDir.isNotEmpty) p.join(homeDir, 'Music', 'FluxForge Audio'),
+    if (homeDir.isNotEmpty) p.join(homeDir, 'Library', 'Application Support', 'FluxForge Studio'),
   ];
 
   PathValidator.initializeSandbox(

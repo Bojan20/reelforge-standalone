@@ -163,7 +163,7 @@ DynamicLibrary _loadNativeLibrary() {
     if (Platform.environment.containsKey('REELFORGE_LIB_PATH'))
       '${Platform.environment['REELFORGE_LIB_PATH']}/$libName'
     else if (Platform.environment.containsKey('HOME'))
-      '${Platform.environment['HOME']}/Desktop/fluxforge-studio/target/release/$libName'
+      '${Platform.environment['HOME']}/Projects/fluxforge-studio/target/release/$libName'
     else
       'target/release/$libName',
   ];

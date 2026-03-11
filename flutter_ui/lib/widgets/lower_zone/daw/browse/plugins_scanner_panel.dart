@@ -16,7 +16,6 @@ import 'package:provider/provider.dart';
 import '../../lower_zone_types.dart';
 import '../../../../providers/plugin_provider.dart';
 import '../../../../providers/dsp_chain_provider.dart';
-import '../../../../providers/track_provider.dart';
 import '../../../../src/rust/native_ffi.dart' show NativePluginParamInfo;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -30,10 +29,15 @@ class PluginsScannerPanel extends StatefulWidget {
   /// Callback when a plugin is inserted (pluginId, trackId)
   final void Function(String pluginId, int trackId)? onPluginInserted;
 
+  /// Callback to create a track with plugin from the host DAW layout
+  /// (pluginName, isInstrument) → created trackId
+  final int Function(String pluginName, bool isInstrument)? onCreateTrackWithPlugin;
+
   const PluginsScannerPanel({
     super.key,
     this.selectedTrackId,
     this.onPluginInserted,
+    this.onCreateTrackWithPlugin,
   });
 
   @override
@@ -222,18 +226,36 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
 
   // ─── Plugin Actions ───────────────────────────────────────────────────────
 
-  void _insertPlugin(BuildContext context, PluginInfo plugin, PluginProvider provider) {
-    final trackId = widget.selectedTrackId ?? 0;
+  Future<void> _insertPlugin(BuildContext context, PluginInfo plugin, PluginProvider provider) async {
+    final isInstrument = plugin.category == PluginCategory.instrument;
+    int trackId = widget.selectedTrackId ?? 0;
 
-    // For internal plugins, use DSP chain
-    final nodeType = _pluginCategoryToNodeType(plugin);
-    if (nodeType != null) {
-      DspChainProvider.instance.addNode(trackId, nodeType);
+    // Create track via host DAW callback (engine_connected_layout)
+    if (widget.onCreateTrackWithPlugin != null) {
+      trackId = widget.onCreateTrackWithPlugin!(plugin.name, isInstrument);
+    }
+
+    // For internal plugins, also add to DSP chain
+    if (plugin.format == PluginFormat.internal) {
+      final nodeType = _pluginCategoryToNodeType(plugin);
+      if (nodeType != null) {
+        DspChainProvider.instance.addNode(trackId, nodeType);
+      }
+    }
+
+    // Load plugin into engine via FFI
+    final instanceId = await provider.loadPlugin(plugin.id, trackId, 0);
+    if (!mounted) return;
+    if (instanceId == null) {
+      _setStatus('Failed to load ${plugin.name}', isError: true);
+      return;
     }
 
     provider.addToRecent(plugin.id);
-    widget.onPluginInserted?.call(plugin.id, trackId);
-    _setStatus('Inserted ${plugin.name} on Track $trackId');
+    if (mounted) {
+      widget.onPluginInserted?.call(plugin.id, trackId);
+      _setStatus('${plugin.name} → ${isInstrument ? "instrument" : "audio"} track #$trackId');
+    }
   }
 
   void _setStatus(String msg, {bool isError = false}) {
@@ -278,24 +300,12 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
     try {
       _setStatus('Loading ${plugin.name} [${plugin.formatName}]...');
 
-      // Step 1: Create track based on plugin category
+      // Step 1: Create track via host DAW callback
       final isInstrument = plugin.category == PluginCategory.instrument;
-      TrackProvider? trackProvider;
-      try {
-        trackProvider = context.read<TrackProvider>();
-      } catch (_) {
-        _setStatus('TrackProvider not available', isError: true);
-      }
-
       int trackId = widget.selectedTrackId ?? 0;
 
-      if (trackProvider != null) {
-        final trackType = isInstrument ? TrackType.instrument : TrackType.audio;
-        final track = trackProvider.createTrack(
-          name: plugin.name,
-          type: trackType,
-        );
-        trackId = track.id;
+      if (widget.onCreateTrackWithPlugin != null) {
+        trackId = widget.onCreateTrackWithPlugin!(plugin.name, isInstrument);
         _setStatus('Created ${isInstrument ? "instrument" : "audio"} track #$trackId');
       }
 
@@ -328,7 +338,7 @@ class _PluginsScannerPanelState extends State<PluginsScannerPanel> {
         }
       }
 
-      widget.onPluginInserted?.call(plugin.id, trackId);
+      if (mounted) widget.onPluginInserted?.call(plugin.id, trackId);
     } catch (e) {
       _setStatus('Exception: $e', isError: true);
     } finally {

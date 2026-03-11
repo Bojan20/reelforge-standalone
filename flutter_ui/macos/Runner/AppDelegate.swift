@@ -284,6 +284,13 @@ class AppDelegate: FlutterAppDelegate {
     return true
   }
 
+  override func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+    // Clean exit: use _exit() to skip C++ static destructors from in-process AU plugins.
+    // Without this, AU plugin destructors crash during __cxa_finalize_ranges → SIGABRT.
+    // This is the same pattern used by Reaper and other DAWs that load plugins in-process.
+    _exit(0)
+  }
+
   override func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
     return true
   }

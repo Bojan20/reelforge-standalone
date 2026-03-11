@@ -645,7 +645,7 @@ class _LoudnessReportPanelState extends State<LoudnessReportPanel> {
 
     try {
       final home = Platform.environment['HOME'] ?? '/tmp';
-      final dir = Directory('$home/Documents');
+      final dir = Directory('$home/Library/Application Support/FluxForge Studio/Reports');
       if (!dir.existsSync()) dir.createSync(recursive: true);
       final timestamp = DateTime.now().toIso8601String().substring(0, 19).replaceAll(':', '-');
       final filePath = '${dir.path}/FluxForge_Loudness_$timestamp.html';

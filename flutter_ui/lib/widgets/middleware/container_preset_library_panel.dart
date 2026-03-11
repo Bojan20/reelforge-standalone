@@ -311,7 +311,7 @@ class _ContainerPresetLibraryPanelState extends State<ContainerPresetLibraryPane
     try {
       // Load from documents directory
       final homeDir = Platform.environment['HOME'] ?? '';
-      final presetsDir = Directory('$homeDir/Documents/FluxForge/Presets/Containers');
+      final presetsDir = Directory('$homeDir/Library/Application Support/FluxForge Studio/Presets/Containers');
       _userPresetsDirectory = presetsDir.path;
 
       if (await presetsDir.exists()) {

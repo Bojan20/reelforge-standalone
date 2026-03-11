@@ -319,28 +319,40 @@ class PluginRegistry {
     ),
   ];
 
-  /// Get plugins by category
-  static List<PluginInfo> byCategory(PluginCategory category) {
-    return builtIn.where((p) => p.category == category).toList();
+  /// External (third-party) plugins — populated from PluginProvider scan results
+  static List<PluginInfo> _externalPlugins = [];
+
+  /// Update external plugins list (called after plugin scan)
+  static void setExternalPlugins(List<PluginInfo> plugins) {
+    _externalPlugins = plugins;
   }
 
-  /// Search plugins
+  /// All plugins: built-in + external
+  static List<PluginInfo> get all => [...builtIn, ..._externalPlugins];
+
+  /// Get plugins by category (built-in + external)
+  static List<PluginInfo> byCategory(PluginCategory category) {
+    return all.where((p) => p.category == category).toList();
+  }
+
+  /// Search plugins (built-in + external)
   static List<PluginInfo> search(String query) {
     final q = query.toLowerCase();
-    return builtIn.where((p) =>
+    return all.where((p) =>
         p.name.toLowerCase().contains(q) ||
         (p.shortName?.toLowerCase().contains(q) ?? false) ||
+        (p.vendor?.toLowerCase().contains(q) ?? false) ||
         p.category.label.toLowerCase().contains(q)).toList();
   }
 
   /// Get favorites
   static List<PluginInfo> get favorites {
-    return builtIn.where((p) => p.isFavorite).toList();
+    return all.where((p) => p.isFavorite).toList();
   }
 
   /// Get recent plugins (sorted by last use)
   static List<PluginInfo> get recent {
-    final sorted = builtIn.where((p) => p.recentUseCount > 0).toList()
+    final sorted = all.where((p) => p.recentUseCount > 0).toList()
       ..sort((a, b) => (b.lastUsed ?? DateTime(0)).compareTo(a.lastUsed ?? DateTime(0)));
     return sorted.take(10).toList();
   }

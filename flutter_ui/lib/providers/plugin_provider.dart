@@ -11,6 +11,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../src/rust/native_ffi.dart';
+import '../models/plugin_models.dart' as pm;
 
 // ============ Types ============
 
@@ -381,6 +382,53 @@ class PluginProvider extends ChangeNotifier {
     }
 
     _plugins = plugins;
+
+    // Sync external plugins to PluginRegistry for insert slot selector
+    _syncToPluginRegistry(plugins);
+  }
+
+  /// Sync scanned plugins to PluginRegistry (used by insert slot dropdown)
+  void _syncToPluginRegistry(List<PluginInfo> plugins) {
+    final external = plugins
+        .where((p) => p.format != PluginFormat.internal)
+        .map((p) => pm.PluginInfo(
+              id: p.id,
+              name: p.name,
+              category: _mapToRegistryCategory(p.category),
+              format: _mapToRegistryFormat(p.format),
+              vendor: p.vendor,
+              isFavorite: p.isFavorite,
+              lastUsed: p.lastUsed,
+            ))
+        .toList();
+    pm.PluginRegistry.setExternalPlugins(external);
+  }
+
+  pm.PluginCategory _mapToRegistryCategory(PluginCategory cat) {
+    switch (cat) {
+      case PluginCategory.effect:
+        return pm.PluginCategory.external_;
+      case PluginCategory.instrument:
+        return pm.PluginCategory.external_;
+      case PluginCategory.analyzer:
+        return pm.PluginCategory.analyzer;
+      case PluginCategory.utility:
+        return pm.PluginCategory.utility;
+    }
+  }
+
+  pm.PluginFormat _mapToRegistryFormat(PluginFormat fmt) {
+    switch (fmt) {
+      case PluginFormat.vst3:
+        return pm.PluginFormat.vst3;
+      case PluginFormat.audioUnit:
+        return pm.PluginFormat.au;
+      case PluginFormat.clap:
+        return pm.PluginFormat.clap;
+      case PluginFormat.lv2:
+      case PluginFormat.internal:
+        return pm.PluginFormat.internal;
+    }
   }
 
   /// Load cached plugins (for fast startup)

@@ -274,20 +274,9 @@ class _DawFilesBrowserPanelState extends State<DawFilesBrowserPanel> {
   }
 
   String _getDefaultDirectory() {
-    // Try common audio directories
-    final home = Platform.environment['HOME'] ?? '';
-    final candidates = [
-      '$home/Music',
-      '$home/Documents/Audio',
-      '$home/Desktop',
-      home,
-    ];
-
-    for (final path in candidates) {
-      if (Directory(path).existsSync()) {
-        return path;
-      }
-    }
+    // Use home dir directly — do NOT probe ~/Music, ~/Documents, ~/Desktop
+    // with existsSync() as that triggers macOS TCC permission dialogs.
+    final home = Platform.environment['HOME'] ?? '/';
     return home;
   }
 

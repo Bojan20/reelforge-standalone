@@ -28,5 +28,17 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>FluxForge Studio needs microphone access for audio recording.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>FluxForge Studio needs access to Documents for loading and saving projects.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>FluxForge Studio needs access to Downloads for importing audio files.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>FluxForge Studio needs access to Desktop for loading and saving files.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>FluxForge Studio uses the local network for plugin license verification.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>FluxForge Studio uses Apple Events for inter-app communication.</string>
 </dict>
 </plist>

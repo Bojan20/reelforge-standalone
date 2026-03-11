@@ -853,7 +853,7 @@ class SfxPipelineService {
   String _resolveOutputDir(SfxPipelinePreset preset) {
     final base = preset.outputPath ?? p.join(
       Platform.environment['HOME'] ?? '/tmp',
-      'Desktop', 'slot_sfx_export',
+      'Library', 'Application Support', 'FluxForge Studio', 'sfx_export',
     );
     if (preset.createDateSubfolder) {
       final date = DateTime.now().toIso8601String().substring(0, 10);

@@ -30,7 +30,7 @@ void au_host_open_plugin(
     };
 
     [AVAudioUnit instantiateWithComponentDescription:desc
-                                             options:kAudioComponentInstantiation_LoadOutOfProcess
+                                             options:kAudioComponentInstantiation_LoadInProcess
                                    completionHandler:^(AVAudioUnit* _Nullable avAudioUnit, NSError* _Nullable error) {
         if (!avAudioUnit) {
             NSLog(@"[au_host] Failed to instantiate: %@", error);

@@ -192,7 +192,7 @@ class ScreenshotService {
       homePath = '/tmp';
     }
 
-    final screenshotsDir = Directory('$homePath/Documents/FluxForge/Screenshots');
+    final screenshotsDir = Directory('$homePath/Library/Application Support/FluxForge Studio/Screenshots');
     if (!await screenshotsDir.exists()) {
       await screenshotsDir.create(recursive: true);
     }

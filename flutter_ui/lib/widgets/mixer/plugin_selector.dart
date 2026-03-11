@@ -68,7 +68,7 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
     } else if (_selectedCategory != null) {
       plugins = PluginRegistry.byCategory(_selectedCategory!);
     } else {
-      plugins = PluginRegistry.builtIn;
+      plugins = PluginRegistry.all;
     }
 
     return plugins;
@@ -263,7 +263,7 @@ class _PluginSelectorDialogState extends State<PluginSelectorDialog> {
             label: 'All Plugins',
             icon: Icons.apps,
             color: FluxForgeTheme.textSecondary,
-            count: PluginRegistry.builtIn.length,
+            count: PluginRegistry.all.length,
             isSelected: _selectedCategory == null && _searchQuery.isEmpty,
             onTap: () {
               setState(() {
