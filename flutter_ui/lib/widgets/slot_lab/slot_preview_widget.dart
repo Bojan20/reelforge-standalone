@@ -2542,10 +2542,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
 
   }
 
-  /// Trigger audio for a win line: payline highlight + per-symbol win sound
+  /// Trigger audio for a win line: payline highlight sound only.
+  /// Symbol win sounds (HP1_WIN, LP3_WIN, etc.) already fired once during
+  /// Phase 1 symbol highlight — they should NOT re-trigger on every payline cycle.
   void _triggerWinLineAudio(LineWin lineWin) {
-    // 1. Payline highlight sound (generic line-show sound)
-    //    PAYLINE_HIGHLIGHT → fallback → WIN_LINE_SHOW
     _ensureAudioRegistered('PAYLINE_HIGHLIGHT');
     _ensureAudioRegistered('WIN_LINE_SHOW');
     eventRegistry.triggerStage('PAYLINE_HIGHLIGHT', context: {
@@ -2554,35 +2554,6 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       'match_count': lineWin.matchCount,
       'win_amount': lineWin.winAmount,
     });
-
-    // 2. Per-symbol win sound: HP1_WIN, LP3_WIN, etc.
-    //    Fallback chain: HP1_WIN → HP_WIN → SYMBOL_WIN (generic)
-    //    WILD PRIORITY: If WILD is in this win line, trigger WILD_WIN instead
-    String symbolName = lineWin.symbolName.toUpperCase();
-    if (symbolName.isNotEmpty) {
-      // Check if any position in this win line has a WILD symbol (id=11)
-      bool hasWild = false;
-      for (final pos in lineWin.positions) {
-        if (pos.length >= 2) {
-          final reelIdx = pos[0];
-          final rowIdx = pos[1];
-          if (reelIdx < _targetGrid.length && rowIdx < _targetGrid[reelIdx].length) {
-            if (_targetGrid[reelIdx][rowIdx] == 11) {
-              hasWild = true;
-              break;
-            }
-          }
-        }
-      }
-      if (hasWild) symbolName = 'WILD';
-
-      _ensureAudioRegistered('${symbolName}_WIN');
-      eventRegistry.triggerStage('${symbolName}_WIN', context: {
-        'line_index': lineWin.lineIndex,
-        'match_count': lineWin.matchCount,
-        'win_amount': lineWin.winAmount,
-      });
-    }
   }
 
   /// Get current line win for display (or null if no presentation active)

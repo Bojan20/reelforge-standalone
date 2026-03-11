@@ -1462,7 +1462,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                     Expanded(
                       child: _buildConfigRow(
                         'WINS',
-                        composer.config!.winTierCount, 1, 5,
+                        composer.config!.winTierCount, 1, 8,
                         (v) { composer.setWinTierCount(v); _invalidatePhaseCache(); },
                         FluxForgeTheme.accentYellow,
                       ),
@@ -4034,8 +4034,10 @@ class _WinPresentationSection extends _SectionConfig {
         _SlotConfig(stage: 'WIN_PRESENT_2', label: 'Win Tier 2 (>2x, ≤4x)'),
         _SlotConfig(stage: 'WIN_PRESENT_3', label: 'Win Tier 3 (>4x, ≤8x)'),
         _SlotConfig(stage: 'WIN_PRESENT_4', label: 'Win Tier 4 (>8x, ≤13x)'),
-        _SlotConfig(stage: 'WIN_PRESENT_5', label: 'Win Tier 5 (>13x)'),
-        // WIN_6 REMOVED — WIN_5 is now default for >13x regular wins
+        _SlotConfig(stage: 'WIN_PRESENT_5', label: 'Win Tier 5 (>13x, ≤16x)'),
+        _SlotConfig(stage: 'WIN_PRESENT_6', label: 'Win Tier 6 (>16x, ≤18x)'),
+        _SlotConfig(stage: 'WIN_PRESENT_7', label: 'Win Tier 7 (>18x, ≤19x)'),
+        _SlotConfig(stage: 'WIN_PRESENT_8', label: 'Win Tier 8 (>19x)'),
         _SlotConfig(stage: 'BIG_WIN_TRIGGER', label: 'Big Win Trigger (≥20x)'),
         _SlotConfig(stage: 'BIG_WIN_TIER_1', label: 'Big Win Tier 1 (20x-50x)'),
         _SlotConfig(stage: 'BIG_WIN_TIER_2', label: 'Big Win Tier 2 (50x-100x)'),

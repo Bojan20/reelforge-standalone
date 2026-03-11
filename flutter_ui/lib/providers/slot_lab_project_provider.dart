@@ -574,17 +574,22 @@ class SlotLabProjectProvider extends ChangeNotifier {
 
     for (final file in files) {
       final rawName = file.uri.pathSegments.last.split('.').first;
-      // CamelCase → snake_case (ReelStop → reel_stop, FSActive1Level2 → fs_active1_level2)
+      // CamelCase → snake_case (ReelStop → reel_stop, FSActive1Level2 → fs_active_1_level_2)
       final snaked = rawName
           .replaceAllMapped(RegExp(r'([a-z0-9])([A-Z])'), (m) => '${m[1]}_${m[2]}')
-          .replaceAllMapped(RegExp(r'([A-Z]+)([A-Z][a-z])'), (m) => '${m[1]}_${m[2]}');
+          .replaceAllMapped(RegExp(r'([A-Z]+)([A-Z][a-z])'), (m) => '${m[1]}_${m[2]}')
+          .replaceAllMapped(RegExp(r'([a-zA-Z])(\d)'), (m) => '${m[1]}_${m[2]}')
+          .replaceAllMapped(RegExp(r'(\d)([a-zA-Z])'), (m) => '${m[1]}_${m[2]}');
       final name = snaked.toLowerCase().replaceAll(RegExp(r'[\s\-]+'), '_');
       // Strip numeric prefix (e.g., "004_" or "043_" or "048_")
-      final stripped = name.replaceFirst(RegExp(r'^\d+_'), '');
+      // But preserve multiplier prefixes like "2_x" (from "2x")
+      final stripped = RegExp(r'^\d+_x(_|$)').hasMatch(name)
+          ? name   // Keep "2_x_..." as-is (multiplier prefix)
+          : name.replaceFirst(RegExp(r'^\d+_'), '');
       // Strip trailing variant number/letter (e.g., "_2", "_1", "_b", "_a")
       final base = stripped.replaceFirst(RegExp(r'_[a-z0-9]$'), '');
-      // Strip "LevelN" / "LVN" suffix — many vendors use these for volume layers
-      final noLevel = base.replaceFirst(RegExp(r'_?(?:level|lv)\d+$'), '');
+      // Strip "LevelN" / "LVN" / "_level_N" / "_level" suffix — volume layers
+      final noLevel = base.replaceFirst(RegExp(r'_?(?:level|lv)_?\d*$'), '');
 
       // Strip sfx_ prefix + numeric catalog number
       final afterSfx = stripped.startsWith('sfx_') ? stripped.substring(4) : stripped;
@@ -639,6 +644,17 @@ class SlotLabProjectProvider extends ChangeNotifier {
     // WIN_PRESENT_LOW and WIN_PRESENT_EQUAL share the same sound
     if (bindings.containsKey('WIN_PRESENT_LOW') && !bindings.containsKey('WIN_PRESENT_EQUAL')) {
       bindings['WIN_PRESENT_EQUAL'] = bindings['WIN_PRESENT_LOW']!;
+    }
+
+    // SCATTER_LAND and WILD_LAND often share the same sound in many games
+    // Copy numbered variants too (SCATTER_LAND_1 → WILD_LAND_1, etc.)
+    for (final key in bindings.keys.toList()) {
+      if (key.startsWith('SCATTER_LAND')) {
+        final wildKey = key.replaceFirst('SCATTER_LAND', 'WILD_LAND');
+        if (!bindings.containsKey(wildKey)) {
+          bindings[wildKey] = bindings[key]!;
+        }
+      }
     }
 
     // Apply all bindings
@@ -755,6 +771,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
       'bw_alert': 'big_win_trigger',
       'coin_loop_end': 'big_win_tick_end',
       'coin_loop': 'big_win_tick_start',
+      'coin_burst_fly': 'coin_shower_start',
       'coin_burst': 'big_win_tick_start',
       'celebration_rollup': 'big_win_tick_start',
       'mus_bg_lvl': 'music_base_l',
@@ -779,12 +796,17 @@ class SlotLabProjectProvider extends ChangeNotifier {
       'panels_appear': 'fs_hold_intro',
       'bell_retrigger': 'fs_retrigger',
       'bell_loop': 'fs_spin_start',
+      // fs_active1..5 / fs_smart1..5 — reel-indexed free spin sounds
       'fs_active': 'fs_spin_start', 'fs_smart': 'fs_spin_start',
       'fs_coin_smart': 'fs_win',
       'bonus_intro_loop': 'bonus_enter',
-      'bonus_ending': 'bonus_exit',
       'bonus_ending_short': 'bonus_exit',
+      'bonus_ending': 'bonus_exit',
       'bonus_complete': 'bonus_exit',
+      'bonus_level_rollup': 'rollup_tick',
+      'bonus_rollup': 'rollup_tick',
+      'bonus_level': 'bonus_music',
+      'bonus': 'bonus_music',
       'base_game_rollup': 'rollup_tick',
       'base_rollup_loop': 'rollup_tick',
       'rollup_terminator': 'rollup_end',
@@ -797,6 +819,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
       'maxi_jackpot': 'jackpot_grand',
       'mega_jackpot': 'jackpot_grand',
       'jackpot_winner': 'jackpot_celebration',
+      'jackpot': 'jackpot_celebration',
       'progressive_reveal': 'jackpot_reveal',
       'wheel_enters': 'wheel_enter', 'wheel_exits': 'wheel_exit',
       'double_up_loop': 'gamble_start',
@@ -807,29 +830,44 @@ class SlotLabProjectProvider extends ChangeNotifier {
       'credits_fly_down': 'win_collect',
       'collect': 'win_collect',
       'wild_win': 'wild_win',
-      'gem_land': 'symbol_land', 'icon_burst': 'symbol_win',
+      'gem_land': 'scatter_land', 'icon_burst': 'symbol_win',
       'level_up': 'fs_multiplier_up', 'spin_count': 'fs_spin_start',
+      'ignite': 'fs_start',
     };
 
     // Apply alias — longest prefix match, then try glued form (no underscores)
     String expanded = base;
     bool aliasMatched = false;
+    String? bestKey;
+    String? bestValue;
     for (final entry in aliases.entries) {
       if (base == entry.key || base.startsWith('${entry.key}_')) {
-        expanded = base.replaceFirst(entry.key, entry.value);
-        aliasMatched = true;
-        break;
+        if (bestKey == null || entry.key.length > bestKey.length) {
+          bestKey = entry.key;
+          bestValue = entry.value;
+        }
       }
+    }
+    if (bestKey != null) {
+      expanded = base.replaceFirst(bestKey, bestValue!);
+      aliasMatched = true;
     }
     if (!aliasMatched) {
       final glued = base.replaceAll('_', '');
+      String? gBestKey;
+      String? gBestValue;
+      int gBestLen = 0;
       for (final entry in aliases.entries) {
         final gluedKey = entry.key.replaceAll('_', '');
-        if (glued == gluedKey || glued.startsWith(gluedKey)) {
-          final remainder = glued.substring(gluedKey.length);
-          expanded = remainder.isEmpty ? entry.value : '${entry.value}_$remainder';
-          break;
+        if ((glued == gluedKey || glued.startsWith(gluedKey)) && gluedKey.length > gBestLen) {
+          gBestKey = gluedKey;
+          gBestValue = entry.value;
+          gBestLen = gluedKey.length;
         }
+      }
+      if (gBestKey != null) {
+        final remainder = glued.substring(gBestKey.length);
+        expanded = remainder.isEmpty ? gBestValue! : '${gBestValue!}_$remainder';
       }
     }
 
@@ -853,8 +891,8 @@ class SlotLabProjectProvider extends ChangeNotifier {
       }
     }
 
-    // "2x" prefix → WIN_PRESENT_1
-    if (matchBase.startsWith('2x')) {
+    // "2x" / "2_x" prefix → WIN_PRESENT_1 (multiplier win sounds)
+    if (matchBase.startsWith('2x') || matchBase.startsWith('2_x')) {
       if (StageConfigurationService.instance.getStage('WIN_PRESENT_1') != null) {
         return 'WIN_PRESENT_1';
       }

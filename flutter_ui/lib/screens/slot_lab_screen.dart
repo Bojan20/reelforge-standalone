@@ -5078,7 +5078,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         rowCount: result.rowCount,
         paylineCount: paylineCount,
         paylineType: paylineType,
-        winTierCount: 5,
+        winTierCount: 8,
         mechanics: mechanics,
         volatilityProfile: 'medium',
         enabledBlockIds: result.enabledBlockIds,

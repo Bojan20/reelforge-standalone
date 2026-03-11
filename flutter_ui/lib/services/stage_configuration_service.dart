@@ -354,6 +354,9 @@ class StageConfigurationService extends ChangeNotifier {
     'WIN_PRESENT_3': 'Win Tier 3 (>4x, ≤8x)',
     'WIN_PRESENT_4': 'Win Tier 4 (>8x, ≤13x)',
     'WIN_PRESENT_5': 'Win Tier 5 (>13x)',
+    'WIN_PRESENT_6': 'Win Tier 6 (>16x)',
+    'WIN_PRESENT_7': 'Win Tier 7 (>18x)',
+    'WIN_PRESENT_8': 'Win Tier 8 (>19x)',
     'BIG_WIN_TRIGGER': 'Big Win Trigger (≥20x)',
     'BIG_WIN_TIER_1': 'Big Win Tier 1 (20x-50x)',
     'BIG_WIN_TIER_2': 'Big Win Tier 2 (50x-100x)',
@@ -770,8 +773,8 @@ class StageConfigurationService extends ChangeNotifier {
   /// Register all stages from a win tier configuration (P5 system)
   ///
   /// Generates stages like:
-  /// - WIN_LOW, WIN_EQUAL, WIN_1..6 — Regular win tiers
-  /// - WIN_PRESENT_LOW, WIN_PRESENT_1..6 — Win presentation
+  /// - WIN_LOW, WIN_EQUAL, WIN_1..8 — Regular win tiers
+  /// - WIN_PRESENT_LOW, WIN_PRESENT_1..8 — Win presentation
   /// - ROLLUP_START_*, ROLLUP_TICK_*, ROLLUP_END_* — Rollup stages
   /// - BIG_WIN_START, BIG_WIN_TIER_1..5, BIG_WIN_END — Big win celebration
   void registerWinTierStages(SlotWinConfiguration config) {
@@ -787,7 +790,7 @@ class StageConfigurationService extends ChangeNotifier {
       _registerWinStage(
         name: tier.stageName,
         category: StageCategory.win,
-        priority: 50 + tier.tierId.clamp(-1, 6) * 5, // Higher tier = higher priority
+        priority: 50 + tier.tierId.clamp(-1, 8) * 5, // Higher tier = higher priority
         description: 'Regular win tier: ${tier.tierId == -1 ? "LOW" : tier.tierId == 0 ? "EQUAL" : tier.tierId.toString()}',
       );
 
@@ -795,7 +798,7 @@ class StageConfigurationService extends ChangeNotifier {
       _registerWinStage(
         name: tier.presentStageName,
         category: StageCategory.win,
-        priority: 55 + tier.tierId.clamp(-1, 6) * 5,
+        priority: 55 + tier.tierId.clamp(-1, 8) * 5,
         description: 'Win presentation for tier ${tier.tierId}',
       );
 
@@ -1203,6 +1206,9 @@ class StageConfigurationService extends ChangeNotifier {
     _register('WIN_PRESENT_3', StageCategory.win, 50, SpatialBus.sfx, 'DEFAULT');
     _register('WIN_PRESENT_4', StageCategory.win, 55, SpatialBus.sfx, 'DEFAULT', ducksMusic: true);
     _register('WIN_PRESENT_5', StageCategory.win, 65, SpatialBus.sfx, 'DEFAULT', ducksMusic: true);
+    _register('WIN_PRESENT_6', StageCategory.win, 70, SpatialBus.sfx, 'DEFAULT', ducksMusic: true);
+    _register('WIN_PRESENT_7', StageCategory.win, 75, SpatialBus.sfx, 'DEFAULT', ducksMusic: true);
+    _register('WIN_PRESENT_8', StageCategory.win, 78, SpatialBus.sfx, 'DEFAULT', ducksMusic: true);
 
     // ─────────────────────────────────────────────────────────────────────────
     // BIG WIN (≥20x bet) — Celebration
@@ -1316,6 +1322,7 @@ class StageConfigurationService extends ChangeNotifier {
     _register('BONUS_STEP', StageCategory.feature, 55, SpatialBus.sfx, 'DEFAULT');
     _register('BONUS_REVEAL', StageCategory.feature, 60, SpatialBus.sfx, 'DEFAULT');
     _register('BONUS_EXIT', StageCategory.feature, 70, SpatialBus.sfx, 'DEFAULT');
+    _register('BONUS_MUSIC', StageCategory.music, 45, SpatialBus.music, 'DEFAULT', isLooping: true);
     _register('BONUS_LAND_3', StageCategory.feature, 80, SpatialBus.sfx, 'FEATURE_ENTER');
     _register('PICK_SELECT', StageCategory.feature, 55, SpatialBus.sfx, 'DEFAULT');
     _register('PICK_REVEAL', StageCategory.feature, 60, SpatialBus.sfx, 'DEFAULT');
