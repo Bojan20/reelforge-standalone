@@ -447,6 +447,15 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   final ScrollController _verticalScrollController = ScrollController();
   double _containerWidth = 800;
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PERFORMANCE: Cached computed getters — invalidated in didUpdateWidget
+  // Prevents O(N) recomputation on every build frame during zoom animation
+  // ═══════════════════════════════════════════════════════════════════════════
+  List<TimelineTrack>? _cachedVisibleTracks;
+  Map<String, List<TimelineClip>>? _cachedClipsByTrack;
+  Map<String, List<Crossfade>>? _cachedCrossfadesByTrack;
+  double? _cachedContentEndTime;
+
   // PERFORMANCE: Debounce zoom/scroll to prevent excessive setState in parent
   // This is critical because parent (engine_connected_layout) rebuilds entire UI
   // on zoom/scroll changes. We throttle to 60fps max.
@@ -494,6 +503,22 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
       _recordStartPosition = widget.playheadPosition;
     } else if (!widget.isRecording && oldWidget.isRecording) {
       _recordStartPosition = null;
+    }
+    // Invalidate cached data when tracks/clips/crossfades change
+    if (!identical(widget.tracks, oldWidget.tracks)) {
+      _cachedVisibleTracks = null;
+      _cachedClipsByTrack = null;
+      _cachedContentEndTime = null;
+    }
+    if (!identical(widget.clips, oldWidget.clips)) {
+      _cachedClipsByTrack = null;
+      _cachedContentEndTime = null;
+    }
+    if (!identical(widget.crossfades, oldWidget.crossfades)) {
+      _cachedCrossfadesByTrack = null;
+    }
+    if (widget.tempo != oldWidget.tempo || widget.timeSignatureNum != oldWidget.timeSignatureNum) {
+      _cachedContentEndTime = null;
     }
   }
 
@@ -648,7 +673,10 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
   /// Get visible tracks (filter out hidden + collapsed folder children)
   List<TimelineTrack> get _visibleTracks {
-    // Build set of collapsed folder IDs
+    return _cachedVisibleTracks ??= _computeVisibleTracks();
+  }
+
+  List<TimelineTrack> _computeVisibleTracks() {
     final collapsedFolderIds = <String>{};
     for (final t in widget.tracks) {
       if (t.isFolder && !t.folderExpanded) {
@@ -658,7 +686,6 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
     return widget.tracks.where((t) {
       if (t.hidden) return false;
-      // If any ancestor folder is collapsed, hide this track
       if (t.parentFolderId != null && collapsedFolderIds.contains(t.parentFolderId)) {
         return false;
       }
@@ -687,14 +714,16 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   /// Get the end time of the last clip (actual content end)
   /// Adds extra space after content for Cubase-style scrolling (4 bars padding)
   double get _contentEndTime {
+    return _cachedContentEndTime ??= _computeContentEndTime();
+  }
+
+  double _computeContentEndTime() {
     if (widget.clips.isEmpty) return 0;
     double maxEnd = 0;
     for (final clip in widget.clips) {
       final clipEnd = clip.startTime + clip.duration;
       if (clipEnd > maxEnd) maxEnd = clipEnd;
     }
-    // Add 4 bars of padding after last clip (Cubase style)
-    // At 120 BPM, 4/4 time: 4 bars = 8 seconds
     final beatsPerBar = widget.timeSignatureNum;
     final secondsPerBeat = 60.0 / widget.tempo;
     final barsOfPadding = 4;
@@ -711,6 +740,10 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   }
 
   Map<String, List<TimelineClip>> get _clipsByTrack {
+    return _cachedClipsByTrack ??= _computeClipsByTrack();
+  }
+
+  Map<String, List<TimelineClip>> _computeClipsByTrack() {
     final map = <String, List<TimelineClip>>{};
     for (final track in widget.tracks) {
       map[track.id] = [];
@@ -722,6 +755,10 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   }
 
   Map<String, List<Crossfade>> get _crossfadesByTrack {
+    return _cachedCrossfadesByTrack ??= _computeCrossfadesByTrack();
+  }
+
+  Map<String, List<Crossfade>> _computeCrossfadesByTrack() {
     final map = <String, List<Crossfade>>{};
     for (final track in widget.tracks) {
       map[track.id] = [];
@@ -1938,7 +1975,10 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                 Builder(
                   builder: (context) {
                     final trackIdInt = int.tryParse(track.id) ?? 0;
-                    final (peakL, _) = EngineApi.instance.getTrackPeakStereo(trackIdInt);
+                    // Skip FFI peak calls during zoom animation (perf: avoid N FFI calls per frame)
+                    final peakL = _zoomAnimController.isAnimating
+                        ? 0.0
+                        : EngineApi.instance.getTrackPeakStereo(trackIdInt).$1;
                     final isMultiSelected = widget.multiSelectedTrackIds.contains(track.id);
                     return TrackHeaderSimple(
                       track: track,
@@ -2404,13 +2444,15 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                 onDragAccepted: (fromIndex) {
                                   _handleTrackReorder(fromIndex, index);
                                 },
-                                child: _buildTrackWithAutomation(
-                                  track: track,
-                                  trackClips: trackClips,
-                                  trackCrossfades: trackCrossfades,
-                                  isEmpty: isEmpty,
-                                  visibleAutomationLanes: visibleAutomationLanes,
-                                  trackIndex: index,
+                                child: RepaintBoundary(
+                                  child: _buildTrackWithAutomation(
+                                    track: track,
+                                    trackClips: trackClips,
+                                    trackCrossfades: trackCrossfades,
+                                    isEmpty: isEmpty,
+                                    visibleAutomationLanes: visibleAutomationLanes,
+                                    trackIndex: index,
+                                  ),
                                 ),
                               );
                             },

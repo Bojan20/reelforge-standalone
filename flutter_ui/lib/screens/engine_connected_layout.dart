@@ -324,7 +324,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     final idx = _tracks.indexWhere((t) => t.id == trackId);
     if (idx == -1) return;
     setState(() {
-      _tracks[idx] = updater(_tracks[idx]);
+      _tracks = List.of(_tracks)..[idx] = updater(_tracks[idx]);
     });
   }
 
@@ -735,9 +735,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   void _handleMwSyncBatch(SyncBatch batch) {
     if (!mounted) return;
     setState(() {
-      // Remove tracks and clips first
+      // Snapshot folder expanded state before removing tracks
+      final folderExpandedState = <String, bool>{};
       if (batch.trackIdsToRemove.isNotEmpty) {
         final removeSet = batch.trackIdsToRemove.toSet();
+        for (final t in _tracks) {
+          if (t.isFolder && removeSet.contains(t.id)) {
+            folderExpandedState[t.id] = t.folderExpanded;
+          }
+        }
         _tracks = _tracks.where((t) => !removeSet.contains(t.id)).toList();
       }
       if (batch.clipIdsToRemove.isNotEmpty) {
@@ -745,9 +751,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         _clips = _clips.where((c) => !removeSet.contains(c.id)).toList();
       }
 
-      // Add new tracks and clips
+      // Add new tracks and clips, restoring folder expanded state
       if (batch.tracksToAdd.isNotEmpty) {
-        _tracks = [..._tracks, ...batch.tracksToAdd];
+        final restoredTracks = batch.tracksToAdd.map((t) {
+          if (t.isFolder && folderExpandedState.containsKey(t.id)) {
+            return t.copyWith(folderExpanded: folderExpandedState[t.id]!);
+          }
+          return t;
+        }).toList();
+        _tracks = [..._tracks, ...restoredTracks];
       }
       if (batch.clipsToAdd.isNotEmpty) {
         _clips = [..._clips, ...batch.clipsToAdd];
@@ -2608,9 +2620,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     if (batch == null) return;
 
     _handleMwSyncBatch(batch);
-    // Auto-select this event so only IT plays (mute all other placed events)
+    // Show all events on timeline (don't auto-filter to just this one)
     setState(() {
-      _currentEventId = folder.eventId;
+      _currentEventId = null;
     });
     _syncEngineTrackMutesForEventFilter();
     _showSnackBar('Added ${folder.name} (${folder.layers.length} layers)');

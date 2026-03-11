@@ -482,20 +482,19 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       child: Row(
         children: [
           // Auto-Bind — scan folder and auto-map by filename
-          _labeledActionBtn(
+          _compactActionBtn(
             Icons.auto_fix_high, 'Auto-Bind',
             FluxForgeTheme.accentGreen,
             () => _showAutoBindDialog(context),
           ),
-          const SizedBox(width: 3),
-          // Reset — labeled with color
-          _labeledActionBtn(
+          const SizedBox(width: 2),
+          _compactActionBtn(
             Icons.restart_alt, 'Reset',
             FluxForgeTheme.accentRed,
             () => _showResetConfirmDialog(context),
           ),
-          const SizedBox(width: 3),
-          _labeledActionBtn(
+          const SizedBox(width: 2),
+          _compactActionBtn(
             Icons.auto_fix_high, 'SFX Pipeline',
             FluxForgeTheme.accentCyan,
             () => SfxPipelineWizard.show(context),
@@ -503,12 +502,12 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           const Spacer(),
           // Mode toggle — compact inline
           _buildInlineModeToggle(),
-          const SizedBox(width: 4),
+          const SizedBox(width: 3),
           // Stats
           Text(
             '$assignedCount/$totalSlots',
             style: const TextStyle(
-              fontSize: 10, fontWeight: FontWeight.w500,
+              fontSize: 9, fontWeight: FontWeight.w500,
               color: FluxForgeTheme.textTertiary, fontFamily: 'monospace',
             ),
           ),
@@ -521,17 +520,17 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               child: GestureDetector(
                 onTap: () => widget.onQuickAssignSlotSelected?.call('__TOGGLE__'),
                 child: Container(
-                  margin: const EdgeInsets.only(left: 4),
-                  padding: const EdgeInsets.all(3),
+                  margin: const EdgeInsets.only(left: 2),
+                  padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
                     color: widget.quickAssignMode
                         ? FluxForgeTheme.accentOrange.withValues(alpha: 0.2)
                         : Colors.transparent,
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(3),
                   ),
                   child: Icon(
                     widget.quickAssignMode ? Icons.touch_app : Icons.touch_app_outlined,
-                    size: 14,
+                    size: 13,
                     color: widget.quickAssignMode
                         ? FluxForgeTheme.accentOrange
                         : FluxForgeTheme.textTertiary,
@@ -540,7 +539,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               ),
             ),
           // Unassigned filter
-          _miniIconBtn(
+          _compactIconBtn(
             _showUnassignedOnly ? Icons.filter_alt : Icons.filter_alt_outlined,
             () => setState(() => _showUnassignedOnly = !_showUnassignedOnly),
             _showUnassignedOnly ? 'Show all' : 'Show unassigned',
@@ -550,41 +549,37 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     );
   }
 
-  /// Minimal icon button for panel header — 22x22, muted
-  Widget _labeledActionBtn(IconData icon, String label, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 22,
-        padding: const EdgeInsets.symmetric(horizontal: 5),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.10),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: color.withOpacity(0.35), width: 1),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 12, color: color),
-            const SizedBox(width: 3),
-            Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600)),
-          ],
+  /// Compact action button — icon only, tooltip shows label
+  Widget _compactActionBtn(IconData icon, String label, Color color, VoidCallback onTap) {
+    return Tooltip(
+      message: label,
+      waitDuration: const Duration(milliseconds: 300),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 24,
+          height: 20,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.10),
+            borderRadius: BorderRadius.circular(3),
+            border: Border.all(color: color.withOpacity(0.35), width: 1),
+          ),
+          child: Icon(icon, size: 12, color: color),
         ),
       ),
     );
   }
 
-  Widget _miniIconBtn(IconData icon, VoidCallback? onTap, String tooltip) {
+  Widget _compactIconBtn(IconData icon, VoidCallback? onTap, String tooltip) {
     return Tooltip(
       message: tooltip,
       waitDuration: const Duration(milliseconds: 400),
       child: GestureDetector(
         onTap: onTap,
-        child: Container(
-          width: 26,
-          height: 26,
-          margin: const EdgeInsets.symmetric(horizontal: 1),
-          child: Icon(icon, size: 15,
+        child: SizedBox(
+          width: 22,
+          height: 22,
+          child: Icon(icon, size: 14,
             color: onTap != null ? FluxForgeTheme.textTertiary : FluxForgeTheme.textDisabled),
         ),
       ),
@@ -1319,10 +1314,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   /// Compact inline mode toggle — sits in header, saves 24px vertical
   Widget _buildInlineModeToggle() {
     return Container(
-      height: 22,
+      height: 20,
       decoration: BoxDecoration(
         color: FluxForgeTheme.bgDeep,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(3),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1331,24 +1326,24 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             GestureDetector(
               onTap: () => setState(() => _panelMode = i),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
                 decoration: BoxDecoration(
                   color: _panelMode == i ? FluxForgeTheme.bgSurface : Colors.transparent,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(3),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       i == 0 ? Icons.audiotrack : Icons.functions,
-                      size: 11,
+                      size: 10,
                       color: _panelMode == i ? FluxForgeTheme.textSecondary : FluxForgeTheme.textDisabled,
                     ),
-                    const SizedBox(width: 3),
+                    const SizedBox(width: 2),
                     Text(
                       i == 0 ? 'STG' : 'PCG',
                       style: TextStyle(
-                        fontSize: 9, fontWeight: FontWeight.w600,
+                        fontSize: 8, fontWeight: FontWeight.w600,
                         color: _panelMode == i ? FluxForgeTheme.textSecondary : FluxForgeTheme.textDisabled,
                       ),
                     ),
