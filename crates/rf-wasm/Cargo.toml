@@ -15,7 +15,7 @@ default = ["console_error_panic_hook"]
 wee_alloc = ["dep:wee_alloc"]
 
 [dependencies]
-wasm-bindgen = "0.2.92"
+wasm-bindgen = "0.2.114"
 wasm-bindgen-futures = "0.4.42"
 js-sys = "0.3.69"
 web-sys = { version = "0.3.69", features = [

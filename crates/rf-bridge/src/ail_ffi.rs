@@ -7,7 +7,7 @@
 use std::ffi::{CString, c_char};
 use std::ptr;
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 
 use rf_aurexis::advisory::ail::AuthoringIntelligence;
@@ -16,8 +16,8 @@ use rf_aurexis::advisory::ail::AuthoringIntelligence;
 // GLOBAL STATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-static AIL: Lazy<RwLock<AuthoringIntelligence>> =
-    Lazy::new(|| RwLock::new(AuthoringIntelligence::new()));
+static AIL: LazyLock<RwLock<AuthoringIntelligence>> =
+    LazyLock::new(|| RwLock::new(AuthoringIntelligence::new()));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // LIFECYCLE

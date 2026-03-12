@@ -8,7 +8,7 @@
 //! - JSON for complex data transport
 //! - i32 return codes: 1 = success, 0 = failure
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 use std::ffi::{CStr, CString, c_char};
 use std::ptr;
@@ -27,8 +27,8 @@ const STATE_INITIALIZING: u8 = 1;
 const STATE_INITIALIZED: u8 = 2;
 
 static AUREXIS_STATE: AtomicU8 = AtomicU8::new(STATE_UNINITIALIZED);
-pub(crate) static ENGINE: Lazy<RwLock<Option<AurexisEngine>>> = Lazy::new(|| RwLock::new(None));
-static CONFIG: Lazy<RwLock<AurexisConfig>> = Lazy::new(|| RwLock::new(AurexisConfig::default()));
+pub(crate) static ENGINE: LazyLock<RwLock<Option<AurexisEngine>>> = LazyLock::new(|| RwLock::new(None));
+static CONFIG: LazyLock<RwLock<AurexisConfig>> = LazyLock::new(|| RwLock::new(AurexisConfig::default()));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // LIFECYCLE
@@ -763,7 +763,7 @@ mod tests {
 
     // Tests must be sequential because they share global state
     use std::sync::Mutex;
-    static TEST_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+    static TEST_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
     fn reset_for_test() {
         aurexis_destroy();

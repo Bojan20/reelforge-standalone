@@ -3,7 +3,7 @@
 //! Exposes GAD project management, dual timeline, track metadata, and
 //! Bake To Slot pipeline via C FFI.
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 use std::ffi::{CStr, CString, c_char};
 use std::ptr;
@@ -17,8 +17,8 @@ use rf_aurexis::gad::{
 // GLOBAL STATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-static GAD_PROJECT: Lazy<RwLock<Option<GadProject>>> = Lazy::new(|| RwLock::new(None));
-static BAKE_ENGINE: Lazy<RwLock<Option<BakeToSlot>>> = Lazy::new(|| RwLock::new(None));
+static GAD_PROJECT: LazyLock<RwLock<Option<GadProject>>> = LazyLock::new(|| RwLock::new(None));
+static BAKE_ENGINE: LazyLock<RwLock<Option<BakeToSlot>>> = LazyLock::new(|| RwLock::new(None));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PROJECT MANAGEMENT

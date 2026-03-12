@@ -12,21 +12,20 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use parking_lot::RwLock;
+use std::sync::LazyLock;
 
 // ============================================================================
 // GLOBAL STATE
 // ============================================================================
 
-lazy_static::lazy_static! {
-    /// Autosave directory
-    static ref AUTOSAVE_DIR: RwLock<PathBuf> = RwLock::new(default_autosave_dir());
+/// Autosave directory
+static AUTOSAVE_DIR: LazyLock<RwLock<PathBuf>> = LazyLock::new(|| RwLock::new(default_autosave_dir()));
 
-    /// Current project name
-    static ref PROJECT_NAME: RwLock<String> = RwLock::new(String::from("Untitled"));
+/// Current project name
+static PROJECT_NAME: LazyLock<RwLock<String>> = LazyLock::new(|| RwLock::new(String::from("Untitled")));
 
-    /// Recent projects list
-    static ref RECENT_PROJECTS: RwLock<Vec<PathBuf>> = RwLock::new(Vec::new());
-}
+/// Recent projects list
+static RECENT_PROJECTS: LazyLock<RwLock<Vec<PathBuf>>> = LazyLock::new(|| RwLock::new(Vec::new()));
 
 /// Autosave enabled flag
 static AUTOSAVE_ENABLED: AtomicBool = AtomicBool::new(true);

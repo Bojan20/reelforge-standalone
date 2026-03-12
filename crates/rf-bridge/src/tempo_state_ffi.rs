@@ -10,7 +10,7 @@
 //! Uses RwLock for state management. Trigger functions use atomic stores
 //! for lock-free UI→Audio communication.
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 use std::ffi::{CStr, c_char};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -23,7 +23,7 @@ use rf_engine::tempo_state::{TempoStateEngine, TempoTransitionRule};
 // GLOBAL STATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-static TEMPO_ENGINE: Lazy<RwLock<Option<TempoStateEngine>>> = Lazy::new(|| RwLock::new(None));
+static TEMPO_ENGINE: LazyLock<RwLock<Option<TempoStateEngine>>> = LazyLock::new(|| RwLock::new(None));
 static TEMPO_INITIALIZED: AtomicBool = AtomicBool::new(false);
 
 // ═══════════════════════════════════════════════════════════════════════════════

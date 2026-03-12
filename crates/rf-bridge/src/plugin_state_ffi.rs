@@ -5,7 +5,7 @@
 //!
 //! Documentation: .claude/architecture/PLUGIN_STATE_SYSTEM.md
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use std::ffi::{CStr, CString, c_char};
 use std::sync::Mutex;
 
@@ -15,8 +15,8 @@ use rf_state::{PluginFormat, PluginStateChunk, PluginStateStorage, PluginUid};
 // GLOBAL STATE STORAGE
 // ═══════════════════════════════════════════════════════════════════════════
 
-static STATE_STORAGE: Lazy<Mutex<PluginStateStorage>> =
-    Lazy::new(|| Mutex::new(PluginStateStorage::new()));
+static STATE_STORAGE: LazyLock<Mutex<PluginStateStorage>> =
+    LazyLock::new(|| Mutex::new(PluginStateStorage::new()));
 
 // Thread-local buffer for returning strings
 thread_local! {

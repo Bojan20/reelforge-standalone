@@ -16,10 +16,10 @@
 //! first, THEN initialized flag is set, ensuring other threads never see
 //! a half-initialized state.
 
-use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use std::ffi::{CStr, CString, c_char};
 use std::ptr;
+use std::sync::LazyLock;
 use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
 
 use rf_slot_lab::{
@@ -49,13 +49,13 @@ static SLOT_LAB_STATE: AtomicU8 = AtomicU8::new(STATE_UNINITIALIZED);
 static SPIN_COUNT: AtomicU64 = AtomicU64::new(0);
 
 /// Global slot engine instance
-static SLOT_ENGINE: Lazy<RwLock<Option<SyntheticSlotEngine>>> = Lazy::new(|| RwLock::new(None));
+static SLOT_ENGINE: LazyLock<RwLock<Option<SyntheticSlotEngine>>> = LazyLock::new(|| RwLock::new(None));
 
 /// Last spin result (for retrieval by Dart)
-static LAST_SPIN_RESULT: Lazy<RwLock<Option<SpinResult>>> = Lazy::new(|| RwLock::new(None));
+static LAST_SPIN_RESULT: LazyLock<RwLock<Option<SpinResult>>> = LazyLock::new(|| RwLock::new(None));
 
 /// Last generated stages (for retrieval by Dart)
-static LAST_STAGES: Lazy<RwLock<Vec<StageEvent>>> = Lazy::new(|| RwLock::new(Vec::new()));
+static LAST_STAGES: LazyLock<RwLock<Vec<StageEvent>>> = LazyLock::new(|| RwLock::new(Vec::new()));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // INITIALIZATION
@@ -1131,13 +1131,13 @@ pub extern "C" fn slot_lab_last_spin_cascade_count() -> i32 {
 static ENGINE_V2_STATE: AtomicU8 = AtomicU8::new(STATE_UNINITIALIZED);
 
 /// Global Engine V2 instance
-static ENGINE_V2: Lazy<RwLock<Option<SlotEngineV2>>> = Lazy::new(|| RwLock::new(None));
+static ENGINE_V2: LazyLock<RwLock<Option<SlotEngineV2>>> = LazyLock::new(|| RwLock::new(None));
 
 /// Last Engine V2 spin result
-static LAST_V2_RESULT: Lazy<RwLock<Option<SpinResult>>> = Lazy::new(|| RwLock::new(None));
+static LAST_V2_RESULT: LazyLock<RwLock<Option<SpinResult>>> = LazyLock::new(|| RwLock::new(None));
 
 /// Last Engine V2 stages
-static LAST_V2_STAGES: Lazy<RwLock<Vec<StageEvent>>> = Lazy::new(|| RwLock::new(Vec::new()));
+static LAST_V2_STAGES: LazyLock<RwLock<Vec<StageEvent>>> = LazyLock::new(|| RwLock::new(Vec::new()));
 
 /// Initialize Engine V2 with default 5x3 game model
 #[unsafe(no_mangle)]
@@ -1463,11 +1463,11 @@ pub extern "C" fn slot_lab_v2_last_win_tier() -> *mut c_char {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Global scenario registry
-static SCENARIO_REGISTRY: Lazy<RwLock<ScenarioRegistry>> =
-    Lazy::new(|| RwLock::new(ScenarioRegistry::new()));
+static SCENARIO_REGISTRY: LazyLock<RwLock<ScenarioRegistry>> =
+    LazyLock::new(|| RwLock::new(ScenarioRegistry::new()));
 
 /// Active playback state
-static ACTIVE_PLAYBACK: Lazy<RwLock<Option<ScenarioPlayback>>> = Lazy::new(|| RwLock::new(None));
+static ACTIVE_PLAYBACK: LazyLock<RwLock<Option<ScenarioPlayback>>> = LazyLock::new(|| RwLock::new(None));
 
 /// List all available scenarios as JSON array
 #[unsafe(no_mangle)]
@@ -2697,8 +2697,8 @@ use rf_slot_lab::model::{
 };
 
 /// Global Win Tier Configuration
-static WIN_TIER_CONFIG: Lazy<RwLock<SlotWinConfig>> =
-    Lazy::new(|| RwLock::new(SlotWinConfig::default()));
+static WIN_TIER_CONFIG: LazyLock<RwLock<SlotWinConfig>> =
+    LazyLock::new(|| RwLock::new(SlotWinConfig::default()));
 
 /// Set complete win tier configuration from JSON
 ///

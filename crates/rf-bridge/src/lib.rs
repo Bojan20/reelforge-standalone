@@ -94,9 +94,8 @@ pub use viz::*;
 // Re-export recording types from rf-file
 pub use rf_file::{RecordingConfig, RecordingState, RecordingStats};
 
-use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use rf_engine::automation::AutomationEngine;
 use rf_engine::groups::GroupManager;
@@ -106,10 +105,10 @@ use rf_engine::{DualPathEngine, EngineConfig};
 use rf_state::{Project, UndoManager};
 
 /// Global engine instance (singleton for Flutter access)
-static ENGINE: Lazy<Arc<RwLock<Option<EngineBridge>>>> = Lazy::new(|| Arc::new(RwLock::new(None)));
+static ENGINE: LazyLock<Arc<RwLock<Option<EngineBridge>>>> = LazyLock::new(|| Arc::new(RwLock::new(None)));
 
 /// Global playback engine (real-time audio output)
-pub static PLAYBACK: Lazy<Arc<PlaybackEngine>> = Lazy::new(|| Arc::new(PlaybackEngine::new()));
+pub static PLAYBACK: LazyLock<Arc<PlaybackEngine>> = LazyLock::new(|| Arc::new(PlaybackEngine::new()));
 
 /// Bridge wrapper for the audio engine
 pub struct EngineBridge {

@@ -11,6 +11,7 @@
 
 #![allow(clippy::not_unsafe_ptr_arg_deref)] // FFI functions receive raw pointers from C/Dart
 
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 use std::ffi::{CStr, CString, c_char};
 use std::path::{Path, PathBuf};
@@ -118,56 +119,50 @@ impl PendingAudioEntry {
 /// Next pending ID counter (atomic)
 static NEXT_PENDING_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1_000_000);
 
-lazy_static::lazy_static! {
-    static ref TRACK_MANAGER: Arc<TrackManager> = Arc::new(TrackManager::new());
-    static ref WAVEFORM_CACHE: WaveformCache = WaveformCache::new();
-    static ref IMPORTED_AUDIO: RwLock<std::collections::HashMap<ClipId, Arc<ImportedAudio>>> =
-        RwLock::new(std::collections::HashMap::new());
-    /// Pending audio entries — instant registration, metadata loaded async
-    static ref PENDING_AUDIO: RwLock<std::collections::HashMap<u64, Arc<PendingAudioEntry>>> =
-        RwLock::new(std::collections::HashMap::new());
-    /// Background thread pool for metadata loading
-    static ref METADATA_THREAD_POOL: rayon::ThreadPool = rayon::ThreadPoolBuilder::new()
+static TRACK_MANAGER: LazyLock<Arc<TrackManager>> = LazyLock::new(|| Arc::new(TrackManager::new()));
+static WAVEFORM_CACHE: LazyLock<WaveformCache> = LazyLock::new(|| WaveformCache::new());
+static IMPORTED_AUDIO: LazyLock<RwLock<std::collections::HashMap<ClipId, Arc<ImportedAudio>>>> = LazyLock::new(|| RwLock::new(std::collections::HashMap::new()));
+/// Pending audio entries — instant registration, metadata loaded async
+static PENDING_AUDIO: LazyLock<RwLock<std::collections::HashMap<u64, Arc<PendingAudioEntry>>>> = LazyLock::new(|| RwLock::new(std::collections::HashMap::new()));
+/// Background thread pool for metadata loading
+static METADATA_THREAD_POOL: LazyLock<rayon::ThreadPool> = LazyLock::new(|| rayon::ThreadPoolBuilder::new()
         .num_threads(4)
         .thread_name(|i| format!("ff-metadata-{}", i))
         .build()
-        .expect("Failed to create metadata thread pool");
-    pub static ref PLAYBACK_ENGINE: Arc<PlaybackEngine> = Arc::new(PlaybackEngine::new(Arc::clone(&TRACK_MANAGER), 48000));
-    static ref UNDO_MANAGER: RwLock<UndoManager> = RwLock::new(UndoManager::new(500));
-    /// Project dirty state tracking
-    static ref PROJECT_STATE: ProjectState = ProjectState::new();
-    /// Click track / metronome
-    pub(crate) static ref CLICK_TRACK: RwLock<crate::click::ClickTrack> = RwLock::new(crate::click::ClickTrack::new(48000));
-    /// Export engine (Phase 12)
-    static ref EXPORT_ENGINE: crate::export::ExportEngine = crate::export::ExportEngine::new(
+        .expect("Failed to create metadata thread pool"));
+pub static PLAYBACK_ENGINE: LazyLock<Arc<PlaybackEngine>> = LazyLock::new(|| Arc::new(PlaybackEngine::new(Arc::clone(&TRACK_MANAGER), 48000)));
+static UNDO_MANAGER: LazyLock<RwLock<UndoManager>> = LazyLock::new(|| RwLock::new(UndoManager::new(500)));
+/// Project dirty state tracking
+static PROJECT_STATE: LazyLock<ProjectState> = LazyLock::new(|| ProjectState::new());
+/// Click track / metronome
+pub(crate) static CLICK_TRACK: LazyLock<RwLock<crate::click::ClickTrack>> = LazyLock::new(|| RwLock::new(crate::click::ClickTrack::new(48000)));
+/// Export engine (Phase 12)
+static EXPORT_ENGINE: LazyLock<crate::export::ExportEngine> = LazyLock::new(|| crate::export::ExportEngine::new(
         Arc::clone(&PLAYBACK_ENGINE),
         Arc::clone(&TRACK_MANAGER),
-    );
-    /// Render Matrix (Region Render Matrix — batch export)
-    static ref RENDER_MATRIX: crate::render_matrix::RenderMatrix = crate::render_matrix::RenderMatrix::new(
+    ));
+/// Render Matrix (Region Render Matrix — batch export)
+static RENDER_MATRIX: LazyLock<crate::render_matrix::RenderMatrix> = LazyLock::new(|| crate::render_matrix::RenderMatrix::new(
         Arc::clone(&PLAYBACK_ENGINE),
         Arc::clone(&TRACK_MANAGER),
-    );
-    /// Last error for FFI error propagation
-    static ref LAST_ERROR: RwLock<Option<AppError>> = RwLock::new(None);
-    /// Edit mode context
-    static ref EDIT_CONTEXT: RwLock<rf_core::EditContext> = RwLock::new(rf_core::EditContext::default());
-    /// Comping manager
-    static ref COMPING_MANAGER: RwLock<rf_core::CompingManager> = RwLock::new(rf_core::CompingManager::new());
-    /// Video engine
-    static ref VIDEO_ENGINE: RwLock<rf_video::VideoEngine> = RwLock::new(rf_video::VideoEngine::new(rf_core::SampleRate::Hz48000));
-    /// Middleware event manager handle for Wwise/FMOD-style game audio (thread-safe)
-    static ref EVENT_MANAGER_PARTS: (rf_event::EventManagerHandle, parking_lot::Mutex<Option<rf_event::EventManagerProcessor>>) = {
+    ));
+/// Last error for FFI error propagation
+static LAST_ERROR: LazyLock<RwLock<Option<AppError>>> = LazyLock::new(|| RwLock::new(None));
+/// Edit mode context
+static EDIT_CONTEXT: LazyLock<RwLock<rf_core::EditContext>> = LazyLock::new(|| RwLock::new(rf_core::EditContext::default()));
+/// Comping manager
+static COMPING_MANAGER: LazyLock<RwLock<rf_core::CompingManager>> = LazyLock::new(|| RwLock::new(rf_core::CompingManager::new()));
+/// Video engine
+static VIDEO_ENGINE: LazyLock<RwLock<rf_video::VideoEngine>> = LazyLock::new(|| RwLock::new(rf_video::VideoEngine::new(rf_core::SampleRate::Hz48000)));
+/// Middleware event manager handle for Wwise/FMOD-style game audio (thread-safe)
+static EVENT_MANAGER_PARTS: LazyLock<(rf_event::EventManagerHandle, parking_lot::Mutex<Option<rf_event::EventManagerProcessor>>)> = LazyLock::new(|| {
         let (handle, processor) = rf_event::create_event_manager(48000);
         (handle, parking_lot::Mutex::new(Some(processor)))
-    };
-    /// Asset registry for middleware audio (sound bank storage)
-    static ref ASSET_REGISTRY: Arc<crate::middleware_integration::AssetRegistry> =
-        Arc::new(crate::middleware_integration::AssetRegistry::new());
-    /// Project Tab Manager (multi-project tabs)
-    static ref PROJECT_TAB_MANAGER: crate::track_manager::ProjectTabManager =
-        crate::track_manager::ProjectTabManager::new();
-}
+    });
+/// Asset registry for middleware audio (sound bank storage)
+static ASSET_REGISTRY: LazyLock<Arc<crate::middleware_integration::AssetRegistry>> = LazyLock::new(|| Arc::new(crate::middleware_integration::AssetRegistry::new()));
+/// Project Tab Manager (multi-project tabs)
+static PROJECT_TAB_MANAGER: LazyLock<crate::track_manager::ProjectTabManager> = LazyLock::new(|| crate::track_manager::ProjectTabManager::new());
 
 /// Get the event manager handle (thread-safe, for UI commands)
 fn event_handle() -> &'static rf_event::EventManagerHandle {
@@ -4154,12 +4149,8 @@ pub extern "C" fn click_set_tempo_events(
 // SEND/RETURN FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref SEND_BANKS: parking_lot::RwLock<std::collections::HashMap<u64, crate::send_return::SendBank>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-    static ref RETURN_MANAGER: parking_lot::RwLock<crate::send_return::ReturnBusManager> =
-        parking_lot::RwLock::new(crate::send_return::ReturnBusManager::new(4, 512, 48000.0));
-}
+static SEND_BANKS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u64, crate::send_return::SendBank>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
+static RETURN_MANAGER: LazyLock<parking_lot::RwLock<crate::send_return::ReturnBusManager>> = LazyLock::new(|| parking_lot::RwLock::new(crate::send_return::ReturnBusManager::new(4, 512, 48000.0)));
 
 /// Set send level for a track
 /// track_id: Track identifier
@@ -4342,12 +4333,8 @@ pub extern "C" fn return_set_solo(return_index: u32, solo: i32) {
 // SIDECHAIN ROUTING FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref SIDECHAIN_ROUTER: parking_lot::RwLock<crate::sidechain::SidechainRouter> =
-        parking_lot::RwLock::new(crate::sidechain::SidechainRouter::new(512));
-    static ref SIDECHAIN_INPUTS: parking_lot::RwLock<std::collections::HashMap<u32, crate::sidechain::SidechainInput>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
+static SIDECHAIN_ROUTER: LazyLock<parking_lot::RwLock<crate::sidechain::SidechainRouter>> = LazyLock::new(|| parking_lot::RwLock::new(crate::sidechain::SidechainRouter::new(512)));
+static SIDECHAIN_INPUTS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, crate::sidechain::SidechainInput>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
 
 /// Add a sidechain route
 /// Returns route ID (non-zero) or 0 on failure
@@ -4482,10 +4469,7 @@ pub extern "C" fn sidechain_is_monitoring(processor_id: u32) -> i32 {
 // AUTOMATION FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref AUTOMATION_ENGINE: crate::automation::AutomationEngine =
-        crate::automation::AutomationEngine::new(48000.0);
-}
+static AUTOMATION_ENGINE: LazyLock<crate::automation::AutomationEngine> = LazyLock::new(|| crate::automation::AutomationEngine::new(48000.0));
 
 /// Set global automation mode
 /// mode: 0=Read, 1=Touch, 2=Latch, 3=Write, 4=Trim, 5=Off
@@ -4890,10 +4874,7 @@ pub extern "C" fn automation_release_plugin(track_id: u64, slot: u32, param_inde
 // AUTOMATION ITEMS FFI (Reaper-style pooled containerized automation)
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref AUTO_ITEM_MANAGER: crate::automation::AutomationItemManager =
-        crate::automation::AutomationItemManager::new(48000.0);
-}
+static AUTO_ITEM_MANAGER: LazyLock<crate::automation::AutomationItemManager> = LazyLock::new(|| crate::automation::AutomationItemManager::new(48000.0));
 
 /// Add an LFO automation item to a lane.
 /// Returns item ID, or 0 on error.
@@ -5659,11 +5640,8 @@ pub extern "C" fn pitch_detect_midi(samples: *const f64, length: u32, sample_rat
 // PITCH ANALYSIS FFI (Full Clip Analysis)
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    /// Pitch editor states per clip (clip_id -> state JSON)
-    static ref PITCH_EDITOR_STATES: RwLock<std::collections::HashMap<u64, rf_dsp::pitch::PitchEditorState>> =
-        RwLock::new(std::collections::HashMap::new());
-}
+/// Pitch editor states per clip (clip_id -> state JSON)
+static PITCH_EDITOR_STATES: LazyLock<RwLock<std::collections::HashMap<u64, rf_dsp::pitch::PitchEditorState>>> = LazyLock::new(|| RwLock::new(std::collections::HashMap::new()));
 
 /// Analyze pitch for entire clip - returns number of segments detected
 /// This populates the internal pitch editor state for the clip
@@ -6040,10 +6018,7 @@ use std::thread;
 
 static AUDIO_STREAM_RUNNING: AtomicBool = AtomicBool::new(false);
 
-lazy_static::lazy_static! {
-    static ref AUDIO_THREAD_HANDLE: parking_lot::Mutex<Option<(thread::JoinHandle<()>, mpsc::Sender<()>)>> =
-        parking_lot::Mutex::new(None);
-}
+static AUDIO_THREAD_HANDLE: LazyLock<parking_lot::Mutex<Option<(thread::JoinHandle<()>, mpsc::Sender<()>)>>> = LazyLock::new(|| parking_lot::Mutex::new(None));
 
 /// Start the audio output stream (cpal device)
 /// Returns 1 on success, 0 on failure
@@ -8405,9 +8380,7 @@ pub extern "C" fn track_set_color(track_id: u64, color: u32) -> i32 {
 
 use crate::groups::{GroupManager, LinkMode, LinkParameter};
 
-lazy_static::lazy_static! {
-    static ref GROUP_MANAGER: RwLock<GroupManager> = RwLock::new(GroupManager::new());
-}
+static GROUP_MANAGER: LazyLock<RwLock<GroupManager>> = LazyLock::new(|| RwLock::new(GroupManager::new()));
 
 /// Create a new VCA fader
 /// Returns VCA ID
@@ -9017,10 +8990,7 @@ pub extern "C" fn folder_set_color(folder_id: u64, color: u32) -> i32 {
 // ELASTIC PRO (TIME STRETCHING)
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref ELASTIC_PROCESSORS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::ElasticPro>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
+static ELASTIC_PROCESSORS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::ElasticPro>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
 
 /// Create time stretch processor for clip
 #[unsafe(no_mangle)]
@@ -9448,10 +9418,7 @@ pub extern "C" fn elastic_apply_to_clip(clip_id: u32) -> i32 {
 // PIANO ROLL FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref PIANO_ROLL_STATES: parking_lot::RwLock<std::collections::HashMap<u32, rf_core::PianoRollState>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
+static PIANO_ROLL_STATES: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_core::PianoRollState>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
 
 /// Create/get piano roll state for clip
 #[unsafe(no_mangle)]
@@ -9909,12 +9876,8 @@ pub extern "C" fn piano_roll_can_redo(clip_id: u32) -> i32 {
 // REVERB FFI - Convolution & Algorithmic
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref CONVOLUTION_REVERBS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::reverb::ConvolutionReverb>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-    static ref ALGORITHMIC_REVERBS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::reverb::AlgorithmicReverb>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
+static CONVOLUTION_REVERBS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::reverb::ConvolutionReverb>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
+static ALGORITHMIC_REVERBS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::reverb::AlgorithmicReverb>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
 
 // --- Convolution Reverb ---
 
@@ -10479,16 +10442,10 @@ pub extern "C" fn algorithmic_reverb_get_latency(track_id: u32) -> u32 {
 // DELAY FFI - Simple, PingPong, MultiTap, Modulated
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref SIMPLE_DELAYS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::delay::Delay>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-    static ref PING_PONG_DELAYS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::delay::PingPongDelay>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-    static ref MULTI_TAP_DELAYS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::delay::MultiTapDelay>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-    static ref MODULATED_DELAYS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::delay::ModulatedDelay>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
+static SIMPLE_DELAYS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::delay::Delay>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
+static PING_PONG_DELAYS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::delay::PingPongDelay>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
+static MULTI_TAP_DELAYS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::delay::MultiTapDelay>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
+static MODULATED_DELAYS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::delay::ModulatedDelay>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
 
 // --- Simple Delay ---
 
@@ -10889,14 +10846,9 @@ pub extern "C" fn modulated_delay_reset(track_id: u32) -> i32 {
 //
 
 // Standalone panner/width/ms HashMaps kept for backward compat (rarely used directly)
-lazy_static::lazy_static! {
-    static ref STEREO_PANNERS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::spatial::StereoPanner>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-    static ref STEREO_WIDTHS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::spatial::StereoWidth>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-    static ref MS_PROCESSORS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::spatial::MsProcessor>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
+static STEREO_PANNERS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::spatial::StereoPanner>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
+static STEREO_WIDTHS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::spatial::StereoWidth>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
+static MS_PROCESSORS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::spatial::MsProcessor>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
 
 // === STEREO IMAGER — routed through PLAYBACK_ENGINE ===
 
@@ -11218,12 +11170,8 @@ pub extern "C" fn ms_processor_reset(track_id: u32) -> i32 {
 // MULTIBAND DYNAMICS FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref MULTIBAND_COMPRESSORS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::multiband::MultibandCompressor>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-    static ref MULTIBAND_LIMITERS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::multiband::MultibandLimiter>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
+static MULTIBAND_COMPRESSORS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::multiband::MultibandCompressor>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
+static MULTIBAND_LIMITERS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::multiband::MultibandLimiter>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
 
 // === MULTIBAND COMPRESSOR ===
 
@@ -11547,12 +11495,8 @@ pub extern "C" fn multiband_lim_reset(track_id: u32) -> i32 {
 // TRANSIENT SHAPER FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref TRANSIENT_SHAPERS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::transient::TransientShaper>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-    static ref MULTIBAND_TRANSIENT_SHAPERS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::transient::MultibandTransientShaper>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
+static TRANSIENT_SHAPERS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::transient::TransientShaper>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
+static MULTIBAND_TRANSIENT_SHAPERS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::transient::MultibandTransientShaper>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
 
 // === TRANSIENT SHAPER ===
 
@@ -11759,10 +11703,7 @@ pub extern "C" fn multiband_transient_reset(track_id: u32) -> i32 {
 // PRO EQ FFI - 64-Band Professional Parametric EQ
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref PRO_EQS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::eq_pro::ProEq>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
+static PRO_EQS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::eq_pro::ProEq>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
 
 /// Create a new Pro EQ instance for a track
 #[unsafe(no_mangle)]
@@ -12280,10 +12221,7 @@ pub extern "C" fn pro_eq_get_pre_spectrum(track_id: u32, out_data: *mut f32, out
 // BASS MONO FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref BASS_MONOS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::eq_stereo::BassMono>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
+static BASS_MONOS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::eq_stereo::BassMono>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
 
 /// Create or update bass mono for track
 #[unsafe(no_mangle)]
@@ -12314,10 +12252,7 @@ pub extern "C" fn bass_mono_set_freq(track_id: u32, freq: f64) -> i32 {
 // ROOM CORRECTION FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref ROOM_CORRECTIONS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::eq_room::RoomCorrectionEq>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
+static ROOM_CORRECTIONS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::eq_room::RoomCorrectionEq>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
 
 /// Start room measurement (creates RoomCorrectionEq which owns a RoomMeasurement)
 #[unsafe(no_mangle)]
@@ -12463,14 +12398,9 @@ pub extern "C" fn room_correction_get_response(track_id: u32, out_data: *mut f64
 // ANALOG EQ FFI - Pultec, API 550, Neve 1073
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref PULTEC_EQS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::eq_analog::StereoPultec>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-    static ref API550_EQS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::eq_analog::StereoApi550>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-    static ref NEVE1073_EQS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::eq_analog::StereoNeve1073>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
+static PULTEC_EQS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::eq_analog::StereoPultec>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
+static API550_EQS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::eq_analog::StereoApi550>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
+static NEVE1073_EQS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::eq_analog::StereoNeve1073>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PULTEC EQP-1A
@@ -12835,10 +12765,7 @@ pub extern "C" fn neve1073_reset(track_id: u32) -> i32 {
 // PITCH CORRECTION FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref PITCH_CORRECTORS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::pitch::PitchCorrector>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
+static PITCH_CORRECTORS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::pitch::PitchCorrector>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
 
 /// Create pitch corrector instance
 #[unsafe(no_mangle)]
@@ -12946,16 +12873,10 @@ pub extern "C" fn pitch_corrector_set_formant_preservation(track_id: u32, amount
 // SPECTRAL PROCESSING FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref SPECTRAL_GATES: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::spectral::SpectralGate>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-    static ref SPECTRAL_FREEZES: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::spectral::SpectralFreeze>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-    static ref SPECTRAL_COMPRESSORS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::spectral::SpectralCompressor>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-    static ref DE_CLICKS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::spectral::DeClick>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
+static SPECTRAL_GATES: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::spectral::SpectralGate>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
+static SPECTRAL_FREEZES: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::spectral::SpectralFreeze>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
+static SPECTRAL_COMPRESSORS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::spectral::SpectralCompressor>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
+static DE_CLICKS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::spectral::DeClick>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SPECTRAL GATE (Noise Reduction)
@@ -13243,10 +13164,7 @@ pub extern "C" fn declick_reset(track_id: u32) -> i32 {
 // ULTRA EQ - Beyond Pro-Q 4
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref ULTRA_EQS: RwLock<std::collections::HashMap<u32, rf_dsp::eq_ultra::UltraEq>> =
-        RwLock::new(std::collections::HashMap::new());
-}
+static ULTRA_EQS: LazyLock<RwLock<std::collections::HashMap<u32, rf_dsp::eq_ultra::UltraEq>>> = LazyLock::new(|| RwLock::new(std::collections::HashMap::new()));
 
 /// Create UltraEq instance
 #[unsafe(no_mangle)]
@@ -13438,10 +13356,7 @@ pub extern "C" fn ultra_eq_reset(track_id: u32) -> i32 {
 // ELASTIC PRO - Ultimate Time Stretching
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref ELASTIC_PROS: RwLock<std::collections::HashMap<u32, rf_dsp::elastic_pro::ElasticPro>> =
-        RwLock::new(std::collections::HashMap::new());
-}
+static ELASTIC_PROS: LazyLock<RwLock<std::collections::HashMap<u32, rf_dsp::elastic_pro::ElasticPro>>> = LazyLock::new(|| RwLock::new(std::collections::HashMap::new()));
 
 /// Create ElasticPro instance
 #[unsafe(no_mangle)]
@@ -13621,10 +13536,7 @@ pub extern "C" fn elastic_pro_reset(track_id: u32) -> i32 {
 // ROOM CORRECTION EQ
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref ROOM_EQS: RwLock<std::collections::HashMap<u32, rf_dsp::eq_room::RoomCorrectionEq>> =
-        RwLock::new(std::collections::HashMap::new());
-}
+static ROOM_EQS: LazyLock<RwLock<std::collections::HashMap<u32, rf_dsp::eq_room::RoomCorrectionEq>>> = LazyLock::new(|| RwLock::new(std::collections::HashMap::new()));
 
 /// Create RoomCorrectionEq instance
 #[unsafe(no_mangle)]
@@ -13729,12 +13641,8 @@ pub extern "C" fn room_eq_reset(track_id: u32) -> i32 {
 // WAVELET ANALYSIS - Multi-resolution Analysis
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref WAVELETS: RwLock<std::collections::HashMap<u32, rf_dsp::wavelet::DWT>> =
-        RwLock::new(std::collections::HashMap::new());
-    static ref CQTS: RwLock<std::collections::HashMap<u32, rf_dsp::wavelet::CQT>> =
-        RwLock::new(std::collections::HashMap::new());
-}
+static WAVELETS: LazyLock<RwLock<std::collections::HashMap<u32, rf_dsp::wavelet::DWT>>> = LazyLock::new(|| RwLock::new(std::collections::HashMap::new()));
+static CQTS: LazyLock<RwLock<std::collections::HashMap<u32, rf_dsp::wavelet::CQT>>> = LazyLock::new(|| RwLock::new(std::collections::HashMap::new()));
 
 /// Create DWT (Discrete Wavelet Transform) instance
 /// wavelet_type: 0=Haar, 1=db2, 2=db4, 3=db6, 4=db8, 5=sym4, 6=sym8, 7=coif1, 8=coif2
@@ -13816,10 +13724,7 @@ pub extern "C" fn wavelet_cqt_destroy(track_id: u32) -> i32 {
 // STEREO EQ FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref STEREO_EQS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::eq_stereo::StereoEq>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
+static STEREO_EQS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::eq_stereo::StereoEq>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
 
 /// Create stereo EQ
 #[unsafe(no_mangle)]
@@ -14030,10 +13935,7 @@ pub extern "C" fn bass_mono_set_blend(track_id: u32, blend: f64) -> i32 {
 // LINEAR PHASE EQ FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref LINEAR_PHASE_EQS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::linear_phase::LinearPhaseEQ>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
+static LINEAR_PHASE_EQS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::linear_phase::LinearPhaseEQ>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
 
 /// Create linear phase EQ
 #[unsafe(no_mangle)]
@@ -14193,10 +14095,7 @@ pub extern "C" fn linear_phase_eq_reset(track_id: u32) -> i32 {
 // CHANNEL STRIP FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref CHANNEL_STRIPS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::channel::ChannelStrip>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
+static CHANNEL_STRIPS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::channel::ChannelStrip>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
 
 /// Create channel strip
 #[unsafe(no_mangle)]
@@ -14613,12 +14512,8 @@ pub extern "C" fn channel_strip_reset(track_id: u32) -> i32 {
 // SURROUND PANNER FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref SURROUND_PANNERS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::surround::SurroundPanner>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-    static ref AMBISONICS_ENCODERS: parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::surround::AmbisonicsEncoder>> =
-        parking_lot::RwLock::new(std::collections::HashMap::new());
-}
+static SURROUND_PANNERS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::surround::SurroundPanner>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
+static AMBISONICS_ENCODERS: LazyLock<parking_lot::RwLock<std::collections::HashMap<u32, rf_dsp::surround::AmbisonicsEncoder>>> = LazyLock::new(|| parking_lot::RwLock::new(std::collections::HashMap::new()));
 
 /// Create surround panner
 /// layout: 0=Stereo, 1=5.1, 2=7.1, 3=7.1.4 Atmos, 4=9.1.6 Atmos
@@ -14850,10 +14745,7 @@ mod tests {
 // SATURATION PROCESSOR
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref SATURATORS: RwLock<std::collections::HashMap<u32, rf_dsp::saturation::StereoSaturator>> =
-        RwLock::new(std::collections::HashMap::new());
-}
+static SATURATORS: LazyLock<RwLock<std::collections::HashMap<u32, rf_dsp::saturation::StereoSaturator>>> = LazyLock::new(|| RwLock::new(std::collections::HashMap::new()));
 
 /// Create saturation processor for track
 #[unsafe(no_mangle)]
@@ -15610,10 +15502,7 @@ pub extern "C" fn template_search_by_tag(tag: *const c_char) -> *mut c_char {
 // PROJECT VERSIONING FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref VERSION_MANAGER: parking_lot::RwLock<rf_state::VersionManager> =
-        parking_lot::RwLock::new(rf_state::VersionManager::default());
-}
+static VERSION_MANAGER: LazyLock<parking_lot::RwLock<rf_state::VersionManager>> = LazyLock::new(|| parking_lot::RwLock::new(rf_state::VersionManager::default()));
 
 /// Project snapshot for versioning
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -15874,9 +15763,7 @@ pub extern "C" fn version_refresh() {
 
 use crate::control_room::ControlRoom;
 
-lazy_static::lazy_static! {
-    static ref CONTROL_ROOM: RwLock<ControlRoom> = RwLock::new(ControlRoom::new(256));
-}
+static CONTROL_ROOM: LazyLock<RwLock<ControlRoom>> = LazyLock::new(|| RwLock::new(ControlRoom::new(256)));
 
 // ── Bass Management ──
 
@@ -17038,12 +16925,10 @@ use rf_audio::{
     DeviceInfo as AudioDeviceInfo, get_host_info, list_input_devices, list_output_devices,
 };
 
-lazy_static::lazy_static! {
-    /// Cached device lists for FFI
-    static ref DEVICE_CACHE: RwLock<DeviceCache> = RwLock::new(DeviceCache::default());
-    /// Selected device settings for FFI
-    static ref SELECTED_DEVICE: RwLock<SelectedDevice> = RwLock::new(SelectedDevice::default());
-}
+/// Cached device lists for FFI
+static DEVICE_CACHE: LazyLock<RwLock<DeviceCache>> = LazyLock::new(|| RwLock::new(DeviceCache::default()));
+/// Selected device settings for FFI
+static SELECTED_DEVICE: LazyLock<RwLock<SelectedDevice>> = LazyLock::new(|| RwLock::new(SelectedDevice::default()));
 
 #[derive(Default)]
 struct DeviceCache {
@@ -17449,10 +17334,8 @@ pub extern "C" fn audio_get_latency_ms() -> f64 {
 
 use std::sync::Mutex;
 
-lazy_static::lazy_static! {
-    static ref BOUNCE_RENDERER: Mutex<Option<rf_file::OfflineRenderer>> = Mutex::new(None);
-    static ref BOUNCE_OUTPUT_PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
-}
+static BOUNCE_RENDERER: LazyLock<Mutex<Option<rf_file::OfflineRenderer>>> = LazyLock::new(|| Mutex::new(None));
+static BOUNCE_OUTPUT_PATH: LazyLock<Mutex<Option<PathBuf>>> = LazyLock::new(|| Mutex::new(None));
 
 /// Start bounce/export
 /// Returns 1 on success, 0 on failure
@@ -17668,10 +17551,8 @@ pub extern "C" fn bounce_get_output_path() -> *mut c_char {
 
 use crate::recording_manager::RecordingManager;
 
-lazy_static::lazy_static! {
-    /// Global recording manager
-    static ref RECORDING_MANAGER: RecordingManager = RecordingManager::new(48000);
-}
+/// Global recording manager
+static RECORDING_MANAGER: LazyLock<RecordingManager> = LazyLock::new(|| RecordingManager::new(48000));
 
 /// Set recording output directory
 #[unsafe(no_mangle)]
@@ -18403,10 +18284,8 @@ pub extern "C" fn plugin_insert_chain_latency(_channel_id: u64) -> i32 {
 use rf_dsp::loudness_advanced::PsychoacousticMeter;
 use rf_dsp::metering_simd::{CrestFactorMeter, PsrMeter, TruePeak8x};
 
-lazy_static::lazy_static! {
-    /// Advanced meters instance
-    static ref ADVANCED_METERS: RwLock<AdvancedMeters> = RwLock::new(AdvancedMeters::new(48000.0));
-}
+/// Advanced meters instance
+static ADVANCED_METERS: LazyLock<RwLock<AdvancedMeters>> = LazyLock::new(|| RwLock::new(AdvancedMeters::new(48000.0)));
 
 /// Combined advanced meters for broadcast/mastering
 struct AdvancedMeters {
@@ -19232,14 +19111,12 @@ fn load_metadata_async(entry: Arc<PendingAudioEntry>) {
 // EXPORT PRESETS
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    /// Export presets storage
-    static ref EXPORT_PRESETS: RwLock<Vec<ExportPreset>> = RwLock::new(vec![
+/// Export presets storage
+static EXPORT_PRESETS: LazyLock<RwLock<Vec<ExportPreset>>> = LazyLock::new(|| RwLock::new(vec![
         ExportPreset::broadcast(),
         ExportPreset::streaming(),
         ExportPreset::archival(),
-    ]);
-}
+    ]));
 
 /// Export preset configuration
 #[derive(Debug, Clone)]
@@ -19371,12 +19248,10 @@ pub extern "C" fn export_get_default_path() -> *mut c_char {
 
 use crate::streaming::{ControlCommand, ControlQueue, StreamingEngine};
 
-lazy_static::lazy_static! {
-    /// Global streaming engine instance
-    static ref STREAMING_ENGINE: RwLock<Option<StreamingEngine>> = RwLock::new(None);
-    /// Control queue for UI → Audio commands
-    static ref CONTROL_QUEUE: ControlQueue = ControlQueue::new(1024);
-}
+/// Global streaming engine instance
+static STREAMING_ENGINE: LazyLock<RwLock<Option<StreamingEngine>>> = LazyLock::new(|| RwLock::new(None));
+/// Control queue for UI → Audio commands
+static CONTROL_QUEUE: LazyLock<ControlQueue> = LazyLock::new(|| ControlQueue::new(1024));
 
 /// Initialize streaming engine
 ///
@@ -19661,16 +19536,14 @@ pub extern "C" fn control_queue_drain() -> u32 {
 // WAVE CACHE FFI (Multi-Resolution Waveform Caching)
 // ═══════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    static ref WAVE_CACHE_MANAGER: crate::wave_cache::WaveCacheManager = {
+static WAVE_CACHE_MANAGER: LazyLock<crate::wave_cache::WaveCacheManager> = LazyLock::new(|| {
         let cache_dir = std::env::var("HOME")
             .map(|h| std::path::PathBuf::from(h).join("Library").join("Caches"))
             .unwrap_or_else(|_| std::path::PathBuf::from("."))
             .join("fluxforge")
             .join("waveform_cache");
         crate::wave_cache::WaveCacheManager::new(cache_dir)
-    };
-}
+    });
 
 /// Initialize wave cache with custom directory
 /// Returns 1 on success
@@ -20750,13 +20623,10 @@ pub extern "C" fn video_parse_timecode(tc_str: *const c_char, frame_rate: f64) -
 
 use rf_master::{Genre, LoudnessTarget, MasteringPreset, MasteringResult as MasterResult};
 
-lazy_static::lazy_static! {
-    /// Global mastering engine instance
-    static ref MASTERING_ENGINE: RwLock<rf_master::MasteringEngine> =
-        RwLock::new(rf_master::MasteringEngine::new(48000));
-    /// Last mastering result for retrieval
-    static ref LAST_MASTERING_RESULT: RwLock<Option<MasterResult>> = RwLock::new(None);
-}
+/// Global mastering engine instance
+static MASTERING_ENGINE: LazyLock<RwLock<rf_master::MasteringEngine>> = LazyLock::new(|| RwLock::new(rf_master::MasteringEngine::new(48000)));
+/// Last mastering result for retrieval
+static LAST_MASTERING_RESULT: LazyLock<RwLock<Option<MasterResult>>> = LazyLock::new(|| RwLock::new(None));
 
 /// FFI result struct for mastering
 #[repr(C)]
@@ -21070,23 +20940,14 @@ use rf_restore::{
     dereverb::{Dereverb, DereverbConfig},
 };
 
-lazy_static::lazy_static! {
-    /// Global restoration pipeline
-    static ref RESTORATION_PIPELINE: RwLock<RestorationPipeline> =
-        RwLock::new(RestorationPipeline::new(RestoreConfig::default()));
-
-    /// Restoration settings
-    static ref RESTORATION_SETTINGS: RwLock<RestorationSettingsFFI> =
-        RwLock::new(RestorationSettingsFFI::default());
-
-    /// Last analysis result
-    static ref RESTORATION_ANALYSIS: RwLock<Option<RestoreAnalysisResult>> =
-        RwLock::new(None);
-
-    /// Processing state: (is_processing, progress 0-1, phase)
-    static ref RESTORATION_STATE: RwLock<(bool, f32, String)> =
-        RwLock::new((false, 0.0, "idle".to_string()));
-}
+/// Global restoration pipeline
+static RESTORATION_PIPELINE: LazyLock<RwLock<RestorationPipeline>> = LazyLock::new(|| RwLock::new(RestorationPipeline::new(RestoreConfig::default())));
+/// Restoration settings
+static RESTORATION_SETTINGS: LazyLock<RwLock<RestorationSettingsFFI>> = LazyLock::new(|| RwLock::new(RestorationSettingsFFI::default()));
+/// Last analysis result
+static RESTORATION_ANALYSIS: LazyLock<RwLock<Option<RestoreAnalysisResult>>> = LazyLock::new(|| RwLock::new(None));
+/// Processing state: (is_processing, progress 0-1, phase)
+static RESTORATION_STATE: LazyLock<RwLock<(bool, f32, String)>> = LazyLock::new(|| RwLock::new((false, 0.0, "idle".to_string())));
 
 /// FFI-safe restoration settings
 #[repr(C)]
@@ -21595,11 +21456,8 @@ fn save_audio_wav(path: &str, samples: &[f32], sample_rate: u32) -> std::io::Res
 // ML/AI PROCESSING (rf-ml)
 // =============================================================================
 
-lazy_static::lazy_static! {
-    /// ML processing state: (is_processing, progress 0-1, phase, model)
-    static ref ML_STATE: RwLock<MlProcessingState> =
-        RwLock::new(MlProcessingState::default());
-}
+/// ML processing state: (is_processing, progress 0-1, phase, model)
+static ML_STATE: LazyLock<RwLock<MlProcessingState>> = LazyLock::new(|| RwLock::new(MlProcessingState::default()));
 
 /// ML processing state
 #[derive(Debug, Clone, Default)]
@@ -21944,16 +21802,12 @@ pub extern "C" fn ml_reset() {
 
 use rf_script::{ScriptAction, ScriptContext, ScriptEngine};
 
-lazy_static::lazy_static! {
-    /// Global script engine
-    static ref SCRIPT_ENGINE: RwLock<Option<ScriptEngine>> = RwLock::new(None);
-
-    /// Loaded script list
-    static ref LOADED_SCRIPTS: RwLock<Vec<ScriptInfo>> = RwLock::new(Vec::new());
-
-    /// Script execution result
-    static ref SCRIPT_RESULT: RwLock<Option<ScriptExecutionResult>> = RwLock::new(None);
-}
+/// Global script engine
+static SCRIPT_ENGINE: LazyLock<RwLock<Option<ScriptEngine>>> = LazyLock::new(|| RwLock::new(None));
+/// Loaded script list
+static LOADED_SCRIPTS: LazyLock<RwLock<Vec<ScriptInfo>>> = LazyLock::new(|| RwLock::new(Vec::new()));
+/// Script execution result
+static SCRIPT_RESULT: LazyLock<RwLock<Option<ScriptExecutionResult>>> = LazyLock::new(|| RwLock::new(None));
 
 /// Script info
 #[derive(Debug, Clone)]
@@ -22162,10 +22016,8 @@ pub extern "C" fn script_get_duration() -> u32 {
         .unwrap_or(0)
 }
 
-lazy_static::lazy_static! {
-    /// Pending actions from script execution
-    static ref PENDING_ACTIONS: RwLock<Vec<ScriptAction>> = RwLock::new(Vec::new());
-}
+/// Pending actions from script execution
+static PENDING_ACTIONS: LazyLock<RwLock<Vec<ScriptAction>>> = LazyLock::new(|| RwLock::new(Vec::new()));
 
 /// Poll for pending script actions
 /// Returns number of pending actions
@@ -22193,10 +22045,8 @@ pub extern "C" fn script_get_next_action() -> *mut c_char {
     string_to_cstr(&json)
 }
 
-lazy_static::lazy_static! {
-    /// Current script context (used when updating)
-    static ref SCRIPT_CONTEXT: RwLock<ScriptContext> = RwLock::new(ScriptContext::default());
-}
+/// Current script context (used when updating)
+static SCRIPT_CONTEXT: LazyLock<RwLock<ScriptContext>> = LazyLock::new(|| RwLock::new(ScriptContext::default()));
 
 /// Update script context
 #[unsafe(no_mangle)]
@@ -22449,18 +22299,16 @@ use rf_ingest::{AdapterConfig, AdapterRegistry};
 use rf_stage::timing::{TimedStageTrace, TimingProfile, TimingResolver};
 use rf_stage::trace::StageTrace;
 
-lazy_static::lazy_static! {
-    /// Adapter registry for all loaded adapters
-    static ref ADAPTER_REGISTRY: RwLock<AdapterRegistry> = RwLock::new(AdapterRegistry::new());
-    /// Timing resolver for stage timing
-    static ref TIMING_RESOLVER: RwLock<TimingResolver> = RwLock::new(TimingResolver::new());
-    /// Current loaded trace
-    static ref CURRENT_TRACE: RwLock<Option<StageTrace>> = RwLock::new(None);
-    /// Current timed trace
-    static ref CURRENT_TIMED_TRACE: RwLock<Option<TimedStageTrace>> = RwLock::new(None);
-    /// Wizard result cache
-    static ref WIZARD_RESULT: RwLock<Option<WizardResult>> = RwLock::new(None);
-}
+/// Adapter registry for all loaded adapters
+static ADAPTER_REGISTRY: LazyLock<RwLock<AdapterRegistry>> = LazyLock::new(|| RwLock::new(AdapterRegistry::new()));
+/// Timing resolver for stage timing
+static TIMING_RESOLVER: LazyLock<RwLock<TimingResolver>> = LazyLock::new(|| RwLock::new(TimingResolver::new()));
+/// Current loaded trace
+static CURRENT_TRACE: LazyLock<RwLock<Option<StageTrace>>> = LazyLock::new(|| RwLock::new(None));
+/// Current timed trace
+static CURRENT_TIMED_TRACE: LazyLock<RwLock<Option<TimedStageTrace>>> = LazyLock::new(|| RwLock::new(None));
+/// Wizard result cache
+static WIZARD_RESULT: LazyLock<RwLock<Option<WizardResult>>> = LazyLock::new(|| RwLock::new(None));
 
 /// Parse JSON file and create stage trace using adapter
 /// Returns JSON string with trace ID or error

@@ -8,7 +8,7 @@
 //! - Command queue for sending commands to engine
 //! - Multiple connection support (one per connector_id)
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::ffi::{CStr, CString, c_char};
@@ -28,7 +28,7 @@ use tokio::sync::broadcast;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Tokio runtime for async operations
-static RUNTIME: Lazy<Runtime> = Lazy::new(|| {
+static RUNTIME: LazyLock<Runtime> = LazyLock::new(|| {
     tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
         .thread_name("rf-connector")
@@ -38,14 +38,14 @@ static RUNTIME: Lazy<Runtime> = Lazy::new(|| {
 });
 
 /// Active connectors (connector_id → ConnectorHandle)
-static CONNECTORS: Lazy<RwLock<HashMap<u64, ConnectorHandle>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static CONNECTORS: LazyLock<RwLock<HashMap<u64, ConnectorHandle>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Next connector ID
 static NEXT_CONNECTOR_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Global event callback (set by Flutter)
-static EVENT_CALLBACK: Lazy<RwLock<Option<EventCallback>>> = Lazy::new(|| RwLock::new(None));
+static EVENT_CALLBACK: LazyLock<RwLock<Option<EventCallback>>> = LazyLock::new(|| RwLock::new(None));
 
 /// Event callback type: (connector_id, event_json)
 type EventCallback = extern "C" fn(u64, *const c_char);

@@ -29,19 +29,24 @@ struct ChannelRegistryEntry {
 }
 
 #[cfg(feature = "unified_routing")]
-lazy_static::lazy_static! {
-    /// Callback ID counter for async channel creation
-    static ref CALLBACK_COUNTER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(1);
-    /// Routing sender pointer (NOT thread-safe, managed externally)
-    static ref ROUTING_SENDER_PTR: std::sync::atomic::AtomicPtr<RoutingCommandSender> =
-        std::sync::atomic::AtomicPtr::new(std::ptr::null_mut());
-    /// Channel count (atomic, updated by FFI create/delete responses)
-    static ref CHANNEL_COUNT: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
-    /// Channel registry - maps channel_id to (kind, name)
-    static ref CHANNEL_REGISTRY: RwLock<HashMap<u32, ChannelRegistryEntry>> = RwLock::new(HashMap::new());
-    /// Pending channel creations - maps callback_id to (kind, name)
-    static ref PENDING_CREATIONS: RwLock<HashMap<u32, ChannelRegistryEntry>> = RwLock::new(HashMap::new());
-}
+use std::sync::LazyLock;
+
+/// Callback ID counter for async channel creation
+#[cfg(feature = "unified_routing")]
+static CALLBACK_COUNTER: LazyLock<std::sync::atomic::AtomicU32> = LazyLock::new(|| std::sync::atomic::AtomicU32::new(1));
+/// Routing sender pointer (NOT thread-safe, managed externally)
+#[cfg(feature = "unified_routing")]
+static ROUTING_SENDER_PTR: LazyLock<std::sync::atomic::AtomicPtr<RoutingCommandSender>> =
+    LazyLock::new(|| std::sync::atomic::AtomicPtr::new(std::ptr::null_mut()));
+/// Channel count (atomic, updated by FFI create/delete responses)
+#[cfg(feature = "unified_routing")]
+static CHANNEL_COUNT: LazyLock<std::sync::atomic::AtomicU32> = LazyLock::new(|| std::sync::atomic::AtomicU32::new(0));
+/// Channel registry - maps channel_id to (kind, name)
+#[cfg(feature = "unified_routing")]
+static CHANNEL_REGISTRY: LazyLock<RwLock<HashMap<u32, ChannelRegistryEntry>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
+/// Pending channel creations - maps callback_id to (kind, name)
+#[cfg(feature = "unified_routing")]
+static PENDING_CREATIONS: LazyLock<RwLock<HashMap<u32, ChannelRegistryEntry>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
 
 #[cfg(feature = "unified_routing")]
 /// Helper to convert C string to Rust String

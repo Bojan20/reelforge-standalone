@@ -639,10 +639,10 @@ pub struct PluginPdcStats {
 // GLOBAL INSTANCE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-lazy_static::lazy_static! {
-    /// Global plugin PDC manager instance
-    pub static ref PLUGIN_PDC_MANAGER: PluginPdcManager = PluginPdcManager::new(48000.0);
-}
+use std::sync::LazyLock;
+
+/// Global plugin PDC manager instance
+pub static PLUGIN_PDC_MANAGER: LazyLock<PluginPdcManager> = LazyLock::new(|| PluginPdcManager::new(48000.0));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HELPERS

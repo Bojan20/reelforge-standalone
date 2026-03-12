@@ -10,7 +10,7 @@
 //! - Audio file: 2000ms
 //! - Time-stretch factor: 2500/2000 = 1.25x
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 use rf_dsp::time_stretch::SimplePhaseVocoder;
 use std::collections::HashMap;
@@ -22,11 +22,11 @@ use std::slice;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Global time stretch processor pool
-static TIME_STRETCH_PROCESSORS: Lazy<RwLock<HashMap<i32, SimplePhaseVocoder>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static TIME_STRETCH_PROCESSORS: LazyLock<RwLock<HashMap<i32, SimplePhaseVocoder>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Next processor handle
-static NEXT_HANDLE: Lazy<RwLock<i32>> = Lazy::new(|| RwLock::new(1));
+static NEXT_HANDLE: LazyLock<RwLock<i32>> = LazyLock::new(|| RwLock::new(1));
 
 /// Allocate and return the next handle
 fn allocate_handle() -> i32 {

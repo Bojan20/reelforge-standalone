@@ -24,11 +24,11 @@ struct ControlRoomPtr(*mut ControlRoom);
 unsafe impl Send for ControlRoomPtr {}
 unsafe impl Sync for ControlRoomPtr {}
 
-lazy_static::lazy_static! {
-    /// Control room pointer - protected by RwLock for thread safety
-    static ref CONTROL_ROOM_PTR: parking_lot::RwLock<Option<ControlRoomPtr>> =
-        parking_lot::RwLock::new(None);
-}
+use std::sync::LazyLock;
+
+/// Control room pointer - protected by RwLock for thread safety
+static CONTROL_ROOM_PTR: LazyLock<parking_lot::RwLock<Option<ControlRoomPtr>>> =
+    LazyLock::new(|| parking_lot::RwLock::new(None));
 
 /// Helper macro to safely access control room
 /// Prevents race condition between null check and dereference

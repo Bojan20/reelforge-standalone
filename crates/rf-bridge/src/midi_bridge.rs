@@ -64,22 +64,22 @@ static RECORDING_START_US: AtomicU64 = AtomicU64::new(0);
 /// MIDI thru enabled
 static MIDI_THRU_ENABLED: AtomicBool = AtomicBool::new(true);
 
-lazy_static::lazy_static! {
-    /// Event buffer (Mutex for thread-safe append)
-    static ref EVENT_BUFFER: Mutex<Vec<MidiInputEvent>> = Mutex::new(Vec::with_capacity(4096));
+use std::sync::LazyLock;
 
-    /// Cached list of input devices
-    static ref INPUT_DEVICES: RwLock<Vec<MidiDeviceInfo>> = RwLock::new(Vec::new());
+/// Event buffer (Mutex for thread-safe append)
+static EVENT_BUFFER: LazyLock<Mutex<Vec<MidiInputEvent>>> = LazyLock::new(|| Mutex::new(Vec::with_capacity(4096)));
 
-    /// Cached list of output devices
-    static ref OUTPUT_DEVICES: RwLock<Vec<MidiDeviceInfo>> = RwLock::new(Vec::new());
+/// Cached list of input devices
+static INPUT_DEVICES: LazyLock<RwLock<Vec<MidiDeviceInfo>>> = LazyLock::new(|| RwLock::new(Vec::new()));
 
-    /// Active input connections (needs Mutex because MidiInputConnection is not Sync)
-    static ref INPUT_CONNECTIONS: Mutex<Vec<(String, MidiInputConnection<()>)>> = Mutex::new(Vec::new());
+/// Cached list of output devices
+static OUTPUT_DEVICES: LazyLock<RwLock<Vec<MidiDeviceInfo>>> = LazyLock::new(|| RwLock::new(Vec::new()));
 
-    /// Active output connection
-    static ref OUTPUT_CONNECTION: Mutex<Option<MidiOutputConnection>> = Mutex::new(None);
-}
+/// Active input connections (needs Mutex because MidiInputConnection is not Sync)
+static INPUT_CONNECTIONS: LazyLock<Mutex<Vec<(String, MidiInputConnection<()>)>>> = LazyLock::new(|| Mutex::new(Vec::new()));
+
+/// Active output connection
+static OUTPUT_CONNECTION: LazyLock<Mutex<Option<MidiOutputConnection>>> = LazyLock::new(|| Mutex::new(None));
 
 // ============================================================================
 // RECORDING STATE

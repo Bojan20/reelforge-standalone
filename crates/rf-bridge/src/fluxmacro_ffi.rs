@@ -6,7 +6,7 @@
 // Pattern: Atomic CAS init, Lazy<RwLock<>> state, CString returns.
 // ============================================================================
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 use std::ffi::{CStr, CString, c_char};
 use std::path::PathBuf;
@@ -30,16 +30,16 @@ const STATE_INITIALIZING: u8 = 1;
 const STATE_INITIALIZED: u8 = 2;
 
 static FLUXMACRO_STATE: AtomicU8 = AtomicU8::new(STATE_UNINITIALIZED);
-static INTERPRETER: Lazy<RwLock<Option<MacroInterpreter>>> = Lazy::new(|| RwLock::new(None));
+static INTERPRETER: LazyLock<RwLock<Option<MacroInterpreter>>> = LazyLock::new(|| RwLock::new(None));
 
 /// Last run context (kept for querying results after run completes).
-static LAST_CONTEXT: Lazy<RwLock<Option<MacroContext>>> = Lazy::new(|| RwLock::new(None));
+static LAST_CONTEXT: LazyLock<RwLock<Option<MacroContext>>> = LazyLock::new(|| RwLock::new(None));
 
 /// Cancel token for in-progress runs.
-static CANCEL_TOKEN: Lazy<Arc<AtomicBool>> = Lazy::new(|| Arc::new(AtomicBool::new(false)));
+static CANCEL_TOKEN: LazyLock<Arc<AtomicBool>> = LazyLock::new(|| Arc::new(AtomicBool::new(false)));
 
 /// Progress callback state: (progress 0.0-1.0, step_name).
-static PROGRESS: Lazy<RwLock<(f32, String)>> = Lazy::new(|| RwLock::new((0.0, String::new())));
+static PROGRESS: LazyLock<RwLock<(f32, String)>> = LazyLock::new(|| RwLock::new((0.0, String::new())));
 
 /// Whether a run is currently in progress.
 static RUNNING: AtomicBool = AtomicBool::new(false);

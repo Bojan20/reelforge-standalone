@@ -548,12 +548,10 @@ fn run_preview_stream(
 // GLOBAL SINGLETON
 // ═══════════════════════════════════════════════════════════════════════════
 
-use lazy_static::lazy_static;
+use std::sync::LazyLock;
 
-lazy_static! {
-    /// Global preview engine instance
-    pub static ref PREVIEW_ENGINE: PreviewEngine = PreviewEngine::new();
-}
+/// Global preview engine instance
+pub static PREVIEW_ENGINE: LazyLock<PreviewEngine> = LazyLock::new(|| PreviewEngine::new());
 
 #[cfg(test)]
 mod tests {

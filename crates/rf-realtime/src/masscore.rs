@@ -482,7 +482,7 @@ impl MassCoreEngine {
             preemptible: i32,
         }
 
-        extern "C" {
+        unsafe extern "C" {
             fn pthread_self() -> usize;
             fn thread_policy_set(
                 thread: usize,

@@ -1,50 +1,50 @@
 [package]
 name = "rf-realtime"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 description = "FluxForge Studio Real-Time Engine - Zero-latency, lock-free audio processing"
-license = "MIT"
+license.workspace = true
 
 [dependencies]
 # Internal crates
-rf-core = { path = "../rf-core" }
-rf-dsp = { path = "../rf-dsp" }
-rf-ml = { path = "../rf-ml" }
-rf-spatial = { path = "../rf-spatial" }
-rf-restore = { path = "../rf-restore" }
-rf-master = { path = "../rf-master" }
-rf-pitch = { path = "../rf-pitch" }
+rf-core.workspace = true
+rf-dsp.workspace = true
+rf-ml.workspace = true
+rf-spatial.workspace = true
+rf-restore.workspace = true
+rf-master.workspace = true
+rf-pitch.workspace = true
 
 # Lock-free data structures
-rtrb = "0.3"
-crossbeam-utils = "0.8"
-parking_lot = "0.12"
-num_cpus = "1.16"
+rtrb.workspace = true
+crossbeam-utils.workspace = true
+parking_lot.workspace = true
+num_cpus.workspace = true
 
 # Atomics
-portable-atomic = { version = "1.9", features = ["float"] }
+portable-atomic.workspace = true
 
 # SIMD
-wide = "0.7"
+wide.workspace = true
 
 # GPU compute
-wgpu = "24.0"
-bytemuck = { version = "1.19", features = ["derive"] }
+wgpu.workspace = true
+bytemuck.workspace = true
 
 # FFT
-rustfft = "6.2"
-realfft = "3.4"
+rustfft.workspace = true
+realfft.workspace = true
 
 # Parallel processing
-rayon = "1.10"
+rayon.workspace = true
 
 # Error handling
-thiserror = "2.0"
-anyhow = "1.0"
+thiserror.workspace = true
+anyhow.workspace = true
 
 # Logging
-log = "0.4"
-tracing = "0.1"
+log.workspace = true
+tracing.workspace = true
 
 [features]
 default = ["simd", "gpu"]
@@ -52,5 +52,5 @@ simd = []
 gpu = []
 
 [dev-dependencies]
-criterion = "0.5"
-approx = "0.5"
+criterion.workspace = true
+approx.workspace = true

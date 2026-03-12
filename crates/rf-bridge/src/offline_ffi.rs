@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use dashmap::DashMap;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 
 use rf_offline::{
@@ -28,13 +28,13 @@ use rf_offline::{
 static JOB_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Active pipelines storage
-static PIPELINES: Lazy<DashMap<u64, Arc<RwLock<OfflinePipeline>>>> = Lazy::new(DashMap::new);
+static PIPELINES: LazyLock<DashMap<u64, Arc<RwLock<OfflinePipeline>>>> = LazyLock::new(DashMap::new);
 
 /// Job results storage
-static JOB_RESULTS: Lazy<DashMap<u64, JobResult>> = Lazy::new(DashMap::new);
+static JOB_RESULTS: LazyLock<DashMap<u64, JobResult>> = LazyLock::new(DashMap::new);
 
 /// Last error message
-static LAST_ERROR: Lazy<RwLock<Option<String>>> = Lazy::new(|| RwLock::new(None));
+static LAST_ERROR: LazyLock<RwLock<Option<String>>> = LazyLock::new(|| RwLock::new(None));
 
 fn set_error(msg: &str) {
     *LAST_ERROR.write() = Some(msg.to_string());

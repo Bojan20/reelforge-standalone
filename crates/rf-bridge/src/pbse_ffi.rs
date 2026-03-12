@@ -7,8 +7,8 @@
 use std::ffi::{CString, c_char};
 use std::ptr;
 
-use once_cell::sync::Lazy;
 use parking_lot::RwLock;
+use std::sync::LazyLock;
 
 use rf_aurexis::qa::pbse::{PreBakeSimulator, SimulationDomain, ValidationThresholds};
 
@@ -16,8 +16,8 @@ use rf_aurexis::qa::pbse::{PreBakeSimulator, SimulationDomain, ValidationThresho
 // GLOBAL STATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-pub(crate) static PBSE: Lazy<RwLock<PreBakeSimulator>> =
-    Lazy::new(|| RwLock::new(PreBakeSimulator::new()));
+pub(crate) static PBSE: LazyLock<RwLock<PreBakeSimulator>> =
+    LazyLock::new(|| RwLock::new(PreBakeSimulator::new()));
 
 /// Get PBSE result for cross-module access (used by AIL).
 pub(crate) fn get_pbse_result() -> Option<rf_aurexis::qa::pbse::PbseResult> {

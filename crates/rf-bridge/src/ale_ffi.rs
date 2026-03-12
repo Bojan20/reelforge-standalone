@@ -15,7 +15,7 @@
 //! # Thread Safety
 //! Uses atomic CAS for initialization and RwLock for state access.
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 use std::ffi::{CStr, CString, c_char};
 use std::ptr;
@@ -38,7 +38,7 @@ const STATE_INITIALIZED: u8 = 2;
 static ALE_STATE: AtomicU8 = AtomicU8::new(STATE_UNINITIALIZED);
 
 /// Current profile
-static CURRENT_PROFILE: Lazy<RwLock<Option<AleProfile>>> = Lazy::new(|| RwLock::new(None));
+static CURRENT_PROFILE: LazyLock<RwLock<Option<AleProfile>>> = LazyLock::new(|| RwLock::new(None));
 
 /// Current engine state (simplified for FFI)
 #[derive(Debug, Clone, Default)]
@@ -56,10 +56,10 @@ struct AleState {
 }
 
 /// Engine state
-static ENGINE_STATE: Lazy<RwLock<AleState>> = Lazy::new(|| RwLock::new(AleState::default()));
+static ENGINE_STATE: LazyLock<RwLock<AleState>> = LazyLock::new(|| RwLock::new(AleState::default()));
 
 /// Signal values (for updates)
-static SIGNALS: Lazy<RwLock<MetricSignals>> = Lazy::new(|| RwLock::new(MetricSignals::new()));
+static SIGNALS: LazyLock<RwLock<MetricSignals>> = LazyLock::new(|| RwLock::new(MetricSignals::new()));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // INITIALIZATION

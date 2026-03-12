@@ -2,7 +2,7 @@
 //!
 //! Exposes Stage, StageEvent, StageTrace, and TimingResolver to Flutter/Dart.
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::ffi::{CStr, CString, c_char};
@@ -20,15 +20,15 @@ use rf_stage::trace::StageTrace;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Stored traces (trace_id → StageTrace)
-static TRACES: Lazy<RwLock<HashMap<u64, StageTrace>>> = Lazy::new(|| RwLock::new(HashMap::new()));
+static TRACES: LazyLock<RwLock<HashMap<u64, StageTrace>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Stored timed traces
-static TIMED_TRACES: Lazy<RwLock<HashMap<u64, TimedStageTrace>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static TIMED_TRACES: LazyLock<RwLock<HashMap<u64, TimedStageTrace>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Global timing resolver
-static TIMING_RESOLVER: Lazy<RwLock<TimingResolver>> =
-    Lazy::new(|| RwLock::new(TimingResolver::new()));
+static TIMING_RESOLVER: LazyLock<RwLock<TimingResolver>> =
+    LazyLock::new(|| RwLock::new(TimingResolver::new()));
 
 /// Next handle ID
 static NEXT_HANDLE_ID: AtomicU64 = AtomicU64::new(1);

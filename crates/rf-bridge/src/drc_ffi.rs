@@ -6,7 +6,7 @@
 use std::ffi::{CString, c_char};
 use std::ptr;
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 
 use rf_aurexis::core::engine::AurexisEngine;
@@ -19,8 +19,8 @@ use rf_aurexis::qa::simulation::SimulationStep;
 // GLOBAL STATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-static CERT_GATE: Lazy<RwLock<CertificationGate>> =
-    Lazy::new(|| RwLock::new(CertificationGate::new()));
+static CERT_GATE: LazyLock<RwLock<CertificationGate>> =
+    LazyLock::new(|| RwLock::new(CertificationGate::new()));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // LIFECYCLE

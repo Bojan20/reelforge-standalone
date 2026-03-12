@@ -2,17 +2,15 @@
 //!
 //! Thread-safe: load_profile/set_active from UI, process() from audio thread.
 
-use lazy_static::lazy_static;
 use parking_lot::RwLock;
 use rf_dsp::device_preview::{
     self, DeviceCategory, DevicePreviewEngine, DeviceStereoMode, DistortionModel,
 };
 use std::ffi::CString;
 use std::os::raw::c_char;
+use std::sync::LazyLock;
 
-lazy_static! {
-    pub static ref DEVICE_PREVIEW: RwLock<Option<DevicePreviewEngine>> = RwLock::new(None);
-}
+pub static DEVICE_PREVIEW: LazyLock<RwLock<Option<DevicePreviewEngine>>> = LazyLock::new(|| RwLock::new(None));
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LIFECYCLE

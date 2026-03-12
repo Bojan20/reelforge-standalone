@@ -37,7 +37,7 @@ type AUHostScanCallback = extern "C" fn(
     mfr_code: u32,
 );
 
-extern "C" {
+unsafe extern "C" {
     fn au_host_open_plugin(
         component_type: u32,
         component_subtype: u32,

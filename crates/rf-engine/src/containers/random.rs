@@ -177,11 +177,11 @@ impl Default for SeedLog {
 }
 
 // Global seed log instance
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::Mutex;
 
 /// Global seed log for all random containers
-pub static SEED_LOG: Lazy<Mutex<SeedLog>> = Lazy::new(|| Mutex::new(SeedLog::new()));
+pub static SEED_LOG: LazyLock<Mutex<SeedLog>> = LazyLock::new(|| Mutex::new(SeedLog::new()));
 
 /// Random selection mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

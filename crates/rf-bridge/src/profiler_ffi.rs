@@ -3,7 +3,7 @@
 //! Real-time DSP performance profiling exposed to Flutter.
 //! Tracks timing for each processing stage and provides statistics.
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -81,7 +81,7 @@ impl ProfilerState {
     }
 }
 
-static PROFILER: Lazy<RwLock<ProfilerState>> = Lazy::new(|| RwLock::new(ProfilerState::new()));
+static PROFILER: LazyLock<RwLock<ProfilerState>> = LazyLock::new(|| RwLock::new(ProfilerState::new()));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // C FFI FUNCTIONS

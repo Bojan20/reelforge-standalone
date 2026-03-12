@@ -7,7 +7,7 @@
 //! - LRU-based automatic unloading
 //! - Memory statistics for monitoring
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -331,8 +331,8 @@ impl MemoryBudgetManager {
 // GLOBAL STATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-static MEMORY_MANAGER: Lazy<RwLock<MemoryBudgetManager>> =
-    Lazy::new(|| RwLock::new(MemoryBudgetManager::new(MemoryBudgetConfig::default())));
+static MEMORY_MANAGER: LazyLock<RwLock<MemoryBudgetManager>> =
+    LazyLock::new(|| RwLock::new(MemoryBudgetManager::new(MemoryBudgetConfig::default())));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // C FFI FUNCTIONS

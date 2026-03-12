@@ -151,57 +151,63 @@ impl SimdGain {
     #[cfg(target_arch = "x86_64")]
     #[target_feature(enable = "sse4.2")]
     unsafe fn process_sse42_impl(&self, buffer: &mut [f64], gain: f64) {
-        let gain_vec = _mm_set1_pd(gain);
-        let chunks = buffer.len() / 2;
+        unsafe {
+            let gain_vec = _mm_set1_pd(gain);
+            let chunks = buffer.len() / 2;
 
-        for i in 0..chunks {
-            let ptr = buffer.as_mut_ptr().add(i * 2);
-            let data = _mm_loadu_pd(ptr);
-            let result = _mm_mul_pd(data, gain_vec);
-            _mm_storeu_pd(ptr, result);
-        }
+            for i in 0..chunks {
+                let ptr = buffer.as_mut_ptr().add(i * 2);
+                let data = _mm_loadu_pd(ptr);
+                let result = _mm_mul_pd(data, gain_vec);
+                _mm_storeu_pd(ptr, result);
+            }
 
-        // Handle remainder
-        for i in (chunks * 2)..buffer.len() {
-            buffer[i] *= gain;
+            // Handle remainder
+            for i in (chunks * 2)..buffer.len() {
+                buffer[i] *= gain;
+            }
         }
     }
 
     #[cfg(target_arch = "x86_64")]
     #[target_feature(enable = "avx2")]
     unsafe fn process_avx2_impl(&self, buffer: &mut [f64], gain: f64) {
-        let gain_vec = _mm256_set1_pd(gain);
-        let chunks = buffer.len() / 4;
+        unsafe {
+            let gain_vec = _mm256_set1_pd(gain);
+            let chunks = buffer.len() / 4;
 
-        for i in 0..chunks {
-            let ptr = buffer.as_mut_ptr().add(i * 4);
-            let data = _mm256_loadu_pd(ptr);
-            let result = _mm256_mul_pd(data, gain_vec);
-            _mm256_storeu_pd(ptr, result);
-        }
+            for i in 0..chunks {
+                let ptr = buffer.as_mut_ptr().add(i * 4);
+                let data = _mm256_loadu_pd(ptr);
+                let result = _mm256_mul_pd(data, gain_vec);
+                _mm256_storeu_pd(ptr, result);
+            }
 
-        // Handle remainder
-        for i in (chunks * 4)..buffer.len() {
-            buffer[i] *= gain;
+            // Handle remainder
+            for i in (chunks * 4)..buffer.len() {
+                buffer[i] *= gain;
+            }
         }
     }
 
     #[cfg(target_arch = "x86_64")]
     #[target_feature(enable = "avx512f")]
     unsafe fn process_avx512_impl(&self, buffer: &mut [f64], gain: f64) {
-        let gain_vec = _mm512_set1_pd(gain);
-        let chunks = buffer.len() / 8;
+        unsafe {
+            let gain_vec = _mm512_set1_pd(gain);
+            let chunks = buffer.len() / 8;
 
-        for i in 0..chunks {
-            let ptr = buffer.as_mut_ptr().add(i * 8);
-            let data = _mm512_loadu_pd(ptr);
-            let result = _mm512_mul_pd(data, gain_vec);
-            _mm512_storeu_pd(ptr, result);
-        }
+            for i in 0..chunks {
+                let ptr = buffer.as_mut_ptr().add(i * 8);
+                let data = _mm512_loadu_pd(ptr);
+                let result = _mm512_mul_pd(data, gain_vec);
+                _mm512_storeu_pd(ptr, result);
+            }
 
-        // Handle remainder
-        for i in (chunks * 8)..buffer.len() {
-            buffer[i] *= gain;
+            // Handle remainder
+            for i in (chunks * 8)..buffer.len() {
+                buffer[i] *= gain;
+            }
         }
     }
 }
@@ -258,24 +264,26 @@ impl SimdMixer {
         gain_a: f64,
         gain_b: f64,
     ) {
-        let gain_a_vec = _mm_set1_pd(gain_a);
-        let gain_b_vec = _mm_set1_pd(gain_b);
-        let chunks = output.len() / 2;
+        unsafe {
+            let gain_a_vec = _mm_set1_pd(gain_a);
+            let gain_b_vec = _mm_set1_pd(gain_b);
+            let chunks = output.len() / 2;
 
-        for i in 0..chunks {
-            let offset = i * 2;
-            let a_data = _mm_loadu_pd(a.as_ptr().add(offset));
-            let b_data = _mm_loadu_pd(b.as_ptr().add(offset));
+            for i in 0..chunks {
+                let offset = i * 2;
+                let a_data = _mm_loadu_pd(a.as_ptr().add(offset));
+                let b_data = _mm_loadu_pd(b.as_ptr().add(offset));
 
-            let a_scaled = _mm_mul_pd(a_data, gain_a_vec);
-            let b_scaled = _mm_mul_pd(b_data, gain_b_vec);
-            let result = _mm_add_pd(a_scaled, b_scaled);
+                let a_scaled = _mm_mul_pd(a_data, gain_a_vec);
+                let b_scaled = _mm_mul_pd(b_data, gain_b_vec);
+                let result = _mm_add_pd(a_scaled, b_scaled);
 
-            _mm_storeu_pd(output.as_mut_ptr().add(offset), result);
-        }
+                _mm_storeu_pd(output.as_mut_ptr().add(offset), result);
+            }
 
-        for i in (chunks * 2)..output.len() {
-            output[i] = a[i] * gain_a + b[i] * gain_b;
+            for i in (chunks * 2)..output.len() {
+                output[i] = a[i] * gain_a + b[i] * gain_b;
+            }
         }
     }
 
@@ -289,24 +297,26 @@ impl SimdMixer {
         gain_a: f64,
         gain_b: f64,
     ) {
-        let gain_a_vec = _mm256_set1_pd(gain_a);
-        let gain_b_vec = _mm256_set1_pd(gain_b);
-        let chunks = output.len() / 4;
+        unsafe {
+            let gain_a_vec = _mm256_set1_pd(gain_a);
+            let gain_b_vec = _mm256_set1_pd(gain_b);
+            let chunks = output.len() / 4;
 
-        for i in 0..chunks {
-            let offset = i * 4;
-            let a_data = _mm256_loadu_pd(a.as_ptr().add(offset));
-            let b_data = _mm256_loadu_pd(b.as_ptr().add(offset));
+            for i in 0..chunks {
+                let offset = i * 4;
+                let a_data = _mm256_loadu_pd(a.as_ptr().add(offset));
+                let b_data = _mm256_loadu_pd(b.as_ptr().add(offset));
 
-            let a_scaled = _mm256_mul_pd(a_data, gain_a_vec);
-            let b_scaled = _mm256_mul_pd(b_data, gain_b_vec);
-            let result = _mm256_add_pd(a_scaled, b_scaled);
+                let a_scaled = _mm256_mul_pd(a_data, gain_a_vec);
+                let b_scaled = _mm256_mul_pd(b_data, gain_b_vec);
+                let result = _mm256_add_pd(a_scaled, b_scaled);
 
-            _mm256_storeu_pd(output.as_mut_ptr().add(offset), result);
-        }
+                _mm256_storeu_pd(output.as_mut_ptr().add(offset), result);
+            }
 
-        for i in (chunks * 4)..output.len() {
-            output[i] = a[i] * gain_a + b[i] * gain_b;
+            for i in (chunks * 4)..output.len() {
+                output[i] = a[i] * gain_a + b[i] * gain_b;
+            }
         }
     }
 
@@ -320,24 +330,26 @@ impl SimdMixer {
         gain_a: f64,
         gain_b: f64,
     ) {
-        let gain_a_vec = _mm512_set1_pd(gain_a);
-        let gain_b_vec = _mm512_set1_pd(gain_b);
-        let chunks = output.len() / 8;
+        unsafe {
+            let gain_a_vec = _mm512_set1_pd(gain_a);
+            let gain_b_vec = _mm512_set1_pd(gain_b);
+            let chunks = output.len() / 8;
 
-        for i in 0..chunks {
-            let offset = i * 8;
-            let a_data = _mm512_loadu_pd(a.as_ptr().add(offset));
-            let b_data = _mm512_loadu_pd(b.as_ptr().add(offset));
+            for i in 0..chunks {
+                let offset = i * 8;
+                let a_data = _mm512_loadu_pd(a.as_ptr().add(offset));
+                let b_data = _mm512_loadu_pd(b.as_ptr().add(offset));
 
-            let a_scaled = _mm512_mul_pd(a_data, gain_a_vec);
-            let b_scaled = _mm512_mul_pd(b_data, gain_b_vec);
-            let result = _mm512_add_pd(a_scaled, b_scaled);
+                let a_scaled = _mm512_mul_pd(a_data, gain_a_vec);
+                let b_scaled = _mm512_mul_pd(b_data, gain_b_vec);
+                let result = _mm512_add_pd(a_scaled, b_scaled);
 
-            _mm512_storeu_pd(output.as_mut_ptr().add(offset), result);
-        }
+                _mm512_storeu_pd(output.as_mut_ptr().add(offset), result);
+            }
 
-        for i in (chunks * 8)..output.len() {
-            output[i] = a[i] * gain_a + b[i] * gain_b;
+            for i in (chunks * 8)..output.len() {
+                output[i] = a[i] * gain_a + b[i] * gain_b;
+            }
         }
     }
 }
@@ -468,51 +480,55 @@ impl SimdPeakDetector {
     #[cfg(target_arch = "x86_64")]
     #[target_feature(enable = "avx2")]
     unsafe fn find_peak_avx2_impl(&self, buffer: &[f64]) -> f64 {
-        let sign_mask = _mm256_set1_pd(-0.0);
-        let mut max_vec = _mm256_setzero_pd();
-        let chunks = buffer.len() / 4;
+        unsafe {
+            let sign_mask = _mm256_set1_pd(-0.0);
+            let mut max_vec = _mm256_setzero_pd();
+            let chunks = buffer.len() / 4;
 
-        for i in 0..chunks {
-            let data = _mm256_loadu_pd(buffer.as_ptr().add(i * 4));
-            let abs_data = _mm256_andnot_pd(sign_mask, data);
-            max_vec = _mm256_max_pd(max_vec, abs_data);
+            for i in 0..chunks {
+                let data = _mm256_loadu_pd(buffer.as_ptr().add(i * 4));
+                let abs_data = _mm256_andnot_pd(sign_mask, data);
+                max_vec = _mm256_max_pd(max_vec, abs_data);
+            }
+
+            // Horizontal max
+            let mut result = [0.0f64; 4];
+            _mm256_storeu_pd(result.as_mut_ptr(), max_vec);
+            let mut max = result.iter().cloned().fold(0.0, f64::max);
+
+            // Handle remainder
+            for i in (chunks * 4)..buffer.len() {
+                max = max.max(buffer[i].abs());
+            }
+
+            max
         }
-
-        // Horizontal max
-        let mut result = [0.0f64; 4];
-        _mm256_storeu_pd(result.as_mut_ptr(), max_vec);
-        let mut max = result.iter().cloned().fold(0.0, f64::max);
-
-        // Handle remainder
-        for i in (chunks * 4)..buffer.len() {
-            max = max.max(buffer[i].abs());
-        }
-
-        max
     }
 
     #[cfg(target_arch = "x86_64")]
     #[target_feature(enable = "avx512f")]
     unsafe fn find_peak_avx512_impl(&self, buffer: &[f64]) -> f64 {
-        let mut max_vec = _mm512_setzero_pd();
-        let chunks = buffer.len() / 8;
+        unsafe {
+            let mut max_vec = _mm512_setzero_pd();
+            let chunks = buffer.len() / 8;
 
-        for i in 0..chunks {
-            let data = _mm512_loadu_pd(buffer.as_ptr().add(i * 8));
-            let abs_data = _mm512_abs_pd(data);
-            max_vec = _mm512_max_pd(max_vec, abs_data);
+            for i in 0..chunks {
+                let data = _mm512_loadu_pd(buffer.as_ptr().add(i * 8));
+                let abs_data = _mm512_abs_pd(data);
+                max_vec = _mm512_max_pd(max_vec, abs_data);
+            }
+
+            // Reduce max
+            let max = _mm512_reduce_max_pd(max_vec);
+
+            // Handle remainder
+            let mut result = max;
+            for i in (chunks * 8)..buffer.len() {
+                result = result.max(buffer[i].abs());
+            }
+
+            result
         }
-
-        // Reduce max
-        let max = _mm512_reduce_max_pd(max_vec);
-
-        // Handle remainder
-        let mut result = max;
-        for i in (chunks * 8)..buffer.len() {
-            result = result.max(buffer[i].abs());
-        }
-
-        result
     }
 }
 

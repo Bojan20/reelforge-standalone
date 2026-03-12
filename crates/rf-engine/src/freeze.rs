@@ -694,11 +694,9 @@ pub enum FreezeError {
 // FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-use lazy_static::lazy_static;
+use std::sync::LazyLock;
 
-lazy_static! {
-    static ref FREEZE_MANAGER: FreezeManager = FreezeManager::default();
-}
+static FREEZE_MANAGER: LazyLock<FreezeManager> = LazyLock::new(|| FreezeManager::default());
 
 /// Freeze a track
 #[unsafe(no_mangle)]

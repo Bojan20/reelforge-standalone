@@ -7,7 +7,7 @@
 //! - Real-time flex marker visualization
 //! - Clip-based stretch regions
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 use rf_dsp::timestretch::{
     Algorithm, FlexMarker, FlexMarkerType, Quality, StretchRegion, TimeStretchConfig,
@@ -21,16 +21,16 @@ use std::sync::Arc;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Global time stretch processor pool (one per clip)
-static STRETCH_PROCESSORS: Lazy<RwLock<HashMap<u64, Arc<RwLock<UltimateTimeStretch>>>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static STRETCH_PROCESSORS: LazyLock<RwLock<HashMap<u64, Arc<RwLock<UltimateTimeStretch>>>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Global stretch region cache for visualization
-static STRETCH_REGIONS: Lazy<RwLock<HashMap<u64, Vec<StretchRegionDto>>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static STRETCH_REGIONS: LazyLock<RwLock<HashMap<u64, Vec<StretchRegionDto>>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Global flex marker cache
-static FLEX_MARKERS: Lazy<RwLock<HashMap<u64, Vec<FlexMarkerDto>>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static FLEX_MARKERS: LazyLock<RwLock<HashMap<u64, Vec<FlexMarkerDto>>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DTOs FOR FLUTTER

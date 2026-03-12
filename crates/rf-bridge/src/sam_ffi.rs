@@ -5,7 +5,7 @@
 use std::ffi::{CString, c_char};
 use std::ptr;
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 
 use rf_aurexis::sam::archetypes::{MarketTarget, SlotArchetype};
@@ -16,8 +16,8 @@ use rf_aurexis::sam::engine::{AuthoringMode, SmartAuthoringEngine, WizardStep};
 // GLOBAL STATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-static SAM: Lazy<RwLock<SmartAuthoringEngine>> =
-    Lazy::new(|| RwLock::new(SmartAuthoringEngine::new()));
+static SAM: LazyLock<RwLock<SmartAuthoringEngine>> =
+    LazyLock::new(|| RwLock::new(SmartAuthoringEngine::new()));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // LIFECYCLE

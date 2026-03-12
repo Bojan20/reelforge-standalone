@@ -2904,12 +2904,12 @@ pub fn export_get_bit_depths() -> Vec<u8> {
 // PLUGIN SYSTEM API
 // ═══════════════════════════════════════════════════════════════════════════
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use rf_plugin::{PluginHost, PluginInfo as RfPluginInfo, PluginType as RfPluginType};
 
 /// Global plugin host (singleton)
-static PLUGIN_HOST: Lazy<parking_lot::RwLock<PluginHost>> =
-    Lazy::new(|| parking_lot::RwLock::new(PluginHost::new()));
+static PLUGIN_HOST: LazyLock<parking_lot::RwLock<PluginHost>> =
+    LazyLock::new(|| parking_lot::RwLock::new(PluginHost::new()));
 
 /// Plugin info for Flutter
 #[derive(Debug, Clone)]

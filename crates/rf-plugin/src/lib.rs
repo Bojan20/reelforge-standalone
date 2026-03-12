@@ -42,7 +42,7 @@
 
 use parking_lot::RwLock;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use thiserror::Error;
 
 // Core modules
@@ -117,11 +117,9 @@ pub use ultimate_scanner::{
 pub type PluginInstanceMap = HashMap<String, Arc<RwLock<Box<dyn PluginInstance>>>>;
 
 // Global plugin host for convenience functions
-lazy_static::lazy_static! {
-    /// Global plugin host instance
-    pub static ref GLOBAL_HOST: parking_lot::RwLock<PluginHost> =
-        parking_lot::RwLock::new(PluginHost::new());
-}
+/// Global plugin host instance
+pub static GLOBAL_HOST: LazyLock<parking_lot::RwLock<PluginHost>> =
+    LazyLock::new(|| parking_lot::RwLock::new(PluginHost::new()));
 
 /// Load plugin instance for insert chain (convenience function)
 /// Returns Box<dyn PluginInstance> directly without registering
@@ -132,7 +130,7 @@ pub fn load_plugin(plugin_id: &str) -> PluginResult<Box<dyn PluginInstance>> {
 /// Initialize global plugin scanner
 pub fn init_scanner() {
     // PluginHost::new() already initializes scanner
-    // Just access the lazy_static to force initialization
+    // Just access the LazyLock to force initialization
     drop(GLOBAL_HOST.read());
 }
 

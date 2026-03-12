@@ -10,7 +10,7 @@
 //! - FFI functions send commands through a separate command channel
 //! - Registration data is stored in thread-safe global state
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::{Mutex, RwLock};
 use rtrb::{Producer, RingBuffer};
 use std::collections::HashMap;
@@ -67,32 +67,32 @@ static INITIALIZED: AtomicBool = AtomicBool::new(false);
 static NEXT_PLAYING_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Command producer for sending to audio thread
-static COMMAND_TX: Lazy<Mutex<Option<Producer<EventCommand>>>> = Lazy::new(|| Mutex::new(None));
+static COMMAND_TX: LazyLock<Mutex<Option<Producer<EventCommand>>>> = LazyLock::new(|| Mutex::new(None));
 
 /// Registered events (for lookup and registration)
-static EVENTS: Lazy<RwLock<HashMap<u32, MiddlewareEvent>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static EVENTS: LazyLock<RwLock<HashMap<u32, MiddlewareEvent>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Event name to ID mapping
-static EVENT_NAMES: Lazy<RwLock<HashMap<String, u32>>> = Lazy::new(|| RwLock::new(HashMap::new()));
+static EVENT_NAMES: LazyLock<RwLock<HashMap<String, u32>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// State groups
-static STATE_GROUPS: Lazy<RwLock<HashMap<u32, StateGroup>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static STATE_GROUPS: LazyLock<RwLock<HashMap<u32, StateGroup>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Switch groups
-static SWITCH_GROUPS: Lazy<RwLock<HashMap<u32, SwitchGroup>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static SWITCH_GROUPS: LazyLock<RwLock<HashMap<u32, SwitchGroup>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// RTPC definitions
-static RTPC_DEFS: Lazy<RwLock<HashMap<u32, RtpcDefinition>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static RTPC_DEFS: LazyLock<RwLock<HashMap<u32, RtpcDefinition>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Current state values (for query)
-static CURRENT_STATES: Lazy<RwLock<HashMap<u32, u32>>> = Lazy::new(|| RwLock::new(HashMap::new()));
+static CURRENT_STATES: LazyLock<RwLock<HashMap<u32, u32>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Current RTPC values (for query)
-static CURRENT_RTPCS: Lazy<RwLock<HashMap<u32, f32>>> = Lazy::new(|| RwLock::new(HashMap::new()));
+static CURRENT_RTPCS: LazyLock<RwLock<HashMap<u32, f32>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Active instance count
 static ACTIVE_INSTANCES: AtomicU64 = AtomicU64::new(0);
@@ -100,34 +100,34 @@ static ACTIVE_INSTANCES: AtomicU64 = AtomicU64::new(0);
 /// Test synchronization mutex - ensures only one test accesses global state at a time
 /// This is the ONLY correct way to test code with global mutable state in Rust
 #[cfg(test)]
-static TEST_MUTEX: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static TEST_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ADVANCED FEATURE GLOBAL STATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Ducking matrix
-static DUCKING_MATRIX: Lazy<RwLock<DuckingMatrix>> =
-    Lazy::new(|| RwLock::new(DuckingMatrix::new()));
+static DUCKING_MATRIX: LazyLock<RwLock<DuckingMatrix>> =
+    LazyLock::new(|| RwLock::new(DuckingMatrix::new()));
 
 /// Blend containers
-static BLEND_CONTAINERS: Lazy<RwLock<HashMap<u32, BlendContainer>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static BLEND_CONTAINERS: LazyLock<RwLock<HashMap<u32, BlendContainer>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Random containers
-static RANDOM_CONTAINERS: Lazy<RwLock<HashMap<u32, RandomContainer>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static RANDOM_CONTAINERS: LazyLock<RwLock<HashMap<u32, RandomContainer>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Sequence containers
-static SEQUENCE_CONTAINERS: Lazy<RwLock<HashMap<u32, SequenceContainer>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static SEQUENCE_CONTAINERS: LazyLock<RwLock<HashMap<u32, SequenceContainer>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Music system
-static MUSIC_SYSTEM: Lazy<RwLock<MusicSystem>> = Lazy::new(|| RwLock::new(MusicSystem::new()));
+static MUSIC_SYSTEM: LazyLock<RwLock<MusicSystem>> = LazyLock::new(|| RwLock::new(MusicSystem::new()));
 
 /// Attenuation system
-static ATTENUATION_SYSTEM: Lazy<RwLock<AttenuationSystem>> =
-    Lazy::new(|| RwLock::new(AttenuationSystem::new()));
+static ATTENUATION_SYSTEM: LazyLock<RwLock<AttenuationSystem>> =
+    LazyLock::new(|| RwLock::new(AttenuationSystem::new()));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // INITIALIZATION

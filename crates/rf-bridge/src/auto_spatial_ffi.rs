@@ -13,7 +13,7 @@
 //! # Thread Safety
 //! Uses atomic CAS for initialization and RwLock for state access.
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::ffi::{CStr, c_char};
@@ -220,11 +220,11 @@ const STATE_INITIALIZED: u8 = 2;
 static AUTO_SPATIAL_STATE: AtomicU8 = AtomicU8::new(STATE_UNINITIALIZED);
 
 /// Engine state
-static ENGINE: Lazy<RwLock<AutoSpatialState>> =
-    Lazy::new(|| RwLock::new(AutoSpatialState::default()));
+static ENGINE: LazyLock<RwLock<AutoSpatialState>> =
+    LazyLock::new(|| RwLock::new(AutoSpatialState::default()));
 
 /// Current timestamp (for Kalman dt calculation)
-static CURRENT_TIME_MS: Lazy<RwLock<u64>> = Lazy::new(|| RwLock::new(0));
+static CURRENT_TIME_MS: LazyLock<RwLock<u64>> = LazyLock::new(|| RwLock::new(0));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // INITIALIZATION

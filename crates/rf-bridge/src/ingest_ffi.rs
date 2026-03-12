@@ -8,7 +8,7 @@
 //! - Three ingest layers: DirectEvent, SnapshotDiff, RuleBased
 //! - Wizard for automatic config generation from samples
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::ffi::{CStr, CString, c_char};
@@ -30,19 +30,19 @@ use serde_json::Value;
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Global adapter registry
-static REGISTRY: Lazy<RwLock<AdapterRegistry>> = Lazy::new(|| RwLock::new(AdapterRegistry::new()));
+static REGISTRY: LazyLock<RwLock<AdapterRegistry>> = LazyLock::new(|| RwLock::new(AdapterRegistry::new()));
 
 /// Wizard instances (wizard_id → AdapterWizard)
-static WIZARDS: Lazy<RwLock<HashMap<u64, AdapterWizard>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static WIZARDS: LazyLock<RwLock<HashMap<u64, AdapterWizard>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Config storage (config_id → AdapterConfig)
-static CONFIGS: Lazy<RwLock<HashMap<u64, AdapterConfig>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static CONFIGS: LazyLock<RwLock<HashMap<u64, AdapterConfig>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Rule engine instances (engine_id → RuleEngine)
-static RULE_ENGINES: Lazy<RwLock<HashMap<u64, RuleEngine>>> =
-    Lazy::new(|| RwLock::new(HashMap::new()));
+static RULE_ENGINES: LazyLock<RwLock<HashMap<u64, RuleEngine>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 /// Next wizard ID
 static NEXT_WIZARD_ID: AtomicU64 = AtomicU64::new(1);

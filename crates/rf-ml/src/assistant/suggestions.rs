@@ -522,10 +522,10 @@ mod tests {
 
     #[test]
     fn test_loudness_suggestions() {
-        let gen = SuggestionGenerator::new();
+        let generator = SuggestionGenerator::new();
 
         // Too loud
-        let suggestions = gen.suggest_from_loudness(-10.0, -0.5, 8.0);
+        let suggestions = generator.suggest_from_loudness(-10.0, -0.5, 8.0);
         assert!(!suggestions.is_empty());
         assert!(suggestions
             .iter()
@@ -535,7 +535,7 @@ mod tests {
             .any(|s| s.suggestion_type == SuggestionType::Limiting));
 
         // On target
-        let suggestions = gen.suggest_from_loudness(-14.0, -1.5, 8.0);
+        let suggestions = generator.suggest_from_loudness(-14.0, -1.5, 8.0);
         assert!(
             suggestions.is_empty()
                 || suggestions
@@ -546,10 +546,10 @@ mod tests {
 
     #[test]
     fn test_phase_suggestions() {
-        let gen = SuggestionGenerator::new();
+        let generator = SuggestionGenerator::new();
 
         // Phase issues
-        let suggestions = gen.suggest_from_stereo(0.5, -0.2, 0.0);
+        let suggestions = generator.suggest_from_stereo(0.5, -0.2, 0.0);
         assert!(suggestions
             .iter()
             .any(|s| s.priority == SuggestionPriority::Critical));

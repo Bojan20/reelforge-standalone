@@ -7,7 +7,7 @@
 //! - Zwicker Loudness (ISO 532-1)
 //! - Sharpness, Roughness, Fluctuation
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 use rf_dsp::loudness_advanced::PsychoacousticMeter;
 use rf_dsp::metering_simd::{CrestFactorMeter, PsrMeter, TruePeak8x};
@@ -17,16 +17,16 @@ use rf_dsp::metering_simd::{CrestFactorMeter, PsrMeter, TruePeak8x};
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /// Global 8x True Peak meter
-static TRUE_PEAK_8X: Lazy<RwLock<Option<TruePeak8x>>> = Lazy::new(|| RwLock::new(None));
+static TRUE_PEAK_8X: LazyLock<RwLock<Option<TruePeak8x>>> = LazyLock::new(|| RwLock::new(None));
 
 /// Global PSR meter
-static PSR_METER: Lazy<RwLock<Option<PsrMeter>>> = Lazy::new(|| RwLock::new(None));
+static PSR_METER: LazyLock<RwLock<Option<PsrMeter>>> = LazyLock::new(|| RwLock::new(None));
 
 /// Global Crest Factor meter
-static CREST_METER: Lazy<RwLock<Option<CrestFactorMeter>>> = Lazy::new(|| RwLock::new(None));
+static CREST_METER: LazyLock<RwLock<Option<CrestFactorMeter>>> = LazyLock::new(|| RwLock::new(None));
 
 /// Global Psychoacoustic meter (Zwicker + Sharpness + Roughness + Fluctuation)
-static PSYCHOACOUSTIC: Lazy<RwLock<Option<PsychoacousticMeter>>> = Lazy::new(|| RwLock::new(None));
+static PSYCHOACOUSTIC: LazyLock<RwLock<Option<PsychoacousticMeter>>> = LazyLock::new(|| RwLock::new(None));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DATA TRANSFER STRUCTS

@@ -13,7 +13,7 @@
 //! - XorShift RNG for random selection
 //! - Microsecond-accurate sequence timing
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::Mutex;
 use std::ffi::{CStr, c_char};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -32,10 +32,10 @@ use rf_engine::containers::{
 static INITIALIZED: AtomicBool = AtomicBool::new(false);
 
 /// Global container storage (thread-safe via DashMap)
-static STORAGE: Lazy<ContainerStorage> = Lazy::new(ContainerStorage::new);
+static STORAGE: LazyLock<ContainerStorage> = LazyLock::new(ContainerStorage::new);
 
 /// JSON parse error buffer
-static LAST_ERROR: Lazy<Mutex<String>> = Lazy::new(|| Mutex::new(String::new()));
+static LAST_ERROR: LazyLock<Mutex<String>> = LazyLock::new(|| Mutex::new(String::new()));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // INITIALIZATION
@@ -70,7 +70,7 @@ pub extern "C" fn container_shutdown() {
 /// Returns pointer to null-terminated UTF-8 string
 #[unsafe(no_mangle)]
 pub extern "C" fn container_get_last_error() -> *const c_char {
-    static ERROR_BUF: Lazy<Mutex<Vec<u8>>> = Lazy::new(|| Mutex::new(Vec::new()));
+    static ERROR_BUF: LazyLock<Mutex<Vec<u8>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 
     let error = LAST_ERROR.lock();
     let mut buf = ERROR_BUF.lock();
@@ -229,7 +229,7 @@ pub extern "C" fn container_get_blend_child_audio_path(
     container_id: u32,
     child_id: u32,
 ) -> *const c_char {
-    static PATH_BUF: Lazy<Mutex<Vec<u8>>> = Lazy::new(|| Mutex::new(Vec::new()));
+    static PATH_BUF: LazyLock<Mutex<Vec<u8>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 
     match STORAGE.get_blend_child_audio_path(container_id, child_id) {
         Some(path) => {
@@ -354,7 +354,7 @@ pub extern "C" fn container_get_random_child_audio_path(
     container_id: u32,
     child_id: u32,
 ) -> *const c_char {
-    static PATH_BUF: Lazy<Mutex<Vec<u8>>> = Lazy::new(|| Mutex::new(Vec::new()));
+    static PATH_BUF: LazyLock<Mutex<Vec<u8>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 
     match STORAGE.get_random_child_audio_path(container_id, child_id) {
         Some(path) => {
@@ -512,7 +512,7 @@ pub extern "C" fn container_get_sequence_step_audio_path(
     container_id: u32,
     step_index: usize,
 ) -> *const c_char {
-    static PATH_BUF: Lazy<Mutex<Vec<u8>>> = Lazy::new(|| Mutex::new(Vec::new()));
+    static PATH_BUF: LazyLock<Mutex<Vec<u8>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 
     match STORAGE.get_sequence_step_audio_path(container_id, step_index) {
         Some(path) => {
@@ -896,7 +896,7 @@ fn parse_group_container(json: &str) -> Result<ContainerGroup, String> {
 /// Returns null pointer on error
 #[unsafe(no_mangle)]
 pub extern "C" fn container_validate_group(group_id: u32) -> *const c_char {
-    static RESULT_BUF: Lazy<Mutex<Vec<u8>>> = Lazy::new(|| Mutex::new(Vec::new()));
+    static RESULT_BUF: LazyLock<Mutex<Vec<u8>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 
     match STORAGE.validate_group(group_id) {
         Some(result) => {
@@ -961,7 +961,7 @@ pub extern "C" fn container_get_max_nesting_depth() -> usize {
 /// Returns JSON array: [{"id": int, "valid": bool, "errors": [...]}]
 #[unsafe(no_mangle)]
 pub extern "C" fn container_validate_all_groups() -> *const c_char {
-    static RESULT_BUF: Lazy<Mutex<Vec<u8>>> = Lazy::new(|| Mutex::new(Vec::new()));
+    static RESULT_BUF: LazyLock<Mutex<Vec<u8>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 
     let results: Vec<serde_json::Value> = STORAGE
         .validate_all_groups()
@@ -1038,7 +1038,7 @@ pub extern "C" fn seed_log_get_count() -> usize {
 pub extern "C" fn seed_log_get_json() -> *const c_char {
     use rf_engine::containers::random::SEED_LOG;
 
-    static SEED_BUF: Lazy<Mutex<Vec<u8>>> = Lazy::new(|| Mutex::new(Vec::new()));
+    static SEED_BUF: LazyLock<Mutex<Vec<u8>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 
     let log = SEED_LOG.lock();
     let entries: Vec<serde_json::Value> = log
@@ -1075,7 +1075,7 @@ pub extern "C" fn seed_log_get_json() -> *const c_char {
 pub extern "C" fn seed_log_get_last_n_json(n: usize) -> *const c_char {
     use rf_engine::containers::random::SEED_LOG;
 
-    static LAST_N_BUF: Lazy<Mutex<Vec<u8>>> = Lazy::new(|| Mutex::new(Vec::new()));
+    static LAST_N_BUF: LazyLock<Mutex<Vec<u8>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 
     let log = SEED_LOG.lock();
     let all_entries = log.entries();

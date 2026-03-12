@@ -4,7 +4,7 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.10.4
+  sdk: ^3.11.0
 
 dependencies:
   flutter:
@@ -41,16 +41,16 @@ dependencies:
 
   # WebSocket for live engine connection
   web_socket_channel: ^3.0.3
-  get_it: ^9.2.0
+  get_it: ^9.2.1
 
   # Archive (ZIP) support for soundbank building
-  archive: ^4.0.2
+  archive: ^4.0.9
 
   # PDF text extraction for GDD import
   syncfusion_flutter_pdf: ^28.2.4
 
   # Video playback (cross-platform via libmpv/FFmpeg)
-  media_kit: ^1.1.10
+  media_kit: ^1.2.6
   media_kit_video: ^1.2.4
   media_kit_libs_macos_video: ^1.1.4
 

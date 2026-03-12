@@ -3,7 +3,7 @@
 //! Exposes multi-project isolation, config diff, auto regression,
 //! and burn test via C FFI.
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::ffi::{CStr, CString, c_char};
@@ -19,10 +19,10 @@ use rf_aurexis::sss::{
 // GLOBAL STATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-static PROJECT_ISOLATION: Lazy<RwLock<ProjectIsolation>> =
-    Lazy::new(|| RwLock::new(ProjectIsolation::new("/tmp/fluxforge_sss")));
-static REGRESSION: Lazy<RwLock<Option<AutoRegression>>> = Lazy::new(|| RwLock::new(None));
-static BURN_TEST: Lazy<RwLock<Option<BurnTest>>> = Lazy::new(|| RwLock::new(None));
+static PROJECT_ISOLATION: LazyLock<RwLock<ProjectIsolation>> =
+    LazyLock::new(|| RwLock::new(ProjectIsolation::new("/tmp/fluxforge_sss")));
+static REGRESSION: LazyLock<RwLock<Option<AutoRegression>>> = LazyLock::new(|| RwLock::new(None));
+static BURN_TEST: LazyLock<RwLock<Option<BurnTest>>> = LazyLock::new(|| RwLock::new(None));
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PROJECT ISOLATION
