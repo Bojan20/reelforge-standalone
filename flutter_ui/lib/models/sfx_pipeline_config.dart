@@ -239,6 +239,7 @@ enum SfxCategory {
   ambientLoops,
   featureTriggers,
   anticipation,
+  music,
   unknown,
 }
 
@@ -257,6 +258,8 @@ extension SfxCategoryExt on SfxCategory {
         return 'Feature Triggers';
       case SfxCategory.anticipation:
         return 'Anticipation';
+      case SfxCategory.music:
+        return 'Music';
       case SfxCategory.unknown:
         return 'Unknown';
     }
@@ -272,13 +275,37 @@ extension SfxCategoryExt on SfxCategory {
       case SfxCategory.winCelebrations:
         return ['win_', 'big_', 'rollup_', 'fanfare_'];
       case SfxCategory.ambientLoops:
-        return ['amb_', 'loop_', 'music_', 'drone_'];
+        return ['amb_', 'loop_', 'drone_'];
       case SfxCategory.featureTriggers:
         return ['fs_', 'scatter_', 'wild_', 'bonus_'];
       case SfxCategory.anticipation:
         return ['anticipation_', 'tension_', 'near_miss_', 'near_win_'];
+      case SfxCategory.music:
+        return ['music_', 'bgm_', 'soundtrack_', 'theme_', 'ost_'];
       case SfxCategory.unknown:
         return [];
+    }
+  }
+
+  /// Default channel mode for this category
+  OutputChannelMode get defaultChannelMode {
+    switch (this) {
+      case SfxCategory.music:
+        return OutputChannelMode.stereo;       // Music ALWAYS stereo
+      case SfxCategory.featureTriggers:
+        return OutputChannelMode.stereo;       // Symbols (wild, scatter, bonus) — stereo
+      case SfxCategory.ambientLoops:
+        return OutputChannelMode.stereo;       // Ambience — stereo
+      case SfxCategory.winCelebrations:
+        return OutputChannelMode.stereo;       // Wins — stereo (production value)
+      case SfxCategory.uiClicks:
+        return OutputChannelMode.mono;         // UI clicks — mono OK
+      case SfxCategory.reelMechanics:
+        return OutputChannelMode.mono;         // Reel mechanics — mono OK
+      case SfxCategory.anticipation:
+        return OutputChannelMode.keepOriginal; // Anticipation — keep as-is
+      case SfxCategory.unknown:
+        return OutputChannelMode.keepOriginal;
     }
   }
 
@@ -451,6 +478,7 @@ class SfxPipelinePreset {
   final OutputChannelMode outputChannels;
   final MonoDownmixMethod monoMethod;
   final Set<String> stereoOverrideStages;
+  final Map<SfxCategory, OutputChannelMode> perCategoryChannels;
   final bool multiFormat;
   final Set<SfxOutputFormat> multiFormatPresets;
   final bool subfolderPerFormat;
@@ -517,6 +545,7 @@ class SfxPipelinePreset {
     this.outputChannels = OutputChannelMode.mono,
     this.monoMethod = MonoDownmixMethod.sumHalf,
     this.stereoOverrideStages = const {},
+    this.perCategoryChannels = const {},
     this.multiFormat = false,
     this.multiFormatPresets = const {SfxOutputFormat.wav24, SfxOutputFormat.ogg},
     this.subfolderPerFormat = true,
@@ -577,6 +606,7 @@ class SfxPipelinePreset {
     OutputChannelMode? outputChannels,
     MonoDownmixMethod? monoMethod,
     Set<String>? stereoOverrideStages,
+    Map<SfxCategory, OutputChannelMode>? perCategoryChannels,
     bool? multiFormat,
     Set<SfxOutputFormat>? multiFormatPresets,
     bool? subfolderPerFormat,
@@ -634,6 +664,7 @@ class SfxPipelinePreset {
       outputChannels: outputChannels ?? this.outputChannels,
       monoMethod: monoMethod ?? this.monoMethod,
       stereoOverrideStages: stereoOverrideStages ?? this.stereoOverrideStages,
+      perCategoryChannels: perCategoryChannels ?? this.perCategoryChannels,
       multiFormat: multiFormat ?? this.multiFormat,
       multiFormatPresets: multiFormatPresets ?? this.multiFormatPresets,
       subfolderPerFormat: subfolderPerFormat ?? this.subfolderPerFormat,
@@ -696,6 +727,9 @@ class SfxPipelinePreset {
       'outputChannels': outputChannels.name,
       'monoMethod': monoMethod.name,
       'stereoOverrideStages': stereoOverrideStages.toList(),
+      'perCategoryChannels': perCategoryChannels.map(
+        (k, v) => MapEntry(k.name, v.name),
+      ),
       'multiFormat': multiFormat,
       'multiFormatPresets': multiFormatPresets.map((e) => e.name).toList(),
       'subfolderPerFormat': subfolderPerFormat,
@@ -758,6 +792,7 @@ class SfxPipelinePreset {
       outputChannels: _enumFromName(OutputChannelMode.values, json['outputChannels'] as String?) ?? OutputChannelMode.mono,
       monoMethod: _enumFromName(MonoDownmixMethod.values, json['monoMethod'] as String?) ?? MonoDownmixMethod.sumHalf,
       stereoOverrideStages: (json['stereoOverrideStages'] as List<dynamic>?)?.cast<String>().toSet() ?? {},
+      perCategoryChannels: _parseCategoryChannels(json['perCategoryChannels'] as Map<String, dynamic>?),
       multiFormat: json['multiFormat'] as bool? ?? false,
       multiFormatPresets: (json['multiFormatPresets'] as List<dynamic>?)
               ?.map((e) => _enumFromName(SfxOutputFormat.values, e as String))
@@ -797,6 +832,25 @@ class SfxPipelinePreset {
     }
     return result;
   }
+
+  static Map<SfxCategory, OutputChannelMode> _parseCategoryChannels(Map<String, dynamic>? json) {
+    if (json == null) return {};
+    final result = <SfxCategory, OutputChannelMode>{};
+    for (final entry in json.entries) {
+      final cat = _enumFromName(SfxCategory.values, entry.key);
+      final mode = _enumFromName(OutputChannelMode.values, entry.value as String?);
+      if (cat != null && mode != null) {
+        result[cat] = mode;
+      }
+    }
+    return result;
+  }
+
+  /// Resolve channel mode for a given category.
+  /// Priority: perCategoryChannels > category default > global outputChannels
+  OutputChannelMode resolveChannelMode(SfxCategory category) {
+    return perCategoryChannels[category] ?? category.defaultChannelMode;
+  }
 }
 
 /// Helper: parse enum from name string
@@ -822,6 +876,7 @@ class SfxBuiltInPresets {
     SfxCategory.ambientLoops: -23.0,     // Background bed — quiet foundation
     SfxCategory.featureTriggers: -14.0,  // Key moments — must grab attention
     SfxCategory.anticipation: -18.0,     // Gradual build-up — mid level
+    SfxCategory.music: -23.0,           // Background music — same as ambient bed
   };
 
   static final slotGameStandard = SfxPipelinePreset(
@@ -841,6 +896,7 @@ class SfxBuiltInPresets {
     SfxCategory.ambientLoops: -21.0,
     SfxCategory.featureTriggers: -12.0,
     SfxCategory.anticipation: -16.0,
+    SfxCategory.music: -21.0,
   };
 
   static final slotGameMobile = SfxPipelinePreset(

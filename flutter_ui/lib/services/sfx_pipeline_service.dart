@@ -481,14 +481,16 @@ class SfxPipelineService {
         bool limiterEngaged = false;
         int finalChannels = file.channels;
 
-        // Determine mono downmix
+        // Determine mono downmix — per-category channel mode
         String? monoDownmix;
-        if (preset.outputChannels == OutputChannelMode.mono && file.channels > 1) {
-          if (!preset.stereoOverrideStages.contains(mapping.stageId)) {
-            monoDownmix = preset.monoMethod.name; // sumHalf, leftOnly, etc.
-            finalChannels = 1;
-          }
-        } else if (preset.outputChannels == OutputChannelMode.keepOriginal) {
+        final channelMode = preset.resolveChannelMode(file.detectedCategory);
+        if (channelMode == OutputChannelMode.mono && file.channels > 1) {
+          monoDownmix = preset.monoMethod.name; // sumHalf, leftOnly, etc.
+          finalChannels = 1;
+        } else if (channelMode == OutputChannelMode.stereo) {
+          finalChannels = file.channels > 1 ? 2 : file.channels;
+        } else {
+          // keepOriginal
           finalChannels = file.channels;
         }
 

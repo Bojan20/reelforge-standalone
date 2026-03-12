@@ -727,27 +727,93 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: _stepPanel('CHANNEL MODE', child: Column(
+          child: _stepPanel('CHANNEL MODE PER CATEGORY', child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _paramRow('Output', child: _enumDropdown<OutputChannelMode>(
-                OutputChannelMode.values, preset.outputChannels,
-                (v) => provider.updatePreset((p) => p.copyWith(outputChannels: v)),
+              // Per-category channel mode table
+              ..._buildPerCategoryChannelRows(provider, preset),
+              const Divider(color: FluxForgeTheme.bgElevated, height: 12),
+              _paramRow('Mono Downmix', child: _enumDropdown<MonoDownmixMethod>(
+                MonoDownmixMethod.values, preset.monoMethod,
+                (v) => provider.updatePreset((p) => p.copyWith(monoMethod: v)),
                 labelOf: (v) => v.displayName,
               )),
-              if (preset.outputChannels == OutputChannelMode.mono) ...[
-                _paramRow('Downmix Method', child: _enumDropdown<MonoDownmixMethod>(
-                  MonoDownmixMethod.values, preset.monoMethod,
-                  (v) => provider.updatePreset((p) => p.copyWith(monoMethod: v)),
-                  labelOf: (v) => v.displayName,
-                )),
-                // skipMonoDownmix removed — file.channels > 1 check already ensures
-                // mono files are never downmixed
-              ],
             ],
           )),
         ),
       ],
+    );
+  }
+
+  List<Widget> _buildPerCategoryChannelRows(SfxPipelineProvider provider, SfxPipelinePreset preset) {
+    // Show all categories except unknown
+    final categories = SfxCategory.values.where((c) => c != SfxCategory.unknown).toList();
+    return categories.map((cat) {
+      final resolved = preset.resolveChannelMode(cat);
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 1),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 120,
+              child: Text(
+                cat.displayName,
+                style: const TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+              ),
+            ),
+            Expanded(
+              child: Row(
+                children: [
+                  for (final mode in OutputChannelMode.values)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: _channelModeChip(mode, resolved == mode, () {
+                        final updated = Map<SfxCategory, OutputChannelMode>.from(preset.perCategoryChannels);
+                        if (mode == cat.defaultChannelMode) {
+                          updated.remove(cat); // revert to default
+                        } else {
+                          updated[cat] = mode;
+                        }
+                        provider.updatePreset((p) => p.copyWith(perCategoryChannels: updated));
+                      }),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }).toList();
+  }
+
+  Widget _channelModeChip(OutputChannelMode mode, bool selected, VoidCallback onTap) {
+    final label = switch (mode) {
+      OutputChannelMode.mono => 'M',
+      OutputChannelMode.stereo => 'ST',
+      OutputChannelMode.keepOriginal => 'ORIG',
+    };
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: selected ? FluxForgeTheme.accentCyan.withValues(alpha: 0.2) : FluxForgeTheme.bgMid,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(
+            color: selected ? FluxForgeTheme.accentCyan : FluxForgeTheme.bgElevated,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? FluxForgeTheme.accentCyan : FluxForgeTheme.textTertiary,
+            fontSize: 10,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+            fontFamily: 'monospace',
+          ),
+        ),
+      ),
     );
   }
 
