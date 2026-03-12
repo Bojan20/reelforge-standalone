@@ -537,12 +537,16 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// Called from: Quick Assign, onAudioAssign, mount sync — ALL paths converge here.
   /// Creates new event or updates existing one. Auto-detects duration via FFI.
   void _ensureCompositeEventForStage(String stage, String audioPath, {String? label, bool skipUndo = false, bool skipNotify = false}) {
+    // GAME_START composite is managed EXCLUSIVELY by _createBaseGameMusicComposite
+    // (called via rebuildGameStartComposite). It has multi-layer structure (L1=1.0,
+    // L2-L5=0.0) for crossfade. Creating a single-layer event here would overwrite it.
+    if (stage == 'GAME_START') return;
 
     final middleware = context.read<MiddlewareProvider>();
     final eventId = 'audio_$stage';
 
     // MUSIC_BASE_L1-L5 are independent dynamic music layers (not sub-layers of GAME_START).
-    // GAME_START = one-shot event after splash screen.
+    // GAME_START = composite created by rebuildGameStartComposite with all L1-L5 layers.
     // MUSIC_BASE_L1-L5 = runtime-switchable base game music intensity levels.
     // Each gets its own composite event.
 
