@@ -563,9 +563,10 @@ class MusicLayerController extends ChangeNotifier {
       ));
       notifyListeners();
       parentNotify();
-    } else if (targetLayer == _activeLayer) {
+    } else {
       // ── IDLE — no escalation, no de-escalation ──
-      // Log every spin so user can verify the system is running
+      // Covers targetLayer == _activeLayer (normal idle)
+      // and targetLayer < _activeLayer with !_isEscalated (defensive)
       _addHistoryEvent(MusicLayerTransition(
         fromLayer: _activeLayer,
         toLayer: _activeLayer,
