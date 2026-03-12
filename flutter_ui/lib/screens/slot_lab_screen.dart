@@ -507,9 +507,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final ce = mw.compositeEvents.where((e) => e.id == 'audio_$stage').firstOrNull;
     if (ce != null) _syncEventToRegistry(ce);
 
-    // When base music changes, refresh BIG_WIN_START/END composite events
-    // so their FadeVoice/StopVoice layers target the correct audio path
+    // When base music changes, rebuild GAME_START composite + refresh BIG_WIN_START/END
     if (stage.startsWith('MUSIC_BASE_L') || stage == 'GAME_START') {
+      // Auto-create/update GAME_START composite with all MUSIC_BASE_L* layers
+      if (stage.startsWith('MUSIC_BASE_L')) {
+        projectProvider.rebuildGameStartComposite();
+        final gsEvent = mw.compositeEvents.where((e) => e.id == 'audio_GAME_START').firstOrNull;
+        if (gsEvent != null) _syncEventToRegistry(gsEvent);
+      }
       final bwsPath = projectProvider.getAudioAssignment('BIG_WIN_START');
       if (bwsPath != null && bwsPath.isNotEmpty) {
         _ensureCompositeEventForStage('BIG_WIN_START', bwsPath);
@@ -2996,6 +3001,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     // Sanitize false positives after batch binding
     projectProvider.sanitizeAssignments();
+
+    // Auto-rebuild GAME_START composite if any MUSIC_BASE_L* was bound
+    if (allMatched.any((m) => m.stage.startsWith('MUSIC_BASE_L'))) {
+      projectProvider.rebuildGameStartComposite();
+    }
 
     // Cross-refresh: BIG_WIN_START/END need base music paths for FadeVoice/StopVoice layers
     final bwsPath = projectProvider.getAudioAssignment('BIG_WIN_START');
@@ -11145,6 +11155,12 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             final mw = context.read<MiddlewareProvider>();
             final ce = mw.compositeEvents.where((e) => e.id == 'audio_$stage').firstOrNull;
             if (ce != null) _syncEventToRegistry(ce);
+            // Auto-rebuild GAME_START composite when any MUSIC_BASE_L* changes
+            if (stage.startsWith('MUSIC_BASE_L')) {
+              projectProvider.rebuildGameStartComposite();
+              final gsEvent = mw.compositeEvents.where((e) => e.id == 'audio_GAME_START').firstOrNull;
+              if (gsEvent != null) _syncEventToRegistry(gsEvent);
+            }
             AudioAssetManager.instance.importFilesInstant([audioPath], folder: 'SlotLab Import');
             if (!_audioPool.any((a) => a['path'] == audioPath)) {
               final name = audioPath.split('/').last;
@@ -11231,10 +11247,18 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           },
           onBulkImport: (mappings) {
             int count = 0;
+            bool hasMusicBase = false;
             for (final entry in mappings.entries) {
               projectProvider.setAudioAssignment(entry.key, entry.value);
               _ensureCompositeEventForStage(entry.key, entry.value);
+              if (entry.key.startsWith('MUSIC_BASE_L')) hasMusicBase = true;
               count++;
+            }
+            if (hasMusicBase) {
+              projectProvider.rebuildGameStartComposite();
+              final mw = context.read<MiddlewareProvider>();
+              final gsEvent = mw.compositeEvents.where((e) => e.id == 'audio_GAME_START').firstOrNull;
+              if (gsEvent != null) _syncEventToRegistry(gsEvent);
             }
             projectProvider.sanitizeAssignments();
             final allPaths = mappings.values.toList();

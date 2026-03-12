@@ -682,6 +682,17 @@ class SlotLabProjectProvider extends ChangeNotifier {
     return (bindings: bindings, unmapped: unmapped);
   }
 
+  /// Rebuild GAME_START composite from current MUSIC_BASE_L* assignments.
+  /// Called when any MUSIC_BASE_L* is assigned/changed via Quick Assign or manual drag.
+  void rebuildGameStartComposite() {
+    final bindings = <String, String>{};
+    for (final stage in const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
+      final path = _audioAssignments[stage];
+      if (path != null && path.isNotEmpty) bindings[stage] = path;
+    }
+    _createBaseGameMusicComposite(bindings);
+  }
+
   /// Create GAME_START composite event with synchronized base game music layers.
   /// L1 plays at full volume, L2-L5 start at volume 0 for crossfade readiness.
   /// Also sets GAME_START audio assignment so ASSIGN tab shows the binding.
