@@ -11238,6 +11238,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             if (triggerLayer.autoBindingsEnabled) triggerLayer.generateAutoBindings();
             if (mounted) showToast('Imported $count audio mappings', icon: Icons.file_download);
           },
+          onPoolClear: () {
+            setState(() => _audioPool.clear());
+            final slotLab = context.read<SlotLabProvider>();
+            slotLab.persistedAudioPool.clear();
+            AudioAssetManager.instance.clear();
+            Future.microtask(() => _persistState());
+          },
           // onAutoBindComplete/onAutoBindDialogDismissed: handled via provider signal
         );
       },

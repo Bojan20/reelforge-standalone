@@ -784,6 +784,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
       'trn_return_to_base': 'context_fs_to_base',
       'trn_bonus_intro': 'context_base_to_bonus',
       'trn_bonus_outro': 'context_bonus_to_base',
+      'ui_spin': 'ui_spin_press',
       'ui_spin_button': 'ui_spin_press',
       'ui_open': 'ui_menu_open', 'ui_close': 'ui_menu_close',
       'ui_interact': 'ui_button_press',

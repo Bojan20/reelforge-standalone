@@ -195,6 +195,9 @@ class UltimateAudioPanel extends StatefulWidget {
   /// Called after user dismisses the auto-bind result dialog (presses OK)
   final VoidCallback? onAutoBindDialogDismissed;
 
+  /// Called when POOL should be cleared (on reset with "clear pool" checked)
+  final VoidCallback? onPoolClear;
+
   const UltimateAudioPanel({
     super.key,
     this.audioAssignments = const {},
@@ -225,6 +228,7 @@ class UltimateAudioPanel extends StatefulWidget {
     this.onSlotMachineCreated,
     this.onAutoBindComplete,
     this.onAutoBindDialogDismissed,
+    this.onPoolClear,
   });
 
   @override
@@ -581,45 +585,77 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   void _showResetConfirmDialog(BuildContext context) {
+    bool clearPool = true;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: FluxForgeTheme.bgMid,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber, color: FluxForgeTheme.accentRed, size: 20),
-            SizedBox(width: 8),
-            Text('Reset Slot Machine', style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14)),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: FluxForgeTheme.bgMid,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber, color: FluxForgeTheme.accentRed, size: 20),
+              SizedBox(width: 8),
+              Text('Reset Slot Machine', style: TextStyle(color: FluxForgeTheme.textPrimary, fontSize: 14)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'This will delete the current slot machine configuration, all audio assignments, and all events.\n\nYou will start from scratch with the setup wizard.',
+                style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () => setDialogState(() => clearPool = !clearPool),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 18, height: 18,
+                      child: Checkbox(
+                        value: clearPool,
+                        onChanged: (v) => setDialogState(() => clearPool = v ?? true),
+                        activeColor: FluxForgeTheme.accentRed,
+                        side: const BorderSide(color: FluxForgeTheme.textTertiary),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Also clear audio POOL (uploaded sounds)',
+                      style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel', style: TextStyle(color: FluxForgeTheme.textTertiary)),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _performFullReset(clearPool: clearPool);
+              },
+              style: TextButton.styleFrom(
+                backgroundColor: FluxForgeTheme.accentRed.withValues(alpha: 0.2),
+              ),
+              child: const Text('RESET', style: TextStyle(
+                color: FluxForgeTheme.accentRed, fontWeight: FontWeight.w700,
+              )),
+            ),
           ],
         ),
-        content: const Text(
-          'This will delete the current slot machine configuration, all audio assignments, and all events.\n\nYou will start from scratch with the setup wizard.',
-          style: TextStyle(color: FluxForgeTheme.textSecondary, fontSize: 12),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: FluxForgeTheme.textTertiary)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              _performFullReset();
-            },
-            style: TextButton.styleFrom(
-              backgroundColor: FluxForgeTheme.accentRed.withValues(alpha: 0.2),
-            ),
-            child: const Text('RESET', style: TextStyle(
-              color: FluxForgeTheme.accentRed, fontWeight: FontWeight.w700,
-            )),
-          ),
-        ],
       ),
     );
   }
 
-  void _performFullReset() {
+  void _performFullReset({bool clearPool = true}) {
     // 1. Reset FeatureComposer config → triggers wizard
     final composer = GetIt.instance<FeatureComposerProvider>();
     composer.resetConfig();
@@ -629,10 +665,15 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       widget.onAudioClear?.call(stage);
     }
 
-    // 3. Reset grid to default 3×3
+    // 3. Clear audio POOL if requested
+    if (clearPool) {
+      widget.onPoolClear?.call();
+    }
+
+    // 4. Reset grid to default 3×3
     widget.onSlotMachineCreated?.call(3, 3);
 
-    // 4. Reset wizard state to defaults
+    // 5. Reset wizard state to defaults
     _wizardReels = 5;
     _wizardRows = 3;
     _wizardName = '';
@@ -642,7 +683,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     _wizardAnticipationReels = null;
     _wizardAnticipationLevels = 4;
 
-    // 5. Reset local UI state
+    // 6. Reset local UI state
     setState(() {
       _searchQuery = '';
       _searchController.clear();
@@ -3751,6 +3792,7 @@ class _BaseGameLoopSection extends _SectionConfig {
           _SlotConfig(stage: 'QUICK_STOP', label: 'Quick Stop'),
           _SlotConfig(stage: 'SLAM_STOP', label: 'Slam Stop'),
           _SlotConfig(stage: 'SLAM_STOP_IMPACT', label: 'Slam Impact'),
+          _SlotConfig(stage: 'SKIP', label: 'Skip'),
           _SlotConfig(stage: 'UI_AUTOPLAY_START', label: 'AutoSpin On'),
           _SlotConfig(stage: 'UI_AUTOPLAY_STOP', label: 'AutoSpin Off'),
           _SlotConfig(stage: 'UI_TURBO_ON', label: 'Turbo On'),

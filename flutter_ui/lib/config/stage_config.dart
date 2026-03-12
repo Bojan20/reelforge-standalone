@@ -161,6 +161,12 @@ class StageConfig {
       category: StageCategory.spin,
       description: 'Spin sequence complete',
     ),
+    'skip': const StageConfigEntry(
+      color: Color(0xFF6B7280),
+      icon: Icons.skip_next,
+      category: StageCategory.spin,
+      description: 'Skip (animation/presentation skip)',
+    ),
     'evaluate_wins': const StageConfigEntry(
       color: Color(0xFF6B7280),
       icon: Icons.calculate,
