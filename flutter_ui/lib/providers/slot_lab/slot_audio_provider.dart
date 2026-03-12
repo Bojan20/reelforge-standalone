@@ -431,6 +431,36 @@ class MusicLayerController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Reset to base layer (L1) state — called after BIG_WIN_END.
+  /// BIG_WIN_END composite event restarts all layers with correct volumes
+  /// (L1=1.0, L2-L5=0.0), so this only resets controller STATE.
+  /// Also resets _layerVolumes so next crossfade knows correct start volumes.
+  void resetToBaseLayer() {
+    final previousActive = _activeLayer;
+    _previousLayer = _activeLayer;
+    _activeLayer = 1;
+    _spinsSinceEscalation = 0;
+    _isEscalated = false;
+
+    // Reset layerVolumes to match restarted state (L1=1.0, rest=0.0)
+    final playback = AudioPlaybackService.instance;
+    for (final threshold in _config.thresholds) {
+      final layerId = 'game_start_l${threshold.layer}';
+      playback.layerVolumes[layerId] = threshold.layer == 1 ? 1.0 : 0.0;
+    }
+
+    if (previousActive != 1) {
+      _addHistoryEvent(MusicLayerTransition(
+        fromLayer: previousActive,
+        toLayer: 1,
+        reason: MusicLayerTransitionReason.revert,
+        winRatio: 0.0,
+        crossfadeMs: 0,
+      ));
+    }
+    notifyListeners();
+  }
+
   // ─── Core Evaluation — called after every spin ─────────────────────────
 
   /// Evaluate whether to switch music layer based on winRatio.
@@ -533,6 +563,18 @@ class MusicLayerController extends ChangeNotifier {
       ));
       notifyListeners();
       parentNotify();
+    } else if (targetLayer == _activeLayer) {
+      // ── IDLE — no escalation, no de-escalation ──
+      // Log every spin so user can verify the system is running
+      _addHistoryEvent(MusicLayerTransition(
+        fromLayer: _activeLayer,
+        toLayer: _activeLayer,
+        reason: MusicLayerTransitionReason.idle,
+        winRatio: winRatio,
+        crossfadeMs: 0,
+      ));
+      notifyListeners();
+      parentNotify();
     }
 
     return null;
@@ -598,6 +640,8 @@ enum MusicLayerTransitionReason {
   sustained,
   /// Threshold not met — counting down to revert
   countdown,
+  /// No change — winRatio below all escalation thresholds (base layer)
+  idle,
 }
 
 class MusicLayerTransition {

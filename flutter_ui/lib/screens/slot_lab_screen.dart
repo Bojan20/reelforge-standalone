@@ -565,6 +565,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final shouldLoop = stageConfig.isLooping(stage);
     final isMusicBus = busId == 1;
     final isBigWinTransition = stage == 'BIG_WIN_START' || stage == 'BIG_WIN_END';
+    // BIG_WIN: overlap=false — stops base music, plays big win.
+    // BIG_WIN_END stops big win and restarts base layers in sync.
     final shouldOverlap = isBigWinTransition ? false : (!isMusicBus && !shouldLoop);
     final crossfadeMs = isBigWinTransition ? 500 : (isMusicBus ? 500 : 0);
     final effectiveTargetBus = isBigWinTransition ? 1 : busId;
@@ -583,13 +585,13 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     if (stage == 'BIG_WIN_START') {
       // ══════════════════════════════════════════════════════════════
-      // BIG_WIN_START: Fade base music voices → Stop → Play big win
-      // Voice-level targeting: fade/stop by audio file path, not event
+      // BIG_WIN_START: Stop ALL base music layers → Play big win loop
+      // Must stop base music for sync — BIG_WIN_END restarts all
+      // layers simultaneously (L1 at 1.0, L2-L5 at 0.0).
       // ══════════════════════════════════════════════════════════════
 
-      // Resolve actual audio paths from ALL base music layers
+      // 1. Fade + Stop ALL base game music voices
       final baseMusicPaths = <String, String>{};
-      String? gameStartPath;
       try {
         final project = Provider.of<SlotLabProjectProvider>(context, listen: false);
         for (final layer in const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
@@ -598,10 +600,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             baseMusicPaths[layer] = path;
           }
         }
-        gameStartPath = project.getAudioAssignment('GAME_START');
       } catch (_) {}
 
-      // 1. Fade ALL base game music voices (100ms)
       for (final entry in baseMusicPaths.entries) {
         baseLayers.add(SlotEventLayer(
           id: 'bws_fadeout_${entry.key.toLowerCase()}',
@@ -613,8 +613,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           busId: 1,
           fadeOutMs: 100,
         ));
-
-        // 2. Stop base game music voice (110ms — after fade)
         baseLayers.add(SlotEventLayer(
           id: 'bws_stop_${entry.key.toLowerCase()}',
           name: 'Stop ${entry.value.split('/').last}',
@@ -627,21 +625,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         ));
       }
 
-      // 3. Fade game start music voice if assigned (100ms)
-      if (gameStartPath != null && gameStartPath.isNotEmpty) {
-        baseLayers.add(SlotEventLayer(
-          id: 'bws_fadeout_gamestart',
-          name: 'Fade ${gameStartPath.split('/').last} → 0',
-          audioPath: '',
-          actionType: 'FadeVoice',
-          targetAudioPath: gameStartPath,
-          volume: 0.0,
-          busId: 1,
-          fadeOutMs: 100,
-        ));
-      }
-
-      // 4. Play Big Win music (immediate, loop)
+      // 2. Play Big Win music (immediate, loop, on music bus)
       baseLayers.add(SlotEventLayer(
         id: 'layer_$stage',
         name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
@@ -656,9 +640,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
     } else if (stage == 'BIG_WIN_END') {
       // ══════════════════════════════════════════════════════════════
-      // BIG_WIN_END: Industry standard — target events by NAME
+      // BIG_WIN_END: Stop big win music → Restart ALL base layers in sync
       //
-      // Flow: Play end SFX → Stop BIG_WIN_START → Fade base music back
+      // All layers restart simultaneously for perfect sync.
+      // L1 at volume 1.0 (audible), L2-L5 at 0.0 (silent, crossfade-ready).
+      // MusicLayerController.resetToBaseLayer() handles state reset.
       // ══════════════════════════════════════════════════════════════
 
       // 1. Play Big Win End SFX/stinger
@@ -673,14 +659,23 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         durationSeconds: durationSec,
       ));
 
-      // 2. Stop Big Win music voice by audio path
-      // Resolve BIG_WIN_START audio path to target its voice
+      // 2. Fade out + Stop Big Win music voice
       String? bigWinMusicPath;
       try {
         final project = Provider.of<SlotLabProjectProvider>(context, listen: false);
         bigWinMusicPath = project.getAudioAssignment('BIG_WIN_START');
       } catch (_) {}
       if (bigWinMusicPath != null && bigWinMusicPath.isNotEmpty) {
+        baseLayers.add(SlotEventLayer(
+          id: 'bwe_fadeout_bigwin',
+          name: 'Fade ${bigWinMusicPath.split('/').last} → 0',
+          audioPath: '',
+          actionType: 'FadeVoice',
+          targetAudioPath: bigWinMusicPath,
+          volume: 0.0,
+          busId: 1,
+          fadeOutMs: 300,
+        ));
         baseLayers.add(SlotEventLayer(
           id: 'bwe_stop_bigwin',
           name: 'Stop ${bigWinMusicPath.split('/').last}',
@@ -689,35 +684,27 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           targetAudioPath: bigWinMusicPath,
           volume: 0.0,
           busId: 1,
+          offsetMs: 350,
         ));
       }
 
-      // 3. Start ALL Base Game Music layers at volume 0 (preload — ready for fadeIn)
+      // 3. Restart ALL base music layers simultaneously (sync)
+      // L1 at full volume, L2-L5 silent (crossfade-ready)
       try {
         final project = Provider.of<SlotLabProjectProvider>(context, listen: false);
-        for (final layer in const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
-          final baseMusic = project.getAudioAssignment(layer);
+        final musicStages = const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5'];
+        for (int i = 0; i < musicStages.length; i++) {
+          final baseMusic = project.getAudioAssignment(musicStages[i]);
           if (baseMusic != null && baseMusic.isNotEmpty) {
             baseLayers.add(SlotEventLayer(
-              id: 'bwe_preload_${layer.toLowerCase()}',
-              name: 'Start $layer (silent)',
+              id: 'game_start_l${i + 1}', // MUST match GAME_START layerIds for crossfade
+              name: 'Restart ${musicStages[i]} ${i == 0 ? "(L1)" : "(silent)"}',
               audioPath: baseMusic,
               actionType: 'Play',
-              volume: 0.0,
+              volume: i == 0 ? 1.0 : 0.0, // L1 audible, rest silent
               busId: 1,
               loop: true,
-            ));
-
-            // 4. FadeIn Base Game Music (500ms — industry standard restore)
-            baseLayers.add(SlotEventLayer(
-              id: 'bwe_fadein_${layer.toLowerCase()}',
-              name: 'Fade $layer → 1 (auto)',
-              audioPath: '',
-              actionType: 'SetVolume',
-              volume: 1.0,
-              busId: 1,
-              offsetMs: 500,
-              fadeInMs: 500.0,
+              offsetMs: 400, // Start after big win fade completes
             ));
           }
         }
@@ -845,7 +832,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       ),
     ];
 
-    // BIG_WIN_START: fade/stop ALL base music layers before playing big win
+    // BIG_WIN_START: fade + stop ALL base music layers, then play big win
     if (stage == 'BIG_WIN_START') {
       try {
         final project = Provider.of<SlotLabProjectProvider>(context, listen: false);
@@ -877,21 +864,47 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       } catch (_) {}
     }
 
-    // BIG_WIN_END: restore ALL base game music layers after big win ends
+    // BIG_WIN_END: stop big win + restart all base layers in sync (L1=1.0, rest=0.0)
     if (stage == 'BIG_WIN_END') {
       try {
         final project = Provider.of<SlotLabProjectProvider>(context, listen: false);
-        for (final layer in const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
-          final baseMusic = project.getAudioAssignment(layer);
+        final bigWinPath = project.getAudioAssignment('BIG_WIN_START');
+        if (bigWinPath != null && bigWinPath.isNotEmpty) {
+          layers.add(AudioLayer(
+            id: 'bwe_fadeout_bigwin',
+            name: 'Fade ${bigWinPath.split('/').last} → 0',
+            audioPath: '',
+            busId: 1,
+            delay: 0,
+            volume: 0.0,
+            actionType: 'FadeVoice',
+            targetAudioPath: bigWinPath,
+            fadeOutMs: 300,
+          ));
+          layers.add(AudioLayer(
+            id: 'bwe_stop_bigwin',
+            name: 'Stop ${bigWinPath.split('/').last}',
+            audioPath: '',
+            busId: 1,
+            delay: 350,
+            volume: 0.0,
+            actionType: 'StopVoice',
+            targetAudioPath: bigWinPath,
+          ));
+        }
+        // Restart all base layers in sync
+        final musicStages = const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5'];
+        for (int i = 0; i < musicStages.length; i++) {
+          final baseMusic = project.getAudioAssignment(musicStages[i]);
           if (baseMusic != null && baseMusic.isNotEmpty) {
             layers.add(AudioLayer(
-              id: 'bwe_restore_${layer.toLowerCase()}',
-              name: '$layer Restore',
+              id: 'game_start_l${i + 1}', // MUST match GAME_START layerIds for crossfade
+              name: 'Restart ${musicStages[i]}',
               audioPath: baseMusic,
-              volume: 0.0,
+              volume: i == 0 ? 1.0 : 0.0,
               busId: 1,
-              delay: 3500,
-              fadeInMs: 1300.0,
+              delay: 400,
+              loop: true,
             ));
           }
         }
@@ -904,7 +917,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       stage: stage,
       layers: layers,
       loop: stage == 'BIG_WIN_START' ? true : shouldLoop,
-      // BIG_WIN transitions: overlap=false on music bus to fade out active music
+      // BIG_WIN: overlap=false stops existing music on bus before playing
       overlap: isBigWinTransition ? false : (!isMusicBus && !shouldLoop),
       crossfadeMs: isBigWinTransition ? 500 : (isMusicBus ? 500 : 0),
       targetBusId: isBigWinTransition ? 1 : busId,

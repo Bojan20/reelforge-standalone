@@ -14,6 +14,7 @@ import 'package:get_it/get_it.dart';
 
 import '../../../models/slot_lab_models.dart';
 import '../../../providers/slot_lab/slot_audio_provider.dart';
+import '../../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../../providers/slot_lab_project_provider.dart';
 
 class SlotLabMusicLayersPanel extends StatefulWidget {
@@ -32,7 +33,7 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
   void initState() {
     super.initState();
     final sl = GetIt.instance;
-    _audioProvider = sl<SlotAudioProvider>();
+    _audioProvider = sl<SlotLabCoordinator>().audioProvider;
     _projectProvider = sl<SlotLabProjectProvider>();
     _audioProvider.musicLayerController.addListener(_onControllerChanged);
   }
@@ -94,6 +95,8 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
               children: [
                 if (!hasLayers) _buildQuickSetup(),
                 if (hasLayers) ...[
+                  _buildAudioStatus(),
+                  const SizedBox(height: 8),
                   _buildThresholdTable(),
                   const SizedBox(height: 12),
                   _buildGlobalSettings(),
@@ -293,6 +296,51 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // AUDIO STATUS — shows which layers have audio assigned
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildAudioStatus() {
+    final thresholds = _config.thresholds;
+    final missing = <int>[];
+
+    for (final t in thresholds) {
+      final path = _projectProvider.audioAssignments['MUSIC_BASE_L${t.layer}'];
+      if (path == null || path.isEmpty) {
+        missing.add(t.layer);
+      }
+    }
+
+    if (missing.isEmpty) {
+      return const SizedBox.shrink(); // All assigned — no warning needed
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2A1A00),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: const Color(0xFFFF9800).withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, size: 14, color: Color(0xFFFF9800)),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Missing audio: ${missing.map((l) => 'MUSIC_BASE_L$l').join(', ')}. '
+                'Assign in ASSIGN tab to enable crossfade.',
+                style: const TextStyle(fontSize: 9, color: Color(0xFFFFCC80)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -655,6 +703,8 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
         '\u2713', const Color(0xFF40C8FF), 'L${t.toLayer} sustained (${t.winRatio.toStringAsFixed(1)}x)'),
       MusicLayerTransitionReason.countdown => (
         '\u23F3', const Color(0xFFFFAA33), 'L${t.toLayer} countdown ${t.spinsRemaining ?? '?'}'),
+      MusicLayerTransitionReason.idle => (
+        '\u00B7', const Color(0xFF444444), 'L${t.toLayer} idle (${t.winRatio.toStringAsFixed(1)}x)'),
     };
 
     return Padding(
