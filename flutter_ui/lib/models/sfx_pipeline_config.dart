@@ -235,15 +235,24 @@ extension SfxOutputFormatExt on SfxOutputFormat {
 enum SfxCategory {
   uiClicks,
   reelMechanics,
+  symbolLand,       // Symbol land sounds (SymbolS01-15, SymbolB01Land) — distinct from reel mechanics
+  symbolPreshow,    // Ultra-short symbol preview ticks (0.1-0.2s, too short for LUFS)
   winCelebrations,
+  scatterLand,      // Scatter land per-reel (escalating loudness by count)
+  wildLand,         // Wild land sounds — quieter accents (~-23 LUFS)
+  coinRollup,       // Coin/rollup loops — sits under wins (~-27 LUFS)
+  payline,          // Payline highlight sounds (~-20 LUFS)
+  screenEffect,     // Screen shake, flash, etc. — one-shot non-looping
   ambientLoops,
   featureTriggers,
   anticipation,
-  musicBigWin,    // Big win celebration music — loudest
-  musicFeature,   // Free spins / bonus / hold music — louder than base
-  musicBase,      // Base game background music — quietest music layer
-  music,          // Generic music (fallback if sub-category not detected)
-  voiceOver,      // VO / narration / announcer — must be intelligible over everything
+  musicBigWin,      // Big win celebration music — loudest
+  musicFeature,     // Free spins / bonus / hold music — louder than base
+  musicBase,        // Base game background music — quietest music layer
+  musicSpins,       // Spin loop music — mid-level looping (~-22 LUFS)
+  musicPicker,      // Picker/bonus selection music (~-24 LUFS)
+  music,            // Generic music (fallback if sub-category not detected)
+  voiceOver,        // VO / narration / announcer — must be intelligible over everything
   unknown,
 }
 
@@ -254,8 +263,22 @@ extension SfxCategoryExt on SfxCategory {
         return 'UI / Clicks';
       case SfxCategory.reelMechanics:
         return 'Reel Mechanics';
+      case SfxCategory.symbolLand:
+        return 'Symbol Land';
+      case SfxCategory.symbolPreshow:
+        return 'Symbol Preshow';
       case SfxCategory.winCelebrations:
         return 'Win Celebrations';
+      case SfxCategory.scatterLand:
+        return 'Scatter Land';
+      case SfxCategory.wildLand:
+        return 'Wild Land';
+      case SfxCategory.coinRollup:
+        return 'Coin / Rollup';
+      case SfxCategory.payline:
+        return 'Payline';
+      case SfxCategory.screenEffect:
+        return 'Screen Effect';
       case SfxCategory.ambientLoops:
         return 'Ambient / Loops';
       case SfxCategory.featureTriggers:
@@ -268,6 +291,10 @@ extension SfxCategoryExt on SfxCategory {
         return 'Music — Feature';
       case SfxCategory.musicBase:
         return 'Music — Base Game';
+      case SfxCategory.musicSpins:
+        return 'Music — Spins';
+      case SfxCategory.musicPicker:
+        return 'Music — Picker';
       case SfxCategory.music:
         return 'Music';
       case SfxCategory.voiceOver:
@@ -277,25 +304,47 @@ extension SfxCategoryExt on SfxCategory {
     }
   }
 
-  /// Filename patterns that identify this category
+  /// Filename patterns that identify this category.
+  /// Patterns are matched against BOTH the original lowercase filename
+  /// AND a CamelCase→snake_case normalized version (see [fromFilename]).
   List<String> get patterns {
     switch (this) {
       case SfxCategory.uiClicks:
         return ['ui_', 'click_', 'button_'];
       case SfxCategory.reelMechanics:
-        return ['reel_', 'spin_', 'stop_'];
+        return ['reel_land', 'reel_stop', 'reel_spin', 'reel_', 'spin_', 'stop_'];
+      case SfxCategory.symbolLand:
+        return ['symbol_s', 'symbol_b', 'symbol_land',
+                'sym_hp', 'sym_mp',   // SymHp*Win, SymMp*Win
+                'bonus_symbol'];
+      case SfxCategory.symbolPreshow:
+        return ['symbol_preshow', 'preshow_', 'sym_preshow'];
       case SfxCategory.winCelebrations:
-        return ['win_', 'big_', 'rollup_', 'fanfare_'];
+        return ['win_', 'big_', 'fanfare_'];
+      case SfxCategory.scatterLand:
+        return ['scatter_land', 'sym_scatter_land', 'scatter_stop'];
+      case SfxCategory.wildLand:
+        return ['wild_land'];
+      case SfxCategory.coinRollup:
+        return ['coin_loop', 'coin_', 'rollup_low', 'rollup_'];
+      case SfxCategory.payline:
+        return ['payline'];
+      case SfxCategory.screenEffect:
+        return ['screen_shake', 'screen_flash', 'screen_effect', 'screen_'];
       case SfxCategory.ambientLoops:
-        return ['amb_', 'loop_', 'drone_'];
+        return ['amb_', 'drone_', 'amb_bg'];
       case SfxCategory.featureTriggers:
-        return ['fs_', 'scatter_', 'wild_', 'bonus_'];
+        return ['fs_', 'scatter_win', 'scatter_', 'wild_', 'bonus_',
+                'symbol_w'];  // Wild symbol (SymbolW01)
       case SfxCategory.anticipation:
-        return ['anticipation_', 'tension_', 'near_miss_', 'near_win_'];
+        return ['anticipation', 'tension_', 'near_miss_', 'near_win_'];
       case SfxCategory.musicBigWin:
-        return ['big_win_loop', 'big_win_music', 'bigwin_music', 'music_bigwin',
-                'music_big_win', 'bw_music', 'mus_bw',
-                'bigwinloop', 'bigwinmusic', 'musicbigwin'];
+        return ['big_win_loop', 'big_win_music', 'big_win_start',
+                'big_win_end', 'big_win_alert', 'big_win_tier',
+                'bigwin_music', 'music_bigwin', 'music_big_win',
+                'bw_music', 'mus_bw',
+                'bigwinloop', 'bigwinmusic', 'musicbigwin',
+                'bigwinalert', 'bigwinstart', 'bigwinend', 'bigwintier'];
       case SfxCategory.musicFeature:
         return ['free_spin_music', 'freespin_music', 'fs_music', 'music_fs',
                 'bonus_music', 'music_bonus', 'hold_music', 'music_hold',
@@ -307,6 +356,12 @@ extension SfxCategoryExt on SfxCategory {
                 'main_theme', 'base_theme', 'mus_bg',
                 'basegamemusic', 'basemusic', 'musicbase', 'maintheme',
                 'basetheme'];
+      case SfxCategory.musicSpins:
+        return ['spins_loop', 'spin_loop', 'spin_music', 'spins_music',
+                'spinsloop', 'spinloop'];
+      case SfxCategory.musicPicker:
+        return ['picker_music', 'picker_loop', 'pickermusicloop',
+                'picker_music_loop'];
       case SfxCategory.music:
         return ['music_', 'bgm_', 'soundtrack_', 'theme_', 'ost_'];
       case SfxCategory.voiceOver:
@@ -341,17 +396,31 @@ extension SfxCategoryExt on SfxCategory {
       case SfxCategory.musicBase:
       case SfxCategory.musicFeature:
       case SfxCategory.musicBigWin:
+      case SfxCategory.musicSpins:
+      case SfxCategory.musicPicker:
         return OutputChannelMode.stereo;       // Music ALWAYS stereo
       case SfxCategory.featureTriggers:
-        return OutputChannelMode.stereo;       // Symbols (wild, scatter, bonus) — stereo
+      case SfxCategory.scatterLand:
+      case SfxCategory.wildLand:
+        return OutputChannelMode.stereo;       // Feature symbols — stereo
       case SfxCategory.ambientLoops:
         return OutputChannelMode.stereo;       // Ambience — stereo
       case SfxCategory.winCelebrations:
         return OutputChannelMode.stereo;       // Wins — stereo (production value)
+      case SfxCategory.screenEffect:
+        return OutputChannelMode.stereo;       // Screen effects — stereo impact
       case SfxCategory.uiClicks:
         return OutputChannelMode.mono;         // UI clicks — mono OK
       case SfxCategory.reelMechanics:
         return OutputChannelMode.mono;         // Reel mechanics — mono OK
+      case SfxCategory.symbolLand:
+        return OutputChannelMode.keepOriginal; // Symbol land — varies
+      case SfxCategory.symbolPreshow:
+        return OutputChannelMode.mono;         // Ultra-short ticks — mono
+      case SfxCategory.coinRollup:
+        return OutputChannelMode.stereo;       // Coin sounds — stereo shimmer
+      case SfxCategory.payline:
+        return OutputChannelMode.stereo;       // Payline — stereo sweep
       case SfxCategory.anticipation:
         return OutputChannelMode.keepOriginal; // Anticipation — keep as-is
       case SfxCategory.voiceOver:
@@ -367,9 +436,9 @@ extension SfxCategoryExt on SfxCategory {
   bool get defaultSkipTrim {
     switch (this) {
       case SfxCategory.uiClicks:
-        return false;         // Short percussive — safe to trim
       case SfxCategory.reelMechanics:
-        return false;         // Short mechanical — safe to trim
+      case SfxCategory.symbolPreshow:
+        return false;         // Short percussive — safe to trim
       default:
         return true;          // Everything else: skip trim (intentional fades/intros)
     }
@@ -377,18 +446,21 @@ extension SfxCategoryExt on SfxCategory {
 
   /// Detect category from filename.
   ///
-  /// Two-phase detection:
+  /// Three-phase detection:
   /// 1. **Prefix patterns** (highest priority) — categories where filenames
   ///    reliably START with the category prefix (e.g., `vo_win_01.wav` is VO,
   ///    not winCelebrations). Checked with `startsWith`, longest first.
-  /// 2. **Contains patterns** — standard longest-match-first with `contains`.
-  ///    Longer patterns always beat shorter ones (e.g., "big_win_music" beats "big_").
+  /// 2. **Contains patterns on original** — standard longest-match-first.
+  /// 3. **Contains patterns on CamelCase-normalized** — converts CamelCase to
+  ///    snake_case (e.g., `BigWinStart` → `big_win_start`) and re-runs matching.
+  ///    Handles real-world asset packs that use CamelCase naming (Aztec, etc.).
   static SfxCategory fromFilename(String filename) {
     final lower = filename.toLowerCase();
+    // Strip extension for pattern matching
+    final dotIdx = lower.lastIndexOf('.');
+    final stem = dotIdx > 0 ? lower.substring(0, dotIdx) : lower;
 
     // Phase 1: Prefix patterns (highest priority)
-    // These are checked with startsWith to prevent false positives
-    // when short VO prefixes collide with other category keywords
     final prefixCandidates = <(String, SfxCategory)>[];
     for (final cat in SfxCategory.values) {
       if (cat == SfxCategory.unknown) continue;
@@ -398,10 +470,10 @@ extension SfxCategoryExt on SfxCategory {
     }
     prefixCandidates.sort((a, b) => b.$1.length.compareTo(a.$1.length));
     for (final (pattern, cat) in prefixCandidates) {
-      if (lower.startsWith(pattern)) return cat;
+      if (stem.startsWith(pattern)) return cat;
     }
 
-    // Phase 2: Contains patterns (longest-match-first)
+    // Phase 2: Contains patterns on original lowercase (longest-match-first)
     final candidates = <(String, SfxCategory)>[];
     for (final cat in SfxCategory.values) {
       if (cat == SfxCategory.unknown) continue;
@@ -411,9 +483,63 @@ extension SfxCategoryExt on SfxCategory {
     }
     candidates.sort((a, b) => b.$1.length.compareTo(a.$1.length));
     for (final (pattern, cat) in candidates) {
-      if (lower.contains(pattern)) return cat;
+      if (stem.contains(pattern)) return cat;
     }
+
+    // Phase 3: CamelCase → snake_case normalization, then re-match
+    // MUST use original filename (before toLowerCase) — camelToSnake needs uppercase letters
+    final originalStem = filename.lastIndexOf('.') > 0
+        ? filename.substring(0, filename.lastIndexOf('.'))
+        : filename;
+    final normalized = camelToSnake(originalStem);
+    if (normalized != stem) {
+      for (final (pattern, cat) in prefixCandidates) {
+        if (normalized.startsWith(pattern)) return cat;
+      }
+      for (final (pattern, cat) in candidates) {
+        if (normalized.contains(pattern)) return cat;
+      }
+    }
+
     return SfxCategory.unknown;
+  }
+
+  /// Convert CamelCase/PascalCase to snake_case.
+  /// - `BigWinStart` → `big_win_start`
+  /// - `ReelLand1` → `reel_land_1`
+  /// - `SymbolS01` → `symbol_s_01`
+  /// - `UiSpinSlam` → `ui_spin_slam`
+  /// - `SymHp1Win` → `sym_hp_1_win`
+  static String camelToSnake(String input) {
+    final buf = StringBuffer();
+    for (int i = 0; i < input.length; i++) {
+      final ch = input[i];
+      final code = ch.codeUnitAt(0);
+      final isUpper = code >= 65 && code <= 90;  // A-Z
+      final isDigit = code >= 48 && code <= 57;  // 0-9
+      if (i > 0) {
+        final prevCode = input[i - 1].codeUnitAt(0);
+        final prevIsUpper = prevCode >= 65 && prevCode <= 90;
+        final prevIsDigit = prevCode >= 48 && prevCode <= 57;
+        final prevIsLower = prevCode >= 97 && prevCode <= 122;
+        // Insert _ before: uppercase after lowercase, digit after letter,
+        // letter after digit, or uppercase before lowercase in a run of uppers
+        if (isUpper && (prevIsLower || prevIsDigit)) {
+          buf.write('_');
+        } else if (isUpper && prevIsUpper && i + 1 < input.length) {
+          final nextCode = input[i + 1].codeUnitAt(0);
+          if (nextCode >= 97 && nextCode <= 122) {
+            buf.write('_');
+          }
+        } else if (isDigit && !prevIsDigit && prevCode != 95) {
+          buf.write('_');
+        } else if (!isDigit && !isUpper && prevIsDigit) {
+          buf.write('_');
+        }
+      }
+      buf.write(ch.toLowerCase());
+    }
+    return buf.toString();
   }
 }
 
@@ -437,6 +563,23 @@ class SfxScanResult {
   final SfxCategory detectedCategory;
   final bool selected;
 
+  // P0.3: True peak (inter-sample peak via 4x oversampling)
+  final double truePeakDbtp;
+
+  // P1.2: Stereo imbalance detection
+  final double peakLrDeltaDb;   // |L_peak - R_peak| in dB (0 = balanced)
+  final double rmsLrDeltaDb;    // |L_rms - R_rms| in dB (0 = balanced)
+  final bool isContentMono;     // true if L≈R content (dual-mono file)
+
+  // P1.3: Flat factor (consecutive peak samples — pre-limiting detection)
+  final double flatFactor;      // 0 = no clipping, >10 = pre-limited
+
+  // P2.2: Audio-identical detection
+  final String? duplicateOf;    // filename if audio-identical to another file
+
+  // P1.1: Loudness group membership
+  final String? loudnessGroup;  // e.g. "Win", "ScatterLand", "B01Land" — null if not in a group
+
   const SfxScanResult({
     required this.path,
     required this.filename,
@@ -451,6 +594,13 @@ class SfxScanResult {
     this.silenceEndMs = 0.0,
     this.detectedCategory = SfxCategory.unknown,
     this.selected = true,
+    this.truePeakDbtp = -100.0,
+    this.peakLrDeltaDb = 0.0,
+    this.rmsLrDeltaDb = 0.0,
+    this.isContentMono = false,
+    this.flatFactor = 0.0,
+    this.duplicateOf,
+    this.loudnessGroup,
   });
 
   bool get isStereo => channels >= 2;
@@ -458,6 +608,21 @@ class SfxScanResult {
   bool get hasSilence => silenceStartMs > 50 || silenceEndMs > 50;
   bool get hasDcOffset => dcOffset.abs() > 0.005;
   bool get isQuiet => integratedLufs < -30;
+
+  /// True if this file has ISP (inter-sample peak) issues above -1.0 dBTP
+  bool get hasIspIssue => truePeakDbtp > -1.0;
+
+  /// True if this file was pre-limited at source (flat factor indicates brick-wall limiting)
+  bool get isPreLimited => flatFactor > 10.0;
+
+  /// True if L/R stereo imbalance exceeds 3 dB (worth flagging)
+  bool get hasStereoImbalance => peakLrDeltaDb > 3.0;
+
+  /// True if this file is a duplicate of another
+  bool get isDuplicate => duplicateOf != null;
+
+  /// True if this file belongs to an escalating loudness group
+  bool get isInLoudnessGroup => loudnessGroup != null;
 
   String get formatLabel {
     final bitLabel = bitDepth == 32 ? '32f' : '$bitDepth';
@@ -467,7 +632,17 @@ class SfxScanResult {
 
   String get channelLabel => isStereo ? 'St' : 'Mo';
 
-  SfxScanResult copyWith({bool? selected}) {
+  SfxScanResult copyWith({
+    bool? selected,
+    SfxCategory? detectedCategory,
+    double? truePeakDbtp,
+    double? peakLrDeltaDb,
+    double? rmsLrDeltaDb,
+    bool? isContentMono,
+    double? flatFactor,
+    String? duplicateOf,
+    String? loudnessGroup,
+  }) {
     return SfxScanResult(
       path: path,
       filename: filename,
@@ -480,8 +655,15 @@ class SfxScanResult {
       dcOffset: dcOffset,
       silenceStartMs: silenceStartMs,
       silenceEndMs: silenceEndMs,
-      detectedCategory: detectedCategory,
+      detectedCategory: detectedCategory ?? this.detectedCategory,
       selected: selected ?? this.selected,
+      truePeakDbtp: truePeakDbtp ?? this.truePeakDbtp,
+      peakLrDeltaDb: peakLrDeltaDb ?? this.peakLrDeltaDb,
+      rmsLrDeltaDb: rmsLrDeltaDb ?? this.rmsLrDeltaDb,
+      isContentMono: isContentMono ?? this.isContentMono,
+      flatFactor: flatFactor ?? this.flatFactor,
+      duplicateOf: duplicateOf ?? this.duplicateOf,
+      loudnessGroup: loudnessGroup ?? this.loudnessGroup,
     );
   }
 }
@@ -627,8 +809,11 @@ class SfxPipelinePreset {
     // Step 2: Category-specific trim skip
     this.noTrimCategories = const {
       SfxCategory.music, SfxCategory.musicBase, SfxCategory.musicFeature,
-      SfxCategory.musicBigWin, SfxCategory.ambientLoops, SfxCategory.anticipation,
+      SfxCategory.musicBigWin, SfxCategory.musicSpins, SfxCategory.musicPicker,
+      SfxCategory.ambientLoops, SfxCategory.anticipation,
       SfxCategory.winCelebrations, SfxCategory.featureTriggers,
+      SfxCategory.scatterLand, SfxCategory.wildLand, SfxCategory.symbolLand,
+      SfxCategory.coinRollup, SfxCategory.payline, SfxCategory.screenEffect,
       SfxCategory.voiceOver, SfxCategory.unknown,
     },
     // Step 2b: Filters
@@ -889,8 +1074,11 @@ class SfxPipelinePreset {
               .whereType<SfxCategory>()
               .toSet() ??
           {SfxCategory.music, SfxCategory.musicBase, SfxCategory.musicFeature,
-           SfxCategory.musicBigWin, SfxCategory.ambientLoops, SfxCategory.anticipation,
+           SfxCategory.musicBigWin, SfxCategory.musicSpins, SfxCategory.musicPicker,
+           SfxCategory.ambientLoops, SfxCategory.anticipation,
            SfxCategory.winCelebrations, SfxCategory.featureTriggers,
+           SfxCategory.scatterLand, SfxCategory.wildLand, SfxCategory.symbolLand,
+           SfxCategory.coinRollup, SfxCategory.payline, SfxCategory.screenEffect,
            SfxCategory.voiceOver, SfxCategory.unknown},
       highPassEnabled: json['highPassEnabled'] as bool? ?? true,
       highPassFreq: (json['highPassFreq'] as num?)?.toDouble() ?? 40.0,
@@ -989,15 +1177,50 @@ class SfxBuiltInPresets {
   static const slotCategoryLufs = <SfxCategory, double?>{
     SfxCategory.uiClicks: -12.0,        // Short, precise — must be heard over everything
     SfxCategory.reelMechanics: -16.0,    // Constant presence — must not fatigue
+    SfxCategory.symbolLand: -20.0,       // Symbol land — mid-level SFX
+    SfxCategory.symbolPreshow: -20.0,    // Ultra-short ticks — RMS-based (too short for LUFS)
     SfxCategory.winCelebrations: -14.0,  // Exciting but controlled
+    SfxCategory.scatterLand: -17.0,      // Scatter — escalating, prominent
+    SfxCategory.wildLand: -23.0,         // Wild land — quiet accent
+    SfxCategory.coinRollup: -27.0,       // Coin — sits under wins
+    SfxCategory.payline: -20.0,          // Payline — mid-level indicator
+    SfxCategory.screenEffect: -18.0,     // Screen shake/flash — impact moment
     SfxCategory.ambientLoops: -23.0,     // Background bed — quiet foundation
     SfxCategory.featureTriggers: -14.0,  // Key moments — must grab attention
     SfxCategory.anticipation: -18.0,     // Gradual build-up — mid level
     SfxCategory.musicBigWin: -18.0,     // Big win music — loudest music, must feel epic
     SfxCategory.musicFeature: -20.0,    // Feature music (FS/bonus) — louder than base
     SfxCategory.musicBase: -23.0,       // Base game music — quiet background bed
+    SfxCategory.musicSpins: -22.0,      // Spin loop music — mid-level
+    SfxCategory.musicPicker: -24.0,     // Picker selection music — quiet
     SfxCategory.music: -23.0,           // Generic music fallback — same as base
     SfxCategory.voiceOver: -14.0,      // VO must be intelligible — cut through mix
+  };
+
+  /// Realistic Slot Mix preset — derived from Aztec theme production analysis (2026-03).
+  /// Based on actual measured LUFS values from a real iGaming sound package.
+  /// More nuanced than "Slot Game Standard" — matches what sound designers actually deliver.
+  static const realisticSlotMixLufs = <SfxCategory, double?>{
+    SfxCategory.uiClicks: -25.0,          // Real UI sounds are -22 to -33 LUFS
+    SfxCategory.reelMechanics: -31.0,     // Reel lands are very quiet (~-31 LUFS)
+    SfxCategory.symbolLand: -20.0,        // Symbol lands ~-20 LUFS
+    SfxCategory.symbolPreshow: -24.0,     // Preshow ticks (RMS-based)
+    SfxCategory.winCelebrations: -15.0,   // Win1→Win7 center (~-15, escalating)
+    SfxCategory.scatterLand: -17.5,       // Scatter lands (~-17.5, escalating)
+    SfxCategory.wildLand: -23.0,          // Wild lands (~-23 LUFS)
+    SfxCategory.coinRollup: -27.0,        // Coin loops (~-27 LUFS)
+    SfxCategory.payline: -20.0,           // Payline sounds (~-20 LUFS)
+    SfxCategory.screenEffect: -18.0,      // Screen shake (~-18 LUFS)
+    SfxCategory.ambientLoops: -35.0,      // Ambient bed (~-35 LUFS, much quieter!)
+    SfxCategory.featureTriggers: -17.0,   // Scatter win, bonus triggers (~-17)
+    SfxCategory.anticipation: -15.0,      // Anticipation builds (~-14 to -16)
+    SfxCategory.musicBigWin: -14.0,       // BigWin music (~-14 LUFS)
+    SfxCategory.musicFeature: -20.0,      // Feature music (~-20)
+    SfxCategory.musicBase: -17.0,         // Base game loops are ~-17 LUFS (NOT -23!)
+    SfxCategory.musicSpins: -22.0,        // Spin loops (~-22 LUFS)
+    SfxCategory.musicPicker: -24.0,       // Picker loop (~-24 LUFS)
+    SfxCategory.music: -20.0,             // Generic music fallback
+    SfxCategory.voiceOver: -14.0,         // VO intelligibility
   };
 
   static final slotGameStandard = SfxPipelinePreset(
@@ -1013,13 +1236,22 @@ class SfxBuiltInPresets {
   static const _mobileCategoryLufs = <SfxCategory, double?>{
     SfxCategory.uiClicks: -10.0,
     SfxCategory.reelMechanics: -14.0,
+    SfxCategory.symbolLand: -18.0,
+    SfxCategory.symbolPreshow: -18.0,
     SfxCategory.winCelebrations: -12.0,
+    SfxCategory.scatterLand: -15.0,
+    SfxCategory.wildLand: -21.0,
+    SfxCategory.coinRollup: -25.0,
+    SfxCategory.payline: -18.0,
+    SfxCategory.screenEffect: -16.0,
     SfxCategory.ambientLoops: -21.0,
     SfxCategory.featureTriggers: -12.0,
     SfxCategory.anticipation: -16.0,
     SfxCategory.musicBigWin: -16.0,
     SfxCategory.musicFeature: -18.0,
     SfxCategory.musicBase: -21.0,
+    SfxCategory.musicSpins: -20.0,
+    SfxCategory.musicPicker: -22.0,
     SfxCategory.music: -21.0,
     SfxCategory.voiceOver: -12.0,
   };
@@ -1083,8 +1315,23 @@ class SfxBuiltInPresets {
     autoAssign: false,
   );
 
+  /// Realistic Slot Mix — derived from analyzing real production sound packages.
+  /// Values match what professional sound designers actually deliver.
+  /// Unlike "Slot Game Standard" which is theoretical, this preset preserves
+  /// the natural loudness hierarchy found in production iGaming assets.
+  static final realisticSlotMix = SfxPipelinePreset(
+    id: 'builtin_realistic_slot',
+    name: 'Realistic Slot Mix',
+    createdAt: DateTime(2026, 3, 12),
+    isBuiltIn: true,
+    perCategoryOverrides: realisticSlotMixLufs,
+    categoryDetection: true,
+    highPassFreq: 20.0,  // Lower HP filter (some assets have useful sub-bass)
+  );
+
   static final all = [
     slotGameStandard,
+    realisticSlotMix,
     slotGameMobile,
     wwiseReady,
     fmodReady,

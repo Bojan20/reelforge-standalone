@@ -21,7 +21,7 @@ import 'package:get_it/get_it.dart';
 import '../services/event_registry.dart';
 import 'middleware_provider.dart';
 import 'slot_lab/feature_composer_provider.dart';
-import 'slot_lab/slot_audio_provider.dart';
+import 'slot_lab/slot_lab_coordinator.dart';
 import 'subsystems/composite_event_system_provider.dart';
 
 /// Provider for SlotLab V6 project state
@@ -1922,8 +1922,8 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _restoreEventRegistry(loaded.eventRegistryJson);
     // V13: Restore dynamic music layer config
     _musicLayerConfig = loaded.musicLayerConfig;
-    if (_musicLayerConfig != null && GetIt.instance.isRegistered<SlotAudioProvider>()) {
-      GetIt.instance<SlotAudioProvider>().loadMusicLayerConfig(_musicLayerConfig!);
+    if (_musicLayerConfig != null && GetIt.instance.isRegistered<SlotLabCoordinator>()) {
+      GetIt.instance<SlotLabCoordinator>().audioProvider.loadMusicLayerConfig(_musicLayerConfig!);
     }
     _isDirty = false;
     _sanitizeNofMVariantAssignments(); // Fix persisted NofM variant paths
@@ -2133,8 +2133,8 @@ class SlotLabProjectProvider extends ChangeNotifier {
     }
     // V13: Restore dynamic music layer config
     _musicLayerConfig = loaded.musicLayerConfig;
-    if (_musicLayerConfig != null && GetIt.instance.isRegistered<SlotAudioProvider>()) {
-      GetIt.instance<SlotAudioProvider>().loadMusicLayerConfig(_musicLayerConfig!);
+    if (_musicLayerConfig != null && GetIt.instance.isRegistered<SlotLabCoordinator>()) {
+      GetIt.instance<SlotLabCoordinator>().audioProvider.loadMusicLayerConfig(_musicLayerConfig!);
     }
     _sanitizeNofMVariantAssignments(); // Fix persisted NofM variant paths
     _syncSymbolStages(); // Sync stages for imported symbols

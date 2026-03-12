@@ -5263,6 +5263,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     if (_isBigWinTier(_currentWinTier)) {
       // Big Win ONLY: trigger BIG_WIN_END and enter Phase 2 (wait for second skip)
       eventRegistry.triggerStage('BIG_WIN_END');
+      GetIt.instance<SlotLabCoordinator>().audioProvider.musicLayerController.resetToBaseLayer();
       eventRegistry.triggerStage('WIN_PRESENT_END');
       _stopBigWinProtection();
       setState(() {

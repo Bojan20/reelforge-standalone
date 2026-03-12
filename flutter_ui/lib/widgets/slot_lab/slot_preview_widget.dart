@@ -2413,9 +2413,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _ensureAudioRegistered('WIN_COLLECT');
     eventRegistry.triggerStage('ROLLUP_END');
     if (wasBigWin) {
-      // BIG_WIN_END: sfx + music end + outro + base game restore
+      // BIG_WIN_END: sfx + stop big win music + reset layers to L1
       _ensureAudioRegistered('BIG_WIN_END');
       eventRegistry.triggerStage('BIG_WIN_END');
+      widget.provider.audioProvider.musicLayerController.resetToBaseLayer();
       eventRegistry.triggerStage('WIN_PRESENT_END');
     }
     eventRegistry.triggerStage('WIN_COLLECT');
@@ -3383,15 +3384,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // ═══════════════════════════════════════════════════════════════════════
     eventRegistry.triggerStage('COIN_SHOWER_END');
     eventRegistry.stopEvent('COIN_SHOWER_START');
-    // Play BIG_WIN_END sfx, stop BIG_WIN_START music, fade base music back to 1
+    // Play BIG_WIN_END sfx, stop BIG_WIN_START music
     eventRegistry.triggerStage('BIG_WIN_END');
     eventRegistry.stopEvent('BIG_WIN_START');
-    // Restore ALL base music layers
-    for (final layer in const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
-      if (eventRegistry.hasEventForStage(layer)) {
-        eventRegistry.triggerStageWithFadeIn(layer, fadeMs: 500);
-      }
-    }
+    // Reset dynamic music layers to L1 (base game music keeps playing)
+    widget.provider.audioProvider.musicLayerController.resetToBaseLayer();
 
     final lastTier = _currentDisplayTier;
 

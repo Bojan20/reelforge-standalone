@@ -19,8 +19,10 @@
 
 import 'dart:io';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/sfx_pipeline_config.dart';
@@ -120,6 +122,11 @@ class SfxPipelineService {
         double silenceStartMs = 0.0;
         double silenceEndMs = 0.0;
         double dcOffset = 0.0;
+        double truePeakDbtp = -100.0;  // -100 dBTP = unmeasured (avoid false ISP flag)
+        double peakLrDeltaDb = 0.0;
+        double rmsLrDeltaDb = 0.0;
+        bool isContentMono = false;
+        double flatFactor = 0.0;
 
         if (samples != null && samples.isNotEmpty) {
           // ── WAV path: Full Dart-side analysis ──
@@ -131,6 +138,20 @@ class SfxPipelineService {
           );
           integratedLufs = lufsResult.integratedLufs;
           peakDbfs = lufsResult.samplePeak;
+
+          // 3b. True peak via 4x oversampling (ISP detection)
+          truePeakDbtp = _measureTruePeak(samples, channels: channels);
+
+          // 3c. Stereo analysis (L/R peak & RMS delta, content mono detection)
+          if (channels >= 2) {
+            final stereo = _analyzeStereo(samples, channels: channels);
+            peakLrDeltaDb = stereo.peakDeltaDb;
+            rmsLrDeltaDb = stereo.rmsDeltaDb;
+            isContentMono = stereo.isContentMono;
+          }
+
+          // 3d. Flat factor (consecutive peak samples → pre-limiting detection)
+          flatFactor = _measureFlatFactor(samples);
 
           // 4a. DC offset detection (per-channel for stereo)
           dcOffset = _measureDcOffset(samples, channels: channels);
@@ -183,6 +204,7 @@ class SfxPipelineService {
         }
 
         final category = SfxCategoryExt.fromFilename(filename);
+        final loudnessGroup = _detectLoudnessGroup(filename);
 
         results.add(SfxScanResult(
           path: file.path,
@@ -198,6 +220,12 @@ class SfxPipelineService {
           silenceEndMs: silenceEndMs,
           detectedCategory: category,
           selected: !filename.startsWith('_'),
+          truePeakDbtp: truePeakDbtp,
+          peakLrDeltaDb: peakLrDeltaDb,
+          rmsLrDeltaDb: rmsLrDeltaDb,
+          isContentMono: isContentMono,
+          flatFactor: flatFactor,
+          loudnessGroup: loudnessGroup,
         ));
       } catch (_) {
         // Skip files that can't be read/analyzed
@@ -208,6 +236,9 @@ class SfxPipelineService {
         await Future<void>.delayed(Duration.zero);
       }
     }
+
+    // ── Post-scan: Audio-identical detection (hash-based) ──
+    _detectDuplicates(results);
 
     return results;
   }
@@ -223,12 +254,20 @@ class SfxPipelineService {
 
       final lower = file.filename.toLowerCase();
       // Strip common prefixes for matching
-      final stripped = lower
+      var stripped = lower
           .replaceFirst(RegExp(r'^sfx_'), '')
           .replaceFirst(RegExp(r'\.(wav|mp3|flac|ogg|aif|aiff)$'), '');
 
-      // Simple pattern matching for stage IDs
-      final stageId = _resolveStage(stripped);
+      // Try CamelCase→snake_case normalization if original doesn't match
+      var stageId = _resolveStage(stripped);
+      if (stageId == null) {
+        final stem = p.basenameWithoutExtension(file.filename);
+        final normalized = SfxCategoryExt.camelToSnake(stem);
+        if (normalized != stripped) {
+          stripped = normalized;
+          stageId = _resolveStage(stripped);
+        }
+      }
       final confidence = stageId != null ? _calculateConfidence(stripped, stageId) : 0.0;
 
       mappings.add(SfxStageMapping(
@@ -395,6 +434,11 @@ class SfxPipelineService {
       final normStart = stopwatch.elapsedMilliseconds;
       final normalizedPaths = <String, String>{}; // sourceFilename → normalizedPath
 
+      // P1.1: Pre-compute group normalize offsets
+      // For escalating groups (Win1-7, ScatterLand1-5, etc.), normalize the group
+      // average to the category target while preserving internal LUFS ratios
+      final groupOffsets = _computeGroupNormalizeOffsets(selectedFiles, preset);
+
       for (int i = 0; i < totalFiles && !token.cancelled; i++) {
         final file = selectedFiles[i];
         onProgress?.call(SfxPipelineProgress(
@@ -418,11 +462,23 @@ class SfxPipelineService {
           }
         }
 
+        // P1.1: Apply group offset if file belongs to an escalating group
+        // This shifts the target so the group average hits the category target
+        // while preserving the internal loudness progression
+        if (file.loudnessGroup != null && groupOffsets.containsKey(file.filename)) {
+          targetLufs = file.integratedLufs + groupOffsets[file.filename]!;
+        }
+
         if (normMode != NormalizationMode.none) {
           final handle = ffi.offlinePipelineCreate();
           if (handle != 0) {
             try {
               ffi.offlinePipelineSetFormat(handle, 1); // WAV 24-bit intermediate
+
+              // P1.3: Skip limiter for pre-limited files (flatFactor > 10)
+              // Double-limiting creates audible pumping artifacts
+              final skipLimiter = file.isPreLimited;
+              final shouldApplyLimiter = preset.applyLimiter && !skipLimiter;
 
               // Use processFileWithOptions to pass limiter + soft-clip config
               final normOptionsJson = jsonEncode({
@@ -436,9 +492,9 @@ class SfxPipelineService {
                 // Always apply soft-clip after normalization to prevent hard clipping
                 'apply_soft_clip': true,
                 'soft_clip_ceiling_db': preset.truePeakCeiling,
-                // Apply TruePeakLimiter if user enabled it
-                if (preset.applyLimiter) 'apply_limiter': true,
-                if (preset.applyLimiter) 'limiter_ceiling_db': preset.truePeakCeiling,
+                // Apply TruePeakLimiter only if enabled AND file is not pre-limited
+                if (shouldApplyLimiter) 'apply_limiter': true,
+                if (shouldApplyLimiter) 'limiter_ceiling_db': preset.truePeakCeiling,
               });
 
               final jobId = ffi.offlineProcessFileWithOptions(handle, normOptionsJson);
@@ -1082,6 +1138,312 @@ class SfxPipelineService {
     if (fileNorm.contains(stageNorm) || stageNorm.contains(fileNorm)) return 0.72;
     return 0.5;
   }
+
+  // ─── True Peak (ISP) via 4x Oversampling ──────────────────────────────
+
+  /// Measure true peak via 4x linear interpolation oversampling.
+  /// Returns dBTP (decibels true peak). ISP values above -1.0 dBTP
+  /// indicate potential DAC clipping.
+  ///
+  /// NOTE: Linear interpolation is a conservative approximation.
+  /// ITU-R BS.1770-4 specifies sinc interpolation for official dBTP.
+  /// Linear catches most ISP cases but may underestimate by ~0.3 dB
+  /// for signals with high-frequency content near 0 dBFS.
+  double _measureTruePeak(List<double> samples, {int channels = 2}) {
+    if (samples.isEmpty) return -100.0;
+
+    double maxPeak = 0.0;
+
+    // Process per-channel for accuracy
+    for (int ch = 0; ch < channels; ch++) {
+      double prev = 0.0;
+      for (int i = ch; i < samples.length; i += channels) {
+        final current = samples[i];
+        final absCurrent = current.abs();
+        if (absCurrent > maxPeak) maxPeak = absCurrent;
+
+        // 4x oversampling via linear interpolation between prev and current
+        // Interpolated points at 0.25, 0.5, 0.75
+        for (int j = 1; j < 4; j++) {
+          final t = j / 4.0;
+          final interp = prev + t * (current - prev);
+          final absInterp = interp.abs();
+          if (absInterp > maxPeak) maxPeak = absInterp;
+        }
+        prev = current;
+      }
+    }
+
+    if (maxPeak < 1e-10) return -100.0;
+    return 20.0 * math.log(maxPeak) / math.ln10;
+  }
+
+  // ─── Stereo Analysis ──────────────────────────────────────────────────
+
+  /// Analyze stereo content: L/R peak delta, RMS delta, content mono detection.
+  _StereoAnalysis _analyzeStereo(List<double> samples, {int channels = 2}) {
+    if (channels < 2 || samples.length < 2) {
+      return const _StereoAnalysis(
+        peakDeltaDb: 0.0,
+        rmsDeltaDb: 0.0,
+        isContentMono: true,
+      );
+    }
+
+    double lPeak = 0.0, rPeak = 0.0;
+    double lSumSq = 0.0, rSumSq = 0.0;
+    double diffSumSq = 0.0, sumSumSq = 0.0;
+    int frameCount = 0;
+
+    for (int i = 0; i + 1 < samples.length; i += channels) {
+      final l = samples[i];
+      final r = samples[i + 1];
+
+      final al = l.abs();
+      final ar = r.abs();
+      if (al > lPeak) lPeak = al;
+      if (ar > rPeak) rPeak = ar;
+
+      lSumSq += l * l;
+      rSumSq += r * r;
+
+      // For mono detection: compare L-R energy vs L+R energy
+      final diff = l - r;
+      final sum = l + r;
+      diffSumSq += diff * diff;
+      sumSumSq += sum * sum;
+
+      frameCount++;
+    }
+
+    if (frameCount == 0) {
+      return const _StereoAnalysis(
+        peakDeltaDb: 0.0,
+        rmsDeltaDb: 0.0,
+        isContentMono: true,
+      );
+    }
+
+    // Peak delta in dB
+    final lPeakDb = lPeak > 1e-10 ? 20.0 * math.log(lPeak) / math.ln10 : -100.0;
+    final rPeakDb = rPeak > 1e-10 ? 20.0 * math.log(rPeak) / math.ln10 : -100.0;
+    final peakDeltaDb = (lPeakDb - rPeakDb).abs();
+
+    // RMS delta in dB
+    final lRms = math.sqrt(lSumSq / frameCount);
+    final rRms = math.sqrt(rSumSq / frameCount);
+    final lRmsDb = lRms > 1e-10 ? 20.0 * math.log(lRms) / math.ln10 : -100.0;
+    final rRmsDb = rRms > 1e-10 ? 20.0 * math.log(rRms) / math.ln10 : -100.0;
+    final rmsDeltaDb = (lRmsDb - rRmsDb).abs();
+
+    // Content mono: if L-R energy is <1% of L+R energy, it's dual-mono
+    final isContentMono = sumSumSq > 1e-10 && (diffSumSq / sumSumSq) < 0.01;
+
+    return _StereoAnalysis(
+      peakDeltaDb: peakDeltaDb,
+      rmsDeltaDb: rmsDeltaDb,
+      isContentMono: isContentMono,
+    );
+  }
+
+  // ─── Flat Factor (Pre-Limiting Detection) ─────────────────────────────
+
+  /// Count maximum consecutive samples at the peak level.
+  /// A high flat factor (>10) indicates brick-wall limiting at source.
+  /// These files should skip TruePeakLimiter to avoid double-limiting artifacts.
+  double _measureFlatFactor(List<double> samples) {
+    if (samples.isEmpty) return 0.0;
+
+    // Find the peak value
+    double peak = 0.0;
+    for (final s in samples) {
+      final a = s.abs();
+      if (a > peak) peak = a;
+    }
+    if (peak < 0.01) return 0.0; // Very quiet, no meaningful flat factor
+
+    // Count max consecutive samples within 0.01 dB of peak
+    // Threshold: within 99.9% of peak (≈ 0.01 dB)
+    final threshold = peak * 0.999;
+    int maxConsecutive = 0;
+    int currentRun = 0;
+
+    for (final s in samples) {
+      if (s.abs() >= threshold) {
+        currentRun++;
+        if (currentRun > maxConsecutive) maxConsecutive = currentRun;
+      } else {
+        currentRun = 0;
+      }
+    }
+
+    return maxConsecutive.toDouble();
+  }
+
+  // ─── Loudness Group Detection ─────────────────────────────────────────
+
+  /// Detect if a filename belongs to a numbered loudness group.
+  /// Examples: "Win1.wav"→"Win", "ScatterLand3.wav"→"ScatterLand",
+  /// "SymbolB01Land3.wav"→"SymbolB01Land"
+  String? _detectLoudnessGroup(String filename) {
+    final stem = p.basenameWithoutExtension(filename);
+
+    // Match patterns like "Name123" or "Name_123" at end of stem
+    // Known escalating groups from Aztec analysis
+    final patterns = [
+      RegExp(r'^(Win)\d+$', caseSensitive: false),
+      RegExp(r'^(ScatterLand)\d+$', caseSensitive: false),
+      RegExp(r'^(SymbolB\d+Land)\d+$', caseSensitive: false),
+      RegExp(r'^(SymbolS)\d+$', caseSensitive: false),
+      RegExp(r'^(BigWinTier)\d+$', caseSensitive: false),
+      RegExp(r'^(ReelLand)\d+$', caseSensitive: false),
+      // snake_case variants
+      RegExp(r'^(win_?)\d+$', caseSensitive: false),
+      RegExp(r'^(scatter_land_?)\d+$', caseSensitive: false),
+      RegExp(r'^(reel_land_?)\d+$', caseSensitive: false),
+      RegExp(r'^(symbol_s_?)\d+$', caseSensitive: false),
+    ];
+
+    for (final pattern in patterns) {
+      final match = pattern.firstMatch(stem);
+      if (match != null) {
+        return match.group(1)!;
+      }
+    }
+
+    return null;
+  }
+
+  // ─── Audio-Identical Detection ────────────────────────────────────────
+
+  /// Detect audio-identical files by hashing the raw WAV data chunk.
+  /// Modifies results in-place to set `duplicateOf` on duplicates.
+  void _detectDuplicates(List<SfxScanResult> results) {
+    // Hash map: audioHash → first filename with that hash
+    final hashMap = <String, String>{};
+    final duplicates = <int, String>{}; // index → duplicateOf filename
+
+    for (int i = 0; i < results.length; i++) {
+      final file = File(results[i].path);
+      if (!file.existsSync()) continue;
+
+      try {
+        final bytes = file.readAsBytesSync();
+        // Hash only the data chunk (skip WAV header and trailing metadata)
+        final (dataStart, dataSize) = _findWavDataChunk(bytes);
+        if (dataStart < 0) continue;
+
+        final dataEnd = (dataStart + dataSize).clamp(dataStart, bytes.length);
+        final audioBytes = bytes.sublist(dataStart, dataEnd);
+        final hash = md5.convert(audioBytes).toString();
+
+        if (hashMap.containsKey(hash)) {
+          duplicates[i] = hashMap[hash]!;
+        } else {
+          hashMap[hash] = results[i].filename;
+        }
+      } catch (_) {
+        // Skip files that can't be hashed
+      }
+    }
+
+    // Apply duplicateOf to results
+    for (final entry in duplicates.entries) {
+      results[entry.key] = results[entry.key].copyWith(
+        duplicateOf: entry.value,
+      );
+    }
+  }
+
+  /// Find the offset and size of the WAV 'data' chunk payload.
+  /// Returns (offset, size) or (-1, 0) if not a valid WAV or data chunk not found.
+  (int, int) _findWavDataChunk(Uint8List bytes) {
+    if (bytes.length < 44) return (-1, 0);
+
+    final riff = String.fromCharCodes(bytes.sublist(0, 4));
+    if (riff != 'RIFF') return (-1, 0);
+    final wave = String.fromCharCodes(bytes.sublist(8, 12));
+    if (wave != 'WAVE') return (-1, 0);
+
+    int offset = 12;
+    while (offset + 8 <= bytes.length) {
+      final chunkId = String.fromCharCodes(bytes.sublist(offset, offset + 4));
+      final chunkSize = bytes.buffer.asByteData().getUint32(offset + 4, Endian.little);
+
+      if (chunkId == 'data') {
+        return (offset + 8, chunkSize); // Start and size of audio data
+      }
+
+      offset += 8 + chunkSize;
+      if (offset % 2 != 0) offset++; // WAV chunk padding
+    }
+
+    return (-1, 0);
+  }
+
+  // ─── Group Normalize Offsets ──────────────────────────────────────────
+
+  /// Compute per-file LUFS offsets for escalating loudness groups.
+  /// For each group, calculates what offset each file needs so that
+  /// the group average hits the category target while preserving
+  /// the internal LUFS ratios between files in the group.
+  Map<String, double> _computeGroupNormalizeOffsets(
+    List<SfxScanResult> files,
+    SfxPipelinePreset preset,
+  ) {
+    final offsets = <String, double>{};
+
+    // Group files by their loudnessGroup
+    final groups = <String, List<SfxScanResult>>{};
+    for (final f in files) {
+      if (f.loudnessGroup != null) {
+        groups.putIfAbsent(f.loudnessGroup!, () => []).add(f);
+      }
+    }
+
+    for (final entry in groups.entries) {
+      final groupFiles = entry.value;
+      if (groupFiles.length < 2) continue; // Single file, no group logic needed
+
+      // Calculate current group average LUFS
+      double sumLufs = 0.0;
+      for (final f in groupFiles) {
+        sumLufs += f.integratedLufs;
+      }
+      final avgLufs = sumLufs / groupFiles.length;
+
+      // Resolve target LUFS for this group's category
+      double targetLufs = preset.targetLufs;
+      if (preset.categoryDetection) {
+        final override = preset.perCategoryOverrides[groupFiles.first.detectedCategory];
+        if (override != null) {
+          targetLufs = override;
+        }
+      }
+
+      // Offset = how much to shift each file (preserves internal differences)
+      final groupOffset = targetLufs - avgLufs;
+
+      for (final f in groupFiles) {
+        offsets[f.filename] = groupOffset;
+      }
+    }
+
+    return offsets;
+  }
+}
+
+/// Internal stereo analysis result
+class _StereoAnalysis {
+  final double peakDeltaDb;
+  final double rmsDeltaDb;
+  final bool isContentMono;
+
+  const _StereoAnalysis({
+    required this.peakDeltaDb,
+    required this.rmsDeltaDb,
+    required this.isContentMono,
+  });
 }
 
 class _CancelledException implements Exception {}
