@@ -770,7 +770,7 @@ enum SlotLabMixSubTab { buses, sends, pan, meter, hierarchy, ducking }
 enum SlotLabDspSubTab { chain, eq, comp, reverb, gate, limiter, attenuation, signatures, dspProfiler, layerDsp, presetMorph, spatial }
 enum SlotLabRtpcSubTab { curves, macros, dspBinding, debugger }
 enum SlotLabContainersSubTab { blend, random, sequence, abCompare, crossfade, groups, presets, metrics, timeline, wizard }
-enum SlotLabMusicSubTab { segments, stingers, transitions, looping, beatGrid, tempoStates }
+enum SlotLabMusicSubTab { layers, segments, stingers, transitions, looping, beatGrid, tempoStates }
 enum SlotLabBakeSubTab { export, stems, variations, package, git, analytics, docs, macro, macroMon, macroReport, macroConfig, macroHistory }
 
 /// LOGIC sub-tabs — Core middleware panels (behavior tree, triggers, state gate, etc.)
@@ -940,9 +940,10 @@ extension SlotLabContainersSubTabX on SlotLabContainersSubTab {
 }
 
 extension SlotLabMusicSubTabX on SlotLabMusicSubTab {
-  String get label => ['Segments', 'Stingers', 'Transitions', 'Looping', 'Beat Grid', 'Tempo States'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y'][index];
+  String get label => ['Layers', 'Segments', 'Stingers', 'Transitions', 'Looping', 'Beat Grid', 'Tempo States'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U'][index];
   String get tooltip => [
+    'Dynamic layers — win-driven music layer crossfade controller',
     'Music segments — interactive music section editor',
     'Stingers — one-shot musical transitions',
     'Transitions — segment-to-segment transition rules',

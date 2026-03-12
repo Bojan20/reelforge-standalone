@@ -1,4 +1,4 @@
-/// SlotLab MUSIC Tab — Segments, Stingers, Transitions
+/// SlotLab MUSIC Tab — Layers, Segments, Stingers, Transitions
 ///
 /// Unified interactive music system from middleware into SlotLab lower zone.
 
@@ -10,6 +10,7 @@ import '../../middleware/music_transition_preview_panel.dart';
 import '../../middleware/music_segment_looping_panel.dart';
 import '../../middleware/beat_grid_editor.dart';
 import '../../middleware/tempo_state_panel.dart';
+import 'slotlab_music_layers_panel.dart';
 
 class SlotLabMusicTabContent extends StatelessWidget {
   final SlotLabMusicSubTab subTab;
@@ -19,6 +20,7 @@ class SlotLabMusicTabContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return switch (subTab) {
+      SlotLabMusicSubTab.layers => const SlotLabMusicLayersPanel(),
       SlotLabMusicSubTab.segments => const _SegmentsPanel(),
       SlotLabMusicSubTab.stingers => const _StingersPanel(),
       SlotLabMusicSubTab.transitions => const _TransitionsPanel(),

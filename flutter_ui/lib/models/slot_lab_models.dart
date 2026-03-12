@@ -722,6 +722,141 @@ class SymbolAudioAssignment {
   }
 }
 
+/// Dynamic music layer escalation/de-escalation configuration.
+/// Data-driven: thresholds, crossfade durations, revert spin count — all configurable.
+class MusicLayerConfig {
+  /// Ordered list of layer thresholds (index 0 = L1, index 1 = L2, etc.)
+  /// L1 is the default layer (always active, threshold 0).
+  final List<MusicLayerThreshold> thresholds;
+
+  /// Number of spins without meeting the escalated layer's threshold
+  /// before auto-reverting to the previous layer.
+  final int revertSpinCount;
+
+  /// Crossfade duration in milliseconds when switching layers.
+  final int crossfadeMs;
+
+  /// Crossfade curve type: 'equalPower', 'linear', 'sCurve'
+  final String crossfadeCurve;
+
+  /// Whether dynamic layer switching is enabled.
+  final bool enabled;
+
+  const MusicLayerConfig({
+    this.thresholds = const [],
+    this.revertSpinCount = 7,
+    this.crossfadeMs = 1500,
+    this.crossfadeCurve = 'equalPower',
+    this.enabled = true,
+  });
+
+  MusicLayerConfig copyWith({
+    List<MusicLayerThreshold>? thresholds,
+    int? revertSpinCount,
+    int? crossfadeMs,
+    String? crossfadeCurve,
+    bool? enabled,
+  }) {
+    return MusicLayerConfig(
+      thresholds: thresholds ?? this.thresholds,
+      revertSpinCount: revertSpinCount ?? this.revertSpinCount,
+      crossfadeMs: crossfadeMs ?? this.crossfadeMs,
+      crossfadeCurve: crossfadeCurve ?? this.crossfadeCurve,
+      enabled: enabled ?? this.enabled,
+    );
+  }
+
+  factory MusicLayerConfig.fromJson(Map<String, dynamic> json) {
+    return MusicLayerConfig(
+      thresholds: (json['thresholds'] as List<dynamic>?)
+              ?.map((e) => MusicLayerThreshold.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
+      revertSpinCount: json['revertSpinCount'] as int? ?? 7,
+      crossfadeMs: json['crossfadeMs'] as int? ?? 1500,
+      crossfadeCurve: json['crossfadeCurve'] as String? ?? 'equalPower',
+      enabled: json['enabled'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'thresholds': thresholds.map((t) => t.toJson()).toList(),
+      'revertSpinCount': revertSpinCount,
+      'crossfadeMs': crossfadeMs,
+      'crossfadeCurve': crossfadeCurve,
+      'enabled': enabled,
+    };
+  }
+
+  /// Default config for 3 layers: L1 = base, L2 = mid wins, L3 = hot streak
+  factory MusicLayerConfig.defaultThreeLayers() {
+    return const MusicLayerConfig(
+      thresholds: [
+        MusicLayerThreshold(layer: 1, minWinRatio: 0.0, label: 'Calm'),
+        MusicLayerThreshold(layer: 2, minWinRatio: 2.0, label: 'Warm'),
+        MusicLayerThreshold(layer: 3, minWinRatio: 5.0, label: 'Hot'),
+      ],
+      revertSpinCount: 7,
+      crossfadeMs: 1500,
+      crossfadeCurve: 'equalPower',
+      enabled: true,
+    );
+  }
+
+  /// Default config for 5 layers
+  factory MusicLayerConfig.defaultFiveLayers() {
+    return const MusicLayerConfig(
+      thresholds: [
+        MusicLayerThreshold(layer: 1, minWinRatio: 0.0, label: 'Calm'),
+        MusicLayerThreshold(layer: 2, minWinRatio: 2.0, label: 'Warm'),
+        MusicLayerThreshold(layer: 3, minWinRatio: 5.0, label: 'Hot'),
+        MusicLayerThreshold(layer: 4, minWinRatio: 15.0, label: 'Fire'),
+        MusicLayerThreshold(layer: 5, minWinRatio: 50.0, label: 'Inferno'),
+      ],
+      revertSpinCount: 7,
+      crossfadeMs: 2000,
+      crossfadeCurve: 'equalPower',
+      enabled: true,
+    );
+  }
+}
+
+/// Threshold definition for a single music layer.
+/// When winRatio >= minWinRatio, this layer becomes eligible for activation.
+class MusicLayerThreshold {
+  /// Layer number (1-5, matches MUSIC_BASE_L1-L5)
+  final int layer;
+
+  /// Minimum win ratio to activate this layer (0 = always, 2 = 2x bet, etc.)
+  final double minWinRatio;
+
+  /// Human-readable label for this layer state
+  final String label;
+
+  const MusicLayerThreshold({
+    required this.layer,
+    required this.minWinRatio,
+    this.label = '',
+  });
+
+  factory MusicLayerThreshold.fromJson(Map<String, dynamic> json) {
+    return MusicLayerThreshold(
+      layer: json['layer'] as int,
+      minWinRatio: (json['minWinRatio'] as num).toDouble(),
+      label: json['label'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'layer': layer,
+      'minWinRatio': minWinRatio,
+      'label': label,
+    };
+  }
+}
+
 /// Audio assignment for a music layer slot
 class MusicLayerAssignment {
   final String contextId;
@@ -811,6 +946,9 @@ class SlotLabProject {
   final List<Map<String, dynamic>>? compositeEventsJson;
   final List<Map<String, dynamic>>? eventRegistryJson;
 
+  // V13: Dynamic Music Layer Config
+  final MusicLayerConfig? musicLayerConfig;
+
   const SlotLabProject({
     required this.name,
     this.version = '1.0',
@@ -842,6 +980,8 @@ class SlotLabProject {
     // V12: Audio persistence
     this.compositeEventsJson,
     this.eventRegistryJson,
+    // V13: Dynamic music layer config
+    this.musicLayerConfig,
   });
 
   /// Create default project with standard symbols and contexts
@@ -956,6 +1096,10 @@ class SlotLabProject {
           ?.cast<Map<String, dynamic>>(),
       eventRegistryJson: (json['eventRegistry'] as List<dynamic>?)
           ?.cast<Map<String, dynamic>>(),
+      // V13: Dynamic music layer config
+      musicLayerConfig: json['musicLayerConfig'] != null
+          ? MusicLayerConfig.fromJson(json['musicLayerConfig'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -987,6 +1131,8 @@ class SlotLabProject {
         'compositeEvents': compositeEventsJson,
       if (eventRegistryJson != null && eventRegistryJson!.isNotEmpty)
         'eventRegistry': eventRegistryJson,
+      // V13: Dynamic music layer config
+      if (musicLayerConfig != null) 'musicLayerConfig': musicLayerConfig!.toJson(),
     };
   }
 

@@ -7,11 +7,14 @@
 /// - Audio settings (volumes, mutes)
 /// - Playback state (auto trigger, etc.)
 /// - ALE signal sync
+/// - Dynamic music layer switching (MusicLayerController)
 library;
 
 import 'package:flutter/foundation.dart';
 
+import '../../models/slot_lab_models.dart';
 import '../../services/event_registry.dart';
+import '../../services/audio_playback_service.dart';
 import '../../services/audio_asset_manager.dart';
 import '../../src/rust/native_ffi.dart';
 import '../middleware_provider.dart';
@@ -34,6 +37,9 @@ class SlotAudioProvider extends ChangeNotifier {
   bool _aleAutoSync = true;
   double _betAmount = 1.0;
   int _totalReels = 5;
+
+  // ─── Dynamic Music Layer Controller ───────────────────────────────────
+  final MusicLayerController _musicLayerController = MusicLayerController();
 
   // ─── Persistent UI State ────────────────────────────────────────────────
   /// Audio pool now comes from AudioAssetManager (single source of truth)
@@ -65,6 +71,7 @@ class SlotAudioProvider extends ChangeNotifier {
 
   bool get autoTriggerAudio => _autoTriggerAudio;
   bool get aleAutoSync => _aleAutoSync;
+  MusicLayerController get musicLayerController => _musicLayerController;
 
   int get persistedLowerZoneTabIndex => _persistedLowerZoneTabIndex;
   bool get persistedLowerZoneExpanded => _persistedLowerZoneExpanded;
@@ -126,13 +133,17 @@ class SlotAudioProvider extends ChangeNotifier {
   // ALE SIGNAL SYNC
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Sync Slot Lab state to ALE signals
+  /// Sync Slot Lab state to ALE signals + evaluate dynamic music layers
   void syncAleSignals(SlotLabSpinResult? result, double hitRate, bool inFreeSpins, int freeSpinsRemaining, int spinCount, double volatilitySlider, List<SlotLabStageEvent> lastStages) {
+    if (result == null) return;
+
+    // Dynamic music layer evaluation — independent of ALE
+    _musicLayerController.evaluateAfterSpin(result.winRatio, notifyListeners);
+
+    // ALE signal sync
     if (!_aleAutoSync || _aleProvider == null || !_aleProvider!.initialized) {
       return;
     }
-
-    if (result == null) return;
 
     final signals = <String, double>{
       'winTier': _calculateWinTier(result.winRatio),
@@ -151,7 +162,6 @@ class SlotAudioProvider extends ChangeNotifier {
 
     _aleProvider!.updateSignals(signals);
     _syncAleContext(result, inFreeSpins);
-
   }
 
   double _calculateWinTier(double winRatio) {
@@ -321,6 +331,28 @@ class SlotAudioProvider extends ChangeNotifier {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // DYNAMIC MUSIC LAYER CONTROL
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Load music layer config (from project load)
+  void loadMusicLayerConfig(MusicLayerConfig config) {
+    _musicLayerController.loadConfig(config);
+    notifyListeners();
+  }
+
+  /// Update music layer config (from UI)
+  void updateMusicLayerConfig(MusicLayerConfig config) {
+    _musicLayerController.loadConfig(config);
+    notifyListeners();
+  }
+
+  /// Reset music layer state (on new session / pool reset)
+  void resetMusicLayerState() {
+    _musicLayerController.reset();
+    notifyListeners();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // PERSISTED STATE
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -330,7 +362,272 @@ class SlotAudioProvider extends ChangeNotifier {
     persistedCompositeEvents.clear();
     persistedTracks.clear();
     persistedEventToRegionMap.clear();
+    _musicLayerController.reset();
     notifyListeners();
   }
 
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MUSIC LAYER CONTROLLER
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// Manages dynamic music layer switching based on win thresholds.
+// Architecture:
+//   - All MUSIC_BASE_L1-L5 start simultaneously via GAME_START composite
+//     (L1 at full volume, L2-L5 at volume 0)
+//   - This controller adjusts volumes via EventRegistry.setLayerVolume()
+//   - Escalation: when winRatio exceeds a threshold, crossfade to higher layer
+//   - De-escalation: after N spins without meeting threshold, revert to previous
+//   - Uses equal power crossfade for perceptually smooth transitions
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class MusicLayerController extends ChangeNotifier {
+  // ─── State ─────────────────────────────────────────────────────────────
+  MusicLayerConfig _config = const MusicLayerConfig();
+  int _activeLayer = 1;
+  int _previousLayer = 1;
+  int _spinsSinceEscalation = 0;
+  bool _isEscalated = false;
+
+  // ─── History for UI visualization ──────────────────────────────────────
+  final List<MusicLayerEvent> _history = [];
+
+  // ─── Getters ───────────────────────────────────────────────────────────
+  MusicLayerConfig get config => _config;
+  int get activeLayer => _activeLayer;
+  int get previousLayer => _previousLayer;
+  int get spinsSinceEscalation => _spinsSinceEscalation;
+  bool get isEscalated => _isEscalated;
+  List<MusicLayerEvent> get history => List.unmodifiable(_history);
+
+  /// Human-readable label for the current active layer
+  String get activeLayerLabel {
+    final threshold = _config.thresholds
+        .where((t) => t.layer == _activeLayer)
+        .firstOrNull;
+    return threshold?.label ?? 'L$_activeLayer';
+  }
+
+  /// How many assigned layers exist in config
+  int get configuredLayerCount => _config.thresholds.length;
+
+  /// Whether the controller has a valid config with 2+ layers
+  bool get hasMultipleLayers => _config.thresholds.length >= 2 && _config.enabled;
+
+  // ─── Configuration ─────────────────────────────────────────────────────
+
+  void loadConfig(MusicLayerConfig config) {
+    _config = config;
+    notifyListeners();
+  }
+
+  void reset() {
+    _activeLayer = 1;
+    _previousLayer = 1;
+    _spinsSinceEscalation = 0;
+    _isEscalated = false;
+    _history.clear();
+    notifyListeners();
+  }
+
+  // ─── Core Evaluation — called after every spin ─────────────────────────
+
+  /// Evaluate whether to switch music layer based on winRatio.
+  /// Returns the layer transition if one occurred, null otherwise.
+  /// [parentNotify] is called to propagate notifyListeners to SlotAudioProvider.
+  MusicLayerTransition? evaluateAfterSpin(double winRatio, VoidCallback parentNotify) {
+    if (!_config.enabled || _config.thresholds.length < 2) return null;
+
+    // Sort thresholds descending by minWinRatio to find highest eligible layer
+    final sorted = List<MusicLayerThreshold>.from(_config.thresholds)
+      ..sort((a, b) => b.minWinRatio.compareTo(a.minWinRatio));
+
+    // Find the highest layer whose threshold is met
+    int targetLayer = 1; // Default: L1
+    for (final threshold in sorted) {
+      if (winRatio >= threshold.minWinRatio) {
+        targetLayer = threshold.layer;
+        break;
+      }
+    }
+
+    final previousActive = _activeLayer;
+
+    if (targetLayer > _activeLayer) {
+      // ── ESCALATION ──
+      _previousLayer = _activeLayer;
+      _activeLayer = targetLayer;
+      _spinsSinceEscalation = 0;
+      _isEscalated = true;
+
+      final transition = MusicLayerTransition(
+        fromLayer: previousActive,
+        toLayer: targetLayer,
+        reason: MusicLayerTransitionReason.escalation,
+        winRatio: winRatio,
+        crossfadeMs: _config.crossfadeMs,
+      );
+
+      _addHistoryEvent(transition);
+      _applyCrossfade(transition);
+      notifyListeners();
+      parentNotify();
+      return transition;
+
+    } else if (_isEscalated) {
+      // Currently escalated — check if threshold is still met
+      final activeThreshold = _config.thresholds
+          .where((t) => t.layer == _activeLayer)
+          .firstOrNull;
+
+      if (activeThreshold != null && winRatio >= activeThreshold.minWinRatio) {
+        // Threshold still met — reset spin counter
+        _spinsSinceEscalation = 0;
+        _addHistoryEvent(MusicLayerTransition(
+          fromLayer: _activeLayer,
+          toLayer: _activeLayer,
+          reason: MusicLayerTransitionReason.sustained,
+          winRatio: winRatio,
+          crossfadeMs: 0,
+        ));
+        notifyListeners();
+        parentNotify();
+        return null;
+      }
+
+      // Threshold NOT met — increment revert counter
+      _spinsSinceEscalation++;
+
+      if (_spinsSinceEscalation >= _config.revertSpinCount) {
+        // ── DE-ESCALATION (auto-revert) ──
+        final revertTo = _previousLayer;
+        _previousLayer = _activeLayer;
+        _activeLayer = revertTo;
+        _spinsSinceEscalation = 0;
+        _isEscalated = revertTo > 1;
+
+        final transition = MusicLayerTransition(
+          fromLayer: previousActive,
+          toLayer: revertTo,
+          reason: MusicLayerTransitionReason.revert,
+          winRatio: winRatio,
+          crossfadeMs: _config.crossfadeMs,
+        );
+
+        _addHistoryEvent(transition);
+        _applyCrossfade(transition);
+        notifyListeners();
+        parentNotify();
+        return transition;
+      }
+
+      // Still counting down — no transition
+      _addHistoryEvent(MusicLayerTransition(
+        fromLayer: _activeLayer,
+        toLayer: _activeLayer,
+        reason: MusicLayerTransitionReason.countdown,
+        winRatio: winRatio,
+        crossfadeMs: 0,
+        spinsRemaining: _config.revertSpinCount - _spinsSinceEscalation,
+      ));
+      notifyListeners();
+      parentNotify();
+    }
+
+    return null;
+  }
+
+  // ─── Crossfade Application ─────────────────────────────────────────────
+
+  void _applyCrossfade(MusicLayerTransition transition) {
+    final registry = EventRegistry.instance;
+    final playback = AudioPlaybackService.instance;
+    final fadeMs = transition.crossfadeMs;
+
+    // Ensure _layerVolumes is initialized for all configured layers
+    // so fadeLayerVolume knows correct start volumes.
+    // fromLayer was at 1.0, others at 0.0 (GAME_START composite behavior).
+    for (final threshold in _config.thresholds) {
+      final layerId = 'game_start_l${threshold.layer}';
+      if (!playback.layerVolumes.containsKey(layerId)) {
+        playback.layerVolumes[layerId] =
+            threshold.layer == transition.fromLayer ? 1.0 : 0.0;
+      }
+    }
+
+    // Apply crossfade: target layer → 1.0, all others → 0.0
+    for (final threshold in _config.thresholds) {
+      final layer = threshold.layer;
+      final layerId = 'game_start_l$layer';
+      final targetVolume = layer == transition.toLayer ? 1.0 : 0.0;
+
+      // Use EventRegistry setLayerVolume with fade
+      if (registry.hasEventForStage('MUSIC_BASE_L$layer') || registry.hasEventForStage('GAME_START')) {
+        registry.setLayerVolume(layerId, targetVolume, fadeMs: fadeMs);
+      }
+    }
+  }
+
+  // ─── History ───────────────────────────────────────────────────────────
+
+  void _addHistoryEvent(MusicLayerTransition transition) {
+    _history.add(MusicLayerEvent(
+      timestamp: DateTime.now(),
+      transition: transition,
+      activeLayer: _activeLayer,
+      spinsSinceEscalation: _spinsSinceEscalation,
+    ));
+    // Keep last 100 entries
+    if (_history.length > 100) {
+      _history.removeRange(0, _history.length - 100);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MUSIC LAYER DATA TYPES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+enum MusicLayerTransitionReason {
+  /// Win threshold exceeded — escalate to higher layer
+  escalation,
+  /// Threshold no longer met after N spins — revert to previous
+  revert,
+  /// Threshold still met — reset countdown
+  sustained,
+  /// Threshold not met — counting down to revert
+  countdown,
+}
+
+class MusicLayerTransition {
+  final int fromLayer;
+  final int toLayer;
+  final MusicLayerTransitionReason reason;
+  final double winRatio;
+  final int crossfadeMs;
+  final int? spinsRemaining;
+
+  const MusicLayerTransition({
+    required this.fromLayer,
+    required this.toLayer,
+    required this.reason,
+    required this.winRatio,
+    required this.crossfadeMs,
+    this.spinsRemaining,
+  });
+}
+
+class MusicLayerEvent {
+  final DateTime timestamp;
+  final MusicLayerTransition transition;
+  final int activeLayer;
+  final int spinsSinceEscalation;
+
+  const MusicLayerEvent({
+    required this.timestamp,
+    required this.transition,
+    required this.activeLayer,
+    required this.spinsSinceEscalation,
+  });
 }

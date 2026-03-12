@@ -21,6 +21,7 @@ import 'package:get_it/get_it.dart';
 import '../services/event_registry.dart';
 import 'middleware_provider.dart';
 import 'slot_lab/feature_composer_provider.dart';
+import 'slot_lab/slot_audio_provider.dart';
 import 'subsystems/composite_event_system_provider.dart';
 
 /// Provider for SlotLab V6 project state
@@ -52,6 +53,9 @@ class SlotLabProjectProvider extends ChangeNotifier {
     ContextDefinition.holdWin(),
   ];
   List<MusicLayerAssignment> _musicLayers = [];
+
+  // V13: Dynamic Music Layer Config
+  MusicLayerConfig? _musicLayerConfig;
 
   // ==========================================================================
   // ULTIMATE AUDIO PANEL STATE (V7)
@@ -147,6 +151,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
   List<ContextDefinition> get contexts => _contexts;
   List<SymbolAudioAssignment> get symbolAudio => _symbolAudio;
   List<MusicLayerAssignment> get musicLayers => _musicLayers;
+  MusicLayerConfig? get musicLayerConfig => _musicLayerConfig;
 
   // UltimateAudioPanel state getters
   Map<String, String> get audioAssignments => Map.unmodifiable(_audioAssignments);
@@ -241,6 +246,8 @@ class SlotLabProjectProvider extends ChangeNotifier {
         // V12: Audio persistence — composite events + EventRegistry
         compositeEventsJson: _snapshotCompositeEvents(),
         eventRegistryJson: _snapshotEventRegistry(),
+        // V13: Dynamic music layer config
+        musicLayerConfig: _musicLayerConfig,
       );
   }
 
@@ -265,6 +272,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
     ];
     _symbolAudio = [];
     _musicLayers = [];
+    _musicLayerConfig = null;
     // Reset audio panel state
     _audioAssignments = {};
     _expandedSections = {'spins_reels', 'symbols', 'wins'};
@@ -1425,6 +1433,16 @@ class SlotLabProjectProvider extends ChangeNotifier {
   }
 
   // ==========================================================================
+  // DYNAMIC MUSIC LAYER CONFIG (V13)
+  // ==========================================================================
+
+  /// Set the dynamic music layer configuration
+  void setMusicLayerConfig(MusicLayerConfig config) {
+    _musicLayerConfig = config;
+    _markDirty();
+  }
+
+  // ==========================================================================
   // MUSIC LAYER ASSIGNMENTS
   // ==========================================================================
 
@@ -1891,6 +1909,11 @@ class SlotLabProjectProvider extends ChangeNotifier {
     // V12: Restore composite events + EventRegistry
     _restoreCompositeEvents(loaded.compositeEventsJson);
     _restoreEventRegistry(loaded.eventRegistryJson);
+    // V13: Restore dynamic music layer config
+    _musicLayerConfig = loaded.musicLayerConfig;
+    if (_musicLayerConfig != null && GetIt.instance.isRegistered<SlotAudioProvider>()) {
+      GetIt.instance<SlotAudioProvider>().loadMusicLayerConfig(_musicLayerConfig!);
+    }
     _isDirty = false;
     _sanitizeNofMVariantAssignments(); // Fix persisted NofM variant paths
     _syncSymbolStages(); // Sync stages for loaded symbols
@@ -2096,6 +2119,11 @@ class SlotLabProjectProvider extends ChangeNotifier {
       } else {
         composer.resetConfig();
       }
+    }
+    // V13: Restore dynamic music layer config
+    _musicLayerConfig = loaded.musicLayerConfig;
+    if (_musicLayerConfig != null && GetIt.instance.isRegistered<SlotAudioProvider>()) {
+      GetIt.instance<SlotAudioProvider>().loadMusicLayerConfig(_musicLayerConfig!);
     }
     _sanitizeNofMVariantAssignments(); // Fix persisted NofM variant paths
     _syncSymbolStages(); // Sync stages for imported symbols

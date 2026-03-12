@@ -65,6 +65,10 @@ class AudioPlaybackService extends ChangeNotifier {
   final List<VoiceInfo> _activeVoices = [];
   final Map<String, List<int>> _eventVoices = {}; // eventId → [voiceIds]
   final List<Timer> _fadeTimers = [];
+  final Map<String, double> _layerVolumes = {}; // layerId → current volume (for crossfade)
+  final Map<String, Timer> _layerFadeTimers = {}; // layerId → active fade timer (cancel on new fade)
+  /// Exposed for MusicLayerController to initialize layer volumes before first crossfade
+  Map<String, double> get layerVolumes => _layerVolumes;
 
   bool _isPlaying = false;
 
@@ -903,6 +907,66 @@ class AudioPlaybackService extends ChangeNotifier {
     }
   }
 
+  /// Fade layer volume from current to target over fadeMs with equal-power curve.
+  /// Used by MusicLayerController for smooth crossfades between music layers.
+  /// Cancels any in-progress fade for the same layerId (prevents concurrent fade conflicts).
+  void fadeLayerVolume(String layerId, double targetVolume, {int fadeMs = 1500}) {
+    // Cancel any in-progress fade for this layer
+    final existing = _layerFadeTimers.remove(layerId);
+    if (existing != null) {
+      existing.cancel();
+      _fadeTimers.remove(existing);
+    }
+
+    final voices = _activeVoices.where((v) => v.layerId == layerId).toList();
+    if (voices.isEmpty) {
+      // No active voices — just record target volume for future use
+      _layerVolumes[layerId] = targetVolume;
+      return;
+    }
+
+    if (fadeMs <= 0) {
+      for (final voice in voices) {
+        _ffi.setVoiceVolume(voice.voiceId, targetVolume);
+      }
+      _layerVolumes[layerId] = targetVolume;
+      return;
+    }
+
+    const stepMs = 16; // ~60fps
+    final steps = (fadeMs / stepMs).ceil();
+    final startVol = _layerVolumes[layerId] ?? 1.0;
+
+    int step = 0;
+    final timer = Timer.periodic(Duration(milliseconds: stepMs), (timer) {
+      step++;
+      final t = (step / steps).clamp(0.0, 1.0);
+      // Equal power crossfade curve: sin(t * pi/2)
+      final curved = math.sin(t * math.pi / 2);
+      final vol = startVol + (targetVolume - startVol) * curved;
+
+      // Re-query voices (some may have stopped during fade)
+      final currentVoices = _activeVoices.where((v) => v.layerId == layerId);
+      for (final voice in currentVoices) {
+        _ffi.setVoiceVolume(voice.voiceId, vol.clamp(0.0, 1.0));
+      }
+      _layerVolumes[layerId] = vol.clamp(0.0, 1.0);
+
+      if (step >= steps) {
+        final finalVoices = _activeVoices.where((v) => v.layerId == layerId);
+        for (final voice in finalVoices) {
+          _ffi.setVoiceVolume(voice.voiceId, targetVolume);
+        }
+        _layerVolumes[layerId] = targetVolume;
+        timer.cancel();
+        _fadeTimers.remove(timer);
+        _layerFadeTimers.remove(layerId);
+      }
+    });
+    _fadeTimers.add(timer);
+    _layerFadeTimers[layerId] = timer;
+  }
+
   /// Update pan for a specific voice by layer ID
   void updateLayerPan(String layerId, double pan) {
     for (final voice in _activeVoices) {
@@ -1034,6 +1098,11 @@ class AudioPlaybackService extends ChangeNotifier {
       timer.cancel();
     }
     _fadeTimers.clear();
+    for (final timer in _layerFadeTimers.values) {
+      timer.cancel();
+    }
+    _layerFadeTimers.clear();
+    _layerVolumes.clear();
     cancelAllPreTriggers();
     stopAll();
     super.dispose();

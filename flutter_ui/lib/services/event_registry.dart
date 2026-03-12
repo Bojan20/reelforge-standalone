@@ -3796,6 +3796,16 @@ class EventRegistry extends ChangeNotifier {
     AudioPlaybackService.instance.updateLayerVolume(layerId, volume);
   }
 
+  /// Fade layer volume with equal-power crossfade curve over fadeMs.
+  /// Used by MusicLayerController for smooth music layer transitions.
+  void setLayerVolume(String layerId, double targetVolume, {int fadeMs = 0}) {
+    if (fadeMs > 0) {
+      AudioPlaybackService.instance.fadeLayerVolume(layerId, targetVolume, fadeMs: fadeMs);
+    } else {
+      AudioPlaybackService.instance.updateLayerVolume(layerId, targetVolume);
+    }
+  }
+
   /// Update pan for all active voices of a layer in real-time
   void updateActiveLayerPan(String layerId, double pan) {
     AudioPlaybackService.instance.updateLayerPan(layerId, pan);
