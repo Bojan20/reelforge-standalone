@@ -3002,6 +3002,30 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Sort: by stage name alphabetically → hierarchical order
     allMatched.sort((a, b) => a.stage.compareTo(b.stage));
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // DISTRIBUTE MUSIC_BASE_L1 DUPLICATES → L1, L2, L3, L4, L5
+    // When multiple files match MUSIC_BASE_L1 (same generic name like "music_loop"),
+    // spread them across layers so all get assigned, not just the last one.
+    // ═══════════════════════════════════════════════════════════════════════
+    final l1Matches = allMatched.where((m) => m.stage == 'MUSIC_BASE_L1').toList();
+    if (l1Matches.length > 1) {
+      const layerStages = ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5'];
+      // Remove all L1 duplicates from allMatched
+      allMatched.removeWhere((m) => m.stage == 'MUSIC_BASE_L1');
+      // Re-add each with incrementing layer stage
+      for (int i = 0; i < l1Matches.length && i < layerStages.length; i++) {
+        allMatched.add(StageMatch(
+          audioFileName: l1Matches[i].audioFileName,
+          audioPath: l1Matches[i].audioPath,
+          stage: layerStages[i],
+          confidence: l1Matches[i].confidence,
+          matchedKeywords: [...l1Matches[i].matchedKeywords, 'layer_distribute:L${i + 1}'],
+        ));
+      }
+      // Re-sort after redistribution
+      allMatched.sort((a, b) => a.stage.compareTo(b.stage));
+    }
+
     for (final match in allMatched) {
         // Use the SAME pipeline as drag-drop assignment — ALWAYS persist
         projectProvider.setAudioAssignment(match.stage, match.audioPath, recordUndo: false);

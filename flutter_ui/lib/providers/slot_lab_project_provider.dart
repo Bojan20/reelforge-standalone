@@ -579,6 +579,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
 
     final bindings = <String, String>{};
     final mappedPaths = <String>{};
+    final pendingMusicBaseFiles = <String>[];
 
     for (final file in files) {
       final rawName = file.uri.pathSegments.last.split('.').first;
@@ -620,6 +621,23 @@ class SlotLabProjectProvider extends ChangeNotifier {
         // only bind the first variant as the primary
         if (!bindings.containsKey(stage)) {
           bindings[stage] = file.path;
+        } else if (stage == 'MUSIC_BASE_L1') {
+          // Multiple files match base music — distribute across L1-L5
+          pendingMusicBaseFiles.add(file.path);
+        }
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // DISTRIBUTE MUSIC_BASE_L1 DUPLICATES → L1, L2, L3, L4, L5
+    // When multiple files match MUSIC_BASE_L1 (generic names like "music_loop"),
+    // spread them across layers so all get assigned.
+    // ═══════════════════════════════════════════════════════════════════════
+    if (pendingMusicBaseFiles.isNotEmpty) {
+      const layerStages = ['MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5'];
+      for (int i = 0; i < pendingMusicBaseFiles.length && i < layerStages.length; i++) {
+        if (!bindings.containsKey(layerStages[i])) {
+          bindings[layerStages[i]] = pendingMusicBaseFiles[i];
         }
       }
     }
