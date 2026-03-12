@@ -422,16 +422,26 @@ class SfxPipelineService {
           final handle = ffi.offlinePipelineCreate();
           if (handle != 0) {
             try {
-              ffi.offlinePipelineSetNormalization(
-                handle,
-                normMode.value,
-                normMode == NormalizationMode.lufs
-                    ? targetLufs
-                    : preset.truePeakCeiling,
-              );
               ffi.offlinePipelineSetFormat(handle, 1); // WAV 24-bit intermediate
 
-              final jobId = ffi.offlineProcessFile(handle, inputPath, normalizedPath);
+              // Use processFileWithOptions to pass limiter + soft-clip config
+              final normOptionsJson = jsonEncode({
+                'input_path': inputPath,
+                'output_path': normalizedPath,
+                'normalize_mode': normMode.value,
+                'normalize_target': normMode == NormalizationMode.lufs
+                    ? targetLufs
+                    : preset.truePeakCeiling,
+                'format': 1, // WAV 24-bit intermediate
+                // Always apply soft-clip after normalization to prevent hard clipping
+                'apply_soft_clip': true,
+                'soft_clip_ceiling_db': preset.truePeakCeiling,
+                // Apply TruePeakLimiter if user enabled it
+                if (preset.applyLimiter) 'apply_limiter': true,
+                if (preset.applyLimiter) 'limiter_ceiling_db': preset.truePeakCeiling,
+              });
+
+              final jobId = ffi.offlineProcessFileWithOptions(handle, normOptionsJson);
               if (jobId != 0) {
                 await _waitForFfiJob(ffi, handle, token: token);
                 ffi.offlineClearJobResult(jobId);

@@ -239,7 +239,10 @@ enum SfxCategory {
   ambientLoops,
   featureTriggers,
   anticipation,
-  music,
+  musicBigWin,    // Big win celebration music — loudest
+  musicFeature,   // Free spins / bonus / hold music — louder than base
+  musicBase,      // Base game background music — quietest music layer
+  music,          // Generic music (fallback if sub-category not detected)
   unknown,
 }
 
@@ -258,6 +261,12 @@ extension SfxCategoryExt on SfxCategory {
         return 'Feature Triggers';
       case SfxCategory.anticipation:
         return 'Anticipation';
+      case SfxCategory.musicBigWin:
+        return 'Music — Big Win';
+      case SfxCategory.musicFeature:
+        return 'Music — Feature';
+      case SfxCategory.musicBase:
+        return 'Music — Base Game';
       case SfxCategory.music:
         return 'Music';
       case SfxCategory.unknown:
@@ -280,6 +289,21 @@ extension SfxCategoryExt on SfxCategory {
         return ['fs_', 'scatter_', 'wild_', 'bonus_'];
       case SfxCategory.anticipation:
         return ['anticipation_', 'tension_', 'near_miss_', 'near_win_'];
+      case SfxCategory.musicBigWin:
+        return ['big_win_loop', 'big_win_music', 'bigwin_music', 'music_bigwin',
+                'music_big_win', 'bw_music', 'mus_bw',
+                'bigwinloop', 'bigwinmusic', 'musicbigwin'];
+      case SfxCategory.musicFeature:
+        return ['free_spin_music', 'freespin_music', 'fs_music', 'music_fs',
+                'bonus_music', 'music_bonus', 'hold_music', 'music_hold',
+                'feature_music', 'music_feature', 'mus_fs',
+                'freespinmusic', 'fsmusic', 'bonusmusic', 'holdmusic',
+                'featuremusic', 'musicfeature'];
+      case SfxCategory.musicBase:
+        return ['base_game_music', 'base_music', 'music_base', 'bgm_base',
+                'main_theme', 'base_theme', 'mus_bg',
+                'basegamemusic', 'basemusic', 'musicbase', 'maintheme',
+                'basetheme'];
       case SfxCategory.music:
         return ['music_', 'bgm_', 'soundtrack_', 'theme_', 'ost_'];
       case SfxCategory.unknown:
@@ -291,6 +315,9 @@ extension SfxCategoryExt on SfxCategory {
   OutputChannelMode get defaultChannelMode {
     switch (this) {
       case SfxCategory.music:
+      case SfxCategory.musicBase:
+      case SfxCategory.musicFeature:
+      case SfxCategory.musicBigWin:
         return OutputChannelMode.stereo;       // Music ALWAYS stereo
       case SfxCategory.featureTriggers:
         return OutputChannelMode.stereo;       // Symbols (wild, scatter, bonus) — stereo
@@ -323,14 +350,25 @@ extension SfxCategoryExt on SfxCategory {
     }
   }
 
-  /// Detect category from filename
+  /// Detect category from filename.
+  /// Uses longest-match-first strategy: builds a flat list of all
+  /// (pattern, category) pairs sorted by pattern length descending,
+  /// so "big_win_music" matches musicBigWin before "big_" matches winCelebrations.
   static SfxCategory fromFilename(String filename) {
     final lower = filename.toLowerCase();
+    // Build sorted candidate list once (lazy — could be static, but enum
+    // values list is tiny so cost is negligible)
+    final candidates = <(String, SfxCategory)>[];
     for (final cat in SfxCategory.values) {
       if (cat == SfxCategory.unknown) continue;
       for (final pattern in cat.patterns) {
-        if (lower.contains(pattern)) return cat;
+        candidates.add((pattern, cat));
       }
+    }
+    // Sort by pattern length descending — longest match wins
+    candidates.sort((a, b) => b.$1.length.compareTo(a.$1.length));
+    for (final (pattern, cat) in candidates) {
+      if (lower.contains(pattern)) return cat;
     }
     return SfxCategory.unknown;
   }
@@ -545,7 +583,8 @@ class SfxPipelinePreset {
     this.fadeCurve = SfxFadeCurve.linear,
     // Step 2: Category-specific trim skip
     this.noTrimCategories = const {
-      SfxCategory.music, SfxCategory.ambientLoops, SfxCategory.anticipation,
+      SfxCategory.music, SfxCategory.musicBase, SfxCategory.musicFeature,
+      SfxCategory.musicBigWin, SfxCategory.ambientLoops, SfxCategory.anticipation,
       SfxCategory.winCelebrations, SfxCategory.featureTriggers, SfxCategory.unknown,
     },
     // Step 2b: Filters
@@ -805,7 +844,8 @@ class SfxPipelinePreset {
               ?.map((e) => _enumFromName(SfxCategory.values, e as String))
               .whereType<SfxCategory>()
               .toSet() ??
-          {SfxCategory.music, SfxCategory.ambientLoops, SfxCategory.anticipation,
+          {SfxCategory.music, SfxCategory.musicBase, SfxCategory.musicFeature,
+           SfxCategory.musicBigWin, SfxCategory.ambientLoops, SfxCategory.anticipation,
            SfxCategory.winCelebrations, SfxCategory.featureTriggers, SfxCategory.unknown},
       highPassEnabled: json['highPassEnabled'] as bool? ?? true,
       highPassFreq: (json['highPassFreq'] as num?)?.toDouble() ?? 40.0,
@@ -900,14 +940,18 @@ T? _enumFromName<T extends Enum>(List<T> values, String? name) {
 class SfxBuiltInPresets {
   /// Industry-standard per-category LUFS targets for iGaming SFX.
   /// UI clicks must cut through; ambient/music stays underneath.
-  static const _slotCategoryLufs = <SfxCategory, double?>{
+  /// Public so wizard can use defaults when enabling per-category toggles.
+  static const slotCategoryLufs = <SfxCategory, double?>{
     SfxCategory.uiClicks: -12.0,        // Short, precise — must be heard over everything
     SfxCategory.reelMechanics: -16.0,    // Constant presence — must not fatigue
     SfxCategory.winCelebrations: -14.0,  // Exciting but controlled
     SfxCategory.ambientLoops: -23.0,     // Background bed — quiet foundation
     SfxCategory.featureTriggers: -14.0,  // Key moments — must grab attention
     SfxCategory.anticipation: -18.0,     // Gradual build-up — mid level
-    SfxCategory.music: -23.0,           // Background music — same as ambient bed
+    SfxCategory.musicBigWin: -18.0,     // Big win music — loudest music, must feel epic
+    SfxCategory.musicFeature: -20.0,    // Feature music (FS/bonus) — louder than base
+    SfxCategory.musicBase: -23.0,       // Base game music — quiet background bed
+    SfxCategory.music: -23.0,           // Generic music fallback — same as base
   };
 
   static final slotGameStandard = SfxPipelinePreset(
@@ -915,7 +959,7 @@ class SfxBuiltInPresets {
     name: 'Slot Game Standard',
     createdAt: DateTime(2026, 1, 1),
     isBuiltIn: true,
-    perCategoryOverrides: _slotCategoryLufs,
+    perCategoryOverrides: slotCategoryLufs,
     categoryDetection: true,
   );
 
@@ -927,6 +971,9 @@ class SfxBuiltInPresets {
     SfxCategory.ambientLoops: -21.0,
     SfxCategory.featureTriggers: -12.0,
     SfxCategory.anticipation: -16.0,
+    SfxCategory.musicBigWin: -16.0,
+    SfxCategory.musicFeature: -18.0,
+    SfxCategory.musicBase: -21.0,
     SfxCategory.music: -21.0,
   };
 

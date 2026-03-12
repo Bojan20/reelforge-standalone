@@ -27,6 +27,7 @@ ogg = "0.9"
 # DSP
 rustfft = { workspace = true }
 realfft = { workspace = true }
+rubato = { workspace = true }
 
 # Concurrency
 rayon = { workspace = true }

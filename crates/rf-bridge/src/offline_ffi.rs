@@ -260,6 +260,14 @@ pub extern "C" fn offline_process_file_with_options(
         remove_dc_offset: Option<bool>,
         trim_start_sample: Option<u64>,
         trim_end_sample: Option<u64>,
+        /// Enable TruePeakLimiter (professional, with lookahead + stereo linking)
+        apply_limiter: Option<bool>,
+        /// Limiter ceiling in dB (default -0.3)
+        limiter_ceiling_db: Option<f64>,
+        /// Enable soft-clipping (polynomial, prevents hard clip in encoder)
+        apply_soft_clip: Option<bool>,
+        /// Soft-clip ceiling in dB (default -0.3)
+        soft_clip_ceiling_db: Option<f64>,
     }
 
     let opts: ProcessOptions = match serde_json::from_str(options_str) {
@@ -357,9 +365,37 @@ pub extern "C" fn offline_process_file_with_options(
         if let Some(chain) = filter_chain {
             p.set_processors(chain);
         }
+
+        // Set normalization on pipeline (process_job reads self.normalization, NOT job.normalization)
+        if let (Some(mode), Some(target)) = (opts.normalize_mode, opts.normalize_target) {
+            let norm = match mode {
+                1 => NormalizationMode::Peak { target_db: target },
+                2 => NormalizationMode::Lufs { target_lufs: target },
+                3 => NormalizationMode::TruePeak { target_db: target },
+                4 => NormalizationMode::NoClip,
+                _ => NormalizationMode::NoClip,
+            };
+            p.set_normalization(norm);
+        }
+
+        // Configure limiter (post-normalization, prevents peaks exceeding ceiling)
+        if opts.apply_limiter.unwrap_or(false) {
+            let ceiling = opts.limiter_ceiling_db.unwrap_or(-0.3);
+            p.set_true_peak_limiter(true, ceiling);
+        }
+
+        // Configure soft-clip (post-normalization, prevents hard clipping in encoder)
+        if opts.apply_soft_clip.unwrap_or(false) {
+            let ceiling = opts.soft_clip_ceiling_db.unwrap_or(-0.3);
+            p.set_soft_clip(ceiling);
+        }
+
         let result = p.process_job(&job);
-        // Reset processors after job to avoid leaking to next job on same pipeline
+        // Reset ALL pipeline state after job to avoid leaking to next job
         p.set_processors(rf_offline::ProcessorChain::new());
+        p.clear_normalization();
+        p.set_true_peak_limiter(false, -0.3);
+        p.clear_soft_clip();
         match result {
             Ok(result) => {
                 JOB_RESULTS.insert(job_id, result);

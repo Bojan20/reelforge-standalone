@@ -106,6 +106,16 @@ import 'blocks/gambling_block.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Kill orphan afplay child processes on app exit (SIGTERM/SIGINT from Cmd+Q)
+  // Uses -P to only kill afplay processes that are children of this process
+  final myPid = pid.toString();
+  ProcessSignal.sigterm.watch().listen((_) {
+    Process.runSync('pkill', ['-P', myPid, 'afplay']);
+  });
+  ProcessSignal.sigint.watch().listen((_) {
+    Process.runSync('pkill', ['-P', myPid, 'afplay']);
+  });
+
   // Initialize media_kit for cross-platform video playback
   MediaKit.ensureInitialized();
 

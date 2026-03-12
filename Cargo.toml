@@ -122,6 +122,7 @@ midir = "0.10"
 # DSP
 rustfft = "6.2"
 realfft = "3.4"
+rubato = "0.16"
 
 # Concurrency
 rtrb = "0.3"

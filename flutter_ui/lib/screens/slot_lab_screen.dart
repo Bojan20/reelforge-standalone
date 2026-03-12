@@ -361,7 +361,7 @@ enum _LeftPanelTab { audio, events, aurexis }
 enum _RightPanelTab { config, pool }
 
 class _SlotLabScreenState extends State<SlotLabScreen>
-    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin, InlineToastMixin {
+    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin, InlineToastMixin, WidgetsBindingObserver {
 
   /// Static ref so UltimateAudioPanel can trigger reload directly
   static _SlotLabScreenState? _activeInstance;
@@ -1406,6 +1406,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // This ensures Space key works even when focus is on Lower Zone panels
     // ═══════════════════════════════════════════════════════════════════════════
     HardwareKeyboard.instance.addHandler(_globalKeyHandler);
+
+    // Kill afplay on app exit/background (prevents orphan audio after Cmd+Q)
+    WidgetsBinding.instance.addObserver(this);
 
     // Listen to MiddlewareProvider for bidirectional sync
     // When layers are added in Middleware center panel, Slot Lab updates automatically
@@ -3158,8 +3161,20 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Kill afplay when app goes to background or is detached (Cmd+Q, window close)
+    if (state == AppLifecycleState.detached || state == AppLifecycleState.paused) {
+      _afplayProcess?.kill();
+      _afplayProcess = null;
+    }
+  }
+
+  @override
   void dispose() {
     _activeInstance = null;
+
+    // Remove lifecycle observer
+    WidgetsBinding.instance.removeObserver(this);
 
     // Remove AudioAssetManager listener
     AudioAssetManager.instance.removeListener(_onAudioAssetManagerChanged);
@@ -11239,11 +11254,28 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             if (mounted) showToast('Imported $count audio mappings', icon: Icons.file_download);
           },
           onPoolClear: () {
-            setState(() => _audioPool.clear());
-            final slotLab = context.read<SlotLabProvider>();
-            slotLab.persistedAudioPool.clear();
+            // Clear ALL layers of audio pool state:
+            // 1. Rust FFI pool (must go first — prevents re-import on reload)
+            _ffi.audioPoolClear();
+            // 2. AudioAssetManager (SSoT for POOL browser)
+            //    Remove listener first to prevent _syncPoolFromAssetManager
+            //    from running during clear and re-adding stale _audioPool entries
+            AudioAssetManager.instance.removeListener(_onAudioAssetManagerChanged);
             AudioAssetManager.instance.clear();
+            AudioAssetManager.instance.addListener(_onAudioAssetManagerChanged);
+            // 3. Local pool state
+            _audioPool.clear();
+            // 4. Invalidate browser cache
+            _cachedBrowserAssetCount = -1;
+            _cachedAllPoolMaps = const [];
+            _cachedSearchFiltered = const [];
+            _cachedTagCounts = const {};
+            _selectedBrowserFolder = 'All';
+            _selectedPoolTag = 'ALL';
+            _browserSearchQuery = '';
+            // 5. Persist empty state + rebuild
             Future.microtask(() => _persistState());
+            setState(() {});
           },
           // onAutoBindComplete/onAutoBindDialogDismissed: handled via provider signal
         );

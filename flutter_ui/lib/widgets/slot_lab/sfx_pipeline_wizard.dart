@@ -690,7 +690,10 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
                       children: [
                         _toggle(override != null, (enabled) {
                           final overrides = Map<SfxCategory, double?>.from(preset.perCategoryOverrides);
-                          overrides[cat] = enabled ? preset.targetLufs : null;
+                          // Use industry-standard default for this category, NOT global targetLufs
+                          overrides[cat] = enabled
+                              ? (SfxBuiltInPresets.slotCategoryLufs[cat] ?? preset.targetLufs)
+                              : null;
                           provider.updatePreset((p) => p.copyWith(perCategoryOverrides: overrides));
                         }),
                         if (override != null) ...[
@@ -1570,6 +1573,10 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
       SfxCategory.ambientLoops: FluxForgeTheme.accentCyan,
       SfxCategory.featureTriggers: FluxForgeTheme.accentOrange,
       SfxCategory.anticipation: FluxForgeTheme.accentRed,
+      SfxCategory.musicBigWin: Color(0xFFFF6090),
+      SfxCategory.musicFeature: Color(0xFF40C8FF),
+      SfxCategory.musicBase: Color(0xFF8090A0),
+      SfxCategory.music: Color(0xFF9080C0),
     };
     final color = catColors[cat] ?? FluxForgeTheme.textTertiary;
     return Container(

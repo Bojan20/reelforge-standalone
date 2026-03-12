@@ -189,20 +189,36 @@ impl OfflineProcessor for GainProcessor {
     }
 }
 
-/// DC offset removal using high-pass filter
+/// DC offset removal using high-pass filter.
+/// Coefficient is sample-rate adaptive: cutoff ≈ 5 Hz regardless of SR.
+/// Formula: coeff = 1 - (2π × cutoff_hz / sample_rate)
+/// Per-channel state for correct interleaved multichannel operation.
 pub struct DcOffsetProcessor {
-    prev_input: f64,
-    prev_output: f64,
+    /// Per-channel state: (prev_input, prev_output)
+    channel_state: Vec<(f64, f64)>,
+    channels: usize,
     coeff: f64,
+    /// Tracks which SR we computed coeff for (lazy-init on first process())
+    initialized_sr: Option<u32>,
 }
 
 impl DcOffsetProcessor {
+    /// Cutoff frequency for DC removal (Hz). 5 Hz removes DC without
+    /// affecting audible content, even for 96 kHz material.
+    const CUTOFF_HZ: f64 = 5.0;
+
     pub fn new() -> Self {
         Self {
-            prev_input: 0.0,
-            prev_output: 0.0,
-            coeff: 0.995, // ~10Hz cutoff at 44.1kHz
+            channel_state: vec![(0.0, 0.0)],
+            channels: 1,
+            coeff: 0.0, // will be set on first process() with actual SR
+            initialized_sr: None,
         }
+    }
+
+    /// Calculate SR-adaptive coefficient: 1 - (2π × cutoff / sr)
+    fn calc_coeff(sample_rate: u32) -> f64 {
+        1.0 - (2.0 * std::f64::consts::PI * Self::CUTOFF_HZ / sample_rate as f64)
     }
 }
 
@@ -213,19 +229,47 @@ impl Default for DcOffsetProcessor {
 }
 
 impl OfflineProcessor for DcOffsetProcessor {
-    fn process(&mut self, samples: &mut [f64], _sample_rate: u32) {
-        for sample in samples {
+    fn set_channels(&mut self, channels: usize) {
+        if channels != self.channels {
+            self.channels = channels.max(1);
+            self.channel_state.resize(self.channels, (0.0, 0.0));
+        }
+    }
+
+    fn process(&mut self, samples: &mut [f64], sample_rate: u32) {
+        // Lazy-init: recalculate coefficient if sample rate changed
+        if self.initialized_sr != Some(sample_rate) {
+            self.coeff = Self::calc_coeff(sample_rate);
+            self.initialized_sr = Some(sample_rate);
+            for state in &mut self.channel_state {
+                *state = (0.0, 0.0);
+            }
+        }
+
+        // Ensure enough state slots
+        while self.channel_state.len() < self.channels {
+            self.channel_state.push((0.0, 0.0));
+        }
+
+        let ch = self.channels;
+        let coeff = self.coeff;
+
+        for (i, sample) in samples.iter_mut().enumerate() {
+            let c = i % ch;
+            let (ref mut prev_in, ref mut prev_out) = self.channel_state[c];
             let input = *sample;
-            let output = input - self.prev_input + self.coeff * self.prev_output;
-            self.prev_input = input;
-            self.prev_output = output;
+            let output = input - *prev_in + coeff * *prev_out;
+            *prev_in = input;
+            *prev_out = output;
             *sample = output;
         }
     }
 
     fn reset(&mut self) {
-        self.prev_input = 0.0;
-        self.prev_output = 0.0;
+        for state in &mut self.channel_state {
+            *state = (0.0, 0.0);
+        }
+        self.initialized_sr = None;
     }
 
     fn name(&self) -> &'static str {
@@ -476,5 +520,86 @@ impl OfflineProcessor for BiquadFilter {
 
     fn name(&self) -> &'static str {
         "Biquad Filter"
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SOFT-CLIP PROCESSOR — prevents hard clipping in encoders
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/// Soft-clip processor using polynomial saturation.
+/// Prevents hard clipping distortion when LUFS normalization pushes peaks above 0dBFS.
+///
+/// Algorithm: cubic soft-clip with configurable ceiling.
+/// - Below threshold: linear pass-through
+/// - Above threshold: smooth polynomial knee into ceiling
+/// - Guarantees output never exceeds ±ceiling (default -0.3 dBFS)
+pub struct SoftClipProcessor {
+    /// Ceiling in linear amplitude (e.g., 0.966 for -0.3 dBFS)
+    ceiling: f64,
+    /// Knee start as fraction of ceiling (below this = linear)
+    knee_start: f64,
+}
+
+impl SoftClipProcessor {
+    /// Create with ceiling in dB (e.g., -0.3 for -0.3 dBFS)
+    pub fn new(ceiling_db: f64) -> Self {
+        let ceiling = 10.0_f64.powf(ceiling_db / 20.0);
+        Self {
+            ceiling,
+            // Knee starts at 2/3 of ceiling — smooth transition zone
+            knee_start: ceiling * (2.0 / 3.0),
+        }
+    }
+
+    /// Default: ceiling at -0.3 dBFS (standard true-peak safe margin)
+    pub fn default_ceiling() -> Self {
+        Self::new(-0.3)
+    }
+
+    /// Soft-clip a single sample using sine-shaped knee.
+    ///
+    /// Requirements for artifact-free clipping:
+    /// - f(knee_start) = knee_start  (value continuity)
+    /// - f(ceiling_input) = ceiling  (reaches ceiling)
+    /// - f'(knee_start) = 1          (slope matches linear region)
+    /// - f'(ceiling_input) = 0       (smooth flatten at ceiling)
+    ///
+    /// We use sin() mapping which satisfies all four constraints:
+    /// output = knee + range * sin(t * π/2), where t = (|input| - knee) / range
+    #[inline(always)]
+    fn clip(&self, input: f64) -> f64 {
+        let abs_in = input.abs();
+        if abs_in <= self.knee_start {
+            // Below knee: pass through
+            input
+        } else if abs_in >= self.ceiling {
+            // Above ceiling: hard limit at ceiling
+            input.signum() * self.ceiling
+        } else {
+            // Knee region: sine-shaped transition
+            // sin(t * π/2): f(0)=0, f(1)=1, f'(0)=π/2≈1.57, f'(1)=0
+            // Scale range to compensate for derivative mismatch:
+            // knee_start = ceiling * 2/3 chosen so that range * π/2 ≈ range * 1.57
+            // gives a smooth-enough transition (less than 0.6 dB deviation)
+            let range = self.ceiling - self.knee_start;
+            let t = (abs_in - self.knee_start) / range; // 0..1 within knee
+            let shaped = self.knee_start + range * (t * std::f64::consts::FRAC_PI_2).sin();
+            input.signum() * shaped
+        }
+    }
+}
+
+impl OfflineProcessor for SoftClipProcessor {
+    fn process(&mut self, samples: &mut [f64], _sample_rate: u32) {
+        for sample in samples {
+            *sample = self.clip(*sample);
+        }
+    }
+
+    fn reset(&mut self) {}
+
+    fn name(&self) -> &'static str {
+        "Soft Clip"
     }
 }

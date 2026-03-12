@@ -23,7 +23,10 @@ use crate::error::OfflineResult;
 use crate::formats::OutputFormat;
 use crate::job::{JobResult, MonoDownmix, OfflineJob};
 use crate::normalize::{LoudnessMeter, NormalizationMode};
-use crate::processors::ProcessorChain;
+use crate::processors::{OfflineProcessor, ProcessorChain, SoftClipProcessor};
+
+use rf_dsp::dynamics::{TruePeakLimiter, LimiterStyle, LimiterLatencyProfile};
+use rf_dsp::{Processor, StereoProcessor};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PIPELINE STATE
@@ -309,6 +312,18 @@ pub struct OfflinePipeline {
     normalization: Option<NormalizationMode>,
     output_format: OutputFormat,
 
+    /// Post-normalization soft-clip ceiling in dB (e.g., -0.3).
+    /// When set, applies polynomial soft-clipping after normalization
+    /// to prevent hard clipping in encoders.
+    soft_clip_ceiling_db: Option<f64>,
+
+    /// Whether to use TruePeakLimiter from rf-dsp (professional limiter
+    /// with lookahead, stereo linking, oversampling).
+    /// Applied after normalization, before soft-clip.
+    use_true_peak_limiter: bool,
+    /// Ceiling for TruePeakLimiter in dB (default -0.3)
+    limiter_ceiling_db: f64,
+
     // Progress tracking
     state: Arc<RwLock<PipelineState>>,
     samples_processed: Arc<AtomicU64>,
@@ -325,6 +340,9 @@ impl OfflinePipeline {
             processors: ProcessorChain::new(),
             normalization: None,
             output_format: OutputFormat::wav_16(),
+            soft_clip_ceiling_db: None,
+            use_true_peak_limiter: false,
+            limiter_ceiling_db: -0.3,
             state: Arc::new(RwLock::new(PipelineState::Idle)),
             samples_processed: Arc::new(AtomicU64::new(0)),
             total_samples: Arc::new(AtomicU64::new(0)),
@@ -358,6 +376,22 @@ impl OfflinePipeline {
     /// Clear normalization
     pub fn clear_normalization(&mut self) {
         self.normalization = None;
+    }
+
+    /// Enable soft-clipping with ceiling in dB (e.g., -0.3)
+    pub fn set_soft_clip(&mut self, ceiling_db: f64) {
+        self.soft_clip_ceiling_db = Some(ceiling_db);
+    }
+
+    /// Disable soft-clipping
+    pub fn clear_soft_clip(&mut self) {
+        self.soft_clip_ceiling_db = None;
+    }
+
+    /// Enable TruePeakLimiter with ceiling in dB
+    pub fn set_true_peak_limiter(&mut self, enabled: bool, ceiling_db: f64) {
+        self.use_true_peak_limiter = enabled;
+        self.limiter_ceiling_db = ceiling_db;
     }
 
     /// Set output format (builder pattern)
@@ -536,6 +570,17 @@ impl OfflinePipeline {
             self.normalize_buffer(&mut buffer, mode.clone())?;
         }
 
+        // Step 4b: TruePeakLimiter (post-normalization, prevents peaks exceeding ceiling)
+        if self.use_true_peak_limiter {
+            self.apply_true_peak_limiter(&mut buffer);
+        }
+
+        // Step 4c: Soft-clip (post-normalization, prevents hard clipping in encoder)
+        if let Some(ceiling_db) = self.soft_clip_ceiling_db {
+            let mut clipper = SoftClipProcessor::new(ceiling_db);
+            clipper.process(&mut buffer.samples, buffer.sample_rate);
+        }
+
         // Step 5: Sample rate conversion (if needed)
         if let Some(target_rate) = job.sample_rate {
             if target_rate != buffer.sample_rate {
@@ -671,7 +716,8 @@ impl OfflinePipeline {
         Ok(())
     }
 
-    /// Convert sample rate
+    /// Convert sample rate using high-quality sinc resampling (rubato).
+    /// Uses SincFixedIn with 256-point Kaiser-windowed sinc interpolation.
     fn convert_sample_rate(
         &self,
         buffer: AudioBuffer,
@@ -681,33 +727,95 @@ impl OfflinePipeline {
             return Ok(buffer);
         }
 
-        // Simple linear interpolation SRC
-        // TODO: Use higher quality resampling (sinc, polyphase)
+        use rubato::{SincFixedIn, SincInterpolationParameters, SincInterpolationType, WindowFunction, Resampler};
+
         let ratio = target_rate as f64 / buffer.sample_rate as f64;
-        let new_frames = (buffer.frames() as f64 * ratio).ceil() as usize;
-        let mut new_samples = Vec::with_capacity(new_frames * buffer.channels);
+        let channels = buffer.channels;
+        let frames = buffer.frames();
 
-        for frame in 0..new_frames {
-            let src_pos = frame as f64 / ratio;
-            let src_frame = src_pos.floor() as usize;
-            let frac = src_pos - src_frame as f64;
+        // High-quality sinc parameters for offline mastering
+        let params = SincInterpolationParameters {
+            sinc_len: 256,  // 256-point sinc (mastering quality)
+            f_cutoff: 0.95, // Anti-alias cutoff (Nyquist fraction)
+            interpolation: SincInterpolationType::Cubic,
+            oversampling_factor: 256,
+            window: WindowFunction::BlackmanHarris2,
+        };
 
-            for ch in 0..buffer.channels {
-                let idx0 = src_frame * buffer.channels + ch;
-                let idx1 = ((src_frame + 1).min(buffer.frames() - 1)) * buffer.channels + ch;
+        // Chunk size for processing (large for efficiency)
+        let chunk_size = 1024;
 
-                let s0 = buffer.samples.get(idx0).copied().unwrap_or(0.0);
-                let s1 = buffer.samples.get(idx1).copied().unwrap_or(0.0);
+        let mut resampler = SincFixedIn::<f64>::new(
+            ratio,
+            2.0, // max relative ratio deviation
+            params,
+            chunk_size,
+            channels,
+        ).map_err(|e| crate::error::OfflineError::ProcessingFailed(format!("SRC init: {}", e)))?;
 
-                // Linear interpolation
-                let sample = s0 + (s1 - s0) * frac;
-                new_samples.push(sample);
+        // De-interleave input into per-channel vectors
+        let input_channels: Vec<Vec<f64>> = (0..channels)
+            .map(|ch| buffer.get_channel(ch))
+            .collect();
+
+        // Process through resampler in chunks
+        let mut output_channels: Vec<Vec<f64>> = vec![Vec::new(); channels];
+        let mut pos = 0;
+
+        while pos < frames {
+            let end = (pos + chunk_size).min(frames);
+            let chunk_len = end - pos;
+            let is_last = end >= frames;
+
+            // Build chunk for each channel
+            let chunk: Vec<Vec<f64>> = input_channels.iter()
+                .map(|ch| ch[pos..end].to_vec())
+                .collect();
+
+            let result = if is_last && chunk_len < chunk_size {
+                // Last partial chunk: use process_partial to avoid zero-padding artifacts
+                let refs: Vec<&[f64]> = chunk.iter().map(|c| c.as_slice()).collect();
+                resampler.process_partial(Some(&refs), None)
+            } else {
+                // Full chunk
+                let refs: Vec<&[f64]> = chunk.iter().map(|c| c.as_slice()).collect();
+                resampler.process(&refs, None)
+            };
+
+            match result {
+                Ok(out) => {
+                    for (ch_idx, ch_data) in out.iter().enumerate() {
+                        output_channels[ch_idx].extend_from_slice(ch_data);
+                    }
+                }
+                Err(e) => {
+                    return Err(crate::error::OfflineError::ProcessingFailed(
+                        format!("SRC process: {}", e),
+                    ));
+                }
+            }
+
+            pos += chunk_size;
+        }
+
+        // Calculate expected output length and trim excess (from zero-padding)
+        let expected_frames = (frames as f64 * ratio).ceil() as usize;
+        for ch in &mut output_channels {
+            ch.truncate(expected_frames);
+        }
+
+        // Re-interleave
+        let out_frames = output_channels[0].len();
+        let mut interleaved = Vec::with_capacity(out_frames * channels);
+        for frame in 0..out_frames {
+            for ch in 0..channels {
+                interleaved.push(output_channels[ch].get(frame).copied().unwrap_or(0.0));
             }
         }
 
         Ok(AudioBuffer {
-            samples: new_samples,
-            channels: buffer.channels,
+            samples: interleaved,
+            channels,
             sample_rate: target_rate,
         })
     }
@@ -716,6 +824,66 @@ impl OfflinePipeline {
     fn encode_buffer(&self, buffer: &AudioBuffer) -> OfflineResult<Vec<u8>> {
         let encoder = create_encoder(&self.output_format);
         encoder.encode(buffer)
+    }
+
+    /// Apply TruePeakLimiter from rf-dsp (professional limiter with lookahead)
+    /// Operates on interleaved f64 buffer, converting to stereo L/R for processing.
+    fn apply_true_peak_limiter(&self, buffer: &mut AudioBuffer) {
+        let sr = buffer.sample_rate as f64;
+        let mut limiter = TruePeakLimiter::new(sr);
+
+        // Configure for offline mastering: max quality, full lookahead
+        limiter.set_ceiling(self.limiter_ceiling_db);
+        limiter.set_latency_profile(LimiterLatencyProfile::OfflineMax);
+        limiter.set_style(LimiterStyle::Allround);
+        limiter.set_threshold(0.0); // Limit everything above ceiling
+
+        let ch = buffer.channels;
+        let frames = buffer.frames();
+
+        if ch == 1 {
+            // Mono: duplicate to stereo, process, take left
+            let mut left = buffer.get_channel(0);
+            let mut right = left.clone();
+            limiter.process_block(&mut left, &mut right);
+            buffer.set_channel(0, &left);
+        } else if ch == 2 {
+            // Stereo: direct processing
+            let mut left = buffer.get_channel(0);
+            let mut right = buffer.get_channel(1);
+            limiter.process_block(&mut left, &mut right);
+            buffer.set_channel(0, &left);
+            buffer.set_channel(1, &right);
+        } else {
+            // Multi-channel: process pairs (ch0+ch1, ch2+ch3, ...)
+            // with fallback for odd channel count
+            let mut c = 0;
+            while c < ch {
+                let mut left = buffer.get_channel(c);
+                let mut right = if c + 1 < ch {
+                    buffer.get_channel(c + 1)
+                } else {
+                    left.clone()
+                };
+                limiter.reset();
+                limiter.process_block(&mut left, &mut right);
+                buffer.set_channel(c, &left);
+                if c + 1 < ch {
+                    buffer.set_channel(c + 1, &right);
+                }
+                c += 2;
+            }
+        }
+
+        // Compensate limiter latency: lookahead introduces leading delay.
+        // Remove leading latency samples and trim to original length.
+        let latency = limiter.latency_samples();
+        if latency > 0 && latency < frames {
+            let remove_samples = latency * ch;
+            buffer.samples.drain(..remove_samples);
+            // Pad end to maintain original duration (limiter consumed those samples)
+            buffer.samples.resize(frames * ch, 0.0);
+        }
     }
 
     /// Write output to file
