@@ -644,79 +644,350 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
 
   Widget _buildLoudnessStep(SfxPipelineProvider provider) {
     final preset = provider.preset;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final hasFiles = provider.scanResults.any((f) => f.selected);
+    return Column(
       children: [
+        // ── Top row: Normalization settings + Per-category overrides ──
         Expanded(
-          child: _stepPanel('NORMALIZATION', child: Column(
+          flex: hasFiles ? 3 : 1,
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _paramRow('Mode', child: _enumDropdown<SfxNormMode>(
-                SfxNormMode.values, preset.normMode,
-                (v) => provider.updatePreset((p) => p.copyWith(normMode: v)),
-                labelOf: (v) => v.displayName,
+              Expanded(
+                child: _stepPanel('NORMALIZATION', child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _paramRow('Mode', child: _enumDropdown<SfxNormMode>(
+                    SfxNormMode.values, preset.normMode,
+                    (v) => provider.updatePreset((p) => p.copyWith(normMode: v)),
+                    labelOf: (v) => v.displayName,
+                  )),
+                  if (preset.normMode == SfxNormMode.lufs) ...[
+                    _paramRow('Target LUFS', child: _slider(
+                      preset.targetLufs, -30, -6, 'LUFS',
+                      (v) => provider.updatePreset((p) => p.copyWith(targetLufs: v)),
+                    )),
+                    _paramRow('True Peak Ceiling', child: _slider(
+                      preset.truePeakCeiling, -3, 0, 'dBTP',
+                      (v) => provider.updatePreset((p) => p.copyWith(truePeakCeiling: v)),
+                    )),
+                  ],
+                  _paramRow('Apply Limiter', child: _toggle(preset.applyLimiter, (v) =>
+                      provider.updatePreset((p) => p.copyWith(applyLimiter: v)))),
+                  _paramRow('Allow Clipping', child: _toggle(preset.allowClipping, (v) =>
+                      provider.updatePreset((p) => p.copyWith(allowClipping: v)))),
+                ],
               )),
-              if (preset.normMode == SfxNormMode.lufs) ...[
-                _paramRow('Target LUFS', child: _slider(
-                  preset.targetLufs, -30, -6, 'LUFS',
-                  (v) => provider.updatePreset((p) => p.copyWith(targetLufs: v)),
-                )),
-                _paramRow('True Peak Ceiling', child: _slider(
-                  preset.truePeakCeiling, -3, 0, 'dBTP',
-                  (v) => provider.updatePreset((p) => p.copyWith(truePeakCeiling: v)),
-                )),
-              ],
-              _paramRow('Apply Limiter', child: _toggle(preset.applyLimiter, (v) =>
-                  provider.updatePreset((p) => p.copyWith(applyLimiter: v)))),
-              _paramRow('Allow Clipping', child: _toggle(preset.allowClipping, (v) =>
-                  provider.updatePreset((p) => p.copyWith(allowClipping: v)))),
-            ],
-          )),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _stepPanel('PER-CATEGORY OVERRIDES', child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _paramRow('Auto-Detect Category', child: _toggle(preset.categoryDetection, (v) =>
-                  provider.updatePreset((p) => p.copyWith(categoryDetection: v)))),
-              const SizedBox(height: 8),
-              if (preset.categoryDetection)
-                ...SfxCategory.values.where((c) => c != SfxCategory.unknown).map((cat) {
-                  final override = preset.perCategoryOverrides[cat];
-                  return _paramRow(
-                    cat.displayName,
-                    child: Row(
-                      children: [
-                        _toggle(override != null, (enabled) {
-                          final overrides = Map<SfxCategory, double?>.from(preset.perCategoryOverrides);
-                          // Use industry-standard default for this category, NOT global targetLufs
-                          overrides[cat] = enabled
-                              ? (SfxBuiltInPresets.slotCategoryLufs[cat] ?? preset.targetLufs)
-                              : null;
-                          provider.updatePreset((p) => p.copyWith(perCategoryOverrides: overrides));
-                        }),
-                        if (override != null) ...[
-                          const SizedBox(width: 8),
-                          Expanded(child: _slider(
-                            override, -30, -6, 'LUFS',
-                            (v) {
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _stepPanel('PER-CATEGORY OVERRIDES', child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _paramRow('Auto-Detect Category', child: _toggle(preset.categoryDetection, (v) =>
+                      provider.updatePreset((p) => p.copyWith(categoryDetection: v)))),
+                  const SizedBox(height: 8),
+                  if (preset.categoryDetection)
+                    ...SfxCategory.values.where((c) => c != SfxCategory.unknown).map((cat) {
+                      final catOverride = preset.perCategoryOverrides[cat];
+                      return _paramRow(
+                        cat.displayName,
+                        child: Row(
+                          children: [
+                            _toggle(catOverride != null, (enabled) {
                               final overrides = Map<SfxCategory, double?>.from(preset.perCategoryOverrides);
-                              overrides[cat] = v;
+                              overrides[cat] = enabled
+                                  ? (SfxBuiltInPresets.slotCategoryLufs[cat] ?? preset.targetLufs)
+                                  : null;
                               provider.updatePreset((p) => p.copyWith(perCategoryOverrides: overrides));
-                            },
-                          )),
-                        ],
-                      ],
-                    ),
-                  );
-                }),
+                            }),
+                            if (catOverride != null) ...[
+                              const SizedBox(width: 8),
+                              Expanded(child: _slider(
+                                catOverride, -30, -6, 'LUFS',
+                                (v) {
+                                  final overrides = Map<SfxCategory, double?>.from(preset.perCategoryOverrides);
+                                  overrides[cat] = v;
+                                  provider.updatePreset((p) => p.copyWith(perCategoryOverrides: overrides));
+                                },
+                              )),
+                            ],
+                          ],
+                        ),
+                      );
+                    }),
+                ],
+              )),
+            ),
             ],
-          )),
+          ),
         ),
+        // ── Bottom: Live preview table — shows resolved target for each file ──
+        if (hasFiles)
+          Expanded(
+            flex: 2,
+            child: _buildLoudnessPreviewTable(provider),
+          ),
       ],
     );
   }
+
+  /// Live preview table: for each scanned file, shows detected category,
+  /// current LUFS, resolved target LUFS (from slider/override), and gain delta.
+  /// Updates in real-time as user moves sliders.
+  Widget _buildLoudnessPreviewTable(SfxPipelineProvider provider) {
+    final preset = provider.preset;
+    final files = provider.scanResults.where((f) => f.selected).toList();
+    if (files.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(8),
+        child: Center(
+          child: Text('No files selected — scan files in Step 1',
+            style: TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 11)),
+        ),
+      );
+    }
+
+    // Aggregate per-category file counts for header chips
+    final catCounts = <SfxCategory, int>{};
+    for (final f in files) {
+      catCounts[f.detectedCategory] = (catCounts[f.detectedCategory] ?? 0) + 1;
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.bgMid,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: FluxForgeTheme.bgElevated),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header ──
+          Container(
+            height: 28,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: FluxForgeTheme.bgElevated)),
+            ),
+            child: Row(
+              children: [
+                const Text('LIVE PREVIEW', style: TextStyle(
+                  color: FluxForgeTheme.textSecondary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                )),
+                const SizedBox(width: 8),
+                Text('${files.length} files', style: const TextStyle(
+                  color: FluxForgeTheme.textTertiary, fontSize: 9,
+                )),
+                const Spacer(),
+                // Per-category summary chips
+                ...catCounts.entries.where((e) => e.key != SfxCategory.unknown).map((e) =>
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: _categoryBadge(e.key),
+                  ),
+                ),
+                if (catCounts.containsKey(SfxCategory.unknown))
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Text('${catCounts[SfxCategory.unknown]} ?',
+                      style: const TextStyle(color: FluxForgeTheme.textTertiary, fontSize: 8)),
+                  ),
+              ],
+            ),
+          ),
+          // ── Column headers ──
+          Container(
+            height: 20,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: FluxForgeTheme.bgDeep.withValues(alpha: 0.5),
+            ),
+            child: const Row(
+              children: [
+                SizedBox(width: 180, child: Text('FILENAME', style: _previewHeaderStyle)),
+                SizedBox(width: 80, child: Text('CATEGORY', style: _previewHeaderStyle)),
+                SizedBox(width: 60, child: Text('NOW', style: _previewHeaderStyle)),
+                SizedBox(width: 16, child: Text('→', style: _previewHeaderStyle)),
+                SizedBox(width: 60, child: Text('TARGET', style: _previewHeaderStyle)),
+                SizedBox(width: 60, child: Text('GAIN', style: _previewHeaderStyle)),
+                Expanded(child: Text('', style: _previewHeaderStyle)),
+              ],
+            ),
+          ),
+          // ── File rows ──
+          Expanded(
+            child: ListView.builder(
+              itemCount: files.length,
+              itemExtent: 22,
+              itemBuilder: (context, index) {
+                final file = files[index];
+                final cat = file.detectedCategory;
+
+                // Resolve target — exact same logic as executePipeline
+                // LUFS mode: per-category override → global targetLufs
+                // Peak/TruePeak: truePeakCeiling (no per-category override)
+                final bool isLufs = preset.normMode == SfxNormMode.lufs;
+                final bool hasOverride = isLufs && preset.categoryDetection &&
+                    preset.perCategoryOverrides[cat] != null;
+                double targetDisplay;
+                String targetUnit;
+                double gainDelta;
+
+                if (preset.normMode == SfxNormMode.none) {
+                  targetDisplay = 0;
+                  targetUnit = '';
+                  gainDelta = 0;
+                } else if (isLufs) {
+                  targetDisplay = preset.targetLufs;
+                  if (hasOverride) {
+                    targetDisplay = preset.perCategoryOverrides[cat]!;
+                  }
+                  targetUnit = 'LUFS';
+                  gainDelta = targetDisplay - file.integratedLufs;
+                } else {
+                  // Peak / TruePeak — target is dBTP ceiling, gain relative to peak
+                  targetDisplay = preset.truePeakCeiling;
+                  targetUnit = 'dBTP';
+                  gainDelta = targetDisplay - file.peakDbfs;
+                }
+
+                // Color coding for gain
+                final gainColor = gainDelta.abs() < 1.0
+                    ? FluxForgeTheme.textTertiary
+                    : gainDelta > 0
+                        ? FluxForgeTheme.accentOrange  // Boosting
+                        : FluxForgeTheme.accentCyan;   // Cutting
+
+                // Warning: boost > 12 dB is aggressive
+                final bool isAggressiveBoost = gainDelta > 12.0;
+                // Warning: unknown category uses global target
+                final bool isUnknownCat = cat == SfxCategory.unknown;
+
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  color: index.isEven ? Colors.transparent : FluxForgeTheme.bgDeep.withValues(alpha: 0.3),
+                  child: Row(
+                    children: [
+                      // Filename
+                      SizedBox(
+                        width: 180,
+                        child: Text(
+                          file.filename,
+                          style: TextStyle(
+                            color: isUnknownCat
+                                ? FluxForgeTheme.textTertiary
+                                : Colors.white,
+                            fontSize: 10,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      // Category badge
+                      SizedBox(
+                        width: 80,
+                        child: cat == SfxCategory.unknown
+                            ? Text('—', style: TextStyle(
+                                color: FluxForgeTheme.textTertiary, fontSize: 9,
+                                fontStyle: FontStyle.italic))
+                            : _categoryBadge(cat),
+                      ),
+                      // Current level (LUFS for LUFS mode, peak dBFS for Peak/TruePeak)
+                      SizedBox(
+                        width: 60,
+                        child: Text(
+                          isLufs || preset.normMode == SfxNormMode.none
+                              ? '${file.integratedLufs.toStringAsFixed(1)}'
+                              : '${file.peakDbfs.toStringAsFixed(1)}',
+                          style: const TextStyle(
+                            color: FluxForgeTheme.textSecondary,
+                            fontSize: 10, fontFamily: 'monospace',
+                          ),
+                        ),
+                      ),
+                      // Arrow
+                      SizedBox(
+                        width: 16,
+                        child: Text('→', style: TextStyle(
+                          color: preset.normMode == SfxNormMode.none
+                              ? FluxForgeTheme.textTertiary
+                              : FluxForgeTheme.textSecondary,
+                          fontSize: 9,
+                        )),
+                      ),
+                      // Target level
+                      SizedBox(
+                        width: 60,
+                        child: preset.normMode == SfxNormMode.none
+                            ? const Text('—', style: TextStyle(
+                                color: FluxForgeTheme.textTertiary, fontSize: 10))
+                            : Text(
+                                '${targetDisplay.toStringAsFixed(1)}',
+                                style: TextStyle(
+                                  color: hasOverride
+                                      ? FluxForgeTheme.accentCyan
+                                      : FluxForgeTheme.textSecondary,
+                                  fontSize: 10, fontFamily: 'monospace',
+                                  fontWeight: hasOverride ? FontWeight.w700 : FontWeight.normal,
+                                ),
+                              ),
+                      ),
+                      // Gain delta
+                      SizedBox(
+                        width: 60,
+                        child: preset.normMode == SfxNormMode.none
+                            ? const SizedBox.shrink()
+                            : Text(
+                                '${gainDelta >= 0 ? "+" : ""}${gainDelta.toStringAsFixed(1)} dB',
+                                style: TextStyle(
+                                  color: gainColor,
+                                  fontSize: 10, fontFamily: 'monospace',
+                                ),
+                              ),
+                      ),
+                      // Warnings
+                      Expanded(
+                        child: Row(
+                          children: [
+                            if (isAggressiveBoost)
+                              Tooltip(
+                                message: 'Aggressive boost (${gainDelta.toStringAsFixed(1)} dB) — may cause artifacts',
+                                child: const Icon(Icons.warning_amber, size: 12, color: FluxForgeTheme.accentOrange),
+                              ),
+                            if (isUnknownCat && preset.categoryDetection)
+                              Tooltip(
+                                message: 'Category not detected — using global target (${preset.targetLufs.toStringAsFixed(1)} LUFS)',
+                                child: const Icon(Icons.help_outline, size: 12, color: FluxForgeTheme.textTertiary),
+                              ),
+                            if (hasOverride)
+                              Tooltip(
+                                message: '${cat.displayName} override active',
+                                child: Icon(Icons.tune, size: 11, color: FluxForgeTheme.accentCyan.withValues(alpha: 0.6)),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static const _previewHeaderStyle = TextStyle(
+    color: FluxForgeTheme.textTertiary,
+    fontSize: 8,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.6,
+  );
 
   // ─── Step 4: Format & Channel ─────────────────────────────────────────────
 
@@ -1577,6 +1848,7 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
       SfxCategory.musicFeature: Color(0xFF40C8FF),
       SfxCategory.musicBase: Color(0xFF8090A0),
       SfxCategory.music: Color(0xFF9080C0),
+      SfxCategory.voiceOver: Color(0xFFFFD740),
     };
     final color = catColors[cat] ?? FluxForgeTheme.textTertiary;
     return Container(

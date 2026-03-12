@@ -243,6 +243,7 @@ enum SfxCategory {
   musicFeature,   // Free spins / bonus / hold music — louder than base
   musicBase,      // Base game background music — quietest music layer
   music,          // Generic music (fallback if sub-category not detected)
+  voiceOver,      // VO / narration / announcer — must be intelligible over everything
   unknown,
 }
 
@@ -269,6 +270,8 @@ extension SfxCategoryExt on SfxCategory {
         return 'Music — Base Game';
       case SfxCategory.music:
         return 'Music';
+      case SfxCategory.voiceOver:
+        return 'Voice Over';
       case SfxCategory.unknown:
         return 'Unknown';
     }
@@ -306,7 +309,27 @@ extension SfxCategoryExt on SfxCategory {
                 'basetheme'];
       case SfxCategory.music:
         return ['music_', 'bgm_', 'soundtrack_', 'theme_', 'ost_'];
+      case SfxCategory.voiceOver:
+        return ['vo_', 'voice_', 'narr_', 'narrator_', 'announce_',
+                'announcer_', 'dialogue_',
+                'voiceover', 'voice_over'];
       case SfxCategory.unknown:
+        return [];
+    }
+  }
+
+  /// Patterns that require prefix match (startsWith) instead of contains.
+  /// Prevents false positives: 'vo_win_01.wav' should be voiceOver, not winCelebrations.
+  /// Only applies to categories where filenames reliably START with the category prefix.
+  List<String> get prefixPatterns {
+    switch (this) {
+      case SfxCategory.voiceOver:
+        // VO files are named vo_*, voice_*, narr_*, etc.
+        // Using prefix match prevents 'vo_stop_01.wav' from matching reelMechanics ('stop_')
+        // 'speech_' excluded — too ambiguous (speech_bubble_pop.wav = UI SFX, not VO)
+        return ['vo_', 'voice_', 'narr_', 'narrator_', 'announce_',
+                'announcer_', 'dialogue_'];
+      default:
         return [];
     }
   }
@@ -331,6 +354,8 @@ extension SfxCategoryExt on SfxCategory {
         return OutputChannelMode.mono;         // Reel mechanics — mono OK
       case SfxCategory.anticipation:
         return OutputChannelMode.keepOriginal; // Anticipation — keep as-is
+      case SfxCategory.voiceOver:
+        return OutputChannelMode.mono;         // VO — mono (single speaker)
       case SfxCategory.unknown:
         return OutputChannelMode.keepOriginal;
     }
@@ -351,13 +376,32 @@ extension SfxCategoryExt on SfxCategory {
   }
 
   /// Detect category from filename.
-  /// Uses longest-match-first strategy: builds a flat list of all
-  /// (pattern, category) pairs sorted by pattern length descending,
-  /// so "big_win_music" matches musicBigWin before "big_" matches winCelebrations.
+  ///
+  /// Two-phase detection:
+  /// 1. **Prefix patterns** (highest priority) — categories where filenames
+  ///    reliably START with the category prefix (e.g., `vo_win_01.wav` is VO,
+  ///    not winCelebrations). Checked with `startsWith`, longest first.
+  /// 2. **Contains patterns** — standard longest-match-first with `contains`.
+  ///    Longer patterns always beat shorter ones (e.g., "big_win_music" beats "big_").
   static SfxCategory fromFilename(String filename) {
     final lower = filename.toLowerCase();
-    // Build sorted candidate list once (lazy — could be static, but enum
-    // values list is tiny so cost is negligible)
+
+    // Phase 1: Prefix patterns (highest priority)
+    // These are checked with startsWith to prevent false positives
+    // when short VO prefixes collide with other category keywords
+    final prefixCandidates = <(String, SfxCategory)>[];
+    for (final cat in SfxCategory.values) {
+      if (cat == SfxCategory.unknown) continue;
+      for (final pattern in cat.prefixPatterns) {
+        prefixCandidates.add((pattern, cat));
+      }
+    }
+    prefixCandidates.sort((a, b) => b.$1.length.compareTo(a.$1.length));
+    for (final (pattern, cat) in prefixCandidates) {
+      if (lower.startsWith(pattern)) return cat;
+    }
+
+    // Phase 2: Contains patterns (longest-match-first)
     final candidates = <(String, SfxCategory)>[];
     for (final cat in SfxCategory.values) {
       if (cat == SfxCategory.unknown) continue;
@@ -365,7 +409,6 @@ extension SfxCategoryExt on SfxCategory {
         candidates.add((pattern, cat));
       }
     }
-    // Sort by pattern length descending — longest match wins
     candidates.sort((a, b) => b.$1.length.compareTo(a.$1.length));
     for (final (pattern, cat) in candidates) {
       if (lower.contains(pattern)) return cat;
@@ -585,7 +628,8 @@ class SfxPipelinePreset {
     this.noTrimCategories = const {
       SfxCategory.music, SfxCategory.musicBase, SfxCategory.musicFeature,
       SfxCategory.musicBigWin, SfxCategory.ambientLoops, SfxCategory.anticipation,
-      SfxCategory.winCelebrations, SfxCategory.featureTriggers, SfxCategory.unknown,
+      SfxCategory.winCelebrations, SfxCategory.featureTriggers,
+      SfxCategory.voiceOver, SfxCategory.unknown,
     },
     // Step 2b: Filters
     this.highPassEnabled = true,
@@ -846,7 +890,8 @@ class SfxPipelinePreset {
               .toSet() ??
           {SfxCategory.music, SfxCategory.musicBase, SfxCategory.musicFeature,
            SfxCategory.musicBigWin, SfxCategory.ambientLoops, SfxCategory.anticipation,
-           SfxCategory.winCelebrations, SfxCategory.featureTriggers, SfxCategory.unknown},
+           SfxCategory.winCelebrations, SfxCategory.featureTriggers,
+           SfxCategory.voiceOver, SfxCategory.unknown},
       highPassEnabled: json['highPassEnabled'] as bool? ?? true,
       highPassFreq: (json['highPassFreq'] as num?)?.toDouble() ?? 40.0,
       lowPassEnabled: json['lowPassEnabled'] as bool? ?? true,
@@ -952,6 +997,7 @@ class SfxBuiltInPresets {
     SfxCategory.musicFeature: -20.0,    // Feature music (FS/bonus) — louder than base
     SfxCategory.musicBase: -23.0,       // Base game music — quiet background bed
     SfxCategory.music: -23.0,           // Generic music fallback — same as base
+    SfxCategory.voiceOver: -14.0,      // VO must be intelligible — cut through mix
   };
 
   static final slotGameStandard = SfxPipelinePreset(
@@ -975,6 +1021,7 @@ class SfxBuiltInPresets {
     SfxCategory.musicFeature: -18.0,
     SfxCategory.musicBase: -21.0,
     SfxCategory.music: -21.0,
+    SfxCategory.voiceOver: -12.0,
   };
 
   static final slotGameMobile = SfxPipelinePreset(
