@@ -309,6 +309,20 @@ extension SfxCategoryExt on SfxCategory {
     }
   }
 
+  /// Whether this category should skip trim by default.
+  /// Only short, percussive sounds (UI clicks, reel mechanics) are safe to trim.
+  /// Everything else may have intentional fades, intros, or gradual onsets.
+  bool get defaultSkipTrim {
+    switch (this) {
+      case SfxCategory.uiClicks:
+        return false;         // Short percussive — safe to trim
+      case SfxCategory.reelMechanics:
+        return false;         // Short mechanical — safe to trim
+      default:
+        return true;          // Everything else: skip trim (intentional fades/intros)
+    }
+  }
+
   /// Detect category from filename
   static SfxCategory fromFilename(String filename) {
     final lower = filename.toLowerCase();
@@ -457,6 +471,9 @@ class SfxPipelinePreset {
   final double fadeOutMs;
   final SfxFadeCurve fadeCurve;
 
+  // Step 2: Category-specific trim skip
+  final Set<SfxCategory> noTrimCategories;
+
   // Step 2b: Filters (HP/LP)
   final bool highPassEnabled;
   final double highPassFreq;
@@ -526,6 +543,11 @@ class SfxPipelinePreset {
     this.fadeOut = true,
     this.fadeOutMs = 10.0,
     this.fadeCurve = SfxFadeCurve.linear,
+    // Step 2: Category-specific trim skip
+    this.noTrimCategories = const {
+      SfxCategory.music, SfxCategory.ambientLoops, SfxCategory.anticipation,
+      SfxCategory.winCelebrations, SfxCategory.featureTriggers, SfxCategory.unknown,
+    },
     // Step 2b: Filters
     this.highPassEnabled = true,
     this.highPassFreq = 40.0,
@@ -590,6 +612,7 @@ class SfxPipelinePreset {
     bool? fadeOut,
     double? fadeOutMs,
     SfxFadeCurve? fadeCurve,
+    Set<SfxCategory>? noTrimCategories,
     bool? highPassEnabled,
     double? highPassFreq,
     bool? lowPassEnabled,
@@ -648,6 +671,7 @@ class SfxPipelinePreset {
       fadeOut: fadeOut ?? this.fadeOut,
       fadeOutMs: fadeOutMs ?? this.fadeOutMs,
       fadeCurve: fadeCurve ?? this.fadeCurve,
+      noTrimCategories: noTrimCategories ?? this.noTrimCategories,
       highPassEnabled: highPassEnabled ?? this.highPassEnabled,
       highPassFreq: highPassFreq ?? this.highPassFreq,
       lowPassEnabled: lowPassEnabled ?? this.lowPassEnabled,
@@ -709,6 +733,7 @@ class SfxPipelinePreset {
       'fadeOut': fadeOut,
       'fadeOutMs': fadeOutMs,
       'fadeCurve': fadeCurve.name,
+      'noTrimCategories': noTrimCategories.map((c) => c.name).toList(),
       'highPassEnabled': highPassEnabled,
       'highPassFreq': highPassFreq,
       'lowPassEnabled': lowPassEnabled,
@@ -776,6 +801,12 @@ class SfxPipelinePreset {
       fadeOut: json['fadeOut'] as bool? ?? true,
       fadeOutMs: (json['fadeOutMs'] as num?)?.toDouble() ?? 10.0,
       fadeCurve: _enumFromName(SfxFadeCurve.values, json['fadeCurve'] as String?) ?? SfxFadeCurve.linear,
+      noTrimCategories: (json['noTrimCategories'] as List<dynamic>?)
+              ?.map((e) => _enumFromName(SfxCategory.values, e as String))
+              .whereType<SfxCategory>()
+              .toSet() ??
+          {SfxCategory.music, SfxCategory.ambientLoops, SfxCategory.anticipation,
+           SfxCategory.winCelebrations, SfxCategory.featureTriggers, SfxCategory.unknown},
       highPassEnabled: json['highPassEnabled'] as bool? ?? true,
       highPassFreq: (json['highPassFreq'] as num?)?.toDouble() ?? 40.0,
       lowPassEnabled: json['lowPassEnabled'] as bool? ?? true,

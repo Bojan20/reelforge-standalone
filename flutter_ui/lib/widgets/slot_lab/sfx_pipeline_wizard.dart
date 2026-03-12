@@ -527,6 +527,26 @@ class _SfxPipelineWizardState extends State<SfxPipelineWizard> {
                 preset.paddingAfterMs, 0, 100, 'ms',
                 (v) => provider.updatePreset((p) => p.copyWith(paddingAfterMs: v)),
               )),
+              const Divider(color: FluxForgeTheme.bgElevated, height: 12),
+              const Text('SKIP TRIM FOR:', style: TextStyle(
+                color: FluxForgeTheme.textTertiary, fontSize: 9,
+                fontWeight: FontWeight.w600, letterSpacing: 1,
+              )),
+              const SizedBox(height: 4),
+              ...SfxCategory.values.where((c) => c != SfxCategory.unknown).map((cat) =>
+                _paramRow(cat.displayName, child: _toggle(
+                  preset.noTrimCategories.contains(cat),
+                  (v) {
+                    final updated = Set<SfxCategory>.from(preset.noTrimCategories);
+                    if (v) {
+                      updated.add(cat);
+                    } else {
+                      updated.remove(cat);
+                    }
+                    provider.updatePreset((p) => p.copyWith(noTrimCategories: updated));
+                  },
+                )),
+              ),
             ],
           )),
         ),

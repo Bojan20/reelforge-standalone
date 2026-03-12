@@ -320,10 +320,13 @@ class SfxPipelineService {
             ? (preset.fadeOutMs * file.sampleRate / 1000).round()
             : null;
 
+        // Skip trim for categories in noTrimCategories (music, ambient, etc.)
+        final skipTrim = preset.noTrimCategories.contains(file.detectedCategory);
+
         // Calculate trim range from silence detection (interleaved sample positions)
         // Aligned to frame boundaries (multiple of channels) to avoid mid-frame cuts
-        final bool hasTrimStart = preset.trimStart && file.silenceStartMs > 0;
-        final bool hasTrimEnd = preset.trimEnd && file.silenceEndMs > 0;
+        final bool hasTrimStart = !skipTrim && preset.trimStart && file.silenceStartMs > 0;
+        final bool hasTrimEnd = !skipTrim && preset.trimEnd && file.silenceEndMs > 0;
         int? trimStartSample;
         int? trimEndSample;
         if (hasTrimStart || hasTrimEnd) {
