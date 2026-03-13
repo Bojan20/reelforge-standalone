@@ -3852,10 +3852,19 @@ class _SymbolsSection extends _SectionConfig {
         id: 'special',
         title: 'Special Symbols',
         icon: '✨',
-        slots: special.expand((s) => [
-          _SlotConfig(stage: '${s.id.toUpperCase()}_LAND', label: '${s.name} Land'),
-          _SlotConfig(stage: '${s.id.toUpperCase()}_WIN', label: '${s.name} Win'),
-        ]).toList(),
+        slots: special.expand((s) {
+          final id = s.id.toUpperCase();
+          return [
+            // Indexed land slots #1-5 for per-reel audio
+            _SlotConfig(stage: '${id}_LAND_1', label: '${s.name} #1'),
+            _SlotConfig(stage: '${id}_LAND_2', label: '${s.name} #2'),
+            _SlotConfig(stage: '${id}_LAND_3', label: '${s.name} #3'),
+            _SlotConfig(stage: '${id}_LAND_4', label: '${s.name} #4'),
+            _SlotConfig(stage: '${id}_LAND_5', label: '${s.name} #5'),
+            // Win sound
+            _SlotConfig(stage: '${id}_WIN', label: '${s.name} Win'),
+          ];
+        }).toList(),
       ),
       _GroupConfig(
         id: 'highpay',
@@ -3915,7 +3924,6 @@ class _SymbolsSection extends _SectionConfig {
         title: 'Wild Variations',
         icon: '🃏',
         slots: [
-          _SlotConfig(stage: 'WILD_LAND', label: 'Wild Land'),
           _SlotConfig(stage: 'WILD_EXPAND_START', label: 'Wild Expand Start'),
           _SlotConfig(stage: 'WILD_EXPAND_STEP', label: 'Wild Expand Step'),
           _SlotConfig(stage: 'WILD_EXPAND_END', label: 'Wild Expand End'),
@@ -3951,13 +3959,6 @@ class _SymbolsSection extends _SectionConfig {
           _SlotConfig(stage: 'COIN_LAND', label: 'Coin Land'),
           _SlotConfig(stage: 'COIN_VALUE_REVEAL', label: 'Coin Value Reveal'),
           _SlotConfig(stage: 'COIN_COLLECT', label: 'Coin Collect'),
-          _SlotConfig(stage: 'SCATTER_LAND', label: 'Scatter Land'),
-          _SlotConfig(stage: 'SCATTER_LAND_1', label: 'Scatter #1'),
-          _SlotConfig(stage: 'SCATTER_LAND_2', label: 'Scatter #2'),
-          _SlotConfig(stage: 'SCATTER_LAND_3', label: 'Scatter #3'),
-          _SlotConfig(stage: 'SCATTER_LAND_4', label: 'Scatter #4'),
-          _SlotConfig(stage: 'SCATTER_LAND_5', label: 'Scatter #5'),
-          _SlotConfig(stage: 'SCATTER_WIN', label: 'Scatter Win'),
         ],
       ),
     ];
@@ -4123,8 +4124,6 @@ class _WinPresentationSection extends _SectionConfig {
           _SlotConfig(stage: 'LP4_WIN', label: 'LP4 Win'),
           _SlotConfig(stage: 'LP5_WIN', label: 'LP5 Win'),
           _SlotConfig(stage: 'LP6_WIN', label: 'LP6 Win'),
-          _SlotConfig(stage: 'WILD_WIN', label: 'Wild Win'),
-          _SlotConfig(stage: 'SCATTER_WIN', label: 'Scatter Win'),
           _SlotConfig(stage: 'BONUS_WIN', label: 'Bonus Win'),
         ],
       ),

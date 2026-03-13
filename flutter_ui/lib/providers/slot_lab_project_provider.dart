@@ -694,10 +694,8 @@ class SlotLabProjectProvider extends ChangeNotifier {
       }
     }
 
-    // WIN_PRESENT_LOW and WIN_PRESENT_EQUAL share the same sound
-    if (bindings.containsKey('WIN_PRESENT_LOW') && !bindings.containsKey('WIN_PRESENT_EQUAL')) {
-      bindings['WIN_PRESENT_EQUAL'] = bindings['WIN_PRESENT_LOW']!;
-    }
+    // WIN_PRESENT_EQUAL is NOT auto-copied from WIN_PRESENT_LOW.
+    // If no explicit WinEqual/RollupEqual file exists, leave it unbound.
 
     // SCATTER_LAND and WILD_LAND often share the same sound in many games
     // Copy numbered variants too (SCATTER_LAND_1 → WILD_LAND_1, etc.)
@@ -831,8 +829,22 @@ class SlotLabProjectProvider extends ChangeNotifier {
       'winlessthanequal': 'win_present_low',
       'win_low': 'win_present_low',
       'winlow': 'win_present_low',
+      'win_less': 'win_present_low',
+      'winless': 'win_present_low',
+      'win_small': 'win_present_low',
+      'winsmall': 'win_present_low',
+      'win_sub': 'win_present_low',
+      'win_present_low': 'win_present_low',
+      'winpresentlow': 'win_present_low',
+      'low_win': 'win_present_low',
+      'lowwin': 'win_present_low',
+      'small_win': 'win_present_low',
       'win_equal': 'win_present_equal',
       'winequal': 'win_present_equal',
+      'win_present_equal': 'win_present_equal',
+      'winpresentequal': 'win_present_equal',
+      'equal_win': 'win_present_equal',
+      'equalwin': 'win_present_equal',
       'total_win': 'win_present_end',
       'reel_highlight': 'payline_highlight',
       'linewin': 'payline_highlight',
@@ -906,7 +918,12 @@ class SlotLabProjectProvider extends ChangeNotifier {
       'base_rollup_loop': 'rollup_tick',
       'rollup_loop': 'rollup_start', 'rolluploop': 'rollup_start',
       'rollup_low': 'win_present_low',
+      'rolluplow': 'win_present_low',
+      'rollup_small': 'win_present_low',
+      'rollup_less': 'win_present_low',
+      'rollup_sub': 'win_present_low',
       'rollup_equal': 'win_present_equal',
+      'rollupequal': 'win_present_equal',
       'rollup_terminator': 'rollup_end',
       'rollup_term': 'rollup_end',
       'rollup': 'rollup_tick',

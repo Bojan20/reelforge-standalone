@@ -1343,24 +1343,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     if (reelIndex < _targetGrid.length) {
       for (int rowIndex = 0; rowIndex < _targetGrid[reelIndex].length; rowIndex++) {
         final symbolId = _targetGrid[reelIndex][rowIndex];
-        String? symbolLandStage;
 
-        switch (symbolId) {
-          case 11: // WILD
-            symbolLandStage = 'WILD_LAND';
-            break;
-          case 12: // SCATTER
-            symbolLandStage = 'SCATTER_LAND';
-            break;
-          case 13: // BONUS
-            symbolLandStage = 'BONUS_LAND';
-            break;
-        }
-
-        if (symbolLandStage != null) {
+        if (symbolId == 13) {
+          // BONUS — generic only (no indexed variants)
           hasSpecialSymbol = true;
-          _ensureAudioRegistered(symbolLandStage);
-          eventRegistry.triggerStage(symbolLandStage, context: {
+          _ensureAudioRegistered('BONUS_LAND');
+          eventRegistry.triggerStage('BONUS_LAND', context: {
             'reel_index': reelIndex,
             'row_index': rowIndex,
             'symbol_id': symbolId,
@@ -1369,23 +1357,50 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         }
       }
 
-      // SCATTER_LAND — fire here (same timing as reel stop) instead of
-      // _checkScatterAndTriggerAnticipation (which only handles anticipation logic now)
+      // SCATTER_LAND — indexed by scatter count (SCATTER_LAND_1..5),
+      // fallback to generic SCATTER_LAND if indexed has no audio.
       final hasScatter = _targetGrid[reelIndex].any((id) => SlotSymbol.isScatterSymbol(id));
       if (hasScatter) {
+        hasSpecialSymbol = true;
         _scatterReels.add(reelIndex);
         final scatterCount = _scatterReels.length;
-        _ensureAudioRegistered('SCATTER_LAND');
-        eventRegistry.triggerStage('SCATTER_LAND', context: {
-          'reel_index': reelIndex,
-          'scatter_count': scatterCount,
-          'timestamp_ms': timestampMs,
-        });
-        if (scatterCount >= 2) {
-          _ensureAudioRegistered('SCATTER_LAND_$scatterCount');
-          eventRegistry.triggerStage('SCATTER_LAND_$scatterCount', context: {
+        final indexedStage = 'SCATTER_LAND_$scatterCount';
+        _ensureAudioRegistered(indexedStage);
+        final hasIndexed = eventRegistry.hasEventForStage(indexedStage);
+        if (hasIndexed) {
+          eventRegistry.triggerStage(indexedStage, context: {
             'reel_index': reelIndex,
             'scatter_count': scatterCount,
+            'timestamp_ms': timestampMs,
+          });
+        } else {
+          _ensureAudioRegistered('SCATTER_LAND');
+          eventRegistry.triggerStage('SCATTER_LAND', context: {
+            'reel_index': reelIndex,
+            'scatter_count': scatterCount,
+            'timestamp_ms': timestampMs,
+          });
+        }
+      }
+
+      // WILD_LAND — indexed by reel (WILD_LAND_1..5),
+      // fallback to generic WILD_LAND if indexed has no audio.
+      final hasWild = _targetGrid[reelIndex].any((id) => id == 11);
+      if (hasWild) {
+        hasSpecialSymbol = true;
+        final reelNum = reelIndex + 1; // 1-based for WILD_LAND_1..5
+        final indexedStage = 'WILD_LAND_$reelNum';
+        _ensureAudioRegistered(indexedStage);
+        final hasIndexed = eventRegistry.hasEventForStage(indexedStage);
+        if (hasIndexed) {
+          eventRegistry.triggerStage(indexedStage, context: {
+            'reel_index': reelIndex,
+            'timestamp_ms': timestampMs,
+          });
+        } else {
+          _ensureAudioRegistered('WILD_LAND');
+          eventRegistry.triggerStage('WILD_LAND', context: {
+            'reel_index': reelIndex,
             'timestamp_ms': timestampMs,
           });
         }
@@ -2156,6 +2171,16 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         _winTier = _getP5WinTierStringId(_targetWinAmount);
 
         // ═══════════════════════════════════════════════════════════════════════
+        // BIG WIN ALERT — fire IMMEDIATELY on detection (before symbol highlight)
+        // This is the "attention" SFX that plays the moment a big win is confirmed,
+        // well before BIG_WIN_START (which is the looping celebration music).
+        // ═══════════════════════════════════════════════════════════════════════
+        if (_isBigWinTier(_targetWinAmount)) {
+          _ensureAudioRegistered('BIG_WIN_TRIGGER');
+          eventRegistry.triggerStage('BIG_WIN_TRIGGER');
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
         // ANALYTICS: Track win tier triggered
         // ═══════════════════════════════════════════════════════════════════════
         WinAnalyticsService.instance.trackWinTier(
@@ -2233,16 +2258,19 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             // WIN_PRESENT_X audio triggers NOW when plaque appears (not during symbol highlight)
             // ═══════════════════════════════════════════════════════════════════
 
-            // 🔊 Trigger WIN_PRESENT audio when plaque appears
-            _ensureAudioRegistered('WIN_PRESENT_$winPresentTier');
-            eventRegistry.triggerStage('WIN_PRESENT_$winPresentTier');
-
-            // 🔊 For small wins (≤ bet): also trigger dedicated WIN_PRESENT_LOW/EQUAL
-            if (winPresentTier == 1) {
-              final isEqual = (_targetWinAmount - bet).abs() < 0.01;
-              final lowStage = isEqual ? 'WIN_PRESENT_EQUAL' : 'WIN_PRESENT_LOW';
-              _ensureAudioRegistered(lowStage);
-              eventRegistry.triggerStage(lowStage);
+            // 🔊 Trigger WIN_PRESENT audio based on tier:
+            //   -1 → WIN_PRESENT_LOW only (< bet)
+            //    0 → WIN_PRESENT_EQUAL only (≈ bet)
+            //   1+ → WIN_PRESENT_N only (> bet)
+            if (winPresentTier == -1) {
+              _ensureAudioRegistered('WIN_PRESENT_LOW');
+              eventRegistry.triggerStage('WIN_PRESENT_LOW');
+            } else if (winPresentTier == 0) {
+              _ensureAudioRegistered('WIN_PRESENT_EQUAL');
+              eventRegistry.triggerStage('WIN_PRESENT_EQUAL');
+            } else {
+              _ensureAudioRegistered('WIN_PRESENT_$winPresentTier');
+              eventRegistry.triggerStage('WIN_PRESENT_$winPresentTier');
             }
 
             // Show plaque with tier label (WIN_1, WIN_2, etc.)
@@ -2252,7 +2280,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             _winAmountController.forward(from: 0);
 
             // Start rollup with callback for win lines
-            // V9: Pass winPresentTier for tier 1 skip logic (≤ 1x wins skip animation)
+            // V9: Pass winPresentTier for sub-bet skip logic (≤ 1x wins skip rollup)
             _startTierBasedRollupWithCallback(_winTier, () {
               if (!mounted) return;
               // FIX: Don't proceed if skip already completed
@@ -2284,16 +2312,15 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             // ═══════════════════════════════════════════════════════════════════
 
             // 🔊 Trigger WIN_PRESENT audio when plaque appears
-            _ensureAudioRegistered('WIN_PRESENT_$winPresentTier');
-            eventRegistry.triggerStage('WIN_PRESENT_$winPresentTier');
+            // Big wins always have tier >= 1, so direct interpolation is safe
+            if (winPresentTier >= 1) {
+              _ensureAudioRegistered('WIN_PRESENT_$winPresentTier');
+              eventRegistry.triggerStage('WIN_PRESENT_$winPresentTier');
+            }
 
-            // ═══════════════════════════════════════════════════════════════════
-            // BIG WIN — Trigger alert SFX and celebration (data-driven)
-            // BIG_WIN_TRIGGER fires HERE when big win is detected (before plaque/progression)
-            // ═══════════════════════════════════════════════════════════════════
+            // BIG WIN — COIN_SHOWER_START fires here at plaque time
+            // (BIG_WIN_TRIGGER already fired at T+0 in _finalizeSpin)
             if (isBigWin) {
-              _ensureAudioRegistered('BIG_WIN_TRIGGER');
-              eventRegistry.triggerStage('BIG_WIN_TRIGGER');
               eventRegistry.triggerStage('COIN_SHOWER_START');
             }
 
@@ -2870,18 +2897,23 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   /// Get WIN_PRESENT tier for audio triggering
   /// P5: Uses configurable tier system with proper stage names
   /// Legacy: Falls back to WIN_PRESENT_1 through WIN_PRESENT_6
+  /// Returns the WIN_PRESENT tier index for audio stage selection.
+  /// -1 = LOW (less than bet), 0 = EQUAL (approx bet), 1+ = regular tier (above bet).
+  /// This maps directly to stage names:
+  ///   -1 → WIN_PRESENT_LOW
+  ///    0 → WIN_PRESENT_EQUAL
+  ///    N → WIN_PRESENT_N
   int _getWinPresentTier(double totalWin) {
     final tierResult = _getP5WinTierResult(totalWin);
-    if (tierResult == null) return 1;
+    if (tierResult == null) return -1;
 
     if (tierResult.isBigWin) {
       // Big win uses tier ID (1-5) for audio stages
       return tierResult.bigWinMaxTier ?? 1;
     }
 
-    // Regular win: map to tier 1-6 based on regular tier ID
-    final regularTierId = tierResult.regularTier?.tierId ?? 0;
-    return (regularTierId + 1).clamp(1, 6);
+    // Regular win: preserve tierId directly (-1=LOW, 0=EQUAL, 1+=tiers)
+    return tierResult.regularTier?.tierId ?? -1;
   }
 
   /// Get WIN_PRESENT duration in milliseconds for the given tier
@@ -3110,10 +3142,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   /// V9: Now supports RTL digit animation and tier 1 skip
   void _startTierBasedRollupWithCallback(String tier, VoidCallback? onComplete, {int? winPresentTier}) {
     // ═══════════════════════════════════════════════════════════════════════════
-    // V9: WIN TIER 1 SKIP — For tiny wins (≤ 1x bet), skip rollup animation
+    // V9: Sub-bet SKIP — For tiny wins (≤ 1x bet), skip rollup animation
+    // winPresentTier: -1 = LOW (<bet), 0 = EQUAL (≈bet) → skip rollup
     // But still show the "WIN!" plaque briefly (800ms minimum) so player sees it
     // ═══════════════════════════════════════════════════════════════════════════
-    if (winPresentTier == 1) {
+    if (winPresentTier != null && winPresentTier <= 0) {
 
       setState(() {
         _displayedWinAmount = _targetWinAmount;

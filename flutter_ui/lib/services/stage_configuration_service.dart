@@ -1506,7 +1506,6 @@ class StageConfigurationService extends ChangeNotifier {
     _register('SCATTER_LAND_3', StageCategory.symbol, 75, SpatialBus.sfx, 'FREE_SPIN_TRIGGER');
     _register('SCATTER_LAND_4', StageCategory.symbol, 80, SpatialBus.sfx, 'FREE_SPIN_TRIGGER');
     _register('SCATTER_LAND_5', StageCategory.symbol, 85, SpatialBus.sfx, 'FREE_SPIN_TRIGGER');
-    _register('SCATTER_WIN', StageCategory.symbol, 70, SpatialBus.sfx, 'DEFAULT');
 
     // Bonus
     _register('BONUS_LAND', StageCategory.symbol, 55, SpatialBus.sfx, 'DEFAULT');
