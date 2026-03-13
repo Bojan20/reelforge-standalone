@@ -1226,7 +1226,7 @@ class StageConfigurationService extends ChangeNotifier {
     // ─────────────────────────────────────────────────────────────────────────
     // SPIN_START removed — UI_SPIN_PRESS covers button press
     // SPIN_BUTTON_PRESS removed — UI_SPIN_PRESS covers this
-    _register('REEL_SPIN_LOOP', StageCategory.spin, 45, SpatialBus.reels, 'DEFAULT', isLooping: true);
+    _register('REEL_SPIN_LOOP', StageCategory.spin, 45, SpatialBus.reels, 'DEFAULT', isLooping: true, isPooled: true);
 
     // Per-reel stops (pooled for rapid fire)
     for (var i = 0; i < 6; i++) {

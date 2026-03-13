@@ -785,6 +785,11 @@ impl PlaybackPosition {
         self.sample_rate.load(Ordering::Relaxed) as u32
     }
 
+    /// Update sample rate (called when audio device changes or stream starts)
+    pub fn set_sample_rate(&self, sr: u32) {
+        self.sample_rate.store(sr as u64, Ordering::Relaxed);
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // SCRUBBING (Pro Tools / Cubase style audio preview on drag)
     // ═══════════════════════════════════════════════════════════════════════
@@ -7065,6 +7070,13 @@ impl PlaybackEngine {
     /// Get current sample rate
     pub fn sample_rate(&self) -> u32 {
         self.position.sample_rate()
+    }
+
+    /// Set sample rate to match actual audio device output
+    /// Called from engine_start_playback() after cpal device config is resolved
+    pub fn set_sample_rate(&self, sr: u32) {
+        self.position.set_sample_rate(sr);
+        log::info!("[PlaybackEngine] Sample rate updated to {} Hz", sr);
     }
 }
 

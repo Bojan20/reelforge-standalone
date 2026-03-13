@@ -61,9 +61,23 @@ class SlotLabProjectProvider extends ChangeNotifier {
   // ULTIMATE AUDIO PANEL STATE (V7)
   // ==========================================================================
 
-  /// Audio assignments: stage → audioPath
+  /// Audio assignments: stage → audioPath (primary)
   /// Used by UltimateAudioPanel for drag-drop audio assignments
   Map<String, String> _audioAssignments = {};
+
+  /// Audio variants: stage → [path1, path2, ...] for pooled round-robin
+  /// When a pooled stage has multiple files (e.g., SpinsLoop1/2/3),
+  /// all variants are stored here. On trigger, engine picks round-robin.
+  final Map<String, List<String>> _audioVariants = {};
+
+  /// Get all audio variants for a pooled stage (includes primary)
+  List<String> getAudioVariants(String stage) {
+    final variants = _audioVariants[stage];
+    if (variants != null && variants.isNotEmpty) return variants;
+    final primary = _audioAssignments[stage];
+    if (primary != null && primary.isNotEmpty) return [primary];
+    return [];
+  }
 
   /// Expanded sections in UltimateAudioPanel
   Set<String> _expandedSections = {'spins_reels', 'symbols', 'wins'};
@@ -275,6 +289,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _musicLayerConfig = null;
     // Reset audio panel state
     _audioAssignments = {};
+    _audioVariants.clear();
     _expandedSections = {'spins_reels', 'symbols', 'wins'};
     _expandedGroups = {
       'spins_reels_spin_controls',
@@ -346,6 +361,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
       ));
     }
     _audioAssignments.remove(stage);
+    _audioVariants.remove(stage);
     _markDirty();
 
     // Rebuild GAME_START composite when a base music layer is removed
@@ -562,6 +578,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
     }
 
     _audioAssignments.clear();
+    _audioVariants.clear();
     _markDirty();
   }
 
@@ -621,13 +638,19 @@ class SlotLabProjectProvider extends ChangeNotifier {
                      (base != noSfxBase ? _resolveStageFromFilename(base, stripped) : null);
       if (stage != null) {
         mappedPaths.add(file.path);
-        // For variant stages (e.g., REEL_SPIN_LOOP with 3 variants),
-        // only bind the first variant as the primary
         if (!bindings.containsKey(stage)) {
           bindings[stage] = file.path;
+          // Initialize variant list with primary
+          _audioVariants[stage] = [file.path];
         } else if (stage == 'MUSIC_BASE_L1') {
           // Multiple files match base music — distribute across L1-L5
           pendingMusicBaseFiles.add(file.path);
+        } else {
+          // Additional variant for same stage (pooled round-robin)
+          _audioVariants.putIfAbsent(stage, () => [bindings[stage]!]);
+          if (!_audioVariants[stage]!.contains(file.path)) {
+            _audioVariants[stage]!.add(file.path);
+          }
         }
       }
     }
@@ -881,6 +904,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
       'bonus': 'bonus_music',
       'base_game_rollup': 'rollup_tick',
       'base_rollup_loop': 'rollup_tick',
+      'rollup_loop': 'rollup_start', 'rolluploop': 'rollup_start',
       'rollup_low': 'win_present_low',
       'rollup_equal': 'win_present_equal',
       'rollup_terminator': 'rollup_end',
@@ -1085,6 +1109,8 @@ class SlotLabProjectProvider extends ChangeNotifier {
     if (svc.getStage(directUpper) != null) return directUpper;
 
     // Token-based fuzzy match
+    // Uses RAW tokens (all tokens) for file coverage to avoid false positives
+    // where extra context tokens (e.g., "b", "01" in SymbolB01Land) are ignored.
     final allStages = svc.allStageNames;
     final fileTokens = matchBase.split('_').where((t) => t.isNotEmpty).toList();
     if (fileTokens.isEmpty) return null;
@@ -2019,6 +2045,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _musicLayers = List.from(loaded.musicLayers);
     // V7: Restore audio panel state
     _audioAssignments = Map.from(loaded.audioAssignments);
+    _audioVariants.clear(); // Reset runtime variant cache (rebuilt on next autobind)
     _expandedSections = Set.from(loaded.expandedSections);
     _expandedGroups = Set.from(loaded.expandedGroups);
     _lastActiveTab = loaded.lastActiveTab;
@@ -2233,6 +2260,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _musicLayers = List.from(loaded.musicLayers);
     // V7: Restore audio panel state
     _audioAssignments = Map.from(loaded.audioAssignments);
+    _audioVariants.clear(); // Reset runtime variant cache
     _expandedSections = Set.from(loaded.expandedSections);
     _expandedGroups = Set.from(loaded.expandedGroups);
     _lastActiveTab = loaded.lastActiveTab;

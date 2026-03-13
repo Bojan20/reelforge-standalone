@@ -6055,12 +6055,18 @@ pub extern "C" fn engine_start_playback() -> i32 {
         };
 
         let channels = config.channels() as usize;
+        let device_sample_rate = config.sample_rate().0;
 
         log::info!(
             "Starting audio stream: {} Hz, {} channels",
-            config.sample_rate().0,
+            device_sample_rate,
             channels
         );
+
+        // CRITICAL: Sync PlaybackEngine sample rate to actual device output rate.
+        // Engine is initialized with 48000 Hz but device may run at 44100 Hz.
+        // Without this, SRC ratio is wrong → pitch/speed artifacts.
+        PLAYBACK_ENGINE.set_sample_rate(device_sample_rate);
 
         // Pre-allocate processing buffers
         let mut output_l = vec![0.0f64; 4096];

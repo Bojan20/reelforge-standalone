@@ -63,11 +63,74 @@ enum PreviewCommand {
 /// Anti-click fade ramp length in frames (~10ms @ 48kHz)
 const PREVIEW_FADE_FRAMES: u64 = 480;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// LANCZOS-3 SINC INTERPOLATION (duplicated from playback.rs for isolation)
+// 6-tap windowed sinc, ~-90dB noise floor, zero-allocation, audio-thread safe
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[inline]
+fn lanczos3(x: f64) -> f64 {
+    if x.abs() < 1e-10 {
+        return 1.0;
+    }
+    if x.abs() >= 3.0 {
+        return 0.0;
+    }
+    let pi_x = std::f64::consts::PI * x;
+    let pi_x_3 = pi_x / 3.0;
+    (pi_x.sin() * pi_x_3.sin()) / (pi_x * pi_x_3)
+}
+
+#[inline]
+fn lanczos3_sample(
+    src_pos: f64,
+    samples: &[f32],
+    channels: usize,
+    total_frames: usize,
+    ch: usize,
+) -> f32 {
+    let idx_floor = src_pos.floor() as i64;
+    let frac = src_pos - idx_floor as f64;
+
+    // Fast path: exact position → no interpolation needed
+    if frac.abs() < 1e-10 {
+        let i = idx_floor as usize;
+        if i < total_frames {
+            return samples[i * channels + ch];
+        }
+        return 0.0;
+    }
+
+    let mut sum = 0.0_f64;
+    let mut weight_sum = 0.0_f64;
+
+    // Lanczos-3: 6 taps (k = -2..=3)
+    for k in -2i64..=3 {
+        let sample_idx = idx_floor + k;
+        if sample_idx < 0 || sample_idx >= total_frames as i64 {
+            continue;
+        }
+        let x = frac - k as f64;
+        let w = lanczos3(x);
+        let buf_idx = sample_idx as usize * channels + ch;
+        sum += samples[buf_idx] as f64 * w;
+        weight_sum += w;
+    }
+
+    if weight_sum > 0.0 {
+        (sum / weight_sum) as f32
+    } else {
+        0.0
+    }
+}
+
 struct PreviewVoice {
     /// Audio data (interleaved stereo f32)
     audio: Arc<ImportedAudio>,
-    /// Current playback position in frames
-    position: u64,
+    /// Fractional playback position in source frames (for SRC)
+    src_position: f64,
+    /// SRC rate ratio: source_sr / engine_sr (e.g., 44100/48000 = 0.91875)
+    rate_ratio: f64,
     /// Volume multiplier (0.0 to 1.0)
     volume: f32,
     /// Voice ID for tracking
@@ -96,7 +159,8 @@ impl PreviewVoice {
                 bit_depth: None,
                 format: String::new(),
             }),
-            position: 0,
+            src_position: 0.0,
+            rate_ratio: 1.0,
             volume: 1.0,
             id: 0,
             active: false,
@@ -106,9 +170,11 @@ impl PreviewVoice {
         }
     }
 
-    fn activate(&mut self, audio: Arc<ImportedAudio>, volume: f32, id: u64) {
+    fn activate(&mut self, audio: Arc<ImportedAudio>, volume: f32, id: u64, engine_sr: u32) {
+        // SRC ratio: how many source frames per output frame
+        self.rate_ratio = audio.sample_rate as f64 / engine_sr as f64;
         self.audio = audio;
-        self.position = 0;
+        self.src_position = 0.0;
         self.volume = volume;
         self.id = id;
         self.active = true;
@@ -120,7 +186,7 @@ impl PreviewVoice {
 
     fn deactivate(&mut self) {
         self.active = false;
-        self.position = 0;
+        self.src_position = 0.0;
         self.fading_out = false;
         self.fade_out_remaining = 0;
         self.fade_in_remaining = 0;
@@ -134,7 +200,7 @@ impl PreviewVoice {
         }
     }
 
-    /// Fill buffer with audio, returns true if still playing
+    /// Fill buffer with audio using Lanczos-3 SRC, returns true if still playing
     #[inline]
     fn fill_buffer(&mut self, output: &mut [f32], channels: usize) -> bool {
         if !self.active {
@@ -145,13 +211,16 @@ impl PreviewVoice {
         let channels_src = self.audio.channels as usize;
         let total_frames = self.audio.samples.len() / channels_src;
 
-        if self.position >= total_frames as u64 {
+        if self.src_position >= total_frames as f64 {
             self.active = false;
             return false;
         }
 
         for frame in 0..frames_needed {
-            let src_frame = self.position as usize + frame;
+            // SRC: fractional source position advances by rate_ratio per output frame
+            let src_pos = self.src_position + (frame as f64 * self.rate_ratio);
+            let src_frame = src_pos.floor() as usize;
+
             if src_frame >= total_frames {
                 // Fill remaining with silence
                 for ch in 0..channels {
@@ -170,10 +239,10 @@ impl PreviewVoice {
                 self.fade_in_remaining -= 1;
             }
 
-            // Natural end-of-file fade-out (last 480 frames)
-            let frames_until_end = total_frames as u64 - (self.position + frame as u64);
-            if frames_until_end < PREVIEW_FADE_FRAMES && !self.fading_out {
-                fade *= frames_until_end as f32 / PREVIEW_FADE_FRAMES as f32;
+            // Natural end-of-file fade-out (last 480 source frames)
+            let source_frames_until_end = total_frames as f64 - src_pos;
+            if source_frames_until_end < PREVIEW_FADE_FRAMES as f64 && !self.fading_out {
+                fade *= (source_frames_until_end / PREVIEW_FADE_FRAMES as f64) as f32;
             }
 
             // Fade-out ramp (overrides fade-in if both active)
@@ -194,10 +263,12 @@ impl PreviewVoice {
                 }
             }
 
-            // Read source (mono or stereo) with fade applied
-            let left = self.audio.samples[src_frame * channels_src] * self.volume * fade;
+            let gain = self.volume * fade;
+
+            // Lanczos-3 sinc interpolation for sample rate conversion
+            let left = lanczos3_sample(src_pos, &self.audio.samples, channels_src, total_frames, 0) * gain;
             let right = if channels_src > 1 {
-                self.audio.samples[src_frame * channels_src + 1] * self.volume * fade
+                lanczos3_sample(src_pos, &self.audio.samples, channels_src, total_frames, 1) * gain
             } else {
                 left // Mono to stereo
             };
@@ -220,8 +291,8 @@ impl PreviewVoice {
             }
         }
 
-        self.position += frames_needed as u64;
-        self.position < total_frames as u64
+        self.src_position += frames_needed as f64 * self.rate_ratio;
+        self.src_position < total_frames as f64
     }
 }
 
@@ -238,15 +309,18 @@ struct RtState {
     master_volume: f32,
     /// Command consumer (lock-free)
     command_rx: Consumer<PreviewCommand>,
+    /// Device output sample rate (for SRC calculation)
+    engine_sample_rate: u32,
 }
 
 impl RtState {
-    fn new(command_rx: Consumer<PreviewCommand>) -> Self {
+    fn new(command_rx: Consumer<PreviewCommand>, sample_rate: u32) -> Self {
         Self {
             voices: std::array::from_fn(|_| PreviewVoice::new_inactive()),
             temp_buffer: [0.0; MAX_BUFFER_SIZE],
             master_volume: 1.0,
             command_rx,
+            engine_sample_rate: sample_rate,
         }
     }
 
@@ -262,7 +336,7 @@ impl RtState {
                 } => {
                     // Find first inactive slot
                     if let Some(voice) = self.voices.iter_mut().find(|v| !v.active) {
-                        voice.activate(audio, volume, voice_id);
+                        voice.activate(audio, volume, voice_id, self.engine_sample_rate);
                     }
                     // If no slot available, voice is dropped (graceful degradation)
                 }
@@ -512,8 +586,8 @@ fn run_preview_stream(
         channels
     );
 
-    // Create RT state with pre-allocated buffers
-    let mut rt_state = RtState::new(command_rx);
+    // Create RT state with pre-allocated buffers and device sample rate for SRC
+    let mut rt_state = RtState::new(command_rx, sample_rate);
 
     let stream = device
         .build_output_stream(

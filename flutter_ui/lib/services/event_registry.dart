@@ -1200,6 +1200,9 @@ class EventRegistry extends ChangeNotifier {
   /// Check if spatial audio is enabled
   bool get useSpatialAudio => _useSpatialAudio;
 
+  // Round-robin counters for pooled variant selection
+  final Map<String, int> _variantCounters = {};
+
   // Stats
   int _triggerCount = 0;
   int _pooledTriggers = 0;
@@ -2383,8 +2386,38 @@ class EventRegistry extends ChangeNotifier {
     // ═══════════════════════════════════════════════════════════════════════════
     final resolvedLayers = _resolveCoTimedConflicts(event.layers);
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ROUND-ROBIN VARIANT SELECTION for pooled stages
+    // If stage has multiple audio variants (e.g., SpinsLoop1/2/3),
+    // replace the Play layer's audioPath with next variant in round-robin.
+    // ═══════════════════════════════════════════════════════════════════════════
+    List<AudioLayer>? variantLayers;
+    try {
+      final projectProvider = GetIt.instance<SlotLabProjectProvider>();
+      final stageKey = event.stage.toUpperCase();
+      final variants = projectProvider.getAudioVariants(stageKey);
+      if (variants.length > 1) {
+        final idx = (_variantCounters[stageKey] ?? 0) % variants.length;
+        _variantCounters[stageKey] = idx + 1;
+        final variantPath = variants[idx];
+        variantLayers = resolvedLayers.map((l) {
+          if (l.actionType == 'Play' && l.audioPath.isNotEmpty) {
+            return AudioLayer(
+              id: l.id, name: l.name, audioPath: variantPath,
+              volume: l.volume, pan: l.pan, delay: l.delay,
+              busId: l.busId, loop: l.loop,
+              actionType: l.actionType, targetAudioPath: l.targetAudioPath,
+              fadeInMs: l.fadeInMs, fadeOutMs: l.fadeOutMs,
+              trimStartMs: l.trimStartMs, trimEndMs: l.trimEndMs,
+            );
+          }
+          return l;
+        }).toList();
+      }
+    } catch (_) {}
+
     // Dispatch ALL layers by actionType — visible actions from composite event builder
-    for (final layer in resolvedLayers) {
+    for (final layer in variantLayers ?? resolvedLayers) {
       switch (layer.actionType) {
         case 'Play':
           _playLayer(
