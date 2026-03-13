@@ -595,8 +595,9 @@ class SlotLabProjectProvider extends ChangeNotifier {
       final stripped = RegExp(r'^\d+_x(_|$)').hasMatch(name)
           ? name   // Keep "2_x_..." as-is (multiplier prefix)
           : name.replaceFirst(RegExp(r'^\d+_'), '');
-      // Strip trailing variant number/letter (e.g., "_2", "_1", "_b", "_a")
-      final base = stripped.replaceFirst(RegExp(r'_[a-z0-9]$'), '');
+      // Strip trailing variant number only (e.g., "_2", "_1")
+      // Letters NOT stripped — too aggressive (ui_spin→ui_spi, big_win_alert→big_win_aler)
+      final base = stripped.replaceFirst(RegExp(r'_\d$'), '');
       // Strip "LevelN" / "LVN" / "_level_N" / "_level" suffix — volume layers
       final noLevel = base.replaceFirst(RegExp(r'_?(?:level|lv)_?\d*$'), '');
 
@@ -608,12 +609,15 @@ class SlotLabProjectProvider extends ChangeNotifier {
       final noSfxNoLevel = noLevel.startsWith('sfx_') ? noLevel.substring(4) : noLevel;
       final noSfxNoLevelClean = noSfxNoLevel.replaceFirst(RegExp(r'^\d+_'), '');
 
-      // Try cleanest forms first (base without variant/level), then progressively less clean
-      final stage = _resolveStageFromFilename(noSfxNoLevelClean, noSfxNoLevelClean) ??
-                     _resolveStageFromFilename(noSfxBase, noSfxBase) ??
-                     _resolveStageFromFilename(noSfx, noSfx) ??
-                     (noLevel != noSfxNoLevelClean ? _resolveStageFromFilename(noLevel, noLevel) : null) ??
+      // Resolution: try unstripped FIRST (preserves trailing _N for indexed stages
+      // like SCATTER_LAND_1), then fall back to variant-stripped for alias matching.
+      // Key insight: if source has _N and resolves to STEM_N, that's an indexed match.
+      // If source has _N but only resolves via stripped form, that's a variant (pooled).
+      final stage = _resolveStageFromFilename(noSfx, noSfx) ??
                      (stripped != noSfx ? _resolveStageFromFilename(stripped, stripped) : null) ??
+                     _resolveStageFromFilename(noSfxNoLevelClean, noSfxNoLevelClean) ??
+                     _resolveStageFromFilename(noSfxBase, noSfxBase) ??
+                     (noLevel != noSfxNoLevelClean ? _resolveStageFromFilename(noLevel, noLevel) : null) ??
                      (base != noSfxBase ? _resolveStageFromFilename(base, stripped) : null);
       if (stage != null) {
         mappedPaths.add(file.path);
@@ -786,10 +790,11 @@ class SlotLabProjectProvider extends ChangeNotifier {
   /// New stages in StageConfigurationService auto-match without changes here.
   static String? _resolveStageFromFilename(String base, String full) {
     const aliases = <String, String>{
+      'spin_loop': 'reel_spin_loop', 'spinloop': 'reel_spin_loop',
       'spins_loop': 'reel_spin_loop', 'spins_stop': 'reel_stop',
       'reel_land': 'reel_stop', 'reelstop': 'reel_stop',
       'reelclick': 'reel_stop', 'spinning': 'reel_spin_loop',
-      'reel_clear': 'reel_stop',
+      'reel_clear': 'reel_stop', 'reel_spin': 'reel_spin_loop',
       'spins_susp_short': 'anticipation_tension_r2',
       'spins_susp_med': 'anticipation_tension_r3',
       'spins_susp_long': 'anticipation_tension_r4',
@@ -801,13 +806,22 @@ class SlotLabProjectProvider extends ChangeNotifier {
       'anticipation': 'anticipation_tension',
       'hp_sym': 'hp_win', 'lp_sym': 'lp_win',
       'winlessthanequal': 'win_present_low',
+      'win_low': 'win_present_low',
+      'winlow': 'win_present_low',
+      'win_equal': 'win_present_equal',
+      'winequal': 'win_present_equal',
       'total_win': 'win_present_end',
       'reel_highlight': 'payline_highlight',
       'linewin': 'payline_highlight',
       'coin_highlight': 'payline_highlight',
       'bw_alert': 'big_win_trigger',
-      'coin_loop_end': 'big_win_tick_end',
-      'coin_loop': 'big_win_tick_start',
+      'big_win_alert': 'big_win_trigger',
+      'bigwinalert': 'big_win_trigger',
+      'bw_loop': 'big_win_start', 'bw_start': 'big_win_start',
+      'bw_end': 'big_win_end',
+      'ui_skip': 'skip', 'u_i_skip': 'skip',
+      'coin_loop_end': 'rollup_end',
+      'coin_loop': 'rollup_start',
       'coin_burst_fly': 'coin_shower_start',
       'coin_burst': 'big_win_tick_start',
       'celebration_rollup': 'big_win_tick_start',
@@ -824,14 +838,33 @@ class SlotLabProjectProvider extends ChangeNotifier {
       'trn_bonus_outro': 'context_bonus_to_base',
       'ui_spin': 'ui_spin_press',
       'ui_spin_button': 'ui_spin_press',
+      'u_i_spin': 'ui_spin_press', 'u_i_spin_press': 'ui_spin_press',
+      'spin_press': 'ui_spin_press', 'spin_button': 'ui_spin_press',
       'ui_open': 'ui_menu_open', 'ui_close': 'ui_menu_close',
       'ui_interact': 'ui_button_press',
+      'ui_click': 'ui_button_press',
+      'ui_tap': 'ui_button_press',
+      'u_i_click': 'ui_button_press', 'u_i_interact': 'ui_button_press',
+      'interact': 'ui_button_press',
+      'click': 'ui_button_press',
+      'select': 'ui_button_press',
+      'ui_select': 'ui_button_press', 'u_i_select': 'ui_button_press',
       'button_click': 'ui_button_press',
       'button_high_tech_press': 'ui_button_press',
+      'menu_click': 'ui_menu_select',
+      'menu_hover': 'ui_menu_hover',
+      'menu_open': 'ui_menu_open',
+      'menu_close': 'ui_menu_close',
       'play_button_press': 'ui_button_press',
       'start_button': 'ui_spin_press',
       'volume_button': 'ui_volume_change',
       'change_risk_amount': 'ui_bet_up',
+      'bet_up': 'ui_bet_up', 'betup': 'ui_bet_up',
+      'bet_down': 'ui_bet_down', 'betdown': 'ui_bet_down',
+      'bet_max': 'ui_bet_max', 'betmax': 'ui_bet_max',
+      'bet_min': 'ui_bet_min', 'betmin': 'ui_bet_min',
+      'bet_increase': 'ui_bet_up', 'bet_decrease': 'ui_bet_down',
+      'u_i_bet_up': 'ui_bet_up', 'u_i_bet_down': 'ui_bet_down',
       'panels_appear': 'fs_hold_intro',
       'bell_retrigger': 'fs_retrigger',
       'bell_loop': 'fs_spin_start',
@@ -848,6 +881,8 @@ class SlotLabProjectProvider extends ChangeNotifier {
       'bonus': 'bonus_music',
       'base_game_rollup': 'rollup_tick',
       'base_rollup_loop': 'rollup_tick',
+      'rollup_low': 'win_present_low',
+      'rollup_equal': 'win_present_equal',
       'rollup_terminator': 'rollup_end',
       'rollup_term': 'rollup_end',
       'rollup': 'rollup_tick',
@@ -869,7 +904,11 @@ class SlotLabProjectProvider extends ChangeNotifier {
       'credits_fly_down': 'win_collect',
       'collect': 'win_collect',
       'wild_win': 'wild_win',
-      'gem_land': 'scatter_land', 'icon_burst': 'symbol_win',
+      'gem_land': 'scatter_land',
+      'wild_symbol': 'wild_land', 'wild_sym': 'wild_land',
+      'scatter_symbol': 'scatter_land', 'scatter_sym': 'scatter_land',
+      'scatter_stop': 'scatter_land', 'wild_stop': 'wild_land',
+      'icon_burst': 'symbol_win',
       'level_up': 'fs_multiplier_up', 'spin_count': 'fs_spin_start',
       'ignite': 'fs_start',
     };
@@ -912,6 +951,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
 
     // NofM pattern: "3of5" → index
     String matchBase = expanded;
+    final svc = StageConfigurationService.instance;
     int? nOfMIndex;
     final nofmMatch = RegExp(r'_?(\d+)of\d+').firstMatch(matchBase);
     if (nofmMatch != null) {
@@ -926,71 +966,126 @@ class SlotLabProjectProvider extends ChangeNotifier {
       final tier = int.tryParse(multMatch.group(1)!);
       if (tier != null && tier >= 2) {
         final stageId = 'WIN_PRESENT_${tier - 1}';
-        if (StageConfigurationService.instance.getStage(stageId) != null) return stageId;
+        final resolved = svc.getStage(stageId) != null ? stageId : svc.ensureIndexedStage(stageId);
+        if (resolved != null) return resolved;
       }
     }
 
     // "2x" / "2_x" prefix → WIN_PRESENT_1 (multiplier win sounds)
     if (matchBase.startsWith('2x') || matchBase.startsWith('2_x')) {
-      if (StageConfigurationService.instance.getStage('WIN_PRESENT_1') != null) {
+      if (svc.getStage('WIN_PRESENT_1') != null) {
         return 'WIN_PRESENT_1';
       }
     }
 
-    // Symbol pay: "hp_win_N" / "mpN" / "lp_win_N" → HPN_WIN
-    final symMatch = RegExp(r'^(hp|mp|lp)_?(?:win_?)?(\d+)$').firstMatch(matchBase);
-    if (symMatch != null) {
-      final stageId = '${symMatch.group(1)!.toUpperCase()}${symMatch.group(2)!}_WIN';
-      if (StageConfigurationService.instance.getStage(stageId) != null) return stageId;
+    // Win tier: "win1" / "win_1" / "win1x" / "winx1" / "win_1x" → WIN_PRESENT_N
+    // These are one-shot win fanfares (NOT rollup ticks, NOT looping)
+    // No hardcoded limit — dynamically registers if needed
+    final winTierMatch = RegExp(r'^win_?x?(\d+)x?$').firstMatch(matchBase);
+    if (winTierMatch != null) {
+      final tier = int.tryParse(winTierMatch.group(1)!);
+      if (tier != null && tier >= 1) {
+        final stageId = 'WIN_PRESENT_$tier';
+        final resolved = svc.ensureIndexedStage(stageId);
+        if (resolved != null) return resolved;
+      }
     }
 
-    // Concatenated form: "music_base_l_1" → "MUSIC_BASE_L1"
-    final concatMatch = RegExp(r'^(.+)_(\d+)$').firstMatch(matchBase);
-    if (concatMatch != null) {
-      final glued = '${concatMatch.group(1)!.toUpperCase()}${concatMatch.group(2)!}';
-      if (StageConfigurationService.instance.getStage(glued) != null) return glued;
+    // Symbol pay: flexible matching for HP/MP/LP + number in any order/format
+    // Handles: hp1, hp_1, hp_win_1, hp_1_win, win_hp_1, sym_hp_1_win, etc.
+    // Strips non-symbol tokens (sym, win, land, etc.) and finds (hp|mp|lp) + digit
+    {
+      final tokens = matchBase.split('_').where((t) => t.isNotEmpty).toList();
+      String? symType;
+      int? symNum;
+      for (final t in tokens) {
+        // Token is exactly hp/mp/lp
+        if (RegExp(r'^(hp|mp|lp)$').hasMatch(t)) {
+          symType = t;
+        }
+        // Token is hp1/mp2/lp3 (glued)
+        final gluedSym = RegExp(r'^(hp|mp|lp)(\d+)$').firstMatch(t);
+        if (gluedSym != null) {
+          symType = gluedSym.group(1);
+          symNum = int.tryParse(gluedSym.group(2)!);
+        }
+        // Pure number token
+        if (symType != null && symNum == null && RegExp(r'^\d+$').hasMatch(t)) {
+          symNum = int.tryParse(t);
+        }
+      }
+      if (symType != null && symNum != null && symNum >= 1) {
+        final stageId = '${symType.toUpperCase()}${symNum}_WIN';
+        // Dynamically register if not yet known (flexible symbol count)
+        final resolved = svc.ensureIndexedStage(stageId);
+        if (resolved != null) return resolved;
+      }
     }
 
     final directUpper = matchBase.toUpperCase();
 
-    // NofM indexed: auto-detect 0-based vs 1-based
-    if (nOfMIndex != null) {
-      final hasZeroBased = StageConfigurationService.instance.getStage('${directUpper}_0') != null;
-      if (hasZeroBased) {
-        final s = '${directUpper}_${nOfMIndex - 1}';
-        if (StageConfigurationService.instance.getStage(s) != null) return s;
-      } else {
-        final s = '${directUpper}_$nOfMIndex';
-        if (StageConfigurationService.instance.getStage(s) != null) return s;
-      }
-      final symNofM = RegExp(r'^(HP|MP|LP)_WIN$').firstMatch(directUpper);
-      if (symNofM != null) {
-        final s = '${symNofM.group(1)}${nOfMIndex}_WIN';
-        if (StageConfigurationService.instance.getStage(s) != null) return s;
-      }
-    }
-
-    // Trailing number index: "reelstop01" → REEL_STOP_0
+    // Trailing number index: "scatter_land_2" → SCATTER_LAND_2, "reelstop01" → REEL_STOP_0
+    // MUST come before concat form — "scatter_land_2" must → SCATTER_LAND_2 (not SCATTER_LAND2)
     final trailingNum = RegExp(r'^(.+?)_?(\d+)$').firstMatch(matchBase);
     if (trailingNum != null) {
       final stem = trailingNum.group(1)!.toUpperCase();
       final idx = int.tryParse(trailingNum.group(2)!);
       if (idx != null) {
-        final hasZeroBased = StageConfigurationService.instance.getStage('${stem}_0') != null;
+        // Try underscored form first (SCATTER_LAND_2)
+        final hasZeroBased = svc.getStage('${stem}_0') != null;
         if (hasZeroBased && idx >= 1) {
           final s = '${stem}_${idx - 1}';
-          if (StageConfigurationService.instance.getStage(s) != null) return s;
+          final r = svc.getStage(s) != null ? s : svc.ensureIndexedStage(s);
+          if (r != null) return r;
         }
-        final s = '${stem}_$idx';
-        if (StageConfigurationService.instance.getStage(s) != null) return s;
+        final underscored = '${stem}_$idx';
+        if (svc.getStage(underscored) != null) return underscored;
+        // Try glued form (MUSIC_BASE_L1) — before ensureIndexedStage to avoid
+        // creating unwanted MUSIC_BASE_L_1 when MUSIC_BASE_L1 already exists
+        final glued = '$stem$idx';
+        if (svc.getStage(glued) != null) return glued;
+        // Dynamic fallback: try underscored, then glued
+        final rU = svc.ensureIndexedStage(underscored);
+        if (rU != null) return rU;
+        final rG = svc.ensureIndexedStage(glued);
+        if (rG != null) return rG;
       }
     }
 
+    // NofM indexed: auto-detect 0-based vs 1-based, with dynamic fallback
+    if (nOfMIndex != null) {
+      final hasZeroBased = svc.getStage('${directUpper}_0') != null;
+      if (hasZeroBased) {
+        final s = '${directUpper}_${nOfMIndex - 1}';
+        final r = svc.getStage(s) != null ? s : svc.ensureIndexedStage(s);
+        if (r != null) return r;
+      } else {
+        final s = '${directUpper}_$nOfMIndex';
+        final r = svc.getStage(s) != null ? s : svc.ensureIndexedStage(s);
+        if (r != null) return r;
+      }
+      final symNofM = RegExp(r'^(HP|MP|LP)_WIN$').firstMatch(directUpper);
+      if (symNofM != null) {
+        final s = '${symNofM.group(1)}${nOfMIndex}_WIN';
+        final r = svc.getStage(s) != null ? s : svc.ensureIndexedStage(s);
+        if (r != null) return r;
+      }
+    }
+
+    // Concatenated form: "music_base_l_1" → "MUSIC_BASE_L1" (glued, no underscore)
+    // Only try if trailing number didn't match (avoids SCATTER_LAND2 vs SCATTER_LAND_2)
+    final concatMatch = RegExp(r'^(.+)_(\d+)$').firstMatch(matchBase);
+    if (concatMatch != null) {
+      final glued = '${concatMatch.group(1)!.toUpperCase()}${concatMatch.group(2)!}';
+      final resolved = svc.getStage(glued) != null ? glued : svc.ensureIndexedStage(glued);
+      if (resolved != null) return resolved;
+    }
+
     // Exact match
-    if (StageConfigurationService.instance.getStage(directUpper) != null) return directUpper;
+    if (svc.getStage(directUpper) != null) return directUpper;
 
     // Token-based fuzzy match
-    final allStages = StageConfigurationService.instance.allStageNames;
+    final allStages = svc.allStageNames;
     final fileTokens = matchBase.split('_').where((t) => t.isNotEmpty).toList();
     if (fileTokens.isEmpty) return null;
     String? bestMatch;
@@ -1012,11 +1107,15 @@ class SlotLabProjectProvider extends ChangeNotifier {
     }
     if (bestMatch != null && bestScore >= 0.5) return bestMatch;
 
+    // Dynamic fallback: try direct upper as indexed stage (e.g., NEW_STAGE_5)
+    final dynamicDirect = svc.ensureIndexedStage(directUpper);
+    if (dynamicDirect != null) return dynamicDirect;
+
     // Final fallback
     final upperBase = base.toUpperCase();
-    if (StageConfigurationService.instance.getStage(upperBase) != null) return upperBase;
+    if (svc.getStage(upperBase) != null) return upperBase;
     final upperFull = full.toUpperCase();
-    if (upperFull != upperBase && StageConfigurationService.instance.getStage(upperFull) != null) {
+    if (upperFull != upperBase && svc.getStage(upperFull) != null) {
       return upperFull;
     }
     return null;

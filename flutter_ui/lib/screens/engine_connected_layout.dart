@@ -4270,9 +4270,19 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   /// Sync AudioAssetManager → DAW _audioPool when assets change externally
   /// (e.g., SlotLab imports audio → appears in DAW pool automatically)
+  /// Also handles REMOVAL: when AudioAssetManager is cleared, _audioPool
+  /// entries that no longer exist in the manager are removed.
   void _onAudioAssetManagerChanged() {
     if (!mounted) return;
     final manager = AudioAssetManager.instance;
+    final managerPaths = manager.assets.map((a) => a.path).toSet();
+
+    // REMOVE: purge _audioPool entries that no longer exist in AudioAssetManager
+    final removedCount = _audioPool.length;
+    _audioPool.removeWhere((f) => !managerPaths.contains(f.path));
+    final didRemove = _audioPool.length < removedCount;
+
+    // ADD: sync new entries from AudioAssetManager → _audioPool
     final existingPaths = _audioPool.map((f) => f.path).toSet();
     final newFiles = <timeline.PoolAudioFile>[];
 
@@ -4297,6 +4307,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       setState(() {
         _audioPool.addAll(newFiles);
       });
+    } else if (didRemove) {
+      setState(() {});
     }
   }
 

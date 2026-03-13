@@ -3284,11 +3284,13 @@ class _ControlBar extends StatelessWidget {
                     onDecrease: () {
                       final newBet = (totalBet - betStep).clamp(minBet, maxBet);
                       onBetChanged(newBet);
+                      EventRegistry.instance.triggerStage('UI_BET_DOWN');
                       onAfterInteraction?.call();
                     },
                     onIncrease: () {
                       final newBet = (totalBet + betStep).clamp(minBet, maxBet);
                       onBetChanged(newBet);
+                      EventRegistry.instance.triggerStage('UI_BET_UP');
                       onAfterInteraction?.call();
                     },
                   ),
@@ -3300,6 +3302,7 @@ class _ControlBar extends StatelessWidget {
                     gradient: theme.maxBetGradient,
                     onTap: (isSpinning || !isConfigured) ? null : () {
                       onMaxBet();
+                      EventRegistry.instance.triggerStage('UI_BET_MAX');
                       onAfterInteraction?.call();
                     },
                     width: 54,

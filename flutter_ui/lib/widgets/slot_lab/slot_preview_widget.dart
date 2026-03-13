@@ -1102,10 +1102,67 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     final audioPath = projectProvider.getAudioAssignment(stageUppercase);
     if (audioPath == null || audioPath.isEmpty) return;
 
-    // BIG_WIN_START/END should come from composite events (middleware SSoT)
-    // If not registered yet, it means _syncAllEventsToRegistry hasn't run — skip,
-    // the composite event with FadeOut/Stop/Play layers will be registered on mount
-    if (stageUppercase == 'BIG_WIN_START' || stageUppercase == 'BIG_WIN_END') {
+    // BIG_WIN_START/END ideally come from composite events (middleware SSoT)
+    // with FadeOut/Stop/Play layers. If composite sync hasn't run yet,
+    // register a simple Play fallback so audio is never silent.
+    if (stageUppercase == 'BIG_WIN_START') {
+      final busId = StageConfigurationService.instance.getBus(stageUppercase).engineBusId;
+      final layers = <AudioLayer>[];
+      // 1. FadeVoice + Stop all base game music layers (L1-L5)
+      final pp = GetIt.instance<SlotLabProjectProvider>();
+      for (int i = 1; i <= 5; i++) {
+        final lPath = pp.getAudioAssignment('MUSIC_BASE_L$i');
+        if (lPath != null && lPath.isNotEmpty) {
+          layers.add(AudioLayer(id: 'bws_fade_l$i', name: 'Fade Base L$i', audioPath: '', actionType: 'FadeVoice', targetAudioPath: lPath, volume: 0.0, busId: 1));
+          layers.add(AudioLayer(id: 'bws_stop_l$i', name: 'Stop Base L$i', audioPath: '', actionType: 'StopVoice', targetAudioPath: lPath, volume: 0.0, busId: 1, delay: 110));
+        }
+      }
+      // 2. Play big win loop
+      layers.add(AudioLayer(id: 'layer_$stageUppercase', name: 'Big Win Loop', audioPath: audioPath, volume: 1.0, busId: busId, loop: true, delay: 100));
+      eventRegistry.registerEvent(AudioEvent(
+        id: 'audio_$stageUppercase',
+        name: stageUppercase,
+        stage: stageUppercase,
+        layers: layers,
+        loop: true,
+        overlap: false,
+        targetBusId: busId,
+      ));
+      return;
+    }
+    if (stageUppercase == 'BIG_WIN_END') {
+      final busId = StageConfigurationService.instance.getBus(stageUppercase).engineBusId;
+      final layers = <AudioLayer>[
+        // 1. Play BIG_WIN_END stinger
+        AudioLayer(id: 'layer_$stageUppercase', name: 'Big Win End', audioPath: audioPath, volume: 1.0, busId: busId),
+      ];
+      // 2. Stop BIG_WIN_START loop
+      final projectProvider = GetIt.instance<SlotLabProjectProvider>();
+      final bwsPath = projectProvider.getAudioAssignment('BIG_WIN_START');
+      if (bwsPath != null && bwsPath.isNotEmpty) {
+        layers.add(AudioLayer(id: 'bwe_stop_bigwin', name: 'Stop Big Win', audioPath: '', actionType: 'StopVoice', targetAudioPath: bwsPath, volume: 0.0, busId: 1, delay: 300));
+      }
+      // 3. Restart base game music L1 (fade in after big win ends)
+      final l1Path = projectProvider.getAudioAssignment('MUSIC_BASE_L1');
+      if (l1Path != null && l1Path.isNotEmpty) {
+        layers.add(AudioLayer(id: 'game_start_l1', name: 'Restart Base L1', audioPath: l1Path, volume: 1.0, busId: 1, loop: true, delay: 400));
+        // Also restart L2-L5 at silent for crossfade readiness
+        for (int i = 2; i <= 5; i++) {
+          final lPath = projectProvider.getAudioAssignment('MUSIC_BASE_L$i');
+          if (lPath != null && lPath.isNotEmpty) {
+            layers.add(AudioLayer(id: 'game_start_l$i', name: 'Restart Base L$i', audioPath: lPath, volume: 0.0, busId: 1, loop: true, delay: 400));
+          }
+        }
+      }
+      eventRegistry.registerEvent(AudioEvent(
+        id: 'audio_$stageUppercase',
+        name: stageUppercase,
+        stage: stageUppercase,
+        layers: layers,
+        loop: false,
+        overlap: false,
+        targetBusId: busId,
+      ));
       return;
     }
 
@@ -2180,6 +2237,14 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             _ensureAudioRegistered('WIN_PRESENT_$winPresentTier');
             eventRegistry.triggerStage('WIN_PRESENT_$winPresentTier');
 
+            // 🔊 For small wins (≤ bet): also trigger dedicated WIN_PRESENT_LOW/EQUAL
+            if (winPresentTier == 1) {
+              final isEqual = (_targetWinAmount - bet).abs() < 0.01;
+              final lowStage = isEqual ? 'WIN_PRESENT_EQUAL' : 'WIN_PRESENT_LOW';
+              _ensureAudioRegistered(lowStage);
+              eventRegistry.triggerStage(lowStage);
+            }
+
             // Show plaque with tier label (WIN_1, WIN_2, etc.)
             setState(() {
               _currentDisplayTier = _winTier;
@@ -2223,10 +2288,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             eventRegistry.triggerStage('WIN_PRESENT_$winPresentTier');
 
             // ═══════════════════════════════════════════════════════════════════
-            // BIG WIN — Trigger celebration loop and coins (data-driven)
-            // Uses P5 WinTierConfig threshold, NOT hardcoded value
+            // BIG WIN — Trigger alert SFX and celebration (data-driven)
+            // BIG_WIN_TRIGGER fires HERE when big win is detected (before plaque/progression)
             // ═══════════════════════════════════════════════════════════════════
             if (isBigWin) {
+              _ensureAudioRegistered('BIG_WIN_TRIGGER');
+              eventRegistry.triggerStage('BIG_WIN_TRIGGER');
               eventRegistry.triggerStage('COIN_SHOWER_START');
             }
 
@@ -2411,7 +2478,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Trigger END stages so audio designers can have "win end" sounds
     _ensureAudioRegistered('WIN_PRESENT_END');
     _ensureAudioRegistered('WIN_COLLECT');
-    eventRegistry.triggerStage('ROLLUP_END');
+    // Only trigger ROLLUP_END if rollup was actually active (prevents double-fire
+    // when timer already completed, and skips it entirely for tier 1 / no-rollup wins)
+    if (_isRollingUp) {
+      eventRegistry.stopEvent('ROLLUP_START'); // Stop looping rollup sound
+      eventRegistry.triggerStage('ROLLUP_END');
+    }
     if (wasBigWin) {
       // BIG_WIN_END: sfx + stop big win music + reset layers to L1
       _ensureAudioRegistered('BIG_WIN_END');
@@ -2870,7 +2942,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       if (!mounted || _rollupTickCount >= _rollupTicksTotal) {
         timer.cancel();
         if (mounted) {
-          // ROLLUP_END when counter finishes
+          // Guard: mark rollup finished BEFORE triggering ROLLUP_END
+          // to prevent double-fire if skip is pressed after timer completes
+          _isRollingUp = false;
+          eventRegistry.stopEvent('ROLLUP_START'); // Stop looping rollup sound
           eventRegistry.triggerStage('ROLLUP_END');
         }
         return;
@@ -3048,8 +3123,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         _rollupProgress = 1.0;
       });
 
-      // Trigger ROLLUP_END audio (no tick sounds)
-      eventRegistry.triggerStage('ROLLUP_END');
+      // No rollup audio for small wins (≤ bet) — only dedicated WIN_PRESENT_LOW/EQUAL plays
 
       // P0.16 FIX: Wait 800ms so player can SEE the plaque before fading
       // Without this delay, the plaque appears and immediately fades out
@@ -3113,6 +3187,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             _useRtlRollup = false;
             _rtlRollupProgress = 1.0;
           });
+          eventRegistry.stopEvent('ROLLUP_START'); // Stop looping rollup sound
           eventRegistry.triggerStage('ROLLUP_END');
 
           // ANALYTICS: Track rollup completed (not skipped)
@@ -3166,6 +3241,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
             _isRollingUp = false;
             _rollupProgress = 1.0;
           });
+          eventRegistry.stopEvent('ROLLUP_START'); // Stop looping rollup sound
           eventRegistry.triggerStage('ROLLUP_END');
         }
         return;
@@ -3276,11 +3352,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // STEP 1: BIG_WIN_TRIGGER (alert sfx) → BIG_WIN_START (entry fanfare)
-    // Composite event: overlap=false → fades out base game music on music bus,
-    // then plays intro sfx + big win music (all layers defined in event)
+    // STEP 1: BIG_WIN_START (entry fanfare + big win music loop)
+    // BIG_WIN_TRIGGER already fired in win detection (before tier progression).
+    // BIG_WIN_START composite: overlap=false → fades out base game music on music bus,
+    // then plays big win music loop (all layers defined in event)
     // ═══════════════════════════════════════════════════════════════════════════
-    eventRegistry.triggerStage('BIG_WIN_TRIGGER');
     eventRegistry.triggerStage('BIG_WIN_START');
 
     // Show plaque immediately with first tier

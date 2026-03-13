@@ -748,11 +748,67 @@ class StageConfigurationService extends ChangeNotifier {
     return result;
   }
 
-  /// Register custom stage
-  void registerCustomStage(StageDefinition stage) {
+  /// Ensure an indexed stage exists (e.g., REEL_STOP_5, WIN_PRESENT_9, SCATTER_LAND_6).
+  /// If the stage doesn't exist, derives it from the parent (stem without number) or
+  /// a sibling (stem + lower index). Returns the stage name if created/exists, null if
+  /// no parent pattern could be found.
+  String? ensureIndexedStage(String stageName) {
+    final normalized = stageName.toUpperCase().trim();
+    if (getStage(normalized) != null) return normalized;
+
+    // Extract stem + index: "REEL_STOP_5" → stem="REEL_STOP", idx=5
+    // Also handles glued: "HP5_WIN" → stem="HP", suffix="_WIN", idx=5
+    // And "MUSIC_BASE_L3" → stem="MUSIC_BASE_L", idx=3
+    final trailingMatch = RegExp(r'^(.+?)(\d+)(_.+)?$').firstMatch(normalized);
+    if (trailingMatch == null) return null;
+
+    final rawStem = trailingMatch.group(1)!.replaceAll(RegExp(r'_$'), '');
+    final idx = int.tryParse(trailingMatch.group(2)!);
+    final suffix = trailingMatch.group(3) ?? '';
+    if (idx == null) return null;
+
+    // Try to find a sibling to copy properties from:
+    // 1. Parent without index (e.g., REEL_STOP, HP_WIN)
+    // 2. Sibling with index 1 (e.g., REEL_STOP_1, HP1_WIN)
+    // 3. Any sibling with same stem
+    StageDefinition? template;
+    final parent = getStage('${rawStem}$suffix');
+    if (parent != null) {
+      // If parent exists but is NOT indexed (no sibling _1 exists), and parent
+      // is pooled → this is a variant file (interact_1), not a new indexed stage.
+      // Don't create — let variant-stripped path match the parent instead.
+      final hasSibling1 = getStage('${rawStem}_1$suffix') != null ||
+                          getStage('${rawStem}1$suffix') != null;
+      if (!hasSibling1 && parent.isPooled) return null;
+      template = parent;
+    }
+    for (int i = 1; i <= 10 && template == null; i++) {
+      template ??= getStage('${rawStem}${i}$suffix');
+      template ??= getStage('${rawStem}_${i}$suffix');
+    }
+    if (template == null) return null;
+
+    // Register with slightly adjusted priority (lower index = higher priority)
+    final priority = (template.priority - idx + 1).clamp(10, 100);
+    // Silent: called during batch autobind, avoid N × notifyListeners cascade
+    registerCustomStage(StageDefinition(
+      name: normalized,
+      category: template.category,
+      priority: priority,
+      bus: template.bus,
+      spatialIntent: template.spatialIntent,
+      isPooled: template.isPooled,
+      isLooping: template.isLooping,
+      ducksMusic: template.ducksMusic,
+    ), silent: true);
+    return normalized;
+  }
+
+  /// Register custom stage. Use [silent] to suppress notifyListeners (batch operations).
+  void registerCustomStage(StageDefinition stage, {bool silent = false}) {
     final normalized = stage.name.toUpperCase().trim();
     _customStages[normalized] = stage.copyWith(name: normalized);
-    notifyListeners();
+    if (!silent) notifyListeners();
   }
 
   /// Remove custom stage
@@ -1225,7 +1281,7 @@ class StageConfigurationService extends ChangeNotifier {
     _register('MAX_AWARD_CAP', StageCategory.win, 95, SpatialBus.sfx, 'JACKPOT_TRIGGER', ducksMusic: true);
 
     // Rollup counter (pooled for rapid fire)
-    _register('ROLLUP_START', StageCategory.win, 45, SpatialBus.sfx, 'DEFAULT');
+    _register('ROLLUP_START', StageCategory.win, 45, SpatialBus.sfx, 'DEFAULT', isLooping: true);
     _register('ROLLUP_TICK', StageCategory.win, 25, SpatialBus.sfx, 'DEFAULT', isPooled: true);
     _register('ROLLUP_TICK_FAST', StageCategory.win, 25, SpatialBus.sfx, 'DEFAULT', isPooled: true);
     _register('ROLLUP_TICK_SLOW', StageCategory.win, 25, SpatialBus.sfx, 'DEFAULT', isPooled: true);
@@ -1507,6 +1563,10 @@ class StageConfigurationService extends ChangeNotifier {
     _register('UI_SPIN_HOVER', StageCategory.ui, 15, SpatialBus.ui, 'DEFAULT', isPooled: true);
     _register('UI_SPIN_RELEASE', StageCategory.ui, 20, SpatialBus.ui, 'DEFAULT');
     _register('UI_STOP_PRESS', StageCategory.ui, 30, SpatialBus.ui, 'DEFAULT');
+    _register('QUICK_STOP', StageCategory.spin, 35, SpatialBus.sfx, 'DEFAULT');
+    _register('SLAM_STOP', StageCategory.spin, 35, SpatialBus.sfx, 'DEFAULT');
+    _register('SLAM_STOP_IMPACT', StageCategory.spin, 35, SpatialBus.sfx, 'DEFAULT');
+    _register('SKIP', StageCategory.ui, 30, SpatialBus.ui, 'DEFAULT');
 
     // ═══════════════════════════════════════════════════════════════════════
     // GENERIC BUTTON INTERACTIONS

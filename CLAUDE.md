@@ -21,7 +21,7 @@
 
 ```bash
 # KILL prethodne
-pkill -f "FluxForge" 2>/dev/null || true
+pkill -9 -f "FluxForge Studio" 2>/dev/null || true
 pkill -f "flutter run" 2>/dev/null || true
 sleep 1
 

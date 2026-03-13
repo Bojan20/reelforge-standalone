@@ -33,6 +33,7 @@ import 'recent_favorites_service.dart';
 import 'rtpc_modulation_service.dart';
 import 'stage_configuration_service.dart';
 import 'stage_coverage_service.dart';
+import '../providers/slot_lab_project_provider.dart';
 import 'unified_playback_controller.dart';
 import 'hook_dispatcher.dart';
 import '../models/hook_models.dart';
@@ -2122,6 +2123,37 @@ class EventRegistry extends ChangeNotifier {
         }
         fallbackAttempts++;
       }
+    }
+
+    // Auto-register from audio assignments if not in registry yet
+    // Covers UI events (bet, menu, button) that are assigned but never explicitly registered
+    if (event == null) {
+      try {
+        final projectProvider = GetIt.instance<SlotLabProjectProvider>();
+        final audioPath = projectProvider.getAudioAssignment(normalizedStage);
+        if (audioPath != null && audioPath.isNotEmpty) {
+          final svc = StageConfigurationService.instance;
+          final busId = svc.getBus(normalizedStage).engineBusId;
+          final shouldLoop = svc.isLooping(normalizedStage);
+          registerEvent(AudioEvent(
+            id: 'audio_$normalizedStage',
+            name: normalizedStage,
+            stage: normalizedStage,
+            layers: [AudioLayer(
+              id: 'layer_$normalizedStage',
+              name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
+              audioPath: audioPath,
+              volume: 1.0,
+              busId: busId,
+              loop: shouldLoop,
+            )],
+            loop: shouldLoop,
+            overlap: true,
+            targetBusId: busId,
+          ));
+          event = _stageToEvent[normalizedStage];
+        }
+      } catch (_) {}
     }
 
     if (event == null) {
