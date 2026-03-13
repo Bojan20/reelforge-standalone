@@ -191,6 +191,7 @@ class SlotStageProvider extends ChangeNotifier {
   bool _isReelsSpinning = false;
   bool _isWinPresentationActive = false;
   bool _baseMusicStarted = false;
+  _BaseMusicMode _baseMusicMode = _BaseMusicMode.none;
   int _totalReels = 5;
   bool useVisualSyncForReelStop = true;
 
@@ -441,6 +442,7 @@ class SlotStageProvider extends ChangeNotifier {
   /// Called when leaving SlotLab mode (voices silenced but EventRegistry stale).
   void resetBaseMusicFlag() {
     _baseMusicStarted = false;
+    _baseMusicMode = _BaseMusicMode.none;
     eventRegistry.stopAll();
   }
 
@@ -730,10 +732,21 @@ class SlotStageProvider extends ChangeNotifier {
         if (_hasAudioAssignment('GAME_START') && eventRegistry.hasEventForStage('GAME_START')) {
           eventRegistry.triggerStage('GAME_START', context: context);
           _baseMusicStarted = true;
+          _baseMusicMode = _BaseMusicMode.gameStart;
         } else if (_hasAudioAssignment('MUSIC_BASE_L1') && eventRegistry.hasEventForStage('MUSIC_BASE_L1')) {
           // Fallback: only trigger L1 (base music layer 1)
           eventRegistry.triggerStage('MUSIC_BASE_L1', context: context);
           _baseMusicStarted = true;
+          _baseMusicMode = _BaseMusicMode.singleLayer;
+        }
+      } else if (_baseMusicMode == _BaseMusicMode.singleLayer) {
+        // UPGRADE: Was started as single-layer fallback, but GAME_START
+        // may have been registered since (e.g., after Quick Assign rebuilds it).
+        // Switch to full composite for dynamic music layer crossfade support.
+        if (_hasAudioAssignment('GAME_START') && eventRegistry.hasEventForStage('GAME_START')) {
+          eventRegistry.stopEventsByPrefix('MUSIC_BASE_L');
+          eventRegistry.triggerStage('GAME_START', context: context);
+          _baseMusicMode = _BaseMusicMode.gameStart;
         }
       }
 
@@ -1166,4 +1179,14 @@ class SlotStageProvider extends ChangeNotifier {
     }
     _transitionListener = null;
   }
+}
+
+/// Tracks how base game music was started
+enum _BaseMusicMode {
+  /// Not started yet
+  none,
+  /// Started via GAME_START composite (all layers, crossfade-ready)
+  gameStart,
+  /// Started via single MUSIC_BASE_L1 fallback (no crossfade possible)
+  singleLayer,
 }

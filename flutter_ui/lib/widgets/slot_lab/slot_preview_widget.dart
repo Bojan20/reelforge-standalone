@@ -1878,6 +1878,11 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       // Stop all anticipation animations
       _stopAnticipation();
 
+      // Stop ALL active spin audio (LAND, ANTICIPATION, REEL_STOP, etc.)
+      // STOP = immediate silence except background music
+      EventRegistry.instance.stopAllSpinLoops();
+      EventRegistry.instance.stopAllOneShotInstances();
+
       // Update display grid to target (final) values
       for (int r = 0; r < widget.reels && r < _targetGrid.length; r++) {
         for (int row = 0; row < widget.rows && row < _targetGrid[r].length; row++) {
@@ -2477,6 +2482,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         if (mounted) _stopAnticipation();
       });
     }
+
+    // 2b. Stop all one-shot audio (LAND, REEL_STOP, etc.) immediately
+    EventRegistry.instance.stopAllSpinLoops();
+    EventRegistry.instance.stopAllOneShotInstances();
 
     // 3. Stop all win-related audio and trigger END stages
     final savedWinTier = _winTier; // Save before reset

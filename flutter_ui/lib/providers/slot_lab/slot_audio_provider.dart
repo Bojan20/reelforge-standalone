@@ -588,26 +588,61 @@ class MusicLayerController extends ChangeNotifier {
     final playback = AudioPlaybackService.instance;
     final fadeMs = transition.crossfadeMs;
 
-    // Ensure _layerVolumes is initialized for all configured layers
-    // so fadeLayerVolume knows correct start volumes.
-    // fromLayer was at 1.0, others at 0.0 (GAME_START composite behavior).
-    for (final threshold in _config.thresholds) {
-      final layerId = 'game_start_l${threshold.layer}';
-      if (!playback.layerVolumes.containsKey(layerId)) {
+    // ═══════════════════════════════════════════════════════════════════════
+    // CRITICAL FIX: If GAME_START composite is registered but NOT playing
+    // (because first spin used MUSIC_BASE_L1 fallback), trigger it NOW
+    // so all layers have active voices for crossfade control.
+    // ═══════════════════════════════════════════════════════════════════════
+    final hasGameStart = registry.hasEventForStage('GAME_START');
+    final gameStartVoices = playback.voiceCountForLayer('game_start_l1');
+    if (hasGameStart && gameStartVoices == 0) {
+      // Stop standalone MUSIC_BASE_L1, trigger full GAME_START composite
+      registry.stopEventsByPrefix('MUSIC_BASE_L');
+      // Pre-set layer volumes BEFORE triggering so layers start at correct levels
+      for (final threshold in _config.thresholds) {
+        final layerId = 'game_start_l${threshold.layer}';
         playback.layerVolumes[layerId] =
-            threshold.layer == transition.fromLayer ? 1.0 : 0.0;
+            threshold.layer == transition.toLayer ? 1.0 : 0.0;
       }
+      registry.triggerStage('GAME_START');
+      // Apply volumes after voices start (150ms for async playback to register)
+      Future.delayed(const Duration(milliseconds: 150), () {
+        _applyCrossfadeDirectly(transition);
+      });
+      return;
     }
 
-    // Apply crossfade: target layer → 1.0, all others → 0.0
+    _applyCrossfadeDirectly(transition);
+  }
+
+  /// Direct crossfade — finds actual voice IDs and sets volume via FFI.
+  /// Bypasses fadeLayerVolume entirely for reliability.
+  void _applyCrossfadeDirectly(MusicLayerTransition transition) {
+    final playback = AudioPlaybackService.instance;
+    final fadeMs = transition.crossfadeMs;
+
     for (final threshold in _config.thresholds) {
       final layer = threshold.layer;
       final layerId = 'game_start_l$layer';
       final targetVolume = layer == transition.toLayer ? 1.0 : 0.0;
 
-      // Use EventRegistry setLayerVolume with fade
-      if (registry.hasEventForStage('MUSIC_BASE_L$layer') || registry.hasEventForStage('GAME_START')) {
-        registry.setLayerVolume(layerId, targetVolume, fadeMs: fadeMs);
+      // Find voice by layerId directly in active voices
+      final voices = playback.activeVoices
+          .where((v) => v.layerId == layerId)
+          .toList();
+
+      if (voices.isNotEmpty) {
+        if (fadeMs > 0) {
+          playback.fadeLayerVolume(layerId, targetVolume, fadeMs: fadeMs);
+        } else {
+          for (final v in voices) {
+            playback.setVoiceVolume(v.voiceId, targetVolume);
+          }
+          playback.layerVolumes[layerId] = targetVolume;
+        }
+      } else {
+        // No active voice — record target for when it starts
+        playback.layerVolumes[layerId] = targetVolume;
       }
     }
   }

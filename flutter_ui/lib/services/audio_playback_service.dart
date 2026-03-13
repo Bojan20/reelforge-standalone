@@ -98,6 +98,10 @@ class AudioPlaybackService extends ChangeNotifier {
   List<VoiceInfo> get activeVoices => List.unmodifiable(_activeVoices);
   int get activeVoiceCount => _activeVoices.length;
 
+  /// Count active voices for a specific layer ID (for diagnostics)
+  int voiceCountForLayer(String layerId) =>
+      _activeVoices.where((v) => v.layerId == layerId).length;
+
   /// Last error from FFI playback operation (for debugging)
   String get lastPlaybackToBusError => _ffi.lastPlaybackToBusError;
 

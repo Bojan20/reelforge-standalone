@@ -3573,6 +3573,25 @@ class EventRegistry extends ChangeNotifier {
     }
   }
 
+  /// Stop all non-looping (one-shot) playing instances and their voices.
+  /// Used by STOP button to immediately silence LAND, ANTICIPATION, etc.
+  /// Does NOT stop music/looping voices — only transient spin audio.
+  void stopAllOneShotInstances() {
+    final toRemove = <_PlayingInstance>[];
+    for (final instance in _playingInstances) {
+      if (instance.isLooping) continue;
+      for (final voiceId in instance.voiceIds) {
+        if (voiceId > 0) {
+          AudioPlaybackService.instance.fadeOutVoice(voiceId, fadeMs: 30);
+        }
+      }
+      toRemove.add(instance);
+    }
+    if (toRemove.isNotEmpty) {
+      _playingInstances.removeWhere(toRemove.contains);
+    }
+  }
+
   /// Zaustavi sve
   Future<void> stopAll() async {
     // Stop all one-shot voices via bus routing
