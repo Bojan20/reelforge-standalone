@@ -10089,7 +10089,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             GestureDetector(
               onTap: () {
                 mw.selectCompositeEvent(isSelected ? null : evt.id);
-                setState(() {});
+                // No setState — Consumer3 rebuilds via MiddlewareProvider.notifyListeners
               },
               child: Container(
                 margin: const EdgeInsets.only(bottom: 2),
@@ -10172,6 +10172,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// Resolve win tier displayLabel for a composite event.
   /// Returns the P5 tier label (e.g., "BIG WIN", "WIN 3") for win-related events,
   /// or null for non-win events. Reads live from SlotLabProjectProvider.
+  static final _bigWinTierRegex = RegExp(r'^BIG_WIN_TIER_(\d)$');
+  static final _rollupRegex = RegExp(r'^ROLLUP_(?:START|TICK|END)_(\w+)$');
+
   String? _getWinTierLabelForEvent(SlotCompositeEvent evt, SlotLabProjectProvider projectProv) {
     final stages = evt.triggerStages;
     if (stages.isEmpty) return null;
@@ -10188,7 +10191,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     }
 
     // Big win tiers: BIG_WIN_TIER_1..BIG_WIN_TIER_5
-    final bigMatch = RegExp(r'^BIG_WIN_TIER_(\d)$').firstMatch(stage);
+    final bigMatch = _bigWinTierRegex.firstMatch(stage);
     if (bigMatch != null) {
       final tierId = int.parse(bigMatch.group(1)!);
       final bigConfig = projectProv.winConfiguration.bigWins;
@@ -10200,7 +10203,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     }
 
     // Rollup stages: ROLLUP_START_1, ROLLUP_TICK_2, ROLLUP_END_3
-    final rollupMatch = RegExp(r'^ROLLUP_(?:START|TICK|END)_(\w+)$').firstMatch(stage);
+    final rollupMatch = _rollupRegex.firstMatch(stage);
     if (rollupMatch != null) {
       final tierIdStr = rollupMatch.group(1)!;
       final config = projectProv.winConfiguration.regularWins;
@@ -10616,7 +10619,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                       AudioAssetManager.instance.importFileInstant(path, folder: 'SlotLab Import');
                     }
                   }
-                  setState(() {});
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -10670,7 +10672,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     durationSeconds: layer.durationSeconds,
                   );
                   mw.updateEventLayer(event.id, updatedLayer);
-                  setState(() {});
                 }
               },
               builder: (context, candidateData, rejectedData) {
@@ -10704,7 +10705,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                       GestureDetector(
                         onTap: () {
                           mw.removeLayerFromEvent(event.id, layer.id);
-                          setState(() {});
                         },
                         child: Icon(Icons.close_rounded, size: 12, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5)),
                       ),
@@ -10731,7 +10731,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                     audioPath: path,
                     name: path.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
                   );
-                  setState(() {});
                 }
               },
               builder: (context, candidateData, rejectedData) {
