@@ -11,7 +11,7 @@ library;
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
+import 'package:get_it/get_it.dart';
 import '../../models/middleware_models.dart';
 import '../../providers/subsystems/rtpc_system_provider.dart';
 import '../../theme/fluxforge_theme.dart';
@@ -38,10 +38,14 @@ class _RtpcMacroEditorPanelState extends State<RtpcMacroEditorPanel>
   bool _isAddingBinding = false;
   RtpcTargetParameter _newBindingTarget = RtpcTargetParameter.volume;
 
+  late final RtpcSystemProvider _rtpcProvider = GetIt.instance<RtpcSystemProvider>();
+
   @override
   Widget build(BuildContext context) {
-    return Consumer<RtpcSystemProvider>(
-      builder: (context, provider, _) {
+    return ListenableBuilder(
+      listenable: _rtpcProvider,
+      builder: (context, _) {
+        final provider = _rtpcProvider;
         final macros = provider.rtpcMacros;
 
         return Container(

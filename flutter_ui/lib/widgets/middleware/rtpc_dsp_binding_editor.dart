@@ -15,7 +15,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
+import 'package:get_it/get_it.dart';
 import '../../models/middleware_models.dart';
 import '../../providers/dsp_chain_provider.dart';
 import '../../providers/subsystems/rtpc_system_provider.dart';
@@ -58,10 +58,14 @@ class _RtpcDspBindingEditorPanelState extends State<RtpcDspBindingEditorPanel> {
   // Live preview state
   double _previewRtpcValue = 0.5;
 
+  late final RtpcSystemProvider _rtpcProvider = GetIt.instance<RtpcSystemProvider>();
+
   @override
   Widget build(BuildContext context) {
-    return Consumer<RtpcSystemProvider>(
-      builder: (context, provider, _) {
+    return ListenableBuilder(
+      listenable: _rtpcProvider,
+      builder: (context, _) {
+        final provider = _rtpcProvider;
         final bindings = provider.dspBindingsList;
 
         return Container(
