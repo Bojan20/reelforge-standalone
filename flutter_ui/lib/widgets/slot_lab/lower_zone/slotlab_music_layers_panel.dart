@@ -259,13 +259,19 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.timer_outlined, size: 12,
-                    color: spinsLeft <= 2 ? const Color(0xFFFF6B6B) : const Color(0xFFFFAA33)),
+                    color: _config.revertMode == 'seconds'
+                        ? const Color(0xFFFFAA33)
+                        : (spinsLeft <= 2 ? const Color(0xFFFF6B6B) : const Color(0xFFFFAA33))),
                   const SizedBox(width: 4),
                   Text(
-                    'Revert za $spinsLeft spin${spinsLeft == 1 ? '' : 'ova'}',
+                    _config.revertMode == 'seconds'
+                        ? 'Revert za ${_config.revertSeconds.toStringAsFixed(0)}s (timer)'
+                        : 'Revert za $spinsLeft spin${spinsLeft == 1 ? '' : 'ova'}',
                     style: TextStyle(
                       fontSize: 10,
-                      color: spinsLeft <= 2 ? const Color(0xFFFF6B6B) : const Color(0xFFFFAA33),
+                      color: _config.revertMode == 'seconds'
+                          ? const Color(0xFFFFAA33)
+                          : (spinsLeft <= 2 ? const Color(0xFFFF6B6B) : const Color(0xFFFFAA33)),
                     ),
                   ),
                 ],
@@ -585,6 +591,8 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
   // ═══════════════════════════════════════════════════════════════════════════
 
   Widget _buildGlobalSettings() {
+    final isSecondsMode = _config.revertMode == 'seconds';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -593,24 +601,35 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
           style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF888888), letterSpacing: 1),
         ),
         const SizedBox(height: 6),
+        // ── Row 1: Revert mode + value ──
         Row(
           children: [
-            // Revert spin count
+            // Revert mode toggle
             _buildSettingField(
-              'Revert after',
-              '${_config.revertSpinCount}',
-              'spins',
-              onTap: () => _showSpinCountPicker(),
+              'Downshift mode',
+              isSecondsMode ? 'Seconds' : 'Spins',
+              '',
+              onTap: () => _updateConfig(_config.copyWith(
+                revertMode: isSecondsMode ? 'spins' : 'seconds',
+              )),
             ),
-            const SizedBox(width: 16),
-            // Crossfade duration
-            _buildSettingField(
-              'Crossfade',
-              '${_config.crossfadeMs}',
-              'ms',
-              onTap: () => _showCrossfadePicker(),
-            ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
+            // Revert value
+            if (isSecondsMode)
+              _buildSettingField(
+                'Revert after',
+                _config.revertSeconds.toStringAsFixed(0),
+                'sec',
+                onTap: () => _cycleRevertSeconds(),
+              )
+            else
+              _buildSettingField(
+                'Revert after',
+                '${_config.revertSpinCount}',
+                'spins',
+                onTap: () => _showSpinCountPicker(),
+              ),
+            const SizedBox(width: 12),
             // Curve type
             _buildSettingField(
               'Curve',
@@ -619,6 +638,70 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
               onTap: () => _cycleCurveType(),
             ),
           ],
+        ),
+        const SizedBox(height: 8),
+        // ── Row 2: Upshift fade-in + Downshift fade-out sliders ──
+        Row(
+          children: [
+            Expanded(
+              child: _buildFadeSlider(
+                label: 'Upshift fade-in',
+                valueMs: _config.upshiftFadeMs,
+                color: const Color(0xFF4CAF50),
+                onChanged: (ms) => _updateConfig(_config.copyWith(upshiftFadeMs: ms)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildFadeSlider(
+                label: 'Downshift fade-out',
+                valueMs: _config.downshiftFadeMs,
+                color: const Color(0xFFFF6B6B),
+                onChanged: (ms) => _updateConfig(_config.copyWith(downshiftFadeMs: ms)),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFadeSlider({
+    required String label,
+    required int valueMs,
+    required Color color,
+    required ValueChanged<int> onChanged,
+  }) {
+    final seconds = valueMs / 1000.0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(label, style: const TextStyle(fontSize: 9, color: Color(0xFF888888))),
+            const Spacer(),
+            Text('${seconds.toStringAsFixed(1)}s', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: color)),
+          ],
+        ),
+        const SizedBox(height: 2),
+        SizedBox(
+          height: 20,
+          child: SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 3,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              activeTrackColor: color,
+              inactiveTrackColor: color.withValues(alpha: 0.15),
+              thumbColor: color,
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
+            ),
+            child: Slider(
+              value: valueMs.toDouble().clamp(100, 10000),
+              min: 100,
+              max: 10000,
+              onChanged: (v) => onChanged(v.round()),
+            ),
+          ),
         ),
       ],
     );
@@ -662,12 +745,12 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
     _updateConfig(_config.copyWith(revertSpinCount: values[nextIdx]));
   }
 
-  void _showCrossfadePicker() {
-    final values = [500, 1000, 1500, 2000, 3000, 5000];
-    final current = _config.crossfadeMs;
+  void _cycleRevertSeconds() {
+    final values = [5.0, 10.0, 15.0, 20.0, 30.0, 45.0, 60.0];
+    final current = _config.revertSeconds;
     final idx = values.indexOf(current);
-    final nextIdx = (idx + 1) % values.length;
-    _updateConfig(_config.copyWith(crossfadeMs: values[nextIdx]));
+    final nextIdx = (idx >= 0 ? idx + 1 : 0) % values.length;
+    _updateConfig(_config.copyWith(revertSeconds: values[nextIdx]));
   }
 
   void _cycleCurveType() {

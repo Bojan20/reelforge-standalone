@@ -730,11 +730,20 @@ class MusicLayerConfig {
   final List<MusicLayerThreshold> thresholds;
 
   /// Number of spins without meeting the escalated layer's threshold
-  /// before auto-reverting to the previous layer.
+  /// before auto-reverting to the previous layer (used when revertMode == 'spins').
   final int revertSpinCount;
 
-  /// Crossfade duration in milliseconds when switching layers.
-  final int crossfadeMs;
+  /// Revert mode: 'spins' (count non-winning spins) or 'seconds' (timer-based)
+  final String revertMode;
+
+  /// Seconds before auto-reverting when revertMode == 'seconds'
+  final double revertSeconds;
+
+  /// Fade-in duration in ms for upshift (escalation)
+  final int upshiftFadeMs;
+
+  /// Fade-out duration in ms for downshift (de-escalation / revert)
+  final int downshiftFadeMs;
 
   /// Crossfade curve type: 'equalPower', 'linear', 'sCurve'
   final String crossfadeCurve;
@@ -745,35 +754,52 @@ class MusicLayerConfig {
   const MusicLayerConfig({
     this.thresholds = const [],
     this.revertSpinCount = 7,
-    this.crossfadeMs = 1500,
+    this.revertMode = 'spins',
+    this.revertSeconds = 10.0,
+    this.upshiftFadeMs = 1500,
+    this.downshiftFadeMs = 1500,
     this.crossfadeCurve = 'equalPower',
     this.enabled = true,
   });
 
+  /// Legacy getter — returns upshiftFadeMs for backward compatibility
+  int get crossfadeMs => upshiftFadeMs;
+
   MusicLayerConfig copyWith({
     List<MusicLayerThreshold>? thresholds,
     int? revertSpinCount,
-    int? crossfadeMs,
+    String? revertMode,
+    double? revertSeconds,
+    int? upshiftFadeMs,
+    int? downshiftFadeMs,
+    int? crossfadeMs, // legacy — maps to upshiftFadeMs
     String? crossfadeCurve,
     bool? enabled,
   }) {
     return MusicLayerConfig(
       thresholds: thresholds ?? this.thresholds,
       revertSpinCount: revertSpinCount ?? this.revertSpinCount,
-      crossfadeMs: crossfadeMs ?? this.crossfadeMs,
+      revertMode: revertMode ?? this.revertMode,
+      revertSeconds: revertSeconds ?? this.revertSeconds,
+      upshiftFadeMs: crossfadeMs ?? upshiftFadeMs ?? this.upshiftFadeMs,
+      downshiftFadeMs: downshiftFadeMs ?? this.downshiftFadeMs,
       crossfadeCurve: crossfadeCurve ?? this.crossfadeCurve,
       enabled: enabled ?? this.enabled,
     );
   }
 
   factory MusicLayerConfig.fromJson(Map<String, dynamic> json) {
+    final legacyCrossfade = json['crossfadeMs'] as int? ?? 1500;
     return MusicLayerConfig(
       thresholds: (json['thresholds'] as List<dynamic>?)
               ?.map((e) => MusicLayerThreshold.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
       revertSpinCount: json['revertSpinCount'] as int? ?? 7,
-      crossfadeMs: json['crossfadeMs'] as int? ?? 1500,
+      revertMode: json['revertMode'] as String? ?? 'spins',
+      revertSeconds: (json['revertSeconds'] as num?)?.toDouble() ?? 10.0,
+      upshiftFadeMs: json['upshiftFadeMs'] as int? ?? legacyCrossfade,
+      downshiftFadeMs: json['downshiftFadeMs'] as int? ?? legacyCrossfade,
       crossfadeCurve: json['crossfadeCurve'] as String? ?? 'equalPower',
       enabled: json['enabled'] as bool? ?? true,
     );
@@ -783,7 +809,10 @@ class MusicLayerConfig {
     return {
       'thresholds': thresholds.map((t) => t.toJson()).toList(),
       'revertSpinCount': revertSpinCount,
-      'crossfadeMs': crossfadeMs,
+      'revertMode': revertMode,
+      'revertSeconds': revertSeconds,
+      'upshiftFadeMs': upshiftFadeMs,
+      'downshiftFadeMs': downshiftFadeMs,
       'crossfadeCurve': crossfadeCurve,
       'enabled': enabled,
     };
@@ -794,11 +823,12 @@ class MusicLayerConfig {
     return const MusicLayerConfig(
       thresholds: [
         MusicLayerThreshold(layer: 1, minWinRatio: 0.0, label: 'Calm'),
-        MusicLayerThreshold(layer: 2, minWinRatio: 2.0, label: 'Warm'),
-        MusicLayerThreshold(layer: 3, minWinRatio: 5.0, label: 'Hot'),
+        MusicLayerThreshold(layer: 2, minWinRatio: 1.0, label: 'Warm'),
+        MusicLayerThreshold(layer: 3, minWinRatio: 2.0, label: 'Hot'),
       ],
       revertSpinCount: 7,
-      crossfadeMs: 1500,
+      upshiftFadeMs: 1500,
+      downshiftFadeMs: 1500,
       crossfadeCurve: 'equalPower',
       enabled: true,
     );
@@ -809,13 +839,14 @@ class MusicLayerConfig {
     return const MusicLayerConfig(
       thresholds: [
         MusicLayerThreshold(layer: 1, minWinRatio: 0.0, label: 'Calm'),
-        MusicLayerThreshold(layer: 2, minWinRatio: 2.0, label: 'Warm'),
-        MusicLayerThreshold(layer: 3, minWinRatio: 5.0, label: 'Hot'),
-        MusicLayerThreshold(layer: 4, minWinRatio: 15.0, label: 'Fire'),
-        MusicLayerThreshold(layer: 5, minWinRatio: 50.0, label: 'Inferno'),
+        MusicLayerThreshold(layer: 2, minWinRatio: 1.0, label: 'Warm'),
+        MusicLayerThreshold(layer: 3, minWinRatio: 2.0, label: 'Hot'),
+        MusicLayerThreshold(layer: 4, minWinRatio: 3.0, label: 'Fire'),
+        MusicLayerThreshold(layer: 5, minWinRatio: 4.0, label: 'Inferno'),
       ],
       revertSpinCount: 7,
-      crossfadeMs: 2000,
+      upshiftFadeMs: 2000,
+      downshiftFadeMs: 2000,
       crossfadeCurve: 'equalPower',
       enabled: true,
     );

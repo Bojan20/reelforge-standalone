@@ -10,6 +10,7 @@
 /// - Dynamic music layer switching (MusicLayerController)
 library;
 
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../models/slot_lab_models.dart';
@@ -456,6 +457,9 @@ class MusicLayerController extends ChangeNotifier {
   int _spinsSinceEscalation = 0;
   bool _isEscalated = false;
 
+  // ─── Seconds-based revert timer ────────────────────────────────────────
+  Timer? _revertTimer;
+
   // ─── History for UI visualization ──────────────────────────────────────
   final List<MusicLayerEvent> _history = [];
 
@@ -481,7 +485,8 @@ class MusicLayerController extends ChangeNotifier {
       _isEscalated = false;
       // Fade in ONLY L1, fade out all others to 0.0 in engine (not just cache)
       final playback = AudioPlaybackService.instance;
-      final fadeMs = _config.crossfadeMs;
+      _cancelRevertTimer();
+      final fadeMs = _config.downshiftFadeMs;
       for (int i = 1; i <= 5; i++) {
         final layerId = 'game_start_l$i';
         if (i == 1) {
@@ -551,6 +556,7 @@ class MusicLayerController extends ChangeNotifier {
     _isEscalated = false;
     _pendingWinRatio = null;
     _pendingResetToBase = false;
+    _cancelRevertTimer();
     _history.clear();
     notifyListeners();
   }
@@ -620,11 +626,14 @@ class MusicLayerController extends ChangeNotifier {
         toLayer: targetLayer,
         reason: MusicLayerTransitionReason.escalation,
         winRatio: winRatio,
-        crossfadeMs: _config.crossfadeMs,
+        crossfadeMs: _config.upshiftFadeMs,
       );
 
       _addHistoryEvent(transition);
       _applyCrossfade(transition);
+      // Reset revert timer on escalation (seconds mode)
+      _cancelRevertTimer();
+      _startRevertTimerIfNeeded(parentNotify);
       notifyListeners();
       parentNotify();
       return transition;
@@ -636,8 +645,10 @@ class MusicLayerController extends ChangeNotifier {
           .firstOrNull;
 
       if (activeThreshold != null && winRatio >= activeThreshold.minWinRatio) {
-        // Threshold still met — reset spin counter
+        // Threshold still met — reset spin counter + reset timer
         _spinsSinceEscalation = 0;
+        _cancelRevertTimer();
+        _startRevertTimerIfNeeded(parentNotify);
         _addHistoryEvent(MusicLayerTransition(
           fromLayer: _activeLayer,
           toLayer: _activeLayer,
@@ -650,41 +661,35 @@ class MusicLayerController extends ChangeNotifier {
         return null;
       }
 
-      // Threshold NOT met — increment revert counter
-      _spinsSinceEscalation++;
+      // Threshold NOT met
+      if (_config.revertMode == 'spins') {
+        // ── SPIN-BASED REVERT ──
+        _spinsSinceEscalation++;
 
-      if (_spinsSinceEscalation >= _config.revertSpinCount) {
-        // ── DE-ESCALATION (step down one layer) ──
-        final revertTo = _activeLayer - 1;
-        _previousLayer = _activeLayer;
-        _activeLayer = revertTo;
-        _spinsSinceEscalation = 0;
-        _isEscalated = revertTo > 1;
+        if (_spinsSinceEscalation >= _config.revertSpinCount) {
+          return _doDeEscalation(previousActive, winRatio, parentNotify);
+        }
 
-        final transition = MusicLayerTransition(
-          fromLayer: previousActive,
-          toLayer: revertTo,
-          reason: MusicLayerTransitionReason.revert,
+        // Still counting down — no transition
+        _addHistoryEvent(MusicLayerTransition(
+          fromLayer: _activeLayer,
+          toLayer: _activeLayer,
+          reason: MusicLayerTransitionReason.countdown,
           winRatio: winRatio,
-          crossfadeMs: _config.crossfadeMs,
-        );
-
-        _addHistoryEvent(transition);
-        _applyCrossfade(transition);
-        notifyListeners();
-        parentNotify();
-        return transition;
+          crossfadeMs: 0,
+          spinsRemaining: _config.revertSpinCount - _spinsSinceEscalation,
+        ));
+      } else {
+        // ── SECONDS-BASED REVERT — timer handles de-escalation ──
+        // Just log countdown, timer will fire when time's up
+        _addHistoryEvent(MusicLayerTransition(
+          fromLayer: _activeLayer,
+          toLayer: _activeLayer,
+          reason: MusicLayerTransitionReason.countdown,
+          winRatio: winRatio,
+          crossfadeMs: 0,
+        ));
       }
-
-      // Still counting down — no transition
-      _addHistoryEvent(MusicLayerTransition(
-        fromLayer: _activeLayer,
-        toLayer: _activeLayer,
-        reason: MusicLayerTransitionReason.countdown,
-        winRatio: winRatio,
-        crossfadeMs: 0,
-        spinsRemaining: _config.revertSpinCount - _spinsSinceEscalation,
-      ));
       notifyListeners();
       parentNotify();
     } else {
@@ -703,6 +708,52 @@ class MusicLayerController extends ChangeNotifier {
     }
 
     return null;
+  }
+
+  // ─── De-escalation helper ─────────────────────────────────────────────
+
+  MusicLayerTransition _doDeEscalation(int previousActive, double winRatio, VoidCallback parentNotify) {
+    final revertTo = _activeLayer - 1;
+    _previousLayer = _activeLayer;
+    _activeLayer = revertTo;
+    _spinsSinceEscalation = 0;
+    _isEscalated = revertTo > 1;
+
+    final transition = MusicLayerTransition(
+      fromLayer: previousActive,
+      toLayer: revertTo,
+      reason: MusicLayerTransitionReason.revert,
+      winRatio: winRatio,
+      crossfadeMs: _config.downshiftFadeMs,
+    );
+
+    _addHistoryEvent(transition);
+    _applyCrossfade(transition);
+    _cancelRevertTimer();
+    // If still escalated after stepping down, start new timer
+    if (_isEscalated) {
+      _startRevertTimerIfNeeded(parentNotify);
+    }
+    notifyListeners();
+    parentNotify();
+    return transition;
+  }
+
+  // ─── Revert Timer (seconds mode) ─────────────────────────────────────
+
+  void _startRevertTimerIfNeeded(VoidCallback parentNotify) {
+    if (_config.revertMode != 'seconds' || !_isEscalated) return;
+    _cancelRevertTimer();
+    final ms = (_config.revertSeconds * 1000).round();
+    _revertTimer = Timer(Duration(milliseconds: ms), () {
+      if (!_isEscalated) return;
+      _doDeEscalation(_activeLayer, 0.0, parentNotify);
+    });
+  }
+
+  void _cancelRevertTimer() {
+    _revertTimer?.cancel();
+    _revertTimer = null;
   }
 
   // ─── Crossfade Application ─────────────────────────────────────────────
