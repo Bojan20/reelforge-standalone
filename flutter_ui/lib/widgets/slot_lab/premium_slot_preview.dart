@@ -5106,16 +5106,11 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
   @override
   void dispose() {
-    // Stop non-music audio before disposing — preserve base game music layers
-    // across fullscreen toggle (base game layers live in AudioPlaybackService singleton)
+    // Minimal cleanup — preserve music layers and win audio across fullscreen toggle.
+    // Only stop looping events that would be orphaned without their widget.
     final reg = EventRegistry.instance;
     reg.stopAllSpinLoops();
-    reg.stopEvent('COIN_SHOWER_START');
-    reg.stopEvent('ROLLUP');
-    reg.stopEvent('WIN_COLLECT');
-    reg.stopEvent('WIN_PRESENT');
-    reg.stopEvent('BIG_WIN_START');
-    reg.stopEvent('BIG_WIN_END');
+    reg.stopEvent('COIN_SHOWER_START'); // Looping — would be orphaned
 
     _composer.removeListener(_onComposerChanged);
     _jackpotTickController.dispose();
@@ -6207,15 +6202,12 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // Stop Big Win protection timer
     _stopBigWinProtection();
 
-    // Stop all music on collect and restore base game music
+    // Stop big win music on collect and prepare base game layers
     if (_isBigWinTier(_currentWinTier)) {
       eventRegistry.stopAllMusicVoices(fadeMs: 300);
-      // Restore ALL base music layers
-      for (final layer in const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5']) {
-        if (eventRegistry.hasEventForStage(layer)) {
-          eventRegistry.triggerStage(layer);
-        }
-      }
+      final audio = GetIt.instance<SlotLabCoordinator>().audioProvider;
+      audio.restartBaseGameLayersSilent();
+      audio.resetMusicLayerToBase();
     }
 
     setState(() {

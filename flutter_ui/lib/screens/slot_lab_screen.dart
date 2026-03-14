@@ -437,6 +437,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
   // Composite events — MiddlewareProvider is the SINGLE SOURCE OF TRUTH
   // SlotLab only keeps UI state (expanded, selected)
+  final Map<String, ValueNotifier<bool>> _eventExpandedNotifiers = {};
+  // Legacy — kept for backward compat with code that reads the map
   final ValueNotifier<Map<String, bool>> _eventExpandedNotifier = ValueNotifier<Map<String, bool>>({});
   String? _selectedEventId;
 
@@ -1257,10 +1259,17 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   List<SlotCompositeEvent> get _middlewareEvents => _compositeEvents;
 
   /// Check if event is expanded (UI-only state)
-  bool _isEventExpanded(String eventId) => _eventExpandedNotifier.value[eventId] ?? false;
+  bool _isEventExpanded(String eventId) => _eventExpandedNotifiers[eventId]?.value ?? false;
 
-  /// Set event expanded state — uses ValueNotifier, does NOT trigger full setState
+  /// Get or create per-event ValueNotifier for expand state
+  ValueNotifier<bool> _getEventExpandedNotifier(String eventId) {
+    return _eventExpandedNotifiers.putIfAbsent(eventId, () => ValueNotifier<bool>(false));
+  }
+
+  /// Set event expanded state — per-event ValueNotifier, only rebuilds THAT event
   void _setEventExpanded(String eventId, bool expanded) {
+    _getEventExpandedNotifier(eventId).value = expanded;
+    // Sync legacy map (for code that reads it)
     final map = Map<String, bool>.from(_eventExpandedNotifier.value);
     map[eventId] = expanded;
     _eventExpandedNotifier.value = map;
@@ -2205,9 +2214,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         for (final eventData in provider.persistedCompositeEvents) {
           final eventId = eventData['id'] as String;
           final isExpanded = eventData['isExpanded'] as bool? ?? false;
-          final map = Map<String, bool>.from(_eventExpandedNotifier.value);
-          map[eventId] = isExpanded;
-          _eventExpandedNotifier.value = map;
+          _getEventExpandedNotifier(eventId).value = isExpanded;
+          _eventExpandedNotifier.value = {..._eventExpandedNotifier.value, eventId: isExpanded};
         }
         // Re-sync to event registry (events from MiddlewareProvider)
         _syncAllEventsToRegistry();
@@ -3360,6 +3368,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     _rightPanelTabNotifier.dispose();
     _configExpandedSection.dispose();
     _eventExpandedNotifier.dispose();
+    for (final notifier in _eventExpandedNotifiers.values) {
+      notifier.dispose();
+    }
+    _eventExpandedNotifiers.clear();
     // Clear ConfigUndoManager callbacks to release captured provider references
     try { GetIt.instance<ConfigUndoManager>().clearCallbacks(); } catch (_) {}
     _disposeLayerPlayers(); // Dispose audio players
@@ -11688,10 +11700,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   }
 
   Widget _buildCompositeEventContent(SlotCompositeEvent event, bool isSelected) {
-    return ValueListenableBuilder<Map<String, bool>>(
-      valueListenable: _eventExpandedNotifier,
-      builder: (context, expandedMap, _) {
-        final isExpanded = expandedMap[event.id] ?? false;
+    return ValueListenableBuilder<bool>(
+      valueListenable: _getEventExpandedNotifier(event.id),
+      builder: (context, isExpanded, _) {
         return Column(
           children: [
             Container(

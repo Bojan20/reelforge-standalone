@@ -360,11 +360,13 @@ class SlotAudioProvider extends ChangeNotifier {
   void fadeOutBaseGameLayers({int fadeMs = 500}) {
     final playback = AudioPlaybackService.instance;
     final gen = ++_fadeOutGeneration;
+    // Fade both GAME_START composite voices and standalone MUSIC_BASE_L voices
     for (int i = 1; i <= 5; i++) {
-      final layerId = 'game_start_l$i';
-      final voices = playback.activeVoices.where((v) => v.layerId == layerId).toList();
-      if (voices.isNotEmpty) {
-        playback.fadeLayerVolume(layerId, 0.0, fadeMs: fadeMs);
+      for (final layerId in ['game_start_l$i', 'layer_MUSIC_BASE_L$i']) {
+        final voices = playback.activeVoices.where((v) => v.layerId == layerId).toList();
+        if (voices.isNotEmpty) {
+          playback.fadeLayerVolume(layerId, 0.0, fadeMs: fadeMs);
+        }
       }
     }
     // Stop voices after fade completes (guarded by generation to avoid killing new voices)
@@ -374,6 +376,10 @@ class SlotAudioProvider extends ChangeNotifier {
         playback.stopLayer('game_start_l$i');
         playback.stopLayer('layer_MUSIC_BASE_L$i');
       }
+      // Stop EventRegistry standalone instances AFTER fade completes
+      try {
+        EventRegistry.instance.stopEventsByPrefix('MUSIC_BASE_L');
+      } catch (_) {}
     });
   }
 
@@ -471,6 +477,9 @@ class MusicLayerController extends ChangeNotifier {
   /// Defer evaluation until win presentation ends
   void deferEvaluation(double winRatio) {
     _pendingWinRatio = winRatio;
+    final ts = DateTime.now().millisecondsSinceEpoch % 100000;
+    _lastCrossfadeDiag = 'DEFERRED wr=$winRatio t=$ts (waiting for flush)';
+    notifyListeners();
   }
 
   /// Flush pending evaluation — called by coordinator when win flow ends
@@ -512,6 +521,10 @@ class MusicLayerController extends ChangeNotifier {
     final winRatio = _pendingWinRatio;
     if (winRatio != null) {
       _pendingWinRatio = null;
+      // Diagnostics: capture caller for debugging
+      final ts = DateTime.now().millisecondsSinceEpoch % 100000;
+      final caller = StackTrace.current.toString().split('\n').take(5).join('\n');
+      _lastCrossfadeDiag = 'FLUSH eval wr=$winRatio t=$ts\n$caller';
       evaluateAfterSpin(winRatio, _parentNotify ?? () {});
     }
   }

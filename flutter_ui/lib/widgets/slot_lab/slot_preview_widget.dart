@@ -1785,7 +1785,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _winLineCycleTimer?.cancel();
     _tierProgressionTimer?.cancel(); // Clean up tier progression
     _baseGameFadeTimer?.cancel(); // Clean up base game music fade
-    _stopRollupTicks(); // Clean up rollup audio sequence
+    _rollupTickTimer?.cancel(); // Clean up rollup timer (audio continues naturally)
     // Stop any looping audio (reel spin loop persists across reload otherwise)
     EventRegistry.instance.stopAllSpinLoops();
     _disposeControllers();
@@ -1983,9 +1983,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       return;
     }
 
-    // Stop any previous win line presentation and tier progression
-    _stopWinLinePresentation();
-    _stopTierProgression();
+    // Clean up any previous win line presentation and tier progression
+    // Use direct cleanup WITHOUT flushing pending music layer eval —
+    // flush happens at end of win presentation, not at spin start.
+    _cleanupWinState();
 
     // Capture spin start time for Event Log timestamp ordering
     _spinStartTimeMs = DateTime.now().millisecondsSinceEpoch;
@@ -3559,6 +3560,41 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // V13: Mark win presentation as COMPLETE — allows next spin
     // Note: This is called when spin interrupts tier progression
     widget.provider.setWinPresentationActive(false);
+  }
+
+  /// Clean up win state for new spin WITHOUT flushing pending music layer eval.
+  /// Used by _startSpin to clear previous win visuals without triggering
+  /// premature music layer crossfade (flush happens at end of win presentation).
+  void _cleanupWinState() {
+    // Clean win line state (same as _stopWinLinePresentation minus flush)
+    _winLineCycleTimer?.cancel();
+    _winLineCycleTimer = null;
+    _stopRollupTicks();
+    if (mounted) {
+      setState(() {
+        _isShowingWinLines = false;
+        _lineWinsForPresentation = [];
+        _currentPresentingLineIndex = 0;
+        _currentLinePositions = {};
+      });
+    } else {
+      _isShowingWinLines = false;
+      _lineWinsForPresentation = [];
+      _currentPresentingLineIndex = 0;
+      _currentLinePositions = {};
+    }
+
+    // Clean tier progression state (same as _stopTierProgression minus flush)
+    _tierProgressionTimer?.cancel();
+    _tierProgressionTimer = null;
+    _rollupTickTimer?.cancel();
+    _isInTierProgression = false;
+    _isRollingUp = false;
+    _tierProgressionList = [];
+    _tierProgressionIndex = 0;
+
+    // Reset win presentation flag on stageProvider directly (no flush)
+    widget.provider.stageProvider.setWinPresentationActive(false);
   }
 
   /// Stop all anticipation effects
