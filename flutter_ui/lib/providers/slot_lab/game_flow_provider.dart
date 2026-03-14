@@ -125,6 +125,12 @@ class GameFlowProvider extends ChangeNotifier {
   /// Called to trigger audio stages
   void Function(String stageId)? onAudioStage;
 
+  /// Called when a scene transition plaque appears (enter or exit)
+  void Function(TransitionPhase phase, GameFlowState from, GameFlowState to)? onTransitionStart;
+
+  /// Called when a scene transition plaque is dismissed
+  void Function(TransitionPhase phase, GameFlowState from, GameFlowState to)? onTransitionDismissed;
+
   // ═══════════════════════════════════════════════════════════════════════════
   // GETTERS
   // ═══════════════════════════════════════════════════════════════════════════
@@ -838,6 +844,7 @@ class GameFlowProvider extends ChangeNotifier {
     _fireAudioStage('CONTEXT_${_stateKey(from)}_TO_${_stateKey(to)}');
 
     _pendingTransitionComplete = onComplete;
+    onTransitionStart?.call(TransitionPhase.entering, from, to);
     notifyListeners();
 
     // Auto-dismiss if timed (clickToContinue waits for user tap → dismissTransition)
@@ -879,6 +886,7 @@ class GameFlowProvider extends ChangeNotifier {
     _fireAudioStage('CONTEXT_${_stateKey(from)}_TO_${_stateKey(to)}');
 
     _pendingTransitionComplete = onComplete;
+    onTransitionStart?.call(TransitionPhase.exiting, from, to);
     notifyListeners();
 
     // Auto-dismiss if timed (clickToContinue waits for user tap → dismissTransition)
@@ -932,9 +940,13 @@ class GameFlowProvider extends ChangeNotifier {
 
     _transitionDismissTimer?.cancel();
     _transitionDismissTimer = null;
+    final phase = _activeTransition!.phase;
+    final from = _activeTransition!.fromState;
+    final to = _activeTransition!.toState;
     final pending = _pendingTransitionComplete;
     _activeTransition = null;
     _pendingTransitionComplete = null;
+    onTransitionDismissed?.call(phase, from, to);
     notifyListeners();
 
     // Execute pending completion callback

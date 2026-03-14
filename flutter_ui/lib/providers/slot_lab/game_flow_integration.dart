@@ -25,6 +25,7 @@ import 'executors/jackpot_executor.dart';
 import 'executors/multiplier_executor.dart';
 import 'executors/wild_features_executor.dart';
 import 'executors/collector_executor.dart';
+import 'slot_lab_coordinator.dart';
 
 class GameFlowIntegration {
   GameFlowIntegration._();
@@ -61,6 +62,10 @@ class GameFlowIntegration {
 
     // Wire state change callback
     _flowProvider!.onStateChanged = _onStateChanged;
+
+    // Wire transition callbacks for music layer management
+    _flowProvider!.onTransitionStart = _onTransitionStart;
+    _flowProvider!.onTransitionDismissed = _onTransitionDismissed;
 
     // Wire feature state update callback
     _flowProvider!.onFeatureStateUpdated = _onFeatureStateUpdated;
@@ -421,19 +426,61 @@ class GameFlowIntegration {
   }
 
   void _onStateChanged(GameFlowState oldState, GameFlowState newState) {
-    // Entering feature → fire feature music L1
-    if (newState == GameFlowState.freeSpins) {
-      _onAudioStage('MUSIC_FS_L1');
-    } else if (newState == GameFlowState.holdAndWin) {
-      _onAudioStage('MUSIC_HOLD_L1');
-    } else if (newState == GameFlowState.bonusGame) {
-      _onAudioStage('MUSIC_BONUS_L1');
+    // Feature music is handled by transition callbacks (_onTransitionStart/Dismissed).
+    // Only fire feature music here for non-transition cases (transitions disabled).
+    if (_flowProvider?.transitionsEnabled != true) {
+      if (newState == GameFlowState.freeSpins) {
+        _onAudioStage('MUSIC_FS_L1');
+      } else if (newState == GameFlowState.holdAndWin) {
+        _onAudioStage('MUSIC_HOLD_L1');
+      } else if (newState == GameFlowState.bonusGame) {
+        _onAudioStage('MUSIC_BONUS_L1');
+      }
+      if ((newState == GameFlowState.baseGame || newState == GameFlowState.idle) &&
+          oldState != GameFlowState.baseGame && oldState != GameFlowState.idle) {
+        _onAudioStage('MUSIC_BASE_L1');
+      }
     }
+  }
 
-    // Returning to base game → fade in base game layer 1 music
-    if ((newState == GameFlowState.baseGame || newState == GameFlowState.idle) &&
-        oldState != GameFlowState.baseGame && oldState != GameFlowState.idle) {
-      _onAudioStage('MUSIC_BASE_L1');
+  // ─── Transition callbacks (music layer management) ──────────────────────
+
+  SlotLabCoordinator? get _coordinator {
+    try {
+      return sl<SlotLabCoordinator>();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _onTransitionStart(TransitionPhase phase, GameFlowState from, GameFlowState to) {
+    final audio = _coordinator?.audioProvider;
+    if (audio == null) return;
+
+    if (phase == TransitionPhase.entering && to == GameFlowState.freeSpins) {
+      // FS INTRO plaque appears → fadeout + stop base game layers
+      audio.fadeOutBaseGameLayers(fadeMs: 500);
+    } else if (phase == TransitionPhase.exiting && from == GameFlowState.freeSpins) {
+      // FS END plaque appears → stop FS music, fire FS end music, restart base game silent
+      try {
+        EventRegistry.instance.stopEventsByPrefix('MUSIC_FS');
+      } catch (_) {}
+      _onAudioStage('MUSIC_FS_END');
+      audio.restartBaseGameLayersSilent();
+      audio.resetMusicLayerToBase(); // Deferred: fade-in L1 when plaque dismissed
+    }
+  }
+
+  void _onTransitionDismissed(TransitionPhase phase, GameFlowState from, GameFlowState to) {
+    final audio = _coordinator?.audioProvider;
+    if (audio == null) return;
+
+    if (phase == TransitionPhase.entering && to == GameFlowState.freeSpins) {
+      // FS INTRO plaque dismissed → start FS music
+      _onAudioStage('MUSIC_FS_L1');
+    } else if (phase == TransitionPhase.exiting && from == GameFlowState.freeSpins) {
+      // FS END plaque dismissed → fade-in base game L1
+      audio.musicLayerController.flushPendingCrossfade();
     }
   }
 
@@ -448,6 +495,8 @@ class GameFlowIntegration {
     _featureBuilder = null;
     _flowProvider?.onAudioStage = null;
     _flowProvider?.onStateChanged = null;
+    _flowProvider?.onTransitionStart = null;
+    _flowProvider?.onTransitionDismissed = null;
     _flowProvider?.onFeatureStateUpdated = null;
     _flowProvider = null;
     _initialized = false;
