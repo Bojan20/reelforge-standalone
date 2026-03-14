@@ -2521,9 +2521,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       eventRegistry.triggerStage('ROLLUP_END');
     }
     if (wasBigWin) {
-      // BIG_WIN_END: sfx + stop big win music + reset layers to L1
+      // BIG_WIN_END: sfx + stop big win music + restart layers silent
       _ensureAudioRegistered('BIG_WIN_END');
       eventRegistry.triggerStage('BIG_WIN_END');
+      widget.provider.audioProvider.restartBaseGameLayersSilent();
       widget.provider.audioProvider.resetMusicLayerToBase();
       eventRegistry.triggerStage('WIN_PRESENT_END');
     }
@@ -3399,6 +3400,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // BIG_WIN_START composite: overlap=false → fades out base game music on music bus,
     // then plays big win music loop (all layers defined in event)
     // ═══════════════════════════════════════════════════════════════════════════
+    // Fadeout and stop all base game music layers before big win music
+    widget.provider.audioProvider.fadeOutBaseGameLayers(fadeMs: 500);
     eventRegistry.triggerStage('BIG_WIN_START');
 
     // Show plaque immediately with first tier
@@ -3505,7 +3508,9 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Play BIG_WIN_END sfx, stop BIG_WIN_START music
     eventRegistry.triggerStage('BIG_WIN_END');
     eventRegistry.stopEvent('BIG_WIN_START');
-    // Reset dynamic music layers to L1 (base game music keeps playing)
+    // Restart all base game layers at volume 0.0 (silent, ready for fade-in after plaque)
+    widget.provider.audioProvider.restartBaseGameLayersSilent();
+    // Defer L1 fade-in until plaque dismissed
     widget.provider.audioProvider.resetMusicLayerToBase();
 
     final lastTier = _currentDisplayTier;

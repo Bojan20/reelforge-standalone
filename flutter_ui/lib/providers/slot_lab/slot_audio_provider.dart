@@ -347,8 +347,59 @@ class SlotAudioProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// BIG_WIN_START: fadeout and stop all base game layers
+  int _fadeOutGeneration = 0;
+  void fadeOutBaseGameLayers({int fadeMs = 500}) {
+    final playback = AudioPlaybackService.instance;
+    final gen = ++_fadeOutGeneration;
+    for (int i = 1; i <= 5; i++) {
+      final layerId = 'game_start_l$i';
+      final voices = playback.activeVoices.where((v) => v.layerId == layerId).toList();
+      if (voices.isNotEmpty) {
+        playback.fadeLayerVolume(layerId, 0.0, fadeMs: fadeMs);
+      }
+    }
+    // Stop voices after fade completes (guarded by generation to avoid killing new voices)
+    Future.delayed(Duration(milliseconds: fadeMs + 50), () {
+      if (_fadeOutGeneration != gen) return; // New restart happened — don't stop
+      for (int i = 1; i <= 5; i++) {
+        playback.stopLayer('game_start_l$i');
+        playback.stopLayer('layer_MUSIC_BASE_L$i');
+      }
+    });
+  }
+
+  /// BIG_WIN_END: restart all base game layers at volume 0.0 (silent, ready for fade-in)
+  void restartBaseGameLayersSilent() {
+    _fadeOutGeneration++; // Cancel any pending fadeOut stop
+    final registry = EventRegistry.instance;
+    final playback = AudioPlaybackService.instance;
+    final gsEvent = registry.getEventForStage('GAME_START');
+    if (gsEvent == null) return;
+
+    // Stop any leftover voices first
+    for (int i = 1; i <= 5; i++) {
+      playback.stopLayer('game_start_l$i');
+      playback.stopLayer('layer_MUSIC_BASE_L$i');
+    }
+    registry.stopEvent('audio_GAME_START');
+
+    // Launch all layers at volume 0.0
+    for (final layer in gsEvent.layers) {
+      if (layer.audioPath.isEmpty || layer.actionType != 'Play') continue;
+      playback.layerVolumes[layer.id] = 0.0;
+      playback.playLoopingToBus(
+        layer.audioPath,
+        volume: 0.0,
+        busId: layer.busId,
+        eventId: gsEvent.id,
+        layerId: layer.id,
+      );
+    }
+  }
+
   /// Defer reset to base layer (L1) — called after BIG_WIN_END.
-  /// Actual crossfade happens when win presentation ends (plaque dismissed).
+  /// When plaque dismissed: fade in ONLY L1 to 1.0, others stay at 0.0.
   void resetMusicLayerToBase() {
     _musicLayerController._pendingCrossfade = null;
     _musicLayerController._pendingResetToBase = true;
@@ -409,7 +460,31 @@ class MusicLayerController extends ChangeNotifier {
   void flushPendingCrossfade() {
     if (_pendingResetToBase) {
       _pendingResetToBase = false;
-      resetToBaseLayer();
+      // Reset controller state to L1
+      _activeLayer = 1;
+      _previousLayer = 1;
+      _spinsSinceEscalation = 0;
+      _isEscalated = false;
+      // Fade in ONLY L1, others stay at 0.0
+      final playback = AudioPlaybackService.instance;
+      final fadeMs = _config.crossfadeMs;
+      for (final threshold in _config.thresholds) {
+        final layerId = 'game_start_l${threshold.layer}';
+        if (threshold.layer == 1) {
+          playback.layerVolumes[layerId] = 0.0; // Start from 0.0 (silent)
+          playback.fadeLayerVolume(layerId, 1.0, fadeMs: fadeMs);
+        } else {
+          playback.layerVolumes[layerId] = 0.0;
+        }
+      }
+      _addHistoryEvent(MusicLayerTransition(
+        fromLayer: 0,
+        toLayer: 1,
+        reason: MusicLayerTransitionReason.revert,
+        winRatio: 0.0,
+        crossfadeMs: fadeMs,
+      ));
+      notifyListeners();
       return;
     }
     final transition = _pendingCrossfade;
