@@ -4590,6 +4590,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   'Lower Zone',
                   isActive: SlotLabLowerZoneController.instance.isExpanded,
                 ),
+                _buildHeaderIconBtn(
+                  Icons.fullscreen,
+                  () => setState(() => _isPreviewMode = true),
+                  'Fullscreen Slot (F11)',
+                ),
                 const SizedBox(width: 4),
               ],
             ),

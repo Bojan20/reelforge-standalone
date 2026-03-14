@@ -23,7 +23,6 @@ import 'package:get_it/get_it.dart';
 import '../../providers/slot_lab/feature_composer_provider.dart';
 import '../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../providers/slot_lab_project_provider.dart';
-import '../../services/audio_playback_service.dart';
 import '../../services/event_registry.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
@@ -5107,17 +5106,16 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
   @override
   void dispose() {
-    // Stop ALL audio before disposing — prevents FS music bleeding into base game
+    // Stop non-music audio before disposing — preserve base game music layers
+    // across fullscreen toggle (base game layers live in AudioPlaybackService singleton)
     final reg = EventRegistry.instance;
     reg.stopAllSpinLoops();
-    reg.stopAllMusicVoices(fadeMs: 100);
     reg.stopEvent('COIN_SHOWER_START');
     reg.stopEvent('ROLLUP');
     reg.stopEvent('WIN_COLLECT');
     reg.stopEvent('WIN_PRESENT');
     reg.stopEvent('BIG_WIN_START');
     reg.stopEvent('BIG_WIN_END');
-    AudioPlaybackService.instance.stopAll();
 
     _composer.removeListener(_onComposerChanged);
     _jackpotTickController.dispose();
@@ -5797,7 +5795,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _showWinPresenter = false;
       _isPlayingBigWinEnd = false;
     });
-    provider.setWinPresentationActive(false); // Sync with provider
+    // Reset win presentation flag WITHOUT flushing pending music layer eval.
+    // Flush happens at end of win presentation, not at spin start.
+    provider.stageProvider.setWinPresentationActive(false);
 
     // ═══════════════════════════════════════════════════════════════════════
     // VISUAL-SYNC: Schedule reel stop callbacks IMMEDIATELY on spin start
@@ -5857,7 +5857,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       _showWinPresenter = false;
       _isPlayingBigWinEnd = false;
     });
-    provider.setWinPresentationActive(false); // Sync with provider
+    // Reset win presentation flag WITHOUT flushing pending music layer eval.
+    provider.stageProvider.setWinPresentationActive(false);
 
     // ═══════════════════════════════════════════════════════════════════════
     // VISUAL-SYNC: Schedule reel stop callbacks IMMEDIATELY on spin start
