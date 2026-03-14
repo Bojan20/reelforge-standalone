@@ -395,9 +395,8 @@ class SlotLabCoordinator extends ChangeNotifier {
   // --- Win Presentation ---
   void setWinPresentationActive(bool active) {
     stageProvider.setWinPresentationActive(active);
-    // Flush deferred music layer evaluation when win presentation ends
     if (!active) {
-      audioProvider.flushPendingMusicLayerEval();
+      audioProvider.musicLayerController.flushPendingCrossfade();
     }
   }
   void onAllReelsVisualStop() => stageProvider.onAllReelsVisualStop();
@@ -405,9 +404,7 @@ class SlotLabCoordinator extends ChangeNotifier {
       stageProvider.requestSkipPresentation(onComplete);
   void onSkipComplete() {
     stageProvider.onSkipComplete();
-    // onSkipComplete calls stageProvider.setWinPresentationActive(false) internally,
-    // which bypasses coordinator — flush pending music layer eval here
-    audioProvider.flushPendingMusicLayerEval();
+    audioProvider.musicLayerController.flushPendingCrossfade();
   }
 
   // --- Stage Validation ---

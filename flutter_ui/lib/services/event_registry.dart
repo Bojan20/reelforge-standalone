@@ -1217,6 +1217,9 @@ class EventRegistry extends ChangeNotifier {
   List<String> _lastTriggeredLayers = [];
   bool _lastTriggerSuccess = false;
   String _lastTriggerError = '';
+  String _gameStartPlayDiag = '';
+  String get gameStartPlayDiag => _gameStartPlayDiag;
+  void resetGameStartDiag() { _gameStartPlayDiag = ''; }
   // Container info for last triggered event
   ContainerType _lastContainerType = ContainerType.none;
   String? _lastContainerName;
@@ -3472,6 +3475,10 @@ class EventRegistry extends ChangeNotifier {
       if (voiceId < 0) {
         _lastTriggerSuccess = false;
         _lastTriggerError = 'FFI playback failed for $effectivePath (voiceId=$voiceId)';
+        // Diagnostics for GAME_START failures
+        if (eventId.contains('GAME_START')) {
+          _gameStartPlayDiag = 'FAIL layer=${layer.id} path=$effectivePath voiceId=$voiceId loop=$loop bus=${layer.busId}';
+        }
         return; // Skip this layer
       }
 
@@ -3482,6 +3489,10 @@ class EventRegistry extends ChangeNotifier {
         final spatialStr = (_useSpatialAudio && pan != layer.pan) ? ' [SPATIAL pan=${pan.toStringAsFixed(2)}]' : '';
         // Store voice info for debug display
         _lastTriggerError = 'voice=$voiceId, bus=${layer.busId}, section=$activeSection';
+        // Diagnostics for GAME_START success
+        if (eventId.contains('GAME_START')) {
+          _gameStartPlayDiag = '${_gameStartPlayDiag}OK layer=${layer.id} v=$voiceId\n';
+        }
 
         // ═══════════════════════════════════════════════════════════════════════
         // P1-15: DISPATCH HOOK FOR AUDIO PLAYED (2026-01-30)

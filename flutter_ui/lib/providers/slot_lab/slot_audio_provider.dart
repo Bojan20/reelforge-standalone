@@ -133,29 +133,12 @@ class SlotAudioProvider extends ChangeNotifier {
   // ALE SIGNAL SYNC
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Pending music layer evaluation — deferred until win presentation completes
-  double? _pendingMusicLayerWinRatio;
-
-  /// Flush pending music layer evaluation (called when win flow completes)
-  void flushPendingMusicLayerEval() {
-    final winRatio = _pendingMusicLayerWinRatio;
-    if (winRatio == null) return;
-    _pendingMusicLayerWinRatio = null;
-    _musicLayerController.evaluateAfterSpin(winRatio, notifyListeners);
-  }
-
   /// Sync Slot Lab state to ALE signals + evaluate dynamic music layers
   void syncAleSignals(SlotLabSpinResult? result, double hitRate, bool inFreeSpins, int freeSpinsRemaining, int spinCount, double volatilitySlider, List<SlotLabStageEvent> lastStages) {
     if (result == null) return;
 
-    // Dynamic music layer evaluation — deferred until win presentation ends
-    // Store pending winRatio; coordinator flushes after win flow completes
-    if (result.isWin) {
-      _pendingMusicLayerWinRatio = result.winRatio;
-    } else {
-      // No win — evaluate immediately (no presentation to wait for)
-      _musicLayerController.evaluateAfterSpin(result.winRatio, notifyListeners);
-    }
+    // Dynamic music layer evaluation — independent of ALE
+    _musicLayerController.evaluateAfterSpin(result.winRatio, notifyListeners);
 
     // ALE signal sync
     if (!_aleAutoSync || _aleProvider == null || !_aleProvider!.initialized) {
@@ -353,7 +336,6 @@ class SlotAudioProvider extends ChangeNotifier {
 
   /// Load music layer config (from project load) — resets runtime state
   void loadMusicLayerConfig(MusicLayerConfig config) {
-    _pendingMusicLayerWinRatio = null;
     _musicLayerController.reset();
     _musicLayerController.loadConfig(config);
     notifyListeners();
@@ -365,16 +347,15 @@ class SlotAudioProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Reset to base layer (L1) — called after BIG_WIN_END
+  /// Defer reset to base layer (L1) — called after BIG_WIN_END.
+  /// Actual crossfade happens when win presentation ends (plaque dismissed).
   void resetMusicLayerToBase() {
-    _pendingMusicLayerWinRatio = null;
-    _musicLayerController.resetToBaseLayer();
-    notifyListeners();
+    _musicLayerController._pendingCrossfade = null;
+    _musicLayerController._pendingResetToBase = true;
   }
 
   /// Reset music layer state (on new session / pool reset)
   void resetMusicLayerState() {
-    _pendingMusicLayerWinRatio = null;
     _musicLayerController.reset();
     notifyListeners();
   }
@@ -385,7 +366,6 @@ class SlotAudioProvider extends ChangeNotifier {
 
   /// Clear all persisted UI state
   void clearPersistedState() {
-    _pendingMusicLayerWinRatio = null;
     AudioAssetManager.instance.clear();
     persistedCompositeEvents.clear();
     persistedTracks.clear();
@@ -421,6 +401,27 @@ class MusicLayerController extends ChangeNotifier {
   // ─── History for UI visualization ──────────────────────────────────────
   final List<MusicLayerEvent> _history = [];
 
+  // ─── Pending crossfade (deferred until win presentation ends) ─────────
+  MusicLayerTransition? _pendingCrossfade;
+  bool _pendingResetToBase = false;
+
+  /// Flush pending crossfade — called by coordinator when win flow ends
+  void flushPendingCrossfade() {
+    if (_pendingResetToBase) {
+      _pendingResetToBase = false;
+      resetToBaseLayer();
+      return;
+    }
+    final transition = _pendingCrossfade;
+    if (transition == null) return;
+    _pendingCrossfade = null;
+    _applyCrossfade(transition);
+  }
+
+  // ─── Diagnostics ────────────────────────────────────────────────────────
+  String _lastCrossfadeDiag = '';
+  String get lastCrossfadeDiag => _lastCrossfadeDiag;
+
   // ─── Getters ───────────────────────────────────────────────────────────
   MusicLayerConfig get config => _config;
   int get activeLayer => _activeLayer;
@@ -455,6 +456,8 @@ class MusicLayerController extends ChangeNotifier {
     _previousLayer = 1;
     _spinsSinceEscalation = 0;
     _isEscalated = false;
+    _pendingCrossfade = null;
+    _pendingResetToBase = false;
     _history.clear();
     notifyListeners();
   }
@@ -528,7 +531,8 @@ class MusicLayerController extends ChangeNotifier {
       );
 
       _addHistoryEvent(transition);
-      _applyCrossfade(transition);
+      // Defer crossfade until win presentation ends (plaque dismissed)
+      _pendingCrossfade = transition;
       notifyListeners();
       parentNotify();
       return transition;
@@ -614,45 +618,84 @@ class MusicLayerController extends ChangeNotifier {
   void _applyCrossfade(MusicLayerTransition transition) {
     final registry = EventRegistry.instance;
     final playback = AudioPlaybackService.instance;
-    final fadeMs = transition.crossfadeMs;
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // CRITICAL FIX: If GAME_START composite is registered but NOT playing
-    // (because first spin used MUSIC_BASE_L1 fallback), trigger it NOW
-    // so all layers have active voices for crossfade control.
-    // ═══════════════════════════════════════════════════════════════════════
     final hasGameStart = registry.hasEventForStage('GAME_START');
     final gameStartVoices = playback.voiceCountForLayer('game_start_l1');
-    if (hasGameStart && gameStartVoices == 0) {
-      // Stop standalone MUSIC_BASE_L1, trigger full GAME_START composite
-      registry.stopEventsByPrefix('MUSIC_BASE_L');
-      // Pre-set layer volumes BEFORE triggering so layers start at correct levels
-      for (final threshold in _config.thresholds) {
-        final layerId = 'game_start_l${threshold.layer}';
-        playback.layerVolumes[layerId] =
-            threshold.layer == transition.toLayer ? 1.0 : 0.0;
-      }
-      registry.triggerStage('GAME_START');
-      // Apply volumes after voices start (150ms for async playback to register)
-      Future.delayed(const Duration(milliseconds: 150), () {
-        _applyCrossfadeDirectly(transition);
-      });
+
+    // Check if GAME_START composite voices exist
+    if (gameStartVoices > 0) {
+      _applyCrossfadeDirectly(transition, path: 'GAME_START voices=$gameStartVoices');
       return;
     }
 
-    _applyCrossfadeDirectly(transition);
+    // No GAME_START voices — launch all layers directly via playLoopingToBus.
+    // Start each layer at its CURRENT volume (fromLayer=1.0, others=0.0),
+    // then let _applyCrossfadeDirectly crossfade to target volumes.
+    //
+    // Stop ALL existing music voices first (both standalone and previous GAME_START)
+    registry.stopEventsByPrefix('MUSIC_BASE_L');
+    registry.stopEvent('audio_GAME_START');
+    for (int i = 1; i <= 5; i++) {
+      playback.stopLayer('layer_MUSIC_BASE_L$i');
+      playback.stopLayer('game_start_l$i');
+    }
+
+    final gsEvent = registry.getEventForStage('GAME_START');
+    if (gsEvent == null) {
+      _applyCrossfadeDirectly(transition, path: 'NO GAME_START event');
+      return;
+    }
+
+    final diagParts = <String>[];
+    for (final layer in gsEvent.layers) {
+      if (layer.audioPath.isEmpty || layer.actionType != 'Play') continue;
+      // Start at CURRENT state: fromLayer at 1.0, all others at 0.0
+      final startVol = layer.id == 'game_start_l${transition.fromLayer}' ? 1.0 : 0.0;
+      playback.layerVolumes[layer.id] = startVol;
+      final voiceId = playback.playLoopingToBus(
+        layer.audioPath,
+        volume: startVol,
+        busId: layer.busId,
+        eventId: gsEvent.id,
+        layerId: layer.id,
+      );
+      diagParts.add('${layer.id}=v$voiceId@$startVol');
+    }
+
+    // Now crossfade from current to target
+    _applyCrossfadeDirectly(transition, path: 'DIRECT ${diagParts.join(", ")}');
   }
 
   /// Direct crossfade — finds actual voice IDs and sets volume via FFI.
-  /// Bypasses fadeLayerVolume entirely for reliability.
-  void _applyCrossfadeDirectly(MusicLayerTransition transition) {
+  void _applyCrossfadeDirectly(MusicLayerTransition transition, {String path = ''}) {
     final playback = AudioPlaybackService.instance;
     final fadeMs = transition.crossfadeMs;
+    final diagBuf = StringBuffer();
+    diagBuf.writeln('PATH: $path');
+    diagBuf.writeln('XF L${transition.fromLayer}→L${transition.toLayer} fade=${fadeMs}ms');
+    diagBuf.writeln('activeVoices: ${playback.activeVoices.length} total');
+
+    // Sync layerVolumes cache with actual engine state.
+    for (final threshold in _config.thresholds) {
+      final layerId = 'game_start_l${threshold.layer}';
+      if (!playback.layerVolumes.containsKey(layerId)) {
+        final initVol = threshold.layer == _previousLayer
+            ? 1.0
+            : (threshold.layer == 1 ? 1.0 : 0.0);
+        playback.layerVolumes[layerId] = initVol;
+        diagBuf.writeln('  INIT $layerId=$initVol');
+      }
+    }
+
+    // Log all active voice layerIds for debugging
+    final layerIds = playback.activeVoices.map((v) => '${v.layerId}(v${v.voiceId})').toSet();
+    diagBuf.writeln('voices: ${layerIds.join(', ')}');
 
     for (final threshold in _config.thresholds) {
       final layer = threshold.layer;
       final layerId = 'game_start_l$layer';
       final targetVolume = layer == transition.toLayer ? 1.0 : 0.0;
+      final startVol = playback.layerVolumes[layerId] ?? -1.0;
 
       // Find voice by layerId directly in active voices
       final voices = playback.activeVoices
@@ -660,6 +703,7 @@ class MusicLayerController extends ChangeNotifier {
           .toList();
 
       if (voices.isNotEmpty) {
+        diagBuf.writeln('  L$layer: ${voices.length}v start=$startVol→$targetVolume');
         if (fadeMs > 0) {
           playback.fadeLayerVolume(layerId, targetVolume, fadeMs: fadeMs);
         } else {
@@ -669,10 +713,13 @@ class MusicLayerController extends ChangeNotifier {
           playback.layerVolumes[layerId] = targetVolume;
         }
       } else {
-        // No active voice — record target for when it starts
+        diagBuf.writeln('  L$layer: NO VOICES → cache=$targetVolume');
         playback.layerVolumes[layerId] = targetVolume;
       }
     }
+
+    _lastCrossfadeDiag = diagBuf.toString();
+    notifyListeners();
   }
 
   // ─── History ───────────────────────────────────────────────────────────

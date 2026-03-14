@@ -55,7 +55,25 @@ class AudioPlaybackService extends ChangeNotifier {
   static AudioPlaybackService? _instance;
   static AudioPlaybackService get instance => _instance ??= AudioPlaybackService._();
 
-  AudioPlaybackService._();
+  AudioPlaybackService._() {
+    // Periodic cleanup of finished one-shot voices (engine marks them inactive)
+    _voiceCleanupTimer = Timer.periodic(const Duration(seconds: 2), (_) => _cleanupFinishedVoices());
+  }
+
+  Timer? _voiceCleanupTimer;
+
+  /// Remove voices from _activeVoices that engine reports as no longer active.
+  /// Prevents voice slot exhaustion (engine has 32 max).
+  void _cleanupFinishedVoices() {
+    if (_activeVoices.isEmpty) return;
+    final now = DateTime.now();
+    _activeVoices.removeWhere((v) {
+      if (v.source == PlaybackSource.daw) return false;
+      // Don't cleanup voices younger than 3s (avoids race with async triggers)
+      if (now.difference(v.startTime).inMilliseconds < 3000) return false;
+      return !_ffi.isVoiceActive(v.voiceId);
+    });
+  }
 
   // ─── FFI Reference ─────────────────────────────────────────────────────────
   final NativeFFI _ffi = NativeFFI.instance;

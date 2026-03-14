@@ -625,6 +625,8 @@ typedef EnginePlaybackSetVoicePitchDart = int Function(int voiceId, double semit
 // Real-time voice volume/pan/mute
 typedef EnginePlaybackSetVoiceVolumeNative = Int32 Function(Uint64 voiceId, Float volume);
 typedef EnginePlaybackSetVoiceVolumeDart = int Function(int voiceId, double volume);
+typedef EnginePlaybackIsVoiceActiveNative = Int32 Function(Uint64 voiceId);
+typedef EnginePlaybackIsVoiceActiveDart = int Function(int voiceId);
 typedef EnginePlaybackSetVoicePanNative = Int32 Function(Uint64 voiceId, Float pan);
 typedef EnginePlaybackSetVoicePanDart = int Function(int voiceId, double pan);
 typedef EnginePlaybackSetVoiceMuteNative = Int32 Function(Uint64 voiceId, Int32 muted);
@@ -2433,6 +2435,7 @@ class NativeFFI {
   late final EnginePlaybackFadeOutOneShotDart _playbackFadeOutOneShot; // P0
   late final EnginePlaybackSetVoicePitchDart _playbackSetVoicePitch; // P12.0.1
   late final EnginePlaybackSetVoiceVolumeDart _playbackSetVoiceVolume;
+  late final EnginePlaybackIsVoiceActiveDart _playbackIsVoiceActive;
   late final EnginePlaybackSetVoicePanDart _playbackSetVoicePan;
   late final EnginePlaybackSetVoiceMuteDart _playbackSetVoiceMute;
 
@@ -3169,6 +3172,7 @@ class NativeFFI {
     _playbackFadeOutOneShot = _lib.lookupFunction<EnginePlaybackFadeOutOneShotNative, EnginePlaybackFadeOutOneShotDart>('engine_playback_fade_out_one_shot'); // P0
     _playbackSetVoicePitch = _lib.lookupFunction<EnginePlaybackSetVoicePitchNative, EnginePlaybackSetVoicePitchDart>('engine_playback_set_voice_pitch'); // P12.0.1
     _playbackSetVoiceVolume = _lib.lookupFunction<EnginePlaybackSetVoiceVolumeNative, EnginePlaybackSetVoiceVolumeDart>('engine_playback_set_voice_volume');
+    _playbackIsVoiceActive = _lib.lookupFunction<EnginePlaybackIsVoiceActiveNative, EnginePlaybackIsVoiceActiveDart>('engine_playback_is_voice_active');
     _playbackSetVoicePan = _lib.lookupFunction<EnginePlaybackSetVoicePanNative, EnginePlaybackSetVoicePanDart>('engine_playback_set_voice_pan');
     _playbackSetVoiceMute = _lib.lookupFunction<EnginePlaybackSetVoiceMuteNative, EnginePlaybackSetVoiceMuteDart>('engine_playback_set_voice_mute');
 
@@ -5209,6 +5213,12 @@ class NativeFFI {
   bool setVoiceVolume(int voiceId, double volume) {
     if (!_loaded) return false;
     return _playbackSetVoiceVolume(voiceId, volume) == 1;
+  }
+
+  /// Check if a voice is still actively playing in the engine
+  bool isVoiceActive(int voiceId) {
+    if (!_loaded) return false;
+    return _playbackIsVoiceActive(voiceId) == 1;
   }
 
   /// Set pan for active voice in real-time (-1.0 to 1.0)

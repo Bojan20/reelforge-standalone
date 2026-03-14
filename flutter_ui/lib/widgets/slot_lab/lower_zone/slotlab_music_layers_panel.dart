@@ -13,6 +13,7 @@ import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 
 import '../../../models/slot_lab_models.dart';
+import '../../../services/audio_playback_service.dart';
 import '../../../providers/slot_lab/slot_audio_provider.dart';
 import '../../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../../providers/slot_lab_project_provider.dart';
@@ -102,6 +103,27 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
                   _buildGlobalSettings(),
                   const SizedBox(height: 12),
                   _buildHistory(),
+                  const SizedBox(height: 12),
+                  _buildLiveVolumeDebug(),
+                  if (_controller.lastCrossfadeDiag.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A1A2E),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFF333355)),
+                      ),
+                      child: SelectableText(
+                        _controller.lastCrossfadeDiag,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 10,
+                          color: Color(0xFF88AACC),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ],
             ),
@@ -658,6 +680,64 @@ class _SlotLabMusicLayersPanelState extends State<SlotLabMusicLayersPanel> {
   // ═══════════════════════════════════════════════════════════════════════════
   // HISTORY
   // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildLiveVolumeDebug() {
+    final playback = AudioPlaybackService.instance;
+    final voices = playback.activeVoices;
+    final layerCount = _config.thresholds.length;
+
+    return StatefulBuilder(
+      builder: (context, setInnerState) {
+        // Refresh every 200ms
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (mounted) setInnerState(() {});
+        });
+
+        final lines = <String>[];
+        for (int i = 1; i <= layerCount; i++) {
+          final layerId = 'game_start_l$i';
+          final matching = playback.activeVoices.where((v) => v.layerId == layerId).toList();
+          final cacheVol = playback.layerVolumes[layerId]?.toStringAsFixed(2) ?? '?';
+          if (matching.isNotEmpty) {
+            for (final v in matching) {
+              lines.add('L$i: v${v.voiceId} cache=$cacheVol');
+            }
+          } else {
+            lines.add('L$i: — cache=$cacheVol');
+          }
+        }
+        // Also show any standalone MUSIC_BASE voices still in engine
+        final standaloneVoices = playback.activeVoices
+            .where((v) => v.layerId != null && v.layerId!.contains('MUSIC_BASE'))
+            .toList();
+        for (final v in standaloneVoices) {
+          lines.add('STANDALONE: ${v.layerId} v${v.voiceId}');
+        }
+
+        final activeLayer = _controller.activeLayer;
+        final isEscalated = _controller.isEscalated;
+        lines.insert(0, 'ACTIVE: L$activeLayer ${isEscalated ? "(escalated)" : ""} voices=${playback.activeVoices.length}');
+
+        return Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D1117),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: const Color(0xFF30363D)),
+          ),
+          child: Text(
+            lines.join('\n'),
+            style: const TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 11,
+              color: Color(0xFF58A6FF),
+              height: 1.4,
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   Widget _buildHistory() {
     final history = _controller.history;

@@ -3974,6 +3974,15 @@ impl PlaybackEngine {
         }
     }
 
+    /// Check if a voice is still actively playing
+    pub fn is_voice_active(&self, voice_id: u64) -> bool {
+        let voices = match self.one_shot_voices.try_read() {
+            Some(v) => v,
+            None => return true, // Assume active if lock unavailable (audio thread busy)
+        };
+        voices.iter().any(|v| v.id == voice_id && v.active)
+    }
+
     /// Get voice pool statistics
     /// Returns (active_count, max_voices, voices_by_source, voices_by_bus)
     pub fn get_voice_pool_stats(&self) -> VoicePoolStats {

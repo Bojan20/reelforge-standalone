@@ -22888,6 +22888,13 @@ pub extern "C" fn engine_playback_set_voice_volume(voice_id: u64, volume: f32) -
     1
 }
 
+/// Check if a voice is still actively playing in the engine
+/// Returns 1 if active, 0 if finished/inactive
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_playback_is_voice_active(voice_id: u64) -> i32 {
+    if PLAYBACK_ENGINE.is_voice_active(voice_id) { 1 } else { 0 }
+}
+
 /// Set pan for a specific active voice in real-time
 /// voice_id: voice to update, pan: -1.0 to 1.0
 #[unsafe(no_mangle)]
