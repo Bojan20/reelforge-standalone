@@ -393,11 +393,22 @@ class SlotLabCoordinator extends ChangeNotifier {
   void clearStages() => stageProvider.clearStages();
 
   // --- Win Presentation ---
-  void setWinPresentationActive(bool active) => stageProvider.setWinPresentationActive(active);
+  void setWinPresentationActive(bool active) {
+    stageProvider.setWinPresentationActive(active);
+    // Flush deferred music layer evaluation when win presentation ends
+    if (!active) {
+      audioProvider.flushPendingMusicLayerEval();
+    }
+  }
   void onAllReelsVisualStop() => stageProvider.onAllReelsVisualStop();
   void requestSkipPresentation(VoidCallback onComplete) =>
       stageProvider.requestSkipPresentation(onComplete);
-  void onSkipComplete() => stageProvider.onSkipComplete();
+  void onSkipComplete() {
+    stageProvider.onSkipComplete();
+    // onSkipComplete calls stageProvider.setWinPresentationActive(false) internally,
+    // which bypasses coordinator — flush pending music layer eval here
+    audioProvider.flushPendingMusicLayerEval();
+  }
 
   // --- Stage Validation ---
   List<StageValidationIssue> validateStageSequence() =>

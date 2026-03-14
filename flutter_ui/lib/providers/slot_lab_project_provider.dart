@@ -287,6 +287,10 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _symbolAudio = [];
     _musicLayers = [];
     _musicLayerConfig = null;
+    // Reset MusicLayerController in SlotAudioProvider
+    if (GetIt.instance.isRegistered<SlotLabCoordinator>()) {
+      GetIt.instance<SlotLabCoordinator>().audioProvider.resetMusicLayerState();
+    }
     // Reset audio panel state
     _audioAssignments = {};
     _audioVariants.clear();
@@ -718,6 +722,9 @@ class SlotLabProjectProvider extends ChangeNotifier {
     // L1 at full volume, L2/L3 at 0 — crossfade by adjusting layer volumes.
     _createBaseGameMusicComposite(bindings);
 
+    // ─── Auto-create MusicLayerConfig when 2+ layers are bound ───
+    _autoCreateMusicLayerConfig(bindings);
+
     if (bindings.isNotEmpty) {
       _markDirty();
     }
@@ -800,6 +807,31 @@ class SlotLabProjectProvider extends ChangeNotifier {
     );
 
     compositeProvider.addCompositeEvent(event, select: false);
+  }
+
+  /// Auto-create MusicLayerConfig when autobind assigns 2+ MUSIC_BASE_L* layers.
+  /// Uses default thresholds matching the number of bound layers.
+  void _autoCreateMusicLayerConfig(Map<String, String> bindings) {
+    const layerStages = ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5'];
+    final boundCount = layerStages.where((s) => bindings.containsKey(s)).length;
+    if (boundCount < 2) return;
+
+    // Pick default config matching layer count
+    final config = boundCount <= 3
+        ? MusicLayerConfig.defaultThreeLayers()
+        : MusicLayerConfig.defaultFiveLayers();
+
+    // Trim thresholds to match actual bound layer count
+    final trimmed = config.copyWith(
+      thresholds: config.thresholds.where((t) => t.layer <= boundCount).toList(),
+    );
+
+    _musicLayerConfig = trimmed;
+
+    // Load into MusicLayerController
+    if (GetIt.instance.isRegistered<SlotLabCoordinator>()) {
+      GetIt.instance<SlotLabCoordinator>().audioProvider.loadMusicLayerConfig(trimmed);
+    }
   }
 
   static bool _isAudioFile(String path) {
@@ -2083,8 +2115,13 @@ class SlotLabProjectProvider extends ChangeNotifier {
     _restoreEventRegistry(loaded.eventRegistryJson);
     // V13: Restore dynamic music layer config
     _musicLayerConfig = loaded.musicLayerConfig;
-    if (_musicLayerConfig != null && GetIt.instance.isRegistered<SlotLabCoordinator>()) {
-      GetIt.instance<SlotLabCoordinator>().audioProvider.loadMusicLayerConfig(_musicLayerConfig!);
+    if (GetIt.instance.isRegistered<SlotLabCoordinator>()) {
+      final audio = GetIt.instance<SlotLabCoordinator>().audioProvider;
+      if (_musicLayerConfig != null) {
+        audio.loadMusicLayerConfig(_musicLayerConfig!);
+      } else {
+        audio.resetMusicLayerState();
+      }
     }
     _isDirty = false;
     _sanitizeNofMVariantAssignments(); // Fix persisted NofM variant paths
@@ -2295,8 +2332,13 @@ class SlotLabProjectProvider extends ChangeNotifier {
     }
     // V13: Restore dynamic music layer config
     _musicLayerConfig = loaded.musicLayerConfig;
-    if (_musicLayerConfig != null && GetIt.instance.isRegistered<SlotLabCoordinator>()) {
-      GetIt.instance<SlotLabCoordinator>().audioProvider.loadMusicLayerConfig(_musicLayerConfig!);
+    if (GetIt.instance.isRegistered<SlotLabCoordinator>()) {
+      final audio = GetIt.instance<SlotLabCoordinator>().audioProvider;
+      if (_musicLayerConfig != null) {
+        audio.loadMusicLayerConfig(_musicLayerConfig!);
+      } else {
+        audio.resetMusicLayerState();
+      }
     }
     _sanitizeNofMVariantAssignments(); // Fix persisted NofM variant paths
     _syncSymbolStages(); // Sync stages for imported symbols

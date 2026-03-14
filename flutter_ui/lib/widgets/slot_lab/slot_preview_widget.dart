@@ -2524,7 +2524,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       // BIG_WIN_END: sfx + stop big win music + reset layers to L1
       _ensureAudioRegistered('BIG_WIN_END');
       eventRegistry.triggerStage('BIG_WIN_END');
-      widget.provider.audioProvider.musicLayerController.resetToBaseLayer();
+      widget.provider.audioProvider.resetMusicLayerToBase();
       eventRegistry.triggerStage('WIN_PRESENT_END');
     }
     eventRegistry.triggerStage('WIN_COLLECT');
@@ -3506,7 +3506,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     eventRegistry.triggerStage('BIG_WIN_END');
     eventRegistry.stopEvent('BIG_WIN_START');
     // Reset dynamic music layers to L1 (base game music keeps playing)
-    widget.provider.audioProvider.musicLayerController.resetToBaseLayer();
+    widget.provider.audioProvider.resetMusicLayerToBase();
 
     final lastTier = _currentDisplayTier;
 

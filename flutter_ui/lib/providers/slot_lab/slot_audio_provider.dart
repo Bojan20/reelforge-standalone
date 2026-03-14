@@ -133,12 +133,29 @@ class SlotAudioProvider extends ChangeNotifier {
   // ALE SIGNAL SYNC
   // ═══════════════════════════════════════════════════════════════════════════
 
+  // Pending music layer evaluation — deferred until win presentation completes
+  double? _pendingMusicLayerWinRatio;
+
+  /// Flush pending music layer evaluation (called when win flow completes)
+  void flushPendingMusicLayerEval() {
+    final winRatio = _pendingMusicLayerWinRatio;
+    if (winRatio == null) return;
+    _pendingMusicLayerWinRatio = null;
+    _musicLayerController.evaluateAfterSpin(winRatio, notifyListeners);
+  }
+
   /// Sync Slot Lab state to ALE signals + evaluate dynamic music layers
   void syncAleSignals(SlotLabSpinResult? result, double hitRate, bool inFreeSpins, int freeSpinsRemaining, int spinCount, double volatilitySlider, List<SlotLabStageEvent> lastStages) {
     if (result == null) return;
 
-    // Dynamic music layer evaluation — independent of ALE
-    _musicLayerController.evaluateAfterSpin(result.winRatio, notifyListeners);
+    // Dynamic music layer evaluation — deferred until win presentation ends
+    // Store pending winRatio; coordinator flushes after win flow completes
+    if (result.isWin) {
+      _pendingMusicLayerWinRatio = result.winRatio;
+    } else {
+      // No win — evaluate immediately (no presentation to wait for)
+      _musicLayerController.evaluateAfterSpin(result.winRatio, notifyListeners);
+    }
 
     // ALE signal sync
     if (!_aleAutoSync || _aleProvider == null || !_aleProvider!.initialized) {
@@ -334,8 +351,10 @@ class SlotAudioProvider extends ChangeNotifier {
   // DYNAMIC MUSIC LAYER CONTROL
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Load music layer config (from project load)
+  /// Load music layer config (from project load) — resets runtime state
   void loadMusicLayerConfig(MusicLayerConfig config) {
+    _pendingMusicLayerWinRatio = null;
+    _musicLayerController.reset();
     _musicLayerController.loadConfig(config);
     notifyListeners();
   }
@@ -346,8 +365,16 @@ class SlotAudioProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Reset to base layer (L1) — called after BIG_WIN_END
+  void resetMusicLayerToBase() {
+    _pendingMusicLayerWinRatio = null;
+    _musicLayerController.resetToBaseLayer();
+    notifyListeners();
+  }
+
   /// Reset music layer state (on new session / pool reset)
   void resetMusicLayerState() {
+    _pendingMusicLayerWinRatio = null;
     _musicLayerController.reset();
     notifyListeners();
   }
@@ -358,6 +385,7 @@ class SlotAudioProvider extends ChangeNotifier {
 
   /// Clear all persisted UI state
   void clearPersistedState() {
+    _pendingMusicLayerWinRatio = null;
     AudioAssetManager.instance.clear();
     persistedCompositeEvents.clear();
     persistedTracks.clear();
@@ -530,8 +558,8 @@ class MusicLayerController extends ChangeNotifier {
       _spinsSinceEscalation++;
 
       if (_spinsSinceEscalation >= _config.revertSpinCount) {
-        // ── DE-ESCALATION (auto-revert) ──
-        final revertTo = _previousLayer;
+        // ── DE-ESCALATION (step down one layer) ──
+        final revertTo = _activeLayer - 1;
         _previousLayer = _activeLayer;
         _activeLayer = revertTo;
         _spinsSinceEscalation = 0;
