@@ -465,16 +465,17 @@ class MusicLayerController extends ChangeNotifier {
       _previousLayer = 1;
       _spinsSinceEscalation = 0;
       _isEscalated = false;
-      // Fade in ONLY L1, others stay at 0.0
+      // Fade in ONLY L1, fade out all others to 0.0 in engine (not just cache)
       final playback = AudioPlaybackService.instance;
       final fadeMs = _config.crossfadeMs;
-      for (final threshold in _config.thresholds) {
-        final layerId = 'game_start_l${threshold.layer}';
-        if (threshold.layer == 1) {
+      for (int i = 1; i <= 5; i++) {
+        final layerId = 'game_start_l$i';
+        if (i == 1) {
           playback.layerVolumes[layerId] = 0.0; // Start from 0.0 (silent)
           playback.fadeLayerVolume(layerId, 1.0, fadeMs: fadeMs);
         } else {
-          playback.layerVolumes[layerId] = 0.0;
+          // Fade to 0.0 in engine — not just cache, in case voice still has old volume
+          playback.fadeLayerVolume(layerId, 0.0, fadeMs: fadeMs);
         }
       }
       _addHistoryEvent(MusicLayerTransition(
@@ -750,13 +751,13 @@ class MusicLayerController extends ChangeNotifier {
     diagBuf.writeln('XF L${transition.fromLayer}→L${transition.toLayer} fade=${fadeMs}ms');
     diagBuf.writeln('activeVoices: ${playback.activeVoices.length} total');
 
-    // Sync layerVolumes cache with actual engine state.
-    for (final threshold in _config.thresholds) {
-      final layerId = 'game_start_l${threshold.layer}';
+    // Sync layerVolumes cache with actual engine state (all 5 layers).
+    for (int i = 1; i <= 5; i++) {
+      final layerId = 'game_start_l$i';
       if (!playback.layerVolumes.containsKey(layerId)) {
-        final initVol = threshold.layer == _previousLayer
+        final initVol = i == _previousLayer
             ? 1.0
-            : (threshold.layer == 1 ? 1.0 : 0.0);
+            : (i == 1 ? 1.0 : 0.0);
         playback.layerVolumes[layerId] = initVol;
         diagBuf.writeln('  INIT $layerId=$initVol');
       }
@@ -766,8 +767,9 @@ class MusicLayerController extends ChangeNotifier {
     final layerIds = playback.activeVoices.map((v) => '${v.layerId}(v${v.voiceId})').toSet();
     diagBuf.writeln('voices: ${layerIds.join(', ')}');
 
-    for (final threshold in _config.thresholds) {
-      final layer = threshold.layer;
+    // Iterate ALL 5 possible layers (not just config thresholds) to ensure
+    // no orphaned voice stays at wrong volume
+    for (int layer = 1; layer <= 5; layer++) {
       final layerId = 'game_start_l$layer';
       final targetVolume = layer == transition.toLayer ? 1.0 : 0.0;
       final startVol = playback.layerVolumes[layerId] ?? -1.0;
