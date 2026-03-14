@@ -138,7 +138,14 @@ class SlotAudioProvider extends ChangeNotifier {
     if (result == null) return;
 
     // Dynamic music layer evaluation — independent of ALE
-    _musicLayerController.evaluateAfterSpin(result.winRatio, notifyListeners);
+    // For win spins: defer evaluation until win presentation ends (plaque dismissed)
+    // For non-win spins: evaluate immediately (no presentation to wait for)
+    if (result.isWin) {
+      _musicLayerController._parentNotify = notifyListeners;
+      _musicLayerController.deferEvaluation(result.winRatio);
+    } else {
+      _musicLayerController.evaluateAfterSpin(result.winRatio, notifyListeners);
+    }
 
     // ALE signal sync
     if (!_aleAutoSync || _aleProvider == null || !_aleProvider!.initialized) {
@@ -401,7 +408,7 @@ class SlotAudioProvider extends ChangeNotifier {
   /// Defer reset to base layer (L1) — called after BIG_WIN_END.
   /// When plaque dismissed: fade in ONLY L1 to 1.0, others stay at 0.0.
   void resetMusicLayerToBase() {
-    _musicLayerController._pendingCrossfade = null;
+    _musicLayerController._pendingWinRatio = null;
     _musicLayerController._pendingResetToBase = true;
   }
 
@@ -452,14 +459,21 @@ class MusicLayerController extends ChangeNotifier {
   // ─── History for UI visualization ──────────────────────────────────────
   final List<MusicLayerEvent> _history = [];
 
-  // ─── Pending crossfade (deferred until win presentation ends) ─────────
-  MusicLayerTransition? _pendingCrossfade;
+  // ─── Pending evaluation (deferred until win presentation ends) ─────────
+  double? _pendingWinRatio;
   bool _pendingResetToBase = false;
+  VoidCallback? _parentNotify;
 
-  /// Flush pending crossfade — called by coordinator when win flow ends
+  /// Defer evaluation until win presentation ends
+  void deferEvaluation(double winRatio) {
+    _pendingWinRatio = winRatio;
+  }
+
+  /// Flush pending evaluation — called by coordinator when win flow ends
   void flushPendingCrossfade() {
     if (_pendingResetToBase) {
       _pendingResetToBase = false;
+      _pendingWinRatio = null; // Clear any pending eval — BIG_WIN_END overrides
       // Reset controller state to L1
       _activeLayer = 1;
       _previousLayer = 1;
@@ -488,10 +502,13 @@ class MusicLayerController extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    final transition = _pendingCrossfade;
-    if (transition == null) return;
-    _pendingCrossfade = null;
-    _applyCrossfade(transition);
+
+    // Flush deferred evaluation — evaluate NOW (after win presentation)
+    final winRatio = _pendingWinRatio;
+    if (winRatio != null) {
+      _pendingWinRatio = null;
+      evaluateAfterSpin(winRatio, _parentNotify ?? () {});
+    }
   }
 
   // ─── Diagnostics ────────────────────────────────────────────────────────
@@ -532,7 +549,7 @@ class MusicLayerController extends ChangeNotifier {
     _previousLayer = 1;
     _spinsSinceEscalation = 0;
     _isEscalated = false;
-    _pendingCrossfade = null;
+    _pendingWinRatio = null;
     _pendingResetToBase = false;
     _history.clear();
     notifyListeners();
@@ -607,8 +624,7 @@ class MusicLayerController extends ChangeNotifier {
       );
 
       _addHistoryEvent(transition);
-      // Defer crossfade until win presentation ends (plaque dismissed)
-      _pendingCrossfade = transition;
+      _applyCrossfade(transition);
       notifyListeners();
       parentNotify();
       return transition;
