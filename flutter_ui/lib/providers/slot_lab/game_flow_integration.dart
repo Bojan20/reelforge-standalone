@@ -463,7 +463,7 @@ class GameFlowIntegration {
     } else if (phase == TransitionPhase.exiting && from == GameFlowState.freeSpins) {
       // FS END plaque appears → stop FS music, fire FS end music, restart base game silent
       try {
-        EventRegistry.instance.stopEventsByPrefix('MUSIC_FS');
+        EventRegistry.instance.stopEventsByPrefix('audio_MUSIC_FS');
       } catch (_) {}
       _onAudioStage('MUSIC_FS_END');
       audio.restartBaseGameLayersSilent();

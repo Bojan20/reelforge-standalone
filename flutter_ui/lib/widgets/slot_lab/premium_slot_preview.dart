@@ -6292,7 +6292,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     er.stopEvent('ANTICIPATION_TENSION');
     er.stopEvent('ANTICIPATION_MISS');
     // Brute-force: stop ANY playing instance with ANTICIPATION in its event ID or stage
-    er.stopEventsByPrefix('ANTICIPATION');
+    er.stopEventsByPrefix('audio_ANTICIPATION');
   }
 
   void _handleMaxBet() {

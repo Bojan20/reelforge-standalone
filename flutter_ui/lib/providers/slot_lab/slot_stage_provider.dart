@@ -744,7 +744,7 @@ class SlotStageProvider extends ChangeNotifier {
         // may have been registered since (e.g., after Quick Assign rebuilds it).
         // Switch to full composite for dynamic music layer crossfade support.
         if (_hasAudioAssignment('GAME_START') && eventRegistry.hasEventForStage('GAME_START')) {
-          eventRegistry.stopEventsByPrefix('MUSIC_BASE_L');
+          eventRegistry.stopEventsByPrefix('audio_MUSIC_BASE_L');
           eventRegistry.triggerStage('GAME_START', context: context);
           _baseMusicMode = _BaseMusicMode.gameStart;
         }

@@ -1884,7 +1884,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     if (_slotLabProvider.isWinPresentationActive) {
       _slotLabProvider.requestSkipPresentation(() {});
       // Kill anticipation audio on skip (embedded mode)
-      EventRegistry.instance.stopEventsByPrefix('ANTICIPATION');
+      EventRegistry.instance.stopEventsByPrefix('audio_ANTICIPATION');
       return true;
     }
 
@@ -1892,7 +1892,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     if (_slotLabProvider.isPlayingStages || _slotLabProvider.isReelsSpinning) {
       _slotLabProvider.stopStagePlayback();
       // Kill anticipation audio on stop (embedded mode)
-      EventRegistry.instance.stopEventsByPrefix('ANTICIPATION');
+      EventRegistry.instance.stopEventsByPrefix('audio_ANTICIPATION');
       return true;
     }
 

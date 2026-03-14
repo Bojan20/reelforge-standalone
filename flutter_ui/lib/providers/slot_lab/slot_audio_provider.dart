@@ -139,9 +139,15 @@ class SlotAudioProvider extends ChangeNotifier {
     if (result == null) return;
 
     // Dynamic music layer evaluation — independent of ALE
-    // For win spins: defer evaluation until win presentation ends (plaque dismissed)
-    // For non-win spins: evaluate immediately (no presentation to wait for)
-    if (result.isWin) {
+    // Big wins: skip upshift entirely — big win flow has its own reset path
+    //   (fadeOutBaseGameLayers → restartBaseGameLayersSilent → resetMusicLayerToBase)
+    // Regular wins: defer evaluation until win presentation ends (plaque dismissed)
+    // Non-win spins: evaluate immediately (no presentation to wait for)
+    final isBigWin = result.bigWinTier != null &&
+        result.bigWinTier != SlotLabWinTier.none;
+    if (isBigWin) {
+      // No-op: big win flow manages music layers independently
+    } else if (result.isWin) {
       _musicLayerController._parentNotify = notifyListeners;
       _musicLayerController.deferEvaluation(result.winRatio);
     } else {
@@ -378,7 +384,8 @@ class SlotAudioProvider extends ChangeNotifier {
       }
       // Stop EventRegistry standalone instances AFTER fade completes
       try {
-        EventRegistry.instance.stopEventsByPrefix('MUSIC_BASE_L');
+        EventRegistry.instance.stopEventsByPrefix('audio_MUSIC_BASE_L');
+        EventRegistry.instance.stopEvent('audio_GAME_START');
       } catch (_) {}
     });
   }
@@ -391,12 +398,13 @@ class SlotAudioProvider extends ChangeNotifier {
     final gsEvent = registry.getEventForStage('GAME_START');
     if (gsEvent == null) return;
 
-    // Stop any leftover voices first
+    // Stop ALL leftover voices — both AudioPlaybackService and EventRegistry
     for (int i = 1; i <= 5; i++) {
       playback.stopLayer('game_start_l$i');
       playback.stopLayer('layer_MUSIC_BASE_L$i');
     }
     registry.stopEvent('audio_GAME_START');
+    try { registry.stopEventsByPrefix('audio_MUSIC_BASE_L'); } catch (_) {}
 
     // Launch all layers at volume 0.0
     for (final layer in gsEvent.layers) {
@@ -775,12 +783,14 @@ class MusicLayerController extends ChangeNotifier {
     final registry = EventRegistry.instance;
     final playback = AudioPlaybackService.instance;
 
-    final hasGameStart = registry.hasEventForStage('GAME_START');
-    final gameStartVoices = playback.voiceCountForLayer('game_start_l1');
+    // Check if ANY GAME_START composite voices exist (check all layers, not just L1)
+    int totalGameStartVoices = 0;
+    for (int i = 1; i <= 5; i++) {
+      totalGameStartVoices += playback.voiceCountForLayer('game_start_l$i');
+    }
 
-    // Check if GAME_START composite voices exist
-    if (gameStartVoices > 0) {
-      _applyCrossfadeDirectly(transition, path: 'GAME_START voices=$gameStartVoices');
+    if (totalGameStartVoices > 0) {
+      _applyCrossfadeDirectly(transition, path: 'GAME_START voices=$totalGameStartVoices');
       return;
     }
 
@@ -788,9 +798,9 @@ class MusicLayerController extends ChangeNotifier {
     // Start each layer at its CURRENT volume (fromLayer=1.0, others=0.0),
     // then let _applyCrossfadeDirectly crossfade to target volumes.
     //
-    // Stop ALL existing music voices first (both standalone and previous GAME_START)
-    registry.stopEventsByPrefix('MUSIC_BASE_L');
+    // Stop ALL existing music voices (both AudioPlaybackService and EventRegistry)
     registry.stopEvent('audio_GAME_START');
+    try { registry.stopEventsByPrefix('audio_MUSIC_BASE_L'); } catch (_) {}
     for (int i = 1; i <= 5; i++) {
       playback.stopLayer('layer_MUSIC_BASE_L$i');
       playback.stopLayer('game_start_l$i');
