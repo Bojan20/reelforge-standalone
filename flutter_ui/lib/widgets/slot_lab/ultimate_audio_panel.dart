@@ -45,10 +45,12 @@
 /// matched to their correct stages using fuzzy filename matching.
 
 import 'dart:io'; // V11: Folder import
+import 'package:flutter/gestures.dart'; // PointerDeviceKind for multi-select
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // SL-LP-P1.3
 import 'package:provider/provider.dart';
 import '../../models/auto_event_builder_models.dart' show AudioAsset;
+import '../../models/slot_audio_events.dart' show SlotCompositeEvent;
 import '../../models/slot_lab_models.dart';
 import '../../models/win_tier_config.dart'; // P5 Win Tier System
 import '../../providers/middleware_provider.dart'; // SL-INT-P1.1
@@ -59,6 +61,9 @@ import '../../services/variant_manager.dart'; // SL-LP-P1.4
 import '../../services/waveform_thumbnail_cache.dart'; // SL-LP-P1.1
 import 'package:get_it/get_it.dart'; // V11: Feature Composer + Pacing
 import 'ffnc_rename_dialog.dart'; // FFNC Rename Tool
+import '../../services/ffnc/event_presets.dart'; // Event Presets
+import '../../services/ffnc/phase_presets.dart'; // Phase Presets
+import '../../services/ffnc/stage_defaults.dart'; // Smart Defaults
 import 'sfx_pipeline_wizard.dart'; // SFX Pipeline Wizard
 import '../../providers/slot_lab/feature_composer_provider.dart'; // V11
 import '../../providers/slot_lab/pacing_engine_provider.dart'; // V11
@@ -199,6 +204,9 @@ class UltimateAudioPanel extends StatefulWidget {
   /// Called when POOL should be cleared (on reset with "clear pool" checked)
   final VoidCallback? onPoolClear;
 
+  /// Phase 2: Called to batch-update volume/bus/fade on a stage's composite event
+  final void Function(String stage, double volume, int busId, double fadeOutMs)? onBatchUpdate;
+
   const UltimateAudioPanel({
     super.key,
     this.audioAssignments = const {},
@@ -230,6 +238,7 @@ class UltimateAudioPanel extends StatefulWidget {
     this.onAutoBindComplete,
     this.onAutoBindDialogDismissed,
     this.onPoolClear,
+    this.onBatchUpdate,
   });
 
   @override
@@ -259,6 +268,14 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   // V11: Top-level mode switch (STAGES vs PACING)
   int _panelMode = 0; // 0=Stages, 1=Pacing
 
+  // ═══════════════════════════════════════════════════════════════
+  // PHASE 2: Multi-select + Batch Edit
+  // ═══════════════════════════════════════════════════════════════
+  final Set<String> _selectedSlots = {};
+  double _batchVolume = 0.80;
+  int _batchBusId = 2; // sfx default
+  double _batchFadeOut = 0;
+
   // Inline event detail expand — shows composite event layers below slot
 
   // Keyboard navigation state (SL-LP-P1.3)
@@ -282,6 +299,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     // V10: Smart defaults — only P0 phases expanded, rest collapsed
     _localExpandedSections = Set.from(widget.expandedSections ?? <String>{});
     _localExpandedGroups = Set.from(widget.expandedGroups ?? <String>{});
+    // Load user event presets from disk
+    EventPresetService.instance.load();
   }
 
   @override
@@ -453,6 +472,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                   ),
                   // V10: Phase tab bar — navigate between phases
                   _buildPhaseTabBar(),
+                  // Phase 2: Batch Edit Bar (visible when slots are multi-selected)
+                  _buildBatchEditBar(),
                   Expanded(
                     child: _buildLazyPhaseList(),
                   ),
@@ -2419,6 +2440,211 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     return map[title] ?? title.substring(0, title.length.clamp(0, 5));
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // PHASE 2: Batch Edit Bar
+  // ═══════════════════════════════════════════════════════════════
+
+  Widget _buildBatchEditBar() {
+    if (_selectedSlots.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      margin: const EdgeInsets.only(bottom: 2),
+      decoration: BoxDecoration(
+        color: FluxForgeTheme.accentOrange.withValues(alpha: 0.06),
+        border: Border(bottom: BorderSide(color: FluxForgeTheme.accentOrange.withValues(alpha: 0.3))),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header: count + clear
+          Row(
+            children: [
+              Text(
+                '${_selectedSlots.length} selected',
+                style: const TextStyle(color: FluxForgeTheme.accentOrange, fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => setState(() => _selectedSlots.clear()),
+                child: const Text('Clear', style: TextStyle(color: Colors.white38, fontSize: 10)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // Controls: Volume slider + Bus dropdown + FadeOut
+          Row(
+            children: [
+              // Volume
+              const Text('Vol', style: TextStyle(color: Colors.white38, fontSize: 9)),
+              const SizedBox(width: 4),
+              SizedBox(
+                width: 80,
+                child: SliderTheme(
+                  data: SliderThemeData(
+                    trackHeight: 2,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                    activeTrackColor: FluxForgeTheme.accentOrange,
+                    thumbColor: FluxForgeTheme.accentOrange,
+                    inactiveTrackColor: Colors.white12,
+                    overlayShape: SliderComponentShape.noOverlay,
+                  ),
+                  child: Slider(
+                    value: _batchVolume,
+                    min: 0,
+                    max: 1,
+                    onChanged: (v) => setState(() => _batchVolume = v),
+                  ),
+                ),
+              ),
+              Text('${(_batchVolume * 100).round()}%', style: const TextStyle(color: Colors.white54, fontSize: 9, fontFamily: 'monospace')),
+              const SizedBox(width: 10),
+              // Bus dropdown
+              const Text('Bus', style: TextStyle(color: Colors.white38, fontSize: 9)),
+              const SizedBox(width: 4),
+              SizedBox(
+                height: 22,
+                child: DropdownButton<int>(
+                  value: _batchBusId,
+                  dropdownColor: FluxForgeTheme.bgMid,
+                  style: const TextStyle(color: Colors.white70, fontSize: 10),
+                  underline: const SizedBox.shrink(),
+                  isDense: true,
+                  items: const [
+                    DropdownMenuItem(value: 1, child: Text('Music')),
+                    DropdownMenuItem(value: 2, child: Text('SFX')),
+                    DropdownMenuItem(value: 3, child: Text('Voice')),
+                    DropdownMenuItem(value: 4, child: Text('Amb')),
+                  ],
+                  onChanged: (v) => setState(() => _batchBusId = v ?? 2),
+                ),
+              ),
+              const SizedBox(width: 10),
+              // Fade out — tap to cycle through common values
+              const Text('FO', style: TextStyle(color: Colors.white38, fontSize: 9)),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: () {
+                  // Cycle: 0 → 50 → 100 → 200 → 500 → 0
+                  const values = [0.0, 50.0, 100.0, 200.0, 500.0];
+                  final idx = values.indexOf(_batchFadeOut);
+                  setState(() => _batchFadeOut = values[(idx + 1) % values.length]);
+                },
+                child: Container(
+                  width: 48,
+                  height: 22,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.white12),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                  child: Text(
+                    '${_batchFadeOut.round()}ms',
+                    style: const TextStyle(color: Colors.white70, fontSize: 10, fontFamily: 'monospace'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // Apply button
+          Align(
+            alignment: Alignment.centerRight,
+            child: SizedBox(
+              height: 24,
+              child: ElevatedButton(
+                onPressed: _applyBatchEdit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: FluxForgeTheme.accentOrange.withValues(alpha: 0.2),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                ),
+                child: const Text('Apply to Selected', style: TextStyle(color: FluxForgeTheme.accentOrange, fontSize: 10)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _applyBatchEdit() {
+    for (final stage in _selectedSlots) {
+      widget.onBatchUpdate?.call(stage, _batchVolume, _batchBusId, _batchFadeOut);
+    }
+    setState(() => _selectedSlots.clear());
+  }
+
+  void _showPhasePresetMenu(BuildContext context, _PhaseConfig phase, Offset position) {
+    // Collect all stage names in this phase
+    final phaseStages = <String>[];
+    for (final section in phase.sections) {
+      for (final group in section.groups) {
+        for (final slot in group.slots) {
+          if (widget.audioAssignments.containsKey(slot.stage)) {
+            phaseStages.add(slot.stage);
+          }
+        }
+      }
+    }
+
+    // Use String menu to distinguish "Reset" from "dismiss" (both return null with PhasePreset)
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+      color: FluxForgeTheme.bgMid,
+      items: [
+        const PopupMenuItem<String>(
+          enabled: false,
+          height: 24,
+          child: Text('Phase Preset', style: TextStyle(color: FluxForgeTheme.accentCyan, fontSize: 11, fontWeight: FontWeight.bold)),
+        ),
+        ...PhasePresets.all.map((preset) => PopupMenuItem<String>(
+          value: preset.name,
+          height: 28,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(preset.name, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+              Text(preset.description, style: const TextStyle(color: Colors.white30, fontSize: 8)),
+            ],
+          ),
+        )),
+        const PopupMenuDivider(height: 8),
+        const PopupMenuItem<String>(
+          value: '__RESET__',
+          height: 28,
+          child: Text('Reset to Smart Defaults', style: TextStyle(color: Colors.white54, fontSize: 10)),
+        ),
+        const PopupMenuDivider(height: 8),
+        PopupMenuItem<String>(
+          value: '__SELECT_ALL__',
+          height: 28,
+          child: Text('Select All (${phaseStages.length})', style: const TextStyle(color: FluxForgeTheme.accentOrange, fontSize: 10)),
+        ),
+      ],
+    ).then((value) {
+      if (value == null || phaseStages.isEmpty) return; // Dismissed
+      if (value == '__RESET__') {
+        for (final stage in phaseStages) {
+          final defaults = StageDefaults.getDefaultForStage(stage);
+          widget.onBatchUpdate?.call(stage, defaults.volume, defaults.busId, defaults.fadeOutMs ?? 0);
+        }
+      } else if (value == '__SELECT_ALL__') {
+        setState(() => _selectedSlots.addAll(phaseStages));
+      } else {
+        // Find preset by name
+        final preset = PhasePresets.all.where((p) => p.name == value).firstOrNull;
+        if (preset != null) {
+          for (final stage in phaseStages) {
+            final modified = preset.applyTo(stage);
+            widget.onBatchUpdate?.call(stage, modified.volume, modified.busId, modified.fadeOutMs ?? 0);
+          }
+        }
+      }
+    });
+  }
+
   /// Lazy phase list — uses ListView.builder to avoid building all phases/sections/slots
   /// at once. The mechanic composer is item 0, then phases follow.
   Widget _buildLazyPhaseList() {
@@ -2668,7 +2894,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       children: [
         // Phase header — subtle tinted
         _HoverBuilder(
-          builder: (isHovered) => InkWell(
+          builder: (isHovered) => GestureDetector(
+            // Right-click: Phase Preset menu
+            onSecondaryTapUp: (details) => _showPhasePresetMenu(context, phase, details.globalPosition),
+            child: InkWell(
             onTap: () {
               // INSTANT: local setState for zero-delay UI
               setState(() {
@@ -2723,6 +2952,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               ),
             ),
           ),
+          ), // GestureDetector
         ),
         // Phase content
         if (isExpanded)
@@ -2897,15 +3127,33 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     }
 
     final slotTint = Color.lerp(accentColor, FluxForgeTheme.textTertiary, 0.6)!;
+    final isMultiSelected = _selectedSlots.contains(slot.stage);
 
-    return Padding(
+    return Listener(
+      // Shift+click: toggle multi-select (per CLAUDE.md: modifier keys → Listener)
+      onPointerDown: (event) {
+        if (event.kind == PointerDeviceKind.mouse &&
+            HardwareKeyboard.instance.isShiftPressed) {
+          setState(() {
+            if (_selectedSlots.contains(slot.stage)) {
+              _selectedSlots.remove(slot.stage);
+            } else {
+              _selectedSlots.add(slot.stage);
+            }
+          });
+        }
+      },
+      child: Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: _HoverBuilder(
         builder: (isSlotHovered) => GestureDetector(
-        // M2-8: Quick Assign Mode - click to select/unselect slot
+        // Multi-select: Shift+click toggles selection
+        // Quick Assign Mode: single-click selects slot
+        // Normal mode: no tap action (drag & drop only)
         onTap: widget.quickAssignMode
             ? () {
-                // Toggle: if already selected, unselect
+                // Shift+click is handled by Listener — don't also do Quick Assign
+                if (HardwareKeyboard.instance.isShiftPressed) return;
                 if (widget.quickAssignSelectedSlot == slot.stage) {
                   widget.onQuickAssignSlotSelected?.call('__UNSELECT__');
                 } else {
@@ -2913,6 +3161,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 }
               }
             : null,
+        // Right-click: show event preset menu
+        onSecondaryTapUp: hasAudio ? (details) {
+          _showEventPresetMenu(context, slot.stage, details.globalPosition);
+        } : null,
         onLongPress: hasAudio ? () => _showVariantEditor(context, slot.stage, accentColor) : null,
         child: DragTarget<Object>(
         onWillAcceptWithDetails: (details) {
@@ -2955,24 +3207,24 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             height: 28,
             clipBehavior: Clip.hardEdge,
             decoration: BoxDecoration(
-              color: isQuickAssignSelected
-                  ? FluxForgeTheme.bgElevated
-                  : isHovering
-                      ? FluxForgeTheme.bgSurface
-                      : isSlotHovered
-                          ? accentColor.withOpacity(0.03)
-                          : FluxForgeTheme.bgDeep,
+              color: isMultiSelected
+                  ? FluxForgeTheme.accentOrange.withValues(alpha: 0.08)
+                  : isQuickAssignSelected
+                      ? FluxForgeTheme.bgElevated
+                      : isHovering
+                          ? FluxForgeTheme.bgSurface
+                          : isSlotHovered
+                              ? accentColor.withOpacity(0.03)
+                              : FluxForgeTheme.bgDeep,
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(
-                color: isQuickAssignSelected
-                    ? FluxForgeTheme.textTertiary
-                    : isHovering
-                        ? FluxForgeTheme.textDisabled
-                        : isSlotHovered
-                            ? slotTint.withOpacity(0.3)
-                            : hasAudio
-                                ? FluxForgeTheme.borderSubtle
-                                : FluxForgeTheme.bgSurface,
+              border: Border(
+                left: BorderSide(
+                  color: isMultiSelected ? FluxForgeTheme.accentOrange : Colors.transparent,
+                  width: isMultiSelected ? 3 : 0,
+                ),
+                top: BorderSide(color: _slotBorderColor(isQuickAssignSelected, isHovering, isSlotHovered, hasAudio, slotTint)),
+                right: BorderSide(color: _slotBorderColor(isQuickAssignSelected, isHovering, isSlotHovered, hasAudio, slotTint)),
+                bottom: BorderSide(color: _slotBorderColor(isQuickAssignSelected, isHovering, isSlotHovered, hasAudio, slotTint)),
               ),
             ),
             child: Row(
@@ -3102,7 +3354,135 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       ),
       ),
       ),
+      ), // Padding
+    ); // Listener
+  }
+
+  /// Show event preset context menu on right-click
+  void _showEventPresetMenu(BuildContext context, String stage, Offset position) {
+    final presets = EventPresetService.instance.presets;
+
+    // Get current event params for "Save as Preset"
+    final mw = GetIt.instance<MiddlewareProvider>();
+    final event = mw.compositeEvents.where((e) => e.id == 'audio_$stage').firstOrNull;
+    final currentVolume = event?.masterVolume ?? 1.0;
+    final currentBus = event?.targetBusId ?? 2;
+
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx, position.dy),
+      color: FluxForgeTheme.bgMid,
+      items: [
+        const PopupMenuItem<String>(
+          enabled: false,
+          height: 24,
+          child: Text('Event Preset', style: TextStyle(color: FluxForgeTheme.accentCyan, fontSize: 11, fontWeight: FontWeight.bold)),
+        ),
+        ...presets.asMap().entries.map((e) => PopupMenuItem<String>(
+          value: 'preset_${e.key}',
+          height: 28,
+          child: Text(
+            '${e.value.name}  (v:${(e.value.volume * 100).round()}%)',
+            style: const TextStyle(color: Colors.white70, fontSize: 10),
+          ),
+        )),
+        if (event != null) ...[
+          const PopupMenuDivider(height: 8),
+          PopupMenuItem<String>(
+            value: '__SAVE__',
+            height: 28,
+            child: Text(
+              'Save Current as Preset (v:${(currentVolume * 100).round()}%, bus:$currentBus)',
+              style: const TextStyle(color: FluxForgeTheme.accentGreen, fontSize: 10),
+            ),
+          ),
+        ],
+      ],
+    ).then((value) {
+      if (value == null) return;
+      if (value == '__SAVE__' && event != null) {
+        _showSavePresetDialog(context, event);
+      } else if (value.startsWith('preset_')) {
+        final idx = int.tryParse(value.substring(7));
+        if (idx != null && idx < presets.length) {
+          final preset = presets[idx];
+          widget.onBatchUpdate?.call(stage, preset.volume, preset.busId, preset.fadeOutMs);
+        }
+      }
+    });
+  }
+
+  void _showSavePresetDialog(BuildContext context, SlotCompositeEvent event) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: FluxForgeTheme.bgMid,
+        title: const Text('Save Event Preset', style: TextStyle(color: FluxForgeTheme.accentCyan, fontSize: 13)),
+        content: SizedBox(
+          width: 250,
+          child: TextField(
+            controller: controller,
+            autofocus: true,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+            decoration: const InputDecoration(
+              hintText: 'Preset name',
+              hintStyle: TextStyle(color: Colors.white24),
+              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: FluxForgeTheme.accentCyan)),
+            ),
+            onSubmitted: (name) {
+              if (name.trim().isEmpty) return;
+              final mainLayer = event.layers.where((l) => l.actionType == 'Play' && l.audioPath.isNotEmpty).firstOrNull;
+              EventPresetService.instance.savePreset(EventPreset(
+                name: name.trim(),
+                volume: event.masterVolume,
+                busId: event.targetBusId ?? 2,
+                fadeInMs: mainLayer?.fadeInMs ?? 0,
+                fadeOutMs: mainLayer?.fadeOutMs ?? 0,
+                loop: event.looping,
+                overlap: event.overlap,
+                crossfadeMs: event.crossfadeMs,
+              ));
+              Navigator.of(ctx).pop();
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+          ),
+          TextButton(
+            onPressed: () {
+              final name = controller.text.trim();
+              if (name.isEmpty) return;
+              final mainLayer = event.layers.where((l) => l.actionType == 'Play' && l.audioPath.isNotEmpty).firstOrNull;
+              EventPresetService.instance.savePreset(EventPreset(
+                name: name,
+                volume: event.masterVolume,
+                busId: event.targetBusId ?? 2,
+                fadeInMs: mainLayer?.fadeInMs ?? 0,
+                fadeOutMs: mainLayer?.fadeOutMs ?? 0,
+                loop: event.looping,
+                overlap: event.overlap,
+                crossfadeMs: event.crossfadeMs,
+              ));
+              Navigator.of(ctx).pop();
+            },
+            child: const Text('Save', style: TextStyle(color: FluxForgeTheme.accentGreen)),
+          ),
+        ],
+      ),
     );
+  }
+
+  Color _slotBorderColor(bool isQuickAssignSelected, bool isHovering, bool isSlotHovered, bool hasAudio, Color slotTint) {
+    if (isQuickAssignSelected) return FluxForgeTheme.textTertiary;
+    if (isHovering) return FluxForgeTheme.textDisabled;
+    if (isSlotHovered) return slotTint.withOpacity(0.3);
+    if (hasAudio) return FluxForgeTheme.borderSubtle;
+    return FluxForgeTheme.bgSurface;
   }
 
   /// Toggle audio preview playback (SL-LP-P0.1)

@@ -11508,6 +11508,35 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             setState(() {});
           },
           // onAutoBindComplete/onAutoBindDialogDismissed: handled via provider signal
+          onBatchUpdate: (stage, volume, busId, fadeOutMs) {
+            // Update composite event for this stage with new params
+            final mw = context.read<MiddlewareProvider>();
+            final eventId = 'audio_$stage';
+            final event = mw.compositeEvents.where((e) => e.id == eventId).firstOrNull;
+            if (event == null) return;
+
+            // Update all auto-generated Play layers
+            final updatedLayers = event.layers.map((layer) {
+              if (layer.actionType == 'Play' && layer.audioPath.isNotEmpty) {
+                return layer.copyWith(
+                  volume: volume,
+                  busId: busId,
+                  fadeOutMs: fadeOutMs,
+                );
+              }
+              return layer;
+            }).toList();
+
+            mw.updateCompositeEvent(event.copyWith(
+              layers: updatedLayers,
+              masterVolume: volume,
+              targetBusId: busId,
+            ));
+
+            // Re-sync to EventRegistry
+            final updated = mw.compositeEvents.where((e) => e.id == eventId).firstOrNull;
+            if (updated != null) _syncEventToRegistry(updated);
+          },
         );
       },
     );
