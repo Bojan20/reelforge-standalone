@@ -180,8 +180,13 @@ sfx_big_win_tier_1_layer2_variant_a.wav
 
 | FFNC Name | Internal Stage |
 |-----------|----------------|
-| `trn_to_freespin` | `TRANSITION_TO_FREESPINS` |
-| `trn_to_base` | `TRANSITION_TO_BASE` |
+| `trn_base_game_to_freespin` | `TRANSITION_BASE_TO_FS` (base_game → BASE, freespin → FS) |
+| `trn_freespin_to_base_game` | `TRANSITION_FS_TO_BASE` |
+| `trn_hold_to_jackpot` | `TRANSITION_HOLD_TO_JACKPOT` |
+| `trn_gamble_to_base_game` | `TRANSITION_GAMBLE_TO_BASE` |
+| `trn_game_intro` | `TRANSITION_GAME_INTRO` |
+| `trn_plaque_appear` | `TRANSITION_PLAQUE_APPEAR` |
+| `trn_plaque_disappear` | `TRANSITION_PLAQUE_DISAPPEAR` |
 | `trn_swoosh` | `TRANSITION_SWOOSH` |
 | `trn_impact` | `TRANSITION_IMPACT` |
 
@@ -501,20 +506,58 @@ This enables the Music Layer Controller to crossfade between layers based on win
 
 ### Transitions
 
+Transitions use `<from>_to_<to>` format to specify the exact context change.
+
+#### Game intro
+
 | Stage | Volume | Bus | Fade In | Fade Out | Loop |
 |-------|--------|-----|---------|----------|------|
-| `TRANSITION_TO_BASE` | 0.70 | sfx | — | — | — |
-| `TRANSITION_TO_FREESPINS` | 0.75 | sfx | — | — | — |
-| `TRANSITION_TO_BONUS` | 0.75 | sfx | — | — | — |
-| `TRANSITION_TO_FEATURE` | 0.75 | sfx | — | — | — |
-| `TRANSITION_TO_JACKPOT` | 0.80 | sfx | — | — | — |
-| `TRANSITION_TO_GAMBLE` | 0.70 | sfx | — | — | — |
-| `TRANSITION_FADE_IN` | 0.65 | sfx | — | — | — |
-| `TRANSITION_FADE_OUT` | 0.65 | sfx | — | — | — |
+| `TRANSITION_GAME_INTRO` | 0.80 | sfx | — | — | — |
+
+#### Entry transitions (excitement — entering a feature)
+
+| Stage | Volume | Bus | Fade In | Fade Out | Loop |
+|-------|--------|-----|---------|----------|------|
+| `TRANSITION_BASE_TO_FS` | 0.75 | sfx | — | — | — |
+| `TRANSITION_BASE_TO_BONUS` | 0.75 | sfx | — | — | — |
+| `TRANSITION_BASE_TO_HOLD` | 0.75 | sfx | — | — | — |
+| `TRANSITION_BASE_TO_GAMBLE` | 0.70 | sfx | — | — | — |
+| `TRANSITION_BASE_TO_JACKPOT` | 0.80 | sfx | — | — | — |
+| `TRANSITION_FS_TO_BONUS` | 0.75 | sfx | — | — | — |
+| `TRANSITION_FS_TO_JACKPOT` | 0.80 | sfx | — | — | — |
+| `TRANSITION_HOLD_TO_JACKPOT` | 0.80 | sfx | — | — | — |
+| `TRANSITION_HOLD_TO_FS` | 0.75 | sfx | — | — | — |
+| `TRANSITION_HOLD_TO_BONUS` | 0.75 | sfx | — | — | — |
+
+#### Exit transitions (settling — returning from a feature)
+
+| Stage | Volume | Bus | Fade In | Fade Out | Loop |
+|-------|--------|-----|---------|----------|------|
+| `TRANSITION_FS_TO_BASE` | 0.70 | sfx | — | — | — |
+| `TRANSITION_BONUS_TO_BASE` | 0.70 | sfx | — | — | — |
+| `TRANSITION_BONUS_TO_FS` | 0.72 | sfx | — | — | — |
+| `TRANSITION_GAMBLE_TO_BASE` | 0.65 | sfx | — | — | — |
+| `TRANSITION_HOLD_TO_BASE` | 0.70 | sfx | — | — | — |
+| `TRANSITION_JACKPOT_TO_BASE` | 0.70 | sfx | — | — | — |
+| `TRANSITION_JACKPOT_TO_FS` | 0.72 | sfx | — | — | — |
+
+#### Plaque transitions
+
+| Stage | Volume | Bus | Fade In | Fade Out | Loop |
+|-------|--------|-----|---------|----------|------|
+| `TRANSITION_PLAQUE_APPEAR` | 0.70 | sfx | — | — | — |
+| `TRANSITION_PLAQUE_DISAPPEAR` | 0.60 | sfx | — | — | — |
+
+#### Generic transitions (no context, reusable)
+
+| Stage | Volume | Bus | Fade In | Fade Out | Loop |
+|-------|--------|-----|---------|----------|------|
 | `TRANSITION_SWOOSH` | 0.70 | sfx | — | — | — |
 | `TRANSITION_IMPACT` | 0.80 | sfx | — | — | — |
 | `TRANSITION_REVEAL` | 0.70 | sfx | — | — | — |
 | `TRANSITION_STINGER` | 0.75 | sfx | — | — | — |
+| `TRANSITION_FADE_IN` | 0.65 | sfx | — | — | — |
+| `TRANSITION_FADE_OUT` | 0.65 | sfx | — | — | — |
 
 ### UI
 
@@ -813,13 +856,43 @@ amb_idle_loop                   amb_idle_to_active
 
 ### TRN Stages (trn_ prefix)
 
+#### Game intro
 ```
-trn_to_base                     trn_to_freespin
-trn_to_bonus                    trn_to_feature
-trn_to_jackpot                  trn_to_gamble
-trn_fade_in                     trn_fade_out
+trn_game_intro
+```
+
+#### Entry transitions (base game → feature)
+```
+trn_base_game_to_freespin       trn_base_game_to_bonus
+trn_base_game_to_hold           trn_base_game_to_gamble
+trn_base_game_to_jackpot
+```
+
+#### Cross-feature transitions
+```
+trn_freespin_to_bonus           trn_freespin_to_jackpot
+trn_hold_to_jackpot             trn_hold_to_freespin
+trn_hold_to_bonus
+```
+
+#### Exit transitions (feature → base game or other)
+```
+trn_freespin_to_base_game       trn_bonus_to_base_game
+trn_bonus_to_freespin           trn_gamble_to_base_game
+trn_hold_to_base_game           trn_jackpot_to_base_game
+trn_jackpot_to_freespin
+```
+
+#### Plaque transitions
+```
+trn_plaque_appear               trn_plaque_disappear
+```
+
+#### Generic transitions (no context)
+```
 trn_swoosh                      trn_impact
 trn_reveal                      trn_stinger
+trn_fade_in                     trn_fade_out
 ```
 
 ### UI Stages (ui_ prefix)
@@ -934,8 +1007,11 @@ zeus_thunderbolt_audio/
 │── amb_attract_loop.wav
 │── amb_idle_loop.wav
 │
-│── trn_to_freespin.wav
-│── trn_to_base.wav
+│── trn_game_intro.wav
+│── trn_base_game_to_freespin.wav
+│── trn_freespin_to_base_game.wav
+│── trn_plaque_appear.wav
+│── trn_plaque_disappear.wav
 │── trn_swoosh.wav
 │
 │── ui_spin_press.wav
