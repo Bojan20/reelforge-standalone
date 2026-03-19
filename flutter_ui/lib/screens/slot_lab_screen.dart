@@ -145,6 +145,7 @@ import '../widgets/ale/ale_panel.dart';
 import '../widgets/slot_lab/ultimate_audio_panel.dart';
 import '../widgets/aurexis/aurexis_panel.dart';
 // P0 PERFORMANCE: WaveformThumbnail removed from audio browser — too slow for large lists
+import '../services/ffnc/stage_defaults.dart';
 import '../services/stage_configuration_service.dart';
 import '../services/stage_group_service.dart';
 import '../services/audio_asset_manager.dart';
@@ -568,8 +569,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     }
 
     final stageConfig = StageConfigurationService.instance;
-    final busId = _getBusForStage(stage);
-    final shouldLoop = stageConfig.isLooping(stage);
+    // Smart Defaults: stage-aware volume/bus/fade/loop (FFNC priority chain)
+    final stageDefault = StageDefaults.getDefaultForStage(stage);
+    final busId = stageDefault.busId;
+    final shouldLoop = stageDefault.loop;
     final isMusicBus = busId == 1;
     final isBigWinTransition = stage == 'BIG_WIN_START' || stage == 'BIG_WIN_END';
     // BIG_WIN: overlap=false — stops base music, plays big win.
@@ -774,16 +777,18 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       // ══════════════════════════════════════════════════════════════
 
       // Main Play layer — implicit Stop/FadeOut handled by runtime
+      // Smart Defaults provide stage-aware volume and fade values
       baseLayers.add(SlotEventLayer(
         id: 'layer_$stage',
         name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
         audioPath: audioPath,
         actionType: 'Play',
-        volume: 1.0,
+        volume: stageDefault.volume,
         pan: _getPanForStage(stage),
         busId: busId,
         loop: effectiveLoop,
-        fadeInMs: crossfadeMs > 0 ? crossfadeMs.toDouble() : 0.0,
+        fadeInMs: stageDefault.fadeInMs ?? (crossfadeMs > 0 ? crossfadeMs.toDouble() : 0.0),
+        fadeOutMs: stageDefault.fadeOutMs ?? 0.0,
         durationSeconds: durationSec,
       ));
 
@@ -1827,6 +1832,61 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         _ensureCompositeEventForStage(missing[j].key, missing[j].value, skipUndo: true, skipNotify: true);
       }
       await Future.delayed(Duration.zero);
+    }
+
+    if (!mounted) return;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // FFNC MULTI-LAYER: Add additional layers from ffncLayerData
+    // After single-layer events are created, enrich events that have
+    // _layer2, _layer3 etc. files from the FFNC naming convention.
+    // ═══════════════════════════════════════════════════════════════════════
+    final ffncLayers = projectProvider.ffncLayerData;
+    for (final entry in ffncLayers.entries) {
+      final stage = entry.key;
+      final layers = entry.value;
+      // Only process if there are additional layers beyond layer 1
+      if (layers.length <= 1) continue;
+
+      final eventId = 'audio_$stage';
+      final existing = middleware.compositeEvents.where((e) => e.id == eventId).firstOrNull;
+      if (existing == null) continue;
+
+      // Sort layers by layer index
+      final sorted = [...layers]..sort((a, b) => a.layer.compareTo(b.layer));
+
+      // Check which layers are already present
+      final existingLayerIds = existing.layers.map((l) => l.id).toSet();
+      final newLayers = <SlotEventLayer>[];
+
+      final stageDefault = StageDefaults.getDefaultForStage(stage);
+
+      for (final layerData in sorted) {
+        final layerId = 'ffnc_layer_${stage}_${layerData.layer}';
+        if (existingLayerIds.contains(layerId)) continue;
+        // Skip layer 1 — already created as primary by _ensureCompositeEventForStage
+        if (layerData.layer == 1) continue;
+
+        newLayers.add(SlotEventLayer(
+          id: layerId,
+          name: layerData.path.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
+          audioPath: layerData.path,
+          actionType: 'Play',
+          volume: stageDefault.volume,
+          pan: 0.0,
+          busId: stageDefault.busId,
+          loop: stageDefault.loop,
+          fadeInMs: stageDefault.fadeInMs ?? 0.0,
+          fadeOutMs: stageDefault.fadeOutMs ?? 0.0,
+        ));
+      }
+
+      if (newLayers.isNotEmpty) {
+        final mergedLayers = [...existing.layers, ...newLayers];
+        middleware.updateCompositeEvent(existing.copyWith(layers: mergedLayers));
+        final updated = middleware.compositeEvents.where((e) => e.id == eventId).firstOrNull;
+        if (updated != null) _syncEventToRegistry(updated, skipNotify: true);
+      }
     }
 
     if (!mounted) return;

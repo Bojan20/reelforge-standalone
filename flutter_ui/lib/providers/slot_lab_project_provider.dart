@@ -19,6 +19,7 @@ import '../services/stage_configuration_service.dart';
 import '../src/rust/native_ffi.dart';
 import 'package:get_it/get_it.dart';
 import '../services/event_registry.dart';
+import '../services/ffnc/ffnc_parser.dart';
 import 'middleware_provider.dart';
 import 'slot_lab/feature_composer_provider.dart';
 import 'slot_lab/slot_lab_coordinator.dart';
@@ -69,6 +70,11 @@ class SlotLabProjectProvider extends ChangeNotifier {
   /// When a pooled stage has multiple files (e.g., SpinsLoop1/2/3),
   /// all variants are stored here. On trigger, engine picks round-robin.
   final Map<String, List<String>> _audioVariants = {};
+
+  /// FFNC multi-layer data from last autoBindFromFolder() call.
+  /// stage → list of (path, layerIndex, variant) for multi-layer composite creation.
+  /// Read by slot_lab_screen.dart to create multi-layer SlotCompositeEvents.
+  Map<String, List<({String path, int layer, String? variant})>> ffncLayerData = {};
 
   /// Get all audio variants for a pooled stage (includes primary)
   List<String> getAudioVariants(String stage) {
@@ -602,7 +608,56 @@ class SlotLabProjectProvider extends ChangeNotifier {
     final mappedPaths = <String>{};
     final pendingMusicBaseFiles = <String>[];
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // FFNC FAST PATH — files with known prefixes (sfx_, mus_, amb_, trn_, ui_, vo_)
+    // are parsed directly with 100% accuracy. No alias guessing needed.
+    // Multi-layer (_layerN) and variant (_variant_x) are handled here.
+    // ═══════════════════════════════════════════════════════════════════════
+    const ffncParser = FFNCParser();
+    ffncLayerData = <String, List<({String path, int layer, String? variant})>>{};
+
     for (final file in files) {
+      final filename = file.uri.pathSegments.last;
+      if (ffncParser.isFFNC(filename)) {
+        final result = ffncParser.parse(filename);
+        if (result != null) {
+          mappedPaths.add(file.path);
+          final stage = result.stage;
+
+          if (result.variant != null) {
+            // Variant: add to round-robin pool
+            _audioVariants.putIfAbsent(stage, () => []);
+            if (!_audioVariants[stage]!.contains(file.path)) {
+              _audioVariants[stage]!.add(file.path);
+            }
+            // Also set primary binding if not yet set
+            bindings.putIfAbsent(stage, () => file.path);
+          } else if (result.layer > 1) {
+            // Multi-layer: collect for batch creation
+            ffncLayerData.putIfAbsent(stage, () => []);
+            ffncLayerData[stage]!.add((path: file.path, layer: result.layer, variant: null));
+          } else {
+            // Normal single-file assignment
+            if (!bindings.containsKey(stage)) {
+              bindings[stage] = file.path;
+              _audioVariants[stage] = [file.path];
+            }
+            // Also track as layer 1 if other layers exist for this stage
+            ffncLayerData.putIfAbsent(stage, () => []);
+            if (!ffncLayerData[stage]!.any((e) => e.path == file.path)) {
+              ffncLayerData[stage]!.add((path: file.path, layer: 1, variant: null));
+            }
+          }
+          continue;
+        }
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // LEGACY PATH — files without FFNC prefix, use alias matching (~80%)
+    // ═══════════════════════════════════════════════════════════════════════
+    for (final file in files) {
+      if (mappedPaths.contains(file.path)) continue; // Already handled by FFNC
       final rawName = file.uri.pathSegments.last.split('.').first;
       // CamelCase → snake_case (ReelStop → reel_stop, FSActive1Level2 → fs_active_1_level_2)
       final snaked = rawName
@@ -841,6 +896,10 @@ class SlotLabProjectProvider extends ChangeNotifier {
 
   /// Data-driven stage resolver: alias expansion + NofM + fuzzy token matching.
   /// New stages in StageConfigurationService auto-match without changes here.
+  /// Public accessor for FFNC Rename Tool — delegates to internal resolver.
+  static String? resolveStageFromFilenamePublic(String base, String full) =>
+      _resolveStageFromFilename(base, full);
+
   static String? _resolveStageFromFilename(String base, String full) {
     const aliases = <String, String>{
       'spin_loop': 'reel_spin_loop', 'spinloop': 'reel_spin_loop',
@@ -1690,6 +1749,11 @@ class SlotLabProjectProvider extends ChangeNotifier {
   /// Set the dynamic music layer configuration
   void setMusicLayerConfig(MusicLayerConfig config) {
     _musicLayerConfig = config;
+    // Sync to MusicLayerController so evaluateAfterSpin uses new config
+    // Use updateMusicLayerConfig (not loadMusicLayerConfig) to preserve history
+    if (GetIt.instance.isRegistered<SlotLabCoordinator>()) {
+      GetIt.instance<SlotLabCoordinator>().audioProvider.updateMusicLayerConfig(config);
+    }
     _markDirty();
   }
 

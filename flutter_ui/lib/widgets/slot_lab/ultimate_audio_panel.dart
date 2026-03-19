@@ -58,6 +58,7 @@ import '../../services/audio_playback_service.dart';
 import '../../services/variant_manager.dart'; // SL-LP-P1.4
 import '../../services/waveform_thumbnail_cache.dart'; // SL-LP-P1.1
 import 'package:get_it/get_it.dart'; // V11: Feature Composer + Pacing
+import 'ffnc_rename_dialog.dart'; // FFNC Rename Tool
 import 'sfx_pipeline_wizard.dart'; // SFX Pipeline Wizard
 import '../../providers/slot_lab/feature_composer_provider.dart'; // V11
 import '../../providers/slot_lab/pacing_engine_provider.dart'; // V11
@@ -501,6 +502,12 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               ),
               const SizedBox(width: 2),
               _compactActionBtn(
+                Icons.drive_file_rename_outline, 'FFNC Rename',
+                FluxForgeTheme.accentCyan,
+                () => _showFFNCRenameDialog(context),
+              ),
+              const SizedBox(width: 2),
+              _compactActionBtn(
                 Icons.auto_fix_high, 'SFX Pipeline',
                 FluxForgeTheme.accentCyan,
                 () => SfxPipelineWizard.show(context),
@@ -696,6 +703,25 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
 
   // Auto-Bind: Scan folder and auto-map by filename patterns
   // ═══════════════════════════════════════════════════════════════════════════
+
+  void _showFFNCRenameDialog(BuildContext context) async {
+    final count = await showDialog<int>(
+      context: context,
+      builder: (_) => FFNCRenameDialog(
+        resolveStage: (normalized, full) =>
+            SlotLabProjectProvider.resolveStageFromFilenamePublic(normalized, full),
+      ),
+    );
+    if (count != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('FFNC Rename: $count files renamed'),
+          backgroundColor: FluxForgeTheme.bgMid,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
 
   void _showAutoBindDialog(BuildContext context) async {
     final path = await NativeFilePicker.pickDirectory(
