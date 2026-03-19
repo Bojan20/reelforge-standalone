@@ -64,6 +64,7 @@ import 'ffnc_rename_dialog.dart'; // FFNC Rename Tool
 import '../../services/ffnc/event_presets.dart'; // Event Presets
 import '../../services/ffnc/phase_presets.dart'; // Phase Presets
 import '../../services/ffnc/stage_defaults.dart'; // Smart Defaults
+import '../../services/ffnc/assignment_validator.dart'; // Validation
 import 'sfx_pipeline_wizard.dart'; // SFX Pipeline Wizard
 import '../../providers/slot_lab/feature_composer_provider.dart'; // V11
 import '../../providers/slot_lab/pacing_engine_provider.dart'; // V11
@@ -207,6 +208,14 @@ class UltimateAudioPanel extends StatefulWidget {
   /// Phase 2: Called to batch-update volume/bus/fade on a stage's composite event
   final void Function(String stage, double volume, int busId, double fadeOutMs)? onBatchUpdate;
 
+  /// Phase 3: Profile export/import callbacks
+  final VoidCallback? onExportProfile;
+  final VoidCallback? onImportProfile;
+
+  /// Phase 4: Validation callback + warning data
+  final VoidCallback? onValidate;
+  final List<AssignmentWarning> validationWarnings;
+
   const UltimateAudioPanel({
     super.key,
     this.audioAssignments = const {},
@@ -239,6 +248,10 @@ class UltimateAudioPanel extends StatefulWidget {
     this.onAutoBindDialogDismissed,
     this.onPoolClear,
     this.onBatchUpdate,
+    this.onExportProfile,
+    this.onImportProfile,
+    this.onValidate,
+    this.validationWarnings = const [],
   });
 
   @override
@@ -275,6 +288,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   double _batchVolume = 0.80;
   int _batchBusId = 2; // sfx default
   double _batchFadeOut = 0;
+
+  int get _validationWarningCount => widget.validationWarnings.length;
 
   // Inline event detail expand — shows composite event layers below slot
 
@@ -532,6 +547,24 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 Icons.auto_fix_high, 'SFX Pipeline',
                 FluxForgeTheme.accentCyan,
                 () => SfxPipelineWizard.show(context),
+              ),
+              const SizedBox(width: 2),
+              _compactActionBtn(
+                Icons.file_upload_outlined, 'Export Profile',
+                FluxForgeTheme.textTertiary,
+                () => widget.onExportProfile?.call(),
+              ),
+              const SizedBox(width: 2),
+              _compactActionBtn(
+                Icons.file_download_outlined, 'Import Profile',
+                FluxForgeTheme.textTertiary,
+                () => widget.onImportProfile?.call(),
+              ),
+              const SizedBox(width: 2),
+              _compactActionBtn(
+                Icons.verified_outlined, 'Validate',
+                _validationWarningCount > 0 ? FluxForgeTheme.accentOrange : FluxForgeTheme.textDisabled,
+                () => widget.onValidate?.call(),
               ),
               const Expanded(child: SizedBox.shrink()),
               if (!isNarrow) ...[
@@ -2945,9 +2978,44 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                     '$assignedSlots/$totalSlots',
                     style: TextStyle(
                       fontSize: 10, fontWeight: FontWeight.w500,
-                      color: tintColor.withOpacity(0.45), fontFamily: 'monospace',
+                      color: isComplete
+                          ? FluxForgeTheme.accentGreen.withOpacity(0.6)
+                          : tintColor.withOpacity(0.45),
+                      fontFamily: 'monospace',
                     ),
                   ),
+                  // Phase validation warnings badge
+                  if (widget.validationWarnings.isNotEmpty) ...[
+                    const SizedBox(width: 4),
+                    Builder(builder: (_) {
+                      final phaseStageSet = <String>{};
+                      for (final s in phase.sections) {
+                        for (final g in s.groups) {
+                          for (final sl in g.slots) phaseStageSet.add(sl.stage);
+                        }
+                      }
+                      final phaseWarnings = widget.validationWarnings
+                          .where((w) => phaseStageSet.contains(w.stage))
+                          .toList();
+                      if (phaseWarnings.isEmpty) return const SizedBox.shrink();
+                      final errors = phaseWarnings.where((w) => w.severity == WarningSeverity.error).length;
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: (errors > 0 ? FluxForgeTheme.accentRed : FluxForgeTheme.accentOrange).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: Text(
+                          '${phaseWarnings.length}',
+                          style: TextStyle(
+                            fontSize: 8,
+                            color: errors > 0 ? FluxForgeTheme.accentRed : FluxForgeTheme.accentOrange,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
                 ],
               ),
             ),
@@ -3326,6 +3394,27 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       },
                     ),
                   ),
+                // Validation warning icon
+                if (widget.validationWarnings.isNotEmpty)
+                  Builder(builder: (_) {
+                    final w = widget.validationWarnings.where((w) => w.stage == slot.stage).firstOrNull;
+                    if (w == null) return const SizedBox.shrink();
+                    return Tooltip(
+                      message: w.message,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 3),
+                        child: Icon(
+                          w.severity == WarningSeverity.error ? Icons.error_outline : Icons.warning_amber,
+                          size: 11,
+                          color: w.severity == WarningSeverity.error
+                              ? FluxForgeTheme.accentRed
+                              : w.severity == WarningSeverity.warning
+                                  ? FluxForgeTheme.accentOrange
+                                  : Colors.white30,
+                        ),
+                      ),
+                    );
+                  }),
                 // Play button — visible on hover or when playing
                 if (hasAudio && (isSlotHovered || _playingStage == slot.stage))
                   GestureDetector(

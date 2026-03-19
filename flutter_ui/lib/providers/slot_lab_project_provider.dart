@@ -85,6 +85,9 @@ class SlotLabProjectProvider extends ChangeNotifier {
     return [];
   }
 
+  /// All audio variants map (for validation)
+  Map<String, List<String>> get audioVariantsMap => Map.unmodifiable(_audioVariants);
+
   /// Expanded sections in UltimateAudioPanel
   Set<String> _expandedSections = {'spins_reels', 'symbols', 'wins'};
 

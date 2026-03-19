@@ -146,6 +146,11 @@ import '../widgets/slot_lab/ultimate_audio_panel.dart';
 import '../widgets/aurexis/aurexis_panel.dart';
 // P0 PERFORMANCE: WaveformThumbnail removed from audio browser — too slow for large lists
 import '../services/ffnc/stage_defaults.dart';
+import '../services/ffnc/assignment_validator.dart';
+import '../providers/subsystems/composite_event_system_provider.dart';
+import '../services/ffnc/profile_exporter.dart';
+import '../services/ffnc/profile_importer.dart';
+import '../widgets/slot_lab/profile_import_dialog.dart';
 import '../services/stage_configuration_service.dart';
 import '../services/stage_group_service.dart';
 import '../services/audio_asset_manager.dart';
@@ -494,6 +499,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // ═══════════════════════════════════════════════════════════════════════════
   bool _quickAssignMode = true;
   String? _quickAssignSelectedSlot;
+
+  // Phase 4: Validation warnings (refreshed on demand)
+  List<AssignmentWarning> _validationWarnings = [];
 
   /// P3-19: Handle Quick Assign — reuses existing audio assignment logic
   void _handleQuickAssign(String audioPath, String stage, SlotLabProjectProvider projectProvider) {
@@ -11508,6 +11516,95 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             setState(() {});
           },
           // onAutoBindComplete/onAutoBindDialogDismissed: handled via provider signal
+          validationWarnings: _validationWarnings,
+          onValidate: () {
+            final mw = context.read<MiddlewareProvider>();
+            // enabledStages = all stages that have composite events OR audio assignments
+            final enabledStages = <String>{
+              ...projectProvider.audioAssignments.keys,
+              ...mw.compositeEvents.expand((e) => e.triggerStages.map((s) => s.toUpperCase())),
+            };
+            setState(() {
+              _validationWarnings = AssignmentValidator.validate(
+                audioAssignments: projectProvider.audioAssignments,
+                compositeEvents: mw.compositeEvents,
+                enabledStages: enabledStages,
+                audioVariants: projectProvider.audioVariantsMap,
+              );
+            });
+            // Show summary toast
+            final errors = _validationWarnings.where((w) => w.severity == WarningSeverity.error).length;
+            final warns = _validationWarnings.where((w) => w.severity == WarningSeverity.warning).length;
+            final infos = _validationWarnings.where((w) => w.severity == WarningSeverity.info).length;
+            if (_validationWarnings.isEmpty) {
+              showToast('Validation passed — no issues found', icon: Icons.check_circle);
+            } else {
+              showToast('Validation: $errors errors, $warns warnings, $infos info', icon: Icons.warning);
+            }
+          },
+          onExportProfile: () async {
+            final path = await NativeFilePicker.saveFile(
+              suggestedName: 'audio_profile.ffap',
+              fileType: 'ffap',
+            );
+            if (path == null || !mounted) return;
+            try {
+              final compositeSystem = GetIt.instance<CompositeEventSystemProvider>();
+              await ProfileExporter.export(
+                outputPath: path,
+                profileName: 'FluxForge Profile',
+                compositeProvider: compositeSystem,
+                winConfig: projectProvider.winConfiguration,
+                musicConfig: projectProvider.musicLayerConfig,
+                audioAssignments: projectProvider.audioAssignments,
+              );
+              if (mounted) showToast('Profile exported: ${path.split('/').last}', icon: Icons.file_upload);
+            } catch (e) {
+              if (mounted) showToast('Export failed: $e', icon: Icons.error);
+            }
+          },
+          onImportProfile: () async {
+            final paths = await NativeFilePicker.pickFiles(
+              title: 'Import Audio Profile',
+              allowedExtensions: ['ffap'],
+              allowMultiple: false,
+            );
+            final path = paths.isNotEmpty ? paths.first : null;
+            if (path == null || !mounted) return;
+            final mw = context.read<MiddlewareProvider>();
+            final result = await showDialog<ProfileImportResult>(
+              context: context,
+              builder: (_) => ProfileImportDialog(
+                ffapPath: path,
+                onImport: (options) => ProfileImporter.import_(
+                  ffapPath: path,
+                  options: options,
+                  setAudioAssignment: (stage, audioPath) =>
+                      projectProvider.setAudioAssignment(stage, audioPath),
+                  addOrUpdateEvent: (event) {
+                    final existing = mw.compositeEvents.where((e) => e.id == event.id).firstOrNull;
+                    if (existing != null) {
+                      mw.updateCompositeEvent(event);
+                    } else {
+                      GetIt.instance<CompositeEventSystemProvider>().addCompositeEvent(event, skipUndo: true);
+                    }
+                    _syncEventToRegistry(event);
+                  },
+                  existingEvents: mw.compositeEvents,
+                  applyWinTiers: (config) => projectProvider.setWinConfiguration(config),
+                  applyMusicLayers: (config) => projectProvider.setMusicLayerConfig(config),
+                ),
+              ),
+            );
+            if (result != null && mounted) {
+              showToast(
+                'Imported ${result.eventsImported} events'
+                '${result.eventsSkipped > 0 ? ', ${result.eventsSkipped} skipped' : ''}'
+                '${result.remapFailed > 0 ? ', ${result.remapFailed} remap failed' : ''}',
+                icon: Icons.file_download,
+              );
+            }
+          },
           onBatchUpdate: (stage, volume, busId, fadeOutMs) {
             // Update composite event for this stage with new params
             final mw = context.read<MiddlewareProvider>();
