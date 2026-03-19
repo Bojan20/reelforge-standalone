@@ -597,7 +597,8 @@ class SlotLabProjectProvider extends ChangeNotifier {
 
   /// Auto-bind audio files from a folder to stages based on filename patterns.
   /// Returns record with bindings (stage→filePath) and unmapped file names.
-  ({Map<String, String> bindings, List<String> unmapped}) autoBindFromFolder(String folderPath) {
+  /// When [dryRun] is true, only analyzes without applying bindings (for preview).
+  ({Map<String, String> bindings, List<String> unmapped}) autoBindFromFolder(String folderPath, {bool dryRun = false}) {
     final dir = Directory(folderPath);
     if (!dir.existsSync()) return (bindings: {}, unmapped: []);
 
@@ -628,27 +629,31 @@ class SlotLabProjectProvider extends ChangeNotifier {
           final stage = result.stage;
 
           if (result.variant != null) {
-            // Variant: add to round-robin pool
-            _audioVariants.putIfAbsent(stage, () => []);
-            if (!_audioVariants[stage]!.contains(file.path)) {
-              _audioVariants[stage]!.add(file.path);
+            // Variant: add to round-robin pool (skip state mutation in dry run)
+            if (!dryRun) {
+              _audioVariants.putIfAbsent(stage, () => []);
+              if (!_audioVariants[stage]!.contains(file.path)) {
+                _audioVariants[stage]!.add(file.path);
+              }
             }
-            // Also set primary binding if not yet set
             bindings.putIfAbsent(stage, () => file.path);
           } else if (result.layer > 1) {
-            // Multi-layer: collect for batch creation
-            ffncLayerData.putIfAbsent(stage, () => []);
-            ffncLayerData[stage]!.add((path: file.path, layer: result.layer, variant: null));
+            // Multi-layer: collect for batch creation (skip state mutation in dry run)
+            if (!dryRun) {
+              ffncLayerData.putIfAbsent(stage, () => []);
+              ffncLayerData[stage]!.add((path: file.path, layer: result.layer, variant: null));
+            }
+            bindings.putIfAbsent(stage, () => file.path);
           } else {
-            // Normal single-file assignment
             if (!bindings.containsKey(stage)) {
               bindings[stage] = file.path;
-              _audioVariants[stage] = [file.path];
+              if (!dryRun) _audioVariants[stage] = [file.path];
             }
-            // Also track as layer 1 if other layers exist for this stage
-            ffncLayerData.putIfAbsent(stage, () => []);
-            if (!ffncLayerData[stage]!.any((e) => e.path == file.path)) {
-              ffncLayerData[stage]!.add((path: file.path, layer: 1, variant: null));
+            if (!dryRun) {
+              ffncLayerData.putIfAbsent(stage, () => []);
+              if (!ffncLayerData[stage]!.any((e) => e.path == file.path)) {
+                ffncLayerData[stage]!.add((path: file.path, layer: 1, variant: null));
+              }
             }
           }
           continue;
@@ -702,16 +707,15 @@ class SlotLabProjectProvider extends ChangeNotifier {
         mappedPaths.add(file.path);
         if (!bindings.containsKey(stage)) {
           bindings[stage] = file.path;
-          // Initialize variant list with primary
-          _audioVariants[stage] = [file.path];
+          if (!dryRun) _audioVariants[stage] = [file.path];
         } else if (stage == 'MUSIC_BASE_L1') {
-          // Multiple files match base music — distribute across L1-L5
           pendingMusicBaseFiles.add(file.path);
         } else {
-          // Additional variant for same stage (pooled round-robin)
-          _audioVariants.putIfAbsent(stage, () => [bindings[stage]!]);
-          if (!_audioVariants[stage]!.contains(file.path)) {
-            _audioVariants[stage]!.add(file.path);
+          if (!dryRun) {
+            _audioVariants.putIfAbsent(stage, () => [bindings[stage]!]);
+            if (!_audioVariants[stage]!.contains(file.path)) {
+              _audioVariants[stage]!.add(file.path);
+            }
           }
         }
       }
@@ -770,21 +774,21 @@ class SlotLabProjectProvider extends ChangeNotifier {
       }
     }
 
-    // Apply all bindings
-    for (final entry in bindings.entries) {
-      setAudioAssignment(entry.key, entry.value, recordUndo: false);
-    }
+    // Apply all bindings (skip in dry run mode — preview only)
+    if (!dryRun) {
+      for (final entry in bindings.entries) {
+        setAudioAssignment(entry.key, entry.value, recordUndo: false);
+      }
 
-    // ─── GAME_START composite: sync-start all base game music layers ───
-    // All layers start simultaneously on GAME_START trigger.
-    // L1 at full volume, L2/L3 at 0 — crossfade by adjusting layer volumes.
-    _createBaseGameMusicComposite(bindings);
+      // ─── GAME_START composite: sync-start all base game music layers ───
+      _createBaseGameMusicComposite(bindings);
 
-    // ─── Auto-create MusicLayerConfig when 2+ layers are bound ───
-    _autoCreateMusicLayerConfig(bindings);
+      // ─── Auto-create MusicLayerConfig when 2+ layers are bound ───
+      _autoCreateMusicLayerConfig(bindings);
 
-    if (bindings.isNotEmpty) {
-      _markDirty();
+      if (bindings.isNotEmpty) {
+        _markDirty();
+      }
     }
 
     return (bindings: bindings, unmapped: unmapped);

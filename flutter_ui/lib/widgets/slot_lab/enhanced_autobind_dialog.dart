@@ -49,6 +49,8 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
 
   // Options
   bool _doRename = true;
+  // Manual stage overrides for unmatched files: originalName → stage
+  final Map<String, String> _manualOverrides = {};
   final Map<int, double> _busVolumes = {
     0: 1.0, // Master
     1: 1.0, // Music
@@ -103,33 +105,79 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
       _renamePreview = [];
       _bindings = {};
       _unmapped = [];
+      _manualOverrides.clear();
     });
     _analyze();
   }
 
   void _analyze() {
     if (_folderPath == null) return;
+    // Run analysis after frame to let loading spinner render first
+    Future.microtask(_doAnalyze);
+  }
 
-    // Generate FFNC rename preview — DOES NOT apply anything
+  void _doAnalyze() {
+    if (_folderPath == null || !mounted) return;
+
+    // Use autoBindFromFolder with dryRun=true — full resolution engine,
+    // no side effects on provider state. This catches ALL naming patterns:
+    // CamelCase, NofM, multiplier, symbol pay, fuzzy, FFNC prefix, etc.
+    final projectProvider = GetIt.instance<SlotLabProjectProvider>();
+    final result = projectProvider.autoBindFromFolder(_folderPath!, dryRun: true);
+
+    // Generate FFNC rename preview using renamer for display names
     _renamePreview = _renamer.analyze(
       _folderPath!,
       (normalized, full) => SlotLabProjectProvider.resolveStageFromFilenamePublic(normalized, full),
     );
 
-    // Derive bindings from preview (preview only, no side effects)
-    final previewBindings = <String, String>{};
-    final previewUnmapped = <String>[];
+    // Merge: use autoBindFromFolder bindings (more accurate) as truth,
+    // enrich with rename preview for FFNC display names
+    final renameStageMap = <String, FFNCRenameResult>{};
     for (final r in _renamePreview) {
-      if (r.stage != null && r.isMatched) {
-        previewBindings.putIfAbsent(r.stage!, () => r.originalPath);
-      } else {
-        previewUnmapped.add(r.originalName);
-      }
+      if (r.stage != null) renameStageMap[r.stage!] = r;
     }
 
+    // Build final preview list from autobind results
+    final allFiles = Directory(_folderPath!)
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((f) {
+          final ext = f.path.toLowerCase();
+          return ext.endsWith('.wav') || ext.endsWith('.mp3') ||
+                 ext.endsWith('.ogg') || ext.endsWith('.flac') ||
+                 ext.endsWith('.aiff') || ext.endsWith('.aif');
+        })
+        .toList();
+
+    final boundPaths = result.bindings.values.toSet();
+    final pathToStage = <String, String>{};
+    for (final entry in result.bindings.entries) {
+      pathToStage[entry.value] = entry.key;
+    }
+
+    _renamePreview = allFiles.map((f) {
+      final path = f.path;
+      final name = p.basename(path);
+      final stage = pathToStage[path];
+      if (stage != null) {
+        final category = _renamer.categorizeStage(stage);
+        final ffncName = _renamer.generateFFNCName(stage, category, p.extension(path));
+        return FFNCRenameResult(
+          originalPath: path,
+          originalName: name,
+          ffncName: ffncName,
+          stage: stage,
+          category: category,
+          isExactMatch: true,
+        );
+      }
+      return FFNCRenameResult(originalPath: path, originalName: name);
+    }).toList();
+
     setState(() {
-      _bindings = previewBindings;
-      _unmapped = previewUnmapped;
+      _bindings = result.bindings;
+      _unmapped = result.unmapped;
       _analyzed = true;
     });
   }
@@ -142,14 +190,43 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
       String effectivePath = _folderPath!;
       bool didRename = false;
 
-      // Step 1: Rename files if requested (copy to ffnc/ subfolder)
+      // Step 1: Rename files if requested
+      // Creates sibling folder: "Aztec asset" → "Aztec asset_ffnc"
       if (_doRename) {
-        final matched = _renamePreview.where((r) => r.isMatched).toList();
+        // Enrich rename preview with manual overrides
+        final enrichedPreview = _renamePreview.map((r) {
+          final override = _manualOverrides[r.originalName];
+          if (override != null) {
+            final category = _renamer.categorizeStage(override);
+            return FFNCRenameResult(
+              originalPath: r.originalPath,
+              originalName: r.originalName,
+              ffncName: _renamer.generateFFNCName(override, category, p.extension(r.originalName)),
+              stage: override,
+              category: category,
+              isExactMatch: true,
+            );
+          }
+          return r;
+        }).toList();
+
+        final matched = enrichedPreview.where((r) => r.isMatched).toList();
         if (matched.isNotEmpty) {
-          final outputDir = p.join(_folderPath!, 'ffnc');
+          final folderName = p.basename(_folderPath!);
+          final parentDir = p.dirname(_folderPath!);
+          final outputDir = p.join(parentDir, '${folderName}_ffnc');
           final dir = Directory(outputDir);
           if (!dir.existsSync()) dir.createSync(recursive: true);
           await _renamer.copyRenamed(matched, outputDir);
+          // Copy still-unmatched files as-is (preserve all audio)
+          final stillUnmatched = enrichedPreview.where((r) => !r.isMatched).toList();
+          for (final u in stillUnmatched) {
+            final src = File(u.originalPath);
+            final dst = File(p.join(outputDir, u.originalName));
+            if (src.existsSync() && !dst.existsSync()) {
+              await src.copy(dst.path);
+            }
+          }
           effectivePath = outputDir;
           didRename = true;
         }
@@ -203,11 +280,12 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
     }
 
     final matchedCount = _doRename
-        ? _renamePreview.where((r) => r.isMatched).length
+        ? _renamePreview.where((r) => r.isMatched || _manualOverrides.containsKey(r.originalName)).length
         : _bindings.length;
     final totalCount = _doRename
         ? _renamePreview.length
         : _bindings.length + _unmapped.length;
+    final unmatchedCount = totalCount - matchedCount;
 
     return Dialog(
       backgroundColor: FluxForgeTheme.bgDeep,
@@ -267,7 +345,7 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
                 const Padding(
                   padding: EdgeInsets.only(left: 22, top: 2),
                   child: Text(
-                    'Files will be copied to /ffnc/ subfolder with FFNC names',
+                    'Files will be copied to a sibling folder with FFNC names',
                     style: TextStyle(color: Colors.white24, fontSize: 9),
                   ),
                 ),
@@ -290,11 +368,11 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  if (_unmapped.isNotEmpty)
+                  if (unmatchedCount > 0)
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: Text(
-                        '⚠ ${_unmapped.length} unmatched',
+                        '⚠ $unmatchedCount unmatched',
                         style: const TextStyle(color: Colors.orange, fontSize: 10),
                       ),
                     ),
@@ -416,32 +494,51 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
       itemCount: items.length,
       itemBuilder: (_, index) {
         final item = items[index];
+        final manualStage = _manualOverrides[item.original];
+        final effectiveStage = manualStage ?? item.stage;
+        final isResolved = item.isMatched || manualStage != null;
+
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           color: index.isEven ? Colors.white.withValues(alpha: 0.02) : Colors.transparent,
           child: Row(
             children: [
               Icon(
-                item.isMatched ? Icons.check_circle : Icons.warning,
+                isResolved ? Icons.check_circle : Icons.warning,
                 size: 10,
-                color: item.isMatched ? FluxForgeTheme.accentGreen : Colors.orange,
+                color: isResolved
+                    ? (manualStage != null ? FluxForgeTheme.accentCyan : FluxForgeTheme.accentGreen)
+                    : Colors.orange,
               ),
               const SizedBox(width: 4),
-              if (item.stage != null) ...[
-                SizedBox(
-                  width: 150,
-                  child: Text(
-                    item.stage!,
-                    style: TextStyle(
-                      color: item.isMatched ? FluxForgeTheme.accentGreen : Colors.orange,
-                      fontSize: 9,
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.w600,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+              // Stage name or edit dropdown for unmatched
+              SizedBox(
+                width: 150,
+                child: effectiveStage != null
+                    ? Text(
+                        effectiveStage,
+                        style: TextStyle(
+                          color: manualStage != null ? FluxForgeTheme.accentCyan : FluxForgeTheme.accentGreen,
+                          fontSize: 9, fontFamily: 'monospace', fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    : GestureDetector(
+                        onTap: () => _showStagePickerForFile(item.original),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: const Text(
+                            'click to assign ▾',
+                            style: TextStyle(color: Colors.orange, fontSize: 8),
+                          ),
+                        ),
+                      ),
+              ),
+              // Original filename
               Expanded(
                 child: Text(
                   item.original,
@@ -449,12 +546,15 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (_doRename && item.ffncName != null) ...[
+              // FFNC rename preview
+              if (_doRename && isResolved) ...[
                 const Text(' → ', style: TextStyle(color: Colors.white24, fontSize: 8)),
                 SizedBox(
                   width: 140,
                   child: Text(
-                    item.ffncName!,
+                    manualStage != null
+                        ? _renamer.generateFFNCName(manualStage, _renamer.categorizeStage(manualStage), p.extension(item.original))
+                        : (item.ffncName ?? ''),
                     style: const TextStyle(color: FluxForgeTheme.accentCyan, fontSize: 9, fontFamily: 'monospace'),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -465,6 +565,110 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
         );
       },
     );
+  }
+
+  void _showStagePickerForFile(String originalName) {
+    // Get typo suggestions first
+    final suggestions = _renamer.suggestStage(originalName, maxResults: 5, maxDistance: 5);
+    final allStages = StageConfigurationService.instance
+        .getAllStages()
+        .map((s) => s.name)
+        .toList()
+      ..sort();
+
+    final searchController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final query = searchController.text.toUpperCase();
+          final filtered = query.isEmpty
+              ? allStages.take(30).toList()
+              : allStages.where((s) => s.contains(query)).take(30).toList();
+
+          return AlertDialog(
+            backgroundColor: FluxForgeTheme.bgMid,
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Assign: $originalName', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                const SizedBox(height: 8),
+                if (suggestions.isNotEmpty) ...[
+                  const Text('Suggestions:', style: TextStyle(color: FluxForgeTheme.accentCyan, fontSize: 10)),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: suggestions.map((s) => GestureDetector(
+                      onTap: () {
+                        Navigator.of(ctx).pop(s.stage);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: FluxForgeTheme.accentCyan.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: FluxForgeTheme.accentCyan.withValues(alpha: 0.3)),
+                        ),
+                        child: Text(s.stage, style: const TextStyle(color: FluxForgeTheme.accentCyan, fontSize: 9, fontFamily: 'monospace')),
+                      ),
+                    )).toList(),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                TextField(
+                  controller: searchController,
+                  autofocus: true,
+                  style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'monospace'),
+                  decoration: const InputDecoration(
+                    hintText: 'Search stages...',
+                    hintStyle: TextStyle(color: Colors.white24),
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white12)),
+                    focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: FluxForgeTheme.accentCyan)),
+                  ),
+                  onChanged: (_) => setDialogState(() {}),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 300,
+              height: 250,
+              child: ListView.builder(
+                itemCount: filtered.length,
+                itemBuilder: (_, i) => InkWell(
+                  onTap: () => Navigator.of(ctx).pop(filtered[i]),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 4),
+                    child: Text(filtered[i], style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'monospace')),
+                  ),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(null),
+                child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+              ),
+            ],
+          );
+        },
+      ),
+    ).then((stage) {
+      if (stage != null && mounted) {
+        setState(() {
+          _manualOverrides[originalName] = stage;
+          // Update bindings count
+          _bindings[stage] = _renamePreview
+              .where((r) => r.originalName == originalName)
+              .firstOrNull?.originalPath ?? '';
+          _unmapped.remove(originalName);
+        });
+      }
+    });
   }
 }
 

@@ -542,34 +542,62 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 () => _showResetConfirmDialog(context),
               ),
               const SizedBox(width: 2),
-              _compactActionBtn(
-                Icons.drive_file_rename_outline, 'FFNC Rename',
-                FluxForgeTheme.accentCyan,
-                () => _showFFNCRenameDialog(context),
-              ),
-              const SizedBox(width: 2),
-              _compactActionBtn(
-                Icons.auto_fix_high, 'SFX Pipeline',
-                FluxForgeTheme.accentCyan,
-                () => SfxPipelineWizard.show(context),
-              ),
-              const SizedBox(width: 2),
-              _compactActionBtn(
-                Icons.file_upload_outlined, 'Export Profile',
-                FluxForgeTheme.textTertiary,
-                () => widget.onExportProfile?.call(),
-              ),
-              const SizedBox(width: 2),
-              _compactActionBtn(
-                Icons.file_download_outlined, 'Import Profile',
-                FluxForgeTheme.textTertiary,
-                () => widget.onImportProfile?.call(),
-              ),
+              if (!isNarrow) ...[
+                const SizedBox(width: 2),
+                _compactActionBtn(
+                  Icons.auto_fix_high, 'SFX Pipeline',
+                  FluxForgeTheme.accentCyan,
+                  () => SfxPipelineWizard.show(context),
+                ),
+              ],
               const SizedBox(width: 2),
               _compactActionBtn(
                 Icons.verified_outlined, 'Validate',
                 _validationWarningCount > 0 ? FluxForgeTheme.accentOrange : FluxForgeTheme.textDisabled,
                 () => widget.onValidate?.call(),
+              ),
+              const SizedBox(width: 2),
+              // Overflow menu for less-used actions
+              PopupMenuButton<String>(
+                padding: EdgeInsets.zero,
+                iconSize: 14,
+                icon: const Icon(Icons.more_vert, size: 14, color: FluxForgeTheme.textDisabled),
+                color: FluxForgeTheme.bgMid,
+                tooltip: 'More',
+                itemBuilder: (_) => [
+                  const PopupMenuItem(value: 'rename', height: 30,
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.drive_file_rename_outline, size: 12, color: FluxForgeTheme.accentCyan),
+                      SizedBox(width: 6),
+                      Text('FFNC Rename Tool', style: TextStyle(color: Colors.white70, fontSize: 10)),
+                    ])),
+                  const PopupMenuItem(value: 'export', height: 30,
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.file_upload_outlined, size: 12, color: Colors.white54),
+                      SizedBox(width: 6),
+                      Text('Export Profile (.ffap)', style: TextStyle(color: Colors.white70, fontSize: 10)),
+                    ])),
+                  const PopupMenuItem(value: 'import', height: 30,
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.file_download_outlined, size: 12, color: Colors.white54),
+                      SizedBox(width: 6),
+                      Text('Import Profile (.ffap)', style: TextStyle(color: Colors.white70, fontSize: 10)),
+                    ])),
+                  if (isNarrow) const PopupMenuItem(value: 'sfx', height: 30,
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.auto_fix_high, size: 12, color: FluxForgeTheme.accentCyan),
+                      SizedBox(width: 6),
+                      Text('SFX Pipeline', style: TextStyle(color: Colors.white70, fontSize: 10)),
+                    ])),
+                ],
+                onSelected: (value) {
+                  switch (value) {
+                    case 'rename': _showFFNCRenameDialog(context);
+                    case 'export': widget.onExportProfile?.call();
+                    case 'import': widget.onImportProfile?.call();
+                    case 'sfx': SfxPipelineWizard.show(context);
+                  }
+                },
               ),
               const Expanded(child: SizedBox.shrink()),
               if (!isNarrow) ...[
