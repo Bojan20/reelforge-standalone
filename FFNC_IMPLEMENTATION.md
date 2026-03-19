@@ -925,12 +925,12 @@ In another project: right-click phase → "Paste Phase Config" → applies param
 
 ---
 
-## 3.1 FluxForge Audio Profile (.ffap)
+## 3.1 FluxForge Audio Profile (.zip)
 
-A `.ffap` file is a ZIP archive containing:
+A `.zip` file is a ZIP archive containing:
 
 ```
-zeus_thunderbolt.ffap (ZIP)
+zeus_thunderbolt.zip (ZIP)
 ├── manifest.json           — metadata
 ├── events.json             — all SlotCompositeEvent objects
 ├── win_tiers.json          — WinTierConfig
@@ -1011,7 +1011,7 @@ This README allows git diff review even without FluxForge Studio open.
 
 ```dart
 class ProfileExporter {
-  /// Export current project state as .ffap file
+  /// Export current project state as .zip file
   Future<String> export({
     required SlotLabProjectProvider projectProvider,
     required CompositeEventSystemProvider compositeProvider,
@@ -1032,9 +1032,9 @@ class ProfileExporter {
 
 ```
 File menu → Export Audio Profile...
-  → file save dialog (.ffap extension)
+  → file save dialog (.zip extension)
   → ProfileExporter.export()
-  → toast: "Profile exported to zeus_thunderbolt.ffap"
+  → toast: "Profile exported to zeus_thunderbolt.zip"
 ```
 
 ---
@@ -1069,7 +1069,7 @@ class ProfileImportOptions {
 ### Import dialog
 
 ```
-┌─ Import Profile: zeus_thunderbolt.ffap ─────────────────────┐
+┌─ Import Profile: zeus_thunderbolt.zip ─────────────────────┐
 │                                                               │
 │ Found: 42 events, 8 win tiers, 3 music layers                │
 │                                                               │
@@ -1111,7 +1111,7 @@ If files use FFNC naming, filenames match across projects → remap works perfec
 
 **New file:** `flutter_ui/lib/services/ffnc/template_library.dart` (~100 lines)
 
-Templates are `.ffap` files without audio files — only configuration (volumes, buses, fades, win tiers, music layers).
+Templates are `.zip` files without audio files — only configuration (volumes, buses, fades, win tiers, music layers).
 
 ### Built-in templates
 
@@ -1119,12 +1119,12 @@ Bundled in `assets/templates/`:
 
 ```
 assets/templates/
-├── classic_5reel.ffap          — standard 5-reel slot (~40 events)
-├── megaways.ffap               — megaways specific (~55 events, cascade)
-├── cascading.ffap              — tumble/cascade mechanics
-├── hold_and_win.ffap           — hold & win + respins
-├── bonus_wheel.ffap            — wheel bonus + pick games
-└── jackpot_progressive.ffap    — progressive jackpot focus
+├── classic_5reel.zip          — standard 5-reel slot (~40 events)
+├── megaways.zip               — megaways specific (~55 events, cascade)
+├── cascading.zip              — tumble/cascade mechanics
+├── hold_and_win.zip           — hold & win + respins
+├── bonus_wheel.zip            — wheel bonus + pick games
+└── jackpot_progressive.zip    — progressive jackpot focus
 ```
 
 ### User templates
@@ -1134,7 +1134,7 @@ Saved to `~/.fluxforge/templates/`:
 ```dart
 File menu → Save as Template...
   → name dialog
-  → exports .ffap to ~/.fluxforge/templates/
+  → exports .zip to ~/.fluxforge/templates/
 ```
 
 ### New Project from Template
@@ -1377,12 +1377,12 @@ flutter_ui/lib/widgets/slot_lab/
 └── ffnc_rename_dialog.dart      ~250 lines  Phase 1
 
 assets/templates/
-├── classic_5reel.ffap           Phase 3
-├── megaways.ffap                Phase 3
-├── cascading.ffap               Phase 3
-├── hold_and_win.ffap            Phase 3
-├── bonus_wheel.ffap             Phase 3
-└── jackpot_progressive.ffap     Phase 3
+├── classic_5reel.zip           Phase 3
+├── megaways.zip                Phase 3
+├── cascading.zip               Phase 3
+├── hold_and_win.zip            Phase 3
+├── bonus_wheel.zip             Phase 3
+└── jackpot_progressive.zip     Phase 3
 ```
 
 ## All modified files
@@ -1410,8 +1410,8 @@ Phase 4:
 ~/.fluxforge/
 ├── event_presets.json            — saved event presets (Phase 2)
 └── templates/                    — user-saved templates (Phase 3)
-    ├── my_template_1.ffap
-    └── my_template_2.ffap
+    ├── my_template_1.zip
+    └── my_template_2.zip
 ```
 
 ## What does NOT change (ever)
@@ -1446,7 +1446,7 @@ Phase 2: Multi-Select + Batch Edit + Event Presets + Phase Presets
 
 Phase 3: Profile Export/Import + Templates
   → Reusability across projects
-  → Export complete audio profile as .ffap
+  → Export complete audio profile as .zip
   → Import with audio path remapping
   → Built-in templates for common slot types
   → User-saved templates
@@ -1485,8 +1485,8 @@ Each phase is independent. Each delivers value on its own. Each can be shipped a
 | Event Presets (save/load per event) | ✓ Specified | Phase 2.3 |
 | Phase Presets (Standard/High Energy/Cinematic/Mobile) | ✓ Specified | Phase 2.5 |
 | Copy Phase Config between projects | ✓ Specified | Phase 2.6 |
-| .ffap Profile Export | ✓ Specified | Phase 3.1-3.2 |
-| .ffap Profile Import with remap | ✓ Specified | Phase 3.3 |
+| .zip Profile Export | ✓ Specified | Phase 3.1-3.2 |
+| .zip Profile Import with remap | ✓ Specified | Phase 3.3 |
 | Template library (built-in + user) | ✓ Specified | Phase 3.4 |
 | README.txt auto-generated summary | ✓ Specified | Phase 3.1 |
 | Assignment Validator | ✓ Specified | Phase 4.1 |

@@ -1,4 +1,4 @@
-/// Profile Importer — loads .ffap archives and applies to project.
+/// Profile Importer — loads FluxForge audio profile (.zip) archives and applies to project.
 ///
 /// Supports preview (inspect without applying), audio path remapping,
 /// and conflict resolution (skip, overwrite, merge).
@@ -74,8 +74,8 @@ class ProfileImporter {
   ProfileImporter._();
 
   /// Preview profile contents without applying.
-  static Future<ProfilePreview?> preview(String ffapPath) async {
-    final extracted = await _extractArchive(ffapPath);
+  static Future<ProfilePreview?> preview(String profilePath) async {
+    final extracted = await _extractArchive(profilePath);
     if (extracted == null) return null;
 
     final manifest = _parseManifest(extracted);
@@ -103,7 +103,7 @@ class ProfileImporter {
 
   /// Import profile and apply to project.
   static Future<ProfileImportResult> import_({
-    required String ffapPath,
+    required String profilePath,
     required ProfileImportOptions options,
     required void Function(String stage, String audioPath) setAudioAssignment,
     required void Function(SlotCompositeEvent event) addOrUpdateEvent,
@@ -111,7 +111,7 @@ class ProfileImporter {
     void Function(SlotWinConfiguration config)? applyWinTiers,
     void Function(MusicLayerConfig config)? applyMusicLayers,
   }) async {
-    final extracted = await _extractArchive(ffapPath);
+    final extracted = await _extractArchive(profilePath);
     if (extracted == null) {
       return const ProfileImportResult();
     }
@@ -223,8 +223,8 @@ class ProfileImporter {
   // Archive extraction
   // ═══════════════════════════════════════════════════════════════
 
-  static Future<Map<String, String>?> _extractArchive(String ffapPath) async {
-    final file = File(ffapPath);
+  static Future<Map<String, String>?> _extractArchive(String profilePath) async {
+    final file = File(profilePath);
     if (!file.existsSync()) return null;
 
     try {

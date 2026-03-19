@@ -1,6 +1,6 @@
 /// Template Library — manages built-in and user-saved audio profile templates.
 ///
-/// Templates are .ffap files without audio files — only configuration.
+/// Templates are .zip files without audio files — only configuration.
 /// Built-in templates are bundled in assets/templates/.
 /// User templates are saved to ~/.fluxforge/templates/.
 
@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 
 import 'profile_exporter.dart';
 import 'profile_importer.dart';
+import 'template_generator.dart';
 
 class TemplateInfo {
   final String name;
@@ -44,8 +45,10 @@ class TemplateLibrary {
   Future<void> load() async {
     if (_loaded) return;
     _loaded = true;
-    await _scanUserTemplates();
+    // Generate built-in templates if they don't exist yet
+    await TemplateGenerator.ensureBuiltInTemplates();
     _builtIn = _defaultBuiltInTemplates();
+    await _scanUserTemplates();
   }
 
   /// Refresh user templates (after save/delete).
@@ -59,7 +62,7 @@ class TemplateLibrary {
     if (!dir.existsSync()) dir.createSync(recursive: true);
 
     final safeName = name.replaceAll(RegExp(r'[^\w\s\-]'), '').trim().replaceAll(' ', '_');
-    final destPath = p.join(_userTemplateDir, '$safeName.ffap');
+    final destPath = p.join(_userTemplateDir, '$safeName.zip');
     await File(sourceFfapPath).copy(destPath);
     await refresh();
     return destPath;
@@ -110,7 +113,7 @@ class TemplateLibrary {
     _user = [];
     try {
       for (final entry in dir.listSync()) {
-        if (entry is File && entry.path.endsWith('.ffap')) {
+        if (entry is File && entry.path.endsWith('.zip')) {
           final name = p.basenameWithoutExtension(entry.path).replaceAll('_', ' ');
           // Try to read manifest for metadata
           final preview = await ProfileImporter.preview(entry.path);
@@ -128,54 +131,52 @@ class TemplateLibrary {
   }
 
   List<TemplateInfo> _defaultBuiltInTemplates() {
-    // Built-in templates will be bundled in assets/templates/
-    // For now, return descriptions only — actual .ffap files created later
-    return const [
+    return [
       TemplateInfo(
         name: 'Classic 5-Reel',
-        path: 'assets/templates/classic_5reel.ffap',
+        path: TemplateGenerator.getTemplatePath('classic_5reel'),
         isBuiltIn: true,
-        description: 'Standard 5-reel slot with ~40 events',
-        eventCount: 40,
+        description: 'Standard 5-reel slot with ~47 events',
+        eventCount: 47,
         reelCount: 5,
       ),
       TemplateInfo(
         name: 'Megaways',
-        path: 'assets/templates/megaways.ffap',
+        path: TemplateGenerator.getTemplatePath('megaways'),
         isBuiltIn: true,
-        description: 'Megaways with cascade mechanics, ~55 events',
-        eventCount: 55,
+        description: 'Megaways with cascade mechanics, ~53 events',
+        eventCount: 53,
         reelCount: 6,
       ),
       TemplateInfo(
         name: 'Cascading / Tumble',
-        path: 'assets/templates/cascading.ffap',
+        path: TemplateGenerator.getTemplatePath('cascading'),
         isBuiltIn: true,
-        description: 'Tumble/cascade mechanics, ~48 events',
-        eventCount: 48,
+        description: 'Tumble/cascade mechanics, ~46 events',
+        eventCount: 46,
         reelCount: 5,
       ),
       TemplateInfo(
         name: 'Hold & Win',
-        path: 'assets/templates/hold_and_win.ffap',
+        path: TemplateGenerator.getTemplatePath('hold_and_win'),
         isBuiltIn: true,
-        description: 'Hold & win with respins, ~52 events',
+        description: 'Hold & win with respins + jackpots, ~52 events',
         eventCount: 52,
         reelCount: 5,
       ),
       TemplateInfo(
         name: 'Bonus Wheel',
-        path: 'assets/templates/bonus_wheel.ffap',
+        path: TemplateGenerator.getTemplatePath('bonus_wheel'),
         isBuiltIn: true,
-        description: 'Wheel bonus + pick games, ~45 events',
-        eventCount: 45,
+        description: 'Wheel bonus + pick games, ~47 events',
+        eventCount: 47,
         reelCount: 5,
       ),
       TemplateInfo(
         name: 'Jackpot Progressive',
-        path: 'assets/templates/jackpot_progressive.ffap',
+        path: TemplateGenerator.getTemplatePath('jackpot_progressive'),
         isBuiltIn: true,
-        description: 'Progressive jackpot focus, ~50 events',
+        description: 'Progressive jackpot with 4+ tiers, ~50 events',
         eventCount: 50,
         reelCount: 5,
       ),

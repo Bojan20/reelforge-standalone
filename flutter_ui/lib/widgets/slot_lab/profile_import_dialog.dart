@@ -1,4 +1,4 @@
-/// Profile Import Dialog — UI for importing .ffap audio profiles.
+/// Profile Import Dialog — UI for importing FluxForge audio profile (.zip) archives.
 ///
 /// Shows preview of profile contents, import options (events, win tiers,
 /// music layers), audio path remapping, and conflict resolution.
@@ -9,12 +9,12 @@ import '../../services/native_file_picker.dart';
 import '../../theme/fluxforge_theme.dart';
 
 class ProfileImportDialog extends StatefulWidget {
-  final String ffapPath;
+  final String profilePath;
   final Future<ProfileImportResult> Function(ProfileImportOptions options) onImport;
 
   const ProfileImportDialog({
     super.key,
-    required this.ffapPath,
+    required this.profilePath,
     required this.onImport,
   });
 
@@ -40,7 +40,7 @@ class _ProfileImportDialogState extends State<ProfileImportDialog> {
   }
 
   Future<void> _loadPreview() async {
-    final preview = await ProfileImporter.preview(widget.ffapPath);
+    final preview = await ProfileImporter.preview(widget.profilePath);
     if (mounted) setState(() { _preview = preview; _loading = false; });
   }
 

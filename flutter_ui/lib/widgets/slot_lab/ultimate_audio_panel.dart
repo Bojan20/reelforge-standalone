@@ -44,6 +44,7 @@
 /// Auto-Distribution: Drop a folder on a GROUP, files are automatically
 /// matched to their correct stages using fuzzy filename matching.
 
+import 'dart:convert'; // JSON for Copy/Paste Phase Config
 import 'dart:io'; // V11: Folder import
 import 'package:flutter/gestures.dart'; // PointerDeviceKind for multi-select
 import 'package:flutter/material.dart';
@@ -575,13 +576,13 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.file_upload_outlined, size: 12, color: Colors.white54),
                       SizedBox(width: 6),
-                      Text('Export Profile (.ffap)', style: TextStyle(color: Colors.white70, fontSize: 10)),
+                      Text('Export Profile (.zip)', style: TextStyle(color: Colors.white70, fontSize: 10)),
                     ])),
                   const PopupMenuItem(value: 'import', height: 30,
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.file_download_outlined, size: 12, color: Colors.white54),
                       SizedBox(width: 6),
-                      Text('Import Profile (.ffap)', style: TextStyle(color: Colors.white70, fontSize: 10)),
+                      Text('Import Profile (.zip)', style: TextStyle(color: Colors.white70, fontSize: 10)),
                     ])),
                   if (isNarrow) const PopupMenuItem(value: 'sfx', height: 30,
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -2612,18 +2613,41 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           height: 28,
           child: Text('Select All (${phaseStages.length})', style: const TextStyle(color: FluxForgeTheme.accentOrange, fontSize: 10)),
         ),
+        const PopupMenuDivider(height: 8),
+        const PopupMenuItem<String>(
+          value: '__COPY__',
+          height: 28,
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.copy, size: 11, color: Colors.white38),
+            SizedBox(width: 6),
+            Text('Copy Phase Config', style: TextStyle(color: Colors.white54, fontSize: 10)),
+          ]),
+        ),
+        const PopupMenuItem<String>(
+          value: '__PASTE__',
+          height: 28,
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.paste, size: 11, color: Colors.white38),
+            SizedBox(width: 6),
+            Text('Paste Phase Config', style: TextStyle(color: Colors.white54, fontSize: 10)),
+          ]),
+        ),
       ],
     ).then((value) {
-      if (value == null || phaseStages.isEmpty) return; // Dismissed
+      if (value == null) return; // Dismissed
       if (value == '__RESET__') {
+        if (phaseStages.isEmpty) return;
         for (final stage in phaseStages) {
           final defaults = StageDefaults.getDefaultForStage(stage);
           widget.onBatchUpdate?.call(stage, defaults.volume, defaults.busId, defaults.fadeOutMs ?? 0);
         }
       } else if (value == '__SELECT_ALL__') {
         setState(() => _selectedSlots.addAll(phaseStages));
+      } else if (value == '__COPY__') {
+        _copyPhaseConfig(phase);
+      } else if (value == '__PASTE__') {
+        _pastePhaseConfig(phaseStages);
       } else {
-        // Find preset by name
         final preset = PhasePresets.all.where((p) => p.name == value).firstOrNull;
         if (preset != null) {
           for (final stage in phaseStages) {
@@ -2633,6 +2657,108 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         }
       }
     });
+  }
+
+  void _copyPhaseConfig(_PhaseConfig phase) {
+    // Serialize all stage parameters in this phase to clipboard as JSON
+    final mw = GetIt.instance<MiddlewareProvider>();
+    final stageConfigs = <String, Map<String, dynamic>>{};
+
+    for (final section in phase.sections) {
+      for (final group in section.groups) {
+        for (final slot in group.slots) {
+          final eventId = 'audio_${slot.stage}';
+          final event = mw.compositeEvents.where((e) => e.id == eventId).firstOrNull;
+          if (event != null) {
+            final mainLayer = event.layers.where((l) =>
+                l.actionType == 'Play' && l.audioPath.isNotEmpty).firstOrNull;
+            stageConfigs[slot.stage] = {
+              'volume': event.masterVolume,
+              'busId': event.targetBusId ?? 2,
+              'fadeInMs': mainLayer?.fadeInMs ?? 0,
+              'fadeOutMs': mainLayer?.fadeOutMs ?? 0,
+              'loop': event.looping,
+            };
+          }
+        }
+      }
+    }
+
+    if (stageConfigs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No configured stages to copy in this phase'),
+          backgroundColor: Color(0xFF442222),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    final json = const JsonEncoder.withIndent('  ').convert({
+      'fluxforge_phase_config': true,
+      'phase': phase.title,
+      'stages': stageConfigs,
+    });
+
+    Clipboard.setData(ClipboardData(text: json));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Copied ${stageConfigs.length} stage configs from ${phase.title}'),
+        backgroundColor: FluxForgeTheme.bgMid,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _pastePhaseConfig(List<String> phaseStages) async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (!mounted) return;
+    if (data?.text == null || data!.text!.isEmpty) return;
+
+    try {
+      final json = jsonDecode(data.text!);
+      if (json['fluxforge_phase_config'] != true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Clipboard does not contain FluxForge phase config'), backgroundColor: Color(0xFF442222)),
+          );
+        }
+        return;
+      }
+
+      final stages = json['stages'] as Map<String, dynamic>;
+      int applied = 0;
+      for (final entry in stages.entries) {
+        // Apply to matching stage names in this phase
+        if (phaseStages.contains(entry.key)) {
+          final config = entry.value as Map<String, dynamic>;
+          widget.onBatchUpdate?.call(
+            entry.key,
+            (config['volume'] as num?)?.toDouble() ?? 1.0,
+            config['busId'] as int? ?? 2,
+            (config['fadeOutMs'] as num?)?.toDouble() ?? 0,
+          );
+          applied++;
+        }
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Pasted config to $applied stages'),
+            backgroundColor: FluxForgeTheme.bgMid,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid clipboard data'), backgroundColor: Color(0xFF442222)),
+        );
+      }
+    }
   }
 
   /// Lazy phase list — uses ListView.builder to avoid building all phases/sections/slots

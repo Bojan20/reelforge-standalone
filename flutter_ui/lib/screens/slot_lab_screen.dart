@@ -151,6 +151,7 @@ import '../providers/subsystems/composite_event_system_provider.dart';
 import '../services/ffnc/profile_exporter.dart';
 import '../services/ffnc/profile_importer.dart';
 import '../widgets/slot_lab/profile_import_dialog.dart';
+import '../widgets/slot_lab/validation_panel_dialog.dart';
 import '../services/stage_configuration_service.dart';
 import '../services/stage_group_service.dart';
 import '../services/audio_asset_manager.dart';
@@ -11537,20 +11538,27 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 audioVariants: projectProvider.audioVariantsMap,
               );
             });
-            // Show summary toast
-            final errors = _validationWarnings.where((w) => w.severity == WarningSeverity.error).length;
-            final warns = _validationWarnings.where((w) => w.severity == WarningSeverity.warning).length;
-            final infos = _validationWarnings.where((w) => w.severity == WarningSeverity.info).length;
-            if (_validationWarnings.isEmpty) {
-              showToast('Validation passed — no issues found', icon: Icons.check_circle);
-            } else {
-              showToast('Validation: $errors errors, $warns warnings, $infos info', icon: Icons.warning);
+            // Show validation panel dialog
+            if (mounted) {
+              showDialog(
+                context: context,
+                builder: (_) => ValidationPanelDialog(
+                  warnings: _validationWarnings,
+                  onNavigateToStage: (stage) {
+                    // Scroll to stage in ASSIGN tab — expand relevant section
+                    // and highlight the stage (set as quick assign selected)
+                    setState(() {
+                      _quickAssignSelectedSlot = stage;
+                    });
+                  },
+                ),
+              );
             }
           },
           onExportProfile: () async {
             final path = await NativeFilePicker.saveFile(
-              suggestedName: 'audio_profile.ffap',
-              fileType: 'ffap',
+              suggestedName: 'audio_profile.zip',
+              fileType: 'zip',
             );
             if (path == null || !mounted) return;
             try {
@@ -11571,7 +11579,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           onImportProfile: () async {
             final paths = await NativeFilePicker.pickFiles(
               title: 'Import Audio Profile',
-              allowedExtensions: ['ffap'],
+              allowedExtensions: ['zip'],
               allowMultiple: false,
             );
             final path = paths.isNotEmpty ? paths.first : null;
@@ -11580,9 +11588,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             final result = await showDialog<ProfileImportResult>(
               context: context,
               builder: (_) => ProfileImportDialog(
-                ffapPath: path,
+                profilePath: path,
                 onImport: (options) => ProfileImporter.import_(
-                  ffapPath: path,
+                  profilePath: path,
                   options: options,
                   setAudioAssignment: (stage, audioPath) =>
                       projectProvider.setAudioAssignment(stage, audioPath),

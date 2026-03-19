@@ -1,6 +1,6 @@
-/// Profile Exporter — creates .ffap (FluxForge Audio Profile) archives.
+/// Profile Exporter — creates FluxForge Audio Profile archives (.zip).
 ///
-/// A .ffap file is a ZIP archive containing:
+/// A profile .zip file contains:
 /// - manifest.json (metadata)
 /// - events.json (composite events)
 /// - assignments.json (stage → audio path map)
@@ -64,7 +64,7 @@ class ProfileManifest {
 class ProfileExporter {
   ProfileExporter._();
 
-  /// Export current project state as .ffap archive.
+  /// Export current project state as .zip profile archive.
   /// Returns the output file path.
   static Future<String> export({
     required String outputPath,
@@ -123,7 +123,7 @@ class ProfileExporter {
     if (musicLayersJson != null) archive.addFile(_textFile('music_layers.json', musicLayersJson));
 
     // Write to disk
-    final filePath = outputPath.endsWith('.ffap') ? outputPath : '$outputPath.ffap';
+    final filePath = outputPath.endsWith('.zip') ? outputPath : '$outputPath.zip';
     final zipData = ZipEncoder().encode(archive);
     await File(filePath).writeAsBytes(zipData);
 
