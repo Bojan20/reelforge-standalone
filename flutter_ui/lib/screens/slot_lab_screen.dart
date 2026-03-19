@@ -11516,6 +11516,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             setState(() {});
           },
           // onAutoBindComplete/onAutoBindDialogDismissed: handled via provider signal
+          onBusVolumesChanged: (busVolumes) {
+            for (final entry in busVolumes.entries) {
+              _ffi.setBusVolume(entry.key, entry.value);
+            }
+          },
           validationWarnings: _validationWarnings,
           onValidate: () {
             final mw = context.read<MiddlewareProvider>();

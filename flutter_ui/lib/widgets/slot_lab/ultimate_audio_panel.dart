@@ -60,6 +60,7 @@ import '../../services/audio_playback_service.dart';
 import '../../services/variant_manager.dart'; // SL-LP-P1.4
 import '../../services/waveform_thumbnail_cache.dart'; // SL-LP-P1.1
 import 'package:get_it/get_it.dart'; // V11: Feature Composer + Pacing
+import 'enhanced_autobind_dialog.dart'; // Enhanced Auto-Bind
 import 'ffnc_rename_dialog.dart'; // FFNC Rename Tool
 import '../../services/ffnc/event_presets.dart'; // Event Presets
 import '../../services/ffnc/phase_presets.dart'; // Phase Presets
@@ -208,6 +209,9 @@ class UltimateAudioPanel extends StatefulWidget {
   /// Phase 2: Called to batch-update volume/bus/fade on a stage's composite event
   final void Function(String stage, double volume, int busId, double fadeOutMs)? onBatchUpdate;
 
+  /// Called when bus volumes are set via Enhanced Auto-Bind dialog
+  final void Function(Map<int, double> busVolumes)? onBusVolumesChanged;
+
   /// Phase 3: Profile export/import callbacks
   final VoidCallback? onExportProfile;
   final VoidCallback? onImportProfile;
@@ -248,6 +252,7 @@ class UltimateAudioPanel extends StatefulWidget {
     this.onAutoBindDialogDismissed,
     this.onPoolClear,
     this.onBatchUpdate,
+    this.onBusVolumesChanged,
     this.onExportProfile,
     this.onImportProfile,
     this.onValidate,
@@ -778,19 +783,14 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   }
 
   void _showAutoBindDialog(BuildContext context) async {
-    final path = await NativeFilePicker.pickDirectory(
-      title: 'Select Sound Folder for Auto-Bind',
+    final result = await showDialog<EnhancedAutoBindResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const EnhancedAutoBindDialog(),
     );
-    if (path == null || !mounted) return;
+    if (result == null || !mounted) return;
 
-    final projectProvider = GetIt.instance<SlotLabProjectProvider>();
-    final result = projectProvider.autoBindFromFolder(path);
-    final bindings = result.bindings;
-    final unmapped = result.unmapped;
-
-    if (!mounted) return;
-
-    if (bindings.isEmpty) {
+    if (result.bindings.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('No matching sound files found in folder'),
@@ -800,93 +800,22 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       return;
     }
 
-    // Show result dialog — pool sync + splash triggered via provider signal when OK pressed
-    final totalFiles = bindings.length + unmapped.length;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A22),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Row(
-          children: [
-            const Icon(Icons.auto_fix_high, color: Color(0xFF66BB6A), size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text('Auto-Bind: ${bindings.length}/$totalFiles files mapped',
-                style: const TextStyle(color: Colors.white, fontSize: 14)),
-            ),
-          ],
+    // Apply bus volumes to engine
+    widget.onBusVolumesChanged?.call(result.busVolumes);
+
+    // Trigger reload (syncs assignments → composite events → EventRegistry)
+    SlotLabScreen.triggerAutoBindReload(result.folderPath);
+
+    if (mounted) {
+      final renamed = result.didRename ? ' (renamed to FFNC)' : '';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Auto-Bind: ${result.bindings.length} stages bound$renamed'),
+          backgroundColor: FluxForgeTheme.bgMid,
+          duration: const Duration(seconds: 3),
         ),
-        content: SizedBox(
-          width: 420,
-          height: 350,
-          child: ListView(
-            children: [
-              // Mapped stages
-              for (final entry in bindings.entries)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 1),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.check_circle, size: 10, color: Color(0xFF66BB6A)),
-                      const SizedBox(width: 4),
-                      SizedBox(
-                        width: 180,
-                        child: Text(entry.key, style: const TextStyle(
-                          color: Color(0xFF66BB6A), fontSize: 10,
-                          fontFamily: 'monospace', fontWeight: FontWeight.w600,
-                        )),
-                      ),
-                      Expanded(
-                        child: Text(entry.value.split('/').last, style: const TextStyle(
-                          color: Colors.white54, fontSize: 9,
-                          fontFamily: 'monospace',
-                        ), overflow: TextOverflow.ellipsis),
-                      ),
-                    ],
-                  ),
-                ),
-              // Unmapped files section
-              if (unmapped.isNotEmpty) ...[
-                const Padding(
-                  padding: EdgeInsets.only(top: 8, bottom: 4),
-                  child: Text('Unmapped files:', style: TextStyle(
-                    color: Color(0xFFFF9040), fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  )),
-                ),
-                for (final file in unmapped)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 1),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.remove_circle_outline, size: 10, color: Color(0xFF665533)),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(file, style: const TextStyle(
-                            color: Color(0xFF887755), fontSize: 9,
-                            fontFamily: 'monospace',
-                          ), overflow: TextOverflow.ellipsis),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              // Direct static call — no callbacks, no providers, no signals
-              SlotLabScreen.triggerAutoBindReload(path);
-            },
-            child: const Text('OK', style: TextStyle(color: Color(0xFF66BB6A))),
-          ),
-        ],
-      ),
-    );
+      );
+    }
   }
 
   // V11: Bulk Import Dialog
