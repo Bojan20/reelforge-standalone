@@ -45,7 +45,6 @@
 /// matched to their correct stages using fuzzy filename matching.
 
 import 'dart:convert'; // JSON for Copy/Paste Phase Config
-import 'dart:io'; // V11: Folder import
 import 'package:flutter/gestures.dart'; // PointerDeviceKind for multi-select
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // SL-LP-P1.3
@@ -71,7 +70,6 @@ import 'sfx_pipeline_wizard.dart'; // SFX Pipeline Wizard
 import '../../providers/slot_lab/feature_composer_provider.dart'; // V11
 import '../../providers/slot_lab/pacing_engine_provider.dart'; // V11
 import '../../services/audio_mapping_import_service.dart'; // V11: Bulk Import
-import '../../services/native_file_picker.dart'; // V11: Native folder picker
 import '../../providers/slot_lab_project_provider.dart'; // Auto-Bind
 import '../../screens/slot_lab_screen.dart'; // Static triggerAutoBindReload
 import '../../theme/fluxforge_theme.dart';
@@ -131,9 +129,6 @@ class UltimateAudioPanel extends StatefulWidget {
 
   /// Called after batch distribution (folder drop)
   final OnBatchDistribute? onBatchDistribute;
-
-  /// Called to clear all audio in a section
-  final Function(String sectionId)? onClearSection;
 
   /// Called when section is toggled (for state persistence)
   final Function(String sectionId)? onSectionToggle;
@@ -197,13 +192,6 @@ class UltimateAudioPanel extends StatefulWidget {
   /// Parameters: reelCount, rowCount
   final void Function(int reels, int rows)? onSlotMachineCreated;
 
-  /// Called after auto-bind completes to sync assignments to EventRegistry
-  /// Passes the folder path so parent can sync files into audio pool
-  final void Function(String folderPath)? onAutoBindComplete;
-
-  /// Called after user dismisses the auto-bind result dialog (presses OK)
-  final VoidCallback? onAutoBindDialogDismissed;
-
   /// Called when POOL should be cleared (on reset with "clear pool" checked)
   final VoidCallback? onPoolClear;
 
@@ -228,7 +216,6 @@ class UltimateAudioPanel extends StatefulWidget {
     this.onAudioLayerAdd,
     this.onAudioClear,
     this.onBatchDistribute,
-    this.onClearSection,
     this.onSectionToggle,
     this.onGroupToggle,
     this.onQuickAssignSlotSelected,
@@ -249,8 +236,6 @@ class UltimateAudioPanel extends StatefulWidget {
     this.onBulkAssign,
     this.onBulkImport,
     this.onSlotMachineCreated,
-    this.onAutoBindComplete,
-    this.onAutoBindDialogDismissed,
     this.onPoolClear,
     this.onBatchUpdate,
     this.onBusVolumesChanged,
@@ -282,7 +267,6 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
 
   // V10: Phase tab navigation — show one phase at a time
   int _activePhaseTab = 0; // 0=All, 1-7=individual phases
-  bool _showAllPhases = false; // false=tab mode, true=scroll all
 
   // V11: Top-level mode switch (STAGES vs PACING)
   int _panelMode = 0; // 0=Stages, 1=Pacing
@@ -302,7 +286,6 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   // Keyboard navigation state (SL-LP-P1.3)
   final FocusNode _panelFocusNode = FocusNode();
   int _selectedSectionIndex = 0;
-  int _selectedGroupIndex = 0;
 
   // Phase config cache — invalidated only when composer config actually changes
   List<_PhaseConfig>? _cachedPhases;
@@ -584,6 +567,12 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       SizedBox(width: 6),
                       Text('Import Profile (.zip)', style: TextStyle(color: Colors.white70, fontSize: 10)),
                     ])),
+                  const PopupMenuItem(value: 'csv_json', height: 30,
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.table_chart, size: 12, color: Color(0xFFFFD700)),
+                      SizedBox(width: 6),
+                      Text('Import CSV / JSON', style: TextStyle(color: Colors.white70, fontSize: 10)),
+                    ])),
                   if (isNarrow) const PopupMenuItem(value: 'sfx', height: 30,
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.auto_fix_high, size: 12, color: FluxForgeTheme.accentCyan),
@@ -596,6 +585,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                     case 'rename': _showFFNCRenameDialog(context);
                     case 'export': widget.onExportProfile?.call();
                     case 'import': widget.onImportProfile?.call();
+                    case 'csv_json': _showCsvJsonImportDialog(context);
                     case 'sfx': SfxPipelineWizard.show(context);
                   }
                 },
@@ -847,11 +837,11 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
     }
   }
 
-  // V11: Bulk Import Dialog
+  // V11: CSV/JSON Import Dialog
   // ═══════════════════════════════════════════════════════════════════════════
 
-  void _showBulkImportDialog(BuildContext context) {
-    BulkImportResult? _lastResult;
+  void _showCsvJsonImportDialog(BuildContext context) {
+    BulkImportResult? lastResult;
 
     showDialog(
       context: context,
@@ -877,7 +867,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       children: [
                         Icon(Icons.file_download, size: 18, color: Color(0xFF40FF90)),
                         SizedBox(width: 8),
-                        Text('BULK AUDIO IMPORT', style: TextStyle(
+                        Text('IMPORT MAPPINGS', style: TextStyle(
                           fontSize: 13, fontWeight: FontWeight.w700,
                           color: Color(0xFF40FF90), letterSpacing: 0.8,
                         )),
@@ -885,40 +875,12 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                     ),
                   ),
 
-                  // Import methods
-                  if (_lastResult == null) ...[
+                  if (lastResult == null) ...[
                     Padding(
                       padding: const EdgeInsets.all(12),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _buildImportMethodCard(
-                            icon: Icons.folder_open,
-                            title: 'Import Folder',
-                            desc: 'Auto-match filenames to stages (fuzzy)',
-                            color: const Color(0xFF4A9EFF),
-                            onTap: () async {
-                              final path = await NativeFilePicker.pickDirectory(
-                                title: 'Select Audio Folder',
-                              );
-                              if (path == null) return;
-                              // List audio files in folder
-                              final dir = Directory(path);
-                              if (!dir.existsSync()) return;
-                              final audioPaths = dir.listSync()
-                                  .whereType<File>()
-                                  .where((f) {
-                                    final ext = f.path.split('.').last.toLowerCase();
-                                    return {'wav', 'mp3', 'ogg', 'flac', 'aif', 'aiff'}.contains(ext);
-                                  })
-                                  .map((f) => f.path)
-                                  .toList();
-                              if (audioPaths.isEmpty) return;
-                              final result = AudioMappingImportService.instance.matchFolder(audioPaths);
-                              setDialogState(() => _lastResult = result);
-                            },
-                          ),
-                          const SizedBox(height: 8),
                           _buildImportMethodCard(
                             icon: Icons.table_chart,
                             title: 'Import CSV',
@@ -927,7 +889,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                             onTap: () async {
                               final result = await _pickAndImportFile(ctx, 'csv');
                               if (result != null) {
-                                setDialogState(() => _lastResult = result);
+                                setDialogState(() => lastResult = result);
                               }
                             },
                           ),
@@ -940,7 +902,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                             onTap: () async {
                               final result = await _pickAndImportFile(ctx, 'json');
                               if (result != null) {
-                                setDialogState(() => _lastResult = result);
+                                setDialogState(() => lastResult = result);
                               }
                             },
                           ),
@@ -972,8 +934,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       ),
                     ),
                   ] else ...[
-                    // Import results view
-                    _buildImportResultsView(ctx, _lastResult!, setDialogState),
+                    _buildImportResultsView(ctx, lastResult!, setDialogState),
                   ],
                 ],
               ),
@@ -3684,17 +3645,6 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         onVariantsChanged: () => setState(() {}), // Refresh UI
       ),
     );
-  }
-
-  /// Count how many composite events use this stage (SL-INT-P1.1)
-  int _countEventsForStage(MiddlewareProvider provider, String stage) {
-    int count = 0;
-    for (final event in provider.compositeEvents) {
-      if (event.triggerStages.contains(stage)) {
-        count++;
-      }
-    }
-    return count;
   }
 
   int _countAssignedInSection(_SectionConfig section) {

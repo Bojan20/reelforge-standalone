@@ -6498,90 +6498,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     });
   }
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // LEFT PANEL - Game Spec & Paytable
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  Widget _buildLeftPanel() {
-    return Container(
-      width: 240,
-      margin: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF121216).withOpacity(0.9),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-      ),
-      child: Column(
-        children: [
-          _buildPanelHeader('GAME SPEC', Icons.settings),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSpecRow('Grid', '$_reelCount × $_rowCount'),
-                  _buildSpecRow('Pay Model', 'Ways (243)'),
-                  _buildSpecRow('RTP Target', '96.5%'),
-
-                  const SizedBox(height: 12),
-                  _buildSectionTitle('VOLATILITY'),
-
-                  // Volatility Dial
-                  Center(
-                    child: VolatilityDial(
-                      initialLevel: _volatilityLevel,
-                      size: 100,
-                      onChanged: (level) {
-                        setState(() {
-                          _slotLabSettings = _slotLabSettings.copyWith(volatility: level);
-                        });
-                      },
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-                  _buildSectionTitle('SCENARIO CONTROLS'),
-
-                  // Scenario Controls
-                  ScenarioControls(
-                    isSpinning: _isSpinning,
-                    onScenarioTriggered: (result) {
-                      _triggerScenario(result);
-                    },
-                    onReplayLastSpin: () {
-                      _replayLastSpin();
-                    },
-                    onBatchPlay: (count) {
-                      _batchPlay(count);
-                    },
-                  ),
-
-                  const SizedBox(height: 12),
-                  _buildSectionTitle('PAYTABLE'),
-
-                  _buildPaytableRow('7', '500x', true, true, false),
-                  _buildPaytableRow('BAR', '200x', true, true, false),
-                  _buildPaytableRow('BELL', '100x', true, false, true),
-                  _buildPaytableRow('CHERRY', '50x', true, false, false),
-                  _buildPaytableRow('WILD', 'Sub', false, true, true),
-                  _buildPaytableRow('BONUS', 'FS', false, false, true),
-
-                  const SizedBox(height: 12),
-                  _buildSectionTitle('FEATURE RULES'),
-
-                  _buildFeatureRule('3+ Scatters → 10-20 FS'),
-                  _buildFeatureRule('Big Win Tier 1: 50x'),
-                  _buildFeatureRule('Big Win Tier 2: 200x'),
-                  _buildFeatureRule('Big Win Tier 3: 900x'),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   // Scenario trigger handlers
   void _triggerScenario(ScenarioResult result) {
@@ -6901,94 +6817,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
 
 
 
-  Widget _buildSpecRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 11),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Color(0xFFFFD700),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPaytableRow(String symbol, String payout, bool sfx, bool music, bool duck) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 2),
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
-        borderRadius: BorderRadius.circular(3),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 40,
-            child: Text(
-              symbol,
-              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
-            ),
-          ),
-          SizedBox(
-            width: 32,
-            child: Text(
-              payout,
-              style: const TextStyle(color: Color(0xFFFFD700), fontSize: 10),
-            ),
-          ),
-          _buildLedIndicator(sfx, const Color(0xFF40FF90)),
-          const SizedBox(width: 3),
-          _buildLedIndicator(music, const Color(0xFF4A9EFF)),
-          const SizedBox(width: 3),
-          _buildLedIndicator(duck, const Color(0xFFFF9040)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLedIndicator(bool active, Color color) {
-    return Container(
-      width: 6,
-      height: 6,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: active ? color : color.withOpacity(0.2),
-        boxShadow: active
-            ? [BoxShadow(color: color.withOpacity(0.5), blurRadius: 3)]
-            : null,
-      ),
-    );
-  }
-
-  Widget _buildFeatureRule(String rule) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          const Icon(Icons.chevron_right, size: 12, color: Color(0xFFFFAA00)),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Text(
-              rule,
-              style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // TIMELINE AREA
@@ -10129,7 +9957,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                 category: categoryController.text.trim().isEmpty ? 'General' : categoryController.text.trim(),
               );
               Navigator.pop(ctx);
-              setState(() {});
             },
             child: const Text('Create', style: TextStyle(color: FluxForgeTheme.accentPurple, fontSize: 11)),
           ),
@@ -10332,7 +10159,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             GestureDetector(
               onTap: () {
                 customProv.selectEvent(isSelected ? null : evt.id);
-                setState(() {});
               },
               child: Container(
                 margin: const EdgeInsets.only(bottom: 2),
@@ -10457,7 +10283,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               GestureDetector(
                 onTap: () {
                   customProv.toggleEventEnabled(event.id);
-                  setState(() {});
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -10486,7 +10311,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               GestureDetector(
                 onTap: () {
                   customProv.deleteEvent(event.id);
-                  setState(() {});
                 },
                 child: Icon(Icons.delete_outline, size: 14, color: FluxForgeTheme.accentRed.withValues(alpha: 0.5)),
               ),
@@ -10512,7 +10336,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                       AudioAssetManager.instance.importFileInstant(path, folder: 'Custom Events');
                     }
                   }
-                  setState(() {});
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -10551,7 +10374,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   final p = path;
                   customProv.updateLayer(event.id, layer.id,
                       (l) => l.copyWith(audioPath: p, name: p.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), '')));
-                  setState(() {});
                 }
               },
               builder: (context, candidateData, rejectedData) {
@@ -10589,7 +10411,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                       GestureDetector(
                         onTap: () {
                           customProv.toggleLayerMute(event.id, layer.id);
-                          setState(() {});
                         },
                         child: Icon(
                           layer.muted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
@@ -10601,7 +10422,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                       GestureDetector(
                         onTap: () {
                           customProv.removeLayer(event.id, layer.id);
-                          setState(() {});
                         },
                         child: Icon(Icons.close_rounded, size: 12, color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5)),
                       ),
@@ -10627,7 +10447,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   customProv.addLayer(event.id, path,
                     name: path.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
                   );
-                  setState(() {});
                 }
               },
               builder: (context, candidateData, rejectedData) {
@@ -14672,20 +14491,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 6),
-      child: Text(
-        title,
-        style: const TextStyle(
-          color: Color(0xFF888888),
-          fontSize: 9,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 1,
-        ),
-      ),
-    );
-  }
 
   Widget _buildGlassButton({
     required IconData icon,
