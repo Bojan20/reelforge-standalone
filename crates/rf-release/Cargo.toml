@@ -1,7 +1,7 @@
 [package]
 name = "rf-release"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "Release automation for FluxForge Studio"
 publish = false
 

@@ -1,7 +1,7 @@
 [package]
 name = "rf-audio-diff"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "FFT-based spectral audio comparison for regression testing"
 license = "MIT"
 

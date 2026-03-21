@@ -30,48 +30,49 @@ const MAX_PARAM_CHANGES: usize = 128;
 /// Based on baseview (RustAudio) and JUCE patterns.
 #[cfg(target_os = "macos")]
 fn register_plugin_window_classes() {
-    use objc::declare::ClassDecl;
-    use objc::runtime::{Class, Object, Sel, BOOL};
-    use objc::{sel, sel_impl};
+    use objc2::declare::ClassBuilder;
+    use objc2::runtime::{AnyClass, AnyObject, Bool, Sel};
+    use objc2::{sel, msg_send};
+    use objc2_foundation::NSPoint;
 
     static REGISTERED: std::sync::Once = std::sync::Once::new();
     REGISTERED.call_once(|| {
         unsafe {
             // --- FFPluginWindow: NSWindow that always accepts key/main ---
-            let ns_window = Class::get("NSWindow").unwrap();
-            let mut window_decl = ClassDecl::new("FFPluginWindow", ns_window).unwrap();
+            let ns_window = AnyClass::get(c"NSWindow").unwrap();
+            let mut window_builder = ClassBuilder::new(c"FFPluginWindow", ns_window).unwrap();
 
-            extern "C" fn can_become_key(_this: &Object, _sel: Sel) -> BOOL {
-                objc::runtime::YES
+            unsafe extern "C" fn can_become_key(_this: *mut AnyObject, _sel: Sel) -> Bool {
+                Bool::YES
             }
-            extern "C" fn can_become_main(_this: &Object, _sel: Sel) -> BOOL {
-                objc::runtime::YES
+            unsafe extern "C" fn can_become_main(_this: *mut AnyObject, _sel: Sel) -> Bool {
+                Bool::YES
             }
 
             // Debug: log sendEvent + hitTest for mouseDown
-            extern "C" fn send_event(this: &Object, _sel: Sel, event: *mut Object) {
+            unsafe extern "C" fn send_event(this: *mut AnyObject, _sel: Sel, event: *mut AnyObject) {
                 unsafe {
-                    let etype: u64 = objc::msg_send![event, type];
+                    let etype: u64 = msg_send![event, r#type];
                     if etype == 1 { // mouseDown
-                        let location: cocoa::foundation::NSPoint = objc::msg_send![event, locationInWindow];
-                        let content_view: *mut Object = objc::msg_send![this, contentView];
-                        let local: cocoa::foundation::NSPoint = objc::msg_send![content_view, convertPoint:location fromView:std::ptr::null_mut::<Object>()];
-                        let hit: *mut Object = objc::msg_send![content_view, hitTest: local];
+                        let location: NSPoint = msg_send![event, locationInWindow];
+                        let content_view: *mut AnyObject = msg_send![this, contentView];
+                        let local: NSPoint = msg_send![content_view, convertPoint: location, fromView:std::ptr::null_mut::<AnyObject>()];
+                        let hit: *mut AnyObject = msg_send![content_view, hitTest: local];
                         if !hit.is_null() {
-                            let cls: *mut Object = objc::msg_send![hit, class];
-                            let name: *mut Object = objc::msg_send![cls, className];
-                            let cstr: *const i8 = objc::msg_send![name, UTF8String];
+                            let cls: *mut AnyObject = msg_send![hit, class];
+                            let name: *mut AnyObject = msg_send![cls, className];
+                            let cstr: *const i8 = msg_send![name, UTF8String];
                             let n = std::ffi::CStr::from_ptr(cstr).to_str().unwrap_or("?");
-                            let super_cls: *mut Object = objc::msg_send![cls, superclass];
-                            let super_name: *mut Object = objc::msg_send![super_cls, className];
-                            let scstr: *const i8 = objc::msg_send![super_name, UTF8String];
+                            let super_cls: *mut AnyObject = msg_send![cls, superclass];
+                            let super_name: *mut AnyObject = msg_send![super_cls, className];
+                            let scstr: *const i8 = msg_send![super_name, UTF8String];
                             let sn = std::ffi::CStr::from_ptr(scstr).to_str().unwrap_or("?");
                             eprintln!("[FFPluginWindow] mouseDown at ({:.0},{:.0}) hit={} super={}", local.x, local.y, n, sn);
                             // Check view hierarchy depth
-                            let mut v: *mut Object = hit;
+                            let mut v: *mut AnyObject = hit;
                             let mut depth = 0;
                             while !v.is_null() {
-                                let parent: *mut Object = objc::msg_send![v, superview];
+                                let parent: *mut AnyObject = msg_send![v, superview];
                                 v = parent;
                                 depth += 1;
                                 if depth > 20 { break; }
@@ -82,77 +83,77 @@ fn register_plugin_window_classes() {
                         }
                     }
                     // Call super
-                    let superclass = objc::runtime::Class::get("NSWindow").unwrap();
-                    let send_event_sel = objc::sel!(sendEvent:);
-                    let imp: extern "C" fn(*mut Object, objc::runtime::Sel, *mut Object) =
+                    let superclass = AnyClass::get(c"NSWindow").unwrap();
+                    let send_event_sel = sel!(sendEvent:);
+                    let imp: unsafe extern "C" fn(*mut AnyObject, Sel, *mut AnyObject) =
                         std::mem::transmute(superclass.instance_method(send_event_sel).unwrap().implementation());
-                    imp(this as *const _ as *mut _, send_event_sel, event);
+                    imp(this, send_event_sel, event);
                 }
             }
 
-            window_decl.add_method(
+            window_builder.add_method(
                 sel!(canBecomeKeyWindow),
-                can_become_key as extern "C" fn(&Object, Sel) -> BOOL,
+                can_become_key as unsafe extern "C" fn(*mut AnyObject, Sel) -> Bool,
             );
-            window_decl.add_method(
+            window_builder.add_method(
                 sel!(canBecomeMainWindow),
-                can_become_main as extern "C" fn(&Object, Sel) -> BOOL,
+                can_become_main as unsafe extern "C" fn(*mut AnyObject, Sel) -> Bool,
             );
-            window_decl.add_method(
+            window_builder.add_method(
                 sel!(sendEvent:),
-                send_event as extern "C" fn(&Object, Sel, *mut Object),
+                send_event as unsafe extern "C" fn(*mut AnyObject, Sel, *mut AnyObject),
             );
-            window_decl.register();
+            window_builder.register();
 
             // --- FFPluginContainerView: NSView with acceptsFirstMouse ---
             // Without this, first click on non-key window just focuses it
             // but does NOT deliver mouseDown to the plugin view.
-            let ns_view = Class::get("NSView").unwrap();
-            let mut view_decl = ClassDecl::new("FFPluginContainerView", ns_view).unwrap();
+            let ns_view = AnyClass::get(c"NSView").unwrap();
+            let mut view_builder = ClassBuilder::new(c"FFPluginContainerView", ns_view).unwrap();
 
-            extern "C" fn accepts_first_mouse(_this: &Object, _sel: Sel, _event: *mut Object) -> BOOL {
-                objc::runtime::YES
+            unsafe extern "C" fn accepts_first_mouse(_this: *mut AnyObject, _sel: Sel, _event: *mut AnyObject) -> Bool {
+                Bool::YES
             }
-            extern "C" fn accepts_first_responder(_this: &Object, _sel: Sel) -> BOOL {
-                objc::runtime::YES
+            unsafe extern "C" fn accepts_first_responder(_this: *mut AnyObject, _sel: Sel) -> Bool {
+                Bool::YES
             }
             // NOTE: do NOT override isFlipped — use NSView default (origin bottom-left)
             // Plugin views use unflipped coordinates
 
-            extern "C" fn container_mouse_down(this: &Object, _sel: Sel, event: *mut Object) {
+            unsafe extern "C" fn container_mouse_down(this: *mut AnyObject, _sel: Sel, event: *mut AnyObject) {
                 unsafe {
                     eprintln!("[FFContainer] mouseDown received! Forwarding to subviews");
                     // Forward to subviews via hitTest
-                    let location: cocoa::foundation::NSPoint = objc::msg_send![event, locationInWindow];
-                    let local: cocoa::foundation::NSPoint = objc::msg_send![this, convertPoint:location fromView:cocoa::base::nil];
+                    let location: NSPoint = msg_send![event, locationInWindow];
+                    let local: NSPoint = msg_send![this, convertPoint: location, fromView:std::ptr::null_mut::<AnyObject>()];
                     eprintln!("[FFContainer] click at ({:.0}, {:.0})", local.x, local.y);
-                    let hit: cocoa::base::id = objc::msg_send![this, hitTest: local];
-                    if !hit.is_null() && hit as *const _ != this as *const _ {
-                        let class_name: cocoa::base::id = objc::msg_send![hit, className];
-                        let cstr: *const i8 = objc::msg_send![class_name, UTF8String];
+                    let hit: *mut AnyObject = msg_send![this, hitTest: local];
+                    if !hit.is_null() && hit != this {
+                        let class_name: *mut AnyObject = msg_send![hit, className];
+                        let cstr: *const i8 = msg_send![class_name, UTF8String];
                         let name = std::ffi::CStr::from_ptr(cstr).to_str().unwrap_or("?");
                         eprintln!("[FFContainer] hitTest found: {} — forwarding mouseDown", name);
-                        let _: () = objc::msg_send![hit, mouseDown: event];
+                        let _: () = msg_send![hit, mouseDown: event];
                     } else {
                         eprintln!("[FFContainer] hitTest returned self or nil");
                     }
                 }
             }
 
-            view_decl.add_method(
+            view_builder.add_method(
                 sel!(acceptsFirstMouse:),
-                accepts_first_mouse as extern "C" fn(&Object, Sel, *mut Object) -> BOOL,
+                accepts_first_mouse as unsafe extern "C" fn(*mut AnyObject, Sel, *mut AnyObject) -> Bool,
             );
-            view_decl.add_method(
+            view_builder.add_method(
                 sel!(acceptsFirstResponder),
-                accepts_first_responder as extern "C" fn(&Object, Sel) -> BOOL,
+                accepts_first_responder as unsafe extern "C" fn(*mut AnyObject, Sel) -> Bool,
             );
             // isFlipped NOT overridden — keep default NSView coords
-            view_decl.add_method(
+            view_builder.add_method(
                 sel!(mouseDown:),
-                container_mouse_down as extern "C" fn(&Object, Sel, *mut Object),
+                container_mouse_down as unsafe extern "C" fn(*mut AnyObject, Sel, *mut AnyObject),
             );
-            view_decl.register();
+            view_builder.register();
         }
     });
 }
@@ -166,71 +167,70 @@ fn register_plugin_window_classes() {
 /// SAFETY: Must be called from the main thread. `view_ptr` must be a valid NSView*.
 #[cfg(target_os = "macos")]
 unsafe fn create_plugin_window(view_ptr: *mut c_void, width: f64, height: f64, title: &str) {
-    use cocoa::appkit::NSBackingStoreBuffered;
-    use cocoa::base::{id, nil, NO};
-    use cocoa::foundation::{NSAutoreleasePool, NSPoint, NSRect, NSSize, NSString};
-    use objc::runtime::{Class, YES};
-    use objc::{msg_send, sel, sel_impl};
+    use objc2::runtime::{AnyClass, AnyObject, Bool};
+    use objc2::{msg_send, sel};
+    use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 
     register_plugin_window_classes();
 
-    let _pool = NSAutoreleasePool::new(nil);
+    objc2::rc::autoreleasepool(|_| {
+        let rect = NSRect::new(
+            NSPoint::new(200.0, 200.0),
+            NSSize::new(width, height),
+        );
 
-    let rect = NSRect::new(
-        NSPoint::new(200.0, 200.0),
-        NSSize::new(width, height),
-    );
+        // FFPluginWindow: canBecomeKeyWindow/canBecomeMainWindow -> YES
+        let window_cls = AnyClass::get(c"FFPluginWindow").unwrap();
+        let window: *mut AnyObject = msg_send![window_cls, alloc];
+        let window: *mut AnyObject = msg_send![window,
+            initWithContentRect: rect,
+            styleMask: 15u64,
+            backing: 2u64,
+            defer: Bool::NO
+        ];
 
-    // FFPluginWindow: canBecomeKeyWindow/canBecomeMainWindow -> YES
-    let window_cls = Class::get("FFPluginWindow").unwrap();
-    let window: id = msg_send![window_cls, alloc];
-    let window: id = msg_send![window,
-        initWithContentRect: rect
-        styleMask: 15u64
-        backing: NSBackingStoreBuffered as u64
-        defer: NO
-    ];
+        if window.is_null() {
+            eprintln!("[FluxForge] Failed to create FFPluginWindow");
+            return;
+        }
 
-    if window.is_null() {
-        eprintln!("[FluxForge] Failed to create FFPluginWindow");
-        return;
-    }
+        let _: () = msg_send![window, setReleasedWhenClosed: Bool::NO];
 
-    let _: () = msg_send![window, setReleasedWhenClosed: NO];
+        let ns_title = NSString::from_str(title);
+        let _: () = msg_send![window, setTitle: &*ns_title];
 
-    let ns_title = NSString::alloc(nil).init_str(title);
-    let _: () = msg_send![window, setTitle: ns_title];
+        // CRITICAL: Set wantsLayer on content view but use canDrawSubviewsIntoLayer
+        // to avoid forcing separate CALayers on plugin subviews. This prevents
+        // _createLayer crash while keeping plugin's rendering pipeline intact.
+        let content_view: *mut AnyObject = msg_send![window, contentView];
+        let _: () = msg_send![content_view, setWantsLayer: Bool::YES];
+        let _: () = msg_send![content_view, setCanDrawSubviewsIntoLayer: Bool::YES];
 
-    // CRITICAL: Set wantsLayer on content view but use canDrawSubviewsIntoLayer
-    // to avoid forcing separate CALayers on plugin subviews. This prevents
-    // _createLayer crash while keeping plugin's rendering pipeline intact.
-    let content_view: id = msg_send![window, contentView];
-    let _: () = msg_send![content_view, setWantsLayer: YES];
-    let _: () = msg_send![content_view, setCanDrawSubviewsIntoLayer: YES];
+        // Add plugin view as subview — do NOT set wantsLayer on plugin view
+        // Plugin manages its own rendering (Metal/OpenGL/CoreGraphics)
+        let plugin_view = view_ptr as *mut AnyObject;
+        let view_rect = NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(width, height));
+        let _: () = msg_send![plugin_view, setFrame: view_rect];
+        let _: () = msg_send![plugin_view, setAutoresizingMask: 18u64];
+        let _: () = msg_send![content_view, setAutoresizesSubviews: Bool::YES];
+        let _: () = msg_send![content_view, addSubview: plugin_view];
 
-    // Add plugin view as subview — do NOT set wantsLayer on plugin view
-    // Plugin manages its own rendering (Metal/OpenGL/CoreGraphics)
-    let plugin_view = view_ptr as id;
-    let view_rect = NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(width, height));
-    let _: () = msg_send![plugin_view, setFrame: view_rect];
-    let _: () = msg_send![plugin_view, setAutoresizingMask: 18u64];
-    let _: () = msg_send![content_view, setAutoresizesSubviews: YES];
-    let _: () = msg_send![content_view, addSubview: plugin_view];
+        let _: () = msg_send![window, setAcceptsMouseMovedEvents: Bool::YES];
 
-    let _: () = msg_send![window, setAcceptsMouseMovedEvents: YES];
+        let nsapp: *mut AnyObject = msg_send![AnyClass::get(c"NSApplication").unwrap(), sharedApplication];
+        #[allow(deprecated)]
+        let _: () = msg_send![nsapp, activateIgnoringOtherApps: Bool::YES];
 
-    let nsapp: id = msg_send![Class::get("NSApplication").unwrap(), sharedApplication];
-    let _: () = msg_send![nsapp, activateIgnoringOtherApps: YES];
+        let _: () = msg_send![window, center];
+        let _: () = msg_send![window, makeKeyAndOrderFront: std::ptr::null_mut::<AnyObject>()];
+        let _: () = msg_send![window, makeFirstResponder: plugin_view];
+        let _: () = msg_send![window, setLevel: 3i64]; // NSFloatingWindowLevel
 
-    let _: () = msg_send![window, center];
-    let _: () = msg_send![window, makeKeyAndOrderFront: nil];
-    let _: () = msg_send![window, makeFirstResponder: plugin_view];
-    let _: () = msg_send![window, setLevel: 3i64]; // NSFloatingWindowLevel
+        let _: () = msg_send![window, setReleasedWhenClosed: Bool::NO];
+        let _: () = msg_send![window, retain];
 
-    let _: () = msg_send![window, setReleasedWhenClosed: NO];
-    let _: () = msg_send![window, retain];
-
-    eprintln!("[FluxForge] FFPluginWindow created {}x{} for '{}'", width as u32, height as u32, title);
+        eprintln!("[FluxForge] FFPluginWindow created {}x{} for '{}'", width as u32, height as u32, title);
+    });
 }
 
 /// Find the rf-plugin-host binary.
@@ -1177,8 +1177,9 @@ impl PluginInstance for Vst3Host {
                 .or_else(|| PENDING_WINDOW.lock().take());
             if let Some(ptr) = window_ptr {
                 unsafe {
-                    use objc::{msg_send, sel, sel_impl};
-                    let window = ptr as cocoa::base::id;
+                    use objc2::msg_send;
+                    use objc2::runtime::AnyObject;
+                    let window = ptr as *mut AnyObject;
                     let _: () = msg_send![window, close];
                     let _: () = msg_send![window, release];
                 }
@@ -1232,7 +1233,7 @@ unsafe extern "C" {
         component_subtype: u32,
         component_manufacturer: u32,
         user_data: *mut std::ffi::c_void,
-        callback: extern "C" fn(*mut std::ffi::c_void, cocoa::base::id, f64, f64),
+        callback: extern "C" fn(*mut std::ffi::c_void, *mut objc2::runtime::AnyObject, f64, f64),
     );
     fn au_host_close();
     fn au_host_scan_plugins(
@@ -1270,11 +1271,11 @@ static PENDING_WINDOW: Mutex<Option<usize>> = Mutex::new(None);
 #[cfg(target_os = "macos")]
 extern "C" fn au_gui_ready_callback(
     _user_data: *mut std::ffi::c_void,
-    view: cocoa::base::id,
+    view: *mut objc2::runtime::AnyObject,
     width: f64,
     height: f64,
 ) {
-    if view == cocoa::base::nil {
+    if view.is_null() {
         eprintln!("[FluxForge] AU plugin has no GUI view");
         return;
     }
@@ -1284,11 +1285,12 @@ extern "C" fn au_gui_ready_callback(
 
     // Create window using existing FFPluginWindow infrastructure (in-process)
     unsafe {
-        use objc::{msg_send, sel, sel_impl};
+        use objc2::msg_send;
+        use objc2::runtime::AnyObject;
         create_plugin_window(view as *mut c_void, w, h, "Plugin");
         // The window was retained in create_plugin_window, grab its pointer
         // from the view's window property
-        let window: cocoa::base::id = msg_send![view, window];
+        let window: *mut AnyObject = msg_send![view, window];
         if !window.is_null() {
             *PENDING_WINDOW.lock() = Some(window as usize);
         }

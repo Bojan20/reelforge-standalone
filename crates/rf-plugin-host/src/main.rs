@@ -13,17 +13,21 @@ use std::io::{self, BufRead, Write as IoWrite};
 use std::os::raw::c_char;
 use std::sync::Mutex;
 
-use cocoa::appkit::{NSApp, NSApplication, NSBackingStoreBuffered, NSWindow, NSWindowStyleMask};
-use cocoa::base::{id, nil, NO, YES};
-use cocoa::foundation::{NSPoint, NSRect, NSSize, NSString};
-use objc::declare::ClassDecl;
-use objc::runtime::{Class, Object, Sel};
-use objc::{class, msg_send, sel, sel_impl};
+use objc2::rc::Retained;
+use objc2::runtime::{AnyClass, AnyObject, Bool, Sel};
+use objc2::{class, msg_send, sel};
+use objc2::declare::ClassBuilder;
+use objc2_foundation::{NSString, NSPoint, NSRect, NSSize, MainThreadMarker};
+use objc2_app_kit::{
+    NSApplication, NSApplicationActivationPolicy, NSBackingStoreType, NSWindow,
+    NSWindowStyleMask,
+};
 
 // FFI to our ObjC helper (au_host.m)
+// These use raw `*mut AnyObject` instead of cocoa `id`
 type AUHostGuiCallback = extern "C" fn(
     user_data: *mut std::ffi::c_void,
-    view: id,
+    view: *mut AnyObject,
     width: f64,
     height: f64,
 );
@@ -83,10 +87,17 @@ struct PluginEntry {
     mfr_code: u32,
 }
 
+/// Send+Sync wrapper for a raw ObjC pointer. SAFETY: we only touch
+/// the wrapped pointer on the main thread; the Mutex is purely for
+/// satisfying the `static` requirement.
+struct SendPtr(*mut AnyObject);
+unsafe impl Send for SendPtr {}
+unsafe impl Sync for SendPtr {}
+
 // Global state
 static COMMANDS: Mutex<Vec<Command>> = Mutex::new(Vec::new());
 static PLUGINS: Mutex<Vec<PluginEntry>> = Mutex::new(Vec::new());
-static WINDOW: Mutex<Option<usize>> = Mutex::new(None);
+static WINDOW: Mutex<Option<SendPtr>> = Mutex::new(None);
 
 extern "C" fn scan_callback(
     _user_data: *mut std::ffi::c_void,
@@ -109,11 +120,11 @@ extern "C" fn scan_callback(
 
 extern "C" fn gui_ready_callback(
     _user_data: *mut std::ffi::c_void,
-    view: id,
+    view: *mut AnyObject,
     width: f64,
     height: f64,
 ) {
-    if view == nil {
+    if view.is_null() {
         send_response("error", "Plugin has no GUI");
         return;
     }
@@ -123,47 +134,61 @@ extern "C" fn gui_ready_callback(
         let h = if height > 10.0 { height } else { 600.0 };
 
         let rect = NSRect::new(NSPoint::new(200.0, 200.0), NSSize::new(w, h));
-        let style = NSWindowStyleMask::NSTitledWindowMask
-            | NSWindowStyleMask::NSClosableWindowMask
-            | NSWindowStyleMask::NSMiniaturizableWindowMask
-            | NSWindowStyleMask::NSResizableWindowMask;
+        let style = NSWindowStyleMask::Titled
+            | NSWindowStyleMask::Closable
+            | NSWindowStyleMask::Miniaturizable
+            | NSWindowStyleMask::Resizable;
 
-        let window = NSWindow::alloc(nil)
-            .initWithContentRect_styleMask_backing_defer_(rect, style, NSBackingStoreBuffered, YES);
+        let mtm = MainThreadMarker::new_unchecked();
+        let window = NSWindow::initWithContentRect_styleMask_backing_defer(
+            mtm.alloc::<NSWindow>(),
+            rect,
+            style,
+            NSBackingStoreType::Buffered,
+            false,
+        );
 
-        window.setReleasedWhenClosed_(NO);
-        let _: () = msg_send![window, retain];
+        window.setReleasedWhenClosed(false);
 
-        let view_class: *const Class = msg_send![view, class];
-        let class_name = if !view_class.is_null() {
-            (*view_class).name()
+        // Get view class name for title
+        let view_class: *const AnyClass = msg_send![view, class];
+        let class_name: String = if !view_class.is_null() {
+            (*view_class).name().to_string_lossy().to_string()
         } else {
-            "Plugin"
+            "Plugin".to_string()
         };
 
-        let title = NSString::alloc(nil).init_str(&format!("Plugin — {}", class_name));
-        window.setTitle_(title);
+        let title = NSString::from_str(&format!("Plugin — {}", class_name));
+        window.setTitle(&title);
 
+        // Set autoresizing mask on view
         let _: () = msg_send![view, setAutoresizingMask: 18u64];
-        window.setContentView_(view);
+
+        // Set view as content
+        let _: () = msg_send![&*window, setContentView: view];
 
         window.center();
-        window.makeKeyAndOrderFront_(nil);
+        window.makeKeyAndOrderFront(None);
 
-        let nsapp: id = msg_send![class!(NSApplication), sharedApplication];
-        let _: () = msg_send![nsapp, activateIgnoringOtherApps: YES];
-        let _: () = msg_send![window, makeFirstResponder: view];
+        // Activate app
+        let app = NSApplication::sharedApplication(mtm);
+        #[allow(deprecated)]
+        app.activateIgnoringOtherApps(true);
 
-        *WINDOW.lock().unwrap() = Some(window as usize);
+        let _: () = msg_send![&*window, makeFirstResponder: view];
 
         eprintln!("[rf-plugin-host] Window {}x{} view={}", w, h, class_name);
+
+        // Store raw pointer; Retained::into_raw transfers ownership (prevents drop/release)
+        let raw: *const NSWindow = Retained::into_raw(window);
+        *WINDOW.lock().unwrap() = Some(SendPtr(raw as *mut AnyObject));
     }
 
     send_response("ok", "GUI opened");
 }
 
 /// NSTimer callback — polls for stdin commands
-extern "C" fn timer_fired(_this: &Object, _sel: Sel, _timer: id) {
+unsafe extern "C" fn timer_fired(_this: *mut AnyObject, _sel: Sel, _timer: *mut AnyObject) {
     let commands: Vec<Command> = COMMANDS.lock().unwrap().drain(..).collect();
 
     for cmd in commands {
@@ -219,21 +244,21 @@ extern "C" fn timer_fired(_this: &Object, _sel: Sel, _timer: id) {
                 }
             }
             "close" => {
-                if let Some(window_ptr) = WINDOW.lock().unwrap().take() {
+                if let Some(SendPtr(raw)) = WINDOW.lock().unwrap().take() {
                     unsafe {
-                        let window = window_ptr as id;
-                        let _: () = msg_send![window, close];
-                        let _: () = msg_send![window, release];
+                        // Reconstruct Retained from raw pointer, close, then let it drop (release)
+                        let window: Retained<NSWindow> = Retained::from_raw(raw.cast()).unwrap();
+                        window.close();
                     }
                 }
                 unsafe {
                     au_host_close();
                 }
                 send_response("ok", "closed");
-                unsafe {
-                    let nsapp: id = msg_send![class!(NSApplication), sharedApplication];
-                    let _: () = msg_send![nsapp, terminate: nil];
-                }
+
+                let mtm = unsafe { MainThreadMarker::new_unchecked() };
+                let app = NSApplication::sharedApplication(mtm);
+                app.terminate(None);
             }
             _ => {
                 send_response("error", &format!("Unknown command: {}", cmd.cmd));
@@ -243,12 +268,9 @@ extern "C" fn timer_fired(_this: &Object, _sel: Sel, _timer: id) {
 }
 
 fn main() {
-    unsafe {
-        let nsapp = NSApp();
-        nsapp.setActivationPolicy_(
-            cocoa::appkit::NSApplicationActivationPolicy::NSApplicationActivationPolicyAccessory,
-        );
-    }
+    let mtm = MainThreadMarker::new().expect("must run on main thread");
+    let app = NSApplication::sharedApplication(mtm);
+    app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
 
     // Scan all AU plugins
     unsafe {
@@ -288,30 +310,30 @@ fn main() {
 
     // Timer for polling stdin commands on main thread
     unsafe {
-        let superclass = Class::get("NSObject").unwrap();
-        let mut decl = ClassDecl::new("RFTimerTarget", superclass).unwrap();
-        decl.add_method(
+        let superclass = AnyClass::get(c"NSObject").unwrap();
+        let mut builder = ClassBuilder::new(c"RFTimerTarget", superclass).unwrap();
+        builder.add_method(
             sel!(timerFired:),
-            timer_fired as extern "C" fn(&Object, Sel, id),
+            timer_fired as unsafe extern "C" fn(*mut AnyObject, Sel, *mut AnyObject),
         );
-        decl.register();
+        builder.register();
 
-        let target_class = Class::get("RFTimerTarget").unwrap();
-        let target: id = msg_send![target_class, alloc];
-        let target: id = msg_send![target, init];
+        let target_class = AnyClass::get(c"RFTimerTarget").unwrap();
+        let target: *mut AnyObject = msg_send![target_class, alloc];
+        let target: *mut AnyObject = msg_send![target, init];
 
         let interval: f64 = 1.0 / 60.0;
-        let _timer: id = msg_send![
+        let nil: *mut AnyObject = std::ptr::null_mut();
+        let _timer: *mut AnyObject = msg_send![
             class!(NSTimer),
-            scheduledTimerWithTimeInterval: interval
-            target: target
-            selector: sel!(timerFired:)
-            userInfo: nil
-            repeats: YES
+            scheduledTimerWithTimeInterval: interval,
+            target: target,
+            selector: sel!(timerFired:),
+            userInfo: nil,
+            repeats: Bool::YES
         ];
 
         // [NSApp run] — proper macOS event loop
-        let nsapp: id = msg_send![class!(NSApplication), sharedApplication];
-        let _: () = msg_send![nsapp, run];
+        app.run();
     }
 }
