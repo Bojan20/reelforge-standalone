@@ -3591,12 +3591,25 @@ impl PlaybackEngine {
 
     /// Pre-allocate or remove a phase vocoder for a clip (UI thread only).
     /// Call when preserve_pitch is toggled or stretch_ratio changes.
+    /// Pre-allocate or remove a phase vocoder for a clip (UI thread only).
+    /// `pitch_shift_semitones`: additional pitch shift (0.0 = stretch compensation only)
     pub fn prepare_clip_vocoder(&self, clip_id: u64, stretch_ratio: f64, sample_rate: f64) {
-        if (stretch_ratio - 1.0).abs() <= 0.001 {
+        self.prepare_clip_vocoder_with_pitch(clip_id, stretch_ratio, 0.0, sample_rate);
+    }
+
+    /// Pre-allocate vocoder with explicit pitch shift + stretch compensation.
+    /// pitch_factor = 2^(semitones/12) / stretch_ratio
+    pub fn prepare_clip_vocoder_with_pitch(
+        &self, clip_id: u64, stretch_ratio: f64, pitch_shift_semitones: f64, sample_rate: f64,
+    ) {
+        let has_stretch = (stretch_ratio - 1.0).abs() > 0.001;
+        let has_pitch = pitch_shift_semitones.abs() > 0.01;
+        if !has_stretch && !has_pitch {
             self.clip_vocoders.write().remove(&clip_id);
             return;
         }
-        let pitch_factor = 1.0 / stretch_ratio;
+        // pitch_factor combines pitch shift + stretch ratio compensation
+        let pitch_factor = 2.0_f64.powf(pitch_shift_semitones / 12.0) / stretch_ratio;
         let mut vocoders = self.clip_vocoders.write();
         let (pv_l, pv_r) = vocoders.entry(clip_id).or_insert_with(|| {
             let l = crate::phase_vocoder::PhaseVocoder::new(2048, 4, sample_rate);
@@ -3605,6 +3618,11 @@ impl PlaybackEngine {
         });
         pv_l.set_pitch_factor(pitch_factor);
         pv_r.set_pitch_factor(pitch_factor);
+    }
+
+    /// Get write access to clip vocoders map (UI thread only).
+    pub fn clip_vocoders_write(&self) -> parking_lot::RwLockWriteGuard<'_, HashMap<u64, (crate::phase_vocoder::PhaseVocoder, crate::phase_vocoder::PhaseVocoder)>> {
+        self.clip_vocoders.write()
     }
 
     /// Remove a phase vocoder for a clip (UI thread only).
@@ -6484,16 +6502,13 @@ impl PlaybackEngine {
                         }
 
                         // Phase 2: Phase vocoder pitch correction
-                        // pitch_factor = 1/stretch_ratio cancels varispeed pitch change
-                        let pitch_factor = 1.0 / clip.stretch_ratio;
+                        // pitch_factor is pre-set by UI thread (includes pitch_shift + stretch compensation)
+                        // Audio thread does NOT modify pitch_factor — avoids overriding user's pitch shift
 
                         // Try to acquire vocoder — if lock contended or not pre-allocated, bypass
                         // NEVER allocate on audio thread — vocoder must be pre-created via UI thread
                         if let Some(mut vocoders) = self.clip_vocoders.try_write() {
                             if let Some((pv_l_inst, pv_r_inst)) = vocoders.get_mut(&clip.id.0) {
-                                // Update pitch factor if stretch_ratio changed
-                                pv_l_inst.set_pitch_factor(pitch_factor);
-                                pv_r_inst.set_pitch_factor(pitch_factor);
 
                                 // Process L and R through separate vocoders (preserves stereo phase)
                                 // PV.process() is zero-allocation — uses pre-allocated internal buffers

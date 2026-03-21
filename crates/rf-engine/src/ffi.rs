@@ -13383,18 +13383,33 @@ pub extern "C" fn elastic_pro_destroy(track_id: u32) -> i32 {
 }
 
 /// Set stretch ratio (0.1 to 10.0, 1.0 = no change)
+/// When preserve_pitch is on, also updates phase vocoder pitch_factor.
+/// Two-phase approach: collect clip state, then update vocoders.
 #[unsafe(no_mangle)]
 pub extern "C" fn elastic_pro_set_ratio(track_id: u32, ratio: f64) -> i32 {
     let mut elastics = ELASTIC_PROS.write();
     if let Some(elastic) = elastics.get_mut(&track_id) {
         elastic.set_stretch_ratio(ratio);
-        // Bridge to TrackManager clips — this makes the audio callback use the new ratio
         let tid = TrackId(track_id as u64);
+        let sr = PLAYBACK_ENGINE.sample_rate() as f64;
+        let sr = if sr > 0.0 { sr } else { 48000.0 };
+
+        // Phase 1: Update clips, collect vocoder updates
+        let mut pv_updates: Vec<(u64, f64)> = Vec::new(); // (clip_id, pitch_shift)
         for mut clip_entry in TRACK_MANAGER.clips.iter_mut() {
             if clip_entry.track_id == tid {
                 clip_entry.set_stretch_ratio(ratio);
+                if clip_entry.preserve_pitch {
+                    pv_updates.push((clip_entry.id.0, clip_entry.pitch_shift));
+                }
             }
         }
+
+        // Phase 2: Update vocoders (after DashMap refs released)
+        for (clip_id, pitch_shift) in pv_updates {
+            PLAYBACK_ENGINE.prepare_clip_vocoder_with_pitch(clip_id, ratio, pitch_shift, sr);
+        }
+
         1
     } else {
         0
@@ -13402,18 +13417,51 @@ pub extern "C" fn elastic_pro_set_ratio(track_id: u32, ratio: f64) -> i32 {
 }
 
 /// Set pitch shift in semitones (-24 to +24)
+/// When pitch_shift != 0, automatically enables preserve_pitch and creates phase vocoders
+/// so pitch changes don't affect playback speed.
+/// Two-phase approach: collect clip state first, then update vocoders (avoids DashMap+RwLock deadlock).
 #[unsafe(no_mangle)]
 pub extern "C" fn elastic_pro_set_pitch(track_id: u32, semitones: f64) -> i32 {
     let mut elastics = ELASTIC_PROS.write();
     if let Some(elastic) = elastics.get_mut(&track_id) {
         elastic.set_pitch_shift(semitones);
-        // Bridge to TrackManager clips — this makes the audio callback use the new pitch
         let tid = TrackId(track_id as u64);
+        let needs_pv = semitones.abs() > 0.01;
+        let sr = PLAYBACK_ENGINE.sample_rate() as f64;
+        let sr = if sr > 0.0 { sr } else { 48000.0 };
+
+        // Phase 1: Update clips and collect vocoder operations (DashMap lock scope)
+        struct VocoderOp { clip_id: u64, stretch: f64, create: bool }
+        let mut ops = Vec::new();
+
         for mut clip_entry in TRACK_MANAGER.clips.iter_mut() {
             if clip_entry.track_id == tid {
                 clip_entry.set_pitch_shift(semitones);
+                let clip_id = clip_entry.id.0;
+                let stretch = clip_entry.stretch_ratio;
+
+                if needs_pv {
+                    clip_entry.set_preserve_pitch(true);
+                    ops.push(VocoderOp { clip_id, stretch, create: true });
+                } else if (stretch - 1.0).abs() <= 0.001 {
+                    clip_entry.set_preserve_pitch(false);
+                    ops.push(VocoderOp { clip_id, stretch, create: false });
+                }
             }
         }
+        // DashMap iter_mut refs dropped here
+
+        // Phase 2: Update vocoders (RwLock scope, no DashMap contention)
+        for op in ops {
+            if op.create {
+                PLAYBACK_ENGINE.prepare_clip_vocoder_with_pitch(
+                    op.clip_id, op.stretch, semitones, sr,
+                );
+            } else {
+                PLAYBACK_ENGINE.remove_clip_vocoder(op.clip_id);
+            }
+        }
+
         1
     } else {
         0
