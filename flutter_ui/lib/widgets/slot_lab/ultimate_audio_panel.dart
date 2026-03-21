@@ -298,11 +298,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   @override
   void initState() {
     super.initState();
-    // Initialize local state from external or defaults
-    // V9: Phase IDs + Section IDs for two-level expand state
-    // V10: Smart defaults — only P0 phases expanded, rest collapsed
-    _localExpandedSections = Set.from(widget.expandedSections ?? <String>{});
-    _localExpandedGroups = Set.from(widget.expandedGroups ?? <String>{});
+    // Default: ALL collapsed — user expands what they need
+    _localExpandedSections = <String>{};
+    _localExpandedGroups = <String>{};
     // Load user event presets from disk
     EventPresetService.instance.load();
   }
@@ -535,34 +533,6 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 ),
               ],
               const SizedBox(width: 2),
-              // Undo/Redo
-              if (widget.canUndo || widget.canRedo) ...[
-                Tooltip(
-                  message: widget.undoDescription != null ? 'Undo: ${widget.undoDescription}' : 'Undo',
-                  waitDuration: const Duration(milliseconds: 300),
-                  child: GestureDetector(
-                    onTap: widget.canUndo ? () => widget.onUndo?.call() : null,
-                    child: SizedBox(
-                      width: 22, height: 22,
-                      child: Icon(Icons.undo, size: 13,
-                        color: widget.canUndo ? FluxForgeTheme.textTertiary : FluxForgeTheme.textDisabled),
-                    ),
-                  ),
-                ),
-                Tooltip(
-                  message: widget.redoDescription != null ? 'Redo: ${widget.redoDescription}' : 'Redo',
-                  waitDuration: const Duration(milliseconds: 300),
-                  child: GestureDetector(
-                    onTap: widget.canRedo ? () => widget.onRedo?.call() : null,
-                    child: SizedBox(
-                      width: 22, height: 22,
-                      child: Icon(Icons.redo, size: 13,
-                        color: widget.canRedo ? FluxForgeTheme.textTertiary : FluxForgeTheme.textDisabled),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 2),
-              ],
               _compactActionBtn(
                 Icons.verified_outlined, 'Validate',
                 _validationWarningCount > 0 ? FluxForgeTheme.accentOrange : FluxForgeTheme.textDisabled,
@@ -769,6 +739,12 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   }
 
   void _performFullReset({bool clearPool = true}) {
+    // 0. Stop any playing preview
+    if (_playingStage != null) {
+      AudioPlaybackService.instance.stopAll();
+      _playingStage = null;
+    }
+
     // 1. Reset FeatureComposer config → triggers wizard
     final composer = GetIt.instance<FeatureComposerProvider>();
     composer.resetConfig();
@@ -3333,39 +3309,44 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         builder: (context, candidateData, rejectedData) {
           final isHovering = candidateData.isNotEmpty;
 
-          return Tooltip(
-            message: '${slot.label}\n${slot.stage}\n${busInfo.label} bus · ${priorityInfo.label}',
-            waitDuration: const Duration(milliseconds: 500),
-            child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            clipBehavior: Clip.hardEdge,
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          final borderColor = _slotBorderColor(isQuickAssignSelected, isHovering, isSlotHovered, hasAudio, slotTint);
+          final leftColor = isMultiSelected
+              ? FluxForgeTheme.accentOrange
+              : isHovering
+                  ? busInfo.color.withValues(alpha: 0.6)
+                  : busInfo.color.withValues(alpha: hasAudio ? 0.4 : 0.25);
+          final bgColor = isMultiSelected
+              ? FluxForgeTheme.accentOrange.withValues(alpha: 0.08)
+              : isQuickAssignSelected
+                  ? FluxForgeTheme.bgElevated
+                  : isHovering
+                      ? FluxForgeTheme.bgSurface
+                      : isSlotHovered
+                          ? accentColor.withOpacity(0.03)
+                          : const Color(0xFF141420);
+
+          return Container(
+            height: 42,
             decoration: BoxDecoration(
-              color: isMultiSelected
-                  ? FluxForgeTheme.accentOrange.withValues(alpha: 0.08)
-                  : isQuickAssignSelected
-                      ? FluxForgeTheme.bgElevated
-                      : isHovering
-                          ? FluxForgeTheme.bgSurface
-                          : isSlotHovered
-                              ? accentColor.withOpacity(0.03)
-                              : FluxForgeTheme.bgDeep,
+              color: bgColor,
               borderRadius: BorderRadius.circular(4),
-              border: Border(
-                left: BorderSide(
-                  color: isMultiSelected
-                      ? FluxForgeTheme.accentOrange
-                      : isHovering
-                          ? busInfo.color.withValues(alpha: 0.6)
-                          : busInfo.color.withValues(alpha: hasAudio ? 0.3 : 0.12),
-                  width: 2,
-                ),
-                top: BorderSide(color: _slotBorderColor(isQuickAssignSelected, isHovering, isSlotHovered, hasAudio, slotTint)),
-                right: BorderSide(color: _slotBorderColor(isQuickAssignSelected, isHovering, isSlotHovered, hasAudio, slotTint)),
-                bottom: BorderSide(color: _slotBorderColor(isQuickAssignSelected, isHovering, isSlotHovered, hasAudio, slotTint)),
-              ),
+              border: Border.all(color: borderColor),
             ),
-            child: Column(
+            child: Row(
+              children: [
+                // Bus color left bar
+                Container(
+                  width: 3,
+                  decoration: BoxDecoration(
+                    color: leftColor,
+                    borderRadius: const BorderRadius.horizontal(left: Radius.circular(3)),
+                  ),
+                ),
+                // Main slot body
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -3377,19 +3358,19 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       width: 5, height: 5,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: busInfo.color.withValues(alpha: 0.7),
+                        color: busInfo.color.withValues(alpha: 0.8),
                       ),
                     ),
                     const SizedBox(width: 5),
-                    // Label — full width, no truncation at 80px
+                    // Label — full width
                     Expanded(
                       child: Text(
                         slot.label,
                         style: TextStyle(
-                          fontSize: 10, fontWeight: FontWeight.w500,
+                          fontSize: 11, fontWeight: FontWeight.w600,
                           color: isSlotHovered
                               ? slotTint
-                              : hasAudio ? FluxForgeTheme.textSecondary : FluxForgeTheme.textDisabled,
+                              : hasAudio ? FluxForgeTheme.textPrimary : const Color(0xFFA0A0A8),
                         ),
                         overflow: TextOverflow.ellipsis, maxLines: 1,
                       ),
@@ -3399,7 +3380,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       priorityInfo.label,
                       style: TextStyle(
                         fontSize: 8, fontWeight: FontWeight.w700,
-                        color: priorityInfo.color.withValues(alpha: 0.5),
+                        color: priorityInfo.color.withValues(alpha: 0.85),
                         letterSpacing: 0.3,
                       ),
                     ),
@@ -3423,7 +3404,13 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                       Padding(
                         padding: const EdgeInsets.only(left: 2),
                         child: GestureDetector(
-                          onTap: () => widget.onAudioClear?.call(slot.stage),
+                          onTap: () {
+                            if (_playingStage == slot.stage) {
+                              AudioPlaybackService.instance.stopAll();
+                              setState(() => _playingStage = null);
+                            }
+                            widget.onAudioClear?.call(slot.stage);
+                          },
                           child: const Icon(Icons.close, size: 11, color: FluxForgeTheme.textDisabled),
                         ),
                       ),
@@ -3457,7 +3444,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                             fontSize: 9,
                             color: isQuickAssignSelected
                                 ? FluxForgeTheme.textTertiary
-                                : FluxForgeTheme.textDisabled.withValues(alpha: 0.5),
+                                : const Color(0xFF707078),
                             fontFamily: isQuickAssignSelected ? null : 'monospace',
                           ),
                           overflow: TextOverflow.ellipsis, maxLines: 1,
@@ -3521,6 +3508,9 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 ),
               ],
             ),
+          ),
+          ),
+          ],
           ),
           );
         },

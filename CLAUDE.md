@@ -100,6 +100,14 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 - **Biquad:** TDF-II, `z1`/`z2` state
 - **Lock-free:** `rtrb::RingBuffer` za UI→Audio thread
 
+## SlotLab — Context Bar (ROW 2) iznad levog panela
+
+- ROW 2 sadrži SAMO: **Undo/Redo** (levo) + **Toast** (desno)
+- **OBRISANO:** NOTIF badge, ERRORS badge, preload indicator — nepotrebni
+- Undo/Redo: `SlotLabProjectProvider.canUndoAudioAssignment` / `canRedoAudioAssignment`
+- Toast ostaje (CLAUDE.md pravilo: korisnik nema konzolu)
+- Undo/Redo iz ASSIGN header-a ukloniti (prebačeno u ROW 2)
+
 ## Reference (on-demand)
 
 - `.claude/REVIEW_MODE.md` — review/audit procedura

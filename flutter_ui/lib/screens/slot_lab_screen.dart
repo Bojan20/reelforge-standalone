@@ -550,12 +550,20 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// Called from: Quick Assign, onAudioAssign, mount sync — ALL paths converge here.
   /// Creates new event or updates existing one. Auto-detects duration via FFI.
   void _ensureCompositeEventForStage(String stage, String audioPath, {String? label, bool skipUndo = false, bool skipNotify = false}) {
-    // GAME_START composite is managed EXCLUSIVELY by _createBaseGameMusicComposite
-    // (called via rebuildGameStartComposite). It has multi-layer structure (L1=1.0,
-    // L2-L5=0.0) for crossfade. Creating a single-layer event here would overwrite it.
-    if (stage == 'GAME_START') return;
+    try {
+    // GAME_START composite is managed via rebuildGameStartComposite (multi-layer crossfade).
+    // When user drops audio directly on GAME_START, assign it as MUSIC_BASE_L1 and rebuild.
+    if (stage == 'GAME_START') {
+      final projectProvider = context.read<SlotLabProjectProvider>();
+      projectProvider.setAudioAssignment('MUSIC_BASE_L1', audioPath);
+      projectProvider.rebuildGameStartComposite();
+      final mw = _middleware;
+      final gsEvent = mw.compositeEvents.where((e) => e.id == 'audio_GAME_START').firstOrNull;
+      if (gsEvent != null) _syncEventToRegistry(gsEvent);
+      return;
+    }
 
-    final middleware = context.read<MiddlewareProvider>();
+    final middleware = _middleware;
     final eventId = 'audio_$stage';
 
     // MUSIC_BASE_L1-L5 are independent dynamic music layers (not sub-layers of GAME_START).
@@ -868,6 +876,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       ), select: false, skipUndo: skipUndo, skipNotify: skipNotify);
     }
 
+    } catch (_) {
+      // Silently handle — composite event creation is best-effort
+    }
   }
 
   /// Get stereo pan position for a stage (per-reel panning for REEL_STOP_*)
@@ -4682,7 +4693,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           ),
         ),
         // ═══════════════════════════════════════════════════════════════════
-        // ROW 2: Context Bar (28px) — Tools, Coverage, Status, Toasts
+        // ROW 2: Undo/Redo + Toast (28px)
         // ═══════════════════════════════════════════════════════════════════
         Container(
           height: SlotLabDimens.headerRow2Height,
@@ -4696,18 +4707,54 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             padding: SlotLabSpacing.tabBarPadding,
             child: Row(
               children: [
-                // ── STATUS CHIPS ──
-                _buildMiddlewareStatusChips(),
-
-                // ── PRELOAD ──
-                if (_isPreloadingAudio) ...[
-                  const SizedBox(width: 4),
-                  _buildAudioPreloadIndicator(),
-                ],
-
+                // ── UNDO/REDO — isolated Consumer to avoid toast rebuild ──
+                Consumer<SlotLabProjectProvider>(
+                  builder: (context, projectProvider, _) {
+                    final canUndo = projectProvider.canUndoAudioAssignment;
+                    final canRedo = projectProvider.canRedoAudioAssignment;
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Tooltip(
+                          message: projectProvider.undoAudioDescription != null
+                              ? 'Undo: ${projectProvider.undoAudioDescription}'
+                              : 'Undo',
+                          waitDuration: const Duration(milliseconds: 300),
+                          child: GestureDetector(
+                            onTap: canUndo ? () {
+                              final success = projectProvider.undoAudioAssignment();
+                              if (success && mounted) showToast('Undo', type: ToastType.info, icon: Icons.undo);
+                            } : null,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: Icon(Icons.undo, size: 14,
+                                color: canUndo ? const Color(0xFFA0A0A8) : const Color(0xFF404048)),
+                            ),
+                          ),
+                        ),
+                        Tooltip(
+                          message: projectProvider.redoAudioDescription != null
+                              ? 'Redo: ${projectProvider.redoAudioDescription}'
+                              : 'Redo',
+                          waitDuration: const Duration(milliseconds: 300),
+                          child: GestureDetector(
+                            onTap: canRedo ? () {
+                              final success = projectProvider.redoAudioAssignment();
+                              if (success && mounted) showToast('Redo', type: ToastType.info, icon: Icons.redo);
+                            } : null,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: Icon(Icons.redo, size: 14,
+                                color: canRedo ? const Color(0xFFA0A0A8) : const Color(0xFF404048)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
                 const Spacer(),
-
-                // ── TOAST ──
+                // ── TOAST — outside Consumer so provider changes don't reset it ──
                 buildToastWidget(),
               ],
             ),
@@ -11184,7 +11231,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           onAudioAssign: (stage, audioPath, [label]) {
             projectProvider.setAudioAssignment(stage, audioPath);
             _ensureCompositeEventForStage(stage, audioPath, label: label);
-            final mw = context.read<MiddlewareProvider>();
+            final mw = _middleware;
             final ce = mw.compositeEvents.where((e) => e.id == 'audio_$stage').firstOrNull;
             if (ce != null) _syncEventToRegistry(ce);
             // Auto-rebuild GAME_START composite when any MUSIC_BASE_L* changes
@@ -11210,8 +11257,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             }
           },
           onAudioLayerAdd: (stage, audioPath) {
-            // Multi-drop: add audio as additional layer to existing composite event
-            final mw = context.read<MiddlewareProvider>();
+            final mw = _middleware;
             final eventId = 'audio_$stage';
             final event = mw.compositeEvents.where((e) => e.id == eventId).firstOrNull;
             if (event != null) {
@@ -11223,8 +11269,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           onAudioClear: (stage) {
             projectProvider.removeAudioAssignment(stage);
             eventRegistry.unregisterEvent('audio_$stage');
-            final middleware = context.read<MiddlewareProvider>();
-            middleware.deleteCompositeEvent('audio_$stage');
+            _middleware.deleteCompositeEvent('audio_$stage');
           },
           onSectionToggle: (sectionId) => projectProvider.toggleSection(sectionId),
           onGroupToggle: (groupId) => projectProvider.toggleGroup(groupId),
@@ -11288,8 +11333,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             }
             if (hasMusicBase) {
               projectProvider.rebuildGameStartComposite();
-              final mw = context.read<MiddlewareProvider>();
-              final gsEvent = mw.compositeEvents.where((e) => e.id == 'audio_GAME_START').firstOrNull;
+              final gsEvent = _middleware.compositeEvents.where((e) => e.id == 'audio_GAME_START').firstOrNull;
               if (gsEvent != null) _syncEventToRegistry(gsEvent);
             }
             projectProvider.sanitizeAssignments();
