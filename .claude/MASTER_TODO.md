@@ -23,16 +23,13 @@
 
 ## SLEDEĆA SESIJA — Prioritet
 
-### 1. Phase Vocoder → rustfft + playback integracija
+### 1. Phase Vocoder playback integracija
 
-- [ ] Zameni `dft_real`/`idft_real` O(N²) sa `rustfft` O(N log N) u `phase_vocoder.rs`
-  - Dodaj `rustfft` dependency u rf-engine Cargo.toml (već u workspace)
-  - Pre-alociraj `FftPlanner` + plans u `PhaseVocoder::new()`
-  - `process_frame()`: koristiti `fft.process()` umesto naive DFT
-- [ ] Integracija u `render_clip_to_buffer()` u `playback.rs`
-  - Kad `clip.preserve_pitch == true && clip.stretch_ratio != 1.0`:
-  - Posle sinc SRC: primeni `PhaseVocoder` sa `pitch_factor = 1.0 / stretch_ratio`
-  - Per-clip `PhaseVocoder` instance (pre-alocirano pri clip load, NE na audio thread)
+- [x] rustfft zamena — O(N log N), pre-alocirani FFT plans
+- [x] `clip_vocoders: HashMap<ClipId, PhaseVocoder>` u PlaybackEngine
+- [ ] Wire `clip_vocoders` u `process_clip_simple()` — preserve_pitch path
+  - Kad `clip.preserve_pitch && stretch_ratio != 1.0`: akumuliraj sinc output → PV → output
+  - PV pitch_factor = `1.0 / stretch_ratio` (cancel varispeed pitch change)
 - [ ] Formant preservation: spectral envelope extraction + reapply
 
 ### 2. Dep Upgrade Faza 3
