@@ -77,7 +77,7 @@ impl SincTable {
     ///
     /// Uses Blackman-Harris 4-term window for optimal sidelobe suppression.
     pub fn new(sinc_size: usize, interp_resolution: usize) -> Self {
-        assert!(sinc_size >= 2 && sinc_size % 2 == 0, "sinc_size must be even and >= 2");
+        assert!(sinc_size >= 4 && sinc_size % 2 == 0, "sinc_size must be even and >= 4");
         assert!(interp_resolution >= 1, "interp_resolution must be >= 1");
 
         let half = sinc_size / 2;
@@ -102,8 +102,10 @@ impl SincTable {
                     pi_x.sin() / pi_x
                 };
 
-                // Blackman-Harris 4-term window
-                let window_pos = (tap as f64 + (1.0 - frac)) / sinc_size as f64;
+                // Blackman-Harris 4-term window — fixed function of tap position only.
+                // Window is symmetric around center (tap/sinc_size = 0.5 → peak).
+                // Edges (tap=0, tap=sinc_size-1) → near zero.
+                let window_pos = (tap as f64 + 0.5) / sinc_size as f64;
                 let window = blackman_harris_4(window_pos);
 
                 let coeff = sinc_val * window;
@@ -175,6 +177,9 @@ pub fn point_sample(
     total_frames: usize,
     ch: usize,
 ) -> f32 {
+    if channels == 0 || total_frames == 0 || !src_pos.is_finite() {
+        return 0.0;
+    }
     let idx = src_pos.round() as i64;
     if idx >= 0 && (idx as usize) < total_frames {
         samples[idx as usize * channels + ch]
@@ -193,6 +198,9 @@ pub fn linear_sample(
     total_frames: usize,
     ch: usize,
 ) -> f32 {
+    if channels == 0 || total_frames == 0 || !src_pos.is_finite() {
+        return 0.0;
+    }
     let idx_i = src_pos.floor() as i64;
     if idx_i < 0 { return 0.0; }
     let idx = idx_i as usize;
@@ -214,6 +222,9 @@ pub fn linear_sample(
 ///
 /// Audio-thread safe: zero allocation, stack-only computation.
 /// Uses pre-normalized coefficients — no division in hot path.
+///
+/// For sinc_size <= 768, uses stack-allocated gather buffer for
+/// contiguous SIMD-friendly dot product (no strided memory access).
 #[inline]
 pub fn sinc_sample(
     src_pos: f64,
@@ -223,6 +234,11 @@ pub fn sinc_sample(
     ch: usize,
     table: &SincTable,
 ) -> f32 {
+    // Guard: invalid inputs → silence
+    if channels == 0 || total_frames == 0 || !src_pos.is_finite() {
+        return 0.0;
+    }
+
     let idx_floor = src_pos.floor() as i64;
     let frac = src_pos - idx_floor as f64;
 
@@ -238,20 +254,125 @@ pub fn sinc_sample(
     let coeffs = table.get_coefficients(frac);
     let half = table.half_size() as i64;
     let sinc_size = table.sinc_size();
+    let first_tap = idx_floor - half + 1;
 
-    let mut sum = 0.0f64;
-
-    // Convolution: sum of (sample * coefficient) for each tap
-    // Taps centered around idx_floor, spanning -half+1 to +half
+    // Gather samples into contiguous stack buffer for SIMD-friendly dot product.
+    // Max 768 taps × 8 bytes = 6KB on stack — well within audio thread limits.
+    let mut gathered = [0.0f64; 768];
     for tap in 0..sinc_size {
-        let sample_idx = idx_floor - half as i64 + 1 + tap as i64;
+        let sample_idx = first_tap + tap as i64;
         if sample_idx >= 0 && sample_idx < total_frames as i64 {
-            let buf_idx = sample_idx as usize * channels + ch;
-            sum += samples[buf_idx] as f64 * coeffs[tap];
+            gathered[tap] = samples[sample_idx as usize * channels + ch] as f64;
         }
-        // Out-of-bounds taps contribute 0 (coefficients are normalized,
-        // so edge samples will have slightly different gain — acceptable
-        // for audio that starts/ends with silence)
+    }
+
+    // Dot product: coeffs · gathered — SIMD-friendly (both contiguous)
+    sinc_dot_product(&coeffs[..sinc_size], &gathered[..sinc_size])
+}
+
+/// SIMD-optimized dot product for sinc convolution.
+/// Both slices are contiguous f64 — uses platform-specific intrinsics.
+///
+/// aarch64: NEON vfmaq_f64 (2× f64 FMA per cycle)
+/// x86_64: AVX2 _mm256_fmadd_pd (4× f64 FMA per cycle) or SSE2 fallback
+#[inline]
+fn sinc_dot_product(coeffs: &[f64], samples: &[f64]) -> f32 {
+    debug_assert_eq!(coeffs.len(), samples.len());
+
+    #[cfg(target_arch = "aarch64")]
+    {
+        // NEON is always available on aarch64
+        unsafe { sinc_dot_neon(coeffs, samples) }
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    {
+        if is_x86_feature_detected!("avx2") && is_x86_feature_detected!("fma") {
+            unsafe { sinc_dot_avx2(coeffs, samples) }
+        } else {
+            sinc_dot_scalar(coeffs, samples)
+        }
+    }
+
+    #[cfg(not(any(target_arch = "aarch64", target_arch = "x86_64")))]
+    {
+        sinc_dot_scalar(coeffs, samples)
+    }
+}
+
+/// Scalar fallback — used on platforms without NEON/AVX2
+#[inline]
+#[allow(dead_code)]
+fn sinc_dot_scalar(coeffs: &[f64], samples: &[f64]) -> f32 {
+    let mut sum = 0.0f64;
+    for i in 0..coeffs.len() {
+        sum += coeffs[i] * samples[i];
+    }
+    sum as f32
+}
+
+/// NEON f64 dot product — 2× f64 per cycle with FMA
+#[cfg(target_arch = "aarch64")]
+#[inline]
+unsafe fn sinc_dot_neon(coeffs: &[f64], samples: &[f64]) -> f32 {
+    use std::arch::aarch64::*;
+    debug_assert_eq!(coeffs.len(), samples.len(), "NEON sinc_dot: length mismatch");
+    let len = coeffs.len();
+    if len == 0 { return 0.0; }
+    let simd_len = len - (len % 2);
+    let c_ptr = coeffs.as_ptr();
+    let s_ptr = samples.as_ptr();
+
+    let mut acc = vdupq_n_f64(0.0);
+
+    for i in (0..simd_len).step_by(2) {
+        let c = vld1q_f64(c_ptr.add(i));
+        let s = vld1q_f64(s_ptr.add(i));
+        acc = vfmaq_f64(acc, c, s); // acc += c * s
+    }
+
+    // Horizontal sum of 2-lane accumulator
+    let mut sum = vgetq_lane_f64(acc, 0) + vgetq_lane_f64(acc, 1);
+
+    // Scalar remainder
+    for i in simd_len..len {
+        sum += coeffs[i] * samples[i];
+    }
+
+    sum as f32
+}
+
+/// AVX2 f64 dot product — 4× f64 per cycle with FMA
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2", enable = "fma")]
+#[inline]
+unsafe fn sinc_dot_avx2(coeffs: &[f64], samples: &[f64]) -> f32 {
+    use std::arch::x86_64::*;
+    debug_assert_eq!(coeffs.len(), samples.len(), "AVX2 sinc_dot: length mismatch");
+    let len = coeffs.len();
+    if len == 0 { return 0.0; }
+    let simd_len = len - (len % 4);
+    let c_ptr = coeffs.as_ptr();
+    let s_ptr = samples.as_ptr();
+
+    let mut acc = _mm256_setzero_pd();
+
+    for i in (0..simd_len).step_by(4) {
+        let c = _mm256_loadu_pd(c_ptr.add(i));
+        let s = _mm256_loadu_pd(s_ptr.add(i));
+        acc = _mm256_fmadd_pd(c, s, acc); // acc += c * s
+    }
+
+    // Horizontal sum of 4-lane accumulator
+    // [a, b, c, d] → [a+c, b+d] → a+c+b+d
+    let hi = _mm256_extractf128_pd(acc, 1);
+    let lo = _mm256_castpd256_pd128(acc);
+    let sum128 = _mm_add_pd(lo, hi);
+    let mut sum = _mm_cvtsd_f64(sum128) + _mm_cvtsd_f64(_mm_unpackhi_pd(sum128, sum128));
+
+    // Scalar remainder
+    for i in simd_len..len {
+        sum += coeffs[i] * samples[i];
     }
 
     sum as f32
