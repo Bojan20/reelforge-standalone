@@ -1168,6 +1168,12 @@ pub struct Clip {
     #[serde(default)]
     pub pitch_shift: f64,
 
+    /// Preserve pitch when changing playback rate (stretch_ratio).
+    /// false = varispeed (tape-style: rate change affects pitch) — DEFAULT
+    /// true = time-stretch (rate change maintains original pitch) — requires RT-4
+    #[serde(default)]
+    pub preserve_pitch: bool,
+
     /// Loop enabled — repeat clip content (Logic Pro X style)
     #[serde(default)]
     pub loop_enabled: bool,
@@ -1262,6 +1268,7 @@ impl Clip {
             reversed: false,
             stretch_ratio: 1.0,
             pitch_shift: 0.0,
+            preserve_pitch: false,
             loop_enabled: false,
             loop_count: 0,
             loop_crossfade: 0.0,
@@ -1321,8 +1328,16 @@ impl Clip {
     /// pitch_shift is additive semitones converted to rate multiplier.
     #[inline]
     pub fn effective_playback_rate(&self) -> f64 {
-        let pitch_rate = 2.0_f64.powf(self.pitch_shift / 12.0);
-        self.stretch_ratio * pitch_rate
+        if self.preserve_pitch {
+            // Preserve pitch: rate change affects speed only, pitch stays constant.
+            // Time-stretch algorithm (RT-4) would apply pitch correction here.
+            // For now: varispeed with separate pitch_shift applied in playback.
+            self.stretch_ratio
+        } else {
+            // Varispeed (tape-style): rate change affects both speed and pitch.
+            let pitch_rate = 2.0_f64.powf(self.pitch_shift / 12.0);
+            self.stretch_ratio * pitch_rate
+        }
     }
 
     /// End time on timeline (adjusted for stretch ratio)

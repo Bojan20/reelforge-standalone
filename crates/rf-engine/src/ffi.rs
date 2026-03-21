@@ -15169,6 +15169,7 @@ pub extern "C" fn render_selection_to_new_clip(
         reversed: false,
         stretch_ratio: 1.0,
         pitch_shift: 0.0,
+        preserve_pitch: false,
         loop_enabled: false,
         loop_count: 0,
         loop_crossfade: 0.0,

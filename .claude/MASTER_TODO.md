@@ -99,16 +99,20 @@ Atribucija: "Sample rate converter designed by Aleksey Vaneev of Voxengo"
 - [x] DAW/Browser voices UVEK na globalnom kvalitetu (nikad degradirani)
 - [x] Vraća se na viši kvalitet čim CPU dozvoli (reset svaki block)
 
-### Faza RT-3: Per-Item Properties
+### Faza RT-3: Per-Item Properties — ✅ ENGINE KOMPLETNO
 
-VEĆ DELOMIČNO RADI: `pitch_semitones` i `rate_ratio` postoje u `OneShotVoice`.
+Sve VEĆ IMPLEMENTIRANO u engine-u (prethodni rad):
+- [x] `stretch_ratio` — per-clip playback rate (Clip struct)
+- [x] `pitch_shift` — per-clip pitch in semitones
+- [x] `reversed` — reverse playback
+- [x] `varispeed_rate` + `varispeed_enabled` — master playback rate (PlaybackEngine)
+- [x] `scrub_velocity` — scrub/shuttle (PlaybackPosition)
+- [x] `ClipEnvelope` — per-sample rate/pitch automation
+- [x] `preserve_pitch` — per-clip toggle (NOVO: varispeed vs time-stretch)
 
-- [ ] **Preserve pitch toggle** — per-voice boolean
-  - OFF (trenutno): varispeed = rate × pitch → oba menjaju speed
-  - ON (novo): rate menja speed bez pitch promene (zahteva time-stretch)
-- [ ] **Playback rate UI** — slider per-item u timeline-u
-- [ ] **Scrub/Shuttle** — variable speed -4x..+4x, automatski Linear mode
-- [ ] **Master playback rate** — globalni varispeed slider + automatable envelope
+Fali SAMO:
+- [ ] **Flutter UI** za per-item rate/pitch sliders u timeline-u
+- [ ] **Time-stretch** kad preserve_pitch=true (RT-4)
 
 ### Faza RT-4: Time-Stretch + DAW Features
 
