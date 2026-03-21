@@ -4,56 +4,44 @@
 
 - `slot_lab_screen.dart` — 13K+, NE MOŽE se razbiti
 - Audio thread: NULA alokacija, NULA lockova
-- RTPC: production-ready (35 params, 9 curves, macros, DSP) — NE MENJATI
-- WebSocket: POSTOJI (websocket_client.dart) — UPGRADE, ne od nule
-- MIDI: POSTOJI (midir 0.10) — samo treba event mapping
+- RTPC: production-ready — NE MENJATI
+- WebSocket: 2552 linija POSTOJI (3 fajla) — samo bridge + hardening
+- MIDI: POSTOJI (midir 0.10)
 
 ---
 
-## SLEDEĆA SESIJA — Live Server (5 faza)
+## SLEDEĆA SESIJA — Live Server (samo ono što FALI)
 
 **Arch doc:** `.claude/architecture/LIVE_SERVER_INTEGRATION.md`
+**Postojeći kod:** `websocket_client.dart` (1512), `websocket_connector.dart` (559), `live_engine_service.dart` (481)
 
-### Faza 1: WebSocket Production Bridge
-- [ ] WSS + JWT auth + token refresh + origin validation
-- [ ] Reconnect (exp backoff+jitter) + heartbeat (20s/10s)
-- [ ] Seq ordering + gap detection + dedup
-- [ ] State recovery (snapshot posle reconnect)
-- [ ] Failover: local fallback, multi-server, circuit breaker
-- [ ] Security: rate limit 100msg/s, 64KB max, TLS 1.3
-- [ ] Connection state machine (6 states)
+### Faza 1: Bridge + Hardening (proširenje postojećeg)
+- [ ] Seq gap detection + dedup u websocket_client.dart
+- [ ] State snapshot recovery posle reconnect
+- [ ] Circuit breaker (5 fail/60s → pause 5min)
+- [ ] Rate limiting (100 msg/s)
+- [ ] Server trigger → EventRegistry.triggerEvent() bridge
+- [ ] Server rtpc → rtpcSystemProvider.setRtpc() bridge
+- [ ] Server state → batch RTPC preset transition
+- [ ] Connection monitor UI panel
 
-### Faza 2: Server → Audio Bridge
-- [ ] Server trigger → EventRegistry (+ overlap policy, priority)
-- [ ] Server rtpc → postojeći rtpcSystemProvider (+ jitter buffer)
-- [ ] Game state machine (state → RTPC preset, crossfade transition)
-- [ ] Asset pre-load/unload na zahtev servera
+### Faza 2: Advanced Triggers
+- [ ] MIDI trigger: midir → custom event mapping + learn mode
+- [ ] OSC trigger: rosc crate, UDP → event mapping
+- [ ] Position + Marker triggers
+- [ ] Cooldown timer per event
 
-### Faza 3: Advanced Triggers
-- [ ] MIDI: note→event, velocity→volume, CC→RTPC, learn mode
-- [ ] OSC: rosc crate, UDP listener, address→event mapping
-- [ ] Position + Marker triggers sa hysteresis
-- [ ] Cooldown timer (AtomicU64 per event)
-
-### Faza 4: Monitoring & Diagnostics
-- [ ] Connection monitor (status, latency, msg rate, gaps)
-- [ ] RTPC monitor (sparklines, local vs server source)
-- [ ] Event log (scrollable, filterable, exportable)
-- [ ] Audio telemetry → server (opt-in, GDPR)
-
-### Faza 5: Production Hardening
-- [ ] Error handling: NIKAD crash, graceful za SVE edge case
+### Faza 3: Production Hardening
+- [ ] Error handling: NIKAD crash, graceful za SVE
 - [ ] Mock server za testiranje
-- [ ] Stress/latency/reconnect/recovery testovi
-- [ ] Structured logging + rotation + remote shipping
-- [ ] All config in project settings (ne hardkodirano)
+- [ ] Stress/reconnect/recovery testovi
+- [ ] Structured logging + config u project settings
 
 ---
 
 ## IMPLEMENTIRANO
 
-- **37 Rust crate-ova** | **69 providera** | **168 servisa**
+- 37 Rust crate-ova | 69 providera | 168 servisa | 2552 linija networking
 - Signalsmith Stretch, Warp Markers, Custom Events, RTPC (35 params)
-- Dep Upgrade (cpal 0.17, wgpu 28, objc2 0.6, Edition 2024)
-- SRC Quality (7 nivoa), Adaptive Diagnostics
-- 15 QA rundi, 55+ bugova fiksirano, 447 testova
+- WebSocket (state machine, backoff, heartbeat, queue, JWT, TCP fallback)
+- 15 QA rundi, 55+ bugova, 447 testova
