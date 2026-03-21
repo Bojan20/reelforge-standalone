@@ -28,6 +28,9 @@ class _ElasticAudioPanelState extends State<ElasticAudioPanel> {
   // ── Engine reference counting (split view safe) ────────────────────────
   static final Map<int, int> _engineRefCount = {};
 
+  // ── Persistent state per track (survives tab switches) ─────────────────
+  static final Map<int, _ElasticSnapshot> _persistedState = {};
+
   // ── Parameter state ──────────────────────────────────────────────────────
   double _pitchSemitones = 0.0;   // -24 to +24
   double _fineCents = 0.0;        // -50 to +50
@@ -57,6 +60,7 @@ class _ElasticAudioPanelState extends State<ElasticAudioPanel> {
   @override
   void initState() {
     super.initState();
+    _restorePersistedState();
     _ensureEngine();
   }
 
@@ -64,13 +68,16 @@ class _ElasticAudioPanelState extends State<ElasticAudioPanel> {
   void didUpdateWidget(covariant ElasticAudioPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedTrackId != widget.selectedTrackId) {
+      _savePersistedState();
       _destroyEngine();
+      _restorePersistedState();
       _ensureEngine();
     }
   }
 
   @override
   void dispose() {
+    _savePersistedState();
     _destroyEngine();
     super.dispose();
   }
@@ -103,6 +110,39 @@ class _ElasticAudioPanelState extends State<ElasticAudioPanel> {
   }
 
   // ════════════════════════════════════════════════════════════════════════
+  // STATE PERSISTENCE (survives tab switches)
+  // ════════════════════════════════════════════════════════════════════════
+
+  void _savePersistedState() {
+    _persistedState[_trackId] = _ElasticSnapshot(
+      pitch: _pitchSemitones,
+      cents: _fineCents,
+      modeIndex: _modeIndex,
+      preserveFormants: _preserveFormants,
+      preserveTransients: _preserveTransients,
+    );
+  }
+
+  void _restorePersistedState() {
+    final saved = _persistedState[_trackId];
+    if (saved != null) {
+      _pitchSemitones = saved.pitch;
+      _fineCents = saved.cents;
+      _modeIndex = saved.modeIndex;
+      _preserveFormants = saved.preserveFormants;
+      _preserveTransients = saved.preserveTransients;
+    } else {
+      _pitchSemitones = 0.0;
+      _fineCents = 0.0;
+      _modeIndex = 0;
+      _preserveFormants = true;
+      _preserveTransients = true;
+    }
+    _bypassed = false;
+    _isStateB = false;
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
   // FFI SYNC
   // ════════════════════════════════════════════════════════════════════════
 
@@ -114,10 +154,18 @@ class _ElasticAudioPanelState extends State<ElasticAudioPanel> {
     _ffi.elasticProSetPreserveTransients(_trackId, _preserveTransients);
   }
 
+  String _diagStatus = '';
+
+  void _updateDiag() {
+    final d = _ffi.debugTrackClipState(_trackId);
+    setState(() => _diagStatus = 'T$_trackId: $d eng=${_engineCreated ? "Y" : "N"}');
+  }
+
   void _onPitchChanged(double semitones) {
     setState(() => _pitchSemitones = semitones);
     if (_engineCreated) {
       _ffi.elasticProSetPitch(_trackId, _pitchSemitones + _fineCents / 100.0);
+      _updateDiag();
     }
   }
 
@@ -219,6 +267,12 @@ class _ElasticAudioPanelState extends State<ElasticAudioPanel> {
         children: [
           _buildHeader(),
           Expanded(child: _buildBody()),
+          if (_diagStatus.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              child: Text(_diagStatus,
+                style: const TextStyle(fontSize: 9, fontFamily: 'JetBrains Mono', color: Color(0xFF888888))),
+            ),
         ],
       ),
     );
@@ -250,7 +304,18 @@ class _ElasticAudioPanelState extends State<ElasticAudioPanel> {
       isStateB: _isStateB,
       onToggleAB: _toggleAB,
       bypassed: _bypassed,
-      onToggleBypass: () => setState(() => _bypassed = !_bypassed),
+      onToggleBypass: () {
+        setState(() => _bypassed = !_bypassed);
+        if (_bypassed) {
+          // Bypass: send 0 pitch to engine (preserves UI state)
+          if (_engineCreated) {
+            _ffi.elasticProSetPitch(_trackId, 0.0);
+          }
+        } else {
+          // Un-bypass: restore current values
+          _syncAllToEngine();
+        }
+      },
       showExpert: _showExpert,
       onToggleExpert: () => setState(() => _showExpert = !_showExpert),
       onClose: () => widget.onAction?.call('close', null),
@@ -464,4 +529,21 @@ class _ElasticAudioPanelState extends State<ElasticAudioPanel> {
       ],
     );
   }
+}
+
+/// Snapshot of elastic panel state for persistence across tab switches
+class _ElasticSnapshot {
+  final double pitch;
+  final double cents;
+  final int modeIndex;
+  final bool preserveFormants;
+  final bool preserveTransients;
+
+  const _ElasticSnapshot({
+    required this.pitch,
+    required this.cents,
+    required this.modeIndex,
+    required this.preserveFormants,
+    required this.preserveTransients,
+  });
 }

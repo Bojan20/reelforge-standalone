@@ -13383,95 +13383,105 @@ pub extern "C" fn elastic_pro_destroy(track_id: u32) -> i32 {
 }
 
 /// Set stretch ratio (0.1 to 10.0, 1.0 = no change)
-/// When preserve_pitch is on, also updates phase vocoder pitch_factor.
-/// Two-phase approach: collect clip state, then update vocoders.
+/// Always pitch-preserving. Automatically enables preserve_pitch + PV.
+/// Works directly on TrackManager clips — does NOT require ElasticPro instance.
 #[unsafe(no_mangle)]
 pub extern "C" fn elastic_pro_set_ratio(track_id: u32, ratio: f64) -> i32 {
-    let mut elastics = ELASTIC_PROS.write();
-    if let Some(elastic) = elastics.get_mut(&track_id) {
+    // Also update ElasticPro if it exists (for offline apply)
+    if let Some(elastic) = ELASTIC_PROS.write().get_mut(&track_id) {
         elastic.set_stretch_ratio(ratio);
-        let tid = TrackId(track_id as u64);
-        let sr = PLAYBACK_ENGINE.sample_rate() as f64;
-        let sr = if sr > 0.0 { sr } else { 48000.0 };
+    }
 
-        // Phase 1: Update clips, collect vocoder updates
-        let mut pv_updates: Vec<(u64, f64)> = Vec::new(); // (clip_id, pitch_shift)
-        for mut clip_entry in TRACK_MANAGER.clips.iter_mut() {
-            if clip_entry.track_id == tid {
-                clip_entry.set_stretch_ratio(ratio);
-                if clip_entry.preserve_pitch {
-                    pv_updates.push((clip_entry.id.0, clip_entry.pitch_shift));
-                }
+    let tid = TrackId(track_id as u64);
+    let sr = PLAYBACK_ENGINE.sample_rate() as f64;
+    let sr = if sr > 0.0 { sr } else { 48000.0 };
+    let needs_pv = (ratio - 1.0).abs() > 0.001;
+
+    // Phase 1: Update clips, collect vocoder updates
+    struct PvOp { clip_id: u64, pitch_shift: f64, create: bool }
+    let mut ops = Vec::new();
+    let mut found = false;
+    for mut clip_entry in TRACK_MANAGER.clips.iter_mut() {
+        if clip_entry.track_id == tid {
+            found = true;
+            clip_entry.set_stretch_ratio(ratio);
+            let clip_id = clip_entry.id.0;
+            let pitch_shift = clip_entry.pitch_shift;
+            if needs_pv || pitch_shift.abs() > 0.01 {
+                clip_entry.set_preserve_pitch(true);
+                ops.push(PvOp { clip_id, pitch_shift, create: true });
+            } else {
+                clip_entry.set_preserve_pitch(false);
+                ops.push(PvOp { clip_id, pitch_shift, create: false });
             }
         }
-
-        // Phase 2: Update vocoders (after DashMap refs released)
-        for (clip_id, pitch_shift) in pv_updates {
-            PLAYBACK_ENGINE.prepare_clip_vocoder_with_pitch(clip_id, ratio, pitch_shift, sr);
-        }
-
-        1
-    } else {
-        0
     }
+
+    // Phase 2: Update vocoders
+    for op in ops {
+        if op.create {
+            PLAYBACK_ENGINE.prepare_clip_vocoder_with_pitch(
+                op.clip_id, ratio, op.pitch_shift, sr,
+            );
+        } else {
+            PLAYBACK_ENGINE.remove_clip_vocoder(op.clip_id);
+        }
+    }
+
+    if found { 1 } else { 0 }
 }
 
 /// Set pitch shift in semitones (-24 to +24)
-/// When pitch_shift != 0, automatically enables preserve_pitch and creates phase vocoders
-/// so pitch changes don't affect playback speed.
-/// Two-phase approach: collect clip state first, then update vocoders (avoids DashMap+RwLock deadlock).
+/// Always pitch-preserving. Automatically enables preserve_pitch + PV.
+/// Works directly on TrackManager clips — does NOT require ElasticPro instance.
 #[unsafe(no_mangle)]
 pub extern "C" fn elastic_pro_set_pitch(track_id: u32, semitones: f64) -> i32 {
-    let mut elastics = ELASTIC_PROS.write();
-    if let Some(elastic) = elastics.get_mut(&track_id) {
+    // Also update ElasticPro if it exists (for offline apply)
+    if let Some(elastic) = ELASTIC_PROS.write().get_mut(&track_id) {
         elastic.set_pitch_shift(semitones);
-        let tid = TrackId(track_id as u64);
-        let needs_pv = semitones.abs() > 0.01;
-        let sr = PLAYBACK_ENGINE.sample_rate() as f64;
-        let sr = if sr > 0.0 { sr } else { 48000.0 };
-
-        // Phase 1: Update clips and collect vocoder operations (DashMap lock scope)
-        struct VocoderOp { clip_id: u64, stretch: f64, create: bool }
-        let mut ops = Vec::new();
-
-        for mut clip_entry in TRACK_MANAGER.clips.iter_mut() {
-            if clip_entry.track_id == tid {
-                clip_entry.set_pitch_shift(semitones);
-                let clip_id = clip_entry.id.0;
-                let stretch = clip_entry.stretch_ratio;
-
-                if needs_pv {
-                    // Pitch shift active — enable PV with pitch + stretch compensation
-                    clip_entry.set_preserve_pitch(true);
-                    ops.push(VocoderOp { clip_id, stretch, create: true });
-                } else if (stretch - 1.0).abs() > 0.001 {
-                    // Pitch=0 but stretch active — keep preserve_pitch, update PV for stretch-only
-                    // (preserve_pitch stays true from earlier set_pitch or from user toggle)
-                    ops.push(VocoderOp { clip_id, stretch, create: true });
-                } else {
-                    // Pitch=0, stretch=1 — no PV needed
-                    clip_entry.set_preserve_pitch(false);
-                    ops.push(VocoderOp { clip_id, stretch, create: false });
-                }
-            }
-        }
-        // DashMap iter_mut refs dropped here
-
-        // Phase 2: Update vocoders (RwLock scope, no DashMap contention)
-        for op in ops {
-            if op.create {
-                PLAYBACK_ENGINE.prepare_clip_vocoder_with_pitch(
-                    op.clip_id, op.stretch, semitones, sr,
-                );
-            } else {
-                PLAYBACK_ENGINE.remove_clip_vocoder(op.clip_id);
-            }
-        }
-
-        1
-    } else {
-        0
     }
+
+    let tid = TrackId(track_id as u64);
+    let needs_pv = semitones.abs() > 0.01;
+    let sr = PLAYBACK_ENGINE.sample_rate() as f64;
+    let sr = if sr > 0.0 { sr } else { 48000.0 };
+
+    // Phase 1: Update clips and collect vocoder operations
+    struct VocoderOp { clip_id: u64, stretch: f64, create: bool }
+    let mut ops = Vec::new();
+    let mut found = false;
+
+    for mut clip_entry in TRACK_MANAGER.clips.iter_mut() {
+        if clip_entry.track_id == tid {
+            found = true;
+            clip_entry.set_pitch_shift(semitones);
+            let clip_id = clip_entry.id.0;
+            let stretch = clip_entry.stretch_ratio;
+
+            if needs_pv {
+                clip_entry.set_preserve_pitch(true);
+                ops.push(VocoderOp { clip_id, stretch, create: true });
+            } else if (stretch - 1.0).abs() > 0.001 {
+                ops.push(VocoderOp { clip_id, stretch, create: true });
+            } else {
+                clip_entry.set_preserve_pitch(false);
+                ops.push(VocoderOp { clip_id, stretch, create: false });
+            }
+        }
+    }
+
+    // Phase 2: Update vocoders
+    for op in ops {
+        if op.create {
+            PLAYBACK_ENGINE.prepare_clip_vocoder_with_pitch(
+                op.clip_id, op.stretch, semitones, sr,
+            );
+        } else {
+            PLAYBACK_ENGINE.remove_clip_vocoder(op.clip_id);
+        }
+    }
+
+    if found { 1 } else { 0 }
 }
 
 /// Set quality: 0=Preview, 1=Standard, 2=High, 3=Ultra
@@ -13595,6 +13605,68 @@ pub extern "C" fn elastic_pro_reset(track_id: u32) -> i32 {
 
 // PHASE VOCODER (preserve_pitch)
 // ═══════════════════════════════════════════════════════════════════════════
+
+/// Debug: get clip count, stretch state, and elastic engine state for a track.
+/// Returns clip count. Writes diagnostic data to out params.
+/// out_preserve encodes: bit0=preserve_pitch, bit1=elastic_exists, bit2=vocoder_exists
+#[unsafe(no_mangle)]
+pub extern "C" fn debug_track_clip_state(
+    track_id: u32,
+    out_clip_count: *mut u32,
+    out_stretch: *mut f64,
+    out_pitch: *mut f64,
+    out_preserve: *mut i32, // bit0=preserve, bit1=elastic, bit2=vocoder
+    out_pv_pitch_factor: *mut f64,
+) -> i32 {
+    let tid = TrackId(track_id as u64);
+    let mut count: u32 = 0;
+    let mut first_stretch = 0.0_f64;
+    let mut first_pitch = 0.0_f64;
+    let mut first_preserve = 0_i32;
+    let mut first_clip_id: u64 = 0;
+
+    for clip_entry in TRACK_MANAGER.clips.iter() {
+        if clip_entry.track_id == tid {
+            if count == 0 {
+                first_stretch = clip_entry.stretch_ratio;
+                first_pitch = clip_entry.pitch_shift;
+                first_preserve = if clip_entry.preserve_pitch { 1 } else { 0 };
+                first_clip_id = clip_entry.id.0;
+            }
+            count += 1;
+        }
+    }
+
+    // Check if ElasticPro instance exists for this track
+    let elastic_exists = ELASTIC_PROS.read().contains_key(&track_id);
+    if elastic_exists {
+        first_preserve |= 2; // bit1
+    }
+
+    // Check if vocoder exists for first clip
+    let mut pv_pf = 0.0_f64;
+    if first_clip_id != 0 {
+        if let Some(stretchers) = PLAYBACK_ENGINE.clip_stretchers_try_read() {
+            if let Some(stretcher) = stretchers.get(&first_clip_id) {
+                first_preserve |= 4; // bit2
+                pv_pf = stretcher.pitch_semitones();
+            }
+        }
+    }
+
+    // PV debug counters (resets on read)
+    let (pv_hit, pv_miss) = PLAYBACK_ENGINE.pv_debug_counters();
+    // Encode hit/miss into pitch_factor's fractional part for display
+    // pv_pf = actual_pitch_factor + hit * 0.0001 (so we can see both)
+
+    if !out_clip_count.is_null() { unsafe { *out_clip_count = count; } }
+    if !out_stretch.is_null() { unsafe { *out_stretch = first_stretch; } }
+    if !out_pitch.is_null() { unsafe { *out_pitch = first_pitch; } }
+    // Encode pv_hit and pv_miss into preserve flags (upper bits)
+    if !out_preserve.is_null() { unsafe { *out_preserve = first_preserve | ((pv_hit.min(255) as i32) << 8) | ((pv_miss.min(255) as i32) << 16); } }
+    if !out_pv_pitch_factor.is_null() { unsafe { *out_pv_pitch_factor = pv_pf; } }
+    count as i32
+}
 
 /// Set preserve_pitch on a clip and pre-allocate phase vocoder (UI thread only).
 /// `clip_id`: ClipId.0 (u64), `preserve`: 1=on, 0=off, `stretch_ratio`: current stretch ratio

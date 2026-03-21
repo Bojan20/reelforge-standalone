@@ -53,6 +53,10 @@ pub struct PhaseVocoder {
     prev_energy: f64,
     /// Whether formant preservation is enabled
     formant_preserve: bool,
+    /// Pre-allocated magnitude buffer for frequency bin resampling
+    mag_buf: Vec<f64>,
+    /// Pre-allocated frequency buffer for frequency bin resampling
+    freq_buf: Vec<f64>,
     /// Pre-allocated buffer for spectral envelope extraction (cepstral method)
     /// Stores log-magnitude spectrum for cepstral analysis
     envelope_buf: Vec<Complex64>,
@@ -128,6 +132,8 @@ impl PhaseVocoder {
             transient_threshold: 3.0,
             prev_energy: 0.0,
             formant_preserve: false,
+            mag_buf: vec![0.0; half],
+            freq_buf: vec![0.0; half],
             envelope_buf: vec![Complex64::new(0.0, 0.0); fft_size],
             orig_envelope: vec![0.0; half],
             shifted_envelope: vec![0.0; half],
@@ -223,7 +229,13 @@ impl PhaseVocoder {
             );
         }
 
-        // Phase vocoder core: modify phases for pitch shift
+        // Phase vocoder core: phase advance with pitch_factor as synthesis hop multiplier
+        // This performs TIME STRETCHING — changes duration without changing pitch.
+        // pitch_factor > 1.0 = longer output (slower), < 1.0 = shorter (faster)
+        //
+        // For pitch shift: caller plays source at different rate (varispeed),
+        // then PV time-corrects back to original duration.
+        // Example: pitch up 1 octave = play source 2x faster, PV stretches 2x → same duration, higher pitch
         for k in 0..half {
             let re = self.fft_buf[k].re;
             let im = self.fft_buf[k].im;
@@ -241,6 +253,7 @@ impl PhaseVocoder {
             if is_transient {
                 self.phase_accum[k] = phase;
             } else {
+                // Scale phase advance by pitch_factor — this is the synthesis hop stretch
                 self.phase_accum[k] += true_freq * self.pitch_factor;
             }
 
@@ -354,6 +367,8 @@ impl PhaseVocoder {
     pub fn reset(&mut self) {
         self.phase_accum.fill(0.0);
         self.prev_phase.fill(0.0);
+        self.mag_buf.fill(0.0);
+        self.freq_buf.fill(0.0);
         self.analysis_buf.fill(0.0);
         self.synthesis_buf.fill(0.0);
         for c in &mut self.fft_buf {
@@ -367,6 +382,11 @@ impl PhaseVocoder {
         }
         self.orig_envelope.fill(0.0);
         self.shifted_envelope.fill(0.0);
+    }
+
+    /// Current pitch factor
+    pub fn pitch_factor(&self) -> f64 {
+        self.pitch_factor
     }
 
     /// Latency in samples

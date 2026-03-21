@@ -32,8 +32,9 @@ class _AudioWarpingPanelState extends State<AudioWarpingPanel> {
   static final Map<int, int> _engineRefCount = {};
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // STATE
+  // PERSISTENT STATE PER TRACK (survives tab switches)
   // ═══════════════════════════════════════════════════════════════════════════
+  static final Map<int, _WarpSnapshot> _persistedState = {};
 
   static const _accent = FabFilterColors.purple;
 
@@ -53,6 +54,7 @@ class _AudioWarpingPanelState extends State<AudioWarpingPanel> {
   // Header toggles
   bool _isStateB = false;
   bool _showExpert = false;
+  bool _bypassed = false;
 
   // A/B snapshots
   _WarpSnapshot _snapshotA = _WarpSnapshot.defaults();
@@ -75,6 +77,7 @@ class _AudioWarpingPanelState extends State<AudioWarpingPanel> {
   @override
   void initState() {
     super.initState();
+    _restorePersistedState();
     _createEngine();
   }
 
@@ -82,13 +85,16 @@ class _AudioWarpingPanelState extends State<AudioWarpingPanel> {
   void didUpdateWidget(covariant AudioWarpingPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedTrackId != widget.selectedTrackId) {
+      _savePersistedState();
       _destroyEngine();
+      _restorePersistedState();
       _createEngine();
     }
   }
 
   @override
   void dispose() {
+    _savePersistedState();
     _ratioDebounce?.cancel();
     _pitchDebounce?.cancel();
     _destroyEngine();
@@ -139,6 +145,33 @@ class _AudioWarpingPanelState extends State<AudioWarpingPanel> {
   // A/B SNAPSHOTS
   // ═══════════════════════════════════════════════════════════════════════════
 
+  void _savePersistedState() {
+    _persistedState[_trackId] = _captureSnapshot();
+  }
+
+  void _restorePersistedState() {
+    final saved = _persistedState[_trackId];
+    if (saved != null) {
+      _stretchRatio = saved.ratio;
+      _pitchSemitones = saved.pitch;
+      _mode = saved.mode;
+      _quality = saved.quality;
+      _preserveTransients = saved.preserveTransients;
+      _preserveFormants = saved.preserveFormants;
+      _useStn = saved.useStn;
+    } else {
+      _stretchRatio = 1.0;
+      _pitchSemitones = 0.0;
+      _mode = ElasticMode.auto;
+      _quality = ElasticQuality.high;
+      _preserveTransients = true;
+      _preserveFormants = false;
+      _useStn = false;
+    }
+    _bypassed = false;
+    _isStateB = false;
+  }
+
   _WarpSnapshot _captureSnapshot() => _WarpSnapshot(
         ratio: _stretchRatio,
         pitch: _pitchSemitones,
@@ -177,12 +210,15 @@ class _AudioWarpingPanelState extends State<AudioWarpingPanel> {
   // FFI PARAMETER SETTERS
   // ═══════════════════════════════════════════════════════════════════════════
 
+  String _diagStatus = '';
+
   void _setRatio(double ratio) {
     setState(() => _stretchRatio = ratio);
     _ratioDebounce?.cancel();
     _ratioDebounce = Timer(const Duration(milliseconds: 30), () {
       if (_engineCreated) {
         NativeFFI.instance.elasticProSetRatio(_trackId, _stretchRatio);
+        _updateDiag();
       }
     });
   }
@@ -193,8 +229,15 @@ class _AudioWarpingPanelState extends State<AudioWarpingPanel> {
     _pitchDebounce = Timer(const Duration(milliseconds: 30), () {
       if (_engineCreated) {
         NativeFFI.instance.elasticProSetPitch(_trackId, _pitchSemitones);
+        _updateDiag();
       }
     });
+  }
+
+  void _updateDiag() {
+    final d = NativeFFI.instance.debugTrackClipState(_trackId);
+    final rc = _engineRefCount[_trackId] ?? -1;
+    setState(() => _diagStatus = 'T$_trackId rc=$rc: $d eng=${_engineCreated ? "Y" : "N"}');
   }
 
   void _setMode(ElasticMode mode) {
@@ -291,6 +334,19 @@ class _AudioWarpingPanelState extends State<AudioWarpingPanel> {
                     const SizedBox(height: 4),
                     _buildFinePitchSlider(),
                   ],
+                  // Diagnostic status (shows engine clip state)
+                  if (_diagStatus.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        _diagStatus,
+                        style: const TextStyle(
+                          fontSize: 9,
+                          fontFamily: 'JetBrains Mono',
+                          color: Color(0xFF888888),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -327,8 +383,20 @@ class _AudioWarpingPanelState extends State<AudioWarpingPanel> {
       accentColor: _accent,
       isStateB: _isStateB,
       onToggleAB: _toggleAB,
-      bypassed: false,
-      onToggleBypass: _resetToDefaults,
+      bypassed: _bypassed,
+      onToggleBypass: () {
+        setState(() => _bypassed = !_bypassed);
+        if (_bypassed) {
+          // Bypass: send neutral values to engine (no stretch, no pitch)
+          if (_engineCreated) {
+            NativeFFI.instance.elasticProSetRatio(_trackId, 1.0);
+            NativeFFI.instance.elasticProSetPitch(_trackId, 0.0);
+          }
+        } else {
+          // Un-bypass: restore current values
+          _syncAllToEngine();
+        }
+      },
       showExpert: _showExpert,
       onToggleExpert: () => setState(() => _showExpert = !_showExpert),
       onClose: widget.onClose ?? () {},

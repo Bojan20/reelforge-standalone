@@ -54,6 +54,7 @@ pub mod ffi_control_room;
 pub mod ffi_routing;
 pub mod playback;
 pub mod phase_vocoder;
+pub mod audio_stretcher;
 pub mod sinc_table;
 pub mod track_manager;
 pub mod waveform;

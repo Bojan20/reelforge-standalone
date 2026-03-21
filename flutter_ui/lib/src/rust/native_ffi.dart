@@ -11050,6 +11050,60 @@ extension SrcQualityExtension on SrcQuality {
 }
 
 /// SRC Quality API - Playback sample rate conversion quality
+/// Debug: track clip state diagnostic
+class TrackClipDiagnostic {
+  final int clipCount;
+  final double stretchRatio;
+  final double pitchShift;
+  final int flags; // bit0=preserve_pitch, bit1=elastic_exists, bit2=vocoder_exists
+  final double pvPitchFactor;
+  const TrackClipDiagnostic({
+    required this.clipCount,
+    required this.stretchRatio,
+    required this.pitchShift,
+    required this.flags,
+    required this.pvPitchFactor,
+  });
+  bool get preservePitch => flags & 1 != 0;
+  bool get elasticExists => flags & 2 != 0;
+  bool get vocoderExists => flags & 4 != 0;
+  int get pvHit => (flags >> 8) & 0xFF;
+  int get pvMiss => (flags >> 16) & 0xFF;
+  @override
+  String toString() => 'c=$clipCount s=${stretchRatio.toStringAsFixed(2)} p=${pitchShift.toStringAsFixed(1)} pp=${preservePitch ? 1 : 0} el=${elasticExists ? 1 : 0} pv=${vocoderExists ? 1 : 0} pf=${pvPitchFactor.toStringAsFixed(2)} H$pvHit/M$pvMiss';
+}
+
+extension DebugDiagnosticAPI on NativeFFI {
+  static final _debugTrackClipState = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32, Pointer<Uint32>, Pointer<Double>, Pointer<Double>, Pointer<Int32>, Pointer<Double>),
+      int Function(int, Pointer<Uint32>, Pointer<Double>, Pointer<Double>, Pointer<Int32>, Pointer<Double>)
+      >('debug_track_clip_state');
+
+  TrackClipDiagnostic debugTrackClipState(int trackId) {
+    final cc = calloc<Uint32>();
+    final sr = calloc<Double>();
+    final ps = calloc<Double>();
+    final pp = calloc<Int32>();
+    final pf = calloc<Double>();
+    try {
+      _debugTrackClipState(trackId, cc, sr, ps, pp, pf);
+      return TrackClipDiagnostic(
+        clipCount: cc.value,
+        stretchRatio: sr.value,
+        pitchShift: ps.value,
+        flags: pp.value,
+        pvPitchFactor: pf.value,
+      );
+    } finally {
+      calloc.free(cc);
+      calloc.free(sr);
+      calloc.free(ps);
+      calloc.free(pp);
+      calloc.free(pf);
+    }
+  }
+}
+
 extension SrcQualityAPI on NativeFFI {
   static final _setSrcQuality = _loadNativeLibrary().lookupFunction<
       Int32 Function(Uint32), int Function(int)>('set_src_quality');

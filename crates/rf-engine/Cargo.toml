@@ -40,6 +40,7 @@ dashmap = "6.1"
 smallvec = { version = "1.13", features = ["serde"] }
 cpal = { workspace = true }
 memmap2 = "0.9"
+signalsmith-stretch = "0.1"
 
 # Audio file decoding - ALL supported formats
 # Lossless: wav, flac, aiff, alac (Apple Lossless)

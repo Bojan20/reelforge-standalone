@@ -1706,10 +1706,10 @@ pub struct PlaybackEngine {
     group_manager: Option<Arc<RwLock<GroupManager>>>,
     /// Elastic audio parameters per clip (time_ratio, pitch_semitones)
     elastic_params: RwLock<HashMap<u32, (f64, f64)>>,
-    /// Phase vocoder instances per clip (for preserve_pitch mode)
-    /// Stored as (left, right) pair — each channel needs its own PV state.
-    /// Created on UI thread when clip.preserve_pitch is set, NOT on audio thread.
-    clip_vocoders: RwLock<HashMap<u64, (crate::phase_vocoder::PhaseVocoder, crate::phase_vocoder::PhaseVocoder)>>,
+    /// Audio stretcher instances per clip (for preserve_pitch / pitch shift mode)
+    /// Uses Signalsmith Stretch — high quality, real-time, zero-alloc process().
+    /// Created on UI thread when preserve_pitch is set, NOT on audio thread.
+    clip_stretchers: RwLock<HashMap<u64, crate::audio_stretcher::AudioStretcher>>,
     /// Varispeed playback rate (0.25 to 4.0, 1.0 = normal)
     /// Affects global playback speed WITH pitch change (like tape speed)
     varispeed_rate: AtomicU64,
@@ -1752,6 +1752,10 @@ pub struct PlaybackEngine {
     diag_cpu_load_pct: AtomicU32,
     /// Adaptive quality: current global SRC mode value (for UI display)
     diag_src_mode: AtomicU32,
+    /// Debug: PV path hit counter
+    diag_pv_hit: AtomicU32,
+    /// Debug: PV path miss counter (lock contended or vocoder not found)
+    diag_pv_miss: AtomicU32,
     /// Delay compensation manager for automatic plugin delay compensation
     delay_comp: RwLock<DelayCompensationManager>,
     /// Control room for monitoring (AFL/PFL, cue mixes, talkback)
@@ -1895,7 +1899,7 @@ impl PlaybackEngine {
             )),
             group_manager: None,
             elastic_params: RwLock::new(HashMap::new()),
-            clip_vocoders: RwLock::new(HashMap::new()),
+            clip_stretchers: RwLock::new(HashMap::new()),
             varispeed_rate: AtomicU64::new(1.0_f64.to_bits()),
             varispeed_enabled: AtomicBool::new(false),
             vca_assignments: RwLock::new(HashMap::new()),
@@ -1922,6 +1926,8 @@ impl PlaybackEngine {
             diag_degraded_voices: AtomicU32::new(0),
             diag_cpu_load_pct: AtomicU32::new(0),
             diag_src_mode: AtomicU32::new(64), // Sinc64 default
+            diag_pv_hit: AtomicU32::new(0),
+            diag_pv_miss: AtomicU32::new(0),
             delay_comp: RwLock::new(DelayCompensationManager::new(sample_rate as f64)),
             control_room: Arc::new(ControlRoom::new(256)),
             prefader_buffer_l: RwLock::new(vec![0.0_f64; 8192]),
@@ -3586,6 +3592,13 @@ impl PlaybackEngine {
     // PHASE VOCODER MANAGEMENT (UI thread only)
     // ═══════════════════════════════════════════════════════════════════════
 
+    /// Get PV debug counters (hit, miss). Resets on read.
+    pub fn pv_debug_counters(&self) -> (u32, u32) {
+        let hit = self.diag_pv_hit.swap(0, Ordering::Relaxed);
+        let miss = self.diag_pv_miss.swap(0, Ordering::Relaxed);
+        (hit, miss)
+    }
+
     /// Get adaptive quality diagnostics (lock-free, safe from any thread).
     /// Returns (active_voices, degraded_voices, cpu_load_pct, src_mode_value)
     pub fn adaptive_quality_stats(&self) -> (u32, u32, u32, u32) {
@@ -3597,73 +3610,78 @@ impl PlaybackEngine {
         )
     }
 
-    /// Pre-allocate or remove a phase vocoder for a clip (UI thread only).
-    /// Call when preserve_pitch is toggled or stretch_ratio changes.
-    /// Pre-allocate or remove a phase vocoder for a clip (UI thread only).
-    /// `pitch_shift_semitones`: additional pitch shift (0.0 = stretch compensation only)
-    pub fn prepare_clip_vocoder(&self, clip_id: u64, stretch_ratio: f64, sample_rate: f64) {
-        self.prepare_clip_vocoder_with_pitch(clip_id, stretch_ratio, 0.0, sample_rate);
-    }
+    // ═══════════════════════════════════════════════════════════════════════
+    // AUDIO STRETCHER MANAGEMENT (Signalsmith Stretch — UI thread only)
+    // ═══════════════════════════════════════════════════════════════════════
 
-    /// Pre-allocate vocoder with explicit pitch shift + stretch compensation.
-    /// pitch_factor = 2^(semitones/12) / stretch_ratio
-    pub fn prepare_clip_vocoder_with_pitch(
-        &self, clip_id: u64, stretch_ratio: f64, pitch_shift_semitones: f64, sample_rate: f64,
+    /// Pre-allocate or update audio stretcher for a clip.
+    /// `stretch_ratio`: time stretch (1.0=normal), `pitch_semitones`: pitch shift
+    pub fn prepare_clip_stretcher(
+        &self, clip_id: u64, stretch_ratio: f64, pitch_semitones: f64, sample_rate: f64,
     ) {
         let has_stretch = (stretch_ratio - 1.0).abs() > 0.001;
-        let has_pitch = pitch_shift_semitones.abs() > 0.01;
+        let has_pitch = pitch_semitones.abs() > 0.01;
         if !has_stretch && !has_pitch {
-            self.clip_vocoders.write().remove(&clip_id);
+            self.clip_stretchers.write().remove(&clip_id);
             return;
         }
-        // pitch_factor combines pitch shift + stretch ratio compensation
-        let pitch_factor = 2.0_f64.powf(pitch_shift_semitones / 12.0) / stretch_ratio;
-        let mut vocoders = self.clip_vocoders.write();
-        let (pv_l, pv_r) = vocoders.entry(clip_id).or_insert_with(|| {
-            let l = crate::phase_vocoder::PhaseVocoder::new(2048, 4, sample_rate);
-            let r = crate::phase_vocoder::PhaseVocoder::new(2048, 4, sample_rate);
-            (l, r)
+        let mut stretchers = self.clip_stretchers.write();
+        let stretcher = stretchers.entry(clip_id).or_insert_with(|| {
+            crate::audio_stretcher::AudioStretcher::new(sample_rate as u32, 8192)
         });
-        pv_l.set_pitch_factor(pitch_factor);
-        pv_r.set_pitch_factor(pitch_factor);
+        stretcher.set_pitch_semitones(pitch_semitones);
+        stretcher.set_stretch_ratio(stretch_ratio);
     }
 
-    /// Get write access to clip vocoders map (UI thread only).
-    pub fn clip_vocoders_write(&self) -> parking_lot::RwLockWriteGuard<'_, HashMap<u64, (crate::phase_vocoder::PhaseVocoder, crate::phase_vocoder::PhaseVocoder)>> {
-        self.clip_vocoders.write()
+    /// Convenience: prepare stretcher with no pitch shift (stretch-only).
+    pub fn prepare_clip_vocoder(&self, clip_id: u64, stretch_ratio: f64, sample_rate: f64) {
+        self.prepare_clip_stretcher(clip_id, stretch_ratio, 0.0, sample_rate);
     }
 
-    /// Remove a phase vocoder for a clip (UI thread only).
+    /// Convenience: prepare stretcher with pitch + stretch.
+    pub fn prepare_clip_vocoder_with_pitch(
+        &self, clip_id: u64, stretch_ratio: f64, pitch_semitones: f64, sample_rate: f64,
+    ) {
+        self.prepare_clip_stretcher(clip_id, stretch_ratio, pitch_semitones, sample_rate);
+    }
+
+    /// Get read access to clip stretchers (non-blocking).
+    pub fn clip_stretchers_try_read(&self) -> Option<parking_lot::RwLockReadGuard<'_, HashMap<u64, crate::audio_stretcher::AudioStretcher>>> {
+        self.clip_stretchers.try_read()
+    }
+
+    /// Get write access to clip stretchers (UI thread only).
+    pub fn clip_stretchers_write(&self) -> parking_lot::RwLockWriteGuard<'_, HashMap<u64, crate::audio_stretcher::AudioStretcher>> {
+        self.clip_stretchers.write()
+    }
+
+    /// Remove stretcher for a clip.
     pub fn remove_clip_vocoder(&self, clip_id: u64) {
-        self.clip_vocoders.write().remove(&clip_id);
+        self.clip_stretchers.write().remove(&clip_id);
     }
 
-    /// Update pitch factor for an existing vocoder (UI thread only).
+    /// Update pitch for an existing stretcher (UI thread only).
     pub fn update_vocoder_pitch(&self, clip_id: u64, stretch_ratio: f64) {
-        let pitch_factor = 1.0 / stretch_ratio;
-        if let Some((pv_l, pv_r)) = self.clip_vocoders.write().get_mut(&clip_id) {
-            pv_l.set_pitch_factor(pitch_factor);
-            pv_r.set_pitch_factor(pitch_factor);
+        if let Some(stretcher) = self.clip_stretchers.write().get_mut(&clip_id) {
+            stretcher.set_stretch_ratio(stretch_ratio);
         }
     }
 
     pub fn seek(&self, seconds: f64) {
         self.position.set_seconds(seconds.max(0.0));
-        // Reset all phase vocoders on seek (phase state invalid after discontinuity)
-        if let Some(mut vocoders) = self.clip_vocoders.try_write() {
-            for (pv_l, pv_r) in vocoders.values_mut() {
-                pv_l.reset();
-                pv_r.reset();
+        // Reset all stretchers on seek (internal state invalid after discontinuity)
+        if let Some(mut stretchers) = self.clip_stretchers.try_write() {
+            for s in stretchers.values_mut() {
+                s.reset();
             }
         }
     }
 
     pub fn seek_samples(&self, samples: u64) {
         self.position.set_samples(samples);
-        if let Some(mut vocoders) = self.clip_vocoders.try_write() {
-            for (pv_l, pv_r) in vocoders.values_mut() {
-                pv_l.reset();
-                pv_r.reset();
+        if let Some(mut stretchers) = self.clip_stretchers.try_write() {
+            for s in stretchers.values_mut() {
+                s.reset();
             }
         }
     }
@@ -6519,15 +6537,16 @@ impl PlaybackEngine {
 
                         // Try to acquire vocoder — if lock contended or not pre-allocated, bypass
                         // NEVER allocate on audio thread — vocoder must be pre-created via UI thread
-                        if let Some(mut vocoders) = self.clip_vocoders.try_write() {
-                            if let Some((pv_l_inst, pv_r_inst)) = vocoders.get_mut(&clip.id.0) {
+                        if let Some(mut stretchers) = self.clip_stretchers.try_write() {
+                            if let Some(stretcher) = stretchers.get_mut(&clip.id.0) {
+                                self.diag_pv_hit.fetch_add(1, Ordering::Relaxed);
 
-                                // Process L and R through separate vocoders (preserves stereo phase)
-                                // PV.process() is zero-allocation — uses pre-allocated internal buffers
-                                pv_l_inst.process(&pv_l[..frames], &mut pv_out_l[..frames]);
-                                pv_r_inst.process(&pv_r[..frames], &mut pv_out_r[..frames]);
+                                stretcher.process(
+                                    &pv_l[..frames], &pv_r[..frames],
+                                    &mut pv_out_l[..frames], &mut pv_out_r[..frames],
+                                    frames,
+                                );
 
-                                // Phase 3: Mix PV output into output buffers with per-sample gain
                                 for i in 0..frames {
                                     let g = pv_gain[i];
                                     if g > 0.0 {
@@ -6536,6 +6555,7 @@ impl PlaybackEngine {
                                     }
                                 }
                             } else {
+                                self.diag_pv_miss.fetch_add(1, Ordering::Relaxed);
                                 // Vocoder not pre-allocated — bypass PV (sinc-only output)
                                 for i in 0..frames {
                                     let g = pv_gain[i];
@@ -6546,6 +6566,7 @@ impl PlaybackEngine {
                                 }
                             }
                         } else {
+                            self.diag_pv_miss.fetch_add(1, Ordering::Relaxed);
                             // Lock contended — bypass PV, output sinc-only (better than silence)
                             for i in 0..frames {
                                 let g = pv_gain[i];
@@ -7026,6 +7047,26 @@ impl PlaybackEngine {
         };
         let clip2_sinc_ref = Some(&*clip2_sinc_guard);
 
+        // Phase vocoder path: if preserve_pitch with stretch or pitch shift
+        let needs_pv = clip.preserve_pitch
+            && ((clip.stretch_ratio - 1.0).abs() > 0.001
+                || clip.pitch_shift.abs() > 0.01);
+
+        if needs_pv {
+            // Delegate to PV-aware block processor
+            self.process_clip_with_crossfade_pv(
+                clip, audio, crossfade, start_sample, sample_rate,
+                output_l, output_r, frames, clip_start_sample,
+                source_sample_rate, rate_ratio, has_envelopes,
+                static_playback_rate, static_gain,
+                fade_in_samples, fade_out_samples, clip_duration_samples,
+                xf_start_sample, xf_end_sample, is_clip_a,
+                source_offset_samples_f64,
+                clip2_resample_mode, &clip2_sinc_guard,
+            );
+            return;
+        }
+
         // For envelope mode: compute integrated source position at block start,
         // then accumulate incrementally per-sample. This avoids O(N*P) per-sample integration.
         let has_pitch_or_rate_env = has_envelopes
@@ -7225,6 +7266,252 @@ impl PlaybackEngine {
             output_l[i] += sample_l * final_gain;
             output_r[i] += sample_r * final_gain;
         }
+    }
+
+    /// Phase-vocoder aware version of process_clip_with_crossfade.
+    ///
+    /// Two-pass architecture (like Pro Tools Elastic Audio / Cubase Elastique):
+    /// Pass 1: Sinc resample → scratch buffers (raw signal, no gain/fade)
+    /// PV block: Phase vocoder processes entire block (frequency bin resampling)
+    /// Pass 2: Apply gain/fade/crossfade to PV output → accumulate into output
+    #[allow(clippy::too_many_arguments)]
+    fn process_clip_with_crossfade_pv(
+        &self,
+        clip: &Clip,
+        audio: &ImportedAudio,
+        crossfade: Option<&Crossfade>,
+        start_sample: u64,
+        sample_rate: f64,
+        output_l: &mut [f64],
+        output_r: &mut [f64],
+        frames: usize,
+        clip_start_sample: i64,
+        source_sample_rate: f64,
+        rate_ratio: f64,
+        has_envelopes: bool,
+        static_playback_rate: f64,
+        static_gain: f64,
+        fade_in_samples: i64,
+        fade_out_samples: i64,
+        clip_duration_samples: i64,
+        xf_start_sample: i64,
+        xf_end_sample: i64,
+        is_clip_a: bool,
+        source_offset_samples_f64: f64,
+        resample_mode: ResampleMode,
+        sinc_guard: &parking_lot::RwLockReadGuard<'_, SincTable>,
+    ) {
+        let sinc_ref = Some(&**sinc_guard);
+        let has_pitch_or_rate_env = has_envelopes
+            && (clip.pitch_envelope.as_ref().is_some_and(|e| e.is_active())
+                || clip.playrate_envelope.as_ref().is_some_and(|e| e.is_active()));
+
+        PV_SCRATCH_L.with(|buf_l| {
+        PV_SCRATCH_R.with(|buf_r| {
+        PV_OUT_L.with(|out_l| {
+        PV_OUT_R.with(|out_r| {
+        PV_GAIN_SCRATCH.with(|buf_g| {
+            let mut pv_l = buf_l.borrow_mut();
+            let mut pv_r = buf_r.borrow_mut();
+            let mut pv_out_l = out_l.borrow_mut();
+            let mut pv_out_r = out_r.borrow_mut();
+            let mut pv_gain = buf_g.borrow_mut();
+
+            if pv_l.len() < frames {
+                pv_l.resize(frames, 0.0);
+                pv_r.resize(frames, 0.0);
+                pv_out_l.resize(frames, 0.0);
+                pv_out_r.resize(frames, 0.0);
+                pv_gain.resize(frames, 0.0);
+            }
+            pv_l[..frames].fill(0.0);
+            pv_r[..frames].fill(0.0);
+            pv_out_l[..frames].fill(0.0);
+            pv_out_r[..frames].fill(0.0);
+            pv_gain[..frames].fill(0.0);
+
+            let channels = audio.channels as usize;
+            let total_source_frames = audio.samples.len() / channels.max(1);
+
+            // Envelope state
+            let mut env_source_pos: f64 = 0.0;
+            let mut env_initialized = false;
+            let mut env_prev_clip_offset: i64 = -1;
+
+            // ══════════════════════════════════════════════════════════════
+            // PASS 1: Sinc resample into scratch buffers + per-sample gain
+            // ══════════════════════════════════════════════════════════════
+            for i in 0..frames {
+                let playback_sample = start_sample as i64 + i as i64;
+                let clip_relative_sample = playback_sample - clip_start_sample;
+
+                if clip_relative_sample < 0
+                    || (clip_relative_sample >= clip_duration_samples && !clip.loop_enabled)
+                {
+                    continue;
+                }
+
+                // Source position
+                let mut source_pos_f64 = if has_pitch_or_rate_env {
+                    let clip_offset = clip_relative_sample as u64;
+                    if !env_initialized || clip_relative_sample != env_prev_clip_offset + 1 {
+                        env_source_pos = clip.source_position_at(
+                            clip_offset, rate_ratio, source_offset_samples_f64,
+                        );
+                        env_initialized = true;
+                    } else {
+                        let current_rate = clip.playback_rate_at(clip_offset);
+                        let prev_rate = clip.playback_rate_at(clip_offset.saturating_sub(1));
+                        env_source_pos += (prev_rate + current_rate) * 0.5 * rate_ratio;
+                    }
+                    env_prev_clip_offset = clip_relative_sample;
+                    env_source_pos
+                } else {
+                    clip_relative_sample as f64 * rate_ratio * static_playback_rate
+                        + source_offset_samples_f64
+                };
+
+                // Loop wrapping
+                let mut loop_xf_gain = 1.0_f64;
+                if clip.loop_enabled {
+                    let loop_length = clip.source_duration * source_sample_rate;
+                    if loop_length > 0.0 {
+                        let offset_in_source = source_pos_f64 - source_offset_samples_f64;
+                        if offset_in_source >= loop_length {
+                            if clip.loop_count > 0 {
+                                let iteration = (offset_in_source / loop_length) as u32;
+                                if iteration >= clip.loop_count { continue; }
+                            }
+                            let wrapped = offset_in_source % loop_length;
+                            source_pos_f64 = source_offset_samples_f64 + wrapped;
+                            if has_pitch_or_rate_env { env_source_pos = source_pos_f64; }
+                            if clip.loop_crossfade > 0.0 {
+                                let xf_len = (clip.loop_crossfade * source_sample_rate).min(loop_length * 0.5);
+                                if wrapped < xf_len {
+                                    loop_xf_gain = (wrapped / xf_len * std::f64::consts::FRAC_PI_2).sin();
+                                }
+                                if wrapped > (loop_length - xf_len) {
+                                    let end_gain = (loop_length - wrapped) / xf_len;
+                                    loop_xf_gain *= (end_gain * std::f64::consts::FRAC_PI_2).sin();
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if source_pos_f64 < 0.0 || source_pos_f64 >= total_source_frames as f64 {
+                    continue;
+                }
+
+                // Sinc interpolation
+                let (sl, sr) = if audio.channels == 1 {
+                    let s = sinc_table::interpolate_sample(
+                        resample_mode, source_pos_f64, &audio.samples, 1,
+                        total_source_frames, 0, sinc_ref,
+                    ) as f64;
+                    (s, s)
+                } else {
+                    let l = sinc_table::interpolate_sample(
+                        resample_mode, source_pos_f64, &audio.samples, channels,
+                        total_source_frames, 0, sinc_ref,
+                    ) as f64;
+                    let r = sinc_table::interpolate_sample(
+                        resample_mode, source_pos_f64, &audio.samples, channels,
+                        total_source_frames, 1, sinc_ref,
+                    ) as f64;
+                    (l, r)
+                };
+
+                // Apply clip FX chain (before PV — FX are frequency-domain aware)
+                let (fx_l, fx_r) = if clip.has_fx() {
+                    self.process_clip_fx(&clip.fx_chain, sl, sr)
+                } else {
+                    (sl, sr)
+                };
+
+                // Store raw signal for PV (no gain/fade yet)
+                pv_l[i] = fx_l;
+                pv_r[i] = fx_r;
+
+                // Calculate and store per-sample gain (fade + crossfade + gain envelope)
+                let mut fade = 1.0_f64;
+                if clip_relative_sample < fade_in_samples && fade_in_samples > 0 {
+                    let f = clip_relative_sample as f64 / fade_in_samples as f64;
+                    fade = f * f;
+                }
+                let samples_from_end = clip_duration_samples - clip_relative_sample;
+                if samples_from_end < fade_out_samples && fade_out_samples > 0 {
+                    let f = samples_from_end as f64 / fade_out_samples as f64;
+                    fade *= f * f;
+                }
+                if let Some(xf) = crossfade {
+                    if playback_sample >= xf_start_sample && playback_sample < xf_end_sample {
+                        let xf_t = (playback_sample - xf_start_sample) as f32
+                            / (xf_end_sample - xf_start_sample) as f32;
+                        let (fo, fi) = xf.shape.evaluate(xf_t);
+                        fade *= if is_clip_a { fo as f64 } else { fi as f64 };
+                    } else if is_clip_a && playback_sample >= xf_end_sample {
+                        fade = 0.0;
+                    } else if !is_clip_a && playback_sample < xf_start_sample {
+                        fade = 0.0;
+                    }
+                }
+                let effective_gain = if has_envelopes {
+                    clip.gain_at((playback_sample - clip_start_sample) as u64)
+                } else {
+                    static_gain
+                };
+                pv_gain[i] = effective_gain * fade * loop_xf_gain;
+            }
+
+            // ══════════════════════════════════════════════════════════════
+            // STRETCH BLOCK: Signalsmith Stretch pitch/time on entire buffer
+            // ══════════════════════════════════════════════════════════════
+            if let Some(mut stretchers) = self.clip_stretchers.try_write() {
+                if let Some(stretcher) = stretchers.get_mut(&clip.id.0) {
+                    self.diag_pv_hit.fetch_add(1, Ordering::Relaxed);
+
+                    // Signalsmith processes stereo interleaved internally
+                    stretcher.process(
+                        &pv_l[..frames], &pv_r[..frames],
+                        &mut pv_out_l[..frames], &mut pv_out_r[..frames],
+                        frames,
+                    );
+
+                    // PASS 2: Mix stretched output with per-sample gain into output
+                    for i in 0..frames {
+                        let g = pv_gain[i];
+                        if g.abs() > 1e-12 {
+                            output_l[i] += pv_out_l[i] * g;
+                            output_r[i] += pv_out_r[i] * g;
+                        }
+                    }
+                } else {
+                    self.diag_pv_miss.fetch_add(1, Ordering::Relaxed);
+                    // No stretcher — bypass (sinc + gain only)
+                    for i in 0..frames {
+                        let g = pv_gain[i];
+                        if g.abs() > 1e-12 {
+                            output_l[i] += pv_l[i] * g;
+                            output_r[i] += pv_r[i] * g;
+                        }
+                    }
+                }
+            } else {
+                self.diag_pv_miss.fetch_add(1, Ordering::Relaxed);
+                for i in 0..frames {
+                    let g = pv_gain[i];
+                    if g.abs() > 1e-12 {
+                        output_l[i] += pv_l[i] * g;
+                        output_r[i] += pv_r[i] * g;
+                    }
+                }
+            }
+        });
+        });
+        });
+        });
+        });
     }
 
     /// Process clip FX chain on audio samples
