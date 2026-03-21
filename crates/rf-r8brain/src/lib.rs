@@ -13,3 +13,5 @@
 
 pub mod kaiser;
 pub mod frac_interpolator;
+pub mod halfband;
+pub mod block_convolver;
