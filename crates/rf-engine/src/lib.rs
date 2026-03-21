@@ -53,6 +53,7 @@ pub mod ffi;
 pub mod ffi_control_room;
 pub mod ffi_routing;
 pub mod playback;
+pub mod sinc_table;
 pub mod track_manager;
 pub mod waveform;
 

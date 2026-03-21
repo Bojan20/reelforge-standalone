@@ -21,6 +21,8 @@ use crossbeam_channel::{Sender, bounded};
 use parking_lot::RwLock;
 use rayon::prelude::*;
 
+use crate::sinc_table::{self, ResampleMode, SincTable};
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PLAYBACK SOURCE — For section-based voice filtering
 // ═══════════════════════════════════════════════════════════════════════════
@@ -941,74 +943,49 @@ pub struct OneShotVoice {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// LANCZOS-3 SINC INTERPOLATION (Zero-Allocation, Audio-Thread Safe)
+// SINC INTERPOLATION — Blackman-Harris windowed sinc via pre-computed table
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// 6-tap windowed sinc for real-time SRC. Noise floor ~-90dB.
-// All computation on stack — no heap allocations.
+// Quality modes: Point, Linear, Sinc(16/64/192/384/512/768)
+// Default playback: Sinc(64) = Reaper "Medium" (~-120dB noise floor)
+// Default render: Sinc(384) = Reaper "Better" (~-150dB)
+// All computation on stack — no heap allocations in audio path.
 
-/// Lanczos kernel: sinc(x) * sinc(x/a), a=3
-#[inline(always)]
-fn lanczos3(x: f64) -> f64 {
-    if x.abs() < 1e-10 {
-        return 1.0;
+/// Global playback sinc table — dynamically matches current resample mode.
+/// Table is re-generated when mode changes (rare — settings UI only).
+/// Read path uses RwLock read guard (fast, no contention on audio thread).
+static PLAYBACK_SINC_TABLE: std::sync::LazyLock<parking_lot::RwLock<SincTable>> =
+    std::sync::LazyLock::new(|| parking_lot::RwLock::new(SincTable::new(64, 256)));
+
+/// Current playback resample mode (default: Sinc(64))
+static PLAYBACK_RESAMPLE_MODE: std::sync::atomic::AtomicU16 =
+    std::sync::atomic::AtomicU16::new(64);
+
+/// Get the current playback resample mode
+fn playback_resample_mode() -> ResampleMode {
+    let val = PLAYBACK_RESAMPLE_MODE.load(std::sync::atomic::Ordering::Relaxed);
+    match val {
+        0 => ResampleMode::Point,
+        1 => ResampleMode::Linear,
+        n => ResampleMode::Sinc(n),
     }
-    if x.abs() >= 3.0 {
-        return 0.0;
-    }
-    let pi_x = std::f64::consts::PI * x;
-    let pi_x_3 = pi_x / 3.0;
-    (pi_x.sin() * pi_x_3.sin()) / (pi_x * pi_x_3)
 }
 
-/// Lanczos-3 interpolation for a single sample from interleaved audio buffer.
-/// `src_pos`: fractional source position (e.g., 1234.567)
-/// `samples`: interleaved audio data [L0,R0,L1,R1,...]
-/// `channels`: channel count (1=mono, 2=stereo)
-/// `total_frames`: total number of frames (samples.len() / channels)
-/// `ch`: which channel to read (0=L, 1=R)
-///
-/// Returns interpolated sample value. Zero-allocation, audio-thread safe.
-#[inline]
-fn lanczos3_sample(
-    src_pos: f64,
-    samples: &[f32],
-    channels: usize,
-    total_frames: usize,
-    ch: usize,
-) -> f32 {
-    let idx_floor = src_pos.floor() as i64;
-    let frac = src_pos - idx_floor as f64;
-
-    // Fast path: exact position → no interpolation needed
-    if frac.abs() < 1e-10 {
-        let i = idx_floor as usize;
-        if i < total_frames {
-            return samples[i * channels + ch];
+/// Set the playback resample mode and regenerate sinc table if needed.
+/// Called from settings UI — NOT on audio thread.
+pub fn set_playback_resample_mode(mode: ResampleMode) {
+    let val = match mode {
+        ResampleMode::Point => 0,
+        ResampleMode::Linear => 1,
+        ResampleMode::Sinc(n) => n,
+    };
+    let old = PLAYBACK_RESAMPLE_MODE.swap(val, std::sync::atomic::Ordering::Relaxed);
+    // Regenerate table only if sinc size changed
+    if let ResampleMode::Sinc(new_size) = mode {
+        let old_mode_is_sinc = old >= 2;
+        if !old_mode_is_sinc || old != new_size {
+            *PLAYBACK_SINC_TABLE.write() = SincTable::new(new_size as usize, 256);
         }
-        return 0.0;
-    }
-
-    let mut sum = 0.0_f64;
-    let mut weight_sum = 0.0_f64;
-
-    // Lanczos-3: 6 taps (k = -2..=3)
-    for k in -2i64..=3 {
-        let sample_idx = idx_floor + k;
-        if sample_idx < 0 || sample_idx >= total_frames as i64 {
-            continue;
-        }
-        let x = frac - k as f64;
-        let w = lanczos3(x);
-        let buf_idx = sample_idx as usize * channels + ch;
-        sum += samples[buf_idx] as f64 * w;
-        weight_sum += w;
-    }
-
-    if weight_sum > 0.0 {
-        (sum / weight_sum) as f32
-    } else {
-        0.0
     }
 }
 
@@ -1248,6 +1225,11 @@ impl OneShotVoice {
         // Combined playback rate: SRC * pitch shift
         let combined_rate = rate_ratio * pitch_ratio;
 
+        // Acquire sinc table ONCE per block (not per-frame)
+        let resample_mode = playback_resample_mode();
+        let sinc_guard = PLAYBACK_SINC_TABLE.read();
+        let sinc_ref = Some(&*sinc_guard);
+
         for frame in 0..frames_needed {
             // Handle fade-out (from stop command or explicit fade_out_one_shot)
             if self.fade_samples_remaining > 0 {
@@ -1314,12 +1296,14 @@ impl OneShotVoice {
                 self.volume * self.fade_gain
             };
 
-            // Lanczos-3 sinc interpolation for pitch shift / SRC
-            // 6-tap windowed sinc, ~-90dB noise floor, zero-allocation
-            let interp_l =
-                lanczos3_sample(src_pos, &self.audio.samples, channels_src, total_frames, 0);
+            // Blackman-Harris windowed sinc interpolation for SRC + pitch shift
+            let interp_l = sinc_table::interpolate_sample(
+                resample_mode, src_pos, &self.audio.samples, channels_src, total_frames, 0, sinc_ref,
+            );
             let interp_r = if channels_src > 1 {
-                lanczos3_sample(src_pos, &self.audio.samples, channels_src, total_frames, 1)
+                sinc_table::interpolate_sample(
+                    resample_mode, src_pos, &self.audio.samples, channels_src, total_frames, 1, sinc_ref,
+                )
             } else {
                 interp_l // Mono: L=R
             };
@@ -6199,6 +6183,11 @@ impl PlaybackEngine {
         // Convert source_offset (seconds) to samples in source sample rate
         let source_offset_samples = (clip.source_offset * source_sample_rate) as f64;
 
+        // Acquire sinc table ONCE per clip render call
+        let clip_resample_mode = playback_resample_mode();
+        let clip_sinc_guard = PLAYBACK_SINC_TABLE.read();
+        let clip_sinc_ref = Some(&*clip_sinc_guard);
+
         for frame_idx in 0..frames {
             let global_sample = start_sample + frame_idx as u64;
 
@@ -6212,7 +6201,7 @@ impl PlaybackEngine {
             // Sample position within clip's timeline
             let clip_offset = global_sample - clip_start_sample;
 
-            // Apply time stretch + sample rate conversion with Lanczos-3 sinc interpolation
+            // Apply time stretch + sample rate conversion with Blackman-Harris sinc interpolation
             let mut source_pos_f64 =
                 clip_offset as f64 * rate_ratio * playback_rate + source_offset_samples;
 
@@ -6297,20 +6286,12 @@ impl PlaybackEngine {
                 continue;
             }
 
-            let interp_l = lanczos3_sample(
-                source_pos_f64,
-                &audio.samples,
-                channels,
-                total_source_frames,
-                0,
+            let interp_l = sinc_table::interpolate_sample(
+                clip_resample_mode, source_pos_f64, &audio.samples, channels, total_source_frames, 0, clip_sinc_ref,
             ) as f64;
             if channels >= 2 {
-                let interp_r = lanczos3_sample(
-                    source_pos_f64,
-                    &audio.samples,
-                    channels,
-                    total_source_frames,
-                    1,
+                let interp_r = sinc_table::interpolate_sample(
+                    clip_resample_mode, source_pos_f64, &audio.samples, channels, total_source_frames, 1, clip_sinc_ref,
                 ) as f64;
                 output_l[frame_idx] += interp_l * clip.gain * loop_xf_gain;
                 output_r[frame_idx] += interp_r * clip.gain * loop_xf_gain;
@@ -6680,6 +6661,11 @@ impl PlaybackEngine {
         // Pre-calculate source offset for the loop
         let source_offset_samples_f64 = clip.source_offset * source_sample_rate;
 
+        // Acquire sinc table ONCE per clip (not per-frame)
+        let clip2_resample_mode = playback_resample_mode();
+        let clip2_sinc_guard = PLAYBACK_SINC_TABLE.read();
+        let clip2_sinc_ref = Some(&*clip2_sinc_guard);
+
         // For envelope mode: compute integrated source position at block start,
         // then accumulate incrementally per-sample. This avoids O(N*P) per-sample integration.
         let has_pitch_or_rate_env = has_envelopes
@@ -6783,28 +6769,21 @@ impl PlaybackEngine {
                 continue;
             }
 
-            // Lanczos-3 sinc interpolation for sub-sample accuracy
+            // Blackman-Harris windowed sinc interpolation for sub-sample accuracy
             let channels = audio.channels as usize;
             let total_source_frames = audio.samples.len() / channels.max(1);
 
             let (mut sample_l, mut sample_r) = if audio.channels == 1 {
-                let s = lanczos3_sample(source_pos_f64, &audio.samples, 1, total_source_frames, 0)
-                    as f64;
+                let s = sinc_table::interpolate_sample(
+                    clip2_resample_mode, source_pos_f64, &audio.samples, 1, total_source_frames, 0, clip2_sinc_ref,
+                ) as f64;
                 (s, s)
             } else {
-                let l = lanczos3_sample(
-                    source_pos_f64,
-                    &audio.samples,
-                    channels,
-                    total_source_frames,
-                    0,
+                let l = sinc_table::interpolate_sample(
+                    clip2_resample_mode, source_pos_f64, &audio.samples, channels, total_source_frames, 0, clip2_sinc_ref,
                 ) as f64;
-                let r = lanczos3_sample(
-                    source_pos_f64,
-                    &audio.samples,
-                    channels,
-                    total_source_frames,
-                    1,
+                let r = sinc_table::interpolate_sample(
+                    clip2_resample_mode, source_pos_f64, &audio.samples, channels, total_source_frames, 1, clip2_sinc_ref,
                 ) as f64;
                 (l, r)
             };
