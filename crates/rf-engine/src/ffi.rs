@@ -22,8 +22,8 @@ use crate::audio_import::{AudioImporter, ImportedAudio};
 use crate::freeze::OfflineRenderer;
 use crate::playback::PlaybackEngine;
 use crate::track_manager::{
-    Clip, ClipId, CrossfadeCurve, CrossfadeId, MarkerId, MixSnapshotId, OutputBus, RazorAreaId,
-    RazorContent, SnapshotCategory, TrackId, TrackManager,
+    Clip, ClipId, ClipWarpState, CrossfadeCurve, CrossfadeId, MarkerId, MixSnapshotId, OutputBus,
+    RazorAreaId, RazorContent, SnapshotCategory, TrackId, TrackManager, WarpMarkerId, WarpMarkerType,
 };
 use crate::waveform::{NUM_LOD_LEVELS, SAMPLES_PER_PEAK, StereoWaveformPeaks, WaveformCache};
 use rf_core::{AppError, ErrorAction, ErrorCategory};
@@ -13603,6 +13603,81 @@ pub extern "C" fn elastic_pro_reset(track_id: u32) -> i32 {
     }
 }
 
+// WARP MARKERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Enable/disable warp on a clip. Creates boundary markers if enabling for first time.
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_warp_enable(clip_id: u64, enable: i32) -> i32 {
+    if let Some(mut clip) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
+        if enable != 0 && !clip.warp_state.enabled && clip.warp_state.markers.is_empty() {
+            clip.warp_state = ClipWarpState::with_boundaries(clip.source_duration, clip.duration);
+        }
+        clip.warp_state.enabled = enable != 0;
+        1
+    } else { 0 }
+}
+
+/// Add a warp marker at given source and timeline positions (seconds).
+/// Returns marker ID, or 0 on failure.
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_add_warp_marker(
+    clip_id: u64, source_pos: f64, timeline_pos: f64, marker_type: u32,
+) -> u64 {
+    let mt = match marker_type {
+        0 => WarpMarkerType::Transient,
+        1 => WarpMarkerType::Manual,
+        2 => WarpMarkerType::Quantized,
+        _ => WarpMarkerType::Manual,
+    };
+    if let Some(mut clip) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
+        clip.warp_state.add_marker(source_pos, timeline_pos, mt).0
+    } else { 0 }
+}
+
+/// Remove a warp marker by ID.
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_remove_warp_marker(clip_id: u64, marker_id: u64) -> i32 {
+    if let Some(mut clip) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
+        if clip.warp_state.remove_marker(WarpMarkerId(marker_id)) { 1 } else { 0 }
+    } else { 0 }
+}
+
+/// Move a warp marker's timeline position (drag operation).
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_move_warp_marker(clip_id: u64, marker_id: u64, new_timeline_pos: f64) -> i32 {
+    if let Some(mut clip) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
+        if clip.warp_state.move_marker(WarpMarkerId(marker_id), new_timeline_pos) { 1 } else { 0 }
+    } else { 0 }
+}
+
+/// Get warp marker count for a clip.
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_warp_marker_count(clip_id: u64) -> u32 {
+    TRACK_MANAGER.clips.get(&ClipId(clip_id))
+        .map(|c| c.warp_state.marker_count() as u32)
+        .unwrap_or(0)
+}
+
+/// Quantize all unlocked warp markers to grid.
+/// grid_interval: grid size in seconds, strength: 0.0-1.0
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_warp_quantize(clip_id: u64, grid_interval: f64, strength: f64) -> i32 {
+    if let Some(mut clip) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
+        clip.warp_state.quantize_to_grid(grid_interval, strength);
+        1
+    } else { 0 }
+}
+
+/// Create warp markers from detected transients.
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_warp_create_from_transients(clip_id: u64) -> i32 {
+    if let Some(mut clip) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
+        clip.warp_state.create_markers_from_transients();
+        1
+    } else { 0 }
+}
+
 // CLIP STRETCH (preserve_pitch + pitch shift)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -15368,7 +15443,7 @@ pub extern "C" fn render_selection_to_new_clip(
     output_path: *const c_char,
     bit_depth: u32,
 ) -> u64 {
-    use crate::track_manager::ClipFxChain;
+    use crate::track_manager::{ClipFxChain, ClipWarpState};
 
     // First render to file
     if render_in_place(track_id, start_time, end_time, output_path, bit_depth, 0) == 0 {
@@ -15432,6 +15507,7 @@ pub extern "C" fn render_selection_to_new_clip(
         volume_envelope: None,
         pan_envelope: None,
         sub_project: None,
+        warp_state: ClipWarpState::new(),
     };
 
     // Add clip to track manager

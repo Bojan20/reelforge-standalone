@@ -292,6 +292,7 @@ fn sync_tracks_from_project(e: &mut EngineBridge) {
                 volume_envelope: None,
                 pan_envelope: None,
                 sub_project: None,
+                warp_state: rf_engine::track_manager::ClipWarpState::new(),
             };
 
             track_manager.add_clip(clip);

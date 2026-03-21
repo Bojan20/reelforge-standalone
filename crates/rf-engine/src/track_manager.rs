@@ -56,6 +56,257 @@ pub struct RazorAreaId(pub u64);
 pub struct MixSnapshotId(pub u64);
 
 // ═══════════════════════════════════════════════════════════════════════════
+// WARP MARKERS (Cubase AudioWarp / Reaper Stretch Markers / PT Elastic Audio)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Unique warp marker identifier
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct WarpMarkerId(pub u64);
+
+/// Warp marker type
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WarpMarkerType {
+    /// Auto-detected transient (from onset detection)
+    Transient,
+    /// User-placed marker
+    Manual,
+    /// Created by quantize operation
+    Quantized,
+}
+
+/// Maps a position in the ORIGINAL source audio to a position on the TIMELINE.
+/// Audio between adjacent markers is independently time-stretched.
+///
+/// Example: source has a snare hit at 1.0s, user drags it to 1.5s on timeline.
+/// Audio before the snare stretches, audio after compresses to compensate.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WarpMarker {
+    /// Unique marker ID
+    pub id: WarpMarkerId,
+    /// Position in original source audio (in seconds, at source sample rate)
+    pub source_pos: f64,
+    /// Position on timeline (in seconds, relative to clip start)
+    pub timeline_pos: f64,
+    /// Marker type
+    pub marker_type: WarpMarkerType,
+    /// Locked — won't be moved by auto-quantize
+    pub locked: bool,
+}
+
+/// Pre-computed stretch segment between two adjacent warp markers.
+/// Used by audio thread for O(log N) segment lookup.
+#[derive(Debug, Clone)]
+pub struct SegmentStretch {
+    /// Source start position (seconds in original audio)
+    pub source_start: f64,
+    /// Source end position
+    pub source_end: f64,
+    /// Timeline start position (seconds relative to clip start)
+    pub timeline_start: f64,
+    /// Timeline end position
+    pub timeline_end: f64,
+    /// Stretch ratio for this segment (timeline_len / source_len)
+    /// > 1.0 = slower playback (stretched), < 1.0 = faster (compressed)
+    pub stretch_ratio: f64,
+}
+
+/// Per-clip warp state. Holds all warp markers and pre-computed segments.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ClipWarpState {
+    /// Ordered list of warp markers (sorted by source_pos).
+    /// First marker is always at source_pos=0, last at source_duration.
+    pub markers: Vec<WarpMarker>,
+    /// Detected transients from onset analysis (source positions in seconds).
+    /// These are suggestions — not actual warp markers until user creates them.
+    #[serde(default)]
+    pub transients: Vec<f64>,
+    /// Detected source tempo (BPM), if any
+    #[serde(default)]
+    pub source_tempo: Option<f64>,
+    /// Warp enabled (false = ignore markers, play at clip.stretch_ratio)
+    #[serde(default)]
+    pub enabled: bool,
+    /// Pre-computed segments (NOT serialized — rebuilt from markers on load).
+    #[serde(skip)]
+    pub segments: Vec<SegmentStretch>,
+}
+
+impl ClipWarpState {
+    /// Create empty warp state (no markers, disabled)
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Create warp state with initial boundary markers at start/end of source.
+    pub fn with_boundaries(source_duration: f64, clip_duration: f64) -> Self {
+        let mut state = Self {
+            enabled: true,
+            markers: vec![
+                WarpMarker {
+                    id: WarpMarkerId(next_id()),
+                    source_pos: 0.0,
+                    timeline_pos: 0.0,
+                    marker_type: WarpMarkerType::Manual,
+                    locked: true,
+                },
+                WarpMarker {
+                    id: WarpMarkerId(next_id()),
+                    source_pos: source_duration,
+                    timeline_pos: clip_duration,
+                    marker_type: WarpMarkerType::Manual,
+                    locked: true,
+                },
+            ],
+            ..Default::default()
+        };
+        state.rebuild_segments();
+        state
+    }
+
+    /// Add a warp marker. Inserts in sorted order by source_pos.
+    /// Returns the new marker's ID.
+    pub fn add_marker(&mut self, source_pos: f64, timeline_pos: f64, marker_type: WarpMarkerType) -> WarpMarkerId {
+        let id = WarpMarkerId(next_id());
+        let marker = WarpMarker {
+            id,
+            source_pos,
+            timeline_pos,
+            marker_type,
+            locked: false,
+        };
+        // Insert sorted by source_pos
+        let idx = self.markers.partition_point(|m| m.source_pos < source_pos);
+        self.markers.insert(idx, marker);
+        self.rebuild_segments();
+        id
+    }
+
+    /// Remove a warp marker by ID. Returns true if found.
+    pub fn remove_marker(&mut self, id: WarpMarkerId) -> bool {
+        let len_before = self.markers.len();
+        self.markers.retain(|m| m.id != id);
+        if self.markers.len() != len_before {
+            self.rebuild_segments();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Move a warp marker's timeline position (drag operation).
+    /// Source position stays fixed — only where it appears on timeline changes.
+    pub fn move_marker(&mut self, id: WarpMarkerId, new_timeline_pos: f64) -> bool {
+        if let Some(marker) = self.markers.iter_mut().find(|m| m.id == id) {
+            if marker.locked {
+                return false;
+            }
+            marker.timeline_pos = new_timeline_pos;
+            self.rebuild_segments();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Rebuild pre-computed segments from markers. Called after any marker change.
+    pub fn rebuild_segments(&mut self) {
+        self.segments.clear();
+        if self.markers.len() < 2 {
+            return;
+        }
+        // Sort by source_pos (should already be sorted, but defensive)
+        self.markers.sort_by(|a, b| a.source_pos.partial_cmp(&b.source_pos).unwrap_or(std::cmp::Ordering::Equal));
+
+        for i in 0..self.markers.len() - 1 {
+            let m0 = &self.markers[i];
+            let m1 = &self.markers[i + 1];
+            let source_len = m1.source_pos - m0.source_pos;
+            let timeline_len = m1.timeline_pos - m0.timeline_pos;
+            let ratio = if source_len > 1e-6 {
+                timeline_len / source_len
+            } else {
+                1.0
+            };
+            self.segments.push(SegmentStretch {
+                source_start: m0.source_pos,
+                source_end: m1.source_pos,
+                timeline_start: m0.timeline_pos,
+                timeline_end: m1.timeline_pos,
+                stretch_ratio: ratio.clamp(0.1, 10.0),
+            });
+        }
+    }
+
+    /// Find which segment a timeline position falls in (O(log N) binary search).
+    /// Returns (segment_index, source_position_in_segment).
+    #[inline]
+    pub fn lookup_segment(&self, timeline_pos: f64) -> Option<(usize, f64)> {
+        if self.segments.is_empty() {
+            return None;
+        }
+        // Binary search: find the segment where timeline_start <= pos < timeline_end
+        let idx = self.segments.partition_point(|s| s.timeline_end <= timeline_pos);
+        let idx = idx.min(self.segments.len() - 1);
+        let seg = &self.segments[idx];
+
+        // Map timeline position to source position within this segment
+        let timeline_offset = timeline_pos - seg.timeline_start;
+        let timeline_len = seg.timeline_end - seg.timeline_start;
+        let progress = if timeline_len > 1e-6 {
+            (timeline_offset / timeline_len).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let source_pos = seg.source_start + progress * (seg.source_end - seg.source_start);
+        Some((idx, source_pos))
+    }
+
+    /// Number of markers
+    pub fn marker_count(&self) -> usize {
+        self.markers.len()
+    }
+
+    /// Create markers from detected transients.
+    /// Each transient becomes a warp marker at its original position (source=timeline).
+    pub fn create_markers_from_transients(&mut self) {
+        for &t in &self.transients {
+            // Skip if a marker already exists near this position
+            let already_exists = self.markers.iter().any(|m| (m.source_pos - t).abs() < 0.005);
+            if !already_exists {
+                let id = WarpMarkerId(next_id());
+                let idx = self.markers.partition_point(|m| m.source_pos < t);
+                self.markers.insert(idx, WarpMarker {
+                    id,
+                    source_pos: t,
+                    timeline_pos: t, // Initially identity mapping
+                    marker_type: WarpMarkerType::Transient,
+                    locked: false,
+                });
+            }
+        }
+        self.rebuild_segments();
+    }
+
+    /// Quantize all unlocked markers to nearest grid position.
+    /// `grid_interval`: grid size in seconds (e.g., 0.5 for 1/8 note at 120bpm)
+    /// `strength`: 0.0 = no change, 1.0 = full snap, 0.5 = halfway
+    pub fn quantize_to_grid(&mut self, grid_interval: f64, strength: f64) {
+        if grid_interval <= 0.0 {
+            return;
+        }
+        let strength = strength.clamp(0.0, 1.0);
+        for marker in &mut self.markers {
+            if marker.locked {
+                continue;
+            }
+            let nearest_grid = (marker.timeline_pos / grid_interval).round() * grid_interval;
+            marker.timeline_pos += (nearest_grid - marker.timeline_pos) * strength;
+        }
+        self.rebuild_segments();
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SCREENSETS (Reaper-style UI State Slots)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1232,6 +1483,11 @@ pub struct Clip {
     /// source_file points to proxy WAV, sub_project holds the project metadata.
     #[serde(default)]
     pub sub_project: Option<SubProject>,
+
+    /// Warp markers for per-segment time stretching (Cubase AudioWarp / Reaper Stretch Markers)
+    /// When enabled, overrides clip.stretch_ratio with per-segment ratios.
+    #[serde(default)]
+    pub warp_state: ClipWarpState,
 }
 
 fn default_stretch_ratio() -> f64 {
@@ -1282,6 +1538,7 @@ impl Clip {
             volume_envelope: None,
             pan_envelope: None,
             sub_project: None,
+            warp_state: ClipWarpState::new(),
         }
     }
 
@@ -7103,5 +7360,140 @@ mod tests {
         assert_eq!(c2.source_file, "/proxy.wav");
         assert_eq!(c1.sub_project.as_ref().unwrap().proxy_status, ProxyStatus::Ready);
         assert_eq!(c2.sub_project.as_ref().unwrap().proxy_status, ProxyStatus::Ready);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // WARP MARKER TESTS
+    // ═══════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_warp_state_boundaries() {
+        let state = ClipWarpState::with_boundaries(4.0, 4.0);
+        assert_eq!(state.markers.len(), 2);
+        assert_eq!(state.segments.len(), 1);
+        assert!((state.segments[0].stretch_ratio - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_warp_add_marker() {
+        let mut state = ClipWarpState::with_boundaries(4.0, 4.0);
+        state.add_marker(2.0, 2.0, WarpMarkerType::Manual);
+        assert_eq!(state.markers.len(), 3);
+        assert_eq!(state.segments.len(), 2);
+        // Both segments at ratio 1.0 (no warp)
+        assert!((state.segments[0].stretch_ratio - 1.0).abs() < 0.001);
+        assert!((state.segments[1].stretch_ratio - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_warp_move_marker_stretches() {
+        let mut state = ClipWarpState::with_boundaries(4.0, 4.0);
+        let mid = state.add_marker(2.0, 2.0, WarpMarkerType::Manual);
+        // Move middle marker from 2.0 to 3.0 on timeline
+        state.move_marker(mid, 3.0);
+        // First segment: source 0-2s → timeline 0-3s (stretch 1.5)
+        assert!((state.segments[0].stretch_ratio - 1.5).abs() < 0.01);
+        // Second segment: source 2-4s → timeline 3-4s (compress 0.5)
+        assert!((state.segments[1].stretch_ratio - 0.5).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_warp_remove_marker() {
+        let mut state = ClipWarpState::with_boundaries(4.0, 4.0);
+        let mid = state.add_marker(2.0, 2.0, WarpMarkerType::Manual);
+        assert_eq!(state.markers.len(), 3);
+        state.remove_marker(mid);
+        assert_eq!(state.markers.len(), 2);
+        assert_eq!(state.segments.len(), 1);
+    }
+
+    #[test]
+    fn test_warp_lookup_segment() {
+        let mut state = ClipWarpState::with_boundaries(4.0, 4.0);
+        state.add_marker(2.0, 2.0, WarpMarkerType::Manual);
+
+        // Lookup at timeline 1.0 → segment 0, source ~1.0
+        let (idx, src) = state.lookup_segment(1.0).unwrap();
+        assert_eq!(idx, 0);
+        assert!((src - 1.0).abs() < 0.01);
+
+        // Lookup at timeline 3.0 → segment 1, source ~2.0 + progress
+        let (idx, src) = state.lookup_segment(3.0).unwrap();
+        assert_eq!(idx, 1);
+        assert!((src - 3.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_warp_lookup_with_stretch() {
+        let mut state = ClipWarpState::with_boundaries(4.0, 4.0);
+        let mid = state.add_marker(2.0, 2.0, WarpMarkerType::Manual);
+        // Move: first half plays slower (source 0-2 → timeline 0-3)
+        state.move_marker(mid, 3.0);
+
+        // At timeline 1.5 (halfway through first segment): source should be 1.0
+        let (_, src) = state.lookup_segment(1.5).unwrap();
+        assert!((src - 1.0).abs() < 0.01);
+
+        // At timeline 3.5 (halfway through second segment): source should be 3.0
+        let (_, src) = state.lookup_segment(3.5).unwrap();
+        assert!((src - 3.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_warp_quantize() {
+        let mut state = ClipWarpState::with_boundaries(4.0, 4.0);
+        state.add_marker(1.0, 1.1, WarpMarkerType::Manual); // slightly off grid
+        state.add_marker(2.0, 2.2, WarpMarkerType::Manual);
+
+        // Quantize to 0.5s grid, 100% strength
+        state.quantize_to_grid(0.5, 1.0);
+
+        // Markers should snap: 1.1→1.0, 2.2→2.0
+        let m1 = &state.markers[1]; // second marker (first is boundary at 0.0)
+        assert!((m1.timeline_pos - 1.0).abs() < 0.01);
+        let m2 = &state.markers[2];
+        assert!((m2.timeline_pos - 2.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_warp_quantize_partial_strength() {
+        let mut state = ClipWarpState::with_boundaries(4.0, 4.0);
+        state.add_marker(1.0, 1.2, WarpMarkerType::Manual);
+
+        // 50% strength quantize to 1.0s grid
+        state.quantize_to_grid(1.0, 0.5);
+
+        // 1.2 → nearest grid 1.0, half strength = 1.2 + (1.0-1.2)*0.5 = 1.1
+        let m = &state.markers[1];
+        assert!((m.timeline_pos - 1.1).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_warp_locked_marker_not_quantized() {
+        let mut state = ClipWarpState::with_boundaries(4.0, 4.0);
+        // Boundary markers are locked
+        state.quantize_to_grid(1.0, 1.0);
+        assert!((state.markers[0].timeline_pos - 0.0).abs() < 0.001);
+        assert!((state.markers[1].timeline_pos - 4.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_warp_create_from_transients() {
+        let mut state = ClipWarpState::with_boundaries(4.0, 4.0);
+        state.transients = vec![0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5];
+        state.create_markers_from_transients();
+        // 2 boundary + 7 transient markers
+        assert_eq!(state.markers.len(), 9);
+    }
+
+    #[test]
+    fn test_warp_serialization() {
+        let state = ClipWarpState::with_boundaries(4.0, 4.0);
+        let json = serde_json::to_string(&state).unwrap();
+        let restored: ClipWarpState = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.markers.len(), 2);
+        assert!(restored.enabled);
+        // Segments are NOT serialized — rebuild on load
+        assert!(restored.segments.is_empty());
     }
 }
