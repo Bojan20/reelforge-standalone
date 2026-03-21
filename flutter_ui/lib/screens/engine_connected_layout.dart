@@ -3277,6 +3277,11 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       EngineApi.instance.setClipMuted(updatedClip.id, updatedClip.muted);
     }
     // Note: locked is UI-only state, no engine sync needed
+
+    // Auto-refresh warp state if warp-related fields changed
+    if (oldClip.warpEnabled != updatedClip.warpEnabled) {
+      _refreshClipWarpState(updatedClip.id);
+    }
   }
 
   /// Open FX editor for selected clip

@@ -545,6 +545,20 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
     );
   }
 
+  /// Refresh warp state from engine and notify parent via onClipChanged.
+  void _refreshAndNotifyWarp(TimelineClip clip) {
+    final clipId = _parseClipId(clip.id);
+    if (clipId == null) return;
+    final snapshot = NativeFFI.instance.clipGetWarpState(clipId);
+    if (snapshot != null) {
+      widget.onClipChanged?.call(clip.copyWith(
+        warpEnabled: snapshot.enabled,
+        warpMarkers: snapshot.markers,
+        warpTransients: snapshot.transients,
+      ));
+    }
+  }
+
   /// Extract numeric clip ID for FFI (clip IDs are strings like 'clip_1711234567890_0')
   int? _parseClipId(String id) {
     final numeric = id.replaceAll(RegExp(r'[^0-9]'), '');
@@ -675,7 +689,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
                   final clipId = _parseClipId(clip.id);
                   if (clipId != null) {
                     NativeFFI.instance.clipWarpEnable(clipId, v);
-                    widget.onClipChanged?.call(clip.copyWith(warpEnabled: v));
+                    _refreshAndNotifyWarp(clip);
                   }
                 },
                 activeColor: FluxForgeTheme.accentCyan,
@@ -701,8 +715,8 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
                 if (count > 0) {
                   NativeFFI.instance.clipWarpCreateFromTransients(clipId);
                 }
-                // Refresh clip state from engine
-                widget.onClipChanged?.call(clip.copyWith(warpEnabled: true));
+                // Refresh warp state from engine (markers + transients)
+                _refreshAndNotifyWarp(clip);
               }
             },
             icon: const Icon(Icons.graphic_eq, size: 14),
@@ -728,7 +742,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
                   // Quantize to 1/8 note at current tempo (default)
                   // TODO: grid dropdown
                   NativeFFI.instance.clipWarpQuantize(clipId, 0.25, 0.8);
-                  widget.onClipChanged?.call(clip);
+                  _refreshAndNotifyWarp(clip);
                 }
               },
               icon: const Icon(Icons.grid_on, size: 14),
