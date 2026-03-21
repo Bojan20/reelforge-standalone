@@ -21,56 +21,51 @@
 
 ---
 
-## SLEDEĆA SESIJA — Prioritet
+## SLEDEĆA SESIJA — ★ WARP MARKERS (Professional DAW Feature)
 
-### 1. SlotLab CUSTOM Events Tab
+**Detaljan plan:** `.claude/architecture/WARP_MARKERS.md`
 
-- [ ] Custom Events sistem u CUSTOM tabu (levi panel)
-- [ ] ID format: `custom_<name>`
-- [ ] Korisnik kreira evente van predefinisanih stage-ova
-- [ ] Detaljan plan u MEMORY
+### Faza 1: Data model + basic markers
+- [ ] `WarpMarker` struct u track_manager.rs (source_pos, timeline_pos, type, locked)
+- [ ] `ClipWarpState` per clip (markers, transients, source_tempo, enabled)
+- [ ] `compute_segment_ratios()` — per-segment stretch ratio calculation
+- [ ] FFI: clip_add/remove/move_warp_marker
+- [ ] Serialize/Deserialize za project save
 
-### 2. Ukloni debug dijagnostiku iz panela
+### Faza 2: Transient detection
+- [ ] Dodaj `aubio-rs` dependency (Rust bindovi za aubio C lib)
+- [ ] `TransientDetector` — spectral flux onset detection
+- [ ] FFI: clip_detect_transients (async, ne blokira audio)
+- [ ] Auto-create WarpMarkers na detektovanim transientima
 
-- [ ] `_diagStatus` / `_updateDiag` iz audio_warping_panel.dart i elastic_audio_panel.dart
-- [ ] `debug_track_clip_state` FFI — može ostati ali sakriti iz UI-a
+### Faza 3: Per-segment stretch u playback
+- [ ] Modifikuj `process_clip_with_crossfade` da koristi ClipWarpState
+- [ ] Binary search za segment lookup (O(log N) per sample)
+- [ ] Per-segment Signalsmith Stretch instanca
+- [ ] Latency compensation za stretcher
 
-### 3. rf-coverage + rf-fuzz: `gen` keyword fix za Edition 2024
+### Faza 4: Flutter UI
+- [ ] WarpMarker vizuelizacija u clip_widget.dart
+- [ ] Drag-to-warp interaction (pomeri marker → stretch audio)
+- [ ] Transient display (sive tačke iznad waveform-a)
+- [ ] Quantize-to-grid button + strength parameter
+- [ ] Warp on/off toggle per clip
 
-- [ ] Preimenuj `gen` identifikator u oba crate-a
-- [ ] Upgrade na edition 2024
+### Faza 5: Quantize + Cross-track
+- [ ] Snap markere na grid (1/4, 1/8, 1/16, triplet)
+- [ ] Strength parameter (0-100%)
+- [ ] Cross-track linked markers (Reaper-style)
+- [ ] Undo/redo podrška
+
+### Ostalo
+- [ ] SlotLab CUSTOM Events Tab
 
 ---
 
 ## SVE ZAVRŠENO (2026-03-21)
 
-### Dep Upgrade Faza 4 (commit 052baa4f)
-- objc 0.2 → objc2 0.6 (rf-plugin + rf-plugin-host)
-- 37 msg_send migriranih, 3 ClassDecl → ClassBuilder, cocoa/objc uklonjeni
-- objc2-foundation 0.3, objc2-app-kit 0.3, block2 0.6
-- Edition 2021 → 2024 (6 crate-ova: rf-audio-diff, rf-bench, rf-connector, rf-ingest, rf-release, rf-stage)
-- wee_alloc uklonjen iz rf-wasm
-- 4 QA runde, svi bagovi fiksirani
-
-### Signalsmith Stretch (RT-5, commit b5bd6510)
-- audio_stretcher.rs — Signalsmith wrapper (MIT, kvalitet ~Élastique Pro)
-- Zamena za Phase Vocoder (obrisan phase_vocoder.rs)
-- Elastic tab: pitch shift bez promene brzine
-- Warp tab: time stretch sa pitch kompenzacijom
-- Bypass čuva parametre, state persistence pri tab switch
-
-### Dep Upgrade Faza 3
-- cpal 0.15→0.17, wgpu 24→28, wide 0.7→1.2, glam 0.29→0.32
-- candle-core/nn 0.8→0.9, freezed 2.5→3.0
-
-### Flutter UI
-- Per-clip Rate/Pitch sliders + Preserve Pitch toggle
-- SRC quality dropdown (7 nivoa) u Project Settings
-- Adaptive quality diagnostics panel sa auto-refresh
-
-### Engine (RT-1 through RT-5)
-- Blackman-Harris Sinc 384-tap + SIMD, rf-r8brain offline SRC
-- Adaptive per-voice quality, preserve_pitch toggle
-- Signalsmith Stretch wiring u process_clip_with_crossfade
-- elastic_pro_set_ratio/pitch direktno na klipovima
-- 4 QA runde, 25+ bugova, 424 testova
+- **Signalsmith Stretch** (RT-5) — zamena za Phase Vocoder, MIT licenca, ~Élastique kvalitet
+- **Dep Upgrade Faza 3+4** — cpal 0.17, wgpu 28, wide 1.2, glam 0.32, candle 0.9, freezed 3.0, objc2 0.6, Edition 2024, wee_alloc removed
+- **Flutter UI** — Rate/Pitch sliders, SRC dropdown, Adaptive diagnostics, state persistence
+- **Engine** — Sinc 384-tap SIMD, r8brain offline SRC, adaptive quality, AudioStretcher, warp/elastic panels
+- **5 QA rundi** — 25+ bagova, 424 testova, 0 errors
