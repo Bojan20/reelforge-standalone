@@ -1571,6 +1571,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         _dragController!.addListener(_onDragControllerChanged);
 
         _middlewareRef!.addListener(_onMiddlewareChanged);
+
+        // Listen for custom event changes → re-sync to EventRegistry
+        context.read<CustomEventProvider>().addListener(_onCustomEventsChanged);
+
         _focusNode.requestFocus();
 
         // Wire ConfigUndoManager callbacks
@@ -2801,6 +2805,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         _syncEventToRegistry(event);
       }
 
+      // Sync custom events to EventRegistry (CUSTOM tab events)
+      _syncAllCustomEventsToRegistry();
+
       // Initialize reel symbols (fallback or empty for engine)
       _reelSymbols = List.from(_fallbackReelSymbols);
 
@@ -3422,6 +3429,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // Remove middleware listener (bidirectional sync)
     // Use cached reference — Provider.of(context) is unsafe during dispose()
     _middlewareRef?.removeListener(_onMiddlewareChanged);
+    // Safe: CustomEventProvider is a GetIt singleton, won't be disposed
+    try { context.read<CustomEventProvider>().removeListener(_onCustomEventsChanged); } catch (_) {}
     SlotLabProjectProvider.autoBindReadySignal.removeListener(_onAutoBindReadySignal);
 
     // Dispose drag controller
@@ -10353,6 +10362,31 @@ class _SlotLabScreenState extends State<SlotLabScreen>
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
+              // Play/trigger button
+              GestureDetector(
+                onTap: () {
+                  if (event.enabled && event.layers.isNotEmpty) {
+                    _syncCustomEventToRegistry(event);
+                    eventRegistry.triggerEvent(event.id);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: FluxForgeTheme.accentCyan.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(color: FluxForgeTheme.accentCyan.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    '▶ PLAY',
+                    style: TextStyle(
+                      color: FluxForgeTheme.accentCyan,
+                      fontSize: 9, fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
               const Spacer(),
               // Delete button
               GestureDetector(
@@ -12946,6 +12980,50 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// Sinhronizuj composite event sa centralnim Event Registry
   /// CRITICAL: Registers event under ALL triggerStages, not just the first one
   /// This allows one event to be triggered by multiple stages (e.g., SPIN_START and REEL_STOP)
+  /// Called when CustomEventProvider changes — re-sync all custom events to EventRegistry.
+  void _onCustomEventsChanged() {
+    _syncAllCustomEventsToRegistry();
+  }
+
+  /// Sync a CustomEvent to EventRegistry for playback triggering.
+  /// Custom events use `custom_<name>` ID format and manual trigger mode.
+  void _syncCustomEventToRegistry(CustomEvent customEvent, {bool skipNotify = false}) {
+    if (!customEvent.enabled || customEvent.layers.isEmpty) return;
+
+    final layers = customEvent.layers
+        .where((l) => !l.muted && l.audioPath.isNotEmpty)
+        .map((l) => AudioLayer(
+              id: l.id,
+              audioPath: l.audioPath,
+              name: l.name,
+              volume: l.volume,
+              pan: l.pan,
+              busId: 2, // SFX bus default
+            ))
+        .toList();
+
+    if (layers.isEmpty) return;
+
+    final audioEvent = AudioEvent(
+      id: customEvent.id,
+      name: customEvent.name,
+      stage: customEvent.id.toUpperCase(), // Use ID as stage trigger
+      layers: layers,
+      loop: false,
+      overlap: true,
+    );
+
+    eventRegistry.registerEvent(audioEvent, skipNotify: skipNotify);
+  }
+
+  /// Sync ALL custom events to EventRegistry. Call on mount and after changes.
+  void _syncAllCustomEventsToRegistry() {
+    final customProv = context.read<CustomEventProvider>();
+    for (final event in customProv.events) {
+      _syncCustomEventToRegistry(event);
+    }
+  }
+
   void _syncEventToRegistry(SlotCompositeEvent? event, {bool skipNotify = false}) {
     if (event == null) return;
 
