@@ -1,183 +1,126 @@
 # FluxForge Studio — MASTER TODO
 
-**Updated:** 2026-03-10 | **Analyzer:** 0 errors
+**Updated:** 2026-03-21
 
 ## Key File Map
 
 | System | Entry Point | Big Files |
 |--------|------------|-----------|
 | DAW UI | `main_layout.dart` | `timeline_screen.dart` |
-| SlotLab | `slot_lab_screen.dart` (13K+ lines) | `slot_lab_coordinator.dart` |
+| SlotLab | `slot_lab_screen.dart` (13K+) | `slot_lab_coordinator.dart` |
 | SlotLab providers | `slot_engine_provider.dart`, `slot_stage_provider.dart`, `slot_audio_provider.dart` | |
 | Mixer | `engine_connected_layout.dart` | `mixer_provider.dart` |
-| FFI | `native_ffi.dart` (21K+ lines) | `crates/rf-bridge/src/lib.rs` |
+| FFI | `native_ffi.dart` (21K+) | `crates/rf-bridge/src/lib.rs` |
 | Offline DSP | `offline_processing_provider.dart` | `crates/rf-offline/src/pipeline.rs` |
-| SFX Pipeline | `sfx_pipeline_service.dart`, `sfx_pipeline_wizard.dart` | `sfx_pipeline_config.dart` |
 | DI | `service_locator.dart` | `main.dart` (provider tree) |
-| Commands | `command_registry.dart` | |
 
 ## Active Traps
 
 - `slot_lab_screen.dart` — 13K+ lines, NE MOŽE se razbiti (Dart State class limitation)
 - `native_ffi.dart` — 21K+ lines, auto-generated, READ ONLY
-- `OfflineOutputFormat` enum nema OGG/AAC — SFX pipeline koristi raw FFI format ID-jeve
 - `slot_lab_provider.dart` je MRTAV KOD — koristi se `SlotLabCoordinator` (typedef)
-- Dirty files: `rf-plugin/`, `plugin_provider.dart`, `plugins_scanner_panel.dart` — VST hosting WIP
+- `desktop_drop` 0.5 — MainFlutterWindow.swift hack zavisi od plugin ponašanja, NE DIRATI
 
-## ASSIGN Tab — Potpuna Rekonstrukcija (2026-03-21)
+## Real-Time Resampling Engine (BEYOND Reaper)
 
-### Layout analiza
+**Cilj:** Bolji od Reapera — r8brain-level kvalitet, AVX-512 SIMD, adaptive per-voice quality, custom phase vocoder sa formant preservation.
+**Referenca:** `REAPER_SRC_ANALYSIS.md` (WDL arhitektura, quality modovi, processing lanac)
 
-**Trenutni layout:** LEFT (260px) | CENTER (slot machine preview) | RIGHT (300px)
-- Levi panel: ASSIGN / CUSTOM / AUREXIS tabovi
-- Desni panel: CONFIG / POOL tabovi
-- Breakpoints: <700 oba sakrivena, <900 desni sakriven, <1200 levi sakriven
-- Panel resize: min 200px, max 500px (drag handle)
-- Center minimum: 400px
+### Faza RT-1: Core Resampler (`rf-engine/src/resampler.rs`)
 
-**Problem:** 260px za ASSIGN slot = label 80px + separator 1px + waveform 52px + filename flex + badges ~40px + controls ~30px = gužva. Label se odseca, bus/priority se ne vide, prazan slot prikazuje samo "—".
+- [ ] **`Resampler` struct** — Blackman-Harris 4-term windowed sinc
+  - Pre-computed sinc tabela (sinc_size × sinc_interp_size)
+  - Ring buffer za input, phase accumulator za fractional tracking
+  - Zero allocation u audio path-u — sve pre-alocirano pri init/mode change
+- [ ] **`ResampleMode` enum** — Point, Linear, IirLinear(N), Sinc(16/64/192/384/512/768), R8brain
+  - Default playback: Sinc(64), Default render: R8brain
+- [ ] **r8brain port u Rust** — MIT licenca, header-only C++ → čist Rust port
+  - 2x oversample → banka kratkih polynomial sinc delay filtera
+  - Minimum-phase kernel via Hilbert transform u cepstrum domenu (manje pre-ringing od linear sinc)
+  - Bolji kvalitet od WDL 768pt sinc uz MANJE CPU — ovo je naš HIGHEST mode
+- [ ] **`FeedMode`** — InputDriven (real-time callback) / OutputDriven (offline render)
+- [ ] **AVX-512 SIMD inner loops** — `sinc_sample_mono/stereo/nch`
+  - AVX-512: 8× f64 parallel (4× brže od Reaper WDL koji koristi SSE2)
+  - Auto-dispatch: AVX512 → AVX2 → SSE4.2 → scalar (existing rf-dsp pattern)
+- [ ] **Latency reporting** — `latency() → sinc_size / 2` samples
+- [ ] **rubato ostaje za offline pipeline** (rf-offline) — custom resampler je za real-time engine
 
-**Odluka:** Layout ostaje (levi/desni/center) — drag&drop ergonomija iz POOL u ASSIGN zahteva bliže panele. Rešenje je dvored slot rendering.
+### Faza RT-2: Engine Integration + Adaptive Quality
 
-### Faza 1: Dvored Slot Rendering (`_buildSlot` rekonstrukcija)
+- [ ] **`ResamplerPool`** — pre-alocira N resamplera (N = max voices) pri engine init
+  - Lock-free acquire/release (atomics)
+  - Svaki podržava ratio promenu bez realokacije
+- [ ] **Per-voice SRC** — `PlaybackVoice` dobija Resampler iz pool-a kad `file_sr != project_sr`
+  - Bypass kad SR matchuje (nula overhead, nula latency)
+- [ ] **`process_block()` integration** — čitaj originalni SR → resampler → project SR buffer
+- [ ] **Project sample rate** — `project_sample_rate: u32` u `EngineConfig`
+  - Default: 48000, UI dropdown (44100/48000/88200/96000)
+- [ ] **Dual quality settings** — playback mode (tipično Sinc64) + render mode (tipično R8brain)
+- [ ] **Adaptive per-voice quality** (NEMA u Reaperu)
+  - CPU overload → automatska degradacija PER-VOICE (ne globalno)
+  - Solo/selected glasovi zadržavaju highest quality
+  - Pozadinski glasovi: Sinc384 → Sinc64 → Linear po CPU budžetu
+  - Vrača se na viši kvalitet čim CPU dozvoli
 
-Trenutno (jednoredni, 28px):
-```
-[Label 80px | sep | Waveform+Filename / "—" | xN | ● | 2L | ⚠ | ▶ | ✕]
-```
+### Faza RT-3: Per-Item Properties
 
-Novo (dvored, 40px):
-```
-┌────────────────────────────────────────────────┐
-│ 🔊 Spin Loop                       P0  ▶  ✕  │  Red 1: bus dot + label (FULL width) + priority + hover controls
-│    ░░▓▓█▓░░  reel_spin_loop.wav  x3  2L  ⚠   │  Red 2: waveform + filename + badges
-└────────────────────────────────────────────────┘
-```
+- [ ] **Playback rate** — `PlaybackVoice.playback_rate: f64` (1.0 = normalno)
+  - Bez preserve pitch = varispeed (menja ratio u realnom vremenu)
+  - Sa preserve pitch = time-stretch + SRC
+- [ ] **Pitch shift** — `PlaybackVoice.pitch_semitones: f64`
+  - Implementacija: rate change × inverse time-stretch
+- [ ] **Preserve pitch toggle** — per-item boolean
+- [ ] **Scrub/Shuttle** — variable speed -4x..+4x, automatski Linear mode za CPU saving
+- [ ] **Master playback rate** — globalni varispeed slider sa automatable envelope
 
-Prazan slot:
-```
-┌────────────────────────────────────────────────┐
-│ 🔊 Spin Loop                              P0  │
-│    REEL_SPIN_LOOP                         drop │
-└────────────────────────────────────────────────┘
-```
+### Faza RT-4: Time-Stretch + DAW Features
 
-Stavke za implementaciju:
+- [ ] **Custom phase vocoder** (BOLJI od Reaper Simple Windowed)
+  - Transient-preserving OLA (Driedger/Müller 2014 algoritam)
+  - Spectral peak locking — čistiji harmonici od standard OLA
+  - **Formant preservation** za vokale (Reaper ovo NEMA bez Elastique Soloist licence)
+- [ ] **SoundTouch integracija** (WSOLA, LGPL) — fast fallback mode
+- [ ] **Per-item stretch algorithm** — Phase Vocoder / SoundTouch / Simple Windowed
+- [ ] **Auto-SR match na import** — user pref: "Convert on import" vs "Real-time SRC"
+- [ ] **Latency compensation (PDC)** — SRC latency (sinc_size/2) u playback scheduling
+- [ ] **Xrun handling** — tihi output tokom dropout-a, adaptive quality per-voice
+- [ ] **SRC CPU metrics** — u diagnostics panel
 
-- [x] **Dvored layout** — Column sa dva Row-a, mainAxisSize.min
-- [x] **Red 1 (gornji):** Bus dot (5px) + Label (Expanded) + Priority badge + Play/Clear (hover-only)
-- [x] **Red 2 (donji):** 10px indent + WaveformThumbnail (44x14px) + Filename + badges
-- [x] **Prazan slot Red 2:** Stage ID u monospace + "← drop audio" u quick assign
-- [x] **Tooltip** — label + stage + bus + priority
-- [x] **Uklonjen zeleni status dot** — redundantan
-- [x] **Uklonjen `showQuickAssignHighlight`** — dead variable
-- [x] **Left border = bus color** — vizuelni identitet po busu
+### Prednosti nad Reaperom
 
-### Faza 2: Header poboljšanja
+1. **r8brain Rust port** — highest quality mode (bolji od WDL 768pt sinc, efikasniji CPU)
+2. **AVX-512 SIMD** — 8× f64 parallel sinc, 4× brži od WDL SSE2
+3. **Adaptive per-voice quality** — CPU overload degradira pozadinske glasove, solo/selected ostaju na max
+4. **Formant-preserving phase vocoder** — Reaper zahteva Elastique Soloist licencu za ovo
+5. **Zero-copy Rust** — nema C++ overhead, ring buffer direktan pristup
 
-- [x] **Undo/Redo dugmad** — dodati u header, Tooltip sa opisom, disabled state kad nema istorije
+### Pravila
 
-### Faza 3: Duplikati — čišćenje stage ID-ova
-
-- [x] **ANTICIPATION duplikati** — Uklonjeni per-reel/per-level iz BASE GAME LOOP, samo global+miss ostali. Per-reel u ANTICIPATION sekciji.
-- [x] **LP/MP WIN duplikati** — Uklonjeni MP1-5_WIN i LP1-5_WIN iz WIN PRESENTATION Per-Symbol Win. Ostali grupni (MP_WIN, LP_WIN) + HP individual + LP6_WIN + BONUS_WIN.
-
-### Faza 4: Bugfixevi
-
-- [x] **`_resolveSlotBus` operator precedence** — Dodane zagrade oko `(s.contains('_LOOP') && !s.contains('REEL'))`.
-- [x] **`SKIP` u `_stageDisplayLabels`** — Dodat entry `'SKIP': 'Skip'`.
-
-### Faza 5: Estetika i konzistentnost (po FluxForgeTheme)
-
-- [x] Sve implementirano u okviru Faze 1 (bus dot boje, priority badge, hover state, bus-colored left border, assigned/unassigned kontrast)
-
-## Remaining / Planned
-
-_(dodaj nove taskove ovde)_
+- Audio thread: NULA alokacija u `process_block()` — ring buffer + sinc tabela pre-alocirani
+- Processing lanac per-item: Source(orig SR) → SRC → Rate/Stretch → Pitch → Output(project SR)
+- SIMD: AVX512 → AVX2 → SSE4.2 → scalar auto-dispatch za sinc inner loops
+- Testiranje: bit-exact comparison sa WDL output + ABX test vs r8brain C++ referenca
 
 ---
 
-## Dependency Upgrade Plan (2026-03-12 audit)
-
-### Strukturalni problemi (pre upgrade-a)
-
-- [x] **rf-connector tokio** — `tokio = { workspace = true, features = ["full"] }`
-- [x] **rf-slot-lab rand** — `rand = { workspace = true }`
-- [x] **rf-fluxmacro** — `serde_yml = { workspace = true }`, `rand_chacha = { workspace = true }`
-- [x] **flutter_rust_bridge** — pubspec `^2.11.1` vs Cargo `2.11` — KOMPATIBILNO, bez akcije
-- [x] **Dart SDK constraint** — već na `^3.11.0`
-- [ ] **objc 0.2 + objc2 0.5 u rf-plugin** — nekompatibilni, migrirati na `objc2` (Faza 4)
-- [ ] **Edition 2021 crate-ovi** — rf-ml, rf-spatial, rf-master, rf-pitch, rf-restore, rf-realtime, rf-plugin-host (Faza 4)
-
-### Faza 1 — Brzi bezbedni wins — ✅ SVE ZAVRŠENO
-
-Svi upgrade-ovi iz Faze 1 su već primenjeni u prethodnim sesijama:
-- [x] rustfft 6.4, rayon 1.11, tokio 1.50, portable-atomic 1.13, wasm-bindgen 0.2.114
-- [x] get_it ^9.2.1, archive ^4.0.9, media_kit ^1.2.6
-- [x] lazy_static → LazyLock (100+ statics migrirano)
-- [x] once_cell → OnceLock (2 upotrebe migrirane)
-
-### Faza 2 — Srednji rizik
-
-**Pre Faze 2:** Konsolidovati hardkodirane verzije (rf-connector, rf-slot-lab, rf-fluxmacro) na workspace deps.
-
-**Rust crate-ovi:**
-
-| Crate | Trenutno | Cilj | Crate-ovi | Scope |
-|-------|----------|------|-----------|-------|
-- [x] `serde_yaml` 0.9 → `serde_yml` 0.0.12 — rf-slot-lab, rf-fluxmacro (3 poziva migrirano)
-- [x] `rand` 0.8 → 0.9 — `from_entropy()` → `from_os_rng()`, `gen()` → `random()`, `gen_range()` → `random_range()`, `thread_rng()` → `rng()`
-- [x] `rand_chacha` 0.3 → 0.9 — dodat u workspace deps
-- rubato 0.16 — BEZ PROMENE (audio thread sacred, 1.0 API rizičan)
-- ndarray 0.16 — BEZ PROMENE (0.17 breaking)
-- nalgebra 0.33 — BEZ PROMENE (0.34 zahteva ndarray 0.17)
-
-**Flutter paketi:**
-
-| Paket | Trenutno | Cilj | Napomena |
-|-------|----------|------|----------|
-| `desktop_drop` | 0.5.0 | 0.5.0 | BEZ PROMENE — MainFlutterWindow.swift hack zavisi od 0.5 ponašanja |
-| `file_picker` | 9.2.0 | 9.2.0 | BEZ PROMENE — 10.x major bump, previše rizika za sada |
-| `syncfusion_flutter_pdf` | 28.2.4 | 28.2.4 | BEZ PROMENE — Syncfusion major bumps zahtevaju license audit |
+## Dependency Upgrade — Preostalo
 
 ### Faza 3 — Teški ali vredni
 
 | Crate/Paket | Trenutno | Cilj | Napomena |
 |-------------|----------|------|----------|
-| `cpal` | 0.15 | **0.17.3** | Audio I/O core — rf-audio, rf-bridge, rf-engine. TESTIRATI LATENCY! |
-| `wgpu` | 24.0 | **28.0.0** | GPU viz — rf-viz, rf-realtime. 4 major-a, wgpu brzo iterira |
-| `wide` | 0.7 | **1.1.1** | SIMD — rf-spatial, rf-realtime. Major verzija |
-| `glam` | 0.29 | **0.32.1** | Matematika — rf-viz |
-| `candle-core/nn` | 0.8 | 0.9.2 | ML inference — rf-ml (optional) |
-| `tract-onnx/core` | 0.21 | 0.23 | ML inference — rf-ml |
-| `freezed` (Flutter) | 2.5.8 | **3.2.5** | Code gen major — zahteva `freezed_annotation` 2→3 i `build_runner` regeneraciju |
+| `cpal` | 0.15 | 0.17.3 | Audio I/O core — TESTIRATI LATENCY |
+| `wgpu` | 24.0 | 28.0.0 | GPU viz — 4 major-a |
+| `wide` | 0.7 | 1.1.1 | SIMD major |
+| `glam` | 0.29 | 0.32.1 | Matematika |
+| `candle-core/nn` | 0.8 | 0.9.2 | ML inference |
+| `tract-onnx/core` | 0.21 | 0.23 | ML inference |
+| `freezed` (Flutter) | 2.5.8 | 3.2.5 | Code gen major |
 
 ### Faza 4 — Čišćenje
 
-- [ ] `objc` 0.2 → potpuna migracija na `objc2` 0.5+ u rf-plugin, rf-plugin-host
-- [ ] `cocoa` 0.26 — deprecated u korist `objc2-app-kit`. Migrirati kad `objc2` ekosistem sazri.
-- [ ] `block` 0.1 (rf-plugin-host) → `block2` (deo objc2 ekosistema)
-- [ ] `rust-version` u workspace — 1.85 → 1.95 (prati nightly toolchain)
-- [ ] Ukloni `wee_alloc` opciju iz rf-wasm (unmaintained od 2022)
-
-### Aktuelno — NE DIRATI
-
-| Crate | Verzija | Razlog |
-|-------|---------|--------|
-| serde | 1.0 | Stabilan |
-| thiserror | 2.0 | Najnoviji major |
-| parking_lot | 0.12 | Stabilan |
-| rtrb | 0.3 | Stabilan |
-| hound | 3.5 | Stabilan |
-| symphonia | 0.5 | Stabilan |
-| dasp | 0.11 | Stabilan |
-| vst3 | 0.3 | Stabilan |
-| anyhow | 1.0 | Stabilan |
-| image | 0.25 | Stabilan |
-| ffmpeg-next | 8.0 | Stabilan |
-| mlua | 0.10 | Stabilan |
-| provider (Flutter) | 6.1.5 | Aktuelan |
-| flutter_animate | 4.5.2 | Aktuelan |
-| flutter_rust_bridge | 2.11.1 | Aktuelan |
-| shared_preferences | 2.5.4 | Aktuelan |
-| web_socket_channel | 3.0.3 | Aktuelan |
+- [ ] `objc` 0.2 → `objc2` 0.5+ (rf-plugin, rf-plugin-host)
+- [ ] `cocoa` 0.26 → `objc2-app-kit`
+- [ ] `block` 0.1 → `block2`
+- [ ] Edition 2021 → 2024 (rf-ml, rf-spatial, rf-master, rf-pitch, rf-restore, rf-realtime, rf-plugin-host)
+- [ ] Ukloni `wee_alloc` iz rf-wasm
