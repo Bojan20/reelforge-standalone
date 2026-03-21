@@ -13603,6 +13603,51 @@ pub extern "C" fn elastic_pro_reset(track_id: u32) -> i32 {
     }
 }
 
+// TRANSIENT DETECTION
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Detect transients in a clip's audio. Stores results in clip.warp_state.transients.
+/// Returns number of transients detected, or -1 on error.
+/// This is an OFFLINE operation — runs on calling thread, NOT audio thread.
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_detect_transients(clip_id: u64, sensitivity: f64) -> i32 {
+    // Get clip's source file
+    let source_file = {
+        match TRACK_MANAGER.clips.get(&ClipId(clip_id)) {
+            Some(clip) => clip.source_file.clone(),
+            None => return -1,
+        }
+    };
+
+    // Get cached audio
+    let audio = match PLAYBACK_ENGINE.get_cached_audio(&source_file) {
+        Some(a) => a,
+        None => return -1,
+    };
+
+    // Run transient detection
+    let mut detector = crate::transient_detector::TransientDetector::new(audio.sample_rate as f64);
+    detector.set_sensitivity(sensitivity);
+
+    let result = if audio.channels >= 2 {
+        let frames = audio.samples.len() / audio.channels as usize;
+        let left: Vec<f64> = (0..frames).map(|i| audio.samples[i * audio.channels as usize] as f64).collect();
+        let right: Vec<f64> = (0..frames).map(|i| audio.samples[i * audio.channels as usize + 1] as f64).collect();
+        detector.detect_stereo(&left, &right)
+    } else {
+        let mono: Vec<f64> = audio.samples.iter().map(|&s| s as f64).collect();
+        detector.detect(&mono)
+    };
+
+    // Store in clip warp state
+    let count = result.positions.len();
+    if let Some(mut clip) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
+        clip.warp_state.transients = result.positions;
+    }
+
+    count as i32
+}
+
 // WARP MARKERS
 // ═══════════════════════════════════════════════════════════════════════════
 

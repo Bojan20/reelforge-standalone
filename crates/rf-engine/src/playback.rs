@@ -3611,6 +3611,15 @@ impl PlaybackEngine {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // AUDIO CACHE ACCESS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Get cached audio by source file path (for offline analysis like transient detection).
+    pub fn get_cached_audio(&self, path: &str) -> Option<std::sync::Arc<crate::audio_import::ImportedAudio>> {
+        self.cache.get(path)
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // AUDIO STRETCHER MANAGEMENT (Signalsmith Stretch — UI thread only)
     // ═══════════════════════════════════════════════════════════════════════
 
