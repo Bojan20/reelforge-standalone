@@ -1776,6 +1776,9 @@ class EventRegistry extends ChangeNotifier {
 
   /// Ukloni event
   /// CRITICAL: Stops any playing instances before removing
+  /// All currently registered event IDs.
+  Set<String> get registeredEventIds => Set.unmodifiable(_events.keys);
+
   void unregisterEvent(String eventId) {
     // Stop any playing instances first (synchronous)
     _stopEventSync(eventId);

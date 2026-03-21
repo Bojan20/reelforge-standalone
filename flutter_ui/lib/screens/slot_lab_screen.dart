@@ -10367,6 +10367,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               GestureDetector(
                 onTap: () {
                   if (event.enabled && event.layers.isNotEmpty) {
+                    // Check probability (1.0 = always, 0.5 = 50% chance)
+                    if (event.probability < 1.0) {
+                      final roll = DateTime.now().millisecondsSinceEpoch % 1000 / 1000.0;
+                      if (roll > event.probability) return; // Skip this trigger
+                    }
                     _syncCustomEventToRegistry(event);
                     eventRegistry.triggerEvent(event.id);
                   }
@@ -13017,8 +13022,20 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   }
 
   /// Sync ALL custom events to EventRegistry. Call on mount and after changes.
+  /// Also unregisters deleted events (prevents zombie playback).
   void _syncAllCustomEventsToRegistry() {
     final customProv = context.read<CustomEventProvider>();
+    final currentIds = customProv.events.map((e) => e.id).toSet();
+
+    // Unregister custom events that no longer exist (deleted by user)
+    final registeredCustomIds = eventRegistry.registeredEventIds
+        .where((id) => id.startsWith('custom_'))
+        .toSet();
+    for (final zombieId in registeredCustomIds.difference(currentIds)) {
+      eventRegistry.unregisterEvent(zombieId);
+    }
+
+    // Register/update current events
     for (final event in customProv.events) {
       _syncCustomEventToRegistry(event);
     }
