@@ -9,19 +9,19 @@
 
 ## SLEDEĆA SESIJA
 
-### SlotLab CUSTOM Events Tab
-- [ ] Custom Events sistem u CUSTOM tabu
-- [ ] ID format: `custom_<name>`
+### Advanced Trigger Modes za Custom Events
+- [ ] Position trigger: fire event at timeline position
+- [ ] Marker trigger: fire event when playhead crosses marker
+- [ ] MIDI trigger: fire event on MIDI note input
+- [ ] OSC trigger: fire event on OSC message
+- [ ] Cooldown timer između trigger-a
 
 ---
 
-## IMPLEMENTIRANO (reference, ne za rad)
+## IMPLEMENTIRANO
 
-- **Signalsmith Stretch** — `audio_stretcher.rs`, zamena za PV, MIT ~Élastique kvalitet
-- **Warp Markers** — `ClipWarpState` u track_manager.rs, per-segment stretch, 15 testova
-- **Transient Detection** — `transient_detector.rs`, spectral flux, 8 testova
-- **Warp UI** — `_WarpOverlayPainter`, `_WarpMarkerDragHandle`, drag+undo, cross-track
-- **Warp Inspector** — toggle, detect, quantize dugmad u clip inspector
-- **Dep Upgrade Faza 3+4** — cpal 0.17, wgpu 28, objc2 0.6, Edition 2024
-- **SRC Quality** — 7 nivoa dropdown, adaptive diagnostics
-- **Arch docs** — `PITCH_SHIFT_TIME_STRETCH.md`, `WARP_MARKERS.md`
+- **Signalsmith Stretch** — audio_stretcher.rs, MIT ~Élastique
+- **Warp Markers** — end-to-end: data model, transient detection, per-segment playback, drag UI, undo, cross-track, quantize
+- **Custom Events** — EventRegistry sync, Play trigger, probability, zombie cleanup
+- **Dep Upgrade** — cpal 0.17, wgpu 28, objc2 0.6, Edition 2024
+- **SRC Quality** — 7 nivoa, adaptive diagnostics
