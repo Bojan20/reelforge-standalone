@@ -13652,6 +13652,8 @@ pub extern "C" fn clip_detect_transients(clip_id: u64, sensitivity: f64) -> i32 
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Enable/disable warp on a clip. Creates boundary markers if enabling for first time.
+/// Enable/disable warp on a clip. Creates boundary markers if enabling for first time.
+/// Also ensures segments are built (handles post-deserialization case).
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_warp_enable(clip_id: u64, enable: i32) -> i32 {
     if let Some(mut clip) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
@@ -13659,8 +13661,23 @@ pub extern "C" fn clip_warp_enable(clip_id: u64, enable: i32) -> i32 {
             clip.warp_state = ClipWarpState::with_boundaries(clip.source_duration, clip.duration);
         }
         clip.warp_state.enabled = enable != 0;
+        // Ensure segments are built (handles deserialized state with markers but no segments)
+        clip.warp_state.ensure_segments();
         1
     } else { 0 }
+}
+
+/// Rebuild warp segments for ALL clips. Call after project load/restore.
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_ensure_all_warp_segments() -> i32 {
+    let mut count = 0;
+    for mut clip_entry in TRACK_MANAGER.clips.iter_mut() {
+        if clip_entry.warp_state.enabled && clip_entry.warp_state.markers.len() >= 2 {
+            clip_entry.warp_state.ensure_segments();
+            count += 1;
+        }
+    }
+    count
 }
 
 /// Add a warp marker at given source and timeline positions (seconds).

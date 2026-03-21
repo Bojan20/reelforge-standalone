@@ -11178,6 +11178,12 @@ extension WarpMarkersAPI on NativeFFI {
   /// Detect transients in clip audio (offline). Returns count or -1 on error.
   int clipDetectTransients(int clipId, {double sensitivity = 1.5}) =>
       _clipDetectTransients(clipId, sensitivity);
+
+  static final _engineEnsureAllWarpSegments = _loadNativeLibrary().lookupFunction<
+      Int32 Function(), int Function()>('engine_ensure_all_warp_segments');
+
+  /// Rebuild warp segments for all clips. Call after project load.
+  int engineEnsureAllWarpSegments() => _engineEnsureAllWarpSegments();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

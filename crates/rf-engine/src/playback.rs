@@ -6408,10 +6408,12 @@ impl PlaybackEngine {
         };
         let clip_sinc_ref = Some(&*clip_sinc_guard);
 
-        // Signalsmith stretch path: preserve_pitch with non-unity stretch or pitch shift
+        // Signalsmith stretch path: preserve_pitch with non-unity stretch, pitch shift, or warp
+        let has_warp = clip.warp_state.enabled && !clip.warp_state.segments.is_empty();
         let needs_pv = clip.preserve_pitch
             && ((clip.stretch_ratio - 1.0).abs() > 0.001
-                || clip.pitch_shift.abs() > 0.01);
+                || clip.pitch_shift.abs() > 0.01
+                || has_warp);
 
         if needs_pv {
             // Signalsmith path: collect sinc-resampled samples, then stretch as block
@@ -7057,10 +7059,12 @@ impl PlaybackEngine {
         };
         let clip2_sinc_ref = Some(&*clip2_sinc_guard);
 
-        // Signalsmith stretch path: if preserve_pitch with stretch or pitch shift
+        // Signalsmith stretch path: if preserve_pitch with stretch, pitch shift, or warp
+        let has_warp = clip.warp_state.enabled && !clip.warp_state.segments.is_empty();
         let needs_pv = clip.preserve_pitch
             && ((clip.stretch_ratio - 1.0).abs() > 0.001
-                || clip.pitch_shift.abs() > 0.01);
+                || clip.pitch_shift.abs() > 0.01
+                || has_warp);
 
         if needs_pv {
             // Delegate to PV-aware block processor
