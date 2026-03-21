@@ -285,12 +285,15 @@ class ServerAudioBridge with ChangeNotifier {
     final events = msg['events'] as List?;
     if (events == null) return;
     _batchDepth++;
-    for (final event in events) {
-      if (event is Map<String, dynamic>) {
-        processMessage(event);
+    try {
+      for (final event in events) {
+        if (event is Map<String, dynamic>) {
+          processMessage(event);
+        }
       }
+    } finally {
+      _batchDepth--;
     }
-    _batchDepth--;
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -358,6 +361,8 @@ class ServerAudioBridge with ChangeNotifier {
   Map<String, dynamic> toJson() => {
     'rtpcNameMap': _config.rtpcNameMap,
     'statePresets': _config.statePresets,
+    'overlapPolicies': _config.overlapPolicies.map((k, v) => MapEntry(k, v.index)),
+    'defaultOverlap': _config.defaultOverlap.index,
     'defaultInterpolationMs': _config.defaultInterpolationMs,
     'jitterBufferMs': _config.jitterBufferMs,
   };
@@ -370,6 +375,11 @@ class ServerAudioBridge with ChangeNotifier {
       statePresets: (json['statePresets'] as Map<String, dynamic>?)
           ?.map((k, v) => MapEntry(k, (v as Map<String, dynamic>)
               .map((pk, pv) => MapEntry(pk, (pv as num).toDouble())))) ?? {},
+      overlapPolicies: (json['overlapPolicies'] as Map<String, dynamic>?)
+          ?.map((k, v) => MapEntry(k,
+              TriggerOverlapPolicy.values[(v as int).clamp(0, 3)])) ?? {},
+      defaultOverlap: TriggerOverlapPolicy.values[
+          (json['defaultOverlap'] as int? ?? 1).clamp(0, 3)],
       defaultInterpolationMs: json['defaultInterpolationMs'] as int? ?? 200,
       jitterBufferMs: json['jitterBufferMs'] as int? ?? 50,
     );
