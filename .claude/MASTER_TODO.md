@@ -24,6 +24,73 @@
 - `slot_lab_provider.dart` je MRTAV KOD — koristi se `SlotLabCoordinator` (typedef)
 - Dirty files: `rf-plugin/`, `plugin_provider.dart`, `plugins_scanner_panel.dart` — VST hosting WIP
 
+## ASSIGN Tab — Potpuna Rekonstrukcija (2026-03-21)
+
+### Layout analiza
+
+**Trenutni layout:** LEFT (260px) | CENTER (slot machine preview) | RIGHT (300px)
+- Levi panel: ASSIGN / CUSTOM / AUREXIS tabovi
+- Desni panel: CONFIG / POOL tabovi
+- Breakpoints: <700 oba sakrivena, <900 desni sakriven, <1200 levi sakriven
+- Panel resize: min 200px, max 500px (drag handle)
+- Center minimum: 400px
+
+**Problem:** 260px za ASSIGN slot = label 80px + separator 1px + waveform 52px + filename flex + badges ~40px + controls ~30px = gužva. Label se odseca, bus/priority se ne vide, prazan slot prikazuje samo "—".
+
+**Odluka:** Layout ostaje (levi/desni/center) — drag&drop ergonomija iz POOL u ASSIGN zahteva bliže panele. Rešenje je dvored slot rendering.
+
+### Faza 1: Dvored Slot Rendering (`_buildSlot` rekonstrukcija)
+
+Trenutno (jednoredni, 28px):
+```
+[Label 80px | sep | Waveform+Filename / "—" | xN | ● | 2L | ⚠ | ▶ | ✕]
+```
+
+Novo (dvored, 40px):
+```
+┌────────────────────────────────────────────────┐
+│ 🔊 Spin Loop                       P0  ▶  ✕  │  Red 1: bus dot + label (FULL width) + priority + hover controls
+│    ░░▓▓█▓░░  reel_spin_loop.wav  x3  2L  ⚠   │  Red 2: waveform + filename + badges
+└────────────────────────────────────────────────┘
+```
+
+Prazan slot:
+```
+┌────────────────────────────────────────────────┐
+│ 🔊 Spin Loop                              P0  │
+│    REEL_SPIN_LOOP                         drop │
+└────────────────────────────────────────────────┘
+```
+
+Stavke za implementaciju:
+
+- [x] **Dvored layout** — Column sa dva Row-a, mainAxisSize.min
+- [x] **Red 1 (gornji):** Bus dot (5px) + Label (Expanded) + Priority badge + Play/Clear (hover-only)
+- [x] **Red 2 (donji):** 10px indent + WaveformThumbnail (44x14px) + Filename + badges
+- [x] **Prazan slot Red 2:** Stage ID u monospace + "← drop audio" u quick assign
+- [x] **Tooltip** — label + stage + bus + priority
+- [x] **Uklonjen zeleni status dot** — redundantan
+- [x] **Uklonjen `showQuickAssignHighlight`** — dead variable
+- [x] **Left border = bus color** — vizuelni identitet po busu
+
+### Faza 2: Header poboljšanja
+
+- [x] **Undo/Redo dugmad** — dodati u header, Tooltip sa opisom, disabled state kad nema istorije
+
+### Faza 3: Duplikati — čišćenje stage ID-ova
+
+- [x] **ANTICIPATION duplikati** — Uklonjeni per-reel/per-level iz BASE GAME LOOP, samo global+miss ostali. Per-reel u ANTICIPATION sekciji.
+- [x] **LP/MP WIN duplikati** — Uklonjeni MP1-5_WIN i LP1-5_WIN iz WIN PRESENTATION Per-Symbol Win. Ostali grupni (MP_WIN, LP_WIN) + HP individual + LP6_WIN + BONUS_WIN.
+
+### Faza 4: Bugfixevi
+
+- [x] **`_resolveSlotBus` operator precedence** — Dodane zagrade oko `(s.contains('_LOOP') && !s.contains('REEL'))`.
+- [x] **`SKIP` u `_stageDisplayLabels`** — Dodat entry `'SKIP': 'Skip'`.
+
+### Faza 5: Estetika i konzistentnost (po FluxForgeTheme)
+
+- [x] Sve implementirano u okviru Faze 1 (bus dot boje, priority badge, hover state, bus-colored left border, assigned/unassigned kontrast)
+
 ## Remaining / Planned
 
 _(dodaj nove taskove ovde)_

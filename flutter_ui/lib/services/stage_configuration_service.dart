@@ -286,6 +286,7 @@ class StageConfigurationService extends ChangeNotifier {
     'QUICK_STOP': 'Quick Stop',
     'SLAM_STOP': 'Slam Stop',
     'SLAM_STOP_IMPACT': 'Slam Impact',
+    'SKIP': 'Skip',
     'UI_AUTOPLAY_START': 'AutoSpin On',
     'UI_AUTOPLAY_STOP': 'AutoSpin Off',
     'UI_TURBO_ON': 'Turbo On',

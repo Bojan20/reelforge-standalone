@@ -535,6 +535,34 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 ),
               ],
               const SizedBox(width: 2),
+              // Undo/Redo
+              if (widget.canUndo || widget.canRedo) ...[
+                Tooltip(
+                  message: widget.undoDescription != null ? 'Undo: ${widget.undoDescription}' : 'Undo',
+                  waitDuration: const Duration(milliseconds: 300),
+                  child: GestureDetector(
+                    onTap: widget.canUndo ? () => widget.onUndo?.call() : null,
+                    child: SizedBox(
+                      width: 22, height: 22,
+                      child: Icon(Icons.undo, size: 13,
+                        color: widget.canUndo ? FluxForgeTheme.textTertiary : FluxForgeTheme.textDisabled),
+                    ),
+                  ),
+                ),
+                Tooltip(
+                  message: widget.redoDescription != null ? 'Redo: ${widget.redoDescription}' : 'Redo',
+                  waitDuration: const Duration(milliseconds: 300),
+                  child: GestureDetector(
+                    onTap: widget.canRedo ? () => widget.onRedo?.call() : null,
+                    child: SizedBox(
+                      width: 22, height: 22,
+                      child: Icon(Icons.redo, size: 13,
+                        color: widget.canRedo ? FluxForgeTheme.textTertiary : FluxForgeTheme.textDisabled),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 2),
+              ],
               _compactActionBtn(
                 Icons.verified_outlined, 'Validate',
                 _validationWarningCount > 0 ? FluxForgeTheme.accentOrange : FluxForgeTheme.textDisabled,
@@ -2783,7 +2811,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       id: 'core_loop',
       title: 'CORE LOOP',
       icon: '🎰',
-      color: const Color(0xFF4A9EFF),
+      color: const Color(0xFF5AA8FF),
       priority: SlotPriority.p0,
       description: 'Spin → Stops → Symbols — must-have',
       sections: [
@@ -2802,7 +2830,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       id: 'wins',
       title: 'WINS',
       icon: '🏅',
-      color: const Color(0xFFFFD700),
+      color: const Color(0xFFFFE050),
       priority: SlotPriority.p0,
       description: 'Lines, rollup, cascade, multipliers',
       sections: winSections,
@@ -2820,7 +2848,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         id: 'features',
         title: 'FEATURES',
         icon: '🎁',
-        color: const Color(0xFF40FF90),
+        color: const Color(0xFF50FF98),
         priority: SlotPriority.p1,
         description: 'Free Spins, Bonus, Hold & Win, Wilds',
         sections: featureSections,
@@ -2833,7 +2861,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         id: 'jackpots',
         title: 'JACKPOTS',
         icon: '🏆',
-        color: const Color(0xFFFFD700),
+        color: const Color(0xFFFF9850),
         priority: SlotPriority.p1,
         description: 'Trigger → Reveal → Celebrate',
         sections: [_JackpotsSection(widget: widget)],
@@ -2846,7 +2874,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         id: 'gamble',
         title: 'GAMBLE',
         icon: '🎲',
-        color: const Color(0xFFFF6B6B),
+        color: const Color(0xFF50FF98),
         priority: SlotPriority.p2,
         description: 'Double-or-nothing (optional)',
         sections: [_GambleSection(widget: widget)],
@@ -2861,7 +2889,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         id: 'anticipation',
         title: 'ANTICIPATION',
         icon: '😱',
-        color: const Color(0xFFFF5252),
+        color: const Color(0xFF5AA8FF),
         priority: SlotPriority.p1,
         description: 'Tension build, near-miss, heartbeat',
         sections: [_AnticipationSection(
@@ -2880,7 +2908,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         id: 'collector',
         title: 'COLLECTOR',
         icon: '💰',
-        color: const Color(0xFFFFC107),
+        color: const Color(0xFFFFE050),
         priority: SlotPriority.p1,
         description: 'Coin collect, meter fill, payout',
         sections: [_CollectorSection(widget: widget)],
@@ -2893,7 +2921,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         id: 'megaways',
         title: 'MEGAWAYS',
         icon: '🔢',
-        color: const Color(0xFFE040FB),
+        color: const Color(0xFF50FF98),
         priority: SlotPriority.p1,
         description: 'Ways reveal, expand, row shifts',
         sections: [_MegawaysSection(widget: widget)],
@@ -2907,7 +2935,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         id: 'transitions',
         title: 'TRANSITIONS',
         icon: '🔀',
-        color: const Color(0xFF78909C),
+        color: const Color(0xFFB080FF),
         priority: SlotPriority.p2,
         description: 'Scene transitions, fade, swoosh',
         sections: [_TransitionsSection(widget: widget)],
@@ -2919,7 +2947,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       id: 'music',
       title: 'MUSIC & AMBIENCE',
       icon: '🎵',
-      color: const Color(0xFF9370DB),
+      color: const Color(0xFFB080FF),
       priority: SlotPriority.p1,
       description: 'Background loops, stingers, ambient',
       sections: [_MusicSection(widget: widget)],
@@ -2930,7 +2958,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       id: 'ui_system',
       title: 'UI & SYSTEM',
       icon: '🖥️',
-      color: const Color(0xFF808080),
+      color: const Color(0xFF808088),
       priority: SlotPriority.p2,
       description: 'Buttons, menus, notifications',
       sections: [_UISystemSection(widget: widget)],
@@ -3225,7 +3253,7 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
 
     // P3-17: Filter by unassigned only
     if (_showUnassignedOnly && hasAudio) {
-      return const SizedBox.shrink(); // Hide assigned slots when filter is active
+      return const SizedBox.shrink();
     }
 
     // Filter by search query (SL-LP-P1.2)
@@ -3234,12 +3262,14 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
       final matchesLabel = slot.label.toLowerCase().contains(_searchQuery);
       final matchesFileName = fileName?.toLowerCase().contains(_searchQuery) ?? false;
       if (!matchesStage && !matchesLabel && !matchesFileName) {
-        return const SizedBox.shrink(); // Hide non-matching slots
+        return const SizedBox.shrink();
       }
     }
 
     final slotTint = Color.lerp(accentColor, FluxForgeTheme.textTertiary, 0.6)!;
     final isMultiSelected = _selectedSlots.contains(slot.stage);
+    final busInfo = slot.bus;
+    final priorityInfo = slot.priority;
 
     return Listener(
       // Shift+click: toggle multi-select (per CLAUDE.md: modifier keys → Listener)
@@ -3256,15 +3286,11 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         }
       },
       child: Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 3),
       child: _HoverBuilder(
         builder: (isSlotHovered) => GestureDetector(
-        // Multi-select: Shift+click toggles selection
-        // Quick Assign Mode: single-click selects slot
-        // Normal mode: no tap action (drag & drop only)
         onTap: widget.quickAssignMode
             ? () {
-                // Shift+click is handled by Listener — don't also do Quick Assign
                 if (HardwareKeyboard.instance.isShiftPressed) return;
                 if (widget.quickAssignSelectedSlot == slot.stage) {
                   widget.onQuickAssignSlotSelected?.call('__UNSELECT__');
@@ -3273,7 +3299,6 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
                 }
               }
             : null,
-        // Right-click: show event preset menu
         onSecondaryTapUp: hasAudio ? (details) {
           _showEventPresetMenu(context, slot.stage, details.globalPosition);
         } : null,
@@ -3285,13 +3310,10 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               details.data is String;
         },
         onAcceptWithDetails: (details) {
-          // Multi-drop support: first file = primary assign, rest = additional layers
           if (details.data is List<AudioAsset>) {
             final list = details.data as List<AudioAsset>;
             if (list.isNotEmpty) {
-              // First file: primary audio assignment (creates composite event)
               widget.onAudioAssign?.call(slot.stage, list.first.path, slot.label);
-              // Remaining files: add as extra layers to the composite event
               for (int i = 1; i < list.length; i++) {
                 widget.onAudioLayerAdd?.call(slot.stage, list[i].path);
               }
@@ -3310,14 +3332,14 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         },
         builder: (context, candidateData, rejectedData) {
           final isHovering = candidateData.isNotEmpty;
-          // M2-8: Quick Assign visual feedback
-          final showQuickAssignHighlight = isQuickAssignSelected ||
-              (widget.quickAssignMode && isHovering);
 
-          return AnimatedContainer(
+          return Tooltip(
+            message: '${slot.label}\n${slot.stage}\n${busInfo.label} bus · ${priorityInfo.label}',
+            waitDuration: const Duration(milliseconds: 500),
+            child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
-            height: 28,
             clipBehavior: Clip.hardEdge,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
             decoration: BoxDecoration(
               color: isMultiSelected
                   ? FluxForgeTheme.accentOrange.withValues(alpha: 0.08)
@@ -3331,164 +3353,182 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
               borderRadius: BorderRadius.circular(4),
               border: Border(
                 left: BorderSide(
-                  color: isMultiSelected ? FluxForgeTheme.accentOrange : Colors.transparent,
-                  width: isMultiSelected ? 3 : 0,
+                  color: isMultiSelected
+                      ? FluxForgeTheme.accentOrange
+                      : isHovering
+                          ? busInfo.color.withValues(alpha: 0.6)
+                          : busInfo.color.withValues(alpha: hasAudio ? 0.3 : 0.12),
+                  width: 2,
                 ),
                 top: BorderSide(color: _slotBorderColor(isQuickAssignSelected, isHovering, isSlotHovered, hasAudio, slotTint)),
                 right: BorderSide(color: _slotBorderColor(isQuickAssignSelected, isHovering, isSlotHovered, hasAudio, slotTint)),
                 bottom: BorderSide(color: _slotBorderColor(isQuickAssignSelected, isHovering, isSlotHovered, hasAudio, slotTint)),
               ),
             ),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Stage label — fixed width
-                Container(
-                  width: 80,
-                  height: 28,
-                  alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.only(left: 8),
-                  child: Text(
-                    slot.label,
-                    style: TextStyle(
-                      fontSize: 10, fontWeight: FontWeight.w500,
-                      color: isSlotHovered
-                          ? slotTint
-                          : hasAudio ? FluxForgeTheme.textSecondary : FluxForgeTheme.textDisabled,
-                    ),
-                    overflow: TextOverflow.ellipsis, maxLines: 1,
-                  ),
-                ),
-                // Separator
-                Container(width: 1, height: 16, color: FluxForgeTheme.bgSurface),
-                const SizedBox(width: 6),
-                // Audio content or hint
-                Expanded(
-                  child: hasAudio
-                      ? Row(
-                          children: [
-                            WaveformThumbnail(
-                              filePath: audioPath,
-                              width: 52, height: 18,
-                              color: FluxForgeTheme.textDisabled,
-                              backgroundColor: FluxForgeTheme.bgVoid,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                fileName!,
-                                style: const TextStyle(
-                                  fontSize: 10, color: FluxForgeTheme.textTertiary,
-                                ),
-                                overflow: TextOverflow.ellipsis, maxLines: 1,
-                              ),
-                            ),
-                          ],
-                        )
-                      : Text(
-                          isQuickAssignSelected ? '← assign' : '—',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: isQuickAssignSelected
-                                ? FluxForgeTheme.textTertiary
-                                : FluxForgeTheme.borderSubtle,
-                          ),
-                        ),
-                ),
-                // Variant count — minimal
-                if (hasVariants && !isQuickAssignSelected)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 5),
-                    child: Text(
-                      'x$variantCount',
-                      style: const TextStyle(
-                        fontSize: 9, color: FluxForgeTheme.textDisabled, fontFamily: 'monospace',
+                // ── ROW 1: Bus dot + Label + Priority + Controls ──
+                Row(
+                  children: [
+                    // Bus dot
+                    Container(
+                      width: 5, height: 5,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: busInfo.color.withValues(alpha: 0.7),
                       ),
                     ),
-                  ),
-                // Status icon + Event count badge (SL-INT-P1.1)
-                // Status dot — minimal
-                if (hasAudio)
-                  Container(
-                    width: 6, height: 6, margin: const EdgeInsets.only(right: 5),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: FluxForgeTheme.accentGreen.withOpacity(0.5),
+                    const SizedBox(width: 5),
+                    // Label — full width, no truncation at 80px
+                    Expanded(
+                      child: Text(
+                        slot.label,
+                        style: TextStyle(
+                          fontSize: 10, fontWeight: FontWeight.w500,
+                          color: isSlotHovered
+                              ? slotTint
+                              : hasAudio ? FluxForgeTheme.textSecondary : FluxForgeTheme.textDisabled,
+                        ),
+                        overflow: TextOverflow.ellipsis, maxLines: 1,
+                      ),
                     ),
-                  ),
-                // Layer count badge
-                if (hasAudio)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 3),
-                    child: Builder(
-                      builder: (_) {
-                        final mw = Provider.of<MiddlewareProvider>(context, listen: false);
-                        final eid = 'audio_${slot.stage}';
-                        final evt = mw.compositeEvents.where((e) => e.id == eid).firstOrNull ??
-                            mw.compositeEvents.where((e) => e.triggerStages.any((s) => s.toUpperCase() == slot.stage.toUpperCase())).firstOrNull;
-                        final lc = evt?.layers.length ?? 0;
-                        if (lc <= 1) return const SizedBox.shrink();
-                        return Text(
-                          '${lc}L',
+                    // Priority badge
+                    Text(
+                      priorityInfo.label,
+                      style: TextStyle(
+                        fontSize: 8, fontWeight: FontWeight.w700,
+                        color: priorityInfo.color.withValues(alpha: 0.5),
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    // Play button — hover or playing
+                    if (hasAudio && (isSlotHovered || _playingStage == slot.stage))
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: GestureDetector(
+                          onTap: () => _togglePreview(slot.stage, audioPath),
+                          child: Icon(
+                            _playingStage == slot.stage ? Icons.stop : Icons.play_arrow,
+                            size: 12,
+                            color: _playingStage == slot.stage
+                                ? FluxForgeTheme.textSecondary
+                                : FluxForgeTheme.textDisabled,
+                          ),
+                        ),
+                      ),
+                    // Clear button — hover only
+                    if (hasAudio && isSlotHovered)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 2),
+                        child: GestureDetector(
+                          onTap: () => widget.onAudioClear?.call(slot.stage),
+                          child: const Icon(Icons.close, size: 11, color: FluxForgeTheme.textDisabled),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                // ── ROW 2: Waveform + Filename / Stage ID + Badges ──
+                Row(
+                  children: [
+                    const SizedBox(width: 10), // indent under bus dot
+                    if (hasAudio) ...[
+                      WaveformThumbnail(
+                        filePath: audioPath,
+                        width: 44, height: 14,
+                        color: FluxForgeTheme.textDisabled,
+                        backgroundColor: FluxForgeTheme.bgVoid,
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          fileName!,
+                          style: const TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary),
+                          overflow: TextOverflow.ellipsis, maxLines: 1,
+                        ),
+                      ),
+                    ] else ...[
+                      Expanded(
+                        child: Text(
+                          isQuickAssignSelected ? '← drop audio' : slot.stage,
                           style: TextStyle(
                             fontSize: 9,
-                            color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
-                            fontFamily: 'monospace',
+                            color: isQuickAssignSelected
+                                ? FluxForgeTheme.textTertiary
+                                : FluxForgeTheme.textDisabled.withValues(alpha: 0.5),
+                            fontFamily: isQuickAssignSelected ? null : 'monospace',
                           ),
-                        );
-                      },
-                    ),
-                  ),
-                // Validation warning icon
-                if (widget.validationWarnings.isNotEmpty)
-                  Builder(builder: (_) {
-                    final w = widget.validationWarnings.where((w) => w.stage == slot.stage).firstOrNull;
-                    if (w == null) return const SizedBox.shrink();
-                    return Tooltip(
-                      message: w.message,
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 3),
-                        child: Icon(
-                          w.severity == WarningSeverity.error ? Icons.error_outline : Icons.warning_amber,
-                          size: 11,
-                          color: w.severity == WarningSeverity.error
-                              ? FluxForgeTheme.accentRed
-                              : w.severity == WarningSeverity.warning
-                                  ? FluxForgeTheme.accentOrange
-                                  : Colors.white30,
+                          overflow: TextOverflow.ellipsis, maxLines: 1,
                         ),
                       ),
-                    );
-                  }),
-                // Play button — visible on hover or when playing
-                if (hasAudio && (isSlotHovered || _playingStage == slot.stage))
-                  GestureDetector(
-                    onTap: () => _togglePreview(slot.stage, audioPath),
-                    child: Icon(
-                      _playingStage == slot.stage ? Icons.stop : Icons.play_arrow,
-                      size: 14,
-                      color: _playingStage == slot.stage
-                          ? FluxForgeTheme.textSecondary
-                          : FluxForgeTheme.textDisabled,
-                    ),
-                  ),
-                // Clear button — visible on hover only
-                if (hasAudio && isSlotHovered)
-                  GestureDetector(
-                    onTap: () => widget.onAudioClear?.call(slot.stage),
-                    child: const Padding(
-                      padding: EdgeInsets.only(left: 3, right: 3),
-                      child: Icon(Icons.close, size: 12, color: FluxForgeTheme.textDisabled),
-                    ),
-                  ),
+                    ],
+                    // Variant count
+                    if (hasVariants)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: Text(
+                          'x$variantCount',
+                          style: const TextStyle(fontSize: 8, color: FluxForgeTheme.textDisabled, fontFamily: 'monospace'),
+                        ),
+                      ),
+                    // Layer count badge
+                    if (hasAudio)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: Builder(
+                          builder: (_) {
+                            final mw = Provider.of<MiddlewareProvider>(context, listen: false);
+                            final eid = 'audio_${slot.stage}';
+                            final evt = mw.compositeEvents.where((e) => e.id == eid).firstOrNull ??
+                                mw.compositeEvents.where((e) => e.triggerStages.any((s) => s.toUpperCase() == slot.stage.toUpperCase())).firstOrNull;
+                            final lc = evt?.layers.length ?? 0;
+                            if (lc <= 1) return const SizedBox.shrink();
+                            return Text(
+                              '${lc}L',
+                              style: TextStyle(
+                                fontSize: 8,
+                                color: FluxForgeTheme.textTertiary.withValues(alpha: 0.5),
+                                fontFamily: 'monospace',
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    // Validation warning icon
+                    if (widget.validationWarnings.isNotEmpty)
+                      Builder(builder: (_) {
+                        final w = widget.validationWarnings.where((w) => w.stage == slot.stage).firstOrNull;
+                        if (w == null) return const SizedBox.shrink();
+                        return Tooltip(
+                          message: w.message,
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: Icon(
+                              w.severity == WarningSeverity.error ? Icons.error_outline : Icons.warning_amber,
+                              size: 10,
+                              color: w.severity == WarningSeverity.error
+                                  ? FluxForgeTheme.accentRed
+                                  : w.severity == WarningSeverity.warning
+                                      ? FluxForgeTheme.accentOrange
+                                      : Colors.white30,
+                            ),
+                          ),
+                        );
+                      }),
+                  ],
+                ),
               ],
             ),
+          ),
           );
         },
       ),
       ),
       ),
-      ), // Padding
-    ); // Listener
+      ),
+    );
   }
 
   /// Show event preset context menu on right-click
@@ -4146,7 +4186,7 @@ SlotBus _resolveSlotBus(String stage) {
   // Music bus — looping, background, ambient, stingers
   if (s.startsWith('MUSIC_') || s.startsWith('AMBIENT_') ||
       s.startsWith('ATTRACT_') || s.startsWith('IDLE_') ||
-      s.contains('_MUSIC') || s.contains('_LOOP') && !s.contains('REEL') ||
+      s.contains('_MUSIC') || (s.contains('_LOOP') && !s.contains('REEL')) ||
       s.startsWith('MUSIC_STINGER')) {
     return SlotBus.music;
   }
@@ -4252,7 +4292,7 @@ class _BaseGameLoopSection extends _SectionConfig {
   @override String get id => 'base_game_loop';
   @override String get title => 'BASE GAME LOOP';
   @override String get icon => '🎰';
-  @override Color get color => const Color(0xFF4A9EFF);
+  @override Color get color => const Color(0xFF5AA8FF);
 
   /// Reel count from current config (for filtering per-reel stages)
   int get _reelCount => GetIt.instance<FeatureComposerProvider>().config?.reelCount ?? 3;
@@ -4268,17 +4308,10 @@ class _BaseGameLoopSection extends _SectionConfig {
         _SlotConfig(stage: 'REEL_STOP_$i', label: 'Reel ${i + 1} Stop'),
     ];
 
-    // Anticipation: basic always, per-reel for all reels in grid.
-    // Any reel (R0-R7) can have anticipation depending on game logic config.
-    // All L1-L4 levels registered per reel — runtime decides actual tension.
-    final anticSlots = <_SlotConfig>[
-      const _SlotConfig(stage: 'ANTICIPATION_TENSION', label: 'Anticipation (Global)'),
-      const _SlotConfig(stage: 'ANTICIPATION_MISS', label: 'Anticipation Miss'),
-      for (int r = 0; r < rc; r++)
-        _SlotConfig(stage: 'ANTICIPATION_TENSION_R$r', label: 'Reel ${r + 1} Tension'),
-      for (int r = 0; r < rc; r++)
-        for (int l = 1; l <= 4; l++)
-          _SlotConfig(stage: 'ANTICIPATION_TENSION_R${r}_L$l', label: 'Reel ${r + 1} Level $l'),
+    // Anticipation: global only here — per-reel/per-level in ANTICIPATION section
+    const anticSlots = <_SlotConfig>[
+      _SlotConfig(stage: 'ANTICIPATION_TENSION', label: 'Anticipation (Global)'),
+      _SlotConfig(stage: 'ANTICIPATION_MISS', label: 'Anticipation Miss'),
     ];
 
     // Near-miss: generic + per-reel filtered
@@ -4360,7 +4393,7 @@ class _SymbolsSection extends _SectionConfig {
   @override String get id => 'symbols';
   @override String get title => 'SYMBOLS';
   @override String get icon => '🎰';
-  @override Color get color => const Color(0xFF9370DB);
+  @override Color get color => const Color(0xFF5AA8FF);
 
   @override
   List<_GroupConfig> get groups {
@@ -4506,7 +4539,7 @@ class _WinPresentationSection extends _SectionConfig {
   @override String get id => 'win_presentation';
   @override String get title => 'WIN PRESENTATION';
   @override String get icon => '🏆';
-  @override Color get color => const Color(0xFFFFD700);
+  @override Color get color => const Color(0xFFFFE050);
 
   @override
   List<_GroupConfig> get groups {
@@ -4629,6 +4662,8 @@ class _WinPresentationSection extends _SectionConfig {
         ],
       ),
       // ─── PER-SYMBOL WIN AUDIO ⚡ (pooled) ───
+      // NOTE: Individual MP1-5_WIN and LP1-5_WIN are in SYMBOLS section (per-symbol LAND+WIN pairs).
+      // Here: group-level wins + HP individual + specials only.
       const _GroupConfig(
         id: 'symbol_wins',
         title: 'Per-Symbol Win ⚡',
@@ -4640,17 +4675,7 @@ class _WinPresentationSection extends _SectionConfig {
           _SlotConfig(stage: 'HP3_WIN', label: 'HP3 Win'),
           _SlotConfig(stage: 'HP4_WIN', label: 'HP4 Win'),
           _SlotConfig(stage: 'MP_WIN', label: 'MP (All) Win'),
-          _SlotConfig(stage: 'MP1_WIN', label: 'MP1 Win'),
-          _SlotConfig(stage: 'MP2_WIN', label: 'MP2 Win'),
-          _SlotConfig(stage: 'MP3_WIN', label: 'MP3 Win'),
-          _SlotConfig(stage: 'MP4_WIN', label: 'MP4 Win'),
-          _SlotConfig(stage: 'MP5_WIN', label: 'MP5 Win'),
           _SlotConfig(stage: 'LP_WIN', label: 'LP (All) Win'),
-          _SlotConfig(stage: 'LP1_WIN', label: 'LP1 Win'),
-          _SlotConfig(stage: 'LP2_WIN', label: 'LP2 Win'),
-          _SlotConfig(stage: 'LP3_WIN', label: 'LP3 Win'),
-          _SlotConfig(stage: 'LP4_WIN', label: 'LP4 Win'),
-          _SlotConfig(stage: 'LP5_WIN', label: 'LP5 Win'),
           _SlotConfig(stage: 'LP6_WIN', label: 'LP6 Win'),
           _SlotConfig(stage: 'BONUS_WIN', label: 'Bonus Win'),
         ],
@@ -4764,7 +4789,7 @@ class _CascadingSection extends _SectionConfig {
   @override String get id => 'cascading';
   @override String get title => 'CASCADING';
   @override String get icon => '💧';
-  @override Color get color => const Color(0xFF40C8FF);
+  @override Color get color => const Color(0xFFFFE050);
 
   @override
   List<_GroupConfig> get groups => const [
@@ -4850,7 +4875,7 @@ class _MultipliersSection extends _SectionConfig {
   @override String get id => 'multipliers';
   @override String get title => 'MULTIPLIERS';
   @override String get icon => '✖️';
-  @override Color get color => const Color(0xFFFF6B6B);
+  @override Color get color => const Color(0xFFFFE050);
 
   @override
   List<_GroupConfig> get groups => const [
@@ -4929,7 +4954,7 @@ class _FreeSpinsSection extends _SectionConfig {
   @override String get id => 'free_spins';
   @override String get title => 'FREE SPINS';
   @override String get icon => '🎁';
-  @override Color get color => const Color(0xFF40FF90);
+  @override Color get color => const Color(0xFF50FF98);
 
   @override
   List<_GroupConfig> get groups => const [
@@ -5009,7 +5034,7 @@ class _BonusGamesSection extends _SectionConfig {
   @override String get id => 'bonus_games';
   @override String get title => 'BONUS GAMES';
   @override String get icon => '🎲';
-  @override Color get color => const Color(0xFF9370DB);
+  @override Color get color => const Color(0xFF50FF98);
 
   @override
   List<_GroupConfig> get groups => const [
@@ -5147,7 +5172,7 @@ class _HoldAndWinSection extends _SectionConfig {
   @override String get id => 'hold_win';
   @override String get title => 'HOLD & WIN';
   @override String get icon => '🔒';
-  @override Color get color => const Color(0xFFFF6B35);  // Orange
+  @override Color get color => const Color(0xFF50FF98);
 
   @override
   List<_GroupConfig> get groups => const [
@@ -5238,7 +5263,7 @@ class _JackpotsSection extends _SectionConfig {
   @override String get id => 'jackpots';
   @override String get title => '🏆 JACKPOTS';
   @override String get icon => '💎';
-  @override Color get color => const Color(0xFFFFD700);  // Gold
+  @override Color get color => const Color(0xFFFF9850);
 
   @override
   List<_GroupConfig> get groups => const [
@@ -5358,7 +5383,7 @@ class _GambleSection extends _SectionConfig {
   @override String get id => 'gamble';
   @override String get title => 'GAMBLE';
   @override String get icon => '🃏';
-  @override Color get color => const Color(0xFFE040FB);  // Purple
+  @override Color get color => const Color(0xFF50FF98);
 
   @override
   List<_GroupConfig> get groups => const [
@@ -5425,7 +5450,7 @@ class _MusicSection extends _SectionConfig {
   @override String get id => 'music';
   @override String get title => 'MUSIC';
   @override String get icon => '🎵';
-  @override Color get color => const Color(0xFF40C8FF);
+  @override Color get color => const Color(0xFFB080FF);
 
   @override
   List<_GroupConfig> get groups {
@@ -5624,7 +5649,7 @@ class _UISystemSection extends _SectionConfig {
   @override String get id => 'ui_system';
   @override String get title => 'UI SYSTEM';
   @override String get icon => '🖥️';
-  @override Color get color => const Color(0xFF9E9E9E);  // Gray (utility)
+  @override Color get color => const Color(0xFF808088);
 
   @override
   List<_GroupConfig> get groups => const [
@@ -5722,7 +5747,7 @@ class _NudgeRespinSection extends _SectionConfig {
   @override String get id => 'nudge_respin';
   @override String get title => 'NUDGE / RESPIN';
   @override String get icon => '🔁';
-  @override Color get color => const Color(0xFFFF9800);
+  @override Color get color => const Color(0xFF50FF98);
 
   @override
   List<_GroupConfig> get groups => const [
@@ -5763,7 +5788,7 @@ class _WildFeaturesSection extends _SectionConfig {
   @override String get id => 'wild_features';
   @override String get title => 'WILD FEATURES';
   @override String get icon => '🃏';
-  @override Color get color => const Color(0xFF00E676);
+  @override Color get color => const Color(0xFF50FF98);
 
   @override
   List<_GroupConfig> get groups => const [
@@ -5815,7 +5840,7 @@ class _MegawaysSection extends _SectionConfig {
   @override String get id => 'megaways';
   @override String get title => 'MEGAWAYS';
   @override String get icon => '🔢';
-  @override Color get color => const Color(0xFFE040FB);
+  @override Color get color => const Color(0xFF50FF98);
 
   @override
   List<_GroupConfig> get groups => const [
@@ -5855,7 +5880,7 @@ class _TransitionsSection extends _SectionConfig {
   @override String get id => 'transitions';
   @override String get title => 'TRANSITIONS';
   @override String get icon => '🔀';
-  @override Color get color => const Color(0xFF78909C);
+  @override Color get color => const Color(0xFFB080FF);
 
   @override
   List<_GroupConfig> get groups => const [
@@ -5907,7 +5932,7 @@ class _AnticipationSection extends _SectionConfig {
   @override String get id => 'anticipation';
   @override String get title => 'ANTICIPATION';
   @override String get icon => '😱';
-  @override Color get color => const Color(0xFFFF5252);
+  @override Color get color => const Color(0xFF5AA8FF);
 
   @override
   List<_GroupConfig> get groups {
@@ -5951,7 +5976,7 @@ class _CollectorSection extends _SectionConfig {
   @override String get id => 'collector';
   @override String get title => 'COLLECTOR';
   @override String get icon => '💰';
-  @override Color get color => const Color(0xFFFFC107);
+  @override Color get color => const Color(0xFFFFE050);
 
   @override
   List<_GroupConfig> get groups => const [
