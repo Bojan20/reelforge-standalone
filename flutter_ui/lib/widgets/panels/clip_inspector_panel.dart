@@ -50,6 +50,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
   bool _gainsExpanded = true;
   bool _fxExpanded = true;
   bool _stretchExpanded = false;
+  bool _warpExpanded = false;
   bool _sourceExpanded = false;
 
   @override
@@ -139,6 +140,15 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
           expanded: _stretchExpanded,
           onToggle: () => setState(() => _stretchExpanded = !_stretchExpanded),
           child: _buildStretchSection(clip),
+        ),
+
+        // Warp Markers section
+        _buildSection(
+          title: 'Warp',
+          icon: Icons.waves,
+          expanded: _warpExpanded,
+          onToggle: () => setState(() => _warpExpanded = !_warpExpanded),
+          child: _buildWarpSection(clip),
         ),
 
         // Source Info section
@@ -645,6 +655,94 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
             onTap: () {},
           ),
         ],
+      ],
+    );
+  }
+
+  Widget _buildWarpSection(TimelineClip clip) {
+    return Column(
+      children: [
+        // Warp on/off toggle
+        Row(
+          children: [
+            Text('Warp', style: TextStyle(fontSize: 11, color: FluxForgeTheme.textTertiary)),
+            const Spacer(),
+            SizedBox(
+              height: 24,
+              child: Switch(
+                value: clip.warpEnabled,
+                onChanged: (v) {
+                  final clipId = _parseClipId(clip.id);
+                  if (clipId != null) {
+                    NativeFFI.instance.clipWarpEnable(clipId, v);
+                    widget.onClipChanged?.call(clip.copyWith(warpEnabled: v));
+                  }
+                },
+                activeColor: FluxForgeTheme.accentCyan,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+
+        // Detect Transients button
+        SizedBox(
+          width: double.infinity,
+          child: TextButton.icon(
+            onPressed: () {
+              final clipId = _parseClipId(clip.id);
+              if (clipId != null) {
+                // Enable warp if not already
+                if (!clip.warpEnabled) {
+                  NativeFFI.instance.clipWarpEnable(clipId, true);
+                }
+                final count = NativeFFI.instance.clipDetectTransients(clipId);
+                if (count > 0) {
+                  NativeFFI.instance.clipWarpCreateFromTransients(clipId);
+                }
+                // Refresh clip state from engine
+                widget.onClipChanged?.call(clip.copyWith(warpEnabled: true));
+              }
+            },
+            icon: const Icon(Icons.graphic_eq, size: 14),
+            label: Text(
+              clip.warpTransients.isEmpty ? 'Detect Transients' : '${clip.warpTransients.length} transients',
+              style: const TextStyle(fontSize: 11),
+            ),
+            style: TextButton.styleFrom(
+              foregroundColor: FluxForgeTheme.accentCyan,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+            ),
+          ),
+        ),
+
+        // Quantize button
+        if (clip.warpMarkers.length >= 3)
+          SizedBox(
+            width: double.infinity,
+            child: TextButton.icon(
+              onPressed: () {
+                final clipId = _parseClipId(clip.id);
+                if (clipId != null) {
+                  // Quantize to 1/8 note at current tempo (default)
+                  // TODO: grid dropdown
+                  NativeFFI.instance.clipWarpQuantize(clipId, 0.25, 0.8);
+                  widget.onClipChanged?.call(clip);
+                }
+              },
+              icon: const Icon(Icons.grid_on, size: 14),
+              label: Text('Quantize (${clip.warpMarkers.length} markers)', style: const TextStyle(fontSize: 11)),
+              style: TextButton.styleFrom(
+                foregroundColor: FluxForgeTheme.accentOrange,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+              ),
+            ),
+          ),
+
+        // Info
+        if (clip.warpEnabled)
+          _buildPropertyRow('Markers', '${clip.warpMarkers.length}'),
       ],
     );
   }
