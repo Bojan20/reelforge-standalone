@@ -24,6 +24,7 @@ rf-event = { path = "../rf-event" }
 rf-stage = { path = "../rf-stage" }
 rf-ingest = { path = "../rf-ingest" }
 rf-connector = { path = "../rf-connector" }
+rf-r8brain = { path = "../rf-r8brain" }
 rtrb = { workspace = true }
 parking_lot = { workspace = true }
 crossbeam-channel = { workspace = true }

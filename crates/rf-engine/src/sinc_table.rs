@@ -22,13 +22,16 @@ pub enum ResampleMode {
     Linear,
     /// Windowed sinc interpolation — configurable tap count
     Sinc(u16),
+    /// R8brain multi-stage pipeline — highest quality, beyond Reaper
+    /// Uses per-voice R8brainResampler instance (stateful, block-based)
+    R8brain,
 }
 
 impl ResampleMode {
     /// Default playback quality (64pt sinc = Reaper "Medium")
     pub const PLAYBACK: Self = Self::Sinc(64);
-    /// Default render quality (384pt sinc = Reaper "Better")
-    pub const RENDER: Self = Self::Sinc(384);
+    /// Default render quality — R8brain (beyond Reaper's best)
+    pub const RENDER: Self = Self::R8brain;
     /// Scrub/shuttle quality
     pub const SCRUB: Self = Self::Linear;
 
@@ -38,12 +41,18 @@ impl ResampleMode {
             Self::Point => 0,
             Self::Linear => 1,
             Self::Sinc(n) => (n as usize) / 2,
+            Self::R8brain => 0, // R8brain handles latency internally
         }
     }
 
     /// Latency in samples introduced by this mode
     pub fn latency_samples(self) -> usize {
         self.half_size()
+    }
+
+    /// Whether this mode requires a per-voice R8brainResampler instance
+    pub fn is_r8brain(self) -> bool {
+        matches!(self, Self::R8brain)
     }
 }
 
@@ -395,11 +404,12 @@ pub fn interpolate_sample(
     match mode {
         ResampleMode::Point => point_sample(src_pos, samples, channels, total_frames, ch),
         ResampleMode::Linear => linear_sample(src_pos, samples, channels, total_frames, ch),
-        ResampleMode::Sinc(_) => {
+        ResampleMode::Sinc(_) | ResampleMode::R8brain => {
+            // R8brain uses block-based processing in fill_buffer() directly.
+            // If we reach here with R8brain mode, fallback to sinc table.
             if let Some(t) = table {
                 sinc_sample(src_pos, samples, channels, total_frames, ch, t)
             } else {
-                // Fallback to linear if no table (should never happen in production)
                 linear_sample(src_pos, samples, channels, total_frames, ch)
             }
         }

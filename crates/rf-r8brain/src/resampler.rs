@@ -67,6 +67,17 @@ impl Default for R8brainQuality {
 /// let mut output = vec![0.0f64; 512]; // Generous output buffer
 /// let written = resampler.process(&input, &mut output);
 /// ```
+impl std::fmt::Debug for R8brainResampler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("R8brainResampler")
+            .field("source_rate", &self.source_rate)
+            .field("dest_rate", &self.dest_rate)
+            .field("ratio", &self.ratio)
+            .field("quality", &self.quality)
+            .finish()
+    }
+}
+
 pub struct R8brainResampler {
     /// Source sample rate
     source_rate: f64,
