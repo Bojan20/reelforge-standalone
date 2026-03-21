@@ -161,7 +161,7 @@ extern "C" fn gui_ready_callback(
         let title = NSString::from_str(&format!("Plugin — {}", class_name));
         window.setTitle(&title);
 
-        // Set autoresizing mask on view
+        // Set autoresizing mask: NSViewWidthSizable (2) | NSViewHeightSizable (16) = 18
         let _: () = msg_send![view, setAutoresizingMask: 18u64];
 
         // Set view as content
@@ -316,9 +316,7 @@ fn main() {
             sel!(timerFired:),
             timer_fired as unsafe extern "C" fn(*mut AnyObject, Sel, *mut AnyObject),
         );
-        builder.register();
-
-        let target_class = AnyClass::get(c"RFTimerTarget").unwrap();
+        let target_class = builder.register();
         let target: *mut AnyObject = msg_send![target_class, alloc];
         let target: *mut AnyObject = msg_send![target, init];
 

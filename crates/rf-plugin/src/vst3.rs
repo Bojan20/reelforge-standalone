@@ -168,7 +168,7 @@ fn register_plugin_window_classes() {
 #[cfg(target_os = "macos")]
 unsafe fn create_plugin_window(view_ptr: *mut c_void, width: f64, height: f64, title: &str) {
     use objc2::runtime::{AnyClass, AnyObject, Bool};
-    use objc2::{msg_send, sel};
+    use objc2::msg_send;
     use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 
     register_plugin_window_classes();
@@ -226,7 +226,6 @@ unsafe fn create_plugin_window(view_ptr: *mut c_void, width: f64, height: f64, t
         let _: () = msg_send![window, makeFirstResponder: plugin_view];
         let _: () = msg_send![window, setLevel: 3i64]; // NSFloatingWindowLevel
 
-        let _: () = msg_send![window, setReleasedWhenClosed: Bool::NO];
         let _: () = msg_send![window, retain];
 
         eprintln!("[FluxForge] FFPluginWindow created {}x{} for '{}'", width as u32, height as u32, title);
