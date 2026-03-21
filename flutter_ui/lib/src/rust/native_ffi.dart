@@ -10915,6 +10915,157 @@ extension ElasticProAPI on NativeFFI {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// PHASE VOCODER API - Preserve Pitch
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Phase Vocoder API - Per-clip pitch preservation during time stretch
+extension PhaseVocoderAPI on NativeFFI {
+  static final _clipSetPreservePitch = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64, Int32, Double),
+      int Function(int, int, double)>('clip_set_preserve_pitch');
+  static final _clipUpdateVocoderPitch = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64, Double),
+      int Function(int, double)>('clip_update_vocoder_pitch');
+
+  /// Set preserve_pitch on a clip and pre-allocate/remove phase vocoder.
+  /// [clipId]: clip ID (u64), [preserve]: enable/disable, [stretchRatio]: current stretch ratio
+  bool clipSetPreservePitch(int clipId, bool preserve, double stretchRatio) =>
+      _clipSetPreservePitch(clipId, preserve ? 1 : 0, stretchRatio) == 1;
+
+  /// Update phase vocoder pitch factor when stretch ratio changes.
+  bool clipUpdateVocoderPitch(int clipId, double stretchRatio) =>
+      _clipUpdateVocoderPitch(clipId, stretchRatio) == 1;
+
+  static final _clipSetPitchShift = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64, Double),
+      int Function(int, double)>('clip_set_pitch_shift');
+  static final _clipSetStretchRatio = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64, Double),
+      int Function(int, double)>('clip_set_stretch_ratio');
+
+  /// Set pitch shift on a specific clip (-24 to +24 semitones)
+  bool clipSetPitchShift(int clipId, double semitones) =>
+      _clipSetPitchShift(clipId, semitones) == 1;
+
+  /// Set stretch ratio on a specific clip (0.25 to 4.0)
+  bool clipSetStretchRatio(int clipId, double ratio) =>
+      _clipSetStretchRatio(clipId, ratio) == 1;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SRC QUALITY API - Sample Rate Conversion
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Adaptive quality diagnostics
+class AdaptiveQualityStats {
+  final int activeVoices;
+  final int degradedVoices;
+  final int cpuLoadPct;
+  final int srcMode;
+
+  const AdaptiveQualityStats({
+    required this.activeVoices,
+    required this.degradedVoices,
+    required this.cpuLoadPct,
+    required this.srcMode,
+  });
+
+  String get srcModeLabel => SrcQualityExtension.fromEngine(srcMode).label;
+  bool get isOverBudget => cpuLoadPct > 100;
+  bool get hasDegradedVoices => degradedVoices > 0;
+}
+
+/// Adaptive Quality Diagnostics API
+extension AdaptiveQualityAPI on NativeFFI {
+  static final _getAdaptiveQualityStats = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Pointer<Uint32>, Pointer<Uint32>, Pointer<Uint32>, Pointer<Uint32>),
+      int Function(Pointer<Uint32>, Pointer<Uint32>, Pointer<Uint32>, Pointer<Uint32>)
+      >('get_adaptive_quality_stats');
+
+  /// Get current adaptive quality stats (lock-free, safe to call frequently)
+  AdaptiveQualityStats getAdaptiveQualityStats() {
+    final av = calloc<Uint32>();
+    final dv = calloc<Uint32>();
+    final cpu = calloc<Uint32>();
+    final mode = calloc<Uint32>();
+    try {
+      _getAdaptiveQualityStats(av, dv, cpu, mode);
+      return AdaptiveQualityStats(
+        activeVoices: av.value,
+        degradedVoices: dv.value,
+        cpuLoadPct: cpu.value,
+        srcMode: mode.value,
+      );
+    } finally {
+      calloc.free(av);
+      calloc.free(dv);
+      calloc.free(cpu);
+      calloc.free(mode);
+    }
+  }
+}
+
+/// SRC quality presets
+enum SrcQuality {
+  point,      // 0 - Nearest neighbor (lowest CPU, worst quality)
+  linear,     // 1 - Linear interpolation
+  sinc16,     // 16 - Sinc 16-tap
+  sinc64,     // 64 - Sinc 64-tap
+  sinc192,    // 192 - Sinc 192-tap (high quality)
+  sinc384,    // 384 - Sinc 384-tap (ultra quality)
+  r8brain,    // 65535 - r8brain offline (best quality, highest CPU)
+}
+
+extension SrcQualityExtension on SrcQuality {
+  int get engineValue => switch (this) {
+    SrcQuality.point => 0,
+    SrcQuality.linear => 1,
+    SrcQuality.sinc16 => 16,
+    SrcQuality.sinc64 => 64,
+    SrcQuality.sinc192 => 192,
+    SrcQuality.sinc384 => 384,
+    SrcQuality.r8brain => 65535,
+  };
+
+  String get label => switch (this) {
+    SrcQuality.point => 'Point (Draft)',
+    SrcQuality.linear => 'Linear',
+    SrcQuality.sinc16 => 'Sinc 16',
+    SrcQuality.sinc64 => 'Sinc 64',
+    SrcQuality.sinc192 => 'Sinc 192 (HQ)',
+    SrcQuality.sinc384 => 'Sinc 384 (Ultra)',
+    SrcQuality.r8brain => 'r8brain (Offline)',
+  };
+
+  static SrcQuality fromEngine(int value) => switch (value) {
+    0 => SrcQuality.point,
+    1 => SrcQuality.linear,
+    16 => SrcQuality.sinc16,
+    64 => SrcQuality.sinc64,
+    192 => SrcQuality.sinc192,
+    384 => SrcQuality.sinc384,
+    65535 => SrcQuality.r8brain,
+    _ => SrcQuality.sinc64, // default fallback
+  };
+}
+
+/// SRC Quality API - Playback sample rate conversion quality
+extension SrcQualityAPI on NativeFFI {
+  static final _setSrcQuality = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint32), int Function(int)>('set_src_quality');
+  static final _getSrcQuality = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(), int Function()>('get_src_quality');
+
+  /// Set SRC quality for playback engine
+  bool setSrcQuality(SrcQuality quality) =>
+      _setSrcQuality(quality.engineValue) == 1;
+
+  /// Get current SRC quality
+  SrcQuality getSrcQuality() =>
+      SrcQualityExtension.fromEngine(_getSrcQuality());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // MORPHING EQ API - Preset Interpolation
 // ═══════════════════════════════════════════════════════════════════════════
 

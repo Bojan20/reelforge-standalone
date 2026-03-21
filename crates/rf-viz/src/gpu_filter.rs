@@ -655,7 +655,7 @@ impl GpuFilterProcessor {
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Biquad Pipeline Layout"),
                 bind_group_layouts: &[&biquad_bind_group_layout],
-                push_constant_ranges: &[],
+                immediate_size: 0,
             });
 
         let biquad_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
@@ -681,7 +681,7 @@ impl GpuFilterProcessor {
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Stereo Pipeline Layout"),
                 bind_group_layouts: &[&biquad_bind_group_layout, &stereo_bind_group_layout],
-                push_constant_ranges: &[],
+                immediate_size: 0,
             });
 
         let stereo_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
@@ -891,7 +891,7 @@ impl GpuFilterProcessor {
             let _ = sender.send(result);
         });
 
-        self.ctx.device.poll(wgpu::Maintain::Wait);
+        self.ctx.device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None }).ok();
 
         receiver
             .recv_async()
@@ -995,7 +995,7 @@ impl GpuFilterProcessor {
             let _ = sender_r.send(result);
         });
 
-        self.ctx.device.poll(wgpu::Maintain::Wait);
+        self.ctx.device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None }).ok();
 
         receiver_l
             .recv_async()
@@ -1091,7 +1091,7 @@ impl GpuFilterProcessor {
             let _ = sender.send(result);
         });
 
-        self.ctx.device.poll(wgpu::Maintain::Wait);
+        self.ctx.device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None }).ok();
 
         receiver
             .recv_async()

@@ -111,11 +111,11 @@ flac-bound = "0.5"
 walkdir = "2.5"
 
 # Graphics (for Flutter native rendering)
-wgpu = "24.0"
+wgpu = "28.0"
 bytemuck = { version = "1.21", features = ["derive"] }
 
 # Audio
-cpal = "0.15"
+cpal = "0.17"
 dasp = "0.11"
 
 # MIDI
@@ -149,8 +149,8 @@ clap = { version = "4.5", features = ["derive"] }
 # ML inference
 tract-onnx = "0.21"
 tract-core = "0.21"
-candle-core = "0.8"
-candle-nn = "0.8"
+candle-core = "0.9"
+candle-nn = "0.9"
 
 # Numeric / Math
 ndarray = "0.16"
@@ -158,7 +158,7 @@ nalgebra = "0.33"
 num-complex = "0.4"
 
 # SIMD
-wide = "0.7"
+wide = "1.2"
 
 # Atomics
 portable-atomic = { version = "1.13", features = ["float"] }

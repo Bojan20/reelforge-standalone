@@ -30,7 +30,8 @@ impl GpuContext {
                 compatible_surface: None,
                 force_fallback_adapter: false,
             })
-            .await?;
+            .await
+            .ok()?;
 
         let (device, queue) = adapter
             .request_device(
@@ -39,8 +40,9 @@ impl GpuContext {
                     required_features: wgpu::Features::empty(),
                     required_limits: wgpu::Limits::default(),
                     memory_hints: wgpu::MemoryHints::Performance,
+                    experimental_features: wgpu::ExperimentalFeatures::default(),
+                    trace: wgpu::Trace::Off,
                 },
-                None,
             )
             .await
             .ok()?;
@@ -144,7 +146,7 @@ impl GpuFft {
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("FFT Pipeline Layout"),
                     bind_group_layouts: &[&bind_group_layout],
-                    push_constant_ranges: &[],
+                    immediate_size: 0,
                 });
 
         let pipeline = context
@@ -268,7 +270,7 @@ impl GpuFft {
             tx.send(result).unwrap();
         });
 
-        self.context.device.poll(wgpu::Maintain::Wait);
+        self.context.device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
         rx.recv().unwrap().unwrap();
 
         let data = output_slice.get_mapped_range();
@@ -363,7 +365,7 @@ impl GpuConvolution {
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Convolution Pipeline Layout"),
                     bind_group_layouts: &[&bind_group_layout],
-                    push_constant_ranges: &[],
+                    immediate_size: 0,
                 });
 
         let pipeline = context
@@ -490,7 +492,7 @@ impl GpuConvolution {
             tx.send(result).unwrap();
         });
 
-        self.context.device.poll(wgpu::Maintain::Wait);
+        self.context.device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
         rx.recv().unwrap().unwrap();
 
         let data = output_slice.get_mapped_range();
@@ -578,7 +580,7 @@ impl GpuEq {
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("EQ Pipeline Layout"),
                     bind_group_layouts: &[&bind_group_layout],
-                    push_constant_ranges: &[],
+                    immediate_size: 0,
                 });
 
         let pipeline = context
@@ -685,7 +687,7 @@ impl GpuEq {
             tx.send(result).unwrap();
         });
 
-        self.context.device.poll(wgpu::Maintain::Wait);
+        self.context.device.poll(wgpu::PollType::Wait { submission_index: None, timeout: None });
         rx.recv().unwrap().unwrap();
 
         let data = audio_slice.get_mapped_range();

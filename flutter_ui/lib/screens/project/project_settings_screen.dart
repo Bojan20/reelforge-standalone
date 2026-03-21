@@ -6,6 +6,7 @@
 /// - Sample rate and bit depth
 /// - Author and description
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../src/rust/native_ffi.dart';
@@ -30,17 +31,25 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
   int _timeSigNum = 4;
   int _timeSigDenom = 4;
   int _sampleRate = 48000;
+  SrcQuality _srcQuality = SrcQuality.sinc64;
   bool _isLoading = true;
   bool _hasChanges = false;
+  Timer? _diagRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadProjectInfo();
+    // Auto-refresh adaptive quality monitor every 500ms
+    _diagRefreshTimer = Timer.periodic(
+      const Duration(milliseconds: 500),
+      (_) { if (mounted) setState(() {}); },
+    );
   }
 
   @override
   void dispose() {
+    _diagRefreshTimer?.cancel();
     _nameController.dispose();
     _authorController.dispose();
     _descriptionController.dispose();
@@ -62,6 +71,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
         _timeSigNum = _projectInfo!.timeSigNum;
         _timeSigDenom = _projectInfo!.timeSigDenom;
         _sampleRate = _projectInfo!.sampleRate;
+        _srcQuality = NativeFFI.instance.getSrcQuality();
       } else {
         // Fallback defaults if no project loaded
         _nameController.text = 'Untitled Project';
@@ -164,6 +174,10 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
                       _buildTempoSection(),
                       const SizedBox(height: 32),
                       _buildAudioSection(),
+                      const SizedBox(height: 32),
+                      _buildSrcQualitySection(),
+                      const SizedBox(height: 32),
+                      _buildAdaptiveQualitySection(),
                       const SizedBox(height: 32),
                       _buildSchemaVersionSection(),
                       const SizedBox(height: 32),
@@ -383,6 +397,145 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildSrcQualitySection() {
+    return _buildSection(
+      title: 'SRC Quality',
+      icon: Icons.tune,
+      children: [
+        Text(
+          'Playback Sample Rate Conversion',
+          style: TextStyle(
+            color: FluxForgeTheme.textSecondary,
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: FluxForgeTheme.bgSurface,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: FluxForgeTheme.borderSubtle),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<SrcQuality>(
+              value: _srcQuality,
+              isExpanded: true,
+              dropdownColor: FluxForgeTheme.bgSurface,
+              style: const TextStyle(
+                fontSize: 13,
+                color: FluxForgeTheme.textPrimary,
+              ),
+              items: SrcQuality.values.map((q) {
+                return DropdownMenuItem(
+                  value: q,
+                  child: Text(q.label),
+                );
+              }).toList(),
+              onChanged: (q) {
+                if (q != null) {
+                  setState(() => _srcQuality = q);
+                  NativeFFI.instance.setSrcQuality(q);
+                }
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          switch (_srcQuality) {
+            SrcQuality.point => 'Lowest latency, draft quality. Good for editing.',
+            SrcQuality.linear => 'Low CPU. Acceptable for previewing.',
+            SrcQuality.sinc16 => 'Light Sinc interpolation. Good for playback.',
+            SrcQuality.sinc64 => 'Standard quality. Recommended for most work.',
+            SrcQuality.sinc192 => 'High quality Blackman-Harris Sinc. For critical listening.',
+            SrcQuality.sinc384 => 'Ultra quality. Maximum fidelity, higher CPU.',
+            SrcQuality.r8brain => 'Offline r8brain SRC. Best quality, not for real-time.',
+          },
+          style: TextStyle(
+            color: FluxForgeTheme.textTertiary,
+            fontSize: 11,
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAdaptiveQualitySection() {
+    final stats = NativeFFI.instance.getAdaptiveQualityStats();
+    return _buildSection(
+      title: 'Adaptive Quality Monitor',
+      icon: Icons.speed,
+      children: [
+        _buildDiagRow('Active Voices', '${stats.activeVoices}'),
+        _buildDiagRow('Degraded Voices', '${stats.degradedVoices}',
+          highlight: stats.hasDegradedVoices),
+        _buildDiagRow('Voice CPU Load', '${stats.cpuLoadPct}%',
+          highlight: stats.isOverBudget),
+        _buildDiagRow('Global SRC', stats.srcModeLabel),
+        const SizedBox(height: 8),
+        // CPU load bar
+        ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: LinearProgressIndicator(
+            value: (stats.cpuLoadPct / 100.0).clamp(0.0, 2.0) / 2.0,
+            minHeight: 6,
+            backgroundColor: FluxForgeTheme.bgSurface,
+            valueColor: AlwaysStoppedAnimation(
+              stats.cpuLoadPct > 100
+                  ? FluxForgeTheme.accentRed
+                  : stats.cpuLoadPct > 75
+                      ? FluxForgeTheme.accentOrange
+                      : FluxForgeTheme.accentGreen,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          stats.isOverBudget
+              ? 'Over budget — background voices degraded to Sinc 16'
+              : 'Within CPU budget — all voices at full quality',
+          style: TextStyle(
+            color: stats.isOverBudget
+                ? FluxForgeTheme.accentOrange
+                : FluxForgeTheme.textTertiary,
+            fontSize: 11,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDiagRow(String label, String value, {bool highlight = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: FluxForgeTheme.textTertiary,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 11,
+              fontFamily: 'JetBrains Mono',
+              color: highlight
+                  ? FluxForgeTheme.accentOrange
+                  : FluxForgeTheme.textSecondary,
+              fontWeight: highlight ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

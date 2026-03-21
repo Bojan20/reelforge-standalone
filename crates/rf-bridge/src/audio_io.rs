@@ -57,8 +57,8 @@ pub fn get_audio_devices() -> Vec<AudioDeviceInfo> {
 
                 if let Ok(configs) = device.supported_output_configs() {
                     for config in configs {
-                        sample_rates.push(config.min_sample_rate().0);
-                        sample_rates.push(config.max_sample_rate().0);
+                        sample_rates.push(config.min_sample_rate());
+                        sample_rates.push(config.max_sample_rate());
                         output_channels = config.channels() as u32;
                     }
                 }
@@ -100,8 +100,8 @@ pub fn get_audio_devices() -> Vec<AudioDeviceInfo> {
 
                     if let Ok(configs) = device.supported_input_configs() {
                         for config in configs {
-                            sample_rates.push(config.min_sample_rate().0);
-                            sample_rates.push(config.max_sample_rate().0);
+                            sample_rates.push(config.min_sample_rate());
+                            sample_rates.push(config.max_sample_rate());
                             input_channels = config.channels() as u32;
                         }
                     }

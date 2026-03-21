@@ -52,8 +52,17 @@ pub struct PhaseVocoder {
     /// Previous frame energy (for transient detection)
     prev_energy: f64,
     /// Whether formant preservation is enabled
-    #[allow(dead_code)]
     formant_preserve: bool,
+    /// Pre-allocated buffer for spectral envelope extraction (cepstral method)
+    /// Stores log-magnitude spectrum for cepstral analysis
+    envelope_buf: Vec<Complex64>,
+    /// Original spectral envelope (magnitudes before pitch shift)
+    orig_envelope: Vec<f64>,
+    /// Shifted spectral envelope (magnitudes after pitch shift, for correction)
+    shifted_envelope: Vec<f64>,
+    /// Cepstral lifter order (number of cepstral coefficients to keep)
+    /// Higher = more detail, lower = smoother envelope. 30-60 typical for music.
+    cepstral_order: usize,
 }
 
 impl PhaseVocoder {
@@ -91,13 +100,38 @@ impl PhaseVocoder {
             fft_buf: vec![Complex64::new(0.0, 0.0); fft_size],
             fft_forward,
             fft_inverse,
-            fft_scale: 1.0 / fft_size as f64,
+            // fft_scale includes COLA normalization for Hann^2 window:
+            // For overlap_factor=4, sum of overlapping Hann^2 windows = 1.5
+            // For overlap_factor=2, sum = 1.0 (no correction needed)
+            // General formula: sum = overlap_factor / 4 * 1.5 for Hann, but compute exactly:
+            fft_scale: {
+                // Compute COLA sum for Hann^2 at this overlap
+                let mut cola_sum = 0.0_f64;
+                for n in 0..hop_size {
+                    let mut s = 0.0;
+                    for k in 0..overlap_factor {
+                        let idx = n + k * hop_size;
+                        if idx < fft_size {
+                            let w = 0.5 * (1.0 - (2.0 * PI * idx as f64 / fft_size as f64).cos());
+                            s += w * w; // analysis window * synthesis window
+                        }
+                    }
+                    cola_sum += s;
+                }
+                cola_sum /= hop_size as f64;
+                // Scale = (1/N) / COLA to compensate both IFFT and overlap-add gain
+                if cola_sum > 0.0 { 1.0 / (fft_size as f64 * cola_sum) } else { 1.0 / fft_size as f64 }
+            },
             analysis_pos: 0,
             synthesis_pos: 0,
             pitch_factor: 1.0,
             transient_threshold: 3.0,
             prev_energy: 0.0,
             formant_preserve: false,
+            envelope_buf: vec![Complex64::new(0.0, 0.0); fft_size],
+            orig_envelope: vec![0.0; half],
+            shifted_envelope: vec![0.0; half],
+            cepstral_order: 40, // good default for music at 2048 FFT / 48kHz
         }
     }
 
@@ -170,6 +204,25 @@ impl PhaseVocoder {
         // Forward FFT — O(N log N) via rustfft, in-place, zero-allocation
         self.fft_forward.process(&mut self.fft_buf);
 
+        // Extract original spectral envelope BEFORE pitch shift (for formant preservation)
+        // Uses cepstral smoothing: log-mag → IFFT → lifter → FFT → exp
+        if self.formant_preserve {
+            // Store raw magnitudes in orig_envelope, then smooth in-place
+            for k in 0..half {
+                let re = self.fft_buf[k].re;
+                let im = self.fft_buf[k].im;
+                self.orig_envelope[k] = (re * re + im * im).sqrt().max(1e-20);
+            }
+            Self::cepstral_envelope_inplace(
+                &mut self.orig_envelope[..half],
+                &mut self.envelope_buf,
+                &self.fft_forward,
+                &self.fft_inverse,
+                self.fft_size,
+                self.cepstral_order,
+            );
+        }
+
         // Phase vocoder core: modify phases for pitch shift
         for k in 0..half {
             let re = self.fft_buf[k].re;
@@ -195,6 +248,36 @@ impl PhaseVocoder {
             self.fft_buf[k] = Complex64::new(mag * new_phase.cos(), mag * new_phase.sin());
         }
 
+        // Formant preservation: correct magnitudes to restore original spectral envelope
+        if self.formant_preserve {
+            // Extract shifted envelope
+            for k in 0..half {
+                let re = self.fft_buf[k].re;
+                let im = self.fft_buf[k].im;
+                self.shifted_envelope[k] = (re * re + im * im).sqrt().max(1e-20);
+            }
+            Self::cepstral_envelope_inplace(
+                &mut self.shifted_envelope[..half],
+                &mut self.envelope_buf,
+                &self.fft_forward,
+                &self.fft_inverse,
+                self.fft_size,
+                self.cepstral_order,
+            );
+
+            // Apply correction: scale magnitudes so envelope matches original
+            for k in 0..half {
+                if self.shifted_envelope[k] > 1e-20 {
+                    let correction = self.orig_envelope[k] / self.shifted_envelope[k];
+                    // Clamp to prevent extreme gains (max 20dB boost)
+                    let correction = correction.clamp(0.1, 10.0);
+                    let re = self.fft_buf[k].re;
+                    let im = self.fft_buf[k].im;
+                    self.fft_buf[k] = Complex64::new(re * correction, im * correction);
+                }
+            }
+        }
+
         // Mirror negative frequencies (conjugate symmetry for real output)
         for k in 1..self.fft_size / 2 {
             let mirror = self.fft_size - k;
@@ -213,6 +296,61 @@ impl PhaseVocoder {
     }
 
     /// Reset internal state (call when seeking)
+    /// Compute smoothed spectral envelope in-place via cepstral method.
+    ///
+    /// `magnitudes`: input magnitudes (overwritten with smoothed envelope)
+    /// `work_buf`: pre-allocated complex buffer (>= fft_size)
+    ///
+    /// Algorithm: log-mag → IFFT → lifter → FFT → exp
+    /// Zero-allocation: uses pre-allocated `work_buf`.
+    fn cepstral_envelope_inplace(
+        magnitudes: &mut [f64],
+        work_buf: &mut [Complex64],
+        fft_fwd: &std::sync::Arc<dyn rustfft::Fft<f64>>,
+        fft_inv: &std::sync::Arc<dyn rustfft::Fft<f64>>,
+        fft_size: usize,
+        cepstral_order: usize,
+    ) {
+        let half = magnitudes.len();
+
+        // Step 1: log-magnitude → real part of complex buffer
+        for i in 0..half {
+            work_buf[i] = Complex64::new(magnitudes[i].max(1e-20).ln(), 0.0);
+        }
+        // Mirror for full FFT (conjugate symmetry)
+        for i in half..fft_size {
+            let mirror = fft_size - i;
+            if mirror < half {
+                work_buf[i] = work_buf[mirror];
+            } else {
+                work_buf[i] = Complex64::new(0.0, 0.0);
+            }
+        }
+
+        // Step 2: IFFT → cepstrum
+        fft_inv.process(&mut work_buf[..fft_size]);
+        let scale = 1.0 / fft_size as f64;
+        for c in work_buf[..fft_size].iter_mut() {
+            c.re *= scale;
+            c.im *= scale;
+        }
+
+        // Step 3: Lifter — keep only first `cepstral_order` coefficients + DC
+        // Zero out everything else (high-quefrency = fine spectral detail)
+        let order = cepstral_order.min(fft_size / 2);
+        for i in order..fft_size.saturating_sub(order) {
+            work_buf[i] = Complex64::new(0.0, 0.0);
+        }
+
+        // Step 4: FFT → smooth log-envelope
+        fft_fwd.process(&mut work_buf[..fft_size]);
+
+        // Step 5: Exponentiate → linear smooth envelope (in-place)
+        for i in 0..half {
+            magnitudes[i] = work_buf[i].re.clamp(-50.0, 50.0).exp().max(1e-20);
+        }
+    }
+
     pub fn reset(&mut self) {
         self.phase_accum.fill(0.0);
         self.prev_phase.fill(0.0);
@@ -224,6 +362,11 @@ impl PhaseVocoder {
         self.analysis_pos = 0;
         self.synthesis_pos = 0;
         self.prev_energy = 0.0;
+        for c in &mut self.envelope_buf {
+            *c = Complex64::new(0.0, 0.0);
+        }
+        self.orig_envelope.fill(0.0);
+        self.shifted_envelope.fill(0.0);
     }
 
     /// Latency in samples
@@ -291,6 +434,56 @@ mod tests {
         pv.reset();
         assert_eq!(pv.analysis_pos, 0);
         assert_eq!(pv.synthesis_pos, 0);
+    }
+
+    #[test]
+    fn test_formant_preserve_produces_output() {
+        let mut pv = PhaseVocoder::new(1024, 4, 48000.0);
+        pv.set_pitch_factor(2.0);
+        pv.set_formant_preserve(true);
+
+        // 440Hz sine wave (A4)
+        let input: Vec<f64> = (0..4096)
+            .map(|i| (2.0 * PI * 440.0 * i as f64 / 48000.0).sin())
+            .collect();
+        let mut output = vec![0.0f64; 4096];
+        pv.process(&input, &mut output);
+
+        // After latency, output should have energy
+        let energy: f64 = output[1024..].iter().map(|x| x * x).sum();
+        assert!(energy > 0.01, "Formant-preserved output has no energy: {energy}");
+
+        // Should not produce NaN or Inf
+        assert!(output.iter().all(|x| x.is_finite()), "Output contains NaN/Inf");
+    }
+
+    #[test]
+    fn test_formant_preserve_no_nan() {
+        // Formant preservation should produce finite output for various pitch factors
+        for &pf in &[0.5, 0.75, 1.5, 2.0] {
+            let mut pv = PhaseVocoder::new(1024, 4, 48000.0);
+            pv.set_pitch_factor(pf);
+            pv.set_formant_preserve(true);
+
+            let input: Vec<f64> = (0..8192)
+                .map(|i| {
+                    let t = i as f64 / 48000.0;
+                    0.5 * (2.0 * PI * 200.0 * t).sin()
+                        + 0.3 * (2.0 * PI * 400.0 * t).sin()
+                        + 0.2 * (2.0 * PI * 800.0 * t).sin()
+                })
+                .collect();
+
+            let mut output = vec![0.0f64; 8192];
+            pv.process(&input, &mut output);
+
+            assert!(
+                output.iter().all(|x| x.is_finite()),
+                "Output contains NaN/Inf for pitch_factor={pf}"
+            );
+            let energy: f64 = output[2048..].iter().map(|x| x * x).sum();
+            assert!(energy > 0.01, "No energy for pitch_factor={pf}: {energy}");
+        }
     }
 
     #[test]

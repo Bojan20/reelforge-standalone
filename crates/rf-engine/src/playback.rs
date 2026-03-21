@@ -14,7 +14,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::thread;
 
 use crossbeam_channel::{Sender, bounded};
@@ -99,6 +99,14 @@ thread_local! {
     static SCRATCH_BUFFER_L: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
     /// Thread-local scratch buffer for right channel (audio thread only)
     static SCRATCH_BUFFER_R: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
+    /// Thread-local scratch buffers for phase vocoder input (preserve_pitch path)
+    static PV_SCRATCH_L: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
+    static PV_SCRATCH_R: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
+    /// Thread-local scratch buffers for phase vocoder output (no audio-thread alloc)
+    static PV_OUT_L: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
+    static PV_OUT_R: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
+    /// Thread-local scratch buffer for per-sample gain (phase vocoder path)
+    static PV_GAIN_SCRATCH: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
 }
 
 use crate::audio_import::{AudioImporter, ImportedAudio};
@@ -964,7 +972,7 @@ static PLAYBACK_RESAMPLE_MODE: std::sync::atomic::AtomicU16 =
     std::sync::atomic::AtomicU16::new(64);
 
 /// Get the current playback resample mode
-fn playback_resample_mode() -> ResampleMode {
+pub fn playback_resample_mode() -> ResampleMode {
     let val = PLAYBACK_RESAMPLE_MODE.load(std::sync::atomic::Ordering::Relaxed);
     match val {
         0 => ResampleMode::Point,
@@ -1691,8 +1699,9 @@ pub struct PlaybackEngine {
     /// Elastic audio parameters per clip (time_ratio, pitch_semitones)
     elastic_params: RwLock<HashMap<u32, (f64, f64)>>,
     /// Phase vocoder instances per clip (for preserve_pitch mode)
+    /// Stored as (left, right) pair — each channel needs its own PV state.
     /// Created on UI thread when clip.preserve_pitch is set, NOT on audio thread.
-    clip_vocoders: RwLock<HashMap<u64, crate::phase_vocoder::PhaseVocoder>>,
+    clip_vocoders: RwLock<HashMap<u64, (crate::phase_vocoder::PhaseVocoder, crate::phase_vocoder::PhaseVocoder)>>,
     /// Varispeed playback rate (0.25 to 4.0, 1.0 = normal)
     /// Affects global playback speed WITH pitch change (like tape speed)
     varispeed_rate: AtomicU64,
@@ -1727,6 +1736,14 @@ pub struct PlaybackEngine {
     spectrum_mono_buffer: RwLock<Vec<f64>>,
     /// Current block size (for buffer reallocation check)
     current_block_size: AtomicUsize,
+    /// Adaptive quality: active voice count (updated each audio block)
+    diag_active_voices: AtomicU32,
+    /// Adaptive quality: degraded voice count (voices running at reduced SRC quality)
+    diag_degraded_voices: AtomicU32,
+    /// Adaptive quality: CPU load percentage (0-100, of voice budget)
+    diag_cpu_load_pct: AtomicU32,
+    /// Adaptive quality: current global SRC mode value (for UI display)
+    diag_src_mode: AtomicU32,
     /// Delay compensation manager for automatic plugin delay compensation
     delay_comp: RwLock<DelayCompensationManager>,
     /// Control room for monitoring (AFL/PFL, cue mixes, talkback)
@@ -1893,6 +1910,10 @@ impl PlaybackEngine {
             // NOTE: track_buffer_l/r now use thread_local! SCRATCH_BUFFER_L/R
             spectrum_mono_buffer: RwLock::new(vec![0.0_f64; 8192]),
             current_block_size: AtomicUsize::new(8192),
+            diag_active_voices: AtomicU32::new(0),
+            diag_degraded_voices: AtomicU32::new(0),
+            diag_cpu_load_pct: AtomicU32::new(0),
+            diag_src_mode: AtomicU32::new(64), // Sinc64 default
             delay_comp: RwLock::new(DelayCompensationManager::new(sample_rate as f64)),
             control_room: Arc::new(ControlRoom::new(256)),
             prefader_buffer_l: RwLock::new(vec![0.0_f64; 8192]),
@@ -3553,12 +3574,72 @@ impl PlaybackEngine {
         self.recording_manager.set_pre_roll_bars(bars);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // PHASE VOCODER MANAGEMENT (UI thread only)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// Get adaptive quality diagnostics (lock-free, safe from any thread).
+    /// Returns (active_voices, degraded_voices, cpu_load_pct, src_mode_value)
+    pub fn adaptive_quality_stats(&self) -> (u32, u32, u32, u32) {
+        (
+            self.diag_active_voices.load(Ordering::Relaxed),
+            self.diag_degraded_voices.load(Ordering::Relaxed),
+            self.diag_cpu_load_pct.load(Ordering::Relaxed),
+            self.diag_src_mode.load(Ordering::Relaxed),
+        )
+    }
+
+    /// Pre-allocate or remove a phase vocoder for a clip (UI thread only).
+    /// Call when preserve_pitch is toggled or stretch_ratio changes.
+    pub fn prepare_clip_vocoder(&self, clip_id: u64, stretch_ratio: f64, sample_rate: f64) {
+        if (stretch_ratio - 1.0).abs() <= 0.001 {
+            self.clip_vocoders.write().remove(&clip_id);
+            return;
+        }
+        let pitch_factor = 1.0 / stretch_ratio;
+        let mut vocoders = self.clip_vocoders.write();
+        let (pv_l, pv_r) = vocoders.entry(clip_id).or_insert_with(|| {
+            let l = crate::phase_vocoder::PhaseVocoder::new(2048, 4, sample_rate);
+            let r = crate::phase_vocoder::PhaseVocoder::new(2048, 4, sample_rate);
+            (l, r)
+        });
+        pv_l.set_pitch_factor(pitch_factor);
+        pv_r.set_pitch_factor(pitch_factor);
+    }
+
+    /// Remove a phase vocoder for a clip (UI thread only).
+    pub fn remove_clip_vocoder(&self, clip_id: u64) {
+        self.clip_vocoders.write().remove(&clip_id);
+    }
+
+    /// Update pitch factor for an existing vocoder (UI thread only).
+    pub fn update_vocoder_pitch(&self, clip_id: u64, stretch_ratio: f64) {
+        let pitch_factor = 1.0 / stretch_ratio;
+        if let Some((pv_l, pv_r)) = self.clip_vocoders.write().get_mut(&clip_id) {
+            pv_l.set_pitch_factor(pitch_factor);
+            pv_r.set_pitch_factor(pitch_factor);
+        }
+    }
+
     pub fn seek(&self, seconds: f64) {
         self.position.set_seconds(seconds.max(0.0));
+        // Reset all phase vocoders on seek (phase state invalid after discontinuity)
+        if let Some(mut vocoders) = self.clip_vocoders.try_write() {
+            for (pv_l, pv_r) in vocoders.values_mut() {
+                pv_l.reset();
+                pv_r.reset();
+            }
+        }
     }
 
     pub fn seek_samples(&self, samples: u64) {
         self.position.set_samples(samples);
+        if let Some(mut vocoders) = self.clip_vocoders.try_write() {
+            for (pv_l, pv_r) in vocoders.values_mut() {
+                pv_l.reset();
+                pv_r.reset();
+            }
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -4276,6 +4357,24 @@ impl PlaybackEngine {
                         voice.deactivate();
                     }
                 }
+
+                // Update adaptive quality diagnostics (lock-free atomics)
+                let active_count = voices.iter().filter(|v| v.active).count() as u32;
+                self.diag_active_voices.store(active_count, Ordering::Relaxed);
+                self.diag_degraded_voices.store(degraded_count, Ordering::Relaxed);
+                let cpu_pct = if voice_budget_us > 0 {
+                    ((cumulative_us * 100) / voice_budget_us).min(200) as u32
+                } else {
+                    0
+                };
+                self.diag_cpu_load_pct.store(cpu_pct, Ordering::Relaxed);
+                let mode_val = match global_mode {
+                    ResampleMode::Point => 0,
+                    ResampleMode::Linear => 1,
+                    ResampleMode::R8brain => 65535,
+                    ResampleMode::Sinc(n) => n as u32,
+                };
+                self.diag_src_mode.store(mode_val, Ordering::Relaxed);
             });
         });
     }
@@ -6220,6 +6319,11 @@ impl PlaybackEngine {
     }
 
     /// Simple clip processing (no crossfades) for unified routing
+    ///
+    /// When `clip.preserve_pitch && stretch_ratio != 1.0`:
+    /// 1. Sinc-resample into PV scratch buffers (with per-sample gain)
+    /// 2. Phase vocoder corrects pitch (cancels varispeed pitch change)
+    /// 3. Mix PV output into output_l/output_r
     #[cfg(feature = "unified_routing")]
     fn process_clip_simple(
         &self,
@@ -6247,87 +6351,254 @@ impl PlaybackEngine {
         let clip_sinc_guard = PLAYBACK_SINC_TABLE.read();
         let clip_sinc_ref = Some(&*clip_sinc_guard);
 
-        for frame_idx in 0..frames {
-            let global_sample = start_sample + frame_idx as u64;
+        // Phase vocoder path: preserve_pitch with non-unity stretch ratio
+        let needs_pv = clip.preserve_pitch
+            && (clip.stretch_ratio - 1.0).abs() > 0.001;
 
-            // Bounds check (looping clips extend beyond visual end)
-            if global_sample < clip_start_sample
-                || (global_sample >= clip_end_sample && !clip.loop_enabled)
-            {
-                continue;
-            }
+        if needs_pv {
+            // Phase vocoder path: collect sinc-resampled samples, then PV process as block
+            PV_SCRATCH_L.with(|buf_l| {
+                PV_SCRATCH_R.with(|buf_r| {
+                    PV_OUT_L.with(|out_l| {
+                    PV_OUT_R.with(|out_r| {
+                    PV_GAIN_SCRATCH.with(|buf_g| {
+                        let mut pv_l = buf_l.borrow_mut();
+                        let mut pv_r = buf_r.borrow_mut();
+                        let mut pv_out_l = out_l.borrow_mut();
+                        let mut pv_out_r = out_r.borrow_mut();
+                        let mut pv_gain = buf_g.borrow_mut();
 
-            // Sample position within clip's timeline
-            let clip_offset = global_sample - clip_start_sample;
+                        // Ensure scratch buffers are large enough
+                        if pv_l.len() < frames {
+                            pv_l.resize(frames, 0.0);
+                            pv_r.resize(frames, 0.0);
+                            pv_out_l.resize(frames, 0.0);
+                            pv_out_r.resize(frames, 0.0);
+                            pv_gain.resize(frames, 0.0);
+                        }
 
-            // Apply time stretch + sample rate conversion with Blackman-Harris sinc interpolation
-            let mut source_pos_f64 =
-                clip_offset as f64 * rate_ratio * playback_rate + source_offset_samples;
+                        // Clear scratch regions
+                        pv_l[..frames].fill(0.0);
+                        pv_r[..frames].fill(0.0);
+                        pv_out_l[..frames].fill(0.0);
+                        pv_out_r[..frames].fill(0.0);
+                        pv_gain[..frames].fill(0.0);
 
-            // Loop wrapping: wrap source position within loop region boundaries
-            let mut loop_xf_gain = 1.0_f64;
-            if clip.loop_enabled {
-                // Determine loop region: use loop_start/end_samples if set, else full source
-                let loop_start = if clip.loop_start_samples > 0 {
-                    clip.loop_start_samples as f64
-                } else {
-                    0.0
-                };
-                let loop_end = if clip.loop_end_samples > 0 {
-                    clip.loop_end_samples as f64
-                } else {
-                    clip.source_duration * source_sample_rate
-                };
-                let loop_length = loop_end - loop_start;
+                        let channels = audio.channels as usize;
+                        let total_source_frames = audio.samples.len() / channels.max(1);
 
-                if loop_length > 0.0 {
-                    // Check if source position has passed the loop end boundary
-                    if source_pos_f64 >= loop_end {
-                        let region_offset = source_pos_f64 - loop_start;
-                        if region_offset >= loop_length {
-                            // Check loop count (0 = infinite)
-                            let iteration = (region_offset / loop_length) as u32;
-                            if clip.loop_count > 0 && iteration >= clip.loop_count {
-                                continue; // Past loop count limit
+                        // Phase 1: Sinc resample into PV scratch buffers
+                        for frame_idx in 0..frames {
+                            let global_sample = start_sample + frame_idx as u64;
+
+                            if global_sample < clip_start_sample
+                                || (global_sample >= clip_end_sample && !clip.loop_enabled)
+                            {
+                                continue;
                             }
 
-                            // Per-iteration gain decay/crescendo
+                            let clip_offset = global_sample - clip_start_sample;
+                            let mut source_pos_f64 =
+                                clip_offset as f64 * rate_ratio * playback_rate + source_offset_samples;
+
+                            let mut loop_xf_gain = 1.0_f64;
+                            if clip.loop_enabled {
+                                let loop_start = if clip.loop_start_samples > 0 {
+                                    clip.loop_start_samples as f64
+                                } else {
+                                    0.0
+                                };
+                                let loop_end = if clip.loop_end_samples > 0 {
+                                    clip.loop_end_samples as f64
+                                } else {
+                                    clip.source_duration * source_sample_rate
+                                };
+                                let loop_length = loop_end - loop_start;
+
+                                if loop_length > 0.0 && source_pos_f64 >= loop_end {
+                                    let region_offset = source_pos_f64 - loop_start;
+                                    if region_offset >= loop_length {
+                                        let iteration = (region_offset / loop_length) as u32;
+                                        if clip.loop_count > 0 && iteration >= clip.loop_count {
+                                            continue;
+                                        }
+                                        if clip.iteration_gain != 1.0 && iteration > 0 {
+                                            let iter_gain = clip.iteration_gain.powi(iteration as i32);
+                                            if iter_gain < 1e-10 {
+                                                continue;
+                                            }
+                                            loop_xf_gain *= iter_gain;
+                                        }
+                                        let wrapped = region_offset % loop_length;
+                                        let random_offset = if clip.loop_random_start > 0.0 {
+                                            let seed = (iteration as f64 * 0.61803398875).fract();
+                                            seed * clip.loop_random_start * source_sample_rate
+                                        } else {
+                                            0.0
+                                        };
+                                        source_pos_f64 = loop_start + wrapped + random_offset;
+                                        if source_pos_f64 >= loop_end {
+                                            source_pos_f64 = loop_start + (source_pos_f64 - loop_start) % loop_length;
+                                        }
+                                        if clip.loop_crossfade > 0.0 {
+                                            let xf_len =
+                                                (clip.loop_crossfade * source_sample_rate).min(loop_length * 0.5);
+                                            let pos_in_loop = wrapped;
+                                            if pos_in_loop < xf_len {
+                                                let xf_progress = pos_in_loop / xf_len;
+                                                loop_xf_gain *=
+                                                    (xf_progress * std::f64::consts::FRAC_PI_2).sin();
+                                            }
+                                            if pos_in_loop > (loop_length - xf_len) {
+                                                let end_gain = (loop_length - pos_in_loop) / xf_len;
+                                                loop_xf_gain *=
+                                                    (end_gain * std::f64::consts::FRAC_PI_2).sin();
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            if source_pos_f64 < 0.0 || source_pos_f64 >= total_source_frames as f64 {
+                                continue;
+                            }
+
+                            let interp_l = sinc_table::interpolate_sample(
+                                clip_resample_mode, source_pos_f64, &audio.samples, channels,
+                                total_source_frames, 0, clip_sinc_ref,
+                            ) as f64;
+
+                            // Store raw sinc output (no gain yet — PV needs clean signal)
+                            pv_l[frame_idx] = interp_l;
+                            // Store per-sample gain for post-PV application
+                            pv_gain[frame_idx] = clip.gain * loop_xf_gain;
+
+                            if channels >= 2 {
+                                pv_r[frame_idx] = sinc_table::interpolate_sample(
+                                    clip_resample_mode, source_pos_f64, &audio.samples, channels,
+                                    total_source_frames, 1, clip_sinc_ref,
+                                ) as f64;
+                            } else {
+                                pv_r[frame_idx] = interp_l;
+                            }
+                        }
+
+                        // Phase 2: Phase vocoder pitch correction
+                        // pitch_factor = 1/stretch_ratio cancels varispeed pitch change
+                        let pitch_factor = 1.0 / clip.stretch_ratio;
+
+                        // Try to acquire vocoder — if lock contended or not pre-allocated, bypass
+                        // NEVER allocate on audio thread — vocoder must be pre-created via UI thread
+                        if let Some(mut vocoders) = self.clip_vocoders.try_write() {
+                            if let Some((pv_l_inst, pv_r_inst)) = vocoders.get_mut(&clip.id.0) {
+                                // Update pitch factor if stretch_ratio changed
+                                pv_l_inst.set_pitch_factor(pitch_factor);
+                                pv_r_inst.set_pitch_factor(pitch_factor);
+
+                                // Process L and R through separate vocoders (preserves stereo phase)
+                                // PV.process() is zero-allocation — uses pre-allocated internal buffers
+                                pv_l_inst.process(&pv_l[..frames], &mut pv_out_l[..frames]);
+                                pv_r_inst.process(&pv_r[..frames], &mut pv_out_r[..frames]);
+
+                                // Phase 3: Mix PV output into output buffers with per-sample gain
+                                for i in 0..frames {
+                                    let g = pv_gain[i];
+                                    if g > 0.0 {
+                                        output_l[i] += pv_out_l[i] * g;
+                                        output_r[i] += pv_out_r[i] * g;
+                                    }
+                                }
+                            } else {
+                                // Vocoder not pre-allocated — bypass PV (sinc-only output)
+                                for i in 0..frames {
+                                    let g = pv_gain[i];
+                                    if g > 0.0 {
+                                        output_l[i] += pv_l[i] * g;
+                                        output_r[i] += pv_r[i] * g;
+                                    }
+                                }
+                            }
+                        } else {
+                            // Lock contended — bypass PV, output sinc-only (better than silence)
+                            for i in 0..frames {
+                                let g = pv_gain[i];
+                                if g > 0.0 {
+                                    output_l[i] += pv_l[i] * g;
+                                    output_r[i] += pv_r[i] * g;
+                                }
+                            }
+                        }
+                    });
+                    });
+                    });
+                });
+            });
+        } else {
+            // Standard path: no phase vocoder needed (varispeed or unity stretch)
+            let channels = audio.channels as usize;
+            let total_source_frames = audio.samples.len() / channels.max(1);
+
+            for frame_idx in 0..frames {
+                let global_sample = start_sample + frame_idx as u64;
+
+                if global_sample < clip_start_sample
+                    || (global_sample >= clip_end_sample && !clip.loop_enabled)
+                {
+                    continue;
+                }
+
+                let clip_offset = global_sample - clip_start_sample;
+                let mut source_pos_f64 =
+                    clip_offset as f64 * rate_ratio * playback_rate + source_offset_samples;
+
+                let mut loop_xf_gain = 1.0_f64;
+                if clip.loop_enabled {
+                    let loop_start = if clip.loop_start_samples > 0 {
+                        clip.loop_start_samples as f64
+                    } else {
+                        0.0
+                    };
+                    let loop_end = if clip.loop_end_samples > 0 {
+                        clip.loop_end_samples as f64
+                    } else {
+                        clip.source_duration * source_sample_rate
+                    };
+                    let loop_length = loop_end - loop_start;
+
+                    if loop_length > 0.0 && source_pos_f64 >= loop_end {
+                        let region_offset = source_pos_f64 - loop_start;
+                        if region_offset >= loop_length {
+                            let iteration = (region_offset / loop_length) as u32;
+                            if clip.loop_count > 0 && iteration >= clip.loop_count {
+                                continue;
+                            }
                             if clip.iteration_gain != 1.0 && iteration > 0 {
                                 let iter_gain = clip.iteration_gain.powi(iteration as i32);
-                                // Denormal protection
                                 if iter_gain < 1e-10 {
-                                    continue; // Faded to silence
+                                    continue;
                                 }
                                 loop_xf_gain *= iter_gain;
                             }
-
                             let wrapped = region_offset % loop_length;
-                            // Random start offset per iteration (variation)
                             let random_offset = if clip.loop_random_start > 0.0 {
-                                // Deterministic pseudo-random based on iteration index
                                 let seed = (iteration as f64 * 0.61803398875).fract();
                                 seed * clip.loop_random_start * source_sample_rate
                             } else {
                                 0.0
                             };
                             source_pos_f64 = loop_start + wrapped + random_offset;
-                            // Clamp within loop region
                             if source_pos_f64 >= loop_end {
                                 source_pos_f64 = loop_start + (source_pos_f64 - loop_start) % loop_length;
                             }
-
-                            // Crossfade at loop boundary (equal-power)
                             if clip.loop_crossfade > 0.0 {
                                 let xf_len =
                                     (clip.loop_crossfade * source_sample_rate).min(loop_length * 0.5);
                                 let pos_in_loop = wrapped;
-                                // Near start of loop: fade in
                                 if pos_in_loop < xf_len {
                                     let xf_progress = pos_in_loop / xf_len;
                                     loop_xf_gain *=
                                         (xf_progress * std::f64::consts::FRAC_PI_2).sin();
                                 }
-                                // Near end of loop: fade out
                                 if pos_in_loop > (loop_length - xf_len) {
                                     let end_gain = (loop_length - pos_in_loop) / xf_len;
                                     loop_xf_gain *=
@@ -6337,27 +6608,27 @@ impl PlaybackEngine {
                         }
                     }
                 }
-            }
 
-            let channels = audio.channels as usize;
-            let total_source_frames = audio.samples.len() / channels.max(1);
-            if source_pos_f64 < 0.0 || source_pos_f64 >= total_source_frames as f64 {
-                continue;
-            }
+                if source_pos_f64 < 0.0 || source_pos_f64 >= total_source_frames as f64 {
+                    continue;
+                }
 
-            let interp_l = sinc_table::interpolate_sample(
-                clip_resample_mode, source_pos_f64, &audio.samples, channels, total_source_frames, 0, clip_sinc_ref,
-            ) as f64;
-            if channels >= 2 {
-                let interp_r = sinc_table::interpolate_sample(
-                    clip_resample_mode, source_pos_f64, &audio.samples, channels, total_source_frames, 1, clip_sinc_ref,
+                let interp_l = sinc_table::interpolate_sample(
+                    clip_resample_mode, source_pos_f64, &audio.samples, channels,
+                    total_source_frames, 0, clip_sinc_ref,
                 ) as f64;
-                output_l[frame_idx] += interp_l * clip.gain * loop_xf_gain;
-                output_r[frame_idx] += interp_r * clip.gain * loop_xf_gain;
-            } else {
-                let mono = interp_l * clip.gain * loop_xf_gain;
-                output_l[frame_idx] += mono;
-                output_r[frame_idx] += mono;
+                if channels >= 2 {
+                    let interp_r = sinc_table::interpolate_sample(
+                        clip_resample_mode, source_pos_f64, &audio.samples, channels,
+                        total_source_frames, 1, clip_sinc_ref,
+                    ) as f64;
+                    output_l[frame_idx] += interp_l * clip.gain * loop_xf_gain;
+                    output_r[frame_idx] += interp_r * clip.gain * loop_xf_gain;
+                } else {
+                    let mono = interp_l * clip.gain * loop_xf_gain;
+                    output_l[frame_idx] += mono;
+                    output_r[frame_idx] += mono;
+                }
             }
         }
     }

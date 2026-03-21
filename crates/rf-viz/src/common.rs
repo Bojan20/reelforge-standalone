@@ -41,7 +41,7 @@ impl GpuContext {
                 force_fallback_adapter: false,
             })
             .await
-            .ok_or_else(|| VizError::GpuInit("No suitable GPU adapter found".into()))?;
+            .map_err(|e| VizError::GpuInit(format!("No suitable GPU adapter found: {e}")))?;
 
         let adapter_info = adapter.get_info();
         log::info!(
@@ -57,8 +57,9 @@ impl GpuContext {
                     required_features: wgpu::Features::empty(),
                     required_limits: wgpu::Limits::default(),
                     memory_hints: wgpu::MemoryHints::Performance,
+                    experimental_features: wgpu::ExperimentalFeatures::default(),
+                    trace: wgpu::Trace::Off,
                 },
-                None,
             )
             .await
             .map_err(|e| VizError::GpuInit(e.to_string()))?;

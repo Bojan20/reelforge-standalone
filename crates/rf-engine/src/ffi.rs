@@ -6055,7 +6055,7 @@ pub extern "C" fn engine_start_playback() -> i32 {
         };
 
         let channels = config.channels() as usize;
-        let device_sample_rate = config.sample_rate().0;
+        let device_sample_rate = config.sample_rate();
 
         log::info!(
             "Starting audio stream: {} Hz, {} channels",
@@ -13536,6 +13536,122 @@ pub extern "C" fn elastic_pro_reset(track_id: u32) -> i32 {
         1
     } else {
         0
+    }
+}
+
+// PHASE VOCODER (preserve_pitch)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Set preserve_pitch on a clip and pre-allocate phase vocoder (UI thread only).
+/// `clip_id`: ClipId.0 (u64), `preserve`: 1=on, 0=off, `stretch_ratio`: current stretch ratio
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_set_preserve_pitch(clip_id: u64, preserve: i32, stretch_ratio: f64) -> i32 {
+    // Set preserve_pitch on the clip
+    if let Some(mut clip_entry) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
+        clip_entry.set_preserve_pitch(preserve != 0);
+    }
+
+    // Pre-allocate or remove phase vocoder via public API
+    if preserve != 0 && (stretch_ratio - 1.0).abs() > 0.001 {
+        let sr = PLAYBACK_ENGINE.sample_rate() as f64;
+        PLAYBACK_ENGINE.prepare_clip_vocoder(clip_id, stretch_ratio, if sr > 0.0 { sr } else { 48000.0 });
+    } else {
+        PLAYBACK_ENGINE.remove_clip_vocoder(clip_id);
+    }
+    1
+}
+
+/// Update phase vocoder pitch factor when stretch_ratio changes (UI thread only).
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_update_vocoder_pitch(clip_id: u64, stretch_ratio: f64) -> i32 {
+    if (stretch_ratio - 1.0).abs() <= 0.001 {
+        PLAYBACK_ENGINE.remove_clip_vocoder(clip_id);
+        return 1;
+    }
+    PLAYBACK_ENGINE.update_vocoder_pitch(clip_id, stretch_ratio);
+    1
+}
+
+// ADAPTIVE QUALITY DIAGNOSTICS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Get adaptive quality diagnostics.
+/// Returns packed u64: [active_voices:u16][degraded_voices:u16][cpu_pct:u16][src_mode:u16]
+#[unsafe(no_mangle)]
+pub extern "C" fn get_adaptive_quality_stats(
+    active_voices: *mut u32,
+    degraded_voices: *mut u32,
+    cpu_load_pct: *mut u32,
+    src_mode: *mut u32,
+) -> i32 {
+    if active_voices.is_null() || degraded_voices.is_null()
+        || cpu_load_pct.is_null() || src_mode.is_null()
+    {
+        return 0;
+    }
+    let (av, dv, cpu, mode) = PLAYBACK_ENGINE.adaptive_quality_stats();
+    unsafe {
+        *active_voices = av;
+        *degraded_voices = dv;
+        *cpu_load_pct = cpu;
+        *src_mode = mode;
+    }
+    1
+}
+
+/// Set pitch shift on a specific clip (UI thread only).
+/// `clip_id`: ClipId.0 (u64), `semitones`: -24.0 to +24.0
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_set_pitch_shift(clip_id: u64, semitones: f64) -> i32 {
+    if let Some(mut clip_entry) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
+        clip_entry.set_pitch_shift(semitones.clamp(-24.0, 24.0));
+        1
+    } else {
+        0
+    }
+}
+
+/// Set stretch ratio on a specific clip (UI thread only).
+/// `clip_id`: ClipId.0 (u64), `ratio`: 0.25 to 4.0
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_set_stretch_ratio(clip_id: u64, ratio: f64) -> i32 {
+    if let Some(mut clip_entry) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
+        clip_entry.set_stretch_ratio(ratio.clamp(0.25, 4.0));
+        1
+    } else {
+        0
+    }
+}
+
+// SRC QUALITY SETTINGS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Set playback resample mode (UI thread only).
+/// mode: 0=Point, 1=Linear, 16=Sinc16, 64=Sinc64, 192=Sinc192, 384=Sinc384, 65535=R8brain
+#[unsafe(no_mangle)]
+pub extern "C" fn set_src_quality(mode: u32) -> i32 {
+    use crate::sinc_table::ResampleMode;
+    let rm = match mode {
+        0 => ResampleMode::Point,
+        1 => ResampleMode::Linear,
+        65535 => ResampleMode::R8brain,
+        n => ResampleMode::Sinc(n as u16),
+    };
+    crate::playback::set_playback_resample_mode(rm);
+    1
+}
+
+/// Get current playback resample mode.
+/// Returns: 0=Point, 1=Linear, 16/64/192/384=Sinc, 65535=R8brain
+#[unsafe(no_mangle)]
+pub extern "C" fn get_src_quality() -> u32 {
+    use crate::sinc_table::ResampleMode;
+    let mode = crate::playback::playback_resample_mode();
+    match mode {
+        ResampleMode::Point => 0,
+        ResampleMode::Linear => 1,
+        ResampleMode::R8brain => 65535,
+        ResampleMode::Sinc(n) => n as u32,
     }
 }
 

@@ -149,7 +149,7 @@ fn get_output_stream_config(
     device: &Device,
     config: &AudioConfig,
 ) -> AudioResult<SupportedStreamConfig> {
-    let sample_rate = cpal::SampleRate(config.sample_rate.as_u32());
+    let sample_rate: cpal::SampleRate = config.sample_rate.as_u32();
     let channels = config.output_channels;
 
     let configs = device
@@ -177,7 +177,7 @@ fn get_input_stream_config(
     device: &Device,
     config: &AudioConfig,
 ) -> AudioResult<SupportedStreamConfig> {
-    let sample_rate = cpal::SampleRate(config.sample_rate.as_u32());
+    let sample_rate: cpal::SampleRate = config.sample_rate.as_u32();
     let channels = config.input_channels;
 
     let configs = device

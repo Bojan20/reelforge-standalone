@@ -658,12 +658,12 @@ impl PlaybackEngine {
             .default_output_config()
             .map_err(|e| format!("Failed to get config: {}", e))?;
 
-        let sample_rate = config.sample_rate().0 as f64;
+        let sample_rate = config.sample_rate() as f64;
         self.state.set_sample_rate(sample_rate);
 
         log::info!(
             "Starting unified audio playback: {} Hz, {} channels",
-            config.sample_rate().0,
+            config.sample_rate(),
             config.channels()
         );
 
@@ -690,7 +690,7 @@ impl PlaybackEngine {
         let monitor_producer_clone = Arc::clone(&monitor_producer_arc);
 
         // Peak decay
-        let decay = 0.9995_f32.powf(config.sample_rate().0 as f32 / 60.0);
+        let decay = 0.9995_f32.powf(config.sample_rate() as f32 / 60.0);
         let channels = config.channels() as usize;
 
         // Pre-allocated buffers for engine mode (8192 = max realistic block size,
@@ -847,7 +847,7 @@ impl PlaybackEngine {
             if let Ok(input_config) = input_device.default_input_config() {
                 log::info!(
                     "Starting input stream for recording: {} Hz, {} channels",
-                    input_config.sample_rate().0,
+                    input_config.sample_rate(),
                     input_config.channels()
                 );
 
@@ -1426,13 +1426,13 @@ impl PlaybackEngine {
             .default_output_config()
             .map_err(|e| format!("Failed to get config: {}", e))?;
 
-        let sample_rate = config.sample_rate().0 as f64;
+        let sample_rate = config.sample_rate() as f64;
         self.state.set_sample_rate(sample_rate);
 
         log::info!(
             "Starting audio on device '{}': {} Hz, {} channels",
             device_name,
-            config.sample_rate().0,
+            config.sample_rate(),
             config.channels()
         );
 
@@ -1444,7 +1444,7 @@ impl PlaybackEngine {
         let use_engine = self.use_engine_mode.load(Ordering::Relaxed);
         let master_volume = Arc::clone(&self.master_volume);
 
-        let decay = 0.9995_f32.powf(config.sample_rate().0 as f32 / 60.0);
+        let decay = 0.9995_f32.powf(config.sample_rate() as f32 / 60.0);
         let channels = config.channels() as usize;
         let buffer_size = 8192; // Max realistic block size — no resize on audio thread
         let mut engine_output_l = vec![0.0f64; buffer_size];
@@ -1761,17 +1761,17 @@ impl PlaybackEngine {
 
         let config = supported
             .filter(|c| c.channels() >= 2)
-            .find(|c| c.min_sample_rate().0 <= target_sr && c.max_sample_rate().0 >= target_sr)
-            .map(|c| c.with_sample_rate(cpal::SampleRate(target_sr)))
+            .find(|c| c.min_sample_rate() <= target_sr && c.max_sample_rate() >= target_sr)
+            .map(|c| c.with_sample_rate(target_sr))
             .or_else(|| device.default_output_config().ok())
             .ok_or_else(|| "No suitable config found".to_string())?;
 
-        let actual_sample_rate = config.sample_rate().0 as f64;
+        let actual_sample_rate = config.sample_rate() as f64;
         self.state.set_sample_rate(actual_sample_rate);
 
         log::info!(
             "Restarting audio: {} Hz, {} channels (requested: {} Hz)",
-            config.sample_rate().0,
+            config.sample_rate(),
             config.channels(),
             target_sr
         );
@@ -1784,7 +1784,7 @@ impl PlaybackEngine {
         let use_engine = self.use_engine_mode.load(Ordering::Relaxed);
         let master_volume = Arc::clone(&self.master_volume);
 
-        let decay = 0.9995_f32.powf(config.sample_rate().0 as f32 / 60.0);
+        let decay = 0.9995_f32.powf(config.sample_rate() as f32 / 60.0);
         let channels = config.channels() as usize;
         let buffer_len = 8192; // Max realistic block size — no resize on audio thread
         let mut engine_output_l = vec![0.0f64; buffer_len];

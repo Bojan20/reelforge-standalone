@@ -192,8 +192,8 @@ fn extract_device_info(configs: &[SupportedStreamConfigRange]) -> (u16, Vec<u32>
     let mut sample_rates: Vec<u32> = configs
         .iter()
         .flat_map(|c| {
-            let min = c.min_sample_rate().0;
-            let max = c.max_sample_rate().0;
+            let min = c.min_sample_rate();
+            let max = c.max_sample_rate();
 
             // Common sample rates
             [44100, 48000, 88200, 96000, 176400, 192000, 352800, 384000]

@@ -578,7 +578,7 @@ fn run_preview_stream(
         .map_err(|e| format!("Failed to get audio config: {}", e))?;
 
     let channels = config.channels() as usize;
-    let sample_rate = config.sample_rate().0;
+    let sample_rate = config.sample_rate();
 
     log::info!(
         "[PreviewEngine] Starting stream: {} Hz, {} channels",
@@ -641,7 +641,7 @@ mod tests {
     #[test]
     fn test_voice_slot_allocation() {
         let (_, rx) = RingBuffer::new(8);
-        let mut rt = RtState::new(rx);
+        let mut rt = RtState::new(rx, 48000);
 
         // All voices start inactive
         assert!(rt.voices.iter().all(|v| !v.active));

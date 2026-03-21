@@ -17,7 +17,7 @@ bytemuck = { version = "1.14", features = ["derive"] }
 serde = { workspace = true, features = ["derive"] }
 
 # Math
-glam = "0.29"
+glam = "0.32"
 
 # Utilities
 log = { workspace = true }

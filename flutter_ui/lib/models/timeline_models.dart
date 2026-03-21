@@ -81,6 +81,10 @@ class TimelineClip {
   final int channels;
   /// Time stretch ratio (1.0 = original speed, 2.0 = double length, 0.5 = half length)
   final double stretchRatio;
+  /// Pitch shift in semitones (-24 to +24, 0 = no shift)
+  final double pitchShift;
+  /// Preserve pitch during time stretch (true = phase vocoder corrects pitch)
+  final bool preservePitch;
   /// Loop start boundary in samples (0 = from clip start)
   final int loopStartSamples;
   /// Loop end boundary in samples (0 = use full clip duration)
@@ -126,6 +130,8 @@ class TimelineClip {
     this.eventId,
     this.channels = 2,
     this.stretchRatio = 1.0,
+    this.pitchShift = 0.0,
+    this.preservePitch = false,
     this.loopStartSamples = 0,
     this.loopEndSamples = 0,
     this.iterationGain = 1.0,
@@ -168,6 +174,8 @@ class TimelineClip {
     String? eventId,
     int? channels,
     double? stretchRatio,
+    double? pitchShift,
+    bool? preservePitch,
     int? loopStartSamples,
     int? loopEndSamples,
     double? iterationGain,
@@ -204,6 +212,8 @@ class TimelineClip {
       eventId: eventId ?? this.eventId,
       channels: channels ?? this.channels,
       stretchRatio: stretchRatio ?? this.stretchRatio,
+      pitchShift: pitchShift ?? this.pitchShift,
+      preservePitch: preservePitch ?? this.preservePitch,
       loopStartSamples: loopStartSamples ?? this.loopStartSamples,
       loopEndSamples: loopEndSamples ?? this.loopEndSamples,
       iterationGain: iterationGain ?? this.iterationGain,

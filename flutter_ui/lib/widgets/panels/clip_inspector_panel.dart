@@ -11,6 +11,7 @@
 
 import 'package:flutter/material.dart';
 import '../../models/timeline_models.dart';
+import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../timeline/stretch_overlay.dart';
 
@@ -535,31 +536,109 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
   }
 
   Widget _buildStretchSection(TimelineClip clip) {
-    // Placeholder for time stretch controls
     return Column(
       children: [
-        _buildPropertyRow('Algorithm', 'Élastique Pro'),
-        _buildPropertyRow('Stretch Mode', 'Polyphonic'),
+        // Rate (stretch ratio) slider — 0.25x to 4.0x
+        _buildSliderRow(
+          label: 'Rate',
+          value: clip.stretchRatio,
+          min: 0.25,
+          max: 4.0,
+          displayValue: '${clip.stretchRatio.toStringAsFixed(2)}x',
+          onChanged: (v) {
+            final updated = clip.copyWith(stretchRatio: v);
+            widget.onClipChanged?.call(updated);
+            final clipId = int.tryParse(clip.id);
+            if (clipId != null) {
+              // Sync per-clip stretch ratio to engine
+              NativeFFI.instance.clipSetStretchRatio(clipId, v);
+              // Update phase vocoder if preserve_pitch is on
+              if (clip.preservePitch) {
+                NativeFFI.instance.clipUpdateVocoderPitch(clipId, v);
+              }
+            }
+          },
+          onReset: () {
+            widget.onClipChanged?.call(clip.copyWith(stretchRatio: 1.0));
+            final clipId = int.tryParse(clip.id);
+            if (clipId != null) {
+              NativeFFI.instance.clipSetStretchRatio(clipId, 1.0);
+              // Ratio=1.0 removes vocoder (not needed)
+              if (clip.preservePitch) {
+                NativeFFI.instance.clipUpdateVocoderPitch(clipId, 1.0);
+              }
+            }
+          },
+        ),
 
-        const SizedBox(height: 8),
+        // Pitch shift slider — -24 to +24 semitones
+        _buildSliderRow(
+          label: 'Pitch',
+          value: clip.pitchShift,
+          min: -24.0,
+          max: 24.0,
+          displayValue: '${clip.pitchShift >= 0 ? "+" : ""}${clip.pitchShift.toStringAsFixed(1)} st',
+          onChanged: (v) {
+            final updated = clip.copyWith(pitchShift: v);
+            widget.onClipChanged?.call(updated);
+            // Per-clip pitch shift via dedicated FFI (not per-track elasticPro)
+            final clipId = int.tryParse(clip.id);
+            if (clipId != null) {
+              NativeFFI.instance.clipSetPitchShift(clipId, v);
+            }
+          },
+          onReset: () {
+            widget.onClipChanged?.call(clip.copyWith(pitchShift: 0.0));
+            final clipId = int.tryParse(clip.id);
+            if (clipId != null) {
+              NativeFFI.instance.clipSetPitchShift(clipId, 0.0);
+            }
+          },
+        ),
 
-        // Stretch indicator
-        // Check if any FX slot is a time stretch type
-        if (clip.fxChain.slots.any((s) => s.type == ClipFxType.timeStretch))
-          StretchIndicatorBadge(
-            stretchRatio: 1.0, // Would come from actual stretch data
-            onTap: () {
-              // Open stretch editor
-            },
-          )
-        else
-          Text(
-            'No time stretch applied',
-            style: TextStyle(
-              fontSize: 11,
-              color: FluxForgeTheme.textTertiary,
+        const SizedBox(height: 4),
+
+        // Preserve Pitch toggle
+        Row(
+          children: [
+            Text(
+              'Preserve Pitch',
+              style: TextStyle(
+                fontSize: 11,
+                color: FluxForgeTheme.textTertiary,
+              ),
             ),
+            const Spacer(),
+            SizedBox(
+              height: 24,
+              child: Switch(
+                value: clip.preservePitch,
+                onChanged: (v) {
+                  final updated = clip.copyWith(preservePitch: v);
+                  widget.onClipChanged?.call(updated);
+                  // Pre-allocate/remove phase vocoder via FFI
+                  final clipId = int.tryParse(clip.id);
+                  if (clipId != null) {
+                    NativeFFI.instance.clipSetPreservePitch(
+                      clipId, v, clip.stretchRatio,
+                    );
+                  }
+                },
+                activeColor: FluxForgeTheme.accentBlue,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ],
+        ),
+
+        // Stretch indicator badge
+        if (clip.stretchRatio != 1.0) ...[
+          const SizedBox(height: 8),
+          StretchIndicatorBadge(
+            stretchRatio: clip.stretchRatio,
+            onTap: () {},
           ),
+        ],
       ],
     );
   }

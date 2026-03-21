@@ -23,41 +23,54 @@
 
 ## SLEDEĆA SESIJA — Prioritet
 
-### 1. Phase Vocoder playback integracija
-
-- [x] rustfft zamena — O(N log N), pre-alocirani FFT plans
-- [x] `clip_vocoders: HashMap<ClipId, PhaseVocoder>` u PlaybackEngine
-- [ ] Wire `clip_vocoders` u `process_clip_simple()` — preserve_pitch path
-  - Kad `clip.preserve_pitch && stretch_ratio != 1.0`: akumuliraj sinc output → PV → output
-  - PV pitch_factor = `1.0 / stretch_ratio` (cancel varispeed pitch change)
-- [ ] Formant preservation: spectral envelope extraction + reapply
-
-### 2. Dep Upgrade Faza 3
-
-| Crate | Trenutno | Cilj | Napomena |
-|-------|----------|------|----------|
-| `cpal` | 0.15 | 0.17.3 | Audio I/O — TESTIRATI LATENCY |
-| `wgpu` | 24.0 | 28.0.0 | GPU viz — 4 major-a |
-| `wide` | 0.7 | 1.1.1 | SIMD major |
-| `glam` | 0.29 | 0.32.1 | Matematika |
-| `candle-core/nn` | 0.8 | 0.9.2 | ML inference |
-| `freezed` (Flutter) | 2.5.8 | 3.2.5 | Code gen major |
-
-### 3. Dep Upgrade Faza 4
+### 1. Dep Upgrade Faza 4
 
 - [ ] `objc` 0.2 → `objc2` 0.5+ (rf-plugin, rf-plugin-host)
 - [ ] Edition 2021 → 2024 (7 crate-ova)
 - [ ] Ukloni `wee_alloc` iz rf-wasm
 
-### 4. Flutter UI
+### 2. Per-channel Phase Vocoders
 
-- [ ] Per-item rate/pitch sliders u timeline-u
-- [ ] SRC quality settings dropdown (Point/Linear/Sinc16/64/192/384)
-- [ ] Adaptive quality diagnostics u UI
+- [ ] Stereo PV: odvojeni L/R vocoder instance (trenutno L i R idu kroz isti PV)
+- [ ] Latency compensation: PV latency = fft_size samples, kompenzovati u transport
+
+### 3. Full Build + Runtime Test
+
+- [ ] `cargo build --release` + copy dylibs + xcodebuild
+- [ ] Runtime test: preserve_pitch na klipu sa stretch_ratio != 1.0
+- [ ] Runtime test: SRC quality dropdown — promena kvaliteta tokom playback-a
+- [ ] Runtime test: adaptive quality monitor — CPU load prikaz
 
 ---
 
-## ZAVRŠENO OVE SESIJE (2026-03-21)
+## ZAVRŠENO OVE SESIJE (2026-03-21, sesija 2)
+
+- RT-4b: Phase vocoder wiring u `process_clip_simple()` — preserve_pitch path
+  - Thread-local PV scratch buffers (PV_SCRATCH_L/R, PV_OUT_L/R, PV_GAIN_SCRATCH)
+  - try_write lock sa bypass fallback (nikad blokira audio thread)
+  - Seek reset za sve vocodere
+  - FFI: `clip_set_preserve_pitch()`, `clip_update_vocoder_pitch()`
+- RT-4c: Formant preservation — cepstral envelope extraction + reapply
+  - `cepstral_envelope_inplace()`: log-mag → IFFT → lifter → FFT → exp
+  - Correction: `mag_shifted * (orig_envelope / shifted_envelope)`, clamped ±20dB
+  - 7 phase_vocoder testova, svi prolaze
+- Dep Upgrade Faza 3:
+  - `cpal` 0.15 → 0.17 (SampleRate tuple struct → u32 alias)
+  - `wgpu` 24.0 → 28.0 (Maintain→PollType, DeviceDescriptor, PipelineLayout, RenderPass)
+  - `wide` 0.7 → 1.2 (clean upgrade)
+  - `glam` 0.29 → 0.32 (clean upgrade)
+  - `candle-core/nn` 0.8 → 0.9 (clean upgrade)
+  - `freezed` 2.5.8 → 3.0+ / `freezed_annotation` 2.4.4 → 3.0+
+- Flutter UI:
+  - Per-item Rate/Pitch sliders u clip inspector (+ Preserve Pitch toggle)
+  - `pitchShift` i `preservePitch` polja u TimelineClip model
+  - SRC quality dropdown u Project Settings (Point→Linear→Sinc16/64/192/384→r8brain)
+  - Adaptive quality diagnostics panel (active voices, degraded count, CPU load bar)
+  - FFI: `set_src_quality()`, `get_src_quality()`, `get_adaptive_quality_stats()`
+- Bugfix: `preview.rs:644` — `RtState::new` missing sample_rate arg
+- QA: cargo build 0 errors, flutter analyze 0 issues, 425 tests passing
+
+## ZAVRŠENO RANIJE (2026-03-21, sesija 1)
 
 - RT-1: Blackman-Harris Sinc + SIMD (NEON/AVX2) — `sinc_table.rs`
 - RT-1b: rf-r8brain crate (6 modula, 1713 linija) — offline render SRC
