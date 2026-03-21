@@ -508,6 +508,27 @@ class UltimateWebSocketClient {
   // --- Metrics ---
   ConnectionMetrics _metrics = ConnectionMetrics();
 
+  // --- Seq tracking (gap detection + dedup) ---
+  int _expectedSeq = 0;
+  final Set<int> _recentSeqs = {};
+  int _seqGapCount = 0;
+  int _seqDupCount = 0;
+
+  // --- Circuit breaker ---
+  final List<DateTime> _recentFailures = [];
+  bool _circuitOpen = false;
+  Timer? _circuitResetTimer;
+  static const _circuitThreshold = 5; // failures in window
+  static const _circuitWindow = Duration(seconds: 60);
+  static const _circuitCooldown = Duration(minutes: 5);
+
+  /// Seq gap count (for monitoring)
+  int get seqGapCount => _seqGapCount;
+  /// Seq duplicate count (for monitoring)
+  int get seqDupCount => _seqDupCount;
+  /// Circuit breaker open (paused due to repeated failures)
+  bool get circuitOpen => _circuitOpen;
+
   // --- Compression ---
   ZLibCodec? _compressor;
 
@@ -817,6 +838,28 @@ class UltimateWebSocketClient {
   }
 
   void _processMessage(WsMessage message) {
+    // Seq tracking: gap detection + dedup
+    if (message.sequence != null) {
+      final seq = message.sequence!;
+      // Dedup: skip if we've seen this seq recently
+      if (_recentSeqs.contains(seq)) {
+        _seqDupCount++;
+        return; // Drop duplicate
+      }
+      _recentSeqs.add(seq);
+      // Keep set bounded (last 1000 seqs)
+      if (_recentSeqs.length > 1000) {
+        _recentSeqs.remove(_recentSeqs.first);
+      }
+      // Gap detection
+      if (seq > _expectedSeq + 1 && _expectedSeq > 0) {
+        _seqGapCount += seq - _expectedSeq - 1;
+      }
+      if (seq >= _expectedSeq) {
+        _expectedSeq = seq + 1;
+      }
+    }
+
     switch (message.type) {
       case WsMessageType.pong:
         _onPong(message);
@@ -932,6 +975,28 @@ class UltimateWebSocketClient {
         _state == WsConnectionState.closed) {
       return;
     }
+
+    // Circuit breaker: if too many failures in short window, pause
+    _recentFailures.add(DateTime.now());
+    _recentFailures.removeWhere((t) => DateTime.now().difference(t) > _circuitWindow);
+    if (_recentFailures.length >= _circuitThreshold && !_circuitOpen) {
+      _circuitOpen = true;
+      _setState(WsConnectionState.error);
+      _errorController.add(WsError(
+        message: 'Circuit breaker open — pausing reconnect for ${_circuitCooldown.inMinutes}min',
+        code: 'CIRCUIT_OPEN',
+      ));
+      _circuitResetTimer?.cancel();
+      _circuitResetTimer = Timer(_circuitCooldown, () {
+        _circuitOpen = false;
+        _recentFailures.clear();
+        _reconnectAttempts = 0;
+        _scheduleReconnect(); // Try again after cooldown
+      });
+      return;
+    }
+    if (_circuitOpen) return;
+
     if (_reconnectAttempts >= _config!.maxReconnectAttempts) {
       _setState(WsConnectionState.error);
       _errorController.add(WsError(
