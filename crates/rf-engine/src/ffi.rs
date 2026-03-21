@@ -13441,9 +13441,15 @@ pub extern "C" fn elastic_pro_set_pitch(track_id: u32, semitones: f64) -> i32 {
                 let stretch = clip_entry.stretch_ratio;
 
                 if needs_pv {
+                    // Pitch shift active — enable PV with pitch + stretch compensation
                     clip_entry.set_preserve_pitch(true);
                     ops.push(VocoderOp { clip_id, stretch, create: true });
-                } else if (stretch - 1.0).abs() <= 0.001 {
+                } else if (stretch - 1.0).abs() > 0.001 {
+                    // Pitch=0 but stretch active — keep preserve_pitch, update PV for stretch-only
+                    // (preserve_pitch stays true from earlier set_pitch or from user toggle)
+                    ops.push(VocoderOp { clip_id, stretch, create: true });
+                } else {
+                    // Pitch=0, stretch=1 — no PV needed
                     clip_entry.set_preserve_pitch(false);
                     ops.push(VocoderOp { clip_id, stretch, create: false });
                 }

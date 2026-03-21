@@ -535,6 +535,12 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
     );
   }
 
+  /// Extract numeric clip ID for FFI (clip IDs are strings like 'clip_1711234567890_0')
+  int? _parseClipId(String id) {
+    final numeric = id.replaceAll(RegExp(r'[^0-9]'), '');
+    return numeric.isEmpty ? null : int.tryParse(numeric);
+  }
+
   Widget _buildStretchSection(TimelineClip clip) {
     return Column(
       children: [
@@ -548,7 +554,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
           onChanged: (v) {
             final updated = clip.copyWith(stretchRatio: v);
             widget.onClipChanged?.call(updated);
-            final clipId = int.tryParse(clip.id);
+            final clipId = _parseClipId(clip.id);
             if (clipId != null) {
               // Sync per-clip stretch ratio to engine
               NativeFFI.instance.clipSetStretchRatio(clipId, v);
@@ -560,7 +566,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
           },
           onReset: () {
             widget.onClipChanged?.call(clip.copyWith(stretchRatio: 1.0));
-            final clipId = int.tryParse(clip.id);
+            final clipId = _parseClipId(clip.id);
             if (clipId != null) {
               NativeFFI.instance.clipSetStretchRatio(clipId, 1.0);
               // Ratio=1.0 removes vocoder (not needed)
@@ -582,14 +588,14 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
             final updated = clip.copyWith(pitchShift: v);
             widget.onClipChanged?.call(updated);
             // Per-clip pitch shift via dedicated FFI (not per-track elasticPro)
-            final clipId = int.tryParse(clip.id);
+            final clipId = _parseClipId(clip.id);
             if (clipId != null) {
               NativeFFI.instance.clipSetPitchShift(clipId, v);
             }
           },
           onReset: () {
             widget.onClipChanged?.call(clip.copyWith(pitchShift: 0.0));
-            final clipId = int.tryParse(clip.id);
+            final clipId = _parseClipId(clip.id);
             if (clipId != null) {
               NativeFFI.instance.clipSetPitchShift(clipId, 0.0);
             }
@@ -617,7 +623,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
                   final updated = clip.copyWith(preservePitch: v);
                   widget.onClipChanged?.call(updated);
                   // Pre-allocate/remove phase vocoder via FFI
-                  final clipId = int.tryParse(clip.id);
+                  final clipId = _parseClipId(clip.id);
                   if (clipId != null) {
                     NativeFFI.instance.clipSetPreservePitch(
                       clipId, v, clip.stretchRatio,

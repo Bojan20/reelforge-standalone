@@ -319,6 +319,8 @@ class Take {
       muted: muted,
       fxChain: fxChain,
       stretchRatio: playRate,
+      pitchShift: pitchSemitones,
+      preservePitch: pitchSemitones != 0 || playRate != 1.0,
     );
   }
 

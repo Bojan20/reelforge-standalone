@@ -1249,7 +1249,15 @@ impl OneShotVoice {
         // Per-voice resample quality — adaptive under CPU pressure.
         // Acquire sinc table ONCE per block (not per-frame)
         let resample_mode = self.voice_resample_mode;
-        let sinc_guard = PLAYBACK_SINC_TABLE.read();
+        let sinc_guard = match PLAYBACK_SINC_TABLE.try_read() {
+            Some(guard) => guard,
+            None => {
+                // Sinc table being rebuilt — output silence for this voice buffer
+                left[..frames_needed].fill(0.0);
+                right[..frames_needed].fill(0.0);
+                return false; // Signal: voice should continue next block
+            }
+        };
         let sinc_ref = Some(&*sinc_guard);
 
         for frame in 0..frames_needed {
@@ -6364,14 +6372,18 @@ impl PlaybackEngine {
         // Convert source_offset (seconds) to samples in source sample rate
         let source_offset_samples = (clip.source_offset * source_sample_rate) as f64;
 
-        // Acquire sinc table ONCE per clip render call
+        // Acquire sinc table ONCE per clip render call (non-blocking — skip clip if locked)
         let clip_resample_mode = playback_resample_mode();
-        let clip_sinc_guard = PLAYBACK_SINC_TABLE.read();
+        let clip_sinc_guard = match PLAYBACK_SINC_TABLE.try_read() {
+            Some(guard) => guard,
+            None => return, // Sinc table being rebuilt by UI thread — skip this clip for one buffer
+        };
         let clip_sinc_ref = Some(&*clip_sinc_guard);
 
-        // Phase vocoder path: preserve_pitch with non-unity stretch ratio
+        // Phase vocoder path: preserve_pitch with non-unity stretch or pitch shift
         let needs_pv = clip.preserve_pitch
-            && (clip.stretch_ratio - 1.0).abs() > 0.001;
+            && ((clip.stretch_ratio - 1.0).abs() > 0.001
+                || clip.pitch_shift.abs() > 0.01);
 
         if needs_pv {
             // Phase vocoder path: collect sinc-resampled samples, then PV process as block
@@ -7006,9 +7018,12 @@ impl PlaybackEngine {
         // Pre-calculate source offset for the loop
         let source_offset_samples_f64 = clip.source_offset * source_sample_rate;
 
-        // Acquire sinc table ONCE per clip (not per-frame)
+        // Acquire sinc table ONCE per clip (non-blocking — skip if locked)
         let clip2_resample_mode = playback_resample_mode();
-        let clip2_sinc_guard = PLAYBACK_SINC_TABLE.read();
+        let clip2_sinc_guard = match PLAYBACK_SINC_TABLE.try_read() {
+            Some(guard) => guard,
+            None => return, // Sinc table being rebuilt — skip this clip
+        };
         let clip2_sinc_ref = Some(&*clip2_sinc_guard);
 
         // For envelope mode: compute integrated source position at block start,
