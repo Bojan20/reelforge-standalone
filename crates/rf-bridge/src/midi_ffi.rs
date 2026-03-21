@@ -216,6 +216,44 @@ pub extern "C" fn midi_get_target_track() -> u64 {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// INPUT EVENT POLLING (for trigger mapping)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Poll pending MIDI input events. Returns count of events written to output buffer.
+/// Drains the event buffer — subsequent calls return 0 until new events arrive.
+/// Output format per event: [status, data1, data2] (3 bytes each, packed).
+/// Buffer must be at least `max_events * 3` bytes.
+#[unsafe(no_mangle)]
+pub extern "C" fn midi_poll_input_events(
+    out_buffer: *mut u8,
+    max_events: u32,
+) -> u32 {
+    if out_buffer.is_null() || max_events == 0 {
+        return 0;
+    }
+    let mut buffer = midi_bridge::LIVE_INPUT_BUFFER.lock().unwrap();
+    let count = buffer.len().min(max_events as usize);
+    for i in 0..count {
+        let event = &buffer[i];
+        unsafe {
+            let base = i * 3;
+            *out_buffer.add(base) = event.data[0];
+            *out_buffer.add(base + 1) = event.data[1];
+            *out_buffer.add(base + 2) = event.data[2];
+        }
+    }
+    // Drain processed events
+    buffer.drain(..count);
+    count as u32
+}
+
+/// Get count of pending MIDI input events (without draining).
+#[unsafe(no_mangle)]
+pub extern "C" fn midi_pending_input_count() -> u32 {
+    midi_bridge::LIVE_INPUT_BUFFER.lock().unwrap().len() as u32
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SETTINGS
 // ═══════════════════════════════════════════════════════════════════════════
 

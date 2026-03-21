@@ -66,8 +66,12 @@ static MIDI_THRU_ENABLED: AtomicBool = AtomicBool::new(true);
 
 use std::sync::LazyLock;
 
-/// Event buffer (Mutex for thread-safe append)
+/// Recording event buffer (only fills when recording)
 static EVENT_BUFFER: LazyLock<Mutex<Vec<MidiInputEvent>>> = LazyLock::new(|| Mutex::new(Vec::with_capacity(4096)));
+
+/// Live input buffer — ALWAYS captures incoming MIDI for trigger mapping
+/// Polled by Dart MidiTriggerService via midi_poll_input_events FFI
+pub(crate) static LIVE_INPUT_BUFFER: LazyLock<Mutex<Vec<MidiInputEvent>>> = LazyLock::new(|| Mutex::new(Vec::with_capacity(256)));
 
 /// Cached list of input devices
 static INPUT_DEVICES: LazyLock<RwLock<Vec<MidiDeviceInfo>>> = LazyLock::new(|| RwLock::new(Vec::new()));
@@ -156,7 +160,26 @@ fn process_midi_input(timestamp_us: u64, data: &[u8]) {
         return;
     }
 
-    // Skip if not recording
+    // Always push to live input buffer (for MIDI trigger service)
+    {
+        let mut event_data = [0u8; 3];
+        let len = data.len().min(3);
+        event_data[..len].copy_from_slice(&data[..len]);
+        if let Ok(mut buf) = LIVE_INPUT_BUFFER.lock() {
+            // Bounded: drop oldest if full (prevents unbounded growth)
+            if buf.len() >= 256 {
+                buf.drain(..128); // Keep latest 128
+            }
+            buf.push(MidiInputEvent {
+                timestamp_us,
+                sample_position: 0, // Not needed for trigger polling
+                data: event_data,
+                len: len as u8,
+            });
+        }
+    }
+
+    // Recording buffer: only fill when recording
     if get_recording_state() != MidiRecordingState::Recording {
         return;
     }

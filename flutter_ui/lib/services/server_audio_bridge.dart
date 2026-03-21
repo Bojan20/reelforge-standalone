@@ -165,7 +165,7 @@ class ServerAudioBridge with ChangeNotifier {
 
     // Trigger audio event via EventRegistry (if wired)
     try {
-      if (EventRegistryLocator._instance == null) return;
+      if (!EventRegistryLocator.isSet) return;
       EventRegistryLocator.instance.triggerEvent(eventId);
       _triggerCount++;
       notifyListeners();
@@ -262,7 +262,7 @@ class ServerAudioBridge with ChangeNotifier {
     }
 
     // Also trigger a state event if EventRegistry has one
-    if (EventRegistryLocator._instance != null) {
+    if (EventRegistryLocator.isSet) {
       try {
         EventRegistryLocator.instance.triggerEvent('state_$stateName');
       } catch (_) {
@@ -391,4 +391,5 @@ class EventRegistryLocator {
   static dynamic _instance;
   static dynamic get instance => _instance!;
   static set instance(dynamic registry) => _instance = registry;
+  static bool get isSet => _instance != null;
 }
