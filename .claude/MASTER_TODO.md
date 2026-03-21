@@ -116,16 +116,18 @@ Fali SAMO:
 
 ### Faza RT-4: Time-Stretch + DAW Features
 
-- [ ] **Custom phase vocoder** (BOLJI od Reaper Simple Windowed)
-  - Transient-preserving OLA (Driedger/Müller 2014)
-  - Spectral peak locking — čistiji harmonici
-  - **Formant preservation** za vokale (Reaper NEMA bez Elastique licence)
-- [ ] **SoundTouch** (WSOLA, LGPL) — fast fallback
-- [ ] **Per-item stretch algorithm selection**
-- [ ] **Auto-SR match na import** — "Convert on import" vs "Real-time SRC"
-- [ ] **PDC** — SRC latency (sinc_size/2) u playback scheduling
-- [ ] **Xrun handling** — tihi output + adaptive quality per-voice
-- [ ] **SRC CPU metrics** u diagnostics panel
+- [x] **Phase vocoder** (`rf-engine/src/phase_vocoder.rs`)
+  - STFT → phase advance correction → ISTFT (overlap-add)
+  - Transient detection: energy ratio reset phase at onsets
+  - Hann window, configurable FFT size (1024/2048) and overlap (4×/8×)
+  - Pre-allocated buffers — zero-alloc process() (osim DFT koji treba rustfft)
+  - set_pitch_factor(), set_formant_preserve(), reset()
+- [ ] **Integracija u playback pipeline** — kad preserve_pitch=true, primeni PV posle sinc
+- [ ] **Zameni DFT sa rustfft** — O(N²) → O(N log N) za real-time
+- [ ] **Formant preservation** — spectral envelope extraction + reapply
+- [ ] **SoundTouch** fallback — WSOLA za niži CPU
+- [ ] **PDC** — SRC + PV latency u scheduling
+- [ ] **SRC CPU metrics** u diagnostics
 
 ### Prednosti nad Reaperom
 
