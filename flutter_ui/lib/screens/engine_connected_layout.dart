@@ -7465,19 +7465,61 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       // Warp marker callbacks
       onClipWarpMarkerMove: (clipId, markerId, newTimelinePos) {
         final numericClipId = int.tryParse(clipId.replaceAll(RegExp(r'[^0-9]'), ''));
-        if (numericClipId != null) {
-          NativeFFI.instance.clipMoveWarpMarker(numericClipId, markerId, newTimelinePos);
-          _refreshClipWarpState(clipId);
+        if (numericClipId == null) return;
+
+        // Find the moved marker to compute delta
+        final sourceClip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
+        if (sourceClip.id != clipId) return;
+        final movedMarker = sourceClip.warpMarkers.where((m) => m.id == markerId).firstOrNull;
+        final delta = movedMarker != null ? newTimelinePos - movedMarker.timelinePos : 0.0;
+
+        // Move primary marker
+        NativeFFI.instance.clipMoveWarpMarker(numericClipId, markerId, newTimelinePos);
+        _refreshClipWarpState(clipId);
+
+        // Cross-track linked move: find clips on OTHER selected tracks at similar timeline positions
+        if (delta.abs() > 0.0001) {
+          // Cross-track: link markers on the selected track and all armed tracks
+          final selectedTrackIds = <String>{
+            if (_selectedTrackId != null) _selectedTrackId!,
+            ..._tracks.where((t) => t.armed).map((t) => t.id),
+          };
+          for (final otherClip in _clips) {
+            if (otherClip.id == clipId) continue;
+            if (!selectedTrackIds.contains(otherClip.trackId)) continue;
+            if (!otherClip.warpEnabled) continue;
+            // Find marker at similar timeline position (within 50ms)
+            for (final m in otherClip.warpMarkers) {
+              if (m.locked) continue;
+              if (movedMarker != null && (m.timelinePos - movedMarker.timelinePos).abs() < 0.05) {
+                final otherNumId = int.tryParse(otherClip.id.replaceAll(RegExp(r'[^0-9]'), ''));
+                if (otherNumId != null) {
+                  NativeFFI.instance.clipMoveWarpMarker(otherNumId, m.id, m.timelinePos + delta);
+                  _refreshClipWarpState(otherClip.id);
+                }
+                break; // One match per clip
+              }
+            }
+          }
         }
       },
       onClipWarpMarkerCreate: (clipId, timelinePos) {
         final numericClipId = int.tryParse(clipId.replaceAll(RegExp(r'[^0-9]'), ''));
-        if (numericClipId != null) {
-          // Source pos = timeline pos for new manual markers (identity mapping initially)
-          NativeFFI.instance.clipAddWarpMarker(
-            numericClipId, timelinePos, timelinePos, timeline.WarpMarkerKind.manual,
-          );
-          _refreshClipWarpState(clipId);
+        if (numericClipId == null) return;
+        final markerId = NativeFFI.instance.clipAddWarpMarker(
+          numericClipId, timelinePos, timelinePos, timeline.WarpMarkerKind.manual,
+        );
+        _refreshClipWarpState(clipId);
+        // Undo: remove the marker we just added
+        if (markerId > 0) {
+          UiUndoManager.instance.record(GenericUndoAction(
+            description: 'Add Warp Marker',
+            onExecute: () {}, // Already executed above
+            onUndo: () {
+              NativeFFI.instance.clipRemoveWarpMarker(numericClipId, markerId);
+              _refreshClipWarpState(clipId);
+            },
+          ));
         }
       },
       // Track callbacks - SYNC both _tracks AND MixerProvider
