@@ -10,6 +10,7 @@ import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 import 'engine_api.dart' show TruePeak8xData, PsrData, CrestFactorData, PsychoacousticData;
 import '../../models/middleware_models.dart';
+import '../../models/timeline_models.dart' show WarpMarkerData, WarpMarkerKind;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // P0.3 FIX: Safe FFI String Handling Utilities
@@ -11123,8 +11124,37 @@ extension SrcQualityAPI on NativeFFI {
 // WARP MARKERS API
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Warp marker type enum (matches Rust WarpMarkerType)
-enum WarpMarkerType { transient, manual, quantized }
+/// Snapshot of warp state from engine (returned by clipGetWarpState)
+class WarpStateSnapshot {
+  final bool enabled;
+  final List<WarpMarkerData> markers;
+  final List<double> transients;
+  final double? sourceTempo;
+
+  const WarpStateSnapshot({
+    required this.enabled,
+    required this.markers,
+    required this.transients,
+    this.sourceTempo,
+  });
+
+  factory WarpStateSnapshot.fromJson(Map<String, dynamic> json) {
+    final markerList = (json['markers'] as List?)?.map((m) {
+      final map = m as Map<String, dynamic>;
+      return WarpMarkerData.fromJson(map);
+    }).toList() ?? const [];
+
+    final transientList = (json['transients'] as List?)
+        ?.map((e) => (e as num).toDouble()).toList() ?? const [];
+
+    return WarpStateSnapshot(
+      enabled: json['enabled'] as bool? ?? false,
+      markers: markerList,
+      transients: transientList,
+      sourceTempo: (json['sourceTempo'] as num?)?.toDouble(),
+    );
+  }
+}
 
 /// Warp Markers API — per-clip time warping with transient detection
 extension WarpMarkersAPI on NativeFFI {
@@ -11152,9 +11182,9 @@ extension WarpMarkersAPI on NativeFFI {
   bool clipWarpEnable(int clipId, bool enable) =>
       _clipWarpEnable(clipId, enable ? 1 : 0) == 1;
 
-  /// Add a warp marker. Returns marker ID.
-  int clipAddWarpMarker(int clipId, double sourcePos, double timelinePos, WarpMarkerType type) =>
-      _clipAddWarpMarker(clipId, sourcePos, timelinePos, type.index);
+  /// Add a warp marker. Returns marker ID (0 = error).
+  int clipAddWarpMarker(int clipId, double sourcePos, double timelinePos, WarpMarkerKind kind) =>
+      _clipAddWarpMarker(clipId, sourcePos, timelinePos, kind.index);
 
   /// Remove a warp marker
   bool clipRemoveWarpMarker(int clipId, int markerId) =>
@@ -11179,8 +11209,29 @@ extension WarpMarkersAPI on NativeFFI {
   int clipDetectTransients(int clipId, {double sensitivity = 1.5}) =>
       _clipDetectTransients(clipId, sensitivity);
 
+  static final _clipGetWarpState = _loadNativeLibrary().lookupFunction<
+      Pointer<Utf8> Function(Uint64), Pointer<Utf8> Function(int)>('clip_get_warp_state');
+  static final _freeRustString = _loadNativeLibrary().lookupFunction<
+      Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>('free_rust_string');
   static final _engineEnsureAllWarpSegments = _loadNativeLibrary().lookupFunction<
       Int32 Function(), int Function()>('engine_ensure_all_warp_segments');
+
+  /// Query complete warp state from engine for a clip.
+  /// Returns markers, transients, enabled flag — everything needed to update Dart UI.
+  WarpStateSnapshot? clipGetWarpState(int clipId) {
+    final ptr = _clipGetWarpState(clipId);
+    if (ptr == nullptr) return null;
+    try {
+      final json = ptr.toDartString();
+      if (json.isEmpty || json == '{}') return null;
+      final map = jsonDecode(json) as Map<String, dynamic>;
+      return WarpStateSnapshot.fromJson(map);
+    } catch (_) {
+      return null;
+    } finally {
+      _freeRustString(ptr);
+    }
+  }
 
   /// Rebuild warp segments for all clips. Call after project load.
   int engineEnsureAllWarpSegments() => _engineEnsureAllWarpSegments();

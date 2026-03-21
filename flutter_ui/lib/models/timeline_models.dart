@@ -34,17 +34,23 @@ enum ClipChannelMode {
 }
 
 /// Warp marker data for Flutter UI (mirrors Rust WarpMarker)
+/// Warp marker type (matches Rust WarpMarkerType and FFI enum)
+enum WarpMarkerKind { transient, manual, quantized }
+
+/// Warp marker data for Flutter UI (mirrors Rust WarpMarker)
 class WarpMarkerData {
   final int id;
   final double sourcePos;    // seconds in original audio
   final double timelinePos;  // seconds on timeline relative to clip start
   final bool locked;
+  final WarpMarkerKind kind;
 
   const WarpMarkerData({
     required this.id,
     required this.sourcePos,
     required this.timelinePos,
     this.locked = false,
+    this.kind = WarpMarkerKind.manual,
   });
 
   Map<String, dynamic> toJson() => {
@@ -52,6 +58,7 @@ class WarpMarkerData {
     'sourcePos': sourcePos,
     'timelinePos': timelinePos,
     'locked': locked,
+    'type': kind.index,
   };
 
   factory WarpMarkerData.fromJson(Map<String, dynamic> json) => WarpMarkerData(
@@ -59,6 +66,7 @@ class WarpMarkerData {
     sourcePos: (json['sourcePos'] as num?)?.toDouble() ?? 0.0,
     timelinePos: (json['timelinePos'] as num?)?.toDouble() ?? 0.0,
     locked: json['locked'] as bool? ?? false,
+    kind: WarpMarkerKind.values[(json['type'] as int? ?? 1).clamp(0, 2)],
   );
 
   @override
@@ -68,10 +76,11 @@ class WarpMarkerData {
           id == other.id &&
           sourcePos == other.sourcePos &&
           timelinePos == other.timelinePos &&
-          locked == other.locked;
+          locked == other.locked &&
+          kind == other.kind;
 
   @override
-  int get hashCode => Object.hash(id, sourcePos, timelinePos, locked);
+  int get hashCode => Object.hash(id, sourcePos, timelinePos, locked, kind);
 }
 
 /// Clip on a timeline track

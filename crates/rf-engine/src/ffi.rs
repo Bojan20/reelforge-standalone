@@ -13667,6 +13667,41 @@ pub extern "C" fn clip_warp_enable(clip_id: u64, enable: i32) -> i32 {
     } else { 0 }
 }
 
+/// Query warp state for a clip. Returns JSON string with markers, transients, enabled.
+/// Caller must free the returned string with `free_rust_string`.
+#[unsafe(no_mangle)]
+pub extern "C" fn clip_get_warp_state(clip_id: u64) -> *mut c_char {
+    let json = match TRACK_MANAGER.clips.get(&ClipId(clip_id)) {
+        Some(clip) => {
+            let ws = &clip.warp_state;
+            let markers: Vec<serde_json::Value> = ws.markers.iter().map(|m| {
+                serde_json::json!({
+                    "id": m.id.0,
+                    "sourcePos": m.source_pos,
+                    "timelinePos": m.timeline_pos,
+                    "locked": m.locked,
+                    "type": match m.marker_type {
+                        WarpMarkerType::Transient => 0,
+                        WarpMarkerType::Manual => 1,
+                        WarpMarkerType::Quantized => 2,
+                    }
+                })
+            }).collect();
+            serde_json::json!({
+                "enabled": ws.enabled,
+                "markers": markers,
+                "transients": ws.transients,
+                "sourceTempo": ws.source_tempo,
+            }).to_string()
+        }
+        None => "{}".to_string(),
+    };
+    match std::ffi::CString::new(json) {
+        Ok(cstr) => cstr.into_raw(),
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
 /// Rebuild warp segments for ALL clips. Call after project load/restore.
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_ensure_all_warp_segments() -> i32 {

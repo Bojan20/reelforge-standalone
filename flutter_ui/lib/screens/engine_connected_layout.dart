@@ -318,6 +318,27 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
   String? _dragPreviewClipId;
   double? _dragPreviewStartTime;
 
+  /// Sync warp state from engine to a Dart TimelineClip.
+  /// Call after any warp operation (detect, add, move, quantize, enable/disable).
+  void _refreshClipWarpState(String clipId) {
+    final numericId = int.tryParse(clipId.replaceAll(RegExp(r'[^0-9]'), ''));
+    if (numericId == null) return;
+    final snapshot = NativeFFI.instance.clipGetWarpState(numericId);
+    if (snapshot == null) return;
+    setState(() {
+      _clips = _clips.map((c) {
+        if (c.id == clipId) {
+          return c.copyWith(
+            warpEnabled: snapshot.enabled,
+            warpMarkers: snapshot.markers,
+            warpTransients: snapshot.transients,
+          );
+        }
+        return c;
+      }).toList();
+    });
+  }
+
   /// Update a single track by ID without rebuilding the entire list.
   /// O(1) lookup + in-place replacement instead of .map().toList() O(n).
   void _updateTrackById(String trackId, timeline.TimelineTrack Function(timeline.TimelineTrack) updater) {
