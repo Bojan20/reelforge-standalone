@@ -1,215 +1,189 @@
-# Live Server Integration — Ultimate Architecture
+# Live Server Integration — Ultimate Production Architecture
 
-**Created:** 2026-03-21
-**Status:** Architecture ready, implementation next
-
----
-
-## Kompetitivna prednost nad Wwise/FMOD
-
-| Limitacija Wwise/FMOD | FluxForge rešenje |
-|------------------------|-------------------|
-| Nema native RGS integraciju | WebSocket → RGS bridge <5ms |
-| Nema server-side audio triggering | JSON event → lokalni trigger |
-| Offline authoring samo | Live preview sa serverom |
-| Nema player behavior adaptation | AI-driven RTPC iz server analytics |
-| Nema per-player personalizacija | Player profil → audio prilagođavanje |
-| Nema event ordering garancija | Sequence numbering + jitter buffer |
-| Nema reconnect resilience | Exponential backoff + state recovery |
-| Nema audio analytics | Telemetry → retention korelacija |
+**Created:** 2026-03-21 | **Updated:** 2026-03-22
+**Status:** Architecture finalized
 
 ---
 
-## WebSocket Protocol — Sve rupe pokrivene
+## Šta mora da radi kad se povežeš na server kompanije
 
-### Heartbeat (KRITIČNO)
-- Ping/pong svake 20s (industry standard)
-- Pong timeout: 10s → connection dead
-- Firewall/NAT idle timeout: 60s → heartbeat čuva konekciju
-- Browser limitation: nema native ping API → custom ping frame
-
-### Reconnect (KRITIČNO)
-- Exponential backoff: 1s → 2s → 4s → 8s → 16s → max 30s
-- Jitter: random ±25% na svaki interval (sprečava thundering herd)
-- Max retry: beskonačno (server može biti offline satima)
-- State recovery posle reconnect: server šalje current_state snapshot
-- Auth token refresh pre reconnect-a (JWT expiry)
-
-### Event Ordering (KRITIČNO za audio)
-- Svaki event ima `seq: u64` monotoni brojač
-- Klijent detektuje gap: `received_seq > expected_seq + 1` → request missing events
-- Out-of-order tolerance: 50ms jitter buffer
-- Duplicate detection: set poslednjih 100 seq brojeva
-
-### Latency Target
-- Audio event trigger: <20ms end-to-end (ideal)
-- RTPC parameter change: <50ms (smooth interpolation maskira latenciju)
-- State change: <100ms (acceptable za game state transitions)
-
-### Graceful Shutdown
-- SIGTERM → drain current events → close WebSocket → flush audio
+Ovo nije demo. Ovo je production sistem koji mora da radi 24/7, sa milionima igrača, u regulisanim tržištima. Svaka rupa = lost revenue ili regulatorna kazna.
 
 ---
 
-## Protocol Format (JSON over WSS)
+## FAZA 1: WebSocket Production Bridge
 
-### Server → FluxForge
+### 1.1 Connection Lifecycle
+- [ ] WSS (TLS 1.3) — NIKADA plain WS u produkciji
+- [ ] JWT auth na handshake (token u query param ili first message)
+- [ ] Token refresh pre isteka (JWT exp claim monitoring)
+- [ ] Origin validation (whitelist dozvoljenih servera)
+- [ ] Reconnect: exponential backoff (1→2→4→8→16→30s max) + random jitter ±25%
+- [ ] Heartbeat: ping svake 20s, pong timeout 10s → dead connection
+- [ ] Max reconnect attempts: beskonačno (server može biti offline satima, igra mora da nastavi)
+- [ ] Connection state machine: CONNECTING → AUTHENTICATING → READY → ACTIVE → RECONNECTING → DISCONNECTED
+- [ ] Graceful shutdown: drain pending events → close → flush audio
 
-```json
-{"type":"trigger","seq":1042,"ts":1711234567890,
- "event":"REEL_STOP","params":{"reel":2,"symbol":"WILD"}}
+### 1.2 Message Protocol
+- [ ] Seq numbering (monotoni u64) na SVAKOJ poruci
+- [ ] Gap detection: `received > expected + 1` → request missing
+- [ ] Duplicate detection: set poslednjih 1000 seq brojeva
+- [ ] Timestamp na svakoj poruci (server clock, ms precision)
+- [ ] Batch messages: `type: "batch"` sa nizom sub-events
+- [ ] Ack system: klijent potvrđuje kritične poruke
+- [ ] Message types: trigger, rtpc, state, batch, snapshot, ack, error, ping, config
 
-{"type":"rtpc","seq":1043,"ts":1711234567891,
- "param":"anticipation","value":0.8,"interpolation":"linear","duration_ms":500}
+### 1.3 State Recovery (posle reconnect)
+- [ ] Server šalje `snapshot` sa kompletnim stanjem (game phase, svi RTPC, active events)
+- [ ] Klijent primenjuje snapshot atomski (ne parcijalno)
+- [ ] Pending local events se flush-uju ili replay-uju zavisno od tipa
+- [ ] Audio continuity: ako je muzika svirala pre disconnect-a, nastavlja posle
 
-{"type":"state","seq":1044,"ts":1711234567892,
- "group":"game_phase","state":"FREE_SPINS","params":{"spins_remaining":10}}
+### 1.4 Failover & Degradation
+- [ ] Server disconnect → audio nastavlja lokalno (poslednje poznato stanje)
+- [ ] Fallback mode: ako nema servera 30s+, koristi lokalne default-e
+- [ ] Multi-server support: primary + fallback URL lista
+- [ ] Health check endpoint: HTTP GET /health pre WebSocket-a
+- [ ] Circuit breaker: ako 5 reconnect-a za 60s fali → pause 5min → retry
 
-{"type":"batch","seq":1045,"ts":1711234567893,
- "events":[
-   {"type":"trigger","event":"REEL_STOP","params":{"reel":0}},
-   {"type":"trigger","event":"REEL_STOP","params":{"reel":1}},
-   {"type":"trigger","event":"REEL_STOP","params":{"reel":2}}
- ]}
-
-{"type":"snapshot","seq":0,
- "state":{"game_phase":"BASE","anticipation":0.0,"music_intensity":0.5},
- "comment":"Full state recovery after reconnect"}
-```
-
-### FluxForge → Server
-
-```json
-{"type":"ack","seq":1042}
-
-{"type":"audio_complete","event":"BIG_WIN","duration_ms":3500}
-
-{"type":"ready","assets_loaded":true,"latency_ms":12}
-
-{"type":"error","code":"EVENT_NOT_FOUND","event":"UNKNOWN_EVENT"}
-```
-
----
-
-## RTPC System (Real-Time Parameter Control)
-
-### Problem sa naivnim pristupom
-- Server šalje `value=0.8`, audio thread odmah setuje → čujan skok/klik
-- Network jitter: vrednosti stižu neravnomerno → stutter
-
-### Rešenje: Interpolation + Jitter Buffer
-
-```
-Server value ──→ Jitter Buffer (50ms) ──→ Smoother ──→ Audio Engine
-                  (reorders,              (linear/exp
-                   deduplicates)           interpolation)
-```
-
-- **Jitter buffer**: čuva poslednje 3-5 vrednosti, sortira po timestamp-u
-- **Smoother**: interpolira od trenutne do ciljne vrednosti
-  - Linear: `current += (target - current) * speed * dt`
-  - Exponential: `current = current * 0.95 + target * 0.05` (per audio frame)
-  - Timed: dostiže target za `duration_ms` (server specificira)
-- **Audio thread**: čita interpoliranu vrednost (AtomicF64, zero lock)
-
-### Parametri
-| Param | Range | Default | Opis |
-|-------|-------|---------|------|
-| `anticipation` | 0-1 | 0 | Near-win uzbuđenje |
-| `celebration` | 0-1 | 0 | Win intenzitet |
-| `tension` | 0-1 | 0.3 | Bazična napetost |
-| `music_intensity` | 0-1 | 0.5 | Muzika glasnoća/tempo |
-| `sfx_intensity` | 0-1 | 0.7 | SFX glasnoća |
-| `player_excitement` | 0-1 | 0.5 | AI-procenjena uzbuđenost |
-
-### Mapiranje na Audio Engine
-- `anticipation` → reverb wet %, filter cutoff, tremolo speed
-- `celebration` → master volume boost, sparkle SFX trigger, confetti sound
-- `tension` → low-pass filter, sub bass level, heartbeat tempo
-- `music_intensity` → bus volume, tempo BPM multiplier
-- `player_excitement` → varijacija choice (više varijacija za uzbuđene)
+### 1.5 Security
+- [ ] WSS only (TLS 1.3)
+- [ ] JWT validation (signature, exp, iss, aud claims)
+- [ ] Rate limiting: max 100 msg/s per connection
+- [ ] Message size limit: max 64KB per message
+- [ ] Origin whitelist
+- [ ] No sensitive data u audio event payload-u (player balance, real money amounts)
 
 ---
 
-## Trigger Modes
+## FAZA 2: Server → Audio Bridge
 
-| Mode | Izvor | Latency | Reliability |
-|------|-------|---------|-------------|
-| manual | UI klik | 0ms | 100% |
-| server | WebSocket event | 5-50ms | 99.9% (TCP) |
-| position | Playhead polling | <5ms | 100% |
-| marker | Timeline marker cross | <5ms | 100% |
-| midi | MIDI input (midir) | <2ms | 100% |
-| osc | UDP packet | <5ms | 95% (UDP) |
-| rgs | RGS game event | 10-100ms | 99.99% |
+### 2.1 Event Triggering
+- [ ] Server `trigger` → EventRegistry.triggerEvent()
+- [ ] Server `trigger` sa params → RTPC set BEFORE trigger (anticipation level, win tier)
+- [ ] Event not found → graceful error log (ne crash)
+- [ ] Event audio not loaded → queue, play kad loaded, timeout 5s
+- [ ] Overlap policy per event: replace (default), overlap, queue, reject
+- [ ] Priority system: critical events preempt lower priority
 
----
+### 2.2 RTPC Bridge (ka POSTOJEĆEM sistemu)
+- [ ] Server `rtpc` → rtpcSystemProvider.setRtpc(id, value, interpolationMs)
+- [ ] Name→ID mapping config (server šalje "anticipation", mi mapiramo na RTPC ID 42)
+- [ ] Jitter buffer 50ms: reorder po timestamp, deduplicate
+- [ ] Interpolation: server specificira `duration_ms` → smooth transition
+- [ ] Batch RTPC: server `state` → grupa RTPC promena odjednom (game phase change)
+- [ ] Clamp: server vrednost van range-a → clamp + warning log
 
-## Sve rupe koje moramo pokriti
+### 2.3 Game State Machine
+- [ ] Server `state` poruka: `{ group: "game_phase", state: "FREE_SPINS", params: {...} }`
+- [ ] State → predefinisani RTPC preset (FREE_SPINS = tension:0.8, music:0.3, sfx:1.0)
+- [ ] State transitions: fade between presets (crossfade duration konfigurisana)
+- [ ] State history: pamti poslednja 3 stanja za undo/debug
+- [ ] Invalid state → ignore + log (ne crash)
 
-### Network
-- [ ] Connection drop mid-event → audio continues playing lokalno, reconnect u pozadini
-- [ ] Server restart → klijent reconnect sa state recovery
-- [ ] Firewall blocks WSS → fallback na HTTP long-polling
-- [ ] High latency (>200ms) → jitter buffer automatski raste
-- [ ] Packet duplication → seq dedup
-- [ ] Man-in-the-middle → WSS (TLS 1.3), auth token per session
-
-### Audio
-- [ ] Event stiže ali audio nije učitan → queue + play kad loaded
-- [ ] Isti event trigerovan 2x brzo → overlap ili replace (konfigurisano po eventu)
-- [ ] RTPC se menja tokom fade-out → smooth transition, ne restart
-- [ ] Server šalje event za nepostojeći zvuk → graceful error, ne crash
-- [ ] Audio buffer underrun tokom network spike → silence, ne glitch
-
-### State
-- [ ] Game state mismatch posle reconnect → server snapshot overrides local
-- [ ] Concurrent RTPC updates za isti param → last-write-wins sa timestamp
-- [ ] Server šalje stale event (old seq) → drop silently
+### 2.4 Audio Asset Management
+- [ ] Server može da zatraži pre-load specifičnih asseta (`type: "preload"`)
+- [ ] Server može da kaže koji asseti NEĆE biti potrebni (`type: "unload"`)
+- [ ] Asset loading progress → server (`type: "progress"`)
+- [ ] `type: "ready"` → server zna da može da šalje evente
 
 ---
 
-## Implementacioni plan
+## FAZA 3: Advanced Triggers
 
-### Faza 1: WebSocket Bridge (engine)
-- [ ] `ServerBridge` struct u rf-engine: tokio + tokio-tungstenite
-- [ ] Connect/disconnect/reconnect sa exponential backoff + jitter
-- [ ] Heartbeat ping/pong (20s interval, 10s timeout)
-- [ ] JSON parser: trigger, rtpc, state, batch, snapshot, ack
-- [ ] Seq tracking + gap detection + dedup
-- [ ] EventRegistry integracija: server trigger → audio
-- [ ] Error handling: unknown event, missing audio, invalid params
-- [ ] FFI: server_connect(url), server_disconnect(), server_status()
-- [ ] Dart UI: connection status indicator + URL config
+### 3.1 MIDI Trigger (midir POSTOJI)
+- [ ] MIDI note → custom event mapping (konfigurisano u UI)
+- [ ] Velocity → volume mapping (0-127 → 0.0-1.0)
+- [ ] Channel filter (slušaj samo channel 1-16)
+- [ ] CC → RTPC mapping (MIDI CC#1 → RTPC "modulation")
+- [ ] Learn mode: klikni "Learn" → sviraj notu → auto-bind
 
-### Faza 2: RTPC System (engine)
-- [ ] `RtpcManager` struct: HashMap<String, RtpcParam>
-- [ ] `RtpcParam`: current, target, interpolation mode, duration
-- [ ] Audio-thread read: `AtomicU64` per param (f64 bits)
-- [ ] UI-thread write: set_target() sa interpolation
-- [ ] Smoother: linear/exponential/timed per param per audio frame
-- [ ] Jitter buffer: 50ms, reorder by timestamp
-- [ ] Mapping config: param → bus volume, filter, tempo, etc.
-- [ ] FFI: rtpc_set(name, value), rtpc_get(name), rtpc_list()
-- [ ] Dart UI: RTPC monitor panel (real-time param values)
+### 3.2 OSC Trigger (NOVO — rosc crate)
+- [ ] UDP listener na konfigurisanom portu (default 8000)
+- [ ] OSC address → event mapping (`/slot/reel_stop` → trigger REEL_STOP)
+- [ ] OSC argument → RTPC value (`/slot/anticipation 0.8` → RTPC set)
+- [ ] Multi-client: prihvata od bilo kog IP-ja (production: whitelist)
 
-### Faza 3: Advanced Triggers (engine + UI)
-- [ ] Position trigger: per-clip triggerPosition, playhead poll per buffer
-- [ ] Marker trigger: bind event to TimelineMarker ID
-- [ ] MIDI trigger: midir crate, note → event mapping
-- [ ] OSC trigger: rosc crate, UDP listener, address → event mapping
-- [ ] Cooldown timer per event (AtomicU64 last_trigger_time)
-- [ ] Dart UI: trigger config per custom event
+### 3.3 Position Trigger
+- [ ] Per-event `triggerPosition: f64` (seconds on timeline)
+- [ ] Playhead poll svaki audio buffer (~5ms resolution)
+- [ ] One-shot ili repeating
+- [ ] Hysteresis: ne triggeruj ponovo ako se playhead vrati nazad pa opet prođe
+
+### 3.4 Marker Trigger
+- [ ] Bind custom event → TimelineMarker ID
+- [ ] Kad playhead pređe marker → trigger event
+- [ ] Marker create → auto-suggest event binding
+
+### 3.5 Cooldown System (svi trigger modes)
+- [ ] Per-event cooldown timer (seconds)
+- [ ] AtomicU64 last_trigger_timestamp
+- [ ] Cooldown ne blokira — samo preskače trigger
+
+---
+
+## FAZA 4: Monitoring & Diagnostics
+
+### 4.1 Connection Monitor UI
+- [ ] Status indicator: 🟢 Connected / 🟡 Reconnecting / 🔴 Disconnected
+- [ ] Latency display (roundtrip ms)
+- [ ] Message rate (msg/s in + out)
+- [ ] Seq gap counter
+- [ ] Last error message
+
+### 4.2 RTPC Monitor
+- [ ] Real-time prikaz svih server-driven RTPC vrednosti
+- [ ] Sparkline grafik za svaki parametar (poslednje 30s)
+- [ ] Source indicator: LOCAL vs SERVER
+
+### 4.3 Event Log
+- [ ] Scrollable log svih server events (trigger, rtpc, state)
+- [ ] Timestamp + seq + payload
+- [ ] Filter po tipu
+- [ ] Export za debugging
+
+### 4.4 Audio Telemetry → Server
+- [ ] Šaljemo nazad: koji eventi su odsvirani, trajanje, latencija
+- [ ] Server koristi za analytics (koji zvukovi → bolji retention)
+- [ ] Opt-in (GDPR compliant — nema player PII u telemetriji)
+
+---
+
+## FAZA 5: Production Hardening
+
+### 5.1 Error Handling
+- [ ] Svaka FFI/WebSocket greška → graceful recovery, NIKAD crash
+- [ ] Unknown message type → log + ignore
+- [ ] Malformed JSON → log + ignore
+- [ ] Server šalje event za nepostojeći audio → log + ignore
+- [ ] Memory pressure → unload oldest cached audio
+- [ ] CPU spike → reduce SRC quality (adaptive, VEĆ POSTOJI)
+
+### 5.2 Testing
+- [ ] Mock server za lokalno testiranje (Echo mode: šalje nazad iste evente)
+- [ ] Stress test: 1000 msg/s burst → verify no drops
+- [ ] Latency test: measure roundtrip za svaki message type
+- [ ] Reconnect test: kill connection → verify recovery
+- [ ] State recovery test: disconnect → reconnect → verify snapshot restore
+
+### 5.3 Logging
+- [ ] Structured logging (JSON format) za server-side ingest
+- [ ] Log levels: ERROR, WARN, INFO, DEBUG, TRACE
+- [ ] Rotation: max 10MB per log file, keep 5 files
+- [ ] Remote log shipping (optional — za production debugging)
+
+### 5.4 Configuration
+- [ ] Server URL(s) konfigurisane u project settings (ne hardkodirane)
+- [ ] RTPC name→ID mapping editable u UI
+- [ ] Trigger mappings (MIDI/OSC) savable per project
+- [ ] All config serializable u project file
 
 ---
 
 ## Reference
 
-- [WebSocket Heartbeat Best Practices](https://www.videosdk.live/developer-hub/websocket/ping-pong-frame-websocket)
-- [WebSocket Reconnection](https://oneuptime.com/blog/post/2026-01-27-websocket-reconnection-logic/view)
-- [tokio-tungstenite](https://github.com/snapview/tokio-tungstenite)
-- [Snapshot Interpolation (Gaffer On Games)](https://gafferongames.com/post/snapshot_interpolation/)
-- [UDP vs TCP for Games](https://gafferongames.com/post/udp_vs_tcp/)
-- [RGS Architecture](https://www.reelsoft.com/news/what-is-a-remote-gaming-server)
-- [iGaming Audio Trends 2025](https://igaming.whimsygames.co/blog/immersive-sound-design-in-game-slots-creating-atmosphere/)
-- [Adaptive Audio & Player Behavior](https://www.thedubrovniktimes.com/lifestyle/feature/item/18845-music-and-sound-in-gambling-how-audio-shapes-betting-behavior-in-2025)
+- [WebSocket Security Hardening](https://websocket.org/guides/security/)
+- [WebSocket Authentication with JWT](https://www.videosdk.live/developer-hub/websocket/websocket-authentication)
+- [Failover Mechanisms](https://www.geeksforgeeks.org/system-design/failover-mechanisms-in-system-design/)
+- [GLI iGaming Certification](https://gaminglabs.com/services/digital-igaming/)
+- [WebSocket DDoS Prevention](https://arunangshudas.com/blog/securing-node-js-websockets-prevention-of-ddos-and-bruteforce-attacks/)

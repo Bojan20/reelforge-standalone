@@ -10,37 +10,50 @@
 
 ---
 
-## SLEDEĆA SESIJA — Live Server Integration
+## SLEDEĆA SESIJA — Live Server (5 faza)
 
 **Arch doc:** `.claude/architecture/LIVE_SERVER_INTEGRATION.md`
 
-### Faza 1: Upgrade postojećeg WebSocket-a
-- [ ] Upgrade `websocket_client.dart` sa: reconnect backoff+jitter, heartbeat 20s/10s, seq ordering, dedup
-- [ ] JSON protocol: trigger, rtpc, state, batch, snapshot, ack
-- [ ] Server trigger → EventRegistry.triggerEvent()
-- [ ] State recovery posle reconnect (snapshot)
-- [ ] Dart UI: connection status indicator
+### Faza 1: WebSocket Production Bridge
+- [ ] WSS + JWT auth + token refresh + origin validation
+- [ ] Reconnect (exp backoff+jitter) + heartbeat (20s/10s)
+- [ ] Seq ordering + gap detection + dedup
+- [ ] State recovery (snapshot posle reconnect)
+- [ ] Failover: local fallback, multi-server, circuit breaker
+- [ ] Security: rate limit 100msg/s, 64KB max, TLS 1.3
+- [ ] Connection state machine (6 states)
 
-### Faza 2: Server → RTPC Bridge (koristi POSTOJEĆI RTPC)
-- [ ] Server `rtpc` JSON → rtpcSystemProvider.setRtpc(id, value, interpolationMs)
-- [ ] Server RTPC name → local RTPC ID mapping config
-- [ ] Jitter buffer 50ms za RTPC poruke
-- [ ] Server `state` → batch RTPC (game phase transitions)
+### Faza 2: Server → Audio Bridge
+- [ ] Server trigger → EventRegistry (+ overlap policy, priority)
+- [ ] Server rtpc → postojeći rtpcSystemProvider (+ jitter buffer)
+- [ ] Game state machine (state → RTPC preset, crossfade transition)
+- [ ] Asset pre-load/unload na zahtev servera
 
 ### Faza 3: Advanced Triggers
-- [ ] MIDI trigger: midir (POSTOJI) → custom event mapping
-- [ ] OSC trigger: dodaj rosc crate, UDP listener → event mapping
-- [ ] Position trigger: playhead poll per buffer
-- [ ] Marker trigger: timeline marker → event bind
-- [ ] Cooldown timer per event
+- [ ] MIDI: note→event, velocity→volume, CC→RTPC, learn mode
+- [ ] OSC: rosc crate, UDP listener, address→event mapping
+- [ ] Position + Marker triggers sa hysteresis
+- [ ] Cooldown timer (AtomicU64 per event)
+
+### Faza 4: Monitoring & Diagnostics
+- [ ] Connection monitor (status, latency, msg rate, gaps)
+- [ ] RTPC monitor (sparklines, local vs server source)
+- [ ] Event log (scrollable, filterable, exportable)
+- [ ] Audio telemetry → server (opt-in, GDPR)
+
+### Faza 5: Production Hardening
+- [ ] Error handling: NIKAD crash, graceful za SVE edge case
+- [ ] Mock server za testiranje
+- [ ] Stress/latency/reconnect/recovery testovi
+- [ ] Structured logging + rotation + remote shipping
+- [ ] All config in project settings (ne hardkodirano)
 
 ---
 
-## SVE ŠTO POSTOJI (ne treba dirati)
+## IMPLEMENTIRANO
 
-**37 Rust crate-ova** | **69 Flutter providera** | **168 servisa**
-
-Engine: playback, routing, metering, DSP (65 modula), SRC, plugins (5 formata), recording, export, MIDI, video
-SlotLab: 43 providera, 7 executora, AUREXIS, ALE, FluxMacro, diagnostics
-DAW: recording, mixing, automation, undo/redo, comping, MIDI editing, video sync
-Networking: WebSocket (basic), MIDI (midir), JSON-RPC, cloud sync, collaboration
+- **37 Rust crate-ova** | **69 providera** | **168 servisa**
+- Signalsmith Stretch, Warp Markers, Custom Events, RTPC (35 params)
+- Dep Upgrade (cpal 0.17, wgpu 28, objc2 0.6, Edition 2024)
+- SRC Quality (7 nivoa), Adaptive Diagnostics
+- 15 QA rundi, 55+ bugova fiksirano, 447 testova
