@@ -1,0 +1,13 @@
+[package]
+name = "rf-r8brain"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "r8brain-grade sample rate converter — pure Rust port of r8brain-free-src algorithm"
+
+# Attribution: Sample rate converter designed by Aleksey Vaneev of Voxengo
+# Original C++ source: https://github.com/avaneev/r8brain-free-src (MIT license)
+
+[dependencies]
+rustfft = { workspace = true }

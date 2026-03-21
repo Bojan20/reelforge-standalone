@@ -26,51 +26,61 @@
 **Cilj:** Bolji od Reapera — r8brain-level kvalitet, AVX-512 SIMD, adaptive per-voice quality, custom phase vocoder sa formant preservation.
 **Referenca:** `REAPER_SRC_ANALYSIS.md`
 
-### Postojeća infrastruktura (VEĆ RADI)
+### Faza RT-1: Blackman-Harris Sinc + SIMD — ✅ ZAVRŠENO
 
-- `OneShotVoice.fill_buffer()` (`playback.rs:1194`) — real-time playback sa SRC + pitch
-- `lanczos3_sample()` (`playback.rs:973`) — 6-tap Lanczos-3 interpolacija (~-90dB noise floor)
-- `SampleRateConverter` (`audio_import.rs:622`) — offline Lanczos-3 za batch import
-- `rate_ratio = audio.sample_rate / engine_sample_rate` — automatski SRC per-voice
-- `pitch_semitones` → `pitch_ratio = 2^(semi/12)` — već radi varispeed pitch
-- `engine_sample_rate` keširan u svakom OneShotVoice pri aktivaciji
-- 32 OneShotVoice pool-a, zero-alloc `fill_buffer()`
+- [x] `sinc_table.rs` — BH4 windowed sinc, pre-computed tabela, ResampleMode enum
+- [x] Zamena svih `lanczos3_sample()` (7 poziva) sa `sinc_table::interpolate_sample()`
+- [x] SIMD: NEON (aarch64) + AVX2 (x86_64) dot product za sinc convolution
+- [x] Gather strided → contiguous stack buffer → SIMD dot product
+- [x] Dinamička tabela (RwLock) — regeneracija pri mode change
+- [x] Dual quality: `set_playback_resample_mode()` — Point/Linear/Sinc(16-768)
+- [x] QA: window formula fix, NaN/Inf guard, channels=0 guard, min sinc_size=4
 
-### Faza RT-1: Zamena Lanczos-3 → Blackman-Harris Sinc + Quality Modes
+### Faza RT-1b: r8brain Rust Port (`crates/rf-r8brain/`)
 
-Zamena `lanczos3_sample()` sa konfigurablinim sinc kernel-om. NE novi crate — zamena JEDNE FUNKCIJE + ring buffer.
+Novi crate — pure Rust port r8brain-free-src (MIT licenca). Multi-stage resampling pipeline.
+Atribucija: "Sample rate converter designed by Aleksey Vaneev of Voxengo"
 
-- [ ] **`sinc_table.rs`** — pre-computed Blackman-Harris 4-term windowed sinc tabela
-  - Generiše se pri init/mode change, NE na audio thread-u
-  - `sinc_size` × `sinc_interp_size` (npr. 64×32 = 2048 f64 koeficijenata)
-  - Jedan `Vec<f64>` — alociran JEDNOM, nikad na audio thread-u
-- [ ] **`ResampleMode` enum** u `playback.rs`
-  - `Point` — nearest-neighbor (za lo-fi efekat)
-  - `Linear` — lerp (za scrub, najniži CPU)
-  - `Sinc(16)` — brz sa OK kvalitetom
-  - `Sinc(64)` — **default playback** (= Reaper Medium)
-  - `Sinc(192)` — good render
-  - `Sinc(384)` — **default render** (= Reaper Better)
-  - `Sinc(512/768)` — extreme quality
-  - `R8brain` — highest (Faza RT-1b, zasebna implementacija)
-- [ ] **`sinc_sample()` zamena** u `fill_buffer()` — umesto `lanczos3_sample()`
-  - Koristi pre-computed tabelu sa sub-sample interpolacijom
-  - Ring buffer za input history (sinc_size frames unatrag)
-  - Per-voice ring buffer pre-alociran u OneShotVoice (max sinc_size = 768 × channels × f32)
-- [ ] **SIMD inner loop** — `sinc_convolve_mono/stereo`
-  - AVX-512: 8× f64 parallel (4× brže od WDL SSE2)
-  - AVX2: 4× f64, SSE4.2: 2× f64, scalar fallback
-  - Auto-dispatch po existing rf-dsp pattern
-- [ ] **Dual quality settings** — `playback_resample_mode` + `render_resample_mode` u EngineConfig
-- [ ] **Latency** — `sinc_size / 2` samples, reportovano za PDC
+**Modul 1: Kaiser window + sinc filter generator**
+- [ ] Kaiser window sa Bessel I0 aproksimacijom (dva polinomijalna opsega)
+- [ ] Power-raised window varijanta
+- [ ] Sinc filter generacija sa konfigurabilinim transition band + stopband attenuation
+- [ ] Filter length iz attenuation-a (empirijske formule)
 
-### Faza RT-1b: r8brain Rust Port
+**Modul 2: Polynomial fractional interpolator (CORE inovacija)**
+- [ ] Filter bank generacija na diskretnim frakcionim pozicijama
+- [ ] FilterFracs = ceil(6.4^(ReqAtten/50)) — npr. ~2700 pozicija za 180dB
+- [ ] 8-tačka kubni spline koeficijenti (`calcSpline3p8Coeffs`)
+- [ ] Inner loop: `output += (a0 + a1*x + a2*x² + a3*x³) * input[i]`
+- [ ] Podržava red 0 (nearest), 1 (linear), 2 (quadratic), 3 (cubic)
 
-- [ ] **Port `r8brain-free-src`** (MIT, header-only C++) u čist Rust
-  - 2x oversample → banka kratkih polynomial sinc delay filtera
-  - Minimum-phase kernel via Hilbert transform (manje pre-ringing od linear sinc)
-  - Bolji kvalitet od Sinc(768) uz manje CPU
-  - Ovo je naš HIGHEST mode — iznad čega Reaper nema ništa
+**Modul 3: Half-band up/down sampler**
+- [ ] Sparse simetrični FIR (4-14 tapova) za 2x up/downsample
+- [ ] Kaskadno za veće faktore (4x = 2x→2x)
+- [ ] Pre-computed koeficijenti iz .inc fajlova
+
+**Modul 4: FFT-based overlap-save block convolver**
+- [ ] Overlap-save konvolucija za anti-aliasing/anti-imaging
+- [ ] Koristi `rustfft` (već u workspace dependencies)
+- [ ] O(N log N) umesto O(N²) za duge filtere
+
+**Modul 5: Minimum-phase transform**
+- [ ] Forward FFT → log-magnitude → inverse FFT → cepstrum
+- [ ] Hilbert transform na cepstrum
+- [ ] Forward FFT → restore magnitude → inverse FFT → minimum-phase kernel
+- [ ] Group delay kompenzacija
+
+**Modul 6: Pipeline orchestrator (CDSPResampler)**
+- [ ] Automatska konstrukcija pipeline-a na osnovu source/dest SR ratio
+- [ ] Presets: 206dB (27-bit), 180dB (24-bit), 136dB (16-bit)
+- [ ] `process()` — push input → get output (input-driven za real-time)
+- [ ] Integracija sa `sinc_table.rs` ResampleMode::R8brain
+
+**Testiranje:**
+- [ ] Bit-exact comparison sa r8brain C++ referenca (svaki modul)
+- [ ] ABX listening test: r8brain Rust vs r8brain C++ vs Sinc(768)
+- [ ] Latency verification
+- [ ] Zero-allocation u audio path-u (svi bufferi pre-alocirani)
 
 ### Faza RT-2: Adaptive Per-Voice Quality (NEMA u Reaperu)
 

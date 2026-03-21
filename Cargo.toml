@@ -38,6 +38,8 @@ members = [
     "crates/rf-release",
     # FluxMacro — Deterministic Orchestration Engine
     "crates/rf-fluxmacro",
+    # r8brain — Reference-grade sample rate converter
+    "crates/rf-r8brain",
     # WASM Port (standalone, edition 2021 for wasm-pack compatibility)
     "crates/rf-wasm",
     # Standalone plugin GUI host (out-of-process, avoids Flutter Metal conflict)
