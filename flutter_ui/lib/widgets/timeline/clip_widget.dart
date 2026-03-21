@@ -3493,9 +3493,23 @@ class _SmartToolZonePainter extends CustomPainter {
 /// Warp overlay painter: transient markers (gray dots) + warp markers (cyan lines)
 /// + stretch region coloring (cyan=compressed, orange=expanded)
 class _WarpOverlayPainter extends CustomPainter {
-  final List<({double sourcePos, double timelinePos, int id, bool locked})> markers;
+  final List<WarpMarkerData> markers;
   final List<double> transients;
   final double clipDuration;
+
+  // Pre-allocated paints (avoid GC in paint loop)
+  static final _expandPaint = Paint()..color = const Color(0x15FF9850);
+  static final _compressPaint = Paint()..color = const Color(0x1550D0FF);
+  static final _transientPaint = Paint()
+    ..color = const Color(0x60FFFFFF)
+    ..style = PaintingStyle.fill;
+  static final _markerPaint = Paint()
+    ..color = const Color(0xAA50D0FF)
+    ..strokeWidth = 1.0;
+  static final _lockedPaint = Paint()
+    ..color = const Color(0x60FFFFFF)
+    ..strokeWidth = 1.0;
+  static final _diamondPaint = Paint()..color = const Color(0xCC50D0FF);
 
   _WarpOverlayPainter({
     required this.markers,
@@ -3518,53 +3532,38 @@ class _WarpOverlayPainter extends CustomPainter {
         if (sourceLen <= 0 || timelineLen <= 0) continue;
         final ratio = timelineLen / sourceLen;
 
-        // Only show color for non-unity stretch (> 5% change)
         if ((ratio - 1.0).abs() > 0.05) {
           final x0 = m0.timelinePos * pxPerSec;
           final x1 = m1.timelinePos * pxPerSec;
-          final color = ratio > 1.0
-              ? const Color(0x15FF9850) // orange = expanded (slower)
-              : const Color(0x1550D0FF); // cyan = compressed (faster)
           canvas.drawRect(
-            Rect.fromLTRB(x0.clamp(0, size.width), 0, x1.clamp(0, size.width), size.height),
-            Paint()..color = color,
+            Rect.fromLTRB(x0.clamp(0.0, size.width), 0, x1.clamp(0.0, size.width), size.height),
+            ratio > 1.0 ? _expandPaint : _compressPaint,
           );
         }
       }
     }
 
     // Draw transient markers (small gray triangles at top)
-    final transientPaint = Paint()
-      ..color = const Color(0x60FFFFFF)
-      ..style = PaintingStyle.fill;
     for (final t in transients) {
       final x = t * pxPerSec;
       if (x < 0 || x > size.width) continue;
-      // Small downward triangle
       final path = Path()
         ..moveTo(x - 2, 0)
         ..lineTo(x + 2, 0)
         ..lineTo(x, 4)
         ..close();
-      canvas.drawPath(path, transientPaint);
+      canvas.drawPath(path, _transientPaint);
     }
 
-    // Draw warp marker lines (cyan vertical)
-    final markerPaint = Paint()
-      ..color = const Color(0xAA50D0FF)
-      ..strokeWidth = 1.0;
-    final lockedPaint = Paint()
-      ..color = const Color(0x60FFFFFF)
-      ..strokeWidth = 1.0;
+    // Draw warp marker lines (cyan vertical) + diamond handles
     for (final m in markers) {
       final x = m.timelinePos * pxPerSec;
       if (x < 0 || x > size.width) continue;
       canvas.drawLine(
         Offset(x, 0),
         Offset(x, size.height),
-        m.locked ? lockedPaint : markerPaint,
+        m.locked ? _lockedPaint : _markerPaint,
       );
-      // Small diamond handle at top
       if (!m.locked) {
         final diamond = Path()
           ..moveTo(x, 2)
@@ -3572,14 +3571,23 @@ class _WarpOverlayPainter extends CustomPainter {
           ..lineTo(x, 10)
           ..lineTo(x - 3, 6)
           ..close();
-        canvas.drawPath(diamond, Paint()..color = const Color(0xCC50D0FF));
+        canvas.drawPath(diamond, _diamondPaint);
       }
     }
   }
 
   @override
-  bool shouldRepaint(_WarpOverlayPainter oldDelegate) =>
-      markers != oldDelegate.markers ||
-      transients != oldDelegate.transients ||
-      clipDuration != oldDelegate.clipDuration;
+  bool shouldRepaint(_WarpOverlayPainter oldDelegate) {
+    if (clipDuration != oldDelegate.clipDuration) return true;
+    if (markers.length != oldDelegate.markers.length) return true;
+    if (transients.length != oldDelegate.transients.length) return true;
+    // Deep compare markers (WarpMarkerData has == operator)
+    for (int i = 0; i < markers.length; i++) {
+      if (markers[i] != oldDelegate.markers[i]) return true;
+    }
+    for (int i = 0; i < transients.length; i++) {
+      if (transients[i] != oldDelegate.transients[i]) return true;
+    }
+    return false;
+  }
 }

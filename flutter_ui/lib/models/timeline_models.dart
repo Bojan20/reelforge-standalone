@@ -33,6 +33,47 @@ enum ClipChannelMode {
   swapLR,
 }
 
+/// Warp marker data for Flutter UI (mirrors Rust WarpMarker)
+class WarpMarkerData {
+  final int id;
+  final double sourcePos;    // seconds in original audio
+  final double timelinePos;  // seconds on timeline relative to clip start
+  final bool locked;
+
+  const WarpMarkerData({
+    required this.id,
+    required this.sourcePos,
+    required this.timelinePos,
+    this.locked = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'sourcePos': sourcePos,
+    'timelinePos': timelinePos,
+    'locked': locked,
+  };
+
+  factory WarpMarkerData.fromJson(Map<String, dynamic> json) => WarpMarkerData(
+    id: json['id'] as int? ?? 0,
+    sourcePos: (json['sourcePos'] as num?)?.toDouble() ?? 0.0,
+    timelinePos: (json['timelinePos'] as num?)?.toDouble() ?? 0.0,
+    locked: json['locked'] as bool? ?? false,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WarpMarkerData &&
+          id == other.id &&
+          sourcePos == other.sourcePos &&
+          timelinePos == other.timelinePos &&
+          locked == other.locked;
+
+  @override
+  int get hashCode => Object.hash(id, sourcePos, timelinePos, locked);
+}
+
 /// Clip on a timeline track
 class TimelineClip {
   final String id;
@@ -106,10 +147,8 @@ class TimelineClip {
   final bool warpEnabled;
   /// Detected transient positions (seconds relative to clip start, from onset detection)
   final List<double> warpTransients;
-  /// Warp marker positions: list of (sourcePos, timelinePos) pairs
-  /// sourcePos = position in original audio (seconds)
-  /// timelinePos = position on timeline (seconds relative to clip start)
-  final List<({double sourcePos, double timelinePos, int id, bool locked})> warpMarkers;
+  /// Warp markers for per-segment time stretching
+  final List<WarpMarkerData> warpMarkers;
 
   const TimelineClip({
     required this.id,
@@ -197,7 +236,7 @@ class TimelineClip {
     String? notes,
     bool? warpEnabled,
     List<double>? warpTransients,
-    List<({double sourcePos, double timelinePos, int id, bool locked})>? warpMarkers,
+    List<WarpMarkerData>? warpMarkers,
   }) {
     return TimelineClip(
       id: id ?? this.id,
@@ -1604,6 +1643,9 @@ class GlueHistory {
         'snapOffset': c.snapOffset,
         'channelMode': c.channelMode.index,
         'notes': c.notes,
+        'warpEnabled': c.warpEnabled,
+        'warpTransients': c.warpTransients,
+        'warpMarkers': c.warpMarkers.map((m) => m.toJson()).toList(),
       }).toList(),
     }).toList(),
   };
@@ -1637,6 +1679,11 @@ class GlueHistory {
           snapOffset: (cm['snapOffset'] as num?)?.toDouble() ?? 0,
           channelMode: ClipChannelMode.values[cm['channelMode'] as int? ?? 0],
           notes: cm['notes'] as String? ?? '',
+          warpEnabled: cm['warpEnabled'] as bool? ?? false,
+          warpTransients: (cm['warpTransients'] as List?)
+              ?.map((e) => (e as num).toDouble()).toList() ?? const [],
+          warpMarkers: (cm['warpMarkers'] as List?)
+              ?.map((e) => WarpMarkerData.fromJson(e as Map<String, dynamic>)).toList() ?? const [],
         );
       }).toList();
 
