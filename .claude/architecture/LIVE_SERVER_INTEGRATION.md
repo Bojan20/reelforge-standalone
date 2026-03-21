@@ -1,212 +1,215 @@
 # Live Server Integration — Ultimate Architecture
 
 **Created:** 2026-03-21
-**Status:** Architecture ready
+**Status:** Architecture ready, implementation next
 
 ---
 
-## Šta Wwise/FMOD NE MOGU (naša prednost)
+## Kompetitivna prednost nad Wwise/FMOD
 
 | Limitacija Wwise/FMOD | FluxForge rešenje |
 |------------------------|-------------------|
-| Nema native RGS integraciju | WebSocket → RGS bridge sa <5ms latencijom |
-| Nema server-side audio triggering | Server šalje JSON event → engine triggeruje lokalno |
-| Offline authoring samo | Real-time authoring + live preview sa serverom |
-| Nema player behavior audio adaptation | AI-driven RTPC iz server analytics-a |
-| Nema per-player personalizacija | Server šalje player profil → audio se prilagođava |
-| Closed source, skupa licenca | Open, custom, FluxForge-native |
-| Generic game audio | Specijalizovan za iGaming/slots sa domain znanjem |
+| Nema native RGS integraciju | WebSocket → RGS bridge <5ms |
+| Nema server-side audio triggering | JSON event → lokalni trigger |
+| Offline authoring samo | Live preview sa serverom |
+| Nema player behavior adaptation | AI-driven RTPC iz server analytics |
+| Nema per-player personalizacija | Player profil → audio prilagođavanje |
+| Nema event ordering garancija | Sequence numbering + jitter buffer |
+| Nema reconnect resilience | Exponential backoff + state recovery |
+| Nema audio analytics | Telemetry → retention korelacija |
 
 ---
 
-## Trigger Modes (Advanced)
+## WebSocket Protocol — Sve rupe pokrivene
 
-### 1. Manual (✅ Implementirano)
-Korisnik klikne PLAY → event se triggeruje.
+### Heartbeat (KRITIČNO)
+- Ping/pong svake 20s (industry standard)
+- Pong timeout: 10s → connection dead
+- Firewall/NAT idle timeout: 60s → heartbeat čuva konekciju
+- Browser limitation: nema native ping API → custom ping frame
 
-### 2. Position Trigger
-- Event se triggeruje kad playhead pređe zadatu timeline poziciju
-- Korisnik definiše `triggerPosition: f64` (sekunde)
-- Engine polling: svaki audio buffer proveri `playhead >= triggerPosition`
-- One-shot ili loop trigger
+### Reconnect (KRITIČNO)
+- Exponential backoff: 1s → 2s → 4s → 8s → 16s → max 30s
+- Jitter: random ±25% na svaki interval (sprečava thundering herd)
+- Max retry: beskonačno (server može biti offline satima)
+- State recovery posle reconnect: server šalje current_state snapshot
+- Auth token refresh pre reconnect-a (JWT expiry)
 
-### 3. Marker Trigger
-- Event se triggeruje kad playhead pređe timeline marker
-- Koristi postojeći `TimelineMarker` sistem
-- Bind: `customEvent.triggerMarkerId = "marker_123"`
-- Engine: kad marker pređe → `eventRegistry.triggerEvent()`
+### Event Ordering (KRITIČNO za audio)
+- Svaki event ima `seq: u64` monotoni brojač
+- Klijent detektuje gap: `received_seq > expected_seq + 1` → request missing events
+- Out-of-order tolerance: 50ms jitter buffer
+- Duplicate detection: set poslednjih 100 seq brojeva
 
-### 4. MIDI Trigger
-- Event se triggeruje na MIDI note input
-- `triggerMidiNote: int` (0-127), `triggerMidiChannel: int` (1-16)
-- Koristi CPAL MIDI input ili `midir` crate (već u Cargo.toml)
-- Velocity → volume mapping
+### Latency Target
+- Audio event trigger: <20ms end-to-end (ideal)
+- RTPC parameter change: <50ms (smooth interpolation maskira latenciju)
+- State change: <100ms (acceptable za game state transitions)
 
-### 5. OSC Trigger
-- Event se triggeruje na OSC poruku sa mreže
-- `triggerOscAddress: String` (npr. `/slot/reel_stop`)
-- UDP listener na konfigurisanom portu
-- Unreal/Unity/game server šalje OSC → FluxForge reaguje
-
-### 6. WebSocket Trigger (NOVO — ne postoji u Wwise/FMOD)
-- Event se triggeruje na WebSocket poruku od servera
-- `triggerWsEvent: String` (npr. `SPIN_RESULT`)
-- Bidirekciona komunikacija: server ↔ FluxForge
-- JSON payload sa kontekstom (win amount, multiplier, etc.)
-- RTPC parametri iz server podataka (win_tier → volume/pitch/bus)
-
-### 7. RGS Bridge Trigger (ULTIMATIVNO — nijedan DAW nema ovo)
-- Direktna integracija sa Remote Gaming Server-om
-- RGS šalje game event (SPIN, WIN, BONUS, FREE_SPINS) → FluxForge triggeruje audio
-- Latencija <5ms (WebSocket, isti data centar)
-- Payload: `{ event: "WIN", tier: 3, amount: 150.0, multiplier: 5 }`
-- FluxForge mapira na: bus routing, volume, pitch, event selection
-- **Ovo ne postoji nigde** — Wwise/FMOD nemaju RGS awareness
+### Graceful Shutdown
+- SIGTERM → drain current events → close WebSocket → flush audio
 
 ---
 
-## Live Server Protocol
+## Protocol Format (JSON over WSS)
 
-```
-FluxForge Studio ←→ WebSocket ←→ Game Server / RGS
-                                    ↓
-                              Game Logic (RNG, math model)
-                                    ↓
-                              Event: { type: "REEL_STOP", reel: 2, symbol: "WILD" }
-                                    ↓
-                              FluxForge receives → triggers audio_REEL_STOP
-                              with RTPC: reel_index=2, symbol_type=WILD
-```
-
-### Protocol Format (JSON over WebSocket)
-
-**Server → FluxForge:**
-```json
-{
-  "type": "trigger",
-  "event": "REEL_STOP",
-  "params": {
-    "reel_index": 2,
-    "symbol": "WILD",
-    "win_amount": 0
-  }
-}
-```
+### Server → FluxForge
 
 ```json
-{
-  "type": "rtpc",
-  "param": "anticipation_level",
-  "value": 0.8
-}
+{"type":"trigger","seq":1042,"ts":1711234567890,
+ "event":"REEL_STOP","params":{"reel":2,"symbol":"WILD"}}
+
+{"type":"rtpc","seq":1043,"ts":1711234567891,
+ "param":"anticipation","value":0.8,"interpolation":"linear","duration_ms":500}
+
+{"type":"state","seq":1044,"ts":1711234567892,
+ "group":"game_phase","state":"FREE_SPINS","params":{"spins_remaining":10}}
+
+{"type":"batch","seq":1045,"ts":1711234567893,
+ "events":[
+   {"type":"trigger","event":"REEL_STOP","params":{"reel":0}},
+   {"type":"trigger","event":"REEL_STOP","params":{"reel":1}},
+   {"type":"trigger","event":"REEL_STOP","params":{"reel":2}}
+ ]}
+
+{"type":"snapshot","seq":0,
+ "state":{"game_phase":"BASE","anticipation":0.0,"music_intensity":0.5},
+ "comment":"Full state recovery after reconnect"}
 ```
 
-```json
-{
-  "type": "state",
-  "group": "game_state",
-  "state": "FREE_SPINS"
-}
-```
-
-**FluxForge → Server:**
-```json
-{
-  "type": "audio_complete",
-  "event": "BIG_WIN_CELEBRATION",
-  "duration_ms": 3500
-}
-```
+### FluxForge → Server
 
 ```json
-{
-  "type": "ready",
-  "status": "all_assets_loaded"
-}
+{"type":"ack","seq":1042}
+
+{"type":"audio_complete","event":"BIG_WIN","duration_ms":3500}
+
+{"type":"ready","assets_loaded":true,"latency_ms":12}
+
+{"type":"error","code":"EVENT_NOT_FOUND","event":"UNKNOWN_EVENT"}
 ```
 
 ---
 
-## AI-Driven Adaptive Audio (ULTIMATIVNO)
+## RTPC System (Real-Time Parameter Control)
 
-### Player Behavior Audio Adaptation
-- Server šalje player metriku: `session_duration`, `bet_size`, `win_rate`, `excitement_score`
-- FluxForge prilagođava:
-  - **Tempo** muzike (brži za uzbuđene igrače)
-  - **Intenzitet** zvučnih efekata (louder za high-roller)
-  - **Varijacija** (više varijacija za duže sesije, sprečava zamor)
-  - **Near-miss feedback** intenzitet (41% veći engagement po istraživanjima)
+### Problem sa naivnim pristupom
+- Server šalje `value=0.8`, audio thread odmah setuje → čujan skok/klik
+- Network jitter: vrednosti stižu neravnomerno → stutter
 
-### Personalizovani Audio Profili
-- Server šalje `player_audio_profile`:
-  - Preferred music genre (electronic/orchestral/ambient)
-  - Volume preference (loud/medium/quiet)
-  - Effect intensity (dramatic/subtle)
-- FluxForge bira odgovarajući audio set per profil
+### Rešenje: Interpolation + Jitter Buffer
 
-### Real-Time Parameter Control (RTPC) iz Servera
-- Isti koncept kao Wwise RTPC ali sa server-side izvorom
-- Parametri: `excitement`, `anticipation`, `tension`, `celebration`
-- Mapiraju se na: volume, pitch, filter cutoff, reverb wet, bus balance
-- Interpolacija: smooth transition (ne skok) kad se RTPC menja
+```
+Server value ──→ Jitter Buffer (50ms) ──→ Smoother ──→ Audio Engine
+                  (reorders,              (linear/exp
+                   deduplicates)           interpolation)
+```
+
+- **Jitter buffer**: čuva poslednje 3-5 vrednosti, sortira po timestamp-u
+- **Smoother**: interpolira od trenutne do ciljne vrednosti
+  - Linear: `current += (target - current) * speed * dt`
+  - Exponential: `current = current * 0.95 + target * 0.05` (per audio frame)
+  - Timed: dostiže target za `duration_ms` (server specificira)
+- **Audio thread**: čita interpoliranu vrednost (AtomicF64, zero lock)
+
+### Parametri
+| Param | Range | Default | Opis |
+|-------|-------|---------|------|
+| `anticipation` | 0-1 | 0 | Near-win uzbuđenje |
+| `celebration` | 0-1 | 0 | Win intenzitet |
+| `tension` | 0-1 | 0.3 | Bazična napetost |
+| `music_intensity` | 0-1 | 0.5 | Muzika glasnoća/tempo |
+| `sfx_intensity` | 0-1 | 0.7 | SFX glasnoća |
+| `player_excitement` | 0-1 | 0.5 | AI-procenjena uzbuđenost |
+
+### Mapiranje na Audio Engine
+- `anticipation` → reverb wet %, filter cutoff, tremolo speed
+- `celebration` → master volume boost, sparkle SFX trigger, confetti sound
+- `tension` → low-pass filter, sub bass level, heartbeat tempo
+- `music_intensity` → bus volume, tempo BPM multiplier
+- `player_excitement` → varijacija choice (više varijacija za uzbuđene)
 
 ---
 
-## Šta ne postoji nigde (naša inovacija)
+## Trigger Modes
 
-| Feature | Status industrije | FluxForge |
-|---------|------------------|-----------|
-| **RGS-native audio engine** | Niko nema | Direktna integracija sa game math |
-| **Server-driven RTPC** | Wwise ima RTPC ali lokalno | Server šalje RTPC remote |
-| **Player-adaptive audio** | Samo istraživanja | Implementirano sa AI scoring |
-| **Cross-session audio memory** | Ne postoji | Server pamti player preference |
-| **Predictive audio** | Ne postoji | ML predviđa sledeći event → pre-load audio |
-| **Audio analytics** | Osnovno u Wwise | Server-side: koji zvukovi koreliraju sa retention |
-| **Multi-player sync audio** | FMOD ima basic | Server koordinira audio između igrača u realnom vremenu |
-| **Regulatory audio compliance** | Manual | Automatska provera glasnoće po jurisdikciji |
+| Mode | Izvor | Latency | Reliability |
+|------|-------|---------|-------------|
+| manual | UI klik | 0ms | 100% |
+| server | WebSocket event | 5-50ms | 99.9% (TCP) |
+| position | Playhead polling | <5ms | 100% |
+| marker | Timeline marker cross | <5ms | 100% |
+| midi | MIDI input (midir) | <2ms | 100% |
+| osc | UDP packet | <5ms | 95% (UDP) |
+| rgs | RGS game event | 10-100ms | 99.99% |
+
+---
+
+## Sve rupe koje moramo pokriti
+
+### Network
+- [ ] Connection drop mid-event → audio continues playing lokalno, reconnect u pozadini
+- [ ] Server restart → klijent reconnect sa state recovery
+- [ ] Firewall blocks WSS → fallback na HTTP long-polling
+- [ ] High latency (>200ms) → jitter buffer automatski raste
+- [ ] Packet duplication → seq dedup
+- [ ] Man-in-the-middle → WSS (TLS 1.3), auth token per session
+
+### Audio
+- [ ] Event stiže ali audio nije učitan → queue + play kad loaded
+- [ ] Isti event trigerovan 2x brzo → overlap ili replace (konfigurisano po eventu)
+- [ ] RTPC se menja tokom fade-out → smooth transition, ne restart
+- [ ] Server šalje event za nepostojeći zvuk → graceful error, ne crash
+- [ ] Audio buffer underrun tokom network spike → silence, ne glitch
+
+### State
+- [ ] Game state mismatch posle reconnect → server snapshot overrides local
+- [ ] Concurrent RTPC updates za isti param → last-write-wins sa timestamp
+- [ ] Server šalje stale event (old seq) → drop silently
 
 ---
 
 ## Implementacioni plan
 
-### Faza 1: WebSocket Server Bridge
-- [ ] WebSocket klijent u rf-engine (tokio + tungstenite)
-- [ ] JSON protocol parser: trigger, rtpc, state poruke
-- [ ] EventRegistry integracija: server event → audio trigger
-- [ ] Reconnect logika sa exponential backoff
+### Faza 1: WebSocket Bridge (engine)
+- [ ] `ServerBridge` struct u rf-engine: tokio + tokio-tungstenite
+- [ ] Connect/disconnect/reconnect sa exponential backoff + jitter
+- [ ] Heartbeat ping/pong (20s interval, 10s timeout)
+- [ ] JSON parser: trigger, rtpc, state, batch, snapshot, ack
+- [ ] Seq tracking + gap detection + dedup
+- [ ] EventRegistry integracija: server trigger → audio
+- [ ] Error handling: unknown event, missing audio, invalid params
+- [ ] FFI: server_connect(url), server_disconnect(), server_status()
+- [ ] Dart UI: connection status indicator + URL config
 
-### Faza 2: RTPC iz Servera
-- [ ] RTPC parameter system u engine (named params, float values)
-- [ ] Server RTPC → engine parameter mapping
-- [ ] Smooth interpolation (ne skok) za RTPC promene
-- [ ] UI: RTPC monitor panel (real-time vrednosti)
+### Faza 2: RTPC System (engine)
+- [ ] `RtpcManager` struct: HashMap<String, RtpcParam>
+- [ ] `RtpcParam`: current, target, interpolation mode, duration
+- [ ] Audio-thread read: `AtomicU64` per param (f64 bits)
+- [ ] UI-thread write: set_target() sa interpolation
+- [ ] Smoother: linear/exponential/timed per param per audio frame
+- [ ] Jitter buffer: 50ms, reorder by timestamp
+- [ ] Mapping config: param → bus volume, filter, tempo, etc.
+- [ ] FFI: rtpc_set(name, value), rtpc_get(name), rtpc_list()
+- [ ] Dart UI: RTPC monitor panel (real-time param values)
 
-### Faza 3: Advanced Trigger Modes
-- [ ] Position trigger: playhead polling
-- [ ] Marker trigger: timeline marker event binding
-- [ ] MIDI trigger: midir input → event mapping
-- [ ] OSC trigger: UDP listener → event mapping
-- [ ] Cooldown timer per trigger
-
-### Faza 4: AI Adaptive Audio
-- [ ] Player behavior scoring (server → FluxForge)
-- [ ] Audio profile selection based on player metrics
-- [ ] Dynamic music tempo/intensity based on excitement
-- [ ] Predictive pre-loading based on game state ML model
-
-### Faza 5: Analytics + Compliance
-- [ ] Audio event telemetry → server (which sounds played when)
-- [ ] Retention correlation: which audio → longer sessions
-- [ ] Loudness compliance per jurisdiction (UK, Malta, NJ, etc.)
-- [ ] A/B testing framework: compare audio sets on player metrics
+### Faza 3: Advanced Triggers (engine + UI)
+- [ ] Position trigger: per-clip triggerPosition, playhead poll per buffer
+- [ ] Marker trigger: bind event to TimelineMarker ID
+- [ ] MIDI trigger: midir crate, note → event mapping
+- [ ] OSC trigger: rosc crate, UDP listener, address → event mapping
+- [ ] Cooldown timer per event (AtomicU64 last_trigger_time)
+- [ ] Dart UI: trigger config per custom event
 
 ---
 
 ## Reference
 
-- [Wwise vs FMOD](https://www.thegameaudioco.com/wwise-or-fmod-a-guide-to-choosing-the-right-audio-tool-for-every-game-developer)
-- [RGS Architecture - Reelsoft](https://www.reelsoft.com/news/what-is-a-remote-gaming-server)
+- [WebSocket Heartbeat Best Practices](https://www.videosdk.live/developer-hub/websocket/ping-pong-frame-websocket)
+- [WebSocket Reconnection](https://oneuptime.com/blog/post/2026-01-27-websocket-reconnection-logic/view)
+- [tokio-tungstenite](https://github.com/snapview/tokio-tungstenite)
+- [Snapshot Interpolation (Gaffer On Games)](https://gafferongames.com/post/snapshot_interpolation/)
+- [UDP vs TCP for Games](https://gafferongames.com/post/udp_vs_tcp/)
+- [RGS Architecture](https://www.reelsoft.com/news/what-is-a-remote-gaming-server)
 - [iGaming Audio Trends 2025](https://igaming.whimsygames.co/blog/immersive-sound-design-in-game-slots-creating-atmosphere/)
 - [Adaptive Audio & Player Behavior](https://www.thedubrovniktimes.com/lifestyle/feature/item/18845-music-and-sound-in-gambling-how-audio-shapes-betting-behavior-in-2025)
-- [Slot Game Audio Innovation 2026](https://gametyrant.com/news/the-evolution-of-slot-themes-in-2026-is-all-about-cinematic-realism)
-- [Casino Games API Integration](https://www.groovetech.com/game-aggregation/single-api)
