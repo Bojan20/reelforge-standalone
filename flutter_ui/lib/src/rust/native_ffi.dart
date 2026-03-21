@@ -11120,6 +11120,67 @@ extension SrcQualityAPI on NativeFFI {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// WARP MARKERS API
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Warp marker type enum (matches Rust WarpMarkerType)
+enum WarpMarkerType { transient, manual, quantized }
+
+/// Warp Markers API — per-clip time warping with transient detection
+extension WarpMarkersAPI on NativeFFI {
+  static final _clipWarpEnable = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64, Int32), int Function(int, int)>('clip_warp_enable');
+  static final _clipAddWarpMarker = _loadNativeLibrary().lookupFunction<
+      Uint64 Function(Uint64, Double, Double, Uint32),
+      int Function(int, double, double, int)>('clip_add_warp_marker');
+  static final _clipRemoveWarpMarker = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64, Uint64), int Function(int, int)>('clip_remove_warp_marker');
+  static final _clipMoveWarpMarker = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64, Uint64, Double),
+      int Function(int, int, double)>('clip_move_warp_marker');
+  static final _clipWarpMarkerCount = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(Uint64), int Function(int)>('clip_warp_marker_count');
+  static final _clipWarpQuantize = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64, Double, Double),
+      int Function(int, double, double)>('clip_warp_quantize');
+  static final _clipWarpCreateFromTransients = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64), int Function(int)>('clip_warp_create_from_transients');
+  static final _clipDetectTransients = _loadNativeLibrary().lookupFunction<
+      Int32 Function(Uint64, Double), int Function(int, double)>('clip_detect_transients');
+
+  /// Enable/disable warp on a clip
+  bool clipWarpEnable(int clipId, bool enable) =>
+      _clipWarpEnable(clipId, enable ? 1 : 0) == 1;
+
+  /// Add a warp marker. Returns marker ID.
+  int clipAddWarpMarker(int clipId, double sourcePos, double timelinePos, WarpMarkerType type) =>
+      _clipAddWarpMarker(clipId, sourcePos, timelinePos, type.index);
+
+  /// Remove a warp marker
+  bool clipRemoveWarpMarker(int clipId, int markerId) =>
+      _clipRemoveWarpMarker(clipId, markerId) == 1;
+
+  /// Move a warp marker's timeline position (drag)
+  bool clipMoveWarpMarker(int clipId, int markerId, double newTimelinePos) =>
+      _clipMoveWarpMarker(clipId, markerId, newTimelinePos) == 1;
+
+  /// Get warp marker count
+  int clipWarpMarkerCount(int clipId) => _clipWarpMarkerCount(clipId);
+
+  /// Quantize markers to grid
+  bool clipWarpQuantize(int clipId, double gridInterval, double strength) =>
+      _clipWarpQuantize(clipId, gridInterval, strength) == 1;
+
+  /// Create warp markers from detected transients
+  bool clipWarpCreateFromTransients(int clipId) =>
+      _clipWarpCreateFromTransients(clipId) == 1;
+
+  /// Detect transients in clip audio (offline). Returns count or -1 on error.
+  int clipDetectTransients(int clipId, {double sensitivity = 1.5}) =>
+      _clipDetectTransients(clipId, sensitivity);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // MORPHING EQ API - Preset Interpolation
 // ═══════════════════════════════════════════════════════════════════════════
 

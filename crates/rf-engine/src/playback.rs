@@ -7105,12 +7105,24 @@ impl PlaybackEngine {
                 continue;
             }
 
-            // Calculate source position
-            let mut source_pos_f64 = if has_pitch_or_rate_env {
+            // Calculate source position — 3 modes:
+            // 1. Warp markers: segment lookup (overrides stretch_ratio)
+            // 2. Envelope: integrated rate from pitch/playrate envelopes
+            // 3. Static: direct calculation from stretch_ratio
+            let mut source_pos_f64 = if clip.warp_state.enabled && !clip.warp_state.segments.is_empty() {
+                // WARP MODE: per-segment stretch via marker lookup
+                let timeline_seconds = clip_relative_sample as f64 / sample_rate;
+                if let Some((_seg_idx, src_seconds)) = clip.warp_state.lookup_segment(timeline_seconds) {
+                    // Convert source seconds to source samples + apply source offset
+                    src_seconds * source_sample_rate + source_offset_samples_f64
+                } else {
+                    // Fallback: identity mapping
+                    clip_relative_sample as f64 * rate_ratio + source_offset_samples_f64
+                }
+            } else if has_pitch_or_rate_env {
                 let clip_offset = clip_relative_sample as u64;
 
                 if !env_initialized || clip_relative_sample != env_prev_clip_offset + 1 {
-                    // First sample or discontinuity (seek): compute full integral
                     env_source_pos = clip.source_position_at(
                         clip_offset,
                         rate_ratio,
@@ -7118,7 +7130,6 @@ impl PlaybackEngine {
                     );
                     env_initialized = true;
                 } else {
-                    // Incremental: advance by current rate (trapezoidal with prev sample)
                     let current_rate = clip.playback_rate_at(clip_offset);
                     let prev_rate = clip.playback_rate_at(clip_offset.saturating_sub(1));
                     env_source_pos += (prev_rate + current_rate) * 0.5 * rate_ratio;
@@ -7361,8 +7372,15 @@ impl PlaybackEngine {
                     continue;
                 }
 
-                // Source position
-                let mut source_pos_f64 = if has_pitch_or_rate_env {
+                // Source position — warp lookup or standard calculation
+                let mut source_pos_f64 = if clip.warp_state.enabled && !clip.warp_state.segments.is_empty() {
+                    let timeline_seconds = clip_relative_sample as f64 / sample_rate;
+                    if let Some((_seg_idx, src_seconds)) = clip.warp_state.lookup_segment(timeline_seconds) {
+                        src_seconds * source_sample_rate + source_offset_samples_f64
+                    } else {
+                        clip_relative_sample as f64 * rate_ratio + source_offset_samples_f64
+                    }
+                } else if has_pitch_or_rate_env {
                     let clip_offset = clip_relative_sample as u64;
                     if !env_initialized || clip_relative_sample != env_prev_clip_offset + 1 {
                         env_source_pos = clip.source_position_at(
