@@ -261,11 +261,11 @@ pub struct AudioInputs;
 
 impl AudioInputs {
     /// Generate a test buffer with various patterns
-    pub fn pattern_buffer(gen: &mut InputGenerator, len: usize, pattern: AudioPattern) -> Vec<f64> {
+    pub fn pattern_buffer(rng: &mut InputGenerator, len: usize, pattern: AudioPattern) -> Vec<f64> {
         match pattern {
             AudioPattern::Silence => vec![0.0; len],
             AudioPattern::DcOffset => {
-                let offset = gen.f64_range(-1.0, 1.0);
+                let offset = rng.f64_range(-1.0, 1.0);
                 vec![offset; len]
             }
             AudioPattern::Impulse => {
@@ -276,15 +276,15 @@ impl AudioInputs {
                 buf
             }
             AudioPattern::Sine => {
-                let freq = gen.frequency();
+                let freq = rng.frequency();
                 let sr = 44100.0;
                 (0..len)
                     .map(|i| (2.0 * std::f64::consts::PI * freq * i as f64 / sr).sin())
                     .collect()
             }
-            AudioPattern::Noise => gen.normalized_audio(len),
+            AudioPattern::Noise => rng.normalized_audio(len),
             AudioPattern::Square => {
-                let freq = gen.frequency();
+                let freq = rng.frequency();
                 let sr = 44100.0;
                 (0..len)
                     .map(|i| {
@@ -300,11 +300,11 @@ impl AudioInputs {
             AudioPattern::EdgeCases => {
                 let mut buf = Vec::with_capacity(len);
                 for _ in 0..len {
-                    buf.push(gen.f64());
+                    buf.push(rng.f64());
                 }
                 buf
             }
-            AudioPattern::Random => gen.audio_samples(len),
+            AudioPattern::Random => rng.audio_samples(len),
         }
     }
 }
@@ -354,22 +354,22 @@ mod tests {
 
     #[test]
     fn test_f64_range() {
-        let mut gen = InputGenerator::new(Some(123), 1024).with_edge_cases(false);
+        let mut rng = InputGenerator::new(Some(123), 1024).with_edge_cases(false);
 
         for _ in 0..1000 {
-            let val = gen.f64_range(0.0, 1.0);
+            let val = rng.f64_range(0.0, 1.0);
             assert!(val >= 0.0 && val <= 1.0, "Value {} out of range", val);
         }
     }
 
     #[test]
     fn test_audio_patterns() {
-        let mut gen = InputGenerator::new(Some(456), 1024);
+        let mut rng = InputGenerator::new(Some(456), 1024);
 
-        let silence = AudioInputs::pattern_buffer(&mut gen, 100, AudioPattern::Silence);
+        let silence = AudioInputs::pattern_buffer(&mut rng, 100, AudioPattern::Silence);
         assert!(silence.iter().all(|&s| s == 0.0));
 
-        let impulse = AudioInputs::pattern_buffer(&mut gen, 100, AudioPattern::Impulse);
+        let impulse = AudioInputs::pattern_buffer(&mut rng, 100, AudioPattern::Impulse);
         assert_eq!(impulse[0], 1.0);
         assert!(impulse[1..].iter().all(|&s| s == 0.0));
     }

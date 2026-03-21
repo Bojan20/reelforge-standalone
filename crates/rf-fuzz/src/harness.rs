@@ -92,7 +92,7 @@ impl FuzzRunner {
     where
         F: Fn(Vec<u8>) -> R + panic::RefUnwindSafe,
     {
-        self.fuzz_internal(|gen| gen.bytes(self.config.max_input_size), target)
+        self.fuzz_internal(|rng| rng.bytes(self.config.max_input_size), target)
     }
 
     /// Fuzz with f64 inputs
@@ -100,7 +100,7 @@ impl FuzzRunner {
     where
         F: Fn(f64) -> R + panic::RefUnwindSafe,
     {
-        self.fuzz_internal(|gen| gen.f64(), target)
+        self.fuzz_internal(|rng| rng.f64(), target)
     }
 
     /// Fuzz with i32 inputs
@@ -108,7 +108,7 @@ impl FuzzRunner {
     where
         F: Fn(i32) -> R + panic::RefUnwindSafe,
     {
-        self.fuzz_internal(|gen| gen.i32(), target)
+        self.fuzz_internal(|rng| rng.i32(), target)
     }
 
     /// Fuzz with audio buffer inputs
@@ -116,7 +116,7 @@ impl FuzzRunner {
     where
         F: Fn(Vec<f64>) -> R + panic::RefUnwindSafe,
     {
-        self.fuzz_internal(|gen| gen.audio_samples(buffer_size), target)
+        self.fuzz_internal(|rng| rng.audio_samples(buffer_size), target)
     }
 
     /// Fuzz with custom input generator
@@ -393,7 +393,7 @@ mod tests {
 
         // Clamp function (but handle NaN input - clamp(NaN) = NaN)
         let result = runner.fuzz_with_validation(
-            |gen| gen.f64(),
+            |rng| rng.f64(),
             |x| if x.is_nan() { 0.0 } else { x.clamp(-1.0, 1.0) },
             |_input, output| {
                 if *output >= -1.0 && *output <= 1.0 {

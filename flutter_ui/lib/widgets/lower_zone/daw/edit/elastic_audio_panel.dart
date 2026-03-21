@@ -154,18 +154,10 @@ class _ElasticAudioPanelState extends State<ElasticAudioPanel> {
     _ffi.elasticProSetPreserveTransients(_trackId, _preserveTransients);
   }
 
-  String _diagStatus = '';
-
-  void _updateDiag() {
-    final d = _ffi.debugTrackClipState(_trackId);
-    setState(() => _diagStatus = 'T$_trackId: $d eng=${_engineCreated ? "Y" : "N"}');
-  }
-
   void _onPitchChanged(double semitones) {
     setState(() => _pitchSemitones = semitones);
     if (_engineCreated) {
       _ffi.elasticProSetPitch(_trackId, _pitchSemitones + _fineCents / 100.0);
-      _updateDiag();
     }
   }
 
@@ -267,12 +259,6 @@ class _ElasticAudioPanelState extends State<ElasticAudioPanel> {
         children: [
           _buildHeader(),
           Expanded(child: _buildBody()),
-          if (_diagStatus.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              child: Text(_diagStatus,
-                style: const TextStyle(fontSize: 9, fontFamily: 'JetBrains Mono', color: Color(0xFF888888))),
-            ),
         ],
       ),
     );

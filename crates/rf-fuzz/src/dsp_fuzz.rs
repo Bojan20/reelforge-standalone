@@ -408,14 +408,14 @@ pub fn fuzz_biquad_coefficients(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
         // Input generator: (b0, b1, b2, a1, a2, [audio_samples])
-        |gen| {
-            let b0 = gen.f64_range(-10.0, 10.0);
-            let b1 = gen.f64_range(-10.0, 10.0);
-            let b2 = gen.f64_range(-10.0, 10.0);
-            let a1 = gen.f64_range(-2.0, 2.0);
-            let a2 = gen.f64_range(-1.0, 1.0);
-            let buf_len = gen.usize(512).max(1);
-            let samples = gen.normalized_audio(buf_len);
+        |rng| {
+            let b0 = rng.f64_range(-10.0, 10.0);
+            let b1 = rng.f64_range(-10.0, 10.0);
+            let b2 = rng.f64_range(-10.0, 10.0);
+            let a1 = rng.f64_range(-2.0, 2.0);
+            let a2 = rng.f64_range(-1.0, 1.0);
+            let buf_len = rng.usize(512).max(1);
+            let samples = rng.normalized_audio(buf_len);
             (b0, b1, b2, a1, a2, samples)
         },
         // Target: process through biquad
@@ -460,10 +460,10 @@ pub fn fuzz_biquad_coefficients(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_biquad_design(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_custom(
-        |gen| {
-            let freq = gen.f64_range(-1000.0, 100000.0);
-            let q = gen.f64_range(-10.0, 100.0);
-            let sr = gen.f64_range(-1000.0, 384000.0);
+        |rng| {
+            let freq = rng.f64_range(-1000.0, 100000.0);
+            let q = rng.f64_range(-10.0, 100.0);
+            let sr = rng.f64_range(-1000.0, 384000.0);
             (freq, q, sr)
         },
         |(freq, q, sr)| {
@@ -489,7 +489,7 @@ pub fn fuzz_biquad_design(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_gain_to_db_conversion(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
-        |gen| gen.f64_range(-200.0, 200.0),
+        |rng| rng.f64_range(-200.0, 200.0),
         |gain| {
             let db = gain_to_db(gain);
             let roundtrip = db_to_gain(db);
@@ -542,7 +542,7 @@ pub fn fuzz_gain_to_db_conversion(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_db_to_gain_extremes(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
-        |gen| gen.f64(), // includes NaN, Inf, edge cases
+        |rng| rng.f64(), // includes NaN, Inf, edge cases
         |db| db_to_gain(db),
         |input, output| {
             // db_to_gain of finite input must be non-negative
@@ -567,7 +567,7 @@ pub fn fuzz_db_to_gain_extremes(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_pan_law(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
-        |gen| gen.f64_range(-100.0, 100.0),
+        |rng| rng.f64_range(-100.0, 100.0),
         |pan| {
             let ep = pan_equal_power(pan);
             let lin = pan_linear(pan);
@@ -630,10 +630,10 @@ pub fn fuzz_pan_law(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_sample_rate_conversion(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
-        |gen| {
-            let source = gen.f64_range(-1000.0, 500000.0);
-            let target = gen.f64_range(-1000.0, 500000.0);
-            let input_count = gen.usize(100000);
+        |rng| {
+            let source = rng.f64_range(-1000.0, 500000.0);
+            let target = rng.f64_range(-1000.0, 500000.0);
+            let input_count = rng.usize(100000);
             (source, target, input_count)
         },
         |(source, target, input_count)| {
@@ -695,9 +695,9 @@ pub fn fuzz_sample_rate_conversion(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_buffer_processing(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
-        |gen| {
-            let len = gen.usize(2048).max(1);
-            let pattern_idx = gen.u32() % 8;
+        |rng| {
+            let len = rng.usize(2048).max(1);
+            let pattern_idx = rng.u32() % 8;
             let pattern = match pattern_idx {
                 0 => AudioPattern::Silence,
                 1 => AudioPattern::DcOffset,
@@ -708,8 +708,8 @@ pub fn fuzz_buffer_processing(config: &FuzzConfig) -> FuzzResult {
                 6 => AudioPattern::EdgeCases,
                 _ => AudioPattern::Random,
             };
-            let buffer = AudioInputs::pattern_buffer(gen, len, pattern);
-            let gain = gen.f64_range(-10.0, 10.0);
+            let buffer = AudioInputs::pattern_buffer(rng, len, pattern);
+            let gain = rng.f64_range(-10.0, 10.0);
             (buffer, gain, pattern_idx)
         },
         |(ref buffer, gain, _pattern)| {
@@ -790,13 +790,13 @@ pub fn fuzz_buffer_processing(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_ring_buffer_operations(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
-        |gen| {
-            let capacity = gen.usize(4096).max(1);
-            let num_ops = gen.usize(1000).max(1);
-            let delay = gen.usize(capacity);
+        |rng| {
+            let capacity = rng.usize(4096).max(1);
+            let num_ops = rng.usize(1000).max(1);
+            let delay = rng.usize(capacity);
             // Use f64() which includes edge cases -- the ring buffer sanitizes them
             let ops: Vec<(bool, f64)> = (0..num_ops)
-                .map(|_| (gen.bool(), gen.f64_range(-1.0, 1.0)))
+                .map(|_| (rng.bool(), rng.f64_range(-1.0, 1.0)))
                 .collect();
             (capacity, delay, ops)
         },
@@ -861,12 +861,12 @@ pub fn fuzz_ring_buffer_operations(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_envelope_follower(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
-        |gen| {
-            let attack_ms = gen.f64_range(-100.0, 50000.0);
-            let release_ms = gen.f64_range(-100.0, 50000.0);
-            let sample_rate = gen.f64_range(-1000.0, 384000.0);
-            let buf_len = gen.usize(512).max(1);
-            let samples = gen.normalized_audio(buf_len);
+        |rng| {
+            let attack_ms = rng.f64_range(-100.0, 50000.0);
+            let release_ms = rng.f64_range(-100.0, 50000.0);
+            let sample_rate = rng.f64_range(-1000.0, 384000.0);
+            let buf_len = rng.usize(512).max(1);
+            let samples = rng.normalized_audio(buf_len);
             (attack_ms, release_ms, sample_rate, samples)
         },
         |(attack_ms, release_ms, sample_rate, ref samples)| {
@@ -908,17 +908,17 @@ pub fn fuzz_envelope_follower(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_fft_sizes(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
-        |gen| {
+        |rng| {
             // Mix of various sizes: tiny, non-power-of-2, power-of-2, odd primes
-            let size_choice = gen.u32() % 10;
+            let size_choice = rng.u32() % 10;
             let size = match size_choice {
                 0 => 0,                           // empty
                 1 => 1,                           // single sample
                 2 => 2,                           // minimum FFT
                 3 => 3,                           // prime, non-power-of-2
                 4 => 7,                           // prime
-                5 => gen.usize(256).max(1),       // random small
-                6 => gen.buffer_size().min(1024), // power of 2
+                5 => rng.usize(256).max(1),       // random small
+                6 => rng.buffer_size().min(1024), // power of 2
                 7 => 100,                         // non-power-of-2
                 8 => 255,                         // just below power-of-2
                 _ => 513,                         // just above power-of-2
@@ -926,7 +926,7 @@ pub fn fuzz_fft_sizes(config: &FuzzConfig) -> FuzzResult {
             let samples = if size == 0 {
                 vec![]
             } else {
-                gen.audio_samples(size)
+                rng.audio_samples(size)
             };
             (size, samples)
         },
@@ -1000,12 +1000,12 @@ pub fn fuzz_fft_sizes(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_biquad_stability(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
-        |gen| {
-            let freq = gen.frequency();
-            let q = gen.f64_range(0.1, 20.0);
-            let sr = gen.sample_rate() as f64;
-            let len = gen.usize(2048).max(256);
-            let samples = gen.normalized_audio(len);
+        |rng| {
+            let freq = rng.frequency();
+            let q = rng.f64_range(0.1, 20.0);
+            let sr = rng.sample_rate() as f64;
+            let len = rng.usize(2048).max(256);
+            let samples = rng.normalized_audio(len);
             (freq, q, sr, samples)
         },
         |(freq, q, sr, ref samples)| {
@@ -1084,11 +1084,11 @@ pub fn fuzz_biquad_stability(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_envelope_edge_cases(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_custom(
-        |gen| {
+        |rng| {
             // Generate specifically problematic values
-            let attack = gen.f64(); // Includes NaN, Inf, negative, etc.
-            let release = gen.f64();
-            let sr = gen.f64();
+            let attack = rng.f64(); // Includes NaN, Inf, negative, etc.
+            let release = rng.f64();
+            let sr = rng.f64();
             (attack, release, sr)
         },
         |(attack, release, sr)| {

@@ -1,7 +1,7 @@
 [package]
 name = "rf-coverage"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "Code coverage reporting and analysis for FluxForge"
 publish = false
 

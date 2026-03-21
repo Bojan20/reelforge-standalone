@@ -81,29 +81,29 @@ impl GddJsonGenerator {
     }
 
     /// Generate a fuzzed GDD JSON string.
-    pub fn fuzzed_gdd(gen: &mut InputGenerator) -> String {
-        let corruption = gen.u32() % 14;
+    pub fn fuzzed_gdd(rng: &mut InputGenerator) -> String {
+        let corruption = rng.u32() % 14;
         match corruption {
-            0 => Self::missing_required_fields(gen),
-            1 => Self::wrong_field_types(gen),
-            2 => Self::extreme_grid_values(gen),
-            3 => Self::empty_symbols_array(gen),
-            4 => Self::huge_symbols_array(gen),
-            5 => Self::invalid_symbol_tiers(gen),
-            6 => Self::nan_inf_numeric_fields(gen),
-            7 => Self::negative_payout_values(gen),
-            8 => Self::deeply_nested_features(gen),
-            9 => Self::extremely_long_strings(gen),
-            10 => Self::unicode_stress_test(gen),
-            11 => Self::null_everywhere(gen),
-            12 => Self::extra_unexpected_fields(gen),
-            13 => Self::duplicate_keys(gen),
+            0 => Self::missing_required_fields(rng),
+            1 => Self::wrong_field_types(rng),
+            2 => Self::extreme_grid_values(rng),
+            3 => Self::empty_symbols_array(rng),
+            4 => Self::huge_symbols_array(rng),
+            5 => Self::invalid_symbol_tiers(rng),
+            6 => Self::nan_inf_numeric_fields(rng),
+            7 => Self::negative_payout_values(rng),
+            8 => Self::deeply_nested_features(rng),
+            9 => Self::extremely_long_strings(rng),
+            10 => Self::unicode_stress_test(rng),
+            11 => Self::null_everywhere(rng),
+            12 => Self::extra_unexpected_fields(rng),
+            13 => Self::duplicate_keys(rng),
             _ => Self::valid_gdd(),
         }
     }
 
     /// Omit one or more required top-level fields.
-    fn missing_required_fields(gen: &mut InputGenerator) -> String {
+    fn missing_required_fields(rng: &mut InputGenerator) -> String {
         let mut obj = serde_json::json!({
             "name": "Test Game",
             "version": "1.0",
@@ -114,9 +114,9 @@ impl GddJsonGenerator {
         });
 
         let fields = ["name", "version", "grid", "symbols", "features", "math"];
-        let remove_count = (gen.u32() % 4) as usize + 1;
+        let remove_count = (rng.u32() % 4) as usize + 1;
         for i in 0..remove_count {
-            let field_idx = (gen.u32() as usize + i) % fields.len();
+            let field_idx = (rng.u32() as usize + i) % fields.len();
             if let Value::Object(ref mut map) = obj {
                 map.remove(fields[field_idx]);
             }
@@ -126,8 +126,8 @@ impl GddJsonGenerator {
     }
 
     /// Replace fields with wrong types (string where number expected, etc.).
-    fn wrong_field_types(gen: &mut InputGenerator) -> String {
-        let wrong_type = gen.u32() % 6;
+    fn wrong_field_types(rng: &mut InputGenerator) -> String {
+        let wrong_type = rng.u32() % 6;
         match wrong_type {
             0 => {
                 // grid.rows as string
@@ -193,15 +193,15 @@ impl GddJsonGenerator {
     }
 
     /// Grid with extreme row/column values (0, negative via overflow, huge).
-    fn extreme_grid_values(gen: &mut InputGenerator) -> String {
-        let rows = match gen.u32() % 5 {
+    fn extreme_grid_values(rng: &mut InputGenerator) -> String {
+        let rows = match rng.u32() % 5 {
             0 => Value::from(0),
             1 => Value::from(-1),
             2 => Value::from(i64::MAX),
             3 => Value::from(u64::MAX),
             _ => Value::from(1_000_000),
         };
-        let columns = match gen.u32() % 5 {
+        let columns = match rng.u32() % 5 {
             0 => Value::from(0),
             1 => Value::from(-1),
             2 => Value::from(i64::MAX),
@@ -231,8 +231,8 @@ impl GddJsonGenerator {
     }
 
     /// Very large symbols array to stress memory allocation.
-    fn huge_symbols_array(gen: &mut InputGenerator) -> String {
-        let count = match gen.u32() % 4 {
+    fn huge_symbols_array(rng: &mut InputGenerator) -> String {
+        let count = match rng.u32() % 4 {
             0 => 100,
             1 => 500,
             2 => 1000,
@@ -264,8 +264,8 @@ impl GddJsonGenerator {
     }
 
     /// Symbols with invalid tier values.
-    fn invalid_symbol_tiers(gen: &mut InputGenerator) -> String {
-        let bad_tier = match gen.u32() % 5 {
+    fn invalid_symbol_tiers(rng: &mut InputGenerator) -> String {
+        let bad_tier = match rng.u32() % 5 {
             0 => Value::from(""),
             1 => Value::from("ultra_legendary"),
             2 => Value::from(42),
@@ -288,8 +288,8 @@ impl GddJsonGenerator {
     }
 
     /// Numeric fields set to NaN, Infinity, or near-overflow values.
-    fn nan_inf_numeric_fields(gen: &mut InputGenerator) -> String {
-        let bad_rtp = match gen.u32() % 5 {
+    fn nan_inf_numeric_fields(rng: &mut InputGenerator) -> String {
+        let bad_rtp = match rng.u32() % 5 {
             0 => "NaN".to_string(),
             1 => "Infinity".to_string(),
             2 => "-Infinity".to_string(),
@@ -300,13 +300,13 @@ impl GddJsonGenerator {
         format!(
             r#"{{"name":"NaN Test","version":"1.0","grid":{{"rows":3,"columns":5,"mechanic":"ways"}},"symbols":[],"features":[],"math":{{"rtp":{},"volatility":"high","hit_frequency":{}}}}}"#,
             bad_rtp,
-            if gen.bool() { "NaN" } else { "-0.0" }
+            if rng.bool() { "NaN" } else { "-0.0" }
         )
     }
 
     /// Payouts with negative values or non-integer keys.
-    fn negative_payout_values(gen: &mut InputGenerator) -> String {
-        let bad_payout = match gen.u32() % 4 {
+    fn negative_payout_values(rng: &mut InputGenerator) -> String {
+        let bad_payout = match rng.u32() % 4 {
             0 => serde_json::json!({ "3": -100, "4": -200, "5": -500 }),
             1 => serde_json::json!({ "0": 10, "-1": 20, "100": 500 }),
             2 => serde_json::json!({ "abc": 10, "": 20 }),
@@ -328,8 +328,8 @@ impl GddJsonGenerator {
     }
 
     /// Features array with deeply nested sub-objects.
-    fn deeply_nested_features(gen: &mut InputGenerator) -> String {
-        let depth = match gen.u32() % 4 {
+    fn deeply_nested_features(rng: &mut InputGenerator) -> String {
+        let depth = match rng.u32() % 4 {
             0 => 10,
             1 => 50,
             2 => 100,
@@ -353,8 +353,8 @@ impl GddJsonGenerator {
     }
 
     /// String fields with extremely long values.
-    fn extremely_long_strings(gen: &mut InputGenerator) -> String {
-        let len = match gen.u32() % 4 {
+    fn extremely_long_strings(rng: &mut InputGenerator) -> String {
+        let len = match rng.u32() % 4 {
             0 => 1_000,
             1 => 10_000,
             2 => 100_000,
@@ -379,8 +379,8 @@ impl GddJsonGenerator {
     }
 
     /// String fields with various Unicode edge cases.
-    fn unicode_stress_test(gen: &mut InputGenerator) -> String {
-        let name = match gen.u32() % 6 {
+    fn unicode_stress_test(rng: &mut InputGenerator) -> String {
+        let name = match rng.u32() % 6 {
             0 => "\u{0000}\u{0001}\u{0002}".to_string(), // control chars
             1 => "\u{FEFF}\u{200B}\u{200C}".to_string(), // BOM + zero-width
             2 => "A\u{0300}\u{0301}\u{0302}\u{0303}".to_string(), // combining marks
@@ -413,8 +413,8 @@ impl GddJsonGenerator {
     }
 
     /// Valid structure but with many unexpected extra fields.
-    fn extra_unexpected_fields(gen: &mut InputGenerator) -> String {
-        let extra_count = (gen.u32() % 50) + 5;
+    fn extra_unexpected_fields(rng: &mut InputGenerator) -> String {
+        let extra_count = (rng.u32() % 50) + 5;
         let mut obj = serde_json::json!({
             "name": "Extra Fields", "version": "1.0",
             "grid": { "rows": 3, "columns": 5, "mechanic": "ways" },
@@ -425,10 +425,10 @@ impl GddJsonGenerator {
         if let Value::Object(ref mut map) = obj {
             for i in 0..extra_count {
                 let key = format!("__extra_field_{}", i);
-                let value = match gen.u32() % 4 {
-                    0 => Value::from(gen.i32()),
+                let value = match rng.u32() % 4 {
+                    0 => Value::from(rng.i32()),
                     1 => Value::from(format!("extra_{}", i)),
-                    2 => Value::Bool(gen.bool()),
+                    2 => Value::Bool(rng.bool()),
                     _ => Value::Null,
                 };
                 map.insert(key, value);
@@ -481,27 +481,27 @@ impl TemplateJsonGenerator {
     }
 
     /// Generate a fuzzed template JSON string.
-    pub fn fuzzed_template(gen: &mut InputGenerator) -> String {
-        let corruption = gen.u32() % 10;
+    pub fn fuzzed_template(rng: &mut InputGenerator) -> String {
+        let corruption = rng.u32() % 10;
         match corruption {
-            0 => Self::missing_id_or_name(gen),
-            1 => Self::invalid_category(gen),
-            2 => Self::extreme_grid(gen),
-            3 => Self::empty_collections(gen),
-            4 => Self::invalid_win_tier_thresholds(gen),
-            5 => Self::huge_stage_list(gen),
-            6 => Self::nested_template_reference(gen),
-            7 => Self::invalid_version_format(gen),
-            8 => Self::symbol_type_mismatch(gen),
-            9 => Self::completely_empty_object(gen),
+            0 => Self::missing_id_or_name(rng),
+            1 => Self::invalid_category(rng),
+            2 => Self::extreme_grid(rng),
+            3 => Self::empty_collections(rng),
+            4 => Self::invalid_win_tier_thresholds(rng),
+            5 => Self::huge_stage_list(rng),
+            6 => Self::nested_template_reference(rng),
+            7 => Self::invalid_version_format(rng),
+            8 => Self::symbol_type_mismatch(rng),
+            9 => Self::completely_empty_object(rng),
             _ => Self::valid_template(),
         }
     }
 
-    fn missing_id_or_name(gen: &mut InputGenerator) -> String {
+    fn missing_id_or_name(rng: &mut InputGenerator) -> String {
         let mut obj = serde_json::from_str::<Value>(&Self::valid_template()).unwrap();
         if let Value::Object(ref mut map) = obj {
-            if gen.bool() {
+            if rng.bool() {
                 map.remove("id");
             } else {
                 map.remove("name");
@@ -510,8 +510,8 @@ impl TemplateJsonGenerator {
         obj.to_string()
     }
 
-    fn invalid_category(gen: &mut InputGenerator) -> String {
-        let bad_cat = match gen.u32() % 4 {
+    fn invalid_category(rng: &mut InputGenerator) -> String {
+        let bad_cat = match rng.u32() % 4 {
             0 => Value::from(""),
             1 => Value::from("nonexistent_category_type"),
             2 => Value::from(42),
@@ -524,14 +524,14 @@ impl TemplateJsonGenerator {
         obj.to_string()
     }
 
-    fn extreme_grid(gen: &mut InputGenerator) -> String {
-        let reels = match gen.u32() % 4 {
+    fn extreme_grid(rng: &mut InputGenerator) -> String {
+        let reels = match rng.u32() % 4 {
             0 => Value::from(0),
             1 => Value::from(-5),
             2 => Value::from(1_000_000),
             _ => Value::from(i64::MAX),
         };
-        let rows = match gen.u32() % 4 {
+        let rows = match rng.u32() % 4 {
             0 => Value::from(0),
             1 => Value::from(-1),
             2 => Value::from(999_999),
@@ -559,8 +559,8 @@ impl TemplateJsonGenerator {
         .to_string()
     }
 
-    fn invalid_win_tier_thresholds(gen: &mut InputGenerator) -> String {
-        let bad_threshold = match gen.u32() % 5 {
+    fn invalid_win_tier_thresholds(rng: &mut InputGenerator) -> String {
+        let bad_threshold = match rng.u32() % 5 {
             0 => Value::from(-1.0),
             1 => Value::from(0.0),
             2 => Value::from(f64::MAX),
@@ -580,8 +580,8 @@ impl TemplateJsonGenerator {
         .to_string()
     }
 
-    fn huge_stage_list(gen: &mut InputGenerator) -> String {
-        let count = match gen.u32() % 3 {
+    fn huge_stage_list(rng: &mut InputGenerator) -> String {
+        let count = match rng.u32() % 3 {
             0 => 1000,
             1 => 5000,
             _ => 10000,
@@ -600,8 +600,8 @@ impl TemplateJsonGenerator {
         .to_string()
     }
 
-    fn nested_template_reference(gen: &mut InputGenerator) -> String {
-        let depth = match gen.u32() % 3 {
+    fn nested_template_reference(rng: &mut InputGenerator) -> String {
+        let depth = match rng.u32() % 3 {
             0 => 10,
             1 => 50,
             _ => 100,
@@ -620,8 +620,8 @@ impl TemplateJsonGenerator {
         .to_string()
     }
 
-    fn invalid_version_format(gen: &mut InputGenerator) -> String {
-        let bad_version = match gen.u32() % 5 {
+    fn invalid_version_format(rng: &mut InputGenerator) -> String {
+        let bad_version = match rng.u32() % 5 {
             0 => Value::from(""),
             1 => Value::from("not.semver"),
             2 => Value::from("999.999.999"),
@@ -635,8 +635,8 @@ impl TemplateJsonGenerator {
         obj.to_string()
     }
 
-    fn symbol_type_mismatch(gen: &mut InputGenerator) -> String {
-        let bad_type = match gen.u32() % 4 {
+    fn symbol_type_mismatch(rng: &mut InputGenerator) -> String {
+        let bad_type = match rng.u32() % 4 {
             0 => Value::from(42),
             1 => Value::from(""),
             2 => Value::from(true),
@@ -691,25 +691,25 @@ impl PresetJsonGenerator {
     }
 
     /// Generate a fuzzed preset JSON string.
-    pub fn fuzzed_preset(gen: &mut InputGenerator) -> String {
-        let corruption = gen.u32() % 10;
+    pub fn fuzzed_preset(rng: &mut InputGenerator) -> String {
+        let corruption = rng.u32() % 10;
         match corruption {
-            0 => Self::invalid_parameter_types(gen),
-            1 => Self::out_of_range_values(gen),
-            2 => Self::missing_parameters(gen),
-            3 => Self::extra_parameters(gen),
-            4 => Self::deeply_nested_preset(gen),
-            5 => Self::empty_preset(gen),
-            6 => Self::huge_tag_list(gen),
-            7 => Self::invalid_version(gen),
-            8 => Self::binary_in_strings(gen),
-            9 => Self::numeric_overflow(gen),
+            0 => Self::invalid_parameter_types(rng),
+            1 => Self::out_of_range_values(rng),
+            2 => Self::missing_parameters(rng),
+            3 => Self::extra_parameters(rng),
+            4 => Self::deeply_nested_preset(rng),
+            5 => Self::empty_preset(rng),
+            6 => Self::huge_tag_list(rng),
+            7 => Self::invalid_version(rng),
+            8 => Self::binary_in_strings(rng),
+            9 => Self::numeric_overflow(rng),
             _ => Self::valid_preset(),
         }
     }
 
-    fn invalid_parameter_types(gen: &mut InputGenerator) -> String {
-        let bad_val = match gen.u32() % 5 {
+    fn invalid_parameter_types(rng: &mut InputGenerator) -> String {
+        let bad_val = match rng.u32() % 5 {
             0 => Value::from("not_a_number"),
             1 => Value::Bool(true),
             2 => Value::Array(vec![Value::from(1.0)]),
@@ -754,14 +754,14 @@ impl PresetJsonGenerator {
         .to_string()
     }
 
-    fn extra_parameters(gen: &mut InputGenerator) -> String {
-        let extra_count = (gen.u32() % 200) + 10;
+    fn extra_parameters(rng: &mut InputGenerator) -> String {
+        let extra_count = (rng.u32() % 200) + 10;
         let mut params = serde_json::Map::new();
         params.insert("volume".to_string(), Value::from(0.8));
         for i in 0..extra_count {
             params.insert(
                 format!("custom_param_{}", i),
-                Value::from(gen.f64_range(0.0, 1.0)),
+                Value::from(rng.f64_range(0.0, 1.0)),
             );
         }
         serde_json::json!({
@@ -772,8 +772,8 @@ impl PresetJsonGenerator {
         .to_string()
     }
 
-    fn deeply_nested_preset(gen: &mut InputGenerator) -> String {
-        let depth = match gen.u32() % 3 {
+    fn deeply_nested_preset(rng: &mut InputGenerator) -> String {
+        let depth = match rng.u32() % 3 {
             0 => 50,
             1 => 200,
             _ => 500,
@@ -794,8 +794,8 @@ impl PresetJsonGenerator {
         serde_json::json!({}).to_string()
     }
 
-    fn huge_tag_list(gen: &mut InputGenerator) -> String {
-        let count = match gen.u32() % 3 {
+    fn huge_tag_list(rng: &mut InputGenerator) -> String {
+        let count = match rng.u32() % 3 {
             0 => 100,
             1 => 1000,
             _ => 5000,
@@ -811,8 +811,8 @@ impl PresetJsonGenerator {
         .to_string()
     }
 
-    fn invalid_version(gen: &mut InputGenerator) -> String {
-        let bad_version = match gen.u32() % 4 {
+    fn invalid_version(rng: &mut InputGenerator) -> String {
+        let bad_version = match rng.u32() % 4 {
             0 => Value::from(-1),
             1 => Value::from(i64::MAX),
             2 => Value::from("v1.0"),
@@ -856,8 +856,8 @@ pub struct MalformedJsonGenerator;
 
 impl MalformedJsonGenerator {
     /// Generate syntactically broken JSON.
-    pub fn broken_json(gen: &mut InputGenerator) -> String {
-        let variant = gen.u32() % 12;
+    pub fn broken_json(rng: &mut InputGenerator) -> String {
+        let variant = rng.u32() % 12;
         match variant {
             0 => "".to_string(),                     // empty
             1 => "{".to_string(),                    // unclosed
@@ -869,15 +869,15 @@ impl MalformedJsonGenerator {
             7 => "null".to_string(),                 // bare null
             8 => "42".to_string(),                   // bare number
             9 => r#"["unclosed"#.to_string(),        // unclosed array
-            10 => Self::deeply_nested_braces(gen),
-            11 => Self::random_garbage(gen),
+            10 => Self::deeply_nested_braces(rng),
+            11 => Self::random_garbage(rng),
             _ => "{}".to_string(),
         }
     }
 
     /// Generate deeply nested braces for stack overflow testing.
-    fn deeply_nested_braces(gen: &mut InputGenerator) -> String {
-        let depth = match gen.u32() % 4 {
+    fn deeply_nested_braces(rng: &mut InputGenerator) -> String {
+        let depth = match rng.u32() % 4 {
             0 => 100,
             1 => 500,
             2 => 1000,
@@ -889,9 +889,9 @@ impl MalformedJsonGenerator {
     }
 
     /// Generate random bytes interpreted as a "JSON" string.
-    fn random_garbage(gen: &mut InputGenerator) -> String {
-        let len = gen.u32() as usize % 512;
-        let bytes = gen.bytes(len);
+    fn random_garbage(rng: &mut InputGenerator) -> String {
+        let len = rng.u32() as usize % 512;
+        let bytes = rng.bytes(len);
         // Try to interpret as lossy UTF-8
         String::from_utf8_lossy(&bytes).to_string()
     }
@@ -934,7 +934,7 @@ pub fn run_json_fuzz_suite(config: &FuzzConfig) -> FuzzReport {
 pub fn fuzz_gdd_parse(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_custom(
-        |gen| GddJsonGenerator::fuzzed_gdd(gen),
+        |rng| GddJsonGenerator::fuzzed_gdd(rng),
         |json_str| parse_gdd_safe(&json_str),
     )
 }
@@ -943,7 +943,7 @@ pub fn fuzz_gdd_parse(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_gdd_field_validation(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
-        |gen| GddJsonGenerator::fuzzed_gdd(gen),
+        |rng| GddJsonGenerator::fuzzed_gdd(rng),
         |json_str| parse_gdd_safe(&json_str),
         |_input, result| match result {
             GddParseResult::Valid {
@@ -978,7 +978,7 @@ pub fn fuzz_gdd_field_validation(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_template_parse(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_custom(
-        |gen| TemplateJsonGenerator::fuzzed_template(gen),
+        |rng| TemplateJsonGenerator::fuzzed_template(rng),
         |json_str| parse_template_safe(&json_str),
     )
 }
@@ -987,7 +987,7 @@ pub fn fuzz_template_parse(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_template_field_validation(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
-        |gen| TemplateJsonGenerator::fuzzed_template(gen),
+        |rng| TemplateJsonGenerator::fuzzed_template(rng),
         |json_str| parse_template_safe(&json_str),
         |_input, result| match result {
             TemplateParseResult::Valid { reels, rows, .. } => {
@@ -1014,7 +1014,7 @@ pub fn fuzz_template_field_validation(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_preset_parse(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_custom(
-        |gen| PresetJsonGenerator::fuzzed_preset(gen),
+        |rng| PresetJsonGenerator::fuzzed_preset(rng),
         |json_str| parse_preset_safe(&json_str),
     )
 }
@@ -1023,7 +1023,7 @@ pub fn fuzz_preset_parse(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_preset_parameter_validation(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
-        |gen| PresetJsonGenerator::fuzzed_preset(gen),
+        |rng| PresetJsonGenerator::fuzzed_preset(rng),
         |json_str| parse_preset_safe(&json_str),
         |_input, result| match result {
             PresetParseResult::Valid { parameters, .. } => {
@@ -1046,7 +1046,7 @@ pub fn fuzz_preset_parameter_validation(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_malformed_json(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_custom(
-        |gen| MalformedJsonGenerator::broken_json(gen),
+        |rng| MalformedJsonGenerator::broken_json(rng),
         |json_str| {
             // Try all parsers — none should panic
             let _ = parse_gdd_safe(&json_str);
@@ -1060,8 +1060,8 @@ pub fn fuzz_malformed_json(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_deeply_nested(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_custom(
-        |gen| {
-            let depth = match gen.u32() % 5 {
+        |rng| {
+            let depth = match rng.u32() % 5 {
                 0 => 10,
                 1 => 100,
                 2 => 500,
@@ -1633,8 +1633,8 @@ mod tests {
 
     #[test]
     fn test_deeply_nested_braces_no_crash() {
-        let mut gen = InputGenerator::new(Some(42), 4096);
-        let deep = MalformedJsonGenerator::deeply_nested_braces(&mut gen);
+        let mut rng = InputGenerator::new(Some(42), 4096);
+        let deep = MalformedJsonGenerator::deeply_nested_braces(&mut rng);
         // Should not panic, just fail to parse or parse partially
         let _ = serde_json::from_str::<Value>(&deep);
         let _ = parse_gdd_safe(&deep);
@@ -1652,17 +1652,17 @@ mod tests {
 
     #[test]
     fn test_unicode_stress_no_crash() {
-        let mut gen = InputGenerator::new(Some(42), 4096);
+        let mut rng = InputGenerator::new(Some(42), 4096);
         for _ in 0..10 {
-            let json = GddJsonGenerator::unicode_stress_test(&mut gen);
+            let json = GddJsonGenerator::unicode_stress_test(&mut rng);
             let _ = parse_gdd_safe(&json);
         }
     }
 
     #[test]
     fn test_extremely_long_strings_no_crash() {
-        let mut gen = InputGenerator::new(Some(42), 4096);
-        let json = GddJsonGenerator::extremely_long_strings(&mut gen);
+        let mut rng = InputGenerator::new(Some(42), 4096);
+        let json = GddJsonGenerator::extremely_long_strings(&mut rng);
         // Should parse without panicking (might reject due to missing fields)
         let _ = parse_gdd_safe(&json);
     }

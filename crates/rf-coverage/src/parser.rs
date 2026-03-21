@@ -72,8 +72,8 @@ impl FileCoverage {
     pub fn uncovered_lines(&self) -> Vec<usize> {
         self.line_counts
             .iter()
-            .filter(|(_, &count)| count == 0)
-            .map(|(&line, _)| line)
+            .filter(|(_, count)| **count == 0)
+            .map(|(line, _)| *line)
             .collect()
     }
 }

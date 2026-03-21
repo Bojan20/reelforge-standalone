@@ -210,15 +210,12 @@ class _AudioWarpingPanelState extends State<AudioWarpingPanel> {
   // FFI PARAMETER SETTERS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  String _diagStatus = '';
-
   void _setRatio(double ratio) {
     setState(() => _stretchRatio = ratio);
     _ratioDebounce?.cancel();
     _ratioDebounce = Timer(const Duration(milliseconds: 30), () {
       if (_engineCreated) {
         NativeFFI.instance.elasticProSetRatio(_trackId, _stretchRatio);
-        _updateDiag();
       }
     });
   }
@@ -229,15 +226,8 @@ class _AudioWarpingPanelState extends State<AudioWarpingPanel> {
     _pitchDebounce = Timer(const Duration(milliseconds: 30), () {
       if (_engineCreated) {
         NativeFFI.instance.elasticProSetPitch(_trackId, _pitchSemitones);
-        _updateDiag();
       }
     });
-  }
-
-  void _updateDiag() {
-    final d = NativeFFI.instance.debugTrackClipState(_trackId);
-    final rc = _engineRefCount[_trackId] ?? -1;
-    setState(() => _diagStatus = 'T$_trackId rc=$rc: $d eng=${_engineCreated ? "Y" : "N"}');
   }
 
   void _setMode(ElasticMode mode) {
@@ -334,19 +324,6 @@ class _AudioWarpingPanelState extends State<AudioWarpingPanel> {
                     const SizedBox(height: 4),
                     _buildFinePitchSlider(),
                   ],
-                  // Diagnostic status (shows engine clip state)
-                  if (_diagStatus.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        _diagStatus,
-                        style: const TextStyle(
-                          fontSize: 9,
-                          fontFamily: 'JetBrains Mono',
-                          color: Color(0xFF888888),
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),

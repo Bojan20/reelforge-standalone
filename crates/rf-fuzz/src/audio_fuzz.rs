@@ -94,63 +94,63 @@ impl WavHeaderGenerator {
     ///
     /// Randomly corrupts individual fields while keeping the overall
     /// RIFF structure recognizable so parsers attempt to process it.
-    pub fn fuzzed_header(gen: &mut InputGenerator) -> Vec<u8> {
-        let corruption = gen.u32() % 16;
+    pub fn fuzzed_header(rng: &mut InputGenerator) -> Vec<u8> {
+        let corruption = rng.u32() % 16;
 
         match corruption {
-            0 => Self::corrupted_magic(gen),
-            1 => Self::corrupted_file_size(gen),
-            2 => Self::corrupted_format_code(gen),
-            3 => Self::corrupted_sample_rate(gen),
-            4 => Self::corrupted_channels(gen),
-            5 => Self::corrupted_bits_per_sample(gen),
-            6 => Self::corrupted_chunk_size(gen),
-            7 => Self::truncated_header(gen),
-            8 => Self::zero_length_data(gen),
-            9 => Self::max_length_data(gen),
-            10 => Self::mismatched_block_align(gen),
-            11 => Self::missing_wave_marker(gen),
-            12 => Self::missing_fmt_chunk(gen),
-            13 => Self::extra_bytes_in_fmt(gen),
-            14 => Self::ieee_float_format(gen),
-            15 => Self::extensible_format(gen),
+            0 => Self::corrupted_magic(rng),
+            1 => Self::corrupted_file_size(rng),
+            2 => Self::corrupted_format_code(rng),
+            3 => Self::corrupted_sample_rate(rng),
+            4 => Self::corrupted_channels(rng),
+            5 => Self::corrupted_bits_per_sample(rng),
+            6 => Self::corrupted_chunk_size(rng),
+            7 => Self::truncated_header(rng),
+            8 => Self::zero_length_data(rng),
+            9 => Self::max_length_data(rng),
+            10 => Self::mismatched_block_align(rng),
+            11 => Self::missing_wave_marker(rng),
+            12 => Self::missing_fmt_chunk(rng),
+            13 => Self::extra_bytes_in_fmt(rng),
+            14 => Self::ieee_float_format(rng),
+            15 => Self::extensible_format(rng),
             _ => Self::valid_header(44100, 2, 16, 1024),
         }
     }
 
     /// Corrupt the RIFF or WAVE magic bytes.
-    fn corrupted_magic(gen: &mut InputGenerator) -> Vec<u8> {
+    fn corrupted_magic(rng: &mut InputGenerator) -> Vec<u8> {
         let mut header = Self::valid_header(44100, 2, 16, 1024);
-        if gen.bool() {
+        if rng.bool() {
             // Corrupt RIFF magic (bytes 0-3)
-            let pos = gen.u32() as usize % 4;
-            header[pos] = gen.u32() as u8;
+            let pos = rng.u32() as usize % 4;
+            header[pos] = rng.u32() as u8;
         } else {
             // Corrupt WAVE magic (bytes 8-11)
-            let pos = 8 + (gen.u32() as usize % 4);
-            header[pos] = gen.u32() as u8;
+            let pos = 8 + (rng.u32() as usize % 4);
+            header[pos] = rng.u32() as u8;
         }
         header
     }
 
     /// Set the file size field to an extreme or invalid value.
-    fn corrupted_file_size(gen: &mut InputGenerator) -> Vec<u8> {
+    fn corrupted_file_size(rng: &mut InputGenerator) -> Vec<u8> {
         let mut header = Self::valid_header(44100, 2, 16, 1024);
-        let bad_size = match gen.u32() % 5 {
+        let bad_size = match rng.u32() % 5 {
             0 => 0u32,
             1 => 1u32,
             2 => u32::MAX,
             3 => u32::MAX - 1,
-            _ => gen.u32(),
+            _ => rng.u32(),
         };
         header[4..8].copy_from_slice(&bad_size.to_le_bytes());
         header
     }
 
     /// Use an invalid or unusual audio format code.
-    fn corrupted_format_code(gen: &mut InputGenerator) -> Vec<u8> {
+    fn corrupted_format_code(rng: &mut InputGenerator) -> Vec<u8> {
         let mut header = Self::valid_header(44100, 2, 16, 1024);
-        let bad_format: u16 = match gen.u32() % 6 {
+        let bad_format: u16 = match rng.u32() % 6 {
             0 => 0,                // invalid
             1 => 2,                // ADPCM
             2 => 0xFF,             // unknown
@@ -163,38 +163,38 @@ impl WavHeaderGenerator {
     }
 
     /// Set sample rate to an extreme or zero value.
-    fn corrupted_sample_rate(gen: &mut InputGenerator) -> Vec<u8> {
+    fn corrupted_sample_rate(rng: &mut InputGenerator) -> Vec<u8> {
         let mut header = Self::valid_header(44100, 2, 16, 1024);
-        let bad_rate: u32 = match gen.u32() % 6 {
+        let bad_rate: u32 = match rng.u32() % 6 {
             0 => 0,
             1 => 1,
             2 => u32::MAX,
             3 => 384001, // above max supported
             4 => 7,      // absurdly low
-            _ => gen.u32(),
+            _ => rng.u32(),
         };
         header[24..28].copy_from_slice(&bad_rate.to_le_bytes());
         header
     }
 
     /// Set channel count to an extreme value.
-    fn corrupted_channels(gen: &mut InputGenerator) -> Vec<u8> {
+    fn corrupted_channels(rng: &mut InputGenerator) -> Vec<u8> {
         let mut header = Self::valid_header(44100, 2, 16, 1024);
-        let bad_channels: u16 = match gen.u32() % 5 {
+        let bad_channels: u16 = match rng.u32() % 5 {
             0 => 0,
             1 => 1,
             2 => 255,
             3 => u16::MAX,
-            _ => gen.u32() as u16,
+            _ => rng.u32() as u16,
         };
         header[22..24].copy_from_slice(&bad_channels.to_le_bytes());
         header
     }
 
     /// Set bits per sample to an unusual value.
-    fn corrupted_bits_per_sample(gen: &mut InputGenerator) -> Vec<u8> {
+    fn corrupted_bits_per_sample(rng: &mut InputGenerator) -> Vec<u8> {
         let mut header = Self::valid_header(44100, 2, 16, 1024);
-        let bad_bps: u16 = match gen.u32() % 6 {
+        let bad_bps: u16 = match rng.u32() % 6 {
             0 => 0,
             1 => 1,
             2 => 3,  // odd, not byte-aligned
@@ -207,9 +207,9 @@ impl WavHeaderGenerator {
     }
 
     /// Set the fmt chunk size to a wrong value.
-    fn corrupted_chunk_size(gen: &mut InputGenerator) -> Vec<u8> {
+    fn corrupted_chunk_size(rng: &mut InputGenerator) -> Vec<u8> {
         let mut header = Self::valid_header(44100, 2, 16, 1024);
-        let bad_chunk_size: u32 = match gen.u32() % 4 {
+        let bad_chunk_size: u32 = match rng.u32() % 4 {
             0 => 0,
             1 => u32::MAX,
             2 => 15,   // one byte short
@@ -220,16 +220,16 @@ impl WavHeaderGenerator {
     }
 
     /// Truncate the header at various points.
-    fn truncated_header(gen: &mut InputGenerator) -> Vec<u8> {
+    fn truncated_header(rng: &mut InputGenerator) -> Vec<u8> {
         let full = Self::valid_header(44100, 2, 16, 1024);
-        let truncate_at = match gen.u32() % 7 {
+        let truncate_at = match rng.u32() % 7 {
             0 => 0,  // empty
             1 => 1,  // single byte
             2 => 4,  // just RIFF
             3 => 12, // RIFF + WAVE, no fmt
             4 => 20, // partial fmt
             5 => 36, // no data chunk
-            _ => gen.u32() as usize % full.len(),
+            _ => rng.u32() as usize % full.len(),
         };
         full[..truncate_at.min(full.len())].to_vec()
     }
@@ -249,13 +249,13 @@ impl WavHeaderGenerator {
     }
 
     /// Block align doesn't match channels * (bits / 8).
-    fn mismatched_block_align(gen: &mut InputGenerator) -> Vec<u8> {
+    fn mismatched_block_align(rng: &mut InputGenerator) -> Vec<u8> {
         let mut header = Self::valid_header(44100, 2, 16, 1024);
-        let bad_align: u16 = match gen.u32() % 4 {
+        let bad_align: u16 = match rng.u32() % 4 {
             0 => 0,
             1 => 1, // should be 4 for stereo 16-bit
             2 => 255,
-            _ => gen.u32() as u16,
+            _ => rng.u32() as u16,
         };
         header[32..34].copy_from_slice(&bad_align.to_le_bytes());
         header
@@ -284,10 +284,10 @@ impl WavHeaderGenerator {
     }
 
     /// fmt chunk has extra trailing bytes beyond the standard 16.
-    fn extra_bytes_in_fmt(gen: &mut InputGenerator) -> Vec<u8> {
+    fn extra_bytes_in_fmt(rng: &mut InputGenerator) -> Vec<u8> {
         let block_align: u16 = 4;
         let byte_rate: u32 = 44100 * 4;
-        let extra_len = (gen.u32() % 64) as usize;
+        let extra_len = (rng.u32() % 64) as usize;
         let fmt_size = 16u32 + extra_len as u32;
         let data_size: u32 = 1024;
         let file_size = 4 + (8 + fmt_size) + (8 + data_size);
@@ -305,7 +305,7 @@ impl WavHeaderGenerator {
         buf.extend_from_slice(&block_align.to_le_bytes());
         buf.extend_from_slice(&16u16.to_le_bytes()); // bits per sample
                                                      // Extra random bytes
-        let extra: Vec<u8> = (0..extra_len).map(|_| gen.u32() as u8).collect();
+        let extra: Vec<u8> = (0..extra_len).map(|_| rng.u32() as u8).collect();
         buf.extend_from_slice(&extra);
         buf.extend_from_slice(DATA_CHUNK_ID);
         buf.extend_from_slice(&data_size.to_le_bytes());
@@ -313,13 +313,13 @@ impl WavHeaderGenerator {
     }
 
     /// WAV with IEEE float format code.
-    fn ieee_float_format(gen: &mut InputGenerator) -> Vec<u8> {
+    fn ieee_float_format(rng: &mut InputGenerator) -> Vec<u8> {
         let mut header = Self::valid_header(44100, 2, 32, 2048);
         // Set format to IEEE float
         header[20..22].copy_from_slice(&WAV_FORMAT_IEEE_FLOAT.to_le_bytes());
         // Optionally corrupt the bits_per_sample
-        if gen.bool() {
-            let bad_bps: u16 = match gen.u32() % 3 {
+        if rng.bool() {
+            let bad_bps: u16 = match rng.u32() % 3 {
                 0 => 16, // wrong for float
                 1 => 24, // wrong for float
                 _ => 64, // double precision
@@ -330,7 +330,7 @@ impl WavHeaderGenerator {
     }
 
     /// WAV with EXTENSIBLE format header.
-    fn extensible_format(gen: &mut InputGenerator) -> Vec<u8> {
+    fn extensible_format(rng: &mut InputGenerator) -> Vec<u8> {
         let fmt_size = 40u32; // 16 base + 22 extensible + 2 cbSize
         let data_size: u32 = 512;
         let file_size = 4 + (8 + fmt_size) + (8 + data_size);
@@ -349,13 +349,13 @@ impl WavHeaderGenerator {
         buf.extend_from_slice(&16u16.to_le_bytes()); // bits per sample
         buf.extend_from_slice(&22u16.to_le_bytes()); // cbSize
                                                      // Valid bits per sample (may be corrupted)
-        let valid_bps: u16 = if gen.bool() { 16 } else { gen.u32() as u16 };
+        let valid_bps: u16 = if rng.bool() { 16 } else { rng.u32() as u16 };
         buf.extend_from_slice(&valid_bps.to_le_bytes());
         // Channel mask
-        buf.extend_from_slice(&gen.u32().to_le_bytes());
+        buf.extend_from_slice(&rng.u32().to_le_bytes());
         // SubFormat GUID (16 bytes) — random
         for _ in 0..16 {
-            buf.push(gen.u32() as u8);
+            buf.push(rng.u32() as u8);
         }
         buf.extend_from_slice(DATA_CHUNK_ID);
         buf.extend_from_slice(&data_size.to_le_bytes());
@@ -409,83 +409,83 @@ impl FlacHeaderGenerator {
     }
 
     /// Generate a FLAC stream with fuzzed metadata.
-    pub fn fuzzed_stream(gen: &mut InputGenerator) -> Vec<u8> {
-        let corruption = gen.u32() % 10;
+    pub fn fuzzed_stream(rng: &mut InputGenerator) -> Vec<u8> {
+        let corruption = rng.u32() % 10;
 
         match corruption {
-            0 => Self::corrupted_marker(gen),
-            1 => Self::corrupted_streaminfo(gen),
-            2 => Self::invalid_block_type(gen),
-            3 => Self::oversized_block_length(gen),
-            4 => Self::zero_sample_rate(gen),
-            5 => Self::extreme_channels(gen),
-            6 => Self::truncated_stream(gen),
-            7 => Self::missing_streaminfo(gen),
-            8 => Self::multiple_streaminfo(gen),
-            9 => Self::corrupted_md5(gen),
+            0 => Self::corrupted_marker(rng),
+            1 => Self::corrupted_streaminfo(rng),
+            2 => Self::invalid_block_type(rng),
+            3 => Self::oversized_block_length(rng),
+            4 => Self::zero_sample_rate(rng),
+            5 => Self::extreme_channels(rng),
+            6 => Self::truncated_stream(rng),
+            7 => Self::missing_streaminfo(rng),
+            8 => Self::multiple_streaminfo(rng),
+            9 => Self::corrupted_md5(rng),
             _ => Self::valid_streaminfo(44100, 2, 16, 44100 * 60),
         }
     }
 
     /// Corrupt the fLaC magic marker.
-    fn corrupted_marker(gen: &mut InputGenerator) -> Vec<u8> {
+    fn corrupted_marker(rng: &mut InputGenerator) -> Vec<u8> {
         let mut stream = Self::valid_streaminfo(44100, 2, 16, 44100);
-        let pos = gen.u32() as usize % 4;
-        stream[pos] = gen.u32() as u8;
+        let pos = rng.u32() as usize % 4;
+        stream[pos] = rng.u32() as u8;
         stream
     }
 
     /// Corrupt individual fields within the STREAMINFO block.
-    fn corrupted_streaminfo(gen: &mut InputGenerator) -> Vec<u8> {
+    fn corrupted_streaminfo(rng: &mut InputGenerator) -> Vec<u8> {
         let mut stream = Self::valid_streaminfo(44100, 2, 16, 44100);
         // Corrupt random bytes in the STREAMINFO data (bytes 8..42)
-        let num_corruptions = (gen.u32() % 8) + 1;
+        let num_corruptions = (rng.u32() % 8) + 1;
         for _ in 0..num_corruptions {
-            let pos = 8 + (gen.u32() as usize % 34);
+            let pos = 8 + (rng.u32() as usize % 34);
             if pos < stream.len() {
-                stream[pos] = gen.u32() as u8;
+                stream[pos] = rng.u32() as u8;
             }
         }
         stream
     }
 
     /// Use an invalid metadata block type (>= 127).
-    fn invalid_block_type(gen: &mut InputGenerator) -> Vec<u8> {
+    fn invalid_block_type(rng: &mut InputGenerator) -> Vec<u8> {
         let mut buf = Vec::new();
         buf.extend_from_slice(FLAC_MARKER);
         // Invalid block type (7-126 are reserved, 127 is invalid)
-        let bad_type = match gen.u32() % 4 {
+        let bad_type = match rng.u32() % 4 {
             0 => 7u8,                    // first reserved
             1 => 127u8,                  // explicitly invalid
             2 => 100u8,                  // reserved range
-            _ => gen.u32() as u8 & 0x7F, // random type
+            _ => rng.u32() as u8 & 0x7F, // random type
         };
         let header_byte = 0x80 | bad_type; // last block
         buf.push(header_byte);
         buf.extend_from_slice(&[0x00, 0x00, 0x22]); // length 34
                                                     // Fill with random data
         for _ in 0..34 {
-            buf.push(gen.u32() as u8);
+            buf.push(rng.u32() as u8);
         }
         buf
     }
 
     /// Block length exceeds available data.
-    fn oversized_block_length(gen: &mut InputGenerator) -> Vec<u8> {
+    fn oversized_block_length(rng: &mut InputGenerator) -> Vec<u8> {
         let mut buf = Vec::new();
         buf.extend_from_slice(FLAC_MARKER);
         let header_byte = 0x80 | FLAC_STREAMINFO;
         buf.push(header_byte);
         // Claim a huge block length
-        let big_len = match gen.u32() % 3 {
+        let big_len = match rng.u32() % 3 {
             0 => [0xFF, 0xFF, 0xFF], // 16 MB
             1 => [0x00, 0xFF, 0xFF], // 65535
-            _ => [gen.u32() as u8, gen.u32() as u8, gen.u32() as u8],
+            _ => [rng.u32() as u8, rng.u32() as u8, rng.u32() as u8],
         };
         buf.extend_from_slice(&big_len);
         // Only provide 34 bytes of actual data
         for _ in 0..34 {
-            buf.push(gen.u32() as u8);
+            buf.push(rng.u32() as u8);
         }
         buf
     }
@@ -496,8 +496,8 @@ impl FlacHeaderGenerator {
     }
 
     /// Extreme channel count (0 or very high).
-    fn extreme_channels(gen: &mut InputGenerator) -> Vec<u8> {
-        let channels = match gen.u32() % 3 {
+    fn extreme_channels(rng: &mut InputGenerator) -> Vec<u8> {
+        let channels = match rng.u32() % 3 {
             0 => 0u8,   // zero channels (invalid)
             1 => 8u8,   // maximum FLAC channels
             _ => 255u8, // well above max (will be masked to 3 bits = 7)
@@ -506,27 +506,27 @@ impl FlacHeaderGenerator {
     }
 
     /// Truncate the stream at various points.
-    fn truncated_stream(gen: &mut InputGenerator) -> Vec<u8> {
+    fn truncated_stream(rng: &mut InputGenerator) -> Vec<u8> {
         let full = Self::valid_streaminfo(44100, 2, 16, 44100);
-        let truncate_at = match gen.u32() % 6 {
+        let truncate_at = match rng.u32() % 6 {
             0 => 0,
             1 => 1,
             2 => 4, // just the marker
             3 => 5, // marker + 1 byte of block header
             4 => 8, // marker + block header, no data
-            _ => gen.u32() as usize % full.len(),
+            _ => rng.u32() as usize % full.len(),
         };
         full[..truncate_at.min(full.len())].to_vec()
     }
 
     /// FLAC stream that starts with a non-STREAMINFO block.
-    fn missing_streaminfo(gen: &mut InputGenerator) -> Vec<u8> {
+    fn missing_streaminfo(rng: &mut InputGenerator) -> Vec<u8> {
         let mut buf = Vec::new();
         buf.extend_from_slice(FLAC_MARKER);
         // Start with PADDING block instead of STREAMINFO
         let header_byte = 0x80 | FLAC_PADDING;
         buf.push(header_byte);
-        let padding_len = (gen.u32() % 256) as usize;
+        let padding_len = (rng.u32() % 256) as usize;
         let len_bytes = (padding_len as u32).to_be_bytes();
         buf.extend_from_slice(&len_bytes[1..4]); // 24-bit length
         for _ in 0..padding_len {
@@ -536,7 +536,7 @@ impl FlacHeaderGenerator {
     }
 
     /// Two STREAMINFO blocks (first must be STREAMINFO per spec).
-    fn multiple_streaminfo(gen: &mut InputGenerator) -> Vec<u8> {
+    fn multiple_streaminfo(rng: &mut InputGenerator) -> Vec<u8> {
         let mut buf = Vec::new();
         buf.extend_from_slice(FLAC_MARKER);
 
@@ -546,7 +546,7 @@ impl FlacHeaderGenerator {
         buf.extend_from_slice(&[0x00, 0x00, 0x22]); // length 34
                                                     // Random STREAMINFO content
         for _ in 0..34 {
-            buf.push(gen.u32() as u8);
+            buf.push(rng.u32() as u8);
         }
 
         // Second STREAMINFO (last) — violates spec
@@ -554,19 +554,19 @@ impl FlacHeaderGenerator {
         buf.push(header_byte2);
         buf.extend_from_slice(&[0x00, 0x00, 0x22]); // length 34
         for _ in 0..34 {
-            buf.push(gen.u32() as u8);
+            buf.push(rng.u32() as u8);
         }
 
         buf
     }
 
     /// Valid structure but corrupted MD5 hash.
-    fn corrupted_md5(gen: &mut InputGenerator) -> Vec<u8> {
+    fn corrupted_md5(rng: &mut InputGenerator) -> Vec<u8> {
         let mut stream = Self::valid_streaminfo(44100, 2, 16, 44100);
         // MD5 is the last 16 bytes of the STREAMINFO block (bytes 26..42)
         for i in 26..42 {
             if i < stream.len() {
-                stream[i] = gen.u32() as u8;
+                stream[i] = rng.u32() as u8;
             }
         }
         stream
@@ -583,24 +583,24 @@ pub struct GarbageAudioGenerator;
 
 impl GarbageAudioGenerator {
     /// Generate a random blob that starts with a valid magic but has garbage after.
-    pub fn magic_then_garbage(gen: &mut InputGenerator) -> Vec<u8> {
-        let magic = match gen.u32() % 4 {
+    pub fn magic_then_garbage(rng: &mut InputGenerator) -> Vec<u8> {
+        let magic = match rng.u32() % 4 {
             0 => RIFF_MAGIC.to_vec(),
             1 => FLAC_MARKER.to_vec(),
             2 => b"OggS".to_vec(), // Ogg container
             _ => b"FORM".to_vec(), // AIFF
         };
-        let garbage_len = gen.u32() as usize % 256;
+        let garbage_len = rng.u32() as usize % 256;
         let mut buf = magic;
         for _ in 0..garbage_len {
-            buf.push(gen.u32() as u8);
+            buf.push(rng.u32() as u8);
         }
         buf
     }
 
     /// Generate pure random bytes of various lengths.
-    pub fn random_bytes(gen: &mut InputGenerator) -> Vec<u8> {
-        let len = match gen.u32() % 8 {
+    pub fn random_bytes(rng: &mut InputGenerator) -> Vec<u8> {
+        let len = match rng.u32() % 8 {
             0 => 0,
             1 => 1,
             2 => 4,
@@ -608,27 +608,27 @@ impl GarbageAudioGenerator {
             4 => 100,
             5 => 1024,
             6 => 4096,
-            _ => gen.u32() as usize % 8192,
+            _ => rng.u32() as usize % 8192,
         };
-        gen.bytes(len)
+        rng.bytes(len)
     }
 
     /// Generate data with repeated byte patterns that might confuse parsers.
-    pub fn repeated_pattern(gen: &mut InputGenerator) -> Vec<u8> {
-        let pattern_byte = gen.u32() as u8;
-        let len = match gen.u32() % 5 {
+    pub fn repeated_pattern(rng: &mut InputGenerator) -> Vec<u8> {
+        let pattern_byte = rng.u32() as u8;
+        let len = match rng.u32() % 5 {
             0 => 0,
             1 => 1,
             2 => 44,
             3 => 256,
-            _ => gen.u32() as usize % 4096,
+            _ => rng.u32() as usize % 4096,
         };
         vec![pattern_byte; len]
     }
 
     /// Generate a file that is just null bytes.
-    pub fn null_bytes(gen: &mut InputGenerator) -> Vec<u8> {
-        let len = gen.u32() as usize % 8192;
+    pub fn null_bytes(rng: &mut InputGenerator) -> Vec<u8> {
+        let len = rng.u32() as usize % 8192;
         vec![0u8; len]
     }
 }
@@ -675,7 +675,7 @@ pub fn run_audio_fuzz_suite(config: &FuzzConfig) -> FuzzReport {
 pub fn fuzz_wav_header_parse(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_custom(
-        |gen| WavHeaderGenerator::fuzzed_header(gen),
+        |rng| WavHeaderGenerator::fuzzed_header(rng),
         |data| parse_wav_header_safe(&data),
     )
 }
@@ -687,7 +687,7 @@ pub fn fuzz_wav_header_parse(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_wav_header_field_validation(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
-        |gen| WavHeaderGenerator::fuzzed_header(gen),
+        |rng| WavHeaderGenerator::fuzzed_header(rng),
         |data| parse_wav_header_safe(&data),
         |_input, result| {
             match result {
@@ -719,9 +719,9 @@ pub fn fuzz_wav_header_field_validation(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_wav_truncated(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_custom(
-        |gen| {
+        |rng| {
             let full = WavHeaderGenerator::valid_header(44100, 2, 16, 1024);
-            let cut = gen.usize(full.len());
+            let cut = rng.usize(full.len());
             full[..cut].to_vec()
         },
         |data| parse_wav_header_safe(&data),
@@ -732,7 +732,7 @@ pub fn fuzz_wav_truncated(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_flac_stream_parse(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_custom(
-        |gen| FlacHeaderGenerator::fuzzed_stream(gen),
+        |rng| FlacHeaderGenerator::fuzzed_stream(rng),
         |data| parse_flac_header_safe(&data),
     )
 }
@@ -741,7 +741,7 @@ pub fn fuzz_flac_stream_parse(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_flac_block_type_validation(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_with_validation(
-        |gen| FlacHeaderGenerator::fuzzed_stream(gen),
+        |rng| FlacHeaderGenerator::fuzzed_stream(rng),
         |data| parse_flac_header_safe(&data),
         |_input, result| match result {
             FlacParseResult::Valid {
@@ -770,11 +770,11 @@ pub fn fuzz_flac_block_type_validation(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_garbage_audio(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_custom(
-        |gen| {
-            if gen.bool() {
-                GarbageAudioGenerator::magic_then_garbage(gen)
+        |rng| {
+            if rng.bool() {
+                GarbageAudioGenerator::magic_then_garbage(rng)
             } else {
-                GarbageAudioGenerator::random_bytes(gen)
+                GarbageAudioGenerator::random_bytes(rng)
             }
         },
         |data| {
@@ -789,7 +789,7 @@ pub fn fuzz_garbage_audio(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_null_bytes(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_custom(
-        |gen| GarbageAudioGenerator::null_bytes(gen),
+        |rng| GarbageAudioGenerator::null_bytes(rng),
         |data| {
             let _ = parse_wav_header_safe(&data);
             let _ = parse_flac_header_safe(&data);
@@ -801,19 +801,19 @@ pub fn fuzz_null_bytes(config: &FuzzConfig) -> FuzzResult {
 pub fn fuzz_audio_boundaries(config: &FuzzConfig) -> FuzzResult {
     let runner = FuzzRunner::new(config.clone());
     runner.fuzz_custom(
-        |gen| {
-            let boundary = gen.u32() % 8;
+        |rng| {
+            let boundary = rng.u32() % 8;
             match boundary {
                 // Empty file
                 0 => vec![],
                 // Single byte
-                1 => vec![gen.u32() as u8],
+                1 => vec![rng.u32() as u8],
                 // Exactly 4 bytes (magic size)
-                2 => gen.bytes(4),
+                2 => rng.bytes(4),
                 // Exactly 44 bytes (WAV header size)
-                3 => gen.bytes(44),
+                3 => rng.bytes(44),
                 // Exactly 42 bytes (FLAC STREAMINFO size)
-                4 => gen.bytes(42),
+                4 => rng.bytes(42),
                 // 0xFF filled (common in corrupted flash storage)
                 5 => vec![0xFF; 44],
                 // Alternating 0x00/0xFF
@@ -821,7 +821,7 @@ pub fn fuzz_audio_boundaries(config: &FuzzConfig) -> FuzzResult {
                     .map(|i| if i % 2 == 0 { 0x00 } else { 0xFF })
                     .collect(),
                 // Maximum generation size
-                _ => gen.bytes(config.max_input_size),
+                _ => rng.bytes(config.max_input_size),
             }
         },
         |data| {
