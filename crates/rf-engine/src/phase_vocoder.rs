@@ -6,40 +6,41 @@
 //!
 //! Algorithm: STFT → phase advance correction → ISTFT (overlap-add)
 //!
-//! Features beyond standard OLA:
+//! Features:
 //! - Transient-preserving: detects onsets and resets phase at transients
-//! - Spectral peak locking: preserves harmonic structure
-//! - Optional formant preservation for vocals
-//!
-//! All buffers pre-allocated at construction — zero allocation in process().
+//! - Pre-allocated FFT plans via rustfft — O(N log N)
+//! - All buffers pre-allocated at construction — zero allocation in process()
 
 use std::f64::consts::PI;
+use rustfft::{FftPlanner, num_complex::Complex64};
 
 /// Phase vocoder for real-time pitch correction.
 ///
-/// Pre-allocates all FFT/IFFT buffers at construction.
+/// Pre-allocates all FFT/IFFT plans and buffers at construction.
 /// `process()` is zero-allocation, audio-thread safe.
 pub struct PhaseVocoder {
     /// FFT size (power of 2, e.g., 2048)
     fft_size: usize,
-    /// Hop size (fft_size / overlap_factor, e.g., 512 for 4× overlap)
+    /// Hop size (fft_size / overlap_factor)
     hop_size: usize,
-    /// Overlap factor (4 = 75% overlap, standard for music)
-    overlap_factor: usize,
     /// Analysis window (Hann)
     window: Vec<f64>,
     /// Phase accumulator for each bin (persistent across frames)
     phase_accum: Vec<f64>,
     /// Previous frame phases (for phase difference calculation)
     prev_phase: Vec<f64>,
-    /// Analysis buffer (input samples accumulated)
+    /// Analysis buffer (circular, input samples accumulated)
     analysis_buf: Vec<f64>,
-    /// Synthesis buffer (output overlap-add accumulator)
+    /// Synthesis buffer (circular, output overlap-add accumulator)
     synthesis_buf: Vec<f64>,
-    /// Scratch buffer for FFT input
-    fft_in: Vec<f64>,
-    /// Scratch buffer for FFT output (interleaved real/imag)
-    fft_out: Vec<f64>,
+    /// Complex FFT buffer (pre-allocated for rustfft in-place)
+    fft_buf: Vec<Complex64>,
+    /// Forward FFT plan (pre-computed, reusable)
+    fft_forward: std::sync::Arc<dyn rustfft::Fft<f64>>,
+    /// Inverse FFT plan (pre-computed, reusable)
+    fft_inverse: std::sync::Arc<dyn rustfft::Fft<f64>>,
+    /// FFT normalization scale (1/N for IFFT)
+    fft_scale: f64,
     /// Current write position in analysis buffer
     analysis_pos: usize,
     /// Current read position in synthesis buffer
@@ -51,9 +52,8 @@ pub struct PhaseVocoder {
     /// Previous frame energy (for transient detection)
     prev_energy: f64,
     /// Whether formant preservation is enabled
+    #[allow(dead_code)]
     formant_preserve: bool,
-    /// Sample rate (for frequency calculations)
-    sample_rate: f64,
 }
 
 impl PhaseVocoder {
@@ -61,10 +61,10 @@ impl PhaseVocoder {
     ///
     /// `fft_size`: FFT window size (2048 recommended for music, 1024 for speech)
     /// `overlap_factor`: overlap (4 = standard, 8 = high quality)
-    /// `sample_rate`: audio sample rate
+    /// `sample_rate`: audio sample rate (unused currently, reserved for formants)
     ///
-    /// All buffers pre-allocated here — NOT on audio thread.
-    pub fn new(fft_size: usize, overlap_factor: usize, sample_rate: f64) -> Self {
+    /// All buffers AND FFT plans pre-allocated here — NOT on audio thread.
+    pub fn new(fft_size: usize, overlap_factor: usize, _sample_rate: f64) -> Self {
         assert!(fft_size.is_power_of_two() && fft_size >= 64);
         let overlap_factor = overlap_factor.max(2);
         let hop_size = fft_size / overlap_factor;
@@ -75,30 +75,34 @@ impl PhaseVocoder {
             .map(|n| 0.5 * (1.0 - (2.0 * PI * n as f64 / fft_size as f64).cos()))
             .collect();
 
+        // Pre-compute FFT plans (heavy allocation — done once, not on audio thread)
+        let mut planner = FftPlanner::new();
+        let fft_forward = planner.plan_fft_forward(fft_size);
+        let fft_inverse = planner.plan_fft_inverse(fft_size);
+
         Self {
             fft_size,
             hop_size,
-            overlap_factor,
             window,
             phase_accum: vec![0.0; half],
             prev_phase: vec![0.0; half],
-            analysis_buf: vec![0.0; fft_size * 2], // Double buffer for overlap
-            synthesis_buf: vec![0.0; fft_size * 4], // Generous for overlap-add
-            fft_in: vec![0.0; fft_size],
-            fft_out: vec![0.0; fft_size + 2], // Interleaved R/I pairs
+            analysis_buf: vec![0.0; fft_size * 2],
+            synthesis_buf: vec![0.0; fft_size * 4],
+            fft_buf: vec![Complex64::new(0.0, 0.0); fft_size],
+            fft_forward,
+            fft_inverse,
+            fft_scale: 1.0 / fft_size as f64,
             analysis_pos: 0,
             synthesis_pos: 0,
             pitch_factor: 1.0,
-            transient_threshold: 3.0, // Energy ratio for transient detection
+            transient_threshold: 3.0,
             prev_energy: 0.0,
             formant_preserve: false,
-            sample_rate,
         }
     }
 
     /// Set pitch correction factor.
     /// `factor`: 1.0 = no change, 2.0 = octave up, 0.5 = octave down
-    /// Typically set to `1.0 / stretch_ratio` to cancel varispeed pitch change.
     pub fn set_pitch_factor(&mut self, factor: f64) {
         self.pitch_factor = factor.clamp(0.25, 4.0);
     }
@@ -113,10 +117,9 @@ impl PhaseVocoder {
     /// `input`: input samples (already resampled by sinc for speed change)
     /// `output`: output buffer (same length as input)
     ///
-    /// Zero-allocation in steady state.
+    /// Zero-allocation — all FFT work uses pre-allocated buffers.
     pub fn process(&mut self, input: &[f64], output: &mut [f64]) {
         if (self.pitch_factor - 1.0).abs() < 0.001 {
-            // No pitch shift needed — pass through
             let len = input.len().min(output.len());
             output[..len].copy_from_slice(&input[..len]);
             return;
@@ -124,104 +127,88 @@ impl PhaseVocoder {
 
         let len = input.len().min(output.len());
 
-        // Feed input into analysis buffer
         for i in 0..len {
-            // Accumulate in circular analysis buffer
             let buf_pos = self.analysis_pos % (self.fft_size * 2);
             self.analysis_buf[buf_pos] = input[i];
             self.analysis_pos += 1;
 
-            // Process frame when enough samples accumulated.
-            // Wait for at least fft_size samples before first frame
-            // to avoid analyzing partially-filled buffer.
             if self.analysis_pos >= self.fft_size
                 && self.analysis_pos % self.hop_size == 0
             {
                 self.process_frame();
             }
 
-            // Read from synthesis buffer
             let syn_pos = self.synthesis_pos % (self.fft_size * 4);
             output[i] = self.synthesis_buf[syn_pos];
-            self.synthesis_buf[syn_pos] = 0.0; // Clear after reading
+            self.synthesis_buf[syn_pos] = 0.0;
             self.synthesis_pos += 1;
         }
     }
 
-    /// Process a single STFT frame: analyze → modify phase → synthesize
+    /// Process a single STFT frame using rustfft
     fn process_frame(&mut self) {
         let half = self.fft_size / 2 + 1;
         let hop = self.hop_size as f64;
         let expected_phase_diff = 2.0 * PI * hop / self.fft_size as f64;
 
-        // Extract frame from analysis buffer with windowing
-        let frame_start = if self.analysis_pos >= self.fft_size {
-            self.analysis_pos - self.fft_size
-        } else {
-            0
-        };
-
+        // Extract frame from analysis buffer with windowing → complex FFT buffer
+        let frame_start = self.analysis_pos - self.fft_size;
         for i in 0..self.fft_size {
             let buf_pos = (frame_start + i) % (self.fft_size * 2);
-            self.fft_in[i] = self.analysis_buf[buf_pos] * self.window[i];
+            self.fft_buf[i] = Complex64::new(
+                self.analysis_buf[buf_pos] * self.window[i],
+                0.0,
+            );
         }
 
-        // Compute energy for transient detection
-        let energy: f64 = self.fft_in.iter().map(|x| x * x).sum();
+        // Transient detection (energy of windowed frame)
+        let energy: f64 = self.fft_buf.iter().map(|c| c.re * c.re).sum();
         let is_transient = self.prev_energy > 0.0
             && energy / self.prev_energy > self.transient_threshold;
         self.prev_energy = energy;
 
-        // Forward FFT (real-to-complex)
-        dft_real(&self.fft_in, &mut self.fft_out);
+        // Forward FFT — O(N log N) via rustfft, in-place, zero-allocation
+        self.fft_forward.process(&mut self.fft_buf);
 
         // Phase vocoder core: modify phases for pitch shift
         for k in 0..half {
-            let re = self.fft_out[k * 2];
-            let im = self.fft_out[k * 2 + 1];
+            let re = self.fft_buf[k].re;
+            let im = self.fft_buf[k].im;
             let mag = (re * re + im * im).sqrt();
             let phase = im.atan2(re);
 
-            // Phase difference from previous frame
             let phase_diff = phase - self.prev_phase[k];
             self.prev_phase[k] = phase;
 
-            // Expected phase advance for this bin
             let expected = k as f64 * expected_phase_diff;
-
-            // Deviation from expected (unwrapped)
             let mut deviation = phase_diff - expected;
-            // Wrap to [-π, π]
             deviation -= (deviation / (2.0 * PI)).round() * 2.0 * PI;
-
-            // True frequency = bin frequency + deviation
             let true_freq = expected + deviation;
 
             if is_transient {
-                // Transient: lock phase to input (preserve transient timing).
-                // Use original phase directly — no pitch scaling on reset.
-                // Next frame will resume normal phase advance from this point.
                 self.phase_accum[k] = phase;
             } else {
-                // Normal: advance phase accumulator with pitch-shifted frequency
                 self.phase_accum[k] += true_freq * self.pitch_factor;
             }
 
-            // Reconstruct with original magnitude + shifted phase
             let new_phase = self.phase_accum[k];
-            self.fft_out[k * 2] = mag * new_phase.cos();
-            self.fft_out[k * 2 + 1] = mag * new_phase.sin();
+            self.fft_buf[k] = Complex64::new(mag * new_phase.cos(), mag * new_phase.sin());
         }
 
-        // Inverse FFT — use fft_in as scratch (same size, already allocated)
-        let fft_size = self.fft_size;
-        idft_real(&self.fft_out, &mut self.fft_in, fft_size);
+        // Mirror negative frequencies (conjugate symmetry for real output)
+        for k in 1..self.fft_size / 2 {
+            let mirror = self.fft_size - k;
+            self.fft_buf[mirror] = Complex64::new(self.fft_buf[k].re, -self.fft_buf[k].im);
+        }
 
-        // Overlap-add to synthesis buffer with window
+        // Inverse FFT — O(N log N), in-place
+        self.fft_inverse.process(&mut self.fft_buf);
+
+        // Overlap-add to synthesis buffer (with window and IFFT normalization)
         let syn_start = self.synthesis_pos % (self.fft_size * 4);
         for i in 0..self.fft_size {
             let pos = (syn_start + i) % (self.fft_size * 4);
-            self.synthesis_buf[pos] += self.fft_in[i] * self.window[i];
+            self.synthesis_buf[pos] += self.fft_buf[i].re * self.fft_scale * self.window[i];
         }
     }
 
@@ -231,6 +218,9 @@ impl PhaseVocoder {
         self.prev_phase.fill(0.0);
         self.analysis_buf.fill(0.0);
         self.synthesis_buf.fill(0.0);
+        for c in &mut self.fft_buf {
+            *c = Complex64::new(0.0, 0.0);
+        }
         self.analysis_pos = 0;
         self.synthesis_pos = 0;
         self.prev_energy = 0.0;
@@ -239,49 +229,6 @@ impl PhaseVocoder {
     /// Latency in samples
     pub fn latency(&self) -> usize {
         self.fft_size
-    }
-}
-
-/// Simple DFT (real input → interleaved complex output)
-/// O(N²) — for correctness. Production should migrate to rustfft.
-fn dft_real(input: &[f64], output: &mut [f64]) {
-    let n = input.len();
-    let half = n / 2 + 1;
-    for k in 0..half {
-        let mut re = 0.0;
-        let mut im = 0.0;
-        for i in 0..n {
-            let angle = -2.0 * PI * k as f64 * i as f64 / n as f64;
-            re += input[i] * angle.cos();
-            im += input[i] * angle.sin();
-        }
-        output[k * 2] = re;
-        output[k * 2 + 1] = im;
-    }
-}
-
-/// Inverse DFT (interleaved complex half-spectrum → real output)
-/// For real signals: X[N-k] = conj(X[k]), so we only need k=0..N/2.
-/// Mirror uses conjugate: re*cos + im*sin (not re*cos - im*sin).
-fn idft_real(input: &[f64], output: &mut [f64], n: usize) {
-    let half = n / 2 + 1;
-    let scale = 1.0 / n as f64;
-    for i in 0..n {
-        let mut sum = 0.0;
-        for k in 0..half {
-            let re = input[k * 2];
-            let im = input[k * 2 + 1];
-            let angle = 2.0 * PI * k as f64 * i as f64 / n as f64;
-            let cos_a = angle.cos();
-            let sin_a = angle.sin();
-            // Positive frequency: Re(X[k] * e^{j*angle}) = re*cos - im*sin
-            sum += re * cos_a - im * sin_a;
-            // Negative frequency (conjugate): Re(conj(X[k]) * e^{-j*angle}) = re*cos + im*sin
-            if k > 0 && k < n / 2 {
-                sum += re * cos_a + im * sin_a;
-            }
-        }
-        output[i] = sum * scale;
     }
 }
 
@@ -309,33 +256,29 @@ mod tests {
 
     #[test]
     fn test_passthrough() {
-        // pitch_factor = 1.0 should pass through
         let mut pv = PhaseVocoder::new(1024, 4, 48000.0);
         pv.set_pitch_factor(1.0);
         let input = vec![0.5f64; 2048];
         let mut output = vec![0.0f64; 2048];
         pv.process(&input, &mut output);
-        // Should be approximately equal
         for &s in &output {
             assert!((s - 0.5).abs() < 0.01, "Passthrough failed: {s}");
         }
     }
 
     #[test]
-    fn test_pitch_shift() {
-        // Shifting pitch should produce different output
+    fn test_pitch_shift_produces_output() {
         let mut pv = PhaseVocoder::new(1024, 4, 48000.0);
-        pv.set_pitch_factor(2.0); // Octave up
+        pv.set_pitch_factor(2.0);
 
-        // Generate sine wave at 440 Hz
         let input: Vec<f64> = (0..4096)
             .map(|i| (2.0 * PI * 440.0 * i as f64 / 48000.0).sin())
             .collect();
         let mut output = vec![0.0f64; 4096];
         pv.process(&input, &mut output);
 
-        // Output should have energy (not all zeros)
-        let energy: f64 = output.iter().map(|x| x * x).sum();
+        // After latency (1024 samples), output should have energy
+        let energy: f64 = output[1024..].iter().map(|x| x * x).sum();
         assert!(energy > 0.1, "Pitch shifted output has no energy: {energy}");
     }
 
@@ -346,17 +289,34 @@ mod tests {
         let mut output = vec![0.0f64; 2048];
         pv.process(&input, &mut output);
         pv.reset();
-        // After reset, internal state should be clean
         assert_eq!(pv.analysis_pos, 0);
         assert_eq!(pv.synthesis_pos, 0);
     }
 
     #[test]
-    fn test_formant_toggle() {
-        let mut pv = PhaseVocoder::new(1024, 4, 48000.0);
-        pv.set_formant_preserve(true);
-        assert!(pv.formant_preserve);
-        pv.set_formant_preserve(false);
-        assert!(!pv.formant_preserve);
+    fn test_fft_roundtrip() {
+        // Verify FFT → IFFT roundtrip produces original signal
+        let n = 1024;
+        let mut planner = FftPlanner::new();
+        let fwd = planner.plan_fft_forward(n);
+        let inv = planner.plan_fft_inverse(n);
+
+        let mut buf: Vec<Complex64> = (0..n)
+            .map(|i| Complex64::new((2.0 * PI * 10.0 * i as f64 / n as f64).sin(), 0.0))
+            .collect();
+        let original: Vec<f64> = buf.iter().map(|c| c.re).collect();
+
+        fwd.process(&mut buf);
+        inv.process(&mut buf);
+
+        let scale = 1.0 / n as f64;
+        for i in 0..n {
+            let recovered = buf[i].re * scale;
+            assert!(
+                (recovered - original[i]).abs() < 1e-10,
+                "FFT roundtrip failed at {i}: {recovered} vs {}",
+                original[i]
+            );
+        }
     }
 }

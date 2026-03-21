@@ -1690,6 +1690,9 @@ pub struct PlaybackEngine {
     group_manager: Option<Arc<RwLock<GroupManager>>>,
     /// Elastic audio parameters per clip (time_ratio, pitch_semitones)
     elastic_params: RwLock<HashMap<u32, (f64, f64)>>,
+    /// Phase vocoder instances per clip (for preserve_pitch mode)
+    /// Created on UI thread when clip.preserve_pitch is set, NOT on audio thread.
+    clip_vocoders: RwLock<HashMap<u64, crate::phase_vocoder::PhaseVocoder>>,
     /// Varispeed playback rate (0.25 to 4.0, 1.0 = normal)
     /// Affects global playback speed WITH pitch change (like tape speed)
     varispeed_rate: AtomicU64,
@@ -1867,6 +1870,7 @@ impl PlaybackEngine {
             )),
             group_manager: None,
             elastic_params: RwLock::new(HashMap::new()),
+            clip_vocoders: RwLock::new(HashMap::new()),
             varispeed_rate: AtomicU64::new(1.0_f64.to_bits()),
             varispeed_enabled: AtomicBool::new(false),
             vca_assignments: RwLock::new(HashMap::new()),
