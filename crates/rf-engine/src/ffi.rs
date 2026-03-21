@@ -13603,7 +13603,7 @@ pub extern "C" fn elastic_pro_reset(track_id: u32) -> i32 {
     }
 }
 
-// PHASE VOCODER (preserve_pitch)
+// CLIP STRETCH (preserve_pitch + pitch shift)
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// Debug: get clip count, stretch state, and elastic engine state for a track.
@@ -13672,15 +13672,22 @@ pub extern "C" fn debug_track_clip_state(
 /// `clip_id`: ClipId.0 (u64), `preserve`: 1=on, 0=off, `stretch_ratio`: current stretch ratio
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_set_preserve_pitch(clip_id: u64, preserve: i32, stretch_ratio: f64) -> i32 {
-    // Set preserve_pitch on the clip
+    // Set preserve_pitch on the clip and read current pitch_shift
+    let mut pitch_shift = 0.0_f64;
     if let Some(mut clip_entry) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
         clip_entry.set_preserve_pitch(preserve != 0);
+        pitch_shift = clip_entry.pitch_shift;
     }
 
-    // Pre-allocate or remove Signalsmith stretcher via public API
-    if preserve != 0 && (stretch_ratio - 1.0).abs() > 0.001 {
+    // Pre-allocate or remove Signalsmith stretcher (includes both stretch + pitch)
+    let has_stretch = (stretch_ratio - 1.0).abs() > 0.001;
+    let has_pitch = pitch_shift.abs() > 0.01;
+    if preserve != 0 && (has_stretch || has_pitch) {
         let sr = PLAYBACK_ENGINE.sample_rate() as f64;
-        PLAYBACK_ENGINE.prepare_clip_vocoder(clip_id, stretch_ratio, if sr > 0.0 { sr } else { 48000.0 });
+        PLAYBACK_ENGINE.prepare_clip_stretcher(
+            clip_id, stretch_ratio, pitch_shift,
+            if sr > 0.0 { sr } else { 48000.0 },
+        );
     } else {
         PLAYBACK_ENGINE.remove_clip_vocoder(clip_id);
     }
@@ -13694,7 +13701,7 @@ pub extern "C" fn clip_update_vocoder_pitch(clip_id: u64, stretch_ratio: f64) ->
         PLAYBACK_ENGINE.remove_clip_vocoder(clip_id);
         return 1;
     }
-    PLAYBACK_ENGINE.update_vocoder_pitch(clip_id, stretch_ratio);
+    PLAYBACK_ENGINE.update_clip_stretch_ratio(clip_id, stretch_ratio);
     1
 }
 

@@ -3589,7 +3589,7 @@ impl PlaybackEngine {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // PHASE VOCODER MANAGEMENT (UI thread only)
+    // AUDIO STRETCHER MANAGEMENT (Signalsmith Stretch — UI thread only)
     // ═══════════════════════════════════════════════════════════════════════
 
     /// Get stretcher debug counters (hit, miss). Resets on read.
@@ -3660,8 +3660,9 @@ impl PlaybackEngine {
         self.clip_stretchers.write().remove(&clip_id);
     }
 
-    /// Update pitch for an existing stretcher (UI thread only).
-    pub fn update_vocoder_pitch(&self, clip_id: u64, stretch_ratio: f64) {
+    /// Update stretch ratio for an existing stretcher (UI thread only).
+    /// NOTE: FFI export name is `clip_update_vocoder_pitch` for binary compat.
+    pub fn update_clip_stretch_ratio(&self, clip_id: u64, stretch_ratio: f64) {
         if let Some(stretcher) = self.clip_stretchers.write().get_mut(&clip_id) {
             stretcher.set_stretch_ratio(stretch_ratio);
         }
@@ -3669,19 +3670,19 @@ impl PlaybackEngine {
 
     pub fn seek(&self, seconds: f64) {
         self.position.set_seconds(seconds.max(0.0));
-        // Reset all stretchers on seek (internal state invalid after discontinuity)
-        if let Some(mut stretchers) = self.clip_stretchers.try_write() {
-            for s in stretchers.values_mut() {
-                s.reset();
+        // Request deferred reset on all stretchers (lock-free, audio thread executes)
+        if let Some(stretchers) = self.clip_stretchers.try_read() {
+            for s in stretchers.values() {
+                s.request_reset();
             }
         }
     }
 
     pub fn seek_samples(&self, samples: u64) {
         self.position.set_samples(samples);
-        if let Some(mut stretchers) = self.clip_stretchers.try_write() {
-            for s in stretchers.values_mut() {
-                s.reset();
+        if let Some(stretchers) = self.clip_stretchers.try_read() {
+            for s in stretchers.values() {
+                s.request_reset();
             }
         }
     }
@@ -6535,8 +6536,8 @@ impl PlaybackEngine {
                         // pitch_factor is pre-set by UI thread (includes pitch_shift + stretch compensation)
                         // Audio thread does NOT modify pitch_factor — avoids overriding user's pitch shift
 
-                        // Try to acquire vocoder — if lock contended or not pre-allocated, bypass
-                        // NEVER allocate on audio thread — vocoder must be pre-created via UI thread
+                        // Try to acquire stretcher — if lock contended or not pre-allocated, bypass
+                        // NEVER allocate on audio thread — stretcher must be pre-created via UI thread
                         if let Some(mut stretchers) = self.clip_stretchers.try_write() {
                             if let Some(stretcher) = stretchers.get_mut(&clip.id.0) {
                                 self.diag_stretcher_hit.fetch_add(1, Ordering::Relaxed);
@@ -6549,7 +6550,7 @@ impl PlaybackEngine {
 
                                 for i in 0..frames {
                                     let g = pv_gain[i];
-                                    if g > 0.0 {
+                                    if g.abs() > 1e-12 {
                                         output_l[i] += pv_out_l[i] * g;
                                         output_r[i] += pv_out_r[i] * g;
                                     }
@@ -6559,7 +6560,7 @@ impl PlaybackEngine {
                                 // Stretcher not pre-allocated — bypass (sinc-only output)
                                 for i in 0..frames {
                                     let g = pv_gain[i];
-                                    if g > 0.0 {
+                                    if g.abs() > 1e-12 {
                                         output_l[i] += pv_l[i] * g;
                                         output_r[i] += pv_r[i] * g;
                                     }
@@ -6570,7 +6571,7 @@ impl PlaybackEngine {
                             // Lock contended — bypass PV, output sinc-only (better than silence)
                             for i in 0..frames {
                                 let g = pv_gain[i];
-                                if g > 0.0 {
+                                if g.abs() > 1e-12 {
                                     output_l[i] += pv_l[i] * g;
                                     output_r[i] += pv_r[i] * g;
                                 }
@@ -7268,7 +7269,7 @@ impl PlaybackEngine {
         }
     }
 
-    /// Phase-vocoder aware version of process_clip_with_crossfade.
+    /// Signalsmith Stretch aware version of process_clip_with_crossfade.
     ///
     /// Two-pass architecture (like Pro Tools Elastic Audio / Cubase Elastique):
     /// Pass 1: Sinc resample → scratch buffers (raw signal, no gain/fade)

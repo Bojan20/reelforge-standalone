@@ -32,6 +32,8 @@ pub struct AudioStretcher {
     interleaved_in: Vec<f32>,
     /// Pre-allocated interleaved output buffer [L,R,L,R,...]
     interleaved_out: Vec<f32>,
+    /// Atomic reset flag — set by UI thread (seek), checked by audio thread
+    needs_reset: std::sync::atomic::AtomicBool,
     /// Maximum frames this stretcher can handle per block
     max_frames: usize,
 }
@@ -55,6 +57,7 @@ impl AudioStretcher {
             stretch_ratio: 1.0,
             interleaved_in: vec![0.0f32; buf_size],
             interleaved_out: vec![0.0f32; buf_size],
+            needs_reset: std::sync::atomic::AtomicBool::new(false),
             max_frames: max_block_frames,
         }
     }
@@ -107,8 +110,16 @@ impl AudioStretcher {
         output_r: &mut [f64],
         frames: usize,
     ) {
-        if frames == 0 || frames > self.max_frames {
+        if frames == 0 || frames > self.max_frames
+            || input_l.len() < frames || input_r.len() < frames
+            || output_l.len() < frames || output_r.len() < frames
+        {
             return;
+        }
+
+        // Check deferred reset from seek (lock-free)
+        if self.needs_reset.swap(false, std::sync::atomic::Ordering::Relaxed) {
+            self.inner.reset();
         }
 
         // Convert f64 deinterleaved → f32 interleaved for Signalsmith
@@ -136,6 +147,12 @@ impl AudioStretcher {
     /// Reset internal state (call when seeking or transport stops).
     pub fn reset(&mut self) {
         self.inner.reset();
+        self.needs_reset.store(false, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// Request reset from UI thread (lock-free, audio thread checks in process()).
+    pub fn request_reset(&self) {
+        self.needs_reset.store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// Current pitch shift in semitones.
