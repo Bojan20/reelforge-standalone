@@ -102,6 +102,14 @@ class TimelineClip {
   final ClipChannelMode channelMode;
   /// User notes/annotations for this clip
   final String notes;
+  /// Warp enabled — per-segment time stretching active
+  final bool warpEnabled;
+  /// Detected transient positions (seconds relative to clip start, from onset detection)
+  final List<double> warpTransients;
+  /// Warp marker positions: list of (sourcePos, timelinePos) pairs
+  /// sourcePos = position in original audio (seconds)
+  /// timelinePos = position on timeline (seconds relative to clip start)
+  final List<({double sourcePos, double timelinePos, int id, bool locked})> warpMarkers;
 
   const TimelineClip({
     required this.id,
@@ -140,6 +148,9 @@ class TimelineClip {
     this.snapOffset = 0,
     this.channelMode = ClipChannelMode.normal,
     this.notes = '',
+    this.warpEnabled = false,
+    this.warpTransients = const [],
+    this.warpMarkers = const [],
   });
 
   /// Check if clip has active FX processing
@@ -184,6 +195,9 @@ class TimelineClip {
     double? snapOffset,
     ClipChannelMode? channelMode,
     String? notes,
+    bool? warpEnabled,
+    List<double>? warpTransients,
+    List<({double sourcePos, double timelinePos, int id, bool locked})>? warpMarkers,
   }) {
     return TimelineClip(
       id: id ?? this.id,
@@ -222,6 +236,9 @@ class TimelineClip {
       snapOffset: snapOffset ?? this.snapOffset,
       channelMode: channelMode ?? this.channelMode,
       notes: notes ?? this.notes,
+      warpEnabled: warpEnabled ?? this.warpEnabled,
+      warpTransients: warpTransients ?? this.warpTransients,
+      warpMarkers: warpMarkers ?? this.warpMarkers,
     );
   }
 }

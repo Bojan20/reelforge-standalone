@@ -1368,6 +1368,18 @@ class _ClipWidgetState extends State<ClipWidget> {
                   ),
                 ),
 
+              // ═══ Warp markers + transient display ═══
+              if (clip.warpEnabled && width > 30)
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: _WarpOverlayPainter(
+                      markers: clip.warpMarkers,
+                      transients: clip.warpTransients,
+                      clipDuration: clip.duration,
+                    ),
+                  ),
+                ),
+
               // ═══ Tool-specific visual overlays ═══
               // Erase tool: red danger tint on hover
               if (isExplicitTool && activeTool == TimelineEditTool.erase)
@@ -3476,4 +3488,98 @@ class _SmartToolZonePainter extends CustomPainter {
       mode != oldDelegate.mode ||
       clipWidth != oldDelegate.clipWidth ||
       clipHeight != oldDelegate.clipHeight;
+}
+
+/// Warp overlay painter: transient markers (gray dots) + warp markers (cyan lines)
+/// + stretch region coloring (cyan=compressed, orange=expanded)
+class _WarpOverlayPainter extends CustomPainter {
+  final List<({double sourcePos, double timelinePos, int id, bool locked})> markers;
+  final List<double> transients;
+  final double clipDuration;
+
+  _WarpOverlayPainter({
+    required this.markers,
+    required this.transients,
+    required this.clipDuration,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (clipDuration <= 0) return;
+    final pxPerSec = size.width / clipDuration;
+
+    // Draw stretch regions between markers (colored bands)
+    if (markers.length >= 2) {
+      for (int i = 0; i < markers.length - 1; i++) {
+        final m0 = markers[i];
+        final m1 = markers[i + 1];
+        final sourceLen = m1.sourcePos - m0.sourcePos;
+        final timelineLen = m1.timelinePos - m0.timelinePos;
+        if (sourceLen <= 0 || timelineLen <= 0) continue;
+        final ratio = timelineLen / sourceLen;
+
+        // Only show color for non-unity stretch (> 5% change)
+        if ((ratio - 1.0).abs() > 0.05) {
+          final x0 = m0.timelinePos * pxPerSec;
+          final x1 = m1.timelinePos * pxPerSec;
+          final color = ratio > 1.0
+              ? const Color(0x15FF9850) // orange = expanded (slower)
+              : const Color(0x1550D0FF); // cyan = compressed (faster)
+          canvas.drawRect(
+            Rect.fromLTRB(x0.clamp(0, size.width), 0, x1.clamp(0, size.width), size.height),
+            Paint()..color = color,
+          );
+        }
+      }
+    }
+
+    // Draw transient markers (small gray triangles at top)
+    final transientPaint = Paint()
+      ..color = const Color(0x60FFFFFF)
+      ..style = PaintingStyle.fill;
+    for (final t in transients) {
+      final x = t * pxPerSec;
+      if (x < 0 || x > size.width) continue;
+      // Small downward triangle
+      final path = Path()
+        ..moveTo(x - 2, 0)
+        ..lineTo(x + 2, 0)
+        ..lineTo(x, 4)
+        ..close();
+      canvas.drawPath(path, transientPaint);
+    }
+
+    // Draw warp marker lines (cyan vertical)
+    final markerPaint = Paint()
+      ..color = const Color(0xAA50D0FF)
+      ..strokeWidth = 1.0;
+    final lockedPaint = Paint()
+      ..color = const Color(0x60FFFFFF)
+      ..strokeWidth = 1.0;
+    for (final m in markers) {
+      final x = m.timelinePos * pxPerSec;
+      if (x < 0 || x > size.width) continue;
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x, size.height),
+        m.locked ? lockedPaint : markerPaint,
+      );
+      // Small diamond handle at top
+      if (!m.locked) {
+        final diamond = Path()
+          ..moveTo(x, 2)
+          ..lineTo(x + 3, 6)
+          ..lineTo(x, 10)
+          ..lineTo(x - 3, 6)
+          ..close();
+        canvas.drawPath(diamond, Paint()..color = const Color(0xCC50D0FF));
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_WarpOverlayPainter oldDelegate) =>
+      markers != oldDelegate.markers ||
+      transients != oldDelegate.transients ||
+      clipDuration != oldDelegate.clipDuration;
 }
