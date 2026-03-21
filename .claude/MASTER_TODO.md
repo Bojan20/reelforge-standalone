@@ -10,40 +10,40 @@
 
 ---
 
-## SLEDEĆA SESIJA — WARP MARKERS
+## SLEDEĆA SESIJA — WARP MARKERS END-TO-END
 
 **Arch doc:** `.claude/architecture/WARP_MARKERS.md`
 
-### Faza 1: Data model + markers (engine)
-- [ ] `WarpMarker` struct (source_pos, timeline_pos, type, locked)
-- [ ] `ClipWarpState` per clip (markers, transients, enabled)
-- [ ] `compute_segment_ratios()` per-segment stretch
-- [ ] FFI: clip_add/remove/move_warp_marker
-- [ ] Serialize za project save
+### Engine → Dart sync (KRITIČNO — warp se ne vidi bez ovoga)
+- [ ] FFI: `clip_get_warp_state` → vraća markers + transients + enabled
+- [ ] Dart: nakon detect/add/move/quantize, refreshuj TimelineClip.warpMarkers iz engine-a
+- [ ] Automatski sync posle svake warp operacije
 
-### Faza 2: Transient detection
-- [ ] `aubio-rs` dependency
-- [ ] Spectral flux onset detection
-- [ ] FFI: clip_detect_transients (async)
-- [ ] Auto-create markers na transientima
+### Detect Transients UI
+- [ ] Dugme u clip context menu ili clip inspector: "Detect Transients"
+- [ ] Poziva `clipDetectTransients()` → refreshuje clip → transients se vide u overlay-u
+- [ ] Sensitivity slider (opciono)
 
-### Faza 3: Per-segment stretch u playback
-- [ ] `process_clip_with_crossfade` sa ClipWarpState
-- [ ] Binary search segment lookup O(log N)
-- [ ] Per-segment Signalsmith instanca
-- [ ] Latency compensation
+### Drag-to-Warp interaction (KRITIČNO — korisnik ne može da pomera markere)
+- [ ] GestureDetector/Listener na svakom markeru u clip_widget Stack
+- [ ] onPanStart/Update/End → poziva `clipMoveWarpMarker()` FFI
+- [ ] Visual feedback tokom drag-a (marker prati kurzor)
+- [ ] Double-click na transient → kreira warp marker na toj poziciji
 
-### Faza 4: Flutter UI
-- [ ] Marker vizuelizacija u clip_widget
-- [ ] Drag-to-warp interaction
-- [ ] Transient display + quantize button
-- [ ] Warp on/off per clip
+### Warp kontrole u clip inspector
+- [ ] Warp on/off toggle (poziva `clipWarpEnable`)
+- [ ] Quantize dugme sa grid dropdown (1/4, 1/8, 1/16) + strength slider
+- [ ] "Create from Transients" dugme
+- [ ] Marker count display
 
-### Faza 5: Quantize + cross-track
-- [ ] Grid snap (1/4, 1/8, 1/16, triplet)
-- [ ] Strength 0-100%
-- [ ] Cross-track linked markers
-- [ ] Undo/redo
+### Elastic/Warp tab integracija
+- [ ] Warp tab: kad warp enabled, prikaži marker listu umesto globalnog ratio knoba
+- [ ] Elastic tab: pitch shift radi per-segment kad warp aktivan
+
+### Faza 5: Cross-track + Undo
+- [ ] Cross-track linked markers (Reaper-style)
+- [ ] Undo/redo za sve warp operacije
+- [ ] Warp marker copy/paste između klipova
 
 ### Ostalo
 - [ ] SlotLab CUSTOM Events Tab
