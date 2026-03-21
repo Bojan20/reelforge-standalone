@@ -7479,14 +7479,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
         // Cross-track linked move: find clips on OTHER selected tracks at similar timeline positions
         if (delta.abs() > 0.0001) {
-          // Cross-track: link markers on the selected track and all armed tracks
-          final selectedTrackIds = <String>{
-            if (_selectedTrackId != null) _selectedTrackId!,
-            ..._tracks.where((t) => t.armed).map((t) => t.id),
-          };
+          // Cross-track: link markers on armed tracks (excluding source clip's track)
+          final sourceTrackId = sourceClip.trackId;
+          final linkedTrackIds = _tracks
+              .where((t) => t.armed && t.id != sourceTrackId)
+              .map((t) => t.id)
+              .toSet();
           for (final otherClip in _clips) {
             if (otherClip.id == clipId) continue;
-            if (!selectedTrackIds.contains(otherClip.trackId)) continue;
+            if (!linkedTrackIds.contains(otherClip.trackId)) continue;
             if (!otherClip.warpEnabled) continue;
             // Find marker at similar timeline position (within 50ms)
             for (final m in otherClip.warpMarkers) {
@@ -7503,6 +7504,21 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           }
         }
       },
+      onClipWarpMarkerMoveEnd: (clipId, markerId, originalPos, finalPos) {
+        final numericClipId = int.tryParse(clipId.replaceAll(RegExp(r'[^0-9]'), ''));
+        if (numericClipId == null) return;
+        UiUndoManager.instance.record(GenericUndoAction(
+          description: 'Move Warp Marker',
+          onExecute: () {
+            NativeFFI.instance.clipMoveWarpMarker(numericClipId, markerId, finalPos);
+            _refreshClipWarpState(clipId);
+          },
+          onUndo: () {
+            NativeFFI.instance.clipMoveWarpMarker(numericClipId, markerId, originalPos);
+            _refreshClipWarpState(clipId);
+          },
+        ));
+      },
       onClipWarpMarkerCreate: (clipId, timelinePos) {
         final numericClipId = int.tryParse(clipId.replaceAll(RegExp(r'[^0-9]'), ''));
         if (numericClipId == null) return;
@@ -7512,11 +7528,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         _refreshClipWarpState(clipId);
         // Undo: remove the marker we just added
         if (markerId > 0) {
+          var currentMarkerId = markerId;
           UiUndoManager.instance.record(GenericUndoAction(
             description: 'Add Warp Marker',
-            onExecute: () {}, // Already executed above
+            onExecute: () {
+              // Redo: re-create marker at same position
+              currentMarkerId = NativeFFI.instance.clipAddWarpMarker(
+                numericClipId, timelinePos, timelinePos, timeline.WarpMarkerKind.manual,
+              );
+              _refreshClipWarpState(clipId);
+            },
             onUndo: () {
-              NativeFFI.instance.clipRemoveWarpMarker(numericClipId, markerId);
+              NativeFFI.instance.clipRemoveWarpMarker(numericClipId, currentMarkerId);
               _refreshClipWarpState(clipId);
             },
           ));

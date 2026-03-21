@@ -128,8 +128,10 @@ class Timeline extends StatefulWidget {
   final void Function(String clipId, double position)? onClipSplitAtPosition;
   /// Shuffle mode: move clip and push adjacent clips
   final void Function(String clipId, double newStartTime)? onClipShuffleMove;
-  /// Warp marker moved within a clip
+  /// Warp marker moved within a clip (per-frame)
   final void Function(String clipId, int markerId, double newTimelinePos)? onClipWarpMarkerMove;
+  /// Warp marker drag ended (for undo)
+  final void Function(String clipId, int markerId, double originalPos, double finalPos)? onClipWarpMarkerMoveEnd;
   /// Double-click creates warp marker at position
   final void Function(String clipId, double timelinePos)? onClipWarpMarkerCreate;
   final ValueChanged<String>? onClipCopy;
@@ -308,6 +310,7 @@ class Timeline extends StatefulWidget {
     this.onClipSplitAtPosition,
     this.onClipShuffleMove,
     this.onClipWarpMarkerMove,
+    this.onClipWarpMarkerMoveEnd,
     this.onClipWarpMarkerCreate,
     this.onClipCopy,
     this.onClipPaste,
@@ -2055,6 +2058,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                     onClipSplitAtPosition: widget.onClipSplitAtPosition,
                     onClipShuffleMove: widget.onClipShuffleMove,
                     onClipWarpMarkerMove: widget.onClipWarpMarkerMove,
+                    onClipWarpMarkerMoveEnd: widget.onClipWarpMarkerMoveEnd,
                     onClipWarpMarkerCreate: widget.onClipWarpMarkerCreate,
                     onPlayheadMove: widget.onPlayheadChange,
                     onCrossfadeUpdate: widget.onCrossfadeUpdate,

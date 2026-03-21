@@ -86,6 +86,8 @@ class ClipWidget extends StatefulWidget {
   final ValueChanged<double>? onPlayheadMove;
   /// Warp marker moved (markerId, newTimelinePos in seconds relative to clip)
   final void Function(int markerId, double newTimelinePos)? onWarpMarkerMove;
+  /// Warp marker drag ended (markerId, originalPos, finalPos) — for undo recording
+  final void Function(int markerId, double originalPos, double finalPos)? onWarpMarkerMoveEnd;
   /// Double-click at position to create warp marker (timelinePos in seconds relative to clip)
   final ValueChanged<double>? onWarpMarkerCreate;
   final bool snapEnabled;
@@ -128,6 +130,7 @@ class ClipWidget extends StatefulWidget {
     this.onShuffleMove,
     this.onPlayheadMove,
     this.onWarpMarkerMove,
+    this.onWarpMarkerMoveEnd,
     this.onWarpMarkerCreate,
     this.snapEnabled = false,
     this.snapValue = 1,
@@ -1400,6 +1403,7 @@ class _ClipWidgetState extends State<ClipWidget> {
                         clipDuration: clip.duration,
                         zoom: widget.zoom,
                         onMove: widget.onWarpMarkerMove,
+                        onMoveEnd: widget.onWarpMarkerMoveEnd,
                       ),
                     ),
                 // Double-tap on warp zone (top 20px) creates new marker
@@ -3533,6 +3537,7 @@ class _WarpMarkerDragHandle extends StatefulWidget {
   final double clipDuration;
   final double zoom;
   final void Function(int markerId, double newTimelinePos)? onMove;
+  final void Function(int markerId, double originalPos, double finalPos)? onMoveEnd;
 
   const _WarpMarkerDragHandle({
     required this.markerId,
@@ -3540,6 +3545,7 @@ class _WarpMarkerDragHandle extends StatefulWidget {
     required this.clipDuration,
     required this.zoom,
     this.onMove,
+    this.onMoveEnd,
   });
 
   @override
@@ -3548,6 +3554,7 @@ class _WarpMarkerDragHandle extends StatefulWidget {
 
 class _WarpMarkerDragHandleState extends State<_WarpMarkerDragHandle> {
   double _accumulatedPos = 0;
+  double _originalPos = 0;
   bool _isDragging = false;
 
   @override
@@ -3555,6 +3562,7 @@ class _WarpMarkerDragHandleState extends State<_WarpMarkerDragHandle> {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onHorizontalDragStart: (_) {
+        _originalPos = widget.initialTimelinePos;
         _accumulatedPos = widget.initialTimelinePos;
         _isDragging = true;
       },
@@ -3564,7 +3572,12 @@ class _WarpMarkerDragHandleState extends State<_WarpMarkerDragHandle> {
         _accumulatedPos = (_accumulatedPos + deltaSec).clamp(0.0, widget.clipDuration);
         widget.onMove?.call(widget.markerId, _accumulatedPos);
       },
-      onHorizontalDragEnd: (_) => _isDragging = false,
+      onHorizontalDragEnd: (_) {
+        if (_isDragging && (_accumulatedPos - _originalPos).abs() > 0.001) {
+          widget.onMoveEnd?.call(widget.markerId, _originalPos, _accumulatedPos);
+        }
+        _isDragging = false;
+      },
       onHorizontalDragCancel: () => _isDragging = false,
       child: const MouseRegion(
         cursor: SystemMouseCursors.resizeColumn,

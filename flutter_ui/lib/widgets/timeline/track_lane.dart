@@ -71,8 +71,10 @@ class TrackLane extends StatefulWidget {
   final void Function(String clipId, double position)? onClipSplitAtPosition;
   /// Shuffle mode: move clip and push adjacent clips
   final void Function(String clipId, double newStartTime)? onClipShuffleMove;
-  /// Warp marker moved within a clip
+  /// Warp marker moved within a clip (per-frame)
   final void Function(String clipId, int markerId, double newTimelinePos)? onClipWarpMarkerMove;
+  /// Warp marker drag ended (for undo recording)
+  final void Function(String clipId, int markerId, double originalPos, double finalPos)? onClipWarpMarkerMoveEnd;
   /// Double-click creates warp marker at position
   final void Function(String clipId, double timelinePos)? onClipWarpMarkerCreate;
   final void Function(String crossfadeId, double duration)? onCrossfadeUpdate;
@@ -130,6 +132,7 @@ class TrackLane extends StatefulWidget {
     this.onClipSplitAtPosition,
     this.onClipShuffleMove,
     this.onClipWarpMarkerMove,
+    this.onClipWarpMarkerMoveEnd,
     this.onClipWarpMarkerCreate,
     this.onCrossfadeUpdate,
     this.onCrossfadeFullUpdate,
@@ -246,6 +249,8 @@ class _TrackLaneState extends State<TrackLane> with AutomaticKeepAliveClientMixi
                       onPlayheadMove: widget.onPlayheadMove,
                       onWarpMarkerMove: (markerId, newPos) =>
                           widget.onClipWarpMarkerMove?.call(clip.id, markerId, newPos),
+                      onWarpMarkerMoveEnd: (markerId, origPos, finalPos) =>
+                          widget.onClipWarpMarkerMoveEnd?.call(clip.id, markerId, origPos, finalPos),
                       onWarpMarkerCreate: (pos) =>
                           widget.onClipWarpMarkerCreate?.call(clip.id, pos),
                       snapEnabled: widget.snapEnabled,
