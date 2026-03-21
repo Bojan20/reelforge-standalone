@@ -137,6 +137,14 @@ impl ClipWarpState {
         Self::default()
     }
 
+    /// Ensure segments are built. Call after deserialization or project load.
+    /// Safe to call multiple times — only rebuilds if segments are stale.
+    pub fn ensure_segments(&mut self) {
+        if self.markers.len() >= 2 && self.segments.is_empty() {
+            self.rebuild_segments();
+        }
+    }
+
     /// Create warp state with initial boundary markers at start/end of source.
     pub fn with_boundaries(source_duration: f64, clip_duration: f64) -> Self {
         let mut state = Self {
@@ -182,9 +190,10 @@ impl ClipWarpState {
     }
 
     /// Remove a warp marker by ID. Returns true if found.
+    /// Remove a warp marker by ID. Locked markers (boundaries) cannot be removed.
     pub fn remove_marker(&mut self, id: WarpMarkerId) -> bool {
         let len_before = self.markers.len();
-        self.markers.retain(|m| m.id != id);
+        self.markers.retain(|m| m.id != id || m.locked);
         if self.markers.len() != len_before {
             self.rebuild_segments();
             true
@@ -195,34 +204,59 @@ impl ClipWarpState {
 
     /// Move a warp marker's timeline position (drag operation).
     /// Source position stays fixed — only where it appears on timeline changes.
+    /// Timeline position is clamped between adjacent markers to prevent inversions.
     pub fn move_marker(&mut self, id: WarpMarkerId, new_timeline_pos: f64) -> bool {
-        if let Some(marker) = self.markers.iter_mut().find(|m| m.id == id) {
-            if marker.locked {
-                return false;
-            }
-            marker.timeline_pos = new_timeline_pos;
-            self.rebuild_segments();
-            true
-        } else {
-            false
+        // Find marker index
+        let idx = match self.markers.iter().position(|m| m.id == id) {
+            Some(i) => i,
+            None => return false,
+        };
+        if self.markers[idx].locked {
+            return false;
         }
+
+        // Clamp between adjacent markers' timeline positions (prevent inversions)
+        let min_t = if idx > 0 {
+            self.markers[idx - 1].timeline_pos + 0.001 // 1ms minimum gap
+        } else {
+            0.0
+        };
+        let max_t = if idx + 1 < self.markers.len() {
+            self.markers[idx + 1].timeline_pos - 0.001
+        } else {
+            f64::MAX
+        };
+        self.markers[idx].timeline_pos = new_timeline_pos.clamp(min_t, max_t);
+        self.rebuild_segments();
+        true
     }
 
     /// Rebuild pre-computed segments from markers. Called after any marker change.
+    ///
+    /// INVARIANT: After rebuild, segments have monotonically increasing timeline positions.
+    /// This is enforced by sorting markers by source_pos and clamping timeline positions.
     pub fn rebuild_segments(&mut self) {
         self.segments.clear();
         if self.markers.len() < 2 {
             return;
         }
-        // Sort by source_pos (should already be sorted, but defensive)
+        // Sort by source_pos (primary invariant)
         self.markers.sort_by(|a, b| a.source_pos.partial_cmp(&b.source_pos).unwrap_or(std::cmp::Ordering::Equal));
+
+        // Enforce monotonic timeline ordering (fix any inversions from quantize or external edit)
+        for i in 1..self.markers.len() {
+            if self.markers[i].timeline_pos <= self.markers[i - 1].timeline_pos {
+                // Push forward by minimum gap
+                self.markers[i].timeline_pos = self.markers[i - 1].timeline_pos + 0.001;
+            }
+        }
 
         for i in 0..self.markers.len() - 1 {
             let m0 = &self.markers[i];
             let m1 = &self.markers[i + 1];
             let source_len = m1.source_pos - m0.source_pos;
             let timeline_len = m1.timeline_pos - m0.timeline_pos;
-            let ratio = if source_len > 1e-6 {
+            let ratio = if source_len > 1e-6 && timeline_len > 0.0 {
                 timeline_len / source_len
             } else {
                 1.0
@@ -242,6 +276,8 @@ impl ClipWarpState {
     #[inline]
     pub fn lookup_segment(&self, timeline_pos: f64) -> Option<(usize, f64)> {
         if self.segments.is_empty() {
+            // Segments may be empty after deserialization — but we can't rebuild here
+            // because &self is immutable. Caller must call ensure_segments() first.
             return None;
         }
         // Binary search: find the segment where timeline_start <= pos < timeline_end
@@ -261,30 +297,54 @@ impl ClipWarpState {
         Some((idx, source_pos))
     }
 
+    /// Map source position to timeline position (inverse of lookup_segment).
+    /// Used to find correct initial timeline_pos for new markers.
+    pub fn source_to_timeline(&self, source_pos: f64) -> f64 {
+        if self.segments.is_empty() {
+            return source_pos; // Identity mapping if no segments
+        }
+        // Find segment by source position
+        let idx = self.segments.partition_point(|s| s.source_end <= source_pos);
+        let idx = idx.min(self.segments.len() - 1);
+        let seg = &self.segments[idx];
+        let source_len = seg.source_end - seg.source_start;
+        let progress = if source_len > 1e-6 {
+            ((source_pos - seg.source_start) / source_len).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        seg.timeline_start + progress * (seg.timeline_end - seg.timeline_start)
+    }
+
     /// Number of markers
     pub fn marker_count(&self) -> usize {
         self.markers.len()
     }
 
     /// Create markers from detected transients.
-    /// Each transient becomes a warp marker at its original position (source=timeline).
+    /// Each transient gets a timeline position interpolated from existing warp mapping.
     pub fn create_markers_from_transients(&mut self) {
-        for &t in &self.transients {
-            // Skip if a marker already exists near this position
+        // Snapshot transients (we need to borrow self.transients while mutating markers)
+        let transients: Vec<f64> = self.transients.clone();
+        for t in transients {
+            // Skip if a marker already exists near this source position
             let already_exists = self.markers.iter().any(|m| (m.source_pos - t).abs() < 0.005);
             if !already_exists {
+                // Interpolate timeline position from existing warp mapping
+                let timeline_pos = self.source_to_timeline(t);
                 let id = WarpMarkerId(next_id());
                 let idx = self.markers.partition_point(|m| m.source_pos < t);
                 self.markers.insert(idx, WarpMarker {
                     id,
                     source_pos: t,
-                    timeline_pos: t, // Initially identity mapping
+                    timeline_pos,
                     marker_type: WarpMarkerType::Transient,
                     locked: false,
                 });
+                // Rebuild after each insert to keep segments consistent for next interpolation
+                self.rebuild_segments();
             }
         }
-        self.rebuild_segments();
     }
 
     /// Quantize all unlocked markers to nearest grid position.
@@ -7487,13 +7547,65 @@ mod tests {
     }
 
     #[test]
-    fn test_warp_serialization() {
+    fn test_warp_serialization_and_rebuild() {
         let state = ClipWarpState::with_boundaries(4.0, 4.0);
         let json = serde_json::to_string(&state).unwrap();
-        let restored: ClipWarpState = serde_json::from_str(&json).unwrap();
+        let mut restored: ClipWarpState = serde_json::from_str(&json).unwrap();
         assert_eq!(restored.markers.len(), 2);
         assert!(restored.enabled);
-        // Segments are NOT serialized — rebuild on load
+        // Segments are NOT serialized — need rebuild
         assert!(restored.segments.is_empty());
+        // After ensure_segments, lookup works
+        restored.ensure_segments();
+        assert_eq!(restored.segments.len(), 1);
+        let (idx, src) = restored.lookup_segment(2.0).unwrap();
+        assert_eq!(idx, 0);
+        assert!((src - 2.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_warp_move_clamped_between_adjacent() {
+        let mut state = ClipWarpState::with_boundaries(4.0, 4.0);
+        let mid = state.add_marker(2.0, 2.0, WarpMarkerType::Manual);
+        // Try to move past the end boundary (timeline=4.0) — should clamp
+        state.move_marker(mid, 10.0);
+        // Should be clamped to < 4.0 (end boundary - 0.001)
+        let m = state.markers.iter().find(|m| m.id == mid).unwrap();
+        assert!(m.timeline_pos < 4.0);
+        assert!(m.timeline_pos > 3.0);
+    }
+
+    #[test]
+    fn test_warp_remove_locked_boundary() {
+        let mut state = ClipWarpState::with_boundaries(4.0, 4.0);
+        let boundary_id = state.markers[0].id;
+        // Cannot remove locked boundary
+        assert!(!state.remove_marker(boundary_id));
+        assert_eq!(state.markers.len(), 2);
+    }
+
+    #[test]
+    fn test_warp_monotonic_after_quantize() {
+        let mut state = ClipWarpState::with_boundaries(4.0, 4.0);
+        state.add_marker(1.0, 0.9, WarpMarkerType::Manual);
+        state.add_marker(1.1, 1.0, WarpMarkerType::Manual);
+        // Quantize to 1.0s grid — both could snap to 1.0
+        state.quantize_to_grid(1.0, 1.0);
+        // rebuild_segments enforces monotonic — no inversions
+        for i in 0..state.segments.len() {
+            assert!(state.segments[i].timeline_end > state.segments[i].timeline_start,
+                "Segment {} has inverted timeline", i);
+        }
+    }
+
+    #[test]
+    fn test_warp_source_to_timeline() {
+        let mut state = ClipWarpState::with_boundaries(4.0, 4.0);
+        let mid = state.add_marker(2.0, 2.0, WarpMarkerType::Manual);
+        state.move_marker(mid, 3.0);
+        // source=1.0 → first segment (0-2 source, 0-3 timeline)
+        // progress = 1.0/2.0 = 0.5, timeline = 0 + 0.5*3 = 1.5
+        let t = state.source_to_timeline(1.0);
+        assert!((t - 1.5).abs() < 0.01);
     }
 }

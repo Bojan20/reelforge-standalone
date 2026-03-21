@@ -13646,6 +13646,9 @@ pub extern "C" fn clip_remove_warp_marker(clip_id: u64, marker_id: u64) -> i32 {
 /// Move a warp marker's timeline position (drag operation).
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_move_warp_marker(clip_id: u64, marker_id: u64, new_timeline_pos: f64) -> i32 {
+    if !new_timeline_pos.is_finite() || new_timeline_pos < 0.0 {
+        return 0;
+    }
     if let Some(mut clip) = TRACK_MANAGER.clips.get_mut(&ClipId(clip_id)) {
         if clip.warp_state.move_marker(WarpMarkerId(marker_id), new_timeline_pos) { 1 } else { 0 }
     } else { 0 }
