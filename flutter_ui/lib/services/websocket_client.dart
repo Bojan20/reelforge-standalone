@@ -510,7 +510,7 @@ class UltimateWebSocketClient {
 
   // --- Seq tracking (gap detection + dedup) ---
   int _expectedSeq = 0;
-  final Set<int> _recentSeqs = {};
+  final LinkedHashSet<int> _recentSeqs = LinkedHashSet(); // FIFO order for bounded eviction
   int _seqGapCount = 0;
   int _seqDupCount = 0;
 
@@ -633,6 +633,12 @@ class UltimateWebSocketClient {
       _metrics = ConnectionMetrics();
       _metricsController.add(_metrics);
 
+      // Reset seq tracking on new/reconnected connection
+      _expectedSeq = 0;
+      _recentSeqs.clear();
+      _seqGapCount = 0;
+      _seqDupCount = 0;
+
 
       // Re-subscribe to channels
       for (final channel in _subscribedChannels) {
@@ -656,6 +662,8 @@ class UltimateWebSocketClient {
     _setState(WsConnectionState.closing);
     _stopKeepalive();
     _reconnectTimer?.cancel();
+    _circuitResetTimer?.cancel();
+    _circuitOpen = false;
 
     try {
       await _subscription?.cancel();

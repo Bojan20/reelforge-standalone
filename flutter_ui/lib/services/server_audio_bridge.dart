@@ -112,6 +112,9 @@ class ServerAudioBridge with ChangeNotifier {
     super.dispose();
   }
 
+  int _batchDepth = 0;
+  static const _maxBatchDepth = 3;
+
   /// Process a parsed server message. Called by WebSocket listener.
   void processMessage(Map<String, dynamic> msg) {
     final type = msg['type'] as String?;
@@ -160,10 +163,10 @@ class ServerAudioBridge with ChangeNotifier {
       }
     }
 
-    // Trigger audio event
+    // Trigger audio event via EventRegistry (if wired)
     try {
-      final registry = EventRegistryLocator.instance;
-      registry.triggerEvent(eventId);
+      if (EventRegistryLocator._instance == null) return;
+      EventRegistryLocator.instance.triggerEvent(eventId);
       _triggerCount++;
       notifyListeners();
     } catch (e) {
@@ -259,11 +262,12 @@ class ServerAudioBridge with ChangeNotifier {
     }
 
     // Also trigger a state event if EventRegistry has one
-    try {
-      final registry = EventRegistryLocator.instance;
-      registry.triggerEvent('state_$stateName');
-    } catch (_) {
-      // State event is optional — no error if not found
+    if (EventRegistryLocator._instance != null) {
+      try {
+        EventRegistryLocator.instance.triggerEvent('state_$stateName');
+      } catch (_) {
+        // State event is optional — no error if not found
+      }
     }
 
     notifyListeners();
@@ -274,13 +278,19 @@ class ServerAudioBridge with ChangeNotifier {
   // ═══════════════════════════════════════════════════════════════════
 
   void _handleBatch(Map<String, dynamic> msg) {
+    if (_batchDepth >= _maxBatchDepth) {
+      _logError('batch: max depth $_maxBatchDepth exceeded');
+      return;
+    }
     final events = msg['events'] as List?;
     if (events == null) return;
+    _batchDepth++;
     for (final event in events) {
       if (event is Map<String, dynamic>) {
         processMessage(event);
       }
     }
+    _batchDepth--;
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -329,7 +339,8 @@ class ServerAudioBridge with ChangeNotifier {
   void _logError(String message) {
     _errorCount++;
     _lastError = message;
-    debugPrint('[ServerAudioBridge] ERROR: $message');
+    // No debugPrint — CLAUDE.md: "korisnik nema konzolu"
+    // Error visible via lastError getter in monitoring UI
     notifyListeners();
   }
 
