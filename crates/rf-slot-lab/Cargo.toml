@@ -15,8 +15,8 @@ rf-stage = { path = "../rf-stage" }
 
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-serde_yaml = { workspace = true }
+serde_yml = { workspace = true }
 log = { workspace = true }
 thiserror = { workspace = true }
 parking_lot = { workspace = true }
-rand = "0.8"
+rand = { workspace = true }

@@ -194,16 +194,16 @@ fn build_simulation_steps(
     for i in 0..frame_count {
         steps.push(rf_aurexis::qa::simulation::SimulationStep {
             elapsed_ms: (i as u64) * 50,
-            volatility: rng.gen_range(0.0..1.0f64),
-            rtp: 90.0 + rng.gen_range(0.0..1.0f64) * 7.0, // 90-97%
-            win_multiplier: if rng.gen_range(0.0..1.0f64) < 0.25 {
-                rng.gen_range(0.0..1.0f64) * 100.0
+            volatility: rng.random_range(0.0..1.0f64),
+            rtp: 90.0 + rng.random_range(0.0..1.0f64) * 7.0, // 90-97%
+            win_multiplier: if rng.random_range(0.0..1.0f64) < 0.25 {
+                rng.random_range(0.0..1.0f64) * 100.0
             } else {
                 0.0
             },
-            jackpot_proximity: rng.gen_range(0.0..1.0f64),
-            rms_db: -30.0 + rng.gen_range(0.0..1.0f64) * 18.0, // -30 to -12
-            hf_db: -40.0 + rng.gen_range(0.0..1.0f64) * 20.0,  // -40 to -20
+            jackpot_proximity: rng.random_range(0.0..1.0f64),
+            rms_db: -30.0 + rng.random_range(0.0..1.0f64) * 18.0, // -30 to -12
+            hf_db: -40.0 + rng.random_range(0.0..1.0f64) * 20.0,  // -40 to -20
         });
     }
 

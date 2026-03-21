@@ -117,7 +117,7 @@ impl SyntheticSlotEngine {
         let timing_config = TimingConfig::normal();
 
         Self {
-            rng: StdRng::from_entropy(),
+            rng: StdRng::from_os_rng(),
             timestamp_gen: TimestampGenerator::new(timing_config.clone()),
             config,
             paytable,
@@ -338,7 +338,7 @@ impl SyntheticSlotEngine {
 
         for reel_idx in 0..reels {
             let strip = &self.reel_strips[reel_idx % self.reel_strips.len()];
-            let start_pos = self.rng.gen_range(0..strip.len());
+            let start_pos = self.rng.random_range(0..strip.len());
 
             let mut column = Vec::with_capacity(rows);
             for row in 0..rows {
@@ -414,14 +414,14 @@ impl SyntheticSlotEngine {
             } else {
                 // Fill with random non-matching symbols
                 for row in 0..rows {
-                    let idx = self.rng.gen_range(0..regular_ids.len());
+                    let idx = self.rng.random_range(0..regular_ids.len());
                     column[row] = regular_ids[idx];
                 }
             }
             // Fill other rows
             for row in 0..rows {
                 if column[row] == 0 {
-                    let idx = self.rng.gen_range(0..regular_ids.len());
+                    let idx = self.rng.random_range(0..regular_ids.len());
                     column[row] = regular_ids[idx];
                 }
             }
@@ -452,7 +452,7 @@ impl SyntheticSlotEngine {
             // Fill other positions
             for row in 0..rows {
                 if column[row] == 0 {
-                    let idx = self.rng.gen_range(0..regular_ids.len());
+                    let idx = self.rng.random_range(0..regular_ids.len());
                     column[row] = regular_ids[idx];
                 }
             }
@@ -474,14 +474,14 @@ impl SyntheticSlotEngine {
             let mut column = vec![0u32; rows];
             // Place scatter on random row in first N reels
             if scatters_placed < scatter_count {
-                let row = self.rng.gen_range(0..rows);
+                let row = self.rng.random_range(0..rows);
                 column[row] = scatter_id;
                 scatters_placed += 1;
             }
             // Fill other positions
             for row in 0..rows {
                 if column[row] == 0 {
-                    let idx = self.rng.gen_range(0..regular_ids.len());
+                    let idx = self.rng.random_range(0..regular_ids.len());
                     column[row] = regular_ids[idx];
                 }
             }
@@ -511,7 +511,7 @@ impl SyntheticSlotEngine {
             // Fill other positions
             for row in 0..rows {
                 if column[row] == 0 {
-                    let idx = self.rng.gen_range(0..regular_ids.len());
+                    let idx = self.rng.random_range(0..regular_ids.len());
                     column[row] = regular_ids[idx];
                 }
             }
@@ -538,7 +538,7 @@ impl SyntheticSlotEngine {
 
         // Apply feature trigger
         if outcome.triggers_feature() && result.scatter_win.is_some() {
-            let spins = self.rng.gen_range(
+            let spins = self.rng.random_range(
                 self.config.features.free_spins_range.0..=self.config.features.free_spins_range.1,
             );
             result.feature_triggered = Some(TriggeredFeature {
@@ -574,7 +574,7 @@ impl SyntheticSlotEngine {
             .is_some_and(|s| s.triggers_feature)
             && self.config.features.free_spins_enabled
         {
-            let spins = self.rng.gen_range(
+            let spins = self.rng.random_range(
                 self.config.features.free_spins_range.0..=self.config.features.free_spins_range.1,
             );
             result.feature_triggered = Some(TriggeredFeature {
@@ -586,10 +586,10 @@ impl SyntheticSlotEngine {
 
         // Random jackpot check
         if self.config.features.jackpot_enabled {
-            let jackpot_roll: f64 = self.rng.r#gen::<f64>();
+            let jackpot_roll: f64 = self.rng.random::<f64>();
             if jackpot_roll < vol.jackpot_frequency {
                 // Determine tier (weighted toward lower tiers)
-                let tier_roll: f64 = self.rng.r#gen::<f64>();
+                let tier_roll: f64 = self.rng.random::<f64>();
                 let (tier, tier_idx) = if tier_roll < 0.6 {
                     (JackpotTier::Mini, 0)
                 } else if tier_roll < 0.85 {
@@ -609,7 +609,7 @@ impl SyntheticSlotEngine {
 
         // Near miss detection (2026-02-01: Respects anticipation config)
         if !result.is_win() {
-            let near_miss_roll: f64 = self.rng.r#gen::<f64>();
+            let near_miss_roll: f64 = self.rng.random::<f64>();
             if near_miss_roll < vol.near_miss_frequency {
                 result.near_miss = true;
                 // Only set anticipation if enabled in config
@@ -680,7 +680,7 @@ impl SyntheticSlotEngine {
 
         while step < max_cascades {
             // Check if cascade continues
-            let cascade_roll: f64 = self.rng.r#gen::<f64>();
+            let cascade_roll: f64 = self.rng.random::<f64>();
             if cascade_roll >= cascade_prob {
                 break;
             }

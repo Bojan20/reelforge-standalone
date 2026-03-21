@@ -112,7 +112,7 @@ impl SlotEngineV2 {
             paytable,
             model,
             features,
-            rng: StdRng::from_entropy(),
+            rng: StdRng::from_os_rng(),
             spin_count: 0,
             current_bet: 1.0,
             stats: EngineStats::default(),
@@ -219,7 +219,7 @@ impl SlotEngineV2 {
         result.scatter_win = evaluation.scatter_win;
 
         // Generate random value for feature processing
-        let random_value: f64 = self.rng.r#gen();
+        let random_value: f64 = self.rng.random();
 
         // Check for feature activation
         let scatter_count = self.count_scatters(&result.grid);
@@ -304,7 +304,7 @@ impl SlotEngineV2 {
             let mut column = Vec::with_capacity(rows);
             for _ in 0..rows {
                 // Symbol IDs 1-10 (standard set)
-                column.push(self.rng.gen_range(1..=10));
+                column.push(self.rng.random_range(1..=10));
             }
             grid.push(column);
         }
@@ -325,16 +325,16 @@ impl SlotEngineV2 {
 
                 for _ in 0..rows {
                     if total_weight > 0 {
-                        let roll = self.rng.gen_range(0..total_weight);
+                        let roll = self.rng.random_range(0..total_weight);
                         let symbol_id = Self::select_symbol_by_weight_static(math, reel, roll);
                         column.push(symbol_id);
                     } else {
-                        column.push(self.rng.gen_range(1..=10));
+                        column.push(self.rng.random_range(1..=10));
                     }
                 }
             } else {
                 for _ in 0..rows {
-                    column.push(self.rng.gen_range(1..=10));
+                    column.push(self.rng.random_range(1..=10));
                 }
             }
             grid.push(column);
@@ -397,7 +397,7 @@ impl SlotEngineV2 {
         rows: usize,
         match_count: usize,
     ) -> Vec<Vec<u32>> {
-        let winning_symbol = self.rng.gen_range(1..=5) as u32;
+        let winning_symbol = self.rng.random_range(1..=5) as u32;
         let mut grid = Vec::with_capacity(reels);
 
         for reel in 0..reels {
@@ -408,7 +408,7 @@ impl SlotEngineV2 {
             // Fill rest
             for row in 0..rows {
                 if column[row] == 0 {
-                    column[row] = self.rng.gen_range(6..=10);
+                    column[row] = self.rng.random_range(6..=10);
                 }
             }
             grid.push(column);
@@ -427,7 +427,7 @@ impl SlotEngineV2 {
                 if row == 1 {
                     column.push(winning_symbol);
                 } else {
-                    column.push(self.rng.gen_range(2..=10));
+                    column.push(self.rng.random_range(2..=10));
                 }
             }
             grid.push(column);
@@ -448,13 +448,13 @@ impl SlotEngineV2 {
         for _reel in 0..reels {
             let mut column = vec![0u32; rows];
             if placed < scatter_count {
-                let row = self.rng.gen_range(0..rows);
+                let row = self.rng.random_range(0..rows);
                 column[row] = scatter_id;
                 placed += 1;
             }
             for row in 0..rows {
                 if column[row] == 0 {
-                    column[row] = self.rng.gen_range(1..=8);
+                    column[row] = self.rng.random_range(1..=8);
                 }
             }
             grid.push(column);
@@ -473,11 +473,11 @@ impl SlotEngineV2 {
             } else if reel == 2 {
                 // Near miss: symbol just above
                 column[0] = winning_symbol;
-                column[1] = self.rng.gen_range(2..=10);
+                column[1] = self.rng.random_range(2..=10);
             }
             for row in 0..rows {
                 if column[row] == 0 {
-                    column[row] = self.rng.gen_range(2..=10);
+                    column[row] = self.rng.random_range(2..=10);
                 }
             }
             grid.push(column);
@@ -782,7 +782,7 @@ impl SlotEngineV2 {
         }
 
         // Use spin context to process a pick
-        let random: f64 = self.rng.r#gen();
+        let random: f64 = self.rng.random();
         let mut spin_ctx = SpinContext::new(self.current_bet);
         spin_ctx.random = random;
 
@@ -909,7 +909,7 @@ impl SlotEngineV2 {
             return None;
         }
 
-        let random: f64 = self.rng.r#gen();
+        let random: f64 = self.rng.random();
         let mut spin_ctx = SpinContext::new(self.current_bet);
         // Use random as choice seed (would need better choice passing mechanism)
         spin_ctx.random = (choice_index as f64 + random * 0.5) / 4.0;

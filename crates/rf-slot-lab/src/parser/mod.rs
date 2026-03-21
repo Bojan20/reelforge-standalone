@@ -81,7 +81,7 @@ impl GddParser {
     /// Parse YAML GDD into GameModel
     pub fn parse_yaml(&self, yaml: &str) -> Result<GameModel, GddParseError> {
         let doc: GddDocument =
-            serde_yaml::from_str(yaml).map_err(|e| GddParseError::YamlError(e.to_string()))?;
+            serde_yml::from_str(yaml).map_err(|e| GddParseError::YamlError(e.to_string()))?;
         self.validate(&doc)?;
         self.to_game_model(doc)
     }
@@ -115,7 +115,7 @@ impl GddParser {
 
     /// Parse YAML GDD into raw document (for validation without model conversion)
     pub fn parse_yaml_document(&self, yaml: &str) -> Result<GddDocument, GddParseError> {
-        serde_yaml::from_str(yaml).map_err(|e| GddParseError::YamlError(e.to_string()))
+        serde_yml::from_str(yaml).map_err(|e| GddParseError::YamlError(e.to_string()))
     }
 
     /// Full validation pipeline: parse + schema + constraints

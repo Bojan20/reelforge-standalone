@@ -103,8 +103,8 @@ impl From<serde_json::Error> for FluxMacroError {
     }
 }
 
-impl From<serde_yaml::Error> for FluxMacroError {
-    fn from(e: serde_yaml::Error) -> Self {
+impl From<serde_yml::Error> for FluxMacroError {
+    fn from(e: serde_yml::Error) -> Self {
         Self::ParseError(format!("YAML: {e}"))
     }
 }

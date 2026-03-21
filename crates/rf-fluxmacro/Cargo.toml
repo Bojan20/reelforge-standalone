@@ -19,7 +19,7 @@ rf-release = { path = "../rf-release" }
 # Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_yaml = "0.9"
+serde_yml = { workspace = true }
 
 # Hashing
 sha2 = { workspace = true }
@@ -30,7 +30,7 @@ regex = "1"
 
 # Deterministic RNG
 rand = { workspace = true }
-rand_chacha = "0.3"
+rand_chacha = { workspace = true }
 
 # Parallelism
 rayon = { workspace = true }

@@ -11,7 +11,7 @@ rf-ingest = { path = "../rf-ingest" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"
-tokio = { version = "1.42", features = ["full"] }
+tokio = { workspace = true, features = ["full"] }
 tokio-tungstenite = "0.24"
 futures-util = "0.3"
 uuid = { version = "1.11", features = ["v4"] }

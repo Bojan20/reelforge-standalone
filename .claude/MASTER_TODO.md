@@ -101,41 +101,44 @@ _(dodaj nove taskove ovde)_
 
 ### Strukturalni problemi (pre upgrade-a)
 
-- [ ] **6 crate-ova ne koriste workspace deps** — `rf-ml`, `rf-spatial`, `rf-master`, `rf-pitch`, `rf-restore`, `rf-realtime` imaju hardkodirane verzije umesto `workspace = true`. Konsolidovati PRE bilo kakvog upgrade-a.
-- [ ] **flutter_rust_bridge verzijski raskorak** — pubspec.yaml `^2.11.1` vs Cargo.toml `"2.7"`. Sinhronizovati.
-- [ ] **objc 0.2 + objc2 0.5 u rf-plugin** — nekompatibilni crate-ovi, migrirati sve na `objc2`.
-- [ ] **Edition 2021 crate-ovi** — `rf-ml`, `rf-spatial`, `rf-master`, `rf-pitch`, `rf-restore`, `rf-realtime`, `rf-plugin-host` — podići na edition 2024 (osim `rf-wasm` koji ostaje 2021 za wasm-pack).
-- [ ] **Dart SDK constraint** — `^3.10.4` → `^3.11.0` (prati instaliranu verziju).
+- [x] **rf-connector tokio** — `tokio = { workspace = true, features = ["full"] }`
+- [x] **rf-slot-lab rand** — `rand = { workspace = true }`
+- [x] **rf-fluxmacro** — `serde_yml = { workspace = true }`, `rand_chacha = { workspace = true }`
+- [x] **flutter_rust_bridge** — pubspec `^2.11.1` vs Cargo `2.11` — KOMPATIBILNO, bez akcije
+- [x] **Dart SDK constraint** — već na `^3.11.0`
+- [ ] **objc 0.2 + objc2 0.5 u rf-plugin** — nekompatibilni, migrirati na `objc2` (Faza 4)
+- [ ] **Edition 2021 crate-ovi** — rf-ml, rf-spatial, rf-master, rf-pitch, rf-restore, rf-realtime, rf-plugin-host (Faza 4)
 
-### Faza 1 — Brzi bezbedni wins
+### Faza 1 — Brzi bezbedni wins — ✅ SVE ZAVRŠENO
 
-| Crate/Paket | Trenutno | Cilj | Crate-ovi | Rizik |
-|-------------|----------|------|-----------|-------|
-| `rustfft` | 6.2 | 6.4 | rf-dsp, rf-ml, rf-spatial, rf-master, rf-pitch, rf-restore, rf-realtime | NIZAK — semver |
-| `rayon` | 1.10 | 1.11 | 7+ crate-ova | NIZAK |
-| `tokio` | 1.43 | 1.50 | rf-bridge, rf-ml | NIZAK |
-| `portable-atomic` | 1.9 | 1.13 | rf-realtime | NIZAK |
-| `wasm-bindgen` | 0.2.92 | 0.2.114 | rf-wasm | NIZAK |
-| `get_it` (Flutter) | 9.2.0 | 9.2.1 | service_locator.dart | NIZAK |
-| `archive` (Flutter) | 4.0.2 | 4.0.9 | soundbank builder | NIZAK |
-| `media_kit` (Flutter) | 1.1.10 | 1.2.6 | video playback | NIZAK |
-
-- [ ] Zameni `lazy_static` → `std::sync::LazyLock` (rf-bridge, rf-engine, rf-plugin) — std od Rust 1.80+
-- [ ] Zameni `once_cell` → `std::sync::OnceLock` (rf-bridge, rf-engine) — std od Rust 1.70+
+Svi upgrade-ovi iz Faze 1 su već primenjeni u prethodnim sesijama:
+- [x] rustfft 6.4, rayon 1.11, tokio 1.50, portable-atomic 1.13, wasm-bindgen 0.2.114
+- [x] get_it ^9.2.1, archive ^4.0.9, media_kit ^1.2.6
+- [x] lazy_static → LazyLock (100+ statics migrirano)
+- [x] once_cell → OnceLock (2 upotrebe migrirane)
 
 ### Faza 2 — Srednji rizik
 
-| Crate/Paket | Trenutno | Cilj | Napomena |
-|-------------|----------|------|----------|
-| `serde_yaml` | 0.9 | **UKLONI** → `serde_yml` ili prebaci na TOML/JSON | **DEPRECATED** — rf-slot-lab, rf-fluxmacro |
-| `rand` | 0.8 | 0.10 | Breaking trait promene — rf-slot-lab, rf-offline, rf-fluxmacro |
-| `rand_chacha` | 0.3 | 0.10 | Prati rand upgrade — rf-fluxmacro |
-| `rubato` | 0.16 | **1.0.1** | Stabilna 1.0! API promene — rf-offline |
-| `ndarray` | 0.16 | 0.17 | rf-ml, rf-spatial, rf-master, rf-pitch, rf-restore |
-| `nalgebra` | 0.33 | 0.34 | rf-spatial, rf-pitch |
-| `desktop_drop` (Flutter) | 0.5.0 | 0.7.0 | PAŽNJA: MainFlutterWindow.swift hack zavisi od plugin ponašanja |
-| `file_picker` (Flutter) | 9.2.0 | 10.3.10 | Major bump — proveriti API migraciju |
-| `syncfusion_flutter_pdf` (Flutter) | 28.2.4 | 32.2.9 | Syncfusion kvartalni bumps, obično kompatibilno |
+**Pre Faze 2:** Konsolidovati hardkodirane verzije (rf-connector, rf-slot-lab, rf-fluxmacro) na workspace deps.
+
+**Rust crate-ovi:**
+
+| Crate | Trenutno | Cilj | Crate-ovi | Scope |
+|-------|----------|------|-----------|-------|
+- [x] `serde_yaml` 0.9 → `serde_yml` 0.0.12 — rf-slot-lab, rf-fluxmacro (3 poziva migrirano)
+- [x] `rand` 0.8 → 0.9 — `from_entropy()` → `from_os_rng()`, `gen()` → `random()`, `gen_range()` → `random_range()`, `thread_rng()` → `rng()`
+- [x] `rand_chacha` 0.3 → 0.9 — dodat u workspace deps
+- rubato 0.16 — BEZ PROMENE (audio thread sacred, 1.0 API rizičan)
+- ndarray 0.16 — BEZ PROMENE (0.17 breaking)
+- nalgebra 0.33 — BEZ PROMENE (0.34 zahteva ndarray 0.17)
+
+**Flutter paketi:**
+
+| Paket | Trenutno | Cilj | Napomena |
+|-------|----------|------|----------|
+| `desktop_drop` | 0.5.0 | 0.5.0 | BEZ PROMENE — MainFlutterWindow.swift hack zavisi od 0.5 ponašanja |
+| `file_picker` | 9.2.0 | 9.2.0 | BEZ PROMENE — 10.x major bump, previše rizika za sada |
+| `syncfusion_flutter_pdf` | 28.2.4 | 28.2.4 | BEZ PROMENE — Syncfusion major bumps zahtevaju license audit |
 
 ### Faza 3 — Teški ali vredni
 

@@ -85,7 +85,7 @@ pub fn parse_macro_file(path: &Path) -> Result<MacroFile, FluxMacroError> {
 
 /// Parse a .ffmacro.yaml from a string (useful for testing).
 pub fn parse_macro_string(content: &str) -> Result<MacroFile, FluxMacroError> {
-    let raw: MacroFileRaw = serde_yaml::from_str(content)?;
+    let raw: MacroFileRaw = serde_yml::from_str(content)?;
     validate_and_convert(raw)
 }
 

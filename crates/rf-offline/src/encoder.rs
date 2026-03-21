@@ -1159,28 +1159,28 @@ fn apply_dithering(samples: &[f64], target_bits: u8, mode: DitheringMode) -> Vec
         DitheringMode::None => samples.to_vec(),
         DitheringMode::Rectangular => {
             use rand::Rng;
-            let mut rng = rand::thread_rng();
+            let mut rng = rand::rng();
             let step = 1.0 / ((1i64 << (target_bits - 1)) as f64);
 
             samples
                 .iter()
                 .map(|&s| {
-                    let dither = (rng.gen_range(0.0..1.0) - 0.5) * step;
+                    let dither = (rng.random_range(0.0..1.0) - 0.5) * step;
                     s + dither
                 })
                 .collect()
         }
         DitheringMode::Triangular => {
             use rand::Rng;
-            let mut rng = rand::thread_rng();
+            let mut rng = rand::rng();
             let step = 1.0 / ((1i64 << (target_bits - 1)) as f64);
 
             samples
                 .iter()
                 .map(|&s| {
                     // TPDF: sum of two uniform random values
-                    let r1: f64 = rng.gen_range(0.0..1.0);
-                    let r2: f64 = rng.gen_range(0.0..1.0);
+                    let r1: f64 = rng.random_range(0.0..1.0);
+                    let r2: f64 = rng.random_range(0.0..1.0);
                     let dither = (r1 + r2 - 1.0) * step;
                     s + dither
                 })
@@ -1189,7 +1189,7 @@ fn apply_dithering(samples: &[f64], target_bits: u8, mode: DitheringMode) -> Vec
         DitheringMode::NoiseShaped => {
             // Simplified noise shaping (first-order)
             use rand::Rng;
-            let mut rng = rand::thread_rng();
+            let mut rng = rand::rng();
             let step = 1.0 / ((1i64 << (target_bits - 1)) as f64);
             let mut error = 0.0;
 
@@ -1197,8 +1197,8 @@ fn apply_dithering(samples: &[f64], target_bits: u8, mode: DitheringMode) -> Vec
                 .iter()
                 .map(|&s| {
                     let input = s - error * 0.5; // Feedback
-                    let r1: f64 = rng.gen_range(0.0..1.0);
-                    let r2: f64 = rng.gen_range(0.0..1.0);
+                    let r1: f64 = rng.random_range(0.0..1.0);
+                    let r2: f64 = rng.random_range(0.0..1.0);
                     let dither = (r1 + r2 - 1.0) * step;
                     let output = input + dither;
 
