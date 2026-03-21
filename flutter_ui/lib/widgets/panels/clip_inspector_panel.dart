@@ -558,9 +558,9 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
             if (clipId != null) {
               // Sync per-clip stretch ratio to engine
               NativeFFI.instance.clipSetStretchRatio(clipId, v);
-              // Update phase vocoder if preserve_pitch is on
+              // Update stretcher if preserve_pitch is on
               if (clip.preservePitch) {
-                NativeFFI.instance.clipUpdateVocoderPitch(clipId, v);
+                NativeFFI.instance.clipUpdateStretchRatio(clipId, v);
               }
             }
           },
@@ -569,9 +569,9 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
             final clipId = _parseClipId(clip.id);
             if (clipId != null) {
               NativeFFI.instance.clipSetStretchRatio(clipId, 1.0);
-              // Ratio=1.0 removes vocoder (not needed)
+              // Ratio=1.0 removes stretcher (not needed)
               if (clip.preservePitch) {
-                NativeFFI.instance.clipUpdateVocoderPitch(clipId, 1.0);
+                NativeFFI.instance.clipUpdateStretchRatio(clipId, 1.0);
               }
             }
           },
@@ -622,7 +622,7 @@ class _ClipInspectorPanelState extends State<ClipInspectorPanel> {
                 onChanged: (v) {
                   final updated = clip.copyWith(preservePitch: v);
                   widget.onClipChanged?.call(updated);
-                  // Pre-allocate/remove phase vocoder via FFI
+                  // Pre-allocate/remove Signalsmith stretcher via FFI
                   final clipId = _parseClipId(clip.id);
                   if (clipId != null) {
                     NativeFFI.instance.clipSetPreservePitch(

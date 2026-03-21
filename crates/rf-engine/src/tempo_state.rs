@@ -1,7 +1,7 @@
 //! Tempo State Engine — Wwise-style interactive music tempo transitions
 //!
 //! Orchestrates tempo state changes for the same musical material at different tempos.
-//! Uses dual-voice crossfade (two PhaseVocoder instances) or real-time tempo ramp.
+//! Uses dual-voice crossfade (two Signalsmith Stretch instances) or real-time tempo ramp.
 //!
 //! ## Architecture
 //!

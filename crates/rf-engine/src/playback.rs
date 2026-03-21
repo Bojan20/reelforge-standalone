@@ -99,14 +99,14 @@ thread_local! {
     static SCRATCH_BUFFER_L: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
     /// Thread-local scratch buffer for right channel (audio thread only)
     static SCRATCH_BUFFER_R: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
-    /// Thread-local scratch buffers for phase vocoder input (preserve_pitch path)
-    static PV_SCRATCH_L: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
-    static PV_SCRATCH_R: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
-    /// Thread-local scratch buffers for phase vocoder output (no audio-thread alloc)
-    static PV_OUT_L: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
-    static PV_OUT_R: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
-    /// Thread-local scratch buffer for per-sample gain (phase vocoder path)
-    static PV_GAIN_SCRATCH: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
+    /// Thread-local scratch buffers for Signalsmith Stretch input (preserve_pitch path)
+    static STRETCH_SCRATCH_L: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
+    static STRETCH_SCRATCH_R: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
+    /// Thread-local scratch buffers for Signalsmith Stretch output (no audio-thread alloc)
+    static STRETCH_OUT_L: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
+    static STRETCH_OUT_R: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
+    /// Thread-local scratch buffer for per-sample gain (Signalsmith stretch path)
+    static STRETCH_GAIN_SCRATCH: RefCell<Vec<f64>> = RefCell::new(vec![0.0; 8192]);
 }
 
 use crate::audio_import::{AudioImporter, ImportedAudio};
@@ -1752,10 +1752,10 @@ pub struct PlaybackEngine {
     diag_cpu_load_pct: AtomicU32,
     /// Adaptive quality: current global SRC mode value (for UI display)
     diag_src_mode: AtomicU32,
-    /// Debug: PV path hit counter
-    diag_pv_hit: AtomicU32,
-    /// Debug: PV path miss counter (lock contended or vocoder not found)
-    diag_pv_miss: AtomicU32,
+    /// Debug: Signalsmith stretcher hit counter (audio thread found stretcher)
+    diag_stretcher_hit: AtomicU32,
+    /// Debug: Signalsmith stretcher miss counter (lock contended or not pre-allocated)
+    diag_stretcher_miss: AtomicU32,
     /// Delay compensation manager for automatic plugin delay compensation
     delay_comp: RwLock<DelayCompensationManager>,
     /// Control room for monitoring (AFL/PFL, cue mixes, talkback)
@@ -1926,8 +1926,8 @@ impl PlaybackEngine {
             diag_degraded_voices: AtomicU32::new(0),
             diag_cpu_load_pct: AtomicU32::new(0),
             diag_src_mode: AtomicU32::new(64), // Sinc64 default
-            diag_pv_hit: AtomicU32::new(0),
-            diag_pv_miss: AtomicU32::new(0),
+            diag_stretcher_hit: AtomicU32::new(0),
+            diag_stretcher_miss: AtomicU32::new(0),
             delay_comp: RwLock::new(DelayCompensationManager::new(sample_rate as f64)),
             control_room: Arc::new(ControlRoom::new(256)),
             prefader_buffer_l: RwLock::new(vec![0.0_f64; 8192]),
@@ -3592,10 +3592,10 @@ impl PlaybackEngine {
     // PHASE VOCODER MANAGEMENT (UI thread only)
     // ═══════════════════════════════════════════════════════════════════════
 
-    /// Get PV debug counters (hit, miss). Resets on read.
-    pub fn pv_debug_counters(&self) -> (u32, u32) {
-        let hit = self.diag_pv_hit.swap(0, Ordering::Relaxed);
-        let miss = self.diag_pv_miss.swap(0, Ordering::Relaxed);
+    /// Get stretcher debug counters (hit, miss). Resets on read.
+    pub fn stretcher_debug_counters(&self) -> (u32, u32) {
+        let hit = self.diag_stretcher_hit.swap(0, Ordering::Relaxed);
+        let miss = self.diag_stretcher_miss.swap(0, Ordering::Relaxed);
         (hit, miss)
     }
 
@@ -6365,9 +6365,9 @@ impl PlaybackEngine {
     /// Simple clip processing (no crossfades) for unified routing
     ///
     /// When `clip.preserve_pitch && stretch_ratio != 1.0`:
-    /// 1. Sinc-resample into PV scratch buffers (with per-sample gain)
-    /// 2. Phase vocoder corrects pitch (cancels varispeed pitch change)
-    /// 3. Mix PV output into output_l/output_r
+    /// 1. Sinc-resample into stretch scratch buffers (with per-sample gain)
+    /// 2. Signalsmith Stretch corrects pitch (cancels varispeed pitch change)
+    /// 3. Mix stretched output into output_l/output_r
     #[cfg(feature = "unified_routing")]
     fn process_clip_simple(
         &self,
@@ -6398,18 +6398,18 @@ impl PlaybackEngine {
         };
         let clip_sinc_ref = Some(&*clip_sinc_guard);
 
-        // Phase vocoder path: preserve_pitch with non-unity stretch or pitch shift
+        // Signalsmith stretch path: preserve_pitch with non-unity stretch or pitch shift
         let needs_pv = clip.preserve_pitch
             && ((clip.stretch_ratio - 1.0).abs() > 0.001
                 || clip.pitch_shift.abs() > 0.01);
 
         if needs_pv {
-            // Phase vocoder path: collect sinc-resampled samples, then PV process as block
-            PV_SCRATCH_L.with(|buf_l| {
-                PV_SCRATCH_R.with(|buf_r| {
-                    PV_OUT_L.with(|out_l| {
-                    PV_OUT_R.with(|out_r| {
-                    PV_GAIN_SCRATCH.with(|buf_g| {
+            // Signalsmith path: collect sinc-resampled samples, then stretch as block
+            STRETCH_SCRATCH_L.with(|buf_l| {
+                STRETCH_SCRATCH_R.with(|buf_r| {
+                    STRETCH_OUT_L.with(|out_l| {
+                    STRETCH_OUT_R.with(|out_r| {
+                    STRETCH_GAIN_SCRATCH.with(|buf_g| {
                         let mut pv_l = buf_l.borrow_mut();
                         let mut pv_r = buf_r.borrow_mut();
                         let mut pv_out_l = out_l.borrow_mut();
@@ -6435,7 +6435,7 @@ impl PlaybackEngine {
                         let channels = audio.channels as usize;
                         let total_source_frames = audio.samples.len() / channels.max(1);
 
-                        // Phase 1: Sinc resample into PV scratch buffers
+                        // Phase 1: Sinc resample into stretch scratch buffers
                         for frame_idx in 0..frames {
                             let global_sample = start_sample + frame_idx as u64;
 
@@ -6516,9 +6516,9 @@ impl PlaybackEngine {
                                 total_source_frames, 0, clip_sinc_ref,
                             ) as f64;
 
-                            // Store raw sinc output (no gain yet — PV needs clean signal)
+                            // Store raw sinc output (no gain yet — Signalsmith needs clean signal)
                             pv_l[frame_idx] = interp_l;
-                            // Store per-sample gain for post-PV application
+                            // Store per-sample gain for post-stretch application
                             pv_gain[frame_idx] = clip.gain * loop_xf_gain;
 
                             if channels >= 2 {
@@ -6531,7 +6531,7 @@ impl PlaybackEngine {
                             }
                         }
 
-                        // Phase 2: Phase vocoder pitch correction
+                        // Phase 2: Signalsmith pitch/time correction
                         // pitch_factor is pre-set by UI thread (includes pitch_shift + stretch compensation)
                         // Audio thread does NOT modify pitch_factor — avoids overriding user's pitch shift
 
@@ -6539,7 +6539,7 @@ impl PlaybackEngine {
                         // NEVER allocate on audio thread — vocoder must be pre-created via UI thread
                         if let Some(mut stretchers) = self.clip_stretchers.try_write() {
                             if let Some(stretcher) = stretchers.get_mut(&clip.id.0) {
-                                self.diag_pv_hit.fetch_add(1, Ordering::Relaxed);
+                                self.diag_stretcher_hit.fetch_add(1, Ordering::Relaxed);
 
                                 stretcher.process(
                                     &pv_l[..frames], &pv_r[..frames],
@@ -6555,8 +6555,8 @@ impl PlaybackEngine {
                                     }
                                 }
                             } else {
-                                self.diag_pv_miss.fetch_add(1, Ordering::Relaxed);
-                                // Vocoder not pre-allocated — bypass PV (sinc-only output)
+                                self.diag_stretcher_miss.fetch_add(1, Ordering::Relaxed);
+                                // Stretcher not pre-allocated — bypass (sinc-only output)
                                 for i in 0..frames {
                                     let g = pv_gain[i];
                                     if g > 0.0 {
@@ -6566,7 +6566,7 @@ impl PlaybackEngine {
                                 }
                             }
                         } else {
-                            self.diag_pv_miss.fetch_add(1, Ordering::Relaxed);
+                            self.diag_stretcher_miss.fetch_add(1, Ordering::Relaxed);
                             // Lock contended — bypass PV, output sinc-only (better than silence)
                             for i in 0..frames {
                                 let g = pv_gain[i];
@@ -6582,7 +6582,7 @@ impl PlaybackEngine {
                 });
             });
         } else {
-            // Standard path: no phase vocoder needed (varispeed or unity stretch)
+            // Standard path: no stretcher needed (varispeed or unity stretch)
             let channels = audio.channels as usize;
             let total_source_frames = audio.samples.len() / channels.max(1);
 
@@ -7047,7 +7047,7 @@ impl PlaybackEngine {
         };
         let clip2_sinc_ref = Some(&*clip2_sinc_guard);
 
-        // Phase vocoder path: if preserve_pitch with stretch or pitch shift
+        // Signalsmith stretch path: if preserve_pitch with stretch or pitch shift
         let needs_pv = clip.preserve_pitch
             && ((clip.stretch_ratio - 1.0).abs() > 0.001
                 || clip.pitch_shift.abs() > 0.01);
@@ -7272,8 +7272,8 @@ impl PlaybackEngine {
     ///
     /// Two-pass architecture (like Pro Tools Elastic Audio / Cubase Elastique):
     /// Pass 1: Sinc resample → scratch buffers (raw signal, no gain/fade)
-    /// PV block: Phase vocoder processes entire block (frequency bin resampling)
-    /// Pass 2: Apply gain/fade/crossfade to PV output → accumulate into output
+    /// Signalsmith block: process entire block for pitch/time correction
+    /// Pass 2: Apply gain/fade/crossfade to stretched output → accumulate into output
     #[allow(clippy::too_many_arguments)]
     fn process_clip_with_crossfade_pv(
         &self,
@@ -7306,11 +7306,11 @@ impl PlaybackEngine {
             && (clip.pitch_envelope.as_ref().is_some_and(|e| e.is_active())
                 || clip.playrate_envelope.as_ref().is_some_and(|e| e.is_active()));
 
-        PV_SCRATCH_L.with(|buf_l| {
-        PV_SCRATCH_R.with(|buf_r| {
-        PV_OUT_L.with(|out_l| {
-        PV_OUT_R.with(|out_r| {
-        PV_GAIN_SCRATCH.with(|buf_g| {
+        STRETCH_SCRATCH_L.with(|buf_l| {
+        STRETCH_SCRATCH_R.with(|buf_r| {
+        STRETCH_OUT_L.with(|out_l| {
+        STRETCH_OUT_R.with(|out_r| {
+        STRETCH_GAIN_SCRATCH.with(|buf_g| {
             let mut pv_l = buf_l.borrow_mut();
             let mut pv_r = buf_r.borrow_mut();
             let mut pv_out_l = out_l.borrow_mut();
@@ -7422,14 +7422,14 @@ impl PlaybackEngine {
                     (l, r)
                 };
 
-                // Apply clip FX chain (before PV — FX are frequency-domain aware)
+                // Apply clip FX chain (before stretcher)
                 let (fx_l, fx_r) = if clip.has_fx() {
                     self.process_clip_fx(&clip.fx_chain, sl, sr)
                 } else {
                     (sl, sr)
                 };
 
-                // Store raw signal for PV (no gain/fade yet)
+                // Store raw signal for stretcher (no gain/fade yet)
                 pv_l[i] = fx_l;
                 pv_r[i] = fx_r;
 
@@ -7469,7 +7469,7 @@ impl PlaybackEngine {
             // ══════════════════════════════════════════════════════════════
             if let Some(mut stretchers) = self.clip_stretchers.try_write() {
                 if let Some(stretcher) = stretchers.get_mut(&clip.id.0) {
-                    self.diag_pv_hit.fetch_add(1, Ordering::Relaxed);
+                    self.diag_stretcher_hit.fetch_add(1, Ordering::Relaxed);
 
                     // Signalsmith processes stereo interleaved internally
                     stretcher.process(
@@ -7487,7 +7487,7 @@ impl PlaybackEngine {
                         }
                     }
                 } else {
-                    self.diag_pv_miss.fetch_add(1, Ordering::Relaxed);
+                    self.diag_stretcher_miss.fetch_add(1, Ordering::Relaxed);
                     // No stretcher — bypass (sinc + gain only)
                     for i in 0..frames {
                         let g = pv_gain[i];
@@ -7498,7 +7498,7 @@ impl PlaybackEngine {
                     }
                 }
             } else {
-                self.diag_pv_miss.fetch_add(1, Ordering::Relaxed);
+                self.diag_stretcher_miss.fetch_add(1, Ordering::Relaxed);
                 for i in 0..frames {
                     let g = pv_gain[i];
                     if g.abs() > 1e-12 {

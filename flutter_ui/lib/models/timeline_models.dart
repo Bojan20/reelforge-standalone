@@ -83,7 +83,7 @@ class TimelineClip {
   final double stretchRatio;
   /// Pitch shift in semitones (-24 to +24, 0 = no shift)
   final double pitchShift;
-  /// Preserve pitch during time stretch (true = phase vocoder corrects pitch)
+  /// Preserve pitch during time stretch (true = Signalsmith Stretch corrects pitch)
   final bool preservePitch;
   /// Loop start boundary in samples (0 = from clip start)
   final int loopStartSamples;

@@ -13397,7 +13397,7 @@ pub extern "C" fn elastic_pro_set_ratio(track_id: u32, ratio: f64) -> i32 {
     let sr = if sr > 0.0 { sr } else { 48000.0 };
     let needs_pv = (ratio - 1.0).abs() > 0.001;
 
-    // Phase 1: Update clips, collect vocoder updates
+    // Phase 1: Update clips, collect stretcher updates
     struct PvOp { clip_id: u64, pitch_shift: f64, create: bool }
     let mut ops = Vec::new();
     let mut found = false;
@@ -13417,7 +13417,7 @@ pub extern "C" fn elastic_pro_set_ratio(track_id: u32, ratio: f64) -> i32 {
         }
     }
 
-    // Phase 2: Update vocoders
+    // Phase 2: Update stretchers
     for op in ops {
         if op.create {
             PLAYBACK_ENGINE.prepare_clip_vocoder_with_pitch(
@@ -13446,7 +13446,7 @@ pub extern "C" fn elastic_pro_set_pitch(track_id: u32, semitones: f64) -> i32 {
     let sr = PLAYBACK_ENGINE.sample_rate() as f64;
     let sr = if sr > 0.0 { sr } else { 48000.0 };
 
-    // Phase 1: Update clips and collect vocoder operations
+    // Phase 1: Update clips and collect stretcher operations
     struct VocoderOp { clip_id: u64, stretch: f64, create: bool }
     let mut ops = Vec::new();
     let mut found = false;
@@ -13470,7 +13470,7 @@ pub extern "C" fn elastic_pro_set_pitch(track_id: u32, semitones: f64) -> i32 {
         }
     }
 
-    // Phase 2: Update vocoders
+    // Phase 2: Update stretchers
     for op in ops {
         if op.create {
             PLAYBACK_ENGINE.prepare_clip_vocoder_with_pitch(
@@ -13608,14 +13608,14 @@ pub extern "C" fn elastic_pro_reset(track_id: u32) -> i32 {
 
 /// Debug: get clip count, stretch state, and elastic engine state for a track.
 /// Returns clip count. Writes diagnostic data to out params.
-/// out_preserve encodes: bit0=preserve_pitch, bit1=elastic_exists, bit2=vocoder_exists
+/// out_preserve encodes: bit0=preserve_pitch, bit1=elastic_exists, bit2=stretcher_exists
 #[unsafe(no_mangle)]
 pub extern "C" fn debug_track_clip_state(
     track_id: u32,
     out_clip_count: *mut u32,
     out_stretch: *mut f64,
     out_pitch: *mut f64,
-    out_preserve: *mut i32, // bit0=preserve, bit1=elastic, bit2=vocoder
+    out_preserve: *mut i32, // bit0=preserve, bit1=elastic, bit2=stretcher
     out_pv_pitch_factor: *mut f64,
 ) -> i32 {
     let tid = TrackId(track_id as u64);
@@ -13643,7 +13643,7 @@ pub extern "C" fn debug_track_clip_state(
         first_preserve |= 2; // bit1
     }
 
-    // Check if vocoder exists for first clip
+    // Check if stretcher exists for first clip
     let mut pv_pf = 0.0_f64;
     if first_clip_id != 0 {
         if let Some(stretchers) = PLAYBACK_ENGINE.clip_stretchers_try_read() {
@@ -13654,8 +13654,8 @@ pub extern "C" fn debug_track_clip_state(
         }
     }
 
-    // PV debug counters (resets on read)
-    let (pv_hit, pv_miss) = PLAYBACK_ENGINE.pv_debug_counters();
+    // Stretcher debug counters (resets on read)
+    let (pv_hit, pv_miss) = PLAYBACK_ENGINE.stretcher_debug_counters();
     // Encode hit/miss into pitch_factor's fractional part for display
     // pv_pf = actual_pitch_factor + hit * 0.0001 (so we can see both)
 
@@ -13668,7 +13668,7 @@ pub extern "C" fn debug_track_clip_state(
     count as i32
 }
 
-/// Set preserve_pitch on a clip and pre-allocate phase vocoder (UI thread only).
+/// Set preserve_pitch on a clip and pre-allocate Signalsmith stretcher (UI thread only).
 /// `clip_id`: ClipId.0 (u64), `preserve`: 1=on, 0=off, `stretch_ratio`: current stretch ratio
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_set_preserve_pitch(clip_id: u64, preserve: i32, stretch_ratio: f64) -> i32 {
@@ -13677,7 +13677,7 @@ pub extern "C" fn clip_set_preserve_pitch(clip_id: u64, preserve: i32, stretch_r
         clip_entry.set_preserve_pitch(preserve != 0);
     }
 
-    // Pre-allocate or remove phase vocoder via public API
+    // Pre-allocate or remove Signalsmith stretcher via public API
     if preserve != 0 && (stretch_ratio - 1.0).abs() > 0.001 {
         let sr = PLAYBACK_ENGINE.sample_rate() as f64;
         PLAYBACK_ENGINE.prepare_clip_vocoder(clip_id, stretch_ratio, if sr > 0.0 { sr } else { 48000.0 });
@@ -13687,7 +13687,7 @@ pub extern "C" fn clip_set_preserve_pitch(clip_id: u64, preserve: i32, stretch_r
     1
 }
 
-/// Update phase vocoder pitch factor when stretch_ratio changes (UI thread only).
+/// Update Signalsmith stretcher when stretch_ratio changes (UI thread only).
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_update_vocoder_pitch(clip_id: u64, stretch_ratio: f64) -> i32 {
     if (stretch_ratio - 1.0).abs() <= 0.001 {

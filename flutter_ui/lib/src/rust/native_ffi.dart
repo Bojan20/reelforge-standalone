@@ -10918,23 +10918,23 @@ extension ElasticProAPI on NativeFFI {
 // PHASE VOCODER API - Preserve Pitch
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Phase Vocoder API - Per-clip pitch preservation during time stretch
-extension PhaseVocoderAPI on NativeFFI {
+/// Clip Stretch API - Per-clip pitch preservation and time stretching (Signalsmith Stretch)
+extension ClipStretchAPI on NativeFFI {
   static final _clipSetPreservePitch = _loadNativeLibrary().lookupFunction<
       Int32 Function(Uint64, Int32, Double),
       int Function(int, int, double)>('clip_set_preserve_pitch');
-  static final _clipUpdateVocoderPitch = _loadNativeLibrary().lookupFunction<
+  static final _clipUpdateStretchRatio = _loadNativeLibrary().lookupFunction<
       Int32 Function(Uint64, Double),
       int Function(int, double)>('clip_update_vocoder_pitch');
 
-  /// Set preserve_pitch on a clip and pre-allocate/remove phase vocoder.
+  /// Set preserve_pitch on a clip and pre-allocate/remove Signalsmith stretcher.
   /// [clipId]: clip ID (u64), [preserve]: enable/disable, [stretchRatio]: current stretch ratio
   bool clipSetPreservePitch(int clipId, bool preserve, double stretchRatio) =>
       _clipSetPreservePitch(clipId, preserve ? 1 : 0, stretchRatio) == 1;
 
-  /// Update phase vocoder pitch factor when stretch ratio changes.
-  bool clipUpdateVocoderPitch(int clipId, double stretchRatio) =>
-      _clipUpdateVocoderPitch(clipId, stretchRatio) == 1;
+  /// Update Signalsmith stretcher when stretch ratio changes.
+  bool clipUpdateStretchRatio(int clipId, double stretchRatio) =>
+      _clipUpdateStretchRatio(clipId, stretchRatio) == 1;
 
   static final _clipSetPitchShift = _loadNativeLibrary().lookupFunction<
       Int32 Function(Uint64, Double),
@@ -11055,22 +11055,22 @@ class TrackClipDiagnostic {
   final int clipCount;
   final double stretchRatio;
   final double pitchShift;
-  final int flags; // bit0=preserve_pitch, bit1=elastic_exists, bit2=vocoder_exists
-  final double pvPitchFactor;
+  final int flags; // bit0=preserve_pitch, bit1=elastic_exists, bit2=stretcher_exists
+  final double stretcherPitch;
   const TrackClipDiagnostic({
     required this.clipCount,
     required this.stretchRatio,
     required this.pitchShift,
     required this.flags,
-    required this.pvPitchFactor,
+    required this.stretcherPitch,
   });
   bool get preservePitch => flags & 1 != 0;
   bool get elasticExists => flags & 2 != 0;
-  bool get vocoderExists => flags & 4 != 0;
-  int get pvHit => (flags >> 8) & 0xFF;
-  int get pvMiss => (flags >> 16) & 0xFF;
+  bool get stretcherExists => flags & 4 != 0;
+  int get stretcherHit => (flags >> 8) & 0xFF;
+  int get stretcherMiss => (flags >> 16) & 0xFF;
   @override
-  String toString() => 'c=$clipCount s=${stretchRatio.toStringAsFixed(2)} p=${pitchShift.toStringAsFixed(1)} pp=${preservePitch ? 1 : 0} el=${elasticExists ? 1 : 0} pv=${vocoderExists ? 1 : 0} pf=${pvPitchFactor.toStringAsFixed(2)} H$pvHit/M$pvMiss';
+  String toString() => 'c=$clipCount s=${stretchRatio.toStringAsFixed(2)} p=${pitchShift.toStringAsFixed(1)} pp=${preservePitch ? 1 : 0} el=${elasticExists ? 1 : 0} pv=${stretcherExists ? 1 : 0} pf=${stretcherPitch.toStringAsFixed(2)} H$stretcherHit/M$stretcherMiss';
 }
 
 extension DebugDiagnosticAPI on NativeFFI {
@@ -11092,7 +11092,7 @@ extension DebugDiagnosticAPI on NativeFFI {
         stretchRatio: sr.value,
         pitchShift: ps.value,
         flags: pp.value,
-        pvPitchFactor: pf.value,
+        stretcherPitch: pf.value,
       );
     } finally {
       calloc.free(cc);
