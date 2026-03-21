@@ -131,8 +131,12 @@ impl PhaseVocoder {
             self.analysis_buf[buf_pos] = input[i];
             self.analysis_pos += 1;
 
-            // When we have a hop's worth of new samples, process a frame
-            if self.analysis_pos % self.hop_size == 0 {
+            // Process frame when enough samples accumulated.
+            // Wait for at least fft_size samples before first frame
+            // to avoid analyzing partially-filled buffer.
+            if self.analysis_pos >= self.fft_size
+                && self.analysis_pos % self.hop_size == 0
+            {
                 self.process_frame();
             }
 
@@ -194,8 +198,10 @@ impl PhaseVocoder {
             let true_freq = expected + deviation;
 
             if is_transient {
-                // Transient: reset phase accumulator (preserve transient timing)
-                self.phase_accum[k] = phase * self.pitch_factor;
+                // Transient: lock phase to input (preserve transient timing).
+                // Use original phase directly — no pitch scaling on reset.
+                // Next frame will resume normal phase advance from this point.
+                self.phase_accum[k] = phase;
             } else {
                 // Normal: advance phase accumulator with pitch-shifted frequency
                 self.phase_accum[k] += true_freq * self.pitch_factor;
@@ -254,7 +260,9 @@ fn dft_real(input: &[f64], output: &mut [f64]) {
     }
 }
 
-/// Simple inverse DFT (interleaved complex → real output)
+/// Inverse DFT (interleaved complex half-spectrum → real output)
+/// For real signals: X[N-k] = conj(X[k]), so we only need k=0..N/2.
+/// Mirror uses conjugate: re*cos + im*sin (not re*cos - im*sin).
 fn idft_real(input: &[f64], output: &mut [f64], n: usize) {
     let half = n / 2 + 1;
     let scale = 1.0 / n as f64;
@@ -264,11 +272,13 @@ fn idft_real(input: &[f64], output: &mut [f64], n: usize) {
             let re = input[k * 2];
             let im = input[k * 2 + 1];
             let angle = 2.0 * PI * k as f64 * i as f64 / n as f64;
-            let contribution = re * angle.cos() - im * angle.sin();
-            sum += contribution;
-            // Mirror for negative frequencies (except DC and Nyquist)
+            let cos_a = angle.cos();
+            let sin_a = angle.sin();
+            // Positive frequency: Re(X[k] * e^{j*angle}) = re*cos - im*sin
+            sum += re * cos_a - im * sin_a;
+            // Negative frequency (conjugate): Re(conj(X[k]) * e^{-j*angle}) = re*cos + im*sin
             if k > 0 && k < n / 2 {
-                sum += contribution;
+                sum += re * cos_a + im * sin_a;
             }
         }
         output[i] = sum * scale;
