@@ -23,6 +23,7 @@ import 'package:get_it/get_it.dart';
 import '../../providers/slot_lab/feature_composer_provider.dart';
 import '../../providers/slot_lab/slot_lab_coordinator.dart';
 import '../../providers/slot_lab_project_provider.dart';
+import '../../services/audio_playback_service.dart';
 import '../../services/event_registry.dart';
 import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
@@ -5204,11 +5205,12 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       eventRegistry.stopEvent('BIG_WIN_START');
       eventRegistry.stopEvent('MUSIC_BIG_WIN');
 
-      // Trigger collect and restore base game
+      // Trigger collect — base game layers already running from Phase 1
       eventRegistry.triggerStage('WIN_COLLECT');
 
-      // Re-trigger base game music if it was playing before win
-      _restoreBaseGameMusic(eventRegistry);
+      // Do NOT _restoreBaseGameMusic — Phase 1 already called restartBaseGameLayersSilent
+      // Just flush pending crossfade to fade-in L1
+      GetIt.instance<SlotLabCoordinator>().audioProvider.musicLayerController.flushPendingCrossfade();
 
       // Collect win IMMEDIATELY
       _stopBigWinProtection();
@@ -5276,8 +5278,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // Regular win (no big win tier): collect immediately
     eventRegistry.triggerStage('WIN_COLLECT');
 
-    // Re-trigger base game music after regular win skip
-    _restoreBaseGameMusic(eventRegistry);
+    // DO NOT restore base game music for regular wins —
+    // base game music was never stopped (only big wins stop it via fadeOutBaseGameLayers).
+    // Calling _restoreBaseGameMusic here would duplicate voices.
 
     _stopBigWinProtection();
     setState(() {
@@ -5303,8 +5306,17 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     }
   }
 
-  /// Re-trigger base game music (GAME_START composite) if it was active
+  /// Re-trigger base game music (GAME_START composite) if it was stopped.
+  /// Guard: skip if base game voices already exist (prevents duplicate voices
+  /// when restartBaseGameLayersSilent already launched them directly).
   void _restoreBaseGameMusic(EventRegistry eventRegistry) {
+    final playback = AudioPlaybackService.instance;
+    // Check if any base game layer voice is already active
+    final hasExistingVoices = playback.activeVoices.any(
+      (v) => v.layerId != null && v.layerId!.startsWith('game_start_l'),
+    );
+    if (hasExistingVoices) return; // Already playing — no need to re-trigger
+
     if (eventRegistry.hasEventForStage('GAME_START')) {
       eventRegistry.triggerStage('GAME_START');
     } else if (eventRegistry.hasEventForStage('MUSIC_BASE_L1')) {
@@ -6202,8 +6214,10 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     // Stop Big Win protection timer
     _stopBigWinProtection();
 
-    // Stop big win music on collect and prepare base game layers
-    if (_isBigWinTier(_currentWinTier)) {
+    // Stop big win music on collect and prepare base game layers.
+    // Guard: only restart if Phase 1 skip has NOT already done it
+    // (_isPlayingBigWinEnd == true means Phase 1 already called restartBaseGameLayersSilent)
+    if (_isBigWinTier(_currentWinTier) && !_isPlayingBigWinEnd) {
       eventRegistry.stopAllMusicVoices(fadeMs: 300);
       final audio = GetIt.instance<SlotLabCoordinator>().audioProvider;
       audio.restartBaseGameLayersSilent();

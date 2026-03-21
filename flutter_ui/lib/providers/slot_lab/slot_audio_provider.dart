@@ -139,18 +139,17 @@ class SlotAudioProvider extends ChangeNotifier {
     if (result == null) return;
 
     // Dynamic music layer evaluation — independent of ALE
-    // Big wins: skip upshift entirely — big win flow has its own reset path
-    //   (fadeOutBaseGameLayers → restartBaseGameLayersSilent → resetMusicLayerToBase)
-    // Regular wins: defer evaluation until win presentation ends (plaque dismissed)
-    // Non-win spins: evaluate immediately (no presentation to wait for)
+    // Big wins: skip — big win flow has its own reset path
+    // All other spins (win or not): evaluate immediately after spin
+    // Crossfade starts when win plaque appears (evaluation triggers crossfade)
+    // Always keep _parentNotify current (used by flushPendingCrossfade)
+    _musicLayerController._parentNotify = notifyListeners;
     final isBigWin = result.bigWinTier != null &&
         result.bigWinTier != SlotLabWinTier.none;
-    if (isBigWin) {
-      // No-op: big win flow manages music layers independently
-    } else if (result.isWin) {
-      _musicLayerController._parentNotify = notifyListeners;
-      _musicLayerController.deferEvaluation(result.winRatio);
-    } else {
+    // Debug: log winRatio source data
+    _musicLayerController._lastCrossfadeDiag =
+        'SYNC: wr=${result.winRatio} win=${result.totalWin} bet=${result.bet} isWin=${result.isWin} bigWin=$isBigWin';
+    if (!isBigWin) {
       _musicLayerController.evaluateAfterSpin(result.winRatio, notifyListeners);
     }
 
@@ -382,7 +381,7 @@ class SlotAudioProvider extends ChangeNotifier {
         playback.stopLayer('game_start_l$i');
         playback.stopLayer('layer_MUSIC_BASE_L$i');
       }
-      // Stop EventRegistry standalone instances AFTER fade completes
+      // Stop EventRegistry instances AFTER fade completes
       try {
         EventRegistry.instance.stopEventsByPrefix('audio_MUSIC_BASE_L');
         EventRegistry.instance.stopEvent('audio_GAME_START');
@@ -618,7 +617,11 @@ class MusicLayerController extends ChangeNotifier {
   /// Returns the layer transition if one occurred, null otherwise.
   /// [parentNotify] is called to propagate notifyListeners to SlotAudioProvider.
   MusicLayerTransition? evaluateAfterSpin(double winRatio, VoidCallback parentNotify) {
-    if (!_config.enabled || _config.thresholds.length < 2) return null;
+    if (!_config.enabled || _config.thresholds.length < 2) {
+      _lastCrossfadeDiag = 'EVAL SKIP: enabled=${_config.enabled} thresholds=${_config.thresholds.length}';
+      notifyListeners();
+      return null;
+    }
 
     // Sort thresholds descending by minWinRatio to find highest eligible layer
     final sorted = List<MusicLayerThreshold>.from(_config.thresholds)
@@ -634,6 +637,9 @@ class MusicLayerController extends ChangeNotifier {
     }
 
     final previousActive = _activeLayer;
+
+    // Diagnostics for every eval
+    _lastCrossfadeDiag = 'EVAL: wr=$winRatio active=L$_activeLayer target=L$targetLayer escalated=$_isEscalated spins=$_spinsSinceEscalation';
 
     if (targetLayer > _activeLayer) {
       // ── ESCALATION ──
@@ -734,7 +740,7 @@ class MusicLayerController extends ChangeNotifier {
   // ─── De-escalation helper ─────────────────────────────────────────────
 
   MusicLayerTransition _doDeEscalation(int previousActive, double winRatio, VoidCallback parentNotify) {
-    final revertTo = _activeLayer - 1;
+    final revertTo = (_activeLayer - 1).clamp(1, 5);
     _previousLayer = _activeLayer;
     _activeLayer = revertTo;
     _spinsSinceEscalation = 0;
