@@ -1323,21 +1323,28 @@ impl Clip {
         self.pitch_shift = semitones.clamp(-24.0, 24.0);
     }
 
+    /// Set preserve pitch mode.
+    /// false = varispeed (rate change affects pitch, tape-style)
+    /// true = time-stretch (rate change preserves pitch)
+    pub fn set_preserve_pitch(&mut self, preserve: bool) {
+        self.preserve_pitch = preserve;
+    }
+
     /// Effective playback rate considering stretch_ratio and pitch_shift.
     /// stretch_ratio affects timing (1.0=normal, 2.0=double speed).
     /// pitch_shift is additive semitones converted to rate multiplier.
     #[inline]
     pub fn effective_playback_rate(&self) -> f64 {
-        if self.preserve_pitch {
+        let rate = if self.preserve_pitch {
             // Preserve pitch: rate change affects speed only, pitch stays constant.
-            // Time-stretch algorithm (RT-4) would apply pitch correction here.
-            // For now: varispeed with separate pitch_shift applied in playback.
             self.stretch_ratio
         } else {
             // Varispeed (tape-style): rate change affects both speed and pitch.
             let pitch_rate = 2.0_f64.powf(self.pitch_shift / 12.0);
             self.stretch_ratio * pitch_rate
-        }
+        };
+        // Guard: NaN/Inf/zero → fallback to 1.0 (normal speed)
+        if !rate.is_finite() || rate <= 0.0 { 1.0 } else { rate }
     }
 
     /// End time on timeline (adjusted for stretch ratio)
@@ -1408,7 +1415,8 @@ impl Clip {
     }
 
     /// Get effective playback rate at clip-relative sample offset.
-    /// Combines stretch_ratio × playrate envelope × pitch_at() rate factor.
+    /// Combines stretch_ratio × playrate envelope × pitch factor.
+    /// Respects preserve_pitch: when true, pitch does NOT affect playback rate.
     #[inline]
     pub fn playback_rate_at(&self, clip_offset_samples: u64) -> f64 {
         let rate_env = self
@@ -1418,10 +1426,17 @@ impl Clip {
             .map(|e| e.value_at(clip_offset_samples))
             .unwrap_or(1.0);
 
-        let pitch = self.pitch_at(clip_offset_samples);
-        let pitch_rate = 2.0_f64.powf(pitch / 12.0);
-
-        self.stretch_ratio * rate_env * pitch_rate
+        let rate = if self.preserve_pitch {
+            // Preserve pitch: rate affects speed only, pitch is independent
+            self.stretch_ratio * rate_env
+        } else {
+            // Varispeed: pitch changes speed (tape-style)
+            let pitch = self.pitch_at(clip_offset_samples);
+            let pitch_rate = 2.0_f64.powf(pitch / 12.0);
+            self.stretch_ratio * rate_env * pitch_rate
+        };
+        // Guard: NaN/Inf/zero → fallback to 1.0
+        if !rate.is_finite() || rate <= 0.0 { 1.0 } else { rate }
     }
 
     /// Get effective gain at clip-relative sample offset.
