@@ -4,10 +4,11 @@
 
 - `slot_lab_screen.dart` — 13K+, NE MOŽE se razbiti
 - Audio thread: NULA alokacija, NULA lockova
+- RTPC: postojeći sistem je production-ready (35 params, 9 curves, macros, DSP binding) — NE MENJATI, samo bridgovati
 
 ---
 
-## SLEDEĆA SESIJA — Live Server Integration (Faze 1-3)
+## SLEDEĆA SESIJA — Live Server Integration
 
 **Arch doc:** `.claude/architecture/LIVE_SERVER_INTEGRATION.md`
 
@@ -17,19 +18,16 @@
 - [ ] Heartbeat ping/pong (20s/10s timeout)
 - [ ] JSON protocol: trigger, rtpc, state, batch, snapshot, ack
 - [ ] Seq tracking + gap detection + dedup
-- [ ] EventRegistry integracija: server event → audio
-- [ ] Error handling: unknown event, missing audio
+- [ ] EventRegistry integracija: server trigger → audio
 - [ ] FFI: server_connect/disconnect/status
 - [ ] Dart: connection status + URL config
 
-### Faza 2: RTPC System
-- [ ] `RtpcManager`: HashMap<String, RtpcParam>
-- [ ] AtomicU64 per param (audio thread read, UI write)
-- [ ] Smoother: linear/exp/timed interpolation per frame
-- [ ] Jitter buffer 50ms (reorder by timestamp)
-- [ ] Mapping: param → bus volume, filter, tempo
-- [ ] FFI: rtpc_set/get/list
-- [ ] Dart: RTPC monitor panel
+### Faza 2: Server → RTPC Bridge (NE novi RTPC — bridge ka postojećem)
+- [ ] Server JSON `rtpc` poruka → `rtpcSystemProvider.setRtpc(id, value, interpolationMs)`
+- [ ] Server RTPC name → local RTPC ID mapping (config)
+- [ ] Jitter buffer 50ms za RTPC poruke (reorder by timestamp)
+- [ ] Server `state` poruka → batch RTPC update (game phase transitions)
+- [ ] Dart: server RTPC mapping editor panel
 
 ### Faza 3: Advanced Triggers
 - [ ] Position trigger (playhead poll per buffer)
@@ -45,6 +43,7 @@
 
 - **Signalsmith Stretch** — audio_stretcher.rs, MIT ~Élastique
 - **Warp Markers** — end-to-end: model, detection, playback, drag, undo, cross-track
-- **Custom Events** — EventRegistry sync, Play trigger, probability, solo, zombie cleanup
+- **Custom Events** — EventRegistry sync, Play, probability, solo, zombie cleanup
+- **RTPC System** — 35 params, 9 curves, macros, DSP binding, automation, morph (KOMPLETNO)
 - **Dep Upgrade** — cpal 0.17, wgpu 28, objc2 0.6, Edition 2024
 - **SRC Quality** — 7 nivoa, adaptive diagnostics
