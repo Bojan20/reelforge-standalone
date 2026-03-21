@@ -1393,28 +1393,23 @@ class _ClipWidgetState extends State<ClipWidget> {
                       left: (marker.timelinePos / clip.duration * width) - 6,
                       top: 0,
                       width: 12,
-                      height: 16,
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onHorizontalDragUpdate: (details) {
-                          final deltaSec = details.delta.dx / widget.zoom;
-                          final newPos = (marker.timelinePos + deltaSec).clamp(0.0, clip.duration);
-                          widget.onWarpMarkerMove?.call(marker.id, newPos);
-                        },
-                        child: const MouseRegion(
-                          cursor: SystemMouseCursors.resizeColumn,
-                          child: SizedBox.expand(),
-                        ),
+                      height: math.max(16, widget.trackHeight * 0.4), // scale with track height
+                      child: _WarpMarkerDragHandle(
+                        markerId: marker.id,
+                        initialTimelinePos: marker.timelinePos,
+                        clipDuration: clip.duration,
+                        zoom: widget.zoom,
+                        onMove: widget.onWarpMarkerMove,
                       ),
                     ),
-                // Double-tap on warp area creates new marker
-                Positioned.fill(
+                // Double-tap on warp zone (top 20px) creates new marker
+                Positioned(
+                  left: 0, right: 0, top: 0, height: 20,
                   child: GestureDetector(
                     behavior: HitTestBehavior.translucent,
                     onDoubleTapDown: (details) {
-                      final localX = details.localPosition.dx;
-                      final timeSec = localX / widget.zoom;
-                      widget.onWarpMarkerCreate?.call(timeSec);
+                      final timeSec = details.localPosition.dx / widget.zoom;
+                      widget.onWarpMarkerCreate?.call(timeSec.clamp(0.0, clip.duration));
                     },
                   ),
                 ),
@@ -3528,6 +3523,55 @@ class _SmartToolZonePainter extends CustomPainter {
       mode != oldDelegate.mode ||
       clipWidth != oldDelegate.clipWidth ||
       clipHeight != oldDelegate.clipHeight;
+}
+
+/// Stateful drag handle for a single warp marker.
+/// Tracks accumulated position to avoid the stale-data bug.
+class _WarpMarkerDragHandle extends StatefulWidget {
+  final int markerId;
+  final double initialTimelinePos;
+  final double clipDuration;
+  final double zoom;
+  final void Function(int markerId, double newTimelinePos)? onMove;
+
+  const _WarpMarkerDragHandle({
+    required this.markerId,
+    required this.initialTimelinePos,
+    required this.clipDuration,
+    required this.zoom,
+    this.onMove,
+  });
+
+  @override
+  State<_WarpMarkerDragHandle> createState() => _WarpMarkerDragHandleState();
+}
+
+class _WarpMarkerDragHandleState extends State<_WarpMarkerDragHandle> {
+  double _accumulatedPos = 0;
+  bool _isDragging = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragStart: (_) {
+        _accumulatedPos = widget.initialTimelinePos;
+        _isDragging = true;
+      },
+      onHorizontalDragUpdate: (details) {
+        if (!_isDragging) return;
+        final deltaSec = details.delta.dx / widget.zoom;
+        _accumulatedPos = (_accumulatedPos + deltaSec).clamp(0.0, widget.clipDuration);
+        widget.onMove?.call(widget.markerId, _accumulatedPos);
+      },
+      onHorizontalDragEnd: (_) => _isDragging = false,
+      onHorizontalDragCancel: () => _isDragging = false,
+      child: const MouseRegion(
+        cursor: SystemMouseCursors.resizeColumn,
+        child: SizedBox.expand(),
+      ),
+    );
+  }
 }
 
 /// Warp overlay painter: transient markers (gray dots) + warp markers (cyan lines)

@@ -7457,6 +7457,24 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           }).toList();
         });
       },
+      // Warp marker callbacks
+      onClipWarpMarkerMove: (clipId, markerId, newTimelinePos) {
+        final numericClipId = int.tryParse(clipId.replaceAll(RegExp(r'[^0-9]'), ''));
+        if (numericClipId != null) {
+          NativeFFI.instance.clipMoveWarpMarker(numericClipId, markerId, newTimelinePos);
+          _refreshClipWarpState(clipId);
+        }
+      },
+      onClipWarpMarkerCreate: (clipId, timelinePos) {
+        final numericClipId = int.tryParse(clipId.replaceAll(RegExp(r'[^0-9]'), ''));
+        if (numericClipId != null) {
+          // Source pos = timeline pos for new manual markers (identity mapping initially)
+          NativeFFI.instance.clipAddWarpMarker(
+            numericClipId, timelinePos, timelinePos, timeline.WarpMarkerKind.manual,
+          );
+          _refreshClipWarpState(clipId);
+        }
+      },
       // Track callbacks - SYNC both _tracks AND MixerProvider
       onTrackMuteToggle: (trackId) {
         final idx = _tracks.indexWhere((t) => t.id == trackId);
