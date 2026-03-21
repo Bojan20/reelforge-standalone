@@ -1786,6 +1786,28 @@ class EventRegistry extends ChangeNotifier {
     final event = _events.remove(eventId);
     if (event != null) {
       _stageToEvent.remove(event.stage);
+    }
+
+    // Also clean up auto-expanded per-index children (e.g., REEL_STOP_0..4)
+    for (int i = 0; i < 10; i++) {
+      final childId = '${eventId}_$i';
+      _stopEventSync(childId);
+      final child = _events.remove(childId);
+      if (child != null) {
+        _stageToEvent.remove(child.stage);
+      }
+    }
+    // Clean up multi-stage variants (e.g., eventId_stage_0..4)
+    for (int i = 0; i < 10; i++) {
+      final stageId = '${eventId}_stage_$i';
+      _stopEventSync(stageId);
+      final child = _events.remove(stageId);
+      if (child != null) {
+        _stageToEvent.remove(child.stage);
+      }
+    }
+
+    if (event != null) {
       notifyListeners();
     }
   }

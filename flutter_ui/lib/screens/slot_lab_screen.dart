@@ -12995,8 +12995,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   void _syncCustomEventToRegistry(CustomEvent customEvent, {bool skipNotify = false}) {
     if (!customEvent.enabled || customEvent.layers.isEmpty) return;
 
+    // Respect solo: if any layer is solo'd, only include solo layers
+    final hasSolo = customEvent.layers.any((l) => l.solo);
     final layers = customEvent.layers
-        .where((l) => !l.muted && l.audioPath.isNotEmpty)
+        .where((l) => !l.muted && l.audioPath.isNotEmpty && (!hasSolo || l.solo))
         .map((l) => AudioLayer(
               id: l.id,
               audioPath: l.audioPath,
