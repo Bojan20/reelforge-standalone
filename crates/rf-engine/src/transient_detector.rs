@@ -4,9 +4,9 @@
 //! using spectral flux analysis. Zero external dependencies — uses rustfft.
 //!
 //! Algorithm (same as aubio, librosa):
-//! 1. STFT with Hann window
+//! 1. STFT with Hann window (periodic, 1024-point default)
 //! 2. Per-frame spectral flux: sum of positive magnitude changes
-//! 3. Adaptive threshold: median + multiplier
+//! 3. Adaptive threshold: median + MAD * sensitivity (additive, aubio-standard)
 //! 4. Peak picking with minimum inter-onset interval
 //!
 //! Designed for OFFLINE analysis — not real-time audio thread.
@@ -95,7 +95,17 @@ impl TransientDetector {
         let mut prev_mag = vec![0.0f64; half];
         let mut fft_buf = vec![Complex64::new(0.0, 0.0); self.fft_size];
 
-        // Compute spectral flux for each frame
+        // Pre-fill prev_mag from frame 0 to avoid inflated flux at start
+        for i in 0..self.fft_size {
+            let s = if i < samples.len() { samples[i] } else { 0.0 };
+            fft_buf[i] = Complex64::new(s * window[i], 0.0);
+        }
+        fft.process(&mut fft_buf);
+        for k in 0..half {
+            prev_mag[k] = (fft_buf[k].re * fft_buf[k].re + fft_buf[k].im * fft_buf[k].im).sqrt();
+        }
+
+        // Compute spectral flux for each frame (starting from frame 1 effectively)
         let num_frames = (samples.len() - self.fft_size) / self.hop_size + 1;
         let mut flux_curve = Vec::with_capacity(num_frames);
 
@@ -142,7 +152,10 @@ impl TransientDetector {
         self.detect(&mono)
     }
 
-    /// Compute adaptive threshold using running median + multiplier.
+    /// Compute adaptive threshold: median + mean_deviation * sensitivity (aubio/librosa standard).
+    ///
+    /// Additive formula works better in dense mixes than multiplicative (median * sensitivity)
+    /// because it adapts to the local spread of flux values, not just the center.
     fn adaptive_threshold(&self, flux: &[f64]) -> Vec<f64> {
         let half_win = self.median_window / 2;
         let mut threshold = vec![0.0f64; flux.len()];
@@ -156,14 +169,23 @@ impl TransientDetector {
             for j in start..end {
                 window_buf.push(flux[j]);
             }
+            if window_buf.is_empty() {
+                continue;
+            }
+
             // Median
             window_buf.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-            let median = if window_buf.is_empty() {
-                0.0
-            } else {
-                window_buf[window_buf.len() / 2]
-            };
-            threshold[i] = median * self.sensitivity;
+            let median = window_buf[window_buf.len() / 2];
+
+            // Mean absolute deviation from median (measures local spread)
+            let mad: f64 = window_buf.iter().map(|&v| (v - median).abs()).sum::<f64>()
+                / window_buf.len() as f64;
+
+            // Additive threshold: median + mad * sensitivity
+            // In silence: median=0, mad=0 → threshold=0 → flux[i]<=0 is false → no false positives
+            // In dense mix: median is high but mad is low → threshold stays near median → real onsets still punch through
+            // In transient-rich material: mad is high → threshold adapts, only strong onsets detected
+            threshold[i] = median + mad * self.sensitivity;
         }
         threshold
     }
