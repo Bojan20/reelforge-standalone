@@ -90,18 +90,14 @@ Atribucija: "Sample rate converter designed by Aleksey Vaneev of Voxengo"
 - [ ] Latency verification
 - [ ] Zero-allocation u audio path-u (svi bufferi pre-alocirani)
 
-### Faza RT-2: Adaptive Per-Voice Quality (NEMA u Reaperu)
+### Faza RT-2: Adaptive Per-Voice Quality (NEMA u Reaperu) — ✅ ZAVRŠENO
 
-- [ ] **CPU budget tracker** — meri vreme svake voice u `fill_buffer()`
-  - Atomic counter per-block, reset svakih N blokova
-- [ ] **Automatska degradacija** — kad block time > threshold:
-  - Solo/selected glasovi: UVEK highest quality
-  - Pozadinski glasovi: Sinc384 → Sinc64 → Linear po budžetu
-  - Vraća se na viši kvalitet čim CPU dozvoli
-- [ ] **Per-voice `ResampleMode`** — umesto globalnog, svaki voice ima svoj mode
-  - Default = projekat playback mode
-  - Override za solo/selected = highest
-  - Degraded = automatski smanjen
+- [x] Per-voice `voice_resample_mode` u OneShotVoice (umesto globalnog)
+- [x] CPU budget tracker: `Instant::now()` per-voice, kumulativno per-block
+- [x] Budget = 50% block time (npr. 2.65ms za 256 samples @ 48kHz)
+- [x] Automatska degradacija: kad cumulative > budget, background voices → Linear
+- [x] DAW/Browser voices UVEK na globalnom kvalitetu (nikad degradirani)
+- [x] Vraća se na viši kvalitet čim CPU dozvoli (reset svaki block)
 
 ### Faza RT-3: Per-Item Properties
 

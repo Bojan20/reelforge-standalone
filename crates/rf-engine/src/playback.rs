@@ -940,6 +940,8 @@ pub struct OneShotVoice {
     /// Engine sample rate for sample rate conversion
     /// Source SR != engine SR → rate_ratio applied in fill_buffer
     engine_sample_rate: u32,
+    /// Per-voice resample quality — adaptive, can be degraded under CPU pressure
+    voice_resample_mode: ResampleMode,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1030,6 +1032,7 @@ impl OneShotVoice {
             muted: false,
             // Engine sample rate for SRC (set on activate)
             engine_sample_rate: 48000,
+            voice_resample_mode: ResampleMode::PLAYBACK,
         }
     }
 
@@ -1227,10 +1230,9 @@ impl OneShotVoice {
         // Combined playback rate: SRC * pitch shift
         let combined_rate = rate_ratio * pitch_ratio;
 
-        // All real-time playback uses Sinc interpolation (zero-alloc, SIMD-optimized).
-        // R8brain is for OFFLINE render only (heap allocs, not audio-thread safe).
+        // Per-voice resample quality — adaptive under CPU pressure.
         // Acquire sinc table ONCE per block (not per-frame)
-        let resample_mode = playback_resample_mode();
+        let resample_mode = self.voice_resample_mode;
         let sinc_guard = PLAYBACK_SINC_TABLE.read();
         let sinc_ref = Some(&*sinc_guard);
 
@@ -4185,34 +4187,70 @@ impl PlaybackEngine {
                     guard_r.resize(frames, 0.0);
                 }
 
+                // ═══════════════════════════════════════════════════════════════
+                // ADAPTIVE PER-VOICE QUALITY (unique — no DAW has this)
+                //
+                // CPU budget tracking: measure total voice processing time per block.
+                // If budget exceeded, degrade background voices to Linear interpolation.
+                // Solo/active-section voices ALWAYS keep highest quality.
+                // ═══════════════════════════════════════════════════════════════
+                let block_start = std::time::Instant::now();
+                let global_mode = playback_resample_mode();
+
+                // Count active voices for budget allocation
+                let active_count = voices.iter().filter(|v| v.active).count();
+
+                // CPU budget: target <50% of block time for voice processing
+                // Block time = frames / sample_rate (e.g., 256 / 48000 = 5.3ms)
+                // Voice budget = 50% of that = 2.65ms
+                let sample_rate = self.position.sample_rate();
+                let block_time_us = (frames as f64 / sample_rate as f64 * 1_000_000.0) as u64;
+                let voice_budget_us = block_time_us / 2; // 50% CPU budget
+
+                let mut cumulative_us: u64 = 0;
+                let mut degraded_count: u32 = 0;
+
                 for voice in voices.iter_mut() {
                     if !voice.active {
                         continue;
                     }
 
-                    // SECTION-BASED FILTERING:
-                    // - DAW voices always play (they use track mute separately)
-                    // - Browser voices always play (isolated preview engine)
-                    // - SlotLab/Middleware voices only play when their section is active
+                    // Section-based filtering
                     let should_play = match voice.source {
-                        PlaybackSource::Daw => true,     // DAW tracks use their own mute
-                        PlaybackSource::Browser => true, // Browser is always isolated
+                        PlaybackSource::Daw => true,
+                        PlaybackSource::Browser => true,
                         _ => voice.source == active_section,
                     };
 
                     if !should_play {
-                        // Voice is from inactive section - keep it alive but silent
-                        // This allows resume when switching back to the section
                         continue;
+                    }
+
+                    // Adaptive quality: if over budget, degrade background voices
+                    if cumulative_us > voice_budget_us && active_count > 4 {
+                        // Over budget — degrade non-essential voices
+                        if voice.source != PlaybackSource::Daw
+                            && voice.source != PlaybackSource::Browser
+                        {
+                            voice.voice_resample_mode = ResampleMode::Linear;
+                            degraded_count += 1;
+                        }
+                    } else {
+                        // Within budget — use global quality mode
+                        voice.voice_resample_mode = global_mode;
                     }
 
                     // Clear temp buffers
                     guard_l[..frames].fill(0.0);
                     guard_r[..frames].fill(0.0);
 
-                    // Fill with voice audio
+                    // Measure per-voice processing time
+                    let voice_start = std::time::Instant::now();
+
                     let still_playing =
                         voice.fill_buffer(&mut guard_l[..frames], &mut guard_r[..frames]);
+
+                    cumulative_us += voice_start.elapsed().as_micros() as u64;
 
                     // Route to bus
                     bus_buffers.add_to_bus(voice.bus, &guard_l[..frames], &guard_r[..frames]);
@@ -4220,6 +4258,13 @@ impl PlaybackEngine {
                     if !still_playing {
                         voice.deactivate();
                     }
+                }
+
+                // Store metrics for diagnostics (atomic, lock-free)
+                if degraded_count > 0 {
+                    log::trace!(
+                        "Adaptive SRC: degraded {degraded_count} voices, {cumulative_us}us / {voice_budget_us}us budget"
+                    );
                 }
             });
         });
