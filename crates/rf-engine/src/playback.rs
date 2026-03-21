@@ -1067,6 +1067,14 @@ impl OneShotVoice {
         self.trim_end_sample = 0;
         self.fade_out_samples_at_end = 0;
         self.muted = false;
+        // Reset to current global quality (not stale mode from previous voice)
+        let mode = playback_resample_mode();
+        self.voice_resample_mode = if mode.is_r8brain() {
+            // R8brain is offline-only — fallback to Sinc(384) for real-time
+            ResampleMode::Sinc(384)
+        } else {
+            mode
+        };
     }
 
     /// Activate with looping enabled (P0.2: Seamless REEL_SPIN loop)
@@ -4190,22 +4198,26 @@ impl PlaybackEngine {
                 // ═══════════════════════════════════════════════════════════════
                 // ADAPTIVE PER-VOICE QUALITY (unique — no DAW has this)
                 //
-                // CPU budget tracking: measure total voice processing time per block.
-                // If budget exceeded, degrade background voices to Linear interpolation.
-                // Solo/active-section voices ALWAYS keep highest quality.
+                // CPU budget tracking: measure per-voice processing time.
+                // If budget exceeded, degrade background voices to Sinc(16).
+                // DAW/Browser voices ALWAYS keep global quality.
                 // ═══════════════════════════════════════════════════════════════
-                let block_start = std::time::Instant::now();
-                let global_mode = playback_resample_mode();
 
-                // Count active voices for budget allocation
-                let active_count = voices.iter().filter(|v| v.active).count();
+                // Guard: zero frames or zero sample rate → skip processing
+                let sample_rate = self.position.sample_rate().max(1); // Prevent div-by-zero
+                if frames == 0 {
+                    return;
+                }
 
-                // CPU budget: target <50% of block time for voice processing
-                // Block time = frames / sample_rate (e.g., 256 / 48000 = 5.3ms)
-                // Voice budget = 50% of that = 2.65ms
-                let sample_rate = self.position.sample_rate();
-                let block_time_us = (frames as f64 / sample_rate as f64 * 1_000_000.0) as u64;
-                let voice_budget_us = block_time_us / 2; // 50% CPU budget
+                // Global mode — clamp R8brain to Sinc(384) for real-time
+                let global_mode = {
+                    let mode = playback_resample_mode();
+                    if mode.is_r8brain() { ResampleMode::Sinc(384) } else { mode }
+                };
+
+                // CPU budget: 50% of block time
+                let block_time_us = (frames as u64 * 1_000_000) / sample_rate as u64;
+                let voice_budget_us = block_time_us / 2;
 
                 let mut cumulative_us: u64 = 0;
                 let mut degraded_count: u32 = 0;
@@ -4226,15 +4238,16 @@ impl PlaybackEngine {
                         continue;
                     }
 
-                    // Adaptive quality: if over budget, degrade background voices
-                    if cumulative_us > voice_budget_us && active_count > 4 {
-                        // Over budget — degrade non-essential voices
+                    // Adaptive quality: degrade background voices when over budget
+                    if cumulative_us > voice_budget_us {
+                        // Over budget — degrade non-essential voices to fast mode
                         if voice.source != PlaybackSource::Daw
                             && voice.source != PlaybackSource::Browser
                         {
-                            voice.voice_resample_mode = ResampleMode::Linear;
+                            voice.voice_resample_mode = ResampleMode::Sinc(16);
                             degraded_count += 1;
                         }
+                        // DAW/Browser voices keep global mode (never degraded)
                     } else {
                         // Within budget — use global quality mode
                         voice.voice_resample_mode = global_mode;
@@ -4244,7 +4257,7 @@ impl PlaybackEngine {
                     guard_l[..frames].fill(0.0);
                     guard_r[..frames].fill(0.0);
 
-                    // Measure per-voice processing time
+                    // Measure per-voice processing time (lock-free on macOS/Linux)
                     let voice_start = std::time::Instant::now();
 
                     let still_playing =
@@ -4258,13 +4271,6 @@ impl PlaybackEngine {
                     if !still_playing {
                         voice.deactivate();
                     }
-                }
-
-                // Store metrics for diagnostics (atomic, lock-free)
-                if degraded_count > 0 {
-                    log::trace!(
-                        "Adaptive SRC: degraded {degraded_count} voices, {cumulative_us}us / {voice_budget_us}us budget"
-                    );
                 }
             });
         });
