@@ -141,17 +141,19 @@ impl BlockConvolver {
             }
             written += valid;
 
-            // Save overlap for next block
-            let total_filled = overlap_len + chunk;
-            if total_filled >= overlap_len {
-                let start = total_filled.saturating_sub(overlap_len);
-                for i in 0..overlap_len {
-                    self.overlap[i] = if start + i < total_filled {
-                        self.input_buf[start + i]
-                    } else {
-                        0.0
-                    };
-                }
+            // Save overlap for next block: last (kernel_len - 1) samples
+            // from the filled portion of input_buf (overlap_prev + new_input).
+            // For short chunks (chunk < overlap_len), shift old overlap left
+            // and append new samples.
+            if chunk >= overlap_len {
+                // Normal case: enough new samples to fill entire overlap
+                let start = overlap_len + chunk - overlap_len; // = chunk
+                self.overlap.copy_from_slice(&self.input_buf[start..start + overlap_len]);
+            } else {
+                // Short block: shift old overlap left by chunk, append new samples
+                self.overlap.copy_within(chunk..overlap_len, 0);
+                self.overlap[overlap_len - chunk..overlap_len]
+                    .copy_from_slice(&self.input_buf[overlap_len..overlap_len + chunk]);
             }
 
             pos += chunk;
