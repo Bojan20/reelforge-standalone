@@ -84,6 +84,10 @@ class ClipWidget extends StatefulWidget {
   /// Called when clip is moved in Shuffle mode — clips should push neighbors
   final ValueChanged<double>? onShuffleMove;
   final ValueChanged<double>? onPlayheadMove;
+  /// Warp marker moved (markerId, newTimelinePos in seconds relative to clip)
+  final void Function(int markerId, double newTimelinePos)? onWarpMarkerMove;
+  /// Double-click at position to create warp marker (timelinePos in seconds relative to clip)
+  final ValueChanged<double>? onWarpMarkerCreate;
   final bool snapEnabled;
   final double snapValue;
   final double tempo;
@@ -123,6 +127,8 @@ class ClipWidget extends StatefulWidget {
     this.onSplitAtPosition,
     this.onShuffleMove,
     this.onPlayheadMove,
+    this.onWarpMarkerMove,
+    this.onWarpMarkerCreate,
     this.snapEnabled = false,
     this.snapValue = 1,
     this.tempo = 120,
@@ -1369,7 +1375,8 @@ class _ClipWidgetState extends State<ClipWidget> {
                 ),
 
               // ═══ Warp markers + transient display ═══
-              if (clip.warpEnabled && width > 30)
+              if (clip.warpEnabled && width > 30) ...[
+                // Visual overlay (non-interactive)
                 Positioned.fill(
                   child: CustomPaint(
                     painter: _WarpOverlayPainter(
@@ -1379,6 +1386,39 @@ class _ClipWidgetState extends State<ClipWidget> {
                     ),
                   ),
                 ),
+                // Interactive drag handles for each unlocked marker
+                for (final marker in clip.warpMarkers)
+                  if (!marker.locked && clip.duration > 0)
+                    Positioned(
+                      left: (marker.timelinePos / clip.duration * width) - 6,
+                      top: 0,
+                      width: 12,
+                      height: 16,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onHorizontalDragUpdate: (details) {
+                          final deltaSec = details.delta.dx / widget.zoom;
+                          final newPos = (marker.timelinePos + deltaSec).clamp(0.0, clip.duration);
+                          widget.onWarpMarkerMove?.call(marker.id, newPos);
+                        },
+                        child: const MouseRegion(
+                          cursor: SystemMouseCursors.resizeColumn,
+                          child: SizedBox.expand(),
+                        ),
+                      ),
+                    ),
+                // Double-tap on warp area creates new marker
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onDoubleTapDown: (details) {
+                      final localX = details.localPosition.dx;
+                      final timeSec = localX / widget.zoom;
+                      widget.onWarpMarkerCreate?.call(timeSec);
+                    },
+                  ),
+                ),
+              ],
 
               // ═══ Tool-specific visual overlays ═══
               // Erase tool: red danger tint on hover
