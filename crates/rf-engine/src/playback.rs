@@ -6458,8 +6458,17 @@ impl PlaybackEngine {
                             }
 
                             let clip_offset = global_sample - clip_start_sample;
-                            let mut source_pos_f64 =
-                                clip_offset as f64 * rate_ratio * playback_rate + source_offset_samples;
+                            // Source position: warp lookup or linear
+                            let mut source_pos_f64 = if clip.warp_state.enabled && !clip.warp_state.segments.is_empty() {
+                                let timeline_seconds = clip_offset as f64 / sample_rate;
+                                if let Some((_seg, src_sec)) = clip.warp_state.lookup_segment(timeline_seconds) {
+                                    src_sec * source_sample_rate + source_offset_samples
+                                } else {
+                                    clip_offset as f64 * rate_ratio + source_offset_samples
+                                }
+                            } else {
+                                clip_offset as f64 * rate_ratio * playback_rate + source_offset_samples
+                            };
 
                             let mut loop_xf_gain = 1.0_f64;
                             if clip.loop_enabled {

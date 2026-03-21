@@ -172,8 +172,14 @@ impl ClipWarpState {
     }
 
     /// Add a warp marker. Inserts in sorted order by source_pos.
-    /// Returns the new marker's ID.
+    /// source_pos and timeline_pos are clamped to valid range. Returns marker ID.
     pub fn add_marker(&mut self, source_pos: f64, timeline_pos: f64, marker_type: WarpMarkerType) -> WarpMarkerId {
+        // Clamp to valid range (between first and last marker if they exist)
+        let src_min = self.markers.first().map(|m| m.source_pos).unwrap_or(0.0);
+        let src_max = self.markers.last().map(|m| m.source_pos).unwrap_or(f64::MAX);
+        let source_pos = if !source_pos.is_finite() { src_min } else { source_pos.clamp(src_min, src_max) };
+        let timeline_pos = if !timeline_pos.is_finite() { 0.0 } else { timeline_pos.max(0.0) };
+
         let id = WarpMarkerId(next_id());
         let marker = WarpMarker {
             id,
@@ -351,7 +357,7 @@ impl ClipWarpState {
     /// `grid_interval`: grid size in seconds (e.g., 0.5 for 1/8 note at 120bpm)
     /// `strength`: 0.0 = no change, 1.0 = full snap, 0.5 = halfway
     pub fn quantize_to_grid(&mut self, grid_interval: f64, strength: f64) {
-        if grid_interval <= 0.0 {
+        if !grid_interval.is_finite() || grid_interval <= 0.0 || !strength.is_finite() {
             return;
         }
         let strength = strength.clamp(0.0, 1.0);

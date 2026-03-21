@@ -178,14 +178,14 @@ impl TransientDetector {
             let median = window_buf[window_buf.len() / 2];
 
             // Mean absolute deviation from median (measures local spread)
-            let mad: f64 = window_buf.iter().map(|&v| (v - median).abs()).sum::<f64>()
+            let mean_dev: f64 = window_buf.iter().map(|&v| (v - median).abs()).sum::<f64>()
                 / window_buf.len() as f64;
 
-            // Additive threshold: median + mad * sensitivity
+            // Additive threshold: median + mean_deviation * sensitivity
             // In silence: median=0, mad=0 → threshold=0 → flux[i]<=0 is false → no false positives
             // In dense mix: median is high but mad is low → threshold stays near median → real onsets still punch through
             // In transient-rich material: mad is high → threshold adapts, only strong onsets detected
-            threshold[i] = median + mad * self.sensitivity;
+            threshold[i] = median + mean_dev * self.sensitivity;
         }
         threshold
     }
