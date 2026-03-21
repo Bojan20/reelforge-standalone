@@ -160,8 +160,10 @@ impl R8brainResampler {
         let frac_cutoff = (1.0 - transition).clamp(0.5, 0.99);
         let frac_interp = FracInterpolator::new(frac_filter_len, frac_cutoff, atten);
 
-        // Intermediate buffers (generous size for multi-stage)
-        let buf_size = max_block * 4; // Account for upsampling stages
+        // Intermediate buffers: must accommodate all upsampling stages.
+        // Each HB stage doubles the sample count. Max 6 stages = 64x.
+        let up_factor = 1usize << hb_upsamplers.len(); // 2^stages
+        let buf_size = (max_block * up_factor * 2).max(max_block * 4); // ×2 safety margin
         let stage_buf_a = vec![0.0f64; buf_size];
         let stage_buf_b = vec![0.0f64; buf_size];
 
@@ -217,10 +219,12 @@ impl R8brainResampler {
 
         // Stage 2: Anti-aliasing convolution (if needed)
         if let Some(ref mut conv) = self.convolver {
-            if current_len > self.stage_buf_a.len() {
-                self.stage_buf_a.resize(current_len, 0.0);
+            // Convolver may produce up to current_len output samples
+            let needed = current_len.max(256);
+            if needed > self.stage_buf_a.len() {
+                self.stage_buf_a.resize(needed, 0.0);
             }
-            let written = conv.process(current, &mut self.stage_buf_a[..current_len]);
+            let written = conv.process(current, &mut self.stage_buf_a[..needed]);
             current_len = written;
             std::mem::swap(&mut self.stage_buf_a, &mut self.stage_buf_b);
             current = &self.stage_buf_b[..current_len];
@@ -231,15 +235,24 @@ impl R8brainResampler {
             / (1 << self.hb_upsamplers.len()) as f64
             * (1 << self.hb_downsamplers.len()) as f64;
 
+        // Guard: don't read beyond buffer (filter needs taps beyond position)
+        let safe_limit = (current_len as f64 - self.frac_interp.filter_len() as f64).max(0.0);
+
         let mut out_idx = 0;
-        while self.frac_pos < current_len as f64 && out_idx < output.len() {
+        while self.frac_pos < safe_limit && out_idx < output.len() {
             output[out_idx] = self.frac_interp.interpolate(current, self.frac_pos, current_len);
             out_idx += 1;
             self.frac_pos += 1.0 / frac_ratio;
         }
-        // Keep fractional remainder for next block
+        // Keep fractional remainder for next block.
+        // frac_pos now points past processed samples — subtract to get
+        // offset within next block's input.
         self.frac_pos -= current_len as f64;
-        if self.frac_pos < 0.0 {
+        // Clamp: negative remainder means we consumed all input and need
+        // more before producing next output. Keep the negative offset
+        // so next block starts at the right fractional position.
+        // Only clamp to 0 if very negative (numerical error).
+        if self.frac_pos < -1.0 {
             self.frac_pos = 0.0;
         }
 
