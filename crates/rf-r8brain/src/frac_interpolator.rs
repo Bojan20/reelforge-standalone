@@ -29,8 +29,10 @@ pub struct FracInterpolator {
     /// Stored flat: index = frac_idx * filter_len * POLY_ORDER_3 + tap * POLY_ORDER_3 + coeff
     poly_coeffs: Vec<f64>,
     /// Normalized cutoff frequency used to generate filters
+    #[allow(dead_code)]
     cutoff: f64,
     /// Stopband attenuation in dB
+    #[allow(dead_code)]
     atten_db: f64,
 }
 

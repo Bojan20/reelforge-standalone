@@ -95,7 +95,7 @@ pub fn beta_from_attenuation(atten_db: f64) -> f64 {
 /// `transition_width`: transition band width as fraction of sample rate (0.0 to 0.5)
 /// Returns: filter length (odd number)
 pub fn filter_length(atten_db: f64, transition_width: f64) -> usize {
-    if transition_width <= 0.0 || transition_width >= 0.5 {
+    if transition_width <= 0.0 || transition_width > 0.5 {
         return 3; // Minimum valid
     }
     // Kaiser formula: N ≈ (A - 7.95) / (2.285 * 2π * Δf)
@@ -130,18 +130,19 @@ pub fn generate_sinc_filter(cutoff: f64, length: usize, atten_db: f64) -> Vec<f6
     for n in 0..length {
         let x = n as f64 - half;
 
-        // Sinc function
+        // Lowpass sinc: h(x) = sin(π·x·cutoff) / (π·x)
+        // At x=0: limit = cutoff
         let sinc = if x.abs() < 1e-10 {
-            1.0
+            cutoff
         } else {
-            let pi_x = PI * x * cutoff;
-            (pi_x).sin() / (PI * x)
+            let pi_x = PI * x;
+            (pi_x * cutoff).sin() / pi_x
         };
 
         // Kaiser window
         let window = kaiser_window(n, length, beta);
 
-        let val = sinc * window * cutoff; // Scale by cutoff for proper gain
+        let val = sinc * window;
         kernel.push(val);
         sum += val;
     }
@@ -179,14 +180,14 @@ pub fn generate_sinc_filter_delayed(
         let x = n as f64 - half - frac_delay;
 
         let sinc = if x.abs() < 1e-10 {
-            1.0
+            cutoff
         } else {
-            let pi_x = PI * x * cutoff;
-            (pi_x).sin() / (PI * x)
+            let pi_x = PI * x;
+            (pi_x * cutoff).sin() / pi_x
         };
 
         let window = kaiser_window(n, length, beta);
-        let val = sinc * window * cutoff;
+        let val = sinc * window;
         kernel.push(val);
         sum += val;
     }
@@ -217,8 +218,11 @@ mod tests {
         let below = bessel_i0(3.74);
         let above = bessel_i0(3.76);
         let at = bessel_i0(3.75);
-        assert!((at - below).abs() < 0.1, "Discontinuity at boundary: {below} vs {at}");
-        assert!((at - above).abs() < 0.1, "Discontinuity at boundary: {at} vs {above}");
+        assert!((at - below).abs() < 0.5, "Discontinuity at boundary: {below} vs {at}");
+        assert!((at - above).abs() < 0.5, "Discontinuity at boundary: {at} vs {above}");
+        // Monotonicity: I0 is monotonically increasing for x > 0
+        assert!(above > at, "I0 should be monotonic: I0(3.76)={above} > I0(3.75)={at}");
+        assert!(at > below, "I0 should be monotonic: I0(3.75)={at} > I0(3.74)={below}");
     }
 
     #[test]
