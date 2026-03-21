@@ -22,16 +22,17 @@ pub enum ResampleMode {
     Linear,
     /// Windowed sinc interpolation — configurable tap count
     Sinc(u16),
-    /// R8brain multi-stage pipeline — highest quality, beyond Reaper
-    /// Uses per-voice R8brainResampler instance (stateful, block-based)
+    /// R8brain multi-stage pipeline — OFFLINE RENDER ONLY (heap allocs, not audio-thread safe)
+    /// Used by rf-offline for final bounce, NOT by real-time playback engine.
     R8brain,
 }
 
 impl ResampleMode {
     /// Default playback quality (64pt sinc = Reaper "Medium")
     pub const PLAYBACK: Self = Self::Sinc(64);
-    /// Default render quality — R8brain (beyond Reaper's best)
-    pub const RENDER: Self = Self::R8brain;
+    /// Default render quality — Sinc(384) (real-time safe, ~-150dB)
+    /// R8brain is available for offline render via rf-offline crate.
+    pub const RENDER: Self = Self::Sinc(384);
     /// Scrub/shuttle quality
     pub const SCRUB: Self = Self::Linear;
 

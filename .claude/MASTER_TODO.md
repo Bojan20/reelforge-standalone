@@ -26,6 +26,14 @@
 **Cilj:** Bolji od Reapera — r8brain-level kvalitet, AVX-512 SIMD, adaptive per-voice quality, custom phase vocoder sa formant preservation.
 **Referenca:** `REAPER_SRC_ANALYSIS.md`
 
+### Arhitekturna odluka: Real-Time vs Offline SRC
+
+- **Real-time playback:** Sinc(64) sa Blackman-Harris + SIMD (zero-alloc, zero-lock)
+- **Offline render:** rf-r8brain crate (multi-stage, heap allocs, highest quality)
+- R8brain NIJE za audio thread — heap alokacije, FFT plans, Vec::resize()
+- Sinc(64/384) + SIMD daje Reaper-level kvalitet za playback (isti kernel)
+- R8brain za final bounce daje IZNAD Reapera (206dB attenuation)
+
 ### Faza RT-1: Blackman-Harris Sinc + SIMD — ✅ ZAVRŠENO
 
 - [x] `sinc_table.rs` — BH4 windowed sinc, pre-computed tabela, ResampleMode enum

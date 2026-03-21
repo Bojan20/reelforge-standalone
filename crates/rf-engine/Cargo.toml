@@ -24,7 +24,8 @@ rf-event = { path = "../rf-event" }
 rf-stage = { path = "../rf-stage" }
 rf-ingest = { path = "../rf-ingest" }
 rf-connector = { path = "../rf-connector" }
-rf-r8brain = { path = "../rf-r8brain" }
+# rf-r8brain is OFFLINE-ONLY — used by rf-offline for render, not by rf-engine for playback.
+# Real-time playback uses sinc_table.rs (zero-alloc Blackman-Harris + SIMD).
 rtrb = { workspace = true }
 parking_lot = { workspace = true }
 crossbeam-channel = { workspace = true }

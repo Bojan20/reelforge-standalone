@@ -22,7 +22,6 @@ use parking_lot::RwLock;
 use rayon::prelude::*;
 
 use crate::sinc_table::{self, ResampleMode, SincTable};
-use rf_r8brain::resampler::{R8brainResampler, R8brainQuality};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PLAYBACK SOURCE — For section-based voice filtering
@@ -941,13 +940,6 @@ pub struct OneShotVoice {
     /// Engine sample rate for sample rate conversion
     /// Source SR != engine SR → rate_ratio applied in fill_buffer
     engine_sample_rate: u32,
-    /// R8brain resampler instance (created at voice activation, not on audio thread)
-    /// Only present when ResampleMode::R8brain is active AND source_sr != engine_sr
-    r8brain: Option<R8brainResampler>,
-    /// Pre-allocated deinterleave buffer for R8brain (mono channel extraction)
-    r8brain_input_buf: Vec<f64>,
-    /// Pre-allocated output buffer for R8brain
-    r8brain_output_buf: Vec<f64>,
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1038,9 +1030,6 @@ impl OneShotVoice {
             muted: false,
             // Engine sample rate for SRC (set on activate)
             engine_sample_rate: 48000,
-            r8brain: None,
-            r8brain_input_buf: Vec::new(),
-            r8brain_output_buf: Vec::new(),
         }
     }
 
@@ -1075,25 +1064,6 @@ impl OneShotVoice {
         self.trim_end_sample = 0;
         self.fade_out_samples_at_end = 0;
         self.muted = false;
-
-        // R8brain: create resampler if mode is R8brain AND source SR differs from engine SR
-        let mode = playback_resample_mode();
-        if mode.is_r8brain() && self.audio.sample_rate != self.engine_sample_rate {
-            let source_sr = self.audio.sample_rate as f64;
-            let engine_sr = self.engine_sample_rate as f64;
-            self.r8brain = Some(R8brainResampler::new(
-                source_sr, engine_sr, 512, R8brainQuality::Quality180,
-            ));
-            // Pre-allocate deinterleave buffers (mono extraction + output)
-            if self.r8brain_input_buf.len() < 512 {
-                self.r8brain_input_buf.resize(512, 0.0);
-            }
-            if self.r8brain_output_buf.len() < 1024 {
-                self.r8brain_output_buf.resize(1024, 0.0);
-            }
-        } else {
-            self.r8brain = None;
-        }
     }
 
     /// Activate with looping enabled (P0.2: Seamless REEL_SPIN loop)
@@ -1257,56 +1227,8 @@ impl OneShotVoice {
         // Combined playback rate: SRC * pitch shift
         let combined_rate = rate_ratio * pitch_ratio;
 
-        // R8brain fast-path: block-based SRC (no pitch shift)
-        // R8brain handles SRC internally; pitch shift still uses per-sample sinc
-        if let Some(ref mut r8b) = self.r8brain {
-            if self.pitch_semitones.abs() < 0.001 && !self.looping {
-                // Extract mono L channel from interleaved source
-                let read_frames = frames_needed.min(
-                    (total_frames as u64 - self.position).max(0) as usize
-                );
-                if read_frames == 0 {
-                    self.active = false;
-                    return false;
-                }
-                // Ensure input buffer is large enough
-                if self.r8brain_input_buf.len() < read_frames {
-                    self.r8brain_input_buf.resize(read_frames, 0.0);
-                }
-                if self.r8brain_output_buf.len() < frames_needed * 2 {
-                    self.r8brain_output_buf.resize(frames_needed * 2, 0.0);
-                }
-                // Deinterleave L channel
-                let pos = self.position as usize;
-                for i in 0..read_frames {
-                    let src_idx = (pos + i) * channels_src;
-                    self.r8brain_input_buf[i] = if src_idx < self.audio.samples.len() {
-                        self.audio.samples[src_idx] as f64
-                    } else {
-                        0.0
-                    };
-                }
-                // R8brain process
-                let written = r8b.process(
-                    &self.r8brain_input_buf[..read_frames],
-                    &mut self.r8brain_output_buf,
-                );
-                // Mix to output with volume/pan
-                let gain = if self.muted { 0.0 } else { self.volume * self.fade_gain };
-                let pan_angle = (self.pan + 1.0) * std::f32::consts::FRAC_PI_4;
-                let pan_l_val = pan_angle.cos();
-                let pan_r_val = pan_angle.sin();
-                for i in 0..written.min(frames_needed) {
-                    let s = self.r8brain_output_buf[i] as f32 * gain;
-                    left[i] += (s * pan_l_val) as f64;
-                    right[i] += (s * pan_r_val) as f64;
-                }
-                self.position += read_frames as u64;
-                return self.position < total_frames as u64;
-            }
-        }
-
-        // Sinc path: per-sample interpolation (used for pitch shift, looping, or non-R8brain modes)
+        // All real-time playback uses Sinc interpolation (zero-alloc, SIMD-optimized).
+        // R8brain is for OFFLINE render only (heap allocs, not audio-thread safe).
         // Acquire sinc table ONCE per block (not per-frame)
         let resample_mode = playback_resample_mode();
         let sinc_guard = PLAYBACK_SINC_TABLE.read();
