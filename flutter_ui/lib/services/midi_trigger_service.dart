@@ -116,6 +116,8 @@ class MidiTriggerService with ChangeNotifier {
   int get ccCount => _ccCount;
   int? get lastNote => _lastNote;
   int? get lastVelocity => _lastVelocity;
+  int? get lastCc => _lastCc;
+  int? get lastCcValue => _lastCcValue;
 
   /// Initialize with RTPC provider for CC→RTPC mapping
   void init(RtpcSystemProvider rtpcProvider) {
