@@ -64,7 +64,7 @@ pub fn get_host() -> Host {
 pub fn list_output_devices() -> AudioResult<Vec<DeviceInfo>> {
     let host = get_host();
     let default_device = host.default_output_device();
-    let default_name = default_device.as_ref().and_then(|d| d.name().ok());
+    let default_name = default_device.as_ref().and_then(|d| d.description().ok().map(|desc| desc.name().to_string()));
 
     let mut devices = Vec::new();
 
@@ -72,7 +72,7 @@ pub fn list_output_devices() -> AudioResult<Vec<DeviceInfo>> {
         .output_devices()
         .map_err(|e| AudioError::BackendError(e.to_string()))?
     {
-        if let Ok(name) = device.name() {
+        if let Ok(name) = device.description().map(|d| d.name().to_string()) {
             let is_default = default_name.as_ref().map(|d| d == &name).unwrap_or(false);
 
             let (output_channels, sample_rates) = get_device_info(&device, false);
@@ -94,7 +94,7 @@ pub fn list_output_devices() -> AudioResult<Vec<DeviceInfo>> {
 pub fn list_input_devices() -> AudioResult<Vec<DeviceInfo>> {
     let host = get_host();
     let default_device = host.default_input_device();
-    let default_name = default_device.as_ref().and_then(|d| d.name().ok());
+    let default_name = default_device.as_ref().and_then(|d| d.description().ok().map(|desc| desc.name().to_string()));
 
     let mut devices = Vec::new();
 
@@ -102,7 +102,7 @@ pub fn list_input_devices() -> AudioResult<Vec<DeviceInfo>> {
         .input_devices()
         .map_err(|e| AudioError::BackendError(e.to_string()))?
     {
-        if let Ok(name) = device.name() {
+        if let Ok(name) = device.description().map(|d| d.name().to_string()) {
             let is_default = default_name.as_ref().map(|d| d == &name).unwrap_or(false);
 
             let (input_channels, sample_rates) = get_device_info(&device, true);
@@ -140,7 +140,7 @@ pub fn get_output_device_by_name(name: &str) -> AudioResult<Device> {
         .output_devices()
         .map_err(|e| AudioError::BackendError(e.to_string()))?
     {
-        if let Ok(device_name) = device.name()
+        if let Ok(device_name) = device.description().map(|d| d.name().to_string())
             && device_name == name
         {
             return Ok(device);
@@ -158,7 +158,7 @@ pub fn get_input_device_by_name(name: &str) -> AudioResult<Device> {
         .input_devices()
         .map_err(|e| AudioError::BackendError(e.to_string()))?
     {
-        if let Ok(device_name) = device.name()
+        if let Ok(device_name) = device.description().map(|d| d.name().to_string())
             && device_name == name
         {
             return Ok(device);

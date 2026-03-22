@@ -333,16 +333,18 @@ unsafe fn sinc_dot_neon(coeffs: &[f64], samples: &[f64]) -> f32 {
     let c_ptr = coeffs.as_ptr();
     let s_ptr = samples.as_ptr();
 
-    let mut acc = vdupq_n_f64(0.0);
+    let mut acc = unsafe { vdupq_n_f64(0.0) };
 
     for i in (0..simd_len).step_by(2) {
-        let c = vld1q_f64(c_ptr.add(i));
-        let s = vld1q_f64(s_ptr.add(i));
-        acc = vfmaq_f64(acc, c, s); // acc += c * s
+        unsafe {
+            let c = vld1q_f64(c_ptr.add(i));
+            let s = vld1q_f64(s_ptr.add(i));
+            acc = vfmaq_f64(acc, c, s); // acc += c * s
+        }
     }
 
     // Horizontal sum of 2-lane accumulator
-    let mut sum = vgetq_lane_f64(acc, 0) + vgetq_lane_f64(acc, 1);
+    let mut sum = unsafe { vgetq_lane_f64(acc, 0) + vgetq_lane_f64(acc, 1) };
 
     // Scalar remainder
     for i in simd_len..len {

@@ -1404,7 +1404,7 @@ impl PlaybackEngine {
     pub fn current_output_device(&self) -> Option<String> {
         // TODO: Store this when setting device
         let host = cpal::default_host();
-        host.default_output_device().and_then(|d| d.name().ok())
+        host.default_output_device().and_then(|d| d.description().ok().map(|desc| desc.name().to_string()))
     }
 
     /// Start with specific device
@@ -1419,7 +1419,7 @@ impl PlaybackEngine {
         let device = host
             .output_devices()
             .map_err(|e| format!("Failed to enumerate devices: {}", e))?
-            .find(|d| d.name().ok().as_deref() == Some(device_name))
+            .find(|d| d.description().ok().map(|desc| desc.name().to_string()).as_deref() == Some(device_name))
             .ok_or_else(|| format!("Device not found: {}", device_name))?;
 
         let config = device
@@ -1743,7 +1743,7 @@ impl PlaybackEngine {
         let device = if let Some(ref name) = device_name {
             host.output_devices()
                 .map_err(|e| format!("Failed to enumerate devices: {}", e))?
-                .find(|d| d.name().ok().as_deref() == Some(name))
+                .find(|d| d.description().ok().map(|desc| desc.name().to_string()).as_deref() == Some(name))
                 .ok_or_else(|| format!("Device not found: {}", name))?
         } else {
             host.default_output_device()

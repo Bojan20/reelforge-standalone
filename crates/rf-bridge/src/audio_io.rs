@@ -46,10 +46,10 @@ pub fn get_audio_devices() -> Vec<AudioDeviceInfo> {
 
     // Get output devices
     if let Ok(output_devices) = host.output_devices() {
-        let default_output = host.default_output_device().and_then(|d| d.name().ok());
+        let default_output = host.default_output_device().and_then(|d| d.description().ok().map(|desc| desc.name().to_string()));
 
         for device in output_devices {
-            if let Ok(name) = device.name() {
+            if let Ok(name) = device.description().map(|d| d.name().to_string()) {
                 let is_default = default_output.as_ref() == Some(&name);
 
                 let mut sample_rates = Vec::new();
@@ -81,10 +81,10 @@ pub fn get_audio_devices() -> Vec<AudioDeviceInfo> {
 
     // Get input devices
     if let Ok(input_devices) = host.input_devices() {
-        let default_input = host.default_input_device().and_then(|d| d.name().ok());
+        let default_input = host.default_input_device().and_then(|d| d.description().ok().map(|desc| desc.name().to_string()));
 
         for device in input_devices {
-            if let Ok(name) = device.name() {
+            if let Ok(name) = device.description().map(|d| d.name().to_string()) {
                 let is_default = default_input.as_ref() == Some(&name);
 
                 // Check if we already have this device (as output)
