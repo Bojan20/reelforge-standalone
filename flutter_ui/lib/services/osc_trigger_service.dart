@@ -163,8 +163,8 @@ class OscTriggerService with ChangeNotifier {
   void _poll() {
     if (!_serverRunning) return;
 
-    // Periodically verify Rust server is still alive
-    if (_messageCount % 100 == 0) {
+    // Periodically verify Rust server is still alive (skip initial zero)
+    if (_messageCount > 0 && _messageCount % 100 == 0) {
       final rustRunning = _oscIsRunning() == 1;
       if (!rustRunning && _serverRunning) {
         _serverRunning = false;
@@ -218,11 +218,8 @@ class OscTriggerService with ChangeNotifier {
     // Check event mappings
     for (final mapping in _eventMappings) {
       if (mapping.address == address) {
-        if (EventRegistryLocator.isSet) {
-          try {
-            EventRegistryLocator.instance.triggerEvent(mapping.eventId);
-            _triggerCount++;
-          } catch (_) {}
+        if (EventRegistryLocator.trigger(mapping.eventId)) {
+          _triggerCount++;
         }
         return;
       }

@@ -131,15 +131,11 @@ class TriggerManager with ChangeNotifier {
   /// Trigger event with cooldown check
   bool triggerWithCooldown(String eventId) {
     if (!canTrigger(eventId)) return false;
-    if (!EventRegistryLocator.isSet) return false;
-
-    try {
-      EventRegistryLocator.instance.triggerEvent(eventId);
+    if (EventRegistryLocator.trigger(eventId)) {
       _cooldowns[eventId]?.markTriggered();
       return true;
-    } catch (_) {
-      return false;
     }
+    return false;
   }
 
   // ═══════════════════════════════════════════════════════════════

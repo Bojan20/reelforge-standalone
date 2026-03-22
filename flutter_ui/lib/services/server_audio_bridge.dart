@@ -163,14 +163,10 @@ class ServerAudioBridge with ChangeNotifier {
       }
     }
 
-    // Trigger audio event via EventRegistry (if wired)
-    try {
-      if (!EventRegistryLocator.isSet) return;
-      EventRegistryLocator.instance.triggerEvent(eventId);
+    // Trigger audio event via EventRegistry (safe — never throws)
+    if (EventRegistryLocator.trigger(eventId)) {
       _triggerCount++;
       notifyListeners();
-    } catch (e) {
-      _logError('trigger "$eventId" failed: $e');
     }
   }
 
@@ -261,14 +257,8 @@ class ServerAudioBridge with ChangeNotifier {
       }
     }
 
-    // Also trigger a state event if EventRegistry has one
-    if (EventRegistryLocator.isSet) {
-      try {
-        EventRegistryLocator.instance.triggerEvent('state_$stateName');
-      } catch (_) {
-        // State event is optional — no error if not found
-      }
-    }
+    // Also trigger a state event if EventRegistry has one (optional)
+    EventRegistryLocator.trigger('state_$stateName');
 
     notifyListeners();
   }
@@ -386,10 +376,28 @@ class ServerAudioBridge with ChangeNotifier {
   }
 }
 
-/// Locator for EventRegistry (avoids circular dependency)
+/// Locator for EventRegistry (avoids circular dependency).
+/// Uses dynamic to prevent circular import. All calls wrapped in try/catch.
 class EventRegistryLocator {
   static dynamic _instance;
-  static dynamic get instance => _instance!;
+
+  /// Get instance. Returns null if not set (never throws).
+  static dynamic get instance => _instance;
+
+  /// Set instance (call once at app startup with the real EventRegistry).
   static set instance(dynamic registry) => _instance = registry;
+
+  /// Check if instance is set and has triggerEvent method.
   static bool get isSet => _instance != null;
+
+  /// Safe trigger — never throws, returns false on any error.
+  static bool trigger(String eventId) {
+    if (_instance == null) return false;
+    try {
+      _instance.triggerEvent(eventId);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
 }

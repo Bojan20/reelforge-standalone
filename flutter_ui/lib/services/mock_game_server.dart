@@ -231,7 +231,13 @@ class MockGameServer with ChangeNotifier {
 
   @override
   void dispose() {
-    stop();
+    // Synchronous cleanup only — avoid async notifyListeners after dispose
+    _autoTimer?.cancel();
+    _autoTimer = null;
+    _clientSocket?.close();
+    _httpServer?.close(force: true);
+    _mode = MockServerMode.stopped;
+    _clientConnected = false;
     super.dispose();
   }
 }

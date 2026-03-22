@@ -251,9 +251,7 @@ class MidiTriggerService with ChangeNotifier {
     for (final mapping in _noteMappings) {
       if (mapping.note == note && (mapping.channel == 0 || mapping.channel == channel)) {
         // Trigger event
-        if (EventRegistryLocator.isSet) {
-          EventRegistryLocator.instance.triggerEvent(mapping.eventId);
-        }
+        EventRegistryLocator.trigger(mapping.eventId);
         break;
       }
     }
