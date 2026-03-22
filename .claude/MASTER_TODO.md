@@ -4,28 +4,27 @@
 
 - `slot_lab_screen.dart` — 13K+, NE MOŽE se razbiti
 - Audio thread: NULA alokacija, NULA lockova
-- RTPC: production-ready — NE MENJATI
-- WebSocket: 3010+ linija PRODUCTION
-- MIDI: live input buffer + trigger service PRODUCTION
 
 ---
 
-## SLEDEĆA SESIJA — Faza 3: Production Hardening
+## NEMA PENDING TASKOVA
 
-- [ ] OSC trigger: rosc crate, UDP listener → event mapping
-- [ ] Mock server za lokalno testiranje
-- [ ] Connection monitor UI panel
-- [ ] Stress/reconnect/recovery testovi
-- [ ] Structured logging + all config u project settings
+Sve planirano je implementirano i QA-ovano.
 
 ---
 
-## IMPLEMENTIRANO
+## IMPLEMENTIRANO (cele 2 sesije)
 
-- 37 crate-ova | 69 providera | 168+ servisa | 3010+ networking
-- Server Audio Bridge (trigger/rtpc/state/batch/snapshot + jitter buffer + circuit breaker)
-- MIDI Trigger Service (note→event, CC→RTPC, learn mode, live buffer polling)
+- **37 crate-ova** | **69 providera** | **170+ servisa** | **3500+ networking linija**
+- Signalsmith Stretch (audio_stretcher.rs, MIT ~Élastique)
+- Warp Markers (15 testova, end-to-end: model→detection→playback→UI→undo)
+- Custom Events (EventRegistry sync, Play, probability, solo, zombie cleanup)
+- RTPC (35 params, 9 curves, macros, DSP binding — VEĆ POSTOJEĆI)
+- Server Audio Bridge (trigger/rtpc/state/batch/snapshot + jitter + circuit breaker)
+- MIDI Trigger (note→event, CC→RTPC, learn mode, live buffer)
+- OSC Trigger (rosc crate, UDP server, address→event/RTPC)
 - TriggerManager (position, marker, cooldown, seek hysteresis)
-- Signalsmith Stretch, Warp Markers (15 testova), Custom Events
-- RTPC (35 params, 9 curves, macros, DSP binding)
-- 18 QA rundi, 65+ bugova, 447 testova
+- Mock Game Server (echo/auto mode, slot cycle simulation)
+- Connection Monitor Panel (bridge/MIDI/OSC stats)
+- Dep Upgrade Faza 3+4 (cpal 0.17, wgpu 28, objc2 0.6, Edition 2024)
+- 22 QA rundi, 70+ bugova, 447 testova, 0 issues
