@@ -580,17 +580,23 @@ class _SearchBar extends StatelessWidget {
                   ),
                 ),
               ),
-            if (!isNarrow && controller.text.isNotEmpty)
-              IconButton(
-                icon: const Icon(Icons.close, size: 14),
-                tooltip: 'Clear search',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                onPressed: () {
-                  controller.clear();
-                  onChanged?.call('');
+            if (!isNarrow)
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: controller,
+                builder: (context, value, _) {
+                  if (value.text.isEmpty) return const SizedBox.shrink();
+                  return IconButton(
+                    icon: const Icon(Icons.close, size: 14),
+                    tooltip: 'Clear search',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                    onPressed: () {
+                      controller.clear();
+                      onChanged?.call('');
+                    },
+                    color: FluxForgeTheme.textSecondary,
+                  );
                 },
-                color: FluxForgeTheme.textSecondary,
               ),
           ],
         ),

@@ -49,6 +49,7 @@ pub mod marker_ingest;
 
 // Phase 4: Timeline & Track Management
 pub mod audio_import;
+pub mod clip_ops;
 pub mod ffi;
 pub mod ffi_control_room;
 pub mod ffi_routing;

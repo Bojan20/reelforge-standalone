@@ -75,6 +75,7 @@ open ~/Library/Developer/Xcode/DerivedData/FluxForge-macos/Build/Products/Debug/
 3. **Best solution** — ne safest, ne simplest
 4. **Audio thread = sacred** — zero allocations, zero locks, zero panics
 5. **Korisnik nema konzolu** — NE koristi print/debugPrint, prikazuj debug info u UI-u
+6. **PROCITAJ PRE PROMENE** — OBAVEZNO procitaj i razumi svaku liniju koda pre editovanja. NIKADA ne menjaj kod koji nisi procitao i razumeo. Razumi kontekst: zasto postoji, sta radi, ko ga poziva, kakve su semantike (npr. pan=-1.0 je hard-left za stereo dual-pan, NE bug). Ako ne razumes — istazi dublje pre nego sto pipnes. Pogresna "popravka" je gora od buga.
 
 ## Tehnicke zamke
 

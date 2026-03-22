@@ -470,17 +470,18 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             .toList(),
       ));
 
-      // Tracks folder - starts empty like React
+      // Tracks folder — populated from actual timeline tracks
       tree.add(ProjectTreeNode(
         id: 'tracks',
         type: TreeItemType.folder,
         label: 'Tracks',
-        count: _timelineTracks.length,
-        children: _timelineTracks
-            .map((name) => ProjectTreeNode(
-                  id: 'track-$name',
+        count: _tracks.length,
+        children: _tracks
+            .map((track) => ProjectTreeNode(
+                  id: 'track-${track.id}',
                   type: TreeItemType.sound,
-                  label: name,
+                  label: track.name,
+                  isSelected: track.id == _selectedTrackId,
                 ))
             .toList(),
       ));
@@ -2743,7 +2744,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     // Auto-zoom to fit clip in timeline (zoom out to show entire clip)
     final clipDuration = clipInfo?.duration ?? poolFile.duration;
     if (clipDuration > 0) {
-      const timelineWidth = 800.0; // Approximate
+      final timelineWidth = (context.size?.width ?? 800.0) * 0.6;
       final fitZoom = (timelineWidth / clipDuration).clamp(5.0, 500.0);
       setState(() {
         _timelineZoom = fitZoom;
@@ -3021,9 +3022,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     if (jsonPaths.isEmpty) return;
     final path = jsonPaths.first;
 
-    // Read and parse JSON
-    // TODO: Load routes from file
-    _showSnackBar('Imported routes from: $path');
+    // Not yet implemented — show honest error instead of fake success
+    _showSnackBar('Route import not yet available');
   }
 
   /// Export JSON routes (Middleware mode)
@@ -6530,7 +6530,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             selected: c.selected,
           )).toList(),
           playheadPosition: context.read<EngineProvider>().transport.positionSeconds,
-          totalDuration: 120,
+          totalDuration: _projectTotalDuration,
           onSeek: (time) {
             final engine = context.read<EngineProvider>();
             engine.seek(time);
@@ -6641,7 +6641,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       scrollOffset: _timelineScrollOffset,
       totalDuration: 120,
       timeDisplayMode: timelineDisplayMode,
-      sampleRate: 48000,
+      sampleRate: _projectSampleRate.toInt(),
       snapEnabled: _snapEnabled,
       snapValue: _snapValue,
       isPlaying: transport.isPlaying, // For R button pulsing animation
@@ -6670,7 +6670,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         final engine = context.read<EngineProvider>();
         engine.seek(time);
         // Auto-scroll only if content is wider than timeline
-        const timelineWidth = 800.0;
+        final timelineWidth = (context.size?.width ?? 800.0) * 0.6; // ~60% for center zone
         final maxEndTime = _clips.isEmpty ? 0.0 : _clips.map((c) => c.endTime).reduce((a, b) => a > b ? a : b);
         final contentWidth = maxEndTime * _timelineZoom;
         if (contentWidth > timelineWidth) {
@@ -7785,7 +7785,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         ffi.automationClearLane(trackIdInt, paramName);
 
         for (final point in laneData.points) {
-          final timeSamples = (point.time * 48000).toInt(); // 48kHz sample rate
+          final sr = ffi.getSampleRate();
+          final sampleRate = sr > 0 ? sr : 48000;
+          final timeSamples = (point.time * sampleRate).toInt();
           ffi.automationAddPoint(
             trackIdInt,
             paramName,
@@ -9287,7 +9289,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       type: 'audio',
       color: track.color,
       volume: volumeDb,
-      pan: channel?.pan ?? -1.0, // Pro Tools: L defaults to hard left
+      pan: channel?.pan ?? (track.isStereo ? -1.0 : 0.0), // Stereo: L hard left, Mono: center
       panRight: channel?.panRight ?? 1.0, // Pro Tools: R defaults to hard right
       // Stereo tracks get dual pan knobs (Pro Tools style), mono gets single pan
       isStereo: track.isStereo,
@@ -10521,11 +10523,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             border: OutlineInputBorder(),
           ),
           onSubmitted: (val) {
-            final ch = mixerProvider.getChannel(channelId);
-            if (ch != null) {
-              mixerProvider.deleteChannel(channelId);
-              // Re-create isn't ideal — in a real implementation we'd have a rename method.
-              // For now, we accept the name change by modifying the channel directly.
+            if (val.trim().isNotEmpty) {
+              mixerProvider.renameChannel(channelId, val.trim());
             }
             Navigator.of(ctx).pop();
           },
@@ -10538,11 +10537,9 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
           ),
           TextButton(
             onPressed: () {
-              // Direct channel name mutation (MixerChannel fields are mutable)
-              final ch = mixerProvider.getChannel(channelId);
-              if (ch != null) {
-                // MixerChannel.name is final — use copyWith pattern through provider
-                // For now, just close the dialog
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty) {
+                mixerProvider.renameChannel(channelId, newName);
               }
               Navigator.of(ctx).pop();
             },
@@ -12336,12 +12333,15 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
 
   /// Build Piano Roll content - Professional MIDI editor
   Widget _buildPianoRollContent() {
-    // Use clip ID 1 as default MIDI clip
+    // Use selected clip or first available
+    final selectedClipId = _selectedTrackIdInt > 0 ? _selectedTrackIdInt : 1;
     return PianoRollWidget(
-      clipId: 1,
+      clipId: selectedClipId,
       lengthBars: 8,
-      bpm: 120.0,
+      bpm: _projectBpm,
       onNotesChanged: () {
+        // MIDI note changes need to sync to engine
+        // Currently PianoRoll is display-only — real MIDI editing requires FFI
       },
     );
   }
@@ -12628,8 +12628,22 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                         foregroundColor: FluxForgeTheme.textPrimary,
                       ),
                       onPressed: () {
-                        // TODO: Get audio data from selected clip
-                        // final positions = NativeFFI.instance.transientDetect(samples, sampleRate, sensitivity: _transientSensitivity, algorithm: _transientAlgorithm);
+                        // Detect transients on selected clip via FFI
+                        final clipId = _selectedTrackIdInt;
+                        if (clipId <= 0) {
+                          _showSnackBar('No clip selected for transient detection');
+                          return;
+                        }
+                        final count = NativeFFI.instance.clipDetectTransients(
+                          clipId,
+                          sensitivity: _transientSensitivity * 3.0, // UI 0-1 → detection 0-3
+                        );
+                        if (count > 0) {
+                          _showSnackBar('Detected $count transients');
+                        } else {
+                          _showSnackBar('No transients detected (try lowering sensitivity)');
+                        }
+                        setState(() {});
                       },
                     ),
                   ),
@@ -12731,9 +12745,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
                         foregroundColor: FluxForgeTheme.textPrimary,
                       ),
                       onPressed: () {
-                        // TODO: Get audio data from selected clip
-                        // _detectedPitch = NativeFFI.instance.pitchDetect(samples, sampleRate);
-                        // _detectedMidi = NativeFFI.instance.pitchDetectMidi(samples, sampleRate);
+                        _showSnackBar('Pitch detection not yet available — requires ML inference engine');
                       },
                     ),
                   ),
@@ -13015,7 +13027,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
             children: [
               _InspectorField(label: 'Name', value: 'Audio_01.wav'),
               _InspectorField(label: 'Duration', value: '00:04.250'),
-              _InspectorField(label: 'Sample Rate', value: '48000 Hz'),
+              _InspectorField(label: 'Sample Rate', value: '${_projectSampleRate.toInt()} Hz'),
               _InspectorField(label: 'Channels', value: 'Stereo'),
             ],
           ),
@@ -13317,6 +13329,35 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     }
   }
 
+  /// Get selected track ID as int for DSP panels (0 = master)
+  int get _selectedTrackIdInt {
+    if (_selectedTrackId == null || _selectedTrackId == 'master') return 0;
+    return int.tryParse(_selectedTrackId!.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+  }
+
+  /// Get project sample rate with safe fallback
+  double get _projectSampleRate {
+    final sr = NativeFFI.instance.getSampleRate();
+    return sr > 0 ? sr.toDouble() : 48000.0;
+  }
+
+  /// Get total project duration from furthest clip end (minimum 30s, padded 10%)
+  double get _projectTotalDuration {
+    double maxEnd = 0;
+    for (final clip in _clips) {
+      final end = clip.startTime + clip.duration;
+      if (end > maxEnd) maxEnd = end;
+    }
+    // Minimum 30s, add 10% padding for scroll headroom
+    return (maxEnd * 1.1).clamp(30.0, 86400.0); // Max 24h
+  }
+
+  /// Get project BPM with safe fallback
+  double get _projectBpm {
+    final bpm = NativeFFI.instance.clickGetTempo();
+    return bpm > 0 ? bpm : 120.0;
+  }
+
   /// Build all lower zone tabs (matches React LayoutDemo.tsx 1:1)
   /// All tabs are created, then filtered by mode visibility
   List<LowerZoneTab> _buildLowerTabs(dynamic metering, bool isPlaying) {
@@ -13419,56 +13460,56 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         id: 'dynamics',
         label: 'Dynamics',
         icon: Icons.compress,
-        content: DynamicsPanel(trackId: 0, sampleRate: 48000.0),
+        content: DynamicsPanel(trackId: _selectedTrackIdInt, sampleRate: _projectSampleRate),
         groupId: 'process',
       ),
       LowerZoneTab(
         id: 'spatial',
         label: 'Spatial',
         icon: Icons.spatial_audio,
-        content: SpatialPanel(trackId: 0, sampleRate: 48000.0),
+        content: SpatialPanel(trackId: _selectedTrackIdInt, sampleRate: _projectSampleRate),
         groupId: 'process',
       ),
       LowerZoneTab(
         id: 'reverb',
         label: 'Reverb',
         icon: Icons.blur_on,
-        content: FabFilterReverbPanel(trackId: 0),
+        content: FabFilterReverbPanel(trackId: _selectedTrackIdInt),
         groupId: 'process',
       ),
       LowerZoneTab(
         id: 'delay',
         label: 'Delay',
         icon: Icons.timer,
-        content: DelayPanel(trackId: 0, bpm: 120.0, sampleRate: 48000.0),
+        content: DelayPanel(trackId: _selectedTrackIdInt, bpm: _projectBpm, sampleRate: _projectSampleRate),
         groupId: 'process',
       ),
       LowerZoneTab(
         id: 'pitch',
         label: 'Pitch',
         icon: Icons.music_note,
-        content: PitchCorrectionPanel(trackId: 0, sampleRate: 48000.0),
+        content: PitchCorrectionPanel(trackId: _selectedTrackIdInt, sampleRate: _projectSampleRate),
         groupId: 'process',
       ),
       LowerZoneTab(
         id: 'spectral',
         label: 'Spectral',
         icon: Icons.waves,
-        content: SpectralPanel(trackId: 0, sampleRate: 48000.0),
+        content: SpectralPanel(trackId: _selectedTrackIdInt, sampleRate: _projectSampleRate),
         groupId: 'process',
       ),
       LowerZoneTab(
         id: 'saturation',
         label: 'Saturation',
         icon: Icons.whatshot,
-        content: SaturationPanel(trackId: 0),
+        content: SaturationPanel(trackId: _selectedTrackIdInt),
         groupId: 'process',
       ),
       LowerZoneTab(
         id: 'transient',
         label: 'Transient',
         icon: Icons.flash_on,
-        content: TransientPanel(trackId: 0, sampleRate: 48000.0),
+        content: TransientPanel(trackId: _selectedTrackIdInt, sampleRate: _projectSampleRate),
         groupId: 'process',
       ),
 
@@ -13479,49 +13520,49 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         id: 'ff-eq',
         label: 'FF-Q',
         icon: Icons.equalizer,
-        content: FabFilterEqPanel(trackId: 0),
+        content: FabFilterEqPanel(trackId: _selectedTrackIdInt),
         groupId: 'process',
       ),
       LowerZoneTab(
         id: 'ff-comp',
         label: 'FF-C',
         icon: Icons.compress,
-        content: FabFilterCompressorPanel(trackId: 0),
+        content: FabFilterCompressorPanel(trackId: _selectedTrackIdInt),
         groupId: 'process',
       ),
       LowerZoneTab(
         id: 'ff-limiter',
         label: 'FF-L',
         icon: Icons.trending_flat,
-        content: FabFilterLimiterPanel(trackId: 0),
+        content: FabFilterLimiterPanel(trackId: _selectedTrackIdInt),
         groupId: 'process',
       ),
       LowerZoneTab(
         id: 'ff-reverb',
         label: 'FF-R',
         icon: Icons.waves,
-        content: FabFilterReverbPanel(trackId: 0),
+        content: FabFilterReverbPanel(trackId: _selectedTrackIdInt),
         groupId: 'process',
       ),
       LowerZoneTab(
         id: 'ff-gate',
         label: 'FF-G',
         icon: Icons.door_sliding,
-        content: FabFilterGatePanel(trackId: 0),
+        content: FabFilterGatePanel(trackId: _selectedTrackIdInt),
         groupId: 'process',
       ),
       LowerZoneTab(
         id: 'ff-delay',
         label: 'FF-D',
         icon: Icons.timer,
-        content: FabFilterDelayPanel(trackId: 0),
+        content: FabFilterDelayPanel(trackId: _selectedTrackIdInt),
         groupId: 'process',
       ),
       LowerZoneTab(
         id: 'ff-sat',
         label: 'FF-SAT',
         icon: Icons.whatshot,
-        content: FabFilterSaturationPanel(trackId: 0),
+        content: FabFilterSaturationPanel(trackId: _selectedTrackIdInt),
         groupId: 'process',
       ),
 
@@ -13595,35 +13636,35 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         id: 'multiband',
         label: 'Multiband',
         icon: Icons.equalizer,
-        content: MultibandPanel(trackId: 0, sampleRate: 48000.0),
+        content: MultibandPanel(trackId: _selectedTrackIdInt, sampleRate: _projectSampleRate),
         groupId: 'advanced',
       ),
       LowerZoneTab(
         id: 'channel-strip',
         label: 'Channel Strip',
         icon: Icons.tune,
-        content: ChannelStripPanel(trackId: 0),
+        content: ChannelStripPanel(trackId: _selectedTrackIdInt),
         groupId: 'advanced',
       ),
       LowerZoneTab(
         id: 'mastering',
         label: 'Mastering',
         icon: Icons.auto_awesome,
-        content: MasteringPanel(trackId: 0, sampleRate: 48000.0),
+        content: MasteringPanel(trackId: _selectedTrackIdInt, sampleRate: _projectSampleRate),
         groupId: 'advanced',
       ),
       LowerZoneTab(
         id: 'restoration',
         label: 'Restoration',
         icon: Icons.healing,
-        content: RestorationPanel(trackId: 0, sampleRate: 48000.0),
+        content: RestorationPanel(trackId: _selectedTrackIdInt, sampleRate: _projectSampleRate),
         groupId: 'advanced',
       ),
       LowerZoneTab(
         id: 'ml-processor',
         label: 'ML/AI',
         icon: Icons.psychology,
-        content: MlProcessorPanel(trackId: 0, sampleRate: 48000.0),
+        content: MlProcessorPanel(trackId: _selectedTrackIdInt, sampleRate: _projectSampleRate),
         groupId: 'advanced',
       ),
 
@@ -15807,8 +15848,8 @@ class _AudioEditorDialogState extends State<_AudioEditorDialog> {
             id: _clip.id,
             name: _clip.name,
             duration: _clip.duration,
-            sampleRate: 48000,
-            channels: 2,
+            sampleRate: NativeFFI.instance.getSampleRate() > 0 ? NativeFFI.instance.getSampleRate() : 48000,
+            channels: _clip.channels > 0 ? _clip.channels : 2,
             bitDepth: 24,
             fadeIn: _clip.fadeIn,
             fadeOut: _clip.fadeOut,

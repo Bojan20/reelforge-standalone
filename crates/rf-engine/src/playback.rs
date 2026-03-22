@@ -4043,9 +4043,9 @@ impl PlaybackEngine {
     /// fade_ms: fade duration in milliseconds (converted to samples internally)
     pub fn fade_out_one_shot(&self, voice_id: u64, fade_ms: u32) {
         if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
-            // Convert ms to samples at 48kHz (common sample rate)
-            // For 50ms fade: 48000 * 0.050 = 2400 samples
-            let fade_samples = ((48000.0 * fade_ms as f64) / 1000.0) as u64;
+            // Convert ms to samples at actual engine sample rate
+            let sr = self.sample_rate().max(44100) as f64;
+            let fade_samples = ((sr * fade_ms as f64) / 1000.0) as u64;
             let _ = tx.push(OneShotCommand::FadeOut {
                 id: voice_id,
                 fade_samples,
@@ -4651,7 +4651,7 @@ impl PlaybackEngine {
             };
 
             // Resolve audio source from cache
-            let audio = self.cache.get(&asset.sound_ref.sound_id);
+            let audio = self.cache.peek(&asset.sound_ref.sound_id);
             let (audio_samples, audio_channels, _audio_total_frames) = match &audio {
                 Some(a) => (&a.samples[..], a.channels as usize, a.samples.len() / (a.channels as usize).max(1)),
                 None => continue, // No audio loaded for this asset
@@ -5379,7 +5379,7 @@ impl PlaybackEngine {
                 }
 
                 // Get cached audio
-                let audio = match self.cache.get(&clip.source_file) {
+                let audio = match self.cache.peek(&clip.source_file) {
                     Some(a) => a,
                     None => continue,
                 };
@@ -5940,9 +5940,8 @@ impl PlaybackEngine {
         self.balance
             .store(smoothed_bal.to_bits(), Ordering::Relaxed);
 
-        // LUFS metering (ITU-R BS.1770-4)
-        {
-            let mut lufs = self.lufs_meter.write();
+        // LUFS metering (ITU-R BS.1770-4) — try_write to avoid blocking audio thread
+        if let Some(mut lufs) = self.lufs_meter.try_write() {
             lufs.process_block(output_l, output_r);
             let m = lufs.momentary_loudness();
             let s = lufs.shortterm_loudness();
@@ -5953,8 +5952,7 @@ impl PlaybackEngine {
         }
 
         // True Peak metering (4x oversampled per ITU-R BS.1770-4)
-        {
-            let mut tp = self.true_peak_meter.write();
+        if let Some(mut tp) = self.true_peak_meter.try_write() {
             tp.process_block(output_l, output_r);
             let dbtp_l: f64 = tp.peak_dbtp_l();
             let dbtp_r: f64 = tp.peak_dbtp_r();
@@ -6286,7 +6284,7 @@ impl PlaybackEngine {
                 }
 
                 // Get cached audio
-                let audio = match self.cache.get(&clip.source_file) {
+                let audio = match self.cache.peek(&clip.source_file) {
                     Some(a) => a,
                     None => continue,
                 };
@@ -6774,7 +6772,7 @@ impl PlaybackEngine {
                 }
 
                 // Get cached audio
-                let audio = match self.cache.get(&clip.source_file) {
+                let audio = match self.cache.peek(&clip.source_file) {
                     Some(a) => a,
                     None => continue, // Audio not cached - skip
                 };
@@ -6921,7 +6919,7 @@ impl PlaybackEngine {
             }
 
             // Get cached audio
-            let audio = match self.cache.get(&clip.source_file) {
+            let audio = match self.cache.peek(&clip.source_file) {
                 Some(a) => a,
                 None => continue,
             };

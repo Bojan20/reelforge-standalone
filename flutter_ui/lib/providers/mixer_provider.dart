@@ -1043,6 +1043,26 @@ class MixerProvider extends ChangeNotifier {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // RENAME
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Rename a channel (works for channels and buses)
+  void renameChannel(String id, String newName) {
+    final channel = _channels[id];
+    if (channel != null) {
+      _channels[id] = channel.copyWith(name: newName);
+      // Sync to engine via FFI
+      NativeFFI.instance.setTrackName(int.tryParse(id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0, newName);
+      notifyListeners();
+      return;
+    }
+    final bus = _buses[id];
+    if (bus != null) {
+      _buses[id] = bus.copyWith(name: newName);
+      notifyListeners();
+    }
+  }
+
   // COMMENTS (Phase 4 §15.1)
   // ═══════════════════════════════════════════════════════════════════════════
 

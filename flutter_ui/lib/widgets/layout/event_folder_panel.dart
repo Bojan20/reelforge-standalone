@@ -113,7 +113,6 @@ class EventFolderPanel extends StatelessWidget {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxHeight: 280),
       child: ListView.builder(
-        shrinkWrap: true,
         padding: EdgeInsets.zero,
         itemCount: folders.length,
         itemBuilder: (context, index) => _EventFolderItem(

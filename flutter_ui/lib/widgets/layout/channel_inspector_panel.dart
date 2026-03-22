@@ -622,6 +622,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
   Widget _buildPostFaderInserts() {
     final ch = widget.channel!;
     final isMaster = ch.type == 'master';
+    final maxPre = isMaster ? 8 : 4;
     final maxPost = isMaster ? 4 : 4;
     final postInserts = ch.inserts.where((i) => !i.isPreFader).toList();
     final postUsed = postInserts.where((i) => !i.isEmpty).length;
@@ -634,8 +635,8 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
       onToggle: () => setState(() => _postFaderInsertsExpanded = !_postFaderInsertsExpanded),
       child: _ReorderableInsertList(
         inserts: List.generate(postVisible, (i) =>
-          i < postInserts.length ? postInserts[i] : InsertSlot.empty(i + 4, isPreFader: false)),
-        baseIndex: 4,
+          i < postInserts.length ? postInserts[i] : InsertSlot.empty(i + maxPre, isPreFader: false)),
+        baseIndex: maxPre,
         onTap: (index) => widget.onInsertClick?.call(ch.id, index),
         onBypassToggle: (index, bypassed) => widget.onInsertBypassToggle?.call(ch.id, index, bypassed),
         onWetDryChange: (index, wetDry) => widget.onInsertWetDryChange?.call(ch.id, index, wetDry),
@@ -811,7 +812,7 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
             onTap: () => widget.onSendClick?.call(ch.id, i),
             onLevelChange: (level) => widget.onSendLevelChange?.call(ch.id, i, level),
             onMuteToggle: hasDestination
-                ? () => widget.onSendMuteToggle?.call(ch.id, i, send.enabled)
+                ? () => widget.onSendMuteToggle?.call(ch.id, i, !send.enabled)
                 : null,
             onRemove: hasDestination
                 ? () => widget.onSendRemove?.call(ch.id, i)
@@ -1004,9 +1005,13 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
     // Get track ID from channel or clip — channel IDs are "track_0", "track_1", etc.
     int? trackId;
     if (widget.channel != null) {
-      trackId = int.tryParse(widget.channel!.id.replaceAll('track_', ''));
+      final match = RegExp(r'\d+').firstMatch(widget.channel!.id);
+      trackId = match != null ? int.tryParse(match.group(0)!) : null;
     }
-    trackId ??= int.tryParse(clip.trackId.replaceAll('track_', '')) ?? 0;
+    if (trackId == null) {
+      final match = RegExp(r'\d+').firstMatch(clip.trackId);
+      trackId = match != null ? (int.tryParse(match.group(0)!) ?? 0) : 0;
+    }
 
     return _Section(
       title: 'Time Stretch',
@@ -1030,8 +1035,9 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
   Widget _buildClipLoopSection() {
     final clip = widget.selectedClip!;
     final engine = NativeFFI.instance;
-    final numericStr = clip.id.replaceAll(RegExp(r'[^0-9]'), '');
-    final clipIdInt = numericStr.isEmpty ? 0 : (int.tryParse(numericStr) ?? 0);
+    // Extract first numeric segment from clip ID (e.g., "clip_12_track_3" → 12)
+    final match = RegExp(r'\d+').firstMatch(clip.id);
+    final clipIdInt = match != null ? (int.tryParse(match.group(0)!) ?? 0) : 0;
 
     return _Section(
       title: 'Loop',

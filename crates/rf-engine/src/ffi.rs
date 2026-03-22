@@ -119,9 +119,9 @@ impl PendingAudioEntry {
 /// Next pending ID counter (atomic)
 static NEXT_PENDING_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1_000_000);
 
-static TRACK_MANAGER: LazyLock<Arc<TrackManager>> = LazyLock::new(|| Arc::new(TrackManager::new()));
-static WAVEFORM_CACHE: LazyLock<WaveformCache> = LazyLock::new(|| WaveformCache::new());
-static IMPORTED_AUDIO: LazyLock<RwLock<std::collections::HashMap<ClipId, Arc<ImportedAudio>>>> = LazyLock::new(|| RwLock::new(std::collections::HashMap::new()));
+pub(crate) static TRACK_MANAGER: LazyLock<Arc<TrackManager>> = LazyLock::new(|| Arc::new(TrackManager::new()));
+pub(crate) static WAVEFORM_CACHE: LazyLock<WaveformCache> = LazyLock::new(|| WaveformCache::new());
+pub(crate) static IMPORTED_AUDIO: LazyLock<RwLock<std::collections::HashMap<ClipId, Arc<ImportedAudio>>>> = LazyLock::new(|| RwLock::new(std::collections::HashMap::new()));
 /// Pending audio entries — instant registration, metadata loaded async
 static PENDING_AUDIO: LazyLock<RwLock<std::collections::HashMap<u64, Arc<PendingAudioEntry>>>> = LazyLock::new(|| RwLock::new(std::collections::HashMap::new()));
 /// Background thread pool for metadata loading
@@ -6068,6 +6068,11 @@ pub extern "C" fn engine_start_playback() -> i32 {
         // Without this, SRC ratio is wrong → pitch/speed artifacts.
         PLAYBACK_ENGINE.set_sample_rate(device_sample_rate);
 
+        // Sync shared meter sample rate so Dart UI computes correct latency/timing
+        SHARED_METERS.sample_rate.store(device_sample_rate, std::sync::atomic::Ordering::Relaxed);
+
+        log::info!("Synced engine sample rate to device: {} Hz", device_sample_rate);
+
         // Pre-allocate processing buffers
         let mut output_l = vec![0.0f64; 4096];
         let mut output_r = vec![0.0f64; 4096];
@@ -6727,9 +6732,8 @@ pub extern "C" fn engine_save_project(path: *const c_char) -> i32 {
         None => return 0,
     };
 
-    log::info!("Saving project to: {}", path_str);
-    // C FFI stub - Flutter uses rf-bridge::api::save_project
-    1
+    log::warn!("engine_save_project('{}') — deprecated C FFI stub, use rf-bridge project_save instead", path_str);
+    0 // Honest failure — this stub doesn't actually save
 }
 
 /// Load project from path (legacy C FFI - use rf-bridge for Flutter)
@@ -6742,9 +6746,8 @@ pub extern "C" fn engine_load_project(path: *const c_char) -> i32 {
         None => return 0,
     };
 
-    log::info!("Loading project from: {}", path_str);
-    // C FFI stub - Flutter uses rf-bridge::api::load_project
-    1
+    log::warn!("engine_load_project('{}') — deprecated C FFI stub, use rf-bridge project_load instead", path_str);
+    0 // Honest failure — this stub doesn't actually load
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -8140,181 +8143,34 @@ pub extern "C" fn mixer_get_master_delay_r() -> f64 {
 // AUDIO PROCESSING FFI
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Normalize clip to target dB
+/// Normalize clip to target dB (destructive — modifies actual samples)
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_normalize(clip_id: u64, target_db: f64) -> i32 {
-    eprintln!(
-        "[FFI] clip_normalize: clip_id={}, target_db={}",
-        clip_id, target_db
-    );
-
-    // Get clip info
-    let clip = match TRACK_MANAGER.get_clip(ClipId(clip_id)) {
-        Some(c) => {
-            eprintln!("[FFI] clip_normalize: found clip in TRACK_MANAGER");
-            c
-        }
-        None => {
-            eprintln!(
-                "[FFI] clip_normalize: clip {} NOT FOUND in TRACK_MANAGER",
-                clip_id
-            );
-            // Try to get from IMPORTED_AUDIO directly
-            if let Some(audio) = IMPORTED_AUDIO.read().get(&ClipId(clip_id)) {
-                eprintln!(
-                    "[FFI] clip_normalize: clip {} EXISTS in IMPORTED_AUDIO ({} samples)",
-                    clip_id,
-                    audio.samples.len()
-                );
-            } else {
-                eprintln!(
-                    "[FFI] clip_normalize: clip {} NOT in IMPORTED_AUDIO either",
-                    clip_id
-                );
-            }
-            return 0;
-        }
-    };
-
-    // Load or get cached audio
-    let audio = IMPORTED_AUDIO
-        .read()
-        .get(&ClipId(clip_id))
-        .cloned()
-        .or_else(|| {
-            // Try to load from source file
-            match AudioImporter::import(std::path::Path::new(&clip.source_file)) {
-                Ok(audio) => {
-                    let arc = Arc::new(audio);
-                    IMPORTED_AUDIO
-                        .write()
-                        .insert(ClipId(clip_id), Arc::clone(&arc));
-                    Some(arc)
-                }
-                Err(e) => {
-                    log::error!("Failed to load audio for normalization: {}", e);
-                    None
-                }
-            }
-        });
-
-    let audio = match audio {
-        Some(a) => a,
-        None => return 0,
-    };
-
-    // Find peak level within clip region
-    let sample_rate = audio.sample_rate as f64;
-    let source_offset_samples = (clip.source_offset * sample_rate) as usize;
-    let duration_samples = (clip.source_duration * sample_rate) as usize;
-    let end_sample = (source_offset_samples + duration_samples).min(audio.sample_count);
-
-    let mut peak: f32 = 0.0;
-    let channels = audio.channels as usize;
-
-    for frame in source_offset_samples..end_sample {
-        for ch in 0..channels {
-            let sample_idx = frame * channels + ch;
-            if sample_idx < audio.samples.len() {
-                let sample = audio.samples[sample_idx].abs();
-                if sample > peak {
-                    peak = sample;
-                }
-            }
-        }
-    }
-
-    if peak < 1e-6 {
-        log::warn!(
-            "Clip {} has near-zero peak level, skipping normalization",
-            clip_id
-        );
-        return 1;
-    }
-
-    // Calculate gain needed to reach target
-    let peak_db = 20.0 * (peak as f64).log10();
-    let gain_db = target_db - peak_db;
-    let gain_linear = 10.0_f64.powf(gain_db / 20.0);
-
-    log::info!(
-        "Normalizing clip {}: peak={:.2} dB, applying {:.2} dB gain",
-        clip_id,
-        peak_db,
-        gain_db
-    );
-
-    // Apply gain to clip
-    TRACK_MANAGER.update_clip(ClipId(clip_id), |c| {
-        c.gain *= gain_linear;
-        c.gain = c.gain.clamp(0.001, 10.0); // Limit to reasonable range
-    });
-
-    1
+    if crate::clip_ops::normalize_destructive(clip_id, target_db) { 1 } else { 0 }
 }
 
-/// Reverse clip audio
-/// This sets a flag on the clip to play audio in reverse
+/// Reverse clip audio (destructive — reverses actual sample data)
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_reverse(clip_id: u64) -> i32 {
-    log::debug!("Reverse clip {}", clip_id);
-
-    // Check if clip exists
-    let clip = TRACK_MANAGER.get_clip(ClipId(clip_id));
-    if clip.is_none() {
-        log::error!("Clip {} not found for reverse", clip_id);
-        return 0;
-    }
-
-    // Toggle reversed state
-    TRACK_MANAGER.update_clip(ClipId(clip_id), |c| {
-        c.reversed = !c.reversed;
-        log::info!("Clip {} reversed: {}", clip_id, c.reversed);
-    });
-
-    1
+    if crate::clip_ops::reverse_destructive(clip_id) { 1 } else { 0 }
 }
 
-/// Apply fade in to clip
+/// Apply fade in to clip (destructive — bakes fade into samples)
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fade_in(clip_id: u64, duration_sec: f64, curve_type: u8) -> i32 {
-    TRACK_MANAGER.update_clip(ClipId(clip_id), |clip| {
-        clip.fade_in = duration_sec;
-    });
-    log::debug!(
-        "Fade in clip {} for {} sec, curve {}",
-        clip_id,
-        duration_sec,
-        curve_type
-    );
-    1
+    if crate::clip_ops::fade_in_destructive(clip_id, duration_sec, curve_type) { 1 } else { 0 }
 }
 
-/// Apply fade out to clip
+/// Apply fade out to clip (destructive — bakes fade into samples)
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_fade_out(clip_id: u64, duration_sec: f64, curve_type: u8) -> i32 {
-    TRACK_MANAGER.update_clip(ClipId(clip_id), |clip| {
-        clip.fade_out = duration_sec;
-    });
-    log::debug!(
-        "Fade out clip {} for {} sec, curve {}",
-        clip_id,
-        duration_sec,
-        curve_type
-    );
-    1
+    if crate::clip_ops::fade_out_destructive(clip_id, duration_sec, curve_type) { 1 } else { 0 }
 }
 
-/// Apply gain to clip (dB)
+/// Apply gain to clip (destructive — bakes gain into samples with tanh soft clipping)
 #[unsafe(no_mangle)]
 pub extern "C" fn clip_apply_gain(clip_id: u64, gain_db: f64) -> i32 {
-    let linear = 10.0_f64.powf(gain_db / 20.0);
-    TRACK_MANAGER.update_clip(ClipId(clip_id), |clip| {
-        clip.gain *= linear;
-        clip.gain = clip.gain.clamp(0.0, 4.0);
-    });
-    log::debug!("Apply {} dB gain to clip {}", gain_db, clip_id);
-    1
+    if crate::clip_ops::apply_gain_destructive(clip_id, gain_db) { 1 } else { 0 }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

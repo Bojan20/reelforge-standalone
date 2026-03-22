@@ -416,7 +416,9 @@ class _ClipWidgetState extends State<ClipWidget> {
     }
 
     // Skip if not visible
-    if (x + width < 0 || x > 2000) {
+    // Cull clips outside visible viewport (use parent constraints or large fallback)
+    final viewportWidth = context.size?.width ?? 4096;
+    if (x + width < 0 || x > viewportWidth + 200) {
       if (_isDraggingGain) _isDraggingGain = false;
       return const SizedBox.shrink();
     }
@@ -545,15 +547,16 @@ class _ClipWidgetState extends State<ClipWidget> {
                   return;
                 case TimelineEditTool.glue:
                   // Glue: select clip (glue requires two adjacent clips — handled at timeline level)
-                  widget.onSelect?.call(false);
+                  widget.onSelect?.call(_pointerDownShift);
                   return;
                 case TimelineEditTool.zoom:
                   // Zoom tool on clip: zoom in centered at click
                   // Alt+click = zoom out (handled in Timeline)
                   return;
                 case TimelineEditTool.play:
-                  // Play tool: move playhead to click position and trigger playback
-                  final clickTime = widget.scrollOffset + clickX / widget.zoom + clip.startTime;
+                  // Play tool: move playhead to click position
+                  // clickX is widget-local, so absolute time = clip.startTime + clickX/zoom
+                  final clickTime = clip.startTime + clickX / widget.zoom;
                   widget.onPlayheadMove?.call(clickTime);
                   return;
                 default:
@@ -562,12 +565,12 @@ class _ClipWidgetState extends State<ClipWidget> {
             }
 
             // Default: select clip
-            widget.onSelect?.call(false);
+            widget.onSelect?.call(_pointerDownShift);
           },
           onDoubleTap: _startEditing,
           onSecondaryTapDown: (details) {
             // Select clip on right-click before showing menu
-            widget.onSelect?.call(false);
+            widget.onSelect?.call(_pointerDownShift);
             _showContextMenu(context, details.globalPosition);
           },
           onPanStart: (details) {
@@ -675,8 +678,8 @@ class _ClipWidgetState extends State<ClipWidget> {
                   // Range select in upper body — fall through to range logic
                   // Ctrl+click = Scrub (Pro Tools)
                   if (_pointerDownCtrl) {
-                    // Scrub at click position
-                    final clickTime = widget.scrollOffset + details.localPosition.dx / widget.zoom + clip.startTime;
+                    // Scrub at click position (localPosition is widget-relative)
+                    final clickTime = clip.startTime + details.localPosition.dx / widget.zoom;
                     widget.onPlayheadMove?.call(clickTime);
                     return;
                   }

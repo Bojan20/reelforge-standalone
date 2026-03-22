@@ -1399,39 +1399,34 @@ pub fn system_get_memory_usage() -> f32 {
 // AUDIO PROCESSING
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Normalize clip audio to target level
+/// Normalize clip audio to target level (destructive — modifies samples)
 #[flutter_rust_bridge::frb(sync)]
 pub fn clip_normalize(clip_id: u64, target_db: f64) -> bool {
-    log::warn!("clip_normalize({}, {} dB) — not yet implemented", clip_id, target_db);
-    false // Honest: not implemented
+    rf_engine::clip_ops::normalize_destructive(clip_id, target_db)
 }
 
-/// Reverse clip audio
+/// Reverse clip audio (destructive — reverses actual sample data)
 #[flutter_rust_bridge::frb(sync)]
 pub fn clip_reverse(clip_id: u64) -> bool {
-    log::warn!("clip_reverse({}) — not yet implemented", clip_id);
-    false
+    rf_engine::clip_ops::reverse_destructive(clip_id)
 }
 
-/// Fade in clip
+/// Fade in clip (destructive — bakes fade curve into samples)
 #[flutter_rust_bridge::frb(sync)]
 pub fn clip_fade_in(clip_id: u64, duration_sec: f64, curve_type: u8) -> bool {
-    log::warn!("clip_fade_in({}, {} sec, curve {}) — not yet implemented", clip_id, duration_sec, curve_type);
-    false
+    rf_engine::clip_ops::fade_in_destructive(clip_id, duration_sec, curve_type)
 }
 
-/// Fade out clip
+/// Fade out clip (destructive — bakes fade curve into samples)
 #[flutter_rust_bridge::frb(sync)]
 pub fn clip_fade_out(clip_id: u64, duration_sec: f64, curve_type: u8) -> bool {
-    log::warn!("clip_fade_out({}, {} sec, curve {}) — not yet implemented", clip_id, duration_sec, curve_type);
-    false
+    rf_engine::clip_ops::fade_out_destructive(clip_id, duration_sec, curve_type)
 }
 
-/// Apply gain to clip
+/// Apply gain to clip (destructive — bakes gain into samples with soft clipping)
 #[flutter_rust_bridge::frb(sync)]
 pub fn clip_apply_gain(clip_id: u64, gain_db: f64) -> bool {
-    log::warn!("clip_apply_gain({}, {} dB) — not yet implemented", clip_id, gain_db);
-    false
+    rf_engine::clip_ops::apply_gain_destructive(clip_id, gain_db)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

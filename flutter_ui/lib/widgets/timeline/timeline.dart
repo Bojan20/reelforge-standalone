@@ -713,6 +713,9 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     return y;
   }
 
+  /// Total height of all visible tracks combined.
+  double get _totalTracksHeight => _trackTopY(_visibleTracks.length);
+
   /// Get the height of a specific track lane.
   double _trackHeight(int trackIndex) {
     final tracks = _visibleTracks;
@@ -987,7 +990,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
         // Zoom tool: click = zoom in, Alt+click = zoom out (Cubase-style)
         final isAlt = HardwareKeyboard.instance.isAltPressed;
         final factor = isAlt ? 0.7 : 1.4;
-        final newZoom = (_effectiveZoom * factor).clamp(1.0, 500.0);
+        final newZoom = (_effectiveZoom * factor).clamp(0.1, 5000.0);
         _notifyZoomChange(newZoom);
         break;
 
@@ -1041,7 +1044,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     // Convert position to time
     final timeAtClick = widget.scrollOffset + (localX - _headerWidth) / _effectiveZoom;
     final yInContent = details.localPosition.dy - _rulerHeight;
-    final trackIndex = (yInContent / _defaultTrackHeight).floor();
+    final trackIndex = _trackIndexFromLocalY(yInContent);
 
     // Range select tool: always start rubber band (even over clips)
     final forceRubberBand = activeTool == TimelineEditTool.rangeSelect;
@@ -1112,8 +1115,8 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     final timeEnd = widget.scrollOffset + endX / _effectiveZoom;
 
     // Convert Y to track indices
-    final trackIndexStart = (startY / _defaultTrackHeight).floor();
-    final trackIndexEnd = (endY / _defaultTrackHeight).floor();
+    final trackIndexStart = _trackIndexFromLocalY(startY);
+    final trackIndexEnd = _trackIndexFromLocalY(endY);
 
     final selectedClips = <String>[];
 
@@ -1304,7 +1307,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     final startTime = _snapDropTime(position.dx);
 
     // Calculate track from Y position
-    final trackIndex = ((position.dy - _rulerHeight) / _defaultTrackHeight).floor();
+    final trackIndex = _trackIndexFromLocalY(position.dy - _rulerHeight);
     String? trackId;
     if (trackIndex >= 0 && trackIndex < widget.tracks.length) {
       trackId = widget.tracks[trackIndex].id;
@@ -1376,7 +1379,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
     // Calculate track from Y position (local)
     // Account for ruler height (no vertical scroll in this timeline implementation)
     final yInContent = localPosition.dy - _rulerHeight;
-    final trackIndex = (yInContent / _defaultTrackHeight).floor();
+    final trackIndex = _trackIndexFromLocalY(yInContent);
 
     String? trackId;
     // Only assign trackId if dropping ON an existing track
@@ -1848,12 +1851,12 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
         final targetTrack = widget.tracks[_crossTrackTargetIndex];
 
         // Find the original clip to check if we're actually moving to a different track
-        final clip = widget.clips.firstWhere(
+        final clip = widget.clips.cast<dynamic>().firstWhere(
           (c) => c.id == clipId,
-          orElse: () => widget.clips.first,
+          orElse: () => null,
         );
 
-        if (clip.trackId != targetTrack.id) {
+        if (clip != null && clip.trackId != targetTrack.id) {
           // Move to different track - also select the target track
           setState(() => _internalSelectedTrackId = targetTrack.id);
           widget.onTrackSelect?.call(targetTrack.id);
@@ -1880,10 +1883,9 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
   /// Start dragging a clip (track source for cross-track detection)
   void _handleClipDragStart(String clipId, Offset globalPosition, Offset localPosition, int trackIndex) {
     // Find the clip being dragged
-    final clip = widget.clips.firstWhere(
-      (c) => c.id == clipId,
-      orElse: () => widget.clips.first,
-    );
+    final clipIdx = widget.clips.indexWhere((c) => c.id == clipId);
+    if (clipIdx < 0) return; // Clip not found, bail out
+    final clip = widget.clips[clipIdx];
 
     // Convert global position to local for ghost rendering
     final RenderBox? renderBox = context.findRenderObject() as RenderBox?;
@@ -2332,7 +2334,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                         }
                       },
                       onPointerUp: (_) {
-                        if (_isHeaderDragSelecting) {
+                        if (_isHeaderDragSelecting || _headerDragStartIndex >= 0) {
                           _handleHeaderDragSelectUp();
                         }
                       },
@@ -2519,7 +2521,7 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
                                     ),
                                     Container(
                                       width: 1,
-                                      height: 100,
+                                      height: _totalTracksHeight,
                                       color: marker.color.withValues(alpha: 0.5),
                                     ),
                                   ],
@@ -2756,8 +2758,8 @@ class _TimelineState extends State<Timeline> with TickerProviderStateMixin {
 
                           // Calculate target track
                           final yInContent = _dropPosition!.dy - _rulerHeight;
-                          final trackIndex = (yInContent / _defaultTrackHeight).floor().clamp(0, math.max(0, widget.tracks.length - 1));
-                          final targetTrackY = trackIndex * _defaultTrackHeight + _rulerHeight + 2;
+                          final int trackIndex = _trackIndexFromLocalY(yInContent).clamp(0, math.max(0, widget.tracks.length - 1));
+                          final targetTrackY = _trackTopY(trackIndex) + _rulerHeight + 2;
 
                           // Ghost clip dimensions (preview)
                           const ghostWidth = 120.0;

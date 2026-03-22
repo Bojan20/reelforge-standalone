@@ -231,6 +231,12 @@ class _TreeItem extends StatefulWidget {
   State<_TreeItem> createState() => _TreeItemState();
 }
 
+/// Recursively check if a node or any descendant matches the search query.
+bool _matchesSearchRecursive(ProjectTreeNode node, String queryLower) {
+  if (node.label.toLowerCase().contains(queryLower)) return true;
+  return node.children.any((child) => _matchesSearchRecursive(child, queryLower));
+}
+
 class _TreeItemState extends State<_TreeItem> with SingleTickerProviderStateMixin {
   bool _isHovered = false;
   late AnimationController _expandController;
@@ -277,13 +283,10 @@ class _TreeItemState extends State<_TreeItem> with SingleTickerProviderStateMixi
     final matchesSearch = widget.searchQuery.isNotEmpty &&
         widget.node.label.toLowerCase().contains(widget.searchQuery.toLowerCase());
 
-    // Filter children if searching
+    // Filter children if searching (recursive — matches at any depth)
     final visibleChildren = widget.searchQuery.isEmpty
         ? widget.node.children
-        : widget.node.children.where((child) =>
-            child.label.toLowerCase().contains(widget.searchQuery.toLowerCase()) ||
-            child.children.any((c) =>
-                c.label.toLowerCase().contains(widget.searchQuery.toLowerCase()))).toList();
+        : widget.node.children.where((child) => _matchesSearchRecursive(child, widget.searchQuery.toLowerCase())).toList();
 
     final style = _treeItemStyles[widget.node.type] ??
         const _TreeItemStyle(Icons.description_rounded, FluxForgeTheme.textSecondary);
