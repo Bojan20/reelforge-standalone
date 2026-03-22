@@ -311,6 +311,16 @@ impl Denoise {
         self.reduction_gain = 10.0_f32.powf(-db / 20.0);
     }
 
+    /// Get a clone of the learned noise profile
+    pub fn get_noise_profile(&self) -> NoiseProfile {
+        self.noise_profile.clone()
+    }
+
+    /// Apply a previously learned noise profile
+    pub fn set_noise_profile(&mut self, profile: NoiseProfile) {
+        self.noise_profile = profile;
+    }
+
     /// Estimate noise from signal statistics
     pub fn estimate_noise_auto(&mut self, audio: &[f32]) {
         // Find quietest sections
@@ -336,7 +346,7 @@ impl Denoise {
         }
 
         // Sort by RMS (quietest first)
-        frame_rms.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+        frame_rms.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
 
         // Use quietest 10% for noise profile
         let num_quiet_frames = (frame_rms.len() / 10).max(5);

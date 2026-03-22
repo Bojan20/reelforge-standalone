@@ -24,6 +24,7 @@ class JackpotExecutor extends FeatureExecutor {
   List<double> _tierCurrentValues = [100, 500, 5000, 50000];
   String _triggerCondition = 'symbol_match'; // symbol_match, random, max_bet
   int _minSymbolsForJackpot = 5; // Full screen of jackpot symbol
+  int _jackpotSymbolId = 14; // Configurable jackpot symbol ID
   bool _maxBetOnly = false;
   double _mysteryMinBet = 0.0;
   int _presentationDurationMs = 5000;
@@ -49,6 +50,8 @@ class JackpotExecutor extends FeatureExecutor {
         options['triggerCondition'] as String? ?? 'symbol_match';
     _minSymbolsForJackpot =
         options['minSymbolsForJackpot'] as int? ?? 5;
+    _jackpotSymbolId =
+        options['jackpotSymbolId'] as int? ?? 14;
     _maxBetOnly = options['maxBetOnly'] as bool? ?? false;
     _mysteryMinBet =
         (options['mysteryMinBet'] as num?)?.toDouble() ?? 0.0;
@@ -80,7 +83,7 @@ class JackpotExecutor extends FeatureExecutor {
     int jackpotSymCount = 0;
     for (final reel in context.result.grid) {
       for (final sym in reel) {
-        if (sym == 14) jackpotSymCount++; // TODO: configurable jackpot symbol ID
+        if (sym == _jackpotSymbolId) jackpotSymCount++;
       }
     }
     return jackpotSymCount >= _minSymbolsForJackpot;

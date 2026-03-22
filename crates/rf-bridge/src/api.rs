@@ -1349,12 +1349,50 @@ pub fn mixer_set_master_volume(volume_db: f64) -> bool {
     true
 }
 
-/// Get memory usage in MB
+/// Get memory usage in MB (process RSS via mach task_info on macOS)
 #[flutter_rust_bridge::frb(sync)]
 pub fn system_get_memory_usage() -> f32 {
-    // Return approximate memory usage
-    // TODO: Implement proper tracking
-    0.0
+    #[cfg(target_os = "macos")]
+    {
+        // mach_task_basic_info layout (from <mach/task_info.h>)
+        #[repr(C)]
+        struct MachTaskBasicInfo {
+            virtual_size: u64,
+            resident_size: u64,
+            resident_size_max: u64,
+            user_time: [i32; 2],   // time_value_t {seconds, microseconds}
+            system_time: [i32; 2], // time_value_t {seconds, microseconds}
+            policy: i32,
+            suspend_count: i32,
+        }
+
+        const MACH_TASK_BASIC_INFO: u32 = 20;
+        const KERN_SUCCESS: i32 = 0;
+
+        unsafe extern "C" {
+            static mach_task_self_: u32;
+            fn task_info(
+                target_task: u32,
+                flavor: u32,
+                task_info_out: *mut MachTaskBasicInfo,
+                task_info_count: *mut u32,
+            ) -> i32;
+        }
+
+        unsafe {
+            let mut info = std::mem::zeroed::<MachTaskBasicInfo>();
+            let mut count = (std::mem::size_of::<MachTaskBasicInfo>() / std::mem::size_of::<u32>()) as u32;
+            let kr = task_info(mach_task_self_, MACH_TASK_BASIC_INFO, &mut info, &mut count);
+            if kr == KERN_SUCCESS {
+                return info.resident_size as f32 / (1024.0 * 1024.0);
+            }
+        }
+        0.0
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        0.0
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1364,73 +1402,36 @@ pub fn system_get_memory_usage() -> f32 {
 /// Normalize clip audio to target level
 #[flutter_rust_bridge::frb(sync)]
 pub fn clip_normalize(clip_id: u64, target_db: f64) -> bool {
-    let engine = ENGINE.read();
-    if engine.is_some() {
-        log::debug!("Normalize clip {} to {} dB", clip_id, target_db);
-        // TODO: Implement in engine
-        true
-    } else {
-        false
-    }
+    log::warn!("clip_normalize({}, {} dB) — not yet implemented", clip_id, target_db);
+    false // Honest: not implemented
 }
 
 /// Reverse clip audio
 #[flutter_rust_bridge::frb(sync)]
 pub fn clip_reverse(clip_id: u64) -> bool {
-    let engine = ENGINE.read();
-    if engine.is_some() {
-        log::debug!("Reverse clip {}", clip_id);
-        // TODO: Implement in engine
-        true
-    } else {
-        false
-    }
+    log::warn!("clip_reverse({}) — not yet implemented", clip_id);
+    false
 }
 
 /// Fade in clip
 #[flutter_rust_bridge::frb(sync)]
 pub fn clip_fade_in(clip_id: u64, duration_sec: f64, curve_type: u8) -> bool {
-    let engine = ENGINE.read();
-    if engine.is_some() {
-        log::debug!(
-            "Fade in clip {} for {} sec, curve {}",
-            clip_id,
-            duration_sec,
-            curve_type
-        );
-        true
-    } else {
-        false
-    }
+    log::warn!("clip_fade_in({}, {} sec, curve {}) — not yet implemented", clip_id, duration_sec, curve_type);
+    false
 }
 
 /// Fade out clip
 #[flutter_rust_bridge::frb(sync)]
 pub fn clip_fade_out(clip_id: u64, duration_sec: f64, curve_type: u8) -> bool {
-    let engine = ENGINE.read();
-    if engine.is_some() {
-        log::debug!(
-            "Fade out clip {} for {} sec, curve {}",
-            clip_id,
-            duration_sec,
-            curve_type
-        );
-        true
-    } else {
-        false
-    }
+    log::warn!("clip_fade_out({}, {} sec, curve {}) — not yet implemented", clip_id, duration_sec, curve_type);
+    false
 }
 
 /// Apply gain to clip
 #[flutter_rust_bridge::frb(sync)]
 pub fn clip_apply_gain(clip_id: u64, gain_db: f64) -> bool {
-    let engine = ENGINE.read();
-    if engine.is_some() {
-        log::debug!("Apply {} dB gain to clip {}", gain_db, clip_id);
-        true
-    } else {
-        false
-    }
+    log::warn!("clip_apply_gain({}, {} dB) — not yet implemented", clip_id, gain_db);
+    false
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1440,62 +1441,36 @@ pub fn clip_apply_gain(clip_id: u64, gain_db: f64) -> bool {
 /// Create a new track
 #[flutter_rust_bridge::frb(sync)]
 pub fn track_create(name: String, color: u32, bus_id: u32) -> u64 {
-    let mut engine = ENGINE.write();
-    if let Some(ref mut _e) = *engine {
-        log::debug!("Create track '{}' color={} bus={}", name, color, bus_id);
-        // TODO: Implement in engine
-        1 // Return mock track ID
-    } else {
-        0
-    }
+    log::warn!("track_create('{}', color={}, bus={}) — not yet implemented", name, color, bus_id);
+    0 // Not implemented — return 0 (failure)
 }
 
 /// Delete a track
 #[flutter_rust_bridge::frb(sync)]
 pub fn track_delete(track_id: u64) -> bool {
-    let mut engine = ENGINE.write();
-    if let Some(ref mut _e) = *engine {
-        log::debug!("Delete track {}", track_id);
-        true
-    } else {
-        false
-    }
+    log::warn!("track_delete({}) — not yet implemented", track_id);
+    false
 }
 
 /// Rename a track
 #[flutter_rust_bridge::frb(sync)]
 pub fn track_rename(track_id: u64, name: String) -> bool {
-    let mut engine = ENGINE.write();
-    if let Some(ref mut _e) = *engine {
-        log::debug!("Rename track {} to '{}'", track_id, name);
-        true
-    } else {
-        false
-    }
+    log::warn!("track_rename({}, '{}') — not yet implemented", track_id, name);
+    false
 }
 
 /// Duplicate a track
 #[flutter_rust_bridge::frb(sync)]
 pub fn track_duplicate(track_id: u64) -> u64 {
-    let mut engine = ENGINE.write();
-    if let Some(ref mut _e) = *engine {
-        log::debug!("Duplicate track {}", track_id);
-        2 // Return mock new track ID
-    } else {
-        0
-    }
+    log::warn!("track_duplicate({}) — not yet implemented", track_id);
+    0
 }
 
 /// Set track color
 #[flutter_rust_bridge::frb(sync)]
 pub fn track_set_color(track_id: u64, color: u32) -> bool {
-    let engine = ENGINE.read();
-    if engine.is_some() {
-        log::debug!("Set track {} color to {}", track_id, color);
-        true
-    } else {
-        false
-    }
+    log::warn!("track_set_color({}, {}) — not yet implemented", track_id, color);
+    false
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1513,7 +1488,7 @@ pub struct AudioFileInfo {
     pub format: String,
 }
 
-/// Scan folder for audio files (returns list of file info)
+/// Scan folder for audio files (returns list of file info with real metadata)
 #[flutter_rust_bridge::frb(sync)]
 pub fn import_scan_folder(folder_path: String) -> Vec<AudioFileInfo> {
     log::debug!("Scanning folder for audio: {}", folder_path);
@@ -1535,15 +1510,34 @@ pub fn import_scan_folder(folder_path: String) -> Vec<AudioFileInfo> {
                         ext_lower.as_str(),
                         "wav" | "mp3" | "flac" | "aiff" | "ogg" | "m4a"
                     ) {
+                        // Probe real metadata from file header (no audio decoding)
+                        let (duration_sec, sample_rate, channels) =
+                            match rf_file::probe_audio_info(&entry_path) {
+                                Ok(info) => (
+                                    info.duration,
+                                    info.sample_rate,
+                                    info.channels as u8,
+                                ),
+                                Err(e) => {
+                                    log::warn!(
+                                        "Failed to probe {}: {}",
+                                        entry_path.display(),
+                                        e
+                                    );
+                                    // Still include file but mark metadata as unknown
+                                    (0.0, 0, 0)
+                                }
+                            };
+
                         files.push(AudioFileInfo {
                             path: entry_path.to_string_lossy().to_string(),
                             name: entry_path
                                 .file_name()
                                 .map(|n| n.to_string_lossy().to_string())
                                 .unwrap_or_default(),
-                            duration_sec: 0.0, // TODO: Read actual duration
-                            sample_rate: 48000,
-                            channels: 2,
+                            duration_sec,
+                            sample_rate,
+                            channels,
                             format: ext_lower,
                         });
                     }

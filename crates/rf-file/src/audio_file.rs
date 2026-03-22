@@ -104,6 +104,104 @@ impl AudioFileInfo {
     }
 }
 
+/// Probe audio file for metadata without decoding audio content.
+/// Reads only the header — fast enough for scanning entire folders.
+pub fn probe_audio_info<P: AsRef<Path>>(path: P) -> FileResult<AudioFileInfo> {
+    let path = path.as_ref();
+    let format = AudioFormat::from_path(path);
+    let file_size = std::fs::metadata(path)
+        .map(|m| m.len())
+        .unwrap_or(0);
+
+    // WAV: use hound (reads only header)
+    if format == AudioFormat::Wav {
+        let reader = hound::WavReader::open(path)?;
+        let spec = reader.spec();
+        let num_frames = if spec.channels > 0 {
+            reader.len() as u64 / spec.channels as u64
+        } else {
+            0
+        };
+        let sample_rate = spec.sample_rate;
+        let bit_depth = match (spec.bits_per_sample, spec.sample_format) {
+            (8, _) => BitDepth::Int8,
+            (16, _) => BitDepth::Int16,
+            (24, _) => BitDepth::Int24,
+            (32, hound::SampleFormat::Int) => BitDepth::Int32,
+            (32, hound::SampleFormat::Float) => BitDepth::Float32,
+            _ => BitDepth::Int16,
+        };
+        let duration = if sample_rate > 0 {
+            num_frames as f64 / sample_rate as f64
+        } else {
+            0.0
+        };
+        return Ok(AudioFileInfo {
+            format,
+            channels: spec.channels,
+            sample_rate,
+            bit_depth,
+            num_frames,
+            duration,
+            file_size,
+        });
+    }
+
+    // All other formats: symphonia probe (reads only codec params from header)
+    let file = File::open(path)
+        .map_err(|_| FileError::NotFound(path.display().to_string()))?;
+    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+
+    let mut hint = Hint::new();
+    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+        hint.with_extension(ext);
+    }
+
+    let probed = symphonia::default::get_probe()
+        .format(
+            &hint,
+            mss,
+            &FormatOptions::default(),
+            &MetadataOptions::default(),
+        )
+        .map_err(|e| FileError::DecodeError(e.to_string()))?;
+
+    let track = probed
+        .format
+        .tracks()
+        .iter()
+        .find(|t| t.codec_params.codec != symphonia::core::codecs::CODEC_TYPE_NULL)
+        .ok_or_else(|| FileError::InvalidFile("No audio track found".to_string()))?;
+
+    let channels = track.codec_params.channels.map(|c| c.count() as u16).unwrap_or(2);
+    let sample_rate = track.codec_params.sample_rate.unwrap_or(44100);
+    let num_frames = track.codec_params.n_frames.unwrap_or(0);
+    let duration = if sample_rate > 0 && num_frames > 0 {
+        num_frames as f64 / sample_rate as f64
+    } else {
+        0.0
+    };
+
+    // Estimate bit depth from codec params
+    let bit_depth = match track.codec_params.bits_per_sample {
+        Some(8) => BitDepth::Int8,
+        Some(16) => BitDepth::Int16,
+        Some(24) => BitDepth::Int24,
+        Some(32) => BitDepth::Int32,
+        _ => BitDepth::Int16, // MP3/OGG don't expose this cleanly
+    };
+
+    Ok(AudioFileInfo {
+        format,
+        channels,
+        sample_rate,
+        bit_depth,
+        num_frames,
+        duration,
+        file_size,
+    })
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // AUDIO DATA CONTAINER
 // ═══════════════════════════════════════════════════════════════════════════════

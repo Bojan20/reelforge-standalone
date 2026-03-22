@@ -335,3 +335,75 @@ fn main() {
         app.run();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_command_parse_open() {
+        let json = r#"{"cmd":"open","plugin_name":"FabFilter Pro-Q 4"}"#;
+        let cmd: Command = serde_json::from_str(json).unwrap();
+        assert_eq!(cmd.cmd, "open");
+        assert_eq!(cmd.plugin_name, "FabFilter Pro-Q 4");
+    }
+
+    #[test]
+    fn test_command_parse_close() {
+        let json = r#"{"cmd":"close"}"#;
+        let cmd: Command = serde_json::from_str(json).unwrap();
+        assert_eq!(cmd.cmd, "close");
+        assert_eq!(cmd.plugin_name, ""); // default
+    }
+
+    #[test]
+    fn test_command_parse_unknown() {
+        let json = r#"{"cmd":"unknown_cmd"}"#;
+        let cmd: Command = serde_json::from_str(json).unwrap();
+        assert_eq!(cmd.cmd, "unknown_cmd");
+    }
+
+    #[test]
+    fn test_response_serialize() {
+        let resp = Response {
+            status: "ok".to_string(),
+            msg: "ready, 42 plugins".to_string(),
+        };
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("\"status\":\"ok\""));
+        assert!(json.contains("42 plugins"));
+    }
+
+    #[test]
+    fn test_plugin_entry_clone() {
+        let entry = PluginEntry {
+            name: "Test Plugin".to_string(),
+            comp_type: 0x61756678, // 'aufx'
+            subtype: 0x46504551,   // 'FPEQ'
+            mfr_code: 0x46614669,  // 'FaFi'
+        };
+        let cloned = entry.clone();
+        assert_eq!(cloned.name, "Test Plugin");
+        assert_eq!(cloned.comp_type, 0x61756678);
+    }
+
+    #[test]
+    fn test_command_empty_json() {
+        let result = serde_json::from_str::<Command>("{}");
+        // cmd is required — should fail
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_fuzzy_name_normalization() {
+        // Simulate the normalization logic from timer_fired
+        let input = "FabFilter:Pro-Q_4";
+        let normalized = input
+            .to_lowercase()
+            .replace([':', '-', '_'], " ")
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert_eq!(normalized, "fabfilter pro q 4");
+    }
+}

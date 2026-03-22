@@ -21368,7 +21368,7 @@ use rf_restore::{
     declick::{Declick, DeclickConfig},
     declip::{Declip, DeclipConfig},
     dehum::{Dehum, DehumConfig},
-    denoise::{Denoise, DenoiseConfig},
+    denoise::{Denoise, DenoiseConfig, NoiseProfile},
     dereverb::{Dereverb, DereverbConfig},
 };
 
@@ -21380,6 +21380,8 @@ static RESTORATION_SETTINGS: LazyLock<RwLock<RestorationSettingsFFI>> = LazyLock
 static RESTORATION_ANALYSIS: LazyLock<RwLock<Option<RestoreAnalysisResult>>> = LazyLock::new(|| RwLock::new(None));
 /// Processing state: (is_processing, progress 0-1, phase)
 static RESTORATION_STATE: LazyLock<RwLock<(bool, f32, String)>> = LazyLock::new(|| RwLock::new((false, 0.0, "idle".to_string())));
+/// Learned noise profile (persists across pipeline rebuilds)
+static LEARNED_NOISE_PROFILE: LazyLock<RwLock<Option<NoiseProfile>>> = LazyLock::new(|| RwLock::new(None));
 
 /// FFI-safe restoration settings
 #[repr(C)]
@@ -21518,13 +21520,13 @@ pub extern "C" fn restoration_analyze(path: *const c_char) -> RestorationAnalysi
     };
 
     // Load audio file
-    let audio = match load_audio_for_analysis(path_str) {
+    let (audio, file_sr) = match load_audio_for_analysis(path_str) {
         Some(a) => a,
         None => return RestorationAnalysisFFI::default(),
     };
 
-    // Run analysis
-    let analyzer = RestoreAnalyzer::new(48000);
+    // Run analysis at file's native sample rate
+    let analyzer = RestoreAnalyzer::new(file_sr);
     let result: RestoreAnalysisResult = match analyzer.analyze(&audio) {
         Ok(r) => r,
         Err(_) => return RestorationAnalysisFFI::default(),
@@ -21621,7 +21623,7 @@ pub extern "C" fn restoration_process_file(
     *RESTORATION_STATE.write() = (true, 0.0, "Loading audio...".to_string());
 
     // Load audio
-    let audio = match load_audio_for_analysis(input_str) {
+    let (audio, file_sr) = match load_audio_for_analysis(input_str) {
         Some(a) => a,
         None => {
             *RESTORATION_STATE.write() = (false, 0.0, "Failed to load".to_string());
@@ -21644,8 +21646,8 @@ pub extern "C" fn restoration_process_file(
 
     *RESTORATION_STATE.write() = (true, 0.8, "Saving...".to_string());
 
-    // Save output
-    if save_audio_wav(output_str, &output_audio, 48000).is_err() {
+    // Save output at file's native sample rate (not engine rate)
+    if save_audio_wav(output_str, &output_audio, file_sr).is_err() {
         *RESTORATION_STATE.write() = (false, 0.0, "Save failed".to_string());
         return 0;
     }
@@ -21664,18 +21666,22 @@ pub extern "C" fn restoration_learn_noise_profile(input: *const f32, length: u32
     let samples = unsafe { std::slice::from_raw_parts(input, length as usize) };
 
     // Create temporary denoise processor to learn profile
+    let sample_rate = PLAYBACK_ENGINE.sample_rate().max(44100) as u32;
     let config = DenoiseConfig::default();
-    let mut denoise = Denoise::new(config, 48000);
+    let mut denoise = Denoise::new(config, sample_rate);
     denoise.estimate_noise_auto(samples);
 
-    // TODO: Store profile for later use
-    log::info!("Learned noise profile from {} samples", length);
+    // Store learned profile globally for use in pipeline
+    let profile = denoise.get_noise_profile();
+    *LEARNED_NOISE_PROFILE.write() = Some(profile);
+    log::info!("Learned noise profile from {} samples — stored globally", length);
     1
 }
 
 /// Clear learned noise profile
 #[unsafe(no_mangle)]
 pub extern "C" fn restoration_clear_noise_profile() {
+    *LEARNED_NOISE_PROFILE.write() = None;
     log::info!("Noise profile cleared");
 }
 
@@ -21725,6 +21731,7 @@ fn rebuild_restoration_pipeline() {
     let settings = RESTORATION_SETTINGS.read().clone();
     let config = RestoreConfig::default();
     let mut pipeline = RestorationPipeline::new(config.clone());
+    let sample_rate = PLAYBACK_ENGINE.sample_rate().max(44100) as u32;
 
     // Add enabled modules in processing order
     if settings.denoise_enabled != 0 {
@@ -21733,7 +21740,12 @@ fn rebuild_restoration_pipeline() {
             reduction_db: settings.denoise_strength * 0.3, // 0-30 dB range
             ..Default::default()
         };
-        pipeline.add_module(Box::new(Denoise::new(denoise_config, 48000)));
+        let mut denoise = Denoise::new(denoise_config, sample_rate);
+        // Apply previously learned noise profile if available
+        if let Some(ref profile) = *LEARNED_NOISE_PROFILE.read() {
+            denoise.set_noise_profile(profile.clone());
+        }
+        pipeline.add_module(Box::new(denoise));
     }
 
     if settings.declick_enabled != 0 {
@@ -21741,7 +21753,7 @@ fn rebuild_restoration_pipeline() {
             sensitivity: settings.declick_sensitivity / 100.0,
             ..Default::default()
         };
-        pipeline.add_module(Box::new(Declick::new(declick_config, 48000)));
+        pipeline.add_module(Box::new(Declick::new(declick_config, sample_rate)));
     }
 
     if settings.declip_enabled != 0 {
@@ -21758,7 +21770,7 @@ fn rebuild_restoration_pipeline() {
             harmonics: settings.dehum_harmonics as usize,
             ..Default::default()
         };
-        pipeline.add_module(Box::new(Dehum::new(dehum_config, 48000)));
+        pipeline.add_module(Box::new(Dehum::new(dehum_config, sample_rate)));
     }
 
     if settings.dereverb_enabled != 0 {
@@ -21766,14 +21778,15 @@ fn rebuild_restoration_pipeline() {
             mix: settings.dereverb_amount / 100.0,
             ..Default::default()
         };
-        pipeline.add_module(Box::new(Dereverb::new(dereverb_config, 48000)));
+        pipeline.add_module(Box::new(Dereverb::new(dereverb_config, sample_rate)));
     }
 
     *RESTORATION_PIPELINE.write() = pipeline;
 }
 
 // Helper: load audio file for analysis (simple mono mixdown)
-fn load_audio_for_analysis(path: &str) -> Option<Vec<f32>> {
+// Returns (samples, sample_rate)
+fn load_audio_for_analysis(path: &str) -> Option<(Vec<f32>, u32)> {
     use std::fs::File;
     use symphonia::core::audio::Signal;
     use symphonia::core::io::MediaSourceStream;
@@ -21798,6 +21811,7 @@ fn load_audio_for_analysis(path: &str) -> Option<Vec<f32>> {
     let mut format = probed.format;
     let track = format.tracks().first()?;
     let track_id = track.id;
+    let file_sample_rate = track.codec_params.sample_rate.unwrap_or(48000);
 
     let mut decoder = symphonia::default::get_codecs()
         .make(&track.codec_params, &Default::default())
@@ -21841,7 +21855,7 @@ fn load_audio_for_analysis(path: &str) -> Option<Vec<f32>> {
     if samples.is_empty() {
         None
     } else {
-        Some(samples)
+        Some((samples, file_sample_rate))
     }
 }
 
@@ -22026,36 +22040,18 @@ pub extern "C" fn ml_denoise_start(
         }
     };
 
-    // Update state
+    log::warn!("ML denoise requested (strength {}) — ML inference not yet integrated", strength);
+
+    // Report honest error state instead of simulating fake progress
     *ML_STATE.write() = MlProcessingState {
-        is_processing: true,
+        is_processing: false,
         progress: 0.0,
-        phase: "Loading model...".to_string(),
+        phase: "Not available".to_string(),
         model: "DeepFilterNet3".to_string(),
-        error: None,
+        error: Some("ML inference engine not yet integrated".to_string()),
     };
 
-    // TODO: Spawn actual ML processing task
-    // For now, simulate progress
-    log::info!("ML denoise started with strength {}", strength);
-
-    // Simulate completion after short delay
-    std::thread::spawn(move || {
-        for i in 0..10 {
-            std::thread::sleep(std::time::Duration::from_millis(100));
-            ML_STATE.write().progress = (i + 1) as f32 / 10.0;
-            ML_STATE.write().phase = format!("Processing... {}%", (i + 1) * 10);
-        }
-        *ML_STATE.write() = MlProcessingState {
-            is_processing: false,
-            progress: 1.0,
-            phase: "Complete".to_string(),
-            model: "DeepFilterNet3".to_string(),
-            error: None,
-        };
-    });
-
-    1
+    0 // Honest failure
 }
 
 /// Start stem separation
@@ -22098,33 +22094,17 @@ pub extern "C" fn ml_separate_start(
         stems.push("other");
     }
 
+    log::warn!("ML stem separation requested for stems: {:?} — ML inference not yet integrated", stems);
+
     *ML_STATE.write() = MlProcessingState {
-        is_processing: true,
+        is_processing: false,
         progress: 0.0,
-        phase: "Loading HTDemucs...".to_string(),
+        phase: "Not available".to_string(),
         model: "HTDemucs v4".to_string(),
-        error: None,
+        error: Some("ML inference engine not yet integrated".to_string()),
     };
 
-    log::info!("ML stem separation started for stems: {:?}", stems);
-
-    // Simulate processing
-    std::thread::spawn(move || {
-        for i in 0..20 {
-            std::thread::sleep(std::time::Duration::from_millis(200));
-            ML_STATE.write().progress = (i + 1) as f32 / 20.0;
-            ML_STATE.write().phase = format!("Separating... {}%", (i + 1) * 5);
-        }
-        *ML_STATE.write() = MlProcessingState {
-            is_processing: false,
-            progress: 1.0,
-            phase: "Complete".to_string(),
-            model: "HTDemucs v4".to_string(),
-            error: None,
-        };
-    });
-
-    1
+    0
 }
 
 /// Start speech enhancement
@@ -22137,33 +22117,17 @@ pub extern "C" fn ml_enhance_voice_start(
         return 0;
     }
 
+    log::warn!("ML voice enhancement requested — ML inference not yet integrated");
+
     *ML_STATE.write() = MlProcessingState {
-        is_processing: true,
+        is_processing: false,
         progress: 0.0,
-        phase: "Loading aTENNuate...".to_string(),
+        phase: "Not available".to_string(),
         model: "aTENNuate SSM".to_string(),
-        error: None,
+        error: Some("ML inference engine not yet integrated".to_string()),
     };
 
-    log::info!("ML voice enhancement started");
-
-    // Simulate processing
-    std::thread::spawn(move || {
-        for i in 0..10 {
-            std::thread::sleep(std::time::Duration::from_millis(150));
-            ML_STATE.write().progress = (i + 1) as f32 / 10.0;
-            ML_STATE.write().phase = format!("Enhancing... {}%", (i + 1) * 10);
-        }
-        *ML_STATE.write() = MlProcessingState {
-            is_processing: false,
-            progress: 1.0,
-            phase: "Complete".to_string(),
-            model: "aTENNuate SSM".to_string(),
-            error: None,
-        };
-    });
-
-    1
+    0
 }
 
 /// Get ML processing progress
@@ -22208,9 +22172,8 @@ pub extern "C" fn ml_cancel() -> i32 {
 /// Set execution provider
 #[unsafe(no_mangle)]
 pub extern "C" fn ml_set_execution_provider(provider: MlExecutionProviderFFI) -> i32 {
-    log::info!("ML execution provider set to {:?}", provider);
-    // TODO: Configure rf-ml inference engine
-    1
+    log::warn!("ml_set_execution_provider({:?}) — ML inference engine not yet integrated", provider);
+    0 // Not implemented
 }
 
 /// Get error message (if any)
