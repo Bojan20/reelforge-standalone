@@ -35,6 +35,9 @@ cpal.workspace = true
 # MIDI I/O
 midir.workspace = true
 
+# OSC (Open Sound Control)
+rosc.workspace = true
+
 # Flutter-Rust bridge
 flutter_rust_bridge.workspace = true
 

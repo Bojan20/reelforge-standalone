@@ -160,6 +160,9 @@ num-complex = "0.4"
 # SIMD
 wide = "1.2"
 
+# OSC (Open Sound Control)
+rosc = "0.11"
+
 # Atomics
 portable-atomic = { version = "1.13", features = ["float"] }
 

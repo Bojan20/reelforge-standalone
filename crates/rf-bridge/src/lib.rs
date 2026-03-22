@@ -63,6 +63,8 @@ mod metering;
 pub mod middleware_ffi;
 pub mod midi_bridge;
 mod midi_ffi;
+pub mod osc_server;
+mod osc_ffi;
 pub mod offline_ffi;
 pub mod pbse_ffi;
 mod playback;
