@@ -394,8 +394,9 @@ class _ClipEditorState extends State<ClipEditor> with TickerProviderStateMixin {
   void _detectHitpointsDirect(ClipEditorClip clip) {
 
     try {
-      // Parse clip ID to int
-      final clipId = int.tryParse(clip.id) ?? 0;
+      // Parse clip ID to int (clip IDs are strings like 'clip_1711234567890')
+      final numericStr = clip.id.replaceAll(RegExp(r'[^0-9]'), '');
+      final clipId = numericStr.isEmpty ? 0 : (int.tryParse(numericStr) ?? 0);
       if (clipId == 0) {
         return;
       }

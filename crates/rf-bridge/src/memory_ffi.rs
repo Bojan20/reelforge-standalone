@@ -468,7 +468,7 @@ pub extern "C" fn memory_manager_is_bank_loaded(bank_id: *const c_char) -> i32 {
 pub extern "C" fn memory_manager_get_stats_json() -> *mut c_char {
     let stats = MEMORY_MANAGER.read().get_stats();
     let json = serde_json::to_string(&stats).unwrap_or_else(|_| "{}".to_string());
-    CString::new(json).unwrap().into_raw()
+    match CString::new(json) { Ok(s) => s.into_raw(), Err(_) => CString::new("{}").unwrap().into_raw() }
 }
 
 /// Get current memory state (0=Normal, 1=Warning, 2=Critical)
@@ -533,7 +533,7 @@ pub extern "C" fn memory_manager_get_banks_json() -> *mut c_char {
         .collect();
 
     let json = serde_json::to_string(&infos).unwrap_or_else(|_| "[]".to_string());
-    CString::new(json).unwrap().into_raw()
+    match CString::new(json) { Ok(s) => s.into_raw(), Err(_) => CString::new("{}").unwrap().into_raw() }
 }
 
 /// Clear all banks and reset memory

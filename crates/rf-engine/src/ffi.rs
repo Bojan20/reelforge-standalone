@@ -1536,7 +1536,7 @@ pub extern "C" fn engine_move_clip(clip_id: u64, target_track_id: u64, start_tim
 
             // Sort by start time
             let mut clips = clips;
-            clips.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            clips.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
 
             // Find the gap to fill - position at end of previous clip
             let mut insert_time = 0.0;
@@ -7623,7 +7623,7 @@ pub extern "C" fn insert_get_metering_json(track_id: u32, slot_index: u32) -> *m
             });
 
             let json_str = serde_json::to_string(&json).unwrap_or_default();
-            CString::new(json_str).unwrap().into_raw()
+            match CString::new(json_str) { Ok(s) => s.into_raw(), Err(_) => CString::new("{}").unwrap().into_raw() }
         } else {
             std::ptr::null_mut()
         }

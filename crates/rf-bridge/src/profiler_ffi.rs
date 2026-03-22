@@ -293,7 +293,7 @@ pub extern "C" fn profiler_get_load_history_json(count: u32) -> *mut std::ffi::c
 
     let json = serde_json::to_string(&history).unwrap_or_else(|_| "[]".to_string());
 
-    let c_str = std::ffi::CString::new(json).unwrap();
+    let c_str = match std::ffi::CString::new(json) { Ok(s) => s, Err(_) => std::ffi::CString::new("{}").unwrap() };
     c_str.into_raw()
 }
 
@@ -316,7 +316,7 @@ pub extern "C" fn profiler_get_stage_breakdown_json() -> *mut std::ffi::c_char {
 
     let json = serde_json::to_string(&breakdown).unwrap_or_else(|_| "{}".to_string());
 
-    let c_str = std::ffi::CString::new(json).unwrap();
+    let c_str = match std::ffi::CString::new(json) { Ok(s) => s, Err(_) => std::ffi::CString::new("{}").unwrap() };
     c_str.into_raw()
 }
 

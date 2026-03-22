@@ -1030,7 +1030,8 @@ class _ChannelInspectorPanelState extends State<ChannelInspectorPanel> {
   Widget _buildClipLoopSection() {
     final clip = widget.selectedClip!;
     final engine = NativeFFI.instance;
-    final clipIdInt = int.tryParse(clip.id) ?? 0;
+    final numericStr = clip.id.replaceAll(RegExp(r'[^0-9]'), '');
+    final clipIdInt = numericStr.isEmpty ? 0 : (int.tryParse(numericStr) ?? 0);
 
     return _Section(
       title: 'Loop',

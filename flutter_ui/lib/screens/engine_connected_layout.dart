@@ -9002,7 +9002,7 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     if (hitpoints.isEmpty) return;
 
     final clip = _clips.firstWhere((c) => c.id == clipId, orElse: () => _clips.first);
-    final sampleRate = 48000; // TODO: get from clip
+    final sampleRate = engine.project.sampleRate > 0 ? engine.project.sampleRate.toInt() : 48000;
 
     // Sort hitpoints by position
     final sortedHitpoints = List<clip_editor.Hitpoint>.from(hitpoints)

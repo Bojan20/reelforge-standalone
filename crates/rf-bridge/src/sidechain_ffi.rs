@@ -23,7 +23,7 @@ pub extern "C" fn insert_set_sidechain_source(
         return -1;
     }
 
-    let mut map_lock = get_map().lock().unwrap();
+    let mut map_lock = match get_map().lock() { Ok(g) => g, Err(p) => p.into_inner() };
     if map_lock.is_none() {
         *map_lock = Some(HashMap::new());
     }
@@ -41,7 +41,7 @@ pub extern "C" fn insert_get_sidechain_source(track_id: u64, slot_index: u64) ->
         return -2;
     }
 
-    let map_lock = get_map().lock().unwrap();
+    let map_lock = match get_map().lock() { Ok(g) => g, Err(p) => p.into_inner() };
     if let Some(ref map) = *map_lock {
         return *map.get(&(track_id, slot_index)).unwrap_or(&-1);
     }
