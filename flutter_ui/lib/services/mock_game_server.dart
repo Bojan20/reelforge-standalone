@@ -98,10 +98,12 @@ class MockGameServer with ChangeNotifier {
   /// Send a custom message to connected client
   void sendMessage(Map<String, dynamic> msg) {
     if (_clientSocket == null) return;
-    msg['seq'] = ++_seq;
-    msg['ts'] = DateTime.now().millisecondsSinceEpoch;
+    // Copy to avoid mutating caller's map
+    final envelope = Map<String, dynamic>.from(msg);
+    envelope['seq'] = ++_seq;
+    envelope['ts'] = DateTime.now().millisecondsSinceEpoch;
     try {
-      _clientSocket!.add(jsonEncode(msg));
+      _clientSocket!.add(jsonEncode(envelope));
       _messagesSent++;
       notifyListeners();
     } catch (_) {}
@@ -150,9 +152,8 @@ class MockGameServer with ChangeNotifier {
     _autoEvents.clear();
     _autoEvents.addAll(events);
     _autoIntervalMs = intervalMs;
-    if (_mode == MockServerMode.auto) {
-      _startAutoMode();
-    }
+    // Don't restart auto mode here — avoids re-entrant timer leak.
+    // Auto mode timer will pick up new events on next tick.
   }
 
   /// Default auto events (simulate a slot game cycle)
@@ -178,6 +179,8 @@ class MockGameServer with ChangeNotifier {
   // ═══════════════════════════════════════════════════════════════
 
   void _onClientConnected(WebSocket socket) {
+    // Close previous client if any (prevent stale listener corruption)
+    _clientSocket?.close();
     _clientSocket = socket;
     _clientConnected = true;
     notifyListeners();
