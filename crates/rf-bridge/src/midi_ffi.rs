@@ -231,7 +231,7 @@ pub extern "C" fn midi_poll_input_events(
     if out_buffer.is_null() || max_events == 0 {
         return 0;
     }
-    let mut buffer = midi_bridge::LIVE_INPUT_BUFFER.lock().unwrap();
+    let Ok(mut buffer) = midi_bridge::LIVE_INPUT_BUFFER.lock() else { return 0; };
     let count = buffer.len().min(max_events as usize);
     for i in 0..count {
         let event = &buffer[i];
@@ -250,7 +250,7 @@ pub extern "C" fn midi_poll_input_events(
 /// Get count of pending MIDI input events (without draining).
 #[unsafe(no_mangle)]
 pub extern "C" fn midi_pending_input_count() -> u32 {
-    midi_bridge::LIVE_INPUT_BUFFER.lock().unwrap().len() as u32
+    midi_bridge::LIVE_INPUT_BUFFER.lock().map(|b| b.len() as u32).unwrap_or(0)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

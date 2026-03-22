@@ -250,12 +250,6 @@ class MidiTriggerService with ChangeNotifier {
       if (mapping.note == note && (mapping.channel == 0 || mapping.channel == channel)) {
         // Trigger event
         if (EventRegistryLocator.isSet) {
-          // Set velocity as volume RTPC before trigger
-          if (mapping.velocityToVolume) {
-            // Velocity 0-127 → volume 0.0-1.0
-            final volume = velocity / 127.0;
-            // Volume applied via velocity — future: per-event RTPC config
-          }
           EventRegistryLocator.instance.triggerEvent(mapping.eventId);
         }
         break;
@@ -316,7 +310,7 @@ class MidiTriggerService with ChangeNotifier {
     if (ccs != null) {
       _ccMappings.addAll(ccs.map((c) => MidiCcMapping.fromJson(c as Map<String, dynamic>)));
     }
-    if (json['enabled'] == true && _noteMappings.isNotEmpty) {
+    if (json['enabled'] == true && (_noteMappings.isNotEmpty || _ccMappings.isNotEmpty)) {
       enable();
     }
   }

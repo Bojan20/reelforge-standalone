@@ -178,6 +178,13 @@ class TriggerManager with ChangeNotifier {
     // Hysteresis: only trigger on forward movement (not rewind)
     if (positionSeconds <= prev) return;
 
+    // Seek detection: large jump (>0.5s) = seek, not continuous playback
+    // Don't fire intermediate triggers on seek — only on smooth playback
+    if (positionSeconds - prev > 0.5) {
+      _prevPlayheadPos = positionSeconds;
+      return;
+    }
+
     // Check position triggers
     for (final trigger in _positionTriggers) {
       if (trigger._fired && trigger.oneShot) continue;
