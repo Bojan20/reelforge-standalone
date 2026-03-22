@@ -32,17 +32,21 @@ pub extern "C" fn osc_get_port() -> u32 {
 /// For each message, writes: address (null-terminated C string) + float_arg + int_arg
 /// into the provided buffers. Buffers must have room for `max_events` entries.
 ///
-/// out_addresses: array of *mut c_char pointers (caller must free each with free_rust_string)
+/// out_addresses: array of *mut c_char (caller must free each with free_rust_string)
+/// out_strings: array of *mut c_char for string args (caller must free; null if no string arg)
 /// out_floats: array of f32 (NaN if no float arg)
 /// out_ints: array of i32 (i32::MIN if no int arg)
 #[unsafe(no_mangle)]
 pub extern "C" fn osc_poll_messages(
     out_addresses: *mut *mut c_char,
+    out_strings: *mut *mut c_char,
     out_floats: *mut f32,
     out_ints: *mut i32,
     max_events: u32,
 ) -> u32 {
-    if out_addresses.is_null() || out_floats.is_null() || out_ints.is_null() || max_events == 0 {
+    if out_addresses.is_null() || out_strings.is_null() || out_floats.is_null()
+        || out_ints.is_null() || max_events == 0
+    {
         return 0;
     }
 
@@ -52,10 +56,13 @@ pub extern "C" fn osc_poll_messages(
     for i in 0..count {
         let event = &buffer[i];
 
-        // Address → CString
         let addr = CString::new(event.address.as_str()).unwrap_or_default();
+        let str_arg = event.string_arg.as_ref()
+            .and_then(|s| CString::new(s.as_str()).ok());
+
         unsafe {
             *out_addresses.add(i) = addr.into_raw();
+            *out_strings.add(i) = str_arg.map(|s| s.into_raw()).unwrap_or(std::ptr::null_mut());
             *out_floats.add(i) = event.float_arg.unwrap_or(f32::NAN);
             *out_ints.add(i) = event.int_arg.unwrap_or(i32::MIN);
         }

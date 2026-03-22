@@ -98,11 +98,16 @@ pub fn get_port() -> u16 {
 
 /// Process an OSC packet (may contain bundle or single message)
 fn process_packet(packet: rosc::OscPacket) {
+    process_packet_depth(packet, 0);
+}
+
+fn process_packet_depth(packet: rosc::OscPacket, depth: u8) {
+    if depth > 8 { return; } // Prevent stack overflow from malicious nested bundles
     match packet {
         rosc::OscPacket::Message(msg) => process_message(msg),
         rosc::OscPacket::Bundle(bundle) => {
             for content in bundle.content {
-                process_packet(content);
+                process_packet_depth(content, depth + 1);
             }
         }
     }

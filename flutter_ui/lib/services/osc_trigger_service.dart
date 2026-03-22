@@ -86,8 +86,8 @@ class OscTriggerService with ChangeNotifier {
   static final _oscIsRunning = _loadLib().lookupFunction<
       Int32 Function(), int Function()>('osc_is_running');
   static final _oscPollMessages = _loadLib().lookupFunction<
-      Uint32 Function(Pointer<Pointer<Utf8>>, Pointer<Float>, Pointer<Int32>, Uint32),
-      int Function(Pointer<Pointer<Utf8>>, Pointer<Float>, Pointer<Int32>, int)>('osc_poll_messages');
+      Uint32 Function(Pointer<Pointer<Utf8>>, Pointer<Pointer<Utf8>>, Pointer<Float>, Pointer<Int32>, Uint32),
+      int Function(Pointer<Pointer<Utf8>>, Pointer<Pointer<Utf8>>, Pointer<Float>, Pointer<Int32>, int)>('osc_poll_messages');
   static final _freeRustString = _loadLib().lookupFunction<
       Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>('free_rust_string');
 
@@ -163,37 +163,58 @@ class OscTriggerService with ChangeNotifier {
   void _poll() {
     if (!_serverRunning) return;
 
+    // Periodically verify Rust server is still alive
+    if (_messageCount % 100 == 0) {
+      final rustRunning = _oscIsRunning() == 1;
+      if (!rustRunning && _serverRunning) {
+        _serverRunning = false;
+        _pollTimer?.cancel();
+        notifyListeners();
+        return;
+      }
+    }
+
     const maxEvents = 32;
     final addrs = calloc<Pointer<Utf8>>(maxEvents);
+    final strs = calloc<Pointer<Utf8>>(maxEvents);
     final floats = calloc<Float>(maxEvents);
     final ints = calloc<Int32>(maxEvents);
 
     try {
-      final count = _oscPollMessages(addrs, floats, ints, maxEvents);
+      final count = _oscPollMessages(addrs, strs, floats, ints, maxEvents);
       for (int i = 0; i < count; i++) {
         final addrPtr = addrs[i];
+        final strPtr = strs[i];
         final address = addrPtr.toDartString();
+        final stringArg = strPtr == nullptr ? null : strPtr.toDartString();
         final floatArg = floats[i];
         final intArg = ints[i];
 
-        // Free Rust-allocated address string
+        // Free Rust-allocated strings
         _freeRustString(addrPtr);
+        if (strPtr != nullptr) _freeRustString(strPtr);
 
         _messageCount++;
         _lastAddress = address;
 
-        _routeMessage(address, floatArg.isNaN ? null : floatArg.toDouble(), intArg == -2147483648 ? null : intArg);
+        _routeMessage(
+          address,
+          floatArg.isNaN ? null : floatArg.toDouble(),
+          intArg == -2147483648 ? null : intArg,
+          stringArg,
+        );
       }
       if (count > 0) notifyListeners();
     } finally {
       calloc.free(addrs);
+      calloc.free(strs);
       calloc.free(floats);
       calloc.free(ints);
     }
   }
 
   /// Route an OSC message to event or RTPC
-  void _routeMessage(String address, double? floatArg, int? intArg) {
+  void _routeMessage(String address, double? floatArg, int? intArg, [String? stringArg]) {
     // Check event mappings
     for (final mapping in _eventMappings) {
       if (mapping.address == address) {
