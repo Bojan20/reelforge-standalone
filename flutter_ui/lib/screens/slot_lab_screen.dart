@@ -1223,10 +1223,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   /// Set event expanded state — per-event ValueNotifier, only rebuilds THAT event
   void _setEventExpanded(String eventId, bool expanded) {
     _getEventExpandedNotifier(eventId).value = expanded;
-    // Sync legacy map (for code that reads it)
-    final map = Map<String, bool>.from(_eventExpandedNotifier.value);
-    map[eventId] = expanded;
-    _eventExpandedNotifier.value = map;
   }
 
   /// Get stage for event (first trigger stage, or derive from category/name)
