@@ -3557,8 +3557,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       _isInTierProgression = false;
 
       // ═══════════════════════════════════════════════════════════════════════
-      // STEP 4: Fade out plaque
+      // STEP 4: Fade out plaque — BIG_WIN_OUTRO fires at fadeout start
       // ═══════════════════════════════════════════════════════════════════════
+      _ensureAudioRegistered('BIG_WIN_OUTRO');
+      eventRegistry.triggerStage('BIG_WIN_OUTRO');
       _winAmountController.reverse().then((_) {
         if (!mounted) return;
         if (_winTier.isEmpty) return;

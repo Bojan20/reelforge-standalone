@@ -224,7 +224,8 @@ class StageDefaults {
 
     // Big wins
     'BIG_WIN_START': StageDefault(volume: 1.0, busId: 1, loop: true), // Music bus — looping big win music
-    'BIG_WIN_END': StageDefault(volume: 1.0, busId: 1, fadeOutMs: 500), // Music bus — stinger + restart base
+    'BIG_WIN_END': StageDefault(volume: 1.0, busId: 1, fadeOutMs: 500), // Music bus — end stinger + restart base
+    'BIG_WIN_OUTRO': StageDefault(volume: 1.0, busId: 2), // SFX — plaque fadeout sound
     'BIG_WIN_TRIGGER': StageDefault(volume: 1.0, busId: 2), // SFX — attention alert
     'BIG_WIN_TICK_START': StageDefault(volume: 1.0, busId: 2),
     'BIG_WIN_TICK_END': StageDefault(volume: 1.0, busId: 2),

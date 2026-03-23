@@ -365,8 +365,9 @@ class StageConfigurationService extends ChangeNotifier {
     'BIG_WIN_TIER_4': 'Big Win Tier 4 (250x-500x)',
     'BIG_WIN_TIER_5': 'Big Win Tier 5 (500x+)',
     // Big Win Stages
-    'BIG_WIN_START': 'Big Win Intro',
-    'BIG_WIN_END': 'Big Win End',
+    'BIG_WIN_START': 'Big Win Music',
+    'BIG_WIN_END': 'Big Win End Stinger',
+    'BIG_WIN_OUTRO': 'Big Win Plaque Fadeout',
     'BIG_WIN_TICK_START': 'Big Win Tick Start',
     'BIG_WIN_TICK_END': 'Big Win Tick End',
     'COIN_SHOWER_START': 'Coin Shower Start',
@@ -1277,6 +1278,7 @@ class StageConfigurationService extends ChangeNotifier {
     // ─────────────────────────────────────────────────────────────────────────
     _register('BIG_WIN_TRIGGER', StageCategory.win, 80, SpatialBus.sfx, 'DEFAULT');
     _register('BIG_WIN_END', StageCategory.win, 75, SpatialBus.music, 'DEFAULT');
+    _register('BIG_WIN_OUTRO', StageCategory.win, 65, SpatialBus.sfx, 'DEFAULT');
     _register('BIG_WIN_TICK_START', StageCategory.win, 60, SpatialBus.sfx, 'DEFAULT', isPooled: true);
     _register('BIG_WIN_TICK_END', StageCategory.win, 55, SpatialBus.sfx, 'DEFAULT');
     _register('COIN_SHOWER_START', StageCategory.win, 75, SpatialBus.sfx, 'DEFAULT');

@@ -4597,8 +4597,9 @@ class _WinPresentationSection extends _SectionConfig {
 
       // Big Win common stages
       tierSlots.addAll(const [
-        _SlotConfig(stage: 'BIG_WIN_START', label: 'Big Win Intro'),
-        _SlotConfig(stage: 'BIG_WIN_END', label: 'Big Win End'),
+        _SlotConfig(stage: 'BIG_WIN_START', label: 'Big Win Music'),
+        _SlotConfig(stage: 'BIG_WIN_END', label: 'Big Win End Stinger'),
+        _SlotConfig(stage: 'BIG_WIN_OUTRO', label: 'Plaque Fadeout'),
         _SlotConfig(stage: 'BIG_WIN_TICK_START', label: 'Big Win Tick Start'),
         _SlotConfig(stage: 'BIG_WIN_TICK_END', label: 'Big Win Tick End'),
         _SlotConfig(stage: 'COIN_SHOWER_START', label: 'Coin Shower Start'),
