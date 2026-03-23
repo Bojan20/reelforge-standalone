@@ -239,22 +239,11 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
   bool get isCompact => _isCompact;
   String get filterQuery => _filterQuery;
 
-  /// Get channels grouped by busId (cached — rebuilt on channel change only)
-  /// Respects filter query — only returns channels matching search
-  Map<int, List<SlotMixerChannel>> get channelsByBus {
-    if (_filterQuery.isEmpty) return _channelsByBusCache;
-    // Filter channels by query
-    final query = _filterQuery.toLowerCase();
-    final filtered = <int, List<SlotMixerChannel>>{};
-    for (final entry in _channelsByBusCache.entries) {
-      final matching = entry.value.where((ch) =>
-          ch.displayName.toLowerCase().contains(query) ||
-          ch.stageName.toLowerCase().contains(query) ||
-          busIdToName(ch.busId).toLowerCase().contains(query)).toList();
-      if (matching.isNotEmpty) filtered[entry.key] = matching;
-    }
-    return filtered;
-  }
+  /// Get channels grouped by busId (cached — rebuilt on channel/filter change only)
+  Map<int, List<SlotMixerChannel>> get channelsByBus => _filteredChannelsByBusCache ?? _channelsByBusCache;
+
+  /// Cached filtered result — invalidated on filter or channel change
+  Map<int, List<SlotMixerChannel>>? _filteredChannelsByBusCache;
 
   /// Bus display order — matches SlotLab convention
   static const List<int> busDisplayOrder = [
@@ -324,9 +313,7 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
           isStereo: _isStereoBus(layer.busId ?? SlotBusIds.sfx),
           actionType: layer.actionType,
           // Params from layer (source of truth)
-          // StageDefaults sets pan/panRight correctly per bus type:
-          // Music: pan=-1.0, panRight=1.0 (stereo spread)
-          // SFX/Voice/UI: pan=0.0, panRight=0.0 (mono center)
+          // All buses default to stereo: pan=-1.0, panRight=1.0 (StageDefaults)
           volume: layer.volume,
           pan: layer.pan,
           panRight: layer.panRight,
@@ -372,6 +359,7 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
     for (final ch in _channels) {
       _channelsByBusCache.putIfAbsent(ch.busId, () => []).add(ch);
     }
+    _rebuildFilteredCache();
 
     notifyListeners();
   }
@@ -737,7 +725,26 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
   void setFilter(String query) {
     if (_filterQuery == query) return;
     _filterQuery = query;
+    _rebuildFilteredCache();
     notifyListeners();
+  }
+
+  /// Rebuild filtered bus cache from current channels + filter query
+  void _rebuildFilteredCache() {
+    if (_filterQuery.isEmpty) {
+      _filteredChannelsByBusCache = null; // Use unfiltered cache
+      return;
+    }
+    final query = _filterQuery.toLowerCase();
+    final filtered = <int, List<SlotMixerChannel>>{};
+    for (final entry in _channelsByBusCache.entries) {
+      final matching = entry.value.where((ch) =>
+          ch.displayName.toLowerCase().contains(query) ||
+          ch.stageName.toLowerCase().contains(query) ||
+          busIdToName(ch.busId).toLowerCase().contains(query)).toList();
+      if (matching.isNotEmpty) filtered[entry.key] = matching;
+    }
+    _filteredChannelsByBusCache = filtered;
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────────

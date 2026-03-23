@@ -675,6 +675,7 @@ class CompositeEventSystemProvider extends ChangeNotifier {
         cachedId,
         layer.id,
         pan: layer.pan,
+        panRight: layer.panRight,
         volume: layer.volume,
         delay: layer.offsetMs,
         busId: layer.busId,
@@ -772,7 +773,8 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   void setLayerWidthContinuous(String eventId, String layerId, double width) {
     final event = _compositeEvents[eventId];
     if (event == null) return;
-    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    final layer = event.layers.where((l) => l.id == layerId).firstOrNull;
+    if (layer == null) return;
     _updateEventLayerInternal(eventId, layer.copyWith(stereoWidth: width.clamp(0.0, 2.0)));
   }
 
@@ -780,8 +782,9 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   void setLayerWidth(String eventId, String layerId, double width) {
     final event = _compositeEvents[eventId];
     if (event == null) return;
+    final layer = event.layers.where((l) => l.id == layerId).firstOrNull;
+    if (layer == null) return;
     _pushUndoState();
-    final layer = event.layers.firstWhere((l) => l.id == layerId);
     _updateEventLayerInternal(eventId, layer.copyWith(stereoWidth: width.clamp(0.0, 2.0)));
   }
 
@@ -789,7 +792,8 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   void setLayerInputGainContinuous(String eventId, String layerId, double gainDb) {
     final event = _compositeEvents[eventId];
     if (event == null) return;
-    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    final layer = event.layers.where((l) => l.id == layerId).firstOrNull;
+    if (layer == null) return;
     _updateEventLayerInternal(eventId, layer.copyWith(inputGain: gainDb.clamp(-20.0, 20.0)));
   }
 
@@ -797,8 +801,9 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   void setLayerInputGain(String eventId, String layerId, double gainDb) {
     final event = _compositeEvents[eventId];
     if (event == null) return;
+    final layer = event.layers.where((l) => l.id == layerId).firstOrNull;
+    if (layer == null) return;
     _pushUndoState();
-    final layer = event.layers.firstWhere((l) => l.id == layerId);
     _updateEventLayerInternal(eventId, layer.copyWith(inputGain: gainDb.clamp(-20.0, 20.0)));
   }
 
@@ -806,8 +811,9 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   void toggleLayerPhaseInvert(String eventId, String layerId) {
     final event = _compositeEvents[eventId];
     if (event == null) return;
+    final layer = event.layers.where((l) => l.id == layerId).firstOrNull;
+    if (layer == null) return;
     _pushUndoState();
-    final layer = event.layers.firstWhere((l) => l.id == layerId);
     _updateEventLayerInternal(eventId, layer.copyWith(phaseInvert: !layer.phaseInvert));
   }
 

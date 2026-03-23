@@ -72,6 +72,7 @@ class AudioLayer {
   final String name;
   final double volume;
   final double pan;
+  final double panRight; // Stereo dual-pan R channel (-1.0 to 1.0, default 0.0)
   final double delay; // Delay pre početka (ms)
   final double offset; // Offset unutar timeline-a (seconds)
   final int busId;
@@ -92,6 +93,7 @@ class AudioLayer {
     required this.name,
     this.volume = 1.0,
     this.pan = 0.0,
+    this.panRight = 0.0,
     this.delay = 0.0,
     this.offset = 0.0,
     this.busId = 0,
@@ -3508,6 +3510,12 @@ class EventRegistry extends ChangeNotifier {
       }
 
       if (voiceId >= 0) {
+        // Apply stereo dual-pan R channel (pan_right) immediately after voice creation.
+        // Rust engine defaults pan_right to 0.0 on activate() — must be set explicitly.
+        if (layer.panRight.abs() > 0.001) {
+          AudioPlaybackService.instance.updateLayerPanRight(layer.id, layer.panRight);
+        }
+
         voiceIds.add(voiceId);
         final poolStr = usePool ? ' [POOLED]' : '';
         final loopStr = loop ? ' [LOOP]' : '';
@@ -3961,6 +3969,7 @@ class EventRegistry extends ChangeNotifier {
   /// without stopping any currently playing audio.
   void updateCachedEventLayer(String eventId, String layerId, {
     double? pan,
+    double? panRight,
     double? volume,
     double? delay,
     int? busId,
@@ -3984,6 +3993,7 @@ class EventRegistry extends ChangeNotifier {
         name: layer.name,
         volume: volume ?? layer.volume,
         pan: pan ?? layer.pan,
+        panRight: panRight ?? layer.panRight,
         delay: delay ?? layer.delay,
         offset: layer.offset,
         busId: busId ?? layer.busId,

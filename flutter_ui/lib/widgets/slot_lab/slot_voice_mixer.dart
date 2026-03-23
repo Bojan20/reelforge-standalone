@@ -468,12 +468,9 @@ class _VoiceStripState extends State<_VoiceStrip> {
         case 'audition':
           widget.provider.auditionChannel(ch.layerId);
         case 'reset_pan':
-          widget.provider.setChannelPan(ch.layerId, -1.0);
           widget.provider.setChannelPanFinal(ch.layerId, -1.0);
-          widget.provider.setChannelPanRight(ch.layerId, 1.0);
           widget.provider.setChannelPanRightFinal(ch.layerId, 1.0);
         case 'reset_volume':
-          widget.provider.setChannelVolume(ch.layerId, 1.0);
           widget.provider.setChannelVolumeFinal(ch.layerId, 1.0);
         case 'phase':
           widget.provider.togglePhaseInvert(ch.layerId);

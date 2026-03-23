@@ -13065,6 +13065,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       name: l.name,
       volume: l.volume,
       pan: l.pan,
+      panRight: l.panRight,
       delay: l.offsetMs,
       busId: l.busId ?? 2,
       fadeInMs: l.fadeInMs,
