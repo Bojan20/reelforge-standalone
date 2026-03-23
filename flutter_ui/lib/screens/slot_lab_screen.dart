@@ -2027,7 +2027,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     // PERFORMANCE: Selection-only changes (expand/collapse, select event)
     // skip ALL expensive operations — only trigger UI rebuild.
     // ═══════════════════════════════════════════════════════════════════════════
-    if (_middlewareRef?.isSelectionOnlyChange == true) {
+    final mw = _middlewareRef;
+    if (mw != null && mw.isSelectionOnlyChange) {
+      mw.clearSelectionOnlyFlag();
       setState(() {});
       return;
     }

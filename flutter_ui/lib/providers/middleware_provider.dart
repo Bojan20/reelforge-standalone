@@ -3555,6 +3555,7 @@ class MiddlewareProvider extends ChangeNotifier {
   /// Used by slot_lab_screen._onMiddlewareChanged to skip expensive rebuild.
   bool _selectionOnlyChange = false;
   bool get isSelectionOnlyChange => _selectionOnlyChange;
+  void clearSelectionOnlyFlag() => _selectionOnlyChange = false;
 
   void selectCompositeEvent(String? eventId) {
     _compositeEventSystemProvider.selectCompositeEvent(eventId);

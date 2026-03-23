@@ -612,6 +612,12 @@ class SlotLabProjectProvider extends ChangeNotifier {
     final mappedPaths = <String>{};
     final pendingMusicBaseFiles = <String>[];
 
+    // Clear ALL previous audio assignments before re-binding (prevents stale
+    // WILD_LAND entries from previous sessions where cross-copy was active)
+    if (!dryRun) {
+      clearAllAudioAssignments();
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // FFNC FAST PATH — files with known prefixes (sfx_, mus_, amb_, trn_, ui_, vo_)
     // are parsed directly with 100% accuracy. No alias guessing needed.
