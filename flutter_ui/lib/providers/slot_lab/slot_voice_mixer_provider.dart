@@ -176,6 +176,10 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
   static const int _peakHoldMs = 1500;
   static const double _peakDecayRate = 0.02;
 
+  /// Metering throttle — skip frames to target ~30fps instead of vsync (60-120fps)
+  int _meterFrameCounter = 0;
+  static const int _meterFrameSkip = 2; // Process every 2nd frame → ~30fps at 60Hz
+
   /// Solo state cache — true if any channel is soloed
   bool _hasSoloActive = false;
 
@@ -316,6 +320,11 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
       }
     }
 
+    // Prune stale IDs from custom order (channels that no longer exist)
+    if (_customOrder.isNotEmpty) {
+      _customOrder.retainWhere((id) => newChannelMap.containsKey(id));
+    }
+
     // Sort: use custom order if available, otherwise default sort
     List<SlotMixerChannel> sorted;
     if (_customOrder.isNotEmpty) {
@@ -370,6 +379,11 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
 
   void _onMeterTick(Duration elapsed) {
     if (_channels.isEmpty) return;
+
+    // Throttle: process every Nth frame to target ~30fps
+    _meterFrameCounter++;
+    if (_meterFrameCounter < _meterFrameSkip) return;
+    _meterFrameCounter = 0;
 
     bool changed = false;
 
@@ -644,12 +658,12 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
     // _onCompositeChanged → _rebuildChannels → channel removed
   }
 
-  /// Preview/audition a channel — play the sound once regardless of slot state
+  /// Preview/audition a channel — play the sound once with ALL channel settings
   void auditionChannel(String layerId) {
     final ch = _findChannel(layerId);
     if (ch == null) return;
 
-    AudioPlaybackService.instance.playFileToBus(
+    final voiceId = AudioPlaybackService.instance.playFileToBus(
       ch.audioPath,
       volume: ch.volume,
       pan: ch.pan,
@@ -657,6 +671,14 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
       source: PlaybackSource.slotlab,
       layerId: ch.layerId,
     );
+
+    // Apply all channel settings to the audition voice
+    if (voiceId >= 0) {
+      final playback = AudioPlaybackService.instance;
+      if (ch.panRight.abs() > 0.001) playback.updateLayerPanRight(layerId, ch.panRight);
+      if ((ch.stereoWidth - 1.0).abs() > 0.01) playback.updateLayerWidth(layerId, ch.stereoWidth);
+      if (ch.phaseInvert) playback.updateLayerPhaseInvert(layerId, true);
+    }
   }
 
   // ─── Solo Implementation ────────────────────────────────────────────────
@@ -892,6 +914,9 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
 
       final gain = (params['inputGain'] as num?)?.toDouble();
       if (gain != null) setChannelInputGainFinal(layerId, gain);
+
+      final phase = params['phaseInvert'] as bool?;
+      if (phase != null && phase != ch.phaseInvert) togglePhaseInvert(layerId);
 
       final muted = params['muted'] as bool?;
       if (muted != null && muted != ch.muted) toggleMute(layerId);

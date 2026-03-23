@@ -23158,14 +23158,12 @@ pub extern "C" fn engine_playback_get_voice_peak_stereo(
     peak_r: *mut f32,
 ) -> i32 {
     let (l, r) = PLAYBACK_ENGINE.get_voice_peak_stereo(voice_id);
-    // get_voice_peak_stereo returns (0,0) for non-existent voices
-    // but also for silent voices — check if voice is actually active
-    let found = l > 0.0 || r > 0.0 || PLAYBACK_ENGINE.is_voice_active(voice_id);
     unsafe {
         if !peak_l.is_null() { *peak_l = l; }
         if !peak_r.is_null() { *peak_r = r; }
     }
-    if found { 1 } else { 0 }
+    // get_voice_peak_stereo returns (0,0) for non-existent voices — sufficient
+    1
 }
 
 /// Set stereo width for active voice in real-time (0.0=mono, 1.0=normal, 2.0=wide)

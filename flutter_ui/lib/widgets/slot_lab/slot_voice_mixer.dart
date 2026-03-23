@@ -1354,13 +1354,6 @@ class _VoiceStripState extends State<_VoiceStrip> {
     });
   }
 
-  // ─── Helpers ────────────────────────────────────────────────────────────
-
-  static String _panString(double pan) {
-    if (pan.abs() < 0.02) return 'C';
-    final pct = (pan.abs() * 100).round();
-    return pan < 0 ? 'L$pct' : 'R$pct';
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1445,7 +1438,10 @@ class _SlotPanKnobState extends State<_SlotPanKnob> {
           onVerticalDragStart: _handleDragStart,
           onVerticalDragUpdate: _handleDragUpdate,
           onVerticalDragEnd: _handleDragEnd,
-          onDoubleTap: () => widget.onChanged?.call(widget.defaultValue),
+          onDoubleTap: () {
+            widget.onChanged?.call(widget.defaultValue);
+            widget.onChangeEnd?.call(widget.defaultValue);
+          },
           child: Container(
             width: widget.size,
             height: widget.size,
