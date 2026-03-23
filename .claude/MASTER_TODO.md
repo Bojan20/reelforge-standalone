@@ -68,36 +68,14 @@ Svi taskovi implementirani, QA-ovani, pushani.
 
 ---
 
-## POZNATI LIMITI (dokumentovano, ne crashuju)
+## POZNATI LIMITI — NEMA (SVI FIXOVANI)
 
-Pronađeni tokom QA ali nisu fixovani jer zahtevaju veći refactor ili su by-design:
-
-### 1. Master strip mutira state u build()
-**Fajl:** `slot_voice_mixer.dart` — `_MasterStripState.build()`
-**Opis:** Čita SharedMeterReader i decay-uje peak hold direktno u `build()` bez `setState()`. Radi jer parent `Consumer2` rebuilda na svakom voice mixer tick (~30fps), pa se mutirana vrednost pokupi na sledećem buildu. Ali peak hold decay se zamrzne ako parent prestane da rebuilda (nema aktivnih voice-ova + nema promena).
-**Fix:** Prebaciti master metering u zaseban ticker sa proper `setState()`, kao što voice kanali koriste `SlotVoiceMixerProvider._onMeterTick`.
-**Ozbiljnost:** MEDIUM — ne crashuje, vizuelno prihvatljivo.
-
-### 2. Reorder se gubi pri promeni busa kanala
-**Fajl:** `slot_voice_mixer_provider.dart` — `_rebuildChannels()`
-**Opis:** Kad korisnik promeni bus kanala (output routing dropdown), `_rebuildChannels` se pozove i custom order se poštuje za postojeće kanale. Ali ako kanal promeni busId, njegova pozicija u bus grupi se određuje po `_customOrder` koji je globalan (ne per-bus). Kanal se pojavljuje na poziciji gde je bio u prethodnom busu, što može biti neočekivano.
-**Fix:** Per-bus custom order umesto globalnog.
-**Ozbiljnost:** LOW — korisnik može ponovo dragovat.
-
-### 3. Drag feedback visina hardkodirana na 300px
-**Fajl:** `slot_voice_mixer.dart` — `LongPressDraggable` feedback
-**Opis:** Feedback widget ima `height: 300`. Ako lower zone visina je manja od 300px, feedback se seče. Lower zone default je 600px pa je ovo retko.
-**Ozbiljnost:** LOW — vizuelno, ne funkcionalno.
-
-### 4. Metering ticker na vsync (60-120fps), throttle na ~30fps
-**Fajl:** `slot_voice_mixer_provider.dart` — `_onMeterTick`
-**Opis:** `createTicker` pali na display refresh rate-u. `_meterFrameSkip = 2` smanjuje na ~30fps. Na ProMotion 120Hz displayu, svaki 2. frame = 60fps (ne 30fps). Može se poboljšati sa vremenskim throttle-om umesto frame counter-a.
-**Ozbiljnost:** LOW — performanse su fine za tipičan broj kanala.
-
-### 5. routesForChannel alokacija na svakom mixer rebuild
-**Fajl:** `mixer_panel.dart` — `routesForChannel()`
-**Opis:** Za svaki DAW mixer kanal/bus/aux, `getAvailableOutputRoutes` se poziva na svakom rebuildu. Iterira sve buseve + auxe sa loop detection. Za 20+ kanala = 500+ iteracija po rebuildu. Throttled jer MixerProvider batches notifications.
-**Ozbiljnost:** LOW — performanse prihvatljive za tipičan projekat.
+Svih 5 prethodno dokumentovanih limita je fixovano:
+1. ~~Master strip state u build()~~ → Proper ticker sa setState()
+2. ~~Globalni custom order~~ → Per-bus _customOrderByBus
+3. ~~Hardcoded drag feedback 300px~~ → MediaQuery responsive
+4. ~~Frame counter throttle~~ → Vremenski 33ms interval
+5. ~~routesForChannel alokacija~~ → Per-build cache
 
 ---
 
