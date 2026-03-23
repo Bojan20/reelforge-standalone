@@ -2030,7 +2030,8 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     final mw = _middlewareRef;
     if (mw != null && mw.isSelectionOnlyChange) {
       mw.clearSelectionOnlyFlag();
-      setState(() {});
+      // NO setState — selection change is handled by per-event Consumer/ValueNotifier.
+      // setState on 15K+ line build() causes multi-second jank.
       return;
     }
 
