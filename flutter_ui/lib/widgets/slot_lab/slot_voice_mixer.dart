@@ -478,7 +478,7 @@ class _VoiceStripState extends State<_VoiceStrip> {
         case 'phase':
           widget.provider.togglePhaseInvert(ch.layerId);
         case 'remove':
-          widget.provider.setChannelBus(ch.layerId, -1); // -1 = remove (handled by provider)
+          widget.provider.removeChannel(ch.layerId);
       }
     });
   }

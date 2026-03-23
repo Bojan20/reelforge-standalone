@@ -687,6 +687,15 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
     // _onCompositeChanged → _rebuildChannels → channel moves to new bus group
   }
 
+  /// Remove channel — deletes layer from composite event
+  void removeChannel(String layerId) {
+    final ch = _findChannel(layerId);
+    if (ch == null) return;
+
+    _compositeProvider.removeLayerFromEvent(ch.eventId, layerId);
+    // _onCompositeChanged → _rebuildChannels → channel removed
+  }
+
   /// Preview/audition a channel — play the sound once regardless of slot state
   void auditionChannel(String layerId) {
     final ch = _findChannel(layerId);
