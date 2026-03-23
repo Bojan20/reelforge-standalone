@@ -7,93 +7,91 @@
 
 ---
 
-## DONE: Mixer Unification — COMPLETE
+## DONE: Voice Mixer + Mixer Unification
 
-Svi taskovi implementirani, QA-ovani, pushani.
-
-### Core
-- [x] F1-F3: Voice Mixer (provider, widget, MIX tab integracija)
-
-### M1: Stereo Dual-Pan Chain (Rust → FFI → Dart → UI)
-- [x] pan_right u OneShotVoice, DSP dual-pan (equal-power per channel)
-- [x] FFI + Dart bindings + UI knobs connected
-
-### M2: DAW Mixer ← SlotLab Features
-- [x] M2.1: Bus routing dropdown (availableOutputRoutes populated)
-- [x] M2.2: Activity indicator (green glow dot)
-- [x] M2.3: Audition prep (Alt+Click)
-
-### M3: SlotLab Mixer ← DAW Features
-- [x] M3.1: Drag-drop reorder (LongPressDraggable + custom order persistence)
-- [x] M3.2: Send slotovi (bus-level aux sends in strip, drag level, pre/post toggle)
-- [x] M3.3: Input section (gain drag + phase invert Ø button)
-- [x] M3.4: Stereo width (mid/side DSP, 0-200%, Rust chain)
-- [x] M3.5: Context menu (audition, reset, phase, remove)
-- [x] M3.6: View presets (Full/Compact)
-- [x] M3.7: Narrow/Regular toggle (56px/68px)
-
-### M4: Smart Features
-- [x] M4.1: Snapshot save/load
-- [x] M4.2: Batch operations (Ctrl+click multi-select, batch mute/solo/volume)
-- [x] M4.3: Search/filter
-- [x] M4.4: Solo in context (per-bus SIC)
-
-### M5: Real Per-Voice Metering (Rust)
-- [x] M5.1: meter_peak_l/r in OneShotVoice fill_buffer
-- [x] M5.2: FFI getVoicePeakStereo
-- [x] M5.3: Dart ticker real peaks (replaces approximate)
-
-### Full FFI Chains
-- [x] Stereo dual-pan (pan_right): Rust → FFI → Dart → UI
-- [x] Stereo width: Rust mid/side DSP → FFI → Dart → UI
-- [x] Phase invert: Rust sample negation → FFI → Dart → UI
-- [x] Input gain: Rust pre-fader multiplier → FFI → Dart → UI (dB→linear conversion)
-- [x] Per-voice metering: Rust peak tracking → FFI → Dart ticker
-
-### QA
-- [x] 12+ QA rundi, 40+ bug fixeva
-- [x] All stage defaults unity (1.0/0dB) + stereo pan (-1/+1)
-- [x] Metering throttle (~30fps)
-- [x] Filter cache optimization
-- [x] Custom order persistence across rebuilds
-- [x] Null safety (firstOrNull)
-- [x] Pan knob double-tap undo commit
-- [x] Audition applies ALL channel settings (pan, panRight, width, gain, phase)
-- [x] Snapshot restores phaseInvert
-- [x] Batch concurrent modification safety
-- [x] AudioLayer toJson/fromJson all 5 voice mixer fields
-- [x] All 15+ AudioLayer constructor sites propagate voice mixer fields
-- [x] _playLayer always pushes panRight (no guard) + width/gain/phase on trigger
-- [x] dB→linear conversion consistent (-60dB guard)
+Kompletno — 5 FFI chainova, 40+ bug fixeva, 12+ QA rundi. Svi poznati limiti fixovani.
 
 ---
 
-## POZNATI LIMITI — NEMA (SVI FIXOVANI)
+## PENDING: SlotLab Game Flow Wiring (WoO Reference)
 
-Svih 5 prethodno dokumentovanih limita je fixovano:
-1. ~~Master strip state u build()~~ → Proper ticker sa setState()
-2. ~~Globalni custom order~~ → Per-bus _customOrderByBus
-3. ~~Hardcoded drag feedback 300px~~ → MediaQuery responsive
-4. ~~Frame counter throttle~~ → Vremenski 33ms interval
-5. ~~routesForChannel alokacija~~ → Per-build cache
+Cilj: Svi blokovi su implementirani ali NEPOVEZANI. Treba ih wire-ovati tako da
+slot mašina radi identično kao Wrath of Olympus — automatski, bez ručnog triggerovanja.
+
+**Reference:** `.claude/architecture/WRATH_OF_OLYMPUS_GAME_FLOW.md`
+**Inventar:** `.claude/architecture/SLOTLAB_COMPLETE_INVENTORY.md`
+
+### W1: Reel Stop → Win Evaluation → Prezentacija Pipeline
+- [ ] Spin complete → automatski evaluate grid (scatter count, line wins, win tier)
+- [ ] Highlight winning simbole na gridu (tier-based glow)
+- [ ] Win overlay sa rollup counter animacijom
+- [ ] Per-line highlight sekvenca (jedan po jedan)
+- [ ] Skip/abort support
+- [ ] Timing: preshow 400-800ms, rollup 300-400ms, line highlight 500-600ms/line
+
+### W2: Win Tier → Big Win Overlay Automatski
+- [ ] `finalWin / totalBet >= 10` → automatski Big Win overlay
+- [ ] 3 tiera: BIG (10×), MEGA (25×), EPIC (50×)
+- [ ] Rollup sa tier upgrade animacijom (4s po tieru)
+- [ ] End celebration (7s hold, coin shower, confetti za tier 3)
+- [ ] Skip support (skoči na END fazu)
+- [ ] Audio: BIG_WIN_START (loop music), BIG_WIN_TIER1-3 (SFX), BIG_WIN_END
+
+### W3: Scatter Count → Free Spins Automatski
+- [ ] 3+ scattera → scatter highlight (2s pauza sa golden glow)
+- [ ] Trigger FS intro overlay (plaque sa brojem spinova)
+- [ ] Awards: 3S=14, 4S=16, 5S=18 free spins
+- [ ] GameFlowProvider transition: baseGame → freeSpins
+- [ ] Audio: SCATTER_LAND, FEATURE_ENTER
+
+### W4: Free Spins Complete Loop
+- [ ] FS intro → čekaj user input ili 2s auto-start
+- [ ] Auto-spin loop (500ms delay između spinova)
+- [ ] Progresivni multiplier (+1× na svaki winning spin, max 10×)
+- [ ] Multiplier display sa bump animacijom
+- [ ] FS counter (SPINS X/Y + MULTIPLIER + TOTAL WIN)
+- [ ] Retrigger (3+ scattera = +14/16/18 spinova, overlay 2s)
+- [ ] Mercy mehanika (10 consecutive misses → inject wild)
+- [ ] Safety caps (FEATURE_LOOP_CAP, MAX_WIN_CAP)
+- [ ] Audio: MUSIC_FS_L1..L5 (loop), MULTIPLIER_INCREASE, FREESPIN_RETRIGGER
+
+### W5: FS Exit → Summary → Optional Big Win → Base Game
+- [ ] FS complete plaque ("FREE SPINS COMPLETE" + total win)
+- [ ] Outro transition (FS atmosphere → base atmosphere)
+- [ ] Restore trigger grid (base game simboli)
+- [ ] Ako fsTotalWin kvalifikuje → Big Win overlay PRE base game return-a
+- [ ] Finalize: activeMode=base, reset sav FS state
+- [ ] Audio: FEATURE_EXIT, BIG_WIN_START/END (ako kvalifikuje)
+- [ ] Balance crediting: fsTotalWin + triggerResult.finalWin
+
+### W6: Music Layer Crossfade na Feature Transitions
+- [ ] Base → FS: fade out MUSIC_BASE_L1..L5, fade in MUSIC_FS_L1..L5 (500ms crossfade)
+- [ ] FS → Base: fade out FS music, fade in base music
+- [ ] Big Win: fade out sve, play BIG_WIN_START (loop)
+- [ ] Big Win End: stop big win music, restore previous music
+- [ ] Timing sinhronizovan sa vizuelnim transitions
+
+### W7: GameFlow FSM ↔ Visual Overlay Auto-Trigger
+- [ ] GameFlowProvider.state listener na vizuelnim overlay widgetima
+- [ ] freeSpins state → FS overlay ON
+- [ ] holdAndWin state → H&W grid ON
+- [ ] bonusGame state → Bonus panel dispatch
+- [ ] gamble state → Gamble panel ON
+- [ ] jackpotPresentation → Jackpot sequence ON
+- [ ] winPresentation → Big Win overlay ON
+- [ ] baseGame/idle → sve overlaye OFF
 
 ---
 
 ## IMPLEMENTIRANO
 
 - **37 crate-ova** | **71 providera** | **170+ servisa** | **3500+ networking linija**
-- SlotLab Voice Mixer (complete: per-layer mixer, dual-pan, width, input, phase, sends, context menu, drag-drop, snapshots, batch ops, search, solo-in-context, real per-voice Rust metering, view presets)
-- 5 Full FFI Chains (pan_right, stereo_width, phase_invert, input_gain, voice_peak metering)
-- DAW Mixer Enhancements (bus routing dropdown, activity indicator, audition)
-- Signalsmith Stretch (audio_stretcher.rs, MIT ~Élastique)
-- Warp Markers (15 testova, end-to-end: model→detection→playback→UI→undo)
-- Custom Events (EventRegistry sync, Play, probability, solo, zombie cleanup)
-- RTPC (35 params, 9 curves, macros, DSP binding)
-- Server Audio Bridge (trigger/rtpc/state/batch/snapshot + jitter + circuit breaker)
-- MIDI Trigger (note→event, CC→RTPC, learn mode, live buffer)
-- OSC Trigger (rosc crate, UDP server, address→event/RTPC)
-- TriggerManager (position, marker, cooldown, seek hysteresis)
-- Mock Game Server (echo/auto mode, slot cycle simulation)
-- Connection Monitor Panel (bridge/MIDI/OSC stats)
-- Dep Upgrade Faza 3+4 (cpal 0.17, wgpu 28, objc2 0.6, Edition 2024)
-- 22+ QA rundi, 100+ bugova fixovano, 447 testova, 0 issues
+- SlotLab Voice Mixer (complete: 5 FFI chains, 23 features, 40+ bug fixes)
+- DAW Mixer Enhancements (bus routing, activity indicator, audition)
+- 23 SlotLab blokova (16 vizuelnih, 4 audio, 3 logika)
+- Wrath of Olympus game flow analiza (486 linija dokumentacije)
+- SlotLab kompletni inventar (230 linija, 7 gap-ova identifikovanih)
+- Signalsmith Stretch, Warp Markers, Custom Events, RTPC
+- Server Audio Bridge, MIDI/OSC Trigger, TriggerManager
+- Mock Game Server, Connection Monitor, Dep Upgrade
+- 22+ QA rundi, 100+ bugova fixovano, 447 testova
