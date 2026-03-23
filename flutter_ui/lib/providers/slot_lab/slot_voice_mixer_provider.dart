@@ -201,6 +201,9 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
   /// Selected channel ID (for highlight + keyboard shortcuts)
   String? _selectedChannelId;
 
+  /// Multi-selected channel IDs (for batch operations, Ctrl+Click)
+  final Set<String> _multiSelectedIds = {};
+
   /// Compact mode (narrow strips, 56px vs 68px)
   bool _isCompact = false;
 
@@ -686,17 +689,30 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
 
   // ─── Solo Implementation ────────────────────────────────────────────────
 
-  /// Apply solo-in-place: mute all non-soloed active voices via FFI
+  /// Apply solo-in-context: mute non-soloed voices on SAME bus only.
+  /// Voices on other buses remain audible — preserves bus effects (reverb, delay).
+  /// This is "solo in context" (SIC) behavior from Pro Tools.
   void _applySoloState() {
     final playback = AudioPlaybackService.instance;
+
+    // Find which buses have soloed channels
+    final soloedBuses = <int>{};
+    for (final ch in _channels) {
+      if (ch.soloed) soloedBuses.add(ch.busId);
+    }
 
     for (final ch in _channels) {
       if (ch.activeVoiceId == null) continue;
 
       if (_hasSoloActive) {
-        // Solo active: mute non-soloed, unmute soloed
-        final shouldMute = !ch.soloed || ch.muted;
-        playback.updateLayerMute(ch.layerId, shouldMute);
+        if (soloedBuses.contains(ch.busId)) {
+          // This bus has soloed channels — mute non-soloed on this bus
+          final shouldMute = !ch.soloed || ch.muted;
+          playback.updateLayerMute(ch.layerId, shouldMute);
+        } else {
+          // This bus has NO soloed channels — leave untouched (solo in context)
+          playback.updateLayerMute(ch.layerId, ch.muted);
+        }
       } else {
         // No solo: restore original mute state from layer
         playback.updateLayerMute(ch.layerId, ch.muted);
@@ -727,10 +743,70 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
 
   // ─── Selection ──────────────────────────────────────────────────────────
 
+  Set<String> get multiSelectedIds => _multiSelectedIds;
+  bool get hasMultiSelection => _multiSelectedIds.length > 1;
+
   /// Select a channel (for highlight + keyboard shortcuts)
   void selectChannel(String? layerId) {
     if (_selectedChannelId == layerId) return;
     _selectedChannelId = layerId;
+    _multiSelectedIds.clear();
+    if (layerId != null) _multiSelectedIds.add(layerId);
+    notifyListeners();
+  }
+
+  /// Ctrl+Click multi-select toggle
+  void toggleMultiSelect(String layerId) {
+    if (_multiSelectedIds.contains(layerId)) {
+      _multiSelectedIds.remove(layerId);
+      if (_multiSelectedIds.isEmpty) {
+        _selectedChannelId = null;
+      } else {
+        _selectedChannelId = _multiSelectedIds.last;
+      }
+    } else {
+      _multiSelectedIds.add(layerId);
+      _selectedChannelId = layerId;
+    }
+    notifyListeners();
+  }
+
+  // ─── Batch Operations ────────────────────────────────────────────────
+
+  /// Batch mute all multi-selected channels
+  void batchMute() {
+    for (final id in _multiSelectedIds) {
+      final ch = _findChannel(id);
+      if (ch != null && !ch.muted) toggleMute(id);
+    }
+  }
+
+  /// Batch unmute all multi-selected channels
+  void batchUnmute() {
+    for (final id in _multiSelectedIds) {
+      final ch = _findChannel(id);
+      if (ch != null && ch.muted) toggleMute(id);
+    }
+  }
+
+  /// Batch solo all multi-selected channels
+  void batchSolo() {
+    for (final id in _multiSelectedIds) {
+      final ch = _findChannel(id);
+      if (ch != null && !ch.soloed) toggleSolo(id);
+    }
+  }
+
+  /// Batch set volume for all multi-selected channels
+  void batchSetVolume(double volume) {
+    for (final id in _multiSelectedIds) {
+      setChannelVolumeFinal(id, volume);
+    }
+  }
+
+  /// Clear multi-selection
+  void clearMultiSelection() {
+    _multiSelectedIds.clear();
     notifyListeners();
   }
 
@@ -766,6 +842,68 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
       if (matching.isNotEmpty) filtered[entry.key] = matching;
     }
     _filteredChannelsByBusCache = filtered;
+  }
+
+  // ─── Snapshots ─────────────────────────────────────────────────────────
+
+  /// Saved snapshots: name → { layerId → {volume, pan, panRight, stereoWidth, inputGain, phaseInvert, muted} }
+  final Map<String, Map<String, Map<String, dynamic>>> _snapshots = {};
+
+  List<String> get snapshotNames => _snapshots.keys.toList();
+
+  /// Save current mixer state as named snapshot
+  void saveSnapshot(String name) {
+    final state = <String, Map<String, dynamic>>{};
+    for (final ch in _channels) {
+      state[ch.layerId] = {
+        'volume': ch.volume,
+        'pan': ch.pan,
+        'panRight': ch.panRight,
+        'stereoWidth': ch.stereoWidth,
+        'inputGain': ch.inputGain,
+        'phaseInvert': ch.phaseInvert,
+        'muted': ch.muted,
+      };
+    }
+    _snapshots[name] = state;
+    notifyListeners();
+  }
+
+  /// Load named snapshot — applies saved state to matching channels
+  void loadSnapshot(String name) {
+    final state = _snapshots[name];
+    if (state == null) return;
+
+    for (final entry in state.entries) {
+      final layerId = entry.key;
+      final params = entry.value;
+      final ch = _findChannel(layerId);
+      if (ch == null) continue;
+
+      final vol = (params['volume'] as num?)?.toDouble();
+      if (vol != null) setChannelVolumeFinal(layerId, vol);
+
+      final pan = (params['pan'] as num?)?.toDouble();
+      if (pan != null) setChannelPanFinal(layerId, pan);
+
+      final panR = (params['panRight'] as num?)?.toDouble();
+      if (panR != null) setChannelPanRightFinal(layerId, panR);
+
+      final width = (params['stereoWidth'] as num?)?.toDouble();
+      if (width != null) setChannelWidthFinal(layerId, width);
+
+      final gain = (params['inputGain'] as num?)?.toDouble();
+      if (gain != null) setChannelInputGainFinal(layerId, gain);
+
+      final muted = params['muted'] as bool?;
+      if (muted != null && muted != ch.muted) toggleMute(layerId);
+    }
+  }
+
+  /// Delete named snapshot
+  void deleteSnapshot(String name) {
+    _snapshots.remove(name);
+    notifyListeners();
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────────

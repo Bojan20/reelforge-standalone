@@ -451,8 +451,19 @@ class _VoiceStripState extends State<_VoiceStrip> {
     final isDimmed = widget.hasSoloActive && !ch.soloed;
     final stripWidth = widget.compact ? 56.0 : 68.0;
 
-    return GestureDetector(
-      onTap: () => widget.provider.selectChannel(ch.layerId),
+    return Listener(
+      onPointerDown: (event) {
+        if (event.buttons == 1 && HardwareKeyboard.instance.isMetaPressed) {
+          // Ctrl/Cmd+Click = multi-select
+          widget.provider.toggleMultiSelect(ch.layerId);
+        }
+      },
+      child: GestureDetector(
+      onTap: () {
+        if (!HardwareKeyboard.instance.isMetaPressed) {
+          widget.provider.selectChannel(ch.layerId);
+        }
+      },
       onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 120),
@@ -463,10 +474,10 @@ class _VoiceStripState extends State<_VoiceStrip> {
             color: FluxForgeTheme.bgSurface,
             border: Border(
               left: BorderSide(
-                color: widget.isSelected
+                color: (widget.isSelected || widget.provider.multiSelectedIds.contains(ch.layerId))
                     ? busColor.withValues(alpha: 0.6)
                     : FluxForgeTheme.borderSubtle.withValues(alpha: 0.3),
-                width: widget.isSelected ? 2 : 1,
+                width: (widget.isSelected || widget.provider.multiSelectedIds.contains(ch.layerId)) ? 2 : 1,
               ),
               right: BorderSide(color: FluxForgeTheme.bgVoid.withValues(alpha: 0.5)),
             ),
@@ -486,6 +497,7 @@ class _VoiceStripState extends State<_VoiceStrip> {
           ),
         ),
       ),
+    ),
     );
   }
 
