@@ -2024,6 +2024,15 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     if (!mounted) return;
 
     // ═══════════════════════════════════════════════════════════════════════════
+    // PERFORMANCE: Selection-only changes (expand/collapse, select event)
+    // skip ALL expensive operations — only trigger UI rebuild.
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (_middlewareRef?.isSelectionOnlyChange == true) {
+      setState(() {});
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
     // CRITICAL FIX: Skip EventRegistry sync during playback or drag!
     // Re-registering events during playback can stop audio mid-play.
     // Defer sync until playback ends or drag completes.

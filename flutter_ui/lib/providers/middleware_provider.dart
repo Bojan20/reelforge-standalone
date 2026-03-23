@@ -206,6 +206,7 @@ class MiddlewareProvider extends ChangeNotifier {
     _pendingChanges = changeNone;
     _notificationScheduled = false;
     _lastNotifyTime = DateTime.now();
+    _selectionOnlyChange = false; // Data change → not selection-only
 
     notifyListeners();
   }
@@ -3550,9 +3551,17 @@ class MiddlewareProvider extends ChangeNotifier {
   }
 
   /// Select a composite event
+  /// Whether the last notification was selection-only (no data change).
+  /// Used by slot_lab_screen._onMiddlewareChanged to skip expensive rebuild.
+  bool _selectionOnlyChange = false;
+  bool get isSelectionOnlyChange => _selectionOnlyChange;
+
   void selectCompositeEvent(String? eventId) {
     _compositeEventSystemProvider.selectCompositeEvent(eventId);
-    _markChanged(changeCompositeEvents);
+    // Selection is UI-only — no data change. Flag as selection-only so
+    // _onMiddlewareChanged skips region rebuild + FFI re-import (2-3s freeze).
+    _selectionOnlyChange = true;
+    notifyListeners();
   }
 
   /// Duplicate a composite event
