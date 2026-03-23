@@ -625,8 +625,13 @@ class SlotLabProjectProvider extends ChangeNotifier {
       if (ffncParser.isFFNC(filename)) {
         final result = ffncParser.parse(filename);
         if (result != null) {
-          mappedPaths.add(file.path);
           final stage = result.stage;
+          // Validate: FFNC parse produced a known stage. If not, skip to
+          // legacy path which has alias matching (catches sfx_043_SpinsSuspShort etc.)
+          if (StageConfigurationService.instance.getStage(stage) == null) {
+            continue; // Unknown stage from FFNC → legacy path will try aliases
+          }
+          mappedPaths.add(file.path);
 
           if (result.variant != null) {
             // Variant: add to round-robin pool (skip state mutation in dry run)
