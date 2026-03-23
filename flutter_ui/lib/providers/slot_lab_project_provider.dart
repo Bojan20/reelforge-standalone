@@ -950,6 +950,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
       'equalwin': 'win_present_equal',
       'total_win': 'win_present_end',
       'reel_highlight': 'payline_highlight',
+      'payline': 'payline_highlight', 'pay_line': 'payline_highlight',
       'linewin': 'payline_highlight',
       'coin_highlight': 'payline_highlight',
       'bw_alert': 'big_win_trigger',
