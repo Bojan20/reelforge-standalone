@@ -221,6 +221,7 @@ class FFNCRenamer {
         if (name == 'big_win_start') return 'mus_big_win_loop$ext';
         if (name == 'big_win_end') return 'mus_big_win_end$ext';
         if (name == 'game_start') return 'mus_game_start$ext';
+        if (name == 'fs_end') return 'mus_fs_end$ext';
         // MUSIC_ prefix → strip
         name = name.replaceFirst('music_', '');
         // BASE_ → base_game_ (word boundary safe)
@@ -306,6 +307,7 @@ class FFNCRenamer {
       'BIG_WIN_START', 'BIG_WIN_END',
       'GAME_START',
       'MUSIC_BIGWIN',
+      'FS_END', // FS outro music — plays during exit transition
     };
     if (musicBusStages.contains(stage)) return FFNCCategory.mus;
 

@@ -245,6 +245,9 @@ class StageDefaults {
     'WILD_COLLECT': StageDefault(volume: 1.0, busId: 2),
     'WILD_RANDOM': StageDefault(volume: 1.0, busId: 2),
 
+    // Free Spins End (music bus — outro music/stinger)
+    'FS_END': StageDefault(volume: 1.0, busId: 1),
+
     // Features
     'FEATURE_ENTER': StageDefault(volume: 1.0, busId: 2, fadeInMs: 100),
     'FEATURE_EXIT': StageDefault(volume: 1.0, busId: 2, fadeOutMs: 200),

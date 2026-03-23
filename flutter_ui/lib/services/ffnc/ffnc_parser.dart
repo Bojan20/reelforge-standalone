@@ -141,6 +141,7 @@ class FFNCParser {
     if (name == 'big_win_loop') return 'BIG_WIN_START';
     if (name == 'big_win_end') return 'BIG_WIN_END';
     if (name == 'game_start') return 'GAME_START';
+    if (name == 'fs_end') return 'FS_END';
 
     // base_game_* → BASE_*
     if (name.startsWith('base_game_')) {
