@@ -293,16 +293,18 @@ class _SlotVoiceMixerState extends State<SlotVoiceMixer>
                         ),
                       ),
                     ),
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 100),
-                      opacity: isDragging ? 0.3 : 1.0,
-                      child: _VoiceStrip(
-                        key: ValueKey('vs_${ch.layerId}'),
-                        channel: ch,
-                        hasSoloActive: hasSolo,
-                        isSelected: mixer.selectedChannelId == ch.layerId,
-                        compact: mixer.isCompact,
-                        provider: mixer,
+                    child: RepaintBoundary(
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 100),
+                        opacity: isDragging ? 0.3 : 1.0,
+                        child: _VoiceStrip(
+                          key: ValueKey('vs_${ch.layerId}'),
+                          channel: ch,
+                          hasSoloActive: hasSolo,
+                          isSelected: mixer.selectedChannelId == ch.layerId,
+                          compact: mixer.isCompact,
+                          provider: mixer,
+                        ),
                       ),
                     ),
                   ),
