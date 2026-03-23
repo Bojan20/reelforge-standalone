@@ -531,6 +531,7 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
     if (ch == null) return;
 
     final clamped = pan.clamp(-1.0, 1.0);
+    if ((ch.pan - clamped).abs() < 0.002) return; // Delta threshold
     ch.pan = clamped;
 
     _compositeProvider.setLayerPanContinuous(ch.eventId, layerId, clamped);
@@ -550,6 +551,7 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
     if (ch == null) return;
 
     final clamped = panRight.clamp(-1.0, 1.0);
+    if ((ch.panRight - clamped).abs() < 0.002) return; // Delta threshold
     ch.panRight = clamped;
 
     _compositeProvider.setLayerPanRightContinuous(ch.eventId, layerId, clamped);
@@ -690,7 +692,7 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
     // Apply all channel settings to the audition voice
     if (voiceId >= 0) {
       final playback = AudioPlaybackService.instance;
-      if (ch.panRight.abs() > 0.001) playback.updateLayerPanRight(layerId, ch.panRight);
+      playback.updateLayerPanRight(layerId, ch.panRight); // Always apply (0.0 is valid center)
       if ((ch.stereoWidth - 1.0).abs() > 0.01) playback.updateLayerWidth(layerId, ch.stereoWidth);
       if (ch.inputGain.abs() > 0.01) {
         final linearGain = ch.inputGain <= -60.0 ? 0.0 : math.pow(10.0, ch.inputGain / 20.0).toDouble();

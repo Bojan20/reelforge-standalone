@@ -755,7 +755,8 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   void setLayerPanContinuous(String eventId, String layerId, double pan) {
     final event = _compositeEvents[eventId];
     if (event == null) return;
-    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    final layer = event.layers.where((l) => l.id == layerId).firstOrNull;
+    if (layer == null) return;
     _updateEventLayerInternal(eventId, layer.copyWith(pan: pan.clamp(-1.0, 1.0)));
   }
 
@@ -763,8 +764,9 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   void setLayerPan(String eventId, String layerId, double pan) {
     final event = _compositeEvents[eventId];
     if (event == null) return;
+    final layer = event.layers.where((l) => l.id == layerId).firstOrNull;
+    if (layer == null) return;
     _pushUndoState();
-    final layer = event.layers.firstWhere((l) => l.id == layerId);
     _updateEventLayerInternal(eventId, layer.copyWith(pan: pan.clamp(-1.0, 1.0)));
   }
 
@@ -772,7 +774,8 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   void setLayerPanRightContinuous(String eventId, String layerId, double panRight) {
     final event = _compositeEvents[eventId];
     if (event == null) return;
-    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    final layer = event.layers.where((l) => l.id == layerId).firstOrNull;
+    if (layer == null) return;
     _updateEventLayerInternal(eventId, layer.copyWith(panRight: panRight.clamp(-1.0, 1.0)));
   }
 
@@ -780,8 +783,9 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   void setLayerPanRight(String eventId, String layerId, double panRight) {
     final event = _compositeEvents[eventId];
     if (event == null) return;
+    final layer = event.layers.where((l) => l.id == layerId).firstOrNull;
+    if (layer == null) return;
     _pushUndoState();
-    final layer = event.layers.firstWhere((l) => l.id == layerId);
     _updateEventLayerInternal(eventId, layer.copyWith(panRight: panRight.clamp(-1.0, 1.0)));
   }
 
