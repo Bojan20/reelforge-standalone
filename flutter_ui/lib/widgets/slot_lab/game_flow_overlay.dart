@@ -323,7 +323,7 @@ class _FreeSpinsOverlayState extends State<_FreeSpinsOverlay>
   void didUpdateWidget(_FreeSpinsOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Multiplier increased → bump animation
+    // Multiplier increased → bump animation + start glow
     if (widget.state.currentMultiplier > _prevMultiplier) {
       _multBumpScale = TweenSequence<double>([
         TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.35), weight: 30),
@@ -332,10 +332,14 @@ class _FreeSpinsOverlayState extends State<_FreeSpinsOverlay>
       ]).animate(CurvedAnimation(parent: _multBumpController, curve: Curves.easeOut));
       _multBumpController.forward(from: 0);
 
-      // Start glow if not already running
       if (!_multGlowController.isAnimating) {
         _multGlowController.repeat(reverse: true);
       }
+    }
+    // Multiplier dropped to 1.0 or below → stop glow
+    if (widget.state.currentMultiplier <= 1.0 && _multGlowController.isAnimating) {
+      _multGlowController.stop();
+      _multGlowController.reset();
     }
     _prevMultiplier = widget.state.currentMultiplier;
 

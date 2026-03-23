@@ -5060,8 +5060,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       setState(() => _introOpacity = 1.0); // AnimatedOpacity 1000ms → reels appear
     });
 
-    // Phase 4 (T+4000ms): Transition complete → GAME_START music
-    Future.delayed(const Duration(milliseconds: 4000), () {
+    // Phase 4 (T+4200ms): Transition complete → GAME_START music
+    // 200ms buffer after fade ends (T+3000+1000=T+4000) to avoid frame jank
+    Future.delayed(const Duration(milliseconds: 4200), () {
       if (!mounted) return;
       setState(() => _isIntroTransition = false);
       widget.onSplashComplete?.call();
@@ -6201,7 +6202,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
     // FS auto-credit: during free spins, wins are credited to balance immediately
     // (no gamble/collect — WoO standard). Deferred Big Win handles final payout.
-    if (_isInFreeSpins && _pendingWinAmount > 0) {
+    // Uses cached _isInFreeSpins to avoid try/catch on hot path after setState.
+    final isFs = _isInFreeSpins;
+    if (isFs && _pendingWinAmount > 0) {
       setState(() {
         _balance += _pendingWinAmount;
         _pendingWinAmount = 0.0;

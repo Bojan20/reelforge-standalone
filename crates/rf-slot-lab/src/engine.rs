@@ -281,7 +281,7 @@ impl SyntheticSlotEngine {
         if is_free_spin && self.mercy_threshold > 0 && forced.is_none()
             && self.consecutive_losses >= self.mercy_threshold
         {
-            let wild_id = 11_u32; // WILD symbol ID (standard convention)
+            let wild_id = self.paytable.wild_id;
             let reels = grid.len();
             let rows = if reels > 0 { grid[0].len() } else { 0 };
             if reels >= 3 && rows >= 2 {
