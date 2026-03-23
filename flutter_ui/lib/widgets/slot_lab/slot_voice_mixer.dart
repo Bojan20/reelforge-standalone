@@ -796,10 +796,16 @@ class _VoiceStripState extends State<_VoiceStrip> {
     final label = isMono ? 'M' : '${(width * 100).round()}%';
 
     return GestureDetector(
-      onDoubleTap: () => widget.provider.setChannelWidth(ch.layerId, 1.0),
+      onDoubleTap: () {
+        widget.provider.setChannelWidth(ch.layerId, 1.0);
+        widget.provider.setChannelWidthFinal(ch.layerId, 1.0);
+      },
       onHorizontalDragUpdate: (details) {
         final delta = details.delta.dx * 0.02;
         widget.provider.setChannelWidth(ch.layerId, (ch.stereoWidth + delta).clamp(0.0, 2.0));
+      },
+      onHorizontalDragEnd: (_) {
+        widget.provider.setChannelWidthFinal(ch.layerId, ch.stereoWidth);
       },
       child: Container(
         height: 18,

@@ -626,6 +626,9 @@ class CompositeEventSystemProvider extends ChangeNotifier {
         oldLayer.volume == layer.volume &&
         oldLayer.pan == layer.pan &&
         oldLayer.panRight == layer.panRight &&
+        oldLayer.stereoWidth == layer.stereoWidth &&
+        oldLayer.inputGain == layer.inputGain &&
+        oldLayer.phaseInvert == layer.phaseInvert &&
         oldLayer.offsetMs == layer.offsetMs &&
         oldLayer.muted == layer.muted &&
         oldLayer.solo == layer.solo &&
@@ -763,6 +766,49 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     _pushUndoState();
     final layer = event.layers.firstWhere((l) => l.id == layerId);
     _updateEventLayerInternal(eventId, layer.copyWith(panRight: panRight.clamp(-1.0, 1.0)));
+  }
+
+  /// Set layer stereo width (no undo — continuous slider drag)
+  void setLayerWidthContinuous(String eventId, String layerId, double width) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    _updateEventLayerInternal(eventId, layer.copyWith(stereoWidth: width.clamp(0.0, 2.0)));
+  }
+
+  /// Set layer stereo width (with undo — final value)
+  void setLayerWidth(String eventId, String layerId, double width) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    _pushUndoState();
+    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    _updateEventLayerInternal(eventId, layer.copyWith(stereoWidth: width.clamp(0.0, 2.0)));
+  }
+
+  /// Set layer input gain (no undo — continuous drag)
+  void setLayerInputGainContinuous(String eventId, String layerId, double gainDb) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    _updateEventLayerInternal(eventId, layer.copyWith(inputGain: gainDb.clamp(-20.0, 20.0)));
+  }
+
+  /// Set layer input gain (with undo — final value)
+  void setLayerInputGain(String eventId, String layerId, double gainDb) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    _pushUndoState();
+    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    _updateEventLayerInternal(eventId, layer.copyWith(inputGain: gainDb.clamp(-20.0, 20.0)));
+  }
+
+  /// Toggle layer phase invert (with undo)
+  void toggleLayerPhaseInvert(String eventId, String layerId) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    _pushUndoState();
+    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    _updateEventLayerInternal(eventId, layer.copyWith(phaseInvert: !layer.phaseInvert));
   }
 
   /// Set layer offset (no undo - use for continuous drag updates)

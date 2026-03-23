@@ -571,27 +571,24 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
     _compositeProvider.setLayerPanRight(ch.eventId, layerId, panRight.clamp(-1.0, 1.0));
   }
 
-  /// Set stereo width (continuous — no undo)
-  /// 0.0 = mono, 1.0 = normal stereo, 2.0 = extra wide
+  /// Set stereo width (continuous — no undo, for slider drag)
   void setChannelWidth(String layerId, double width) {
     final ch = _findChannel(layerId);
     if (ch == null) return;
 
     final clamped = width.clamp(0.0, 2.0);
+    if ((ch.stereoWidth - clamped).abs() < 0.001) return;
     ch.stereoWidth = clamped;
 
-    // Get layer and update via composite provider
-    SlotCompositeEvent? event;
-    for (final e in _compositeProvider.compositeEvents) {
-      if (e.id == ch.eventId) { event = e; break; }
-    }
-    if (event == null) return;
-    SlotEventLayer? layer;
-    for (final l in event.layers) {
-      if (l.id == layerId) { layer = l; break; }
-    }
-    if (layer == null) return;
-    _compositeProvider.updateEventLayer(ch.eventId, layer.copyWith(stereoWidth: clamped));
+    _compositeProvider.setLayerWidthContinuous(ch.eventId, layerId, clamped);
+  }
+
+  /// Set stereo width (final — with undo, for drag end)
+  void setChannelWidthFinal(String layerId, double width) {
+    final ch = _findChannel(layerId);
+    if (ch == null) return;
+
+    _compositeProvider.setLayerWidth(ch.eventId, layerId, width.clamp(0.0, 2.0));
   }
 
   /// Set input gain in dB (continuous — no undo)
@@ -600,39 +597,27 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
     if (ch == null) return;
 
     final clamped = gainDb.clamp(-20.0, 20.0);
+    if ((ch.inputGain - clamped).abs() < 0.01) return;
     ch.inputGain = clamped;
 
-    SlotCompositeEvent? event;
-    for (final e in _compositeProvider.compositeEvents) {
-      if (e.id == ch.eventId) { event = e; break; }
-    }
-    if (event == null) return;
-    SlotEventLayer? layer;
-    for (final l in event.layers) {
-      if (l.id == layerId) { layer = l; break; }
-    }
-    if (layer == null) return;
-    _compositeProvider.updateEventLayer(ch.eventId, layer.copyWith(inputGain: clamped));
+    _compositeProvider.setLayerInputGainContinuous(ch.eventId, layerId, clamped);
   }
 
-  /// Toggle phase invert
+  /// Set input gain (final — with undo)
+  void setChannelInputGainFinal(String layerId, double gainDb) {
+    final ch = _findChannel(layerId);
+    if (ch == null) return;
+
+    _compositeProvider.setLayerInputGain(ch.eventId, layerId, gainDb.clamp(-20.0, 20.0));
+  }
+
+  /// Toggle phase invert (with undo — single action, not continuous)
   void togglePhaseInvert(String layerId) {
     final ch = _findChannel(layerId);
     if (ch == null) return;
 
-    ch.phaseInvert = !ch.phaseInvert;
-
-    SlotCompositeEvent? event;
-    for (final e in _compositeProvider.compositeEvents) {
-      if (e.id == ch.eventId) { event = e; break; }
-    }
-    if (event == null) return;
-    SlotEventLayer? layer;
-    for (final l in event.layers) {
-      if (l.id == layerId) { layer = l; break; }
-    }
-    if (layer == null) return;
-    _compositeProvider.updateEventLayer(ch.eventId, layer.copyWith(phaseInvert: ch.phaseInvert));
+    _compositeProvider.toggleLayerPhaseInvert(ch.eventId, layerId);
+    // _onCompositeChanged will update ch.phaseInvert from layer
   }
 
   /// Toggle channel mute — syncs to composite event + active voice FFI
