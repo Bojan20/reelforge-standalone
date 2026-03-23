@@ -1419,12 +1419,15 @@ impl OneShotVoice {
 
             // Stereo width via mid/side processing
             // width=0: mono (mid only), width=1: normal, width=2: extra wide (side boosted)
+            // Energy compensation: normalize by sqrt(1 + w^2) / sqrt(2) to prevent overs at w>1
             if (self.stereo_width - 1.0).abs() > 0.01 {
                 let mid = (sample_l + sample_r) * 0.5;
                 let side = (sample_l - sample_r) * 0.5;
                 let w = self.stereo_width as f64;
-                sample_l = mid + side * w;
-                sample_r = mid - side * w;
+                // Apply width with energy compensation for w > 1.0
+                let comp = if w > 1.0 { 1.0 / (0.5 + 0.5 * w) } else { 1.0 };
+                sample_l = (mid + side * w) * comp;
+                sample_r = (mid - side * w) * comp;
             }
 
             // Phase invert (polarity flip Ø)

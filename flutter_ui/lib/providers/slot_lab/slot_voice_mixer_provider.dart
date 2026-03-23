@@ -480,13 +480,13 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
     for (final ch in _channels) {
       // L
       if (now - ch._peakHoldTimeL > _peakHoldMs && ch.peakHoldL > 0) {
-        ch.peakHoldL = (ch.peakHoldL - _peakDecayRate).clamp(0.0, 1.0);
+        ch.peakHoldL = (ch.peakHoldL - _peakDecayRate).clamp(0.0, 2.0);
         if (ch.peakHoldL <= 0) ch._peakHoldTimeL = 0;
         changed = true;
       }
       // R
       if (now - ch._peakHoldTimeR > _peakHoldMs && ch.peakHoldR > 0) {
-        ch.peakHoldR = (ch.peakHoldR - _peakDecayRate).clamp(0.0, 1.0);
+        ch.peakHoldR = (ch.peakHoldR - _peakDecayRate).clamp(0.0, 2.0);
         if (ch.peakHoldR <= 0) ch._peakHoldTimeR = 0;
         changed = true;
       }
