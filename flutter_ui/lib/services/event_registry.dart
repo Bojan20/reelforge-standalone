@@ -19,6 +19,7 @@
 /// - Configurable via AudioPoolConfig for different scenarios
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import '../spatial/auto_spatial.dart';
@@ -73,6 +74,9 @@ class AudioLayer {
   final double volume;
   final double pan;
   final double panRight; // Stereo dual-pan R channel (-1.0 to 1.0, default 0.0)
+  final double stereoWidth; // 0.0=mono, 1.0=normal, 2.0=extra wide
+  final double inputGain; // Input gain in dB (-20 to +20, 0.0=unity)
+  final bool phaseInvert; // Phase/polarity invert (Ø)
   final double delay; // Delay pre početka (ms)
   final double offset; // Offset unutar timeline-a (seconds)
   final int busId;
@@ -94,6 +98,9 @@ class AudioLayer {
     this.volume = 1.0,
     this.pan = 0.0,
     this.panRight = 0.0,
+    this.stereoWidth = 1.0,
+    this.inputGain = 0.0,
+    this.phaseInvert = false,
     this.delay = 0.0,
     this.offset = 0.0,
     this.busId = 0,
@@ -3510,14 +3517,23 @@ class EventRegistry extends ChangeNotifier {
       }
 
       if (voiceId >= 0) {
-        // Apply stereo dual-pan R channel (pan_right) immediately after voice creation.
-        // Rust engine defaults pan_right to 0.0 on activate() — must be set explicitly.
+        // Apply all non-default voice parameters immediately after creation.
+        // Rust engine defaults: pan_right=0.0, stereo_width=1.0, input_gain=1.0, phase_invert=false
+        final playback = AudioPlaybackService.instance;
         if (layer.panRight.abs() > 0.001) {
-          AudioPlaybackService.instance.updateLayerPanRight(layer.id, layer.panRight);
+          playback.updateLayerPanRight(layer.id, layer.panRight);
         }
-        // Apply stereo width if non-default (1.0 = normal, engine default)
-        // No AudioLayer field for width/phase yet — these are set from SlotEventLayer
-        // via CompositeEventSystemProvider real-time push on parameter change
+        if ((layer.stereoWidth - 1.0).abs() > 0.01) {
+          playback.updateLayerWidth(layer.id, layer.stereoWidth);
+        }
+        if (layer.inputGain.abs() > 0.01) {
+          // Convert dB to linear: 10^(dB/20)
+          final linearGain = math.pow(10.0, layer.inputGain / 20.0).toDouble();
+          playback.updateLayerInputGain(layer.id, linearGain.clamp(0.0, 4.0));
+        }
+        if (layer.phaseInvert) {
+          playback.updateLayerPhaseInvert(layer.id, true);
+        }
 
         voiceIds.add(voiceId);
         final poolStr = usePool ? ' [POOLED]' : '';
@@ -3973,6 +3989,9 @@ class EventRegistry extends ChangeNotifier {
   void updateCachedEventLayer(String eventId, String layerId, {
     double? pan,
     double? panRight,
+    double? stereoWidth,
+    double? inputGain,
+    bool? phaseInvert,
     double? volume,
     double? delay,
     int? busId,
@@ -3997,6 +4016,9 @@ class EventRegistry extends ChangeNotifier {
         volume: volume ?? layer.volume,
         pan: pan ?? layer.pan,
         panRight: panRight ?? layer.panRight,
+        stereoWidth: stereoWidth ?? layer.stereoWidth,
+        inputGain: inputGain ?? layer.inputGain,
+        phaseInvert: phaseInvert ?? layer.phaseInvert,
         delay: delay ?? layer.delay,
         offset: layer.offset,
         busId: busId ?? layer.busId,
