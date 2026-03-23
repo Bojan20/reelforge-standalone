@@ -5072,6 +5072,14 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     });
   }
 
+  String _getIntroTitle() {
+    try {
+      final gdd = context.read<SlotLabProjectProvider>().importedGdd;
+      if (gdd != null && gdd.name.isNotEmpty) return gdd.name.toUpperCase();
+    } catch (_) {}
+    return 'FLUXFORGE STUDIO';
+  }
+
   @override
   void didUpdateWidget(PremiumSlotPreview oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -6963,8 +6971,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
               ),
 
             // ═══════════════════════════════════════════════════════════════
-            // GAME INTRO TRANSITION OVERLAY — black screen that fades away
-            // to reveal base game reels. Sits on top of everything.
+            // GAME INTRO TRANSITION OVERLAY — cinematic intro with title
             // ═══════════════════════════════════════════════════════════════
             if (_isIntroTransition)
               Positioned.fill(
@@ -6973,7 +6980,42 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                     opacity: 1.0 - _introOpacity, // 1.0→0.0 as base game fades in
                     duration: const Duration(milliseconds: 1000),
                     curve: Curves.easeOut,
-                    child: Container(color: const Color(0xFF050508)),
+                    child: Container(
+                      color: const Color(0xFF050508),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Pulsing glow title
+                            ShaderMask(
+                              shaderCallback: (bounds) => const LinearGradient(
+                                colors: [Color(0xFFFFD700), Color(0xFFFFA500), Color(0xFFFFD700)],
+                              ).createShader(bounds),
+                              child: Text(
+                                _getIntroTitle(),
+                                style: const TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 6,
+                                  color: Colors.white,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'LOADING GAME...',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: 3,
+                                color: Colors.white.withValues(alpha: 0.5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
