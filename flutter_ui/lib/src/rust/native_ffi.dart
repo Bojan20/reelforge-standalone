@@ -632,6 +632,8 @@ typedef EnginePlaybackSetVoicePanNative = Int32 Function(Uint64 voiceId, Float p
 typedef EnginePlaybackSetVoicePanDart = int Function(int voiceId, double pan);
 typedef EnginePlaybackSetVoicePanRightNative = Int32 Function(Uint64 voiceId, Float panRight);
 typedef EnginePlaybackSetVoicePanRightDart = int Function(int voiceId, double panRight);
+typedef EnginePlaybackGetVoicePeakStereoNative = Int32 Function(Uint64 voiceId, Pointer<Float> peakL, Pointer<Float> peakR);
+typedef EnginePlaybackGetVoicePeakStereoDart = int Function(int voiceId, Pointer<Float> peakL, Pointer<Float> peakR);
 typedef EnginePlaybackSetVoiceMuteNative = Int32 Function(Uint64 voiceId, Int32 muted);
 typedef EnginePlaybackSetVoiceMuteDart = int Function(int voiceId, int muted);
 
@@ -2441,6 +2443,7 @@ class NativeFFI {
   late final EnginePlaybackIsVoiceActiveDart _playbackIsVoiceActive;
   late final EnginePlaybackSetVoicePanDart _playbackSetVoicePan;
   late final EnginePlaybackSetVoicePanRightDart _playbackSetVoicePanRight;
+  late final EnginePlaybackGetVoicePeakStereoDart _playbackGetVoicePeakStereo;
   late final EnginePlaybackSetVoiceMuteDart _playbackSetVoiceMute;
 
   // Section-based playback filtering
@@ -3179,6 +3182,7 @@ class NativeFFI {
     _playbackIsVoiceActive = _lib.lookupFunction<EnginePlaybackIsVoiceActiveNative, EnginePlaybackIsVoiceActiveDart>('engine_playback_is_voice_active');
     _playbackSetVoicePan = _lib.lookupFunction<EnginePlaybackSetVoicePanNative, EnginePlaybackSetVoicePanDart>('engine_playback_set_voice_pan');
     _playbackSetVoicePanRight = _lib.lookupFunction<EnginePlaybackSetVoicePanRightNative, EnginePlaybackSetVoicePanRightDart>('engine_playback_set_voice_pan_right');
+    _playbackGetVoicePeakStereo = _lib.lookupFunction<EnginePlaybackGetVoicePeakStereoNative, EnginePlaybackGetVoicePeakStereoDart>('engine_playback_get_voice_peak_stereo');
     _playbackSetVoiceMute = _lib.lookupFunction<EnginePlaybackSetVoiceMuteNative, EnginePlaybackSetVoiceMuteDart>('engine_playback_set_voice_mute');
 
     // Section-based playback filtering
@@ -5230,6 +5234,21 @@ class NativeFFI {
   bool setVoicePan(int voiceId, double pan) {
     if (!_loaded) return false;
     return _playbackSetVoicePan(voiceId, pan) == 1;
+  }
+
+  /// Get per-voice peak meter values (linear amplitude, 0.0-1.0+)
+  /// Returns (peakL, peakR) for the specified voice
+  (double, double) getVoicePeakStereo(int voiceId) {
+    if (!_loaded) return (0.0, 0.0);
+    final peakL = calloc<Float>();
+    final peakR = calloc<Float>();
+    try {
+      _playbackGetVoicePeakStereo(voiceId, peakL, peakR);
+      return (peakL.value, peakR.value);
+    } finally {
+      calloc.free(peakL);
+      calloc.free(peakR);
+    }
   }
 
   /// Set pan right for stereo dual-pan mode in real-time (-1.0 to 1.0)

@@ -951,6 +951,10 @@ pub struct OneShotVoice {
     pitch_semitones: f32,
     /// Real-time mute (voice continues but produces silence)
     muted: bool,
+    /// Per-voice peak metering (updated in fill_buffer, read by GUI via try_read)
+    /// Linear amplitude 0.0-1.0+, NOT dB. Decays toward 0 each block.
+    pub meter_peak_l: f32,
+    pub meter_peak_r: f32,
     /// Engine sample rate for sample rate conversion
     /// Source SR != engine SR → rate_ratio applied in fill_buffer
     engine_sample_rate: u32,
@@ -1045,6 +1049,9 @@ impl OneShotVoice {
             pitch_semitones: 0.0,
             // Real-time mute
             muted: false,
+            // Per-voice metering
+            meter_peak_l: 0.0,
+            meter_peak_r: 0.0,
             // Engine sample rate for SRC (set on activate)
             engine_sample_rate: 48000,
             voice_resample_mode: ResampleMode::PLAYBACK,
@@ -1084,6 +1091,8 @@ impl OneShotVoice {
         self.trim_end_sample = 0;
         self.fade_out_samples_at_end = 0;
         self.muted = false;
+        self.meter_peak_l = 0.0;
+        self.meter_peak_r = 0.0;
         // Reset to current global quality (not stale mode from previous voice)
         let mode = playback_resample_mode();
         self.voice_resample_mode = if mode.is_r8brain() {
@@ -1168,6 +1177,8 @@ impl OneShotVoice {
         // Reset pitch and mute
         self.pitch_semitones = 0.0;
         self.muted = false;
+        self.meter_peak_l = 0.0;
+        self.meter_peak_r = 0.0;
     }
 
     fn deactivate(&mut self) {
@@ -1269,6 +1280,10 @@ impl OneShotVoice {
             }
         };
         let sinc_ref = Some(&*sinc_guard);
+
+        // Per-voice peak tracking for this block
+        let mut voice_peak_l: f32 = 0.0;
+        let mut voice_peak_r: f32 = 0.0;
 
         for frame in 0..frames_needed {
             // Handle fade-out (from stop command or explicit fade_out_one_shot)
@@ -1385,9 +1400,27 @@ impl OneShotVoice {
                 sample_r = (src_r * pan_r) as f64;
             }
 
+            // Per-voice peak metering (before bus mix — track THIS voice only)
+            let abs_l = sample_l.abs();
+            let abs_r = sample_r.abs();
+            if abs_l as f32 > voice_peak_l { voice_peak_l = abs_l as f32; }
+            if abs_r as f32 > voice_peak_r { voice_peak_r = abs_r as f32; }
+
             // Add to bus buffers (mixing)
             left[frame] += sample_l;
             right[frame] += sample_r;
+        }
+
+        // Update voice peak meters with ballistic decay
+        if voice_peak_l >= self.meter_peak_l {
+            self.meter_peak_l = voice_peak_l;
+        } else {
+            self.meter_peak_l *= 0.92; // ~30ms decay at 48kHz/256 block
+        }
+        if voice_peak_r >= self.meter_peak_r {
+            self.meter_peak_r = voice_peak_r;
+        } else {
+            self.meter_peak_r *= 0.92;
         }
 
         // Advance position accounting for SRC + pitch ratio
@@ -4143,6 +4176,21 @@ impl PlaybackEngine {
             None => return true, // Assume active if lock unavailable (audio thread busy)
         };
         voices.iter().any(|v| v.id == voice_id && v.active)
+    }
+
+    /// Get per-voice peak meter values (linear amplitude)
+    /// Returns (peak_l, peak_r) for the specified voice, or (0, 0) if not found
+    pub fn get_voice_peak_stereo(&self, voice_id: u64) -> (f32, f32) {
+        let voices = match self.one_shot_voices.try_read() {
+            Some(v) => v,
+            None => return (0.0, 0.0),
+        };
+        for v in voices.iter() {
+            if v.id == voice_id && v.active {
+                return (v.meter_peak_l, v.meter_peak_r);
+            }
+        }
+        (0.0, 0.0)
     }
 
     /// Get voice pool statistics

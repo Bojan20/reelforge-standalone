@@ -23148,6 +23148,23 @@ pub extern "C" fn engine_playback_set_voice_pan(voice_id: u64, pan: f32) -> i32 
     1
 }
 
+/// Get per-voice peak meter values (linear amplitude)
+/// peak_l/peak_r: output pointers for L/R peak values
+/// Returns 1 on success, 0 if voice not found
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_playback_get_voice_peak_stereo(
+    voice_id: u64,
+    peak_l: *mut f32,
+    peak_r: *mut f32,
+) -> i32 {
+    let (l, r) = PLAYBACK_ENGINE.get_voice_peak_stereo(voice_id);
+    unsafe {
+        if !peak_l.is_null() { *peak_l = l; }
+        if !peak_r.is_null() { *peak_r = r; }
+    }
+    1
+}
+
 /// Set pan right for stereo dual-pan mode in real-time
 /// voice_id: voice to update, pan_right: -1.0 to 1.0
 #[unsafe(no_mangle)]

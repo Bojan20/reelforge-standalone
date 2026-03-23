@@ -17,7 +17,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import '../../models/slot_audio_events.dart';
 import '../../services/audio_playback_service.dart';
-import '../../services/shared_meter_reader.dart';
+import '../../src/rust/native_ffi.dart';
 import '../subsystems/composite_event_system_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -114,23 +114,6 @@ String busIdToName(int busId) {
   };
 }
 
-/// Map SlotBusIds → SharedMeterReader channel index
-/// SharedMeterReader channels: 0=SFX, 1=Music, 2=Voice, 3=Ambience, 4=Aux, 5=Master
-/// SlotBusIds: master=0, music=1, sfx=2, voice=3, ui=4, reels=5, wins=6, anticipation=7
-int _busIdToMeterChannel(int busId) {
-  return switch (busId) {
-    SlotBusIds.master => 5,
-    SlotBusIds.music => 1,
-    SlotBusIds.sfx => 0,
-    SlotBusIds.voice => 2,
-    SlotBusIds.ui => 4, // UI → Aux meter channel
-    SlotBusIds.reels => 0, // sub-bus of SFX
-    SlotBusIds.wins => 0, // sub-bus of SFX
-    SlotBusIds.anticipation => 0, // sub-bus of SFX
-    _ => 0,
-  };
-}
-
 /// Parse display name from audio path
 /// "/path/to/sfx_reel_stop_01.wav" → "Reel Stop 01"
 String _parseDisplayName(String audioPath, String layerName) {
@@ -185,9 +168,6 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
   /// Ticker for metering and voice mapping (30fps)
   Ticker? _ticker;
 
-  /// Metering state
-  bool _meterInitialized = false;
-
   /// Peak hold constants
   static const int _peakHoldMs = 1500;
   static const double _peakDecayRate = 0.02;
@@ -221,8 +201,6 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
     // Initial build
     _rebuildChannels();
 
-    // Init metering
-    _initMetering();
   }
 
   @override
@@ -258,13 +236,6 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
     SlotBusIds.voice,
     SlotBusIds.ui,
   ];
-
-  // ─── Metering Init ───────────────────────────────────────────────────────
-
-  Future<void> _initMetering() async {
-    final success = await SharedMeterReader.instance.initialize();
-    _meterInitialized = success;
-  }
 
   /// Start metering ticker — call from widget's initState with TickerProvider
   void startMetering(TickerProvider vsync) {
@@ -402,74 +373,46 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
       changed = true;
     }
 
-    // 2. Approximate per-voice metering from bus peaks
-    if (_meterInitialized && SharedMeterReader.instance.hasChanged) {
-      final snapshot = SharedMeterReader.instance.readMeters();
-      final now = DateTime.now().millisecondsSinceEpoch;
+    // 2. Real per-voice metering from Rust engine (NOT approximate)
+    // Each voice tracks its own peak in fill_buffer (audio thread)
+    // GUI reads via try_read lock — zero-copy, no bus proportional split needed
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final ffi = NativeFFI.instance;
 
-      // Calculate total playing volume per bus (for proportional split)
-      final busPlayingVolume = <int, double>{};
-      for (final ch in _channels) {
-        if (ch.isPlaying) {
-          busPlayingVolume[ch.busId] =
-              (busPlayingVolume[ch.busId] ?? 0.0) + ch.volume;
+    for (final ch in _channels) {
+      if (ch.isPlaying && ch.activeVoiceId != null) {
+        final (peakL, peakR) = ffi.getVoicePeakStereo(ch.activeVoiceId!);
+        ch.peakL = peakL.clamp(0.0, 2.0);
+        ch.peakR = peakR.clamp(0.0, 2.0);
+
+        // Peak hold L
+        if (ch.peakL >= ch.peakHoldL) {
+          ch.peakHoldL = ch.peakL;
+          ch._peakHoldTimeL = now;
+        }
+        // Peak hold R
+        if (ch.peakR >= ch.peakHoldR) {
+          ch.peakHoldR = ch.peakR;
+          ch._peakHoldTimeR = now;
+        }
+        changed = true;
+      } else {
+        // Not playing — gradual meter decay
+        if (ch.peakL > 0.001) {
+          ch.peakL *= 0.85;
+          if (ch.peakL < 0.001) ch.peakL = 0.0;
+          changed = true;
+        }
+        if (ch.peakR > 0.001) {
+          ch.peakR *= 0.85;
+          if (ch.peakR < 0.001) ch.peakR = 0.0;
+          changed = true;
         }
       }
-
-      for (final ch in _channels) {
-        if (ch.isPlaying) {
-          final meterCh = _busIdToMeterChannel(ch.busId);
-          final leftIdx = meterCh * 2;
-          final rightIdx = leftIdx + 1;
-
-          if (leftIdx < snapshot.channelPeaks.length) {
-            final busPeakL = snapshot.channelPeaks[leftIdx].clamp(0.0, 1.0);
-            final busPeakR = rightIdx < snapshot.channelPeaks.length
-                ? snapshot.channelPeaks[rightIdx].clamp(0.0, 1.0)
-                : busPeakL;
-
-            // Proportional split: voice peak ≈ bus peak × (voice volume / total bus volume)
-            final totalVol = busPlayingVolume[ch.busId] ?? 1.0;
-            final ratio = totalVol > 0.001 ? (ch.volume / totalVol).clamp(0.0, 1.0) : 0.0;
-
-            ch.peakL = busPeakL * ratio;
-            ch.peakR = busPeakR * ratio;
-
-            // Peak hold L
-            if (ch.peakL >= ch.peakHoldL) {
-              ch.peakHoldL = ch.peakL;
-              ch._peakHoldTimeL = now;
-            }
-            // Peak hold R
-            if (ch.peakR >= ch.peakHoldR) {
-              ch.peakHoldR = ch.peakR;
-              ch._peakHoldTimeR = now;
-            }
-
-            changed = true;
-          }
-        } else {
-          // Not playing — gradual meter decay (smooth visual transition)
-          if (ch.peakL > 0.001) {
-            ch.peakL *= 0.85; // ~100ms decay to zero at 30fps
-            if (ch.peakL < 0.001) ch.peakL = 0.0;
-            changed = true;
-          }
-          if (ch.peakR > 0.001) {
-            ch.peakR *= 0.85;
-            if (ch.peakR < 0.001) ch.peakR = 0.0;
-            changed = true;
-          }
-        }
-      }
-
-      // Peak hold decay
-      if (_decayPeakHold(now)) changed = true;
-    } else {
-      // No new meter data — still decay peak hold
-      final now = DateTime.now().millisecondsSinceEpoch;
-      if (_decayPeakHold(now)) changed = true;
     }
+
+    // Peak hold decay
+    if (_decayPeakHold(now)) changed = true;
 
     if (changed) notifyListeners();
   }
