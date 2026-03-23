@@ -49,6 +49,7 @@ import '../common/git_panel.dart';
 import '../common/analytics_dashboard.dart';
 import '../common/documentation_viewer.dart';
 import '../../providers/git_provider.dart';
+import '../slot_lab/slot_voice_mixer.dart';
 import '../slot_lab/slotlab_bus_mixer.dart';
 import '../slot_lab/lower_zone/events/composite_editor_panel.dart';
 import 'package:get_it/get_it.dart';
@@ -1147,6 +1148,7 @@ class _SlotLabLowerZoneWidgetState extends State<SlotLabLowerZoneWidget> {
   Widget _buildMixContent() {
     final subTab = widget.controller.state.mixSubTab;
     return switch (subTab) {
+      SlotLabMixSubTab.voices => const SlotVoiceMixer(),
       SlotLabMixSubTab.buses => const SlotLabBusMixer(),
       SlotLabMixSubTab.sends => LayoutBuilder(
         builder: (context, constraints) => AuxSendsPanel(

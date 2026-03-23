@@ -37,6 +37,7 @@ import '../providers/subsystems/random_containers_provider.dart';
 import '../providers/subsystems/sequence_containers_provider.dart';
 import '../providers/subsystems/music_system_provider.dart';
 import '../providers/subsystems/event_system_provider.dart';
+import '../providers/slot_lab/slot_voice_mixer_provider.dart';
 import '../providers/subsystems/composite_event_system_provider.dart';
 import '../providers/subsystems/bus_hierarchy_provider.dart';
 import '../providers/subsystems/aux_send_provider.dart';
@@ -209,6 +210,11 @@ class ServiceLocator {
       () => CompositeEventSystemProvider(
         ffi: sl<NativeFFI>(),
         eventSystemProvider: sl<EventSystemProvider>(),
+      ),
+    );
+    sl.registerLazySingleton<SlotVoiceMixerProvider>(
+      () => SlotVoiceMixerProvider(
+        compositeProvider: sl<CompositeEventSystemProvider>(),
       ),
     );
     sl.registerLazySingleton<BusHierarchyProvider>(

@@ -57,7 +57,7 @@ class SlotLabLowerZoneController extends ChangeNotifier {
   List<int>? get subTabGroupBreaks => switch (_state.superTab) {
     SlotLabSuperTab.stages    => null, // 5 tabs — no grouping needed
     SlotLabSuperTab.events    => const [2, 4],    // Folder+Editor+Layers | Pool+Auto | Templates+DepGraph
-    SlotLabSuperTab.mix       => const [2],       // Buses+Sends+Pan | Meter+Hierarchy+Ducking
+    SlotLabSuperTab.mix       => const [1, 4],     // Voices | Buses+Sends+Pan | Meter+Hierarchy+Ducking
     SlotLabSuperTab.dsp       => const [5, 8],    // Chain+EQ+Comp+Rev+Gate+Lim | Atten+Sigs+DSPProf | LayerDSP+Morph+Spatial
     SlotLabSuperTab.rtpc      => null, // 4 tabs — no grouping needed
     SlotLabSuperTab.containers=> const [4, 6],    // Blend+Random+Seq+A/B+Xfade | Groups+Presets | Metrics+Timeline+Wizard

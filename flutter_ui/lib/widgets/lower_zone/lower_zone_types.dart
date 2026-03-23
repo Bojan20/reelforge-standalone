@@ -766,7 +766,7 @@ extension SlotLabSuperTabX on SlotLabSuperTab {
 
 enum SlotLabStagesSubTab { trace, timeline, timing, layerTimeline }
 enum SlotLabEventsSubTab { folder, editor, layers, pool, auto, templates, depGraph }
-enum SlotLabMixSubTab { buses, sends, pan, meter, hierarchy, ducking }
+enum SlotLabMixSubTab { voices, buses, sends, pan, meter, hierarchy, ducking }
 enum SlotLabDspSubTab { chain, eq, comp, reverb, gate, limiter, attenuation, signatures, dspProfiler, layerDsp, presetMorph, spatial }
 enum SlotLabRtpcSubTab { curves, macros, dspBinding, debugger }
 enum SlotLabContainersSubTab { blend, random, sequence, abCompare, crossfade, groups, presets, metrics, timeline, wizard }
@@ -808,9 +808,10 @@ extension SlotLabEventsSubTabX on SlotLabEventsSubTab {
 }
 
 extension SlotLabMixSubTabX on SlotLabMixSubTab {
-  String get label => ['Buses', 'Sends', 'Pan', 'Meter', 'Hierarchy', 'Ducking'][index];
-  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y'][index];
+  String get label => ['Voices', 'Buses', 'Sends', 'Pan', 'Meter', 'Hierarchy', 'Ducking'][index];
+  String get shortcut => ['Q', 'W', 'E', 'R', 'T', 'Y', 'U'][index];
   String get tooltip => [
+    'Voice mixer — per-sound faders, mute/solo, real-time metering',
     'Bus mixer — per-bus faders, mute/solo',
     'Aux sends — effect send/return routing matrix',
     'Pan — stereo/surround panning controls',

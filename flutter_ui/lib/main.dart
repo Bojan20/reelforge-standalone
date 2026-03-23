@@ -54,6 +54,7 @@ import 'providers/middleware_provider.dart';
 import 'providers/stage_provider.dart';
 import 'providers/stage_ingest_provider.dart';
 import 'providers/slot_lab/slot_lab_coordinator.dart';
+import 'providers/slot_lab/slot_voice_mixer_provider.dart';
 import 'providers/slot_lab/game_flow_provider.dart';
 import 'providers/slot_lab_project_provider.dart';
 import 'providers/ale_provider.dart';
@@ -336,6 +337,11 @@ class FluxForgeApp extends StatelessWidget {
         // Adaptive Layer Engine (ALE) — MUST use GetIt singleton, not new instance
         ChangeNotifierProvider<AleProvider>.value(
           value: sl<AleProvider>(),
+        ),
+
+        // SlotLab Voice Mixer — MUST use GetIt singleton, not new instance
+        ChangeNotifierProvider<SlotVoiceMixerProvider>.value(
+          value: sl<SlotVoiceMixerProvider>(),
         ),
 
         // Unified Audio Asset Manager (SINGLE SOURCE OF TRUTH)
