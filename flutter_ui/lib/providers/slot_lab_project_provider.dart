@@ -1173,11 +1173,11 @@ class SlotLabProjectProvider extends ChangeNotifier {
       }
     }
 
-    // NofM pattern: "3of5" → index
+    // NofM pattern: "3of5" or "3_of_5" or "3_of5" → index
     String matchBase = expanded;
     final svc = StageConfigurationService.instance;
     int? nOfMIndex;
-    final nofmMatch = RegExp(r'_?(\d+)of\d+').firstMatch(matchBase);
+    final nofmMatch = RegExp(r'_?(\d+)_?of_?(\d+)').firstMatch(matchBase);
     if (nofmMatch != null) {
       nOfMIndex = int.tryParse(nofmMatch.group(1)!);
       matchBase = matchBase.replaceFirst(nofmMatch.group(0)!, '')
