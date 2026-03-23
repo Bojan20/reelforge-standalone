@@ -163,9 +163,10 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
   /// Channels sorted by busId, then by eventId, then by layerId
   List<SlotMixerChannel> _channels = [];
 
-  /// Custom channel order (persists user drag-drop across rebuilds)
-  /// If empty, default sort applies. If populated, layerIds in this order take priority.
-  List<String> _customOrder = [];
+  /// Per-bus custom channel order (persists user drag-drop across rebuilds)
+  /// Key = busId, Value = ordered layerIds within that bus group.
+  /// If a bus has no entry, default sort applies for that bus.
+  final Map<int, List<String>> _customOrderByBus = {};
 
   /// Cached bus grouping — rebuilt only when channels change, not on every getter call
   Map<int, List<SlotMixerChannel>> _channelsByBusCache = {};
@@ -177,9 +178,9 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
   static const int _peakHoldMs = 1500;
   static const double _peakDecayRate = 0.02;
 
-  /// Metering throttle — skip frames to target ~30fps instead of vsync (60-120fps)
-  int _meterFrameCounter = 0;
-  static const int _meterFrameSkip = 2; // Process every 2nd frame → ~30fps at 60Hz
+  /// Metering throttle — time-based ~33ms interval (~30fps regardless of display refresh)
+  int _lastMeterTickMs = 0;
+  static const int _meterIntervalMs = 33; // ~30fps
 
   /// Solo state cache — true if any channel is soloed
   bool _hasSoloActive = false;
@@ -249,7 +250,7 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
   /// Start metering ticker — call from widget's initState with TickerProvider
   void startMetering(TickerProvider vsync) {
     _ticker?.dispose();
-    _meterFrameCounter = 0;
+    _lastMeterTickMs = 0;
     _ticker = vsync.createTicker(_onMeterTick)..start();
   }
 
@@ -322,41 +323,53 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
       }
     }
 
-    // Prune stale IDs from custom order (channels that no longer exist)
-    if (_customOrder.isNotEmpty) {
-      _customOrder.retainWhere((id) => newChannelMap.containsKey(id));
+    // Prune stale IDs from per-bus custom order
+    for (final busId in _customOrderByBus.keys.toList()) {
+      _customOrderByBus[busId]?.retainWhere((id) => newChannelMap.containsKey(id));
+      if (_customOrderByBus[busId]?.isEmpty ?? true) {
+        _customOrderByBus.remove(busId);
+      }
     }
 
-    // Sort: use custom order if available, otherwise default sort
-    List<SlotMixerChannel> sorted;
-    if (_customOrder.isNotEmpty) {
-      // Custom order: preserve user drag-drop arrangement
-      // Channels not in custom order go to the end (new channels)
-      final orderMap = <String, int>{};
-      for (int i = 0; i < _customOrder.length; i++) {
-        orderMap[_customOrder[i]] = i;
+    // Sort: per-bus custom order where available, default sort otherwise
+    // First: group by bus, then sort within each bus group
+    final sorted = <SlotMixerChannel>[];
+    final grouped = <int, List<SlotMixerChannel>>{};
+    for (final ch in newChannelMap.values) {
+      grouped.putIfAbsent(ch.busId, () => []).add(ch);
+    }
+
+    for (final busId in busDisplayOrder) {
+      final group = grouped.remove(busId);
+      if (group == null || group.isEmpty) continue;
+
+      final busOrder = _customOrderByBus[busId];
+      if (busOrder != null && busOrder.isNotEmpty) {
+        // Per-bus custom order
+        final orderMap = <String, int>{};
+        for (int i = 0; i < busOrder.length; i++) {
+          orderMap[busOrder[i]] = i;
+        }
+        group.sort((a, b) {
+          final oa = orderMap[a.layerId] ?? 99999;
+          final ob = orderMap[b.layerId] ?? 99999;
+          if (oa != ob) return oa.compareTo(ob);
+          return a.layerId.compareTo(b.layerId);
+        });
+      } else {
+        // Default sort within bus: by stage name, then layer id
+        group.sort((a, b) {
+          final sc = a.stageName.compareTo(b.stageName);
+          if (sc != 0) return sc;
+          return a.layerId.compareTo(b.layerId);
+        });
       }
-      sorted = newChannelMap.values.toList()
-        ..sort((a, b) {
-          final orderA = orderMap[a.layerId] ?? 99999;
-          final orderB = orderMap[b.layerId] ?? 99999;
-          if (orderA != orderB) return orderA.compareTo(orderB);
-          // New channels: fall back to default sort
-          return a.layerId.compareTo(b.layerId);
-        });
-    } else {
-      // Default sort: by bus display order, then by stage name, then by layer id
-      sorted = newChannelMap.values.toList()
-        ..sort((a, b) {
-          final busOrderA = busDisplayOrder.indexOf(a.busId);
-          final busOrderB = busDisplayOrder.indexOf(b.busId);
-          final busA = busOrderA >= 0 ? busOrderA : 999;
-          final busB = busOrderB >= 0 ? busOrderB : 999;
-          if (busA != busB) return busA.compareTo(busB);
-          final stageComp = a.stageName.compareTo(b.stageName);
-          if (stageComp != 0) return stageComp;
-          return a.layerId.compareTo(b.layerId);
-        });
+      sorted.addAll(group);
+    }
+    // Remaining buses not in display order
+    for (final group in grouped.values) {
+      group.sort((a, b) => a.layerId.compareTo(b.layerId));
+      sorted.addAll(group);
     }
 
     _channels = sorted;
@@ -382,10 +395,10 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
   void _onMeterTick(Duration elapsed) {
     if (_channels.isEmpty) return;
 
-    // Throttle: process every Nth frame to target ~30fps
-    _meterFrameCounter++;
-    if (_meterFrameCounter < _meterFrameSkip) return;
-    _meterFrameCounter = 0;
+    // Time-based throttle: ~30fps regardless of display refresh rate
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    if (nowMs - _lastMeterTickMs < _meterIntervalMs) return;
+    _lastMeterTickMs = nowMs;
 
     bool changed = false;
 
@@ -723,7 +736,7 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
   // ─── Reorder ───────────────────────────────────────────────────────────
 
   /// Reorder channel from oldIndex to newIndex
-  /// Persists custom order across rebuilds via _customOrder
+  /// Persists per-bus custom order across rebuilds
   void reorderChannel(int oldIndex, int newIndex) {
     if (oldIndex < 0 || oldIndex >= _channels.length) return;
     if (newIndex < 0 || newIndex >= _channels.length) return;
@@ -732,8 +745,14 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
     final channel = _channels.removeAt(oldIndex);
     _channels.insert(newIndex > oldIndex ? newIndex - 1 : newIndex, channel);
 
-    // Persist custom order
-    _customOrder = _channels.map((c) => c.layerId).toList();
+    // Persist per-bus custom order
+    final byBus = <int, List<String>>{};
+    for (final ch in _channels) {
+      byBus.putIfAbsent(ch.busId, () => []).add(ch.layerId);
+    }
+    _customOrderByBus
+      ..clear()
+      ..addAll(byBus);
 
     // Rebuild bus cache
     _channelsByBusCache = {};

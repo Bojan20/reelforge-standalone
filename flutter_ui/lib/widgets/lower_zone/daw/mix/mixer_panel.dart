@@ -44,17 +44,20 @@ class MixerPanel extends StatelessWidget {
     }
 
     // Convert MixerProvider channels to UltimateMixerChannel format
-    // Helper: convert MixerProvider route tuples → IoRoute objects
+    // Cache routes per channelId — same routes for most channels, avoid redundant iteration
+    final _routesCache = <String, List<IoRoute>>{};
     List<IoRoute> routesForChannel(String channelId) {
-      return mixerProvider.getAvailableOutputRoutes(channelId).map((r) {
-        final routeType = switch (r.type) {
-          'master' => IoRouteType.master,
-          'bus' => IoRouteType.bus,
-          'aux' => IoRouteType.aux,
-          _ => IoRouteType.bus,
-        };
-        return IoRoute(id: r.id, name: r.name, type: routeType);
-      }).toList();
+      return _routesCache.putIfAbsent(channelId, () {
+        return mixerProvider.getAvailableOutputRoutes(channelId).map((r) {
+          final routeType = switch (r.type) {
+            'master' => IoRouteType.master,
+            'bus' => IoRouteType.bus,
+            'aux' => IoRouteType.aux,
+            _ => IoRouteType.bus,
+          };
+          return IoRoute(id: r.id, name: r.name, type: routeType);
+        }).toList();
+      });
     }
 
     final channels = mixerProvider.channels.map((ch) {

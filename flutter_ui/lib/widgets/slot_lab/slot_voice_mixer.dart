@@ -12,6 +12,7 @@
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -272,7 +273,7 @@ class _SlotVoiceMixerState extends State<SlotVoiceMixer>
                         opacity: 0.9,
                         child: SizedBox(
                           width: mixer.isCompact ? 56.0 : 68.0,
-                          height: 300,
+                          height: MediaQuery.of(context).size.height * 0.35,
                           child: _VoiceStrip(
                             channel: ch,
                             hasSoloActive: hasSolo,
@@ -1735,34 +1736,76 @@ class _MasterStrip extends StatefulWidget {
   State<_MasterStrip> createState() => _MasterStripState();
 }
 
-class _MasterStripState extends State<_MasterStrip> {
-  // Master metering from SharedMeterReader
+class _MasterStripState extends State<_MasterStrip>
+    with SingleTickerProviderStateMixin {
+  // Master metering from SharedMeterReader — proper ticker, not build() mutation
   double _peakL = 0, _peakR = 0;
   double _peakHoldL = 0, _peakHoldR = 0;
   int _holdTimeL = 0, _holdTimeR = 0;
+  late Ticker _meterTicker;
+  int _frameCounter = 0;
+  bool _meterReady = false;
 
-  // Read fresh bus state from provider on every build (not stale widget param)
   MixerBus get bus => widget.busMixer.getBus('master') ??
       const MixerBus(id: 'master', name: 'Master', volume: 1.0);
 
   @override
-  Widget build(BuildContext context) {
-    // Read master meters + update peak hold
+  void initState() {
+    super.initState();
+    _meterTicker = createTicker(_onMeterTick)..start();
+    SharedMeterReader.instance.initialize().then((ok) {
+      if (mounted) _meterReady = ok;
+    });
+  }
+
+  @override
+  void dispose() {
+    _meterTicker.dispose();
+    super.dispose();
+  }
+
+  void _onMeterTick(Duration elapsed) {
+    _frameCounter++;
+    if (_frameCounter < 2) return; // ~30fps throttle
+    _frameCounter = 0;
+
+    if (!_meterReady) return;
+
+    bool changed = false;
     final now = DateTime.now().millisecondsSinceEpoch;
+
     if (SharedMeterReader.instance.hasChanged) {
       final snap = SharedMeterReader.instance.readMeters();
-      _peakL = snap.masterPeakL.clamp(0.0, 1.0);
-      _peakR = snap.masterPeakR.clamp(0.0, 1.0);
-      if (_peakL >= _peakHoldL) { _peakHoldL = _peakL; _holdTimeL = now; }
-      if (_peakR >= _peakHoldR) { _peakHoldR = _peakR; _holdTimeR = now; }
+      final newL = snap.masterPeakL.clamp(0.0, 1.0);
+      final newR = snap.masterPeakR.clamp(0.0, 1.0);
+      if ((_peakL - newL).abs() > 0.005 || (_peakR - newR).abs() > 0.005) {
+        _peakL = newL;
+        _peakR = newR;
+        changed = true;
+      }
+      if (newL >= _peakHoldL) { _peakHoldL = newL; _holdTimeL = now; }
+      if (newR >= _peakHoldR) { _peakHoldR = newR; _holdTimeR = now; }
     }
+
     // Peak hold decay
     if (now - _holdTimeL > 1500 && _peakHoldL > 0) {
       _peakHoldL = (_peakHoldL - 0.02).clamp(0.0, 1.0);
+      changed = true;
     }
     if (now - _holdTimeR > 1500 && _peakHoldR > 0) {
       _peakHoldR = (_peakHoldR - 0.02).clamp(0.0, 1.0);
+      changed = true;
     }
+
+    // Meter decay when nothing playing
+    if (_peakL > 0.001) { _peakL *= 0.85; changed = true; }
+    if (_peakR > 0.001) { _peakR *= 0.85; changed = true; }
+
+    if (changed && mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
 
     return Container(
       width: 82,
