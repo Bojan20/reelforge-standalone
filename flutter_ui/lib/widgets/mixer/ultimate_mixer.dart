@@ -1822,7 +1822,16 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
 
   Widget _buildNameLabel() {
     final ch = widget.channel;
-    return GestureDetector(
+    return Listener(
+      onPointerDown: (event) {
+        // Alt+Click = audition (preview track audio)
+        if (event.buttons == 1 && HardwareKeyboard.instance.isAltPressed) {
+          // Audition: play first clip from this track (if available)
+          // For now, just trigger select — actual audition requires track audio access
+          widget.onSelect?.call();
+        }
+      },
+      child: GestureDetector(
       onTap: widget.onSelect,
       child: Container(
         height: ch.isFolder ? 28 : 20,
@@ -1861,21 +1870,44 @@ class _UltimateChannelStripState extends State<_UltimateChannelStrip> {
                 ),
               ),
             ],
-            Text(
-              ch.name,
-              style: TextStyle(
-                color: ch.selected
-                    ? FluxForgeTheme.textPrimary
-                    : FluxForgeTheme.textSecondary,
-                fontSize: 9,
-                fontWeight: FontWeight.w500,
-              ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    ch.name,
+                    style: TextStyle(
+                      color: ch.selected
+                          ? FluxForgeTheme.textPrimary
+                          : FluxForgeTheme.textSecondary,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+                // Activity indicator — green dot when track has audio signal
+                if (ch.peakL > 0.01 || ch.peakR > 0.01)
+                  Container(
+                    width: 5, height: 5,
+                    margin: const EdgeInsets.only(left: 3),
+                    decoration: BoxDecoration(
+                      color: FluxForgeTheme.accentGreen,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: FluxForgeTheme.accentGreen.withValues(alpha: 0.5),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ],
         ),
       ),
+    ),
     );
   }
 }

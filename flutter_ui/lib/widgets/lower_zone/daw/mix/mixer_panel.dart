@@ -19,6 +19,7 @@ import 'package:provider/provider.dart';
 import '../../lower_zone_types.dart';
 import '../../../../providers/mixer_provider.dart';
 import '../../../mixer/ultimate_mixer.dart' as ultimate;
+import '../../../mixer/io_selector_popup.dart' show IoRoute, IoRouteType;
 import '../../../meters/lufs_meter_widget.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -43,6 +44,19 @@ class MixerPanel extends StatelessWidget {
     }
 
     // Convert MixerProvider channels to UltimateMixerChannel format
+    // Helper: convert MixerProvider route tuples → IoRoute objects
+    List<IoRoute> routesForChannel(String channelId) {
+      return mixerProvider.getAvailableOutputRoutes(channelId).map((r) {
+        final routeType = switch (r.type) {
+          'master' => IoRouteType.master,
+          'bus' => IoRouteType.bus,
+          'aux' => IoRouteType.aux,
+          _ => IoRouteType.bus,
+        };
+        return IoRoute(id: r.id, name: r.name, type: routeType);
+      }).toList();
+    }
+
     final channels = mixerProvider.channels.map((ch) {
       return ultimate.UltimateMixerChannel(
         id: ch.id,
@@ -62,6 +76,8 @@ class MixerPanel extends StatelessWidget {
         rmsR: ch.rmsR,
         lufsShort: ch.lufsShort,
         lufsIntegrated: ch.lufsIntegrated,
+        outputBus: ch.outputBus ?? 'master',
+        availableOutputRoutes: routesForChannel(ch.id),
       );
     }).toList();
 
@@ -83,6 +99,8 @@ class MixerPanel extends StatelessWidget {
         rmsR: bus.rmsR,
         lufsShort: bus.lufsShort,
         lufsIntegrated: bus.lufsIntegrated,
+        outputBus: bus.outputBus ?? 'master',
+        availableOutputRoutes: routesForChannel(bus.id),
       );
     }).toList();
 
@@ -98,6 +116,8 @@ class MixerPanel extends StatelessWidget {
         soloed: aux.soloed,
         peakL: aux.peakL,
         peakR: aux.peakR,
+        outputBus: aux.outputBus ?? 'master',
+        availableOutputRoutes: routesForChannel(aux.id),
       );
     }).toList();
 
