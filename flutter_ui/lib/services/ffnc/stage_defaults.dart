@@ -82,9 +82,9 @@ class StageDefaults {
     // Reel stops
     'REEL_STOP_': StageDefault(volume: 1.0, busId: 2, fadeOutMs: 100),
 
-    // Anticipation
-    'ANTICIPATION_TENSION_R': StageDefault(volume: 1.0, busId: 2, fadeInMs: 300, loop: true),
-    'ANTICIPATION_': StageDefault(volume: 1.0, busId: 2, fadeInMs: 300, loop: true),
+    // Anticipation — one-shot, plays once during anticipation phase
+    'ANTICIPATION_TENSION_R': StageDefault(volume: 1.0, busId: 2, fadeInMs: 300),
+    'ANTICIPATION_': StageDefault(volume: 1.0, busId: 2, fadeInMs: 300),
 
     // Win tiers
     'WIN_PRESENT_': StageDefault(volume: 1.0, busId: 2),
@@ -193,7 +193,7 @@ class StageDefaults {
     'REEL_NUDGE': StageDefault(volume: 1.0, busId: 2),
 
     // Anticipation
-    'ANTICIPATION_TENSION': StageDefault(volume: 1.0, busId: 2, fadeInMs: 300, loop: true),
+    'ANTICIPATION_TENSION': StageDefault(volume: 1.0, busId: 2, fadeInMs: 300),
     'ANTICIPATION_OFF': StageDefault(volume: 1.0, busId: 2, fadeOutMs: 200),
     'ANTICIPATION_MISS': StageDefault(volume: 1.0, busId: 2),
 
