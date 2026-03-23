@@ -3515,6 +3515,9 @@ class EventRegistry extends ChangeNotifier {
         if (layer.panRight.abs() > 0.001) {
           AudioPlaybackService.instance.updateLayerPanRight(layer.id, layer.panRight);
         }
+        // Apply stereo width if non-default (1.0 = normal, engine default)
+        // No AudioLayer field for width/phase yet — these are set from SlotEventLayer
+        // via CompositeEventSystemProvider real-time push on parameter change
 
         voiceIds.add(voiceId);
         final poolStr = usePool ? ' [POOLED]' : '';

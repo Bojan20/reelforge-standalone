@@ -23168,6 +23168,20 @@ pub extern "C" fn engine_playback_get_voice_peak_stereo(
     if found { 1 } else { 0 }
 }
 
+/// Set stereo width for active voice in real-time (0.0=mono, 1.0=normal, 2.0=wide)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_playback_set_voice_width(voice_id: u64, width: f32) -> i32 {
+    PLAYBACK_ENGINE.set_voice_width(voice_id, width);
+    1
+}
+
+/// Set phase invert for active voice in real-time (1=inverted, 0=normal)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_playback_set_voice_phase_invert(voice_id: u64, invert: i32) -> i32 {
+    PLAYBACK_ENGINE.set_voice_phase_invert(voice_id, invert != 0);
+    1
+}
+
 /// Set pan right for stereo dual-pan mode in real-time
 /// voice_id: voice to update, pan_right: -1.0 to 1.0
 #[unsafe(no_mangle)]

@@ -1007,6 +1007,24 @@ class AudioPlaybackService extends ChangeNotifier {
     }
   }
 
+  /// Update stereo width for a specific voice by layer ID
+  void updateLayerWidth(String layerId, double width) {
+    for (final voice in _activeVoices) {
+      if (voice.layerId == layerId) {
+        _ffi.setVoiceWidth(voice.voiceId, width);
+      }
+    }
+  }
+
+  /// Update phase invert for a specific voice by layer ID
+  void updateLayerPhaseInvert(String layerId, bool invert) {
+    for (final voice in _activeVoices) {
+      if (voice.layerId == layerId) {
+        _ffi.setVoicePhaseInvert(voice.voiceId, invert);
+      }
+    }
+  }
+
   /// Update mute for a specific voice by layer ID
   void updateLayerMute(String layerId, bool muted) {
     for (final voice in _activeVoices) {

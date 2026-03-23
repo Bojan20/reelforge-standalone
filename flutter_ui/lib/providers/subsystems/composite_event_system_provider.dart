@@ -662,6 +662,12 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       if (oldLayer.panRight != layer.panRight) {
         AudioPlaybackService.instance.updateLayerPanRight(layer.id, layer.panRight);
       }
+      if (oldLayer.stereoWidth != layer.stereoWidth) {
+        AudioPlaybackService.instance.updateLayerWidth(layer.id, layer.stereoWidth);
+      }
+      if (oldLayer.phaseInvert != layer.phaseInvert) {
+        AudioPlaybackService.instance.updateLayerPhaseInvert(layer.id, layer.phaseInvert);
+      }
       if (oldLayer.muted != layer.muted) {
         registry.updateActiveLayerMute(layer.id, layer.muted);
       }

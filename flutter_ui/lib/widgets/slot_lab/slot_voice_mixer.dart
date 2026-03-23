@@ -719,8 +719,20 @@ class _VoiceStripState extends State<_VoiceStrip> {
               ),
             ),
           ),
-          // Gain display
-          Column(
+          // Gain control — vertical drag to change, double-tap to reset
+          GestureDetector(
+            onVerticalDragUpdate: (details) {
+              final delta = -details.delta.dy * 0.3; // 0.3 dB per pixel
+              widget.provider.setChannelInputGain(ch.layerId, ch.inputGain + delta);
+            },
+            onVerticalDragEnd: (_) {
+              widget.provider.setChannelInputGainFinal(ch.layerId, ch.inputGain);
+            },
+            onDoubleTap: () {
+              widget.provider.setChannelInputGain(ch.layerId, 0.0);
+              widget.provider.setChannelInputGainFinal(ch.layerId, 0.0);
+            },
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('GAIN', style: TextStyle(fontSize: 6, fontWeight: FontWeight.w600, color: FluxForgeTheme.textDisabled, letterSpacing: 0.5)),
@@ -734,6 +746,7 @@ class _VoiceStripState extends State<_VoiceStrip> {
                 ),
               ),
             ],
+          ),
           ),
         ],
       ),

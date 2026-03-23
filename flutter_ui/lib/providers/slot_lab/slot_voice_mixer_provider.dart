@@ -162,6 +162,10 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
   /// Channels sorted by busId, then by eventId, then by layerId
   List<SlotMixerChannel> _channels = [];
 
+  /// Custom channel order (persists user drag-drop across rebuilds)
+  /// If empty, default sort applies. If populated, layerIds in this order take priority.
+  List<String> _customOrder = [];
+
   /// Cached bus grouping — rebuilt only when channels change, not on every getter call
   Map<int, List<SlotMixerChannel>> _channelsByBusCache = {};
 
@@ -312,18 +316,37 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
       }
     }
 
-    // Sort: by bus display order, then by stage name, then by layer id
-    final sorted = newChannelMap.values.toList()
-      ..sort((a, b) {
-        final busOrderA = busDisplayOrder.indexOf(a.busId);
-        final busOrderB = busDisplayOrder.indexOf(b.busId);
-        final busA = busOrderA >= 0 ? busOrderA : 999;
-        final busB = busOrderB >= 0 ? busOrderB : 999;
-        if (busA != busB) return busA.compareTo(busB);
-        final stageComp = a.stageName.compareTo(b.stageName);
-        if (stageComp != 0) return stageComp;
-        return a.layerId.compareTo(b.layerId);
-      });
+    // Sort: use custom order if available, otherwise default sort
+    List<SlotMixerChannel> sorted;
+    if (_customOrder.isNotEmpty) {
+      // Custom order: preserve user drag-drop arrangement
+      // Channels not in custom order go to the end (new channels)
+      final orderMap = <String, int>{};
+      for (int i = 0; i < _customOrder.length; i++) {
+        orderMap[_customOrder[i]] = i;
+      }
+      sorted = newChannelMap.values.toList()
+        ..sort((a, b) {
+          final orderA = orderMap[a.layerId] ?? 99999;
+          final orderB = orderMap[b.layerId] ?? 99999;
+          if (orderA != orderB) return orderA.compareTo(orderB);
+          // New channels: fall back to default sort
+          return a.layerId.compareTo(b.layerId);
+        });
+    } else {
+      // Default sort: by bus display order, then by stage name, then by layer id
+      sorted = newChannelMap.values.toList()
+        ..sort((a, b) {
+          final busOrderA = busDisplayOrder.indexOf(a.busId);
+          final busOrderB = busDisplayOrder.indexOf(b.busId);
+          final busA = busOrderA >= 0 ? busOrderA : 999;
+          final busB = busOrderB >= 0 ? busOrderB : 999;
+          if (busA != busB) return busA.compareTo(busB);
+          final stageComp = a.stageName.compareTo(b.stageName);
+          if (stageComp != 0) return stageComp;
+          return a.layerId.compareTo(b.layerId);
+        });
+    }
 
     _channels = sorted;
     _hasSoloActive = _channels.any((c) => c.soloed);
@@ -671,7 +694,8 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
 
   // ─── Reorder ───────────────────────────────────────────────────────────
 
-  /// Reorder channel from oldIndex to newIndex (within same bus group)
+  /// Reorder channel from oldIndex to newIndex
+  /// Persists custom order across rebuilds via _customOrder
   void reorderChannel(int oldIndex, int newIndex) {
     if (oldIndex < 0 || oldIndex >= _channels.length) return;
     if (newIndex < 0 || newIndex >= _channels.length) return;
@@ -679,6 +703,9 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
 
     final channel = _channels.removeAt(oldIndex);
     _channels.insert(newIndex > oldIndex ? newIndex - 1 : newIndex, channel);
+
+    // Persist custom order
+    _customOrder = _channels.map((c) => c.layerId).toList();
 
     // Rebuild bus cache
     _channelsByBusCache = {};
@@ -771,6 +798,22 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
   void toggleCompact() {
     _isCompact = !_isCompact;
     notifyListeners();
+  }
+
+  /// View presets
+  static const Map<String, bool> _presetCompact = {
+    'Full': false,
+    'Compact': true,
+  };
+
+  List<String> get viewPresetNames => _presetCompact.keys.toList();
+
+  void applyViewPreset(String name) {
+    final compact = _presetCompact[name];
+    if (compact != null && _isCompact != compact) {
+      _isCompact = compact;
+      notifyListeners();
+    }
   }
 
   /// Set search filter

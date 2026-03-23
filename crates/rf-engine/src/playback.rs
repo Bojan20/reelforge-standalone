@@ -951,6 +951,11 @@ pub struct OneShotVoice {
     pitch_semitones: f32,
     /// Real-time mute (voice continues but produces silence)
     muted: bool,
+    /// Stereo width: 0.0 = mono, 1.0 = normal stereo, 2.0 = extra wide
+    /// Applied via mid/side processing after pan
+    stereo_width: f32,
+    /// Phase invert: negate all samples (polarity flip Ø)
+    phase_invert: bool,
     /// Per-voice peak metering (updated in fill_buffer, read by GUI via try_read)
     /// Linear amplitude 0.0-1.0+, NOT dB. Decays toward 0 each block.
     pub meter_peak_l: f32,
@@ -1049,6 +1054,8 @@ impl OneShotVoice {
             pitch_semitones: 0.0,
             // Real-time mute
             muted: false,
+            stereo_width: 1.0,
+            phase_invert: false,
             // Per-voice metering
             meter_peak_l: 0.0,
             meter_peak_r: 0.0,
@@ -1091,6 +1098,8 @@ impl OneShotVoice {
         self.trim_end_sample = 0;
         self.fade_out_samples_at_end = 0;
         self.muted = false;
+        self.stereo_width = 1.0;
+        self.phase_invert = false;
         self.meter_peak_l = 0.0;
         self.meter_peak_r = 0.0;
         // Reset to current global quality (not stale mode from previous voice)
@@ -1177,6 +1186,8 @@ impl OneShotVoice {
         // Reset pitch and mute
         self.pitch_semitones = 0.0;
         self.muted = false;
+        self.stereo_width = 1.0;
+        self.phase_invert = false;
         self.meter_peak_l = 0.0;
         self.meter_peak_r = 0.0;
     }
@@ -1371,8 +1382,8 @@ impl OneShotVoice {
             //   pan=0 → full stereo (L=src_l, R=src_r)
             //   pan=-1 → hard left (L=src_l+src_r, R=0)
             //   pan=+1 → hard right (L=0, R=src_l+src_r)
-            let sample_l: f64;
-            let sample_r: f64;
+            let mut sample_l: f64;
+            let mut sample_r: f64;
 
             if channels_src > 1 {
                 // Stereo source: Pro Tools dual-pan mode
@@ -1398,6 +1409,22 @@ impl OneShotVoice {
                 // Mono source: equal-power panning
                 sample_l = (src_l * pan_l) as f64;
                 sample_r = (src_r * pan_r) as f64;
+            }
+
+            // Stereo width via mid/side processing
+            // width=0: mono (mid only), width=1: normal, width=2: extra wide (side boosted)
+            if (self.stereo_width - 1.0).abs() > 0.01 {
+                let mid = (sample_l + sample_r) * 0.5;
+                let side = (sample_l - sample_r) * 0.5;
+                let w = self.stereo_width as f64;
+                sample_l = mid + side * w;
+                sample_r = mid - side * w;
+            }
+
+            // Phase invert (polarity flip Ø)
+            if self.phase_invert {
+                sample_l = -sample_l;
+                sample_r = -sample_r;
             }
 
             // Per-voice peak metering (before bus mix — track THIS voice only)
@@ -1497,6 +1524,10 @@ pub enum OneShotCommand {
     SetPan { id: u64, pan: f32 },
     /// Real-time pan right update for stereo dual-pan (-1.0 to 1.0)
     SetPanRight { id: u64, pan_right: f32 },
+    /// Real-time stereo width (0.0=mono, 1.0=normal, 2.0=extra wide)
+    SetWidth { id: u64, width: f32 },
+    /// Real-time phase invert toggle
+    SetPhaseInvert { id: u64, invert: bool },
     /// Real-time mute toggle for active voice
     SetMute { id: u64, muted: bool },
 }
@@ -4145,6 +4176,26 @@ impl PlaybackEngine {
         }
     }
 
+    /// Set stereo width for a specific active voice in real-time
+    pub fn set_voice_width(&self, voice_id: u64, width: f32) {
+        if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
+            let _ = tx.push(OneShotCommand::SetWidth {
+                id: voice_id,
+                width: width.clamp(0.0, 2.0),
+            });
+        }
+    }
+
+    /// Set phase invert for a specific active voice in real-time
+    pub fn set_voice_phase_invert(&self, voice_id: u64, invert: bool) {
+        if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
+            let _ = tx.push(OneShotCommand::SetPhaseInvert {
+                id: voice_id,
+                invert,
+            });
+        }
+    }
+
     /// Set mute state for a specific active voice in real-time
     pub fn set_voice_mute(&self, voice_id: u64, muted: bool) {
         if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
@@ -4377,6 +4428,18 @@ impl PlaybackEngine {
                 OneShotCommand::SetPanRight { id, pan_right } => {
                     if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
                         voice.pan_right = pan_right.clamp(-1.0, 1.0);
+                    }
+                }
+                // Real-time stereo width
+                OneShotCommand::SetWidth { id, width } => {
+                    if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
+                        voice.stereo_width = width.clamp(0.0, 2.0);
+                    }
+                }
+                // Real-time phase invert
+                OneShotCommand::SetPhaseInvert { id, invert } => {
+                    if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
+                        voice.phase_invert = invert;
                     }
                 }
                 // Real-time mute toggle for active voice
