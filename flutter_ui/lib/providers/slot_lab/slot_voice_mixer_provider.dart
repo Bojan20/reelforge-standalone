@@ -291,7 +291,7 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
           // Params from layer (source of truth)
           volume: layer.volume,
           pan: layer.pan,
-          panRight: _isStereoBus(layer.busId ?? SlotBusIds.sfx) ? 1.0 : layer.pan,
+          panRight: layer.panRight,
           muted: layer.muted,
           // DSP chain from layer
           dspInserts: layer.dspChain
@@ -502,6 +502,25 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
     if (ch == null) return;
 
     _compositeProvider.setLayerPan(ch.eventId, layerId, pan.clamp(-1.0, 1.0));
+  }
+
+  /// Set channel pan right for stereo dual-pan (continuous — no undo)
+  void setChannelPanRight(String layerId, double panRight) {
+    final ch = _findChannel(layerId);
+    if (ch == null) return;
+
+    final clamped = panRight.clamp(-1.0, 1.0);
+    ch.panRight = clamped;
+
+    _compositeProvider.setLayerPanRightContinuous(ch.eventId, layerId, clamped);
+  }
+
+  /// Set channel pan right (final — with undo)
+  void setChannelPanRightFinal(String layerId, double panRight) {
+    final ch = _findChannel(layerId);
+    if (ch == null) return;
+
+    _compositeProvider.setLayerPanRight(ch.eventId, layerId, panRight.clamp(-1.0, 1.0));
   }
 
   /// Toggle channel mute — syncs to composite event + active voice FFI

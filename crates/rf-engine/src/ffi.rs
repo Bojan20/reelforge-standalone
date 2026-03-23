@@ -23148,6 +23148,14 @@ pub extern "C" fn engine_playback_set_voice_pan(voice_id: u64, pan: f32) -> i32 
     1
 }
 
+/// Set pan right for stereo dual-pan mode in real-time
+/// voice_id: voice to update, pan_right: -1.0 to 1.0
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_playback_set_voice_pan_right(voice_id: u64, pan_right: f32) -> i32 {
+    PLAYBACK_ENGINE.set_voice_pan_right(voice_id, pan_right);
+    1
+}
+
 /// Set mute for a specific active voice in real-time
 /// voice_id: voice to update, muted: 1=muted 0=unmuted
 #[unsafe(no_mangle)]

@@ -18,8 +18,8 @@ const double kLowerZoneMinHeight = 150.0;
 const double kLowerZoneMaxHeight = 600.0;
 
 /// Default height of the lower zone content area
-/// 350px gives slot preview enough room on 14" MacBook while keeping lower zone usable
-const double kLowerZoneDefaultHeight = 350.0;
+/// Max height by default — mixer and panels need maximum vertical space
+const double kLowerZoneDefaultHeight = 600.0;
 
 /// Height of the context bar when expanded (super-tabs + sub-tabs)
 const double kContextBarHeight = 54.0;

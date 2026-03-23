@@ -998,6 +998,15 @@ class AudioPlaybackService extends ChangeNotifier {
     }
   }
 
+  /// Update pan right for stereo dual-pan by layer ID
+  void updateLayerPanRight(String layerId, double panRight) {
+    for (final voice in _activeVoices) {
+      if (voice.layerId == layerId) {
+        _ffi.setVoicePanRight(voice.voiceId, panRight);
+      }
+    }
+  }
+
   /// Update mute for a specific voice by layer ID
   void updateLayerMute(String layerId, bool muted) {
     for (final voice in _activeVoices) {

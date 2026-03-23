@@ -630,6 +630,8 @@ typedef EnginePlaybackIsVoiceActiveNative = Int32 Function(Uint64 voiceId);
 typedef EnginePlaybackIsVoiceActiveDart = int Function(int voiceId);
 typedef EnginePlaybackSetVoicePanNative = Int32 Function(Uint64 voiceId, Float pan);
 typedef EnginePlaybackSetVoicePanDart = int Function(int voiceId, double pan);
+typedef EnginePlaybackSetVoicePanRightNative = Int32 Function(Uint64 voiceId, Float panRight);
+typedef EnginePlaybackSetVoicePanRightDart = int Function(int voiceId, double panRight);
 typedef EnginePlaybackSetVoiceMuteNative = Int32 Function(Uint64 voiceId, Int32 muted);
 typedef EnginePlaybackSetVoiceMuteDart = int Function(int voiceId, int muted);
 
@@ -2438,6 +2440,7 @@ class NativeFFI {
   late final EnginePlaybackSetVoiceVolumeDart _playbackSetVoiceVolume;
   late final EnginePlaybackIsVoiceActiveDart _playbackIsVoiceActive;
   late final EnginePlaybackSetVoicePanDart _playbackSetVoicePan;
+  late final EnginePlaybackSetVoicePanRightDart _playbackSetVoicePanRight;
   late final EnginePlaybackSetVoiceMuteDart _playbackSetVoiceMute;
 
   // Section-based playback filtering
@@ -3175,6 +3178,7 @@ class NativeFFI {
     _playbackSetVoiceVolume = _lib.lookupFunction<EnginePlaybackSetVoiceVolumeNative, EnginePlaybackSetVoiceVolumeDart>('engine_playback_set_voice_volume');
     _playbackIsVoiceActive = _lib.lookupFunction<EnginePlaybackIsVoiceActiveNative, EnginePlaybackIsVoiceActiveDart>('engine_playback_is_voice_active');
     _playbackSetVoicePan = _lib.lookupFunction<EnginePlaybackSetVoicePanNative, EnginePlaybackSetVoicePanDart>('engine_playback_set_voice_pan');
+    _playbackSetVoicePanRight = _lib.lookupFunction<EnginePlaybackSetVoicePanRightNative, EnginePlaybackSetVoicePanRightDart>('engine_playback_set_voice_pan_right');
     _playbackSetVoiceMute = _lib.lookupFunction<EnginePlaybackSetVoiceMuteNative, EnginePlaybackSetVoiceMuteDart>('engine_playback_set_voice_mute');
 
     // Section-based playback filtering
@@ -5226,6 +5230,12 @@ class NativeFFI {
   bool setVoicePan(int voiceId, double pan) {
     if (!_loaded) return false;
     return _playbackSetVoicePan(voiceId, pan) == 1;
+  }
+
+  /// Set pan right for stereo dual-pan mode in real-time (-1.0 to 1.0)
+  bool setVoicePanRight(int voiceId, double panRight) {
+    if (!_loaded) return false;
+    return _playbackSetVoicePanRight(voiceId, panRight) == 1;
   }
 
   /// Set mute state for active voice in real-time

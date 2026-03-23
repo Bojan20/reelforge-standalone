@@ -625,6 +625,7 @@ class CompositeEventSystemProvider extends ChangeNotifier {
         oldLayer.audioPath == layer.audioPath &&
         oldLayer.volume == layer.volume &&
         oldLayer.pan == layer.pan &&
+        oldLayer.panRight == layer.panRight &&
         oldLayer.offsetMs == layer.offsetMs &&
         oldLayer.muted == layer.muted &&
         oldLayer.solo == layer.solo &&
@@ -654,6 +655,9 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       }
       if (oldLayer.pan != layer.pan) {
         registry.updateActiveLayerPan(layer.id, layer.pan);
+      }
+      if (oldLayer.panRight != layer.panRight) {
+        AudioPlaybackService.instance.updateLayerPanRight(layer.id, layer.panRight);
       }
       if (oldLayer.muted != layer.muted) {
         registry.updateActiveLayerMute(layer.id, layer.muted);
@@ -742,6 +746,23 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     _pushUndoState();
     final layer = event.layers.firstWhere((l) => l.id == layerId);
     _updateEventLayerInternal(eventId, layer.copyWith(pan: pan.clamp(-1.0, 1.0)));
+  }
+
+  /// Set layer pan right for stereo dual-pan (no undo - continuous)
+  void setLayerPanRightContinuous(String eventId, String layerId, double panRight) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    _updateEventLayerInternal(eventId, layer.copyWith(panRight: panRight.clamp(-1.0, 1.0)));
+  }
+
+  /// Set layer pan right for stereo dual-pan (with undo - final)
+  void setLayerPanRight(String eventId, String layerId, double panRight) {
+    final event = _compositeEvents[eventId];
+    if (event == null) return;
+    _pushUndoState();
+    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    _updateEventLayerInternal(eventId, layer.copyWith(panRight: panRight.clamp(-1.0, 1.0)));
   }
 
   /// Set layer offset (no undo - use for continuous drag updates)

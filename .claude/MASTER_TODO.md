@@ -7,43 +7,67 @@
 
 ---
 
-## PENDING: SlotLab Voice Mixer (Per-Layer Mixer)
+## DONE: SlotLab Voice Mixer — Core (F1-F3)
 
-**Spec:** `.claude/architecture/SLOTLAB_VOICE_MIXER.md`
-
-Per-layer mixer za SlotLab — svaki assignovani zvuk ima permanentni fader strip.
-Kanali se auto-kreiraju kad se audio assignuje na event, nestaju kad se ukloni.
-Meteri se pale kad voice svira. Full DAW kvalitet: fader, pan, M/S, insert chain, metering.
-
-### Faze
-
-- [ ] **F1: SlotVoiceMixerProvider** — model, rebuild iz composite events, bidirekcioni sync (volume/pan/mute → real-time FFI + composite update), voice mapping 30fps, approximate metering
-- [ ] **F2: SlotVoiceMixer widget** — per-channel strip (header, inserts, pan, fader, stereo meter, dB, M/S, bus label), bus group separators, master strip, activity indicators
-- [ ] **F3: MIX tab integracija** — dodaj `voices` sub-tab (Q shortcut, prvi/default), wire u slotlab_lower_zone_widget.dart
-- [ ] **F4: Per-voice metering** — approximate bus peak * voice volume ratio, peak hold 1500ms decay
-- [ ] **F5: Smart features** — audition (click header = preview), snapshot save/load, solo-in-context, batch ops (ctrl+multi-select), search/filter
-- [ ] **F6: Real Rust metering** (opciono) — AtomicF64 per voice u playback.rs, FFI getVoicePeakStereo
-
-### Novi fajlovi
-- `flutter_ui/lib/providers/slot_lab/slot_voice_mixer_provider.dart`
-- `flutter_ui/lib/widgets/slot_lab/slot_voice_mixer.dart`
-
-### Modifikacije
-- `lower_zone_types.dart` — `voices` u SlotLabMixSubTab enum
-- `slotlab_lower_zone_widget.dart` — wire voices sub-tab
-- `service_locator.dart` — register provider kao GetIt singleton
-- `main.dart` — expose ChangeNotifierProvider.value()
-
-### KRITIČNO: NE mešati sa DAW mixerom
-- DAW = MixerProvider + UltimateMixer (per-track, timeline)
-- SlotLab = SlotVoiceMixerProvider + SlotVoiceMixer (per-layer, events)
-- Deljeno samo: MixerDSPProvider (bus control) + SharedMeterReader (metering)
+- [x] F1: SlotVoiceMixerProvider — model, rebuild, bidirekcioni sync, voice mapping, metering
+- [x] F2: SlotVoiceMixer widget — strips, faders, knobs, meters, M/S, bus routing, fixed master
+- [x] F3: MIX tab integracija — voices sub-tab, enum, controller, service locator, main.dart
 
 ---
 
-## IMPLEMENTIRANO (cele 2 sesije)
+## PENDING: Mixer Unification — DAW ↔ SlotLab Cross-Pollination
 
-- **37 crate-ova** | **69 providera** | **170+ servisa** | **3500+ networking linija**
+Cilj: oba mixera imaju iste feature-e. DAW dobija SlotLab inovacije, SlotLab dobija DAW profesionalnost.
+
+### M1: Stereo Dual-Pan Lanac (Rust → FFI → Dart → UI)
+
+**Blocker za stereo pan u SlotLab voice mixeru.**
+
+- [ ] **M1.1: Rust — panRight u OneShotVoice** — dodaj `pan_right: f32` field, `SetPanRight` command variant, `set_voice_pan_right()` metod, DSP processing za dual-pan L/R channel gains
+- [ ] **M1.2: FFI — engine_set_voice_pan_right** — export u ffi.rs, bridge u api.rs/lib.rs
+- [ ] **M1.3: Dart FFI — setVoicePanRight()** — NativeFFI binding, typedef, lookup
+- [ ] **M1.4: Model — panRight u SlotEventLayer** — novo polje, copyWith, JSON serialization, default 0.0 mono / 1.0 stereo
+- [ ] **M1.5: Service — AudioPlaybackService panRight** — updateLayerPanRight(), playFileToBus panRight param
+- [ ] **M1.6: Provider — CompositeEventSystemProvider** — setLayerPanRightContinuous/Final, _updateEventLayerInternal panRight sync
+- [ ] **M1.7: Provider — SlotVoiceMixerProvider** — setChannelPanRight(), bidirekcioni sync
+- [ ] **M1.8: Widget — SlotVoiceMixer R knob connected** — onChanged → setChannelPanRight real-time FFI
+- [ ] **M1.9: QA + Build + Test** — flutter analyze, cargo build, xcodebuild, visual test
+
+### M2: DAW Mixer ← SlotLab Features
+
+- [ ] **M2.1: Bus routing dropdown u DAW mixer** — output selector sa dropdown popup (iz UltimateMixer strip-a), promeni bus → MixerProvider.setChannelOutput
+- [ ] **M2.2: Activity indicator u DAW mixer** — glow dot kad track svira (iz MeterProvider peak data)
+- [ ] **M2.3: Audition u DAW mixer** — Alt+Click na header = preview track audio jednom
+
+### M3: SlotLab Mixer ← DAW Features
+
+- [ ] **M3.1: Drag-drop reorder kanala** — ReorderableListView ili custom drag, sync sa composite event layer order
+- [ ] **M3.2: Send slotovi** — per-layer aux sends (iz AuxSendsPanel pattern), pre/post fader toggle
+- [ ] **M3.3: Input section** — gain trim + phase invert per layer
+- [ ] **M3.4: Stereo width kontrola** — per-layer width knob (0=mono, 1=normal, 2=wide)
+- [ ] **M3.5: Channel context menu** — right-click: rename, change bus, remove, duplicate, copy settings
+- [ ] **M3.6: View presets** — Compact/Full/Buses Only/Custom saved views
+- [ ] **M3.7: Narrow/Regular strip toggle** — 56px vs 68px mode
+
+### M4: Smart Features (oba mixera)
+
+- [ ] **M4.1: Snapshot save/load** — snimi mixer state, primeni kasnije
+- [ ] **M4.2: Batch operations** — Ctrl+click multi-select, batch mute/solo/volume
+- [ ] **M4.3: Search/filter** — text filter kanala po imenu ili busu
+- [ ] **M4.4: Solo in context** — solo kanal ali bus efekti čujni
+
+### M5: Real Per-Voice Metering (Rust)
+
+- [ ] **M5.1: Rust — AtomicF64 peak per voice** — meter_peak_l/r u OneShotVoice, update u audio callback
+- [ ] **M5.2: FFI — getVoicePeakStereo** — export, bridge
+- [ ] **M5.3: Dart — poll voice peaks** — u SlotVoiceMixerProvider ticker, zameni approximate metering
+
+---
+
+## IMPLEMENTIRANO
+
+- **37 crate-ova** | **70 providera** | **170+ servisa** | **3500+ networking linija**
+- SlotLab Voice Mixer (F1-F3: provider, widget, integracija)
 - Signalsmith Stretch (audio_stretcher.rs, MIT ~Élastique)
 - Warp Markers (15 testova, end-to-end: model→detection→playback→UI→undo)
 - Custom Events (EventRegistry sync, Play, probability, solo, zombie cleanup)

@@ -906,7 +906,13 @@ pub struct OneShotVoice {
     /// Volume (0.0 to 1.0)
     volume: f32,
     /// Pan position (-1.0 = full left, 0.0 = center, +1.0 = full right)
+    /// For mono: single pan positions signal in stereo field
+    /// For stereo dual-pan: controls L channel placement (default -1.0 = hard left)
     pan: f32,
+    /// Right channel pan for stereo dual-pan mode (-1.0 to +1.0)
+    /// Default 0.0 for mono (unused), 1.0 for stereo (hard right)
+    /// Pro Tools semantics: pan controls L, pan_right controls R independently
+    pan_right: f32,
     /// Target bus for routing
     bus: OutputBus,
     /// Source section (for section-based filtering)
@@ -1019,6 +1025,7 @@ impl OneShotVoice {
             position: 0,
             volume: 1.0,
             pan: 0.0,
+            pan_right: 0.0,
             bus: OutputBus::Sfx,
             source: PlaybackSource::Daw,
             active: false,
@@ -1058,6 +1065,8 @@ impl OneShotVoice {
         self.position = 0;
         self.volume = volume;
         self.pan = pan.clamp(-1.0, 1.0);
+        // Stereo dual-pan: pan_right defaults to 0.0 here, caller sends SetPanRight after Play
+        self.pan_right = 0.0;
         self.bus = bus;
         self.source = source;
         self.active = true;
@@ -1123,6 +1132,7 @@ impl OneShotVoice {
         self.audio = audio;
         self.volume = volume;
         self.pan = pan.clamp(-1.0, 1.0);
+        self.pan_right = 0.0; // Caller sends SetPanRight after PlayEx for stereo
         self.bus = bus;
         self.source = source;
         self.active = true;
@@ -1350,23 +1360,25 @@ impl OneShotVoice {
             let sample_r: f64;
 
             if channels_src > 1 {
-                // Stereo source: balance-style panning (Pro Tools stereo pan)
-                // At center (pan=0): L=src_l, R=src_r (full stereo preserved)
-                // Pan left: L stays, R fades out + cross-feeds into L
-                // Pan right: R stays, L fades out + cross-feeds into R
-                // NOTE: src_l/src_r already include volume*fade_gain from line 1198
-                let pan_val = self.pan as f64; // -1.0 to +1.0
-                if pan_val <= 0.0 {
-                    // Panning left: R channel fades, cross-feeds into L
-                    let r_atten = 1.0 + pan_val; // 1.0 at center, 0.0 at hard left
-                    sample_l = (src_l as f64) + (src_r as f64 * (1.0 - r_atten));
-                    sample_r = src_r as f64 * r_atten;
-                } else {
-                    // Panning right: L channel fades, cross-feeds into R
-                    let l_atten = 1.0 - pan_val; // 1.0 at center, 0.0 at hard right
-                    sample_l = src_l as f64 * l_atten;
-                    sample_r = (src_r as f64) + (src_l as f64 * (1.0 - l_atten));
-                }
+                // Stereo source: Pro Tools dual-pan mode
+                // pan controls L channel placement, pan_right controls R channel placement
+                // Default: pan=-1 (L hard left), pan_right=+1 (R hard right) = stereo pass-through
+                // Each channel is independently panned using equal-power law:
+                //   angle = (pan_value + 1) * π/4  → L_gain = cos(angle), R_gain = sin(angle)
+                let pan_l_angle = (self.pan + 1.0) as f64 * std::f64::consts::FRAC_PI_4;
+                let pan_r_angle = (self.pan_right + 1.0) as f64 * std::f64::consts::FRAC_PI_4;
+
+                // L channel → positioned by self.pan
+                let l_to_left = pan_l_angle.cos();
+                let l_to_right = pan_l_angle.sin();
+
+                // R channel → positioned by self.pan_right
+                let r_to_left = pan_r_angle.cos();
+                let r_to_right = pan_r_angle.sin();
+
+                // Mix: output = L_channel * L_panning + R_channel * R_panning
+                sample_l = (src_l as f64) * l_to_left + (src_r as f64) * r_to_left;
+                sample_r = (src_l as f64) * l_to_right + (src_r as f64) * r_to_right;
             } else {
                 // Mono source: equal-power panning
                 sample_l = (src_l * pan_l) as f64;
@@ -1450,6 +1462,8 @@ pub enum OneShotCommand {
     SetVolume { id: u64, volume: f32 },
     /// Real-time pan update for active voice (-1.0 to 1.0)
     SetPan { id: u64, pan: f32 },
+    /// Real-time pan right update for stereo dual-pan (-1.0 to 1.0)
+    SetPanRight { id: u64, pan_right: f32 },
     /// Real-time mute toggle for active voice
     SetMute { id: u64, muted: bool },
 }
@@ -4087,6 +4101,17 @@ impl PlaybackEngine {
         }
     }
 
+    /// Set pan right for stereo dual-pan mode in real-time
+    /// Controls R channel placement independently from L (pan field)
+    pub fn set_voice_pan_right(&self, voice_id: u64, pan_right: f32) {
+        if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
+            let _ = tx.push(OneShotCommand::SetPanRight {
+                id: voice_id,
+                pan_right: pan_right.clamp(-1.0, 1.0),
+            });
+        }
+    }
+
     /// Set mute state for a specific active voice in real-time
     pub fn set_voice_mute(&self, voice_id: u64, muted: bool) {
         if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
@@ -4298,6 +4323,12 @@ impl PlaybackEngine {
                 OneShotCommand::SetPan { id, pan } => {
                     if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
                         voice.pan = pan.clamp(-1.0, 1.0);
+                    }
+                }
+                // Real-time pan right update for stereo dual-pan
+                OneShotCommand::SetPanRight { id, pan_right } => {
+                    if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
+                        voice.pan_right = pan_right.clamp(-1.0, 1.0);
                     }
                 }
                 // Real-time mute toggle for active voice

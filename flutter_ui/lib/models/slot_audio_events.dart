@@ -1513,7 +1513,8 @@ class SlotEventLayer {
   final String name;
   final String audioPath;
   final double volume; // 0.0 to 1.0
-  final double pan; // -1.0 (left) to 1.0 (right)
+  final double pan; // -1.0 (left) to 1.0 (right) — L channel for stereo dual-pan
+  final double panRight; // -1.0 to 1.0 — R channel for stereo dual-pan (0.0=mono default, 1.0=hard right)
   final double offsetMs; // Delay offset in milliseconds
   final double fadeInMs; // Fade in duration
   final double fadeOutMs; // Fade out duration
@@ -1545,6 +1546,7 @@ class SlotEventLayer {
     required this.audioPath,
     this.volume = 1.0,
     this.pan = 0.0,
+    this.panRight = 0.0,
     this.offsetMs = 0.0,
     this.fadeInMs = 0.0,
     this.fadeOutMs = 0.0,
@@ -1577,6 +1579,7 @@ class SlotEventLayer {
     String? audioPath,
     double? volume,
     double? pan,
+    double? panRight,
     double? offsetMs,
     double? fadeInMs,
     double? fadeOutMs,
@@ -1608,6 +1611,7 @@ class SlotEventLayer {
       audioPath: audioPath ?? this.audioPath,
       volume: volume ?? this.volume,
       pan: pan ?? this.pan,
+      panRight: panRight ?? this.panRight,
       offsetMs: offsetMs ?? this.offsetMs,
       fadeInMs: fadeInMs ?? this.fadeInMs,
       fadeOutMs: fadeOutMs ?? this.fadeOutMs,
@@ -1651,6 +1655,7 @@ class SlotEventLayer {
     'audioPath': audioPath,
     'volume': volume,
     'pan': pan,
+    'panRight': panRight,
     'offsetMs': offsetMs,
     'fadeInMs': fadeInMs,
     'fadeOutMs': fadeOutMs,
@@ -1685,6 +1690,7 @@ class SlotEventLayer {
       audioPath: json['audioPath'] as String,
       volume: (json['volume'] as num?)?.toDouble() ?? 1.0,
       pan: (json['pan'] as num?)?.toDouble() ?? 0.0,
+      panRight: (json['panRight'] as num?)?.toDouble() ?? 0.0,
       offsetMs: (json['offsetMs'] as num?)?.toDouble() ?? 0.0,
       fadeInMs: (json['fadeInMs'] as num?)?.toDouble() ?? 0.0,
       fadeOutMs: (json['fadeOutMs'] as num?)?.toDouble() ?? 0.0,

@@ -587,118 +587,47 @@ class _VoiceStripState extends State<_VoiceStrip> {
     );
   }
 
-  // ─── Pan Knob ────────────────────────────────────────────────────────────
+  // ─── Pan — Pro Tools style (matches DAW UltimateMixer) ───────────────
 
   Widget _buildPanKnob() {
     if (ch.isStereo) {
-      return _buildStereoPanKnobs();
-    }
-    return _buildMonoPanKnob();
-  }
-
-  Widget _buildMonoPanKnob() {
-    return Container(
-      height: 36,
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _PanKnob(
-            value: ch.pan,
-            color: busColor,
-            size: 28,
-            onChanged: (v) => widget.provider.setChannelPan(ch.layerId, v),
-            onChangeEnd: (v) => widget.provider.setChannelPanFinal(ch.layerId, v),
-          ),
-          const SizedBox(height: 1),
-          Text(
-            _panString(ch.pan),
-            style: TextStyle(
-              fontSize: 7,
-              fontWeight: FontWeight.w600,
-              color: FluxForgeTheme.textDisabled,
-              fontFamily: FluxForgeTheme.monoFontFamily,
+      // Stereo: dual pan knobs L/R — same pattern as DAW _StereoPanKnob
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _SlotPanKnob(
+              label: 'L',
+              value: ch.pan,
+              size: 22,
+              onChanged: (v) => widget.provider.setChannelPan(ch.layerId, v),
+              onChangeEnd: (v) => widget.provider.setChannelPanFinal(ch.layerId, v),
+              defaultValue: -1.0,
             ),
-          ),
-        ],
-      ),
-    );
-  }
+            _SlotPanKnob(
+              label: 'R',
+              value: ch.panRight,
+              size: 22,
+              onChanged: (v) => widget.provider.setChannelPanRight(ch.layerId, v),
+              onChangeEnd: (v) => widget.provider.setChannelPanRightFinal(ch.layerId, v),
+              defaultValue: 1.0,
+            ),
+          ],
+        ),
+      );
+    }
 
-  Widget _buildStereoPanKnobs() {
-    return Container(
-      height: 38,
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'L',
-                style: TextStyle(
-                  fontSize: 6,
-                  fontWeight: FontWeight.w700,
-                  color: FluxForgeTheme.textDisabled,
-                ),
-              ),
-              _PanKnob(
-                value: ch.pan,
-                color: busColor,
-                size: 22,
-                onChanged: (v) => widget.provider.setChannelPan(ch.layerId, v),
-                onChangeEnd: (v) => widget.provider.setChannelPanFinal(ch.layerId, v),
-              ),
-              _PanKnob(
-                value: ch.panRight,
-                color: busColor,
-                size: 22,
-                onChanged: (_) {}, // panRight not yet in SlotEventLayer
-                onChangeEnd: (_) {},
-              ),
-              Text(
-                'R',
-                style: TextStyle(
-                  fontSize: 6,
-                  fontWeight: FontWeight.w700,
-                  color: FluxForgeTheme.textDisabled,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 1),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                _panString(ch.pan),
-                style: TextStyle(
-                  fontSize: 6,
-                  fontWeight: FontWeight.w600,
-                  color: FluxForgeTheme.textDisabled,
-                  fontFamily: FluxForgeTheme.monoFontFamily,
-                ),
-              ),
-              Text(
-                ' / ',
-                style: TextStyle(
-                  fontSize: 6,
-                  color: FluxForgeTheme.textDisabled.withValues(alpha: 0.4),
-                ),
-              ),
-              Text(
-                _panString(ch.panRight),
-                style: TextStyle(
-                  fontSize: 6,
-                  fontWeight: FontWeight.w600,
-                  color: FluxForgeTheme.textDisabled,
-                  fontFamily: FluxForgeTheme.monoFontFamily,
-                ),
-              ),
-            ],
-          ),
-        ],
+    // Mono: single pan knob
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: _SlotPanKnob(
+        label: '',
+        value: ch.pan,
+        size: 26,
+        onChanged: (v) => widget.provider.setChannelPan(ch.layerId, v),
+        onChangeEnd: (v) => widget.provider.setChannelPanFinal(ch.layerId, v),
+        defaultValue: 0.0,
       ),
     );
   }
@@ -1118,148 +1047,187 @@ class _VoiceStripState extends State<_VoiceStrip> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PAN KNOB — SVG-style rotary with LED arc
+// PAN KNOB — exact copy from DAW UltimateMixer _StereoPanKnob
+// (private class can't be imported, so duplicated here verbatim)
 // ═══════════════════════════════════════════════════════════════════════════
 
-class _PanKnob extends StatelessWidget {
-  final double value; // -1.0 to +1.0
-  final Color color;
+class _SlotPanKnob extends StatefulWidget {
+  final String label; // 'L' or 'R' or '' for mono
+  final double value;
   final double size;
-  final ValueChanged<double> onChanged;
-  final ValueChanged<double> onChangeEnd;
+  final ValueChanged<double>? onChanged;
+  final ValueChanged<double>? onChangeEnd;
+  final double defaultValue;
 
-  const _PanKnob({
+  const _SlotPanKnob({
+    required this.label,
     required this.value,
-    required this.color,
-    required this.size,
-    required this.onChanged,
-    required this.onChangeEnd,
+    this.size = 22,
+    this.onChanged,
+    this.onChangeEnd,
+    this.defaultValue = 0.0,
   });
 
   @override
+  State<_SlotPanKnob> createState() => _SlotPanKnobState();
+}
+
+class _SlotPanKnobState extends State<_SlotPanKnob> {
+  double _localValue = 0;
+  bool _isDragging = false;
+
+  /// Format pan Pro Tools style: <100 for hard left, C for center, 100> for hard right
+  String _formatPan(double v) {
+    final percent = (v.abs() * 100).round();
+    if (percent < 2) return 'C';
+    return v < 0 ? '<$percent' : '$percent>';
+  }
+
+  double get _displayValue => _isDragging ? _localValue : widget.value;
+
+  void _handleDragStart(DragStartDetails details) {
+    setState(() {
+      _isDragging = true;
+      _localValue = widget.value;
+    });
+  }
+
+  void _handleDragUpdate(DragUpdateDetails details) {
+    if (widget.onChanged == null) return;
+    final delta = -details.delta.dy * 0.007;
+    _localValue = (_localValue + delta).clamp(-1.0, 1.0);
+    setState(() {});
+    widget.onChanged!(_localValue);
+  }
+
+  void _handleDragEnd(DragEndDetails details) {
+    setState(() => _isDragging = false);
+    widget.onChangeEnd?.call(_localValue);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onVerticalDragUpdate: (details) {
-        // Shift+drag = fine precision (0.002 per px vs 0.01)
-        final sensitivity = HardwareKeyboard.instance.isShiftPressed ? 0.002 : 0.01;
-        final delta = -details.delta.dy * sensitivity;
-        onChanged((value + delta).clamp(-1.0, 1.0));
-      },
-      onVerticalDragEnd: (_) => onChangeEnd(value),
-      onDoubleTap: () {
-        onChanged(0.0);
-        onChangeEnd(0.0);
-      },
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: CustomPaint(
-          painter: _PanKnobPainter(
-            value: value,
-            color: color,
-            size: size,
+    final rotation = _displayValue * 135 * (math.pi / 180);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Label
+        if (widget.label.isNotEmpty)
+          Text(
+            widget.label,
+            style: TextStyle(
+              fontSize: 8,
+              fontWeight: FontWeight.w600,
+              color: FluxForgeTheme.accentCyan,
+            ),
+          ),
+        if (widget.label.isNotEmpty) const SizedBox(height: 2),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onVerticalDragStart: _handleDragStart,
+          onVerticalDragUpdate: _handleDragUpdate,
+          onVerticalDragEnd: _handleDragEnd,
+          onDoubleTap: () => widget.onChanged?.call(widget.defaultValue),
+          child: Container(
+            width: widget.size,
+            height: widget.size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                center: const Alignment(-0.3, -0.3),
+                colors: [
+                  FluxForgeTheme.bgMid.withValues(alpha: 0.8),
+                  FluxForgeTheme.bgDeep.withValues(alpha: 0.9),
+                ],
+              ),
+              boxShadow: _isDragging
+                  ? [BoxShadow(color: FluxForgeTheme.accentCyan.withValues(alpha: 0.5), blurRadius: 8)]
+                  : null,
+            ),
+            child: Stack(
+              children: [
+                // Pan arc indicator
+                CustomPaint(
+                  size: Size(widget.size, widget.size),
+                  painter: _SlotPanArcPainter(value: _displayValue),
+                ),
+                // Knob pointer
+                Center(
+                  child: Transform.rotate(
+                    angle: rotation,
+                    child: Container(
+                      width: 2.5,
+                      height: widget.size * 0.38,
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.accentCyan,
+                        borderRadius: BorderRadius.circular(1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: FluxForgeTheme.accentCyan.withValues(alpha: 0.6),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
+        const SizedBox(height: 2),
+        // Value readout
+        Text(
+          _formatPan(_displayValue),
+          style: TextStyle(
+            fontSize: 7,
+            fontFamily: FluxForgeTheme.monoFontFamily,
+            color: FluxForgeTheme.textSecondary,
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _PanKnobPainter extends CustomPainter {
+/// Pan arc painter — bidirectional cyan arc (same as DAW _StereoPanKnobPainter)
+class _SlotPanArcPainter extends CustomPainter {
   final double value;
-  final Color color;
-  final double size;
-
-  _PanKnobPainter({required this.value, required this.color, required this.size});
+  _SlotPanArcPainter({required this.value});
 
   @override
-  void paint(Canvas canvas, Size canvasSize) {
-    final center = Offset(size / 2, size / 2);
-    final outerR = size / 2 - 1;
-    final knobR = outerR * 0.72;
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 4;
 
-    // LED arc background (270° sweep, from 7 o'clock to 5 o'clock)
-    final arcPaint = Paint()
-      ..color = const Color(0xFF1A1A24)
-      ..strokeWidth = size * 0.09
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    const startAngle = 135 * math.pi / 180; // 7 o'clock
-    const sweepAngle = 270 * math.pi / 180; // 270° total
-
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: outerR),
-      startAngle, sweepAngle, false, arcPaint,
-    );
-
-    // LED arc fill (from center to value position)
-    if (value.abs() > 0.02) {
-      final fillPaint = Paint()
-        ..color = color
-        ..strokeWidth = size * 0.09
+    // Value arc from center (top) — bidirectional cyan
+    if (value.abs() > 0.01) {
+      final valuePaint = Paint()
+        ..color = FluxForgeTheme.accentCyan
         ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
         ..strokeCap = StrokeCap.round;
 
-      // Center is at 270° (12 o'clock in drawing coords = top)
-      const centerAngle = 270 * math.pi / 180;
-      final valueSweep = value * 135 * math.pi / 180;
+      const startAngle = -math.pi / 2; // Top (center position)
+      final sweepAngle = value * (math.pi * 0.75); // 135° max
 
-      if (value > 0) {
-        canvas.drawArc(
-          Rect.fromCircle(center: center, radius: outerR),
-          centerAngle, valueSweep, false, fillPaint,
-        );
-      } else {
-        canvas.drawArc(
-          Rect.fromCircle(center: center, radius: outerR),
-          centerAngle + valueSweep, -valueSweep, false, fillPaint,
-        );
-      }
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle, sweepAngle, false, valuePaint,
+      );
     }
 
-    // Knob body (metallic gradient simulated)
-    final knobPaint = Paint()
-      ..shader = RadialGradient(
-        center: const Alignment(-0.3, -0.3),
-        colors: const [Color(0xFF4A4A5A), Color(0xFF2A2A38), Color(0xFF1A1A24)],
-        stops: const [0, 0.5, 1],
-      ).createShader(Rect.fromCircle(center: center, radius: knobR));
-    canvas.drawCircle(center, knobR, knobPaint);
-
-    // Knob border
+    // Small center marker at top (0 position)
     canvas.drawCircle(
-      center, knobR,
-      Paint()..color = const Color(0xFF555555)..style = PaintingStyle.stroke..strokeWidth = 0.5,
+      Offset(center.dx, center.dy - radius),
+      1.5,
+      Paint()..color = FluxForgeTheme.textTertiary,
     );
-
-    // Indicator line
-    final angle = (270 + value * 135) * math.pi / 180;
-    final lineStart = Offset(
-      center.dx + knobR * 0.15 * math.cos(angle),
-      center.dy + knobR * 0.15 * math.sin(angle),
-    );
-    final lineEnd = Offset(
-      center.dx + knobR * 0.85 * math.cos(angle),
-      center.dy + knobR * 0.85 * math.sin(angle),
-    );
-
-    final indicatorColor = value.abs() < 0.02 ? const Color(0xFF888888) : color;
-    canvas.drawLine(
-      lineStart, lineEnd,
-      Paint()
-        ..color = indicatorColor
-        ..strokeWidth = 1.5
-        ..strokeCap = StrokeCap.round,
-    );
-
-    // Center dot
-    canvas.drawCircle(center, size * 0.05, Paint()..color = const Color(0xFF222222));
   }
 
   @override
-  bool shouldRepaint(_PanKnobPainter old) =>
-      old.value != value || old.color != color;
+  bool shouldRepaint(_SlotPanArcPainter old) => old.value != value;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1480,26 +1448,27 @@ class _MasterStripState extends State<_MasterStrip> {
             ),
           ),
           // Pan (stereo dual-knob — always L=-1, R=+1 for master)
-          Container(
-            height: 38,
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('L', style: TextStyle(fontSize: 6, fontWeight: FontWeight.w700, color: FluxForgeTheme.textDisabled)),
-                    _PanKnob(value: -1.0, color: const Color(0xFFF0F0F4), size: 22, onChanged: (_) {}, onChangeEnd: (_) {}),
-                    _PanKnob(value: 1.0, color: const Color(0xFFF0F0F4), size: 22, onChanged: (_) {}, onChangeEnd: (_) {}),
-                    Text('R', style: TextStyle(fontSize: 6, fontWeight: FontWeight.w700, color: FluxForgeTheme.textDisabled)),
-                  ],
+                _SlotPanKnob(
+                  label: 'L',
+                  value: bus.pan,
+                  size: 22,
+                  onChanged: (v) => widget.busMixer.setBusPan('master', v),
+                  onChangeEnd: (_) {},
+                  defaultValue: -1.0,
                 ),
-                const SizedBox(height: 1),
-                Text('L100 / R100',
-                  style: TextStyle(fontSize: 6, fontWeight: FontWeight.w600,
-                    color: FluxForgeTheme.textDisabled,
-                    fontFamily: FluxForgeTheme.monoFontFamily)),
+                _SlotPanKnob(
+                  label: 'R',
+                  value: 1.0, // Master R always hard right
+                  size: 22,
+                  onChanged: null, // Master R is fixed at +1.0 (stereo output)
+                  onChangeEnd: null,
+                  defaultValue: 1.0,
+                ),
               ],
             ),
           ),
