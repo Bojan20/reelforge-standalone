@@ -768,19 +768,18 @@ class SlotLabProjectProvider extends ChangeNotifier {
     // WIN_PRESENT_EQUAL is NOT auto-copied from WIN_PRESENT_LOW.
     // If no explicit WinEqual/RollupEqual file exists, leave it unbound.
 
-    // SCATTER_LAND and WILD_LAND often share the same sound in many games
-    // Copy numbered variants too (SCATTER_LAND_1 → WILD_LAND_1, etc.)
-    for (final key in bindings.keys.toList()) {
-      if (key.startsWith('SCATTER_LAND')) {
-        final wildKey = key.replaceFirst('SCATTER_LAND', 'WILD_LAND');
-        if (!bindings.containsKey(wildKey)) {
-          bindings[wildKey] = bindings[key]!;
-        }
-      }
-    }
-
     // Apply all bindings (skip in dry run mode — preview only)
     if (!dryRun) {
+      // Cross-symbol copy: SCATTER_LAND → WILD_LAND (many games share same sound)
+      // Only in real mode — dry run preview should show original mappings
+      for (final key in bindings.keys.toList()) {
+        if (key.startsWith('SCATTER_LAND')) {
+          final wildKey = key.replaceFirst('SCATTER_LAND', 'WILD_LAND');
+          if (!bindings.containsKey(wildKey)) {
+            bindings[wildKey] = bindings[key]!;
+          }
+        }
+      }
       for (final entry in bindings.entries) {
         setAudioAssignment(entry.key, entry.value, recordUndo: false);
       }
