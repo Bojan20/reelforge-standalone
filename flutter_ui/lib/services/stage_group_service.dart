@@ -1289,12 +1289,14 @@ class StageGroupService {
       _StageDefinition(
         stage: 'WILD_LAND',
         keywords: ['wild', 'land', 'drop', 'appear'],
+        requiredKeywords: ['wild'],
         suffixes: ['_land', '_appear'],
         priority: 78,
       ),
       _StageDefinition(
         stage: 'SCATTER_LAND',
         keywords: ['scatter', 'land', 'drop', 'appear'],
+        requiredKeywords: ['scatter'],
         suffixes: ['_land', '_appear'],
         priority: 79,
       ),
