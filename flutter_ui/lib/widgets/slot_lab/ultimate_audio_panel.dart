@@ -309,7 +309,8 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   void dispose() {
     _searchController.dispose();
     _searchFocusNode.dispose();
-    _panelFocusNode.dispose(); // SL-LP-P1.3
+    _panelFocusNode.dispose();
+    _expandChangeNotifier.dispose();
     super.dispose();
   }
 
@@ -319,6 +320,11 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
 
   /// Expanded groups — ALWAYS local for instant UI response.
   Set<String> get _expandedGroups => _localExpandedGroups;
+
+  /// Notifier for expand state changes — triggers ONLY affected phase/section/group
+  /// rebuild via ValueListenableBuilder, NOT full UltimateAudioPanel setState.
+  final ValueNotifier<int> _expandChangeNotifier = ValueNotifier<int>(0);
+  void _notifyExpandChange() => _expandChangeNotifier.value++;
 
   /// Handle keyboard shortcuts (SL-LP-P1.3)
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
@@ -2729,13 +2735,20 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
   /// Lazy phase list — uses ListView.builder to avoid building all phases/sections/slots
   /// at once. The mechanic composer is item 0, then phases follow.
   Widget _buildLazyPhaseList() {
-    final phases = _getVisiblePhases();
-    return ListView.builder(
-      padding: EdgeInsets.zero,
-      itemCount: phases.length + 1, // +1 for mechanic composer at top
-      itemBuilder: (context, index) {
-        if (index == 0) return _buildMechanicComposer();
-        return _buildPhase(phases[index - 1]);
+    // ValueListenableBuilder rebuilds ONLY this list on expand/collapse
+    // instead of entire UltimateAudioPanel (which has 300+ widgets)
+    return ValueListenableBuilder<int>(
+      valueListenable: _expandChangeNotifier,
+      builder: (context, _, __) {
+        final phases = _getVisiblePhases();
+        return ListView.builder(
+          padding: EdgeInsets.zero,
+          itemCount: phases.length + 1,
+          itemBuilder: (context, index) {
+            if (index == 0) return _buildMechanicComposer();
+            return _buildPhase(phases[index - 1]);
+          },
+        );
       },
     );
   }
@@ -2980,15 +2993,12 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
             onSecondaryTapUp: (details) => _showPhasePresetMenu(context, phase, details.globalPosition),
             child: InkWell(
             onTap: () {
-              // INSTANT: local setState for zero-delay UI
-              setState(() {
-                if (isExpanded) {
-                  _localExpandedSections.remove(phase.id);
-                } else {
-                  _localExpandedSections.add(phase.id);
-                }
-              });
-              // PERSIST: sync to provider in background
+              if (isExpanded) {
+                _localExpandedSections.remove(phase.id);
+              } else {
+                _localExpandedSections.add(phase.id);
+              }
+              _notifyExpandChange(); // Instant — no full setState
               widget.onSectionToggle?.call(phase.id);
             },
             child: AnimatedContainer(
@@ -3100,15 +3110,12 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
         _HoverBuilder(
           builder: (isHovered) => InkWell(
             onTap: () {
-              // INSTANT: local setState for zero-delay UI
-              setState(() {
-                if (isExpanded) {
-                  _localExpandedSections.remove(config.id);
-                } else {
-                  _localExpandedSections.add(config.id);
-                }
-              });
-              // PERSIST: sync to provider in background
+              if (isExpanded) {
+                _localExpandedSections.remove(config.id);
+              } else {
+                _localExpandedSections.add(config.id);
+              }
+              _notifyExpandChange(); // Instant — no full setState
               widget.onSectionToggle?.call(config.id);
             },
             child: AnimatedContainer(
@@ -3186,15 +3193,12 @@ class _UltimateAudioPanelState extends State<UltimateAudioPanel> {
           isExpanded: isExpanded,
           assignedCount: assignedCount,
           onToggle: () {
-            // INSTANT: local setState for zero-delay UI
-            setState(() {
-              if (isExpanded) {
-                _localExpandedGroups.remove(groupKey);
-              } else {
-                _localExpandedGroups.add(groupKey);
-              }
-            });
-            // PERSIST: sync to provider in background
+            if (isExpanded) {
+              _localExpandedGroups.remove(groupKey);
+            } else {
+              _localExpandedGroups.add(groupKey);
+            }
+            _notifyExpandChange(); // Instant — no full setState
             widget.onGroupToggle?.call(groupKey);
           },
           onFolderDrop: (paths) => _handleFolderDrop(group, section, paths),
