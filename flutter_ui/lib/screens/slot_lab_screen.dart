@@ -531,10 +531,14 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       final bwsPath = projectProvider.getAudioAssignment('BIG_WIN_START');
       if (bwsPath != null && bwsPath.isNotEmpty) {
         _ensureCompositeEventForStage('BIG_WIN_START', bwsPath);
+        final bwsCe = mw.compositeEvents.where((e) => e.id == 'audio_BIG_WIN_START').firstOrNull;
+        if (bwsCe != null) _syncEventToRegistry(bwsCe);
       }
       final bwePath = projectProvider.getAudioAssignment('BIG_WIN_END');
       if (bwePath != null && bwePath.isNotEmpty) {
         _ensureCompositeEventForStage('BIG_WIN_END', bwePath);
+        final bweCe = mw.compositeEvents.where((e) => e.id == 'audio_BIG_WIN_END').firstOrNull;
+        if (bweCe != null) _syncEventToRegistry(bweCe);
       }
     }
     // When BIG_WIN_START changes, refresh BIG_WIN_END so StopVoice targets correct path
@@ -542,6 +546,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
       final bwePath = projectProvider.getAudioAssignment('BIG_WIN_END');
       if (bwePath != null && bwePath.isNotEmpty) {
         _ensureCompositeEventForStage('BIG_WIN_END', bwePath);
+        // CRITICAL: sync refreshed composite to EventRegistry — without this,
+        // EventRegistry has stale BIG_WIN_END event without StopVoice layers
+        final bweCe = mw.compositeEvents.where((e) => e.id == 'audio_BIG_WIN_END').firstOrNull;
+        if (bweCe != null) _syncEventToRegistry(bweCe);
       }
     }
   }

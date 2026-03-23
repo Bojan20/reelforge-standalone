@@ -216,6 +216,11 @@ class FFNCRenamer {
 
       case FFNCCategory.mus:
         var name = stage.toLowerCase();
+        // Non-MUSIC_ prefixed stages that live on music bus
+        // These need explicit mapping because they don't follow MUSIC_ convention
+        if (name == 'big_win_start') return 'mus_big_win_loop$ext';
+        if (name == 'big_win_end') return 'mus_big_win_end$ext';
+        if (name == 'game_start') return 'mus_game_start$ext';
         // MUSIC_ prefix → strip
         name = name.replaceFirst('music_', '');
         // BASE_ → base_game_ (word boundary safe)
@@ -252,19 +257,22 @@ class FFNCRenamer {
 
       case FFNCCategory.trn:
         var name = stage.toLowerCase();
-        // TRANSITION_ → strip
+        // TRANSITION_ → strip, CONTEXT_ → keep as context_
         name = name.replaceFirst('transition_', '');
-        // Word-boundary safe replacements for abbreviations
-        // Replace _base_ in middle (e.g., transition_base_to_fs)
-        name = name.replaceAllMapped(
-          RegExp(r'(^|_)base($|_)'),
-          (m) => '${m[1]}base_game${m[2]}',
-        );
-        // Replace _fs_ in middle
-        name = name.replaceAllMapped(
-          RegExp(r'(^|_)fs($|_)'),
-          (m) => '${m[1]}freespin${m[2]}',
-        );
+        // CONTEXT_ stages keep their prefix (they're not TRANSITION_ internally)
+        if (!name.startsWith('context_')) {
+          // Word-boundary safe replacements for abbreviations
+          // Replace _base_ in middle (e.g., transition_base_to_fs)
+          name = name.replaceAllMapped(
+            RegExp(r'(^|_)base($|_)'),
+            (m) => '${m[1]}base_game${m[2]}',
+          );
+          // Replace _fs_ in middle
+          name = name.replaceAllMapped(
+            RegExp(r'(^|_)fs($|_)'),
+            (m) => '${m[1]}freespin${m[2]}',
+          );
+        }
         return 'trn_$name$ext';
 
       case FFNCCategory.ui:
@@ -276,6 +284,7 @@ class FFNCRenamer {
   }
 
   /// Determine FFNC category from internal stage name.
+  /// Uses StageDefaults bus routing as authority — music bus (1) = mus_, sfx bus (2) = sfx_.
   FFNCCategory categorizeStage(String stage) {
     if (stage.startsWith('MUSIC_')) return FFNCCategory.mus;
     if (stage.startsWith('AMBIENT_') ||
@@ -283,9 +292,23 @@ class FFNCRenamer {
         stage.startsWith('IDLE_')) {
       return FFNCCategory.amb;
     }
-    if (stage.startsWith('TRANSITION_')) return FFNCCategory.trn;
+    if (stage.startsWith('TRANSITION_') ||
+        stage.startsWith('CONTEXT_')) {
+      return FFNCCategory.trn;
+    }
     if (stage.startsWith('UI_')) return FFNCCategory.ui;
     if (stage.startsWith('VO_')) return FFNCCategory.vo;
+
+    // Music-bus stages that don't start with MUSIC_ prefix
+    // BIG_WIN_START = looping big win music, BIG_WIN_END = stinger + base music restart
+    // GAME_START = base game music start composite
+    const musicBusStages = {
+      'BIG_WIN_START', 'BIG_WIN_END',
+      'GAME_START',
+      'MUSIC_BIGWIN',
+    };
+    if (musicBusStages.contains(stage)) return FFNCCategory.mus;
+
     return FFNCCategory.sfx;
   }
 

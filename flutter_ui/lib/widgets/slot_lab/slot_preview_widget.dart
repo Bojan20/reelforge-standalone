@@ -718,6 +718,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
   int _tierProgressionIndex = 0;
   List<String> _tierProgressionList = []; // Tiers to progress through (e.g., ['BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_TIER_3'])
   bool _isInTierProgression = false;
+  /// Guard: BIG_WIN_END already triggered (prevents double-fire on skip during end hold)
+  bool _bigWinEndFired = false;
 
   // Tier progression timing constants
   static const int _bigWinIntroDurationMs = 500;  // BIG_WIN_START duration
@@ -2500,8 +2502,8 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     }
 
     // Stop all win-related sfx events
+    // NOTE: BIG_WIN_START already killed by stopAllMusicVoices above (music bus)
     eventRegistry.stopEvent('COIN_SHOWER_START');
-    eventRegistry.stopEvent('BIG_WIN_START');
     eventRegistry.stopEvent('ROLLUP');
     eventRegistry.stopEvent('ROLLUP_TICK');
     eventRegistry.stopEvent('SYMBOL_WIN');
@@ -2521,12 +2523,19 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       eventRegistry.stopEvent('ROLLUP_START'); // Stop looping rollup sound
       eventRegistry.triggerStage('ROLLUP_END');
     }
-    if (wasBigWin) {
-      // BIG_WIN_END: sfx + stop big win music + restart layers silent
+    if (wasBigWin && !_bigWinEndFired) {
+      // BIG_WIN_END: play stinger + composite handles base music restart.
+      // Guard: _bigWinEndFired prevents double-fire if _finishTierProgression
+      // already triggered BIG_WIN_END during the end hold period.
+      // NOTE: stopAllMusicVoices above already killed BIG_WIN_START immediately.
+      // BIG_WIN_END composite will restart base layers with offset 400ms.
+      // DO NOT call restartBaseGameLayersSilent() — composite handles it.
+      _bigWinEndFired = true;
       _ensureAudioRegistered('BIG_WIN_END');
       eventRegistry.triggerStage('BIG_WIN_END');
-      widget.provider.audioProvider.restartBaseGameLayersSilent();
       widget.provider.audioProvider.resetMusicLayerToBase();
+    }
+    if (wasBigWin) {
       eventRegistry.triggerStage('WIN_PRESENT_END');
     }
     eventRegistry.triggerStage('WIN_COLLECT');
@@ -2540,6 +2549,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         _isShowingWinLines = false;
         _isInTierProgression = false;
         _isRollingUp = false;
+        _bigWinEndFired = false; // Reset for next win
         _lineWinsForPresentation = [];
         _currentPresentingLineIndex = 0;
         _currentLinePositions = {};
@@ -3369,6 +3379,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _tierProgressionList = _buildTierProgressionList(finalTier);
     _tierProgressionIndex = 0;
     _isInTierProgression = true;
+    _bigWinEndFired = false; // Reset — new big win starts
 
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -3504,14 +3515,36 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Composite event with overlap=false → stops big win music on music bus.
     // BIG_WIN_END event — designer adds layers via middleware panel.
     // ═══════════════════════════════════════════════════════════════════════
+    // Mark BIG_WIN_END as fired BEFORE triggering — prevents double-fire if skip
+    // comes during the _bigWinEndDurationMs hold period.
+    _bigWinEndFired = true;
+
+    // Stop rollup audio FIRST (counter already reached target)
+    _stopRollupTicks();
+    if (_isRollingUp) {
+      _isRollingUp = false;
+      eventRegistry.stopEvent('ROLLUP_START');
+      eventRegistry.triggerStage('ROLLUP_END');
+    }
+
+    // Stop coin shower
     eventRegistry.triggerStage('COIN_SHOWER_END');
     eventRegistry.stopEvent('COIN_SHOWER_START');
-    // Play BIG_WIN_END sfx, stop BIG_WIN_START music
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // BIG_WIN_END — MUST play BEFORE stopping BIG_WIN_START.
+    // BIG_WIN_END composite event has its own FadeVoice+StopVoice layers
+    // that handle BIG_WIN_START shutdown with proper delay (300ms fade).
+    // If we stopEvent('BIG_WIN_START') first, the composite StopVoice
+    // targets a dead voice → no clean fade transition.
+    //
+    // DO NOT call stopEvent('BIG_WIN_START') here — let BIG_WIN_END
+    // composite handle it. DO NOT call restartBaseGameLayersSilent() here
+    // — BIG_WIN_END composite restarts base layers with offset 400ms.
+    // ═══════════════════════════════════════════════════════════════════════
+    _ensureAudioRegistered('BIG_WIN_END');
     eventRegistry.triggerStage('BIG_WIN_END');
-    eventRegistry.stopEvent('BIG_WIN_START');
-    // Restart all base game layers at volume 0.0 (silent, ready for fade-in after plaque)
-    widget.provider.audioProvider.restartBaseGameLayersSilent();
-    // Defer L1 fade-in until plaque dismissed
+    // Defer L1 fade-in until plaque dismissed (MusicLayerController state)
     widget.provider.audioProvider.resetMusicLayerToBase();
 
     final lastTier = _currentDisplayTier;
@@ -3554,6 +3587,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _rollupTickTimer?.cancel(); // Also stop rollup ticks
     _isInTierProgression = false;
     _isRollingUp = false;
+    _bigWinEndFired = false; // Reset for next win
     _tierProgressionList = [];
     _tierProgressionIndex = 0;
 
@@ -3590,6 +3624,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _rollupTickTimer?.cancel();
     _isInTierProgression = false;
     _isRollingUp = false;
+    _bigWinEndFired = false;
     _tierProgressionList = [];
     _tierProgressionIndex = 0;
 

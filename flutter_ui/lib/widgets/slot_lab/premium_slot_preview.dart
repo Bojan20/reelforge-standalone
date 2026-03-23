@@ -29,6 +29,7 @@ import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import 'forced_outcome_panel.dart';
 import 'game_flow_overlay.dart';
+import '../../models/game_flow_models.dart';
 import '../../providers/slot_lab/game_flow_provider.dart';
 import 'project_dashboard_dialog.dart';
 import 'slot_preview_widget.dart';
@@ -4979,9 +4980,40 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     _loadSettings(); // Load persisted settings
     // NOTE: Game config now loaded via Dashboard → Rules tab
 
+    // W4: Wire FS auto-spin — GameFlowProvider requests spins, we execute them
+    _wireGameFlowAutoSpin();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
     });
+  }
+
+  /// Wire GameFlowProvider.onRequestAutoSpin to execute spins through the
+  /// normal _handleSpin flow, keeping balance/state consistent.
+  void _wireGameFlowAutoSpin() {
+    try {
+      final gameFlow = GetIt.instance<GameFlowProvider>();
+      gameFlow.onRequestAutoSpin = () {
+        if (!mounted) return;
+        final provider = context.read<SlotLabProvider>();
+        _handleSpin(provider);
+      };
+    } catch (_) {
+      // GameFlowProvider may not be registered yet — retry after frame
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        try {
+          final gameFlow = GetIt.instance<GameFlowProvider>();
+          gameFlow.onRequestAutoSpin = () {
+            if (!mounted) return;
+            final provider = context.read<SlotLabProvider>();
+            _handleSpin(provider);
+          };
+        } catch (_) {
+          // Still not ready — will work when user navigates to slot lab
+        }
+      });
+    }
   }
 
   void _onComposerChanged() {
@@ -5112,6 +5144,14 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     final reg = EventRegistry.instance;
     reg.stopAllSpinLoops();
     reg.stopEvent('COIN_SHOWER_START'); // Looping — would be orphaned
+
+    // W4: Disconnect FS auto-spin callback
+    try {
+      final gameFlow = GetIt.instance<GameFlowProvider>();
+      if (gameFlow.onRequestAutoSpin != null) {
+        gameFlow.onRequestAutoSpin = null;
+      }
+    } catch (_) {}
 
     _composer.removeListener(_onComposerChanged);
     _jackpotTickController.dispose();
@@ -5749,6 +5789,16 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     }
   }
 
+  /// Whether we're currently in free spins mode (spins are free)
+  bool get _isInFreeSpins {
+    try {
+      final gameFlow = GetIt.instance<GameFlowProvider>();
+      return gameFlow.currentState == GameFlowState.freeSpins;
+    } catch (_) {
+      return false;
+    }
+  }
+
   void _handleSpin(SlotLabProvider provider) {
     if (!provider.initialized) {
       return;
@@ -5756,7 +5806,8 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     if (!GetIt.instance<FeatureComposerProvider>().isConfigured) {
       return;
     }
-    if (_balance < _totalBetAmount) {
+    // W4: During free spins, don't check balance (spins are free)
+    if (!_isInFreeSpins && _balance < _totalBetAmount) {
       return;
     }
 
@@ -5788,17 +5839,22 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
   /// V13: Execute spin after skip fade-out is complete (or when no skip needed)
   /// This contains the actual spin logic extracted from _handleSpin
   void _executeSpinAfterSkip(SlotLabProvider provider) {
+    // W4: Free spins are free — don't deduct balance or track bet during FS
+    final bool isFsSpin = _isInFreeSpins;
+
     setState(() {
-      _balance -= _totalBetAmount;
-      _sessionTotalBet += _totalBetAmount; // Session tracking for RTP calculation
+      if (!isFsSpin) {
+        _balance -= _totalBetAmount;
+        _sessionTotalBet += _totalBetAmount; // Session tracking for RTP calculation
+        // Progressive contribution based on bet amount (1% of bet goes to jackpot pool)
+        _progressiveContribution = _jackpotContributionRate * _totalBetAmount;
+        // Add small amount to each jackpot per bet
+        _miniJackpot += _totalBetAmount * 0.005;
+        _minorJackpot += _totalBetAmount * 0.003;
+        _majorJackpot += _totalBetAmount * 0.002;
+        _grandJackpot += _totalBetAmount * 0.001;
+      }
       _totalSpins++;
-      // Progressive contribution based on bet amount (1% of bet goes to jackpot pool)
-      _progressiveContribution = _jackpotContributionRate * _totalBetAmount;
-      // Add small amount to each jackpot per bet
-      _miniJackpot += _totalBetAmount * 0.005;
-      _minorJackpot += _totalBetAmount * 0.003;
-      _majorJackpot += _totalBetAmount * 0.002;
-      _grandJackpot += _totalBetAmount * 0.001;
       _showWinPresenter = false;
       _isPlayingBigWinEnd = false;
     });

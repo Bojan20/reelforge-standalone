@@ -137,6 +137,11 @@ class FFNCParser {
   // ═══════════════════════════════════════════════════════════════
 
   String _transformMus(String name) {
+    // Non-MUSIC_ prefixed stages that live on music bus
+    if (name == 'big_win_loop') return 'BIG_WIN_START';
+    if (name == 'big_win_end') return 'BIG_WIN_END';
+    if (name == 'game_start') return 'GAME_START';
+
     // base_game_* → BASE_*
     if (name.startsWith('base_game_')) {
       return 'MUSIC_BASE_${name.substring(10).toUpperCase()}';
@@ -185,6 +190,9 @@ class FFNCParser {
   // ═══════════════════════════════════════════════════════════════
 
   String _transformTrn(String name) {
+    // CONTEXT_ stages keep their prefix (not TRANSITION_ internally)
+    if (name.startsWith('context_')) return name.toUpperCase();
+
     // Replace human-readable names with internal abbreviations
     var transformed = name;
     transformed = transformed.replaceAll('base_game', 'base');

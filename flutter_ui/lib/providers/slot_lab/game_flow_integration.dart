@@ -10,6 +10,8 @@
 /// bidirectional communication without modifying existing providers.
 library;
 
+import 'dart:async';
+
 import '../../models/game_flow_models.dart';
 import '../../services/event_registry.dart';
 import '../../services/service_locator.dart';
@@ -59,6 +61,10 @@ class GameFlowIntegration {
 
     // Wire audio stage callback → EventRegistry
     _flowProvider!.onAudioStage = _onAudioStage;
+
+    // NOTE: onRequestAutoSpin is wired by PremiumSlotPreview._wireGameFlowAutoSpin()
+    // which overrides it with a lambda that calls _handleSpin. We do NOT set it here
+    // to avoid the Integration callback calling itself in an infinite loop.
 
     // Wire state change callback
     _flowProvider!.onStateChanged = _onStateChanged;
@@ -476,8 +482,10 @@ class GameFlowIntegration {
     if (audio == null) return;
 
     if (phase == TransitionPhase.entering && to == GameFlowState.freeSpins) {
-      // FS INTRO plaque dismissed → start FS music
+      // FS INTRO plaque dismissed → start FS music + auto-spin loop
       _onAudioStage('MUSIC_FS_L1');
+      // Wait for any active win presentation (scatter+win combo) before starting loop
+      _startFsLoopWhenReady();
     } else if (phase == TransitionPhase.exiting && from == GameFlowState.freeSpins) {
       // FS END plaque dismissed → fade-in base game L1
       audio.musicLayerController.flushPendingCrossfade();
@@ -489,11 +497,40 @@ class GameFlowIntegration {
     // GameFlowProvider.notifyListeners() already handles this
   }
 
+  // ─── FS Auto-Spin helpers ────────────────────────────────────────────
+
+  Timer? _fsReadyPollTimer;
+
+  /// Start FS auto-spin loop once any active win presentation finishes.
+  /// If no win presentation is active, starts immediately.
+  void _startFsLoopWhenReady() {
+    _fsReadyPollTimer?.cancel();
+    final coordinator = _coordinator;
+    if (coordinator == null) {
+      _flowProvider?.startFsAutoLoop(delayMs: 500);
+      return;
+    }
+    if (!coordinator.isWinPresentationActive) {
+      _flowProvider?.startFsAutoLoop(delayMs: 500);
+      return;
+    }
+    // Win presentation still active — poll every 100ms
+    _fsReadyPollTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (coordinator.isWinPresentationActive) return;
+      timer.cancel();
+      _fsReadyPollTimer = null;
+      _flowProvider?.startFsAutoLoop(delayMs: 500);
+    });
+  }
+
   /// Dispose integration
   void dispose() {
+    _fsReadyPollTimer?.cancel();
+    _fsReadyPollTimer = null;
     _featureBuilder?.removeListener(_onFeatureBuilderChanged);
     _featureBuilder = null;
     _flowProvider?.onAudioStage = null;
+    _flowProvider?.onRequestAutoSpin = null;
     _flowProvider?.onStateChanged = null;
     _flowProvider?.onTransitionStart = null;
     _flowProvider?.onTransitionDismissed = null;

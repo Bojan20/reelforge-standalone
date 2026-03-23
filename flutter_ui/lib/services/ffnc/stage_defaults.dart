@@ -223,9 +223,9 @@ class StageDefaults {
     'WIN_FANFARE': StageDefault(volume: 1.0, busId: 2),
 
     // Big wins
-    'BIG_WIN_START': StageDefault(volume: 1.0, busId: 2),
-    'BIG_WIN_END': StageDefault(volume: 1.0, busId: 2, fadeOutMs: 500),
-    'BIG_WIN_TRIGGER': StageDefault(volume: 1.0, busId: 2),
+    'BIG_WIN_START': StageDefault(volume: 1.0, busId: 1, loop: true), // Music bus — looping big win music
+    'BIG_WIN_END': StageDefault(volume: 1.0, busId: 1, fadeOutMs: 500), // Music bus — stinger + restart base
+    'BIG_WIN_TRIGGER': StageDefault(volume: 1.0, busId: 2), // SFX — attention alert
     'BIG_WIN_TICK_START': StageDefault(volume: 1.0, busId: 2),
     'BIG_WIN_TICK_END': StageDefault(volume: 1.0, busId: 2),
     'COIN_SHOWER_START': StageDefault(volume: 1.0, busId: 2),

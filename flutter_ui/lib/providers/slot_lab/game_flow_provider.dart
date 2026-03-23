@@ -92,6 +92,11 @@ class GameFlowProvider extends ChangeNotifier {
   double _totalWin = 0;
   ModifiedWinResult? _lastWinPipeline;
 
+  // ─── Free Spins Auto-Loop ──────────────────────────────────────────────
+  bool _fsAutoLoopActive = false;
+  Timer? _fsAutoSpinTimer;
+  int _fsAutoSpinDelayMs = 500;
+
   // ─── Scene Transitions ─────────────────────────────────────────────────
   ActiveTransition? _activeTransition;
   bool _transitionsEnabled = true;
@@ -130,6 +135,10 @@ class GameFlowProvider extends ChangeNotifier {
 
   /// Called when a scene transition plaque is dismissed
   void Function(TransitionPhase phase, GameFlowState from, GameFlowState to)? onTransitionDismissed;
+
+  /// Called when the FSM wants to auto-spin (e.g., Free Spins auto-loop).
+  /// UI (PremiumSlotPreview) connects this to execute the actual spin.
+  void Function()? onRequestAutoSpin;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // GETTERS
@@ -172,6 +181,9 @@ class GameFlowProvider extends ChangeNotifier {
 
   /// Current total win amount
   double get totalWin => _totalWin;
+
+  /// Whether FS auto-spin loop is active
+  bool get isFsAutoLoopActive => _fsAutoLoopActive;
 
   /// Active scene transition (null = no transition in progress)
   ActiveTransition? get activeTransition => _activeTransition;
@@ -411,6 +423,17 @@ class GameFlowProvider extends ChangeNotifier {
 
     // Step 2: Evaluate triggers for new features
     _evaluateTriggers(context);
+
+    // Step 3: If FS auto-loop is active and still in FS, schedule next spin
+    if (_fsAutoLoopActive && _currentState == GameFlowState.freeSpins) {
+      final fs = freeSpinsState;
+      if (fs != null && fs.spinsRemaining > 0) {
+        _scheduleNextFsSpin();
+      } else {
+        // FS spins exhausted — _stepCurrentFeature already called _exitCurrentFeature
+        stopFsAutoLoop();
+      }
+    }
   }
 
   /// Evaluate all registered executors for trigger conditions
@@ -541,6 +564,9 @@ class GameFlowProvider extends ChangeNotifier {
 
   /// Exit the current feature and return to parent or process queue
   void _exitCurrentFeature() {
+    // Stop FS auto-loop if active
+    stopFsAutoLoop();
+
     final blockId = _blockIdForState(_currentState);
     if (blockId == null) {
       _transitionTo(GameFlowState.baseGame);
@@ -683,6 +709,7 @@ class GameFlowProvider extends ChangeNotifier {
 
   /// Force return to base game (error recovery)
   void resetToBaseGame() {
+    stopFsAutoLoop();
     _transitionDismissTimer?.cancel();
     _transitionDismissTimer = null;
     _activeTransition = null;
@@ -723,6 +750,64 @@ class GameFlowProvider extends ChangeNotifier {
     _lastWinPipeline = result;
 
     return result;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FREE SPINS AUTO-LOOP — WoO-style automatic spin execution
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Start the FS auto-spin loop. Called when FS entry plaque is dismissed.
+  void startFsAutoLoop({int delayMs = 500}) {
+    if (_currentState != GameFlowState.freeSpins) return;
+    if (_fsAutoLoopActive) return;
+
+    _fsAutoSpinDelayMs = delayMs;
+    _fsAutoLoopActive = true;
+    notifyListeners();
+    _scheduleNextFsSpin();
+  }
+
+  /// Stop the FS auto-spin loop.
+  void stopFsAutoLoop() {
+    if (!_fsAutoLoopActive) return; // Already stopped — skip notify
+    _fsAutoSpinTimer?.cancel();
+    _fsAutoSpinTimer = null;
+    _fsAutoLoopActive = false;
+    notifyListeners();
+  }
+
+  /// Schedule the next FS auto-spin after delay.
+  /// NEVER calls _exitCurrentFeature — that is handled by _stepCurrentFeature
+  /// when shouldContinue is false. This method only schedules or stops.
+  void _scheduleNextFsSpin() {
+    _fsAutoSpinTimer?.cancel();
+    if (!_fsAutoLoopActive) return;
+    if (_currentState != GameFlowState.freeSpins) {
+      stopFsAutoLoop();
+      return;
+    }
+
+    final fs = freeSpinsState;
+    if (fs == null || fs.spinsRemaining <= 0) {
+      // FS exhausted — don't schedule. _stepCurrentFeature handles exit.
+      stopFsAutoLoop();
+      return;
+    }
+
+    _fsAutoSpinTimer = Timer(Duration(milliseconds: _fsAutoSpinDelayMs), () {
+      if (!_fsAutoLoopActive || _currentState != GameFlowState.freeSpins) {
+        stopFsAutoLoop();
+        return;
+      }
+      // Guard: check spinsRemaining again (could have changed between schedule and fire)
+      final currentFs = freeSpinsState;
+      if (currentFs == null || currentFs.spinsRemaining <= 0) {
+        stopFsAutoLoop();
+        return;
+      }
+      // Request UI to execute the spin
+      onRequestAutoSpin?.call();
+    });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -975,6 +1060,7 @@ class GameFlowProvider extends ChangeNotifier {
   void dispose() {
     _transitionDismissTimer?.cancel();
     _transitionDismissTimer = null;
+    stopFsAutoLoop();
     _executors.clear();
     super.dispose();
   }

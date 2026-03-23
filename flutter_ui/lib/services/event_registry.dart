@@ -2391,10 +2391,12 @@ class EventRegistry extends ChangeNotifier {
     // ═══════════════════════════════════════════════════════════════════════════
     int crossfadeInMs = 0;
 
-    // Skip implicit bus fadeout if event has explicit bus-level FadeOut/Stop action layers
-    // NOTE: FadeVoice/StopVoice target specific files, NOT bus — they don't skip bus fadeout
+    // Skip implicit bus fadeout if event has explicit action layers (FadeOut, Stop,
+    // FadeVoice, StopVoice, etc). These events manage their own cleanup — implicit
+    // bus fadeout would interfere by killing voices before explicit layers can target them.
     final hasExplicitFadeActions = event.layers.any((l) =>
-        l.actionType == 'FadeOut' || l.actionType == 'Stop' || l.actionType == 'StopAll');
+        l.actionType == 'FadeOut' || l.actionType == 'Stop' || l.actionType == 'StopAll' ||
+        l.actionType == 'FadeVoice' || l.actionType == 'StopVoice');
 
     if (!event.overlap && !hasExplicitFadeActions) {
       // Non-overlapping event: fade out all active voices on the same bus
