@@ -833,8 +833,8 @@ class _VoiceStripState extends State<_VoiceStrip> {
   // ─── Sends (bus-level aux sends from MixerDSPProvider) ───────────────
 
   Widget _buildSendSection() {
-    // Read bus sends from MixerDSPProvider (bus-level, shared by all voices on this bus)
-    final busMixer = context.read<MixerDSPProvider>();
+    // Read bus sends from MixerDSPProvider via context.watch (rebuilds on change)
+    final busMixer = context.watch<MixerDSPProvider>();
     final busName = busIdToName(ch.busId).toLowerCase();
     final trackSends = busMixer.trackSends;
 

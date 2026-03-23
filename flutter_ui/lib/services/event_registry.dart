@@ -119,6 +119,10 @@ class AudioLayer {
     'name': name,
     'volume': volume,
     'pan': pan,
+    'panRight': panRight,
+    'stereoWidth': stereoWidth,
+    'inputGain': inputGain,
+    'phaseInvert': phaseInvert,
     'delay': delay,
     'offset': offset,
     'busId': busId,
@@ -137,6 +141,10 @@ class AudioLayer {
     name: json['name'] as String,
     volume: (json['volume'] as num?)?.toDouble() ?? 1.0,
     pan: (json['pan'] as num?)?.toDouble() ?? 0.0,
+    panRight: (json['panRight'] as num?)?.toDouble() ?? 0.0,
+    stereoWidth: (json['stereoWidth'] as num?)?.toDouble() ?? 1.0,
+    inputGain: (json['inputGain'] as num?)?.toDouble() ?? 0.0,
+    phaseInvert: json['phaseInvert'] as bool? ?? false,
     delay: (json['delay'] as num?)?.toDouble() ?? 0.0,
     offset: (json['offset'] as num?)?.toDouble() ?? 0.0,
     busId: json['busId'] as int? ?? 0,
@@ -3517,18 +3525,18 @@ class EventRegistry extends ChangeNotifier {
       }
 
       if (voiceId >= 0) {
-        // Apply all non-default voice parameters immediately after creation.
+        // Apply ALL voice parameters immediately after creation.
         // Rust engine defaults: pan_right=0.0, stereo_width=1.0, input_gain=1.0, phase_invert=false
+        // ALWAYS send all params — AudioLayer constructors throughout codebase may not
+        // set these fields explicitly, so we push whatever the layer has.
         final playback = AudioPlaybackService.instance;
-        if (layer.panRight.abs() > 0.001) {
-          playback.updateLayerPanRight(layer.id, layer.panRight);
-        }
+        playback.updateLayerPanRight(layer.id, layer.panRight);
         if ((layer.stereoWidth - 1.0).abs() > 0.01) {
           playback.updateLayerWidth(layer.id, layer.stereoWidth);
         }
         if (layer.inputGain.abs() > 0.01) {
-          // Convert dB to linear: 10^(dB/20)
-          final linearGain = math.pow(10.0, layer.inputGain / 20.0).toDouble();
+          final linearGain = layer.inputGain <= -60.0 ? 0.0 :
+              math.pow(10.0, layer.inputGain / 20.0).toDouble();
           playback.updateLayerInputGain(layer.id, linearGain.clamp(0.0, 4.0));
         }
         if (layer.phaseInvert) {

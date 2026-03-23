@@ -13,6 +13,7 @@
 // CRITICAL: This is a SLOTLAB-ONLY mixer. Does NOT touch DAW MixerProvider.
 // Shared only: MixerDSPProvider (bus control) + SharedMeterReader (metering).
 
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 import '../../models/slot_audio_events.dart';
@@ -248,6 +249,7 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
   /// Start metering ticker — call from widget's initState with TickerProvider
   void startMetering(TickerProvider vsync) {
     _ticker?.dispose();
+    _meterFrameCounter = 0;
     _ticker = vsync.createTicker(_onMeterTick)..start();
   }
 
@@ -677,6 +679,10 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
       final playback = AudioPlaybackService.instance;
       if (ch.panRight.abs() > 0.001) playback.updateLayerPanRight(layerId, ch.panRight);
       if ((ch.stereoWidth - 1.0).abs() > 0.01) playback.updateLayerWidth(layerId, ch.stereoWidth);
+      if (ch.inputGain.abs() > 0.01) {
+        final linearGain = ch.inputGain <= -60.0 ? 0.0 : math.pow(10.0, ch.inputGain / 20.0).toDouble();
+        playback.updateLayerInputGain(layerId, linearGain.clamp(0.0, 4.0));
+      }
       if (ch.phaseInvert) playback.updateLayerPhaseInvert(layerId, true);
     }
   }
