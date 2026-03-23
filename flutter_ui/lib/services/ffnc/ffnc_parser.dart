@@ -198,8 +198,9 @@ class FFNCParser {
   // ═══════════════════════════════════════════════════════════════
 
   String _stripExtension(String filename) {
+    final lower = filename.toLowerCase();
     for (final ext in _audioExtensions) {
-      if (filename.endsWith(ext)) {
+      if (lower.endsWith(ext)) {
         return filename.substring(0, filename.length - ext.length);
       }
     }

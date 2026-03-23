@@ -3,6 +3,10 @@
 /// Uses the existing alias system to identify stages, then generates
 /// FFNC-compliant names with correct prefixes. Includes Levenshtein
 /// distance typo suggestion for unmatched files.
+///
+/// Normalization mirrors slot_lab_project_provider.dart autoBindFromFolder()
+/// exactly — CamelCase split, sfx_ strip, numeric prefix strip, level strip,
+/// trailing variant strip, and all 6 resolution attempts.
 
 import 'dart:io';
 import 'package:path/path.dart' as p;
@@ -13,12 +17,12 @@ import 'ffnc_parser.dart';
 class FFNCRenameResult {
   final String originalPath;
   final String originalName;
-  final String? ffncName;
+  String? ffncName;
   final String? stage;
   final FFNCCategory? category;
   final bool isExactMatch;
 
-  const FFNCRenameResult({
+  FFNCRenameResult({
     required this.originalPath,
     required this.originalName,
     this.ffncName,
@@ -49,6 +53,9 @@ class FFNCRenamer {
   /// Known stage names for typo suggestion. Populated from StageConfigurationService.
   final Set<String> _knownStages;
 
+  /// Cache for Levenshtein suggestions per originalName to avoid recomputation.
+  final Map<String, List<StageSuggestion>> _suggestionCache = {};
+
   FFNCRenamer({required Set<String> knownStages}) : _knownStages = knownStages;
 
   /// Analyze a folder and generate rename suggestions for all audio files.
@@ -59,7 +66,12 @@ class FFNCRenamer {
     final dir = Directory(folderPath);
     if (!dir.existsSync()) return [];
 
+    _suggestionCache.clear();
+
     final results = <FFNCRenameResult>[];
+    // Track generated FFNC names to detect collisions
+    final usedNames = <String, int>{}; // ffncName → count
+
     final files = dir
         .listSync(recursive: true)
         .whereType<File>()
@@ -84,9 +96,8 @@ class FFNCRenamer {
         continue;
       }
 
-      // Normalize and resolve via existing alias system
-      final normalized = _normalizeForResolve(originalName);
-      final stage = resolveStage(normalized, originalName);
+      // Try all 6 normalization variants (mirrors autoBindFromFolder exactly)
+      final stage = _resolveWithAllVariants(originalName, resolveStage);
 
       if (stage != null) {
         final category = categorizeStage(stage);
@@ -107,7 +118,74 @@ class FFNCRenamer {
       }
     }
 
+    // Resolve filename collisions — append _variant_a, _variant_b, etc.
+    _resolveCollisions(results);
+
     return results;
+  }
+
+  /// Try all 6 normalization variants that autoBindFromFolder uses.
+  /// This ensures the rename tool matches exactly the same files as autobind.
+  String? _resolveWithAllVariants(
+    String originalName,
+    String? Function(String normalizedName, String fullName) resolveStage,
+  ) {
+    final rawName = _stripExtension(originalName);
+
+    // CamelCase → snake_case (same 4-step regex as autoBindFromFolder)
+    final snaked = rawName
+        .replaceAllMapped(RegExp(r'([a-z0-9])([A-Z])'), (m) => '${m[1]}_${m[2]}')
+        .replaceAllMapped(RegExp(r'([A-Z]+)([A-Z][a-z])'), (m) => '${m[1]}_${m[2]}')
+        .replaceAllMapped(RegExp(r'([a-zA-Z])(\d)'), (m) => '${m[1]}_${m[2]}')
+        .replaceAllMapped(RegExp(r'(\d)([a-zA-Z])'), (m) => '${m[1]}_${m[2]}');
+    final name = snaked.toLowerCase().replaceAll(RegExp(r'[\s\-]+'), '_');
+
+    // Strip numeric prefix (004_, 043_) but preserve multiplier (2_x)
+    final stripped = RegExp(r'^\d+_x(_|$)').hasMatch(name)
+        ? name
+        : name.replaceFirst(RegExp(r'^\d+_'), '');
+
+    // Strip trailing variant number (_2, _1)
+    final base = stripped.replaceFirst(RegExp(r'_\d$'), '');
+
+    // Strip level suffix (_level_1, _lv2, _level)
+    final noLevel = base.replaceFirst(RegExp(r'_?(?:level|lv)_?\d*$'), '');
+
+    // Strip sfx_ prefix + numeric catalog number
+    final afterSfx = stripped.startsWith('sfx_') ? stripped.substring(4) : stripped;
+    final noSfx = afterSfx.replaceFirst(RegExp(r'^\d+_'), '');
+    final afterSfxBase = base.startsWith('sfx_') ? base.substring(4) : base;
+    final noSfxBase = afterSfxBase.replaceFirst(RegExp(r'^\d+_'), '');
+    final noSfxNoLevel = noLevel.startsWith('sfx_') ? noLevel.substring(4) : noLevel;
+    final noSfxNoLevelClean = noSfxNoLevel.replaceFirst(RegExp(r'^\d+_'), '');
+
+    // Try all 6 resolution attempts in same order as autoBindFromFolder
+    return resolveStage(noSfx, noSfx) ??
+        (stripped != noSfx ? resolveStage(stripped, stripped) : null) ??
+        resolveStage(noSfxNoLevelClean, noSfxNoLevelClean) ??
+        resolveStage(noSfxBase, noSfxBase) ??
+        (noLevel != noSfxNoLevelClean ? resolveStage(noLevel, noLevel) : null) ??
+        (base != noSfxBase ? resolveStage(base, stripped) : null);
+  }
+
+  /// Resolve filename collisions by appending _variant_a, _variant_b, etc.
+  void _resolveCollisions(List<FFNCRenameResult> results) {
+    final nameCount = <String, List<FFNCRenameResult>>{};
+    for (final r in results) {
+      if (r.ffncName != null) {
+        nameCount.putIfAbsent(r.ffncName!, () => []).add(r);
+      }
+    }
+    for (final entry in nameCount.entries) {
+      if (entry.value.length <= 1) continue;
+      // Multiple files mapping to same FFNC name → add variant suffix
+      final ext = p.extension(entry.key);
+      final stem = p.basenameWithoutExtension(entry.key);
+      for (int i = 0; i < entry.value.length; i++) {
+        final variant = String.fromCharCode(97 + (i % 26)); // a, b, c, ...
+        entry.value[i].ffncName = '${stem}_variant_$variant$ext';
+      }
+    }
   }
 
   /// Generate FFNC filename from internal stage name.
@@ -140,10 +218,18 @@ class FFNCRenamer {
         var name = stage.toLowerCase();
         // MUSIC_ prefix → strip
         name = name.replaceFirst('music_', '');
-        // BASE_ → base_game_
-        name = name.replaceFirst(RegExp(r'^base_'), 'base_game_');
-        // FS_ → freespin_
-        name = name.replaceFirst(RegExp(r'^fs_'), 'freespin_');
+        // BASE_ → base_game_ (word boundary safe)
+        if (name.startsWith('base_')) {
+          name = 'base_game_${name.substring(5)}';
+          // Clean up trailing underscore if BASE was the whole thing
+          if (name.endsWith('_')) name = name.substring(0, name.length - 1);
+        }
+        // FS_ → freespin_ (word boundary safe)
+        if (name.startsWith('fs_')) {
+          name = 'freespin_${name.substring(3)}';
+        } else if (name == 'fs') {
+          name = 'freespin';
+        }
         // BIGWIN → big_win
         name = name.replaceFirst('bigwin', 'big_win');
         return 'mus_$name$ext';
@@ -152,30 +238,33 @@ class FFNCRenamer {
         var name = stage.toLowerCase();
         // AMBIENT_ → strip
         name = name.replaceFirst('ambient_', '');
+        // ATTRACT_*, IDLE_* → keep full stage (strip AMBIENT_ but keep ATTRACT/IDLE)
+        if (stage.startsWith('ATTRACT_') || stage.startsWith('IDLE_')) {
+          return 'amb_${stage.toLowerCase()}$ext';
+        }
         // BASE → base_game
         if (name == 'base') name = 'base_game';
         // FS → freespin
         if (name == 'fs') name = 'freespin';
         // BIGWIN → big_win
         name = name.replaceFirst('bigwin', 'big_win');
-        // ATTRACT_*, IDLE_* → keep as-is (already stripped prefix)
-        if (stage.startsWith('ATTRACT_') || stage.startsWith('IDLE_')) {
-          return 'amb_${stage.toLowerCase()}$ext';
-        }
         return 'amb_$name$ext';
 
       case FFNCCategory.trn:
         var name = stage.toLowerCase();
         // TRANSITION_ → strip
         name = name.replaceFirst('transition_', '');
-        // BASE → base_game
-        name = name.replaceAll('_base_', '_base_game_');
-        name = name.replaceAll('_base', '_base_game');
-        if (name.startsWith('base_')) name = name.replaceFirst('base_', 'base_game_');
-        // FS → freespin
-        name = name.replaceAll('_fs_', '_freespin_');
-        name = name.replaceAll('_fs', '_freespin');
-        if (name.startsWith('fs_')) name = name.replaceFirst('fs_', 'freespin_');
+        // Word-boundary safe replacements for abbreviations
+        // Replace _base_ in middle (e.g., transition_base_to_fs)
+        name = name.replaceAllMapped(
+          RegExp(r'(^|_)base($|_)'),
+          (m) => '${m[1]}base_game${m[2]}',
+        );
+        // Replace _fs_ in middle
+        name = name.replaceAllMapped(
+          RegExp(r'(^|_)fs($|_)'),
+          (m) => '${m[1]}freespin${m[2]}',
+        );
         return 'trn_$name$ext';
 
       case FFNCCategory.ui:
@@ -202,11 +291,19 @@ class FFNCRenamer {
 
   /// Suggest closest known stages for an unmatched filename.
   /// Only returns suggestions with Levenshtein distance <= maxDistance.
+  /// Results are cached per originalName to avoid expensive recomputation on rebuild.
   List<StageSuggestion> suggestStage(String unmatchedName, {int maxResults = 3, int maxDistance = 3}) {
-    // Normalize: strip extension, lowercase, strip numeric prefix
+    if (_suggestionCache.containsKey(unmatchedName)) {
+      return _suggestionCache[unmatchedName]!;
+    }
+
+    // Normalize: strip extension, CamelCase→snake, lowercase, strip prefix
     // Then uppercase to match stage name format for fair comparison
-    final normalized = _normalizeForResolve(unmatchedName).toUpperCase();
-    if (normalized.isEmpty) return [];
+    final normalized = _normalizeForSuggestion(unmatchedName).toUpperCase();
+    if (normalized.isEmpty) {
+      _suggestionCache[unmatchedName] = const [];
+      return const [];
+    }
     final suggestions = <StageSuggestion>[];
 
     for (final stage in _knownStages) {
@@ -227,7 +324,9 @@ class FFNCRenamer {
     }
 
     suggestions.sort((a, b) => a.distance.compareTo(b.distance));
-    return suggestions.take(maxResults).toList();
+    final result = suggestions.take(maxResults).toList();
+    _suggestionCache[unmatchedName] = result;
+    return result;
   }
 
   /// Copy files with FFNC names to output folder. Returns count of copied files.
@@ -243,6 +342,8 @@ class FFNCRenamer {
       final source = File(result.originalPath);
       final dest = File(p.join(outputPath, result.ffncName!));
       if (source.existsSync()) {
+        // Don't overwrite existing files silently
+        if (dest.existsSync()) continue;
         await source.copy(dest.path);
         count++;
       }
@@ -254,20 +355,31 @@ class FFNCRenamer {
   // Utility
   // ═══════════════════════════════════════════════════════════════
 
-  /// Normalize filename for alias resolution (strip extension, lowercase, basic cleanup).
-  String _normalizeForResolve(String filename) {
-    var name = filename;
-    // Strip extension
+  /// Strip audio extension (case-insensitive).
+  String _stripExtension(String filename) {
+    final lower = filename.toLowerCase();
     for (final ext in _audioExtensions) {
-      if (name.toLowerCase().endsWith(ext)) {
-        name = name.substring(0, name.length - ext.length);
-        break;
+      if (lower.endsWith(ext)) {
+        return filename.substring(0, filename.length - ext.length);
       }
     }
-    // Lowercase, replace spaces/hyphens with underscore
+    return filename;
+  }
+
+  /// Normalize for Levenshtein suggestion (simpler than full resolve).
+  String _normalizeForSuggestion(String filename) {
+    var name = _stripExtension(filename);
+    // CamelCase → snake_case
+    name = name
+        .replaceAllMapped(RegExp(r'([a-z0-9])([A-Z])'), (m) => '${m[1]}_${m[2]}')
+        .replaceAllMapped(RegExp(r'([A-Z]+)([A-Z][a-z])'), (m) => '${m[1]}_${m[2]}')
+        .replaceAllMapped(RegExp(r'([a-zA-Z])(\d)'), (m) => '${m[1]}_${m[2]}')
+        .replaceAllMapped(RegExp(r'(\d)([a-zA-Z])'), (m) => '${m[1]}_${m[2]}');
     name = name.toLowerCase().replaceAll(RegExp(r'[\s\-]+'), '_');
-    // Strip numeric prefix (004_, 043_)
-    name = name.replaceFirst(RegExp(r'^\d{2,4}_'), '');
+    // Strip numeric prefix
+    if (!RegExp(r'^\d+_x(_|$)').hasMatch(name)) {
+      name = name.replaceFirst(RegExp(r'^\d+_'), '');
+    }
     return name;
   }
 

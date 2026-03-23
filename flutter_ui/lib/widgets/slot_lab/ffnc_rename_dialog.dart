@@ -30,6 +30,7 @@ class _FFNCRenameDialogState extends State<FFNCRenameDialog> {
   List<FFNCRenameResult> _results = [];
   bool _copyMode = true; // true = copy, false = rename in place
   bool _isProcessing = false;
+  String? _errorMessage;
   final Map<String, String> _manualOverrides = {}; // originalName → ffncName
 
   late final FFNCRenamer _renamer;
@@ -52,6 +53,8 @@ class _FFNCRenameDialogState extends State<FFNCRenameDialog> {
     setState(() {
       _sourcePath = path;
       _outputPath ??= '$path/ffnc_output';
+      _errorMessage = null;
+      _manualOverrides.clear();
     });
     _analyze();
   }
@@ -66,57 +69,77 @@ class _FFNCRenameDialogState extends State<FFNCRenameDialog> {
 
   void _analyze() {
     if (_sourcePath == null) return;
-    setState(() {
-      _results = _renamer.analyze(_sourcePath!, widget.resolveStage);
-    });
+    try {
+      setState(() {
+        _results = _renamer.analyze(_sourcePath!, widget.resolveStage);
+        _errorMessage = null;
+      });
+    } catch (e) {
+      setState(() {
+        _results = [];
+        _errorMessage = 'Scan error: $e';
+      });
+    }
   }
 
   Future<void> _executeRename() async {
     if (_results.isEmpty) return;
-    setState(() => _isProcessing = true);
+    setState(() {
+      _isProcessing = true;
+      _errorMessage = null;
+    });
 
-    // Apply manual overrides
-    final finalResults = _results.map((r) {
-      if (_manualOverrides.containsKey(r.originalName)) {
-        return FFNCRenameResult(
-          originalPath: r.originalPath,
-          originalName: r.originalName,
-          ffncName: _manualOverrides[r.originalName],
-          stage: r.stage,
-          category: r.category,
-          isExactMatch: true,
-        );
-      }
-      return r;
-    }).toList();
+    try {
+      // Apply manual overrides
+      final finalResults = _results.map((r) {
+        if (_manualOverrides.containsKey(r.originalName)) {
+          return FFNCRenameResult(
+            originalPath: r.originalPath,
+            originalName: r.originalName,
+            ffncName: _manualOverrides[r.originalName],
+            stage: r.stage,
+            category: r.category,
+            isExactMatch: true,
+          );
+        }
+        return r;
+      }).toList();
 
-    final matched = finalResults.where((r) => r.isMatched).toList();
+      final matched = finalResults.where((r) => r.isMatched).toList();
 
-    if (_copyMode) {
-      if (_outputPath == null) {
-        setState(() => _isProcessing = false);
-        return;
-      }
-      final count = await _renamer.copyRenamed(matched, _outputPath!);
-      if (mounted) {
-        setState(() => _isProcessing = false);
-        Navigator.of(context).pop(count);
-      }
-    } else {
-      // Rename in place
-      int count = 0;
-      for (final result in matched) {
-        if (result.ffncName == null || result.ffncName == result.originalName) continue;
-        final source = File(result.originalPath);
-        final dest = File(p.join(p.dirname(result.originalPath), result.ffncName!));
-        if (source.existsSync() && !dest.existsSync()) {
-          await source.rename(dest.path);
-          count++;
+      if (_copyMode) {
+        if (_outputPath == null) {
+          setState(() => _isProcessing = false);
+          return;
+        }
+        final count = await _renamer.copyRenamed(matched, _outputPath!);
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          Navigator.of(context).pop(count);
+        }
+      } else {
+        // Rename in place
+        int count = 0;
+        for (final result in matched) {
+          if (result.ffncName == null || result.ffncName == result.originalName) continue;
+          final source = File(result.originalPath);
+          final dest = File(p.join(p.dirname(result.originalPath), result.ffncName!));
+          if (source.existsSync() && !dest.existsSync()) {
+            await source.rename(dest.path);
+            count++;
+          }
+        }
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          Navigator.of(context).pop(count);
         }
       }
+    } catch (e) {
       if (mounted) {
-        setState(() => _isProcessing = false);
-        Navigator.of(context).pop(count);
+        setState(() {
+          _isProcessing = false;
+          _errorMessage = 'Rename error: $e';
+        });
       }
     }
   }
@@ -153,16 +176,36 @@ class _FFNCRenameDialogState extends State<FFNCRenameDialog> {
               if (_copyMode) _buildFolderRow('Output:', _outputPath, _pickOutput),
               const SizedBox(height: 12),
 
+              // Error message
+              if (_errorMessage != null) ...[
+                Text(
+                  _errorMessage!,
+                  style: const TextStyle(color: Colors.red, fontSize: 11),
+                ),
+                const SizedBox(height: 8),
+              ],
+
               // Results table
               if (_results.isNotEmpty) ...[
-                Text(
-                  'Matched: $matchedCount/$totalCount',
-                  style: TextStyle(
-                    color: matchedCount == totalCount
-                        ? FluxForgeTheme.accentGreen
-                        : Colors.orange,
-                    fontSize: 11,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      'Matched: $matchedCount/$totalCount',
+                      style: TextStyle(
+                        color: matchedCount == totalCount
+                            ? FluxForgeTheme.accentGreen
+                            : Colors.orange,
+                        fontSize: 11,
+                      ),
+                    ),
+                    if (totalCount > matchedCount) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '(${totalCount - matchedCount} unmatched)',
+                        style: TextStyle(color: Colors.orange.withValues(alpha: 0.7), fontSize: 10),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 8),
                 Expanded(child: _buildResultsTable()),
