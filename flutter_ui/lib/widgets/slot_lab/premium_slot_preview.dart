@@ -5038,23 +5038,30 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     if (mounted) setState(() {});
   }
 
-  /// Intro transition: splash fadeout → short hold → base game fade-in → GAME_START
+  /// Intro transition: splash → black hold (GAME_INTRO plays) → base game fade-in → GAME_START
+  /// Total duration: ~4s (industry standard slot machine intro)
   void _startIntroTransition(EventRegistry eventRegistry) {
-    // Phase 1: Splash screen fades out (500ms)
+    // Phase 1 (T+0): Remove splash, show black overlay
     setState(() {
       _isIntroTransition = true;
-      _showSplashScreen = false; // Remove splash widget
-      _introOpacity = 0.0; // Base game starts hidden
+      _showSplashScreen = false;
+      _introOpacity = 0.0; // Base game hidden behind black overlay
     });
 
-    // Phase 2: After 300ms black hold → fade in base game (800ms)
+    // Phase 2 (T+300ms): GAME_INTRO sound fires during black hold
     Future.delayed(const Duration(milliseconds: 300), () {
       if (!mounted) return;
-      setState(() => _introOpacity = 1.0); // Trigger AnimatedOpacity
+      eventRegistry.triggerStage('GAME_INTRO');
     });
 
-    // Phase 3: After full transition (1100ms) → start music + complete
-    Future.delayed(const Duration(milliseconds: 1100), () {
+    // Phase 3 (T+3000ms): Base game starts fading in (1000ms fade)
+    Future.delayed(const Duration(milliseconds: 3000), () {
+      if (!mounted) return;
+      setState(() => _introOpacity = 1.0); // AnimatedOpacity 1000ms → reels appear
+    });
+
+    // Phase 4 (T+4000ms): Transition complete → GAME_START music
+    Future.delayed(const Duration(milliseconds: 4000), () {
       if (!mounted) return;
       setState(() => _isIntroTransition = false);
       widget.onSplashComplete?.call();
@@ -6595,11 +6602,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
       return _SlotSplashScreen(
         onContinue: () {
           final eventRegistry = EventRegistry.instance;
-          // GAME_CONTINUE: button press SFX
+          // GAME_CONTINUE: button press SFX (fires immediately on click)
           eventRegistry.triggerStage('GAME_CONTINUE');
-          // GAME_INTRO: intro animation sound (plays during splash→base transition)
-          eventRegistry.triggerStage('GAME_INTRO');
-          // Start intro transition: splash fades out → base game fades in
+          // Start intro transition — GAME_INTRO fires at T+300ms during black hold
           _startIntroTransition(eventRegistry);
         },
       );
@@ -6963,7 +6968,7 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                 child: IgnorePointer(
                   child: AnimatedOpacity(
                     opacity: 1.0 - _introOpacity, // 1.0→0.0 as base game fades in
-                    duration: const Duration(milliseconds: 800),
+                    duration: const Duration(milliseconds: 1000),
                     curve: Curves.easeOut,
                     child: Container(color: const Color(0xFF050508)),
                   ),

@@ -1790,6 +1790,12 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     _rollupTickTimer?.cancel(); // Clean up rollup timer (audio continues naturally)
     // Stop any looping audio (reel spin loop persists across reload otherwise)
     EventRegistry.instance.stopAllSpinLoops();
+    // Stop big win audio if still playing (orphan prevention)
+    if (_isInTierProgression) {
+      EventRegistry.instance.stopEvent('BIG_WIN_START');
+      EventRegistry.instance.stopEvent('COIN_SHOWER_START');
+      EventRegistry.instance.stopEvent('ROLLUP_START');
+    }
     _disposeControllers();
     super.dispose();
   }
@@ -2504,7 +2510,7 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
     // Stop all win-related sfx events
     // NOTE: BIG_WIN_START already killed by stopAllMusicVoices above (music bus)
     eventRegistry.stopEvent('COIN_SHOWER_START');
-    eventRegistry.stopEvent('ROLLUP');
+    eventRegistry.stopEvent('ROLLUP_START');
     eventRegistry.stopEvent('ROLLUP_TICK');
     eventRegistry.stopEvent('SYMBOL_WIN');
     eventRegistry.stopEvent('WIN_LINE_SHOW');
@@ -2527,15 +2533,15 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       // BIG_WIN_END: play stinger + composite handles base music restart.
       // Guard: _bigWinEndFired prevents double-fire if _finishTierProgression
       // already triggered BIG_WIN_END during the end hold period.
-      // NOTE: stopAllMusicVoices above already killed BIG_WIN_START immediately.
-      // BIG_WIN_END composite will restart base layers with offset 400ms.
-      // DO NOT call restartBaseGameLayersSilent() — composite handles it.
       _bigWinEndFired = true;
       _ensureAudioRegistered('BIG_WIN_END');
       eventRegistry.triggerStage('BIG_WIN_END');
-      widget.provider.audioProvider.resetMusicLayerToBase();
     }
     if (wasBigWin) {
+      // ALWAYS reset music to base — even if BIG_WIN_END already fired
+      // (skip during end hold: _finishTierProgression fired BIG_WIN_END but
+      // flushPendingCrossfade hasn't run yet → must ensure it will)
+      widget.provider.audioProvider.resetMusicLayerToBase();
       eventRegistry.triggerStage('WIN_PRESENT_END');
     }
     eventRegistry.triggerStage('WIN_COLLECT');
