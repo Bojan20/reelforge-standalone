@@ -1515,6 +1515,9 @@ class SlotEventLayer {
   final double volume; // 0.0 to 1.0
   final double pan; // -1.0 (left) to 1.0 (right) — L channel for stereo dual-pan
   final double panRight; // -1.0 to 1.0 — R channel for stereo dual-pan (0.0=mono default, 1.0=hard right)
+  final double stereoWidth; // 0.0 (mono) to 2.0 (extra wide), 1.0 = normal stereo
+  final double inputGain; // Input gain/trim in dB (-20 to +20)
+  final bool phaseInvert; // Phase/polarity invert (Ø)
   final double offsetMs; // Delay offset in milliseconds
   final double fadeInMs; // Fade in duration
   final double fadeOutMs; // Fade out duration
@@ -1547,6 +1550,9 @@ class SlotEventLayer {
     this.volume = 1.0,
     this.pan = 0.0,
     this.panRight = 0.0,
+    this.stereoWidth = 1.0,
+    this.inputGain = 0.0,
+    this.phaseInvert = false,
     this.offsetMs = 0.0,
     this.fadeInMs = 0.0,
     this.fadeOutMs = 0.0,
@@ -1580,6 +1586,9 @@ class SlotEventLayer {
     double? volume,
     double? pan,
     double? panRight,
+    double? stereoWidth,
+    double? inputGain,
+    bool? phaseInvert,
     double? offsetMs,
     double? fadeInMs,
     double? fadeOutMs,
@@ -1612,6 +1621,9 @@ class SlotEventLayer {
       volume: volume ?? this.volume,
       pan: pan ?? this.pan,
       panRight: panRight ?? this.panRight,
+      stereoWidth: stereoWidth ?? this.stereoWidth,
+      inputGain: inputGain ?? this.inputGain,
+      phaseInvert: phaseInvert ?? this.phaseInvert,
       offsetMs: offsetMs ?? this.offsetMs,
       fadeInMs: fadeInMs ?? this.fadeInMs,
       fadeOutMs: fadeOutMs ?? this.fadeOutMs,
@@ -1656,6 +1668,9 @@ class SlotEventLayer {
     'volume': volume,
     'pan': pan,
     'panRight': panRight,
+    'stereoWidth': stereoWidth,
+    'inputGain': inputGain,
+    'phaseInvert': phaseInvert,
     'offsetMs': offsetMs,
     'fadeInMs': fadeInMs,
     'fadeOutMs': fadeOutMs,
@@ -1691,6 +1706,9 @@ class SlotEventLayer {
       volume: (json['volume'] as num?)?.toDouble() ?? 1.0,
       pan: (json['pan'] as num?)?.toDouble() ?? 0.0,
       panRight: (json['panRight'] as num?)?.toDouble() ?? 0.0,
+      stereoWidth: (json['stereoWidth'] as num?)?.toDouble() ?? 1.0,
+      inputGain: (json['inputGain'] as num?)?.toDouble() ?? 0.0,
+      phaseInvert: json['phaseInvert'] as bool? ?? false,
       offsetMs: (json['offsetMs'] as num?)?.toDouble() ?? 0.0,
       fadeInMs: (json['fadeInMs'] as num?)?.toDouble() ?? 0.0,
       fadeOutMs: (json['fadeOutMs'] as num?)?.toDouble() ?? 0.0,

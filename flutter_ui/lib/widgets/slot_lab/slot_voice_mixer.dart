@@ -144,39 +144,57 @@ class _SlotVoiceMixerState extends State<SlotVoiceMixer>
               color: FluxForgeTheme.accentCyan,
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Container(width: 1, height: 14, color: FluxForgeTheme.borderSubtle),
-          const SizedBox(width: 14),
-          Text(
-            'Ch ',
-            style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary),
-          ),
-          Text(
-            '${mixer.channelCount}',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              color: FluxForgeTheme.textSecondary,
-            ),
-          ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
+          Text('Ch ', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary)),
+          Text('${mixer.channelCount}', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: FluxForgeTheme.textSecondary)),
+          const SizedBox(width: 12),
           Container(width: 1, height: 14, color: FluxForgeTheme.borderSubtle),
-          const SizedBox(width: 14),
-          Text(
-            'Playing ',
-            style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary),
-          ),
-          Text(
-            '${mixer.playingCount}',
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              color: mixer.playingCount > 0
-                  ? FluxForgeTheme.accentGreen
-                  : FluxForgeTheme.textSecondary,
-            ),
-          ),
+          const SizedBox(width: 12),
+          Text('Live ', style: TextStyle(fontSize: 9, color: FluxForgeTheme.textTertiary)),
+          Text('${mixer.playingCount}', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600,
+            color: mixer.playingCount > 0 ? FluxForgeTheme.accentGreen : FluxForgeTheme.textSecondary)),
           const Spacer(),
+          // Search filter
+          SizedBox(
+            width: 140,
+            height: 20,
+            child: TextField(
+              style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary, fontFamily: FluxForgeTheme.fontFamily),
+              decoration: InputDecoration(
+                hintText: 'Filter...',
+                hintStyle: TextStyle(fontSize: 9, color: FluxForgeTheme.textDisabled),
+                prefixIcon: Icon(Icons.search, size: 12, color: FluxForgeTheme.textDisabled),
+                prefixIconConstraints: const BoxConstraints(minWidth: 24),
+                filled: true,
+                fillColor: FluxForgeTheme.bgDeepest,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: FluxForgeTheme.borderSubtle)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: FluxForgeTheme.borderSubtle)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(4), borderSide: BorderSide(color: FluxForgeTheme.accentBlue)),
+              ),
+              onChanged: mixer.setFilter,
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Narrow/Regular toggle
+          GestureDetector(
+            onTap: mixer.toggleCompact,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: FluxForgeTheme.bgSurface,
+                border: Border.all(color: FluxForgeTheme.borderSubtle),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                mixer.isCompact ? 'N' : 'R',
+                style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, letterSpacing: 0.5,
+                  color: FluxForgeTheme.textTertiary),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -210,6 +228,8 @@ class _SlotVoiceMixerState extends State<SlotVoiceMixer>
             key: ValueKey('vs_${ch.layerId}'),
             channel: ch,
             hasSoloActive: hasSolo,
+            isSelected: mixer.selectedChannelId == ch.layerId,
+            compact: mixer.isCompact,
             provider: mixer,
           ),
         );
@@ -334,12 +354,16 @@ class _BusSeparator extends StatelessWidget {
 class _VoiceStrip extends StatefulWidget {
   final SlotMixerChannel channel;
   final bool hasSoloActive;
+  final bool isSelected;
+  final bool compact;
   final SlotVoiceMixerProvider provider;
 
   const _VoiceStrip({
     super.key,
     required this.channel,
     required this.hasSoloActive,
+    this.isSelected = false,
+    this.compact = false,
     required this.provider,
   });
 
@@ -357,32 +381,106 @@ class _VoiceStripState extends State<_VoiceStrip> {
   @override
   Widget build(BuildContext context) {
     final isDimmed = widget.hasSoloActive && !ch.soloed;
+    final stripWidth = widget.compact ? 56.0 : 68.0;
 
-    return AnimatedOpacity(
-      duration: const Duration(milliseconds: 120),
-      opacity: isDimmed ? 0.3 : 1.0,
-      child: Container(
-        width: 68,
-        decoration: BoxDecoration(
-          color: FluxForgeTheme.bgSurface,
-          border: Border(
-            left: BorderSide(color: FluxForgeTheme.borderSubtle.withValues(alpha: 0.3)),
-            right: BorderSide(color: FluxForgeTheme.bgVoid.withValues(alpha: 0.5)),
+    return GestureDetector(
+      onTap: () => widget.provider.selectChannel(ch.layerId),
+      onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 120),
+        opacity: isDimmed ? 0.3 : 1.0,
+        child: Container(
+          width: stripWidth,
+          decoration: BoxDecoration(
+            color: FluxForgeTheme.bgSurface,
+            border: Border(
+              left: BorderSide(
+                color: widget.isSelected
+                    ? busColor.withValues(alpha: 0.6)
+                    : FluxForgeTheme.borderSubtle.withValues(alpha: 0.3),
+                width: widget.isSelected ? 2 : 1,
+              ),
+              right: BorderSide(color: FluxForgeTheme.bgVoid.withValues(alpha: 0.5)),
+            ),
           ),
-        ),
-        child: Column(
-          children: [
-            _buildHeader(),
-            _buildInserts(),
-            _buildPanKnob(),
-            Expanded(child: _buildFaderSection()),
-            _buildDbReadout(),
-            _buildButtons(),
-            _buildOutputSelector(),
-          ],
+          child: Column(
+            children: [
+              _buildHeader(),
+              _buildInputSection(),
+              _buildInserts(),
+              _buildPanKnob(),
+              _buildWidthControl(),
+              Expanded(child: _buildFaderSection()),
+              _buildDbReadout(),
+              _buildButtons(),
+              _buildOutputSelector(),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  // ─── Context Menu ────────────────────────────────────────────────────
+
+  void _showContextMenu(BuildContext context, Offset position) {
+    showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx + 1, position.dy + 1),
+      color: FluxForgeTheme.bgElevated,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(4),
+        side: const BorderSide(color: FluxForgeTheme.borderMedium),
+      ),
+      items: [
+        PopupMenuItem(value: 'audition', height: 28, child: Row(children: [
+          Icon(Icons.play_arrow, size: 12, color: FluxForgeTheme.accentGreen),
+          const SizedBox(width: 6),
+          Text('Audition', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary)),
+        ])),
+        PopupMenuItem(value: 'reset_pan', height: 28, child: Row(children: [
+          Icon(Icons.center_focus_strong, size: 12, color: FluxForgeTheme.textTertiary),
+          const SizedBox(width: 6),
+          Text('Reset Pan', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary)),
+        ])),
+        PopupMenuItem(value: 'reset_volume', height: 28, child: Row(children: [
+          Icon(Icons.straighten, size: 12, color: FluxForgeTheme.textTertiary),
+          const SizedBox(width: 6),
+          Text('Reset Volume (0 dB)', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary)),
+        ])),
+        const PopupMenuDivider(height: 4),
+        PopupMenuItem(value: 'phase', height: 28, child: Row(children: [
+          Text('Ø', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
+            color: ch.phaseInvert ? FluxForgeTheme.accentOrange : FluxForgeTheme.textTertiary)),
+          const SizedBox(width: 6),
+          Text(ch.phaseInvert ? 'Phase: Inverted' : 'Invert Phase', style: TextStyle(fontSize: 10, color: FluxForgeTheme.textSecondary)),
+        ])),
+        const PopupMenuDivider(height: 4),
+        PopupMenuItem(value: 'remove', height: 28, child: Row(children: [
+          Icon(Icons.delete_outline, size: 12, color: FluxForgeTheme.accentRed),
+          const SizedBox(width: 6),
+          Text('Remove from Event', style: TextStyle(fontSize: 10, color: FluxForgeTheme.accentRed)),
+        ])),
+      ],
+    ).then((value) {
+      if (value == null) return;
+      switch (value) {
+        case 'audition':
+          widget.provider.auditionChannel(ch.layerId);
+        case 'reset_pan':
+          widget.provider.setChannelPan(ch.layerId, -1.0);
+          widget.provider.setChannelPanFinal(ch.layerId, -1.0);
+          widget.provider.setChannelPanRight(ch.layerId, 1.0);
+          widget.provider.setChannelPanRightFinal(ch.layerId, 1.0);
+        case 'reset_volume':
+          widget.provider.setChannelVolume(ch.layerId, 1.0);
+          widget.provider.setChannelVolumeFinal(ch.layerId, 1.0);
+        case 'phase':
+          widget.provider.togglePhaseInvert(ch.layerId);
+        case 'remove':
+          widget.provider.setChannelBus(ch.layerId, -1); // -1 = remove (handled by provider)
+      }
+    });
   }
 
   // ─── Header ─────────────────────────────────────────────────────────────
@@ -510,6 +608,61 @@ class _VoiceStripState extends State<_VoiceStrip> {
     );
   }
 
+  // ─── Input Section (Gain + Phase) ─────────────────────────────────────
+
+  Widget _buildInputSection() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          // Phase Invert button (Ø)
+          GestureDetector(
+            onTap: () => widget.provider.togglePhaseInvert(ch.layerId),
+            child: Container(
+              width: 18, height: 18,
+              decoration: BoxDecoration(
+                color: ch.phaseInvert
+                    ? FluxForgeTheme.accentOrange.withValues(alpha: 0.8)
+                    : FluxForgeTheme.bgVoid.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(3),
+                border: Border.all(
+                  color: ch.phaseInvert ? FluxForgeTheme.accentOrange : FluxForgeTheme.borderSubtle,
+                  width: 0.5,
+                ),
+              ),
+              child: Center(
+                child: Text('Ø', style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.bold,
+                  color: ch.phaseInvert ? Colors.white : FluxForgeTheme.textTertiary,
+                )),
+              ),
+            ),
+          ),
+          // Gain display
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('GAIN', style: TextStyle(fontSize: 6, fontWeight: FontWeight.w600, color: FluxForgeTheme.textDisabled, letterSpacing: 0.5)),
+              Text(
+                '${ch.inputGain >= 0 ? '+' : ''}${ch.inputGain.toStringAsFixed(1)}',
+                style: TextStyle(
+                  fontSize: 8,
+                  fontFamily: FluxForgeTheme.monoFontFamily,
+                  fontWeight: FontWeight.w600,
+                  color: ch.inputGain.abs() > 0.1 ? FluxForgeTheme.accentCyan : FluxForgeTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   // ─── Inserts ─────────────────────────────────────────────────────────────
 
   Widget _buildInserts() {
@@ -627,6 +780,71 @@ class _VoiceStripState extends State<_VoiceStrip> {
         onChanged: (v) => widget.provider.setChannelPan(ch.layerId, v),
         onChangeEnd: (v) => widget.provider.setChannelPanFinal(ch.layerId, v),
         defaultValue: 0.0,
+      ),
+    );
+  }
+
+  // ─── Stereo Width Control ──────────────────────────────────────────────
+
+  Widget _buildWidthControl() {
+    final width = ch.stereoWidth;
+    final isMono = width <= 0.01;
+    final isWide = width > 1.01;
+    final color = isMono
+        ? FluxForgeTheme.accentOrange
+        : isWide ? FluxForgeTheme.accentCyan : FluxForgeTheme.textSecondary;
+    final label = isMono ? 'M' : '${(width * 100).round()}%';
+
+    return GestureDetector(
+      onDoubleTap: () => widget.provider.setChannelWidth(ch.layerId, 1.0),
+      onHorizontalDragUpdate: (details) {
+        final delta = details.delta.dx * 0.02;
+        widget.provider.setChannelWidth(ch.layerId, (ch.stereoWidth + delta).clamp(0.0, 2.0));
+      },
+      child: Container(
+        height: 18,
+        margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+        padding: const EdgeInsets.symmetric(horizontal: 3),
+        decoration: BoxDecoration(
+          color: FluxForgeTheme.bgDeep,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: FluxForgeTheme.borderSubtle, width: 0.5),
+        ),
+        child: Row(
+          children: [
+            Text('W', style: TextStyle(fontSize: 6, fontWeight: FontWeight.w700, color: color.withValues(alpha: 0.7))),
+            const SizedBox(width: 3),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final maxW = constraints.maxWidth;
+                  final center = maxW / 2;
+                  final fillWidth = ((width - 1.0).abs() / 1.0 * center).clamp(0.0, center);
+                  final fillLeft = width >= 1.0 ? center : center - fillWidth;
+                  return Stack(
+                    children: [
+                      // Center line
+                      Positioned(left: center - 0.5, top: 3, bottom: 3, width: 1,
+                        child: Container(color: FluxForgeTheme.borderSubtle)),
+                      // Fill
+                      Positioned(left: fillLeft, top: 4, bottom: 4, width: fillWidth,
+                        child: Container(decoration: BoxDecoration(color: color.withValues(alpha: 0.4), borderRadius: BorderRadius.circular(1)))),
+                      // Thumb
+                      Positioned(
+                        left: (center + (width - 1.0) * center).clamp(0.0, maxW - 3),
+                        top: 2, bottom: 2, width: 3,
+                        child: Container(decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(1))),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 3),
+            Text(label, style: TextStyle(fontSize: 6, fontWeight: FontWeight.w600,
+              fontFamily: FluxForgeTheme.monoFontFamily, color: color)),
+          ],
+        ),
       ),
     );
   }

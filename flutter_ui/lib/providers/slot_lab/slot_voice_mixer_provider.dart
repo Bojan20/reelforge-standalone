@@ -42,6 +42,9 @@ class SlotMixerChannel {
   double volume;
   double pan;
   double panRight; // stereo dual-pan R channel
+  double stereoWidth; // 0.0 (mono) to 2.0 (extra wide), 1.0 = normal
+  double inputGain; // dB (-20 to +20)
+  bool phaseInvert; // Ø polarity invert
   bool muted;
 
   /// Per-layer DSP chain (from SlotEventLayer.dspChain)
@@ -76,6 +79,9 @@ class SlotMixerChannel {
     required this.volume,
     required this.pan,
     required this.panRight,
+    this.stereoWidth = 1.0,
+    this.inputGain = 0.0,
+    this.phaseInvert = false,
     required this.muted,
     this.dspInserts = const [],
     this.soloed = false,
@@ -192,6 +198,15 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
   /// Cached playing count — updated in metering tick, avoids .where().length allocation
   int _playingCount = 0;
 
+  /// Selected channel ID (for highlight + keyboard shortcuts)
+  String? _selectedChannelId;
+
+  /// Compact mode (narrow strips, 56px vs 68px)
+  bool _isCompact = false;
+
+  /// Search filter query
+  String _filterQuery = '';
+
   // ─── Constructor ─────────────────────────────────────────────────────────
 
   SlotVoiceMixerProvider({
@@ -220,9 +235,26 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
   bool get hasSoloActive => _hasSoloActive;
   int get channelCount => _channels.length;
   int get playingCount => _playingCount;
+  String? get selectedChannelId => _selectedChannelId;
+  bool get isCompact => _isCompact;
+  String get filterQuery => _filterQuery;
 
   /// Get channels grouped by busId (cached — rebuilt on channel change only)
-  Map<int, List<SlotMixerChannel>> get channelsByBus => _channelsByBusCache;
+  /// Respects filter query — only returns channels matching search
+  Map<int, List<SlotMixerChannel>> get channelsByBus {
+    if (_filterQuery.isEmpty) return _channelsByBusCache;
+    // Filter channels by query
+    final query = _filterQuery.toLowerCase();
+    final filtered = <int, List<SlotMixerChannel>>{};
+    for (final entry in _channelsByBusCache.entries) {
+      final matching = entry.value.where((ch) =>
+          ch.displayName.toLowerCase().contains(query) ||
+          ch.stageName.toLowerCase().contains(query) ||
+          busIdToName(ch.busId).toLowerCase().contains(query)).toList();
+      if (matching.isNotEmpty) filtered[entry.key] = matching;
+    }
+    return filtered;
+  }
 
   /// Bus display order — matches SlotLab convention
   static const List<int> busDisplayOrder = [
@@ -298,6 +330,9 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
           volume: layer.volume,
           pan: layer.pan,
           panRight: layer.panRight,
+          stereoWidth: layer.stereoWidth,
+          inputGain: layer.inputGain,
+          phaseInvert: layer.phaseInvert,
           muted: layer.muted,
           // DSP chain from layer
           dspInserts: layer.dspChain
@@ -536,6 +571,70 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
     _compositeProvider.setLayerPanRight(ch.eventId, layerId, panRight.clamp(-1.0, 1.0));
   }
 
+  /// Set stereo width (continuous — no undo)
+  /// 0.0 = mono, 1.0 = normal stereo, 2.0 = extra wide
+  void setChannelWidth(String layerId, double width) {
+    final ch = _findChannel(layerId);
+    if (ch == null) return;
+
+    final clamped = width.clamp(0.0, 2.0);
+    ch.stereoWidth = clamped;
+
+    // Get layer and update via composite provider
+    SlotCompositeEvent? event;
+    for (final e in _compositeProvider.compositeEvents) {
+      if (e.id == ch.eventId) { event = e; break; }
+    }
+    if (event == null) return;
+    SlotEventLayer? layer;
+    for (final l in event.layers) {
+      if (l.id == layerId) { layer = l; break; }
+    }
+    if (layer == null) return;
+    _compositeProvider.updateEventLayer(ch.eventId, layer.copyWith(stereoWidth: clamped));
+  }
+
+  /// Set input gain in dB (continuous — no undo)
+  void setChannelInputGain(String layerId, double gainDb) {
+    final ch = _findChannel(layerId);
+    if (ch == null) return;
+
+    final clamped = gainDb.clamp(-20.0, 20.0);
+    ch.inputGain = clamped;
+
+    SlotCompositeEvent? event;
+    for (final e in _compositeProvider.compositeEvents) {
+      if (e.id == ch.eventId) { event = e; break; }
+    }
+    if (event == null) return;
+    SlotEventLayer? layer;
+    for (final l in event.layers) {
+      if (l.id == layerId) { layer = l; break; }
+    }
+    if (layer == null) return;
+    _compositeProvider.updateEventLayer(ch.eventId, layer.copyWith(inputGain: clamped));
+  }
+
+  /// Toggle phase invert
+  void togglePhaseInvert(String layerId) {
+    final ch = _findChannel(layerId);
+    if (ch == null) return;
+
+    ch.phaseInvert = !ch.phaseInvert;
+
+    SlotCompositeEvent? event;
+    for (final e in _compositeProvider.compositeEvents) {
+      if (e.id == ch.eventId) { event = e; break; }
+    }
+    if (event == null) return;
+    SlotEventLayer? layer;
+    for (final l in event.layers) {
+      if (l.id == layerId) { layer = l; break; }
+    }
+    if (layer == null) return;
+    _compositeProvider.updateEventLayer(ch.eventId, layer.copyWith(phaseInvert: ch.phaseInvert));
+  }
+
   /// Toggle channel mute — syncs to composite event + active voice FFI
   void toggleMute(String layerId) {
     final ch = _findChannel(layerId);
@@ -621,6 +720,30 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
         playback.updateLayerMute(ch.layerId, ch.muted);
       }
     }
+  }
+
+  // ─── Selection ──────────────────────────────────────────────────────────
+
+  /// Select a channel (for highlight + keyboard shortcuts)
+  void selectChannel(String? layerId) {
+    if (_selectedChannelId == layerId) return;
+    _selectedChannelId = layerId;
+    notifyListeners();
+  }
+
+  // ─── View Controls ────────────────────────────────────────────────────
+
+  /// Toggle compact/regular strip width
+  void toggleCompact() {
+    _isCompact = !_isCompact;
+    notifyListeners();
+  }
+
+  /// Set search filter
+  void setFilter(String query) {
+    if (_filterQuery == query) return;
+    _filterQuery = query;
+    notifyListeners();
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────────
