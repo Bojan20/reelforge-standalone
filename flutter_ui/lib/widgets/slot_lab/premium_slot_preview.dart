@@ -4799,6 +4799,9 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
   // Splash screen — shown before base game (only after auto-bind or GENERATE)
   late bool _showSplashScreen;
+  // Intro transition: splash fadeout → black → base game fade-in
+  bool _isIntroTransition = false;
+  double _introOpacity = 0.0; // 0.0 = fully hidden (black), 1.0 = fully visible (base game)
 
   // Session
   double _balance = 1000.0;
@@ -5033,6 +5036,32 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
 
   void _onComposerChanged() {
     if (mounted) setState(() {});
+  }
+
+  /// Intro transition: splash fadeout → short hold → base game fade-in → GAME_START
+  void _startIntroTransition(EventRegistry eventRegistry) {
+    // Phase 1: Splash screen fades out (500ms)
+    setState(() {
+      _isIntroTransition = true;
+      _showSplashScreen = false; // Remove splash widget
+      _introOpacity = 0.0; // Base game starts hidden
+    });
+
+    // Phase 2: After 300ms black hold → fade in base game (800ms)
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      setState(() => _introOpacity = 1.0); // Trigger AnimatedOpacity
+    });
+
+    // Phase 3: After full transition (1100ms) → start music + complete
+    Future.delayed(const Duration(milliseconds: 1100), () {
+      if (!mounted) return;
+      setState(() => _isIntroTransition = false);
+      widget.onSplashComplete?.call();
+      if (eventRegistry.hasEventForStage('GAME_START')) {
+        eventRegistry.triggerStage('GAME_START');
+      }
+    });
   }
 
   @override
@@ -6565,15 +6594,13 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     if (_showSplashScreen) {
       return _SlotSplashScreen(
         onContinue: () {
-          setState(() => _showSplashScreen = false);
-          widget.onSplashComplete?.call();
-          // Trigger GAME_START → starts base game music via composite event
-          // Composite has L1=vol1.0, L2/L3=vol0.0 (crossfade-ready)
-          // Do NOT trigger individual MUSIC_BASE layers — they'd play at full volume
           final eventRegistry = EventRegistry.instance;
-          if (eventRegistry.hasEventForStage('GAME_START')) {
-            eventRegistry.triggerStage('GAME_START');
-          }
+          // GAME_CONTINUE: button press SFX
+          eventRegistry.triggerStage('GAME_CONTINUE');
+          // GAME_INTRO: intro animation sound (plays during splash→base transition)
+          eventRegistry.triggerStage('GAME_INTRO');
+          // Start intro transition: splash fades out → base game fades in
+          _startIntroTransition(eventRegistry);
         },
       );
     }
@@ -6923,6 +6950,22 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
                     onShowVoicesToggle: () => setState(() => _showVoiceCount = !_showVoiceCount),
                     onShowMemoryToggle: () => setState(() => _showMemoryUsage = !_showMemoryUsage),
                     onShowStageTraceToggle: () => setState(() => _showStageTrace = !_showStageTrace),
+                  ),
+                ),
+              ),
+
+            // ═══════════════════════════════════════════════════════════════
+            // GAME INTRO TRANSITION OVERLAY — black screen that fades away
+            // to reveal base game reels. Sits on top of everything.
+            // ═══════════════════════════════════════════════════════════════
+            if (_isIntroTransition)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: AnimatedOpacity(
+                    opacity: 1.0 - _introOpacity, // 1.0→0.0 as base game fades in
+                    duration: const Duration(milliseconds: 800),
+                    curve: Curves.easeOut,
+                    child: Container(color: const Color(0xFF050508)),
                   ),
                 ),
               ),

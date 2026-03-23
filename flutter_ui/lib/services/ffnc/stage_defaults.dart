@@ -403,6 +403,8 @@ class StageDefaults {
     'CONFETTI_BURST': StageDefault(volume: 1.0, busId: 2),
     'FIREWORKS_LAUNCH': StageDefault(volume: 1.0, busId: 2),
     'FIREWORKS_EXPLODE': StageDefault(volume: 1.0, busId: 2),
+    'GAME_INTRO': StageDefault(volume: 1.0, busId: 2), // SFX — splash screen entry animation
+    'GAME_CONTINUE': StageDefault(volume: 1.0, busId: 2), // SFX — continue button press
     'GAME_READY': StageDefault(volume: 1.0, busId: 2),
     'GAME_START': StageDefault(volume: 1.0, busId: 1, loop: true),
 

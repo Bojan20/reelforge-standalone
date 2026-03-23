@@ -193,6 +193,9 @@ class FFNCParser {
     // CONTEXT_ stages keep their prefix (not TRANSITION_ internally)
     if (name.startsWith('context_')) return name.toUpperCase();
 
+    // Stages that don't have TRANSITION_ prefix internally
+    if (name == 'fs_outro_plaque' || name == 'fs_outro') return 'FS_OUTRO_PLAQUE';
+
     // Replace human-readable names with internal abbreviations
     var transformed = name;
     transformed = transformed.replaceAll('base_game', 'base');

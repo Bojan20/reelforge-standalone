@@ -277,6 +277,8 @@ class StageConfigurationService extends ChangeNotifier {
     'ATTRACT_EXIT': 'Attract Exit',
     'IDLE_LOOP': 'Idle Loop',
     'IDLE_TO_ACTIVE': 'Idle → Active',
+    'GAME_INTRO': 'Game Intro',
+    'GAME_CONTINUE': 'Continue Button',
     'GAME_READY': 'Game Ready',
     'GAME_START': 'Base Game Start',
     // Spin Controls
@@ -1687,6 +1689,8 @@ class StageConfigurationService extends ChangeNotifier {
     // GAME START (triggers base music automatically on first spin)
     // NOTE: These are looping music stages — they loop until explicitly stopped
     // ─────────────────────────────────────────────────────────────────────────
+    _register('GAME_INTRO', StageCategory.music, 3, SpatialBus.sfx, 'DEFAULT');
+    _register('GAME_CONTINUE', StageCategory.ui, 4, SpatialBus.sfx, 'DEFAULT');
     _register('GAME_START', StageCategory.music, 5, SpatialBus.music, 'DEFAULT', isLooping: true);
 
     // ─────────────────────────────────────────────────────────────────────────

@@ -723,8 +723,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         ));
       }
 
-      // 3. Restart ALL base music layers simultaneously (sync)
-      // L1 at full volume, L2-L5 silent (crossfade-ready)
+      // 3. Restart ALL base music layers at SILENT (crossfade-ready)
+      // L1-L5 all at volume 0.0 — MusicLayerController.flushPendingCrossfade()
+      // handles the actual L1 fade-in when win presentation ends.
+      // This prevents the glitch where L1 plays at full volume during big win
+      // hold period, then gets muted and re-faded by flushPendingCrossfade.
       try {
         final project = Provider.of<SlotLabProjectProvider>(context, listen: false);
         final musicStages = const ['MUSIC_BASE_L1', 'MUSIC_BASE_L2', 'MUSIC_BASE_L3', 'MUSIC_BASE_L4', 'MUSIC_BASE_L5'];
@@ -733,10 +736,10 @@ class _SlotLabScreenState extends State<SlotLabScreen>
           if (baseMusic != null && baseMusic.isNotEmpty) {
             baseLayers.add(SlotEventLayer(
               id: 'game_start_l${i + 1}', // MUST match GAME_START layerIds for crossfade
-              name: 'Restart ${musicStages[i]} ${i == 0 ? "(L1)" : "(silent)"}',
+              name: 'Restart ${musicStages[i]} (silent)',
               audioPath: baseMusic,
               actionType: 'Play',
-              volume: i == 0 ? 1.0 : 0.0, // L1 audible, rest silent
+              volume: 0.0, // ALL silent — flushPendingCrossfade fades L1 in
               busId: 1,
               loop: true,
               offsetMs: 400, // Start after big win fade completes

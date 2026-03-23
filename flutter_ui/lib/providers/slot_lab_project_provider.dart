@@ -975,9 +975,8 @@ class SlotLabProjectProvider extends ChangeNotifier {
       'freespin_end': 'music_fs_end', 'fs_outro_music': 'music_fs_end',
       'freespins_end': 'music_fs_end', 'freespins_end_music': 'music_fs_end',
       'free_spins_end': 'music_fs_end', 'free_spins_end_music': 'music_fs_end',
-      'fs_end_loop': 'music_fs_end', 'freespin_outro': 'music_fs_end',
-      'freespins_outro': 'music_fs_end', 'free_spins_outro': 'music_fs_end',
-      'free_spin_outro': 'music_fs_end', 'fs_complete': 'music_fs_end',
+      'fs_end_loop': 'music_fs_end',
+      'fs_complete': 'music_fs_end',
       'freespin_complete': 'music_fs_end', 'freespins_complete': 'music_fs_end',
       'free_spins_complete': 'music_fs_end', 'free_spin_complete': 'music_fs_end',
       'freespinendmusic': 'music_fs_end', 'freespinsendmusic': 'music_fs_end',
@@ -1021,6 +1020,17 @@ class SlotLabProjectProvider extends ChangeNotifier {
       'base_game_music': 'music_base_l1',
       'trn_fs_intro': 'context_base_to_fs',
       'trn_fs_outro_panel': 'fs_outro_plaque',
+      'trn_fs_outro': 'fs_outro_plaque', 'fs_outro': 'fs_outro_plaque',
+      'freespin_outro': 'fs_outro_plaque', 'freespins_outro': 'fs_outro_plaque',
+      'free_spin_outro': 'fs_outro_plaque', 'free_spins_outro': 'fs_outro_plaque',
+      'fs_exit_plaque': 'fs_outro_plaque', 'freespin_exit': 'fs_outro_plaque',
+      'freespins_exit': 'fs_outro_plaque', 'fs_complete_plaque': 'fs_outro_plaque',
+      'game_intro': 'game_intro', 'intro': 'game_intro',
+      'game_intro_loop': 'game_intro', 'game_load': 'game_intro',
+      'loading': 'game_intro', 'splash': 'game_intro',
+      'game_continue': 'game_continue', 'continue': 'game_continue',
+      'continue_button': 'game_continue', 'tap_to_continue': 'game_continue',
+      'start_game': 'game_continue',
       'trn_return_to_base': 'context_fs_to_base',
       'trn_bonus_intro': 'context_base_to_bonus',
       'trn_bonus_outro': 'context_bonus_to_base',
@@ -1238,6 +1248,10 @@ class SlotLabProjectProvider extends ChangeNotifier {
         // creating unwanted MUSIC_BASE_L_1 when MUSIC_BASE_L1 already exists
         final glued = '$stem$idx';
         if (svc.getStage(glued) != null) return glued;
+        // VARIANT POOLING: if STEM exists as a stage but STEM_N does NOT,
+        // the file is a variant (SpinsLoop1/2/3 → REEL_SPIN_LOOP pool).
+        // Return STEM so all variants bind to the same stage for round-robin.
+        if (svc.getStage(stem) != null) return stem;
         // Dynamic fallback: try underscored, then glued
         final rU = svc.ensureIndexedStage(underscored);
         if (rU != null) return rU;

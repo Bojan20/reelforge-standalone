@@ -4328,6 +4328,8 @@ class _BaseGameLoopSection extends _SectionConfig {
           _SlotConfig(stage: 'ATTRACT_EXIT', label: 'Attract Exit'),
           _SlotConfig(stage: 'IDLE_LOOP', label: 'Idle Loop'),
           _SlotConfig(stage: 'IDLE_TO_ACTIVE', label: 'Idle → Active'),
+          _SlotConfig(stage: 'GAME_INTRO', label: 'Game Intro'),
+          _SlotConfig(stage: 'GAME_CONTINUE', label: 'Continue Button'),
           _SlotConfig(stage: 'GAME_READY', label: 'Game Ready'),
           _SlotConfig(stage: 'GAME_START', label: 'Base Game Start'),
         ],

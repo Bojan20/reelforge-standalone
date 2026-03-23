@@ -487,7 +487,8 @@ class GameFlowIntegration {
       // Wait for any active win presentation (scatter+win combo) before starting loop
       _startFsLoopWhenReady();
     } else if (phase == TransitionPhase.exiting && from == GameFlowState.freeSpins) {
-      // FS END plaque dismissed → fade-in base game L1
+      // FS END plaque dismissed → outro SFX + fade-in base game L1
+      _onAudioStage('FS_OUTRO_PLAQUE');
       audio.musicLayerController.flushPendingCrossfade();
     }
   }

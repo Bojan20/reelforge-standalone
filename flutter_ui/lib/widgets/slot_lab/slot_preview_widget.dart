@@ -1145,10 +1145,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
         layers.add(AudioLayer(id: 'bwe_stop_bigwin', name: 'Stop Big Win', audioPath: '', actionType: 'StopVoice', targetAudioPath: bwsPath, volume: 0.0, busId: 1, delay: 300));
       }
       // 3. Restart base game music L1 (fade in after big win ends)
+      // Restart ALL base layers at silent — flushPendingCrossfade handles L1 fade-in
       final l1Path = projectProvider.getAudioAssignment('MUSIC_BASE_L1');
       if (l1Path != null && l1Path.isNotEmpty) {
-        layers.add(AudioLayer(id: 'game_start_l1', name: 'Restart Base L1', audioPath: l1Path, volume: 1.0, busId: 1, loop: true, delay: 400));
-        // Also restart L2-L5 at silent for crossfade readiness
+        layers.add(AudioLayer(id: 'game_start_l1', name: 'Restart Base L1', audioPath: l1Path, volume: 0.0, busId: 1, loop: true, delay: 400));
         for (int i = 2; i <= 5; i++) {
           final lPath = projectProvider.getAudioAssignment('MUSIC_BASE_L$i');
           if (lPath != null && lPath.isNotEmpty) {
