@@ -632,6 +632,8 @@ typedef EnginePlaybackSetVoicePanNative = Int32 Function(Uint64 voiceId, Float p
 typedef EnginePlaybackSetVoicePanDart = int Function(int voiceId, double pan);
 typedef EnginePlaybackSetVoicePanRightNative = Int32 Function(Uint64 voiceId, Float panRight);
 typedef EnginePlaybackSetVoicePanRightDart = int Function(int voiceId, double panRight);
+typedef EnginePlaybackSetVoiceInputGainNative = Int32 Function(Uint64 voiceId, Float gain);
+typedef EnginePlaybackSetVoiceInputGainDart = int Function(int voiceId, double gain);
 typedef EnginePlaybackSetVoiceWidthNative = Int32 Function(Uint64 voiceId, Float width);
 typedef EnginePlaybackSetVoiceWidthDart = int Function(int voiceId, double width);
 typedef EnginePlaybackSetVoicePhaseInvertNative = Int32 Function(Uint64 voiceId, Int32 invert);
@@ -2447,6 +2449,7 @@ class NativeFFI {
   late final EnginePlaybackIsVoiceActiveDart _playbackIsVoiceActive;
   late final EnginePlaybackSetVoicePanDart _playbackSetVoicePan;
   late final EnginePlaybackSetVoicePanRightDart _playbackSetVoicePanRight;
+  late final EnginePlaybackSetVoiceInputGainDart _playbackSetVoiceInputGain;
   late final EnginePlaybackSetVoiceWidthDart _playbackSetVoiceWidth;
   late final EnginePlaybackSetVoicePhaseInvertDart _playbackSetVoicePhaseInvert;
   late final EnginePlaybackGetVoicePeakStereoDart _playbackGetVoicePeakStereo;
@@ -3188,6 +3191,7 @@ class NativeFFI {
     _playbackIsVoiceActive = _lib.lookupFunction<EnginePlaybackIsVoiceActiveNative, EnginePlaybackIsVoiceActiveDart>('engine_playback_is_voice_active');
     _playbackSetVoicePan = _lib.lookupFunction<EnginePlaybackSetVoicePanNative, EnginePlaybackSetVoicePanDart>('engine_playback_set_voice_pan');
     _playbackSetVoicePanRight = _lib.lookupFunction<EnginePlaybackSetVoicePanRightNative, EnginePlaybackSetVoicePanRightDart>('engine_playback_set_voice_pan_right');
+    _playbackSetVoiceInputGain = _lib.lookupFunction<EnginePlaybackSetVoiceInputGainNative, EnginePlaybackSetVoiceInputGainDart>('engine_playback_set_voice_input_gain');
     _playbackSetVoiceWidth = _lib.lookupFunction<EnginePlaybackSetVoiceWidthNative, EnginePlaybackSetVoiceWidthDart>('engine_playback_set_voice_width');
     _playbackSetVoicePhaseInvert = _lib.lookupFunction<EnginePlaybackSetVoicePhaseInvertNative, EnginePlaybackSetVoicePhaseInvertDart>('engine_playback_set_voice_phase_invert');
     _playbackGetVoicePeakStereo = _lib.lookupFunction<EnginePlaybackGetVoicePeakStereoNative, EnginePlaybackGetVoicePeakStereoDart>('engine_playback_get_voice_peak_stereo');
@@ -5257,6 +5261,12 @@ class NativeFFI {
       calloc.free(peakL);
       calloc.free(peakR);
     }
+  }
+
+  /// Set input gain for active voice (linear: 1.0=0dB, 0.5=-6dB, 2.0=+6dB)
+  bool setVoiceInputGain(int voiceId, double gain) {
+    if (!_loaded) return false;
+    return _playbackSetVoiceInputGain(voiceId, gain) == 1;
   }
 
   /// Set stereo width for active voice (0.0=mono, 1.0=normal, 2.0=wide)

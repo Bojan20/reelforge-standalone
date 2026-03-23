@@ -1007,6 +1007,15 @@ class AudioPlaybackService extends ChangeNotifier {
     }
   }
 
+  /// Update input gain for a specific voice by layer ID (linear amplitude)
+  void updateLayerInputGain(String layerId, double gain) {
+    for (final voice in _activeVoices) {
+      if (voice.layerId == layerId) {
+        _ffi.setVoiceInputGain(voice.voiceId, gain);
+      }
+    }
+  }
+
   /// Update stereo width for a specific voice by layer ID
   void updateLayerWidth(String layerId, double width) {
     for (final voice in _activeVoices) {

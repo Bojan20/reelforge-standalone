@@ -951,6 +951,9 @@ pub struct OneShotVoice {
     pitch_semitones: f32,
     /// Real-time mute (voice continues but produces silence)
     muted: bool,
+    /// Input gain/trim in linear amplitude (1.0 = 0dB, 0.5 = -6dB, 2.0 = +6dB)
+    /// Applied as pre-fader multiplier on source samples
+    input_gain: f32,
     /// Stereo width: 0.0 = mono, 1.0 = normal stereo, 2.0 = extra wide
     /// Applied via mid/side processing after pan
     stereo_width: f32,
@@ -1054,6 +1057,7 @@ impl OneShotVoice {
             pitch_semitones: 0.0,
             // Real-time mute
             muted: false,
+            input_gain: 1.0,
             stereo_width: 1.0,
             phase_invert: false,
             // Per-voice metering
@@ -1098,6 +1102,7 @@ impl OneShotVoice {
         self.trim_end_sample = 0;
         self.fade_out_samples_at_end = 0;
         self.muted = false;
+        self.input_gain = 1.0;
         self.stereo_width = 1.0;
         self.phase_invert = false;
         self.meter_peak_l = 0.0;
@@ -1186,6 +1191,7 @@ impl OneShotVoice {
         // Reset pitch and mute
         self.pitch_semitones = 0.0;
         self.muted = false;
+        self.input_gain = 1.0;
         self.stereo_width = 1.0;
         self.phase_invert = false;
         self.meter_peak_l = 0.0;
@@ -1359,7 +1365,7 @@ impl OneShotVoice {
             let gain = if self.muted {
                 0.0
             } else {
-                self.volume * self.fade_gain
+                self.volume * self.fade_gain * self.input_gain
             };
 
             // Blackman-Harris windowed sinc interpolation for SRC + pitch shift
@@ -1524,6 +1530,8 @@ pub enum OneShotCommand {
     SetPan { id: u64, pan: f32 },
     /// Real-time pan right update for stereo dual-pan (-1.0 to 1.0)
     SetPanRight { id: u64, pan_right: f32 },
+    /// Real-time input gain (linear: 1.0=0dB, 0.5=-6dB, 2.0=+6dB)
+    SetInputGain { id: u64, gain: f32 },
     /// Real-time stereo width (0.0=mono, 1.0=normal, 2.0=extra wide)
     SetWidth { id: u64, width: f32 },
     /// Real-time phase invert toggle
@@ -4176,6 +4184,16 @@ impl PlaybackEngine {
         }
     }
 
+    /// Set input gain for a specific active voice in real-time (linear amplitude)
+    pub fn set_voice_input_gain(&self, voice_id: u64, gain: f32) {
+        if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
+            let _ = tx.push(OneShotCommand::SetInputGain {
+                id: voice_id,
+                gain: gain.clamp(0.0, 4.0),
+            });
+        }
+    }
+
     /// Set stereo width for a specific active voice in real-time
     pub fn set_voice_width(&self, voice_id: u64, width: f32) {
         if let Some(mut tx) = self.one_shot_cmd_tx.try_lock() {
@@ -4428,6 +4446,12 @@ impl PlaybackEngine {
                 OneShotCommand::SetPanRight { id, pan_right } => {
                     if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
                         voice.pan_right = pan_right.clamp(-1.0, 1.0);
+                    }
+                }
+                // Real-time input gain
+                OneShotCommand::SetInputGain { id, gain } => {
+                    if let Some(voice) = voices.iter_mut().find(|v| v.id == id && v.active) {
+                        voice.input_gain = gain.clamp(0.0, 4.0); // -inf to +12dB
                     }
                 }
                 // Real-time stereo width

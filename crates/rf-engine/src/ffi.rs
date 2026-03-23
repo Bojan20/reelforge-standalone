@@ -23166,6 +23166,13 @@ pub extern "C" fn engine_playback_get_voice_peak_stereo(
     1
 }
 
+/// Set input gain for active voice in real-time (linear: 1.0=0dB)
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_playback_set_voice_input_gain(voice_id: u64, gain: f32) -> i32 {
+    PLAYBACK_ENGINE.set_voice_input_gain(voice_id, gain);
+    1
+}
+
 /// Set stereo width for active voice in real-time (0.0=mono, 1.0=normal, 2.0=wide)
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_playback_set_voice_width(voice_id: u64, width: f32) -> i32 {

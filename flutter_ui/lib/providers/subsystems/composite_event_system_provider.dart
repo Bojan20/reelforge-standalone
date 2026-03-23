@@ -8,6 +8,7 @@
 /// combine multiple audio layers with timing, volume, and pan control.
 
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -661,6 +662,12 @@ class CompositeEventSystemProvider extends ChangeNotifier {
       }
       if (oldLayer.panRight != layer.panRight) {
         AudioPlaybackService.instance.updateLayerPanRight(layer.id, layer.panRight);
+      }
+      if (oldLayer.inputGain != layer.inputGain) {
+        // Convert dB to linear for engine: 10^(dB/20)
+        final linearGain = layer.inputGain <= -60.0 ? 0.0 :
+            math.pow(10.0, layer.inputGain / 20.0).toDouble();
+        AudioPlaybackService.instance.updateLayerInputGain(layer.id, linearGain.clamp(0.0, 4.0));
       }
       if (oldLayer.stereoWidth != layer.stereoWidth) {
         AudioPlaybackService.instance.updateLayerWidth(layer.id, layer.stereoWidth);

@@ -487,6 +487,7 @@ class _VoiceStripState extends State<_VoiceStrip> {
               _buildHeader(),
               _buildInputSection(),
               _buildInserts(),
+              _buildSendSection(),
               _buildPanKnob(),
               _buildWidthControl(),
               Expanded(child: _buildFaderSection()),
@@ -825,6 +826,103 @@ class _VoiceStripState extends State<_VoiceStrip> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ─── Sends (bus-level aux sends from MixerDSPProvider) ───────────────
+
+  Widget _buildSendSection() {
+    // Read bus sends from MixerDSPProvider (bus-level, shared by all voices on this bus)
+    final busMixer = context.read<MixerDSPProvider>();
+    final busName = busIdToName(ch.busId).toLowerCase();
+    final trackSends = busMixer.trackSends;
+
+    // Find matching track send for this channel's bus
+    TrackSend? send;
+    for (final ts in trackSends) {
+      if (ts.trackId == busName) { send = ts; break; }
+    }
+
+    final auxBuses = busMixer.auxBuses;
+    if (auxBuses.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 3),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: FluxForgeTheme.borderSubtle)),
+      ),
+      child: Column(
+        children: [
+          Text('SENDS', style: TextStyle(
+            fontSize: 6.5, fontWeight: FontWeight.w700,
+            color: FluxForgeTheme.textDisabled, letterSpacing: 0.6,
+          )),
+          const SizedBox(height: 1),
+          for (final aux in auxBuses)
+            _buildSendSlot(aux, send?.sendLevels[aux.id] ?? 0.0,
+                send?.prePost[aux.id] ?? false, busMixer),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSendSlot(AuxBus aux, double level, bool isPreFader, MixerDSPProvider busMixer) {
+    final busName = busIdToName(ch.busId).toLowerCase();
+    final hasLevel = level > 0.001;
+
+    return GestureDetector(
+      onHorizontalDragUpdate: (details) {
+        final delta = details.delta.dx * 0.01;
+        final newLevel = (level + delta).clamp(0.0, 1.0);
+        busMixer.setTrackSendLevel(busName, aux.id, newLevel);
+      },
+      onDoubleTap: () => busMixer.setTrackSendLevel(busName, aux.id, 0.0),
+      onLongPress: () => busMixer.toggleTrackSendPrePost(busName, aux.id),
+      child: Container(
+        height: 14,
+        margin: const EdgeInsets.only(top: 1),
+        padding: const EdgeInsets.symmetric(horizontal: 3),
+        decoration: BoxDecoration(
+          color: hasLevel
+              ? FluxForgeTheme.accentPurple.withValues(alpha: 0.08)
+              : FluxForgeTheme.bgDeep,
+          border: Border.all(
+            color: hasLevel
+                ? FluxForgeTheme.accentPurple.withValues(alpha: 0.2)
+                : FluxForgeTheme.borderSubtle,
+            width: 0.5,
+          ),
+          borderRadius: BorderRadius.circular(2),
+        ),
+        child: Row(
+          children: [
+            // Pre/Post badge
+            Text(
+              isPreFader ? 'P' : '',
+              style: TextStyle(fontSize: 6, fontWeight: FontWeight.w700,
+                color: FluxForgeTheme.accentOrange),
+            ),
+            if (isPreFader) const SizedBox(width: 2),
+            // Aux name
+            Expanded(
+              child: Text(
+                aux.name,
+                style: TextStyle(fontSize: 7,
+                  color: hasLevel ? FluxForgeTheme.textTertiary : FluxForgeTheme.textDisabled),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            // Level display
+            Text(
+              hasLevel ? '${(level * 100).round()}' : '\u2014',
+              style: TextStyle(fontSize: 6.5,
+                fontFamily: FluxForgeTheme.monoFontFamily,
+                fontWeight: FontWeight.w600,
+                color: hasLevel ? FluxForgeTheme.accentPurple : FluxForgeTheme.textDisabled),
+            ),
+          ],
+        ),
       ),
     );
   }
