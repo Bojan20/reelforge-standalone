@@ -382,20 +382,26 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
     for (final ch in _channels) {
       if (ch.isPlaying && ch.activeVoiceId != null) {
         final (peakL, peakR) = ffi.getVoicePeakStereo(ch.activeVoiceId!);
-        ch.peakL = peakL.clamp(0.0, 2.0);
-        ch.peakR = peakR.clamp(0.0, 2.0);
+        final newL = peakL.clamp(0.0, 2.0);
+        final newR = peakR.clamp(0.0, 2.0);
+
+        // Only flag change if peak actually moved (avoid 30fps rebuild for static signal)
+        if ((ch.peakL - newL).abs() > 0.005 || (ch.peakR - newR).abs() > 0.005) {
+          ch.peakL = newL;
+          ch.peakR = newR;
+          changed = true;
+        }
 
         // Peak hold L
-        if (ch.peakL >= ch.peakHoldL) {
-          ch.peakHoldL = ch.peakL;
+        if (newL >= ch.peakHoldL) {
+          ch.peakHoldL = newL;
           ch._peakHoldTimeL = now;
         }
         // Peak hold R
-        if (ch.peakR >= ch.peakHoldR) {
-          ch.peakHoldR = ch.peakR;
+        if (newR >= ch.peakHoldR) {
+          ch.peakHoldR = newR;
           ch._peakHoldTimeR = now;
         }
-        changed = true;
       } else {
         // Not playing — gradual meter decay
         if (ch.peakL > 0.001) {
@@ -717,8 +723,11 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
   // ─── Batch Operations ────────────────────────────────────────────────
 
   /// Batch mute all multi-selected channels
+  /// Each toggleMute creates its own undo entry — acceptable for small selections
+  /// since undo can step back through each channel individually
   void batchMute() {
-    for (final id in _multiSelectedIds) {
+    final ids = List<String>.from(_multiSelectedIds); // Copy to avoid concurrent mod
+    for (final id in ids) {
       final ch = _findChannel(id);
       if (ch != null && !ch.muted) toggleMute(id);
     }
@@ -726,7 +735,8 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
 
   /// Batch unmute all multi-selected channels
   void batchUnmute() {
-    for (final id in _multiSelectedIds) {
+    final ids = List<String>.from(_multiSelectedIds);
+    for (final id in ids) {
       final ch = _findChannel(id);
       if (ch != null && ch.muted) toggleMute(id);
     }
@@ -734,7 +744,8 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
 
   /// Batch solo all multi-selected channels
   void batchSolo() {
-    for (final id in _multiSelectedIds) {
+    final ids = List<String>.from(_multiSelectedIds);
+    for (final id in ids) {
       final ch = _findChannel(id);
       if (ch != null && !ch.soloed) toggleSolo(id);
     }
@@ -742,7 +753,8 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
 
   /// Batch set volume for all multi-selected channels
   void batchSetVolume(double volume) {
-    for (final id in _multiSelectedIds) {
+    final ids = List<String>.from(_multiSelectedIds);
+    for (final id in ids) {
       setChannelVolumeFinal(id, volume);
     }
   }
