@@ -704,6 +704,27 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
     }
   }
 
+  // ─── Reorder ───────────────────────────────────────────────────────────
+
+  /// Reorder channel from oldIndex to newIndex (within same bus group)
+  void reorderChannel(int oldIndex, int newIndex) {
+    if (oldIndex < 0 || oldIndex >= _channels.length) return;
+    if (newIndex < 0 || newIndex >= _channels.length) return;
+    if (oldIndex == newIndex) return;
+
+    final channel = _channels.removeAt(oldIndex);
+    _channels.insert(newIndex > oldIndex ? newIndex - 1 : newIndex, channel);
+
+    // Rebuild bus cache
+    _channelsByBusCache = {};
+    for (final ch in _channels) {
+      _channelsByBusCache.putIfAbsent(ch.busId, () => []).add(ch);
+    }
+    _rebuildFilteredCache();
+
+    notifyListeners();
+  }
+
   // ─── Selection ──────────────────────────────────────────────────────────
 
   /// Select a channel (for highlight + keyboard shortcuts)

@@ -53,6 +53,10 @@ class SlotVoiceMixer extends StatefulWidget {
 
 class _SlotVoiceMixerState extends State<SlotVoiceMixer>
     with SingleTickerProviderStateMixin {
+  // Drag-drop state
+  int? _draggedIndex;
+  int? _dropTargetIndex;
+
   @override
   void initState() {
     super.initState();
@@ -221,16 +225,80 @@ class _SlotVoiceMixerState extends State<SlotVoiceMixer>
       }
       first = false;
 
-      // Channel strips
+      // Channel strips with drag-drop reorder
       for (final ch in channels) {
+        final globalIdx = mixer.channels.indexOf(ch);
+        final isDragging = _draggedIndex == globalIdx;
+        final isDropTarget = _dropTargetIndex == globalIdx;
+
         widgets.add(
-          _VoiceStrip(
-            key: ValueKey('vs_${ch.layerId}'),
-            channel: ch,
-            hasSoloActive: hasSolo,
-            isSelected: mixer.selectedChannelId == ch.layerId,
-            compact: mixer.isCompact,
-            provider: mixer,
+          DragTarget<int>(
+            onWillAcceptWithDetails: (details) {
+              if (details.data == globalIdx) return false;
+              setState(() => _dropTargetIndex = globalIdx);
+              return true;
+            },
+            onLeave: (_) => setState(() => _dropTargetIndex = null),
+            onAcceptWithDetails: (details) {
+              mixer.reorderChannel(details.data, globalIdx);
+              setState(() { _draggedIndex = null; _dropTargetIndex = null; });
+            },
+            builder: (context, candidateData, rejectedData) {
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isDropTarget)
+                    Container(
+                      width: 3, height: double.infinity,
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: FluxForgeTheme.accentBlue,
+                        borderRadius: BorderRadius.circular(1.5),
+                        boxShadow: [BoxShadow(color: FluxForgeTheme.accentBlue.withValues(alpha: 0.5), blurRadius: 4)],
+                      ),
+                    ),
+                  LongPressDraggable<int>(
+                    data: globalIdx,
+                    axis: Axis.horizontal,
+                    delay: const Duration(milliseconds: 150),
+                    onDragStarted: () => setState(() => _draggedIndex = globalIdx),
+                    onDragEnd: (_) => setState(() { _draggedIndex = null; _dropTargetIndex = null; }),
+                    onDraggableCanceled: (velocity, offset) => setState(() { _draggedIndex = null; _dropTargetIndex = null; }),
+                    feedback: Material(
+                      elevation: 8,
+                      shadowColor: Colors.black54,
+                      borderRadius: BorderRadius.circular(4),
+                      child: Opacity(
+                        opacity: 0.9,
+                        child: SizedBox(
+                          width: mixer.isCompact ? 56.0 : 68.0,
+                          height: 300,
+                          child: _VoiceStrip(
+                            channel: ch,
+                            hasSoloActive: hasSolo,
+                            isSelected: false,
+                            compact: mixer.isCompact,
+                            provider: mixer,
+                          ),
+                        ),
+                      ),
+                    ),
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 100),
+                      opacity: isDragging ? 0.3 : 1.0,
+                      child: _VoiceStrip(
+                        key: ValueKey('vs_${ch.layerId}'),
+                        channel: ch,
+                        hasSoloActive: hasSolo,
+                        isSelected: mixer.selectedChannelId == ch.layerId,
+                        compact: mixer.isCompact,
+                        provider: mixer,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         );
       }
