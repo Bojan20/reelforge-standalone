@@ -731,10 +731,10 @@ class _VoiceStripState extends State<_VoiceStrip> {
                       ),
                     ),
                   ),
-                  // Unity (0dB) line
+                  // Unity (0dB) line — at top of travel for 0-1.0 range
                   Positioned(
                     left: 4, right: 4,
-                    top: trackHeight * 0.15,
+                    top: 0, // 0dB = max = top of fader
                     child: Container(
                       height: 1.5,
                       decoration: BoxDecoration(
@@ -762,14 +762,15 @@ class _VoiceStripState extends State<_VoiceStrip> {
   }
 
   List<Widget> _buildDbMarkers(double trackHeight) {
+    // maxDb: 0.0 because SlotLab fader range is 0.0-1.0 linear (0dB max)
     const marks = [
-      (6.0, '+6'), (0.0, '0'), (-6.0, '-6'),
+      (0.0, '0'), (-6.0, '-6'),
       (-12.0, '-12'), (-24.0, '-24'), (-48.0, '-48'),
     ];
     final widgets = <Widget>[];
 
     for (final (db, label) in marks) {
-      final pos = 1.0 - FaderCurve.dbToPosition(db, minDb: -60.0, maxDb: 6.0);
+      final pos = 1.0 - FaderCurve.dbToPosition(db, minDb: -60.0, maxDb: 0.0);
       final y = trackHeight * pos;
 
       // Tick line

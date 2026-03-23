@@ -27,7 +27,7 @@ class StageDefault {
 class StageDefaults {
   StageDefaults._();
 
-  static const _globalDefault = StageDefault(volume: 1.0, busId: 2);
+  static const _globalDefault = StageDefault(volume: 1.0, busId: 2, pan: -1.0, panRight: 1.0);
 
   /// Get default parameters for a stage. Resolution order:
   /// 1. Exact match (e.g., "SPIN_START")
@@ -65,11 +65,14 @@ class StageDefaults {
   // Category defaults (Priority 3)
   // ═══════════════════════════════════════════════════════════════
 
-  static const _uiDefault = StageDefault(volume: 1.0, busId: 2);
-  static const _voDefault = StageDefault(volume: 1.0, busId: 3);
+  // All categories default to stereo spread (pan=-1 L, panRight=+1 R).
+  // Engine detects actual channel count from audio file and applies dual-pan
+  // only for stereo sources. Mono sources ignore panRight.
+  static const _uiDefault = StageDefault(volume: 1.0, busId: 2, pan: -1.0, panRight: 1.0);
+  static const _voDefault = StageDefault(volume: 1.0, busId: 3, pan: -1.0, panRight: 1.0);
   static const _musicDefault = StageDefault(volume: 1.0, busId: 1, loop: true, pan: -1.0, panRight: 1.0);
-  static const _ambientDefault = StageDefault(volume: 1.0, busId: 4, fadeInMs: 500, loop: true);
-  static const _transitionDefault = StageDefault(volume: 1.0, busId: 2);
+  static const _ambientDefault = StageDefault(volume: 1.0, busId: 4, fadeInMs: 500, loop: true, pan: -1.0, panRight: 1.0);
+  static const _transitionDefault = StageDefault(volume: 1.0, busId: 2, pan: -1.0, panRight: 1.0);
 
   // ═══════════════════════════════════════════════════════════════
   // Wildcard defaults (Priority 2) — prefix matching

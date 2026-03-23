@@ -189,6 +189,9 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
   /// Solo state cache — true if any channel is soloed
   bool _hasSoloActive = false;
 
+  /// Cached playing count — updated in metering tick, avoids .where().length allocation
+  int _playingCount = 0;
+
   // ─── Constructor ─────────────────────────────────────────────────────────
 
   SlotVoiceMixerProvider({
@@ -216,7 +219,7 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
   List<SlotMixerChannel> get channels => _channels;
   bool get hasSoloActive => _hasSoloActive;
   int get channelCount => _channels.length;
-  int get playingCount => _channels.where((c) => c.isPlaying).length;
+  int get playingCount => _playingCount;
 
   /// Get channels grouped by busId (cached — rebuilt on channel change only)
   Map<int, List<SlotMixerChannel>> get channelsByBus => _channelsByBusCache;
@@ -338,9 +341,9 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Music bus is stereo by default (dual-pan L=-1, R=+1)
+  /// All buses are stereo — dual-pan L/R knobs for every channel
   bool _isStereoBus(int busId) {
-    return busId == SlotBusIds.music;
+    return true;
   }
 
   // ─── Metering Tick (30fps) ──────────────────────────────────────────────
@@ -352,6 +355,7 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
 
     // 1. Map active voices → channels
     final activeVoices = AudioPlaybackService.instance.activeVoices;
+    int playingCount = 0;
 
     for (final ch in _channels) {
       final wasPlaying = ch.isPlaying;
@@ -362,8 +366,14 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
 
       ch.isPlaying = matchedVoice != null;
       ch.activeVoiceId = matchedVoice?.voiceId;
+      if (ch.isPlaying) playingCount++;
 
       if (wasPlaying != ch.isPlaying) changed = true;
+    }
+
+    if (_playingCount != playingCount) {
+      _playingCount = playingCount;
+      changed = true;
     }
 
     // 2. Approximate per-voice metering from bus peaks
