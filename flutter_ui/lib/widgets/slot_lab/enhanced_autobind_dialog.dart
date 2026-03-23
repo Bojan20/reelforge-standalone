@@ -159,7 +159,9 @@ class _EnhancedAutoBindDialogState extends State<EnhancedAutoBindDialog> {
     _renamePreview = allFiles.map((f) {
       final path = f.path;
       final name = p.basename(path);
-      final stage = pathToStage[path];
+      final rawStage = pathToStage[path];
+      // Strip variant marker (#N) for display — variants show same stage as primary
+      final stage = rawStage?.contains('#') == true ? rawStage!.split('#').first : rawStage;
       if (stage != null) {
         final category = _renamer.categorizeStage(stage);
         final ffncName = _renamer.generateFFNCName(stage, category, p.extension(path));

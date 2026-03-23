@@ -722,12 +722,17 @@ class SlotLabProjectProvider extends ChangeNotifier {
         } else if (stage == 'MUSIC_BASE_L1') {
           pendingMusicBaseFiles.add(file.path);
         } else {
+          // Variant: same stage, different file → round-robin pool
           if (!dryRun) {
             _audioVariants.putIfAbsent(stage, () => [bindings[stage]!]);
             if (!_audioVariants[stage]!.contains(file.path)) {
               _audioVariants[stage]!.add(file.path);
             }
           }
+          // For preview (dry run): store variant in bindings with suffix
+          // so UI shows ALL files as bound (e.g., REEL_SPIN_LOOP#2)
+          final variantIdx = bindings.keys.where((k) => k.startsWith('$stage#')).length + 2;
+          bindings['$stage#$variantIdx'] = file.path;
         }
       }
     }
@@ -779,6 +784,8 @@ class SlotLabProjectProvider extends ChangeNotifier {
       // NOTE: Cross-symbol copy (SCATTER→WILD) removed.
       // User assigns WILD_LAND manually if needed — auto-copy was unwanted.
       for (final entry in bindings.entries) {
+        // Skip variant markers (STAGE#N) — they're for preview display only
+        if (entry.key.contains('#')) continue;
         setAudioAssignment(entry.key, entry.value, recordUndo: false);
       }
 
