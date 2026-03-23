@@ -770,16 +770,8 @@ class SlotLabProjectProvider extends ChangeNotifier {
 
     // Apply all bindings (skip in dry run mode — preview only)
     if (!dryRun) {
-      // Cross-symbol copy: SCATTER_LAND → WILD_LAND (many games share same sound)
-      // Only in real mode — dry run preview should show original mappings
-      for (final key in bindings.keys.toList()) {
-        if (key.startsWith('SCATTER_LAND')) {
-          final wildKey = key.replaceFirst('SCATTER_LAND', 'WILD_LAND');
-          if (!bindings.containsKey(wildKey)) {
-            bindings[wildKey] = bindings[key]!;
-          }
-        }
-      }
+      // NOTE: Cross-symbol copy (SCATTER→WILD) removed.
+      // User assigns WILD_LAND manually if needed — auto-copy was unwanted.
       for (final entry in bindings.entries) {
         setAudioAssignment(entry.key, entry.value, recordUndo: false);
       }
