@@ -58,9 +58,16 @@ class _SlotVoiceMixerState extends State<SlotVoiceMixer>
   int? _draggedIndex;
   int? _dropTargetIndex;
 
+  // Filter text controller — survives rebuilds, syncs with provider on init
+  late final TextEditingController _filterController;
+
   @override
   void initState() {
     super.initState();
+    // Init filter controller with current provider filter (survives tab switch)
+    _filterController = TextEditingController(
+      text: context.read<SlotVoiceMixerProvider>().filterQuery,
+    );
     // Start metering ticker on the provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -71,6 +78,7 @@ class _SlotVoiceMixerState extends State<SlotVoiceMixer>
 
   @override
   void dispose() {
+    _filterController.dispose();
     // Provider lifecycle is managed by GetIt, but stop our ticker
     try {
       context.read<SlotVoiceMixerProvider>().stopMetering();
@@ -166,6 +174,7 @@ class _SlotVoiceMixerState extends State<SlotVoiceMixer>
             width: 140,
             height: 20,
             child: TextField(
+              controller: _filterController,
               style: TextStyle(fontSize: 9, color: FluxForgeTheme.textSecondary, fontFamily: FluxForgeTheme.fontFamily),
               decoration: InputDecoration(
                 hintText: 'Filter...',
@@ -1083,22 +1092,12 @@ class _VoiceStripState extends State<_VoiceStrip> {
         final trackHeight = height - capHeight;
         final capTop = trackHeight * (1 - faderPos);
 
-        return Listener(
-          onPointerDown: (_) {},
-          onPointerUp: (_) {
-            if (!_faderDragging) {
-              final now = DateTime.now();
-              if (now.difference(_lastFaderTap).inMilliseconds < 300) {
-                widget.provider.setChannelVolume(ch.layerId, 1.0);
-                widget.provider.setChannelVolumeFinal(ch.layerId, 1.0);
-                _lastFaderTap = DateTime(0);
-              } else {
-                _lastFaderTap = now;
-              }
-            }
-            _faderDragging = false;
-          },
-          child: GestureDetector(
+        return GestureDetector(
+            onDoubleTap: () {
+              // Double-tap resets fader to 0dB (unity)
+              widget.provider.setChannelVolume(ch.layerId, 1.0);
+              widget.provider.setChannelVolumeFinal(ch.layerId, 1.0);
+            },
             onVerticalDragStart: (details) {
               _faderDragging = true;
               final clickPos = 1.0 - (details.localPosition.dy / trackHeight).clamp(0.0, 1.0);
@@ -1168,11 +1167,14 @@ class _VoiceStripState extends State<_VoiceStrip> {
                 ],
               ),
             ),
-          ),
         );
       },
     );
   }
+
+  // Dead fields removed — double-tap now uses GestureDetector.onDoubleTap
+  // _faderDragging and _lastFaderTap are no longer needed for double-tap detection
+  // but _faderDragging is still used to track drag state for dragEnd
 
   List<Widget> _buildDbMarkers(double trackHeight) {
     // maxDb: 0.0 because SlotLab fader range is 0.0-1.0 linear (0dB max)

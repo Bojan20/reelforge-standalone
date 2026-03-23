@@ -1419,7 +1419,7 @@ impl OneShotVoice {
 
             // Stereo width via mid/side processing
             // width=0: mono (mid only), width=1: normal, width=2: extra wide (side boosted)
-            // Energy compensation: normalize by sqrt(1 + w^2) / sqrt(2) to prevent overs at w>1
+            // Energy compensation for w>1: comp = 1/(0.5 + 0.5*w) prevents overs
             if (self.stereo_width - 1.0).abs() > 0.01 {
                 let mid = (sample_l + sample_r) * 0.5;
                 let side = (sample_l - sample_r) * 0.5;
@@ -1451,7 +1451,7 @@ impl OneShotVoice {
         if voice_peak_l >= self.meter_peak_l {
             self.meter_peak_l = voice_peak_l;
         } else {
-            self.meter_peak_l *= 0.92; // ~30ms decay at 48kHz/256 block
+            self.meter_peak_l *= 0.92; // ~300ms PPM decay at 48kHz/256 block
         }
         if voice_peak_r >= self.meter_peak_r {
             self.meter_peak_r = voice_peak_r;

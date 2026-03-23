@@ -720,7 +720,8 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     if (event == null) return;
     _pushUndoState();
 
-    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    final layer = event.layers.where((l) => l.id == layerId).firstOrNull;
+    if (layer == null) return;
     _updateEventLayerInternal(eventId, layer.copyWith(muted: !layer.muted));
   }
 
@@ -730,7 +731,8 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     if (event == null) return;
     _pushUndoState();
 
-    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    final layer = event.layers.where((l) => l.id == layerId).firstOrNull;
+    if (layer == null) return;
     _updateEventLayerInternal(eventId, layer.copyWith(solo: !layer.solo));
   }
 
@@ -738,7 +740,8 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   void setLayerVolumeContinuous(String eventId, String layerId, double volume) {
     final event = _compositeEvents[eventId];
     if (event == null) return;
-    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    final layer = event.layers.where((l) => l.id == layerId).firstOrNull;
+    if (layer == null) return;
     _updateEventLayerInternal(eventId, layer.copyWith(volume: volume.clamp(0.0, 1.0)));
   }
 
@@ -747,7 +750,8 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     final event = _compositeEvents[eventId];
     if (event == null) return;
     _pushUndoState();
-    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    final layer = event.layers.where((l) => l.id == layerId).firstOrNull;
+    if (layer == null) return;
     _updateEventLayerInternal(eventId, layer.copyWith(volume: volume.clamp(0.0, 1.0)));
   }
 
@@ -841,7 +845,8 @@ class CompositeEventSystemProvider extends ChangeNotifier {
   void setLayerOffsetContinuous(String eventId, String layerId, double offsetMs) {
     final event = _compositeEvents[eventId];
     if (event == null) return;
-    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    final layer = event.layers.where((l) => l.id == layerId).firstOrNull;
+    if (layer == null) return;
     _updateEventLayerInternal(eventId, layer.copyWith(offsetMs: offsetMs.clamp(0, 10000)));
   }
 
@@ -850,7 +855,8 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     final event = _compositeEvents[eventId];
     if (event == null) return;
     _pushUndoState();
-    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    final layer = event.layers.where((l) => l.id == layerId).firstOrNull;
+    if (layer == null) return;
     _updateEventLayerInternal(eventId, layer.copyWith(offsetMs: offsetMs.clamp(0, 10000)));
   }
 
@@ -859,7 +865,8 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     final event = _compositeEvents[eventId];
     if (event == null) return;
     _pushUndoState();
-    final layer = event.layers.firstWhere((l) => l.id == layerId);
+    final layer = event.layers.where((l) => l.id == layerId).firstOrNull;
+    if (layer == null) return;
     _updateEventLayerInternal(
         eventId,
         layer.copyWith(
@@ -1048,7 +1055,8 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     if (event == null) return;
 
     try {
-      final layer = event.layers.firstWhere((l) => l.id == layerId);
+      final layer = event.layers.where((l) => l.id == layerId).firstOrNull;
+    if (layer == null) return;
       _layerClipboard = layer;
       _selectedLayerId = layerId;
       notifyListeners();
@@ -1086,7 +1094,8 @@ class CompositeEventSystemProvider extends ChangeNotifier {
     if (event == null) return null;
 
     try {
-      final layer = event.layers.firstWhere((l) => l.id == layerId);
+      final layer = event.layers.where((l) => l.id == layerId).firstOrNull;
+      if (layer == null) return null;
       _pushUndoState();
 
       final newId = 'layer_${_nextLayerId++}';
