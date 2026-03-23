@@ -4971,6 +4971,8 @@ class _FreeSpinsSection extends _SectionConfig {
         _SlotConfig(stage: 'FS_STICKY_WILD', label: 'Sticky Wild'),
         _SlotConfig(stage: 'FS_EXPANDING_WILD', label: 'Expand Wild'),
         _SlotConfig(stage: 'FS_MULTIPLIER_UP', label: 'Multi Up'),
+        _SlotConfig(stage: 'FS_LAST_SPIN', label: 'Last Spin'),
+        _SlotConfig(stage: 'FS_SPINS_ADDED', label: 'Spins Added'),
       ],
     ),
     // ─── SCATTER ───

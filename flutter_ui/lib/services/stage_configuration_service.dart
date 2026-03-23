@@ -460,6 +460,8 @@ class StageConfigurationService extends ChangeNotifier {
     'FS_STICKY_WILD': 'Sticky Wild',
     'FS_EXPANDING_WILD': 'Expand Wild',
     'FS_MULTIPLIER_UP': 'Multi Up',
+    'FS_LAST_SPIN': 'Last Spin',
+    'FS_SPINS_ADDED': 'Spins Added',
     'FS_SCATTER_LAND': 'FS Scatter',
     'FS_RETRIGGER': 'Retrigger',
     'FS_END': 'FS End',
@@ -1354,6 +1356,8 @@ class StageConfigurationService extends ChangeNotifier {
     _register('FS_STICKY_WILD', StageCategory.feature, 65, SpatialBus.sfx, 'DEFAULT');
     _register('FS_EXPANDING_WILD', StageCategory.feature, 65, SpatialBus.sfx, 'DEFAULT');
     _register('FS_MULTIPLIER_UP', StageCategory.feature, 65, SpatialBus.sfx, 'DEFAULT');
+    _register('FS_LAST_SPIN', StageCategory.feature, 60, SpatialBus.sfx, 'DEFAULT');
+    _register('FS_SPINS_ADDED', StageCategory.feature, 70, SpatialBus.sfx, 'DEFAULT');
     _register('FS_RETRIGGER', StageCategory.feature, 80, SpatialBus.sfx, 'FREE_SPIN_TRIGGER', ducksMusic: true);
     _register('FS_RETRIGGER_3', StageCategory.feature, 80, SpatialBus.sfx, 'FREE_SPIN_TRIGGER', ducksMusic: true);
     _register('FS_RETRIGGER_5', StageCategory.feature, 80, SpatialBus.sfx, 'FREE_SPIN_TRIGGER', ducksMusic: true);

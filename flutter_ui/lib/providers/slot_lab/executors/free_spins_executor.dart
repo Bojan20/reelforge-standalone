@@ -125,9 +125,9 @@ class FreeSpinsExecutor extends FeatureExecutor {
     if (_hasMultiplier) {
       newState = _updateMultiplier(newState, result);
       if (newState.currentMultiplier != currentState.currentMultiplier) {
-        audioStages.add('FS_MULTIPLIER_INCREASE');
+        audioStages.add('FS_MULTIPLIER_UP');
         if (newState.currentMultiplier >= _maxMultiplier) {
-          audioStages.add('FS_MULTIPLIER_MAX');
+          audioStages.add('FS_MULTIPLIER_UP'); // Max reached — same stage, designer can use variant
         }
       }
     }

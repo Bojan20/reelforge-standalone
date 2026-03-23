@@ -612,20 +612,11 @@ class FreeSpinsBlock extends FeatureBlockBase {
     // ========== Multiplier Stages ==========
     if (hasMultiplier) {
       stages.add(GeneratedStage(
-        name: 'FS_MULTIPLIER_INCREASE',
+        name: 'FS_MULTIPLIER_UP',
         description: 'Multiplier value increases',
         bus: 'sfx',
         priority: 72,
         pooled: true,
-        sourceBlockId: id,
-        category: 'Free Spins',
-      ));
-
-      stages.add(GeneratedStage(
-        name: 'FS_MULTIPLIER_MAX',
-        description: 'Multiplier reached maximum',
-        bus: 'sfx',
-        priority: 78,
         sourceBlockId: id,
         category: 'Free Spins',
       ));
@@ -735,7 +726,7 @@ class FreeSpinsBlock extends FeatureBlockBase {
   List<String> get pooledStages => [
         'FS_SCATTER_LAND',
         'FS_SPIN_COUNTER',
-        'FS_MULTIPLIER_INCREASE',
+        'FS_MULTIPLIER_UP',
         'FS_WILD_STICK',
         'FS_WILD_WALK',
       ];
