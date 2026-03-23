@@ -144,7 +144,7 @@ class TemplateGenerator {
       mechanics: ['free_spins'],
       stages: [
         'SPIN_START', 'REEL_SPIN_LOOP', 'REEL_STOP_0', 'REEL_STOP_1', 'REEL_STOP_2',
-        'REEL_STOP_3', 'REEL_STOP_4', 'SPIN_END', 'SLAM_STOP', 'QUICK_STOP',
+        'REEL_STOP_3', 'REEL_STOP_4', 'SPIN_END', 'QUICK_STOP',
         'ANTICIPATION_TENSION', 'ANTICIPATION_TENSION_R3', 'ANTICIPATION_TENSION_R4', 'ANTICIPATION_OFF',
         'WIN_PRESENT_LOW', 'WIN_PRESENT_EQUAL', 'WIN_PRESENT_1', 'WIN_PRESENT_2', 'WIN_PRESENT_3',
         'WIN_PRESENT_4', 'WIN_PRESENT_5', 'WIN_PRESENT_END',
@@ -165,8 +165,7 @@ class TemplateGenerator {
       mechanics: ['cascade', 'free_spins', 'multiplier'],
       stages: [
         'SPIN_START', 'REEL_SPIN_LOOP', 'REEL_STOP_0', 'REEL_STOP_1', 'REEL_STOP_2',
-        'REEL_STOP_3', 'REEL_STOP_4', 'REEL_STOP_5', 'SPIN_END', 'SLAM_STOP',
-        'ANTICIPATION_TENSION', 'ANTICIPATION_OFF',
+        'REEL_STOP_3', 'REEL_STOP_4', 'REEL_STOP_5', 'SPIN_END',         'ANTICIPATION_TENSION', 'ANTICIPATION_OFF',
         'WIN_PRESENT_1', 'WIN_PRESENT_2', 'WIN_PRESENT_3', 'WIN_PRESENT_4', 'WIN_PRESENT_5',
         'ROLLUP_TICK', 'ROLLUP_END',
         'BIG_WIN_START', 'BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_TIER_3', 'BIG_WIN_END',
@@ -189,8 +188,7 @@ class TemplateGenerator {
       mechanics: ['cascade', 'free_spins'],
       stages: [
         'SPIN_START', 'REEL_SPIN_LOOP', 'REEL_STOP_0', 'REEL_STOP_1', 'REEL_STOP_2',
-        'REEL_STOP_3', 'REEL_STOP_4', 'SPIN_END', 'SLAM_STOP',
-        'WIN_PRESENT_1', 'WIN_PRESENT_2', 'WIN_PRESENT_3', 'WIN_PRESENT_4', 'WIN_PRESENT_5',
+        'REEL_STOP_3', 'REEL_STOP_4', 'SPIN_END',         'WIN_PRESENT_1', 'WIN_PRESENT_2', 'WIN_PRESENT_3', 'WIN_PRESENT_4', 'WIN_PRESENT_5',
         'ROLLUP_TICK', 'ROLLUP_END',
         'BIG_WIN_START', 'BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_END',
         'CASCADE_START', 'CASCADE_STEP', 'CASCADE_STEP_1', 'CASCADE_STEP_2',
@@ -212,8 +210,7 @@ class TemplateGenerator {
       mechanics: ['hold_and_win', 'free_spins', 'jackpot'],
       stages: [
         'SPIN_START', 'REEL_SPIN_LOOP', 'REEL_STOP_0', 'REEL_STOP_1', 'REEL_STOP_2',
-        'REEL_STOP_3', 'REEL_STOP_4', 'SPIN_END', 'SLAM_STOP',
-        'WIN_PRESENT_1', 'WIN_PRESENT_2', 'WIN_PRESENT_3',
+        'REEL_STOP_3', 'REEL_STOP_4', 'SPIN_END',         'WIN_PRESENT_1', 'WIN_PRESENT_2', 'WIN_PRESENT_3',
         'ROLLUP_TICK', 'ROLLUP_END',
         'BIG_WIN_START', 'BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_END',
         'HOLD_TRIGGER', 'HOLD_START', 'HOLD_END',
@@ -236,8 +233,7 @@ class TemplateGenerator {
       mechanics: ['bonus', 'free_spins', 'wheel'],
       stages: [
         'SPIN_START', 'REEL_SPIN_LOOP', 'REEL_STOP_0', 'REEL_STOP_1', 'REEL_STOP_2',
-        'REEL_STOP_3', 'REEL_STOP_4', 'SPIN_END', 'SLAM_STOP',
-        'WIN_PRESENT_1', 'WIN_PRESENT_2', 'WIN_PRESENT_3', 'WIN_PRESENT_4',
+        'REEL_STOP_3', 'REEL_STOP_4', 'SPIN_END',         'WIN_PRESENT_1', 'WIN_PRESENT_2', 'WIN_PRESENT_3', 'WIN_PRESENT_4',
         'ROLLUP_TICK', 'ROLLUP_END',
         'BIG_WIN_START', 'BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_END',
         'BONUS_TRIGGER', 'BONUS_ENTER', 'BONUS_EXIT', 'BONUS_WIN',
@@ -259,8 +255,7 @@ class TemplateGenerator {
       mechanics: ['jackpot', 'free_spins'],
       stages: [
         'SPIN_START', 'REEL_SPIN_LOOP', 'REEL_STOP_0', 'REEL_STOP_1', 'REEL_STOP_2',
-        'REEL_STOP_3', 'REEL_STOP_4', 'SPIN_END', 'SLAM_STOP',
-        'WIN_PRESENT_1', 'WIN_PRESENT_2', 'WIN_PRESENT_3', 'WIN_PRESENT_4', 'WIN_PRESENT_5',
+        'REEL_STOP_3', 'REEL_STOP_4', 'SPIN_END',         'WIN_PRESENT_1', 'WIN_PRESENT_2', 'WIN_PRESENT_3', 'WIN_PRESENT_4', 'WIN_PRESENT_5',
         'ROLLUP_TICK', 'ROLLUP_END',
         'BIG_WIN_START', 'BIG_WIN_TIER_1', 'BIG_WIN_TIER_2', 'BIG_WIN_TIER_3', 'BIG_WIN_END',
         'JACKPOT_TRIGGER', 'JACKPOT_ELIGIBLE', 'JACKPOT_BUILDUP',

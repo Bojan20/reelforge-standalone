@@ -2623,7 +2623,7 @@ class SlotLabProjectProvider extends ChangeNotifier {
 
   /// Section definitions matching UltimateAudioPanel V8.1
   static const List<(String id, String name, int slotCount, List<String> stagePrefixes)> _sectionDefinitions = [
-    ('base_game_loop', 'Base Game Loop', 44, ['ATTRACT', 'IDLE', 'GAME_', 'SPIN_', 'REEL_', 'ANTICIPATION', 'NEAR_MISS', 'NO_WIN', 'QUICK_STOP', 'SLAM_STOP', 'AUTOPLAY', 'UI_TURBO', 'UI_STOP', 'TURBO_SPIN']),
+    ('base_game_loop', 'Base Game Loop', 44, ['ATTRACT', 'IDLE', 'GAME_', 'SPIN_', 'REEL_', 'ANTICIPATION', 'NEAR_MISS', 'NO_WIN', 'QUICK_STOP', 'AUTOPLAY', 'UI_TURBO', 'UI_STOP', 'TURBO_SPIN']),
     ('symbols', 'Symbols & Lands', 46, ['SYMBOL_', 'WILD_', 'SCATTER_', 'BONUS_SYMBOL', 'MYSTERY_', 'COLLECT_', 'TRANSFORM_']),
     ('win_presentation', 'Win Presentation', 41, ['WIN_', 'ROLLUP_', 'BIG_WIN', 'CELEBRATION', 'COIN_']),
     ('cascading', 'Cascading Mechanics', 24, ['CASCADE_', 'TUMBLE_', 'AVALANCHE_', 'CLUSTER_']),

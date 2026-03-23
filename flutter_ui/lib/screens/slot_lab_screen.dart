@@ -748,57 +748,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         }
       } catch (_) {}
 
-    } else if (stage == 'SLAM_STOP') {
-      // ══════════════════════════════════════════════════════════════
-      // SLAM_STOP: Stop ALL active reel land voices → Play slam sound
-      // When all reels slam-stop at once, individual REEL_STOP_0..4
-      // voices must be killed immediately.
-      // ══════════════════════════════════════════════════════════════
-
-      // 1. Stop all individual reel land voices
-      for (int r = 0; r < 5; r++) {
-        final reelStage = 'REEL_STOP_$r';
-        final reelPath = Provider.of<SlotLabProjectProvider>(context, listen: false)
-            .getAudioAssignment(reelStage);
-        if (reelPath != null && reelPath.isNotEmpty) {
-          baseLayers.add(SlotEventLayer(
-            id: 'slam_stop_reel_$r',
-            name: 'Stop Reel $r Land',
-            audioPath: '',
-            actionType: 'StopVoice',
-            targetAudioPath: reelPath,
-            volume: 0.0,
-            busId: 2, // SFX bus
-          ));
-        }
-      }
-      // Also stop the generic REEL_STOP event
-      final genericReelPath = Provider.of<SlotLabProjectProvider>(context, listen: false)
-          .getAudioAssignment('REEL_STOP');
-      if (genericReelPath != null && genericReelPath.isNotEmpty) {
-        baseLayers.add(SlotEventLayer(
-          id: 'slam_stop_reel_generic',
-          name: 'Stop Reel Land (generic)',
-          audioPath: '',
-          actionType: 'StopVoice',
-          targetAudioPath: genericReelPath,
-          volume: 0.0,
-          busId: 2,
-        ));
-      }
-
-      // 2. Play slam stop sound
-      baseLayers.add(SlotEventLayer(
-        id: 'layer_$stage',
-        name: audioPath.split('/').last.replaceAll(RegExp(r'\.[^.]+$'), ''),
-        audioPath: audioPath,
-        actionType: 'Play',
-        volume: 1.0,
-        pan: 0.0,
-        busId: busId,
-        durationSeconds: durationSec,
-      ));
-
     } else {
       // ══════════════════════════════════════════════════════════════
       // ALL OTHER STAGES: Generic auto-action generation
@@ -955,41 +904,6 @@ class _SlotLabScreenState extends State<SlotLabScreen>
               targetAudioPath: path,
             ));
           }
-        }
-      } catch (_) {}
-    }
-
-    // SLAM_STOP: stop all individual reel land voices
-    if (stage == 'SLAM_STOP') {
-      try {
-        final project = Provider.of<SlotLabProjectProvider>(context, listen: false);
-        for (int r = 0; r < 5; r++) {
-          final reelPath = project.getAudioAssignment('REEL_STOP_$r');
-          if (reelPath != null && reelPath.isNotEmpty) {
-            layers.add(AudioLayer(
-              id: 'slam_stop_reel_$r',
-              name: 'Stop Reel $r Land',
-              audioPath: '',
-              busId: 2,
-              delay: 0,
-              volume: 0.0,
-              actionType: 'StopVoice',
-              targetAudioPath: reelPath,
-            ));
-          }
-        }
-        final genericReelPath = project.getAudioAssignment('REEL_STOP');
-        if (genericReelPath != null && genericReelPath.isNotEmpty) {
-          layers.add(AudioLayer(
-            id: 'slam_stop_reel_generic',
-            name: 'Stop Reel Land (generic)',
-            audioPath: '',
-            busId: 2,
-            delay: 0,
-            volume: 0.0,
-            actionType: 'StopVoice',
-            targetAudioPath: genericReelPath,
-          ));
         }
       } catch (_) {}
     }

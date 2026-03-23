@@ -4184,7 +4184,6 @@ SlotBus _resolveSlotBus(String stage) {
   // Reels bus — reel mechanics
   if (s.startsWith('REEL_') || s.startsWith('SPIN_') ||
       s.startsWith('ANTICIPATION_') || s == 'QUICK_STOP' ||
-      s == 'SLAM_STOP' || s == 'SLAM_STOP_IMPACT' ||
       s.startsWith('TURBO_SPIN')) {
     return SlotBus.reels;
   }
@@ -4343,8 +4342,6 @@ class _BaseGameLoopSection extends _SectionConfig {
           _SlotConfig(stage: 'SPIN_CANCEL', label: 'Spin Cancel'),
           _SlotConfig(stage: 'UI_STOP_PRESS', label: 'Stop Press'),
           _SlotConfig(stage: 'QUICK_STOP', label: 'Quick Stop'),
-          _SlotConfig(stage: 'SLAM_STOP', label: 'Slam Stop'),
-          _SlotConfig(stage: 'SLAM_STOP_IMPACT', label: 'Slam Impact'),
           _SlotConfig(stage: 'SKIP', label: 'Skip'),
           _SlotConfig(stage: 'UI_AUTOPLAY_START', label: 'AutoSpin On'),
           _SlotConfig(stage: 'UI_AUTOPLAY_STOP', label: 'AutoSpin Off'),

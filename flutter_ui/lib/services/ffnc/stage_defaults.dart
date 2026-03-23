@@ -183,7 +183,6 @@ class StageDefaults {
     'SPIN_START': StageDefault(volume: 1.0, busId: 2),
     'REEL_SPIN_LOOP': StageDefault(volume: 1.0, busId: 2, loop: true),
     'SPIN_END': StageDefault(volume: 1.0, busId: 2),
-    'SLAM_STOP': StageDefault(volume: 1.0, busId: 2),
     'QUICK_STOP': StageDefault(volume: 1.0, busId: 2),
     'SPIN_ACCELERATION': StageDefault(volume: 1.0, busId: 2),
     'SPIN_DECELERATION': StageDefault(volume: 1.0, busId: 2),

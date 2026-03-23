@@ -286,8 +286,6 @@ class StageConfigurationService extends ChangeNotifier {
     'SPIN_CANCEL': 'Spin Cancel',
     'UI_STOP_PRESS': 'Stop Press',
     'QUICK_STOP': 'Quick Stop',
-    'SLAM_STOP': 'Slam Stop',
-    'SLAM_STOP_IMPACT': 'Slam Impact',
     'SKIP': 'Skip',
     'UI_AUTOPLAY_START': 'AutoSpin On',
     'UI_AUTOPLAY_STOP': 'AutoSpin Off',
@@ -1572,8 +1570,6 @@ class StageConfigurationService extends ChangeNotifier {
     _register('UI_SPIN_RELEASE', StageCategory.ui, 20, SpatialBus.ui, 'DEFAULT');
     _register('UI_STOP_PRESS', StageCategory.ui, 30, SpatialBus.ui, 'DEFAULT');
     _register('QUICK_STOP', StageCategory.spin, 35, SpatialBus.sfx, 'DEFAULT');
-    _register('SLAM_STOP', StageCategory.spin, 35, SpatialBus.sfx, 'DEFAULT');
-    _register('SLAM_STOP_IMPACT', StageCategory.spin, 35, SpatialBus.sfx, 'DEFAULT');
     _register('SKIP', StageCategory.ui, 30, SpatialBus.ui, 'DEFAULT');
 
     // ═══════════════════════════════════════════════════════════════════════
