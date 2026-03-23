@@ -17,6 +17,8 @@ import '../../models/slot_lab_models.dart';
 import '../../services/event_registry.dart';
 import '../../services/audio_playback_service.dart';
 import '../../services/audio_asset_manager.dart';
+import 'package:get_it/get_it.dart';
+import '../middleware_provider.dart';
 import '../../src/rust/native_ffi.dart';
 import '../middleware_provider.dart';
 import '../ale_provider.dart';
@@ -505,13 +507,19 @@ class MusicLayerController extends ChangeNotifier {
       final fadeMs = _config.downshiftFadeMs;
       for (int i = 1; i <= 5; i++) {
         final layerId = 'game_start_l$i';
+        final targetVol = i == 1 ? 1.0 : 0.0;
         if (i == 1) {
           playback.layerVolumes[layerId] = 0.0; // Start from 0.0 (silent)
-          playback.fadeLayerVolume(layerId, 1.0, fadeMs: fadeMs);
+          playback.fadeLayerVolume(layerId, targetVol, fadeMs: fadeMs);
         } else {
-          // Fade to 0.0 in engine — not just cache, in case voice still has old volume
-          playback.fadeLayerVolume(layerId, 0.0, fadeMs: fadeMs);
+          playback.fadeLayerVolume(layerId, targetVol, fadeMs: fadeMs);
         }
+        // Sync target volume to middleware so Voice Mixer slider shows correct value
+        try {
+          final mw = GetIt.instance<MiddlewareProvider>();
+          // GAME_START composite has layers with id game_start_l1..l5
+          mw.setLayerVolumeContinuous('audio_GAME_START', layerId, targetVol);
+        } catch (_) {}
       }
       _addHistoryEvent(MusicLayerTransition(
         fromLayer: 0,
