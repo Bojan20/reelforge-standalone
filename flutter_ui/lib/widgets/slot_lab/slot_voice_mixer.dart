@@ -222,8 +222,7 @@ class _SlotVoiceMixerState extends State<SlotVoiceMixer>
   // ─── Fixed Master ────────────────────────────────────────────────────────
 
   Widget _buildFixedMaster(MixerDSPProvider busMixer) {
-    final masterBus = busMixer.getBus('master');
-    if (masterBus == null) return const SizedBox.shrink();
+    if (busMixer.getBus('master') == null) return const SizedBox.shrink();
 
     return Container(
       decoration: BoxDecoration(
@@ -258,7 +257,7 @@ class _SlotVoiceMixerState extends State<SlotVoiceMixer>
           // Master strip
           Padding(
             padding: const EdgeInsets.only(top: 3, right: 3),
-            child: _MasterStrip(busMixer: busMixer, masterBus: masterBus),
+            child: _MasterStrip(busMixer: busMixer),
           ),
         ],
       ),
@@ -658,8 +657,11 @@ class _VoiceStripState extends State<_VoiceStrip> {
     );
   }
 
+  // SlotLab volume range: 0.0-1.0 (0dB max). Use maxLinear:1.0 everywhere.
+  static const double _maxLinear = 1.0;
+
   Widget _buildFader() {
-    final faderPos = FaderCurve.linearToPosition(ch.volume);
+    final faderPos = FaderCurve.linearToPosition(ch.volume, maxLinear: _maxLinear);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -687,14 +689,14 @@ class _VoiceStripState extends State<_VoiceStrip> {
             onVerticalDragStart: (details) {
               _faderDragging = true;
               final clickPos = 1.0 - (details.localPosition.dy / trackHeight).clamp(0.0, 1.0);
-              final newVol = FaderCurve.positionToLinear(clickPos, maxLinear: 1.0);
+              final newVol = FaderCurve.positionToLinear(clickPos, maxLinear: _maxLinear);
               widget.provider.setChannelVolume(ch.layerId, newVol);
             },
             onVerticalDragUpdate: (details) {
-              final currentPos = FaderCurve.linearToPosition(ch.volume);
+              final currentPos = FaderCurve.linearToPosition(ch.volume, maxLinear: _maxLinear);
               final delta = -details.delta.dy / trackHeight;
               final newPos = (currentPos + delta).clamp(0.0, 1.0);
-              final newVol = FaderCurve.positionToLinear(newPos, maxLinear: 1.0);
+              final newVol = FaderCurve.positionToLinear(newPos, maxLinear: _maxLinear);
               widget.provider.setChannelVolume(ch.layerId, newVol);
             },
             onVerticalDragEnd: (_) {
@@ -1317,9 +1319,8 @@ class _StereoMeter extends StatelessWidget {
 
 class _MasterStrip extends StatefulWidget {
   final MixerDSPProvider busMixer;
-  final MixerBus masterBus;
 
-  const _MasterStrip({required this.busMixer, required this.masterBus});
+  const _MasterStrip({required this.busMixer});
 
   @override
   State<_MasterStrip> createState() => _MasterStripState();
@@ -1331,7 +1332,9 @@ class _MasterStripState extends State<_MasterStrip> {
   double _peakHoldL = 0, _peakHoldR = 0;
   int _holdTimeL = 0, _holdTimeR = 0;
 
-  MixerBus get bus => widget.masterBus;
+  // Read fresh bus state from provider on every build (not stale widget param)
+  MixerBus get bus => widget.busMixer.getBus('master') ??
+      const MixerBus(id: 'master', name: 'Master', volume: 1.0);
 
   @override
   Widget build(BuildContext context) {

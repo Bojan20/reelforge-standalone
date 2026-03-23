@@ -10,6 +10,8 @@ class StageDefault {
   final double? fadeInMs;
   final double? fadeOutMs;
   final bool loop;
+  final double pan; // -1.0 to 1.0 (default 0.0 = center for mono, -1.0 = hard left for stereo)
+  final double panRight; // -1.0 to 1.0 (default 0.0 = unused for mono, 1.0 = hard right for stereo)
 
   const StageDefault({
     required this.volume,
@@ -17,6 +19,8 @@ class StageDefault {
     this.fadeInMs,
     this.fadeOutMs,
     this.loop = false,
+    this.pan = 0.0,
+    this.panRight = 0.0,
   });
 }
 
@@ -63,7 +67,7 @@ class StageDefaults {
 
   static const _uiDefault = StageDefault(volume: 0.50, busId: 2);
   static const _voDefault = StageDefault(volume: 0.80, busId: 3);
-  static const _musicDefault = StageDefault(volume: 0.70, busId: 1, loop: true);
+  static const _musicDefault = StageDefault(volume: 0.70, busId: 1, loop: true, pan: -1.0, panRight: 1.0);
   static const _ambientDefault = StageDefault(volume: 0.40, busId: 4, fadeInMs: 500, loop: true);
   static const _transitionDefault = StageDefault(volume: 0.70, busId: 2);
 

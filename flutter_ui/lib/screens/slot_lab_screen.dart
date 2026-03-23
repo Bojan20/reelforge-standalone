@@ -802,6 +802,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
         actionType: 'Play',
         volume: stageDefault.volume,
         pan: _getPanForStage(stage),
+        panRight: stageDefault.panRight,
         busId: busId,
         loop: effectiveLoop,
         fadeInMs: stageDefault.fadeInMs ?? (crossfadeMs > 0 ? crossfadeMs.toDouble() : 0.0),

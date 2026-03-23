@@ -289,6 +289,9 @@ class SlotVoiceMixerProvider extends ChangeNotifier {
           isStereo: _isStereoBus(layer.busId ?? SlotBusIds.sfx),
           actionType: layer.actionType,
           // Params from layer (source of truth)
+          // StageDefaults sets pan/panRight correctly per bus type:
+          // Music: pan=-1.0, panRight=1.0 (stereo spread)
+          // SFX/Voice/UI: pan=0.0, panRight=0.0 (mono center)
           volume: layer.volume,
           pan: layer.pan,
           panRight: layer.panRight,
