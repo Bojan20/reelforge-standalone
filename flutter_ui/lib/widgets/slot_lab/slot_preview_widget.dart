@@ -1891,6 +1891,10 @@ class SlotPreviewWidgetState extends State<SlotPreviewWidget>
       EventRegistry.instance.stopAllSpinLoops();
       EventRegistry.instance.stopAllOneShotInstances();
 
+      // SLAM_STOP: single impact SFX for all reels slamming at once (WoO standard)
+      _ensureAudioRegistered('SLAM_STOP');
+      eventRegistry.triggerStage('SLAM_STOP');
+
       // Update display grid to target (final) values
       for (int r = 0; r < widget.reels && r < _targetGrid.length; r++) {
         for (int row = 0; row < widget.rows && row < _targetGrid[r].length; row++) {
