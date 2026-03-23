@@ -448,6 +448,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
   // Legacy — kept for backward compat with code that reads the map
   final ValueNotifier<Map<String, bool>> _eventExpandedNotifier = ValueNotifier<Map<String, bool>>({});
   String? _selectedEventId;
+  /// Local notifier for composite event selection — avoids MiddlewareProvider.notifyListeners
+  /// which triggers expensive Consumer3 rebuild of entire event list.
+  final ValueNotifier<String?> _selectedCompositeEventNotifier = ValueNotifier<String?>(null);
 
   // DEBUG: Track last drag status for visual feedback
   String _lastDragStatus = '';
@@ -3394,6 +3397,7 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     _leftPanelTabNotifier.dispose();
     _rightPanelTabNotifier.dispose();
     _configExpandedSection.dispose();
+    _selectedCompositeEventNotifier.dispose();
     _eventExpandedNotifier.dispose();
     for (final notifier in _eventExpandedNotifiers.values) {
       notifier.dispose();
@@ -9757,7 +9761,11 @@ class _SlotLabScreenState extends State<SlotLabScreen>
     return Consumer3<MiddlewareProvider, CustomEventProvider, SlotLabProjectProvider>(
       builder: (context, mw, customProv, projectProv, _) {
         final compositeEvents = mw.compositeEvents;
-        final selected = mw.selectedCompositeEvent;
+        // Selection via local notifier (NOT mw.selectedCompositeEvent) for instant expand
+        final selectedId = _selectedCompositeEventNotifier.value;
+        final selected = selectedId != null
+            ? compositeEvents.where((e) => e.id == selectedId).firstOrNull
+            : null;
         final customEvents = customProv.events;
         final selectedCustomId = customProv.selectedEventId;
 
@@ -9988,15 +9996,19 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             ),
           ),
         ),
-        ...entry.value.expand((evt) {
-          final isSelected = selected?.id == evt.id;
+        ...entry.value.map((evt) {
           // Resolve win tier displayLabel for win-related events
           final tierLabel = _getWinTierLabelForEvent(evt, projectProv);
-          return [
+          return ValueListenableBuilder<String?>(
+            valueListenable: _selectedCompositeEventNotifier,
+            builder: (context, selectedId, _) {
+              final isSelected = selectedId == evt.id;
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
             GestureDetector(
               onTap: () {
-                mw.selectCompositeEvent(isSelected ? null : evt.id);
-                // No setState — Consumer3 rebuilds via MiddlewareProvider.notifyListeners
+                _selectedCompositeEventNotifier.value = isSelected ? null : evt.id;
               },
               child: Container(
                 margin: const EdgeInsets.only(bottom: 2),
@@ -10070,7 +10082,9 @@ class _SlotLabScreenState extends State<SlotLabScreen>
             ),
             if (isSelected)
               _buildCustomTabInlineEditor(evt, mw),
-          ];
+              ],
+            ); },
+          ); // End ValueListenableBuilder
         }),
       ];
     }).toList();
