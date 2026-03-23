@@ -116,6 +116,7 @@ class GameFlowProvider extends ChangeNotifier {
   int _reelCount = 5;
   int _rowCount = 3;
   bool _gamblingEnabled = false;
+  double _lastBetAmount = 1.0;
 
   // ─── Callbacks ───────────────────────────────────────────────────────────
   /// Called when game state changes (for UI overlay updates)
@@ -139,6 +140,10 @@ class GameFlowProvider extends ChangeNotifier {
   /// Called when the FSM wants to auto-spin (e.g., Free Spins auto-loop).
   /// UI (PremiumSlotPreview) connects this to execute the actual spin.
   void Function()? onRequestAutoSpin;
+
+  /// Called when feature exit accumulates a Big Win (>= 10x bet).
+  /// UI should show Big Win overlay with this amount AFTER exit plaque dismisses.
+  void Function(double totalWin, double betAmount)? onDeferredBigWin;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // GETTERS
@@ -406,6 +411,8 @@ class GameFlowProvider extends ChangeNotifier {
 
   /// Process spin result — evaluate triggers and manage state
   void onSpinComplete(SlotLabSpinResult result) {
+    // Track bet amount for deferred Big Win threshold check
+    if (result.bet > 0) _lastBetAmount = result.bet;
     final context = SpinContext.fromResult(
       result,
       _currentState,
@@ -615,19 +622,20 @@ class GameFlowProvider extends ChangeNotifier {
     // Remove active feature
     _activeFeatures.remove(blockId);
 
-    // Scene transition: show exit plaque with total win before returning
-    if (_transitionsEnabled && exitingState.isFeature &&
-        exitingState != GameFlowState.cascading) {
-      _startExitTransition(exitingState, returnState, exitWin, onComplete: () {
-        if (_featureQueue.isNotEmpty) {
-          _processNextQueuedFeature();
-        } else {
-          _currentState = returnState;
-          onStateChanged?.call(exitingState, returnState);
-          notifyListeners();
+    // Capture bet for deferred Big Win check (before state changes)
+    final deferredBetAmount = _lastBetAmount;
+
+    // Callback to execute after exit transition completes (or immediately if no transition)
+    void onExitComplete() {
+      // Deferred Big Win: if feature accumulated win qualifies, show Big Win overlay
+      // WoO flow: FS exit plaque → Big Win overlay → base game
+      if (exitWin > 0 && deferredBetAmount > 0) {
+        final winRatio = exitWin / deferredBetAmount;
+        if (winRatio >= 10.0 && onDeferredBigWin != null) {
+          onDeferredBigWin!(exitWin, deferredBetAmount);
         }
-      });
-    } else {
+      }
+
       if (_featureQueue.isNotEmpty) {
         _processNextQueuedFeature();
       } else {
@@ -635,6 +643,14 @@ class GameFlowProvider extends ChangeNotifier {
         onStateChanged?.call(exitingState, returnState);
         notifyListeners();
       }
+    }
+
+    // Scene transition: show exit plaque with total win before returning
+    if (_transitionsEnabled && exitingState.isFeature &&
+        exitingState != GameFlowState.cascading) {
+      _startExitTransition(exitingState, returnState, exitWin, onComplete: onExitComplete);
+    } else {
+      onExitComplete();
     }
   }
 

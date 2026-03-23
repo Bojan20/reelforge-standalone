@@ -4988,30 +4988,45 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     });
   }
 
-  /// Wire GameFlowProvider.onRequestAutoSpin to execute spins through the
-  /// normal _handleSpin flow, keeping balance/state consistent.
+  /// Wire GameFlowProvider callbacks for FS auto-spin and deferred Big Win.
   void _wireGameFlowAutoSpin() {
-    try {
-      final gameFlow = GetIt.instance<GameFlowProvider>();
+    void wireCallbacks(GameFlowProvider gameFlow) {
       gameFlow.onRequestAutoSpin = () {
         if (!mounted) return;
         final provider = context.read<SlotLabProvider>();
         _handleSpin(provider);
       };
+      gameFlow.onDeferredBigWin = (totalWin, betAmount) {
+        if (!mounted) return;
+        // Credit FS accumulated win to balance and show Big Win overlay
+        setState(() {
+          _balance += totalWin;
+          _pendingWinAmount = 0.0; // Win already credited
+          _currentWinAmount = totalWin;
+          final tierResult = _getP5WinTierResult(totalWin, betAmount);
+          _currentWinTier = tierResult?.isBigWin == true
+              ? 'BIG_WIN_TIER_${tierResult?.bigWinMaxTier ?? 1}'
+              : 'BIG_WIN_TIER_1';
+          _showWinPresenter = true;
+        });
+        context.read<SlotLabProvider>().setWinPresentationActive(true);
+        // Trigger Big Win audio chain
+        final reg = EventRegistry.instance;
+        reg.triggerStage('BIG_WIN_TRIGGER');
+        GetIt.instance<SlotLabCoordinator>().audioProvider.fadeOutBaseGameLayers(fadeMs: 500);
+        reg.triggerStage('BIG_WIN_START');
+        _startBigWinProtection(_currentWinTier);
+      };
+    }
+
+    try {
+      wireCallbacks(GetIt.instance<GameFlowProvider>());
     } catch (_) {
-      // GameFlowProvider may not be registered yet — retry after frame
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         try {
-          final gameFlow = GetIt.instance<GameFlowProvider>();
-          gameFlow.onRequestAutoSpin = () {
-            if (!mounted) return;
-            final provider = context.read<SlotLabProvider>();
-            _handleSpin(provider);
-          };
-        } catch (_) {
-          // Still not ready — will work when user navigates to slot lab
-        }
+          wireCallbacks(GetIt.instance<GameFlowProvider>());
+        } catch (_) {}
       });
     }
   }
@@ -5145,12 +5160,11 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
     reg.stopAllSpinLoops();
     reg.stopEvent('COIN_SHOWER_START'); // Looping — would be orphaned
 
-    // W4: Disconnect FS auto-spin callback
+    // W4/W5: Disconnect game flow callbacks
     try {
       final gameFlow = GetIt.instance<GameFlowProvider>();
-      if (gameFlow.onRequestAutoSpin != null) {
-        gameFlow.onRequestAutoSpin = null;
-      }
+      gameFlow.onRequestAutoSpin = null;
+      gameFlow.onDeferredBigWin = null;
     } catch (_) {}
 
     _composer.removeListener(_onComposerChanged);
@@ -6148,6 +6162,15 @@ class _PremiumSlotPreviewState extends State<PremiumSlotPreview>
         _pendingWinAmount = 0.0; // No win to collect
       }
     });
+
+    // FS auto-credit: during free spins, wins are credited to balance immediately
+    // (no gamble/collect — WoO standard). Deferred Big Win handles final payout.
+    if (_isInFreeSpins && _pendingWinAmount > 0) {
+      setState(() {
+        _balance += _pendingWinAmount;
+        _pendingWinAmount = 0.0;
+      });
+    }
 
     // Handle auto-spin
     if (_isAutoSpin && _autoSpinRemaining > 0) {

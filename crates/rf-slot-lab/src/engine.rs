@@ -44,6 +44,10 @@ pub struct SyntheticSlotEngine {
     current_bet: f64,
     /// Jackpot pools
     jackpot_pools: [f64; 4],
+    /// Consecutive non-winning spins (mercy mechanic counter)
+    consecutive_losses: u32,
+    /// Mercy threshold: inject wild after N consecutive losses (0 = disabled)
+    mercy_threshold: u32,
 }
 
 /// Session statistics
@@ -129,6 +133,8 @@ impl SyntheticSlotEngine {
             cascade_state: None,
             current_bet: 1.0,
             jackpot_pools: [50.0, 200.0, 1000.0, 10000.0],
+            consecutive_losses: 0,
+            mercy_threshold: 10, // WoO standard: inject wild after 10 consecutive misses
         }
     }
 
@@ -260,11 +266,32 @@ impl SyntheticSlotEngine {
             };
 
         // Generate grid
-        let grid = if let Some(outcome) = forced {
+        let mut grid = if let Some(outcome) = forced {
             self.generate_forced_grid(outcome)
         } else {
             self.generate_random_grid()
         };
+
+        // ═══════════════════════════════════════════════════════════════════════
+        // MERCY MECHANIC — WoO-style: inject wild after N consecutive misses.
+        // Only during free spins. Prioritizes center positions:
+        //   center-center (reel 2, row 1) > reel 1 center > reel 3 center
+        // Resets on any win.
+        // ═══════════════════════════════════════════════════════════════════════
+        if is_free_spin && self.mercy_threshold > 0 && forced.is_none()
+            && self.consecutive_losses >= self.mercy_threshold
+        {
+            let wild_id = 11_u32; // WILD symbol ID (standard convention)
+            let reels = grid.len();
+            let rows = if reels > 0 { grid[0].len() } else { 0 };
+            if reels >= 3 && rows >= 2 {
+                // Inject wild at center of middle reel (reel 2, row 1)
+                let center_reel = reels / 2;
+                let center_row = rows / 2;
+                grid[center_reel][center_row] = wild_id;
+                self.consecutive_losses = 0; // Reset after injection
+            }
+        }
 
         // Evaluate wins
         let eval = self.paytable.evaluate(&grid, bet);
@@ -298,6 +325,13 @@ impl SyntheticSlotEngine {
         // Handle cascades
         if self.config.features.cascades_enabled && result.is_win() {
             self.process_cascades(&mut result);
+        }
+
+        // Update mercy mechanic counter
+        if result.is_win() {
+            self.consecutive_losses = 0;
+        } else {
+            self.consecutive_losses += 1;
         }
 
         // Update stats

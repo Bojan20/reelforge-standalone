@@ -33,6 +33,9 @@ class FreeSpinsExecutor extends FeatureExecutor {
   bool _hasIntroSequence = true;
   bool _hasOutroSequence = true;
   int _scatterSymbolId = 12;
+  // Safety caps (WoO industry standard)
+  int _featureLoopCap = 250; // Max total spins including retriggers
+  double _maxWinCapMultiplier = 5000.0; // Max total win as bet multiplier (0 = disabled)
 
   @override
   void configure(Map<String, dynamic> options) {
@@ -59,6 +62,8 @@ class FreeSpinsExecutor extends FeatureExecutor {
     _hasIntroSequence = options['hasIntroSequence'] as bool? ?? true;
     _hasOutroSequence = options['hasOutroSequence'] as bool? ?? true;
     _scatterSymbolId = options['scatterSymbolId'] as int? ?? 12;
+    _featureLoopCap = options['featureLoopCap'] as int? ?? 250;
+    _maxWinCapMultiplier = (options['maxWinCapMultiplier'] as num?)?.toDouble() ?? 5000.0;
   }
 
   @override
@@ -165,15 +170,37 @@ class FreeSpinsExecutor extends FeatureExecutor {
       audioStages.add('FS_SPINS_ADDED');
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // SAFETY CAPS — force-end FS if limits exceeded (industry regulation)
+    // ═══════════════════════════════════════════════════════════════════════
+    bool shouldContinue = newState.spinsRemaining > 0;
+
+    // FEATURE_LOOP_CAP: max total spins (including retriggers)
+    if (_featureLoopCap > 0 && newState.spinsCompleted >= _featureLoopCap) {
+      shouldContinue = false;
+      newState = newState.copyWith(spinsRemaining: 0);
+    }
+
+    // MAX_WIN_CAP: max total win as bet multiplier
+    if (_maxWinCapMultiplier > 0 && newState.accumulatedWin > 0) {
+      // Use bet from the spin result (engine bet, not UI bet — but it's the best we have)
+      final betEstimate = result.bet > 0 ? result.bet : 1.0;
+      final winMultiplier = newState.accumulatedWin / betEstimate;
+      if (winMultiplier >= _maxWinCapMultiplier) {
+        shouldContinue = false;
+        newState = newState.copyWith(spinsRemaining: 0);
+      }
+    }
+
     // Spin counter audio
     audioStages.add('FS_SPIN_END');
-    if (newState.spinsRemaining == 1) {
+    if (shouldContinue && newState.spinsRemaining == 1) {
       audioStages.add('FS_LAST_SPIN');
     }
 
     return FeatureStepResult(
       updatedState: newState,
-      shouldContinue: newState.spinsRemaining > 0,
+      shouldContinue: shouldContinue,
       audioStages: audioStages,
     );
   }

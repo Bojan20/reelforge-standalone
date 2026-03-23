@@ -266,41 +266,173 @@ class _FeatureStatusBar extends StatelessWidget {
 // FREE SPINS OVERLAY
 // ═══════════════════════════════════════════════════════════════════════════
 
-class _FreeSpinsOverlay extends StatelessWidget {
+class _FreeSpinsOverlay extends StatefulWidget {
   final FeatureState state;
 
   const _FreeSpinsOverlay({required this.state});
 
   @override
+  State<_FreeSpinsOverlay> createState() => _FreeSpinsOverlayState();
+}
+
+class _FreeSpinsOverlayState extends State<_FreeSpinsOverlay>
+    with TickerProviderStateMixin {
+  late AnimationController _multBumpController;
+  late Animation<double> _multBumpScale;
+  late AnimationController _multGlowController;
+  late Animation<double> _multGlow;
+  late AnimationController _spinsAddedController;
+  late Animation<double> _spinsAddedScale;
+  double _prevMultiplier = 1.0;
+  int _prevTotalSpins = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _prevMultiplier = widget.state.currentMultiplier;
+    _prevTotalSpins = widget.state.totalSpins;
+
+    // Multiplier bump: elastic overshoot 1.0 → 1.35 → 1.0 (400ms)
+    _multBumpController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _multBumpScale = Tween<double>(begin: 1.0, end: 1.0).animate(_multBumpController);
+
+    // Multiplier glow pulse (continuous while multiplier > 1)
+    _multGlowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _multGlow = Tween<double>(begin: 0.3, end: 0.8).animate(
+      CurvedAnimation(parent: _multGlowController, curve: Curves.easeInOut),
+    );
+    if (widget.state.currentMultiplier > 1.0) {
+      _multGlowController.repeat(reverse: true);
+    }
+
+    // Spins added bump (retrigger)
+    _spinsAddedController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _spinsAddedScale = Tween<double>(begin: 1.0, end: 1.0).animate(_spinsAddedController);
+  }
+
+  @override
+  void didUpdateWidget(_FreeSpinsOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Multiplier increased → bump animation
+    if (widget.state.currentMultiplier > _prevMultiplier) {
+      _multBumpScale = TweenSequence<double>([
+        TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.35), weight: 30),
+        TweenSequenceItem(tween: Tween(begin: 1.35, end: 0.95), weight: 30),
+        TweenSequenceItem(tween: Tween(begin: 0.95, end: 1.0), weight: 40),
+      ]).animate(CurvedAnimation(parent: _multBumpController, curve: Curves.easeOut));
+      _multBumpController.forward(from: 0);
+
+      // Start glow if not already running
+      if (!_multGlowController.isAnimating) {
+        _multGlowController.repeat(reverse: true);
+      }
+    }
+    _prevMultiplier = widget.state.currentMultiplier;
+
+    // Spins added (retrigger) → bump spin counter
+    if (widget.state.totalSpins > _prevTotalSpins && _prevTotalSpins > 0) {
+      _spinsAddedScale = TweenSequence<double>([
+        TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.25), weight: 30),
+        TweenSequenceItem(tween: Tween(begin: 1.25, end: 0.95), weight: 30),
+        TweenSequenceItem(tween: Tween(begin: 0.95, end: 1.0), weight: 40),
+      ]).animate(CurvedAnimation(parent: _spinsAddedController, curve: Curves.easeOut));
+      _spinsAddedController.forward(from: 0);
+    }
+    _prevTotalSpins = widget.state.totalSpins;
+  }
+
+  @override
+  void dispose() {
+    _multBumpController.dispose();
+    _multGlowController.dispose();
+    _spinsAddedController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final state = widget.state;
+    final showMultiplier = state.currentMultiplier > 1.0;
+    final retriggersUsed = state.customData['retriggersUsed'] as int? ?? 0;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Spin counter
-        _OverlayBadge(
-          icon: Icons.star,
-          label: 'SPINS',
-          value: '${state.spinsRemaining} / ${state.totalSpins}',
-          color: const Color(0xFF4CAF50),
+        // Spin counter with retrigger bump
+        AnimatedBuilder(
+          animation: _spinsAddedController,
+          builder: (_, child) => Transform.scale(
+            scale: _spinsAddedScale.value,
+            child: child,
+          ),
+          child: _OverlayBadge(
+            icon: Icons.star,
+            label: 'SPINS',
+            value: '${state.spinsRemaining} / ${state.totalSpins}',
+            color: const Color(0xFF4CAF50),
+          ),
         ),
         const SizedBox(width: 12),
 
-        // Multiplier (if active)
-        if (state.currentMultiplier > 1.0)
-          _OverlayBadge(
-            icon: Icons.close,
-            label: 'MULTIPLIER',
-            value: '${state.currentMultiplier.toStringAsFixed(1)}x',
-            color: const Color(0xFFFFD700),
+        // Accumulated win
+        _OverlayBadge(
+          icon: Icons.monetization_on,
+          label: 'TOTAL WIN',
+          value: state.accumulatedWin > 0
+              ? state.accumulatedWin.toStringAsFixed(2)
+              : '0.00',
+          color: const Color(0xFF2196F3),
+        ),
+
+        // Multiplier with bump + glow animation
+        if (showMultiplier) ...[
+          const SizedBox(width: 12),
+          AnimatedBuilder(
+            animation: Listenable.merge([_multBumpController, _multGlowController]),
+            builder: (_, child) {
+              return Transform.scale(
+                scale: _multBumpScale.value,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFFD700).withValues(alpha: _multGlow.value),
+                        blurRadius: 12 + (_multGlow.value * 8),
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: child,
+                ),
+              );
+            },
+            child: _OverlayBadge(
+              icon: Icons.close,
+              label: 'MULTIPLIER',
+              value: '${state.currentMultiplier.toStringAsFixed(1)}x',
+              color: const Color(0xFFFFD700),
+            ),
           ),
+        ],
 
         // Retrigger count
-        if ((state.customData['retriggersUsed'] as int? ?? 0) > 0) ...[
+        if (retriggersUsed > 0) ...[
           const SizedBox(width: 12),
           _OverlayBadge(
             icon: Icons.refresh,
             label: 'RETRIGGER',
-            value: '${state.customData['retriggersUsed']}',
+            value: '$retriggersUsed',
             color: const Color(0xFFFF9800),
           ),
         ],
