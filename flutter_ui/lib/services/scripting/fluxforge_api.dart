@@ -19,6 +19,7 @@ import '../../providers/middleware_provider.dart';
 import '../../services/event_registry.dart';
 import '../../services/audio_playback_service.dart';
 import '../../services/service_locator.dart';
+import '../../src/rust/native_ffi.dart';
 import 'lua_bridge.dart';
 
 class FluxForgeApi {
@@ -310,21 +311,25 @@ class FluxForgeApi {
   /// Save project
   Future<Map<String, dynamic>> saveProject(Map<String, dynamic> params) async {
     final path = params['path'] as String?;
+    if (path == null) {
+      throw ArgumentError('Missing required parameter: path');
+    }
 
-    // TODO: Implement project saving
-    return {'success': true, 'path': path};
+    final ffi = NativeFFI.instance;
+    final success = ffi.saveProject(path);
+    return {'success': success, 'path': path};
   }
 
   /// Load project
   Future<Map<String, dynamic>> loadProject(Map<String, dynamic> params) async {
     final path = params['path'] as String?;
-
     if (path == null) {
       throw ArgumentError('Missing required parameter: path');
     }
 
-    // TODO: Implement project loading
-    return {'success': true, 'path': path};
+    final ffi = NativeFFI.instance;
+    final success = ffi.loadProject(path);
+    return {'success': success, 'path': path};
   }
 
   /// Get project info

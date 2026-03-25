@@ -3208,8 +3208,8 @@ class NativeFFI {
     _canRedo = _lib.lookupFunction<EngineCanRedoNative, EngineCanRedoDart>('engine_can_redo');
 
     // Project
-    _saveProject = _lib.lookupFunction<EngineSaveProjectNative, EngineSaveProjectDart>('engine_save_project');
-    _loadProject = _lib.lookupFunction<EngineLoadProjectNative, EngineLoadProjectDart>('engine_load_project');
+    _saveProject = _lib.lookupFunction<EngineSaveProjectNative, EngineSaveProjectDart>('project_save');
+    _loadProject = _lib.lookupFunction<EngineLoadProjectNative, EngineLoadProjectDart>('project_load');
     _isProjectModified = _lib.lookupFunction<EngineIsProjectModifiedNative, EngineIsProjectModifiedDart>('engine_project_is_modified');
     _markProjectDirty = _lib.lookupFunction<EngineMarkProjectDirtyNative, EngineMarkProjectDirtyDart>('engine_project_mark_dirty');
     _markProjectClean = _lib.lookupFunction<EngineMarkProjectCleanNative, EngineMarkProjectCleanDart>('engine_project_mark_clean');
@@ -22642,13 +22642,7 @@ extension ProjectFFI on NativeFFI {
       Int32 Function(Pointer<Utf8>),
       int Function(Pointer<Utf8>)>('project_new');
 
-  static final _projectSave = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Pointer<Utf8>),
-      int Function(Pointer<Utf8>)>('project_save');
-
-  static final _projectLoad = _loadNativeLibrary().lookupFunction<
-      Int32 Function(Pointer<Utf8>),
-      int Function(Pointer<Utf8>)>('project_load');
+  // project_save / project_load now used by _saveProject / _loadProject (main path)
 
   static final _projectSetName = _loadNativeLibrary().lookupFunction<
       Int32 Function(Pointer<Utf8>),
@@ -22738,31 +22732,17 @@ extension ProjectFFI on NativeFFI {
   bool projectNew(String name) {
     final ptr = name.toNativeUtf8();
     final result = _projectNew(ptr);
-    malloc.free(ptr);
+    calloc.free(ptr);
     return result == 1;
   }
 
-  /// Save project to file
-  bool projectSave(String path) {
-    final ptr = path.toNativeUtf8();
-    final result = _projectSave(ptr);
-    malloc.free(ptr);
-    return result == 1;
-  }
-
-  /// Load project from file
-  bool projectLoad(String path) {
-    final ptr = path.toNativeUtf8();
-    final result = _projectLoad(ptr);
-    malloc.free(ptr);
-    return result == 1;
-  }
+  // projectSave / projectLoad removed — saveProject() / loadProject() now use project_save / project_load directly
 
   /// Set project name
   bool projectSetName(String name) {
     final ptr = name.toNativeUtf8();
     final result = _projectSetName(ptr);
-    malloc.free(ptr);
+    calloc.free(ptr);
     return result == 1;
   }
 
@@ -22783,7 +22763,7 @@ extension ProjectFFI on NativeFFI {
   bool projectSetAuthor(String author) {
     final ptr = author.toNativeUtf8();
     final result = _projectSetAuthor(ptr);
-    malloc.free(ptr);
+    calloc.free(ptr);
     return result == 1;
   }
 
@@ -22791,7 +22771,7 @@ extension ProjectFFI on NativeFFI {
   bool projectSetDescription(String description) {
     final ptr = description.toNativeUtf8();
     final result = _projectSetDescription(ptr);
-    malloc.free(ptr);
+    calloc.free(ptr);
     return result == 1;
   }
 

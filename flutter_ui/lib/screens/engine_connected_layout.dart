@@ -2982,14 +2982,21 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     final paths = await NativeFilePicker.pickFiles(title: 'Open Project', allowMultiple: false, allowedExtensions: ['json', 'rfp']);
     if (paths.isEmpty) return;
 
-    await engine.loadProject(paths.first);
+    final success = await engine.loadProject(paths.first);
+    if (!success) {
+      _showSnackBar('Failed to load project');
+    }
   }
 
-  /// Save Project
+  /// Save Project — uses last saved path, or falls back to Save As
   Future<void> _handleSaveProject(EngineProvider engine) async {
-    // TODO: Get last saved path from engine
-    await engine.saveProject('project.rfp');
-    _showSnackBar('Project saved');
+    final existingPath = NativeFFI.instance.getProjectFilePath();
+    if (existingPath != null) {
+      final success = await engine.saveProject(existingPath);
+      _showSnackBar(success ? 'Project saved' : 'Failed to save project');
+    } else {
+      await _handleSaveProjectAs(engine);
+    }
   }
 
   /// Save Project As - file picker for save location
@@ -2997,8 +3004,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
     final path = await NativeFilePicker.saveFile(suggestedName: '${engine.project.name}.rfp');
 
     if (path == null) return;
-    await engine.saveProject(path);
-    _showSnackBar('Project saved to: $path');
+    final success = await engine.saveProject(path);
+    _showSnackBar(success ? 'Project saved to: $path' : 'Failed to save project');
   }
 
   /// Select All Clips (Cmd+A)

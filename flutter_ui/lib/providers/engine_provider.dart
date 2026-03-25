@@ -299,16 +299,21 @@ class EngineProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> saveProject(String path) async {
-    if (!isRunning) return;
-    await engine.saveProject(path);
+  Future<bool> saveProject(String path) async {
+    if (!isRunning) return false;
+    final success = await engine.saveProject(path);
+    if (success) notifyListeners();
+    return success;
   }
 
-  Future<void> loadProject(String path) async {
-    if (!isRunning) return;
-    await engine.loadProject(path);
-    _project = engine.project;
-    notifyListeners();
+  Future<bool> loadProject(String path) async {
+    if (!isRunning) return false;
+    final success = await engine.loadProject(path);
+    if (success) {
+      _project = engine.project;
+      notifyListeners();
+    }
+    return success;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

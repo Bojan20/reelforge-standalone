@@ -18,7 +18,7 @@ import '../theme/fluxforge_theme.dart';
 
 class DawHubScreen extends StatefulWidget {
   final void Function(String name) onNewProject;
-  final void Function(String path) onOpenProject;
+  final Future<void> Function(String path) onOpenProject;
   final VoidCallback onBackToLauncher;
 
   const DawHubScreen({

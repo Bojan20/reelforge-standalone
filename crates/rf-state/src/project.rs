@@ -221,6 +221,22 @@ pub struct RegionState {
     pub fade_out: u64,
     /// Locked (prevent editing)
     pub locked: bool,
+    /// Reversed playback
+    #[serde(default)]
+    pub reversed: bool,
+    /// Time stretch ratio (1.0 = original speed)
+    #[serde(default = "default_stretch_ratio")]
+    pub stretch_ratio: f64,
+    /// Pitch shift in semitones
+    #[serde(default)]
+    pub pitch_shift: f64,
+    /// Preserve pitch when time-stretching
+    #[serde(default)]
+    pub preserve_pitch: bool,
+}
+
+fn default_stretch_ratio() -> f64 {
+    1.0
 }
 
 /// Asset reference
@@ -242,6 +258,9 @@ pub struct AutomationLaneState {
     pub parameter_name: String,
     pub points: Vec<AutomationPointState>,
     pub visible: bool,
+    /// Plugin/send slot index (if applicable)
+    #[serde(default)]
+    pub slot: Option<u32>,
 }
 
 /// Automation point

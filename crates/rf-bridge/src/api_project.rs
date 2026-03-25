@@ -58,8 +58,8 @@ fn sync_tracks_to_project(e: &mut EngineBridge) {
     let tracks = track_manager.get_all_tracks();
     let all_clips = track_manager.get_all_clips();
 
-    // Use actual session sample rate from engine config
-    let sample_rate = e.config.sample_rate.as_u32() as u64;
+    // Use actual session sample rate from engine config (guard against 0)
+    let sample_rate = e.config.sample_rate.as_u32().max(1) as u64;
 
     e.project.tracks = tracks
         .iter()
@@ -79,6 +79,10 @@ fn sync_tracks_to_project(e: &mut EngineBridge) {
                     fade_in: (clip.fade_in * sample_rate as f64) as u64,
                     fade_out: (clip.fade_out * sample_rate as f64) as u64,
                     locked: false,
+                    reversed: clip.reversed,
+                    stretch_ratio: clip.stretch_ratio,
+                    pitch_shift: clip.pitch_shift,
+                    preserve_pitch: clip.preserve_pitch,
                 })
                 .collect();
 
@@ -101,6 +105,7 @@ fn sync_tracks_to_project(e: &mut EngineBridge) {
                                     ),
                                     parameter_id: lane.param_id.target_id as u32,
                                     parameter_name: lane.name.clone(),
+                                    slot: lane.param_id.slot,
                                     points: lane
                                         .points
                                         .iter()
@@ -109,9 +114,11 @@ fn sync_tracks_to_project(e: &mut EngineBridge) {
                                             value: pt.value,
                                             curve_type: match pt.curve {
                                                 rf_engine::automation::CurveType::Linear => 0,
+                                                rf_engine::automation::CurveType::Bezier => 1,
                                                 rf_engine::automation::CurveType::Step => 2,
                                                 rf_engine::automation::CurveType::Exponential => 3,
-                                                _ => 0,
+                                                rf_engine::automation::CurveType::Logarithmic => 4,
+                                                rf_engine::automation::CurveType::SCurve => 5,
                                             },
                                             tension: 0.0,
                                         })
@@ -213,8 +220,8 @@ fn sync_tracks_from_project(e: &mut EngineBridge) {
     // Clear existing tracks
     track_manager.clear();
 
-    // Use actual session sample rate from engine config
-    let sample_rate = e.config.sample_rate.as_f64();
+    // Use actual session sample rate from engine config (guard against 0)
+    let sample_rate = e.config.sample_rate.as_f64().max(1.0);
 
     for track_state in &e.project.tracks {
         // Parse output bus
@@ -275,10 +282,10 @@ fn sync_tracks_from_project(e: &mut EngineBridge) {
                 gain: db_to_linear(region.gain_db),
                 muted: false,
                 selected: false,
-                reversed: false,
-                stretch_ratio: 1.0,
-                pitch_shift: 0.0,
-                preserve_pitch: false,
+                reversed: region.reversed,
+                stretch_ratio: region.stretch_ratio,
+                pitch_shift: region.pitch_shift,
+                preserve_pitch: region.preserve_pitch,
                 loop_enabled: false,
                 loop_count: 0,
                 loop_crossfade: 0.0,
@@ -300,10 +307,30 @@ fn sync_tracks_from_project(e: &mut EngineBridge) {
 
         // Restore automation lanes
         for lane_state in &track_state.automation {
-            use rf_engine::automation::{AutomationPoint, CurveType, ParamId};
+            use rf_engine::automation::{AutomationPoint, CurveType, ParamId, TargetType};
 
-            // Create ParamId from stored data
-            let param_id = ParamId::track_volume(track_id.0); // Use track_volume as default
+            // Reconstruct ParamId from stored id format "targetId_paramName"
+            let param_id = if let Some(underscore_pos) = lane_state.id.find('_') {
+                let param_name = &lane_state.id[underscore_pos + 1..];
+                let slot = lane_state.slot.unwrap_or(0);
+                match param_name {
+                    "volume" => ParamId::track_volume(track_id.0),
+                    "pan" => ParamId::track_pan(track_id.0),
+                    "mute" => ParamId::track_mute(track_id.0),
+                    name if name.starts_with("plugin_") => {
+                        ParamId::plugin_param(track_id.0, slot, name)
+                    }
+                    "level" => ParamId::send_level(track_id.0, slot),
+                    _ => ParamId {
+                        target_id: track_id.0,
+                        target_type: TargetType::Track,
+                        param_name: param_name.to_string(),
+                        slot: lane_state.slot,
+                    },
+                }
+            } else {
+                ParamId::track_volume(track_id.0)
+            };
 
             // Get or create lane
             let auto_engine = e.automation_engine.as_ref();
@@ -313,8 +340,11 @@ fn sync_tracks_from_project(e: &mut EngineBridge) {
             for pt in &lane_state.points {
                 let curve = match pt.curve_type {
                     0 => CurveType::Linear,
+                    1 => CurveType::Bezier,
                     2 => CurveType::Step,
                     3 => CurveType::Exponential,
+                    4 => CurveType::Logarithmic,
+                    5 => CurveType::SCurve,
                     _ => CurveType::Linear,
                 };
 

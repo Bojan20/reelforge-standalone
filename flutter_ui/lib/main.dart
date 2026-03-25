@@ -617,9 +617,10 @@ class _AppInitializerState extends State<_AppInitializer> {
     });
   }
 
-  void _handleOpenProject(String path) {
+  Future<void> _handleOpenProject(String path) async {
     final engine = context.read<EngineProvider>();
-    engine.loadProject(path);
+    final success = await engine.loadProject(path);
+    if (!success) return;
     setState(() {
       _projectName = path.split('/').last.replaceAll('.rfp', '');
       _appState = _AppState.main;

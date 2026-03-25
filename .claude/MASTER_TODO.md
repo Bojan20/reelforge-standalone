@@ -71,7 +71,7 @@
 
 ## Nedovršeno
 
-- **engine_save/load_project** — Dart `native_ffi.dart` još lookupuje `engine_save_project` / `engine_load_project` (deprecated stubovi, vraćaju 0). Treba prerutirati na `project_save` / `project_load` iz rf-bridge
+- ~~engine_save/load_project~~ — FIXED: prerutirano na `project_save` / `project_load`
 - **Pitch Shift FFI** — rf-pitch crate kompletno ali NEMA C FFI eksporte ka Flutteru
 - **VST MIDI → instrument** — `PluginInstance::process()` prima samo audio, nema MIDI event queue. Instrumenti se skeniraju ali ne mogu da sviraju
 - **VST multi-output** — hardkodiran 2ch (stereo in/out). Kontakt 16-out nemoguć bez redizajna `process()` signature
