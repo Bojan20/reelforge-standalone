@@ -168,6 +168,14 @@ pub struct Lv2Descriptor {
 fn parse_ttl_simple(content: &str) -> HashMap<String, String> {
     let mut map = HashMap::new();
 
+    // Strip TTL comments (lines starting with # after whitespace)
+    let content: String = content
+        .lines()
+        .filter(|line| !line.trim_start().starts_with('#'))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let content = &content;
+
     // Extract lv2:binary
     if let Some(cap) = regex_lite_find(content, r#"lv2:binary\s+<([^>]+)>"#) {
         map.insert("binary".to_string(), cap);
@@ -523,7 +531,11 @@ impl Lv2PluginInstance {
             std::ffi::CString::new(desc.bundle_path.to_string_lossy().as_ref())
                 .map_err(|_| PluginError::LoadFailed("invalid bundle path".into()))?;
 
-        // Null-terminated features array (empty for now)
+        // Null-terminated features array.
+        // NOTE: Many LV2 plugins require urid:map feature. Without it, instantiate()
+        // returns null for ~90% of real plugins. Adding urid:map requires implementing
+        // a full URI↔integer mapping table. For now, only simple plugins (TAP, MDA) will load.
+        // TODO: Implement LV2_URID_Map feature for broad plugin compatibility.
         let features: [*const Lv2Feature; 1] = [std::ptr::null()];
 
         let handle = if let Some(instantiate) = descriptor_ref.instantiate {
@@ -608,13 +620,19 @@ impl Lv2PluginInstance {
     }
 
     /// Connect audio ports to plugin (called before run)
+    /// Connect audio and control ports to plugin.
+    /// NOTE: This assumes standard port layout [AudioIn0, AudioIn1, AudioOut0, AudioOut1, Control...].
+    /// Real LV2 plugins may have arbitrary port ordering. For full compatibility, port indices
+    /// should be discovered from plugin.ttl via RDF parsing. This works for simple stereo plugins
+    /// (TAP, MDA, basic LV2 effects) but may fail for complex plugins with non-standard layouts.
+    /// TODO: Parse plugin.ttl port definitions to discover actual port indices by type.
     unsafe fn connect_audio_ports(&mut self) {
         if let Some(connect) = (*self.descriptor).connect_port {
-            // Connect audio inputs (ports 0, 1)
+            // Connect audio inputs (assumed ports 0, 1)
             for (i, buf) in self.audio_inputs.iter_mut().enumerate() {
                 connect(self.handle, i as u32, buf.as_mut_ptr() as *mut c_void);
             }
-            // Connect audio outputs (ports 2, 3 for stereo)
+            // Connect audio outputs (assumed ports 2, 3 for stereo)
             for (i, buf) in self.audio_outputs.iter_mut().enumerate() {
                 connect(
                     self.handle,
@@ -622,7 +640,7 @@ impl Lv2PluginInstance {
                     buf.as_mut_ptr() as *mut c_void,
                 );
             }
-            // Connect control ports
+            // Connect control ports (starting after audio ports)
             for (i, val) in self.port_values.iter_mut().enumerate() {
                 let port_index = self.audio_inputs.len() + self.audio_outputs.len() + i;
                 connect(
@@ -665,7 +683,16 @@ impl PluginInstance for Lv2PluginInstance {
     }
 
     fn initialize(&mut self, context: &ProcessContext) -> PluginResult<()> {
+        // NOTE: LV2 sample rate is set at instantiate() time (in load()).
+        // If device sample rate differs from 48000, plugin should be re-instantiated.
+        // For now, store the actual rate for reference. Full fix requires lazy instantiation.
         self.sample_rate = context.sample_rate;
+        if (self.sample_rate - 48000.0).abs() > 1.0 {
+            log::warn!(
+                "LV2 plugin instantiated at 48000 Hz but device is {} Hz. Audio may be incorrect.",
+                self.sample_rate
+            );
+        }
         Ok(())
     }
 

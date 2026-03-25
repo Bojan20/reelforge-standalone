@@ -398,13 +398,15 @@ pub struct ClapPluginInstance {
     _host_vendor: std::ffi::CString,
     _host_url: std::ffi::CString,
     _host_version: std::ffi::CString,
-    /// Is activated
-    activated: bool,
+    /// Is activated (atomic for audio thread safety)
+    activated: std::sync::atomic::AtomicBool,
+    /// Sample rate from initialize() context
+    sample_rate: std::sync::atomic::AtomicU64,
     /// Latency
     latency_samples: usize,
-    /// Pre-allocated audio buffer pointers (avoid audio-thread allocation)
-    input_ptrs: Vec<*mut f32>,
-    output_ptrs: Vec<*mut f32>,
+    /// Pre-allocated audio buffer pointers — fixed size 8 channels (zero audio-thread alloc)
+    input_ptrs: [*mut f32; 8],
+    output_ptrs: [*mut f32; 8],
     /// Empty event lists (pre-allocated, zero-alloc)
     input_events: Box<ClapInputEvents>,
     output_events: Box<ClapOutputEvents>,
@@ -558,10 +560,11 @@ impl ClapPluginInstance {
             _host_vendor: host_vendor,
             _host_url: host_url,
             _host_version: host_version,
-            activated: false,
+            activated: std::sync::atomic::AtomicBool::new(false),
+            sample_rate: std::sync::atomic::AtomicU64::new(48000.0_f64.to_bits()),
             latency_samples: 0,
-            input_ptrs: vec![std::ptr::null_mut(); 2],
-            output_ptrs: vec![std::ptr::null_mut(); 2],
+            input_ptrs: [std::ptr::null_mut(); 8],
+            output_ptrs: [std::ptr::null_mut(); 8],
             input_events,
             output_events,
         })
@@ -572,7 +575,7 @@ impl Drop for ClapPluginInstance {
     fn drop(&mut self) {
         if !self.plugin_ptr.is_null() {
             let plugin_ref = unsafe { &*self.plugin_ptr };
-            if self.activated {
+            if self.activated.load(std::sync::atomic::Ordering::SeqCst) {
                 if let Some(stop) = plugin_ref.stop_processing {
                     unsafe { stop(self.plugin_ptr) };
                 }
@@ -592,7 +595,8 @@ impl PluginInstance for ClapPluginInstance {
         &self.info
     }
 
-    fn initialize(&mut self, _context: &ProcessContext) -> PluginResult<()> {
+    fn initialize(&mut self, context: &ProcessContext) -> PluginResult<()> {
+        self.sample_rate.store(context.sample_rate.to_bits(), std::sync::atomic::Ordering::Relaxed);
         Ok(())
     }
 
@@ -600,9 +604,10 @@ impl PluginInstance for ClapPluginInstance {
         if self.plugin_ptr.is_null() {
             return Err(PluginError::ProcessingError("Plugin not loaded".into()));
         }
+        let sr = f64::from_bits(self.sample_rate.load(std::sync::atomic::Ordering::Relaxed));
         let plugin_ref = unsafe { &*self.plugin_ptr };
         if let Some(activate) = plugin_ref.activate {
-            let ok = unsafe { activate(self.plugin_ptr, 48000.0, 32, 4096) };
+            let ok = unsafe { activate(self.plugin_ptr, sr, 32, 4096) };
             if !ok {
                 return Err(PluginError::InitFailed("plugin.activate() failed".into()));
             }
@@ -613,12 +618,12 @@ impl PluginInstance for ClapPluginInstance {
                 return Err(PluginError::ProcessingError("start_processing failed".into()));
             }
         }
-        self.activated = true;
+        self.activated.store(true, std::sync::atomic::Ordering::SeqCst);
         Ok(())
     }
 
     fn deactivate(&mut self) -> PluginResult<()> {
-        if !self.plugin_ptr.is_null() && self.activated {
+        if !self.plugin_ptr.is_null() && self.activated.load(std::sync::atomic::Ordering::SeqCst) {
             let plugin_ref = unsafe { &*self.plugin_ptr };
             if let Some(stop) = plugin_ref.stop_processing {
                 unsafe { stop(self.plugin_ptr) };
@@ -627,7 +632,7 @@ impl PluginInstance for ClapPluginInstance {
                 unsafe { deactivate(self.plugin_ptr) };
             }
         }
-        self.activated = false;
+        self.activated.store(false, std::sync::atomic::Ordering::SeqCst);
         Ok(())
     }
 
@@ -639,7 +644,7 @@ impl PluginInstance for ClapPluginInstance {
         _midi_out: &mut rf_core::MidiBuffer,
         _context: &ProcessContext,
     ) -> PluginResult<()> {
-        if self.plugin_ptr.is_null() || !self.activated {
+        if self.plugin_ptr.is_null() || !self.activated.load(std::sync::atomic::Ordering::Relaxed) {
             // Passthrough if not active
             for (i, out_ch) in output.data.iter_mut().enumerate() {
                 if let Some(in_ch) = input.data.get(i) {
@@ -652,18 +657,15 @@ impl PluginInstance for ClapPluginInstance {
         let frames = input.samples;
         let plugin_ref = unsafe { &*self.plugin_ptr };
 
-        // Set up audio buffer pointers (no allocation — reuse pre-allocated Vecs)
-        self.input_ptrs.resize(input.channels, std::ptr::null_mut());
-        self.output_ptrs.resize(output.channels, std::ptr::null_mut());
+        // Set up audio buffer pointers (zero-alloc — fixed-size arrays, max 8 channels)
+        let in_channels = input.channels.min(8);
+        let out_channels = output.channels.min(8);
 
-        for (i, ch) in input.data.iter().enumerate() {
-            if i < self.input_ptrs.len() {
-                self.input_ptrs[i] = ch.as_ptr() as *mut f32;
-            }
+        for (i, ch) in input.data.iter().enumerate().take(in_channels) {
+            self.input_ptrs[i] = ch.as_ptr() as *mut f32;
         }
-        for (i, ch) in output.data.iter_mut().enumerate() {
-            if i < self.output_ptrs.len() {
-                self.output_ptrs[i] = ch.as_mut_ptr();
+        for (i, ch) in output.data.iter_mut().enumerate().take(out_channels) {
+            self.output_ptrs[i] = ch.as_mut_ptr();
             }
         }
 
