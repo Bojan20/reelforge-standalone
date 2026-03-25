@@ -665,6 +665,8 @@ impl Drop for Lv2PluginInstance {
             if let Some(cleanup) = desc.cleanup {
                 unsafe { cleanup(self.handle) };
             }
+            self.handle = std::ptr::null_mut();
+            self.descriptor = std::ptr::null();
         }
     }
 }

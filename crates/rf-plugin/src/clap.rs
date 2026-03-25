@@ -586,6 +586,7 @@ impl Drop for ClapPluginInstance {
             if let Some(destroy) = plugin_ref.destroy {
                 unsafe { destroy(self.plugin_ptr) };
             }
+            self.plugin_ptr = std::ptr::null();
         }
     }
 }
