@@ -7450,6 +7450,51 @@ pub extern "C" fn insert_get_param(track_id: u32, slot_index: u32, param_index: 
     })
 }
 
+/// Set sidechain source for an insert slot
+/// source_id: -1 = disabled, 0-5 = bus ID, >= 1000 = track ID
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn insert_set_sidechain_source(
+    track_id: u32,
+    slot_index: u32,
+    source_id: i64,
+) -> i32 {
+    ffi_panic_guard!(0, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return 0,
+        };
+
+        PLAYBACK_ENGINE.set_insert_sidechain_source(
+            track_id as u64,
+            slot_index,
+            source_id,
+        );
+        log::info!(
+            "Set sidechain source: track={}, slot={}, source={}",
+            track_id, slot_index, source_id
+        );
+        1
+    })
+}
+
+/// Get sidechain source for an insert slot
+/// Returns source_id (-1 = disabled)
+#[unsafe(no_mangle)]
+pub extern "C" fn insert_get_sidechain_source(
+    track_id: u32,
+    slot_index: u32,
+) -> i64 {
+    ffi_panic_guard!(-1, {
+        let slot_index = match validate_slot_index(slot_index) {
+            Some(s) => s as usize,
+            None => return -1,
+        };
+
+        PLAYBACK_ENGINE.get_insert_sidechain_source(track_id as u64, slot_index)
+    })
+}
+
 /// Get meter value from insert processor (gain reduction, etc.)
 /// track_id=0 means master bus, others are audio track IDs
 /// meter_index: 0=GR left, 1=GR right

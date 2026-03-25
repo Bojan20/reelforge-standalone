@@ -7,6 +7,9 @@
 //! - Latency compensation
 //! - Lock-free parameter updates via ring buffer
 //! - P10.0.1: Per-processor metering (input/output levels)
+//! - Sidechain routing: any track/bus → insert slot key input
+
+use std::collections::HashMap;
 
 use rf_core::Sample;
 use rf_dsp::delay_compensation::LatencySamples;
@@ -281,6 +284,28 @@ impl InsertSlot {
         (self.bypass_gain - target).abs() > 1e-6
     }
 
+    /// Process audio with optional sidechain input
+    ///
+    /// Feeds sidechain buffer to processor BEFORE main processing.
+    /// For compressor/gate, this sets the key signal used for detection.
+    #[inline]
+    pub fn process_with_sidechain(
+        &mut self,
+        left: &mut [Sample],
+        right: &mut [Sample],
+        sc_left: Option<&[Sample]>,
+        sc_right: Option<&[Sample]>,
+    ) {
+        // Feed sidechain to processor if available
+        if let (Some(sl), Some(sr)) = (sc_left, sc_right) {
+            if let Some(ref mut processor) = self.processor {
+                let len = left.len().min(sl.len()).min(sr.len());
+                processor.set_sidechain_input(&sl[..len], &sr[..len]);
+            }
+        }
+        self.process(left, right);
+    }
+
     /// Process audio through this slot
     ///
     /// # Audio Thread Safety
@@ -528,6 +553,10 @@ pub trait InsertProcessor: Send + Sync {
         self.process_stereo(&mut buffer[..len], &mut dummy[..len]);
     }
 
+    /// Feed sidechain audio buffer (called before process_stereo when sidechain is active)
+    /// Default: no-op. Override in compressor/gate/expander to use external key signal.
+    fn set_sidechain_input(&mut self, _left: &[Sample], _right: &[Sample]) {}
+
     /// Get latency in samples
     fn latency(&self) -> LatencySamples {
         0
@@ -665,10 +694,52 @@ impl InsertChain {
         }
     }
 
+    /// Process pre-fader slots with sidechain audio from another track/bus
+    /// `sidechain_buffers` is a map of sidechain_source_id → (left, right) buffers.
+    /// Each slot checks its own sidechain_source to find the matching buffer.
+    #[inline]
+    pub fn process_pre_fader_with_sidechain(
+        &mut self,
+        left: &mut [Sample],
+        right: &mut [Sample],
+        sidechain_buffers: &HashMap<i64, (&[Sample], &[Sample])>,
+    ) {
+        for slot in &mut self.pre_slots {
+            let sc_source = slot.get_sidechain_source();
+            if sc_source >= 0 {
+                if let Some(&(sc_l, sc_r)) = sidechain_buffers.get(&sc_source) {
+                    slot.process_with_sidechain(left, right, Some(sc_l), Some(sc_r));
+                    continue;
+                }
+            }
+            slot.process(left, right);
+        }
+    }
+
     /// Process post-fader slots
     #[inline]
     pub fn process_post_fader(&mut self, left: &mut [Sample], right: &mut [Sample]) {
         for slot in &mut self.post_slots {
+            slot.process(left, right);
+        }
+    }
+
+    /// Process post-fader slots with sidechain
+    #[inline]
+    pub fn process_post_fader_with_sidechain(
+        &mut self,
+        left: &mut [Sample],
+        right: &mut [Sample],
+        sidechain_buffers: &HashMap<i64, (&[Sample], &[Sample])>,
+    ) {
+        for slot in &mut self.post_slots {
+            let sc_source = slot.get_sidechain_source();
+            if sc_source >= 0 {
+                if let Some(&(sc_l, sc_r)) = sidechain_buffers.get(&sc_source) {
+                    slot.process_with_sidechain(left, right, Some(sc_l), Some(sc_r));
+                    continue;
+                }
+            }
             slot.process(left, right);
         }
     }

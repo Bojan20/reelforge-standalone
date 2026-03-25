@@ -1771,6 +1771,19 @@ impl InsertProcessor for CompressorWrapper {
         "FluxForge Studio Compressor"
     }
 
+    fn set_sidechain_input(&mut self, left: &[Sample], right: &[Sample]) {
+        // Enable external sidechain on both channels
+        self.comp.left().set_sidechain_enabled(true);
+        self.comp.right().set_sidechain_enabled(true);
+        // Set last sample of sidechain as key signal for detection
+        // (per-sample feeding happens inside process_sample via the enabled flag)
+        if let (Some(&l), Some(&r)) = (left.last(), right.last()) {
+            let key = (l + r) * 0.5; // Mono sidechain key
+            self.comp.left().set_sidechain_key(key);
+            self.comp.right().set_sidechain_key(key);
+        }
+    }
+
     fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
         for (l, r) in left.iter_mut().zip(right.iter_mut()) {
             let (out_l, out_r) = self.comp.process_sample(*l, *r);

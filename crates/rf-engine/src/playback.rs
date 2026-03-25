@@ -3310,6 +3310,36 @@ impl PlaybackEngine {
             .unwrap_or(0.0)
     }
 
+    /// Set sidechain source for a track insert slot
+    pub fn set_insert_sidechain_source(
+        &self,
+        track_id: u64,
+        slot_index: usize,
+        source_id: i64,
+    ) {
+        if let Some(mut chains) = self.insert_chains.try_write() {
+            if let Some(chain) = chains.get_mut(&track_id) {
+                if let Some(slot) = chain.slot_mut(slot_index) {
+                    slot.set_sidechain_source(source_id);
+                }
+            }
+        }
+    }
+
+    /// Get sidechain source for a track insert slot
+    pub fn get_insert_sidechain_source(
+        &self,
+        track_id: u64,
+        slot_index: usize,
+    ) -> i64 {
+        self.insert_chains
+            .read()
+            .get(&track_id)
+            .and_then(|chain| chain.slot(slot_index))
+            .map(|slot| slot.get_sidechain_source())
+            .unwrap_or(-1)
+    }
+
     /// Get meter value from track insert processor (GR, levels)
     pub fn get_track_insert_meter(
         &self,
