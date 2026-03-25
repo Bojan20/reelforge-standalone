@@ -908,6 +908,68 @@ impl MidiClip {
         events.sort_by_key(|e| e.sample_offset);
         events
     }
+
+    /// Generate MIDI events directly into a pre-allocated MidiBuffer (zero-alloc for audio thread).
+    /// Clears the buffer first, then pushes all events in the tick range.
+    pub fn generate_events_into(
+        &self,
+        start_tick: u64,
+        end_tick: u64,
+        ticks_per_sample: f64,
+        buffer: &mut MidiBuffer,
+    ) {
+        buffer.clear();
+
+        // Notes
+        for note in &self.notes {
+            // Note on
+            if note.start_tick >= start_tick && note.start_tick < end_tick {
+                let sample_offset =
+                    ((note.start_tick - start_tick) as f64 / ticks_per_sample) as u32;
+                buffer.push(MidiEvent::note_on(
+                    sample_offset,
+                    note.channel,
+                    note.note,
+                    note.velocity,
+                ));
+            }
+
+            // Note off
+            let note_end = note.end_tick();
+            if note_end >= start_tick && note_end < end_tick {
+                let sample_offset = ((note_end - start_tick) as f64 / ticks_per_sample) as u32;
+                buffer.push(MidiEvent::note_off(
+                    sample_offset,
+                    note.channel,
+                    note.note,
+                    note.release_velocity,
+                ));
+            }
+        }
+
+        // CC events
+        for cc in &self.cc_events {
+            if cc.tick >= start_tick && cc.tick < end_tick {
+                let sample_offset = ((cc.tick - start_tick) as f64 / ticks_per_sample) as u32;
+                buffer.push(MidiEvent::control_change(
+                    sample_offset,
+                    cc.channel,
+                    cc.controller,
+                    cc.value,
+                ));
+            }
+        }
+
+        // Pitch bend events
+        for pb in &self.pitch_bend_events {
+            if pb.tick >= start_tick && pb.tick < end_tick {
+                let sample_offset = ((pb.tick - start_tick) as f64 / ticks_per_sample) as u32;
+                buffer.push(MidiEvent::pitch_bend(sample_offset, pb.channel, pb.value));
+            }
+        }
+
+        buffer.sort_by_time();
+    }
 }
 
 impl Default for MidiClip {

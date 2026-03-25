@@ -1588,6 +1588,30 @@ fn default_iteration_gain() -> f64 {
     1.0
 }
 
+/// MIDI clip entry for instrument tracks — wraps rf_core::MidiClip with timeline position
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MidiClipEntry {
+    pub id: ClipId,
+    pub track_id: TrackId,
+    pub name: String,
+    /// Start position on timeline (seconds)
+    pub start_time: f64,
+    /// Duration on timeline (seconds)
+    pub duration: f64,
+    /// MIDI clip data (notes, CC, pitch bend)
+    pub clip: rf_core::MidiClip,
+    /// Muted state
+    pub muted: bool,
+}
+
+impl MidiClipEntry {
+    /// Check if this MIDI clip overlaps with a time range
+    #[inline]
+    pub fn overlaps(&self, start: f64, end: f64) -> bool {
+        self.start_time < end && (self.start_time + self.duration) > start
+    }
+}
+
 impl Clip {
     pub fn new(
         track_id: TrackId,
@@ -2645,8 +2669,10 @@ impl MixSnapshot {
 pub struct TrackManager {
     /// All tracks - DashMap for lock-free concurrent access (audio thread safe)
     pub tracks: DashMap<TrackId, Track>,
-    /// All clips - DashMap for lock-free concurrent access (audio thread safe)
+    /// All audio clips - DashMap for lock-free concurrent access (audio thread safe)
     pub clips: DashMap<ClipId, Clip>,
+    /// MIDI clips for instrument tracks — DashMap for lock-free access
+    pub midi_clips: DashMap<ClipId, MidiClipEntry>,
     /// Crossfades between clips - DashMap for lock-free concurrent access
     pub crossfades: DashMap<CrossfadeId, Crossfade>,
     /// Timeline markers
@@ -2714,6 +2740,7 @@ impl TrackManager {
             mix_snapshots: RwLock::new(Vec::new()),
             screensets: RwLock::new(Default::default()),
             sub_projects: DashMap::new(),
+            midi_clips: DashMap::new(),
         }
     }
 

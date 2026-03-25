@@ -676,6 +676,8 @@ pub struct PlaybackPosition {
     scrub_window_samples: AtomicU64,
     /// Scrub playhead within window (0 to window_size)
     scrub_window_pos: AtomicU64,
+    /// Current tempo in BPM (stored as f64 bits for lock-free access)
+    tempo_bpm: AtomicU64,
 }
 
 impl PlaybackPosition {
@@ -694,7 +696,22 @@ impl PlaybackPosition {
             scrub_velocity: AtomicU64::new(0.0_f64.to_bits()),
             scrub_window_samples: AtomicU64::new(scrub_window),
             scrub_window_pos: AtomicU64::new(0),
+            tempo_bpm: AtomicU64::new(120.0_f64.to_bits()),
         }
+    }
+
+    /// Get current tempo in BPM (lock-free, audio thread safe)
+    #[inline]
+    pub fn get_tempo(&self) -> Option<f64> {
+        let bits = self.tempo_bpm.load(Ordering::Relaxed);
+        let tempo = f64::from_bits(bits);
+        if tempo > 0.0 { Some(tempo) } else { None }
+    }
+
+    /// Set tempo in BPM (lock-free, callable from any thread)
+    #[inline]
+    pub fn set_tempo(&self, bpm: f64) {
+        self.tempo_bpm.store(bpm.to_bits(), Ordering::Relaxed);
     }
 
     #[inline]
@@ -5594,6 +5611,78 @@ impl PlaybackEngine {
                 }
             }
 
+            // === INSTRUMENT TRACK RENDERING (MIDI → Plugin → Audio) ===
+            if track.track_type == crate::track_manager::TrackType::Instrument {
+                // Try to get the instrument plugin for this track (non-blocking)
+                let plugin_opt = self.instrument_plugins.try_read()
+                    .and_then(|plugins| plugins.get(&track.id.0).cloned());
+
+                if let Some(plugin_arc) = plugin_opt {
+                    // Collect MIDI events from all MIDI clips on this track
+                    if let Some(mut midi_buf) = self.instrument_midi_buffer.try_write() {
+                        midi_buf.clear();
+                        let tempo = self.position.get_tempo().unwrap_or(120.0);
+                        // Standard MIDI: 480 ticks per beat
+                        let ticks_per_beat = 480.0;
+                        let ticks_per_second = ticks_per_beat * tempo / 60.0;
+                        let ticks_per_sample = ticks_per_second / sample_rate;
+
+                        for mc_entry in self.track_manager.midi_clips.iter() {
+                            let mc = mc_entry.value();
+                            if mc.track_id != track.id || mc.muted {
+                                continue;
+                            }
+                            if !mc.overlaps(start_time, end_time) {
+                                continue;
+                            }
+                            // Convert timeline position to clip-relative ticks
+                            let clip_start_sec = (start_time - mc.start_time).max(0.0);
+                            let clip_end_sec = (end_time - mc.start_time).min(mc.duration);
+                            let start_tick = (clip_start_sec * ticks_per_second) as u64;
+                            let end_tick = (clip_end_sec * ticks_per_second) as u64;
+
+                            mc.clip.generate_events_into(
+                                start_tick,
+                                end_tick,
+                                ticks_per_sample,
+                                &mut midi_buf,
+                            );
+                        }
+
+                        // Process instrument plugin: empty audio in → audio out + MIDI
+                        if let Some(mut plugin) = plugin_arc.try_write() {
+                            let empty_input = rf_plugin::AudioBuffer::new(2, frames);
+                            let mut output = rf_plugin::AudioBuffer::new(2, frames);
+                            let mut midi_out = rf_core::MidiBuffer::new();
+                            let context = rf_plugin::ProcessContext {
+                                sample_rate,
+                                max_block_size: frames,
+                                tempo,
+                                time_sig_num: 4,
+                                time_sig_denom: 4,
+                                position_samples: start_sample as i64,
+                                is_playing: self.position.is_playing(),
+                                is_recording: self.position.is_recording(),
+                                is_looping: false,
+                                loop_start: 0,
+                                loop_end: 0,
+                            };
+
+                            if plugin.process(&empty_input, &mut output, &midi_buf, &mut midi_out, &context).is_ok() {
+                                // Accumulate f32 plugin output into f64 track buffers
+                                if let (Some(out_l), Some(out_r)) = (output.channel(0), output.channel(1)) {
+                                    for i in 0..frames.min(out_l.len()) {
+                                        track_l[i] += out_l[i] as f64;
+                                        track_r[i] += out_r[i] as f64;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                // Skip audio clip rendering for instrument tracks — go straight to insert chain
+            } else {
+
             // Find crossfades active in this track for this time range (iterate without collect)
             // Store matching crossfade IDs to avoid lifetime issues
             let mut active_crossfade_ids: [Option<u64>; 8] = [None; 8];
@@ -5657,6 +5746,8 @@ impl PlaybackEngine {
                     track_r,
                 );
             }
+
+            } // end else (Audio track clip rendering)
 
             // Process track insert chain (pre-fader inserts applied before volume)
             // NOTE: Param changes already consumed at start of process() via consume_insert_param_changes()
