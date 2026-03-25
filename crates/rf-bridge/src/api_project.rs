@@ -142,10 +142,18 @@ fn sync_tracks_to_project(e: &mut EngineBridge) {
                 OutputBus::Aux => "Aux",
             };
 
+            // Convert engine TrackType to state TrackType
+            let state_track_type = match track.track_type {
+                rf_engine::track_manager::TrackType::Audio => TrackType::Audio,
+                rf_engine::track_manager::TrackType::Instrument => TrackType::Instrument,
+                rf_engine::track_manager::TrackType::Bus => TrackType::Bus,
+                rf_engine::track_manager::TrackType::Aux => TrackType::Audio, // Aux maps to Audio in state
+            };
+
             TrackState {
                 id: track.id.0.to_string(),
                 name: track.name.clone(),
-                track_type: TrackType::Audio,
+                track_type: state_track_type,
                 output_bus: output_bus_str.to_string(),
                 volume_db: linear_to_db(track.volume),
                 pan: track.pan,
@@ -155,6 +163,7 @@ fn sync_tracks_to_project(e: &mut EngineBridge) {
                 color: Some(track.color),
                 regions,
                 automation: automation_lanes,
+                instrument_plugin_id: track.instrument_plugin_id.clone(),
             }
         })
         .collect();
@@ -213,7 +222,7 @@ pub fn project_load_sync(path: String) -> Result<(), String> {
 /// Sync tracks from Project state to TrackManager
 fn sync_tracks_from_project(e: &mut EngineBridge) {
     use rf_engine::track_manager::{Clip, OutputBus};
-    use rf_state::AssetRef;
+    use rf_state::{AssetRef, TrackType};
 
     let track_manager = e.track_manager();
 
@@ -246,6 +255,14 @@ fn sync_tracks_from_project(e: &mut EngineBridge) {
             t.muted = track_state.mute;
             t.soloed = track_state.solo;
             t.armed = track_state.armed;
+            // Restore track type
+            t.track_type = match track_state.track_type {
+                TrackType::Audio => rf_engine::track_manager::TrackType::Audio,
+                TrackType::Instrument => rf_engine::track_manager::TrackType::Instrument,
+                TrackType::Bus => rf_engine::track_manager::TrackType::Bus,
+                TrackType::Midi | TrackType::Master => rf_engine::track_manager::TrackType::Audio,
+            };
+            t.instrument_plugin_id = track_state.instrument_plugin_id.clone();
         });
 
         // Add clips/regions for this track

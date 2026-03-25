@@ -198,6 +198,9 @@ pub struct TrackState {
     pub regions: Vec<RegionState>,
     /// Automation lanes
     pub automation: Vec<AutomationLaneState>,
+    /// Instrument plugin ID (for Instrument tracks)
+    #[serde(default)]
+    pub instrument_plugin_id: Option<String>,
 }
 
 /// Audio region/clip state

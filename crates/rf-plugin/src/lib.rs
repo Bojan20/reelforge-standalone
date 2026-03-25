@@ -344,11 +344,15 @@ pub trait PluginInstance: Send + Sync {
     /// Deactivate processing
     fn deactivate(&mut self) -> PluginResult<()>;
 
-    /// Process audio block
+    /// Process audio block with optional MIDI events.
+    /// For effects: ignore midi_in/midi_out (pass empty buffers).
+    /// For instruments: read midi_in for note events, optionally write midi_out.
     fn process(
         &mut self,
         input: &AudioBuffer,
         output: &mut AudioBuffer,
+        midi_in: &rf_core::MidiBuffer,
+        midi_out: &mut rf_core::MidiBuffer,
         context: &ProcessContext,
     ) -> PluginResult<()>;
 

@@ -529,6 +529,20 @@ impl From<u32> for OutputBus {
 // TRACK
 // ═══════════════════════════════════════════════════════════════════════════
 
+/// Track type — determines processing behavior
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum TrackType {
+    /// Standard audio track (renders clips from disk)
+    #[default]
+    Audio,
+    /// Instrument track (renders audio from a plugin instrument fed with MIDI)
+    Instrument,
+    /// Bus/group track (receives audio from other tracks)
+    Bus,
+    /// Aux/return track (receives send effects)
+    Aux,
+}
+
 /// Track send slot configuration
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TrackSendSlot {
@@ -550,6 +564,9 @@ pub const MAX_TRACK_SENDS: usize = 8;
 pub struct Track {
     pub id: TrackId,
     pub name: String,
+    /// Track type (Audio, Instrument, Bus, Aux)
+    #[serde(default)]
+    pub track_type: TrackType,
     pub color: u32,  // ARGB color
     pub height: f64, // UI height in pixels
     pub output_bus: OutputBus,
@@ -582,6 +599,9 @@ pub struct Track {
     /// Phase invert (polarity flip)
     #[serde(default)]
     pub phase_inverted: bool,
+    /// Instrument plugin ID (for loading on project open)
+    #[serde(default)]
+    pub instrument_plugin_id: Option<String>,
 }
 
 /// Default channel count for serde
@@ -628,6 +648,8 @@ impl Track {
             input_bus: None,
             monitor_mode: MonitorMode::Auto,
             phase_inverted: false,
+            track_type: TrackType::Audio,
+            instrument_plugin_id: None,
         }
     }
 
@@ -700,6 +722,8 @@ impl Track {
             input_bus: None,
             monitor_mode: MonitorMode::Auto,
             phase_inverted: false,
+            track_type: TrackType::Audio,
+            instrument_plugin_id: None,
         }
     }
 }

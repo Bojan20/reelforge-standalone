@@ -298,6 +298,10 @@ pub struct ZeroCopyChain {
     input_staging: AudioBuffer,
     /// Pre-allocated temp buffer for dry signal (wet/dry mixing)
     dry_buffer: AudioBuffer,
+    /// Pre-allocated empty MIDI buffer for effect chain processing (zero-alloc on audio thread)
+    empty_midi_in: rf_core::MidiBuffer,
+    /// Pre-allocated MIDI output buffer (unused for effects, avoids per-block allocation)
+    midi_out_scratch: rf_core::MidiBuffer,
 }
 
 impl std::fmt::Debug for ZeroCopyChain {
@@ -331,6 +335,9 @@ impl ZeroCopyChain {
             // Pre-allocated temp buffers (separate from pool for independent borrowing)
             input_staging: AudioBuffer::new(channels, buffer_size),
             dry_buffer: AudioBuffer::new(channels, buffer_size),
+            // Pre-allocated MIDI buffers (zero-alloc on audio thread)
+            empty_midi_in: rf_core::MidiBuffer::new(),
+            midi_out_scratch: rf_core::MidiBuffer::new(),
         }
     }
 
@@ -468,10 +475,11 @@ impl ZeroCopyChain {
                     self.dry_buffer.copy_from(&self.input_staging);
                 }
 
-                // Step 3: Process through plugin
+                // Step 3: Process through plugin (empty MIDI for effect chain)
                 if let Some(out_buf) = self.buffer_pool.get_mut(out_idx) {
                     let mut plugin_lock = plugin.write();
-                    plugin_lock.process(&self.input_staging, out_buf, &self.context)?;
+                    self.midi_out_scratch.clear();
+                    plugin_lock.process(&self.input_staging, out_buf, &self.empty_midi_in, &mut self.midi_out_scratch, &self.context)?;
 
                     // Step 4: Apply wet/dry mix if needed
                     if needs_mix {

@@ -1875,6 +1875,14 @@ pub struct PlaybackEngine {
     /// Recording manager (Phase 12 - Multi-track Recording)
     recording_manager: Arc<RecordingManager>,
 
+    // === INSTRUMENT PLUGINS (MIDI → Audio) ===
+    /// Loaded instrument plugin instances per track (track_id -> PluginInstance)
+    /// Created on UI thread when user loads an instrument plugin on an Instrument track.
+    /// Audio thread calls process() with MidiBuffer to generate audio.
+    instrument_plugins: RwLock<HashMap<u64, Arc<parking_lot::RwLock<Box<dyn rf_plugin::PluginInstance>>>>>,
+    /// Pre-allocated MidiBuffer for instrument processing (avoid audio-thread allocations)
+    instrument_midi_buffer: RwLock<rf_core::MidiBuffer>,
+
     // === ONE-SHOT VOICES (Middleware/SlotLab event playback) ===
     /// Pre-allocated one-shot voice slots
     one_shot_voices: RwLock<[OneShotVoice; MAX_ONE_SHOT_VOICES]>,
@@ -2030,6 +2038,9 @@ impl PlaybackEngine {
             input_buffer: RwLock::new(vec![0.0f32; 16384]),
             // Recording manager for multi-track recording
             recording_manager: Arc::new(RecordingManager::new(sample_rate)),
+            // Instrument plugin instances per track
+            instrument_plugins: RwLock::new(HashMap::new()),
+            instrument_midi_buffer: RwLock::new(rf_core::MidiBuffer::new()),
             // One-shot voices for Middleware/SlotLab event playback
             one_shot_voices: RwLock::new(std::array::from_fn(|_| OneShotVoice::new_inactive())),
             one_shot_cmd_tx: parking_lot::Mutex::new(one_shot_tx),
@@ -2406,6 +2417,70 @@ impl PlaybackEngine {
             self.update_track_delay_compensation(track_id);
         }
         result
+    }
+
+    /// Load instrument plugin on an Instrument track.
+    /// Called from UI thread. Initializes and activates the plugin before making it available
+    /// to the audio thread for rendering audio from MIDI.
+    pub fn load_instrument_plugin(
+        &self,
+        track_id: u64,
+        mut plugin: Box<dyn rf_plugin::PluginInstance>,
+    ) -> bool {
+        // Initialize with current audio context
+        let sample_rate = self.position.sample_rate() as f64;
+        if sample_rate <= 0.0 {
+            log::error!("Cannot load instrument plugin on track {}: invalid sample rate {}", track_id, sample_rate);
+            return false;
+        }
+        let context = rf_plugin::ProcessContext {
+            sample_rate,
+            max_block_size: 4096,
+            tempo: 120.0,
+            time_sig_num: 4,
+            time_sig_denom: 4,
+            position_samples: 0,
+            is_playing: false,
+            is_recording: false,
+            is_looping: false,
+            loop_start: 0,
+            loop_end: 0,
+        };
+
+        if let Err(e) = plugin.initialize(&context) {
+            log::error!("Failed to initialize instrument plugin on track {}: {}", track_id, e);
+            return false;
+        }
+        if let Err(e) = plugin.activate() {
+            log::error!("Failed to activate instrument plugin on track {}: {}", track_id, e);
+            return false;
+        }
+
+        let plugin_arc = Arc::new(parking_lot::RwLock::new(plugin));
+        self.instrument_plugins.write().insert(track_id, plugin_arc);
+        log::info!("Loaded instrument plugin on track {}", track_id);
+        true
+    }
+
+    /// Unload instrument plugin from track.
+    /// Deactivates the plugin before removing it.
+    pub fn unload_instrument_plugin(&self, track_id: u64) {
+        if let Some((_, plugin_arc)) = self.instrument_plugins.write().remove_entry(&track_id) {
+            // Deactivate on UI thread before dropping
+            if let Some(mut plugin) = plugin_arc.try_write() {
+                if let Err(e) = plugin.deactivate() {
+                    log::warn!("Failed to deactivate instrument plugin on track {}: {}", track_id, e);
+                }
+            } else {
+                log::warn!("Could not deactivate instrument plugin on track {} (audio thread holding lock)", track_id);
+            }
+            log::info!("Unloaded instrument plugin from track {}", track_id);
+        }
+    }
+
+    /// Check if a track has an instrument plugin loaded.
+    pub fn has_instrument_plugin(&self, track_id: u64) -> bool {
+        self.instrument_plugins.read().contains_key(&track_id)
     }
 
     /// Set bypass for track insert slot

@@ -668,6 +668,8 @@ impl PluginInstance for InternalPlugin {
         &mut self,
         input: &AudioBuffer,
         output: &mut AudioBuffer,
+        _midi_in: &rf_core::MidiBuffer,
+        _midi_out: &mut rf_core::MidiBuffer,
         _context: &ProcessContext,
     ) -> PluginResult<()> {
         if !self.active {
@@ -804,7 +806,9 @@ mod tests {
         let input = AudioBuffer::from_data(vec![vec![0.5; 512], vec![0.5; 512]]);
         let mut output = AudioBuffer::new(2, 512);
 
-        plugin.process(&input, &mut output, &context).unwrap();
+        let empty_midi = rf_core::MidiBuffer::new();
+        let mut midi_out = rf_core::MidiBuffer::new();
+        plugin.process(&input, &mut output, &empty_midi, &mut midi_out, &context).unwrap();
 
         // With 0 dB gain, output should equal input
         assert_eq!(output.channel(0).unwrap()[0], 0.5);

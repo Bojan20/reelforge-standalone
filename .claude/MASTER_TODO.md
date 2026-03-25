@@ -72,7 +72,7 @@
 ## Nedovršeno
 
 - ~~engine_save/load_project~~ — FIXED: prerutirano na `project_save` / `project_load`
-- **Pitch Shift FFI** — rf-pitch crate kompletno ali NEMA C FFI eksporte ka Flutteru
+- ~~Pitch Shift FFI~~ — KOMPLETNO: 20+ FFI funkcija (detect, analyze, correct, elastic, clip, voice pitch) + Dart bindings + UI paneli
 - **VST MIDI → instrument** — `PluginInstance::process()` prima samo audio, nema MIDI event queue. Instrumenti se skeniraju ali ne mogu da sviraju
 - **VST multi-output** — hardkodiran 2ch (stereo in/out). Kontakt 16-out nemoguć bez redizajna `process()` signature
 - **CLAP plugin hosting** — stub (345 linija), parsira feature enume ali ne može da loaduje/pokrene plugin

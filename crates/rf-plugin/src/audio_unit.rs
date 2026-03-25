@@ -488,6 +488,8 @@ impl PluginInstance for AudioUnitInstance {
         &mut self,
         input: &AudioBuffer,
         output: &mut AudioBuffer,
+        _midi_in: &rf_core::MidiBuffer,
+        _midi_out: &mut rf_core::MidiBuffer,
         _context: &ProcessContext,
     ) -> PluginResult<()> {
         if !self.active.load(Ordering::SeqCst) {
@@ -496,6 +498,8 @@ impl PluginInstance for AudioUnitInstance {
 
         // Process parameter changes
         self.process_param_changes();
+
+        // TODO: Forward _midi_in to AudioUnit MIDI input for instrument plugins
 
         // Apply gain and mix (passthrough mode)
         let gain = self.get_gain();

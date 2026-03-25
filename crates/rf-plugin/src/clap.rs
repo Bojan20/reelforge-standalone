@@ -200,9 +200,11 @@ impl PluginInstance for ClapPluginInstance {
         &mut self,
         input: &AudioBuffer,
         output: &mut AudioBuffer,
+        _midi_in: &rf_core::MidiBuffer,
+        _midi_out: &mut rf_core::MidiBuffer,
         _context: &ProcessContext,
     ) -> PluginResult<()> {
-        // Pass through for now
+        // Pass through for now — CLAP plugin loading not yet implemented
         for (i, out_ch) in output.data.iter_mut().enumerate() {
             if let Some(in_ch) = input.data.get(i) {
                 out_ch.copy_from_slice(in_ch);

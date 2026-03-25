@@ -1020,6 +1020,8 @@ impl PluginInstance for Vst3Host {
         &mut self,
         input: &AudioBuffer,
         output: &mut AudioBuffer,
+        _midi_in: &rf_core::MidiBuffer,
+        _midi_out: &mut rf_core::MidiBuffer,
         context: &ProcessContext,
     ) -> PluginResult<()> {
         if !self.active.load(Ordering::SeqCst) {
@@ -1028,6 +1030,9 @@ impl PluginInstance for Vst3Host {
 
         // Process any pending parameter changes
         self.process_param_changes();
+
+        // TODO: Forward _midi_in to VST3 IEventList for instrument plugins
+        // TODO: Extract MIDI output from VST3 to _midi_out
 
         // Use real plugin processing if available, otherwise fallback
         if self.rack_plugin.is_some() {
