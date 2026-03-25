@@ -12803,6 +12803,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
         return 'Comp Threshold';
       case AutomationParameter.compRatio:
         return 'Comp Ratio';
+      case AutomationParameter.pluginParam:
+        return 'Plugin';
       case AutomationParameter.custom:
         return 'Custom';
     }
@@ -12830,6 +12832,8 @@ class _EngineConnectedLayoutState extends State<EngineConnectedLayout>
       case AutomationParameter.compThreshold:
       case AutomationParameter.compRatio:
         return const Color(0xFF40C8FF); // Cyan
+      case AutomationParameter.pluginParam:
+        return const Color(0xFFE040FB); // Magenta
       case AutomationParameter.custom:
         return const Color(0xFF8B5CF6); // Purple
     }

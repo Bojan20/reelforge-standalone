@@ -40,6 +40,7 @@ enum AutomationParameter {
   eq2Freq,
   compThreshold,
   compRatio,
+  pluginParam,
   custom,
 }
 

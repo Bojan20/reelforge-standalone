@@ -108,6 +108,38 @@ class TouchedParam {
   });
 }
 
+/// Plugin parameter identifier for automation lanes
+class PluginParamId {
+  final int trackId;
+  final int slot;
+  final int paramIndex;
+  final String? displayName;
+
+  const PluginParamId({
+    required this.trackId,
+    required this.slot,
+    required this.paramIndex,
+    this.displayName,
+  });
+
+  /// Unique key for lane map
+  String get laneKey => '$trackId:plugin_${slot}_$paramIndex';
+
+  /// Human-readable param name for FFI (matches Rust ParamId format)
+  String get paramName => 'param_$paramIndex';
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PluginParamId &&
+          trackId == other.trackId &&
+          slot == other.slot &&
+          paramIndex == other.paramIndex;
+
+  @override
+  int get hashCode => Object.hash(trackId, slot, paramIndex);
+}
+
 // ============ Provider ============
 
 class AutomationProvider extends ChangeNotifier {
@@ -395,6 +427,206 @@ class AutomationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ============ Plugin Parameter Automation ============
+
+  /// Touch plugin parameter (start automation recording for plugin knob)
+  void touchPluginParam(PluginParamId param, double currentValue) {
+    final key = param.laneKey;
+
+    _touchedParams[key] = TouchedParam(
+      trackId: param.trackId,
+      paramName: param.paramName,
+      initialValue: currentValue,
+      touchTime: DateTime.now(),
+    );
+
+    _ffi.automationTouchPlugin(
+      param.trackId,
+      param.slot,
+      param.paramIndex,
+      currentValue,
+    );
+
+    // Ensure lane exists with plugin-specific key
+    if (!_lanes.containsKey(key)) {
+      _lanes[key] = AutomationLane(
+        trackId: param.trackId,
+        paramName: param.paramName,
+      );
+    }
+
+    notifyListeners();
+  }
+
+  /// Release plugin parameter (stop recording)
+  void releasePluginParam(PluginParamId param) {
+    _touchedParams.remove(param.laneKey);
+    _ffi.automationReleasePlugin(
+      param.trackId,
+      param.slot,
+      param.paramIndex,
+    );
+    notifyListeners();
+  }
+
+  /// Record plugin parameter change during playback
+  void recordPluginChange(PluginParamId param, double value) {
+    if (!_isRecording) return;
+    if (_mode == AutomationMode.read) return;
+
+    // Use the plugin-specific FFI (bypasses string-based paramName)
+    _ffi.automationTouchPlugin(
+      param.trackId,
+      param.slot,
+      param.paramIndex,
+      value,
+    );
+  }
+
+  /// Add automation point for plugin parameter
+  void addPluginPoint(
+    PluginParamId param,
+    int timeSamples,
+    double value, {
+    AutomationCurveType curveType = AutomationCurveType.linear,
+  }) {
+    final key = param.laneKey;
+
+    // Ensure lane exists
+    if (!_lanes.containsKey(key)) {
+      _lanes[key] = AutomationLane(
+        trackId: param.trackId,
+        paramName: param.paramName,
+      );
+    }
+
+    final lane = _lanes[key]!;
+    final newPoint = AutomationPoint(
+      timeSamples: timeSamples,
+      value: value.clamp(0.0, 1.0),
+      curveType: curveType,
+    );
+
+    // Insert in sorted order
+    final points = List<AutomationPoint>.from(lane.points);
+    final insertIndex = points.indexWhere((p) => p.timeSamples > timeSamples);
+    if (insertIndex == -1) {
+      points.add(newPoint);
+    } else {
+      points.insert(insertIndex, newPoint);
+    }
+
+    _lanes[key] = lane.copyWith(points: points);
+
+    // Sync to engine via plugin-specific FFI
+    _ffi.automationAddPluginPoint(
+      param.trackId,
+      param.slot,
+      param.paramIndex,
+      timeSamples,
+      value,
+      curveType.index,
+    );
+
+    notifyListeners();
+  }
+
+  /// Remove plugin automation point at index
+  void removePluginPoint(PluginParamId param, int pointIndex) {
+    final key = param.laneKey;
+    final lane = _lanes[key];
+    if (lane == null || pointIndex >= lane.points.length) return;
+
+    final points = List<AutomationPoint>.from(lane.points);
+    points.removeAt(pointIndex);
+    _lanes[key] = lane.copyWith(points: points);
+
+    // Re-sync: clear and re-add all points
+    _syncPluginLaneToEngine(param);
+
+    notifyListeners();
+  }
+
+  /// Move plugin automation point
+  void movePluginPoint(
+    PluginParamId param,
+    int pointIndex,
+    int newTimeSamples,
+    double newValue,
+  ) {
+    final key = param.laneKey;
+    final lane = _lanes[key];
+    if (lane == null || pointIndex >= lane.points.length) return;
+
+    final points = List<AutomationPoint>.from(lane.points);
+    points[pointIndex] = points[pointIndex].copyWith(
+      timeSamples: newTimeSamples,
+      value: newValue.clamp(0.0, 1.0),
+    );
+    points.sort((a, b) => a.timeSamples.compareTo(b.timeSamples));
+
+    _lanes[key] = lane.copyWith(points: points);
+
+    // Re-sync
+    _syncPluginLaneToEngine(param);
+
+    notifyListeners();
+  }
+
+  /// Get automated plugin parameter value at position
+  double getPluginValueAt(PluginParamId param, int timeSamples) {
+    return _ffi.automationGetPluginValue(
+      param.trackId,
+      param.slot,
+      param.paramIndex,
+      timeSamples,
+    );
+  }
+
+  /// Clear all plugin automation for a parameter
+  void clearPluginLane(PluginParamId param) {
+    final key = param.laneKey;
+    final lane = _lanes[key];
+    if (lane != null) {
+      _lanes[key] = lane.copyWith(points: []);
+      _ffi.automationClearPluginLane(
+        param.trackId,
+        param.slot,
+        param.paramIndex,
+      );
+      notifyListeners();
+    }
+  }
+
+  /// Delete plugin automation lane entirely
+  void deletePluginLane(PluginParamId param) {
+    final key = param.laneKey;
+    _lanes.remove(key);
+    _ffi.automationClearPluginLane(
+      param.trackId,
+      param.slot,
+      param.paramIndex,
+    );
+    if (_selectedLaneKey == key) {
+      _selectedLaneKey = null;
+    }
+    notifyListeners();
+  }
+
+  /// Get all plugin automation lanes for a track
+  List<AutomationLane> getPluginLanesForTrack(int trackId) {
+    return _lanes.values
+        .where((lane) =>
+            lane.trackId == trackId &&
+            lane.paramName.startsWith('param_'))
+        .toList();
+  }
+
+  /// Check if a plugin parameter is touched
+  bool isPluginParamTouched(PluginParamId param) {
+    return _touchedParams.containsKey(param.laneKey);
+  }
+
   // ============ Utility ============
 
   /// Set sample rate
@@ -452,6 +684,29 @@ class AutomationProvider extends ChangeNotifier {
         point.timeSamples,
         point.value,
         curveType: point.curveType.index,
+      );
+    }
+  }
+
+  void _syncPluginLaneToEngine(PluginParamId param) {
+    final key = param.laneKey;
+    final lane = _lanes[key];
+    if (lane == null) return;
+
+    // Clear and re-add all points via plugin-specific FFI
+    _ffi.automationClearPluginLane(
+      param.trackId,
+      param.slot,
+      param.paramIndex,
+    );
+    for (final point in lane.points) {
+      _ffi.automationAddPluginPoint(
+        param.trackId,
+        param.slot,
+        param.paramIndex,
+        point.timeSamples,
+        point.value,
+        point.curveType.index,
       );
     }
   }

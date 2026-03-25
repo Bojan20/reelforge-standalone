@@ -11,6 +11,7 @@ library;
 import 'package:flutter/material.dart';
 import '../../../../providers/automation_provider.dart';
 import '../../../../services/service_locator.dart';
+import '../../../../src/rust/native_ffi.dart';
 import '../../lower_zone_types.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -35,8 +36,26 @@ class _AutomationPanelState extends State<AutomationPanel> {
   int _gridSubdivision = 4; // snaps per beat (4=16th, 2=8th, 1=quarter)
   double _zoomLevel = 1.0; // 0.5x to 4x
 
+  // Plugin parameter automation state
+  PluginParamId? _activePluginParam;
+
   // Duration of visible timeline in samples
   int get _visibleDurationSamples => (_provider.sampleRate * 10 / _zoomLevel).round();
+
+  /// Whether current parameter targets a plugin insert
+  bool get _isPluginParam => _activePluginParam != null;
+
+  /// Parse plugin param selection string: "Plugin S0 P3 (Gain)"
+  PluginParamId? _parsePluginParam(String label, int trackId) {
+    final match = RegExp(r'^Plugin S(\d+) P(\d+)').firstMatch(label);
+    if (match == null) return null;
+    return PluginParamId(
+      trackId: trackId,
+      slot: int.parse(match.group(1)!),
+      paramIndex: int.parse(match.group(2)!),
+      displayName: label,
+    );
+  }
 
   @override
   void initState() {
@@ -127,7 +146,9 @@ class _AutomationPanelState extends State<AutomationPanel> {
         : 'No Track Selected';
 
     final lane = trackId != null
-        ? _provider.getLane(trackId, _automationParameter)
+        ? (_isPluginParam
+            ? _provider.getLane(trackId, _activePluginParam!.paramName)
+            : _provider.getLane(trackId, _automationParameter))
         : null;
     final pointCount = lane?.points.length ?? 0;
 
@@ -187,7 +208,14 @@ class _AutomationPanelState extends State<AutomationPanel> {
               const SizedBox(width: 8),
               PopupMenuButton<String>(
                 initialValue: _automationParameter,
-                onSelected: (value) => setState(() => _automationParameter = value),
+                onSelected: (value) {
+                  setState(() {
+                    _automationParameter = value;
+                    _activePluginParam = trackId != null
+                        ? _parsePluginParam(value, trackId)
+                        : null;
+                  });
+                },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
@@ -210,22 +238,31 @@ class _AutomationPanelState extends State<AutomationPanel> {
                     ],
                   ),
                 ),
-                itemBuilder: (context) => const [
-                  PopupMenuItem(value: 'Volume', child: Text('Volume')),
-                  PopupMenuItem(value: 'Pan', child: Text('Pan')),
-                  PopupMenuItem(value: 'Mute', child: Text('Mute')),
-                  PopupMenuItem(value: 'Send 1', child: Text('Send 1')),
-                  PopupMenuItem(value: 'Send 2', child: Text('Send 2')),
-                  PopupMenuItem(value: 'EQ Gain', child: Text('EQ Gain')),
-                  PopupMenuItem(value: 'EQ Freq', child: Text('EQ Freq')),
-                  PopupMenuItem(value: 'Comp Threshold', child: Text('Comp Threshold')),
+                itemBuilder: (context) => [
+                  const PopupMenuItem(value: 'Volume', child: Text('Volume')),
+                  const PopupMenuItem(value: 'Pan', child: Text('Pan')),
+                  const PopupMenuItem(value: 'Mute', child: Text('Mute')),
+                  const PopupMenuItem(value: 'Send 1', child: Text('Send 1')),
+                  const PopupMenuItem(value: 'Send 2', child: Text('Send 2')),
+                  const PopupMenuItem(value: 'EQ Gain', child: Text('EQ Gain')),
+                  const PopupMenuItem(value: 'EQ Freq', child: Text('EQ Freq')),
+                  const PopupMenuItem(value: 'Comp Threshold', child: Text('Comp Threshold')),
+                  // Plugin insert parameters (slot 0-7, first 8 params each)
+                  if (trackId != null)
+                    ..._buildPluginParamMenuItems(trackId),
                 ],
               ),
               const SizedBox(width: 16),
               // Clear button
               TextButton.icon(
                 onPressed: trackId != null
-                    ? () => _provider.clearLane(trackId, _automationParameter)
+                    ? () {
+                        if (_isPluginParam) {
+                          _provider.clearPluginLane(_activePluginParam!);
+                        } else {
+                          _provider.clearLane(trackId, _automationParameter);
+                        }
+                      }
                     : null,
                 icon: const Icon(Icons.clear, size: 14, color: LowerZoneColors.textMuted),
                 label: const Text(
@@ -362,7 +399,11 @@ class _AutomationPanelState extends State<AutomationPanel> {
               final timeSamples = _snapTime(
                 _xToTimeSamples(details.localPosition.dx, size.width));
               final value = _yToValue(details.localPosition.dy, size.height);
-              _provider.addPoint(trackId, _automationParameter, timeSamples, value);
+              if (_isPluginParam) {
+                _provider.addPluginPoint(_activePluginParam!, timeSamples, value);
+              } else {
+                _provider.addPoint(trackId, _automationParameter, timeSamples, value);
+              }
             }
           },
           onPanStart: (details) {
@@ -379,13 +420,22 @@ class _AutomationPanelState extends State<AutomationPanel> {
               final timeSamples = _snapTime(
                 _xToTimeSamples(details.localPosition.dx, size.width));
               final value = _yToValue(details.localPosition.dy, size.height);
-              _provider.movePoint(
-                trackId,
-                _automationParameter,
-                _selectedPointIndex!,
-                timeSamples,
-                value,
-              );
+              if (_isPluginParam) {
+                _provider.movePluginPoint(
+                  _activePluginParam!,
+                  _selectedPointIndex!,
+                  timeSamples,
+                  value,
+                );
+              } else {
+                _provider.movePoint(
+                  trackId,
+                  _automationParameter,
+                  _selectedPointIndex!,
+                  timeSamples,
+                  value,
+                );
+              }
             }
           },
           onPanEnd: (_) {
@@ -404,7 +454,11 @@ class _AutomationPanelState extends State<AutomationPanel> {
                 }
               }
               if (nearestIdx != null) {
-                _provider.removePoint(trackId, _automationParameter, nearestIdx);
+                if (_isPluginParam) {
+                  _provider.removePluginPoint(_activePluginParam!, nearestIdx);
+                } else {
+                  _provider.removePoint(trackId, _automationParameter, nearestIdx);
+                }
               }
             }
           },
@@ -429,6 +483,28 @@ class _AutomationPanelState extends State<AutomationPanel> {
         );
       },
     );
+  }
+
+  /// Build plugin parameter menu items for insert slots
+  List<PopupMenuEntry<String>> _buildPluginParamMenuItems(int trackId) {
+    final items = <PopupMenuEntry<String>>[];
+    // Check slots 0-7 for loaded plugins
+    for (int slot = 0; slot < 8; slot++) {
+      // Query param count via FFI — returns 0 if no plugin loaded
+      final paramCount = NativeFFI.instance.pluginGetParamCount('track_${trackId}_slot_$slot');
+      if (paramCount <= 0) continue;
+
+      // Add divider before plugin section
+      items.add(const PopupMenuDivider());
+
+      // Show first 16 params max per slot to keep menu manageable
+      final displayCount = paramCount.clamp(0, 16);
+      for (int p = 0; p < displayCount; p++) {
+        final label = 'Plugin S$slot P$p';
+        items.add(PopupMenuItem(value: label, child: Text(label, style: const TextStyle(fontSize: 12))));
+      }
+    }
+    return items;
   }
 
   Widget _buildAutomationModeChip(String label) {
