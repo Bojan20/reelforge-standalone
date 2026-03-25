@@ -658,6 +658,10 @@ impl PluginInstance for ClapPluginInstance {
         let plugin_ref = unsafe { &*self.plugin_ptr };
 
         // Set up audio buffer pointers (zero-alloc — fixed-size arrays, max 8 channels)
+        // Reset all pointers to null first (clear stale pointers from previous call)
+        self.input_ptrs = [std::ptr::null_mut(); 8];
+        self.output_ptrs = [std::ptr::null_mut(); 8];
+
         let in_channels = input.channels.min(8);
         let out_channels = output.channels.min(8);
 
@@ -666,7 +670,6 @@ impl PluginInstance for ClapPluginInstance {
         }
         for (i, ch) in output.data.iter_mut().enumerate().take(out_channels) {
             self.output_ptrs[i] = ch.as_mut_ptr();
-            }
         }
 
         let mut audio_in = ClapAudioBuffer {

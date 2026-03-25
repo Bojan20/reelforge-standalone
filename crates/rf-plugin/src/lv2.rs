@@ -740,7 +740,8 @@ impl PluginInstance for Lv2PluginInstance {
             return Ok(());
         }
 
-        let frames = input.samples;
+        // Cap frames to pre-allocated buffer size (4096) — prevents buffer overflow
+        let frames = input.samples.min(self.audio_inputs.first().map_or(4096, |b| b.len()));
 
         // Copy input to pre-allocated LV2 input buffers
         for (i, buf) in self.audio_inputs.iter_mut().enumerate() {
