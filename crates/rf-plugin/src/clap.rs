@@ -159,6 +159,113 @@ struct ClapOutputEvents {
 const CLAP_PLUGIN_FACTORY_ID: &[u8] = b"clap.plugin-factory\0";
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CLAP EXTENSION INTERFACES
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// clap.params extension
+#[repr(C)]
+struct ClapPluginParams {
+    count: Option<unsafe extern "C" fn(plugin: *const ClapPlugin) -> u32>,
+    get_info: Option<unsafe extern "C" fn(plugin: *const ClapPlugin, param_index: u32, info: *mut ClapParamInfo) -> bool>,
+    get_value: Option<unsafe extern "C" fn(plugin: *const ClapPlugin, param_id: u32, out_value: *mut f64) -> bool>,
+    value_to_text: Option<unsafe extern "C" fn(plugin: *const ClapPlugin, param_id: u32, value: f64, out_buf: *mut c_char, out_buf_capacity: u32) -> bool>,
+    text_to_value: Option<unsafe extern "C" fn(plugin: *const ClapPlugin, param_id: u32, param_value_text: *const c_char, out_value: *mut f64) -> bool>,
+    flush: Option<unsafe extern "C" fn(plugin: *const ClapPlugin, in_events: *const ClapInputEvents, out_events: *const ClapOutputEvents)>,
+}
+
+/// CLAP parameter info
+#[repr(C)]
+struct ClapParamInfo {
+    id: u32,
+    flags: u32,
+    cookie: *mut c_void,
+    name: [c_char; 256],
+    module: [c_char; 1024],
+    min_value: f64,
+    max_value: f64,
+    default_value: f64,
+}
+
+impl Default for ClapParamInfo {
+    fn default() -> Self {
+        Self {
+            id: 0,
+            flags: 0,
+            cookie: std::ptr::null_mut(),
+            name: [0; 256],
+            module: [0; 1024],
+            min_value: 0.0,
+            max_value: 1.0,
+            default_value: 0.0,
+        }
+    }
+}
+
+/// clap.state extension
+#[repr(C)]
+struct ClapPluginState {
+    save: Option<unsafe extern "C" fn(plugin: *const ClapPlugin, stream: *const ClapOStream) -> bool>,
+    load: Option<unsafe extern "C" fn(plugin: *const ClapPlugin, stream: *const ClapIStream) -> bool>,
+}
+
+#[repr(C)]
+struct ClapOStream {
+    ctx: *mut c_void,
+    write: Option<unsafe extern "C" fn(stream: *const ClapOStream, buffer: *const c_void, size: u64) -> i64>,
+}
+
+#[repr(C)]
+struct ClapIStream {
+    ctx: *mut c_void,
+    read: Option<unsafe extern "C" fn(stream: *const ClapIStream, buffer: *mut c_void, size: u64) -> i64>,
+}
+
+/// clap.latency extension
+#[repr(C)]
+struct ClapPluginLatency {
+    get: Option<unsafe extern "C" fn(plugin: *const ClapPlugin) -> u32>,
+}
+
+/// clap.gui extension
+#[repr(C)]
+struct ClapPluginGui {
+    is_api_supported: Option<unsafe extern "C" fn(plugin: *const ClapPlugin, api: *const c_char, is_floating: bool) -> bool>,
+    get_preferred_api: Option<unsafe extern "C" fn(plugin: *const ClapPlugin, api: *mut *const c_char, is_floating: *mut bool) -> bool>,
+    create: Option<unsafe extern "C" fn(plugin: *const ClapPlugin, api: *const c_char, is_floating: bool) -> bool>,
+    destroy: Option<unsafe extern "C" fn(plugin: *const ClapPlugin)>,
+    set_scale: Option<unsafe extern "C" fn(plugin: *const ClapPlugin, scale: f64) -> bool>,
+    get_size: Option<unsafe extern "C" fn(plugin: *const ClapPlugin, width: *mut u32, height: *mut u32) -> bool>,
+    can_resize: Option<unsafe extern "C" fn(plugin: *const ClapPlugin) -> bool>,
+    get_resize_hints: Option<unsafe extern "C" fn(plugin: *const ClapPlugin, hints: *mut c_void) -> bool>,
+    adjust_size: Option<unsafe extern "C" fn(plugin: *const ClapPlugin, width: *mut u32, height: *mut u32) -> bool>,
+    set_size: Option<unsafe extern "C" fn(plugin: *const ClapPlugin, width: u32, height: u32) -> bool>,
+    set_parent: Option<unsafe extern "C" fn(plugin: *const ClapPlugin, window: *const ClapWindow) -> bool>,
+    set_transient: Option<unsafe extern "C" fn(plugin: *const ClapPlugin, window: *const ClapWindow) -> bool>,
+    suggest_title: Option<unsafe extern "C" fn(plugin: *const ClapPlugin, title: *const c_char)>,
+    show: Option<unsafe extern "C" fn(plugin: *const ClapPlugin) -> bool>,
+    hide: Option<unsafe extern "C" fn(plugin: *const ClapPlugin) -> bool>,
+}
+
+#[repr(C)]
+struct ClapWindow {
+    api: *const c_char,
+    handle: *mut c_void, // NSView* on macOS, HWND on Windows
+}
+
+// CLAP extension ID strings (null-terminated)
+const CLAP_EXT_PARAMS: &[u8] = b"clap.params\0";
+const CLAP_EXT_STATE: &[u8] = b"clap.state\0";
+const CLAP_EXT_LATENCY: &[u8] = b"clap.latency\0";
+const CLAP_EXT_GUI: &[u8] = b"clap.gui\0";
+
+#[cfg(target_os = "macos")]
+const CLAP_WINDOW_API_COCOA: &[u8] = b"cocoa\0";
+#[cfg(target_os = "windows")]
+const CLAP_WINDOW_API_WIN32: &[u8] = b"win32\0";
+#[cfg(target_os = "linux")]
+const CLAP_WINDOW_API_X11: &[u8] = b"x11\0";
+
+// ═══════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -410,6 +517,17 @@ pub struct ClapPluginInstance {
     /// Empty event lists (pre-allocated, zero-alloc)
     input_events: Box<ClapInputEvents>,
     output_events: Box<ClapOutputEvents>,
+    /// CLAP extension pointers (queried at load, null if not supported)
+    params_ext: *const ClapPluginParams,
+    state_ext: *const ClapPluginState,
+    latency_ext: *const ClapPluginLatency,
+    gui_ext: *const ClapPluginGui,
+    /// Cached parameter info (queried once at load)
+    cached_params: Vec<(u32, String, f64, f64, f64)>, // (id, name, min, max, default)
+    /// GUI state
+    gui_created: bool,
+    gui_width: u32,
+    gui_height: u32,
 }
 
 // SAFETY: ClapPlugin is a C FFI pointer that is only accessed from audio thread
@@ -551,7 +669,26 @@ impl ClapPluginInstance {
             try_push: Some(discard_output_try_push),
         });
 
-        Ok(Self {
+        // Query extensions via get_extension
+        let params_ext = unsafe { Self::query_ext(plugin_ptr, CLAP_EXT_PARAMS) as *const ClapPluginParams };
+        let state_ext = unsafe { Self::query_ext(plugin_ptr, CLAP_EXT_STATE) as *const ClapPluginState };
+        let latency_ext = unsafe { Self::query_ext(plugin_ptr, CLAP_EXT_LATENCY) as *const ClapPluginLatency };
+        let gui_ext = unsafe { Self::query_ext(plugin_ptr, CLAP_EXT_GUI) as *const ClapPluginGui };
+
+        // Query latency if available
+        let latency_samples = if !latency_ext.is_null() {
+            unsafe {
+                let lat = &*latency_ext;
+                lat.get.map(|f| f(plugin_ptr) as usize).unwrap_or(0)
+            }
+        } else {
+            0
+        };
+
+        // Update info with GUI support
+        let has_gui = !gui_ext.is_null();
+
+        let mut inst = Self {
             info,
             _library: lib,
             plugin_ptr,
@@ -562,12 +699,62 @@ impl ClapPluginInstance {
             _host_version: host_version,
             activated: std::sync::atomic::AtomicBool::new(false),
             sample_rate: std::sync::atomic::AtomicU64::new(48000.0_f64.to_bits()),
-            latency_samples: 0,
+            latency_samples,
             input_ptrs: [std::ptr::null_mut(); 8],
             output_ptrs: [std::ptr::null_mut(); 8],
             input_events,
             output_events,
-        })
+            params_ext,
+            state_ext,
+            latency_ext,
+            gui_ext,
+            cached_params: Vec::new(),
+            gui_created: false,
+            gui_width: 0,
+            gui_height: 0,
+        };
+
+        inst.info.has_editor = has_gui;
+        inst.info.latency = latency_samples as u32;
+
+        // Cache parameter info
+        inst.cache_params();
+
+        Ok(inst)
+    }
+}
+
+impl ClapPluginInstance {
+    /// Query a CLAP extension from the plugin
+    unsafe fn query_ext(plugin_ptr: *const ClapPlugin, ext_id: &[u8]) -> *const c_void {
+        if plugin_ptr.is_null() { return std::ptr::null(); }
+        let plugin_ref = &*plugin_ptr;
+        plugin_ref.get_extension
+            .map(|f| f(plugin_ptr, ext_id.as_ptr() as *const c_char))
+            .unwrap_or(std::ptr::null())
+    }
+
+    /// Cache all parameter info from plugin (called once at load)
+    fn cache_params(&mut self) {
+        if self.params_ext.is_null() { return; }
+        let params = unsafe { &*self.params_ext };
+        let count = params.count.map(|f| unsafe { f(self.plugin_ptr) }).unwrap_or(0);
+
+        self.cached_params.clear();
+        for i in 0..count {
+            let mut info = ClapParamInfo::default();
+            let ok = params.get_info.map(|f| unsafe { f(self.plugin_ptr, i, &mut info) }).unwrap_or(false);
+            if ok {
+                let name = unsafe {
+                    let name_ptr = info.name.as_ptr();
+                    if name_ptr.is_null() { String::new() } else {
+                        CStr::from_ptr(name_ptr).to_string_lossy().to_string()
+                    }
+                };
+                self.cached_params.push((info.id, name, info.min_value, info.max_value, info.default_value));
+            }
+        }
+        log::info!("CLAP plugin '{}': cached {} parameters", self.info.name, self.cached_params.len());
     }
 }
 
@@ -714,26 +901,149 @@ impl PluginInstance for ClapPluginInstance {
     }
 
     fn parameter_count(&self) -> usize {
-        0 // TODO: Query CLAP params extension
+        self.cached_params.len()
     }
 
-    fn parameter_info(&self, _index: usize) -> Option<ParameterInfo> {
-        None
+    fn parameter_info(&self, index: usize) -> Option<ParameterInfo> {
+        self.cached_params.get(index).map(|(id, name, min, max, default)| {
+            ParameterInfo {
+                id: *id,
+                name: name.clone(),
+                unit: String::new(),
+                min: *min,
+                max: *max,
+                default: *default,
+                normalized: 0.0,
+                steps: 0,
+                automatable: true,
+                read_only: false,
+            }
+        })
     }
 
-    fn get_parameter(&self, _id: u32) -> Option<f64> {
-        None
+    fn get_parameter(&self, id: u32) -> Option<f64> {
+        if self.params_ext.is_null() { return None; }
+        let params = unsafe { &*self.params_ext };
+        let mut value = 0.0f64;
+        let ok = params.get_value.map(|f| unsafe { f(self.plugin_ptr, id, &mut value) }).unwrap_or(false);
+        if ok { Some(value) } else { None }
     }
 
-    fn set_parameter(&mut self, _id: u32, _value: f64) -> PluginResult<()> {
+    fn set_parameter(&mut self, id: u32, value: f64) -> PluginResult<()> {
+        if self.params_ext.is_null() { return Ok(()); }
+        // CLAP uses events for param changes — flush with a param value event
+        // For now, we use the flush mechanism via input events
+        let params = unsafe { &*self.params_ext };
+        if let Some(flush) = params.flush {
+            // Create a parameter value event on the stack
+            #[repr(C)]
+            struct ClapEventParamValue {
+                header: [u8; 16], // ClapEventHeader (size, time, space_id, type, flags)
+                param_id: u32,
+                cookie: *mut c_void,
+                note_id: i32,
+                port_index: i16,
+                channel: i16,
+                key: i16,
+                _pad: i16,
+                value: f64,
+            }
+
+            let event = ClapEventParamValue {
+                header: {
+                    let mut h = [0u8; 16];
+                    let size = std::mem::size_of::<ClapEventParamValue>() as u32;
+                    h[0..4].copy_from_slice(&size.to_ne_bytes()); // size
+                    // h[4..8] = time (0)
+                    // h[8..10] = space_id (0 = core)
+                    h[10..12].copy_from_slice(&4u16.to_ne_bytes()); // type = CLAP_EVENT_PARAM_VALUE
+                    // h[12..16] = flags (0)
+                    h
+                },
+                param_id: id,
+                cookie: std::ptr::null_mut(),
+                note_id: -1,
+                port_index: -1,
+                channel: -1,
+                key: -1,
+                _pad: 0,
+                value,
+            };
+
+            // Wrap in a single-event input list
+            struct SingleEventCtx { event_ptr: *const c_void }
+            unsafe extern "C" fn single_size(_list: *const ClapInputEvents) -> u32 { 1 }
+            unsafe extern "C" fn single_get(list: *const ClapInputEvents, index: u32) -> *const c_void {
+                if index == 0 {
+                    let ctx = (*list).ctx as *const SingleEventCtx;
+                    (*ctx).event_ptr
+                } else {
+                    std::ptr::null()
+                }
+            }
+
+            let ctx = SingleEventCtx { event_ptr: &event as *const _ as *const c_void };
+            let in_events = ClapInputEvents {
+                ctx: &ctx as *const _ as *mut c_void,
+                size: Some(single_size),
+                get: Some(single_get),
+            };
+
+            unsafe { flush(self.plugin_ptr, &in_events, &*self.output_events) };
+        }
         Ok(())
     }
 
     fn get_state(&self) -> PluginResult<Vec<u8>> {
-        Ok(Vec::new()) // TODO: CLAP state extension
+        if self.state_ext.is_null() { return Ok(Vec::new()); }
+        let state = unsafe { &*self.state_ext };
+
+        // Create output stream that writes to a Vec<u8>
+        struct WriteCtx { data: Vec<u8> }
+        unsafe extern "C" fn stream_write(stream: *const ClapOStream, buffer: *const c_void, size: u64) -> i64 {
+            let ctx = &mut *((*stream).ctx as *mut WriteCtx);
+            let slice = std::slice::from_raw_parts(buffer as *const u8, size as usize);
+            ctx.data.extend_from_slice(slice);
+            size as i64
+        }
+
+        let mut ctx = WriteCtx { data: Vec::new() };
+        let ostream = ClapOStream {
+            ctx: &mut ctx as *mut WriteCtx as *mut c_void,
+            write: Some(stream_write),
+        };
+
+        let ok = state.save.map(|f| unsafe { f(self.plugin_ptr, &ostream) }).unwrap_or(false);
+        if ok { Ok(ctx.data) } else { Ok(Vec::new()) }
     }
 
-    fn set_state(&mut self, _state: &[u8]) -> PluginResult<()> {
+    fn set_state(&mut self, data: &[u8]) -> PluginResult<()> {
+        if self.state_ext.is_null() || data.is_empty() { return Ok(()); }
+        let state = unsafe { &*self.state_ext };
+
+        // Create input stream that reads from a slice
+        struct ReadCtx { data: *const u8, len: usize, pos: usize }
+        unsafe extern "C" fn stream_read(stream: *const ClapIStream, buffer: *mut c_void, size: u64) -> i64 {
+            let ctx = &mut *((*stream).ctx as *mut ReadCtx);
+            let remaining = ctx.len - ctx.pos;
+            let to_read = (size as usize).min(remaining);
+            if to_read == 0 { return 0; }
+            std::ptr::copy_nonoverlapping(ctx.data.add(ctx.pos), buffer as *mut u8, to_read);
+            ctx.pos += to_read;
+            to_read as i64
+        }
+
+        let mut ctx = ReadCtx { data: data.as_ptr(), len: data.len(), pos: 0 };
+        let istream = ClapIStream {
+            ctx: &mut ctx as *mut ReadCtx as *mut c_void,
+            read: Some(stream_read),
+        };
+
+        let ok = state.load.map(|f| unsafe { f(self.plugin_ptr, &istream) }).unwrap_or(false);
+        if ok {
+            // Re-cache params after state load (values may have changed)
+            self.cache_params();
+        }
         Ok(())
     }
 
@@ -742,15 +1052,94 @@ impl PluginInstance for ClapPluginInstance {
     }
 
     fn has_editor(&self) -> bool {
-        false // TODO: Query CLAP gui extension
+        !self.gui_ext.is_null()
     }
 
     #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
     fn open_editor(&mut self, _parent: *mut std::ffi::c_void) -> PluginResult<()> {
-        Err(PluginError::UnsupportedFormat("CLAP GUI not yet implemented".into()))
+        if self.gui_ext.is_null() {
+            return Err(PluginError::UnsupportedFormat("CLAP plugin has no GUI extension".into()));
+        }
+        let gui = unsafe { &*self.gui_ext };
+
+        // Determine platform API
+        #[cfg(target_os = "macos")]
+        let api = CLAP_WINDOW_API_COCOA;
+        #[cfg(target_os = "windows")]
+        let api = CLAP_WINDOW_API_WIN32;
+        #[cfg(target_os = "linux")]
+        let api = CLAP_WINDOW_API_X11;
+
+        let api_ptr = api.as_ptr() as *const c_char;
+
+        // Check API support
+        let supported = gui.is_api_supported
+            .map(|f| unsafe { f(self.plugin_ptr, api_ptr, true) })
+            .unwrap_or(false);
+        if !supported {
+            return Err(PluginError::UnsupportedFormat("CLAP GUI: platform API not supported".into()));
+        }
+
+        // Create floating GUI
+        let created = gui.create
+            .map(|f| unsafe { f(self.plugin_ptr, api_ptr, true) })
+            .unwrap_or(false);
+        if !created {
+            return Err(PluginError::InitFailed("CLAP GUI create() failed".into()));
+        }
+        self.gui_created = true;
+
+        // Get initial size
+        let mut w = 800u32;
+        let mut h = 600u32;
+        if let Some(get_size) = gui.get_size {
+            unsafe { get_size(self.plugin_ptr, &mut w, &mut h) };
+        }
+        self.gui_width = w;
+        self.gui_height = h;
+
+        // Show
+        let _shown = gui.show.map(|f| unsafe { f(self.plugin_ptr) });
+
+        log::info!("CLAP GUI opened: {}x{}", w, h);
+        Ok(())
     }
 
     fn close_editor(&mut self) -> PluginResult<()> {
+        if self.gui_created && !self.gui_ext.is_null() {
+            let gui = unsafe { &*self.gui_ext };
+            if let Some(hide) = gui.hide {
+                unsafe { hide(self.plugin_ptr) };
+            }
+            if let Some(destroy) = gui.destroy {
+                unsafe { destroy(self.plugin_ptr) };
+            }
+            self.gui_created = false;
+        }
+        Ok(())
+    }
+
+    fn editor_size(&self) -> Option<(u32, u32)> {
+        if !self.gui_created || self.gui_ext.is_null() { return None; }
+        let gui = unsafe { &*self.gui_ext };
+        let mut w = self.gui_width;
+        let mut h = self.gui_height;
+        if let Some(get_size) = gui.get_size {
+            unsafe { get_size(self.plugin_ptr, &mut w, &mut h) };
+        }
+        Some((w, h))
+    }
+
+    fn resize_editor(&mut self, width: u32, height: u32) -> PluginResult<()> {
+        if !self.gui_created || self.gui_ext.is_null() {
+            return Err(PluginError::ProcessingError("GUI not open".into()));
+        }
+        let gui = unsafe { &*self.gui_ext };
+        if let Some(set_size) = gui.set_size {
+            unsafe { set_size(self.plugin_ptr, width, height) };
+            self.gui_width = width;
+            self.gui_height = height;
+        }
         Ok(())
     }
 }
