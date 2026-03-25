@@ -6056,39 +6056,33 @@ impl PlaybackEngine {
                 // Additional pairs require PinConnector multi-channel output data.
                 bus_buffers.add_to_bus(track.output_bus_for_channel(0), track_l, track_r);
 
-                // Route additional channel pairs from PinConnector output buffers
-                let plugin_channels = if let Some(chains) = self.insert_chains.try_read() {
+                // Route additional channel pairs from PinConnector output buffers.
+                // Single try_read() scope — atomic view of insert chain state.
+                if let Some(chains) = self.insert_chains.try_read() {
                     if let Some(chain) = chains.get(&track.id.0) {
-                        // Check last loaded slot for multi-channel output
-                        let mut ch_count = 2u8;
+                        // Find multi-channel plugin (last loaded slot with >2 channels)
+                        let mut plugin_channels = 2u8;
+                        let mut multi_slot_idx = 0usize;
                         for idx in (0..8).rev() {
                             let slot_ch = chain.slot_output_channels(idx);
                             if slot_ch > 2 {
-                                ch_count = slot_ch;
+                                plugin_channels = slot_ch;
+                                multi_slot_idx = idx;
                                 break;
                             }
                         }
-                        ch_count
-                    } else { 2 }
-                } else { 2 };
 
-                if plugin_channels > 2 {
-                    let stereo_pairs = (plugin_channels as usize) / 2;
-                    if let Some(chains) = self.insert_chains.try_read() {
-                        if let Some(chain) = chains.get(&track.id.0) {
+                        if plugin_channels > 2 {
+                            let stereo_pairs = (plugin_channels as usize) / 2;
                             for pair in 1..stereo_pairs.min(track.output_channel_map.len()) {
                                 let bus = track.output_bus_for_channel(pair);
                                 let ch_l = pair * 2;
                                 let ch_r = pair * 2 + 1;
-                                // Find the slot with PinConnector multi-channel data
-                                for idx in (0..8).rev() {
-                                    if let (Some(left), Some(right)) = (
-                                        chain.slot_plugin_output_channel(idx, ch_l, frames),
-                                        chain.slot_plugin_output_channel(idx, ch_r, frames),
-                                    ) {
-                                        bus_buffers.add_to_bus(bus, left, right);
-                                        break;
-                                    }
+                                if let (Some(left), Some(right)) = (
+                                    chain.slot_plugin_output_channel(multi_slot_idx, ch_l, frames),
+                                    chain.slot_plugin_output_channel(multi_slot_idx, ch_r, frames),
+                                ) {
+                                    bus_buffers.add_to_bus(bus, left, right);
                                 }
                             }
                         }
