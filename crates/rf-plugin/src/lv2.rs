@@ -54,6 +54,171 @@ type LV2Handle = *mut c_void;
 type Lv2DescriptorFn = unsafe extern "C" fn(index: u32) -> *const Lv2PluginDescriptor;
 
 // ═══════════════════════════════════════════════════════════════════════════
+// LV2 URID MAP (required by ~90% of real plugins)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// URID (URI → integer) mapping table
+/// Thread-safe, global lifetime — plugins expect this to outlive them
+use std::sync::Mutex;
+use std::sync::LazyLock;
+
+static URID_MAP: LazyLock<Mutex<UridMapState>> = LazyLock::new(|| {
+    let mut state = UridMapState {
+        uri_to_id: HashMap::new(),
+        id_to_uri: Vec::new(),
+    };
+    // Pre-register common URIs
+    for uri in [
+        "http://lv2plug.in/ns/ext/midi#MidiEvent",
+        "http://lv2plug.in/ns/ext/atom#Blank",
+        "http://lv2plug.in/ns/ext/atom#Object",
+        "http://lv2plug.in/ns/ext/atom#Float",
+        "http://lv2plug.in/ns/ext/atom#Int",
+        "http://lv2plug.in/ns/ext/atom#Long",
+        "http://lv2plug.in/ns/ext/atom#Double",
+        "http://lv2plug.in/ns/ext/atom#String",
+        "http://lv2plug.in/ns/ext/atom#Literal",
+        "http://lv2plug.in/ns/ext/atom#Chunk",
+        "http://lv2plug.in/ns/ext/atom#Sequence",
+        "http://lv2plug.in/ns/ext/atom#URID",
+        "http://lv2plug.in/ns/ext/atom#Path",
+        "http://lv2plug.in/ns/ext/patch#Set",
+        "http://lv2plug.in/ns/ext/patch#Get",
+        "http://lv2plug.in/ns/ext/patch#property",
+        "http://lv2plug.in/ns/ext/patch#value",
+    ] {
+        let id = state.id_to_uri.len() as u32 + 1; // URID 0 is invalid
+        state.uri_to_id.insert(uri.to_string(), id);
+        state.id_to_uri.push(uri.to_string());
+    }
+    Mutex::new(state)
+});
+
+struct UridMapState {
+    uri_to_id: HashMap<String, u32>,
+    id_to_uri: Vec<String>,
+}
+
+/// LV2_URID_Map C interface
+#[repr(C)]
+struct Lv2UridMap {
+    handle: *mut c_void,
+    map: unsafe extern "C" fn(handle: *mut c_void, uri: *const c_char) -> u32,
+}
+
+/// LV2_URID_Unmap C interface
+#[repr(C)]
+struct Lv2UridUnmap {
+    handle: *mut c_void,
+    unmap: unsafe extern "C" fn(handle: *mut c_void, urid: u32) -> *const c_char,
+}
+
+/// URID map callback — called by plugins to map URI → integer
+unsafe extern "C" fn urid_map_callback(_handle: *mut c_void, uri: *const c_char) -> u32 {
+    if uri.is_null() { return 0; }
+    let uri_str = CStr::from_ptr(uri).to_string_lossy().to_string();
+    let mut map = URID_MAP.lock().unwrap();
+    if let Some(&id) = map.uri_to_id.get(&uri_str) {
+        return id;
+    }
+    // Allocate new URID
+    let id = map.id_to_uri.len() as u32 + 1;
+    map.uri_to_id.insert(uri_str.clone(), id);
+    map.id_to_uri.push(uri_str);
+    id
+}
+
+/// URID unmap callback — called by plugins to get URI from integer
+unsafe extern "C" fn urid_unmap_callback(_handle: *mut c_void, urid: u32) -> *const c_char {
+    if urid == 0 { return std::ptr::null(); }
+    let map = URID_MAP.lock().unwrap();
+    let idx = (urid - 1) as usize;
+    if idx < map.id_to_uri.len() {
+        // Return pointer to CString in a thread-local (stable for duration of plugin call)
+        thread_local! {
+            static UNMAP_BUF: std::cell::RefCell<std::ffi::CString> =
+                std::cell::RefCell::new(std::ffi::CString::new("").unwrap());
+        }
+        let uri = map.id_to_uri[idx].clone();
+        UNMAP_BUF.with(|buf| {
+            *buf.borrow_mut() = std::ffi::CString::new(uri).unwrap_or_default();
+            buf.borrow().as_ptr()
+        })
+    } else {
+        std::ptr::null()
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LV2 ATOM BUFFER (for MIDI events)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// LV2 Atom header
+#[repr(C)]
+#[derive(Clone, Copy)]
+struct Lv2Atom {
+    size: u32,
+    atom_type: u32, // URID
+}
+
+/// LV2 Atom Sequence (container for timed events)
+#[repr(C)]
+struct Lv2AtomSequence {
+    atom: Lv2Atom,     // type = atom:Sequence
+    body_pad: u32,     // unit (usually 0 for frames)
+    body_pad2: u32,    // pad
+    // followed by sequence of Lv2AtomEvent
+}
+
+/// LV2 Atom Event (single event in a sequence)
+#[repr(C)]
+struct Lv2AtomEvent {
+    time_frames: i64,  // time in frames (or beats)
+    body: Lv2Atom,     // event body (type + size)
+    // followed by body.size bytes of data
+}
+
+/// Pre-allocated Atom buffer for MIDI input/output
+struct AtomBuffer {
+    data: Vec<u8>,
+    capacity: usize,
+}
+
+impl AtomBuffer {
+    fn new(capacity: usize) -> Self {
+        let mut data = vec![0u8; capacity];
+        // Initialize as empty Atom Sequence
+        let seq = data.as_mut_ptr() as *mut Lv2AtomSequence;
+        unsafe {
+            (*seq).atom.size = 8; // just the body header (pad + pad2)
+            (*seq).atom.atom_type = 0; // will be set to atom:Sequence URID at connect time
+            (*seq).body_pad = 0;
+            (*seq).body_pad2 = 0;
+        }
+        Self { data, capacity }
+    }
+
+    fn clear(&mut self, sequence_urid: u32) {
+        let seq = self.data.as_mut_ptr() as *mut Lv2AtomSequence;
+        unsafe {
+            (*seq).atom.size = 8;
+            (*seq).atom.atom_type = sequence_urid;
+            (*seq).body_pad = 0;
+            (*seq).body_pad2 = 0;
+        }
+    }
+
+    fn as_mut_ptr(&mut self) -> *mut c_void {
+        self.data.as_mut_ptr() as *mut c_void
+    }
+}
+
+// LV2 Feature URIs
+const LV2_URID_MAP_URI: &[u8] = b"http://lv2plug.in/ns/ext/urid#map\0";
+const LV2_URID_UNMAP_URI: &[u8] = b"http://lv2plug.in/ns/ext/urid#unmap\0";
+const LV2_STATE_INTERFACE_URI: &[u8] = b"http://lv2plug.in/ns/ext/state#interface\0";
+
+// ═══════════════════════════════════════════════════════════════════════════
 // LV2 PORT TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -478,6 +643,21 @@ pub struct Lv2PluginInstance {
     activated: bool,
     /// Sample rate
     sample_rate: f64,
+    /// URID map feature (must outlive plugin — kept in Box for stable pointer)
+    _urid_map: Box<Lv2UridMap>,
+    _urid_unmap: Box<Lv2UridUnmap>,
+    /// Feature array C strings (must outlive plugin)
+    _feature_uris: Vec<std::ffi::CString>,
+    /// Pre-allocated Atom buffers for MIDI ports
+    atom_input: Option<AtomBuffer>,
+    atom_output: Option<AtomBuffer>,
+    /// Port indices for Atom MIDI ports (-1 = not found)
+    atom_input_port: Option<u32>,
+    atom_output_port: Option<u32>,
+    /// URID for atom:Sequence type
+    sequence_urid: u32,
+    /// URID for midi:MidiEvent type
+    midi_event_urid: u32,
 }
 
 // SAFETY: LV2 handle is a C pointer, accessed sequentially (never concurrent audio+UI)
@@ -531,12 +711,34 @@ impl Lv2PluginInstance {
             std::ffi::CString::new(desc.bundle_path.to_string_lossy().as_ref())
                 .map_err(|_| PluginError::LoadFailed("invalid bundle path".into()))?;
 
-        // Null-terminated features array.
-        // NOTE: Many LV2 plugins require urid:map feature. Without it, instantiate()
-        // returns null for ~90% of real plugins. Adding urid:map requires implementing
-        // a full URI↔integer mapping table. For now, only simple plugins (TAP, MDA) will load.
-        // TODO: Implement LV2_URID_Map feature for broad plugin compatibility.
-        let features: [*const Lv2Feature; 1] = [std::ptr::null()];
+        // Create URID Map/Unmap features (required by ~90% of LV2 plugins)
+        let urid_map = Box::new(Lv2UridMap {
+            handle: std::ptr::null_mut(),
+            map: urid_map_callback,
+        });
+        let urid_unmap = Box::new(Lv2UridUnmap {
+            handle: std::ptr::null_mut(),
+            unmap: urid_unmap_callback,
+        });
+
+        // Feature URIs (must outlive the features array)
+        let map_uri = std::ffi::CString::new("http://lv2plug.in/ns/ext/urid#map").unwrap();
+        let unmap_uri = std::ffi::CString::new("http://lv2plug.in/ns/ext/urid#unmap").unwrap();
+
+        // Build features array with stable pointers
+        let map_feature = Lv2Feature {
+            uri: map_uri.as_ptr(),
+            data: &*urid_map as *const Lv2UridMap as *const c_void,
+        };
+        let unmap_feature = Lv2Feature {
+            uri: unmap_uri.as_ptr(),
+            data: &*urid_unmap as *const Lv2UridUnmap as *const c_void,
+        };
+        let features: [*const Lv2Feature; 3] = [
+            &map_feature as *const Lv2Feature,
+            &unmap_feature as *const Lv2Feature,
+            std::ptr::null(),
+        ];
 
         let handle = if let Some(instantiate) = descriptor_ref.instantiate {
             unsafe {
@@ -550,6 +752,7 @@ impl Lv2PluginInstance {
         } else {
             return Err(PluginError::LoadFailed("no instantiate callback".into()));
         };
+        let feature_uris = vec![map_uri, unmap_uri];
 
         if handle.is_null() {
             return Err(PluginError::LoadFailed("instantiate returned null".into()));
@@ -579,6 +782,10 @@ impl Lv2PluginInstance {
             sub_plugins: Vec::new(),
         };
 
+        // Get URIDs for atom types
+        let sequence_urid = unsafe { urid_map_callback(std::ptr::null_mut(), b"http://lv2plug.in/ns/ext/atom#Sequence\0".as_ptr() as *const c_char) };
+        let midi_event_urid = unsafe { urid_map_callback(std::ptr::null_mut(), b"http://lv2plug.in/ns/ext/midi#MidiEvent\0".as_ptr() as *const c_char) };
+
         Ok(Self {
             info,
             _library: Some(lib),
@@ -590,6 +797,15 @@ impl Lv2PluginInstance {
             audio_outputs: vec![vec![0.0f32; 4096]; 2],
             activated: false,
             sample_rate: 48000.0,
+            _urid_map: urid_map,
+            _urid_unmap: urid_unmap,
+            _feature_uris: feature_uris,
+            atom_input: Some(AtomBuffer::new(8192)),
+            atom_output: Some(AtomBuffer::new(8192)),
+            atom_input_port: None, // Will be set from port discovery
+            atom_output_port: None,
+            sequence_urid,
+            midi_event_urid,
         })
     }
 
