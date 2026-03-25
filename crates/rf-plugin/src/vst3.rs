@@ -1243,7 +1243,7 @@ impl PluginInstance for Vst3Host {
                             let frame: NSRect = msg_send![window, frame];
                             let new_frame = NSRect::new(
                                 NSPoint::new(frame.origin.x, frame.origin.y),
-                                NSSize::new(w, h + 28.0), // +28 for title bar
+                                NSSize::new(w, h + 22.0), // +22 for standard macOS title bar
                             );
                             let _: () = msg_send![window, setFrame: new_frame display: true animate: true];
                             // Also resize the content view's plugin subview

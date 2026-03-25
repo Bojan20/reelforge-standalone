@@ -761,6 +761,11 @@ impl ClapPluginInstance {
 impl Drop for ClapPluginInstance {
     fn drop(&mut self) {
         if !self.plugin_ptr.is_null() {
+            // Close GUI before destroying plugin (must happen first)
+            if self.gui_created {
+                let _ = self.close_editor();
+            }
+
             let plugin_ref = unsafe { &*self.plugin_ptr };
             if self.activated.load(std::sync::atomic::Ordering::SeqCst) {
                 if let Some(stop) = plugin_ref.stop_processing {
@@ -982,6 +987,8 @@ impl PluginInstance for ClapPluginInstance {
                 }
             }
 
+            // SAFETY: CLAP spec requires flush() to consume all events synchronously
+            // before returning. Stack allocation is safe because event/ctx outlive the flush call.
             let ctx = SingleEventCtx { event_ptr: &event as *const _ as *const c_void };
             let in_events = ClapInputEvents {
                 ctx: &ctx as *const _ as *mut c_void,

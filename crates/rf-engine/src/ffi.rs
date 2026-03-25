@@ -17209,32 +17209,25 @@ pub extern "C" fn plugin_preset_count(instance_id: *const c_char) -> u32 {
 }
 
 /// Get factory preset name by index
-/// Returns pointer to name string (caller must NOT free), or null if invalid
+/// Returns owned string pointer — caller MUST free with free_rust_string()
+/// Returns null if invalid index or no plugin
 #[unsafe(no_mangle)]
-pub extern "C" fn plugin_preset_get_name(instance_id: *const c_char, index: u32) -> *const c_char {
-    if instance_id.is_null() { return std::ptr::null(); }
+pub extern "C" fn plugin_preset_get_name(instance_id: *const c_char, index: u32) -> *mut c_char {
+    if instance_id.is_null() { return std::ptr::null_mut(); }
     let id_str = unsafe {
         match std::ffi::CStr::from_ptr(instance_id).to_str() {
-            Ok(s) => s, Err(_) => return std::ptr::null(),
+            Ok(s) => s, Err(_) => return std::ptr::null_mut(),
         }
     };
 
     if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
         if let Some(name) = instance.read().preset_name(index as usize) {
-            // Use thread-local string buffer to avoid allocation on audio thread
-            thread_local! {
-                static PRESET_NAME_BUF: std::cell::RefCell<CString> =
-                    std::cell::RefCell::new(CString::new("").unwrap());
-            }
-            PRESET_NAME_BUF.with(|buf| {
-                *buf.borrow_mut() = CString::new(name).unwrap_or_default();
-                buf.borrow().as_ptr()
-            })
+            CString::new(name).unwrap_or_default().into_raw()
         } else {
-            std::ptr::null()
+            std::ptr::null_mut()
         }
     } else {
-        std::ptr::null()
+        std::ptr::null_mut()
     }
 }
 

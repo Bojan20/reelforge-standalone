@@ -2691,7 +2691,7 @@ class NativeFFI {
 
   // Factory Preset Browser
   late final int Function(Pointer<Utf8>) _pluginPresetCount;
-  late final Pointer<Utf8> Function(Pointer<Utf8>, int) _pluginPresetGetName;
+  late final Pointer<Utf8> Function(Pointer<Utf8>, int) _pluginPresetGetName; // Returns owned ptr, free with _freeRustString
   late final int Function(Pointer<Utf8>, int) _pluginPresetLoadFactory;
   late final Pointer<Utf8> Function(Pointer<Utf8>) _pluginPresetsGetAllJson;
 
@@ -14287,6 +14287,10 @@ extension ControlRoomAPI on NativeFFI {
     }
   }
 
+  // Rust string free helper for factory presets (Rust allocator, not calloc)
+  static final _freePresetStr = _loadNativeLibrary().lookupFunction<
+      Void Function(Pointer<Utf8>), void Function(Pointer<Utf8>)>('free_rust_string');
+
   /// Get factory preset count for a loaded plugin
   int pluginFactoryPresetCount(String instanceId) {
     if (!_loaded) return 0;
@@ -14305,7 +14309,10 @@ extension ControlRoomAPI on NativeFFI {
     try {
       final namePtr = _pluginPresetGetName(idPtr, index);
       if (namePtr == nullptr) return '';
-      return namePtr.toDartString();
+      final name = namePtr.toDartString();
+      // Free Rust-allocated string (CString::into_raw)
+      _freePresetStr(namePtr);
+      return name;
     } finally {
       calloc.free(idPtr);
     }
@@ -14330,8 +14337,8 @@ extension ControlRoomAPI on NativeFFI {
       final jsonPtr = _pluginPresetsGetAllJson(idPtr);
       if (jsonPtr == nullptr) return '[]';
       final json = jsonPtr.toDartString();
-      // Free the Rust-allocated string
-      calloc.free(jsonPtr);
+      // Free Rust-allocated string (CString::into_raw) — MUST use free_rust_string, NOT calloc.free
+      _freePresetStr(jsonPtr);
       return json;
     } finally {
       calloc.free(idPtr);
