@@ -179,6 +179,7 @@ pub enum TrackType {
     Instrument,
     Bus,
     Master,
+    Aux,
 }
 
 /// Track state

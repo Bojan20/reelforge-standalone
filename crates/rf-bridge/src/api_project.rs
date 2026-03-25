@@ -147,7 +147,7 @@ fn sync_tracks_to_project(e: &mut EngineBridge) {
                 rf_engine::track_manager::TrackType::Audio => TrackType::Audio,
                 rf_engine::track_manager::TrackType::Instrument => TrackType::Instrument,
                 rf_engine::track_manager::TrackType::Bus => TrackType::Bus,
-                rf_engine::track_manager::TrackType::Aux => TrackType::Audio, // Aux maps to Audio in state
+                rf_engine::track_manager::TrackType::Aux => TrackType::Aux,
             };
 
             TrackState {
@@ -260,6 +260,7 @@ fn sync_tracks_from_project(e: &mut EngineBridge) {
                 TrackType::Audio => rf_engine::track_manager::TrackType::Audio,
                 TrackType::Instrument => rf_engine::track_manager::TrackType::Instrument,
                 TrackType::Bus => rf_engine::track_manager::TrackType::Bus,
+                TrackType::Aux => rf_engine::track_manager::TrackType::Aux,
                 TrackType::Midi | TrackType::Master => rf_engine::track_manager::TrackType::Audio,
             };
             t.instrument_plugin_id = track_state.instrument_plugin_id.clone();
