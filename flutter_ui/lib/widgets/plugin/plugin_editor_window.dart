@@ -315,10 +315,8 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
           onTap: () => _loadPreset(context, instance, provider),
         ),
         const PopupMenuDivider(),
-        const PopupMenuItem<void>(
-          enabled: false,
-          child: Text('Factory Presets'),
-        ),
+        // Factory presets from plugin
+        ..._buildFactoryPresetItems(instance, provider),
       ],
     );
   }
@@ -362,6 +360,55 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Load Preset: Use File > Load Preset to browse')),
     );
+  }
+
+  List<PopupMenuEntry<void>> _buildFactoryPresetItems(
+    PluginInstance instance,
+    PluginProvider provider,
+  ) {
+    final ffi = NativeFFI.instance;
+    final count = ffi.pluginFactoryPresetCount(instance.instanceId);
+    if (count == 0) {
+      return [
+        const PopupMenuItem<void>(
+          enabled: false,
+          child: Text('No Factory Presets', style: TextStyle(fontSize: 12)),
+        ),
+      ];
+    }
+
+    final items = <PopupMenuEntry<void>>[
+      PopupMenuItem<void>(
+        enabled: false,
+        child: Text('Factory Presets ($count)',
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+      ),
+    ];
+
+    // Show up to 50 presets to keep menu manageable
+    final displayCount = count.clamp(0, 50);
+    for (int i = 0; i < displayCount; i++) {
+      final name = ffi.pluginFactoryPresetName(instance.instanceId, i);
+      items.add(PopupMenuItem<void>(
+        child: Text(name.isEmpty ? 'Preset $i' : name,
+          style: const TextStyle(fontSize: 12)),
+        onTap: () {
+          ffi.pluginLoadFactoryPreset(instance.instanceId, i);
+          // Trigger rebuild to refresh param values
+          if (context.mounted) setState(() {});
+        },
+      ));
+    }
+
+    if (count > 50) {
+      items.add(PopupMenuItem<void>(
+        enabled: false,
+        child: Text('... and ${count - 50} more',
+          style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic)),
+      ));
+    }
+
+    return items;
   }
 
   String _getFormatName(PluginFormat format) {

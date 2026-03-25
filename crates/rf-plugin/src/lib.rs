@@ -396,6 +396,21 @@ pub trait PluginInstance: Send + Sync {
     fn resize_editor(&mut self, _width: u32, _height: u32) -> PluginResult<()> {
         Ok(())
     }
+
+    /// Get number of factory presets (0 if not supported)
+    fn preset_count(&self) -> usize {
+        0
+    }
+
+    /// Get factory preset name by index (None if out of bounds)
+    fn preset_name(&self, _index: usize) -> Option<String> {
+        None
+    }
+
+    /// Load factory preset by index
+    fn load_preset(&mut self, _index: usize) -> PluginResult<()> {
+        Err(PluginError::ProcessingError("Presets not supported".into()))
+    }
 }
 
 /// Central plugin host managing all plugin instances

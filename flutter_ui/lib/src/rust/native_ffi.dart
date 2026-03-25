@@ -2689,6 +2689,12 @@ class NativeFFI {
   late final PluginSavePresetDart _pluginSavePreset;
   late final PluginLoadPresetDart _pluginLoadPreset;
 
+  // Factory Preset Browser
+  late final int Function(Pointer<Utf8>) _pluginPresetCount;
+  late final Pointer<Utf8> Function(Pointer<Utf8>, int) _pluginPresetGetName;
+  late final int Function(Pointer<Utf8>, int) _pluginPresetLoadFactory;
+  late final Pointer<Utf8> Function(Pointer<Utf8>) _pluginPresetsGetAllJson;
+
   // Transient Detection
   late final TransientDetectDart _transientDetect;
   late final EngineDetectClipTransientsDart _detectClipTransients;
@@ -3601,6 +3607,10 @@ class NativeFFI {
     _pluginSetState = _lib.lookupFunction<PluginSetStateNative, PluginSetStateDart>('plugin_set_state');
     _pluginSavePreset = _lib.lookupFunction<PluginSavePresetNative, PluginSavePresetDart>('plugin_save_preset');
     _pluginLoadPreset = _lib.lookupFunction<PluginLoadPresetNative, PluginLoadPresetDart>('plugin_load_preset');
+    _pluginPresetCount = _lib.lookupFunction<Uint32 Function(Pointer<Utf8>), int Function(Pointer<Utf8>)>('plugin_preset_count');
+    _pluginPresetGetName = _lib.lookupFunction<Pointer<Utf8> Function(Pointer<Utf8>, Uint32), Pointer<Utf8> Function(Pointer<Utf8>, int)>('plugin_preset_get_name');
+    _pluginPresetLoadFactory = _lib.lookupFunction<Int32 Function(Pointer<Utf8>, Uint32), int Function(Pointer<Utf8>, int)>('plugin_preset_load_factory');
+    _pluginPresetsGetAllJson = _lib.lookupFunction<Pointer<Utf8> Function(Pointer<Utf8>), Pointer<Utf8> Function(Pointer<Utf8>)>('plugin_presets_get_all_json');
     _pluginSearch = _lib.lookupFunction<PluginSearchNative, PluginSearchDart>('plugin_search');
     _pluginGetByType = _lib.lookupFunction<PluginGetByTypeNative, PluginGetByTypeDart>('plugin_get_by_type');
     _pluginGetByCategory = _lib.lookupFunction<PluginGetByCategoryNative, PluginGetByCategoryDart>('plugin_get_by_category');
@@ -14274,6 +14284,57 @@ extension ControlRoomAPI on NativeFFI {
     } finally {
       calloc.free(idPtr);
       calloc.free(pathPtr);
+    }
+  }
+
+  /// Get factory preset count for a loaded plugin
+  int pluginFactoryPresetCount(String instanceId) {
+    if (!_loaded) return 0;
+    final idPtr = instanceId.toNativeUtf8();
+    try {
+      return _pluginPresetCount(idPtr);
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// Get factory preset name by index (returns empty string if invalid)
+  String pluginFactoryPresetName(String instanceId, int index) {
+    if (!_loaded) return '';
+    final idPtr = instanceId.toNativeUtf8();
+    try {
+      final namePtr = _pluginPresetGetName(idPtr, index);
+      if (namePtr == nullptr) return '';
+      return namePtr.toDartString();
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// Load factory preset by index
+  bool pluginLoadFactoryPreset(String instanceId, int index) {
+    if (!_loaded) return false;
+    final idPtr = instanceId.toNativeUtf8();
+    try {
+      return _pluginPresetLoadFactory(idPtr, index) != 0;
+    } finally {
+      calloc.free(idPtr);
+    }
+  }
+
+  /// Get all factory presets as JSON string
+  String pluginGetFactoryPresetsJson(String instanceId) {
+    if (!_loaded) return '[]';
+    final idPtr = instanceId.toNativeUtf8();
+    try {
+      final jsonPtr = _pluginPresetsGetAllJson(idPtr);
+      if (jsonPtr == nullptr) return '[]';
+      final json = jsonPtr.toDartString();
+      // Free the Rust-allocated string
+      calloc.free(jsonPtr);
+      return json;
+    } finally {
+      calloc.free(idPtr);
     }
   }
 

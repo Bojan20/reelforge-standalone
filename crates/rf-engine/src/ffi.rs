@@ -17190,6 +17190,109 @@ pub extern "C" fn plugin_get_all_params_json(instance_id: *const c_char) -> *mut
 /// Initialize plugin host (call once at startup)
 /// Returns 1 on success
 #[unsafe(no_mangle)]
+/// Get number of factory presets for a loaded plugin instance
+/// Returns preset count, or 0 if not supported
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_preset_count(instance_id: *const c_char) -> u32 {
+    if instance_id.is_null() { return 0; }
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s, Err(_) => return 0,
+        }
+    };
+
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        instance.read().preset_count() as u32
+    } else {
+        0
+    }
+}
+
+/// Get factory preset name by index
+/// Returns pointer to name string (caller must NOT free), or null if invalid
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_preset_get_name(instance_id: *const c_char, index: u32) -> *const c_char {
+    if instance_id.is_null() { return std::ptr::null(); }
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s, Err(_) => return std::ptr::null(),
+        }
+    };
+
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        if let Some(name) = instance.read().preset_name(index as usize) {
+            // Use thread-local string buffer to avoid allocation on audio thread
+            thread_local! {
+                static PRESET_NAME_BUF: std::cell::RefCell<CString> =
+                    std::cell::RefCell::new(CString::new("").unwrap());
+            }
+            PRESET_NAME_BUF.with(|buf| {
+                *buf.borrow_mut() = CString::new(name).unwrap_or_default();
+                buf.borrow().as_ptr()
+            })
+        } else {
+            std::ptr::null()
+        }
+    } else {
+        std::ptr::null()
+    }
+}
+
+/// Load factory preset by index
+/// Returns 1 on success, 0 on failure
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_preset_load_factory(instance_id: *const c_char, index: u32) -> i32 {
+    if instance_id.is_null() { return 0; }
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s, Err(_) => return 0,
+        }
+    };
+
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        match instance.write().load_preset(index as usize) {
+            Ok(()) => 1,
+            Err(e) => {
+                log::warn!("Failed to load factory preset {}: {}", index, e);
+                0
+            }
+        }
+    } else {
+        0
+    }
+}
+
+/// Get all factory presets as JSON array
+/// Returns: [{"index":0,"name":"Init"},{"index":1,"name":"Warm Pad"},...]
+/// Caller must free with plugin_free_string
+#[unsafe(no_mangle)]
+pub extern "C" fn plugin_presets_get_all_json(instance_id: *const c_char) -> *mut c_char {
+    if instance_id.is_null() { return CString::new("[]").unwrap().into_raw(); }
+    let id_str = unsafe {
+        match std::ffi::CStr::from_ptr(instance_id).to_str() {
+            Ok(s) => s, Err(_) => return CString::new("[]").unwrap().into_raw(),
+        }
+    };
+
+    if let Some(instance) = PLUGIN_HOST.read().get_instance(id_str) {
+        let inst = instance.read();
+        let count = inst.preset_count();
+        let mut json = String::from("[");
+        for i in 0..count {
+            if i > 0 {
+                json.push(',');
+            }
+            let name = inst.preset_name(i).unwrap_or_default();
+            let escaped = name.replace('\\', "\\\\").replace('"', "\\\"");
+            json.push_str(&format!(r#"{{"index":{},"name":"{}"}}"#, i, escaped));
+        }
+        json.push(']');
+        CString::new(json).unwrap_or_default().into_raw()
+    } else {
+        CString::new("[]").unwrap().into_raw()
+    }
+}
+
 pub extern "C" fn plugin_host_init() -> i32 {
     // Force initialization of lazy statics
     drop(PLUGIN_HOST.read());
