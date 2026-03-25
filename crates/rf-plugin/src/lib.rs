@@ -446,7 +446,7 @@ impl PluginHost {
                 Box::new(host)
             }
             PluginType::Clap => {
-                let instance = clap::ClapPluginInstance::load(&info.path)?;
+                let instance = clap::ClapPluginInstance::load(&info.path, &info.id)?;
                 Box::new(instance)
             }
             PluginType::AudioUnit => {
@@ -466,8 +466,9 @@ impl PluginHost {
                     required_features: Vec::new(),
                     optional_features: Vec::new(),
                     bundle_path: info.path.clone(),
+                    binary_name: String::new(),
                 };
-                let instance = lv2::Lv2PluginInstance::new(descriptor)?;
+                let instance = lv2::Lv2PluginInstance::load(&descriptor)?;
                 Box::new(instance)
             }
             PluginType::Internal => {
@@ -508,7 +509,7 @@ impl PluginHost {
                 Box::new(host)
             }
             PluginType::Clap => {
-                let instance = clap::ClapPluginInstance::load(&info.path)?;
+                let instance = clap::ClapPluginInstance::load(&info.path, &info.id)?;
                 Box::new(instance)
             }
             PluginType::AudioUnit => {
@@ -527,8 +528,9 @@ impl PluginHost {
                     required_features: Vec::new(),
                     optional_features: Vec::new(),
                     bundle_path: info.path.clone(),
+                    binary_name: String::new(),
                 };
-                let instance = lv2::Lv2PluginInstance::new(descriptor)?;
+                let instance = lv2::Lv2PluginInstance::load(&descriptor)?;
                 Box::new(instance)
             }
             PluginType::Internal => {

@@ -73,10 +73,10 @@
 
 - ~~engine_save/load_project~~ — FIXED: prerutirano na `project_save` / `project_load`
 - ~~Pitch Shift FFI~~ — KOMPLETNO: 20+ FFI funkcija (detect, analyze, correct, elastic, clip, voice pitch) + Dart bindings + UI paneli
-- **VST MIDI → instrument** — `PluginInstance::process()` prima samo audio, nema MIDI event queue. Instrumenti se skeniraju ali ne mogu da sviraju
-- **VST multi-output** — hardkodiran 2ch (stereo in/out). Kontakt 16-out nemoguć bez redizajna `process()` signature
-- **CLAP plugin hosting** — stub (345 linija), parsira feature enume ali ne može da loaduje/pokrene plugin
-- **LV2 plugin hosting** — stub (507 linija), nema lilv inicijalizaciju, process = passthrough
+- ~~VST MIDI → instrument~~ — KOMPLETNO: MidiBuffer u process(), TrackType::Instrument, MIDI clip rendering u audio loop, plugin lifecycle
+- **VST multi-output** — hardkodiran 2ch (stereo in/out). PinConnector postoji za 64ch ali ZeroCopyChain je stereo-only
+- ~~CLAP plugin hosting~~ — KOMPLETNO: real dlopen + clap_entry + factory + process() + lifecycle. Parametri/GUI TODO.
+- ~~LV2 plugin hosting~~ — KOMPLETNO: dlopen + lv2_descriptor + instantiate + run() + port connection + TTL parsing. Atom MIDI/GUI TODO.
 
 ## Reference
 
