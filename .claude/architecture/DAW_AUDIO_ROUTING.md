@@ -345,12 +345,76 @@ MixerProvider metode: `toggleInputMonitor()`, `setInputMonitor()`, `setInputGain
 
 ---
 
-## 19. Remaining TODOs
+## 19. Plugin Hosting u Insert Chain (VST3/AU/CLAP/LV2)
 
-- ⏳ Real-time GR metering za Compressor/Limiter
-- ⏳ FFT metering iz PLAYBACK_ENGINE za SpectrumAnalyzer
+Svi formati koriste isti `PluginInstance` trait sa identičnim `process()` potpisom:
+
+```rust
+fn process(&mut self, input: &AudioBuffer, output: &mut AudioBuffer,
+           midi_in: &MidiBuffer, midi_out: &mut MidiBuffer,
+           context: &ProcessContext) -> PluginResult<()>;
+```
+
+| Format | Status | Lifecycle | Drop Safety |
+|--------|--------|-----------|-------------|
+| VST3 | ✅ Production | `rack` crate COM | Managed by `rack` |
+| AU | ✅ Production | CoreAudio API | Managed by CoreAudio |
+| CLAP | ✅ Production | dlopen → clap_entry → factory → create | `plugin_ptr = null` posle destroy |
+| LV2 | ✅ Production | dlopen → lv2_descriptor → instantiate | `handle = null_mut` posle cleanup |
+
+**ZeroCopyChain** (`chain.rs`): Pre-alocirani `midi_in_scratch` / `midi_out_scratch` MidiBuffer-i — zero-alloc na audio thread.
 
 ---
 
-*Poslednji update: 2026-02-23 (OutputBus enum fix, legacy vs modern bus methods, createChannelFromTrack outputBus)*
+## 20. MIDI Instrument Track Rendering
+
+**Flow:** PlaybackEngine::process() → track.track_type == Instrument → MidiClipEntry → generate_events_into() → plugin.process() → accumulate f32→f64
+
+**Ključne strukture:**
+- `TrackType` enum: Audio, Instrument, Bus, Aux
+- `MidiClipEntry`: timeline pozicija + overlaps() za audio range
+- `midi_clips` DashMap u TrackManager (lock-free)
+- `PlaybackPosition.tempo_bpm` atomic (get_tempo/set_tempo)
+
+**Pravila audio thread-a:**
+- `generate_events_into()` koristi pre-alocirani MidiBuffer (zero-alloc)
+- f32→f64 konverzija za accumulation u track_l/track_r
+- Instrument track PRESKAČE audio clip rendering, ALI prolazi kroz insert chain
+
+---
+
+## 21. Multi-Output Plugin Routing (do 64ch)
+
+**PinConnector** u rf-plugin: `output_channel_map: HashMap<usize, (usize, usize)>` — mapira plugin output channel → (bus_id, bus_channel).
+
+**PlaybackEngine routing:**
+```rust
+// JEDAN try_read() scope za ceo channel map — sprečava race condition
+if let Some(map) = pin_connector.try_read() {
+    for (plugin_ch, (bus_id, bus_ch)) in map.iter() {
+        bus_buffers[bus_id][bus_ch] += plugin_output[plugin_ch];
+    }
+}
+```
+
+**Kapacitet:** 32 stereo parova (64 mono kanala). Kontakt 16-out = 16 stereo parova.
+
+**Project save/load:** `output_channel_map` se serijalizuje kao JSON u TrackState.
+
+---
+
+## 22. Remaining TODOs
+
+- ⏳ Real-time GR metering za Compressor/Limiter
+- ⏳ FFT metering iz PLAYBACK_ENGINE za SpectrumAnalyzer
+- ⏳ CLAP parametri + GUI hosting
+- ⏳ LV2 Atom MIDI port + GUI (Suil)
+- ⏳ VST3 GUI sizing
+- ⏳ Plugin preset browser
+- ⏳ Sidechain routing (multi-bus)
+- ⏳ Plugin automation (parameter → timeline lane)
+
+---
+
+*Poslednji update: 2026-03-25 (MIDI instruments, multi-output routing, CLAP/LV2 production, null-safe Drop)*
 *Condensed: 2026-03-09*

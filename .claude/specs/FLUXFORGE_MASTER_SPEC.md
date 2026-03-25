@@ -1,6 +1,6 @@
 # FluxForge Studio — Master Specification
 
-**Consolidated:** 2026-02-28 | **Sources:** 21 spec documents | **Implementation:** `.claude/MASTER_TODO.md`
+**Consolidated:** 2026-03-25 | **Sources:** 21 spec documents | **Implementation:** `.claude/MASTER_TODO.md`
 
 ---
 
@@ -24,7 +24,11 @@
 | 14 | Unified Control Panel | SPEC | 5 zones, AIL panel, debug mode, session reports |
 | 15 | Gameplay-Aware DAW | FUTURE | Dual timeline (musical + gameplay), 8 track types, 11-step Bake To Slot |
 | 16 | Scale & Stability Suite | FUTURE | Multi-project isolation, config diff, auto regression, 10k burn test |
-| 17 | SlotLab Middleware | PARTIAL | 10-layer pipeline, 22 behavior nodes, AutoBind, 6 playback modes, 15-bus hierarchy. 19/19 providers done, UI partial |
+| 17 | SlotLab Middleware | 98% | 10-layer pipeline, 22 behavior nodes, AutoBind, 6 playback modes, 15-bus hierarchy. 19/19 providers done, UI done |
+| 18 | Plugin Hosting (VST3/AU/CLAP/LV2) | DONE | Full dlopen lifecycle, PDC, multi-output (64ch), MIDI instruments, null-safe Drop. GUI: AU ✅, VST3 partial, CLAP/LV2 TODO |
+| 19 | MIDI Instrument Pipeline | DONE | MidiBuffer in process(), TrackType::Instrument, MIDI clip rendering in audio loop, plugin lifecycle, project save/load |
+| 20 | Multi-Output Routing | DONE | Per-channel bus destinations via PinConnector, 32 stereo pairs (64ch), race-condition safe single try_read() scope |
+| 21 | Project Save/Load | DONE | rf-bridge project_ffi.rs, automation CurveType (6 variants), ParamId reconstruction, clip properties (reversed/pitch/stretch), sample_rate guard |
 
 ---
 
@@ -81,3 +85,5 @@ Game Logic → Slot Mathematics → Hook Translation (O(1))
 ```
 
 Monitoring (non-export): Device Preview Engine (50 profiles, 8-node DSP)
+
+**Plugin Latency Compensation:** `AdjustedSample = SampleIndex - PluginLatency + ChainLatency`

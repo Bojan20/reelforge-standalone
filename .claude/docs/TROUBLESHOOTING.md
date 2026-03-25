@@ -331,5 +331,49 @@ void _startSpin() {
 
 **Dokumentacija:** `.claude/analysis/EMBEDDED_SLOT_ANIMATION_RACE_FIX_2026_02_01.md`
 
+#### 10. CLAP/LV2 Plugin Crash na Destroy (2026-03-25)
+
+**Simptom:**
+- Plugin radi tokom playback-a
+- App crashuje pri zatvaranju ili unload-u plugina
+- Crash log: null pointer dereference ili double-free
+
+**Uzrok:** Plugin pointer nije nulliran posle destroy/cleanup. Ako Drop pozove ponovo, double-free.
+
+**Fix (2026-03-25):**
+- CLAP: `self.plugin_ptr = std::ptr::null()` posle `destroy()`
+- LV2: `self.handle = std::ptr::null_mut()` + `self.descriptor = std::ptr::null()` posle `cleanup()`
+
+**Ključni fajlovi:** `rf-plugin/src/clap.rs` (Drop impl), `rf-plugin/src/lv2.rs` (Drop impl)
+
+#### 11. Multi-Output Instrument — Nedostaju Kanali (2026-03-25)
+
+**Simptom:**
+- Kontakt sa 16 stereo output-a
+- Neki kanali tihi ili distortirani
+- Zvuk koji fali pojavljuje se na pogrešnom bus-u
+
+**Uzrok:** Race condition — višestruki `try_read()` pozivi na output_channel_map dozvoljavaju promenu mape između čitanja.
+
+**Fix (2026-03-25):** Jedan `try_read()` scope pokriva SVE channel routing odluke. Nema međustanja.
+
+**Ključni fajl:** `rf-engine/src/playback.rs` — channel routing loop
+
+#### 12. Project Save/Load Tiho Ne Radi (2026-03-25)
+
+**Simptom:**
+- Save/Load ne prijavljuje grešku ali se ništa ne desi
+- Projekat se ne sačuva na disk / ne učita sa diska
+
+**Uzrok:** Dart FFI lookupovao `engine_save_project` / `engine_load_project` — deprecated stubovi u ffi.rs koji vraćaju 0 (failure).
+
+**Fix (2026-03-25):**
+- Prerutirano na `project_save` / `project_load` iz rf-bridge project_ffi.rs
+- UI sada prikazuje error snackbar ako save/load vrati false
+- Automation CurveType (6 varijanti) i ParamId se pravilno serijalizuju
+- Clip properties (reversed, pitch_shift, stretch_ratio) sačuvani
+
+**Ključni fajlovi:** `native_ffi.dart`, `engine_provider.dart`, `engine_connected_layout.dart`, `api_project.rs`
+
 ---
 

@@ -8,7 +8,7 @@
 | **Audio Engine** | Rust + FFI | Real-time DSP, lock-free |
 | **Audio I/O** | cpal + ASIO | Low-latency, cross-platform |
 | **DSP** | Rust + SIMD | AVX-512/AVX2/NEON |
-| **Plugin Hosting** | vst3 + rack | VST3/AU/CLAP |
+| **Plugin Hosting** | vst3 + rack + clap + lv2 | VST3/AU/CLAP/LV2 (production), MIDI instruments, multi-output (64ch) |
 | **Serialization** | serde | JSON/Binary projects |
 
 **Languages:** Dart 45%, Rust 54%, WGSL 1%

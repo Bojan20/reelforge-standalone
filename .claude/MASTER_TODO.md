@@ -32,10 +32,15 @@
 - Dva engine globala: `PLAYBACK_ENGINE` (LazyLock, uvek init) vs `ENGINE` (Option, starts None)
 - `TRACK_MANAGER`, `WAVEFORM_CACHE`, `IMPORTED_AUDIO` — `pub(crate)` u ffi.rs, pristup iz clip_ops.rs
 - OutputBus: koristi `.engineIndex`, NIKADA `.index` za FFI
-- `engine_save/load_project` u ffi.rs — DEPRECATED stubovi (vraćaju 0). Pravi su u rf-bridge `project_ffi.rs`
 - Clip operations: destructive, `Arc::make_mut` za CoW, invalidate waveform cache posle
 - Fade destructive: bake curve → CLEAR metadata (fade_in=0.0) da spreci double-apply
 - ID parsing: `RegExp(r'\d+').firstMatch(id)`, NIKADA `replaceAll(RegExp(r'[^0-9]'), '')`
+- CLAP Drop: MORA `plugin_ptr = null` posle `destroy()` — sprečava double-free
+- LV2 Drop: MORA `handle = null_mut` + `descriptor = null` posle `cleanup()`
+- Plugin process(): `midi_in`/`midi_out` parametri u SVIH 5 implementacija (VST3/AU/CLAP/LV2/Internal)
+- Multi-output routing: JEDAN `try_read()` scope za ceo channel map — sprečava race condition
+- TrackType enum: Audio/Instrument/Bus/Aux — Midi/Master mapiraju na Audio pri load-u
+- `toNativeUtf8()` alocira sa calloc → MORA `calloc.free()`, NIKADA `malloc.free()`
 
 ## Zamke — Flutter UI
 
@@ -68,15 +73,21 @@
 - Live Server Integration — WebSocket/TCP (rf-connector) + JSON-RPC server (port 8765)
 - AUREXIS: GEG, DPM, SAMCL, Device Preview, SAM — Rust + FFI + Dart provideri kompletni
 - VST3/AU plugin hosting — skeniranje, loading, GUI (out-of-process), insert chain, PDC
+- Pitch Shift FFI — 20+ FFI funkcija (detect, analyze, correct, elastic, clip, voice pitch) + Dart bindings + UI paneli
+- MIDI Instrument Pipeline — MidiBuffer u process(), TrackType::Instrument, MIDI clip rendering u audio loop, plugin lifecycle
+- Multi-Output Routing — per-channel bus routing via output_channel_map (do 64ch), PinConnector, project save/load
+- CLAP Plugin Hosting — dlopen + clap_entry + factory + process() + lifecycle + null-safe Drop
+- LV2 Plugin Hosting — dlopen + lv2_descriptor + instantiate + run() + port connection + TTL parsing + null-safe Drop
+- Project Save/Load — prerutirano na rf-bridge project_ffi.rs, calloc fix, automation CurveType/ParamId, clip properties
 
-## Nedovršeno
+## Preostalo (TODO)
 
-- ~~engine_save/load_project~~ — FIXED: prerutirano na `project_save` / `project_load`
-- ~~Pitch Shift FFI~~ — KOMPLETNO: 20+ FFI funkcija (detect, analyze, correct, elastic, clip, voice pitch) + Dart bindings + UI paneli
-- ~~VST MIDI → instrument~~ — KOMPLETNO: MidiBuffer u process(), TrackType::Instrument, MIDI clip rendering u audio loop, plugin lifecycle
-- ~~VST multi-output~~ — KOMPLETNO: per-channel bus routing via output_channel_map (up to 32 stereo pairs / 64ch), PinConnector read access, multi-channel accumulation u PlaybackEngine, project save/load
-- ~~CLAP plugin hosting~~ — KOMPLETNO: real dlopen + clap_entry + factory + process() + lifecycle. Parametri/GUI TODO.
-- ~~LV2 plugin hosting~~ — KOMPLETNO: dlopen + lv2_descriptor + instantiate + run() + port connection + TTL parsing. Atom MIDI/GUI TODO.
+- CLAP parametri + GUI hosting
+- LV2 Atom MIDI port + GUI (Suil)
+- VST3 GUI sizing issues
+- Plugin preset browser (factory preset enumeration)
+- Sidechain routing (single stereo bus → multi-bus)
+- Plugin automation (parameter → timeline lane mapping)
 
 ## Reference
 

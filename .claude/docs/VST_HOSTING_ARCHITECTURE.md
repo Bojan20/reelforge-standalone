@@ -37,8 +37,8 @@ rf-plugin/
 |---|---|---|
 | VST3 loading | ✅ Radi | `rack` crate, COM factory → component |
 | AU loading | ✅ Radi | CoreAudio AudioComponentDescription |
-| CLAP loading | 🟡 Stub | Entry point parsing, no process call |
-| LV2 loading | 🟡 Stub | lilv discovery, no instantiation |
+| CLAP loading | ✅ Radi | dlopen → clap_entry → factory → create → process() → null-safe destroy |
+| LV2 loading | ✅ Radi | dlopen → lv2_descriptor → instantiate → run() → port connection → TTL parsing → null-safe cleanup |
 | 16-thread scanner | ✅ Radi | 3000 plugins/min, format detection |
 | Zero-copy chain | ✅ Radi | BufferPool + insert ordering |
 | PDC compensation | ✅ Radi | Automatic latency alignment |
@@ -47,8 +47,12 @@ rf-plugin/
 | Native GUI (AU) | ✅ Radi | CocoaUI NSView embedding |
 | Native GUI (VST3) | 🟡 Partial | IPlugView created, sizing issues |
 | Preset browser | ❌ Nema | No factory preset enumeration |
+| Multi-output routing | ✅ Radi | PinConnector per-channel bus mapping, up to 64ch (32 stereo pairs) |
+| MIDI instruments | ✅ Radi | MidiBuffer in process(), TrackType::Instrument, MIDI clip rendering in audio loop |
 | Sidechain routing | ❌ Nema | Single stereo bus only |
 | Plugin automation | ❌ Nema | No parameter → timeline lane mapping |
+| CLAP params/GUI | ❌ Nema | Process works, but no param enumeration or GUI window |
+| LV2 Atom MIDI/GUI | ❌ Nema | Audio ports work, but no Atom MIDI port or Suil GUI |
 
 ### 1.2 FFI Bridge (30+ funkcija)
 
