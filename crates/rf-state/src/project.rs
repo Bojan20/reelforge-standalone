@@ -202,6 +202,11 @@ pub struct TrackState {
     /// Instrument plugin ID (for Instrument tracks)
     #[serde(default)]
     pub instrument_plugin_id: Option<String>,
+    /// Per-channel output bus routing for multi-output plugins.
+    /// Each entry is a bus name string (e.g., "Master", "Music", "SFX").
+    /// Index = stereo channel pair. Empty = single bus routing.
+    #[serde(default)]
+    pub output_channel_map: Vec<String>,
 }
 
 /// Audio region/clip state

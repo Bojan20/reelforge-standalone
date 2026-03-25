@@ -164,6 +164,16 @@ fn sync_tracks_to_project(e: &mut EngineBridge) {
                 regions,
                 automation: automation_lanes,
                 instrument_plugin_id: track.instrument_plugin_id.clone(),
+                output_channel_map: track.output_channel_map.iter().map(|bus| {
+                    match bus {
+                        OutputBus::Master => "Master",
+                        OutputBus::Music => "Music",
+                        OutputBus::Sfx => "SFX",
+                        OutputBus::Voice => "Voice",
+                        OutputBus::Ambience => "Ambience",
+                        OutputBus::Aux => "Aux",
+                    }.to_string()
+                }).collect(),
             }
         })
         .collect();
@@ -264,6 +274,18 @@ fn sync_tracks_from_project(e: &mut EngineBridge) {
                 TrackType::Midi | TrackType::Master => rf_engine::track_manager::TrackType::Audio,
             };
             t.instrument_plugin_id = track_state.instrument_plugin_id.clone();
+            // Restore per-channel output routing
+            t.output_channel_map = track_state.output_channel_map.iter().map(|bus_str| {
+                match bus_str.as_str() {
+                    "Master" => OutputBus::Master,
+                    "Music" => OutputBus::Music,
+                    "SFX" | "Sfx" => OutputBus::Sfx,
+                    "Voice" | "VO" => OutputBus::Voice,
+                    "Ambience" | "Ambient" => OutputBus::Ambience,
+                    "Aux" => OutputBus::Aux,
+                    _ => OutputBus::Master,
+                }
+            }).collect();
         });
 
         // Add clips/regions for this track

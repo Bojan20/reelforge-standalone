@@ -74,7 +74,7 @@
 - ~~engine_save/load_project~~ — FIXED: prerutirano na `project_save` / `project_load`
 - ~~Pitch Shift FFI~~ — KOMPLETNO: 20+ FFI funkcija (detect, analyze, correct, elastic, clip, voice pitch) + Dart bindings + UI paneli
 - ~~VST MIDI → instrument~~ — KOMPLETNO: MidiBuffer u process(), TrackType::Instrument, MIDI clip rendering u audio loop, plugin lifecycle
-- **VST multi-output** — hardkodiran 2ch (stereo in/out). PinConnector postoji za 64ch ali ZeroCopyChain je stereo-only
+- ~~VST multi-output~~ — KOMPLETNO: per-channel bus routing via output_channel_map (up to 32 stereo pairs / 64ch), PinConnector read access, multi-channel accumulation u PlaybackEngine, project save/load
 - ~~CLAP plugin hosting~~ — KOMPLETNO: real dlopen + clap_entry + factory + process() + lifecycle. Parametri/GUI TODO.
 - ~~LV2 plugin hosting~~ — KOMPLETNO: dlopen + lv2_descriptor + instantiate + run() + port connection + TTL parsing. Atom MIDI/GUI TODO.
 

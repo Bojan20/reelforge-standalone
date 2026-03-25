@@ -742,6 +742,29 @@ impl InsertChain {
         result
     }
 
+    /// Get the number of plugin output channels for a slot (from PinConnector).
+    /// Returns 2 (stereo) if no PinConnector or slot not loaded.
+    pub fn slot_output_channels(&self, slot_index: usize) -> u8 {
+        self.slot(slot_index)
+            .and_then(|s| s.pin_connector())
+            .map(|pc| pc.plugin_channels())
+            .unwrap_or(2)
+    }
+
+    /// Read a specific output channel pair from PinConnector plugin output buffer.
+    /// Returns slice of samples for the given channel. Zero-copy — reads from PinConnector's
+    /// pre-allocated buffer. Returns None if no PinConnector or channel out of range.
+    pub fn slot_plugin_output_channel(
+        &self,
+        slot_index: usize,
+        channel: usize,
+        frames: usize,
+    ) -> Option<&[Sample]> {
+        self.slot(slot_index)
+            .and_then(|s| s.pin_connector())
+            .and_then(|pc| pc.plugin_output_channel(channel, frames))
+    }
+
     /// Set parameter on processor in specific slot
     pub fn set_slot_param(&mut self, slot_index: usize, param_index: usize, value: f64) {
         if let Some(slot) = self.slot_mut(slot_index) {

@@ -562,6 +562,18 @@ impl PinConnector {
         &mut self.plugin_out[offset..offset + frames]
     }
 
+    /// Get immutable reference to plugin output channel buffer (for reading multi-channel output).
+    /// Returns None if channel is out of range.
+    #[inline]
+    pub fn plugin_output_channel(&self, channel: usize, num_frames: usize) -> Option<&[Sample]> {
+        if channel >= self.plugin_channels as usize {
+            return None;
+        }
+        let frames = num_frames.min(MAX_BUFFER_SIZE);
+        let offset = channel * MAX_BUFFER_SIZE;
+        Some(&self.plugin_out[offset..offset + frames])
+    }
+
     /// Get stereo pair from plugin input buffers (channels 0 and 1)
     /// Returns (&left, &right) slices.
     /// Requires plugin_channels >= 2. Returns (ch0, ch0) if mono plugin.

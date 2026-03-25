@@ -602,6 +602,12 @@ pub struct Track {
     /// Instrument plugin ID (for loading on project open)
     #[serde(default)]
     pub instrument_plugin_id: Option<String>,
+    /// Per-channel output routing for multi-output plugins (e.g., Kontakt 16-out).
+    /// Index = plugin output channel pair (0 = ch 0-1, 1 = ch 2-3, etc.)
+    /// Value = destination bus. Empty = all channels route to track's output_bus.
+    /// Max 32 stereo pairs (64 channels via PinConnector).
+    #[serde(default)]
+    pub output_channel_map: Vec<OutputBus>,
 }
 
 /// Default channel count for serde
@@ -650,6 +656,7 @@ impl Track {
             phase_inverted: false,
             track_type: TrackType::Audio,
             instrument_plugin_id: None,
+            output_channel_map: Vec::new(),
         }
     }
 
@@ -657,6 +664,25 @@ impl Track {
     #[inline]
     pub fn is_stereo(&self) -> bool {
         self.channels >= 2
+    }
+
+    /// Get output bus for a specific plugin output channel pair.
+    /// Returns the mapped bus or falls back to track's default output_bus.
+    #[inline]
+    pub fn output_bus_for_channel(&self, channel_pair: usize) -> OutputBus {
+        self.output_channel_map
+            .get(channel_pair)
+            .copied()
+            .unwrap_or(self.output_bus)
+    }
+
+    /// Set output bus routing for a specific plugin output channel pair.
+    /// Extends the map if needed.
+    pub fn set_output_channel_bus(&mut self, channel_pair: usize, bus: OutputBus) {
+        if channel_pair >= self.output_channel_map.len() {
+            self.output_channel_map.resize(channel_pair + 1, self.output_bus);
+        }
+        self.output_channel_map[channel_pair] = bus;
     }
 
     /// Set send level
@@ -724,6 +750,7 @@ impl Track {
             phase_inverted: false,
             track_type: TrackType::Audio,
             instrument_plugin_id: None,
+            output_channel_map: Vec::new(),
         }
     }
 }
