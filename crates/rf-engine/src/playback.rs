@@ -1897,8 +1897,14 @@ pub struct PlaybackEngine {
     /// Created on UI thread when user loads an instrument plugin on an Instrument track.
     /// Audio thread calls process() with MidiBuffer to generate audio.
     instrument_plugins: RwLock<HashMap<u64, Arc<parking_lot::RwLock<Box<dyn rf_plugin::PluginInstance>>>>>,
-    /// Pre-allocated MidiBuffer for instrument processing (avoid audio-thread allocations)
+    /// Pre-allocated MidiBuffer for instrument MIDI input (avoid audio-thread allocations)
     instrument_midi_buffer: RwLock<rf_core::MidiBuffer>,
+    /// Pre-allocated MidiBuffer for instrument MIDI output (avoid audio-thread allocations)
+    instrument_midi_out: RwLock<rf_core::MidiBuffer>,
+    /// Pre-allocated AudioBuffer for instrument input (silence, avoid audio-thread allocations)
+    instrument_audio_in: RwLock<rf_plugin::AudioBuffer>,
+    /// Pre-allocated AudioBuffer for instrument output (avoid audio-thread allocations)
+    instrument_audio_out: RwLock<rf_plugin::AudioBuffer>,
 
     // === ONE-SHOT VOICES (Middleware/SlotLab event playback) ===
     /// Pre-allocated one-shot voice slots
@@ -2058,6 +2064,9 @@ impl PlaybackEngine {
             // Instrument plugin instances per track
             instrument_plugins: RwLock::new(HashMap::new()),
             instrument_midi_buffer: RwLock::new(rf_core::MidiBuffer::new()),
+            instrument_midi_out: RwLock::new(rf_core::MidiBuffer::new()),
+            instrument_audio_in: RwLock::new(rf_plugin::AudioBuffer::new(2, 4096)),
+            instrument_audio_out: RwLock::new(rf_plugin::AudioBuffer::new(2, 4096)),
             // One-shot voices for Middleware/SlotLab event playback
             one_shot_voices: RwLock::new(std::array::from_fn(|_| OneShotVoice::new_inactive())),
             one_shot_cmd_tx: parking_lot::Mutex::new(one_shot_tx),
@@ -5650,30 +5659,39 @@ impl PlaybackEngine {
                         }
 
                         // Process instrument plugin: empty audio in → audio out + MIDI
+                        // Use pre-allocated buffers (zero audio-thread allocations)
                         if let Some(mut plugin) = plugin_arc.try_write() {
-                            let empty_input = rf_plugin::AudioBuffer::new(2, frames);
-                            let mut output = rf_plugin::AudioBuffer::new(2, frames);
-                            let mut midi_out = rf_core::MidiBuffer::new();
-                            let context = rf_plugin::ProcessContext {
-                                sample_rate,
-                                max_block_size: frames,
-                                tempo,
-                                time_sig_num: 4,
-                                time_sig_denom: 4,
-                                position_samples: start_sample as i64,
-                                is_playing: self.position.is_playing(),
-                                is_recording: self.position.is_recording(),
-                                is_looping: false,
-                                loop_start: 0,
-                                loop_end: 0,
-                            };
+                            if let (Some(mut audio_in), Some(mut audio_out), Some(mut midi_out)) = (
+                                self.instrument_audio_in.try_write(),
+                                self.instrument_audio_out.try_write(),
+                                self.instrument_midi_out.try_write(),
+                            ) {
+                                // Clear pre-allocated buffers
+                                audio_in.clear();
+                                audio_out.clear();
+                                midi_out.clear();
 
-                            if plugin.process(&empty_input, &mut output, &midi_buf, &mut midi_out, &context).is_ok() {
-                                // Accumulate f32 plugin output into f64 track buffers
-                                if let (Some(out_l), Some(out_r)) = (output.channel(0), output.channel(1)) {
-                                    for i in 0..frames.min(out_l.len()) {
-                                        track_l[i] += out_l[i] as f64;
-                                        track_r[i] += out_r[i] as f64;
+                                let context = rf_plugin::ProcessContext {
+                                    sample_rate,
+                                    max_block_size: frames,
+                                    tempo,
+                                    time_sig_num: 4,
+                                    time_sig_denom: 4,
+                                    position_samples: start_sample as i64,
+                                    is_playing: self.position.is_playing(),
+                                    is_recording: self.position.is_recording(),
+                                    is_looping: false,
+                                    loop_start: 0,
+                                    loop_end: 0,
+                                };
+
+                                if plugin.process(&audio_in, &mut audio_out, &midi_buf, &mut midi_out, &context).is_ok() {
+                                    // Accumulate f32 plugin output into f64 track buffers
+                                    if let (Some(out_l), Some(out_r)) = (audio_out.channel(0), audio_out.channel(1)) {
+                                        for i in 0..frames.min(out_l.len()) {
+                                            track_l[i] += out_l[i] as f64;
+                                            track_r[i] += out_r[i] as f64;
+                                        }
                                     }
                                 }
                             }
