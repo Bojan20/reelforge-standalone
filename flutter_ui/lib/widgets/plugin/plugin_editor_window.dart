@@ -28,6 +28,10 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
   Offset _position = const Offset(100, 100);
   bool _isDragging = false;
 
+  // User-resizable dimensions (null = use plugin-reported size)
+  double? _userWidth;
+  double? _userHeight;
+
   @override
   Widget build(BuildContext context) {
     return Consumer<PluginProvider>(
@@ -37,8 +41,8 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
           return const SizedBox.shrink();
         }
 
-        final width = instance.editorWidth?.toDouble() ?? 600;
-        final height = instance.editorHeight?.toDouble() ?? 400;
+        final width = _userWidth ?? instance.editorWidth?.toDouble() ?? 600;
+        final height = _userHeight ?? instance.editorHeight?.toDouble() ?? 400;
 
         return Positioned(
           left: _position.dx,
@@ -53,14 +57,52 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
                 border: Border.all(color: FluxForgeTheme.bgSurface, width: 1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              child: Stack(
                 children: [
-                  // Title bar
-                  _buildTitleBar(instance, provider),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Title bar
+                      _buildTitleBar(instance, provider),
 
-                  // Plugin content area
-                  _buildEditorArea(instance, width, height),
+                      // Plugin content area
+                      _buildEditorArea(instance, width, height),
+                    ],
+                  ),
+                  // Resize handle (bottom-right corner)
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: GestureDetector(
+                      onPanUpdate: (details) {
+                        setState(() {
+                          _userWidth = ((_userWidth ?? width) + details.delta.dx)
+                              .clamp(300.0, 2000.0);
+                          _userHeight = ((_userHeight ?? height) + details.delta.dy)
+                              .clamp(200.0, 1500.0);
+                        });
+                        // Sync resize to native window via FFI
+                        provider.resizeEditor(
+                          widget.instanceId,
+                          (_userWidth ?? width).toInt(),
+                          (_userHeight ?? height).toInt(),
+                        );
+                      },
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.resizeDownRight,
+                        child: Container(
+                          width: 16,
+                          height: 16,
+                          alignment: Alignment.bottomRight,
+                          child: Icon(
+                            Icons.drag_handle,
+                            size: 12,
+                            color: FluxForgeTheme.textSecondary.withOpacity(0.3),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),

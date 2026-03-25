@@ -1217,10 +1217,56 @@ impl PluginInstance for Vst3Host {
         Some((800, 600))
     }
 
-    fn resize_editor(&mut self, _width: u32, _height: u32) -> PluginResult<()> {
+    fn resize_editor(&mut self, width: u32, height: u32) -> PluginResult<()> {
         if !self.editor_open.load(Ordering::SeqCst) {
             return Err(PluginError::ProcessingError("Editor not open".into()));
         }
+
+        // Clamp to reasonable bounds
+        let w = (width.max(200).min(4096)) as f64;
+        let h = (height.max(150).min(4096)) as f64;
+
+        #[cfg(target_os = "macos")]
+        {
+            // Resize the AU window if we have one
+            {
+                let guard = self.au_window.lock();
+                if let Some(window_ptr) = *guard {
+                    if window_ptr != 0 {
+                        unsafe {
+                            use objc2::msg_send;
+                            use objc2::runtime::AnyObject;
+                            use objc2_foundation::{NSPoint, NSRect, NSSize};
+
+                            let window = window_ptr as *mut AnyObject;
+                            // Get current frame origin to preserve position
+                            let frame: NSRect = msg_send![window, frame];
+                            let new_frame = NSRect::new(
+                                NSPoint::new(frame.origin.x, frame.origin.y),
+                                NSSize::new(w, h + 28.0), // +28 for title bar
+                            );
+                            let _: () = msg_send![window, setFrame: new_frame display: true animate: true];
+                            // Also resize the content view's plugin subview
+                            let content_view: *mut AnyObject = msg_send![window, contentView];
+                            if !content_view.is_null() {
+                                let subviews: *mut AnyObject = msg_send![content_view, subviews];
+                                let count: usize = msg_send![subviews, count];
+                                if count > 0 {
+                                    let plugin_view: *mut AnyObject = msg_send![subviews, objectAtIndex: 0usize];
+                                    let view_rect = NSRect::new(
+                                        NSPoint::new(0.0, 0.0),
+                                        NSSize::new(w, h),
+                                    );
+                                    let _: () = msg_send![plugin_view, setFrame: view_rect];
+                                }
+                            }
+                        }
+                        log::info!("Resized editor window to {}x{}", width, height);
+                    }
+                }
+            }
+        }
+
         Ok(())
     }
 }
