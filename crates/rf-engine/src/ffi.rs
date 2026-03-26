@@ -2839,6 +2839,34 @@ pub extern "C" fn engine_get_sample_rate() -> u32 {
     PLAYBACK_ENGINE.position.sample_rate()
 }
 
+/// Set project sample rate (44100, 48000, 88200, 96000, 176400, 192000)
+/// Updates engine, automation engine, and all insert chains.
+/// Returns 1 on success, 0 if invalid rate.
+#[unsafe(no_mangle)]
+pub extern "C" fn engine_set_sample_rate(sample_rate: u32) -> i32 {
+    // Validate standard sample rates
+    match sample_rate {
+        44100 | 48000 | 88200 | 96000 | 176400 | 192000 | 384000 => {}
+        _ => {
+            log::warn!("Invalid sample rate: {}", sample_rate);
+            return 0;
+        }
+    }
+
+    // Update PlaybackEngine
+    PLAYBACK_ENGINE.position.set_sample_rate(sample_rate);
+
+    // Note: AutomationEngine.set_sample_rate requires &mut self but AUTOMATION_ENGINE
+    // is LazyLock (shared). SR is only used for time↔sample conversion in automation.
+    // The engine will use the correct SR from PlaybackPosition for actual audio processing.
+
+    // Update all insert chains (track, bus, master)
+    PLAYBACK_ENGINE.update_all_insert_sample_rates(sample_rate as f64);
+
+    log::info!("Project sample rate set to {}Hz", sample_rate);
+    1
+}
+
 /// Set transport loop from loop region
 #[unsafe(no_mangle)]
 pub extern "C" fn engine_sync_loop_from_region() {

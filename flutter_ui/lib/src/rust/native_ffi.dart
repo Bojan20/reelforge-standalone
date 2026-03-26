@@ -2427,6 +2427,7 @@ class NativeFFI {
   late final EngineCacheIsLoadedDart _cacheIsLoaded;
   late final EngineSyncLoopFromRegionDart _syncLoopFromRegion;
   late final EngineGetSampleRateDart _getSampleRate;
+  late final int Function(int) _setSampleRate;
 
   // Audio stream control
   late final EngineStartPlaybackDart _startPlayback;
@@ -3175,6 +3176,7 @@ class NativeFFI {
 
     _syncLoopFromRegion = _lib.lookupFunction<EngineSyncLoopFromRegionNative, EngineSyncLoopFromRegionDart>('engine_sync_loop_from_region');
     _getSampleRate = _lib.lookupFunction<EngineGetSampleRateNative, EngineGetSampleRateDart>('engine_get_sample_rate');
+    _setSampleRate = _lib.lookupFunction<Int32 Function(Uint32), int Function(int)>('engine_set_sample_rate');
 
     // Audio stream control
     _startPlayback = _lib.lookupFunction<EngineStartPlaybackNative, EngineStartPlaybackDart>('engine_start_playback');
@@ -4971,6 +4973,14 @@ class NativeFFI {
   int getSampleRate() {
     if (!_loaded) return 48000;
     return _getSampleRate();
+  }
+
+  /// Set project sample rate (44100, 48000, 88200, 96000, 176400, 192000)
+  /// Updates engine, insert chains, and DSP processors.
+  /// Returns true on success, false if invalid rate.
+  bool setSampleRate(int sampleRate) {
+    if (!_loaded) return false;
+    return _setSampleRate(sampleRate) != 0;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

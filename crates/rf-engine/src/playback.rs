@@ -3340,6 +3340,23 @@ impl PlaybackEngine {
             .unwrap_or(-1)
     }
 
+    /// Update sample rate on all insert chains (track, bus, master)
+    pub fn update_all_insert_sample_rates(&self, sample_rate: f64) {
+        if let Some(mut chains) = self.insert_chains.try_write() {
+            for chain in chains.values_mut() {
+                chain.set_sample_rate(sample_rate);
+            }
+        }
+        if let Some(mut bus_inserts) = self.bus_inserts.try_write() {
+            for chain in bus_inserts.iter_mut() {
+                chain.set_sample_rate(sample_rate);
+            }
+        }
+        if let Some(mut master) = self.master_insert.try_write() {
+            master.set_sample_rate(sample_rate);
+        }
+    }
+
     /// Get meter value from track insert processor (GR, levels)
     pub fn get_track_insert_meter(
         &self,

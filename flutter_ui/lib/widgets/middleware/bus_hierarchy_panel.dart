@@ -13,6 +13,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../models/advanced_middleware_models.dart';
+import '../../src/rust/native_ffi.dart';
 import '../../theme/fluxforge_theme.dart';
 import '../spectrum/spectrum_analyzer.dart';
 
@@ -273,25 +274,35 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
   }
 
   void _updateSimulatedSpectrum() {
-    // Generate realistic-looking spectrum (pink noise slope + some peaks)
+    // Read real spectrum data from engine FFI
+    final ffi = NativeFFI.instance;
+    final realSpectrum = ffi.getMasterSpectrum();
+
+    if (realSpectrum.isNotEmpty) {
+      // Use real FFT data from audio engine
+      final len = realSpectrum.length.clamp(0, _spectrumData.length);
+      for (int i = 0; i < len; i++) {
+        // Convert linear magnitude to dB with smoothing
+        final mag = realSpectrum[i].clamp(0.0, 1.0);
+        final db = mag > 1e-6 ? (20.0 * math.log(mag) / math.ln10) : -90.0;
+        _spectrumData[i] = _spectrumData[i] * 0.7 + db * 0.3;
+      }
+    } else {
+      // Fallback: generate simulated spectrum when engine not active
+      for (int i = 0; i < _spectrumData.length; i++) {
+        final freq = 20.0 * math.pow(1000.0, i / _spectrumData.length);
+        final baseLevel = -20.0 - (math.log(freq / 20.0) / math.ln2) * 3.0;
+        double peak = 0.0;
+        if (freq > 80 && freq < 120) peak = 6.0;
+        if (freq > 400 && freq < 600) peak = 3.0;
+        if (freq > 2000 && freq < 4000) peak = 4.0;
+        final noise = (_rng.nextDouble() - 0.5) * 12.0;
+        final targetDb = (baseLevel + peak + noise).clamp(-90.0, 0.0);
+        _spectrumData[i] = _spectrumData[i] * 0.7 + targetDb * 0.3;
+      }
+    }
+
     for (int i = 0; i < _spectrumData.length; i++) {
-      final freq = 20.0 * math.pow(1000.0, i / _spectrumData.length);
-
-      // Pink noise slope (-3dB/octave)
-      final baseLevel = -20.0 - (math.log(freq / 20.0) / math.ln2) * 3.0;
-
-      // Add some musical peaks around typical frequencies
-      double peak = 0.0;
-      if (freq > 80 && freq < 120) peak = 6.0; // Bass fundamental
-      if (freq > 400 && freq < 600) peak = 3.0; // Midrange
-      if (freq > 2000 && freq < 4000) peak = 4.0; // Presence
-
-      // Random modulation
-      final noise = (_rng.nextDouble() - 0.5) * 12.0;
-
-      // Smoothing with previous value
-      final targetDb = (baseLevel + peak + noise).clamp(-90.0, 0.0);
-      _spectrumData[i] = _spectrumData[i] * 0.7 + targetDb * 0.3;
 
       // Update peak hold with decay
       if (_spectrumData[i] > _peakHoldData[i]) {
