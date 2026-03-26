@@ -80,14 +80,22 @@
 - LV2 Plugin Hosting — dlopen + lv2_descriptor + instantiate + run() + port connection + TTL parsing + null-safe Drop
 - Project Save/Load — prerutirano na rf-bridge project_ffi.rs, calloc fix, automation CurveType/ParamId, clip properties
 
+## Nedavno završeno (2026-03-25)
+
+- Plugin Automation — wire UI → FFI, param_name parse bug fix, PluginParamId class, 10 provider metoda
+- VST3/AU GUI Resize — resize_editor implementiran (objc2 NSWindow), Flutter drag-to-resize handle
+- Plugin Preset Browser — PluginInstance trait (preset_count/name/load), FFI, Dart, UI menu
+- CLAP Full Extensions — params (flush event), state (stream), latency, GUI (floating cocoa/win32/x11)
+- LV2 URID Map — global thread-safe URI↔integer mapping (17 pre-registered), Atom MIDI buffers
+- Sidechain Routing — InsertProcessor.set_sidechain_input(), CompressorWrapper integration, FFI
+
 ## Preostalo (TODO)
 
-- CLAP parametri + GUI hosting
-- LV2 Atom MIDI port + GUI (Suil)
-- VST3 GUI sizing issues
-- Plugin preset browser (factory preset enumeration)
-- Sidechain routing (single stereo bus → multi-bus)
-- Plugin automation (parameter → timeline lane mapping)
+- LV2 GUI hosting (Suil library integration)
+- VST3 native GUI on Windows/Linux (IPlugView)
+- Plugin automation recording (capture param changes during playback)
+- Real-time GR metering za Compressor/Limiter
+- FFT metering iz PLAYBACK_ENGINE za SpectrumAnalyzer
 
 ## Reference
 
