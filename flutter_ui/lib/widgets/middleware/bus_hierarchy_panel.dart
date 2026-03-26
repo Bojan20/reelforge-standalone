@@ -283,7 +283,8 @@ class _BusHierarchyPanelState extends State<BusHierarchyPanel>
       final len = realSpectrum.length.clamp(0, _spectrumData.length);
       for (int i = 0; i < len; i++) {
         // Convert linear magnitude to dB with smoothing
-        final mag = realSpectrum[i].clamp(0.0, 1.0);
+        // Spectrum values from engine are normalized 0.0-1.0 (already clamped in Rust)
+        final mag = realSpectrum[i].abs(); // abs() guards against rare negative values
         final db = mag > 1e-6 ? (20.0 * math.log(mag) / math.ln10) : -90.0;
         _spectrumData[i] = _spectrumData[i] * 0.7 + db * 0.3;
       }

@@ -625,8 +625,6 @@ impl Default for Lv2Host {
 /// Live LV2 plugin instance with loaded library
 pub struct Lv2PluginInstance {
     info: PluginInfo,
-    /// Loaded dynamic library (must stay alive)
-    _library: Option<Arc<libloading::Library>>,
     /// LV2 plugin handle (returned by instantiate())
     handle: LV2Handle,
     /// Descriptor pointer (points into loaded library)
@@ -643,13 +641,6 @@ pub struct Lv2PluginInstance {
     activated: bool,
     /// Sample rate
     sample_rate: f64,
-    /// URID map feature (must outlive plugin — kept in Box for stable pointer)
-    _urid_map: Box<Lv2UridMap>,
-    _urid_unmap: Box<Lv2UridUnmap>,
-    /// Feature array C strings (must outlive plugin)
-    _feature_uris: Vec<std::ffi::CString>,
-    /// Feature structs (heap-allocated, must outlive plugin — plugins may cache pointers)
-    _feature_structs: Vec<Box<Lv2Feature>>,
     /// Pre-allocated Atom buffers for MIDI ports
     atom_input: Option<AtomBuffer>,
     atom_output: Option<AtomBuffer>,
@@ -660,6 +651,19 @@ pub struct Lv2PluginInstance {
     sequence_urid: u32,
     /// URID for midi:MidiEvent type
     midi_event_urid: u32,
+    // === LIFETIME-CRITICAL: fields below must be dropped LAST ===
+    // Rust drops struct fields in declaration order. These own resources
+    // that plugin pointers depend on. Dropping them last ensures no
+    // dangling pointers during plugin cleanup().
+    /// Feature structs (contain pointers into _feature_uris)
+    _feature_structs: Vec<Box<Lv2Feature>>,
+    /// Feature C strings (owned, pointed to by _feature_structs)
+    _feature_uris: Vec<std::ffi::CString>,
+    /// URID map feature (pointed to by _feature_structs)
+    _urid_map: Box<Lv2UridMap>,
+    _urid_unmap: Box<Lv2UridUnmap>,
+    /// Loaded dynamic library — MUST be LAST (dylib unload = all symbols invalid)
+    _library: Option<Arc<libloading::Library>>,
 }
 
 // SAFETY: LV2 handle is a C pointer, accessed sequentially (never concurrent audio+UI)
