@@ -32,6 +32,9 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
   double? _userWidth;
   double? _userHeight;
 
+  // Resize throttle — prevent FFI flood during drag
+  DateTime _lastResizeSync = DateTime.fromMillisecondsSinceEpoch(0);
+
   @override
   Widget build(BuildContext context) {
     return Consumer<PluginProvider>(
@@ -81,12 +84,16 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
                           _userHeight = ((_userHeight ?? height) + details.delta.dy)
                               .clamp(200.0, 1500.0);
                         });
-                        // Sync resize to native window via FFI
-                        provider.resizeEditor(
-                          widget.instanceId,
-                          (_userWidth ?? width).toInt(),
-                          (_userHeight ?? height).toInt(),
-                        );
+                        // Throttle FFI resize calls to max ~15fps (67ms) to prevent flood
+                        final now = DateTime.now();
+                        if (now.difference(_lastResizeSync).inMilliseconds > 67) {
+                          _lastResizeSync = now;
+                          provider.resizeEditor(
+                            widget.instanceId,
+                            (_userWidth ?? width).toInt(),
+                            (_userHeight ?? height).toInt(),
+                          );
+                        }
                       },
                       child: MouseRegion(
                         cursor: SystemMouseCursors.resizeDownRight,

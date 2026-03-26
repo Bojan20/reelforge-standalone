@@ -1751,6 +1751,10 @@ use rf_dsp::dynamics::{
 pub struct CompressorWrapper {
     comp: StereoCompressor,
     sample_rate: f64,
+    /// Pre-allocated sidechain buffer (mono key signal, max 8192 samples)
+    sc_buffer: [Sample; 8192],
+    /// Number of valid sidechain samples in buffer (0 = no sidechain this block)
+    sc_len: usize,
 }
 
 impl CompressorWrapper {
@@ -1758,6 +1762,8 @@ impl CompressorWrapper {
         Self {
             comp: StereoCompressor::new(sample_rate),
             sample_rate,
+            sc_buffer: [0.0; 8192],
+            sc_len: 0,
         }
     }
 
@@ -1772,24 +1778,30 @@ impl InsertProcessor for CompressorWrapper {
     }
 
     fn set_sidechain_input(&mut self, left: &[Sample], right: &[Sample]) {
-        // Enable external sidechain on both channels
+        // Enable external sidechain and store buffer for per-sample feeding
         self.comp.left().set_sidechain_enabled(true);
         self.comp.right().set_sidechain_enabled(true);
-        // Set last sample of sidechain as key signal for detection
-        // (per-sample feeding happens inside process_sample via the enabled flag)
-        if let (Some(&l), Some(&r)) = (left.last(), right.last()) {
-            let key = (l + r) * 0.5; // Mono sidechain key
-            self.comp.left().set_sidechain_key(key);
-            self.comp.right().set_sidechain_key(key);
+        // Copy sidechain into pre-allocated buffer for per-sample access in process_stereo
+        let len = left.len().min(right.len()).min(self.sc_buffer.len());
+        for i in 0..len {
+            self.sc_buffer[i] = (left[i] + right[i]) * 0.5; // Mono key signal
         }
+        self.sc_len = len;
     }
 
     fn process_stereo(&mut self, left: &mut [Sample], right: &mut [Sample]) {
-        for (l, r) in left.iter_mut().zip(right.iter_mut()) {
+        let sc_len = self.sc_len;
+        for (i, (l, r)) in left.iter_mut().zip(right.iter_mut()).enumerate() {
+            // Feed sidechain per-sample if available
+            if i < sc_len {
+                self.comp.left().set_sidechain_key(self.sc_buffer[i]);
+                self.comp.right().set_sidechain_key(self.sc_buffer[i]);
+            }
             let (out_l, out_r) = self.comp.process_sample(*l, *r);
             *l = out_l;
             *r = out_r;
         }
+        self.sc_len = 0; // Reset after processing
     }
 
     fn reset(&mut self) {

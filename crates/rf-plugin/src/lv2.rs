@@ -648,6 +648,8 @@ pub struct Lv2PluginInstance {
     _urid_unmap: Box<Lv2UridUnmap>,
     /// Feature array C strings (must outlive plugin)
     _feature_uris: Vec<std::ffi::CString>,
+    /// Feature structs (heap-allocated, must outlive plugin — plugins may cache pointers)
+    _feature_structs: Vec<Box<Lv2Feature>>,
     /// Pre-allocated Atom buffers for MIDI ports
     atom_input: Option<AtomBuffer>,
     atom_output: Option<AtomBuffer>,
@@ -721,22 +723,23 @@ impl Lv2PluginInstance {
             unmap: urid_unmap_callback,
         });
 
-        // Feature URIs (must outlive the features array)
+        // Feature URIs (must outlive the plugin — stored in struct)
         let map_uri = std::ffi::CString::new("http://lv2plug.in/ns/ext/urid#map").unwrap();
         let unmap_uri = std::ffi::CString::new("http://lv2plug.in/ns/ext/urid#unmap").unwrap();
 
-        // Build features array with stable pointers
-        let map_feature = Lv2Feature {
+        // CRITICAL: Feature structs MUST be heap-allocated (Box) because plugins
+        // may cache feature pointers beyond instantiate(). Stack pointers = UB.
+        let map_feature = Box::new(Lv2Feature {
             uri: map_uri.as_ptr(),
             data: &*urid_map as *const Lv2UridMap as *const c_void,
-        };
-        let unmap_feature = Lv2Feature {
+        });
+        let unmap_feature = Box::new(Lv2Feature {
             uri: unmap_uri.as_ptr(),
             data: &*urid_unmap as *const Lv2UridUnmap as *const c_void,
-        };
+        });
         let features: [*const Lv2Feature; 3] = [
-            &map_feature as *const Lv2Feature,
-            &unmap_feature as *const Lv2Feature,
+            &*map_feature as *const Lv2Feature,
+            &*unmap_feature as *const Lv2Feature,
             std::ptr::null(),
         ];
 
@@ -752,7 +755,9 @@ impl Lv2PluginInstance {
         } else {
             return Err(PluginError::LoadFailed("no instantiate callback".into()));
         };
+        // Keep everything alive for plugin lifetime (stored in Self)
         let feature_uris = vec![map_uri, unmap_uri];
+        let feature_structs = vec![map_feature, unmap_feature];
 
         if handle.is_null() {
             return Err(PluginError::LoadFailed("instantiate returned null".into()));
@@ -800,6 +805,7 @@ impl Lv2PluginInstance {
             _urid_map: urid_map,
             _urid_unmap: urid_unmap,
             _feature_uris: feature_uris,
+            _feature_structs: feature_structs,
             atom_input: Some(AtomBuffer::new(8192)),
             atom_output: Some(AtomBuffer::new(8192)),
             atom_input_port: None, // Will be set from port discovery
