@@ -282,6 +282,8 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
                 key: ValueKey('param_${param.id}'),
                 param: param,
                 instanceId: instance.instanceId,
+                trackId: instance.trackId,
+                slotIndex: instance.slotIndex,
                 provider: provider,
                 accentColor: _getFormatColor(instance.format),
               );
@@ -453,6 +455,8 @@ class _PluginEditorWindowState extends State<PluginEditorWindow> {
 class _PluginParamSlider extends StatefulWidget {
   final NativePluginParamInfo param;
   final String instanceId;
+  final int trackId;
+  final int slotIndex;
   final PluginProvider provider;
   final Color accentColor;
 
@@ -460,6 +464,8 @@ class _PluginParamSlider extends StatefulWidget {
     super.key,
     required this.param,
     required this.instanceId,
+    required this.trackId,
+    required this.slotIndex,
     required this.provider,
     required this.accentColor,
   });
@@ -529,9 +535,28 @@ class _PluginParamSliderState extends State<_PluginParamSlider> {
                   value: _value.clamp(p.min, p.max),
                   min: p.min,
                   max: p.max,
+                  onChangeStart: (v) {
+                    // Touch param for automation recording (Touch/Latch/Write modes)
+                    final ffi = NativeFFI.instance;
+                    ffi.automationTouchPlugin(
+                      widget.trackId, widget.slotIndex, p.id, v,
+                    );
+                  },
                   onChanged: (v) {
                     setState(() => _value = v);
                     widget.provider.setPluginParam(widget.instanceId, p.id, v);
+                    // Record automation change during playback
+                    final ffi = NativeFFI.instance;
+                    ffi.automationTouchPlugin(
+                      widget.trackId, widget.slotIndex, p.id, v,
+                    );
+                  },
+                  onChangeEnd: (v) {
+                    // Release param — commits pending automation points
+                    final ffi = NativeFFI.instance;
+                    ffi.automationReleasePlugin(
+                      widget.trackId, widget.slotIndex, p.id,
+                    );
                   },
                 ),
               ),
