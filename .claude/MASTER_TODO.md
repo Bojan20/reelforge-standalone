@@ -88,14 +88,14 @@
 - CLAP Full Extensions — params (flush event), state (stream), latency, GUI (floating cocoa/win32/x11)
 - LV2 URID Map — global thread-safe URI↔integer mapping (17 pre-registered), Atom MIDI buffers
 - Sidechain Routing — InsertProcessor.set_sidechain_input(), CompressorWrapper integration, FFI
+- Plugin Automation Recording — slider onChangeStart/onChanged/onChangeEnd → FFI touch/release
+- GR Metering — VEĆ KOMPLETNO (insert_get_meter FFI + Dart + CompressorWrapper.get_meter)
+- FFT Metering — VEĆ KOMPLETNO (pro_eq_get_spectrum FFI + get_spectrum_data)
 
 ## Preostalo (TODO)
 
-- LV2 GUI hosting (Suil library integration)
-- VST3 native GUI on Windows/Linux (IPlugView)
-- Plugin automation recording (capture param changes during playback)
-- Real-time GR metering za Compressor/Limiter
-- FFT metering iz PLAYBACK_ENGINE za SpectrumAnalyzer
+- LV2 GUI hosting (Suil library integration — zahteva external C dependency)
+- VST3 native GUI on Windows/Linux (IPlugView COM — zahteva platform-specific kod)
 
 ## Reference
 
