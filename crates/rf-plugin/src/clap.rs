@@ -941,16 +941,17 @@ impl PluginInstance for ClapPluginInstance {
         let params = unsafe { &*self.params_ext };
         if let Some(flush) = params.flush {
             // Create a parameter value event on the stack
+            // Layout matches clap_event_param_value_t exactly (verified: 56 bytes, value at offset 48)
             #[repr(C)]
             struct ClapEventParamValue {
-                header: [u8; 16], // ClapEventHeader (size, time, space_id, type, flags)
-                param_id: u32,
+                header: [u8; 16], // clap_event_header_t (size u32, time u32, space_id u16, type u16, flags u32)
+                param_id: u32,    // clap_id
                 cookie: *mut c_void,
                 note_id: i32,
                 port_index: i16,
                 channel: i16,
                 key: i16,
-                _pad: i16,
+                // 6 bytes implicit padding (repr(C)) to align f64
                 value: f64,
             }
 
@@ -971,7 +972,6 @@ impl PluginInstance for ClapPluginInstance {
                 port_index: -1,
                 channel: -1,
                 key: -1,
-                _pad: 0,
                 value,
             };
 

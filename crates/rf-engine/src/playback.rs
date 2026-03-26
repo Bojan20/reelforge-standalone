@@ -6589,14 +6589,18 @@ impl PlaybackEngine {
                                 .strip_prefix("param_")
                                 .and_then(|s| s.parse::<usize>().ok())
                                 .unwrap_or(0);
-                            // Apply with smoothing via per-sample interpolation
-                            // set_slot_param queues the value for next process() call
                             chain.set_slot_param(
                                 slot as usize,
                                 param_idx,
                                 change.value,
                             );
                         }
+                    } else {
+                        // Lock contended — automation change deferred to next block
+                        log::trace!(
+                            "Plugin automation deferred: track={}, slot={:?}, param={}, value={}",
+                            track_id, param_id.slot, param_id.param_name, change.value
+                        );
                     }
                 }
             }
