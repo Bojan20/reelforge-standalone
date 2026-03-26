@@ -117,7 +117,7 @@ struct Lv2UridUnmap {
 unsafe extern "C" fn urid_map_callback(_handle: *mut c_void, uri: *const c_char) -> u32 {
     if uri.is_null() { return 0; }
     let uri_str = CStr::from_ptr(uri).to_string_lossy().to_string();
-    let mut map = URID_MAP.lock().unwrap();
+    let mut map = URID_MAP.lock().expect("URID map mutex poisoned");
     if let Some(&id) = map.uri_to_id.get(&uri_str) {
         return id;
     }
@@ -131,7 +131,7 @@ unsafe extern "C" fn urid_map_callback(_handle: *mut c_void, uri: *const c_char)
 /// URID unmap callback — called by plugins to get URI from integer
 unsafe extern "C" fn urid_unmap_callback(_handle: *mut c_void, urid: u32) -> *const c_char {
     if urid == 0 { return std::ptr::null(); }
-    let map = URID_MAP.lock().unwrap();
+    let map = URID_MAP.lock().expect("URID map mutex poisoned");
     let idx = (urid - 1) as usize;
     if idx < map.id_to_uri.len() {
         // Return pointer to CString in a thread-local (stable for duration of plugin call)
