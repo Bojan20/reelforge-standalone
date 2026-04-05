@@ -17260,9 +17260,6 @@ pub extern "C" fn plugin_get_all_params_json(instance_id: *const c_char) -> *mut
     }
 }
 
-/// Initialize plugin host (call once at startup)
-/// Returns 1 on success
-#[unsafe(no_mangle)]
 /// Get number of factory presets for a loaded plugin instance
 /// Returns preset count, or 0 if not supported
 #[unsafe(no_mangle)]

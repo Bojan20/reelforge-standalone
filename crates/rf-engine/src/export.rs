@@ -16,8 +16,7 @@ use crate::freeze::OfflineRenderer;
 use crate::playback::PlaybackEngine;
 use crate::track_manager::TrackManager;
 
-#[allow(unused_imports)]
-use rf_file::{AudioData, AudioFormat, BitDepth, write_flac, write_mp3};
+use rf_file::{AudioData, BitDepth, write_flac, write_mp3};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // EXPORT CONFIG

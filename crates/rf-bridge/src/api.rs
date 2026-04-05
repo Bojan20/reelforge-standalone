@@ -1773,11 +1773,10 @@ pub fn audio_list_hosts() -> Vec<String> {
 }
 
 /// Set output device by name
-#[allow(unused_must_use)]
 #[flutter_rust_bridge::frb(sync)]
 pub fn audio_set_output_device(device_name: String) -> bool {
     // Stop current stream
-    crate::PLAYBACK.stop();
+    let _ = crate::PLAYBACK.stop();
 
     // Get the device
     match rf_audio::get_output_device_by_name(&device_name) {

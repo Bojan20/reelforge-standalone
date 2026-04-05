@@ -64,22 +64,22 @@ jobs:
           # macOS ARM64 (Apple Silicon)
           - os: macos-14
             target: aarch64-apple-darwin
-            artifact: reelforge-macos-arm64
+            artifact: fluxforge-macos-arm64
 
           # macOS x86_64 (Intel)
           - os: macos-13
             target: x86_64-apple-darwin
-            artifact: reelforge-macos-x64
+            artifact: fluxforge-macos-x64
 
           # Windows x64
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact: reelforge-windows-x64
+            artifact: fluxforge-windows-x64
 
           # Linux x64
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact: reelforge-linux-x64
+            artifact: fluxforge-linux-x64
 
     steps:
       - uses: actions/checkout@v4
@@ -139,13 +139,13 @@ jobs:
       - name: Download ARM64 artifact
         uses: actions/download-artifact@v4
         with:
-          name: reelforge-macos-arm64
+          name: fluxforge-macos-arm64
           path: arm64/
 
       - name: Download x64 artifact
         uses: actions/download-artifact@v4
         with:
-          name: reelforge-macos-x64
+          name: fluxforge-macos-x64
           path: x64/
 
       - name: Create Universal Binary
@@ -162,7 +162,7 @@ jobs:
       - name: Upload Universal artifact
         uses: actions/upload-artifact@v4
         with:
-          name: reelforge-macos-universal
+          name: fluxforge-macos-universal
           path: universal/
           retention-days: 30
 
@@ -320,7 +320,7 @@ jobs:
       - name: Create release archives
         run: |
           cd artifacts
-          for dir in reelforge-*; do
+          for dir in fluxforge-*; do
             if [ -d "$dir" ]; then
               tar -czvf "$dir.tar.gz" "$dir"
             fi

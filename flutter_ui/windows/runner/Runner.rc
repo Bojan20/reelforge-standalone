@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.reelforge" "\0"
-            VALUE "FileDescription", "reelforge_ui" "\0"
+            VALUE "CompanyName", "com.fluxforge" "\0"
+            VALUE "FileDescription", "FluxForge Studio" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "reelforge_ui" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.reelforge. All rights reserved." "\0"
-            VALUE "OriginalFilename", "reelforge_ui.exe" "\0"
-            VALUE "ProductName", "reelforge_ui" "\0"
+            VALUE "InternalName", "fluxforge_ui" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.fluxforge. All rights reserved." "\0"
+            VALUE "OriginalFilename", "fluxforge_ui.exe" "\0"
+            VALUE "ProductName", "FluxForge Studio" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
