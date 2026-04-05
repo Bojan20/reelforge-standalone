@@ -21826,6 +21826,77 @@ extension ProfilerFFI on NativeFFI {
 
   /// Get total overload count
   int profilerGetOverloadCount() => _profilerGetOverloadCount();
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CORTEX NERVOUS SYSTEM FFI
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  static final _cortexGetHealth = _loadNativeLibrary().lookupFunction<
+      Double Function(),
+      double Function()>('cortex_get_health');
+
+  static final _cortexGetIsDegraded = _loadNativeLibrary().lookupFunction<
+      Int32 Function(),
+      int Function()>('cortex_get_is_degraded');
+
+  static final _cortexGetTotalSignals = _loadNativeLibrary().lookupFunction<
+      Uint64 Function(),
+      int Function()>('cortex_get_total_signals');
+
+  /// Get CORTEX health score (0.0 = critical, 1.0 = perfect).
+  /// Returns 1.0 if cortex not yet initialized.
+  double cortexGetHealth() => _cortexGetHealth();
+
+  /// Is the CORTEX nervous system in a degraded state (health < 0.6)?
+  bool cortexIsDegraded() => _cortexGetIsDegraded() != 0;
+
+  /// Total neural signals processed since engine boot.
+  int cortexGetTotalSignals() => _cortexGetTotalSignals();
+
+  // --- Extended CORTEX FFI ---
+
+  static final _cortexGetTotalReflexActions = _loadNativeLibrary().lookupFunction<
+      Uint64 Function(),
+      int Function()>('cortex_get_total_reflex_actions');
+
+  static final _cortexGetTotalPatterns = _loadNativeLibrary().lookupFunction<
+      Uint64 Function(),
+      int Function()>('cortex_get_total_patterns');
+
+  static final _cortexGetDimension = _loadNativeLibrary().lookupFunction<
+      Double Function(Uint32),
+      double Function(int)>('cortex_get_dimension');
+
+  static final _cortexGetSignalsPerSecond = _loadNativeLibrary().lookupFunction<
+      Double Function(),
+      double Function()>('cortex_get_signals_per_second');
+
+  static final _cortexGetDropRate = _loadNativeLibrary().lookupFunction<
+      Double Function(),
+      double Function()>('cortex_get_drop_rate');
+
+  static final _cortexGetActiveReflexCount = _loadNativeLibrary().lookupFunction<
+      Uint32 Function(),
+      int Function()>('cortex_get_active_reflex_count');
+
+  /// Total reflex actions fired since boot.
+  int cortexGetTotalReflexActions() => _cortexGetTotalReflexActions();
+
+  /// Total recognized patterns.
+  int cortexGetTotalPatterns() => _cortexGetTotalPatterns();
+
+  /// Get awareness dimension by index (0-6).
+  /// 0=throughput, 1=reliability, 2=responsiveness, 3=coverage, 4=cognition, 5=efficiency, 6=coherence
+  double cortexGetDimension(int idx) => _cortexGetDimension(idx);
+
+  /// Current signals per second rate.
+  double cortexGetSignalsPerSecond() => _cortexGetSignalsPerSecond();
+
+  /// Signal drop rate (0.0 = none, 1.0 = all dropped).
+  double cortexGetDropRate() => _cortexGetDropRate();
+
+  /// Number of active (enabled) reflex rules.
+  int cortexGetActiveReflexCount() => _cortexGetActiveReflexCount();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

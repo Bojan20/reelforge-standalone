@@ -36,6 +36,29 @@ use crate::cortex_handle_cached;
 use crate::dsp_commands::DspCommand;
 
 use rf_engine::playback::{BusState, PlaybackEngine as EnginePlayback};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CORTEX SIGNAL WIRING — Static atomics for audio-thread-safe throttling
+// ═══════════════════════════════════════════════════════════════════════════════
+
+use std::sync::atomic::AtomicU32;
+
+/// Callback counter for heartbeat throttling (every 200 callbacks ≈ ~2s at 48kHz/512)
+static CORTEX_CALLBACK_COUNTER: AtomicU64 = AtomicU64::new(0);
+/// Last CPU load percent emitted (to avoid re-emitting same level)
+static CORTEX_LAST_CPU_TIER: AtomicU32 = AtomicU32::new(0);
+/// CPU load cooldown counter (callbacks since last emit)
+static CORTEX_CPU_COOLDOWN: AtomicU64 = AtomicU64::new(0);
+/// Last known sample rate (u32 bits) for change detection
+static CORTEX_LAST_SAMPLE_RATE: AtomicU32 = AtomicU32::new(0);
+/// Consecutive bus contention count (try_write fails in engine process)
+static CORTEX_BUS_CONTENTION_COUNT: AtomicU32 = AtomicU32::new(0);
+/// Last bus peak tier per bus (0=silent, 1=normal, 2=hot, 3=clip) for LevelCrossing detection
+/// 6 buses × 1 tier each
+static CORTEX_LAST_BUS_TIER: [AtomicU32; 6] = [
+    AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0),
+    AtomicU32::new(0), AtomicU32::new(0), AtomicU32::new(0),
+];
 // Re-export BusState for external use
 
 use rf_file::{AudioRecorder, RecordingConfig, RecordingState};
@@ -1931,6 +1954,123 @@ fn process_audio_unified(
                 &mut engine_output_l[..frames],
                 &mut engine_output_r[..frames],
             );
+
+            // ═══ CORTEX: CPU Load + Heartbeat + Sample Rate signals ═══
+            // All zero-allocation, all atomic, safe for audio thread.
+            let cb_count = CORTEX_CALLBACK_COUNTER.fetch_add(1, Ordering::Relaxed);
+
+            if let Some(h) = cortex_handle_cached() {
+                // --- CPU Load Alert (tiered: 70/85/95%, cooldown 100 callbacks ≈ ~1s) ---
+                let cooldown = CORTEX_CPU_COOLDOWN.fetch_add(1, Ordering::Relaxed);
+                let (_, _, cpu_pct, _) = engine.adaptive_quality_stats();
+                let tier = if cpu_pct >= 95 { 3 } else if cpu_pct >= 85 { 2 } else if cpu_pct >= 70 { 1 } else { 0 };
+                let prev_tier = CORTEX_LAST_CPU_TIER.load(Ordering::Relaxed);
+
+                if tier > 0 && (tier != prev_tier || cooldown >= 100) {
+                    CORTEX_LAST_CPU_TIER.store(tier, Ordering::Relaxed);
+                    CORTEX_CPU_COOLDOWN.store(0, Ordering::Relaxed);
+                    let urgency = match tier {
+                        3 => rf_cortex::signal::SignalUrgency::Emergency,
+                        2 => rf_cortex::signal::SignalUrgency::Critical,
+                        _ => rf_cortex::signal::SignalUrgency::Elevated,
+                    };
+                    h.signal(
+                        rf_cortex::signal::SignalOrigin::AudioEngine,
+                        urgency,
+                        rf_cortex::signal::SignalKind::CpuLoadAlert { load_percent: cpu_pct as f32 },
+                    );
+                } else if tier == 0 && prev_tier > 0 {
+                    // CPU recovered — emit one Normal signal to clear alert
+                    CORTEX_LAST_CPU_TIER.store(0, Ordering::Relaxed);
+                    h.signal(
+                        rf_cortex::signal::SignalOrigin::AudioEngine,
+                        rf_cortex::signal::SignalUrgency::Normal,
+                        rf_cortex::signal::SignalKind::CpuLoadAlert { load_percent: cpu_pct as f32 },
+                    );
+                }
+
+                // --- Heartbeat (every 200 callbacks ≈ ~2s) ---
+                if cb_count % 200 == 0 {
+                    h.signal(
+                        rf_cortex::signal::SignalOrigin::AudioEngine,
+                        rf_cortex::signal::SignalUrgency::Ambient,
+                        rf_cortex::signal::SignalKind::Heartbeat,
+                    );
+                }
+
+                // --- Sample Rate Change Detection ---
+                let sr = state.sample_rate() as u32;
+                let prev_sr = CORTEX_LAST_SAMPLE_RATE.swap(sr, Ordering::Relaxed);
+                if prev_sr != 0 && prev_sr != sr {
+                    h.signal(
+                        rf_cortex::signal::SignalOrigin::AudioEngine,
+                        rf_cortex::signal::SignalUrgency::Elevated,
+                        rf_cortex::signal::SignalKind::SampleRateChanged { old: prev_sr, new: sr },
+                    );
+                }
+
+                // --- Bus Contention Detection (every 50 callbacks ≈ ~0.5s) ---
+                if cb_count % 50 == 0 {
+                    let contention = engine.drain_bus_contention();
+                    if contention > 0 {
+                        CORTEX_BUS_CONTENTION_COUNT.fetch_add(contention, Ordering::Relaxed);
+                        let urgency = if contention >= 5 {
+                            rf_cortex::signal::SignalUrgency::Critical
+                        } else {
+                            rf_cortex::signal::SignalUrgency::Elevated
+                        };
+                        h.signal(
+                            rf_cortex::signal::SignalOrigin::AudioEngine,
+                            urgency,
+                            rf_cortex::signal::SignalKind::BufferUnderrun { count: contention },
+                        );
+                    }
+                }
+
+                // --- Bus LevelCrossing Detection (every 100 callbacks ≈ ~1s) ---
+                // Read per-bus peaks from SHARED_METERS and emit when tier changes.
+                // Tiers: 0=silent(<-60dB), 1=normal, 2=hot(>-6dB), 3=clip(>0dB)
+                if cb_count % 100 == 0 {
+                    for bus_idx in 0..6u32 {
+                        let idx = bus_idx as usize * 2;
+                        let peak_l = rf_engine::ffi::SharedMeterBuffer::read_f64(
+                            &rf_engine::ffi::SHARED_METERS.channel_peaks[idx],
+                        ) as f32;
+                        let peak_r = rf_engine::ffi::SharedMeterBuffer::read_f64(
+                            &rf_engine::ffi::SHARED_METERS.channel_peaks[idx + 1],
+                        ) as f32;
+                        let peak = peak_l.max(peak_r);
+
+                        // Convert to tier: silent/normal/hot/clip
+                        let tier = if peak > 1.0 { 3u32 }       // clip (>0dB)
+                            else if peak > 0.5 { 2 }            // hot (>-6dB)
+                            else if peak > 0.001 { 1 }          // normal (>-60dB)
+                            else { 0 };                          // silent
+
+                        let prev_tier = CORTEX_LAST_BUS_TIER[bus_idx as usize]
+                            .swap(tier, Ordering::Relaxed);
+
+                        // Emit only on tier change (crossing detected)
+                        if tier != prev_tier && tier >= 2 {
+                            let peak_db = if peak > 0.0 { 20.0 * peak.log10() } else { -120.0 };
+                            let rms_db = peak_db - 3.0; // approximate
+                            h.signal(
+                                rf_cortex::signal::SignalOrigin::MixerBus,
+                                if tier == 3 {
+                                    rf_cortex::signal::SignalUrgency::Elevated
+                                } else {
+                                    rf_cortex::signal::SignalUrgency::Normal
+                                },
+                                rf_cortex::signal::SignalKind::LevelCrossing {
+                                    bus_id: bus_idx,
+                                    rms_db,
+                                    peak_db,
+                                },
+                            );
+                        }
+                    }
+                }
+            }
         }
     } else {
         // Simple mode - direct clip playback

@@ -9,8 +9,18 @@ use std::collections::VecDeque;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
+use crate::cortex_handle_cached;
+
 /// Maximum samples to keep in history
 const MAX_HISTORY_SAMPLES: usize = 1000;
+
+/// Heartbeat throttle — emit at most once per second to avoid signal storms
+static LAST_HEARTBEAT: LazyLock<std::sync::atomic::AtomicU64> =
+    LazyLock::new(|| std::sync::atomic::AtomicU64::new(0));
+
+/// Consecutive underrun counter — tracks when processing exceeds available time
+static CONSECUTIVE_UNDERRUNS: LazyLock<std::sync::atomic::AtomicU32> =
+    LazyLock::new(|| std::sync::atomic::AtomicU32::new(0));
 
 /// DSP processing stage
 #[repr(C)]
@@ -38,13 +48,22 @@ pub struct DspTimingSample {
 }
 
 impl DspTimingSample {
-    /// Calculate DSP load percentage based on available time
+    /// Calculate DSP load percentage based on available time (capped at 100% for display)
     pub fn load_percent(&self) -> f64 {
         if self.sample_rate == 0 || self.block_size == 0 {
             return 0.0;
         }
         let available_us = (self.block_size as f64 / self.sample_rate as f64) * 1_000_000.0;
         (self.total_us as f64 / available_us * 100.0).min(100.0)
+    }
+
+    /// Raw load ratio (uncapped) — values > 1.0 indicate buffer underrun
+    pub fn raw_load_ratio(&self) -> f64 {
+        if self.sample_rate == 0 || self.block_size == 0 {
+            return 0.0;
+        }
+        let available_us = (self.block_size as f64 / self.sample_rate as f64) * 1_000_000.0;
+        self.total_us as f64 / available_us
     }
 }
 
@@ -140,9 +159,26 @@ pub extern "C" fn profiler_stage_end(stage: DspStage) {
         DspStage::Output => state.current_sample.output_us = elapsed_us,
         DspStage::Total => {
             state.current_sample.total_us = elapsed_us;
+            let load_pct = state.current_sample.load_percent();
             // Check for overload (> 90% of available time)
-            if state.current_sample.load_percent() > 90.0 {
+            if load_pct > 90.0 {
                 state.overload_count.fetch_add(1, Ordering::Relaxed);
+            }
+            // Emit CORTEX CpuLoadAlert when load exceeds 80%
+            if load_pct > 80.0 {
+                if let Some(h) = cortex_handle_cached() {
+                    h.signal(
+                        rf_cortex::signal::SignalOrigin::AudioEngine,
+                        if load_pct > 95.0 {
+                            rf_cortex::signal::SignalUrgency::Emergency
+                        } else if load_pct > 90.0 {
+                            rf_cortex::signal::SignalUrgency::Critical
+                        } else {
+                            rf_cortex::signal::SignalUrgency::Elevated
+                        },
+                        rf_cortex::signal::SignalKind::CpuLoadAlert { load_percent: load_pct as f32 },
+                    );
+                }
             }
         }
     }
@@ -172,13 +208,37 @@ pub extern "C" fn profiler_record_sample(block_size: u32, sample_rate: u32) {
 
     // Add to history (clone sample before pushing to avoid borrow conflict)
     let sample = state.current_sample;
+
+    // Detect buffer underrun (processing took longer than available block time)
+    check_underrun(&sample);
+
     if state.history.len() >= MAX_HISTORY_SAMPLES {
         state.history.pop_front();
     }
     state.history.push_back(sample);
 
+    // Emit CORTEX heartbeat (throttled: max 1/sec)
+    emit_cortex_heartbeat();
+
     // Reset current sample
     state.current_sample = DspTimingSample::default();
+}
+
+/// Emit CORTEX heartbeat from audio engine (throttled to once per second).
+/// Uses monotonic counter compared against sample rate to avoid clock reads on audio thread.
+fn emit_cortex_heartbeat() {
+    // Simple atomic counter — emit every ~1 second worth of blocks
+    let prev = LAST_HEARTBEAT.fetch_add(1, Ordering::Relaxed);
+    // Emit roughly every 100 calls (~1s at 48kHz/512 block = ~94 callbacks/sec)
+    if prev % 100 == 0 {
+        if let Some(h) = cortex_handle_cached() {
+            h.signal(
+                rf_cortex::signal::SignalOrigin::AudioEngine,
+                rf_cortex::signal::SignalUrgency::Ambient,
+                rf_cortex::signal::SignalKind::Heartbeat,
+            );
+        }
+    }
 }
 
 /// Record a complete sample with all timings at once
@@ -209,16 +269,66 @@ pub extern "C" fn profiler_record_full_sample(
         sample_rate,
     };
 
+    let load_pct = sample.load_percent();
     // Check for overload
-    if sample.load_percent() > 90.0 {
+    if load_pct > 90.0 {
         state.overload_count.fetch_add(1, Ordering::Relaxed);
     }
+    // Emit CORTEX CpuLoadAlert when load exceeds 80%
+    if load_pct > 80.0 {
+        if let Some(h) = cortex_handle_cached() {
+            h.signal(
+                rf_cortex::signal::SignalOrigin::AudioEngine,
+                if load_pct > 95.0 {
+                    rf_cortex::signal::SignalUrgency::Emergency
+                } else if load_pct > 90.0 {
+                    rf_cortex::signal::SignalUrgency::Critical
+                } else {
+                    rf_cortex::signal::SignalUrgency::Elevated
+                },
+                rf_cortex::signal::SignalKind::CpuLoadAlert { load_percent: load_pct as f32 },
+            );
+        }
+    }
+
+    // Detect buffer underrun
+    check_underrun(&sample);
 
     // Add to history
     if state.history.len() >= MAX_HISTORY_SAMPLES {
         state.history.pop_front();
     }
     state.history.push_back(sample);
+
+    // Emit CORTEX heartbeat (throttled: max 1/sec)
+    emit_cortex_heartbeat();
+}
+
+/// Check for buffer underrun and emit CORTEX signal.
+/// Underrun = processing took longer than available block time (raw ratio > 1.0).
+/// Tracks consecutive underruns for severity escalation.
+fn check_underrun(sample: &DspTimingSample) {
+    let ratio = sample.raw_load_ratio();
+    if ratio > 1.0 {
+        // Processing exceeded available time — this is a buffer underrun
+        let count = CONSECUTIVE_UNDERRUNS.fetch_add(1, Ordering::Relaxed) + 1;
+        if let Some(h) = cortex_handle_cached() {
+            h.signal(
+                rf_cortex::signal::SignalOrigin::AudioEngine,
+                if count >= 5 {
+                    rf_cortex::signal::SignalUrgency::Emergency
+                } else if count >= 3 {
+                    rf_cortex::signal::SignalUrgency::Critical
+                } else {
+                    rf_cortex::signal::SignalUrgency::Elevated
+                },
+                rf_cortex::signal::SignalKind::BufferUnderrun { count },
+            );
+        }
+    } else {
+        // Reset consecutive counter on successful block
+        CONSECUTIVE_UNDERRUNS.store(0, Ordering::Relaxed);
+    }
 }
 
 /// Get profiler statistics

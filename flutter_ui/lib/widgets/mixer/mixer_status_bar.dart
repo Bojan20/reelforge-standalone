@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/mixer_provider.dart';
 import '../../src/rust/native_ffi.dart';
+import '../layout/cortex_health_indicator.dart';
 
 class MixerStatusBar extends StatefulWidget {
   const MixerStatusBar({super.key});
@@ -91,6 +92,9 @@ class _MixerStatusBarState extends State<MixerStatusBar> {
                 _buildStatChip('$vcaCount vca', const Color(0xFFFF9040)),
               ],
               const Spacer(),
+              // CORTEX health
+              const CortexHealthIndicator(showLabel: true),
+              _buildDot(),
               // DSP load
               _buildStatChip(
                 'DSP ${_dspLoad.toStringAsFixed(0)}%',

@@ -13,6 +13,7 @@ use crate::awareness::AwarenessSnapshot;
 use crate::cortex::{Cortex, CortexConfig};
 use crate::handle::CortexHandle;
 use crate::pattern::RecognizedPattern;
+use crate::reflex::ReflexStats;
 use crate::signal::NeuralSignal;
 use crossbeam_channel::{self, Receiver};
 use parking_lot::Mutex;
@@ -53,6 +54,8 @@ pub struct SharedCortexState {
     pub is_degraded: AtomicBool,
     /// Health score (stored as bits for atomic access).
     pub health_score_bits: portable_atomic::AtomicU64,
+    /// Recent reflex stats (name, fire_count, enabled).
+    pub reflex_stats: Mutex<Vec<ReflexStats>>,
 }
 
 impl SharedCortexState {
@@ -64,6 +67,7 @@ impl SharedCortexState {
             total_reflex_actions: portable_atomic::AtomicU64::new(0),
             is_degraded: AtomicBool::new(false),
             health_score_bits: portable_atomic::AtomicU64::new(f64::to_bits(1.0)),
+            reflex_stats: Mutex::new(Vec::new()),
         }
     }
 
@@ -149,6 +153,9 @@ impl CortexRuntime {
                     recent.drain(..drain_count);
                 }
             }
+
+            // Update reflex stats (every tick is fine — small data)
+            *shared.reflex_stats.lock() = cortex.reflex_stats();
 
             thread::sleep(TICK_INTERVAL);
         }

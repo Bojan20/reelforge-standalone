@@ -209,6 +209,11 @@ impl Cortex {
         self.take_awareness_snapshot()
     }
 
+    /// Get reflex stats (name, fire_count, enabled) for all reflexes.
+    pub fn reflex_stats(&self) -> Vec<crate::reflex::ReflexStats> {
+        self.reflex_arc.stats()
+    }
+
     /// Is the cortex in a degraded state?
     pub fn is_degraded(&self) -> bool {
         self.awareness.is_degraded()

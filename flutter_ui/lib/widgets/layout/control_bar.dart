@@ -32,6 +32,7 @@ import '../../providers/scale_assistant_provider.dart';
 import '../transport/metronome_settings_popup.dart';
 import '../../services/crdt_sync_service.dart';
 import '../../src/rust/native_ffi.dart';
+import 'cortex_health_indicator.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 // TIME FORMATTING
@@ -2028,6 +2029,8 @@ class _SystemMeters extends StatelessWidget {
           _MeterBar(label: 'CPU', value: cpuUsage, color: cpuColor),
           const SizedBox(width: 8),
           _MeterBar(label: 'MEM', value: memoryUsage, color: FluxForgeTheme.accentBlue),
+          const SizedBox(width: 8),
+          const CortexHealthIndicator(showLabel: true),
         ],
       ),
     );

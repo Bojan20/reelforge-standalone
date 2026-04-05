@@ -1862,6 +1862,8 @@ pub struct PlaybackEngine {
     diag_stretcher_hit: AtomicU32,
     /// Debug: Signalsmith stretcher miss counter (lock contended or not pre-allocated)
     diag_stretcher_miss: AtomicU32,
+    /// CORTEX: bus contention counter (try_write() failed on bus_buffers in process())
+    diag_bus_contention: AtomicU32,
     /// Delay compensation manager for automatic plugin delay compensation
     delay_comp: RwLock<DelayCompensationManager>,
     /// Control room for monitoring (AFL/PFL, cue mixes, talkback)
@@ -2048,6 +2050,7 @@ impl PlaybackEngine {
             diag_src_mode: AtomicU32::new(64), // Sinc64 default
             diag_stretcher_hit: AtomicU32::new(0),
             diag_stretcher_miss: AtomicU32::new(0),
+            diag_bus_contention: AtomicU32::new(0),
             delay_comp: RwLock::new(DelayCompensationManager::new(sample_rate as f64)),
             control_room: Arc::new(ControlRoom::new(256)),
             prefader_buffer_l: RwLock::new(vec![0.0_f64; 8192]),
@@ -3847,6 +3850,12 @@ impl PlaybackEngine {
         )
     }
 
+    /// Get and reset bus contention count (lock-free swap, safe from any thread).
+    /// Returns number of try_write() failures on bus_buffers since last call.
+    pub fn drain_bus_contention(&self) -> u32 {
+        self.diag_bus_contention.swap(0, Ordering::Relaxed)
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // AUDIO CACHE ACCESS
     // ═══════════════════════════════════════════════════════════════════════
@@ -5207,7 +5216,10 @@ impl PlaybackEngine {
         {
             let mut bus_buffers = match self.bus_buffers.try_write() {
                 Some(b) => b,
-                None => return,
+                None => {
+                    self.diag_bus_contention.fetch_add(1, Ordering::Relaxed);
+                    return;
+                }
             };
 
             // Ensure buffer size matches

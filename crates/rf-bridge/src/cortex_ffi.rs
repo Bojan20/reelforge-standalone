@@ -125,6 +125,36 @@ pub fn cortex_recent_patterns() -> Vec<CortexPatternDto> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// REFLEX STATS
+// ════════════════════════════════════════════════════════════════════════���══
+
+/// Reflex stats DTO for Flutter.
+#[derive(Clone, Debug)]
+pub struct CortexReflexDto {
+    pub name: String,
+    pub fire_count: u64,
+    pub enabled: bool,
+}
+
+/// Get stats for all registered reflexes.
+#[flutter_rust_bridge::frb(sync)]
+pub fn cortex_reflex_stats() -> Vec<CortexReflexDto> {
+    cortex_shared()
+        .map(|s| {
+            s.reflex_stats
+                .lock()
+                .iter()
+                .map(|r| CortexReflexDto {
+                    name: r.name.clone(),
+                    fire_count: r.fire_count,
+                    enabled: r.enabled,
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // SIGNAL EMISSION FROM FLUTTER (Vision/User signals)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -165,6 +195,56 @@ pub fn cortex_emit_custom(tag: String, data: String) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// SYSTEM HEALTH SIGNALS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Report current system memory to CORTEX (call periodically from Flutter timer).
+/// `available_mb` = free + reclaimable memory in MB.
+/// Emits MemoryPressure signal when available < 512 MB.
+#[flutter_rust_bridge::frb(sync)]
+pub fn cortex_report_memory(available_mb: u64) {
+    if available_mb < 512 {
+        if let Some(handle) = cortex_handle() {
+            handle.signal(
+                SignalOrigin::Bridge,
+                if available_mb < 128 {
+                    SignalUrgency::Emergency
+                } else if available_mb < 256 {
+                    SignalUrgency::Critical
+                } else {
+                    SignalUrgency::Elevated
+                },
+                SignalKind::MemoryPressure { used_mb: 0, available_mb },
+            );
+        }
+    }
+}
+
+/// Report sample rate change to CORTEX.
+#[flutter_rust_bridge::frb(sync)]
+pub fn cortex_report_sample_rate_change(old_rate: u32, new_rate: u32) {
+    if let Some(handle) = cortex_handle() {
+        handle.signal(
+            SignalOrigin::AudioEngine,
+            SignalUrgency::Normal,
+            SignalKind::SampleRateChanged { old: old_rate, new: new_rate },
+        );
+    }
+}
+
+/// Report audio device change to CORTEX.
+#[flutter_rust_bridge::frb(sync)]
+pub fn cortex_report_device_change(device_name: String) {
+    if let Some(handle) = cortex_handle() {
+        handle.signal(
+            SignalOrigin::AudioEngine,
+            SignalUrgency::Normal,
+            SignalKind::DeviceChanged { device_name },
+        );
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // C FFI (for dart:ffi direct calls)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -194,5 +274,78 @@ pub extern "C" fn cortex_get_is_degraded() -> i32 {
 pub extern "C" fn cortex_get_total_signals() -> u64 {
     cortex_shared()
         .map(|s| s.total_processed.load(portable_atomic::Ordering::Relaxed))
+        .unwrap_or(0)
+}
+
+/// C FFI: Get total reflex actions fired.
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_total_reflex_actions() -> u64 {
+    cortex_shared()
+        .map(|s| s.total_reflex_actions.load(portable_atomic::Ordering::Relaxed))
+        .unwrap_or(0)
+}
+
+/// C FFI: Get total recognized patterns.
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_total_patterns() -> u64 {
+    cortex_shared()
+        .map(|s| s.recent_patterns.lock().len() as u64)
+        .unwrap_or(0)
+}
+
+/// C FFI: Get awareness dimension (0-6 → throughput, reliability, responsiveness, coverage, cognition, efficiency, coherence).
+/// Returns -1.0 if unavailable.
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_dimension(idx: u32) -> f64 {
+    cortex_shared()
+        .and_then(|s| {
+            let snap = s.latest_awareness.lock().clone()?;
+            Some(match idx {
+                0 => snap.dimensions.throughput,
+                1 => snap.dimensions.reliability,
+                2 => snap.dimensions.responsiveness,
+                3 => snap.dimensions.coverage,
+                4 => snap.dimensions.cognition,
+                5 => snap.dimensions.efficiency,
+                6 => snap.dimensions.coherence,
+                _ => return None,
+            })
+        })
+        .unwrap_or(-1.0)
+}
+
+/// C FFI: Get signals per second rate.
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_signals_per_second() -> f64 {
+    cortex_shared()
+        .and_then(|s| {
+            let snap = s.latest_awareness.lock().clone()?;
+            Some(snap.signals_per_second)
+        })
+        .unwrap_or(0.0)
+}
+
+/// C FFI: Get signal drop rate (0.0-1.0).
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_drop_rate() -> f64 {
+    cortex_shared()
+        .and_then(|s| {
+            let snap = s.latest_awareness.lock().clone()?;
+            Some(snap.drop_rate)
+        })
+        .unwrap_or(0.0)
+}
+
+/// C FFI: Get number of active reflex rules.
+#[unsafe(no_mangle)]
+pub extern "C" fn cortex_get_active_reflex_count() -> u32 {
+    cortex_shared()
+        .map(|s| {
+            s.reflex_stats
+                .lock()
+                .iter()
+                .filter(|r| r.enabled)
+                .count() as u32
+        })
         .unwrap_or(0)
 }
